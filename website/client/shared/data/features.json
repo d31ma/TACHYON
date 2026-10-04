@@ -68,6 +68,10 @@
           "code": "-- @Service\n---@class ItemService\nItemService = {}\n\n---@param path string\n---@return string\nfunction ItemService:id_from(path)\n  return path:match(\"[^/]*$\")\nend\n"
         },
         {
+          "name": "client/services/ItemService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] ItemService {\npublic:\n    std::string idFrom(const std::string& path) const {\n        return path.substr(path.rfind('/') + 1);\n    }\n};\n"
+        },
+        {
           "name": "client/services/ItemService.py",
           "code": "@service\nclass ItemService:\n    def id_from(self, path: str) -> str:\n        return path.rsplit(\"/\", 1)[-1]\n"
         },
@@ -320,6 +324,14 @@
         {
           "name": "client/models/Product.fs",
           "code": "type Product = { Name: string; Price: string }\n"
+        },
+        {
+          "name": "client/models/Product.hpp",
+          "code": "#pragma once\n#include <string>\n\nstruct Product {\n    std::string name;\n    std::string price;\n};\n"
+        },
+        {
+          "name": "client/services/CatalogService.hpp",
+          "code": "#pragma once\n#include <string>\n#include \"../models/Product.hpp\"\n\nclass [[Service]] CatalogService {\npublic:\n    std::string title = \"Catalog\";\n    int count = 6;\n    Product product{\"Anvil\", \"£42.00\"};\n};\n"
         }
       ],
       "verify": "tac"
@@ -465,6 +477,14 @@
         {
           "name": "client/models/Topic.fs",
           "code": "type Topic = { Slug: string; Title: string }\n"
+        },
+        {
+          "name": "client/models/Topic.hpp",
+          "code": "#pragma once\n#include <string>\n\nstruct Topic {\n    std::string slug;\n    std::string title;\n};\n"
+        },
+        {
+          "name": "client/services/LinkService.hpp",
+          "code": "#pragma once\n#include <string>\n#include \"../models/Topic.hpp\"\n\nclass [[Service]] LinkService {\npublic:\n    Topic topic{\"routing\", \"Routing\"};\n    std::string state = \"ready\";\n    std::string message = \"Everything is up to date.\";\n};\n"
         }
       ],
       "verify": "tac"
@@ -586,6 +606,14 @@
         {
           "name": "client/models/Product.fs",
           "code": "type Product = { Name: string }\n"
+        },
+        {
+          "name": "client/models/Product.hpp",
+          "code": "#pragma once\n#include <string>\n\nstruct Product {\n    std::string name;\n};\n"
+        },
+        {
+          "name": "client/services/StockService.hpp",
+          "code": "#pragma once\n#include <vector>\n#include \"../models/Product.hpp\"\n\nclass [[Service]] StockService {\npublic:\n    std::vector<Product> products;\n    bool restocking = true;\n};\n"
         }
       ],
       "verify": "tac"
@@ -707,6 +735,14 @@
         {
           "name": "client/models/Product.fs",
           "code": "type Product = { Name: string }\n"
+        },
+        {
+          "name": "client/models/Product.hpp",
+          "code": "#pragma once\n#include <string>\n\nstruct Product {\n    std::string name;\n};\n"
+        },
+        {
+          "name": "client/services/InventoryService.hpp",
+          "code": "#pragma once\n#include <vector>\n#include \"../models/Product.hpp\"\n\nclass [[Service]] InventoryService {\npublic:\n    std::vector<Product> products{{\"Anvil\"}, {\"Rope\"}};\n};\n"
         }
       ],
       "verify": "tac"
@@ -780,6 +816,10 @@
         {
           "name": "client/services/BadgeService.fs",
           "code": "[<Service>]\ntype BadgeService() =\n    member val Status : string = \"ready\" with get, set\n"
+        },
+        {
+          "name": "client/services/BadgeService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] BadgeService {\npublic:\n    std::string status = \"ready\";\n};\n"
         }
       ],
       "verify": "tac"
@@ -905,6 +945,14 @@
         {
           "name": "client/models/Product.fs",
           "code": "type Product = { Id: string; Name: string; Price: string }\n"
+        },
+        {
+          "name": "client/models/Product.hpp",
+          "code": "#pragma once\n#include <string>\n\nstruct Product {\n    std::string id;\n    std::string name;\n    std::string price;\n};\n"
+        },
+        {
+          "name": "client/services/CatalogService.hpp",
+          "code": "#pragma once\n#include <vector>\n#include \"../models/Product.hpp\"\n\nclass [[Service]] CatalogService {\npublic:\n    std::vector<Product> products{\n        {\"anvil\", \"Anvil\", \"£42.00\"},\n        {\"rope\", \"Rope\", \"£8.00\"},\n    };\n};\n"
         }
       ],
       "verify": "tac-component"
@@ -978,6 +1026,10 @@
         {
           "name": "client/services/CardService.fs",
           "code": "[<Service>]\ntype CardService() =\n    member this.Name : string = \"Anvil\"\n    member val Status : string = \"waiting\" with get, set\n\n    [<OnStart>]\n    member this.Activate() : unit =\n        this.Status <- \"active\"\n"
+        },
+        {
+          "name": "client/services/CardService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] CardService {\npublic:\n    std::string name = \"Anvil\";\n    std::string status = \"waiting\";\n\n    [[OnStart]]\n    void activate() { status = \"active\"; }\n};\n"
         }
       ],
       "verify": "tac-component"
@@ -1099,6 +1151,14 @@
         {
           "name": "client/models/Tab.fs",
           "code": "type Tab = { Id: string; Name: string }\n"
+        },
+        {
+          "name": "client/models/Tab.hpp",
+          "code": "#pragma once\n#include <string>\n\nstruct Tab {\n    std::string id;\n    std::string name;\n};\n"
+        },
+        {
+          "name": "client/services/BasketService.hpp",
+          "code": "#pragma once\n#include <string>\n#include <vector>\n#include \"../models/Tab.hpp\"\n\nclass [[Service]] BasketService {\npublic:\n    int count = 0;\n    std::string label;\n    std::vector<Tab> tabs{{\"a\", \"A\"}};\n\n    void increment() { count += 1; }\n\n    void select(const std::string& id) { selected = id; }\n\nprivate:\n    std::string selected;\n};\n"
         }
       ],
       "verify": "tac"
@@ -1106,10 +1166,7 @@
     {
       "id": "companions",
       "title": "Service classes",
-      "summary": "A service is a class that holds the state and behavior of a view. A view refers to a service by its instance name: `BasketService` is `basket`. `{basket.count}` reads a field, and `on:click=\"basket.add()\"` calls a method. Fields hold the state of the view. Methods give its behavior. By default, a service is a page singleton (one shared instance for the whole page). Every component that names it shares that one instance. `NeedsAll` creates one service instance for each component instance. It uses the properties of that component. `Lifetime({\"value\":\"prototype\"})` also gives other services one instance for each component. `OnStart` runs after injection (the framework gives the service the objects it needs). It also waits until the component is attached to the DOM (the tree of elements on the page). `OnStop` cleans up work that the service owns. A declared `applicationEventPublisher` field and `OnEvent` replace local publish and subscribe code that you would write by hand. A `Needs` field named after a browser resource receives that resource. There is no general framework object on the instance. Ordinary imports and helper functions still work. Constants are static class fields. Python has no tab here yet. A Python service has fields, methods, `on_start`, `on_stop`, `on_event` listeners and an `ApplicationEventPublisher` field, as the events guide shows.",
-      "notApplicable": [
-        "py"
-      ],
+      "summary": "A service is a class that holds the state and behavior of a view. A view refers to a service by its instance name: `BasketService` is `basket`. `{basket.count}` reads a field, and `on:click=\"basket.add()\"` calls a method. Fields hold the state of the view. Methods give its behavior. By default, a service is a page singleton (one shared instance for the whole page). Every component that names it shares that one instance. `NeedsAll` creates one service instance for each component instance. It uses the properties of that component. `Lifetime({\"value\":\"prototype\"})` also gives other services one instance for each component. `OnStart` runs after injection (the framework gives the service the objects it needs). It also waits until the component is attached to the DOM (the tree of elements on the page). `OnStop` cleans up work that the service owns. A declared `applicationEventPublisher` field and `OnEvent` replace local publish and subscribe code that you would write by hand. A `Needs` field named after a browser resource receives that resource. There is no general framework object on the instance. Ordinary imports and helper functions still work. Constants are static class fields. A Python service writes `@on_start`, `@on_stop` and `@on_event` above synchronous methods, and its `application_event_publisher: ApplicationEventPublisher` field is the publisher. A C++ service writes `[[OnStart]]` and `[[OnEvent]]`, and its `ApplicationEventPublisher applicationEventPublisher;` field is the publisher.",
       "group": "Tac views",
       "files": [
         {
@@ -1319,13 +1376,45 @@
         {
           "name": "client/models/CartTotal.fs",
           "code": "type CartTotal = { Total: int64 }\n"
+        },
+        {
+          "name": "client/services/BasketService.py",
+          "code": "@service\nclass BasketService:\n    count: int = 0\n\n    def doubled(self) -> int:\n        return self.count * 2\n\n    @on_start\n    def initialize(self) -> None:\n        self.count = 6\n"
+        },
+        {
+          "name": "client/services/CartService.py",
+          "code": "from models import CartTotal\n\n\n@service\nclass CartService:\n    total: int = 0\n    application_event_publisher: ApplicationEventPublisher\n\n    def add(self) -> None:\n        self.total += 1\n        self.application_event_publisher.publish_event(CartTotal(self.total), True)\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.py",
+          "code": "from models import CartTotal\n\n\n@service\nclass LiveTotalService:\n    seen: int = 0\n\n    @on_event({\"replay\":true})\n    def changed(self, changed: CartTotal) -> None:\n        self.seen = changed.total\n"
+        },
+        {
+          "name": "client/models/CartTotal.py",
+          "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass CartTotal:\n    total: int\n"
+        },
+        {
+          "name": "client/services/BasketService.hpp",
+          "code": "#pragma once\n\nclass [[Service]] BasketService {\npublic:\n    int count = 0;\n\n    int doubled() const { return count * 2; }\n\n    [[OnStart]]\n    void initialize() { count = 6; }\n};\n"
+        },
+        {
+          "name": "client/services/CartService.hpp",
+          "code": "#pragma once\n#include \"../models/CartTotal.hpp\"\n\nclass [[Service]] CartService {\npublic:\n    int total = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    void add() {\n        total += 1;\n        applicationEventPublisher.publishEvent(CartTotal{total}, true);\n    }\n};\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.hpp",
+          "code": "#pragma once\n#include \"../models/CartTotal.hpp\"\n\nclass [[Service]] LiveTotalService {\npublic:\n    int seen = 0;\n\n    [[OnEvent({\"replay\":true})]]\n    void changed(const CartTotal& value) { seen = value.total; }\n};\n"
+        },
+        {
+          "name": "client/models/CartTotal.hpp",
+          "code": "#pragma once\n\nstruct CartTotal {\n    int total = 0;\n};\n"
         }
       ]
     },
     {
       "id": "behavior-annotations",
       "title": "Shared behavior annotations",
-      "summary": "Tac and Yon share these annotations across their supported languages. The role, injection and description annotations are `Service`, `Helper`, `HTTPClient`, `Store`, `Converter`, `Setup`, `Lifetime`, `Needs`, `Named` and `Description`. Injection means the framework gives a class the objects it needs. The caching, data and resilience annotations are `CacheSettings`, `Cached`, `UpdateCache`, `ClearCache`, `PageDefaults`, `Retry`, `MaxAtOnce`, `AllOrNothing`, `Entity`, `Id`, `Table` and `Query`. `HTTP request annotations`, `Convert` and `Schedule` cover outgoing HTTP calls, mapping values and scheduling. The configuration annotations are `Settings`, `WhenProfile`, `WhenSetting` and `Setting`. The validation annotations are `Checked`, `Check`, `Required`, `NotEmpty`, `Length`, `Min` and `Max`. The test annotations are `Test`, `TestSetup`, `UseProfiles`, `TestSettings`, `Fake`, `FreshStart` and `ValueSource`, and a test case checks its result with `Assert`. Write each marker (annotation) on its own line. Marker options use strict JSON. The compiler turns the markers into runtime code inside the same source file. It does not use a reflection scanner (code that inspects classes while the program runs). The markers are global, so no language needs to import them, and the old `tachyon:behaviors` import fails the build with `TY1308` (ADR 0046). Native services use typed adapters with no embedded JavaScript. Tac stays client-only, and Yon stays REST-only. Each adapter has one clear owner. Queries have limits and must be authorized. The cache changes only after a call succeeds. Data transfer object (DTO) validation is pure: it has no side effects. Configuration keys start with the prefix of their realm: `TAC_` or `tac.` for Tac, and `YON_` or `yon.` for Yon. You give this configuration yourself. Markers with no arguments can be written without parentheses, as in Spring: `@Service`, `@Setup`, `@Needs`, `@Converter`. A plain `@Service` can be a Tac role or a Yon role. The folder that holds the file decides which one (ADR 0038). The service below needs no network or storage adapter. Role types must be in plural folders, and their file names must match their type names exactly. Collaborators are classes that a service works with. Tac finds annotated collaborators in the same language under `client/services`, `client/stores`, `client/remotes`, `client/setups`, `client/entities`, `client/helpers` and `client/converters`. Yon uses matching folders under `server/`. Controllers go in `server/controllers`, and their route annotations give the path (ADR 0048). `Test` units go in `server/tests/<Name>Test.<ext>` or `client/tests/<Name>Test.<ext>`, and `ty test` runs them. On managed Yon roles, `Needs` finds the provider for each marked field. So you do not need to write a constructor by hand. `Named` chooses a provider when the field name does not identify it. A Tac store, client or converter that a service gets with `Needs` opens the context of its Setup itself. A service that puts a behavior annotation on its own method, like `page` below, creates its context in `OnStart` with `Behaviors.create`. Python has no tab here: `Behaviors.create` waits for the browser, and Python Tac methods must be synchronous (`async def` is refused with `TY1605`), so a Python service cannot open a behavior context. Lua has no tab either: the build refuses `PageDefaults` and the other behavior annotations in Lua Tac code with `TY1308` (ADR 0085).",
+      "summary": "Tac and Yon share these annotations across their supported languages. The role, injection and description annotations are `Service`, `Helper`, `HTTPClient`, `Store`, `Converter`, `Setup`, `Lifetime`, `Needs`, `Named` and `Description`. Injection means the framework gives a class the objects it needs. The caching, data and resilience annotations are `CacheSettings`, `Cached`, `UpdateCache`, `ClearCache`, `PageDefaults`, `Retry`, `MaxAtOnce`, `AllOrNothing`, `Entity`, `Id`, `Table` and `Query`. `HTTP request annotations`, `Convert` and `Schedule` cover outgoing HTTP calls, mapping values and scheduling. The configuration annotations are `Settings`, `WhenProfile`, `WhenSetting` and `Setting`. The validation annotations are `Checked`, `Check`, `Required`, `NotEmpty`, `Length`, `Min` and `Max`. The test annotations are `Test`, `TestSetup`, `UseProfiles`, `TestSettings`, `Fake`, `FreshStart` and `ValueSource`, and a test case checks its result with `Assert`. Write each marker (annotation) on its own line. Marker options use strict JSON. The compiler turns the markers into runtime code inside the same source file. It does not use a reflection scanner (code that inspects classes while the program runs). The markers are global, so no language needs to import them, and the old `tachyon:behaviors` import fails the build with `TY1308` (ADR 0046). Native services use typed adapters with no embedded JavaScript. Tac stays client-only, and Yon stays REST-only. Each adapter has one clear owner. Queries have limits and must be authorized. The cache changes only after a call succeeds. Data transfer object (DTO) validation is pure: it has no side effects. Configuration keys start with the prefix of their realm: `TAC_` or `tac.` for Tac, and `YON_` or `yon.` for Yon. You give this configuration yourself. Markers with no arguments can be written without parentheses, as in Spring: `@Service`, `@Setup`, `@Needs`, `@Converter`. A plain `@Service` can be a Tac role or a Yon role. The folder that holds the file decides which one (ADR 0038). The service below needs no network or storage adapter. Role types must be in plural folders, and their file names must match their type names exactly. Collaborators are classes that a service works with. Tac finds annotated collaborators in the same language under `client/services`, `client/stores`, `client/remotes`, `client/setups`, `client/entities`, `client/helpers` and `client/converters`. Yon uses matching folders under `server/`. Controllers go in `server/controllers`, and their route annotations give the path (ADR 0048). `Test` units go in `server/tests/<Name>Test.<ext>` or `client/tests/<Name>Test.<ext>`, and `ty test` runs them. On managed Yon roles, `Needs` finds the provider for each marked field. So you do not need to write a constructor by hand. `Named` chooses a provider when the field name does not identify it. A Tac store, client or converter that a service gets with `Needs` opens the context of its Setup itself. A service that puts a behavior annotation on its own method, like `page` below, creates its context in `OnStart` with `Behaviors.create`. Python, Lua and C++ have no tab here: the build refuses `PageDefaults` and the other behavior annotations in Python, Lua and C++ Tac code with `TY1308` (ADR 0093, ADR 0085, ADR 0099).",
       "notApplicable": [
         "py"
       ],
@@ -1523,13 +1612,17 @@
         {
           "name": "emitted",
           "code": "@scope (tachyon-component[data-tac-scope=\"product-card\"]) to (tachyon-component[data-tac-scope]) {\n.card {\n  padding: 1rem;\n  border: 1px solid var(--w-border);\n}\n}\n"
+        },
+        {
+          "name": "client/services/CardService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] CardService {\npublic:\n    std::string name = \"Anvil\";\n};\n"
         }
       ]
     },
     {
       "id": "persisted",
       "title": "Saved service fields",
-      "summary": "Tachyon restores a service field marked `@SessionState` from `sessionStorage`. This works only for the current tab. It restores a field marked `@LocalState` from `localStorage`, so the value is shared across tabs. The value in the declaration is the default. Tachyon writes the field on every assignment, as JSON of at most 64 KiB, under a key named after the page, the service and the field. A field has one of the two markers, never both, and never together with `Needs`. The old field prefixes `$name` and `$$name` are refused; `ty migrate fix --write` changes them to the markers, and a value saved under the old key moves to the new key once. Python has no tab here, because the Python runtime has no browser storage adapter, so the build refuses `@SessionState` and `@LocalState` in Python Tac code with `TY1308` (ADR 0093). Lua has no tab here, because the build refuses `@SessionState` and `@LocalState` in Lua Tac code with `TY1308`.",
+      "summary": "Tachyon restores a service field marked `@SessionState` from `sessionStorage`. This works only for the current tab. It restores a field marked `@LocalState` from `localStorage`, so the value is shared across tabs. The value in the declaration is the default. Tachyon writes the field on every assignment, as JSON of at most 64 KiB, under a key named after the page, the service and the field. A field has one of the two markers, never both, and never together with `Needs`. The old field prefixes `$name` and `$$name` are refused; `ty migrate fix --write` changes them to the markers, and a value saved under the old key moves to the new key once. Python has no tab here, because the Python runtime has no browser storage adapter, so the build refuses `@SessionState` and `@LocalState` in Python Tac code with `TY1308` (ADR 0093). Lua has no tab here, because the build refuses `@SessionState` and `@LocalState` in Lua Tac code with `TY1308`. C++ has no tab here, because the build refuses SessionState in C++ Tac code with TY1308 (ADR 0099).",
       "notApplicable": [
         "py"
       ],
@@ -1593,7 +1686,7 @@
     {
       "id": "fetch-cache",
       "title": "Caching public reads",
-      "summary": "A service reads the network only through an `HTTPClient`; a JavaScript or TypeScript service that calls `fetch` itself fails to build with `TY1361`. To keep a read, put the cache annotations that services use on the client, as Spring's `@Cacheable` works on any bean: `CacheSettings` on the client class names the cache and its limits, `Cached` on a read keeps its answer (with `CacheKey` on the arguments that pick the answer), and `ClearCache` or `UpdateCache` on a write removes or replaces that answer after the write succeeds. This works the same in every language that has an `HTTPClient`. Python and Lua have no tab here, because the build refuses `HTTPClient` in Python and Lua Tac code with `TY1308`. In JavaScript and TypeScript, Tachyon's browser transport also sends a `Cached` GET as a public read, so the service worker may answer it. A service worker is a browser script that can answer requests from a cache. The manifest's `tac.cache` sets the worker's policy for each path: `cache-first`, `network-first` or `no-store`. A path without a rule is not kept by the worker. The worker keeps a read only when it has no `Authorization` header and the response is cacheable; a response with `private`, `no-store` or `Vary` is not kept, and a successful write removes the entries under its path. After `ClearCache` or `UpdateCache`, the next uncached JavaScript or TypeScript GET revalidates the browser HTTP cache, even when the server sent a long public `max-age`; a cache-first worker rule also asks the network for that read. A read that is not `Cached` is sent `no-store`, so it is always fresh. A GET that sends an `Authorization` header is never kept in the browser HTTP cache, even when it is `Cached`. Dart, Rust, Go, C# and F# clients use the same browser transport when their Setup has no HTTP adapter for the client. Kotlin, Swift, Java and Ruby have no browser transport yet, so their clients always need a Setup HTTP adapter. In the compiled examples below, the Setup's HTTP adapter answers inside the page, so the worker never sees the request, and `Cached` keeps the answer in the page. The old `cache` option of `@HTTPClient` is replaced by `Cached` (ADR 0087).",
+      "summary": "A service reads the network only through an `HTTPClient`; a JavaScript or TypeScript service that calls `fetch` itself fails to build with `TY1361`. To keep a read, put the cache annotations that services use on the client, as Spring's `@Cacheable` works on any bean: `CacheSettings` on the client class names the cache and its limits, `Cached` on a read keeps its answer (with `CacheKey` on the arguments that pick the answer), and `ClearCache` or `UpdateCache` on a write removes or replaces that answer after the write succeeds. This works the same in every language that has an `HTTPClient`. Python and Lua have no tab here, because the build refuses `HTTPClient` in Python and Lua Tac code with `TY1308`. In JavaScript and TypeScript, Tachyon's browser transport also sends a `Cached` GET as a public read, so the service worker may answer it. A service worker is a browser script that can answer requests from a cache. The manifest's `tac.cache` sets the worker's policy for each path: `cache-first`, `network-first` or `no-store`. A path without a rule is not kept by the worker. The worker keeps a read only when it has no `Authorization` header and the response is cacheable; a response with `private`, `no-store` or `Vary` is not kept, and a successful write removes the entries under its path. After `ClearCache` or `UpdateCache`, the next uncached JavaScript or TypeScript GET revalidates the browser HTTP cache, even when the server sent a long public `max-age`; a cache-first worker rule also asks the network for that read. A read that is not `Cached` is sent `no-store`, so it is always fresh. A GET that sends an `Authorization` header is never kept in the browser HTTP cache, even when it is `Cached`. Dart, Rust, Go, Kotlin, Swift, C# and F# clients use the same browser transport when their Setup has no HTTP adapter for the client. Java and Ruby have no browser transport yet, so their clients always need a Setup HTTP adapter. C++ has an `HTTPClient` but no tab here, because the build refuses `Cached` in C++ Tac code with `TY1308` (ADR 0099). In the compiled examples below, the Setup's HTTP adapter answers inside the page, so the worker never sees the request, and `Cached` keeps the answer in the page. The old `cache` option of `@HTTPClient` is replaced by `Cached` (ADR 0087).",
       "group": "Browser storage",
       "files": [
         {
@@ -1750,7 +1843,7 @@
     {
       "id": "native-companions",
       "title": "Polyglot native services",
-      "summary": "Native services can use Rust, Swift, Kotlin or C#. Their file layout matches JavaScript services: `client/services/BasketService.swift` is next to `BasketService.js`. Each language uses its own toolchain (its own compiler and build tools). On supported native targets, the compiled service links into the host and can call platform APIs directly. Tachyon generates a member table (a list of the fields and methods of the service) so that views can use them. It needs this table because a compiled class has no reflection (a way to list the members of a class while the program runs). If no browser script is present, a Rust, C#, Swift or Kotlin service also runs as WebAssembly on the web and on every native target that does not link it (ADR 0035, ADR 0037, ADR 0078, ADR 0082). No host links Go, so a Go service always runs as WebAssembly (ADR 0045). A Ruby service runs on Tachyon's mruby WebAssembly runtime on every target (ADR 0054), a Lua service on Tachyon's Lua WebAssembly runtime (ADR 0085), and a Python service on the pinned Pyodide runtime, with synchronous methods only (ADR 0093). The example also shows the TypeScript, Dart, Go, Ruby, Java and F# versions: no host links Java or F#, so they run as WebAssembly in the web view of every target. So each platform tab lists every language that can answer on that platform.",
+      "summary": "Native services can use Rust, Swift, Kotlin or C#. Their file layout matches JavaScript services: `client/services/BasketService.swift` is next to `BasketService.js`. Each language uses its own toolchain (its own compiler and build tools). On supported native targets, the compiled service links into the host and can call platform APIs directly. Tachyon generates a member table (a list of the fields and methods of the service) so that views can use them. It needs this table because a compiled class has no reflection (a way to list the members of a class while the program runs). If no browser script is present, a Rust, C#, Swift or Kotlin service also runs as WebAssembly on the web and on every native target that does not link it (ADR 0035, ADR 0037, ADR 0078, ADR 0082). No host links Go, so a Go service always runs as WebAssembly (ADR 0045). A Ruby service runs on Tachyon's mruby WebAssembly runtime on every target (ADR 0054), a Lua service on Tachyon's Lua WebAssembly runtime (ADR 0085), a Python service on the pinned Pyodide runtime, with synchronous methods only (ADR 0093), and a C++ service as WebAssembly that Emscripten builds (ADR 0099). The example also shows the TypeScript, Dart, Go, Ruby, Java and F# versions: no host links Java or F#, so they run as WebAssembly in the web view of every target. So each platform tab lists every language that can answer on that platform.",
       "group": "Polyglot",
       "files": [
         {
@@ -1816,6 +1909,10 @@
         {
           "name": "client/services/BasketService.py",
           "code": "@service\nclass BasketService:\n    count: int = 0\n    label: str = \"\"\n\n    @on_start\n    def start(self) -> None:\n        self.count = 6\n        self.label = \"Python\"\n\n    def doubled(self) -> int:\n        return self.count * 2\n"
+        },
+        {
+          "name": "client/services/BasketService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] BasketService {\npublic:\n    int count = 0;\n    std::string label;\n\n    [[OnStart]]\n    void start() {\n        count = 6;\n        label = \"C++\";\n    }\n\n    int doubled() const { return count * 2; }\n};\n"
         }
       ]
     },
@@ -1828,7 +1925,7 @@
       ],
       "group": "Polyglot",
       "target": "web",
-      "summary": "A service written only in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby or Lua runs on every target. A Python service runs in web builds only (ADR 0093). A host that links the service runs it natively: Rust on macOS, Windows and Linux, C# on Windows, Swift on macOS and iOS, and Kotlin on Android. The other targets run it as WebAssembly. No host links Go, F#, Java, Dart, Ruby or Lua, so these services run as WebAssembly on every target. An F# service runs on the same .NET browser runtime as C# (ADR 0073). Swift uses Swift 6.3.3 and the Swift SDK for WebAssembly of the same version; set `TAC_SWIFT_WASM_SDK` to its `wasm32-unknown-wasip1` folder, and set `TAC_SWIFT_WASM_COMPILER` to the swift.org `swiftc` when Xcode's `swiftc` comes first on your `PATH` (ADR 0082). Kotlin and Dart compile to WebAssembly with garbage collection (WasmGC), and TeaVM compiles Java to WasmGC (ADR 0083); WasmGC needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Dart needs the Dart SDK 3.13 or newer and has no JavaScript fallback; a build publishes `tachyon-dart.wasm` and `tachyon-dart-loader.js`. A Ruby service runs on Tachyon's mruby WebAssembly runtime, which your machine builds once with Ruby and Emscripten (ADR 0049, ADR 0054). A Lua service runs on Tachyon's Lua 5.4 WebAssembly runtime, built once with Emscripten (ADR 0085). A Python service runs on Pyodide, the CPython interpreter compiled to WebAssembly. Its methods are synchronous (`async def` is refused with `TY1605`), and the manifest must select the pinned runtime with `tac.python`, as the `client/manifest.json` tab shows; without it the build fails with `TY1605` (ADR 0093). The WebAssembly service uses the same companion protocol (ADR 0035, ADR 0037, ADR 0045). Views read its fields, methods receive JSON arguments, and `Service` and `NeedsAll` are declared above its type. JavaScript and TypeScript services are not WebAssembly: the browser runs them as JavaScript, so this page has no JavaScript or TypeScript tab (see \"Polyglot native services\" for them).",
+      "summary": "A service written only in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua or C++ runs on every target. A Python service runs in web builds only (ADR 0093). A host that links the service runs it natively: Rust on macOS, Windows and Linux, C# on Windows, Swift on macOS and iOS, and Kotlin on Android. The other targets run it as WebAssembly. No host links Go, F#, Java, Dart, Ruby, Lua or C++, so these services run as WebAssembly on every target. An F# service runs on the same .NET browser runtime as C# (ADR 0073). Swift uses Swift 6.3.3 and the Swift SDK for WebAssembly of the same version; set `TAC_SWIFT_WASM_SDK` to its `wasm32-unknown-wasip1` folder, and set `TAC_SWIFT_WASM_COMPILER` to the swift.org `swiftc` when Xcode's `swiftc` comes first on your `PATH` (ADR 0082). Kotlin and Dart compile to WebAssembly with garbage collection (WasmGC), and TeaVM compiles Java to WasmGC (ADR 0083); WasmGC needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Dart needs the Dart SDK 3.13 or newer and has no JavaScript fallback; a build publishes `tachyon-dart.wasm` and `tachyon-dart-loader.js`. A Ruby service runs on Tachyon's mruby WebAssembly runtime, which your machine builds once with Ruby and Emscripten (ADR 0049, ADR 0054). A Lua service runs on Tachyon's Lua 5.4 WebAssembly runtime, built once with Emscripten (ADR 0085). A C++ service is a header-only `.hpp` class that Emscripten (`em++`) compiles to WebAssembly (ADR 0099). A Python service runs on Pyodide, the CPython interpreter compiled to WebAssembly. Its methods are synchronous (`async def` is refused with `TY1605`), and the manifest must select the pinned runtime with `tac.python`, as the `client/manifest.json` tab shows; without it the build fails with `TY1605` (ADR 0093). The WebAssembly service uses the same companion protocol (ADR 0035, ADR 0037, ADR 0045). Views read its fields, methods receive JSON arguments, and `Service` and `NeedsAll` are declared above its type. JavaScript and TypeScript services are not WebAssembly: the browser runs them as JavaScript, so this page has no JavaScript or TypeScript tab (see \"Polyglot native services\" for them).",
       "files": [
         {
           "name": "client/pages/tac.html",
@@ -1856,7 +1953,7 @@
         },
         {
           "name": "reach",
-          "code": "TallyService.rs  one small module, from rustc --target wasm32-unknown-unknown\nTallyService.go  one module, about 360 KB from TinyGo in a release build (2.7 MB from the standard Go compiler)\nTallyService.cs  the .NET browser runtime, about 3 MB, cached once\nTallyService.fs  the same .NET browser runtime, plus a small F# library\nTallyService.swift  the Swift standard library, about 3.4 MB (0.9 MB with Brotli), from swiftc -target wasm32-unknown-wasip1\nTallyService.kt  one WasmGC module from kotlinc, which uses the browser's garbage collector\nTallyService.java  one WasmGC module from TeaVM\nTallyService.dart  one WasmGC module from dart compile wasm\nTallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc\nTallyService.lua  the Lua runtime, about 170 KB, built once with emcc\nTallyService.py   Pyodide (CPython 3.14), about 11 MB (3 MB with Brotli), copied from the Tachyon cache\n\nWhen a service has files in several languages, a JavaScript,\nTypeScript or Dart file wins, then a native companion that the host\nlinks. Otherwise the web uses the first of these: Rust, Go, C#, F#,\nSwift, Kotlin, Java, Ruby, Lua, Python. Rust's module is a small\nfile, Go's carries the Go runtime, and C#'s is a runtime.\n\nOn the web a service has no DOM and no platform;\nit is state and logic over the properties its tag passes, which may\ncarry a data file of up to 1 MiB. A method call carries up to 64 KiB.\nA bigger request fails with an error that names the size and the limit:\n  Web service documentation: The request is 1072202 bytes.\n  The limit is 1048576 bytes. Pass less data to the service.\nty doctor checks for the\nwasm32-unknown-unknown target, Go 1.27, the wasm-tools workload,\nand, for Ruby, Emscripten 6.0.10 or newer and a C compiler; for Lua,\nEmscripten 6.0.10 or newer and the lua program for test units.\nA release build also writes Brotli copies, so a browser downloads about\na quarter to a third of these sizes (ty start sends them).\n"
+          "code": "TallyService.rs  one small module, from rustc --target wasm32-unknown-unknown\nTallyService.go  one module, about 360 KB from TinyGo in a release build (2.7 MB from the standard Go compiler)\nTallyService.cs  the .NET browser runtime, about 3 MB, cached once\nTallyService.fs  the same .NET browser runtime, plus a small F# library\nTallyService.swift  the Swift standard library, about 3.4 MB (0.9 MB with Brotli), from swiftc -target wasm32-unknown-wasip1\nTallyService.kt  one WasmGC module from kotlinc, which uses the browser's garbage collector\nTallyService.java  one WasmGC module from TeaVM\nTallyService.dart  one WasmGC module from dart compile wasm\nTallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc\nTallyService.lua  the Lua runtime, about 170 KB, built once with emcc\nTallyService.hpp  one module from em++, about 75 KB (29 KB with Brotli) for a small service\nTallyService.py   Pyodide (CPython 3.14), about 11 MB (3 MB with Brotli), copied from the Tachyon cache\n\nWhen a service has files in several languages, a JavaScript,\nTypeScript or Dart file wins, then a native companion that the host\nlinks. Otherwise the web uses the first of these: Rust, Go, C#, F#,\nSwift, C++, Kotlin, Java, Ruby, Lua, Python. Rust's module is a small\nfile, Go's carries the Go runtime, and C#'s is a runtime.\n\nOn the web a service has no DOM and no platform;\nit is state and logic over the properties its tag passes, which may\ncarry a data file of up to 1 MiB. A method call carries up to 64 KiB.\nA bigger request fails with an error that names the size and the limit:\n  Web service documentation: The request is 1072202 bytes.\n  The limit is 1048576 bytes. Pass less data to the service.\nty doctor checks for the\nwasm32-unknown-unknown target, Go 1.27, the wasm-tools workload,\nand, for Ruby, Emscripten 6.0.10 or newer and a C compiler; for Lua,\nEmscripten 6.0.10 or newer and the lua program for test units; for\nC++, em++ and the C++ test compiler.\nA release build also writes Brotli copies, so a browser downloads about\na quarter to a third of these sizes (ty start sends them).\n"
         },
         {
           "name": "client/services/TallyService.rb",
@@ -1889,6 +1986,10 @@
         {
           "name": "client/manifest.json",
           "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
+        {
+          "name": "client/services/TallyService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] TallyService {\npublic:\n    int count = 0;\n\n    int add(int amount) {\n        count += amount;\n        return count;\n    }\n\n    std::string summary(const std::string& unit) const {\n        return std::to_string(count) + \" \" + unit;\n    }\n};\n"
         }
       ]
     },
@@ -2590,7 +2691,7 @@
     {
       "id": "realtime",
       "title": "Streaming controllers",
-      "summary": "StreamRoute marks a controller method that answers GET requests with a stream of server-sent events (SSE). The method produces many values, one at a time, with the language's own `yield` syntax, and its name starts with `stream`. It keeps the loop in a private generator method and only passes on that method's values. Tachyon sends each value as one limited event, and an end event when the method finishes. In the browser, StreamRequest on an HTTPClient method receives the stream. Tachyon opens it when a component first uses the client, opens it again after 1, 2, 4, 8 and 16 seconds when it fails (at most five tries in a row), and closes it with the component. Sixty seconds with no message also counts as a failure, so a silent stream is opened again. Each message is checked against the model type of the method's one parameter, passed to the method, and published as that model's event, so an OnEvent listener in any Tac language receives it. The StreamRequest client itself is JavaScript or TypeScript: Dart, Rust, Go, Ruby, Python, Lua, Swift, Kotlin, Java, C# and F# refuse StreamRequest with TY1308. A Lua stream method sends each value with `coroutine.yield`, and a Go stream method returns an `iter.Seq` whose function calls `yield`. On the server, Java, Groovy and Rust cannot stream, because they have no native generator, so they refuse StreamRoute with TY2015. Like every route, a stream says who may call it with `Public`, `SignedIn` or `Allow(Role)`.",
+      "summary": "StreamRoute marks a controller method that answers GET requests with a stream of server-sent events (SSE). The method produces many values, one at a time, with the language's own `yield` syntax, and its name starts with `stream`. It keeps the loop in a private generator method and only passes on that method's values. Tachyon sends each value as one limited event, and an end event when the method finishes. In the browser, StreamRequest on an HTTPClient method receives the stream. Tachyon opens it when a component first uses the client, opens it again after 1, 2, 4, 8 and 16 seconds when it fails (at most five tries in a row), and closes it with the component. Sixty seconds with no message also counts as a failure, so a silent stream is opened again. Each message is checked against the model type of the method's one parameter, passed to the method, and published as that model's event, so an OnEvent listener in any Tac language receives it. The StreamRequest client itself is JavaScript or TypeScript: Dart, Rust, Go, Ruby, Python, Lua, Swift, Kotlin, Java, C#, F# and C++ refuse StreamRequest with TY1308. A Lua stream method sends each value with `coroutine.yield`, and a Go stream method returns an `iter.Seq` whose function calls `yield`. On the server, Java, Groovy and Rust cannot stream, because they have no native generator, so they refuse StreamRoute with TY2015. Like every route, a stream says who may call it with `Public`, `SignedIn` or `Allow(Role)`.",
       "group": "Yon server",
       "files": [
         {
@@ -2714,7 +2815,7 @@
     {
       "id": "sockets",
       "title": "Socket controllers",
-      "summary": "SocketRoute marks a controller class that keeps a WebSocket open, as Jakarta's @ServerEndpoint does. Tachyon makes one object of the class for each connection, so its fields hold that connection's state. OnOpen, OnMessage, OnClose and OnError mark the methods that run when a browser connects, sends a message, leaves, or when a method fails. Each message is JSON text, and Tachyon checks it against the model type of the OnMessage parameter first. The session sends messages back, and openSessions() (open_sessions() in Python, Ruby, Lua and Rust, OpenSessions() in Go, C# and F#, getOpenSessions() in Java) returns every open connection of the same path, so one message can go to every tab. When OnOpen or OnMessage fails, OnError runs and the socket stays open, as in Jakarta. In the browser, SocketRequest on an HTTPClient method receives the messages and publishes each one as its model's event, and the client's send(message) writes to the socket. The SocketRequest client itself is JavaScript or TypeScript: Dart, Rust, Go, Ruby, Python, Lua, Swift, Kotlin, Java, C# and F# refuse SocketRequest with TY1308, and their services receive the messages with OnEvent. Sockets are written in any Yon language. `Public`, `SignedIn` or `Allow(Role)` on the class says who may connect; Tachyon answers 401 or 403 before it opens the socket.",
+      "summary": "SocketRoute marks a controller class that keeps a WebSocket open, as Jakarta's @ServerEndpoint does. Tachyon makes one object of the class for each connection, so its fields hold that connection's state. OnOpen, OnMessage, OnClose and OnError mark the methods that run when a browser connects, sends a message, leaves, or when a method fails. Each message is JSON text, and Tachyon checks it against the model type of the OnMessage parameter first. The session sends messages back, and openSessions() (open_sessions() in Python, Ruby, Lua and Rust, OpenSessions() in Go, C# and F#, getOpenSessions() in Java) returns every open connection of the same path, so one message can go to every tab. When OnOpen or OnMessage fails, OnError runs and the socket stays open, as in Jakarta. In the browser, SocketRequest on an HTTPClient method receives the messages and publishes each one as its model's event, and the client's send(message) writes to the socket. The SocketRequest client itself is JavaScript or TypeScript: Dart, Rust, Go, Ruby, Python, Lua, Swift, Kotlin, Java, C#, F# and C++ refuse SocketRequest with TY1308, and their services receive the messages with OnEvent. Sockets are written in any Yon language. Tachyon guards every socket (ADR 0060): a message is JSON text of at most 64 KiB; a message that is not JSON or does not fit the model closes the socket with code 1007, a binary message with 1003, and a larger message with 1009. Five minutes without a message closes it with 1001, a socket lasts at most one hour, and a page from another origin gets 403. `Public`, `SignedIn` or `Allow(Role)` on the class says who may connect; Tachyon answers 401 or 403 before it opens the socket.",
       "group": "Yon server",
       "files": [
         {
@@ -2939,14 +3040,14 @@
       "files": [
         {
           "name": "build",
-          "code": "ty bundle --target macos     ->  dist/macos/     AppKit host + WKWebView\nty bundle --target windows   ->  dist/windows/   Win32 host + WebView2\nty bundle --target linux     ->  dist/linux/     GTK host + WebKitGTK\nty bundle --target android   ->  dist/android/   Android host + WebView\nty bundle --target ios       ->  dist/ios/       UIKit host + WKWebView\n\nThe WebView renders the application's HTML, CSS and JavaScript.\nTac elements are not translated into platform-native widgets.\n\nA native host serves each bundle file of at most 16 MiB. A bigger\nfile stops the build with TY1605; make it smaller or split it.\n\nThe Windows host needs the WebView2 SDK: restore the\nMicrosoft.Web.WebView2 package and set TAC_WEBVIEW2_SDK to the\nextracted folder (it holds build/native/include/WebView2.h).\nWithout it the Windows build stops with TY1605.\n"
+          "code": "ty bundle --target macos     ->  dist/macos/     AppKit host + WKWebView\nty bundle --target windows   ->  dist/windows/   Win32 host + WebView2\nty bundle --target linux     ->  dist/linux/     GTK host + WebKitGTK\nty bundle --target android   ->  dist/android/   Android host + WebView\nty bundle --target ios       ->  dist/ios/       UIKit host + WKWebView\n\nThe WebView renders the application's HTML, CSS and JavaScript.\nTac elements are not translated into platform-native widgets.\n\nA native host serves each bundle file of at most 16 MiB. A bigger\nfile stops the build with TY1605; make it smaller or split it.\n\nThe Windows host needs the WebView2 SDK: restore the\nMicrosoft.Web.WebView2 package and set TAC_WEBVIEW2_SDK to the\nextracted folder (it holds build/native/include/WebView2.h).\nWithout it the Windows build stops with TY1605.\n\nRun the Windows build from a Visual Studio developer prompt (x64\ntarget; on Windows on Arm use the arm64_amd64 prompt). The host\ncompiles with warnings as errors (/W4 /WX).\n"
         }
       ]
     },
     {
       "id": "native-capabilities",
       "title": "Inject an OS file picker into a service",
-      "summary": "A service asks for the operating system's file picker by injection. `tac.nativeCapabilities: [\"filePicker\"]` in `client/manifest.json` grants it, separately from `tac.browserApis`. Without the grant, every call answers `denied` before a panel opens. The grant does not replace the user's choice or the signing entitlements: a sandboxed macOS app also needs the user-selected read-only file entitlement, and Tachyon does not add it for you. `open` lets the user choose one file; the only type filters are `text/plain` and `application/json`, and an empty list allows any file. The answer holds the file name and an opaque handle, never a path. `readText(handle)` reads at most 65,536 bytes of UTF-8 text, and `release(handle)` ends access. A handle belongs to the service that asked for it. It ends after 300 seconds, or sooner when that service goes away. Every answer is a typed status (`selected`, `cancelled`, `read`, `released`, `denied`, `unsupported`, `unavailable`, `invalid`, `disposed` or `tooLarge`); nothing throws. The picker opens a panel (NSOpenPanel) only on macOS, for JavaScript, TypeScript, Rust and Swift services (ADR 0089). A browser tab and the iOS, Android, Linux and Windows apps open no panel and answer `unsupported`. JavaScript and TypeScript inject `filePicker` with `@Needs` and get Promises. Rust declares a `FilePicker` field in a `Default` service, so the same file builds for every target. Swift and C# ask for an uninitialized `FilePicker` field with `NeedsAll`, but only in an app that links the service: Swift on macOS and iOS, and C# on Windows, where it answers `unsupported` because Windows has no picker yet. A Swift or C# service that runs as WebAssembly cannot ask for a FilePicker yet, and the build stops with `TY1407`. So their files are under native/ here; put the one for your target in client/services. A Kotlin service cannot ask for a FilePicker yet on any target: the build stops with `TY1405`. Dart, Go, Ruby, Java, F#, Lua and Python services always run in the page and have no FilePicker type, so this feature has no tab for them. Let a JavaScript, TypeScript or Rust service use the picker and send the text to them with an event.",
+      "summary": "A service asks for the operating system's file picker by injection. `tac.nativeCapabilities: [\"filePicker\"]` in `client/manifest.json` grants it, separately from `tac.browserApis`. Without the grant, every call answers `denied` before a panel opens. The grant does not replace the user's choice or the signing entitlements: a sandboxed macOS app also needs the user-selected read-only file entitlement, and Tachyon does not add it for you. `open` lets the user choose one file; the only type filters are `text/plain` and `application/json`, and an empty list allows any file. The answer holds the file name and an opaque handle, never a path. `readText(handle)` reads at most 65,536 bytes of UTF-8 text, and `release(handle)` ends access. A handle belongs to the service that asked for it. It ends after 300 seconds, or sooner when that service goes away. Every answer is a typed status (`selected`, `cancelled`, `read`, `released`, `denied`, `unsupported`, `unavailable`, `invalid`, `disposed` or `tooLarge`); nothing throws. The picker opens a panel (NSOpenPanel) only in a macOS app, for JavaScript, TypeScript, Rust and Swift services (ADR 0089). A browser tab and the iOS, Android, Linux and Windows apps open no panel and answer `unsupported`. JavaScript and TypeScript inject `filePicker` with `@Needs` and get Promises. Rust declares a `FilePicker` field in a `Default` service. Swift, C# and Kotlin ask for an uninitialized `FilePicker` field with `NeedsAll`. Every service uses the same file on every target. Where a Swift, C# or Kotlin service runs as WebAssembly in the page (the web, and targets that do not link the language: Swift on Linux, Windows and Android, C# off Windows, Kotlin off Android), the field is still filled: `available()` is false and every call answers `unsupported`. Options that break the contract, such as more than one file or another type, still answer `invalid`. The page never passes a `filePicker` property. Dart, Go, Ruby, Java, F# and Python services have no FilePicker provider yet, so this feature has no tab for them; a `NeedsAll` FilePicker field there stays a page property, and the build stops with `TY1407` when the page does not pass it. A Lua service has no FilePicker: a `---@type FilePicker` field in a Lua service stops the build with `TY2015`. A C++ `Needs` field may name only a C++ service or a C++ `HTTPClient`, so C++ has no FilePicker either (`TY1372`). Let a JavaScript, TypeScript or Rust service use the picker and send the text to the other services with an event.",
       "group": "Native",
       "notApplicable": [
         "dart",
@@ -2956,9 +3057,7 @@
         "fs",
         "lua",
         "py",
-        "swift",
-        "kt",
-        "cs"
+        "hpp"
       ],
       "files": [
         {
@@ -2978,16 +3077,20 @@
           "code": "#[Service]\n#[derive(Default)]\nstruct PickerService {\n    file_picker: FilePicker,\n    status: String,\n}\n\nimpl PickerService {\n    fn choose(&mut self) {\n        let options = FilePickerOptions { multiple: false, types: vec![String::from(\"text/plain\")] };\n        let chosen = self.file_picker.open(&options);\n        self.status = chosen.status.as_str().to_owned();\n        if let Some(handle) = chosen.handle {\n            self.status = self.file_picker.read_text(&handle).status.as_str().to_owned();\n            self.file_picker.release(&handle);\n        }\n    }\n}\n"
         },
         {
-          "name": "native/services/PickerService.swift",
+          "name": "client/services/PickerService.swift",
           "code": "@Service\n@NeedsAll\nfinal class PickerService {\n    private let filePicker: FilePicker\n    var status: String = \"Ready\"\n\n    func choose() {\n        let chosen = filePicker.open(FilePickerOptions(types: [\"text/plain\"]))\n        status = readSelected(chosen)\n    }\n\n    private func readSelected(_ chosen: FilePickerResult) -> String {\n        guard let handle = chosen.handle else { return chosen.status.rawValue }\n        let content = filePicker.readText(handle)\n        _ = filePicker.release(handle)\n        return content.status.rawValue\n    }\n}\n"
         },
         {
-          "name": "native/services/PickerService.cs",
+          "name": "client/services/PickerService.cs",
           "code": "[Service]\n[NeedsAll]\npublic class PickerService\n{\n    private readonly FilePicker filePicker;\n    public string Status = \"Ready\";\n\n    public void Choose()\n    {\n        var chosen = filePicker.Open(new FilePickerOptions(Types: new[] { \"text/plain\" }));\n        Status = ReadSelected(chosen);\n    }\n\n    private string ReadSelected(FilePickerResult chosen)\n    {\n        if (chosen.Handle == null) return chosen.Status.ToString();\n        var content = filePicker.ReadText(chosen.Handle);\n        filePicker.Release(chosen.Handle);\n        return content.Status.ToString();\n    }\n}\n"
         },
         {
+          "name": "client/services/PickerService.kt",
+          "code": "@Service\n@NeedsAll\nclass PickerService {\n    private val filePicker: FilePicker\n    var status: String = \"Ready\"\n\n    fun choose() {\n        val chosen = filePicker.open(FilePickerOptions(types = listOf(\"text/plain\")))\n        status = readSelected(chosen)\n    }\n\n    private fun readSelected(chosen: FilePickerResult): String {\n        val handle = chosen.handle ?: return chosen.status.wire\n        val content = filePicker.readText(handle)\n        filePicker.release(handle)\n        return content.status.wire\n    }\n}\n"
+        },
+        {
           "name": "where the panel opens",
-          "code": "Where the file picker opens a panel\n\n  Service language       macOS app        Other apps and browser tabs\n  JavaScript, TypeScript panel opens      answers unsupported\n  Rust                   panel opens      answers unsupported\n  Swift                  panel opens      iOS: answers unsupported\n  C#                     -                Windows: answers unsupported\n\nJavaScript, TypeScript and Rust use the same file on every target.\nSwift and C# ask for the picker with NeedsAll only in an app that\nlinks them: Swift on macOS and iOS, C# on Windows. A Kotlin service\ncannot ask for a FilePicker yet (TY1405). Put the native file for\nyour target in your application's client/services/PickerService.<ext>;\nnative/ here only separates the examples.\n\nLimits on every host that opens a panel\n\n  type filters     text/plain, application/json (empty: any file)\n  read size        65,536 bytes of UTF-8 text\n  handle lifetime  300 seconds, or until the service goes away\n  handles          8 per service, 128 per app\n  panels           one at a time; a second request is unavailable\n  panel timeout    30 seconds, then cancelled\n"
+          "code": "Where the file picker opens a panel\n\n  Service language        macOS app      Other apps and browser tabs\n  JavaScript, TypeScript  panel opens    answers unsupported\n  Rust                    panel opens    answers unsupported\n  Swift                   panel opens    answers unsupported\n  C#, Kotlin              -              answers unsupported\n\nEvery service uses the same file on every target. A Swift, C# or\nKotlin service asks for the picker with an uninitialized FilePicker\nfield and NeedsAll. Where the service runs as WebAssembly in the page\n(the web, and targets that do not link the language), the field is\nstill filled, available() is false and every call answers unsupported.\n\nLimits on every host that opens a panel\n\n  type filters     text/plain, application/json (empty: any file)\n  read size        65,536 bytes of UTF-8 text\n  handle lifetime  300 seconds, or until the service goes away\n  handles          8 per service, 128 per app\n  panels           one at a time; a second request is unavailable\n  panel timeout    30 seconds, then cancelled\n"
         },
         {
           "name": "client/pages/tac.html",
@@ -3028,7 +3131,7 @@
     {
       "id": "companion-publish",
       "title": "Compiled services publish to the page",
-      "summary": "Native services, WebAssembly services and TypeScript or Dart browser services inject an `ApplicationEventPublisher` for local events. `OnEvent` receives the events, and `OnStart`/`OnStop` run when the service starts and stops. Call the publisher to publish an event. A listener that is not `InBackground` can also return a model value. The runtime then publishes it as the model named by the return type of the listener. Each activation gets a new ID. The runtime rejects callbacks from an old activation. Each example publishes a `CatalogCount` model when it starts and updates its count in a listener for that model. Ruby names the model of a listener in a YARD tag, # @param value [CatalogCount]. Lua names it in a LuaCATS tag, ---@param value CatalogCount, and publishes a model table, setmetatable({ count = 5 }, CatalogCount), through its application_event_publisher field. F# takes the publisher as a constructor parameter, `type CatalogService(applicationEventPublisher: ApplicationEventPublisher)`. Python declares an `application_event_publisher: ApplicationEventPublisher` field, names the model of a listener in its type hint, `value: CatalogCount`, and publishes a dataclass, `CatalogCount(5)`. The JavaScript `CatalogService` only listens, to events published by its native or WebAssembly counterpart.",
+      "summary": "Native services, WebAssembly services and TypeScript or Dart browser services inject an `ApplicationEventPublisher` for local events. `OnEvent` receives the events, and `OnStart`/`OnStop` run when the service starts and stops. Call the publisher to publish an event. A listener that is not `InBackground` can also return a model value. The runtime then publishes it as the model named by the return type of the listener. Each activation gets a new ID. The runtime rejects callbacks from an old activation. Each example publishes a `CatalogCount` model when it starts and updates its count in a listener for that model. Ruby names the model of a listener in a YARD tag, # @param value [CatalogCount]. Lua names it in a LuaCATS tag, ---@param value CatalogCount, and publishes a model table, setmetatable({ count = 5 }, CatalogCount), through its application_event_publisher field. F# takes the publisher as a constructor parameter, `type CatalogService(applicationEventPublisher: ApplicationEventPublisher)`. Python declares an `application_event_publisher: ApplicationEventPublisher` field, names the model of a listener in its type hint, `value: CatalogCount`, and publishes a dataclass, `CatalogCount(5)`. C++ declares an `ApplicationEventPublisher applicationEventPublisher;` field, takes the model as `const CatalogCount& value` in its `[[OnEvent]]` method, and publishes `CatalogCount{5}`. The JavaScript `CatalogService` only listens, to events published by its native or WebAssembly counterpart.",
       "group": "Native",
       "files": [
         {
@@ -3138,6 +3241,14 @@
         {
           "name": "client/models/CatalogCount.py",
           "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass CatalogCount:\n    count: int\n"
+        },
+        {
+          "name": "client/services/CatalogService.hpp",
+          "code": "#pragma once\n#include \"../models/CatalogCount.hpp\"\n\nclass [[Service]] CatalogService {\npublic:\n    int count = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    void announce() {\n        applicationEventPublisher.publishEvent(CatalogCount{5});\n    }\n\n    [[OnStart]]\n    void initialize() { announce(); }\n\n    [[OnEvent]]\n    void changed(const CatalogCount& value) { count = value.count; }\n\n    [[OnStop]]\n    void cleanup() { count = 0; }\n};\n"
+        },
+        {
+          "name": "client/models/CatalogCount.hpp",
+          "code": "#pragma once\n\nstruct CatalogCount {\n    int count = 0;\n};\n"
         }
       ],
       "axis": "language"
@@ -3275,6 +3386,10 @@
         {
           "name": "client/manifest.json",
           "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.hpp",
+          "code": "#pragma once\n\nclass [[Service]] CounterService {\npublic:\n    int count = 0;\n\n    void increment() { count += 1; }\n};\n"
         }
       ]
     },
@@ -3355,6 +3470,10 @@
         {
           "name": "client/services/BrandService.fs",
           "code": "[<Service>]\ntype BrandService() =\n    member this.Logo : string = \"/shared/assets/logo.svg\"\n"
+        },
+        {
+          "name": "client/services/BrandService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] BrandService {\npublic:\n    std::string logo = \"/shared/assets/logo.svg\";\n};\n"
         }
       ]
     },
@@ -3431,6 +3550,10 @@
         {
           "name": "emitted",
           "code": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Catalog</title>\n    <link rel=\"canonical\" href=\"https://example.com/\">\n    ...\n  </head>\n  <body>...</body>\n</html>\n\nCharset, viewport and lang are always written. Every page repeated them\nidentically, which is not a thing a page should have an opinion about."
+        },
+        {
+          "name": "client/services/CatalogService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] CatalogService {\npublic:\n    std::string title = \"Catalog\";\n};\n"
         }
       ],
       "verify": "tac"
@@ -3532,6 +3655,10 @@
         {
           "name": "client/components/site/runtime-note/tac.html",
           "code": "<logic :if=\"runtimeNote.showsNotes(page.development)\">\n  <p class=\"debug\">Rendered by: {runtimeNote.runtime}</p>\n</logic>\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.hpp",
+          "code": "#pragma once\n#include <string>\n\nclass [[Service]] RuntimeNoteService {\npublic:\n    std::string runtime = \"C++, compiled by Emscripten\";\n\n    bool showsNotes(bool development) const { return development; }\n};\n"
         }
       ],
       "verify": "tac"
@@ -3540,11 +3667,11 @@
       "id": "companion-matrix",
       "title": "Which service language answers a target",
       "group": "Polyglot",
-      "summary": "Each service language compiles for the targets its toolchain and SDK support. Rust, C#, Swift and Kotlin run as WebAssembly on the web and on every target that does not link them. Go, F#, Java, Ruby and Lua run as WebAssembly on every target, and Dart runs as WebAssembly in the page on every target. Python runs in web builds only (ADR 0093). So every service except a Python one reaches every target, and Tachyon never silently removes a service.",
+      "summary": "Each service language compiles for the targets its toolchain and SDK support. Rust, C#, Swift and Kotlin run as WebAssembly on the web and on every target that does not link them. Go, F#, Java, Ruby, Lua and C++ run as WebAssembly on every target, and Dart runs as WebAssembly in the page on every target. Python runs in web builds only (ADR 0093). So every service except a Python one reaches every target, and Tachyon never silently removes a service.",
       "files": [
         {
           "name": "matrix",
-          "code": "BasketService.js, .ts, .dart  web, and every native target\nBasketService.rs               linked on macos, windows, linux;\n                               WebAssembly everywhere else\nBasketService.swift            linked on macos, ios;\n                               WebAssembly everywhere else\nBasketService.kt               linked on android; WebAssembly everywhere else\nBasketService.cs               linked on windows; WebAssembly everywhere else\nBasketService.go               WebAssembly on every target\nBasketService.fs               WebAssembly on every target\nBasketService.java             WebAssembly on every target\nBasketService.rb               WebAssembly on every target\nBasketService.lua              WebAssembly on every target\nBasketService.py               WebAssembly in web builds only\n\nA service may declare several. A browser script answers the web; when\nmore than one native language reaches the target being built, the\nplatform's own language wins over Rust, and only the winner is\ncompiled. When no language of the service links on the target, the\nbuild uses its browser script, or failing that the first of its Rust,\nGo, C#, F#, Swift, Kotlin, Java, Ruby, Lua and Python files, as\nWebAssembly. So every service reaches every target, except that a\nPython service builds only for the web.\n"
+          "code": "BasketService.js, .ts, .dart  web, and every native target\nBasketService.rs               linked on macos, windows, linux;\n                               WebAssembly everywhere else\nBasketService.swift            linked on macos, ios;\n                               WebAssembly everywhere else\nBasketService.kt               linked on android; WebAssembly everywhere else\nBasketService.cs               linked on windows; WebAssembly everywhere else\nBasketService.go               WebAssembly on every target\nBasketService.fs               WebAssembly on every target\nBasketService.java             WebAssembly on every target\nBasketService.rb               WebAssembly on every target\nBasketService.lua              WebAssembly on every target\nBasketService.hpp              WebAssembly on every target\nBasketService.py               WebAssembly in web builds only\n\nA service may declare several. A browser script answers the web; when\nmore than one native language reaches the target being built, the\nplatform's own language wins over Rust, and only the winner is\ncompiled. When no language of the service links on the target, the\nbuild uses its browser script, or failing that the first of its Rust,\nGo, C#, F#, Swift, C++, Kotlin, Java, Ruby, Lua and Python files, as\nWebAssembly. So every service reaches every target, except that a\nPython service builds only for the web.\n"
         }
       ]
     },
@@ -3563,11 +3690,12 @@
     {
       "id": "window-controls",
       "title": "What a page may do to its window",
-      "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service may use, under `tac.application.window.controls`. By default, no control is granted. A service gets the controls by injection, like the other browser APIs: `@Needs windowControls` in JavaScript and TypeScript, and a `WindowControls` field in Rust, Go, C#, F#, Kotlin, Java, Dart, Ruby and Swift. The calls are `granted(control)`, `minimize()`, `maximize()`, `fullscreen()`, `close()`, `resize(width, height)` and `setTitle(text)`, written in each language's case (`set_title` in Rust and Ruby, `SetTitle` in Go, C# and F#). A call to a control that is not granted fails at once, and the message names the grant to add. In a browser tab, `granted` answers `false` and every call fails, because the page has no native window. The host (the native app that shows the page) checks each grant again before it acts. The macOS and Linux (GTK) hosts run the controls on the app's own window. The Windows and Android hosts register their window adapters too, but they have not been run on a Windows desktop or an Android device. The page has no `globalThis.tachyonWindow` global any more, and a service that reads `globalThis` fails to build with `TY1360`. A service that the native app links in has no page, but it gets the controls from the host with the same grants (ADR 0089). The Rust file shown here works in the page and when a macOS, Linux or Windows app links it, because Rust fills the field with `Default`. Swift on Apple platforms, C# on Windows and Kotlin on Android instead declare an uninitialized `WindowControls` field with `NeedsAll`. Their native files are under native/, a documentation folder; the file you choose goes in the application's client/services/. Native service code belongs to the application. It runs as normal operating-system code, and this window-control policy does not sandbox (limit) it. Lua and Python services have no `WindowControls` yet, so this feature has no tab for them: Python stops the build with `TY1605` (`WindowControls` is not a model), and a Lua field of this type stays empty. Let a service in another language handle the window.",
+      "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service may use, under `tac.application.window.controls`. By default, no control is granted. A service gets the controls by injection, like the other browser APIs: `@Needs windowControls` in JavaScript and TypeScript, and a `WindowControls` field in Rust, Go, C#, F#, Kotlin, Java, Dart, Ruby and Swift. The calls are `granted(control)`, `minimize()`, `maximize()`, `fullscreen()`, `close()`, `resize(width, height)` and `setTitle(text)`, written in each language's case (`set_title` in Rust and Ruby, `SetTitle` in Go, C# and F#). A call to a control that is not granted fails at once, and the message names the grant to add. In a browser tab, `granted` answers `false` and every call fails, because the page has no native window. The host (the native app that shows the page) checks each grant again before it acts. The macOS and Linux (GTK) hosts run the controls on the app's own window. The Windows and Android hosts register their window adapters too, but they have not been run on a Windows desktop or an Android device. The page has no `globalThis.tachyonWindow` global any more, and a service that reads `globalThis` fails to build with `TY1360`. A service that the native app links in has no page, but it gets the controls from the host with the same grants (ADR 0089). The Rust file shown here works in the page and when a macOS, Linux or Windows app links it, because Rust fills the field with `Default`. Swift on Apple platforms, C# on Windows and Kotlin on Android instead declare an uninitialized `WindowControls` field with `NeedsAll`. Their native files are under native/, a documentation folder; the file you choose goes in the application's client/services/. Native service code belongs to the application. It runs as normal operating-system code, and this window-control policy does not sandbox (limit) it. Lua, Python and C++ services have no `WindowControls` yet, so this feature has no tab for them: a Lua field of this type stops the build with `TY2015`, Python stops it with `TY1605` (`WindowControls` is not a model), and a C++ `Needs` field may name only a C++ service or a C++ `HTTPClient` (`TY1372`). Let a service in another language handle the window.",
       "group": "Native",
       "notApplicable": [
         "lua",
-        "py"
+        "py",
+        "hpp"
       ],
       "files": [
         {

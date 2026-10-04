@@ -336,7 +336,7 @@
     },
     "service-languages": {
       "title": "Choosing a service language",
-      "summary": "You can write a Tac service in JavaScript, TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby. Lua and Python work with limits. \"Which languages can I use?\" lists every language, what it can do, and the languages that Tachyon does not support. A service runs in the page on every target, also inside a native app. Some native hosts link Rust, Swift, Kotlin or C# services instead.",
+      "summary": "You can write a Tac service in JavaScript, TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby. Lua, Python and C++ work with limits. \"Which languages can I use?\" lists every language, what it can do, and the languages that Tachyon does not support. A service runs in the page on every target, also inside a native app. Some native hosts link Rust, Swift, Kotlin or C# services instead.",
       "before": [
         "services"
       ]
@@ -350,7 +350,7 @@
     },
     "native-services": {
       "title": "Rust, Go and C# in the browser",
-      "summary": "A service written in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby can run in the browser as WebAssembly, a compiled format that browsers run. Lua and Python services run there too, on runtimes that Tachyon ships, with limits. In a desktop or mobile app, Swift, Kotlin, C# and Rust services can run as native code instead.",
+      "summary": "A service written in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby can run in the browser as WebAssembly, a compiled format that browsers run. Lua and Python services run there too, on runtimes that Tachyon ships, and C++ services that Emscripten compiles, all with limits. In a desktop or mobile app, Swift, Kotlin, C# and Rust services can run as native code instead.",
       "before": [
         "service-languages"
       ]
@@ -502,7 +502,7 @@
     },
     "simpler-forms": {
       "title": "Simpler forms",
-      "summary": "When a piece of code has a simpler form that reads more plainly, `ty build`, `ty preview` and `ty test` suggest it with codes TY1340 to TY1355. A suggestion never stops the build, and `ty migrate fix --write` applies it.",
+      "summary": "When a piece of code has a simpler form that reads more plainly, `ty preview` and `ty test` suggest it with codes TY1340 to TY1355. A suggestion never stops the build, and `ty migrate fix --write` applies it.",
       "before": [
         "public-only-when-used",
         "cohesive-services"
