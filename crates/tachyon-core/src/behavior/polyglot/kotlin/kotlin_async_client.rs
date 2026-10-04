@@ -36,6 +36,19 @@ impl<'a> KotlinAsyncClient<'a> {
         Ok(format!("{prefix}{}", client.answer(&call)))
     }
 
+    pub(super) fn finished_case(body: &str, name: &str, call: String) -> String {
+        let method_name = name.split('[').next().unwrap_or(name);
+        let suspended = body.contains(&format!("suspend fun {method_name}("));
+        Self::finished_call(suspended, call)
+    }
+
+    fn finished_call(suspended: bool, call: String) -> String {
+        if suspended {
+            return format!("BehaviorTasks.finish {{ {call} }}");
+        }
+        call
+    }
+
     fn validate(&self) -> Result<(), String> {
         if !super::has_behaviors_context(self.owner) {
             return Err(
@@ -112,12 +125,18 @@ impl<'a> KotlinAsyncClient<'a> {
 
     fn answer(&self, call: &str) -> String {
         let declared = self.method.return_type.trim();
-        if [declared.is_empty(), declared == Self::NO_ANSWER].contains(&true) {
-            return format!("{call}\n");
+        Self::untyped_answer(declared, call).unwrap_or_else(|| Self::typed_answer(declared, call))
+    }
+
+    fn untyped_answer(declared: &str, call: &str) -> Option<String> {
+        match declared {
+            "" | Self::NO_ANSWER => Some(format!("{call}\n")),
+            Self::RAW_ANSWER => Some(format!("return {call}\n")),
+            _ => None,
         }
-        if declared == Self::RAW_ANSWER {
-            return format!("return {call}\n");
-        }
+    }
+
+    fn typed_answer(declared: &str, call: &str) -> String {
         let required = declared.trim_end_matches(Self::OPTIONAL);
         format!(
             "return Behaviors.answer({call}, \"{}\", {}) {{ tacRead<{declared}>(it) }}\n",
@@ -127,15 +146,13 @@ impl<'a> KotlinAsyncClient<'a> {
     }
 
     fn shape(required: &str) -> &'static str {
-        if Self::LIST_STARTS
+        let is_list = Self::LIST_STARTS
             .iter()
-            .any(|start| required.starts_with(start))
-        {
-            return "list";
+            .any(|start| required.starts_with(start));
+        match (is_list, Self::PLAIN.contains(&required)) {
+            (true, _) => "list",
+            (false, true) => "plain",
+            (false, false) => "object",
         }
-        if Self::PLAIN.contains(&required) {
-            return "plain";
-        }
-        "object"
     }
 }

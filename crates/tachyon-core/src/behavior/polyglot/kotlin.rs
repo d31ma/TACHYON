@@ -1065,7 +1065,7 @@ fn test_members(body: &str, unit: &Unit, environment: &str) -> String {
     let calls = super::super::ValueSource::jvm_calls(&unit.cases, &unit.inputs)
         .into_iter()
         .map(|(name, call)| {
-            let call = finished_case(body, &name, call);
+            let call = KotlinAsyncClient::finished_case(body, &name, call);
             (name, call)
         })
         .collect::<Vec<_>>();
@@ -1095,14 +1095,6 @@ fn test_members(body: &str, unit: &Unit, environment: &str) -> String {
         quote(&unit.configuration),
         quote(&unit.partition),
     )
-}
-
-fn finished_case(body: &str, name: &str, call: String) -> String {
-    let method_name = name.split('[').next().unwrap_or(name);
-    if body.contains(&format!("suspend fun {method_name}(")) {
-        return format!("BehaviorTasks.finish {{ {call} }}");
-    }
-    call
 }
 
 fn report_type(environment: &str) -> &'static str {

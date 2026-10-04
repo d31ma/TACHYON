@@ -108,6 +108,13 @@ impl PublicMethods {
         found
     }
 
+    fn kotlin_declared(line: &str) -> bool {
+        let balanced = line.matches('(').count() == line.matches(')').count();
+        let after_parameters = line.rsplit_once(')').map_or("{", |(_, rest)| rest);
+        let has_no_body = [balanced, !after_parameters.contains(['{', '='])] == [true; 2];
+        [has_no_body, line.trim_end().ends_with("{}")].contains(&true)
+    }
+
     fn method_on_line(language: &str, line: &str) -> Option<String> {
         if language == "go" {
             return go_method_name(line);
@@ -146,19 +153,11 @@ fn declared(language: &str, line: &str) -> bool {
         return line.ends_with(": ...");
     }
     if language == "kt" {
-        return kotlin_declared(line);
+        return PublicMethods::kotlin_declared(line);
     }
     let is_bodyless_statement = line.ends_with(';') && !line.contains('{') && !line.contains("=>");
     let has_empty_body = line.trim_end().ends_with("{}");
     is_bodyless_statement || has_empty_body
-}
-
-fn kotlin_declared(line: &str) -> bool {
-    let opened = line.matches('(').count();
-    let closed = line.matches(')').count();
-    let after_parameters = line.rsplit_once(')').map_or("", |(_, rest)| rest);
-    let has_no_body = opened > 0 && opened == closed && !after_parameters.contains(['{', '=']);
-    has_no_body || line.trim_end().ends_with("{}")
 }
 
 fn method_name(language: &str, line: &str) -> Option<String> {

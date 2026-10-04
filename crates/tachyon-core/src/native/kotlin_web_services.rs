@@ -22,7 +22,10 @@ impl KotlinWebServices {
         include_str!("prelude.kt"),
         include_str!("prelude_reads.kt"),
         include_str!("prelude_web.kt"),
-        include_str!("prelude_web_tasks.kt"),
+        include_str!("prelude_web_tasks.kt")
+    );
+
+    const WEB_APIS: &'static str = concat!(
         include_str!("web_apis/Clock.kt"),
         include_str!("web_apis/SecureRandom.kt"),
         include_str!("web_apis/Connectivity.kt"),
@@ -122,11 +125,12 @@ impl KotlinWebServices {
         let authored =
             crate::behavior::KotlinBuiltins::in_browser(authored, Self::BROWSER_BUILTINS);
         let program = format!(
-            "{}{authored}\n{}{}{}{}",
+            "{}{authored}\n{}{}{}{}{}",
             Self::TASK_IMPORT,
             crate::route_types::WebEventSources::kotlin(),
             KotlinModelReaders::text(&texts),
             Self::PRELUDE,
+            Self::WEB_APIS,
             FilePickerSources::kotlin()
         );
         let mut sources = vec![(PathBuf::from(Self::PROGRAM_SOURCE), program)];
