@@ -4008,17 +4008,17 @@
         },
         {
           "heading": "client/manifest.json, field by field",
-          "body": "The manifest is a standard web app manifest. A browser reads its standard members to install the application. Tachyon reads some of the same members for a native build. It also adds one member of its own, tac, and a browser ignores it. tac holds the public configuration that services bind, and Tachyon's own settings: the application identity and window, shared scripts and styles, service-worker cache rules, page metadata, the sitemap (ADR 0052) and the browser API grants in `browserApis` (ADR 0065). The whole file is public, because the build publishes it at /manifest.webmanifest. Do not put anything private in it. A web build reads the tac settings it needs: scripts, styles, cache rules, metadata, the origin, the sitemap and `browserApis`. `browserApis` lists the browser APIs that need the user's consent and that the services may use: any of `clipboard`, `share`, `notifications` and `geolocation`, each once, for example `\"browserApis\": [\"clipboard\", \"geolocation\"]`. Any other name stops the build (`TY1601`). The page refuses an API that is not listed. A native build takes its name, entry route, identifier, version and window from this file only. There is no tac.config.js and no tachyon.json: a build refuses both and says where each value moved. These `check` settings each turn one build rule off while you migrate, for Tac code only: `tac.cohesion.check`, `tac.duplication.check`, `tac.dependencies.check`, `tac.names.check`, `tac.signatures.check`, `tac.constants.check`, `tac.visibility.check`, `tac.types.check` and `tac.tests.check`, each `false` (`tac.types.check` is off until you set it to `true`; see Cohesive services, Utilities, Dependencies point down, Plain-English names, Small signatures, Named values, Public only when used, Types in every language and Test units). `tac.accessibility.check: false` turns off the accessible-view check (`TY1336`, see Templates). `tac.budgets.script` and `tac.budgets.webassembly` set the size budget of every route in kilobytes (defaults 200 and 3584), and `tac.budgets.check: false` turns that check off (`TY1337`, see Build and deploy). `tac.elements` lists the components that the build also exports as custom elements, such as `\"elements\": [\"shop-counter\"]`; a name without a hyphen or a name that is not a component stops the build (`TY1358`, see Components in other apps). `tac.simplify.suggest` set to `false` hides the simpler-form suggestions for Tac code (see Simpler forms). `tac.names.words` lists words of your domain, such as a product name, that Tac names may use. `tac.go.compiler` chooses the Go compiler for Go web services: `\"tinygo\"` or `\"go\"`; without it a release build tries TinyGo first and falls back to Go (see WebAssembly compilers per language). `tac.dotnet.aot: true` compiles C# and F# web services ahead of time in a release build: faster for heavy computing, but a larger download.",
-          "code": "name                                          browser, native\n  The application's name. A native build names the app and its\n  executable after it (short_name when name is absent). 1 to 64\n  printable characters.\n\nshort_name                                    browser, native\n  The label a launcher shows where name is too long.\n\nstart_url                                     browser, native\n  The route the application opens at, and the entry route of a\n  native build. A canonical local route, such as \"/\".\n\nicons                                         browser, native\n  [{ \"src\": \"/icon-512.png\", \"sizes\": \"512x512\" }], local bundle\n  paths. A native build uses the largest raster icon; an SVG-only\n  manifest gets no native icon rather than a blurry one.\n\ndisplay, theme_color, background_color, ...           browser\n  Standard members for a browser's install, published as written.\n\ntac                                              Tac services\n  Tac's public configuration (ADR 0034): any nested object, bound\n  with TAC_ names and tac. paths, so tac.api.url is TAC_API_URL.\n  Lowercase keys, and no secret-shaped names such as password.\n\ntac.application.id                                     native\n  Reverse-DNS bundle identifier, such as com.example.catalog.\n  Derived from the project folder when absent.\n\ntac.application.version                                native\n  A portable version, such as 1.4.0 (1.0.0 when absent).\n\ntac.application.window                                 native\n  width and height the window opens at (1024 by 768 unless set,\n  each 64 to 16384), minWidth and minHeight, and controls: which\n  window controls a service may use through WindowControls (close,\n  fullscreen, maximize, minimize, resize, title). None are granted\n  unless listed.\n\ntac.origin                                              build\n  The public address, such as https://example.com, without a path.\n  It turns on the built-in sitemap.xml and robots.txt.\n\ntac.scripts, tac.styles                                 build\n  Up to 8 local paths each, linked into every page.\n\ntac.elements                                            build\n  Components to export as custom elements, such as\n  [\"shop-counter\"]: one module each in .tachyon/elements/.\n\ntac.cache                                               build\n  Service-worker rules: [{ \"path\": \"/api/*\", \"policy\":\n  \"network-first\" }]; cache-first, network-first or no-store.\n  They answer navigations, assets and Cached HTTPClient GETs.\n\ntac.metadata                                            build\n  defaults, and routes keyed by route: title, description,\n  canonical, image, siteName, lang, noindex.\n\ntac.sitemap                                             build\n  Values for a dynamic page route, read from a shared data file:\n  { \"/docs/_topic\": { \"data\": \"/shared/data/docs.json\",\n  \"values\": \"/order\" } }.\n\n"
+          "body": "The manifest is a standard web app manifest. A browser reads its standard members to install the application. Tachyon reads some of the same members for a native build. It also adds one member of its own, tac, and a browser ignores it. The whole file is public, because the build publishes it at /manifest.webmanifest. Do not put anything private in it. The file is plain JSON: if you compute a value, write the generated client/manifest.json before you run ty bundle. There is no tac.config.js and no tachyon.json, and a top-level tachyon member is refused: a build refuses each one and says where its values moved (ADR 0052).\n\ntac holds two kinds of members. Your own members, such as tac.api.url, are the public configuration that services bind with Settings and Setting (TAC_ names and tac. paths). Tachyon's own members are settings for the build and the native host, not values for services: application, origin, scripts, styles, styleSources, scriptSources, cache, metadata, sitemap, browserApis, nativeCapabilities, elements, python, budgets, outgoing, go, dotnet, implicitmembers, simplify, accessibility and the check switches below. Do not bind them in a service.\n\nA web build reads the members it needs: scripts and styles with their sources, cache rules, metadata, the origin, the sitemap, browserApis, outgoing hosts, budgets and python. `browserApis` lists the browser APIs that need the user's consent and that the services may use: any of `clipboard`, `share`, `notifications`, `geolocation` and `preferenceStrings`, each once, for example `\"browserApis\": [\"clipboard\", \"geolocation\"]`. Any other name stops the build (`TY1601`). The page refuses an API that is not listed. `nativeCapabilities` grants native capabilities separately: `[\"filePicker\"]` is the only name today, and without it the file picker answers denied (see the feature Inject an OS file picker into a service). `outgoing.hosts` lists the other hosts that page code may send requests to; the page's `connect-src` allows only these, and the build refuses a request URL with any other host (`TY1326`). A native build takes its name, entry route, identifier, version, window and menus from this file only.\n\nThese `check` settings each turn one build rule off while you migrate, for Tac code only: `tac.cohesion.check`, `tac.duplication.check`, `tac.dependencies.check`, `tac.names.check`, `tac.signatures.check`, `tac.constants.check`, `tac.visibility.check`, `tac.types.check` and `tac.tests.check`, each `false` (`tac.types.check` is off until you set it to `true`; see Cohesive services, Utilities, Dependencies point down, Plain-English names, Small signatures, Named values, Public only when used, Types in every language and Test units). `tac.accessibility.check: false` turns off the accessible-view check (`TY1336`, see Templates). `tac.budgets.script` and `tac.budgets.webassembly` set the size budget of every route in kilobytes (defaults 200 and 3584), and `tac.budgets.check: false` turns that check off (`TY1337`, see Route size budgets). With `tac.python` and no `tac.budgets.script`, a route that uses a Python service gets a 512 KiB script budget. `tac.elements` lists the components that the build also exports as custom elements, such as `\"elements\": [\"shop-counter\"]`; a name without a hyphen or a name that is not a component stops the build (`TY1358`, see Components in other apps). `tac.simplify.suggest` set to `false` hides the simpler-form suggestions for Tac code, and `tac.implicitmembers.suggest` set to `true` shows the receiver suggestions too (off by default; see Simpler forms). `tac.names.words` lists words of your domain, such as a product name, that Tac names may use. `tac.go.compiler` chooses the Go compiler for Go web services: `\"tinygo\"` or `\"go\"`; without it a release build tries TinyGo first and falls back to Go (see WebAssembly compilers per language). `tac.dotnet.aot: true` compiles C# and F# web services ahead of time in a release build: faster for heavy computing, but a larger download.",
+          "code": "name                                          browser, native\n  The application's name. A native build names the app and its\n  executable after it (short_name when name is absent). 1 to 64\n  printable characters.\n\nshort_name                                    browser, native\n  The label a launcher shows where name is too long.\n\nstart_url                                     browser, native\n  The route the application opens at, and the entry route of a\n  native build. A canonical local route, such as \"/\".\n\nicons                                         browser, native\n  [{ \"src\": \"/icon-512.png\", \"sizes\": \"512x512\" }], local bundle\n  paths. A native build uses the largest raster icon; an SVG-only\n  manifest gets no native icon rather than a blurry one.\n\ndisplay, theme_color, background_color, ...           browser\n  Standard members for a browser's install, published as written.\n\ntac                                              Tac services\n  Tac's public configuration (ADR 0034): any nested object, bound\n  with TAC_ names and tac. paths, so tac.api.url is TAC_API_URL.\n  Lowercase keys, and no secret-shaped names such as password.\n\ntac.application.id                                     native\n  Reverse-DNS bundle identifier, such as com.example.catalog.\n  Derived from the project folder when absent.\n\ntac.application.version                                native\n  A portable version, such as 1.4.0 (1.0.0 when absent).\n\ntac.application.window                                 native\n  width and height the window opens at (1024 by 768 unless set,\n  each 64 to 16384), minWidth and minHeight, and controls: which\n  window controls a service may use through WindowControls (close,\n  fullscreen, maximize, minimize, resize, title). None are granted\n  unless listed. titleBar \"integrated\" lets a macOS page reach the\n  top edge under the real window buttons (\"standard\" unless set;\n  other targets keep the standard bar and the build prints a\n  note), and titleBarButtonInset { \"leading\", \"top\" }, 0 to 200\n  points each, moves those buttons (see Window controls).\n\ntac.application.menus                           native desktop\n  Your items in the File, View and Help menus of a macOS, Linux\n  or Windows app: { \"help\": [{ \"id\": \"guide\", \"label\": \"Guide\",\n  \"route\": \"/guide\", \"shortcut\": { \"key\": \"g\", \"modifiers\":\n  [\"command\"] } }] }. Each item has a route (a static page) or an\n  action { \"service\", \"method\", \"event\" } on a Rust application\n  service. At most 64 items; iOS and Android refuse them (see\n  Native menus).\n\ntac.nativeCapabilities                                 native\n  [\"filePicker\"]: native capabilities a native service may use.\n  The only name today; without it the picker answers denied.\n\ntac.origin                                              build\n  The public address, such as https://example.com, without a path.\n  It turns on the built-in sitemap.xml and robots.txt.\n\ntac.scripts, tac.styles                                 build\n  Up to 8 local paths each, linked into every page. A style is\n  foundation CSS (colors, fonts, resets) unless styleSources says\n  it is a pinned vendor file (TY1403).\n\ntac.styleSources, tac.scriptSources                     build\n  Where each listed file comes from, keyed by its path:\n  { \"kind\": \"foundation\" } for your own style, or a pinned vendor\n  file with package, version, license and sha256 (styleSources\n  adds \"kind\": \"vendor\"). A vendor script must also be in\n  tac.scripts (TY1365). Tachyon publishes vendor files unchanged.\n\ntac.outgoing.hosts                                      build\n  Other hosts that page code may send requests to, such as\n  [\"api.example.com\", \"*.cdn.example\"]. The page's connect-src\n  allows only these; any other request host stops the build\n  (TY1326).\n\ntac.python                                              build\n  Exactly { \"runtime\": \"pyodide-314.0.7\", \"profile\": \"offline\" }\n  to run Python services; other values are refused. The build\n  copies the pinned Pyodide files from the Tachyon cache.\n\ntac.elements                                            build\n  Components to export as custom elements, such as\n  [\"shop-counter\"]: one module each in .tachyon/elements/.\n\ntac.cache                                               build\n  Service-worker rules: [{ \"path\": \"/api/*\", \"policy\":\n  \"network-first\" }]; cache-first, network-first or no-store.\n  They answer navigations, assets and Cached HTTPClient GETs.\n\ntac.metadata                                            build\n  defaults, and routes keyed by route: title, description,\n  canonical, image, siteName, lang, noindex.\n\ntac.sitemap                                             build\n  Values for a dynamic page route, read from a shared data file:\n  { \"/docs/_topic\": { \"data\": \"/shared/data/docs.json\",\n  \"values\": \"/order\" } }.\n\n"
         },
         {
           "heading": "server/application.json, field by field",
-          "body": "This file is the configuration of Yon, and the file itself is the yon namespace. Its members are yon.* paths with no root key, so server.port is yon.server.port. Tachyon reads server, datasource, redis, topics and outgoing: server.hosts lists the extra names that a loopback server answers (`TY1366`), server.proxies lists the reverse proxies whose forwarding headers count (see The client address and forwarding headers), server.environment lists the variables of `ty`'s environment that handler processes may see, as names or prefix patterns such as `HD_*` (see Environment variables for handlers), topics.directory names the folder of the topic logs (data/topics unless set), and outgoing.hosts lists the hosts that Yon code may send requests to, and every other host is refused when Tachyon builds and when it runs (`TY1326`). Every other member belongs to the application, which reads it with Setting or Settings. A profile (a set of settings for one environment) is a file server/application-<profile>.json that YON_PROFILE selects. It has the same shape and merges over the base file, so its values win over the base values. Secrets never go in this file. A password is a YON_ name in the .env file at the project root. The file refuses names that look like secrets and URLs that contain credentials. Tachyon also reads the migration settings `cohesion.check`, `duplication.check`, `dependencies.check`, `names.check`, `signatures.check`, `constants.check`, `visibility.check`, `types.check` (off until you set it to `true`) and `tests.check` (the test-case rule `TY1339`, see Test units): `false` turns that build rule off for Yon code while you migrate. `simplify.suggest` set to `false` hides the simpler-form suggestions for Yon code (see Simpler forms). `names.words` lists words of your domain that Yon names may use.",
-          "code": "server.host\n  The address ty serve and ty start bind; 127.0.0.1 unless set.\n  localhost or a name under .localhost (shop.localhost) binds\n  127.0.0.1 and prints the name. Anything but loopback also needs\n  --allow-non-loopback, and --host overrides it.\n\nserver.hosts\n  Extra names that a loopback server answers, such as\n  [\"preview.example.com\", \"*.tunnel.example\"]: names without\n  scheme, port or path. Localhost names, IP addresses and the\n  tac.origin host always work; other names get 403 (TY1366).\n\nserver.proxies\n  The reverse proxies whose forwarding headers count, as IP\n  addresses or CIDR ranges: [\"10.0.0.0/8\", \"192.0.2.10\"]. Empty\n  unless set, so ty replaces Forwarded, X-Forwarded-* and X-Real-IP\n  from every other peer with the real client address (ADR 0096).\n\nserver.environment\n  The variables of ty's environment that handlers may see, beyond\n  PATH, LANG, LC_ALL and TMPDIR: names or prefix patterns, such as\n  [\"HOME\", \"AWS_*\", \"HD_*\"]. Empty unless set. \"*\" and entries\n  that cover ty's own TAC_*, TACHYON_*, YON_* or proxy variables\n  are refused (TY2010).\n\nserver.port\n  The port, 0 to 65535; 8080 unless set. 0 picks a free port, and\n  --port overrides it.\n\ndatasource.driver\n  postgresql, mysql, mariadb, sqlserver, sqlite or fylo.\n\ndatasource.url\n  Where the database is, without credentials:\n  postgresql://db:5432/catalog, sqlite:///var/lib/catalog.db,\n  sqlite::memory:, or the absolute root of a FYLO store.\n\ndatasource.username\n  The database user, usually YON_DATASOURCE_USERNAME in .env beside\n  YON_DATASOURCE_PASSWORD, which only .env may hold. SQLite and FYLO\n  take neither.\n\ndatasource.tls.ca\n  Absolute path of a CA certificate to trust.\n\nredis.url\n  The Redis server: redis://, or rediss:// for TLS.\n\nredis.username\n  The Redis user, usually YON_REDIS_USERNAME in .env beside\n  YON_REDIS_PASSWORD, which only .env may hold.\n\ntopics.directory\n  The folder of the topic logs; data/topics unless set. A plain\n  path inside the project or an absolute path with no symbolic\n  link. Never inside .tachyon, which holds only generated files.\n\nanything else\n  The application's own settings. catalog.page.size is\n  yon.catalog.page.size, and YON_CATALOG_PAGE_SIZE names it in\n  Settings.\n\nLimits: keys are lowercase letters and digits; at most 128 keys,\n16 levels deep and 64 KiB per file. A tac section or a yon root key\nstops the build and says where it belongs.\n"
+          "body": "This file is the configuration of Yon, and the file itself is the yon namespace. Its members are yon.* paths with no root key, so server.port is yon.server.port. Tachyon reads server, datasource, redis, topics and outgoing. server takes only host, port, hosts, proxies and environment; with any other member of server the server does not start, and its message names the members it accepts. (server/packages/ is a folder for the native Go packages of Go Yon code, not a key; see Native Go packages.) server.hosts lists the extra names that a loopback server answers (`TY1366`), server.proxies lists the reverse proxies whose forwarding headers count (see The client address and forwarding headers), server.environment lists the variables of `ty`'s environment that handler processes may see, as names or prefix patterns such as `HD_*` (see Environment variables for handlers), topics.directory names the folder of the topic logs (data/topics unless set), and outgoing.hosts lists the hosts that Yon code may send requests to, and every other host is refused when Tachyon builds and when it runs (`TY1326`). Every other member belongs to the application, which reads it with Setting or Settings. A profile (a set of settings for one environment) is a file server/application-<profile>.json that YON_PROFILE selects. It has the same shape and merges over the base file, so its values win over the base values. Secrets never go in this file. A password is a YON_ name in the .env file at the project root. The file refuses names that look like secrets and URLs that contain credentials. Tachyon also reads the migration settings `cohesion.check`, `duplication.check`, `dependencies.check`, `names.check`, `signatures.check`, `constants.check`, `visibility.check`, `types.check` (off until you set it to `true`) and `tests.check` (the test-case rule `TY1339`, see Test units): `false` turns that build rule off for Yon code while you migrate. `simplify.suggest` set to `false` hides the simpler-form suggestions for Yon code (see Simpler forms). `implicitmembers.suggest` set to `true` shows the receiver suggestions for Yon code too (off by default). `names.words` lists words of your domain that Yon names may use.",
+          "code": "server.host\n  The address ty serve and ty start bind; 127.0.0.1 unless set.\n  localhost or a name under .localhost (shop.localhost) binds\n  127.0.0.1 and prints the name. Anything but loopback also needs\n  --allow-non-loopback, and --host overrides it.\n\nserver.hosts\n  Extra names that a loopback server answers, such as\n  [\"preview.example.com\", \"*.tunnel.example\"]: names without\n  scheme, port or path. Localhost names, IP addresses and the\n  tac.origin host always work; other names get 403 (TY1366).\n\nserver.proxies\n  The reverse proxies whose forwarding headers count, as IP\n  addresses or CIDR ranges: [\"10.0.0.0/8\", \"192.0.2.10\"]. Empty\n  unless set, so ty replaces Forwarded, X-Forwarded-* and X-Real-IP\n  from every other peer with the real client address (ADR 0096).\n\nserver.environment\n  The variables of ty's environment that handlers may see, beyond\n  PATH, LANG, LC_ALL and TMPDIR: names or prefix patterns, such as\n  [\"HOME\", \"AWS_*\", \"HD_*\"]. Empty unless set. \"*\" and entries\n  that cover ty's own TAC_*, TACHYON_*, YON_* or proxy variables\n  are refused (TY2010).\n\nserver.port\n  The port, 0 to 65535. ty serve and ty start use 8080 unless\n  set, ty preview uses 3000, and ty preview --static ignores it.\n  0 picks a free port, and --port overrides it.\n\ndatasource.driver\n  postgresql, mysql, mariadb, sqlserver, sqlite or fylo.\n\ndatasource.url\n  Where the database is, without credentials:\n  postgresql://db:5432/catalog, sqlite:///var/lib/catalog.db,\n  sqlite::memory:, or fylo:///absolute/root for a FYLO store\n  whose root folder already exists (a page reads at most the\n  first 10,000 matching documents).\n\ndatasource.username\n  The database user, usually YON_DATASOURCE_USERNAME in .env beside\n  YON_DATASOURCE_PASSWORD, which only .env may hold. SQLite and FYLO\n  take neither.\n\ndatasource.tls.ca\n  Absolute path of a CA certificate to trust.\n\nredis.url\n  The Redis server: redis://, or rediss:// for TLS.\n\nredis.username\n  The Redis user, usually YON_REDIS_USERNAME in .env beside\n  YON_REDIS_PASSWORD, which only .env may hold.\n\ntopics.directory\n  The folder of the topic logs; data/topics unless set. A plain\n  path inside the project or an absolute path with no symbolic\n  link. Never inside .tachyon, which holds only generated files.\n\nanything else\n  The application's own settings. catalog.page.size is\n  yon.catalog.page.size, and YON_CATALOG_PAGE_SIZE names it in\n  Settings.\n\nWith any other member of server, the server does not start.\n\nLimits: keys are lowercase letters and digits; at most 128 keys,\n16 levels deep and 64 KiB per file. A tac section or a yon root key\nstops the build and says where it belongs.\n"
         },
         {
           "heading": "Profiles, paths and which value wins",
-          "body": "When the Yon server starts, YON_PROFILE selects server/application-<profile>.json. Objects merge recursively (at every level of nesting). An array in the profile replaces the base array. Tachyon does not join the two arrays. For the server host and port, the source with the highest priority wins. From highest to lowest, the sources are: CLI --host and --port flags that you pass, the profile file, the base server/application.json, and the command defaults. So a flag that you pass overrides yon.server.host and yon.server.port. Values from the parent application environment no longer override configuration or provide secrets. .env names map to paths by underscores. They are not interpolated (Tachyon does not replace references inside them). They cannot overwrite configuration paths or the runtime and isolation policy. Empty path segments, duplicate names, and a name that is both a scalar (a single value) and an object fail. Their errors are redacted, which means they hide the values. To expose the server beyond the local machine (non-loopback), you still need --allow-non-loopback. In production, a secret manager may mount the .env file. Tac builds read only the tac member of client/manifest.json. No profile is merged over it.",
+          "body": "When the Yon server starts, YON_PROFILE selects server/application-<profile>.json. Objects merge recursively (at every level of nesting). An array in the profile replaces the base array. Tachyon does not join the two arrays. For the server host and port, the source with the highest priority wins. From highest to lowest, the sources are: CLI --host and --port flags that you pass, the profile file, the base server/application.json, and the command defaults. So a flag that you pass overrides yon.server.host and yon.server.port. Values from the parent application environment no longer override configuration or provide secrets. .env names map to paths by underscores. They are not interpolated (Tachyon does not replace references inside them). They cannot overwrite configuration paths. A .env file that sets a name Tachyon keeps for its own transport, profile, endpoint, runtime or isolation policy is refused: YON_PROFILE, YON_HOST, YON_HOSTNAME, YON_PORT, YON_ISOLATION, YON_SKIP_BUNDLE, YON_APPLICATION_JSON, YON_RESOURCE_ENDPOINT, YON_RESOURCE_TOKEN, YON_HANDLER_PROTOCOL, YON_JAVASCRIPT_RUNTIME, YON_PYTHON_RUNTIME, YON_RUBY_RUNTIME, YON_SERVER, and every name that starts with YON_SERVER_ or YON_FIRECRACKER_. Empty path segments, duplicate names, and a name that is both a scalar (a single value) and an object fail. Their errors are redacted, which means they hide the values. To expose the server beyond the local machine (non-loopback), you still need --allow-non-loopback. In production, a secret manager may mount the .env file. Tac builds read only the tac member of client/manifest.json. No profile is merged over it.",
           "code": "YON_PROFILE=production ty serve --port 9001\n\n# server/application-production.json\n{\n  \"server\": { \"port\": 9000 },\n  \"catalog\": { \"page\": { \"size\": 50 } }\n}"
         },
         {
@@ -4241,7 +4241,7 @@
         },
         {
           "heading": "Swift: public configuration in native Tac",
-          "body": "Swift is native Tac on macOS and iOS. It is not a Yon endpoint language. Only the public tac configuration may enter client code. The build publishes client/manifest.json, including its tac member, at /manifest.webmanifest. Browser and native web surfaces can fetch it. Native services use a loader that they own, or public input. This short Swift service binds a public snapshot. The Settings and Setting classes are structs in `client/models/` (ADR 0092), and the service carries Service. It does not touch the private Yon configuration or .env. Tachyon does not assign fields automatically, and there is no Tac dependency container.",
+          "body": "Swift runs as native Tac on macOS and iOS, and as WebAssembly in the browser. It is not a Yon language. Only the public tac configuration may enter client code. The build publishes client/manifest.json, including its tac member, at /manifest.webmanifest. In the browser, a Swift service loads it through an HTTPClient (see Public Tac output and private Yon lifetime). A native service uses a loader that it owns, or public input. This short Swift service binds a public snapshot that it gets as input. The Settings and Setting classes are structs in `client/models/` (ADR 0092), and the service carries Service. It does not touch the private Yon configuration or .env. Nothing is injected here: the service binds the snapshot in its init.",
           "files": [
             {
               "name": "client/services/SettingsService.swift",
@@ -4268,16 +4268,7 @@
         },
         {
           "heading": "Public Tac output and private Yon lifetime",
-          "notApplicable": [
-            "cs",
-            "fs",
-            "kt",
-            "rs",
-            "go",
-            "dart",
-            "swift"
-          ],
-          "body": "The build checks the tac member of client/manifest.json. It publishes the manifest at /manifest.webmanifest for web bundles and staged native bundles. A browser also finds it there to install the app. The manifest can have other members beside tac, and it still binds without changes. Only the tac member is configuration. The build never opens .env, never resolves production secrets and never publishes yon. Browser services load this public JSON through an HTTPClient and bind it themselves with Setting. JavaScript and TypeScript inject the client, and Tachyon's browser transport sends the request. The other languages build the client, and the HTTP adapter of the Setup with the same stem (ApplicationSetup) answers it, as in Outgoing HTTP: Tac; here it answers with the public tac member. Native services still load it themselves with their SDK, and they own it. The browser HTTPClient transport is network-only (no-store) unless a read is marked Cached. It is not an offline cache loader. A change to client/manifest.json causes a development reload for Tac. A change to Yon settings or .env secrets needs a server restart. The deployment controls runtime executables, isolation policy, environment allowlists and capabilities. They are not options in the application files. YON_APPLICATION_JSON is reserved output of the supervisor. An operator cannot use it as an override. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308. C#, F#, Kotlin, Rust, Go, Dart and Swift have no tab here yet: their Tac metadata adapter is not ready (ADR 0092), so the build refuses a client model with Setting in these languages with TY1310.",
+          "body": "The build checks the tac member of client/manifest.json. It publishes the whole manifest at /manifest.webmanifest for web bundles and staged native bundles. A browser also finds it there to install the app. The manifest can have other members beside tac, and it still binds without changes. Only the tac member is configuration. Bind only the members that your application adds, such as tac.api.url here. Tachyon's own members, such as application, scripts, budgets or browserApis, are settings for the build, not values for services. The build never opens .env, never resolves production secrets and never publishes the Yon configuration. A browser service loads the published manifest through an HTTPClient and binds it with Behaviors.values and the PublicSettings model in client/models, whose Setting reads tac.api.url. Every compiled Tac language can read such a model (ADR 0092). In this example the service loads the manifest when you press the button. JavaScript, TypeScript, Dart, Rust, Go and Kotlin inject the client with Needs. C# and F# build it with new ApplicationClient() and ApplicationClient(). In these languages Tachyon's browser transport sends the GET request to the server of the page: the compiled languages need an ApplicationSetup, and it gives the client no adapter. Swift, Java and Ruby have no browser transport yet. Their service builds the client, and the HTTP adapter of ApplicationSetup answers it in the page with the public tac member, as in Outgoing HTTP: Tac. A native service loads the manifest itself with its SDK, and it owns that loader (see Swift: public configuration in native Tac). The browser transport is network-only (no-store) unless a read is marked Cached. It is not an offline cache loader. A change to client/manifest.json causes a development reload for Tac. A change to Yon settings or .env secrets needs a server restart. The deployment controls runtime executables, isolation policy, environment allowlists and capabilities. They are not options in the application files. YON_APPLICATION_JSON is reserved output of the supervisor. An operator cannot use it as an override. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308.",
           "axis": "language",
           "files": [
             {
@@ -4290,7 +4281,7 @@
             },
             {
               "name": "client/components/settings/panel/tac.html",
-              "code": "<main><p>API base: {settings.api}</p></main>\n"
+              "code": "<main>\n  <button on:click=\"settings.load()\">Load settings</button>\n  <p>API base: {settings.api}</p>\n</main>\n"
             },
             {
               "name": "client/remotes/ApplicationClient.js",
@@ -4298,7 +4289,7 @@
             },
             {
               "name": "client/services/SettingsService.js",
-              "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  api = '/api';\n  @OnStart\n  async initialize() {\n    const application = /** @type {BehaviorJsonObject} */ (await this.applicationClient.load());\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
+              "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  api = '';\n  async load() {\n    const application = /** @type {BehaviorJsonObject} */ (await this.applicationClient.load());\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
             },
             {
               "name": "client/models/PublicSettings.js",
@@ -4310,11 +4301,123 @@
             },
             {
               "name": "client/services/SettingsService.ts",
-              "code": "@Service\nexport default class SettingsService {\n  @Needs\n  readonly applicationClient!: ApplicationClient;\n  api = '/api';\n  @OnStart\n  async initialize() {\n    const application = await this.applicationClient.load() as BehaviorJsonObject;\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
+              "code": "@Service\nexport default class SettingsService {\n  @Needs\n  readonly applicationClient!: ApplicationClient;\n  api = '';\n  async load() {\n    const application = await this.applicationClient.load() as BehaviorJsonObject;\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
             },
             {
               "name": "client/models/PublicSettings.ts",
               "code": "export default class PublicSettings {\n  @Setting(\"${tac.api.url:/api}\")\n  api!: string;\n}\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.dart",
+              "code": "@HTTPClient\nabstract interface class ApplicationClient {\n  @GetRequest(\"/manifest.webmanifest\")\n  Future<Object?> load();\n}\n"
+            },
+            {
+              "name": "client/services/SettingsService.dart",
+              "code": "import 'models/PublicSettings.dart';\n\n@Service\nclass SettingsService {\n  @Needs\n  final ApplicationClient applicationClient;\n  String api = '';\n\n  Future<void> load() async {\n    final application = await applicationClient.load();\n    final settings = BehaviorJson.members(Behaviors.values(PublicSettings, application));\n    api = settings['api'] as String;\n  }\n}\n"
+            },
+            {
+              "name": "client/models/PublicSettings.dart",
+              "code": "class PublicSettings {\n  @Setting(\"${tac.api.url:/api}\")\n  String api = '';\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.dart",
+              "code": "@Setup\nclass ApplicationSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.rs",
+              "code": "#[HTTPClient]\ntrait ApplicationClient {\n    #[GetRequest(\"/manifest.webmanifest\")]\n    async fn load(&self) -> BehaviorResult<BehaviorValue>;\n}\n"
+            },
+            {
+              "name": "client/services/SettingsService.rs",
+              "code": "use crate::models::PublicSettings;\n\n#[Service]\npub struct SettingsService {\n    #[Needs]\n    application_client: std::sync::Arc<ApplicationClient>,\n    pub api: String,\n}\n\nimpl SettingsService {\n    pub async fn load(&mut self) -> BehaviorResult<()> {\n        let application = self.application_client.load().await?;\n        let settings = Behaviors::values::<PublicSettings>(&application)?;\n        self.api = Self::text_of(settings.get(\"api\"));\n        Ok(())\n    }\n\n    fn text_of(value: Option<&BehaviorValue>) -> String {\n        match value {\n            Some(BehaviorValue::String(text)) => text.clone(),\n            _ => String::new(),\n        }\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PublicSettings.rs",
+              "code": "#[allow(dead_code)]\npub struct PublicSettings {\n    #[Setting(\"${tac.api.url:/api}\")]\n    pub api: String,\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.rs",
+              "code": "#[Setup]\nstruct ApplicationSetup {}\nimpl ApplicationSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.go",
+              "code": "// @HTTPClient\ntype ApplicationClient interface {\n\t// @GetRequest(\"/manifest.webmanifest\")\n\tLoad() (BehaviorValue, error)\n}\n"
+            },
+            {
+              "name": "client/services/SettingsService.go",
+              "code": "import \"errors\"\n\n// @Service\ntype SettingsService struct {\n\t// @Needs\n\tapplicationClient *ApplicationClient\n\tApi               string\n}\n\nfunc (settings *SettingsService) Load() error {\n\tapplication, loadErr := settings.applicationClient.Load()\n\tvalues, valuesErr := BehaviorsValues[PublicSettings](application)\n\tsettings.Api = settings.text(values, \"api\")\n\treturn errors.Join(loadErr, valuesErr)\n}\n\nfunc (settings *SettingsService) text(value BehaviorValue, key string) string {\n\tfields, _ := value.(map[string]any)\n\ttext, _ := fields[key].(string)\n\treturn text\n}\n"
+            },
+            {
+              "name": "client/models/PublicSettings.go",
+              "code": "type PublicSettings struct {\n\t// @Setting(\"${tac.api.url:/api}\")\n\tapi string\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.go",
+              "code": "// @Setup\ntype ApplicationSetup struct{}\n\nfunc (ApplicationSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.kt",
+              "code": "@HTTPClient\ninterface ApplicationClient {\n    @GetRequest(\"/manifest.webmanifest\")\n    suspend fun load(): Any?\n}\n"
+            },
+            {
+              "name": "client/services/SettingsService.kt",
+              "code": "@Service\nclass SettingsService {\n    @Needs\n    private val applicationClient: ApplicationClient\n    var api: String = \"\"\n\n    suspend fun load() {\n        val application = applicationClient.load() as Map<*, *>\n        api = Behaviors.values(\"PublicSettings\", application)[\"api\"] as String\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PublicSettings.kt",
+              "code": "class PublicSettings {\n    @Setting(\"${tac.api.url:/api}\")\n    var api: String = \"\"\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.kt",
+              "code": "@Setup\nclass ApplicationSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.cs",
+              "code": "[HTTPClient]\ninterface ApplicationClient {\n    [GetRequest(\"/manifest.webmanifest\")]\n    System.Threading.Tasks.Task<BehaviorJSON> Load();\n}\n"
+            },
+            {
+              "name": "client/services/SettingsService.cs",
+              "code": "using Models;\n\n[Service]\npublic class SettingsService {\n    readonly ApplicationClient _applicationClient = new ApplicationClient();\n    public string api = \"\";\n\n    public async System.Threading.Tasks.Task Load() {\n        var application = await _applicationClient.Load();\n        api = Behaviors.values(typeof(PublicSettings), application).Get(\"api\").Text;\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PublicSettings.cs",
+              "code": "public sealed class PublicSettings {\n    [Setting(\"${tac.api.url:/api}\")]\n    public string api = \"\";\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.cs",
+              "code": "[Setup]\npublic sealed class ApplicationSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) {\n        execution.Check();\n        return new BehaviorAdapters();\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.fs",
+              "code": "open System.Threading.Tasks\n\n[<HTTPClient>]\ntype ApplicationClient =\n    [<GetRequest(\"/manifest.webmanifest\")>]\n    abstract Load: unit -> Task<BehaviorJSON>\n"
+            },
+            {
+              "name": "client/services/SettingsService.fs",
+              "code": "open System.Threading.Tasks\nopen Models\n\n[<Service>]\ntype SettingsService() =\n    let applicationClient = ApplicationClient()\n    member val api : string = \"\" with get, set\n\n    member this.Load() : Task =\n        task {\n            let! application = applicationClient.Load()\n            this.api <- Behaviors.values(typeof<PublicSettings>, application).Get(\"api\").Text\n        }\n"
+            },
+            {
+              "name": "client/models/PublicSettings.fs",
+              "code": "type PublicSettings() =\n    [<Setting(\"${tac.api.url:/api}\")>]\n    member val api : string = \"\" with get, set\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.fs",
+              "code": "[<Setup>]\ntype ApplicationSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        execution.Check()\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.swift",
+              "code": "@HTTPClient\nprotocol ApplicationClient {\n    @GetRequest(\"/manifest.webmanifest\")\n    func load() async throws -> BehaviorJSON\n}\n"
+            },
+            {
+              "name": "client/services/SettingsService.swift",
+              "code": "@Service\nfinal class SettingsService {\n    private let applicationClient: ApplicationClient = ApplicationClient()\n    var api: String = \"\"\n\n    func load() async throws {\n        let application = try await applicationClient.load()\n        api = try Behaviors.values(PublicSettings.self, application).get(\"api\").text\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PublicSettings.swift",
+              "code": "struct PublicSettings {\n    @Setting(\"${tac.api.url:/api}\")\n    var api: String = \"\"\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.swift",
+              "code": "@Setup\nfinal class ApplicationSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        var adapters = BehaviorAdapters()\n        adapters.http[\"application\"] = BehaviorHTTPAdapter { request, execution in\n            return try BehaviorJSON.parse(\"{\\\"tac\\\":{\\\"api\\\":{\\\"url\\\":\\\"/api\\\"}}}\")\n        }\n        return adapters\n    }\n}\n"
             },
             {
               "name": "client/remotes/ApplicationClient.java",
@@ -4322,7 +4425,7 @@
             },
             {
               "name": "client/services/SettingsService.java",
-              "code": "import java.util.Map;\n\n@Service\nclass SettingsService {\n    private final ApplicationClient applicationClient = new ApplicationClient();\n    String api = \"/api\";\n\n    @OnStart\n    void initialize() {\n        Map<String, Object> application = (Map<String, Object>) applicationClient.load();\n        api = (String) Behaviors.values(\"PublicSettings\", application).get(\"api\");\n    }\n}\n"
+              "code": "import java.util.Map;\n\n@Service\nclass SettingsService {\n    private final ApplicationClient applicationClient = new ApplicationClient();\n    String api = \"\";\n\n    void load() {\n        Map<String, Object> application = (Map<String, Object>) applicationClient.load();\n        api = (String) Behaviors.values(\"PublicSettings\", application).get(\"api\");\n    }\n}\n"
             },
             {
               "name": "client/models/PublicSettings.java",
@@ -4338,7 +4441,7 @@
             },
             {
               "name": "client/services/SettingsService.rb",
-              "code": "#[Service]\nclass SettingsService\n  # @return [String]\n  attr_reader :api\n\n  def initialize\n    @application_client = ApplicationClient.new\n    @api = \"/api\"\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    application = @application_client.load\n    @api = Behaviors.values(PublicSettings, application)[\"api\"]\n  end\nend\n"
+              "code": "#[Service]\nclass SettingsService\n  # @return [String]\n  attr_reader :api\n\n  def initialize\n    @application_client = ApplicationClient.new\n    @api = \"\"\n  end\n\n  # @return [void]\n  def load\n    application = @application_client.load\n    @api = Behaviors.values(PublicSettings, application)[\"api\"]\n  end\nend\n"
             },
             {
               "name": "client/models/PublicSettings.rb",
@@ -8878,7 +8981,7 @@
     },
     "cookbook": {
       "title": "Cookbook",
-      "summary": "Practical recipes for building Tachyon apps with a frontend-first workflow (you build the client first). This website has only a frontend, so you can try these patterns with Tac services before a Yon server exists.",
+      "summary": "Practical recipes for building Tachyon apps with a frontend-first workflow (you build the client first). Most recipes need only client/. When a recipe needs a server, it shows the smallest controller that answers it.",
       "sections": [
         {
           "heading": "Frontend-only prototype",
@@ -8887,7 +8990,7 @@
         },
         {
           "heading": "Signal-driven UI",
-          "body": "Signals (events that a service publishes) replace event code that you connect by hand between services. A form declares an applicationEventPublisher and publishes a collection change through it. Panels that care about the change register with OnEvent. They do not need to know who sent it. Both services inject the single UsersClient that Tachyon discovers automatically in client/remotes. Each service owns its cancellation lifetime (the signal that stops its work). HTTPClient handles the JSON request and response. After a successful save, the form publishes a UsersChanged model, and the list listens for that model. Choose JavaScript, TypeScript or Ruby. In JavaScript and TypeScript, HTTPClient is the browser transport. Dart, C#, F#, Rust, Go and Kotlin clients use the same browser transport when their Setup has no adapter. A Ruby service builds its UsersClient, and the client answers through the http adapter of UsersSetup, here a list kept in memory. Both Ruby services share that one list, because Tachyon configures a Setup once per page, like a Spring @Configuration. The other compiled languages still give each service its own copy of a Setup, so their tabs come later. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308.",
+          "body": "Signals (events that a service publishes) replace event code that you connect by hand between services. The form saves a name through UsersClient and publishes the answer, a UserSaved model from client/models, through its applicationEventPublisher. The list registers a listener for UserSaved with OnEvent and adds the name to its list. The two services do not know each other, and you can add more listeners without changing the form. The listener only changes a field. It does not call the server, because the event already carries the saved name. This keeps the listener a short synchronous method, which every language accepts: a Rust event or lifecycle method that is async stops the build with TY1405. The server half is one small JavaScript controller in server/controllers: POST /users answers the saved user. A Yon handler keeps nothing in memory between requests, so a real app stores the name first, for example in a database. A controller in any other Yon language answers in the same way (see Controllers). JavaScript, TypeScript, Dart, Rust, Go, C#, F# and Kotlin send the request through Tachyon's browser transport to the server of the page. In the compiled languages of this group, UsersSetup gives the client no adapter. Swift, Java and Ruby have no browser transport yet. Their UsersSetup gives the client an HTTP adapter that answers in the page with the same shape, so these tabs work before the server exists. Each compiled browser service still gets its own copy of a Setup (see Client classes that call the server), so only the form uses the client here. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308.",
           "axis": "language",
           "files": [
             {
@@ -8896,69 +8999,229 @@
             },
             {
               "name": "client/components/users/form/tac.html",
-              "code": "<form>\n  <input aria-label=\"Name\" :value=\"userForm.form.name\" on:input=\"userForm.typed($event.target.value)\" />\n  <button type=\"button\" on:click=\"userForm.save()\">Save</button>\n</form>\n"
+              "code": "<form>\n  <input aria-label=\"Name\" :value=\"userForm.name\" on:input=\"userForm.name = $event.target.value\" />\n  <button type=\"button\" on:click=\"userForm.save()\">Save</button>\n</form>\n"
             },
             {
               "name": "client/components/users/list/tac.html",
-              "code": "<ul>\n  <loop :for=\"user of userList.users\"><li>{user.name}</li></loop>\n</ul>\n"
+              "code": "<ul>\n  <loop :for=\"name of userList.names\"><li>{name}</li></loop>\n</ul>\n"
+            },
+            {
+              "name": "server/controllers/UsersController.js",
+              "code": "@RequestRoute(\"/users\")\n@Public\nexport default class UsersController {\n  /**\n   * @param {string} name\n   * @returns {{ name: string }}\n   */\n  @PostRoute\n  postUser(@FromBody name) {\n    return { name }\n  }\n}\n"
             },
             {
               "name": "client/remotes/UsersClient.js",
-              "code": "@HTTPClient({\"adapter\":\"users\"})\nexport default class UsersClient {\n  /** @returns {Promise<{ name: string }[] | void>} */\n  @GetRequest(\"/users\")\n  async list() {}\n  /** @param {{ name: string }} form */\n  @PostRequest(\"/users\")\n  async save(@RequestBody form) {}\n}"
+              "code": "/** @import { UserSaved } from '/models/UserSaved.ts' */\n@HTTPClient\nexport default class UsersClient {\n  /**\n   * @param {string} name\n   * @returns {Promise<UserSaved | void>}\n   */\n  @PostRequest(\"/users\")\n  async save(@RequestBody name) {}\n}\n"
             },
             {
               "name": "client/services/UserFormService.js",
-              "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserFormService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  /** @type {{ name: string }} */\n  form = { name: '' };\n  /**\n   * @param {Event} _event\n   * @param {string} name\n   */\n  typed(_event, name) { this.form = { ...this.form, name }; }\n  async save() {\n    await this.usersClient.save(this.form);\n    /** @type {UsersChanged} */\n    const changed = { saved: true };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}"
+              "code": "/** @import { UserSaved } from '/models/UserSaved.ts' */\n@Service\nexport default class UserFormService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  name = '';\n  async save() {\n    /** @type {UserSaved} */\n    const saved = /** @type {UserSaved} */ (await this.usersClient.save(this.name));\n    this.applicationEventPublisher.publishEvent(saved);\n  }\n}\n"
             },
             {
               "name": "client/services/UserListService.js",
-              "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserListService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {{ name: string }[]} */\n  users = [];\n  @OnStart\n  async initialize() { await this._refresh(); }\n  /** @param {UsersChanged} changed */\n  @OnEvent\n  async usersChanged(changed) { await this._refreshWhenSaved(changed); }\n  async _refresh() { this.users = /** @type {{ name: string }[]} */ (await this.usersClient.list()); }\n  /** @param {UsersChanged} changed */\n  async _refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }\n}"
+              "code": "/** @import { UserSaved } from '/models/UserSaved.ts' */\n@Service\nexport default class UserListService {\n  /** @type {string[]} */\n  names = [];\n  /** @param {UserSaved} saved */\n  @OnEvent\n  userSaved(saved) { this.names = [...this.names, saved.name]; }\n}\n"
             },
             {
               "name": "client/remotes/UsersClient.ts",
-              "code": "@HTTPClient({\"adapter\":\"users\"})\nexport default class UsersClient {\n  @GetRequest(\"/users\")\n  async list(): Promise<BehaviorJsonValue | void> {}\n  @PostRequest(\"/users\")\n  async save(@RequestBody form: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}"
+              "code": "import type { UserSaved } from '/models/UserSaved.ts';\n\n@HTTPClient\nexport default class UsersClient {\n  @PostRequest(\"/users\")\n  async save(@RequestBody name: string): Promise<UserSaved | void> {}\n}\n"
             },
             {
               "name": "client/services/UserFormService.ts",
-              "code": "import type { UsersChanged } from '/models/UsersChanged.ts';\n\n@Service\nexport default class UserFormService {\n  @Needs\n  readonly usersClient!: UsersClient;\n  applicationEventPublisher!: ApplicationEventPublisher;\n  form = { name: '' };\n  typed(_event: Event, name: string) { this.form = { ...this.form, name }; }\n  async save() {\n    await this.usersClient.save(this.form);\n    const changed: UsersChanged = { saved: true };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}"
+              "code": "import type { UserSaved } from '/models/UserSaved.ts';\n\n@Service\nexport default class UserFormService {\n  @Needs\n  readonly usersClient!: UsersClient;\n  applicationEventPublisher!: ApplicationEventPublisher;\n  name = '';\n  async save() {\n    const saved: UserSaved = await this.usersClient.save(this.name) as UserSaved;\n    this.applicationEventPublisher.publishEvent(saved);\n  }\n}\n"
             },
             {
               "name": "client/services/UserListService.ts",
-              "code": "import type { UsersChanged } from '/models/UsersChanged.ts';\n\n@Service\nexport default class UserListService {\n  @Needs\n  readonly usersClient!: UsersClient;\n  users: BehaviorJsonValue = [];\n  @OnStart\n  async initialize() { await this.refresh(); }\n  @OnEvent\n  async usersChanged(changed: UsersChanged) { await this.refreshWhenSaved(changed); }\n  private async refresh() { this.users = await this.usersClient.list() as BehaviorJsonValue; }\n  private async refreshWhenSaved(changed: UsersChanged) { if (changed.saved) await this.refresh(); }\n}"
+              "code": "import type { UserSaved } from '/models/UserSaved.ts';\n\n@Service\nexport default class UserListService {\n  names: string[] = [];\n  @OnEvent\n  userSaved(saved: UserSaved) { this.names = [...this.names, saved.name]; }\n}\n"
             },
             {
-              "name": "client/models/UsersChanged.ts",
-              "code": "export interface UsersChanged {\n  saved: boolean\n}\n"
+              "name": "client/models/UserSaved.ts",
+              "code": "export interface UserSaved {\n  name: string\n}\n"
+            },
+            {
+              "name": "client/remotes/UsersClient.dart",
+              "code": "@HTTPClient\nabstract interface class UsersClient {\n  @PostRequest(\"/users\")\n  Future<UserSaved> save(@RequestBody String name);\n}\n"
+            },
+            {
+              "name": "client/services/UserFormService.dart",
+              "code": "import 'models/UserSaved.dart';\n\n@Service\nclass UserFormService {\n  @Needs\n  final UsersClient usersClient;\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n  String name = '';\n\n  Future<void> save() async {\n    final UserSaved saved = await usersClient.save(name);\n    applicationEventPublisher.publishEvent(saved, false);\n  }\n}\n"
+            },
+            {
+              "name": "client/services/UserListService.dart",
+              "code": "import 'models/UserSaved.dart';\n\n@Service\nclass UserListService {\n  List<String> names = [];\n\n  @OnEvent\n  void userSaved(UserSaved saved) {\n    names = [...names, saved.name];\n  }\n}\n"
+            },
+            {
+              "name": "client/models/UserSaved.dart",
+              "code": "class UserSaved {\n  final String name;\n\n  const UserSaved(this.name);\n}\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.dart",
+              "code": "@Setup\nclass UsersSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "client/remotes/UsersClient.rs",
+              "code": "use crate::models::UserSaved;\n\n#[HTTPClient]\ntrait UsersClient {\n    #[PostRequest(\"/users\")]\n    async fn save(&self, #[RequestBody] name: &str) -> BehaviorResult<UserSaved>;\n}\n"
+            },
+            {
+              "name": "client/services/UserFormService.rs",
+              "code": "#[Service]\npub struct UserFormService {\n    #[Needs]\n    users_client: std::sync::Arc<UsersClient>,\n    application_event_publisher: ApplicationEventPublisher,\n    pub name: String,\n}\n\nimpl UserFormService {\n    pub async fn save(&mut self) -> BehaviorResult<()> {\n        let saved = self.users_client.save(&self.name).await?;\n        self.application_event_publisher.publish_event(saved, false);\n        Ok(())\n    }\n}\n"
+            },
+            {
+              "name": "client/services/UserListService.rs",
+              "code": "use crate::models::UserSaved;\n\n#[Service]\n#[derive(Default)]\npub struct UserListService {\n    pub names: Vec<String>,\n}\n\nimpl UserListService {\n    #[OnEvent]\n    fn user_saved(&mut self, saved: UserSaved) {\n        self.names.push(saved.name);\n    }\n}\n"
+            },
+            {
+              "name": "client/models/UserSaved.rs",
+              "code": "#[derive(Clone, Debug)]\npub struct UserSaved {\n    pub name: String,\n}\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.rs",
+              "code": "#[Setup]\nstruct UsersSetup {}\nimpl UsersSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/UsersClient.go",
+              "code": "// @HTTPClient\ntype UsersClient interface {\n\t// @PostRequest(\"/users\")\n\tSave(\n\t\t// @RequestBody\n\t\tname string,\n\t) (UserSaved, error)\n}\n"
+            },
+            {
+              "name": "client/services/UserFormService.go",
+              "code": "// @Service\ntype UserFormService struct {\n\t// @Needs\n\tusersClient               *UsersClient\n\tapplicationEventPublisher ApplicationEventPublisher\n\tName                      string\n}\n\nfunc (form *UserFormService) Save() error {\n\tsaved, err := form.usersClient.Save(form.Name)\n\tform.applicationEventPublisher.PublishEvent(saved, false)\n\treturn err\n}\n"
+            },
+            {
+              "name": "client/services/UserListService.go",
+              "code": "// @Service\ntype UserListService struct {\n\tNames []string\n}\n\n// @OnEvent\nfunc (list *UserListService) UserSaved(saved UserSaved) {\n\tlist.Names = append(list.Names, saved.Name)\n}\n"
+            },
+            {
+              "name": "client/models/UserSaved.go",
+              "code": "type UserSaved struct {\n\tName string `json:\"name\"`\n}\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.go",
+              "code": "// @Setup\ntype UsersSetup struct{}\n\nfunc (UsersSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+            },
+            {
+              "name": "client/remotes/UsersClient.kt",
+              "code": "import models.UserSaved\n\n@HTTPClient\ninterface UsersClient {\n    @PostRequest(\"/users\")\n    suspend fun save(@RequestBody name: String): UserSaved\n}\n"
+            },
+            {
+              "name": "client/services/UserFormService.kt",
+              "code": "import models.UserSaved\n\n@Service\nclass UserFormService {\n    @Needs\n    private val usersClient: UsersClient\n    val applicationEventPublisher: ApplicationEventPublisher\n    var name: String = \"\"\n\n    suspend fun save() {\n        val saved: UserSaved = usersClient.save(name)\n        applicationEventPublisher.publishEvent(saved, false)\n    }\n}\n"
+            },
+            {
+              "name": "client/services/UserListService.kt",
+              "code": "import models.UserSaved\n\n@Service\nclass UserListService {\n    var names: List<String> = emptyList()\n\n    @OnEvent\n    fun userSaved(saved: UserSaved) { names = names + saved.name }\n}\n"
+            },
+            {
+              "name": "client/models/UserSaved.kt",
+              "code": "data class UserSaved(val name: String)\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.kt",
+              "code": "@Setup\nclass UsersSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/UsersClient.cs",
+              "code": "[HTTPClient]\npublic interface UsersClient {\n    [PostRequest(\"/users\")]\n    System.Threading.Tasks.Task<Models.UserSaved> Save([RequestBody] string name);\n}\n"
+            },
+            {
+              "name": "client/services/UserFormService.cs",
+              "code": "using Models;\n\n[Service]\npublic sealed class UserFormService {\n    [Needs]\n    private readonly UsersClient _usersClient;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n    public string Name = \"\";\n\n    public async System.Threading.Tasks.Task Save() {\n        UserSaved saved = await _usersClient.Save(Name);\n        applicationEventPublisher.PublishEvent(saved, false);\n    }\n}\n"
+            },
+            {
+              "name": "client/services/UserListService.cs",
+              "code": "using Models;\n\n[Service]\npublic class UserListService {\n    public List<string> Names = new List<string>();\n\n    [OnEvent]\n    public void UserSaved(UserSaved saved) { Names.Add(saved.Name); }\n}\n"
+            },
+            {
+              "name": "client/models/UserSaved.cs",
+              "code": "public record UserSaved(string Name);\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.cs",
+              "code": "[Setup]\npublic sealed class UsersSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) {\n        execution.Check();\n        return new BehaviorAdapters();\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/UsersClient.fs",
+              "code": "open System.Threading.Tasks\n\n[<HTTPClient>]\ntype UsersClient =\n    [<PostRequest(\"/users\")>]\n    abstract Save: [<RequestBody>] name: string -> Task<BehaviorJSON>\n"
+            },
+            {
+              "name": "client/services/UserFormService.fs",
+              "code": "open System.Threading.Tasks\nopen Models\n\n[<Service>]\ntype UserFormService(applicationEventPublisher: ApplicationEventPublisher) =\n    let usersClient = UsersClient()\n    member val Name = \"\" with get, set\n\n    member this.Save() : Task =\n        task {\n            let! answer = usersClient.Save(this.Name)\n            applicationEventPublisher.PublishEvent({ Name = answer.Get(\"name\").Text }, false)\n        }\n"
+            },
+            {
+              "name": "client/services/UserListService.fs",
+              "code": "open Models\n\n[<Service>]\ntype UserListService() =\n    member val Names : string[] = [||] with get, set\n\n    [<OnEvent>]\n    member this.UserSaved(saved: UserSaved) : unit =\n        this.Names <- Array.append this.Names [| saved.Name |]\n"
+            },
+            {
+              "name": "client/models/UserSaved.fs",
+              "code": "type UserSaved = { Name: string }\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.fs",
+              "code": "[<Setup>]\ntype UsersSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        execution.Check()\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "client/remotes/UsersClient.swift",
+              "code": "@HTTPClient\nprotocol UsersClient {\n    @PostRequest(\"/users\")\n    func save(@RequestBody name: BehaviorJSON) async throws -> BehaviorJSON\n}\n"
+            },
+            {
+              "name": "client/services/UserFormService.swift",
+              "code": "@Service\nfinal class UserFormService {\n    private let usersClient: UsersClient = UsersClient()\n    let applicationEventPublisher: ApplicationEventPublisher\n    var name: String = \"\"\n\n    func save() async throws {\n        let answer = try await usersClient.save(name: .string(name))\n        applicationEventPublisher.publishEvent(UserSaved(name: try answer.get(\"name\").text), false)\n    }\n}\n"
+            },
+            {
+              "name": "client/services/UserListService.swift",
+              "code": "@Service\nfinal class UserListService {\n    var names: [String] = []\n\n    @OnEvent\n    func userSaved(_ saved: UserSaved) { names.append(saved.name) }\n}\n"
+            },
+            {
+              "name": "client/models/UserSaved.swift",
+              "code": "struct UserSaved {\n    let name: String\n}\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.swift",
+              "code": "@Setup\nfinal class UsersSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        var adapters = BehaviorAdapters()\n        adapters.http[\"users\"] = BehaviorHTTPAdapter { request, execution in\n            return .object([\"name\": request.get(\"body\")])\n        }\n        return adapters\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/UsersClient.java",
+              "code": "@HTTPClient\ninterface UsersClient {\n    @PostRequest(\"/users\")\n    Object save(@RequestBody Object name);\n}\n"
+            },
+            {
+              "name": "client/services/UserFormService.java",
+              "code": "import java.util.Map;\nimport models.UserSaved;\n\n@Service\nclass UserFormService {\n    private final UsersClient usersClient = new UsersClient();\n    ApplicationEventPublisher applicationEventPublisher;\n    String name = \"\";\n\n    void save() {\n        Map<?, ?> answer = (Map<?, ?>) usersClient.save(name);\n        applicationEventPublisher.publishEvent(new UserSaved((String) answer.get(\"name\")), false);\n    }\n}\n"
+            },
+            {
+              "name": "client/services/UserListService.java",
+              "code": "import java.util.ArrayList;\nimport java.util.List;\nimport models.UserSaved;\n\n@Service\nclass UserListService {\n    List<String> names = new ArrayList<>();\n\n    @OnEvent\n    void userSaved(UserSaved saved) { names.add(saved.name()); }\n}\n"
+            },
+            {
+              "name": "client/models/UserSaved.java",
+              "code": "record UserSaved(String name) {}\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.java",
+              "code": "import java.util.Map;\n\n@Setup\nclass UsersSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        Behaviors.HttpAdapter users = (request, running) -> Map.of(\"name\", request.get(\"body\"));\n        return new Behaviors.Configuration(Map.of(), Map.of(\"users\", users), Map.of(), null);\n    }\n}\n"
             },
             {
               "name": "client/remotes/UsersClient.rb",
-              "code": "#[HTTPClient]\nclass UsersClient\n  # @return [Array<Hash>]\n  #[GetRequest(\"/users\")]\n  def list()\n  end\n\n  # @param form [Hash]\n  # @return [Hash]\n  #[PostRequest(\"/users\")]\n  def save(\n    #[RequestBody]\n    form\n  )\n  end\nend\n"
-            },
-            {
-              "name": "client/setups/UsersSetup.rb",
-              "code": "#[Setup]\nclass UsersSetup\n  BODY = \"body\"\n\n  # @param _execution [BehaviorExecution]\n  # @return [Hash]\n  def self.configure(_execution)\n    users = [{ \"name\" => \"Ada\" }]\n    exchange = lambda do |request, _running|\n      users << request[BODY] if request.key?(BODY)\n      users\n    end\n    { \"http\" => { \"users\" => { \"exchange\" => exchange } } }\n  end\nend\n"
+              "code": "#[HTTPClient]\nclass UsersClient\n  # @param name [String]\n  # @return [Hash]\n  #[PostRequest(\"/users\")]\n  def save(\n    #[RequestBody]\n    name\n  )\n  end\nend\n"
             },
             {
               "name": "client/services/UserFormService.rb",
-              "code": "#[Service]\nclass UserFormService\n  # @return [User]\n  attr_reader :form\n\n  def initialize\n    @users_client = UsersClient.new\n    @events = ApplicationEventPublisher.new\n    @form = User.new(name: \"\")\n  end\n\n  # @param name [String]\n  # @return [void]\n  def typed(name)\n    @form = User.new(name: name)\n  end\n\n  # @return [void]\n  def save\n    @users_client.save(@form.to_h)\n    @events.publish_event(UsersChanged.new(saved: true))\n  end\nend\n"
+              "code": "#[Service]\nclass UserFormService\n  # @return [String]\n  attr_accessor :name\n\n  def initialize\n    @users_client = UsersClient.new\n    @events = ApplicationEventPublisher.new\n    @name = \"\"\n  end\n\n  # @return [void]\n  def save\n    answer = @users_client.save(@name)\n    @events.publish_event(UserSaved.new(name: answer[\"name\"]))\n  end\nend\n"
             },
             {
               "name": "client/services/UserListService.rb",
-              "code": "#[Service]\nclass UserListService\n  # @return [Array<User>]\n  attr_reader :users\n\n  def initialize\n    @users_client = UsersClient.new\n    @users = []\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    refresh\n  end\n\n  # @param changed [UsersChanged]\n  # @return [void]\n  #[OnEvent]\n  def users_changed(changed)\n    refresh_when_saved(changed)\n  end\n\n  private\n\n  # @return [void]\n  def refresh\n    @users = @users_client.list.map { |user| User.new(name: user[\"name\"]) }\n  end\n\n  # @param changed [UsersChanged]\n  # @return [void]\n  def refresh_when_saved(changed)\n    refresh if changed.saved\n  end\nend\n"
+              "code": "#[Service]\nclass UserListService\n  # @return [Array<String>]\n  attr_reader :names\n\n  def initialize\n    @names = []\n  end\n\n  # @param saved [UserSaved]\n  # @return [void]\n  #[OnEvent]\n  def user_saved(saved)\n    @names = @names + [saved.name]\n  end\nend\n"
             },
             {
-              "name": "client/models/User.rb",
-              "code": "# @!attribute [r] name\n#   @return [String]\nUser = Data.define(:name)\n"
+              "name": "client/models/UserSaved.rb",
+              "code": "# @!attribute [r] name\n#   @return [String]\nUserSaved = Data.define(:name)\n"
             },
             {
-              "name": "client/models/UsersChanged.rb",
-              "code": "# @!attribute [r] saved\n#   @return [Boolean]\nUsersChanged = Data.define(:saved)\n"
+              "name": "client/setups/UsersSetup.rb",
+              "code": "#[Setup]\nclass UsersSetup\n  # @param _execution [BehaviorExecution]\n  # @return [Hash]\n  def self.configure(_execution)\n    exchange = lambda do |request, _running|\n      { \"name\" => request[\"body\"] }\n    end\n    { \"http\" => { \"users\" => { \"exchange\" => exchange } } }\n  end\nend\n"
             }
           ]
         },
         {
           "heading": "Middleware in any language",
-          "body": "Tachyon calls a `middleware.<ext>` file at the project root before every request and after every response. The file holds one class named `Middleware` with `before(request)` and `after(request)`. Each method gets the request in its language's own type and answers with its language's own response, or with nothing to let the request pass. Tachyon calls these methods by name for every request, whatever its HTTP method. So a CORS preflight (`OPTIONS`) and a form `POST` reach them like a `GET`. A CORS preflight is the check request that a browser sends before a cross-origin request. If you leave out a method, that phase passes without change. The middleware may be written in any Yon language. It does not need to match the language of the controllers. Python and PHP middleware import a model from `server/models/` as a controller does, with `from models import Name` or `use Models\\Name;`. TypeScript middleware uses `import type` from `/models/`.",
+          "body": "Tachyon calls a `middleware.<ext>` file at the project root before every request and after every response. The file holds one class named `Middleware` with `before(request)` and `after(request)`. Each method gets the request in its language's own type and answers with its language's own response, or with nothing to let the request pass. Tachyon calls these methods by name for every request, whatever its HTTP method. So a CORS preflight (`OPTIONS`) and a form `POST` reach them like a `GET`. A CORS preflight is the check request that a browser sends before a cross-origin request. If you leave out a method, that phase passes without change. A 204 answer also lets the request pass, and the headers of a 204 answer from after are added to the response, as in this example. Any other status answers the request instead of the route (before) or replaces the response (after). The middleware may be written in any Yon language. It does not need to match the language of the controllers. Python and PHP middleware import a model from `server/models/` as a controller does, with `from models import Name` or `use Models\\Name;`. TypeScript middleware uses `import type` from `/models/`.",
           "code": "middleware.py\nserver/\n  controllers/UsersController.ts\n\nfrom http import HTTPStatus\n\n\nclass Middleware:\n    @staticmethod\n    def before(request):\n        return None\n\n    @staticmethod\n    def after(request):\n        return (HTTPStatus.NO_CONTENT, {\"x-served-by\": \"tachyon\"}, \"\")"
         },
         {
