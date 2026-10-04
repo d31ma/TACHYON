@@ -3549,7 +3549,10 @@
         },
         {
           "heading": "Reading settings and choosing configuration",
-          "body": "Settings declares a name prefix. The class's own fields are the settings: each field's type and initial value give the type and default, and @Min and @Max on a field give its limits. Rust and Go fields have no initial values, so their defaults go in Settings({\"defaults\":{...}}). Standard snapshots that you give yourself use the tac and yon namespaces. Every underscore becomes a nested key, so YON_APP_SIZE means yon.app.size. Flat in-memory maps are still an optional adapter input. They are not server/application.json syntax. Binding fails for unknown keys under the selected prefix. It also fails for missing fields and for fields with the wrong type. Setting binds standard paths of the same framework: tac.* for Tac and yon.* for Yon. Its ${path:default} form is annotation syntax. It does not insert values into JSON files. WhenProfile and WhenSetting read context values that cannot change and that you give yourself. Error messages are redacted: they hide the values. Binding does not create a DTO (data transfer object), give environment permissions or publish server secrets.",
+          "notApplicable": [
+            "lua"
+          ],
+          "body": "Settings declares a name prefix. The class's own fields are the settings: each field's type and initial value give the type and default, and @Min and @Max on a field give its limits. Rust and Go fields have no initial values, so their defaults go in Settings({\"defaults\":{...}}). Standard snapshots that you give yourself use the tac and yon namespaces. Every underscore becomes a nested key, so YON_APP_SIZE means yon.app.size. Flat in-memory maps are still an optional adapter input. They are not server/application.json syntax. Binding fails for unknown keys under the selected prefix. It also fails for missing fields and for fields with the wrong type. Setting binds standard paths of the same framework: tac.* for Tac and yon.* for Yon. Its ${path:default} form is annotation syntax. It does not insert values into JSON files. WhenProfile and WhenSetting read context values that cannot change and that you give yourself. Error messages are redacted: they hide the values. Binding does not create a DTO (data transfer object), give environment permissions or publish server secrets. Lua has no tab here: a Lua model cannot carry Settings or Setting yet, so the build refuses it with TY1310.",
           "files": [
             {
               "name": "server/application.json",
@@ -3568,8 +3571,8 @@
               "code": "/** @import { Settings } from '/models/Settings.ts' */\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n  /** @returns {Promise<Settings>} */\n  @GetRoute\n  async getSettings() {\n    const application = JSON.parse(String(process.env.YON_APPLICATION_JSON));\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: [String(endpoint.profile)],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n    return { profile: String(endpoint.profile), pageSize: Number(catalog.pageSize) };\n  }\n}\n"
             },
             {
-              "name": "server/models/Settings.ts",
-              "code": "export interface Settings {\n  profile: string\n  pageSize: number\n}\n"
+              "name": "server/models/Endpoint.js",
+              "code": "export default class Endpoint {\n  /** @type {string} */\n  @Setting(\"${yon.active.profile:development}\")\n  profile;\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.ts",
@@ -3580,8 +3583,12 @@
               "code": "import type { Settings } from '/models/Settings.ts'\n\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n  @GetRoute\n  async getSettings(): Promise<Settings> {\n    const application = JSON.parse(String(process.env.YON_APPLICATION_JSON));\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: [String(endpoint.profile)],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n    return { profile: String(endpoint.profile), pageSize: Number(catalog.pageSize) };\n  }\n}\n"
             },
             {
-              "name": "server/models/Settings.py",
-              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Settings:\n    profile: str\n    pageSize: int\n"
+              "name": "server/models/Settings.ts",
+              "code": "export interface Settings {\n  profile: string\n  pageSize: number\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.ts",
+              "code": "export default class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  profile!: string;\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.py",
@@ -3592,8 +3599,12 @@
               "code": "import json\nimport os\n\nfrom models import Endpoint, Settings\n\n\n@request_route(\"/settings\")\n@public\nclass SettingsController:\n    @get_route\n    async def get_settings(self) -> Settings:\n        application = json.loads(os.environ[\"YON_APPLICATION_JSON\"])\n        catalog = Behaviors.properties(CatalogSetup, application)\n        endpoint = Behaviors.values(Endpoint, application)\n        profile = endpoint[\"profile\"]\n        signal = BehaviorSignal()\n        context = await Behaviors.create(CatalogSetup, {\n            \"partition\": \"public-catalog\",\n            \"signal\": signal,\n            \"profiles\": [profile],\n            \"properties\": application,\n        })\n        context.dispose()\n        signal.abort()\n        return Settings(profile, catalog[\"pageSize\"])\n"
             },
             {
-              "name": "server/models/Settings.php",
-              "code": "<?php\nclass Settings {\n    public function __construct(\n        public string $profile,\n        public int $pageSize,\n    ) {}\n}\n"
+              "name": "server/models/Settings.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Settings:\n    profile: str\n    pageSize: int\n"
+            },
+            {
+              "name": "server/models/Endpoint.py",
+              "code": "from typing import Annotated\nimport json\nimport os\n\nclass Endpoint:\n    profile: Annotated[str, setting(\"${yon.active.profile:development}\")] = \"\"\n"
             },
             {
               "name": "server/setups/CatalogSetup.php",
@@ -3604,32 +3615,44 @@
               "code": "<?php\nuse Models\\Settings;\n\n#[RequestRoute(\"/settings\")]\n#[Public]\nclass SettingsController {\n    #[GetRoute]\n    public function getSettings(): Settings {\n        $application = json_decode(getenv('YON_APPLICATION_JSON'), true, 512, JSON_THROW_ON_ERROR);\n        $catalog = Behaviors::properties(CatalogSetup::class, $application);\n        $endpoint = Behaviors::values(Endpoint::class, $application);\n        $profile = $endpoint['profile'];\n        $signal = new BehaviorSignal();\n        $context = Behaviors::create(CatalogSetup::class, [\n            'partition' => 'public-catalog',\n            'signal' => $signal,\n            'profiles' => [$profile],\n            'properties' => $application,\n        ]);\n        $context->dispose();\n        $signal->abort();\n        return new Settings($profile, $catalog['pageSize']);\n    }\n}\n"
             },
             {
-              "name": "server/models/Settings.java",
-              "code": "record Settings(String profile, int pageSize) {}\n"
+              "name": "server/models/Settings.php",
+              "code": "<?php\nclass Settings {\n    public function __construct(\n        public string $profile,\n        public int $pageSize,\n    ) {}\n}\n"
             },
             {
-              "name": "server/models/Settings.groovy",
-              "code": "record Settings(String profile, int pageSize) {}\n"
+              "name": "server/models/Endpoint.php",
+              "code": "<?php\n\nclass Endpoint {\n    #[Setting('${yon.active.profile:development}')]\n    public string $profile = '';\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.java",
               "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile(\"development\")\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n    @Min(1)\n    @Max(100)\n    int pageSize = 20;\n    boolean cacheEnabled = false;\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration();\n    }\n}\n"
             },
             {
-              "name": "server/setups/CatalogSetup.groovy",
-              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile(\"development\")\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n    @Min(1)\n    @Max(100)\n    int pageSize = 20\n    boolean cacheEnabled = false\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration()\n    }\n}\n"
-            },
-            {
               "name": "server/controllers/SettingsController.java",
               "code": "import models.Settings;\n\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n    @GetRoute\n    Settings getSettings() {\n        var application = (java.util.Map<?, ?>) Json.parse(System.getenv(\"YON_APPLICATION_JSON\"));\n        String setup = \"CatalogSetup\";\n        var catalog = Behaviors.properties(setup, application);\n        var endpoint = Behaviors.values(\"Endpoint\", application);\n        var profile = (String) endpoint.get(\"profile\");\n        var context = Behaviors.create(setup, new Behaviors.Options(\n                \"public-catalog\", new Behaviors.Signal(), 10000, java.util.List.of(profile), application));\n        context.close();\n        return new Settings(profile, ((Number) catalog.get(\"pageSize\")).intValue());\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Settings.java",
+              "code": "record Settings(String profile, int pageSize) {}\n"
+            },
+            {
+              "name": "server/models/Endpoint.java",
+              "code": "class Endpoint {\n    @Setting(\"${yon.active.profile:development}\")\n    String profile;\n}\n"
+            },
+            {
+              "name": "server/setups/CatalogSetup.groovy",
+              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile(\"development\")\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n    @Min(1)\n    @Max(100)\n    int pageSize = 20\n    boolean cacheEnabled = false\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration()\n    }\n}\n"
             },
             {
               "name": "server/controllers/SettingsController.groovy",
               "code": "import models.Settings\n\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n    @GetRoute\n    Settings getSettings() {\n        var application = (java.util.Map<?, ?>) Json.parse(System.getenv(\"YON_APPLICATION_JSON\"))\n        String setup = \"CatalogSetup\"\n        var catalog = Behaviors.properties(setup, application)\n        var endpoint = Behaviors.values(\"Endpoint\", application)\n        var profile = (String) endpoint.get(\"profile\")\n        var context = Behaviors.create(setup, new Behaviors.Options(\n                \"public-catalog\", new Behaviors.Signal(), 10000, java.util.List.of(profile), application))\n        context.close()\n        return new Settings(profile, ((Number) catalog.get(\"pageSize\")).intValue())\n    }\n}\n"
             },
             {
-              "name": "server/models/Settings.kt",
-              "code": "data class Settings(val profile: String, val pageSize: Int)\n"
+              "name": "server/models/Settings.groovy",
+              "code": "record Settings(String profile, int pageSize) {}\n"
+            },
+            {
+              "name": "server/models/Endpoint.groovy",
+              "code": "class Endpoint {\n    @Setting(\"${yon.active.profile:development}\")\n    String profile\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.kt",
@@ -3640,8 +3663,12 @@
               "code": "import models.Settings\n\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n    @GetRoute\n    fun getSettings(): Settings {\n        val application = application()\n        val setup = \"CatalogSetup\"\n        val catalog = Behaviors.properties(setup, application)\n        val endpoint = Behaviors.values(\"Endpoint\", application)\n        val profile = endpoint[\"profile\"] as String\n        Behaviors.create(setup, Behaviors.Options(\n            \"public-catalog\", Behaviors.Signal(), profiles = listOf(profile), properties = application\n        )).close()\n        return Settings(profile, (catalog[\"pageSize\"] as Number).toInt())\n    }\n\n    private fun application(): Map<String, Any?> =\n        (Json.parse(System.getenv(\"YON_APPLICATION_JSON\")) as Map<*, *>).mapKeys { (key, _) -> key as String }\n}\n"
             },
             {
-              "name": "server/models/Settings.cs",
-              "code": "public record Settings(string Profile, int PageSize);\n"
+              "name": "server/models/Settings.kt",
+              "code": "data class Settings(val profile: String, val pageSize: Int)\n"
+            },
+            {
+              "name": "server/models/Endpoint.kt",
+              "code": "class Endpoint {\n    @Setting(\"${yon.active.profile:development}\")\n    var profile: String = \"\"\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.cs",
@@ -3652,8 +3679,28 @@
               "code": "using Models;\n\n[RequestRoute(\"/settings\")]\n[Public]\nclass SettingsController {\n    [GetRoute]\n    public Settings GetSettings() {\n        var application = BehaviorJSON.Parse(System.Environment.GetEnvironmentVariable(\"YON_APPLICATION_JSON\")!);\n        var catalog = Behaviors.properties(typeof(CatalogSetup), application);\n        var endpoint = Behaviors.values(typeof(Endpoint), application);\n        var profile = endpoint.Get(\"profile\").Text;\n        using var signal = new BehaviorSignal();\n        var profiles = new[] { profile };\n        using var context = Behaviors.create(typeof(CatalogSetup), \"public-catalog\", signal, application, profiles: profiles);\n        return new Settings(profile, (int) catalog.Get(\"pageSize\").Integer);\n    }\n}\n"
             },
             {
-              "name": "server/models/Settings.rs",
-              "code": "#[allow(non_snake_case)]\npub struct Settings {\n    pub profile: String,\n    pub pageSize: i64,\n}\n"
+              "name": "server/models/Settings.cs",
+              "code": "public record Settings(string Profile, int PageSize);\n"
+            },
+            {
+              "name": "server/models/Endpoint.cs",
+              "code": "public sealed class Endpoint {\n    [Setting(\"${yon.active.profile:development}\")]\n    public string profile = \"\";\n}\n"
+            },
+            {
+              "name": "server/setups/CatalogSetup.fs",
+              "code": "[<Setup>]\n[<Settings({\"prefix\":\"YON_CATALOG_\"})>]\n[<WhenProfile(\"development\")>]\n[<WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})>]\ntype CatalogSetup() =\n    [<Min(1)>]\n    [<Max(100)>]\n    member val pageSize : int = 20 with get, set\n\n    member val cacheEnabled : bool = false with get, set\n\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters = BehaviorAdapters()\n"
+            },
+            {
+              "name": "server/controllers/SettingsController.fs",
+              "code": "open System\nopen Models\n\n[<RequestRoute(\"/settings\")>]\n[<Public>]\ntype SettingsController() =\n    [<GetRoute>]\n    member this.GetSettings() : Settings =\n        let application = BehaviorJSON.Parse(Environment.GetEnvironmentVariable(\"YON_APPLICATION_JSON\"))\n        let catalog = Behaviors.properties(typeof<CatalogSetup>, application)\n        let endpoint = Behaviors.values(typeof<Endpoint>, application)\n        let profile = endpoint.Get(\"profile\").Text\n        use signal = new BehaviorSignal()\n        use context = Behaviors.create(typeof<CatalogSetup>, \"public-catalog\", signal, application, profiles = [| profile |])\n        { Profile = profile; PageSize = int (catalog.Get(\"pageSize\").Integer) }\n"
+            },
+            {
+              "name": "server/models/Settings.fs",
+              "code": "type Settings = { Profile: string; PageSize: int }\n"
+            },
+            {
+              "name": "server/models/Endpoint.fs",
+              "code": "type Endpoint() =\n    [<Setting(\"${yon.active.profile:development}\")>]\n    member val profile : string = \"\" with get, set\n"
             },
             {
               "name": "server/setups/CatalogSetup.rs",
@@ -3661,59 +3708,15 @@
             },
             {
               "name": "server/controllers/SettingsController.rs",
-              "code": "use crate::models::Settings;\n\n#[RequestRoute(\"/settings\")]\n#[Public]\nstruct SettingsController {}\nimpl SettingsController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get_settings(&self) -> Settings {\n        let application_json = std::env::var(\"YON_APPLICATION_JSON\").expect(\"supervisor configuration\");\n        let application: BehaviorValue = Json::parse(&application_json).expect(\"validated configuration\").into();\n        let catalog = Behaviors::properties::<CatalogSetup>(&application).expect(\"catalog settings\");\n        let endpoint = Behaviors::values::<Endpoint>(&application).expect(\"active profile\");\n        let profile = Self::text(endpoint.get(\"profile\"));\n        let mut options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        options.profiles.push(profile.clone());\n        let options = options.with_application(&application).expect(\"selection inputs\");\n        let context = Behaviors::create::<CatalogSetup>(options).expect(\"active configuration\");\n        context.dispose();\n        Settings { profile, pageSize: Self::number(catalog.get(\"pageSize\")) }\n    }\n\n    fn text(value: Option<&BehaviorValue>) -> String {\n        let Some(BehaviorValue::String(text)) = value else {\n            unreachable!(\"the bound value is a string\")\n        };\n        text.clone()\n    }\n\n    fn number(value: Option<&BehaviorValue>) -> i64 {\n        let Some(BehaviorValue::Number(number)) = value else {\n            unreachable!(\"the bound value is a number\")\n        };\n        *number as i64\n    }\n}\n"
+              "code": "use crate::models::{Endpoint, Settings};\n\n#[RequestRoute(\"/settings\")]\n#[Public]\nstruct SettingsController {}\nimpl SettingsController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get_settings(&self) -> Settings {\n        let application_json = std::env::var(\"YON_APPLICATION_JSON\").expect(\"supervisor configuration\");\n        let application: BehaviorValue = Json::parse(&application_json).expect(\"validated configuration\").into();\n        let catalog = Behaviors::properties::<CatalogSetup>(&application).expect(\"catalog settings\");\n        let endpoint = Behaviors::values::<Endpoint>(&application).expect(\"active profile\");\n        let profile = Self::text(endpoint.get(\"profile\"));\n        let mut options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        options.profiles.push(profile.clone());\n        let options = options.with_application(&application).expect(\"selection inputs\");\n        let context = Behaviors::create::<CatalogSetup>(options).expect(\"active configuration\");\n        context.dispose();\n        Settings { profile, pageSize: Self::number(catalog.get(\"pageSize\")) }\n    }\n\n    fn text(value: Option<&BehaviorValue>) -> String {\n        let Some(BehaviorValue::String(text)) = value else {\n            unreachable!(\"the bound value is a string\")\n        };\n        text.clone()\n    }\n\n    fn number(value: Option<&BehaviorValue>) -> i64 {\n        let Some(BehaviorValue::Number(number)) = value else {\n            unreachable!(\"the bound value is a number\")\n        };\n        *number as i64\n    }\n}\n"
             },
             {
-              "name": "server/models/Settings.dart",
-              "code": "class Settings {\n  final String profile;\n  final int pageSize;\n\n  const Settings(this.profile, this.pageSize);\n}\n"
+              "name": "server/models/Settings.rs",
+              "code": "#[allow(non_snake_case)]\npub struct Settings {\n    pub profile: String,\n    pub pageSize: i64,\n}\n"
             },
             {
-              "name": "server/setups/CatalogSetup.dart",
-              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile(\"development\")\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n  @Min(1)\n  @Max(100)\n  int pageSize = 20;\n  bool cacheEnabled = false;\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
-            },
-            {
-              "name": "server/controllers/SettingsController.dart",
-              "code": "import 'dart:io';\n\nimport 'models/Settings.dart';\n\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n  @GetRoute\n  Settings getSettings() {\n    final applicationJson = Platform.environment['YON_APPLICATION_JSON']!;\n    final application = BehaviorJson.members(BehaviorJson.parse(applicationJson));\n    final catalog = BehaviorJson.members(Behaviors.properties(CatalogSetup, application));\n    final endpoint = BehaviorJson.members(Behaviors.values(Endpoint, application));\n    final profile = endpoint['profile'] as String;\n    final context = Behaviors.create(CatalogSetup,\n        partition: 'public-catalog', signal: BehaviorSignal(), profiles: [profile], properties: application);\n    context.dispose();\n    return Settings(profile, catalog['pageSize'] as int);\n  }\n}\n"
-            },
-            {
-              "name": "server/models/Endpoint.js",
-              "code": "export default class Endpoint {\n  /** @type {string} */\n  @Setting(\"${yon.active.profile:development}\")\n  profile;\n}\n"
-            },
-            {
-              "name": "server/models/Endpoint.ts",
-              "code": "export default class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  profile!: string;\n}\n"
-            },
-            {
-              "name": "server/models/Endpoint.py",
-              "code": "from typing import Annotated\nimport json\nimport os\n\nclass Endpoint:\n    profile: Annotated[str, setting(\"${yon.active.profile:development}\")] = \"\"\n"
-            },
-            {
-              "name": "server/models/Endpoint.php",
-              "code": "<?php\n\nclass Endpoint {\n    #[Setting('${yon.active.profile:development}')]\n    public string $profile = '';\n}\n"
-            },
-            {
-              "name": "server/models/Endpoint.java",
-              "code": "class Endpoint {\n    @Setting(\"${yon.active.profile:development}\")\n    String profile;\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.groovy",
-              "code": "class Endpoint {\n    @Setting(\"${yon.active.profile:development}\")\n    String profile\n}\n"
-            },
-            {
-              "name": "server/models/Endpoint.kt",
-              "code": "class Endpoint {\n    @Setting(\"${yon.active.profile:development}\")\n    var profile: String = \"\"\n}\n"
-            },
-            {
-              "name": "server/models/Endpoint.cs",
-              "code": "public sealed class Endpoint {\n    [Setting(\"${yon.active.profile:development}\")]\n    public string profile = \"\";\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.rs",
-              "code": "#[allow(dead_code)]\nstruct Endpoint {\n    #[Setting(\"${yon.active.profile:development}\")]\n    profile: String,\n}\n"
-            },
-            {
-              "name": "server/models/Settings.go",
-              "code": "type Settings struct {\n\tProfile  string `json:\"profile\"`\n\tPageSize int    `json:\"pageSize\"`\n}\n"
+              "name": "server/models/Endpoint.rs",
+              "code": "pub struct Endpoint {\n    #[Setting(\"${yon.active.profile:development}\")]\n    pub profile: String,\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.go",
@@ -3724,12 +3727,44 @@
               "code": "import (\n\t\"encoding/json\"\n\t\"errors\"\n\t\"os\"\n)\n\n// @RequestRoute(\"/settings\")\n// @Public\ntype SettingsController struct{}\n\n// @GetRoute\nfunc (controller *SettingsController) GetSettings() (Settings, error) {\n\tvar application map[string]any\n\tparseErr := json.Unmarshal([]byte(os.Getenv(\"YON_APPLICATION_JSON\")), &application)\n\tcatalog, catalogErr := BehaviorsProperties[CatalogSetup](application)\n\tendpoint, endpointErr := BehaviorsValues[Endpoint](application)\n\tprofile := controller.text(endpoint, \"profile\")\n\toptions, optionsErr := controller.profileOptions(application, profile)\n\tcontextErr := controller.openAndClose(BehaviorsCreate[CatalogSetup](options))\n\tsettings := Settings{Profile: profile, PageSize: int(controller.number(catalog, \"pageSize\"))}\n\treturn settings, errors.Join(parseErr, catalogErr, endpointErr, optionsErr, contextErr)\n}\n\nfunc (controller *SettingsController) profileOptions(application map[string]any, profile string) (*BehaviorOptions, error) {\n\toptions := NewBehaviorOptions(\"public-catalog\", NewBehaviorSignal())\n\toptions.Profiles = append(options.Profiles, profile)\n\treturn options.WithApplication(application)\n}\n\nfunc (controller *SettingsController) openAndClose(context *BehaviorContext, failure error) error {\n\tif failure != nil {\n\t\treturn failure\n\t}\n\tcontext.Dispose()\n\treturn nil\n}\n\nfunc (controller *SettingsController) text(value BehaviorValue, key string) string {\n\tfields, _ := value.(map[string]any)\n\ttext, _ := fields[key].(string)\n\treturn text\n}\n\nfunc (controller *SettingsController) number(value BehaviorValue, key string) float64 {\n\tfields, _ := value.(map[string]any)\n\tnumber, _ := fields[key].(float64)\n\treturn number\n}\n"
             },
             {
+              "name": "server/models/Settings.go",
+              "code": "type Settings struct {\n\tProfile  string `json:\"profile\"`\n\tPageSize int    `json:\"pageSize\"`\n}\n"
+            },
+            {
               "name": "server/models/Endpoint.go",
               "code": "type Endpoint struct {\n\t// @Setting(\"${yon.active.profile:development}\")\n\tprofile string\n}\n"
             },
             {
-              "name": "server/helpers/Endpoint.dart",
-              "code": "import 'dart:io';\n\nclass Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  String profile = '';\n}\n"
+              "name": "server/setups/CatalogSetup.dart",
+              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile(\"development\")\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n  @Min(1)\n  @Max(100)\n  int pageSize = 20;\n  bool cacheEnabled = false;\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/SettingsController.dart",
+              "code": "import 'dart:io';\n\nimport 'models/Settings.dart';\n\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n  @GetRoute\n  Settings getSettings() {\n    final applicationJson = Platform.environment['YON_APPLICATION_JSON']!;\n    final application = BehaviorJson.members(BehaviorJson.parse(applicationJson));\n    final catalog = BehaviorJson.members(Behaviors.properties(CatalogSetup, application));\n    final endpoint = BehaviorJson.members(Behaviors.values(Endpoint, application));\n    final profile = endpoint['profile'] as String;\n    final context = Behaviors.create(CatalogSetup,\n        partition: 'public-catalog', signal: BehaviorSignal(), profiles: [profile], properties: application);\n    context.dispose();\n    return Settings(profile, catalog['pageSize'] as int);\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Settings.dart",
+              "code": "class Settings {\n  final String profile;\n  final int pageSize;\n\n  const Settings(this.profile, this.pageSize);\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.dart",
+              "code": "class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  final String profile;\n\n  const Endpoint({this.profile = ''});\n}\n"
+            },
+            {
+              "name": "server/setups/CatalogSetup.rb",
+              "code": "#[Setup]\n#[Settings({\"prefix\":\"YON_CATALOG_\"})]\n#[WhenProfile(\"development\")]\n#[WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})]\nclass CatalogSetup\n  # @return [Integer]\n  #[Min(1)]\n  #[Max(100)]\n  attr_reader :page_size\n\n  # @return [Boolean]\n  attr_reader :cache_enabled\n\n  # @param execution [Object]\n  # @return [Hash]\n  def self.configure(execution)\n    {}\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/SettingsController.rb",
+              "code": "#[RequestRoute(\"/settings\")]\n#[Public]\nclass SettingsController\n  # @return [Settings]\n  #[GetRoute]\n  def get_settings\n    application = JSON.parse(ENV.fetch(\"YON_APPLICATION_JSON\"))\n    catalog = Behaviors.properties(CatalogSetup, application)\n    profile = Behaviors.values(Endpoint, application)[\"profile\"]\n    context = Behaviors.create(CatalogSetup, partition: \"public-catalog\", signal: BehaviorSignal.new,\n      profiles: [profile], properties: application)\n    context.dispose\n    Settings.new(profile: profile, pageSize: catalog[\"page_size\"])\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Settings.rb",
+              "code": "# @!attribute [r] profile\n#   @return [String]\n# @!attribute [r] pageSize\n#   @return [Integer]\nSettings = Data.define(:profile, :pageSize)\n"
+            },
+            {
+              "name": "server/models/Endpoint.rb",
+              "code": "class Endpoint\n  # @return [String]\n  #[Setting(\"${yon.active.profile:development}\")]\n  attr_reader :profile\nend\n"
             }
           ],
           "axis": "language"
@@ -3751,7 +3786,10 @@
         },
         {
           "heading": "Access from every Yon language",
-          "body": "Code in every language reads the private YON_APPLICATION_JSON snapshot. Your code passes it to behavior binding; this does not happen automatically. Settings turns its prefixed names into nested paths. Setting names the full standard path directly. Return data, not a response object or a JSON string that you serialized yourself. This example returns only some fields, and none of them are secret. Never return the complete snapshot.",
+          "notApplicable": [
+            "lua"
+          ],
+          "body": "Code in every language reads the private YON_APPLICATION_JSON snapshot. Your code passes it to behavior binding; this does not happen automatically. Settings turns its prefixed names into nested paths. Setting names the full standard path directly. Return data, not a response object or a JSON string that you serialized yourself. This example returns only some fields, and none of them are secret. Never return the complete snapshot. Lua has no tab here: a Lua model cannot carry Settings or Setting yet, so the build refuses it with TY1310.",
           "axis": "language",
           "files": [
             {
@@ -3759,176 +3797,208 @@
               "code": "{\n  \"server\": {\n    \"host\": \"127.0.0.1\",\n    \"port\": 8080\n  },\n  \"catalog\": {\n    \"page\": {\n      \"size\": 20\n    }\n  }\n}\n"
             },
             {
-              "name": "server/helpers/CatalogSettings.js",
+              "name": "server/models/CatalogSettings.js",
               "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nexport default class CatalogSettings {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n}\n"
             },
             {
-              "name": "server/helpers/Endpoint.js",
+              "name": "server/models/Endpoint.js",
               "code": "export default class Endpoint {\n  /** @type {number} */\n  @Setting(\"${yon.server.port}\")\n  port;\n  /** @type {string} */\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  redis;\n}\n"
-            },
-            {
-              "name": "server/models/Configuration.ts",
-              "code": "export interface Configuration {\n  pageSize: number\n  port: number\n}\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.ts",
-              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nexport default class CatalogSettings {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.ts",
-              "code": "export default class Endpoint {\n  @Setting(\"${yon.server.port}\")\n  port!: number;\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  redis!: string;\n}\n"
-            },
-            {
-              "name": "server/models/Configuration.py",
-              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Configuration:\n    pageSize: int\n    port: int\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.py",
-              "code": "from typing import Annotated\nimport json\nimport os\n\n@settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings:\n    pageSize: Annotated[int, min(1), max(100)] = 20\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.py",
-              "code": "from typing import Annotated\nimport json\nimport os\n\nclass Endpoint:\n    port: Annotated[int, setting(\"${yon.server.port}\")] = 0\n    redis: Annotated[str, setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")] = \"\"\n"
-            },
-            {
-              "name": "server/models/Configuration.php",
-              "code": "<?php\nclass Configuration {\n    public function __construct(\n        public int $pageSize,\n        public int $port,\n    ) {}\n}\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.php",
-              "code": "<?php\n\n#[Settings({\"prefix\":\"YON_CATALOG_\"})]\nclass CatalogSettings {\n    #[Min(1)]\n    #[Max(100)]\n    public int $pageSize = 20;\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.php",
-              "code": "<?php\n\nclass Endpoint {\n    #[Setting('${yon.server.port}')]\n    public int $port = 0;\n    #[Setting('${yon.redis.url:redis://127.0.0.1:6379}')]\n    public string $redis = '';\n}\n"
-            },
-            {
-              "name": "server/models/Configuration.java",
-              "code": "record Configuration(int pageSize, int port) {}\n"
-            },
-            {
-              "name": "server/models/Configuration.groovy",
-              "code": "record Configuration(int pageSize, int port) {}\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.java",
-              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n    @Min(1)\n    @Max(100)\n    int pageSize = 20;\n}\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.groovy",
-              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n    @Min(1)\n    @Max(100)\n    int pageSize = 20\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.java",
-              "code": "class Endpoint {\n    @Setting(\"${yon.server.port}\")\n    long port;\n    @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n    String redis;\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.groovy",
-              "code": "class Endpoint {\n    @Setting(\"${yon.server.port}\")\n    long port\n    @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n    String redis\n}\n"
-            },
-            {
-              "name": "server/models/Configuration.kt",
-              "code": "data class Configuration(val pageSize: Int, val port: Int)\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.kt",
-              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n    @Min(1)\n    @Max(100)\n    var pageSize: Int = 20\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.kt",
-              "code": "class Endpoint {\n    @Setting(\"${yon.server.port}\")\n    var port: Long = 0\n    @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n    var redis: String = \"\"\n}\n"
-            },
-            {
-              "name": "server/models/Configuration.cs",
-              "code": "public record Configuration(int PageSize, int Port);\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.cs",
-              "code": "[Settings({\"prefix\":\"YON_CATALOG_\"})]\npublic sealed class CatalogSettings {\n    [Min(1)]\n    [Max(100)]\n    public int pageSize = 20;\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.cs",
-              "code": "public sealed class Endpoint {\n    [Setting(\"${yon.server.port}\")]\n    public long port;\n    [Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")]\n    public string redis = \"\";\n}\n"
-            },
-            {
-              "name": "server/models/Configuration.rs",
-              "code": "#[allow(non_snake_case)]\npub struct Configuration {\n    pub pageSize: i64,\n    pub port: i64,\n}\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.rs",
-              "code": "#[Settings({\"prefix\":\"YON_CATALOG_\",\"defaults\":{\"pageSize\":20}})]\nstruct CatalogSettings {\n    #[Min(1)]\n    #[Max(100)]\n    pageSize: i64,\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.rs",
-              "code": "#[allow(dead_code)]\nstruct Endpoint {\n    #[Setting(\"${yon.server.port}\")]\n    port: u16,\n}\n"
-            },
-            {
-              "name": "server/models/Configuration.dart",
-              "code": "class Configuration {\n  final int pageSize;\n  final int port;\n\n  const Configuration(this.pageSize, this.port);\n}\n"
-            },
-            {
-              "name": "server/helpers/CatalogSettings.dart",
-              "code": "import 'dart:convert';\nimport 'dart:io';\n\n@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n  @Min(1)\n  @Max(100)\n  int pageSize = 20;\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.dart",
-              "code": "import 'dart:convert';\nimport 'dart:io';\n\nclass Endpoint {\n  @Setting(\"${yon.server.port}\")\n  int port = 0;\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  String redis = '';\n}\n"
             },
             {
               "name": "server/controllers/ConfigurationController.js",
               "code": "/** @import { Configuration } from '/models/Configuration.ts' */\n@RequestRoute(\"/configuration\")\n@Public\nclass ConfigurationController {\n  /** @returns {Configuration} */\n  @GetRoute\n  getConfiguration() {\n    const application = JSON.parse(String(process.env.YON_APPLICATION_JSON));\n    const settings = Behaviors.properties(CatalogSettings, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    return { pageSize: Number(settings.pageSize), port: Number(endpoint.port) };\n  }\n}\n"
             },
             {
+              "name": "server/models/CatalogSettings.ts",
+              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nexport default class CatalogSettings {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.ts",
+              "code": "export default class Endpoint {\n  @Setting(\"${yon.server.port}\")\n  port!: number;\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  redis!: string;\n}\n"
+            },
+            {
+              "name": "server/models/Configuration.ts",
+              "code": "export interface Configuration {\n  pageSize: number\n  port: number\n}\n"
+            },
+            {
               "name": "server/controllers/ConfigurationController.ts",
               "code": "import type { Configuration } from '/models/Configuration.ts'\n\n@RequestRoute(\"/configuration\")\n@Public\nclass ConfigurationController {\n  @GetRoute\n  getConfiguration(): Configuration {\n    const application = JSON.parse(String(process.env.YON_APPLICATION_JSON));\n    const settings = Behaviors.properties(CatalogSettings, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    return { pageSize: Number(settings.pageSize), port: Number(endpoint.port) };\n  }\n}\n"
             },
             {
+              "name": "server/models/CatalogSettings.py",
+              "code": "from typing import Annotated\nimport json\nimport os\n\n@settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings:\n    pageSize: Annotated[int, min(1), max(100)] = 20\n"
+            },
+            {
+              "name": "server/models/Endpoint.py",
+              "code": "from typing import Annotated\nimport json\nimport os\n\nclass Endpoint:\n    port: Annotated[int, setting(\"${yon.server.port}\")] = 0\n    redis: Annotated[str, setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")] = \"\"\n"
+            },
+            {
+              "name": "server/models/Configuration.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Configuration:\n    pageSize: int\n    port: int\n"
+            },
+            {
               "name": "server/controllers/ConfigurationController.py",
-              "code": "import json\nimport os\n\nfrom models import Configuration\n\n\n@request_route(\"/configuration\")\n@public\nclass ConfigurationController:\n    @get_route\n    def get_configuration(self) -> Configuration:\n        application = json.loads(os.environ[\"YON_APPLICATION_JSON\"])\n        settings = Behaviors.properties(CatalogSettings, application)\n        endpoint = Behaviors.values(Endpoint, application)\n        return Configuration(settings[\"pageSize\"], endpoint[\"port\"])\n"
+              "code": "import json\nimport os\n\nfrom models import CatalogSettings, Configuration, Endpoint\n\n\n@request_route(\"/configuration\")\n@public\nclass ConfigurationController:\n    @get_route\n    def get_configuration(self) -> Configuration:\n        application = json.loads(os.environ[\"YON_APPLICATION_JSON\"])\n        settings = Behaviors.properties(CatalogSettings, application)\n        endpoint = Behaviors.values(Endpoint, application)\n        return Configuration(settings[\"pageSize\"], endpoint[\"port\"])\n"
+            },
+            {
+              "name": "server/models/CatalogSettings.php",
+              "code": "<?php\n\n#[Settings({\"prefix\":\"YON_CATALOG_\"})]\nclass CatalogSettings {\n    #[Min(1)]\n    #[Max(100)]\n    public int $pageSize = 20;\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.php",
+              "code": "<?php\n\nclass Endpoint {\n    #[Setting('${yon.server.port}')]\n    public int $port = 0;\n    #[Setting('${yon.redis.url:redis://127.0.0.1:6379}')]\n    public string $redis = '';\n}\n"
+            },
+            {
+              "name": "server/models/Configuration.php",
+              "code": "<?php\nclass Configuration {\n    public function __construct(\n        public int $pageSize,\n        public int $port,\n    ) {}\n}\n"
             },
             {
               "name": "server/controllers/ConfigurationController.php",
               "code": "<?php\nuse Models\\Configuration;\n\n#[RequestRoute(\"/configuration\")]\n#[Public]\nclass ConfigurationController {\n    #[GetRoute]\n    public function getConfiguration(): Configuration {\n        $application = json_decode(getenv('YON_APPLICATION_JSON'), true, 512, JSON_THROW_ON_ERROR);\n        $settings = Behaviors::properties(CatalogSettings::class, $application);\n        $endpoint = Behaviors::values(Endpoint::class, $application);\n        return new Configuration($settings['pageSize'], $endpoint['port']);\n    }\n}\n"
             },
             {
+              "name": "server/models/CatalogSettings.java",
+              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n    @Min(1)\n    @Max(100)\n    int pageSize = 20;\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.java",
+              "code": "class Endpoint {\n    @Setting(\"${yon.server.port}\")\n    long port;\n    @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n    String redis;\n}\n"
+            },
+            {
+              "name": "server/models/Configuration.java",
+              "code": "record Configuration(int pageSize, int port) {}\n"
+            },
+            {
               "name": "server/controllers/ConfigurationController.java",
               "code": "import models.Configuration;\n\n@RequestRoute(\"/configuration\")\n@Public\nclass ConfigurationController {\n    @GetRoute\n    Configuration getConfiguration() {\n        var applicationJson = System.getenv(\"YON_APPLICATION_JSON\");\n        var application = (java.util.Map<?, ?>) Json.parse(applicationJson);\n        var settings = Behaviors.properties(\"CatalogSettings\", application);\n        var endpoint = Behaviors.values(\"Endpoint\", application);\n        int pageSize = ((Number) settings.get(\"pageSize\")).intValue();\n        int port = ((Number) endpoint.get(\"port\")).intValue();\n        return new Configuration(pageSize, port);\n    }\n}\n"
+            },
+            {
+              "name": "server/models/CatalogSettings.groovy",
+              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n    @Min(1)\n    @Max(100)\n    int pageSize = 20\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.groovy",
+              "code": "class Endpoint {\n    @Setting(\"${yon.server.port}\")\n    long port\n    @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n    String redis\n}\n"
+            },
+            {
+              "name": "server/models/Configuration.groovy",
+              "code": "record Configuration(int pageSize, int port) {}\n"
             },
             {
               "name": "server/controllers/ConfigurationController.groovy",
               "code": "import models.Configuration\n\n@RequestRoute(\"/configuration\")\n@Public\nclass ConfigurationController {\n    @GetRoute\n    Configuration getConfiguration() {\n        var applicationJson = System.getenv(\"YON_APPLICATION_JSON\")\n        var application = (java.util.Map<?, ?>) Json.parse(applicationJson)\n        var settings = Behaviors.properties(\"CatalogSettings\", application)\n        var endpoint = Behaviors.values(\"Endpoint\", application)\n        int pageSize = ((Number) settings.get(\"pageSize\")).intValue()\n        int port = ((Number) endpoint.get(\"port\")).intValue()\n        return new Configuration(pageSize, port)\n    }\n}\n"
             },
             {
+              "name": "server/models/CatalogSettings.kt",
+              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n    @Min(1)\n    @Max(100)\n    var pageSize: Int = 20\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.kt",
+              "code": "class Endpoint {\n    @Setting(\"${yon.server.port}\")\n    var port: Long = 0\n    @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n    var redis: String = \"\"\n}\n"
+            },
+            {
+              "name": "server/models/Configuration.kt",
+              "code": "data class Configuration(val pageSize: Int, val port: Int)\n"
+            },
+            {
               "name": "server/controllers/ConfigurationController.kt",
               "code": "import models.Configuration\n\n@RequestRoute(\"/configuration\")\n@Public\nclass ConfigurationController {\n    @GetRoute\n    fun getConfiguration(): Configuration {\n        val application = application()\n        val settings = Behaviors.properties(\"CatalogSettings\", application)\n        val endpoint = Behaviors.values(\"Endpoint\", application)\n        val pageSize = (settings[\"pageSize\"] as Number).toInt()\n        val port = (endpoint[\"port\"] as Number).toInt()\n        return Configuration(pageSize, port)\n    }\n\n    private fun application(): Map<String, Any?> =\n        (Json.parse(System.getenv(\"YON_APPLICATION_JSON\")) as Map<*, *>).mapKeys { (key, _) -> key as String }\n}\n"
+            },
+            {
+              "name": "server/models/CatalogSettings.cs",
+              "code": "[Settings({\"prefix\":\"YON_CATALOG_\"})]\npublic sealed class CatalogSettings {\n    [Min(1)]\n    [Max(100)]\n    public int pageSize = 20;\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.cs",
+              "code": "public sealed class Endpoint {\n    [Setting(\"${yon.server.port}\")]\n    public long port;\n    [Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")]\n    public string redis = \"\";\n}\n"
+            },
+            {
+              "name": "server/models/Configuration.cs",
+              "code": "public record Configuration(int PageSize, int Port);\n"
             },
             {
               "name": "server/controllers/ConfigurationController.cs",
               "code": "using Models;\n\n[RequestRoute(\"/configuration\")]\n[Public]\nclass ConfigurationController {\n    [GetRoute]\n    public Configuration GetConfiguration() {\n        var application = BehaviorJSON.Parse(System.Environment.GetEnvironmentVariable(\"YON_APPLICATION_JSON\")!);\n        var settings = Behaviors.properties(typeof(CatalogSettings), application);\n        var endpoint = Behaviors.values(typeof(Endpoint), application);\n        var pageSize = settings.Get(\"pageSize\").Integer;\n        var port = endpoint.Get(\"port\").Integer;\n        return new Configuration((int) pageSize, (int) port);\n    }\n}\n"
             },
             {
+              "name": "server/models/CatalogSettings.fs",
+              "code": "[<Settings({\"prefix\":\"YON_CATALOG_\"})>]\ntype CatalogSettings() =\n    [<Min(1)>]\n    [<Max(100)>]\n    member val pageSize : int = 20 with get, set\n"
+            },
+            {
+              "name": "server/models/Endpoint.fs",
+              "code": "type Endpoint() =\n    [<Setting(\"${yon.server.port}\")>]\n    member val port : int64 = 0L with get, set\n\n    [<Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")>]\n    member val redis : string = \"\" with get, set\n"
+            },
+            {
+              "name": "server/models/Configuration.fs",
+              "code": "type Configuration = { PageSize: int; Port: int }\n"
+            },
+            {
+              "name": "server/controllers/ConfigurationController.fs",
+              "code": "open System\nopen Models\n\n[<RequestRoute(\"/configuration\")>]\n[<Public>]\ntype ConfigurationController() =\n    [<GetRoute>]\n    member this.GetConfiguration() : Configuration =\n        let application = BehaviorJSON.Parse(Environment.GetEnvironmentVariable(\"YON_APPLICATION_JSON\"))\n        let settings = Behaviors.properties(typeof<CatalogSettings>, application)\n        let endpoint = Behaviors.values(typeof<Endpoint>, application)\n        let pageSize = settings.Get(\"pageSize\").Integer\n        let port = endpoint.Get(\"port\").Integer\n        { PageSize = int pageSize; Port = int port }\n"
+            },
+            {
+              "name": "server/models/CatalogSettings.rs",
+              "code": "#[Settings({\"prefix\":\"YON_CATALOG_\",\"defaults\":{\"pageSize\":20}})]\n#[allow(non_snake_case)]\npub struct CatalogSettings {\n    #[Min(1)]\n    #[Max(100)]\n    pub pageSize: i64,\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.rs",
+              "code": "pub struct Endpoint {\n    #[Setting(\"${yon.server.port}\")]\n    pub port: u16,\n}\n"
+            },
+            {
+              "name": "server/models/Configuration.rs",
+              "code": "#[allow(non_snake_case)]\npub struct Configuration {\n    pub pageSize: i64,\n    pub port: i64,\n}\n"
+            },
+            {
               "name": "server/controllers/ConfigurationController.rs",
-              "code": "use crate::models::Configuration;\n\n#[RequestRoute(\"/configuration\")]\n#[Public]\nstruct ConfigurationController {}\nimpl ConfigurationController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get_configuration(&self) -> Configuration {\n        let application_json = std::env::var(\"YON_APPLICATION_JSON\").expect(\"supervisor configuration\");\n        let application: BehaviorValue = Json::parse(&application_json).expect(\"validated configuration\").into();\n        let settings = Behaviors::properties::<CatalogSettings>(&application).expect(\"catalog settings\");\n        let endpoint = Behaviors::values::<Endpoint>(&application).expect(\"endpoint settings\");\n        Configuration { pageSize: Self::number(settings.get(\"pageSize\")), port: Self::number(endpoint.get(\"port\")) }\n    }\n\n    fn number(value: Option<&BehaviorValue>) -> i64 {\n        let Some(BehaviorValue::Number(number)) = value else {\n            unreachable!(\"the bound value is a number\")\n        };\n        *number as i64\n    }\n}\n"
+              "code": "use crate::models::{CatalogSettings, Configuration, Endpoint};\n\n#[RequestRoute(\"/configuration\")]\n#[Public]\nstruct ConfigurationController {}\nimpl ConfigurationController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get_configuration(&self) -> Configuration {\n        let application_json = std::env::var(\"YON_APPLICATION_JSON\").expect(\"supervisor configuration\");\n        let application: BehaviorValue = Json::parse(&application_json).expect(\"validated configuration\").into();\n        let settings = Behaviors::properties::<CatalogSettings>(&application).expect(\"catalog settings\");\n        let endpoint = Behaviors::values::<Endpoint>(&application).expect(\"endpoint settings\");\n        Configuration { pageSize: Self::number(settings.get(\"pageSize\")), port: Self::number(endpoint.get(\"port\")) }\n    }\n\n    fn number(value: Option<&BehaviorValue>) -> i64 {\n        let Some(BehaviorValue::Number(number)) = value else {\n            unreachable!(\"the bound value is a number\")\n        };\n        *number as i64\n    }\n}\n"
+            },
+            {
+              "name": "server/models/CatalogSettings.go",
+              "code": "// @Settings({\"prefix\":\"YON_CATALOG_\",\"defaults\":{\"pageSize\":20}})\ntype CatalogSettings struct {\n\t// @Min(1)\n\t// @Max(100)\n\tpageSize int64\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.go",
+              "code": "type Endpoint struct {\n\t// @Setting(\"${yon.server.port}\")\n\tport uint16\n}\n"
             },
             {
               "name": "server/models/Configuration.go",
               "code": "type Configuration struct {\n\tPageSize int `json:\"pageSize\"`\n\tPort     int `json:\"port\"`\n}\n"
             },
             {
-              "name": "server/helpers/CatalogSettings.go",
-              "code": "// @Settings({\"prefix\":\"YON_CATALOG_\",\"defaults\":{\"pageSize\":20}})\ntype CatalogSettings struct {\n\t// @Min(1)\n\t// @Max(100)\n\tpageSize int64\n}\n"
-            },
-            {
-              "name": "server/helpers/Endpoint.go",
-              "code": "type Endpoint struct {\n\t// @Setting(\"${yon.server.port}\")\n\tport uint16\n}\n"
-            },
-            {
               "name": "server/controllers/ConfigurationController.go",
               "code": "import (\n\t\"encoding/json\"\n\t\"errors\"\n\t\"os\"\n)\n\n// @RequestRoute(\"/configuration\")\n// @Public\ntype ConfigurationController struct{}\n\n// @GetRoute\nfunc (controller *ConfigurationController) GetConfiguration() (Configuration, error) {\n\tvar application map[string]any\n\tparseErr := json.Unmarshal([]byte(os.Getenv(\"YON_APPLICATION_JSON\")), &application)\n\tsettings, settingsErr := BehaviorsProperties[CatalogSettings](application)\n\tendpoint, endpointErr := BehaviorsValues[Endpoint](application)\n\tconfiguration := Configuration{PageSize: controller.number(settings, \"pageSize\"), Port: controller.number(endpoint, \"port\")}\n\treturn configuration, errors.Join(parseErr, settingsErr, endpointErr)\n}\n\nfunc (controller *ConfigurationController) number(value BehaviorValue, key string) int {\n\tfields, _ := value.(map[string]any)\n\tnumber, _ := fields[key].(float64)\n\treturn int(number)\n}\n"
             },
             {
+              "name": "server/models/CatalogSettings.dart",
+              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n  @Min(1)\n  @Max(100)\n  final int pageSize;\n\n  const CatalogSettings({this.pageSize = 20});\n}\n"
+            },
+            {
+              "name": "server/models/Endpoint.dart",
+              "code": "class Endpoint {\n  @Setting(\"${yon.server.port}\")\n  final int port;\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  final String redis;\n\n  const Endpoint({this.port = 0, this.redis = ''});\n}\n"
+            },
+            {
+              "name": "server/models/Configuration.dart",
+              "code": "class Configuration {\n  final int pageSize;\n  final int port;\n\n  const Configuration(this.pageSize, this.port);\n}\n"
+            },
+            {
               "name": "server/controllers/ConfigurationController.dart",
               "code": "import 'dart:convert';\nimport 'dart:io';\n\nimport 'models/Configuration.dart';\n\n@RequestRoute(\"/configuration\")\n@Public\nclass ConfigurationController {\n  @GetRoute\n  Configuration getConfiguration() {\n    final applicationJson = Platform.environment['YON_APPLICATION_JSON']!;\n    final parsed = jsonDecode(applicationJson) as Map;\n    final application = parsed.cast<String, Object?>();\n    final settings = Behaviors.properties(CatalogSettings, application) as Map;\n    final endpoint = Behaviors.values(Endpoint, application) as Map;\n    return Configuration(settings['pageSize'] as int, endpoint['port'] as int);\n  }\n}\n"
+            },
+            {
+              "name": "server/models/CatalogSettings.rb",
+              "code": "#[Settings({\"prefix\":\"YON_CATALOG_\"})]\nclass CatalogSettings\n  # @return [Integer]\n  #[Min(1)]\n  #[Max(100)]\n  attr_reader :page_size\nend\n"
+            },
+            {
+              "name": "server/models/Endpoint.rb",
+              "code": "class Endpoint\n  # @return [Integer]\n  #[Setting(\"${yon.server.port}\")]\n  attr_reader :port\n\n  # @return [String]\n  #[Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")]\n  attr_reader :redis\nend\n"
+            },
+            {
+              "name": "server/models/Configuration.rb",
+              "code": "# @!attribute [r] pageSize\n#   @return [Integer]\n# @!attribute [r] port\n#   @return [Integer]\nConfiguration = Data.define(:pageSize, :port)\n"
+            },
+            {
+              "name": "server/controllers/ConfigurationController.rb",
+              "code": "#[RequestRoute(\"/configuration\")]\n#[Public]\nclass ConfigurationController\n  # @return [Configuration]\n  #[GetRoute]\n  def get_configuration\n    application = JSON.parse(ENV.fetch(\"YON_APPLICATION_JSON\"))\n    settings = Behaviors.properties(CatalogSettings, application)\n    endpoint = Behaviors.values(Endpoint, application)\n    Configuration.new(pageSize: settings[\"page_size\"], port: endpoint[\"port\"])\n  end\nend\n"
             }
           ]
         },
@@ -3961,7 +4031,16 @@
         },
         {
           "heading": "Public Tac output and private Yon lifetime",
-          "body": "The build checks the tac member of client/manifest.json. It publishes the manifest at /manifest.webmanifest for web bundles and staged native bundles. A browser also finds it there to install the app. The manifest can have other members beside tac, and it still binds without changes. Only the tac member is configuration. The build never opens .env, never resolves production secrets and never publishes yon. Browser services load this public JSON through an injected HTTPClient. They bind it themselves with Setting. Native services still load it themselves with their SDK, and they own it. The browser HTTPClient transport is network-only (no-store) unless a read is marked Cached. It is not an offline cache loader. A change to client/manifest.json causes a development reload for Tac. A change to Yon settings or .env secrets needs a server restart. The deployment controls runtime executables, isolation policy, environment allowlists and capabilities. They are not options in the application files. YON_APPLICATION_JSON is reserved output of the supervisor. An operator cannot use it as an override.",
+          "notApplicable": [
+            "cs",
+            "fs",
+            "kt",
+            "rs",
+            "go",
+            "dart",
+            "swift"
+          ],
+          "body": "The build checks the tac member of client/manifest.json. It publishes the manifest at /manifest.webmanifest for web bundles and staged native bundles. A browser also finds it there to install the app. The manifest can have other members beside tac, and it still binds without changes. Only the tac member is configuration. The build never opens .env, never resolves production secrets and never publishes yon. Browser services load this public JSON through an HTTPClient and bind it themselves with Setting. JavaScript and TypeScript inject the client, and Tachyon's browser transport sends the request. The other languages build the client, and the HTTP adapter of the Setup with the same stem (ApplicationSetup) answers it, as in Outgoing HTTP: Tac; here it answers with the public tac member. Native services still load it themselves with their SDK, and they own it. The browser HTTPClient transport is network-only (no-store) unless a read is marked Cached. It is not an offline cache loader. A change to client/manifest.json causes a development reload for Tac. A change to Yon settings or .env secrets needs a server restart. The deployment controls runtime executables, isolation policy, environment allowlists and capabilities. They are not options in the application files. YON_APPLICATION_JSON is reserved output of the supervisor. An operator cannot use it as an override. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308. C#, F#, Kotlin, Rust, Go, Dart and Swift have no tab here yet: their Tac metadata adapter is not ready (ADR 0092), so the build refuses a client model with Setting in these languages with TY1310.",
           "axis": "language",
           "files": [
             {
@@ -3985,6 +4064,10 @@
               "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  api = '/api';\n  @OnStart\n  async initialize() {\n    const application = /** @type {BehaviorJsonObject} */ (await this.applicationClient.load());\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
             },
             {
+              "name": "client/models/PublicSettings.js",
+              "code": "export default class PublicSettings {\n  /** @type {string} */\n  @Setting(\"${tac.api.url:/api}\")\n  api;\n}\n"
+            },
+            {
               "name": "client/remotes/ApplicationClient.ts",
               "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  @GetRequest(\"/manifest.webmanifest\")\n  async load(): Promise<BehaviorJsonObject | void> {}\n}"
             },
@@ -3993,14 +4076,43 @@
               "code": "@Service\nexport default class SettingsService {\n  @Needs\n  readonly applicationClient!: ApplicationClient;\n  api = '/api';\n  @OnStart\n  async initialize() {\n    const application = await this.applicationClient.load() as BehaviorJsonObject;\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
             },
             {
-              "name": "client/models/PublicSettings.js",
-              "code": "export default class PublicSettings {\n  /** @type {string} */\n  @Setting(\"${tac.api.url:/api}\")\n  api;\n}\n"
-            },
-            {
               "name": "client/models/PublicSettings.ts",
               "code": "export default class PublicSettings {\n  @Setting(\"${tac.api.url:/api}\")\n  api!: string;\n}\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.java",
+              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\ninterface ApplicationClient {\n    @GetRequest(\"/manifest.webmanifest\")\n    Object load();\n}\n"
+            },
+            {
+              "name": "client/services/SettingsService.java",
+              "code": "import java.util.Map;\n\n@Service\nclass SettingsService {\n    private final ApplicationClient applicationClient = new ApplicationClient();\n    String api = \"/api\";\n\n    @OnStart\n    void initialize() {\n        Map<String, Object> application = (Map<String, Object>) applicationClient.load();\n        api = (String) Behaviors.values(\"PublicSettings\", application).get(\"api\");\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PublicSettings.java",
+              "code": "class PublicSettings {\n    @Setting(\"${tac.api.url:/api}\")\n    String api = \"\";\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.java",
+              "code": "import java.util.Map;\n\n@Setup\nclass ApplicationSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        Behaviors.HttpAdapter manifest = (request, running) -> Map.of(\"tac\", Map.of(\"api\", Map.of(\"url\", \"/api\")));\n        return new Behaviors.Configuration(Map.of(), Map.of(\"publicConfiguration\", manifest), Map.of(), null);\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/ApplicationClient.rb",
+              "code": "#[HTTPClient({\"adapter\":\"publicConfiguration\"})]\nclass ApplicationClient\n  # @return [Hash]\n  #[GetRequest(\"/manifest.webmanifest\")]\n  def load\n  end\nend\n"
+            },
+            {
+              "name": "client/services/SettingsService.rb",
+              "code": "#[Service]\nclass SettingsService\n  # @return [String]\n  attr_reader :api\n\n  def initialize\n    @application_client = ApplicationClient.new\n    @api = \"/api\"\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    application = @application_client.load\n    @api = Behaviors.values(PublicSettings, application)[\"api\"]\n  end\nend\n"
+            },
+            {
+              "name": "client/models/PublicSettings.rb",
+              "code": "class PublicSettings\n  # @return [String]\n  #[Setting(\"${tac.api.url:/api}\")]\n  attr_reader :api\nend\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.rb",
+              "code": "#[Setup]\nclass ApplicationSetup\n  # @param execution [BehaviorExecution]\n  # @return [Hash]\n  def self.configure(execution)\n    { http: { publicConfiguration: { exchange: method(:exchange) } } }\n  end\n\n  # @param request [Hash]\n  # @param execution [BehaviorExecution]\n  # @return [Hash]\n  def self.exchange(request, execution)\n    { \"tac\" => { \"api\" => { \"url\" => \"/api\" } } }\n  end\nend\n"
             }
-          ]
+          ],
+          "target": "web"
         }
       ]
     },
@@ -5697,7 +5809,10 @@
         },
         {
           "heading": "Limited Store and Query",
-          "body": "Store names an Entity class from the same source, like Store(ProductEntity, {...}), and at most 64 allowed fields. A Store is a contract with no implementation, like a Spring Data repository interface: Tachyon builds its behavior context from its Setup (ProductSetup for ProductStore, or the setup option), and a controller or service injects it with Needs. A Store with no Entity is refused with TY1308. Each method is a query without a body, and it compiles to a find, findOne, count, exists or delete operation. In JavaScript and TypeScript they declare their answer with | void, such as Promise<ProductEntity[] | void>, because an empty body returns nothing to the type checker. They use either a structured Query or derived names: findByStatus, countByStatus, existsByStatus, deleteByStatus and the same names in snake_case. A Store that extends Repository<Entity, Id>, like Spring Data's CrudRepository, also gets findById (a findOne on the Id field), findAll (a find with no predicate), save and deleteById without declaring them. Derived predicates (conditions) support Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull, joined by And. The structured operators are eq/ne/lt/lte/gt/gte/in/isNull/isNotNull. Tachyon does not accept SQL text, expressions, OR, joins, nested paths or bulk updates; a delete removes exactly the records that its predicates match. The entity adapter receives a query command with bound values (values sent apart from the query text). The adapter must have authorizeEntity(command, execution). That method must return true before execute runs. The limits are eight predicates, 100 In values, 64 KiB of bindings and 1 MiB of results. Find returns at most the requested page size, and the maximum is 100. The annotation sets the order. When two results have the same order, the ID decides. The caller's page.sort must be empty. FindOne returns the first matching record or null. Count and delete return a nonnegative safe integer. Exists returns a boolean. Query cannot combine with other method policies. The examples run queries through an explicit, authorized in-memory adapter. Every language declares the same store and controller route.",
+          "notApplicable": [
+            "lua"
+          ],
+          "body": "Store names an Entity class from the same source, like Store(ProductEntity, {...}), and at most 64 allowed fields. A Store is a contract with no implementation, like a Spring Data repository interface: Tachyon builds its behavior context from its Setup (ProductSetup for ProductStore, or the setup option), and a controller or service injects it with Needs. A Store with no Entity is refused with TY1308. Each method is a query without a body, and it compiles to a find, findOne, count, exists or delete operation. In JavaScript and TypeScript they declare their answer with | void, such as Promise<ProductEntity[] | void>, because an empty body returns nothing to the type checker. They use either a structured Query or derived names: findByStatus, countByStatus, existsByStatus, deleteByStatus and the same names in snake_case. A Store that extends Repository<Entity, Id>, like Spring Data's CrudRepository, also gets findById (a findOne on the Id field), findAll (a find with no predicate), save and deleteById without declaring them. Derived predicates (conditions) support Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull, joined by And. The structured operators are eq/ne/lt/lte/gt/gte/in/isNull/isNotNull. Tachyon does not accept SQL text, expressions, OR, joins, nested paths or bulk updates; a delete removes exactly the records that its predicates match. The entity adapter receives a query command with bound values (values sent apart from the query text). The adapter must have authorizeEntity(command, execution). That method must return true before execute runs. The limits are eight predicates, 100 In values, 64 KiB of bindings and 1 MiB of results. Find returns at most the requested page size, and the maximum is 100. The annotation sets the order. When two results have the same order, the ID decides. The caller's page.sort must be empty. FindOne returns the first matching record or null. Count and delete return a nonnegative safe integer. Exists returns a boolean. Query cannot combine with other method policies. The examples run queries through an explicit, authorized in-memory adapter. Every language declares the same store and controller route. Lua has no tab here: a Lua Store is not yet a provider, so the build stops a class that needs it with TY2015.",
           "files": [
             {
               "name": "server/entities/ProductEntity.js",
@@ -5716,10 +5831,6 @@
               "code": "/** @import { ProductReport } from '/models/ProductReport.ts' */\n@RequestRoute(\"/products\")\n@Public\nclass ProductController {\n  /** @type {ProductStore} */\n  @Needs\n  productStore;\n\n  /** @returns {Promise<ProductReport>} */\n  @GetRoute\n  async getProduct() {\n    const activeStatus = 'active';\n    const active = await this.productStore.findByStatus(activeStatus);\n    const activeCount = await this.productStore.countByStatus(activeStatus);\n    const others = await this.productStore.excluding(activeStatus, { size: 5 });\n    return { active, count: activeCount, others };\n  }\n}\n"
             },
             {
-              "name": "server/models/ProductReport.ts",
-              "code": "export interface ProductReport {\n  active: unknown\n  count: unknown\n  others: unknown\n}\n"
-            },
-            {
               "name": "server/entities/ProductEntity.ts",
               "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nexport default class ProductEntity {\n  @Id\n  id!: number;\n  status!: string;\n}\n"
             },
@@ -5736,8 +5847,8 @@
               "code": "import type { ProductReport } from '/models/ProductReport.ts'\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductController {\n  @Needs\n  products!: ProductStore;\n\n  @GetRoute\n  async getProduct(): Promise<ProductReport> {\n    const activeStatus = 'active';\n    const active = await this.products.findByStatus(activeStatus);\n    const activeCount = await this.products.countByStatus(activeStatus);\n    const others = await this.products.excluding(activeStatus, { size: 5 });\n    return { active, count: activeCount, others };\n  }\n}\n"
             },
             {
-              "name": "server/models/ProductReport.py",
-              "code": "from dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass ProductReport:\n    active: Any\n    count: Any\n    others: Any\n"
+              "name": "server/models/ProductReport.ts",
+              "code": "export interface ProductReport {\n  active: unknown\n  count: unknown\n  others: unknown\n}\n"
             },
             {
               "name": "server/entities/ProductEntity.py",
@@ -5756,8 +5867,12 @@
               "code": "from typing import Annotated\nfrom models import ProductReport\n\n\n@request_route(\"/products\")\n@public\nclass ProductController:\n    products: Annotated[ProductStore, needs]\n\n    @get_route\n    async def get_product(self) -> ProductReport:\n        active_status = 'active'\n        active = await self.products.find_by_status(active_status)\n        active_count = await self.products.count_by_status(active_status)\n        others = await self.products.excluding(active_status, {'size': 5})\n        return ProductReport(active, active_count, others)\n"
             },
             {
-              "name": "server/models/ProductReport.php",
-              "code": "<?php\nclass ProductReport {\n    public function __construct(\n        public mixed $active,\n        public mixed $count,\n        public mixed $others,\n    ) {}\n}\n"
+              "name": "server/models/ProductReport.py",
+              "code": "from dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass ProductReport:\n    active: Any\n    count: Any\n    others: Any\n"
+            },
+            {
+              "name": "server/helpers/CatalogAdapterHelper.py",
+              "code": "@Helper\nclass CatalogAdapterHelper:\n    ROWS: list[dict[str, object]] = [{'id': 1, 'status': 'active'}, {'id': 2, 'status': 'retired'}]\n\n    @staticmethod\n    async def execute(command: dict[str, object], execution: object) -> object:\n        query = command['query']\n        condition = query['where'][0]\n        keep_unequal_rows = condition['operator'] == 'ne'\n        matching_rows = []\n        for row in CatalogAdapterHelper.ROWS:\n            is_equal = row[condition['field']] == condition['value']\n            is_match = is_equal\n            if keep_unequal_rows:\n                is_match = not is_equal\n            if is_match:\n                matching_rows.append(row)\n        if query['kind'] == 'count':\n            return len(matching_rows)\n        return matching_rows[:query['page']['size']]\n"
             },
             {
               "name": "server/entities/ProductEntity.php",
@@ -5776,48 +5891,52 @@
               "code": "<?php\nuse Models\\ProductReport;\n\n#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductController {\n    #[Needs]\n    private ProductStore $products;\n\n    #[GetRoute]\n    public function getProduct(): ProductReport {\n        $activeStatus = 'active';\n        $active = $this->products->findByStatus($activeStatus);\n        $activeCount = $this->products->countByStatus($activeStatus);\n        $others = $this->products->excluding($activeStatus, ['size' => 5]);\n        return new ProductReport($active, $activeCount, $others);\n    }\n}\n"
             },
             {
-              "name": "server/models/ProductReport.java",
-              "code": "record ProductReport(Object active, Object count, Object others) {}\n"
+              "name": "server/models/ProductReport.php",
+              "code": "<?php\nclass ProductReport {\n    public function __construct(\n        public mixed $active,\n        public mixed $count,\n        public mixed $others,\n    ) {}\n}\n"
             },
             {
-              "name": "server/models/ProductReport.groovy",
-              "code": "record ProductReport(Object active, Object count, Object others) {}\n"
+              "name": "server/helpers/CatalogAdapterHelper.php",
+              "code": "<?php\n\n#[Helper]\nclass CatalogAdapterHelper {\n    public static function execute(array $command, mixed $execution): array|int {\n        $rows = [['id' => 1, 'status' => 'active'], ['id' => 2, 'status' => 'retired']];\n        $query = $command['query'];\n        $condition = $query['where'][0];\n        $keepUnequalRows = $condition['operator'] === 'ne';\n        $matchingRows = [];\n        foreach ($rows as $row) {\n            $isEqual = $row[$condition['field']] === $condition['value'];\n            $isMatch = $keepUnequalRows ? !$isEqual : $isEqual;\n            if ($isMatch) $matchingRows[] = $row;\n        }\n        if ($query['kind'] === 'count') return count($matchingRows);\n        return array_slice($matchingRows, 0, $query['page']['size']);\n    }\n\n    public static function authorize(array $command, mixed $execution): bool {\n        return $command['entity'] === 'ProductEntity';\n    }\n}\n"
             },
             {
               "name": "server/entities/ProductEntity.java",
               "code": "@Entity({\"adapter\":\"catalog\"})\n@Table(\"products\")\nclass ProductEntity {\n    @Id\n    int id;\n}\n"
             },
             {
-              "name": "server/entities/ProductEntity.groovy",
-              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table(\"products\")\nclass ProductEntity {\n    @Id\n    int id\n}\n"
-            },
-            {
               "name": "server/stores/ProductStore.java",
               "code": "@Store(ProductEntity.class, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})\ninterface ProductStore {\n    Object findByStatus(String status);\n    Object countByStatus(String status);\n    @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n    Object excluding(String status, @PageDefaults java.util.Map<String, Object> page);\n}\n"
-            },
-            {
-              "name": "server/stores/ProductStore.groovy",
-              "code": "@Store(ProductEntity.class, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})\ninterface ProductStore {\n    Object findByStatus(String status)\n    Object countByStatus(String status)\n    @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n    Object excluding(String status, @PageDefaults java.util.Map<String, Object> page)\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.java",
               "code": "@Setup\nclass CatalogSetup {\n    static final java.util.List<java.util.Map<String, Object>> ROWS = java.util.List.of(\n        java.util.Map.of(\"id\", 1, \"status\", \"active\"),\n        java.util.Map.of(\"id\", 2, \"status\", \"retired\"));\n\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        Behaviors.EntityAdapter catalog = (command, call) -> {\n            java.util.Map<String, Object> query = Behaviors.map(command.get(\"query\"));\n            java.util.List<?> conditions = (java.util.List<?>) query.get(\"where\");\n            java.util.Map<String, Object> condition = Behaviors.map(conditions.get(0));\n            boolean keepUnequalRows = condition.get(\"operator\").equals(\"ne\");\n            java.util.List<java.util.Map<String, Object>> matchingRows = new java.util.ArrayList<>();\n            for (java.util.Map<String, Object> row : ROWS) {\n                boolean isEqual = row.get(condition.get(\"field\")).equals(condition.get(\"value\"));\n                boolean isMatch = keepUnequalRows ? !isEqual : isEqual;\n                if (isMatch) matchingRows.add(row);\n            }\n            if (query.get(\"kind\").equals(\"count\")) return (long) matchingRows.size();\n            return matchingRows;\n        };\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(),\n            java.util.Map.of(\"catalog\", catalog), null,\n            (command, call) -> command.get(\"entity\").equals(\"ProductEntity\"));\n    }\n}\n"
             },
             {
-              "name": "server/setups/CatalogSetup.groovy",
-              "code": "@Setup\nclass CatalogSetup {\n    static final java.util.List<java.util.Map<String, Object>> ROWS = java.util.List.of(\n        java.util.Map.of(\"id\", 1, \"status\", \"active\"),\n        java.util.Map.of(\"id\", 2, \"status\", \"retired\"))\n\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        Behaviors.EntityAdapter catalog = (command, call) -> {\n            java.util.Map<String, Object> query = Behaviors.map(command.get(\"query\"))\n            java.util.List<?> conditions = (java.util.List<?>) query.get(\"where\")\n            java.util.Map<String, Object> condition = Behaviors.map(conditions.get(0))\n            boolean keepUnequalRows = condition.get(\"operator\").equals(\"ne\")\n            java.util.List<java.util.Map<String, Object>> matchingRows = new java.util.ArrayList<>()\n            for (java.util.Map<String, Object> row : ROWS) {\n                boolean isEqual = row.get(condition.get(\"field\")).equals(condition.get(\"value\"))\n                boolean isMatch = keepUnequalRows ? !isEqual : isEqual\n                if (isMatch) matchingRows.add(row)\n            }\n            if (query.get(\"kind\").equals(\"count\")) return (long) matchingRows.size()\n            return matchingRows\n        }\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(),\n            java.util.Map.of(\"catalog\", catalog), null,\n            (command, call) -> command.get(\"entity\").equals(\"ProductEntity\"))\n    }\n}\n"
-            },
-            {
               "name": "server/controllers/ProductController.java",
               "code": "import models.ProductReport;\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductController {\n    @Needs\n    ProductStore products;\n\n    @GetRoute\n    ProductReport getProduct() {\n        String activeStatus = \"active\";\n        Object active = products.findByStatus(activeStatus);\n        Object activeCount = products.countByStatus(activeStatus);\n        java.util.Map<String, Object> page = java.util.Map.of(\"size\", 5);\n        Object others = products.excluding(activeStatus, page);\n        return new ProductReport(active, activeCount, others);\n    }\n}\n"
+            },
+            {
+              "name": "server/models/ProductReport.java",
+              "code": "record ProductReport(Object active, Object count, Object others) {}\n"
+            },
+            {
+              "name": "server/entities/ProductEntity.groovy",
+              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table(\"products\")\nclass ProductEntity {\n    @Id\n    int id\n}\n"
+            },
+            {
+              "name": "server/stores/ProductStore.groovy",
+              "code": "@Store(ProductEntity.class, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})\ninterface ProductStore {\n    Object findByStatus(String status)\n    Object countByStatus(String status)\n    @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n    Object excluding(String status, @PageDefaults java.util.Map<String, Object> page)\n}\n"
+            },
+            {
+              "name": "server/setups/CatalogSetup.groovy",
+              "code": "@Setup\nclass CatalogSetup {\n    static final java.util.List<java.util.Map<String, Object>> ROWS = java.util.List.of(\n        java.util.Map.of(\"id\", 1, \"status\", \"active\"),\n        java.util.Map.of(\"id\", 2, \"status\", \"retired\"))\n\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        Behaviors.EntityAdapter catalog = (command, call) -> {\n            java.util.Map<String, Object> query = Behaviors.map(command.get(\"query\"))\n            java.util.List<?> conditions = (java.util.List<?>) query.get(\"where\")\n            java.util.Map<String, Object> condition = Behaviors.map(conditions.get(0))\n            boolean keepUnequalRows = condition.get(\"operator\").equals(\"ne\")\n            java.util.List<java.util.Map<String, Object>> matchingRows = new java.util.ArrayList<>()\n            for (java.util.Map<String, Object> row : ROWS) {\n                boolean isEqual = row.get(condition.get(\"field\")).equals(condition.get(\"value\"))\n                boolean isMatch = keepUnequalRows ? !isEqual : isEqual\n                if (isMatch) matchingRows.add(row)\n            }\n            if (query.get(\"kind\").equals(\"count\")) return (long) matchingRows.size()\n            return matchingRows\n        }\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(),\n            java.util.Map.of(\"catalog\", catalog), null,\n            (command, call) -> command.get(\"entity\").equals(\"ProductEntity\"))\n    }\n}\n"
             },
             {
               "name": "server/controllers/ProductController.groovy",
               "code": "import models.ProductReport\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductController {\n    @Needs\n    ProductStore products\n\n    @GetRoute\n    ProductReport getProduct() {\n        String activeStatus = \"active\"\n        Object active = products.findByStatus(activeStatus)\n        Object activeCount = products.countByStatus(activeStatus)\n        java.util.Map<String, Object> page = java.util.Map.of(\"size\", 5)\n        Object others = products.excluding(activeStatus, page)\n        return new ProductReport(active, activeCount, others)\n    }\n}\n"
             },
             {
-              "name": "server/models/ProductReport.kt",
-              "code": "data class ProductReport(val active: Any?, val count: Any?, val others: Any?)\n"
+              "name": "server/models/ProductReport.groovy",
+              "code": "record ProductReport(Object active, Object count, Object others) {}\n"
             },
             {
               "name": "server/entities/ProductEntity.kt",
@@ -5836,8 +5955,8 @@
               "code": "import models.ProductReport\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductController {\n    @Needs\n    val products: ProductStore\n\n    @GetRoute\n    fun getProduct(): ProductReport {\n        val activeStatus = \"active\"\n        val active = products.findByStatus(activeStatus)\n        val activeCount = products.countByStatus(activeStatus)\n        val others = products.excluding(activeStatus, mapOf(\"size\" to 5))\n        return ProductReport(active, activeCount, others)\n    }\n}\n"
             },
             {
-              "name": "server/models/ProductReport.cs",
-              "code": "using System.Text.Json.Nodes;\n\npublic record ProductReport(JsonNode Active, JsonNode Count, JsonNode Others);\n"
+              "name": "server/models/ProductReport.kt",
+              "code": "data class ProductReport(val active: Any?, val count: Any?, val others: Any?)\n"
             },
             {
               "name": "server/entities/ProductEntity.cs",
@@ -5856,8 +5975,36 @@
               "code": "using System.Text.Json.Nodes;\nusing Models;\n\n[RequestRoute(\"/products\")]\n[Public]\nsealed class ProductController {\n    [Needs]\n    ProductStore _products;\n\n    [GetRoute]\n    public ProductReport GetProduct() {\n        var activeStatus = BehaviorJSON.From(\"active\");\n        var active = _products.findByStatus(activeStatus).GetAwaiter().GetResult();\n        var activeCount = _products.countByStatus(activeStatus).GetAwaiter().GetResult();\n        var page = BehaviorJSON.Parse(\"{\\\"size\\\":5}\");\n        var others = _products.excluding(activeStatus, page).GetAwaiter().GetResult();\n        return new ProductReport(\n            JsonNode.Parse(active.ToString()),\n            JsonNode.Parse(activeCount.ToString()),\n            JsonNode.Parse(others.ToString()));\n    }\n}\n"
             },
             {
-              "name": "server/models/ProductReport.rs",
-              "code": "use crate::Json;\n\npub struct ProductReport {\n    pub active: Json,\n    pub count: Json,\n    pub others: Json,\n}\n"
+              "name": "server/models/ProductReport.cs",
+              "code": "using System.Text.Json.Nodes;\n\npublic record ProductReport(JsonNode Active, JsonNode Count, JsonNode Others);\n"
+            },
+            {
+              "name": "server/helpers/CatalogAdapterHelper.cs",
+              "code": "[Helper]\npublic sealed class CatalogAdapterHelper : BehaviorEntityAdapter {\n    static readonly BehaviorJSON Rows = BehaviorJSON.Parse(\"[{\\\"id\\\":1,\\\"status\\\":\\\"active\\\"},{\\\"id\\\":2,\\\"status\\\":\\\"retired\\\"}]\");\n\n    public System.Threading.Tasks.Task<BehaviorJSON> execute(BehaviorJSON command, BehaviorExecution execution) {\n        var query = command.Get(\"query\");\n        var condition = query.Get(\"where\").Items[0];\n        bool keepUnequalRows = condition.Get(\"operator\").Text == \"ne\";\n        var matchingRows = new System.Collections.Generic.List<BehaviorJSON>();\n        foreach (var row in Rows.Items) {\n            bool isEqual = row.Get(condition.Get(\"field\").Text).ToString() == condition.Get(\"value\").ToString();\n            bool isMatch = keepUnequalRows ? !isEqual : isEqual;\n            if (isMatch) matchingRows.Add(row);\n        }\n        if (query.Get(\"kind\").Text == \"count\") {\n            return System.Threading.Tasks.Task.FromResult(BehaviorJSON.From(matchingRows.Count));\n        }\n        return System.Threading.Tasks.Task.FromResult(BehaviorJSON.Array(matchingRows.ToArray()));\n    }\n}\n"
+            },
+            {
+              "name": "server/entities/ProductEntity.fs",
+              "code": "[<Entity({\"adapter\":\"catalog\"})>]\n[<Table(\"products\")>]\ntype ProductEntity() =\n    [<Id>]\n    member val id : int = 0 with get, set\n"
+            },
+            {
+              "name": "server/stores/ProductStore.fs",
+              "code": "open System.Threading.Tasks\n\n[<Store(typeof<ProductEntity>, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})>]\ntype ProductStore =\n    abstract findByStatus: status: BehaviorJSON -> Task<BehaviorJSON>\n\n    abstract countByStatus: status: BehaviorJSON -> Task<BehaviorJSON>\n\n    [<Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})>]\n    abstract excluding: status: BehaviorJSON * [<PageDefaults>] page: BehaviorJSON -> Task<BehaviorJSON>\n"
+            },
+            {
+              "name": "server/setups/CatalogSetup.fs",
+              "code": "open System\nopen System.Threading.Tasks\n\n[<Setup>]\ntype CatalogSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        let adapters = BehaviorAdapters()\n        adapters.entities[\"catalog\"] <- CatalogAdapterHelper()\n        adapters.authorizeEntity <- Func<_, _, _>(fun command current -> Task.FromResult(command.Get(\"entity\").Text = \"ProductEntity\"))\n        adapters\n"
+            },
+            {
+              "name": "server/controllers/ProductController.fs",
+              "code": "open System.Text.Json.Nodes\nopen System.Threading.Tasks\nopen Models\n\n[<RequestRoute(\"/products\")>]\n[<Public>]\ntype ProductController(products: ProductStore) =\n    [<GetRoute>]\n    member this.GetProduct() : ProductReport = this.BuildReport().Result\n\n    member private this.BuildReport() : Task<ProductReport> =\n        task {\n            let activeStatus = BehaviorJSON.From(\"active\")\n            let! active = products.findByStatus(activeStatus)\n            let! activeCount = products.countByStatus(activeStatus)\n            let! others = products.excluding(activeStatus, BehaviorJSON.Parse(\"{\\\"size\\\":5}\"))\n            return\n                { Active = JsonNode.Parse(active.ToString())\n                  Count = JsonNode.Parse(activeCount.ToString())\n                  Others = JsonNode.Parse(others.ToString()) }\n        }\n"
+            },
+            {
+              "name": "server/models/ProductReport.fs",
+              "code": "open System.Text.Json.Nodes\n\ntype ProductReport = { Active: JsonNode; Count: JsonNode; Others: JsonNode }\n"
+            },
+            {
+              "name": "server/helpers/CatalogAdapterHelper.fs",
+              "code": "open System.Threading.Tasks\n\n[<Helper>]\ntype CatalogAdapterHelper() =\n    let rows = BehaviorJSON.Parse(\"[{\\\"id\\\":1,\\\"status\\\":\\\"active\\\"},{\\\"id\\\":2,\\\"status\\\":\\\"retired\\\"}]\")\n\n    interface BehaviorEntityAdapter with\n        member this.execute(command: BehaviorJSON, execution: BehaviorExecution) : Task<BehaviorJSON> =\n            let query = command.Get(\"query\")\n            let condition = query.Get(\"where\").Items[0]\n            let keepUnequalRows = condition.Get(\"operator\").Text = \"ne\"\n            let isMatch (row: BehaviorJSON) =\n                let isEqual = row.Get(condition.Get(\"field\").Text).ToString() = condition.Get(\"value\").ToString()\n                if keepUnequalRows then not isEqual else isEqual\n            let matchingRows = rows.Items |> Array.filter isMatch\n            if query.Get(\"kind\").Text = \"count\" then\n                Task.FromResult(BehaviorJSON.From(matchingRows.Length))\n            else\n                Task.FromResult(BehaviorJSON.Array(matchingRows))\n"
             },
             {
               "name": "server/entities/ProductEntity.rs",
@@ -5876,44 +6023,12 @@
               "code": "use crate::models::ProductReport;\n\n#[RequestRoute(\"/products\")]\n#[Public]\nstruct ProductController {\n    #[Needs]\n    products: std::sync::Arc<ProductStore>,\n}\nimpl ProductController {\n    #[GetRoute]\n    fn get_product(&self) -> Result<ProductReport, YonResourceError> {\n        let page = BehaviorValue::object([(\"size\", BehaviorValue::Number(5.0))]);\n        let active_status = \"active\";\n        let active = self.products.find_by_status(active_status.into()).map_err(|_| YonResourceError)?;\n        let active_count = self.products.count_by_status(active_status.into()).map_err(|_| YonResourceError)?;\n        let others = self.products.excluding(active_status.into(), page).map_err(|_| YonResourceError)?;\n        Ok(ProductReport { active: Self::json(active), count: Self::json(active_count), others: Self::json(others) })\n    }\n\n    fn json(value: BehaviorValue) -> Json {\n        Json::parse(&value.to_json(65536).expect(\"serialize\")).expect(\"parse\")\n    }\n}\n"
             },
             {
-              "name": "server/models/ProductReport.dart",
-              "code": "class ProductReport {\n  final Object? active;\n  final Object? count;\n  final Object? others;\n\n  const ProductReport(this.active, this.count, this.others);\n}\n"
-            },
-            {
-              "name": "server/entities/ProductEntity.dart",
-              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table(\"products\")\nclass ProductEntity {\n  @Id\n  int id = 0;\n}\n"
-            },
-            {
-              "name": "server/stores/ProductStore.dart",
-              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})\nabstract interface class ProductStore {\n  Future<Object?> findByStatus(String status);\n\n  Future<Object?> countByStatus(String status);\n\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  Future<Object?> excluding(String status, @PageDefaults Map<String, Object?> page);\n}\n"
-            },
-            {
-              "name": "server/setups/CatalogSetup.dart",
-              "code": "@Setup\nclass CatalogSetup {\n  static const rows = [\n    {'id': 1, 'status': 'active'},\n    {'id': 2, 'status': 'retired'},\n  ];\n\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters(\n      entities: {'catalog': BehaviorEntityAdapter(execute: findRows)},\n      authorizeEntity: (command, execution) async => (command as Map)['entity'] == 'ProductEntity',\n    );\n  }\n\n  static Future<Object?> findRows(Object? command, BehaviorExecution execution) async {\n    final query = (command as Map)['query'] as Map;\n    final condition = (query['where'] as List).first as Map;\n    final keepUnequalRows = condition['operator'] == 'ne';\n    final matchingRows = rows.where((row) {\n      final isEqual = row[condition['field']] == condition['value'];\n      if (keepUnequalRows) return !isEqual;\n      return isEqual;\n    }).toList();\n    if (query['kind'] == 'count') return matchingRows.length;\n    return matchingRows;\n  }\n}\n"
-            },
-            {
-              "name": "server/controllers/ProductController.dart",
-              "code": "import 'models/ProductReport.dart';\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductController {\n  @Needs\n  final ProductStore products;\n\n  @GetRoute\n  Future<ProductReport> getProduct() async {\n    final activeStatus = 'active';\n    final active = await products.findByStatus(activeStatus);\n    final activeCount = await products.countByStatus(activeStatus);\n    final others = await products.excluding(activeStatus, {'size': 5});\n    return ProductReport(active, activeCount, others);\n  }\n}\n"
-            },
-            {
-              "name": "server/helpers/CatalogAdapterHelper.py",
-              "code": "@Helper\nclass CatalogAdapterHelper:\n    ROWS: list[dict[str, object]] = [{'id': 1, 'status': 'active'}, {'id': 2, 'status': 'retired'}]\n\n    @staticmethod\n    async def execute(command: dict[str, object], execution: object) -> object:\n        query = command['query']\n        condition = query['where'][0]\n        keep_unequal_rows = condition['operator'] == 'ne'\n        matching_rows = []\n        for row in CatalogAdapterHelper.ROWS:\n            is_equal = row[condition['field']] == condition['value']\n            is_match = is_equal\n            if keep_unequal_rows:\n                is_match = not is_equal\n            if is_match:\n                matching_rows.append(row)\n        if query['kind'] == 'count':\n            return len(matching_rows)\n        return matching_rows[:query['page']['size']]\n"
-            },
-            {
-              "name": "server/helpers/CatalogAdapterHelper.php",
-              "code": "<?php\n\n#[Helper]\nclass CatalogAdapterHelper {\n    public static function execute(array $command, mixed $execution): array|int {\n        $rows = [['id' => 1, 'status' => 'active'], ['id' => 2, 'status' => 'retired']];\n        $query = $command['query'];\n        $condition = $query['where'][0];\n        $keepUnequalRows = $condition['operator'] === 'ne';\n        $matchingRows = [];\n        foreach ($rows as $row) {\n            $isEqual = $row[$condition['field']] === $condition['value'];\n            $isMatch = $keepUnequalRows ? !$isEqual : $isEqual;\n            if ($isMatch) $matchingRows[] = $row;\n        }\n        if ($query['kind'] === 'count') return count($matchingRows);\n        return array_slice($matchingRows, 0, $query['page']['size']);\n    }\n\n    public static function authorize(array $command, mixed $execution): bool {\n        return $command['entity'] === 'ProductEntity';\n    }\n}\n"
-            },
-            {
-              "name": "server/helpers/CatalogAdapterHelper.cs",
-              "code": "[Helper]\npublic sealed class CatalogAdapterHelper : BehaviorEntityAdapter {\n    static readonly BehaviorJSON Rows = BehaviorJSON.Parse(\"[{\\\"id\\\":1,\\\"status\\\":\\\"active\\\"},{\\\"id\\\":2,\\\"status\\\":\\\"retired\\\"}]\");\n\n    public System.Threading.Tasks.Task<BehaviorJSON> execute(BehaviorJSON command, BehaviorExecution execution) {\n        var query = command.Get(\"query\");\n        var condition = query.Get(\"where\").Items[0];\n        bool keepUnequalRows = condition.Get(\"operator\").Text == \"ne\";\n        var matchingRows = new System.Collections.Generic.List<BehaviorJSON>();\n        foreach (var row in Rows.Items) {\n            bool isEqual = row.Get(condition.Get(\"field\").Text).ToString() == condition.Get(\"value\").ToString();\n            bool isMatch = keepUnequalRows ? !isEqual : isEqual;\n            if (isMatch) matchingRows.Add(row);\n        }\n        if (query.Get(\"kind\").Text == \"count\") {\n            return System.Threading.Tasks.Task.FromResult(BehaviorJSON.From(matchingRows.Count));\n        }\n        return System.Threading.Tasks.Task.FromResult(BehaviorJSON.Array(matchingRows.ToArray()));\n    }\n}\n"
+              "name": "server/models/ProductReport.rs",
+              "code": "pub struct ProductReport {\n    pub active: Json,\n    pub count: Json,\n    pub others: Json,\n}\n"
             },
             {
               "name": "server/helpers/CatalogAdapterHelper.rs",
               "code": "#[Helper]\nstruct CatalogAdapterHelper;\nimpl BehaviorEntityAdapter for CatalogAdapterHelper {\n    fn execute(&self, command: &BehaviorEntityCommand, execution: &BehaviorExecution) -> BehaviorResult<BehaviorValue> {\n        execution.check()?;\n        let rows = [(\"active\", 1.0), (\"retired\", 2.0)];\n        let query = command.query.as_ref().ok_or_else(behavior_invalid)?;\n        let Some(BehaviorValue::Array(conditions)) = query.get(\"where\") else {\n            return Err(behavior_invalid());\n        };\n        let condition = conditions.first().ok_or_else(behavior_invalid)?;\n        let keep_unequal_rows = condition.get(\"operator\") == Some(&BehaviorValue::String(\"ne\".into()));\n        let wanted_status = condition.get(\"value\").cloned().unwrap_or(BehaviorValue::Null);\n        let mut matching_rows = Vec::new();\n        for (status, id) in rows {\n            let is_equal = BehaviorValue::from(status) == wanted_status;\n            let is_match = if keep_unequal_rows { !is_equal } else { is_equal };\n            if !is_match {\n                continue;\n            }\n            let row = BehaviorValue::object([(\"id\", BehaviorValue::Number(id)), (\"status\", BehaviorValue::from(status))]);\n            matching_rows.push(row);\n        }\n        match query.get(\"kind\") {\n            Some(BehaviorValue::String(kind)) if kind == \"count\" => Ok(BehaviorValue::Number(matching_rows.len() as f64)),\n            _ => Ok(BehaviorValue::Array(matching_rows)),\n        }\n    }\n}\n\nimpl CatalogAdapterHelper {\n    fn new() -> Self { Self }\n}\n"
-            },
-            {
-              "name": "server/models/ProductReport.go",
-              "code": "type ProductReport struct {\n\tActive any `json:\"active\"`\n\tCount  any `json:\"count\"`\n\tOthers any `json:\"others\"`\n}\n"
             },
             {
               "name": "server/entities/ProductEntity.go",
@@ -5932,8 +6047,52 @@
               "code": "import \"errors\"\n\n// @RequestRoute(\"/products\")\n// @Public\ntype ProductController struct {\n\t// @Needs\n\tproducts *ProductStore\n}\n\n// @GetRoute\nfunc (controller *ProductController) GetProduct() (ProductReport, error) {\n\tactiveStatus := \"active\"\n\tactive, activeErr := controller.products.FindByStatus(activeStatus)\n\tactiveCount, countErr := controller.products.CountByStatus(activeStatus)\n\tothers, othersErr := controller.products.Excluding(activeStatus, map[string]any{\"size\": 5})\n\treport := ProductReport{Active: active, Count: activeCount, Others: others}\n\treturn report, controller.asResourceError(errors.Join(activeErr, countErr, othersErr))\n}\n\nfunc (controller *ProductController) asResourceError(failure error) error {\n\tif failure != nil {\n\t\treturn YonResourceError{}\n\t}\n\treturn nil\n}\n"
             },
             {
+              "name": "server/models/ProductReport.go",
+              "code": "type ProductReport struct {\n\tActive any `json:\"active\"`\n\tCount  any `json:\"count\"`\n\tOthers any `json:\"others\"`\n}\n"
+            },
+            {
               "name": "server/helpers/CatalogAdapterHelper.go",
               "code": "// @Helper\ntype CatalogAdapterHelper struct{}\n\nfunc (adapter *CatalogAdapterHelper) Execute(command *BehaviorEntityCommand, execution *BehaviorExecution) (BehaviorValue, error) {\n\tif err := execution.Check(); err != nil {\n\t\treturn nil, err\n\t}\n\tquery, isObject := command.Query.(map[string]any)\n\tif !isObject {\n\t\treturn nil, adapter.invalid()\n\t}\n\tconditions, isList := query[\"where\"].([]any)\n\tif !isList || len(conditions) == 0 {\n\t\treturn nil, adapter.invalid()\n\t}\n\tcondition, isCondition := conditions[0].(map[string]any)\n\tif !isCondition {\n\t\treturn nil, adapter.invalid()\n\t}\n\tmatchingRows := adapter.matchingRows(condition)\n\tif query[\"kind\"] == \"count\" {\n\t\treturn len(matchingRows), nil\n\t}\n\treturn matchingRows, nil\n}\n\nfunc (adapter *CatalogAdapterHelper) matchingRows(condition map[string]any) []any {\n\tkeepUnequalRows := condition[\"operator\"] == \"ne\"\n\twantedStatus := condition[\"value\"]\n\trows := []map[string]any{{\"id\": 1, \"status\": \"active\"}, {\"id\": 2, \"status\": \"retired\"}}\n\tmatchingRows := []any{}\n\tfor _, row := range rows {\n\t\tisEqual := row[\"status\"] == wantedStatus\n\t\tisMatch := isEqual\n\t\tif keepUnequalRows {\n\t\t\tisMatch = !isEqual\n\t\t}\n\t\tif !isMatch {\n\t\t\tcontinue\n\t\t}\n\t\tmatchingRows = append(matchingRows, row)\n\t}\n\treturn matchingRows\n}\n\nfunc (adapter *CatalogAdapterHelper) invalid() error {\n\treturn &BehaviorError{Code: \"invalid\", Message: \"The query is not valid.\"}\n}\n"
+            },
+            {
+              "name": "server/entities/ProductEntity.dart",
+              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table(\"products\")\nclass ProductEntity {\n  @Id\n  int id = 0;\n}\n"
+            },
+            {
+              "name": "server/stores/ProductStore.dart",
+              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})\nabstract interface class ProductStore {\n  Future<Object?> findByStatus(String status);\n\n  Future<Object?> countByStatus(String status);\n\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  Future<Object?> excluding(String status, @PageDefaults Map<String, Object?> page);\n}\n"
+            },
+            {
+              "name": "server/setups/CatalogSetup.dart",
+              "code": "@Setup\nclass CatalogSetup {\n  static const rows = [\n    {'id': 1, 'status': 'active'},\n    {'id': 2, 'status': 'retired'},\n  ];\n\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters(\n      entities: {'catalog': BehaviorEntityAdapter(execute: findRows)},\n      authorizeEntity: (command, execution) async => (command as Map)['entity'] == 'ProductEntity',\n    );\n  }\n\n  static Future<Object?> findRows(Object? command, BehaviorExecution execution) async {\n    final query = (command as Map)['query'] as Map;\n    final condition = (query['where'] as List).first as Map;\n    final keepUnequalRows = condition['operator'] == 'ne';\n    final matchingRows = rows.where((row) {\n      final isEqual = row[condition['field']] == condition['value'];\n      if (keepUnequalRows) return !isEqual;\n      return isEqual;\n    }).toList();\n    if (query['kind'] == 'count') return matchingRows.length;\n    return matchingRows;\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductController.dart",
+              "code": "import 'models/ProductReport.dart';\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductController {\n  @Needs\n  final ProductStore products;\n\n  @GetRoute\n  Future<ProductReport> getProduct() async {\n    final activeStatus = 'active';\n    final active = await products.findByStatus(activeStatus);\n    final activeCount = await products.countByStatus(activeStatus);\n    final others = await products.excluding(activeStatus, {'size': 5});\n    return ProductReport(active, activeCount, others);\n  }\n}\n"
+            },
+            {
+              "name": "server/models/ProductReport.dart",
+              "code": "class ProductReport {\n  final Object? active;\n  final Object? count;\n  final Object? others;\n\n  const ProductReport(this.active, this.count, this.others);\n}\n"
+            },
+            {
+              "name": "server/entities/ProductEntity.rb",
+              "code": "#[Entity({\"adapter\":\"catalog\"})]\n#[Table(\"products\")]\nclass ProductEntity\n  # @return [Integer]\n  #[Id]\n  attr_reader :id\nend\n"
+            },
+            {
+              "name": "server/stores/ProductStore.rb",
+              "code": "#[Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})]\nclass ProductStore\n  # @param status [String]\n  # @return [Array<Hash>]\n  def find_by_status(status)\n  end\n\n  # @param status [String]\n  # @return [Integer]\n  def count_by_status(status)\n  end\n\n  # @param status [String]\n  # @param page [Hash]\n  # @return [Array<Hash>]\n  #[Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})]\n  def excluding(\n    status,\n    #[PageDefaults]\n    page\n  )\n  end\nend\n"
+            },
+            {
+              "name": "server/setups/CatalogSetup.rb",
+              "code": "#[Setup]\nclass CatalogSetup\n  ROWS = [{ \"id\" => 1, \"status\" => \"active\" }, { \"id\" => 2, \"status\" => \"retired\" }].freeze\n\n  # @param execution [Object]\n  # @return [Hash]\n  def self.configure(execution)\n    { entities: { catalog: { execute: method(:find_rows) } }, authorizeEntity: method(:product_entity?) }\n  end\n\n  # @param command [Hash]\n  # @param execution [Object]\n  # @return [Object]\n  def self.find_rows(command, execution)\n    return [] unless command[\"operation\"] == \"query\"\n    query = command[\"query\"]\n    matching_rows = ROWS.select { |row| matches?(row, query[\"where\"][0]) }\n    return matching_rows.length if query[\"kind\"] == \"count\"\n    matching_rows.first(query.dig(\"page\", \"size\") || matching_rows.length)\n  end\n\n  # @param row [Hash]\n  # @param condition [Hash]\n  # @return [Boolean]\n  def self.matches?(row, condition)\n    is_equal = row[condition[\"field\"]] == condition[\"value\"]\n    condition[\"operator\"] == \"ne\" ? !is_equal : is_equal\n  end\n\n  # @param command [Hash]\n  # @param execution [Object]\n  # @return [Boolean]\n  def self.product_entity?(command, execution)\n    command[\"entity\"] == \"ProductEntity\"\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/ProductController.rb",
+              "code": "#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductController\n  ACTIVE_STATUS = \"active\"\n\n  #[Needs]\n  # @return [ProductStore]\n  attr_reader :product_store\n\n  # @return [ProductReport]\n  #[GetRoute]\n  def get_product\n    ProductReport.new(\n      active: product_store.find_by_status(ACTIVE_STATUS),\n      count: product_store.count_by_status(ACTIVE_STATUS),\n      others: product_store.excluding(ACTIVE_STATUS, { \"size\" => 5 })\n    )\n  end\nend\n"
+            },
+            {
+              "name": "server/models/ProductReport.rb",
+              "code": "# @!attribute [r] active\n#   @return [Array<Hash>]\n# @!attribute [r] count\n#   @return [Integer]\n# @!attribute [r] others\n#   @return [Array<Hash>]\nProductReport = Data.define(:active, :count, :others)\n"
             }
           ],
           "axis": "language"
@@ -5956,7 +6115,10 @@
         },
         {
           "heading": "Create the behavior context in OnStart",
-          "body": "Create the context in OnStart. Inject lifecycle and pass this.lifecycle as the context's signal (the object that tells work to stop). Then give the context to behaviors yourself. When the user leaves the page or a hot replacement happens, Tachyon aborts the operations that are still waiting. For lifetimes that you manage separately, use context.dispose(). The complete service below needs no storage or network adapter. PageDefaults only puts limited input into a standard form. It does not fetch a collection or cut it into parts. The application is responsible for more advanced adapters. The Yon guide describes their shared contracts. docs/BEHAVIOR_ANNOTATIONS.md is the full reference.",
+          "notApplicable": [
+            "py"
+          ],
+          "body": "Create the context in OnStart. In JavaScript and TypeScript, inject lifecycle and pass this.lifecycle as the context's signal (the object that tells work to stop). The other languages pass a BehaviorSignal that they create. Then give the context to behaviors yourself. When the user leaves the page or a hot replacement happens, Tachyon aborts the operations that are still waiting. For lifetimes that you manage separately, use context.dispose(). The complete service below needs no storage or network adapter. PageDefaults only puts limited input into a standard form. It does not fetch a collection or cut it into parts. The application is responsible for more advanced adapters. The Yon guide describes their shared contracts. docs/BEHAVIOR_ANNOTATIONS.md is the full reference. Python has no tab here: Behaviors.create is asynchronous in Python, and the build refuses asynchronous methods in Python Tac code with TY1605. Lua has no tab here, because the build refuses Setup in Lua Tac code with TY1308.",
           "files": [
             {
               "name": "client/pages/catalog/tac.html",
@@ -5973,8 +6135,90 @@
             {
               "name": "client/services/CatalogService.js",
               "code": "@Service\nexport default class CatalogService {\n  /** @type {AbortSignal} */\n  @Needs\n  lifecycle;\n  /** @type {BehaviorContext | null} */\n  behaviors = null;\n  /** @type {number | undefined} */\n  offset = 0;\n\n  /**\n   * @param {BehaviorPageInput} input\n   * @returns {number | undefined}\n   */\n  page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input) { return input.offset; }\n\n  @OnStart\n  async initialize() {\n    this.behaviors = await Behaviors.create(ApplicationSetup, {\n      partition: 'public-catalog',\n      signal: this.lifecycle,\n    });\n    this.offset = this.page({ page: 1 });\n  }\n}"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.ts",
+              "code": "@Setup\nexport default class ApplicationSetup {\n  static configure(): object { return {} }\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.ts",
+              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  lifecycle!: AbortSignal\n  behaviors: BehaviorContext | null = null\n  offset: number | undefined = 0\n\n  page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input: BehaviorPageInput): number | undefined { return input.offset }\n\n  @OnStart\n  async initialize(): Promise<void> {\n    this.behaviors = await Behaviors.create(ApplicationSetup, {\n      partition: 'public-catalog',\n      signal: this.lifecycle,\n    })\n    this.offset = this.page({ page: 1 })\n  }\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.java",
+              "code": "@Setup\nclass ApplicationSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration();\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.java",
+              "code": "import java.util.Map;\n\n@Service\nclass CatalogService {\n    Behaviors.Context behaviors;\n    long offset = 0;\n\n    Object page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) Map<String, Object> input) {\n        return input.get(\"offset\");\n    }\n\n    @OnStart\n    void initialize() {\n        behaviors = Behaviors.create(\"ApplicationSetup\", new Behaviors.Options(\"public-catalog\", new Behaviors.Signal()));\n        offset = ((Number) page(Map.of(\"page\", 1))).longValue();\n    }\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.kt",
+              "code": "@Setup\nclass ApplicationSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.kt",
+              "code": "@Service\nclass CatalogService {\n    lateinit var behaviors: Behaviors.Context\n    var offset: Long = 0\n\n    fun page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input: Map<String, Any?>): Any? {\n        return input[\"offset\"]\n    }\n\n    @OnStart\n    fun initialize() {\n        behaviors = Behaviors.create(\"ApplicationSetup\", Behaviors.Options(\"public-catalog\", Behaviors.Signal()))\n        offset = (page(mapOf(\"page\" to 1)) as Number).toLong()\n    }\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.cs",
+              "code": "[Setup]\npublic sealed class ApplicationSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.cs",
+              "code": "[Service]\npublic sealed class CatalogService {\n    public BehaviorContext behaviors;\n    public long Offset = 0;\n\n    public System.Threading.Tasks.Task<BehaviorJSON> Page([PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})] BehaviorJSON input) {\n        return System.Threading.Tasks.Task.FromResult(input.Get(\"offset\"));\n    }\n\n    [OnStart]\n    public void Initialize() {\n        behaviors = Behaviors.create(typeof(ApplicationSetup), \"public-catalog\", new BehaviorSignal());\n        Offset = Page(BehaviorJSON.Parse(\"{\\\"page\\\":1}\")).Result.Integer;\n    }\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.fs",
+              "code": "[<Setup>]\ntype ApplicationSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "client/services/CatalogService.fs",
+              "code": "open System.Threading.Tasks\n\n[<Service>]\ntype CatalogService() =\n    member val behaviors : BehaviorContext = Behaviors.create(typeof<ApplicationSetup>, \"public-catalog\", new BehaviorSignal())\n    member val Offset : int64 = 0L with get, set\n\n    member this.Page([<PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})>] input: BehaviorJSON) : Task<BehaviorJSON> =\n        Task.FromResult(input.Get(\"offset\"))\n\n    [<OnStart>]\n    member this.Initialize() : unit =\n        this.Offset <- this.Page(BehaviorJSON.Parse(\"{\\\"page\\\":1}\")).Result.Integer\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.rs",
+              "code": "#[Setup]\nstruct ApplicationSetup {}\n\nimpl ApplicationSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.rs",
+              "code": "#[Service]\nstruct CatalogService {\n    behaviors: BehaviorContext,\n    offset: f64,\n}\n\nimpl CatalogService {\n    fn new() -> Self {\n        let options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        Self { behaviors: Behaviors::create::<ApplicationSetup>(options).expect(\"behavior context\"), offset: 0.0 }\n    }\n\n    fn page(&self, #[PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})] input: BehaviorValue) -> BehaviorResult<BehaviorValue> {\n        Ok(input.get(\"offset\").cloned().unwrap_or(BehaviorValue::Null))\n    }\n\n    #[OnStart]\n    fn initialize(&mut self) {\n        let first = BehaviorValue::object([(\"page\", BehaviorValue::Number(1.0))]);\n        self.offset = Self::offset_of(self.page(first));\n    }\n\n    fn offset_of(value: BehaviorResult<BehaviorValue>) -> f64 {\n        match value {\n            Ok(BehaviorValue::Number(offset)) => offset,\n            _ => 0.0,\n        }\n    }\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.go",
+              "code": "// @Setup\ntype ApplicationSetup struct{}\n\nfunc (ApplicationSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.go",
+              "code": "import \"errors\"\n\n// @Service\ntype CatalogService struct {\n\tbehaviors *BehaviorContext\n\tOffset    int64\n}\n\nfunc (catalog *CatalogService) Page(\n\t// @PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})\n\tinput BehaviorValue,\n) (BehaviorValue, error) {\n\treturn input.(map[string]any)[\"offset\"], nil\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Initialize() error {\n\tcontext, err := BehaviorsCreate[ApplicationSetup](NewBehaviorOptions(\"public-catalog\", NewBehaviorSignal()))\n\tcatalog.behaviors = context\n\toffset, pageErr := catalog.Page(map[string]any{\"page\": 1})\n\tcatalog.Offset = catalog.offsetOf(offset)\n\treturn errors.Join(err, pageErr)\n}\n\nfunc (catalog *CatalogService) offsetOf(value BehaviorValue) int64 {\n\tnumber, _ := value.(float64)\n\treturn int64(number)\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.dart",
+              "code": "@Setup\nclass ApplicationSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.dart",
+              "code": "@Service\nclass CatalogService {\n  late BehaviorContext behaviors;\n  int offset = 0;\n\n  Future<Object?> page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) Map<String, Object?> input) async {\n    return input['offset'];\n  }\n\n  @OnStart\n  Future<void> initialize() async {\n    behaviors = Behaviors.create(ApplicationSetup, partition: 'public-catalog', signal: BehaviorSignal());\n    offset = (await page({'page': 1}) as num).toInt();\n  }\n}\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.rb",
+              "code": "#[Setup]\nclass ApplicationSetup\n  # @param _execution [BehaviorExecution]\n  # @return [Hash]\n  def self.configure(_execution)\n    {}\n  end\nend\n"
+            },
+            {
+              "name": "client/services/CatalogService.rb",
+              "code": "#[Service]\nclass CatalogService\n  # @return [Integer]\n  attr_reader :offset\n\n  def initialize\n    @offset = 0\n  end\n\n  # @param input [Hash]\n  # @return [Integer]\n  def page(\n    #[PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})]\n    input\n  )\n    input[\"offset\"]\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    @behaviors = Behaviors.create(ApplicationSetup, partition: \"public-catalog\", signal: BehaviorSignal.new)\n    @offset = page({ \"page\" => 1 })\n  end\nend\n"
+            },
+            {
+              "name": "client/setups/ApplicationSetup.swift",
+              "code": "@Setup\nfinal class ApplicationSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        BehaviorAdapters()\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.swift",
+              "code": "@Service\nfinal class CatalogService {\n    var behaviors: BehaviorContext!\n    var offset: Int = 0\n\n    func page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) _ input: BehaviorJSON) throws -> BehaviorJSON {\n        input.get(\"offset\")\n    }\n\n    @OnStart\n    func initialize() {\n        behaviors = try? Behaviors.create(ApplicationSetup.self, partition: \"public-catalog\", signal: BehaviorSignal())\n        offset = offsetOf(try? page(.object([\"page\": .number(1)])))\n    }\n\n    private func offsetOf(_ value: BehaviorJSON?) -> Int {\n        guard case .number(let number)? = value else { return 0 }\n        return Int(number)\n    }\n}\n"
             }
-          ]
+          ],
+          "axis": "language",
+          "target": "web"
         }
       ]
     },
@@ -6002,7 +6246,7 @@
       "sections": [
         {
           "heading": "Calling a method in another language",
-          "body": "`@Gateway` declares a method that another language answers. Write it like a request method: a method without a body in an `HTTPClient` contract. In JavaScript and TypeScript its answer is `Promise<BehaviorJsonValue | void>`. The annotation names one of two targets.\n\n`{\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}` names a role file in another Yon language. `method` is optional. By default, it is the name of the annotated method. Tachyon builds a small unit in the language of the target. The unit puts together the role files of that language. It creates the class with its own dependencies. It calls only the methods that callers declared. The target runs like a route: it has the same environment and its own managed storage.\n\n`{\"command\":[\"python3\",\"server/helpers/forecast.py\"]}` names a program. The first entry is a program on the `PATH` of the server. Every entry that contains a slash is a file under `server/helpers/`. No shell runs, and the arguments of the call never go on the command line. The program reads `{\"method\": \"forecast\", \"arguments\": [3]}` on stdin (standard input) and writes only the JSON result on stdout (standard output). Exit status 0 means success. Any other status is a failure. The program gets only the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows) and the names you add to the allowlist. It never gets `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values.\n\nThe positional arguments of the method travel as JSON. The return value of the other side becomes the result of the method. Typed languages use their JSON value type: `Object` in Java, `Any?` in Kotlin, `BehaviorJsonValue` in TypeScript, `BehaviorValue` in Go. These are the limits: at most 32 arguments; 1 MiB of JSON each way, at most 32 levels deep and 10,000 values; 64 calls and 4 calls at the same time per request; and the time left in the request. Each call starts a new process, so a JVM or .NET target spends its start-up time again on every call.\n\nA failure reaches the caller as a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. The messages of the target and its stderr (error output) never reach the caller. The server logs only a `handler.gateway_failed` event with the code. Only one hop (one call from one language to another) is allowed. Tachyon refuses a target class that declares its own gateway.\n\nThe build checks every target. It fails with `TY1312` when the file is missing or outside `server/`. It also fails when the file is in the caller's own language. In that case, inject it instead. It also fails when it is not a Yon language. It fails when the target has no concrete instance method of that name. It also fails when the method takes a different number of arguments. It fails when the method uses a type that is not the JSON value type of the language. Tachyon selects Java, Groovy, Kotlin and C# overloads by argument count and JSON types, not by source order. Overloads are methods with the same name but different parameters. Ambiguous signatures also fail with `TY1312`. So do callers that ask for different argument counts for the same target method. Rust target methods use `&self`. Tachyon refuses a method that consumes `self` or borrows `&mut self`. A Go target method is exported. So Tachyon calls the method whose name starts with an upper-case letter (`summarize` calls `Summarize`). A misused annotation fails with `TY1308`. This happens in Tac, on an HTTP verb method, or together with another method annotation. `server/gateways/` is reserved for the generated units (`TY1310`). A missing program fails at start-up with `TY2112`, and Firecracker isolation refuses gateways (`TY2010`).\n\nEvery Yon language below calls a class in another language. The examples also show an explicit Python command target.",
+          "body": "`@Gateway` declares a method that another language answers. Write it like a request method: a method without a body in an `HTTPClient` contract. In JavaScript and TypeScript its answer is `Promise<BehaviorJsonValue | void>`. The annotation names one of two targets.\n\n`{\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}` names a role file in another Yon language. `method` is optional. By default, it is the name of the annotated method. Tachyon builds a small unit in the language of the target. The unit puts together the role files of that language. It creates the class with its own dependencies. It calls only the methods that callers declared. The target runs like a route: it has the same environment and its own managed storage.\n\n`{\"command\":[\"python3\",\"server/helpers/forecast.py\"]}` names a program. The first entry is a program on the `PATH` of the server. Every entry that contains a slash is a file under `server/helpers/`. No shell runs, and the arguments of the call never go on the command line. The program reads `{\"method\": \"forecast\", \"arguments\": [3]}` on stdin (standard input) and writes only the JSON result on stdout (standard output). Exit status 0 means success. Any other status is a failure. The program gets only the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows) and the names you add to the allowlist. It never gets `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values.\n\nThe positional arguments of the method travel as JSON. The return value of the other side becomes the result of the method. Typed languages use their JSON value type: `Object` in Java, `Any?` in Kotlin, `BehaviorJsonValue` in TypeScript, `BehaviorValue` in Go. These are the limits: at most 32 arguments; 1 MiB of JSON each way, at most 32 levels deep and 10,000 values; 64 calls and 4 calls at the same time per request; and the time left in the request. Each call starts a new process, so a JVM or .NET target spends its start-up time again on every call.\n\nA failure reaches the caller as a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. The messages of the target and its stderr (error output) never reach the caller. The server logs only a `handler.gateway_failed` event with the code. Only one hop (one call from one language to another) is allowed. Tachyon refuses a target class that declares its own gateway.\n\nThe build checks every target. It fails with `TY1312` when the file is missing or outside `server/`. It also fails when the file is in the caller's own language. In that case, inject it instead. It also fails when it is not a Yon language. It fails when the target has no concrete instance method of that name. It also fails when the method takes a different number of arguments. It fails when the method uses a type that is not the JSON value type of the language. Tachyon selects Java, Groovy, Kotlin and C# overloads by argument count and JSON types, not by source order. Overloads are methods with the same name but different parameters. Ambiguous signatures also fail with `TY1312`. So do callers that ask for different argument counts for the same target method. Rust target methods use `&self`. Tachyon refuses a method that consumes `self` or borrows `&mut self`. A Go target method is exported. So Tachyon calls the method whose name starts with an upper-case letter (`summarize` calls `Summarize`). A misused annotation fails with `TY1308`. This happens in Tac, on an HTTP verb method, or together with another method annotation. `server/gateways/` is reserved for the generated units (`TY1310`). A missing program fails at start-up with `TY2112`, and Firecracker isolation refuses gateways (`TY2010`).\n\nEvery Yon language below calls a class in another language. The examples also show an explicit Python command target. Lua has no tab here, because the build refuses Gateway in Lua Yon code with TY1308.",
           "files": [
             {
               "name": "server/remotes/ReportClient.js",
@@ -6017,10 +6261,6 @@
               "code": "@Service\nclass ReportService {\n  /**\n   * @param {string} period\n   * @returns {{ period: string, total: number, language: string }}\n   */\n  summarize(period) {\n    return { period, total: 42, language: 'javascript' }\n  }\n}\n"
             },
             {
-              "name": "server/models/Report.ts",
-              "code": "export interface Report {\n  summary: unknown\n  forecast: unknown\n}\n"
-            },
-            {
               "name": "server/remotes/ReportClient.ts",
               "code": "@HTTPClient\nexport default class ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.go\"})\n  async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
@@ -6029,8 +6269,8 @@
               "code": "import type { Report } from '/models/Report.ts'\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @Needs\n  readonly reportClient!: ReportClient;\n\n  @GetRoute\n  async getReport(): Promise<Report> {\n    const summary = await this.reportClient.summarize('2026-Q3');\n    const forecast = await this.reportClient.forecast(2);\n    return { summary, forecast };\n  }\n}\n"
             },
             {
-              "name": "server/models/Report.py",
-              "code": "from dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass Report:\n    summary: Any\n    forecast: Any\n"
+              "name": "server/models/Report.ts",
+              "code": "export interface Report {\n  summary: unknown\n  forecast: unknown\n}\n"
             },
             {
               "name": "server/remotes/ReportClient.py",
@@ -6045,12 +6285,12 @@
               "code": "@service\nclass ReportService:\n    def summarize(self, period: str) -> dict[str, object]:\n        return {\"period\": period, \"total\": 42, \"language\": \"python\"}\n"
             },
             {
-              "name": "server/helpers/forecast.py",
-              "code": "import json\nimport sys\n\ncall = json.load(sys.stdin)\nmonths = call[\"arguments\"][0]\nprint(json.dumps({\"months\": months, \"growth\": [1.5] * months}))\n"
+              "name": "server/models/Report.py",
+              "code": "from dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass Report:\n    summary: Any\n    forecast: Any\n"
             },
             {
-              "name": "server/models/Report.php",
-              "code": "<?php\nclass Report {\n    public function __construct(\n        public mixed $summary,\n        public mixed $forecast,\n    ) {}\n}\n"
+              "name": "server/helpers/forecast.py",
+              "code": "import json\nimport sys\n\ncall = json.load(sys.stdin)\nmonths = call[\"arguments\"][0]\nprint(json.dumps({\"months\": months, \"growth\": [1.5] * months}))\n"
             },
             {
               "name": "server/remotes/ReportClient.php",
@@ -6061,32 +6301,32 @@
               "code": "<?php\nuse Models\\Report;\n\n#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController {\n    #[Needs]\n    public ReportClient $reportClient;\n\n    #[GetRoute]\n    public function getReport(): Report {\n        return new Report($this->reportClient->summarize('2026-Q3'), $this->reportClient->forecast(2));\n    }\n}\n"
             },
             {
-              "name": "server/models/Report.java",
-              "code": "record Report(Object summary, Object forecast) {}\n"
-            },
-            {
-              "name": "server/models/Report.groovy",
-              "code": "record Report(Object summary, Object forecast) {}\n"
+              "name": "server/models/Report.php",
+              "code": "<?php\nclass Report {\n    public function __construct(\n        public mixed $summary,\n        public mixed $forecast,\n    ) {}\n}\n"
             },
             {
               "name": "server/remotes/ReportClient.java",
               "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period);\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months);\n}\n"
             },
             {
-              "name": "server/remotes/ReportClient.groovy",
-              "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period)\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months)\n}\n"
-            },
-            {
               "name": "server/controllers/ReportController.java",
               "code": "import models.Report;\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @Needs\n    final ReportClient reportClient;\n\n    @GetRoute\n    Report getReport() {\n        return new Report(reportClient.summarize(\"2026-Q3\"), reportClient.forecast(2L));\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Report.java",
+              "code": "record Report(Object summary, Object forecast) {}\n"
+            },
+            {
+              "name": "server/remotes/ReportClient.groovy",
+              "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period)\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months)\n}\n"
             },
             {
               "name": "server/controllers/ReportController.groovy",
               "code": "import models.Report\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @Needs\n    final ReportClient reportClient\n\n    @GetRoute\n    Report getReport() {\n        return new Report(reportClient.summarize(\"2026-Q3\"), reportClient.forecast(2L))\n    }\n}\n"
             },
             {
-              "name": "server/models/Report.kt",
-              "code": "data class Report(val summary: Any?, val forecast: Any?)\n"
+              "name": "server/models/Report.groovy",
+              "code": "record Report(Object summary, Object forecast) {}\n"
             },
             {
               "name": "server/remotes/ReportClient.kt",
@@ -6097,8 +6337,8 @@
               "code": "import models.Report\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @Needs\n    val reportClient: ReportClient\n\n    @GetRoute\n    fun getReport(): Report = Report(reportClient.summarize(\"2026-Q3\"), reportClient.forecast(2L))\n}\n"
             },
             {
-              "name": "server/models/Report.cs",
-              "code": "using System.Text.Json.Nodes;\n\npublic record Report(JsonNode Summary, JsonNode Forecast);\n"
+              "name": "server/models/Report.kt",
+              "code": "data class Report(val summary: Any?, val forecast: Any?)\n"
             },
             {
               "name": "server/remotes/ReportClient.cs",
@@ -6109,8 +6349,20 @@
               "code": "using System.Text.Json.Nodes;\nusing Models;\n\n[RequestRoute(\"/report\")]\n[Public]\nclass ReportController {\n    [Needs]\n    readonly ReportClient _reportClient;\n\n    [GetRoute]\n    public Report GetReport() {\n        var summary = _reportClient.Summarize(BehaviorJSON.From(\"2026-Q3\"));\n        var forecast = _reportClient.Forecast(BehaviorJSON.From(2));\n        return new Report(JsonNode.Parse(summary.ToString()), JsonNode.Parse(forecast.ToString()));\n    }\n}\n"
             },
             {
-              "name": "server/models/Report.rs",
-              "code": "use crate::Json;\n\npub struct Report {\n    pub summary: Json,\n    pub forecast: Json,\n}\n"
+              "name": "server/models/Report.cs",
+              "code": "using System.Text.Json.Nodes;\n\npublic record Report(JsonNode Summary, JsonNode Forecast);\n"
+            },
+            {
+              "name": "server/remotes/ReportClient.fs",
+              "code": "[<HTTPClient>]\ntype ReportClient =\n    [<Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})>]\n    abstract Summarize: period: BehaviorJSON -> BehaviorJSON\n\n    [<Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})>]\n    abstract Forecast: months: BehaviorJSON -> BehaviorJSON\n"
+            },
+            {
+              "name": "server/controllers/ReportController.fs",
+              "code": "open System.Text.Json.Nodes\nopen Models\n\n[<RequestRoute(\"/report\")>]\n[<Public>]\ntype ReportController(reportClient: ReportClient) =\n    [<GetRoute>]\n    member this.GetReport() : Report =\n        let summary = reportClient.Summarize(BehaviorJSON.From(\"2026-Q3\"))\n        let forecast = reportClient.Forecast(BehaviorJSON.From(2))\n        { Summary = JsonNode.Parse(summary.ToString())\n          Forecast = JsonNode.Parse(forecast.ToString()) }\n"
+            },
+            {
+              "name": "server/models/Report.fs",
+              "code": "open System.Text.Json.Nodes\n\ntype Report = { Summary: JsonNode; Forecast: JsonNode }\n"
             },
             {
               "name": "server/remotes/ReportClient.rs",
@@ -6121,8 +6373,8 @@
               "code": "use crate::models::Report;\n\n#[RequestRoute(\"/report\")]\n#[Public]\nstruct ReportController {\n    #[Needs]\n    report_client: std::sync::Arc<ReportClient>,\n}\nimpl ReportController {\n    #[GetRoute]\n    fn get_report(&self) -> Result<Report, YonResourceError> {\n        let summary = self.report_client.summarize(\"2026-Q3\".into()).map_err(|_| YonResourceError)?;\n        let forecast = self.report_client.forecast(BehaviorValue::Number(2.0)).map_err(|_| YonResourceError)?;\n        Ok(Report { summary: Self::json(&summary)?, forecast: Self::json(&forecast)? })\n    }\n\n    fn json(value: &BehaviorValue) -> Result<Json, YonResourceError> {\n        let text = value.to_json(1_048_576).map_err(|_| YonResourceError)?;\n        Json::parse(&text).map_err(|_| YonResourceError)\n    }\n}\n"
             },
             {
-              "name": "server/models/Report.go",
-              "code": "type Report struct {\n\tSummary  any `json:\"summary\"`\n\tForecast any `json:\"forecast\"`\n}\n"
+              "name": "server/models/Report.rs",
+              "code": "pub struct Report {\n    pub summary: Json,\n    pub forecast: Json,\n}\n"
             },
             {
               "name": "server/remotes/ReportClient.go",
@@ -6137,8 +6389,8 @@
               "code": "// @Service\ntype ReportService struct{}\n\nfunc (service *ReportService) Summarize(period BehaviorValue) (BehaviorValue, error) {\n\treturn map[string]any{\"period\": period, \"total\": 42, \"language\": \"go\"}, nil\n}\n"
             },
             {
-              "name": "server/models/Report.dart",
-              "code": "class Report {\n  final Object? summary;\n  final Object? forecast;\n\n  const Report(this.summary, this.forecast);\n}\n"
+              "name": "server/models/Report.go",
+              "code": "type Report struct {\n\tSummary  any `json:\"summary\"`\n\tForecast any `json:\"forecast\"`\n}\n"
             },
             {
               "name": "server/remotes/ReportClient.dart",
@@ -6147,14 +6399,91 @@
             {
               "name": "server/controllers/ReportController.dart",
               "code": "import 'models/Report.dart';\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @Needs\n  final ReportClient reportClient;\n\n  @GetRoute\n  Future<Report> getReport() async {\n    final summary = await reportClient.summarize('2026-Q3');\n    final forecast = await reportClient.forecast(2);\n    return Report(summary, forecast);\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Report.dart",
+              "code": "class Report {\n  final Object? summary;\n  final Object? forecast;\n\n  const Report(this.summary, this.forecast);\n}\n"
+            },
+            {
+              "name": "server/remotes/ReportClient.rb",
+              "code": "#[HTTPClient]\nclass ReportClient\n  # @param period [String]\n  # @return [void]\n  #[Gateway({\"class\":\"server/services/ReportService.py\"})]\n  def summarize(period)\n  end\n\n  # @param months [Integer]\n  # @return [void]\n  #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n  def forecast(months)\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/ReportController.rb",
+              "code": "#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController\n  #[Needs]\n  # @return [ReportClient]\n  attr_reader :report_client\n\n  # @return [Report]\n  #[GetRoute]\n  def get_report\n    Report.new(summary: report_client.summarize(\"2026-Q3\"), forecast: report_client.forecast(2))\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Report.rb",
+              "code": "# @!attribute [r] summary\n#   @return [Object]\n# @!attribute [r] forecast\n#   @return [Object]\nReport = Data.define(:summary, :forecast)\n"
             }
           ],
           "axis": "language"
         },
         {
           "heading": "Relaying to other languages",
-          "body": "A program that Yon does not run directly can still use Handler Protocol v1. Call `relay(command, request)` yourself from a controller method that takes the request argument. `request` is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request and writes the answer with `http_response_code()`, `header()` and `echo`. The program reads the request as JSON on its standard input: `route` (the path and query), `method`, `headers` and `body`. Yon starts the program without a shell and limits its output. The deadline of the program is the time left in the request. Tachyon counts it after the wait for a process slot and the start of the route. Every relay in the request shares that deadline. The program gets the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows). The allowlist is the list of allowed names. It also gets the names you add to the allowlist, `YON_HANDLER_PROTOCOL` and the `NO_PROXY` values of the route process. Yon removes the other values, so the program does not inherit them by accident. This is not a sandbox (a closed space that blocks access). A program that runs as the same user can still read the environment of its parent. It can also read the files of the project. Every relay failure reaches the controller as HTTP 502. The message is always the same: `Component invocation failed.` Yon removes sensitive details from failures. At the end, it cleans up (reaps) the whole process group.\n\nBreaking change: a relay program no longer receives `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values, even when they are on the allowlist. If a relay program read its configuration from `YON_APPLICATION_JSON`, that must change. The program must now read it from its own files or from a variable on the allowlist.\n\nTo call one method in another language and get a value back, use `@Gateway` instead of forwarding the request.",
-          "code": "@request_route(\"/report\")\nclass ReportController:\n    @get_route\n    def get_report(self, request):\n        return relay((\"ruby\", \"server/helpers/ReportDelegate.rb\"), request)"
+          "notApplicable": [
+            "lua"
+          ],
+          "body": "A program that Yon does not run directly can still use Handler Protocol v1. Call `relay(command, request)` yourself from a controller method that takes the request argument. `request` is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request and writes the answer with `http_response_code()`, `header()` and `echo`. The program reads the request as JSON on its standard input: `route` (the path and query), `method`, `headers` and `body`. Yon starts the program without a shell and limits its output. The deadline of the program is the time left in the request. Tachyon counts it after the wait for a process slot and the start of the route. Every relay in the request shares that deadline. The program gets the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows). The allowlist is the list of allowed names. It also gets the names you add to the allowlist, `YON_HANDLER_PROTOCOL` and the `NO_PROXY` values of the route process. Yon removes the other values, so the program does not inherit them by accident. This is not a sandbox (a closed space that blocks access). A program that runs as the same user can still read the environment of its parent. It can also read the files of the project. Every relay failure reaches the controller as HTTP 502. The message is always the same: `Component invocation failed.` Yon removes sensitive details from failures. At the end, it cleans up (reaps) the whole process group.\n\nBreaking change: a relay program no longer receives `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values, even when they are on the allowlist. If a relay program read its configuration from `YON_APPLICATION_JSON`, that must change. The program must now read it from its own files or from a variable on the allowlist.\n\nTo call one method in another language and get a value back, use `@Gateway` instead of forwarding the request. Lua has no tab here, because the build refuses relay in Lua Yon code with TY2015.",
+          "files": [
+            {
+              "name": "server/helpers/ReportDelegate.rb",
+              "code": "require 'json'\n\nrequest = JSON.parse($stdin.read) rescue {}\nbody = JSON.generate({ 'language' => 'Ruby', 'route' => request['route'] })\nputs JSON.generate({\n  'status' => 200,\n  'headers' => { 'content-type' => ['application/json'] },\n  'body' => body\n})\n"
+            },
+            {
+              "name": "server/controllers/ReportController.js",
+              "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /**\n   * @param {Request} request\n   * @returns {Promise<Response>}\n   */\n  @GetRoute\n  getReport(request) {\n    return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.ts",
+              "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  getReport(request: Request): Promise<Response> {\n    return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.py",
+              "code": "@request_route(\"/report\")\n@public\nclass ReportController:\n    @get_route\n    def get_report(self, request: object) -> object:\n        return relay((\"ruby\", \"server/helpers/ReportDelegate.rb\"), request)\n"
+            },
+            {
+              "name": "server/controllers/ReportController.php",
+              "code": "<?php\n#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController {\n    #[GetRoute]\n    public function getReport(): void {\n        Yon::relay(['ruby', 'server/helpers/ReportDelegate.rb']);\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.java",
+              "code": "import com.sun.net.httpserver.HttpExchange;\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange);\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.groovy",
+              "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange)\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.kt",
+              "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    fun getReport(exchange: HttpExchange) =\n        Yon.relay(listOf(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange)\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.cs",
+              "code": "[RequestRoute(\"/report\")]\n[Public]\nclass ReportController {\n    [GetRoute]\n    public HttpResponseMessage GetReport(HttpRequestMessage request) {\n        return Yon.Relay(new[] { \"ruby\", \"server/helpers/ReportDelegate.rb\" }, request);\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.fs",
+              "code": "open System.Net.Http\n\n[<RequestRoute(\"/report\")>]\n[<Public>]\ntype ReportController() =\n    [<GetRoute>]\n    member this.GetReport(request: HttpRequestMessage) : HttpResponseMessage =\n        Yon.Relay([| \"ruby\"; \"server/helpers/ReportDelegate.rb\" |], request)\n"
+            },
+            {
+              "name": "server/controllers/ReportController.rs",
+              "code": "#[RequestRoute(\"/report\")]\n#[Public]\nstruct ReportController {}\nimpl ReportController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_report(&self, request: &http::Request<Vec<u8>>) -> http::Response<Vec<u8>> {\n        relay(&[\"ruby\", \"server/helpers/ReportDelegate.rb\"], request)\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.go",
+              "code": "import \"net/http\"\n\n// @RequestRoute(\"/report\")\n// @Public\ntype ReportController struct {\n}\n\n// @GetRoute\nfunc (controller *ReportController) GetReport(request *http.Request) *http.Response {\n\treturn Relay([]string{\"ruby\", \"server/helpers/ReportDelegate.rb\"}, request)\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.dart",
+              "code": "import 'package:shelf/shelf.dart';\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  Future<Response> getReport(Request request) =>\n      relay(['ruby', 'server/helpers/ReportDelegate.rb'], request);\n}\n"
+            },
+            {
+              "name": "server/controllers/ReportController.rb",
+              "code": "#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController\n  # @param request [Hash]\n  # @return [Hash]\n  #[GetRoute]\n  def get_report(request)\n    relay([\"ruby\", \"server/helpers/ReportDelegate.rb\"], request)\n  end\nend\n"
+            }
+          ],
+          "axis": "language"
         }
       ]
     },
@@ -6234,7 +6563,7 @@
       "sections": [
         {
           "heading": "One place for repeated code",
-          "body": "When two places hold the same block of code, a fix in one place misses the other. So Tachyon refuses duplicated code, with the same rules as SonarQube's copy-paste detection. Tachyon checks your code itself and sends nothing to another service.\n\nA duplicate is a block of at least 100 tokens (words, names, values and signs) that spans at least 10 lines and appears twice or more. The two copies are in the same language and the same realm, in one file or in two files. Names and values may differ: `total(order)` and `total(invoice)` are the same code. Whitespace and comments do not count, and neither do imports, annotation lines, test units, models, entities, generated files and lists of values.\n\nThe build refuses a duplicate with `TY1315`. The message names both places, for example `client/services/OrderService.js:12-40`, and tells you where to move the code. `ty migrate check` lists every duplicate.\n\nMove the repeated code into a utility class. A Tac utility class lives in `client/shared/utils/`, and you may group utilities in nested folders, such as `client/shared/utils/text/TitleUtils.js`. A Yon utility class lives in `server/utils/`. The name of a utility class ends with `Utils`. The build refuses a file in `client/utils/` with `TY1310`, and `ty migrate fix --write` moves it to `client/shared/utils/` and changes the paths that import it. It holds only static methods and no state: no field, no stored value, no constructor and no instance method (`TY1316`). It has no annotation. Every class of the same realm and language can call it with no import, and a test unit can test it. Its methods follow the cohesion rule: a public static method only coordinates, and private static methods hold the decisions.\n\n| Language | Utility class | Static method |\n| --- | --- | --- |\n| JavaScript, TypeScript | `export default class PriceUtils` | `static label(cents)`; private: `static #dollars(cents)` or TypeScript `private static` |\n| Python | `class PriceUtils:` | `@staticmethod` above `def label(cents)`; private: `_dollars` |\n| Ruby | `class PriceUtils` | `def self.label(cents)`; private: `def self._dollars(cents)` |\n| PHP, Java, C#, Dart | `class PriceUtils` (C#: `static class`) | a `static` method; private: `private static` (Dart: a name that starts with `_`) |\n| Kotlin | `object PriceUtils` | `fun label(cents: Int)` |\n| Swift | `struct PriceUtils` | `static func label(_ cents: Int)` |\n| Go | `type PriceUtils struct{}` | `func (PriceUtils) Label(cents int) string` |\n| Rust | `pub struct PriceUtils;` | `pub fn label(cents: u32) -> String`, with no `self` |\n\nThis check is new, so you can turn it off for one side of the app while you move code. For Tac code, set `tac.duplication.check` to `false` in `client/manifest.json`. For Yon code, set `duplication.check` to `false` in `server/application.json`. Use these settings only for migration.",
+          "body": "When two places hold the same block of code, a fix in one place misses the other. So Tachyon refuses duplicated code, with the same rules as SonarQube's copy-paste detection. Tachyon checks your code itself and sends nothing to another service.\n\nA duplicate is a block of at least 100 tokens (words, names, values and signs) that spans at least 10 lines and appears twice or more. The two copies are in the same language and the same realm, in one file or in two files. Names and values may differ: `total(order)` and `total(invoice)` are the same code. Whitespace and comments do not count, and neither do imports, annotation lines, test units, models, entities, generated files and lists of values.\n\nThe build refuses a duplicate with `TY1315`. The message names both places, for example `client/services/OrderService.js:12-40`, and tells you where to move the code. `ty migrate check` lists every duplicate.\n\nMove the repeated code into a utility class. A Tac utility class lives in `client/shared/utils/`, and you may group utilities in nested folders, such as `client/shared/utils/text/TitleUtils.js`. A Yon utility class lives in `server/utils/`. The name of a utility class ends with `Utils`. The build refuses a file in `client/utils/` with `TY1310`, and `ty migrate fix --write` moves it to `client/shared/utils/` and changes the paths that import it. It holds only static methods and no state: no field, no stored value, no constructor and no instance method (`TY1316`). It has no annotation. Every class of the same realm and language can call it with no import, and a test unit can test it. Its methods follow the cohesion rule: a public static method only coordinates, and private static methods hold the decisions.\n\n| Language | Utility class | Static method |\n| --- | --- | --- |\n| JavaScript, TypeScript | `export default class PriceUtils` | `static label(cents)`; private: `static _dollars(cents)` or TypeScript `private static` |\n| Python | `class PriceUtils:` | `@staticmethod` above `def label(cents)`; private: `_dollars` |\n| Ruby | `class PriceUtils` | `def self.label(cents)`; private: `def self._dollars(cents)` |\n| Lua | `PriceUtils = {}` | `function PriceUtils.label(cents)`; private: `PriceUtils._dollars` |\n| PHP, Java, C#, Dart | `class PriceUtils` (C#: `static class`) | a `static` method; private: `private static` (Dart: a name that starts with `_`) |\n| F# | `type PriceUtils =` | `static member Label(cents: int)`; private: `static member private` |\n| Kotlin | `object PriceUtils` | `fun label(cents: Int)`; private: `private fun` |\n| Swift | `struct PriceUtils` | `static func label(_ cents: Int)`; private: `private static func` |\n| Go | `type PriceUtils struct{}` | `func (PriceUtils) Label(cents int) string`; private: a name that starts with a lower-case letter |\n| Rust | `pub struct PriceUtils;` | `pub fn label(cents: u32) -> String`, with no `self`; private: no `pub` |\n\nThis check is new, so you can turn it off for one side of the app while you move code. For Tac code, set `tac.duplication.check` to `false` in `client/manifest.json`. For Yon code, set `duplication.check` to `false` in `server/application.json`. Use these settings only for migration.",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -6246,7 +6575,7 @@
             },
             {
               "name": "client/shared/utils/PriceUtils.js",
-              "code": "export default class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) {\n    return `$${PriceUtils.#dollars(cents)}`\n  }\n\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static #dollars(cents) {\n    return (cents / 100).toFixed(2)\n  }\n}\n"
+              "code": "export default class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) {\n    return `$${PriceUtils._dollars(cents)}`\n  }\n\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static _dollars(cents) {\n    return (cents / 100).toFixed(2)\n  }\n}\n"
             },
             {
               "name": "client/services/BasketService.js",
@@ -6261,6 +6590,62 @@
               "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nexport default class PriceUtilsTest {\n  async testLabelShowsDollars() {\n    Assert.equals('$12.50', PriceUtils.label(1250))\n  }\n\n  async testBasketUsesTheUtility() {\n    const basket = new BasketService()\n    Assert.equals('$12.50', basket.totalLabel())\n  }\n}\n"
             },
             {
+              "name": "server/utils/PriceUtils.js",
+              "code": "export default class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) {\n    return `$${PriceUtils._dollars(cents)}`\n  }\n\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static _dollars(cents) {\n    return (cents / 100).toFixed(2)\n  }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.js",
+              "code": "@TestSetup\nexport default class PriceTestSetup {\n  static configure() { return {}; }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.js",
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nexport default class PriceUtilsTest {\n  async testLabelShowsDollars() {\n    Assert.equals('$12.50', PriceUtils.label(1250))\n  }\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.ts",
+              "code": "export default class PriceUtils {\n  static label(cents: number): string {\n    return `$${PriceUtils.dollars(cents)}`\n  }\n\n  private static dollars(cents: number): string {\n    return (cents / 100).toFixed(2)\n  }\n}\n"
+            },
+            {
+              "name": "client/services/BasketService.ts",
+              "code": "@Service\nexport default class BasketService {\n  private total: number = 1250\n\n  totalLabel(): string {\n    return PriceUtils.label(this.total)\n  }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.ts",
+              "code": "@TestSetup\nexport default class PriceTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.ts",
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nexport default class PriceUtilsTest {\n  async testLabelShowsDollars(): Promise<void> {\n    Assert.equals('$12.50', PriceUtils.label(1250))\n  }\n\n  async testBasketUsesTheUtility(): Promise<void> {\n    const basket = new BasketService()\n    Assert.equals('$12.50', basket.totalLabel())\n  }\n}\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.ts",
+              "code": "export default class PriceUtils {\n  static label(cents: number): string {\n    return `$${PriceUtils.dollars(cents)}`\n  }\n\n  private static dollars(cents: number): string {\n    return (cents / 100).toFixed(2)\n  }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.ts",
+              "code": "@TestSetup\nexport default class PriceTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.ts",
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nexport default class PriceUtilsTest {\n  async testLabelShowsDollars(): Promise<void> {\n    Assert.equals('$12.50', PriceUtils.label(1250))\n  }\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.py",
+              "code": "class PriceUtils:\n    @staticmethod\n    def label(cents: int) -> str:\n        return \"$\" + PriceUtils._dollars(cents)\n\n    @staticmethod\n    def _dollars(cents: int) -> str:\n        return f\"{cents / 100:.2f}\"\n"
+            },
+            {
+              "name": "client/services/BasketService.py",
+              "code": "@service\nclass BasketService:\n    _total: int = 1250\n\n    def total_label(self) -> str:\n        return PriceUtils.label(self._total)\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.py",
+              "code": "@TestSetup\nclass PriceTestSetup:\n    @staticmethod\n    def configure(execution):\n        return {}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.py",
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nclass PriceUtilsTest:\n    async def test_label_shows_dollars(self):\n        Assert.equals(\"$12.50\", PriceUtils.label(1250))\n\n    async def test_basket_uses_the_utility(self):\n        Assert.equals(\"$12.50\", BasketService().total_label())\n"
+            },
+            {
               "name": "server/utils/PriceUtils.py",
               "code": "class PriceUtils:\n    @staticmethod\n    def label(cents: int) -> str:\n        return \"$\" + PriceUtils._dollars(cents)\n\n    @staticmethod\n    def _dollars(cents: int) -> str:\n        return f\"{cents / 100:.2f}\"\n"
             },
@@ -6271,8 +6656,301 @@
             {
               "name": "server/tests/PriceUtilsTest.py",
               "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nclass PriceUtilsTest:\n    async def test_label_shows_dollars(self):\n        Assert.equals(\"$12.50\", PriceUtils.label(1250))\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.php",
+              "code": "<?php\nfinal class PriceUtils {\n    public static function label(int $cents): string {\n        return '$' . self::dollars($cents);\n    }\n\n    private static function dollars(int $cents): string {\n        return number_format($cents / 100, 2, '.', '');\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.php",
+              "code": "<?php\n#[TestSetup]\nclass PriceTestSetup {\n    public static function configure($execution) { return []; }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.php",
+              "code": "<?php\n#[Test(PriceTestSetup::class, {\"partition\":\"tests\"})]\nclass PriceUtilsTest {\n    public function testLabelShowsDollars(): void {\n        Assert::equals('$12.50', PriceUtils::label(1250));\n    }\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.java",
+              "code": "final class PriceUtils {\n    static String label(int cents) {\n        return \"$\" + dollars(cents);\n    }\n\n    private static String dollars(int cents) {\n        return java.math.BigDecimal.valueOf(cents, 2).toPlainString();\n    }\n}\n"
+            },
+            {
+              "name": "client/services/BasketService.java",
+              "code": "@Service\nclass BasketService {\n    private final int total = 1250;\n\n    String totalLabel() {\n        return PriceUtils.label(total);\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.java",
+              "code": "@TestSetup\nclass PriceTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null);\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.java",
+              "code": "@Test(PriceTestSetup.class, {\"partition\":\"tests\"})\nclass PriceUtilsTest {\n    void testLabelShowsDollars() {\n        Assert.equals(\"$12.50\", PriceUtils.label(1250));\n    }\n\n    void testBasketUsesTheUtility() {\n        Assert.equals(\"$12.50\", new BasketService().totalLabel());\n    }\n}\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.java",
+              "code": "final class PriceUtils {\n    static String label(long cents) {\n        return \"$\" + dollars(cents);\n    }\n\n    private static String dollars(long cents) {\n        return java.math.BigDecimal.valueOf(cents, 2).toPlainString();\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.java",
+              "code": "@TestSetup\nclass PriceTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null);\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.java",
+              "code": "@Test(PriceTestSetup.class, {\"partition\":\"tests\"})\nclass PriceUtilsTest {\n    void testLabelShowsDollars() {\n        Assert.equals(\"$12.50\", PriceUtils.label(1250));\n    }\n}\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.groovy",
+              "code": "final class PriceUtils {\n    static String label(long cents) {\n        return '$' + dollars(cents)\n    }\n\n    private static String dollars(long cents) {\n        return BigDecimal.valueOf(cents, 2).toPlainString()\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.groovy",
+              "code": "@TestSetup\nclass PriceTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration([:], [:], [:], null, null)\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.groovy",
+              "code": "@Test(PriceTestSetup.class, {\"partition\":\"tests\"})\nclass PriceUtilsTest {\n    void testLabelShowsDollars() {\n        Assert.equals('$12.50', PriceUtils.label(1250))\n    }\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.kt",
+              "code": "object PriceUtils {\n    fun label(cents: Int): String = \"$\" + dollars(cents)\n\n    private fun dollars(cents: Int): String {\n        val digits = cents.toString().padStart(3, '0')\n        val split = digits.length - 2\n        return digits.substring(0, split) + \".\" + digits.substring(split)\n    }\n}\n"
+            },
+            {
+              "name": "client/services/BasketService.kt",
+              "code": "@Service\nclass BasketService {\n    private val total: Int = 1250\n\n    fun totalLabel(): String = PriceUtils.label(total)\n}\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.kt",
+              "code": "@TestSetup\nclass PriceTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.kt",
+              "code": "@Test(PriceTestSetup::class, {\"partition\":\"tests\"})\nclass PriceUtilsTest {\n    fun testLabelShowsDollars() {\n        Assert.equals(\"$12.50\", PriceUtils.label(1250))\n    }\n\n    fun testBasketUsesTheUtility() {\n        Assert.equals(\"$12.50\", BasketService().totalLabel())\n    }\n}\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.kt",
+              "code": "object PriceUtils {\n    fun label(cents: Long): String = \"$\" + dollars(cents)\n\n    private fun dollars(cents: Long): String = java.math.BigDecimal.valueOf(cents, 2).toPlainString()\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.kt",
+              "code": "@TestSetup\nclass PriceTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.kt",
+              "code": "@Test(PriceTestSetup::class, {\"partition\":\"tests\"})\nclass PriceUtilsTest {\n    fun testLabelShowsDollars() {\n        Assert.equals(\"$12.50\", PriceUtils.label(1250))\n    }\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.cs",
+              "code": "static class PriceUtils {\n    public static string Label(int cents) {\n        return \"$\" + Dollars(cents);\n    }\n\n    private static string Dollars(int cents) {\n        return (cents / 100m).ToString(\"0.00\", System.Globalization.CultureInfo.InvariantCulture);\n    }\n}\n"
+            },
+            {
+              "name": "client/services/BasketService.cs",
+              "code": "[Service]\npublic sealed class BasketService {\n    private readonly int total = 1250;\n\n    public string TotalLabel() {\n        return PriceUtils.Label(total);\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.cs",
+              "code": "[TestSetup]\npublic sealed class PriceTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.cs",
+              "code": "[Test(typeof(PriceTestSetup), {\"partition\":\"tests\"})]\nsealed class PriceUtilsTest {\n    void testLabelShowsDollars() {\n        Assert.equals(\"$12.50\", PriceUtils.Label(1250));\n    }\n\n    void testBasketUsesTheUtility() {\n        Assert.equals(\"$12.50\", new BasketService().TotalLabel());\n    }\n}\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.cs",
+              "code": "static class PriceUtils {\n    public static string Label(long cents) {\n        return \"$\" + Dollars(cents);\n    }\n\n    private static string Dollars(long cents) {\n        return (cents / 100m).ToString(\"0.00\", System.Globalization.CultureInfo.InvariantCulture);\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.cs",
+              "code": "[TestSetup]\npublic sealed class PriceTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.cs",
+              "code": "[Test(typeof(PriceTestSetup), {\"partition\":\"tests\"})]\nsealed class PriceUtilsTest {\n    void testLabelShowsDollars() {\n        Assert.equals(\"$12.50\", PriceUtils.Label(1250));\n    }\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.fs",
+              "code": "type PriceUtils =\n    static member Label(cents: int) : string =\n        sprintf \"$%s\" (PriceUtils.Dollars(cents))\n\n    static member private Dollars(cents: int) : string =\n        (decimal cents / 100m).ToString(\"0.00\", System.Globalization.CultureInfo.InvariantCulture)\n"
+            },
+            {
+              "name": "client/services/BasketService.fs",
+              "code": "[<Service>]\ntype BasketService() =\n    let total : int = 1250\n\n    member this.TotalLabel() : string =\n        PriceUtils.Label(total)\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.fs",
+              "code": "[<TestSetup>]\ntype PriceTestSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.fs",
+              "code": "[<Test(typeof<PriceTestSetup>, {\"partition\":\"tests\"})>]\ntype PriceUtilsTest() =\n    member this.testLabelShowsDollars() : unit =\n        Assert.equals(\"$12.50\", PriceUtils.Label(1250))\n\n    member this.testBasketUsesTheUtility() : unit =\n        Assert.equals(\"$12.50\", BasketService().TotalLabel())\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.fs",
+              "code": "type PriceUtils =\n    static member Label(cents: int64) : string =\n        sprintf \"$%s\" (PriceUtils.Dollars(cents))\n\n    static member private Dollars(cents: int64) : string =\n        (decimal cents / 100m).ToString(\"0.00\", System.Globalization.CultureInfo.InvariantCulture)\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.fs",
+              "code": "[<TestSetup>]\ntype PriceTestSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.fs",
+              "code": "[<Test(typeof<PriceTestSetup>, {\"partition\":\"tests\"})>]\ntype PriceUtilsTest() =\n    member this.testLabelShowsDollars() : unit =\n        Assert.equals(\"$12.50\", PriceUtils.Label(1250L))\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.rs",
+              "code": "pub struct PriceUtils;\n\nimpl PriceUtils {\n    pub fn label(cents: u32) -> String {\n        format!(\"${}\", Self::dollars(cents))\n    }\n\n    fn dollars(cents: u32) -> String {\n        format!(\"{:.2}\", f64::from(cents) / 100.0)\n    }\n}\n"
+            },
+            {
+              "name": "client/services/BasketService.rs",
+              "code": "#[Service]\nstruct BasketService {\n    total: u32,\n}\n\nimpl Default for BasketService {\n    fn default() -> Self {\n        Self { total: 1250 }\n    }\n}\n\nimpl BasketService {\n    fn total_label(&self) -> String {\n        PriceUtils::label(self.total)\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.rs",
+              "code": "#[TestSetup]\nstruct PriceTestSetup {}\nimpl PriceTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.rs",
+              "code": "#[Test(PriceTestSetup, {\"partition\":\"tests\"})]\nstruct PriceUtilsTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl PriceUtilsTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n\n    fn test_label_shows_dollars(&self) {\n        Assert::equals(String::from(\"$12.50\"), PriceUtils::label(1250));\n    }\n\n    fn test_basket_uses_the_utility(&self) {\n        Assert::equals(String::from(\"$12.50\"), BasketService::default().total_label());\n    }\n}\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.rs",
+              "code": "pub struct PriceUtils;\n\nimpl PriceUtils {\n    pub fn label(cents: i64) -> String {\n        format!(\"${}\", Self::dollars(cents))\n    }\n\n    fn dollars(cents: i64) -> String {\n        format!(\"{:.2}\", cents as f64 / 100.0)\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.rs",
+              "code": "#[TestSetup]\nstruct PriceTestSetup {}\nimpl PriceTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.rs",
+              "code": "#[Test(PriceTestSetup, {\"partition\":\"tests\"})]\nstruct PriceUtilsTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl PriceUtilsTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n\n    fn test_label_shows_dollars(&self) {\n        Assert::equals(String::from(\"$12.50\"), PriceUtils::label(1250));\n    }\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.go",
+              "code": "import \"fmt\"\n\ntype PriceUtils struct{}\n\nfunc (PriceUtils) Label(cents int) string {\n\treturn \"$\" + PriceUtils{}.dollars(cents)\n}\n\nfunc (PriceUtils) dollars(cents int) string {\n\treturn fmt.Sprintf(\"%.2f\", float64(cents)/100)\n}\n"
+            },
+            {
+              "name": "client/services/BasketService.go",
+              "code": "// @Service\ntype BasketService struct {\n\ttotal int\n}\n\n// @OnStart\nfunc (basket *BasketService) Start() error {\n\tbasket.total = 1250\n\treturn nil\n}\n\nfunc (basket *BasketService) TotalLabel() string {\n\treturn PriceUtils{}.Label(basket.total)\n}\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.go",
+              "code": "// @TestSetup\ntype PriceTestSetup struct{}\n\nfunc (PriceTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.go",
+              "code": "// @Test(PriceTestSetup, {\"partition\":\"tests\"})\ntype PriceUtilsTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *PriceUtilsTest) TestLabelShowsDollars() {\n\tAssert.Equals(\"$12.50\", PriceUtils{}.Label(1250))\n}\n\nfunc (test *PriceUtilsTest) TestBasketUsesTheUtility() {\n\tbasket := &BasketService{}\n\tAssert.Equals(nil, basket.Start())\n\tAssert.Equals(\"$12.50\", basket.TotalLabel())\n}\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.go",
+              "code": "import \"fmt\"\n\ntype PriceUtils struct{}\n\nfunc (PriceUtils) Label(cents int64) string {\n\treturn \"$\" + PriceUtils{}.dollars(cents)\n}\n\nfunc (PriceUtils) dollars(cents int64) string {\n\treturn fmt.Sprintf(\"%.2f\", float64(cents)/100)\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.go",
+              "code": "// @TestSetup\ntype PriceTestSetup struct{}\n\nfunc (PriceTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.go",
+              "code": "// @Test(PriceTestSetup, {\"partition\":\"tests\"})\ntype PriceUtilsTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *PriceUtilsTest) TestLabelShowsDollars() {\n\tAssert.Equals(\"$12.50\", PriceUtils{}.Label(1250))\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.dart",
+              "code": "class PriceUtils {\n  static String label(int cents) {\n    return '\\$${_dollars(cents)}';\n  }\n\n  static String _dollars(int cents) {\n    return (cents / 100).toStringAsFixed(2);\n  }\n}\n"
+            },
+            {
+              "name": "client/services/BasketService.dart",
+              "code": "@Service\nclass BasketService {\n  final int _total = 1250;\n\n  String totalLabel() {\n    return PriceUtils.label(_total);\n  }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.dart",
+              "code": "@TestSetup\nclass PriceTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.dart",
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nclass PriceUtilsTest {\n  Future<void> testLabelShowsDollars() async {\n    Assert.equals('\\$12.50', PriceUtils.label(1250));\n  }\n\n  Future<void> testBasketUsesTheUtility() async {\n    final basket = BasketService();\n    Assert.equals('\\$12.50', basket.totalLabel());\n  }\n}\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.dart",
+              "code": "class PriceUtils {\n  static String label(int cents) {\n    return '\\$${_dollars(cents)}';\n  }\n\n  static String _dollars(int cents) {\n    return (cents / 100).toStringAsFixed(2);\n  }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.dart",
+              "code": "@TestSetup\nclass PriceTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.dart",
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nclass PriceUtilsTest {\n  Future<void> testLabelShowsDollars() async {\n    Assert.equals('\\$12.50', PriceUtils.label(1250));\n  }\n}\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.rb",
+              "code": "class PriceUtils\n  # @param cents [Integer]\n  # @return [String]\n  def self.label(cents)\n    \"$#{_dollars(cents)}\"\n  end\n\n  # @param cents [Integer]\n  # @return [String]\n  def self._dollars(cents)\n    format(\"%.2f\", cents / 100.0)\n  end\nend\n"
+            },
+            {
+              "name": "client/services/BasketService.rb",
+              "code": "#[Service]\nclass BasketService\n  def initialize\n    @total = 1250\n  end\n\n  # @return [String]\n  def total_label\n    PriceUtils.label(@total)\n  end\nend\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.rb",
+              "code": "#[TestSetup]\nclass PriceTestSetup\n  # @param execution [Object]\n  # @return [Hash]\n  def self.configure(execution)\n    {}\n  end\nend\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.rb",
+              "code": "#[Test(PriceTestSetup, {\"partition\":\"tests\"})]\nclass PriceUtilsTest\n  def test_label_shows_dollars\n    Assert.equals(\"$12.50\", PriceUtils.label(1250))\n  end\n\n  def test_basket_uses_the_utility\n    Assert.equals(\"$12.50\", BasketService.new.total_label)\n  end\nend\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.rb",
+              "code": "class PriceUtils\n  # @param cents [Integer]\n  # @return [String]\n  def self.label(cents)\n    \"$#{_dollars(cents)}\"\n  end\n\n  # @param cents [Integer]\n  # @return [String]\n  def self._dollars(cents)\n    format(\"%.2f\", cents / 100.0)\n  end\nend\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.rb",
+              "code": "#[TestSetup]\nclass PriceTestSetup\n  # @param execution [Object]\n  # @return [Hash]\n  def self.configure(execution)\n    {}\n  end\nend\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.rb",
+              "code": "#[Test(PriceTestSetup, {\"partition\":\"tests\"})]\nclass PriceUtilsTest\n  def test_label_shows_dollars\n    Assert.equals(\"$12.50\", PriceUtils.label(1250))\n  end\nend\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.lua",
+              "code": "---@class PriceUtils\nPriceUtils = {}\n\n---@param cents integer\n---@return string\nfunction PriceUtils.label(cents)\n  return \"$\" .. PriceUtils._dollars(cents)\nend\n\n---@param cents integer\n---@return string\nfunction PriceUtils._dollars(cents)\n  return string.format(\"%.2f\", cents / 100)\nend\n"
+            },
+            {
+              "name": "client/services/BasketService.lua",
+              "code": "-- @Service\n---@class BasketService\nBasketService = {\n  ---@type integer\n  _total = 1250,\n}\n\n---@return string\nfunction BasketService:total_label()\n  return PriceUtils.label(self._total)\nend\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.lua",
+              "code": "-- @TestSetup\n---@class PriceTestSetup\nPriceTestSetup = {}\n\n---@param execution table\n---@return table\nfunction PriceTestSetup.configure(execution)\n  return {}\nend\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.lua",
+              "code": "-- @Test(PriceTestSetup, {\"partition\":\"tests\"})\n---@class PriceUtilsTest\nPriceUtilsTest = {}\n\nfunction PriceUtilsTest:test_label_shows_dollars()\n  Assert.equals(\"$12.50\", PriceUtils.label(1250))\nend\n\nfunction PriceUtilsTest:test_basket_uses_the_utility()\n  Assert.equals(\"$12.50\", self:construct(BasketService):total_label())\nend\n"
+            },
+            {
+              "name": "server/utils/PriceUtils.lua",
+              "code": "---@class PriceUtils\nPriceUtils = {}\n\n---@param cents integer\n---@return string\nfunction PriceUtils.label(cents)\n  return \"$\" .. PriceUtils._dollars(cents)\nend\n\n---@param cents integer\n---@return string\nfunction PriceUtils._dollars(cents)\n  return string.format(\"%.2f\", cents / 100)\nend\n"
+            },
+            {
+              "name": "server/tests/PriceTestSetup.lua",
+              "code": "-- @TestSetup\n---@class PriceTestSetup\nPriceTestSetup = {}\n\n---@param execution table\n---@return table\nfunction PriceTestSetup.configure(execution)\n  return {}\nend\n"
+            },
+            {
+              "name": "server/tests/PriceUtilsTest.lua",
+              "code": "-- @Test(PriceTestSetup, {\"partition\":\"tests\"})\n---@class PriceUtilsTest\nPriceUtilsTest = {}\n\nfunction PriceUtilsTest:test_label_shows_dollars()\n  Assert.equals(\"$12.50\", PriceUtils.label(1250))\nend\n"
+            },
+            {
+              "name": "client/shared/utils/PriceUtils.swift",
+              "code": "struct PriceUtils {\n    static func label(_ cents: Int) -> String {\n        \"$\" + dollars(cents)\n    }\n\n    private static func dollars(_ cents: Int) -> String {\n        let (whole, rest) = cents.quotientAndRemainder(dividingBy: 100)\n        let fraction = String(rest)\n        return \"\\(whole).\" + (fraction.count == 1 ? \"0\" : \"\") + fraction\n    }\n}\n"
+            },
+            {
+              "name": "client/services/BasketService.swift",
+              "code": "@Service\nfinal class BasketService {\n    private let total: Int = 1250\n\n    func totalLabel() -> String {\n        PriceUtils.label(total)\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceTestSetup.swift",
+              "code": "@TestSetup\nfinal class PriceTestSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        var adapters = BehaviorAdapters()\n        adapters.authorize = { _, _ in true }\n        return adapters\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/PriceUtilsTest.swift",
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nfinal class PriceUtilsTest {\n    func testLabelShowsDollars() async throws {\n        try Assert.equals(\"$12.50\", PriceUtils.label(1250))\n    }\n\n    func testBasketUsesTheUtility() async throws {\n        try Assert.equals(\"$12.50\", BasketService().totalLabel())\n    }\n}\n"
             }
-          ]
+          ],
+          "axis": "language"
         }
       ]
     },
