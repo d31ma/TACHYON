@@ -186,8 +186,7 @@ impl ApplicationConfig {
             None => parse_port(document.pointer("/yon/server/port"))?,
         };
         let hosts = Self::hosts_from(document.pointer("/yon/server/hosts"))?;
-        let trusted_proxies =
-            Self::trusted_proxies_from(document.pointer("/yon/server/proxies"))?;
+        let trusted_proxies = Self::trusted_proxies_from(document.pointer("/yon/server/proxies"))?;
         let topics_directory =
             Self::topics_directory_from(document.pointer("/yon/topics/directory"))?;
         normalize_endpoint(&mut document, host.as_ref(), port);

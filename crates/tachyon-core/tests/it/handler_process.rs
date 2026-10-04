@@ -698,7 +698,8 @@ struct GoNativePackages;
 impl GoNativePackages {
     const MODULE: &str = "module example.com/shop/packages\n\ngo 1.27\n";
     const PRICING: &str = "package pricing\n\nimport \"example.com/shop/packages/rates\"\n\nfunc WithTax(price int) int {\n\treturn price + price*rates.Percent/100\n}\n";
-    const RATES: &str = "package rates\n\ntype Table struct{ Region string }\n\nconst Percent = 10\n";
+    const RATES: &str =
+        "package rates\n\ntype Table struct{ Region string }\n\nconst Percent = 10\n";
     const ROUTE: &str = "import \"example.com/shop/packages/pricing\"\n\ntype Handler struct{}\n\nfunc (Handler) GET() any {\n\treturn map[string]any{\"price\": pricing.WithTax(100)}\n}\n";
 }
 

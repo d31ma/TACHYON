@@ -18,13 +18,13 @@ use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+mod compiler_identities;
 mod fsharp_handler;
 mod fsharp_program;
 mod go;
 mod go_native_module;
 mod groovy_build;
 mod groovy_handler;
-mod compiler_identities;
 mod rust_error_place;
 mod shared_handler_artifacts;
 mod staged_files;
