@@ -1,3 +1,5 @@
+import 'models/PublicValues.dart';
+
 @Service
 class SettingsService {
   String title = 'Catalog';

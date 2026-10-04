@@ -1,3 +1,5 @@
+open Models
+
 [<Service>]
 type SettingsService() =
     let published = BehaviorJSON.Parse("{\"tac\":{\"catalog\":{\"title\":\"Catalog\",\"page\":{\"size\":20},\"cache\":{\"enabled\":true}}}}")

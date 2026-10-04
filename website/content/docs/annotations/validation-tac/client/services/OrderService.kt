@@ -1,3 +1,5 @@
+import models.OrderInput
+
 @Service
 class OrderService {
     var status: String = "ready"

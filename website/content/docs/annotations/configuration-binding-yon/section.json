@@ -1,7 +1,7 @@
 {
   "heading": "Configuration binding: Yon",
   "axis": "language",
-  "summary": "One Setup role class carries the whole policy. Settings binds the YON_CATALOG_ prefix, and the Setup class's own fields are the settings, with @Min and @Max on a field. WhenProfile selects the active environment. WhenSetting turns the bean on or off based on a bound property. Setting binds a single canonical yon. path with a literal default. Every YON_CATALOG_ name in the snapshot must be declared. WhenProfile and WhenSetting are both decided before configure runs. The private snapshot stays private. Secrets live in .env. server/application.json holds placeholders and safe defaults. The controller returns selected fields that are not secret, never the resolved configuration.",
+  "summary": "One Setup role class carries the whole policy. Settings binds the YON_CATALOG_ prefix, and the Setup class's own fields are the settings, with @Min and @Max on a field. WhenProfile selects the active environment. WhenSetting turns the bean on or off based on a bound property. Setting binds a single canonical yon. path with a literal default. Its class, Endpoint, is a model in `server/models/` (ADR 0092); the Rust controller imports it with `use crate::models::{Endpoint, Settings}`. Every YON_CATALOG_ name in the snapshot must be declared. WhenProfile and WhenSetting are both decided before configure runs. The private snapshot stays private. Secrets live in .env. server/application.json holds placeholders and safe defaults. The controller returns selected fields that are not secret, never the resolved configuration.",
   "body": "Lua has no tab here, because the build refuses Setup in Lua Yon code with TY1308.",
   "files": [
     {
@@ -161,8 +161,8 @@
       "code": { "file": "server/models/Endpoint.java" }
     },
     {
-      "name": "server/helpers/Endpoint.groovy",
-      "code": { "file": "server/helpers/Endpoint.groovy" }
+      "name": "server/models/Endpoint.groovy",
+      "code": { "file": "server/models/Endpoint.groovy" }
     },
     {
       "name": "server/models/Endpoint.kt",
@@ -177,8 +177,8 @@
       "code": { "file": "server/models/Endpoint.fs" }
     },
     {
-      "name": "server/helpers/Endpoint.rs",
-      "code": { "file": "server/helpers/Endpoint.rs" }
+      "name": "server/models/Endpoint.rs",
+      "code": { "file": "server/models/Endpoint.rs" }
     },
     {
       "name": "server/models/Settings.go",
@@ -197,8 +197,8 @@
       "code": { "file": "server/models/Endpoint.go" }
     },
     {
-      "name": "server/helpers/Endpoint.dart",
-      "code": { "file": "server/helpers/Endpoint.dart" }
+      "name": "server/models/Endpoint.dart",
+      "code": { "file": "server/models/Endpoint.dart" }
     },
     {
       "name": "server/models/Settings.rb",

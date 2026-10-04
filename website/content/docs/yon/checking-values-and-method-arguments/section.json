@@ -118,9 +118,9 @@
       }
     },
     {
-      "name": "server/helpers/ProductInput.groovy",
+      "name": "server/models/ProductInput.groovy",
       "code": {
-        "file": "server/helpers/ProductInput.groovy"
+        "file": "server/models/ProductInput.groovy"
       }
     },
     {
@@ -214,9 +214,9 @@
       }
     },
     {
-      "name": "server/helpers/ProductInput.rs",
+      "name": "server/models/ProductInput.rs",
       "code": {
-        "file": "server/helpers/ProductInput.rs"
+        "file": "server/models/ProductInput.rs"
       }
     },
     {
@@ -262,9 +262,9 @@
       }
     },
     {
-      "name": "server/helpers/ProductInput.dart",
+      "name": "server/models/ProductInput.dart",
       "code": {
-        "file": "server/helpers/ProductInput.dart"
+        "file": "server/models/ProductInput.dart"
       }
     },
     {

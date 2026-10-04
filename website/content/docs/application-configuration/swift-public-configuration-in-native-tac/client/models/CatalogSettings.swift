@@ -1,5 +1,5 @@
 @Settings({"prefix":"TAC_CATALOG_"})
-final class CatalogSettings {
+struct CatalogSettings {
     @Min(1)
     @Max(100)
     var pageSize: Int = 20

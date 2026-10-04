@@ -1,6 +1,6 @@
 {
   "heading": "Swift: public configuration in native Tac",
-  "body": "Swift is native Tac on macOS and iOS. It is not a Yon endpoint language. Only the public tac configuration may enter client code. The build publishes client/manifest.json, including its tac member, at /manifest.webmanifest. Browser and native web surfaces can fetch it. Native services use a loader that they own, or public input. This short Swift service binds a public snapshot. It does not touch the private Yon configuration or .env. Tachyon does not assign fields automatically, and there is no Tac dependency container.",
+  "body": "Swift is native Tac on macOS and iOS. It is not a Yon endpoint language. Only the public tac configuration may enter client code. The build publishes client/manifest.json, including its tac member, at /manifest.webmanifest. Browser and native web surfaces can fetch it. Native services use a loader that they own, or public input. This short Swift service binds a public snapshot. The Settings and Setting classes are structs in `client/models/` (ADR 0092), and the service carries Service. It does not touch the private Yon configuration or .env. Tachyon does not assign fields automatically, and there is no Tac dependency container.",
   "files": [
     {
       "name": "client/services/SettingsService.swift",
@@ -15,12 +15,12 @@
       "code": { "file": "client/components/catalog/settings/tac.html" }
     },
     {
-      "name": "client/helpers/CatalogSettings.swift",
-      "code": { "file": "client/helpers/CatalogSettings.swift" }
+      "name": "client/models/CatalogSettings.swift",
+      "code": { "file": "client/models/CatalogSettings.swift" }
     },
     {
-      "name": "client/helpers/PublicValues.swift",
-      "code": { "file": "client/helpers/PublicValues.swift" }
+      "name": "client/models/PublicValues.swift",
+      "code": { "file": "client/models/PublicValues.swift" }
     }
   ],
   "axis": "language"

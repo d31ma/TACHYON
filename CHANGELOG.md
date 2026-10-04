@@ -149,6 +149,15 @@ machine contracts have their own, independent major versions.
   with `TY2015`, now with the reason: it is not JSON data, so read it from the
   route method's `*http.Request` or tag the field `json:"-"`.
 
+- Settings and checked models in `models/` now work in every compiled
+  language (ADR 0092 amendment). Tac services in C#, F#, Rust, Swift,
+  Kotlin, Go, Dart and Ruby read `Settings`, `Setting` and `Checked` models
+  from `client/models/`. Before, these models failed with `TY1310`. Yon Dart
+  no longer fails with `TY2004` for a model that has no constructor; its
+  reader assigns the fields. Lua schema models are still refused. The
+  configuration binding, validation and settings examples on the website
+  keep these models in `models/` in every language.
+
 - A Lua model marked Topic, in either realm, and a Python model marked Topic
   in a Tac service now stop the build with `TY1308`. Before, the build passed:
   a Yon Lua route that published the event failed on every request with

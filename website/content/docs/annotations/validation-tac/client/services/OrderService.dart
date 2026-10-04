@@ -1,3 +1,5 @@
+import 'models/OrderInput.dart';
+
 @Service
 class OrderService {
   String status = 'ready';

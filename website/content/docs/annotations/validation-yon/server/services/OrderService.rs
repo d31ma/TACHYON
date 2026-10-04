@@ -1,3 +1,5 @@
+use crate::models::OrderInput;
+
 #[yon::service]
 struct OrderService {}
 impl OrderService {

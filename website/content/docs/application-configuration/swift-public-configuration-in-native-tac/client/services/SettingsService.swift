@@ -1,3 +1,4 @@
+@Service
 final class SettingsService {
     var title: String = "Products"
     var pageSize: Int = 20

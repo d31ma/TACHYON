@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-struct Endpoint {
+pub struct Endpoint {
     #[Setting("${yon.active.profile:development}")]
     profile: String,
 }

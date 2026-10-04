@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-struct PublicValues {
+pub struct PublicValues {
     #[Setting("${tac.catalog.title:Catalog}")]
-    title: String,
+    pub title: String,
 }

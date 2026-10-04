@@ -1,3 +1,5 @@
+use crate::models::ProductInput;
+
 #[yon::service]
 struct ProductService {}
 impl ProductService {

@@ -71,7 +71,48 @@ declared schema name. Renamed schema imports and runtime value imports from
 fails before the service method runs. Ordinary JavaScript JSDoc models and
 TypeScript interfaces are unchanged.
 
-Other compiled Tac languages have no schema reader yet. A schema model in one
-of them fails with a located `TY1310` instead of being accepted with its
-checks silently dropped. Plain client models stay supported in every Tac
+The compiled Tac languages read these schemas too; see the amendment below.
+Lua schema models fail with a located `TY1308` or `TY1310` instead of being
+accepted with their checks silently dropped. Plain client models stay supported in every Tac
 language.
+
+## Amendment (2026-10-03): every compiled Tac language reads schema models
+
+Tac reads schema models in C#, F#, Rust, Swift, Kotlin, Go, Dart and Ruby as
+well. The build works the same way as in Yon. Before it lowers a service, it
+joins the authored schema declarations from `client/models/` to the service
+text. After lowering, it removes that temporary copy. The model then compiles
+once, from its file in `client/models/`, without the consumed markers. The
+compiler's service check and the C# browser factory read the same joined
+text. A Rust browser model check reads it too.
+
+A service reaches a schema model the way it reaches any model in its
+language:
+
+| Language | How the service names the model |
+| --- | --- |
+| C#, F# | `using Models;` / `open Models` |
+| Rust | `use crate::models::Name;`, with `pub` on the struct and its fields |
+| Kotlin | `import models.Name` |
+| Dart | `import 'models/Name.dart';` |
+| Swift, Go, Ruby | no import |
+
+A Swift schema model is a `struct`, as every Swift model is. The behavior
+reader now accepts a Swift `struct` as a type that carries schema markers. A
+Kotlin schema model keeps its fields in the class body. It is not a browser
+DTO, so the Kotlin DTO checks and readers leave it out. Only Lua schema
+models are still refused (`TY1308` for `Checked`, `TY1310` otherwise).
+
+The same examples needed two Yon fixes:
+
+- Dart: the generated reader for a model with no constructor called it with
+  named arguments, and the handler did not compile. The reader now creates
+  the model with its default constructor and assigns each field that is not
+  `final`.
+- Groovy: an import line has no semicolon. The model block reader joined the
+  hoisted `import models.X` line with the first schema model. It then could
+  not remove the lowered copy, and `Program.groovy` declared the class twice.
+  Groovy top-level statements now end at a line end, as in Kotlin and Swift.
+
+Rust Yon needed no change. A schema model is reached with
+`use crate::models::{Name}` and must be `pub`, like every Rust model.

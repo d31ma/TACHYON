@@ -1,3 +1,5 @@
+using Models;
+
 [Service]
 public class OrderService {
     public string status = "ready";

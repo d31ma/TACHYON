@@ -1,7 +1,7 @@
 {
   "heading": "Configuration binding: Tac",
   "axis": "language",
-  "summary": "Tac binds only values that are explicitly public. Its source is the tac member of client/manifest.json. This is the web app manifest that the build publishes at /manifest.webmanifest. server/application.json and .env belong to Yon and never reach Tac. So Settings uses a TAC_ prefix, Setting uses tac. paths and WhenSetting names a TAC_ property. A private Yon secret cannot be bound here at all. Browser services load the published manifest through an injected HTTPClient. Native services bind a public snapshot that is supplied explicitly. A native service file keeps its service type first. Every key under TAC_CATALOG_ must be a field of the Settings class, including title. Setting demonstrates binding that same title individually; it does not exempt the key from prefix validation. Every language passes the full public snapshot to both binders.",
+  "summary": "Tac binds only values that are explicitly public. Its source is the tac member of client/manifest.json. This is the web app manifest that the build publishes at /manifest.webmanifest. server/application.json and .env belong to Yon and never reach Tac. So Settings uses a TAC_ prefix, Setting uses tac. paths and WhenSetting names a TAC_ property. A private Yon secret cannot be bound here at all. Browser services load the published manifest through an injected HTTPClient. Native services bind a public snapshot that is supplied explicitly. A native service file keeps its service type first. The class that Setting reads is a model in `client/models/` (ADR 0092), so a service reaches it like any model: C# and F# open `Models`, Rust uses `crate::models::PublicValues` and Dart imports `models/PublicValues.dart`. Every key under TAC_CATALOG_ must be a field of the Settings class, including title. Setting demonstrates binding that same title individually; it does not exempt the key from prefix validation. Every language passes the full public snapshot to both binders.",
   "body": "Python and Lua have no tab here, because a browser service loads the manifest through an HTTPClient, and the build refuses HTTPClient in Python and Lua Tac code with TY1308.",
   "files": [
     {
@@ -97,28 +97,28 @@
       "code": { "file": "client/models/PublicValues.ts" }
     },
     {
-      "name": "client/helpers/PublicValues.swift",
-      "code": { "file": "client/helpers/PublicValues.swift" }
+      "name": "client/models/PublicValues.swift",
+      "code": { "file": "client/models/PublicValues.swift" }
     },
     {
       "name": "client/models/PublicValues.java",
       "code": { "file": "client/models/PublicValues.java" }
     },
     {
-      "name": "client/helpers/PublicValues.kt",
-      "code": { "file": "client/helpers/PublicValues.kt" }
+      "name": "client/models/PublicValues.kt",
+      "code": { "file": "client/models/PublicValues.kt" }
     },
     {
-      "name": "client/helpers/PublicValues.cs",
-      "code": { "file": "client/helpers/PublicValues.cs" }
+      "name": "client/models/PublicValues.cs",
+      "code": { "file": "client/models/PublicValues.cs" }
     },
     {
-      "name": "client/helpers/PublicValues.fs",
-      "code": { "file": "client/helpers/PublicValues.fs" }
+      "name": "client/models/PublicValues.fs",
+      "code": { "file": "client/models/PublicValues.fs" }
     },
     {
-      "name": "client/helpers/PublicValues.rs",
-      "code": { "file": "client/helpers/PublicValues.rs" }
+      "name": "client/models/PublicValues.rs",
+      "code": { "file": "client/models/PublicValues.rs" }
     },
     {
       "name": "client/setups/CatalogSetup.go",
@@ -129,8 +129,8 @@
       "code": { "file": "client/services/SettingsService.go" }
     },
     {
-      "name": "client/helpers/PublicValues.go",
-      "code": { "file": "client/helpers/PublicValues.go" }
+      "name": "client/models/PublicValues.go",
+      "code": { "file": "client/models/PublicValues.go" }
     },
     {
       "name": "client/setups/CatalogSetup.dart",
@@ -141,8 +141,8 @@
       "code": { "file": "client/services/SettingsService.dart" }
     },
     {
-      "name": "client/helpers/PublicValues.dart",
-      "code": { "file": "client/helpers/PublicValues.dart" }
+      "name": "client/models/PublicValues.dart",
+      "code": { "file": "client/models/PublicValues.dart" }
     },
     {
       "name": "client/setups/CatalogSetup.rb",
@@ -153,8 +153,8 @@
       "code": { "file": "client/services/SettingsService.rb" }
     },
     {
-      "name": "client/helpers/PublicValues.rb",
-      "code": { "file": "client/helpers/PublicValues.rb" }
+      "name": "client/models/PublicValues.rb",
+      "code": { "file": "client/models/PublicValues.rb" }
     }
   ]
 }

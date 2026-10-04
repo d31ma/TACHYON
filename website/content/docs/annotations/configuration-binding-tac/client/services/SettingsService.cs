@@ -1,3 +1,5 @@
+using Models;
+
 [Service]
 public class SettingsService {
     public string title = "Catalog";

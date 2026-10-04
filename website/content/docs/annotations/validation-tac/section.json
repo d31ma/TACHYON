@@ -1,7 +1,7 @@
 {
   "heading": "Validation: Tac",
   "axis": "language",
-  "summary": "The same seven markers work in Tac, on a service instead of a controller. The data transfer object (DTO) that `Check` names is a behavior-only class in its own file, `client/helpers/OrderInput.<ext>`. Discovery composes it into the same unit as the service that it protects (ADR 0044). JavaScript, TypeScript and Dart keep Service without an import, as their Yon services do. The compiled languages mark the service with Service too: the build refuses a service in client/services without its marker with TY1363. Swift and C# take checked parameters as BehaviorJSON, Rust and Go take them as BehaviorValue, and Java takes them as Object, as its Yon service does; Check names the class, as in Yon. Tac validation protects only the user experience (UX). It is not authorization, so Yon must validate the same payload again.",
+  "summary": "The same seven markers work in Tac, on a service instead of a controller. The data transfer object (DTO) that `Check` names is a model: a data class in its own file, `client/models/OrderInput.<ext>` (ADR 0092). Discovery composes its rules into the service that it protects (ADR 0044), and the model itself compiles once, without its markers. A service reaches it the way the language reaches any model: C# and F# open `Models`, Rust uses `crate::models::OrderInput`, Kotlin imports `models.OrderInput` and Dart imports `models/OrderInput.dart`; Swift, Go and Ruby need no import. A Swift model is a struct, and a Rust model and its fields are `pub`. JavaScript, TypeScript and Dart keep Service without an import, as their Yon services do. The compiled languages mark the service with Service too: the build refuses a service in client/services without its marker with TY1363. Swift and C# take checked parameters as BehaviorJSON, Rust and Go take them as BehaviorValue, and Java takes them as Object, as its Yon service does; Check names the class, as in Yon. Tac validation protects only the user experience (UX). It is not authorization, so Yon must validate the same payload again.",
   "body": "Lua has no tab here, because the build refuses Check in Lua Tac code with TY1308.",
   "files": [
     {
@@ -57,48 +57,48 @@
       "code": { "file": "client/models/OrderInput.ts" }
     },
     {
-      "name": "client/helpers/OrderInput.swift",
-      "code": { "file": "client/helpers/OrderInput.swift" }
+      "name": "client/models/OrderInput.swift",
+      "code": { "file": "client/models/OrderInput.swift" }
     },
     {
       "name": "client/models/OrderInput.java",
       "code": { "file": "client/models/OrderInput.java" }
     },
     {
-      "name": "client/helpers/OrderInput.kt",
-      "code": { "file": "client/helpers/OrderInput.kt" }
+      "name": "client/models/OrderInput.kt",
+      "code": { "file": "client/models/OrderInput.kt" }
     },
     {
-      "name": "client/helpers/OrderInput.cs",
-      "code": { "file": "client/helpers/OrderInput.cs" }
+      "name": "client/models/OrderInput.cs",
+      "code": { "file": "client/models/OrderInput.cs" }
     },
     {
-      "name": "client/helpers/OrderInput.fs",
-      "code": { "file": "client/helpers/OrderInput.fs" }
+      "name": "client/models/OrderInput.fs",
+      "code": { "file": "client/models/OrderInput.fs" }
     },
     {
-      "name": "client/helpers/OrderInput.rs",
-      "code": { "file": "client/helpers/OrderInput.rs" }
+      "name": "client/models/OrderInput.rs",
+      "code": { "file": "client/models/OrderInput.rs" }
     },
     {
       "name": "client/services/OrderService.go",
       "code": { "file": "client/services/OrderService.go" }
     },
     {
-      "name": "client/helpers/OrderInput.go",
-      "code": { "file": "client/helpers/OrderInput.go" }
+      "name": "client/models/OrderInput.go",
+      "code": { "file": "client/models/OrderInput.go" }
     },
     {
-      "name": "client/helpers/OrderInput.dart",
-      "code": { "file": "client/helpers/OrderInput.dart" }
+      "name": "client/models/OrderInput.dart",
+      "code": { "file": "client/models/OrderInput.dart" }
     },
     {
       "name": "client/services/OrderService.rb",
       "code": { "file": "client/services/OrderService.rb" }
     },
     {
-      "name": "client/helpers/OrderInput.rb",
-      "code": { "file": "client/helpers/OrderInput.rb" }
+      "name": "client/models/OrderInput.rb",
+      "code": { "file": "client/models/OrderInput.rb" }
     }
   ]
 }

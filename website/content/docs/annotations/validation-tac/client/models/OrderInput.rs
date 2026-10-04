@@ -1,10 +1,10 @@
 #[Checked]
-struct OrderInput {
+pub struct OrderInput {
     #[NotEmpty]
     #[Length({"min":1,"max":80})]
-    name: String,
+    pub name: String,
     #[Required]
     #[Min(1)]
     #[Max(9)]
-    level: f64,
+    pub level: f64,
 }

@@ -1,3 +1,5 @@
+use crate::models::PublicValues;
+
 #[Service]
 #[allow(non_snake_case)]
 struct SettingsService {

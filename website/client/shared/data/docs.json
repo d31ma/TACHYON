@@ -742,7 +742,7 @@
         },
         {
           "heading": "Models: types without a role",
-          "body": "Data types that several files share live in client/models/ or server/models/. A models folder is not a role folder. A models file holds data, not behavior (ADR 0041, ADR 0043). Choose a language below. TypeScript, JavaScript, Rust, C#, F#, Dart, Kotlin, Go, Java, Ruby and Lua models work in both realms. Swift models live only in client/models/, because Swift is not a Yon language. PHP and Groovy models live only in server/models/, because those languages run only in Yon. The Python, PHP and Groovy tabs show only a route that returns the guide, and the page is not part of them. A controller returns a model, or takes one with FromBody, and Yon turns it into JSON and back, like Spring.\n\nA JavaScript models file holds one JSDoc `@typedef` comment and `export {}`, such as `client/models/CartTotal.js` for `CartTotal`. Every JavaScript file of the realm uses a JavaScript model by its name, with no import. JavaScript also reads the TypeScript models of its realm: write `/** @import { Guide } from '/models/Guide.ts' */` above the class. Routes, events and `/api.json` read these models like the models of any other language. A `@typedef` in another JavaScript file of client/ or server/ is a model outside its folder. The build refuses it with `TY1310`, and `ty migrate fix --write` moves it to the models folder. The fix keeps one file for identical copies. When a copy matches a model that the realm already has, in JavaScript or TypeScript, the fix removes the copy and imports that model. It reports a copy that differs, and leaves that file for you.\n\nA TypeScript models file holds interfaces, type aliases and import type statements. TypeScript removes a type-only import, so the browser never loads the models file. In the other languages, a models file holds structs, records, data classes, enums and type aliases with fields only. It also holds the imports they need. A PHP array has no item type, so a doc comment gives it: `/** @var list<Guide> */` on a property, or `@param list<Guide> $guides` and `@return list<Guide>` on a controller method. A Ruby model is a Data.define record whose fields have YARD @!attribute types. A Lua model is a table whose fields have `---@field` types.\n\nEvery models file holds one model: one interface, type alias, JSDoc `@typedef`, struct, record, class, enum or Ruby record, and the file is named after it, such as `Guide.ts` for `Guide` (ADR 0067). Put a second model, even a small enum, in its own file next to the first. A models file with two models fails with `TY1318`, and `ty migrate fix --write` splits it into one file per model.\n\nOther files import a model in the usual way of their language: `import type { Guide } from '/models/Guide.ts'`, `use crate::models::Guide;`, `using Models;`, `import 'models/Guide.dart';`, `import models.Guide`, `import models.Guide;`, `open Models`, `from models import Guide` or `use Models\\Guide;`. JavaScript, Swift, Go, Ruby and Lua use the type name with no import. A Go models file holds one type, because Tachyon compiles it as another file of the program's package main. The framework adds the realm's models files of that language to every program it builds in that language. It never routes a models file and never ships one on its own. A Rust model declares its type and fields pub, because the models files become the module crate::models. Each Rust models file is its own module inside it, so a model that uses another model writes `use crate::models::Item;`. When a models file does not compile, the error names that file.\n\nA role annotation in a models folder fails with TY1310. The message names the role folder where the type belongs. A method, a function, a constant or a service marker also fails with TY1310. So does any other statement, or a language in the wrong realm. A model may carry configuration and validation data: Settings, Setting, Checked, Required, NotEmpty, Length, Min, Max and Description (ADR 0092).",
+          "body": "Data types that several files share live in client/models/ or server/models/. A models folder is not a role folder. A models file holds data, not behavior (ADR 0041, ADR 0043). Choose a language below. TypeScript, JavaScript, Rust, C#, F#, Dart, Kotlin, Go, Java, Ruby and Lua models work in both realms. Swift models live only in client/models/, because Swift is not a Yon language. PHP and Groovy models live only in server/models/, because those languages run only in Yon. The Python, PHP and Groovy tabs show only a route that returns the guide, and the page is not part of them. A controller returns a model, or takes one with FromBody, and Yon turns it into JSON and back, like Spring.\n\nA JavaScript models file holds one JSDoc `@typedef` comment and `export {}`, such as `client/models/CartTotal.js` for `CartTotal`. Every JavaScript file of the realm uses a JavaScript model by its name, with no import. JavaScript also reads the TypeScript models of its realm: write `/** @import { Guide } from '/models/Guide.ts' */` above the class. Routes, events and `/api.json` read these models like the models of any other language. A `@typedef` in another JavaScript file of client/ or server/ is a model outside its folder. The build refuses it with `TY1310`, and `ty migrate fix --write` moves it to the models folder. The fix keeps one file for identical copies. When a copy matches a model that the realm already has, in JavaScript or TypeScript, the fix removes the copy and imports that model. It reports a copy that differs, and leaves that file for you.\n\nA TypeScript models file holds interfaces, type aliases and import type statements. TypeScript removes a type-only import, so the browser never loads the models file. In the other languages, a models file holds structs, records, data classes, enums and type aliases with fields only. It also holds the imports they need. A PHP array has no item type, so a doc comment gives it: `/** @var list<Guide> */` on a property, or `@param list<Guide> $guides` and `@return list<Guide>` on a controller method. A Ruby model is a Data.define record whose fields have YARD @!attribute types. A Lua model is a table whose fields have `---@field` types.\n\nEvery models file holds one model: one interface, type alias, JSDoc `@typedef`, struct, record, class, enum or Ruby record, and the file is named after it, such as `Guide.ts` for `Guide` (ADR 0067). Put a second model, even a small enum, in its own file next to the first. A models file with two models fails with `TY1318`, and `ty migrate fix --write` splits it into one file per model.\n\nOther files import a model in the usual way of their language: `import type { Guide } from '/models/Guide.ts'`, `use crate::models::Guide;`, `using Models;`, `import 'models/Guide.dart';`, `import models.Guide`, `import models.Guide;`, `open Models`, `from models import Guide` or `use Models\\Guide;`. JavaScript, Swift, Go, Ruby and Lua use the type name with no import. A Go models file holds one type, because Tachyon compiles it as another file of the program's package main. The framework adds the realm's models files of that language to every program it builds in that language. It never routes a models file and never ships one on its own. A Rust model declares its type and fields pub, because the models files become the module crate::models. Each Rust models file is its own module inside it, so a model that uses another model writes `use crate::models::Item;`. When a models file does not compile, the error names that file.\n\nA role annotation in a models folder fails with TY1310. The message names the role folder where the type belongs. A method, a function, a constant or a service marker also fails with TY1310. So does any other statement, or a language in the wrong realm. A model may carry configuration and validation data: Settings, Setting, Checked, Required, NotEmpty, Length, Min, Max and Description (ADR 0092). Every Tac and Yon language reads such a model except Lua, which refuses these markers in a model. A Swift schema model is a struct, and a Rust schema model is `pub`.",
           "axis": "language",
           "files": [
             {
@@ -2958,7 +2958,7 @@
               "code": "import models.Product;\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @Needs\n    final ProductService productService;\n\n    @PostRoute\n    Product postProduct(@FromBody Product product) {\n        productService.accept(java.util.Map.of(\"name\", product.name(), \"level\", product.level()));\n        return product;\n    }\n}\n"
             },
             {
-              "name": "server/helpers/ProductInput.groovy",
+              "name": "server/models/ProductInput.groovy",
               "code": "@Checked\nclass ProductInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name\n\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level\n}\n"
             },
             {
@@ -3022,12 +3022,12 @@
               "code": "open Models\n\n[<RequestRoute(\"/products\")>]\n[<Public>]\ntype ProductsController(productService: ProductService) =\n    [<PostRoute>]\n    member this.PostProduct([<FromBody>] product: Product) : Product =\n        let input = dict [ \"name\", BehaviorJSON.From(product.Name); \"level\", BehaviorJSON.From(product.Level) ]\n        productService.accept(BehaviorJSON.Object(input)) |> ignore\n        product\n"
             },
             {
-              "name": "server/helpers/ProductInput.rs",
-              "code": "#[Checked]\nstruct ProductInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    name: String,\n\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    level: f64,\n}\n"
+              "name": "server/models/ProductInput.rs",
+              "code": "#[Checked]\npub struct ProductInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    name: String,\n\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    level: f64,\n}\n"
             },
             {
               "name": "server/services/ProductService.rs",
-              "code": "#[yon::service]\nstruct ProductService {}\nimpl ProductService {\n    fn new() -> Self { Self {} }\n\n    fn accept(&self, #[Check(ProductInput)] input: BehaviorValue) -> BehaviorResult<BehaviorValue> {\n        Ok(input)\n    }\n}\n"
+              "code": "use crate::models::ProductInput;\n\n#[yon::service]\nstruct ProductService {}\nimpl ProductService {\n    fn new() -> Self { Self {} }\n\n    fn accept(&self, #[Check(ProductInput)] input: BehaviorValue) -> BehaviorResult<BehaviorValue> {\n        Ok(input)\n    }\n}\n"
             },
             {
               "name": "server/models/Product.rs",
@@ -3054,7 +3054,7 @@
               "code": "import (\n\t\"io\"\n\t\"net/http\"\n\t\"strings\"\n)\n\n// @RequestRoute(\"/products\")\n// @Public\ntype ProductsController struct {\n\t// @Needs\n\tproductService *ProductService\n}\n\n// @PostRoute\nfunc (controller *ProductsController) PostProduct(\n\t// @FromBody\n\tproduct Product,\n) any {\n\tinput := map[string]any{\"name\": product.Name, \"level\": product.Level}\n\t_, err := controller.productService.Accept(input)\n\treturn controller.answer(product, err)\n}\n\nfunc (controller *ProductsController) answer(product Product, failure error) any {\n\tif failure != nil {\n\t\theader := http.Header{\"Content-Type\": {\"application/json\"}}\n\t\tbody := io.NopCloser(strings.NewReader(`{\"error\":\"validation\"}`))\n\t\treturn &http.Response{StatusCode: http.StatusBadRequest, Header: header, Body: body}\n\t}\n\treturn product\n}\n"
             },
             {
-              "name": "server/helpers/ProductInput.dart",
+              "name": "server/models/ProductInput.dart",
               "code": "@Checked\nclass ProductInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  Object? name;\n\n  @Required\n  @Min(1)\n  @Max(9)\n  Object? level;\n}\n"
             },
             {
@@ -4036,11 +4036,11 @@
         },
         {
           "heading": "Swift: public configuration in native Tac",
-          "body": "Swift is native Tac on macOS and iOS. It is not a Yon endpoint language. Only the public tac configuration may enter client code. The build publishes client/manifest.json, including its tac member, at /manifest.webmanifest. Browser and native web surfaces can fetch it. Native services use a loader that they own, or public input. This short Swift service binds a public snapshot. It does not touch the private Yon configuration or .env. Tachyon does not assign fields automatically, and there is no Tac dependency container.",
+          "body": "Swift is native Tac on macOS and iOS. It is not a Yon endpoint language. Only the public tac configuration may enter client code. The build publishes client/manifest.json, including its tac member, at /manifest.webmanifest. Browser and native web surfaces can fetch it. Native services use a loader that they own, or public input. This short Swift service binds a public snapshot. The Settings and Setting classes are structs in `client/models/` (ADR 0092), and the service carries Service. It does not touch the private Yon configuration or .env. Tachyon does not assign fields automatically, and there is no Tac dependency container.",
           "files": [
             {
               "name": "client/services/SettingsService.swift",
-              "code": "final class SettingsService {\n    var title: String = \"Products\"\n    var pageSize: Int = 20\n\n    init() {\n        (title, pageSize) = Self.settingsOrFallback()\n    }\n\n    private static func settingsOrFallback() -> (String, Int) {\n        do {\n            return try readSettings()\n        } catch {\n            return (\"Configuration unavailable\", 20)\n        }\n    }\n\n    private static func readSettings() throws -> (String, Int) {\n        let settings = try Behaviors.properties(\n            CatalogSettings.self, [\"TAC_CATALOG_PAGE_SIZE\": \"20\"]\n        )\n        let title = \"title\"\n        let values = try Behaviors.values(PublicValues.self, .object([\n            \"tac\": .object([\"catalog\": .object([title: .string(\"Products\")])])\n        ]))\n        return (try values.get(title).text, try settings.get(\"pageSize\").integer)\n    }\n}\n"
+              "code": "@Service\nfinal class SettingsService {\n    var title: String = \"Products\"\n    var pageSize: Int = 20\n\n    init() {\n        (title, pageSize) = Self.settingsOrFallback()\n    }\n\n    private static func settingsOrFallback() -> (String, Int) {\n        do {\n            return try readSettings()\n        } catch {\n            return (\"Configuration unavailable\", 20)\n        }\n    }\n\n    private static func readSettings() throws -> (String, Int) {\n        let settings = try Behaviors.properties(\n            CatalogSettings.self, [\"TAC_CATALOG_PAGE_SIZE\": \"20\"]\n        )\n        let title = \"title\"\n        let values = try Behaviors.values(PublicValues.self, .object([\n            \"tac\": .object([\"catalog\": .object([title: .string(\"Products\")])])\n        ]))\n        return (try values.get(title).text, try settings.get(\"pageSize\").integer)\n    }\n}\n"
             },
             {
               "name": "client/pages/tac.html",
@@ -4051,12 +4051,12 @@
               "code": "<main>\n  <h1>{settings.title}</h1>\n  <p>Page size: {settings.pageSize}</p>\n</main>"
             },
             {
-              "name": "client/helpers/CatalogSettings.swift",
-              "code": "@Settings({\"prefix\":\"TAC_CATALOG_\"})\nfinal class CatalogSettings {\n    @Min(1)\n    @Max(100)\n    var pageSize: Int = 20\n}\n"
+              "name": "client/models/CatalogSettings.swift",
+              "code": "@Settings({\"prefix\":\"TAC_CATALOG_\"})\nstruct CatalogSettings {\n    @Min(1)\n    @Max(100)\n    var pageSize: Int = 20\n}\n"
             },
             {
-              "name": "client/helpers/PublicValues.swift",
-              "code": "final class PublicValues {\n    @Setting(\"${tac.catalog.title:Products}\")\n    var title: String = \"\"\n}\n"
+              "name": "client/models/PublicValues.swift",
+              "code": "struct PublicValues {\n    @Setting(\"${tac.catalog.title:Products}\")\n    var title: String = \"\"\n}\n"
             }
           ],
           "axis": "language"
@@ -10864,7 +10864,7 @@
         {
           "heading": "Configuration binding: Yon",
           "axis": "language",
-          "summary": "One Setup role class carries the whole policy. Settings binds the YON_CATALOG_ prefix, and the Setup class's own fields are the settings, with @Min and @Max on a field. WhenProfile selects the active environment. WhenSetting turns the bean on or off based on a bound property. Setting binds a single canonical yon. path with a literal default. Every YON_CATALOG_ name in the snapshot must be declared. WhenProfile and WhenSetting are both decided before configure runs. The private snapshot stays private. Secrets live in .env. server/application.json holds placeholders and safe defaults. The controller returns selected fields that are not secret, never the resolved configuration.",
+          "summary": "One Setup role class carries the whole policy. Settings binds the YON_CATALOG_ prefix, and the Setup class's own fields are the settings, with @Min and @Max on a field. WhenProfile selects the active environment. WhenSetting turns the bean on or off based on a bound property. Setting binds a single canonical yon. path with a literal default. Its class, Endpoint, is a model in `server/models/` (ADR 0092); the Rust controller imports it with `use crate::models::{Endpoint, Settings}`. Every YON_CATALOG_ name in the snapshot must be declared. WhenProfile and WhenSetting are both decided before configure runs. The private snapshot stays private. Secrets live in .env. server/application.json holds placeholders and safe defaults. The controller returns selected fields that are not secret, never the resolved configuration.",
           "body": "Lua has no tab here, because the build refuses Setup in Lua Yon code with TY1308.",
           "files": [
             {
@@ -10989,7 +10989,7 @@
             },
             {
               "name": "server/controllers/SettingsController.rs",
-              "code": "use crate::models::Settings;\n\n#[RequestRoute(\"/settings\")]\n#[Public]\nstruct SettingsController {}\nimpl SettingsController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get_settings(&self) -> Settings {\n        let application_json = std::env::var(\"YON_APPLICATION_JSON\").expect(\"supervisor configuration\");\n        let application: BehaviorValue = Json::parse(&application_json).expect(\"validated configuration\").into();\n        let catalog = Behaviors::properties::<CatalogSetup>(&application).expect(\"catalog settings\");\n        let endpoint = Behaviors::values::<Endpoint>(&application).expect(\"active profile\");\n        let profile = Self::text(endpoint.get(\"profile\"));\n        let mut options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        options.profiles.push(profile.clone());\n        let options = options.with_application(&application).expect(\"selection inputs\");\n        let context = Behaviors::create::<CatalogSetup>(options).expect(\"active configuration\");\n        context.dispose();\n        Settings { profile, pageSize: Self::number(catalog.get(\"pageSize\")) }\n    }\n\n    fn text(value: Option<&BehaviorValue>) -> String {\n        let Some(BehaviorValue::String(text)) = value else {\n            unreachable!(\"the bound value is a string\")\n        };\n        text.clone()\n    }\n\n    fn number(value: Option<&BehaviorValue>) -> i64 {\n        let Some(BehaviorValue::Number(number)) = value else {\n            unreachable!(\"the bound value is a number\")\n        };\n        *number as i64\n    }\n}\n"
+              "code": "use crate::models::{Endpoint, Settings};\n\n#[RequestRoute(\"/settings\")]\n#[Public]\nstruct SettingsController {}\nimpl SettingsController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get_settings(&self) -> Settings {\n        let application_json = std::env::var(\"YON_APPLICATION_JSON\").expect(\"supervisor configuration\");\n        let application: BehaviorValue = Json::parse(&application_json).expect(\"validated configuration\").into();\n        let catalog = Behaviors::properties::<CatalogSetup>(&application).expect(\"catalog settings\");\n        let endpoint = Behaviors::values::<Endpoint>(&application).expect(\"active profile\");\n        let profile = Self::text(endpoint.get(\"profile\"));\n        let mut options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        options.profiles.push(profile.clone());\n        let options = options.with_application(&application).expect(\"selection inputs\");\n        let context = Behaviors::create::<CatalogSetup>(options).expect(\"active configuration\");\n        context.dispose();\n        Settings { profile, pageSize: Self::number(catalog.get(\"pageSize\")) }\n    }\n\n    fn text(value: Option<&BehaviorValue>) -> String {\n        let Some(BehaviorValue::String(text)) = value else {\n            unreachable!(\"the bound value is a string\")\n        };\n        text.clone()\n    }\n\n    fn number(value: Option<&BehaviorValue>) -> i64 {\n        let Some(BehaviorValue::Number(number)) = value else {\n            unreachable!(\"the bound value is a number\")\n        };\n        *number as i64\n    }\n}\n"
             },
             {
               "name": "server/models/Settings.dart",
@@ -11024,7 +11024,7 @@
               "code": "class Endpoint {\n    @Setting(\"${yon.active.profile:development}\")\n    String profile;\n}\n"
             },
             {
-              "name": "server/helpers/Endpoint.groovy",
+              "name": "server/models/Endpoint.groovy",
               "code": "class Endpoint {\n    @Setting(\"${yon.active.profile:development}\")\n    String profile\n}\n"
             },
             {
@@ -11040,8 +11040,8 @@
               "code": "type Endpoint() =\n    [<Setting(\"${yon.active.profile:development}\")>]\n    member val profile : string = \"\" with get, set\n"
             },
             {
-              "name": "server/helpers/Endpoint.rs",
-              "code": "#[allow(dead_code)]\nstruct Endpoint {\n    #[Setting(\"${yon.active.profile:development}\")]\n    profile: String,\n}\n"
+              "name": "server/models/Endpoint.rs",
+              "code": "#[allow(dead_code)]\npub struct Endpoint {\n    #[Setting(\"${yon.active.profile:development}\")]\n    profile: String,\n}\n"
             },
             {
               "name": "server/models/Settings.go",
@@ -11060,7 +11060,7 @@
               "code": "type Endpoint struct {\n\t// @Setting(\"${yon.active.profile:development}\")\n\tprofile string\n}\n"
             },
             {
-              "name": "server/helpers/Endpoint.dart",
+              "name": "server/models/Endpoint.dart",
               "code": "import 'dart:io';\n\nclass Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  String profile = '';\n}\n"
             },
             {
@@ -11084,7 +11084,7 @@
         {
           "heading": "Configuration binding: Tac",
           "axis": "language",
-          "summary": "Tac binds only values that are explicitly public. Its source is the tac member of client/manifest.json. This is the web app manifest that the build publishes at /manifest.webmanifest. server/application.json and .env belong to Yon and never reach Tac. So Settings uses a TAC_ prefix, Setting uses tac. paths and WhenSetting names a TAC_ property. A private Yon secret cannot be bound here at all. Browser services load the published manifest through an injected HTTPClient. Native services bind a public snapshot that is supplied explicitly. A native service file keeps its service type first. Every key under TAC_CATALOG_ must be a field of the Settings class, including title. Setting demonstrates binding that same title individually; it does not exempt the key from prefix validation. Every language passes the full public snapshot to both binders.",
+          "summary": "Tac binds only values that are explicitly public. Its source is the tac member of client/manifest.json. This is the web app manifest that the build publishes at /manifest.webmanifest. server/application.json and .env belong to Yon and never reach Tac. So Settings uses a TAC_ prefix, Setting uses tac. paths and WhenSetting names a TAC_ property. A private Yon secret cannot be bound here at all. Browser services load the published manifest through an injected HTTPClient. Native services bind a public snapshot that is supplied explicitly. A native service file keeps its service type first. The class that Setting reads is a model in `client/models/` (ADR 0092), so a service reaches it like any model: C# and F# open `Models`, Rust uses `crate::models::PublicValues` and Dart imports `models/PublicValues.dart`. Every key under TAC_CATALOG_ must be a field of the Settings class, including title. Setting demonstrates binding that same title individually; it does not exempt the key from prefix validation. Every language passes the full public snapshot to both binders.",
           "body": "Python and Lua have no tab here, because a browser service loads the manifest through an HTTPClient, and the build refuses HTTPClient in Python and Lua Tac code with TY1308.",
           "files": [
             {
@@ -11157,11 +11157,11 @@
             },
             {
               "name": "client/services/SettingsService.cs",
-              "code": "[Service]\npublic class SettingsService {\n    public string title = \"Catalog\";\n    public long pageSize = 20;\n\n    public SettingsService() {\n        var published = BehaviorJSON.Parse(\"{\\\"tac\\\":{\\\"catalog\\\":{\\\"title\\\":\\\"Catalog\\\",\\\"page\\\":{\\\"size\\\":20},\\\"cache\\\":{\\\"enabled\\\":true}}}}\");\n        var catalog = Behaviors.properties(typeof(CatalogSetup), published);\n        var values = Behaviors.values(typeof(PublicValues), published);\n        title = values.Get(\"title\").Text;\n        pageSize = catalog.Get(\"pageSize\").Integer;\n        using var signal = new BehaviorSignal();\n        using var context = Behaviors.create(typeof(CatalogSetup), \"public-catalog\", signal, published, profiles: new[] { \"public\" });\n    }\n}\n"
+              "code": "using Models;\n\n[Service]\npublic class SettingsService {\n    public string title = \"Catalog\";\n    public long pageSize = 20;\n\n    public SettingsService() {\n        var published = BehaviorJSON.Parse(\"{\\\"tac\\\":{\\\"catalog\\\":{\\\"title\\\":\\\"Catalog\\\",\\\"page\\\":{\\\"size\\\":20},\\\"cache\\\":{\\\"enabled\\\":true}}}}\");\n        var catalog = Behaviors.properties(typeof(CatalogSetup), published);\n        var values = Behaviors.values(typeof(PublicValues), published);\n        title = values.Get(\"title\").Text;\n        pageSize = catalog.Get(\"pageSize\").Integer;\n        using var signal = new BehaviorSignal();\n        using var context = Behaviors.create(typeof(CatalogSetup), \"public-catalog\", signal, published, profiles: new[] { \"public\" });\n    }\n}\n"
             },
             {
               "name": "client/services/SettingsService.fs",
-              "code": "[<Service>]\ntype SettingsService() =\n    let published = BehaviorJSON.Parse(\"{\\\"tac\\\":{\\\"catalog\\\":{\\\"title\\\":\\\"Catalog\\\",\\\"page\\\":{\\\"size\\\":20},\\\"cache\\\":{\\\"enabled\\\":true}}}}\")\n    let catalog = Behaviors.properties(typeof<CatalogSetup>, published)\n    let values = Behaviors.values(typeof<PublicValues>, published)\n\n    do\n        use signal = new BehaviorSignal()\n        use context = Behaviors.create(typeof<CatalogSetup>, \"public-catalog\", signal, published, profiles = [| \"public\" |])\n        ()\n\n    member val title : string = values.Get(\"title\").Text with get, set\n    member val pageSize : int64 = catalog.Get(\"pageSize\").Integer with get, set\n"
+              "code": "open Models\n\n[<Service>]\ntype SettingsService() =\n    let published = BehaviorJSON.Parse(\"{\\\"tac\\\":{\\\"catalog\\\":{\\\"title\\\":\\\"Catalog\\\",\\\"page\\\":{\\\"size\\\":20},\\\"cache\\\":{\\\"enabled\\\":true}}}}\")\n    let catalog = Behaviors.properties(typeof<CatalogSetup>, published)\n    let values = Behaviors.values(typeof<PublicValues>, published)\n\n    do\n        use signal = new BehaviorSignal()\n        use context = Behaviors.create(typeof<CatalogSetup>, \"public-catalog\", signal, published, profiles = [| \"public\" |])\n        ()\n\n    member val title : string = values.Get(\"title\").Text with get, set\n    member val pageSize : int64 = catalog.Get(\"pageSize\").Integer with get, set\n"
             },
             {
               "name": "client/setups/CatalogSetup.rs",
@@ -11169,7 +11169,7 @@
             },
             {
               "name": "client/services/SettingsService.rs",
-              "code": "#[Service]\n#[allow(non_snake_case)]\nstruct SettingsService {\n    title: String,\n    pageSize: i64,\n}\nimpl SettingsService {\n    const TITLE: &str = \"title\";\n    const DEFAULT_TITLE: &str = \"Catalog\";\n\n    fn new() -> Self {\n        let public_catalog = BehaviorValue::object([\n            (Self::TITLE, BehaviorValue::String(Self::DEFAULT_TITLE.into())),\n            (\"page\", BehaviorValue::object([(\"size\", BehaviorValue::Number(20.0))])),\n            (\"cache\", BehaviorValue::object([(\"enabled\", BehaviorValue::Bool(true))])),\n        ]);\n        let public_settings = BehaviorValue::object([(\"catalog\", public_catalog)]);\n        let published = BehaviorValue::object([(\"tac\", public_settings)]);\n        let catalog = Behaviors::properties::<CatalogSetup>(&published).expect(\"public catalog settings\");\n        let values = Behaviors::values::<PublicValues>(&published).expect(\"public values\");\n        let mut options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        options.profiles.push(\"public\".into());\n        let options = options.with_application(&published).expect(\"public selection inputs\");\n        let context = Behaviors::create::<CatalogSetup>(options).expect(\"active configuration\");\n        context.dispose();\n        Self { title: Self::title_of(values.get(Self::TITLE)), pageSize: Self::page_size_of(catalog.get(\"pageSize\")) }\n    }\n\n    fn title_of(value: Option<&BehaviorValue>) -> String {\n        match value {\n            Some(BehaviorValue::String(text)) => text.clone(),\n            _ => Self::DEFAULT_TITLE.into(),\n        }\n    }\n\n    fn page_size_of(value: Option<&BehaviorValue>) -> i64 {\n        match value {\n            Some(BehaviorValue::Number(size)) => *size as i64,\n            _ => 20,\n        }\n    }\n}\n"
+              "code": "use crate::models::PublicValues;\n\n#[Service]\n#[allow(non_snake_case)]\nstruct SettingsService {\n    title: String,\n    pageSize: i64,\n}\nimpl SettingsService {\n    const TITLE: &str = \"title\";\n    const DEFAULT_TITLE: &str = \"Catalog\";\n\n    fn new() -> Self {\n        let public_catalog = BehaviorValue::object([\n            (Self::TITLE, BehaviorValue::String(Self::DEFAULT_TITLE.into())),\n            (\"page\", BehaviorValue::object([(\"size\", BehaviorValue::Number(20.0))])),\n            (\"cache\", BehaviorValue::object([(\"enabled\", BehaviorValue::Bool(true))])),\n        ]);\n        let public_settings = BehaviorValue::object([(\"catalog\", public_catalog)]);\n        let published = BehaviorValue::object([(\"tac\", public_settings)]);\n        let catalog = Behaviors::properties::<CatalogSetup>(&published).expect(\"public catalog settings\");\n        let values = Behaviors::values::<PublicValues>(&published).expect(\"public values\");\n        let mut options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        options.profiles.push(\"public\".into());\n        let options = options.with_application(&published).expect(\"public selection inputs\");\n        let context = Behaviors::create::<CatalogSetup>(options).expect(\"active configuration\");\n        context.dispose();\n        Self { title: Self::title_of(values.get(Self::TITLE)), pageSize: Self::page_size_of(catalog.get(\"pageSize\")) }\n    }\n\n    fn title_of(value: Option<&BehaviorValue>) -> String {\n        match value {\n            Some(BehaviorValue::String(text)) => text.clone(),\n            _ => Self::DEFAULT_TITLE.into(),\n        }\n    }\n\n    fn page_size_of(value: Option<&BehaviorValue>) -> i64 {\n        match value {\n            Some(BehaviorValue::Number(size)) => *size as i64,\n            _ => 20,\n        }\n    }\n}\n"
             },
             {
               "name": "client/models/PublicValues.js",
@@ -11180,28 +11180,28 @@
               "code": "export default class PublicValues {\n  @Setting(\"${tac.catalog.title:Catalog}\")\n  title!: string;\n}\n"
             },
             {
-              "name": "client/helpers/PublicValues.swift",
-              "code": "final class PublicValues {\n    @Setting(\"${tac.catalog.title:Catalog}\")\n    var title: String = \"\"\n}\n"
+              "name": "client/models/PublicValues.swift",
+              "code": "struct PublicValues {\n    @Setting(\"${tac.catalog.title:Catalog}\")\n    var title: String = \"\"\n}\n"
             },
             {
               "name": "client/models/PublicValues.java",
               "code": "class PublicValues {\n    @Setting(\"${tac.catalog.title:Catalog}\")\n    String title = \"\";\n}\n"
             },
             {
-              "name": "client/helpers/PublicValues.kt",
+              "name": "client/models/PublicValues.kt",
               "code": "class PublicValues {\n    @Setting(\"${tac.catalog.title:Catalog}\")\n    var title: String = \"\"\n}\n"
             },
             {
-              "name": "client/helpers/PublicValues.cs",
+              "name": "client/models/PublicValues.cs",
               "code": "public sealed class PublicValues {\n    [Setting(\"${tac.catalog.title:Catalog}\")]\n    public string title = \"\";\n}\n"
             },
             {
-              "name": "client/helpers/PublicValues.fs",
+              "name": "client/models/PublicValues.fs",
               "code": "type PublicValues() =\n    [<Setting(\"${tac.catalog.title:Catalog}\")>]\n    member val title : string = \"\" with get, set\n"
             },
             {
-              "name": "client/helpers/PublicValues.rs",
-              "code": "#[allow(dead_code)]\nstruct PublicValues {\n    #[Setting(\"${tac.catalog.title:Catalog}\")]\n    title: String,\n}\n"
+              "name": "client/models/PublicValues.rs",
+              "code": "#[allow(dead_code)]\npub struct PublicValues {\n    #[Setting(\"${tac.catalog.title:Catalog}\")]\n    pub title: String,\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.go",
@@ -11212,7 +11212,7 @@
               "code": "import \"errors\"\n\n// @Service\ntype SettingsService struct {\n\tTitle    string\n\tPageSize int64\n}\n\n// @OnStart\nfunc (settings *SettingsService) Start() error {\n\tpublished := settings.publicManifest()\n\tcatalog, catalogErr := BehaviorsProperties[CatalogSetup](published)\n\tvalues, valuesErr := BehaviorsValues[PublicValues](published)\n\toptions, optionsErr := settings.publicOptions(published)\n\tcontextErr := settings.openAndClose(BehaviorsCreate[CatalogSetup](options))\n\tsettings.Title = settings.text(values, settings.titleKey())\n\tsettings.PageSize = settings.number(catalog, \"pageSize\")\n\treturn errors.Join(catalogErr, valuesErr, optionsErr, contextErr)\n}\n\nfunc (settings *SettingsService) publicOptions(published map[string]any) (*BehaviorOptions, error) {\n\toptions := NewBehaviorOptions(\"public-catalog\", NewBehaviorSignal())\n\toptions.Profiles = append(options.Profiles, \"public\")\n\treturn options.WithApplication(published)\n}\n\nfunc (settings *SettingsService) openAndClose(context *BehaviorContext, failure error) error {\n\tif failure != nil {\n\t\treturn failure\n\t}\n\tcontext.Dispose()\n\treturn nil\n}\n\nfunc (settings *SettingsService) text(value BehaviorValue, key string) string {\n\tfields, _ := value.(map[string]any)\n\ttext, _ := fields[key].(string)\n\treturn text\n}\n\nfunc (settings *SettingsService) number(value BehaviorValue, key string) int64 {\n\tfields, _ := value.(map[string]any)\n\tnumber, _ := fields[key].(float64)\n\treturn int64(number)\n}\n\nfunc (SettingsService) titleKey() string { return \"title\" }\n\nfunc (settings *SettingsService) publicManifest() map[string]any {\n\tcatalog := map[string]any{\n\t\tsettings.titleKey(): \"Catalog\",\n\t\t\"page\":              map[string]any{\"size\": 20},\n\t\t\"cache\":             map[string]any{\"enabled\": true},\n\t}\n\treturn map[string]any{\"tac\": map[string]any{\"catalog\": catalog}}\n}\n"
             },
             {
-              "name": "client/helpers/PublicValues.go",
+              "name": "client/models/PublicValues.go",
               "code": "type PublicValues struct {\n\t// @Setting(\"${tac.catalog.title:Catalog}\")\n\ttitle string\n}\n"
             },
             {
@@ -11221,10 +11221,10 @@
             },
             {
               "name": "client/services/SettingsService.dart",
-              "code": "@Service\nclass SettingsService {\n  String title = 'Catalog';\n  int pageSize = 20;\n\n  @OnStart\n  void initialize() {\n    final published = _publicManifest();\n    final catalog = BehaviorJson.members(Behaviors.properties(CatalogSetup, published));\n    final values = BehaviorJson.members(Behaviors.values(PublicValues, published));\n    final context = Behaviors.create(CatalogSetup,\n        partition: 'public-catalog', signal: BehaviorSignal(), profiles: ['public'], properties: published);\n    context.dispose();\n    title = values['title'] as String;\n    pageSize = (catalog['pageSize'] as num).toInt();\n  }\n\n  Map<String, Object?> _publicManifest() {\n    return {\n      'tac': {\n        'catalog': {\n          'title': 'Catalog',\n          'page': {'size': 20},\n          'cache': {'enabled': true},\n        },\n      },\n    };\n  }\n}\n"
+              "code": "import 'models/PublicValues.dart';\n\n@Service\nclass SettingsService {\n  String title = 'Catalog';\n  int pageSize = 20;\n\n  @OnStart\n  void initialize() {\n    final published = _publicManifest();\n    final catalog = BehaviorJson.members(Behaviors.properties(CatalogSetup, published));\n    final values = BehaviorJson.members(Behaviors.values(PublicValues, published));\n    final context = Behaviors.create(CatalogSetup,\n        partition: 'public-catalog', signal: BehaviorSignal(), profiles: ['public'], properties: published);\n    context.dispose();\n    title = values['title'] as String;\n    pageSize = (catalog['pageSize'] as num).toInt();\n  }\n\n  Map<String, Object?> _publicManifest() {\n    return {\n      'tac': {\n        'catalog': {\n          'title': 'Catalog',\n          'page': {'size': 20},\n          'cache': {'enabled': true},\n        },\n      },\n    };\n  }\n}\n"
             },
             {
-              "name": "client/helpers/PublicValues.dart",
+              "name": "client/models/PublicValues.dart",
               "code": "class PublicValues {\n  @Setting(\"${tac.catalog.title:Catalog}\")\n  String title = '';\n}\n"
             },
             {
@@ -11236,7 +11236,7 @@
               "code": "#[Service]\nclass SettingsService\n  # @return [String]\n  attr_reader :title\n\n  # @return [Integer]\n  attr_reader :page_size\n\n  def initialize\n    @title = \"Catalog\"\n    @page_size = 20\n  end\n\n  # @return [void]\n  #[OnStart]\n  def bind\n    published = public_manifest\n    catalog = Behaviors.properties(CatalogSetup, published)\n    values = Behaviors.values(PublicValues, published)\n    context = Behaviors.create(CatalogSetup, partition: \"public-catalog\", signal: BehaviorSignal.new,\n      profiles: [\"public\"], properties: published)\n    context.dispose\n    @title = values[\"title\"]\n    @page_size = catalog[\"page_size\"]\n  end\n\n  private\n\n  # @return [Hash]\n  def public_manifest\n    catalog = { \"title\" => \"Catalog\", \"page\" => { \"size\" => 20 }, \"cache\" => { \"enabled\" => true } }\n    { \"tac\" => { \"catalog\" => catalog } }\n  end\nend\n"
             },
             {
-              "name": "client/helpers/PublicValues.rb",
+              "name": "client/models/PublicValues.rb",
               "code": "class PublicValues\n  # @return [String]\n  #[Setting(\"${tac.catalog.title:Catalog}\")]\n  attr_reader :title\nend\n"
             }
           ]
@@ -11244,7 +11244,7 @@
         {
           "heading": "Validation: Yon",
           "axis": "language",
-          "summary": "`Checked` declares a field schema on a plain type. That type is a model: a data class in its own file, `server/models/OrderInput.<ext>` (ADR 0092). Discovery composes it into the same unit as the method that names it (ADR 0044). Check sits on one parameter and checks it against that schema before the annotated method body runs. It returns a checked copy; it does not construct the type. The option shapes are fixed. Checked(), Required() and NotEmpty() accept no arguments. Length takes exactly {\"min\",\"max\"}. In JavaScript, TypeScript and Python, Check takes no arguments: the parameter's type names the Checked class (a JSDoc @param type in JavaScript). The other languages keep the JSON parameter type and name the class in Check: Check(OrderInput.class) in Java, Check(OrderInput::class) in Kotlin and PHP, Check(typeof(OrderInput)) in C#, and Check(OrderInput) in Dart, Rust and Go. The controller reads the body with FromBody as a plain JSON value (any in TypeScript and Go, dict in Python, array in PHP, Object in Java, Any? in Kotlin, BehaviorJSON in C#, Object? in Dart, Json in Rust) and passes it to the service. Min and Max take a bare finite number, not an object. Length, Min and Max ignore a missing or null value, so only Required makes a bound required. Choose one language below for POST /orders. Each one rejects a blank name, a level above 9 and a missing level. Otherwise it answers 200 with the checked payload. Unknown fields such as sku stay in the payload after validation. This does not make it safe to assign all of them to an object at once.",
+          "summary": "`Checked` declares a field schema on a plain type. That type is a model: a data class in its own file, `server/models/OrderInput.<ext>` (ADR 0092). Discovery composes it into the same unit as the method that names it (ADR 0044). A Rust model is `pub`, and the Rust service imports it with `use crate::models::OrderInput`. Check sits on one parameter and checks it against that schema before the annotated method body runs. It returns a checked copy; it does not construct the type. The option shapes are fixed. Checked(), Required() and NotEmpty() accept no arguments. Length takes exactly {\"min\",\"max\"}. In JavaScript, TypeScript and Python, Check takes no arguments: the parameter's type names the Checked class (a JSDoc @param type in JavaScript). The other languages keep the JSON parameter type and name the class in Check: Check(OrderInput.class) in Java, Check(OrderInput::class) in Kotlin and PHP, Check(typeof(OrderInput)) in C#, and Check(OrderInput) in Dart, Rust and Go. The controller reads the body with FromBody as a plain JSON value (any in TypeScript and Go, dict in Python, array in PHP, Object in Java, Any? in Kotlin, BehaviorJSON in C#, Object? in Dart, Json in Rust) and passes it to the service. Min and Max take a bare finite number, not an object. Length, Min and Max ignore a missing or null value, so only Required makes a bound required. Choose one language below for POST /orders. Each one rejects a blank name, a level above 9 and a missing level. Otherwise it answers 200 with the checked payload. Unknown fields such as sku stay in the payload after validation. This does not make it safe to assign all of them to an object at once.",
           "body": "Lua has no tab here, because the build refuses Check in Lua Yon code with TY1308.",
           "files": [
             {
@@ -11321,7 +11321,7 @@
             },
             {
               "name": "server/services/OrderService.rs",
-              "code": "#[yon::service]\nstruct OrderService {}\nimpl OrderService {\n    fn new() -> Self { Self {} }\n    fn accept(&self, #[Check(OrderInput)] order: BehaviorValue) -> BehaviorResult<BehaviorValue> { Ok(order) }\n}\n"
+              "code": "use crate::models::OrderInput;\n\n#[yon::service]\nstruct OrderService {}\nimpl OrderService {\n    fn new() -> Self { Self {} }\n    fn accept(&self, #[Check(OrderInput)] order: BehaviorValue) -> BehaviorResult<BehaviorValue> { Ok(order) }\n}\n"
             },
             {
               "name": "server/controllers/OrdersController.rs",
@@ -11356,7 +11356,7 @@
               "code": "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name;\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level;\n}\n"
             },
             {
-              "name": "server/helpers/OrderInput.groovy",
+              "name": "server/models/OrderInput.groovy",
               "code": "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level\n}\n"
             },
             {
@@ -11372,8 +11372,8 @@
               "code": "[<Checked>]\ntype OrderInput() =\n    [<NotEmpty>]\n    [<Length({\"min\":1,\"max\":80})>]\n    member val name : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n\n    [<Required>]\n    [<Min(1)>]\n    [<Max(9)>]\n    member val level : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n"
             },
             {
-              "name": "server/helpers/OrderInput.rs",
-              "code": "#[Checked]\nstruct OrderInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    name: String,\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    level: f64,\n}\n"
+              "name": "server/models/OrderInput.rs",
+              "code": "#[Checked]\npub struct OrderInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    name: String,\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    level: f64,\n}\n"
             },
             {
               "name": "server/services/OrderService.go",
@@ -11388,7 +11388,7 @@
               "code": "// @Checked\ntype OrderInput struct {\n\t// @NotEmpty\n\t// @Length({\"min\":1,\"max\":80})\n\tname string\n\t// @Required\n\t// @Min(1)\n\t// @Max(9)\n\tlevel float64\n}\n"
             },
             {
-              "name": "server/helpers/OrderInput.dart",
+              "name": "server/models/OrderInput.dart",
               "code": "@Checked\nclass OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  Object? name;\n  @Required\n  @Min(1)\n  @Max(9)\n  Object? level;\n}\n"
             },
             {
@@ -11408,7 +11408,7 @@
         {
           "heading": "Validation: Tac",
           "axis": "language",
-          "summary": "The same seven markers work in Tac, on a service instead of a controller. The data transfer object (DTO) that `Check` names is a behavior-only class in its own file, `client/helpers/OrderInput.<ext>`. Discovery composes it into the same unit as the service that it protects (ADR 0044). JavaScript, TypeScript and Dart keep Service without an import, as their Yon services do. The compiled languages mark the service with Service too: the build refuses a service in client/services without its marker with TY1363. Swift and C# take checked parameters as BehaviorJSON, Rust and Go take them as BehaviorValue, and Java takes them as Object, as its Yon service does; Check names the class, as in Yon. Tac validation protects only the user experience (UX). It is not authorization, so Yon must validate the same payload again.",
+          "summary": "The same seven markers work in Tac, on a service instead of a controller. The data transfer object (DTO) that `Check` names is a model: a data class in its own file, `client/models/OrderInput.<ext>` (ADR 0092). Discovery composes its rules into the service that it protects (ADR 0044), and the model itself compiles once, without its markers. A service reaches it the way the language reaches any model: C# and F# open `Models`, Rust uses `crate::models::OrderInput`, Kotlin imports `models.OrderInput` and Dart imports `models/OrderInput.dart`; Swift, Go and Ruby need no import. A Swift model is a struct, and a Rust model and its fields are `pub`. JavaScript, TypeScript and Dart keep Service without an import, as their Yon services do. The compiled languages mark the service with Service too: the build refuses a service in client/services without its marker with TY1363. Swift and C# take checked parameters as BehaviorJSON, Rust and Go take them as BehaviorValue, and Java takes them as Object, as its Yon service does; Check names the class, as in Yon. Tac validation protects only the user experience (UX). It is not authorization, so Yon must validate the same payload again.",
           "body": "Lua has no tab here, because the build refuses Check in Lua Tac code with TY1308.",
           "files": [
             {
@@ -11437,23 +11437,23 @@
             },
             {
               "name": "client/services/OrderService.kt",
-              "code": "@Service\nclass OrderService {\n    var status: String = \"ready\"\n    fun accept(@Check(OrderInput::class) order: Any?): Any? { return order }\n}\n"
+              "code": "import models.OrderInput\n\n@Service\nclass OrderService {\n    var status: String = \"ready\"\n    fun accept(@Check(OrderInput::class) order: Any?): Any? { return order }\n}\n"
             },
             {
               "name": "client/services/OrderService.cs",
-              "code": "[Service]\npublic class OrderService {\n    public string status = \"ready\";\n    public BehaviorJSON accept([Check(typeof(OrderInput))] BehaviorJSON order) { return order; }\n}\n"
+              "code": "using Models;\n\n[Service]\npublic class OrderService {\n    public string status = \"ready\";\n    public BehaviorJSON accept([Check(typeof(OrderInput))] BehaviorJSON order) { return order; }\n}\n"
             },
             {
               "name": "client/services/OrderService.fs",
-              "code": "[<Service>]\ntype OrderService() =\n    member val status : string = \"ready\" with get, set\n\n    member this.accept([<Check(typeof<OrderInput>)>] order: BehaviorJSON) : BehaviorJSON = order\n"
+              "code": "open Models\n\n[<Service>]\ntype OrderService() =\n    member val status : string = \"ready\" with get, set\n\n    member this.accept([<Check(typeof<OrderInput>)>] order: BehaviorJSON) : BehaviorJSON = order\n"
             },
             {
               "name": "client/services/OrderService.rs",
-              "code": "#[Service]\nstruct OrderService { status: String }\nimpl OrderService {\n    fn new() -> Self { Self { status: String::from(\"ready\") } }\n    fn accept(&self, #[Check(OrderInput)] order: BehaviorValue) -> BehaviorResult<BehaviorValue> { Ok(order) }\n}\n"
+              "code": "use crate::models::OrderInput;\n\n#[Service]\nstruct OrderService { status: String }\nimpl OrderService {\n    fn new() -> Self { Self { status: String::from(\"ready\") } }\n    fn accept(&self, #[Check(OrderInput)] order: BehaviorValue) -> BehaviorResult<BehaviorValue> { Ok(order) }\n}\n"
             },
             {
               "name": "client/services/OrderService.dart",
-              "code": "@Service\nclass OrderService {\n  String status = 'ready';\n\n  Object? accept(@Check(OrderInput) Object? order) {\n    return order;\n  }\n}\n"
+              "code": "import 'models/OrderInput.dart';\n\n@Service\nclass OrderService {\n  String status = 'ready';\n\n  Object? accept(@Check(OrderInput) Object? order) {\n    return order;\n  }\n}\n"
             },
             {
               "name": "client/models/OrderInput.js",
@@ -11464,39 +11464,39 @@
               "code": "@Checked\nexport default class OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name!: string;\n  @Required\n  @Min(1)\n  @Max(9)\n  level!: number;\n}\n"
             },
             {
-              "name": "client/helpers/OrderInput.swift",
-              "code": "@Checked\nfinal class OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    var name: BehaviorJSON = .null\n    @Required\n    @Min(1)\n    @Max(9)\n    var level: BehaviorJSON = .null\n}\n"
+              "name": "client/models/OrderInput.swift",
+              "code": "@Checked\nstruct OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    var name: String = \"\"\n    @Required\n    @Min(1)\n    @Max(9)\n    var level: Double = 0\n}\n"
             },
             {
               "name": "client/models/OrderInput.java",
               "code": "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name;\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level;\n}\n"
             },
             {
-              "name": "client/helpers/OrderInput.kt",
+              "name": "client/models/OrderInput.kt",
               "code": "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    var name: Any? = null\n    @Required\n    @Min(1)\n    @Max(9)\n    var level: Any? = null\n}\n"
             },
             {
-              "name": "client/helpers/OrderInput.cs",
-              "code": "[Checked]\npublic sealed class OrderInput {\n    [NotEmpty]\n    [Length({\"min\":1,\"max\":80})]\n    public BehaviorJSON name;\n    [Required]\n    [Min(1)]\n    [Max(9)]\n    public BehaviorJSON level;\n}\n"
+              "name": "client/models/OrderInput.cs",
+              "code": "[Checked]\npublic sealed class OrderInput {\n    [NotEmpty]\n    [Length({\"min\":1,\"max\":80})]\n    public string name = \"\";\n    [Required]\n    [Min(1)]\n    [Max(9)]\n    public double level;\n}\n"
             },
             {
-              "name": "client/helpers/OrderInput.fs",
-              "code": "[<Checked>]\ntype OrderInput() =\n    [<NotEmpty>]\n    [<Length({\"min\":1,\"max\":80})>]\n    member val name : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n\n    [<Required>]\n    [<Min(1)>]\n    [<Max(9)>]\n    member val level : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n"
+              "name": "client/models/OrderInput.fs",
+              "code": "[<Checked>]\ntype OrderInput() =\n    [<NotEmpty>]\n    [<Length({\"min\":1,\"max\":80})>]\n    member val name : string = \"\" with get, set\n\n    [<Required>]\n    [<Min(1)>]\n    [<Max(9)>]\n    member val level : float = 0.0 with get, set\n"
             },
             {
-              "name": "client/helpers/OrderInput.rs",
-              "code": "#[Checked]\nstruct OrderInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    name: String,\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    level: f64,\n}\n"
+              "name": "client/models/OrderInput.rs",
+              "code": "#[Checked]\npub struct OrderInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    pub name: String,\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    pub level: f64,\n}\n"
             },
             {
               "name": "client/services/OrderService.go",
               "code": "// @Service\ntype OrderService struct {\n\tStatus string\n}\n\n// @OnStart\nfunc (service *OrderService) Start() {\n\tservice.Status = \"ready\"\n}\n\nfunc (service *OrderService) Accept(\n\t// @Check(OrderInput)\n\torder BehaviorValue,\n) (BehaviorValue, error) {\n\treturn order, nil\n}\n"
             },
             {
-              "name": "client/helpers/OrderInput.go",
+              "name": "client/models/OrderInput.go",
               "code": "// @Checked\ntype OrderInput struct {\n\t// @NotEmpty\n\t// @Length({\"min\":1,\"max\":80})\n\tname string\n\t// @Required\n\t// @Min(1)\n\t// @Max(9)\n\tlevel float64\n}\n"
             },
             {
-              "name": "client/helpers/OrderInput.dart",
+              "name": "client/models/OrderInput.dart",
               "code": "@Checked\nclass OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  Object? name;\n  @Required\n  @Min(1)\n  @Max(9)\n  Object? level;\n}\n"
             },
             {
@@ -11504,7 +11504,7 @@
               "code": "#[Service]\nclass OrderService\n  # @return [String]\n  attr_reader :status\n\n  def initialize\n    @status = \"ready\"\n  end\n\n  # @param order [Hash]\n  # @return [Hash]\n  def accept(\n    #[Check(OrderInput)]\n    order\n  )\n    order\n  end\nend\n"
             },
             {
-              "name": "client/helpers/OrderInput.rb",
+              "name": "client/models/OrderInput.rb",
               "code": "#[Checked]\nclass OrderInput\n  # @return [String]\n  #[NotEmpty]\n  #[Length({\"min\":1,\"max\":80})]\n  attr_reader :name\n\n  # @return [Integer]\n  #[Required]\n  #[Min(1)]\n  #[Max(9)]\n  attr_reader :level\nend\n"
             }
           ]

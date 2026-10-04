@@ -1,3 +1,5 @@
+use crate::models::OrderInput;
+
 #[Service]
 struct OrderService { status: String }
 impl OrderService {
