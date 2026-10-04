@@ -50,6 +50,16 @@ pub struct NativeSessionProcessClaims {
 }
 
 #[test]
+fn rust_raw_identifier_fields_use_the_plain_name_as_their_key() {
+    let source =
+        "pub struct Token {\n    pub r#type: String,\n    pub r#match: Option<String>,\n}\n";
+    let record = RustFieldsTests::record("rs", source);
+    assert_eq!(RustFieldsTests::names(&record), ["type", "match"]);
+    let fields = RustFieldsTests::fields("pub r#type: String,");
+    assert_eq!(fields, [(String::from("r#type"), String::from("String"))]);
+}
+
+#[test]
 fn rust_tuple_field_parser_preserves_complete_type_text() {
     let source = "pub roots: BTreeMap<(i32, String), BTreeSet<String>>,";
     assert_eq!(

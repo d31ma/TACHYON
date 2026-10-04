@@ -225,6 +225,12 @@ machine contracts have their own, independent major versions.
 - A macOS app name that looks like a host template placeholder, such as
   `__ROUTE_DOCUMENTS__`, stays plain text in the generated Swift host.
 
+- A Rust Tac model field with a raw identifier, such as `pub r#type: String`
+  or `pub r#match: Option<String>`, reaches the page again. The model reader
+  dropped the field, so the generated `TacModel` code failed to compile with
+  `error[E0063]: missing field`. The field keeps its `r#` name in Rust and
+  uses the plain name, `type`, as its JSON key.
+
 - The iOS, Android, Linux and Windows hosts keep authored values that look
   like host template placeholders as plain text too. An app name, bundle ID,
   entry route or route document such as `__NATIVE_SHIM__` was replaced by the

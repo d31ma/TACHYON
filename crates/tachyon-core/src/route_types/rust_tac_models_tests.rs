@@ -114,6 +114,26 @@ fn supported_rust_models_keep_complete_transitive_vec_option_codecs() {
 }
 
 #[test]
+fn raw_identifier_fields_keep_their_rust_name_and_use_the_plain_wire_key() {
+    let source = "#[derive(Clone, Default)]\npub struct Token {\n    pub r#type: String,\n    pub r#match: Option<String>,\n    pub label: String,\n}\n";
+    let catalog = RustTacModelsTests::catalog(source);
+    RustTacModelsTests::require(&catalog, "Token")
+        .unwrap_or_else(|failure| panic!("raw identifier model: {failure}"));
+    let codecs = catalog.text();
+    assert!(
+        codecs.contains("r#type: tac_read_field(value, \"type\")"),
+        "{codecs}"
+    );
+    assert!(
+        codecs.contains("r#match: tac_read_field(value, \"match\")"),
+        "{codecs}"
+    );
+    assert!(codecs.contains("(String::from(\"type\"), TacModel::write(self.r#type))"));
+    assert!(codecs.contains("(String::from(\"match\"), TacModel::write(self.r#match))"));
+    assert!(codecs.contains("label: tac_read_field(value, \"label\")"));
+}
+
+#[test]
 fn a_rust_wire_model_refuses_map_set_tuple_fields_at_the_original_field_type() {
     let catalog = RustTacModelsTests::catalog(RustTacModelsTests::INTERNAL);
     let failure = RustTacModelsTests::refusal(RustTacModelsTests::require(&catalog, "Claims"));

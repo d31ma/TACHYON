@@ -381,14 +381,15 @@ impl RustTacModels {
     fn record(name: &str, fields: &[RustField]) -> String {
         let reads = fields
             .iter()
-            .map(|field| format!("{}: tac_read_field(value, {:?})", field.name, field.name))
+            .map(|field| format!("{}: tac_read_field(value, {:?})", field.name, field.key()))
             .collect::<Vec<_>>();
         let writes = fields
             .iter()
             .map(|field| {
                 format!(
                     "(String::from({:?}), TacModel::write(self.{}))",
-                    field.name, field.name
+                    field.key(),
+                    field.name
                 )
             })
             .collect::<Vec<_>>();

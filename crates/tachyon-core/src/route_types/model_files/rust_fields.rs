@@ -52,12 +52,19 @@ impl<'a> RustFields<'a> {
         let visible = Self::without_visibility(text);
         let scope = Self::scope_length(visible);
         let declaration = visible[scope..].trim_start();
-        let name = Members::identifier(declaration);
+        let name = Self::field_name(declaration);
         let rest = declaration[name.len()..].trim_start();
         let kind = rest.strip_prefix(':')?.trim();
         let name_start = offset + member.len() - declaration.len();
         let type_start = offset + member.len() - kind.len();
         Self::named_type(name, kind, name_start, type_start)
+    }
+
+    fn field_name(declaration: &str) -> &str {
+        let raw = declaration
+            .strip_prefix(RustField::RAW_PREFIX)
+            .map_or(0, |_| RustField::RAW_PREFIX.len());
+        &declaration[..raw + Members::identifier(&declaration[raw..]).len()]
     }
 
     fn without_visibility(text: &str) -> &str {
@@ -123,7 +130,7 @@ impl<'a> RustFields<'a> {
     fn record(fields: &[RustField]) -> Record {
         let mut record = Record::default();
         for field in fields {
-            record.add(Self::LANGUAGE, &field.name, &field.type_text, true);
+            record.add(Self::LANGUAGE, field.key(), &field.type_text, true);
         }
         record
     }
