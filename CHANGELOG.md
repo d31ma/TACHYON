@@ -174,6 +174,16 @@ machine contracts have their own, independent major versions.
   configuration binding, validation and settings examples on the website
   keep these models in `models/` in every language.
 
+- A Rust Yon model that writes `use crate::Json;` itself now compiles when the
+  handler has routes; the generated codec imports no longer collide with it
+  (`E0252`).
+- A Rust struct field whose type has a generic list, such as
+  `Mutex<BTreeMap<String, Entry>>`, is one field again; the commas no longer
+  fail the build with `TY2015`.
+- A C# or F# Tac service method whose parameter has an attribute with a JSON
+  argument, such as `PageDefaults({...})`, keeps one parameter; the generated
+  C# bridge compiles again.
+- `TY1363` names the Lua marker as `-- @Service` instead of the Ruby spelling.
 - A Lua model marked Topic, in either realm, and a Python model marked Topic
   in a Tac service now stop the build with `TY1308`. Before, the build passed:
   a Yon Lua route that published the event failed on every request with
