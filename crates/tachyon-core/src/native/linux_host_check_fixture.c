@@ -77,7 +77,12 @@ static gboolean tachyon_fixture_enabled(const char *name) {
 
 static gboolean tachyon_fixture_accelerator(const char *action, const char *expected) {
   gchar **accelerators = gtk_application_get_accels_for_action(g_menu_application, action);
-  gboolean matches = accelerators != NULL && g_strcmp0(accelerators[0], expected) == 0;
+  guint expected_key = 0, actual_key = 0;
+  GdkModifierType expected_modifiers = 0, actual_modifiers = 0;
+  gtk_accelerator_parse(expected, &expected_key, &expected_modifiers);
+  if (accelerators != NULL && accelerators[0] != NULL) gtk_accelerator_parse(accelerators[0], &actual_key, &actual_modifiers);
+  gboolean matches = expected_key != 0 && expected_key == actual_key && expected_modifiers == actual_modifiers;
+  if (!matches) fprintf(stderr, "accelerator for %s: %s\n", action, accelerators != NULL && accelerators[0] != NULL ? accelerators[0] : "none");
   g_strfreev(accelerators);
   return matches;
 }

@@ -159,7 +159,7 @@ fn linux_host_starts_the_application_once_before_its_window_and_stops_it_at_shut
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
-#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files and a display; run explicitly on the Linux lane"]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, a display and a working WebKit sandbox; run explicitly on the Linux lane"]
 async fn linux_generated_host_runs_menu_actions_and_one_application_lifetime() {
     let root = tempfile::tempdir().expect("fixture");
     let executable = LinuxHostTests::compile(root.path()).await;
