@@ -17,7 +17,7 @@ impl TitleBarHostTests {
     const PAGE: &str = r#"<!doctype html><html><head><title>__TITLE__</title><meta name="color-scheme" content="light dark"><style>
 :root { color-scheme: light dark; }
 body { margin: 0; font: 13px -apple-system, sans-serif; background: light-dark(#ffffff, #1c1c1e); color: light-dark(#1d1d1f, #f5f5f7); }
-header { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; min-height: max(84px, var(--tac-titlebar-height, 0px)); padding-inline-start: var(--tac-titlebar-leading-inset, 0px); padding-inline-end: 16px; background: light-dark(#eef1f5, #26292e); border-bottom: 1px solid light-dark(#d6dbe1, #3a3f45); }
+header { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; min-height: max(84px, var(--tac-titlebar-height, 0px)); padding-inline-start: max(16px, var(--tac-titlebar-leading-inset, 0px)); padding-inline-end: 16px; background: light-dark(#eef1f5, #26292e); border-bottom: 1px solid light-dark(#d6dbe1, #3a3f45); }
 main { padding: 24px; }
 #below { position: fixed; right: 16px; bottom: 16px; }
 </style></head><body>
@@ -92,9 +92,9 @@ document.getElementById('action').addEventListener('click', () => { globalThis._
         let call = super::macos::companion_call(None, None);
         let host = super::macos::swift_source(&application, call, &index);
         let body = host.rsplit_once("\n@main\n").expect("generated main").0;
-        let (button_leading, button_top) = variant
-            .button_inset
-            .map_or((-1, -1), |inset| (inset.leading, inset.top));
+        let (button_leading, button_top) = variant.button_inset.map_or((-1, -1), |inset| {
+            (i64::from(inset.leading), i64::from(inset.top))
+        });
         let expectation = format!(
             "enum TitleBarExpectation {{\n    static let variant = \"{}\"\n    static let height = {}\n    static let leading = {}\n    static let buttonLeading = {button_leading}\n    static let buttonTop = {button_top}\n}}\n",
             variant.name, variant.height, variant.leading

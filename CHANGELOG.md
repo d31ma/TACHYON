@@ -10,6 +10,19 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- macOS apps can have an integrated title bar: `"titleBar": "integrated"` in
+  `tac.application.window` lets the page reach the top edge of the window
+  under the real close, minimize and full screen buttons, as one continuous
+  surface in light and dark mode. The optional `titleBarButtonInset`
+  (`leading`, `top`, 0 to 200 points) moves the buttons. The host sets
+  `--tac-titlebar-height`, `--tac-titlebar-leading-inset` and
+  `--tac-titlebar-trailing-inset` on the page and keeps them current on
+  resize, full screen (where they are `0px`) and appearance changes. Elements
+  marked `data-tac-drag-region` move the window (interactive controls inside
+  keep their clicks), and a double-click there follows the system title bar
+  setting. The window keeps its accessible title; an empty title from the page
+  keeps the app name. Windows, Linux, iOS and Android keep the standard title
+  bar and the build prints a note (ADR 0099).
 - `server.environment` in `server/application.json` passes chosen variables
   of `ty`'s environment to handler processes in every Yon language, such as
   `["HOME", "AWS_*", "HD_*"]`: exact names and prefix patterns ending in `*`.

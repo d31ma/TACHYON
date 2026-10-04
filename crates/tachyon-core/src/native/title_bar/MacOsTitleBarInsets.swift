@@ -1,5 +1,5 @@
 struct MacOsTitleBarInsets: Equatable {
-    static let none = MacOsTitleBarInsets(height: 0, leading: 0, trailing: 0)
+    static let zero = MacOsTitleBarInsets(height: 0, leading: 0, trailing: 0)
 
     let height: Int
     let leading: Int

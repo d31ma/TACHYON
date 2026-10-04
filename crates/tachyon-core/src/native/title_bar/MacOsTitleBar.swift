@@ -15,6 +15,12 @@ __NATIVE_TITLE_BAR_PAGE_SCRIPT__
         NSWindow.didResignKeyNotification,
     ]
 
+    static let doubleClickSetting = "AppleActionOnDoubleClick"
+    static let legacyMinimizeSetting = "AppleMiniaturizeOnDoubleClick"
+    static let minimizeAction = "Minimize"
+    static let zoomAction = "Maximize"
+    static let noActions = ["None", "Do Nothing"]
+
     private let settings: MacOsTitleBarSettings
     private weak var window: NSWindow?
     private weak var view: WKWebView?
@@ -22,6 +28,9 @@ __NATIVE_TITLE_BAR_PAGE_SCRIPT__
     private var regions = MacOsDragRegions.empty
     private var published: MacOsTitleBarInsets?
     private var appearance: NSKeyValueObservation?
+    private var watchedViews: [ObjectIdentifier] = []
+    private var placing = false
+    private var buttonSpacing: CGFloat = 0
 
     init(_ settings: MacOsTitleBarSettings) {
         self.settings = settings
@@ -42,11 +51,12 @@ __NATIVE_TITLE_BAR_PAGE_SCRIPT__
         guard settings.integrated else { return }
         self.window = window
         self.view = view
-        baseScripts = view.configuration.userContentController.userScripts
+        baseScripts = view.configuration.userContentController.userScripts.map { (script: WKUserScript) -> WKUserScript in script }
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.titlebarSeparatorStyle = .none
         view.titleBar = self
+        buttonSpacing = MacOsWindowButtons.spacing(window)
         for name in MacOsTitleBar.windowChanges {
             NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: name, object: window)
         }
@@ -75,7 +85,7 @@ __NATIVE_TITLE_BAR_PAGE_SCRIPT__
     func drag(_ event: NSEvent, _ view: WKWebView) -> Bool {
         guard let window, contains(event, view) else { return false }
         if event.clickCount > 1 {
-            doubleClick(event, window)
+            doubleClick(window)
         } else {
             window.performDrag(with: event)
         }
@@ -83,7 +93,7 @@ __NATIVE_TITLE_BAR_PAGE_SCRIPT__
     }
 
     func insets() -> MacOsTitleBarInsets {
-        guard let window, !window.styleMask.contains(.fullScreen) else { return MacOsTitleBarInsets.none }
+        guard let window, !window.styleMask.contains(.fullScreen) else { return MacOsTitleBarInsets.zero }
         let buttons = MacOsWindowButtons.extent(window)
         let bar = window.frame.height - window.contentLayoutRect.maxY
         guard !buttons.isNull else { return MacOsTitleBarInsets(height: Int(bar.rounded(.up)), leading: 0, trailing: 0) }
@@ -101,17 +111,16 @@ __NATIVE_TITLE_BAR_PAGE_SCRIPT__
         return NSPoint(x: local.x / zoom, y: top / zoom)
     }
 
-    private func doubleClick(_ event: NSEvent, _ window: NSWindow) {
-        guard let frameView = window.contentView?.superview else { return }
-        let strip = max(window.frame.height - window.contentLayoutRect.maxY, 2)
-        let x = max(event.locationInWindow.x, CGFloat(insets().leading))
-        let location = NSPoint(x: x, y: window.frame.height - strip / 2)
-        let relocated = NSEvent.mouseEvent(
-            with: .leftMouseDown, location: location, modifierFlags: event.modifierFlags,
-            timestamp: event.timestamp, windowNumber: event.windowNumber, context: nil,
-            eventNumber: event.eventNumber, clickCount: event.clickCount, pressure: event.pressure)
-        guard let relocated else { return }
-        frameView.mouseDown(with: relocated)
+    private func doubleClick(_ window: NSWindow) {
+        let defaults = UserDefaults.standard
+        let minimizes = defaults.bool(forKey: MacOsTitleBar.legacyMinimizeSetting)
+        let fallback = minimizes ? MacOsTitleBar.minimizeAction : MacOsTitleBar.zoomAction
+        let action = defaults.string(forKey: MacOsTitleBar.doubleClickSetting) ?? fallback
+        if action == MacOsTitleBar.minimizeAction {
+            window.miniaturize(nil)
+        } else if !MacOsTitleBar.noActions.contains(action) {
+            window.zoom(nil)
+        }
     }
 
     @objc private func windowChanged(_ notification: Notification) {
@@ -119,9 +128,25 @@ __NATIVE_TITLE_BAR_PAGE_SCRIPT__
     }
 
     private func layOut() {
-        guard let window else { return }
-        if let inset = settings.buttonInset { MacOsWindowButtons.place(window, inset) }
+        guard let window, !placing else { return }
+        placing = true
+        if let inset = settings.buttonInset {
+            MacOsWindowButtons.place(window, inset, buttonSpacing)
+            watchLayout(window)
+        }
+        placing = false
         publish()
+    }
+
+    private func watchLayout(_ window: NSWindow) {
+        for view in MacOsWindowButtons.layoutViews(window) {
+            let identifier = ObjectIdentifier(view)
+            guard !watchedViews.contains(identifier) else { continue }
+            watchedViews.append(identifier)
+            view.postsFrameChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)),
+                                                   name: NSView.frameDidChangeNotification, object: view)
+        }
     }
 
     private func publish() {

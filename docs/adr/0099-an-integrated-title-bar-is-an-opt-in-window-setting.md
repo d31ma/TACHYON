@@ -88,7 +88,8 @@ an appearance change. It also stores the current values in the document-start
 script, so a page that opens in full screen starts with the right values.
 
 A browser or a standard window never sets the properties, so pages write them
-with a fallback: `padding-inline-start: var(--tac-titlebar-leading-inset, 0px)`.
+with a fallback, and keep their own margin for full screen:
+`padding-inline-start: max(16px, var(--tac-titlebar-leading-inset, 0px))`.
 
 ### Drag regions
 
@@ -107,11 +108,16 @@ numbers; a page with more sends none, so no control is ever covered.
 The host hit-tests natively. Its web view class overrides `mouseDown`: when the
 point is inside a drag rectangle and outside every excluded rectangle, the host
 calls `NSWindow.performDrag(with:)`, so the window server moves the window with
-snapping, tiling and Spaces like a standard title bar. A double-click is handed
-to the window frame view as a title bar double-click, so it follows the
-person's setting in System Settings (Fill, Zoom, Minimize or nothing).
-`acceptsFirstMouse` is true in a drag region, so an inactive window can be
-dragged at once. Every other click goes to the page unchanged.
+snapping, tiling and Spaces like a standard title bar. A double-click follows
+the person's title bar setting in System Settings (the global
+`AppleActionOnDoubleClick` default): Minimize minimizes the window, Do Nothing
+does nothing, and Zoom or Fill zoom the window. AppKit has no public call for
+Fill; zooming a resizable window fills the visible screen area, which is what
+Fill shows, and a second double-click restores the frame. Handing the event to
+AppKit's private title bar view was tried and rejected: it works only when the
+click is not the current event. `acceptsFirstMouse` is true in a drag region,
+so an inactive window can be dragged at once. Every other click goes to the
+page unchanged.
 
 ### Accessibility
 
@@ -150,7 +156,7 @@ is built only for macOS. The equivalents, for a later decision:
    else uses it). The title text is hidden by the host and the window keeps its
    accessible name.
 3. Mark the top bar with `data-tac-drag-region` and give it
-   `padding-inline-start: var(--tac-titlebar-leading-inset, 0px)` and
+   `padding-inline-start: max(16px, var(--tac-titlebar-leading-inset, 0px))` and
    `min-height: max(84px, var(--tac-titlebar-height, 0px))`. The bar has no
    interactive controls, so all of it moves the window; everything below it
    keeps its clicks.
@@ -160,8 +166,7 @@ is built only for macOS. The equivalents, for a later decision:
 - Existing apps keep the standard title bar; no migration is needed.
 - A page that uses an integrated title bar must leave room for the buttons
   with the inset properties and declare where the window can be dragged.
-  Without a drag region, the window can only be moved in full screen exit,
-  from Mission Control or with the keyboard.
+  Without a drag region, a person cannot move the window with the pointer.
 - The macOS host test
   `native_title_bar_host_tests::macos_integrated_title_bar_keeps_buttons_insets_drag_regions_and_full_screen`
   builds the generated AppDelegate with the system SDK, with and without a

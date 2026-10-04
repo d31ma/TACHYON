@@ -126,8 +126,9 @@ private final class TitleBarCheck {
         click(window, NSPoint(x: 300, y: 200), 1)
         try require(TitleBarCheck.drags == 1, "Page content started a window drag")
         try await until("page clicks") {
-            try await self.script(view, "globalThis.__downs.join(',')") == "action,main"
-                && self.script(view, "String(globalThis.__clicks)") == "1"
+            let downs = try await self.script(view, "globalThis.__downs.join(',')")
+            let clicks = try await self.script(view, "String(globalThis.__clicks)")
+            return downs == "action,main" && clicks == "1"
         }
         try require(window.frame == before, "A click moved the window")
     }
@@ -166,11 +167,11 @@ private final class TitleBarCheck {
         guard let zoom = window.standardWindowButton(.zoomButton) else { throw failure("Missing zoom button") }
         zoom.performClick(nil)
         try await until("full screen", 10) { window.styleMask.contains(.fullScreen) }
-        try await expectInsets(view, MacOsTitleBarInsets.none, "full screen")
+        try await expectInsets(view, MacOsTitleBarInsets.zero, "full screen")
         try await settle(2)
         _ = try capture(window, "fullscreen")
         try await navigate(view, "/help", "Help")
-        try await expectInsets(view, MacOsTitleBarInsets.none, "full screen after navigation")
+        try await expectInsets(view, MacOsTitleBarInsets.zero, "full screen after navigation")
         try await navigate(view, "/", "Home")
         window.toggleFullScreen(nil)
         try await until("leave full screen", 10) { !window.styleMask.contains(.fullScreen) }
