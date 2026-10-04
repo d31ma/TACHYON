@@ -1072,9 +1072,36 @@ fn typed_parameters(list: &str) -> Vec<String> {
 }
 
 fn typed_parameter(parameter: &str) -> Option<String> {
-    let (names, declared) = parameter.split_once(':')?;
+    let (names, declared) = without_annotations(parameter).split_once(':')?;
     let kind = declared.split('=').next().unwrap_or_default().trim();
     (!kind.is_empty()).then(|| format!("{}: {kind}", names.trim()))
+}
+
+fn without_annotations(parameter: &str) -> &str {
+    let mut rest = parameter.trim_start();
+    while let Some(annotation) = rest.strip_prefix('@') {
+        let name = identifier(annotation);
+        rest = annotation[name.len()..].trim_start();
+        if rest.starts_with('(') {
+            rest = rest[balanced_end(rest)..].trim_start();
+        }
+    }
+    rest
+}
+
+fn balanced_end(text: &str) -> usize {
+    let mut depth = 0_i32;
+    for (at, character) in text.char_indices() {
+        depth += match character {
+            '(' | '[' | '{' => 1,
+            ')' | ']' | '}' => -1,
+            _ => 0,
+        };
+        if depth == 0 {
+            return at + character.len_utf8();
+        }
+    }
+    text.len()
 }
 
 fn parameter_type(declaration: &str) -> &str {
@@ -1450,7 +1477,7 @@ fn csharp_arguments(parameters: &[String]) -> String {
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{CompanionLanguage, RustGraph, owner_name, owner_table};
+    use super::{CompanionLanguage, RustGraph, owner_name, owner_table, typed_parameters};
     use crate::Failure;
 
     struct Sources;
@@ -1574,6 +1601,14 @@ mod tests {
 
     fn page_table(language: CompanionLanguage, file_name: &str, source: &str) -> String {
         member_table(language, source, &format!("client/pages/{file_name}")).expect("generated")
+    }
+
+    #[test]
+    fn a_parameter_annotation_with_json_arguments_leaves_the_parameter_type() {
+        let parameters = typed_parameters(
+            "@PageDefaults({\"defaultSize\":20,\"sort\":[\"id\"]}) input: Map<String, Any?>): Any?",
+        );
+        assert_eq!(parameters, ["input: Map<String, Any?>"]);
     }
 
     #[test]
