@@ -1,3 +1,4 @@
+// @Service
 type CatalogService struct {
 	Count                     int64
 	applicationEventPublisher ApplicationEventPublisher

@@ -1,5 +1,6 @@
 import models.CatalogCount;
 
+@Service
 class CatalogService {
     int count = 0;
     ApplicationEventPublisher applicationEventPublisher;
