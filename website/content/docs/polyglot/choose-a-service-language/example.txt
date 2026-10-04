@@ -1,5 +1,6 @@
 // client/services/CounterService.swift
+@Service
 final class CounterService {
   var count: Int = 0
-  func increment() { self.count += 1 }
+  func increment() { count += 1 }
 }
