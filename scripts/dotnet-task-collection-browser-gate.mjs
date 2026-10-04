@@ -46,8 +46,7 @@ class DotnetTaskCollectionBrowserGate {
     DotnetTaskCollectionBrowserGate.#checkRequests(requests)
     assert.deepEqual(diagnostics.errors, [])
     assert.deepEqual(diagnostics.externalRequests, [])
-    assert.equal(diagnostics.failedRequests.length, 1, 'only the deliberately cancelled collection request fails')
-    assert.equal(diagnostics.failedRequests[0]?.path, '/api/collections/slow')
+    assert.deepEqual(diagnostics.failedRequests.map(request => request.path), ['/api/collections/slow'], `only the deliberately cancelled collection request fails: ${JSON.stringify(diagnostics.failedRequests)}`)
     assert.deepEqual(diagnostics.requests, requests.map(request => request.path))
     diagnostics.phase = 'complete'
     return { decoding, lifetime, requests, registeredCollectionFieldsQualified: true, topLevelTaskCollectionQualified: false, recursiveModelQualified: false, serviceWorkerQualified: false, browserHostReplaced: false }

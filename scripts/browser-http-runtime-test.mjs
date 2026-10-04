@@ -10,6 +10,16 @@ class BrowserHttpRuntimeCheck {
       credentials: 'omit', deadline: Date.now() + 1000, maxResponseBytes: 1048576, ...values })
   }
 
+  static streamed(chunks, cancelledReads) {
+    const encoded = chunks.map(chunk => new TextEncoder().encode(chunk))
+    const reader = {
+      read: async () => encoded.length > 0 ? { done: false, value: encoded.shift() } : { done: true, value: undefined },
+      cancel: async () => { cancelledReads.push(encoded.length) },
+      releaseLock: () => {}
+    }
+    return { ok: true, body: { getReader: () => reader } }
+  }
+
   static async run() {
     const calls = []
     const environment = { AbortController, Headers, URL, TextEncoder, TextDecoder, setTimeout, clearTimeout,
@@ -46,6 +56,13 @@ class BrowserHttpRuntimeCheck {
     assert.ok(!JSON.stringify(failure).includes('private'))
     environment.fetch = async () => new Response('12345')
     assert.equal((await answer(BrowserHttpRuntimeCheck.request({ maxResponseBytes: 4 }))).error.code, 'HTTP_LIMIT')
+    const cancelledReads = []
+    environment.fetch = async () => BrowserHttpRuntimeCheck.streamed(['{"message":', '"whole"}'], cancelledReads)
+    assert.equal((await answer(BrowserHttpRuntimeCheck.request())).value.message, 'whole')
+    assert.deepEqual(cancelledReads, [], 'a fully read body is not cancelled, because Chromium then reports the finished request as aborted')
+    environment.fetch = async () => BrowserHttpRuntimeCheck.streamed(['123', '45'], cancelledReads)
+    assert.equal((await answer(BrowserHttpRuntimeCheck.request({ maxResponseBytes: 4 }))).error.code, 'HTTP_LIMIT')
+    assert.equal(cancelledReads.length, 1, 'a body over the limit is cancelled')
     environment.fetch = async () => new Response('not JSON')
     assert.equal((await answer(BrowserHttpRuntimeCheck.request())).error.code, 'HTTP_RESPONSE')
     environment.fetch = async () => new Response(new Uint8Array([0xff]))

@@ -263,6 +263,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A browser HTTP call from a Tac service (C#, F#, Kotlin, Dart, Swift, C++
+  and the other WebAssembly languages) no longer shows up as a failed request
+  after it succeeds. The page's HTTP transport cancelled the response reader
+  even after reading the whole body, and Chromium then reported the finished
+  request as `net::ERR_ABORTED`. The transport now cancels the reader only
+  when it stops early (size limit, bad UTF-8, cancellation or deadline).
 - A Windows app whose window grants no window controls builds again with
   MSVC. The generated host left its `payload` parameter unused, and the
   host's `/W4 /WX` flags turned that warning (C4100) into an error, so

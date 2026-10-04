@@ -131,13 +131,15 @@ class TacBrowserHttp {
     try {
       while (true) {
         const { done, value } = await reader.read()
-        if (done) {
-          try { return text + decoder.decode() } catch { TacBrowserHttp.#fail('HTTP_RESPONSE') }
-        }
+        if (done) break
         length += value.byteLength
         if (length > limit) TacBrowserHttp.#fail('HTTP_LIMIT')
         try { text += decoder.decode(value, { stream: true }) } catch { TacBrowserHttp.#fail('HTTP_RESPONSE') }
       }
-    } finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
+    } catch (error) {
+      await reader.cancel().catch(() => {})
+      throw error
+    } finally { reader.releaseLock() }
+    try { return text + decoder.decode() } catch { TacBrowserHttp.#fail('HTTP_RESPONSE') }
   }
 }
