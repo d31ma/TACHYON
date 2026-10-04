@@ -1086,7 +1086,11 @@ impl Messages {
         }
     }
 
-    pub(super) fn retired(rule: &Rule, language: &str) -> String {
+    pub(super) fn retired_text(rule: &Rule, language: &str) -> String {
+        Self::retired(rule, language)
+    }
+
+    fn retired(rule: &Rule, language: &str) -> String {
         let spelled = Self::spelled(language, rule.name);
         if rule.replaced_by.is_empty() {
             return format!("{spelled} is not an annotation: {}", rule.advice);
@@ -1133,7 +1137,11 @@ impl Messages {
         )
     }
 
-    pub(super) fn no_arguments(rule: &Rule, language: &str) -> String {
+    pub(super) fn no_arguments_text(rule: &Rule, language: &str) -> String {
+        Self::no_arguments(rule, language)
+    }
+
+    fn no_arguments(rule: &Rule, language: &str) -> String {
         if !rule.argument_advice.is_empty() {
             return format!(
                 "{}: {}. Write {} alone. {}",

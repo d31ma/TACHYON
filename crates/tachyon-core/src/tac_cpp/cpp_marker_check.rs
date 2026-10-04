@@ -19,6 +19,26 @@ impl<'a> CppMarkerCheck<'a> {
         Self::check(path, &file.class)
     }
 
+    pub(crate) fn either(
+        path: &'a Path,
+        source: &str,
+        other: impl Fn(&Path, &str) -> Result<(), Failure>,
+    ) -> Result<(), Failure> {
+        Self::routed(CppSource::is_cpp(path), path, source, other)
+    }
+
+    fn routed(
+        cpp: bool,
+        path: &'a Path,
+        source: &str,
+        other: impl Fn(&Path, &str) -> Result<(), Failure>,
+    ) -> Result<(), Failure> {
+        if cpp {
+            return Self::check_source(path, source);
+        }
+        other(path, source)
+    }
+
     pub(crate) fn check(path: &'a Path, class: &CppClass) -> Result<(), Failure> {
         let check = Self {
             path,

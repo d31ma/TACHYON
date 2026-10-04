@@ -363,8 +363,11 @@ fn unescaped_string_region(extension: &str, source: &str, start: usize) -> Optio
         let end = dart_raw_string_end(source, start);
         return Some(Region::from_end(end, "Unterminated Dart raw string"));
     }
-    if extension == crate::tac_cpp::CppSource::EXTENSION && is_cpp_raw_string_start(bytes, start) {
-        return Some(cpp_raw_string(source, start));
+    if extension == crate::tac_cpp::CppSource::EXTENSION
+        && crate::tac_cpp::CppRawText::is_raw_string_start(bytes, start)
+    {
+        let end = crate::tac_cpp::CppRawText::raw_string_end(source, start);
+        return Some(Region::from_end(end, "Unterminated C++ raw string"));
     }
     if extension == "go" && byte == b'`' {
         let end = text_end(source, start + 1, "`");
@@ -446,7 +449,9 @@ fn quoted_string(extension: &str, bytes: &[u8], start: usize) -> Region {
     if extension == "rs" && is_rust_lifetime(bytes, start) {
         return Region::Code;
     }
-    if extension == crate::tac_cpp::CppSource::EXTENSION && is_cpp_digit_separator(bytes, start) {
+    if extension == crate::tac_cpp::CppSource::EXTENSION
+        && crate::tac_cpp::CppRawText::is_digit_separator(bytes, start)
+    {
         return Region::Code;
     }
     let end = escaped_string_end(bytes, start);
@@ -461,30 +466,6 @@ fn is_rust_lifetime(bytes: &[u8], start: usize) -> bool {
         .get(start + 1)
         .is_some_and(|byte| byte.is_ascii_alphabetic() || *byte == b'_');
     starts_name && bytes.get(start + 2) != Some(&b'\'')
-}
-
-fn is_cpp_raw_string_start(bytes: &[u8], start: usize) -> bool {
-    let opens = bytes.get(start..start + 2) == Some(&b"R\""[..]);
-    let previous = start.checked_sub(1).and_then(|index| bytes.get(index));
-    let joined = previous.is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_');
-    opens && !joined
-}
-
-fn cpp_raw_string(source: &str, start: usize) -> Region {
-    let open = start + 2;
-    let Some(parenthesis) = source[open..].find('(') else {
-        return Region::Unterminated("Unterminated C++ raw string");
-    };
-    let delimiter = &source[open..open + parenthesis];
-    let closing = format!("){delimiter}\"");
-    let end = text_end(source, open + parenthesis + 1, &closing);
-    Region::from_end(end, "Unterminated C++ raw string")
-}
-
-fn is_cpp_digit_separator(bytes: &[u8], start: usize) -> bool {
-    let previous = start.checked_sub(1).and_then(|index| bytes.get(index));
-    let next = bytes.get(start + 1);
-    previous.is_some_and(u8::is_ascii_hexdigit) && next.is_some_and(u8::is_ascii_hexdigit)
 }
 
 fn rust_raw_string(source: &str, start: usize) -> Region {

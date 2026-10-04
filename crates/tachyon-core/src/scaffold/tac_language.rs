@@ -78,6 +78,10 @@ impl TacLanguage {
     }
 
     pub(crate) fn editor_files(self) -> Vec<(String, String)> {
+        self.clangd_files()
+    }
+
+    fn clangd_files(self) -> Vec<(String, String)> {
         if self != Self::Cpp {
             return Vec::new();
         }

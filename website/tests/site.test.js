@@ -186,7 +186,7 @@ describe('language coverage', () => {
     for (const file of [...services(browser), ...services(compiled)]) expect(file.name).toMatch(/^client\/services\/CatalogService\.[a-z]+$/)
     const yon = topic.sections.find(section => section.heading.startsWith('Yon:'))
     expect(services(browser).map(file => file.name.split('.').pop()).sort()).toEqual(['js', 'ts'])
-    expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'java', 'kt', 'rb', 'rs', 'swift'])
+    expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'hpp', 'java', 'kt', 'rb', 'rs', 'swift'])
     for (const file of compiled.files.filter(file => file.name.startsWith('client/models/'))) expect(file.name).toMatch(/^client\/models\/CatalogCount\.[a-z]+$/)
     expect(yon.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort())
       .toEqual(['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts'])
@@ -481,9 +481,9 @@ describe('language coverage', () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
     const markers = { js: '@Service', ts: '@Service', py: '@service', dart: '@Service', swift: '@Service',
                       kt: '@Service', java: '@Service', cs: '[Service]', fs: '[<Service>]', rs: '#[Service]', go: '// @Service', rb: '#[Service]',
-                      lua: '-- @Service' }
+                      lua: '-- @Service', hpp: 'class [[Service]] TallyService {' }
     const services = languages.tac.files.filter((file) => file.name.startsWith('client/services/'))
-    expect(services.length).toBe(13)
+    expect(services.length).toBe(14)
     for (const service of services) {
       const extension = service.name.split('.').pop()
       expect(service.code.split('\n')).toContain(markers[extension])
@@ -905,7 +905,7 @@ describe('documentation structure', () => {
       .map((file) => languageLabel(file.name))
 
     const browser = ['JavaScript', 'TypeScript', 'Dart', 'Java']
-    const everywhere = ['Swift', 'Kotlin', 'C#', 'F#', 'Rust', 'Go', 'Ruby', 'Lua']
+    const everywhere = ['Swift', 'Kotlin', 'C#', 'F#', 'Rust', 'Go', 'Ruby', 'Lua', 'C++']
     expect(shownOn('web')).toEqual(['JavaScript', 'TypeScript', 'Dart', 'Python', 'Java', ...everywhere])
     expect(shownOn('macos')).toEqual([...browser, ...everywhere])
     expect(shownOn('ios')).toEqual([...browser, ...everywhere])

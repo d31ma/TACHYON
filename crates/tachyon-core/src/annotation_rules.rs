@@ -280,8 +280,9 @@ impl AnnotationRules {
     ];
     pub(crate) const TAC_RESOURCE: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
-    const TAC_REMOTE: &'static [&'static str] =
-        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "hpp"];
+    const TAC_REMOTE: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "hpp",
+    ];
     const TAC_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py",
     ];
@@ -993,13 +994,12 @@ impl AnnotationRules {
     }
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
-        crate::fsharp_source::FsharpView::either(path, source, Self::check_direct)
+        crate::tac_cpp::CppMarkerCheck::either(path, source, |path, source| {
+            crate::fsharp_source::FsharpView::either(path, source, Self::check_direct)
+        })
     }
 
     fn check_direct(path: &Path, source: &str) -> Result<(), Failure> {
-        if crate::tac_cpp::CppSource::is_cpp(path) {
-            return crate::tac_cpp::CppMarkerCheck::check_source(path, source);
-        }
         let extension = path
             .extension()
             .and_then(|value| value.to_str())

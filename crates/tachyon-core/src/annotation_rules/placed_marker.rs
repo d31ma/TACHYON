@@ -28,7 +28,8 @@ impl PlacedMarker<'_> {
     }
 
     fn retired(rule: &Rule, language: &str) -> Option<String> {
-        rule.is_retired().then(|| Messages::retired(rule, language))
+        rule.is_retired()
+            .then(|| Messages::retired_text(rule, language))
     }
 
     fn unavailable(rule: &Rule, language: &str, realm: Realm) -> Option<String> {
@@ -44,7 +45,7 @@ impl PlacedMarker<'_> {
 
     fn argued(&self, rule: &Rule, language: &str) -> Option<String> {
         match (rule.arguments, self.has_arguments) {
-            (Arguments::None, true) => Some(Messages::no_arguments(rule, language)),
+            (Arguments::None, true) => Some(Messages::no_arguments_text(rule, language)),
             (Arguments::Required, false) => Some(Messages::needs_arguments(rule, language)),
             _ => None,
         }
