@@ -1711,7 +1711,10 @@ async fn run_test_units(
     if units.is_empty() && client.is_empty() {
         return Ok(None);
     }
-    let supervisor = HandlerSupervisor::new(HandlerSupervisorOptions::from_environment()?)?;
+    let supervisor = HandlerSupervisor::new(HandlerSupervisorOptions {
+        application: ApplicationConfig::load(project)?,
+        ..HandlerSupervisorOptions::from_environment()?
+    })?;
     let extensions = units
         .iter()
         .filter_map(|relative| relative.extension().and_then(|value| value.to_str()))

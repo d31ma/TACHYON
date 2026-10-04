@@ -234,27 +234,27 @@ impl ApplicationConfig {
     }
 
     fn trusted_proxies_from(value: Option<&Value>) -> Result<TrustedProxies, Failure> {
-        let entries = value
-            .map_or(Some(&[][..]), |value| value.as_array().map(Vec::as_slice))
-            .ok_or_else(|| invalid(Self::TRUSTED_PROXIES_MESSAGE))?;
-        let texts = entries
-            .iter()
-            .map(Value::as_str)
-            .collect::<Option<Vec<_>>>()
-            .ok_or_else(|| invalid(Self::TRUSTED_PROXIES_MESSAGE))?;
+        let texts = Self::text_list(value, Self::TRUSTED_PROXIES_MESSAGE)?;
         TrustedProxies::parse(&texts).ok_or_else(|| invalid(Self::TRUSTED_PROXIES_MESSAGE))
     }
 
     fn handler_environment_from(value: Option<&Value>) -> Result<EnvironmentAllowlist, Failure> {
+        let texts = Self::text_list(value, Self::ENVIRONMENT_MESSAGE)?;
+        EnvironmentAllowlist::parse(&texts).map_err(invalid)
+    }
+
+    fn text_list<'value>(
+        value: Option<&'value Value>,
+        message: &str,
+    ) -> Result<Vec<&'value str>, Failure> {
         let entries = value
             .map_or(Some(&[][..]), |value| value.as_array().map(Vec::as_slice))
-            .ok_or_else(|| invalid(Self::ENVIRONMENT_MESSAGE))?;
-        let texts = entries
+            .ok_or_else(|| invalid(message))?;
+        entries
             .iter()
             .map(Value::as_str)
             .collect::<Option<Vec<_>>>()
-            .ok_or_else(|| invalid(Self::ENVIRONMENT_MESSAGE))?;
-        EnvironmentAllowlist::parse(&texts).map_err(invalid)
+            .ok_or_else(|| invalid(message))
     }
 
     fn topics_directory_from(value: Option<&Value>) -> Result<Option<String>, Failure> {

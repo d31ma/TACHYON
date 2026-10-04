@@ -195,3 +195,30 @@ fn refused_patterns_stop_the_invocation_and_name_the_entry_but_no_value() {
         HandlerEnvironment::assert_no_value_in(&String::from_utf8_lossy(&output.stdout));
     }
 }
+
+#[test]
+fn test_units_get_the_configured_variables_and_no_others() {
+    let project = HandlerEnvironment::project(Some(HandlerEnvironment::ALLOWLIST));
+    HandlerEnvironment::write(
+        &project.path().join("server/tests/EnvironmentTestSetup.js"),
+        "@TestSetup()\nclass EnvironmentTestSetup {\n  static configure() { return {}; }\n}\n",
+    );
+    HandlerEnvironment::write(
+        &project.path().join("server/tests/EnvironmentTest.js"),
+        &format!(
+            "@Test(EnvironmentTestSetup)\nexport default class EnvironmentTest {{\n  async testConfiguredVariables() {{\n    Assert.equals('{}', process.env.HD_REGION ?? null)\n    Assert.equals(null, process.env.OTHER_SECRET ?? null)\n  }}\n}}\n",
+            HandlerEnvironment::REGION.1
+        ),
+    );
+    let mut command = Command::new(env!("CARGO_BIN_EXE_ty"));
+    command.arg("test").arg(project.path());
+    for (name, value) in [HandlerEnvironment::REGION, HandlerEnvironment::OTHER] {
+        command.env(name, value);
+    }
+    let output = command.output().expect("the ty process should start");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(output.status.success(), "{stdout}\n{stderr}");
+    assert!(stdout.contains("testConfiguredVariables"), "{stdout}");
+}
