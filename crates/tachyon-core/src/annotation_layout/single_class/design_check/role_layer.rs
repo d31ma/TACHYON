@@ -5,11 +5,12 @@ pub(super) enum RoleLayer {
     Helper,
     DataAccess,
     Other,
+    Utility,
     Plain,
 }
 
 impl RoleLayer {
-    const FOLDERS: [(&'static str, Self, &'static str); 13] = [
+    const FOLDERS: [(&'static str, Self, &'static str); 14] = [
         ("controllers", Self::EntryPoint, "a controller"),
         ("services", Self::Service, "a service"),
         ("helpers", Self::Helper, "a helper"),
@@ -23,6 +24,7 @@ impl RoleLayer {
         ("setups", Self::Other, "a setup"),
         ("workers", Self::Other, "a worker"),
         ("features", Self::Other, "a feature"),
+        ("utils", Self::Utility, "a utility"),
     ];
     const PLAIN_LABEL: &'static str = "a class";
     const RANKED: [Self; 4] = [
@@ -45,7 +47,11 @@ impl RoleLayer {
     }
 
     pub(super) fn is_injected(self) -> bool {
-        self != Self::Plain
+        ![Self::Plain, Self::Utility].contains(&self)
+    }
+
+    pub(super) fn is_utility(self) -> bool {
+        self == Self::Utility
     }
 
     fn entry(folder: &str) -> Option<&'static (&'static str, Self, &'static str)> {

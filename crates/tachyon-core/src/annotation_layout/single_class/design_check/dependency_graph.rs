@@ -11,6 +11,7 @@ pub(super) struct DependencyGraph {
     pub(super) folders: Vec<String>,
     pub(super) edges: Vec<Vec<usize>>,
     pub(super) needs: Vec<Need>,
+    pub(super) utility_needs: Vec<Need>,
 }
 
 impl DependencyGraph {
@@ -18,12 +19,14 @@ impl DependencyGraph {
         let nodes = Self::nodes(classes);
         let keys: Vec<String> = nodes.keys().cloned().collect();
         let forms = Self::forms(classes);
-        let needs = Self::needs(classes, &forms, &keys);
+        let needs = Self::needs(classes, &forms, &keys, Self::injected);
+        let utility_needs = Self::needs(classes, &forms, &keys, Self::utility);
         Self {
             names: keys.iter().map(|key| Self::name_of(key)).collect(),
             folders: nodes.into_values().collect(),
             edges: Self::edges(keys.len(), &needs),
             needs,
+            utility_needs,
         }
     }
 
@@ -54,11 +57,16 @@ impl DependencyGraph {
             .collect()
     }
 
-    fn needs(classes: &[ClassFile], forms: &HashMap<String, String>, keys: &[String]) -> Vec<Need> {
+    fn needs(
+        classes: &[ClassFile],
+        forms: &HashMap<String, String>,
+        keys: &[String],
+        source: fn(&ClassFile) -> bool,
+    ) -> Vec<Need> {
         classes
             .iter()
             .enumerate()
-            .filter(|(_, class)| Self::injected(class))
+            .filter(|(_, class)| source(class))
             .flat_map(|(index, class)| Self::class_needs(index, class, forms, keys))
             .collect()
     }
@@ -112,6 +120,10 @@ impl DependencyGraph {
 
     fn injected(class: &ClassFile) -> bool {
         RoleLayer::of(class.folder).is_injected()
+    }
+
+    fn utility(class: &ClassFile) -> bool {
+        RoleLayer::of(class.folder).is_utility()
     }
 
     fn key(realm: &str, name: &str) -> String {
