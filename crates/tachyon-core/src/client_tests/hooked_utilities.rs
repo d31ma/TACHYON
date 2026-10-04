@@ -47,15 +47,22 @@ impl HookedUtilities {
             .flatten()
             .flatten()
             .flat_map(|entry| {
-                let child = relative.join(entry.file_name());
-                if entry.path().is_dir() {
-                    return Self::scripts(project, &child);
-                }
-                Some(child)
-                    .filter(|path| Self::is_script(path))
-                    .into_iter()
-                    .collect()
+                Self::entry_scripts(
+                    project,
+                    relative.join(entry.file_name()),
+                    entry.path().is_dir(),
+                )
             })
+            .collect()
+    }
+
+    fn entry_scripts(project: &Path, child: PathBuf, is_directory: bool) -> Vec<PathBuf> {
+        if is_directory {
+            return Self::scripts(project, &child);
+        }
+        Some(child)
+            .filter(|path| Self::is_script(path))
+            .into_iter()
             .collect()
     }
 
