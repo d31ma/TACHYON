@@ -11,6 +11,9 @@
     },
     {
       "include": "browser-http-dart/section.json"
+    },
+    {
+      "include": "browser-http-rust/section.json"
     }
   ]
 }

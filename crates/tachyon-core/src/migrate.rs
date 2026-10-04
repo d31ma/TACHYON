@@ -10,7 +10,11 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod built_client;
+#[cfg(test)]
+mod built_client_tests;
 mod built_converter;
+mod built_role;
 #[cfg(test)]
 mod built_converter_tests;
 mod fix;
@@ -574,6 +578,9 @@ fn classify_file(
         findings.push(retired);
     }
     if let Some(built) = built_converter::BuiltConverter::read_finding(root, relative) {
+        findings.push(built);
+    }
+    if let Some(built) = built_client::BuiltClient::read_finding(root, relative) {
         findings.push(built);
     }
     configuration_findings(root, relative, name, findings);

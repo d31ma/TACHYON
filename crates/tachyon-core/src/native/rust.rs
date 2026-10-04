@@ -32,6 +32,12 @@ impl RustCompanion {
             include_str!("capabilities/rust/window_controls.rs"),
             include_str!("web_apis/tac_web_host.rs")
         ),
+        concat!(
+            include_str!("tac_task_error.rs"),
+            include_str!("tac_task_waker.rs"),
+            include_str!("tac_tasks.rs"),
+            include_str!("tac_http_ticket.rs")
+        ),
         include_str!("web_apis/clock.rs"),
         include_str!("web_apis/secure_random.rs"),
         include_str!("web_apis/connectivity.rs"),
@@ -45,8 +51,19 @@ impl RustCompanion {
     );
     const VALUE_TYPES_START: &str = "#[derive(Clone, Default)]\npub enum TacValue";
     const LISTENER_TYPE_START: &str = "pub struct TacListener";
+    const MODEL_TYPES_START: &str = "pub trait TacModel";
+    const MEMBER_TYPE_START: &str = "pub enum TacMember";
     const FAILURE_CODE: u16 = 1605;
     pub(crate) const WEB_TARGET: &str = "wasm32-unknown-unknown";
+
+    pub(crate) fn model_source() -> &'static str {
+        let start = Self::PRELUDE.find(Self::MODEL_TYPES_START).unwrap_or(0);
+        let from_model_types = &Self::PRELUDE[start..];
+        let length = from_model_types
+            .find(Self::MEMBER_TYPE_START)
+            .unwrap_or(from_model_types.len());
+        &from_model_types[..length]
+    }
 }
 
 #[cfg(test)]

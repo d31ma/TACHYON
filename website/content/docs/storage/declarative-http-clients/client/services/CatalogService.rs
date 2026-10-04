@@ -1,20 +1,13 @@
 #[Service]
 struct CatalogService {
-    catalog: CatalogClient,
+    #[Needs]
+    catalog_client: std::sync::Arc<CatalogClient>,
     products: Vec<String>,
     error: String,
 }
 impl CatalogService {
-    fn new() -> Self {
-        Self {
-            catalog: CatalogClient::new(),
-            products: Vec::new(),
-            error: String::new(),
-        }
-    }
-
     fn load(&mut self) {
-        match self.catalog.all() {
+        match self.catalog_client.all() {
             Ok(BehaviorValue::Array(items)) => self.show(&items),
             _ => self.show_failure(),
         }

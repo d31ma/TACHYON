@@ -11,8 +11,19 @@ import { withServer } from './release/server-probe.mjs'
 
 class BrowserHttpGate {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
-  static fixture = fileURLToPath(new URL('../website/content/docs/calling-the-server/browser-http-dart', import.meta.url))
+  static examples = fileURLToPath(new URL('../website/content/docs/calling-the-server/', import.meta.url))
   static launchers = { chromium, firefox, webkit }
+  static languages = {
+    dart: { folder: 'browser-http-dart', factory: true, label: 'compiled Dart' },
+    rust: { folder: 'browser-http-rust', factory: false, label: 'compiled Rust' },
+  }
+
+  static chosen() {
+    const named = process.argv.find(argument => argument.startsWith('--language='))?.slice('--language='.length)
+    const names = named ? [named] : Object.keys(BrowserHttpGate.languages)
+    assert.ok(names.every(name => BrowserHttpGate.languages[name]), `unknown language ${named}`)
+    return names.map(name => BrowserHttpGate.languages[name])
+  }
 
   static build(project) {
     const result = spawnSync(BrowserHttpGate.binary, ['bundle', project, '--no-incremental'], {
@@ -21,7 +32,7 @@ class BrowserHttpGate {
     assert.equal(result.status, 0, result.error?.message ?? result.stderr ?? result.stdout)
   }
 
-  static async check(launcher, origin) {
+  static async check(launcher, origin, language) {
     const browser = await launcher.launch()
     try {
       const context = await browser.newContext()
@@ -63,22 +74,22 @@ class BrowserHttpGate {
       await page.locator('#override').click()
       await page.waitForFunction(() => document.querySelector('#custom')?.textContent === 'Custom adapter wins')
       assert.ok(!requests.some(request => request.url().endsWith('/api/never')), 'matching custom adapter prevents fetch')
-      const disposal = await page.evaluate(async () => {
+      const disposal = await page.evaluate(async (factory) => {
         const entry = performance.getEntriesByType('resource').find(entry => new URL(entry.name).pathname.endsWith('/GreetingService.js'))
         if (!entry) throw new Error('compiled service module missing')
         const module = await import(entry.name)
-        const firstOwner = new AbortController()
-        const secondOwner = new AbortController()
-        const first = await module.__tachyon_create_owner__({}, firstOwner.signal)
-        const second = await module.__tachyon_create_owner__({}, secondOwner.signal)
+        const owners = [new AbortController(), new AbortController()]
+        const make = (owner) => factory ? module.__tachyon_create_owner__({}, owner.signal) : new module.default({})
+        const end = (target, owner) => factory ? owner.abort() : target.__tachyonDispose()
+        const [first, second] = await Promise.all(owners.map(make))
         await first.clear()
-        const cancelled = first.ask().then(() => 'completed', error => String(error))
+        const cancelled = first.ask().then(() => 'completed', error => `${error?.code ?? ''} ${error}`)
         const completed = second.ask().then(() => second.message)
-        setTimeout(() => firstOwner.abort(), 15)
+        setTimeout(() => end(first, owners[0]), 15)
         const result = { cancelled: await cancelled, completed: await completed }
-        secondOwner.abort()
+        end(second, owners[1])
         return result
-      })
+      }, language.factory)
       assert.match(disposal.cancelled, /CANCELLED/, 'disposing one owner aborts its pending request')
       assert.equal(disposal.completed, 'Hello from Yon', 'another owner remains live')
       assert.deepEqual(errors, [])
@@ -86,21 +97,21 @@ class BrowserHttpGate {
     } finally { await browser.close() }
   }
 
-  static async run() {
+  static async run(language) {
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-browser-http-'))
     try {
-      cpSync(BrowserHttpGate.fixture, project, { recursive: true })
+      cpSync(path.join(BrowserHttpGate.examples, language.folder), project, { recursive: true })
       BrowserHttpGate.build(project)
       await withServer(BrowserHttpGate.binary, ['serve', project, '--host', '127.0.0.1', '--port', '0', '--no-watch', '--no-self-restart', '--no-bundle'], async request => {
         const response = await request('/')
         const origin = new URL(response.url).origin
         for (const [name, launcher] of Object.entries(BrowserHttpGate.launchers)) {
-          await BrowserHttpGate.check(launcher, origin)
-          console.log(`${name}: injected compiled Dart client, typed real Yon answer, async responsiveness, once-only service, omitted cookies, cache/revalidation, custom override and isolated disposal pass`)
+          await BrowserHttpGate.check(launcher, origin, language)
+          console.log(`${name}: injected ${language.label} client, typed real Yon answer, async responsiveness, once-only service, omitted cookies, cache/revalidation, custom override and isolated disposal pass`)
         }
       })
     } finally { rmSync(project, { recursive: true, force: true }) }
   }
 }
 
-await BrowserHttpGate.run()
+for (const language of BrowserHttpGate.chosen()) await BrowserHttpGate.run(language)

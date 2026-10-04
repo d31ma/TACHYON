@@ -19,7 +19,16 @@ impl ContextTemplate {
         "private readonly BehaviorContext behaviors;",
         "public {owner}() : this(Behaviors.create(typeof({setup}), \"{partition}\", new BehaviorSignal())) {}\npublic {owner}(BehaviorContext context) {\n    behaviors = context ?? throw new System.ArgumentNullException(nameof(context));\n}",
     );
-    const HTTP_TEMPLATES: [Self; 2] = [Self::DART_TAC_HTTP, Self::CSHARP_TAC_HTTP];
+    const RUST_TAC_HTTP: Self = Self::new(
+        "rs-tac",
+        "",
+        "fn new() -> Self {\n    let options = BehaviorOptions::new(\"{partition}\", BehaviorSignal::new());\n    Self { behaviors: Behaviors::create::<{setup}>(options).expect(\"{setup} creates the {partition} context\") }\n}\npub fn with_context(behaviors: BehaviorContext) -> Self {\n    Self { behaviors }\n}",
+    );
+    const HTTP_TEMPLATES: [Self; 3] = [
+        Self::DART_TAC_HTTP,
+        Self::CSHARP_TAC_HTTP,
+        Self::RUST_TAC_HTTP,
+    ];
     const HTTP_CLIENT: &'static str = "HTTPClient";
     const TEMPLATES: [Self; 22] = [
         Self::new("java", Self::JAVA_FIELD, Self::JAVA_START),

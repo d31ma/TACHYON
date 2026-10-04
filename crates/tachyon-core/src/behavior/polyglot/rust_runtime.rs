@@ -558,6 +558,7 @@ struct BehaviorContextState {
     active: std::sync::atomic::AtomicUsize,
     slots: std::sync::Mutex<std::collections::BTreeMap<(&'static str, &'static str), usize>>,
     idle: std::sync::Condvar,
+    revalidate: std::sync::Mutex<std::collections::BTreeSet<String>>,
 }
 impl BehaviorContextState {
     fn dispose(&self) {
@@ -701,6 +702,7 @@ impl Behaviors {
             active: std::sync::atomic::AtomicUsize::new(0),
             slots: std::sync::Mutex::new(std::collections::BTreeMap::new()),
             idle: std::sync::Condvar::new(),
+            revalidate: std::sync::Mutex::new(std::collections::BTreeSet::new()),
         })))
     }
     pub fn gateway_arguments(arguments: Vec<BehaviorValue>) -> BehaviorResult<String> {

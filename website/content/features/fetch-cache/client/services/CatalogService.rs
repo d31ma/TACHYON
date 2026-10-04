@@ -1,20 +1,17 @@
 #[Service]
 struct CatalogService {
-    products: ProductsClient,
+    #[Needs]
+    products_client: std::sync::Arc<ProductsClient>,
     count: usize,
 }
 
 impl CatalogService {
-    fn new() -> Self {
-        Self { products: ProductsClient::new(), count: 0 }
-    }
-
     fn load(&mut self) {
-        self.count = Self::count_items(self.products.list());
+        self.count = Self::count_items(self.products_client.list());
     }
 
     fn add(&self) -> BehaviorResult<BehaviorValue> {
-        self.products.save(BehaviorValue::object([("name", "anvil".into())]))
+        self.products_client.save(BehaviorValue::object([("name", "anvil".into())]))
     }
 
     fn count_items(answer: BehaviorResult<BehaviorValue>) -> usize {

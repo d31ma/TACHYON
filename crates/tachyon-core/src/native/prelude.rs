@@ -263,6 +263,7 @@ pub enum TacMember {
     },
     Method(Box<dyn Fn(Vec<TacValue>) -> TacValue>),
     FallibleMethod(Box<dyn Fn(Vec<TacValue>) -> Result<TacValue, &'static str>>),
+    Task(Box<dyn Fn(Vec<TacValue>) -> TacTask>),
     Listener(TacListener),
     Hook(bool, Box<dyn Fn() -> Result<(), &'static str>>),
 }
@@ -675,6 +676,7 @@ fn tac_activate(
 fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
     let mut fields = Vec::new();
     let mut methods = Vec::new();
+    let mut tasks = Vec::new();
     let mut listeners = Vec::new();
     for (name, member) in members {
         match member {
@@ -682,14 +684,20 @@ fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
             TacMember::Method(_) | TacMember::FallibleMethod(_) => {
                 methods.push(TacValue::Text(String::from(*name)))
             }
+            TacMember::Task(_) => {
+                methods.push(TacValue::Text(String::from(*name)));
+                tasks.push(TacValue::Text(String::from(*name)));
+            }
             TacMember::Listener(listener) => listeners.push(tac_describe_listener(name, listener)),
             TacMember::Hook(..) => {}
         }
     }
+    let exclusive = !tasks.is_empty();
     format!(
-        "{{\"value\":{{\"fields\":{},\"methods\":{},\"listeners\":{}}}}}",
+        "{{\"value\":{{\"fields\":{},\"methods\":{},\"asyncMethods\":{},\"exclusive\":{exclusive},\"listeners\":{}}}}}",
         tac_write(&TacValue::List(fields)),
         tac_write(&TacValue::List(methods)),
+        tac_write(&TacValue::List(tasks)),
         tac_write(&TacValue::List(listeners))
     )
 }
@@ -749,11 +757,12 @@ fn tac_error(message: &str) -> String {
 
 fn tac_use_member(
     operation: &str,
-    name: &str,
+    (owner, name): (&str, &str),
     member: &TacMember,
     request: &[(String, TacValue)],
 ) -> String {
     match (operation, member) {
+        ("call", TacMember::Task(start)) => TacTasks::begin(owner, start(tac_arguments(request))),
         ("get", TacMember::Field { read, .. }) => format!("{{\"value\":{}}}", tac_write(&read())),
         (
             "set",
@@ -870,7 +879,7 @@ fn tac_handle_owned(
     let Some((_, member)) = activation.members.iter().find(|(key, _)| key == name) else {
         return tac_error(&format!("Unknown companion member: {name}"));
     };
-    tac_use_member(operation, name, member, request)
+    tac_use_member(operation, (owner.as_str(), name.as_str()), member, request)
 }
 
 #[unsafe(no_mangle)]
@@ -1487,6 +1496,7 @@ fn tac_dispose_activation(owner: std::rc::Rc<TacActivation>) {
 }
 
 fn tac_dispose_owner(id: &str) {
+    TacTasks::cancel_owner(id);
     let owner = tac_active_owners().with(|slot| slot.borrow_mut().remove(id));
     let is_executing = tac_executing().with(|slot| {
         slot.borrow()
@@ -1503,6 +1513,7 @@ fn tac_dispose_owner(id: &str) {
 }
 
 fn tac_dispose_all() {
+    TacTasks::cancel_all();
     let owners = tac_active_owners().with(|slot| std::mem::take(&mut *slot.borrow_mut()));
     tac_executing().with(|slot| slot.borrow_mut().take());
     for (_, owner) in owners {

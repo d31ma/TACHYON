@@ -8,6 +8,18 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+### Added
+
+- Rust Tac services call the server from the browser: an `async fn` in an
+  `HTTPClient` trait returns `BehaviorResult<Model>`, a service gets the client
+  with `#[Needs] name: std::sync::Arc<Client>` and awaits it in an `async fn`
+  method. Without a Setup adapter the request goes to the same origin through
+  the browser host (omitted credentials, `Cached` public reads, revalidation
+  after `ClearCache`); the answer is read into the typed model, and errors keep
+  their code (`HTTP_STATUS`, `HTTP_RESPONSE`, `CANCELLED`). Rust test units get
+  `self.construct()` with a `Fake` client and `async fn` cases; `ty migrate
+  check` reports a service that builds its client itself (ADR 0090).
+
 - Add opt-in TY1362 suggestions for unnecessary member receivers in Java, Kotlin, C#, Groovy, Swift and Dart, preserving shadowing and required receivers. Include Groovy Yon services in executed-method coverage.
 
 ### Security

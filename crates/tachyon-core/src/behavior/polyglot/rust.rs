@@ -1,3 +1,5 @@
+use super::rust_async_client::RustAsyncClient;
+use super::rust_test_construction::RustTestConstruction;
 use super::{Edit, Method, Module, Type, block, context_type, render};
 use serde_json::Value;
 use std::fmt::Write as _;
@@ -6,6 +8,12 @@ struct RustNames;
 
 impl RustNames {
     const NO_BUILTINS: &str = "fn behavior_builtin_cache(_name: &str) -> Option<std::sync::Arc<dyn BehaviorCacheAdapter>> { None }\nfn behavior_builtin_entities(_name: &str) -> Option<std::sync::Arc<dyn BehaviorEntityAdapter>> { None }\n";
+    const TAC_ASYNC_RUNTIME: &str = concat!(
+        include_str!("behavior_exchange.rs"),
+        include_str!("behavior_browser_http.rs"),
+        include_str!("behavior_tasks.rs")
+    );
+    const TYPED_ANSWER: &str = include_str!("behavior_typed_answer.rs");
 }
 
 pub(super) fn lower(module: &Module) -> Result<String, String> {
@@ -20,6 +28,9 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         lower_type(module, declaration, &mut edits, &mut generated)?;
     }
     generated.push_str(&runtime(&module.module_id, &module.environment));
+    if module.types.iter().any(RustAsyncClient::reads_models) {
+        generated.push_str(RustNames::TYPED_ANSWER);
+    }
     render(module, edits, &generated)
 }
 
@@ -36,6 +47,7 @@ pub(super) fn runtime(module_id: &str, environment: &str) -> String {
     generated.push_str(include_str!("rust_runtime.rs"));
     if environment == "tac" {
         generated.push_str(include_str!("rust_storage.rs"));
+        generated.push_str(RustNames::TAC_ASYNC_RUNTIME);
     } else {
         generated.push_str(RustNames::NO_BUILTINS);
     }
@@ -58,7 +70,7 @@ fn lower_type(
         });
     }
     let mut construction = String::new();
-    constructor(declaration, &mut construction)?;
+    constructor(declaration, module.environment == "tac", &mut construction)?;
     if !construction.is_empty() {
         let insertion = declaration.body.end + 1;
         edits.push(Edit {
@@ -67,7 +79,10 @@ fn lower_type(
         });
     }
     if let Some(unit) = super::super::testing::polyglot_unit(declaration) {
-        generated.push_str(&test_members(&unit, &module.environment));
+        generated.push_str(&test_members(&unit, module));
+        if module.environment == "tac" {
+            generated.push_str(&RustTestConstruction::members(module, declaration, &unit));
+        }
     }
     configuration(declaration, generated)?;
     properties(declaration, generated)?;
@@ -90,7 +105,7 @@ fn declared_struct(declaration: &Type) -> String {
     )
 }
 
-fn constructor(declaration: &Type, output: &mut String) -> Result<(), String> {
+fn constructor(declaration: &Type, tac: bool, output: &mut String) -> Result<(), String> {
     let Some(fields) = &declaration.constructor else {
         return Ok(());
     };
@@ -105,7 +120,7 @@ fn constructor(declaration: &Type, output: &mut String) -> Result<(), String> {
             declaration.name
         ));
     }
-    if fields.len() != declaration.fields.len() {
+    if fields.len() != declaration.fields.len() && !tac {
         return Err(format!(
             "Rust NeedsAll on {} must list every declared field; Rust does not implicitly initialize omitted fields",
             declaration.name
@@ -127,12 +142,20 @@ fn constructor(declaration: &Type, output: &mut String) -> Result<(), String> {
         }
         arguments.push(format!("{name}: {}", field.type_source));
     }
+    let mut filled = fields.clone();
+    filled.extend(
+        declaration
+            .fields
+            .iter()
+            .filter(|field| !field.is_static && !fields.contains(&field.name))
+            .map(|field| format!("{}: ::core::default::Default::default()", field.name)),
+    );
     let _ = writeln!(
         output,
         "impl {} {{ pub fn new({}) -> Self {{ Self {{ {} }} }} }}",
         declaration.name,
         arguments.join(", "),
-        fields.join(", ")
+        filled.join(", ")
     );
     Ok(())
 }
@@ -354,7 +377,11 @@ fn service(
         );
     }
     for method in methods {
-        validate_method(method)?;
+        if RustAsyncClient::applies(method) {
+            RustAsyncClient::validate(method)?;
+        } else {
+            validate_method(method)?;
+        }
         if let Some(policy) = method.metadata.get("gateway") {
             edits.push(Edit {
                 range: method.body.clone(),
@@ -488,6 +515,9 @@ fn wrapper_body(
     }
     if let Some(mapping) = method.metadata.get("mapping") {
         return Ok(format!("\n{}\n", mapping_call(method, mapping)?));
+    }
+    if RustAsyncClient::applies(method) {
+        return Ok(RustAsyncClient::body(method, policy));
     }
     if is_generated_exchange(method) {
         return Ok(format!(
@@ -932,7 +962,8 @@ fn number(value: &Value, field: &str) -> Result<u64, String> {
         .ok_or_else(|| format!("Invalid Rust behavior integer policy {field}"))
 }
 
-fn test_members(unit: &super::super::testing::Unit, environment: &str) -> String {
+fn test_members(unit: &super::super::testing::Unit, module: &Module) -> String {
+    let environment = module.environment.as_str();
     let (report, answer) = if environment == "tac" {
         ("BehaviorResult<String>", "body.to_json(1048576)")
     } else {
@@ -946,6 +977,11 @@ fn test_members(unit: &super::super::testing::Unit, environment: &str) -> String
     let names = quoted_names(&case_names);
     let mut dispatch = String::new();
     for (name, call) in &calls {
+        let call = if environment == "tac" {
+            RustTestConstruction::wrapped_call(module, name, call)
+        } else {
+            call.clone()
+        };
         let _ = write!(dispatch, "{name:?} => CaseOutcome::from({call}).failure(),");
     }
     let profiles = profile_statements(unit);

@@ -63,6 +63,8 @@ mod query_frontend;
 mod ruby;
 mod ruby_syntax;
 mod rust;
+mod rust_async_client;
+mod rust_test_construction;
 mod string_literal;
 mod swift;
 mod swift_platform;

@@ -90,3 +90,44 @@ still the latest complete qualified handoff.
 This extension does not qualify F# DTO/list/ValueTask results, native async,
 async lifecycle adapters, shared compiled page providers or F# cache behavior.
 It adds no new browser worker placement or whole transport-matrix acceptance.
+
+## Rust browser extension — 2026-10-03
+
+Rust uses its own async pattern. An HTTPClient trait method is an
+`async fn` that returns `BehaviorResult<T>`. `T` is `BehaviorValue`, `()`,
+a model from `client/models`, a list of models, an `Option` or a plain value.
+Tachyon writes the method. A Setup adapter of the same name answers first;
+otherwise the request goes to the same browser host as Dart and C#, with the
+same limits, omitted credentials and cache rules. A `Cached` miss sends a
+public read; the first miss after a successful `ClearCache` or `UpdateCache`
+revalidates. An answer of the wrong shape fails with `HTTP_RESPONSE`.
+`Retry`, `ConcurrencyLimit` and `AllOrNothing` are refused on async client
+methods for now.
+
+A service gets the client with `#[Needs] name: std::sync::Arc<Client>`; its
+other fields start at their `Default` value. A service method may be
+`async fn` and return `()`, a crossing type or `BehaviorResult<T>`; an error
+reaches the page as a rejected promise with the error code. The WebAssembly
+module keeps the pending futures in a small executor. The page starts and
+cancels fetches through `tac_host_http_start` and `tac_host_http_cancel`,
+settles them through the `tac_http_settle` export, and learns that a task
+ended through `tac_host_task_done`. A pending method holds its service
+exclusively: until it ends, the page reads the fields as they were when the
+method started, and other calls, field writes and events to that service run
+after it, in order. Disposing the owner drops its tasks first, which aborts
+their fetches and rejects their promises with `CANCELLED`, and then runs the
+PreDestroy hooks.
+
+In a Tac test unit, `self.construct()` builds a service through the
+constructor that `Needs` produces. A Fake field
+`std::cell::RefCell<Option<std::sync::Arc<Client>>>` supplies the client; while
+it is empty, the service gets a client bound to the test's BehaviorContext, so
+the TestSetup adapter answers. Test cases may be `async fn`. A test unit and a
+native Rust companion have no browser transport: a request without an adapter
+fails with `HTTP_MISSING`. `ty migrate check` reports a service that builds
+its client itself (`service.builds_client`).
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=rust` builds
+`website/content/docs/calling-the-server/browser-http-rust/` and checks it in
+Chromium, Firefox and WebKit; `client_tests::rust_construct_tests` runs the
+Fake and typed-answer cases natively.

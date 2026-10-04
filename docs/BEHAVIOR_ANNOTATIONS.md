@@ -859,9 +859,11 @@ and offsets greater than 1,000,000.
 
 **Sync and async.** Methods that use only PageDefaults keep their synchronous
 return behavior. Caching and HTTP exchange use async methods in
-JS/TS/Python/C#/Swift and synchronous methods in Java/Kotlin/PHP/Rust. The
-synchronous integrations do not quietly adapt futures, Kotlin `suspend`
-functions or Rust async executors.
+JS/TS/Python/C#/Swift and synchronous methods in Java/Kotlin/PHP/Rust. A Tac
+Rust HTTPClient method may also be an `async fn`; it awaits the browser
+transport through Tachyon's small executor in the WebAssembly module (ADR
+0090). The synchronous integrations do not quietly adapt futures or Kotlin
+`suspend` functions.
 
 **Repositories.** `context.repository(ProductEntity)` provides `find(page)`,
 `save(value)` and `delete(id)`. The adapter's `execute(command, execution)`

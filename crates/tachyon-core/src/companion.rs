@@ -29,6 +29,7 @@ pub(crate) mod go;
 mod rust_collaborators;
 mod rust_construction;
 mod rust_model_type;
+mod rust_task_member;
 
 pub(crate) use csharp_model_type::CsharpModelType;
 use rust_collaborators::RustCollaborators;
@@ -36,6 +37,7 @@ mod rust_graph;
 use rust_construction::RustConstruction;
 pub(crate) use rust_graph::RustGraph;
 pub(crate) use rust_model_type::RustModelType;
+use rust_task_member::RustTaskMember;
 
 pub(crate) fn owner_name(
     language: CompanionLanguage,
@@ -359,7 +361,13 @@ fn write_rust_members(
         if excluded.contains(&member.name) {
             continue;
         }
-        if member.method {
+        if member.asynchronous {
+            let declared = parameters.get(&member.name).map_or(&[][..], Vec::as_slice);
+            let returns = member.declared_type.as_deref();
+            let entry =
+                RustTaskMember::entry(&camel_case(&member.name), &member.name, returns, declared);
+            let _ = writeln!(output, "{entry}");
+        } else if member.method {
             let declared = parameters.get(&member.name).map_or(&[][..], Vec::as_slice);
             write_rust_method(output, member, declared);
         } else {
@@ -797,6 +805,8 @@ fn rust_methods(body: &str) -> Vec<(Member, Vec<String>)> {
 
 fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
     let line = line.trim().trim_start_matches("pub ");
+    let asynchronous = line.starts_with("async ");
+    let line = line.trim_start_matches("async ").trim_start();
     let rest = line.strip_prefix("fn").and_then(after_keyword)?;
     let name = identifier(rest);
     let arguments = rest[name.len()..].trim_start();
@@ -806,7 +816,12 @@ fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
     }
     let returns = rust_return_type(arguments);
     let crosses = |kind: &str| kind == "()" || RustModelType::crosses(kind);
-    if !returns.as_deref().is_none_or(crosses) {
+    let shown = if asynchronous {
+        RustTaskMember::crosses(returns.as_deref())
+    } else {
+        returns.as_deref().is_none_or(crosses)
+    };
+    if !shown {
         return None;
     }
     let parameters = rust_parameters(arguments)?;
@@ -816,7 +831,7 @@ fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
         method: true,
         mutable: false,
         parameters: Some(Vec::new()),
-        asynchronous: false,
+        asynchronous,
     };
     Some((member, parameters))
 }

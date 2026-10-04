@@ -324,10 +324,18 @@ const tachyonImports = {
 }
 ";
 
-    const RUST_INSTANCE: &str = r"const binary = Uint8Array.from(atob('__WASM__'), (character) => character.charCodeAt(0))
-const { instance } = await WebAssembly.instantiate(binary, { tachyon: tachyonImports })
+    const RUST_INSTANCE: &str = concat!(
+        include_str!("native/browser/tac-rust-tasks.js"),
+        r"const rustTasks = new TacRustTasks()
+const rustRead = (pointer, length) => decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length))
+const binary = Uint8Array.from(atob('__WASM__'), (character) => character.charCodeAt(0))
+const { instance } = await WebAssembly.instantiate(binary, { tachyon: { ...tachyonImports, ...rustTasks.imports(rustRead) } })
 const exports = instance.exports
-";
+rustTasks.attach(exports)
+/** @param {string} text @returns {Promise<string>} */
+const transportAsync = (text) => rustTasks.answer(transport(text))
+"
+    );
 
     const SWIFT_INSTANCE: &str = r"const swiftResponse = await fetch(new URL('./swift/services.wasm', import.meta.url))
 const swiftModule = await WebAssembly.compile(await swiftResponse.arrayBuffer())
@@ -437,36 +445,6 @@ const companion = (await runtime.getAssemblyExports(runtime.getConfig().mainAsse
 const transport = (text) => companion.Invoke(text)
 /** @param {string} text @returns {Promise<string>} */
 const transportAsync = (text) => companion.InvokeAsync(text)
-/** @param {Record<string, unknown>} request @returns {Promise<unknown>} */
-const invokeAsync = async (request) => {
-  /** @type {{value?: unknown, error?: string, code?: string} | undefined} */
-  let answer
-  try {
-    if (typeof transportAsync !== 'function') throw new Error('This web service has no asynchronous transport.')
-    answer = JSON.parse(await transportAsync(JSON.stringify(request)))
-  } finally {
-    deliver()
-  }
-  if (!answer || answer.error) throw Object.assign(new Error(`Web service ${request.service}: ${answer?.error ?? 'no answer'}`), { code: answer?.code })
-  return answer.value
-}
-
-/** @param {() => boolean} current @returns {void} */
-const requireTaskTarget = (current) => {
-  if (!current()) throw Object.assign(new Error('Web service task owner was disposed.'), { code: 'CANCELLED' })
-}
-/** @param {Record<string, unknown>} request @param {() => boolean} current @param {() => void} changed @returns {Promise<unknown>} */
-const taskChange = async (request, current, changed) => {
-  requireTaskTarget(current)
-  try {
-    const answer = await invokeAsync(request)
-    requireTaskTarget(current)
-    return answer
-  } finally {
-    changed()
-  }
-}
-
 "
     );
 
@@ -585,6 +563,47 @@ const invoke = (request) => {
   return answer.value
 }
 
+/** @param {Record<string, unknown>} request @returns {Promise<unknown>} */
+const invokeAsync = async (request) => {
+  /** @type {{value?: unknown, error?: string, code?: string} | undefined} */
+  let answer
+  try {
+    if (typeof transportAsync !== 'function') throw new Error('This web service has no asynchronous transport.')
+    answer = JSON.parse(await transportAsync(JSON.stringify(request)))
+  } finally {
+    deliver()
+  }
+  if (!answer || answer.error) throw Object.assign(new Error(`Web service ${request.service}: ${answer?.error ?? 'no answer'}`), { code: answer?.code })
+  return answer.value
+}
+
+/** @param {() => boolean} current @returns {void} */
+const requireTaskTarget = (current) => {
+  if (!current()) throw Object.assign(new Error('Web service task owner was disposed.'), { code: 'CANCELLED' })
+}
+/** @param {Record<string, unknown>} request @param {() => boolean} current @param {() => void} changed @returns {Promise<unknown>} */
+const taskChange = async (request, current, changed) => {
+  requireTaskTarget(current)
+  try {
+    const answer = await invokeAsync(request)
+    requireTaskTarget(current)
+    return answer
+  } finally {
+    changed()
+  }
+}
+
+/** @param {() => boolean} current @returns {(work: () => unknown) => Promise<unknown>} */
+const taskQueue = (current) => {
+  /** @type {Promise<unknown>} */
+  let tail = Promise.resolve()
+  return (work) => {
+    const next = tail.then(() => { requireTaskTarget(current); return work() })
+    tail = next.then(() => undefined, () => undefined)
+    return next
+  }
+}
+
 const ownerId = () => {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
   const hex = [...crypto.getRandomValues(new Uint8Array(16))].map((byte) => byte.toString(16).padStart(2, '0')).join('')
@@ -643,7 +662,26 @@ export const activate = (target, service, properties, plan) => {
     else early.push([name, value, retain])
   })
   const declared = call({ op: 'init', props: props(properties) })
-  listen(target, change, plan, declared?.listeners ?? [])
+  const exclusive = declared?.exclusive === true
+  const queue = taskQueue(current)
+  const asynchronous = new Set(declared?.asyncMethods ?? [])
+  /** @type {boolean} */
+  let busy = false
+  /** @type {Map<string, unknown>} */
+  let snapshot = new Map()
+  const gated = (send) => (request) => busy ? queue(() => send(request)) : send(request)
+  const changeGated = gated(change)
+  const callGated = gated(call)
+  const startTask = (request) => {
+    snapshot = new Map((declared?.fields ?? []).map((name) => [name, call({ op: 'get', name })]))
+    busy = true
+    return taskChange({ ...request, route: 'web', service, owner }, current, () => { busy = false; changed() })
+  }
+  const run = (request) => {
+    if (!asynchronous.has(request.name)) return changeGated(request)
+    return exclusive ? queue(() => startTask(request)) : changeAsync(request)
+  }
+  listen(target, changeGated, plan, declared?.listeners ?? [])
   const dispose = { op: 'dispose', route: 'web', service, owner }
   released?.register(target, dispose, target)
   hidden(target, '__tachyonStarted', () => {
@@ -659,16 +697,15 @@ export const activate = (target, service, properties, plan) => {
     Object.defineProperty(target, name, {
       configurable: true,
       enumerable: true,
-      get: () => call({ op: 'get', name }),
-      set: (value) => { call({ op: 'set', name, value }) },
+      get: () => busy ? snapshot.get(name) : call({ op: 'get', name }),
+      set: (value) => { callGated({ op: 'set', name, value }) },
     })
   }
-  const asynchronous = new Set(declared?.asyncMethods ?? [])
   for (const name of declared?.methods ?? []) {
     Object.defineProperty(target, name, {
       configurable: true,
       writable: true,
-      value: (...values) => (asynchronous.has(name) ? changeAsync : change)({ op: 'call', name, args: authored(values) }),
+      value: (...values) => run({ op: 'call', name, args: authored(values) }),
     })
   }
 }

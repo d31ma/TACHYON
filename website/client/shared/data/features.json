@@ -1441,7 +1441,7 @@
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "#[Service]\nstruct CatalogService {\n    products: ProductsClient,\n    count: usize,\n}\n\nimpl CatalogService {\n    fn new() -> Self {\n        Self { products: ProductsClient::new(), count: 0 }\n    }\n\n    fn load(&mut self) {\n        self.count = Self::count_items(self.products.list());\n    }\n\n    fn add(&self) -> BehaviorResult<BehaviorValue> {\n        self.products.save(BehaviorValue::object([(\"name\", \"anvil\".into())]))\n    }\n\n    fn count_items(answer: BehaviorResult<BehaviorValue>) -> usize {\n        match answer.ok().as_ref().and_then(|value| value.get(\"items\")) {\n            Some(BehaviorValue::Array(items)) => items.len(),\n            _ => 0,\n        }\n    }\n}\n"
+          "code": "#[Service]\nstruct CatalogService {\n    #[Needs]\n    products_client: std::sync::Arc<ProductsClient>,\n    count: usize,\n}\n\nimpl CatalogService {\n    fn load(&mut self) {\n        self.count = Self::count_items(self.products_client.list());\n    }\n\n    fn add(&self) -> BehaviorResult<BehaviorValue> {\n        self.products_client.save(BehaviorValue::object([(\"name\", \"anvil\".into())]))\n    }\n\n    fn count_items(answer: BehaviorResult<BehaviorValue>) -> usize {\n        match answer.ok().as_ref().and_then(|value| value.get(\"items\")) {\n            Some(BehaviorValue::Array(items)) => items.len(),\n            _ => 0,\n        }\n    }\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.go",

@@ -42,6 +42,8 @@ mod dart_http_context_tests;
 mod java_construct_tests;
 #[cfg(test)]
 mod java_preference_tests;
+#[cfg(test)]
+mod rust_construct_tests;
 
 #[cfg(test)]
 mod java_publisher_tests;
@@ -160,7 +162,7 @@ pub fn run_with(
         "rs" => rust(
             directory,
             &portable,
-            &models.add_to_program(&lowered),
+            &models.add_to_program(&rust_typed_answers(project, &lowered, &portable)?),
             &name,
         ),
         other => Err(fail(
@@ -257,6 +259,23 @@ fn native_source(relative: &Path, extension: &str, assembled: String) -> Result<
         return Ok(format!("{stripped}\n{}", crate::native::tac_value_source()));
     }
     Ok(stripped)
+}
+
+fn rust_typed_answers(project: &Path, lowered: &str, portable: &str) -> Result<String, Failure> {
+    if !lowered.contains("BehaviorTypedAnswer::") {
+        return Ok(lowered.to_owned());
+    }
+    let values = if lowered.contains("pub enum TacValue") {
+        ""
+    } else {
+        crate::native::tac_value_source()
+    };
+    let models = crate::route_types::Converters::tac_text("rs", project)
+        .map_err(|message| fail(portable, message))?;
+    Ok(format!(
+        "{lowered}\n{values}\n{}\n{models}",
+        crate::native::RustCompanion::model_source()
+    ))
 }
 
 fn event_resources(
