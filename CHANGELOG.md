@@ -107,6 +107,14 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Go route types no longer stop with `TY2015` for types from other Go
+  packages: `json.RawMessage`, `http.Header`, `time.Time` and types from the
+  native packages in `server/packages/` (such as `spec.Document`) are open
+  JSON values in model fields, route parameters and route results. A
+  `*http.Request`, `context.Context` or multipart file in a model still fails
+  with `TY2015`, now with the reason: it is not JSON data, so read it from the
+  route method's `*http.Request` or tag the field `json:"-"`.
+
 - A Lua model marked Topic, in either realm, and a Python model marked Topic
   in a Tac service now stop the build with `TY1308`. Before, the build passed:
   a Yon Lua route that published the event failed on every request with

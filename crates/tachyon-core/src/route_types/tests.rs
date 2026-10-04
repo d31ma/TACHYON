@@ -571,3 +571,58 @@ fn javascript_reads_typescript_and_jsdoc_models_but_not_other_languages() {
     assert!(typescript.contains("Order"));
     assert!(!typescript.contains("Receipt"));
 }
+
+#[test]
+fn go_json_native_fields_are_open_json_values() {
+    let go = table(
+        "go",
+        "import (\n\t\"encoding/json\"\n\t\"net/http\"\n)\n\ntype Envelope struct {\n\tBody    json.RawMessage `json:\"body\"`\n\tHeaders http.Header     `json:\"headers\"`\n}\n",
+    );
+
+    assert_eq!(go.check_all(), Ok(()));
+    assert_eq!(
+        go.check(
+            &model("Envelope"),
+            &json!({"body": {"any": [1, "two"]}, "headers": {"Accept": ["text/plain"]}}),
+            "body"
+        ),
+        Ok(())
+    );
+}
+
+#[test]
+fn go_request_bound_fields_are_refused_with_the_native_request_way() {
+    let go = table(
+        "go",
+        "import (\n\t\"context\"\n\t\"net/http\"\n)\n\ntype Call struct {\n\tRequest *http.Request\n\tContext context.Context\n}\n",
+    );
+
+    let refused = go.check_all().expect_err("request-bound fields");
+
+    assert!(refused.contains("native request parameter"), "{refused}");
+}
+
+#[test]
+fn go_request_bound_fields_left_out_of_json_are_accepted() {
+    let go = table(
+        "go",
+        "import \"net/http\"\n\ntype Call struct {\n\tName    string\n\tRequest *http.Request `json:\"-\"`\n}\n",
+    );
+
+    assert_eq!(go.check_all(), Ok(()));
+}
+
+#[test]
+fn go_types_from_other_packages_are_open_json_values() {
+    for text in [
+        "spec.Document",
+        "time.Time",
+        "json.RawMessage",
+        "http.Header",
+    ] {
+        assert_eq!(shape("go", text), Shape::Any, "{text}");
+    }
+    assert_eq!(shape("go", "*spec.Document"), optional(Shape::Any));
+    assert_eq!(shape("go", "[]spec.Document"), list(Shape::Any));
+    assert_eq!(shape("go", "*http.Request"), optional(model("Request")));
+}

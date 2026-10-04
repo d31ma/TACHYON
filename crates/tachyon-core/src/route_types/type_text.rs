@@ -4,6 +4,13 @@ pub(crate) struct TypeText;
 
 impl TypeText {
     const MAX_DEPTH: usize = 16;
+    const GO_REQUEST_BOUND: [&'static str; 5] = [
+        "http.Request",
+        "context.Context",
+        "multipart.FileHeader",
+        "multipart.File",
+        "multipart.Form",
+    ];
 
     pub(crate) fn shape(extension: &str, text: &str) -> Result<Shape, String> {
         Self::read(extension, text.trim(), 0)
@@ -298,7 +305,14 @@ impl TypeText {
             || names.contains(&text)
             || text.starts_with("map[")
             || text.starts_with("impl ")
-            || (extension == "go" && text.trim_start_matches('*') == "http.Response")
+            || (extension == "go" && Self::is_open_go_type(text))
+    }
+
+    fn is_open_go_type(text: &str) -> bool {
+        let name = text.trim_start_matches('*');
+        let qualified = name.contains('.');
+        let request_bound = Self::GO_REQUEST_BOUND.contains(&name);
+        [qualified, request_bound] == [true, false]
     }
 
     fn any_names(extension: &str) -> &'static [&'static str] {

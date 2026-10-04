@@ -108,6 +108,8 @@ pub(crate) struct ModelTable {
 
 impl ModelTable {
     const MAX_DEPTH: usize = 32;
+    const REQUEST_BOUND: [&'static str; 5] = ["Request", "Context", "FileHeader", "File", "Form"];
+    const REQUEST_BOUND_HINT: &'static str = ". A request, its context or an uploaded file is not JSON data, so it cannot be a model field (ADR 0043): read it from the native request parameter of the route method, or keep the field out of JSON (in Go, tag it `json:\"-\"`)";
 
     pub(crate) fn read(root: &Path, extension: &str) -> Result<Self, String> {
         Self::read_realm(root, "server", extension)
@@ -312,10 +314,18 @@ impl ModelTable {
         match shape {
             Shape::List(inner) | Shape::Optional(inner) => self.check_names(inner),
             Shape::Model(name) if !self.contains(name) => Err(format!(
-                "'{name}' is not a model. Declare it in server/models/, or use text, a number, true or false, or a list"
+                "'{name}' is not a model. Declare it in server/models/, or use text, a number, true or false, or a list{}",
+                Self::request_bound_hint(name)
             )),
             _ => Ok(()),
         }
+    }
+
+    fn request_bound_hint(name: &str) -> &'static str {
+        Self::REQUEST_BOUND
+            .iter()
+            .find(|bound| **bound == name)
+            .map_or("", |_| Self::REQUEST_BOUND_HINT)
     }
 
     pub(crate) fn check_all(&self) -> Result<(), String> {
