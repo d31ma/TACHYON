@@ -105,6 +105,10 @@ padding: .05em .35em;
     font-size: var(--text-title, var(--step-3xl));
     line-height: var(--tw-leading, var(--text-title--line-height, 1.2));
   }
+  .font-medium {
+    --tw-font-weight: var(--font-weight-medium, 500);
+    font-weight: var(--font-weight-medium, 500);
+  }
   .font-semibold {
     --tw-font-weight: var(--font-weight-semibold, 600);
     font-weight: var(--font-weight-semibold, 600);
@@ -123,6 +127,9 @@ padding: .05em .35em;
   }
   .opacity-85 {
     opacity: 85%;
+  }
+  .opacity-90 {
+    opacity: 90%;
   }
 }
 
