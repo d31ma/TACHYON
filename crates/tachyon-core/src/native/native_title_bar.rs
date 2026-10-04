@@ -25,7 +25,7 @@ impl NativeTitleBar {
     fn note(target: NativeTarget) -> String {
         let platform = super::compiler::native_target_directory(target);
         format!(
-            "Note: tac.application.window.titleBar \"integrated\" is built only for macOS. The {platform} app keeps the standard title bar (ADR 0099)."
+            "Note: tac.application.window.titleBar \"integrated\" is built only for macOS. The {platform} app keeps the standard title bar (ADR 0098)."
         )
     }
 }

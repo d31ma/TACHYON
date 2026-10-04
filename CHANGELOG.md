@@ -22,7 +22,7 @@ machine contracts have their own, independent major versions.
   keep their clicks), and a double-click there follows the system title bar
   setting. The window keeps its accessible title; an empty title from the page
   keeps the app name. Windows, Linux, iOS and Android keep the standard title
-  bar and the build prints a note (ADR 0099).
+  bar and the build prints a note (ADR 0098).
 - `server.environment` in `server/application.json` passes chosen variables
   of `ty`'s environment to handler processes in every Yon language, such as
   `["HOME", "AWS_*", "HD_*"]`: exact names and prefix patterns ending in `*`.

@@ -1,4 +1,4 @@
-# ADR 0099: An Integrated Title Bar Is an Opt-In Window Setting
+# ADR 0098: An Integrated Title Bar Is an Opt-In Window Setting
 
 - Status: Accepted
 - Date: 2026-10-04
