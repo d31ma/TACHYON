@@ -8,9 +8,11 @@ Order(n) / InBackground         listener order; detached delivery
 Needs <name>                    view, lifecycle, resourceLoader, taskScheduler,
                                 applicationEventPublisher
 Needs / Named("Name")           injected field; named provider when it differs
-$field / $$field                per-tab / cross-session persisted state
+SessionState / LocalState       field kept for this tab / across visits
 
 Spring has the same ideas: Service, Scope, lifecycle, ApplicationEventPublisher
 and named resources, through Jakarta annotations. Tachyon uses plain English
 names for them (ADR 0047). The browser resource contracts are Tachyon-specific.
-Remote Yon topics/SSE remain a separate explicit API.
+An OnEvent listener for a Topic model opens the topic stream itself;
+StreamRequest on an HTTPClient method (JavaScript and TypeScript) reads
+any other stream.
