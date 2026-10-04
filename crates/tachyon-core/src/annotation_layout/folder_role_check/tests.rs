@@ -122,7 +122,8 @@ fn java_and_fsharp_tac_services_need_only_their_marker() {
             FolderRoleCheck::CODE,
             "{name}"
         );
-        assert!(message.contains("Service` marker."), "{message}");
+        assert!(message.contains("required `"), "{message}");
+        assert!(message.contains("Service"), "{message}");
         assert!(!message.contains("is not available"), "{message}");
     }
 }
