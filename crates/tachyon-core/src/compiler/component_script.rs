@@ -97,9 +97,7 @@ impl ComponentScript {
         match lowered {
             Some(mut lowered) => {
                 lowered.push('\n');
-                lowered.push_str(&crate::template::ShippedScript::compact(
-                    Self::BEHAVIOR_RUNTIME,
-                ));
+                lowered.push_str(Self::BEHAVIOR_RUNTIME);
                 lowered.into_bytes()
             }
             None => source.as_bytes().to_vec(),

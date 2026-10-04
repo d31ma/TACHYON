@@ -4,7 +4,7 @@ pub(crate) struct ShippedScript<'a> {
     output: Vec<u8>,
 }
 
-impl<'a> ShippedScript<'a> {
+impl ShippedScript<'_> {
     const NEW_LINE: u8 = b'\n';
     const SPACE: u8 = b' ';
     const TAB: u8 = b'\t';
@@ -18,8 +18,8 @@ impl<'a> ShippedScript<'a> {
     const CLOSE_BRACE: u8 = b'}';
     const OPEN_CLASS: u8 = b'[';
     const CLOSE_CLASS: u8 = b']';
-    const QUOTES: [u8; 2] = [b'\'', b'"'];
-    const VALUE_ENDS: [u8; 7] = [b')', b']', b'}', b'\'', b'"', b'`', b'/'];
+    const QUOTES: [u8; 2] = *b"'\"";
+    const VALUE_ENDS: [u8; 7] = *b")]}'\"`/";
     const WORDS_BEFORE_VALUES: [&'static [u8]; 14] = [
         b"return",
         b"typeof",
@@ -97,7 +97,7 @@ impl<'a> ShippedScript<'a> {
     fn separate(&mut self) {
         if !matches!(
             self.output.last(),
-            None | Some(&Self::SPACE) | Some(&Self::NEW_LINE)
+            None | Some(&(Self::SPACE | Self::NEW_LINE))
         ) {
             self.output.push(Self::SPACE);
         }
