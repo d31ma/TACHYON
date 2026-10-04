@@ -16,8 +16,8 @@ export default class EventService {
     const { id } = await this.dataSource.insert(collection, EventService.DEPLOYS);
     await this.dataSource.insert(collection, EventService.DEPLOYS);
     await this.dataSource.insert(collection, EventService.DEPLOYS);
-    const found = await this.dataSource.findById(collection, id);
-    const patched = await this.dataSource.patch(collection, id, EventService.CHANGE);
+    const found = (await this.dataSource.findById(collection, id))!;
+    const patched = (await this.dataSource.patch(collection, id, EventService.CHANGE))!;
     const scrolled = await this.countPages();
     const job = await this.runJob();
     await this.dataSource.deleteById(collection, id);

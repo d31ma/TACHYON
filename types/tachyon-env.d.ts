@@ -14,6 +14,37 @@ declare global {
     query(sql: string, parameters?: readonly (string | number | boolean | null)[]): Promise<Record<string, unknown>[]>;
     execute(sql: string, parameters?: readonly (string | number | boolean | null)[]): Promise<{ affectedRows: number }>;
     command(command: Readonly<Record<string, unknown>>): Promise<unknown>;
+    /** FYLO only: the newest version of the document, or null. */
+    findById(collection: string, id: string): Promise<FyloDocument | null>;
+    /** FYLO only: stores the document and answers it with the id that FYLO assigned. */
+    insert(collection: string, document: Readonly<Record<string, unknown>>): Promise<FyloDocument>;
+    /** FYLO only: changes the named top-level fields in one step; null when the id does not exist. */
+    patch(collection: string, id: string, fields: Readonly<Record<string, unknown>>): Promise<FyloDocument | null>;
+    deleteById(collection: string, id: string): Promise<boolean>;
+    /** FYLO only: one page in id order; pass the nextCursor of the page before, or null for the first page. */
+    scroll(collection: string, where?: Readonly<Record<string, string | number | boolean | null>> | null, cursor?: string | null, size?: number): Promise<DocumentWindow>;
+    createCollection(name: string): Promise<boolean>;
+    dropCollection(name: string): Promise<boolean>;
+    collectionExists(name: string): Promise<boolean>;
+    /** FYLO only: adds a queue message and answers its id; the same key and payload answer the first id. */
+    publish(topic: string, payload: unknown, key?: string | null): Promise<string>;
+    claim(topic: string, group: string, maxMessages?: number, leaseMs?: number): Promise<QueueDelivery[]>;
+    ack(topic: string, group: string, delivery: QueueDelivery): Promise<boolean>;
+    nack(topic: string, group: string, delivery: QueueDelivery, delayMs?: number): Promise<boolean>;
+  }
+  interface FyloDocument {
+    id: string;
+    [field: string]: unknown;
+  }
+  interface DocumentWindow {
+    content: FyloDocument[];
+    nextCursor: string | null;
+  }
+  interface QueueDelivery {
+    id: string;
+    receipt: string;
+    attempt: number;
+    payload: unknown;
   }
   class RedisTemplate {
     get(key: string): Promise<unknown>;

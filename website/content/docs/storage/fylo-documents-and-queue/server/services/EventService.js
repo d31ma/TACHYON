@@ -18,8 +18,8 @@ export default class EventService {
     const { id } = await this.dataSource.insert(collection, EventService._DEPLOYS);
     await this.dataSource.insert(collection, EventService._DEPLOYS);
     await this.dataSource.insert(collection, EventService._DEPLOYS);
-    const found = await this.dataSource.findById(collection, id);
-    const patched = await this.dataSource.patch(collection, id, EventService._CHANGE);
+    const found = /** @type {FyloDocument} */ (await this.dataSource.findById(collection, id));
+    const patched = /** @type {FyloDocument} */ (await this.dataSource.patch(collection, id, EventService._CHANGE));
     const scrolled = await this.#countPages();
     const job = await this.#runJob();
     await this.dataSource.deleteById(collection, id);
@@ -32,6 +32,7 @@ export default class EventService {
   async #countPages() {
     let pages = 0;
     let seen = 0;
+    /** @type {string | null} */
     let cursor = null;
     let more = true;
     while (more) {
@@ -44,7 +45,7 @@ export default class EventService {
     return { pages, seen };
   }
 
-  /** @returns {Promise<object>} */
+  /** @returns {Promise<unknown>} */
   async #runJob() {
     const topic = EventService._TOPIC;
     await this.dataSource.publish(topic, { app: 'web' }, 'render:web');
