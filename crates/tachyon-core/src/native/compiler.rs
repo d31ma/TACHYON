@@ -679,7 +679,7 @@ mod tests {
             ("swift", macos::companion_prelude(), "func tacEventPublish"),
             (
                 "kotlin",
-                android::companion_prelude(),
+                android::companion_prelude().as_str(),
                 "fun tacEventPublish",
             ),
             ("csharp", windows::companion_prelude(), "void EventPublish"),
@@ -706,7 +706,7 @@ mod tests {
             ("swift", macos::companion_prelude(), "func publishEvent"),
             (
                 "kotlin",
-                android::companion_prelude(),
+                android::companion_prelude().as_str(),
                 "fun <T : Any> publishEvent",
             ),
             ("csharp", windows::companion_prelude(), "void PublishEvent"),

@@ -1,4 +1,5 @@
 use super::config::NativeApplication;
+use super::file_picker_sources::FilePickerSources;
 use super::host::{
     GeneratedHost, first_line, native_io, native_tool_failure, quoted_string_escape, run_tool_in,
     stage_application, write, write_host_source, xml_escape,
@@ -21,26 +22,27 @@ impl AndroidHostGenerator {
         "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
         "const", "do", "else", "for", "if", "int", "new",
     ];
-    const KOTLIN_COMPANION_PRELUDE: &str = concat!(
+    const KOTLIN_PRELUDE: &str = concat!(
         include_str!("prelude.kt"),
         include_str!("prelude_reads.kt"),
         include_str!("prelude_android.kt"),
         include_str!("prelude_jvm_models.kt"),
-        include_str!("prelude_native_tasks.kt"),
-        include_str!("capabilities/FilePickerStatus.kt"),
-        include_str!("capabilities/FilePickerResult.kt"),
-        include_str!("capabilities/FilePickerOptions.kt"),
-        include_str!("capabilities/NativeCapabilityOwner.kt"),
-        include_str!("capabilities/NativeCapabilities.kt"),
-        include_str!("capabilities/FilePicker.kt"),
-        include_str!("web_apis/DocumentTitle.kt"),
-        include_str!("web_apis/DocumentTitleBounds.kt"),
-        include_str!("web_apis/TacPageScope.kt"),
-        include_str!("web_apis/BrowserDocumentTitle.kt"),
+        include_str!("prelude_native_tasks.kt")
+    );
+    const KOTLIN_CAPABILITY_HOST: &str = concat!(
         include_str!("capabilities/WindowControls.kt"),
         include_str!("capabilities/TacNativeCapabilityCall.kt"),
         include_str!("capabilities/TacNativeCapabilityRegistration.kt")
     );
+
+    fn kotlin_companion_prelude() -> String {
+        format!(
+            "{}{}{}",
+            Self::KOTLIN_PRELUDE,
+            FilePickerSources::kotlin(),
+            Self::KOTLIN_CAPABILITY_HOST
+        )
+    }
 
     pub(super) async fn generate(
         application: &NativeApplication,
@@ -111,8 +113,8 @@ fn write_project(
 }
 
 #[cfg(test)]
-pub(super) const fn companion_prelude() -> &'static str {
-    AndroidHostGenerator::KOTLIN_COMPANION_PRELUDE
+pub(super) fn companion_prelude() -> String {
+    AndroidHostGenerator::kotlin_companion_prelude()
 }
 
 pub(super) fn stage_companion(
@@ -126,7 +128,7 @@ pub(super) fn stage_companion(
     else {
         return Ok(false);
     };
-    let prelude = AndroidHostGenerator::KOTLIN_COMPANION_PRELUDE;
+    let prelude = AndroidHostGenerator::kotlin_companion_prelude();
     write(
         &project.join(format!(
             "app/src/main/kotlin/{package_path}/TachyonCompanion.kt"
@@ -1017,7 +1019,7 @@ mod tests {
 
     #[test]
     fn a_failing_companion_call_answers_a_fixed_error_without_the_exception_text() {
-        let prelude = AndroidHostGenerator::KOTLIN_COMPANION_PRELUDE;
+        let prelude = AndroidHostGenerator::kotlin_companion_prelude();
         assert!(prelude.contains("} catch (error: Throwable) {\n        tacFailureAnswer(error)"));
         assert!(prelude.contains(
             "private fun tacFailureAnswer(error: Throwable): String = \"{\\\"error\\\":\\\"Native companion operation failed.\\\"}\""
