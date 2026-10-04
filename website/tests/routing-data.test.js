@@ -14,7 +14,7 @@ class PublishedData {
   static sectionLanguages = {
     'Annotated controllers and providers': PublishedData.withRuby,
     'Checking values and method arguments': PublishedData.withoutLua,
-    'Limited Store and Query': PublishedData.withoutLua,
+    'Limited Store and Query': PublishedData.withRuby,
     'Reading settings and choosing configuration': PublishedData.withoutLua,
     'Calling a method in another language': PublishedData.withoutLua,
   }

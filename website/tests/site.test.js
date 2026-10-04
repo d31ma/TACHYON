@@ -189,7 +189,7 @@ describe('language coverage', () => {
     expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'hpp', 'java', 'kt', 'rb', 'rs', 'swift'])
     for (const file of compiled.files.filter(file => file.name.startsWith('client/models/'))) expect(file.name).toMatch(/^client\/models\/CatalogCount\.[a-z]+$/)
     expect(yon.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort())
-      .toEqual(['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts'])
+      .toEqual(['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts'])
     for (const section of topic.sections) for (const file of section.files ?? []) {
       expect(file.code).not.toContain('this.tac')
       expect(file.code).not.toMatch(/tac_publish|tacPublish|Tac\.Publish|\bmount\(/)

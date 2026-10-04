@@ -7,4 +7,4 @@ error[TY1310]: 'server/routes/orders/yon.py' is inside server/routes, which Tach
   help: Routes now come from annotations (ADR 0048): put each controller in server/controllers/ and mark it with @RequestRoute("/path"), which gives the path its routes start with. `ty migrate fix --write` moves route files there.
 
 error[TY2112]: Required Yon JavaScript runtime 'node' was not found.
-  help: Install Node.js or configure YON_JAVASCRIPT_RUNTIME.
+  help: Install Node.js or Bun, or configure YON_JAVASCRIPT_RUNTIME.

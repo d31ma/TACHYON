@@ -15,7 +15,7 @@ ready     Lua services on the web        tachyon-lua.wasm                       
 ready     Lua services on the web        lua                                    Lua 5.4.9  Copyright (C) 1994-2026 Lua.org, PUC-Rio
 ready     Dart browser services          dart                                   Dart SDK version: 3.13.1 (stable) on "macos_arm64"
 missing   Yon JavaScript runtime 'node'  node                                   not on PATH
-        Install Node.js or correct YON_JAVASCRIPT_RUNTIME.
+        Install Node.js or Bun, or correct YON_JAVASCRIPT_RUNTIME.
 
 13 of 15 ready
 $ echo $?
