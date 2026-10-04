@@ -9,7 +9,7 @@ export default class CartService {
   cartHelper;
 
   /** @returns {number} */
-  get total() {
+  total() {
     const subtotal = this.cartPricesHelper.subtotal();
     return this.cartHelper.settle(subtotal);
   }

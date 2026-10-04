@@ -7,4 +7,8 @@ class CartHelper {
     final surcharge = cartPricesHelper.surcharge();
     return subtotal + surcharge;
   }
+
+  int count() {
+    return cartPricesHelper.count();
+  }
 }

@@ -6,7 +6,7 @@ class CartService {
   @Needs
   final CartHelper cartHelper;
 
-  int get total {
+  int total() {
     final subtotal = cartPricesHelper.subtotal();
     return cartHelper.settle(subtotal);
   }

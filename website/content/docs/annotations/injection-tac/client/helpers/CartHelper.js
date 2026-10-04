@@ -12,4 +12,9 @@ export default class CartHelper {
     const surcharge = this.cartPricesHelper.surcharge();
     return subtotal + surcharge;
   }
+
+  /** @returns {number} */
+  count() {
+    return this.cartPricesHelper.count();
+  }
 }

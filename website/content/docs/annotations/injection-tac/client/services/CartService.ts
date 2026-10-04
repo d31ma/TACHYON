@@ -6,7 +6,7 @@ export default class CartService {
   @Needs
   cartHelper!: CartHelper;
 
-  get total(): number {
+  total(): number {
     const subtotal = this.cartPricesHelper.subtotal();
     return this.cartHelper.settle(subtotal);
   }
