@@ -46,10 +46,10 @@ impl HandlerRuntimePrograms {
     }
 
     pub(in crate::handler) fn default_javascript_for(program: &Path) -> &'static str {
-        if program == Path::new(Self::BUN_JAVASCRIPT) {
-            return Self::BUN_JAVASCRIPT;
-        }
-        Self::DEFAULT_JAVASCRIPT
+        [Self::BUN_JAVASCRIPT, Self::DEFAULT_JAVASCRIPT]
+            .into_iter()
+            .find(|name| program == Path::new(name))
+            .unwrap_or(Self::DEFAULT_JAVASCRIPT)
     }
 
     fn installed_javascript<F>(lookup: &F) -> &'static str

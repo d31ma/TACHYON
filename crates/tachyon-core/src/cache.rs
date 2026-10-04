@@ -29,6 +29,17 @@ impl CacheStatus {
     fn removable_folders() -> impl Iterator<Item = &'static str> {
         std::iter::once(Self::RUNTIME_FOLDER).chain(Self::BUILD_FOLDERS)
     }
+
+    fn remove_folder(root: &Path, name: &str) -> Result<(), Failure> {
+        match fs::remove_dir_all(root.join(name)) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(cache_failure(format!(
+                "Cannot clear the cache at {}. {error}",
+                root.display()
+            ))),
+        }
+    }
 }
 
 #[must_use]
@@ -105,20 +116,9 @@ pub fn clean() -> Result<CacheStatus, Failure> {
 fn clean_at(root: PathBuf) -> Result<CacheStatus, Failure> {
     let before = status_at(root);
     for name in CacheStatus::removable_folders() {
-        remove_folder(&before.root, name)?;
+        CacheStatus::remove_folder(&before.root, name)?;
     }
     Ok(before)
-}
-
-fn remove_folder(root: &Path, name: &str) -> Result<(), Failure> {
-    match fs::remove_dir_all(root.join(name)) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(cache_failure(format!(
-            "Cannot clear the cache at {}. {error}",
-            root.display()
-        ))),
-    }
 }
 
 fn cache_failure(message: String) -> Failure {

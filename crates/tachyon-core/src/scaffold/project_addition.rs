@@ -31,9 +31,9 @@ impl ProjectAddition {
         let owned = ClientFiles::language_files(language, &javascript_name);
         let tags: Vec<String> = ClientFiles::greeting_tag(language).into_iter().collect();
         let mut result = Self::add(root, choices, &owned, &tags)?;
-        if language == TacLanguage::Python {
-            result.notes.extend(Self::write_python_runtime(root)?);
-        }
+        result
+            .notes
+            .extend(Self::add_python_runtime(root, language)?);
         Ok(result)
     }
 
@@ -166,15 +166,21 @@ impl ProjectAddition {
         }))
     }
 
+    fn add_python_runtime(root: &Path, language: TacLanguage) -> Result<Option<String>, Failure> {
+        if language != TacLanguage::Python {
+            return Ok(None);
+        }
+        Self::write_python_runtime(root)
+    }
+
     fn write_python_runtime(root: &Path) -> Result<Option<String>, Failure> {
         let path = root.join(Self::MANIFEST);
         let text = std::fs::read_to_string(&path).unwrap_or_default();
-        let mut manifest: serde_json::Value =
-            serde_json::from_str(&text).unwrap_or_else(|_| serde_json::json!({}));
-        let Some(object) = manifest.as_object_mut() else {
-            return Ok(None);
-        };
-        let tac = object.entry("tac").or_insert_with(|| serde_json::json!({}));
+        let mut manifest: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&text).unwrap_or_default();
+        let tac = manifest
+            .entry("tac")
+            .or_insert_with(|| serde_json::json!({}));
         let added = Self::insert_missing(tac, "python", ClientFiles::python_runtime());
         let pretty = serde_json::to_string_pretty(&manifest).unwrap_or_default();
         ScaffoldFailure::checked(std::fs::write(&path, format!("{pretty}\n")), &path)?;

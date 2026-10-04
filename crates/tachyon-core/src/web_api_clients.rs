@@ -41,6 +41,10 @@ impl WebApiClients {
         Self::NATIVE_CAPABILITIES.map(String::from).into()
     }
 
+    pub(crate) fn client_type_names() -> impl Iterator<Item = &'static str> {
+        Self::PRIVATE_CLIENTS.into_iter().chain(Self::TYPE_NAMES)
+    }
+
     pub(crate) fn is_client_type(declared: &str) -> bool {
         Self::client_type(declared)
     }

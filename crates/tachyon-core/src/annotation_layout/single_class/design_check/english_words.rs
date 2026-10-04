@@ -15,10 +15,9 @@ impl EnglishWords {
     pub(super) fn decompressed() -> String {
         let mut text = String::new();
         let mut reader = brotli::Decompressor::new(Self::COMPRESSED, Self::BUFFER_BYTES);
-        match reader.read_to_string(&mut text) {
-            Ok(_) => text,
-            Err(_) => String::new(),
-        }
+        reader
+            .read_to_string(&mut text)
+            .map_or_else(|_| String::new(), |_| text)
     }
 
     fn words() -> &'static HashSet<&'static str> {
