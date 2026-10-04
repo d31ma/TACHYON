@@ -5,12 +5,11 @@ class SettingsService
 
   def initialize
     @application_client = ApplicationClient.new
-    @api = "/api"
+    @api = ""
   end
 
   # @return [void]
-  #[OnStart]
-  def start
+  def load
     application = @application_client.load
     @api = Behaviors.values(PublicSettings, application)["api"]
   end

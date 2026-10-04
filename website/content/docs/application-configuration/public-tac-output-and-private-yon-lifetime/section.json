@@ -1,15 +1,6 @@
 {
   "heading": "Public Tac output and private Yon lifetime",
-  "notApplicable": [
-    "cs",
-    "fs",
-    "kt",
-    "rs",
-    "go",
-    "dart",
-    "swift"
-  ],
-  "body": "The build checks the tac member of client/manifest.json. It publishes the manifest at /manifest.webmanifest for web bundles and staged native bundles. A browser also finds it there to install the app. The manifest can have other members beside tac, and it still binds without changes. Only the tac member is configuration. The build never opens .env, never resolves production secrets and never publishes yon. Browser services load this public JSON through an HTTPClient and bind it themselves with Setting. JavaScript and TypeScript inject the client, and Tachyon's browser transport sends the request. The other languages build the client, and the HTTP adapter of the Setup with the same stem (ApplicationSetup) answers it, as in Outgoing HTTP: Tac; here it answers with the public tac member. Native services still load it themselves with their SDK, and they own it. The browser HTTPClient transport is network-only (no-store) unless a read is marked Cached. It is not an offline cache loader. A change to client/manifest.json causes a development reload for Tac. A change to Yon settings or .env secrets needs a server restart. The deployment controls runtime executables, isolation policy, environment allowlists and capabilities. They are not options in the application files. YON_APPLICATION_JSON is reserved output of the supervisor. An operator cannot use it as an override. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308. C#, F#, Kotlin, Rust, Go, Dart and Swift have no tab here yet: their Tac metadata adapter is not ready (ADR 0092), so the build refuses a client model with Setting in these languages with TY1310.",
+  "body": "The build checks the tac member of client/manifest.json. It publishes the whole manifest at /manifest.webmanifest for web bundles and staged native bundles. A browser also finds it there to install the app. The manifest can have other members beside tac, and it still binds without changes. Only the tac member is configuration. Bind only the members that your application adds, such as tac.api.url here. Tachyon's own members, such as application, scripts, budgets or browserApis, are settings for the build, not values for services. The build never opens .env, never resolves production secrets and never publishes the Yon configuration. A browser service loads the published manifest through an HTTPClient and binds it with Behaviors.values and the PublicSettings model in client/models, whose Setting reads tac.api.url. Every compiled Tac language can read such a model (ADR 0092). In this example the service loads the manifest when you press the button. JavaScript, TypeScript, Dart, Rust, Go and Kotlin inject the client with Needs. C# and F# build it with new ApplicationClient() and ApplicationClient(). In these languages Tachyon's browser transport sends the GET request to the server of the page: the compiled languages need an ApplicationSetup, and it gives the client no adapter. Swift, Java and Ruby have no browser transport yet. Their service builds the client, and the HTTP adapter of ApplicationSetup answers it in the page with the public tac member, as in Outgoing HTTP: Tac. A native service loads the manifest itself with its SDK, and it owns that loader (see Swift: public configuration in native Tac). The browser transport is network-only (no-store) unless a read is marked Cached. It is not an offline cache loader. A change to client/manifest.json causes a development reload for Tac. A change to Yon settings or .env secrets needs a server restart. The deployment controls runtime executables, isolation policy, environment allowlists and capabilities. They are not options in the application files. YON_APPLICATION_JSON is reserved output of the supervisor. An operator cannot use it as an override. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308.",
   "axis": "language",
   "files": [
     {
@@ -64,6 +55,174 @@
       "name": "client/models/PublicSettings.ts",
       "code": {
         "file": "client/models/PublicSettings.ts"
+      }
+    },
+    {
+      "name": "client/remotes/ApplicationClient.dart",
+      "code": {
+        "file": "client/remotes/ApplicationClient.dart"
+      }
+    },
+    {
+      "name": "client/services/SettingsService.dart",
+      "code": {
+        "file": "client/services/SettingsService.dart"
+      }
+    },
+    {
+      "name": "client/models/PublicSettings.dart",
+      "code": {
+        "file": "client/models/PublicSettings.dart"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.dart",
+      "code": {
+        "file": "client/setups/ApplicationSetup.dart"
+      }
+    },
+    {
+      "name": "client/remotes/ApplicationClient.rs",
+      "code": {
+        "file": "client/remotes/ApplicationClient.rs"
+      }
+    },
+    {
+      "name": "client/services/SettingsService.rs",
+      "code": {
+        "file": "client/services/SettingsService.rs"
+      }
+    },
+    {
+      "name": "client/models/PublicSettings.rs",
+      "code": {
+        "file": "client/models/PublicSettings.rs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.rs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.rs"
+      }
+    },
+    {
+      "name": "client/remotes/ApplicationClient.go",
+      "code": {
+        "file": "client/remotes/ApplicationClient.go"
+      }
+    },
+    {
+      "name": "client/services/SettingsService.go",
+      "code": {
+        "file": "client/services/SettingsService.go"
+      }
+    },
+    {
+      "name": "client/models/PublicSettings.go",
+      "code": {
+        "file": "client/models/PublicSettings.go"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.go",
+      "code": {
+        "file": "client/setups/ApplicationSetup.go"
+      }
+    },
+    {
+      "name": "client/remotes/ApplicationClient.kt",
+      "code": {
+        "file": "client/remotes/ApplicationClient.kt"
+      }
+    },
+    {
+      "name": "client/services/SettingsService.kt",
+      "code": {
+        "file": "client/services/SettingsService.kt"
+      }
+    },
+    {
+      "name": "client/models/PublicSettings.kt",
+      "code": {
+        "file": "client/models/PublicSettings.kt"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.kt",
+      "code": {
+        "file": "client/setups/ApplicationSetup.kt"
+      }
+    },
+    {
+      "name": "client/remotes/ApplicationClient.cs",
+      "code": {
+        "file": "client/remotes/ApplicationClient.cs"
+      }
+    },
+    {
+      "name": "client/services/SettingsService.cs",
+      "code": {
+        "file": "client/services/SettingsService.cs"
+      }
+    },
+    {
+      "name": "client/models/PublicSettings.cs",
+      "code": {
+        "file": "client/models/PublicSettings.cs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.cs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.cs"
+      }
+    },
+    {
+      "name": "client/remotes/ApplicationClient.fs",
+      "code": {
+        "file": "client/remotes/ApplicationClient.fs"
+      }
+    },
+    {
+      "name": "client/services/SettingsService.fs",
+      "code": {
+        "file": "client/services/SettingsService.fs"
+      }
+    },
+    {
+      "name": "client/models/PublicSettings.fs",
+      "code": {
+        "file": "client/models/PublicSettings.fs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.fs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.fs"
+      }
+    },
+    {
+      "name": "client/remotes/ApplicationClient.swift",
+      "code": {
+        "file": "client/remotes/ApplicationClient.swift"
+      }
+    },
+    {
+      "name": "client/services/SettingsService.swift",
+      "code": {
+        "file": "client/services/SettingsService.swift"
+      }
+    },
+    {
+      "name": "client/models/PublicSettings.swift",
+      "code": {
+        "file": "client/models/PublicSettings.swift"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.swift",
+      "code": {
+        "file": "client/setups/ApplicationSetup.swift"
       }
     },
     {
