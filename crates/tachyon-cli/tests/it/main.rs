@@ -14,4 +14,6 @@ mod phase6_cli;
 mod phase7_cli;
 mod preview_resilience;
 mod reconciled_templates;
+#[cfg(unix)]
+mod structure_validation_cli;
 mod test_preflight;

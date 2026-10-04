@@ -41,6 +41,7 @@ mod route_access;
 mod ruby_handlers;
 mod single_class_layout;
 mod sockets;
+mod structure_validation;
 mod support;
 mod tac_model_binding;
 mod test_assertions;
