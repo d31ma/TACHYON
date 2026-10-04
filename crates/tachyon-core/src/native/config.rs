@@ -33,6 +33,11 @@ pub(super) struct WindowConfiguration {
     pub(super) min_height: Option<u32>,
     #[serde(default)]
     pub(super) controls: Vec<String>,
+    #[serde(default)]
+    pub(super) title_bar: super::native_title_bar::NativeTitleBar,
+    #[serde(default)]
+    pub(super) title_bar_button_inset:
+        Option<super::native_title_bar_button_inset::NativeTitleBarButtonInset>,
 }
 
 const fn default_width() -> u32 {
@@ -51,6 +56,8 @@ impl Default for WindowConfiguration {
             min_width: None,
             min_height: None,
             controls: Vec::new(),
+            title_bar: super::native_title_bar::NativeTitleBar::default(),
+            title_bar_button_inset: None,
         }
     }
 }
@@ -107,6 +114,24 @@ impl WindowConfiguration {
                     Self::KNOWN.join(", ")
                 )));
             }
+        }
+        Ok(())
+    }
+
+    fn ensure_title_bar(&self) -> Result<(), Failure> {
+        let Some(inset) = self.title_bar_button_inset else {
+            return Ok(());
+        };
+        if !self.title_bar.is_integrated() {
+            return Err(config_failure(
+                "Manifest tac.application.window.titleBarButtonInset needs \"titleBar\": \"integrated\".",
+            ));
+        }
+        if !inset.is_within_bounds() {
+            return Err(config_failure(&format!(
+                "Manifest tac.application.window.titleBarButtonInset leading and top must be 0 to {} points.",
+                super::native_title_bar_button_inset::NativeTitleBarButtonInset::MAX_POINTS
+            )));
         }
         Ok(())
     }
@@ -246,6 +271,7 @@ fn validate_manifest_application(application: &ManifestApplication) -> Result<()
         return Ok(());
     };
     window.ensure_known_controls()?;
+    window.ensure_title_bar()?;
     if !window.is_within_bounds() {
         return Err(config_failure(
             "Manifest tac.application.window sizes must be 64 to 16384, a minimum no larger than its size, and each control listed once.",
@@ -736,6 +762,33 @@ mod tests {
         assert_eq!(configured.window.height, 720);
         assert_eq!(configured.window.min_width, Some(320));
         assert!(configured.window.grants("close"));
+        assert_eq!(
+            configured.window.title_bar,
+            super::super::native_title_bar::NativeTitleBar::Standard
+        );
+    }
+
+    #[test]
+    fn the_manifest_can_ask_for_an_integrated_title_bar_with_a_button_inset() {
+        let root = tempfile::tempdir().expect("root");
+        write_manifest_document(
+            root.path(),
+            &serde_json::json!({ "tac": { "application": { "window": {
+                "titleBar": "integrated",
+                "titleBarButtonInset": { "leading": 20, "top": 35 },
+            } } } }),
+        );
+        let configured = NativeApplication::discover(root.path()).expect("configured");
+        assert!(configured.window.title_bar.is_integrated());
+        assert_eq!(
+            configured.window.title_bar_button_inset,
+            Some(
+                super::super::native_title_bar_button_inset::NativeTitleBarButtonInset {
+                    leading: 20,
+                    top: 35,
+                }
+            )
+        );
     }
 
     #[test]
@@ -786,6 +839,22 @@ mod tests {
             (
                 serde_json::json!({ "window": { "minwidth": 300 } }),
                 "unknown field `minwidth`",
+            ),
+            (
+                serde_json::json!({ "window": { "titleBar": "hidden" } }),
+                "unknown variant `hidden`",
+            ),
+            (
+                serde_json::json!({ "window": { "titleBarButtonInset": { "leading": 20, "top": 30 } } }),
+                "titleBarButtonInset needs \"titleBar\": \"integrated\"",
+            ),
+            (
+                serde_json::json!({ "window": { "titleBar": "integrated", "titleBarButtonInset": { "leading": 20, "top": 201 } } }),
+                "leading and top must be 0 to 200 points",
+            ),
+            (
+                serde_json::json!({ "window": { "titleBar": "integrated", "titleBarButtonInset": { "x": 20 } } }),
+                "unknown field `x`",
             ),
             (serde_json::json!({ "name": "App" }), "unknown field `name`"),
             (

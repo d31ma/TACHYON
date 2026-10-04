@@ -311,6 +311,7 @@ fn window_controls(window: &super::config::WindowConfiguration) -> String {
     if window.grants("title") {
         arms.push_str("        case \"window.title\":\n            NativeBridge.retitle(payload)\n            return \"{\\\"ok\\\":true}\"\n");
     }
+    arms.push_str(super::mac_os_title_bar_source::MacOsTitleBarSource::bridge_case(window));
     arms
 }
 
@@ -326,6 +327,10 @@ fn with_window_settings(host: &str, window: &super::config::WindowConfiguration)
             &window.min_height.unwrap_or(0).to_string(),
         )
         .replace("__WINDOW_CONTROLS__", &window_controls(window))
+        .replace(
+            "__NATIVE_TITLE_BAR_SETTINGS__",
+            &super::mac_os_title_bar_source::MacOsTitleBarSource::settings(window),
+        )
 }
 
 pub(super) fn swift_source(
@@ -339,6 +344,10 @@ pub(super) fn swift_source(
         MacOsHostGenerator::APPLE_JSON_REQUEST,
     );
     let framed = with_window_settings(&host, &application.window)
+        .replace(
+            "__NATIVE_TITLE_BAR__",
+            &super::mac_os_title_bar_source::MacOsTitleBarSource::swift_types(),
+        )
         .replace(
             "__NATIVE_SHIM__",
             &super::host::native_shim(&application.window),
@@ -557,6 +566,7 @@ __TACHYON_JSON_REQUEST__
 __NATIVE_MENUS__
 __NATIVE_MENU_MODELS__
 __NATIVE_MENU_CALLS__
+__NATIVE_TITLE_BAR__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
@@ -690,6 +700,7 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     static let shared = NativeBridge()
     weak var webView: WKWebView?
     weak var window: NSWindow?
+    weak var titleBar: MacOsTitleBar?
 
     func userContentController(
         _ controller: WKUserContentController,
@@ -743,7 +754,8 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         let data = payload.data(using: .utf8) ?? Data()
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         guard let title = parsed["title"] as? String else { return }
-        NativeBridge.shared.window?.title = String(title.prefix(256))
+        let requested = String(title.prefix(256))
+        NativeBridge.shared.window?.title = NativeBridge.shared.titleBar?.accessibleTitle(requested) ?? requested
     }
 
     fileprivate func handle(_ capability: String, _ payload: String) -> String {
@@ -788,6 +800,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private var window: NSWindow?
     private var webView: WKWebView?
     private var menus: MacOsMenus?
+    private var titleBar: MacOsTitleBar?
     private var terminated = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -816,7 +829,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             name: "tachyon"
         )
 
-        let view = WKWebView(frame: .zero, configuration: configuration)
+        let view = MacOsTitleBarWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
         view.setValue(false, forKey: "drawsBackground")
         view.setAccessibilityIdentifier("tachyon-application")
@@ -824,9 +837,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         NativeBridge.shared.webView = view
         __TACHYON_COMPANION_EMIT__
 
+        let titleBar = MacOsTitleBar(__NATIVE_TITLE_BAR_SETTINGS__)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: __WINDOW_WIDTH__, height: __WINDOW_HEIGHT__),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: titleBar.styleMask,
             backing: .buffered,
             defer: false
         )
@@ -837,6 +851,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window.collectionBehavior.insert(.fullScreenPrimary)
         window.isReleasedWhenClosed = false
         window.delegate = self
+        titleBar.install(window, view)
+        self.titleBar = titleBar
+        NativeBridge.shared.titleBar = titleBar
         window.makeKeyAndOrderFront(nil)
         self.window = window
         NativeBridge.shared.window = window
@@ -862,8 +879,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         closing.delegate = nil
         webView = nil
         window = nil
+        titleBar = nil
         NativeBridge.shared.webView = nil
         NativeBridge.shared.window = nil
+        NativeBridge.shared.titleBar = nil
         installMenus(nil, nil)
         Telemetry.shared.record("window.closed")
     }

@@ -37,6 +37,7 @@ mod linux_host_tests;
 mod linux_window_controls;
 mod mac_os_menu_action_source;
 mod mac_os_menu_source;
+mod mac_os_title_bar_source;
 mod macos;
 #[cfg(test)]
 mod macos_menu_tests;
@@ -77,6 +78,10 @@ mod native_page_graph_tests;
 #[cfg(test)]
 mod native_rust_capability_tests;
 mod native_service_roots;
+mod native_title_bar;
+mod native_title_bar_button_inset;
+#[cfg(all(test, target_os = "macos"))]
+mod native_title_bar_host_tests;
 mod native_type_program;
 mod native_ui_artifact;
 #[cfg(test)]

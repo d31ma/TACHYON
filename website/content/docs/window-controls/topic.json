@@ -7,6 +7,9 @@
   "sections": [
     {
       "include": "../platform-apis/window-controls-need-permission/section.json"
+    },
+    {
+      "include": "integrated-title-bar/section.json"
     }
   ]
 }

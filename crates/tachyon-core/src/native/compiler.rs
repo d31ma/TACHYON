@@ -73,6 +73,7 @@ pub struct NativeBuildResult {
     application_bundle: PathBuf,
     route_count: usize,
     sha256: String,
+    notes: Vec<String>,
 }
 
 impl NativeBuildResult {
@@ -94,6 +95,11 @@ impl NativeBuildResult {
     #[must_use]
     pub fn sha256(&self) -> &str {
         &self.sha256
+    }
+
+    #[must_use]
+    pub fn notes(&self) -> &[String] {
+        &self.notes
     }
 }
 
@@ -217,6 +223,12 @@ impl NativeCompiler {
             application_bundle: destination.join(generated.application_bundle),
             route_count: index.routes.len(),
             sha256: digest,
+            notes: application
+                .window
+                .title_bar
+                .fallback_note(options.target)
+                .into_iter()
+                .collect(),
         })
     }
 }

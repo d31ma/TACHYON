@@ -1600,6 +1600,9 @@ async fn execute_native_build(
         result.application_bundle().display(),
         result.sha256()
     );
+    for note in result.notes() {
+        println!("{note}");
+    }
     Ok(())
 }
 

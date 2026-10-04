@@ -1,0 +1,9 @@
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: max(84px, var(--tac-titlebar-height, 0px));
+  padding-inline-start: var(--tac-titlebar-leading-inset, 16px);
+  padding-inline-end: max(16px, var(--tac-titlebar-trailing-inset, 0px));
+  background: light-dark(#f4f6f8, #1f2226);
+}
