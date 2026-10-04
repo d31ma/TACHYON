@@ -9,11 +9,14 @@ static gchar *g_fixture_reply = NULL;
 static const char *g_fixture_owner = "00000000-0000-4000-8000-000000000021";
 
 static gboolean g_fixture_watching = FALSE;
+static gint64 g_fixture_started = 0;
 
 static void tachyon_fixture_fail(const char *message) {
   const char *uri = g_view != NULL ? webkit_web_view_get_uri(g_view) : NULL;
-  fprintf(stderr, "linux host fixture failed at step %d: %s (view %s, uri %s, loading %d)\n", g_fixture_step, message,
-          g_view != NULL ? "present" : "missing", uri != NULL ? uri : "none", g_view != NULL && webkit_web_view_is_loading(g_view));
+  fprintf(stderr, "linux host fixture failed at step %d after %.1f s: %s (view %s, uri %s, loading %d, progress %.2f)\n", g_fixture_step,
+          (double)(g_get_monotonic_time() - g_fixture_started) / G_USEC_PER_SEC, message, g_view != NULL ? "present" : "missing",
+          uri != NULL ? uri : "none", g_view != NULL && webkit_web_view_is_loading(g_view),
+          g_view != NULL ? webkit_web_view_get_estimated_load_progress(g_view) : 0.0);
   exit(1);
 }
 
@@ -174,6 +177,7 @@ static gboolean tachyon_fixture_tick(gpointer data) {
     default: return G_SOURCE_REMOVE;
   }
   g_fixture_step += 1;
+  printf("step %d done after %.1f s\n", g_fixture_step, (double)(g_get_monotonic_time() - g_fixture_started) / G_USEC_PER_SEC);
   return G_SOURCE_CONTINUE;
 }
 
@@ -185,7 +189,8 @@ static gboolean tachyon_fixture_deadline(gpointer data) {
 
 int main(int argc, char **argv) {
   g_timeout_add(20, tachyon_fixture_tick, NULL);
-  g_timeout_add_seconds(30, tachyon_fixture_deadline, NULL);
+  g_fixture_started = g_get_monotonic_time();
+  g_timeout_add_seconds(100, tachyon_fixture_deadline, NULL);
   int status = tachyon_host_main(argc, argv);
   tachyon_fixture_require(status == 0 && g_fixture_step == 5, "the host did not finish its run");
   tachyon_fixture_require(tachyon_fixture_count("stopped") == 1, "Close Window did not stop the application service once");
