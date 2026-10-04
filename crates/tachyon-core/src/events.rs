@@ -1239,7 +1239,13 @@ fn add_autowired_resource(
 }
 
 fn mentions_publisher(code: &str) -> bool {
-    code.contains("applicationEventPublisher") || code.contains("ApplicationEventPublisher")
+    [
+        "applicationEventPublisher",
+        "ApplicationEventPublisher",
+        "application_event_publisher",
+    ]
+    .iter()
+    .any(|name| code.contains(name))
 }
 
 fn declares_publisher_field(line: &str) -> bool {
@@ -1756,6 +1762,14 @@ mod tests {
                 .expect("parse")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn a_lua_class_that_only_publishes_keeps_its_event_runtime() {
+        let source = "---@class Orders\nOrders = {\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n";
+        let module =
+            extract(Path::new("server/controllers/Orders.lua"), source, "yon").expect("parse");
+        assert!(module.is_some());
     }
 
     #[test]
