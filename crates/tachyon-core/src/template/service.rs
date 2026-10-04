@@ -163,7 +163,7 @@ impl ServiceDefinition {
     }
 
     fn receives_native_capabilities(&self) -> bool {
-        self.script.is_none() && (self.linked() || self.runs_companion_in_page())
+        self.script.is_none() && [self.linked(), self.runs_companion_in_page()].contains(&true)
     }
 
     fn runs_companion_in_page(&self) -> bool {

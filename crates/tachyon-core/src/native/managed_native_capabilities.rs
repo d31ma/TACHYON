@@ -92,13 +92,23 @@ impl ManagedNativeCapabilities {
         let mut output = source.to_owned();
         let mut excluded = Vec::new();
         for (name, kind) in fields {
-            let (rewritten, changed) = Self::field(language, &output, &name, &kind);
-            if changed {
-                output = rewritten;
-                excluded.push(name);
-            }
+            Self::apply(language, &mut output, &mut excluded, name, &kind);
         }
         (output, excluded)
+    }
+
+    fn apply(
+        language: NativeCompanion,
+        output: &mut String,
+        excluded: &mut Vec<String>,
+        name: String,
+        kind: &str,
+    ) {
+        let (rewritten, changed) = Self::field(language, output, &name, kind);
+        if changed {
+            *output = rewritten;
+            excluded.push(name);
+        }
     }
 
     fn field(language: NativeCompanion, source: &str, name: &str, kind: &str) -> (String, bool) {
