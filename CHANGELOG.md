@@ -231,6 +231,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Windows app whose window grants no window controls builds again with
+  MSVC. The generated host left its `payload` parameter unused, and the
+  host's `/W4 /WX` flags turned that warning (C4100) into an error, so
+  `ty bundle --target windows` stopped before linking. Found by building and
+  running the host on Windows 11 with Visual Studio Build Tools 2022.
 - The Tac runtime's idle precache reads the whole body of every service
   module it fetches, also when it does not store the answer (`no-store`,
   `private` or `Vary`). Before, the unread body was cancelled by the

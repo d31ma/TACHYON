@@ -5,6 +5,7 @@ static RECT tachyon_fullscreen_bounds;
 static int tachyon_fullscreen_active;
 
 static char *tachyon_window_control(const char *capability, const char *payload) {
+  (void)payload;
   if (strcmp(capability, "window.granted") == 0) {
     int granted = __WINDOW_GRANTS__;
     return _strdup(granted ? "{\"granted\":true}" : "{\"granted\":false}");
