@@ -18,6 +18,7 @@ impl LinuxHostGenerator {
         "gmodule-2.0",
         "gio-unix-2.0",
     ];
+    const MENU_MNEMONIC: char = '_';
 
     pub(super) async fn generate(
         application: &NativeApplication,
@@ -32,6 +33,10 @@ impl LinuxHostGenerator {
         stage_application(index, web_bundle, stage, &resources)?;
 
         let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
+        super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
+            rust_companion.as_deref(),
+            &application.menus,
+        )?;
         let source_path = stage.join("project").join("tachyon_host.c");
         write_host_source(&source_path, &c_source(application, index))?;
         write(
@@ -73,7 +78,7 @@ async fn compile_rust_companion(
     Ok(())
 }
 
-async fn compile_c(source: &Path, executable: &Path) -> Result<String, Failure> {
+pub(super) async fn compile_c(source: &Path, executable: &Path) -> Result<String, Failure> {
     if !cfg!(target_os = "linux") {
         return Err(native_tool_failure(
             1605,
@@ -149,7 +154,7 @@ fn stage_icon(
     )
 }
 
-fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
+pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
     let framed = LinuxHostGenerator::C_HOST
         .replace(
             "__NATIVE_WINDOW_CONTROLS__",
@@ -162,7 +167,12 @@ fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String
         .replace(
             "__CONTENT_SECURITY_POLICY__",
             &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
-        );
+        )
+        .replace("__NATIVE_MENUS__", include_str!("linux_menus.c"));
+    let menu_items = super::desktop_menu_items::DesktopMenuItems::c_table(
+        &application.menus,
+        LinuxHostGenerator::MENU_MNEMONIC,
+    );
     let local_bundle = super::routes::c_local_bundle(index, &[], "tachyon://app");
     let entry_route = c_string_escape(&index.entry_route);
     let app_name = c_string_escape(&application.name);
@@ -176,6 +186,7 @@ fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String
             ("__APP_NAME__", &app_name),
             ("__BUNDLE_ID__", &bundle_id),
             ("__GTK_APP_ID__", &gtk_app_id),
+            ("__NATIVE_MENU_ITEMS__", &menu_items),
         ],
     )
 }
@@ -200,6 +211,9 @@ impl LinuxHostGenerator {
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <gio/gunixinputstream.h>
+#include <glib-unix.h>
+#include <signal.h>
+#include <stdbool.h>
 
 __LOCAL_BUNDLE_HELPERS__
 
@@ -213,7 +227,15 @@ static gchar *g_route = NULL;
 static WebKitWebView *g_view = NULL;
 static int g_bundle_fd = -1;
 static gint g_pending_publishes = 0;
+static gboolean g_application_failed = FALSE;
+static gboolean g_application_stopped = FALSE;
 static void tachyon_record(const gchar *event);
+
+typedef bool (*TachyonApplicationStart)(void);
+typedef void (*TachyonApplicationShutdown)(void);
+
+static TachyonApplicationStart g_application_start = NULL;
+static TachyonApplicationShutdown g_application_shutdown = NULL;
 
 __NATIVE_WINDOW_CONTROLS__
 
@@ -304,6 +326,23 @@ static gboolean tachyon_decide_policy(WebKitWebView *view, WebKitPolicyDecision 
   return FALSE;
 }
 
+static gboolean tachyon_menu_window_open(void) {
+  return g_native_window != NULL && g_view != NULL;
+}
+
+static gboolean tachyon_menu_page_shown(void) {
+  return tachyon_trusted_view(g_view);
+}
+
+static void tachyon_menu_open_route(const char *route) {
+  if (g_view == NULL) return;
+  gchar *uri = g_strdup_printf("tachyon://app%s%s", route, g_str_has_suffix(route, "/") ? "" : "/");
+  webkit_web_view_load_uri(g_view, uri);
+  g_free(uri);
+}
+
+__NATIVE_MENUS__
+
 static gchar *tachyon_resource_root(void) {
   char buffer[PATH_MAX];
   ssize_t length = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
@@ -367,6 +406,9 @@ static void tachyon_companion_load(void) {
     if (set_emit != NULL) {
       set_emit(tachyon_companion_emit);
     }
+    g_module_symbol(module, "tac_native_application_start", (gpointer *)&g_application_start);
+    g_module_symbol(module, "tac_native_application_shutdown", (gpointer *)&g_application_shutdown);
+    tachyon_menus_bind(module);
     if (g_companion_invoke != NULL && g_companion_free != NULL) {
       tachyon_record("companion.loaded");
     }
@@ -392,6 +434,13 @@ static gchar *tachyon_companion_invoke(const gchar *request) {
 static void tachyon_companion_dispose(void) {
   gchar *answer = tachyon_companion_invoke("{\"op\":\"host-dispose\"}");
   g_free(answer);
+  tachyon_menus_refresh();
+}
+
+static void tachyon_application_stop(void) {
+  if (g_application_stopped) return;
+  g_application_stopped = TRUE;
+  if (g_application_shutdown != NULL) g_application_shutdown();
 }
 
 static void tachyon_record(const gchar *event) {
@@ -459,6 +508,7 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
     const TachyonLocalRoute *route = tachyon_document_route(path);
     answer = operation && route != NULL && tachyon_payload_route_matches(payload, route->route)
       ? tachyon_companion_invoke(payload) : g_strdup("{\"error\":\"Native route mismatch.\"}");
+    tachyon_menus_refresh();
   } else {
     gchar *safe = tachyon_safe_name(capability);
     answer = g_strdup_printf(
@@ -482,14 +532,31 @@ static void tachyon_on_load(WebKitWebView *view, WebKitLoadEvent event, gpointer
   if (event == WEBKIT_LOAD_FINISHED) {
     tachyon_record("controller.mounted");
     tachyon_record("controller.active");
+    tachyon_menus_refresh();
   }
+}
+
+static gboolean tachyon_terminate(gpointer data) {
+  g_application_quit(G_APPLICATION(data));
+  return G_SOURCE_CONTINUE;
+}
+
+static void tachyon_startup(GApplication *app, gpointer data) {
+  (void)data;
+  tachyon_companion_load();
+  if (g_application_start != NULL && !g_application_start()) {
+    g_application_failed = TRUE;
+    tachyon_record("application.start.failed");
+    return;
+  }
+  tachyon_menus_install(GTK_APPLICATION(app));
 }
 
 static void tachyon_activate(GtkApplication *app, gpointer data) {
   (void)data;
+  if (g_application_failed) { g_application_quit(G_APPLICATION(app)); return; }
   if (g_native_window != NULL) { gtk_window_present(g_native_window); return; }
   tachyon_record("controller.created");
-  tachyon_companion_load();
   GtkWidget *window = gtk_application_window_new(app);
   g_native_window = GTK_WINDOW(window);
   g_object_add_weak_pointer(G_OBJECT(window), (gpointer *)&g_native_window);
@@ -511,6 +578,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   WebKitWebView *view = WEBKIT_WEB_VIEW(g_object_new(
       WEBKIT_TYPE_WEB_VIEW, "web-context", context, "network-session", session, "user-content-manager", manager, NULL));
   g_view = view;
+  g_object_add_weak_pointer(G_OBJECT(view), (gpointer *)&g_view);
 
   WebKitSettings *settings = webkit_web_view_get_settings(view);
   webkit_settings_set_enable_javascript(settings, TRUE);
@@ -554,6 +622,7 @@ static void tachyon_shutdown(GApplication *app, gpointer data) {
   (void)app;
   (void)data;
   tachyon_companion_dispose();
+  tachyon_application_stop();
   tachyon_record("controller.destroyed");
   g_view = NULL;
   if (g_bundle_fd >= 0) { close(g_bundle_fd); g_bundle_fd = -1; }
@@ -562,8 +631,11 @@ static void tachyon_shutdown(GApplication *app, gpointer data) {
 int main(int argc, char **argv) {
   g_route = g_strdup(TACHYON_ENTRY_ROUTE);
   GtkApplication *app = gtk_application_new("__GTK_APP_ID__", G_APPLICATION_DEFAULT_FLAGS);
+  g_signal_connect(app, "startup", G_CALLBACK(tachyon_startup), NULL);
   g_signal_connect(app, "activate", G_CALLBACK(tachyon_activate), NULL);
   g_signal_connect(app, "shutdown", G_CALLBACK(tachyon_shutdown), NULL);
+  g_unix_signal_add(SIGTERM, tachyon_terminate, app);
+  g_unix_signal_add(SIGINT, tachyon_terminate, app);
   int status = g_application_run(G_APPLICATION(app), argc, argv);
   g_object_unref(app);
   g_free(g_route);

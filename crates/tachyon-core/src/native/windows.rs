@@ -28,6 +28,10 @@ impl WindowsHostGenerator {
 
         let companion = stage_companion(companions, stage, &application.application_id)?;
         let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
+        super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
+            rust_companion.as_deref(),
+            &application.menus,
+        )?;
         let source_path = stage.join("project").join("tachyon_host.c");
         write_host_source(&source_path, &c_source(application, index, companions))?;
         write(
@@ -58,6 +62,7 @@ impl WindowsHostGenerator {
 }
 
 impl WindowsHostGenerator {
+    const MENU_MNEMONIC: char = '&';
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
     const LINKER_ARGUMENTS: [&str; 12] = [
         "WebView2LoaderStatic.lib",
@@ -564,7 +569,7 @@ fn application_manifest(application: &NativeApplication) -> String {
     )
 }
 
-fn c_source(
+pub(super) fn c_source(
     application: &NativeApplication,
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
@@ -581,7 +586,12 @@ fn c_source(
         .replace(
             "__CONTENT_SECURITY_POLICY__",
             &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
-        );
+        )
+        .replace("__NATIVE_MENUS__", include_str!("windows_menus.c"));
+    let menu_items = super::desktop_menu_items::DesktopMenuItems::c_table(
+        &application.menus,
+        WindowsHostGenerator::MENU_MNEMONIC,
+    );
     let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
     let app_name = c_string_escape(&application.name);
     let bundle_id = c_string_escape(&application.application_id);
@@ -593,6 +603,7 @@ fn c_source(
             ("__APP_NAME__", &app_name),
             ("__BUNDLE_ID__", &bundle_id),
             ("__ENTRY_ROUTE__", &entry_route),
+            ("__NATIVE_MENU_ITEMS__", &menu_items),
         ],
     )
 }
@@ -617,6 +628,8 @@ impl WindowsHostGenerator {
 #include <objbase.h>
 #include <shellapi.h>
 #include <shlwapi.h>
+#include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -641,6 +654,7 @@ static PVOID volatile g_publish_window = NULL;
 static const char *g_route = TACHYON_ENTRY_ROUTE;
 static wchar_t g_resource_root[MAX_PATH];
 static LONG g_pending_publishes = 0;
+static BOOL g_application_stopped = FALSE;
 
 typedef const char *(*TachyonCompanionInvoke)(const char *);
 typedef void (*TachyonCompanionFree)(const char *);
@@ -649,6 +663,11 @@ typedef void (*TachyonCompanionSetEmit)(TachyonCompanionEmit);
 typedef unsigned char *(*TachyonCapabilityCall)(const char *, const char *, size_t *);
 typedef void (*TachyonCapabilityFree)(unsigned char *, size_t);
 typedef void (*TachyonCompanionSetCapabilityAdapter)(TachyonCapabilityCall, TachyonCapabilityFree);
+typedef bool (*TachyonApplicationStart)(void);
+typedef void (*TachyonApplicationShutdown)(void);
+
+static TachyonApplicationStart g_application_start = NULL;
+static TachyonApplicationShutdown g_application_shutdown = NULL;
 
 __WINDOW_CONTROLS__
 
@@ -678,6 +697,27 @@ static const TachyonLocalRoute *tachyon_current_route(void) {
   free(uri); CoTaskMemFree(source);
   return route;
 }
+
+static wchar_t *tachyon_widen(const char *value);
+
+static BOOL tachyon_menu_window_open(void) {
+  return g_window != NULL && g_webview != NULL;
+}
+
+static BOOL tachyon_menu_page_shown(void) {
+  return tachyon_current_route() != NULL;
+}
+
+static void tachyon_menu_open_route(const char *route) {
+  wchar_t *wide = g_webview != NULL ? tachyon_widen(route) : NULL;
+  if (wide == NULL) return;
+  wchar_t document[TACHYON_PATH_LIMIT];
+  if (_snwprintf_s(document, TACHYON_PATH_LIMIT, _TRUNCATE, L"https://tachyon.local%s%s", wide,
+                   wide[wcslen(wide) - 1] != L'/' ? L"/" : L"") >= 0) ICoreWebView2_Navigate(g_webview, document);
+  free(wide);
+}
+
+__NATIVE_MENUS__
 
 static void tachyon_record(const char *event) {
   char directory[MAX_PATH];
@@ -714,24 +754,24 @@ static void tachyon_companion_emit(const char *payload) {
   }
 }
 
-static void tachyon_companion_load_one(const wchar_t *filename, int language) {
+static HMODULE tachyon_companion_load_one(const wchar_t *filename, int language) {
   wchar_t path[MAX_PATH];
   DWORD length = GetModuleFileNameW(NULL, path, MAX_PATH);
   if (length == 0 || length >= MAX_PATH) {
-    return;
+    return NULL;
   }
   wchar_t *separator = wcsrchr(path, L'\\');
   if (separator == NULL) {
-    return;
+    return NULL;
   }
   separator[1] = L'\0';
   if (wcslen(path) + wcslen(filename) >= MAX_PATH) {
-    return;
+    return NULL;
   }
   wcscat_s(path, MAX_PATH, filename);
   HMODULE library = LoadLibraryExW(path, NULL, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
   if (library == NULL) {
-    return;
+    return NULL;
   }
   g_companion_invoke[language] = (TachyonCompanionInvoke)GetProcAddress(library, "tac_native_invoke");
   g_companion_free[language] = (TachyonCompanionFree)GetProcAddress(library, "tac_native_free");
@@ -746,11 +786,22 @@ static void tachyon_companion_load_one(const wchar_t *filename, int language) {
   if (g_companion_invoke[language] != NULL) {
     tachyon_record("companion.loaded");
   }
+  return library;
 }
 
 static void tachyon_companion_load(void) {
-  tachyon_companion_load_one(L"TachyonRustCompanion.dll", 1);
+  HMODULE rust = tachyon_companion_load_one(L"TachyonRustCompanion.dll", 1);
   tachyon_companion_load_one(L"TachyonCompanion.dll", 2);
+  if (rust == NULL) return;
+  g_application_start = (TachyonApplicationStart)(void (*)(void))GetProcAddress(rust, "tac_native_application_start");
+  g_application_shutdown = (TachyonApplicationShutdown)(void (*)(void))GetProcAddress(rust, "tac_native_application_shutdown");
+  tachyon_menus_bind(rust);
+}
+
+static void tachyon_application_stop(void) {
+  if (g_application_stopped) return;
+  g_application_stopped = TRUE;
+  if (g_application_shutdown != NULL) g_application_shutdown();
 }
 
 static void tachyon_companion_dispose(void) {
@@ -1061,6 +1112,23 @@ static HRESULT STDMETHODCALLTYPE script_invoke(ICoreWebView2AddScriptToExecuteOn
 static ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandlerVtbl g_script_vtbl = {script_query, script_add_ref, script_release, script_invoke};
 static TachyonScriptHandler g_script_handler = {&g_script_vtbl};
 
+typedef struct { ICoreWebView2AcceleratorKeyPressedEventHandlerVtbl *lpVtbl; } TachyonAcceleratorHandler;
+static HRESULT STDMETHODCALLTYPE accelerator_query(ICoreWebView2AcceleratorKeyPressedEventHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{b29c7e28-fa79-41a8-8e44-65811c76dcb2}"); }
+static ULONG STDMETHODCALLTYPE accelerator_add_ref(ICoreWebView2AcceleratorKeyPressedEventHandler *self) { (void)self; return 1; }
+static ULONG STDMETHODCALLTYPE accelerator_release(ICoreWebView2AcceleratorKeyPressedEventHandler *self) { (void)self; return 1; }
+static HRESULT STDMETHODCALLTYPE accelerator_invoke(ICoreWebView2AcceleratorKeyPressedEventHandler *self, ICoreWebView2Controller *sender, ICoreWebView2AcceleratorKeyPressedEventArgs *arguments) {
+  (void)self; (void)sender;
+  COREWEBVIEW2_KEY_EVENT_KIND kind;
+  UINT key;
+  if (FAILED(ICoreWebView2AcceleratorKeyPressedEventArgs_get_KeyEventKind(arguments, &kind)) ||
+      FAILED(ICoreWebView2AcceleratorKeyPressedEventArgs_get_VirtualKey(arguments, &key))) return S_OK;
+  BOOL down = kind == COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN || kind == COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN;
+  if (down && tachyon_menus_key(g_window, key)) ICoreWebView2AcceleratorKeyPressedEventArgs_put_Handled(arguments, TRUE);
+  return S_OK;
+}
+static ICoreWebView2AcceleratorKeyPressedEventHandlerVtbl g_accelerator_vtbl = {accelerator_query, accelerator_add_ref, accelerator_release, accelerator_invoke};
+static TachyonAcceleratorHandler g_accelerator_handler = {&g_accelerator_vtbl};
+
 typedef struct {
   ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl *lpVtbl;
 } TachyonControllerHandler;
@@ -1097,6 +1165,8 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   ICoreWebView2Controller_put_Bounds(controller, bounds);
 
   EventRegistrationToken token;
+  ICoreWebView2Controller_add_AcceleratorKeyPressed(
+      controller, (ICoreWebView2AcceleratorKeyPressedEventHandler *)&g_accelerator_handler, &token);
   ICoreWebView2_add_WebMessageReceived(
       g_webview, (ICoreWebView2WebMessageReceivedEventHandler *)&g_message_handler, &token);
   ICoreWebView2_add_NavigationStarting(g_webview, (ICoreWebView2NavigationStartingEventHandler *)&g_navigation_handler, &token);
@@ -1204,6 +1274,15 @@ static LRESULT CALLBACK tachyon_window_proc(HWND window, UINT message, WPARAM wp
       InterlockedDecrement(&g_pending_publishes);
       return 0;
     }
+    case WM_COMMAND:
+      if (tachyon_menus_command(window, LOWORD(wparam))) return 0;
+      break;
+    case WM_INITMENUPOPUP:
+      tachyon_menus_refresh((HMENU)wparam);
+      return 0;
+    case WM_ENDSESSION:
+      if (wparam) { tachyon_companion_dispose(); tachyon_application_stop(); }
+      return 0;
     case WM_DESTROY:
       tachyon_companion_dispose();
       InterlockedExchangePointer(&g_publish_window, NULL);
@@ -1224,8 +1303,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   (void)previous;
   (void)arguments;
   if (FAILED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) return 1;
-  tachyon_record("controller.created");
   tachyon_companion_load();
+  if (g_application_start != NULL && !g_application_start()) {
+    tachyon_record("application.start.failed");
+    CoUninitialize();
+    return 1;
+  }
+  tachyon_record("controller.created");
 
   WNDCLASSEXW window_class = {0};
   window_class.cbSize = sizeof(window_class);
@@ -1240,8 +1324,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
                              WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 1024, 768, NULL,
                              NULL, instance, NULL);
   free(title);
-  if (g_window == NULL) { CoUninitialize(); return 1; }
+  if (g_window == NULL) { tachyon_application_stop(); CoUninitialize(); return 1; }
   InterlockedExchangePointer(&g_publish_window, g_window);
+  tachyon_menus_install(g_window);
   ShowWindow(g_window, show);
 
   CreateCoreWebView2EnvironmentWithOptions(
@@ -1251,9 +1336,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   MSG message;
   BOOL message_result;
   while ((message_result = GetMessageW(&message, NULL, 0, 0)) > 0) {
+    if (tachyon_menus_translate(g_window, &message)) continue;
     TranslateMessage(&message);
     DispatchMessageW(&message);
   }
+  tachyon_application_stop();
+  tachyon_menus_destroy();
   CoUninitialize();
   return message_result < 0 ? 1 : 0;
 }

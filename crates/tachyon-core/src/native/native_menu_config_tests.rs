@@ -193,18 +193,23 @@ fn native_menu_declarations_require_exact_compiled_static_documents_and_supporte
     let root = NativeMenuTests::project(&json!({"file":[NativeMenuTests::entry("x","/")]}));
     let application = NativeApplication::discover(root.path()).expect("local page");
     for target in [
-        NativeTarget::Windows,
+        NativeTarget::Macos,
         NativeTarget::Linux,
-        NativeTarget::Ios,
-        NativeTarget::Android,
+        NativeTarget::Windows,
     ] {
+        application
+            .menus
+            .validate_for(target, &NativeMenuTests::index())
+            .expect("desktop hosts have a menu bar");
+    }
+    for target in [NativeTarget::Ios, NativeTarget::Android] {
         assert!(
             application
                 .menus
                 .validate_for(target, &NativeMenuTests::index())
                 .expect_err("unsupported target")
                 .to_string()
-                .contains("only on macOS")
+                .contains("only on macOS, Linux and Windows")
         );
         NativeMenuConfig::default()
             .validate_for(target, &NativeMenuTests::index())

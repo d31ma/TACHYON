@@ -5,6 +5,12 @@ use tachyon_contracts::NativeTarget;
 pub(crate) struct NativeApplicationLifetime;
 
 impl NativeApplicationLifetime {
+    const DESKTOP_TARGETS: [NativeTarget; 3] = [
+        NativeTarget::Macos,
+        NativeTarget::Linux,
+        NativeTarget::Windows,
+    ];
+
     pub(crate) fn supported(path: &Path, value: &str) -> bool {
         Self::value(path, value)
     }
@@ -54,19 +60,20 @@ impl NativeApplicationLifetime {
     fn message(value: &str) -> &'static str {
         match value {
             "application" => {
-                "Application lifetime requires a client Rust Service and a native macOS build; other languages, roles and realms are unsupported."
+                "Application lifetime requires a client Rust Service and a native macOS, Linux or Windows build; other languages, roles and realms are unsupported."
             }
             _ => "Lifetime.value must be singleton or prototype",
         }
     }
 
     fn target_at(path: &Path, at: usize, target: Option<NativeTarget>) -> Result<(), Failure> {
-        (target == Some(NativeTarget::Macos))
-            .then_some(())
+        target
+            .filter(|target| Self::DESKTOP_TARGETS.contains(target))
+            .map(|_| ())
             .ok_or_else(|| {
                 Failure::one(crate::failure::diagnostic(
                     1406,
-                    "Application lifetime is supported only by native macOS/Rust; browser and other native targets cannot own this provider.",
+                    "Application lifetime is supported only by native macOS, Linux and Windows builds with Rust; browser, iOS and Android targets cannot own this provider.",
                     None,
                     crate::failure::source_span(&path.to_string_lossy(), at, at + "Lifetime".len()),
                 ))

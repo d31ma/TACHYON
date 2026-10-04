@@ -5,6 +5,7 @@ mod browser_task_tests;
 mod compiler;
 mod config;
 mod csharp_web_apis;
+mod desktop_menu_items;
 mod dotnet_web_release;
 mod events;
 mod file_picker_sources;
@@ -30,6 +31,8 @@ mod kotlin_document_title_tests;
 #[cfg(test)]
 mod kotlin_document_title_scope_tests;
 mod linux;
+#[cfg(test)]
+mod linux_host_tests;
 mod linux_window_controls;
 mod mac_os_menu_action_source;
 mod mac_os_menu_source;
@@ -130,6 +133,8 @@ mod swift_web_services;
 mod vendor_provenance;
 mod web_program_build;
 mod windows;
+#[cfg(test)]
+mod windows_host_tests;
 
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{

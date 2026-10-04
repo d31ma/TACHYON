@@ -24,6 +24,12 @@ impl NativeMenuConfig {
         self.require_shortcuts()
     }
 
+    const DESKTOP_TARGETS: [tachyon_contracts::NativeTarget; 3] = [
+        tachyon_contracts::NativeTarget::Macos,
+        tachyon_contracts::NativeTarget::Linux,
+        tachyon_contracts::NativeTarget::Windows,
+    ];
+
     pub(super) fn validate_for(
         &self,
         target: tachyon_contracts::NativeTarget,
@@ -89,11 +95,11 @@ impl NativeMenuConfig {
     }
 
     fn require_target(&self, target: tachyon_contracts::NativeTarget) -> Result<(), Failure> {
-        (self.is_empty() || target == tachyon_contracts::NativeTarget::Macos)
+        (self.is_empty() || Self::DESKTOP_TARGETS.contains(&target))
             .then_some(())
             .ok_or_else(|| {
                 super::config::config_failure(
-                    "Declared native menu navigation is currently supported only on macOS.",
+                    "Declared native menus are supported only on macOS, Linux and Windows; iOS and Android have no menu bar.",
                 )
             })
     }

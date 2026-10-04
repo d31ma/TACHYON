@@ -124,19 +124,15 @@ fn native_application_lifetime_is_located_and_target_scoped() {
         .expect("roles");
     assert!(!roles.prototype);
     assert!(roles.application.is_some());
-    crate::behavior::NativeApplicationLifetime::target(
-        path,
-        roles.application,
-        Some(NativeTarget::Macos),
-    )
-    .expect("Mac");
     for target in [
-        None,
-        Some(NativeTarget::Linux),
-        Some(NativeTarget::Windows),
-        Some(NativeTarget::Ios),
-        Some(NativeTarget::Android),
+        NativeTarget::Macos,
+        NativeTarget::Linux,
+        NativeTarget::Windows,
     ] {
+        crate::behavior::NativeApplicationLifetime::target(path, roles.application, Some(target))
+            .expect("desktop host owns the application lifetime");
+    }
+    for target in [None, Some(NativeTarget::Ios), Some(NativeTarget::Android)] {
         let failure =
             crate::behavior::NativeApplicationLifetime::target(path, roles.application, target)
                 .expect_err("target refusal");
