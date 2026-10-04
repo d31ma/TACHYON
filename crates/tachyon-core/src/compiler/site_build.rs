@@ -571,7 +571,7 @@ impl<'a> SiteBuild<'a> {
         if has_tac_routes {
             self.add_file(
                 ".tachyon/tac-client.js",
-                ClientViewRenderer::RUNTIME.as_bytes().to_vec(),
+                ClientViewRenderer::shipped_runtime().as_bytes().to_vec(),
             );
         }
     }

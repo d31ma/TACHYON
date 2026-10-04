@@ -103,3 +103,16 @@ not about the language:
   copy of the field. `TacValue` stays for values with no model.
 - Other generic fields, such as `HashMap`, and path types still stay
   inside Rust.
+
+## Amendment (2026-10-04): the module is embedded as hexadecimal text
+
+- `tachyon-rust.js` still embeds the module, so a page opened from `file:`
+  loads it. The module is now hexadecimal text, not base64.
+- Hexadecimal keeps each byte in two characters, so Brotli and gzip find the
+  same repeats as in the binary. For the event-mesh fixture (a 125,788 byte
+  module), the text is 58,099 bytes with Brotli instead of 69,658 with base64,
+  and 69,443 bytes with gzip instead of 79,036. The file without compression
+  is larger (two characters for each byte instead of four for three), and
+  decoding takes about as long as `atob`.
+- The script budget (ADR 0074) counts this file, so the change also gives a
+  route with Rust services about 11 KB more room.

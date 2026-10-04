@@ -144,7 +144,10 @@ async fn build_language(
             let module = crate::native::web_assembly(snapshot_root, &chosen, profile).await?;
             note = module.note;
             WebEngine::linear_memory(
-                &WebEngine::RUST_INSTANCE.replace("__WASM__", &base64(&module.binary)),
+                &WebEngine::RUST_INSTANCE.replace(
+                    "__WASM__",
+                    &crate::compiler::ContentDigest::hex(&module.binary),
+                ),
             )
         }
         WebLanguage::CSharp => {
@@ -329,7 +332,9 @@ const tachyonImports = {
         include_str!("native/browser/tac-rust-tasks.js"),
         r"const rustTasks = new TacRustTasks()
 const rustRead = (pointer, length) => decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length))
-const binary = Uint8Array.from(atob('__WASM__'), (character) => character.charCodeAt(0))
+const wasmText = '__WASM__'
+const binary = new Uint8Array(wasmText.length / 2)
+for (let index = 0; index < binary.length; index += 1) binary[index] = parseInt(wasmText.slice(index * 2, index * 2 + 2), 16)
 const { instance } = await WebAssembly.instantiate(binary, { tachyon: { ...tachyonImports, ...rustTasks.imports(rustRead) } })
 const exports = instance.exports
 rustTasks.attach(exports)
@@ -772,6 +777,9 @@ mod fsharp_http_browser_fixture;
 mod ordinary_browser_fixture;
 #[cfg(test)]
 mod reach_tests;
+
+#[cfg(test)]
+mod rust_embedding_tests;
 
 #[cfg(test)]
 mod web_api_tests;

@@ -54,6 +54,11 @@ impl<'a> ClientViewRenderer<'a> {
         include_str!("tac-client.js")
     );
 
+    pub(crate) fn shipped_runtime() -> &'static str {
+        static SHIPPED: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        SHIPPED.get_or_init(|| super::ShippedScript::compact(Self::RUNTIME))
+    }
+
     pub(crate) const fn new(
         components: &'a ComponentRegistry,
         services: &'a ServiceRegistry,

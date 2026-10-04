@@ -61,7 +61,9 @@ impl ServiceScript {
     pub(super) fn runtime(enabled: bool) -> Option<(PathBuf, Vec<u8>)> {
         enabled.then(|| {
             let mut source = b"export ".to_vec();
-            source.extend_from_slice(Self::RUNTIME.as_bytes());
+            source.extend_from_slice(
+                crate::template::ShippedScript::compact(Self::RUNTIME).as_bytes(),
+            );
             (PathBuf::from(Self::RUNTIME_PATH), source)
         })
     }

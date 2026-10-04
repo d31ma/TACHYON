@@ -20,6 +20,10 @@ mod service_reach;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod service_reach_tests;
+mod shipped_script;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod shipped_script_tests;
 mod slotted_children;
 
 pub(crate) use accessibility::AccessibilityCheck;
@@ -35,5 +39,6 @@ pub(crate) use model::{
 };
 pub(crate) use service::{ServiceDefinition, ServiceRegistry, instance_name};
 pub(crate) use service_reach::ServiceReach;
+pub(crate) use shipped_script::ShippedScript;
 
 pub(crate) use required_fields::RequiredFields;
