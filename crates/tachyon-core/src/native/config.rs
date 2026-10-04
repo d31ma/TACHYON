@@ -118,22 +118,25 @@ impl WindowConfiguration {
         Ok(())
     }
 
-    fn ensure_title_bar(&self) -> Result<(), Failure> {
-        let Some(inset) = self.title_bar_button_inset else {
-            return Ok(());
-        };
-        if !self.title_bar.is_integrated() {
-            return Err(config_failure(
-                "Manifest tac.application.window.titleBarButtonInset needs \"titleBar\": \"integrated\".",
-            ));
-        }
-        if !inset.is_within_bounds() {
-            return Err(config_failure(&format!(
-                "Manifest tac.application.window.titleBarButtonInset leading and top must be 0 to {} points.",
-                super::native_title_bar_button_inset::NativeTitleBarButtonInset::MAX_POINTS
-            )));
-        }
-        Ok(())
+    fn ensure_button_inset_needs_integrated(&self) -> Result<(), Failure> {
+        self.title_bar_button_inset
+            .filter(|_| !self.title_bar.is_integrated())
+            .map_or(Ok(()), |_| {
+                Err(config_failure(
+                    "Manifest tac.application.window.titleBarButtonInset needs \"titleBar\": \"integrated\".",
+                ))
+            })
+    }
+
+    fn ensure_button_inset_bounds(&self) -> Result<(), Failure> {
+        self.title_bar_button_inset
+            .filter(|inset| !inset.is_within_bounds())
+            .map_or(Ok(()), |_| {
+                Err(config_failure(&format!(
+                    "Manifest tac.application.window.titleBarButtonInset leading and top must be 0 to {} points.",
+                    super::native_title_bar_button_inset::NativeTitleBarButtonInset::MAX_POINTS
+                )))
+            })
     }
 }
 
@@ -271,7 +274,8 @@ fn validate_manifest_application(application: &ManifestApplication) -> Result<()
         return Ok(());
     };
     window.ensure_known_controls()?;
-    window.ensure_title_bar()?;
+    window.ensure_button_inset_needs_integrated()?;
+    window.ensure_button_inset_bounds()?;
     if !window.is_within_bounds() {
         return Err(config_failure(
             "Manifest tac.application.window sizes must be 64 to 16384, a minimum no larger than its size, and each control listed once.",

@@ -15,13 +15,18 @@ impl NativeTitleBar {
     }
 
     pub(super) fn fallback_note(self, target: NativeTarget) -> Option<String> {
-        if !self.is_integrated() || target == NativeTarget::Macos {
-            return None;
-        }
+        self.falls_back_on(target).then(|| Self::note(target))
+    }
+
+    fn falls_back_on(self, target: NativeTarget) -> bool {
+        self.is_integrated() && target != NativeTarget::Macos
+    }
+
+    fn note(target: NativeTarget) -> String {
         let platform = super::compiler::native_target_directory(target);
-        Some(format!(
+        format!(
             "Note: tac.application.window.titleBar \"integrated\" is built only for macOS. The {platform} app keeps the standard title bar (ADR 0099)."
-        ))
+        )
     }
 }
 

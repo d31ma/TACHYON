@@ -11,6 +11,6 @@ impl NativeTitleBarButtonInset {
     pub(super) const MAX_POINTS: u32 = 200;
 
     pub(super) fn is_within_bounds(self) -> bool {
-        self.leading <= Self::MAX_POINTS && self.top <= Self::MAX_POINTS
+        self.leading.max(self.top) <= Self::MAX_POINTS
     }
 }

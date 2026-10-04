@@ -6139,7 +6139,7 @@
             },
             {
               "name": "client/pages/tac.html",
-              "code": "<observatory-top-bar />\n<main>\n  <h1>What is running</h1>\n  <button>Refresh</button>\n</main>\n"
+              "code": "<observatory-top-bar />\n<observatory-running />\n"
             },
             {
               "name": "client/components/observatory/top-bar/tac.html",
@@ -6148,6 +6148,10 @@
             {
               "name": "client/components/observatory/top-bar/tac.css",
               "code": ".top-bar {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  min-height: max(84px, var(--tac-titlebar-height, 0px));\n  padding-inline-start: max(16px, var(--tac-titlebar-leading-inset, 0px));\n  padding-inline-end: max(16px, var(--tac-titlebar-trailing-inset, 0px));\n  background: light-dark(#f4f6f8, #1f2226);\n}\n"
+            },
+            {
+              "name": "client/components/observatory/running/tac.html",
+              "code": "<main>\n  <h1>What is running</h1>\n  <button>Refresh</button>\n</main>\n"
             }
           ],
           "target": "macos"

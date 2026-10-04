@@ -25,6 +25,12 @@
       "code": {
         "file": "client/components/observatory/top-bar/tac.css"
       }
+    },
+    {
+      "name": "client/components/observatory/running/tac.html",
+      "code": {
+        "file": "client/components/observatory/running/tac.html"
+      }
     }
   ],
   "target": "macos"
