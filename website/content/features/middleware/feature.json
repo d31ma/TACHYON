@@ -87,6 +87,12 @@
       "code": {
         "file": "middleware.rb"
       }
+    },
+    {
+      "name": "middleware.lua",
+      "code": {
+        "file": "middleware.lua"
+      }
     }
   ]
 }

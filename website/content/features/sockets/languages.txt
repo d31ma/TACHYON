@@ -29,4 +29,23 @@ Every Tac language receives the messages with @OnEvent.
 
 Limits: messages are JSON text of at most 64 KiB, at most 32
 sockets are open at once, five idle minutes or one hour close a
-socket, and only pages from the same origin may open it.
+socket, and only pages from the same origin may open it. A
+socket path has no {variables}; send the value in a message.
+
+What the browser gets when a rule is broken:
+
+  403   the page comes from another origin
+  426   a plain HTTP request asks for the socket path
+  503   32 sockets are already open; try again later
+  1007  the message is not JSON, or does not fit the model
+  1003  the message is binary data, not JSON text
+  1009  the message is larger than 64 KiB
+  1001  the socket was idle for five minutes, the browser went
+        away, or the server is stopping
+
+The route list in /api.json and the OPTIONS answer of the path
+mark a socket with "socket": true. When a socket closes with
+another code, the browser client opens it again after 1, 2, 4, 8
+and 16 seconds. It does not open it again after 1000, 1003, 1007
+or 1009. While the socket is not open, send(message) keeps at
+most 16 messages and sends them when the socket opens.
