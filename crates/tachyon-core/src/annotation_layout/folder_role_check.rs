@@ -1,5 +1,5 @@
 use super::{Declaration, Failure, Input, LuaView, Path, Role, primary_role};
-use crate::annotation_rules::AnnotationRules;
+use crate::annotation_rules::{AnnotationRules, Realm};
 use crate::failure::{diagnostic, source_span};
 
 #[cfg(test)]
@@ -127,7 +127,7 @@ impl FolderRoleCheck {
     fn failure(input: &Input<'_>, realm: &str, folder: &str, marker: &str) -> Failure {
         let spelling = Self::spelling(input.extension, marker, Self::environment(realm));
         let expected = Self::expected_spelling(folder, &spelling);
-        let unsupported = AnnotationRules::unavailable(marker, input.extension, Self::environment(realm)).map(|message| format!(" {message} This concrete role needs a supported implementation; it cannot be silently treated as plain helper code.")).unwrap_or_default();
+        let unsupported = Realm::named(Self::environment(realm)).and_then(|checked| AnnotationRules::checked_refusal(marker, input.extension, checked)).map(|message| format!(" {message} This concrete role needs a supported implementation; it cannot be silently treated as plain helper code.")).unwrap_or_default();
         let portable = input.path.to_string_lossy().replace('\\', "/");
         let native = Self::native_package_help(input.extension);
         Failure::one(diagnostic(

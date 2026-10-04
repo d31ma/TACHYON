@@ -100,6 +100,34 @@ fn nested_services_require_native_markers_in_each_supported_language() {
 }
 
 #[test]
+fn java_and_fsharp_tac_services_need_only_their_marker() {
+    for (name, marked, plain) in [
+        (
+            "client/services/MoneyService.java",
+            "@Service\nclass MoneyService {\n    int count = 1;\n}\n",
+            "class MoneyService {\n    int count = 1;\n}\n",
+        ),
+        (
+            "client/services/MoneyService.fs",
+            "[<Service>]\ntype MoneyService() =\n    member val Count = 1 with get, set\n",
+            "type MoneyService() =\n    member val Count = 1 with get, set\n",
+        ),
+    ] {
+        let path = Path::new(name);
+        FolderRoleCheck::check(path, marked).unwrap_or_else(|failure| panic!("{name}: {failure}"));
+        let failure = FolderRoleCheck::check(path, plain).expect_err(name);
+        let message = &failure.diagnostics()[0].message;
+        assert_eq!(
+            failure.diagnostics()[0].code.number(),
+            FolderRoleCheck::CODE,
+            "{name}"
+        );
+        assert!(message.contains("Service` marker."), "{message}");
+        assert!(!message.contains("is not available"), "{message}");
+    }
+}
+
+#[test]
 fn a_lua_service_without_its_marker_is_told_the_lua_spelling() {
     let failure = FolderRoleCheck::check(
         Path::new("client/services/BasketService.lua"),
