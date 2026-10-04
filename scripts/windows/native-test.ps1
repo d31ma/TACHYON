@@ -157,7 +157,8 @@ function Assert-NativeArtifacts([string] $out, [string] $app) {
         'NativeGate\resources\NativeIndex.json',
         'NativeGate\resources\WebBundle\index.html',
         'NativeGate\resources\WebBundle\items\_id\index.html',
-        'NativeGate\resources\WebBundle\shared\native-gate.js',
+        'NativeGate\resources\WebBundle\shared\native-gate.css',
+        'NativeGate\resources\WebBundle\.tachyon\services\GateRootService.js',
         'artifact-manifest.json', 'tachyon.host.json'
     )) {
         if (-not (Test-Path (Join-Path $out $relative))) { throw "missing artifact $relative" }
