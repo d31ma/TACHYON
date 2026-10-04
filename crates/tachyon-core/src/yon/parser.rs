@@ -1308,10 +1308,10 @@ fn validate_streaming_method(
             "Python async generators are not supported; use a synchronous generator for streaming",
         ));
     }
-    if streaming && matches!(input.extension, "rs" | "java" | "go") {
+    if streaming && matches!(input.extension, "rs" | "java") {
         return Err(input.failure(
             start,
-            "@StreamRoute needs JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby or Lua: Java, Groovy, Rust and Go have no generator to produce the stream",
+            "@StreamRoute needs JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby, Lua or Go: Java, Groovy and Rust have no generator to produce the stream",
         ));
     }
     Ok(())

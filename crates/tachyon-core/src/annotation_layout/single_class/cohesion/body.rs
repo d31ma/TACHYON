@@ -17,6 +17,8 @@ impl<'r, 'a> BodyScan<'r, 'a> {
     ];
     const CHAINED: &'static [&'static str] = &["elif", "elsif", "elseif"];
     const CONDITION_ENDS: &'static [&'static str] = &["{", ":", "then", "=>", "do", "else"];
+    const ITERATOR_STOP_CHECK: [&'static str; 3] = ["if", "!", "yield"];
+    const ITERATOR_STOP_BODY: [&'static str; 3] = ["{", "return", "}"];
 
     pub(super) fn new(words: &'r Words<'a>, spelling: &'r Spelling) -> Self {
         Self { words, spelling }
@@ -89,11 +91,29 @@ impl<'r, 'a> BodyScan<'r, 'a> {
     fn keyword(&self, at: usize) -> Option<Finding> {
         let text = self.words.text(at);
         let placed = !self.spelling.needs_line_start(text) | self.words.line_start(at);
-        let found = self.spelling.is_keyword(text) & placed & !self.words.after_member_access(at);
+        let found = self.spelling.is_keyword(text)
+            & placed
+            & !self.words.after_member_access(at)
+            & !self.is_iterator_stop(at);
         let chained = Self::CHAINED.contains(&text)
             | ((text == "if") & (self.words.text(at.wrapping_sub(1)) == "else"));
         let counts = Spelling::counts(text) & !chained;
         found.then(|| Self::finding(at, text, counts, !Self::LOOPS.contains(&text)))
+    }
+
+    fn is_iterator_stop(&self, at: usize) -> bool {
+        let call = at + Self::ITERATOR_STOP_CHECK.len();
+        let body = self.words.after_group(call);
+        self.words_follow(at, &Self::ITERATOR_STOP_CHECK)
+            & (self.words.text(call) == "(")
+            & self.words_follow(body, &Self::ITERATOR_STOP_BODY)
+    }
+
+    fn words_follow(&self, at: usize, expected: &[&str]) -> bool {
+        expected
+            .iter()
+            .enumerate()
+            .all(|(offset, word)| self.words.text(at + offset) == *word)
     }
 
     fn short_circuit(&self, at: usize, conditions: &[Range<usize>]) -> Option<Finding> {

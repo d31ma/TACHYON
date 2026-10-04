@@ -1,7 +1,7 @@
 {
   "heading": "Streaming: Yon",
   "axis": "language",
-  "body": "StreamRoute marks a controller route method that answers GET requests with a stream of server-sent events. It replaces GetRoute with Stream: one marker says that the route streams. The method name starts with stream, such as streamEvents, StreamEvents or stream_events. The server sends text/event-stream headers before it invokes the route. Then it sends each yielded value as one SSE (server-sent events) data frame, and an end event when the method finishes. The route method only passes on the values; a private generator method holds the loop. StreamRoute is Yon-only and takes an optional path, like the other route annotations. A generator under GetRoute or another route annotation is refused, and so is Stream: `ty migrate fix --write` turns GetRoute with Stream into StreamRoute and renames a get method to stream when that is safe. In one controller, either every GET route is a StreamRoute or none is. Python supports only synchronous generators. These Yon languages stream: JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby and Lua. A Lua stream method, like its private helper, sends each value with `coroutine.yield(value)`, because Tachyon runs the route in a coroutine (ADR 0085). An F# stream member returns `seq<'T>` or `IAsyncEnumerable<'T>`. Java, Groovy, Rust and Go stay single-response. They reject StreamRoute with TY2015 \"@StreamRoute needs JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby or Lua\". In those languages, return the whole collection once as ordinary JSON instead. The bounds for deadline, cancellation, subscriber disconnect and process-tree cleanup do not change (ADR 0017). In the browser, StreamRequest on an HTTPClient method receives the stream.",
+  "body": "StreamRoute marks a controller route method that answers GET requests with a stream of server-sent events. It replaces GetRoute with Stream: one marker says that the route streams. The method name starts with stream, such as streamEvents, StreamEvents or stream_events. The server sends text/event-stream headers before it invokes the route. Then it sends each yielded value as one SSE (server-sent events) data frame, and an end event when the method finishes. The route method only passes on the values; a private generator method holds the loop. StreamRoute is Yon-only and takes an optional path, like the other route annotations. A generator under GetRoute or another route annotation is refused, and so is Stream: `ty migrate fix --write` turns GetRoute with Stream into StreamRoute and renames a get method to stream when that is safe. In one controller, either every GET route is a StreamRoute or none is. Python supports only synchronous generators. These Yon languages stream: JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby, Lua and Go. A Lua stream method, like its private helper, sends each value with `coroutine.yield(value)`, because Tachyon runs the route in a coroutine (ADR 0085). An F# stream member returns `seq<'T>` or `IAsyncEnumerable<'T>`. A Go stream method returns `iter.Seq[Ticket]`, or `iter.Seq2[Ticket, error]` when the stream can fail, and its function stops when `yield` returns false. Java, Groovy and Rust stay single-response. They reject StreamRoute with TY2015 \"@StreamRoute needs JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby, Lua or Go\". In those languages, return the whole collection once as ordinary JSON instead. The bounds for deadline, cancellation, subscriber disconnect and process-tree cleanup do not change (ADR 0017). In the browser, StreamRequest on an HTTPClient method receives the stream.",
   "files": [
     {
       "name": "server/services/TicketService.js",
@@ -159,6 +159,24 @@
       "name": "server/controllers/EventsController.lua",
       "code": {
         "file": "server/controllers/EventsController.lua"
+      }
+    },
+    {
+      "name": "server/models/Ticket.go",
+      "code": {
+        "file": "server/models/Ticket.go"
+      }
+    },
+    {
+      "name": "server/services/TicketService.go",
+      "code": {
+        "file": "server/services/TicketService.go"
+      }
+    },
+    {
+      "name": "server/controllers/EventsController.go",
+      "code": {
+        "file": "server/controllers/EventsController.go"
       }
     }
   ]

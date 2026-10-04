@@ -104,6 +104,10 @@ func Request() string {
 	return current.request
 }
 
+func Deadline() time.Time {
+	return current.deadline
+}
+
 func TimeLeft() time.Duration {
 	return time.Until(current.deadline)
 }

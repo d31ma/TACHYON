@@ -87,3 +87,40 @@ The `@StreamRequest` method belongs to an `HTTPClient` contract (ADR 0048
 amendment). In JavaScript and TypeScript the contract is a class whose
 methods have empty bodies, so the stream method keeps its empty body and
 Tachyon writes it.
+
+## Amendment (2026-10-04): Go streams with iter.Seq
+
+Go has a native generator since Go 1.23: a range-over-function iterator.
+Tachyon needs Go 1.27, so the reason Go refused `@StreamRoute` is gone.
+
+- A Go `// @StreamRoute` method returns `iter.Seq[Model]`. Its function calls
+  `yield(item)` once for each value and returns when `yield` returns false.
+  When the stream can fail, the method returns `iter.Seq2[Model, error]`; the
+  first non-nil error ends the stream. Any other result is refused with TY2015,
+  and the message names the two shapes.
+- The Go prelude ranges over the iterator and writes each item as one
+  length-prefixed Handler Protocol event frame, like Dart and Lua. When the
+  iterator returns, the process exits and the server sends `event: end`. An
+  error, a panic or an item that cannot be written as JSON sends the fixed
+  TY2204 error frame, so the browser gets `event: error` and never the error
+  text.
+- Backpressure is the pipe: `yield` blocks while the server has not read the
+  last frames, so a slow reader slows the producer.
+- When the reader goes away, the server stops the process group at once, as in
+  every language. Deferred Go code does not run then.
+- The time limit does not change: a stream has the request time limit, and at
+  the limit the server stops the process and sends `event: error`, after which
+  the browser opens the stream again. There are no long-lived workers. A Go
+  route that takes `*http.Request` now gets a request context that ends at the
+  invocation deadline (a little before the server's limit), so a log follow can
+  watch `request.Context().Done()` and end with `event: end` when it should
+  finish for good.
+- A channel (`<-chan Model`) was rejected. It needs a goroutine, a second
+  channel for errors and a context to stop the sender, while an iterator has
+  all three in one function and a test unit collects it with
+  `slices.Collect`. Spring's `Flux` maps the same way: items, one error, the
+  end, and cancellation.
+- The cohesion rule (ADR 0063) does not count Go's `if !yield(item) { return }`
+  stop check as a decision. It belongs to `yield`, which stops by itself in
+  the other languages, so a private iterator method keeps its one loop.
+- Java, Groovy and Rust still refuse `@StreamRoute`.

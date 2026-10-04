@@ -285,8 +285,9 @@ impl AnnotationRules {
     ];
     const TAC_TOPIC: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
-    const YON_STREAM: &'static [&'static str] =
-        &["js", "ts", "py", "php", "kt", "cs", "dart", "rb", "lua"];
+    const YON_STREAM: &'static [&'static str] = &[
+        "js", "ts", "py", "php", "kt", "cs", "dart", "rb", "lua", "go",
+    ];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts"];
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
         "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua",

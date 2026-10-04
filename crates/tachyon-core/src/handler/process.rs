@@ -1297,7 +1297,7 @@ mod tests {
     }
 
     impl FailingStream {
-        const CASES: [Self; 7] = [
+        const CASES: [Self; 8] = [
             Self {
                 extension: "kt",
                 program: "kotlinc",
@@ -1339,6 +1339,12 @@ mod tests {
                 program: "ruby",
                 version_flag: "--version",
                 source: "#[RequestRoute(\"/events\")]\n#[Public]\nclass EventsController\n  #[StreamRoute]\n  def stream_events\n    yield({ \"tick\" => 1 })\n    raise \"secret-canary\"\n  end\nend\n",
+            },
+            Self {
+                extension: "go",
+                program: "go",
+                version_flag: "version",
+                source: "import (\n\t\"errors\"\n\t\"iter\"\n)\n\n// @RequestRoute(\"/events\")\n// @Public\ntype EventsController struct{}\n\n// @StreamRoute\nfunc (controller *EventsController) StreamEvents() iter.Seq2[map[string]int, error] {\n\treturn func(yield func(map[string]int, error) bool) {\n\t\tif yield(map[string]int{\"tick\": 1}, nil) {\n\t\t\tyield(nil, errors.New(\"secret-canary\"))\n\t\t}\n\t}\n}\n",
             },
         ];
 

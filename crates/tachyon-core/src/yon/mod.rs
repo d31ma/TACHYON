@@ -2,6 +2,8 @@ mod compiled;
 pub(crate) mod dynamic;
 mod error_calls;
 pub(crate) mod go_container;
+mod go_stream_result;
+pub(crate) use go_stream_result::GoStreamResult;
 mod manual_helpers;
 pub(crate) use manual_helpers::ManualHelpers;
 pub(crate) mod parser;

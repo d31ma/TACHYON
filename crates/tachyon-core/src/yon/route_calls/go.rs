@@ -1,4 +1,5 @@
 use super::RouteCalls;
+use crate::yon::GoStreamResult;
 use crate::yon::error_calls::ErrorCalls;
 use crate::yon::go_container::{GoContainer, GoRouteResult};
 use crate::yon::plan::{ParameterSource, Plan, Route};
@@ -18,8 +19,13 @@ impl GoRoutes {
                 plan.controller
             );
             for route in RouteCalls::routes_for(plan, verb) {
-                let result = GoContainer::route_result(stripped, &plan.controller, &route.method)?;
                 let call = format!("controller.{}({})", route.method, Self::arguments(route));
+                if route.streaming {
+                    let body = Self::stream_body(stripped, plan, route, &call)?;
+                    let _ = writeln!(output, "\tcase {}:\n\t\t{body}", RouteCalls::pattern(route));
+                    continue;
+                }
+                let result = GoContainer::route_result(stripped, &plan.controller, &route.method)?;
                 let body = match result {
                     GoRouteResult::Failure if !plan.errors.is_empty() => format!(
                         "failure := {call}\n\t\tif failure != nil {{ return __yon_handle_error__(failure, request{error_arguments}) }}\n\t\treturn nil, nil"
@@ -37,6 +43,24 @@ impl GoRoutes {
             output.push_str("\t}\n\treturn nil, yonNoRoute()\n}\n");
         }
         Ok(output)
+    }
+
+    fn stream_body(
+        stripped: &str,
+        plan: &Plan,
+        route: &Route,
+        call: &str,
+    ) -> Result<String, String> {
+        let results = GoContainer::declared_results(stripped, &plan.controller, &route.method)?;
+        let stream = GoStreamResult::of(&results).map_err(|help| {
+            format!(
+                "{help}; {}.{} returns '{}'",
+                plan.controller,
+                route.method,
+                results.trim()
+            )
+        })?;
+        Ok(format!("return {}({call}), nil", stream.wrapper()))
     }
 
     fn arguments(route: &Route) -> String {

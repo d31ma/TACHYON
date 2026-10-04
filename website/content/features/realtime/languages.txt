@@ -11,13 +11,15 @@ Which languages a stream is written in
   .rb        a method that yields, framed by the runner
   .lua       a method that calls coroutine.yield, framed by
              the runner
+  .go        an iter.Seq or iter.Seq2 iterator, framed by
+             the prelude
 
 Every Yon language with a generator streams. A stream is a route method that answers more
 than once, and native generator syntax produces it.
 Each language adapter or protocol prelude keeps that generator open
 and emits one bounded frame per value.
 
-Java, Groovy, Rust and Go are deliberately single-response because
+Java, Groovy and Rust are deliberately single-response because
 none of them has a native generator. Tachyon refuses StreamRoute on
 them (TY2015). A streaming route can use any generator-capable Yon
 language.

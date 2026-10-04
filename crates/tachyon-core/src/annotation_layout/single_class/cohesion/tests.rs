@@ -686,3 +686,18 @@ fn a_python_async_method_holds_its_whole_body() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(found[0].starts_with("Public method `load`"), "{found:?}");
 }
+
+#[test]
+fn a_go_iterator_stop_check_is_not_a_decision() {
+    let source = "// @Service\ntype TickService struct{}\n\nfunc (service *TickService) ticks(last int) iter.Seq[int] {\n\treturn func(yield func(int) bool) {\n\t\tfor level := 1; level <= last; level++ {\n\t\t\tif !yield(level) {\n\t\t\t\treturn\n\t\t\t}\n\t\t}\n\t}\n}\n";
+    assert_eq!(
+        messages("server/services/TickService.go", source),
+        Vec::<String>::new()
+    );
+    let decided = source.replace("if !yield(level) {", "if level > 2 {");
+    assert_eq!(
+        messages("server/services/TickService.go", &decided).len(),
+        1,
+        "{decided}"
+    );
+}

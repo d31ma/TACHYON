@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	yoncontext "context"
 	"encoding/json"
 	"errors"
 	"encoding/base64"
 	"io"
+	yoniter "iter"
 	"net"
 	"net/http"
 	yonurl "net/url"
@@ -79,6 +81,7 @@ type yonResponse struct {
 	status  int
 	headers map[string][]string
 	body    string
+	stream  *yonEventStream
 }
 
 func yonJSON(body string) *yonResponse {
@@ -130,6 +133,10 @@ func yonAnswer(value any, failures ...error) *yonResponse {
 		}
 		panic(failure)
 	}
+	stream, isStream := value.(yonEventStream)
+	if isStream {
+		return &yonResponse{stream: &stream}
+	}
 	native, isNative := value.(*http.Response)
 	if isNative {
 		return yonNativeAnswer(native)
@@ -174,7 +181,8 @@ func yonNativeRequest(request *yonRequest) *http.Request {
 	if address := request.Header("x-real-ip"); address != "" {
 		native.RemoteAddr = net.JoinHostPort(address, "0")
 	}
-	return native
+	deadline, _ := yoncontext.WithDeadline(yoncontext.Background(), yoninvocation.Deadline())
+	return native.WithContext(deadline)
 }
 
 func yonNativeAnswer(native *http.Response) *yonResponse {
@@ -661,8 +669,12 @@ func (session *SocketSession) send(message any, to string) error {
 }
 
 func (session *SocketSession) write(frame map[string]any) error {
+	return yonWriteFrame(frame, session.id)
+}
+
+func yonWriteFrame(frame map[string]any, requestID string) error {
 	frame["protocol_version"] = 1
-	frame["request_id"] = session.id
+	frame["request_id"] = requestID
 	payload, failure := json.Marshal(frame)
 	if failure != nil {
 		return failure
@@ -750,6 +762,65 @@ func yonSocketRun(endpoint yonSocketEndpoint) {
 	os.Exit(0)
 }
 
+type yonEventStream struct {
+	run func(send func(item any) error) error
+}
+
+func yonStream[T any](items yoniter.Seq[T]) yonEventStream {
+	return yonEventStream{run: func(send func(item any) error) error {
+		for item := range items {
+			if failure := send(item); failure != nil {
+				return failure
+			}
+		}
+		return nil
+	}}
+}
+
+func yonStreamWithFailures[T any](items yoniter.Seq2[T, error]) yonEventStream {
+	return yonEventStream{run: func(send func(item any) error) error {
+		for item, failure := range items {
+			if failure != nil {
+				return failure
+			}
+			if failure := send(item); failure != nil {
+				return failure
+			}
+		}
+		return nil
+	}}
+}
+
+func (stream *yonEventStream) answer() {
+	if yonStreamCall(stream) == nil {
+		return
+	}
+	yonWriteFrame(map[string]any{
+		"kind":    "response",
+		"status":  500,
+		"headers": map[string][]string{},
+		"error":   map[string]any{"code": "TY2204", "message": "The handler stream failed.", "retryable": false},
+	}, yoninvocation.RequestID())
+}
+
+func yonStreamCall(stream *yonEventStream) (failure error) {
+	defer func() {
+		if recover() != nil {
+			failure = errors.New("A stream method panicked.")
+		}
+	}()
+	return stream.run(yonStreamSend)
+}
+
+func yonStreamSend(item any) error {
+	data, failure := json.Marshal(item)
+	if failure != nil {
+		return failure
+	}
+	frame := map[string]any{"kind": "event", "body": map[string]string{"encoding": "utf8", "data": string(data)}}
+	return yonWriteFrame(frame, yoninvocation.RequestID())
+}
+
 func yonSendLoopbackThroughGuard() {
 	guard := os.Getenv("YON_OUTGOING_PROXY")
 	if guard == "" {
@@ -774,6 +845,10 @@ func main() {
 		return
 	}
 	response := yonDispatch(request)
+	if response.stream != nil {
+		response.stream.answer()
+		return
+	}
 	answer := yonResponseFields{Status: response.status, Headers: response.headers, Body: response.body}
 	output, err := json.Marshal(answer)
 	if err != nil {

@@ -18,6 +18,13 @@ machine contracts have their own, independent major versions.
   `ty`'s own variables (`TAC_*`, `TACHYON_*`, `YON_*` and the proxy variables
   of the outgoing request guard) fail validation with `TY2010`, which names
   the entry and never a value (ADR 0026 amendment).
+- Go controllers stream: a `// @StreamRoute` method returns `iter.Seq[Model]`
+  (or `iter.Seq2[Model, error]` when it can fail), and each item becomes one
+  server-sent event, then `event: end`. An error or panic ends the stream with
+  `event: error`; a client that goes away stops the process; a slow reader
+  blocks `yield`. A Go `*http.Request` context now ends at the request
+  deadline, so a log follow can finish cleanly. Go no longer refuses
+  `@StreamRoute` with TY2015 (ADR 0058 amendment).
 - Rust Tac services call the server from the browser: an `async fn` in an
   `HTTPClient` trait returns `BehaviorResult<Model>`, a service gets the client
   with `#[Needs] name: std::sync::Arc<Client>` and awaits it in an `async fn`

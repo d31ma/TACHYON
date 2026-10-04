@@ -150,11 +150,19 @@ impl GoContainer {
         controller: &str,
         method: &str,
     ) -> Result<GoRouteResult, String> {
+        GoRouteResult::of(&Self::declared_results(stripped, controller, method)?)
+    }
+
+    pub(crate) fn declared_results(
+        stripped: &str,
+        controller: &str,
+        method: &str,
+    ) -> Result<String, String> {
         let code = crate::annotation_layout::masked_source(Path::new("yon.go"), stripped)
             .map_err(|error| error.to_string())?;
         for declared in crate::go_source::methods(&code) {
             if declared.receiver_type == controller && declared.name == method {
-                return GoRouteResult::of(&code[declared.results]);
+                return Ok(code[declared.results].to_owned());
             }
         }
         Err(format!("Go route {controller}.{method} is not declared."))
