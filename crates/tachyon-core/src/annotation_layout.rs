@@ -9,6 +9,7 @@ mod browser_interop;
 mod class_file_name;
 mod file_name_check;
 mod folder_role_check;
+mod import_boundary;
 mod inline_model_check;
 mod native_module_vendor;
 mod native_package_folder;
@@ -22,6 +23,7 @@ pub(crate) use browser_interop::{BrowserInteropCheck, NativeWebApis};
 pub(crate) use class_file_name::ClassFileName;
 pub(crate) use file_name_check::FileNameCheck;
 pub(crate) use folder_role_check::FolderRoleCheck;
+use import_boundary::ImportBoundary;
 pub(crate) use inline_model_check::InlineModelCheck;
 pub(crate) use native_module_vendor::NativeModuleVendor;
 pub(crate) use native_package_folder::NativePackageFolder;
@@ -453,6 +455,7 @@ struct Input<'a> {
 impl<'a> Input<'a> {
     fn validate_source(path: &Path, source: &str) -> Result<(), Failure> {
         reject_renamed_annotations(path, source)?;
+        ImportBoundary::check(path, source)?;
         UtilityLayout::check(path, source)?;
         if path.starts_with("server/shared") {
             single_class::SharedClass::validate(path, source)?;
