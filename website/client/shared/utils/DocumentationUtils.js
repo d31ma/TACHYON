@@ -190,14 +190,15 @@ export class DocumentationUtils {
 
   /** @param {string} title @param {string} text @param {string} term @returns {number} */
   static _rankOf(title, text, term) {
+    let rank = 0
     if (title.startsWith(term)) {
-      return 3
+      rank = 3
     } else if (title.includes(term)) {
-      return 2
+      rank = 2
     } else if (text.includes(term)) {
-      return 1
+      rank = 1
     }
-    return 0
+    return rank
   }
 
   /** @param {SearchHit} hit @returns {boolean} */

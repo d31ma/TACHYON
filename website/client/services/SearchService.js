@@ -59,7 +59,7 @@ export default class SearchService {
 
   @OnStart
   initialize() {
-    addEventListener('keydown', (event) => this._onKeyDown(event), { signal: this.lifecycle })
+    addEventListener('keydown', (event) => this._onKeyDown(event, this._isShortcut(event)), { signal: this.lifecycle })
   }
 
   @OnStop
@@ -94,18 +94,19 @@ export default class SearchService {
 
   /** @returns {string} */
   _statusMessage() {
+    let message = 'Search titles and body text across every guide.'
     if (this._searching) {
-      return 'Searching…'
+      message = 'Searching…'
     } else if (this.term.length === 1) {
-      return 'Keep typing…'
+      message = 'Keep typing…'
     } else if (this.term.length >= DocumentationUtils.shortestTerm() && this.results.length === 0) {
-      return `Nothing matches “${this.term}”.`
+      message = `Nothing matches “${this.term}”.`
     } else if (this.results.length === 1) {
-      return '1 result'
+      message = '1 result'
     } else if (this.results.length > 1) {
-      return `${this.results.length} results`
+      message = `${this.results.length} results`
     }
-    return 'Search titles and body text across every guide.'
+    return message
   }
 
   /**
@@ -124,17 +125,29 @@ export default class SearchService {
     await this.taskScheduler.render()
   }
 
-  /** @param {Event} event */
-  _onKeyDown(event) {
+  /**
+   * @param {Event} event
+   * @returns {boolean}
+   */
+  _isShortcut(event) {
     const keyboard = /** @type {KeyboardEvent} */ (event)
-    if (keyboard.key.toLowerCase() !== 'k' || !(keyboard.metaKey || keyboard.ctrlKey)) {
-      return
-    } else if (this.showing) {
+    if (keyboard.metaKey || keyboard.ctrlKey) return keyboard.key.toLowerCase() === 'k'
+    return false
+  }
+
+  /**
+   * @param {Event} event
+   * @param {boolean} shortcut
+   */
+  _onKeyDown(event, shortcut) {
+    if (shortcut && this.showing) {
       this.close()
-    } else {
+    } else if (shortcut) {
       this.open()
+    } else {
+      return
     }
-    keyboard.preventDefault()
+    event.preventDefault()
     void this.taskScheduler.render()
   }
 }
