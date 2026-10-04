@@ -3173,7 +3173,11 @@
       "group": "Tooling",
       "files": [
         {
-          "name": "client/components/counter/tac.html",
+          "name": "client/pages/tac.html",
+          "code": "<counter-button hydrate=\"load\" />\n"
+        },
+        {
+          "name": "client/components/counter/button/tac.html",
           "code": "<button on:click=\"counter.increment()\">Counted {counter.count} times</button>"
         },
         {
