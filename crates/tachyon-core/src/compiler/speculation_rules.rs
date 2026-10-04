@@ -1,5 +1,3 @@
-use sha2::{Digest, Sha256};
-
 pub(crate) struct SpeculationRules;
 
 impl SpeculationRules {
@@ -13,8 +11,7 @@ impl SpeculationRules {
     }
 
     pub(crate) fn script_source() -> String {
-        let digest = Sha256::digest(Self::RULES.as_bytes());
-        format!("'sha256-{}'", crate::tac_web::base64(&digest))
+        super::ContentSecurityPolicy::inline_script_hash(Self::RULES)
     }
 }
 

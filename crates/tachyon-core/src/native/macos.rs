@@ -396,31 +396,45 @@ impl MacOsHostGenerator {
         application: &NativeApplication,
         index: &NativeRouteIndex,
     ) -> String {
-        let entry_document = quoted_string_escape(&index.entry_document);
-        let entry_route = quoted_string_escape(&index.entry_route);
-        let route_documents = super::routes::swift_routes(index);
-        let app_type = format!("{}App", application.executable_name);
         let app_name = quoted_string_escape(&application.name);
-        let bundle_id = quoted_string_escape(&application.application_id);
         let grants = quoted_string_escape(
             &serde_json::to_string(&application.native_capabilities)
                 .unwrap_or_else(|_| String::from("[]")),
         );
         let menu_routes =
             super::mac_os_menu_source::MacOsMenuSource::declarations(&application.menus);
-        super::placeholder_fill::PlaceholderFill::once(
+        Self::apple_authored_values(
             host,
+            application,
+            index,
             &[
-                ("__ENTRY_DOCUMENT__", &entry_document),
-                ("__ENTRY_ROUTE__", &entry_route),
-                ("__ROUTE_DOCUMENTS__", &route_documents),
-                ("__APP_TYPE__", &app_type),
                 ("__APP_NAME__", &app_name),
-                ("__BUNDLE_ID__", &bundle_id),
                 ("__NATIVE_GRANTS__", &grants),
                 ("__NATIVE_MENU_ROUTES__", &menu_routes),
             ],
         )
+    }
+
+    pub(super) fn apple_authored_values(
+        host: &str,
+        application: &NativeApplication,
+        index: &NativeRouteIndex,
+        platform_values: &[(&str, &str)],
+    ) -> String {
+        let entry_document = quoted_string_escape(&index.entry_document);
+        let entry_route = quoted_string_escape(&index.entry_route);
+        let route_documents = super::routes::swift_routes(index);
+        let app_type = format!("{}App", application.executable_name);
+        let bundle_id = quoted_string_escape(&application.application_id);
+        let mut values = vec![
+            ("__ENTRY_DOCUMENT__", entry_document.as_str()),
+            ("__ENTRY_ROUTE__", entry_route.as_str()),
+            ("__ROUTE_DOCUMENTS__", route_documents.as_str()),
+            ("__APP_TYPE__", app_type.as_str()),
+            ("__BUNDLE_ID__", bundle_id.as_str()),
+        ];
+        values.extend_from_slice(platform_values);
+        super::placeholder_fill::PlaceholderFill::once(host, &values)
     }
 
     fn rust_shim(call: &str) -> &'static str {

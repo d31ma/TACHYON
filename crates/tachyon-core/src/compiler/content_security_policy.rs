@@ -1,4 +1,5 @@
 use super::{SpeculationRules, ViewTransitionGuard};
+use sha2::{Digest, Sha256};
 
 pub(crate) struct ContentSecurityPolicy;
 
@@ -21,6 +22,11 @@ impl ContentSecurityPolicy {
              frame-src 'none'; object-src 'none'; base-uri 'self'",
             Self::script_sources()
         )
+    }
+
+    pub(crate) fn inline_script_hash(script: &str) -> String {
+        let digest = Sha256::digest(script.as_bytes());
+        format!("'sha256-{}'", crate::tac_web::base64(&digest))
     }
 
     fn script_sources() -> String {

@@ -1,7 +1,7 @@
 use super::config::NativeApplication;
 use super::host::{
-    GeneratedHost, first_line, native_tool_failure, quoted_string_escape, run_tool,
-    stage_application, write, write_host_source, xml_escape,
+    GeneratedHost, first_line, native_tool_failure, run_tool, stage_application, write,
+    write_host_source, xml_escape,
 };
 use super::macos::{MacOsHostGenerator, optional_unicode_path, unicode_path};
 use super::routes::NativeRouteIndex;
@@ -218,7 +218,7 @@ fn swift_source(
             super::macos::companion_emit(companion_call),
         )
         .replace("__TACHYON_RUST_SHIM__", rust_shim);
-    IosHostGenerator::authored_values(&framed, application, index)
+    MacOsHostGenerator::apple_authored_values(&framed, application, index, &[])
 }
 
 #[cfg(test)]
@@ -227,28 +227,6 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl IosHostGenerator {
-    fn authored_values(
-        host: &str,
-        application: &NativeApplication,
-        index: &NativeRouteIndex,
-    ) -> String {
-        let entry_document = quoted_string_escape(&index.entry_document);
-        let entry_route = quoted_string_escape(&index.entry_route);
-        let route_documents = super::routes::swift_routes(index);
-        let app_type = format!("{}App", application.executable_name);
-        let bundle_id = quoted_string_escape(&application.application_id);
-        super::placeholder_fill::PlaceholderFill::once(
-            host,
-            &[
-                ("__ENTRY_DOCUMENT__", &entry_document),
-                ("__ENTRY_ROUTE__", &entry_route),
-                ("__ROUTE_DOCUMENTS__", &route_documents),
-                ("__APP_TYPE__", &app_type),
-                ("__BUNDLE_ID__", &bundle_id),
-            ],
-        )
-    }
-
     const SWIFT_HOST: &str = r##"import Foundation
 import UIKit
 import WebKit
