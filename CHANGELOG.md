@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `server.environment` in `server/application.json` passes chosen variables
+  of `ty`'s environment to handler processes in every Yon language, such as
+  `["HOME", "AWS_*", "HD_*"]`: exact names and prefix patterns ending in `*`.
+  It is empty by default, so handlers still get only the baseline (`PATH`,
+  `LANG`, `LC_ALL`, `TMPDIR`). `*` alone and entries that name or cover
+  `ty`'s own variables (`TAC_*`, `TACHYON_*`, `YON_*` and the proxy variables
+  of the outgoing request guard) fail validation with `TY2010`, which names
+  the entry and never a value (ADR 0026 amendment).
 - Rust Tac services call the server from the browser: an `async fn` in an
   `HTTPClient` trait returns `BehaviorResult<Model>`, a service gets the client
   with `#[Needs] name: std::sync::Arc<Client>` and awaits it in an `async fn`

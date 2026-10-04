@@ -531,3 +531,59 @@ fn trusted_proxies_refuse_host_names() {
         "a host name is not a proxy address"
     );
 }
+
+#[test]
+fn handler_environment_accepts_names_and_prefix_patterns() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"environment":["HOME","HD_*"]}}"#,
+    );
+
+    let config = loaded(load(root.path()));
+
+    assert!(config.handler_environment().names().contains("HOME"));
+    assert!(config.handler_environment().prefixes().contains("HD_"));
+}
+
+#[test]
+fn handler_environment_is_empty_by_default() {
+    let root = temporary_directory();
+    write(root.path(), "server/application.json", r#"{"server":{}}"#);
+
+    let config = loaded(load(root.path()));
+
+    assert!(config.handler_environment().names().is_empty());
+    assert!(config.handler_environment().prefixes().is_empty());
+}
+
+#[test]
+fn handler_environment_refuses_everything_and_ty_internal_variables() {
+    for (entries, expected) in [
+        (r#"["*"]"#, "every variable"),
+        (r#"["TAC_*"]"#, "ty's own variables"),
+        (r#"["TACHYON_HOME"]"#, "ty's own variables"),
+        (r#"["YON_RESOURCE_TOKEN"]"#, "ty's own variables"),
+        (r#"["NO_PROXY"]"#, "ty's own variables"),
+        (r#"["https_proxy"]"#, "ty's own variables"),
+        (r#"["BAD-NAME"]"#, "not a variable name"),
+        (r#""HOME""#, "must be a list"),
+        (r"[7]", "must be a list"),
+    ] {
+        let root = temporary_directory();
+        write(
+            root.path(),
+            "server/application.json",
+            &format!(r#"{{"server":{{"environment":{entries}}}}}"#),
+        );
+
+        let message = load(root.path())
+            .err()
+            .map(|failure| failure.to_string())
+            .unwrap_or_default();
+
+        assert!(message.contains("TY2010"), "{entries}: {message}");
+        assert!(message.contains(expected), "{entries}: {message}");
+    }
+}

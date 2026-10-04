@@ -7,6 +7,8 @@
 - Amended by: [ADR 0034](0034-tac-configuration-is-the-web-app-manifest.md),
   which moves Tac's public configuration from `application.json` to the web
   app manifest and publishes it at `/manifest.webmanifest`
+- Amended 2026-10-04: `server.environment` names the environment variables
+  that handler processes receive (amendment below)
 - Date: 2026-09-14
 - Amends: ADR 0021 response authoring and ADR 0023 configuration v1
 - Preserves: REST-only Yon, client-only Tac, bounded supervision and explicit module ownership
@@ -96,3 +98,31 @@ safe paths and immutable snapshots. Artifact tests prove that Tachyon
 publishes only the captured tac configuration, even when .env cannot be
 opened. Website examples cover eight Yon languages and public Tac binding.
 Native source staging does not prove that native companions execute.
+
+## Amendment 2026-10-04: `server.environment`
+
+Handlers need credentials that cloud SDKs and tools read from the
+environment, such as `HOME` or `AWS_*`. Until now, Yon handler processes got
+only the platform baseline (`PATH`, `LANG`, `LC_ALL`, `TMPDIR` on Unix), and
+the decision above kept environment authority out of application files.
+
+Decision: `server.environment` in `server/application.json` (and profiles) is
+an explicit, opt-in allowlist of the variables of `ty`'s own environment that
+handler processes receive, like Spring's externalized configuration bound
+explicitly instead of read ambiently. Each entry is an exact name or a prefix
+pattern ending in `*` (`HD_*`). The list is empty by default, so nothing
+beyond the baseline passes. Validation refuses, with `TY2010`, `*` alone, any
+other use of `*`, and every entry that names or covers a variable `ty` owns:
+`TAC_*`, `TACHYON_*`, `YON_*`, and the proxy variables of the outgoing request
+guard (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`,
+`NODE_USE_ENV_PROXY`), compared case-insensitively. The supervisor adds the
+list to the policy that every handler process, Gateway command and runtime
+probe already uses, so all Yon languages get the same variables. The egress
+guard is applied after the list and still removes `NO_PROXY`.
+
+The configuration holds names, never values. Values stay in the environment
+of `ty` and appear in no diagnostic: a refused entry is reported by its name.
+The selection of runtime executables and isolation stays outside application
+files. `ty handler invoke --allow-env NAME` keeps working and adds to the
+list.
+

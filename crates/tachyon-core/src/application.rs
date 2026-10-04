@@ -1,6 +1,6 @@
 use crate::Failure;
 use crate::failure::diagnostic;
-use crate::safety::{ServerHost, TrustedProxies};
+use crate::safety::{EnvironmentAllowlist, ServerHost, TrustedProxies};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt, OpenOptionsSyncExt};
 use cap_std::fs::{Dir, File, Metadata, OpenOptions};
 use serde_json::{Map, Value};
@@ -24,6 +24,7 @@ pub struct ApplicationConfig {
     port: Option<u16>,
     hosts: Vec<String>,
     trusted_proxies: TrustedProxies,
+    handler_environment: EnvironmentAllowlist,
     handler_json: Option<String>,
     topics_directory: Option<String>,
 }
@@ -45,6 +46,7 @@ impl ApplicationConfig {
     const MAX_KEYS: usize = 128;
     const HOSTS_MESSAGE: &str = "yon.server.hosts must be a list of host names without scheme, port or path, such as \"app.example.com\" or \"*.example.com\".";
     const TRUSTED_PROXIES_MESSAGE: &str = "yon.server.proxies must be a list of proxy IP addresses or CIDR ranges, such as \"10.0.0.5\" or \"10.0.0.0/8\" (ADR 0096).";
+    const ENVIRONMENT_MESSAGE: &str = "yon.server.environment must be a list of environment variable names or prefix patterns, such as \"HOME\" or \"HD_*\".";
     const TAC_CONFIG_MOVED: &str = "tac.config is no longer read; client/manifest.json is the Tac configuration (ADR 0052). Move application to tac.application (name and entryRoute become name and start_url), scripts, styles and cache to tac.scripts, tac.styles and tac.cache, metadata to tac.metadata.routes, and origin to tac.origin. postBundle is replaced by the built-in sitemap.xml and robots.txt; list dynamic route values in tac.sitemap. `ty migrate fix --write` moves plain values.";
 
     pub fn load(root: &Path) -> Result<Self, Failure> {
@@ -121,6 +123,10 @@ impl ApplicationConfig {
         &self.trusted_proxies
     }
 
+    pub(crate) const fn handler_environment(&self) -> &EnvironmentAllowlist {
+        &self.handler_environment
+    }
+
     #[must_use]
     pub fn handler_json(&self) -> Option<&str> {
         self.handler_json.as_deref()
@@ -187,6 +193,8 @@ impl ApplicationConfig {
         };
         let hosts = Self::hosts_from(document.pointer("/yon/server/hosts"))?;
         let trusted_proxies = Self::trusted_proxies_from(document.pointer("/yon/server/proxies"))?;
+        let handler_environment =
+            Self::handler_environment_from(document.pointer("/yon/server/environment"))?;
         let topics_directory =
             Self::topics_directory_from(document.pointer("/yon/topics/directory"))?;
         normalize_endpoint(&mut document, host.as_ref(), port);
@@ -204,6 +212,7 @@ impl ApplicationConfig {
             port,
             hosts,
             trusted_proxies,
+            handler_environment,
             handler_json,
             topics_directory,
         })
@@ -234,6 +243,18 @@ impl ApplicationConfig {
             .collect::<Option<Vec<_>>>()
             .ok_or_else(|| invalid(Self::TRUSTED_PROXIES_MESSAGE))?;
         TrustedProxies::parse(&texts).ok_or_else(|| invalid(Self::TRUSTED_PROXIES_MESSAGE))
+    }
+
+    fn handler_environment_from(value: Option<&Value>) -> Result<EnvironmentAllowlist, Failure> {
+        let entries = value
+            .map_or(Some(&[][..]), |value| value.as_array().map(Vec::as_slice))
+            .ok_or_else(|| invalid(Self::ENVIRONMENT_MESSAGE))?;
+        let texts = entries
+            .iter()
+            .map(Value::as_str)
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| invalid(Self::ENVIRONMENT_MESSAGE))?;
+        EnvironmentAllowlist::parse(&texts).map_err(invalid)
     }
 
     fn topics_directory_from(value: Option<&Value>) -> Result<Option<String>, Failure> {
@@ -502,7 +523,7 @@ fn child_object<'a>(
         .as_object_mut()
 }
 
-fn invalid(message: &'static str) -> Failure {
+fn invalid(message: impl Into<String>) -> Failure {
     let help = String::from(
         "Use only tac/yon namespaces in application.json and profiles; put server secrets only in project-root .env using YON_ names. Underscores map to nested lowercase keys. Values are omitted from diagnostics.",
     );

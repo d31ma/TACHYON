@@ -1,5 +1,6 @@
 mod code_text;
 mod declared_hosts;
+mod environment_allowlist;
 mod eval_call;
 mod eval_check;
 mod host_check;
@@ -22,6 +23,8 @@ mod trusted_proxies;
 #[allow(clippy::expect_used)]
 mod code_tests;
 #[cfg(test)]
+mod environment_allowlist_tests;
+#[cfg(test)]
 #[allow(clippy::expect_used)]
 mod host_tests;
 #[cfg(test)]
@@ -38,6 +41,7 @@ mod trusted_proxies_tests;
 
 use code_text::CodeText;
 pub(crate) use declared_hosts::DeclaredHosts;
+pub(crate) use environment_allowlist::EnvironmentAllowlist;
 use eval_call::EvalCall;
 pub(crate) use eval_check::EvalCheck;
 pub(crate) use host_check::HostCheck;

@@ -126,7 +126,7 @@ operator-owned Firecracker driver qualify as production isolation.
 | Handler protocol desynchronization | four-byte length framing, maximum frame, strict schema, request IDs, stderr separation |
 | Isolation downgrade by application source | parent-environment-only selection; no project or request override; invalid and partial policy fails closed |
 | False Firecracker assurance | control-program path must be absolute, a regular file, not a symlink, and not writable by group or others; bounded policy arguments; hardware-isolation claims require separate driver and host evidence |
-| Environment secret disclosure | allowlisted environment, redacted diagnostics, secret-canary tests; relay programs and Gateway commands never receive `YON_APPLICATION_JSON` or `YON_RESOURCE_*`. This scrubbing stops accidental inheritance only. It is not a sandbox: a program that runs as the same operating-system user can still read its parent's environment (for example `/proc/<parent>/environ` on Linux) and the project's files |
+| Environment secret disclosure | allowlisted environment that configuration, not code, decides (`server.environment` names and `PREFIX_*` patterns; `*` and `ty`'s own `TAC_*`, `TACHYON_*`, `YON_*` and proxy variables are refused), redacted diagnostics that name variables but never values, secret-canary tests; relay programs and Gateway commands never receive `YON_APPLICATION_JSON` or `YON_RESOURCE_*`. This scrubbing stops accidental inheritance only. It is not a sandbox: a program that runs as the same operating-system user can still read its parent's environment (for example `/proc/<parent>/environ` on Linux) and the project's files |
 | Cross-language call confusion (`@Gateway`) | build-declared keys only, per-invocation bearer capability on a loopback endpoint, bounded JSON (1 MiB, depth 32, 10,000 values, 32 arguments), 64 calls and 4 concurrent calls per invocation, separate process pool, one hop, fixed error kinds with no target messages, refusal under Firecracker |
 | Client address spoofing through forwarding headers | `ty` is the first proxy: it removes `Forwarded`, `X-Forwarded-*` and `X-Real-IP` from any peer that is not in `server.proxies` (empty by default, loopback included) and writes the peer address itself; from a trusted proxy it appends its own hop and resolves `X-Real-IP` to the nearest untrusted address; native peer fields (Go `RemoteAddr`, `HttpExchange.getRemoteAddress()`, PHP `REMOTE_ADDR`) come from that value (ADR 0096) |
 | SSRF and unrestricted egress | deny-by-default network capability, normalized origin allowlists, DNS/redirect revalidation, response limits |
@@ -379,7 +379,20 @@ separate cybersecurity review for this reconciliation.
 - **Environment.** Tachyon clears the child environment. Then it rebuilds it
   from a small platform runtime baseline and explicitly named allowlist
   entries. Tests prove that a host value is absent by default and present only
-  when allowed.
+  when allowed. The application's allowlist is `server.environment` in
+  `server/application.json`: exact names and prefix patterns such as `HD_*`.
+  Configuration, not code, decides what a handler sees: a handler cannot widen
+  the list, and every Yon language, Gateway command and relay program gets
+  the same one. The list is empty by default. Validation refuses `*` and any
+  entry that names or covers `ty`'s own variables (`TAC_*`, `TACHYON_*`,
+  `YON_*`, and `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`,
+  `NODE_USE_ENV_PROXY`, which the outgoing request guard sets), so a list
+  cannot hand a handler the resource capability or a way around the guard. The
+  guard still removes `NO_PROXY` and `no_proxy` after the list is applied. The
+  configuration holds names only; values stay in the environment of `ty`, and
+  a refused entry is reported by its name, never with a value. An allowed
+  variable is a secret given to every handler of the application, so list
+  only what the handlers need.
 - **Protocol stdout.** Protocol stdout accepts either one UTF-8 JSON response
   frame, or a declared stream. A response frame has a four-byte big-endian
   length and is at most 16 MiB. A stream has at most 100,000 events, at most

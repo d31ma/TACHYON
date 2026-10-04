@@ -4,6 +4,8 @@ mod drained;
 mod environment_policy;
 mod event_reader;
 mod handler_cancellation;
+#[cfg(test)]
+mod handler_environment_tests;
 mod handler_event;
 mod handler_runtime_programs;
 mod handler_supervisor_options;
@@ -88,8 +90,11 @@ impl HandlerSupervisor {
         Self::new(HandlerSupervisorOptions::from_environment()?)
     }
 
-    pub fn new(options: HandlerSupervisorOptions) -> Result<Self, Failure> {
+    pub fn new(mut options: HandlerSupervisorOptions) -> Result<Self, Failure> {
         options.check_limits()?;
+        options
+            .environment
+            .include(options.application.handler_environment());
         let permits = Arc::new(Semaphore::new(options.max_concurrency));
         let gateway_permits = Arc::new(Semaphore::new(options.max_concurrency));
         Ok(Self {
@@ -477,9 +482,7 @@ impl HandlerSupervisor {
         socket: bool,
     ) -> Result<StartedProcess, Failure> {
         let adapter = AdapterFiles::materialize(source.language())?;
-        let mut planned = self.command(source, &adapter);
-        self.options.environment.apply(&mut planned.command);
-        self.apply_application(&mut planned.command);
+        let mut planned = self.handler_command(source, &adapter);
         Self::mark_socket_frames(&mut planned.command, socket);
         let resource_access = self
             .resource_access_in_time(source, request, deadline, cancellation)
@@ -677,6 +680,13 @@ impl HandlerSupervisor {
         if let Some(json) = self.options.application.handler_json() {
             command.env("YON_APPLICATION_JSON", json);
         }
+    }
+
+    fn handler_command(&self, source: &HandlerSource, adapter: &AdapterFiles) -> PlannedCommand {
+        let mut planned = self.command(source, adapter);
+        self.options.environment.apply(&mut planned.command);
+        self.apply_application(&mut planned.command);
+        planned
     }
 
     fn command(&self, source: &HandlerSource, adapter: &AdapterFiles) -> PlannedCommand {

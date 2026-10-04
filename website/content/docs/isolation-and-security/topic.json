@@ -21,6 +21,9 @@
       "include": "../operations/client-address-and-forwarding-headers/section.json"
     },
     {
+      "include": "../operations/handler-environment/section.json"
+    },
+    {
       "include": "../companions/security-rules-for-browser-code/section.json"
     }
   ]

@@ -153,6 +153,7 @@ profile file has the same shape.
 | `server.host` | The address that `ty serve` and `ty start` bind. `127.0.0.1` unless set. `localhost` or a name under `.localhost`, such as `shop.localhost`, binds `127.0.0.1` and the ready line prints the name (ADR 0094). An address that is not loopback also needs `--allow-non-loopback`. `--host` overrides it. |
 | `server.hosts` | Extra `Host` names a loopback server answers, such as `["preview.example.com", "*.tunnel.example"]`: names without scheme, port or path. Localhost names, IP addresses and the `tac.origin` host are always answered; other names get `403` with `TY1366`. With `--allow-non-loopback`, the `Host` check runs only when this list is set (ADR 0094). |
 | `server.proxies` | The reverse proxies whose forwarding headers count, as IP addresses or CIDR ranges such as `["10.0.0.0/8", "192.0.2.10"]`; a host name is refused. Empty by default, so `ty` removes `Forwarded`, `X-Forwarded-*` and `X-Real-IP` from every other peer and writes the real client address. From a listed proxy it keeps them, appends its own hop and sets `X-Real-IP` to the nearest address that is not a listed proxy (ADR 0096). |
+| `server.environment` | The environment variables of `ty` that handler processes may see, beyond the baseline (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix). Each entry is a name, such as `HOME`, or a prefix pattern that ends in `*`, such as `HD_*` or `AWS_*`. Empty by default. `*` alone is refused, and so is any entry that names or covers `ty`'s own variables (`TAC_*`, `TACHYON_*`, `YON_*`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, `NODE_USE_ENV_PROXY`), with `TY2010`. Every Yon language, Gateway command and relay program gets the same list. See [Environment variables for handlers](#environment-variables-for-handlers). |
 | `server.port` | Port, 0 to 65535. `8080` unless set. 0 picks a free port. `--port` overrides it. |
 | `datasource.driver` | `postgresql`, `mysql`, `mariadb`, `sqlserver`, `sqlite` or `fylo`. |
 | `datasource.url` | The database location, without credentials: `postgresql://db:5432/catalog`, `sqlite:///var/lib/catalog.db`, `sqlite::memory:`, or an absolute FYLO root. |
@@ -203,6 +204,30 @@ Parsing rules:
 - JSON environment placeholders are no longer supported.
 - Reserved supervisor names and deployment-policy names cannot be secret
   assignments.
+
+### Environment variables for handlers
+
+`ty` clears the environment of every handler process. A handler sees only the
+baseline and the names that `server.environment` lists, so configuration, not
+code, decides what a handler can read. Use it for cloud SDKs and tools that
+read their credentials from the environment:
+
+```json
+{
+  "server": {
+    "environment": ["HOME", "AWS_*", "HD_*"]
+  }
+}
+```
+
+With this list, `AWS_ACCESS_KEY_ID` and `HD_REGION` reach handlers in every
+Yon language as ordinary environment variables (`process.env`, `os.environ`,
+`os.Getenv`, `System.getenv` and so on). `OTHER_SECRET` does not. Values stay
+in the environment of `ty`: they are never written to the configuration, to
+logs or to diagnostics. A refused entry names the entry, never a value.
+Settings that belong to the application itself, such as a database password,
+still go in `.env` as `YON_` names and reach handlers through the
+configuration snapshot.
 
 ### How Tachyon validates JSON
 
