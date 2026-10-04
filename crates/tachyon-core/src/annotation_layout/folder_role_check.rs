@@ -130,6 +130,7 @@ impl FolderRoleCheck {
         let unsupported = Realm::named(Self::environment(realm)).and_then(|checked| AnnotationRules::checked_refusal(marker, input.extension, checked)).map(|message| format!(" {message} This concrete role needs a supported implementation; it cannot be silently treated as plain helper code.")).unwrap_or_default();
         let portable = input.path.to_string_lossy().replace('\\', "/");
         let native = Self::native_package_help(input.extension);
+        let at = Self::declaration_at(input);
         Failure::one(diagnostic(
             Self::CODE,
             format!(
@@ -138,7 +139,7 @@ impl FolderRoleCheck {
             Some(format!(
                 "Mark the intended role explicitly with `{expected}` (ADR0091). Folder names do not register code. Move plain collaborators to a supported models, shared or utils folder{native}; do not add a fake role annotation."
             )),
-            source_span(&portable, 0, 0),
+            source_span(&portable, at, (at + 1).min(input.source.len())),
         ))
     }
 
@@ -147,6 +148,11 @@ impl FolderRoleCheck {
             .iter()
             .find(|(language, _)| *language == extension)
             .map_or("", |(_, help)| help)
+    }
+
+    fn declaration_at(input: &Input<'_>) -> usize {
+        let code = input.masked_code().unwrap_or_default();
+        Self::concrete_at(input.extension, &code).unwrap_or_default()
     }
 
     fn expected_spelling(folder: &str, spelling: &str) -> String {
@@ -166,9 +172,18 @@ impl FolderRoleCheck {
     }
 
     fn has_concrete_type(extension: &str, code: &str) -> bool {
-        code.lines()
-            .flat_map(|line| line.split(['{', '}', ';']))
-            .any(|line| Self::concrete_line(extension, line.trim()))
+        Self::concrete_at(extension, code).is_some()
+    }
+
+    fn concrete_at(extension: &str, code: &str) -> Option<usize> {
+        let mut offset = 0;
+        code.split_inclusive('\n').find_map(|line| {
+            let start = offset + line.len() - line.trim_start().len();
+            offset += line.len();
+            line.split(['{', '}', ';'])
+                .any(|part| Self::concrete_line(extension, part.trim()))
+                .then_some(start)
+        })
     }
 
     fn concrete_line(extension: &str, line: &str) -> bool {

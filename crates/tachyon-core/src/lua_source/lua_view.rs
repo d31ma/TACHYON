@@ -13,7 +13,8 @@ pub(crate) struct LuaView {
 
 impl LuaView {
     const ANALYSIS_EXTENSION: &'static str = "rb";
-    const WORDS: [(&'static str, &'static str); 11] = [
+    const WORDS: [(&'static str, &'static str); 12] = [
+        (".rb'", ".lua'"),
         ("`#[", "`-- @"),
         ("]`", "`"),
         ("# @param", "---@param"),

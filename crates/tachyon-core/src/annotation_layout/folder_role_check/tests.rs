@@ -230,3 +230,40 @@ fn helpers_cannot_hide_service_classes_and_formal_helpers_need_their_marker() {
         assert_eq!(error.diagnostics()[0].code.number(), FolderRoleCheck::CODE);
     }
 }
+
+#[test]
+fn a_missing_marker_points_at_the_declaration_in_the_language_spelling() {
+    let script = "import { html } from 'lit'\n\nexport class MoneyService {}\n";
+    let failure = FolderRoleCheck::check(Path::new("client/services/MoneyService.js"), script)
+        .expect_err("missing marker");
+    let span = &failure.diagnostics()[0].spans[0];
+    assert_eq!(span.start, 28);
+    let lua = "MoneyService = {}\nMoneyService.__index = MoneyService\n\nfunction MoneyService:_total()\n  return 0\nend\n";
+    let failure = FolderRoleCheck::check(Path::new("server/services/MoneyService.lua"), lua)
+        .expect_err("missing Lua marker");
+    let message = &failure.diagnostics()[0].message;
+    assert!(
+        message.contains("required `-- @Service` marker"),
+        "{message}"
+    );
+}
+
+#[test]
+fn the_role_layout_help_names_the_authored_lua_and_fsharp_file() {
+    for (path, source, wanted) in [
+        (
+            "server/services/Money.lua",
+            "-- @Service\nMoney = {}\nMoney.__index = Money\n\nfunction Money:_total()\n  return 0\nend\n",
+            "'services/MoneyService.lua'",
+        ),
+        (
+            "server/services/Money.fs",
+            "[<Service>]\ntype Money() =\n    member _.Total: int = 0\n",
+            "'services/MoneyService.fs'",
+        ),
+    ] {
+        let failure = super::super::validate(Path::new(path), source).expect_err("no suffix");
+        let help = failure.diagnostics()[0].help.clone().unwrap_or_default();
+        assert!(help.contains(wanted), "{path}: {help}");
+    }
+}

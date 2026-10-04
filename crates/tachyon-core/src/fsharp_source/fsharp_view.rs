@@ -12,7 +12,8 @@ pub(crate) struct FsharpView {
 
 impl FsharpView {
     const ANALYSIS_EXTENSION: &'static str = "cs";
-    const WORDS: [(&'static str, &'static str); 4] = [
+    const WORDS: [(&'static str, &'static str); 5] = [
+        (".cs'", ".fs'"),
         ("`switch`", "`match`"),
         ("`foreach`", "`for`"),
         ("in C# Tac code", "in F# Tac code"),
