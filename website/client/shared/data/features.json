@@ -1421,7 +1421,7 @@
         },
         {
           "name": "client/services/CatalogService.js",
-          "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductsClient} */\n  @Needs\n  productsClient;\n  count = 0;\n\n  async load() {\n    this.count = this.#countItems(await this.productsClient.list());\n  }\n\n  async add() {\n    await this.productsClient.save({ name: 'anvil' });\n  }\n\n  /**\n   * @param {{ items: string[] } | void} answer\n   * @returns {number}\n   */\n  #countItems(answer) {\n    return answer ? answer.items.length : 0;\n  }\n}\n"
+          "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductsClient} */\n  @Needs\n  productsClient;\n  count = 0;\n\n  async load() {\n    this.count = this._countItems(await this.productsClient.list());\n  }\n\n  async add() {\n    await this.productsClient.save({ name: 'anvil' });\n  }\n\n  /**\n   * @param {{ items: string[] } | void} answer\n   * @returns {number}\n   */\n  _countItems(answer) {\n    return answer ? answer.items.length : 0;\n  }\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.ts",
@@ -2495,7 +2495,7 @@
         },
         {
           "name": "server/controllers/ChatController.js",
-          "code": "/** @import { ChatMessage } from '/models/ChatMessage.ts' */\n@SocketRoute('/chat')\n@Public\nclass ChatController {\n  /**\n   * @param {SocketSession} session\n   * @returns {Promise<void>}\n   */\n  @OnOpen\n  onOpen(session) {\n    return session.send({ text: 'Welcome to the room' })\n  }\n\n  /**\n   * @param {SocketSession} session\n   * @param {ChatMessage} message\n   */\n  @OnMessage\n  async onMessage(session, message) {\n    await this.#sendToEveryone(await session.openSessions(), message)\n  }\n\n  /**\n   * @param {SocketPeer[]} peers\n   * @param {ChatMessage} message\n   */\n  async #sendToEveryone(peers, message) {\n    for (const peer of peers) await peer.send(message)\n  }\n}\n"
+          "code": "/** @import { ChatMessage } from '/models/ChatMessage.ts' */\n@SocketRoute('/chat')\n@Public\nclass ChatController {\n  /**\n   * @param {SocketSession} session\n   * @returns {Promise<void>}\n   */\n  @OnOpen\n  onOpen(session) {\n    return session.send({ text: 'Welcome to the room' })\n  }\n\n  /**\n   * @param {SocketSession} session\n   * @param {ChatMessage} message\n   */\n  @OnMessage\n  async onMessage(session, message) {\n    await this._sendToEveryone(await session.openSessions(), message)\n  }\n\n  /**\n   * @param {SocketPeer[]} peers\n   * @param {ChatMessage} message\n   */\n  async _sendToEveryone(peers, message) {\n    for (const peer of peers) await peer.send(message)\n  }\n}\n"
         },
         {
           "name": "server/controllers/ChatController.ts",
@@ -2723,7 +2723,7 @@
         },
         {
           "name": "client/services/PickerService.js",
-          "code": "@Service\nexport default class PickerService {\n  /** @type {TacFilePicker} */\n  @Needs\n  filePicker;\n\n  /** @type {string} */\n  status = 'Ready';\n\n  /** @returns {Promise<void>} */\n  async choose() {\n    const result = await this.filePicker.open({ multiple: false, types: ['text/plain'] });\n    this.status = result.status;\n    await this.#readSelected(result);\n  }\n\n  /** @param {TacFilePickerResult} result @returns {Promise<void>} */\n  async #readSelected(result) {\n    if (result.status !== 'selected') return;\n    const handle = String(result.handle);\n    const content = await this.filePicker.readText(handle);\n    this.status = content.status;\n    await this.filePicker.release(handle);\n  }\n}\n"
+          "code": "@Service\nexport default class PickerService {\n  /** @type {TacFilePicker} */\n  @Needs\n  filePicker;\n\n  /** @type {string} */\n  status = 'Ready';\n\n  /** @returns {Promise<void>} */\n  async choose() {\n    const result = await this.filePicker.open({ multiple: false, types: ['text/plain'] });\n    this.status = result.status;\n    await this._readSelected(result);\n  }\n\n  /** @param {TacFilePickerResult} result @returns {Promise<void>} */\n  async _readSelected(result) {\n    if (result.status !== 'selected') return;\n    const handle = String(result.handle);\n    const content = await this.filePicker.readText(handle);\n    this.status = content.status;\n    await this.filePicker.release(handle);\n  }\n}\n"
         },
         {
           "name": "client/services/PickerService.ts",
@@ -3252,7 +3252,7 @@
         },
         {
           "name": "client/services/ReportService.js",
-          "code": "@Service\nexport default class ReportService {\n  /** @type {TacWindowControls} */\n  @Needs\n  windowControls;\n  problem = '';\n\n  minimize() {\n    this.#keepProblem(() => this.windowControls.minimize());\n  }\n\n  resize() {\n    this.#keepProblem(() => this.windowControls.resize(1280, 800));\n  }\n\n  rename() {\n    this.#keepProblem(() => this.windowControls.setTitle('Quarterly report'));\n  }\n\n  /** @param {() => void} call */\n  #keepProblem(call) {\n    try {\n      call();\n    } catch (refusal) {\n      this.problem = /** @type {Error} */ (refusal).message;\n    }\n  }\n}\n"
+          "code": "@Service\nexport default class ReportService {\n  /** @type {TacWindowControls} */\n  @Needs\n  windowControls;\n  problem = '';\n\n  minimize() {\n    this._keepProblem(() => this.windowControls.minimize());\n  }\n\n  resize() {\n    this._keepProblem(() => this.windowControls.resize(1280, 800));\n  }\n\n  rename() {\n    this._keepProblem(() => this.windowControls.setTitle('Quarterly report'));\n  }\n\n  /** @param {() => void} call */\n  _keepProblem(call) {\n    try {\n      call();\n    } catch (refusal) {\n      this.problem = /** @type {Error} */ (refusal).message;\n    }\n  }\n}\n"
         },
         {
           "name": "client/services/ReportService.ts",

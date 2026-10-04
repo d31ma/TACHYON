@@ -64,4 +64,19 @@ export default class SearchServiceTest {
     search.dispose()
     Assert.isTrue(!search.showing, 'the listener dies with the component')
   }
+
+  async testControlKTogglesAndOtherKeysDoNothing() {
+    const search = new SearchService()
+    const lifetime = this.mounted(search)
+    search.initialize()
+    dispatchEvent(new KeyboardEvent('keydown', { key: 'k' }))
+    dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true }))
+    Assert.isTrue(!search.showing, 'only a modifier with K opens search')
+    dispatchEvent(new KeyboardEvent('keydown', { key: 'K', ctrlKey: true }))
+    Assert.isTrue(Boolean(search.showing), 'Ctrl+K opens search')
+    dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
+    Assert.isTrue(!search.showing, 'Ctrl+K again closes search')
+    lifetime.abort()
+    search.dispose()
+  }
 }

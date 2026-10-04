@@ -6,7 +6,7 @@ export default class CatalogService {
   count = 0;
 
   async load() {
-    this.count = this.#countItems(await this.productsClient.list());
+    this.count = this._countItems(await this.productsClient.list());
   }
 
   async add() {
@@ -17,7 +17,7 @@ export default class CatalogService {
    * @param {{ items: string[] } | void} answer
    * @returns {number}
    */
-  #countItems(answer) {
+  _countItems(answer) {
     return answer ? answer.items.length : 0;
   }
 }

@@ -9,37 +9,41 @@ import { PlatformUtils } from '/shared/utils/PlatformUtils.js'
 @NeedsAll
 export default class SnippetService {
   static _FEWEST_CHOICES = 2
+  static _PLATFORM_KEY = 'tachyon.platform'
   /** @type {SnippetFile[]} */
   files
   /** @type {string} */
   axis
+  /** @type {PreferenceStrings} */
+  @Needs
+  preferenceStrings
 
   /** @type {string} */
-  _platform = this.#storedPlatform()
+  _platform = ''
   companion = ''
 
   /** @returns {boolean} */
   spans() {
-    return this.#spansFiles(this.#list())
+    return this._spansFiles(this._list())
   }
 
   /** @returns {PlatformChoice[]} */
   platforms() {
-    return this.#markCurrent(PlatformUtils.list(), this.#currentPlatform())
+    return this._markCurrent(PlatformUtils.list(), this._currentPlatform())
   }
 
   /** @returns {LanguageChoice[]} */
   companions() {
-    const companionNames = this.#languagesOf(this.#companionNames(this.#available()))
-    const choices = this.#choices(companionNames, this.#chosenLanguage(companionNames))
-    return this.#severalOrNone(choices)
+    const companionNames = this._languagesOf(this._companionNames(this._available()))
+    const choices = this._choices(companionNames, this._chosenLanguage(companionNames))
+    return this._severalOrNone(choices)
   }
 
   /** @returns {ShownFile[]} */
   shown() {
-    const files = this.#available()
-    const hiddenNames = this.#hiddenNames(files, this.#otherLanguages(this.companions()))
-    return this.#withLanguage(this.#visible(files, hiddenNames))
+    const files = this._available()
+    const hiddenNames = this._hiddenNames(files, this._otherLanguages(this.companions()))
+    return this._withLanguage(this._visible(files, hiddenNames))
   }
 
   /**
@@ -58,7 +62,7 @@ export default class SnippetService {
   }
 
   /** @returns {SnippetFile[]} */
-  #list() {
+  _list() {
     return Array.isArray(this.files) ? this.files : []
   }
 
@@ -66,13 +70,13 @@ export default class SnippetService {
    * @param {SnippetFile[]} files
    * @returns {boolean}
    */
-  #spansFiles(files) {
+  _spansFiles(files) {
     return this.axis !== 'language' && PlatformUtils.spansPlatforms(files)
   }
 
   /** @returns {string} */
-  #currentPlatform() {
-    return this._platform || this.#storedPlatform()
+  _currentPlatform() {
+    return this._platform || this._storedPlatform()
   }
 
   /**
@@ -80,14 +84,14 @@ export default class SnippetService {
    * @param {string} current
    * @returns {PlatformChoice[]}
    */
-  #markCurrent(platforms, current) {
+  _markCurrent(platforms, current) {
     return platforms.map((platform) => ({ ...platform, current: platform.id === current }))
   }
 
   /** @returns {SnippetFile[]} */
-  #available() {
-    const files = this.#forPlatform(this.#list(), this.spans(), this.#currentPlatform())
-    return PlatformUtils.inReadingOrder(this.#withCode(files))
+  _available() {
+    const files = this._forPlatform(this._list(), this.spans(), this._currentPlatform())
+    return PlatformUtils.inReadingOrder(this._withCode(files))
   }
 
   /**
@@ -96,7 +100,7 @@ export default class SnippetService {
    * @param {string} platform
    * @returns {SnippetFile[]}
    */
-  #forPlatform(files, spans, platform) {
+  _forPlatform(files, spans, platform) {
     if (!spans) return files
     return PlatformUtils.filesFor(files, platform)
   }
@@ -105,7 +109,7 @@ export default class SnippetService {
    * @param {SnippetFile[]} files
    * @returns {SnippetFile[]}
    */
-  #withCode(files) {
+  _withCode(files) {
     return files.filter((file) => file.code.trim() !== '')
   }
 
@@ -113,15 +117,15 @@ export default class SnippetService {
    * @param {SnippetFile[]} files
    * @returns {string[]}
    */
-  #companionNames(files) {
-    return files.map(this.#nameOf).filter(PlatformUtils.isCompanion)
+  _companionNames(files) {
+    return files.map(this._nameOf).filter(PlatformUtils.isCompanion)
   }
 
   /**
    * @param {string[]} names
    * @returns {string[]}
    */
-  #languagesOf(names) {
+  _languagesOf(names) {
     return [...new Set(names.map(PlatformUtils.languageLabel))]
   }
 
@@ -129,7 +133,7 @@ export default class SnippetService {
    * @param {string[]} companionNames
    * @returns {string}
    */
-  #chosenLanguage(companionNames) {
+  _chosenLanguage(companionNames) {
     return companionNames.includes(this.companion) ? this.companion : companionNames[0]
   }
 
@@ -138,7 +142,7 @@ export default class SnippetService {
    * @param {string} chosen
    * @returns {LanguageChoice[]}
    */
-  #choices(companionNames, chosen) {
+  _choices(companionNames, chosen) {
     return companionNames.map((language) => ({ name: language, label: language, current: language === chosen }))
   }
 
@@ -146,7 +150,7 @@ export default class SnippetService {
    * @param {LanguageChoice[]} choices
    * @returns {LanguageChoice[]}
    */
-  #severalOrNone(choices) {
+  _severalOrNone(choices) {
     if (choices.length < SnippetService._FEWEST_CHOICES) return []
     return choices
   }
@@ -155,8 +159,8 @@ export default class SnippetService {
    * @param {LanguageChoice[]} companions
    * @returns {string[]}
    */
-  #otherLanguages(companions) {
-    return companions.filter((entry) => !entry.current).map(this.#nameOf)
+  _otherLanguages(companions) {
+    return companions.filter((entry) => !entry.current).map(this._nameOf)
   }
 
   /**
@@ -164,8 +168,8 @@ export default class SnippetService {
    * @param {string[]} hiddenLanguages
    * @returns {string[]}
    */
-  #hiddenNames(files, hiddenLanguages) {
-    return files.map(this.#nameOf).filter(PlatformUtils.isCompanion).filter((name) => hiddenLanguages.includes(PlatformUtils.languageLabel(name)))
+  _hiddenNames(files, hiddenLanguages) {
+    return files.map(this._nameOf).filter(PlatformUtils.isCompanion).filter((name) => hiddenLanguages.includes(PlatformUtils.languageLabel(name)))
   }
 
   /**
@@ -173,7 +177,7 @@ export default class SnippetService {
    * @param {string[]} hiddenNames
    * @returns {SnippetFile[]}
    */
-  #visible(files, hiddenNames) {
+  _visible(files, hiddenNames) {
     return files.filter((file) => !hiddenNames.includes(file.name))
   }
 
@@ -181,7 +185,7 @@ export default class SnippetService {
    * @param {{ name: string }} item
    * @returns {string}
    */
-  #nameOf(item) {
+  _nameOf(item) {
     return item.name
   }
 
@@ -189,21 +193,13 @@ export default class SnippetService {
    * @param {SnippetFile[]} files
    * @returns {ShownFile[]}
    */
-  #withLanguage(files) {
+  _withLanguage(files) {
     return files.map((file) => ({ ...file, language: PlatformUtils.languageLabel(file.name) }))
   }
 
   /** @returns {string} */
-  #storedPlatform() {
-    return PlatformUtils.knownPlatform(this.#savedPlatform(), PlatformUtils.detectPlatform(navigator.userAgent))
-  }
-
-  /** @returns {string | null} */
-  #savedPlatform() {
-    try {
-      return localStorage.getItem('tachyon.platform')
-    } catch {
-      return null
-    }
+  _storedPlatform() {
+    const saved = this.preferenceStrings.read(SnippetService._PLATFORM_KEY)
+    return PlatformUtils.knownPlatform(saved, PlatformUtils.detectPlatform(navigator.userAgent))
   }
 }

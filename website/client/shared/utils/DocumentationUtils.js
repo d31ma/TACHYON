@@ -19,225 +19,224 @@ export class DocumentationUtils {
 
   /** @param {string} slug @returns {Guide | undefined} */
   static guide(slug) {
-    return DocumentationUtils.#documents().topics[slug]
+    return DocumentationUtils._documents().topics[slug]
   }
 
   /** @param {string} slug @param {string} hash @returns {string | undefined} */
   static redirect(slug, hash = '') {
-    const target = DocumentationUtils.#documents().redirects?.[slug]
+    const target = DocumentationUtils._documents().redirects?.[slug]
     const anchor = hash.replace(/^#/, '')
-    const holder = DocumentationUtils.#holderFor(anchor)
-    return DocumentationUtils.#redirectTo(target, holder, hash)
+    const holder = DocumentationUtils._holderFor(anchor)
+    return DocumentationUtils._redirectTo(target, holder, hash)
   }
 
   /** @param {string} query @param {number} maximum @returns {SearchResult[]} */
   static search(query, maximum = 12) {
-    const term = DocumentationUtils.#searchTerm(query)
-    const rows = DocumentationUtils.#searchRows()
-    const hits = DocumentationUtils.#hits(rows, term)
-    return DocumentationUtils.#bestHits(hits, maximum)
+    const term = DocumentationUtils._searchTerm(query)
+    const rows = DocumentationUtils._searchRows()
+    const hits = DocumentationUtils._hits(rows, term)
+    return DocumentationUtils._bestHits(hits, maximum)
   }
 
   /** @returns {GuideLink[]} */
-  static #guideLinks() {
-    return DocumentationUtils.#documents().order.map(DocumentationUtils.#guideLink)
+  static _guideLinks() {
+    return DocumentationUtils._documents().order.map(DocumentationUtils._guideLink)
   }
 
   /** @param {string} slug @returns {GuideLink} */
-  static #guideLink(slug) {
-    const entry = DocumentationUtils.#documents().topics[slug]
+  static _guideLink(slug) {
+    const entry = DocumentationUtils._documents().topics[slug]
     return { slug, title: entry.title, summary: entry.summary, path: `/docs/${slug}` }
   }
 
   /** @param {string} anchor @returns {string | undefined} */
-  static #holderFor(anchor) {
-    return DocumentationUtils.#anchorHolder(DocumentationUtils.#matchingGuides(anchor), anchor)
+  static _holderFor(anchor) {
+    return DocumentationUtils._anchorHolder(DocumentationUtils._matchingGuides(anchor), anchor)
   }
 
   /** @param {string} anchor @returns {string[]} */
-  static #matchingGuides(anchor) {
-    return DocumentationUtils.#documents().order.filter((slug) => DocumentationUtils.#hasAnchor(slug, anchor))
+  static _matchingGuides(anchor) {
+    return DocumentationUtils._documents().order.filter((slug) => DocumentationUtils._hasAnchor(slug, anchor))
   }
 
   /** @param {string} slug @param {string} anchor @returns {boolean} */
-  static #hasAnchor(slug, anchor) {
-    return DocumentationUtils.#documents().topics[slug].sections.some((section) => DocumentationUtils.slugOf(section.heading) === anchor)
+  static _hasAnchor(slug, anchor) {
+    return DocumentationUtils._documents().topics[slug].sections.some((section) => DocumentationUtils.slugOf(section.heading) === anchor)
   }
 
   /** @param {string[]} matching @param {string} anchor @returns {string | undefined} */
-  static #anchorHolder(matching, anchor) {
+  static _anchorHolder(matching, anchor) {
     return anchor ? matching[0] : undefined
   }
 
   /** @param {string | undefined} target @param {string | undefined} holder @param {string} hash @returns {string | undefined} */
-  static #redirectTo(target, holder, hash) {
-    const destination = DocumentationUtils.#destination(holder, target)
-    return DocumentationUtils.#whenRedirected(target, destination, hash)
+  static _redirectTo(target, holder, hash) {
+    const destination = DocumentationUtils._destination(holder, target)
+    return DocumentationUtils._whenRedirected(target, destination, hash)
   }
 
   /** @param {string | undefined} holder @param {string | undefined} target @returns {string | undefined} */
-  static #destination(holder, target) {
+  static _destination(holder, target) {
     return holder ?? target
   }
 
   /** @param {string | undefined} target @param {string | undefined} destination @param {string} hash @returns {string | undefined} */
-  static #whenRedirected(target, destination, hash) {
+  static _whenRedirected(target, destination, hash) {
     return target ? `/docs/${destination}${hash}` : undefined
   }
 
   /** @returns {(FeatureEntry & { path: string })[]} */
-  static #featureLinks() {
-    return DocumentationUtils.#catalogue().features.map(DocumentationUtils.#featureLink)
+  static _featureLinks() {
+    return DocumentationUtils._catalogue().features.map(DocumentationUtils._featureLink)
   }
 
   /** @param {FeatureEntry} feature @returns {FeatureEntry & { path: string }} */
-  static #featureLink(feature) {
+  static _featureLink(feature) {
     return { ...feature, path: `/docs/features/${feature.id}` }
   }
 
   /** @param {string} query @returns {string} */
-  static #searchTerm(query) {
+  static _searchTerm(query) {
     return String(query ?? '').trim().toLowerCase()
   }
 
   /** @returns {SearchRow[]} */
-  static #searchRows() {
-    return [...DocumentationUtils.#topicRows(), ...DocumentationUtils.#featureRows()]
+  static _searchRows() {
+    return [...DocumentationUtils._topicRows(), ...DocumentationUtils._featureRows()]
   }
 
   /** @returns {SearchRow[]} */
-  static #topicRows() {
-    return DocumentationUtils.#guideLinks().flatMap(DocumentationUtils.#rowsForGuide)
+  static _topicRows() {
+    return DocumentationUtils._guideLinks().flatMap(DocumentationUtils._rowsForGuide)
   }
 
   /** @param {GuideLink} entry @returns {SearchRow[]} */
-  static #rowsForGuide(entry) {
-    const topic = DocumentationUtils.#documents().topics[entry.slug]
-    const rows = DocumentationUtils.#sectionRows(entry, DocumentationUtils.#sectionsOf(topic))
+  static _rowsForGuide(entry) {
+    const topic = DocumentationUtils._documents().topics[entry.slug]
+    const rows = DocumentationUtils._sectionRows(entry, DocumentationUtils._sectionsOf(topic))
     return [{ title: entry.title, path: entry.path, kind: 'topic', text: entry.summary }, ...rows]
   }
 
   /** @param {Guide} topic @returns {Section[]} */
-  static #sectionsOf(topic) {
+  static _sectionsOf(topic) {
     return topic.sections ?? []
   }
 
   /** @param {GuideLink} entry @param {Section[]} sections @returns {SearchRow[]} */
-  static #sectionRows(entry, sections) {
-    return sections.map((section) => DocumentationUtils.#sectionRow(entry, section))
+  static _sectionRows(entry, sections) {
+    return sections.map((section) => DocumentationUtils._sectionRow(entry, section))
   }
 
   /** @param {GuideLink} entry @param {Section & { files?: SnippetFile[] }} section @returns {SearchRow} */
-  static #sectionRow(entry, section) {
+  static _sectionRow(entry, section) {
     const anchor = DocumentationUtils.slugOf(section.heading)
-    const code = DocumentationUtils.#codeOf(section.files)
+    const code = DocumentationUtils._codeOf(section.files)
     return {
       title: `${entry.title} · ${section.heading}`,
       path: `${entry.path}#${anchor}`,
       kind: 'section',
-      text: DocumentationUtils.#joinText([section.summary, section.body, section.code, ...code]),
+      text: DocumentationUtils._joinText([section.summary, section.body, section.code, ...code]),
     }
   }
 
   /** @param {SnippetFile[] | undefined} files @returns {string[]} */
-  static #codeOf(files) {
-    return DocumentationUtils.#knownFiles(files).map(DocumentationUtils.#fileCode)
+  static _codeOf(files) {
+    return DocumentationUtils._knownFiles(files).map(DocumentationUtils._fileCode)
   }
 
   /** @param {SnippetFile[] | undefined} files @returns {SnippetFile[]} */
-  static #knownFiles(files) {
+  static _knownFiles(files) {
     return files ?? []
   }
 
   /** @param {SnippetFile} file @returns {string} */
-  static #fileCode(file) {
+  static _fileCode(file) {
     return file.code
   }
 
   /** @param {(string | undefined)[]} parts @returns {string} */
-  static #joinText(parts) {
+  static _joinText(parts) {
     return parts.filter(Boolean).join('\n')
   }
 
   /** @returns {SearchRow[]} */
-  static #featureRows() {
-    return DocumentationUtils.#featureLinks().map(DocumentationUtils.#featureRow)
+  static _featureRows() {
+    return DocumentationUtils._featureLinks().map(DocumentationUtils._featureRow)
   }
 
   /** @param {FeatureEntry & { path: string }} entry @returns {SearchRow} */
-  static #featureRow(entry) {
+  static _featureRow(entry) {
     return {
       title: entry.title, path: entry.path, kind: 'feature',
-      text: DocumentationUtils.#joinText([entry.summary, entry.group, ...DocumentationUtils.#codeOf(entry.files)]),
+      text: DocumentationUtils._joinText([entry.summary, entry.group, ...DocumentationUtils._codeOf(entry.files)]),
     }
   }
 
   /** @param {SearchRow[]} rows @param {string} term @returns {SearchHit[]} */
-  static #hits(rows, term) {
-    const hits = DocumentationUtils.#ranked(rows, term)
-    return DocumentationUtils.#searchable(term.length, hits)
+  static _hits(rows, term) {
+    const hits = DocumentationUtils._ranked(rows, term)
+    return DocumentationUtils._searchable(term.length, hits)
   }
 
   /** @param {SearchRow[]} rows @param {string} term @returns {SearchHit[]} */
-  static #ranked(rows, term) {
-    return rows.map((row) => DocumentationUtils.#hit(row, term)).filter(DocumentationUtils.#matched)
+  static _ranked(rows, term) {
+    return rows.map((row) => DocumentationUtils._hit(row, term)).filter(DocumentationUtils._matched)
   }
 
   /** @param {SearchRow} row @param {string} term @returns {SearchHit} */
-  static #hit(row, term) {
-    const title = row.title.toLowerCase()
-    const text = row.text.toLowerCase()
-    const priorities = [[title.startsWith(term), 3], [title.includes(term), 2], [text.includes(term), 1]]
-    return { row, rank: DocumentationUtils.#rankOf(priorities) }
+  static _hit(row, term) {
+    return { row, rank: DocumentationUtils._rankOf(row.title.toLowerCase(), row.text.toLowerCase(), term) }
   }
 
-  /** @param {(boolean | number)[][]} priorities @returns {number} */
-  static #rankOf(priorities) {
-    return Number(priorities.find(DocumentationUtils.#firstTrue)?.[1] ?? 0)
-  }
-
-  /** @param {(boolean | number)[]} priority @returns {boolean} */
-  static #firstTrue(priority) {
-    return Boolean(priority[0])
+  /** @param {string} title @param {string} text @param {string} term @returns {number} */
+  static _rankOf(title, text, term) {
+    if (title.startsWith(term)) {
+      return 3
+    } else if (title.includes(term)) {
+      return 2
+    } else if (text.includes(term)) {
+      return 1
+    }
+    return 0
   }
 
   /** @param {SearchHit} hit @returns {boolean} */
-  static #matched(hit) {
+  static _matched(hit) {
     return hit.rank > 0
   }
 
   /** @param {number} length @param {SearchHit[]} hits @returns {SearchHit[]} */
-  static #searchable(length, hits) {
-    return length < DocumentationUtils.#shortestTerm() ? [] : hits
+  static _searchable(length, hits) {
+    return length < DocumentationUtils.shortestTerm() ? [] : hits
   }
 
   /** @param {SearchHit[]} hits @param {number} maximum @returns {SearchResult[]} */
-  static #bestHits(hits, maximum) {
-    return hits.sort(DocumentationUtils.#compareHits).slice(0, maximum).map(DocumentationUtils.#resultOf)
+  static _bestHits(hits, maximum) {
+    return hits.sort(DocumentationUtils._compareHits).slice(0, maximum).map(DocumentationUtils._resultOf)
   }
 
   /** @param {SearchHit} left @param {SearchHit} right @returns {number} */
-  static #compareHits(left, right) {
+  static _compareHits(left, right) {
     return right.rank - left.rank || left.row.title.length - right.row.title.length
   }
 
   /** @param {SearchHit} hit @returns {SearchResult} */
-  static #resultOf(hit) {
+  static _resultOf(hit) {
     return { title: hit.row.title, path: hit.row.path, kind: hit.row.kind }
   }
 
   /** @returns {number} */
-  static #shortestTerm() {
+  static shortestTerm() {
     return 2
   }
 
   /** @returns {DocumentationCatalogue} */
-  static #documents() {
+  static _documents() {
     return /** @type {DocumentationCatalogue} */ (documents)
   }
 
   /** @returns {FeatureCatalogue} */
-  static #catalogue() {
+  static _catalogue() {
     return /** @type {FeatureCatalogue} */ (features)
   }
 }

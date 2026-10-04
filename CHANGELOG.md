@@ -74,6 +74,10 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The website's style generator reads `TAC_WEBSITE_DEPENDENCIES` instead of
+  `TACHYON_WEBSITE_DEPENDENCIES` to find the website's `node_modules` folder
+  when dependencies live outside the source folder. Rename the variable where
+  you set it.
 - The website release build fits its unchanged 320 KiB script budget on every
   route again. It loads only the six DuVay components its views use, rebuilt
   from the pinned DuVay source (`bun run duvay`), instead of the full component

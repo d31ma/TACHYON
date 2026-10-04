@@ -151,7 +151,7 @@ their component. The site loads no shared utility stylesheet and no script that
 makes styles.
 
 If this machine keeps dependencies outside the source folder, set
-`TACHYON_WEBSITE_DEPENDENCIES` to the website's `node_modules` folder when you
+`TAC_WEBSITE_DEPENDENCIES` to the website's `node_modules` folder when you
 run the generator. You do not need a dependency link inside the synced source.
 
 The theme is dark until the visitor picks another one. `site.css` gives the

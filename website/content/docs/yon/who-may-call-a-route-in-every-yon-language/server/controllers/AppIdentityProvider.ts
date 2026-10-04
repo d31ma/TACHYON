@@ -8,10 +8,10 @@ export class AppIdentityProvider {
   ]);
 
   identify(request: Request): Identity | null {
-    return this.#find(String(request.headers.get('authorization')));
+    return this.find(String(request.headers.get('authorization')));
   }
 
-  #find(token: string): Identity | null {
+  private find(token: string): Identity | null {
     return AppIdentityProvider.SESSIONS.get(token) ?? null;
   }
 }

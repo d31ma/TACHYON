@@ -2,70 +2,70 @@
 export class PlatformUtils {
   /** @returns {{ id: string, label: string }[]} */
   static list() {
-    return PlatformUtils.#choices().map(PlatformUtils.#choiceOf)
+    return PlatformUtils._choices().map(PlatformUtils._choiceOf)
   }
 
   /** @param {string} name @returns {string[] | null} */
-  static #reachOf(name) {
-    const reach = PlatformUtils.#knownReach(PlatformUtils.#extension(name))
-    return PlatformUtils.#forRealm(PlatformUtils.#isServer(name), reach)
+  static _reachOf(name) {
+    const reach = PlatformUtils._knownReach(PlatformUtils._extension(name))
+    return PlatformUtils._forRealm(PlatformUtils._isServer(name), reach)
   }
 
   /** @param {string} name @returns {boolean} */
   static isCompanion(name) {
-    return PlatformUtils.#companionExtensions().includes(PlatformUtils.#extension(name))
+    return PlatformUtils._companionExtensions().includes(PlatformUtils._extension(name))
   }
 
   /** @param {string} name @returns {number} */
-  static #rank(name) {
-    const order = PlatformUtils.#readingOrder()
-    return PlatformUtils.#knownPosition(order.indexOf(PlatformUtils.#extension(name)), order.length)
+  static _rank(name) {
+    const order = PlatformUtils._readingOrder()
+    return PlatformUtils._knownPosition(order.indexOf(PlatformUtils._extension(name)), order.length)
   }
 
   /** @param {SnippetFile[]} files @returns {SnippetFile[]} */
   static inReadingOrder(files) {
-    return PlatformUtils.#sorted(files)
+    return PlatformUtils._sorted(files)
   }
 
   /** @param {string} name @returns {string | null} */
-  static #languageOf(name) {
-    return PlatformUtils.#knownLanguage(PlatformUtils.#extension(name))
+  static _languageOf(name) {
+    return PlatformUtils._knownLanguage(PlatformUtils._extension(name))
   }
 
   /** @param {string} name @returns {string} */
   static languageLabel(name) {
-    return PlatformUtils.#label(PlatformUtils.#languageOf(name))
+    return PlatformUtils._label(PlatformUtils._languageOf(name))
   }
 
   /** @param {SnippetFile[]} files @returns {boolean} */
   static spansPlatforms(files) {
-    return PlatformUtils.#distinctReaches(files).size > 1
+    return PlatformUtils._distinctReaches(files).size > 1
   }
 
   /** @param {SnippetFile[]} files @param {string} platform @returns {SnippetFile[]} */
   static filesFor(files, platform) {
-    return PlatformUtils.#availableFiles(files, platform)
+    return PlatformUtils._availableFiles(files, platform)
   }
 
   /** @param {string} agent @returns {string} */
   static detectPlatform(agent) {
-    return PlatformUtils.#matchedPlatform(agent)
+    return PlatformUtils._matchedPlatform(agent)
   }
 
   /** @param {string | null} chosen @param {string} fallback @returns {string} */
   static knownPlatform(chosen, fallback) {
-    return PlatformUtils.#choiceOrDefault(PlatformUtils.#isKnown(chosen), chosen, fallback)
+    return PlatformUtils._choiceOrDefault(PlatformUtils._isKnown(chosen), chosen, fallback)
   }
 
   /** @returns {string} */
-  static #web() {
+  static _web() {
     return 'web'
   }
 
   /** @returns {{ id: string, label: string, agent: RegExp | null }[]} */
-  static #choices() {
+  static _choices() {
     return [
-      { id: PlatformUtils.#web(), label: 'Web', agent: null },
+      { id: PlatformUtils._web(), label: 'Web', agent: null },
       { id: 'macos', label: 'macOS', agent: /Macintosh/ },
       { id: 'ios', label: 'iOS', agent: /iPhone|iPad|iPod/ },
       { id: 'android', label: 'Android', agent: /Android/ },
@@ -75,148 +75,146 @@ export class PlatformUtils {
   }
 
   /** @param {{ id: string, label: string }} choice @returns {{ id: string, label: string }} */
-  static #choiceOf(choice) {
+  static _choiceOf(choice) {
     return { id: choice.id, label: choice.label }
   }
 
   /** @returns {string[]} */
-  static #allPlatforms() {
-    return PlatformUtils.#choices().map((choice) => choice.id)
+  static _allPlatforms() {
+    return PlatformUtils._choices().map((choice) => choice.id)
   }
 
   /** @returns {Record<string, string[]>} */
-  static #reaches() {
+  static _reaches() {
     return {
-    js: PlatformUtils.#allPlatforms(),
-    ts: PlatformUtils.#allPlatforms(),
-    dart: PlatformUtils.#allPlatforms(),
-    py: [PlatformUtils.#web()],
-    rs: PlatformUtils.#allPlatforms(),
-    cs: PlatformUtils.#allPlatforms(),
-    fs: PlatformUtils.#allPlatforms(),
-    go: PlatformUtils.#allPlatforms(),
-    rb: PlatformUtils.#allPlatforms(),
-    lua: PlatformUtils.#allPlatforms(),
-    java: PlatformUtils.#allPlatforms(),
-    html: PlatformUtils.#allPlatforms(),
-    css: PlatformUtils.#allPlatforms(),
-    swift: PlatformUtils.#allPlatforms(),
-    kt: PlatformUtils.#allPlatforms(),
-  }
-
+      js: PlatformUtils._allPlatforms(),
+      ts: PlatformUtils._allPlatforms(),
+      dart: PlatformUtils._allPlatforms(),
+      py: [PlatformUtils._web()],
+      rs: PlatformUtils._allPlatforms(),
+      cs: PlatformUtils._allPlatforms(),
+      fs: PlatformUtils._allPlatforms(),
+      go: PlatformUtils._allPlatforms(),
+      rb: PlatformUtils._allPlatforms(),
+      lua: PlatformUtils._allPlatforms(),
+      java: PlatformUtils._allPlatforms(),
+      html: PlatformUtils._allPlatforms(),
+      css: PlatformUtils._allPlatforms(),
+      swift: PlatformUtils._allPlatforms(),
+      kt: PlatformUtils._allPlatforms(),
+    }
   }
 
   /** @returns {Record<string, string>} */
-  static #languageNames() {
+  static _languageNames() {
     return {
-    html: 'View',
-    css: 'Styles',
-    js: 'JavaScript',
-    ts: 'TypeScript',
-    dart: 'Dart',
-    py: 'Python',
-    java: 'Java',
-    groovy: 'Groovy',
-    php: 'PHP',
-    swift: 'Swift',
-    kt: 'Kotlin',
-    cs: 'C#',
-    fs: 'F#',
-    rs: 'Rust',
-    rb: 'Ruby',
-    lua: 'Lua',
-    go: 'Go',
-  }
-
+      html: 'View',
+      css: 'Styles',
+      js: 'JavaScript',
+      ts: 'TypeScript',
+      dart: 'Dart',
+      py: 'Python',
+      java: 'Java',
+      groovy: 'Groovy',
+      php: 'PHP',
+      swift: 'Swift',
+      kt: 'Kotlin',
+      cs: 'C#',
+      fs: 'F#',
+      rs: 'Rust',
+      rb: 'Ruby',
+      lua: 'Lua',
+      go: 'Go',
+    }
   }
 
   /** @returns {string[]} */
-  static #companionExtensions() {
+  static _companionExtensions() {
     return ['js', 'ts', 'dart', 'py', 'java', 'groovy', 'php', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'lua']
   }
 
   /** @returns {string[]} */
-  static #readingOrder() {
-    return [...PlatformUtils.#companionExtensions(), 'html', 'css']
+  static _readingOrder() {
+    return [...PlatformUtils._companionExtensions(), 'html', 'css']
   }
 
   /** @param {string} name @returns {string} */
-  static #extension(name) {
+  static _extension(name) {
     return String(name).split('.').pop()?.toLowerCase() ?? ''
   }
 
   /** @param {string} name @returns {boolean} */
-  static #isServer(name) {
+  static _isServer(name) {
     return String(name).startsWith('server/') || String(name).startsWith('middleware.')
   }
 
   /** @param {string} extension @returns {string[] | null} */
-  static #knownReach(extension) {
-    return PlatformUtils.#reaches()[extension] ?? null
+  static _knownReach(extension) {
+    return PlatformUtils._reaches()[extension] ?? null
   }
 
   /** @param {boolean} server @param {string[] | null} reach @returns {string[] | null} */
-  static #forRealm(server, reach) {
+  static _forRealm(server, reach) {
     return server ? null : reach
   }
 
   /** @param {number} position @param {number} length @returns {number} */
-  static #knownPosition(position, length) {
+  static _knownPosition(position, length) {
     return position === -1 ? length : position
   }
 
   /** @param {SnippetFile[]} files @returns {SnippetFile[]} */
-  static #sorted(files) {
-    return [...files].sort(PlatformUtils.#compareFiles)
+  static _sorted(files) {
+    return [...files].sort(PlatformUtils._compareFiles)
   }
 
   /** @param {SnippetFile} left @param {SnippetFile} right @returns {number} */
-  static #compareFiles(left, right) {
-    return PlatformUtils.#rank(left.name) - PlatformUtils.#rank(right.name)
+  static _compareFiles(left, right) {
+    return PlatformUtils._rank(left.name) - PlatformUtils._rank(right.name)
   }
 
   /** @param {string} extension @returns {string | null} */
-  static #knownLanguage(extension) {
-    return PlatformUtils.#languageNames()[extension] ?? null
+  static _knownLanguage(extension) {
+    return PlatformUtils._languageNames()[extension] ?? null
   }
 
   /** @param {string | null} language @returns {string} */
-  static #label(language) {
+  static _label(language) {
     return language ?? ''
   }
 
   /** @param {SnippetFile[]} files @returns {Set<string>} */
-  static #distinctReaches(files) {
-    return new Set(files.map(PlatformUtils.#reachKey).filter(Boolean))
+  static _distinctReaches(files) {
+    return new Set(files.map(PlatformUtils._reachKey).filter(Boolean))
   }
 
   /** @param {SnippetFile} file @returns {string} */
-  static #reachKey(file) {
-    return PlatformUtils.#reachOf(file.name)?.join(',') ?? ''
+  static _reachKey(file) {
+    return PlatformUtils._reachOf(file.name)?.join(',') ?? ''
   }
 
   /** @param {SnippetFile[]} files @param {string} platform @returns {SnippetFile[]} */
-  static #availableFiles(files, platform) {
-    return files.filter((file) => PlatformUtils.#reachesPlatform(PlatformUtils.#reachOf(file.name), platform))
+  static _availableFiles(files, platform) {
+    return files.filter((file) => PlatformUtils._reachesPlatform(PlatformUtils._reachOf(file.name), platform))
   }
 
   /** @param {string[] | null} reach @param {string} platform @returns {boolean} */
-  static #reachesPlatform(reach, platform) {
+  static _reachesPlatform(reach, platform) {
     return reach === null || reach.includes(platform)
   }
 
   /** @param {string} agent @returns {string} */
-  static #matchedPlatform(agent) {
-    return PlatformUtils.#choices().find((choice) => choice.agent?.test(agent))?.id ?? PlatformUtils.#web()
+  static _matchedPlatform(agent) {
+    return PlatformUtils._choices().find((choice) => choice.agent?.test(agent))?.id ?? PlatformUtils._web()
   }
 
   /** @param {string | null} chosen @returns {boolean} */
-  static #isKnown(chosen) {
+  static _isKnown(chosen) {
     return PlatformUtils.list().some((platform) => platform.id === chosen)
   }
 
   /** @param {boolean} known @param {string | null} chosen @param {string} fallback @returns {string} */
-  static #choiceOrDefault(known, chosen, fallback) {
+  static _choiceOrDefault(known, chosen, fallback) {
     return known ? String(chosen) : fallback
   }
 }

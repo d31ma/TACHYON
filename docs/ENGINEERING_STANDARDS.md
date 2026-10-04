@@ -141,7 +141,7 @@ authored-source rules, not restrictions on compiler-generated composition
   or `DeleteRoute`. Their names start with the matching verb. Parameters and
   model return types define validation and the generated schema. Helpers do
   not register endpoints. Annotations do not run during discovery. See ADR 0048.
-- Routes, middleware, and workers use the ten framework-owned Yon languages.
+- Routes, middleware, and workers use the framework-owned Yon languages.
   Other programs must cross an explicit `relay(command, request)` boundary or
   a `@Gateway` command. Project files cannot register an interpreter or select
   an executable handler.

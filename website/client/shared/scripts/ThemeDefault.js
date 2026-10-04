@@ -6,11 +6,7 @@ class ThemeDefault {
 
   /** @returns {void} */
   static save() {
-    try {
-      if (localStorage.getItem(ThemeDefault._KEY) === null) localStorage.setItem(ThemeDefault._KEY, ThemeDefault._THEME)
-    } catch {
-      return
-    }
+    if (localStorage.getItem(ThemeDefault._KEY) === null) localStorage.setItem(ThemeDefault._KEY, ThemeDefault._THEME)
   }
 }
 

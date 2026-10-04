@@ -6,19 +6,19 @@ export default class ReportService {
   problem = '';
 
   minimize() {
-    this.#keepProblem(() => this.windowControls.minimize());
+    this._keepProblem(() => this.windowControls.minimize());
   }
 
   resize() {
-    this.#keepProblem(() => this.windowControls.resize(1280, 800));
+    this._keepProblem(() => this.windowControls.resize(1280, 800));
   }
 
   rename() {
-    this.#keepProblem(() => this.windowControls.setTitle('Quarterly report'));
+    this._keepProblem(() => this.windowControls.setTitle('Quarterly report'));
   }
 
   /** @param {() => void} call */
-  #keepProblem(call) {
+  _keepProblem(call) {
     try {
       call();
     } catch (refusal) {

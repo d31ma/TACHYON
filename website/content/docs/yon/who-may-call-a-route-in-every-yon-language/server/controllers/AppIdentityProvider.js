@@ -11,14 +11,14 @@ export class AppIdentityProvider {
    * @returns {{ user: string, roles: string[] } | null}
    */
   identify(request) {
-    return this.#find(String(request.headers.get('authorization')))
+    return this._find(String(request.headers.get('authorization')))
   }
 
   /**
    * @param {string} token
    * @returns {{ user: string, roles: string[] } | null}
    */
-  #find(token) {
+  _find(token) {
     return AppIdentityProvider._SESSIONS.get(token) ?? null
   }
 }

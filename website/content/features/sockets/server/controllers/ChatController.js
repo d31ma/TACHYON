@@ -17,14 +17,14 @@ class ChatController {
    */
   @OnMessage
   async onMessage(session, message) {
-    await this.#sendToEveryone(await session.openSessions(), message)
+    await this._sendToEveryone(await session.openSessions(), message)
   }
 
   /**
    * @param {SocketPeer[]} peers
    * @param {ChatMessage} message
    */
-  async #sendToEveryone(peers, message) {
+  async _sendToEveryone(peers, message) {
     for (const peer of peers) await peer.send(message)
   }
 }

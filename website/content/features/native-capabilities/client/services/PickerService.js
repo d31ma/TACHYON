@@ -11,11 +11,11 @@ export default class PickerService {
   async choose() {
     const result = await this.filePicker.open({ multiple: false, types: ['text/plain'] });
     this.status = result.status;
-    await this.#readSelected(result);
+    await this._readSelected(result);
   }
 
   /** @param {TacFilePickerResult} result @returns {Promise<void>} */
-  async #readSelected(result) {
+  async _readSelected(result) {
     if (result.status !== 'selected') return;
     const handle = String(result.handle);
     const content = await this.filePicker.readText(handle);

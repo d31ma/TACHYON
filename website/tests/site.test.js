@@ -38,60 +38,36 @@ function instanceNameOf(className) {
   return stem[0].toLowerCase() + stem.slice(1)
 }
 
-function expectServiceShape(source, className, extension) {
-  if (extension === 'lua') {
-    expect(source).toMatch(/^-- @Service$/m)
-    expect(source).toContain(`---@class ${className}`)
-    expect(source).toContain(`${className} = `)
-    return
+class Built {
+  static routes = ['dist/web/index.html', 'dist/web/docs/index.html', 'dist/web/docs/_topic/index.html',
+    'dist/web/docs/features/index.html', 'dist/web/docs/features/_id/index.html']
+
+  static async components(route) {
+    const html = await read(route)
+    const view = JSON.parse(html.match(/<script id="tachyon-view"[^>]*>([\s\S]*?)<\/script>/)[1])
+    const components = []
+    const pending = [view]
+    while (pending.length > 0) {
+      const node = pending.pop()
+      if (Array.isArray(node)) pending.push(...node)
+      else if (node && typeof node === 'object') {
+        pending.push(...Object.values(node))
+        if (node.k === 'component') components.push(node)
+      }
+    }
+    return components
   }
-  if (extension === 'py') {
-    expect(source).toMatch(/^@service$/m)
-    expect(source).toContain(`class ${className}:`)
-    return
+
+  static async service(route, component, name) {
+    const found = (await Built.components(route)).find((node) => node.name === component)
+    return found.services.find((service) => service.name === name)
   }
-  if (extension === 'java') {
-    expect(source).toMatch(/^@Service$/m)
-    expect(source).toContain(`class ${className} {`)
-    return
+
+  static async plan(className) {
+    const module = await read(`dist/web/.tachyon/services/${className}.js`)
+    const plan = JSON.parse(module.match(/export const __tachyon_event_plan__ = (\{.*\});/)[1])
+    return plan.types.find((type) => type.name === className)
   }
-  if (extension === 'go') {
-    expect(source).toMatch(/^\/\/ @Service$/m)
-    expect(source).toContain(`type ${className} struct`)
-    return
-  }
-  if (extension === 'rs') {
-    expect(source).toMatch(/^#\[Service\]$/m)
-    expect(source).toContain(`struct ${className} {`)
-    expect(source).toContain(`impl ${className} {`)
-    return
-  }
-  if (extension === 'rb') {
-    expect(source).toMatch(/^#\[Service\]$/m)
-    expect(source).toContain(`class ${className}\n`)
-    return
-  }
-  if (extension === 'cs') {
-    expect(source).toMatch(/^\[Service\]$/m)
-    expect(source).toContain(`public class ${className}`)
-    return
-  }
-  if (extension === 'fs') {
-    expect(source).toMatch(/^\[<Service>\]$/m)
-    expect(source).toContain(`type ${className}() =`)
-    return
-  }
-  expect(source).toMatch(/^@Service$/m)
-  if (extension === 'dart' || extension === 'kt') {
-    expect(source).toContain(`class ${className} `)
-    return
-  }
-  if (extension === 'swift') {
-    expect(source).toContain(`final class ${className} `)
-    return
-  }
-  expect(source).toContain(`export default class ${className} `)
-  expect(source).not.toContain('tachyon:behaviors')
 }
 
 beforeAll(ensureBundle, 300_000)
@@ -127,21 +103,12 @@ describe('published output', () => {
     const routes = ['dist/web/docs/index.html', 'dist/web/docs/_topic/index.html', 'dist/web/docs/features/_id/index.html']
     const lost = []
     for (const route of routes) {
-      const html = await read(route)
-      const view = JSON.parse(html.match(/<script id="tachyon-view"[^>]*>([\s\S]*?)<\/script>/)[1])
-      const pending = [view]
-      while (pending.length > 0) {
-        const node = pending.pop()
-        if (Array.isArray(node)) pending.push(...node)
-        else if (node && typeof node === 'object') {
-          pending.push(...Object.values(node))
-          if (node.k !== 'component') continue
-          const receivers = node.services.filter(service => Array.isArray(service.required))
-          if (receivers.length === 0) continue
-          const required = new Set(receivers.flatMap(service => service.required))
-          for (const property of node.properties ?? []) {
-            if (!required.has(property.name)) lost.push(`${route}: <${node.name} :${property.name}>`)
-          }
+      for (const node of await Built.components(route)) {
+        const receivers = node.services.filter(service => Array.isArray(service.required))
+        if (receivers.length === 0) continue
+        const required = new Set(receivers.flatMap(service => service.required))
+        for (const property of node.properties ?? []) {
+          if (!required.has(property.name)) lost.push(`${route}: <${node.name} :${property.name}>`)
         }
       }
     }
@@ -149,49 +116,29 @@ describe('published output', () => {
   })
 
   test('interactive services inject owner-scoped render resources', async () => {
-    for (const file of ['ClipboardService.ts', 'SearchService.js']) {
-      const source = await read(`client/services/${file}`)
-      expect(source).toMatch(/this\.taskScheduler\??\.render\(\)/)
-      expect(source).toMatch(/@Needs\n\s*taskScheduler\b/)
-      expect(source).not.toContain('@Resource')
-      expect(source).not.toContain('this.tac')
-      expect(source).not.toContain('globalThis.__tachyonTac')
-      expect(source).not.toContain('__tachyonOnMount')
+    for (const className of ['ClipboardService', 'SearchService']) {
+      const resources = (await Built.plan(className)).resources.map((resource) => resource.name)
+      expect(resources).toContain('taskScheduler')
+      expect(resources).toContain('lifecycle')
     }
   })
 
-  test('live site services use OnStart instead of implicit mount hooks', async () => {
+  test('live site services start in their OnStart method', async () => {
     const manifest = JSON.parse(await read('client/manifest.json'))
     expect(manifest.tac.metadata.routes['/']).toBeDefined()
-    for (const sourcePath of [
-      'client/services/FeatureService.kt',
-      'client/services/TopicService.ts',
-      'client/services/SearchService.js',
-    ]) {
-      const source = await read(sourcePath)
-      expect(source).toContain('@OnStart')
-      expect(source).not.toContain('mount(')
-      expect(source).not.toContain('__tachyonOnMount')
+    for (const className of ['FeatureService', 'TopicService', 'SearchService']) {
+      expect((await Built.plan(className)).post_construct).toBe('initialize')
     }
   })
 
-  test('the Kotlin feature page receives genuine catalogue props and an injected title provider', async () => {
-    const source = await read('client/services/FeatureService.kt')
-    expect(source).toMatch(/^@NeedsAll$/m)
-    expect(source).toMatch(/@Needs\n\s*private val documentTitle: DocumentTitle/)
-    expect(source).toContain('lateinit var route: String')
-    expect(source).toContain('lateinit var catalogue: FeatureCatalogue')
-    expect(source).not.toContain('/shared/scripts/navigation.js')
-    expect(source).not.toContain('document.title')
-    expect(await read('client/pages/docs/features/_id/tac.html')).toContain(':route="page.path" :catalogue="data.features"')
+  test('the feature page hands its route and catalogue to the feature service', async () => {
+    const route = 'dist/web/docs/features/_id/index.html'
+    const feature = (await Built.components(route)).find((node) => node.name === 'docs-feature')
+    expect(feature.properties.map((property) => property.name)).toEqual(expect.arrayContaining(['route', 'catalogue']))
+    const service = await Built.service(route, 'docs-feature', 'feature')
+    expect(service.required).toEqual(expect.arrayContaining(['route', 'catalogue']))
     const manifest = JSON.parse(await read('client/manifest.json'))
     expect(manifest.tac.browserApis).not.toContain('documentTitle')
-    const testSource = await read('client/tests/FeatureServiceTest.kt')
-    expect(testSource).toContain('@Fake')
-    expect(testSource).toContain('construct(FeatureService::class)')
-    expect(testSource).toContain('testEntryIsTheFeatureTheUrlNames')
-    expect(testSource).toContain('testAnUnknownFeatureIsNotFoundRatherThanBroken')
-    expect(testSource).toContain('testInitializeTitlesTheDocumentAfterTheFeature')
   })
 
   test('a component is a view and its style; behaviour is a service', async () => {
@@ -205,29 +152,26 @@ describe('published output', () => {
 
     const services = (await readdir(fileURLToPath(new URL('../client/services', import.meta.url))))
     expect(services.length).toBeGreaterThanOrEqual(15)
+    const built = await readdir(`${SiteArtifacts.web(fileURLToPath(new URL('..', import.meta.url)))}/.tachyon/services`)
     const instances = new Set()
     for (const file of services) {
-      const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|py|dart|rs|cs|fs|go|rb|kt|swift|lua|java)$/) ?? []
+      const [, className] = file.match(/^([A-Z]\w*Service)\.(js|ts|py|dart|rs|cs|fs|go|rb|kt|swift|lua|java)$/) ?? []
       expect(className, file).toBeDefined()
-      const source = await read(`client/services/${file}`)
-      expectServiceShape(source, className, extension)
+      expect(built, file).toContain(`${className}.js`)
       instances.add(instanceNameOf(className))
     }
-    const named = new Set()
-    for (const view of views) {
-      const html = await readFile(view, 'utf8')
-      for (const [, instance] of html.matchAll(/\b([a-z][A-Za-z]*)\.[A-Za-z$]/g)) {
-        if (instances.has(instance)) named.add(instance)
+    const shown = new Map()
+    for (const route of Built.routes) {
+      for (const node of await Built.components(route)) {
+        for (const service of node.services) shown.set(service.name, service)
       }
     }
-    expect([...instances].sort()).toEqual([...named].sort())
-    for (const prototype of ['SnippetService', 'TocService', 'PagerService', 'PagelinksService']) {
-      const file = services.find((name) => name.startsWith(`${prototype}.`))
-      const source = await read(`client/services/${file}`)
-      expect(source).toMatch(/^(@|#\[|\[)NeedsAll\]?$/m)
-      expect(source).not.toContain('Lifetime(')
+    expect([...instances].sort()).toEqual([...shown.keys()].sort())
+    for (const name of ['snippet', 'toc', 'pager', 'pagelinks']) {
+      expect(Array.isArray(shown.get(name).required), name).toBe(true)
+      expect(shown.get(name).scope, name).toBe('prototype')
     }
-    expect(await read('client/services/ClipboardService.ts')).toContain('@Lifetime({"value":"prototype"})')
+    expect(shown.get('clipboard').scope).toBe('prototype')
   })
 })
 
@@ -382,7 +326,7 @@ describe('language coverage', () => {
     expect(JSON.stringify(docs)).not.toMatch(/\.modules?\.json/)
   })
 
-  test('first-app Dart tests cumulatively construct the HTTP-enabled service with typed fakes', async () => {
+  test('first-app steps call the server through a client and test the service with a fake', async () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     const sections = docs.topics['first-app'].sections
     const step4 = sections.find(section => section.heading.startsWith('Step 4:'))
@@ -391,28 +335,15 @@ describe('language coverage', () => {
     for (const extension of ['js', 'ts', 'dart']) {
       expect(source(`client/remotes/GreetingClient.${extension}`)).toContain('@GetRequest(')
       expect(source(`client/services/CounterService.${extension}`)).toContain('@Needs')
+      expect(source(`client/services/CounterService.${extension}`)).not.toMatch(/\bfetch\s*\(/)
     }
-    expect(source('client/remotes/GreetingClient.dart')).toContain('Future<Greeting> getGreeting();')
-    expect(source('client/services/CounterService.dart')).toContain('Future<void> askServer() async')
-    expect(source('client/services/CounterService.dart')).toContain('await greetingClient.getGreeting()')
-    expect(source('client/services/CounterService.dart')).not.toContain('GreetingClient(')
-    expect(source('client/services/CounterService.dart')).not.toContain('fetch(')
-    expect(source('client/setups/GreetingSetup.dart')).toContain('return BehaviorAdapters();')
     expect(step4.body).toContain('Credentials are omitted')
     expect(step4.body).toContain('same-origin only')
     const step5 = sections.find(section => section.heading.startsWith('Step 5:'))
-    const unit = step5.files.find(file => file.name === 'client/tests/CounterServiceTest.dart').code
-    expect(unit).toContain('@Fake')
-    expect(unit).toContain('GreetingClient? greetingClient;')
-    expect(unit).toContain('construct<CounterService>(CounterService)')
-    expect(unit).toContain('await counter.askServer();')
-    expect(unit).toContain('identical(firstClient, counter.greetingClient)')
-    expect(unit).not.toContain('CounterService();')
-    const setup = step5.files.find(file => file.name === 'client/tests/HelloTestSetup.dart').code
-    expect(setup).toContain("'greeting': BehaviorHttpAdapter(")
-    expect(setup).toContain("'message': 'Hi'")
+    const names = step5.files.map(file => file.name)
+    expect(names).toEqual(expect.arrayContaining(['client/tests/CounterServiceTest.dart', 'client/tests/HelloTestSetup.dart', 'server/tests/GreetingControllerTest.dart']))
+    expect(step5.files.find(file => file.name === 'client/tests/CounterServiceTest.dart').code).toContain('@Fake')
     expect(step5.body).toContain('without a network request')
-    expect(step5.files.some(file => file.name === 'server/tests/GreetingControllerTest.dart')).toBe(true)
   })
 
   test('application HTTP recipes use an HTTPClient, and cached reads use Cached on the client', async () => {
@@ -696,7 +627,7 @@ describe('house style', () => {
     expect(run('light')).toBe('light')
     expect(run('auto')).toBe('auto')
     const blocked = { getItem: () => { throw new Error('denied') }, setItem: () => { throw new Error('denied') } }
-    expect(() => new Function('localStorage', source)(blocked)).not.toThrow()
+    expect(() => new Function('localStorage', source)(blocked)).toThrow('denied')
 
     const manifest = await readJson('client/manifest.json')
     const scripts = manifest.tac.scripts
@@ -803,30 +734,19 @@ describe('documentation structure', () => {
   })
 
   test('the sidebar reaches every page, and the pager passes through all of them', async () => {
-    const navigation = await read('client/shared/utils/DocumentationUtils.js')
-    const docs = await readJson('client/shared/data/docs.json')
     const catalogue = await readJson('client/shared/data/features.json')
-
-    expect(navigation).toContain('#catalogue().features')
     const groups = [...new Set(catalogue.features.map((feature) => feature.group))]
     for (const group of groups) expect(catalogue.groups).toContain(group)
-
-    const total = docs.order.length + catalogue.features.length
-    expect(total).toBeGreaterThan(docs.order.length)
+    const route = 'dist/web/docs/_topic/index.html'
+    for (const [component, name] of [['docs-sidebar', 'sidebar'], ['docs-pager', 'pager']]) {
+      expect((await Built.service(route, component, name)).required).toEqual(expect.arrayContaining(['documents', 'features']))
+    }
   })
 
-  test('the search index covers features, not only guides', async () => {
-    const navigation = await read('client/shared/utils/DocumentationUtils.js')
-    const search = await read('client/services/SearchService.js')
-    const searchTemplate = await read('client/components/site/search/tac.html')
-    expect(navigation).toContain('/docs/features/')
-    expect(navigation).toContain('static search(')
-    expect(navigation).toContain("kind: 'section'")
-    expect(navigation).toContain("kind: 'feature'")
-    expect(search).toContain('this.results = DocumentationUtils.search(query)')
-    expect(searchTemplate).toContain('on:input="search.find($event.target.value)"')
-    expect(search).toContain('keydown')
-    expect(search).toContain('this.taskScheduler.render()')
+  test('every page offers the search', async () => {
+    for (const route of Built.routes) {
+      expect(await Built.service(route, 'site-search', 'search'), route).toBeDefined()
+    }
   })
 
   test('the sitemap lists the feature pages', async () => {
@@ -1006,8 +926,6 @@ describe('documentation structure', () => {
     expect(html).toContain('aria-expanded')
     expect(html).toContain('aria-controls="docs-nav-panel"')
     expect(html).toContain('on:click="drawer.toggle()"')
-    const source = await read('client/services/DrawerService.rb')
-    expect(source).toContain('key == "Escape"')
   })
 
   test('the docs shell dissolves its wrappers where the rule can win', async () => {

@@ -15,8 +15,6 @@ export default class TopicService {
     sections: [],
   }
 
-  private static SEPARATOR: Record<string, string> = { true: '.', false: ', ' }
-
   private static anchorFor(heading: string): string {
     return `#${DocumentationUtils.slugOf(heading)}`
   }
@@ -124,8 +122,13 @@ export default class TopicService {
     return slugs.map((slug, index) => ({
       title: TopicService.titleOf(slug),
       path: `/docs/${slug}`,
-      separator: TopicService.SEPARATOR[String(index === slugs.length - 1)],
+      separator: TopicService.separatorAfter(index, slugs.length),
     }))
+  }
+
+  private static separatorAfter(index: number, count: number): string {
+    if (index === count - 1) return '.'
+    return ', '
   }
 
   private static contentsOf(sections: Section[]): TopicContents[] {

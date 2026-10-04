@@ -3352,7 +3352,7 @@
             },
             {
               "name": "server/controllers/AppIdentityProvider.js",
-              "code": "@IdentityProvider\nexport class AppIdentityProvider {\n  /** @type {Map<string, { user: string, roles: string[] }>} */\n  static _SESSIONS = new Map([\n    ['ada-token', { user: 'ada', roles: ['Admin'] }],\n    ['bob-token', { user: 'bob', roles: [] }],\n  ])\n\n  /**\n   * @param {Request} request\n   * @returns {{ user: string, roles: string[] } | null}\n   */\n  identify(request) {\n    return this.#find(String(request.headers.get('authorization')))\n  }\n\n  /**\n   * @param {string} token\n   * @returns {{ user: string, roles: string[] } | null}\n   */\n  #find(token) {\n    return AppIdentityProvider._SESSIONS.get(token) ?? null\n  }\n}\n"
+              "code": "@IdentityProvider\nexport class AppIdentityProvider {\n  /** @type {Map<string, { user: string, roles: string[] }>} */\n  static _SESSIONS = new Map([\n    ['ada-token', { user: 'ada', roles: ['Admin'] }],\n    ['bob-token', { user: 'bob', roles: [] }],\n  ])\n\n  /**\n   * @param {Request} request\n   * @returns {{ user: string, roles: string[] } | null}\n   */\n  identify(request) {\n    return this._find(String(request.headers.get('authorization')))\n  }\n\n  /**\n   * @param {string} token\n   * @returns {{ user: string, roles: string[] } | null}\n   */\n  _find(token) {\n    return AppIdentityProvider._SESSIONS.get(token) ?? null\n  }\n}\n"
             },
             {
               "name": "server/controllers/OrdersController.js",
@@ -3368,7 +3368,7 @@
             },
             {
               "name": "server/controllers/AppIdentityProvider.ts",
-              "code": "import type { Identity } from '/models/Identity.ts';\n\n@IdentityProvider\nexport class AppIdentityProvider {\n  private static readonly SESSIONS = new Map<string, Identity>([\n    ['ada-token', { user: 'ada', roles: ['Admin'] }],\n    ['bob-token', { user: 'bob', roles: [] }],\n  ]);\n\n  identify(request: Request): Identity | null {\n    return this.#find(String(request.headers.get('authorization')));\n  }\n\n  #find(token: string): Identity | null {\n    return AppIdentityProvider.SESSIONS.get(token) ?? null;\n  }\n}\n"
+              "code": "import type { Identity } from '/models/Identity.ts';\n\n@IdentityProvider\nexport class AppIdentityProvider {\n  private static readonly SESSIONS = new Map<string, Identity>([\n    ['ada-token', { user: 'ada', roles: ['Admin'] }],\n    ['bob-token', { user: 'bob', roles: [] }],\n  ]);\n\n  identify(request: Request): Identity | null {\n    return this.find(String(request.headers.get('authorization')));\n  }\n\n  private find(token: string): Identity | null {\n    return AppIdentityProvider.SESSIONS.get(token) ?? null;\n  }\n}\n"
             },
             {
               "name": "server/controllers/OrdersController.ts",
