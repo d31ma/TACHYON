@@ -225,6 +225,12 @@ machine contracts have their own, independent major versions.
 - A macOS app name that looks like a host template placeholder, such as
   `__ROUTE_DOCUMENTS__`, stays plain text in the generated Swift host.
 
+- The duplicated code check (`TY1315`) skips JavaScript and TypeScript
+  private constants with one literal value, such as `static _GAP = 24` or
+  `private static readonly _GAP: number = 24`. Before, it skipped only names
+  that start with an uppercase letter, so two services with many `_UPPER`
+  constants were refused as duplicated code.
+
 - A Rust Tac model field with a raw identifier, such as `pub r#type: String`
   or `pub r#match: Option<String>`, reaches the page again. The model reader
   dropped the field, so the generated `TacModel` code failed to compile with

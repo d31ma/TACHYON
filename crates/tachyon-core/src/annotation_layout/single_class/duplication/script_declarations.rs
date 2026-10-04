@@ -68,6 +68,7 @@ impl ScriptDeclarations {
     }
 
     fn constant_name(name: &str) -> bool {
+        let name = name.strip_prefix('_').unwrap_or(name);
         name.starts_with(|first: char| first.is_ascii_uppercase())
             & name.bytes().all(Self::constant_byte)
     }

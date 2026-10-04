@@ -190,6 +190,26 @@ fn typescript_literal_constants_follow_the_same_declaration_contract() {
 }
 
 #[test]
+fn underscore_private_constants_are_declarations_in_javascript_and_typescript() {
+    let javascript = script_initializers("24", true).replace('#', "_");
+    let typescript = javascript
+        .replace("static _", "private static readonly _")
+        .replace(" = ", ": number = ");
+    for (extension, first) in [("js", javascript), ("ts", typescript)] {
+        let first_path = format!("client/services/First.{extension}");
+        let second_path = format!("client/services/Second.{extension}");
+        let second = first.replace("First", "Second");
+        let problems = found(&[(&first_path, &first), (&second_path, &second)]);
+        assert!(problems.is_empty(), "{extension}: {problems:?}");
+        let computed = first.replace("24", "make(24)");
+        let other = computed.replace("First", "Second");
+        let problems = found(&[(&first_path, &computed), (&second_path, &other)]);
+        assert!(!problems.is_empty(), "{extension}");
+        assert_eq!(problems[0].code.number(), 1315);
+    }
+}
+
+#[test]
 fn javascript_computed_and_instance_fields_still_count_as_code() {
     for (initializer, static_member) in [
         ("make('value')", true),
