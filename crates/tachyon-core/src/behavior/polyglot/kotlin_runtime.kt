@@ -476,8 +476,10 @@ object Behaviors {
         }
         internal fun restExchange(name: String, method: String, path: String, descriptor: Map<String, Any?>): Any? =
             operation { execution -> exchange(descriptor, Exchange(name, method, path), execution) }
-        private fun exchange(descriptor: Any?, metadata: Exchange, execution: Execution): Any? =
-            adapted(configuration.http[metadata.client] ?: fail("http-adapter"), httpRequest(descriptor, metadata), execution)
+        private fun exchange(descriptor: Any?, metadata: Exchange, execution: Execution): Any? {
+            val request = httpRequest(descriptor, metadata)
+            return adapted(configuration.http[metadata.client] ?: fail("http-adapter"), request, execution)
+        }
         private fun httpRequest(descriptor: Any?, metadata: Exchange): Map<String, Any?> {
             val request = map(copy(descriptor, 1048576)).toMutableMap()
             if (request.keys.any { it !in setOf("query", "headers", "body") }) fail("http-request")
