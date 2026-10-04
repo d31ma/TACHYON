@@ -13,8 +13,8 @@ pub(crate) struct LuaView {
 
 impl LuaView {
     const ANALYSIS_EXTENSION: &'static str = "rb";
-    const WORDS: [(&'static str, &'static str); 12] = [
-        (".rb'", ".lua'"),
+    const SHADOW_FILE: (&'static str, &'static str) = (".rb'", ".lua'");
+    const WORDS: [(&'static str, &'static str); 11] = [
         ("`#[", "`-- @"),
         ("]`", "`"),
         ("# @param", "---@param"),
@@ -122,8 +122,10 @@ impl LuaView {
     }
 
     fn renamed(&self, text: &str) -> String {
+        let (shadow_file, source_file) = Self::SHADOW_FILE;
         Self::WORDS.iter().fold(
-            text.replace(&self.shadow_name, &self.source_name),
+            text.replace(&self.shadow_name, &self.source_name)
+                .replace(shadow_file, source_file),
             |renamed, (ruby, lua)| renamed.replace(ruby, lua),
         )
     }
