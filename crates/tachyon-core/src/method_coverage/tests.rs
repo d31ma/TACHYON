@@ -194,6 +194,15 @@ fn the_compiler_writes_a_declared_method_so_nobody_tests_it() {
 }
 
 #[test]
+fn a_kotlin_http_client_declares_its_requests_so_nobody_tests_them() {
+    let report = report_for(&[(
+        "client/remotes/GreetingClient.kt",
+        "@HTTPClient(\"/api\")\ninterface GreetingClient {\n    @GetRequest(\"/greeting\")\n    suspend fun getGreeting(): Greeting\n    fun read(\n        id: Int,\n    ): Greeting = getGreeting()\n}\n",
+    )]);
+    assert_eq!(uncovered_methods(&report), vec!["read"], "{report:?}");
+}
+
+#[test]
 fn recorded_calls_survive_a_write_and_a_read() {
     let root = tempfile::tempdir().expect("project");
     assert_eq!(RecordedCalls::read(root.path()), None);

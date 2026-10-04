@@ -145,9 +145,20 @@ fn declared(language: &str, line: &str) -> bool {
     if language == "py" {
         return line.ends_with(": ...");
     }
+    if language == "kt" {
+        return kotlin_declared(line);
+    }
     let is_bodyless_statement = line.ends_with(';') && !line.contains('{') && !line.contains("=>");
     let has_empty_body = line.trim_end().ends_with("{}");
     is_bodyless_statement || has_empty_body
+}
+
+fn kotlin_declared(line: &str) -> bool {
+    let opened = line.matches('(').count();
+    let closed = line.matches(')').count();
+    let after_parameters = line.rsplit_once(')').map_or("", |(_, rest)| rest);
+    let has_no_body = opened > 0 && opened == closed && !after_parameters.contains(['{', '=']);
+    has_no_body || line.trim_end().ends_with("{}")
 }
 
 fn method_name(language: &str, line: &str) -> Option<String> {
