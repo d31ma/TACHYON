@@ -144,6 +144,35 @@ fn python_async_and_async_lifecycle_are_explicitly_pending() {
 }
 
 #[test]
+fn python_browser_apis_are_refused_at_build_time() {
+    for (source, name) in [
+        (
+            "@service\nclass CounterService:\n    def stamp(self) -> int:\n        return Clock().now()\n",
+            "Clock",
+        ),
+        (
+            "@service\n@needs_all\nclass CounterService:\n    random: SecureRandom\n",
+            "SecureRandom",
+        ),
+    ] {
+        let failure =
+            PythonProviderSource::read(Path::new("client/services/CounterService.py"), source)
+                .err()
+                .unwrap_or_else(|| panic!("{name} needs the page"));
+        assert_eq!(failure.diagnostics()[0].code.number(), 1605);
+        assert!(
+            failure.to_string().contains(&format!("`{name}`")),
+            "{failure}"
+        );
+    }
+    let quoted =
+        "@service\nclass CounterService:\n    label: str = 'Clock'\n    # Clock comes later\n";
+    assert!(
+        PythonProviderSource::read(Path::new("client/services/CounterService.py"), quoted).is_ok()
+    );
+}
+
+#[test]
 fn python_unknown_method_models_fail_before_runtime() {
     let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
     let provider = Project::provider(

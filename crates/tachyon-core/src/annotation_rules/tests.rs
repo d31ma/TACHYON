@@ -472,7 +472,7 @@ fn arguments_statics_pairs_and_clashes_are_checked() {
         ),
         (
             "py",
-            "@cache_settings(\"x\")\nclass SampleService:\n    @cached\n    @staticmethod\n    def load(value):\n        return value\n",
+            "class SampleService:\n    @on_start\n    @staticmethod\n    def load():\n        pass\n",
             "on a static method",
         ),
         (
@@ -1064,4 +1064,24 @@ fn a_filled_field_keeps_its_non_null_form_and_state_keeps_its_value() {
             "{language} refused:\n{source}"
         );
     }
+}
+
+#[test]
+fn python_tac_refuses_behavior_and_storage_annotations_but_keeps_listeners() {
+    for source in [
+        "from typing import Annotated\n\n@service\nclass SampleService:\n    count: Annotated[int, local_state] = 0\n",
+        "from typing import Annotated\n\n@service\nclass SampleService:\n    count: Annotated[int, session_state] = 0\n",
+        "@service\nclass SampleService:\n    @retry({\"attempts\": 3})\n    def load(self) -> int:\n        return 1\n",
+        "@service\n@cache_settings(\"prices\")\nclass SampleService:\n    @cached\n    def load(self) -> int:\n        return 1\n",
+    ] {
+        let message = Sample::message("py", Realm::Tac, source).expect("refused");
+        assert!(
+            message.contains("is not available in Python Tac code"),
+            "{message}"
+        );
+    }
+    let listener = "@service\nclass SampleService:\n    @on_event\n    def heard(self, event: Placed) -> None:\n        pass\n";
+    assert_eq!(Sample::message("py", Realm::Tac, listener), None);
+    let retried = "class SampleService:\n    @retry({\"attempts\": 3})\n    async def load(self) -> int:\n        return 1\n";
+    assert_eq!(Sample::message("py", Realm::Yon, retried), None);
 }

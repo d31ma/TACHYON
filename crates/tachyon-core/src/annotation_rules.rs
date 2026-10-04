@@ -286,6 +286,8 @@ impl AnnotationRules {
     const TAC_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py",
     ];
+    const TAC_BEHAVIOR_ADAPTER: &'static [&'static str] =
+        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const TAC_HELPER: &'static [&'static str] = &["js", "ts", "dart", "rs", "py", "cs", "fs"];
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
@@ -510,7 +512,7 @@ impl AnnotationRules {
             "keeps this field in the browser's localStorage, so its value comes back after a reload and in later visits on this device",
         )
         .bare()
-        .reach(Self::TAC_BEHAVIOR, Self::NOWHERE)
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::NOWHERE)
         .clashes(&["SessionState", "Needs"]),
         Rule::new(
             "SessionState",
@@ -518,14 +520,15 @@ impl AnnotationRules {
             "keeps this field in the browser's sessionStorage, so its value comes back after a reload in the same tab",
         )
         .bare()
-        .reach(Self::TAC_BEHAVIOR, Self::NOWHERE)
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::NOWHERE)
         .clashes(&["LocalState", "Needs"]),
         Rule::new(
             "CacheSettings",
             Self::TYPE,
             "names the cache that this class's Cached methods use, and sets its limits",
         )
-        .needs_arguments(),
+        .needs_arguments()
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR),
         Rule::new(
             "Cached",
             Self::METHOD,
@@ -533,6 +536,7 @@ impl AnnotationRules {
         )
         .bare()
         .instance()
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR)
         .clashes(Self::CACHE_CHANGES)
         .class_needs(&["CacheSettings"]),
         Rule::new(
@@ -540,7 +544,8 @@ impl AnnotationRules {
             Self::PARAMETER,
             "makes this argument part of the key of a cached answer",
         )
-        .bare(),
+        .bare()
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR),
         Rule::new(
             "ClearCache",
             Self::METHOD,
@@ -548,6 +553,7 @@ impl AnnotationRules {
         )
         .needs_arguments()
         .instance()
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR)
         .clashes(Self::CACHE_CHANGES),
         Rule::new(
             "UpdateCache",
@@ -556,25 +562,31 @@ impl AnnotationRules {
         )
         .needs_arguments()
         .instance()
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR)
         .clashes(Self::CACHE_CHANGES),
         Rule::new(
             "PageDefaults",
             Self::PARAMETER,
             "gives the page size and sort order that a page argument uses when the caller leaves them out",
-        ),
-        Rule::new("Retry", Self::METHOD, "runs the method again when it fails").instance(),
+        )
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR),
+        Rule::new("Retry", Self::METHOD, "runs the method again when it fails")
+            .instance()
+            .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR),
         Rule::new(
             "MaxAtOnce",
             Self::METHOD,
             "limits how many calls of this method run at the same time",
         )
-        .instance(),
+        .instance()
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR),
         Rule::new(
             "AllOrNothing",
             Self::METHOD,
             "saves all of the method's changes, or none of them when it fails",
         )
-        .instance(),
+        .instance()
+        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::YON_BEHAVIOR),
         Rule::new(
             "Entity",
             Self::TYPE,

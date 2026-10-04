@@ -1,3 +1,4 @@
+use super::python_browser_apis::PythonBrowserApis;
 use super::python_events::PythonEvents;
 use crate::Failure;
 use crate::behavior::{PythonMembers, ServiceRoles};
@@ -25,6 +26,7 @@ impl PythonProviderSource {
             .and_then(|name| name.to_str())
             .unwrap_or_default()
             .to_owned();
+        PythonBrowserApis::refuse(path, source)?;
         let roles = ServiceRoles::read(path, source)?;
         let plain = ServiceRoles::without_roles(path, source)?;
         let members = PythonMembers::read(path, &plain, &class)?;

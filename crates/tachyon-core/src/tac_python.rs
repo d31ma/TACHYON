@@ -1,3 +1,4 @@
+mod python_browser_apis;
 mod python_build;
 mod python_events;
 mod python_graph_guard;
