@@ -2418,7 +2418,7 @@
       "id": "openapi",
       "title": "Generated route schemas",
       "group": "Yon server",
-      "summary": "Tachyon makes a schema (a description of the data shape) for every route from the controller code. It reads the path variables, the query values, the headers, the body and the return type from the method signature. A model (a data type in `server/models/`) describes a body or an answer. JavaScript writes its types in JSDoc comments (this example imports the TypeScript model), and Ruby types its method with YARD tags. Tachyon checks every marked parameter before the method runs. A value that does not fit gets 400, and so does a body with a field that the model does not declare: every model schema says `\"additionalProperties\": false`. An answer that does not match the return type gets 500. The server answers `OPTIONS` with the `Allow` header and the route schema. `/api.json` lists every route and model in one document, with the version of Tachyon that built it, and `/api-docs/` shows the same document as a page. You write no schema file. The schema is public: `OPTIONS` and `/api.json` describe a route even when the route itself needs a signed-in user.",
+      "summary": "Tachyon makes a schema (a description of the data shape) for every route from the controller code. It reads the path variables, the query values, the headers, the body and the return type from the method signature. A model (a data type in `server/models/`) describes a body or an answer. JavaScript writes its types in JSDoc comments (this example imports the TypeScript model), Ruby types its method with YARD tags, and Lua with LuaLS `---@param` and `---@return` comments. Tachyon checks every marked parameter before the method runs. A value that does not fit gets 400, and so does a body with a field that the model does not declare: every model schema says `\"additionalProperties\": false`. An answer that does not match the return type gets 500. The server answers `OPTIONS` with the `Allow` header and the route schema. `/api.json` lists every route and model in one document, with the version of Tachyon that built it, and `/api-docs/` shows the same document as a page. The outputs here come from the TypeScript tab. Each language writes its own types, so an integer type such as Lua's `integer` becomes `\"type\": \"integer\"`, and `/items/abc` then gets \"must be a whole number\". You write no schema file. The schema is public: `OPTIONS` and `/api.json` describe a route even when the route itself needs a signed-in user.",
       "files": [
         {
           "name": "server/controllers/ItemsController.js",
@@ -2531,6 +2531,14 @@
         {
           "name": "server/controllers/ItemsController.rb",
           "code": "#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController\n  # @param id [Integer]\n  # @return [Item]\n  #[GetRoute(\"/{id}\")]\n  def get_item(\n    #[FromPath]\n    id\n  )\n    Item.new(name: \"anvil\", level: id)\n  end\n\n  # @param id [Integer]\n  # @param item [Item]\n  # @return [Item]\n  #[PatchRoute(\"/{id}\")]\n  def patch_item(\n    #[FromPath]\n    id,\n    #[FromBody]\n    item\n  )\n    Item.new(name: item.name, level: id)\n  end\nend\n"
+        },
+        {
+          "name": "server/models/Item.lua",
+          "code": "---@class Item\n---@field name string\n---@field level integer\nItem = {}\n"
+        },
+        {
+          "name": "server/controllers/ItemsController.lua",
+          "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id integer\n---@return Item\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_item(\n  -- @FromPath\n  id\n)\n  return { name = \"anvil\", level = id }\nend\n\n---@param id integer\n---@param item Item\n---@return Item\n-- @PatchRoute(\"/{id}\")\nfunction ItemsController:patch_item(\n  -- @FromPath\n  id,\n  -- @FromBody\n  item\n)\n  return { name = item.name, level = id }\nend\n"
         }
       ]
     },
