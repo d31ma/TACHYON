@@ -168,3 +168,66 @@ application services once. There is no reopen step as on macOS.
 - Windows: generated-source tests, and the Win32 menu code compiled and linked
   with MinGW-w64 GCC. The MSVC build, the WebView2 accelerator handler and a run
   on Windows are not yet verified (see `docs/SUPPORT_TIERS.md`).
+
+## Amendment (2026-10-04): Windows architecture, page calls and paths
+
+### Windows architecture
+
+`ty bundle --target windows` builds for the architecture of the build
+machine by default (ARM64 on Windows on ARM, x64 otherwise). `--arch x64`
+or `--arch arm64` (aliases `amd64`/`x86_64`, `aarch64`; `native` is the
+default) chooses one; `--arch` without a Windows target is refused. The
+choice sets all four architecture values together:
+
+| Value | x64 | ARM64 |
+| --- | --- | --- |
+| Rust companion target | `x86_64-pc-windows-msvc` | `aarch64-pc-windows-msvc` |
+| WebView2 loader folder | `build/native/x64` | `build/native/arm64` |
+| C# runtime identifier | `win-x64` | `win-arm64` |
+| Linker machine | `/MACHINE:X64` | `/MACHINE:ARM64` |
+
+`cl` comes from the developer prompt. When the prompt's
+`VSCMD_ARG_TGT_ARCH` names another architecture, the build stops and names
+the `vcvarsall.bat` argument to use. The artifact manifest records
+`x86_64` or `aarch64`.
+
+### Page calls
+
+A page reaches its native companion through `companion.invoke`. The
+contract is the same on the macOS, Linux and Windows hosts:
+
+- The page sends one JSON request and waits for one JSON reply (a promise).
+  The host runs the companion call synchronously on its user interface
+  thread: the main actor on macOS (`WKScriptMessageHandlerWithReply`), the
+  GTK main loop on Linux (`script-message-with-reply-received`), and the
+  window's thread on Windows (`WebMessageReceived`; the page side sends one
+  call at a time, with a 10 second timeout). A slow method blocks the
+  window, so long work belongs in a background task.
+- The operations are `init`, `get`, `set`, `call` and `dispose`, for the
+  route of the current document only.
+- A request is at most 64 KiB. On Linux and Windows a reply is at most
+  64 KiB too; a larger reply is answered with an error that says to send
+  smaller pages (before, Linux and Windows answered "Invalid native
+  response."). A request that becomes larger than 64 KiB when Windows
+  converts it to UTF-8 is now answered with an error instead of timing out.
+  macOS does not limit the reply.
+- Arguments are positional. A model argument is a JSON object whose keys
+  are the Rust field names, the same on every host, because every desktop
+  builds the same Rust companion code.
+- Larger data goes in pages. An app keeps the data in its service and
+  returns it page by page: with at most 24 KiB of text per page, a reply
+  stays under 64 KiB even when JSON escaping doubles every byte.
+  `linux_page_call_tests` checks this through the real WebKitGTK bridge.
+
+### Paths
+
+Tachyon imposes no sandbox root on Linux or Windows and plans no MSIX or
+Flatpak packaging. The app process has the user's normal rights, and an app
+chooses its own per-user paths, for example `%LOCALAPPDATA%\<app>` on
+Windows and `$XDG_RUNTIME_DIR` or `$XDG_STATE_HOME` on Linux. The hosts
+write their event log to `%LOCALAPPDATA%\Tachyon` and
+`$XDG_STATE_HOME/tachyon`. The Linux web view uses an ephemeral network
+session. The Windows host passes no user data folder to WebView2, so
+WebView2 keeps its data in its default folder beside the executable
+(`<App>.exe.WebView2`); an app installed in a folder the user cannot write
+needs a per-user data folder, which is not part of this amendment.

@@ -89,6 +89,13 @@ impl Linkage {
         }
     }
 
+    pub(super) const fn cargo_crate_types(self) -> &'static [&'static str] {
+        match self {
+            Self::Static => &["staticlib", "rlib"],
+            Self::Shared | Self::Web(_) => &["cdylib", "rlib"],
+        }
+    }
+
     const fn profile_arguments(self) -> &'static [&'static str] {
         match self {
             Self::Static | Self::Shared => &[],
@@ -119,6 +126,47 @@ pub(super) fn stage(
         .as_bytes(),
     )?;
     Ok(Some(staged))
+}
+
+pub(super) fn stage_crate(
+    application: &super::config::NativeApplication,
+    source: Option<&Path>,
+    linkage: Linkage,
+) -> Result<(), Failure> {
+    if !application.rust.declaration.uses_cargo() {
+        return Ok(());
+    }
+    let Some(source) = source else {
+        return Err(native_tool_failure(
+            RustCompanion::FAILURE_CODE,
+            "tac.application.rust declares crates or executables, but the application has no \
+             Rust service to build them with. Add a Rust service in client/services.",
+        ));
+    };
+    application
+        .rust
+        .crate_build(source, &application.application_id)
+        .stage(linkage)
+        .map(|_| ())
+}
+
+pub(super) async fn compile_companion(
+    application: &super::config::NativeApplication,
+    source: &Path,
+    linkage: Linkage,
+    target_triple: Option<&str>,
+    library: &Path,
+    helpers: &Path,
+) -> Result<Vec<PathBuf>, Failure> {
+    if !application.rust.declaration.uses_cargo() {
+        compile(source, linkage, target_triple, library).await?;
+        return Ok(Vec::new());
+    }
+    application
+        .rust
+        .crate_build(source, &application.application_id)
+        .build(linkage, target_triple, library, helpers)
+        .await
 }
 
 fn unicode_path<'path>(path: &'path Path, message: &str) -> Result<&'path str, Failure> {

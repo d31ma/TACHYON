@@ -2,9 +2,11 @@ mod add_command;
 mod add_options;
 mod add_what;
 mod advice_report;
+mod architecture_choice;
 mod coverage_gate;
 mod init_choices;
 mod init_command;
+mod package_plan;
 mod resilient_serve;
 mod restart;
 mod shutdown;
@@ -27,16 +29,18 @@ use tachyon_core::{
     EnvironmentPolicy, Failure, HandlerCancellation, HandlerRuntimePrograms, HandlerSource,
     HandlerSupervisor, HandlerSupervisorOptions, MigrationAnalysis, MigrationFix,
     NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, ServerHost,
-    WebCompiler, method_coverage::RecordedCalls, native_target_directory,
+    WebCompiler, WindowsArchitecture, method_coverage::RecordedCalls, native_target_directory,
 };
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, Severity};
 
 use add_command::AddCommand;
 use add_what::AddWhat;
 use advice_report::AdviceReport;
+use architecture_choice::ArchitectureChoice;
 use coverage_gate::CoverageGate;
 use init_choices::InitChoices;
 use init_command::InitCommand;
+use package_plan::PackagePlan;
 use resilient_serve::ResilientServe;
 use shutdown::{LongRunningCommand, ShutdownSignals};
 use test_output::TestOutput;
@@ -146,6 +150,12 @@ enum Command {
         )]
         native: bool,
         #[arg(
+            help = "Windows host architecture: x64 or arm64. Defaults to the build machine's architecture",
+            long,
+            value_enum
+        )]
+        arch: Option<ArchitectureChoice>,
+        #[arg(
             help = "Compatibility switch; native hosts are always generated now",
             long,
             hide = true
@@ -207,6 +217,12 @@ enum Command {
         no_incremental: bool,
         #[arg(help = "Native packaging target", long, visible_alias = "targets", value_enum, value_delimiter = ',', num_args = 1..)]
         target: Vec<BuildTarget>,
+        #[arg(
+            help = "Windows host architecture: x64 or arm64. Defaults to the build machine's architecture",
+            long,
+            value_enum
+        )]
+        arch: Option<ArchitectureChoice>,
         #[arg(
             help = "Deprecated render-mode switch; rendering is fixed by the target contract",
             long,
@@ -634,6 +650,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         watch,
         target,
         native,
+        arch,
         skip_initial_build,
         render_mode,
         skip_package,
@@ -655,6 +672,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
     if *native {
         require_one_native_target(&targets, "bundle --native")?;
     }
+    let windows_architecture = windows_architecture(*arch, &targets)?;
     let output = bundle_output(out_dir.as_deref(), &targets);
     let options = BundleExecution {
         no_incremental: *no_incremental,
@@ -665,6 +683,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
             InitialBuild::Run
         },
         package: !*skip_package && !*native,
+        windows_architecture,
     };
     execute_bundle(project, &output, &targets, options).await
 }
@@ -675,6 +694,7 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
         out_dir,
         no_incremental,
         target,
+        arch,
         render_mode,
     } = command
     else {
@@ -683,11 +703,35 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
     reject_render_mode(render_mode.as_deref())?;
     let targets = resolve_targets(target, &["TAC_BUNDLE_TARGET", "TAC_TARGET"], None)?;
     let target = require_one_native_target(&targets, "native-bundle")?;
+    let windows_architecture = windows_architecture(*arch, &targets)?;
     let output = out_dir
         .clone()
         .or_else(|| environment_path("TAC_DIST_PATH"))
         .unwrap_or_else(|| PathBuf::from("dist"));
-    execute_build_with_package(project, &output, *no_incremental, target, false).await
+    let plan = PackagePlan {
+        package: false,
+        windows_architecture,
+    };
+    execute_build_with_package(project, &output, *no_incremental, target, plan).await
+}
+
+fn windows_architecture(
+    choice: Option<ArchitectureChoice>,
+    targets: &[BuildTarget],
+) -> Result<WindowsArchitecture, Failure> {
+    let builds_windows = targets
+        .iter()
+        .any(|target| matches!(target, BuildTarget::Windows | BuildTarget::All));
+    if choice.is_some() && !builds_windows {
+        return Err(cli_failure(
+            1001,
+            String::from(
+                "--arch chooses the Windows host architecture, but no Windows target is being built.",
+            ),
+            "Add --target windows, or remove --arch.",
+        ));
+    }
+    Ok(ArchitectureChoice::windows(choice))
 }
 
 async fn execute_dev_command(command: &Command) -> Result<(), Failure> {
@@ -859,6 +903,7 @@ struct BundleExecution {
     watch: bool,
     initial_build: InitialBuild,
     package: bool,
+    windows_architecture: WindowsArchitecture,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -1096,14 +1141,7 @@ async fn execute_bundle(
 ) -> Result<(), Failure> {
     tachyon_core::cache::ensure_runtime()?;
     if !options.watch || options.initial_build == InitialBuild::Run {
-        execute_build_targets(
-            project,
-            out_dir,
-            options.no_incremental,
-            targets,
-            options.package,
-        )
-        .await?;
+        execute_build_targets(project, out_dir, targets, options).await?;
     }
     if !options.watch {
         return Ok(());
@@ -1123,7 +1161,7 @@ async fn execute_bundle(
                     continue;
                 }
                 fingerprint = next;
-                if let Err(failure) = execute_build_targets(project, out_dir, options.no_incremental, targets, options.package).await {
+                if let Err(failure) = execute_build_targets(project, out_dir, targets, options).await {
                     eprint!("{failure}");
                 }
             }
@@ -1134,10 +1172,13 @@ async fn execute_bundle(
 async fn execute_build_targets(
     project: &Path,
     out_dir: &Path,
-    no_incremental: bool,
     targets: &[BuildTarget],
-    package: bool,
+    options: BundleExecution,
 ) -> Result<(), Failure> {
+    let plan = PackagePlan {
+        package: options.package,
+        windows_architecture: options.windows_architecture,
+    };
     let multiple = targets.len() > 1;
     for target in targets {
         let output = if multiple && *target == BuildTarget::Web {
@@ -1145,7 +1186,7 @@ async fn execute_build_targets(
         } else {
             out_dir.to_path_buf()
         };
-        execute_build_with_package(project, &output, no_incremental, *target, package).await?;
+        execute_build_with_package(project, &output, options.no_incremental, *target, plan).await?;
     }
     Ok(())
 }
@@ -1511,7 +1552,11 @@ async fn execute_build(
     no_incremental: bool,
     target: BuildTarget,
 ) -> Result<(), Failure> {
-    execute_build_with_package(project, out_dir, no_incremental, target, true).await
+    let plan = PackagePlan {
+        package: true,
+        windows_architecture: WindowsArchitecture::default(),
+    };
+    execute_build_with_package(project, out_dir, no_incremental, target, plan).await
 }
 
 async fn execute_build_with_package(
@@ -1519,7 +1564,7 @@ async fn execute_build_with_package(
     out_dir: &Path,
     no_incremental: bool,
     target: BuildTarget,
-    package: bool,
+    plan: PackagePlan,
 ) -> Result<(), Failure> {
     if target == BuildTarget::All {
         execute_web_build(project, &out_dir.join("web"), no_incremental).await?;
@@ -1530,12 +1575,12 @@ async fn execute_build_with_package(
             NativeTarget::Android,
             NativeTarget::Ios,
         ] {
-            execute_native_build(project, out_dir, native, package).await?;
+            execute_native_build(project, out_dir, native, plan).await?;
         }
         return Ok(());
     }
     if let Some(native) = target.native() {
-        return execute_native_build(project, out_dir, native, package).await;
+        return execute_native_build(project, out_dir, native, plan).await;
     }
 
     execute_web_build(project, out_dir, no_incremental).await
@@ -1581,14 +1626,15 @@ async fn execute_native_build(
     project: &Path,
     out_dir: &Path,
     native: NativeTarget,
-    package: bool,
+    plan: PackagePlan,
 ) -> Result<(), Failure> {
     let result = NativeCompiler::build_async(
         project,
         &NativeBuildOptions {
             output_directory: out_dir.to_path_buf(),
             target: native,
-            package,
+            package: plan.package,
+            windows_architecture: plan.windows_architecture,
         },
     )
     .await?;

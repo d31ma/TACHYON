@@ -35,6 +35,8 @@ mod kotlin_document_title_scope_tests;
 mod linux;
 #[cfg(test)]
 mod linux_host_tests;
+#[cfg(test)]
+mod linux_page_call_tests;
 mod linux_window_controls;
 mod mac_os_menu_action_source;
 mod mac_os_menu_source;
@@ -77,7 +79,14 @@ mod native_packaged_utility_tests;
 #[cfg(test)]
 mod native_page_graph_tests;
 #[cfg(test)]
+mod native_page_call_contract_tests;
+#[cfg(test)]
 mod native_rust_capability_tests;
+#[cfg(test)]
+mod native_rust_crate_tests;
+mod native_rust_project;
+#[cfg(test)]
+mod native_cfg_impl_tests;
 mod native_service_roots;
 mod native_title_bar;
 mod native_title_bar_button_inset;
@@ -122,6 +131,9 @@ mod placeholder_fill;
 mod registry;
 mod routes;
 mod rust;
+mod rust_companion_crate;
+mod rust_crate_build;
+mod rust_dependency;
 #[cfg(test)]
 mod rust_filename_tests;
 mod rust_imports;
@@ -140,6 +152,8 @@ mod swift_web_services;
 mod vendor_provenance;
 mod web_program_build;
 mod windows;
+mod windows_architecture;
+mod windows_compiler_plan;
 #[cfg(test)]
 mod windows_host_tests;
 
@@ -167,6 +181,7 @@ pub(crate) use site_map::SiteMap;
 pub(crate) use style_source::StyleSource;
 pub(crate) use swift_web_services::SwiftWebServices;
 pub(crate) use windows::web_dotnet;
+pub use windows_architecture::WindowsArchitecture;
 
 #[cfg(feature = "fuzzing")]
 pub(crate) fn plan_for_fuzzing(

@@ -37,6 +37,11 @@ impl LinuxHostGenerator {
             rust_companion.as_deref(),
             &application.menus,
         )?;
+        super::rust::stage_crate(
+            application,
+            rust_companion.as_deref(),
+            super::rust::Linkage::Shared,
+        )?;
         let source_path = stage.join("project").join("tachyon_host.c");
         write_host_source(&source_path, &c_source(application, index))?;
         write(
@@ -52,7 +57,7 @@ impl LinuxHostGenerator {
 
         let executable = bundle.join("bin").join(&application.executable_name);
         let compiler_version = compile_c(&source_path, &executable).await?;
-        compile_rust_companion(rust_companion.as_deref(), &bundle).await?;
+        compile_rust_companion(application, rust_companion.as_deref(), &bundle).await?;
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(&application.executable_name),
             toolchain_name: String::from("cc"),
@@ -62,17 +67,21 @@ impl LinuxHostGenerator {
 }
 
 async fn compile_rust_companion(
+    application: &NativeApplication,
     rust_companion: Option<&Path>,
     bundle: &Path,
 ) -> Result<(), Failure> {
     let Some(source) = rust_companion else {
         return Ok(());
     };
-    super::rust::compile(
+    let bin = bundle.join("bin");
+    super::rust::compile_companion(
+        application,
         source,
         super::rust::Linkage::Shared,
         None,
-        &bundle.join("bin").join("libtachyoncompanion.so"),
+        &bin.join("libtachyoncompanion.so"),
+        &bin,
     )
     .await?;
     Ok(())
@@ -408,7 +417,8 @@ static gchar *tachyon_companion_invoke(const gchar *request) {
     return g_strdup("{\"error\":\"This application has no native companion.\"}");
   }
   const gchar *answer = g_companion_invoke(request != NULL ? request : "{}");
-  gchar *copy = g_strdup(answer != NULL && strnlen(answer, TACHYON_MESSAGE_LIMIT + 1) <= TACHYON_MESSAGE_LIMIT ? answer : "{\"error\":\"Invalid native response.\"}");
+  gchar *copy = g_strdup(answer == NULL ? TACHYON_EMPTY_REPLY
+      : strnlen(answer, TACHYON_MESSAGE_LIMIT + 1) <= TACHYON_MESSAGE_LIMIT ? answer : TACHYON_REPLY_TOO_LARGE);
   if (g_companion_free != NULL && answer != NULL) {
     g_companion_free(answer);
   }
@@ -644,6 +654,7 @@ mod tests {
             window: crate::native::config::WindowConfiguration::default(),
             native_capabilities: Vec::new(),
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
+            rust: crate::native::native_rust_project::NativeRustProject::default(),
         }
     }
 

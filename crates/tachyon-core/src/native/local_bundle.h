@@ -1,5 +1,8 @@
 #define TACHYON_PATH_LIMIT 4096
 #define TACHYON_MESSAGE_LIMIT 65536
+#define TACHYON_EMPTY_REPLY "{\"error\":\"The native companion returned nothing.\"}"
+#define TACHYON_REPLY_TOO_LARGE "{\"error\":\"The native reply is larger than 65536 bytes. Return less data, or send it in pages of at most 24 KiB.\"}"
+#define TACHYON_REQUEST_TOO_LARGE "{\"error\":\"Native message exceeds its bounds.\"}"
 #define TACHYON_LOCAL_ORIGIN "__LOCAL_ORIGIN__"
 typedef struct { const char *route; const char *document; int language; } TachyonLocalRoute;
 static const TachyonLocalRoute TACHYON_LOCAL_ROUTES[] = {

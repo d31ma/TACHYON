@@ -61,6 +61,7 @@ int main(void) {
             window: super::config::WindowConfiguration::default(),
             native_capabilities: Vec::new(),
             menus,
+            rust: crate::native::native_rust_project::NativeRustProject::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

@@ -42,6 +42,7 @@ impl NativeUiProfileFixture {
             output_directory: "dist".into(),
             target: NativeTarget::Macos,
             package: false,
+            ..Default::default()
         };
         if candidate {
             return NativeCompiler::build_ui_candidate_async(root, &options)

@@ -16,6 +16,7 @@ impl NativeHost {
     const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1_024;
     const MAX_BUNDLED_FILE_BYTES: u64 = 16 * 1_024 * 1_024;
     const TOOL_TIME_LIMIT: Duration = Duration::from_mins(2);
+    const LONG_TOOL_TIME_LIMIT: Duration = Duration::from_mins(15);
     pub(super) const SHIM: &str = r"globalThis.__tachyonCompanionQueue = []
 globalThis.__tachyonCompanionPublish = (signal) => {
   const queue = globalThis.__tachyonCompanionQueue
@@ -109,6 +110,15 @@ pub(super) async fn run_tool_in(
     run_tool_with(program, arguments, working_directory, &[]).await
 }
 
+pub(super) async fn run_long_tool(program: &str, arguments: &[&str]) -> Result<String, Failure> {
+    let mut command = Command::new(program);
+    command
+        .args(arguments)
+        .stdin(Stdio::null())
+        .kill_on_drop(true);
+    supervised_output(program, &mut command, NativeHost::LONG_TOOL_TIME_LIMIT).await
+}
+
 pub(super) async fn run_tool_with(
     program: &str,
     arguments: &[&str],
@@ -124,18 +134,22 @@ pub(super) async fn run_tool_with(
     if let Some(working_directory) = working_directory {
         command.current_dir(working_directory);
     }
-    let output = supervise_tool(
-        &mut command,
-        NativeHost::TOOL_TIME_LIMIT,
-        NativeHost::MAX_TOOL_OUTPUT_BYTES,
-    )
-    .await
-    .map_err(|error| {
-        native_tool_failure(
-            1605,
-            &format!("Cannot run native tool '{program}': {error}"),
-        )
-    })?;
+    supervised_output(program, &mut command, NativeHost::TOOL_TIME_LIMIT).await
+}
+
+async fn supervised_output(
+    program: &str,
+    command: &mut Command,
+    time_limit: Duration,
+) -> Result<String, Failure> {
+    let output = supervise_tool(command, time_limit, NativeHost::MAX_TOOL_OUTPUT_BYTES)
+        .await
+        .map_err(|error| {
+            native_tool_failure(
+                1605,
+                &format!("Cannot run native tool '{program}': {error}"),
+            )
+        })?;
     let stdout = bounded_text(&output.stdout);
     if !output.status.success() {
         let stderr = bounded_text(&output.stderr);

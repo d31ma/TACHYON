@@ -47,6 +47,7 @@ impl NativeUiBuildFixture {
             output_directory: "dist".into(),
             target: NativeTarget::Macos,
             package: false,
+            ..Default::default()
         };
         NativeCompiler::build_async(root, &options)
             .await

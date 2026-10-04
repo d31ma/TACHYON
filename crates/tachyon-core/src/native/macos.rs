@@ -56,6 +56,11 @@ impl MacOsHostGenerator {
             rust_companion.as_deref(),
             &application.menus,
         )?;
+        super::rust::stage_crate(
+            application,
+            rust_companion.as_deref(),
+            super::rust::Linkage::Static,
+        )?;
         let swift_path = stage.join("project").join("TachyonHost.swift");
         let call = companion_call(companion.as_deref(), rust_companion.as_deref());
         write_host_source(&swift_path, &swift_source(application, call, index))?;
@@ -71,7 +76,7 @@ impl MacOsHostGenerator {
         }
 
         let executable = executable_path(application, &contents)?;
-        let library = compile_rust_library(rust_companion.as_deref(), stage).await?;
+        let library = compile_rust_library(application, rust_companion.as_deref(), stage).await?;
         let swift_version = compile_swift(
             &swift_path,
             companion.as_deref(),
@@ -98,6 +103,7 @@ fn executable_path(application: &NativeApplication, contents: &Path) -> Result<P
 }
 
 async fn compile_rust_library(
+    application: &NativeApplication,
     rust_companion: Option<&Path>,
     stage: &Path,
 ) -> Result<Option<PathBuf>, Failure> {
@@ -105,7 +111,21 @@ async fn compile_rust_library(
         return Ok(None);
     };
     let path = stage.join("project").join("libtachyoncompanion.a");
-    super::rust::compile(source, super::rust::Linkage::Static, None, &path).await?;
+    let helpers = stage
+        .join(format!("{}.app", application.executable_name))
+        .join("Contents/MacOS");
+    let placed = super::rust::compile_companion(
+        application,
+        source,
+        super::rust::Linkage::Static,
+        None,
+        &path,
+        &helpers,
+    )
+    .await?;
+    for helper in placed {
+        sign_bundle(&helper).await?;
+    }
     Ok(Some(path))
 }
 
@@ -970,6 +990,7 @@ mod tests {
             window: crate::native::config::WindowConfiguration::default(),
             native_capabilities: Vec::new(),
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
+            rust: crate::native::native_rust_project::NativeRustProject::default(),
         }
     }
 

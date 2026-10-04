@@ -3,10 +3,10 @@
 use super::native_menu_config::NativeMenuConfig;
 use serde_json::json;
 
-struct LinuxHostTests;
+pub(super) struct LinuxHostTests;
 
 impl LinuxHostTests {
-    fn menus() -> NativeMenuConfig {
+    pub(super) fn menus() -> NativeMenuConfig {
         serde_json::from_value(json!({
             "file": [
                 {"id":"refresh","label":"Refresh","action":{"service":"SectionMenuService","method":"refresh"}}
@@ -21,7 +21,7 @@ impl LinuxHostTests {
         .expect("menu declarations")
     }
 
-    fn application(menus: NativeMenuConfig) -> super::config::NativeApplication {
+    pub(super) fn application(menus: NativeMenuConfig) -> super::config::NativeApplication {
         super::config::NativeApplication {
             name: String::from("Linux Host Check"),
             executable_name: String::from("LinuxHostCheck"),
@@ -32,10 +32,11 @@ impl LinuxHostTests {
             window: super::config::WindowConfiguration::default(),
             native_capabilities: Vec::new(),
             menus,
+            rust: crate::native::native_rust_project::NativeRustProject::default(),
         }
     }
 
-    fn index() -> super::routes::NativeRouteIndex {
+    pub(super) fn index() -> super::routes::NativeRouteIndex {
         super::routes::NativeRouteIndex {
             contract_version: 2,
             entry_route: String::from("/"),
@@ -67,10 +68,26 @@ impl LinuxHostTests {
 
     #[cfg(target_os = "linux")]
     async fn compile(root: &std::path::Path) -> std::path::PathBuf {
-        let bundle = root.join("LinuxHostCheck");
         let source = super::native_menu_action_tests::MenuActionFixture::stage(root);
-        super::rust::compile(
+        Self::compile_with(
+            root,
             &source,
+            Self::menus(),
+            include_str!("linux_host_check_fixture.c"),
+        )
+        .await
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(super) async fn compile_with(
+        root: &std::path::Path,
+        source: &std::path::Path,
+        menus: NativeMenuConfig,
+        fixture: &str,
+    ) -> std::path::PathBuf {
+        let bundle = root.join("LinuxHostCheck");
+        super::rust::compile(
+            source,
             super::rust::Linkage::Shared,
             None,
             &bundle.join("bin/libtachyoncompanion.so"),
@@ -85,16 +102,13 @@ impl LinuxHostTests {
                 ),
             );
         }
-        let host = Self::host(Self::menus()).replacen(
+        let host = Self::host(menus).replacen(
             "int main(int argc, char **argv) {",
             "static int tachyon_host_main(int argc, char **argv) {",
             1,
         );
         let check = root.join("linux_host_check.c");
-        Self::write(
-            &check,
-            &format!("{host}\n{}", include_str!("linux_host_check_fixture.c")),
-        );
+        Self::write(&check, &format!("{host}\n{fixture}"));
         let executable = bundle.join("bin/LinuxHostCheck");
         super::linux::compile_c(&check, &executable)
             .await

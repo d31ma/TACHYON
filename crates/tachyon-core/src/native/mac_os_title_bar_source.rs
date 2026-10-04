@@ -58,6 +58,7 @@ mod tests {
             window,
             native_capabilities: Vec::new(),
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
+            rust: crate::native::native_rust_project::NativeRustProject::default(),
         }
     }
 

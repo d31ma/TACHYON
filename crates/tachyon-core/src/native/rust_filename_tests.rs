@@ -55,6 +55,7 @@ fn main() {
             output_directory: "dist".into(),
             target: NativeTarget::Macos,
             package: false,
+            ..Default::default()
         };
         let built = NativeCompiler::build_async(root.path(), &options)
             .await

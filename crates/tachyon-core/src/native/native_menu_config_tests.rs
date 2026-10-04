@@ -236,6 +236,7 @@ async fn native_menu_declarations_stage_real_compiled_routes_without_packaging()
         output_directory: root.path().join("dist"),
         target: NativeTarget::Macos,
         package: false,
+        ..Default::default()
     };
     let result = super::compiler::NativeCompiler::build_async(root.path(), &options)
         .await

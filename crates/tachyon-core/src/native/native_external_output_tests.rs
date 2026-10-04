@@ -41,6 +41,7 @@ impl NativeExternalOutputTests {
             output_directory: self.output_root(),
             target: NativeTarget::Macos,
             package: false,
+            ..Default::default()
         }
     }
 

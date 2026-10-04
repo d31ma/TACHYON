@@ -7,6 +7,7 @@ use super::macos::MacOsHostGenerator;
 use super::native_web_stage::NativeWebStage;
 use super::routes::NativeRouteIndex;
 use super::windows::WindowsHostGenerator;
+use super::windows_architecture::WindowsArchitecture;
 use crate::compiler::{publish, resolve_output_path};
 use crate::failure::diagnostic;
 use crate::{BuildOptions, Failure, Project, ProjectDiscovery, WebCompiler};
@@ -24,6 +25,7 @@ pub struct NativeBuildOptions {
     pub output_directory: PathBuf,
     pub target: NativeTarget,
     pub package: bool,
+    pub windows_architecture: WindowsArchitecture,
 }
 
 impl Default for NativeBuildOptions {
@@ -32,6 +34,7 @@ impl Default for NativeBuildOptions {
             output_directory: PathBuf::from("dist"),
             target: NativeTarget::Macos,
             package: true,
+            windows_architecture: WindowsArchitecture::default(),
         }
     }
 }
@@ -47,7 +50,10 @@ pub const fn native_target_directory(target: NativeTarget) -> &'static str {
     }
 }
 
-fn artifact_target(target: NativeTarget) -> ArtifactTarget {
+pub(super) fn artifact_target(
+    target: NativeTarget,
+    windows: WindowsArchitecture,
+) -> ArtifactTarget {
     let host_architecture = if cfg!(target_arch = "aarch64") {
         "aarch64"
     } else {
@@ -56,7 +62,7 @@ fn artifact_target(target: NativeTarget) -> ArtifactTarget {
     let (os, architecture, abi) = match target {
         NativeTarget::Linux => ("linux", host_architecture, "webkitgtk"),
         NativeTarget::Macos => ("macos", host_architecture, "wkwebview"),
-        NativeTarget::Windows => ("windows", "x86_64", "webview2"),
+        NativeTarget::Windows => ("windows", windows.artifact_architecture(), "webview2"),
         NativeTarget::Android => ("android", "universal", "android-webview"),
         NativeTarget::Ios => ("ios", host_architecture, "wkwebview-simulator"),
     };
@@ -205,16 +211,15 @@ impl NativeCompiler {
             &companions,
         )?;
         let generated = generate_host(
-            options.target,
+            options,
             &application,
             &index,
             &companions,
             temporary_web.path(),
             stage.path(),
-            options.package,
         )
         .await?;
-        write_artifact_manifest(stage.path(), options.target, &generated)?;
+        write_artifact_manifest(stage.path(), options, &generated)?;
         let digest = digest_tree(stage.path())?;
         publish(stage, &destination).map_err(|error| native_io_failure(&destination, &error))?;
 
@@ -266,11 +271,11 @@ fn ensure_entry_route_is_a_page(
 
 fn write_artifact_manifest(
     stage: &Path,
-    target: NativeTarget,
+    options: &NativeBuildOptions,
     generated: &GeneratedHost,
 ) -> Result<(), Failure> {
     let outputs = collect_outputs(stage, NativeCompiler::ARTIFACT_MANIFEST_NAME)?;
-    let manifest = artifact_manifest(target, generated, outputs);
+    let manifest = artifact_manifest(options, generated, outputs);
     let mut manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| {
         Failure::one(diagnostic(
             1605,
@@ -332,15 +337,15 @@ fn write_pretty_json(path: &Path, value: &serde_json::Value) -> Result<(), Failu
 }
 
 async fn generate_host(
-    target: NativeTarget,
+    options: &NativeBuildOptions,
     application: &NativeApplication,
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
     web_bundle: &Path,
     stage: &Path,
-    package: bool,
 ) -> Result<GeneratedHost, Failure> {
-    match target {
+    let package = options.package;
+    match options.target {
         NativeTarget::Macos => {
             MacOsHostGenerator::generate(application, index, companions, web_bundle, stage, package)
                 .await
@@ -360,7 +365,7 @@ async fn generate_host(
                 companions,
                 web_bundle,
                 stage,
-                package,
+                options,
             )
             .await
         }
@@ -464,7 +469,7 @@ fn chosen_companion(
 }
 
 fn artifact_manifest(
-    target: NativeTarget,
+    options: &NativeBuildOptions,
     generated: &GeneratedHost,
     outputs: Vec<ArtifactOutput>,
 ) -> ArtifactManifest {
@@ -473,7 +478,7 @@ fn artifact_manifest(
         release_version: String::from(tachyon_contracts::PRODUCT_VERSION),
         commit: source_revision(),
         source_date_epoch: source_date_epoch(),
-        target: artifact_target(target),
+        target: artifact_target(options.target, options.windows_architecture),
         toolchains: vec![
             ArtifactToolchain {
                 name: String::from("rust"),
@@ -938,6 +943,7 @@ mod tests {
                 output_directory: workspace.path().join("native-output"),
                 target: tachyon_contracts::NativeTarget::Macos,
                 package: false,
+                ..Default::default()
             },
         )
         .expect("snapshot native build");

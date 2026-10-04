@@ -18,6 +18,7 @@ pub(super) struct NativeApplication {
     pub(super) window: WindowConfiguration,
     pub(super) native_capabilities: Vec<String>,
     pub(super) menus: super::native_menu_config::NativeMenuConfig,
+    pub(super) rust: super::native_rust_project::NativeRustProject,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -256,6 +257,9 @@ fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
 
 fn validate_manifest_application(application: &ManifestApplication) -> Result<(), Failure> {
     application.menus.validate()?;
+    if let Some(problem) = application.rust.problem() {
+        return Err(config_failure(&problem));
+    }
     if let Some(id) = &application.id
         && !valid_application_id(id)
     {
@@ -496,6 +500,8 @@ struct ManifestApplication {
     window: Option<WindowConfiguration>,
     #[serde(default)]
     menus: super::native_menu_config::NativeMenuConfig,
+    #[serde(default)]
+    rust: super::rust_companion_crate::RustCompanionCrate,
 }
 
 impl NativeApplication {
@@ -509,7 +515,18 @@ impl NativeApplication {
         authored_root: &Path,
     ) -> Result<Self, Failure> {
         let manifest = read_manifest(project_root)?;
-        Ok(Self::defaults(authored_root).with_manifest(manifest.as_ref()))
+        let mut application = Self::defaults(authored_root).with_manifest(manifest.as_ref());
+        let declaration = manifest
+            .as_ref()
+            .and_then(WebAppManifest::application)
+            .map(|declared| declared.rust.clone())
+            .unwrap_or_default();
+        application.rust = super::native_rust_project::NativeRustProject::located(
+            declaration,
+            project_root,
+            authored_root,
+        );
+        Ok(application)
     }
 
     fn with_manifest(mut self, manifest: Option<&WebAppManifest>) -> Self {
@@ -582,6 +599,7 @@ impl NativeApplication {
             window: WindowConfiguration::default(),
             native_capabilities: Vec::new(),
             menus: super::native_menu_config::NativeMenuConfig::default(),
+            rust: super::native_rust_project::NativeRustProject::default(),
         }
     }
 }

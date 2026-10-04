@@ -7,6 +7,8 @@ use super::host::{
     write_host_source,
 };
 use super::routes::NativeRouteIndex;
+use super::windows_architecture::WindowsArchitecture;
+use super::windows_compiler_plan::WindowsCompilerPlan;
 use crate::Failure;
 use std::path::{Path, PathBuf};
 
@@ -20,17 +22,24 @@ impl WindowsHostGenerator {
         companions: &[super::registry::NativeCompanionInput],
         web_bundle: &Path,
         stage: &Path,
-        package: bool,
+        options: &super::compiler::NativeBuildOptions,
     ) -> Result<GeneratedHost, Failure> {
+        let architecture = options.windows_architecture;
         let bundle = stage.join(&application.executable_name);
         let resources = bundle.join("resources");
         stage_application(index, web_bundle, stage, &resources)?;
 
-        let companion = stage_companion(companions, stage, &application.application_id)?;
+        let companion =
+            stage_companion(companions, stage, &application.application_id, architecture)?;
         let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
         super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
             rust_companion.as_deref(),
             &application.menus,
+        )?;
+        super::rust::stage_crate(
+            application,
+            rust_companion.as_deref(),
+            super::rust::Linkage::Shared,
         )?;
         let source_path = stage.join("project").join("tachyon_host.c");
         write_host_source(&source_path, &c_source(application, index, companions))?;
@@ -38,7 +47,7 @@ impl WindowsHostGenerator {
             &bundle.join("application.manifest"),
             application_manifest(application).as_bytes(),
         )?;
-        if !package {
+        if !options.package {
             return Ok(GeneratedHost::not_packaged(PathBuf::from(
                 "project/tachyon_host.c",
             )));
@@ -48,11 +57,18 @@ impl WindowsHostGenerator {
             .join("bin")
             .join(format!("{}.exe", application.executable_name));
         let resource = icon_resource(application, web_bundle, stage).await?;
-        let compiler_version = compile_c(&source_path, &executable, resource.as_deref()).await?;
+        let compiler_version =
+            compile_c(&source_path, &executable, resource.as_deref(), architecture).await?;
         if let Some(project) = companion {
-            publish_companion(&project, &bundle.join("bin")).await?;
+            publish_companion(&project, &bundle.join("bin"), architecture).await?;
         }
-        compile_rust_companion(rust_companion.as_deref(), &bundle).await?;
+        compile_rust_companion(
+            application,
+            rust_companion.as_deref(),
+            &bundle,
+            architecture,
+        )
+        .await?;
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(&application.executable_name),
             toolchain_name: String::from("msvc"),
@@ -64,7 +80,8 @@ impl WindowsHostGenerator {
 impl WindowsHostGenerator {
     const MENU_MNEMONIC: char = '&';
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
-    const LINKER_ARGUMENTS: [&str; 12] = [
+    const DEVELOPER_TARGET: &str = "VSCMD_ARG_TGT_ARCH";
+    pub(super) const LINKER_ARGUMENTS: [&str; 12] = [
         "WebView2LoaderStatic.lib",
         "user32.lib",
         "shell32.lib",
@@ -97,7 +114,7 @@ impl WindowsHostGenerator {
     const CSHARP_COMPANION_PROJECT: &str = r#"<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier>__RUNTIME_IDENTIFIER__</RuntimeIdentifier>
     <OutputType>Library</OutputType>
     <Nullable>disable</Nullable>
     <PublishAot>true</PublishAot>
@@ -173,17 +190,22 @@ async fn icon_resource(
 }
 
 async fn compile_rust_companion(
+    application: &NativeApplication,
     rust_companion: Option<&Path>,
     bundle: &Path,
+    architecture: WindowsArchitecture,
 ) -> Result<(), Failure> {
     let Some(source) = rust_companion else {
         return Ok(());
     };
-    super::rust::compile(
+    let bin = bundle.join("bin");
+    super::rust::compile_companion(
+        application,
         source,
         super::rust::Linkage::Shared,
-        Some("x86_64-pc-windows-msvc"),
-        &bundle.join("bin").join("TachyonRustCompanion.dll"),
+        Some(architecture.rust_target()),
+        &bin.join("TachyonRustCompanion.dll"),
+        &bin,
     )
     .await?;
     Ok(())
@@ -193,6 +215,7 @@ fn stage_companion(
     companions: &[super::registry::NativeCompanionInput],
     stage: &Path,
     application_id: &str,
+    architecture: WindowsArchitecture,
 ) -> Result<Option<PathBuf>, Failure> {
     let Some(authored) =
         super::registry::source(companions, crate::project::NativeCompanion::CSharp)?
@@ -215,7 +238,7 @@ fn stage_companion(
     )?;
     write(
         &project.join("TachyonCompanion.csproj"),
-        WindowsHostGenerator::CSHARP_COMPANION_PROJECT.as_bytes(),
+        companion_project(architecture).as_bytes(),
     )?;
     Ok(Some(project))
 }
@@ -387,7 +410,23 @@ fn read_web_framework(cached: &Path) -> Result<Vec<(String, Vec<u8>)>, Failure> 
     Ok(files)
 }
 
-async fn publish_companion(project: &Path, bin: &Path) -> Result<(), Failure> {
+pub(super) fn companion_project(architecture: WindowsArchitecture) -> String {
+    WindowsHostGenerator::CSHARP_COMPANION_PROJECT
+        .replace("__RUNTIME_IDENTIFIER__", architecture.dotnet_runtime())
+}
+
+pub(super) fn published_companion(project: &Path, architecture: WindowsArchitecture) -> PathBuf {
+    project
+        .join("bin/Release/net9.0")
+        .join(architecture.dotnet_runtime())
+        .join("publish/TachyonCompanion.dll")
+}
+
+async fn publish_companion(
+    project: &Path,
+    bin: &Path,
+    architecture: WindowsArchitecture,
+) -> Result<(), Failure> {
     if run_tool("dotnet", &["--version"]).await.is_err() {
         return Err(native_tool_failure(
             1605,
@@ -404,7 +443,7 @@ async fn publish_companion(project: &Path, bin: &Path) -> Result<(), Failure> {
         Some(Path::new(directory)),
     )
     .await?;
-    let built = project.join("bin/Release/net9.0/win-x64/publish/TachyonCompanion.dll");
+    let built = published_companion(project, architecture);
     let published = bin.join("TachyonCompanion.dll");
     super::host::native_io(std::fs::copy(&built, &published), &published)?;
     Ok(())
@@ -469,6 +508,7 @@ async fn compile_c(
     source: &Path,
     executable: &Path,
     resource: Option<&str>,
+    architecture: WindowsArchitecture,
 ) -> Result<String, Failure> {
     if !cfg!(target_os = "windows") {
         return Err(native_tool_failure(
@@ -482,32 +522,40 @@ async fn compile_c(
     let sdk = webview2_sdk()?;
     let compiler = windows_compiler();
     let version = first_line(&run_tool(compiler, &["/?"]).await?, "MSVC unknown");
-    let source = compiler_path(source, "Host source")?;
-    let executable = compiler_path(executable, "Application")?;
-    let include = format!("/I{}", sdk.join("build/native/include").display());
-    let objects = format!("/Fo{}\\", object_directory(&executable));
-    let output = format!("/Fe:{executable}");
-    let library_path = format!("/LIBPATH:{}", sdk.join("build/native/x64").display());
-    let mut arguments = vec![
-        "/nologo",
-        "/std:c17",
-        "/W4",
-        "/WX",
-        "/O2",
-        include.as_str(),
-        objects.as_str(),
-        source.as_str(),
-        resource.unwrap_or("/nologo"),
-        output.as_str(),
-        "/link",
-        library_path.as_str(),
-    ];
-    arguments.extend(WindowsHostGenerator::LINKER_ARGUMENTS);
-    run_tool(compiler, &arguments).await?;
+    require_compiler_for(architecture)?;
+    let plan = WindowsCompilerPlan {
+        sdk: &sdk,
+        source: &compiler_path(source, "Host source")?,
+        executable: &compiler_path(executable, "Application")?,
+        resource,
+        architecture,
+    };
+    let arguments = plan.arguments(WindowsHostGenerator::LINKER_ARGUMENTS);
+    let borrowed = arguments.iter().map(String::as_str).collect::<Vec<_>>();
+    run_tool(compiler, &borrowed).await?;
     Ok(version)
 }
 
-fn object_directory(executable: &str) -> String {
+fn require_compiler_for(architecture: WindowsArchitecture) -> Result<(), Failure> {
+    let variable = WindowsHostGenerator::DEVELOPER_TARGET;
+    let Ok(chosen) = std::env::var(variable) else {
+        return Ok(());
+    };
+    if chosen.eq_ignore_ascii_case(architecture.name()) {
+        return Ok(());
+    }
+    Err(native_tool_failure(
+        1605,
+        &format!(
+            "This developer prompt builds for {chosen} ({variable}), but the Windows host is \
+             being built for {}. Open a developer prompt with {}, or pass --arch {chosen}.",
+            architecture.name(),
+            architecture.developer_prompt()
+        ),
+    ))
+}
+
+pub(super) fn object_directory(executable: &str) -> String {
     let directory = match executable.rsplit_once('\\') {
         Some((directory, _)) => Path::new(directory),
         None => Path::new("."),
@@ -856,7 +904,8 @@ static char *tachyon_handle(const char *capability, const char *payload) {
       const char *answer = g_companion_invoke[language](payload);
       int unknown = answer != NULL && strstr(answer, "\"TY_NATIVE_SERVICE\"") != NULL;
       if (copy != NULL) free(copy);
-      copy = _strdup(answer != NULL && strnlen(answer, TACHYON_MESSAGE_LIMIT + 1) <= TACHYON_MESSAGE_LIMIT ? answer : "{\"error\":\"Invalid native response.\"}");
+      copy = _strdup(answer == NULL ? TACHYON_EMPTY_REPLY
+        : strnlen(answer, TACHYON_MESSAGE_LIMIT + 1) <= TACHYON_MESSAGE_LIMIT ? answer : TACHYON_REPLY_TOO_LARGE);
       if (g_companion_free[language] != NULL && answer != NULL) {
         g_companion_free[language](answer);
       }
@@ -889,12 +938,12 @@ static void tachyon_on_message(const wchar_t *raw) {
   }
   *separator = '\0';
   char *request_id = separator + 1, *payload = strchr(request_id, 0x1f);
-  if (payload == NULL || payload == request_id || (size_t)(payload - request_id) > 64 || strlen(payload + 1) > TACHYON_MESSAGE_LIMIT) { free(message); return; }
+  if (payload == NULL || payload == request_id || (size_t)(payload - request_id) > 64) { free(message); return; }
   *payload++ = '\0';
   for (const char *cursor = request_id; *cursor != '\0'; cursor++) {
     if (!((*cursor >= '0' && *cursor <= '9') || (*cursor >= 'a' && *cursor <= 'f') || *cursor == '-' || *cursor == '.')) { free(message); return; }
   }
-  char *answer = tachyon_handle(message, payload);
+  char *answer = strlen(payload) > TACHYON_MESSAGE_LIMIT ? _strdup(TACHYON_REQUEST_TOO_LARGE) : tachyon_handle(message, payload);
   size_t framed_size = strlen(request_id) + strlen(answer != NULL ? answer : "{}") + 2;
   char *framed = calloc(framed_size, 1);
   if (framed == NULL) { free(answer); free(message); return; }
@@ -1448,6 +1497,7 @@ mod tests {
             window: crate::native::config::WindowConfiguration::default(),
             native_capabilities: Vec::new(),
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
+            rust: crate::native::native_rust_project::NativeRustProject::default(),
         }
     }
 
@@ -1499,9 +1549,14 @@ mod tests {
         output: &Path,
         identifier: &str,
     ) -> String {
-        let project = stage_companion(companions, output, identifier)
-            .expect("stage")
-            .expect("C# project");
+        let project = stage_companion(
+            companions,
+            output,
+            identifier,
+            super::WindowsArchitecture::X64,
+        )
+        .expect("stage")
+        .expect("C# project");
         std::fs::read_to_string(project.join("TachyonCompanion.cs")).expect("generated companion")
     }
 
@@ -1610,9 +1665,14 @@ mod tests {
             web_assembly: false,
             application_provider: false,
         }];
-        let project = stage_companion(&companions, temporary_directory.path(), "dev.tachyon.leaky")
-            .expect("stage")
-            .expect("C# project");
+        let project = stage_companion(
+            &companions,
+            temporary_directory.path(),
+            "dev.tachyon.leaky",
+            super::WindowsArchitecture::X64,
+        )
+        .expect("stage")
+        .expect("C# project");
         std::fs::write(
             project.join("TachyonCompanion.csproj"),
             format!(

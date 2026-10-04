@@ -19,3 +19,4 @@ mod reconciled_templates;
 #[cfg(unix)]
 mod structure_validation_cli;
 mod test_preflight;
+mod windows_architecture_cli;

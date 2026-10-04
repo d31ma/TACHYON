@@ -66,3 +66,88 @@ prevent name collisions and keep route state separate.
   count as qualification.
 - Existing published versions and tags do not change. This behavior ships only
   in the new reconciliation release, with an explicit migration notice.
+
+## Amendment (2026-10-04): Rust companion crates, platform crates and helper executables
+
+A real desktop app needs more than the standard library in its Rust
+companion: `serde_json`, `libc` on Linux, `windows-sys` on Windows. It may
+also need small extra programs, for example a hook command that another
+tool starts. Before this amendment, apps built the staged `companion.rs`
+again with their own Cargo project. Now the client manifest declares both,
+and Tachyon builds them.
+
+### Declaration
+
+`tac.application.rust` in `client/manifest.json`:
+
+```json
+"rust": {
+  "dependencies": {
+    "serde_json": "=1.0.151",
+    "serde": { "version": "=1.0.229", "features": ["derive"] }
+  },
+  "platformDependencies": {
+    "windows": { "windows-sys": { "version": "=0.61.2", "features": ["Win32_Foundation"] } },
+    "linux": { "libc": "=0.2.189" }
+  },
+  "executables": { "observatory-event": "/shared/native/EventEmitterMain.rs" }
+}
+```
+
+- A dependency is an exact version (`=MAJOR.MINOR.PATCH`), or an object
+  with `version`, optional `features` and optional `defaultFeatures`.
+  Exact versions keep the build equal to the vendored copy. Git, path and
+  registry fields are refused; the manifest check (`TY1601`) names the
+  field.
+- `platformDependencies` uses the Tachyon target names `linux`, `macos` and
+  `windows`. They become Cargo `cfg(target_os = "linux")`,
+  `cfg(target_os = "macos")` and `cfg(windows)` tables, so one declaration
+  serves every desktop.
+- An executable name uses lowercase letters, digits and `-`. Its value is a
+  client Rust class file (at most eight executables). The class has
+  `pub fn run() -> i32`; Tachyon writes a `main` that calls it and exits
+  with its result. The file is an ordinary client Rust file and follows the
+  usual file rules. It reaches companion items through `crate::models::...`
+  and `crate::<Type>` (every `pub` item of the companion is re-exported for
+  the executables).
+- The declaration applies to the native desktop hosts. It needs at least
+  one client Rust service, because the executables link the companion
+  library. iOS and Android keep their WebAssembly route, and a Rust service
+  that a browser build compiles to WebAssembly must not use a declared
+  crate.
+
+### Offline build from vendored crates
+
+Like Go in ADR 0095 (amendment 2026-10-03), Tachyon never downloads a
+crate.
+
+- Vendored crates live in `vendor/rust/` at the project root (beside
+  `client/`), as written by `cargo vendor`. They are outside `client/`, so
+  the web build, the snapshot and the file rules never read them.
+- With a declaration, the host build stages `project/rust-companion/Cargo.toml`
+  (library `tachyon_companion` from `project/companion.rs`, one `[[bin]]`
+  per executable, the declared tables, an empty `[workspace]`) and runs
+  `cargo build --release --offline` with `net.offline=true` and
+  `source.crates-io.replace-with` pointing at `vendor/rust/`. The Cargo
+  target folder is in the Tachyon cache, not in `dist/`.
+- When crates are declared and `vendor/rust/` is missing, the build stops
+  before Cargo and prints the command to run once:
+  `cargo vendor --manifest-path <staged Cargo.toml> vendor/rust`. A crate
+  that the folder does not provide fails in Cargo's offline resolver.
+- Without a declaration nothing changes: the companion is one file built by
+  `rustc`.
+
+### Placement
+
+Executables go beside the host executable, so the companion finds them at
+`std::env::current_exe()?.parent()`:
+
+| Host | Main executable | Helper |
+| --- | --- | --- |
+| Linux | `<App>/bin/<App>` | `<App>/bin/<name>` |
+| Windows | `<App>\bin\<App>.exe` | `<App>\bin\<name>.exe` |
+| macOS | `<App>.app/Contents/MacOS/<App>` | `<App>.app/Contents/MacOS/<name>` |
+
+On macOS each helper is signed ad hoc before the bundle is signed. Helpers
+are ordinary programs: Tachyon does not register, install or start them,
+and creates no service, login item or elevated helper.
