@@ -214,6 +214,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The Tac runtime's idle precache reads the whole body of every service
+  module it fetches, also when it does not store the answer (`no-store`,
+  `private` or `Vary`). Before, the unread body was cancelled by the
+  five-second precache deadline and the browser reported a failed
+  `net::ERR_ABORTED` request.
 - The JavaScript `NoteServiceTest` that `ty init --features storage` writes
   type-checks again: its fake `DataSource` is cast through `unknown`, as the
   TypeScript one already was, now that `DataSource` declares the FYLO methods.
