@@ -73,7 +73,7 @@ These fail at build time with `TY1605`, which names the file:
 - `async def` methods and asynchronous `@on_start` or `@on_stop`. The bridge
   is synchronous; the asynchronous settlement contract of other Tac
   languages is not connected to Python yet.
-- Event listeners, resources and streams.
+- Streams and browser API resources (see the amendment below for events).
 - Constructor arguments that are not typed `Needs` or `NeedsAll` fields, and
   `Needs` fields that name no Python provider.
 - A missing, changed or incomplete runtime.
@@ -98,5 +98,19 @@ other languages.
 - The first visit downloads about 13 MB of runtime before compression, much
   more than a JavaScript or Rust service. The route budget and `ty doctor`
   make that cost visible.
-- Asynchronous methods, events, resources, streams and third-party packages
+- Asynchronous methods, browser API resources, streams and third-party packages
   need their own decisions before they work in Python.
+
+## Amendment 2026-10-04: events and topics
+
+- A Python Tac service may have synchronous `@on_event` methods, with the
+  same options as in Yon (`id`, `condition`, `replay`, `@order` and
+  `@InBackground`). The page event bus calls them; a returned model is
+  published again unless the listener is `@InBackground`.
+- A field typed `ApplicationEventPublisher` is the page publisher. Tachyon
+  sets it after it creates the service; `publish_event(model, retain)`
+  sends a model from `client/models/` to the page bus.
+- A listener for a model marked `@topic` opens the topic stream
+  `/.tachyon/topics/<name>` by itself, like the other WebAssembly services.
+- `async def` methods, streams and browser API resources still fail with
+  `TY1605`.

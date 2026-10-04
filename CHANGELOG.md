@@ -225,11 +225,14 @@ machine contracts have their own, independent major versions.
   parameter with its real type; the generated bridge compiles again.
 - `TY1363` names the Lua marker as `-- @Service` instead of the Ruby spelling,
   and no longer tells Java and F# Tac authors that `Service` is unavailable.
-- A Lua model marked Topic, in either realm, and a Python model marked Topic
-  in a Tac service now stop the build with `TY1308`. Before, the build passed:
-  a Yon Lua route that published the event failed on every request with
-  `TY2104`, and a Tac Lua listener never received the events. Lua gets topics
-  in a later step (ADR 0085).
+- A Yon Lua route that published a Lua model marked `-- @Topic` failed on
+  every request with `TY2104`, and a Tac Lua listener never received the
+  events, because the topic check did not read Lua's `--` comments. Lua
+  topics now work in both realms (see Added).
+- A Yon Lua class whose only event code is its
+  `application_event_publisher = nil` field, with no `-- @OnEvent`,
+  `-- @OnStart` or `-- @OnStop` method, crashed on `publish_event` because
+  the field stayed `nil`. The publisher is now bound there too.
 
 - A Kotlin or Java Tac model marked Topic builds again. The model file check
   read the Topic marker as behavior and stopped the build with `TY1310`.
@@ -1002,6 +1005,21 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Topics in Lua and in Python Tac (ADR 0085, ADR 0093). A Yon Lua route
+  publishes a model marked `-- @Topic` with
+  `self.application_event_publisher:publish_event(record)`, and a Yon Lua
+  `-- @OnEvent` method hears the topic from every other Yon language. Lua has
+  no sockets, so the handler hands its publications to the server in its
+  answer; the server writes them to the topic log before the response goes
+  out, and logs a refused one as `handler.topic_failed`. A Tac Lua or Tac
+  Python listener for a Topic model opens `/.tachyon/topics/<name>` by
+  itself. The `TY1308` refusal of these topics is gone.
+- Python Tac services take synchronous `@on_event` listeners (with `id`,
+  `condition`, `replay`, `@order` and `@InBackground`) and an
+  `application_event_publisher: ApplicationEventPublisher` field, so they
+  share the page event bus with the other Tac languages. `async def`
+  methods, streams and browser API resources still stop the build with
+  `TY1605`.
 - Go Yon apps keep their own native Go packages in `server/packages/`, one Go
   module named by `server/packages/go.mod`. Controllers and services import
   those packages by module path; Tachyon stages the module next to every Go

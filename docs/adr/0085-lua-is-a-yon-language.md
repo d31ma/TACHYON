@@ -297,3 +297,25 @@ the build with `TY2015`, and the message names the resource and this ADR.
   early, also while an adapter blocks on I/O. Tac Lua reads the page's
   monotonic clock and refuses to wait with a clear message; Retry stays
   unavailable in Tac Lua.
+
+## Amendment 2026-10-04: Lua topics
+
+This amendment replaces "Topic stops the build in Lua" above.
+
+- A Lua model marked `-- @Topic` is a topic in both realms. `--` is a Topic
+  comment leader, so the model table, the topic stream map and the build
+  checks read the marker like `// @Topic` in Go.
+- Stock Lua has no sockets, so a Yon Lua handler cannot call the resource
+  channel. When a Yon Lua route publishes a Topic model, the event runtime
+  keeps the publication, and the handler adds a `topics` list of
+  `{topic, payload_json}` entries to its JSON answer. The supervisor gives
+  each entry to the same topic outbox that the resource channel uses, with
+  the same checks (only a Topic model of the publishing file, an object, at
+  most 64 KiB, at most 8 hops), after the process ends and before the
+  response goes out. A refused or failed publication is logged as a
+  `handler.topic_failed` event, and the response is still sent.
+- A Yon Lua `-- @OnEvent` method on a Topic model is a server listener. The
+  topic bus sends `event.deliver` to the Lua file, and `Handler.yon_deliver`
+  runs only the listeners the delivery names, as in Ruby.
+- A Tac Lua `-- @OnEvent` method on a Topic model opens the topic stream in
+  the page, like every service that runs as WebAssembly.
