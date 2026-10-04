@@ -1,7 +1,6 @@
 use super::native_menu_config::NativeMenuConfig;
 use super::native_menu_entry::NativeMenuEntry;
 use super::native_menu_shortcut::NativeMenuShortcut;
-use std::fmt::Write as _;
 
 pub(super) struct DesktopMenuItems;
 
@@ -86,28 +85,33 @@ typedef struct {
         shortcut
             .modifiers
             .iter()
-            .map(|modifier| match modifier.as_str() {
-                "command" => Self::PRIMARY,
-                "option" => Self::ALT,
-                "shift" => Self::SHIFT,
-                _ => 0,
-            })
+            .map(|modifier| Self::modifier_bit(modifier))
             .fold(0, |bits, bit| bits | bit)
     }
 
+    fn modifier_bit(modifier: &str) -> u8 {
+        match modifier {
+            "command" => Self::PRIMARY,
+            "option" => Self::ALT,
+            "shift" => Self::SHIFT,
+            _ => 0,
+        }
+    }
+
     fn quoted(value: &str) -> String {
-        let text =
-            super::host::c_string_escape(value)
-                .bytes()
-                .fold(String::new(), |mut text, byte| {
-                    if byte.is_ascii() {
-                        text.push(char::from(byte));
-                    } else {
-                        let _ = write!(text, "\\{byte:03o}");
-                    }
-                    text
-                });
+        let text = super::host::c_string_escape(value)
+            .bytes()
+            .map(Self::portable_byte)
+            .collect::<String>();
         format!("\"{text}\"")
+    }
+
+    fn portable_byte(byte: u8) -> String {
+        if byte.is_ascii() {
+            char::from(byte).to_string()
+        } else {
+            format!("\\{byte:03o}")
+        }
     }
 }
 

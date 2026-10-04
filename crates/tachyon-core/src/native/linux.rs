@@ -155,38 +155,22 @@ fn stage_icon(
 }
 
 pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
-    let framed = LinuxHostGenerator::C_HOST
-        .replace(
+    let local_bundle = super::routes::c_local_bundle(index, &[], "tachyon://app");
+    let gtk_app_id = c_string_escape(&gtk_application_id(&application.application_id));
+    super::desktop_host_source::DesktopHostSource {
+        template: LinuxHostGenerator::C_HOST.replace(
             "__NATIVE_WINDOW_CONTROLS__",
             &super::linux_window_controls::LinuxWindowControls::source(&application.window),
-        )
-        .replace(
-            "__NATIVE_SHIM__",
-            &c_string_escape(&super::host::native_shim(&application.window)),
-        )
-        .replace(
-            "__CONTENT_SECURITY_POLICY__",
-            &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
-        )
-        .replace("__NATIVE_MENUS__", include_str!("linux_menus.c"));
-    let menu_items = super::desktop_menu_items::DesktopMenuItems::c_table(
-        &application.menus,
-        LinuxHostGenerator::MENU_MNEMONIC,
-    );
-    let local_bundle = super::routes::c_local_bundle(index, &[], "tachyon://app");
-    let entry_route = c_string_escape(&index.entry_route);
-    let app_name = c_string_escape(&application.name);
-    let bundle_id = c_string_escape(&application.application_id);
-    let gtk_app_id = c_string_escape(&gtk_application_id(&application.application_id));
-    super::placeholder_fill::PlaceholderFill::once(
-        &framed,
+        ),
+        menus: include_str!("linux_menus.c"),
+        mnemonic: LinuxHostGenerator::MENU_MNEMONIC,
+    }
+    .render(
+        application,
+        index,
         &[
             ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
-            ("__ENTRY_ROUTE__", &entry_route),
-            ("__APP_NAME__", &app_name),
-            ("__BUNDLE_ID__", &bundle_id),
             ("__GTK_APP_ID__", &gtk_app_id),
-            ("__NATIVE_MENU_ITEMS__", &menu_items),
         ],
     )
 }

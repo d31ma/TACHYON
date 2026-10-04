@@ -39,6 +39,17 @@ machine contracts have their own, independent major versions.
   last window disposes the page services but keeps the app and its application
   services running; clicking the Dock icon opens a fresh window with new page
   services and menu items, and Quit cleans up once (ADR 0097).
+- Linux and Windows apps get declared menus and application services.
+  `tac.application.menus` adds a menu bar (GTK 4 menu bar on Linux, Win32 menu
+  bar on Windows) with the declared File, View and Help items, Close Window
+  (Ctrl+W) and Quit (Ctrl+Q); route items, actions, enablement and shortcuts
+  follow the macOS rules, with `command` as Ctrl and `option` as Alt (a
+  shortcut with `control` gets no accelerator). A client Rust service with
+  `#[Lifetime({"value":"application"})]` starts once at launch, survives page
+  navigation and stops once at quit; closing the last window quits, as these
+  platforms expect. Inside the app process only: no OS service or autostart.
+  iOS and Android still refuse both. Windows is generated and compile-checked
+  but not yet run on Windows (ADR 0097 amendment).
 
 - The FYLO datasource is complete enough for a real document application: every
   Yon language with a DataSource gets `findById`, `insert`, an atomic `patch`

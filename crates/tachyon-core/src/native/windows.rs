@@ -3,8 +3,8 @@ use super::csharp_browser_bindings::CsharpBrowserBindings;
 use super::csharp_web_apis::CsharpWebApis;
 use super::dotnet_web_release::DotnetWebRelease;
 use super::host::{
-    GeneratedHost, c_string_escape, first_line, native_tool_failure, run_tool, stage_application,
-    write, write_host_source,
+    GeneratedHost, first_line, native_tool_failure, run_tool, stage_application, write,
+    write_host_source,
 };
 use super::routes::NativeRouteIndex;
 use crate::Failure;
@@ -574,37 +574,19 @@ pub(super) fn c_source(
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
 ) -> String {
-    let framed = WindowsHostGenerator::C_HOST
-        .replace(
+    let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
+    super::desktop_host_source::DesktopHostSource {
+        template: WindowsHostGenerator::C_HOST.replace(
             "__WINDOW_CONTROLS__",
             &super::native_window_controls::NativeWindowControls::windows(&application.window),
-        )
-        .replace(
-            "__NATIVE_SHIM__",
-            &c_string_escape(&super::host::native_shim(&application.window)),
-        )
-        .replace(
-            "__CONTENT_SECURITY_POLICY__",
-            &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
-        )
-        .replace("__NATIVE_MENUS__", include_str!("windows_menus.c"));
-    let menu_items = super::desktop_menu_items::DesktopMenuItems::c_table(
-        &application.menus,
-        WindowsHostGenerator::MENU_MNEMONIC,
-    );
-    let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
-    let app_name = c_string_escape(&application.name);
-    let bundle_id = c_string_escape(&application.application_id);
-    let entry_route = c_string_escape(&index.entry_route);
-    super::placeholder_fill::PlaceholderFill::once(
-        &framed,
-        &[
-            ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
-            ("__APP_NAME__", &app_name),
-            ("__BUNDLE_ID__", &bundle_id),
-            ("__ENTRY_ROUTE__", &entry_route),
-            ("__NATIVE_MENU_ITEMS__", &menu_items),
-        ],
+        ),
+        menus: include_str!("windows_menus.c"),
+        mnemonic: WindowsHostGenerator::MENU_MNEMONIC,
+    }
+    .render(
+        application,
+        index,
+        &[("__LOCAL_BUNDLE_HELPERS__", &local_bundle)],
     )
 }
 

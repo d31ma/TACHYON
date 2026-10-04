@@ -5,6 +5,7 @@ mod browser_task_tests;
 mod compiler;
 mod config;
 mod csharp_web_apis;
+mod desktop_host_source;
 mod desktop_menu_items;
 mod dotnet_web_release;
 mod events;
