@@ -1,7 +1,7 @@
 {
   "heading": "Signals between components",
   "target": "web",
-  "body": "An injected applicationEventPublisher and OnEvent connect services that have no shared parent. To publish, call publishEvent(model) or publishEvent(model, retain) with a value of a model type. The name of the model type is the event name. Retain and replay are false by default. Payloads (the data an event carries) are finite JSON of up to 64 KiB. Each listener receives its own copy. A listener whose return type is a model publishes the value it returns as that model. Disposal (cleanup of a service) unregisters its listeners. A page's events stay in the page: Tachyon does not send them to the server. A listener for a Topic model also receives the server's events of that model (see Topics).",
+  "body": "An injected applicationEventPublisher and OnEvent connect services that have no shared parent. To publish, call publishEvent(model) or publishEvent(model, retain) with a value of a model type. The name of the model type is the event name. Retain and replay are false by default. Payloads (the data an event carries) are finite JSON of up to 64 KiB. Each listener receives its own copy. A listener whose return type is a model publishes the value it returns as that model. Disposal (cleanup of a service) unregisters its listeners. In Lua, the publisher is the field `application_event_publisher = nil`, the call is `publish_event`, and `-- @OnEvent` above a function makes it a listener. A page's events stay in the page: Tachyon does not send them to the server. A listener for a Topic model also receives the server's events of that model (see Topics).",
   "files": [
     {
       "name": "client/services/ReleaseService.js",
@@ -88,6 +88,12 @@
       }
     },
     {
+      "name": "client/services/ReleaseService.lua",
+      "code": {
+        "file": "client/services/ReleaseService.lua"
+      }
+    },
+    {
       "name": "client/models/ReleaseChanged.ts",
       "code": {
         "file": "client/models/ReleaseChanged.ts"
@@ -145,6 +151,12 @@
       "name": "client/models/ReleaseChanged.fs",
       "code": {
         "file": "client/models/ReleaseChanged.fs"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.lua",
+      "code": {
+        "file": "client/models/ReleaseChanged.lua"
       }
     }
   ]
