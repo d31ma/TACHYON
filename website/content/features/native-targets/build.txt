@@ -14,3 +14,7 @@ The Windows host needs the WebView2 SDK: restore the
 Microsoft.Web.WebView2 package and set TAC_WEBVIEW2_SDK to the
 extracted folder (it holds build/native/include/WebView2.h).
 Without it the Windows build stops with TY1605.
+
+Run the Windows build from a Visual Studio developer prompt (x64
+target; on Windows on Arm use the arm64_amd64 prompt). The host
+compiles with warnings as errors (/W4 /WX).

@@ -1,3 +1,3 @@
 ---@class CatalogSummary
----@field summary table
+---@field summary any
 CatalogSummary = {}

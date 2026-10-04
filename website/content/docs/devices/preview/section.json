@@ -1,5 +1,7 @@
 {
   "heading": "Preview on a device",
-  "body": "Preview accepts exactly one target. If you do not pass --target, Tachyon previews web. A native preview first checks for the platform SDK, compiler and WebView that it needs. It reports any missing dependency before it tries to build.",
-  "code": { "file": "example.sh" }
+  "body": "Preview accepts exactly one target. If you do not pass --target, Tachyon previews web. A native preview serves the web bundle inside a target that you already built with `ty bundle --target <target>`, so it checks no toolchain. With `--watch` it builds that target first and rebuilds it when a source changes; that build checks the platform SDK, compiler and WebView and reports any missing dependency.",
+  "code": {
+    "file": "example.sh"
+  }
 }

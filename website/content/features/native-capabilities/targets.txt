@@ -1,0 +1,22 @@
+Where the file picker opens a panel
+
+  Service language        macOS app      Other apps and browser tabs
+  JavaScript, TypeScript  panel opens    answers unsupported
+  Rust                    panel opens    answers unsupported
+  Swift                   panel opens    answers unsupported
+  C#, Kotlin              -              answers unsupported
+
+Every service uses the same file on every target. A Swift, C# or
+Kotlin service asks for the picker with an uninitialized FilePicker
+field and NeedsAll. Where the service runs as WebAssembly in the page
+(the web, and targets that do not link the language), the field is
+still filled, available() is false and every call answers unsupported.
+
+Limits on every host that opens a panel
+
+  type filters     text/plain, application/json (empty: any file)
+  read size        65,536 bytes of UTF-8 text
+  handle lifetime  300 seconds, or until the service goes away
+  handles          8 per service, 128 per app
+  panels           one at a time; a second request is unavailable
+  panel timeout    30 seconds, then cancelled
