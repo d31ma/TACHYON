@@ -16,19 +16,21 @@ pub(super) struct RustCrateBuild<'build> {
 }
 
 impl RustCrateBuild<'_> {
-    pub(super) const VENDOR_FOLDER: &'static str = "vendor/rust";
-    pub(super) const CACHE_FOLDER: &'static str = "rust-companion";
+    pub(super) const VENDOR_FOLDER: &str = "vendor/rust";
+    pub(super) const CACHE_FOLDER: &str = "rust-companion";
     const FAILURE_CODE: u16 = 1605;
-    const PROJECT_FOLDER: &'static str = "rust-companion";
-    const MANIFEST: &'static str = "Cargo.toml";
-    const BINARY_FOLDER: &'static str = "bin";
-    const RELEASE: &'static str = "release";
-    const ENTRY_METHOD: &'static str = "pub fn run() -> i32";
-    const EXPORTS: &'static str = "\npub use crate::TachyonRustServices::*;\n";
-    const VENDOR_SOURCE: &'static str = "tachyon-vendored";
-    const EXECUTABLE_SUFFIXES: [&'static str; 2] = ["", ".exe"];
-    const WINDOWS: &'static str = "windows";
-    const APPLE: &'static str = "apple";
+    const PROJECT_FOLDER: &str = "rust-companion";
+    const MANIFEST: &str = "Cargo.toml";
+    const BINARY_FOLDER: &str = "bin";
+    const RELEASE: &str = "release";
+    const ENTRY_METHOD: &str = "pub fn run() -> i32";
+    const ENTRY_SUFFIX: &str = "-entry.rs";
+    const PARENT_FOLDER: &str = "..";
+    const EXPORTS: &str = "\npub use crate::TachyonRustServices::*;\n";
+    const VENDOR_SOURCE: &str = "tachyon-vendored";
+    const EXECUTABLE_SUFFIXES: [&str; 2] = ["", ".exe"];
+    const WINDOWS: &str = "windows";
+    const APPLE: &str = "apple";
 
     pub(super) fn stage(&self, linkage: Linkage) -> Result<PathBuf, Failure> {
         let project = self.project_folder();
@@ -40,9 +42,17 @@ impl RustCrateBuild<'_> {
             .collect::<Result<Vec<_>, Failure>>()?;
         self.export_for_executables(&binaries)?;
         let manifest = project.join(Self::MANIFEST);
+        let library = PathBuf::from(format!(
+            "{}/{}",
+            Self::PARENT_FOLDER,
+            self.source
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+        ));
         let text = self
             .declaration
-            .manifest(self.source, Self::crate_types(linkage), &binaries);
+            .manifest(&library, Self::crate_types(linkage), &binaries);
         write(&manifest, text.as_bytes())?;
         Ok(manifest)
     }
@@ -87,8 +97,17 @@ impl RustCrateBuild<'_> {
         name: &str,
         entry: &str,
     ) -> Result<(String, PathBuf), Failure> {
-        let main = project.join(Self::BINARY_FOLDER).join(format!("{name}.rs"));
-        write(&main, self.binary_source(name, entry)?.as_bytes())?;
+        let folder = project.join(Self::BINARY_FOLDER);
+        let authored = self.entry_source(name, entry)?;
+        write(
+            &folder.join(format!("{name}{}", Self::ENTRY_SUFFIX)),
+            authored.as_bytes(),
+        )?;
+        let main = PathBuf::from(format!("{}/{name}.rs", Self::BINARY_FOLDER));
+        write(
+            &project.join(&main),
+            Self::binary_source(name, entry).as_bytes(),
+        )?;
         Ok((name.to_owned(), main))
     }
 
@@ -107,7 +126,7 @@ impl RustCrateBuild<'_> {
         Ok(destination)
     }
 
-    fn binary_source(&self, name: &str, entry: &str) -> Result<String, Failure> {
+    fn entry_source(&self, name: &str, entry: &str) -> Result<String, Failure> {
         let class = RustCompanionCrate::entry_class(entry).unwrap_or_default();
         let path = self.client_root.join(entry.trim_start_matches('/'));
         let authored = std::fs::read_to_string(&path).unwrap_or_default();
@@ -115,11 +134,16 @@ impl RustCrateBuild<'_> {
         (declares_class & authored.contains(Self::ENTRY_METHOD))
             .then_some(())
             .ok_or_else(|| Self::missing_entry(name, entry, class))?;
-        let location = path.to_string_lossy();
-        Ok(format!(
-            "#![allow(unused_imports, non_snake_case)]\nuse {}::*;\n#[path = {location:?}]\nmod entry;\n\nfn main() {{\n    std::process::exit(entry::{class}::run());\n}}\n",
-            RustCompanionCrate::LIBRARY
-        ))
+        Ok(authored)
+    }
+
+    fn binary_source(name: &str, entry: &str) -> String {
+        let class = RustCompanionCrate::entry_class(entry).unwrap_or_default();
+        format!(
+            "#![allow(unused_imports, non_snake_case)]\nuse {}::*;\n#[path = \"{name}{}\"]\nmod entry;\n\nfn main() {{\n    std::process::exit(entry::{class}::run());\n}}\n",
+            RustCompanionCrate::LIBRARY,
+            Self::ENTRY_SUFFIX
+        )
     }
 
     fn missing_entry(name: &str, entry: &str, class: &str) -> Failure {
@@ -140,10 +164,13 @@ impl RustCrateBuild<'_> {
                 Self::FAILURE_CODE,
                 &format!(
                     "tac.application.rust declares crates, and Tachyon builds them offline from \
-                     {}, which is missing. Run `cargo vendor --manifest-path {} {}` once, commit \
-                     the folder, and build again.",
+                     {}, which is missing. Stage the app once with the same target and --native, \
+                     then run `cargo vendor --manifest-path <out-dir>/<target>/project/{}/{} {}` \
+                     (the only step that downloads), keep the folder with the project, and build \
+                     again.",
                     self.vendor.display(),
-                    manifest.display(),
+                    Self::PROJECT_FOLDER,
+                    manifest.file_name().unwrap_or_default().to_string_lossy(),
                     self.vendor.display()
                 ),
             )

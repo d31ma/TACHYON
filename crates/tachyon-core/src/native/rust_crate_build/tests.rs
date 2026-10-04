@@ -178,6 +178,17 @@ fn staging_writes_the_manifest_the_helper_main_and_the_library_exports() {
         .unwrap_or_default();
     assert!(main.contains("use tachyon_companion::*;"), "{main}");
     assert!(
+        main.contains("#[path = \"probe-helper-entry.rs\"]"),
+        "{main}"
+    );
+    let entry =
+        std::fs::read_to_string(manifest.with_file_name("bin").join("probe-helper-entry.rs"))
+            .unwrap_or_default();
+    assert!(entry.contains("pub struct ProbeMain"), "{entry}");
+    let cargo = std::fs::read_to_string(&manifest).unwrap_or_default();
+    assert!(cargo.contains("path = \"../companion.rs\""), "{cargo}");
+    assert!(cargo.contains("path = \"bin/probe-helper.rs\""), "{cargo}");
+    assert!(
         main.contains("std::process::exit(entry::ProbeMain::run());"),
         "{main}"
     );
