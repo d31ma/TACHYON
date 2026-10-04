@@ -24,9 +24,13 @@
     {
       "id": "dynamic-segments",
       "title": "Path variables",
-      "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value. The view passes `page.path` to a service method, which reads the last segment. So every service language can use the value: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view.",
+      "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value. The view passes `page.path` to a service method, which reads the last segment. So every service language can use the value: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Routing",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/items/_id/tac.html",
           "code": "<item-page hydrate=\"load\" />\n"
@@ -58,6 +62,14 @@
         {
           "name": "client/services/ItemService.rb",
           "code": "#[Service]\nclass ItemService\n  # @param path [String]\n  # @return [String]\n  def id_from(path)\n    path.split(\"/\").last.to_s\n  end\nend\n"
+        },
+        {
+          "name": "client/services/ItemService.lua",
+          "code": "-- @Service\n---@class ItemService\nItemService = {}\n\n---@param path string\n---@return string\nfunction ItemService:id_from(path)\n  return path:match(\"[^/]*$\")\nend\n"
+        },
+        {
+          "name": "client/services/ItemService.py",
+          "code": "@service\nclass ItemService:\n    def id_from(self, path: str) -> str:\n        return path.rsplit(\"/\", 1)[-1]\n"
         },
         {
           "name": "client/services/ItemService.swift",
@@ -194,9 +206,13 @@
     {
       "id": "interpolation",
       "title": "Values in text",
-      "summary": "Curly braces insert the value of a limited expression. The compiler turns the expression into instructions for the browser. It does not turn it into source code that runs.",
+      "summary": "Curly braces insert the value of a limited expression. The compiler turns the expression into instructions for the browser. It does not turn it into source code that runs. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<catalog-summary hydrate=\"load\" />\n"
@@ -256,6 +272,14 @@
         {
           "name": "client/models/Product.lua",
           "code": "---@class Product\n---@field name string\n---@field price string\nProduct = {}\n"
+        },
+        {
+          "name": "client/services/CatalogService.py",
+          "code": "@service\nclass CatalogService:\n    title: str\n    count: int\n    product: Product\n\n    def __init__(self) -> None:\n        self.title = \"Catalog\"\n        self.count = 6\n        self.product = Product(name=\"Anvil\", price=\"£42.00\")\n"
+        },
+        {
+          "name": "client/models/Product.py",
+          "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Product:\n    name: str\n    price: str\n"
         },
         {
           "name": "client/services/CatalogService.swift",
@@ -327,9 +351,13 @@
     {
       "id": "dynamic-attributes",
       "title": "Dynamic attributes",
-      "summary": "An attribute whose name starts with `:` takes an expression as its value. Braces work only in text, not in attribute values. To build an attribute from text and a value, join them in the expression, as in `:class=\"'status-' + link.state\"`. The build refuses braces in a plain attribute with `TY1313`.",
+      "summary": "An attribute whose name starts with `:` takes an expression as its value. Braces work only in text, not in attribute values. To build an attribute from text and a value, join them in the expression, as in `:class=\"'status-' + link.state\"`. The build refuses braces in a plain attribute with `TY1313`. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<topic-link hydrate=\"load\" />\n"
@@ -383,6 +411,22 @@
           "code": "# @!attribute [r] slug\n#   @return [String]\n# @!attribute [r] title\n#   @return [String]\nTopic = Data.define(:slug, :title)\n"
         },
         {
+          "name": "client/services/LinkService.lua",
+          "code": "-- @Service\n---@class LinkService\nLinkService = {\n  ---@type Topic\n  topic = setmetatable({ slug = \"routing\", title = \"Routing\" }, Topic),\n  ---@type string\n  state = \"ready\",\n  ---@type string\n  message = \"Everything is up to date.\",\n}\n"
+        },
+        {
+          "name": "client/models/Topic.lua",
+          "code": "---@class Topic\n---@field slug string\n---@field title string\nTopic = {}\n"
+        },
+        {
+          "name": "client/services/LinkService.py",
+          "code": "@service\nclass LinkService:\n    topic: Topic\n    state: str\n    message: str\n\n    def __init__(self) -> None:\n        self.topic = Topic(slug=\"routing\", title=\"Routing\")\n        self.state = \"ready\"\n        self.message = \"Everything is up to date.\"\n"
+        },
+        {
+          "name": "client/models/Topic.py",
+          "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Topic:\n    slug: str\n    title: str\n"
+        },
+        {
           "name": "client/services/LinkService.swift",
           "code": "@Service\nfinal class LinkService {\n  var topic: Topic = Topic(slug: \"routing\", title: \"Routing\")\n  var state: String = \"ready\"\n  var message: String = \"Everything is up to date.\"\n}\n"
         },
@@ -428,9 +472,13 @@
     {
       "id": "conditionals",
       "title": "Conditionals",
-      "summary": "There is only one way to write a condition: `<logic>`. A chain of branches uses `:if`, `:else-if` and an `else` attribute with no value.",
+      "summary": "There is only one way to write a condition: `<logic>`. A chain of branches uses `:if`, `:else-if` and an `else` attribute with no value. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<stock-status hydrate=\"load\" />\n"
@@ -484,6 +532,22 @@
           "code": "# @!attribute [r] name\n#   @return [String]\nProduct = Data.define(:name)\n"
         },
         {
+          "name": "client/services/StockService.lua",
+          "code": "-- @Service\n---@class StockService\nStockService = {\n  ---@type Product[]\n  products = {},\n  ---@type boolean\n  restocking = true,\n}\n"
+        },
+        {
+          "name": "client/models/Product.lua",
+          "code": "---@class Product\n---@field name string\nProduct = {}\n"
+        },
+        {
+          "name": "client/services/StockService.py",
+          "code": "@service\nclass StockService:\n    products: list[Product]\n    restocking: bool\n\n    def __init__(self) -> None:\n        self.products = []\n        self.restocking = True\n"
+        },
+        {
+          "name": "client/models/Product.py",
+          "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Product:\n    name: str\n"
+        },
+        {
           "name": "client/services/StockService.swift",
           "code": "@Service\nfinal class StockService {\n  var products: [Product] = []\n  var restocking: Bool = true\n}\n"
         },
@@ -529,9 +593,13 @@
     {
       "id": "iteration",
       "title": "Loops",
-      "summary": "A loop gives each item of an iterable (a value you can loop over, such as a list) a name. That name is a portable identifier (a simple variable name).",
+      "summary": "A loop gives each item of an iterable (a value you can loop over, such as a list) a name. That name is a portable identifier (a simple variable name). A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<product-list hydrate=\"load\" />\n"
@@ -585,6 +653,22 @@
           "code": "# @!attribute [r] name\n#   @return [String]\nProduct = Data.define(:name)\n"
         },
         {
+          "name": "client/services/InventoryService.lua",
+          "code": "-- @Service\n---@class InventoryService\nInventoryService = {\n  ---@type Product[]\n  products = { setmetatable({ name = \"Anvil\" }, Product), setmetatable({ name = \"Rope\" }, Product) },\n}\n"
+        },
+        {
+          "name": "client/models/Product.lua",
+          "code": "---@class Product\n---@field name string\nProduct = {}\n"
+        },
+        {
+          "name": "client/services/InventoryService.py",
+          "code": "@service\nclass InventoryService:\n    products: list[Product]\n\n    def __init__(self) -> None:\n        self.products = [Product(name=\"Anvil\"), Product(name=\"Rope\")]\n"
+        },
+        {
+          "name": "client/models/Product.py",
+          "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Product:\n    name: str\n"
+        },
+        {
           "name": "client/services/InventoryService.swift",
           "code": "@Service\nfinal class InventoryService {\n  var products: [Product] = [Product(name: \"Anvil\"), Product(name: \"Rope\")]\n}\n"
         },
@@ -630,9 +714,13 @@
     {
       "id": "switch",
       "title": "Matching a value",
-      "summary": "A switch compares one value with each case. Tac uses the first case that matches. If no case matches, it uses `<case default>`. The compiler turns a switch into a chain of if and else-if branches.",
+      "summary": "A switch compares one value with each case. Tac uses the first case that matches. If no case matches, it uses `<case default>`. The compiler turns a switch into a chain of if and else-if branches. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<status-badge hydrate=\"load\" />\n"
@@ -666,6 +754,14 @@
           "code": "#[Service]\nclass BadgeService\n  # @return [String]\n  attr_reader :status\n\n  def initialize\n    @status = \"ready\"\n  end\nend\n"
         },
         {
+          "name": "client/services/BadgeService.lua",
+          "code": "-- @Service\n---@class BadgeService\nBadgeService = {\n  ---@type string\n  status = \"ready\",\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.py",
+          "code": "@service\nclass BadgeService:\n    status: str = \"ready\"\n"
+        },
+        {
           "name": "client/services/BadgeService.swift",
           "code": "@Service\nfinal class BadgeService {\n  var status: String = \"ready\"\n}\n"
         },
@@ -691,9 +787,13 @@
     {
       "id": "components",
       "title": "Components and slots",
-      "summary": "A component is a reusable part of a page. Each directory under `client/components` defines one component. A page contains only component tags. Components can contain other components. A component that only shows the data it receives needs no service (a class that holds state and behavior). Slots (places where a parent component inserts its own content) are scoped. If components contain each other in a cycle, the build fails before publishing.",
+      "summary": "A component is a reusable part of a page. Each directory under `client/components` defines one component. A page contains only component tags. Components can contain other components. A component that only shows the data it receives needs no service (a class that holds state and behavior). Slots (places where a parent component inserts its own content) are scoped. If components contain each other in a cycle, the build fails before publishing. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/components/product/card/tac.html",
           "code": "<article class=\"card\">\n  <h3>{name}</h3>\n  <slot />\n</article>"
@@ -771,6 +871,22 @@
           "code": "# @!attribute [r] id\n#   @return [String]\n# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] price\n#   @return [String]\nProduct = Data.define(:id, :name, :price)\n"
         },
         {
+          "name": "client/services/CatalogService.lua",
+          "code": "-- @Service\n---@class CatalogService\nCatalogService = {\n  ---@type Product[]\n  products = {},\n}\n\n---@return nil\n-- @OnStart\nfunction CatalogService:start()\n  self.products = {\n    setmetatable({ id = \"anvil\", name = \"Anvil\", price = \"£42.00\" }, Product),\n    setmetatable({ id = \"rope\", name = \"Rope\", price = \"£8.00\" }, Product),\n  }\nend\n"
+        },
+        {
+          "name": "client/models/Product.lua",
+          "code": "---@class Product\n---@field id string\n---@field name string\n---@field price string\nProduct = {}\n"
+        },
+        {
+          "name": "client/services/CatalogService.py",
+          "code": "@service\nclass CatalogService:\n    products: list[Product]\n\n    def __init__(self) -> None:\n        self.products = [\n            Product(id=\"anvil\", name=\"Anvil\", price=\"£42.00\"),\n            Product(id=\"rope\", name=\"Rope\", price=\"£8.00\"),\n        ]\n"
+        },
+        {
+          "name": "client/models/Product.py",
+          "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Product:\n    id: str\n    name: str\n    price: str\n"
+        },
+        {
           "name": "client/models/Product.swift",
           "code": "struct Product {\n  let id: String\n  let name: String\n  let price: String\n}\n"
         },
@@ -796,9 +912,13 @@
     {
       "id": "mount",
       "title": "When a component activates",
-      "summary": "A component activates when it starts to run in the browser. This can happen when the page loads, when the browser is idle, or when the component becomes visible. It can also happen when the user interacts with it, or never. The services that its view names start at the same time. The page itself has no activation schedule. It only places components, and each component follows its own schedule.",
+      "summary": "A component activates when it starts to run in the browser. This can happen when the page loads, when the browser is idle, or when the component becomes visible. It can also happen when the user interacts with it, or never. The services that its view names start at the same time. The page itself has no activation schedule. It only places components, and each component follows its own schedule. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<product-card hydrate=\"load\" />\n<sales-chart hydrate=\"visible\" />\n<heavy-editor hydrate=\"interaction\" />\n<static-note hydrate=\"never\" />"
@@ -832,6 +952,14 @@
           "code": "#[Service]\nclass CardService\n  # @return [String]\n  attr_reader :name\n  # @return [String]\n  attr_reader :status\n\n  def initialize\n    @name = \"Anvil\"\n    @status = \"waiting\"\n  end\n\n  # @return [void]\n  #[OnStart]\n  def activate\n    @status = \"active\"\n  end\nend\n"
         },
         {
+          "name": "client/services/CardService.lua",
+          "code": "-- @Service\n---@class CardService\nCardService = {\n  ---@type string\n  name = \"Anvil\",\n  ---@type string\n  status = \"waiting\",\n}\n\n---@return nil\n-- @OnStart\nfunction CardService:activate()\n  self.status = \"active\"\nend\n"
+        },
+        {
+          "name": "client/services/CardService.py",
+          "code": "@service\nclass CardService:\n    name: str = \"Anvil\"\n    status: str = \"waiting\"\n\n    @on_start\n    def activate(self) -> None:\n        self.status = \"active\"\n"
+        },
+        {
           "name": "client/services/CardService.swift",
           "code": "@Service\nfinal class CardService {\n  let name: String = \"Anvil\"\n  var status: String = \"waiting\"\n\n  @OnStart\n  func activate() { status = \"active\" }\n}\n"
         },
@@ -857,9 +985,13 @@
     {
       "id": "events",
       "title": "Handling events",
-      "summary": "`on:<event>` calls a service method or sets a service field when the event happens. You can use `$event` (the browser event object) and limited dotted paths (names joined by dots).",
+      "summary": "`on:<event>` calls a service method or sets a service field when the event happens. You can use `$event` (the browser event object) and limited dotted paths (names joined by dots). A JavaScript or TypeScript method receives the browser event first and then the arguments from the view. A method in any other language receives only the arguments. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<basket-controls hydrate=\"load\" />\n"
@@ -913,6 +1045,22 @@
           "code": "# @!attribute [r] id\n#   @return [String]\n# @!attribute [r] name\n#   @return [String]\nTab = Data.define(:id, :name)\n"
         },
         {
+          "name": "client/services/BasketService.lua",
+          "code": "-- @Service\n---@class BasketService\nBasketService = {\n  ---@type integer\n  count = 0,\n  ---@type string\n  label = \"\",\n  ---@type string\n  _selected = \"\",\n  ---@type Tab[]\n  tabs = { setmetatable({ id = \"a\", name = \"A\" }, Tab) },\n}\n\n---@return nil\nfunction BasketService:increment()\n  self.count = self.count + 1\nend\n\n---@param id string\n---@return nil\nfunction BasketService:select(id)\n  self._selected = id\nend\n"
+        },
+        {
+          "name": "client/models/Tab.lua",
+          "code": "---@class Tab\n---@field id string\n---@field name string\nTab = {}\n"
+        },
+        {
+          "name": "client/services/BasketService.py",
+          "code": "@service\nclass BasketService:\n    count: int\n    label: str\n    _selected: str\n    tabs: list[Tab]\n\n    def __init__(self) -> None:\n        self.count = 0\n        self.label = \"\"\n        self._selected = \"\"\n        self.tabs = [Tab(id=\"a\", name=\"A\")]\n\n    def increment(self) -> None:\n        self.count += 1\n\n    def select(self, id: str) -> None:\n        self._selected = id\n"
+        },
+        {
+          "name": "client/models/Tab.py",
+          "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Tab:\n    id: str\n    name: str\n"
+        },
+        {
           "name": "client/services/BasketService.swift",
           "code": "@Service\nfinal class BasketService {\n  var count: Int = 0\n  var label: String = \"\"\n  private var selected: String = \"\"\n  var tabs: [Tab] = [Tab(id: \"a\", name: \"A\")]\n\n  func increment() {\n    count += 1\n  }\n\n  func select(_ id: String) {\n    selected = id\n  }\n}\n"
         },
@@ -958,7 +1106,10 @@
     {
       "id": "companions",
       "title": "Service classes",
-      "summary": "A service is a class that holds the state and behavior of a view. A view refers to a service by its instance name: `BasketService` is `basket`. `{basket.count}` reads a field, and `on:click=\"basket.add()\"` calls a method. Fields hold the state of the view. Methods give its behavior. By default, a service is a page singleton (one shared instance for the whole page). Every component that names it shares that one instance. `NeedsAll` creates one service instance for each component instance. It uses the properties of that component. `Lifetime({\"value\":\"prototype\"})` also gives other services one instance for each component. `OnStart` runs after injection (the framework gives the service the objects it needs). It also waits until the component is attached to the DOM (the tree of elements on the page). `OnStop` cleans up work that the service owns. A declared `applicationEventPublisher` field and `OnEvent` replace local publish and subscribe code that you would write by hand. A `Needs` field named after a browser resource receives that resource. There is no general framework object on the instance. Ordinary imports and helper functions still work. Constants are static class fields.",
+      "summary": "A service is a class that holds the state and behavior of a view. A view refers to a service by its instance name: `BasketService` is `basket`. `{basket.count}` reads a field, and `on:click=\"basket.add()\"` calls a method. Fields hold the state of the view. Methods give its behavior. By default, a service is a page singleton (one shared instance for the whole page). Every component that names it shares that one instance. `NeedsAll` creates one service instance for each component instance. It uses the properties of that component. `Lifetime({\"value\":\"prototype\"})` also gives other services one instance for each component. `OnStart` runs after injection (the framework gives the service the objects it needs). It also waits until the component is attached to the DOM (the tree of elements on the page). `OnStop` cleans up work that the service owns. A declared `applicationEventPublisher` field and `OnEvent` replace local publish and subscribe code that you would write by hand. A `Needs` field named after a browser resource receives that resource. There is no general framework object on the instance. Ordinary imports and helper functions still work. Constants are static class fields. Python has no tab here: the cart and live-total services publish and listen to events, and the build refuses event publishers and listeners in Python Tac code with `TY1605`. A Python service can still have fields, methods, `on_start` and `on_stop`.",
+      "notApplicable": [
+        "py"
+      ],
       "group": "Tac views",
       "files": [
         {
@@ -1015,7 +1166,7 @@
         },
         {
           "name": "conventions",
-          "code": "Service                         one class per client/services/<Name>Service file\nLifetime({\"value\":\"prototype\"}) one instance per component instead of per page\nOnStart                         initialized owner and DOM\nOnStop                          owned cleanup\napplicationEventPublisher       declared field; publishEvent(model[, retain])\nOnEvent({replay,condition,id})  listener for the model type of its parameter\nOrder(n) / InBackground         listener order; detached delivery\nNeeds <name>                    view, lifecycle, resourceLoader, taskScheduler,\n                                applicationEventPublisher\nNeeds / Named(\"Name\")           injected field; named provider when it differs\n$field / $$field                per-tab / cross-session persisted state\n\nSpring has the same ideas: Service, Scope, lifecycle, ApplicationEventPublisher\nand named resources, through Jakarta annotations. Tachyon uses plain English\nnames for them (ADR 0047). The browser resource contracts are Tachyon-specific.\nRemote Yon topics/SSE remain a separate explicit API."
+          "code": "Service                         one class per client/services/<Name>Service file\nLifetime({\"value\":\"prototype\"}) one instance per component instead of per page\nOnStart                         initialized owner and DOM\nOnStop                          owned cleanup\napplicationEventPublisher       declared field; publishEvent(model[, retain])\nOnEvent({replay,condition,id})  listener for the model type of its parameter\nOrder(n) / InBackground         listener order; detached delivery\nNeeds <name>                    view, lifecycle, resourceLoader, taskScheduler,\n                                applicationEventPublisher\nNeeds / Named(\"Name\")           injected field; named provider when it differs\nSessionState / LocalState       field kept for this tab / across visits\n\nSpring has the same ideas: Service, Scope, lifecycle, ApplicationEventPublisher\nand named resources, through Jakarta annotations. Tachyon uses plain English\nnames for them (ADR 0047). The browser resource contracts are Tachyon-specific.\nAn OnEvent listener for a Topic model opens the topic stream itself;\nStreamRequest on an HTTPClient method (JavaScript and TypeScript) reads\nany other stream."
         },
         {
           "name": "client/components/cart/summary/tac.html",
@@ -1132,6 +1283,22 @@
         {
           "name": "client/models/CartTotal.rb",
           "code": "# @!attribute [r] total\n#   @return [Integer]\nCartTotal = Data.define(:total)\n"
+        },
+        {
+          "name": "client/services/BasketService.lua",
+          "code": "-- @Service\n---@class BasketService\nBasketService = {\n  ---@type integer\n  count = 0,\n}\n\n---@return integer\nfunction BasketService:doubled()\n  return self.count * 2\nend\n\n---@return nil\n-- @OnStart\nfunction BasketService:start()\n  self.count = 6\nend\n"
+        },
+        {
+          "name": "client/services/CartService.lua",
+          "code": "-- @Service\n---@class CartService\nCartService = {\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n  ---@type integer\n  total = 0,\n}\n\n---@return nil\nfunction CartService:add()\n  self.total = self.total + 1\n  local changed = setmetatable({ total = self.total }, CartTotal)\n  self.application_event_publisher:publish_event(changed, true)\nend\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.lua",
+          "code": "-- @Service\n---@class LiveTotalService\nLiveTotalService = {\n  ---@type integer\n  seen = 0,\n}\n\n---@param changed CartTotal\n---@return nil\n-- @OnEvent({\"replay\":true})\nfunction LiveTotalService:changed(changed)\n  self.seen = changed.total\nend\n"
+        },
+        {
+          "name": "client/models/CartTotal.lua",
+          "code": "---@class CartTotal\n---@field total integer\nCartTotal = {}\n"
         },
         {
           "name": "client/models/CartTotal.swift",
@@ -1279,9 +1446,13 @@
     {
       "id": "styles",
       "title": "Styles next to each view",
-      "summary": "A `tac.css` file next to a view is the stylesheet of that view. A component contains only its view and its stylesheet. Component styles use CSS `@scope`, which limits styles to one part of the page. Tachyon does not rewrite selectors.",
+      "summary": "A `tac.css` file next to a component view is the stylesheet of that component. A component folder holds only its view and its stylesheet. A page holds no CSS file in any folder (`TY1309`). The compiler wraps the stylesheet in CSS `@scope`, which limits styles to one part of the page. The scope starts at the component and stops at every nested component, also one without a stylesheet and one placed in a slot. So the rules of a parent never style a child component. Tachyon does not rewrite selectors. Component HTML cannot hold a `<style>` element or a stylesheet link (`TY1403`). Global colors, fonts, custom properties and resets go in the stylesheets that `tac.styles` lists in `client/manifest.json`; layout and animation stay in the component's `tac.css`. A third-party stylesheet is declared in `tac.styleSources` with its package, exact version, license and SHA-256. Other global CSS stops the build with `TY1403`. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tac views",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<product-card />\n"
@@ -1319,6 +1490,14 @@
           "code": "#[Service]\nclass CardService\n  # @return [String]\n  attr_reader :name\n\n  def initialize\n    @name = \"Anvil\"\n  end\nend\n"
         },
         {
+          "name": "client/services/CardService.lua",
+          "code": "-- @Service\n---@class CardService\nCardService = {\n  ---@type string\n  name = \"Anvil\",\n}\n"
+        },
+        {
+          "name": "client/services/CardService.py",
+          "code": "@service\nclass CardService:\n    name: str = \"Anvil\"\n"
+        },
+        {
           "name": "client/services/CardService.swift",
           "code": "@Service\nfinal class CardService {\n  let name: String = \"Anvil\"\n}\n"
         },
@@ -1340,7 +1519,7 @@
         },
         {
           "name": "emitted",
-          "code": "@scope ([data-tac-scope=\"product-card\"]) {\n  .card { padding: 1rem; }\n}"
+          "code": "@scope (tachyon-component[data-tac-scope=\"product-card\"]) to (tachyon-component[data-tac-scope]) {\n.card {\n  padding: 1rem;\n  border: 1px solid var(--w-border);\n}\n}\n"
         }
       ]
     },
@@ -2997,9 +3176,13 @@
     {
       "id": "shared",
       "title": "Shared assets",
-      "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file. A view reads `client/shared/data/docs.json` as `data.docs`: the page passes the number of guides to the component, and the service keeps the stable URL of the logo.",
+      "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file. A view reads `client/shared/data/docs.json` as `data.docs`: the page passes the number of guides to the component, and the service keeps the stable URL of the logo. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "group": "Tooling",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<docs-summary hydrate=\"load\" :guides=\"data.docs.order.length\" />\n"
@@ -3041,6 +3224,14 @@
           "code": "#[Service]\nclass BrandService\n  # @return [String]\n  attr_reader :logo\n\n  def initialize\n    @logo = \"/shared/assets/logo.svg\"\n  end\nend\n"
         },
         {
+          "name": "client/services/BrandService.lua",
+          "code": "-- @Service\n---@class BrandService\nBrandService = {\n  ---@type string\n  logo = \"/shared/assets/logo.svg\",\n}\n"
+        },
+        {
+          "name": "client/services/BrandService.py",
+          "code": "@service\nclass BrandService:\n    logo: str = \"/shared/assets/logo.svg\"\n"
+        },
+        {
           "name": "client/services/BrandService.swift",
           "code": "@Service\nfinal class BrandService {\n  let logo: String = \"/shared/assets/logo.svg\"\n}\n"
         },
@@ -3066,8 +3257,12 @@
       "id": "views",
       "title": "A view is not a document",
       "group": "Tac views",
-      "summary": "Each page and each component has a view (an HTML template). The `tac.html` of a page places components. The `tac.html` of each component defines its content. The compiler creates the document around them. If a view contains a doctype, `<html>`, `<head>` or `<body>`, the build fails with `TY1307`. Tachyon cannot merge a head that you write with the head that it generates.",
+      "summary": "Each page and each component has a view (an HTML template). The `tac.html` of a page places components. The `tac.html` of each component defines its content. The compiler creates the document around them. If a view contains a doctype, `<html>`, `<head>` or `<body>`, the build fails with `TY1307`. Tachyon cannot merge a head that you write with the head that it generates. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/pages/tac.html",
           "code": "<catalog-view hydrate=\"load\" />\n"
@@ -3099,6 +3294,14 @@
         {
           "name": "client/services/CatalogService.rb",
           "code": "#[Service]\nclass CatalogService\n  # @return [String]\n  attr_reader :title\n\n  def initialize\n    @title = \"Catalog\"\n  end\nend\n"
+        },
+        {
+          "name": "client/services/CatalogService.lua",
+          "code": "-- @Service\n---@class CatalogService\nCatalogService = {\n  ---@type string\n  title = \"Catalog\",\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.py",
+          "code": "@service\nclass CatalogService:\n    title: str = \"Catalog\"\n"
         },
         {
           "name": "client/services/CatalogService.swift",
@@ -3159,8 +3362,12 @@
       "id": "environment",
       "title": "Marking development mode",
       "group": "Tooling",
-      "summary": "The development server marks every document that it serves as development. A view reads that mark as `page.development`. Here the view passes it to a service method, so the service decides which content a published bundle should not show. This works in every service language: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A JavaScript or TypeScript service can also read the mark itself from `document.body.dataset.tachyonEnvironment`. A published bundle can never say that it is in development, wherever it is hosted.",
+      "summary": "The development server marks every document that it serves as development. A view reads that mark as `page.development`. Here the view passes it to a service method, so the service decides which content a published bundle should not show. This works in every service language: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A JavaScript or TypeScript service can also read the mark itself from `document.body.dataset.tachyonEnvironment`. A published bundle can never say that it is in development, wherever it is hosted. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
       "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n"
+        },
         {
           "name": "client/services/RuntimeNoteService.js",
           "code": "@Service\nexport default class RuntimeNoteService {\n  runtime = 'JavaScript, in the browser'\n\n  /**\n   * @param {boolean} development\n   * @returns {boolean}\n   */\n  showsNotes(development) { return development }\n}\n"
@@ -3184,6 +3391,14 @@
         {
           "name": "client/services/RuntimeNoteService.rb",
           "code": "#[Service]\nclass RuntimeNoteService\n  # @return [String]\n  attr_reader :runtime\n\n  def initialize\n    @runtime = \"Ruby, on the mruby web runtime\"\n  end\n\n  # @param development [Boolean]\n  # @return [Boolean]\n  def shows_notes(development)\n    development\n  end\nend\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.lua",
+          "code": "-- @Service\n---@class RuntimeNoteService\nRuntimeNoteService = {\n  ---@type string\n  runtime = \"Lua, on the Lua web runtime\",\n}\n\n---@param development boolean\n---@return boolean\nfunction RuntimeNoteService:shows_notes(development)\n  return development\nend\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.py",
+          "code": "@service\nclass RuntimeNoteService:\n    runtime: str = \"Python, on the pinned Pyodide web runtime\"\n\n    def shows_notes(self, development: bool) -> bool:\n        return development\n"
         },
         {
           "name": "client/services/RuntimeNoteService.swift",

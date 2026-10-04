@@ -1,9 +1,13 @@
 {
   "id": "iteration",
   "title": "Loops",
-  "summary": "A loop gives each item of an iterable (a value you can loop over, such as a list) a name. That name is a portable identifier (a simple variable name).",
+  "summary": "A loop gives each item of an iterable (a value you can loop over, such as a list) a name. That name is a portable identifier (a simple variable name). A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "group": "Tac views",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
@@ -55,6 +59,22 @@
     {
       "name": "client/models/Product.rb",
       "code": { "file": "client/models/Product.rb" }
+    },
+    {
+      "name": "client/services/InventoryService.lua",
+      "code": { "file": "client/services/InventoryService.lua" }
+    },
+    {
+      "name": "client/models/Product.lua",
+      "code": { "file": "client/models/Product.lua" }
+    },
+    {
+      "name": "client/services/InventoryService.py",
+      "code": { "file": "client/services/InventoryService.py" }
+    },
+    {
+      "name": "client/models/Product.py",
+      "code": { "file": "client/models/Product.py" }
     },
     {
       "name": "client/services/InventoryService.swift",

@@ -1,9 +1,13 @@
 {
   "id": "conditionals",
   "title": "Conditionals",
-  "summary": "There is only one way to write a condition: `<logic>`. A chain of branches uses `:if`, `:else-if` and an `else` attribute with no value.",
+  "summary": "There is only one way to write a condition: `<logic>`. A chain of branches uses `:if`, `:else-if` and an `else` attribute with no value. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "group": "Tac views",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
@@ -55,6 +59,22 @@
     {
       "name": "client/models/Product.rb",
       "code": { "file": "client/models/Product.rb" }
+    },
+    {
+      "name": "client/services/StockService.lua",
+      "code": { "file": "client/services/StockService.lua" }
+    },
+    {
+      "name": "client/models/Product.lua",
+      "code": { "file": "client/models/Product.lua" }
+    },
+    {
+      "name": "client/services/StockService.py",
+      "code": { "file": "client/services/StockService.py" }
+    },
+    {
+      "name": "client/models/Product.py",
+      "code": { "file": "client/models/Product.py" }
     },
     {
       "name": "client/services/StockService.swift",

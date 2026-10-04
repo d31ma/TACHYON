@@ -1,9 +1,13 @@
 {
   "id": "events",
   "title": "Handling events",
-  "summary": "`on:<event>` calls a service method or sets a service field when the event happens. You can use `$event` (the browser event object) and limited dotted paths (names joined by dots).",
+  "summary": "`on:<event>` calls a service method or sets a service field when the event happens. You can use `$event` (the browser event object) and limited dotted paths (names joined by dots). A JavaScript or TypeScript method receives the browser event first and then the arguments from the view. A method in any other language receives only the arguments. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "group": "Tac views",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
@@ -55,6 +59,22 @@
     {
       "name": "client/models/Tab.rb",
       "code": { "file": "client/models/Tab.rb" }
+    },
+    {
+      "name": "client/services/BasketService.lua",
+      "code": { "file": "client/services/BasketService.lua" }
+    },
+    {
+      "name": "client/models/Tab.lua",
+      "code": { "file": "client/models/Tab.lua" }
+    },
+    {
+      "name": "client/services/BasketService.py",
+      "code": { "file": "client/services/BasketService.py" }
+    },
+    {
+      "name": "client/models/Tab.py",
+      "code": { "file": "client/models/Tab.py" }
     },
     {
       "name": "client/services/BasketService.swift",

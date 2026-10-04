@@ -1,9 +1,13 @@
 {
   "id": "dynamic-segments",
   "title": "Path variables",
-  "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value. The view passes `page.path` to a service method, which reads the last segment. So every service language can use the value: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view.",
+  "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value. The view passes `page.path` to a service method, which reads the last segment. So every service language can use the value: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "group": "Routing",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/items/_id/tac.html",
       "code": {
@@ -51,6 +55,14 @@
       "code": {
         "file": "client/services/ItemService.rb"
       }
+    },
+    {
+      "name": "client/services/ItemService.lua",
+      "code": { "file": "client/services/ItemService.lua" }
+    },
+    {
+      "name": "client/services/ItemService.py",
+      "code": { "file": "client/services/ItemService.py" }
     },
     {
       "name": "client/services/ItemService.swift",

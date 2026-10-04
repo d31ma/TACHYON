@@ -2,8 +2,12 @@
   "id": "views",
   "title": "A view is not a document",
   "group": "Tac views",
-  "summary": "Each page and each component has a view (an HTML template). The `tac.html` of a page places components. The `tac.html` of each component defines its content. The compiler creates the document around them. If a view contains a doctype, `<html>`, `<head>` or `<body>`, the build fails with `TY1307`. Tachyon cannot merge a head that you write with the head that it generates.",
+  "summary": "Each page and each component has a view (an HTML template). The `tac.html` of a page places components. The `tac.html` of each component defines its content. The compiler creates the document around them. If a view contains a doctype, `<html>`, `<head>` or `<body>`, the build fails with `TY1307`. Tachyon cannot merge a head that you write with the head that it generates. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
@@ -35,6 +39,14 @@
     {
       "name": "client/services/CatalogService.rb",
       "code": { "file": "client/services/CatalogService.rb" }
+    },
+    {
+      "name": "client/services/CatalogService.lua",
+      "code": { "file": "client/services/CatalogService.lua" }
+    },
+    {
+      "name": "client/services/CatalogService.py",
+      "code": { "file": "client/services/CatalogService.py" }
     },
     {
       "name": "client/services/CatalogService.swift",

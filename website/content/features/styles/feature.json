@@ -1,9 +1,13 @@
 {
   "id": "styles",
   "title": "Styles next to each view",
-  "summary": "A `tac.css` file next to a view is the stylesheet of that view. A component contains only its view and its stylesheet. Component styles use CSS `@scope`, which limits styles to one part of the page. Tachyon does not rewrite selectors.",
+  "summary": "A `tac.css` file next to a component view is the stylesheet of that component. A component folder holds only its view and its stylesheet. A page holds no CSS file in any folder (`TY1309`). The compiler wraps the stylesheet in CSS `@scope`, which limits styles to one part of the page. The scope starts at the component and stops at every nested component, also one without a stylesheet and one placed in a slot. So the rules of a parent never style a child component. Tachyon does not rewrite selectors. Component HTML cannot hold a `<style>` element or a stylesheet link (`TY1403`). Global colors, fonts, custom properties and resets go in the stylesheets that `tac.styles` lists in `client/manifest.json`; layout and animation stay in the component's `tac.css`. A third-party stylesheet is declared in `tac.styleSources` with its package, exact version, license and SHA-256. Other global CSS stops the build with `TY1403`. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "group": "Tac views",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
@@ -39,6 +43,14 @@
     {
       "name": "client/services/CardService.rb",
       "code": { "file": "client/services/CardService.rb" }
+    },
+    {
+      "name": "client/services/CardService.lua",
+      "code": { "file": "client/services/CardService.lua" }
+    },
+    {
+      "name": "client/services/CardService.py",
+      "code": { "file": "client/services/CardService.py" }
     },
     {
       "name": "client/services/CardService.swift",

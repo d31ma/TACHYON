@@ -1,9 +1,13 @@
 {
   "id": "dynamic-attributes",
   "title": "Dynamic attributes",
-  "summary": "An attribute whose name starts with `:` takes an expression as its value. Braces work only in text, not in attribute values. To build an attribute from text and a value, join them in the expression, as in `:class=\"'status-' + link.state\"`. The build refuses braces in a plain attribute with `TY1313`.",
+  "summary": "An attribute whose name starts with `:` takes an expression as its value. Braces work only in text, not in attribute values. To build an attribute from text and a value, join them in the expression, as in `:class=\"'status-' + link.state\"`. The build refuses braces in a plain attribute with `TY1313`. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "group": "Tac views",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
@@ -55,6 +59,22 @@
     {
       "name": "client/models/Topic.rb",
       "code": { "file": "client/models/Topic.rb" }
+    },
+    {
+      "name": "client/services/LinkService.lua",
+      "code": { "file": "client/services/LinkService.lua" }
+    },
+    {
+      "name": "client/models/Topic.lua",
+      "code": { "file": "client/models/Topic.lua" }
+    },
+    {
+      "name": "client/services/LinkService.py",
+      "code": { "file": "client/services/LinkService.py" }
+    },
+    {
+      "name": "client/models/Topic.py",
+      "code": { "file": "client/models/Topic.py" }
     },
     {
       "name": "client/services/LinkService.swift",

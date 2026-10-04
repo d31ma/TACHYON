@@ -2,8 +2,12 @@
   "id": "environment",
   "title": "Marking development mode",
   "group": "Tooling",
-  "summary": "The development server marks every document that it serves as development. A view reads that mark as `page.development`. Here the view passes it to a service method, so the service decides which content a published bundle should not show. This works in every service language: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A JavaScript or TypeScript service can also read the mark itself from `document.body.dataset.tachyonEnvironment`. A published bundle can never say that it is in development, wherever it is hosted.",
+  "summary": "The development server marks every document that it serves as development. A view reads that mark as `page.development`. Here the view passes it to a service method, so the service decides which content a published bundle should not show. This works in every service language: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A JavaScript or TypeScript service can also read the mark itself from `document.body.dataset.tachyonEnvironment`. A published bundle can never say that it is in development, wherever it is hosted. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/services/RuntimeNoteService.js",
       "code": { "file": "client/services/RuntimeNoteService.js" }
@@ -27,6 +31,14 @@
     {
       "name": "client/services/RuntimeNoteService.rb",
       "code": { "file": "client/services/RuntimeNoteService.rb" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.lua",
+      "code": { "file": "client/services/RuntimeNoteService.lua" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.py",
+      "code": { "file": "client/services/RuntimeNoteService.py" }
     },
     {
       "name": "client/services/RuntimeNoteService.swift",

@@ -1,9 +1,13 @@
 {
   "id": "switch",
   "title": "Matching a value",
-  "summary": "A switch compares one value with each case. Tac uses the first case that matches. If no case matches, it uses `<case default>`. The compiler turns a switch into a chain of if and else-if branches.",
+  "summary": "A switch compares one value with each case. Tac uses the first case that matches. If no case matches, it uses `<case default>`. The compiler turns a switch into a chain of if and else-if branches. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "group": "Tac views",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
@@ -35,6 +39,14 @@
     {
       "name": "client/services/BadgeService.rb",
       "code": { "file": "client/services/BadgeService.rb" }
+    },
+    {
+      "name": "client/services/BadgeService.lua",
+      "code": { "file": "client/services/BadgeService.lua" }
+    },
+    {
+      "name": "client/services/BadgeService.py",
+      "code": { "file": "client/services/BadgeService.py" }
     },
     {
       "name": "client/services/BadgeService.swift",

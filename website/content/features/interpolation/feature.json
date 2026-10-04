@@ -1,9 +1,13 @@
 {
   "id": "interpolation",
   "title": "Values in text",
-  "summary": "Curly braces insert the value of a limited expression. The compiler turns the expression into instructions for the browser. It does not turn it into source code that runs.",
+  "summary": "Curly braces insert the value of a limited expression. The compiler turns the expression into instructions for the browser. It does not turn it into source code that runs. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
   "group": "Tac views",
   "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
     {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
@@ -63,6 +67,14 @@
     {
       "name": "client/models/Product.lua",
       "code": { "file": "client/models/Product.lua" }
+    },
+    {
+      "name": "client/services/CatalogService.py",
+      "code": { "file": "client/services/CatalogService.py" }
+    },
+    {
+      "name": "client/models/Product.py",
+      "code": { "file": "client/models/Product.py" }
     },
     {
       "name": "client/services/CatalogService.swift",
