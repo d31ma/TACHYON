@@ -42,19 +42,18 @@ entry. This evidence does not promote any tier.
 | --- | --- | --- |
 | macOS WKWebView | yes | the generated AppDelegate is compiled and run with a real Rust library (ignored SDK-lane tests in `native_application_host_tests` and `native_menu_host_tests`) |
 | Linux WebKitGTK | yes | `linux_host_tests::linux_generated_host_runs_menu_actions_and_one_application_lifetime` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and a real Rust library, and ran it under Xvfb on WSL Ubuntu 24.04 (aarch64), passing three of three runs: the service started once at launch, a menu action reached the page service without a reload, the item was disabled with no recipient, Help and Home kept the service, and Close Window stopped it once. Not covered: a physical Linux desktop, Wayland, x86_64, and clicks or keys by a person. WSLg's display did not accept connections from the remote test lane, and with WebKit's sandbox on, the first page load took up to about 80 seconds on that machine |
-| Windows WebView2 (x64) | yes, generated only | generated-source tests, and the Win32 menu code compiled and linked with MinGW-w64 GCC (`-Wall -Wextra -Werror`) on macOS. Not run: the MSVC `/W4 /WX` build of the whole host, the WebView2 `AcceleratorKeyPressed` handler, and any run on Windows. These need Visual Studio Build Tools (MSVC), the Windows SDK and the WebView2 SDK 1.0.3485.44 (`TAC_WEBVIEW2_SDK`) on a Windows machine |
+| Windows WebView2 (x64) | yes | built and run on Windows 11 ARM64 on 2026-10-04 with Visual Studio Build Tools 2022 17.14 (MSVC 14.44, ARM64-hosted x64 tools), Windows SDK 10.0.26100.0 and WebView2 SDK 1.0.3485.44. `ty`, built natively for `aarch64-pc-windows-msvc`, ran `ty bundle --target windows` for the `menu-actions` and `menu-items-that-open-a-page` examples: the whole host compiled with `cl /W4 /WX`, linked `WebView2LoaderStatic.lib`, and `TachyonRustCompanion.dll` was built (after the C4100 fix of 2026-10-04). The WebView2 handler interface IDs match `WebView2.h`. The apps ran from an SSH session and were driven with Win32 messages: the application service started once before the window, the File, View and Help menus showed the declared items and shortcuts, a menu action ran, an item whose event had no recipient stayed disabled and did not run, and Close Window ended the process with exit code 0 after exactly one stop (also after `WM_ENDSESSION`). Not run: anything inside WebView2. Outside a signed-in desktop session `CreateCoreWebView2Controller` fails with `0x80070578` (invalid window handle), so page rendering, page events from a menu action, route items, the `AcceleratorKeyPressed` handler and `scripts/windows/native-test.ps1` still need a run on an interactive desktop |
 | iOS, Android | refused at build time | `TY1601` for menus, `TY1406` for the application lifetime |
 
-Windows on ARM64 was evaluated, not implemented. The WebView2 runtime ships
-for ARM64 (the test machine has 154.0.4258.53), the WebView2 SDK package has
-an `arm64` library folder, Rust has the `aarch64-pc-windows-msvc` target, and
-.NET publishes `win-arm64`. The generated C has no x64-only code. The build
-fixes x64 in four places: the Rust companion target `x86_64-pc-windows-msvc`,
-the WebView2 library folder `build/native/x64`, the C# runtime identifier
-`win-x64`, and the `cl` of an x64 developer prompt. An ARM64 build needs a
-target choice for those four values and the MSVC ARM64 tools. Until it is
-built and run, x64 stays the only tested Windows target; an x64 app on
-Windows 11 ARM64 runs under emulation, which is also not tested.
+Windows on ARM64 is not a bundle target yet. The build fixes x64 in four
+places: the Rust companion target `x86_64-pc-windows-msvc`, the WebView2
+library folder `build/native/x64`, the C# runtime identifier `win-x64`, and
+the `cl` of an x64 developer prompt. On 2026-10-04 the generated host and
+Rust companion of the `menu-actions` example were also compiled by hand with
+the MSVC ARM64 tools (`cl /W4 /WX`, `build/native/arm64`,
+`aarch64-pc-windows-msvc`) and passed the same checks outside WebView2 as
+the x64 build; the x64 build ran under emulation on the same machine. An
+ARM64 target needs a target choice for those four values.
 
 Use `scripts/phase4-macos-test.mjs`, `scripts/ios/native-test.mjs`,
 `scripts/android/native-test.sh`, `scripts/linux/native-test.sh` and
