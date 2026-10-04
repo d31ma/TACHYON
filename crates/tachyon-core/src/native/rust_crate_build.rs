@@ -16,21 +16,17 @@ pub(super) struct RustCrateBuild<'build> {
 }
 
 impl RustCrateBuild<'_> {
-    pub(super) const VENDOR_FOLDER: &str = "vendor/rust";
-    pub(super) const CACHE_FOLDER: &str = "rust-companion";
+    pub(super) const VENDOR_FOLDER: &'static str = "vendor/rust";
+    pub(super) const CACHE_FOLDER: &'static str = "rust-companion";
     const FAILURE_CODE: u16 = 1605;
-    const PROJECT_FOLDER: &str = "rust-companion";
-    const MANIFEST: &str = "Cargo.toml";
-    const BINARY_FOLDER: &str = "bin";
-    const RELEASE: &str = "release";
-    const ENTRY_METHOD: &str = "pub fn run() -> i32";
-    const ENTRY_SUFFIX: &str = "-entry.rs";
-    const PARENT_FOLDER: &str = "..";
-    const EXPORTS: &str = "\npub use crate::TachyonRustServices::*;\n";
-    const VENDOR_SOURCE: &str = "tachyon-vendored";
-    const EXECUTABLE_SUFFIXES: [&str; 2] = ["", ".exe"];
-    const WINDOWS: &str = "windows";
-    const APPLE: &str = "apple";
+    const PROJECT_FOLDER: &'static str = "rust-companion";
+    const MANIFEST: &'static str = "Cargo.toml";
+    const BINARY_FOLDER: &'static str = "bin";
+    const ENTRY_METHOD: &'static str = "pub fn run() -> i32";
+    const ENTRY_SUFFIX: &'static str = "-entry.rs";
+    const PARENT_FOLDER: &'static str = "..";
+    const EXPORTS: &'static str = "\npub use crate::TachyonRustServices::*;\n";
+    const VENDOR_SOURCE: &'static str = "tachyon-vendored";
 
     pub(super) fn stage(&self, linkage: Linkage) -> Result<PathBuf, Failure> {
         let project = self.project_folder();
@@ -225,6 +221,13 @@ impl RustCrateBuild<'_> {
             )
         })
     }
+}
+
+impl RustCrateBuild<'_> {
+    const RELEASE: &'static str = "release";
+    const EXECUTABLE_SUFFIXES: [&'static str; 2] = ["", ".exe"];
+    const WINDOWS: &'static str = "windows";
+    const APPLE: &'static str = "apple";
 
     const fn crate_types(linkage: Linkage) -> &'static [&'static str] {
         match linkage {
