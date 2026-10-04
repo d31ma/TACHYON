@@ -32,11 +32,11 @@ impl MacOsTitleBarSource {
     }
 
     pub(super) fn bridge_case(window: &WindowConfiguration) -> &'static str {
-        window
-            .title_bar
-            .is_integrated()
-            .then_some(Self::BRIDGE_CASE)
-            .unwrap_or_default()
+        Self::bridge_case_for(window.title_bar.is_integrated())
+    }
+
+    fn bridge_case_for(integrated: bool) -> &'static str {
+        if integrated { Self::BRIDGE_CASE } else { "" }
     }
 }
 
