@@ -8,6 +8,7 @@ pub(crate) struct EnvironmentAllowlist {
 
 impl EnvironmentAllowlist {
     const WILDCARD: char = '*';
+    const EVERYTHING: &'static str = "*";
     const RESERVED_PREFIXES: [&'static str; 3] = ["TAC_", "TACHYON_", "YON_"];
     const RESERVED_NAMES: [&'static str; 5] = [
         "HTTP_PROXY",
@@ -19,9 +20,7 @@ impl EnvironmentAllowlist {
 
     pub(crate) fn parse(entries: &[&str]) -> Result<Self, String> {
         let mut allowlist = Self::default();
-        for entry in entries {
-            allowlist.add(entry)?;
-        }
+        entries.iter().try_for_each(|entry| allowlist.add(entry))?;
         Ok(allowlist)
     }
 
@@ -34,44 +33,49 @@ impl EnvironmentAllowlist {
     }
 
     pub(crate) fn is_name(text: &str) -> bool {
-        let mut bytes = text.bytes();
-        let starts_well = bytes
-            .next()
-            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_');
-        starts_well && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        let starts_well = text.bytes().next().is_some_and(Self::starts_name);
+        let continues_well = text.bytes().all(Self::continues_name);
+        [starts_well, continues_well] == [true, true]
     }
 
     pub(crate) fn is_reserved(name: &str) -> bool {
         let name = name.to_ascii_uppercase();
         let is_reserved_name = Self::RESERVED_NAMES.contains(&name.as_str());
-        is_reserved_name
-            || Self::RESERVED_PREFIXES
-                .iter()
-                .any(|prefix| name.starts_with(prefix))
+        let has_reserved_prefix = Self::RESERVED_PREFIXES
+            .iter()
+            .any(|prefix| name.starts_with(prefix));
+        [is_reserved_name, has_reserved_prefix].contains(&true)
     }
 
     fn add(&mut self, entry: &str) -> Result<(), String> {
-        let Some(prefix) = entry.strip_suffix(Self::WILDCARD) else {
-            Self::check(entry, entry, Self::is_reserved(entry))?;
-            self.names.insert(entry.to_owned());
-            return Ok(());
-        };
-        if prefix.is_empty() {
-            return Err(Self::everything_message());
-        }
-        Self::check(entry, prefix, Self::covers_reserved(prefix))?;
-        self.prefixes.insert(prefix.to_owned());
+        let prefix = entry.strip_suffix(Self::WILDCARD);
+        let refusal = prefix.map_or_else(
+            || Self::name_refusal(entry),
+            |prefix| Self::prefix_refusal(entry, prefix),
+        );
+        refusal.map_or(Ok(()), Err)?;
+        let kept = prefix.map_or(&mut self.names, |_| &mut self.prefixes);
+        kept.insert(prefix.unwrap_or(entry).to_owned());
         Ok(())
     }
 
-    fn check(entry: &str, name: &str, reserved: bool) -> Result<(), String> {
-        if !Self::is_name(name) {
-            return Err(Self::malformed_message(entry));
-        }
-        if reserved {
-            return Err(Self::reserved_message(entry));
-        }
-        Ok(())
+    fn name_refusal(entry: &str) -> Option<String> {
+        Self::refusal(entry, Self::is_name(entry), Self::is_reserved(entry))
+    }
+
+    fn prefix_refusal(entry: &str, prefix: &str) -> Option<String> {
+        Self::refusal(entry, Self::is_name(prefix), Self::covers_reserved(prefix))
+    }
+
+    fn refusal(entry: &str, is_name: bool, is_reserved: bool) -> Option<String> {
+        [
+            (entry == Self::EVERYTHING).then(Self::everything_message),
+            (!is_name).then(|| Self::malformed_message(entry)),
+            is_reserved.then(|| Self::reserved_message(entry)),
+        ]
+        .into_iter()
+        .flatten()
+        .next()
     }
 
     fn covers_reserved(prefix: &str) -> bool {
@@ -80,7 +84,15 @@ impl EnvironmentAllowlist {
             .iter()
             .chain(Self::RESERVED_PREFIXES.iter())
             .any(|reserved| reserved.starts_with(&prefix));
-        covers_reserved_entry || Self::is_reserved(&prefix)
+        [covers_reserved_entry, Self::is_reserved(&prefix)].contains(&true)
+    }
+
+    fn starts_name(byte: u8) -> bool {
+        [byte.is_ascii_alphabetic(), byte == b'_'].contains(&true)
+    }
+
+    fn continues_name(byte: u8) -> bool {
+        [byte.is_ascii_alphanumeric(), byte == b'_'].contains(&true)
     }
 
     fn everything_message() -> String {

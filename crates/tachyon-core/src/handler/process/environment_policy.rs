@@ -81,13 +81,19 @@ impl EnvironmentPolicy {
 
     fn passes(&self, name: &str) -> bool {
         let name = Self::comparable(name);
-        let is_listed = Self::BASELINE_NAMES.contains(&name.as_str())
-            || self.allowed.contains(&name)
-            || self
-                .prefixes
-                .iter()
-                .any(|prefix| name.starts_with(prefix.as_str()));
-        is_listed && !Self::is_private_environment_name(&name)
+        let is_listed = [
+            Self::BASELINE_NAMES.contains(&name.as_str()),
+            self.allowed.contains(&name),
+            self.has_listed_prefix(&name),
+        ]
+        .contains(&true);
+        [is_listed, Self::is_private_environment_name(&name)] == [true, false]
+    }
+
+    fn has_listed_prefix(&self, name: &str) -> bool {
+        self.prefixes
+            .iter()
+            .any(|prefix| name.starts_with(prefix.as_str()))
     }
 
     fn comparable(name: &str) -> String {
