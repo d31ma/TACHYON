@@ -31,6 +31,31 @@ support tier. They do not replace verification of the real release download.
 | Linux WebKitGTK | Rust native service compiles. The shared route/security probe passes. | Linux native GUI CI execution |
 | Windows WebView2 | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. | Windows native GUI CI execution |
 
+### Application services and declared menus on desktop hosts (2026-10-04)
+
+ADR 0097 and its amendment cover an application-lifetime Rust service and
+`tac.application.menus`. The service lives inside the app process only; no
+host creates an operating system service, daemon, login item or autostart
+entry. This evidence does not promote any tier.
+
+| Host | Implemented | Validated |
+| --- | --- | --- |
+| macOS WKWebView | yes | the generated AppDelegate is compiled and run with a real Rust library (ignored SDK-lane tests in `native_application_host_tests` and `native_menu_host_tests`) |
+| Linux WebKitGTK | yes | the generated host with menus and an application service compiles with GTK 4.14.5 and WebKitGTK 2.52.6 with warnings as errors (WSL Ubuntu 24.04, aarch64); the run of `linux_host_tests::linux_generated_host_runs_menu_actions_and_one_application_lifetime` is pending |
+| Windows WebView2 (x64) | yes, generated only | generated-source tests, and the Win32 menu code compiled and linked with MinGW-w64 GCC (`-Wall -Wextra -Werror`) on macOS. Not run: the MSVC `/W4 /WX` build of the whole host, the WebView2 `AcceleratorKeyPressed` handler, and any run on Windows. These need Visual Studio Build Tools (MSVC), the Windows SDK and the WebView2 SDK 1.0.3485.44 (`TAC_WEBVIEW2_SDK`) on a Windows machine |
+| iOS, Android | refused at build time | `TY1601` for menus, `TY1406` for the application lifetime |
+
+Windows on ARM64 was evaluated, not implemented. The WebView2 runtime ships
+for ARM64 (the test machine has 154.0.4258.53), the WebView2 SDK package has
+an `arm64` library folder, Rust has the `aarch64-pc-windows-msvc` target, and
+.NET publishes `win-arm64`. The generated C has no x64-only code. The build
+fixes x64 in four places: the Rust companion target `x86_64-pc-windows-msvc`,
+the WebView2 library folder `build/native/x64`, the C# runtime identifier
+`win-x64`, and the `cl` of an x64 developer prompt. An ARM64 build needs a
+target choice for those four values and the MSVC ARM64 tools. Until it is
+built and run, x64 stays the only tested Windows target; an x64 app on
+Windows 11 ARM64 runs under emulation, which is also not tested.
+
 Use `scripts/phase4-macos-test.mjs`, `scripts/ios/native-test.mjs`,
 `scripts/android/native-test.sh`, `scripts/linux/native-test.sh` and
 `scripts/windows/native-test.ps1` to reproduce each platform gate.
