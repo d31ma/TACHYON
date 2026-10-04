@@ -189,3 +189,18 @@ fn only_stores_and_converters_are_injected_contracts() {
         [TacInjection::stores(), TacInjection::converters()].concat()
     );
 }
+
+#[test]
+fn a_swift_service_field_that_needs_a_remote_builds_the_client() {
+    let paths = [Path::new("client/remotes/GreetingClient.swift")];
+    let names = DeclaredContract::injected_names(paths.into_iter());
+    assert_eq!(names, ["GreetingClient"]);
+    let source = "@Service\nfinal class GreetingService {\n    @Needs\n    private let greetingClient: GreetingClient\n}\n";
+    let path = TacInjection::service_path("swift");
+    let filled = DeclaredContract::injected(Path::new(&path), source, &names);
+    let filled = filled.unwrap_or_default();
+    assert!(
+        filled.contains("    private let greetingClient: GreetingClient = GreetingClient()"),
+        "{filled}"
+    );
+}

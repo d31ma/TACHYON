@@ -5,6 +5,9 @@ use super::string_literal::StringLiteral;
 use super::{Edit, Method, Module, Parameter, Type, block, concrete_edit, declared_fields, render};
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
+use swift_client_answer::SwiftClientAnswer;
+
+mod swift_client_answer;
 
 pub(super) fn lower(module: &Module) -> Result<String, String> {
     let mut edits = Vec::new();
@@ -29,9 +32,15 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
             edits.push(constructor_edit(type_declaration, fields)?);
         }
         if let Some(unit) = polyglot_unit(type_declaration) {
+            let construction = super::typed_test_construction::TypedTestConstruction::members(
+                module,
+                type_declaration,
+                &unit,
+                "swift",
+            );
             edits.push(Edit {
                 range: type_declaration.body.start..type_declaration.body.start,
-                replacement: test_members(&unit),
+                replacement: format!("{}{construction}", test_members(&unit)),
             });
         }
         let methods = lower_methods(module, type_declaration, &mut edits)?;
@@ -225,20 +234,19 @@ fn invocation_body(
     prefix: &str,
     body: &str,
 ) -> Result<String, String> {
-    if !method.asynchronous || method.return_type.trim() != "BehaviorJSON" {
+    let declared = is_declared_exchange(method);
+    let answer = SwiftClientAnswer::of(method.return_type.trim(), declared);
+    if !method.asynchronous || !answer.allowed() {
         return Err("Swift asynchronous behaviors require async throws -> BehaviorJSON".to_owned());
     }
     let arguments = json_arguments(method);
-    let authored = if is_declared_exchange(method) {
-        ".null"
-    } else {
-        body
-    };
-    Ok(format!(
-        "\n{prefix}return try await self.behaviors.invoke({}, {}, arguments: [{arguments}]) {{ () async throws -> BehaviorJSON in {authored} }}\n",
+    let authored = if declared { ".null" } else { body };
+    let call = format!(
+        "try await self.behaviors.invoke({}, {}, arguments: [{arguments}]) {{ () async throws -> BehaviorJSON in {authored} }}",
         quote(&type_declaration.name),
         quote(&method.name)
-    ))
+    );
+    Ok(format!("\n{prefix}{}\n", answer.written(&call)))
 }
 
 fn pageable_line(method: &Method, policy: &Value) -> Result<String, String> {

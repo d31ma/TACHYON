@@ -34,12 +34,18 @@ impl ContextTemplate {
         "val behaviors: Behaviors.Context",
         "constructor() {\n    behaviors = Behaviors.create(\"{setup}\", Behaviors.Options(\"{partition}\", Behaviors.Signal()))\n}\nconstructor(context: Behaviors.Context) {\n    behaviors = context\n}",
     );
-    const HTTP_TEMPLATES: [Self; 5] = [
+    const SWIFT_TAC_HTTP: Self = Self::new(
+        "swift-tac",
+        "let behaviors: BehaviorContext",
+        "init() {\n    behaviors = try! Behaviors.create({setup}.self, partition: \"{partition}\", signal: BehaviorSignal())\n}\ninit(_ context: BehaviorContext) {\n    behaviors = context\n}",
+    );
+    const HTTP_TEMPLATES: [Self; 6] = [
         Self::DART_TAC_HTTP,
         Self::CSHARP_TAC_HTTP,
         Self::RUST_TAC_HTTP,
         Self::GO_TAC_HTTP,
         Self::KOTLIN_TAC_HTTP,
+        Self::SWIFT_TAC_HTTP,
     ];
     const HTTP_CLIENT: &'static str = "HTTPClient";
     const TEMPLATES: [Self; 23] = [

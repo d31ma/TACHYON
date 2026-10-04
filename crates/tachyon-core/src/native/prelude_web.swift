@@ -45,6 +45,7 @@ func tacFailureAnswer(_ error: Error) -> String {
 
 enum TacPlatform {
     static let pageListeners = true
+    static let taskHost = true
 }
 
 func tacOnOwnerThread() -> Bool { true }
@@ -100,6 +101,14 @@ func tacAwait<Value>(_ work: @escaping () async throws -> Value) throws -> Value
     Task { await awaited.finish(work) }
     try MainActor.executor.runUntil { awaited.result != nil }
     return try awaited.value()
+}
+
+func tacBeginTask(_ owner: String, _ work: @escaping ([Any?]) async throws -> Any?, _ arguments: [Any?]) throws -> String {
+    TacTasks.begin(owner, work, arguments)
+}
+
+func tacCancelTasks(_ owner: String?) {
+    TacTasks.cancel(owner)
 }
 
 func tacCreateNativeOwner<T>(_ owner: String, _ work: () -> T) -> T {

@@ -38,4 +38,12 @@ enum BehaviorPlatform {
     static func builtinEntities(_ name: String) -> BehaviorEntityAdapter? {
         nil
     }
+
+    static func exchange(_ request: BehaviorJSON) async throws -> BehaviorJSON {
+        throw BehaviorError("HTTP_MISSING")
+    }
+
+    static func model<T: Decodable>(_ type: T.Type, _ value: BehaviorJSON) throws -> T {
+        try Foundation.JSONDecoder().decode(T.self, from: Foundation.Data(value.encoded().utf8))
+    }
 }

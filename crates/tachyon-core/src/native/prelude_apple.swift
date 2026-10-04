@@ -40,6 +40,7 @@ func tacFailureAnswer(_ error: Error) -> String { "{\"error\":\"Native companion
 
 enum TacPlatform {
     static let pageListeners = false
+    static let taskHost = false
 }
 
 func tacOnOwnerThread() -> Bool { Thread.isMainThread }
@@ -56,6 +57,12 @@ func tacAwait<Value>(_ work: @escaping () async throws -> Value) throws -> Value
     TacOwnerThread.wait(for: finished)
     return try awaited.value()
 }
+
+func tacBeginTask(_ owner: String, _ work: @escaping ([Any?]) async throws -> Any?, _ arguments: [Any?]) throws -> String {
+    "{\"value\":" + tacEncode(try tacAwait { try await work(arguments) }) + "}"
+}
+
+func tacCancelTasks(_ owner: String?) {}
 
 func tacCreateNativeOwner<T>(_ owner: String, _ work: () -> T) -> T {
     NativeCapabilities.create(owner, work)

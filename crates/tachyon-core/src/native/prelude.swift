@@ -1,6 +1,7 @@
 enum TacMember {
     case field(() -> Any?, ((Any?) -> Void)?)
     case method(([Any?]) throws -> Any?)
+    case task(([Any?]) async throws -> Any?)
     case listener(TacListener)
     case hook(Bool, () throws -> Void)
 
@@ -181,15 +182,18 @@ private func tacHandle(_ raw: String) throws -> String {
     if operation == "init" {
         var fields: [Any?] = []
         var methods: [Any?] = []
+        var tasks: [Any?] = []
         var listeners: [Any?] = []
         for (name, member) in tac {
             if case .field = member { fields.append(name) }
             if case .method = member { methods.append(name) }
+            if case .task = member { methods.append(name); tasks.append(name) }
             if case .listener(let listener) = member { listeners.append(tacDescribeListener(name, listener)) }
         }
         let described = TacPlatform.pageListeners ? ",\"listeners\":" + tacEncode(listeners) : ""
+        let asynchronous = TacPlatform.taskHost ? ",\"asyncMethods\":" + tacEncode(tasks) : ""
         return "{\"value\":{\"fields\":" + tacEncode(fields) + ",\"methods\":"
-            + tacEncode(methods) + described + "}}"
+            + tacEncode(methods) + asynchronous + described + "}}"
     }
     guard let name = request["name"] as? String, let member = tac[name] else {
         return "{\"error\":\"Unknown companion member.\"}"
@@ -206,16 +210,16 @@ private func tacHandle(_ raw: String) throws -> String {
     case ("event", .listener(let listener)):
         return tacReceive(listener, tachyonSwiftJSONValue(request["value"]))
     case ("call", .method(let invoke)):
-        let arguments: [Any?]
-        if let values = request["args"] as? [Any] {
-            arguments = values.map(tachyonSwiftJSONValue)
-        } else {
-            arguments = []
-        }
-        return "{\"value\":" + tacEncode(try invoke(arguments)) + "}"
+        return "{\"value\":" + tacEncode(try invoke(tacCallArguments(request))) + "}"
+    case ("call", .task(let invoke)):
+        return try tacBeginTask(owner, invoke, tacCallArguments(request))
     default:
         return "{\"error\":" + tacEncode("Companion member does not support " + operation + ": " + name) + "}"
     }
+}
+
+private func tacCallArguments(_ request: [String: Any]) -> [Any?] {
+    (request["args"] as? [Any] ?? []).map(tachyonSwiftJSONValue)
 }
 
 func tacNativeInvoke(_ request: String) -> String {
@@ -508,11 +512,13 @@ private func tacDisposeActivation(_ owner: TacActivation) {
     }
 }
 private func tacDisposeOwner(_ id: String) {
+    tacCancelTasks(id)
     guard let owner = TacNativeState.activations.removeValue(forKey: id) else { return }
     if TacNativeState.executing === owner { TacNativeState.executing = nil }
     tacDisposeActivation(owner)
 }
 private func tacDisposeAll() {
+    tacCancelTasks(nil)
     let owners = TacNativeState.activations
     TacNativeState.activations = [:]
     TacNativeState.executing = nil

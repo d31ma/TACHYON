@@ -59,4 +59,12 @@ enum BehaviorPlatform {
         guard name == browserEntities else { return nil }
         return BehaviorEntityAdapter { command, _ in try BehaviorBrowserStorage.entityCommand(command) }
     }
+
+    static func exchange(_ request: BehaviorJSON) async throws -> BehaviorJSON {
+        try await BehaviorBrowserHttp.send(request)
+    }
+
+    static func model<T: Decodable>(_ type: T.Type, _ value: BehaviorJSON) throws -> T {
+        try TacValueDecoder.model(type, tacParseJSON(value.encoded()))
+    }
 }

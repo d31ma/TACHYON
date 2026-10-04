@@ -26,6 +26,9 @@ impl SwiftWebServices {
         include_str!("swift_web_services/TacPage.swift"),
         include_str!("swift_web_services/TacWebHost.swift"),
         include_str!("swift_web_services/TacBrowserError.swift"),
+        include_str!("swift_web_services/TacRunningTask.swift"),
+        include_str!("swift_web_services/TacTasks.swift"),
+        include_str!("swift_web_services/TacHttpTickets.swift"),
         include_str!("TacAwaited.swift")
     );
     const TEST_UNIT_PAGE: &'static str = concat!(
@@ -69,7 +72,8 @@ impl SwiftWebServices {
         include_str!("swift_web_services/BehaviorLock.swift"),
         include_str!("swift_web_services/BehaviorBrowserStorage.swift"),
         include_str!("swift_web_services/BehaviorTextPattern.swift"),
-        include_str!("swift_web_services/BehaviorNumberText.swift")
+        include_str!("swift_web_services/BehaviorNumberText.swift"),
+        include_str!("swift_web_services/BehaviorBrowserHttp.swift")
     );
 
     pub(crate) fn sdk_installed() -> bool {

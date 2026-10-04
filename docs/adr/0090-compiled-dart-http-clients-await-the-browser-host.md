@@ -209,3 +209,54 @@ Evidence: `scripts/browser-http-browser-test.mjs --language=kotlin` builds
 `website/content/docs/calling-the-server/browser-http-kotlin/` and checks it in
 Chromium, Firefox and WebKit; `client_tests::kotlin_construct_tests` runs the
 Fake and typed-answer cases.
+
+## Swift browser extension — 2026-10-04
+
+A Swift HTTPClient is a protocol whose methods are `async throws` and have no
+body. Tachyon writes each method through the behavior context's async
+`invoke`, so `Cached`, `ClearCache`, `UpdateCache`, retries, concurrency
+limits and transactions keep working as before. A method may return
+`BehaviorJSON`, nothing, or any `Decodable` type, such as a `Codable` struct
+from `client/models`, a list of them, an optional or a plain value;
+`Behaviors.answer` decodes the answer and an answer of the wrong shape fails
+with `HTTP_RESPONSE`. Errors are `BehaviorError` values whose `code` names the
+problem. The Setup's adapter answers first; without one, the request goes to
+the same browser host as the other languages (same origin, omitted
+credentials, `Cached` GET reads are public reads, and the first miss after a
+successful `ClearCache` or `UpdateCache` revalidates). The generated client
+has two initializers: `Client()` builds its context from its Setup, and
+`Client(context)` uses a given BehaviorContext.
+
+A service gets the client with `@Needs private let name: Client`; on the page
+Tachyon fills the field with `Client()`. An `async` service method becomes a
+task member. The Swift WebAssembly module starts it in a `Task` that carries
+the running task in a task-local value and drives the cooperative executor
+(`MainActor.executor.runUntil`) until the task ends or has nothing left to
+run. When it ends without waiting, the page gets the answer at once. When it
+waits for the browser transport, a checked continuation is parked on a
+ticket, the fetch starts through the `tac_host_http_start` import, and the
+page gets `{"task": id}` and a promise. The page settles the fetch through
+the `tac_http_settle` export; the module resumes the continuation with the
+service as the executing owner, delivers its events and reports the end
+through `tac_host_task_done`. Rust and Swift share this page glue
+(`TacWasmTasks`). A waiting method does not hold its service: other calls,
+field reads and writes run while it waits, as in JavaScript, Go and Kotlin.
+A request from outside a task, such as from a getter, fails with
+`HTTP_REQUEST`. Disposing the owner cancels its waiting tasks first
+(`Task.cancel()`, their fetches are aborted, their continuations resume with
+`CANCELLED` so the task unwinds) and rejects their promises with `CANCELLED`;
+then the PreDestroy hooks run.
+
+A native macOS or iOS companion keeps its behaviour: an `async` method still
+runs to the end on the owner thread before the call answers, and a client
+without an adapter fails with `HTTP_MISSING`. A Swift test unit runs natively
+too, so a request without an adapter fails with `HTTP_MISSING`. In a Swift
+test unit, `let service: Service = try construct()` calls the initializer that
+`Needs` produces. A Fake field `var name: Client? = nil` supplies the client;
+while it is `nil`, the service gets `Client(behaviors)`, bound to the test's
+BehaviorContext, so the TestSetup adapter answers.
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=swift` builds
+`website/content/docs/calling-the-server/browser-http-swift/` and checks it in
+Chromium, Firefox and WebKit; `client_tests::swift_construct_tests` runs the
+Fake and typed-answer cases.

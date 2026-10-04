@@ -321,6 +321,7 @@ await storage?.mirror()
 
     const LINEAR_MEMORY_HOST: &str = r"const encoder = new TextEncoder()
 const decoder = new TextDecoder()
+const wasmRead = (pointer, length) => decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length))
 const hostAnswer = (host, pointer, length) => {
   const answer = encoder.encode(`${host(decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length)))}\0`)
   const target = exports.tac_wasm_alloc(answer.length)
@@ -338,21 +339,22 @@ const tachyonImports = {
 
     const RUST_INSTANCE: &str = concat!(
         include_str!("native/browser/tac-task-answers.js"),
-        include_str!("native/browser/tac-rust-tasks.js"),
-        r"const rustTasks = new TacRustTasks()
-const rustRead = (pointer, length) => decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length))
+        include_str!("native/browser/tac-wasm-tasks.js"),
+        r"const wasmTasks = new TacWasmTasks()
 const wasmText = '__WASM__'
 const binary = new Uint8Array(wasmText.length / 2)
 for (let index = 0; index < binary.length; index += 1) binary[index] = parseInt(wasmText.slice(index * 2, index * 2 + 2), 16)
-const { instance } = await WebAssembly.instantiate(binary, { tachyon: { ...tachyonImports, ...rustTasks.imports(rustRead) } })
+const { instance } = await WebAssembly.instantiate(binary, { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead) } })
 const exports = instance.exports
-rustTasks.attach(exports)
-/** @param {string} text @returns {Promise<string>} */
-const transportAsync = (text) => rustTasks.answers.answer(transport(text))
+wasmTasks.attach(exports)
 "
     );
 
-    const SWIFT_INSTANCE: &str = r"const swiftResponse = await fetch(new URL('./swift/services.wasm', import.meta.url))
+    const SWIFT_INSTANCE: &str = concat!(
+        include_str!("native/browser/tac-task-answers.js"),
+        include_str!("native/browser/tac-wasm-tasks.js"),
+        r"const wasmTasks = new TacWasmTasks()
+const swiftResponse = await fetch(new URL('./swift/services.wasm', import.meta.url))
 const swiftModule = await WebAssembly.compile(await swiftResponse.arrayBuffer())
 const wasiNotSupported = 52
 const wasiBadDescriptor = 8
@@ -421,10 +423,12 @@ const wasi = {
 for (const { module, name, kind } of WebAssembly.Module.imports(swiftModule)) {
   if (module === 'wasi_snapshot_preview1' && kind === 'function') wasi[name] ??= () => wasiNotSupported
 }
-const instance = await WebAssembly.instantiate(swiftModule, { tachyon: tachyonImports, wasi_snapshot_preview1: wasi })
+const instance = await WebAssembly.instantiate(swiftModule, { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead) }, wasi_snapshot_preview1: wasi })
 const exports = instance.exports
 exports._initialize()
-";
+wasmTasks.attach(exports)
+"
+    );
 
     const LINEAR_MEMORY_TRANSPORT: &str = r"const transport = (text) => {
   const bytes = encoder.encode(`${text}\0`)
@@ -440,6 +444,8 @@ exports._initialize()
     exports.tac_wasm_dealloc(pointer, bytes.length)
   }
 }
+/** @param {string} text @returns {Promise<string>} */
+const transportAsync = (text) => wasmTasks.answers.answer(transport(text))
 ";
 
     const CSHARP_ENGINE: &str = concat!(

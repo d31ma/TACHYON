@@ -1,16 +1,16 @@
-/** @typedef {{answer: Promise<string>, cancel: () => void}} RustHttpTicket */
-/** @typedef {{start: (text: string) => RustHttpTicket}} RustHttpEndpoint */
-/** @typedef {{memory: WebAssembly.Memory, tac_wasm_alloc: (length: number) => number, tac_wasm_dealloc: (pointer: number, length: number) => void, tac_http_settle: (ticket: number, pointer: number, length: number) => void}} RustTaskExports */
-class TacRustTasks {
+/** @typedef {{answer: Promise<string>, cancel: () => void}} WasmHttpTicket */
+/** @typedef {{start: (text: string) => WasmHttpTicket}} WasmHttpEndpoint */
+/** @typedef {{memory: WebAssembly.Memory, tac_wasm_alloc: (length: number) => number, tac_wasm_dealloc: (pointer: number, length: number) => void, tac_http_settle: (ticket: number, pointer: number, length: number) => void}} WasmTaskExports */
+class TacWasmTasks {
   /** @type {symbol} */
   static symbol = Symbol.for('tachyon.tac.http')
   /** @type {string} */
   static missing = '{"error":{"code":"HTTP_MISSING"}}'
   /** @type {TextEncoder} */
   #encoder = new TextEncoder()
-  /** @type {RustTaskExports | undefined} */
+  /** @type {WasmTaskExports | undefined} */
   #exports = undefined
-  /** @type {Map<number, RustHttpTicket>} */
+  /** @type {Map<number, WasmHttpTicket>} */
   #tickets = new Map()
   /** @type {TacTaskAnswers} */
   answers = new TacTaskAnswers()
@@ -24,16 +24,16 @@ class TacRustTasks {
     }
   }
 
-  /** @param {RustTaskExports} exports @returns {void} */
+  /** @param {WasmTaskExports} exports @returns {void} */
   attach(exports) { this.#exports = exports }
 
   /** @param {number} ticket @param {string} text @returns {void} */
   #start(ticket, text) {
-    /** @type {RustHttpEndpoint | undefined} */
-    const endpoint = globalThis[TacRustTasks.symbol]
-    const started = typeof endpoint?.start === 'function' ? endpoint.start(text) : { answer: Promise.resolve(TacRustTasks.missing), cancel() {} }
+    /** @type {WasmHttpEndpoint | undefined} */
+    const endpoint = globalThis[TacWasmTasks.symbol]
+    const started = typeof endpoint?.start === 'function' ? endpoint.start(text) : { answer: Promise.resolve(TacWasmTasks.missing), cancel() {} }
     this.#tickets.set(ticket, started)
-    started.answer.then((answer) => this.#settle(ticket, answer), () => this.#settle(ticket, TacRustTasks.missing))
+    started.answer.then((answer) => this.#settle(ticket, answer), () => this.#settle(ticket, TacWasmTasks.missing))
   }
 
   /** @param {number} ticket @returns {void} */

@@ -7,6 +7,7 @@ pub(super) struct TypedTestConstruction;
 
 impl TypedTestConstruction {
     const NO_SETUP: &'static str = "Test.construct needs an active test setup.";
+    const CLIENT_LANGUAGES: [&'static str; 2] = ["kt", "swift"];
 
     pub(super) fn members(module: &Module, owner: &Type, unit: &Unit, language: &str) -> String {
         Self::compose(module, owner, unit, language)
@@ -29,6 +30,18 @@ impl TypedTestConstruction {
              private T __tachyonAssignedFake<T>(T value, string message) {{\n\
              if (value is null) throw new System.InvalidOperationException(message);\n\
              return value;\n\
+             }}\n"
+            ),
+            "swift" => format!(
+                "\nstruct ConstructFailure: Error, CustomStringConvertible {{ let description: String }}\n\
+             func construct<T>(_ type: T.Type = T.self) throws -> T {{\n\
+             guard behaviors != nil else {{ throw ConstructFailure(description: \"Test.construct needs an active test setup.\") }}\n\
+             {cases}\
+             throw ConstructFailure(description: \"Test.construct needs a class with a declared Needs constructor.\")\n\
+             }}\n\
+             private func __tachyonAssignedFake<V>(_ value: V?, _ message: String) throws -> V {{\n\
+             guard let value else {{ throw ConstructFailure(description: message) }}\n\
+             return value\n\
              }}\n"
             ),
             _ => format!(
@@ -78,6 +91,7 @@ impl TypedTestConstruction {
     fn refusal_source(message: &str, language: &str) -> String {
         match language {
             "cs" => format!("throw new System.InvalidOperationException({message});"),
+            "swift" => format!("throw ConstructFailure(description: {message})"),
             _ => format!("throw IllegalStateException({message});"),
         }
     }
@@ -87,6 +101,7 @@ impl TypedTestConstruction {
             "cs" => format!(
                 "return new {name}({values}) as T ?? throw new System.InvalidOperationException(\"Test.construct type mismatch.\");"
             ),
+            "swift" => format!("return {name}({values}) as! T"),
             _ => format!("return type.java.cast({name}({values}))"),
         }
     }
@@ -94,6 +109,7 @@ impl TypedTestConstruction {
     fn selection(name: &str, action: &str, language: &str) -> String {
         match language {
             "cs" => format!("if (typeof(T) == typeof({name})) {{ {action} }}\n"),
+            "swift" => format!("if T.self == {name}.self {{ {action} }}\n"),
             _ => format!("if (type == {name}::class) {{ {action} }}\n"),
         }
     }
@@ -102,24 +118,42 @@ impl TypedTestConstruction {
         names
             .into_iter()
             .map(|name| {
-                Self::kotlin_client(module, target, name, language)
-                    .unwrap_or_else(|| Self::assigned(name, language))
+                let value = Self::client(module, target, name, language)
+                    .unwrap_or_else(|| Self::assigned(name, language));
+                Self::labeled(name, value, language)
             })
             .collect::<Vec<_>>()
             .join(", ")
     }
 
-    fn kotlin_client(module: &Module, target: &Type, name: &str, language: &str) -> Option<String> {
+    fn labeled(name: &str, value: String, language: &str) -> String {
+        match language {
+            "swift" => format!("{name}: {value}"),
+            _ => value,
+        }
+    }
+
+    fn client(module: &Module, target: &Type, name: &str, language: &str) -> Option<String> {
         let kind = target
             .fields
             .iter()
             .find(|field| field.name == name)
             .map(|field| Self::kind(&field.type_source))
-            .filter(|kind| [language == "kt", TestClients::is_client(module, kind)] == [true; 2])?;
+            .filter(|kind| {
+                [
+                    Self::CLIENT_LANGUAGES.contains(&language),
+                    TestClients::is_client(module, kind),
+                ] == [true; 2]
+            })?;
+        Some(Self::client_source(name, kind, language))
+    }
+
+    fn client_source(name: &str, kind: &str, language: &str) -> String {
+        if language == "swift" {
+            return format!("self.{name} ?? {kind}(behaviors!)");
+        }
         let message = Self::quoted(Self::NO_SETUP, language);
-        Some(format!(
-            "(this.{name} ?: {kind}(checkNotNull(this.behaviors) {{ {message} }}))"
-        ))
+        format!("(this.{name} ?: {kind}(checkNotNull(this.behaviors) {{ {message} }}))")
     }
 
     fn assigned(name: &str, language: &str) -> String {
@@ -133,6 +167,7 @@ impl TypedTestConstruction {
     fn assigned_source(name: &str, message: &str, language: &str) -> String {
         match language {
             "cs" => format!("this.__tachyonAssignedFake(this.{name}, {message})"),
+            "swift" => format!("try self.__tachyonAssignedFake(self.{name}, {message})"),
             _ => format!("checkNotNull(this.{name}) {{ {message} }}"),
         }
     }

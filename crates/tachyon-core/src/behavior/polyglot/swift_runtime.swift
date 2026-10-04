@@ -154,6 +154,9 @@ enum Behaviors {
     static var now: Int64 { BehaviorPlatform.now }
     static var module: String { __TAC_BEHAVIOR_MODULE__ }
     static var environment: String { __TAC_BEHAVIOR_ENVIRONMENT__ }
+    static func answer<T: Decodable>(_ type: T.Type, _ value: BehaviorJSON) throws -> T {
+        do { return try BehaviorPlatform.model(type, value) } catch { throw BehaviorError("HTTP_RESPONSE") }
+    }
     static func registration(_ type: String) throws -> BehaviorJSON { let value = try BehaviorJSON.parse(__TAC_BEHAVIOR_REGISTRY__).get(type); guard value != .null else { throw BehaviorError("UNREGISTERED") }; return value }
     static func entity(_ entity: Any.Type) throws -> BehaviorJSON {
         __TAC_BEHAVIOR_ENTITIES__
@@ -362,6 +365,10 @@ enum Behaviors {
         guard minimum <= maximum, number >= minimum, number <= maximum else { throw BehaviorError("configuration-properties") }
     }
 }
+struct BehaviorBrowserRead {
+    let publicRead: Bool; let revalidate: Bool
+    @TaskLocal static var current = BehaviorBrowserRead(publicRead: false, revalidate: false)
+}
 enum BehaviorOpenTransactions {
     @TaskLocal static var open: [String: String] = [:]
     static func within(_ adapter: String, _ identifier: String, _ body: () async throws -> BehaviorJSON) async throws -> BehaviorJSON {
@@ -373,13 +380,15 @@ enum BehaviorOpenTransactions {
 final class BehaviorContext {
     private let adapters: BehaviorAdapters; private let partition: String; private let owner: BehaviorSignal; private let signal: BehaviorSignal; private let timeoutMs: Int
     private let lock = BehaviorLock(); private var active = 0; private var slots: [String: Int] = [:]
-    private let setupKey: String; private var released = false
+    private let setupKey: String; private var released = false; private var revalidations: Set<String> = []
     init(adapters: BehaviorAdapters, partition: String, owner: BehaviorSignal, timeoutMs: Int, setupKey: String) { self.adapters = adapters; self.partition = partition; self.owner = owner; self.signal = BehaviorSignal(parent: owner); self.timeoutMs = timeoutMs; self.setupKey = setupKey }
     func dispose() {
         signal.abort()
         lock.lock(); let first = !released; released = true; lock.unlock()
         if first { Behaviors.releaseSetup(setupKey) }
     }
+    private func markRevalidation(_ key: String) { lock.lock(); revalidations.insert(key); lock.unlock() }
+    private func takeRevalidation(_ key: String) -> Bool { lock.lock(); defer { lock.unlock() }; return revalidations.remove(key) != nil }
     private func acquire() throws { lock.lock(); defer { lock.unlock() }; guard active < 64 else { throw BehaviorError("OPERATION_LIMIT") }; active += 1 }
     private func release() { lock.lock(); active -= 1; lock.unlock() }
     func paginate<T>(_ body: () throws -> T) throws -> T {
@@ -435,7 +444,8 @@ final class BehaviorContext {
             let expiry = try entry.get("expiresAt").milliseconds; guard expiry <= Behaviors.now + (try policy.get("ttlMs").milliseconds) else { throw BehaviorError("CACHE_EXPIRY") }
             if expiry > Behaviors.now { guard entry.has("value") else { throw BehaviorError("CACHE_VALUE") }; let value = entry.get("value"); _ = try value.encoded(maximum: policy.get("maxBytes").integer); return value }
         }
-        let result = try await self.resilient(type, method, metadata, body: body, execution: execution); try execution.check(); _ = try result.encoded(maximum: policy.get("maxBytes").integer)
+        let reading = BehaviorBrowserRead(publicRead: metadata.get("httpExchange").get("method") == .string("GET"), revalidate: takeRevalidation(key))
+        let result = try await BehaviorBrowserRead.$current.withValue(reading) { try await self.resilient(type, method, metadata, body: body, execution: execution) }; try execution.check(); _ = try result.encoded(maximum: policy.get("maxBytes").integer)
         try await self.adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").milliseconds, execution) }); return result
     }
     private static func withFilledPath(_ metadata: BehaviorJSON, _ arguments: [BehaviorJSON]) throws -> BehaviorJSON {
@@ -489,6 +499,7 @@ final class BehaviorContext {
         let result = try await self.resilient(type, try target.get("method").text, metadata, body: body, execution: execution); try execution.check(); _ = try result.encoded(maximum: put ? policy.get("maxBytes").integer : 1_048_576)
         if put { try await adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").milliseconds, execution) }) }
         else { try await adapter(execution, { try await cache.delete(key, execution) }) }
+        markRevalidation(key)
         return result
     }
     private func enter(_ key: String, limit: Int) -> Bool {
@@ -560,8 +571,11 @@ final class BehaviorContext {
         try execution.check(); let result = try await body(); try execution.check(); _ = try result.encoded()
         guard metadata.has("httpExchange") else { return result }; try result.keys(["query", "headers", "body"]); try validateHTTP(result)
         let policy = metadata.get("httpExchange"); if ["GET", "HEAD"].contains(try policy.get("method").text) && result.has("body") { throw BehaviorError("HTTP_BODY") }
-        guard let client = adapters.http[try policy.get("client").text] else { throw BehaviorError("HTTP_MISSING") }
         var request = try result.members; if request["query"] == nil { request["query"] = .object([:]) }; if request["headers"] == nil { request["headers"] = .object([:]) }; request["method"] = policy.get("method"); request["path"] = policy.get("path"); request["redirect"] = .string("error"); request["credentials"] = .string("omit"); request["deadline"] = .number(Double(execution.deadline)); request["maxResponseBytes"] = .number(1_048_576)
+        guard let client = adapters.http[try policy.get("client").text] else {
+            let reading = BehaviorBrowserRead.current; request["publicRead"] = .bool(reading.publicRead); request["revalidate"] = .bool(reading.revalidate)
+            return try await adapter(execution, { [request] in try await BehaviorPlatform.exchange(.object(request)) })
+        }
         return try await adapter(execution, { try await client.exchange(.object(request), execution) })
     }
     private func validateHTTP(_ value: BehaviorJSON) throws {

@@ -118,6 +118,19 @@ machine contracts have their own, independent major versions.
   `Behaviors.Failure` with their code, and removing the component cancels the
   request (`CANCELLED`). Kotlin test units get `construct(Service::class)` with
   a `Fake` client and `suspend fun` cases (ADR 0090).
+- Swift Tac services call the server from the browser too: an `HTTPClient`
+  protocol method is `async throws` and returns a `Codable` model from
+  `client/models` (or nothing), a service gets the client with
+  `@Needs private let name: Client` and awaits it in an `async throws` method.
+  Without a Setup adapter the request goes to the same origin through the
+  browser host (omitted credentials, `Cached` public reads, revalidation after
+  `ClearCache` or `UpdateCache`); a waiting method returns a promise to the
+  page, a wrong answer shape fails with `HTTP_RESPONSE`, errors are
+  `BehaviorError` values with their code, and removing the component cancels
+  the task and its request (`CANCELLED`). Swift test units get
+  `try construct()` with a `Fake` client. Native macOS and iOS companions keep
+  running an `async` method to the end and answer `HTTP_MISSING` without an
+  adapter (ADR 0090).
 - Method coverage no longer asks a test case to call a Setup's methods or the
   methods of a generated HTTPClient: Tachyon calls a Setup itself and writes
   the client's methods.

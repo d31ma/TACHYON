@@ -57,6 +57,8 @@ mod java_publisher_tests;
 #[cfg(test)]
 mod kotlin_construct_tests;
 #[cfg(test)]
+mod swift_construct_tests;
+#[cfg(test)]
 mod kotlin_document_title_tests;
 
 #[must_use]

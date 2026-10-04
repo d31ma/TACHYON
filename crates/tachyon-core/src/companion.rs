@@ -459,6 +459,7 @@ impl Member {
     }
 
     const BEHAVIOR_JSON: &'static str = "BehaviorJSON";
+    const SWIFT_KINDS: [&'static str; 2] = ["method", "task"];
 
     fn method_effects(signature: &str) -> &str {
         let after = closing_parenthesis(signature).map_or("", |close| &signature[close + 1..]);
@@ -541,7 +542,8 @@ impl Member {
         let name = &self.name;
         let call = format!("tacInstance.{name}({})", swift_arguments(parameters));
         let answer = self.swift_answer(&self.swift_finished(call));
-        format!("    \"{name}\": .method({{ tacArguments in {answer} }}),\n")
+        let kind = Self::SWIFT_KINDS[usize::from(self.asynchronous)];
+        format!("    \"{name}\": .{kind}({{ tacArguments in {answer} }}),\n")
     }
 
     fn is_swift_behavior_member(&self) -> bool {
@@ -554,7 +556,7 @@ impl Member {
 
     fn swift_finished(&self, call: String) -> String {
         if self.asynchronous {
-            return format!("tacAwait {{ try await {call} }}");
+            return format!("await {call}");
         }
         call
     }
@@ -1723,7 +1725,7 @@ mod tests {
     }
 
     #[test]
-    fn a_swift_async_behavior_method_runs_to_the_end_and_answers_json() {
+    fn a_swift_async_method_is_a_task_that_answers_json() {
         let source = "final class NotesService {\n  \
                       func find(_ key: BehaviorJSON, limit: Int) async throws -> BehaviorJSON { key }\n  \
                       func save(_ id: String) async throws {}\n}\n";
@@ -1735,14 +1737,14 @@ mod tests {
         .expect("a table");
         assert!(
             generated.contains(
-                "\"find\": .method({ tacArguments in tacParseJSON(try tacAwait { try await tacInstance.find(\
-                 BehaviorJSON.parse(tacArgumentText(tacArguments, 0)), limit: tacArgument(tacArguments, 1)) }.encoded()) }),"
+                "\"find\": .task({ tacArguments in tacParseJSON(try await tacInstance.find(\
+                 BehaviorJSON.parse(tacArgumentText(tacArguments, 0)), limit: tacArgument(tacArguments, 1)).encoded()) }),"
             ),
             "{generated}"
         );
         assert!(
             generated.contains(
-                "\"save\": .method({ tacArguments in try tacAwait { try await tacInstance.save(tacArgument(tacArguments, 0)) } }),"
+                "\"save\": .task({ tacArguments in try await tacInstance.save(tacArgument(tacArguments, 0)) }),"
             ),
             "{generated}"
         );

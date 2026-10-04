@@ -1,0 +1,78 @@
+{
+  "heading": "Swift awaits a real Yon endpoint",
+  "summary": "A Swift HTTPClient is a protocol whose methods are `async throws` and have no body, such as `func read() async throws -> Greeting`. Tachyon writes the method and decodes the answer into the `Greeting` struct from `client/models`, which is `Codable`. An answer of another shape throws a `BehaviorError` whose code is `HTTP_RESPONSE`, and a failed request throws the code of the browser transport, such as `HTTP_STATUS`. A method without a return type ignores the answer. A service gets the client with `@Needs private let greetingClient: GreetingClient` and calls it with `try await` from an `async throws` method. While the method waits for the server, the page keeps working, and the page gets a promise that settles when the method returns. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component cancels the request, and the promise is rejected with the code `CANCELLED`. In a Swift test unit, a Fake field `var greetingClient: GreetingClient? = nil` can supply the client to `let service: GreetingService = try construct()`; while it is `nil`, the service gets a client whose requests the TestSetup adapter answers. In a native macOS or iOS app and in a test unit there is no browser transport: the request fails with `HTTP_MISSING` unless the Setup gives the client an adapter, and a native app runs an `async` method to the end before it answers, as before.",
+  "files": [
+    {
+      "name": "client/components/greeting/panel/tac.html",
+      "code": {
+        "file": "client/components/greeting/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/models/Greeting.swift",
+      "code": {
+        "file": "client/models/Greeting.swift"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/remotes/GreetingClient.swift",
+      "code": {
+        "file": "client/remotes/GreetingClient.swift"
+      }
+    },
+    {
+      "name": "client/remotes/OverrideClient.swift",
+      "code": {
+        "file": "client/remotes/OverrideClient.swift"
+      }
+    },
+    {
+      "name": "client/services/GreetingService.swift",
+      "code": {
+        "file": "client/services/GreetingService.swift"
+      }
+    },
+    {
+      "name": "client/setups/GreetingSetup.swift",
+      "code": {
+        "file": "client/setups/GreetingSetup.swift"
+      }
+    },
+    {
+      "name": "client/setups/OverrideSetup.swift",
+      "code": {
+        "file": "client/setups/OverrideSetup.swift"
+      }
+    },
+    {
+      "name": "server/controllers/ClearController.js",
+      "code": {
+        "file": "server/controllers/ClearController.js"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.js",
+      "code": {
+        "file": "server/controllers/GreetingController.js"
+      }
+    },
+    {
+      "name": "server/models/Greeting.ts",
+      "code": {
+        "file": "server/models/Greeting.ts"
+      }
+    }
+  ]
+}
