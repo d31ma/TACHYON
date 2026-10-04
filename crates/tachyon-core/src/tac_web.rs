@@ -143,12 +143,10 @@ async fn build_language(
         WebLanguage::Rust => {
             let module = crate::native::web_assembly(snapshot_root, &chosen, profile).await?;
             note = module.note;
-            WebEngine::linear_memory(
-                &WebEngine::RUST_INSTANCE.replace(
-                    "__WASM__",
-                    &crate::compiler::ContentDigest::hex(&module.binary),
-                ),
-            )
+            WebEngine::linear_memory(&WebEngine::RUST_INSTANCE.replace(
+                "__WASM__",
+                &crate::compiler::ContentDigest::hex(&module.binary),
+            ))
         }
         WebLanguage::CSharp => {
             let (framework, reason) = dotnet_framework(snapshot_root, &chosen, profile).await?;
