@@ -57,9 +57,9 @@ mod java_publisher_tests;
 #[cfg(test)]
 mod kotlin_construct_tests;
 #[cfg(test)]
-mod swift_construct_tests;
-#[cfg(test)]
 mod kotlin_document_title_tests;
+#[cfg(test)]
+mod swift_construct_tests;
 
 #[must_use]
 pub fn units(project: &Path, realm: &str) -> Vec<PathBuf> {
