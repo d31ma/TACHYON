@@ -562,6 +562,20 @@ fn read_json(root: &Path, relative: &str) -> Option<Value> {
     serde_json::from_str::<Value>(&source).ok()
 }
 
+fn realm_import_findings(relative: &str, source: &str, findings: &mut Vec<MigrationFinding>) {
+    let checked = crate::annotation_layout::ImportBoundary::check(Path::new(relative), source);
+    let problems = checked.err().map(|failure| failure.diagnostics().to_vec());
+    findings.extend(problems.unwrap_or_default().iter().map(|item| {
+        MigrationFinding::new(
+            relative,
+            "role.realm_import",
+            MigrationStatus::Changed,
+            &item.message,
+            item.help.as_deref(),
+        )
+    }));
+}
+
 fn read_source(root: &Path, relative: &str, what: &str) -> Result<String, Failure> {
     fs::read_to_string(root.join(relative))
         .map_err(|error| migration_failure(&format!("Cannot read {what} '{relative}': {error}")))
@@ -604,6 +618,7 @@ fn classify_file(
                 ));
             }
         }
+        realm_import_findings(relative, &source, findings);
     }
 
     if relative.starts_with("client/clients/") || relative.starts_with("server/clients/") {
@@ -1759,6 +1774,26 @@ mod tests {
         assert_eq!(
             fs::read_to_string(path).expect("unchanged source"),
             "export default class MoneyService {}\n"
+        );
+    }
+
+    #[test]
+    fn imports_of_the_other_realm_are_reported_for_the_author_to_move() {
+        let root = tempfile::tempdir().expect("project");
+        let path = root.path().join("client/services/LinkService.js");
+        fs::create_dir_all(path.parent().expect("parent")).expect("folders");
+        let source = "import Home from '../../server/controllers/HomeController.js'\n@Service\nexport default class LinkService {}\n";
+        fs::write(&path, source).expect("source");
+        let report = MigrationAnalysis::check(root.path()).expect("migration report");
+        let item = report
+            .findings
+            .iter()
+            .find(|item| item.feature == "role.realm_import")
+            .expect("realm import finding");
+        assert_eq!(item.source, "client/services/LinkService.js");
+        assert!(
+            item.detail.contains("server/controllers/HomeController.js"),
+            "{item:?}"
         );
     }
 

@@ -23,7 +23,7 @@ pub(crate) use browser_interop::{BrowserInteropCheck, NativeWebApis};
 pub(crate) use class_file_name::ClassFileName;
 pub(crate) use file_name_check::FileNameCheck;
 pub(crate) use folder_role_check::FolderRoleCheck;
-use import_boundary::ImportBoundary;
+pub(crate) use import_boundary::ImportBoundary;
 pub(crate) use inline_model_check::InlineModelCheck;
 pub(crate) use native_module_vendor::NativeModuleVendor;
 pub(crate) use native_package_folder::NativePackageFolder;
