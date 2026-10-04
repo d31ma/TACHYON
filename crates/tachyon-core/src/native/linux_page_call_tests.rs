@@ -1,6 +1,5 @@
 #![allow(clippy::expect_used)]
 
-use super::native_menu_config::NativeMenuConfig;
 use super::registry::NativeCompanionInput;
 use crate::project::NativeCompanion;
 use std::path::{Path, PathBuf};
@@ -144,7 +143,7 @@ async fn linux_page_calls_page_large_results_through_the_real_webkit_bridge() {
     let executable = super::linux_host_tests::LinuxHostTests::compile_with(
         root.path(),
         &source,
-        NativeMenuConfig::default(),
+        super::native_menu_config::NativeMenuConfig::default(),
         &LinuxPageCallTests::fixture(),
     )
     .await;

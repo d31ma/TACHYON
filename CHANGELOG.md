@@ -10,6 +10,21 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Windows apps can be built for ARM64: `ty bundle --target windows` now
+  builds for the build machine's architecture, and `--arch x64` or
+  `--arch arm64` chooses one. The choice sets the Rust companion target,
+  the WebView2 loader folder, the C# runtime identifier and the linker
+  machine together, and the artifact manifest records it. A developer
+  prompt for the other architecture stops the build with the
+  `vcvarsall.bat` argument to use (ADR 0097 amendment).
+- A desktop app's Rust companion can use crates and ship helper programs:
+  `tac.application.rust` in `client/manifest.json` declares exact-version
+  `dependencies`, `platformDependencies` for `linux`, `macos` and `windows`,
+  and `executables` (a client Rust class with `pub fn run() -> i32`).
+  Tachyon builds them with Cargo, offline, only from `vendor/rust/` (made
+  once with `cargo vendor`), and places each helper beside the host
+  executable: `<App>/bin/` on Linux and Windows, `Contents/MacOS/` on macOS,
+  signed (ADR 0019 amendment).
 - macOS apps can have an integrated title bar: `"titleBar": "integrated"` in
   `tac.application.window` lets the page reach the top edge of the window
   under the real close, minimize and full screen buttons, as one continuous
@@ -269,6 +284,11 @@ machine contracts have their own, independent major versions.
   even after reading the whole body, and Chromium then reported the finished
   request as `net::ERR_ABORTED`. The transport now cancels the reader only
   when it stops early (size limit, bad UTF-8, cancellation or deadline).
+
+- Linux and Windows apps answer a native reply larger than 64 KiB with an
+  error that says to send smaller pages, instead of "Invalid native
+  response.", and Windows answers a page request that grows past 64 KiB as
+  UTF-8 instead of dropping it until the 10 second timeout.
 - A Windows app whose window grants no window controls builds again with
   MSVC. The generated host left its `payload` parameter unused, and the
   host's `/W4 /WX` flags turned that warning (C4100) into an error, so

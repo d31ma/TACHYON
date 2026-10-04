@@ -44,7 +44,7 @@ impl RustCompanionCrate {
     }
 
     pub(super) fn problem(&self) -> Option<String> {
-        self.dependency_problem("dependencies", &self.dependencies)
+        Self::dependency_problem("dependencies", &self.dependencies)
             .or_else(|| self.platform_problem())
             .or_else(|| self.executable_problem())
     }
@@ -114,7 +114,6 @@ impl RustCompanionCrate {
     }
 
     fn dependency_problem(
-        &self,
         place: &str,
         dependencies: &BTreeMap<String, RustDependency>,
     ) -> Option<String> {
@@ -145,7 +144,7 @@ impl RustCompanionCrate {
                         "tac.application.rust.platformDependencies names \"{platform}\"; use linux, macos or windows."
                     ));
                 }
-                self.dependency_problem(&format!("platformDependencies.{platform}"), dependencies)
+                Self::dependency_problem(&format!("platformDependencies.{platform}"), dependencies)
             })
     }
 
