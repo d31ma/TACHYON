@@ -1,7 +1,27 @@
 client/
-  pages/tac.html
-  components/hero/tac.html
-  services/HeroService.js
-  shared/assets/  shared/data/
+  manifest.json
+  pages/tac.html                  a page: its folder is its URL
+  components/hero/card/tac.html   a component: the <hero-card> tag
+  services/HeroService.js         @Service: data and actions of a view
+  models/Hero.ts                  data types, no role
+  remotes/HeroClient.js           @HTTPClient: calls the server
+  stores/HeroStore.js             @Store: saved records
+  setups/HeroSetup.js             @Setup: adapters and settings
+  entities/HeroEntity.js          @Entity: the shape of a saved record
+  helpers/HeroHelper.js           @Helper: shared work for services
+  converters/HeroConverter.js     @Converter: turns one type into another
+  tests/HeroServiceTest.js        @Test units and their test setups
+  shared/utils/TextUtils.js       utility classes: static methods only
+  shared/assets/  shared/data/  shared/scripts/
 server/
-  controllers/PostsController.js
+  application.json
+  controllers/PostsController.js  @RequestRoute: answers HTTP requests
+  services/PostsService.js        @Service
+  models/Post.ts                  data types, no role
+  remotes/  stores/  setups/  entities/  helpers/  converters/  tests/
+  roles/Admin.ts                  role types for @Allow
+  errors/OrderNotFound.ts         application error types
+  utils/TextUtils.js              utility classes: static methods only
+  shared/                         plain code that keeps its own name
+  workers/                        workers (class Handler)
+  packages/                       the vendored Go module (Go only)

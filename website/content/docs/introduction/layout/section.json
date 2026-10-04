@@ -1,5 +1,7 @@
 {
   "heading": "Where each file goes",
-  "body": "Pages are in client/pages. Components are in client/components. Services are in client/services. Backend controllers are in server/controllers. A controller is a class that answers HTTP requests. A page contains components. A component is a tac.html view and an optional tac.css file. Behaviour is in a service class. The view refers to that class by name. Shared browser assets and data are in client/shared.",
-  "code": { "file": "example.txt" }
+  "body": "Pages are in client/pages. Components are in client/components. Services are in client/services. Backend controllers are in server/controllers. A controller is a class that answers HTTP requests. A page contains components. A component is a tac.html view and an optional tac.css file. Behaviour is in a service class. The view refers to that class by name. Shared browser assets, data and scripts are in client/shared, and Tac utility classes are in client/shared/utils.\n\nEvery other class goes in the folder of its role, in client/ for the page and in server/ for the server: models, remotes (HTTP clients), stores, setups, entities, helpers, converters and tests. A role folder may hold nested folders. The server also has roles for the role types of `@Allow`, errors for application error types, utils for utility classes, shared for plain code, workers, and packages for the vendored Go module. The tree below shows one file of each kind. Project folders and roles explains each rule.",
+  "code": {
+    "file": "example.txt"
+  }
 }
