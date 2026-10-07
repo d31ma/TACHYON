@@ -15,6 +15,12 @@ impl RustNativeLibraries {
     const FRAMEWORK: &'static str = "-framework";
 
     pub(super) fn read(output: &ToolOutput) -> Result<Self, Failure> {
+        if !output.status.success() {
+            return Err(native_tool_failure(
+                1605,
+                "The Rust compilation failed; its static library requirements cannot be used.",
+            ));
+        }
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         Self::parse(&format!("{stdout}\n{stderr}"))

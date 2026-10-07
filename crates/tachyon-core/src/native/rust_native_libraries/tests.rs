@@ -54,6 +54,20 @@ fn static_native_link_reads_successful_stderr_instead_of_losing_it() {
 }
 
 #[test]
+fn static_native_link_refuses_metadata_from_a_failed_compiler() {
+    let output = ToolOutput {
+        status: std::process::ExitStatus::from_raw(1),
+        stdout: Vec::new(),
+        stderr: b"note: native-static-libs: -lsqlite3\n".to_vec(),
+    };
+    let error = RustNativeLibraries::read(&output)
+        .err()
+        .unwrap_or_else(|| panic!("failed compilation was accepted"))
+        .to_string();
+    assert!(error.contains("Rust compilation failed"), "{error}");
+}
+
+#[test]
 fn static_native_link_accepts_stdout_metadata_and_unrelated_stderr() {
     let output = ToolOutput {
         status: std::process::ExitStatus::from_raw(0),
