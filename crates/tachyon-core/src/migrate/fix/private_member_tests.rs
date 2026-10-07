@@ -158,3 +158,30 @@ fn convert_listed_projects() {
         }
     }
 }
+
+#[test]
+fn ty1333_migration_preserves_csharp_members_reached_by_a_script_sibling() {
+    for extension in ["js", "ts"] {
+        let project = TempDir::new().expect("project");
+        let root = project.path();
+        let native = "client/services/BridgeService.cs";
+        let source = "[Service]\npublic class BridgeService\n{\n    public int Doubled() => 2;\n\n    public int Spare() => 3;\n}\n";
+        let script = format!("client/services/BridgeService.{extension}");
+        let caller = "@Service\nexport default class BridgeService {\n  verify() {\n    return this.doubled();\n  }\n}\n";
+        PrivateCases::write(root, native, source);
+        PrivateCases::write(root, &script, caller);
+        PrivateCases::write(root, "client/manifest.json", PrivateCases::CLIENT_ON);
+        PrivateCases::write(
+            root,
+            "client/components/bridge/tac.html",
+            "<button on:click=\"bridge.verify()\">Verify</button>",
+        );
+        MigrationFix::plan(root)
+            .expect("plan")
+            .write(root)
+            .expect("write");
+        let expected = source.replace("public int Spare", "private int Spare");
+        assert_eq!(PrivateCases::read(root, native), expected, "{extension}");
+        assert_eq!(PrivateCases::read(root, &script), caller, "{extension}");
+    }
+}

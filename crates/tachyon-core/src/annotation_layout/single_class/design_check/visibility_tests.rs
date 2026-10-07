@@ -271,3 +271,5 @@ fn rust_snake_case_visibility_keeps_actual_service_and_utility_names() {
     assert!(messages[0].contains("in LabelService"));
     assert!(messages[2].contains("in TitleUtils"));
 }
+
+mod bridge_tests;

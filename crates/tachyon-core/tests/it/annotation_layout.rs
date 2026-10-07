@@ -461,3 +461,51 @@ fn assert_models_absent(root: &Path) {
         }
     }
 }
+
+#[test]
+fn ty1333_discovery_counts_script_sibling_calls_and_refuses_unused_members() {
+    for extension in ["js", "ts"] {
+        let root = tempfile::tempdir().expect("project");
+        write(root.path(), "client/pages/tac.html", "<bridge-view />");
+        write(
+            root.path(),
+            "client/components/bridge/view/tac.html",
+            "<button on:click=\"bridge.verify()\">Verify</button>",
+        );
+        write(
+            root.path(),
+            "client/manifest.json",
+            r#"{"tac":{"dependencies":{"check":false},"names":{"check":false},"signatures":{"check":false},"constants":{"check":false},"types":{"check":false},"tests":{"check":false},"cohesion":{"check":false},"visibility":{"check":true}}}"#,
+        );
+        let script = format!("client/services/BridgeService.{extension}");
+        write(
+            root.path(),
+            &script,
+            "@Service\nexport default class BridgeService {\n  verify() {\n    return this.doubled();\n  }\n}\n",
+        );
+        let native = "client/services/BridgeService.cs";
+        let source =
+            "[Service]\npublic class BridgeService\n{\n    public int Doubled() => 2;\n}\n";
+        write(root.path(), native, source);
+        ProjectDiscovery::discover(root.path()).expect("captured script reaches C# member");
+        let unused = source.replace(
+            "    public int Doubled",
+            "    public int Spare() => 3;\n\n    public int Doubled",
+        );
+        write(root.path(), native, &unused);
+        let failure = ProjectDiscovery::discover(root.path()).expect_err("unused member");
+        let messages: Vec<&str> = failure
+            .diagnostics()
+            .iter()
+            .filter(|problem| problem.code.number() == 1333)
+            .map(|problem| problem.message.as_str())
+            .collect();
+        assert_eq!(
+            messages,
+            [
+                "The method `Spare` in BridgeService is public, but nothing outside BridgeService uses it."
+            ],
+            "{extension}"
+        );
+    }
+}
