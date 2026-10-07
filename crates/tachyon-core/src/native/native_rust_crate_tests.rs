@@ -203,6 +203,44 @@ async fn the_linux_bundle_places_the_helper_beside_the_host_and_it_runs() {
 
 #[cfg(target_os = "macos")]
 #[tokio::test]
+#[ignore = "Builds and signs the full macOS host twice using existing system SQLite; run explicitly on the Mac lane"]
+async fn static_native_link_macos_sqlite_archive_and_helper_build_repeatedly() {
+    let root = NativeRustCrateTests::project(NativeTarget::Macos);
+    let crate_folder = root.path().join("vendor/rust/tiny-greeting/src/lib.rs");
+    NativeRustCrateTests::write(
+        &crate_folder,
+        r#"
+pub fn hello() -> String {
+    #[link(name = "sqlite3")]
+    unsafe extern "C" {
+        fn sqlite3_libversion_number() -> i32;
+    }
+    assert!(unsafe { sqlite3_libversion_number() } > 0);
+    String::from("hello")
+}
+"#,
+    );
+    for _ in 0..2 {
+        let output = NativeRustCrateTests::build(root.path(), NativeTarget::Macos, true).await;
+        let bundle = output.join("Greeter.app");
+        let helper = bundle.join("Contents/MacOS/probe-helper");
+        let helper_path = helper.to_str().expect("helper path");
+        let text = super::host::run_tool(helper_path, &[])
+            .await
+            .expect("SQLite helper runs");
+        assert_eq!(text.trim(), "hello from macos");
+        let bundle_path = bundle.to_str().expect("bundle path");
+        super::host::run_tool(
+            "/usr/bin/codesign",
+            &["--verify", "--deep", "--strict", bundle_path],
+        )
+        .await
+        .expect("the complete host and helper signature is valid");
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
 #[ignore = "Builds and signs the full macOS host (swiftc, codesign, cargo); run explicitly on the Mac lane"]
 async fn the_macos_bundle_places_the_signed_helper_in_contents_macos_and_it_runs() {
     let root = NativeRustCrateTests::project(NativeTarget::Macos);

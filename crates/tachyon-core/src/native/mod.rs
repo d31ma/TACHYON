@@ -138,6 +138,7 @@ mod rust_dependency;
 mod rust_filename_tests;
 mod rust_imports;
 mod rust_local_paths;
+mod rust_native_libraries;
 mod rust_page_graph;
 mod rust_service_plan;
 mod rust_web_module;

@@ -1,6 +1,6 @@
 use super::routes::NativeRouteIndex;
 use crate::Failure;
-use crate::external_command::run as supervise_tool;
+use crate::external_command::{ToolOutput, run as supervise_tool};
 use crate::failure::diagnostic;
 use std::fs;
 use std::io;
@@ -39,6 +39,14 @@ impl NativeHost {
         program: &str,
         arguments: &[&str],
     ) -> Result<String, Failure> {
+        let output = Self::run_long_tool_output(program, arguments).await?;
+        Ok(bounded_text(&output.stdout))
+    }
+
+    pub(super) async fn run_long_tool_output(
+        program: &str,
+        arguments: &[&str],
+    ) -> Result<ToolOutput, Failure> {
         let mut command = Command::new(program);
         command
             .args(arguments)
@@ -51,7 +59,7 @@ impl NativeHost {
         program: &str,
         command: &mut Command,
         time_limit: Duration,
-    ) -> Result<String, Failure> {
+    ) -> Result<ToolOutput, Failure> {
         let output = supervise_tool(command, time_limit, Self::MAX_TOOL_OUTPUT_BYTES)
             .await
             .map_err(|error| {
@@ -69,7 +77,7 @@ impl NativeHost {
                 &bounded_text(&output.stderr),
             )
         })?;
-        Ok(stdout)
+        Ok(output)
     }
 }
 
@@ -141,6 +149,18 @@ pub(super) async fn run_tool(program: &str, arguments: &[&str]) -> Result<String
     run_tool_in(program, arguments, None).await
 }
 
+pub(super) async fn run_tool_output(
+    program: &str,
+    arguments: &[&str],
+) -> Result<ToolOutput, Failure> {
+    let mut command = Command::new(program);
+    command
+        .args(arguments)
+        .stdin(Stdio::null())
+        .kill_on_drop(true);
+    NativeHost::supervised_output(program, &mut command, NativeHost::TOOL_TIME_LIMIT).await
+}
+
 pub(super) async fn run_tool_in(
     program: &str,
     arguments: &[&str],
@@ -164,7 +184,9 @@ pub(super) async fn run_tool_with(
     if let Some(working_directory) = working_directory {
         command.current_dir(working_directory);
     }
-    NativeHost::supervised_output(program, &mut command, NativeHost::TOOL_TIME_LIMIT).await
+    let output =
+        NativeHost::supervised_output(program, &mut command, NativeHost::TOOL_TIME_LIMIT).await?;
+    Ok(bounded_text(&output.stdout))
 }
 
 fn failed_tool(
