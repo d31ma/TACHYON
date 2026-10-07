@@ -50,6 +50,17 @@ tac.application.menus                           native desktop
   service. At most 64 items; iOS and Android refuse them (see
   Native menus).
 
+tac.application.rust                            native desktop
+  Rust companion crates and helpers. dependencies lists exact
+  versions, or { "version", "features", "defaultFeatures" }.
+  platformDependencies has macos, linux and windows tables.
+  executables maps up to 8 names, such as "catalog-event", to
+  client class paths, such as "/shared/native/EventEmitterMain.rs".
+  Each class has pub fn run() -> i32. Crates come from vendor/rust
+  at the project root; packaged builds run Cargo offline. Helpers
+  go beside the app executable (see Rust crates and helper
+  executables). These settings require a native Rust service.
+
 tac.nativeCapabilities                                 native
   ["filePicker"]: native capabilities a native service may use.
   The only name today; without it the picker answers denied.
