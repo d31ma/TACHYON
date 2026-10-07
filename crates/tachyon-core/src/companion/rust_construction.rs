@@ -138,23 +138,125 @@ impl RustConstruction {
     }
 
     fn constructor_parameters(body: &str) -> Option<Vec<String>> {
-        let start = body.find("fn new")?;
-        let after_name = body[start + "fn new".len()..].trim_start();
-        let rest = after_name.strip_prefix('(')?;
-        let close = super::closing_parenthesis(after_name)?;
+        let after_name = Self::constructor_signature(body)?;
+        let close = Self::group_close(after_name, '(', ')')?;
         let result = after_name[close + 1..]
             .trim_start()
             .strip_prefix("->")?
             .trim_start();
         (super::identifier(result) == "Self").then_some(())?;
-        let arguments = &rest[..close - 1];
+        let arguments = &after_name[1..close];
         Some(
-            arguments
-                .split(',')
+            Self::parameter_parts(arguments)
+                .into_iter()
                 .filter(|argument| !argument.trim().is_empty())
                 .map(Self::parameter_type)
                 .collect(),
         )
+    }
+
+    fn constructor_signature(body: &str) -> Option<&str> {
+        let mut rest = body.trim_start();
+        while !rest.is_empty() {
+            let word = super::identifier(rest);
+            if word == "fn"
+                && let Some(signature) = Self::after_constructor_name(&rest[word.len()..])
+            {
+                return Some(signature);
+            }
+            rest = Self::after_token(rest, &word)?.trim_start();
+        }
+        None
+    }
+
+    fn after_constructor_name(after_function: &str) -> Option<&str> {
+        let after_function = super::after_keyword(after_function)?;
+        let after_name = after_function.strip_prefix("new")?.trim_start();
+        after_name.starts_with('(').then_some(after_name)
+    }
+
+    fn after_token<'a>(text: &'a str, word: &str) -> Option<&'a str> {
+        if !word.is_empty() {
+            return Some(&text[word.len()..]);
+        }
+        let length = Self::token_length(text)?;
+        Some(&text[length..])
+    }
+
+    fn token_length(text: &str) -> Option<usize> {
+        match text.chars().next()? {
+            '(' => Self::group_close(text, '(', ')').map(|close| close + 1),
+            '[' => Self::group_close(text, '[', ']').map(|close| close + 1),
+            '{' => super::braced_body(text, 0).map(|inside| inside.len() + 2),
+            character => Some(character.len_utf8()),
+        }
+    }
+
+    fn group_close(text: &str, open: char, close: char) -> Option<usize> {
+        let mut depth = 0_usize;
+        for (at, character) in text.char_indices() {
+            if character == open {
+                depth += 1;
+            }
+            if character == close {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(at);
+                }
+            }
+        }
+        None
+    }
+
+    fn parameter_parts(arguments: &str) -> Vec<&str> {
+        let commas = Self::parameter_commas(arguments);
+        let starts = std::iter::once(0).chain(commas.iter().map(|at| at + 1));
+        let ends = commas
+            .iter()
+            .copied()
+            .chain(std::iter::once(arguments.len()));
+        starts
+            .zip(ends)
+            .map(|(start, end)| &arguments[start..end])
+            .collect()
+    }
+
+    fn parameter_commas(arguments: &str) -> Vec<usize> {
+        let mut groups = Vec::new();
+        let mut commas = Vec::new();
+        for (at, character) in arguments.char_indices() {
+            if let Some(close) = Self::parameter_group(character) {
+                groups.push(close);
+            } else if Self::closes_parameter_group(arguments, at, character, groups.last().copied())
+            {
+                groups.pop();
+            } else if character == ',' && groups.is_empty() {
+                commas.push(at);
+            }
+        }
+        commas
+    }
+
+    fn parameter_group(character: char) -> Option<char> {
+        match character {
+            '(' => Some(')'),
+            '[' => Some(']'),
+            '{' => Some('}'),
+            '<' => Some('>'),
+            _ => None,
+        }
+    }
+
+    fn closes_parameter_group(
+        arguments: &str,
+        at: usize,
+        character: char,
+        expected: Option<char>,
+    ) -> bool {
+        if character == '>' && arguments[..at].ends_with('-') {
+            return false;
+        }
+        expected == Some(character)
     }
 
     fn parameter_type(argument: &str) -> String {
