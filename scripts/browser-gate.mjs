@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { execFileSync, spawn } from 'node:child_process'
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs'
 import { cpus, freemem, tmpdir, totalmem } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { finished } from 'node:stream/promises'
+import { SupervisedCommand } from './supervised-command.mjs'
 
 /** @typedef {{name:string,file:string}} BrowserScript */
-/** @typedef {{name:string,passed:boolean,seconds:number,log:string}} ScriptResult */
+/** @typedef {{name:string,passed:boolean,seconds:number,log:string,error?:string}} ScriptResult */
 /** @typedef {{found:BrowserScript[],missing:string[]}} ScriptChoice */
 
 class BrowserGate {
@@ -49,12 +50,13 @@ class BrowserGate {
     return Math.min(BrowserGate.mostAtOnce, byCores)
   }
 
-  /** @returns {number} */
-  static freeMemoryPercent() {
+  /** @returns {Promise<number>} */
+  static async freeMemoryPercent() {
     if (process.platform !== 'darwin') return Math.round((freemem() / totalmem()) * 100)
     try {
-      const report = execFileSync('memory_pressure', [], { encoding: 'utf8' })
-      return Number(report.match(BrowserGate.macFreeLine)?.[1] ?? 100)
+      const result = await SupervisedCommand.run('memory_pressure', [], { timeoutMilliseconds: BrowserGate.waitMilliseconds })
+      if (result.error) return Math.round((freemem() / totalmem()) * 100)
+      return Number(result.stdout.match(BrowserGate.macFreeLine)?.[1] ?? 100)
     } catch {
       return 100
     }
@@ -62,12 +64,12 @@ class BrowserGate {
 
   /**
    * @param {number} running
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  static hasRoomForAnother(running) {
+  static async hasRoomForAnother(running) {
     if (running === 0) return true
     const needed = BrowserGate.leastFreePercent + BrowserGate.freePercentPerScript
-    return BrowserGate.freeMemoryPercent() >= needed
+    return await BrowserGate.freeMemoryPercent() >= needed
   }
 
   /**
@@ -75,20 +77,33 @@ class BrowserGate {
    * @param {string} logFolder
    * @returns {Promise<ScriptResult>}
    */
-  static run(script, logFolder) {
+  static async run(script, logFolder) {
     const log = path.join(logFolder, `${script.name}.txt`)
     const output = createWriteStream(log)
     const started = Date.now()
-    return new Promise(resolve => {
-      const child = spawn(process.execPath, [script.file], { cwd: BrowserGate.repo, stdio: ['ignore', 'pipe', 'pipe'] })
-      child.stdout.pipe(output, { end: false })
-      child.stderr.pipe(output, { end: false })
-      child.once('close', code => {
-        output.end()
-        const seconds = Math.round((Date.now() - started) / BrowserGate.millisecondsPerSecond)
-        resolve({ name: script.name, passed: code === 0, seconds, log })
-      })
+    let failure
+    let command
+    const flushed = finished(output).catch(error => {
+      failure = error.message
+      void command?.stop()
     })
+    let passed = false
+    try {
+      const timeoutMilliseconds = Number(BrowserGate.option('--timeout-ms=') ?? process.env.TAC_BROWSER_TIMEOUT_MS ?? SupervisedCommand.defaultTimeoutMilliseconds)
+      command = await SupervisedCommand.start(process.execPath, [script.file], { cwd: BrowserGate.repo, timeoutMilliseconds })
+      command.child.stdout.pipe(output, { end: false })
+      command.child.stderr.pipe(output, { end: false })
+      const result = await command.completion
+      failure ??= result.error?.message
+      passed = result.status === 0 && result.cleanupConfirmed && failure === undefined
+    } catch (error) {
+      failure = error.message
+    }
+    if (failure) output.write(`\nSupervision failed: ${failure}\n`)
+    output.end()
+    await flushed
+    const seconds = Math.round((Date.now() - started) / BrowserGate.millisecondsPerSecond)
+    return { name: script.name, passed: passed && failure === undefined, seconds, log, error: failure }
   }
 
   /**
@@ -104,7 +119,7 @@ class BrowserGate {
     /** @type {ScriptResult[]} */
     const results = []
     while (waiting.length > 0 || running.size > 0) {
-      const canStart = waiting.length > 0 && running.size < limit && BrowserGate.hasRoomForAnother(running.size)
+      const canStart = waiting.length > 0 && running.size < limit && await BrowserGate.hasRoomForAnother(running.size)
       if (canStart) {
         const script = /** @type {BrowserScript} */ (waiting.shift())
         const job = BrowserGate.run(script, logFolder).then(result => {

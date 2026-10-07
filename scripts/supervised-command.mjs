@@ -1,0 +1,264 @@
+import { execFile, spawn } from 'node:child_process'
+
+/** @typedef {{pid:number,parent:number,group:number,started:string,state:string}} ProcessIdentity */
+/** @typedef {{cwd?:string,env?:NodeJS.ProcessEnv,timeoutMilliseconds?:number,terminationMilliseconds?:number,cleanupMilliseconds?:number,maxBuffer?:number,failOnOutputLimit?:boolean,onStdout?:(chunk:Buffer)=>void,onStderr?:(chunk:Buffer)=>void}} CommandOptions */
+/** @typedef {{status:number|null,signal:NodeJS.Signals|null,stdout:string,stderr:string,error?:Error,timedOut:boolean,cleanupConfirmed:boolean}} CommandResult */
+
+export class SupervisedCommand {
+  static defaultTimeoutMilliseconds = 20 * 60 * 1000
+  static defaultTerminationMilliseconds = 1000
+  static defaultCleanupMilliseconds = 10_000
+  static defaultMaxBuffer = 4 * 1024 * 1024
+  static pollMilliseconds = 50
+  static inspectionMilliseconds = 1000
+  static processTableBytes = 4 * 1024 * 1024
+
+  /** @param {CommandOptions} options */
+  constructor(options) {
+    this.options = options
+    this.started = Date.now()
+    this.timeoutMilliseconds = options.timeoutMilliseconds ?? SupervisedCommand.defaultTimeoutMilliseconds
+    this.terminationMilliseconds = options.terminationMilliseconds ?? SupervisedCommand.defaultTerminationMilliseconds
+    this.cleanupMilliseconds = options.cleanupMilliseconds ?? SupervisedCommand.defaultCleanupMilliseconds
+    this.maxBuffer = options.maxBuffer ?? SupervisedCommand.defaultMaxBuffer
+    /** @type {Map<number, ProcessIdentity>} */
+    this.owned = new Map()
+    /** @type {Map<number, ProcessIdentity>} */
+    this.baseline = new Map()
+    this.stdout = Buffer.alloc(0)
+    this.stderr = Buffer.alloc(0)
+    this.status = null
+    this.signal = null
+    this.closed = false
+    this.exited = false
+    this.timedOut = false
+    this.cleanupStarted = undefined
+    this.sentTermination = false
+    this.sentKill = false
+    /** @type {Error|undefined} */
+    this.error = undefined
+    /** @type {import('node:child_process').ChildProcessWithoutNullStreams|undefined} */
+    this.child = undefined
+    /** @type {(result:CommandResult)=>void} */
+    this.resolve = () => {}
+    /** @type {Promise<CommandResult>} */
+    this.completion = new Promise(resolve => { this.resolve = resolve })
+  }
+
+  /** @param {string} binary @param {string[]} args @param {CommandOptions} options */
+  static async start(binary, args, options = {}) {
+    const command = new SupervisedCommand(options)
+    await command.#launch(binary, args)
+    return command
+  }
+
+  /** @param {string} binary @param {string[]} args @param {CommandOptions} options */
+  static async run(binary, args, options = {}) {
+    const command = await SupervisedCommand.start(binary, args, options)
+    return await command.completion
+  }
+
+  async stop() {
+    this.#checkDeadline()
+    this.#beginCleanup()
+    return await this.completion
+  }
+
+  #validate() {
+    if (!['darwin', 'linux'].includes(process.platform)) throw new Error(`Verified process cleanup is unsupported on ${process.platform}; command was not started`)
+    for (const value of [this.timeoutMilliseconds, this.terminationMilliseconds, this.cleanupMilliseconds, this.maxBuffer]) {
+      if (!Number.isSafeInteger(value) || value < 1) throw new Error('Command limits must be positive safe integers')
+    }
+  }
+
+  async #launch(binary, args) {
+    this.#validate()
+    this.baseline = await this.#snapshot()
+    if (Date.now() - this.started >= this.timeoutMilliseconds) throw new Error('Command family deadline exceeded before launch; command was not started')
+    this.child = spawn(binary, args, { cwd: this.options.cwd, env: this.options.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
+    this.child.stdout.on('data', chunk => this.#output('stdout', chunk))
+    this.child.stderr.on('data', chunk => this.#output('stderr', chunk))
+    this.child.once('error', error => this.#fail(error))
+    this.child.once('exit', (status, signal) => {
+      this.status = status
+      this.signal = signal
+      this.exited = true
+    })
+    this.child.once('close', () => { this.closed = true })
+    void this.#watch()
+  }
+
+  #output(stream, chunk) {
+    if (this.options.failOnOutputLimit && this[stream].length + chunk.length > this.maxBuffer) this.#fail(new Error(`Command output exceeded ${this.maxBuffer} bytes`))
+    this[stream] = Buffer.concat([this[stream], chunk]).subarray(-this.maxBuffer)
+    try {
+      this.#outputListener(stream)?.(chunk)
+    } catch (error) {
+      this.#fail(error)
+    }
+  }
+
+  #outputListener(stream) {
+    if (stream === 'stdout') return this.options.onStdout
+    return this.options.onStderr
+  }
+
+  #fail(error) {
+    this.error ??= error
+    this.#beginCleanup()
+  }
+
+  #beginCleanup() {
+    this.cleanupStarted ??= Date.now()
+  }
+
+  async #snapshot() {
+    const text = await new Promise((resolve, reject) => {
+      execFile('ps', ['-axo', 'pid=,ppid=,pgid=,lstart=,stat='], {
+        encoding: 'utf8', timeout: SupervisedCommand.inspectionMilliseconds, maxBuffer: SupervisedCommand.processTableBytes,
+        env: { ...process.env, LC_ALL: 'C' },
+      }, (error, stdout) => {
+        if (error) reject(new Error(`Process identity inspection failed: ${error.message}`))
+        else resolve(stdout)
+      })
+    })
+    return this.#parseSnapshot(text)
+  }
+
+  #parseSnapshot(text) {
+    const table = new Map()
+    for (const line of text.trim().split('\n')) {
+      const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d+)\s+(\S+)\s*$/)
+      if (!match) throw new Error('Process identity inspection returned an unsupported record')
+      const identity = { pid: Number(match[1]), parent: Number(match[2]), group: Number(match[3]), started: match[4], state: match[5] }
+      table.set(identity.pid, identity)
+    }
+    return table
+  }
+
+  #sameProcess(left, right) {
+    return left?.pid === right?.pid && left?.started === right?.started
+  }
+
+  #rememberGroup(table) {
+    if (!this.child?.pid) return
+    for (const identity of table.values()) {
+      if (identity.group !== this.child.pid) continue
+      if (this.#sameProcess(identity, this.baseline.get(identity.pid))) throw new Error('Process group contains a pre-existing process; cleanup refused')
+      this.#remember(identity)
+    }
+  }
+
+  #remember(identity) {
+    const previous = this.owned.get(identity.pid)
+    if (previous && !this.#sameProcess(previous, identity)) throw new Error(`Owned process identity changed for ${identity.pid}; cleanup refused`)
+    this.owned.set(identity.pid, identity)
+  }
+
+  #rememberDescendants(table) {
+    let added = true
+    while (added) {
+      added = false
+      for (const identity of table.values()) {
+        if (this.owned.has(identity.pid)) continue
+        const parent = this.owned.get(identity.parent)
+        if (!parent || !this.#sameProcess(parent, table.get(parent.pid))) continue
+        if (this.#sameProcess(identity, this.baseline.get(identity.pid))) throw new Error('Descendant is a pre-existing process; cleanup refused')
+        this.#remember(identity)
+        added = true
+      }
+    }
+  }
+
+  #live(table) {
+    return [...this.owned.values()].filter(identity => this.#sameProcess(identity, table.get(identity.pid)) && !table.get(identity.pid).state.startsWith('Z'))
+  }
+
+  #remaining(table) {
+    return [...this.owned.values()].filter(identity => this.#sameProcess(identity, table.get(identity.pid)))
+  }
+
+  #checkDeadline() {
+    if (this.cleanupStarted !== undefined || Date.now() - this.started < this.timeoutMilliseconds) return
+    this.timedOut = true
+    this.#fail(new Error(`Command family deadline exceeded (${this.timeoutMilliseconds}ms)`))
+  }
+
+  #checkExit(live) {
+    if (!this.exited || this.cleanupStarted !== undefined) return
+    if (live.some(identity => identity.pid !== this.child.pid)) this.#fail(new Error('Command leader exited with live owned descendants'))
+    if (this.status !== 0) this.#fail(new Error(`Command exited (${this.status ?? this.signal})`))
+    this.#beginCleanup()
+  }
+
+  #cleanupExpired() {
+    return this.cleanupStarted !== undefined && Date.now() - this.cleanupStarted >= this.cleanupMilliseconds
+  }
+
+  async #signal(signal) {
+    const table = await this.#snapshot()
+    this.#rememberGroup(table)
+    this.#rememberDescendants(table)
+    const live = this.#live(table)
+    const group = live.filter(identity => table.get(identity.pid).group === this.child?.pid)
+    if (group.length > 0) this.#send(-this.child.pid, signal)
+    for (const identity of live) {
+      if (table.get(identity.pid).group === this.child?.pid) continue
+      const current = await this.#snapshot()
+      if (this.#sameProcess(identity, current.get(identity.pid))) this.#send(identity.pid, signal)
+    }
+  }
+
+  #send(pid, signal) {
+    try { process.kill(pid, signal) } catch (error) { if (error.code !== 'ESRCH') throw error }
+  }
+
+  async #clean(live) {
+    if (live.length === 0) return
+    if (!this.sentTermination) {
+      this.sentTermination = true
+      await this.#signal('SIGTERM')
+      return
+    }
+    if (!this.sentKill && Date.now() - this.cleanupStarted >= this.terminationMilliseconds) {
+      this.sentKill = true
+      await this.#signal('SIGKILL')
+    }
+  }
+
+  async #watch() {
+    try {
+      await this.#watchUntilFinished()
+    } catch (error) {
+      this.#fail(new Error(`Cleanup unconfirmed: ${error.message}`))
+      this.#finish(false)
+    }
+  }
+
+  async #watchUntilFinished() {
+    while (true) {
+      const table = await this.#snapshot()
+      this.#rememberGroup(table)
+      this.#rememberDescendants(table)
+      const live = this.#live(table)
+      this.#checkDeadline()
+      this.#checkExit(live)
+      if (this.cleanupStarted !== undefined) {
+        if (this.#remaining(table).length === 0 && this.closed) return this.#finish(true)
+        if (this.#cleanupExpired()) return this.#finish(false)
+        await this.#clean(live)
+      }
+      await new Promise(resolve => setTimeout(resolve, SupervisedCommand.pollMilliseconds))
+    }
+  }
+
+  #finish(cleanupConfirmed) {
+    if (!cleanupConfirmed) {
+      this.error = new Error(`${this.error?.message ?? 'Command stopped'}; owned family cleanup unconfirmed`)
+      this.child?.stdout.destroy()
+      this.child?.stderr.destroy()
+      this.child?.unref()
+    }
+    this.resolve({ status: this.status, signal: this.signal, stdout: this.stdout.toString(), stderr: this.stderr.toString(), error: this.error, timedOut: this.timedOut, cleanupConfirmed })
+  }
+}

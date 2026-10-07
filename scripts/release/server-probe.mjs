@@ -1,69 +1,89 @@
-import { spawn } from 'node:child_process';
+import { SupervisedCommand } from '../supervised-command.mjs'
 
-/** @typedef {(path: string, options?: RequestInit) => Promise<Response>} ProbeRequest */
+/** @typedef {(path:string, options?:RequestInit)=>Promise<Response>} ProbeRequest */
+/** @typedef {import('../supervised-command.mjs').CommandOptions & {readinessTimeoutMilliseconds?:number}} ProbeOptions */
 
-/**
- * @template T
- * @param {string} binary
- * @param {string[]} args
- * @param {(request: ProbeRequest) => Promise<T>} probe
- * @returns {Promise<T>}
- */
-export async function withServer(binary, args, probe) {
-  const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-  let closed = false;
-  /** @type {Promise<void>} */
-  const exited = new Promise(resolve => child.once('close', () => { closed = true; resolve(); }));
-  let logs = '';
-  let pending = '';
-  /** @type {ReturnType<typeof setTimeout> | undefined} */
-  let readinessTimer;
-  /** @type {Promise<string>} */
-  const ready = new Promise((resolve, reject) => {
-    readinessTimer = setTimeout(() => reject(new Error(`Server readiness timed out: ${logs}`)), 30_000);
-    child.once('error', reject);
-    child.once('close', code => reject(new Error(`Server exited before readiness (${code}): ${logs}`)));
-    child.stderr.on('data', chunk => { logs = (logs + chunk).slice(-32768); });
-    child.stdout.on('data', chunk => {
-      logs = (logs + chunk).slice(-32768);
-      pending = (pending + chunk).slice(-32768);
-      const match = pending.match(/ready at (http:\/\/127\.0\.0\.1:\d+)\//);
-      if (match) resolve(match[1]);
-    });
-  });
-  try {
-    const origin = await ready;
-    clearTimeout(readinessTimer);
-    /** @type {ProbeRequest} */
-    const request = (path, options = {}) => fetch(`${origin}${path}`, {
-      ...options, signal: AbortSignal.timeout(10_000),
-    });
-    return await probe(request);
-  } finally {
-    clearTimeout(readinessTimer);
-    await stopServer(child, exited, () => closed);
+class ServerProbe {
+  static readinessMilliseconds = 30_000
+  static requestMilliseconds = 10_000
+  static logBytes = 32768
+
+  /** @template T @param {string} binary @param {string[]} args @param {(request:ProbeRequest)=>Promise<T>} probe @param {ProbeOptions} options */
+  static async run(binary, args, probe, options) {
+    const scope = new ServerProbe(options)
+    return await scope.#run(binary, args, probe)
+  }
+
+  /** @param {ProbeOptions} options */
+  constructor(options) {
+    this.options = options
+    this.logs = ''
+    this.pending = ''
+    this.started = Date.now()
+    this.readinessMilliseconds = options.readinessTimeoutMilliseconds ?? ServerProbe.readinessMilliseconds
+    this.timeoutMilliseconds = options.timeoutMilliseconds ?? SupervisedCommand.defaultTimeoutMilliseconds
+    this.ready = new Promise(resolve => { this.resolveReady = resolve })
+  }
+
+  #output(chunk, stdout) {
+    this.logs = (this.logs + chunk).slice(-ServerProbe.logBytes)
+    if (!stdout) return
+    this.pending = (this.pending + chunk).slice(-ServerProbe.logBytes)
+    const match = this.pending.match(/ready at (http:\/\/127\.0\.0\.1:\d+)\//)
+    if (match) this.resolveReady(match[1])
+  }
+
+  #readinessFailure(result) {
+    if (result.error?.message.includes('ENOENT')) return result.error
+    return new Error(`Server exited before readiness (${result.status ?? result.signal}): ${this.logs}${result.error ? `; ${result.error.message}` : ''}`)
+  }
+
+  #probeFailure(result) {
+    if (result.error) return result.error
+    return new Error(`Server exited during probe (${result.status ?? result.signal}): ${this.logs}`)
+  }
+
+  #request(origin) {
+    return (path, options = {}) => fetch(`${origin}${path}`, {
+      ...options,
+      signal: AbortSignal.timeout(Math.max(1, Math.min(ServerProbe.requestMilliseconds, this.timeoutMilliseconds - (Date.now() - this.started)))),
+    })
+  }
+
+  async #run(binary, args, probe) {
+    if (!Number.isSafeInteger(this.readinessMilliseconds) || this.readinessMilliseconds < 1) throw new Error('Server readiness limit must be a positive safe integer')
+    const command = await SupervisedCommand.start(binary, args, {
+      ...this.options, timeoutMilliseconds: this.timeoutMilliseconds,
+      onStdout: chunk => this.#output(chunk, true), onStderr: chunk => this.#output(chunk, false),
+    })
+    let timer
+    let failure
+    try {
+      const origin = await Promise.race([
+        this.ready,
+        command.completion.then(result => { throw this.#readinessFailure(result) }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`Server readiness timed out: ${this.logs}`)), this.readinessMilliseconds) }),
+      ])
+      clearTimeout(timer)
+      return await Promise.race([
+        Promise.resolve().then(() => probe(this.#request(origin))),
+        command.completion.then(result => { throw this.#probeFailure(result) }),
+      ])
+    } catch (error) {
+      failure = error
+      throw error
+    } finally {
+      clearTimeout(timer)
+      const exited = command.exited
+      const result = await command.stop()
+      if (!result.cleanupConfirmed) throw new Error(`${failure?.message ?? ''}; Server family cleanup unconfirmed: ${result.error?.message ?? this.logs}`)
+      if (!failure && result.error) throw result.error
+      if (!failure && exited) throw this.#probeFailure(result)
+    }
   }
 }
 
-/**
- * @param {import('node:child_process').ChildProcess} child
- * @param {Promise<void>} exited
- * @param {() => boolean} isClosed
- */
-async function stopServer(child, exited, isClosed) {
-  if (!isClosed()) child.kill('SIGTERM');
-  let killTimer;
-  let deadline;
-  try {
-    killTimer = setTimeout(() => { if (!isClosed()) child.kill('SIGKILL'); }, 5000);
-    await Promise.race([
-      exited,
-      new Promise((_, reject) => {
-        deadline = setTimeout(() => reject(new Error('Server failed to exit after forced termination')), 10_000);
-      }),
-    ]);
-  } finally {
-    clearTimeout(killTimer);
-    clearTimeout(deadline);
-  }
+/** @template T @param {string} binary @param {string[]} args @param {(request:ProbeRequest)=>Promise<T>} probe @param {ProbeOptions} options @returns {Promise<T>} */
+export async function withServer(binary, args, probe, options = {}) {
+  return await ServerProbe.run(binary, args, probe, options)
 }
