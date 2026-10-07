@@ -512,7 +512,8 @@ class ${name} {
         fixtureSourcePin: JavaHttpContract.sourcePin, compilerSource: process.env.TAC_COMPILER_SOURCE_SHA,
         scriptSha256: createHash('sha256').update(await readFile(script)).digest('hex'),
         compilerSourceIsCallerSupplied: true, phase: options.phase, runtimeAttempted: true,
-        qualified: result.status === 0 && result.cleanupConfirmed && !result.timedOut && !result.error,
+        acceptanceScope: options.phase === 'all' ? 'complete-contract' : 'diagnostic-stage',
+        qualified: options.phase === 'all' && result.status === 0 && result.cleanupConfirmed && !result.timedOut && !result.error,
         ...result,
         stdout: undefined, stderr: undefined, error: result.error?.message,
       })
