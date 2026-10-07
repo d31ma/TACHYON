@@ -45,13 +45,13 @@ impl TacLanguage {
             "swift",
             "Swift",
             "swiftGreeting",
-            "Swift services run in the macOS and iOS apps. The web and the other targets use the JavaScript copy of the service.",
+            "Swift services run natively in macOS and iOS apps. On the web and the other targets, they compile to WebAssembly with the Swift SDK for WebAssembly.",
         ),
         (
             "kt,kotlin",
             "Kotlin",
             "kotlinGreeting",
-            "Kotlin services run in the Android app. The web and the other targets use the JavaScript copy of the service.",
+            "Kotlin services run natively in the Android app. On the web and the other targets, they compile to WebAssembly with garbage collection (WasmGC).",
         ),
         (
             "java",
