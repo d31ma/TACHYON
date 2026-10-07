@@ -59,6 +59,8 @@ mod native_application_tests;
 mod native_capabilities;
 #[cfg(test)]
 mod native_capability_tests;
+#[cfg(test)]
+mod native_cfg_impl_tests;
 #[cfg(all(test, target_os = "macos"))]
 mod native_file_picker_permission_tests;
 #[cfg(test)]
@@ -77,16 +79,14 @@ mod native_menu_shortcut;
 #[cfg(test)]
 mod native_packaged_utility_tests;
 #[cfg(test)]
-mod native_page_graph_tests;
-#[cfg(test)]
 mod native_page_call_contract_tests;
+#[cfg(test)]
+mod native_page_graph_tests;
 #[cfg(test)]
 mod native_rust_capability_tests;
 #[cfg(test)]
 mod native_rust_crate_tests;
 mod native_rust_project;
-#[cfg(test)]
-mod native_cfg_impl_tests;
 mod native_service_roots;
 mod native_title_bar;
 mod native_title_bar_button_inset;
