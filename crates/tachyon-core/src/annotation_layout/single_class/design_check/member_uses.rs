@@ -18,7 +18,7 @@ impl MemberUses {
             .filter(|reach| reach.beside(class.path, class.realm))
             .collect();
         Self {
-            names: Self::used_names(&beside, &forms),
+            names: Self::used_names(&beside, &forms, class, reaches),
             handed_over: beside
                 .iter()
                 .any(|reach| reach.hands_over(&forms, class.path)),
@@ -36,10 +36,19 @@ impl MemberUses {
             .collect()
     }
 
-    fn used_names(beside: &[&SourceReach], forms: &[String]) -> BTreeSet<String> {
+    fn used_names(
+        beside: &[&SourceReach],
+        forms: &[String],
+        class: &ClassFile,
+        reaches: &[SourceReach],
+    ) -> BTreeSet<String> {
+        let bridge_names = reaches.iter().flat_map(|reach| {
+            reach.sibling_bridge_names(class.path, class.realm, class.authored_extension)
+        });
         beside
             .iter()
             .flat_map(|reach| reach.used_names(forms))
+            .chain(bridge_names)
             .map(Self::plain)
             .collect()
     }

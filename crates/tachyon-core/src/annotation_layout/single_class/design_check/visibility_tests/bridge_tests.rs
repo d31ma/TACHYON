@@ -31,8 +31,13 @@ fn ty1333_script_siblings_keep_only_the_csharp_members_they_reach() {
 #[test]
 fn ty1333_sibling_bridge_reach_is_limited_to_client_services() {
     for folder in ["server/services", "client/helpers", "server/helpers"] {
-        let native = format!("{folder}/BridgeService.cs");
-        let script = format!("{folder}/BridgeService.js");
+        let name = if folder.ends_with("helpers") {
+            "BridgeHelper"
+        } else {
+            "BridgeService"
+        };
+        let native = format!("{folder}/{name}.cs");
+        let script = format!("{folder}/{name}.js");
         let csharp = BridgeCases::CSHARP.replace("Service", "Helper");
         let browser = BridgeCases::SCRIPT.replace("Service", "Helper");
         let (csharp, browser) = if folder.ends_with("helpers") {
@@ -78,5 +83,18 @@ fn ty1333_tests_and_other_realms_do_not_count_as_bridge_callers() {
     assert_eq!(
         VisibilityProject::names_in(&files, "client/services/BridgeService.cs"),
         ["Count", "Doubled", "Spare"]
+    );
+}
+
+#[test]
+fn ty1333_a_fsharp_analysis_view_is_not_a_csharp_bridge_service() {
+    let source = "[<Service>]\ntype BridgeService() =\n    member this.Doubled() : int = 2\n    member this.Spare() : int = 3\n";
+    let files = [
+        ("client/services/BridgeService.fs", source),
+        ("client/services/BridgeService.js", BridgeCases::SCRIPT),
+    ];
+    assert_eq!(
+        VisibilityProject::names_in(&files, "client/services/BridgeService.cs"),
+        ["Doubled", "Spare"]
     );
 }

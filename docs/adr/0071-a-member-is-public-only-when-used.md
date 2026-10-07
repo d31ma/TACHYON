@@ -43,7 +43,12 @@ A member stays public when one of these uses it:
 2. **Another class of the same realm.** A source file that names the class
    (its name, its instance name or a field name for it) accesses the member,
    such as `this.priceService.total()` or `PriceUtils.label(total)`. Other
-   language files of the same class (companions) do not count.
+   language files of the same class (companions) do not count, except for
+   a JavaScript or TypeScript sibling of a C# service in `client/services/`.
+   A direct `this.member` access in that sibling keeps the C# member public
+   because the page bridge needs public members. The files must have the
+   same path without their extensions. This exception does not apply to
+   server services, other role folders, same-language self-use or tests.
 3. **Tachyon.** The member has an annotation (`@OnEvent`, `@GetRoute`,
    `@OnStart`, `@Cached`, and every other marker, also an old one that
    `ty migrate fix` renames); one of its parameters has an annotation, such as
