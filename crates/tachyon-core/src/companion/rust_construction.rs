@@ -371,6 +371,300 @@ impl RustConstruction {
 #[cfg(test)]
 mod tests {
     use super::RustConstruction;
+    use crate::Failure;
+    use std::collections::BTreeSet;
+
+    fn assert_constructor_failure(failure: &Failure, path: &str, message: &str) {
+        assert_eq!(failure.diagnostics().len(), 1, "{failure}");
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.to_string(), "TY1406", "{failure}");
+        assert_eq!(diagnostic.message, message, "{failure}");
+        assert_eq!(diagnostic.spans.len(), 1, "{failure}");
+        assert_eq!(diagnostic.spans[0].file, path, "{failure}");
+        assert_eq!(diagnostic.spans[0].start, 0, "{failure}");
+        assert_eq!(diagnostic.spans[0].end, path.len() as u64, "{failure}");
+    }
+
+    #[test]
+    fn rust_constructor_name_prefixes_do_not_hide_the_real_constructor() {
+        let path = "client/services/root_service.rs";
+        for name in ["newer", "new_default", "new_service"] {
+            let source = format!(
+                "struct RootService {{ peer: PeerHelper }}\nimpl RootService {{ fn {name}() -> Self {{ Self::new(PeerHelper::default()) }} fn new(peer: PeerHelper) -> Self {{ Self {{ peer }} }} }}\n#[derive(Default)]\nstruct PeerHelper {{}}\n"
+            );
+            let inputs = RustConstruction::constructor_inputs(&source, path, "RootService")
+                .unwrap_or_else(|failure| panic!("{failure}"));
+            assert_eq!(inputs, ["PeerHelper"], "{name}");
+            let expression = RustConstruction::instance(&source, path, "RootService", false)
+                .unwrap_or_else(|failure| panic!("{failure}"));
+            assert_eq!(
+                expression, "RootService::new(<PeerHelper as ::core::default::Default>::default())",
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn rust_constructor_recognition_accepts_visibility_and_token_spacing() {
+        let path = "client/services/root_service.rs";
+        for declaration in [
+            "fn new",
+            "pub fn new",
+            "pub(crate) fn new",
+            "pub(super) fn new",
+            "pub(in crate) fn new",
+            "fn\nnew",
+            "pub fn\tnew",
+            "pub(crate) fn /* constructor */ new",
+        ] {
+            let source = format!(
+                "struct RootService {{ peer: PeerHelper }}\nimpl RootService {{ {declaration}(peer: PeerHelper) -> Self {{ Self {{ peer }} }} }}\n#[derive(Default)]\nstruct PeerHelper {{}}\n"
+            );
+            let inputs = RustConstruction::constructor_inputs(&source, path, "RootService")
+                .unwrap_or_else(|failure| panic!("{failure}"));
+            assert_eq!(inputs, ["PeerHelper"], "{declaration}");
+            let expression = RustConstruction::instance(&source, path, "RootService", false)
+                .unwrap_or_else(|failure| panic!("{failure}"));
+            assert_eq!(
+                expression, "RootService::new(<PeerHelper as ::core::default::Default>::default())",
+                "{declaration}"
+            );
+        }
+    }
+
+    #[test]
+    fn rust_constructor_recognition_ignores_similar_names_comments_and_literals() {
+        let path = "client/services/root_service.rs";
+        let source = r#"struct RootService {}
+impl RootService {
+    fn newer() -> Self { Self {} }
+    fn text() -> &'static str { "fn new() -> Self { Self {} }" }
+    // fn new() -> Self { Self {} }
+    /* fn new(peer: PeerHelper) -> Self { Self {} } */
+}
+"#;
+        let inputs = RustConstruction::constructor_inputs(source, path, "RootService")
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        assert!(inputs.is_empty(), "{inputs:?}");
+        let failure = RustConstruction::instance(source, path, "RootService", false)
+            .err()
+            .unwrap_or_else(|| panic!("a similarly named method is not a constructor"));
+        assert_constructor_failure(
+            &failure,
+            path,
+            "Companion struct 'RootService' needs a constructor.",
+        );
+    }
+
+    #[test]
+    fn rust_constructor_recognition_does_not_use_a_nested_types_constructor() {
+        let path = "client/services/root_service.rs";
+        let source = r#"struct RootService {}
+impl RootService {
+    fn prepare() {
+        struct LocalHelper {}
+        impl LocalHelper { fn new() -> Self { Self {} } }
+    }
+}
+"#;
+        let failure = RustConstruction::instance(source, path, "RootService", false)
+            .err()
+            .unwrap_or_else(|| panic!("a nested type cannot supply the service constructor"));
+        assert_constructor_failure(
+            &failure,
+            path,
+            "Companion struct 'RootService' needs a constructor.",
+        );
+    }
+
+    #[test]
+    fn rust_constructor_recognition_finds_the_direct_constructor_after_a_nested_type() {
+        let source = r#"struct RootService { peer: PeerHelper }
+impl RootService {
+    fn prepare() {
+        struct LocalHelper {}
+        impl LocalHelper { fn new() -> Self { Self {} } }
+    }
+    fn new(peer: PeerHelper) -> Self { Self { peer } }
+}
+#[derive(Default)]
+struct PeerHelper {}
+"#;
+        let path = "client/services/root_service.rs";
+        let inputs = RustConstruction::constructor_inputs(source, path, "RootService")
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(inputs, ["PeerHelper"]);
+        let expression = RustConstruction::instance(source, path, "RootService", false)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(
+            expression,
+            "RootService::new(<PeerHelper as ::core::default::Default>::default())"
+        );
+    }
+
+    #[test]
+    fn rust_constructor_inputs_keep_nested_generic_parameters_whole() {
+        let source = "struct RootService {}\nimpl RootService { fn new(values: std::collections::BTreeMap<String, Vec<(PeerHelper, StepHelper)>>, peer: Arc<PeerHelper>,) -> Self { Self {} } }\n";
+        let inputs = RustConstruction::constructor_inputs(
+            source,
+            "client/services/root_service.rs",
+            "RootService",
+        )
+        .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(
+            inputs,
+            [
+                "std::collections::BTreeMap<String, Vec<(PeerHelper, StepHelper)>>",
+                "Arc<PeerHelper>",
+            ]
+        );
+    }
+
+    #[test]
+    fn rust_constructor_inputs_keep_tuple_patterns_and_types_whole() {
+        let source = "struct RootService {}\nimpl RootService { fn new((peer, step): (PeerHelper, (StepHelper, PeerHelper)), next: PeerHelper,) -> Self { Self {} } }\n";
+        let inputs = RustConstruction::constructor_inputs(
+            source,
+            "client/services/root_service.rs",
+            "RootService",
+        )
+        .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(
+            inputs,
+            ["(PeerHelper, (StepHelper, PeerHelper))", "PeerHelper"]
+        );
+    }
+
+    #[test]
+    fn rust_constructor_inputs_keep_function_parameters_and_return_tuples_whole() {
+        let source = "struct RootService {}\nimpl RootService { fn new(callback: fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper), peer: PeerHelper) -> Self { Self {} } }\n";
+        let inputs = RustConstruction::constructor_inputs(
+            source,
+            "client/services/root_service.rs",
+            "RootService",
+        )
+        .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(
+            inputs,
+            [
+                "fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper)",
+                "PeerHelper",
+            ]
+        );
+    }
+
+    #[test]
+    fn rust_constructor_inputs_keep_nested_function_generics_and_arrays_whole() {
+        let source = "struct RootService {}\nimpl RootService { fn new(callback: Result<fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper), StepHelper>, peers: [PeerHelper; 2], next: PeerHelper) -> Self { Self {} } }\n";
+        let inputs = RustConstruction::constructor_inputs(
+            source,
+            "client/services/root_service.rs",
+            "RootService",
+        )
+        .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(
+            inputs,
+            [
+                "Result<fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper), StepHelper>",
+                "[PeerHelper; 2]",
+                "PeerHelper",
+            ]
+        );
+    }
+
+    #[test]
+    fn rust_constructor_refusals_name_the_complete_unsupported_parameter_type() {
+        let path = "client/services/root_service.rs";
+        for kind in [
+            "std::collections::BTreeMap<PeerHelper, StepHelper>",
+            "(PeerHelper, StepHelper)",
+            "fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper)",
+            "Box<dyn Fn(PeerHelper, StepHelper) -> PeerHelper>",
+        ] {
+            let source = format!(
+                "struct RootService {{}}\nimpl RootService {{ fn new(value: {kind}) -> Self {{ Self {{}} }} }}\n"
+            );
+            let failure = RustConstruction::instance(&source, path, "RootService", false)
+                .err()
+                .unwrap_or_else(|| panic!("unsupported input {kind} must be refused"));
+            assert_constructor_failure(
+                &failure,
+                path,
+                &format!(
+                    "Native Rust provider '{kind}' has no same-language declared provider for its required constructor input."
+                ),
+            );
+        }
+    }
+
+    #[test]
+    fn rust_constructor_typed_arc_providers_share_one_default_binding() {
+        let source = "struct RootService { first: Arc<PeerHelper>, second: Arc<PeerHelper> }\nimpl RootService { fn new(first: Arc<PeerHelper>, second: std::sync::Arc<PeerHelper>) -> Self { Self { first, second } } }\n#[derive(Default)]\nstruct PeerHelper {}\n";
+        let expression = RustConstruction::instance(
+            source,
+            "client/services/root_service.rs",
+            "RootService",
+            false,
+        )
+        .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(
+            expression,
+            "{ let tac_provider_0 = ::std::sync::Arc::new(<PeerHelper as ::core::default::Default>::default());\nRootService::new(::std::sync::Arc::clone(&tac_provider_0), ::std::sync::Arc::clone(&tac_provider_0)) }"
+        );
+    }
+
+    #[test]
+    fn rust_constructor_graph_resolves_typed_services_with_page_identity() {
+        let source = "struct RootService { first: Arc<PeerService>, second: Arc<PeerService>, helper: StepHelper }\nimpl RootService { fn new(first: Arc<PeerService>, second: ::std::sync::Arc<PeerService>, helper: StepHelper) -> Self { Self { first, second, helper } } }\n#[derive(Default)]\nstruct PeerService {}\n#[derive(Default)]\nstruct StepHelper {}\n";
+        let services = BTreeSet::from([String::from("PeerService")]);
+        let (expression, dependencies) = RustConstruction::graph_instance(
+            source,
+            "client/services/root_service.rs",
+            "RootService",
+            &services,
+        )
+        .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(
+            expression,
+            "RootService::new(scope.obtain(&tac_definition_PeerService())?, scope.obtain(&tac_definition_PeerService())?, <StepHelper as ::core::default::Default>::default())"
+        );
+        assert_eq!(dependencies, services);
+    }
+
+    #[test]
+    fn rust_constructor_graph_refuses_by_value_services_with_a_located_diagnostic() {
+        let path = "client/services/root_service.rs";
+        let source = "struct RootService { peer: PeerService }\nimpl RootService { fn new(peer: PeerService) -> Self { Self { peer } } }\n#[derive(Default)]\nstruct PeerService {}\n";
+        let failure = RustConstruction::graph_instance(
+            source,
+            path,
+            "RootService",
+            &BTreeSet::from([String::from("PeerService")]),
+        )
+        .err()
+        .unwrap_or_else(|| panic!("by-value services cannot preserve page identity"));
+        assert_constructor_failure(
+            &failure,
+            path,
+            "Native Rust provider 'PeerService' requires Arc<Service> for page identity; a by-value Service dependency cannot preserve the declared singleton lifetime.",
+        );
+    }
+
+    #[test]
+    fn rust_constructor_needs_all_keeps_typed_and_default_field_initialization() {
+        let source = "struct RootService { peer: PeerHelper, count: i64 }\n#[derive(Default)]\nstruct PeerHelper {}\n";
+        let expression = RustConstruction::instance(
+            source,
+            "client/services/root_service.rs",
+            "RootService",
+            true,
+        )
+        .unwrap_or_else(|failure| panic!("{failure}"));
+        assert_eq!(
+            expression,
+            "RootService { peer: <PeerHelper as ::core::default::Default>::default(), count: ::core::default::Default::default() }"
+        );
+    }
 
     #[test]
     fn rust_provider_construction_reports_a_typed_dependency_cycle() {
@@ -386,6 +680,11 @@ mod tests {
         assert!(
             failure.to_string().contains("dependency cycle"),
             "{failure}"
+        );
+        assert_constructor_failure(
+            &failure,
+            "client/services/RootService.rs",
+            "Native Rust provider 'RootService' contains a dependency cycle or exceeds 32 provider levels.",
         );
     }
 
@@ -423,6 +722,11 @@ mod tests {
         assert!(
             failure.to_string().contains("needs a constructor"),
             "{failure}"
+        );
+        assert_constructor_failure(
+            &failure,
+            "client/services/RootService.rs",
+            "Companion struct 'RootService' needs a constructor.",
         );
     }
 
