@@ -218,15 +218,11 @@ async fn compile_swift(
     arguments.extend(["-o", executable, source]);
     arguments.extend(companion);
     arguments.extend(archive);
-    if let Some(compiled) = library {
-        arguments.extend(
-            compiled
-                .native_libraries
-                .arguments
-                .iter()
-                .map(String::as_str),
-        );
-    }
+    let native_arguments = library
+        .into_iter()
+        .flat_map(|compiled| compiled.native_libraries.arguments.iter())
+        .map(String::as_str);
+    arguments.extend(native_arguments);
     run_tool("/usr/bin/xcrun", &arguments).await?;
     Ok(version)
 }

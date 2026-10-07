@@ -132,6 +132,7 @@ mod registry;
 mod routes;
 mod rust;
 mod rust_companion_crate;
+mod rust_companion_output;
 mod rust_crate_build;
 mod rust_dependency;
 #[cfg(test)]

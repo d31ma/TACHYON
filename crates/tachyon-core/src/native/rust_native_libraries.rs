@@ -15,18 +15,33 @@ impl RustNativeLibraries {
     const FRAMEWORK: &'static str = "-framework";
 
     pub(super) fn read(output: &ToolOutput) -> Result<Self, Failure> {
+        Self::require_successful_compilation(output)?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Self::parse(&format!("{stdout}\n{stderr}"))
+    }
+
+    fn require_successful_compilation(output: &ToolOutput) -> Result<(), Failure> {
         if !output.status.success() {
             return Err(native_tool_failure(
                 1605,
                 "The Rust compilation failed; its static library requirements cannot be used.",
             ));
         }
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Self::parse(&format!("{stdout}\n{stderr}"))
+        Ok(())
     }
 
     fn parse(output: &str) -> Result<Self, Failure> {
+        let text = Self::metadata(output)?;
+        let arguments = text
+            .split_whitespace()
+            .map(String::from)
+            .collect::<Vec<_>>();
+        Self::require_arguments(&arguments)?;
+        Ok(Self { arguments })
+    }
+
+    fn metadata(output: &str) -> Result<&str, Failure> {
         let mut metadata = output.lines().filter_map(|line| {
             let line = line.trim().strip_prefix("note: ").unwrap_or(line.trim());
             line.strip_prefix(Self::MARKER)
@@ -35,36 +50,57 @@ impl RustNativeLibraries {
         if metadata.next().is_some() {
             return Err(Self::invalid());
         }
-        let arguments = text
-            .split_whitespace()
-            .map(String::from)
-            .collect::<Vec<_>>();
-        let mut index = 0;
-        while index < arguments.len() {
-            let argument = &arguments[index];
-            if argument == Self::FRAMEWORK {
-                index += 1;
-                let name = arguments.get(index).ok_or_else(Self::invalid)?;
-                Self::valid_name(name)
-                    .then_some(())
-                    .ok_or_else(Self::invalid)?;
-            } else {
-                let name = argument.strip_prefix("-l").ok_or_else(Self::invalid)?;
-                Self::valid_name(name)
-                    .then_some(())
-                    .ok_or_else(Self::invalid)?;
-            }
-            index += 1;
-        }
-        Ok(Self { arguments })
+        Ok(text)
     }
 
-    fn valid_name(name: &str) -> bool {
-        !name.is_empty()
-            && !name.starts_with('-')
-            && name.chars().all(|character| {
-                character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.' | '+')
-            })
+    fn require_arguments(arguments: &[String]) -> Result<(), Failure> {
+        let mut index = 0;
+        while index < arguments.len() {
+            index += Self::argument_width(arguments, index)?;
+        }
+        Ok(())
+    }
+
+    fn argument_width(arguments: &[String], index: usize) -> Result<usize, Failure> {
+        let argument = &arguments[index];
+        if argument == Self::FRAMEWORK {
+            let name = arguments.get(index + 1).ok_or_else(Self::invalid)?;
+            Self::require_name(name)?;
+            return Ok(2);
+        }
+        let name = argument.strip_prefix("-l").ok_or_else(Self::invalid)?;
+        Self::require_name(name)?;
+        Ok(1)
+    }
+
+    fn require_name(name: &str) -> Result<(), Failure> {
+        Self::require_nonempty_name(name)?;
+        Self::require_name_without_flag_prefix(name)?;
+        name.chars()
+            .all(Self::valid_character)
+            .then_some(())
+            .ok_or_else(Self::invalid)
+    }
+
+    fn require_nonempty_name(name: &str) -> Result<(), Failure> {
+        if name.is_empty() {
+            return Err(Self::invalid());
+        }
+        Ok(())
+    }
+
+    fn require_name_without_flag_prefix(name: &str) -> Result<(), Failure> {
+        if name.starts_with('-') {
+            return Err(Self::invalid());
+        }
+        Ok(())
+    }
+
+    fn valid_character(character: char) -> bool {
+        match character {
+            '_' | '-' | '.' | '+' => true,
+            _ => character.is_ascii_alphanumeric(),
+        }
     }
 
     fn missing() -> Failure {

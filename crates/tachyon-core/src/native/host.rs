@@ -55,6 +55,18 @@ impl NativeHost {
         Self::supervised_output(program, &mut command, Self::LONG_TOOL_TIME_LIMIT).await
     }
 
+    pub(super) async fn run_tool_output(
+        program: &str,
+        arguments: &[&str],
+    ) -> Result<ToolOutput, Failure> {
+        let mut command = Command::new(program);
+        command
+            .args(arguments)
+            .stdin(Stdio::null())
+            .kill_on_drop(true);
+        Self::supervised_output(program, &mut command, Self::TOOL_TIME_LIMIT).await
+    }
+
     async fn supervised_output(
         program: &str,
         command: &mut Command,
@@ -147,18 +159,6 @@ pub(super) fn write_host_source(path: &Path, source: &str) -> Result<(), Failure
 
 pub(super) async fn run_tool(program: &str, arguments: &[&str]) -> Result<String, Failure> {
     run_tool_in(program, arguments, None).await
-}
-
-pub(super) async fn run_tool_output(
-    program: &str,
-    arguments: &[&str],
-) -> Result<ToolOutput, Failure> {
-    let mut command = Command::new(program);
-    command
-        .args(arguments)
-        .stdin(Stdio::null())
-        .kill_on_drop(true);
-    NativeHost::supervised_output(program, &mut command, NativeHost::TOOL_TIME_LIMIT).await
 }
 
 pub(super) async fn run_tool_in(

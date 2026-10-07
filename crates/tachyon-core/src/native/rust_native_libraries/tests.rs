@@ -134,3 +134,81 @@ fn static_native_link_refuses_malformed_frameworks_and_unknown_flags() {
 fn static_native_link_default_does_not_add_libraries_to_shared_targets() {
     assert!(RustNativeLibraries::default().arguments.is_empty());
 }
+
+#[test]
+fn static_native_link_name_alphabet_matches_the_exact_ascii_contract() {
+    for value in 0_u8..=127 {
+        let character = char::from(value);
+        let name = format!("Library{character}Name");
+        let expected =
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.' | '+');
+        assert_eq!(
+            RustNativeLibraries::require_name(&name).is_ok(),
+            expected,
+            "wrong acceptance for ASCII byte {value}"
+        );
+        let leading_name = format!("{character}Library");
+        assert_eq!(
+            RustNativeLibraries::require_name(&leading_name).is_ok(),
+            expected && character != '-',
+            "wrong leading-character acceptance for ASCII byte {value}"
+        );
+    }
+}
+
+#[test]
+fn static_native_link_name_boundaries_keep_the_exact_refusal_diagnostic() {
+    let expected = RustNativeLibraries::invalid().to_string();
+    for name in [
+        "",
+        "-",
+        "-System",
+        "Å",
+        "Library中",
+        "Library\u{fffd}",
+        "Library💡",
+    ] {
+        let error = RustNativeLibraries::require_name(name)
+            .err()
+            .unwrap_or_else(|| panic!("invalid name was accepted: {name:?}"));
+        assert_eq!(error.to_string(), expected, "{name:?}");
+    }
+    for arguments in ["-l", "-l-System", "-framework", "-framework -System"] {
+        let error = RustNativeLibraries::parse(&format!("native-static-libs: {arguments}"))
+            .err()
+            .unwrap_or_else(|| panic!("invalid token boundary was accepted: {arguments}"));
+        assert_eq!(error.to_string(), expected, "{arguments}");
+    }
+}
+
+#[test]
+fn static_native_link_marker_whitespace_keeps_record_and_token_boundaries() {
+    for metadata in [
+        "\t native-static-libs:\t-lsqlite3\t-framework Security \t",
+        "\t note: native-static-libs: -lsqlite3 -framework Security \t",
+    ] {
+        let libraries = RustNativeLibraries::parse(metadata)
+            .unwrap_or_else(|error| panic!("{metadata:?}: {error}"));
+        assert_eq!(libraries.arguments, ["-lsqlite3", "-framework", "Security"]);
+    }
+    let missing = RustNativeLibraries::missing().to_string();
+    for metadata in [
+        "note:\tnative-static-libs: -lSystem",
+        "note:native-static-libs: -lSystem",
+        "warning: native-static-libs: -lSystem",
+    ] {
+        let error = RustNativeLibraries::parse(metadata)
+            .err()
+            .unwrap_or_else(|| panic!("wrong marker prefix was accepted: {metadata}"));
+        assert_eq!(error.to_string(), missing, "{metadata}");
+    }
+    let error = RustNativeLibraries::parse(
+        "native-static-libs: -lSystem\n\t note: native-static-libs: -lSystem",
+    )
+    .err()
+    .unwrap_or_else(|| panic!("duplicate records were accepted"));
+    assert_eq!(
+        error.to_string(),
+        RustNativeLibraries::invalid().to_string()
+    );
+}
