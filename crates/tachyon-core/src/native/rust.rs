@@ -173,8 +173,14 @@ impl RustCompanion {
         if build.declaration.uses_cargo() {
             return build.build(linkage, target_triple, library, helpers).await;
         }
-        let (_, native_libraries) =
-            compile_output(build.source, linkage, target_triple, library).await?;
+        let (_, native_libraries) = compile_output(
+            build.source,
+            linkage,
+            target_triple,
+            library,
+            linkage == Linkage::Static,
+        )
+        .await?;
         Ok(RustCompanionOutput {
             library: library.to_path_buf(),
             executables: Vec::new(),
@@ -235,7 +241,7 @@ pub(super) async fn compile(
     target_triple: Option<&str>,
     output: &Path,
 ) -> Result<String, Failure> {
-    compile_output(source, linkage, target_triple, output)
+    compile_output(source, linkage, target_triple, output, false)
         .await
         .map(|(version, _)| version)
 }
@@ -245,6 +251,7 @@ async fn compile_output(
     linkage: Linkage,
     target_triple: Option<&str>,
     output: &Path,
+    report_native_libraries: bool,
 ) -> Result<(String, RustNativeLibraries), Failure> {
     if let Some(parent) = output.parent() {
         super::host::native_io(std::fs::create_dir_all(parent), parent)?;
@@ -267,11 +274,11 @@ async fn compile_output(
         arguments.extend(["--target", triple]);
     }
     arguments.extend(linkage.profile_arguments());
-    if linkage == Linkage::Static {
+    if report_native_libraries {
         arguments.push("--print=native-static-libs");
     }
     let compiled = run_tool_output("rustc", &arguments).await?;
-    let native_libraries = if linkage == Linkage::Static {
+    let native_libraries = if report_native_libraries {
         RustNativeLibraries::read(&compiled)?
     } else {
         RustNativeLibraries::default()

@@ -203,6 +203,52 @@ async fn the_linux_bundle_places_the_helper_beside_the_host_and_it_runs() {
 
 #[cfg(target_os = "macos")]
 #[tokio::test]
+#[ignore = "Builds and signs the full macOS host using direct rustc and existing system SQLite; run explicitly on the Mac lane"]
+async fn static_native_link_macos_without_cargo_links_sqlite() {
+    let root = NativeRustCrateTests::project(NativeTarget::Macos);
+    let manifest_path = root.path().join("client/manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&manifest_path).expect("manifest"))
+            .expect("manifest JSON");
+    manifest["tac"]["application"]
+        .as_object_mut()
+        .expect("application")
+        .remove("rust");
+    NativeRustCrateTests::write(&manifest_path, &manifest.to_string());
+    NativeRustCrateTests::write(
+        &root.path().join("client/services/GreetingService.rs"),
+        r#"
+#[Service]
+#[derive(Default)]
+struct GreetingService {
+    text: String,
+}
+
+impl GreetingService {
+    fn greet(&mut self) {
+        #[link(name = "sqlite3")]
+        unsafe extern "C" {
+            fn sqlite3_libversion_number() -> i32;
+        }
+        self.text = unsafe { sqlite3_libversion_number() }.to_string();
+    }
+}
+"#,
+    );
+    let output = NativeRustCrateTests::build(root.path(), NativeTarget::Macos, true).await;
+    let bundle = output.join("Greeter.app");
+    assert!(bundle.join("Contents/MacOS/Greeter").is_file());
+    let bundle_path = bundle.to_str().expect("bundle path");
+    super::host::run_tool(
+        "/usr/bin/codesign",
+        &["--verify", "--deep", "--strict", bundle_path],
+    )
+    .await
+    .expect("the direct Rust host signature is valid");
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
 #[ignore = "Builds and signs the full macOS host twice using existing system SQLite; run explicitly on the Mac lane"]
 async fn static_native_link_macos_sqlite_archive_and_helper_build_repeatedly() {
     let root = NativeRustCrateTests::project(NativeTarget::Macos);
