@@ -407,9 +407,10 @@ declare global {
   interface PageVisibility { visible(): boolean; }
   /** Preferences: the color scheme, the motion setting and the language of the browser. Listen for `PreferencesChanged` to hear changes (ADR 0065). */
   interface Preferences { scheme(): 'light' | 'dark'; motion(): 'reduce' | 'no-preference'; language(): string; }
-  /** Clipboard: copies and reads text (ADR 0065). Grant "clipboard" in tac.browserApis and call it from a click or key handler. `readText` answers with a `ClipboardTextRead` event; a failure sends `BrowserCallFailed`. */
+  /** PreferenceStrings: reads and writes short raw strings in browser `localStorage`. Grant "preferenceStrings" in tac.browserApis. `read` returns `null` for a missing key or a refused or failed call; `write` returns `false` for a refused or failed call. */
   interface PreferenceStrings { read(key: string): string | null; write(key: string, value: string): boolean; }
   interface DocumentTitle { set(title: string): void; }
+  /** Clipboard: copies and reads text (ADR 0065). Grant "clipboard" in tac.browserApis and call it from a click or key handler. `readText` answers with a `ClipboardTextRead` event; a failure sends `BrowserCallFailed`. */
   interface TacClipboard { writeText(text: string): null; readText(): null; }
   /** Share: opens the share sheet of the device (ADR 0065). Grant "share" in tac.browserApis and call it from a click or key handler. Answers with `ShareFinished` or `BrowserCallFailed`. */
   interface TacShare { open(title: string, text: string, url: string): null; }
@@ -417,9 +418,11 @@ declare global {
   interface TacNotifications { permission(): NotificationPermission; requestPermission(): null; show(title: string, body: string): null; }
   /** Geolocation: the position of the device (ADR 0065). Grant "geolocation" in tac.browserApis. `currentPosition` answers with `PositionFound` or `BrowserCallFailed`. */
   interface TacGeolocation { currentPosition(): null; }
-  /** WindowControls: the controls of the native app window (ADR 0087). Grant them in tac.application.window.controls. `granted` answers false in a browser tab; a call to a control that is not granted throws. */
+  /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
+  /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
   interface TacFilePicker { available(): boolean; open(options?: { multiple?: false; types?: ('text/plain' | 'application/json')[] }): Promise<TacFilePickerResult>; readText(handle: string): Promise<TacFilePickerResult>; release(handle: string): Promise<TacFilePickerResult>; }
+  /** WindowControls: the controls of the native app window (ADR 0087). Grant them in tac.application.window.controls. `granted` answers false in a browser tab; a call to a control that is not granted throws. */
   interface TacWindowControls { granted(control: 'close' | 'fullscreen' | 'maximize' | 'minimize' | 'resize' | 'title'): boolean; minimize(): null; maximize(): null; fullscreen(): null; close(): null; resize(width: number, height: number): null; setTitle(text: string): null; }
   /** ConnectivityChanged: a built-in event model. The page publishes it when the browser goes online or offline (ADR 0065). */
   interface ConnectivityChanged { online: boolean; }
