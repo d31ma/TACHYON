@@ -1,4 +1,5 @@
-use super::host::{native_tool_failure, run_tool, write};
+use super::host::{native_tool_failure, run_tool, run_tool_output, write};
+use super::rust_native_libraries::RustNativeLibraries;
 use super::rust_web_module::RustWebModule;
 use crate::Failure;
 use crate::wasm_release_step::WasmReleaseStep;
@@ -6,6 +7,12 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 pub(crate) struct RustCompanion;
+
+pub(super) struct RustCompanionOutput {
+    pub(super) library: PathBuf,
+    pub(super) executables: Vec<PathBuf>,
+    pub(super) native_libraries: RustNativeLibraries,
+}
 
 impl RustCompanion {
     const PRELUDE: &str = concat!(
@@ -149,7 +156,7 @@ impl RustCompanion {
         target_triple: Option<&str>,
         library: &Path,
         helpers: &Path,
-    ) -> Result<Vec<PathBuf>, Failure> {
+    ) -> Result<RustCompanionOutput, Failure> {
         let build = application
             .rust
             .crate_build(source, &application.application_id);
@@ -162,12 +169,23 @@ impl RustCompanion {
         target_triple: Option<&str>,
         library: &Path,
         helpers: &Path,
-    ) -> Result<Vec<PathBuf>, Failure> {
+    ) -> Result<RustCompanionOutput, Failure> {
         if build.declaration.uses_cargo() {
             return build.build(linkage, target_triple, library, helpers).await;
         }
-        compile(build.source, linkage, target_triple, library).await?;
-        Ok(Vec::new())
+        let (_, native_libraries) = compile_output(
+            build.source,
+            linkage,
+            target_triple,
+            library,
+            linkage == Linkage::Static,
+        )
+        .await?;
+        Ok(RustCompanionOutput {
+            library: library.to_path_buf(),
+            executables: Vec::new(),
+            native_libraries,
+        })
     }
 
     fn stage_crate(
@@ -223,6 +241,18 @@ pub(super) async fn compile(
     target_triple: Option<&str>,
     output: &Path,
 ) -> Result<String, Failure> {
+    compile_output(source, linkage, target_triple, output, false)
+        .await
+        .map(|(version, _)| version)
+}
+
+async fn compile_output(
+    source: &Path,
+    linkage: Linkage,
+    target_triple: Option<&str>,
+    output: &Path,
+    report_native_libraries: bool,
+) -> Result<(String, RustNativeLibraries), Failure> {
     if let Some(parent) = output.parent() {
         super::host::native_io(std::fs::create_dir_all(parent), parent)?;
     }
@@ -244,8 +274,16 @@ pub(super) async fn compile(
         arguments.extend(["--target", triple]);
     }
     arguments.extend(linkage.profile_arguments());
-    run_tool("rustc", &arguments).await?;
-    Ok(version)
+    if report_native_libraries {
+        arguments.push("--print=native-static-libs");
+    }
+    let compiled = run_tool_output("rustc", &arguments).await?;
+    let native_libraries = if report_native_libraries {
+        RustNativeLibraries::read(&compiled)?
+    } else {
+        RustNativeLibraries::default()
+    };
+    Ok((version, native_libraries))
 }
 
 pub(crate) fn tac_value_source() -> &'static str {

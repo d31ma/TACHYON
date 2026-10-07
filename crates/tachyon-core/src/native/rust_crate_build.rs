@@ -1,6 +1,7 @@
 use super::host::{native_io, native_tool_failure, write};
-use super::rust::Linkage;
+use super::rust::{Linkage, RustCompanionOutput};
 use super::rust_companion_crate::RustCompanionCrate;
+use super::rust_native_libraries::RustNativeLibraries;
 use crate::Failure;
 use std::path::{Path, PathBuf};
 
@@ -59,12 +60,15 @@ impl RustCrateBuild<'_> {
         target_triple: Option<&str>,
         library: &Path,
         helpers: &Path,
-    ) -> Result<Vec<PathBuf>, Failure> {
+    ) -> Result<RustCompanionOutput, Failure> {
         let manifest = self.project_folder().join(Self::MANIFEST);
         self.require_vendored_crates(&manifest)?;
         let arguments = self.cargo_arguments(&manifest, &self.target, target_triple)?;
         let borrowed = arguments.iter().map(String::as_str).collect::<Vec<_>>();
         super::host::NativeHost::run_long_tool("cargo", &borrowed).await?;
+        let native_libraries = self
+            .native_libraries(linkage, &manifest, target_triple)
+            .await?;
         let built = target_triple.map_or_else(
             || self.target.join(Self::RELEASE),
             |triple| self.target.join(triple).join(Self::RELEASE),
@@ -73,11 +77,43 @@ impl RustCrateBuild<'_> {
         let library_file = Self::library_file(linkage, target_triple, windows);
         Self::copy(&built.join(library_file), library)?;
         let suffix = Self::EXECUTABLE_SUFFIXES[usize::from(windows)];
-        self.declaration
+        let executables = self
+            .declaration
             .executables
             .keys()
             .map(|name| Self::place_helper(&built, helpers, &format!("{name}{suffix}")))
-            .collect()
+            .collect::<Result<Vec<_>, Failure>>()?;
+        Ok(RustCompanionOutput {
+            library: library.to_path_buf(),
+            executables,
+            native_libraries,
+        })
+    }
+
+    async fn native_libraries(
+        &self,
+        linkage: Linkage,
+        manifest: &Path,
+        target_triple: Option<&str>,
+    ) -> Result<RustNativeLibraries, Failure> {
+        if linkage != Linkage::Static {
+            return Ok(RustNativeLibraries::default());
+        }
+        let arguments = self.native_library_arguments(manifest, target_triple)?;
+        let borrowed = arguments.iter().map(String::as_str).collect::<Vec<_>>();
+        let output = super::host::NativeHost::run_long_tool_output("cargo", &borrowed).await?;
+        RustNativeLibraries::read(&output)
+    }
+
+    fn native_library_arguments(
+        &self,
+        manifest: &Path,
+        target_triple: Option<&str>,
+    ) -> Result<Vec<String>, Failure> {
+        let mut arguments = self.cargo_arguments(manifest, &self.target, target_triple)?;
+        arguments[0] = String::from("rustc");
+        arguments.extend(["--lib", "--", "--print=native-static-libs"].map(String::from));
+        Ok(arguments)
     }
 
     fn project_folder(&self) -> PathBuf {

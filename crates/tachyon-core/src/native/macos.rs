@@ -76,7 +76,7 @@ impl MacOsHostGenerator {
         let swift_version = compile_swift(
             &swift_path,
             companion.as_deref(),
-            library.as_deref(),
+            library.as_ref(),
             &executable,
         )
         .await?;
@@ -111,7 +111,7 @@ async fn compile_rust_library(
     application: &NativeApplication,
     rust_companion: Option<&Path>,
     stage: &Path,
-) -> Result<Option<PathBuf>, Failure> {
+) -> Result<Option<super::rust::RustCompanionOutput>, Failure> {
     let Some(source) = rust_companion else {
         return Ok(None);
     };
@@ -128,8 +128,8 @@ async fn compile_rust_library(
         &helpers,
     )
     .await?;
-    MacOsHostGenerator::sign_helpers(&placed).await?;
-    Ok(Some(path))
+    MacOsHostGenerator::sign_helpers(&placed.executables).await?;
+    Ok(Some(placed))
 }
 
 pub(super) fn stage_swift_companion(
@@ -194,7 +194,7 @@ pub(super) fn optional_unicode_path<'a>(
 async fn compile_swift(
     source: &Path,
     companion: Option<&Path>,
-    library: Option<&Path>,
+    library: Option<&super::rust::RustCompanionOutput>,
     executable: &Path,
 ) -> Result<String, Failure> {
     if !cfg!(target_os = "macos") {
@@ -209,12 +209,24 @@ async fn compile_swift(
     let executable = unicode_path(executable, "Application path is not valid Unicode.")?;
     let companion =
         optional_unicode_path(companion, "Companion source path is not valid Unicode.")?;
-    let library = optional_unicode_path(library, "Companion library path is not valid Unicode.")?;
+    let archive = optional_unicode_path(
+        library.map(|compiled| compiled.library.as_path()),
+        "Companion library path is not valid Unicode.",
+    )?;
     let mut arguments = vec!["swiftc", "-parse-as-library", "-O"];
     arguments.extend(MacOsHostGenerator::FRAMEWORK_ARGUMENTS);
     arguments.extend(["-o", executable, source]);
     arguments.extend(companion);
-    arguments.extend(library);
+    arguments.extend(archive);
+    if let Some(compiled) = library {
+        arguments.extend(
+            compiled
+                .native_libraries
+                .arguments
+                .iter()
+                .map(String::as_str),
+        );
+    }
     run_tool("/usr/bin/xcrun", &arguments).await?;
     Ok(version)
 }

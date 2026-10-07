@@ -264,13 +264,47 @@ async fn a_vendored_platform_crate_and_a_helper_executable_build_offline_and_run
         .unwrap_or_else(|error| panic!("{error}"));
     assert!(library.is_file());
     let suffix = if cfg!(windows) { ".exe" } else { "" };
-    assert_eq!(placed, vec![bin.join(format!("probe-helper{suffix}"))]);
-    let output = std::process::Command::new(&placed[0])
+    assert_eq!(placed.library, library);
+    assert!(placed.native_libraries.arguments.is_empty());
+    assert_eq!(
+        placed.executables,
+        vec![bin.join(format!("probe-helper{suffix}"))]
+    );
+    let output = std::process::Command::new(&placed.executables[0])
         .output()
         .unwrap_or_else(|error| panic!("helper runs: {error}"));
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8_lossy(&output.stdout).trim(),
         format!("hello from {}", RustCrateBuildTests::platform())
+    );
+}
+
+#[test]
+fn static_native_link_cargo_query_preserves_offline_target_and_vendor_arguments() {
+    let declaration = RustCrateBuildTests::declaration("/shared/native/ProbeMain.rs");
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
+    let paths = RustCrateBuildTests::project(root.path());
+    let build = RustCrateBuildTests::build(&declaration, &paths, root.path().join("target"));
+    let manifest = Path::new("Cargo.toml");
+    let triple = Some("aarch64-apple-darwin");
+    let ordinary = build
+        .cargo_arguments(manifest, &build.target, triple)
+        .unwrap_or_else(|error| panic!("{error}"));
+    let query = build
+        .native_library_arguments(manifest, triple)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(query[0], "rustc");
+    assert_eq!(&query[1..ordinary.len()], &ordinary[1..]);
+    assert_eq!(
+        &query[ordinary.len()..],
+        ["--lib", "--", "--print=native-static-libs"]
+    );
+    assert!(query.iter().any(|argument| argument == "--offline"));
+    assert!(query.iter().any(|argument| argument == "net.offline=true"));
+    assert!(
+        query
+            .iter()
+            .any(|argument| argument.starts_with("source.tachyon-vendored.directory="))
     );
 }
