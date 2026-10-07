@@ -327,6 +327,367 @@ fn with_authored_paths(failure: &Failure, packages: usize) -> Failure {
 mod tests {
     use super::*;
 
+    struct PageFixtures;
+
+    impl PageFixtures {
+        const WRITER: &str = r#"package main
+
+import "strings"
+
+// @Service
+// @NeedsAll
+type WriterService struct {
+    Count int
+    Label string
+    publisher ApplicationEventPublisher
+    context *BehaviorContext
+    client *PageClient
+}
+
+// @OnStart
+func (writer *WriterService) Boot() error {
+    context, err := BehaviorsCreate[PageSetup](NewBehaviorOptions("public-writer", NewBehaviorSignal()))
+    if err != nil { return err }
+    writer.context = context
+    writer.client = NewPageClientWith(context)
+    writer.Label = strings.ToUpper("writer")
+    return nil
+}
+
+// @OnStop
+func (writer *WriterService) Close() { writer.context.Dispose() }
+
+func (writer *WriterService) Inspect() error {
+    state, err := writer.client.Read()
+    writer.Count = state.Count
+    return err
+}
+"#;
+        const READER: &str = r#"package main
+
+import "strconv"
+
+// @Service
+type ReaderService struct {
+    Count int
+    Label string
+    publisher *ApplicationEventPublisher
+    context *BehaviorContext
+    client *PageClient
+}
+
+// @OnStart
+func (reader *ReaderService) Begin() error {
+    context, err := BehaviorsCreate[PageSetup](NewBehaviorOptions("public-reader", NewBehaviorSignal()))
+    if err != nil { return err }
+    reader.context = context
+    reader.client = NewPageClientWith(context)
+    reader.Label = strconv.Itoa(0)
+    return nil
+}
+
+// @OnStop
+func (reader *ReaderService) End() { reader.context.Dispose() }
+
+func (reader *ReaderService) Inspect() error {
+    state, err := reader.client.Read()
+    reader.Count = state.Count
+    return err
+}
+"#;
+        const SETUP: &str = r#"package main
+
+// @Setup
+type PageSetup struct { Count int }
+
+func (setup *PageSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {
+    configuration := NewBehaviorConfiguration()
+    configuration.Http["page"] = setup
+    return configuration, nil
+}
+
+func (setup *PageSetup) Exchange(request *BehaviorHttpRequest, execution *BehaviorExecution) (BehaviorValue, error) {
+    if err := execution.Check(); err != nil { return nil, err }
+    return PageSnapshot{Count: setup.Count}, nil
+}
+"#;
+        const CLIENT: &str = r#"package main
+
+// @HTTPClient({"adapter":"page","path":"/page","setup":"PageSetup"})
+type PageClient interface {
+    // @GetRequest("/read")
+    Read() (PageSnapshot, error)
+}
+"#;
+        const MODEL: &str = "package main\n\ntype PageSnapshot struct { Count int }\n";
+
+        fn write(root: &Path, relative: &str, source: &str) {
+            let path = root.join(relative);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
+            std::fs::write(path, source).expect("authored source");
+        }
+
+        fn project() -> tempfile::TempDir {
+            let root = tempfile::tempdir().expect("project");
+            for (relative, source) in [
+                ("client/services/WriterService.go", Self::WRITER),
+                ("client/services/ReaderService.go", Self::READER),
+                ("client/setups/PageSetup.go", Self::SETUP),
+                ("client/remotes/PageClient.go", Self::CLIENT),
+                ("client/models/PageSnapshot.go", Self::MODEL),
+            ] {
+                Self::write(root.path(), relative, source);
+            }
+            root
+        }
+
+        fn services(root: &Path) -> Vec<(String, String, PathBuf)> {
+            ["WriterService", "ReaderService"]
+                .into_iter()
+                .map(|class| {
+                    (
+                        class.trim_end_matches("Service").to_ascii_lowercase(),
+                        String::from(class),
+                        root.join(format!("client/services/{class}.go")),
+                    )
+                })
+                .collect()
+        }
+
+        fn text(files: &[(PathBuf, String)]) -> String {
+            files
+                .iter()
+                .map(|(_, text)| text.as_str())
+                .collect::<Vec<_>>()
+                .join("\n")
+        }
+
+        fn file<'a>(files: &'a [(PathBuf, String)], needle: &str) -> (&'a Path, &'a str) {
+            let (path, text) = files
+                .iter()
+                .find(|(_, text)| text.contains(needle))
+                .expect(needle);
+            (path.as_path(), text.as_str())
+        }
+    }
+
+    #[test]
+    fn page_composition_emits_common_roles_models_and_configuration_once() {
+        let root = PageFixtures::project();
+        let files =
+            program_files(root.path(), &PageFixtures::services(root.path())).expect("page source");
+        let source = PageFixtures::text(&files);
+        for declaration in [
+            "type PageSetup struct",
+            "type PageClient struct",
+            "type PageSnapshot struct",
+            "func (PageSetup) behaviorConfigure",
+            "var behaviorSetups =",
+        ] {
+            assert_eq!(source.matches(declaration).count(), 1, "{declaration}");
+        }
+        let (writer, _) = PageFixtures::file(&files, "type WriterService struct");
+        let (reader, _) = PageFixtures::file(&files, "type ReaderService struct");
+        assert_eq!(writer.parent(), reader.parent());
+        for declaration in [
+            "type PageSetup struct",
+            "type PageClient struct",
+            "type PageSnapshot struct",
+        ] {
+            let (file, _) = PageFixtures::file(&files, declaration);
+            assert_eq!(file.parent(), writer.parent(), "{declaration}");
+        }
+    }
+
+    #[test]
+    fn page_composition_keeps_distinct_factories_required_types_and_context_options() {
+        let root = PageFixtures::project();
+        let files =
+            program_files(root.path(), &PageFixtures::services(root.path())).expect("page source");
+        let source = PageFixtures::text(&files);
+        for class in ["WriterService", "ReaderService"] {
+            assert!(source.contains(&format!(
+                "func TacCreate{class}() []tac.Member {{\n\tinstance := &{class}{{}}"
+            )));
+        }
+        let (_, registry) = PageFixtures::file(&files, "func registerServices()");
+        let (writer, _) = PageFixtures::file(&files, "type WriterService struct");
+        let package = writer.parent().expect("package").to_string_lossy();
+        assert_eq!(
+            registry
+                .matches(&format!("\"tachyonservices/{package}\""))
+                .count(),
+            1
+        );
+        assert!(registry.contains(&format!(
+            "tac.Register(\"writer\", {package}.TacCreateWriterService, []string{{\"*\"}})"
+        )));
+        assert!(registry.contains(&format!(
+            "tac.Register(\"reader\", {package}.TacCreateReaderService, []string{{}})"
+        )));
+        assert!(source.contains("publisher ApplicationEventPublisher"));
+        assert!(source.contains("publisher *ApplicationEventPublisher"));
+        for partition in ["public-writer", "public-reader"] {
+            assert!(source.contains(&format!(
+                "NewBehaviorOptions(\"{partition}\", NewBehaviorSignal())"
+            )));
+        }
+        assert_eq!(source.matches("import \"strings\"").count(), 1);
+        assert_eq!(source.matches("import \"strconv\"").count(), 1);
+    }
+
+    #[test]
+    fn page_composition_keeps_lifecycle_hooks_and_member_exclusions_on_their_root() {
+        let root = PageFixtures::project();
+        let files =
+            program_files(root.path(), &PageFixtures::services(root.path())).expect("page source");
+        let (_, writer) = PageFixtures::file(&files, "instance := &WriterService{}");
+        let (_, reader) = PageFixtures::file(&files, "instance := &ReaderService{}");
+        for (table, start, stop, other) in [
+            (writer, "Boot", "Close", "ReaderService"),
+            (reader, "Begin", "End", "WriterService"),
+        ] {
+            assert!(table.contains(&format!("instance.{start}()")));
+            assert!(table.contains(&format!("instance.{stop}()")));
+            assert!(table.contains("Destroy: true, Hook:"));
+            assert!(table.contains("{Name: \"inspect\", Call:"));
+            for name in [
+                start.to_ascii_lowercase(),
+                stop.to_ascii_lowercase(),
+                String::from("publisher"),
+                String::from("context"),
+                String::from("client"),
+            ] {
+                assert!(!table.contains(&format!("{{Name: \"{name}\"")), "{name}");
+            }
+            assert!(!table.contains(other));
+        }
+    }
+
+    #[test]
+    fn page_composition_aliases_one_root_without_repeating_its_owner_factory() {
+        let root = PageFixtures::project();
+        let path = root.path().join("client/services/WriterService.go");
+        let services = [
+            (
+                String::from("writer"),
+                String::from("WriterService"),
+                path.clone(),
+            ),
+            (
+                String::from("writerTwin"),
+                String::from("WriterService"),
+                path,
+            ),
+        ];
+        let files = program_files(root.path(), &services).expect("aliased page source");
+        let source = PageFixtures::text(&files);
+        assert_eq!(source.matches("type WriterService struct").count(), 1);
+        assert_eq!(source.matches("func TacCreateWriterService()").count(), 1);
+        assert_eq!(source.matches("instance := &WriterService{}").count(), 1);
+        let (_, registry) = PageFixtures::file(&files, "func registerServices()");
+        assert!(registry.contains("tac.Register(\"writer\","));
+        assert!(registry.contains("tac.Register(\"writerTwin\","));
+        assert_eq!(registry.matches(".TacCreateWriterService,").count(), 2);
+        assert_eq!(source.matches("var behaviorSetups =").count(), 1);
+    }
+
+    #[test]
+    fn page_composition_preserves_single_root_roles_and_authored_file_lines() {
+        let root = PageFixtures::project();
+        let services = PageFixtures::services(root.path());
+        let files = program_files(root.path(), &services[..1]).expect("single root source");
+        let source = PageFixtures::text(&files);
+        assert_eq!(source.matches("type WriterService struct").count(), 1);
+        assert_eq!(source.matches("type PageSetup struct").count(), 1);
+        assert_eq!(source.matches("var behaviorSetups =").count(), 1);
+        assert!(!source.contains("type ReaderService struct"));
+        for path in [
+            "client/services/WriterService.go",
+            "client/setups/PageSetup.go",
+            "client/remotes/PageClient.go",
+            "client/models/PageSnapshot.go",
+        ] {
+            assert!(source.contains(&format!("//line {path}:1")), "{path}");
+        }
+    }
+
+    #[test]
+    fn page_composition_refuses_equal_root_names_from_distinct_authored_paths() {
+        let root = tempfile::tempdir().expect("project");
+        let source = "// @Service\ntype CounterService struct { Count int }\n";
+        let paths = [
+            "client/services/left/CounterService.go",
+            "client/services/right/CounterService.go",
+        ];
+        for path in paths {
+            PageFixtures::write(root.path(), path, source);
+        }
+        let services = paths
+            .into_iter()
+            .enumerate()
+            .map(|(index, path)| {
+                (
+                    format!("counter{index}"),
+                    String::from("CounterService"),
+                    root.path().join(path),
+                )
+            })
+            .collect::<Vec<_>>();
+        let failure = program_files(root.path(), &services)
+            .expect_err("distinct same-name roots must not silently merge");
+        let diagnostic = &failure.diagnostics()[0];
+        assert!(diagnostic.message.contains("CounterService"), "{failure}");
+        for path in paths {
+            let span = diagnostic
+                .spans
+                .iter()
+                .find(|span| span.file == path)
+                .expect(path);
+            assert_eq!(
+                span.start,
+                u64::try_from(source.find("type CounterService").expect("type")).expect("offset")
+            );
+        }
+    }
+
+    #[test]
+    fn page_composition_refuses_a_model_name_that_collides_with_an_owned_root() {
+        let root = PageFixtures::project();
+        let source = "package main\n\ntype WriterService struct { Value int }\n";
+        PageFixtures::write(root.path(), "client/models/WriterService.go", source);
+        let failure = program_files(root.path(), &PageFixtures::services(root.path()))
+            .expect_err("model/root collision");
+        let diagnostic = &failure.diagnostics()[0];
+        assert!(diagnostic.message.contains("WriterService"), "{failure}");
+        for path in [
+            "client/services/WriterService.go",
+            "client/models/WriterService.go",
+        ] {
+            assert!(
+                diagnostic.spans.iter().any(|span| span.file == path),
+                "{failure}"
+            );
+        }
+    }
+
+    #[test]
+    fn page_composition_keeps_helper_refusal_at_the_authored_helper() {
+        let root = PageFixtures::project();
+        let source = "// @Helper\ntype StepHelper struct{}\n";
+        PageFixtures::write(root.path(), "client/helpers/StepHelper.go", source);
+        let failure = program_files(root.path(), &PageFixtures::services(root.path()))
+            .expect_err("Go Tac Helper is unavailable");
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.to_string(), "TY1308");
+        assert!(diagnostic.message.contains("not available"), "{failure}");
+        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.go");
+        assert_eq!(
+            diagnostic.spans[0].start,
+            u64::try_from(source.find("@Helper").expect("marker")).expect("offset")
+        );
+    }
+
     #[test]
     fn a_file_moves_into_its_service_package() {
         assert_eq!(
