@@ -67,8 +67,7 @@ impl CsharpTacHelpers {
 
     fn located_caller(input: &Input<'_>, ty: &Type, markers: &[Marker]) -> Result<(), Failure> {
         let at = Self::caller_at(ty, markers);
-        Self::require_caller(input, ty)
-            .map_err(|failure| Self::caller_failure(input, at, &ty.name, failure))
+        Self::require_caller_at(input, ty, at)
     }
 
     fn caller_at(ty: &Type, markers: &[Marker]) -> usize {
@@ -78,23 +77,8 @@ impl CsharpTacHelpers {
             .map_or(ty.declaration, |marker| marker.span.start)
     }
 
-    fn caller_failure(input: &Input<'_>, at: usize, name: &str, failure: Failure) -> Failure {
-        if failure.diagnostics().iter().any(|diagnostic| {
-            diagnostic.message.starts_with(&format!(
-                "Tac C# Helper {name} requires explicit caller-owned construction"
-            ))
-        }) {
-            return Self::failure(input, at, name);
-        }
-        failure
-    }
-
     fn wanted(path: &Path, language: &str, environment: &str) -> bool {
-        [
-            language == "cs",
-            environment == "tac",
-            Self::client_path(path),
-        ] == [true, true, true]
+        language == "cs" && environment == "tac" && Self::client_path(path)
     }
 
     fn client_path(path: &Path) -> bool {
@@ -311,6 +295,10 @@ impl CsharpTacHelpers {
     }
 
     fn require_caller(input: &Input<'_>, ty: &Type) -> Result<(), Failure> {
+        Self::require_caller_at(input, ty, ty.declaration)
+    }
+
+    fn require_caller_at(input: &Input<'_>, ty: &Type, at: usize) -> Result<(), Failure> {
         let mut outside = input.source.to_owned();
         outside.replace_range(
             ty.body.clone(),
@@ -319,10 +307,10 @@ impl CsharpTacHelpers {
         let selected = crate::yon::ManualHelpers::read(input.path, &outside)?.contains(&ty.name);
         let mut code = input.code.clone();
         code.replace_range(ty.body.clone(), &super::blank_out(&code[ty.body.clone()]));
-        let called = [selected, Self::external_new(&code, &ty.name)] == [true, true];
+        let called = selected && Self::external_new(&code, &ty.name);
         called
             .then_some(())
-            .ok_or_else(|| Self::failure(input, ty.declaration, &ty.name))
+            .ok_or_else(|| Self::failure(input, at, &ty.name))
     }
 
     pub(super) fn external_new(code: &str, name: &str) -> bool {
@@ -333,7 +321,7 @@ impl CsharpTacHelpers {
     fn new_call(code: &str, name: &str, at: usize) -> bool {
         let before = code[..at].split_whitespace().next_back();
         let after = code[at + name.len()..].trim_start();
-        [before == Some("new"), after.starts_with('(')] == [true, true]
+        before == Some("new") && after.starts_with('(')
     }
 
     fn require_manual_dependencies(

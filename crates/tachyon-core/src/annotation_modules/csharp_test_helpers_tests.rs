@@ -447,3 +447,47 @@ fn csharp_test_helper_inheritance_failure_retains_its_authored_path() {
         "client/helpers/deep/StepHelper.cs"
     );
 }
+
+#[test]
+fn csharp_missing_caller_diagnostic_points_to_authored_helper_marker() {
+    let root = CsharpOwnershipProject::project();
+    CsharpOwnershipProject::refused_helper(
+        root.path(),
+        1308,
+        CsharpOwnershipProject::OWNERSHIP_MESSAGE,
+        "[Helper]",
+    );
+}
+
+#[test]
+fn csharp_caller_lookup_preserves_unrelated_failure_diagnostics() {
+    let path = Path::new(CsharpOwnershipProject::ENTRY);
+    let source = "[Helper]\npublic class StepHelper {}\n[Helper]\npublic class LeafHelper {\npublic LeafHelper(BehaviorContext context) {}\n[OnStart]\npublic void Start() {}\n}\n[Service]\npublic class TallyService { public object Read() { return new LeafHelper(null); } }\n";
+    let expected = crate::yon::ManualHelpers::read(path, source)
+        .err()
+        .unwrap_or_else(|| panic!("unrelated caller-owned lifecycle must be refused"));
+    let failure = crate::behavior::HelperRole::require_callers(path, source)
+        .err()
+        .unwrap_or_else(|| panic!("caller lookup must retain unrelated failure"));
+    assert_eq!(failure, expected);
+    assert_eq!(failure.diagnostics().len(), 1);
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 2015);
+    assert_eq!(diagnostic.severity, tachyon_diagnostics::Severity::Error);
+    assert_eq!(
+        diagnostic.message,
+        "Helper LeafHelper uses caller-owned construction; lifecycle and event hooks require a declared Needs or NeedsAll provider"
+    );
+    let start = source
+        .find("[OnStart]")
+        .unwrap_or_else(|| panic!("authored unrelated hook"));
+    let start = u64::try_from(start).unwrap_or_else(|failure| panic!("hook offset: {failure}"));
+    assert_eq!(
+        diagnostic.spans,
+        [tachyon_diagnostics::SourceSpan {
+            file: CsharpOwnershipProject::ENTRY.to_owned(),
+            start,
+            end: start + 1,
+        }]
+    );
+}
