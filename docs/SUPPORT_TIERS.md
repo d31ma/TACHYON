@@ -45,15 +45,21 @@ entry. This evidence does not promote any tier.
 | Windows WebView2 (x64) | yes | built and run on Windows 11 ARM64 on 2026-10-04 with Visual Studio Build Tools 2022 17.14 (MSVC 14.44, ARM64-hosted x64 tools), Windows SDK 10.0.26100.0 and WebView2 SDK 1.0.3485.44. `ty`, built natively for `aarch64-pc-windows-msvc`, ran `ty bundle --target windows` for the `menu-actions` and `menu-items-that-open-a-page` examples: the whole host compiled with `cl /W4 /WX`, linked `WebView2LoaderStatic.lib`, and `TachyonRustCompanion.dll` was built (after the C4100 fix of 2026-10-04). The WebView2 handler interface IDs match `WebView2.h`. The apps ran from an SSH session and were driven with Win32 messages: the application service started once before the window, the File, View and Help menus showed the declared items and shortcuts, a menu action ran, an item whose event had no recipient stayed disabled and did not run, and Close Window ended the process with exit code 0 after exactly one stop (also after `WM_ENDSESSION`). Not run: anything inside WebView2. Outside a signed-in desktop session `CreateCoreWebView2Controller` fails with `0x80070578` (invalid window handle), so page rendering, page events from a menu action, route items, the `AcceleratorKeyPressed` handler and `scripts/windows/native-test.ps1` still need a run on an interactive desktop |
 | iOS, Android | refused at build time | `TY1601` for menus, `TY1406` for the application lifetime |
 
-Windows on ARM64 is not a bundle target yet. The build fixes x64 in four
-places: the Rust companion target `x86_64-pc-windows-msvc`, the WebView2
-library folder `build/native/x64`, the C# runtime identifier `win-x64`, and
-the `cl` of an x64 developer prompt. On 2026-10-04 the generated host and
-Rust companion of the `menu-actions` example were also compiled by hand with
-the MSVC ARM64 tools (`cl /W4 /WX`, `build/native/arm64`,
-`aarch64-pc-windows-msvc`) and passed the same checks outside WebView2 as
-the x64 build; the x64 build ran under emulation on the same machine. An
-ARM64 target needs a target choice for those four values.
+Windows bundles accept `--arch arm64` or `--arch x64`. The default matches
+an ARM64 build host and falls back to x64 on other architectures. This choice
+sets the Rust companion target, WebView2 library folder, C# runtime identifier
+and linker architecture together. The build refuses a developer prompt whose
+`VSCMD_ARG_TGT_ARCH` disagrees with the selected architecture.
+
+On 2026-10-04, commit `2be294ba` built the Observer fixture through
+`ty bundle --target windows` for both architectures on Windows 11 ARM64.
+Each bundle included its host executable, Rust companion DLL and
+`observer-hook` helper beside the host in `bin`. The helpers ran successfully,
+and `dumpbin` confirmed ARM64 or x64 for all three artifacts. The fixture used
+vendored Rust crates; bundle compilation ran offline. An x64 request from an
+ARM64 developer prompt was refused with the required prompt and architecture
+choices. These build and helper results do not qualify WebView2 page rendering
+or interaction; those gates still need an interactive desktop session.
 
 Use `scripts/phase4-macos-test.mjs`, `scripts/ios/native-test.mjs`,
 `scripts/android/native-test.sh`, `scripts/linux/native-test.sh` and

@@ -238,10 +238,12 @@ fn declared_crates_without_a_vendor_folder_ask_for_cargo_vendor_and_never_downlo
         .err()
         .map(|error| error.to_string())
         .unwrap_or_default();
-    assert!(
-        error.contains("cargo vendor --manifest-path Cargo.toml"),
-        "{error}"
+    let vendor_command = format!(
+        "cargo vendor --manifest-path <out-dir>/<target>/project/rust-companion/Cargo.toml {}",
+        paths.2.display()
     );
+    assert!(error.contains(&vendor_command), "{error}");
+    assert!(error.contains("same target and --native"), "{error}");
     assert!(error.contains("offline"), "{error}");
 }
 
