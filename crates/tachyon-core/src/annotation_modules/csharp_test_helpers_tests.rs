@@ -3,6 +3,8 @@ use std::path::Path;
 struct CsharpOwnershipProject;
 
 impl CsharpOwnershipProject {
+    const HELPER_PATH: &'static str = "client/helpers/deep/StepHelper.cs";
+    const OWNERSHIP_MESSAGE: &'static str = "Tac C# Helper StepHelper requires explicit caller-owned construction outside its own class; managed Helper injection, lifetime and lifecycle hooks are not supported. Construct it in a same-language Setup or Service and retain the caller's ownership.";
     const ENTRY: &'static str = "client/services/TallyService.cs";
     const SERVICE: &'static str =
         "[Service]\npublic class TallyService { public string Read() { return \"ready\"; } }\n";
@@ -80,6 +82,33 @@ impl CsharpOwnershipProject {
         let roles = crate::behavior::ServiceRoles::read(path, &raw)?;
         super::assemble(root, path, &roles.source, "tac")
             .map(|source| source.unwrap_or(roles.source))
+    }
+
+    fn refused_helper(root: &Path, code: u16, message: &str, location: &str) {
+        let source = std::fs::read_to_string(root.join(Self::HELPER_PATH))
+            .unwrap_or_else(|failure| panic!("authored Helper source: {failure}"));
+        let start = source
+            .find(location)
+            .unwrap_or_else(|| panic!("authored refusal location: {location}"));
+        let start =
+            u64::try_from(start).unwrap_or_else(|failure| panic!("source offset: {failure}"));
+        let failure = Self::assembled(root)
+            .err()
+            .unwrap_or_else(|| panic!("invalid Helper must be refused"));
+        assert_eq!(failure.diagnostics().len(), 1, "{failure}");
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.number(), code, "{failure}");
+        assert_eq!(diagnostic.severity, tachyon_diagnostics::Severity::Error);
+        assert_eq!(diagnostic.message, message, "{failure}");
+        assert_eq!(
+            diagnostic.spans,
+            [tachyon_diagnostics::SourceSpan {
+                file: Self::HELPER_PATH.to_owned(),
+                start,
+                end: start + 1,
+            }],
+            "{failure}"
+        );
     }
 
     fn refused(root: &Path, message: &str) {
@@ -293,7 +322,12 @@ fn csharp_test_only_helper_needs_all_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper(
         "[Helper]\n[NeedsAll]\npublic class StepHelper {}\n",
     );
-    assert!(CsharpOwnershipProject::assembled(root.path()).is_err());
+    CsharpOwnershipProject::refused_helper(
+        root.path(),
+        1308,
+        CsharpOwnershipProject::OWNERSHIP_MESSAGE,
+        "[NeedsAll]",
+    );
 }
 
 #[test]
@@ -301,7 +335,12 @@ fn csharp_test_only_helper_lifetime_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper(
         "[Helper]\n[Lifetime(\"prototype\")]\npublic class StepHelper {}\n",
     );
-    assert!(CsharpOwnershipProject::assembled(root.path()).is_err());
+    CsharpOwnershipProject::refused_helper(
+        root.path(),
+        1308,
+        CsharpOwnershipProject::OWNERSHIP_MESSAGE,
+        "[Lifetime(",
+    );
 }
 
 #[test]
@@ -309,7 +348,12 @@ fn csharp_test_only_helper_hook_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper(
         "[Helper]\npublic class StepHelper {\n[OnStart]\npublic void Start() {}\n}\n",
     );
-    assert!(CsharpOwnershipProject::assembled(root.path()).is_err());
+    CsharpOwnershipProject::refused_helper(
+        root.path(),
+        1308,
+        CsharpOwnershipProject::OWNERSHIP_MESSAGE,
+        "[OnStart]",
+    );
 }
 
 #[test]
@@ -317,13 +361,23 @@ fn csharp_test_only_helper_service_base_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper(
         "[Helper]\npublic class StepHelper : TallyService {}\n",
     );
-    assert!(CsharpOwnershipProject::assembled(root.path()).is_err());
+    CsharpOwnershipProject::refused_helper(
+        root.path(),
+        1308,
+        "Tac C# Helpers may implement actual interfaces, but cannot inherit behavior classes.",
+        "public class StepHelper",
+    );
 }
 
 #[test]
 fn csharp_service_marker_under_nested_helpers_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper("[Service]\npublic class StepHelper {}\n");
-    assert!(CsharpOwnershipProject::assembled(root.path()).is_err());
+    CsharpOwnershipProject::refused_helper(
+        root.path(),
+        1310,
+        "@Service type 'StepHelper' does not match its required role layout",
+        "[Service]",
+    );
 }
 
 #[test]
@@ -367,7 +421,13 @@ fn unrelated_invalid_tests_do_not_expand_csharp_projects_without_helpers() {
         "client/tests/UnrelatedServiceTest.cs",
         "BROKEN SOURCE [Test(",
     );
-    assert!(CsharpOwnershipProject::assembled(root.path()).is_ok());
+    let output = CsharpOwnershipProject::assembled(root.path()).unwrap_or_else(|failure| {
+        panic!("project without Helpers needs no Test witness: {failure}")
+    });
+    assert_eq!(
+        output.trim(),
+        "public class TallyService { public string Read() { return \"ready\"; } }"
+    );
 }
 
 #[test]
