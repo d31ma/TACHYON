@@ -157,16 +157,20 @@ impl RustConstruction {
 
     fn constructor_signature(body: &str) -> Option<&str> {
         let mut rest = body.trim_start();
-        while !rest.is_empty() {
+        let mut signature = None;
+        while signature.is_none() && !rest.is_empty() {
             let word = super::identifier(rest);
-            if word == "fn"
-                && let Some(signature) = Self::after_constructor_name(&rest[word.len()..])
-            {
-                return Some(signature);
-            }
+            signature = Self::constructor_at_token(rest, &word);
             rest = Self::after_token(rest, &word)?.trim_start();
         }
-        None
+        signature
+    }
+
+    fn constructor_at_token<'a>(text: &'a str, word: &str) -> Option<&'a str> {
+        if word != "fn" {
+            return None;
+        }
+        Self::after_constructor_name(&text[word.len()..])
     }
 
     fn after_constructor_name(after_function: &str) -> Option<&str> {
@@ -176,11 +180,15 @@ impl RustConstruction {
     }
 
     fn after_token<'a>(text: &'a str, word: &str) -> Option<&'a str> {
-        if !word.is_empty() {
-            return Some(&text[word.len()..]);
-        }
-        let length = Self::token_length(text)?;
+        let length = Self::word_length(word).or_else(|| Self::token_length(text))?;
         Some(&text[length..])
+    }
+
+    fn word_length(word: &str) -> Option<usize> {
+        if word.is_empty() {
+            return None;
+        }
+        Some(word.len())
     }
 
     fn token_length(text: &str) -> Option<usize> {
@@ -194,16 +202,29 @@ impl RustConstruction {
 
     fn group_close(text: &str, open: char, close: char) -> Option<usize> {
         let mut depth = 0_usize;
-        for (at, character) in text.char_indices() {
-            if character == open {
-                depth += 1;
-            }
-            if character == close {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 {
-                    return Some(at);
-                }
-            }
+        let mut characters = text.char_indices();
+        let mut end = None;
+        while end.is_none() {
+            let (at, character) = characters.next()?;
+            depth = Self::group_depth(depth, character, open, close)?;
+            end = Self::closed_group(at, character == close, depth);
+        }
+        end
+    }
+
+    fn group_depth(depth: usize, character: char, open: char, close: char) -> Option<usize> {
+        if character == open {
+            Some(depth + 1)
+        } else if character == close {
+            depth.checked_sub(1)
+        } else {
+            Some(depth)
+        }
+    }
+
+    fn closed_group(at: usize, closing: bool, depth: usize) -> Option<usize> {
+        if closing && depth == 0 {
+            return Some(at);
         }
         None
     }
@@ -225,16 +246,41 @@ impl RustConstruction {
         let mut groups = Vec::new();
         let mut commas = Vec::new();
         for (at, character) in arguments.char_indices() {
-            if let Some(close) = Self::parameter_group(character) {
-                groups.push(close);
-            } else if Self::closes_parameter_group(arguments, at, character, groups.last().copied())
-            {
-                groups.pop();
-            } else if character == ',' && groups.is_empty() {
-                commas.push(at);
-            }
+            Self::update_parameter_groups(&mut groups, arguments, at, character);
+            Self::remember_parameter_comma(&mut commas, groups.is_empty(), at, character);
         }
         commas
+    }
+
+    fn update_parameter_groups(
+        groups: &mut Vec<char>,
+        arguments: &str,
+        at: usize,
+        character: char,
+    ) {
+        let opened = Self::parameter_group(character);
+        let closing =
+            Self::closes_parameter_group(arguments, at, character, groups.last().copied());
+        Self::apply_parameter_group(groups, opened, closing);
+    }
+
+    fn apply_parameter_group(groups: &mut Vec<char>, opened: Option<char>, closing: bool) {
+        if let Some(close) = opened {
+            groups.push(close);
+        } else if closing {
+            groups.pop();
+        }
+    }
+
+    fn remember_parameter_comma(
+        commas: &mut Vec<usize>,
+        outside: bool,
+        at: usize,
+        character: char,
+    ) {
+        if character == ',' && outside {
+            commas.push(at);
+        }
     }
 
     fn parameter_group(character: char) -> Option<char> {
