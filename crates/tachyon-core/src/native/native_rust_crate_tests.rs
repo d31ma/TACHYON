@@ -215,6 +215,8 @@ async fn static_native_link_macos_without_cargo_links_sqlite() {
         .expect("application")
         .remove("rust");
     NativeRustCrateTests::write(&manifest_path, &manifest.to_string());
+    std::fs::remove_file(root.path().join("client/shared/native/ProbeHelperMain.rs"))
+        .expect("the direct Rust fixture has no crate-backed helper");
     NativeRustCrateTests::write(
         &root.path().join("client/services/GreetingService.rs"),
         r#"
