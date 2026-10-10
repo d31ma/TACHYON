@@ -349,7 +349,7 @@ fn assert_utility_source_declaration(realm: &str, path: &str, source: &str, memb
     assert!(!generated(root.path(), other).contains("PriceUtils"));
 }
 
-fn other_utility_realm(realm: &str) -> &str {
+fn other_utility_realm(realm: &str) -> &'static str {
     if realm == "client" {
         return "server";
     }
