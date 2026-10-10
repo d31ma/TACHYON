@@ -29,12 +29,11 @@ class StorageGate {
   static checkBudgetRefusal() {
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-budget-refusal-'))
     try {
-      mkdirSync(path.join(project, 'client/shared/scripts'), { recursive: true })
-      mkdirSync(path.join(project, 'client/pages'), { recursive: true })
-      writeFileSync(path.join(project, 'client/manifest.json'), JSON.stringify({ tac: { scripts: ['/shared/scripts/BudgetPadding.js'] } }))
-      writeFileSync(path.join(project, 'client/pages/tac.html'), '<main>Budget control</main>')
+      write(project, 'client/manifest.json', JSON.stringify({ tac: { scripts: ['/shared/scripts/BudgetPadding.js'] } }))
+      write(project, 'client/pages/tac.html', '<budget-control />\n')
+      write(project, 'client/components/budget/control/tac.html', '<main>Budget control</main>\n')
       const padding = Array.from({ length: 10_240 }, (_, index) => createHash('sha256').update(String(index)).digest('hex')).join('')
-      writeFileSync(path.join(project, 'client/shared/scripts/BudgetPadding.js'), `export default class BudgetPadding { static _TEXT = '${padding}' }`)
+      write(project, 'client/shared/scripts/BudgetPadding.js', `export default class BudgetPadding { static _TEXT = '${padding}' }`)
       const built = spawnSync(StorageGate.binary, ['build', project], {
         encoding: 'utf8', timeout: 120_000, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
       })
