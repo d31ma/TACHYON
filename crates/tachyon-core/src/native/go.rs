@@ -1,23 +1,36 @@
 use super::go_compiler_choice::GoCompilerChoice;
+use super::go_events::GoEvents;
 use super::go_web_build::GoWebBuild;
 use super::host::{native_io, native_tool_failure};
 use crate::Failure;
 use crate::companion::go::{GoTable, masked_code};
 use crate::go_source::GoFile;
 use crate::wasm_release_step::WasmReleaseStep;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-pub(crate) struct GoServices;
+pub(crate) struct GoServices {
+    parts: BTreeMap<String, GoFile>,
+    owners: BTreeMap<String, PageOwner>,
+    registrations: Vec<StagedService>,
+}
+
+struct PageOwner {
+    class: String,
+    events: GoEvents,
+}
 
 struct StagedService {
     package: String,
     instance: String,
     required: Vec<String>,
+    class: Option<String>,
 }
 
 impl GoServices {
     const MODULE: &str = "tachyonservices";
+    const PAGE_PACKAGE: &str = "page";
     const RUNTIME_FILES: [(&str, &str); 17] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
@@ -103,6 +116,201 @@ impl GoServices {
         }
         aliases
     }
+
+    fn page(snapshot_root: &Path, services: &[(String, String, PathBuf)]) -> Result<Self, Failure> {
+        let mut page = Self {
+            parts: BTreeMap::new(),
+            owners: BTreeMap::new(),
+            registrations: Vec::new(),
+        };
+        for (instance, class, source) in services {
+            let input = ServiceInput {
+                snapshot_root,
+                class,
+                source,
+            };
+            page.add_owner(instance, &input)?;
+        }
+        Ok(page)
+    }
+
+    fn add_owner(&mut self, instance: &str, input: &ServiceInput<'_>) -> Result<(), Failure> {
+        let service = service_files(input)?;
+        self.add_class(&service.path, input.class, service.events)?;
+        for part in service.parts {
+            self.add_part(part)?;
+        }
+        self.registrations.push(StagedService {
+            package: Self::PAGE_PACKAGE.to_owned(),
+            instance: instance.to_owned(),
+            required: service.required,
+            class: Some(input.class.to_owned()),
+        });
+        Ok(())
+    }
+
+    fn add_class(&mut self, path: &str, class: &str, events: GoEvents) -> Result<(), Failure> {
+        let Some(previous) = self.owners.get(path) else {
+            let owner = PageOwner {
+                class: class.to_owned(),
+                events,
+            };
+            self.owners.insert(path.to_owned(), owner);
+            return Ok(());
+        };
+        if previous.class != class {
+            return Err(Self::conflicting_source(path));
+        }
+        Ok(())
+    }
+
+    fn add_part(&mut self, part: GoFile) -> Result<(), Failure> {
+        let Some(previous) = self.parts.get(&part.path) else {
+            self.parts.insert(part.path.clone(), part);
+            return Ok(());
+        };
+        if previous.text != part.text {
+            return Err(Self::conflicting_source(&part.path));
+        }
+        Ok(())
+    }
+
+    fn conflicting_source(path: &str) -> Failure {
+        Failure::one(crate::failure::diagnostic(
+            GoServices::FAILURE_CODE,
+            "One authored Go path produced conflicting page declarations.",
+            None,
+            crate::failure::source_span(path, 0, 1),
+        ))
+    }
+
+    fn validate_names(&self, models: &crate::model_sources::ModelSources) -> Result<(), Failure> {
+        let mut names = BTreeMap::new();
+        for part in self.parts.values() {
+            Self::add_names(&mut names, &part.path, &part.text)?;
+        }
+        for (path, source) in models.project_files() {
+            let portable = path.to_string_lossy().replace('\\', "/");
+            if !self.parts.contains_key(&portable) {
+                Self::add_names(&mut names, &portable, &source)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn add_names(
+        names: &mut BTreeMap<String, (String, usize)>,
+        path: &str,
+        source: &str,
+    ) -> Result<(), Failure> {
+        let code = masked_code(source, path)?;
+        for declared in crate::go_source::types(&code) {
+            if let Some((previous_path, previous_start)) = names.get(&declared.name) {
+                let first = (previous_path.as_str(), *previous_start);
+                let second = (path, declared.start);
+                return Err(Self::duplicate_name(&declared.name, first, second));
+            }
+            names.insert(declared.name, (path.to_owned(), declared.start));
+        }
+        Ok(())
+    }
+
+    fn duplicate_name(name: &str, first: (&str, usize), second: (&str, usize)) -> Failure {
+        let (first_path, first_start) = first;
+        let (second_path, second_start) = second;
+        let message =
+            format!("Go page type '{name}' is declared in both {first_path} and {second_path}.");
+        let first_span = crate::failure::source_span(first_path, first_start, first_start + 1);
+        let second_span = crate::failure::source_span(second_path, second_start, second_start + 1);
+        let mut diagnostic =
+            crate::failure::diagnostic(GoServices::FAILURE_CODE, message, None, first_span);
+        diagnostic.spans.extend(second_span);
+        Failure::one(diagnostic)
+    }
+
+    fn model_files(models: &crate::model_sources::ModelSources) -> Vec<(PathBuf, String)> {
+        let mut files = Vec::new();
+        for (name, text) in models.separate_files() {
+            let path = Path::new(Self::PAGE_PACKAGE).join(name);
+            files.push((path, in_package(&text, Self::PAGE_PACKAGE)));
+        }
+        files
+    }
+
+    fn program(&self) -> String {
+        let mut source = String::new();
+        for part in self.parts.values() {
+            source.push_str(&GoFile::role_separator(&part.name, &part.path));
+            source.push_str(&part.text);
+        }
+        source
+    }
+
+    fn files(&self, snapshot_root: &Path) -> Result<Vec<(PathBuf, String)>, Failure> {
+        let Some(identity) = self.owners.keys().next() else {
+            return Ok(Vec::new());
+        };
+        let parts = self.lowered_parts(snapshot_root, Path::new(identity))?;
+        let mut files = Self::part_files(&parts);
+        for (index, (path, owner)) in self.owners.iter().enumerate() {
+            let name = format!("members{index}.go");
+            let table = Self::owner_file(path, owner, &parts)?;
+            files.push((Path::new(Self::PAGE_PACKAGE).join(name), table));
+        }
+        let alias = publisher_alias(Self::PAGE_PACKAGE);
+        files.push((Path::new(Self::PAGE_PACKAGE).join("tac.go"), alias));
+        Ok(files)
+    }
+
+    fn lowered_parts(&self, snapshot_root: &Path, identity: &Path) -> Result<Vec<GoFile>, Failure> {
+        let authored = self.program();
+        let metadata = crate::model_sources::ModelSources::client_metadata(snapshot_root, "go")?;
+        let lowered = metadata.lowered(identity, &authored, |text| {
+            crate::behavior::lower(identity, text, "tac")
+                .map_err(|failure| GoFile::locate(&failure, text))
+        })?;
+        let program = crate::companion::go::without_markers(
+            &lowered.unwrap_or(authored),
+            &identity.to_string_lossy(),
+        )?;
+        Ok(GoFile::split(&program))
+    }
+
+    fn part_files(parts: &[GoFile]) -> Vec<(PathBuf, String)> {
+        let mut files = Vec::new();
+        for (index, part) in parts.iter().enumerate() {
+            if part.text.trim().is_empty() {
+                continue;
+            }
+            let text = in_package(&part.text, Self::PAGE_PACKAGE);
+            let located = if part.path.is_empty() {
+                text
+            } else {
+                format!("//line {}:1\n{text}", part.path)
+            };
+            let name = format!("part{index}.go");
+            files.push((Path::new(Self::PAGE_PACKAGE).join(name), located));
+        }
+        files
+    }
+
+    fn owner_file(path: &str, owner: &PageOwner, parts: &[GoFile]) -> Result<String, Failure> {
+        let Some(part) = parts.iter().find(|part| part.path == path) else {
+            return Err(Self::conflicting_source(path));
+        };
+        let table = crate::companion::go::page_owner_table(&GoTable {
+            source: &part.text,
+            source_path: path,
+            class: &owner.class,
+            excluded: &owner.events.excluded,
+            extra: &owner.events.entries,
+        })?;
+        Ok(format!(
+            "package {}\n\nimport \"{}/tac\"\n\n{table}",
+            Self::PAGE_PACKAGE,
+            Self::MODULE
+        ))
+    }
 }
 
 pub(crate) async fn web_go(
@@ -115,7 +323,7 @@ pub(crate) async fn web_go(
     let release = WasmReleaseStep::prepare(profile).await;
     GoWebBuild::load(&files, &choice, &release)
         .await
-        .map_err(|failure| with_authored_paths(&failure, services.len()))
+        .map_err(|failure| with_authored_paths(&failure))
 }
 
 pub(crate) fn runtime_files() -> Vec<(PathBuf, String)> {
@@ -155,27 +363,13 @@ fn program_files(
     ];
     files.extend(runtime_files());
     let models = crate::model_sources::ModelSources::read(snapshot_root, "client", "go")?;
-    let mut staged = Vec::new();
-    for (index, (instance, class, source)) in services.iter().enumerate() {
-        let package = format!("service{index}");
-        let input = ServiceInput {
-            snapshot_root,
-            class,
-            source,
-            package: &package,
-        };
-        let (service, required) = service_files(&input)?;
-        files.extend(service);
-        for (name, text) in models.separate_files() {
-            files.push((Path::new(&package).join(name), in_package(&text, &package)));
-        }
-        staged.push(StagedService {
-            package,
-            instance: instance.clone(),
-            required,
-        });
+    let page = GoServices::page(snapshot_root, services)?;
+    page.validate_names(&models)?;
+    files.extend(page.files(snapshot_root)?);
+    if !services.is_empty() {
+        files.extend(GoServices::model_files(&models));
     }
-    files.push((PathBuf::from("services.go"), registry(&staged)));
+    files.push((PathBuf::from("services.go"), registry(&page.registrations)));
     Ok(files)
 }
 
@@ -183,7 +377,6 @@ struct ServiceInput<'a> {
     snapshot_root: &'a Path,
     class: &'a str,
     source: &'a Path,
-    package: &'a str,
 }
 
 fn read_service(source: &Path) -> Result<String, Failure> {
@@ -191,68 +384,44 @@ fn read_service(source: &Path) -> Result<String, Failure> {
     Ok(String::from(crate::without_bom(&text)))
 }
 
-type ServiceFiles = (Vec<(PathBuf, String)>, Vec<String>);
+struct ServiceParts {
+    path: String,
+    parts: Vec<GoFile>,
+    required: Vec<String>,
+    events: GoEvents,
+}
 
-fn service_files(input: &ServiceInput<'_>) -> Result<ServiceFiles, Failure> {
-    let identity = PathBuf::from(format!("client/services/{}.go", input.class));
+fn service_files(input: &ServiceInput<'_>) -> Result<ServiceParts, Failure> {
     let relative = input
         .source
         .strip_prefix(input.snapshot_root)
-        .unwrap_or(&identity);
+        .unwrap_or(input.source);
     let roles = crate::behavior::ServiceRoles::read(relative, &read_service(input.source)?)?;
     let authored = roles.source;
     let portable = relative.to_string_lossy().replace('\\', "/");
     let assembled =
         crate::annotation_modules::assemble(input.snapshot_root, relative, &authored, "tac")?;
     let authored = assembled.unwrap_or(authored);
-    let mut events = crate::events::extract(&identity, &authored, "tac")?;
+    let mut events = crate::events::extract(relative, &authored, "tac")?;
     if let Some(module) = events.as_mut() {
-        crate::events::describe(module, &identity, input.snapshot_root, "client")?;
+        crate::events::describe(module, relative, input.snapshot_root, "client")?;
     }
     let authored = match &events {
         Some(module) => module.source.clone(),
         None => authored,
     };
-    let prepared = super::go_events::entries(events.as_ref(), input.class, &identity)?;
-    let lowered = crate::model_sources::ModelSources::client_metadata(input.snapshot_root, "go")?
-        .lowered(&identity, &authored, |text| {
-        crate::behavior::lower(&identity, text, "tac")
-            .map_err(|failure| GoFile::locate(&failure, text))
-    })?;
-    let program = crate::companion::go::without_markers(&lowered.unwrap_or(authored), &portable)?;
-    let mut parts = GoFile::split(&program);
-    let entry = parts.remove(0);
-    let table = crate::companion::go::owner_table(&GoTable {
-        source: &entry.text,
-        source_path: &portable,
-        class: input.class,
-        excluded: &prepared.excluded,
-        extra: &prepared.entries,
-    })?;
-    let directory = Path::new(input.package);
-    let mut files = vec![
-        (
-            directory.join("service.go"),
-            format!(
-                "//line {portable}:1\n{}",
-                in_package(&entry.text, input.package)
-            ),
-        ),
-        (
-            directory.join("members.go"),
-            format!(
-                "package {}\n\nimport \"{}/tac\"\n\n{table}",
-                input.package,
-                GoServices::MODULE
-            ),
-        ),
-        (directory.join("tac.go"), publisher_alias(input.package)),
-    ];
-    for (index, part) in parts.into_iter().enumerate() {
-        let name = format!("part{index}.go");
-        files.push((directory.join(name), in_package(&part.text, input.package)));
+    let prepared = super::go_events::entries(events.as_ref(), input.class, relative)?;
+    let mut parts = GoFile::split(&authored);
+    if let Some(entry) = parts.first_mut() {
+        entry.path.clone_from(&portable);
+        entry.name = input.class.to_owned();
     }
-    Ok((files, roles.required))
+    Ok(ServiceParts {
+        path: portable,
+        parts,
+        required: roles.required,
+        events: prepared,
+    })
 }
 
 pub(crate) fn in_package(text: &str, package: &str) -> String {
@@ -277,11 +446,21 @@ pub(crate) fn in_package(text: &str, package: &str) -> String {
 fn registry(services: &[StagedService]) -> String {
     let mut imports = format!("\t\"{}/tac\"\n", GoServices::MODULE);
     let mut registrations = String::new();
+    let packages = services
+        .iter()
+        .map(|service| &service.package)
+        .collect::<BTreeSet<_>>();
+    for package in packages {
+        let _ = writeln!(imports, "\t\"{}/{package}\"", GoServices::MODULE);
+    }
     for service in services {
-        let _ = writeln!(imports, "\t\"{}/{}\"", GoServices::MODULE, service.package);
+        let factory = match &service.class {
+            Some(class) => format!("TacCreate{class}"),
+            None => String::from("TacCreate"),
+        };
         let _ = writeln!(
             registrations,
-            "\ttac.Register({:?}, {}.TacCreate, {})",
+            "\ttac.Register({:?}, {}.{factory}, {})",
             service.instance,
             service.package,
             string_slice(&service.required)
@@ -311,14 +490,12 @@ pub(super) fn program_key(version: &str, files: &[(PathBuf, String)]) -> String 
     super::rust::cache_key(version, &joined)
 }
 
-fn with_authored_paths(failure: &Failure, packages: usize) -> Failure {
+fn with_authored_paths(failure: &Failure) -> Failure {
     let Some(first) = failure.diagnostics().first() else {
         return failure.clone();
     };
-    let mut message = first.message.clone();
-    for index in 0..packages {
-        message = message.replace(&format!("service{index}/client/"), "client/");
-    }
+    let staged = format!("{}/client/", GoServices::PAGE_PACKAGE);
+    let message = first.message.replace(&staged, "client/");
     native_tool_failure(GoServices::FAILURE_CODE, &message)
 }
 
@@ -835,6 +1012,7 @@ type PageClient interface {
             package: String::from("service0"),
             instance: String::from("counter"),
             required: vec![String::from("label")],
+            class: None,
         }]);
         assert!(registry.contains("\t\"tachyonservices/service0\"\n"));
         assert!(

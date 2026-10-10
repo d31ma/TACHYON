@@ -92,7 +92,17 @@ pub(crate) fn without_markers(source: &str, source_path: &str) -> Result<String,
     Ok(output)
 }
 
+#[cfg(test)]
 pub(crate) fn owner_table(table: &GoTable<'_>) -> Result<String, Failure> {
+    owner_table_named(table, "TacCreate")
+}
+
+pub(crate) fn page_owner_table(table: &GoTable<'_>) -> Result<String, Failure> {
+    let factory = format!("TacCreate{}", table.class);
+    owner_table_named(table, &factory)
+}
+
+fn owner_table_named(table: &GoTable<'_>, factory: &str) -> Result<String, Failure> {
     let code = masked_code(table.source, table.source_path)?;
     let Some(body) = struct_body(&code, table.class) else {
         return Err(super::unnamed_service(
@@ -127,7 +137,7 @@ pub(crate) fn owner_table(table: &GoTable<'_>) -> Result<String, Failure> {
         String::new()
     };
     let mut output = format!(
-        "func TacCreate() []tac.Member {{\n\tinstance := &{}{{}}\n{injection}\treturn []tac.Member{{\n",
+        "func {factory}() []tac.Member {{\n\tinstance := &{}{{}}\n{injection}\treturn []tac.Member{{\n",
         table.class
     );
     for (_, entry) in entries {
