@@ -92,7 +92,7 @@ pub use scaffold::{
 };
 pub use server::{
     DevServer, DevServerOptions, ErrorPageServer, ErrorPageWait, PreviewServer,
-    PreviewServerOptions,
+    PreviewServerOptions, RouteInvocation,
 };
 pub use tool_restart::ToolRestart;
 pub use ttid::{created_at_milliseconds as ttid_created_at, generate as generate_ttid};

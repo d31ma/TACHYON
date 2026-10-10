@@ -28,8 +28,9 @@ use tachyon_core::{
     ApiBaselineCheck, ApplicationConfig, BuildOptions, ComposedTypes, DevServer, DevServerOptions,
     EnvironmentPolicy, Failure, HandlerCancellation, HandlerRuntimePrograms, HandlerSource,
     HandlerSupervisor, HandlerSupervisorOptions, MigrationAnalysis, MigrationFix,
-    NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, ServerHost,
-    WebCompiler, WindowsArchitecture, method_coverage::RecordedCalls, native_target_directory,
+    NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, RouteInvocation,
+    ServerHost, WebCompiler, WindowsArchitecture, method_coverage::RecordedCalls,
+    native_target_directory,
 };
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, Severity};
 
@@ -452,7 +453,10 @@ enum MigrateCommand {
 
 #[derive(Debug, Subcommand)]
 enum HandlerCommand {
-    #[command(about = "Invoke one Yon handler through Handler Protocol v1")]
+    #[command(
+        about = "Invoke one Yon handler through Handler Protocol v1",
+        long_about = "Invoke one Yon handler through Handler Protocol v1.\n\nFor an annotated controller, the command binds @FromPath, @FromQuery, @FromHeader, @FromCookie and @FromBody arguments with the same code as the server, from --target (or --route when there is no --target), --header and --body. A value that does not match its model gets the same 400 answer as the server, and the controller does not run. A plain Handler gets the request without arguments.\n\nThis is a local operator tool. It does not run the identity provider, the route access rules (@Public, @SignedIn, @Allow) or the root middleware, so it can call routes that the server would refuse."
+    )]
     Invoke {
         #[arg(help = "Project-relative controller or worker source file")]
         source: PathBuf,
@@ -464,6 +468,12 @@ enum HandlerCommand {
             default_value = "/"
         )]
         route: String,
+        #[arg(
+            help = "Concrete request target with an optional query, for example /items/42?limit=3; the matching route is found from it",
+            long,
+            conflicts_with = "route"
+        )]
+        target: Option<String>,
         #[arg(help = "Uppercase HTTP method", long, value_enum, ignore_case = true, default_value_t = CliHttpMethod::Get)]
         method: CliHttpMethod,
         #[arg(
@@ -1952,7 +1962,9 @@ async fn execute_handler(command: &HandlerCommand) -> Result<(), Failure> {
     let supervisor = command.supervisor(application)?;
     let request = command.request();
     let cancellation = handler_cancellation();
-    let response = supervisor.invoke(&source, &request, &cancellation).await?;
+    let response = RouteInvocation::new(&source, &supervisor)
+        .invoke(request, command.target(), &cancellation)
+        .await?;
     let stdout = std::io::stdout();
     let mut lock = stdout.lock();
     if serde_json::to_writer_pretty(&mut lock, &response).is_err() {
@@ -1989,6 +2001,11 @@ impl HandlerCommand {
         options.environment = environment;
         options.application = application;
         HandlerSupervisor::new(options)
+    }
+
+    fn target(&self) -> Option<&str> {
+        let Self::Invoke { target, .. } = self;
+        target.as_deref()
     }
 
     fn request(&self) -> HandlerRequest {

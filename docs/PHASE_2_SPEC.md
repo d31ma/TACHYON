@@ -47,7 +47,22 @@ The invocation accepts:
 - an optional request ID;
 - a bounded timeout from 1 through 300,000 milliseconds;
 - repeated `--allow-env NAME` entries;
-- explicit overrides for the JavaScript or Python runtime executable.
+- explicit overrides for the JavaScript or Python runtime executable;
+- an optional concrete `--target` such as `/items/42?limit=3`, used instead of
+  `--route`.
+
+For an annotated controller, the command binds `@FromPath`, `@FromQuery`,
+`@FromHeader`, `@FromCookie` and `@FromBody` arguments with the same code as
+the server. The target (or the route when there is no target) chooses the
+controller route and supplies path and query values. `--header` and `--body`
+supply the rest. A value that does not match its model gets the same `400`
+JSON answer as the server, and the controller does not run. A target that no
+route of the controller answers is a `TY2005` diagnostic. A plain `Handler`
+gets the request without arguments, as before.
+
+`ty handler invoke` is a local operator tool. It does not run the identity
+provider, the route access rules (`@Public`, `@SignedIn`, `@Allow`) or the
+root middleware, so it can call routes that the server would refuse.
 
 Ctrl-C cancels the invocation. It uses the same cancellation path as the
 library API.

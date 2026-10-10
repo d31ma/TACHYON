@@ -9,6 +9,8 @@ use tachyon_contracts::HttpMethod;
 pub(in crate::server) struct RouteAnswer;
 
 impl RouteAnswer {
+    pub(in crate::server) const JSON_CONTENT_TYPE: &'static str = "application/json; charset=utf-8";
+
     pub(in crate::server) fn method_not_allowed(verbs: &[HttpMethod]) -> Response<Body> {
         let body = serde_json::json!({
             "error": "This path does not answer this HTTP method.",
@@ -44,7 +46,7 @@ impl RouteAnswer {
     ) -> Response<Body> {
         let builder = Response::builder()
             .status(status)
-            .header(CONTENT_TYPE, "application/json; charset=utf-8");
+            .header(CONTENT_TYPE, Self::JSON_CONTENT_TYPE);
         Self::with_allow(builder, verbs)
             .body(Body::from(body.to_string()))
             .unwrap_or_else(|_| {

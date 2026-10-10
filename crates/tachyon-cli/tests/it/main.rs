@@ -3,6 +3,7 @@ mod composed_types_cli;
 mod executed_coverage;
 mod fylo_datasource;
 mod handler_environment;
+mod handler_invoke_arguments;
 mod init_features;
 mod init_wizard;
 mod lua_yon_cli;

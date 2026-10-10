@@ -83,6 +83,8 @@ ty handler invoke <source>          run one controller or worker file, no server
   --project <dir>                  the project root (.)
   --route <route> (/), --method <METHOD> (GET), --request-id <id>
   --body <text>, --header name=value (repeat for more headers)
+  --target </path?query>           concrete request target; binds @From... arguments
+                                   like the server, without route access rules
   --timeout-ms <ms>                complete invocation deadline (30000)
   --allow-env <NAME>               one inherited environment variable
   --javascript-runtime (node), --python-runtime, --ruby-runtime
