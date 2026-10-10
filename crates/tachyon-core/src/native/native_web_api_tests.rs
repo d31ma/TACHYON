@@ -135,3 +135,36 @@ fn a_linked_fsharp_service_cannot_use_a_browser_api() {
         "{error}"
     );
 }
+
+#[test]
+fn captured_model_internal_collision_uses_the_real_native_rust_graph() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let model = root.path().join("client/models/ConnectivityChanged.rs");
+    std::fs::create_dir_all(model.parent().unwrap_or(root.path()))
+        .map_err(|error| error.to_string())?;
+    std::fs::write(&model, "#[derive(Default)]\npub struct ConnectivityChanged { pub cache: std::collections::BTreeMap<i32, bool> }\n")
+        .map_err(|error| error.to_string())?;
+    let path = root.path().join("client/services/PlaceService.rs");
+    std::fs::create_dir_all(path.parent().unwrap_or(root.path()))
+        .map_err(|error| error.to_string())?;
+    std::fs::write(&path, "#[Service]\n#[derive(Default)]\nstruct PlaceService {}\nimpl PlaceService {\n fn read(&self) -> i64 {\n  crate::models::ConnectivityChanged::default().cache.len() as i64\n }\n}\n")
+        .map_err(|error| error.to_string())?;
+    let input = NativeCompanionInput {
+        snapshot_root: root.path().to_path_buf(),
+        language: NativeCompanion::Rust,
+        source: path,
+        service: "place".to_owned(),
+        class: "PlaceService".to_owned(),
+        web_assembly: false,
+        application_provider: false,
+    };
+    let generated = source(&[input], NativeCompanion::Rust)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "native graph absent".to_owned())?;
+    assert!(generated.contains("(\"read\", TacMember::Method"));
+    assert!(
+        !generated
+            .contains("impl TacModel for crate::TachyonRustServices::models::ConnectivityChanged")
+    );
+    Ok(())
+}

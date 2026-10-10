@@ -82,6 +82,25 @@ fn generated_shell_startup_uses_its_injected_document_title_provider() {
 }
 
 #[test]
+fn generated_shell_document_title_builds_without_a_browser_permission_grant() {
+    let (_root, app) = generated(&ProjectChoices::defaults());
+    let manifest = fs::read_to_string(app.join("client/manifest.json")).expect("manifest");
+    let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("JSON manifest");
+    assert!(manifest["tac"]["browserApis"].is_null(), "{manifest}");
+    let built = crate::WebCompiler::build(&app, &crate::BuildOptions::default())
+        .expect("generated scaffold builds without a title grant");
+    let html =
+        fs::read_to_string(built.output_directory().join("index.html")).expect("generated page");
+    assert!(!html.contains("tachyon-browser-apis"), "{html}");
+    assert!(
+        built
+            .output_directory()
+            .join(".tachyon/services/ShellService.js")
+            .is_file()
+    );
+}
+
+#[test]
 fn each_realm_has_a_jsconfig_that_reads_its_composed_types() {
     let root = tempfile::tempdir().expect("workspace");
     let target = root.path().join("app");

@@ -1,5 +1,6 @@
 use super::csharp_browser_factory::CsharpBrowserFactory;
 use crate::Failure;
+use crate::annotation_layout::NativeWebApis;
 use crate::project::NativeCompanion;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -221,7 +222,7 @@ fn lowered_body(
         CsharpBrowserFactory::prepare(item, &models.assembled(relative, authored)?, relative)?;
     if !item.web_assembly {
         crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
-        crate::annotation_layout::NativeWebApis::refuse(&identity, authored)?;
+        NativeWebApis::refuse_with_models(&identity, authored, &item.snapshot_root)?;
     }
     let lowered = task_lowered(item, &models, &identity, authored)?;
     let authored = lowered.as_deref().unwrap_or(authored);

@@ -119,6 +119,8 @@ fn a_scaffolded_project_uses_its_service_without_an_import() {
         test.contains("this.construct(ShellService)") && !test.contains("import"),
         "{test}"
     );
+    assert!(test.contains("@Fake\n  documentTitle"), "{test}");
+    assert!(!test.contains("import"), "{test}");
     assert!(composed(&project, "client").contains("const ShellService: typeof import("));
 
     let Some(compiler) = typescript_compiler() else {

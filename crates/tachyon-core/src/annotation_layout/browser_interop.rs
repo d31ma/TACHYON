@@ -11,6 +11,10 @@ mod browser_providers;
 mod interop_finder;
 mod interop_rules;
 mod native_web_apis;
+mod rust_known_model_paths;
+
+#[cfg(test)]
+mod rust_known_model_paths_tests;
 
 pub(crate) use native_web_apis::NativeWebApis;
 

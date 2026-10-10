@@ -28,6 +28,17 @@ fn client_plan(project: &tempfile::TempDir) -> serde_json::Value {
     serde_json::from_str(json).expect("render plan")
 }
 
+fn literal_attribute<'a>(element: &'a serde_json::Value, name: &str) -> &'a str {
+    element["attributes"]
+        .as_array()
+        .expect("element attributes")
+        .iter()
+        .find(|attribute| attribute["name"] == name)
+        .expect("authored attribute")["value"]
+        .as_str()
+        .expect("literal attribute value")
+}
+
 #[test]
 fn counted_loops_emit_bounded_client_instructions_not_server_rendered_views() {
     let (project, output) =
@@ -118,14 +129,10 @@ fn html_entities_decode_once_without_becoming_template_code_or_markup() {
         String::from_utf8_lossy(&output.stderr)
     );
     let plan = client_plan(&project);
-    let attributes = plan["nodes"][0]["template"][0]["attributes"]
-        .as_array()
-        .expect("attributes");
-    let title = attributes
-        .iter()
-        .find(|attribute| attribute["name"] == "title")
-        .expect("title attribute");
-    assert_eq!(title["value"], "a &lt; b");
+    assert_eq!(
+        literal_attribute(&plan["nodes"][0]["template"][0], "title"),
+        "a &lt; b"
+    );
     assert_eq!(
         plan["nodes"][0]["template"][0]["children"][0]["parts"][0]["value"],
         "&lt; {missing} <script>"

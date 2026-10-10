@@ -1,4 +1,10 @@
 @layer brand {
+:scope {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
 .w-btn {
 font-size: var(--step-sm);
   line-height: 1.5;
