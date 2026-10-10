@@ -21,7 +21,7 @@ use tokio::time::{Instant, sleep_until};
 #[derive(Clone, Debug)]
 enum GatewayRoute {
     Command(Vec<String>),
-    Unit(HandlerSource),
+    Unit(Box<HandlerSource>),
 }
 
 #[derive(Clone, Debug)]
@@ -104,7 +104,7 @@ impl GatewayTable {
             GatewayTarget::Class { path, method } => GatewayEntry {
                 arity: declaration.arity,
                 method: method.clone(),
-                route: GatewayRoute::Unit(units[path].clone()),
+                route: GatewayRoute::Unit(Box::new(units[path].clone())),
             },
         };
         if self
@@ -135,7 +135,7 @@ impl GatewayTable {
         let mut units = Vec::new();
         for entry in self.entries.values() {
             if let GatewayRoute::Unit(unit) = &entry.route {
-                units.push(unit);
+                units.push(unit.as_ref());
             }
         }
         units
