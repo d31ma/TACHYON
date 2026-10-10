@@ -117,20 +117,46 @@ private final class TitleBarCheck {
         try await until("drag regions received") {
             self.delegate.fixtureTitleBar?.contains(self.event(window, NSPoint(x: 300, y: 60), 1, .leftMouseDown), view) == true
         }
+        let action = try await center(view, "action")
+        try await focus(window)
         let before = window.frame
         click(window, NSPoint(x: 300, y: 60), 1)
         try require(TitleBarCheck.drags == 1, "Drag region did not start a window drag")
-        let action = try await center(view, "action")
         click(window, action, 1)
         try require(TitleBarCheck.drags == 1, "Button inside the drag region started a window drag")
         click(window, NSPoint(x: 300, y: 200), 1)
         try require(TitleBarCheck.drags == 1, "Page content started a window drag")
-        try await until("page clicks") {
-            let downs = try await self.script(view, "globalThis.__downs.join(',')")
-            let clicks = try await self.script(view, "String(globalThis.__clicks)")
-            return downs == "action,main" && clicks == "1"
+        let clicked = focusState(window)
+        do {
+            try await until("page clicks") { try await self.pageClicks(view) == "action,main 1" }
+        } catch {
+            let found = (try? await pageClicks(view)) ?? "nothing"
+            throw failure("Timed out waiting for page clicks: found \(found), focus during clicks \(clicked)")
         }
         try require(window.frame == before, "A click moved the window")
+    }
+
+    private func focus(_ window: NSWindow) async throws {
+        if NSApp.isActive && window.isKeyWindow { return }
+        FileHandle.standardError.write(Data(("title bar fixture regaining focus: " + focusState(window) + "\n").utf8))
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        do {
+            try await until("key window") { NSApp.isActive && window.isKeyWindow }
+        } catch {
+            throw failure("Window is not key before page clicks: " + focusState(window))
+        }
+    }
+
+    private func focusState(_ window: NSWindow) -> String {
+        let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none"
+        return "variant=\(TitleBarExpectation.variant), active=\(NSApp.isActive), key=\(window.isKeyWindow), frontmost=\(frontmost)"
+    }
+
+    private func pageClicks(_ view: WKWebView) async throws -> String {
+        let downs = try await script(view, "globalThis.__downs.join(',')")
+        let clicks = try await script(view, "String(globalThis.__clicks)")
+        return downs + " " + clicks
     }
 
     private func checkDoubleClick(_ window: NSWindow, _ view: WKWebView) async throws {
