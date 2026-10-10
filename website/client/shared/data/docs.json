@@ -3992,7 +3992,7 @@
     },
     "calling-the-server": {
       "title": "Calling the server from a page",
-      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. A request to another host needs that host in `tac.outgoing.hosts`.",
+      "summary": "A page gets data from Yon through an HTTP client. An annotated HTTPClient belongs in client/remotes and its Service receives it through Needs. A request to another host needs that host in tac.outgoing.hosts. The dedicated C# example below uses a registered scalar Task result; the F# example uses an explicitly owned BehaviorContext and Task<BehaviorJSON>. The older catalog section includes C# and F# collection and self-constructed-client snippets that remain unqualified migration material. Use the two dedicated examples for the currently qualified browser contracts; broader collection, typed F# client and shared-provider support remain separate work.",
       "before": [
         "services",
         "controllers"
@@ -4189,6 +4189,76 @@
             {
               "name": "server/models/Greeting.ts",
               "code": "export interface Greeting {\n  message: string;\n}\n"
+            }
+          ]
+        },
+        {
+          "heading": "C# awaits a registered scalar answer",
+          "target": "web",
+          "summary": "An HTTPClient in client/remotes is injected into the Service through a private readonly Needs field. The empty Setup selects the default same-origin browser transport; a matching explicit adapter would take precedence. The registered Greeting model has one string field. The Service awaits Task<Models.Greeting> before publishing Message. This uses the scalar-record contract qualified in compiler27 and the C# tutorial restored in compiler28; arbitrary records, collections, ValueTask and async lifecycle are separate prerequisites. The browser omits credentials, bounds JSON and cancels requests when the Service owner is disposed. This reduced example still needs its own snippet and browser qualification.",
+          "files": [
+            {
+              "name": "client/manifest.json",
+              "code": "{\"tac\":{}}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.js",
+              "code": "@RequestRoute(\"/api/greeting\")\n@Public\nexport default class GreetingController {\n  static _message = 'Hello from Yon'\n\n  /** @returns {{message: string}} */\n  @GetRoute\n  getGreeting() {\n    return { message: GreetingController._message }\n  }\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<greeting />\n"
+            },
+            {
+              "name": "client/components/greeting/tac.html",
+              "code": "<main>\n  <button id=\"greeting-ask\" on:click=\"greeting.ask()\">Ask Yon</button>\n  <p id=\"greeting-answer\">{greeting.message}</p>\n</main>\n"
+            },
+            {
+              "name": "client/remotes/GreetingClient.cs",
+              "code": "[HTTPClient({\"path\":\"/api/greeting\",\"adapter\":\"greeting\",\"setup\":\"GreetingSetup\"})]\npublic interface GreetingClient\n{\n    [GetRequest]\n    System.Threading.Tasks.Task<Models.Greeting> read();\n}\n"
+            },
+            {
+              "name": "client/models/Greeting.cs",
+              "code": "public record Greeting(string Message);\n"
+            },
+            {
+              "name": "client/setups/GreetingSetup.cs",
+              "code": "[Setup]\npublic sealed class GreetingSetup\n{\n    public static BehaviorAdapters configure(BehaviorExecution execution)\n    {\n        execution.Check();\n        return new BehaviorAdapters();\n    }\n}\n"
+            },
+            {
+              "name": "client/services/GreetingService.cs",
+              "code": "[Service]\npublic sealed class GreetingService\n{\n    [Needs]\n    private readonly GreetingClient _greetingClient;\n\n    public string Message = \"\";\n\n    public System.Threading.Tasks.Task<Models.Greeting> ask()\n    {\n        return _accept(_greetingClient.read());\n    }\n\n    private async System.Threading.Tasks.Task<Models.Greeting> _accept(System.Threading.Tasks.Task<Models.Greeting> pending)\n    {\n        var greeting = await pending;\n        Message = greeting.Message;\n        return greeting;\n    }\n}\n"
+            }
+          ]
+        },
+        {
+          "heading": "F# awaits JSON with a caller-owned context",
+          "target": "web",
+          "summary": "F# ordinary Task<BehaviorJSON> calls use an explicitly owned BehaviorContext with an empty Setup and its default same-origin browser transport. The Service keeps that context private and releases it and its signal in OnStop. Last changes only after the request resolves. A matching custom adapter takes precedence. This uses the Task/BehaviorJSON and owner-disposal contract qualified in compiler28. It does not claim F# typed HTTPClient injection, record/list results, ValueTask, async lifecycle or shared page providers. The browser omits credentials, bounds JSON and cancels pending requests when the owner is disposed. This reduced example still needs its own snippet and browser qualification.",
+          "files": [
+            {
+              "name": "client/manifest.json",
+              "code": "{\"tac\":{}}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.js",
+              "code": "@RequestRoute(\"/api/greeting\")\n@Public\nexport default class GreetingController {\n  static _message = 'Hello from Yon'\n\n  /** @returns {{message: string}} */\n  @GetRoute\n  getGreeting() {\n    return { message: GreetingController._message }\n  }\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<http-probe />\n"
+            },
+            {
+              "name": "client/components/http/probe/tac.html",
+              "code": "<main>\n  <button id=\"http-read\" on:click=\"httpProbe.read()\">Ask Yon</button>\n  <p id=\"http-answer\">{httpProbe.last}</p>\n</main>\n"
+            },
+            {
+              "name": "client/setups/BrowserHttpSetup.fs",
+              "code": "[<Setup>]\ntype BrowserHttpSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        execution.Check()\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "client/services/HttpProbeService.fs",
+              "code": "open System.Threading.Tasks\n\n[<Service>]\n[<Lifetime({\"value\":\"prototype\"})>]\ntype HttpProbeService() =\n    static let clientName: string = \"greeting\"\n    static let requestPath: string = \"/api/greeting\"\n    static let messageField: string = \"message\"\n\n    let signal: BehaviorSignal = new BehaviorSignal()\n    let context: BehaviorContext = Behaviors.create(typeof<BrowserHttpSetup>, \"fsharp-greeting\", signal)\n\n    member val Last: string = \"\" with get, set\n\n    member this.Read() : Task<BehaviorJSON> =\n        task {\n            let! answer = context.restClient(clientName).get(requestPath).retrieve()\n            this.Last <- answer.Get(messageField).Text\n            return answer\n        }\n\n    [<OnStop>]\n    member this.Close() : unit =\n        context.Dispose()\n        signal.Dispose()\n"
             }
           ]
         }

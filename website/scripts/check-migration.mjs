@@ -203,7 +203,7 @@ class WebsiteMigrationAcceptance {
 
   /** @param {import('playwright').Page} page @param {string} expected @returns {Promise<Record<string, unknown>>} */
   static async #theme(page, expected) {
-    const proof = await page.evaluate(WebsiteMigrationAcceptance.#themeState)
+    const proof = await page.evaluate(WebsiteMigrationAcceptance.themeState)
     assert.equal(proof.helperClass, 'ThemeHelper', 'The generated SearchService owns the real injected Helper')
     assert.equal(proof.helperRestore, 'function')
     for (const value of [proof.root, proof.saved, proof.main, proof.service, proof.vendorTheme]) assert.equal(value, expected)
@@ -214,7 +214,7 @@ class WebsiteMigrationAcceptance {
     return { expected, ...proof }
   }
 
-  static #themeState() {
+  static themeState() {
     const globals = /** @type {typeof globalThis & WebsiteGlobals} */ (globalThis)
     const search = globals.__tachyonTac?.service('search')
     const elements = ['w-btn', 'w-container', 'w-app-bar', 'w-expansion-panel']

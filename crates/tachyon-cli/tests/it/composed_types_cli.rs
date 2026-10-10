@@ -116,9 +116,11 @@ fn a_scaffolded_project_uses_its_service_without_an_import() {
     assert!(output.status.success(), "{}", text(&output.stderr));
     let test = fs::read_to_string(project.join("client/tests/ShellServiceTest.js")).expect("test");
     assert!(
-        test.contains("new ShellService()") && !test.contains("import"),
+        test.contains("this.construct(ShellService).initialize()"),
         "{test}"
     );
+    assert!(test.contains("@Fake\n  documentTitle"), "{test}");
+    assert!(!test.contains("import"), "{test}");
     assert!(composed(&project, "client").contains("const ShellService: typeof import("));
 
     let Some(compiler) = typescript_compiler() else {

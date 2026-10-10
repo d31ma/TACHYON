@@ -1,6 +1,6 @@
 {
   "title": "Calling the server from a page",
-  "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. A request to another host needs that host in `tac.outgoing.hosts`.",
+  "summary": "A page gets data from Yon through an HTTP client. An annotated HTTPClient belongs in client/remotes and its Service receives it through Needs. A request to another host needs that host in tac.outgoing.hosts. The dedicated C# example below uses a registered scalar Task result; the F# example uses an explicitly owned BehaviorContext and Task<BehaviorJSON>. The older catalog section includes C# and F# collection and self-constructed-client snippets that remain unqualified migration material. Use the two dedicated examples for the currently qualified browser contracts; broader collection, typed F# client and shared-provider support remain separate work.",
   "before": [
     "services",
     "controllers"
@@ -11,6 +11,12 @@
     },
     {
       "include": "browser-http-dart/section.json"
+    },
+    {
+      "include": "browser-http-csharp/section.json"
+    },
+    {
+      "include": "browser-http-fsharp/section.json"
     }
   ]
 }

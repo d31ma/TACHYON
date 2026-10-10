@@ -106,10 +106,7 @@ impl ClientFiles {
 
     fn fixed_files(javascript_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         let files = [
-            (
-                "client/manifest.json",
-                Self::manifest(javascript_name, choices),
-            ),
+            ("client/manifest.json", Self::manifest(javascript_name)),
             (
                 "client/jsconfig.json",
                 BaseFiles::jsconfig("client", choices.client_uses_typescript()),
@@ -147,18 +144,10 @@ impl ClientFiles {
             .collect()
     }
 
-    fn manifest(javascript_name: &str, choices: &ProjectChoices) -> String {
-        let browser_apis = Self::browser_apis(choices.tac.contains(&TacLanguage::JavaScript));
+    fn manifest(javascript_name: &str) -> String {
         format!(
-            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {{\n{browser_apis}    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}\n  }}\n}}\n"
+            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {{\n    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}\n  }}\n}}\n"
         )
-    }
-
-    fn browser_apis(has_shell_service: bool) -> &'static str {
-        if has_shell_service {
-            return "    \"browserApis\": [\"documentTitle\"],\n";
-        }
-        ""
     }
 
     fn shell_service_files(javascript_name: &str) -> Vec<(String, String)> {

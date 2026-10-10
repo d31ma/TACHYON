@@ -78,9 +78,25 @@ fn generated_shell_startup_uses_its_injected_document_title_provider() {
     assert!(!test.contains("globalThis"), "{test}");
     let manifest = fs::read_to_string(app.join("client/manifest.json")).expect("manifest");
     let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("JSON manifest");
-    assert_eq!(
-        manifest["tac"]["browserApis"],
-        serde_json::json!(["documentTitle"])
+    assert!(manifest["tac"]["browserApis"].is_null(), "{manifest}");
+}
+
+#[test]
+fn generated_shell_document_title_builds_without_a_browser_permission_grant() {
+    let (_root, app) = generated(&ProjectChoices::defaults());
+    let manifest = fs::read_to_string(app.join("client/manifest.json")).expect("manifest");
+    let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("JSON manifest");
+    assert!(manifest["tac"]["browserApis"].is_null(), "{manifest}");
+    let built = crate::WebCompiler::build(&app, &crate::BuildOptions::default())
+        .expect("generated scaffold builds without a title grant");
+    let html =
+        fs::read_to_string(built.output_directory().join("index.html")).expect("generated page");
+    assert!(!html.contains("tachyon-browser-apis"), "{html}");
+    assert!(
+        built
+            .output_directory()
+            .join(".tachyon/services/ShellService.js")
+            .is_file()
     );
 }
 
@@ -377,13 +393,6 @@ impl ClientStyleFixture {
     }
 
     fn provider(manifest: &serde_json::Value, language: TacLanguage) {
-        if language == TacLanguage::JavaScript {
-            assert_eq!(
-                manifest["tac"]["browserApis"],
-                serde_json::json!(["documentTitle"])
-            );
-            return;
-        }
         assert!(manifest["tac"]["browserApis"].is_null(), "{language:?}");
     }
 

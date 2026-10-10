@@ -10,6 +10,15 @@ public interface CollectionClient
     [GetRequest("/nullable")]
     System.Threading.Tasks.Task<Models.MessagePage> nullable();
 
+    [GetRequest("/null-list")]
+    System.Threading.Tasks.Task<Models.MessagePage> nullList();
+
+    [GetRequest("/nullable-leaf")]
+    System.Threading.Tasks.Task<Models.MessagePage> nullableLeaf();
+
+    [GetRequest("/wrong-nullable-leaf")]
+    System.Threading.Tasks.Task<Models.MessagePage> wrongNullableLeaf();
+
     [GetRequest("/missing")]
     System.Threading.Tasks.Task<Models.MessagePage> missing();
 

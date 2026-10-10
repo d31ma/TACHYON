@@ -4,15 +4,15 @@ import { DotnetHttpBrowserGate } from './dotnet-http-browser-gate.mjs'
 import { DotnetTaskModelOwnerProof } from './dotnet-task-model-owner-proof.mjs'
 import { DotnetTaskModelRequests } from './dotnet-task-model-requests.mjs'
 
-/** @typedef {{message: string}} MessageItem */
+/** @typedef {{message: string, note: string | null}} MessageItem */
 /** @typedef {{items: MessageItem[], optionalItems: (MessageItem | null)[] | null}} MessagePage */
 /** @typedef {import('./dotnet-http-browser-gate.mjs').HttpRefusal} CollectionRefusal */
 /** @typedef {import('./dotnet-http-browser-gate.mjs').HttpDiagnostics} HttpDiagnostics */
 /** @typedef {import('./dotnet-task-model-requests.mjs').TaskModelRequest} CollectionRequest */
-/** @typedef {'missing' | 'wrongArray' | 'missingMember' | 'wrongMember' | 'extraMember' | 'nullMember'} CollectionInvalidMethod */
-/** @typedef {{first: string, ask: () => Promise<MessagePage>, empty: () => Promise<MessagePage>, nullable: () => Promise<MessagePage>, missing: () => Promise<MessagePage>, wrongArray: () => Promise<MessagePage>, missingMember: () => Promise<MessagePage>, wrongMember: () => Promise<MessagePage>, extraMember: () => Promise<MessagePage>, nullMember: () => Promise<MessagePage>, slow: () => Promise<MessagePage>, __tachyonDispose: () => void}} CollectionOwner */
+/** @typedef {'missing' | 'wrongArray' | 'missingMember' | 'wrongMember' | 'extraMember' | 'nullMember' | 'wrongNullableLeaf'} CollectionInvalidMethod */
+/** @typedef {{first: string, ask: () => Promise<MessagePage>, empty: () => Promise<MessagePage>, nullable: () => Promise<MessagePage>, nullList: () => Promise<MessagePage>, nullableLeaf: () => Promise<MessagePage>, wrongNullableLeaf: () => Promise<MessagePage>, missing: () => Promise<MessagePage>, wrongArray: () => Promise<MessagePage>, missingMember: () => Promise<MessagePage>, wrongMember: () => Promise<MessagePage>, extraMember: () => Promise<MessagePage>, nullMember: () => Promise<MessagePage>, slow: () => Promise<MessagePage>, __tachyonDispose: () => void}} CollectionOwner */
 /** @typedef {{default: new() => CollectionOwner}} CollectionServiceModule */
-/** @typedef {{empty: MessagePage, nullable: MessagePage, refused: {method: CollectionInvalidMethod, error: CollectionRefusal}[], privateProvider: boolean, unchangedFirst: string}} CollectionDecodingProof */
+/** @typedef {{empty: MessagePage, nullable: MessagePage, nullList: MessagePage, nullableLeaf: MessagePage, refused: {method: CollectionInvalidMethod, error: CollectionRefusal}[], privateProvider: boolean, unchangedFirst: string}} CollectionDecodingProof */
 
 class DotnetTaskCollectionBrowserGate {
   /** @returns {Promise<void>} */
@@ -41,7 +41,7 @@ class DotnetTaskCollectionBrowserGate {
     DotnetTaskCollectionBrowserGate.#checkDecoding(decoding)
     diagnostics.phase = 'collection-child-disposal-before-publication'
     const lifetime = await DotnetTaskModelOwnerProof.run(page, { modulePath: '/.tachyon/services/CollectionService.js', slowPath: '/api/collections/slow' })
-    assert.deepEqual(lifetime.replacement, { items: [{ message: 'first' }, { message: 'second' }], optionalItems: null })
+    assert.deepEqual(lifetime.replacement, { items: [{ message: 'first', note: null }, { message: 'second', note: null }], optionalItems: null })
     const requests = await DotnetTaskModelRequests.read(page)
     DotnetTaskCollectionBrowserGate.#checkRequests(requests)
     assert.deepEqual(diagnostics.errors, [])
@@ -61,7 +61,7 @@ class DotnetTaskCollectionBrowserGate {
       const Service = await import(modulePath)
       const owner = new Service.default()
       /** @type {CollectionInvalidMethod[]} */
-      const methods = ['missing', 'wrongArray', 'missingMember', 'wrongMember', 'extraMember', 'nullMember']
+      const methods = ['missing', 'wrongArray', 'missingMember', 'wrongMember', 'extraMember', 'nullMember', 'wrongNullableLeaf']
       /** @type {{method: CollectionInvalidMethod, error: CollectionRefusal}[]} */
       const refused = []
       /** @param {unknown} error @returns {CollectionRefusal} */
@@ -73,11 +73,13 @@ class DotnetTaskCollectionBrowserGate {
         const privateProvider = !Reflect.has(owner, '_collectionClient') && !Reflect.has(owner, 'collectionClient')
         const empty = await owner.empty()
         const nullable = await owner.nullable()
+        const nullList = await owner.nullList()
+        const nullableLeaf = await owner.nullableLeaf()
         for (const method of methods) {
           const error = await owner[method]().then(() => ({ code: 'UNEXPECTED_SUCCESS', message: 'Malformed collection accepted' }), refusal)
           refused.push({ method, error })
         }
-        return { empty, nullable, refused, privateProvider, unchangedFirst: owner.first }
+        return { empty, nullable, nullList, nullableLeaf, refused, privateProvider, unchangedFirst: owner.first }
       } finally {
         owner.__tachyonDispose()
       }
@@ -88,15 +90,17 @@ class DotnetTaskCollectionBrowserGate {
   static #checkDecoding(proof) {
     assert.equal(proof.privateProvider, true)
     assert.deepEqual(proof.empty, { items: [], optionalItems: null })
-    assert.deepEqual(proof.nullable, { items: [], optionalItems: [null, { message: 'nullable item' }] })
-    assert.deepEqual(proof.refused.map(result => result.method), ['missing', 'wrongArray', 'missingMember', 'wrongMember', 'extraMember', 'nullMember'])
-    assert.deepEqual(proof.refused.map(result => result.error.code), Array(6).fill('HTTP_RESPONSE'))
+    assert.deepEqual(proof.nullable, { items: [], optionalItems: [null, { message: 'nullable item', note: null }] })
+    assert.deepEqual(proof.nullList, { items: [], optionalItems: null })
+    assert.deepEqual(proof.nullableLeaf, { items: [{ message: 'absent note', note: null }, { message: 'null note', note: null }, { message: 'text note', note: 'present' }], optionalItems: null })
+    assert.deepEqual(proof.refused.map(result => result.method), ['missing', 'wrongArray', 'missingMember', 'wrongMember', 'extraMember', 'nullMember', 'wrongNullableLeaf'])
+    assert.deepEqual(proof.refused.map(result => result.error.code), Array(7).fill('HTTP_RESPONSE'))
     assert.equal(proof.unchangedFirst, '', 'no malformed collection can publish Service state')
   }
 
   /** @param {CollectionRequest[]} requests @returns {void} */
   static #checkRequests(requests) {
-    const suffixes = ['', '/empty', '/nullable', '/missing', '/wrong-array', '/missing-member', '/wrong-member', '/extra-member', '/null-member', '/slow', '']
+    const suffixes = ['', '/empty', '/nullable', '/null-list', '/nullable-leaf', '/missing', '/wrong-array', '/missing-member', '/wrong-member', '/extra-member', '/null-member', '/wrong-nullable-leaf', '/slow', '']
     assert.deepEqual(requests, suffixes.map(suffix => ({ path: `/api/collections${suffix}`, method: 'GET', credentials: 'omit', authorization: false })))
   }
 }

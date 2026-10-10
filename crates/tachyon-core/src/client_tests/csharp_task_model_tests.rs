@@ -104,7 +104,7 @@ fn csharp_registered_task_collection_runs_genuine_authored_test_fakes() -> Resul
     )
     .map_err(|error| error.to_string())?;
     assert!(report.failure.is_none(), "{report:?}");
-    assert_eq!(report.cases.len(), 9);
+    assert_eq!(report.cases.len(), 11);
     assert!(report.cases.iter().all(|case| case.passed), "{report:?}");
     Ok(())
 }

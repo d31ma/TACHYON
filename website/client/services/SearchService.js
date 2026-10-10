@@ -26,7 +26,7 @@ export default class SearchService {
   term = ''
   _searching = false
   /** @type {ReturnType<typeof setTimeout> | undefined} */
-  timer = undefined
+  _timer = undefined
 
   open() {
     this.showing = true
@@ -34,7 +34,7 @@ export default class SearchService {
   }
 
   close() {
-    clearTimeout(this.timer)
+    clearTimeout(this._timer)
     this.showing = false
     this.results = []
     this.term = ''
@@ -61,10 +61,10 @@ export default class SearchService {
    */
   find(_event, value) {
     this.term = this.#textOf(value)
-    clearTimeout(this.timer)
+    clearTimeout(this._timer)
     this._searching = this.term.length >= SearchService._SHORTEST_TERM
     const query = this.term
-    this.timer = setTimeout(() => this.#showResults(query), 120)
+    this._timer = setTimeout(() => this.#showResults(query), 120)
   }
 
   @OnStart
@@ -75,7 +75,7 @@ export default class SearchService {
 
   @OnStop
   dispose() {
-    clearTimeout(this.timer)
+    clearTimeout(this._timer)
   }
 
   #focusSearchInput() {

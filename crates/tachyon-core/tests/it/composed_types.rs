@@ -314,6 +314,25 @@ fn utility_classes_are_declared_in_their_own_realm() {
 }
 
 #[test]
+fn helper_classes_are_declared_in_their_own_realm() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/helpers/PriceHelper.js",
+        "@Helper\nexport default class PriceHelper {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  label(cents) { return String(cents) }\n}\n",
+    );
+    let client = generated(root.path(), "client");
+    assert!(declares(
+        &client,
+        "PriceHelper",
+        "client/helpers/PriceHelper.js",
+        "default"
+    ));
+    let server = generated(root.path(), "server");
+    assert!(!server.contains("PriceHelper"), "{server}");
+}
+
+#[test]
 fn javascript_models_become_global_types_in_their_realm() {
     let root = tempfile::tempdir().expect("project");
     write(

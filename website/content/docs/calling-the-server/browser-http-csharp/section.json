@@ -1,0 +1,55 @@
+{
+  "heading": "C# awaits a registered scalar answer",
+  "target": "web",
+  "summary": "An HTTPClient in client/remotes is injected into the Service through a private readonly Needs field. The empty Setup selects the default same-origin browser transport; a matching explicit adapter would take precedence. The registered Greeting model has one string field. The Service awaits Task<Models.Greeting> before publishing Message. This uses the scalar-record contract qualified in compiler27 and the C# tutorial restored in compiler28; arbitrary records, collections, ValueTask and async lifecycle are separate prerequisites. The browser omits credentials, bounds JSON and cancels requests when the Service owner is disposed. This reduced example still needs its own snippet and browser qualification.",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.js",
+      "code": {
+        "file": "server/controllers/GreetingController.js"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/greeting/tac.html",
+      "code": {
+        "file": "client/components/greeting/tac.html"
+      }
+    },
+    {
+      "name": "client/remotes/GreetingClient.cs",
+      "code": {
+        "file": "client/remotes/GreetingClient.cs"
+      }
+    },
+    {
+      "name": "client/models/Greeting.cs",
+      "code": {
+        "file": "client/models/Greeting.cs"
+      }
+    },
+    {
+      "name": "client/setups/GreetingSetup.cs",
+      "code": {
+        "file": "client/setups/GreetingSetup.cs"
+      }
+    },
+    {
+      "name": "client/services/GreetingService.cs",
+      "code": {
+        "file": "client/services/GreetingService.cs"
+      }
+    }
+  ]
+}
