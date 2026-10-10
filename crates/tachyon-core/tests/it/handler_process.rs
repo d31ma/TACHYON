@@ -111,6 +111,45 @@ impl DescendantDeadline {
     const SETTLE: Duration = Duration::from_secs(2);
 }
 
+/// Budgets for streams whose deadline must fire while the generator is running and
+/// the subscriber queue is full. A deadline shorter than the interpreter's cold
+/// start ends the stream before the first event, and then proves nothing about
+/// backpressure.
+struct BackpressureDeadline;
+
+impl BackpressureDeadline {
+    /// The stream deadline: room for the interpreter to start and fill the queue.
+    const DEADLINE: Duration = DescendantDeadline::STARTUP;
+    /// How long the supervisor may take to stop a backpressured stream after its
+    /// deadline fires.
+    const TEARDOWN: Duration = Duration::from_millis(1750);
+
+    async fn assert_bounded_with_a_full_queue(source: &HandlerSource, id: &str, expectation: &str) {
+        let supervisor = supervisor(HandlerSupervisorOptions {
+            default_timeout: Self::DEADLINE,
+            ..HandlerSupervisorOptions::default()
+        });
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
+        let started = std::time::Instant::now();
+        let failure = supervisor
+            .invoke_streaming(source, &request(id, HttpMethod::Get, None), sender)
+            .await
+            .expect_err(expectation);
+        // The deadline fires no earlier than `started + DEADLINE`, so this
+        // overestimates the time spent after it.
+        let teardown = started.elapsed().saturating_sub(Self::DEADLINE);
+        assert!(failure.to_string().contains("TY2110"), "{failure}");
+        let first = receiver
+            .try_recv()
+            .expect("the generator filled the subscriber queue before the deadline");
+        assert!(first.data.len() > 200 * 1024);
+        assert!(
+            teardown < Self::TEARDOWN,
+            "stopping the stream took {teardown:?} after its deadline"
+        );
+    }
+}
+
 fn descendant_pid(pid_file: &std::path::Path) -> u32 {
     assert!(
         pid_file.is_file(),
@@ -1399,27 +1438,18 @@ class Handler:
             yield "x" * (200 * 1024)
 "#,
     );
-    let supervisor = supervisor(HandlerSupervisorOptions {
-        default_timeout: Duration::from_millis(200),
-        ..HandlerSupervisorOptions::default()
-    });
-    let (sender, _receiver) = tokio::sync::mpsc::channel(1);
-    let started = std::time::Instant::now();
-    let failure = supervisor
-        .invoke_streaming(
-            &source,
-            &request("slow_subscriber", HttpMethod::Get, None),
-            sender,
-        )
-        .await
-        .expect_err("a full subscriber queue must remain deadline bounded");
-    assert!(failure.to_string().contains("TY2110"), "{failure}");
-    assert!(started.elapsed() < Duration::from_secs(2));
+    BackpressureDeadline::assert_bounded_with_a_full_queue(
+        &source,
+        "slow_subscriber",
+        "a full subscriber queue must remain deadline bounded",
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn a_fast_javascript_generator_obeys_stdout_and_subscriber_backpressure() {
-    if !available("bun") {
+    let runtime = HandlerSupervisorOptions::default().runtimes.javascript;
+    if !available(&runtime.to_string_lossy()) {
         return;
     }
     let root = tempfile::tempdir().expect("project");
@@ -1434,22 +1464,12 @@ export class Handler {
 }
 "#,
     );
-    let supervisor = supervisor(HandlerSupervisorOptions {
-        default_timeout: Duration::from_millis(250),
-        ..HandlerSupervisorOptions::default()
-    });
-    let (sender, _receiver) = tokio::sync::mpsc::channel(1);
-    let started = std::time::Instant::now();
-    let failure = supervisor
-        .invoke_streaming(
-            &source,
-            &request("javascript_slow_subscriber", HttpMethod::Get, None),
-            sender,
-        )
-        .await
-        .expect_err("a fast generator must remain deadline bounded");
-    assert!(failure.to_string().contains("TY2110"), "{failure}");
-    assert!(started.elapsed() < Duration::from_secs(2));
+    BackpressureDeadline::assert_bounded_with_a_full_queue(
+        &source,
+        "javascript_slow_subscriber",
+        "a fast generator must remain deadline bounded",
+    )
+    .await;
 }
 
 #[tokio::test]
