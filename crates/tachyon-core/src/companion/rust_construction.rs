@@ -607,14 +607,14 @@ impl RootService {
     #[test]
     fn rust_constructor_recognition_does_not_use_a_nested_types_constructor() {
         let path = "client/services/root_service.rs";
-        let source = r#"struct RootService {}
+        let source = r"struct RootService {}
 impl RootService {
     fn prepare() {
         struct LocalHelper {}
         impl LocalHelper { fn new() -> Self { Self {} } }
     }
 }
-"#;
+";
         let failure = RustConstruction::instance(source, path, "RootService", false)
             .err()
             .unwrap_or_else(|| panic!("a nested type cannot supply the service constructor"));
@@ -627,7 +627,7 @@ impl RootService {
 
     #[test]
     fn rust_constructor_recognition_finds_the_direct_constructor_after_a_nested_type() {
-        let source = r#"struct RootService { peer: PeerHelper }
+        let source = r"struct RootService { peer: PeerHelper }
 impl RootService {
     fn prepare() {
         struct LocalHelper {}
@@ -637,7 +637,7 @@ impl RootService {
 }
 #[derive(Default)]
 struct PeerHelper {}
-"#;
+";
         let path = "client/services/root_service.rs";
         let inputs = RustConstruction::constructor_inputs(source, path, "RootService")
             .unwrap_or_else(|failure| panic!("{failure}"));
