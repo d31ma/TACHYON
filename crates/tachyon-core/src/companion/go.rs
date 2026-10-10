@@ -232,6 +232,53 @@ mod tests {
     }
 
     #[test]
+    fn page_composition_default_factory_keeps_native_caller_allocation_and_injection() {
+        let source = "type SearchService struct { Count int }\n\nfunc (service *SearchService) tachyonInject() error { return nil }\n\nfunc (service *SearchService) Read() int { return service.Count }\n";
+        let output =
+            table(source, &[String::from("tachyonInject")]).expect("native default factory");
+        assert!(
+            output.starts_with("func TacCreate() []tac.Member {\n\tinstance := &SearchService{}\n")
+        );
+        assert_eq!(output.matches("func TacCreate()").count(), 1);
+        assert!(output.contains("if err := instance.tachyonInject(); err != nil"));
+        assert!(output.contains("{Name: \"count\", Read:"));
+        assert!(output.contains("{Name: \"read\", Call:"));
+        assert!(!output.contains("{Name: \"tachyonInject\""));
+    }
+
+    #[test]
+    fn page_composition_owner_table_keeps_the_selected_class_hooks_and_publisher_types() {
+        let source = "type WriterService struct { Count int; Publisher ApplicationEventPublisher }\n\ntype ReaderService struct { Label string; Publisher *ApplicationEventPublisher }\n\nfunc (writer *WriterService) Start() {}\nfunc (writer *WriterService) Stop() {}\nfunc (writer *WriterService) Increment() int { writer.Count++; return writer.Count }\n\nfunc (reader *ReaderService) Start() {}\nfunc (reader *ReaderService) Stop() {}\nfunc (reader *ReaderService) Read() string { return reader.Label }\n";
+        for (class, field, method, other) in [
+            ("WriterService", "count", "Increment", "ReaderService"),
+            ("ReaderService", "label", "Read", "WriterService"),
+        ] {
+            let extra = "\t\t{Name: \"owned-start\", Hook: func() error { instance.Start(); return nil }},\n\t\t{Name: \"owned-stop\", Destroy: true, Hook: func() error { instance.Stop(); return nil }},\n";
+            let output = owner_table(&GoTable {
+                source,
+                source_path: &format!("client/services/{class}.go"),
+                class,
+                excluded: &[String::from("Start"), String::from("Stop")],
+                extra,
+            })
+            .expect("selected owner");
+            assert!(output.starts_with(&format!(
+                "func TacCreate() []tac.Member {{\n\tinstance := &{class}{{}}\n"
+            )));
+            assert!(output.contains(&format!("{{Name: \"{field}\", Read:")));
+            assert!(output.contains(&format!("instance.{method}()")));
+            assert!(output.contains(extra));
+            for hidden in ["start", "stop", "publisher"] {
+                assert!(
+                    !output.contains(&format!("{{Name: \"{hidden}\"")),
+                    "{hidden}"
+                );
+            }
+            assert!(!output.contains(other));
+        }
+    }
+
+    #[test]
     fn exported_fields_and_methods_become_lower_first_members() {
         let output = table(Fixtures::SERVICE, &[String::from("Started")]).expect("table");
         assert!(
