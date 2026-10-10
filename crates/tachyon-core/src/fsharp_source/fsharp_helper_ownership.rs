@@ -1,5 +1,6 @@
 use super::{AttributeLine, FsharpConstructorProps, FsharpView, LineKind, TypeHeader};
 use crate::Failure;
+use crate::helper_new_call::HelperNewCall;
 use std::ops::Range;
 use std::path::Path;
 
@@ -166,11 +167,8 @@ impl<'a> FsharpHelperOwnership<'a> {
     }
 
     fn new_call(&self, name: &str, range: &Range<usize>, at: usize) -> bool {
-        let before = &self.code[..at];
-        let after = self.code[at + name.len()..].trim_start();
         !range.contains(&at)
-            && before.split_whitespace().next_back() == Some("new")
-            && after.starts_with('(')
+            && HelperNewCall::matches(&self.code[..at], &self.code[at + name.len()..])
     }
 
     fn require_dependencies(&self) -> Result<(), Failure> {

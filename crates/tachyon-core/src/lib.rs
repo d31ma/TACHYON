@@ -21,6 +21,7 @@ mod go_source;
 mod groovy_home;
 mod groovy_source;
 mod handler;
+mod helper_new_call;
 mod hot_update;
 mod html;
 mod lexical;
