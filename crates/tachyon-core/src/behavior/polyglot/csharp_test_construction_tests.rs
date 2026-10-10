@@ -89,6 +89,30 @@ async fn csharp_test_http_client_fakes_compile_and_execute_per_construction() {
     let emitted = crate::behavior::lower(path, source, "tac")
         .expect("authored HTTPClient and Test lowering")
         .expect("emitted C#");
+    assert!(emitted.contains("public GreetingService(GreetingClient greetingClient)"));
+    assert!(emitted.contains("new GreetingService(this.__tachyonAssignedFake(this.greetingClient"));
+    assert!(emitted.contains("Test.construct needs an active test setup."));
+    assert!(emitted.contains("Test.construct needs an assigned Fake named greetingClient."));
+    assert!(emitted.contains("matching typed Fake named greetingClient for GreetingService"));
+    let mut probe = tokio::process::Command::new("dotnet");
+    probe.arg("--version");
+    match crate::external_command::run(&mut probe, std::time::Duration::from_secs(10), 4096).await {
+        Err(crate::external_command::ToolError::Spawn(error))
+            if error.kind() == std::io::ErrorKind::NotFound =>
+        {
+            eprintln!(
+                "deferring C# HTTPClient typed Test construction execution: dotnet is unavailable"
+            );
+            return;
+        }
+        Err(error) => panic!("C# SDK availability probe failed: {error}"),
+        Ok(result) => assert!(
+            result.status.success(),
+            "C# SDK availability probe failed:\n{}\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        ),
+    }
     let directory = tempfile::tempdir().expect("fixture output");
     let output = directory.path().join("Emitted.cs");
     std::fs::write(&output, emitted).expect("lowered fixture");

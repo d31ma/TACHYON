@@ -112,6 +112,31 @@ fn a_plain_handler_becomes_a_controller_in_every_language_that_has_one() {
         plan.write(project.path()).expect("write");
         assert_eq!(read(project.path(), &to), handler.expected, "{text}");
         assert!(!project.path().join("server/routes").exists(), "{text}");
+        if handler.extension == "cs" {
+            let mut probe = std::process::Command::new("dotnet");
+            probe.arg("--version");
+            match crate::external_command::run_sync(
+                &mut probe,
+                std::time::Duration::from_secs(10),
+                4096,
+            ) {
+                Err(crate::external_command::ToolError::Spawn(error))
+                    if error.kind() == std::io::ErrorKind::NotFound =>
+                {
+                    eprintln!(
+                        "deferring C# migrated controller native route discovery: dotnet is unavailable"
+                    );
+                    continue;
+                }
+                Err(error) => panic!("C# SDK availability probe failed: {error}"),
+                Ok(result) => assert!(
+                    result.status.success(),
+                    "C# SDK availability probe failed:\n{}\n{}",
+                    String::from_utf8_lossy(&result.stdout),
+                    String::from_utf8_lossy(&result.stderr)
+                ),
+            }
+        }
         let verbs: &[(&str, &str)] = match handler.extension {
             "js" => &[("GET", "/orders/_id"), ("POST", "/orders/_id")],
             "py" => &[("GET", "/orders/_id"), ("DELETE", "/orders/_id")],
