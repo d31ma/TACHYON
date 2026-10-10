@@ -92,3 +92,40 @@ write `sitemap.xml` and `robots.txt`.
   build. A project that needs it generates the manifest or the files before
   it runs `ty bundle`.
 - Builds are faster and need no JavaScript runtime for configuration.
+
+## Amendment (2026-10-10): Blocking scripts run before the first paint
+
+Every `tac.scripts` entry is a deferred `type="module"` script after the Tac
+runtime, `/.tachyon/tac-client.js`. A module script runs only after the
+document is parsed, and a browser may paint before that. A page that must
+change the document before the first paint, such as the website applying a
+visitor's saved light theme, could show one frame of the default theme
+first. The site's Content Security Policy (`script-src 'self'`) refuses
+inline scripts, so the work cannot move into the page head as text.
+
+### Decision
+
+- `tac.blockingScripts` lists up to 8 local paths, with the same path rules
+  and limit as `tac.scripts`.
+- The build links each one into every page, in the declared order, as
+  `<script src="..." data-tachyon-runtime></script>`: a classic script
+  without `type`, `defer` or `async`, placed directly before the Tac
+  runtime's module tag. The parser stops until a classic script has loaded
+  and run, so it runs before the body is parsed and before the first paint.
+  `script-src 'self'` allows it without a hash or nonce.
+- `blocking="render"` on a module tag was not chosen. Of the pinned
+  Playwright engines (Chromium 151, Firefox 153 and WebKit 26.5), Firefox
+  does not expose `HTMLScriptElement.prototype.blocking`, so it ignores the
+  attribute and the module stays deferred. A classic script blocks
+  rendering in all three.
+- `tac.scripts` does not change: each entry is still a deferred module
+  after the runtime. A vendor in `tac.scriptSources` must still appear in
+  `tac.scripts` (`TY1365`). A blocking script is an authored shared script
+  and receives the authored-script check (`TY1364`).
+
+### Consequences
+
+- The first paint waits for every blocking script to load and run. Keep the
+  list short and each file small.
+- A blocking script is a classic script: it cannot use `import` or `export`,
+  and its top-level class becomes a global name of the page.

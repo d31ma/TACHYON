@@ -10,6 +10,12 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `tac.blockingScripts` in `client/manifest.json` lists up to 8 local
+  scripts that run before the first paint. The build links each one as a
+  classic `<script src>` before the Tac runtime, which `script-src 'self'`
+  allows. `tac.scripts` entries stay deferred modules after the runtime. The
+  website uses it for `ThemeDefault.js`, so a saved light theme is light from
+  the first paint (ADR 0052 amendment).
 - Windows apps can be built for ARM64: `ty bundle --target windows` now
   builds for the build machine's architecture, and `--arch x64` or
   `--arch arm64` chooses one. The choice sets the Rust companion target,

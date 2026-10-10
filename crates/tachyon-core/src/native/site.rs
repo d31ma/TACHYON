@@ -7,6 +7,7 @@ use std::path::Path;
 #[derive(Debug, Default)]
 pub(crate) struct SiteSettings {
     pub(crate) scripts: Vec<String>,
+    pub(crate) blocking_scripts: Vec<String>,
     pub(crate) styles: Vec<String>,
     pub(crate) style_sources: BTreeMap<String, super::style_source::StyleSource>,
     pub(crate) script_sources: BTreeMap<String, super::vendor_provenance::VendorProvenance>,
@@ -37,6 +38,7 @@ impl SiteSettings {
         let tac = manifest.into_tac();
         Self::validate_origin(tac.origin.as_deref())?;
         validate_document_paths("scripts", &tac.scripts)?;
+        validate_document_paths("blockingScripts", &tac.blocking_scripts)?;
         validate_document_paths("styles", &tac.styles)?;
         Self::validate_source_paths(tac.style_sources.keys())?;
         Self::validate_source_paths(tac.script_sources.keys())?;
@@ -46,6 +48,7 @@ impl SiteSettings {
         let metadata = Self::resolved_metadata(tac.metadata, tac.origin.as_deref());
         Ok(Self {
             scripts: tac.scripts,
+            blocking_scripts: tac.blocking_scripts,
             styles: tac.styles,
             style_sources: tac.style_sources,
             script_sources: tac.script_sources,

@@ -617,21 +617,25 @@ describe('house style', () => {
 
   test('a first visit lands on the dark theme, and a saved theme stays', async () => {
     const source = await read('client/shared/scripts/ThemeDefault.js')
+    const root = new Map()
+    const page = { documentElement: { setAttribute: (name, value) => root.set(name, value) } }
     const run = (saved) => {
       const values = new Map(saved === null ? [] : [['w-theme', saved]])
       const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }
-      new Function('localStorage', source)(storage)
+      root.clear()
+      new Function('localStorage', 'document', source)(storage, page)
+      expect(root.get('w-theme')).toBe(values.get('w-theme'))
       return values.get('w-theme')
     }
     expect(run(null)).toBe('dark')
     expect(run('light')).toBe('light')
     expect(run('auto')).toBe('auto')
     const blocked = { getItem: () => { throw new Error('denied') }, setItem: () => { throw new Error('denied') } }
-    expect(() => new Function('localStorage', source)(blocked)).toThrow('denied')
+    expect(() => new Function('localStorage', 'document', source)(blocked, page)).toThrow('denied')
 
     const manifest = await readJson('client/manifest.json')
-    const scripts = manifest.tac.scripts
-    expect(scripts.indexOf('/shared/scripts/ThemeDefault.js')).toBeLessThan(scripts.indexOf('/shared/assets/duvay/duvay.min.js'))
+    expect(manifest.tac.blockingScripts).toEqual(['/shared/scripts/ThemeDefault.js'])
+    expect(manifest.tac.scripts).not.toContain('/shared/scripts/ThemeDefault.js')
     const css = await read('client/shared/styles/site.css')
     expect(css).toContain('--page-background: var(--tachyon-night);')
     expect(css).toContain('background: var(--page-background);')

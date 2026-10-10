@@ -439,6 +439,8 @@ pub(crate) struct TacMember {
     pub(super) native_capabilities: Vec<String>,
     #[serde(default)]
     pub(super) scripts: Vec<String>,
+    #[serde(default, rename = "blockingScripts")]
+    pub(super) blocking_scripts: Vec<String>,
     #[serde(default)]
     pub(super) styles: Vec<String>,
     #[serde(default, rename = "styleSources")]
@@ -458,10 +460,11 @@ pub(crate) struct TacMember {
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 29] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 30] = [
         "origin",
         "application",
         "scripts",
+        "blockingScripts",
         "styles",
         "styleSources",
         "scriptSources",
