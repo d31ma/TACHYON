@@ -365,16 +365,18 @@ enum Behaviors {
         guard minimum <= maximum, number >= minimum, number <= maximum else { throw BehaviorError("configuration-properties") }
     }
 }
-struct BehaviorBrowserRead {
+struct BehaviorBrowserRead: Sendable {
     let publicRead: Bool; let revalidate: Bool
-    @TaskLocal static var current = BehaviorBrowserRead(publicRead: false, revalidate: false)
+    nonisolated static let currentBinding = TaskLocal(wrappedValue: BehaviorBrowserRead(publicRead: false, revalidate: false))
+    static var current: BehaviorBrowserRead { currentBinding.get() }
 }
 enum BehaviorOpenTransactions {
-    @TaskLocal static var open: [String: String] = [:]
+    nonisolated static let openBinding = TaskLocal<[String: String]>(wrappedValue: [:])
+    static var open: [String: String] { openBinding.get() }
     static func within(_ adapter: String, _ identifier: String, _ body: () async throws -> BehaviorJSON) async throws -> BehaviorJSON {
         var joined = open
         joined[adapter] = identifier
-        return try await $open.withValue(joined) { try await body() }
+        return try await openBinding.withValue(joined) { try await body() }
     }
 }
 final class BehaviorContext {
@@ -445,7 +447,7 @@ final class BehaviorContext {
             if expiry > Behaviors.now { guard entry.has("value") else { throw BehaviorError("CACHE_VALUE") }; let value = entry.get("value"); _ = try value.encoded(maximum: policy.get("maxBytes").integer); return value }
         }
         let reading = BehaviorBrowserRead(publicRead: metadata.get("httpExchange").get("method") == .string("GET"), revalidate: takeRevalidation(key))
-        let result = try await BehaviorBrowserRead.$current.withValue(reading) { try await self.resilient(type, method, metadata, body: body, execution: execution) }; try execution.check(); _ = try result.encoded(maximum: policy.get("maxBytes").integer)
+        let result = try await BehaviorBrowserRead.currentBinding.withValue(reading) { try await self.resilient(type, method, metadata, body: body, execution: execution) }; try execution.check(); _ = try result.encoded(maximum: policy.get("maxBytes").integer)
         try await self.adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").milliseconds, execution) }); return result
     }
     private static func withFilledPath(_ metadata: BehaviorJSON, _ arguments: [BehaviorJSON]) throws -> BehaviorJSON {

@@ -1312,6 +1312,11 @@ mod tests {
         }
         let development_root = tempfile::tempdir().expect("project");
         let release_root = tempfile::tempdir().expect("project");
+        write_service(
+            release_root.path(),
+            "client/manifest.json",
+            "{\"tac\":{\"go\":{\"compiler\":\"tinygo\"}}}",
+        );
         let (development_notes, development) =
             go_counter(development_root.path(), crate::BuildProfile::Development).await;
         let (release_notes, release) =
