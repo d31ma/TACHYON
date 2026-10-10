@@ -98,7 +98,24 @@ fn descendant_request(id: &str, mode: &str, pid_file: &std::path::Path) -> Handl
     request
 }
 
+/// Budgets for tests whose outcome must fire after the handler has spawned its
+/// descendant. A deadline shorter than the interpreter's cold start ends the
+/// invocation before any descendant exists, and then proves nothing about reaping.
+struct DescendantDeadline;
+
+impl DescendantDeadline {
+    /// Room for the interpreter to start, run the handler, and write the pid file.
+    /// Cold starts took up to 1.4 s on a loaded Windows host.
+    const STARTUP: Duration = Duration::from_secs(5);
+    /// How long the supervisor may take to settle and reap after the outcome fires.
+    const SETTLE: Duration = Duration::from_secs(2);
+}
+
 fn descendant_pid(pid_file: &std::path::Path) -> u32 {
+    assert!(
+        pid_file.is_file(),
+        "the invocation ended before the handler spawned its descendant"
+    );
     fs::read_to_string(pid_file)
         .expect("descendant pid file")
         .trim()
@@ -1193,13 +1210,13 @@ export class Handler {
 
     let success_pid_file = root.path().join("success.pid");
     let success_supervisor = supervisor(HandlerSupervisorOptions {
-        default_timeout: Duration::from_millis(750),
+        default_timeout: DescendantDeadline::STARTUP,
         cancellation_grace: Duration::from_millis(25),
         ..HandlerSupervisorOptions::default()
     });
     let started = tokio::time::Instant::now();
     let success = tokio::time::timeout(
-        Duration::from_secs(2),
+        DescendantDeadline::STARTUP + DescendantDeadline::SETTLE,
         success_supervisor.invoke(
             &source,
             &descendant_request("descendant_success", "success", &success_pid_file),
@@ -1209,19 +1226,20 @@ export class Handler {
     .await
     .expect("successful invocation stayed bounded")
     .expect("successful handler response");
-    assert!(started.elapsed() < Duration::from_millis(750));
+    assert!(started.elapsed() < DescendantDeadline::STARTUP);
+    assert_eq!(success.status, 200, "{:?}", success.error);
     let success_pid = descendant_pid(&success_pid_file);
     assert_eq!(body_json(&success)["descendant"], success_pid);
     assert_process_gone(success_pid).await;
 
     let timeout_pid_file = root.path().join("timeout.pid");
     let timeout_supervisor = supervisor(HandlerSupervisorOptions {
-        default_timeout: Duration::from_millis(250),
+        default_timeout: DescendantDeadline::STARTUP,
         cancellation_grace: Duration::from_millis(25),
         ..HandlerSupervisorOptions::default()
     });
     let timed_out = tokio::time::timeout(
-        Duration::from_secs(2),
+        DescendantDeadline::STARTUP + DescendantDeadline::SETTLE,
         timeout_supervisor.invoke(
             &source,
             &descendant_request("descendant_timeout", "hang", &timeout_pid_file),
@@ -1240,19 +1258,16 @@ export class Handler {
     let trigger = cancellation.clone();
     let trigger_pid_file = cancellation_pid_file.clone();
     tokio::spawn(async move {
-        for _attempt in 0..100 {
-            if trigger_pid_file.is_file() {
-                trigger.cancel();
-                return;
-            }
+        let give_up = tokio::time::Instant::now() + DescendantDeadline::STARTUP;
+        while !trigger_pid_file.is_file() && tokio::time::Instant::now() < give_up {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
         trigger.cancel();
     });
     let cancelled = tokio::time::timeout(
-        Duration::from_secs(2),
+        DescendantDeadline::STARTUP + DescendantDeadline::SETTLE,
         supervisor(HandlerSupervisorOptions {
-            default_timeout: Duration::from_secs(1),
+            default_timeout: DescendantDeadline::STARTUP * 2,
             cancellation_grace: Duration::from_millis(25),
             ..HandlerSupervisorOptions::default()
         })
@@ -1303,7 +1318,7 @@ async fn streaming_deadlines_reap_inheriting_descendants() {
     let source = streaming_descendant_source(&root);
     let pid_file = root.path().join("stream-timeout.pid");
     let supervisor = supervisor(HandlerSupervisorOptions {
-        default_timeout: Duration::from_secs(1),
+        default_timeout: DescendantDeadline::STARTUP,
         cancellation_grace: Duration::from_millis(25),
         ..HandlerSupervisorOptions::default()
     });
