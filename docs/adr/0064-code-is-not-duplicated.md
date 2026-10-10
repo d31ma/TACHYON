@@ -171,3 +171,28 @@ As `client/utils` was, `client/shared/utils` is not copied as a raw shared
 asset: the build publishes a utility module only when a script reaches it.
 The design checks (visibility, layers, names) do not read `client/shared/utils`
 yet; turning them on there is a separate follow-up.
+
+## Amendment: Ruby and Lua loaders are single files (2026-10-10)
+
+`runtimes/ruby-web/tachyon-ruby.js` and `runtimes/lua-web/tachyon-lua.js`
+keep their own copies of the console output methods (`writeOutput`,
+`appendOutput`, `appendOutputPart`, `outputStream`), the clock and
+descriptor methods, and `callHost` and `throwHostError`. This is an
+accepted exception to this ADR, for these reasons:
+
+- Each loader is one file. `ty` embeds it with `include_str` and publishes it
+  as `ruby/tachyon-ruby.js` or `lua/tachyon-lua.js` beside its WebAssembly
+  file. The page imports that one same-origin file and nothing else. A
+  shared module would add a third published file and one more import to
+  every Ruby or Lua page, and a Lua-only or Ruby-only project would carry it.
+- Each loader is part of its runtime's source fingerprint
+  (`RuntimeSources::fingerprint`), which names the cache folder of
+  `tachyon-ruby.wasm` and `tachyon-lua.wasm`. Any change to a loader file
+  makes every developer build that runtime again with `emcc`.
+- The two loaders differ. The Ruby loader writes output in 4096-byte chunks
+  and answers storage with `tachyon-storage:ask` and `tachyon-storage:take`.
+  The Lua loader answers unknown imports with "not supported", stops on
+  `proc_exit`, and answers `tachyon.tac_host_ask`.
+
+`runtimes/` is not an application realm, so `TY1315` does not read these
+files. A fix to the shared methods must be made in both loaders.
