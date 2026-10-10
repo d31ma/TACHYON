@@ -390,8 +390,10 @@ final class JavaWindowService {
     try {
       mkdirSync(path.join(project, 'client/shared/scripts'), { recursive: true })
       mkdirSync(path.join(project, 'client/pages'), { recursive: true })
+      mkdirSync(path.join(project, 'client/components/budget/control'), { recursive: true })
       writeFileSync(path.join(project, 'client/manifest.json'), JSON.stringify({ tac: { scripts: ['/shared/scripts/BudgetPadding.js'] } }))
-      writeFileSync(path.join(project, 'client/pages/tac.html'), '<main>Budget control</main>')
+      writeFileSync(path.join(project, 'client/pages/tac.html'), '<budget-control />\n')
+      writeFileSync(path.join(project, 'client/components/budget/control/tac.html'), '<main>Budget control</main>\n')
       const padding = Array.from({ length: 10_240 }, (_, index) => createHash('sha256').update(String(index)).digest('hex')).join('')
       writeFileSync(path.join(project, 'client/shared/scripts/BudgetPadding.js'), `export default class BudgetPadding { static _TEXT = '${padding}' }`)
       const built = spawnSync(WindowControlsGate.binary, ['build', project], {
