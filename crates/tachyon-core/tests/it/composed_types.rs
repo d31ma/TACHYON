@@ -332,6 +332,112 @@ fn helper_classes_are_declared_in_their_own_realm() {
     assert!(!server.contains("PriceHelper"), "{server}");
 }
 
+fn assert_utility_source_declaration(realm: &str, path: &str, source: &str, member: &str) {
+    let root = tempfile::tempdir().expect("project");
+    write(root.path(), path, source);
+    let declared = generated(root.path(), realm);
+    assert!(
+        declares(&declared, "PriceUtils", path, member),
+        "{declared}"
+    );
+    assert_eq!(names(&declared), ["PriceUtils"]);
+    assert_eq!(
+        fs::read_to_string(root.path().join(path)).expect("authored source"),
+        source
+    );
+    let other = other_utility_realm(realm);
+    assert!(!generated(root.path(), other).contains("PriceUtils"));
+}
+
+fn other_utility_realm(realm: &str) -> &str {
+    if realm == "client" {
+        return "server";
+    }
+    "client"
+}
+
+#[test]
+fn utility_declarations_preserve_default_javascript_source_exports() {
+    assert_utility_source_declaration(
+        "client",
+        "client/shared/utils/prices/PriceUtils.js",
+        "export default class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) { return String(cents) }\n}\n",
+        "default",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_named_javascript_source_exports() {
+    assert_utility_source_declaration(
+        "client",
+        "client/shared/utils/prices/PriceUtils.js",
+        "export class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) { return String(cents) }\n}\n",
+        "PriceUtils",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_default_typescript_source_exports() {
+    assert_utility_source_declaration(
+        "client",
+        "client/utils/PriceUtils.ts",
+        "export default class PriceUtils {\n  static label(cents: number): string { return String(cents) }\n}\n",
+        "default",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_named_typescript_source_exports() {
+    assert_utility_source_declaration(
+        "client",
+        "client/shared/utils/prices/PriceUtils.ts",
+        "export class PriceUtils {\n  static label(cents: number): string { return String(cents) }\n}\n",
+        "PriceUtils",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_default_yon_source_exports() {
+    assert_utility_source_declaration(
+        "server",
+        "server/utils/PriceUtils.js",
+        "export default class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) { return String(cents) }\n}\n",
+        "default",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_named_yon_source_exports() {
+    assert_utility_source_declaration(
+        "server",
+        "server/utils/PriceUtils.ts",
+        "export class PriceUtils {\n  static label(cents: number): string { return String(cents) }\n}\n",
+        "PriceUtils",
+    );
+}
+
+#[test]
+fn utility_declarations_do_not_publish_instance_method_sources() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/shared/utils/PriceUtils.js",
+        "export default class PriceUtils {\n  label(cents) { return String(cents) }\n}\n",
+    );
+    assert_eq!(generated(root.path(), "client"), "export {};\n");
+}
+
+#[test]
+fn utility_declarations_do_not_publish_annotated_source_classes() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/shared/utils/PriceUtils.js",
+        "@Service\nexport default class PriceUtils {\n  static label(cents) { return String(cents) }\n}\n",
+    );
+    assert_eq!(generated(root.path(), "client"), "export {};\n");
+}
+
 #[test]
 fn javascript_models_become_global_types_in_their_realm() {
     let root = tempfile::tempdir().expect("project");

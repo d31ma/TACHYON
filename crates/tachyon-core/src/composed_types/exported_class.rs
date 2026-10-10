@@ -18,21 +18,28 @@ impl ExportedClass {
             .then_some(path)
             .map_or_else(
                 || Self::find_in_code(code),
-                |path| Self::utility_class(path, source),
+                |path| Self::utility_class(path, source, code),
             )
     }
 
-    fn utility_class(path: &Path, source: &str) -> Vec<Self> {
+    fn utility_class(path: &Path, source: &str, code: &str) -> Vec<Self> {
         crate::annotation_layout::UtilityLayout::check(path, source)
             .ok()
             .and_then(|()| path.file_stem())
             .and_then(|name| name.to_str())
             .map(|name| Self {
                 name: name.to_owned(),
-                member: name.to_owned(),
+                member: Self::utility_member(name, code),
             })
             .into_iter()
             .collect()
+    }
+
+    fn utility_member(name: &str, code: &str) -> String {
+        Self::find_in_code(code)
+            .into_iter()
+            .next()
+            .map_or_else(|| name.to_owned(), |class| class.member)
     }
 
     fn find_in_code(code: &str) -> Vec<Self> {
