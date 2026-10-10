@@ -380,7 +380,7 @@ fn utility_declarations_preserve_named_javascript_source_exports() {
 fn utility_declarations_preserve_default_typescript_source_exports() {
     assert_utility_source_declaration(
         "client",
-        "client/utils/PriceUtils.ts",
+        "client/shared/utils/prices/PriceUtils.ts",
         "export default class PriceUtils {\n  static label(cents: number): string { return String(cents) }\n}\n",
         "default",
     );
