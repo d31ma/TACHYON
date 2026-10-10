@@ -47,8 +47,10 @@
       "id": "ma.del.tachyon.website",
       "version": "26.36.01"
     },
+    "blockingScripts": [
+      "/shared/scripts/ThemeDefault.js"
+    ],
     "scripts": [
-      "/shared/scripts/ThemeDefault.js",
       "/shared/assets/duvay/duvay-wc-site.min.js",
       "/shared/assets/duvay/duvay.min.js"
     ],

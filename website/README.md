@@ -156,9 +156,12 @@ run the generator. You do not need a dependency link inside the synced source.
 
 The theme is dark until the visitor picks another one. `site.css` gives the
 page a dark background while the root has no `w-theme` attribute, so the first
-paint is dark. `shared/scripts/ThemeDefault.js` runs before DuVay's behaviour
-script and saves `dark` when nothing is saved, because that script falls back
-to `light`. DuVay's script then applies the saved theme, and its
+paint is dark. `shared/scripts/ThemeDefault.js` is listed in
+`tac.blockingScripts`, so the build links it as a classic script before the Tac
+runtime and it runs before the first paint. It saves `dark` when nothing is
+saved, because DuVay's behaviour script falls back to `light`, and it sets the
+saved theme on the root `w-theme` attribute, so a saved light theme is light
+from the first paint. DuVay's script then keeps that theme, and its
 `w-theme-toggle` button changes and saves it.
 Preference access stays in services. `DocumentationUtils` and `PlatformUtils`
 contain only stateless static methods at the canonical shared utility root.

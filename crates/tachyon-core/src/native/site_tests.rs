@@ -49,6 +49,7 @@ fn scripts_styles_and_origin_are_read_from_the_manifest() {
     let settings = load(&json!({
         "origin": "https://shop.example",
         "scripts": ["/shared/app.js?v=1&next=https://example.invalid/a..b&encoded=%2f#section"],
+        "blockingScripts": ["/shared/scripts/ThemeDefault.js"],
         "styles": ["/shared/name%20with%20spaces.css"],
         "api": { "url": "/api" },
     }))
@@ -58,6 +59,10 @@ fn scripts_styles_and_origin_are_read_from_the_manifest() {
         vec![String::from(
             "/shared/app.js?v=1&next=https://example.invalid/a..b&encoded=%2f#section"
         )]
+    );
+    assert_eq!(
+        settings.blocking_scripts,
+        vec![String::from("/shared/scripts/ThemeDefault.js")]
     );
     assert_eq!(
         settings.styles,
@@ -78,13 +83,18 @@ fn document_resources_reject_foreign_and_ambiguous_paths() {
         "/shared/%2fmodule.js",
         "/shared/%5Cmodule.js",
     ] {
-        for member in ["scripts", "styles"] {
+        for member in ["scripts", "blockingScripts", "styles"] {
             let text = load_error(&json!({ member: [source] }));
             assert!(text.contains(&format!("in tac.{member}")), "{text}");
         }
     }
     let text = load_error(&json!({ "scripts": vec!["/shared/a.js"; 9] }));
     assert!(text.contains("more than 8 entries"), "{text}");
+    let text = load_error(&json!({ "blockingScripts": vec!["/shared/a.js"; 9] }));
+    assert!(
+        text.contains("tac.blockingScripts lists more than 8 entries"),
+        "{text}"
+    );
 }
 
 #[test]

@@ -134,7 +134,8 @@ Never put a secret in it, including in `tac.application`.
 | `tac.application.window` | `width`/`height`: 1024 by 768 unless set, each from 64 to 16384. `minWidth`/`minHeight`. `controls`: the window controls that a page may use (`close`, `fullscreen`, `maximize`, `minimize`, `resize`, `title`). A page may use none unless they are listed. `titleBar`: `standard` (default) or `integrated`; on macOS an integrated title bar lets the page reach the top edge under the real window buttons, sets `--tac-titlebar-height`, `--tac-titlebar-leading-inset` and `--tac-titlebar-trailing-inset`, and moves the window from elements marked `data-tac-drag-region` (ADR 0098); other targets keep the standard title bar and print a note. `titleBarButtonInset`: `{ "leading", "top" }` in points (0 to 200), only with `integrated`. | native |
 | `tac.nativeCapabilities` | The operating system features that native services may use, such as `["filePicker"]`. Each name may appear once; `filePicker` is the only name today. Without the grant, the file picker answers `denied` before any dialog opens. The grant does not replace the user's consent or the platform's signing entitlements (ADR 0089). | build, native |
 | `tac.origin` | The site's public address, such as `https://example.com`, without a path. It turns on the built-in `sitemap.xml` and `robots.txt`, and a `canonical` or `image` that starts with `/` is joined to it. | build |
-| `tac.scripts`, `tac.styles` | Up to 8 local paths each, such as `/shared/app.js`, linked into every page. | build |
+| `tac.scripts`, `tac.styles` | Up to 8 local paths each, such as `/shared/app.js`, linked into every page. Each script is a deferred `type="module"` script after the Tac runtime. | build |
+| `tac.blockingScripts` | Up to 8 local paths, such as `/shared/scripts/ThemeDefault.js`, linked into every page as classic `<script src>` tags before the Tac runtime (`/.tachyon/tac-client.js`). Each one runs before the first paint, for example to apply a saved theme, and the page waits for it: keep it small, with no `import` or `export` (ADR 0052 amendment). | build |
 | `tac.scriptSources` | For each third-party script in `tac.scripts`, its `package`, `version`, `license` and pinned `sha256`. The file stays in `client/shared/` and is listed in both settings (`TY1365`); bytes that do not match the pinned SHA-256 fail with `TY1403`. | build |
 | `tac.styleSources` | The kind of each style in `tac.styles`: `{"kind": "foundation"}` for the project's own foundation styles, or `{"kind": "vendor", ...}` with the same `package`, `version`, `license` and `sha256` as a script source. | build |
 | `tac.browserApis` | The browser APIs that need the user's consent and that services may use: any of `clipboard`, `share`, `notifications` and `geolocation`, each once. Any other name stops the build (`TY1601`); the page refuses an API that is not listed (ADR 0065). | build, browser |
@@ -307,7 +308,7 @@ Tac's configuration is the `tac` member of `client/manifest.json`.
 - The manifest's own members (`name`, `icons`, `start_url`) belong to the
   browser. They are not configuration. Only `tac` binds.
 - The Tachyon members of `tac` in the field reference above (`origin`,
-  `application`, `scripts`, `styles`, `outgoing`, `budgets`, the `check` and
+  `application`, `scripts`, `blockingScripts`, `styles`, `outgoing`, `budgets`, the `check` and
   `suggest` switches, `python`, `go`, `dotnet` and the others) are build
   settings. Tachyon removes them before services bind, so `Settings` and
   `Setting` never see them.

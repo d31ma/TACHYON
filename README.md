@@ -175,8 +175,8 @@ Some files in this tree have a special role:
 
 - `client/manifest.json` is the web app manifest and the whole Tac
   configuration (ADR 0052). Its `tac` member holds the public Tac settings
-  and Tachyon's own settings: `origin`, `application`, `scripts`, `styles`,
-  `cache`, `metadata` and `sitemap`.
+  and Tachyon's own settings: `origin`, `application`, `scripts`,
+  `blockingScripts`, `styles`, `cache`, `metadata` and `sitemap`.
 - `server/application.json` holds Yon's settings that are not secret. It has
   no root key. Secrets go in the ignored `.env` file.
 - `.tachyonrc` holds only worker intervals.
@@ -243,7 +243,11 @@ export default class CatalogService {
 ```
 
 `client/manifest.json` declares site-wide scripts and stylesheets once, in
-`tac.scripts` and `tac.styles`. The build links them into every document. Files under `client/shared/` are published at stable
+`tac.scripts` and `tac.styles`. The build links them into every document.
+Each script in `tac.scripts` is a deferred module. A script that must run
+before the first paint, such as one that applies a saved theme, goes in
+`tac.blockingScripts`: the build links it as a classic script before the Tac
+runtime. Files under `client/shared/` are published at stable
 `/shared/...` URLs. Limits apply to the number of files and to their bytes.
 Tachyon rejects symlinks and anything that is not a regular file.
 

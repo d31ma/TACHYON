@@ -72,7 +72,14 @@ tac.origin                                              build
 tac.scripts, tac.styles                                 build
   Up to 8 local paths each, linked into every page. A style is
   foundation CSS (colors, fonts, resets) unless styleSources says
-  it is a pinned vendor file (TY1403).
+  it is a pinned vendor file (TY1403). Each script is a deferred
+  module that runs after the Tac runtime.
+
+tac.blockingScripts                                     build
+  Up to 8 local paths, each linked as a classic script before the
+  Tac runtime, such as "/shared/scripts/ThemeDefault.js". It runs
+  before the first paint, so it can apply a saved theme. The page
+  waits for it: keep it small, with no import or export.
 
 tac.styleSources, tac.scriptSources                     build
   Where each listed file comes from, keyed by its path:

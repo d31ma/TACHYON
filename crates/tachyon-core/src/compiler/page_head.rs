@@ -4,17 +4,29 @@ pub(crate) struct PageHead;
 
 impl PageHead {
     const HEAD_END: &'static str = "</head>";
+    const RUNTIME_SCRIPT: &'static str = r#"<script type="module" src="/.tachyon/tac-client.js""#;
 
     pub(super) fn apply(site: &SiteSettings, html: String, route: &str) -> String {
         let html = Self::with_route_metadata(site, html, route);
         let html = Self::with_manifest_head(site, html);
         let html = Self::with_browser_api_grants(site, html);
-        let html = Self::with_styles(site, html);
-        Self::with_scripts(site, html)
+        let html = Self::with_styles(site, &html);
+        let html = Self::with_blocking_scripts(site, &html);
+        Self::with_scripts(site, &html)
     }
 
     pub(super) fn inject_before(html: &str, close: &str, value: &str) -> String {
         let position = html.rfind(close).unwrap_or(html.len());
+        Self::insert_at(html, position, value)
+    }
+
+    fn inject_before_runtime(html: &str, value: &str) -> String {
+        let runtime = html.find(Self::RUNTIME_SCRIPT);
+        let position = runtime.or_else(|| html.rfind(Self::HEAD_END));
+        Self::insert_at(html, position.unwrap_or(html.len()), value)
+    }
+
+    fn insert_at(html: &str, position: usize, value: &str) -> String {
         format!("{}{value}{}", &html[..position], &html[position..])
     }
 
@@ -63,28 +75,44 @@ impl PageHead {
         Self::inject_before(&html, Self::HEAD_END, &tag)
     }
 
-    fn with_styles(site: &SiteSettings, html: String) -> String {
-        let mut html = html;
-        for source in &site.styles {
-            let link = format!(
-                r#"<link rel="stylesheet" href="{}" data-tachyon-runtime>"#,
-                Self::escape(source)
-            );
-            html = Self::inject_before(&html, Self::HEAD_END, &link);
-        }
-        html
+    fn with_styles(site: &SiteSettings, html: &str) -> String {
+        let links = Self::joined_tags(&site.styles, Self::style_link);
+        Self::inject_before(html, Self::HEAD_END, &links)
     }
 
-    fn with_scripts(site: &SiteSettings, html: String) -> String {
-        let mut html = html;
-        for source in &site.scripts {
-            let script = format!(
-                r#"<script type="module" src="{}" data-tachyon-runtime></script>"#,
-                Self::escape(source)
-            );
-            html = Self::inject_before(&html, Self::HEAD_END, &script);
-        }
-        html
+    fn with_blocking_scripts(site: &SiteSettings, html: &str) -> String {
+        let scripts = Self::joined_tags(&site.blocking_scripts, Self::blocking_script);
+        Self::inject_before_runtime(html, &scripts)
+    }
+
+    fn with_scripts(site: &SiteSettings, html: &str) -> String {
+        let scripts = Self::joined_tags(&site.scripts, Self::module_script);
+        Self::inject_before(html, Self::HEAD_END, &scripts)
+    }
+
+    fn joined_tags(sources: &[String], tag: fn(&str) -> String) -> String {
+        sources.iter().map(|source| tag(source)).collect()
+    }
+
+    fn style_link(source: &str) -> String {
+        format!(
+            r#"<link rel="stylesheet" href="{}" data-tachyon-runtime>"#,
+            Self::escape(source)
+        )
+    }
+
+    fn blocking_script(source: &str) -> String {
+        format!(
+            r#"<script src="{}" data-tachyon-runtime></script>"#,
+            Self::escape(source)
+        )
+    }
+
+    fn module_script(source: &str) -> String {
+        format!(
+            r#"<script type="module" src="{}" data-tachyon-runtime></script>"#,
+            Self::escape(source)
+        )
     }
 
     fn render_metadata(declared: &PageMetadata) -> String {

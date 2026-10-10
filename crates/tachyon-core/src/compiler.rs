@@ -35,6 +35,8 @@ mod foundation_values;
 mod output_path;
 mod page_composition;
 mod page_head;
+#[cfg(test)]
+mod page_head_tests;
 mod page_state;
 mod portable_path;
 mod precompression;
