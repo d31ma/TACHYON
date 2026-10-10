@@ -17,6 +17,7 @@ impl GoWebBuild {
     const CACHE_FOLDER: &'static str = "go-wasm";
     const GLUE: &'static str = "wasm_exec.js";
     const NOTE: &'static str = "note.txt";
+    const MAX_CAUSE_CHARACTERS: usize = 512;
 
     pub(super) async fn load(
         files: &[(PathBuf, String)],
@@ -126,12 +127,23 @@ impl GoWebBuild {
     }
 
     fn fallback_reason(first: GoCompiler, failure: &Failure) -> String {
-        let message = failure.to_string();
-        let line = super::host::first_line(&message, "no message");
+        let cause = Self::cause(failure);
         format!(
-            "because {} could not build these services: {line}; set tac.go.compiler to \"go\" to skip it",
+            "because {} could not build these services: {cause}; set tac.go.compiler to \"go\" to skip it",
             first.name
         )
+    }
+
+    fn cause(failure: &Failure) -> String {
+        let messages: Vec<&str> = failure
+            .diagnostics()
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect();
+        let text = messages.join(" ");
+        let words: Vec<&str> = text.split_whitespace().collect();
+        let one_line = words.join(" ");
+        one_line.chars().take(Self::MAX_CAUSE_CHARACTERS).collect()
     }
 
     fn read(cached: &Path) -> std::io::Result<Self> {
@@ -163,5 +175,38 @@ impl GoWebBuild {
         )?;
         let kept = copy.keep();
         std::fs::rename(&kept, cached).or_else(|_| std::fs::remove_dir_all(&kept))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GoWebBuild;
+    use crate::native::go_compiler::GoCompiler;
+    use crate::native::host::native_tool_failure;
+
+    #[test]
+    fn the_fallback_reason_keeps_the_tinygo_cause_from_a_later_line() {
+        let failure = native_tool_failure(
+            1605,
+            "Native tool 'tinygo' failed with status exit status: 1: # services\nerror: could not open the cache directory /Users/someone/Library/Caches/tinygo: permission denied",
+        );
+        let reason = GoWebBuild::fallback_reason(GoCompiler::TINYGO, &failure);
+        assert_eq!(
+            reason,
+            "because TinyGo could not build these services: Native tool 'tinygo' failed with status exit status: 1: # services error: could not open the cache directory /Users/someone/Library/Caches/tinygo: permission denied; set tac.go.compiler to \"go\" to skip it"
+        );
+    }
+
+    #[test]
+    fn the_fallback_reason_bounds_a_long_cause_and_keeps_the_advice() {
+        let detail = "x".repeat(10_000);
+        let failure = native_tool_failure(1605, &detail);
+        let reason = GoWebBuild::fallback_reason(GoCompiler::TINYGO, &failure);
+        let cause_length = reason.matches('x').count();
+        assert_eq!(cause_length, GoWebBuild::MAX_CAUSE_CHARACTERS);
+        assert!(
+            reason.ends_with("; set tac.go.compiler to \"go\" to skip it"),
+            "{reason}"
+        );
     }
 }
