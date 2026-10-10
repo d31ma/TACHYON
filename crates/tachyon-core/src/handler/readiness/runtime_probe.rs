@@ -34,6 +34,19 @@ impl RuntimeProbe {
         Self::version_at_least(output, RuntimeRequirement::OLDEST_LUA_VERSION)
     }
 
+    pub(super) fn honours_node_proxy_switch(output: &str) -> bool {
+        let identity = output.trim();
+        let bun = identity == RuntimeRequirement::BUN_IDENTITY;
+        let supported_node = identity
+            .strip_prefix('v')
+            .is_some_and(Self::supports_node_proxy_version);
+        [bun, supported_node].contains(&true)
+    }
+
+    fn supports_node_proxy_version(version: &str) -> bool {
+        Self::version_at_least(version, RuntimeRequirement::OLDEST_NODE_PROXY_VERSION)
+    }
+
     fn version_at_least(output: &str, oldest: (u32, u32)) -> bool {
         let mut parts = output.trim().split('.');
         let major = parts.next().and_then(|part| part.parse::<u32>().ok());
@@ -156,10 +169,7 @@ impl RuntimeProbe {
             ProbeKind::DotnetBuild => {
                 Self::probe_dotnet_build(requirement, result, environment).await
             }
-            ProbeKind::GoVersion => Ok(Self::go_version_state(result)),
-            ProbeKind::RubyVersion => Ok(Self::ruby_version_state(result)),
-            ProbeKind::LuaVersion => Ok(Self::lua_version_state(result)),
-            _ => Ok(Self::probe_state(result)),
+            probe => Ok(Self::checked_output_state(probe, result)),
         }
     }
 
@@ -172,10 +182,7 @@ impl RuntimeProbe {
             ProbeKind::DotnetBuild => {
                 Self::probe_dotnet_build_sync(requirement, result, environment)
             }
-            ProbeKind::GoVersion => Ok(Self::go_version_state(result)),
-            ProbeKind::RubyVersion => Ok(Self::ruby_version_state(result)),
-            ProbeKind::LuaVersion => Ok(Self::lua_version_state(result)),
-            _ => Ok(Self::probe_state(result)),
+            probe => Ok(Self::checked_output_state(probe, result)),
         }
     }
 
@@ -306,26 +313,35 @@ impl RuntimeProbe {
         }
     }
 
-    fn go_version_state(result: Result<ToolOutput, ToolError>) -> RuntimeProbeState {
-        let supported = result.as_ref().is_ok_and(|output| {
-            Self::supports_go_version(&String::from_utf8_lossy(&output.stdout))
-        });
-        let state = Self::probe_state(result);
-        Self::unless_unsupported(state, supported)
+    fn checked_output_state(
+        probe: ProbeKind,
+        result: Result<ToolOutput, ToolError>,
+    ) -> RuntimeProbeState {
+        let supports = Self::output_check(probe);
+        Self::version_state(result, supports)
     }
 
-    fn ruby_version_state(result: Result<ToolOutput, ToolError>) -> RuntimeProbeState {
-        let supported = result.as_ref().is_ok_and(|output| {
-            Self::supports_ruby_version(&String::from_utf8_lossy(&output.stdout))
-        });
-        let state = Self::probe_state(result);
-        Self::unless_unsupported(state, supported)
+    fn output_check(probe: ProbeKind) -> fn(&str) -> bool {
+        match probe {
+            ProbeKind::GoVersion => Self::supports_go_version,
+            ProbeKind::RubyVersion => Self::supports_ruby_version,
+            ProbeKind::LuaVersion => Self::supports_lua_version,
+            ProbeKind::NodeProxySwitch => Self::honours_node_proxy_switch,
+            _ => Self::accepts_any_output,
+        }
     }
 
-    fn lua_version_state(result: Result<ToolOutput, ToolError>) -> RuntimeProbeState {
-        let supported = result.as_ref().is_ok_and(|output| {
-            Self::supports_lua_version(&String::from_utf8_lossy(&output.stdout))
-        });
+    const fn accepts_any_output(_output: &str) -> bool {
+        true
+    }
+
+    fn version_state(
+        result: Result<ToolOutput, ToolError>,
+        supports: fn(&str) -> bool,
+    ) -> RuntimeProbeState {
+        let supported = result
+            .as_ref()
+            .is_ok_and(|output| supports(&String::from_utf8_lossy(&output.stdout)));
         let state = Self::probe_state(result);
         Self::unless_unsupported(state, supported)
     }

@@ -21,6 +21,10 @@ pub(super) enum RuntimeIdentity {
 }
 
 impl RuntimeIdentity {
+    const JAVASCRIPT: [Self; 2] = [
+        Self::JavaScript { configured: false },
+        Self::JavaScript { configured: true },
+    ];
     #[cfg(windows)]
     const DEFAULT_PYTHON_LABEL: &str = "Yon Python runtime 'python'";
     #[cfg(not(windows))]
@@ -31,6 +35,10 @@ impl RuntimeIdentity {
             YonLanguage::from_path(Path::new(source.relative_path())),
             runtimes,
         )
+    }
+
+    pub(super) fn runs_javascript(self) -> bool {
+        Self::JAVASCRIPT.contains(&self)
     }
 
     pub(super) fn spawn(self, command: &mut Command) -> Result<AsyncGroupChild, Failure> {
