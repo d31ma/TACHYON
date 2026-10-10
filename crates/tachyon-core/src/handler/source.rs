@@ -1634,14 +1634,53 @@ impl DartPackages {
             Self::PUBSPEC.as_bytes(),
             portable,
         )?;
+        let run =
+            |arguments: &[String]| bounded_compiler_output("dart", arguments, Some(workspace));
+        Self::fetch_with(run, portable)
+    }
+
+    fn fetch_with(
+        mut run: impl FnMut(&[String]) -> Result<CompilerOutput, String>,
+        portable: &str,
+    ) -> Result<(), Failure> {
         let offline = Self::arguments(&["pub", "get", "--offline"]);
-        let cached = bounded_compiler_output("dart", &offline, Some(workspace));
+        let cached = run(&offline);
         if cached.as_ref().is_ok_and(|output| output.status.success()) {
             return Ok(());
         }
         let online = Self::arguments(&["pub", "get"]);
-        let fetched = bounded_compiler_output("dart", &online, Some(workspace));
+        let fetched = run(&online);
+        Self::check_online(fetched, &cached, portable)
+    }
+
+    fn check_online(
+        fetched: Result<CompilerOutput, String>,
+        cached: &Result<CompilerOutput, String>,
+        portable: &str,
+    ) -> Result<(), Failure> {
         check_compiler_output("dart", fetched, portable)
+            .map_err(|failure| Self::with_offline_cause(&failure, cached, portable))
+    }
+
+    fn with_offline_cause(
+        online_failure: &Failure,
+        cached: &Result<CompilerOutput, String>,
+        portable: &str,
+    ) -> Failure {
+        let detail = Self::offline_detail(cached);
+        let cause = compiler_error_line(&detail);
+        let message = format!("The offline package fetch failed first: {cause}");
+        let offline_failure = invalid_source(portable, &message);
+        let mut diagnostics = online_failure.diagnostics().to_vec();
+        diagnostics.extend_from_slice(offline_failure.diagnostics());
+        Failure::new(diagnostics)
+    }
+
+    fn offline_detail(cached: &Result<CompilerOutput, String>) -> String {
+        match cached {
+            Ok(output) => String::from_utf8_lossy(&output.stderr).into_owned(),
+            Err(error) => error.clone(),
+        }
     }
 
     fn arguments(words: &[&str]) -> Vec<String> {
@@ -2850,10 +2889,127 @@ mod tests {
 
     use super::super::cache::{CacheDirectory, CacheLock, OwnedCacheEntry};
     use super::{
-        EntryClass, HandlerLanguage, HandlerSource, bounded_compiler_output_with_limits,
-        compiled_digest, csharp_digest, dart_prelude_parts, dart_protocol, has_own_entry_point,
-        java_runtime_source, valid_csharp_cache,
+        CompilerOutput, DartPackages, EntryClass, HandlerLanguage, HandlerSource,
+        bounded_compiler_output_with_limits, compiled_digest, csharp_digest, dart_prelude_parts,
+        dart_protocol, has_own_entry_point, java_runtime_source, valid_csharp_cache,
     };
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt as _;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt as _;
+
+    struct FakePub {
+        calls: Vec<Vec<String>>,
+        answers: Vec<Result<CompilerOutput, String>>,
+    }
+
+    impl FakePub {
+        const PORTABLE: &str = "server/routes/index.dart";
+
+        fn answering(answers: Vec<Result<CompilerOutput, String>>) -> Self {
+            Self {
+                calls: Vec::new(),
+                answers,
+            }
+        }
+
+        fn output(code: u8, stderr: &str) -> CompilerOutput {
+            CompilerOutput {
+                status: std::process::ExitStatus::from_raw(code.into()),
+                stdout: Vec::new(),
+                stderr: stderr.as_bytes().to_vec(),
+                overflow: false,
+            }
+        }
+
+        fn run(&mut self, arguments: &[String]) -> Result<CompilerOutput, String> {
+            self.calls.push(arguments.to_vec());
+            self.answers.remove(0)
+        }
+
+        fn fetch(&mut self) -> Result<(), crate::Failure> {
+            DartPackages::fetch_with(|arguments| self.run(arguments), Self::PORTABLE)
+        }
+    }
+
+    #[test]
+    fn a_failed_dart_online_fetch_keeps_the_offline_failure_that_caused_it() {
+        let mut pub_tool = FakePub::answering(vec![
+            Ok(FakePub::output(
+                1,
+                "Could not find package shelf in the offline cache.\n",
+            )),
+            Ok(FakePub::output(
+                1,
+                "Got socket error trying to find package shelf.\n",
+            )),
+        ]);
+        let failure = pub_tool.fetch().expect_err("both fetches failed");
+        assert_eq!(
+            pub_tool.calls,
+            [vec!["pub", "get", "--offline"], vec!["pub", "get"]]
+        );
+        let diagnostics = failure.diagnostics();
+        assert_eq!(diagnostics.len(), 2, "{failure}");
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("Got socket error trying to find package shelf."),
+            "the online failure stays first: {failure}"
+        );
+        assert!(
+            diagnostics[1]
+                .message
+                .contains("offline package fetch failed first"),
+            "{failure}"
+        );
+        assert!(
+            diagnostics[1]
+                .message
+                .contains("Could not find package shelf in the offline cache."),
+            "{failure}"
+        );
+    }
+
+    #[test]
+    fn a_dart_offline_start_failure_is_kept_when_the_online_fetch_fails() {
+        let mut pub_tool = FakePub::answering(vec![
+            Err(String::from(
+                "compiler exceeded its 60000 millisecond deadline",
+            )),
+            Ok(FakePub::output(
+                1,
+                "Got socket error trying to find package shelf.\n",
+            )),
+        ]);
+        let failure = pub_tool.fetch().expect_err("both fetches failed");
+        let report = failure.to_string();
+        assert!(
+            report.contains("compiler exceeded its 60000 millisecond deadline"),
+            "{report}"
+        );
+        assert!(report.contains("Got socket error"), "{report}");
+    }
+
+    #[test]
+    fn a_dart_fetch_falls_back_online_only_when_the_offline_fetch_fails() {
+        let mut cached = FakePub::answering(vec![Ok(FakePub::output(0, ""))]);
+        cached.fetch().expect("the offline cache is enough");
+        assert_eq!(cached.calls, [vec!["pub", "get", "--offline"]]);
+
+        let mut fetched = FakePub::answering(vec![
+            Ok(FakePub::output(
+                1,
+                "Could not find package shelf in the offline cache.\n",
+            )),
+            Ok(FakePub::output(0, "")),
+        ]);
+        fetched.fetch().expect("the online fetch recovers");
+        assert_eq!(
+            fetched.calls,
+            [vec!["pub", "get", "--offline"], vec!["pub", "get"]]
+        );
+    }
 
     #[test]
     fn a_dart_dispatch_names_only_the_verbs_the_handler_declares() {
