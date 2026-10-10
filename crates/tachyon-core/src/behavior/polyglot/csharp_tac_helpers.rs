@@ -1,6 +1,7 @@
 use super::super::{Input, Marker};
 use super::{Field, Type};
 use crate::Failure;
+use crate::helper_new_call::HelperNewCall;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -315,13 +316,7 @@ impl CsharpTacHelpers {
 
     pub(super) fn external_new(code: &str, name: &str) -> bool {
         code.match_indices(name)
-            .any(|(at, _)| Self::new_call(code, name, at))
-    }
-
-    fn new_call(code: &str, name: &str, at: usize) -> bool {
-        let before = code[..at].split_whitespace().next_back();
-        let after = code[at + name.len()..].trim_start();
-        before == Some("new") && after.starts_with('(')
+            .any(|(at, _)| HelperNewCall::matches(&code[..at], &code[at + name.len()..]))
     }
 
     fn require_manual_dependencies(

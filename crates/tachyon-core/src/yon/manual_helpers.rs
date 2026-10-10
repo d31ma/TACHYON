@@ -114,7 +114,7 @@ impl ManualHelpers {
             "rb" => Self::ruby_call,
             "go" => Self::go_call,
             "py" | "kt" | "dart" => Self::direct_call,
-            _ => Self::new_call,
+            _ => crate::helper_new_call::HelperNewCall::matches,
         };
         check(word, after.trim_start())
     }
@@ -180,10 +180,6 @@ impl ManualHelpers {
             !["class", "def", "fun"].contains(&word),
             tail.starts_with('('),
         ] == [true, true]
-    }
-
-    fn new_call(word: &str, tail: &str) -> bool {
-        [word == "new", tail.starts_with('(')] == [true, true]
     }
 
     fn named_call(tail: &str, name: &str) -> bool {
