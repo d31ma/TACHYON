@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { CargoArtifacts } from './cargo-artifacts.mjs'
+import { createHash } from 'node:crypto'
 import { chromium, firefox, webkit } from 'playwright'
 import { createServer } from 'node:http'
 import { spawnSync } from 'node:child_process'
@@ -365,7 +366,7 @@ final class JavaWindowService {
 
   static files() {
     const files = {
-      'client/manifest.json': '{"tac":{"names":{"words":["js","ts","csharp","fsharp"]},"visibility":{"check":false},"budgets":{"check":false}}}\n',
+      'client/manifest.json': '{"tac":{"names":{"words":["js","ts","csharp","fsharp"]},"visibility":{"check":false}}}\n',
       'client/pages/tac.html': '<window-page />\n',
       'client/components/window/page/tac.html': `<main>${WindowControlsGate.languages.map((language) => `<button id="${language}" on:click="${language}Window.shrink()">Minimise</button>`).join('\n')}</main>\n`,
     }
@@ -381,6 +382,32 @@ final class JavaWindowService {
       const file = path.join(project, relative)
       mkdirSync(path.dirname(file), { recursive: true })
       writeFileSync(file, contents)
+    }
+  }
+
+  static checkBudgetRefusal() {
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-budget-refusal-'))
+    try {
+      mkdirSync(path.join(project, 'client/shared/scripts'), { recursive: true })
+      mkdirSync(path.join(project, 'client/pages'), { recursive: true })
+      writeFileSync(path.join(project, 'client/manifest.json'), JSON.stringify({ tac: { scripts: ['/shared/scripts/BudgetPadding.js'] } }))
+      writeFileSync(path.join(project, 'client/pages/tac.html'), '<main>Budget control</main>')
+      const padding = Array.from({ length: 10_240 }, (_, index) => createHash('sha256').update(String(index)).digest('hex')).join('')
+      writeFileSync(path.join(project, 'client/shared/scripts/BudgetPadding.js'), `export default class BudgetPadding { static _TEXT = '${padding}' }`)
+      const built = spawnSync(WindowControlsGate.binary, ['build', project], {
+        encoding: 'utf8', timeout: 120_000, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
+      })
+      const output = `${built.stdout ?? ''}${built.stderr ?? ''}`
+      const diagnostics = output.match(/error\[TY[0-9]+\]/g) ?? []
+      if (built.error || built.signal || built.status === null || built.status === 0
+          || diagnostics.length !== 1 || diagnostics[0] !== 'error[TY1337]'
+          || !output.includes("Route '/' loads") || !output.includes('budget is 200 KB')
+          || !output.includes('BudgetPadding.js')) {
+        throw new Error(`the oversized script must fail only the default route budget: ${built.error?.message || built.signal || output}`)
+      }
+      console.log('budget control: oversized script refused with TY1337 at the default 200 KB limit')
+    } finally {
+      rmSync(project, { recursive: true, force: true })
     }
   }
 
@@ -469,6 +496,7 @@ final class JavaWindowService {
     const server = createServer(WindowControlsGate.handler(project))
     try {
       WindowControlsGate.write(project)
+      WindowControlsGate.checkBudgetRefusal()
       WindowControlsGate.build(project)
       await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
       const origin = `http://127.0.0.1:${server.address().port}`

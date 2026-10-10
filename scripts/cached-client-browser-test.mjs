@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { CargoArtifacts } from './cargo-artifacts.mjs'
+import { createHash } from 'node:crypto'
 import { chromium, firefox, webkit } from 'playwright'
 import { createServer } from 'node:http'
 import { spawnSync } from 'node:child_process'
@@ -23,7 +24,7 @@ class CachedClientGate {
   static settings = '{"name":"stamps","ttlMs":60000,"maxBytes":4096,"maxEntries":8}'
 
   static files = {
-    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs","rs","cs","rb"]},"visibility":{"check":false},"budgets":{"check":false}}}\n',
+    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs","rs","cs","rb"]},"visibility":{"check":false}}}\n',
     'client/pages/tac.html': '<stamp-page />\n',
     'client/components/stamp/page/tac.html': `<main>${CachedClientGate.languages.map((language) => `<p id="${language}">{${language}Stamp.stamp}</p>`).join('\n')}</main>\n`,
     'client/remotes/JsStampClient.js': `@HTTPClient
@@ -432,6 +433,32 @@ class JavaStampService {
     }
   }
 
+  static checkBudgetRefusal() {
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-budget-refusal-'))
+    try {
+      mkdirSync(path.join(project, 'client/shared/scripts'), { recursive: true })
+      mkdirSync(path.join(project, 'client/pages'), { recursive: true })
+      writeFileSync(path.join(project, 'client/manifest.json'), JSON.stringify({ tac: { scripts: ['/shared/scripts/BudgetPadding.js'] } }))
+      writeFileSync(path.join(project, 'client/pages/tac.html'), '<main>Budget control</main>')
+      const padding = Array.from({ length: 10_240 }, (_, index) => createHash('sha256').update(String(index)).digest('hex')).join('')
+      writeFileSync(path.join(project, 'client/shared/scripts/BudgetPadding.js'), `export default class BudgetPadding { static _TEXT = '${padding}' }`)
+      const built = spawnSync(CachedClientGate.binary, ['build', project], {
+        encoding: 'utf8', timeout: 120_000, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
+      })
+      const output = `${built.stdout ?? ''}${built.stderr ?? ''}`
+      const diagnostics = output.match(/error\[TY[0-9]+\]/g) ?? []
+      if (built.error || built.signal || built.status === null || built.status === 0
+          || diagnostics.length !== 1 || diagnostics[0] !== 'error[TY1337]'
+          || !output.includes("Route '/' loads") || !output.includes('budget is 200 KB')
+          || !output.includes('BudgetPadding.js')) {
+        throw new Error(`the oversized script must fail only the default route budget: ${built.error?.message || built.signal || output}`)
+      }
+      console.log('budget control: oversized script refused with TY1337 at the default 200 KB limit')
+    } finally {
+      rmSync(project, { recursive: true, force: true })
+    }
+  }
+
   static build(project) {
     const built = spawnSync(CachedClientGate.binary, ['build', project], {
       encoding: 'utf8', timeout: 600_000, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
@@ -521,6 +548,7 @@ class JavaStampService {
     const server = createServer(CachedClientGate.handler(project))
     try {
       CachedClientGate.write(project)
+      CachedClientGate.checkBudgetRefusal()
       CachedClientGate.build(project)
       await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
       const origin = `http://127.0.0.1:${server.address().port}`
