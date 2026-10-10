@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { CargoArtifacts } from './cargo-artifacts.mjs'
+import { createHash } from 'node:crypto';
 import { chromium, firefox, webkit } from 'playwright';
 import { createServer } from 'node:http';
 import { createServer as createSecureServer } from 'node:https';
@@ -22,9 +23,34 @@ class StorageGate {
   static withKotlin = kotlinWebAvailable();
   static withSwift = swiftWebAvailable();
   static withJava = javaWebAvailable();
-  static scriptBudgetKilobytes = 330;
   static mappedNote = JSON.stringify({ kind: 'note', title: 'mapped' });
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' };
+
+  static checkBudgetRefusal() {
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-budget-refusal-'))
+    try {
+      mkdirSync(path.join(project, 'client/shared/scripts'), { recursive: true })
+      mkdirSync(path.join(project, 'client/pages'), { recursive: true })
+      writeFileSync(path.join(project, 'client/manifest.json'), JSON.stringify({ tac: { scripts: ['/shared/scripts/BudgetPadding.js'] } }))
+      writeFileSync(path.join(project, 'client/pages/tac.html'), '<main>Budget control</main>')
+      const padding = Array.from({ length: 10_240 }, (_, index) => createHash('sha256').update(String(index)).digest('hex')).join('')
+      writeFileSync(path.join(project, 'client/shared/scripts/BudgetPadding.js'), `export default class BudgetPadding { static _TEXT = '${padding}' }`)
+      const built = spawnSync(StorageGate.binary, ['build', project], {
+        encoding: 'utf8', timeout: 120_000, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
+      })
+      const output = `${built.stdout ?? ''}${built.stderr ?? ''}`
+      const diagnostics = output.match(/error\[TY[0-9]+\]/g) ?? []
+      if (built.error || built.signal || built.status === null || built.status === 0
+          || diagnostics.length !== 1 || diagnostics[0] !== 'error[TY1337]'
+          || !output.includes("Route '/' loads") || !output.includes('budget is 200 KB')
+          || !output.includes('BudgetPadding.js')) {
+        throw new Error(`the oversized script must fail only the default route budget: ${built.error?.message || built.signal || output}`)
+      }
+      console.log('budget control: oversized script refused with TY1337 at the default 200 KB limit')
+    } finally {
+      rmSync(project, { recursive: true, force: true })
+    }
+  }
 
   static open(name, project) {
     if (name === 'chromium') return chromium.launch({ timeout: 30_000, args: [StorageGate.hostRule] });
@@ -730,7 +756,7 @@ type JournalService(entries: JournalStore, converter: JournalConverter) =
 
 function writeFixture(project) {
   write(project, 'client/pages/tac.html', '<storage-page />\n');
-  write(project, 'client/manifest.json', JSON.stringify({ tac: { budgets: { script: StorageGate.scriptBudgetKilobytes }, visibility: { check: false } } }));
+  write(project, 'client/manifest.json', JSON.stringify({ tac: { visibility: { check: false } } }));
   write(project, 'client/components/storage/page/tac.html', `<main aria-label="Storage">
   <button id="bump" on:click="storagePage.clicks += 1">bump</button>
   <button id="dark" on:click="storagePage.theme = 'dark'">dark</button>
@@ -1433,6 +1459,7 @@ async function main() {
   try {
     project = mkdtempSync(path.join(tmpdir(), 'ty-storage-gate-'));
     writeFixture(project);
+    StorageGate.checkBudgetRefusal();
     buildFixture(project);
     const handle = createHandler(project);
     server = createServer(handle);
