@@ -1,6 +1,7 @@
 use super::Input;
 use crate::Failure;
 use crate::events::{EventMethod, EventParameter};
+use crate::ruby_source::RubyMembers;
 
 pub(super) struct RubyBehaviors;
 
@@ -32,7 +33,7 @@ impl RubyBehaviors {
         if rest.starts_with("self.") {
             return Err(input.failure(at, "Event annotations require instance methods"));
         }
-        let name = Self::word(rest);
+        let name = RubyMembers::leading_name(rest);
         let after_name = &rest[name.len()..];
         let parameters = Self::parameter_names(after_name);
         let body = Self::body(&input.code, at, line_end);
@@ -60,7 +61,7 @@ impl RubyBehaviors {
             if line.starts_with([' ', '\t']) || line.trim().is_empty() {
                 continue;
             }
-            let name = Self::word(line.strip_prefix("class ")?);
+            let name = RubyMembers::leading_name(line.strip_prefix("class ")?);
             return (!name.is_empty()).then_some(name);
         }
         None
@@ -113,7 +114,7 @@ impl RubyBehaviors {
             return Vec::new();
         };
         let class_code = &code[start..Self::class_end(&code, start)];
-        let members = crate::ruby_source::RubyMembers::read(class_code);
+        let members = RubyMembers::read(class_code);
         if !members.methods.iter().any(|name| name == method) {
             return Vec::new();
         }
@@ -126,7 +127,7 @@ impl RubyBehaviors {
             let Some(rest) = text.strip_prefix("def ") else {
                 continue;
             };
-            if Self::word(rest) != method {
+            if RubyMembers::leading_name(rest) != method {
                 continue;
             }
             let after_name = at + "def ".len() + method.len();
@@ -146,7 +147,7 @@ impl RubyBehaviors {
         let mut offset = 0;
         for line in code.split_inclusive('\n') {
             if let Some(rest) = line.strip_prefix("class ")
-                && Self::word(rest) == class
+                && RubyMembers::leading_name(rest) == class
             {
                 return Some(offset);
             }
@@ -165,14 +166,6 @@ impl RubyBehaviors {
         }
         code.len()
     }
-
-    fn word(text: &str) -> &str {
-        let length = text
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
-        &text[..length]
-    }
 }
 
 #[cfg(test)]
@@ -182,23 +175,7 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn method_and_class_names_read_the_same_leading_ascii_word() {
-        let alphabet = (0..=0x7f_u8)
-            .map(char::from)
-            .chain(['é', 'Ü', 'ß', '٣'])
-            .collect::<Vec<_>>();
-        let mut texts = vec![String::new()];
-        for first in &alphabet {
-            texts.push(first.to_string());
-            texts.extend(alphabet.iter().map(|second| format!("{first}{second}")));
-        }
-        for text in texts {
-            let length = text
-                .bytes()
-                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-                .count();
-            assert_eq!(RubyBehaviors::word(&text), &text[..length], "{text:?}");
-        }
+    fn target_signatures_match_whole_class_and_method_names() {
         let source = "class CatalogService < Base\n  def list(page, size)\n  end\n\n  def list_all\n  end\nend\n";
         let signatures = RubyBehaviors::target_signatures(source, "CatalogService", "list");
         assert_eq!(signatures.len(), 1);
