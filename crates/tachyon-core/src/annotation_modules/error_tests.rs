@@ -173,3 +173,9 @@ fn remotes_and_clients_aliases_refuse_duplicate_type_names() {
     .to_string();
     assert!(error.contains("duplicate type name"), "{error}");
 }
+
+#[test]
+fn a_one_segment_relative_project_root_opens_from_the_working_directory() {
+    // Cargo runs tests from the crate directory, so `src` is a relative root with an empty parent.
+    assert!(super::open_root(Path::new("src"), Path::new("src")).is_ok());
+}
