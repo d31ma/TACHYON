@@ -405,6 +405,13 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- `scripts/native/apple-protocol-test.mjs` compiles again, so the macOS
+  release checks (`test:phase4-macos` and the iOS native test) run again.
+  The macOS host now refuses a call whose message did not come from its own
+  web view, but the probe's stand-in message and bridge had no web view. They
+  have one now, and the probe checks that the macOS host refuses a call from
+  another web view or from none.
+
 - Method coverage again lists a Ruby method whose body only returns a
   string literal, such as `def message` returning `"Hello"`. Masking blanks
   string literals, so the check for an empty Ruby body counted it as a

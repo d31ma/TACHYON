@@ -29,7 +29,7 @@ function hostBridge(platform) {
   const begin = source.indexOf('    func userContentController(');
   assert.ok(begin >= 0, platform + ' host must retain its guarded bridge entry point');
   const end = source.indexOf('\n    }', begin);
-  return `final class ${platform}Bridge {\n${source.slice(begin, end + 6)}\n` +
+  return `final class ${platform}Bridge {\nvar webView: WKWebView?\n${source.slice(begin, end + 6)}\n` +
     'func handle(_ capability: String, _ payload: String) -> String { tacNativeInvoke(payload) }\n}\n';
 }
 
@@ -53,9 +53,10 @@ func tacServiceMembers(_ service: String, _ tacProps: [String: Any]) -> [String:
     ]
 }
 struct WKUserContentController {}
+final class WKWebView {}
 struct TestRequest { let url: URL? }
 struct TestFrame { let isMainFrame: Bool; let request: TestRequest }
-struct WKScriptMessage { let frameInfo: TestFrame; let body: Any }
+struct WKScriptMessage { let webView: WKWebView?; let frameInfo: TestFrame; let body: Any }
 func tachyonRoute(_ path: String) -> String? {
     path == "/" || path == "/index.html" ? "/" : path == "/other" ? "/other" : nil
 }
@@ -73,10 +74,13 @@ func invoke(_ request: [String: Any]) -> [String: Any] {
     let raw = String(data: try! JSONSerialization.data(withJSONObject: request), encoding: .utf8)!
     return response(raw)
 }
-func bridgeProbe(_ receive: (WKUserContentController, WKScriptMessage, @escaping (Any?, String?) -> Void) -> Void) {
-    func check(_ raw: String, _ url: String = "tachyon-app://bundle/index.html", _ main: Bool = true, denied: Bool) {
+func bridgeProbe(_ view: WKWebView, _ receive: (WKUserContentController, WKScriptMessage, @escaping (Any?, String?) -> Void) -> Void,
+    checksWebView: Bool) {
+    func check(_ raw: String, _ url: String = "tachyon-app://bundle/index.html", _ main: Bool = true,
+        from sender: WKWebView?? = .none, denied: Bool) {
         var settled = false
-        let message = WKScriptMessage(frameInfo: TestFrame(isMainFrame: main, request: TestRequest(url: URL(string: url))),
+        let message = WKScriptMessage(webView: sender ?? view,
+            frameInfo: TestFrame(isMainFrame: main, request: TestRequest(url: URL(string: url))),
             body: ["capability": "companion.invoke", "payload": raw])
         receive(WKUserContentController(), message) { answer, error in
             settled = true
@@ -95,6 +99,10 @@ func bridgeProbe(_ receive: (WKUserContentController, WKScriptMessage, @escaping
     check(valid, "tachyon-app://bundle/index.html", false, denied: true)
     check(valid, "tachyon-app://bundle:444/index.html", denied: true)
     check(valid, "tachyon-app://user@bundle/index.html", denied: true)
+    if checksWebView {
+        check(valid, from: WKWebView(), denied: true)
+        check(valid, from: .some(nil), denied: true)
+    }
     check(#"{"route":"/other","service":"probe","owner":"00000000-0000-4000-8000-000000000001","op":"get","name":"count"}"#, denied: true)
     check(#"{"route":"/","service":"probe","owner":"00000000-0000-4000-8000-000000000001","route":"/other","op":"get","name":"count"}"#, denied: true)
     check(#"{"route":"/","service":"probe","owner":"00000000-0000-4000-8000-000000000001","\u0072oute":"/other","op":"get","name":"count"}"#, denied: true)
@@ -147,8 +155,13 @@ case "values":
         require(response(raw)["error"] != nil, "Malformed/oversized/deep JSON was accepted")
     }
 case "bridge":
-    bridgeProbe(macosBridge().userContentController)
-    bridgeProbe(iosBridge().userContentController)
+    let view = WKWebView()
+    let macos = macosBridge()
+    macos.webView = view
+    bridgeProbe(view, macos.userContentController, checksWebView: true)
+    let ios = iosBridge()
+    ios.webView = view
+    bridgeProbe(view, ios.userContentController, checksWebView: false)
 default: require(false, "Unknown Apple protocol probe")
 }
 print("PASS: " + CommandLine.arguments.last!)
