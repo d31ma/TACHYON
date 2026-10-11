@@ -78,7 +78,7 @@ impl FolderRoleCheck {
             .flatten();
         mismatch.map_or(Ok(()), |role| {
             let input = Input::new(path, source);
-            Err(input.failure(0, "A role class suffix must match its realm role folder", format!("Move the class to {}/{} and mark it with {} (ADR0091). Nested organization is allowed; helpers cannot hide a Service class.", Self::realm(path), role.folder, Self::spelling(input.extension, role.marker, Self::environment(Self::realm(path))))))
+            Err(input.failure(0, "A role class suffix must match its realm role folder", format!("Move the class to {}/{} and mark it with {} (ADR0091). Nested organization is allowed; helpers cannot hide a Service class.", Self::realm(path), role.folder, Self::spelling(input.extension, role.marker))))
         })
     }
 
@@ -125,7 +125,7 @@ impl FolderRoleCheck {
     }
 
     fn failure(input: &Input<'_>, realm: &str, folder: &str, marker: &str) -> Failure {
-        let spelling = Self::spelling(input.extension, marker, Self::environment(realm));
+        let spelling = Self::spelling(input.extension, marker);
         let expected = Self::expected_spelling(folder, &spelling);
         let unsupported = Realm::named(Self::environment(realm)).and_then(|checked| AnnotationRules::checked_refusal(marker, input.extension, checked)).map(|message| format!(" {message} This concrete role needs a supported implementation; it cannot be silently treated as plain helper code.")).unwrap_or_default();
         let portable = input.path.to_string_lossy().replace('\\', "/");
@@ -208,12 +208,12 @@ impl FolderRoleCheck {
         [named, structure].iter().all(|valid| *valid)
     }
 
-    fn spelling(extension: &str, marker: &str, environment: &str) -> String {
+    // Matches the marker spellings the annotation parser accepts; a namespaced `#[tac::Service]` is refused with TY1308.
+    fn spelling(extension: &str, marker: &str) -> String {
         match extension {
-            "rs" => format!("#[{environment}::{marker}]"),
-            "php" | "rb" => format!("#[{marker}]"),
+            "rs" | "php" | "rb" => format!("#[{marker}]"),
             "cs" => format!("[{marker}]"),
-            "go" => format!("// @{environment}::{marker}"),
+            "go" => format!("// @{marker}"),
             "py" => format!("@{}", marker.to_ascii_lowercase()),
             _ => format!("@{marker}"),
         }

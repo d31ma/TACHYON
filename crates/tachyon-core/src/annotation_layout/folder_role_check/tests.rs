@@ -140,6 +140,26 @@ fn a_lua_service_without_its_marker_is_told_the_lua_spelling() {
 }
 
 #[test]
+fn rust_and_go_services_without_their_marker_are_told_a_spelling_that_compiles() {
+    for (path, source, spelling) in [
+        (
+            "client/services/BasketService.rs",
+            "struct BasketService {}\n",
+            "`#[Service]`",
+        ),
+        (
+            "client/services/BasketService.go",
+            "type BasketService struct{}\n",
+            "`// @Service`",
+        ),
+    ] {
+        let failure = FolderRoleCheck::check(Path::new(path), source).expect_err(path);
+        let message = &failure.diagnostics()[0].message;
+        assert!(message.contains(spelling), "{message}");
+    }
+}
+
+#[test]
 fn actual_role_folders_and_the_legacy_remote_alias_require_their_own_markers() {
     for realm in ["client", "server"] {
         for (folder, marker, suffix) in [
