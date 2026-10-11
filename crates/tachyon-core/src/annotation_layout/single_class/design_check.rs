@@ -110,34 +110,44 @@ impl DesignCheck {
     }
 
     pub(crate) fn unused_members(root: &Path) -> Vec<UnusedMember> {
-        let switches = DesignSwitches::read_folder(root);
-        Self::every_unused_member(root)
-            .into_iter()
-            .filter(|member| Self::covered(switches.as_ref(), DesignRule::Visibility, &member.path))
-            .collect()
+        let members = Self::every_unused_member(root);
+        Self::switched_on(root, DesignRule::Visibility, members, |member| {
+            member.path.as_str()
+        })
     }
 
     pub(crate) fn every_unused_member(root: &Path) -> Vec<UnusedMember> {
-        let sources = ProjectFiles::read(root);
-        let classes: Vec<ClassFile> = sources.iter().filter_map(ClassFile::read).collect();
-        VisibilityRule::unused_members(&classes, &sources)
+        Self::read_classes(root, VisibilityRule::unused_members)
     }
 
     pub(crate) fn missing_types(root: &Path) -> Vec<MissingType> {
-        let switches = DesignSwitches::read_folder(root);
-        let sources = ProjectFiles::read(root);
-        let classes: Vec<ClassFile> = sources.iter().filter_map(ClassFile::read).collect();
-        TypeRule::missing_types(&classes, &sources)
-            .into_iter()
-            .filter(|missing| Self::covered(switches.as_ref(), DesignRule::Types, &missing.path))
-            .collect()
+        let missing = Self::every_missing_type(root);
+        Self::switched_on(root, DesignRule::Types, missing, |found| {
+            found.path.as_str()
+        })
     }
 
-    #[cfg(test)]
     pub(crate) fn every_missing_type(root: &Path) -> Vec<MissingType> {
+        Self::read_classes(root, TypeRule::missing_types)
+    }
+
+    fn read_classes<T>(root: &Path, rule: fn(&[ClassFile], &[ProjectSource]) -> Vec<T>) -> Vec<T> {
         let sources = ProjectFiles::read(root);
         let classes: Vec<ClassFile> = sources.iter().filter_map(ClassFile::read).collect();
-        TypeRule::missing_types(&classes, &sources)
+        rule(&classes, &sources)
+    }
+
+    fn switched_on<T>(
+        root: &Path,
+        rule: DesignRule,
+        findings: Vec<T>,
+        path: fn(&T) -> &str,
+    ) -> Vec<T> {
+        let switches = DesignSwitches::read_folder(root);
+        findings
+            .into_iter()
+            .filter(|finding| Self::covered(switches.as_ref(), rule, path(finding)))
+            .collect()
     }
 
     fn covered(switches: Option<&DesignSwitches>, rule: DesignRule, path: &str) -> bool {
