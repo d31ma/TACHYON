@@ -1,4 +1,5 @@
 use crate::route_types::{Model, ModelField, ModelTable, WebEventModels};
+use crate::unicode_name::UnicodeName;
 use std::fmt::Write as _;
 
 pub(super) struct KotlinModelReaders {
@@ -60,18 +61,8 @@ impl KotlinModelReaders {
         source
             .lines()
             .filter_map(|line| line.trim_start().strip_prefix("enum class "))
-            .map(Self::leading_name)
+            .map(UnicodeName::leading)
             .collect()
-    }
-
-    fn leading_name(text: &str) -> String {
-        text.chars()
-            .take_while(|character| Self::is_name_character(*character))
-            .collect()
-    }
-
-    fn is_name_character(character: char) -> bool {
-        character.is_alphanumeric() || character == '_'
     }
 
     fn add_model(&mut self, name: &str, model: &Model) {

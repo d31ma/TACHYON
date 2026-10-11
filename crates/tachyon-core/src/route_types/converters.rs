@@ -1,5 +1,6 @@
 use super::model_files::{ModelFolder, ModelParser};
 use super::{Model, ModelField, ModelTable, Shape};
+use crate::ascii_name::AsciiName;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::Path;
@@ -573,11 +574,7 @@ impl DartConverters {
                 let Some(field) = field.or_else(|| part.split("super.").nth(1)) else {
                     continue;
                 };
-                let field: String = field
-                    .chars()
-                    .take_while(|character| character.is_ascii_alphanumeric() || *character == '_')
-                    .collect();
-                order.push(field);
+                order.push(AsciiName::leading(field).to_owned());
             }
             return (named, order);
         }

@@ -209,10 +209,7 @@ impl PythonAnnotated {
             let written = &code[item.clone()];
             let text = written.trim();
             let start = item.start + written.len() - written.trim_start().len();
-            let length = text
-                .bytes()
-                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-                .count();
+            let length = AsciiName::leading(text).len();
             let marker = &text[..length];
             if !is_marker(marker) {
                 continue;
