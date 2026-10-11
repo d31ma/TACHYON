@@ -232,21 +232,10 @@ impl<'a> ArgumentConversion<'a> {
     }
 
     fn declares_field(extension: &str, line: &str, name: &str) -> bool {
-        if line.contains('(') || line.starts_with(['@', '#', '[', '/']) {
-            return false;
-        }
+        let plain = [line.contains('('), line.starts_with(['@', '#', '[', '/'])] == [false, false];
         let declaration = line.split('=').next().unwrap_or("").trim();
         let declaration = declaration.trim_end_matches([';', ',']);
-        let field = match extension {
-            "go" => declaration.split_whitespace().next().unwrap_or(""),
-            "php" => declaration.rsplit('$').next().unwrap_or(""),
-            "ts" | "py" | "kt" | "swift" | "rs" | "js" => {
-                let before_type = declaration.split(':').next().unwrap_or("");
-                before_type.split_whitespace().last().unwrap_or("")
-            }
-            _ => declaration.split_whitespace().last().unwrap_or(""),
-        };
-        field.trim_end_matches(['?', '!']) == name
+        [plain, Self::declared_name(extension, declaration) == name] == [true, true]
     }
 
     fn convert_mapping(
@@ -331,6 +320,10 @@ impl ArgumentConversion<'_> {
 
     fn parameter_name(extension: &str, piece: &str) -> String {
         let declaration = piece.split('=').next().unwrap_or("").trim();
+        Self::declared_name(extension, declaration).to_owned()
+    }
+
+    fn declared_name<'b>(extension: &str, declaration: &'b str) -> &'b str {
         let name = match extension {
             "go" => declaration.split_whitespace().next().unwrap_or(""),
             "php" => declaration.rsplit('$').next().unwrap_or(""),
@@ -340,7 +333,7 @@ impl ArgumentConversion<'_> {
             }
             _ => declaration.split_whitespace().last().unwrap_or(""),
         };
-        name.trim_end_matches(['?', '!']).to_owned()
+        name.trim_end_matches(['?', '!'])
     }
 
     fn method_parameters(&self, markers: &[MarkerLine]) -> BTreeMap<String, Vec<String>> {
