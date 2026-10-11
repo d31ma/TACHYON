@@ -145,3 +145,12 @@ The Go session has `Request()`. It returns the request that opened the
 socket as a `*http.Request`: its URL with the query string, its headers and
 the client address. The supervisor now passes the opening request's target,
 so the query string reaches every language's socket request.
+
+## Amendment (2026-10-11): Go socket clients
+
+`// @SocketRequest` is also written on a Go HTTPClient interface method. The
+page's event bus holds the `WebSocket` for the Go service that keeps the
+client in a field; the Go service receives each message with `// @OnEvent`,
+and the generated `Send(message any) error` writes to the socket and returns
+an error code instead of a rejected promise. See ADR 0090, "Go streams and
+sockets". The other compiled Tac languages still refuse `@SocketRequest`.

@@ -1,6 +1,7 @@
 package tac
 
 import (
+	"encoding/json"
 	"runtime"
 	"strconv"
 )
@@ -29,6 +30,7 @@ var httpTickets = map[int]*httpTicket{}
 var TaskDone func(id int, answer string)
 var HTTPStart func(ticket int, request string)
 var HTTPCancel func(ticket int)
+var SocketStart func(ticket int, owner string, request string)
 
 const httpMissing = `{"error":{"code":"HTTP_MISSING"}}`
 const httpCancelled = `{"error":{"code":"CANCELLED"}}`
@@ -70,13 +72,65 @@ func Exchange(request string) string {
 	if HTTPStart == nil {
 		return httpMissing
 	}
+	return awaitTicket(func(id int, owner string) {
+		HTTPStart(id, request)
+	})
+}
+
+type SocketError struct {
+	Code    string
+	Message string
+}
+
+func (failure *SocketError) Error() string {
+	return failure.Code + ": " + failure.Message
+}
+
+func (failure *SocketError) BehaviorCode() string {
+	return failure.Code
+}
+
+func SendSocket(client string, message any) error {
+	text, err := json.Marshal(message)
+	if err != nil || len(text) > 65536 {
+		return &SocketError{Code: "HTTP_BODY", Message: "A socket message is JSON of at most 64 KiB."}
+	}
+	request, _ := json.Marshal(map[string]any{"client": client, "message": json.RawMessage(text)})
+	answer := map[string]any{}
+	_ = json.Unmarshal([]byte(socketSend(string(request))), &answer)
+	failure, failed := answer["error"].(map[string]any)
+	if _, sent := answer["value"]; failed || !sent {
+		return &SocketError{Code: socketCode(failure["code"]), Message: "The socket message was not sent."}
+	}
+	return nil
+}
+
+func socketSend(request string) string {
+	if SocketStart == nil {
+		return httpMissing
+	}
+	return awaitTicket(func(id int, owner string) {
+		SocketStart(id, owner, request)
+	})
+}
+
+func socketCode(code any) string {
+	for _, known := range []string{"HTTP_MISSING", "HTTP_REQUEST", "CANCELLED"} {
+		if code == known {
+			return known
+		}
+	}
+	return "HTTP_NETWORK"
+}
+
+func awaitTicket(start func(id int, owner string)) string {
 	if currentTask == nil {
 		return httpOutsideTask
 	}
 	lastTicket++
 	ticket := &httpTicket{owner: executingOwner(), answer: make(chan string, 1)}
 	httpTickets[lastTicket] = ticket
-	HTTPStart(lastTicket, request)
+	start(lastTicket, ticket.owner)
 	paused := suspend()
 	answer := <-ticket.answer
 	paused.resume()

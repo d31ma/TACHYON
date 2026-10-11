@@ -382,7 +382,7 @@ pub(crate) fn module_file() -> String {
 
 pub(crate) fn publisher_alias(package: &str) -> String {
     format!(
-        "package {package}\n\nimport \"{}/tac\"\n\n{}func behaviorStorageHost() func(string) string {{\n\treturn tac.Storage\n}}\n\nfunc behaviorBrowserHost() func(string) string {{\n\treturn tac.Exchange\n}}\n",
+        "package {package}\n\nimport \"{}/tac\"\n\n{}func behaviorStorageHost() func(string) string {{\n\treturn tac.Storage\n}}\n\nfunc behaviorBrowserHost() func(string) string {{\n\treturn tac.Exchange\n}}\n\nfunc behaviorSocketSend(client string, message any) error {{\n\treturn tac.SendSocket(client, message)\n}}\n",
         GoServices::MODULE,
         GoServices::type_aliases()
     )

@@ -168,9 +168,7 @@ class TacApplicationEvents {
     }]))
   }
 
-  alive(state) {
-    if (state.disposed) throw new Error('Application owner disposed.')
-  }
+  alive(state) { if (state.disposed) throw new Error('Application owner disposed.') }
 
   listen(owner, state, listener) {
     if (typeof owner[listener.method] !== 'function') throw new TypeError('Application listener method is unavailable.')
@@ -273,10 +271,7 @@ class TacApplicationEvents {
     let source = null, timer, tries = 0, last = null
     const close = () => { clearTimeout(timer); source?.close(); source = null }
     const wait = () => { clearTimeout(timer); if (!socket) timer = setTimeout(retry, 60000) }
-    const retry = () => {
-      close()
-      if (!state.disposed && tries < 5) timer = setTimeout(open, 1000 * 2 ** tries++)
-    }
+    const retry = () => { close(); if (!state.disposed && tries < 5) timer = setTimeout(open, 1000 * 2 ** tries++) }
     const receive = ({ data, lastEventId }) => {
       tries = 0
       wait()
@@ -303,7 +298,7 @@ class TacApplicationEvents {
       source.onmessage = receive
       wait()
     }
-    if (socket) Object.defineProperty(owner, 'send', { configurable: true, value: async (message) => {
+    if (socket) Object.defineProperty(owner, stream.sender ?? 'send', { configurable: true, value: async (message) => {
       this.alive(state)
       const text = JSON.stringify(this.snapshot(message))
       if (source?.readyState === 1) return source.send(text)

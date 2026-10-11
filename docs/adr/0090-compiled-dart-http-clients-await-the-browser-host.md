@@ -404,3 +404,50 @@ An `HTTP_STATUS` failure now carries the status number:
 `{"error":{"code":"HTTP_STATUS","status":404}}`. The body of the answer
 still stays out. Go reads it with `BehaviorErrorStatus(err)`, from the new
 `Status` field of `BehaviorError`; the other languages keep the code only.
+
+## Go streams and sockets — 2026-10-11
+
+A Go HTTPClient interface method may carry `// @StreamRequest` or
+`// @SocketRequest`, as in JavaScript and TypeScript (ADR 0058, ADR 0060).
+The method takes one parameter whose model type says what each message
+holds, for example `Receive(tick Tick)`, and has no result. It has no body in
+the interface, and the generated client keeps an empty method. A Go client
+with only stream or socket methods needs no Setup: it has no behavior context.
+
+The page's JavaScript still holds the connection. A Go service that keeps the
+client in a field (`// @Needs ticks *TicksClient`) declares the client's
+streams in its `init` answer, next to its listeners. The page shell gives
+them to the page's event bus, which opens each `EventSource` or `WebSocket`
+when the service starts and closes it when the service's owner goes away.
+The bus checks each message against the model, publishes it as that model's
+event, and a Go `// @OnEvent` method whose parameter is the model receives it.
+A Go service that does not hold the client opens nothing. The same limits
+apply as in JavaScript: the page's own origin, JSON text, 64 KiB, at most 16
+queued socket messages, and reconnects after 1, 2, 4, 8 and 16 seconds. A
+service holds at most 16 such methods through its clients.
+
+A socket client gets a generated `Send(message any) error`. It writes the
+message as JSON with `encoding/json` and waits for the page like an HTTP
+call: the goroutine releases the service, the bus sends or queues the text,
+and `Send` returns `nil` or an error whose code is `HTTP_NETWORK` (for
+example, 16 messages already wait for the socket to open), `HTTP_MISSING`
+(the service does not hold the client, or there is no page) or `CANCELLED`
+(the owner went away). Like an HTTP call, `Send` from a getter, a setter or
+`OnStart` fails with `HTTP_REQUEST`; the bus opens the socket after `OnStart`.
+A message larger than 64 KiB, or a value `encoding/json` cannot write, fails
+with `HTTP_BODY`. Each socket client has its own sender on the service's page
+shell, so a Go service may hold several socket clients. A Go test unit has no
+page, so `Send` fails with `HTTP_MISSING`.
+
+The bus changes in one place: a stream entry may name the property that
+receives its `send`, so the Go shell's senders never replace a page method of
+the service. Two one-statement functions of `application-events.js` now take
+one line each, so the file stays inside its 14,338-byte budget.
+
+Evidence: `tac_web::go_stream_tests` builds two real Go services to
+WebAssembly and runs them under Node with the real event bus and fake
+`EventSource` and `WebSocket` classes. Only the service that needs the
+clients opens them; a valid tick reaches its `@OnEvent` method and an invalid
+one is refused; a socket message reaches its listener; sends queued before
+the socket opened are flushed in order, the seventeenth gets `HTTP_NETWORK`;
+and disposing the owner closes both connections.

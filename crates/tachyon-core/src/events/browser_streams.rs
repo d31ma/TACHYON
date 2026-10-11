@@ -7,11 +7,11 @@ pub(crate) struct BrowserStreams;
 
 impl BrowserStreams {
     const NAMES: [&'static str; 2] = ["StreamRequest", "SocketRequest"];
-    const SCRIPT_LANGUAGES: [&'static str; 2] = ["js", "ts"];
+    const HOLDER_LANGUAGES: [&'static str; 3] = ["js", "ts", "go"];
     const BROWSER: &'static str = "tac";
 
     pub(crate) fn held_by(language: &str, environment: &str) -> bool {
-        let written_in_script = Self::SCRIPT_LANGUAGES.contains(&language);
+        let written_in_script = Self::HOLDER_LANGUAGES.contains(&language);
         [written_in_script, environment == Self::BROWSER] == [true, true]
     }
 

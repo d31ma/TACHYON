@@ -18,6 +18,15 @@ machine contracts have their own, independent major versions.
   value, a needed service with one instance for each component, a circle
   and an unclear instance name. Standard Go and TinyGo builds both work
   (ADR 0045 amendment).
+- A Go Tac `@HTTPClient` interface method may carry `// @StreamRequest` or
+  `// @SocketRequest`. The page's event bus holds the stream or socket for
+  the Go service that keeps the client in a `// @Needs` field, with the same
+  origin, JSON, size and reconnect rules as JavaScript, and closes it when
+  the service's owner goes away. The service receives each message with
+  `// @OnEvent` on a method whose parameter is the message model. A socket
+  client gets `Send(message any) error`, which waits for the page like an
+  HTTP call and returns an error code instead of a rejected promise
+  (ADR 0058, ADR 0060 and ADR 0090 amendments).
 - A Go socket session has `Request()`, which returns the request that opened
   the socket as a `*http.Request`, with its query string and headers. The
   supervisor now passes the opening request's target to every socket handler.

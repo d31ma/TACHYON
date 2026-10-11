@@ -20,6 +20,14 @@ type Listener struct {
 	Invoke       func(value any) (any, error)
 }
 
+type Stream struct {
+	Client string
+	Path   string
+	Event  string
+	Socket bool
+	Models string
+}
+
 type Member struct {
 	Name     string
 	Read     func() any
@@ -29,6 +37,7 @@ type Member struct {
 	Hook     func() error
 	Destroy  bool
 	Instance any
+	Stream   *Stream
 }
 
 type ApplicationEventPublisher struct{}
@@ -423,6 +432,7 @@ func describe(members []Member) string {
 	fields := []any{}
 	methods := []any{}
 	listeners := []any{}
+	streams := []any{}
 	for index := range members {
 		if members[index].Read != nil {
 			fields = append(fields, members[index].Name)
@@ -430,9 +440,25 @@ func describe(members []Member) string {
 			methods = append(methods, members[index].Name)
 		} else if members[index].Listener != nil {
 			listeners = append(listeners, describeListener(members[index].Name, members[index].Listener))
+		} else if members[index].Stream != nil {
+			streams = append(streams, describeStream(members[index].Stream))
 		}
 	}
-	return valueAnswer(map[string]any{"fields": fields, "methods": methods, "listeners": listeners})
+	return valueAnswer(map[string]any{"fields": fields, "methods": methods, "listeners": listeners, "streams": streams})
+}
+
+func describeStream(stream *Stream) map[string]any {
+	var models any
+	if stream.Models != "" {
+		models, _ = parseJSON(stream.Models)
+	}
+	return map[string]any{
+		"client": stream.Client,
+		"path":   stream.Path,
+		"event":  stream.Event,
+		"socket": stream.Socket,
+		"models": models,
+	}
 }
 
 func describeListener(key string, listener *Listener) map[string]any {

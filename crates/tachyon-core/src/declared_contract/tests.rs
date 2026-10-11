@@ -405,6 +405,25 @@ fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
 }
 
 #[test]
+fn a_go_socket_client_needs_no_context_and_gets_a_send_method() {
+    let source = "// @HTTPClient(\"/chat\")\ntype ChatClient interface {\n\t// @SocketRequest\n\tReceive(message ChatMessage)\n}\n";
+    let path = Path::new("client/remotes/ChatClient.go");
+    let lowered = DeclaredContract::concrete(path, source, "tac").expect("lowered");
+    for part in [
+        "type ChatClient struct{}\n",
+        "// @SocketRequest\nfunc (client *ChatClient) Receive(message ChatMessage) {\n}\n",
+        "\nfunc (client *ChatClient) Send(message any) error {\n\treturn behaviorSocketSend(\"ChatClient\", message)\n}\n",
+        "func NewChatClient() (*ChatClient, error) {\n\treturn &ChatClient{}, nil\n}",
+    ] {
+        assert!(lowered.contains(part), "{part:?}:\n{lowered}");
+    }
+    let stream = source.replace("SocketRequest", "StreamRequest");
+    let lowered = DeclaredContract::concrete(path, &stream, "tac").expect("lowered");
+    assert!(!lowered.contains("Send("), "{lowered}");
+    assert!(lowered.contains("type ChatClient struct{}\n"), "{lowered}");
+}
+
+#[test]
 fn tac_browser_clients_stay_as_written() {
     let source = Samples::CONTRACTS[10].1;
     assert!(
