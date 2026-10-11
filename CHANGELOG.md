@@ -212,6 +212,11 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- A Go web build gives `go build` and TinyGo up to 15 minutes, like Cargo,
+  instead of the 2 minutes of other native tools. TinyGo can take about 5
+  minutes on a 4-core machine; before, the release build timed out and fell
+  back to the standard Go compiler, whose module can pass the 16 MiB limit.
+
 - A route with web services loads less script: the build writes the shared
   script of each service language (`tachyon-rust.js`, `tachyon-go.js`,
   `tachyon-csharp.js`, `tachyon-ruby-services.js` and the others) and Go's

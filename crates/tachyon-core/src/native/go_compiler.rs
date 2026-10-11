@@ -1,4 +1,4 @@
-use super::host::{native_tool_failure, run_tool_with};
+use super::host::{NativeHost, native_tool_failure, run_tool_with};
 use crate::Failure;
 use std::path::Path;
 
@@ -88,11 +88,12 @@ impl GoCompiler {
     }
 
     pub(super) async fn build(self, staged: &Path) -> Result<(), Failure> {
-        run_tool_with(
+        NativeHost::run_limited(
             self.program,
             self.arguments,
             Some(staged),
             &Self::ENVIRONMENT,
+            NativeHost::LONG_TOOL_TIME_LIMIT,
         )
         .await?;
         Ok(())
