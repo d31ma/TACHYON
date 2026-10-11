@@ -257,6 +257,9 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- A behaviour module may declare up to 512 types instead of 128, so a Go or
+  Ruby app with many clients no longer has to share one Setup between them.
+
 - `server.maxbody` in `server/application.json` raises the request body
   limit of every Yon route from 1 MiB up to 12 MiB. A body over the limit
   still gets 413, now after Tachyon has read up to 16 MiB of it, so a sender

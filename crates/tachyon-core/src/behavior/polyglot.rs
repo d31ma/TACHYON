@@ -1792,8 +1792,8 @@ fn declarations_with_runtime(
             return Err(input.failure(at, "Duplicate top-level behavior type name"));
         }
         result.push(ty);
-        if result.len() > 128 {
-            return Err(input.failure(at, "Behavior module exceeds 128 types"));
+        if result.len() > 512 {
+            return Err(input.failure(at, "Behavior module exceeds 512 types"));
         }
     }
     Ok(result)

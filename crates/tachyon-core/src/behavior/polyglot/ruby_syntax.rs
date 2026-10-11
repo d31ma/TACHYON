@@ -57,8 +57,8 @@ impl RubySyntax {
             }
             let body = offset..Self::class_end(&input.code, offset);
             result.push(Self::behavior_type(input, name, start, body));
-            if result.len() > 128 {
-                return Err(input.failure(start, "Behavior module exceeds 128 types"));
+            if result.len() > 512 {
+                return Err(input.failure(start, "Behavior module exceeds 512 types"));
             }
         }
         Ok(result)
