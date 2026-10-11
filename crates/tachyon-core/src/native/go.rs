@@ -16,10 +16,7 @@ pub(crate) struct GoServices {
     registrations: Vec<StagedService>,
 }
 
-struct PageOwner {
-    class: String,
-    events: GoEvents,
-}
+type PageOwner = (String, GoEvents);
 
 struct StagedService {
     package: String,
@@ -150,14 +147,11 @@ impl GoServices {
     }
 
     fn add_class(&mut self, path: &str, class: &str, events: GoEvents) -> Result<(), Failure> {
-        let owner = self
+        let (kept_class, _) = self
             .owners
             .entry(path.to_owned())
-            .or_insert_with(|| PageOwner {
-                class: class.to_owned(),
-                events,
-            });
-        (owner.class == class)
+            .or_insert_with(|| (class.to_owned(), events));
+        (kept_class.as_str() == class)
             .then_some(())
             .ok_or_else(|| Self::conflicting_source(path))
     }
@@ -323,14 +317,15 @@ impl GoServices {
             .iter()
             .find(|part| part.path == path)
             .ok_or_else(|| Self::conflicting_source(path))?;
-        let factory = format!("TacCreate{}", owner.class);
+        let (class, events) = owner;
+        let factory = format!("TacCreate{class}");
         let table = crate::companion::go::owner_table_named(
             &GoTable {
                 source: &part.text,
                 source_path: path,
-                class: &owner.class,
-                excluded: &owner.events.excluded,
-                extra: &owner.events.entries,
+                class,
+                excluded: &events.excluded,
+                extra: &events.entries,
             },
             &factory,
         )?;
