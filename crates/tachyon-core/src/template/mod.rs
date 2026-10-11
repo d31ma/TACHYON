@@ -23,7 +23,7 @@ mod service_reach_tests;
 mod shipped_script;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
-mod shipped_script_tests;
+pub(crate) mod shipped_script_tests;
 mod slotted_children;
 
 pub(crate) use accessibility::AccessibilityCheck;

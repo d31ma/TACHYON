@@ -17,6 +17,18 @@ impl ShippedScript {
         code.join(Self::LINE_BREAK) + Self::LINE_BREAK
     }
 
+    pub(crate) fn compact_keeping_notice(source: &str) -> String {
+        let mut notice = String::new();
+        let mut rest = source;
+        while rest.starts_with(Self::LINE_COMMENT) {
+            let (line, after) = rest.split_once(Self::LINE_BREAK).unwrap_or((rest, ""));
+            notice.push_str(line);
+            notice.push_str(Self::LINE_BREAK);
+            rest = after;
+        }
+        notice + &Self::compact(rest)
+    }
+
     fn trimmed_lines(source: &str) -> String {
         let lines: Vec<&str> = source.lines().map(str::trim).collect();
         lines.join(Self::LINE_BREAK)

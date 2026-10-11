@@ -162,7 +162,10 @@ async fn build_language(
             let built = crate::native::web_go(snapshot_root, &chosen, profile).await?;
             note = built.note;
             published.push((String::from(WebEngine::GO_MODULE), built.wasm));
-            published.push((String::from(WebEngine::GO_GLUE), built.glue));
+            published.push((
+                String::from(WebEngine::GO_GLUE),
+                WebEngine::shipped_glue(built.glue),
+            ));
             String::from(WebEngine::GO_ENGINE)
         }
         WebLanguage::Kotlin => {
@@ -208,10 +211,10 @@ async fn build_language(
         }
     };
     let shared = language.shared_module();
-    let head = WebEngine::SHARED_HEAD;
-    let tail = WebEngine::SHARED_TAIL;
-    let shared_source = format!("{head}{engine}{tail}");
-    published.push((shared.to_owned(), shared_source.into_bytes()));
+    published.push((
+        shared.to_owned(),
+        WebEngine::shared_source(&engine).into_bytes(),
+    ));
     let topics = TopicStreams::read(snapshot_root, language.model_extension())?;
     for (instance, class, _) in &chosen {
         let service_module = module(instance, class, shared, &topics);
@@ -297,6 +300,19 @@ pub(crate) fn base64(bytes: &[u8]) -> String {
 struct WebEngine;
 
 impl WebEngine {
+    fn shared_source(engine: &str) -> String {
+        let head = Self::SHARED_HEAD;
+        let tail = Self::SHARED_TAIL;
+        crate::template::ShippedScript::compact_keeping_notice(&format!("{head}{engine}{tail}"))
+    }
+
+    fn shipped_glue(glue: Vec<u8>) -> Vec<u8> {
+        match String::from_utf8(glue) {
+            Ok(text) => crate::template::ShippedScript::compact_keeping_notice(&text).into_bytes(),
+            Err(error) => error.into_bytes(),
+        }
+    }
+
     fn linear_memory(instance: &str) -> String {
         format!(
             "{}{instance}{}",
@@ -795,6 +811,9 @@ mod reach_tests;
 
 #[cfg(test)]
 mod rust_embedding_tests;
+
+#[cfg(test)]
+mod shipped_glue_tests;
 
 #[cfg(test)]
 mod web_api_tests;
