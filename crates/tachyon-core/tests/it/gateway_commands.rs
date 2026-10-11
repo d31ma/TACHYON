@@ -694,6 +694,7 @@ fn explicit_allowlisting_never_transfers_private_environment_values() {
     );
 }
 
+#[cfg(unix)]
 fn process_exists(pid: u32) -> bool {
     StdCommand::new("kill")
         .args(["-0", &pid.to_string()])

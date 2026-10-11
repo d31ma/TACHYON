@@ -117,6 +117,7 @@ impl GoStreams {
         stream
     }
 
+    #[cfg(unix)]
     async fn read_until(stream: &mut TcpStream, needle: &str) -> String {
         let mut received = Vec::new();
         tokio::time::timeout(Duration::from_mins(1), async {
@@ -146,6 +147,7 @@ impl GoStreams {
         followed.unwrap_or_else(|failure| panic!("the follow stops for a gone reader: {failure}"));
     }
 
+    #[cfg(unix)]
     fn process_exists(pid: &str) -> bool {
         Command::new("kill")
             .args(["-0", pid.trim()])
@@ -155,6 +157,7 @@ impl GoStreams {
             .is_ok_and(|status| status.success())
     }
 
+    #[cfg(unix)]
     async fn wait_for_exit(pid: &str) -> bool {
         for _ in 0..100 {
             if !Self::process_exists(pid) {

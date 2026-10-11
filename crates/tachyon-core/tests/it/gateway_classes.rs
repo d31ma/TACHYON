@@ -1484,6 +1484,7 @@ fn supervisor_with(project: &Project, options: HandlerSupervisorOptions) -> Hand
     .expect("supervisor")
 }
 
+#[cfg(unix)]
 fn process_exists(pid: u32) -> bool {
     StdCommand::new("kill")
         .args(["-0", &pid.to_string()])
@@ -1493,6 +1494,7 @@ fn process_exists(pid: u32) -> bool {
         .is_ok_and(|status| status.success())
 }
 
+#[cfg(unix)]
 async fn wait_for_pid(pid_file: &Path) -> u32 {
     for _attempt in 0..500 {
         if let Ok(text) = fs::read_to_string(pid_file)
@@ -1505,6 +1507,7 @@ async fn wait_for_pid(pid_file: &Path) -> u32 {
     panic!("the class target did not start its descendant");
 }
 
+#[cfg(unix)]
 async fn assert_process_gone(pid: u32) {
     for _attempt in 0..100 {
         if !process_exists(pid) {
