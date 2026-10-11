@@ -504,3 +504,43 @@ async fn a_dart_identity_provider_guards_routes() {
 async fn a_go_identity_provider_guards_routes() {
     assert_identity_provider(&IdentityProject::GO).await;
 }
+
+#[tokio::test]
+async fn a_browser_navigation_gets_the_page_that_shares_a_guarded_route_path() {
+    if !available("node") {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    Project::guarded_javascript(root.path(), &IdentityProject::JAVASCRIPT);
+    Project::write(
+        root.path(),
+        "client/pages/orders/tac.html",
+        "<test-view1 />",
+    );
+    let server = Server::start(root.path()).await;
+    for headers in [
+        "Sec-Fetch-Mode: navigate\r\nAccept: text/html\r\n",
+        "Accept: text/html,application/xhtml+xml\r\n",
+    ] {
+        let redirect = server.call("GET", "/orders", headers).await;
+        assert!(redirect.contains("location: /orders/"), "{redirect}");
+        assert!(redirect.contains("Sec-Fetch-Mode, Accept"), "{redirect}");
+        let page = server.call("GET", "/orders/", headers).await;
+        assert!(page.contains("200 OK") && page.contains("<html"), "{page}");
+    }
+    for headers in [
+        "Sec-Fetch-Mode: cors\r\nAccept: text/html\r\n",
+        "Accept: application/json\r\n",
+        "",
+    ] {
+        let api = server.call("GET", "/orders", headers).await;
+        assert!(api.contains("401 Unauthorized"), "{api}");
+        assert!(api.contains("Sec-Fetch-Mode, Accept"), "{api}");
+    }
+    let posted = server
+        .call("POST", "/orders", "Sec-Fetch-Mode: navigate\r\n")
+        .await;
+    assert!(posted.contains("405 Method Not Allowed"), "{posted}");
+    server.stop().await;
+}

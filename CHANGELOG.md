@@ -212,6 +212,12 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- When a page and a controller share a path, a browser navigation (a GET or
+  HEAD with `Sec-Fetch-Mode: navigate`, or with an `Accept` of `text/html`
+  and no `Sec-Fetch-Mode`) gets the page instead of the controller's answer,
+  such as a 401 from a `SignedIn` route. Fetches from the page still reach
+  the controller. Both answers carry `Vary: Sec-Fetch-Mode, Accept`.
+
 - A route with web services loads less script: the build writes the shared
   script of each service language (`tachyon-rust.js`, `tachyon-go.js`,
   `tachyon-csharp.js`, `tachyon-ruby-services.js` and the others) and Go's
