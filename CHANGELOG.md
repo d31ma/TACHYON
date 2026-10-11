@@ -257,6 +257,11 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- `TY1364` lets an authored client script set or remove a CSS variable:
+  `style.setProperty('--accent', color)` passes when the name is literal text
+  that starts with `--`, so a script can apply a theme or font choice. Other
+  style writes are still refused.
+
 - An entry may compose up to 512 annotated role files instead of 128, and a
   realm may hold up to 1024 model files per language instead of 256, also
   when its event listeners read the models. That error now names the models
