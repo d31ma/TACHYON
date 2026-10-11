@@ -225,6 +225,12 @@ machine contracts have their own, independent major versions.
   sets every route's budget when it is set. The `TY1337` error of a route
   with an allowance names the computed budget and the runtimes it counted
   (ADR 0100).
+- A route with Rust services loads a smaller WebAssembly module: the Rust
+  behavior runtime builds its JSON maps with plain inserts instead of
+  collecting and sorting, which drops several copies of the standard sort
+  from the module, and release builds run Binaryen with `--converge` and
+  `--low-memory-unused`. The cached module now depends on the rustc and
+  Binaryen flags, so a flag change rebuilds it instead of reusing an old one.
 - A route with web services loads less script: the build writes the shared
   script of each service language (`tachyon-rust.js`, `tachyon-go.js`,
   `tachyon-csharp.js`, `tachyon-ruby-services.js` and the others) and Go's
