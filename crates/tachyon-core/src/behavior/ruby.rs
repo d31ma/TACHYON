@@ -32,7 +32,7 @@ impl RubyBehaviors {
         if rest.starts_with("self.") {
             return Err(input.failure(at, "Event annotations require instance methods"));
         }
-        let name = Self::method_name(rest);
+        let name = Self::word(rest);
         let after_name = &rest[name.len()..];
         let parameters = Self::parameter_names(after_name);
         let body = Self::body(&input.code, at, line_end);
@@ -60,7 +60,7 @@ impl RubyBehaviors {
             if line.starts_with([' ', '\t']) || line.trim().is_empty() {
                 continue;
             }
-            let name = Self::constant(line.strip_prefix("class ")?);
+            let name = Self::word(line.strip_prefix("class ")?);
             return (!name.is_empty()).then_some(name);
         }
         None
@@ -126,7 +126,7 @@ impl RubyBehaviors {
             let Some(rest) = text.strip_prefix("def ") else {
                 continue;
             };
-            if Self::method_name(rest) != method {
+            if Self::word(rest) != method {
                 continue;
             }
             let after_name = at + "def ".len() + method.len();
@@ -146,7 +146,7 @@ impl RubyBehaviors {
         let mut offset = 0;
         for line in code.split_inclusive('\n') {
             if let Some(rest) = line.strip_prefix("class ")
-                && Self::constant(rest) == class
+                && Self::word(rest) == class
             {
                 return Some(offset);
             }
@@ -166,15 +166,7 @@ impl RubyBehaviors {
         code.len()
     }
 
-    fn method_name(text: &str) -> &str {
-        let length = text
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
-        &text[..length]
-    }
-
-    fn constant(text: &str) -> &str {
+    fn word(text: &str) -> &str {
         let length = text
             .bytes()
             .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
@@ -186,7 +178,34 @@ impl RubyBehaviors {
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
+    use super::RubyBehaviors;
     use std::path::Path;
+
+    #[test]
+    fn method_and_class_names_read_the_same_leading_ascii_word() {
+        let alphabet = (0..=0x7f_u8)
+            .map(char::from)
+            .chain(['é', 'Ü', 'ß', '٣'])
+            .collect::<Vec<_>>();
+        let mut texts = vec![String::new()];
+        for first in &alphabet {
+            texts.push(first.to_string());
+            texts.extend(alphabet.iter().map(|second| format!("{first}{second}")));
+        }
+        for text in texts {
+            let length = text
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                .count();
+            assert_eq!(RubyBehaviors::word(&text), &text[..length], "{text:?}");
+        }
+        let source = "class CatalogService < Base\n  def list(page, size)\n  end\n\n  def list_all\n  end\nend\n";
+        let signatures = RubyBehaviors::target_signatures(source, "CatalogService", "list");
+        assert_eq!(signatures.len(), 1);
+        assert_eq!(signatures[0].parameter_types.len(), 2);
+        assert!(RubyBehaviors::target_signatures(source, "Catalog", "list").is_empty());
+        assert!(RubyBehaviors::target_signatures(source, "CatalogService", "lis").is_empty());
+    }
 
     #[test]
     fn a_test_unit_becomes_a_controller_that_runs_its_cases() {
