@@ -662,11 +662,8 @@ fn is_name_byte(byte: u8) -> bool {
 }
 
 fn is_identifier(text: &str) -> bool {
-    let mut bytes = text.bytes();
-    bytes
-        .next()
-        .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
-        && bytes.all(is_name_byte)
+    let leading_digit = text.starts_with(|character: char| character.is_ascii_digit());
+    !text.is_empty() && !leading_digit && text.bytes().all(is_name_byte)
 }
 
 #[cfg(test)]
@@ -729,6 +726,32 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn identifiers_keep_ascii_letter_or_underscore_start_and_word_continuation() {
+        let alphabet = (0..=0x7f_u8)
+            .map(char::from)
+            .chain(['é', 'Ü', 'ß', '٣'])
+            .collect::<Vec<_>>();
+        let mut texts = vec![String::new()];
+        for first in &alphabet {
+            texts.push(first.to_string());
+            texts.extend(alphabet.iter().map(|second| format!("{first}{second}")));
+        }
+        for text in texts {
+            let mut bytes = text.bytes();
+            let expected = bytes
+                .next()
+                .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
+                && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
+            assert_eq!(is_identifier(&text), expected, "{text:?}");
+        }
+        assert_eq!(
+            receiver("catalog *Catalog[T]"),
+            Some((String::from("catalog"), String::from("Catalog")))
+        );
+        assert_eq!(receiver("c *9Catalog"), None);
+    }
 
     #[test]
     fn a_struct_and_its_methods_are_read_from_the_top_level() {
