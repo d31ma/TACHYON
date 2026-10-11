@@ -157,6 +157,7 @@ class Handler:
         return relay(("python3", "server/helpers/probe.py", "sleep:10"), request)
 "#;
 
+    #[cfg(unix)]
     const JAVASCRIPT_STREAM: &str = r"
 export class Handler {
   static async *GET(request) {
@@ -299,6 +300,7 @@ fn request(id: &str, method: HttpMethod, body: &str) -> HandlerRequest {
     request
 }
 
+#[cfg(unix)]
 fn request_with_pid_file(
     id: &str,
     method: HttpMethod,
@@ -342,6 +344,7 @@ fn body(response: &tachyon_contracts::HandlerResponse) -> serde_json::Value {
     serde_json::from_str(data).expect("JSON body")
 }
 
+#[cfg(unix)]
 fn process_exists(pid: u32) -> bool {
     StdCommand::new("kill")
         .args(["-0", &pid.to_string()])
@@ -351,6 +354,7 @@ fn process_exists(pid: u32) -> bool {
         .is_ok_and(|status| status.success())
 }
 
+#[cfg(unix)]
 async fn assert_process_gone(pid_file: &Path) {
     let pid: u32 = fs::read_to_string(pid_file)
         .expect("pid file")
@@ -366,6 +370,7 @@ async fn assert_process_gone(pid_file: &Path) {
     panic!("relay descendant {pid} survived the invocation");
 }
 
+#[cfg(unix)]
 async fn wait_for_file(path: &Path) {
     for _attempt in 0..250 {
         if path.is_file() && fs::metadata(path).is_ok_and(|metadata| metadata.len() > 0) {
