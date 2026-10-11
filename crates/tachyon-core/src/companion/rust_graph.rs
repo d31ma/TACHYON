@@ -1,8 +1,9 @@
 use super::{
-    RustCollaborators, RustConstruction, block_named, blocks, declared_service, identifier,
-    rust_owner_table, rust_struct_fields, unnamed_service,
+    RustCollaborators, RustConstruction, block_named, blocks, declared_service, rust_owner_table,
+    rust_struct_fields, unnamed_service,
 };
 use crate::Failure;
+use crate::unicode_name::UnicodeName;
 
 pub(crate) struct RustGraph;
 
@@ -10,14 +11,14 @@ impl RustGraph {
     pub(crate) fn declares_module(source: &str, name: &str) -> bool {
         blocks(source, "mod")
             .iter()
-            .any(|(header, _)| identifier(header.trim()) == name)
+            .any(|(header, _)| UnicodeName::leading(header.trim()) == name)
     }
 
     pub(crate) fn type_names(source: &str) -> std::collections::BTreeSet<String> {
         ["struct", "trait", "enum"]
             .iter()
             .flat_map(|keyword| blocks(source, keyword))
-            .map(|(header, _)| identifier(header.trim()))
+            .map(|(header, _)| UnicodeName::leading(header.trim()))
             .collect()
     }
 

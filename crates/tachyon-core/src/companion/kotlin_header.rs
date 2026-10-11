@@ -1,9 +1,9 @@
 use super::{
-    after_declaration_keyword, class_body_named, closing_parenthesis, identifier,
-    rust_field_declarations,
+    after_declaration_keyword, class_body_named, closing_parenthesis, rust_field_declarations,
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::unicode_name::UnicodeName;
 use std::path::Path;
 
 pub(crate) struct KotlinHeader;
@@ -79,7 +79,7 @@ impl KotlinHeader {
         source
             .lines()
             .filter_map(|line| after_declaration_keyword(line, "class"))
-            .find(|after| identifier(after) == class)
+            .find(|after| UnicodeName::leading(after) == class)
             .map(|after| {
                 let at = after.as_ptr() as usize - source.as_ptr() as usize + class.len();
                 source[at..].trim_start()

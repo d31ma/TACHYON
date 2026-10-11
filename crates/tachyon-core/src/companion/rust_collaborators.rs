@@ -1,3 +1,5 @@
+use crate::unicode_name::UnicodeName;
+
 pub(super) struct RustCollaborators {
     names: Vec<String>,
 }
@@ -23,7 +25,7 @@ impl RustCollaborators {
         let rest = Self::DECLARATIONS
             .iter()
             .find_map(|keyword| line.strip_prefix(keyword))?;
-        let name = super::identifier(rest);
+        let name = UnicodeName::leading(rest);
         (!name.is_empty()).then_some(name)
     }
 }
