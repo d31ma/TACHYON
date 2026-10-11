@@ -1,4 +1,5 @@
 use crate::Failure;
+use crate::ascii_name::AsciiName;
 use std::ops::Range;
 use std::path::Path;
 
@@ -568,7 +569,7 @@ fn body_open(code: &str, mut at: usize) -> Option<usize> {
             }
             b'{' => return Some(at),
             b'\n' | b';' => return None,
-            byte if is_name_byte(byte) => {
+            byte if AsciiName::is_name_byte(byte) => {
                 previous_word = word_at(code, at);
                 at += previous_word.len();
             }
@@ -615,7 +616,7 @@ fn top_level_words(code: &str) -> Vec<(usize, &str)> {
     let mut at = 0;
     while at < bytes.len() {
         let byte = bytes[at];
-        if is_name_byte(byte) {
+        if AsciiName::is_name_byte(byte) {
             let word = word_at(code, at);
             if depth == 0 {
                 words.push((at, word));
@@ -635,11 +636,15 @@ fn top_level_words(code: &str) -> Vec<(usize, &str)> {
 
 fn word_at(code: &str, at: usize) -> &str {
     let bytes = code.as_bytes();
-    if at > 0 && bytes.get(at - 1).is_some_and(|byte| is_name_byte(*byte)) {
+    if at > 0
+        && bytes
+            .get(at - 1)
+            .is_some_and(|byte| AsciiName::is_name_byte(*byte))
+    {
         return "";
     }
     let mut end = at;
-    while end < bytes.len() && is_name_byte(bytes[end]) {
+    while end < bytes.len() && AsciiName::is_name_byte(bytes[end]) {
         end += 1;
     }
     &code[at..end]
@@ -657,13 +662,9 @@ fn line_end(code: &str, at: usize) -> usize {
     code[at..].find('\n').map_or(code.len(), |end| at + end)
 }
 
-fn is_name_byte(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_'
-}
-
 fn is_identifier(text: &str) -> bool {
     let leading_digit = text.starts_with(|character: char| character.is_ascii_digit());
-    !text.is_empty() && !leading_digit && text.bytes().all(is_name_byte)
+    !text.is_empty() && !leading_digit && text.bytes().all(AsciiName::is_name_byte)
 }
 
 #[cfg(test)]

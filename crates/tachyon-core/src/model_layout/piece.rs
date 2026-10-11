@@ -1,3 +1,5 @@
+use crate::ascii_name::AsciiName;
+
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Piece<'a> {
     pub(super) at: usize,
@@ -66,7 +68,7 @@ impl<'a> Piece<'a> {
         let length = self
             .text
             .bytes()
-            .take_while(|byte| Self::is_name_byte(*byte))
+            .take_while(|byte| AsciiName::is_name_byte(*byte))
             .count();
         &self.text[..length]
     }
@@ -75,17 +77,13 @@ impl<'a> Piece<'a> {
         let text = self.text.trim_start();
         let length = text
             .bytes()
-            .take_while(|byte| Self::is_name_byte(*byte) || matches!(byte, b'.' | b':'))
+            .take_while(|byte| AsciiName::is_name_byte(*byte) || matches!(byte, b'.' | b':'))
             .count();
         &text[..length]
     }
 
     pub(super) fn last_segment(path: &str) -> &str {
         path.rsplit(['.', ':']).next().unwrap_or(path)
-    }
-
-    pub(super) fn is_name_byte(byte: u8) -> bool {
-        byte.is_ascii_alphanumeric() || byte == b'_'
     }
 
     pub(super) fn depth_after(byte: u8, depth: usize) -> usize {
@@ -174,7 +172,7 @@ impl<'a> Piece<'a> {
         }
         let before = index.checked_sub(1).map(|previous| bytes[previous]);
         let after = bytes.get(index + word.len()).copied();
-        !before.is_some_and(Self::is_name_byte) && !after.is_some_and(Self::is_name_byte)
+        !before.is_some_and(AsciiName::is_name_byte) && !after.is_some_and(AsciiName::is_name_byte)
     }
 
     pub(super) fn split_top(self, separator: u8) -> Vec<Self> {

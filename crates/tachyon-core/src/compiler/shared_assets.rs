@@ -1,6 +1,7 @@
 use super::page_state::PageState;
 use super::portable_path::PortablePath;
 use crate::Failure;
+use crate::ascii_name::AsciiName;
 use crate::failure::diagnostic;
 use std::collections::BTreeSet;
 use std::fs::{self, DirEntry, FileType, Metadata};
@@ -48,16 +49,12 @@ impl SharedAssets {
     fn is_data_name(stem: &str) -> bool {
         let mut bytes = stem.bytes();
         let first = bytes.next().is_some_and(Self::is_name_start);
-        let rest = bytes.all(Self::is_name_byte);
+        let rest = bytes.all(AsciiName::is_name_byte);
         first && rest
     }
 
     fn is_name_start(byte: u8) -> bool {
         byte.is_ascii_alphabetic() || byte == b'_'
-    }
-
-    fn is_name_byte(byte: u8) -> bool {
-        byte.is_ascii_alphanumeric() || byte == b'_'
     }
 
     fn walk_when_present(root: &Path) -> Result<Vec<(PathBuf, Vec<u8>)>, Failure> {
