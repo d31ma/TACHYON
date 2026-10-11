@@ -261,7 +261,8 @@ enum NativeBehaviorTests {
         try check(mutationCalls == 2 && Config.store.writes == writesBefore, "DENIED_MUTATION")
         try await expectError("CACHE_ARGUMENT") { _ = try await context.invoke("Catalog", "update", arguments: [replacement]) { countMutation(replacement) } }
         Config.store.includeCache = false
-        let missingAdapter = try Behaviors.create(Config.self, partition: "tenant-one", signal: signal)
+        // Contexts with one setup key share adapters, so this one needs its own key to be configured without the cache.
+        let missingAdapter = try Behaviors.create(Config.self, partition: "tenant-one", signal: signal, profiles: ["missingCache"])
         Config.store.includeCache = true
         try await expectError("CACHE_MISSING") { _ = try await missingAdapter.invoke("Catalog", "update", arguments: [replacement, argument]) { countMutation(replacement) } }
         missingAdapter.dispose()
@@ -321,7 +322,8 @@ enum NativeBehaviorTests {
         try await expectError("FORBIDDEN") { _ = try await context.query(queryMetadata("find"), arguments: queryArguments) }
         Config.store.entityAllowed = true
         Config.store.includeEntityAuthorization = false
-        let unauthenticatedQuery = try Behaviors.create(Config.self, partition: "tenant-one", signal: signal)
+        // Contexts with one setup key share adapters, so this one needs its own key to be configured without entity authorization.
+        let unauthenticatedQuery = try Behaviors.create(Config.self, partition: "tenant-one", signal: signal, profiles: ["missingEntityAuthorization"])
         Config.store.includeEntityAuthorization = true
         try await expectError("FORBIDDEN") { _ = try await unauthenticatedQuery.query(queryMetadata("find"), arguments: queryArguments) }
         unauthenticatedQuery.dispose()
