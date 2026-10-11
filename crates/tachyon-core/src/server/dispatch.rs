@@ -13,10 +13,10 @@ use crate::routing::{RouteMatch, RouteMethod, match_route};
 use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::extract::State;
-use axum::http::header::CONTENT_LENGTH;
+use axum::http::header::{ACCEPT, CONTENT_LENGTH, VARY};
 use axum::http::request::Parts;
 use axum::http::response::Parts as ResponseParts;
-use axum::http::{HeaderMap, Method, Request, Response, StatusCode, Uri};
+use axum::http::{HeaderMap, HeaderValue, Method, Request, Response, StatusCode, Uri};
 use std::sync::Arc;
 use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
@@ -46,6 +46,10 @@ impl Dispatch {
     pub(in crate::server) const SSE_BRIDGE_BYTES: usize = 16 * 1024;
     pub(in crate::server) const STREAM_EVENT_QUEUE: usize = 2;
     const PAGE_METHODS: [HttpMethod; 2] = [HttpMethod::Get, HttpMethod::Head];
+    const FETCH_MODE: &'static str = "sec-fetch-mode";
+    const NAVIGATE: &'static str = "navigate";
+    const HTML: &'static str = "text/html";
+    const SHARED_PATH_VARY: &'static str = "Sec-Fetch-Mode, Accept";
 
     pub(in crate::server) fn into_router(
         self,
@@ -280,9 +284,47 @@ impl Dispatch {
         matched: RouteMatch,
         request: Request<Body>,
     ) -> Response<Body> {
+        let shared = self.page_routes.contains(&matched.route);
+        let navigation = [shared, Self::is_page_navigation(&request)] == [true, true];
+        let response = if navigation {
+            self.clone().serve_static(request).await
+        } else {
+            self.serve_api_route(entries, matched, request).await
+        };
+        Self::with_shared_path_vary(shared, response)
+    }
+
+    async fn serve_api_route(
+        &self,
+        entries: &[&DispatchRoute],
+        matched: RouteMatch,
+        request: Request<Body>,
+    ) -> Response<Body> {
         let method = Self::protocol_method(request.method());
         self.serve_known_method(method, entries, matched, request)
             .await
+    }
+
+    fn is_page_navigation(request: &Request<Body>) -> bool {
+        let reads = Self::protocol_method(request.method())
+            .is_some_and(|method| Self::PAGE_METHODS.contains(&method));
+        let headers = request.headers();
+        let accepts_html = headers
+            .get(ACCEPT)
+            .and_then(|accept| accept.to_str().ok())
+            .is_some_and(|accept| accept.contains(Self::HTML));
+        let asks_for_document = headers
+            .get(Self::FETCH_MODE)
+            .map_or(accepts_html, |mode| mode == Self::NAVIGATE);
+        [reads, asks_for_document] == [true, true]
+    }
+
+    fn with_shared_path_vary(shared: bool, mut response: Response<Body>) -> Response<Body> {
+        let vary = HeaderValue::from_static(Self::SHARED_PATH_VARY);
+        response
+            .headers_mut()
+            .extend(shared.then_some((VARY, vary)));
+        response
     }
 
     async fn serve_known_method(

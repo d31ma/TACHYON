@@ -240,6 +240,12 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- When a page and a controller share a path, a browser navigation (a GET or
+  HEAD with `Sec-Fetch-Mode: navigate`, or with an `Accept` of `text/html`
+  and no `Sec-Fetch-Mode`) gets the page instead of the controller's answer,
+  such as a 401 from a `SignedIn` route. Fetches from the page still reach
+  the controller. Both answers carry `Vary: Sec-Fetch-Mode, Accept`.
+
 - The browser HTTP transport of compiled Tac clients accepts requests of up
   to 1 MiB instead of 64 KiB, in every language, so a page can upload a file
   such as an EML message (ADR 0090 amendment).
