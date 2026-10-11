@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 #[cfg(test)]
 mod tests;
 
-pub(super) struct TypeScriptCompiler;
+pub(crate) struct TypeScriptCompiler;
 
 impl TypeScriptCompiler {
     const TOOL_OUTPUT_BYTES: usize = 64 * 1_024;
@@ -129,7 +129,7 @@ impl TypeScriptCompiler {
         })
     }
 
-    fn program(tools_root: &Path) -> PathBuf {
+    pub(crate) fn program(tools_root: &Path) -> PathBuf {
         let search_path = std::env::var_os("PATH").unwrap_or_default();
         let on_windows = cfg!(windows).then(|| Self::windows_program(tools_root, &search_path));
         on_windows.unwrap_or_else(|| Self::unix_program(tools_root))

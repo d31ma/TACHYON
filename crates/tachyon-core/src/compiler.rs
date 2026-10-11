@@ -100,6 +100,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 pub(crate) use style_path::StylePath;
 use style_sources::StyleSources;
+pub(crate) use typescript_compiler::TypeScriptCompiler;
 pub(crate) use view_transition_guard::ViewTransitionGuard;
 
 #[derive(Clone, Copy, Debug, Default)]
