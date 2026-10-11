@@ -1,4 +1,5 @@
 use super::ManualStep;
+use super::conversion_plan::ConversionPlan;
 use super::edits::TextEdit;
 use super::markers::{Marker, MarkerLine};
 use super::python_parameters::PythonParameterEdits;
@@ -13,13 +14,6 @@ pub(super) struct ArgumentConversion<'a> {
     relative: &'a str,
     extension: &'a str,
     text: SourceText<'a>,
-}
-
-#[derive(Default)]
-pub(super) struct ArgumentPlan {
-    pub(super) edits: Vec<TextEdit>,
-    pub(super) notes: Vec<String>,
-    pub(super) steps: Vec<ManualStep>,
 }
 
 struct Parameters {
@@ -59,13 +53,13 @@ impl<'a> ArgumentConversion<'a> {
     const RECEIVERS: [&'static str; 3] = ["self", "&self", "&mut self"];
     const TYPED_BY_DECLARATION: [&'static str; 3] = ["js", "ts", "py"];
 
-    pub(super) fn plan(relative: &'a str, source: &'a str) -> ArgumentPlan {
+    pub(super) fn plan(relative: &'a str, source: &'a str) -> ConversionPlan {
         let extension = Path::new(relative)
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
         let Some(text) = SourceText::read(extension, source) else {
-            return ArgumentPlan::default();
+            return ConversionPlan::default();
         };
         let conversion = Self {
             relative,
@@ -75,8 +69,8 @@ impl<'a> ArgumentConversion<'a> {
         conversion.convert()
     }
 
-    fn convert(&self) -> ArgumentPlan {
-        let mut plan = ArgumentPlan::default();
+    fn convert(&self) -> ConversionPlan {
+        let mut plan = ConversionPlan::default();
         let markers = Marker::lines(&self.text, self.extension, &Self::NAMES);
         let methods = self.method_parameters(&markers);
         let mut parameters: BTreeMap<usize, ParameterEdits> = BTreeMap::new();
@@ -112,7 +106,7 @@ impl<'a> ArgumentConversion<'a> {
         arguments: &Map<String, Value>,
         methods: &BTreeMap<String, Vec<String>>,
         parameters: &mut BTreeMap<usize, ParameterEdits>,
-        plan: &mut ArgumentPlan,
+        plan: &mut ConversionPlan,
     ) {
         match Marker::normalized(&marker.name).as_str() {
             "test" | "tachyontest" => self.test(marker, arguments, plan),
@@ -125,7 +119,7 @@ impl<'a> ArgumentConversion<'a> {
         }
     }
 
-    fn replace_arguments(marker: &MarkerLine, replacement: &str, plan: &mut ArgumentPlan) {
+    fn replace_arguments(marker: &MarkerLine, replacement: &str, plan: &mut ConversionPlan) {
         let Some((start, end)) = marker.arguments else {
             return;
         };
@@ -136,7 +130,7 @@ impl<'a> ArgumentConversion<'a> {
         crate::behavior::literal::class_reference_example(self.extension, name)
     }
 
-    fn test(&self, marker: &MarkerLine, arguments: &Map<String, Value>, plan: &mut ArgumentPlan) {
+    fn test(&self, marker: &MarkerLine, arguments: &Map<String, Value>, plan: &mut ConversionPlan) {
         let Some(configuration) = arguments.get("configuration").and_then(Value::as_str) else {
             return;
         };
@@ -165,7 +159,12 @@ impl<'a> ArgumentConversion<'a> {
             .push(TextEdit::replace(start + value_end, end, &tail));
     }
 
-    fn store(&self, marker: &MarkerLine, arguments: &Map<String, Value>, plan: &mut ArgumentPlan) {
+    fn store(
+        &self,
+        marker: &MarkerLine,
+        arguments: &Map<String, Value>,
+        plan: &mut ConversionPlan,
+    ) {
         let Some(entity) = arguments.get("entity").and_then(Value::as_str) else {
             return;
         };
@@ -175,7 +174,12 @@ impl<'a> ArgumentConversion<'a> {
         Self::replace_arguments(marker, &replacement, plan);
     }
 
-    fn entity(&self, marker: &MarkerLine, arguments: &Map<String, Value>, plan: &mut ArgumentPlan) {
+    fn entity(
+        &self,
+        marker: &MarkerLine,
+        arguments: &Map<String, Value>,
+        plan: &mut ConversionPlan,
+    ) {
         let Some(identifier) = arguments.get("id").and_then(Value::as_str) else {
             return;
         };
@@ -249,7 +253,7 @@ impl<'a> ArgumentConversion<'a> {
         &self,
         marker: &MarkerLine,
         arguments: &Map<String, Value>,
-        plan: &mut ArgumentPlan,
+        plan: &mut ConversionPlan,
     ) {
         let Some(argument) = arguments.get("argument") else {
             return;
@@ -363,7 +367,7 @@ impl ArgumentConversion<'_> {
         marker: &MarkerLine,
         arguments: &Map<String, Value>,
         methods: &BTreeMap<String, Vec<String>>,
-        plan: &mut ArgumentPlan,
+        plan: &mut ConversionPlan,
     ) {
         let Some(Value::Array(indexes)) = arguments.get("arguments") else {
             return;
@@ -409,7 +413,7 @@ impl ArgumentConversion<'_> {
         marker: &MarkerLine,
         arguments: &Map<String, Value>,
         parameters: &mut BTreeMap<usize, ParameterEdits>,
-        plan: &mut ArgumentPlan,
+        plan: &mut ConversionPlan,
     ) {
         let Some(declaration) =
             Marker::next_declaration(&self.text, self.extension, marker.line_start)
@@ -536,7 +540,12 @@ impl ArgumentConversion<'_> {
 }
 
 impl ArgumentConversion<'_> {
-    fn parameter_edits(&self, declaration: usize, edits: &ParameterEdits, plan: &mut ArgumentPlan) {
+    fn parameter_edits(
+        &self,
+        declaration: usize,
+        edits: &ParameterEdits,
+        plan: &mut ConversionPlan,
+    ) {
         let Some(list) = self.parameters(declaration) else {
             return;
         };
@@ -624,7 +633,7 @@ impl ArgumentConversion<'_> {
         &self,
         marker: &MarkerLine,
         arguments: &Map<String, Value>,
-        plan: &mut ArgumentPlan,
+        plan: &mut ConversionPlan,
     ) {
         let Some(Value::Object(fields)) = arguments.get("fields") else {
             return;

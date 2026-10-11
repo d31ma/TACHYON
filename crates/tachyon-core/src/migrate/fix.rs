@@ -4,6 +4,7 @@ use super::{
 use crate::Failure;
 use braced_attributes::BracedAttributeEdits;
 use clients::ClientConversion;
+use conversion_plan::ConversionPlan;
 use edits::{Hunk, TextEdit};
 use file_name_fix::FileNameFix;
 use imports::ImportRemoval;
@@ -22,6 +23,7 @@ use std::path::{Component, Path};
 mod arguments;
 mod braced_attributes;
 mod clients;
+mod conversion_plan;
 mod edits;
 mod events;
 mod field_rename;
@@ -469,9 +471,12 @@ impl MigrationFixPlan {
         Self::add_renames(relative, &source, roles, &mut edits, &mut notes);
         self.add_clients(relative, &source, &mut edits, &mut notes);
         self.add_contracts(relative, &source, &mut edits, &mut notes);
-        self.add_arguments(relative, &source, &mut edits, &mut notes);
-        self.add_events(root, relative, &source, &mut edits, &mut notes);
-        self.add_streams(relative, &source, &mut edits, &mut notes);
+        let argument_plan = arguments::ArgumentConversion::plan(relative, &source);
+        self.add_planned(relative, argument_plan, &mut edits, &mut notes);
+        let event_plan = events::EventConversion::plan(root, relative, &source);
+        self.add_planned(relative, event_plan, &mut edits, &mut notes);
+        let stream_plan = streams::StreamConversion::plan(relative, &source);
+        self.add_planned(relative, stream_plan, &mut edits, &mut notes);
         let route_move = self.add_route(relative, &source, routes, &mut edits, &mut notes);
         self.add_go_markers(relative, &source, &mut edits, &mut notes);
         Self::add_python_parameters(relative, &source, &mut edits, &mut notes);
@@ -518,8 +523,10 @@ impl MigrationFixPlan {
     fn add_ruby_file(&mut self, root: &Path, relative: &str, source: String) {
         let mut edits = Vec::new();
         let mut notes = Vec::new();
-        self.add_events(root, relative, &source, &mut edits, &mut notes);
-        self.add_streams(relative, &source, &mut edits, &mut notes);
+        let event_plan = events::EventConversion::plan(root, relative, &source);
+        self.add_planned(relative, event_plan, &mut edits, &mut notes);
+        let stream_plan = streams::StreamConversion::plan(relative, &source);
+        self.add_planned(relative, stream_plan, &mut edits, &mut notes);
         Self::add_injected_fields(relative, &source, &mut edits, &mut notes);
         self.add_private_members(relative, &source, &mut edits, &mut notes);
         Self::add_simpler_forms(root, relative, &source, &mut edits, &mut notes);
@@ -595,55 +602,13 @@ impl MigrationFixPlan {
         ));
     }
 
-    fn add_arguments(
+    fn add_planned(
         &mut self,
         relative: &str,
-        source: &str,
+        planned: ConversionPlan,
         edits: &mut Vec<TextEdit>,
         notes: &mut Vec<String>,
     ) {
-        let planned = arguments::ArgumentConversion::plan(relative, source);
-        self.manual_steps.extend(planned.steps);
-        if planned.edits.is_empty() {
-            return;
-        }
-        if !planned.edits.iter().all(|edit| Self::fits(edits, edit)) {
-            self.manual_steps.push(Self::overlap(relative));
-            return;
-        }
-        edits.extend(planned.edits);
-        notes.extend(planned.notes);
-    }
-
-    fn add_events(
-        &mut self,
-        root: &Path,
-        relative: &str,
-        source: &str,
-        edits: &mut Vec<TextEdit>,
-        notes: &mut Vec<String>,
-    ) {
-        let planned = events::EventConversion::plan(root, relative, source);
-        self.manual_steps.extend(planned.steps);
-        if planned.edits.is_empty() {
-            return;
-        }
-        if !planned.edits.iter().all(|edit| Self::fits(edits, edit)) {
-            self.manual_steps.push(Self::overlap(relative));
-            return;
-        }
-        edits.extend(planned.edits);
-        notes.extend(planned.notes);
-    }
-
-    fn add_streams(
-        &mut self,
-        relative: &str,
-        source: &str,
-        edits: &mut Vec<TextEdit>,
-        notes: &mut Vec<String>,
-    ) {
-        let planned = streams::StreamConversion::plan(relative, source);
         self.manual_steps.extend(planned.steps);
         if planned.edits.is_empty() {
             return;
