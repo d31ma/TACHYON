@@ -73,6 +73,7 @@ impl RoleClass {
             || {
                 Ok(PublicMethods::find(
                     crate::groovy_source::GroovySource::syntax(language),
+                    source,
                     masked,
                 ))
             },

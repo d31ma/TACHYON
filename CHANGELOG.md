@@ -394,6 +394,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Method coverage again lists a Ruby method whose body only returns a
+  string literal, such as `def message` returning `"Hello"`. Masking blanks
+  string literals, so the check for an empty Ruby body counted it as a
+  declaration that needs no test. That check now reads the real source.
+
 - `ty test` no longer stops at a server test unit whose process crashes
   (TY2104) or times out (TY2110). That unit is reported as `FAIL` with the
   diagnostic, the remaining units still run, and the run prints its
