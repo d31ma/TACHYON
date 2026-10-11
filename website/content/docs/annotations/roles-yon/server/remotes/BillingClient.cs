@@ -1,5 +1,5 @@
 [HTTPClient("/billing")]
-interface BillingClient {
+public interface BillingClient {
   [GetRequest("/surcharge")]
   System.Threading.Tasks.Task<BehaviorJSON> Surcharge();
 }

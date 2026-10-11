@@ -39,6 +39,8 @@ impl<'a> ContractCheck<'a> {
     const GO_METHOD: &'static str = "func (";
     const RUST_IMPL: &'static str = "impl";
     const RUST_GENERIC_IMPL: &'static str = "impl<";
+    const CSHARP: &'static str = "cs";
+    const PUBLIC: &'static str = "public";
 
     pub(crate) fn check(path: &'a Path, source: &'a str) -> Result<(), Failure> {
         let extension = path
@@ -79,6 +81,7 @@ impl<'a> ContractCheck<'a> {
 
     fn contract_problem(&self, declaration: &ContractDeclaration) -> Option<Located> {
         self.form_problem(declaration)
+            .or_else(|| self.visibility_problem(declaration))
             .or_else(|| self.member_problem(declaration))
             .or_else(|| self.implementation_problem(declaration))
     }
@@ -139,6 +142,17 @@ impl<'a> ContractCheck<'a> {
             role.no_implementation
         );
         (!self.form.declares_contract(header)).then_some((declaration.header.start, message))
+    }
+
+    fn visibility_problem(&self, declaration: &ContractDeclaration) -> Option<Located> {
+        let name = &declaration.name;
+        let header = &self.code[declaration.header.clone()];
+        let public = header.split_whitespace().any(|word| word == Self::PUBLIC);
+        let message = format!(
+            "{name} is not public. A C# interface without `public` is internal, so a public class that needs {name} fails to compile with CS0051. Declare it as `public interface {name}`."
+        );
+        ([self.form.language == Self::CSHARP, public] == [true, false])
+            .then_some((declaration.header.start, message))
     }
 
     fn member_problem(&self, declaration: &ContractDeclaration) -> Option<Located> {

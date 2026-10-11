@@ -317,7 +317,7 @@ impl RsStampService {
 `,
     'client/remotes/CsStampClient.cs': `[CacheSettings(${CachedClientGate.settings})]
 [HTTPClient]
-interface CsStampClient {
+public interface CsStampClient {
     [Cached]
     [GetRequest("/api/stamp")]
     System.Threading.Tasks.Task<BehaviorJSON> Read();

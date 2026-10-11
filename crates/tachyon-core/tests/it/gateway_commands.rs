@@ -202,7 +202,7 @@ class ReportController(val reportClient: ReportClient) {
 "#;
 
     const CSHARP_CLIENT: &str = r#"[HTTPClient]
-interface ReportClient {
+public interface ReportClient {
     [Gateway({"command":["python3","server/helpers/report.py"]})]
     BehaviorJSON summarize(BehaviorJSON mode, BehaviorJSON detail);
 }

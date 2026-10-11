@@ -576,7 +576,8 @@ members: the behavior context, the constructor and every body.
 
 | Language | Declaration | Method |
 | --- | --- | --- |
-| Java, Groovy, Kotlin, C#, PHP | `interface CatalogClient` | no body |
+| Java, Groovy, Kotlin, PHP | `interface CatalogClient` | no body |
+| C# | `public interface CatalogClient` | no body |
 | Go | `type CatalogClient interface { … }` | a method of the interface |
 | Dart | `abstract interface class CatalogClient` | no body |
 | Swift | `protocol CatalogClient` | no body |
@@ -596,6 +597,9 @@ language that has a contract form, any method body, a field, a constructor, a
 method without a request or gateway annotation, or a client that also carries
 another role fails with `TY1308`: "An HTTPClient has no implementation:
 Tachyon generates each request. Move the logic into a service."
+A C# client, store or converter without `public` also fails with `TY1308`:
+C# makes it internal, and a public class that needs it would fail
+`dotnet build` with CS0051.
 `ty migrate fix --write` rewrites a class client into the contract form when
 its methods only send requests.
 

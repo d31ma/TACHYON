@@ -1,5 +1,5 @@
 [HTTPClient]
-interface ReportClient {
+public interface ReportClient {
     [Gateway({"class":"server/services/ReportService.py","method":"summarize"})]
     BehaviorJSON Summarize(BehaviorJSON period);
 
