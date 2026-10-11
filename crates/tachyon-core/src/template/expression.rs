@@ -778,11 +778,11 @@ impl Parser<'_> {
 }
 
 fn identifier_start(byte: u8) -> bool {
-    byte.is_ascii_alphabetic() || matches!(byte, b'_' | b'$')
+    byte.is_ascii_alphabetic() || byte == b'_' || byte == b'$'
 }
 
 fn identifier_continue(byte: u8) -> bool {
-    identifier_start(byte) || byte.is_ascii_digit()
+    byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$'
 }
 
 fn expression_failure(source_path: &str, start: usize, end: usize, message: &str) -> Failure {
@@ -800,7 +800,26 @@ fn expression_failure(source_path: &str, start: usize, end: usize, message: &str
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::Expression;
+    use super::{Expression, identifier_continue, identifier_start};
+
+    #[test]
+    fn identifier_bytes_keep_ascii_word_and_dollar_classification() {
+        for byte in u8::MIN..=u8::MAX {
+            let start = byte.is_ascii_alphabetic() || byte == b'_' || byte == b'$';
+            assert_eq!(identifier_start(byte), start, "start byte {byte}");
+            assert_eq!(
+                identifier_continue(byte),
+                start || byte.is_ascii_digit(),
+                "continue byte {byte}"
+            );
+        }
+        for source in ["$item._value2", "_private.$0", "Item9"] {
+            assert!(
+                Expression::parse(source, "client/pages/tac.html", 0).is_ok(),
+                "{source}"
+            );
+        }
+    }
 
     #[test]
     fn valid_expressions_serialize_to_client_ast() {
