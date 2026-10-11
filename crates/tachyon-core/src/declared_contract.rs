@@ -88,6 +88,7 @@ impl DeclaredContract {
         InjectedContract::remote_names(paths)
     }
 
+    #[cfg(test)]
     pub(crate) fn injected(path: &Path, source: &str, contracts: &[String]) -> Option<String> {
         Self::injected_with_remotes(path, source, contracts, &[])
     }

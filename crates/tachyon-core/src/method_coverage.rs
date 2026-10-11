@@ -21,6 +21,7 @@ mod recorded_calls;
 mod role_class;
 mod role_files;
 mod ruby_body;
+mod ruby_empty_method;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod shared_utilities_tests;
@@ -54,6 +55,7 @@ use python_body::PythonBody;
 use role_class::RoleClass;
 use role_files::RoleFiles;
 use ruby_body::RubyBody;
+use ruby_empty_method::RubyEmptyMethod;
 use source_edit::SourceEdit;
 use std::collections::BTreeSet;
 use swift_body::SwiftBody;
@@ -250,7 +252,9 @@ fn ruby_methods(masked: &str) -> Vec<PublicMethod> {
     names
         .into_iter()
         .filter_map(|name| {
-            ruby_definition_line(masked, &name).map(|line| PublicMethod::new(name, line))
+            ruby_definition_line(masked, &name)
+                .filter(|line| !RubyEmptyMethod::is_empty(masked, *line))
+                .map(|line| PublicMethod::new(name, line))
         })
         .collect()
 }

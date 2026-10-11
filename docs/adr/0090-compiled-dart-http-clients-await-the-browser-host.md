@@ -382,7 +382,9 @@ fields. A Fake field is `#[Fake]` above `attr_accessor :name`. While it is
 so the TestSetup adapter answers. Test units run in CRuby and have no browser
 transport. A request without an adapter keeps the existing failure
 `Required behavior adapter is missing.` `ty migrate check` reports a service
-that builds its client itself (`service.builds_client`).
+that builds its client itself (`service.builds_client`). Method coverage
+treats a Ruby method with an empty body as declared, so nobody has to test
+the request methods that Tachyon writes.
 
 Evidence: `scripts/browser-http-browser-test.mjs --language=ruby` builds
 `website/content/docs/calling-the-server/browser-http-ruby/` and checks it in

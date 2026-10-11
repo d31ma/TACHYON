@@ -197,7 +197,9 @@ machine contracts have their own, independent major versions.
   `HTTP_RESPONSE`, and errors reach the page with their code. Removing the
   component cancels the request (`CANCELLED`). Ruby test units get
   `construct(Service)` with a `Fake` client and keep `Required behavior
-  adapter is missing.` without an adapter (ADR 0090).
+  adapter is missing.` without an adapter. Method coverage no longer asks a
+  test case to call a Ruby method whose body is empty, such as a request
+  method of an `HTTPClient` (ADR 0090).
 - Method coverage no longer asks a test case to call a Setup's methods or the
   methods of a generated HTTPClient: Tachyon calls a Setup itself and writes
   the client's methods.
