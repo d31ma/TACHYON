@@ -21,6 +21,35 @@ struct PublisherField {
 
 impl PublisherField {
     const TYPE_NAME: &str = "ApplicationEventPublisher";
+    const SWIFT_OR_KOTLIN_MODIFIERS: [&str; 6] = [
+        "public",
+        "internal",
+        "private",
+        "fileprivate",
+        "final",
+        "lazy",
+    ];
+    const CSHARP_MODIFIERS: [&str; 6] = [
+        "public",
+        "internal",
+        "private",
+        "protected",
+        "readonly",
+        "static",
+    ];
+
+    fn first_unmodified_word<'a>(line: &'a str, modifiers: &[&str]) -> Option<(&'a str, String)> {
+        let mut rest = line;
+        loop {
+            let word = UnicodeName::leading(rest);
+            let after = &rest[word.len()..];
+            let spaced = after.starts_with(char::is_whitespace);
+            if [modifiers.contains(&word.as_str()), spaced] != [true, true] {
+                return Some((rest, word)).filter(|(_, word)| !word.is_empty());
+            }
+            rest = after.trim_start();
+        }
+    }
 }
 
 struct ListenerParts {
@@ -198,27 +227,13 @@ fn publisher_declaration(language: NativeCompanion, line: &str) -> Option<Publis
 }
 
 fn swift_or_kotlin_publisher(line: &str, keywords: &[&str]) -> Option<PublisherField> {
-    let mut rest = line;
-    loop {
-        let word = UnicodeName::leading(rest);
-        if word.is_empty() {
-            return None;
-        }
-        let after = &rest[word.len()..];
-        let followed_by_space = after.starts_with(char::is_whitespace);
-        if keywords.contains(&word.as_str()) && followed_by_space {
-            let keyword = &line[..line.len() - rest.len() + word.len()];
-            return swift_or_kotlin_property(keyword, after.trim_start());
-        }
-        let modifier = matches!(
-            word.as_str(),
-            "public" | "internal" | "private" | "fileprivate" | "final" | "lazy"
-        );
-        if !modifier || !followed_by_space {
-            return None;
-        }
-        rest = after.trim_start();
-    }
+    let (rest, word) =
+        PublisherField::first_unmodified_word(line, &PublisherField::SWIFT_OR_KOTLIN_MODIFIERS)?;
+    let after = &rest[word.len()..];
+    let spaced = after.starts_with(char::is_whitespace);
+    ([keywords.contains(&word.as_str()), spaced] == [true, true]).then_some(())?;
+    let keyword = &line[..line.len() - rest.len() + word.len()];
+    swift_or_kotlin_property(keyword, after.trim_start())
 }
 
 fn swift_or_kotlin_property(keyword: &str, declaration: &str) -> Option<PublisherField> {
@@ -248,27 +263,13 @@ fn swift_or_kotlin_property(keyword: &str, declaration: &str) -> Option<Publishe
 }
 
 fn csharp_publisher(line: &str) -> Option<PublisherField> {
-    let mut rest = line;
-    loop {
-        let word = UnicodeName::leading(rest);
-        if word.is_empty() {
-            return None;
-        }
-        let after = &rest[word.len()..];
-        let followed_by_space = after.starts_with(char::is_whitespace);
-        if word == PublisherField::TYPE_NAME && followed_by_space {
-            let modifiers = &line[..line.len() - rest.len()];
-            return csharp_field(modifiers, after.trim_start());
-        }
-        let modifier = matches!(
-            word.as_str(),
-            "public" | "internal" | "private" | "protected" | "readonly" | "static"
-        );
-        if !modifier || !followed_by_space {
-            return None;
-        }
-        rest = after.trim_start();
-    }
+    let (rest, word) =
+        PublisherField::first_unmodified_word(line, &PublisherField::CSHARP_MODIFIERS)?;
+    let after = &rest[word.len()..];
+    let spaced = after.starts_with(char::is_whitespace);
+    ([word == PublisherField::TYPE_NAME, spaced] == [true, true]).then_some(())?;
+    let modifiers = &line[..line.len() - rest.len()];
+    csharp_field(modifiers, after.trim_start())
 }
 
 fn csharp_field(modifiers: &str, declaration: &str) -> Option<PublisherField> {
@@ -690,6 +691,84 @@ fn is_model_type(language: &str, kind: &str) -> bool {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    fn publisher_parts(field: Option<PublisherField>) -> Option<(String, Option<String>)> {
+        field.map(|field| (field.name, field.replacement))
+    }
+
+    #[test]
+    fn publisher_fields_skip_only_their_language_modifiers() {
+        let swift = [
+            (
+                "public let events: ApplicationEventPublisher",
+                Some((
+                    "events",
+                    Some("public let events = ApplicationEventPublisher()"),
+                )),
+            ),
+            (
+                "public  lazy var bus: ApplicationEventPublisher",
+                Some((
+                    "bus",
+                    Some("public  lazy var bus = ApplicationEventPublisher()"),
+                )),
+            ),
+            (
+                "private var events: ApplicationEventPublisher = ApplicationEventPublisher()",
+                Some(("events", None)),
+            ),
+            ("static let events: ApplicationEventPublisher", None),
+            ("public", None),
+            ("public let", None),
+            ("", None),
+        ];
+        for (line, expected) in swift {
+            let expected = expected
+                .map(|(name, replacement)| (name.to_owned(), replacement.map(str::to_owned)));
+            assert_eq!(
+                publisher_parts(swift_or_kotlin_publisher(line, &["let", "var"])),
+                expected,
+                "{line:?}"
+            );
+        }
+        assert_eq!(
+            publisher_parts(swift_or_kotlin_publisher(
+                "val events: ApplicationEventPublisher",
+                &["val", "var"]
+            )),
+            Some((
+                String::from("events"),
+                Some(String::from("val events = ApplicationEventPublisher()"))
+            ))
+        );
+        let csharp = [
+            (
+                "private readonly ApplicationEventPublisher events;",
+                Some((
+                    "events",
+                    Some(
+                        "private readonly ApplicationEventPublisher events = new ApplicationEventPublisher();",
+                    ),
+                )),
+            ),
+            (
+                "ApplicationEventPublisher events = new();",
+                Some(("events", None)),
+            ),
+            ("public lazy ApplicationEventPublisher events;", None),
+            ("public static", None),
+            ("ApplicationEventPublisherevents;", None),
+        ];
+        for (line, expected) in csharp {
+            let expected = expected
+                .map(|(name, replacement)| (name.to_owned(), replacement.map(str::to_owned)));
+            assert_eq!(
+                publisher_parts(csharp_publisher(line)),
+                expected,
+                "{line:?}"
+            );
+        }
+    }
 
     fn probe_path(extension: &str) -> PathBuf {
         PathBuf::from(format!("client/services/ProbeService.{extension}"))
