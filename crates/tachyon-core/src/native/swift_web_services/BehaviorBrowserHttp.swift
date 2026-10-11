@@ -1,5 +1,5 @@
 enum BehaviorBrowserHttp {
-    static let requestBytes = 65536
+    static let requestBytes = 1048576
     static let network = "HTTP_NETWORK"
     static let wrongAnswer = "HTTP_RESPONSE"
     static let codes: Set<String> = [

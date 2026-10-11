@@ -2,7 +2,7 @@ class TacBrowserHttp {
   static key = Symbol.for('tachyon.tac.http')
   static mostRequests = 64
   static mostBytes = 1048576
-  static requestBytes = 65536
+  static requestBytes = 1048576
   static pending = 0
   static installed = TacBrowserHttp.install()
 
@@ -26,7 +26,8 @@ class TacBrowserHttp {
       if (new TextEncoder().encode(answer).length > TacBrowserHttp.mostBytes) TacBrowserHttp.#fail('HTTP_LIMIT')
       return answer
     } catch (error) {
-      return JSON.stringify({ error: { code: TacBrowserHttp.#code(error, controller) } })
+      const code = TacBrowserHttp.#code(error, controller)
+      return JSON.stringify({ error: code === 'HTTP_STATUS' ? { code, status: error.status } : { code } })
     }
   }
 
@@ -36,7 +37,7 @@ class TacBrowserHttp {
     return allowed.includes(error?.code) ? error.code : 'HTTP_NETWORK'
   }
 
-  static #fail(code) { throw Object.assign(new Error('Browser HTTP failed.'), { code }) }
+  static #fail(code, status) { throw Object.assign(new Error('Browser HTTP failed.'), { code, status }) }
 
   static #request(text) {
     if (typeof text !== 'string' || new TextEncoder().encode(text).length > TacBrowserHttp.requestBytes) TacBrowserHttp.#fail('HTTP_REQUEST')
@@ -111,7 +112,7 @@ class TacBrowserHttp {
       if (remaining <= 0) { controller.abort('DEADLINE'); TacBrowserHttp.#fail('HTTP_REQUEST') }
       const response = await fetch(request.url, { method: request.method, headers: request.headers, body: request.body,
         credentials: 'omit', redirect: 'error', mode: 'same-origin', cache: request.cache, signal: controller.signal })
-      if (!response.ok) TacBrowserHttp.#fail('HTTP_STATUS')
+      if (!response.ok) TacBrowserHttp.#fail('HTTP_STATUS', response.status)
       const text = await TacBrowserHttp.#read(response, request.limit)
       if (controller.signal.aborted) TacBrowserHttp.#fail('HTTP_REQUEST')
       if (!text.trim()) return null
