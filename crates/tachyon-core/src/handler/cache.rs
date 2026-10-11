@@ -394,7 +394,6 @@ impl CacheDirectory {
         })
     }
 
-    #[cfg(test)]
     pub(super) fn prune_with_limits(
         &self,
         max_entries: usize,
@@ -408,47 +407,7 @@ impl CacheDirectory {
         )
     }
 
-    #[cfg(not(test))]
-    fn prune_with_limits(&self, max_entries: usize, max_bytes: u64) -> std::io::Result<()> {
-        self.prune_with(
-            max_entries,
-            max_bytes,
-            CacheDirectory::remove,
-            CacheDirectory::path_usage,
-        )
-    }
-
-    #[cfg(test)]
     pub(super) fn prune_with<F, M>(
-        &self,
-        max_entries: usize,
-        max_bytes: u64,
-        remove: F,
-        measure: M,
-    ) -> std::io::Result<()>
-    where
-        F: Fn(&Self, &Path) -> std::io::Result<()>,
-        M: Fn(&Self, &Path) -> std::io::Result<(usize, u64)>,
-    {
-        self.prune_entries(max_entries, max_bytes, remove, measure)
-    }
-
-    #[cfg(not(test))]
-    fn prune_with<F, M>(
-        &self,
-        max_entries: usize,
-        max_bytes: u64,
-        remove: F,
-        measure: M,
-    ) -> std::io::Result<()>
-    where
-        F: Fn(&Self, &Path) -> std::io::Result<()>,
-        M: Fn(&Self, &Path) -> std::io::Result<(usize, u64)>,
-    {
-        self.prune_entries(max_entries, max_bytes, remove, measure)
-    }
-
-    fn prune_entries<F, M>(
         &self,
         max_entries: usize,
         max_bytes: u64,
