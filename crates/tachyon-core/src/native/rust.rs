@@ -61,6 +61,12 @@ impl RustCompanion {
     const FAILURE_CODE: u16 = 1605;
     pub(crate) const WEB_TARGET: &str = "wasm32-unknown-unknown";
 
+    fn web_settings(profile: crate::BuildProfile) -> String {
+        let compiler = Linkage::Web(profile).profile_arguments().join(" ");
+        let optimizer = RustWebModule::OPTIMIZER_FLAGS.join(" ");
+        format!(" {compiler} {optimizer}")
+    }
+
     pub(crate) fn model_source() -> &'static str {
         let start = Self::PRELUDE.find(Self::MODEL_TYPES_START).unwrap_or(0);
         let from_model_types = &Self::PRELUDE[start..];
@@ -392,7 +398,8 @@ pub(crate) async fn web_assembly(
         return Ok(RustWebModule::default());
     };
     let release = WasmReleaseStep::prepare(profile).await;
-    let version = run_tool("rustc", &["-vV"]).await? + &release.identity();
+    let settings = RustCompanion::web_settings(profile);
+    let version = run_tool("rustc", &["-vV"]).await? + &release.identity() + &settings;
     let source_bytes = super::host::native_io(std::fs::read(&source), &source)?;
     let key = cache_key(&version, &source_bytes);
     let cached = crate::cache::root()
@@ -421,6 +428,19 @@ pub(crate) async fn web_assembly(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_web_cache_settings_name_every_compiler_and_optimizer_flag() {
+        let release = super::RustCompanion::web_settings(crate::BuildProfile::Release);
+        let flags = super::RustWebModule::RELEASE_ARGUMENTS
+            .iter()
+            .chain(super::RustWebModule::OPTIMIZER_FLAGS.iter());
+        for flag in flags {
+            assert!(release.contains(flag), "{flag} is missing from {release}");
+        }
+        let development = super::RustCompanion::web_settings(crate::BuildProfile::Development);
+        assert_ne!(release, development);
+    }
+
     #[test]
     fn the_value_source_is_only_the_value_types() {
         let source = super::tac_value_source();

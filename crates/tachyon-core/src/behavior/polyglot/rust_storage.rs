@@ -137,34 +137,15 @@ impl BehaviorEntityAdapter for BehaviorHostEntities {
         execution: &BehaviorExecution,
     ) -> BehaviorResult<BehaviorValue> {
         let _ = execution;
-        let mut sent = std::collections::BTreeMap::from([
-            (String::from("entity"), BehaviorValue::from(command.entity)),
-            (String::from("table"), BehaviorValue::from(command.table)),
-            (
-                String::from("idField"),
-                BehaviorValue::from(command.id_field),
-            ),
-            (
-                String::from("operation"),
-                BehaviorValue::from(command.operation),
-            ),
-            (
-                String::from("value"),
-                BehaviorHost::optional(command.value.as_ref()),
-            ),
-            (
-                String::from("page"),
-                BehaviorHost::optional(command.page.as_ref()),
-            ),
-            (
-                String::from("id"),
-                BehaviorHost::optional(command.id.as_ref()),
-            ),
-            (
-                String::from("query"),
-                BehaviorHost::optional(command.query.as_ref()),
-            ),
-        ]);
+        let mut sent = std::collections::BTreeMap::new();
+        sent.insert(String::from("entity"), BehaviorValue::from(command.entity));
+        sent.insert(String::from("table"), BehaviorValue::from(command.table));
+        sent.insert(String::from("idField"), BehaviorValue::from(command.id_field));
+        sent.insert(String::from("operation"), BehaviorValue::from(command.operation));
+        sent.insert(String::from("value"), BehaviorHost::optional(command.value.as_ref()));
+        sent.insert(String::from("page"), BehaviorHost::optional(command.page.as_ref()));
+        sent.insert(String::from("id"), BehaviorHost::optional(command.id.as_ref()));
+        sent.insert(String::from("query"), BehaviorHost::optional(command.query.as_ref()));
         if let Some(transaction) = &command.transaction {
             sent.insert(
                 String::from("transaction"),
@@ -183,13 +164,9 @@ impl BehaviorEntityAdapter for BehaviorHostEntities {
         execution: &BehaviorExecution,
     ) -> BehaviorResult<BehaviorValue> {
         let _ = execution;
-        let mut sent = std::collections::BTreeMap::from([
-            (
-                String::from("operation"),
-                BehaviorValue::from("transaction"),
-            ),
-            (String::from("action"), BehaviorValue::from(command.action)),
-        ]);
+        let mut sent = std::collections::BTreeMap::new();
+        sent.insert(String::from("operation"), BehaviorValue::from("transaction"));
+        sent.insert(String::from("action"), BehaviorValue::from(command.action));
         if let Some(transaction) = &command.transaction {
             sent.insert(
                 String::from("transaction"),

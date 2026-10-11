@@ -38,7 +38,7 @@ Each phase needs these tools:
 | Work | Tools needed |
 | --- | --- |
 | Phase 1 | Rust only. |
-| Phase 2 through Phase 4 real-process tests | Node.js as `node`, and CPython as `python3` (`python` on Windows). Native CI (continuous integration) uses Node.js 24.18.0 and Python 3.14.6. |
+| Phase 2 through Phase 4 real-process tests | Node.js 24.5 or newer as `node` (the outgoing request guard refuses older Node.js, ADR 0068), and CPython as `python3` (`python` on Windows). Native CI (continuous integration) uses Node.js 24.18.0 and Python 3.14.6. |
 | Phase 3 browser gate | Bun and Playwright Chromium. Bun also runs the legacy compatibility suite. |
 | Phase 4 native evidence | macOS, Xcode/Swift, code signing, a GUI session with Accessibility permission, and Playwright Chromium. |
 

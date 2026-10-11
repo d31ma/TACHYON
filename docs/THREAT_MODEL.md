@@ -350,8 +350,13 @@ separate cybersecurity review for this reconciliation.
   `ty serve`, `ty start` and `ty preview`), the supervisor removes `NO_PROXY`
   and `no_proxy` instead, so a client cannot skip the guard to reach another
   port on `127.0.0.1` or any other host; the runners still reach their
-  endpoint directly. Go's standard client never sends loopback addresses to a
-  proxy, so the Go prelude points `http.DefaultTransport` at the guard
+  endpoint directly. Node.js follows the proxy variables only from version
+  24.5, with `NODE_USE_ENV_PROXY=1`; an older Node.js connects directly. While
+  the guard is active, the supervisor therefore refuses every JavaScript
+  runtime that is not Bun or Node.js 24.5 or newer, with `TY2101`, at startup
+  and before it starts a JavaScript handler (ADR 0068 amendment). Go's
+  standard client never sends loopback addresses to a proxy, so the Go
+  prelude points `http.DefaultTransport` at the guard
   (`YON_OUTGOING_PROXY`). A client that builds its own transport, and a raw
   socket, still connect directly (ADR 0094).
 - **Outgoing request guard.** The guard (ADR 0068) checks the target name

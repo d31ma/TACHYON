@@ -74,15 +74,48 @@ impl NativeWindowCheck {
             .is_ok_and(|output| output.status.success())
     }
 
-    fn windows_host(window: &WindowConfiguration) -> String {
+    fn local_json() -> String {
         let json = include_str!("local_bundle.h")
             .split("static size_t tachyon_skip_space")
             .nth(1)
             .expect("JSON field parser");
-        let json = format!("static size_t tachyon_skip_space{json}");
+        format!("static size_t tachyon_skip_space{json}")
+    }
+
+    fn windows_host(window: &WindowConfiguration) -> String {
         include_str!("../../tests/fixtures/native/windows_capability_host.c")
-            .replace("__LOCAL_JSON__", &json)
+            .replace("__LOCAL_JSON__", &Self::local_json())
             .replace("__WINDOW_HOST__", &NativeWindowControls::windows(window))
+    }
+
+    #[cfg(windows)]
+    fn win32() {
+        let root = tempfile::tempdir().expect("fixture");
+        let source = root.path().join("hwnd.c");
+        let host = include_str!("../../tests/fixtures/native/windows_window_controls_hwnd.c")
+            .replace("__LOCAL_JSON__", &Self::local_json())
+            .replace(
+                "__WINDOW_HOST__",
+                &NativeWindowControls::windows(&Self::window()),
+            );
+        std::fs::write(&source, host).expect("source");
+        let program = root.path().join("hwnd.exe");
+        Self::success(
+            Command::new("cl")
+                .current_dir(root.path())
+                .args(["/nologo", "/W3", "/WX"])
+                .arg(&source)
+                .arg(format!("/Fe:{}", program.display()))
+                .arg("user32.lib"),
+        );
+        let output = Command::new(&program).output().expect("win32 check");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success(),
+            "{stdout}{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        println!("{}", stdout.trim());
     }
 
     fn android() {
@@ -120,6 +153,13 @@ fn native_windows_controls_enforce_grants_bounds_and_thread_in_executed_host_cod
 #[test]
 fn native_windows_controls_without_grants_leave_no_unused_parameter_for_msvc() {
     NativeWindowCheck::windows_without_grants();
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "Requires Windows and MSVC cl on PATH (vcvars); drives a real Win32 window, not WebView2"]
+fn native_windows_controls_drive_a_real_win32_window() {
+    NativeWindowCheck::win32();
 }
 
 #[test]

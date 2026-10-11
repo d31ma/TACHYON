@@ -1,6 +1,7 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum ProbeKind {
     JavaScript { typescript: bool },
+    NodeProxySwitch,
     Python,
     RubyVersion,
     LuaVersion,

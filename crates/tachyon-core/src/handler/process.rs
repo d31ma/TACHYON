@@ -37,7 +37,7 @@ pub(crate) use socket::{SocketChannels, SocketInput, SocketOutput};
 
 use super::frame::{FrameLimits, HandlerFrame};
 use super::gateway::{GatewayCallSetup, GatewayCalls, GatewayTable};
-use super::readiness::{RuntimeProbe, RuntimeProbeResult, RuntimeRequirements};
+use super::readiness::{RuntimeProbe, RuntimeProbeResult, RuntimeRequirement, RuntimeRequirements};
 use super::resources::ResourceAccess;
 use super::topic_bus::{TopicBus, TopicOutbox};
 use super::{FirecrackerIsolation, HandlerLanguage, HandlerSource};
@@ -85,6 +85,7 @@ pub struct HandlerSupervisor {
     resources: Arc<tokio::sync::OnceCell<Arc<ManagedStorage>>>,
     topics: Arc<std::sync::OnceLock<Arc<TopicBus>>>,
     egress: Arc<std::sync::OnceLock<String>>,
+    node_proxy_gate: crate::handler::NodeProxyGate,
 }
 
 impl HandlerSupervisor {
@@ -106,6 +107,7 @@ impl HandlerSupervisor {
             resources: Arc::new(tokio::sync::OnceCell::new()),
             topics: Arc::new(std::sync::OnceLock::new()),
             egress: Arc::new(std::sync::OnceLock::new()),
+            node_proxy_gate: crate::handler::NodeProxyGate::default(),
         })
     }
 
@@ -137,8 +139,10 @@ impl HandlerSupervisor {
         requirements: &RuntimeRequirements,
     ) -> Result<(), Failure> {
         let resolved = requirements.resolve(&self.options.runtimes, &self.options.isolation)?;
+        let uses_javascript = RuntimeRequirement::includes_javascript(&resolved);
         let results = RuntimeProbe::all(resolved, &self.options.environment).await?;
         RuntimeProbeResult::failure(&results).map_or(Ok(()), Err)?;
+        self.require_node_proxy_switch(uses_javascript).await?;
         self.storage().await?;
         Ok(())
     }
@@ -485,6 +489,8 @@ impl HandlerSupervisor {
     ) -> Result<StartedProcess, Failure> {
         let adapter = AdapterFiles::materialize(source.language())?;
         let mut planned = self.handler_command(source, &adapter);
+        self.require_node_proxy_switch(planned.runtime.runs_javascript())
+            .await?;
         Self::mark_socket_frames(&mut planned.command, socket);
         let resource_access = self
             .resource_access_in_time(source, request, deadline, cancellation)
@@ -507,6 +513,17 @@ impl HandlerSupervisor {
             resource_access,
             _adapter: adapter,
         })
+    }
+
+    async fn require_node_proxy_switch(&self, uses_javascript: bool) -> Result<(), Failure> {
+        let guarded = self.egress.get().is_some();
+        let needed = [guarded, uses_javascript] == [true, true];
+        if !needed {
+            return Ok(());
+        }
+        self.node_proxy_gate
+            .check(&self.options.runtimes, &self.options.environment)
+            .await
     }
 
     fn apply_egress(&self, command: &mut Command) {

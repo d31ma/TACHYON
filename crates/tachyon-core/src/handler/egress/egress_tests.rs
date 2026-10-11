@@ -1,4 +1,5 @@
-use super::{EgressAddress, EgressProxy, EgressTarget};
+use super::{EgressAddress, EgressProxy, EgressTarget, NodeProxyGate};
+use crate::handler::{EnvironmentPolicy, HandlerRuntimePrograms};
 use crate::safety::DeclaredHosts;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -181,4 +182,95 @@ fn only_public_addresses_count_as_public() {
         let address = address.parse().expect("address");
         assert!(!EgressAddress::is_public(address), "{address}");
     }
+}
+
+#[cfg(unix)]
+fn fake_javascript_runtime(directory: &std::path::Path, identity: &str) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+
+    let program = directory.join("node");
+    std::fs::write(&program, format!("#!/bin/sh\necho '{identity}'\n")).expect("fake runtime");
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700))
+        .expect("permissions");
+    program
+}
+
+#[cfg(windows)]
+fn fake_javascript_runtime(directory: &std::path::Path, identity: &str) -> std::path::PathBuf {
+    let program = directory.join("node.cmd");
+    std::fs::write(&program, format!("@echo off\r\necho {identity}\r\n")).expect("fake runtime");
+    program
+}
+
+fn runtimes_with(javascript: std::path::PathBuf) -> HandlerRuntimePrograms {
+    HandlerRuntimePrograms {
+        javascript,
+        ..HandlerRuntimePrograms::default()
+    }
+}
+
+#[tokio::test]
+async fn a_node_older_than_24_5_is_refused_before_it_runs_a_handler_outside_the_guard() {
+    for identity in ["v23.5.0", "v24.4.1", "v22.21.0", "not a version"] {
+        let directory = tempfile::tempdir().expect("fake runtime directory");
+        let runtimes = runtimes_with(fake_javascript_runtime(directory.path(), identity));
+        let refused = NodeProxyGate::default()
+            .check(&runtimes, &EnvironmentPolicy::default())
+            .await;
+        let rendered = refused.expect_err(identity).to_string();
+        assert!(rendered.contains("TY2101"), "{identity}: {rendered}");
+        assert!(
+            rendered.contains(
+                "Required configured Yon JavaScript runtime (YON_JAVASCRIPT_RUNTIME) is not usable."
+            ),
+            "{identity}: {rendered}"
+        );
+        assert!(
+            rendered.contains("Install Node.js 24.5 or newer, or Bun"),
+            "{identity}: {rendered}"
+        );
+        assert!(
+            !rendered.contains(directory.path().to_string_lossy().as_ref()),
+            "{identity}: {rendered}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn node_24_5_or_newer_and_bun_pass_the_outgoing_guard_check() {
+    for identity in ["v24.5.0", "v24.21.0", "v26.0.0", "bun"] {
+        let directory = tempfile::tempdir().expect("fake runtime directory");
+        let runtimes = runtimes_with(fake_javascript_runtime(directory.path(), identity));
+        NodeProxyGate::default()
+            .check(&runtimes, &EnvironmentPolicy::default())
+            .await
+            .expect(identity);
+    }
+}
+
+#[tokio::test]
+async fn a_missing_javascript_runtime_is_refused() {
+    let directory = tempfile::tempdir().expect("empty directory");
+    let runtimes = runtimes_with(directory.path().join("tachyon-missing-node"));
+    let refused = NodeProxyGate::default()
+        .check(&runtimes, &EnvironmentPolicy::default())
+        .await;
+    let rendered = refused.expect_err("missing runtime").to_string();
+    assert!(rendered.contains("TY2112"), "{rendered}");
+}
+
+#[tokio::test]
+async fn the_outgoing_guard_check_runs_the_runtime_once() {
+    let directory = tempfile::tempdir().expect("fake runtime directory");
+    let program = fake_javascript_runtime(directory.path(), "v24.5.0");
+    let runtimes = runtimes_with(program.clone());
+    let gate = NodeProxyGate::default();
+    gate.check(&runtimes, &EnvironmentPolicy::default())
+        .await
+        .expect("first check");
+    std::fs::remove_file(&program).expect("remove fake runtime");
+    gate.clone()
+        .check(&runtimes, &EnvironmentPolicy::default())
+        .await
+        .expect("remembered answer");
 }
