@@ -271,7 +271,8 @@ public static class NativeBehaviorTests {
         Assert(mutationCalls == 2 && Config.Store.Writes == writesBefore, "denied mutation never executes");
         await ExpectErrorAsync("CACHE_ARGUMENT", async () => { await context.Invoke("Catalog", "update", new[] { replacement }, () => CountMutation(replacement)); });
         Config.IncludeCache = false;
-        using var missingAdapter = Behaviors.create(typeof(Config), "tenant-one", signal);
+        // Contexts with one setup key share adapters, so this one needs its own key to be configured without the cache.
+        using var missingAdapter = Behaviors.create(typeof(Config), "tenant-one", signal, profiles: new[] { "missingCache" });
         Config.IncludeCache = true;
         await ExpectErrorAsync("CACHE_MISSING", async () => { await missingAdapter.Invoke("Catalog", "update", new[] { replacement, argument }, () => CountMutation(replacement)); });
         Assert(mutationCalls == 2, "invalid target arguments and missing adapters fail before mutation");
@@ -316,7 +317,8 @@ public static class NativeBehaviorTests {
         await ExpectErrorAsync("FORBIDDEN", async () => { await context.Query(QueryMetadata("find"), queryArguments); });
         Config.EntityAllowed = true;
         Config.IncludeEntityAuthorization = false;
-        using var unauthenticatedQuery = Behaviors.create(typeof(Config), "tenant-one", signal);
+        // Contexts with one setup key share adapters, so this one needs its own key to be configured without entity authorization.
+        using var unauthenticatedQuery = Behaviors.create(typeof(Config), "tenant-one", signal, profiles: new[] { "missingEntityAuthorization" });
         Config.IncludeEntityAuthorization = true;
         await ExpectErrorAsync("FORBIDDEN", async () => { await unauthenticatedQuery.Query(QueryMetadata("find"), queryArguments); });
         Assert(Config.EntityExecutions == executionsBefore, "missing and denied query authorization never executes");

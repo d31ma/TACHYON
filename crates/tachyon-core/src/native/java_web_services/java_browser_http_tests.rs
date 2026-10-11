@@ -29,7 +29,7 @@ impl JavaBrowserHttpProject {
         let mut program = String::new();
         for (path, text) in sources {
             program.push_str("// ");
-            program.push_str(&path.display().to_string());
+            program.push_str(&path.to_string_lossy().replace('\\', "/"));
             program.push('\n');
             program.push_str(&text);
         }

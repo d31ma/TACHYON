@@ -2,6 +2,7 @@ import { SupervisedCommand } from '../supervised-command.mjs'
 
 /** @typedef {(path:string, options?:RequestInit)=>Promise<Response>} ProbeRequest */
 /** @typedef {import('../supervised-command.mjs').CommandOptions & {readinessTimeoutMilliseconds?:number}} ProbeOptions */
+/** @typedef {import('../supervised-command.mjs').CommandResult} CommandResult */
 
 class ServerProbe {
   static readinessMilliseconds = 30_000
@@ -22,9 +23,11 @@ class ServerProbe {
     this.started = Date.now()
     this.readinessMilliseconds = options.readinessTimeoutMilliseconds ?? ServerProbe.readinessMilliseconds
     this.timeoutMilliseconds = options.timeoutMilliseconds ?? SupervisedCommand.defaultTimeoutMilliseconds
+    /** @type {Promise<string>} */
     this.ready = new Promise(resolve => { this.resolveReady = resolve })
   }
 
+  /** @param {Buffer} chunk @param {boolean} stdout */
   #output(chunk, stdout) {
     this.logs = (this.logs + chunk).slice(-ServerProbe.logBytes)
     if (!stdout) return
@@ -33,16 +36,19 @@ class ServerProbe {
     if (match) this.resolveReady(match[1])
   }
 
+  /** @param {CommandResult} result */
   #readinessFailure(result) {
     if (result.error?.message.includes('ENOENT')) return result.error
     return new Error(`Server exited before readiness (${result.status ?? result.signal}): ${this.logs}${result.error ? `; ${result.error.message}` : ''}`)
   }
 
+  /** @param {CommandResult} result */
   #probeFailure(result) {
     if (result.error) return result.error
     return new Error(`Server exited during probe (${result.status ?? result.signal}): ${this.logs}`)
   }
 
+  /** @param {string} origin @returns {ProbeRequest} */
   #request(origin) {
     return (path, options = {}) => fetch(`${origin}${path}`, {
       ...options,
@@ -50,19 +56,22 @@ class ServerProbe {
     })
   }
 
+  /** @template T @param {string} binary @param {string[]} args @param {(request:ProbeRequest)=>Promise<T>} probe @returns {Promise<T>} */
   async #run(binary, args, probe) {
     if (!Number.isSafeInteger(this.readinessMilliseconds) || this.readinessMilliseconds < 1) throw new Error('Server readiness limit must be a positive safe integer')
     const command = await SupervisedCommand.start(binary, args, {
       ...this.options, timeoutMilliseconds: this.timeoutMilliseconds,
       onStdout: chunk => this.#output(chunk, true), onStderr: chunk => this.#output(chunk, false),
     })
+    /** @type {ReturnType<typeof setTimeout>|undefined} */
     let timer
+    /** @type {Error|undefined} */
     let failure
     try {
       const origin = await Promise.race([
         this.ready,
         command.completion.then(result => { throw this.#readinessFailure(result) }),
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`Server readiness timed out: ${this.logs}`)), this.readinessMilliseconds) }),
+        /** @type {Promise<never>} */ (new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`Server readiness timed out: ${this.logs}`)), this.readinessMilliseconds) })),
       ])
       clearTimeout(timer)
       return await Promise.race([
@@ -70,7 +79,7 @@ class ServerProbe {
         command.completion.then(result => { throw this.#probeFailure(result) }),
       ])
     } catch (error) {
-      failure = error
+      failure = /** @type {Error} */ (error)
       throw error
     } finally {
       clearTimeout(timer)

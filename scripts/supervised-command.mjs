@@ -27,17 +27,20 @@ export class SupervisedCommand {
     this.baseline = new Map()
     this.stdout = Buffer.alloc(0)
     this.stderr = Buffer.alloc(0)
+    /** @type {number|null} */
     this.status = null
+    /** @type {NodeJS.Signals|null} */
     this.signal = null
     this.closed = false
     this.exited = false
     this.timedOut = false
+    /** @type {number|undefined} */
     this.cleanupStarted = undefined
     this.sentTermination = false
     this.sentKill = false
     /** @type {Error|undefined} */
     this.error = undefined
-    /** @type {import('node:child_process').ChildProcessWithoutNullStreams|undefined} */
+    /** @type {import('node:child_process').ChildProcessByStdio<null, import('node:stream').Readable, import('node:stream').Readable>|undefined} */
     this.child = undefined
     /** @type {(result:CommandResult)=>void} */
     this.resolve = () => {}
@@ -71,6 +74,7 @@ export class SupervisedCommand {
     }
   }
 
+  /** @param {string} binary @param {string[]} args */
   async #launch(binary, args) {
     this.#validate()
     this.baseline = await this.#snapshot()
@@ -88,21 +92,24 @@ export class SupervisedCommand {
     void this.#watch()
   }
 
+  /** @param {'stdout'|'stderr'} stream @param {Buffer} chunk */
   #output(stream, chunk) {
     if (this.options.failOnOutputLimit && this[stream].length + chunk.length > this.maxBuffer) this.#fail(new Error(`Command output exceeded ${this.maxBuffer} bytes`))
     this[stream] = Buffer.concat([this[stream], chunk]).subarray(-this.maxBuffer)
     try {
       this.#outputListener(stream)?.(chunk)
     } catch (error) {
-      this.#fail(error)
+      this.#fail(/** @type {Error} */ (error))
     }
   }
 
+  /** @param {'stdout'|'stderr'} stream */
   #outputListener(stream) {
     if (stream === 'stdout') return this.options.onStdout
     return this.options.onStderr
   }
 
+  /** @param {Error} error */
   #fail(error) {
     this.error ??= error
     this.#beginCleanup()
@@ -112,8 +119,9 @@ export class SupervisedCommand {
     this.cleanupStarted ??= Date.now()
   }
 
+  /** @returns {Promise<Map<number, ProcessIdentity>>} */
   async #snapshot() {
-    const text = await new Promise((resolve, reject) => {
+    const text = await /** @type {Promise<string>} */ (new Promise((resolve, reject) => {
       execFile('ps', ['-axo', 'pid=,ppid=,pgid=,lstart=,stat='], {
         encoding: 'utf8', timeout: SupervisedCommand.inspectionMilliseconds, maxBuffer: SupervisedCommand.processTableBytes,
         env: { ...process.env, LC_ALL: 'C' },
@@ -121,11 +129,13 @@ export class SupervisedCommand {
         if (error) reject(new Error(`Process identity inspection failed: ${error.message}`))
         else resolve(stdout)
       })
-    })
+    }))
     return this.#parseSnapshot(text)
   }
 
+  /** @param {string} text */
   #parseSnapshot(text) {
+    /** @type {Map<number, ProcessIdentity>} */
     const table = new Map()
     for (const line of text.trim().split('\n')) {
       const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d+)\s+(\S+)\s*$/)
@@ -136,10 +146,12 @@ export class SupervisedCommand {
     return table
   }
 
+  /** @param {ProcessIdentity|undefined} left @param {ProcessIdentity|undefined} right */
   #sameProcess(left, right) {
     return left?.pid === right?.pid && left?.started === right?.started
   }
 
+  /** @param {Map<number, ProcessIdentity>} table */
   #rememberGroup(table) {
     if (!this.child?.pid) return
     for (const identity of table.values()) {
@@ -149,12 +161,14 @@ export class SupervisedCommand {
     }
   }
 
+  /** @param {ProcessIdentity} identity */
   #remember(identity) {
     const previous = this.owned.get(identity.pid)
     if (previous && !this.#sameProcess(previous, identity)) throw new Error(`Owned process identity changed for ${identity.pid}; cleanup refused`)
     this.owned.set(identity.pid, identity)
   }
 
+  /** @param {Map<number, ProcessIdentity>} table */
   #rememberDescendants(table) {
     let added = true
     while (added) {
@@ -170,10 +184,12 @@ export class SupervisedCommand {
     }
   }
 
+  /** @param {Map<number, ProcessIdentity>} table */
   #live(table) {
-    return [...this.owned.values()].filter(identity => this.#sameProcess(identity, table.get(identity.pid)) && !table.get(identity.pid).state.startsWith('Z'))
+    return [...this.owned.values()].filter(identity => this.#sameProcess(identity, table.get(identity.pid)) && !table.get(identity.pid)?.state.startsWith('Z'))
   }
 
+  /** @param {Map<number, ProcessIdentity>} table */
   #remaining(table) {
     return [...this.owned.values()].filter(identity => this.#sameProcess(identity, table.get(identity.pid)))
   }
@@ -184,9 +200,10 @@ export class SupervisedCommand {
     this.#fail(new Error(`Command family deadline exceeded (${this.timeoutMilliseconds}ms)`))
   }
 
+  /** @param {ProcessIdentity[]} live */
   #checkExit(live) {
     if (!this.exited || this.cleanupStarted !== undefined) return
-    if (live.some(identity => identity.pid !== this.child.pid)) this.#fail(new Error('Command leader exited with live owned descendants'))
+    if (live.some(identity => identity.pid !== this.child?.pid)) this.#fail(new Error('Command leader exited with live owned descendants'))
     if (this.status !== 0) this.#fail(new Error(`Command exited (${this.status ?? this.signal})`))
     this.#beginCleanup()
   }
@@ -195,24 +212,27 @@ export class SupervisedCommand {
     return this.cleanupStarted !== undefined && Date.now() - this.cleanupStarted >= this.cleanupMilliseconds
   }
 
+  /** @param {NodeJS.Signals} signal */
   async #signal(signal) {
     const table = await this.#snapshot()
     this.#rememberGroup(table)
     this.#rememberDescendants(table)
     const live = this.#live(table)
-    const group = live.filter(identity => table.get(identity.pid).group === this.child?.pid)
-    if (group.length > 0) this.#send(-this.child.pid, signal)
+    const group = live.filter(identity => table.get(identity.pid)?.group === this.child?.pid)
+    if (group.length > 0 && this.child?.pid) this.#send(-this.child.pid, signal)
     for (const identity of live) {
-      if (table.get(identity.pid).group === this.child?.pid) continue
+      if (table.get(identity.pid)?.group === this.child?.pid) continue
       const current = await this.#snapshot()
       if (this.#sameProcess(identity, current.get(identity.pid))) this.#send(identity.pid, signal)
     }
   }
 
+  /** @param {number} pid @param {NodeJS.Signals} signal */
   #send(pid, signal) {
-    try { process.kill(pid, signal) } catch (error) { if (error.code !== 'ESRCH') throw error }
+    try { process.kill(pid, signal) } catch (error) { if (/** @type {NodeJS.ErrnoException} */ (error).code !== 'ESRCH') throw error }
   }
 
+  /** @param {ProcessIdentity[]} live */
   async #clean(live) {
     if (live.length === 0) return
     if (!this.sentTermination) {
@@ -220,7 +240,7 @@ export class SupervisedCommand {
       await this.#signal('SIGTERM')
       return
     }
-    if (!this.sentKill && Date.now() - this.cleanupStarted >= this.terminationMilliseconds) {
+    if (!this.sentKill && this.cleanupStarted !== undefined && Date.now() - this.cleanupStarted >= this.terminationMilliseconds) {
       this.sentKill = true
       await this.#signal('SIGKILL')
     }
@@ -230,7 +250,7 @@ export class SupervisedCommand {
     try {
       await this.#watchUntilFinished()
     } catch (error) {
-      this.#fail(new Error(`Cleanup unconfirmed: ${error.message}`))
+      this.#fail(new Error(`Cleanup unconfirmed: ${/** @type {Error} */ (error).message}`))
       this.#finish(false)
     }
   }
@@ -252,6 +272,7 @@ export class SupervisedCommand {
     }
   }
 
+  /** @param {boolean} cleanupConfirmed */
   #finish(cleanupConfirmed) {
     if (!cleanupConfirmed) {
       this.error = new Error(`${this.error?.message ?? 'Command stopped'}; owned family cleanup unconfirmed`)

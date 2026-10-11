@@ -1,6 +1,7 @@
 use crate::models::{Cycle, Echo, Isolation, Ordered, Other, Pulse, Relay};
 
 #[derive(Default)]
+#[Lifetime({"value":"prototype"})]
 struct OwnerProbeService {
     count: i64,
     log: String,

@@ -7,6 +7,11 @@ import { spawnSync } from 'node:child_process';
 
 class NativeBehaviorTest {
   static root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  // The split runtime files each emitter appends to its *_runtime template (csharp.rs, swift_platform.rs).
+  static runtimeParts = {
+    cs: ['csharp_browser_http', ['BehaviorBrowserHttp', 'BehaviorBrowserHttpAdapter', 'BehaviorHttpRevalidation']],
+    swift: ['swift_foundation', ['BehaviorLock', 'BehaviorPlatform']],
+  };
   static cachePolicy = { name: 'products', ttlMs: 30000, maxBytes: 65536, maxEntries: 256 };
   static cacheTarget = { method: 'list', cacheable: { keyArgs: [0] }, pageable: { argument: 0, defaultSize: 20, maxSize: 100, sort: ['id'] } };
   static registry = JSON.stringify({ Catalog: { cache: NativeBehaviorTest.cachePolicy, methods: {
@@ -78,7 +83,8 @@ async function checkLanguage(directory, language, emittedPath) {
   const stem = language === 'cs' ? 'csharp' : 'swift';
   const template = await readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/src/behavior/polyglot', `${stem}_runtime.${language}`), 'utf8');
   const fixtures = await readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/tests/fixtures/behavior', `${stem}-runtime.${language}`), 'utf8');
-  const foundation = language === 'cs' ? [] : await Promise.all(['BehaviorLock', 'BehaviorPlatform'].map(name => readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/src/behavior/polyglot/swift_foundation', `${name}.swift`), 'utf8')));
+  const [folder, names] = NativeBehaviorTest.runtimeParts[language];
+  const foundation = await Promise.all(names.map(name => readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/src/behavior/polyglot', folder, `${name}.${language}`), 'utf8')));
   const code = emittedPath ? await readFile(emittedPath, 'utf8') : [emitCode(language, template), ...foundation].join('\n');
   if (language === 'cs') await checkCSharp(directory, code, fixtures, emittedPath);
   else await checkSwift(directory, code, fixtures, emittedPath);

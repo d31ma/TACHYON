@@ -1106,27 +1106,35 @@ mod tests {
         assert!(format!("{error:?}").contains("32-topic/128-listener"));
     }
 
-    fn owner_fixtures() -> [(&'static str, NativeCompanion, &'static str); 4] {
+    /// Each fixture carries the companion prelude exactly as native staging appends it
+    /// after the authored unit, so `scripts/native/events-test.mjs` compiles what ships.
+    fn owner_fixtures() -> [(&'static str, NativeCompanion, &'static str, String); 4] {
         [
             (
                 "swift",
                 NativeCompanion::Swift,
                 include_str!("../../tests/fixtures/native-events/tac.swift"),
+                super::super::macos::companion_prelude().to_owned(),
             ),
             (
                 "kt",
                 NativeCompanion::Kotlin,
                 include_str!("../../tests/fixtures/native-events/tac.kt"),
+                super::super::android::companion_prelude(),
             ),
             (
                 "cs",
                 NativeCompanion::CSharp,
                 include_str!("../../tests/fixtures/native-events/tac.cs"),
+                super::super::windows::companion_prelude().to_owned()
+                    + &super::super::csharp_web_apis::CsharpWebApis::native(),
             ),
             (
                 "rs",
                 NativeCompanion::Rust,
                 include_str!("../../tests/fixtures/native-events/tac.rs"),
+                super::super::rust::companion_prelude().to_owned()
+                    + &crate::route_types::WebEventSources::rust(),
             ),
         ]
     }
@@ -1215,7 +1223,7 @@ mod tests {
     fn native_event_owner_units_are_emitted() {
         let captured = tempfile::tempdir().expect("fixture directory");
         let output = std::env::var_os("TAC_NATIVE_EVENT_FIXTURES").map(PathBuf::from);
-        for (extension, language, authored) in owner_fixtures() {
+        for (extension, language, authored, prelude) in owner_fixtures() {
             let unit = emit_owner_unit(captured.path(), extension, language, authored);
             assert_owner_unit(&unit);
             assert_owner_models(extension, &unit);
@@ -1223,6 +1231,8 @@ mod tests {
                 std::fs::create_dir_all(output).expect("create fixture output");
                 std::fs::write(output.join(format!("owner.{extension}")), unit)
                     .expect("write emitted owner");
+                std::fs::write(output.join(format!("prelude.{extension}")), prelude)
+                    .expect("write emitted prelude");
                 if extension == "kt" {
                     let models = format!("package models\n\n{}", owner_models("kt"));
                     std::fs::write(output.join("owner-models.kt"), models)
