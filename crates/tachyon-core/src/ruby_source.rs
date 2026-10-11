@@ -129,12 +129,8 @@ impl RubyMembers {
         let Some(rest) = text.strip_prefix("def ") else {
             return;
         };
-        let length = rest
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
-        let name = &rest[..length];
-        let plain_end = rest[length..]
+        let name = Self::leading_name(rest);
+        let plain_end = rest[name.len()..]
             .chars()
             .next()
             .is_none_or(|next| matches!(next, '(' | ' ' | ';'));
@@ -142,6 +138,15 @@ impl RubyMembers {
         if plain_end && !hidden && !self.methods.iter().any(|known| known == name) {
             self.methods.push(name.to_owned());
         }
+    }
+
+    /// Reads the ASCII letters, digits and underscores that start `text`.
+    pub(crate) fn leading_name(text: &str) -> &str {
+        let length = text
+            .bytes()
+            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+            .count();
+        &text[..length]
     }
 
     fn add_all(names: &mut Vec<String>, symbols: &str) {
@@ -253,12 +258,7 @@ impl Yard {
     }
 
     fn first_word(text: &str) -> &str {
-        let text = text.trim_start();
-        let length = text
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
-        &text[..length]
+        RubyMembers::leading_name(text.trim_start())
     }
 }
 
@@ -713,7 +713,43 @@ mod member_tests {
 
 #[cfg(test)]
 mod yard_tests {
-    use super::Yard;
+    use super::{RubyMembers, Yard};
+
+    fn texts() -> Vec<String> {
+        let alphabet = (0..=0x7f_u8)
+            .map(char::from)
+            .chain(['é', 'Ü', 'ß', '٣'])
+            .collect::<Vec<_>>();
+        let mut texts = vec![String::new()];
+        for first in &alphabet {
+            texts.push(first.to_string());
+            texts.extend(alphabet.iter().map(|second| format!("{first}{second}")));
+        }
+        texts
+    }
+
+    fn leading_word(text: &str) -> &str {
+        let length = text
+            .bytes()
+            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+            .count();
+        &text[..length]
+    }
+
+    #[test]
+    fn yard_words_skip_leading_space_then_read_ascii_word_characters() {
+        for text in texts() {
+            for padded in [text.clone(), format!("  {text}"), format!("\t{text}")] {
+                let expected = leading_word(padded.trim_start());
+                assert_eq!(Yard::first_word(&padded), expected, "{padded:?}");
+            }
+            assert_eq!(
+                RubyMembers::leading_name(&text),
+                leading_word(&text),
+                "{text:?}"
+            );
+        }
+    }
 
     #[test]
     fn parameter_and_return_types_come_from_yard_tags() {
