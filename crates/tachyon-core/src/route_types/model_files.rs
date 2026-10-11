@@ -15,7 +15,7 @@ mod rust_fields_tests;
 pub(super) struct ModelFolder;
 
 impl ModelFolder {
-    const MAX_FILES: usize = 256;
+    const MAX_FILES: usize = 1024;
     const MAX_DEPTH: usize = 8;
     const MAX_TOTAL_BYTES: usize = 1024 * 1024;
     const ALSO_READS: [(&str, &str); 1] = [("js", "ts")];
@@ -79,7 +79,7 @@ impl ModelFolder {
             *total += source.len();
             if files.len() >= Self::MAX_FILES || *total > Self::MAX_TOTAL_BYTES {
                 return Err(format!(
-                    "{} holds more than 256 files or 1 MiB",
+                    "{} holds more than 1024 files or 1 MiB",
                     Self::top(portable)
                 ));
             }

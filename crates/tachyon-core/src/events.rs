@@ -187,7 +187,9 @@ pub(crate) fn describe(
     let language = language_of(path);
     let mut models = match ModelTable::read_realm(root, realm, language) {
         Ok(models) => models,
-        Err(message) if module.has_listeners() => return Err(failure(path, 0, message)),
+        Err(message) if module.has_listeners() => {
+            return Err(failure(&Path::new(realm).join("models"), 0, message));
+        }
         Err(_) => ModelTable::default(),
     };
     if language == "js" {
