@@ -631,10 +631,7 @@ impl PythonModels {
             let Some(header) = line.strip_prefix("class ") else {
                 continue;
             };
-            let name: String = header
-                .chars()
-                .take_while(|character| character.is_ascii_alphanumeric() || *character == '_')
-                .collect();
+            let name = AsciiName::leading(header).to_owned();
             let bases = header.split_once('(').map_or("", |(_, rest)| rest);
             let bases = bases.rsplit_once(')').map_or(bases, |(inside, _)| inside);
             let body = Self::body(&lines, index + 1);

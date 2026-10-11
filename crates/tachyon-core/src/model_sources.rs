@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::unicode_name::UnicodeName;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -415,11 +416,7 @@ fn python_class_names(source: &str) -> BTreeSet<String> {
         let Some(rest) = line.strip_prefix("class ") else {
             continue;
         };
-        let name: String = rest
-            .chars()
-            .take_while(|character| character.is_alphanumeric() || *character == '_')
-            .collect();
-        names.insert(name);
+        names.insert(UnicodeName::leading(rest));
     }
     names
 }
