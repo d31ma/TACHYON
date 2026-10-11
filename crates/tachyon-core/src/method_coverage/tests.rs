@@ -221,6 +221,15 @@ fn a_ruby_http_client_declares_its_requests_so_nobody_tests_them() {
 }
 
 #[test]
+fn a_ruby_method_that_only_returns_a_string_still_needs_a_test() {
+    let report = report_for(&[(
+        "server/services/GreetingService.rb",
+        "#[Service]\nclass GreetingService\n  # @return [String]\n  def message\n    \"Hello\"\n  end\n\n  def silent\n  end\nend\n",
+    )]);
+    assert_eq!(uncovered_methods(&report), vec!["message"], "{report:?}");
+}
+
+#[test]
 fn recorded_calls_survive_a_write_and_a_read() {
     let root = tempfile::tempdir().expect("project");
     assert_eq!(RecordedCalls::read(root.path()), None);

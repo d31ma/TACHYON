@@ -90,9 +90,9 @@ impl PublicMethods {
         "print",
     ];
 
-    fn find(language: &str, masked: &str) -> Vec<PublicMethod> {
+    fn find(language: &str, source: &str, masked: &str) -> Vec<PublicMethod> {
         if language == "rb" {
-            return ruby_methods(masked);
+            return ruby_methods(source, masked);
         }
         if language == crate::lua_source::LuaSource::EXTENSION {
             return LuaBody::methods(masked);
@@ -247,13 +247,13 @@ fn identifier(name: &str) -> Option<String> {
     Some(name.to_owned())
 }
 
-fn ruby_methods(masked: &str) -> Vec<PublicMethod> {
+fn ruby_methods(source: &str, masked: &str) -> Vec<PublicMethod> {
     let names = crate::ruby_source::RubyMembers::read(masked).methods;
     names
         .into_iter()
         .filter_map(|name| {
             ruby_definition_line(masked, &name)
-                .filter(|line| !RubyEmptyMethod::is_empty(masked, *line))
+                .filter(|line| !RubyEmptyMethod::is_empty(source, masked, *line))
                 .map(|line| PublicMethod::new(name, line))
         })
         .collect()

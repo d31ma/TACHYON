@@ -8,10 +8,14 @@ impl RubyEmptyMethod {
     const PARAMETERS: char = '(';
     const SKIPPED: [char; 6] = [')', ' ', '\t', '\r', '\n', ';'];
 
-    pub(super) fn is_empty(masked: &str, line: usize) -> bool {
+    // The body is read from the source: masking blanks string literals, so a method
+    // that only returns "text" would otherwise look empty.
+    pub(super) fn is_empty(source: &str, masked: &str, line: usize) -> bool {
         let start: usize = masked.split_inclusive('\n').take(line).map(str::len).sum();
         let text = masked.get(start..).unwrap_or_default();
-        let rest = text.get(Self::signature_end(text)..).unwrap_or_default();
+        let rest = source
+            .get(start + Self::signature_end(text)..)
+            .unwrap_or_default();
         Self::starts_with_end(rest.trim_start_matches(Self::SKIPPED))
     }
 

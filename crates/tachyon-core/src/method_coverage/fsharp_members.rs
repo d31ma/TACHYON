@@ -7,7 +7,7 @@ impl FsharpMembers {
     const VIEW_LANGUAGE: &'static str = "cs";
 
     pub(crate) fn find(view: &FsharpView, masked_view: &str) -> Vec<PublicMethod> {
-        PublicMethods::find(Self::VIEW_LANGUAGE, masked_view)
+        PublicMethods::find(Self::VIEW_LANGUAGE, view.text(), masked_view)
             .into_iter()
             .filter_map(|method| Self::in_source(view, method))
             .collect()
