@@ -1,5 +1,6 @@
 use super::Input;
 use crate::Failure;
+use crate::ascii_name::AsciiName;
 use crate::events::{EventMethod, EventParameter};
 use crate::ruby_source::RubyMembers;
 
@@ -33,7 +34,7 @@ impl RubyBehaviors {
         if rest.starts_with("self.") {
             return Err(input.failure(at, "Event annotations require instance methods"));
         }
-        let name = RubyMembers::leading_name(rest);
+        let name = AsciiName::leading(rest);
         let after_name = &rest[name.len()..];
         let parameters = Self::parameter_names(after_name);
         let body = Self::body(&input.code, at, line_end);
@@ -61,7 +62,7 @@ impl RubyBehaviors {
             if line.starts_with([' ', '\t']) || line.trim().is_empty() {
                 continue;
             }
-            let name = RubyMembers::leading_name(line.strip_prefix("class ")?);
+            let name = AsciiName::leading(line.strip_prefix("class ")?);
             return (!name.is_empty()).then_some(name);
         }
         None
@@ -127,7 +128,7 @@ impl RubyBehaviors {
             let Some(rest) = text.strip_prefix("def ") else {
                 continue;
             };
-            if RubyMembers::leading_name(rest) != method {
+            if AsciiName::leading(rest) != method {
                 continue;
             }
             let after_name = at + "def ".len() + method.len();
@@ -147,7 +148,7 @@ impl RubyBehaviors {
         let mut offset = 0;
         for line in code.split_inclusive('\n') {
             if let Some(rest) = line.strip_prefix("class ")
-                && RubyMembers::leading_name(rest) == class
+                && AsciiName::leading(rest) == class
             {
                 return Some(offset);
             }

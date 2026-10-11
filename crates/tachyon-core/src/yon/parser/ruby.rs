@@ -1,5 +1,6 @@
 use super::{Input, ManagedType, Signature, identifier, matching};
 use crate::Failure;
+use crate::ascii_name::AsciiName;
 use crate::ruby_source::Yard;
 use crate::yon::plan::{Injection, ParameterSource, RouteParameter};
 use std::ops::Range;
@@ -43,10 +44,7 @@ impl RubyMethod {
         if rest.starts_with("self.") {
             return Err(input.failure(start, Self::CLASS_METHOD));
         }
-        let length = rest
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
+        let length = AsciiName::leading(rest).len();
         let name = &rest[..length];
         let suffix = rest.as_bytes().get(length).copied();
         if !identifier(name) || matches!(suffix, Some(b'?' | b'!' | b'=')) {

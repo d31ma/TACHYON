@@ -1,3 +1,4 @@
+use crate::ascii_name::AsciiName;
 use std::ops::Range;
 
 pub(crate) struct PythonAnnotated {
@@ -124,9 +125,7 @@ impl PythonAnnotated {
     }
 
     fn name_length(text: &str) -> usize {
-        text.bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count()
+        AsciiName::leading(text).len()
     }
 
     fn declaration(code: &str, at: usize) -> Option<(usize, Option<usize>)> {
