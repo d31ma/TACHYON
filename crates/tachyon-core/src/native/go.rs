@@ -414,7 +414,7 @@ fn service_files(input: &ServiceInput<'_>) -> Result<ServiceParts, Failure> {
     let mut parts = GoFile::split(&authored);
     if let Some(entry) = parts.first_mut() {
         entry.path.clone_from(&portable);
-        entry.name = input.class.to_owned();
+        input.class.clone_into(&mut entry.name);
     }
     Ok(ServiceParts {
         path: portable,
