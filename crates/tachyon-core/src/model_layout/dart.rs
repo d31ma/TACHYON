@@ -1,4 +1,5 @@
 use super::piece::Piece;
+use crate::ascii_name::AsciiName;
 
 struct DartModel;
 
@@ -139,5 +140,8 @@ fn is_call(text: &str, index: usize) -> bool {
     let Some(before_word) = before.strip_suffix("Function") else {
         return true;
     };
-    before_word.bytes().last().is_some_and(Piece::is_name_byte)
+    before_word
+        .bytes()
+        .last()
+        .is_some_and(AsciiName::is_name_byte)
 }

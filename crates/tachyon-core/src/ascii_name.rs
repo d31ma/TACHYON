@@ -10,7 +10,20 @@ impl AsciiName {
         &text[..length]
     }
 
-    fn is_name_byte(byte: u8) -> bool {
-        byte.is_ascii_alphanumeric() || byte == b'_'
+    pub(crate) fn is_name_byte(byte: u8) -> bool {
+        [byte.is_ascii_alphanumeric(), byte == b'_'].contains(&true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AsciiName;
+
+    #[test]
+    fn name_bytes_are_the_ascii_letters_digits_and_underscore() {
+        for byte in 0..=u8::MAX {
+            let expected = byte.is_ascii_alphanumeric() || byte == b'_';
+            assert_eq!(AsciiName::is_name_byte(byte), expected, "{byte}");
+        }
     }
 }

@@ -1,4 +1,5 @@
 use super::LuaTypes;
+use crate::ascii_name::AsciiName;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum LuaLine {
@@ -61,8 +62,7 @@ impl LuaLine {
     }
 
     fn name_bytes(text: &str) -> bool {
-        text.bytes()
-            .all(|byte| [byte.is_ascii_alphanumeric(), byte == b'_'].contains(&true))
+        text.bytes().all(AsciiName::is_name_byte)
     }
 
     fn blank(text: &str) -> Option<Self> {

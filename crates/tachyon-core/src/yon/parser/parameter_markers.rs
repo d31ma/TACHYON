@@ -1,5 +1,6 @@
 use super::Input;
 use super::routes::RouteMarker;
+use crate::ascii_name::AsciiName;
 use std::ops::Range;
 
 pub(super) struct ParameterMarkers;
@@ -9,7 +10,6 @@ impl ParameterMarkers {
     const OPEN: u8 = b'(';
     const CLOSE: u8 = b')';
     const MARK: u8 = b'@';
-    const NAME_JOIN: u8 = b'_';
 
     pub(super) fn spans(input: &Input<'_>) -> Vec<Range<usize>> {
         let code = Self::script_code(input);
@@ -60,13 +60,9 @@ impl ParameterMarkers {
     fn name_end(code: &str, start: usize) -> usize {
         let length = code[start..]
             .bytes()
-            .take_while(|byte| Self::is_name_byte(*byte))
+            .take_while(|byte| AsciiName::is_name_byte(*byte))
             .count();
         start + length
-    }
-
-    fn is_name_byte(byte: u8) -> bool {
-        byte.is_ascii_alphanumeric() || byte == Self::NAME_JOIN
     }
 
     fn arguments_end(code: &str, name_end: usize) -> Option<usize> {

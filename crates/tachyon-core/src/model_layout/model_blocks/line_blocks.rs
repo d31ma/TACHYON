@@ -1,5 +1,6 @@
 use super::super::piece::Piece;
 use super::model_block::ModelBlock;
+use crate::ascii_name::AsciiName;
 
 pub(super) struct LineBlocks<'a> {
     code: &'a str,
@@ -110,7 +111,7 @@ impl<'a> LineBlocks<'a> {
             .bytes()
             .next()
             .is_some_and(|byte| byte.is_ascii_uppercase());
-        let plain = name.bytes().all(Piece::is_name_byte);
+        let plain = name.bytes().all(AsciiName::is_name_byte);
         (![starts_upper, plain].contains(&false)).then_some(name)
     }
 

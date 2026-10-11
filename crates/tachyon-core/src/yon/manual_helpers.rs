@@ -1,4 +1,5 @@
 use crate::Failure;
+use crate::ascii_name::AsciiName;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -94,17 +95,13 @@ impl ManualHelpers {
             .as_bytes()
             .last()
             .copied()
-            .is_some_and(Self::name_byte);
+            .is_some_and(AsciiName::is_name_byte);
         let next = after
             .as_bytes()
             .first()
             .copied()
-            .is_some_and(Self::name_byte);
+            .is_some_and(AsciiName::is_name_byte);
         ![previous, next].contains(&true)
-    }
-
-    fn name_byte(byte: u8) -> bool {
-        [byte.is_ascii_alphanumeric(), byte == b'_'].contains(&true)
     }
 
     fn constructor_call(extension: &str, before: &str, after: &str) -> bool {
@@ -135,7 +132,7 @@ impl ManualHelpers {
         };
         let length = method
             .bytes()
-            .take_while(|byte| Self::name_byte(*byte))
+            .take_while(|byte| AsciiName::is_name_byte(*byte))
             .count();
         [length > 0, method[length..].trim_start().starts_with('(')] == [true, true]
     }
@@ -222,7 +219,7 @@ impl ManualHelpers {
                 .as_bytes()
                 .last()
                 .copied()
-                .is_some_and(Self::name_byte)
+                .is_some_and(AsciiName::is_name_byte)
         })
     }
 
