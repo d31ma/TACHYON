@@ -3,7 +3,8 @@ import java.util.List;
 
 @Service
 class CatalogService {
-    private final CatalogClient catalog = new CatalogClient();
+    @Needs
+    private final CatalogClient catalog;
     List<String> products = new ArrayList<>();
     String error = "";
 

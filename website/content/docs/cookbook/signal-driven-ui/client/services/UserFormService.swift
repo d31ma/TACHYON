@@ -1,6 +1,7 @@
 @Service
 final class UserFormService {
-    private let usersClient: UsersClient = UsersClient()
+    @Needs
+    private let usersClient: UsersClient
     let applicationEventPublisher: ApplicationEventPublisher
     var name: String = ""
 

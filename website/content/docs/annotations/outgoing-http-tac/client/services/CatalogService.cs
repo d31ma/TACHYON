@@ -1,6 +1,7 @@
 [Service]
 public class CatalogService {
-    readonly CatalogClient _catalog = new CatalogClient();
+    [Needs]
+    private readonly CatalogClient _catalog;
     public int count = 0;
 
     public async System.Threading.Tasks.Task Load() {

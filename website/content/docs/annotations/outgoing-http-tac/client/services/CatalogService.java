@@ -1,6 +1,7 @@
 @Service
 class CatalogService {
-    private final CatalogClient catalog = new CatalogClient();
+    @Needs
+    private final CatalogClient catalog;
     int count = 0;
 
     void load() {

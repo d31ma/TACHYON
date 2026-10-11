@@ -4442,7 +4442,7 @@
         },
         {
           "heading": "Public Tac output and private Yon lifetime",
-          "body": "The build checks the tac member of client/manifest.json. It publishes the whole manifest at /manifest.webmanifest for web bundles and staged native bundles. A browser also finds it there to install the app. The manifest can have other members beside tac, and it still binds without changes. Only the tac member is configuration. Bind only the members that your application adds, such as tac.api.url here. Tachyon's own members, such as application, scripts, budgets or browserApis, are settings for the build, not values for services. The build never opens .env, never resolves production secrets and never publishes the Yon configuration. A browser service loads the published manifest through an HTTPClient and binds it with Behaviors.values and the PublicSettings model in client/models, whose Setting reads tac.api.url. Every compiled Tac language can read such a model (ADR 0092). In this example the service loads the manifest when you press the button. JavaScript, TypeScript, Dart, Rust, Go, Kotlin and Swift inject the client with Needs. C# and F# build it with new ApplicationClient() and ApplicationClient(). In these languages Tachyon's browser transport sends the GET request to the server of the page: the compiled languages need an ApplicationSetup, and it gives the client no adapter. Ruby has no browser transport yet. The Java and Ruby services build the client, and the HTTP adapter of ApplicationSetup answers it in the page with the public tac member, as in Outgoing HTTP: Tac. A native service loads the manifest itself with its SDK, and it owns that loader (see Swift: public configuration in native Tac). The browser transport is network-only (no-store) unless a read is marked Cached. It is not an offline cache loader. A change to client/manifest.json causes a development reload for Tac. A change to Yon settings or .env secrets needs a server restart. The deployment controls runtime executables, isolation policy, environment allowlists and capabilities. They are not options in the application files. YON_APPLICATION_JSON is reserved output of the supervisor. An operator cannot use it as an override. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308. C++ has no tab either, because the build refuses Setting in C++ Tac code with TY1308 (ADR 0099).",
+          "body": "The build checks the tac member of client/manifest.json. It publishes the whole manifest at /manifest.webmanifest for web bundles and staged native bundles. A browser also finds it there to install the app. The manifest can have other members beside tac, and it still binds without changes. Only the tac member is configuration. Bind only the members that your application adds, such as tac.api.url here. Tachyon's own members, such as application, scripts, budgets or browserApis, are settings for the build, not values for services. The build never opens .env, never resolves production secrets and never publishes the Yon configuration. A browser service loads the published manifest through an HTTPClient and binds it with Behaviors.values and the PublicSettings model in client/models, whose Setting reads tac.api.url. Every compiled Tac language can read such a model (ADR 0092). In this example the service loads the manifest when you press the button. JavaScript, TypeScript, Dart, Rust, Go, Kotlin, Swift, Java and C# inject the client with Needs. F# builds it with ApplicationClient(). In these languages except Java, Tachyon's browser transport sends the GET request to the server of the page: the compiled languages need an ApplicationSetup, and it gives the client no adapter. Ruby has no browser transport yet. The Java service injects the client and the Ruby service builds it; in both, the HTTP adapter of ApplicationSetup answers it in the page with the public tac member, as in Outgoing HTTP: Tac. A native service loads the manifest itself with its SDK, and it owns that loader (see Swift: public configuration in native Tac). The browser transport is network-only (no-store) unless a read is marked Cached. It is not an offline cache loader. A change to client/manifest.json causes a development reload for Tac. A change to Yon settings or .env secrets needs a server restart. The deployment controls runtime executables, isolation policy, environment allowlists and capabilities. They are not options in the application files. YON_APPLICATION_JSON is reserved output of the supervisor. An operator cannot use it as an override. Python and Lua have no tab here, because the build refuses HTTPClient in Python and Lua Tac code with TY1308. C++ has no tab either, because the build refuses Setting in C++ Tac code with TY1308 (ADR 0099).",
           "axis": "language",
           "files": [
             {
@@ -4547,11 +4547,11 @@
             },
             {
               "name": "client/remotes/ApplicationClient.cs",
-              "code": "[HTTPClient]\ninterface ApplicationClient {\n    [GetRequest(\"/manifest.webmanifest\")]\n    System.Threading.Tasks.Task<BehaviorJSON> Load();\n}\n"
+              "code": "[HTTPClient]\npublic interface ApplicationClient {\n    [GetRequest(\"/manifest.webmanifest\")]\n    System.Threading.Tasks.Task<BehaviorJSON> Load();\n}\n"
             },
             {
               "name": "client/services/SettingsService.cs",
-              "code": "using Models;\n\n[Service]\npublic class SettingsService {\n    readonly ApplicationClient _applicationClient = new ApplicationClient();\n    public string api = \"\";\n\n    public async System.Threading.Tasks.Task Load() {\n        var application = await _applicationClient.Load();\n        api = Behaviors.values(typeof(PublicSettings), application).Get(\"api\").Text;\n    }\n}\n"
+              "code": "using Models;\n\n[Service]\npublic class SettingsService {\n    [Needs]\n    private readonly ApplicationClient _applicationClient;\n    public string api = \"\";\n\n    public async System.Threading.Tasks.Task Load() {\n        var application = await _applicationClient.Load();\n        api = Behaviors.values(typeof(PublicSettings), application).Get(\"api\").Text;\n    }\n}\n"
             },
             {
               "name": "client/models/PublicSettings.cs",
@@ -4599,7 +4599,7 @@
             },
             {
               "name": "client/services/SettingsService.java",
-              "code": "import java.util.Map;\n\n@Service\nclass SettingsService {\n    private final ApplicationClient applicationClient = new ApplicationClient();\n    String api = \"\";\n\n    void load() {\n        Map<String, Object> application = (Map<String, Object>) applicationClient.load();\n        api = (String) Behaviors.values(\"PublicSettings\", application).get(\"api\");\n    }\n}\n"
+              "code": "import java.util.Map;\n\n@Service\nclass SettingsService {\n    @Needs\n    private final ApplicationClient applicationClient;\n    String api = \"\";\n\n    void load() {\n        Map<String, Object> application = (Map<String, Object>) applicationClient.load();\n        api = (String) Behaviors.values(\"PublicSettings\", application).get(\"api\");\n    }\n}\n"
             },
             {
               "name": "client/models/PublicSettings.java",
@@ -4632,7 +4632,7 @@
     },
     "calling-the-server": {
       "title": "Calling the server from a page",
-      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. In JavaScript, TypeScript, Dart, C#, F#, Rust, Go, Kotlin, Swift and Java, a client whose Setup gives it no adapter sends its request through the browser to the server of the page, without cookies. This browser transport refuses every other origin. In Ruby the client needs a Setup that gives it an HTTP adapter. Python and Lua cannot use `HTTPClient` (`TY1308`). A request to another host goes through a Setup adapter, and that host must be listed in `tac.outgoing.hosts`.",
+      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. In JavaScript, TypeScript, Dart, C#, F#, Rust, Go, Kotlin, Swift and Java, a client whose Setup gives it no adapter sends its request through the browser to the server of the page, without cookies. A C++ client has no Setup, so it always uses this transport. This browser transport refuses every other origin. In Ruby the client needs a Setup that gives it an HTTP adapter. Python and Lua cannot use `HTTPClient` (`TY1308`). A request to another host goes through a Setup adapter, and that host must be listed in `tac.outgoing.hosts`.",
       "before": [
         "services",
         "controllers"
@@ -4697,7 +4697,7 @@
             },
             {
               "name": "client/remotes/CatalogClient.cs",
-              "code": "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All();\n}\n"
+              "code": "[HTTPClient]\npublic interface CatalogClient {\n    [GetRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All();\n}\n"
             },
             {
               "name": "client/remotes/CatalogClient.fs",
@@ -4741,7 +4741,7 @@
             },
             {
               "name": "client/services/CatalogService.java",
-              "code": "import java.util.ArrayList;\nimport java.util.List;\n\n@Service\nclass CatalogService {\n    private final CatalogClient catalog = new CatalogClient();\n    List<String> products = new ArrayList<>();\n    String error = \"\";\n\n    void load() {\n        show(fetch());\n    }\n\n    private Object fetch() {\n        try {\n            return catalog.all();\n        } catch (RuntimeException failure) {\n            return null;\n        }\n    }\n\n    private void show(Object answer) {\n        if (!(answer instanceof List<?> items)) {\n            showFailure();\n            return;\n        }\n        products = items.stream().map(String::valueOf).toList();\n        error = \"\";\n    }\n\n    private void showFailure() {\n        error = \"Products could not be loaded. Please retry.\";\n    }\n}\n"
+              "code": "import java.util.ArrayList;\nimport java.util.List;\n\n@Service\nclass CatalogService {\n    @Needs\n    private final CatalogClient catalog;\n    List<String> products = new ArrayList<>();\n    String error = \"\";\n\n    void load() {\n        show(fetch());\n    }\n\n    private Object fetch() {\n        try {\n            return catalog.all();\n        } catch (RuntimeException failure) {\n            return null;\n        }\n    }\n\n    private void show(Object answer) {\n        if (!(answer instanceof List<?> items)) {\n            showFailure();\n            return;\n        }\n        products = items.stream().map(String::valueOf).toList();\n        error = \"\";\n    }\n\n    private void showFailure() {\n        error = \"Products could not be loaded. Please retry.\";\n    }\n}\n"
             },
             {
               "name": "client/services/CatalogService.dart",
@@ -4761,7 +4761,7 @@
             },
             {
               "name": "client/services/CatalogService.swift",
-              "code": "@Service\nfinal class CatalogService {\n    let catalog: CatalogClient = CatalogClient()\n    var products: [String] = []\n    var error: String = \"\"\n\n    func load() async {\n        show(try? await catalog.all())\n    }\n\n    private func show(_ answer: BehaviorJSON?) {\n        guard let items = try? answer?.items else { return showFailure() }\n        products = items.compactMap { try? $0.text }\n        error = \"\"\n    }\n\n    private func showFailure() {\n        error = \"Products could not be loaded. Please retry.\"\n    }\n}\n"
+              "code": "@Service\nfinal class CatalogService {\n    @Needs\n    private let catalog: CatalogClient\n    var products: [String] = []\n    var error: String = \"\"\n\n    func load() async {\n        show(try? await catalog.all())\n    }\n\n    private func show(_ answer: BehaviorJSON?) {\n        guard let items = try? answer?.items else { return showFailure() }\n        products = items.compactMap { try? $0.text }\n        error = \"\"\n    }\n\n    private func showFailure() {\n        error = \"Products could not be loaded. Please retry.\"\n    }\n}\n"
             },
             {
               "name": "client/services/CatalogService.kt",
@@ -4769,7 +4769,7 @@
             },
             {
               "name": "client/services/CatalogService.cs",
-              "code": "using System.Collections.Generic;\nusing System.Linq;\n\n[Service]\npublic class CatalogService {\n    readonly CatalogClient _catalog = new CatalogClient();\n    public List<string> products = new List<string>();\n    public string error = \"\";\n\n    public async System.Threading.Tasks.Task Load() {\n        Show(await Fetch());\n    }\n\n    private async System.Threading.Tasks.Task<List<string>> Fetch() {\n        try {\n            var answer = await _catalog.All();\n            return answer.Items.Select(item => item.Text).ToList();\n        } catch (BehaviorError) {\n            return null;\n        }\n    }\n\n    private void Show(List<string> names) {\n        if (names is null) {\n            ShowFailure();\n            return;\n        }\n        products = names;\n        error = \"\";\n    }\n\n    private void ShowFailure() {\n        error = \"Products could not be loaded. Please retry.\";\n    }\n}\n"
+              "code": "using System.Collections.Generic;\nusing System.Linq;\n\n[Service]\npublic class CatalogService {\n    [Needs]\n    private readonly CatalogClient _catalog;\n    public List<string> products = new List<string>();\n    public string error = \"\";\n\n    public async System.Threading.Tasks.Task Load() {\n        Show(await Fetch());\n    }\n\n    private async System.Threading.Tasks.Task<List<string>> Fetch() {\n        try {\n            var answer = await _catalog.All();\n            return answer.Items.Select(item => item.Text).ToList();\n        } catch (BehaviorError) {\n            return null;\n        }\n    }\n\n    private void Show(List<string> names) {\n        if (names is null) {\n            ShowFailure();\n            return;\n        }\n        products = names;\n        error = \"\";\n    }\n\n    private void ShowFailure() {\n        error = \"Products could not be loaded. Please retry.\";\n    }\n}\n"
             },
             {
               "name": "client/services/CatalogService.fs",
@@ -4794,7 +4794,7 @@
             "rb",
             "lua"
           ],
-          "summary": "A Dart service receives an HTTPClient with Needs. The empty GreetingSetup uses Tachyon\u2019s default same-origin asynchronous browser transport; the typed Greeting answer is rendered after Yon replies. Credentials are omitted. Cached GETs may use the browser cache, and a successful ClearCache forces revalidation. OverrideSetup shows that a matching custom adapter still wins. This compiled Dart example is checked in Chromium, Firefox and WebKit (ADR 0090). Rust, Go, C# and F# use the same browser transport; their sections follow. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
+          "summary": "A Dart service receives an HTTPClient with Needs. The empty GreetingSetup uses Tachyon\u2019s default same-origin asynchronous browser transport; the typed Greeting answer is rendered after Yon replies. Credentials are omitted. Cached GETs may use the browser cache, and a successful ClearCache forces revalidation. OverrideSetup shows that a matching custom adapter still wins. This compiled Dart example is checked in Chromium, Firefox and WebKit (ADR 0090). Rust, Go, Kotlin, Swift, Java, C#, F# and C++ use the same browser transport; their sections follow. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
           "files": [
             {
               "name": "client/components/greeting/panel/tac.html",
@@ -5346,7 +5346,7 @@
         },
         {
           "heading": "What the browser transport allows",
-          "body": "The browser transport of Dart, Rust, Go, Kotlin, Swift, C#, F# and C++ clients has fixed limits, so one page cannot flood the server or read too much:\n\nA request, with its path, query, headers and body, may hold at most 64 KiB (65,536 bytes); a larger one fails with `HTTP_REQUEST`. An answer may hold at most 1 MiB. A larger answer fails with `HTTP_LIMIT`.\n\nA page may have at most 64 requests waiting at the same time; one more fails with `HTTP_CAPACITY`. A request waits at most 60 seconds.\n\nThe request must go to the origin of the page. Another origin fails with `HTTP_ORIGIN`. A redirect fails too.\n\nThe browser sends no cookies and no other credentials. The transport refuses the headers `Cookie`, `Host`, `Origin`, `Referer`, `Connection`, `Content-Length` and `Transfer-Encoding`, and every header that starts with `Sec-` or `Proxy-`, with `HTTP_HEADER`.\n\nA request is not kept in the browser cache, except a public read marked `Cached`. A request with an `Authorization` header is never kept.\n\nAn answer that does not have the shape of the model fails with `HTTP_RESPONSE`, and an answer with an error status fails with `HTTP_STATUS`. Removing the component that started a request cancels it (ADR 0090)."
+          "body": "The browser transport of Dart, Rust, Go, Kotlin, Swift, Java, C#, F# and C++ clients has fixed limits, so one page cannot flood the server or read too much:\n\nA request, with its path, query, headers and body, may hold at most 64 KiB (65,536 bytes); a larger one fails with `HTTP_REQUEST`. An answer may hold at most 1 MiB. A larger answer fails with `HTTP_LIMIT`.\n\nA page may have at most 64 requests waiting at the same time; one more fails with `HTTP_CAPACITY`. A request waits at most 60 seconds.\n\nThe request must go to the origin of the page. Another origin fails with `HTTP_ORIGIN`. A redirect fails too.\n\nThe browser sends no cookies and no other credentials. The transport refuses the headers `Cookie`, `Host`, `Origin`, `Referer`, `Connection`, `Content-Length` and `Transfer-Encoding`, and every header that starts with `Sec-` or `Proxy-`, with `HTTP_HEADER`.\n\nA request is not kept in the browser cache, except a public read marked `Cached`. A request with an `Authorization` header is never kept.\n\nAn answer that does not have the shape of the model fails with `HTTP_RESPONSE`, and an answer with an error status fails with `HTTP_STATUS`. Removing the component that started a request cancels it (ADR 0090)."
         }
       ]
     },
@@ -9636,7 +9636,7 @@
             },
             {
               "name": "client/services/UserFormService.swift",
-              "code": "@Service\nfinal class UserFormService {\n    private let usersClient: UsersClient = UsersClient()\n    let applicationEventPublisher: ApplicationEventPublisher\n    var name: String = \"\"\n\n    func save() async throws {\n        let answer = try await usersClient.save(name: .string(name))\n        applicationEventPublisher.publishEvent(UserSaved(name: try answer.get(\"name\").text), false)\n    }\n}\n"
+              "code": "@Service\nfinal class UserFormService {\n    @Needs\n    private let usersClient: UsersClient\n    let applicationEventPublisher: ApplicationEventPublisher\n    var name: String = \"\"\n\n    func save() async throws {\n        let answer = try await usersClient.save(name: .string(name))\n        applicationEventPublisher.publishEvent(UserSaved(name: try answer.get(\"name\").text), false)\n    }\n}\n"
             },
             {
               "name": "client/services/UserListService.swift",
@@ -9656,7 +9656,7 @@
             },
             {
               "name": "client/services/UserFormService.java",
-              "code": "import java.util.Map;\nimport models.UserSaved;\n\n@Service\nclass UserFormService {\n    private final UsersClient usersClient = new UsersClient();\n    ApplicationEventPublisher applicationEventPublisher;\n    String name = \"\";\n\n    void save() {\n        Map<?, ?> answer = (Map<?, ?>) usersClient.save(name);\n        applicationEventPublisher.publishEvent(new UserSaved((String) answer.get(\"name\")), false);\n    }\n}\n"
+              "code": "import java.util.Map;\nimport models.UserSaved;\n\n@Service\nclass UserFormService {\n    @Needs\n    private final UsersClient usersClient;\n    ApplicationEventPublisher applicationEventPublisher;\n    String name = \"\";\n\n    void save() {\n        Map<?, ?> answer = (Map<?, ?>) usersClient.save(name);\n        applicationEventPublisher.publishEvent(new UserSaved((String) answer.get(\"name\")), false);\n    }\n}\n"
             },
             {
               "name": "client/services/UserListService.java",
@@ -12234,7 +12234,7 @@
         {
           "heading": "Outgoing HTTP: Tac",
           "axis": "language",
-          "summary": "In the browser, HTTPClient is the auto-managed transport. A read is sent no-store, so it is always fresh; to keep a read, put CacheSettings on the client and Cached on the read, as CatalogClient does (see the feature \"Caching public reads\"). HTTPClient takes no cache option: the build refuses `{\"cache\": ...}` and names CacheSettings and Cached (ADR 0087). A Tac HTTPClient must declare at least one request method, such as GetRequest. Like a Spring @HttpExchange interface, a client has no implementation: JavaScript, TypeScript and Ruby write a class whose methods have empty bodies. Swift, Kotlin, Java, C#, F#, Rust, Go and Dart write the client in their bodiless form (a protocol, an interface, an F# type with only abstract members, a trait, a Go interface or an abstract interface class). The client lives in client/remotes. Tachyon generates the client and its behavior context from the Setup with the same stem (CatalogClient uses CatalogSetup), whose HTTP adapter sends the request. A JavaScript, TypeScript, Dart, Rust, Go or Kotlin service injects the client with Needs; in Rust the field is `#[Needs] catalog_client: std::sync::Arc<CatalogClient>`, in Go `// @Needs` stands above `catalogClient *CatalogClient`, and in Kotlin `@Needs` stands above `private val catalog: CatalogClient`. In the other languages, the service builds the client: CatalogClient() in Swift and F#, new CatalogClient() in Java and C# and CatalogClient.new in Ruby. A C# service may also inject it with Needs, as the first app does. A client with a method body, a field or another role, such as a service that is also an HTTPClient, fails with TY1308. A request to another origin needs its host in `tac.outgoing.hosts`: the build checks request URLs, and the page's `connect-src` lets the browser reach only these hosts. In Dart, C#, F#, Rust and Go, when the Setup has no matching HTTP adapter, the browser sends the request to the same origin (ADR 0090). See \"Calling the server from a page\".",
+          "summary": "In the browser, HTTPClient is the auto-managed transport. A read is sent no-store, so it is always fresh; to keep a read, put CacheSettings on the client and Cached on the read, as CatalogClient does (see the feature \"Caching public reads\"). HTTPClient takes no cache option: the build refuses `{\"cache\": ...}` and names CacheSettings and Cached (ADR 0087). A Tac HTTPClient must declare at least one request method, such as GetRequest. Like a Spring @HttpExchange interface, a client has no implementation: JavaScript, TypeScript and Ruby write a class whose methods have empty bodies. Swift, Kotlin, Java, C#, F#, Rust, Go and Dart write the client in their bodiless form (a protocol, an interface, an F# type with only abstract members, a trait, a Go interface or an abstract interface class). The client lives in client/remotes. Tachyon generates the client and its behavior context from the Setup with the same stem (CatalogClient uses CatalogSetup), whose HTTP adapter sends the request. A JavaScript, TypeScript, Dart, Rust, Go, Kotlin, Swift, Java or C# service injects the client with Needs; in Rust the field is `#[Needs] catalog_client: std::sync::Arc<CatalogClient>`, in Go `// @Needs` stands above `catalogClient *CatalogClient`, in Kotlin `@Needs` stands above `private val catalog: CatalogClient`, in Swift above `private let catalog: CatalogClient`, in Java above `private final CatalogClient catalog;`, and in C# `[Needs]` stands above `private readonly CatalogClient _catalog;`. In the other languages, the service builds the client: CatalogClient() in F# and CatalogClient.new in Ruby. A client with a method body, a field or another role, such as a service that is also an HTTPClient, fails with TY1308. A request to another origin needs its host in `tac.outgoing.hosts`: the build checks request URLs, and the page's `connect-src` lets the browser reach only these hosts. In Dart, C#, F#, Rust, Go, Kotlin, Swift and Java, when the Setup has no matching HTTP adapter, the browser sends the request to the same origin (ADR 0090). A C++ client has no Setup, so the browser always sends its request to the same origin (ADR 0099). See \"Calling the server from a page\".",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -12266,7 +12266,7 @@
             },
             {
               "name": "client/services/CatalogService.swift",
-              "code": "@Service\nfinal class CatalogService {\n    let catalog: CatalogClient = CatalogClient()\n    var count: Int = 0\n\n    func load() async throws {\n        count = CatalogService.countItems(try await catalog.all())\n    }\n\n    private static func countItems(_ answer: BehaviorJSON) -> Int {\n        guard case .array(let items) = answer.get(\"items\") else { return 0 }\n        return items.count\n    }\n}\n"
+              "code": "@Service\nfinal class CatalogService {\n    @Needs\n    private let catalog: CatalogClient\n    var count: Int = 0\n\n    func load() async throws {\n        count = CatalogService.countItems(try await catalog.all())\n    }\n\n    private static func countItems(_ answer: BehaviorJSON) -> Int {\n        guard case .array(let items) = answer.get(\"items\") else { return 0 }\n        return items.count\n    }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.kt",
@@ -12286,7 +12286,7 @@
             },
             {
               "name": "client/services/CatalogService.cs",
-              "code": "[Service]\npublic class CatalogService {\n    readonly CatalogClient _catalog = new CatalogClient();\n    public int count = 0;\n\n    public async System.Threading.Tasks.Task Load() {\n        var answer = await _catalog.All();\n        count = answer.Get(\"items\").Items.Length;\n    }\n}\n"
+              "code": "[Service]\npublic class CatalogService {\n    [Needs]\n    private readonly CatalogClient _catalog;\n    public int count = 0;\n\n    public async System.Threading.Tasks.Task Load() {\n        var answer = await _catalog.All();\n        count = answer.Get(\"items\").Items.Length;\n    }\n}\n"
             },
             {
               "name": "client/services/CatalogService.fs",
@@ -12326,7 +12326,7 @@
             },
             {
               "name": "client/remotes/CatalogClient.cs",
-              "code": "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All();\n}\n"
+              "code": "[HTTPClient]\npublic interface CatalogClient {\n    [GetRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All();\n}\n"
             },
             {
               "name": "client/remotes/CatalogClient.fs",
@@ -12362,7 +12362,7 @@
             },
             {
               "name": "client/services/CatalogService.java",
-              "code": "@Service\nclass CatalogService {\n    private final CatalogClient catalog = new CatalogClient();\n    int count = 0;\n\n    void load() {\n        java.util.Map<?, ?> answer = (java.util.Map<?, ?>) catalog.all();\n        count = ((java.util.List<?>) answer.get(\"items\")).size();\n    }\n}\n"
+              "code": "@Service\nclass CatalogService {\n    @Needs\n    private final CatalogClient catalog;\n    int count = 0;\n\n    void load() {\n        java.util.Map<?, ?> answer = (java.util.Map<?, ?>) catalog.all();\n        count = ((java.util.List<?>) answer.get(\"items\")).size();\n    }\n}\n"
             },
             {
               "name": "client/remotes/CatalogClient.java",

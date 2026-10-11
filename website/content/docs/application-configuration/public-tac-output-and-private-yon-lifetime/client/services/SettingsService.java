@@ -2,7 +2,8 @@ import java.util.Map;
 
 @Service
 class SettingsService {
-    private final ApplicationClient applicationClient = new ApplicationClient();
+    @Needs
+    private final ApplicationClient applicationClient;
     String api = "";
 
     void load() {

@@ -1735,7 +1735,7 @@
         },
         {
           "name": "client/remotes/ProductsClient.cs",
-          "code": "[CacheSettings({\"name\":\"products\",\"ttlMs\":60000,\"maxBytes\":65536,\"maxEntries\":16})]\n[HTTPClient]\ninterface ProductsClient {\n    [Cached]\n    [GetRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> List();\n\n    [ClearCache({\"method\":\"List\"})]\n    [PostRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> Save([RequestBody] BehaviorJSON product);\n}\n"
+          "code": "[CacheSettings({\"name\":\"products\",\"ttlMs\":60000,\"maxBytes\":65536,\"maxEntries\":16})]\n[HTTPClient]\npublic interface ProductsClient {\n    [Cached]\n    [GetRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> List();\n\n    [ClearCache({\"method\":\"List\"})]\n    [PostRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> Save([RequestBody] BehaviorJSON product);\n}\n"
         },
         {
           "name": "client/setups/ProductsSetup.cs",
@@ -1743,7 +1743,7 @@
         },
         {
           "name": "client/services/CatalogService.cs",
-          "code": "[Service]\npublic sealed class CatalogService {\n    private readonly ProductsClient products = new ProductsClient();\n    public int Count = 0;\n\n    public async System.Threading.Tasks.Task Load() {\n        var answer = await products.List();\n        Count = answer.Get(\"items\").Items.Length;\n    }\n\n    public async System.Threading.Tasks.Task Add() {\n        await products.Save(BehaviorJSON.Parse(\"{\\\"name\\\":\\\"anvil\\\"}\"));\n    }\n}\n"
+          "code": "[Service]\npublic sealed class CatalogService {\n    [Needs]\n    private readonly ProductsClient _products;\n    public int Count = 0;\n\n    public async System.Threading.Tasks.Task Load() {\n        var answer = await _products.List();\n        Count = answer.Get(\"items\").Items.Length;\n    }\n\n    public async System.Threading.Tasks.Task Add() {\n        await _products.Save(BehaviorJSON.Parse(\"{\\\"name\\\":\\\"anvil\\\"}\"));\n    }\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.fs",
@@ -1779,7 +1779,7 @@
         },
         {
           "name": "client/services/CatalogService.java",
-          "code": "import java.util.List;\nimport java.util.Map;\n\n@Service\nclass CatalogService {\n    private final ProductsClient products = new ProductsClient();\n    int count = 0;\n\n    void load() {\n        count = ((List<?>) ((Map<?, ?>) products.list()).get(\"items\")).size();\n    }\n\n    void add() {\n        products.save(Map.of(\"name\", \"anvil\"));\n    }\n}\n"
+          "code": "import java.util.List;\nimport java.util.Map;\n\n@Service\nclass CatalogService {\n    @Needs\n    private final ProductsClient products;\n    int count = 0;\n\n    void load() {\n        count = ((List<?>) ((Map<?, ?>) products.list()).get(\"items\")).size();\n    }\n\n    void add() {\n        products.save(Map.of(\"name\", \"anvil\"));\n    }\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.dart",
@@ -1791,7 +1791,7 @@
         },
         {
           "name": "client/services/CatalogService.dart",
-          "code": "@Service\nclass CatalogService {\n  final ProductsClient _products = ProductsClient();\n  int count = 0;\n\n  Future<void> load() async {\n    final answer = await _products.list() as Map;\n    count = (answer['items'] as List).length;\n  }\n\n  Future<void> add() async {\n    await _products.save({'name': 'anvil'});\n  }\n}\n"
+          "code": "@Service\nclass CatalogService {\n  @Needs\n  final ProductsClient productsClient;\n  int count = 0;\n\n  Future<void> load() async {\n    final answer = await productsClient.list() as Map;\n    count = (answer['items'] as List).length;\n  }\n\n  Future<void> add() async {\n    await productsClient.save({'name': 'anvil'});\n  }\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.swift",
@@ -1803,7 +1803,7 @@
         },
         {
           "name": "client/services/CatalogService.swift",
-          "code": "@Service\nfinal class CatalogService {\n    private let products: ProductsClient = ProductsClient()\n    var count: Int = 0\n\n    func load() async throws {\n        count = try await products.list().get(\"items\").items.count\n    }\n\n    func add() async throws {\n        _ = try await products.save(product: .object([\"name\": .string(\"anvil\")]))\n    }\n}\n"
+          "code": "@Service\nfinal class CatalogService {\n    @Needs\n    private let products: ProductsClient\n    var count: Int = 0\n\n    func load() async throws {\n        count = try await products.list().get(\"items\").items.count\n    }\n\n    func add() async throws {\n        _ = try await products.save(product: .object([\"name\": .string(\"anvil\")]))\n    }\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.rb",
