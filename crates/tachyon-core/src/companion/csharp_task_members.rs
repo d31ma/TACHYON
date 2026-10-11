@@ -1,10 +1,11 @@
 use super::{
     CsharpModelType, CsharpTaskResult, Member, class_body_named, csharp_arguments,
-    csharp_parameters, declared_service, identifier, lower_first, without_type_first_modifiers,
+    csharp_parameters, declared_service, lower_first, without_type_first_modifiers,
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use crate::route_types::ModelTable;
+use crate::unicode_name::UnicodeName;
 
 pub(crate) struct CsharpTaskMembers;
 
@@ -92,7 +93,7 @@ impl CsharpTaskMembers {
         let open = signature.find('<')?;
         let (kind, rest) = CsharpModelType::declared(signature, open)?;
         Self::task_kind(&kind)?;
-        let name = identifier(rest);
+        let name = UnicodeName::leading(rest);
         let parameters = csharp_parameters(rest[name.len()..].trim_start())?;
         Some(Member {
             name,

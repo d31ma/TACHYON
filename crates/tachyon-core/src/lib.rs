@@ -53,6 +53,7 @@ mod tool_restart;
 pub mod tool_setup;
 mod topics;
 mod ttid;
+mod unicode_name;
 mod wasm_optimizer;
 mod wasm_release_note;
 mod wasm_release_step;
