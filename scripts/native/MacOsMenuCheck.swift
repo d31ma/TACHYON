@@ -29,7 +29,7 @@ private struct MacOsMenuCheck {
         progress("AppKit loop returned")
         guard let result else { throw NSError(domain: "Menu application stopped before its checks completed", code: 1) }
         try result.get()
-        FileHandle.standardOutput.write(Data("PASS native macOS menu roles, actions, ownership and text responder\n".utf8))
+        FileHandle.standardOutput.write(Data("PASS native macOS menu roles, actions, ownership, private clipboard and text responder\n".utf8))
     }
 
     private static func wakeEvent() throws -> NSEvent {
@@ -87,11 +87,52 @@ private struct MacOsMenuCheck {
         try require(app.title == "Menu Check", "Application identity changed")
         try require(app.item(at: 0)?.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:)), "About is not standard AppKit")
         try require(app.item(at: 2)?.action == #selector(NSApplication.hide(_:)), "Hide action missing")
-        try require(app.item(at: 3)?.keyEquivalentModifierMask == [.command, .option], "Hide Others shortcut changed")
-        try require(app.item(at: 4)?.action == #selector(NSApplication.unhideAllApplications(_:)), "Show All missing")
+        try checkHideOthers(application, app)
+        try checkShowAll(application, app)
         try require(app.item(at: 6)?.action == #selector(NSApplication.terminate(_:)), "Quit bypasses NSApplication termination")
         try require(app.item(at: 6)?.target as? NSApplication === application, "Quit targets another owner")
         try require(app.item(at: 6)?.keyEquivalent == "q", "Quit shortcut missing")
+    }
+
+    @MainActor
+    private static func checkHideOthers(_ application: NSApplication, _ menu: NSMenu) throws {
+        guard let others = menu.item(at: 3) else { throw NSError(domain: "Hide Others missing", code: 1) }
+        try require(others.title == "Hide Others", "Hide Others title changed: " + editItemState(others))
+        try require(others.action == #selector(NSApplication.hideOtherApplications(_:)), "Hide Others action changed: " + editItemState(others))
+        try require(others.keyEquivalent == "h", "Hide Others key changed: " + editItemState(others))
+        try require(others.keyEquivalentModifierMask == [.command, .option], "Hide Others shortcut changed")
+        try checkApplicationTarget(application, menu, others, otherApplications(hidden: false) > 0)
+    }
+
+    @MainActor
+    private static func checkShowAll(_ application: NSApplication, _ menu: NSMenu) throws {
+        guard let showAll = menu.item(at: 4) else { throw NSError(domain: "Show All missing", code: 1) }
+        try require(showAll.title == "Show All", "Show All title changed: " + editItemState(showAll))
+        try require(showAll.action == #selector(NSApplication.unhideAllApplications(_:)), "Show All action changed: " + editItemState(showAll))
+        try require(showAll.keyEquivalent.isEmpty, "Show All gained a shortcut: " + editItemState(showAll))
+        try checkApplicationTarget(application, menu, showAll, otherApplications(hidden: true) > 0)
+    }
+
+    @MainActor
+    private static func checkApplicationTarget(_ application: NSApplication, _ menu: NSMenu, _ item: NSMenuItem,
+                                               _ expectedEnabled: Bool) throws {
+        try require(item.target as? NSApplication === application, "Item targets another owner: " + editItemState(item))
+        let receiver = application.target(forAction: item.action!, to: item.target, from: item)
+        try require(receiver as? NSApplication === application, "Item action resolves to another receiver: " + editItemState(item))
+        try require(menu.autoenablesItems, "Application menu skips native validation")
+        menu.update()
+        let validated = application.validateMenuItem(item)
+        progress("\(item.title): enabled=\(item.isEnabled), validated=\(validated), expected=\(expectedEnabled)")
+        try require(item.isEnabled == validated, "Item enabled state differs from NSApplication validation: " + editItemState(item))
+        try require(item.isEnabled == expectedEnabled, "Item enabled state differs from other applications' visibility: " + editItemState(item))
+    }
+
+    private static func otherApplications(hidden: Bool) -> Int {
+        let current = NSRunningApplication.current.processIdentifier
+        let others = NSWorkspace.shared.runningApplications.filter { (running: NSRunningApplication) -> Bool in
+            running.activationPolicy == .regular && running.processIdentifier != current && running.isHidden == hidden
+        }
+        return others.count
     }
 
     @MainActor
@@ -139,7 +180,12 @@ private struct MacOsMenuCheck {
         let redo = try editItem(edit, NSSelectorFromString("redo:"))
         try require(undo.keyEquivalent == "z", "Undo shortcut missing: " + editItemState(undo))
         try require(redo.keyEquivalentModifierMask == [.command, .shift], "Redo shortcut changed: " + editItemState(redo))
-        let text = NSTextView(frame: window.contentView!.bounds)
+        let general = NSPasteboard.general
+        let generalCount = general.changeCount
+        let board = NSPasteboard(name: NSPasteboard.Name("tachyon-menu-test-" + UUID().uuidString))
+        defer { board.releaseGlobally() }
+        let text = MacOsMenuPasteboardText(frame: window.contentView!.bounds)
+        text.privateBoard = board
         text.string = "native responder text"
         window.contentView = text
         window.makeKeyAndOrderFront(nil)
@@ -152,6 +198,59 @@ private struct MacOsMenuCheck {
         try require(select.action == #selector(NSText.selectAll(_:)), "Select All action missing")
         try require(application.sendAction(select.action!, to: select.target, from: select), "Native responder declined Select All: " + responderState(application, window, text))
         try require(text.selectedRange() == NSRange(location: 0, length: text.string.utf16.count), "Select All did not reach native text responder: " + responderState(application, window, text))
+        try checkCopy(application, edit, text, board)
+        try checkCut(application, edit, text, board)
+        try checkPaste(application, edit, text, board)
+        try require(general.changeCount == generalCount, "Edit commands changed the general pasteboard: \(generalCount) to \(general.changeCount)")
+        progress("Cut, Copy and Paste used the private pasteboard; general pasteboard changeCount stayed \(generalCount)")
+    }
+
+    @MainActor
+    private static func checkCopy(_ application: NSApplication, _ edit: NSMenu, _ text: MacOsMenuPasteboardText,
+                                  _ board: NSPasteboard) throws {
+        let writes = text.writes
+        text.setSelectedRange(NSRange(location: 0, length: 6))
+        try sendEdit(application, edit, #selector(NSText.copy(_:)))
+        try require(text.writes > writes, "Copy did not use the private pasteboard")
+        try require(board.string(forType: .string) == "native", "Copy did not write the selection: " + clipboardState(text, board))
+        try require(text.string == "native responder text", "Copy changed the text: " + clipboardState(text, board))
+    }
+
+    @MainActor
+    private static func checkCut(_ application: NSApplication, _ edit: NSMenu, _ text: MacOsMenuPasteboardText,
+                                 _ board: NSPasteboard) throws {
+        let writes = text.writes
+        text.setSelectedRange(NSRange(location: 6, length: 10))
+        try sendEdit(application, edit, #selector(NSText.cut(_:)))
+        try require(text.writes > writes, "Cut did not use the private pasteboard")
+        try require(board.string(forType: .string) == " responder", "Cut did not write the selection: " + clipboardState(text, board))
+        try require(text.string == "native text", "Cut did not remove the selection: " + clipboardState(text, board))
+        try require(text.selectedRange() == NSRange(location: 6, length: 0), "Cut left a selection: " + clipboardState(text, board))
+    }
+
+    @MainActor
+    private static func checkPaste(_ application: NSApplication, _ edit: NSMenu, _ text: MacOsMenuPasteboardText,
+                                   _ board: NSPasteboard) throws {
+        let reads = text.reads
+        board.clearContents()
+        try require(board.setString("pasted", forType: .string), "Private pasteboard refused the paste text")
+        text.setSelectedRange(NSRange(location: 7, length: 4))
+        try sendEdit(application, edit, #selector(NSText.paste(_:)))
+        try require(text.reads > reads, "Paste did not use the private pasteboard")
+        try require(text.string == "native pasted", "Paste did not replace the selection: " + clipboardState(text, board))
+        try require(text.selectedRange() == NSRange(location: 13, length: 0), "Paste left the wrong insertion point: " + clipboardState(text, board))
+    }
+
+    @MainActor
+    private static func sendEdit(_ application: NSApplication, _ edit: NSMenu, _ action: Selector) throws {
+        let item = try editItem(edit, action)
+        try require(item.target == nil, "Edit command bypasses the responder chain: " + editItemState(item))
+        try require(application.sendAction(action, to: item.target, from: item), "Responder chain declined " + editItemState(item))
+    }
+
+    private static func clipboardState(_ text: NSTextView, _ board: NSPasteboard) -> String {
+        let copied = board.string(forType: .string) ?? "nil"
+        return "text=\(text.string.debugDescription), selection=\(NSStringFromRange(text.selectedRange())), board=\(copied.debugDescription)"
     }
 
     private static func editItem(_ menu: NSMenu, _ action: Selector) throws -> NSMenuItem {

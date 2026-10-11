@@ -10,6 +10,9 @@ impl MacOsMenuFixture {
     #[cfg(target_os = "macos")]
     const OWNERSHIP: &str =
         include_str!("../../../../scripts/native/MacOsMenuOwnershipCheck.swift");
+    #[cfg(target_os = "macos")]
+    const PASTEBOARD_TEXT: &str =
+        include_str!("../../../../scripts/native/MacOsMenuPasteboardText.swift");
 
     #[cfg(target_os = "macos")]
     fn retained_root() -> std::path::PathBuf {
@@ -92,8 +95,9 @@ async fn macos_menus_compile_and_execute_native_roles_and_responder_actions() {
     std::fs::write(
         &source,
         format!(
-            "{body}\n{}\n{}",
+            "{body}\n{}\n{}\n{}",
             MacOsMenuFixture::OWNERSHIP,
+            MacOsMenuFixture::PASTEBOARD_TEXT,
             MacOsMenuFixture::CALLER
         ),
     )
@@ -119,7 +123,24 @@ async fn macos_menus_compile_and_execute_native_roles_and_responder_actions() {
         .await
         .expect("real AppKit menu/responder execution");
     assert!(
-        output.contains("PASS native macOS menu roles, actions, ownership and text responder"),
+        output.contains(
+            "PASS native macOS menu roles, actions, ownership, private clipboard and text responder"
+        ),
         "{output}"
     );
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn macos_menu_clipboard_check_never_writes_the_general_pasteboard() {
+    let text = MacOsMenuFixture::PASTEBOARD_TEXT;
+    let caller = MacOsMenuFixture::CALLER;
+    assert!(!text.contains("general"));
+    assert!(caller.contains("NSPasteboard.Name(\"tachyon-menu-test-\" + UUID().uuidString)"));
+    assert!(caller.contains("defer { board.releaseGlobally() }"));
+    assert!(caller.contains("general.changeCount == generalCount"));
+    assert!(!caller.contains("general.setString"));
+    assert!(!caller.contains("general.clearContents"));
+    assert!(!caller.contains("hideOtherApplications(nil)"));
+    assert!(!caller.contains("unhideAllApplications(nil)"));
 }

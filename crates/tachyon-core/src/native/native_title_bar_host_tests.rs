@@ -169,5 +169,6 @@ async fn macos_integrated_title_bar_keeps_buttons_insets_drag_regions_and_full_s
             "{}: {output}",
             variant.name
         );
+        println!("{} title bar output:\n{output}", variant.name);
     }
 }
