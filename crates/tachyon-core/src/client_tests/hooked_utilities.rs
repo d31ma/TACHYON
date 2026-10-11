@@ -13,14 +13,13 @@ impl HookedUtilities {
     pub(super) const RECORDER_PUBLISH: &'static str =
         "globalThis[Symbol.for('tachyon.unit.behaviors')] = Behaviors;\n";
 
-    pub(super) fn import_mapping(stage: &Path) -> Option<(String, String)> {
+    pub(super) fn import_mapping(stage: &Path) -> std::io::Result<Option<(String, String)>> {
         let copies = stage.join(UtilityLayout::CLIENT_ROOT);
-        copies.is_dir().then(|| {
-            (
-                String::from(Self::IMPORT_PREFIX),
-                format!("file://{}/", copies.display()),
-            )
-        })
+        if !copies.is_dir() {
+            return Ok(None);
+        }
+        let target = super::ModuleUrl::directory(&copies)?;
+        Ok(Some((String::from(Self::IMPORT_PREFIX), target)))
     }
 
     pub(super) fn write(project: &Path, stage: &Path) -> Result<(), Failure> {

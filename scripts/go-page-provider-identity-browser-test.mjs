@@ -14,6 +14,7 @@ class GoPageProviderIdentity {
   static timeout = 15_000
   static commandTimeout = 240_000
   static eventPrefix = 'GO_PAGE_EVENT '
+  static twoSameShapedServicesManifest = '{"tac":{"duplication":{"check":false}}}\n'
   static setup = String.raw`package main
 
 import (
@@ -82,6 +83,7 @@ type ProviderState struct {
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -100,59 +102,99 @@ type ${className} struct {
 func (service *${className}) Start() error { return service.Open() }
 
 func (service *${className}) Open() error {
+	context, err := service.connectWhenClosed()
+	contextID, identityErr := service.contextIdentity(context)
+	kept := service.keptContext(context, identityErr)
+	service.attach(kept, contextID)
+	return errors.Join(err, identityErr)
+}
+
+func (service *${className}) connectWhenClosed() (*BehaviorContext, error) {
 	if service.context != nil {
+		return nil, nil
+	}
+	return BehaviorsCreate[PageIdentitySetup](NewBehaviorOptions("public-${role}", NewBehaviorSignal()))
+}
+
+func (service *${className}) contextIdentity(context *BehaviorContext) (string, error) {
+	if context == nil {
+		return "", nil
+	}
+	return (SecureRandom{}).UUID()
+}
+
+func (service *${className}) keptContext(context *BehaviorContext, failure error) *BehaviorContext {
+	if failure != nil {
+		context.Dispose()
 		return nil
 	}
-	context, err := BehaviorsCreate[PageIdentitySetup](NewBehaviorOptions("public-${role}", NewBehaviorSignal()))
-	if err != nil {
-		return err
-	}
-	identity, err := (SecureRandom{}).UUID()
-	if err != nil {
-		context.Dispose()
-		return err
+	return context
+}
+
+func (service *${className}) attach(context *BehaviorContext, contextID string) {
+	if context == nil {
+		return
 	}
 	service.context = context
 	service.client = NewPageIdentityClientWith(context)
-	service.ContextID = identity
-	return nil
+	service.ContextID = contextID
 }
 
 func (service *${className}) Inspect() error {
 	state, err := service.client.Read()
-	if err != nil {
-		return err
-	}
-	service.save(state)
-	return nil
+	service.saveWhenRead(state, err)
+	return err
 }
 
 func (service *${className}) Increment() error {
 	state, err := service.client.Increment()
-	if err != nil {
-		return err
-	}
-	service.save(state)
-	return nil
+	service.saveWhenRead(state, err)
+	return err
 }
 
-func (service *${className}) save(state ProviderState) {
+func (service *${className}) saveWhenRead(state ProviderState, failure error) {
+	if failure != nil {
+		return
+	}
 	service.Identity = state.Identity
 	service.Count = state.Count
 	service.Constructed = state.Constructed
 }
 
 func (service *${className}) Release() {
+	released := service.disposeWhenOpen()
+	encoded, err := service.disposalEvent(released)
+	service.stopOn(err)
+	service.printEvent(encoded)
+}
+
+func (service *${className}) disposeWhenOpen() bool {
 	if service.context == nil {
-		return
+		return false
 	}
 	service.context.Dispose()
 	service.context.Dispose()
 	service.context = nil
 	service.ContextDisposals++
-	encoded, err := json.Marshal(map[string]any{"kind": "dispose-context", "role": "${role}", "context": service.ContextID, "identity": service.Identity, "disposals": service.ContextDisposals})
-	if err != nil {
-		panic(err)
+	return true
+}
+
+func (service *${className}) disposalEvent(released bool) ([]byte, error) {
+	if !released {
+		return nil, nil
+	}
+	return json.Marshal(map[string]any{"kind": "dispose-context", "role": "${role}", "context": service.ContextID, "identity": service.Identity, "disposals": service.ContextDisposals})
+}
+
+func (service *${className}) stopOn(failure error) {
+	if failure != nil {
+		panic(failure)
+	}
+}
+
+func (service *${className}) printEvent(encoded []byte) {
+	if encoded == nil {
+		return
 	}
 	fmt.Printf("GO_PAGE_EVENT %s\n", encoded)
 }
@@ -166,13 +208,15 @@ func (service *${className}) Stop() { service.Release() }
     return `<section id="${role}-panel"><h2>${role}</h2>
 <button id="${role}-read" on:click="${role}.inspect()">Read ${role}</button>
 <button id="${role}-increment" on:click="${role}.increment()">Increment ${role}</button>
+<button id="${role}-open" on:click="${role}.open()">Open ${role}</button>
+<button id="${role}-release" on:click="${role}.release()">Release ${role}</button>
 <p id="${role}-identity">{${role}.identity}</p><p id="${role}-count">{${role}.count}</p>
 <p id="${role}-constructed">{${role}.constructed}</p><p id="${role}-disposals">{${role}.contextDisposals}</p></section>\n`
   }
 
   static sources() {
     return {
-      'client/manifest.json': '{"tac":{}}\n',
+      'client/manifest.json': GoPageProviderIdentity.twoSameShapedServicesManifest,
       'client/pages/tac.html': '<provider-scope />\n',
       'client/pages/control/tac.html': '<writer-panel />\n',
       'client/components/provider/scope/tac.html': '<main><button id="hide" on:click="visibility.show = false">Hide both consumers</button><button id="show" on:click="visibility.show = true">Show both consumers</button><logic :if="visibility.show"><writer-panel /><reader-panel /></logic></main>\n',

@@ -53,12 +53,9 @@ pub enum BehaviorValue {
 }
 impl BehaviorValue {
     pub fn object<K: Into<String>>(entries: impl IntoIterator<Item = (K, Self)>) -> Self {
-        Self::Object(
-            entries
-                .into_iter()
-                .map(|(key, value)| (key.into(), value))
-                .collect(),
-        )
+        let mut values = std::collections::BTreeMap::new();
+        values.extend(entries.into_iter().map(|(key, value)| (key.into(), value)));
+        Self::Object(values)
     }
     pub fn get(&self, key: &str) -> Option<&Self> {
         match self {
@@ -1160,11 +1157,14 @@ impl BehaviorPropertyInput for BehaviorValue {
         &self,
     ) -> BehaviorResult<std::collections::BTreeMap<String, String>> {
         let prefix = format!("{}.", __TACHYON_BEHAVIOR_ENVIRONMENT);
-        Ok(behavior_application_inputs(self)?
-            .into_iter()
-            .filter(|(path, _)| path.starts_with(&prefix))
-            .map(|(path, value)| (path.replace('.', "_").to_ascii_uppercase(), value))
-            .collect())
+        let mut inputs = std::collections::BTreeMap::new();
+        inputs.extend(
+            behavior_application_inputs(self)?
+                .into_iter()
+                .filter(|(path, _)| path.starts_with(&prefix))
+                .map(|(path, value)| (path.replace('.', "_").to_ascii_uppercase(), value)),
+        );
+        Ok(inputs)
     }
 }
 impl BehaviorOptions {
@@ -2146,11 +2146,10 @@ fn behavior_query(
     }
     let predicates = BehaviorValue::Array(predicates).checked(65_536)?;
     let order = behavior_query_order(policy)?;
-    let mut query = std::collections::BTreeMap::from([
-        (String::from("kind"), policy.operation.into()),
-        (String::from("where"), predicates),
-        (String::from("orderBy"), BehaviorValue::Array(order)),
-    ]);
+    let mut query = std::collections::BTreeMap::new();
+    query.insert(String::from("kind"), policy.operation.into());
+    query.insert(String::from("where"), predicates);
+    query.insert(String::from("orderBy"), BehaviorValue::Array(order));
     if policy.operation == "find" {
         let page = behavior_query_page(policy, args, &mut used)?;
         query.insert(String::from("page"), page);
@@ -2211,10 +2210,9 @@ fn behavior_query_predicate(
     if !policy.fields.contains(&predicate.field) {
         return Err(behavior_invalid());
     }
-    let mut values = std::collections::BTreeMap::from([
-        (String::from("field"), predicate.field.into()),
-        (String::from("operator"), predicate.operator.into()),
-    ]);
+    let mut values = std::collections::BTreeMap::new();
+    values.insert(String::from("field"), predicate.field.into());
+    values.insert(String::from("operator"), predicate.operator.into());
     match predicate.operator {
         "isNull" | "isNotNull" if predicate.argument.is_none() => {}
         "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in" => {

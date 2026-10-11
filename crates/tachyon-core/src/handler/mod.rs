@@ -18,7 +18,7 @@ pub(crate) fn fuzz_resource_headers(bytes: &[u8]) {
 }
 
 pub(crate) use api_reference::files as api_reference_files;
-pub(crate) use egress::EgressProxy;
+pub(crate) use egress::{EgressProxy, NodeProxyGate};
 pub use interpreters::Workers;
 pub use isolation::{FirecrackerIsolation, YonIsolationPolicy};
 pub use process::{

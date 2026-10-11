@@ -16,7 +16,7 @@ impl NativeHost {
     const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1_024;
     const MAX_BUNDLED_FILE_BYTES: u64 = 16 * 1_024 * 1_024;
     const TOOL_TIME_LIMIT: Duration = Duration::from_mins(2);
-    const LONG_TOOL_TIME_LIMIT: Duration = Duration::from_mins(15);
+    pub(super) const LONG_TOOL_TIME_LIMIT: Duration = Duration::from_mins(15);
     pub(super) const SHIM: &str = r"globalThis.__tachyonCompanionQueue = []
 globalThis.__tachyonCompanionPublish = (signal) => {
   const queue = globalThis.__tachyonCompanionQueue
@@ -47,24 +47,52 @@ impl NativeHost {
         program: &str,
         arguments: &[&str],
     ) -> Result<ToolOutput, Failure> {
-        let mut command = Command::new(program);
-        command
-            .args(arguments)
-            .stdin(Stdio::null())
-            .kill_on_drop(true);
-        Self::supervised_output(program, &mut command, Self::LONG_TOOL_TIME_LIMIT).await
+        let limit = Self::LONG_TOOL_TIME_LIMIT;
+        Self::run_limited_output(program, arguments, None, &[], limit).await
+    }
+
+    pub(super) async fn run_limited(
+        program: &str,
+        arguments: &[&str],
+        working_directory: Option<&Path>,
+        environment: &[(&str, &str)],
+        time_limit: Duration,
+    ) -> Result<String, Failure> {
+        let output = Self::run_limited_output(
+            program,
+            arguments,
+            working_directory,
+            environment,
+            time_limit,
+        )
+        .await?;
+        Ok(bounded_text(&output.stdout))
     }
 
     pub(super) async fn run_tool_output(
         program: &str,
         arguments: &[&str],
     ) -> Result<ToolOutput, Failure> {
+        Self::run_limited_output(program, arguments, None, &[], Self::TOOL_TIME_LIMIT).await
+    }
+
+    async fn run_limited_output(
+        program: &str,
+        arguments: &[&str],
+        working_directory: Option<&Path>,
+        environment: &[(&str, &str)],
+        time_limit: Duration,
+    ) -> Result<ToolOutput, Failure> {
         let mut command = Command::new(program);
         command
             .args(arguments)
+            .envs(environment.iter().copied())
             .stdin(Stdio::null())
             .kill_on_drop(true);
-        Self::supervised_output(program, &mut command, Self::TOOL_TIME_LIMIT).await
+        if let Some(working_directory) = working_directory {
+            command.current_dir(working_directory);
+        }
+        Self::supervised_output(program, &mut command, time_limit).await
     }
 
     async fn supervised_output(
@@ -175,18 +203,8 @@ pub(super) async fn run_tool_with(
     working_directory: Option<&Path>,
     environment: &[(&str, &str)],
 ) -> Result<String, Failure> {
-    let mut command = Command::new(program);
-    command
-        .args(arguments)
-        .envs(environment.iter().copied())
-        .stdin(Stdio::null())
-        .kill_on_drop(true);
-    if let Some(working_directory) = working_directory {
-        command.current_dir(working_directory);
-    }
-    let output =
-        NativeHost::supervised_output(program, &mut command, NativeHost::TOOL_TIME_LIMIT).await?;
-    Ok(bounded_text(&output.stdout))
+    let limit = NativeHost::TOOL_TIME_LIMIT;
+    NativeHost::run_limited(program, arguments, working_directory, environment, limit).await
 }
 
 fn failed_tool(

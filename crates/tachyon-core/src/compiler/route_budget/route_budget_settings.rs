@@ -1,4 +1,4 @@
-use super::BudgetLimit;
+use super::{BudgetLimit, RouteRuntimes};
 use serde_json::Value;
 use std::path::Path;
 
@@ -16,7 +16,7 @@ impl RouteBudgetSettings {
     const CHECK: &'static str = "check";
     const ON_BY_DEFAULT: bool = true;
     const BYTES_PER_KILOBYTE: u64 = 1024;
-    const SCRIPT: BudgetLimit = BudgetLimit {
+    pub(super) const SCRIPT: BudgetLimit = BudgetLimit {
         name: "script",
         setting: "script",
         extensions: &[".js", ".mjs"],
@@ -47,6 +47,25 @@ impl RouteBudgetSettings {
         Self {
             script: self.python_script(selected),
             ..self
+        }
+    }
+
+    pub(super) fn for_runtimes(self, runtimes: &RouteRuntimes) -> Self {
+        Self {
+            script: self.runtime_script(runtimes),
+            ..self
+        }
+    }
+
+    fn runtime_script(self, runtimes: &RouteRuntimes) -> BudgetLimit {
+        if self.script_configured {
+            return self.script;
+        }
+        let base = Self::SCRIPT.bytes.saturating_mul(Self::BYTES_PER_KILOBYTE);
+        let raised = base.saturating_add(runtimes.allowance_bytes());
+        BudgetLimit {
+            bytes: raised.max(self.script.bytes),
+            ..self.script
         }
     }
 

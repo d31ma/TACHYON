@@ -30,8 +30,10 @@ impl RustWebModule {
         "-C",
         "strip=symbols",
     ];
-    pub(super) const OPTIMIZER_FLAGS: [&'static str; 10] = [
+    pub(super) const OPTIMIZER_FLAGS: [&'static str; 12] = [
         "-Oz",
+        "--converge",
+        "--low-memory-unused",
         "--enable-bulk-memory",
         "--enable-bulk-memory-opt",
         "--enable-sign-ext",

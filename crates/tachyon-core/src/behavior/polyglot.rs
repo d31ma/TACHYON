@@ -70,6 +70,8 @@ mod ruby;
 mod ruby_syntax;
 mod rust;
 mod rust_async_client;
+#[cfg(test)]
+mod rust_runtime_map_tests;
 mod rust_test_construction;
 mod string_literal;
 mod swift;

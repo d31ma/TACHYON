@@ -48,8 +48,12 @@ fn site() -> Vec<(PathBuf, Vec<u8>)> {
 }
 
 fn messages(manifest: &str) -> Vec<String> {
+    messages_for(manifest, &site())
+}
+
+fn messages_for(manifest: &str, files: &[(PathBuf, Vec<u8>)]) -> Vec<String> {
     let root = project(manifest);
-    BudgetCheck::verify(root.path(), &site(), true, &|_| None)
+    BudgetCheck::verify(root.path(), files, true, &|_| None)
         .err()
         .map(|failure| {
             failure
@@ -222,4 +226,95 @@ fn real_runtime_reports_auxiliary_bytes_and_keeps_the_wasm_transfer_budget() {
         .unwrap_or_else(|error| panic!("proxy size accounting: {error:?}"));
     assert!(notes[0].contains("5522230 bytes"));
     assert!(notes[0].contains("2567326 auxiliary ZIP/lock bytes"));
+}
+
+fn runtime_site(services: &[(&str, &str)], extra_kilobytes: usize) -> Vec<(PathBuf, Vec<u8>)> {
+    let modules: Vec<String> = services
+        .iter()
+        .map(|(class, _)| format!(r#"{{"module":"/.tachyon/services/{class}.js"}}"#))
+        .collect();
+    let page = format!(
+        r#"<script type="module" src="/.tachyon/tac-client.js"></script><script src="/shared/extra.js"></script><script type="application/json">{{"services":[{}]}}</script>"#,
+        modules.join(",")
+    );
+    let mut files = vec![
+        file("index.html", &page, 0),
+        file(".tachyon/tac-client.js", "", 27 * 1024),
+        file("shared/extra.js", "", extra_kilobytes * 1024),
+        file(".tachyon/services/tachyon-go.js", "", 8 * 1024),
+        file(
+            ".tachyon/services/tachyon-csharp.js",
+            "import('./dotnet/dotnet.runtime.js')",
+            4 * 1024,
+        ),
+        file(".tachyon/services/dotnet/dotnet.runtime.js", "", 86 * 1024),
+        file(".tachyon/services/tachyon-rust.js", "", 87 * 1024),
+    ];
+    for (class, shared) in services {
+        let module = format!("import {{ activate }} from './{shared}'");
+        files.push(file(&format!(".tachyon/services/{class}.js"), &module, 0));
+    }
+    files
+}
+
+fn three_runtimes(extra_kilobytes: usize) -> Vec<(PathBuf, Vec<u8>)> {
+    runtime_site(
+        &[
+            ("GoStampService", "tachyon-go.js"),
+            ("CsStampService", "tachyon-csharp.js"),
+            ("RustStampService", "tachyon-rust.js"),
+        ],
+        extra_kilobytes,
+    )
+}
+
+#[test]
+fn a_route_with_several_runtimes_within_their_allowance_passes() {
+    assert!(messages_for("{}", &three_runtimes(0)).is_empty());
+    assert!(messages_for("{}", &three_runtimes(80)).is_empty());
+}
+
+#[test]
+fn a_route_over_its_runtime_allowance_names_the_budget_and_the_runtimes() {
+    assert_eq!(
+        messages_for("{}", &three_runtimes(90)),
+        [
+            "TY1337 Route '/' loads 303 KB of script, and its budget is 300 KB. It is 200 KB for the page and its largest web runtime, .NET, plus 92 KB for Rust, 8 KB for Go (ADR 0100)."
+        ]
+    );
+}
+
+#[test]
+fn a_route_with_one_runtime_keeps_the_200_kilobyte_budget() {
+    let go_only = runtime_site(&[("GoStampService", "tachyon-go.js")], 170);
+    assert_eq!(
+        messages_for("{}", &go_only),
+        ["TY1337 Route '/' loads 206 KB of script, and its budget is 200 KB."]
+    );
+    let dotnet_only = runtime_site(
+        &[
+            ("CsStampService", "tachyon-csharp.js"),
+            ("FsStampService", "tachyon-csharp.js"),
+        ],
+        90,
+    );
+    assert_eq!(
+        messages_for("{}", &dotnet_only),
+        ["TY1337 Route '/' loads 208 KB of script, and its budget is 200 KB."]
+    );
+}
+
+#[test]
+fn an_explicit_script_budget_wins_over_the_runtime_allowance() {
+    assert_eq!(
+        messages_for(r#"{"tac":{"budgets":{"script":250}}}"#, &three_runtimes(50)),
+        ["TY1337 Route '/' loads 263 KB of script, and its budget is 250 KB."]
+    );
+    assert!(
+        messages_for(
+            r#"{"tac":{"budgets":{"script":400}}}"#,
+            &three_runtimes(110)
+        )
+        .is_empty()
+    );
 }
