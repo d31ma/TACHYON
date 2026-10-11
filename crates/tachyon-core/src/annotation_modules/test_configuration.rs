@@ -54,7 +54,7 @@ pub(super) fn include(
     if modules.len() == Module::MAX_MODULES {
         return Err(invalid(
             &path,
-            "An entry may compose at most 128 annotated files, including its test configuration.",
+            "An entry may compose at most 512 annotated files, including its test configuration.",
         ));
     }
     modules.push(Module {

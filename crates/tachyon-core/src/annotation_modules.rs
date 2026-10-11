@@ -185,7 +185,7 @@ fn read_modules(
         if modules.len() == Module::MAX_MODULES {
             return Err(invalid(
                 entry,
-                "An entry may discover at most 128 annotated role files.",
+                "An entry may discover at most 512 annotated role files.",
             ));
         }
         register_names(path, &text, &mut names)?;
@@ -501,7 +501,7 @@ impl Module {
         "services",
     ];
     const MAX_SOURCE: usize = 1024 * 1024;
-    const MAX_MODULES: usize = 128;
+    const MAX_MODULES: usize = 512;
     const EXTENSIONS: [&str; 15] = [
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "swift", "dart", "go",
         "rb", "lua",
