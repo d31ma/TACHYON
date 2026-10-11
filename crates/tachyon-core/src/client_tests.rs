@@ -516,12 +516,7 @@ fn script(
         let Some(mut command) = command else {
             continue;
         };
-        command
-            .current_dir(project)
-            .env("TAC_TEST_UNIT", "1")
-            .env("TAC_UNIT_HOOKED_ROOT", directory.join("client"))
-            .env("TAC_UNIT_CLIENT_ROOT", project.join("client"))
-            .env("TAC_UNIT_PROJECT_ROOT", project);
+        command.current_dir(project).env("TAC_TEST_UNIT", "1");
         match command.output() {
             Ok(output) => return script_output(&program, &output, portable),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -650,7 +645,19 @@ fn runtime_command(
         "deno" => configure_deno(&mut command, directory, project, unit, preload)?,
         _ => return Ok(None),
     }
+    set_root_urls(&mut command, directory, project)?;
     Ok(Some(command))
+}
+
+fn set_root_urls(command: &mut Command, directory: &Path, project: &Path) -> std::io::Result<()> {
+    let hooked = ModuleUrl::directory(&directory.join("client"))?;
+    let client = ModuleUrl::directory(&project.join("client"))?;
+    let project = ModuleUrl::directory(project)?;
+    command
+        .env("TAC_UNIT_HOOKED_URL", hooked)
+        .env("TAC_UNIT_CLIENT_URL", client)
+        .env("TAC_UNIT_PROJECT_URL", project);
+    Ok(())
 }
 
 fn configure_deno(
