@@ -1,14 +1,15 @@
 @Service
 class CatalogService {
-  final ProductsClient _products = ProductsClient();
+  @Needs
+  final ProductsClient productsClient;
   int count = 0;
 
   Future<void> load() async {
-    final answer = await _products.list() as Map;
+    final answer = await productsClient.list() as Map;
     count = (answer['items'] as List).length;
   }
 
   Future<void> add() async {
-    await _products.save({'name': 'anvil'});
+    await productsClient.save({'name': 'anvil'});
   }
 }

@@ -3,7 +3,8 @@ import java.util.Map;
 
 @Service
 class CatalogService {
-    private final ProductsClient products = new ProductsClient();
+    @Needs
+    private final ProductsClient products;
     int count = 0;
 
     void load() {

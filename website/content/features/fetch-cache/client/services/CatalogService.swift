@@ -1,6 +1,7 @@
 @Service
 final class CatalogService {
-    private let products: ProductsClient = ProductsClient()
+    @Needs
+    private let products: ProductsClient
     var count: Int = 0
 
     func load() async throws {

@@ -3,7 +3,8 @@ using System.Linq;
 
 [Service]
 public class CatalogService {
-    readonly CatalogClient _catalog = new CatalogClient();
+    [Needs]
+    private readonly CatalogClient _catalog;
     public List<string> products = new List<string>();
     public string error = "";
 

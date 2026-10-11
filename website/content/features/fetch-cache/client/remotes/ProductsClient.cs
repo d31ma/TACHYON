@@ -1,6 +1,6 @@
 [CacheSettings({"name":"products","ttlMs":60000,"maxBytes":65536,"maxEntries":16})]
 [HTTPClient]
-interface ProductsClient {
+public interface ProductsClient {
     [Cached]
     [GetRequest("/api/products")]
     System.Threading.Tasks.Task<BehaviorJSON> List();
