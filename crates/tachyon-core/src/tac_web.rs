@@ -1407,7 +1407,8 @@ mod tests {
             "client/services/AddressService.go",
             "import \"regexp\"\n\n// @Service\ntype AddressService struct{}\n\n\
              func (service *AddressService) Valid(text string) bool {\n\t\
-             return regexp.MustCompile(`^[a-z]{1,200}@[a-z]{1,200}$`).MatchString(text)\n}\n",
+             return regexp.MustCompile(`^[a-z]{1,200}@[a-z]{1,200}$`).MatchString(text) && \
+             regexp.MustCompile(`^[a-z0-9.]{0,58}@[a-z]{20,80}$`).MatchString(text+\"aaaaaaaaaaaaaaaaaaaa\")\n}\n",
         );
         let service = ("address", "AddressService");
         let profile = crate::BuildProfile::Release;

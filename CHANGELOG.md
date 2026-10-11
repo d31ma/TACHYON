@@ -248,6 +248,11 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- An entry may compose up to 512 annotated role files instead of 128, and a
+  realm may hold up to 1024 model files per language instead of 256. Large
+  apps with one type per file reached the old counts; the 1 MiB source
+  limits stay.
+
 - When a page and a controller share a path, a browser navigation (a GET or
   HEAD with `Sec-Fetch-Mode: navigate`, or with an `Accept` of `text/html`
   and no `Sec-Fetch-Mode`) gets the page instead of the controller's answer,
