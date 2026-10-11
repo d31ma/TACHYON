@@ -135,3 +135,11 @@ the runtime files; `ty doctor` names the folder.
   `/.tachyon/topics/<name>` by itself, like the other WebAssembly services.
 - `async def` methods, streams and browser API resources still fail with
   `TY1605`.
+
+## Amendment 2026-10-11: routes with several web runtimes
+
+- [ADR 0100](0100-a-route-with-several-web-runtimes-gets-a-measured-allowance.md)
+  gives a route that loads more than one web runtime a measured script
+  allowance. Python is not one of those runtimes, and the 512 KiB budget of
+  a Python route does not change. When a Python route also loads other web
+  runtimes, its budget is the larger of the two.

@@ -212,6 +212,15 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- A route that loads more than one web runtime gets a measured script
+  allowance for each runtime after the largest one, instead of the flat
+  200 KB budget: .NET 96 KB, Rust 92, Ruby 20, Lua 12, Java 12, Go 8, Dart 8,
+  Kotlin 8, C++ 4 and Swift 4. C# and F# share the .NET runtime; JavaScript
+  and TypeScript are not runtimes. A route with no runtime or one runtime
+  keeps 200 KB and the same `TY1337` message, and `tac.budgets.script` still
+  sets every route's budget when it is set. The `TY1337` error of a route
+  with an allowance names the computed budget and the runtimes it counted
+  (ADR 0100).
 - A route with web services loads less script: the build writes the shared
   script of each service language (`tachyon-rust.js`, `tachyon-go.js`,
   `tachyon-csharp.js`, `tachyon-ruby-services.js` and the others) and Go's
