@@ -532,7 +532,7 @@ try {
   if (pageOwnsFileSystem) globalThis.fs = pageFileSystem
 }
 const taskAnswers = new TacTaskAnswers()
-const invokeGo = globalThis.__tachyonGo((payload) => { published.push(payload) }, storageHost, webHost, (task, text) => { taskAnswers.done(task, text) })
+const invokeGo = globalThis.__tachyonGo((payload) => { published.push(payload) }, storageHost, webHost, (task, text) => { taskAnswers.done(task, text) }, (owner, text) => socketHost(owner, text))
 delete globalThis.__tachyonGo
 const transport = (text) => invokeGo(text)
 "
@@ -626,6 +626,19 @@ const transport = (text) => ruby.invoke(text)
     );
 
     const SHARED_TAIL: &str = r"const publishers = new Map()
+const shells = new Map()
+
+const socketHost = async (owner, text) => {
+  try {
+    const { client, message } = JSON.parse(text)
+    const send = shells.get(owner)?.deref()?.[`__tachyonSend:${client}`]
+    if (typeof send !== 'function') return JSON.stringify({ error: { code: 'HTTP_MISSING' } })
+    await send(message)
+    return JSON.stringify({ value: null })
+  } catch {
+    return JSON.stringify({ error: { code: 'HTTP_NETWORK' } })
+  }
+}
 
 const deliver = () => {
   for (const payload of published.splice(0)) {
@@ -710,7 +723,7 @@ const ownerId = () => {
 }
 
 const released = typeof FinalizationRegistry === 'function'
-  ? new FinalizationRegistry((request) => { publishers.delete(request.owner); try { invoke(request) } catch {} })
+  ? new FinalizationRegistry((request) => { publishers.delete(request.owner); shells.delete(request.owner); try { invoke(request) } catch {} })
   : null
 const authored = (values) => (typeof Event === 'function' && values[0] instanceof Event ? values.slice(1) : values)
 const hidden = (target, name, value) => Object.defineProperty(target, name, { configurable: true, value })
@@ -729,11 +742,16 @@ const topicStreams = (plan, listeners) => {
   return [...streams.values()]
 }
 
-const listen = (target, call, plan, listeners) => {
+const heldStreams = (streams) => streams.slice(0, 16)
+  .filter((stream) => typeof stream?.path === 'string' && stream.path.startsWith('/') && !stream.path.startsWith('//'))
+  .map(({ client, path, event, socket, models }) => ({ method: '__tachyonStream', path, event, socket: socket === true, models, topic: false, ...(socket === true ? { sender: `__tachyonSend:${client}` } : {}) }))
+
+const listen = (target, call, plan, listeners, streams) => {
   if (!plan.listeners.length) {
     plan.listeners = listeners.map((listener) => ({ ...listener, method: `__tachyonListen:${listener.key}` }))
-    plan.streams = topicStreams(plan, listeners)
+    plan.streams = [...heldStreams(streams), ...topicStreams(plan, listeners)]
   }
+  hidden(target, '__tachyonStream', () => {})
   for (const listener of listeners) {
     hidden(target, `__tachyonListen:${listener.key}`, (value) => { call({ op: 'event', name: listener.key, value }) })
   }
@@ -762,6 +780,7 @@ export const activate = (target, service, properties, plan) => {
       else changed()
     }
   }
+  shells.set(owner, self)
   publishers.set(owner, (name, value, retain) => {
     const publisher = self.deref()?.__tachyonPublisher
     if (publisher && !early.length) publisher.publishEvent(name, value, retain)
@@ -787,7 +806,7 @@ export const activate = (target, service, properties, plan) => {
     if (!asynchronous.has(request.name)) return changeGated(request)
     return exclusive ? queue(() => startTask(request)) : changeAsync(request)
   }
-  listen(target, changeGated, plan, declared?.listeners ?? [])
+  listen(target, changeGated, plan, declared?.listeners ?? [], Array.isArray(declared?.streams) ? declared.streams : [])
   const dispose = { op: 'dispose', route: 'web', service, owner }
   released?.register(target, dispose, target)
   hidden(target, '__tachyonStarted', () => {
@@ -797,6 +816,7 @@ export const activate = (target, service, properties, plan) => {
     disposed = true
     released?.unregister(target)
     publishers.delete(owner)
+    shells.delete(owner)
     invoke(dispose)
   })
   for (const name of declared?.fields ?? []) {
@@ -838,6 +858,9 @@ mod fsharp_http_browser_fixture;
 mod ordinary_browser_fixture;
 #[cfg(test)]
 mod reach_tests;
+
+#[cfg(test)]
+mod go_stream_tests;
 
 #[cfg(test)]
 mod rust_embedding_tests;

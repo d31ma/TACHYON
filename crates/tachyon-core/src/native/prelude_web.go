@@ -38,6 +38,12 @@ func connect(this js.Value, arguments []js.Value) any {
 		tac.HTTPStart = startHTTP
 		tac.HTTPCancel = cancelHTTP
 	}
+	if len(arguments) > 4 && arguments[4].Type() == js.TypeFunction {
+		socket := arguments[4]
+		tac.SocketStart = func(ticket int, owner string, request string) {
+			settleWith(ticket, socket.Invoke(owner, request))
+		}
+	}
 	return js.FuncOf(invoke)
 }
 
@@ -54,6 +60,10 @@ func startHTTP(ticket int, request string) {
 	}
 	started := endpoint.Call("start", request)
 	httpStarted[ticket] = started
+	settleWith(ticket, started.Get("answer"))
+}
+
+func settleWith(ticket int, answer js.Value) {
 	var settle js.Func
 	settle = js.FuncOf(func(this js.Value, arguments []js.Value) any {
 		settle.Release()
@@ -61,7 +71,7 @@ func startHTTP(ticket int, request string) {
 		tac.SettleHTTP(ticket, arguments[0].String())
 		return nil
 	})
-	started.Get("answer").Call("then", settle)
+	answer.Call("then", settle)
 }
 
 func cancelHTTP(ticket int) {

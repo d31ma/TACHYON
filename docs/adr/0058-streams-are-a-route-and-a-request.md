@@ -124,3 +124,12 @@ Tachyon needs Go 1.27, so the reason Go refused `@StreamRoute` is gone.
   stop check as a decision. It belongs to `yield`, which stops by itself in
   the other languages, so a private iterator method keeps its one loop.
 - Java, Groovy and Rust still refuse `@StreamRoute`.
+
+## Amendment (2026-10-11): Go stream clients
+
+`// @StreamRequest` is also written on a Go HTTPClient interface method. The
+page's JavaScript still holds the `EventSource`: the Go service that keeps
+the client in a field declares the stream, the page's event bus opens it with
+the same rules, and the Go service receives each message with `// @OnEvent`
+on a method whose parameter is the message model. See ADR 0090, "Go streams
+and sockets". The other compiled Tac languages still refuse `@StreamRequest`.

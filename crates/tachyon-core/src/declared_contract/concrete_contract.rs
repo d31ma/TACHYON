@@ -31,6 +31,9 @@ impl<'a> ConcreteContract<'a> {
     const TASKS: [&'static str; 2] = ["Task", "System.Threading.Tasks.Task"];
     const FUTURE: &'static str = "Future";
     const GO_FIELDS: [&'static str; 2] = ["struct{}", "struct {\n\tbehaviors *BehaviorContext\n}"];
+    const GO_HELD: [&'static str; 2] = ["streamrequest", "socketrequest"];
+    const GO_SOCKET: [&'static str; 1] = ["socketrequest"];
+    const GO_SEND: &'static str = "\nfunc ({receiver} *{owner}) Send(message any) error {\n\treturn behaviorSocketSend(\"{owner}\", message)\n}\n";
     const RUST_FIELDS: [&'static str; 2] = [";", " { behaviors: BehaviorContext }"];
     const TRAIT: &'static str = "trait";
     const RUST_DEFAULTS: [&'static str; 2] = [
@@ -305,7 +308,12 @@ impl<'a> ConcreteContract<'a> {
 
     fn go_edits(&self, declaration: &ContractDeclaration) -> Vec<SourceEdit> {
         let members = declaration.members(self.form, &self.code);
-        let needs_context = declaration.role.needs_context(&members);
+        let exchanged: Vec<ContractMember> = members
+            .iter()
+            .filter(|member| !member.is_marked_with(&Self::GO_HELD))
+            .cloned()
+            .collect();
+        let needs_context = declaration.role.needs_context(&exchanged);
         let end = (declaration.close + 1).min(self.source.len());
         let text = self.go_type(declaration, &members, needs_context);
         vec![(declaration.header.start..end, text)]
@@ -326,7 +334,20 @@ impl<'a> ConcreteContract<'a> {
             .collect();
         let context = self.go_context(declaration, needs_context);
         let crud = self.crud_members(declaration, "");
-        format!("type {name} {fields}\n{methods}{context}{crud}")
+        let send = self.go_send(declaration, members);
+        format!("type {name} {fields}\n{methods}{send}{context}{crud}")
+    }
+
+    fn go_send(&self, declaration: &ContractDeclaration, members: &[ContractMember]) -> String {
+        let socket = members
+            .iter()
+            .any(|member| member.is_marked_with(&Self::GO_SOCKET));
+        if [self.tac, socket] != [true, true] {
+            return String::new();
+        }
+        Self::GO_SEND
+            .replace("{receiver}", declaration.role.noun)
+            .replace("{owner}", &declaration.name)
     }
 
     fn go_method(&self, declaration: &ContractDeclaration, member: &ContractMember) -> String {
