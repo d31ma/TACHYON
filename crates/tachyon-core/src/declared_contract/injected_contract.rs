@@ -55,7 +55,7 @@ impl<'a> InjectedContract<'a> {
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const REMOTES: &'static str = "client/remotes";
     const GO: &'static str = "go";
-    const REMOTE_LANGUAGES: [&'static str; 3] = [Self::GO, "kt", "swift"];
+    const REMOTE_LANGUAGES: [&'static str; 4] = [Self::GO, "kt", "swift", "java"];
     const RUBY: &'static str = "rb";
     const RUBY_COMMENT: &'static str = "# ";
     const GO_METHOD: &'static str =

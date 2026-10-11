@@ -14,6 +14,15 @@ impl JavaValueType {
         Self { models }
     }
 
+    pub(super) fn for_answer(declared: &str) -> Self {
+        let names = declared.split(Self::separates).map(String::from).collect();
+        Self::new(names)
+    }
+
+    fn separates(character: char) -> bool {
+        [character.is_alphanumeric(), character == '_'] == [false; 2]
+    }
+
     pub(super) fn reading(&self, kind: &str, value: &str) -> Option<String> {
         let kind = Self::compact(kind);
         self.single_reading(&kind, value)

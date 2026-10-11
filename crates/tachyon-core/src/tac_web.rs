@@ -540,13 +540,13 @@ const transport = (text) => invokeGo(text)
 
     const KOTLIN_ENGINE: &str = concat!(
         include_str!("native/browser/tac-task-answers.js"),
-        include_str!("native/browser/tac-kotlin-http.js"),
+        include_str!("native/browser/tac-ticket-http.js"),
         r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
 if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
   throw new Error('Kotlin services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.')
 }
 const taskAnswers = new TacTaskAnswers()
-const kotlinHttp = new TacKotlinHttp()
+const kotlinHttp = new TacTicketHttp()
 globalThis[Symbol.for('tachyon.kotlin.host')] = {
   emit: (payload) => { published.push(payload) },
   storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
@@ -562,10 +562,15 @@ const transportAsync = (text) => taskAnswers.answer(transport(text))
 "
     );
 
-    const JAVA_ENGINE: &str = r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
+    const JAVA_ENGINE: &str = concat!(
+        include_str!("native/browser/tac-task-answers.js"),
+        include_str!("native/browser/tac-ticket-http.js"),
+        r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
 if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
   throw new Error('Java services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.')
 }
+const taskAnswers = new TacTaskAnswers()
+const javaHttp = new TacTicketHttp()
 globalThis[Symbol.for('tachyon.java.host')] = {
   emit: (payload) => { published.push(payload) },
   storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
@@ -574,12 +579,16 @@ globalThis[Symbol.for('tachyon.java.host')] = {
     const end = performance.now() + milliseconds
     while (performance.now() < end);
   },
+  httpStart: (ticket, text) => { javaHttp.start(ticket, text, (answer) => { java.exports.tacHttpSettle(ticket, answer) }) },
+  httpCancel: (ticket) => { javaHttp.cancel(ticket) },
+  taskDone: (task, text) => { taskAnswers.done(task, text) },
 }
 const { load } = await import('./java/runtime.js')
 const javaResponse = await fetch(new URL('./java/services.wasm', import.meta.url))
 const java = await load(new Uint8Array(await javaResponse.arrayBuffer()))
 const transport = (text) => java.exports.tacInvoke(text)
-";
+"
+    );
 
     const RUBY_ENGINE: &str = r"const { TachyonRuby } = await import('./ruby/tachyon-ruby.js')
 const rubyResponse = await fetch(new URL('./ruby/tachyon-ruby.wasm', import.meta.url))
@@ -729,7 +738,7 @@ export const activate = (target, service, properties, plan) => {
       return result
     } finally {
       if (typeof result?.then === 'function') result.then(changed, changed)
-      else self.deref()?.__tachyonStoredChanged?.()
+      else changed()
     }
   }
   publishers.set(owner, (name, value, retain) => {

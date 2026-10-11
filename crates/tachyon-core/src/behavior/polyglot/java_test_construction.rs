@@ -1,4 +1,5 @@
 use super::super::testing::Unit;
+use super::test_clients::TestClients;
 use super::{Module, Type};
 
 #[cfg(test)]
@@ -65,9 +66,25 @@ impl<'a> JavaTestConstruction<'a> {
                 .names(target, fields)?;
         Ok(names
             .into_iter()
-            .map(Self::assigned)
+            .map(|name| self.fake(target, name))
             .collect::<Vec<_>>()
             .join(", "))
+    }
+
+    fn fake(&self, target: &Type, name: &str) -> String {
+        self.client_kind(target, name).map_or_else(
+            || Self::assigned(name),
+            |kind| format!("this.{name} != null ? this.{name} : new {kind}(this.behaviors)"),
+        )
+    }
+
+    fn client_kind<'t>(&self, target: &'t Type, name: &str) -> Option<&'t str> {
+        target
+            .fields
+            .iter()
+            .find(|field| field.name == name)
+            .map(|field| field.type_source.trim())
+            .filter(|kind| TestClients::is_client(self.module, kind))
     }
 
     fn assigned(name: &str) -> String {

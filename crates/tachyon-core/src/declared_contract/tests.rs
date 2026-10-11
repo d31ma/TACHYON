@@ -361,6 +361,11 @@ fn tac_clients_create_their_context_when_they_are_built() {
         ("swift", "init(_ context: BehaviorContext) {"),
         ("go", "func NewCatalogClient() (*CatalogClient, error) {"),
         ("rs", "fn new() -> Self {"),
+        ("java", "CatalogClient(Behaviors.Context context) {"),
+        (
+            "java",
+            "this(Behaviors.create(\"CatalogSetup\", new Behaviors.Options(\"catalog\"",
+        ),
     ];
     for (extension, part) in expected {
         let lowered = Samples::concrete(extension, "tac");

@@ -172,6 +172,18 @@ machine contracts have their own, independent major versions.
   `try construct()` with a `Fake` client. Native macOS and iOS companions keep
   running an `async` method to the end and answer `HTTP_MISSING` without an
   adapter (ADR 0090).
+- Java Tac services call the server from the browser too. An `HTTPClient`
+  interface method returns a model from `client/models`, a `List` of models,
+  a plain value, `Object` or `void`. A service gets the client from a
+  `private final Client name;` field with `@Needs` on the line above.
+  Without a Setup adapter, the request goes to the same origin through the
+  browser host. Credentials are omitted, `Cached` reads are public, and the
+  next read revalidates after `ClearCache`. Each page call runs in a TeaVM
+  fiber. A call that waits returns a promise to the page, and other calls
+  run meanwhile. A wrong answer shape fails with `HTTP_RESPONSE`, and errors
+  reach the page with their code. Removing the component cancels the request
+  (`CANCELLED`). Java test units get `construct(Service.class)` with a
+  `Fake` client and keep `http-adapter` without an adapter (ADR 0090).
 - Method coverage no longer asks a test case to call a Setup's methods or the
   methods of a generated HTTPClient: Tachyon calls a Setup itself and writes
   the client's methods.

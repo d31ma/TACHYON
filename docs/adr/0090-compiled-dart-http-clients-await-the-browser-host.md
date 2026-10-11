@@ -261,3 +261,67 @@ Evidence: `scripts/browser-http-browser-test.mjs --language=swift` builds
 `website/content/docs/calling-the-server/browser-http-swift/` and checks it in
 Chromium, Firefox and WebKit; `client_tests::swift_construct_tests` runs the
 Fake and typed-answer cases.
+
+## Java browser extension — 2026-10-11
+
+A Java HTTPClient is an interface whose methods have no body. In Tac, a
+method may return a model from `client/models`, a `List` of models, `String`,
+a number, `boolean`, `Object` or `void`. Tachyon writes the method through the
+behavior context's existing `invoke` and `mutate`, and reads the answer with
+`Behaviors.answer` and the `TacModels` and `TacValues` readers. On the JVM,
+the Tac test runner adds these two readers to the test program. A model answer
+that is not an object, or a list answer that is not a list, fails with
+`HTTP_RESPONSE`. Errors are `Behaviors.Failure` values whose `code` names the
+problem. The page receives that code too.
+The Setup's adapter answers first. Without one, the request goes to the same
+browser host as the other languages. It uses the same origin and omits
+credentials. A `Cached` GET is a public read, and the first miss after a
+successful `ClearCache` or `UpdateCache` revalidates. A failed mutation keeps
+the cached read. Yon Java clients still return `Object`. `restClient` keeps
+its adapter-only path. The generated client has two constructors:
+`Client()` builds its context from its Setup, and `Client(Behaviors.Context)`
+uses a given context.
+
+A service gets the client from a `private final Client name;` field with
+`@Needs` on the line above. On the page, Tachyon fills the field with
+`new Client()`. Java has no async keyword, so Java follows the Go model. The
+`tacInvoke` export runs every page request (init, call, get, set, event and
+dispose) in its own TeaVM fiber. It uses `org.teavm.runtime.Fiber.start`,
+which runs the fiber at once on the caller's stack. When the fiber ends
+without waiting, the page gets the answer at once, as before. When a method
+call or an event listener reaches the browser transport, a TeaVM `@Async`
+method parks the fiber on a ticket. The fiber releases the service, and the
+page gets `{"task": id}` and a promise. The fetch starts through the
+`httpStart` host call. The page settles it through the `tacHttpSettle` export,
+which resumes the fiber with the service as the executing owner. When the
+fiber ends, its events are delivered and `taskDone` reports the end. While a
+call waits, other calls to the service run, as in Go and Kotlin. A getter, a
+setter or `OnStart` cannot wait: a request there fails with `HTTP_REQUEST`.
+Disposing the owner first drops its parked fibers. This removes their tickets,
+aborts their fetches and rejects their promises with `CANCELLED`. Then the
+OnStop hooks run. A disposed owner gets no further change notices, even from
+a call that fails because the owner is gone. Kotlin and Java share the page
+glue (`TacTicketHttp`).
+
+Everything runs inside a fiber because TeaVM marks virtual call sites
+conservatively as asynchronous. An asynchronous method reached outside a
+fiber traps in WebAssembly, even when it would not wait. The design relies on
+`org.teavm.runtime.Fiber`, which is an internal TeaVM API and not a public
+one. This is acceptable only under the exact TeaVM 0.15.0 pin. Upgrading
+TeaVM must re-run the Java contract test before the pin moves.
+
+In a Java Tac test unit, `construct(Service.class)` calls the constructor
+that `Needs` produces. A Fake field `Client name = null;` supplies the client.
+While it is `null`, the service gets `new Client(this.behaviors)`, which is
+bound to the test's context, so the TestSetup adapter answers. Test units run
+on the JVM and have no browser transport. A request without an adapter keeps
+the existing code `http-adapter`. A test unit loads only the TestSetup that
+its `Test` names, as in every language, so a context for an assigned Fake
+comes from a production Setup.
+
+Evidence: `scripts/java-http-browser-contract-test.mjs --run` and
+`scripts/browser-http-browser-test.mjs --language=java`. The first builds the
+contract fixture, and the second builds
+`website/content/docs/calling-the-server/browser-http-java/`. Both check
+Chromium, Firefox and WebKit. `client_tests::java_http_construct_tests` runs
+the Fake and typed-answer cases on the JVM.

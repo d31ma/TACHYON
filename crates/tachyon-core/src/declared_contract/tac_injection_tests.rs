@@ -204,3 +204,18 @@ fn a_swift_service_field_that_needs_a_remote_builds_the_client() {
         "{filled}"
     );
 }
+
+#[test]
+fn a_java_service_field_that_needs_a_remote_builds_the_client() {
+    let paths = [Path::new("client/remotes/GreetingClient.java")];
+    let names = DeclaredContract::injected_names(paths.into_iter());
+    assert_eq!(names, ["GreetingClient"]);
+    let source = "@Service\nclass GreetingService {\n    @Needs\n    private final GreetingClient greetingClient;\n}\n";
+    let path = TacInjection::service_path("java");
+    let filled = DeclaredContract::injected(Path::new(&path), source, &names);
+    let filled = filled.unwrap_or_default();
+    assert!(
+        filled.contains("    private final GreetingClient greetingClient = new GreetingClient();"),
+        "{filled}"
+    );
+}

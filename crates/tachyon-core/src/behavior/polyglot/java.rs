@@ -2,8 +2,11 @@ use super::super::mapper::Plan;
 use super::super::testing::Unit;
 use super::java_test_construction::JavaTestConstruction;
 use super::{Edit, Method, Module, Type, block, concrete_edit, declared_fields, render};
+use java_typed_client::JavaTypedClient;
 use serde_json::Value;
 use std::fmt::Write as _;
+
+mod java_typed_client;
 
 pub(super) fn lower(module: &Module) -> Result<String, String> {
     reject_reserved_names(module)?;
@@ -206,10 +209,10 @@ fn properties_case(type_declaration: &Type) -> Result<String, String> {
         .get("fields")
         .and_then(Value::as_object)
         .ok_or("Properties fields missing")?;
-    let mut descriptors = Vec::new();
-    for (name, field) in fields {
-        descriptors.push(property_descriptor(name, field, "name")?);
-    }
+    let descriptors = fields
+        .iter()
+        .map(|(name, field)| property_descriptor(name, field, "name"))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(format!(
         "case {}: return bind({}, new Property[]{{{}}}, values);",
         quote(&type_declaration.name),
@@ -423,7 +426,13 @@ fn wrap(
     let policies = policies(method)?;
     let managed = is_managed(method);
     let resilient = policies.resilient();
-    validate_managed(type_declaration, method, managed, resilient)?;
+    validate_managed(
+        type_declaration,
+        method,
+        managed,
+        resilient,
+        &module.environment,
+    )?;
     let declared = declared_exchange(method);
     let (helper_name, helper) = if declared {
         (String::new(), String::new())
@@ -439,7 +448,8 @@ fn wrap(
         format!("{helper_name}({})", arguments.join(", "))
     };
     let body = if managed || resilient {
-        managed_body(type_declaration, method, &policies, &arguments, &call)?
+        let wrapped = managed_body(type_declaration, method, &policies, &arguments, &call)?;
+        JavaTypedClient::body(method, &module.environment, &wrapped)?
     } else {
         plain_body(method, &call)
     };
@@ -904,8 +914,10 @@ fn validate_managed(
     method: &Method,
     managed: bool,
     resilient: bool,
+    environment: &str,
 ) -> Result<(), String> {
-    if managed && !returns_object(method) {
+    let typed = JavaTypedClient::typed(method, environment).is_some();
+    if managed && !returns_object(method) && !typed {
         return Err("Java cache/WebCall methods must return Object bounded JSON, not Future or an application model".to_owned());
     }
     if (managed || resilient) && !has_behaviors_context(type_declaration) {
