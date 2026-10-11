@@ -138,7 +138,7 @@ private final class TitleBarCheck {
 
     private func focus(_ window: NSWindow) async throws {
         if NSApp.isActive && window.isKeyWindow { return }
-        FileHandle.standardError.write(Data(("title bar fixture regaining focus: " + focusState(window) + "\n").utf8))
+        FileHandle.standardOutput.write(Data(("title bar fixture regaining focus: " + focusState(window) + "\n").utf8))
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         do {
