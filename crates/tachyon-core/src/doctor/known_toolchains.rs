@@ -1,9 +1,13 @@
 use super::command_probe::CommandProbe;
 use super::{Toolchain, ToolchainState};
+use crate::compiler::TypeScriptCompiler;
 use crate::handler::{RuntimeProbeResult, RuntimeProbeState};
 use crate::project::NativeCompanion;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+#[cfg(all(test, windows))]
+mod tests;
 
 pub(super) struct KnownToolchains;
 
@@ -20,13 +24,12 @@ impl KnownToolchains {
     }
 
     pub(super) fn typescript(root: &Path) -> Toolchain {
-        let local = root.join("node_modules/.bin/tsc");
-        let program = Self::typescript_program(&local);
-        let state = CommandProbe::run(&program, &["--version"])
+        let program = Self::typescript_program(root);
+        let state = CommandProbe::run(&program.to_string_lossy(), &["--version"])
             .map_or(ToolchainState::Missing, Self::typescript_state);
         Toolchain {
             requirement: String::from("TypeScript services"),
-            command: Self::typescript_command(&program),
+            command: Self::typescript_command(root, &program),
             state,
             install: String::from(
                 "Install typescript 6 or newer as a project dependency or on PATH.",
@@ -226,18 +229,16 @@ impl KnownToolchains {
         }
     }
 
-    fn typescript_program(local: &Path) -> String {
-        if local.is_file() {
-            return local.to_string_lossy().into_owned();
-        }
-        String::from("tsc")
+    fn typescript_program(root: &Path) -> PathBuf {
+        TypeScriptCompiler::program(root)
     }
 
-    fn typescript_command(program: &str) -> String {
-        if program == "tsc" {
-            return String::from("tsc");
+    fn typescript_command(root: &Path, program: &Path) -> String {
+        let in_project = program.starts_with(root.join("node_modules"));
+        if in_project {
+            return String::from("node_modules/.bin/tsc");
         }
-        String::from("node_modules/.bin/tsc")
+        String::from("tsc")
     }
 
     fn typescript_state(version: String) -> ToolchainState {
