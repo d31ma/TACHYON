@@ -854,3 +854,59 @@ impl SettingsTypes {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ArgumentConversion;
+
+    #[test]
+    fn field_lines_are_matched_by_the_declared_name_of_each_language() {
+        let cases = [
+            ("go", "Name string", "Name", true),
+            ("go", "Other string", "Name", false),
+            ("php", "public $name;", "name", true),
+            ("ts", "private name?: string;", "name", true),
+            ("kt", "val name: String = \"\"", "name", true),
+            ("swift", "var name!: String", "name", true),
+            ("py", "name: str", "name", true),
+            ("rs", "pub name: String,", "name", true),
+            ("cs", "public string name,", "name", true),
+            ("java", "private String name;", "name", true),
+            ("java", "private String name = \"x\";", "name", true),
+            ("java", "String name(int x)", "name", false),
+            ("java", "@Id String name;", "name", false),
+            ("java", "// String name;", "name", false),
+            ("java", "[Key] string name;", "name", false),
+            ("java", "# name", "name", false),
+        ];
+        for (extension, line, name, expected) in cases {
+            assert_eq!(
+                ArgumentConversion::declares_field(extension, line, name),
+                expected,
+                "{extension} {line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn parameter_names_are_the_declared_name_of_each_language() {
+        let cases = [
+            ("go", "name string", "name"),
+            ("php", "$name = 1", "name"),
+            ("ts", "name?: string", "name"),
+            ("kt", "count: Int = 0", "count"),
+            ("java", "final int count", "count"),
+            ("py", "value: int = 3", "value"),
+            ("rs", "mut total: u64", "total"),
+            ("cs", "string label!", "label"),
+            ("dart", "", ""),
+        ];
+        for (extension, piece, expected) in cases {
+            assert_eq!(
+                ArgumentConversion::parameter_name(extension, piece),
+                expected,
+                "{extension} {piece:?}"
+            );
+        }
+    }
+}
