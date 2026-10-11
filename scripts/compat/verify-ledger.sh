@@ -181,13 +181,13 @@ client/components/test/view/tac.html	${NAMED_VIEW}
 client/services/TestViewService.js	@Service()\nexport default class Other { count = 0 }
 EOF
 
-  check "service file without the Service suffix" "TY1310" <<EOF
+  check "service file without the Service suffix" "TY1363" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	${VIEW}
 client/services/Helper.js	export default class Helper {}
 EOF
 
-  check "service in a subdirectory" "TY1310" <<EOF
+  check "service in a subdirectory" "ok" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	${VIEW}
 client/services/nested/TestViewService.js	${SERVICE}
@@ -216,13 +216,13 @@ EOF
   check_built_file "Rust service builds for web via WebAssembly" "${RUST_WEB_EXPECTED}" ".tachyon/services/tachyon-rust.js" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	${NAMED_VIEW}
-client/services/TestViewService.rs	#[derive(Default)]\nstruct TestViewService { count: i64 }
+client/services/TestViewService.rs	#[Service]\n#[derive(Default)]\nstruct TestViewService { count: i64 }
 EOF
 
   check "native service has an explicit JS web file" "ok" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	${NAMED_VIEW}
-client/services/TestViewService.rs	#[derive(Default)]\nstruct TestViewService { count: i64 }
+client/services/TestViewService.rs	#[Service]\n#[derive(Default)]\nstruct TestViewService { count: i64 }
 client/services/TestViewService.js	${SERVICE}
 EOF
 
@@ -234,7 +234,7 @@ EOF
 }
 
 check_view_and_service_features() {
-  check "inline <style> in a component view" "ok" <<EOF
+  check "inline <style> in a component view" "TY1403" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	<main aria-label="T"><style>h1{color:red}</style><h1>T</h1></main>
 EOF
@@ -264,14 +264,16 @@ EOF
 
   check "owned typed application events in a service" "ok" <<EOF
 client/pages/tac.html	${PAGE}
-client/components/test/view/tac.html	${NAMED_VIEW}
-client/services/TestViewService.js	/**\n * @typedef {Object} Counter\n * @property {integer} value\n */\n/**\n * @typedef {Object} Invoice\n * @property {integer} value\n */\n@Service()\nexport default class TestViewService {\napplicationEventPublisher;\ncount = 0;\nseen = 0;\nbump() { this.count += 1; /** @type {Counter} */ const counter = { value: this.count }; this.applicationEventPublisher.publishEvent(counter, true); }\n/**\n * @param {Counter} counter\n * @returns {Invoice}\n */\n@OnEvent({"condition":"value.value >= 0"})\n@Order(2)\nchanged(counter) { this.seen = counter.value; return { value: counter.value }; }\n/** @param {Invoice} invoice */\n@OnEvent\ninvoiced(invoice) { this.seen = invoice.value; }\n/** @param {Counter} counter */\n@OnEvent\n@InBackground()\nasync audit(counter) { this.seen = counter.value; }\n}
+client/components/test/view/tac.html	<main aria-label="T"><button on:click="testView.bump()">Go</button><output>{testView.count}</output></main>
+client/models/Counter.js	/**\n * @typedef {Object} Counter\n * @property {integer} value\n */\nexport {}
+client/models/Invoice.js	/**\n * @typedef {Object} Invoice\n * @property {integer} value\n */\nexport {}
+client/services/TestViewService.js	@Service()\nexport default class TestViewService {\napplicationEventPublisher;\ncount = 0;\n_seen = 0;\nbump() { this.count += 1; /** @type {Counter} */ const counter = { value: this.count }; this.applicationEventPublisher.publishEvent(counter, true); }\n/**\n * @param {Counter} counter\n * @returns {Invoice}\n */\n@OnEvent({"condition":"value.value >= 0"})\n@Order(2)\nchanged(counter) { this._seen = counter.value; return { value: counter.value }; }\n/** @param {Invoice} invoice */\n@OnEvent\ninvoiced(invoice) { this._seen = invoice.value; }\n/** @param {Counter} counter */\n@OnEvent\n@InBackground()\nasync audit(counter) { this._seen = counter.value; }\n}
 EOF
 
   check_message "string event names are refused with a migrate hint" "TY1308" "OnEvent takes no event names" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	${NAMED_VIEW}
-client/services/TestViewService.js	@Service()\nexport default class TestViewService {\nseen = 0;\n@OnEvent({"event":"counter"})\nchanged(value) { this.seen = value; }\n}
+client/services/TestViewService.js	@Service()\nexport default class TestViewService {\n_seen = 0;\n@OnEvent({"event":"counter"})\nchanged(value) { this._seen = value; }\n}
 EOF
 
   check "retired EventPublisher marker in a service" "TY1308" <<EOF
@@ -282,7 +284,7 @@ EOF
 
   check "Tac Component provider bound by Inject" "ok" <<EOF
 client/pages/tac.html	${PAGE}
-client/components/test/view/tac.html	${NAMED_VIEW}
+client/components/test/view/tac.html	<main aria-label="T"><button on:click="testView.read()">Go</button><output>{testView.count}</output></main>
 client/helpers/PricingHelper.js	@Helper()\nclass PricingHelper { price() { return 5 } }
 client/services/TestViewService.js	@Service()\n@Needs(PricingHelper)\nexport default class TestViewService {\npricingHelper;\ncount = 0;\nread() { this.count = this.pricingHelper.price(); }\n}
 EOF
@@ -447,8 +449,8 @@ client/components/test/view/tac.html	${VIEW}
 EOF
 
   check "controller importing a service module is not executed at build" "ok" <<EOF
-server/controllers/HomeController.js	import { ValueService } from '../services/ValueService.js'\n@RequestRoute("/")\n@Public\nexport class HomeController {\n@GetRoute\nget() { return { v: ValueService.v } }\n}
-server/services/ValueService.js	export class ValueService { static v = 'from-service' }
+server/controllers/HomeController.js	import { ValueService } from '../shared/ValueService.js'\n@RequestRoute("/")\n@Public\nexport class HomeController {\n@GetRoute\nget() { return { v: ValueService.v } }\n}
+server/shared/ValueService.js	export class ValueService { static v = 'from-service' }
 EOF
 }
 
@@ -480,7 +482,9 @@ EOF
 
   check "Yon typed listeners, condition, Order and Async" "ok" <<EOF
 server/controllers/ProductsController.js	${YON_CONTROLLER}
-server/services/ProductsService.js	/**\n * @typedef {Object} OrderPlaced\n * @property {integer} total\n */\n/**\n * @typedef {Object} Invoice\n * @property {integer} total\n */\n@Service()\n@NeedsAll()\nclass ProductsService {\napplicationEventPublisher;\nseen = 0;\nall() { /** @type {OrderPlaced} */ const order = { total: 12 }; this.applicationEventPublisher.publishEvent(order, true); return this.seen; }\n/**\n * @param {OrderPlaced} order\n * @returns {Invoice}\n */\n@OnEvent({"condition":"value.total >= 10"})\n@Order(2)\nrecord(order) { this.seen = order.total; return { total: 0 }; }\n/** @param {Invoice} invoice */\n@OnEvent\ninvoiced(invoice) { this.seen = invoice.total; }\n/** @param {OrderPlaced} order */\n@OnEvent\n@InBackground()\nasync audit(order) { this.seen = order.total; }\n}
+server/models/OrderPlaced.js	/**\n * @typedef {Object} OrderPlaced\n * @property {integer} total\n */\nexport {}
+server/models/Invoice.js	/**\n * @typedef {Object} Invoice\n * @property {integer} total\n */\nexport {}
+server/services/ProductsService.js	@Service()\n@NeedsAll()\nclass ProductsService {\napplicationEventPublisher;\n_seen = 0;\nall() { /** @type {OrderPlaced} */ const order = { total: 12 }; this.applicationEventPublisher.publishEvent(order, true); return this._seen; }\n/**\n * @param {OrderPlaced} order\n * @returns {Invoice}\n */\n@OnEvent({"condition":"value.total >= 10"})\n@Order(2)\nrecord(order) { this._seen = order.total; return { total: 0 }; }\n/** @param {Invoice} invoice */\n@OnEvent\ninvoiced(invoice) { this._seen = invoice.total; }\n/** @param {OrderPlaced} order */\n@OnEvent\n@InBackground()\nasync audit(order) { this._seen = order.total; }\n}
 EOF
 
   check "retired EventPublisher marker in a Yon service" "TY1308" <<EOF
