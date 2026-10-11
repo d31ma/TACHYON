@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::unicode_name::UnicodeName;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -93,7 +94,7 @@ impl RustConstruction {
 
     fn read_types(&mut self) {
         for (header, body) in super::blocks(&self.source, "struct") {
-            let name = super::identifier(header.trim());
+            let name = UnicodeName::leading(header.trim());
             let fields = body
                 .lines()
                 .flat_map(super::rust_field_declarations)
@@ -108,7 +109,7 @@ impl RustConstruction {
             .trim()
             .trim_start_matches("pub ")
             .trim_start_matches("pub(crate) ");
-        let name = super::identifier(declaration);
+        let name = UnicodeName::leading(declaration);
         let kind = declaration[name.len()..]
             .trim_start()
             .strip_prefix(':')?
@@ -144,7 +145,7 @@ impl RustConstruction {
             .trim_start()
             .strip_prefix("->")?
             .trim_start();
-        (super::identifier(result) == "Self").then_some(())?;
+        (UnicodeName::leading(result) == "Self").then_some(())?;
         let arguments = &after_name[1..close];
         Some(
             Self::parameter_parts(arguments)
@@ -159,7 +160,7 @@ impl RustConstruction {
         let mut rest = body.trim_start();
         let mut signature = None;
         while signature.is_none() && !rest.is_empty() {
-            let word = super::identifier(rest);
+            let word = UnicodeName::leading(rest);
             signature = Self::constructor_at_token(rest, &word);
             rest = Self::after_token(rest, &word)?.trim_start();
         }
@@ -360,7 +361,7 @@ impl RustConstruction {
         let header = declaration
             .trim_start_matches("pub ")
             .trim_start_matches("pub(crate) ");
-        let name = header.strip_prefix("struct ").map(super::identifier);
+        let name = header.strip_prefix("struct ").map(UnicodeName::leading);
         let name = (derived & default).then_some(name).flatten();
         let _ = name.map(|name| defaults.insert(name));
     }
