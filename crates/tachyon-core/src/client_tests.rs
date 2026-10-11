@@ -1,6 +1,7 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use crate::model_sources::ModelSources;
+use module_url::ModuleUrl;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -31,6 +32,7 @@ mod dart_test_models;
 mod fsharp_unit;
 mod hooked_utilities;
 mod kotlin_unit_files;
+mod module_url;
 mod python_unit;
 mod test_unit_error;
 
@@ -48,6 +50,8 @@ mod hooked_utilities_tests;
 mod java_construct_tests;
 #[cfg(test)]
 mod java_preference_tests;
+#[cfg(test)]
+mod module_url_tests;
 #[cfg(test)]
 mod rust_construct_tests;
 
@@ -625,7 +629,10 @@ fn runtime_command(
             if typescript {
                 command.arg("--experimental-strip-types");
             }
-            command.arg("--import").arg(preload).arg(unit);
+            command
+                .arg("--import")
+                .arg(ModuleUrl::file(preload)?)
+                .arg(unit);
         }
         "bun" => {
             command
@@ -653,8 +660,8 @@ fn configure_deno(
         &entry,
         format!(
             "await import({});\nawait import({});\n",
-            serde_json::Value::String(format!("file://{}", preload.display())),
-            serde_json::Value::String(format!("file://{}", unit.display())),
+            serde_json::Value::String(ModuleUrl::file(preload)?),
+            serde_json::Value::String(ModuleUrl::file(unit)?),
         ),
     )?;
     let cache = std::env::var_os("DENO_DIR")
@@ -678,10 +685,10 @@ fn write_deno_import_map(directory: &Path, project: &Path) -> std::io::Result<Pa
             continue;
         }
         let name = entry.file_name().to_string_lossy().into_owned();
-        let target = format!("file://{}/", entry.path().display());
+        let target = ModuleUrl::directory(&entry.path())?;
         imports.insert(format!("/{name}/"), serde_json::Value::String(target));
     }
-    if let Some((prefix, target)) = hooked_utilities::HookedUtilities::import_mapping(directory) {
+    if let Some((prefix, target)) = hooked_utilities::HookedUtilities::import_mapping(directory)? {
         imports.insert(prefix, serde_json::Value::String(target));
     }
     let map = directory.join("imports.json");
