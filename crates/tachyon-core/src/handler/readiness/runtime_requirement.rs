@@ -1,7 +1,7 @@
 use super::{PreparedProbe, ProbeKind, RuntimeRequirementKey};
 use crate::Failure;
 use crate::failure::diagnostic;
-use crate::handler::FirecrackerIsolation;
+use crate::handler::{FirecrackerIsolation, HandlerRuntimePrograms};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command as StdCommand;
@@ -24,6 +24,15 @@ impl RuntimeRequirement {
     pub(super) const OLDEST_GO_MINOR_VERSION: u32 = 27;
     pub(super) const OLDEST_RUBY_VERSION: (u32, u32) = (3, 3);
     pub(super) const OLDEST_LUA_VERSION: (u32, u32) = (5, 4);
+    pub(super) const OLDEST_NODE_PROXY_VERSION: (u32, u32) = (24, 5);
+    pub(super) const BUN_IDENTITY: &str = "bun";
+    const NODE_PROXY_PROBE: &str = "typeof Bun === 'undefined' ? process.version : 'bun'";
+    const JAVASCRIPT_HELP: &str = "Install Node.js or Bun, or correct YON_JAVASCRIPT_RUNTIME.";
+    const NODE_PROXY_HELP: &str = "Tachyon sends Yon's outgoing HTTP requests through a local guard \
+        that allows only the hosts in outgoing.hosts (ADR 0068). Node.js sends fetch and http \
+        requests to the guard only from version 24.5, when NODE_USE_ENV_PROXY=1 is set. An older \
+        Node.js connects directly to any host, so Tachyon does not run JavaScript handlers with it. \
+        Install Node.js 24.5 or newer, or Bun, or correct YON_JAVASCRIPT_RUNTIME.";
     const LUA_PROBE: &str = "io.write((_VERSION:gsub('^Lua ', '')))";
     pub(crate) const LUA_LABEL: &str = "Yon Lua runtime 'lua'";
     pub(crate) const LUA_HELP: &str =
@@ -99,6 +108,33 @@ impl RuntimeRequirement {
             help: String::from(help),
             probe,
         }
+    }
+
+    pub(super) fn javascript(runtimes: &HandlerRuntimePrograms, typescript: bool) -> Self {
+        Self::configured(
+            RuntimeRequirementKey::JavaScript,
+            &runtimes.javascript,
+            HandlerRuntimePrograms::default_javascript_for(&runtimes.javascript),
+            "Yon JavaScript runtime",
+            "YON_JAVASCRIPT_RUNTIME",
+            Self::JAVASCRIPT_HELP,
+            ProbeKind::JavaScript { typescript },
+        )
+    }
+
+    pub(crate) fn node_proxy_switch(runtimes: &HandlerRuntimePrograms) -> Self {
+        Self {
+            key: RuntimeRequirementKey::NodeProxySwitch,
+            help: String::from(Self::NODE_PROXY_HELP),
+            probe: ProbeKind::NodeProxySwitch,
+            ..Self::javascript(runtimes, false)
+        }
+    }
+
+    pub(crate) fn includes_javascript(requirements: &[Self]) -> bool {
+        requirements
+            .iter()
+            .any(|requirement| requirement.key == RuntimeRequirementKey::JavaScript)
     }
 
     pub(super) fn fixed(
@@ -223,6 +259,10 @@ impl RuntimeRequirement {
         match self.probe {
             ProbeKind::JavaScript { typescript } => {
                 Self::prepare_javascript_probe(command, typescript).map(Some)
+            }
+            ProbeKind::NodeProxySwitch => {
+                command.args(["-p", Self::NODE_PROXY_PROBE]);
+                Ok(None)
             }
             ProbeKind::Python => {
                 command.args(["-I", "-B", "-c", "class ReadinessController: pass"]);

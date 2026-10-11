@@ -173,17 +173,7 @@ impl RuntimeRequirements {
         Self::push_if(
             requirements,
             self.uses_any(&[YonLanguage::JavaScript, YonLanguage::TypeScript]),
-            RuntimeRequirement::configured(
-                RuntimeRequirementKey::JavaScript,
-                &runtimes.javascript,
-                HandlerRuntimePrograms::default_javascript_for(&runtimes.javascript),
-                "Yon JavaScript runtime",
-                "YON_JAVASCRIPT_RUNTIME",
-                "Install Node.js or Bun, or correct YON_JAVASCRIPT_RUNTIME.",
-                ProbeKind::JavaScript {
-                    typescript: self.uses(YonLanguage::TypeScript),
-                },
-            ),
+            RuntimeRequirement::javascript(runtimes, self.uses(YonLanguage::TypeScript)),
         );
         Self::push_if(
             requirements,
@@ -495,6 +485,45 @@ mod tests {
                 "{output}"
             );
         }
+    }
+
+    #[test]
+    fn only_node_24_5_or_newer_and_bun_honour_the_outgoing_proxy_switch() {
+        for (output, honoured) in [
+            ("v24.5.0\n", true),
+            ("v24.21.0", true),
+            ("v25.0.0", true),
+            ("v26.6.5", true),
+            ("bun\n", true),
+            ("v24.4.1", false),
+            ("v24.0.0", false),
+            ("v23.5.0", false),
+            ("v22.21.0", false),
+            ("v18.15.0", false),
+            ("24.21.0", false),
+            ("1.3.14", false),
+            ("deno 2.1.0", false),
+            ("", false),
+        ] {
+            assert_eq!(
+                super::RuntimeProbe::honours_node_proxy_switch(output),
+                honoured,
+                "{output}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_outgoing_proxy_switch_check_reuses_the_javascript_runtime_label() {
+        let runtimes = HandlerRuntimePrograms {
+            javascript: PathBuf::from("node"),
+            ..HandlerRuntimePrograms::default()
+        };
+        let requirement = RuntimeRequirement::node_proxy_switch(&runtimes);
+        assert_eq!(requirement.key(), RuntimeRequirementKey::NodeProxySwitch);
+        assert_eq!(requirement.label(), "Yon JavaScript runtime 'node'");
+        assert!(requirement.help().contains("NODE_USE_ENV_PROXY=1"));
+        assert!(requirement.help().contains("Install Node.js 24.5 or newer"));
     }
 
     #[test]

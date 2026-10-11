@@ -151,3 +151,16 @@ This is deny by default, like Spring Security.
 - The annotation rule table has rows for `Public`, `SignedIn`, `Allow` and
   `IdentityProvider`. `#[allow(...)]` in Rust stays a Rust attribute; the
   Rust spelling of the Tachyon annotation is `#[Allow(...)]`.
+
+## Amendment (2026-10-10): the guard refuses a Node.js that ignores the proxy switch
+
+- Node.js sends `fetch` and `http.request` to the guard only from version
+  24.5, when `NODE_USE_ENV_PROXY=1` is set. Node.js 23.5 ignored the switch
+  and reached a private loopback port directly, so the guard failed open.
+- While the guard is active, `ty` asks the JavaScript runtime what it is when
+  the server starts, and keeps the answer. Every JavaScript handler start
+  checks that answer first, so a handler added later is covered too.
+- Bun, which reads the proxy variables itself, and Node.js 24.5 or newer are
+  accepted. Any other answer, including an older Node.js, is refused with
+  `TY2101` ("Required Yon JavaScript runtime 'node' is not usable."), so a
+  handler never runs without the guard.
