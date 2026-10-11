@@ -325,3 +325,68 @@ contract fixture, and the second builds
 `website/content/docs/calling-the-server/browser-http-java/`. Both check
 Chromium, Firefox and WebKit. `client_tests::java_http_construct_tests` runs
 the Fake and typed-answer cases on the JVM.
+
+## Ruby browser extension — 2026-10-11
+
+A Ruby HTTPClient is a class whose methods have empty bodies. Tachyon writes
+each method through the behavior context's existing `invoke`, so `Cached`,
+`ClearCache`, `UpdateCache`, retries and the other method annotations keep
+working. The YARD `@return` comment above the method names the answer: a
+model from `client/models`, an `Array` of models, `String`, `Integer`,
+`Float` or `Boolean`. `TacValues.answer` reads the answer into that type.
+The program registers the shapes of every client model for this reader. A
+model answer that is not an object, a list answer that is not a list or a
+plain answer of another type fails with `HTTP_RESPONSE`. `Hash`, `Object` and
+`void` keep the answer as it is, so existing clients are unchanged. Errors are
+`BehaviorError` values whose `behavior_code` names the problem, and the page
+receives that code too.
+The Setup's adapter answers first. Without one, the request goes to the same
+browser host as the other languages. It uses the same origin and omits
+credentials. A `Cached` GET is a public read, and the first miss after a
+successful `ClearCache` or `UpdateCache` revalidates. A failed mutation keeps
+the cached read. `rest_client` keeps its adapter-only path. The generated
+client takes an optional context: `Client.new` builds its context from its
+Setup, and `Client.new(context)` uses a given BehaviorContext.
+
+A service gets the client with `#[Needs]` above `attr_reader :name`, with the
+`# @return [Client]` comment between them, as for stores and converters.
+Tachyon turns the reader into a private method that builds the client once.
+The page does not see the field. Ruby has no async keyword, so Ruby follows
+the Go and Java model. Every page request (init, call, get, set, event and
+dispose) runs in its own Ruby `Fiber`. When the fiber ends without waiting,
+the page gets the answer at once, as before. When a method call or an event
+listener reaches the browser transport, `Fiber.yield` parks the fiber on a
+ticket. The service is released, and the page gets `{"task": id}` and a
+promise. The fetch starts through the existing host channel of the runtime.
+The page settles it through a `tachyon-http:settle` request to the existing
+`tac_invoke` export. That request resumes the fiber with the service as the
+executing owner. When the fiber ends, its events are delivered and the page
+learns the answer. While a call waits, other calls to the service run, as in
+Go, Kotlin and Java. `OnStart` cannot wait: a request there fails with
+`HTTP_REQUEST`. At most 64 requests wait at once. Disposing the owner first
+drops its parked fibers. This removes their tickets, aborts their fetches and
+rejects their promises with `CANCELLED`. Then the OnStop hooks run. Kotlin,
+Java and Ruby share the page glue (`TacTicketHttp`).
+
+The design needs no change to the runtime in `runtimes/ruby-web`, so the
+cached runtime and its fingerprint stay the same. It relies on the pinned
+mruby commit `7b4e0f3b7b3db3595332c4e1f4c97afcea183e5e`: there a fiber that
+`tac_invoke` starts can yield through `public_send`, `send`, `instance_exec`,
+`Method#call`, blocks, `ensure` and `retry`, and a later `tac_invoke` can
+resume it. A probe on this runtime showed that. Upgrading mruby must re-run
+the Ruby transport test before the pin moves.
+
+In a Ruby Tac test unit, `construct(Service)` gives the service its Fake
+fields. A Fake field is `#[Fake]` above `attr_accessor :name`. While it is
+`nil`, the service gets `Client.new(context)`, bound to the test's context,
+so the TestSetup adapter answers. Test units run in CRuby and have no browser
+transport. A request without an adapter keeps the existing failure
+`Required behavior adapter is missing.` `ty migrate check` reports a service
+that builds its client itself (`service.builds_client`).
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=ruby` builds
+`website/content/docs/calling-the-server/browser-http-ruby/` and checks it in
+Chromium, Firefox and WebKit.
+`tac_ruby::tests::browser_http_tests` runs the page protocol on the pinned
+runtime in Node, and `client_tests::ruby_http_construct_tests` runs the Fake
+and typed-answer cases in CRuby.

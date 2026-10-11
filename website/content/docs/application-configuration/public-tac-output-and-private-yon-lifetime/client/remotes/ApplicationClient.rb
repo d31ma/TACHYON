@@ -1,4 +1,4 @@
-#[HTTPClient({"adapter":"publicConfiguration"})]
+#[HTTPClient]
 class ApplicationClient
   # @return [Hash]
   #[GetRequest("/manifest.webmanifest")]

@@ -1,12 +1,15 @@
 #[Service]
 class CatalogService
+  #[Needs]
+  # @return [CatalogClient]
+  attr_reader :catalog_client
+
   # @return [Array<String>]
   attr_reader :products
   # @return [String]
   attr_reader :error
 
   def initialize
-    @catalog = CatalogClient.new
     @products = []
     @error = ""
   end
@@ -20,7 +23,7 @@ class CatalogService
 
   # @return [Array<String>, nil]
   def fetch
-    @catalog.all
+    catalog_client.all
   rescue StandardError
     nil
   end

@@ -44,7 +44,12 @@ impl ContextTemplate {
         "final Behaviors.Context behaviors;",
         "{owner}() {\n    this(Behaviors.create(\"{setup}\", new Behaviors.Options(\"{partition}\", new Behaviors.Signal())));\n}\n{owner}(Behaviors.Context context) {\n    behaviors = context;\n}",
     );
-    const HTTP_TEMPLATES: [Self; 7] = [
+    const RUBY_TAC_HTTP: Self = Self::new(
+        "rb-tac",
+        "",
+        "def initialize(context = nil)\n    @behaviors = context || Behaviors.create({setup}, partition: \"{partition}\", signal: BehaviorSignal.new)\nend",
+    );
+    const HTTP_TEMPLATES: [Self; 8] = [
         Self::DART_TAC_HTTP,
         Self::CSHARP_TAC_HTTP,
         Self::RUST_TAC_HTTP,
@@ -52,6 +57,7 @@ impl ContextTemplate {
         Self::KOTLIN_TAC_HTTP,
         Self::SWIFT_TAC_HTTP,
         Self::JAVA_TAC_HTTP,
+        Self::RUBY_TAC_HTTP,
     ];
     const HTTP_CLIENT: &'static str = "HTTPClient";
     const TEMPLATES: [Self; 23] = [

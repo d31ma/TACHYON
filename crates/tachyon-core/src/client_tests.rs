@@ -55,6 +55,8 @@ mod java_preference_tests;
 #[cfg(test)]
 mod module_url_tests;
 #[cfg(test)]
+mod ruby_http_construct_tests;
+#[cfg(test)]
 mod rust_construct_tests;
 
 #[cfg(test)]
@@ -404,10 +406,7 @@ fn run_ruby(
     let staging = stage_directory(portable)?;
     let mut program = String::from("require \"json\"\n");
     program.push_str(crate::tac_ruby::RubyWebServices::PRELUDE);
-    for model in crate::tac_ruby::RubyWebServices::client_models(project)? {
-        program.push('\n');
-        program.push_str(&model);
-    }
+    program.push_str(&crate::tac_ruby::RubyWebServices::models_program(project)?);
     program.push('\n');
     program.push_str(lowered);
     program.push_str(&ClientTestUnits::RUBY_DRIVER.replace("__UNIT__", name));
