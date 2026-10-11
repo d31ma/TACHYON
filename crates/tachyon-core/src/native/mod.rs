@@ -21,6 +21,7 @@ mod go_compiled_with;
 mod go_compiler;
 mod go_compiler_choice;
 mod go_events;
+mod go_needs;
 mod go_web_build;
 mod host;
 mod ios;

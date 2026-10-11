@@ -64,6 +64,7 @@ pub(crate) struct GoTable<'a> {
     pub(crate) class: &'a str,
     pub(crate) excluded: &'a [String],
     pub(crate) extra: &'a str,
+    pub(crate) needs: &'a str,
 }
 
 struct GoTypes;
@@ -132,8 +133,8 @@ pub(crate) fn owner_table_named(table: &GoTable<'_>, factory: &str) -> Result<St
         String::new()
     };
     let mut output = format!(
-        "func {factory}() []tac.Member {{\n\tinstance := &{}{{}}\n{injection}\treturn []tac.Member{{\n",
-        table.class
+        "func {factory}() []tac.Member {{\n\tinstance := &{}{{}}\n{injection}{}\treturn []tac.Member{{\n\t\t{{Instance: instance}},\n",
+        table.class, table.needs
     );
     for (_, entry) in entries {
         output.push_str(&entry);
@@ -233,6 +234,7 @@ mod tests {
             class: "SearchService",
             excluded,
             extra: "",
+            needs: "",
         })
     }
 
@@ -265,6 +267,7 @@ mod tests {
                 class,
                 excluded: &[String::from("Start"), String::from("Stop")],
                 extra,
+                needs: "",
             })
             .expect("selected owner");
             assert!(output.starts_with(&format!(

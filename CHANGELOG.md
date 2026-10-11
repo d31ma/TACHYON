@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A Go Tac service can need another Go service: `// @Needs` above a field
+  such as `counter *CounterService` gives it the instance that the page uses.
+  The needed service starts first and stops last, events it publishes during
+  the call reach every listener on the page, and the field stays off the
+  page. The build refuses, with TY1406, a field that holds the service by
+  value, a needed service with one instance for each component, a circle
+  and an unclear instance name. Standard Go and TinyGo builds both work
+  (ADR 0045 amendment).
 - A Go socket session has `Request()`, which returns the request that opened
   the socket as a `*http.Request`, with its query string and headers. The
   supervisor now passes the opening request's target to every socket handler.

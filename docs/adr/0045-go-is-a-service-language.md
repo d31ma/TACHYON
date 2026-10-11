@@ -5,6 +5,8 @@
   now use `// @Name` comments. The bracket spelling and tooling limitations
   recorded below describe the original decision, not the current syntax.
 - Date: 2026-09-25
+- Amended: 2026-10-11 (a Go service needs another Go service; see the
+  amendment)
 - Amends: [ADR 0031](0031-realms-mirror-each-other.md) (the Yon languages),
   [ADR 0035](0035-rust-services-reach-the-web-as-webassembly.md) and
   [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md) (which
@@ -156,7 +158,9 @@ points are not written above, or differ from how other languages spell them:
   C#, a page opened from `file:` cannot load a Go service.
 - Each service compiles in its own Go package, as each Rust service sits in
   its own module. A service's behavior code and its copy of the client models
-  stay inside that package, so two services never clash. The protocol runtime
+  stay inside that package, so two services never clash. (Replaced: all Go
+  services of a page now share one package; see the amendment of
+  2026-10-11.) The protocol runtime
   is a framework package, and a service names `ApplicationEventPublisher`
   without an import. Its method is
   `PublishEvent(event string, value any, retain bool)`.
@@ -306,3 +310,56 @@ These Go refusals are deliberate design rules:
 - `server/shared/` holds no annotated Go code (above).
 - `gofmt`, `go vet` and `gopls` cannot read an annotated Go file
   (Consequences).
+
+## Amendment (2026-10-11): a Go service needs another Go service
+
+A Go Tac service can mark a field with `// @Needs` and give it another Go
+service's type, as JavaScript, Rust (its typed page graph) and C++
+(ADR 0099, `TacNeeds::of<T>`) already allow. Before this amendment the build
+left such a field alone, and Go stopped with `undefined:` because each
+service had its own package.
+
+- All Go services of a page compile into one Go package, `page`, with the
+  Setup, client, Store and model files of the page once. Each service keeps
+  its own factory, `TacCreate<Class>`. So `counter *CounterService` names
+  the other service without an import, and the needing service calls its
+  methods directly, without a trip through the page.
+- The field holds the instance that the page uses. The build resolves the
+  field by its type to an instance name of the page. When the page has the
+  type under two instance names, the field name must be one of them. The
+  factory assigns `tac.Need("counter")` after the Store and client
+  injection. The page package registers each needed instance with
+  `tac.Shared`, and the runtime keeps one node for it: the page's own
+  activation of that instance and every field that needs it share the node.
+  An instance that no service needs keeps one Go value for each activation,
+  as before.
+- The needed service is created and started first. Its OnStart runs once,
+  before the OnStart of the service that needs it, and a later page
+  activation of the same instance does not run it again. Events that it
+  publishes while a page call runs go out through the owner of that call,
+  so they reach every listener on the page.
+- Disposal counts holders: each page activation holds its own node, and each
+  node holds the nodes it needs. When the last holder lets go, the node runs
+  OnStop and then lets go of its needs, newest first. So a service stops
+  before the services it needs, whatever order the page disposes of them in,
+  and `host-dispose` keeps the same order.
+- A needed instance lives as long as the page, as a JavaScript singleton and
+  a Rust singleton node do. When its last holder lets go while other Go
+  services of the page are still active, the node stays, started and with
+  its state, and the next holder gets it back. When the last Go activation
+  of the page is disposed, the runtime stops the nodes that stayed, newest
+  first. A node whose OnStart failed does not stay.
+- The field never reaches the page as a data field. A `Needs` field is
+  lowerCamel in Go (TY1332), so it is never exported.
+- A needed Go service is a page singleton. The build refuses, with TY1406 at
+  the field: a field that holds the service by value, because a copy is not
+  shared; a needed service that has one instance for each component
+  (`Lifetime` prototype or `NeedsAll`), because Go cannot tell which
+  component's instance a field means, which Rust refuses too; services that
+  need each other in a circle, as C++ does; and a type that the page has
+  under two instance names when the field name is neither.
+- The listeners of a needed service hear events when the page also
+  activates that service. A service that only another service needs has no
+  page owner, so its own `OnEvent` methods are not registered.
+- Standard Go and TinyGo build the same program; the tests build both and
+  run them under Node.

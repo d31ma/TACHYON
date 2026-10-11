@@ -1,0 +1,56 @@
+{
+  "heading": "A service that needs another service: Tac",
+  "body": "A service can need another service. Mark a field with Needs and give it the type of the other service. The field holds the same instance that the page uses. The view below shows {counter.count}, and TallyService changes that count when it calls increment on its counter field. So a click on Bump changes both lines. In JavaScript and TypeScript, the field name is the instance name of the other service: counter for CounterService.\n\nIn Go, `// @Needs` sits on the line above a field such as `counter *CounterService` (ADR 0045). All Go services of a page build into one Go package, so TallyService names CounterService without an import and calls its methods directly. The field holds a pointer, so TallyService and the page share one CounterService. The field stays inside the service: the page never reads it. Tachyon creates the needed service first and runs its OnStart first, so the OnStart of TallyService can already use counter. When TallyService calls counter.Increment() and CounterService publishes an event there, the event reaches every listener on the page, as if the page had called the method. Tachyon stops the services in the opposite order: OnStop of TallyService runs before OnStop of CounterService. If the page disposes of its CounterService first, TallyService keeps it until TallyService stops. The OnEvent methods of a needed Go service run when the page uses that service too, as this view does with counter.\n\nA needed Go service is a page singleton: it keeps its state when the components that use it come and go, and it stops when the last Go service of the page is disposed. The build refuses these Go fields with TY1406, at the field: a field that holds the service by value, such as `counter CounterService`, because a copy is not shared; a field whose service has one instance for each component, because it is Lifetime prototype or NeedsAll; services that need each other in a circle, which you break with an event; and a field whose type the page has under two instance names, unless the field name is one of them. A C++ service needs another C++ service with `[[Needs]] CounterService& counter;` (ADR 0099). Injection: Tac above shows Needs with helpers, and One per page, or one per component explains Lifetime.",
+  "axis": "language",
+  "target": "web",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/tally/panel/tac.html",
+      "code": {
+        "file": "client/components/tally/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/CounterService.js",
+      "code": {
+        "file": "client/services/CounterService.js"
+      }
+    },
+    {
+      "name": "client/services/TallyService.js",
+      "code": {
+        "file": "client/services/TallyService.js"
+      }
+    },
+    {
+      "name": "client/services/CounterService.ts",
+      "code": {
+        "file": "client/services/CounterService.ts"
+      }
+    },
+    {
+      "name": "client/services/TallyService.ts",
+      "code": {
+        "file": "client/services/TallyService.ts"
+      }
+    },
+    {
+      "name": "client/services/CounterService.go",
+      "code": {
+        "file": "client/services/CounterService.go"
+      }
+    },
+    {
+      "name": "client/services/TallyService.go",
+      "code": {
+        "file": "client/services/TallyService.go"
+      }
+    }
+  ]
+}

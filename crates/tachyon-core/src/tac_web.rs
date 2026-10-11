@@ -848,6 +848,9 @@ mod model_binding_tests;
 mod converter_model_tests;
 
 #[cfg(test)]
+mod go_needs_tests;
+
+#[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
