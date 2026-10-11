@@ -199,6 +199,12 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- A route with web services loads less script: the build writes the shared
+  script of each service language (`tachyon-rust.js`, `tachyon-go.js`,
+  `tachyon-csharp.js`, `tachyon-ruby-services.js` and the others) and Go's
+  `wasm_exec.js` without comment lines, indentation or blank lines, keeping
+  the generated-file notice and Go's license notice. A route with Rust, Go
+  and C# services loads about 1.8 KB less with Brotli.
 - The website's style generator reads `TAC_WEBSITE_DEPENDENCIES` instead of
   `TACHYON_WEBSITE_DEPENDENCIES` to find the website's `node_modules` folder
   when dependencies live outside the source folder. Rename the variable where
