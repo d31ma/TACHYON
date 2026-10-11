@@ -175,7 +175,7 @@ abstract final class BehaviorBrowserHttp {
     execution.check();
     final send = host;
     if (send == null) throw BehaviorError('HTTP_MISSING');
-    final text = BehaviorJson.encode(request, 65536);
+    final text = BehaviorJson.encode(request, 1048576);
     final answer = BehaviorJson.parse(await send(text, execution.signal));
     execution.check();
     if (BehaviorJson.has(answer, 'error')) {

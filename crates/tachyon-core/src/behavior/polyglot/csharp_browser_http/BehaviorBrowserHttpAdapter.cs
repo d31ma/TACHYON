@@ -1,6 +1,6 @@
 internal sealed class BehaviorBrowserHttpAdapter : BehaviorHTTPAdapter, System.IDisposable
 {
-    private const int RequestLimit = 65536;
+    private const int RequestLimit = 1048576;
     private const int ResponseLimit = 1048576;
     private readonly System.Func<string, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> send;
     private readonly System.IDisposable watch;

@@ -261,3 +261,16 @@ Evidence: `scripts/browser-http-browser-test.mjs --language=swift` builds
 `website/content/docs/calling-the-server/browser-http-swift/` and checks it in
 Chromium, Firefox and WebKit; `client_tests::swift_construct_tests` runs the
 Fake and typed-answer cases.
+
+## Amendment (2026-10-11): 1 MiB requests and the status of a failed answer
+
+The host and every compiled client accept at most 1 MiB (1,048,576 UTF-8
+bytes) of request instead of 65,536, so a page can send a file such as an
+EML message. The server's own request body limit is also 1 MiB. Other
+limits stay as above.
+
+An `HTTP_STATUS` failure now carries the status number:
+`{"error":{"code":"HTTP_STATUS","status":404}}`. The body of the answer
+still stays out. Go reads it with `BehaviorErrorStatus(err)`, from the new
+`Status` field of `BehaviorError`; the other languages keep the code only.
+

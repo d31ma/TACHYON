@@ -212,6 +212,13 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The browser HTTP transport of compiled Tac clients accepts requests of up
+  to 1 MiB instead of 64 KiB, in every language, so a page can upload a file
+  such as an EML message (ADR 0090 amendment).
+- An `HTTP_STATUS` failure of the browser transport carries the status
+  number. In Go, `BehaviorErrorStatus(err)` reads it. The answer's body still
+  stays out.
+
 - A Go web build gives `go build` and TinyGo up to 15 minutes, like Cargo,
   instead of the 2 minutes of other native tools. TinyGo can take about 5
   minutes on a 4-core machine; before, the release build timed out and fell

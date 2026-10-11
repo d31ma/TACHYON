@@ -19,7 +19,7 @@ impl BehaviorBrowserHttp {
     const FAILED: &'static str = "The browser HTTP request failed.";
     const NETWORK: &'static str = "HTTP_NETWORK";
     const RESPONSE: &'static str = "HTTP_RESPONSE";
-    const REQUEST_BYTES: usize = 65_536;
+    const REQUEST_BYTES: usize = 1_048_576;
 
     async fn send(
         request: &BehaviorHttpRequest,

@@ -8,7 +8,7 @@ var behaviorBrowserCodes = []string{
 const behaviorBrowserFailed = "The browser HTTP request failed."
 
 func behaviorDefaultExchange(request *BehaviorHttpRequest, operation *behaviorOperation, publicRead bool) (BehaviorValue, error) {
-	text, err := behaviorEncode(behaviorBrowserRequest(request, operation, publicRead), 65536)
+	text, err := behaviorEncode(behaviorBrowserRequest(request, operation, publicRead), 1048576)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,8 @@ func behaviorBrowserAnswer(text string) (BehaviorValue, error) {
 		return nil, behaviorError("HTTP_RESPONSE", behaviorBrowserFailed)
 	}
 	if failure, failed := object["error"].(map[string]any); failed {
-		return nil, behaviorError(behaviorBrowserCode(failure["code"]), behaviorBrowserFailed)
+		status, _ := failure["status"].(float64)
+		return nil, &BehaviorError{Code: behaviorBrowserCode(failure["code"]), Message: behaviorBrowserFailed, Status: int(status)}
 	}
 	value, present := object["value"]
 	if !present {
