@@ -22,7 +22,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 use tachyon_contracts::{
-    HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod, NativeTarget,
+    HandlerBody, HandlerBodyEncoding, HandlerProtocolError, HandlerRequest, HandlerResponse,
+    HttpMethod, NativeTarget,
 };
 use tachyon_core::{
     ApiBaselineCheck, ApplicationConfig, BuildOptions, ComposedTypes, DevServer, DevServerOptions,
@@ -1769,9 +1770,7 @@ async fn run_test_units(
     supervisor.preflight_gateways(&sources).await?;
     let mut results = TestResults::new(output);
     for (relative, source) in units.iter().zip(&sources) {
-        results
-            .run_server_unit(relative, source, &supervisor)
-            .await?;
+        results.run_server_unit(relative, source, &supervisor).await;
     }
     for relative in client {
         results.run_client_unit(project, &relative);
@@ -1801,7 +1800,7 @@ impl TestResults {
         relative: &Path,
         source: &HandlerSource,
         supervisor: &HandlerSupervisor,
-    ) -> Result<(), Failure> {
+    ) {
         let portable = relative.to_string_lossy().replace('\\', "/");
         let response = supervisor
             .invoke(
@@ -1809,7 +1808,8 @@ impl TestResults {
                 &HandlerRequest::route("ty-test", "/", HttpMethod::Post),
                 &HandlerCancellation::default(),
             )
-            .await?;
+            .await
+            .unwrap_or_else(|failure| Self::unit_did_not_answer(&failure));
         let language = relative
             .extension()
             .and_then(|value| value.to_str())
@@ -1820,7 +1820,7 @@ impl TestResults {
             self.failed += 1;
             self.output
                 .failure(&format!("FAIL {portable}: {}", error.message));
-            return Ok(());
+            return;
         }
         let report = response
             .body
@@ -1843,7 +1843,20 @@ impl TestResults {
                 .collect();
             self.calls.add("server", &format!("{unit}.{name}"), &called);
         }
-        Ok(())
+    }
+
+    // A crash or timeout fails this unit only, so the other units still run and the summary prints.
+    fn unit_did_not_answer(failure: &Failure) -> HandlerResponse {
+        let diagnostic = &failure.diagnostics()[0];
+        HandlerResponse::error(
+            "ty-test",
+            500,
+            HandlerProtocolError {
+                code: diagnostic.code.to_string(),
+                message: format!("{}: {}", diagnostic.code, diagnostic.message),
+                retryable: false,
+            },
+        )
     }
 
     fn run_client_unit(&mut self, project: &Path, relative: &Path) {

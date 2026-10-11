@@ -394,6 +394,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- `ty test` no longer stops at a server test unit whose process crashes
+  (TY2104) or times out (TY2110). That unit is reported as `FAIL` with the
+  diagnostic, the remaining units still run, and the run prints its
+  `N passed, M failed.` summary and ends with TY2020.
+
 - TinyGo builds give each goroutine a 512 KB stack instead of TinyGo's
   64 KB. Every Go Tac call runs on its own goroutine, and deep work such as
   compiling a regexp with `{1,200}` overflowed the small stack and crashed
