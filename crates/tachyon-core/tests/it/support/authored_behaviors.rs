@@ -302,6 +302,7 @@ fn role_copy(
             (
                 path.with_file_name(format!("{name}.{extension}"))
                     .to_string_lossy()
+                    .replace('\\', "/")
                     .replacen("server/helpers/", &format!("server/{folder}/"), 1),
                 source,
             )
