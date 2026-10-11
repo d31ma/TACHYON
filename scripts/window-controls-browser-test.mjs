@@ -21,6 +21,7 @@ class WindowControlsGate {
   static grants = ['minimize', 'resize', 'title']
   static notGranted = 'The close window control is not granted. Add "close" to tac.application.window.controls in client/manifest.json.'
   static noWindow = 'The minimize window control needs the native app window.'
+  static browserTimeout = 30_000
 
   static sources = {
     js: ['client/services/JsWindowService.js', `@Service
@@ -453,6 +454,12 @@ final class JavaWindowService {
     globalThis.__tachyonWindowControls = Object.freeze(grants)
   }
 
+  // A component resolves its services one after another, so a service can register after the network is idle.
+  static registered(page) {
+    const names = WindowControlsGate.languages.map((language) => `${language}Window`)
+    return page.waitForFunction((wanted) => wanted.every((name) => globalThis.__tachyonTac?.service(name)), names, { timeout: WindowControlsGate.browserTimeout })
+  }
+
   static async checkTab(page, browser, language) {
     const label = `${browser} ${language}`
     WindowControlsGate.expect(await WindowControlsGate.ask(page, language, 'allowed'), false, `${label}: a browser tab grants no window control`)
@@ -478,15 +485,17 @@ final class JavaWindowService {
   }
 
   static async run(origin, name) {
-    const browser = await WindowControlsGate.launchers[name].launch({ timeout: 30_000 })
+    const browser = await WindowControlsGate.launchers[name].launch({ timeout: WindowControlsGate.browserTimeout })
     try {
       const tab = await browser.newPage()
       await tab.goto(`${origin}/`, { waitUntil: 'networkidle' })
+      await WindowControlsGate.registered(tab)
       for (const language of WindowControlsGate.languages) await WindowControlsGate.checkTab(tab, name, language)
       const context = await browser.newContext()
       await context.addInitScript(WindowControlsGate.nativeHost, WindowControlsGate.grants)
       const native = await context.newPage()
       await native.goto(`${origin}/`, { waitUntil: 'networkidle' })
+      await WindowControlsGate.registered(native)
       for (const language of WindowControlsGate.languages) await WindowControlsGate.checkNative(native, name, language)
     } finally {
       await browser.close()
