@@ -251,6 +251,25 @@ Settings that belong to the application itself, such as a database password,
 still go in `.env` as `YON_` names and reach handlers through the
 configuration snapshot.
 
+### Request body limit
+
+A Yon route reads at most 1 MiB of request body. `server.maxbody` raises
+that limit for every route, up to 12 MiB (12582912 bytes), for example for
+mail or file uploads:
+
+```json
+{
+  "server": {
+    "maxbody": 12582912
+  }
+}
+```
+
+A larger body gets `413 Payload Too Large`. Tachyon reads up to 16 MiB of
+the body before it answers, so a client that is still sending sees the 413
+instead of a broken connection. The 12 MiB ceiling leaves room in the 16 MiB
+message that carries a request to its handler (ADR 0003).
+
 ### How Tachyon validates JSON
 
 JSON files reject:

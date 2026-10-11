@@ -599,3 +599,28 @@ fn handler_environment_refuses_everything_and_ty_internal_variables() {
         assert!(message.contains(expected), "{entries}: {message}");
     }
 }
+
+#[test]
+fn the_request_body_limit_defaults_to_one_mebibyte_and_accepts_up_to_twelve() {
+    let root = temporary_directory();
+    write(root.path(), "server/application.json", r#"{"server":{}}"#);
+    assert_eq!(loaded(load(root.path())).max_request_bytes(), 1_048_576);
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"maxbody":12582912}}"#,
+    );
+    assert_eq!(loaded(load(root.path())).max_request_bytes(), 12_582_912);
+    for refused in ["0", "12582913", "\"big\"", "1.5"] {
+        write(
+            root.path(),
+            "server/application.json",
+            &format!(r#"{{"server":{{"maxbody":{refused}}}}}"#),
+        );
+        let failure = load(root.path()).err().map(|failure| failure.to_string());
+        assert!(
+            failure.is_some_and(|message| message.contains("maxbody")),
+            "{refused} is refused"
+        );
+    }
+}

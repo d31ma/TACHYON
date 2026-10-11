@@ -14,6 +14,9 @@
     },
     {
       "include": "../annotations/injection-tac/section.json"
+    },
+    {
+      "include": "../annotations/service-needs-tac/section.json"
     }
   ]
 }

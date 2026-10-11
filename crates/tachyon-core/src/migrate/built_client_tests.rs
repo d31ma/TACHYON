@@ -52,6 +52,10 @@ fn an_injected_client_is_not_reported() {
             "client/services/A.rs",
             "// CatalogClient::new() is built by Tachyon",
         ),
+        (
+            "client/services/A.rb",
+            "#[Needs]\n# @return [CatalogClient]\nattr_reader :catalog_client",
+        ),
     ];
     for (path, source) in kept {
         assert!(

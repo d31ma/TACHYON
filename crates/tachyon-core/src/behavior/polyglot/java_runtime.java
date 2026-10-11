@@ -10,6 +10,14 @@ final class Behaviors {
         Failure(String code, String path, String message) { super(message); this.code = code; this.path = path; }
     }
     static Failure fail(String code) { return new Failure(code); }
+    static final String WRONG_SHAPE = "The server answer does not have the shape of the model (HTTP_RESPONSE).";
+    static <T> T answer(Object value, String shape, java.util.function.Function<Object, T> read) {
+        boolean object = value instanceof java.util.Map<?, ?>;
+        boolean list = value instanceof java.util.List<?>;
+        boolean fits = value == null || (shape.equals("object") == object && shape.equals("list") == list);
+        if (!fits) throw new Failure("HTTP_RESPONSE", null, WRONG_SHAPE);
+        try { return read.apply(value); } catch (RuntimeException error) { throw new Failure("HTTP_RESPONSE", null, WRONG_SHAPE); }
+    }
     static final class Signal {
         private volatile boolean aborted;
         private final Signal parent;
@@ -363,6 +371,7 @@ final class Behaviors {
         private volatile boolean closed;
         private int active;
         private final String setupKey;
+        private final java.util.Set<String> revalidations = new java.util.HashSet<>();
         Context(Options options, Configuration configuration) { this(options, configuration, null); }
         Context(Options options, Configuration configuration, String setupKey) { this.options = options; this.configuration = configuration; this.setupKey = setupKey; }
         public void close() { dispose(); }
@@ -464,11 +473,12 @@ final class Behaviors {
                     if (entry.hit && entry.expiresAt > now + policy.ttlMs) throw fail("cache-entry");
                     if (entry.hit && entry.expiresAt > now) return copy(entry.value, policy.maxBytes);
                 }
+                boolean revalidate = key != null && revalidations.remove(key);
                 Object value = exchange != null && exchange.declared()
                     ? exchangeRequest(exchange, arguments)
                     : resilient(type, method, retry, limit, transactional, execution, call);
                 execution.check();
-                if (exchange != null) value = exchange(value, exchange, execution);
+                if (exchange != null) value = send(value, exchange, execution, key != null && exchange.method.equals("GET"), revalidate);
                 value = copy(value, policy == null ? 1048576 : policy.maxBytes);
                 if (cache != null) {
                     try { cache.set(key, copy(value, policy.maxBytes), new Write(execution, policy, System.currentTimeMillis() + policy.ttlMs)); }
@@ -484,13 +494,14 @@ final class Behaviors {
                 CacheAdapter cache = cacheAdapter(policy.name);
                 if (cache == null) throw fail("cache-adapter");
                 Object value = resilient(type, target, retry, limit, transactional, execution, call); execution.check();
-                if (exchange != null) value = exchange(value, exchange, execution);
+                if (exchange != null) value = send(value, exchange, execution, false, false);
                 value = copy(value, put ? policy.maxBytes : 1048576);
                 execution.check();
                 try {
                     if (put) cache.set(key, value, new Write(execution, policy, System.currentTimeMillis() + policy.ttlMs));
                     else cache.delete(key, execution);
                 } catch (RuntimeException error) { throw fail("cache-adapter"); }
+                revalidations.add(key);
                 execution.check(); return value;
             });
         }
@@ -560,14 +571,30 @@ final class Behaviors {
             return arguments[index];
         }
         Object exchange(Object descriptor, Exchange metadata, Execution execution) {
+            HttpAdapter adapter = configuration.http.get(metadata.client); if (adapter == null) throw fail("http-adapter");
+            return adapted(adapter, request(descriptor, metadata), execution);
+        }
+        Object send(Object descriptor, Exchange metadata, Execution execution, boolean publicRead, boolean revalidate) {
+            java.util.Map<String, Object> request = request(descriptor, metadata);
+            HttpAdapter adapter = configuration.http.get(metadata.client);
+            if (adapter != null) return adapted(adapter, request, execution);
+            java.util.Map<String, Object> browser = new java.util.LinkedHashMap<>(request);
+            browser.put("deadline", execution.deadline); browser.put("publicRead", publicRead); browser.put("revalidate", revalidate);
+            execution.check();
+            Object value = BehaviorBuiltins.exchange(java.util.Collections.unmodifiableMap(browser), execution);
+            execution.check(); return copy(value, 1048576);
+        }
+        static java.util.Map<String, Object> request(Object descriptor, Exchange metadata) {
             java.util.Map<String, Object> request = new java.util.LinkedHashMap<>(map(copy(descriptor, 1048576)));
             for (String key : request.keySet()) if (!java.util.Set.of("query", "headers", "body").contains(key)) throw fail("http-request");
             validateRequest(request);
             if ((metadata.method.equals("GET") || metadata.method.equals("HEAD")) && request.containsKey("body")) throw fail("http-request");
             request.put("method", metadata.method); request.put("path", metadata.path);
             request.put("redirect", "error"); request.put("credentials", "omit"); request.put("maxResponseBytes", 1048576);
-            HttpAdapter adapter = configuration.http.get(metadata.client); if (adapter == null) throw fail("http-adapter");
-            try { Object value = adapter.exchange(java.util.Collections.unmodifiableMap(request), execution); execution.check(); return copy(value, 1048576); }
+            return java.util.Collections.unmodifiableMap(request);
+        }
+        static Object adapted(HttpAdapter adapter, java.util.Map<String, Object> request, Execution execution) {
+            try { Object value = adapter.exchange(request, execution); execution.check(); return copy(value, 1048576); }
             catch (Failure error) { throw error; } catch (RuntimeException error) { throw fail("http-adapter"); }
         }
     }

@@ -1,6 +1,7 @@
 @Service
 final class CatalogService {
-    let catalog: CatalogClient = CatalogClient()
+    @Needs
+    private let catalog: CatalogClient
     var products: [String] = []
     var error: String = ""
 

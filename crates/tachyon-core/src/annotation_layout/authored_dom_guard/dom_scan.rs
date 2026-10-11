@@ -284,6 +284,9 @@ impl<'s> DomScan<'s> {
         let style = [
             receiver == DomKind::Style,
             ["setProperty", "removeProperty"].contains(&property),
+            !reader
+                .literal_argument(after)
+                .is_some_and(|name| name.starts_with("--")),
         ]
         .into_iter()
         .all(|holds| holds);

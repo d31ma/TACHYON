@@ -104,5 +104,8 @@ const tachyonBodies=new Map([
 ["payload\nreturn globalThis[Symbol.for('tachyon.java.host')].emit(payload);",function(payload){return globalThis[Symbol.for('tachyon.java.host')].emit(payload);}],
 ["text\nreturn globalThis[Symbol.for('tachyon.java.host')].storage(text);",function(text){return globalThis[Symbol.for('tachyon.java.host')].storage(text);}],
 ["text\nreturn globalThis[Symbol.for('tachyon.java.host')].web(text);",function(text){return globalThis[Symbol.for('tachyon.java.host')].web(text);}],
-["milliseconds\nreturn globalThis[Symbol.for('tachyon.java.host')].pause(milliseconds);",function(milliseconds){return globalThis[Symbol.for('tachyon.java.host')].pause(milliseconds);}]
+["milliseconds\nreturn globalThis[Symbol.for('tachyon.java.host')].pause(milliseconds);",function(milliseconds){return globalThis[Symbol.for('tachyon.java.host')].pause(milliseconds);}],
+["ticket,text\nreturn globalThis[Symbol.for('tachyon.java.host')].httpStart(ticket, text);",function(ticket,text){return globalThis[Symbol.for('tachyon.java.host')].httpStart(ticket, text);}],
+["ticket\nreturn globalThis[Symbol.for('tachyon.java.host')].httpCancel(ticket);",function(ticket){return globalThis[Symbol.for('tachyon.java.host')].httpCancel(ticket);}],
+["task,text\nreturn globalThis[Symbol.for('tachyon.java.host')].taskDone(task, text);",function(task,text){return globalThis[Symbol.for('tachyon.java.host')].taskDone(task, text);}]
 ]);

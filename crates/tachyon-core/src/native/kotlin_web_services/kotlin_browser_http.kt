@@ -5,7 +5,7 @@ private fun tacThrownCode(error: Throwable): String? = (error as? Behaviors.Fail
 
 private object BehaviorBrowserHttp {
     private const val FAILED = "The browser HTTP request failed."
-    private const val REQUEST_BYTES = 65536
+    private const val REQUEST_BYTES = 1048576
     private val CODES = setOf(
         "HTTP_REQUEST", "HTTP_ORIGIN", "HTTP_HEADER", "HTTP_QUERY", "HTTP_BODY", "HTTP_LIMIT", "HTTP_RESPONSE",
         "HTTP_STATUS", "HTTP_CAPACITY", "HTTP_NETWORK", "HTTP_MISSING", "CANCELLED", "DEADLINE",

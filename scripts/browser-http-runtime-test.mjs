@@ -49,7 +49,13 @@ class BrowserHttpRuntimeCheck {
     assert.equal((await answer(BrowserHttpRuntimeCheck.request({ body: {} }))).error.code, 'HTTP_BODY')
     assert.equal(calls.length, before)
     environment.fetch = async () => new Response('private failure', { status: 403 })
-    assert.equal((await answer(BrowserHttpRuntimeCheck.request())).error.code, 'HTTP_STATUS')
+    const refused = await answer(BrowserHttpRuntimeCheck.request())
+    assert.deepEqual(refused.error, { code: 'HTTP_STATUS', status: 403 })
+    assert.ok(!JSON.stringify(refused).includes('private'), 'the answer body stays out')
+    environment.fetch = async (url, options) => { calls.push({ url, options }); return new Response('{}') }
+    const large = 'x'.repeat(900000)
+    assert.deepEqual((await answer(BrowserHttpRuntimeCheck.request({ method: 'POST', body: { large } }))).value, {})
+    assert.equal((await answer(BrowserHttpRuntimeCheck.request({ method: 'POST', body: { large: large + large } }))).error.code, 'HTTP_REQUEST')
     environment.fetch = async () => { throw new Error('private host path and token') }
     const failure = await answer(BrowserHttpRuntimeCheck.request())
     assert.equal(failure.error.code, 'HTTP_NETWORK')

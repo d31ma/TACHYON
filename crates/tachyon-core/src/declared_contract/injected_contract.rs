@@ -6,6 +6,7 @@ pub(crate) struct InjectedContract<'a> {
     marker: &'static str,
     filled: &'static str,
     contracts: &'a [String],
+    remotes: &'a [String],
 }
 
 impl<'a> InjectedContract<'a> {
@@ -55,8 +56,9 @@ impl<'a> InjectedContract<'a> {
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const REMOTES: &'static str = "client/remotes";
     const GO: &'static str = "go";
-    const REMOTE_LANGUAGES: [&'static str; 3] = [Self::GO, "kt", "swift"];
+    const REMOTE_LANGUAGES: [&'static str; 5] = [Self::GO, "kt", "swift", "java", Self::RUBY];
     const RUBY: &'static str = "rb";
+    const RUBY_REMOTE: &'static str = "{indent}private def {name}\n{indent}  @{name} ||= {type}.new(@tachyon_test_context)\n{indent}end";
     const RUBY_COMMENT: &'static str = "# ";
     const GO_METHOD: &'static str =
         "\nfunc (service *{owner}) {start}() error {\n{assignments}\treturn nil\n}\n";
@@ -69,7 +71,19 @@ impl<'a> InjectedContract<'a> {
             .collect()
     }
 
-    pub(crate) fn filled(path: &Path, source: &str, contracts: &'a [String]) -> Option<String> {
+    pub(crate) fn remote_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
+        paths
+            .filter(|path| Self::injected_remote(path))
+            .filter_map(|path| path.file_stem()?.to_str().map(str::to_owned))
+            .collect()
+    }
+
+    pub(crate) fn filled(
+        path: &Path,
+        source: &str,
+        contracts: &'a [String],
+        remotes: &'a [String],
+    ) -> Option<String> {
         let language = path.extension()?.to_str()?;
         let owner = path.file_stem()?.to_str()?;
         let (form, marker, filled) = Self::FORMS.iter().find(|(form, _, _)| *form == language)?;
@@ -78,6 +92,7 @@ impl<'a> InjectedContract<'a> {
             marker,
             filled,
             contracts,
+            remotes,
         };
         injected.rewritten(source, owner)
     }
@@ -127,8 +142,16 @@ impl<'a> InjectedContract<'a> {
         let field = edits
             .iter()
             .find(|(_, field_at, _)| *field_at == at)
-            .map(|(_, _, field)| field.filled(self.filled));
+            .map(|(_, _, field)| field.filled(self.form_of(field)));
         field.or(marker).unwrap_or_else(|| line.to_owned())
+    }
+
+    fn form_of(&self, field: &InjectedField) -> &'static str {
+        let ruby_remote = [
+            self.language == Self::RUBY,
+            self.remotes.contains(&field.type_name),
+        ] == [true, true];
+        [self.filled, Self::RUBY_REMOTE][usize::from(ruby_remote)]
     }
 
     fn is_marker(&self, line: &str) -> bool {

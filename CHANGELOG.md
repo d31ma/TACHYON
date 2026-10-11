@@ -10,6 +10,23 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A Go Tac service can need another Go service: `// @Needs` above a field
+  such as `counter *CounterService` gives it the instance that the page uses.
+  The needed service starts first and stops last, events it publishes during
+  the call reach every listener on the page, and the field stays off the
+  page. The build refuses, with TY1406, a field that holds the service by
+  value, a needed service with one instance for each component, a circle
+  and an unclear instance name. Standard Go and TinyGo builds both work
+  (ADR 0045 amendment).
+- A Go Tac `@HTTPClient` interface method may carry `// @StreamRequest` or
+  `// @SocketRequest`. The page's event bus holds the stream or socket for
+  the Go service that keeps the client in a `// @Needs` field, with the same
+  origin, JSON, size and reconnect rules as JavaScript, and closes it when
+  the service's owner goes away. The service receives each message with
+  `// @OnEvent` on a method whose parameter is the message model. A socket
+  client gets `Send(message any) error`, which waits for the page like an
+  HTTP call and returns an error code instead of a rejected promise
+  (ADR 0058, ADR 0060 and ADR 0090 amendments).
 - A Go socket session has `Request()`, which returns the request that opened
   the socket as a `*http.Request`, with its query string and headers. The
   supervisor now passes the opening request's target to every socket handler.
@@ -172,6 +189,34 @@ machine contracts have their own, independent major versions.
   `try construct()` with a `Fake` client. Native macOS and iOS companions keep
   running an `async` method to the end and answer `HTTP_MISSING` without an
   adapter (ADR 0090).
+- Java Tac services call the server from the browser too. An `HTTPClient`
+  interface method returns a model from `client/models`, a `List` of models,
+  a plain value, `Object` or `void`. A service gets the client from a
+  `private final Client name;` field with `@Needs` on the line above.
+  Without a Setup adapter, the request goes to the same origin through the
+  browser host. Credentials are omitted, `Cached` reads are public, and the
+  next read revalidates after `ClearCache`. Each page call runs in a TeaVM
+  fiber. A call that waits returns a promise to the page, and other calls
+  run meanwhile. A wrong answer shape fails with `HTTP_RESPONSE`, and errors
+  reach the page with their code. Removing the component cancels the request
+  (`CANCELLED`). Java test units get `construct(Service.class)` with a
+  `Fake` client and keep `http-adapter` without an adapter (ADR 0090).
+- Ruby Tac services call the server from the browser too. The YARD
+  `@return` of an `HTTPClient` method names its answer: a model from
+  `client/models`, an `Array` of models or a plain value; `Hash` and
+  `Object` keep the answer as it is. A service gets the client with
+  `#[Needs]` above `attr_reader :name` and a `# @return [Client]` comment.
+  Without a Setup adapter, the request goes to the same origin through the
+  browser host. Credentials are omitted, `Cached` reads are public, and the
+  next read revalidates after `ClearCache`. Each page call runs in a Ruby
+  fiber on the existing mruby runtime. A call that waits returns a promise to
+  the page, and other calls run meanwhile. A wrong answer shape fails with
+  `HTTP_RESPONSE`, and errors reach the page with their code. Removing the
+  component cancels the request (`CANCELLED`). Ruby test units get
+  `construct(Service)` with a `Fake` client and keep `Required behavior
+  adapter is missing.` without an adapter. Method coverage no longer asks a
+  test case to call a Ruby method whose body is empty, such as a request
+  method of an `HTTPClient` (ADR 0090).
 - Method coverage no longer asks a test case to call a Setup's methods or the
   methods of a generated HTTPClient: Tachyon calls a Setup itself and writes
   the client's methods.
@@ -211,6 +256,39 @@ machine contracts have their own, independent major versions.
   or a localhost name (ADR 0094).
 
 ### Changed
+
+- A behaviour module may declare up to 512 types instead of 128, so a Go or
+  Ruby app with many clients no longer has to share one Setup between them.
+
+- `server.maxbody` in `server/application.json` raises the request body
+  limit of every Yon route from 1 MiB up to 12 MiB. A body over the limit
+  still gets 413, now after Tachyon has read up to 16 MiB of it, so a sender
+  that is still uploading sees the 413 instead of a broken connection.
+
+- `TY1364` lets an authored client script set or remove a CSS variable:
+  `style.setProperty('--accent', color)` passes when the name is literal text
+  that starts with `--`, so a script can apply a theme or font choice. Other
+  style writes are still refused.
+
+- An entry may compose up to 512 annotated role files instead of 128, and a
+  realm may hold up to 1024 model files per language instead of 256, also
+  when its event listeners read the models. That error now names the models
+  folder instead of the first service that listens. Large
+  apps with one type per file reached the old counts; the 1 MiB source
+  limits stay.
+
+- When a page and a controller share a path, a browser navigation (a GET or
+  HEAD with `Sec-Fetch-Mode: navigate`, or with an `Accept` of `text/html`
+  and no `Sec-Fetch-Mode`) gets the page instead of the controller's answer,
+  such as a 401 from a `SignedIn` route. Fetches from the page still reach
+  the controller. Both answers carry `Vary: Sec-Fetch-Mode, Accept`.
+
+- The browser HTTP transport of compiled Tac clients accepts requests of up
+  to 1 MiB instead of 64 KiB, in every language, so a page can upload a file
+  such as an EML message (ADR 0090 amendment).
+- An `HTTP_STATUS` failure of the browser transport carries the status
+  number. In Go, `BehaviorErrorStatus(err)` reads it. The answer's body still
+  stays out.
 
 - A Go web build gives `go build` and TinyGo up to 15 minutes, like Cargo,
   instead of the 2 minutes of other native tools. TinyGo can take about 5
@@ -315,6 +393,11 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- TinyGo builds give each goroutine a 512 KB stack instead of TinyGo's
+  64 KB. Every Go Tac call runs on its own goroutine, and deep work such as
+  compiling a regexp with `{1,200}` overflowed the small stack and crashed
+  the page's Go program.
 
 - A browser HTTP call from a Tac service (C#, F#, Kotlin, Dart, Swift, C++
   and the other WebAssembly languages) no longer shows up as a failed request

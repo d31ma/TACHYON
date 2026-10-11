@@ -532,7 +532,7 @@ try {
   if (pageOwnsFileSystem) globalThis.fs = pageFileSystem
 }
 const taskAnswers = new TacTaskAnswers()
-const invokeGo = globalThis.__tachyonGo((payload) => { published.push(payload) }, storageHost, webHost, (task, text) => { taskAnswers.done(task, text) })
+const invokeGo = globalThis.__tachyonGo((payload) => { published.push(payload) }, storageHost, webHost, (task, text) => { taskAnswers.done(task, text) }, (owner, text) => socketHost(owner, text))
 delete globalThis.__tachyonGo
 const transport = (text) => invokeGo(text)
 "
@@ -540,13 +540,13 @@ const transport = (text) => invokeGo(text)
 
     const KOTLIN_ENGINE: &str = concat!(
         include_str!("native/browser/tac-task-answers.js"),
-        include_str!("native/browser/tac-kotlin-http.js"),
+        include_str!("native/browser/tac-ticket-http.js"),
         r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
 if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
   throw new Error('Kotlin services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.')
 }
 const taskAnswers = new TacTaskAnswers()
-const kotlinHttp = new TacKotlinHttp()
+const kotlinHttp = new TacTicketHttp()
 globalThis[Symbol.for('tachyon.kotlin.host')] = {
   emit: (payload) => { published.push(payload) },
   storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
@@ -562,10 +562,15 @@ const transportAsync = (text) => taskAnswers.answer(transport(text))
 "
     );
 
-    const JAVA_ENGINE: &str = r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
+    const JAVA_ENGINE: &str = concat!(
+        include_str!("native/browser/tac-task-answers.js"),
+        include_str!("native/browser/tac-ticket-http.js"),
+        r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
 if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
   throw new Error('Java services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.')
 }
+const taskAnswers = new TacTaskAnswers()
+const javaHttp = new TacTicketHttp()
 globalThis[Symbol.for('tachyon.java.host')] = {
   emit: (payload) => { published.push(payload) },
   storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
@@ -574,28 +579,66 @@ globalThis[Symbol.for('tachyon.java.host')] = {
     const end = performance.now() + milliseconds
     while (performance.now() < end);
   },
+  httpStart: (ticket, text) => { javaHttp.start(ticket, text, (answer) => { java.exports.tacHttpSettle(ticket, answer) }) },
+  httpCancel: (ticket) => { javaHttp.cancel(ticket) },
+  taskDone: (task, text) => { taskAnswers.done(task, text) },
 }
 const { load } = await import('./java/runtime.js')
 const javaResponse = await fetch(new URL('./java/services.wasm', import.meta.url))
 const java = await load(new Uint8Array(await javaResponse.arrayBuffer()))
 const transport = (text) => java.exports.tacInvoke(text)
-";
+"
+    );
 
-    const RUBY_ENGINE: &str = r"const { TachyonRuby } = await import('./ruby/tachyon-ruby.js')
+    const RUBY_ENGINE: &str = concat!(
+        include_str!("native/browser/tac-task-answers.js"),
+        include_str!("native/browser/tac-ticket-http.js"),
+        r"const { TachyonRuby } = await import('./ruby/tachyon-ruby.js')
 const rubyResponse = await fetch(new URL('./ruby/tachyon-ruby.wasm', import.meta.url))
 const rubyModule = await WebAssembly.compile(await rubyResponse.arrayBuffer())
 const writeLine = (line, descriptor) => { if (descriptor === 2) console.error(line); else console.log(line) }
+const taskAnswers = new TacTaskAnswers()
+const rubyHttp = new TacTicketHttp()
+const rubySettle = (ticket, answer) => {
+  try {
+    ruby.invoke(`tachyon-http:settle ${ticket}\n${answer}`)
+  } finally {
+    deliver()
+  }
+}
+const rubyTasks = (request) => {
+  if (request.http === 'start') rubyHttp.start(request.ticket, request.request, (answer) => rubySettle(request.ticket, answer))
+  if (request.http === 'cancel') rubyHttp.cancel(request.ticket)
+  if (request.http === 'done') taskAnswers.done(request.task, request.answer)
+  return JSON.stringify({ value: null })
+}
 const rubyHost = (text) => {
-  if (JSON.parse(text).api) return webHost(text)
+  const request = JSON.parse(text)
+  if (request.api) return webHost(text)
+  if (request.http) return rubyTasks(request)
   return storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' })
 }
 const ruby = await TachyonRuby.start(rubyModule, writeLine, (payload) => { published.push(payload) }, rubyHost)
 const bootFailure = ruby.boot(__RUBY_PROGRAM__)
 if (bootFailure) throw new Error(`Ruby services did not start: ${JSON.parse(bootFailure).error}`)
 const transport = (text) => ruby.invoke(text)
-";
+"
+    );
 
     const SHARED_TAIL: &str = r"const publishers = new Map()
+const shells = new Map()
+
+const socketHost = async (owner, text) => {
+  try {
+    const { client, message } = JSON.parse(text)
+    const send = shells.get(owner)?.deref()?.[`__tachyonSend:${client}`]
+    if (typeof send !== 'function') return JSON.stringify({ error: { code: 'HTTP_MISSING' } })
+    await send(message)
+    return JSON.stringify({ value: null })
+  } catch {
+    return JSON.stringify({ error: { code: 'HTTP_NETWORK' } })
+  }
+}
 
 const deliver = () => {
   for (const payload of published.splice(0)) {
@@ -680,7 +723,7 @@ const ownerId = () => {
 }
 
 const released = typeof FinalizationRegistry === 'function'
-  ? new FinalizationRegistry((request) => { publishers.delete(request.owner); try { invoke(request) } catch {} })
+  ? new FinalizationRegistry((request) => { publishers.delete(request.owner); shells.delete(request.owner); try { invoke(request) } catch {} })
   : null
 const authored = (values) => (typeof Event === 'function' && values[0] instanceof Event ? values.slice(1) : values)
 const hidden = (target, name, value) => Object.defineProperty(target, name, { configurable: true, value })
@@ -699,11 +742,16 @@ const topicStreams = (plan, listeners) => {
   return [...streams.values()]
 }
 
-const listen = (target, call, plan, listeners) => {
+const heldStreams = (streams) => streams.slice(0, 16)
+  .filter((stream) => typeof stream?.path === 'string' && stream.path.startsWith('/') && !stream.path.startsWith('//'))
+  .map(({ client, path, event, socket, models }) => ({ method: '__tachyonStream', path, event, socket: socket === true, models, topic: false, ...(socket === true ? { sender: `__tachyonSend:${client}` } : {}) }))
+
+const listen = (target, call, plan, listeners, streams) => {
   if (!plan.listeners.length) {
     plan.listeners = listeners.map((listener) => ({ ...listener, method: `__tachyonListen:${listener.key}` }))
-    plan.streams = topicStreams(plan, listeners)
+    plan.streams = [...heldStreams(streams), ...topicStreams(plan, listeners)]
   }
+  hidden(target, '__tachyonStream', () => {})
   for (const listener of listeners) {
     hidden(target, `__tachyonListen:${listener.key}`, (value) => { call({ op: 'event', name: listener.key, value }) })
   }
@@ -729,9 +777,10 @@ export const activate = (target, service, properties, plan) => {
       return result
     } finally {
       if (typeof result?.then === 'function') result.then(changed, changed)
-      else self.deref()?.__tachyonStoredChanged?.()
+      else changed()
     }
   }
+  shells.set(owner, self)
   publishers.set(owner, (name, value, retain) => {
     const publisher = self.deref()?.__tachyonPublisher
     if (publisher && !early.length) publisher.publishEvent(name, value, retain)
@@ -757,7 +806,7 @@ export const activate = (target, service, properties, plan) => {
     if (!asynchronous.has(request.name)) return changeGated(request)
     return exclusive ? queue(() => startTask(request)) : changeAsync(request)
   }
-  listen(target, changeGated, plan, declared?.listeners ?? [])
+  listen(target, changeGated, plan, declared?.listeners ?? [], Array.isArray(declared?.streams) ? declared.streams : [])
   const dispose = { op: 'dispose', route: 'web', service, owner }
   released?.register(target, dispose, target)
   hidden(target, '__tachyonStarted', () => {
@@ -767,6 +816,7 @@ export const activate = (target, service, properties, plan) => {
     disposed = true
     released?.unregister(target)
     publishers.delete(owner)
+    shells.delete(owner)
     invoke(dispose)
   })
   for (const name of declared?.fields ?? []) {
@@ -810,6 +860,9 @@ mod ordinary_browser_fixture;
 mod reach_tests;
 
 #[cfg(test)]
+mod go_stream_tests;
+
+#[cfg(test)]
 mod rust_embedding_tests;
 
 #[cfg(test)]
@@ -846,6 +899,9 @@ mod model_binding_tests;
 
 #[cfg(test)]
 mod converter_model_tests;
+
+#[cfg(test)]
+mod go_needs_tests;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -1354,6 +1410,42 @@ mod tests {
         assert!(
             glue.contains("wasi_snapshot_preview1"),
             "the glue must be TinyGo's own"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_tinygo_service_compiles_a_regexp_with_long_repetitions() {
+        if !go_installed() || !tinygo_installed() || !node_available() {
+            eprintln!("skipping: go, tinygo or node is unavailable");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        write_service(
+            root.path(),
+            "client/manifest.json",
+            "{\"tac\":{\"go\":{\"compiler\":\"tinygo\"}}}",
+        );
+        let source = write_service(
+            root.path(),
+            "client/services/AddressService.go",
+            "import \"regexp\"\n\n// @Service\ntype AddressService struct{}\n\n\
+             func (service *AddressService) Valid(text string) bool {\n\t\
+             return regexp.MustCompile(`^[a-z]{1,200}@[a-z]{1,200}$`).MatchString(text) && \
+             regexp.MustCompile(`^[a-z0-9.]{0,58}@[a-z]{20,80}$`).MatchString(text+\"aaaaaaaaaaaaaaaaaaaa\")\n}\n",
+        );
+        let service = ("address", "AddressService");
+        let profile = crate::BuildProfile::Release;
+        build_and_publish_with(root.path(), service, WebLanguage::Go, source, profile).await;
+        let driver = format!(
+            "{}const {{ default: AddressService }} = await import('./AddressService.js')\n\
+             const address = new AddressService({{}})\n\
+             console.log(JSON.stringify({{ valid: await address.valid('ada@example') }}))\n\
+             process.exit(0)\n",
+            Fixtures::FILE_FETCH
+        );
+        assert_eq!(
+            run_driver(root.path(), &driver),
+            serde_json::json!({"valid": true})
         );
     }
 

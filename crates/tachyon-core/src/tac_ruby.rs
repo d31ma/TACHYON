@@ -19,6 +19,7 @@ impl RubyWebServices {
     pub(crate) const PRELUDE: &'static str = concat!(
         include_str!("tac_ruby/prelude.rb"),
         include_str!("tac_ruby/web_host.rb"),
+        include_str!("tac_ruby/tasks.rb"),
         include_str!("tac_ruby/browser_fakes.rb"),
         include_str!("tac_ruby/clock.rb"),
         include_str!("tac_ruby/secure_random.rb"),
@@ -58,14 +59,27 @@ impl RubyWebServices {
     ) -> Result<String, Failure> {
         let mut program = String::from(Self::PRELUDE);
         program.push_str(&crate::route_types::WebEventSources::ruby());
-        for model in Self::client_models(snapshot_root)? {
-            program.push('\n');
-            program.push_str(&model);
-        }
+        program.push_str(&Self::models_program(snapshot_root)?);
         for (instance, class, source) in services {
             program.push_str(&Self::service(snapshot_root, instance, class, source)?);
         }
         Ok(program)
+    }
+
+    pub(crate) fn models_program(snapshot_root: &Path) -> Result<String, Failure> {
+        let models = Self::client_models(snapshot_root)?.join("\n");
+        let shapes = Self::single_quoted(&Self::model_shapes(snapshot_root)?);
+        Ok(format!("\n{models}\nTacValues.register_models({shapes})\n"))
+    }
+
+    fn model_shapes(snapshot_root: &Path) -> Result<String, Failure> {
+        let table = crate::route_types::ModelTable::read_realm(snapshot_root, "client", "rb")
+            .map_err(|message| Self::failure(&message))?;
+        let mut described = serde_json::Map::new();
+        for name in table.record_names() {
+            table.shape_description(&crate::route_types::Shape::Model(name), &mut described);
+        }
+        Ok(serde_json::Value::Object(described).to_string())
     }
 
     pub(crate) fn client_models(snapshot_root: &Path) -> Result<Vec<String>, Failure> {
@@ -128,7 +142,7 @@ impl RubyWebServices {
             })?
             .unwrap_or_else(|| evented.to_owned());
         let code = crate::annotation_layout::masked_source(&identity, &roles.source)?;
-        let members = RubyMembers::read(&code);
+        let members = RubyMembers::read(&code).without_needed(&roles.source);
         let mut metadata = Self::metadata(&members, events.as_ref(), &roles.required);
         let models = crate::route_types::ModelTable::read_realm(snapshot_root, "client", "rb")
             .map_err(|message| Self::failure(&message))?;
@@ -223,6 +237,8 @@ impl RubyWebServices {
 mod tests {
     use super::RubyWebServices;
     use std::path::{Path, PathBuf};
+
+    mod browser_http_tests;
 
     fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
         let path = root.join(relative);

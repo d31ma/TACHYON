@@ -13,16 +13,30 @@ impl StagedUnit {
         stage.join("preload.mjs")
     }
 
-    fn arguments(program: &str, stage: &Path, project: &Path) -> Vec<String> {
+    fn command(program: &str, stage: &Path, project: &Path) -> std::process::Command {
         let unit = Self::unit(stage);
         let preload = Self::preload(stage);
-        let command = super::runtime_command(Path::new(program), stage, project, &unit, &preload)
+        super::runtime_command(Path::new(program), stage, project, &unit, &preload)
             .expect("the command is built")
-            .expect("the runtime is known");
-        command
+            .expect("the runtime is known")
+    }
+
+    fn arguments(program: &str, stage: &Path, project: &Path) -> Vec<String> {
+        Self::command(program, stage, project)
             .get_args()
             .map(|argument| argument.to_string_lossy().into_owned())
             .collect()
+    }
+
+    fn root(command: &std::process::Command, name: &str) -> PathBuf {
+        let value = command
+            .get_envs()
+            .find(|(key, _)| *key == name)
+            .and_then(|(_, value)| value)
+            .expect("a root URL");
+        let specifier = value.to_str().expect("a UTF-8 root URL");
+        assert!(specifier.ends_with('/'), "{specifier}");
+        Self::file_path(specifier)
     }
 
     fn file_path(specifier: &str) -> PathBuf {
@@ -83,4 +97,30 @@ fn deno_imports_the_unit_and_maps_the_client_folders_by_their_file_urls() {
     let map: serde_json::Value = serde_json::from_str(&map).expect("an import map");
     assert_eq!(StagedUnit::mapped(&map, "/services/"), services);
     assert_eq!(StagedUnit::mapped(&map, "/shared/utils/"), utilities);
+}
+
+#[test]
+fn every_runtime_receives_the_client_roots_by_their_file_urls() {
+    let stage = tempfile::tempdir().expect("stage");
+    let project = tempfile::tempdir().expect("project");
+    let client = project.path().join("client");
+    std::fs::create_dir_all(&client).expect("client");
+    for program in ["node", "bun", "deno"] {
+        let command = StagedUnit::command(program, stage.path(), project.path());
+        assert_eq!(
+            StagedUnit::root(&command, "TAC_UNIT_HOOKED_URL"),
+            stage.path().join("client"),
+            "{program}"
+        );
+        assert_eq!(
+            StagedUnit::root(&command, "TAC_UNIT_CLIENT_URL"),
+            client,
+            "{program}"
+        );
+        assert_eq!(
+            StagedUnit::root(&command, "TAC_UNIT_PROJECT_URL"),
+            project.path(),
+            "{program}"
+        );
+    }
 }

@@ -261,3 +261,193 @@ Evidence: `scripts/browser-http-browser-test.mjs --language=swift` builds
 `website/content/docs/calling-the-server/browser-http-swift/` and checks it in
 Chromium, Firefox and WebKit; `client_tests::swift_construct_tests` runs the
 Fake and typed-answer cases.
+
+## Java browser extension — 2026-10-11
+
+A Java HTTPClient is an interface whose methods have no body. In Tac, a
+method may return a model from `client/models`, a `List` of models, `String`,
+a number, `boolean`, `Object` or `void`. Tachyon writes the method through the
+behavior context's existing `invoke` and `mutate`, and reads the answer with
+`Behaviors.answer` and the `TacModels` and `TacValues` readers. On the JVM,
+the Tac test runner adds these two readers to the test program. A model answer
+that is not an object, or a list answer that is not a list, fails with
+`HTTP_RESPONSE`. Errors are `Behaviors.Failure` values whose `code` names the
+problem. The page receives that code too.
+The Setup's adapter answers first. Without one, the request goes to the same
+browser host as the other languages. It uses the same origin and omits
+credentials. A `Cached` GET is a public read, and the first miss after a
+successful `ClearCache` or `UpdateCache` revalidates. A failed mutation keeps
+the cached read. Yon Java clients still return `Object`. `restClient` keeps
+its adapter-only path. The generated client has two constructors:
+`Client()` builds its context from its Setup, and `Client(Behaviors.Context)`
+uses a given context.
+
+A service gets the client from a `private final Client name;` field with
+`@Needs` on the line above. On the page, Tachyon fills the field with
+`new Client()`. Java has no async keyword, so Java follows the Go model. The
+`tacInvoke` export runs every page request (init, call, get, set, event and
+dispose) in its own TeaVM fiber. It uses `org.teavm.runtime.Fiber.start`,
+which runs the fiber at once on the caller's stack. When the fiber ends
+without waiting, the page gets the answer at once, as before. When a method
+call or an event listener reaches the browser transport, a TeaVM `@Async`
+method parks the fiber on a ticket. The fiber releases the service, and the
+page gets `{"task": id}` and a promise. The fetch starts through the
+`httpStart` host call. The page settles it through the `tacHttpSettle` export,
+which resumes the fiber with the service as the executing owner. When the
+fiber ends, its events are delivered and `taskDone` reports the end. While a
+call waits, other calls to the service run, as in Go and Kotlin. A getter, a
+setter or `OnStart` cannot wait: a request there fails with `HTTP_REQUEST`.
+Disposing the owner first drops its parked fibers. This removes their tickets,
+aborts their fetches and rejects their promises with `CANCELLED`. Then the
+OnStop hooks run. A disposed owner gets no further change notices, even from
+a call that fails because the owner is gone. Kotlin and Java share the page
+glue (`TacTicketHttp`).
+
+Everything runs inside a fiber because TeaVM marks virtual call sites
+conservatively as asynchronous. An asynchronous method reached outside a
+fiber traps in WebAssembly, even when it would not wait. The design relies on
+`org.teavm.runtime.Fiber`, which is an internal TeaVM API and not a public
+one. This is acceptable only under the exact TeaVM 0.15.0 pin. Upgrading
+TeaVM must re-run the Java contract test before the pin moves.
+
+In a Java Tac test unit, `construct(Service.class)` calls the constructor
+that `Needs` produces. A Fake field `Client name = null;` supplies the client.
+While it is `null`, the service gets `new Client(this.behaviors)`, which is
+bound to the test's context, so the TestSetup adapter answers. Test units run
+on the JVM and have no browser transport. A request without an adapter keeps
+the existing code `http-adapter`. A test unit loads only the TestSetup that
+its `Test` names, as in every language, so a context for an assigned Fake
+comes from a production Setup.
+
+Evidence: `scripts/java-http-browser-contract-test.mjs --run` and
+`scripts/browser-http-browser-test.mjs --language=java`. The first builds the
+contract fixture, and the second builds
+`website/content/docs/calling-the-server/browser-http-java/`. Both check
+Chromium, Firefox and WebKit. `client_tests::java_http_construct_tests` runs
+the Fake and typed-answer cases on the JVM.
+
+## Ruby browser extension — 2026-10-11
+
+A Ruby HTTPClient is a class whose methods have empty bodies. Tachyon writes
+each method through the behavior context's existing `invoke`, so `Cached`,
+`ClearCache`, `UpdateCache`, retries and the other method annotations keep
+working. The YARD `@return` comment above the method names the answer: a
+model from `client/models`, an `Array` of models, `String`, `Integer`,
+`Float` or `Boolean`. `TacValues.answer` reads the answer into that type.
+The program registers the shapes of every client model for this reader. A
+model answer that is not an object, a list answer that is not a list or a
+plain answer of another type fails with `HTTP_RESPONSE`. `Hash`, `Object` and
+`void` keep the answer as it is, so existing clients are unchanged. Errors are
+`BehaviorError` values whose `behavior_code` names the problem, and the page
+receives that code too.
+The Setup's adapter answers first. Without one, the request goes to the same
+browser host as the other languages. It uses the same origin and omits
+credentials. A `Cached` GET is a public read, and the first miss after a
+successful `ClearCache` or `UpdateCache` revalidates. A failed mutation keeps
+the cached read. `rest_client` keeps its adapter-only path. The generated
+client takes an optional context: `Client.new` builds its context from its
+Setup, and `Client.new(context)` uses a given BehaviorContext.
+
+A service gets the client with `#[Needs]` above `attr_reader :name`, with the
+`# @return [Client]` comment between them, as for stores and converters.
+Tachyon turns the reader into a private method that builds the client once.
+The page does not see the field. Ruby has no async keyword, so Ruby follows
+the Go and Java model. Every page request (init, call, get, set, event and
+dispose) runs in its own Ruby `Fiber`. When the fiber ends without waiting,
+the page gets the answer at once, as before. When a method call or an event
+listener reaches the browser transport, `Fiber.yield` parks the fiber on a
+ticket. The service is released, and the page gets `{"task": id}` and a
+promise. The fetch starts through the existing host channel of the runtime.
+The page settles it through a `tachyon-http:settle` request to the existing
+`tac_invoke` export. That request resumes the fiber with the service as the
+executing owner. When the fiber ends, its events are delivered and the page
+learns the answer. While a call waits, other calls to the service run, as in
+Go, Kotlin and Java. `OnStart` cannot wait: a request there fails with
+`HTTP_REQUEST`. At most 64 requests wait at once. Disposing the owner first
+drops its parked fibers. This removes their tickets, aborts their fetches and
+rejects their promises with `CANCELLED`. Then the OnStop hooks run. Kotlin,
+Java and Ruby share the page glue (`TacTicketHttp`).
+
+The design needs no change to the runtime in `runtimes/ruby-web`, so the
+cached runtime and its fingerprint stay the same. It relies on the pinned
+mruby commit `7b4e0f3b7b3db3595332c4e1f4c97afcea183e5e`: there a fiber that
+`tac_invoke` starts can yield through `public_send`, `send`, `instance_exec`,
+`Method#call`, blocks, `ensure` and `retry`, and a later `tac_invoke` can
+resume it. A probe on this runtime showed that. Upgrading mruby must re-run
+the Ruby transport test before the pin moves.
+
+In a Ruby Tac test unit, `construct(Service)` gives the service its Fake
+fields. A Fake field is `#[Fake]` above `attr_accessor :name`. While it is
+`nil`, the service gets `Client.new(context)`, bound to the test's context,
+so the TestSetup adapter answers. Test units run in CRuby and have no browser
+transport. A request without an adapter keeps the existing failure
+`Required behavior adapter is missing.` `ty migrate check` reports a service
+that builds its client itself (`service.builds_client`). Method coverage
+treats a Ruby method with an empty body as declared, so nobody has to test
+the request methods that Tachyon writes.
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=ruby` builds
+`website/content/docs/calling-the-server/browser-http-ruby/` and checks it in
+Chromium, Firefox and WebKit.
+`tac_ruby::tests::browser_http_tests` runs the page protocol on the pinned
+runtime in Node, and `client_tests::ruby_http_construct_tests` runs the Fake
+and typed-answer cases in CRuby.
+
+## Amendment (2026-10-11): 1 MiB requests and the status of a failed answer
+
+The host and every compiled client accept at most 1 MiB (1,048,576 UTF-8
+bytes) of request instead of 65,536, so a page can send a file such as an
+EML message. The server's own request body limit is also 1 MiB. Other
+limits stay as above.
+
+An `HTTP_STATUS` failure now carries the status number:
+`{"error":{"code":"HTTP_STATUS","status":404}}`. The body of the answer
+still stays out. Go reads it with `BehaviorErrorStatus(err)`, from the new
+`Status` field of `BehaviorError`; the other languages keep the code only.
+
+## Go streams and sockets — 2026-10-11
+
+A Go HTTPClient interface method may carry `// @StreamRequest` or
+`// @SocketRequest`, as in JavaScript and TypeScript (ADR 0058, ADR 0060).
+The method takes one parameter whose model type says what each message
+holds, for example `Receive(tick Tick)`, and has no result. It has no body in
+the interface, and the generated client keeps an empty method. A Go client
+with only stream or socket methods needs no Setup: it has no behavior context.
+
+The page's JavaScript still holds the connection. A Go service that keeps the
+client in a field (`// @Needs ticks *TicksClient`) declares the client's
+streams in its `init` answer, next to its listeners. The page shell gives
+them to the page's event bus, which opens each `EventSource` or `WebSocket`
+when the service starts and closes it when the service's owner goes away.
+The bus checks each message against the model, publishes it as that model's
+event, and a Go `// @OnEvent` method whose parameter is the model receives it.
+A Go service that does not hold the client opens nothing. The same limits
+apply as in JavaScript: the page's own origin, JSON text, 64 KiB, at most 16
+queued socket messages, and reconnects after 1, 2, 4, 8 and 16 seconds. A
+service holds at most 16 such methods through its clients.
+
+A socket client gets a generated `Send(message any) error`. It writes the
+message as JSON with `encoding/json` and waits for the page like an HTTP
+call: the goroutine releases the service, the bus sends or queues the text,
+and `Send` returns `nil` or an error whose code is `HTTP_NETWORK` (for
+example, 16 messages already wait for the socket to open), `HTTP_MISSING`
+(the service does not hold the client, or there is no page) or `CANCELLED`
+(the owner went away). Like an HTTP call, `Send` from a getter, a setter or
+`OnStart` fails with `HTTP_REQUEST`; the bus opens the socket after `OnStart`.
+A message larger than 64 KiB, or a value `encoding/json` cannot write, fails
+with `HTTP_BODY`. Each socket client has its own sender on the service's page
+shell, so a Go service may hold several socket clients. A Go test unit has no
+page, so `Send` fails with `HTTP_MISSING`.
+
+The bus changes in one place: a stream entry may name the property that
+receives its `send`, so the Go shell's senders never replace a page method of
+the service. Two one-statement functions of `application-events.js` now take
+one line each, so the file stays inside its 14,338-byte budget.
+
+Evidence: `tac_web::go_stream_tests` builds two real Go services to
+WebAssembly and runs them under Node with the real event bus and fake
+`EventSource` and `WebSocket` classes. Only the service that needs the
+clients opens them; a valid tick reaches its `@OnEvent` method and an invalid
+one is refused; a socket message reaches its listener; sends queued before
+the socket opened are flushed in order, the seventeenth gets `HTTP_NETWORK`;
+and disposing the owner closes both connections.

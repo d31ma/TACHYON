@@ -1,16 +1,16 @@
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 class TestRoots {
-  static hooked = process.env.TAC_UNIT_HOOKED_ROOT
-  static client = process.env.TAC_UNIT_CLIENT_ROOT
-  static project = process.env.TAC_UNIT_PROJECT_ROOT
+  static hooked = fileURLToPath(process.env.TAC_UNIT_HOOKED_URL)
+  static client = fileURLToPath(process.env.TAC_UNIT_CLIENT_URL)
+  static project = fileURLToPath(process.env.TAC_UNIT_PROJECT_URL)
 
   static redirected(specifier) {
     if (!/^\/(?!\/)/.test(specifier) || existsSync(specifier)) return undefined
-    return [TestRoots.hooked, TestRoots.client].map((root) => root + specifier).find((path) => existsSync(path))
+    return [TestRoots.hooked, TestRoots.client].map((root) => join(root, specifier)).find((path) => existsSync(path))
   }
 }
 
@@ -29,13 +29,14 @@ if (typeof Deno !== 'undefined') {
   const { register } = await import('node:module')
   const hooks = `
     import { existsSync } from 'node:fs'
+    import { join } from 'node:path'
     import { pathToFileURL } from 'node:url'
     class TestRoots {
       static all = ${JSON.stringify([TestRoots.hooked, TestRoots.client])}
     }
     export async function resolve(specifier, context, next) {
       const path = /^\\/(?!\\/)/.test(specifier) && !existsSync(specifier)
-        ? TestRoots.all.map((root) => root + specifier).find((candidate) => existsSync(candidate))
+        ? TestRoots.all.map((root) => join(root, specifier)).find((candidate) => existsSync(candidate))
         : undefined
       return next(path ? pathToFileURL(path).href : specifier, context)
     }`

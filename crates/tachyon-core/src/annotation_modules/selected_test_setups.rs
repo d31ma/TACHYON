@@ -119,7 +119,7 @@ impl<'a> SelectedTestSetups<'a> {
         if self.seen.len() > Module::MAX_MODULES || self.bytes > Module::MAX_SOURCE {
             return Err(invalid(
                 path,
-                "Production and selected test ownership material may compose at most 128 files and 1 MiB.",
+                "Production and selected test ownership material may compose at most 512 files and 1 MiB.",
             ));
         }
         Ok(())

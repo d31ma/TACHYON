@@ -52,6 +52,12 @@ on the website.
   variable in braces, such as `{id}`. A path variable name is lowercase
   letters, digits and underscores. Tac pages keep their `_id` folders; both
   forms name the same route, so a page and a controller can share a path.
+  On a shared path, a browser navigation gets the page: a GET or HEAD with
+  `Sec-Fetch-Mode: navigate`, or without that header and with an `Accept`
+  that names `text/html`. Every other request reaches the controller, so a
+  page's own fetch of the same path still gets the data, and its access rule
+  still guards it. Both answers carry `Vary: Sec-Fetch-Mode, Accept`, so a
+  cache keeps them apart.
 - A route method's name is free, but it starts with its HTTP method in the
   language's own casing: `getOrderById`, `GetOrderById` or
   `get_order_by_id` for `@GetRoute`. A method with the wrong start is refused,

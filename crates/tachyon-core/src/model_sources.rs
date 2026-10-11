@@ -20,7 +20,7 @@ impl ModelSources {
         "rs", "cs", "fs", "dart", "go", "kt", "swift", "java", "groovy", "py", "php", "lua", "rb",
         "js", "ts",
     ];
-    const MAX_FILES: usize = 256;
+    const MAX_FILES: usize = 1024;
     const MAX_DEPTH: usize = 8;
     const MAX_TOTAL_BYTES: usize = 1024 * 1024;
     const RUST_CODEC_NAMES: &str =
@@ -301,7 +301,7 @@ impl FolderReader<'_> {
         if self.files.len() == ModelSources::MAX_FILES {
             return Err(read_failure(
                 relative,
-                "a realm holds at most 256 models files per language",
+                "a realm holds at most 1024 models files per language",
             ));
         }
         let bytes = std::fs::read(self.root.join(relative))

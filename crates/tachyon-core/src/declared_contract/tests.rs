@@ -361,6 +361,16 @@ fn tac_clients_create_their_context_when_they_are_built() {
         ("swift", "init(_ context: BehaviorContext) {"),
         ("go", "func NewCatalogClient() (*CatalogClient, error) {"),
         ("rs", "fn new() -> Self {"),
+        ("java", "CatalogClient(Behaviors.Context context) {"),
+        (
+            "java",
+            "this(Behaviors.create(\"CatalogSetup\", new Behaviors.Options(\"catalog\"",
+        ),
+        ("rb", "def initialize(context = nil)"),
+        (
+            "rb",
+            "@behaviors = context || Behaviors.create(CatalogSetup, partition: \"catalog\"",
+        ),
     ];
     for (extension, part) in expected {
         let lowered = Samples::concrete(extension, "tac");
@@ -392,6 +402,25 @@ fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
             .contains("Behaviors.create(\"RuntimeAdaptersSetup\", new Behaviors.Options(\"api\""),
         "{lowered}"
     );
+}
+
+#[test]
+fn a_go_socket_client_needs_no_context_and_gets_a_send_method() {
+    let source = "// @HTTPClient(\"/chat\")\ntype ChatClient interface {\n\t// @SocketRequest\n\tReceive(message ChatMessage)\n}\n";
+    let path = Path::new("client/remotes/ChatClient.go");
+    let lowered = DeclaredContract::concrete(path, source, "tac").expect("lowered");
+    for part in [
+        "type ChatClient struct{}\n",
+        "// @SocketRequest\nfunc (client *ChatClient) Receive(message ChatMessage) {\n}\n",
+        "\nfunc (client *ChatClient) Send(message any) error {\n\treturn behaviorSocketSend(\"ChatClient\", message)\n}\n",
+        "func NewChatClient() (*ChatClient, error) {\n\treturn &ChatClient{}, nil\n}",
+    ] {
+        assert!(lowered.contains(part), "{part:?}:\n{lowered}");
+    }
+    let stream = source.replace("SocketRequest", "StreamRequest");
+    let lowered = DeclaredContract::concrete(path, &stream, "tac").expect("lowered");
+    assert!(!lowered.contains("Send("), "{lowered}");
+    assert!(lowered.contains("type ChatClient struct{}\n"), "{lowered}");
 }
 
 #[test]

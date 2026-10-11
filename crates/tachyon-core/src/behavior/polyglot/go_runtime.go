@@ -22,6 +22,7 @@ type BehaviorError struct {
 	Code    string
 	Message string
 	Path    string
+	Status  int
 }
 
 func (failure *BehaviorError) Error() string {
@@ -34,6 +35,14 @@ func (failure *BehaviorError) Error() string {
 
 func (failure *BehaviorError) BehaviorCode() string {
 	return failure.Code
+}
+
+func BehaviorErrorStatus(err error) int {
+	var failure *BehaviorError
+	if errors.As(err, &failure) {
+		return failure.Status
+	}
+	return 0
 }
 
 func BehaviorErrorCode(err error) string {

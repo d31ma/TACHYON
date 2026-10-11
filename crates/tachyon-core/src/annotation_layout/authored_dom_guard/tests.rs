@@ -139,6 +139,15 @@ fn authored_dom_guard_allows_text_state_class_theme_and_inert_source() {
         "element.textContent = '<p>data</p>'; element.classList.add('ready'); state.markup = '<p>data</p>'; document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('theme', 'dark');",
     );
     DomGuardFixture::accepted(
+        "client/shared/scripts/font-preferences.js",
+        "document.documentElement.style.setProperty('--interface-font', font); element.style.removeProperty(\"--accent\");",
+    );
+    DomGuardFixture::refused(
+        "client/shared/scripts/font-preferences.js",
+        "document.documentElement.style.setProperty(name, font);",
+        "setProperty",
+    );
+    DomGuardFixture::accepted(
         "client/shared/utils/TextUtils.js",
         "// element.innerHTML = html;\nconst sample = \"element.outerHTML = html\"; const expression = /document.write(html)/; const docs = `element.insertAdjacentHTML('beforeend', html)`;",
     );

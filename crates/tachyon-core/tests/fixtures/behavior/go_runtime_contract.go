@@ -875,6 +875,14 @@ func checkRepository(context *BehaviorContext) {
 	expect(must(repository.Delete("one")) == "delete", "delete reaches the adapter")
 }
 
+func checkBrowserStatus() {
+	_, err := behaviorBrowserAnswer(`{"error":{"code":"HTTP_STATUS","status":404}}`)
+	expectCode(err, "HTTP_STATUS", "an error status keeps its code")
+	expect(BehaviorErrorStatus(err) == 404, "an error status carries its number")
+	_, err = behaviorBrowserAnswer(`{"error":{"code":"HTTP_ORIGIN"}}`)
+	expect(BehaviorErrorStatus(err) == 0, "other failures carry no status")
+}
+
 func checkHttpInvocation(context *BehaviorContext) {
 	exchange := plainPolicy()
 	exchange.Http = &BehaviorHttpPolicy{Client: "catalog", Method: "GET", Path: "/products"}
@@ -1024,6 +1032,7 @@ func main() {
 	checkRepository(context)
 	checkJoinedTransaction()
 	checkHttpInvocation(context)
+	checkBrowserStatus()
 	checkRejectedValues()
 	negativeContracts(context)
 	signal.Abort()

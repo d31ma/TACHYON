@@ -17,12 +17,13 @@ class JavaHttpContract {
   static pageMilliseconds = 20_000
   static files = {
     'client/manifest.json': '{}\n',
-    'client/pages/tac.html': `<main>
-  <button id="increment" @click="counter.increment()">Add one</button>
+    'client/pages/tac.html': '<contract-panel />\n',
+    'client/components/contract/panel/tac.html': `<main>
+  <button id="increment" on:click="counter.increment()">Add one</button>
   <output id="count">{counter.count}</output>
-  <button id="ask" @click="greeting.ask()">Ask Yon</button>
-  <button id="clear" @click="greeting.clear()">Clear</button>
-  <button id="override" @click="greeting.askCustom()">Use adapter</button>
+  <button id="ask" on:click="greeting.ask()">Ask Yon</button>
+  <button id="clear" on:click="greeting.clear()">Clear</button>
+  <button id="override" on:click="greeting.askCustom()">Use adapter</button>
   <output id="message">{greeting.message}</output>
   <output id="loads">{greeting.loads}</output>
   <output id="clears">{greeting.clears}</output>
@@ -91,7 +92,7 @@ class OverrideSetup {
 }
 `,
     'client/remotes/GreetingClient.java': `@HTTPClient({"path":"/api","setup":"GreetingSetup"})
-@CacheSettings({"name":"java-greetings","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
+@CacheSettings({"name":"javaGreetings","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 interface GreetingClient {
     @Cached
     @GetRequest("/greeting")
@@ -114,8 +115,10 @@ interface OverrideClient {
 `,
     'client/services/GreetingService.java': `@Service
 class GreetingService {
-    @Needs private final GreetingClient greetingClient;
-    @Needs private final OverrideClient overrideClient;
+    @Needs
+    private final GreetingClient greetingClient;
+    @Needs
+    private final OverrideClient overrideClient;
     String message = "";
     String custom = "";
     int loads = 0;
@@ -129,11 +132,13 @@ class GreetingService {
 }
 `,
     'client/tests/GreetingTestSetup.java': JavaHttpContract.testSetup('GreetingTestSetup', 'Test adapter wins'),
-    'client/tests/FakeTestSetup.java': JavaHttpContract.testSetup('FakeTestSetup', 'Assigned Fake wins'),
+    'client/setups/FakeSetup.java': JavaHttpContract.testSetup('FakeSetup', 'Assigned Fake wins').replace('@TestSetup', '@Setup'),
     'client/tests/GreetingServiceTest.java': `@Test(GreetingTestSetup.class, {"partition":"java-http-tests"})
 class GreetingServiceTest {
-    @Fake GreetingClient greetingClient = null;
-    @Fake OverrideClient overrideClient = null;
+    @Fake
+    GreetingClient greetingClient = null;
+    @Fake
+    OverrideClient overrideClient = null;
     void testEmptyFakeUsesTypedTestAdapter() {
         GreetingService service = construct(GreetingService.class);
         service.ask();
@@ -142,7 +147,7 @@ class GreetingServiceTest {
         Assert.equals("Test override", service.custom);
     }
     void testAssignedFakeIsCapturedByEachConstruction() {
-        Behaviors.Context fake = Behaviors.create("FakeTestSetup", new Behaviors.Options("assigned-fake", new Behaviors.Signal()));
+        Behaviors.Context fake = Behaviors.create("FakeSetup", new Behaviors.Options("assigned-fake", new Behaviors.Signal()));
         try {
             greetingClient = new GreetingClient(fake);
             GreetingService first = construct(GreetingService.class);
@@ -167,7 +172,8 @@ class CounterServiceTest {
   }
   static controls = {
     'client/manifest.json': '{}\n',
-    'client/pages/tac.html': '<button id="legacy" @click="legacy.load()">Explicit adapter</button><output id="legacy-message">{legacy.message}</output>\n',
+    'client/pages/tac.html': '<legacy-panel />\n',
+    'client/components/legacy/panel/tac.html': '<main><button id="legacy" on:click="legacy.load()">Explicit adapter</button><output id="legacy-message">{legacy.message}</output></main>\n',
     'client/remotes/LegacyClient.java': `@HTTPClient({"path":"/api","adapter":"legacy","setup":"LegacySetup"})
 interface LegacyClient {
     @GetRequest("/never")
@@ -193,14 +199,15 @@ class LegacyService {
         behaviors = Behaviors.create("LegacySetup", new Behaviors.Options("legacy", new Behaviors.Signal()));
         client = new LegacyClient(behaviors);
     }
-    @PreDestroy
+    @OnStop
     void close() { behaviors.close(); }
     void load() { message = (String) ((java.util.Map<?, ?>) client.read()).get("message"); }
 }
 `,
     'client/services/ChoiceService.java': `@Service
 class ChoiceService {
-    @Needs private final java.util.function.Supplier<String> port;
+    @Needs
+    private final java.util.function.Supplier<String> port;
     String answer() { return port.get(); }
 }
 `,
@@ -213,7 +220,8 @@ class ControlTestSetup {
 `,
     'client/tests/ChoiceServiceTest.java': `@Test(ControlTestSetup.class, {"partition":"java-controls"})
 class ChoiceServiceTest {
-    @Fake java.util.function.Supplier<String> port;
+    @Fake
+    java.util.function.Supplier<String> port;
     void testAssignedFakeIsCaptured() {
         port = () -> "first";
         ChoiceService first = construct(ChoiceService.class);
@@ -242,6 +250,7 @@ class ChoiceServiceTest {
   static testSetup(name, message) {
     return `@TestSetup
 class ${name} {
+    private static final String MESSAGE = "message";
     static Behaviors.Configuration configure(Behaviors.Execution execution) {
         Behaviors.CacheAdapter cache = new Behaviors.CacheAdapter() {
             private final java.util.Map<String, Behaviors.Entry> values = new java.util.HashMap<>();
@@ -253,9 +262,9 @@ class ${name} {
             }
             public void delete(String key, Behaviors.Execution current) { values.remove(key); }
         };
-        return new Behaviors.Configuration(java.util.Map.of("java-greetings", cache),
-            java.util.Map.of("greeting", (request, current) -> java.util.Map.of("message", "${message}"),
-                "override", (request, current) -> java.util.Map.of("message", "Test override")),
+        return new Behaviors.Configuration(java.util.Map.of("javaGreetings", cache),
+            java.util.Map.of("greeting", (request, current) -> java.util.Map.of(MESSAGE, "${message}"),
+                "override", (request, current) -> java.util.Map.of(MESSAGE, "Test override")),
             java.util.Map.of(), (call, current) -> true);
     }
 }

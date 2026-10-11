@@ -3,7 +3,8 @@ import models.UserSaved;
 
 @Service
 class UserFormService {
-    private final UsersClient usersClient = new UsersClient();
+    @Needs
+    private final UsersClient usersClient;
     ApplicationEventPublisher applicationEventPublisher;
     String name = "";
 

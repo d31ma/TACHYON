@@ -108,6 +108,12 @@ impl JavaModels {
         Ok(sources)
     }
 
+    pub(super) fn table(&self, values: &JavaValueType) -> String {
+        let models = self.models();
+        let (_, table) = JavaModelTable::new(&models, values).file();
+        table
+    }
+
     fn models(&self) -> Vec<JavaModel> {
         self.files
             .iter()

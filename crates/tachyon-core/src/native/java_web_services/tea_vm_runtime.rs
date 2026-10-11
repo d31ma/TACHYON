@@ -87,6 +87,17 @@ mod tests {
         rest.split_once('"').map_or("", |(value, _)| value)
     }
 
+    fn parameters(line: &str) -> String {
+        let rest = line.split_once("params = ").map_or("", |(_, rest)| rest);
+        let written = rest.split_once(", script").map_or("", |(names, _)| names);
+        let names: Vec<&str> = written
+            .trim_matches(['{', '}'])
+            .split(',')
+            .map(|name| name.trim().trim_matches('"'))
+            .collect();
+        names.join(",")
+    }
+
     #[test]
     fn the_body_table_holds_every_host_call_of_the_prelude() {
         let bodies = include_str!("tea_vm_bodies.js");
@@ -99,7 +110,7 @@ mod tests {
         for line in calls {
             let key = format!(
                 "[\"{}\\n{}\",",
-                after(line, "params = \""),
+                parameters(line),
                 after(line, "script = \"")
             );
             assert!(bodies.contains(&key), "{key} is missing");

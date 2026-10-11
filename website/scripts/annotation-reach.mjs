@@ -9,7 +9,7 @@ import { RuleTableParser } from './rule-table-parser.mjs'
 export class AnnotationReach {
   static ruleTable = fileURLToPath(new URL('../../crates/tachyon-core/src/annotation_rules.rs', import.meta.url))
   static codePrefix = 'TY'
-  static browserJavascript = ['js', 'ts']
+  static browserHeld = ['js', 'ts', 'go']
 
   /** @type {Record<Realm, string[]>} */
   realmLanguages
@@ -77,15 +77,15 @@ export class AnnotationReach {
   refuses(rule, realm, language) {
     if (rule[realm].includes(language)) return false
     if (this.realmLanguages[realm].includes(language)) return true
-    return AnnotationReach.isBrowserJavascriptOnly(rule[realm])
+    return AnnotationReach.isBrowserHeldOnly(rule[realm])
   }
 
   /**
    * @param {string[]} languages
    * @returns {boolean}
    */
-  static isBrowserJavascriptOnly(languages) {
-    return languages.length > 0 && languages.every(language => AnnotationReach.browserJavascript.includes(language))
+  static isBrowserHeldOnly(languages) {
+    return languages.length > 0 && languages.every(language => AnnotationReach.browserHeld.includes(language))
   }
 
   /**

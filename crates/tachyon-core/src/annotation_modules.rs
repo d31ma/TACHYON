@@ -53,9 +53,15 @@ fn injected_contracts(
 ) -> Option<String> {
     let paths = modules.iter().map(|module| module.path.as_path());
     let contracts = crate::declared_contract::DeclaredContract::injected_names(paths);
+    let paths = modules.iter().map(|module| module.path.as_path());
+    let remotes = crate::declared_contract::DeclaredContract::injected_remotes(paths);
     let wanted = [environment == "tac", !contracts.is_empty()] == [true, true];
     wanted
-        .then(|| crate::declared_contract::DeclaredContract::injected(entry, source, &contracts))
+        .then(|| {
+            crate::declared_contract::DeclaredContract::injected_with_remotes(
+                entry, source, &contracts, &remotes,
+            )
+        })
         .flatten()
 }
 
@@ -179,7 +185,7 @@ fn read_modules(
         if modules.len() == Module::MAX_MODULES {
             return Err(invalid(
                 entry,
-                "An entry may discover at most 128 annotated role files.",
+                "An entry may discover at most 512 annotated role files.",
             ));
         }
         register_names(path, &text, &mut names)?;
@@ -235,6 +241,33 @@ pub(crate) struct Module {
 }
 
 impl Module {
+    fn injected_ruby(modules: Vec<Self>, extension: &str, environment: &str) -> Vec<Self> {
+        let ruby_tac = [extension == "rb", environment == "tac"] == [true, true];
+        let paths = modules.iter().map(|module| module.path.as_path());
+        let contracts = crate::declared_contract::DeclaredContract::injected_names(paths);
+        let paths = modules.iter().map(|module| module.path.as_path());
+        let remotes = crate::declared_contract::DeclaredContract::injected_remotes(paths);
+        modules
+            .into_iter()
+            .map(|module| {
+                let injected = ruby_tac
+                    .then(|| {
+                        crate::declared_contract::DeclaredContract::injected_with_remotes(
+                            &module.path,
+                            &module.source,
+                            &contracts,
+                            &remotes,
+                        )
+                    })
+                    .flatten();
+                Self {
+                    source: injected.unwrap_or(module.source),
+                    ..module
+                }
+            })
+            .collect()
+    }
+
     pub(crate) fn declared_type(root: &Path, path: &Path) -> Result<Option<String>, Failure> {
         let root = Dir::open_ambient_dir(root, cap_std::ambient_authority())
             .map_err(|error| invalid(path, &format!("Cannot open provider root: {error}")))?;
@@ -413,6 +446,7 @@ impl Module {
             return Ok(utilities.changed().then_some(source));
         }
         refuse_tac_helpers(&modules, extension, environment)?;
+        let mut modules = Module::injected_ruby(modules, extension, environment);
         csharp_test_helpers::CsharpTestHelpers::prune(&root, input, &mut modules, total)?;
         HelperCallers::check(entry, &source, &modules, environment)?;
         let injected = injected_contracts(entry, &source, &modules, environment);
@@ -467,7 +501,7 @@ impl Module {
         "services",
     ];
     const MAX_SOURCE: usize = 1024 * 1024;
-    const MAX_MODULES: usize = 128;
+    const MAX_MODULES: usize = 512;
     const EXTENSIONS: [&str; 15] = [
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "swift", "dart", "go",
         "rb", "lua",

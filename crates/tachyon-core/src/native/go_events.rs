@@ -1,6 +1,6 @@
 use crate::Failure;
 use crate::companion::go::{GoResults, masked_code, parameter_types};
-use crate::events::{EventListener, EventMethod, EventModule, EventType};
+use crate::events::{EventListener, EventMethod, EventModule, EventStream, EventType};
 use crate::go_source::{self, GoMethod};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -10,6 +10,95 @@ use std::path::Path;
 pub(super) struct GoEvents {
     pub(super) excluded: Vec<String>,
     pub(super) entries: String,
+}
+
+impl GoEvents {
+    const MOST_STREAMS: usize = 16;
+
+    fn holds_only_streams(event_type: &EventType) -> bool {
+        [
+            event_type.listeners.is_empty(),
+            event_type.resources.is_empty(),
+            event_type.post_construct.is_none(),
+            event_type.pre_destroy.is_none(),
+            !event_type.streams.is_empty(),
+        ]
+        .iter()
+        .all(|holds| *holds)
+    }
+
+    fn is_stream_client(event_type: &EventType, class: &str) -> bool {
+        [
+            event_type.name != class,
+            Self::holds_only_streams(event_type),
+        ] == [true, true]
+    }
+
+    fn stream_clients<'a>(module: &'a EventModule, class: &str) -> Vec<&'a EventType> {
+        module
+            .types
+            .iter()
+            .filter(|event_type| Self::is_stream_client(event_type, class))
+            .collect()
+    }
+
+    fn held_clients(code: &str, class: &str) -> Vec<String> {
+        let Some(declared) = go_source::types(code)
+            .into_iter()
+            .find(|declared| declared.name == class)
+        else {
+            return Vec::new();
+        };
+        go_source::fields(code, declared.body)
+            .into_iter()
+            .map(|field| field.type_source.trim().trim_start_matches('*').to_owned())
+            .collect()
+    }
+
+    fn stream_entries(
+        clients: &[&EventType],
+        held: &[String],
+        path: &Path,
+    ) -> Result<String, Failure> {
+        let streams: Vec<(&str, &EventStream)> = clients
+            .iter()
+            .filter(|client| held.contains(&client.name))
+            .flat_map(|client| {
+                client
+                    .streams
+                    .iter()
+                    .filter(|stream| !stream.topic)
+                    .map(|stream| (client.name.as_str(), stream))
+            })
+            .collect();
+        if streams.len() > Self::MOST_STREAMS {
+            return Err(failure(
+                path,
+                "A Go service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.",
+            ));
+        }
+        Ok(streams
+            .into_iter()
+            .map(|(client, stream)| Self::stream_entry(client, stream))
+            .collect())
+    }
+
+    fn stream_entry(client: &str, stream: &EventStream) -> String {
+        let key = format!("__stream_{client}_{}", stream.method);
+        let models = stream
+            .models
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_default();
+        format!(
+            "\t\t{{Name: {key:?}, Stream: &tac.Stream{{Client: {}, Path: {}, Event: {}, Socket: {}, Models: {}}}}},\n",
+            go_string(client),
+            go_string(&stream.path),
+            go_string(&stream.event),
+            stream.socket,
+            go_string(&models)
+        )
+    }
 }
 
 struct EventTarget<'a> {
@@ -31,14 +120,18 @@ pub(super) fn entries(
     let Some(module) = module else {
         return Ok(events);
     };
+    let code = masked_code(&module.source, &path.to_string_lossy())?;
+    let clients = GoEvents::stream_clients(module, class);
+    let held = GoEvents::held_clients(&code, class);
+    events.entries = GoEvents::stream_entries(&clients, &held, path)?;
     let Some(metadata) = owned_metadata(module, class, path)? else {
         return Ok(events);
     };
-    let code = masked_code(&module.source, &path.to_string_lossy())?;
     let declared = go_source::methods(&code);
     let mut seen = BTreeSet::new();
     for event in &module.methods {
-        if !seen.insert(event.name.as_str()) {
+        let of_a_client = clients.iter().any(|client| client.name == event.owner);
+        if of_a_client || !seen.insert(event.name.as_str()) {
             continue;
         }
         let Some(found) = declared
@@ -66,21 +159,23 @@ fn owned_metadata<'a>(
     class: &str,
     path: &Path,
 ) -> Result<Option<&'a EventType>, Failure> {
-    if module.types.len() > 1 {
-        return Err(failure(
-            path,
-            "Native events belong to the page companion type only.",
-        ));
-    }
-    let Some(metadata) = module.types.first() else {
-        return Ok(None);
-    };
-    if metadata.name != class {
+    let unowned = module
+        .types
+        .iter()
+        .any(|event_type| event_type.name != class && !GoEvents::holds_only_streams(event_type));
+    if unowned {
         return Err(failure(
             path,
             "Native event annotations must belong to the page companion, not an unowned helper type.",
         ));
     }
+    let Some(metadata) = module
+        .types
+        .iter()
+        .find(|event_type| event_type.name == class)
+    else {
+        return Ok(None);
+    };
     let mut topics = BTreeSet::new();
     for listener in &metadata.listeners {
         for event in &listener.events {
@@ -227,6 +322,28 @@ mod tests {
             entries.contains("return instance.Receive(argument0)\n"),
             "{entries}"
         );
+    }
+
+    #[test]
+    fn a_held_stream_client_becomes_a_stream_entry_and_an_unheld_one_does_not() {
+        let client = "// @HTTPClient(\"/ticks\")\ntype TicksClient struct{}\n\n// @StreamRequest\nfunc (client *TicksClient) Receive(tick Tick) {\n}\n\n";
+        let held = format!(
+            "{client}type ProbeService struct {{\n\tticks *TicksClient\n}}\n\n// @OnEvent\nfunc (probe *ProbeService) Heard(tick Tick) {{\n}}\n"
+        );
+        let path = Path::new(Fixtures::PATH);
+        let module = crate::events::extract(path, &held, "tac").expect("events");
+        let events = entries(module.as_ref(), "ProbeService", path).expect("entries");
+        assert_eq!(events.excluded, ["Heard"]);
+        assert!(
+            events.entries.contains("{Name: \"__stream_TicksClient_Receive\", Stream: &tac.Stream{Client: \"TicksClient\", Path: \"/ticks\", Event: \"Tick\", Socket: false, Models: \"\"}},"),
+            "{}",
+            events.entries
+        );
+        let unheld = format!("{client}type QuietService struct {{\n\tCount int\n}}\n");
+        let module = crate::events::extract(path, &unheld, "tac").expect("events");
+        let events = entries(module.as_ref(), "QuietService", path).expect("entries");
+        assert!(events.entries.is_empty(), "{}", events.entries);
+        assert!(events.excluded.is_empty());
     }
 
     #[test]

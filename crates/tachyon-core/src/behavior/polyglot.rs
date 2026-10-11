@@ -68,6 +68,7 @@ mod python_members_tests;
 mod query_frontend;
 mod ruby;
 mod ruby_syntax;
+mod ruby_typed_answer;
 mod rust;
 mod rust_async_client;
 #[cfg(test)]
@@ -1791,8 +1792,8 @@ fn declarations_with_runtime(
             return Err(input.failure(at, "Duplicate top-level behavior type name"));
         }
         result.push(ty);
-        if result.len() > 128 {
-            return Err(input.failure(at, "Behavior module exceeds 128 types"));
+        if result.len() > 512 {
+            return Err(input.failure(at, "Behavior module exceeds 512 types"));
         }
     }
     Ok(result)

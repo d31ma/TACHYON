@@ -2,7 +2,8 @@ using Models;
 
 [Service]
 public class SettingsService {
-    readonly ApplicationClient _applicationClient = new ApplicationClient();
+    [Needs]
+    private readonly ApplicationClient _applicationClient;
     public string api = "";
 
     public async System.Threading.Tasks.Task Load() {

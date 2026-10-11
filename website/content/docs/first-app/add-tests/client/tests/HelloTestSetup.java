@@ -1,6 +1,9 @@
+import java.util.Map;
+
 @TestSetup
 class HelloTestSetup {
     static Behaviors.Configuration configure(Behaviors.Execution execution) {
-        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null);
+        Behaviors.HttpAdapter greeting = (request, running) -> Map.of("message", "Hi");
+        return new Behaviors.Configuration(Map.of(), Map.of("greeting", greeting), Map.of(), null);
     }
 }

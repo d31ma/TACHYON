@@ -212,6 +212,15 @@ fn a_swift_http_client_declares_its_requests_so_nobody_tests_them() {
 }
 
 #[test]
+fn a_ruby_http_client_declares_its_requests_so_nobody_tests_them() {
+    let report = report_for(&[(
+        "client/remotes/GreetingClient.rb",
+        "#[HTTPClient(\"/api\")]\nclass GreetingClient\n  # @return [Greeting]\n  #[GetRequest(\"/greeting\")]\n  def get_greeting\n  end\n\n  # @param page [Integer]\n  # @return [Hash]\n  #[GetRequest(\"/products\")]\n  def all(\n    #[RequestParam(\"page\")]\n    page\n  )\n  end\n\n  def read(id)\n    get_greeting\n  end\nend\n",
+    )]);
+    assert_eq!(uncovered_methods(&report), vec!["read"], "{report:?}");
+}
+
+#[test]
 fn recorded_calls_survive_a_write_and_a_read() {
     let root = tempfile::tempdir().expect("project");
     assert_eq!(RecordedCalls::read(root.path()), None);

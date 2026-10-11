@@ -41,12 +41,14 @@ mod tea_vm_runtime;
 mod tea_vm_toolchain;
 
 #[cfg(test)]
+mod java_browser_http_tests;
+#[cfg(test)]
 mod preference_strings_tests;
 
 pub(crate) struct JavaWebServices;
 
 impl JavaWebServices {
-    const PRELUDE: [(&'static str, &'static str); 22] = [
+    const PRELUDE: [(&'static str, &'static str); 26] = [
         (
             "TacPreferenceScope.java",
             include_str!("java_web_services/prelude/TacPreferenceScope.java"),
@@ -58,6 +60,22 @@ impl JavaWebServices {
         (
             "TacBridge.java",
             include_str!("java_web_services/prelude/TacBridge.java"),
+        ),
+        (
+            "TacFailure.java",
+            include_str!("java_web_services/prelude/TacFailure.java"),
+        ),
+        (
+            "TacTask.java",
+            include_str!("java_web_services/prelude/TacTask.java"),
+        ),
+        (
+            "TacTasks.java",
+            include_str!("java_web_services/prelude/TacTasks.java"),
+        ),
+        (
+            "TacHttpTickets.java",
+            include_str!("java_web_services/prelude/TacHttpTickets.java"),
         ),
         (
             "TacActivation.java",
@@ -137,6 +155,8 @@ impl JavaWebServices {
         ),
     ];
     const PRELUDE_FOLDER: &'static str = "tachyon";
+    const TYPED_ANSWER: &'static str = "Behaviors.answer(";
+    const VALUE_READERS: &'static str = include_str!("java_web_services/prelude/TacValues.java");
 
     pub(crate) fn teavm_installed() -> bool {
         JavaWasmProgram::is_installed()
@@ -155,6 +175,16 @@ impl JavaWebServices {
         services: &[(String, String, PathBuf)],
         profile: crate::BuildProfile,
     ) -> Result<(Vec<(String, Vec<u8>)>, Option<String>), Failure> {
+        let sources = Self::sources(snapshot_root, services)?;
+        let program = JavaWasmProgram::compile(&sources, profile).await?;
+        let note = program.note(profile);
+        Ok((program.published(), note))
+    }
+
+    fn sources(
+        snapshot_root: &Path,
+        services: &[(String, String, PathBuf)],
+    ) -> Result<Vec<(PathBuf, String)>, Failure> {
         let authored = Self::authored(services)?;
         let all_authored = authored.concat();
         let models = JavaModels::read(snapshot_root, &all_authored)?;
@@ -170,9 +200,25 @@ impl JavaWebServices {
             Path::new(Self::PRELUDE_FOLDER),
             &all_authored,
         ));
-        let program = JavaWasmProgram::compile(&sources, profile).await?;
-        let note = program.note(profile);
-        Ok((program.published(), note))
+        Ok(sources)
+    }
+
+    pub(crate) fn test_answer_readers(project: &Path, lowered: &str) -> Result<String, Failure> {
+        let needed = lowered.contains(Self::TYPED_ANSWER);
+        needed
+            .then(|| Self::answer_readers(project))
+            .transpose()
+            .map(Option::unwrap_or_default)
+    }
+
+    fn answer_readers(project: &Path) -> Result<String, Failure> {
+        let models = JavaModels::read(project, "")?;
+        let table = models.table(&models.values());
+        Ok(format!("{}\n{table}", Self::VALUE_READERS))
+    }
+
+    pub(crate) fn answer_reading(declared: &str, value: &str) -> Option<String> {
+        JavaValueType::for_answer(declared).reading(declared, value)
     }
 
     pub(crate) fn composed_types(

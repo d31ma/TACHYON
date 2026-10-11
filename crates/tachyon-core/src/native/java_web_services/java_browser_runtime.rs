@@ -2,7 +2,15 @@ pub(super) struct JavaBrowserRuntime;
 
 impl JavaBrowserRuntime {
     const BUILTINS: &'static str = include_str!("BehaviorBuiltins.java");
-    const TEA_VM_SWAPS: [(&'static str, &'static str); 6] = [
+    const TEA_VM_SWAPS: [(&'static str, &'static str); 8] = [
+        (
+            "static final class Failure extends RuntimeException {\n        final String code;\n",
+            "static final class Failure extends TacFailure {\n",
+        ),
+        (
+            "Failure(String code, String path, String message) { super(message); this.code = code; this.path = path; }",
+            "Failure(String code, String path, String message) { super(code, message); this.path = path; }",
+        ),
         ("java.util.concurrent.Semaphore", "TacPermits"),
         ("java.util.Map.copyOf(", "TacMaps.copyOf("),
         ("java.util.StringJoiner", "TacJoiner"),

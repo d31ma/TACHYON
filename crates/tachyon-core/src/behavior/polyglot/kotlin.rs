@@ -223,10 +223,10 @@ fn properties_case(type_declaration: &Type) -> Result<String, String> {
         .get("fields")
         .and_then(Value::as_object)
         .ok_or("Properties fields missing")?;
-    let mut descriptors = Vec::new();
-    for (name, field) in fields {
-        descriptors.push(property_descriptor(name, field, "name")?);
-    }
+    let descriptors = fields
+        .iter()
+        .map(|(name, field)| property_descriptor(name, field, "name"))
+        .collect::<Result<Vec<_>, _>>()?;
     let mut line = String::new();
     let _ = writeln!(
         line,

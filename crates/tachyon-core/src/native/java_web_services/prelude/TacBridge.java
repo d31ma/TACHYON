@@ -21,12 +21,30 @@ final class TacBridge {
         try {
             return answer(request);
         } catch (RuntimeException problem) {
-            String message = problem.getMessage();
-            return error(message == null ? "Java service operation failed." : message);
+            return failed(problem);
         } finally {
             TacEvents.drain();
             handling = false;
         }
+    }
+
+    static void release() {
+        TacEvents.drain();
+        handling = false;
+    }
+
+    static void reenter(TacActivation activation) {
+        handling = true;
+        TacEvents.runFor(activation);
+    }
+
+    private static String failed(RuntimeException problem) {
+        String message = problem.getMessage();
+        String shown = message == null ? "Java service operation failed." : message;
+        if (problem instanceof TacFailure coded) {
+            return "{\"error\":" + TacJsonWriter.quote(shown) + ",\"code\":" + TacJsonWriter.quote(coded.code) + "}";
+        }
+        return error(shown);
     }
 
     private static String answer(String request) {
@@ -63,6 +81,9 @@ final class TacBridge {
         TacEvents.runFor(activation);
         if (operation.equals("init")) {
             return describe(activation.members);
+        }
+        if (operation.equals("call") || operation.equals("event")) {
+            TacTasks.allowWaiting(activation);
         }
         return use(activation.members, operation, name, parsed);
     }
@@ -179,6 +200,7 @@ final class TacBridge {
     }
 
     private static void dispose(String owner) {
+        TacTasks.cancel(owner);
         TacActivation activation = ACTIVATIONS.remove(owner);
         if (activation != null) {
             activation.dispose();

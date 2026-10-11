@@ -15,6 +15,12 @@ class TacAnswer
   def self.failure(message)
     { "error" => message.to_s }
   end
+
+  def self.failure_of(error)
+    answer = failure(error.message)
+    answer["code"] = error.behavior_code if error.respond_to?(:behavior_code)
+    answer
+  end
 end
 
 class TacStorage
@@ -35,6 +41,51 @@ class TacStorage
 end
 
 class TacValues
+  WRONG_SHAPE = "The server answer does not have the shape of the model (HTTP_RESPONSE)."
+  PLAIN_SHAPES = { "string" => [String], "integer" => [Integer], "number" => [Integer, Float], "boolean" => [TrueClass, FalseClass] }
+
+  @models = {}
+
+  def self.register_models(models_json)
+    @models = JSON.parse(models_json)
+  end
+
+  def self.answer(shape, value)
+    return value if value.nil? || !shape.is_a?(String)
+    return answer(shape[1, shape.length], value) if shape.start_with?("?") || shape.start_with?("!")
+    return answer_list(shape[2, shape.length], value) if shape.start_with?("[]")
+    return answer_plain(shape, value) if PLAIN_SHAPES.key?(shape)
+    model = @models[shape]
+    return value unless model.is_a?(Hash)
+    answer_model(shape, model, value)
+  end
+
+  def self.answer_list(shape, value)
+    raise wrong_shape unless value.is_a?(Array)
+    value.map { |item| answer(shape, item) }
+  end
+
+  def self.answer_plain(shape, value)
+    raise wrong_shape unless PLAIN_SHAPES[shape].any? { |type| value.is_a?(type) }
+    value
+  end
+
+  def self.answer_model(shape, model, value)
+    raise wrong_shape unless value.is_a?(Hash) && Object.const_defined?(shape)
+    type = Object.const_get(shape)
+    raise wrong_shape unless type.is_a?(Class) && type.respond_to?(:members)
+    fields = {}
+    shapes = model["fields"] || {}
+    type.members.each { |member| fields[member] = answer(shapes[member.to_s], value[member.to_s]) }
+    type.new(**fields)
+  rescue ArgumentError
+    raise wrong_shape
+  end
+
+  def self.wrong_shape
+    BehaviorError.new("HTTP_RESPONSE", WRONG_SHAPE)
+  end
+
   def self.plain(value)
     return plain_hash(value.to_h) if value.is_a?(Struct)
     return plain_hash(value.to_h) if data?(value)
@@ -134,7 +185,7 @@ class TacServices
     return JSON.generate(TacAnswer.failure("Native owner is busy.")) if @handling
     @handling = true
     begin
-      answer = handle(text)
+      answer = text.start_with?(TacTasks::SETTLE) ? TacTasks.settle(text) : TacTasks.run(text)
       drain(@executing) if @executing
       JSON.generate(answer)
     rescue StandardError => error
@@ -143,6 +194,16 @@ class TacServices
       @executing = nil
       @handling = false
     end
+  end
+
+  def self.answered(text)
+    handle(text)
+  rescue StandardError => error
+    TacAnswer.failure_of(error)
+  end
+
+  def self.resume_owner(owner)
+    @executing = owner
   end
 
   def self.handle(text)
@@ -212,6 +273,7 @@ class TacServices
     return TacAnswer.value(describe(owner.metadata)) if operation == "init"
     name = request["name"]
     return TacAnswer.failure("Companion request has no member name.") unless present?(name)
+    TacTasks.allow_waiting(owner) if operation == "call" || operation == "event"
     return receive(owner, name, request["value"]) if operation == "event"
     use_member(owner, operation, name, request)
   end
@@ -340,6 +402,7 @@ class TacServices
   end
 
   def self.dispose_owner(id)
+    TacTasks.cancel(id)
     owner = @owners.delete(id)
     @executing = nil if @executing && @executing.id == id
     owner&.dispose
@@ -348,6 +411,7 @@ class TacServices
   end
 
   def self.dispose_all
+    TacTasks.cancel(nil)
     active = @owners.values
     @owners = {}
     @executing = nil
