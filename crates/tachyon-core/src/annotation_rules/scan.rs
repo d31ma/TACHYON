@@ -2,6 +2,7 @@ use super::field_name::FieldName;
 use super::injected_field::InjectedField;
 use super::nullable_field::NullableField;
 use super::{AnnotationRules, Arguments, Realm, Rule, Target};
+use crate::ascii_name::AsciiName;
 use crate::template::required_fields::RequiredFields;
 use std::ops::Range;
 
@@ -480,15 +481,9 @@ impl Scan {
     }
 
     fn declared_name(header: &str) -> &str {
-        let mut rest = Self::without_modifiers(header.trim());
-        if let Some((_, after)) = Self::first_word(rest) {
-            rest = after;
-        }
-        let length = rest
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
-        &rest[..length]
+        let rest = Self::without_modifiers(header.trim());
+        let after_keyword = Self::first_word(rest).map_or(rest, |(_, after)| after);
+        AsciiName::leading(after_keyword)
     }
 
     fn has_primary_constructor(header: &str, name: &str) -> bool {
@@ -543,14 +538,8 @@ impl Scan {
     }
 
     fn first_word(text: &str) -> Option<(&str, &str)> {
-        let length = text
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
-        if length == 0 {
-            return None;
-        }
-        Some((&text[..length], text[length..].trim_start()))
+        let word = AsciiName::leading(text);
+        (!word.is_empty()).then(|| (word, text[word.len()..].trim_start()))
     }
 
     fn after_visibility_scope(text: &str) -> &str {
@@ -1222,5 +1211,46 @@ impl Messages {
             Self::spelled_list(language, rule.class_needs),
             rule.explained()
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Scan;
+
+    #[test]
+    fn first_and_declared_names_read_leading_ascii_word_characters() {
+        let alphabet = (0..=0x7f_u8)
+            .map(char::from)
+            .chain(['é', 'Ü', 'ß', '٣'])
+            .collect::<Vec<_>>();
+        let mut texts = vec![String::new()];
+        for first in &alphabet {
+            texts.push(first.to_string());
+            texts.extend(alphabet.iter().map(|second| format!("{first}{second}")));
+        }
+        for text in texts {
+            let length = text
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                .count();
+            let expected = (length > 0).then(|| (&text[..length], text[length..].trim_start()));
+            assert_eq!(Scan::first_word(&text), expected, "{text:?}");
+            for header in [format!("class {text}"), format!("public static {text}")] {
+                let mut rest = Scan::without_modifiers(header.trim());
+                if let Some((_, after)) = Scan::first_word(rest) {
+                    rest = after;
+                }
+                let length = rest
+                    .bytes()
+                    .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                    .count();
+                assert_eq!(Scan::declared_name(&header), &rest[..length], "{header:?}");
+            }
+        }
+        assert_eq!(
+            Scan::declared_name("public final class Catalog<T>"),
+            "Catalog"
+        );
     }
 }

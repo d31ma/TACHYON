@@ -1,4 +1,5 @@
 use super::{Model, ModelField, Record, Shape, TypeText};
+use crate::ascii_name::AsciiName;
 use std::path::{Path, PathBuf};
 
 mod alias_models;
@@ -328,12 +329,7 @@ impl Members {
     }
 
     fn identifier(text: &str) -> &str {
-        let text = text.trim_start();
-        let length = text
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
-        &text[..length]
+        AsciiName::leading(text.trim_start())
     }
 
     fn base_name(text: &str) -> String {

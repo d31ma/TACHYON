@@ -1,4 +1,5 @@
 use crate::Failure;
+use crate::ascii_name::AsciiName;
 use crate::go_source::GoMarkerName;
 use crate::lexical::LexicalMask;
 use std::path::Path;
@@ -129,7 +130,7 @@ impl RubyMembers {
         let Some(rest) = text.strip_prefix("def ") else {
             return;
         };
-        let name = Self::leading_name(rest);
+        let name = AsciiName::leading(rest);
         let plain_end = rest[name.len()..]
             .chars()
             .next()
@@ -138,15 +139,6 @@ impl RubyMembers {
         if plain_end && !hidden && !self.methods.iter().any(|known| known == name) {
             self.methods.push(name.to_owned());
         }
-    }
-
-    /// Reads the ASCII letters, digits and underscores that start `text`.
-    pub(crate) fn leading_name(text: &str) -> &str {
-        let length = text
-            .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-            .count();
-        &text[..length]
     }
 
     fn add_all(names: &mut Vec<String>, symbols: &str) {
@@ -258,7 +250,7 @@ impl Yard {
     }
 
     fn first_word(text: &str) -> &str {
-        RubyMembers::leading_name(text.trim_start())
+        AsciiName::leading(text.trim_start())
     }
 }
 
@@ -713,7 +705,8 @@ mod member_tests {
 
 #[cfg(test)]
 mod yard_tests {
-    use super::{RubyMembers, Yard};
+    use super::Yard;
+    use crate::ascii_name::AsciiName;
 
     fn texts() -> Vec<String> {
         let alphabet = (0..=0x7f_u8)
@@ -743,11 +736,7 @@ mod yard_tests {
                 let expected = leading_word(padded.trim_start());
                 assert_eq!(Yard::first_word(&padded), expected, "{padded:?}");
             }
-            assert_eq!(
-                RubyMembers::leading_name(&text),
-                leading_word(&text),
-                "{text:?}"
-            );
+            assert_eq!(AsciiName::leading(&text), leading_word(&text), "{text:?}");
         }
     }
 

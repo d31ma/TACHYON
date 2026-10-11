@@ -2,6 +2,7 @@ mod annotation_layout;
 mod annotation_modules;
 mod annotation_rules;
 mod application;
+mod ascii_name;
 mod behavior;
 pub mod cache;
 pub mod client_tests;

@@ -1,6 +1,7 @@
 use super::{Field, Input, Method, Parameter, Type, is_reserved_type_name};
 use crate::Failure;
-use crate::ruby_source::{RubyMembers, Yard};
+use crate::ascii_name::AsciiName;
+use crate::ruby_source::Yard;
 use std::collections::BTreeSet;
 use std::ops::Range;
 
@@ -44,7 +45,7 @@ impl RubySyntax {
             let Some(rest) = line.strip_prefix("class ") else {
                 continue;
             };
-            let name = RubyMembers::leading_name(rest);
+            let name = AsciiName::leading(rest);
             if skip_runtime && is_reserved_type_name(name) {
                 continue;
             }
@@ -79,7 +80,7 @@ impl RubySyntax {
         };
         let is_static = rest.starts_with("self.");
         let rest = rest.strip_prefix("self.").unwrap_or(rest);
-        let name = RubyMembers::leading_name(rest);
+        let name = AsciiName::leading(rest);
         let after_name = line_end - (rest.len() - name.len());
         if !super::super::identifier(name) || input.code[after_name..].starts_with(['?', '!', '='])
         {
@@ -113,7 +114,7 @@ impl RubySyntax {
             let Some(rest) = text.strip_prefix("def ") else {
                 continue;
             };
-            let name = RubyMembers::leading_name(rest);
+            let name = AsciiName::leading(rest);
             let is_case = name.starts_with("test") && super::super::identifier(name);
             if is_case && !names.iter().any(|known| known == name) {
                 names.push(name.to_owned());

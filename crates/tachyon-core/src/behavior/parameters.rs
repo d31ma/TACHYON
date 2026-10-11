@@ -1,5 +1,6 @@
 use super::{Input, Marker};
 use crate::Failure;
+use crate::ascii_name::AsciiName;
 use serde_json::{Map, Value, json};
 use std::ops::Range;
 
@@ -55,10 +56,7 @@ pub(super) fn read(
     let Some(rest) = input.code[at..].strip_prefix(prefix) else {
         return Ok(None);
     };
-    let length = rest
-        .bytes()
-        .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-        .count();
+    let length = AsciiName::leading(rest).len();
     let Some(name) = canonical(language, &rest[..length]) else {
         return Ok(None);
     };
