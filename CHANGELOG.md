@@ -257,6 +257,9 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- A behaviour module may declare up to 512 types instead of 128, so a Go or
+  Ruby app with many clients no longer has to share one Setup between them.
+
 - An entry may compose up to 512 annotated role files instead of 128, and a
   realm may hold up to 1024 model files per language instead of 256, also
   when its event listeners read the models. That error now names the models

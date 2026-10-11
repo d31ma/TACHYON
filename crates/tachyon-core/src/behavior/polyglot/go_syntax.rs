@@ -20,8 +20,8 @@ pub(super) fn declarations(input: &Input<'_>, skip_runtime: bool) -> Result<Vec<
             return Err(input.failure(declared.start, "Duplicate top-level behavior type name"));
         }
         result.push(behavior_type(input, &declared));
-        if result.len() > 128 {
-            return Err(input.failure(declared.start, "Behavior module exceeds 128 types"));
+        if result.len() > 512 {
+            return Err(input.failure(declared.start, "Behavior module exceeds 512 types"));
         }
     }
     Ok(result)
