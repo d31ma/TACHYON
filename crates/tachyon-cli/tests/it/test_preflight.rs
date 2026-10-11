@@ -237,3 +237,44 @@ fn javascript_handlers_run_with_bun_when_only_bun_is_on_the_path() {
     assert!(output.status.success(), "{printed}");
     assert!(printed.contains("ran"), "{printed}");
 }
+
+#[test]
+fn a_crashing_test_unit_fails_alone_and_the_run_still_reports_every_unit() {
+    let project = tempfile::tempdir().expect("project");
+    for (relative, text) in [
+        (
+            "server/tests/UnitTestSetup.js",
+            "@TestSetup()\nclass UnitTestSetup {\n  static configure() { return {}; }\n}\n",
+        ),
+        (
+            "server/tests/ACrashTest.js",
+            "@Test(UnitTestSetup)\nexport default class ACrashTest {\n  async testExits() {\n    process.exit(3)\n  }\n}\n",
+        ),
+        (
+            "server/tests/BOkTest.js",
+            "@Test(UnitTestSetup)\nexport default class BOkTest {\n  async testPasses() {\n    Assert.equals(1, 1)\n  }\n}\n",
+        ),
+    ] {
+        let path = project.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
+        std::fs::write(path, text).expect("file");
+    }
+    let output = Command::new(env!("CARGO_BIN_EXE_ty"))
+        .arg("test")
+        .arg(project.path())
+        .output()
+        .expect("ty test");
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!output.status.success(), "{printed}");
+    assert!(
+        printed.contains("FAIL server/tests/ACrashTest.js: TY2104"),
+        "{printed}"
+    );
+    assert!(printed.contains("ok  BOkTest.testPasses"), "{printed}");
+    assert!(printed.contains("1 passed, 1 failed."), "{printed}");
+    assert!(printed.contains("TY2020"), "{printed}");
+}
