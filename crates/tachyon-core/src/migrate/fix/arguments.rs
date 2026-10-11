@@ -232,21 +232,10 @@ impl<'a> ArgumentConversion<'a> {
     }
 
     fn declares_field(extension: &str, line: &str, name: &str) -> bool {
-        if line.contains('(') || line.starts_with(['@', '#', '[', '/']) {
-            return false;
-        }
+        let plain = [line.contains('('), line.starts_with(['@', '#', '[', '/'])] == [false, false];
         let declaration = line.split('=').next().unwrap_or("").trim();
         let declaration = declaration.trim_end_matches([';', ',']);
-        let field = match extension {
-            "go" => declaration.split_whitespace().next().unwrap_or(""),
-            "php" => declaration.rsplit('$').next().unwrap_or(""),
-            "ts" | "py" | "kt" | "swift" | "rs" | "js" => {
-                let before_type = declaration.split(':').next().unwrap_or("");
-                before_type.split_whitespace().last().unwrap_or("")
-            }
-            _ => declaration.split_whitespace().last().unwrap_or(""),
-        };
-        field.trim_end_matches(['?', '!']) == name
+        [plain, Self::declared_name(extension, declaration) == name] == [true, true]
     }
 
     fn convert_mapping(
@@ -331,6 +320,10 @@ impl ArgumentConversion<'_> {
 
     fn parameter_name(extension: &str, piece: &str) -> String {
         let declaration = piece.split('=').next().unwrap_or("").trim();
+        Self::declared_name(extension, declaration).to_owned()
+    }
+
+    fn declared_name<'b>(extension: &str, declaration: &'b str) -> &'b str {
         let name = match extension {
             "go" => declaration.split_whitespace().next().unwrap_or(""),
             "php" => declaration.rsplit('$').next().unwrap_or(""),
@@ -340,7 +333,7 @@ impl ArgumentConversion<'_> {
             }
             _ => declaration.split_whitespace().last().unwrap_or(""),
         };
-        name.trim_end_matches(['?', '!']).to_owned()
+        name.trim_end_matches(['?', '!'])
     }
 
     fn method_parameters(&self, markers: &[MarkerLine]) -> BTreeMap<String, Vec<String>> {
@@ -851,6 +844,62 @@ impl SettingsTypes {
             ("js", None) => format!("/** @type {{{spelled}}} */\n{field};"),
             ("rs", _) => format!("{field}: {spelled},"),
             _ => format!("{field} {spelled}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ArgumentConversion;
+
+    #[test]
+    fn field_lines_are_matched_by_the_declared_name_of_each_language() {
+        let cases = [
+            ("go", "Name string", "Name", true),
+            ("go", "Other string", "Name", false),
+            ("php", "public $name;", "name", true),
+            ("ts", "private name?: string;", "name", true),
+            ("kt", "val name: String = \"\"", "name", true),
+            ("swift", "var name!: String", "name", true),
+            ("py", "name: str", "name", true),
+            ("rs", "pub name: String,", "name", true),
+            ("cs", "public string name,", "name", true),
+            ("java", "private String name;", "name", true),
+            ("java", "private String name = \"x\";", "name", true),
+            ("java", "String name(int x)", "name", false),
+            ("java", "@Id String name;", "name", false),
+            ("java", "// String name;", "name", false),
+            ("java", "[Key] string name;", "name", false),
+            ("java", "# name", "name", false),
+        ];
+        for (extension, line, name, expected) in cases {
+            assert_eq!(
+                ArgumentConversion::declares_field(extension, line, name),
+                expected,
+                "{extension} {line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn parameter_names_are_the_declared_name_of_each_language() {
+        let cases = [
+            ("go", "name string", "name"),
+            ("php", "$name = 1", "name"),
+            ("ts", "name?: string", "name"),
+            ("kt", "count: Int = 0", "count"),
+            ("java", "final int count", "count"),
+            ("py", "value: int = 3", "value"),
+            ("rs", "mut total: u64", "total"),
+            ("cs", "string label!", "label"),
+            ("dart", "", ""),
+        ];
+        for (extension, piece, expected) in cases {
+            assert_eq!(
+                ArgumentConversion::parameter_name(extension, piece),
+                expected,
+                "{extension} {piece:?}"
+            );
         }
     }
 }
