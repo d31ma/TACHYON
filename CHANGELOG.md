@@ -10,6 +10,13 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A Go socket session has `Request()`, which returns the request that opened
+  the socket as a `*http.Request`, with its query string and headers. The
+  supervisor now passes the opening request's target to every socket handler.
+- A Go handler answer may carry binary bytes. The prelude sends a body that
+  is not UTF-8 as base64, and the server writes the bytes unchanged, so
+  images, attachments and file downloads keep every byte.
+
 - `tac.blockingScripts` in `client/manifest.json` lists up to 8 local
   scripts that run before the first paint. The build links each one as a
   classic `<script src>` before the Tac runtime, which `script-src 'self'`

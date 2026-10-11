@@ -325,7 +325,9 @@ Every Yon language holds a socket, because its runner or prelude reads the
 socket frames while the class runs. Each language names the session methods in
 its own style: `open_sessions()` in Python, Ruby and Rust, `OpenSessions()` in
 Go and C#, Jakarta's `getOpenSessions()` in Java, and `openSessions()` in
-JavaScript, TypeScript, Kotlin, PHP and Dart. A method that throws, panics or
+JavaScript, TypeScript, Kotlin, PHP and Dart. In Go, `session.Request()`
+returns the request that opened the socket as a `*http.Request`, with the
+query string and headers. A method that throws, panics or
 returns an error (Go, Rust) counts as a failure. ADR 0060 lists each
 language's marker and session shape.
 

@@ -562,6 +562,51 @@ async fn a_go_worker_answers_its_verbs_and_405_for_the_others() {
     }
 }
 
+struct GoBytes;
+
+impl GoBytes {
+    const SOURCE: &str = r#"package main
+
+import (
+	"io"
+	"net/http"
+	"strings"
+)
+
+type Handler struct{}
+
+func (Handler) GET() *http.Response {
+	header := http.Header{"Content-Type": {"application/octet-stream"}}
+	body := io.NopCloser(strings.NewReader("\x00\x7f\x80\xffPNG"))
+	return &http.Response{StatusCode: http.StatusOK, Header: header, Body: body}
+}
+"#;
+}
+
+#[tokio::test]
+async fn a_go_worker_answers_binary_bytes_unchanged() {
+    if !go_usable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let handler = source(&root, "go", GoBytes::SOURCE);
+    let supervisor = supervisor(HandlerSupervisorOptions {
+        default_timeout: Duration::from_secs(10),
+        ..HandlerSupervisorOptions::default()
+    });
+    let answered = supervisor
+        .invoke(
+            &handler,
+            &request("go_bytes", HttpMethod::Get, None),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("GET");
+    let body = answered.body.expect("body");
+    assert_eq!(body.encoding, HandlerBodyEncoding::Base64);
+    assert_eq!(body.data, "AH+A/1BORw==");
+}
+
 struct GoShapes;
 
 impl GoShapes {

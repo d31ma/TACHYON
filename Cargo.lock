@@ -2610,6 +2610,7 @@ name = "tachyon-core"
 version = "0.0.0-phase4"
 dependencies = [
  "axum",
+ "base64",
  "brotli",
  "cap-fs-ext",
  "cap-std",
