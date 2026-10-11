@@ -7,7 +7,8 @@ use axum::http::header::{
 };
 use axum::http::response::Builder;
 use axum::http::{Response, StatusCode};
-use tachyon_contracts::{HandlerHeaders, HandlerResponse};
+use base64::Engine as _;
+use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerHeaders, HandlerResponse};
 use tower_http::set_header::SetResponseHeaderLayer;
 
 pub(in crate::server) struct ServerResponse;
@@ -44,13 +45,14 @@ impl ServerResponse {
         let builder =
             Self::with_handler_headers(Response::builder().status(status), &response.headers);
         let builder = Self::with_default_content_type(builder, has_content_type);
-        let body = response.body.map(|body| body.data).unwrap_or_default();
-        builder.body(Body::from(body)).unwrap_or_else(|_| {
-            Self::text(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Invalid handler response.",
-            )
-        })
+        Self::body_bytes(response.body)
+            .and_then(|body| builder.body(Body::from(body)).ok())
+            .unwrap_or_else(|| {
+                Self::text(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Invalid handler response.",
+                )
+            })
     }
 
     pub(in crate::server) fn from_middleware(response: HandlerResponse) -> Response<Body> {
@@ -58,13 +60,26 @@ impl ServerResponse {
             StatusCode::from_u16(response.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         let builder =
             Self::with_handler_headers(Response::builder().status(status), &response.headers);
-        let body = response.body.map(|body| body.data).unwrap_or_default();
-        builder.body(Body::from(body)).unwrap_or_else(|_| {
-            Self::text(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Invalid middleware response.",
-            )
-        })
+        Self::body_bytes(response.body)
+            .and_then(|body| builder.body(Body::from(body)).ok())
+            .unwrap_or_else(|| {
+                Self::text(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Invalid middleware response.",
+                )
+            })
+    }
+
+    fn body_bytes(body: Option<HandlerBody>) -> Option<Vec<u8>> {
+        match body {
+            None => Some(Vec::new()),
+            Some(body) if body.encoding == HandlerBodyEncoding::Base64 => {
+                base64::engine::general_purpose::STANDARD
+                    .decode(body.data)
+                    .ok()
+            }
+            Some(body) => Some(body.data.into_bytes()),
+        }
     }
 
     pub(in crate::server) fn live_script() -> Response<Body> {
@@ -152,5 +167,38 @@ impl ServerResponse {
             return builder;
         }
         builder.header(CONTENT_TYPE, "application/json; charset=utf-8")
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use tachyon_contracts::HandlerResponseKind;
+
+    fn answer(data: &str) -> HandlerResponse {
+        HandlerResponse {
+            protocol_version: 1,
+            kind: HandlerResponseKind::Response,
+            request_id: String::from("binary"),
+            status: 200,
+            headers: HandlerHeaders::new(),
+            body: Some(HandlerBody {
+                encoding: HandlerBodyEncoding::Base64,
+                data: String::from(data),
+            }),
+            error: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn a_base64_handler_body_is_written_as_its_bytes() {
+        let response = ServerResponse::from_handler(answer("AH+A/1BORw=="));
+        let bytes = axum::body::to_bytes(response.into_body(), 64)
+            .await
+            .expect("body");
+        assert_eq!(bytes.as_ref(), b"\x00\x7f\x80\xffPNG");
+        let broken = ServerResponse::from_handler(answer("not base64!"));
+        assert_eq!(broken.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 }

@@ -10,6 +10,7 @@ use axum::body::Body;
 use axum::extract::FromRequestParts as _;
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::http::header::{HOST, ORIGIN, UPGRADE};
+use axum::http::request::Parts;
 use axum::http::{HeaderMap, HeaderValue, Request, Response, StatusCode};
 use std::sync::Arc;
 use std::time::Duration;
@@ -51,13 +52,13 @@ impl SocketSession {
             .await
             .ok();
         let allowed = Self::same_origin(&parts.headers);
-        Self::answer(upgrade, allowed, &parts.headers, state, entry, matched)
+        Self::answer(upgrade, allowed, &parts, state, entry, matched)
     }
 
     fn answer(
         upgrade: Option<WebSocketUpgrade>,
         allowed: bool,
-        headers: &HeaderMap,
+        parts: &Parts,
         state: &Dispatch,
         entry: &DispatchRoute,
         matched: RouteMatch,
@@ -68,13 +69,13 @@ impl SocketSession {
                 StatusCode::FORBIDDEN,
                 "This socket only accepts pages from its own origin.",
             ),
-            (Some(upgrade), true) => Self::join(upgrade, headers, state, entry, matched),
+            (Some(upgrade), true) => Self::join(upgrade, parts, state, entry, matched),
         }
     }
 
     fn join(
         upgrade: WebSocketUpgrade,
-        headers: &HeaderMap,
+        parts: &Parts,
         state: &Dispatch,
         entry: &DispatchRoute,
         matched: RouteMatch,
@@ -86,7 +87,7 @@ impl SocketSession {
                     "Too many sockets are open. Try again later.",
                 )
             },
-            |(seat, peers)| Self::start(upgrade, seat, peers, headers, state, entry, matched),
+            |(seat, peers)| Self::start(upgrade, seat, peers, parts, state, entry, matched),
         )
     }
 
@@ -94,7 +95,7 @@ impl SocketSession {
         upgrade: WebSocketUpgrade,
         seat: SocketSeat,
         peers: mpsc::Receiver<String>,
-        headers: &HeaderMap,
+        parts: &Parts,
         state: &Dispatch,
         entry: &DispatchRoute,
         matched: RouteMatch,
@@ -102,7 +103,8 @@ impl SocketSession {
         let mut request = HandlerRequest::route(seat.id.clone(), &matched.route, HttpMethod::Get);
         request.operation = String::from("socket.open");
         request.parameters = matched.parameters;
-        ProtocolRequest::copy_headers(&mut request, headers);
+        request.target = ProtocolRequest::target(&parts.uri);
+        ProtocolRequest::copy_headers(&mut request, &parts.headers);
         let session = Self {
             supervisor: Arc::clone(&state.supervisor),
             handler: entry.handler.clone(),

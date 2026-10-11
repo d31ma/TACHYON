@@ -131,6 +131,35 @@ class ChatController:
         ],
     };
 
+    const GO_REQUEST: Self = Self {
+        program: "go",
+        files: &[
+            (
+                "server/models/ChatMessage.go",
+                "type ChatMessage struct {\n\tText string `json:\"text\"`\n}\n",
+            ),
+            (
+                "server/controllers/ChatController.go",
+                r#"// @SocketRoute("/chat")
+// @Public
+type ChatController struct{}
+
+// @OnOpen
+func (controller *ChatController) OnOpen(session *SocketSession) error {
+	request := session.Request()
+	room := request.URL.Query().Get("room")
+	return session.Send(ChatMessage{Text: room + " " + request.Header.Get("X-Probe")})
+}
+
+// @OnMessage
+func (controller *ChatController) OnMessage(session *SocketSession, message ChatMessage) error {
+	return session.Send(message)
+}
+"#,
+            ),
+        ],
+    };
+
     const GO: Self = Self {
         program: "go",
         files: &[
@@ -1025,6 +1054,25 @@ async fn a_go_socket_route_keeps_one_object_for_each_connection() {
     }
     let server = Server::start(&ChatProject::GO).await;
     server.chat().await;
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn a_go_socket_session_reads_its_opening_request() {
+    if !ChatProject::GO_REQUEST.available() {
+        return;
+    }
+    let server = Server::start(&ChatProject::GO_REQUEST).await;
+    let mut request = format!("ws://127.0.0.1:{}/chat?room=blue", server.port)
+        .into_client_request()
+        .expect("request");
+    request
+        .headers_mut()
+        .insert("x-probe", "yes".parse().expect("header value"));
+    let (mut socket, _response) = tokio_tungstenite::connect_async(request)
+        .await
+        .expect("socket opens");
+    assert_eq!(Client::text(&mut socket).await, r#"{"text":"blue yes"}"#);
     server.stop().await;
 }
 

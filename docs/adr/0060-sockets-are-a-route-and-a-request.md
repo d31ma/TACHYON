@@ -105,7 +105,7 @@ connection. The session methods use the language's own naming:
 | --- | --- | --- |
 | JavaScript, TypeScript | `@SocketRoute` | `id`, `send`, `close`, `openSessions()` (promises) |
 | Python | `@socket_route` | `id`, `send`, `close`, `open_sessions()` |
-| Go | `// @SocketRoute` | `ID()`, `Send`, `Close`, `OpenSessions()` on `*SocketSession` |
+| Go | `// @SocketRoute` | `ID()`, `Send`, `Close`, `OpenSessions()`, `Request()` on `*SocketSession` |
 | Java | `@SocketRoute` | `getId()`, `send`, `close`, `getOpenSessions()` (Jakarta names) |
 | Kotlin | `@SocketRoute` | `id`, `send`, `close`, `openSessions()` |
 | C# | `[SocketRoute]` | `Id`, `Send`, `Close`, `OpenSessions()`; a method may return `Task` |
@@ -138,3 +138,10 @@ The `@SocketRequest` method belongs to an `HTTPClient` contract (ADR 0048
 amendment): a class with empty method bodies in JavaScript and TypeScript.
 `declare send: SocketSend<Message>` stays allowed, because it declares a type
 and holds no state.
+
+## Amendment (2026-10-11)
+
+The Go session has `Request()`. It returns the request that opened the
+socket as a `*http.Request`: its URL with the query string, its headers and
+the client address. The supervisor now passes the opening request's target,
+so the query string reaches every language's socket request.

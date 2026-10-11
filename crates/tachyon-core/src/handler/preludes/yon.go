@@ -107,7 +107,14 @@ func (response *yonResponse) Header(name string, value string) *yonResponse {
 type yonResponseFields struct {
 	Status  int                 `json:"status"`
 	Headers map[string][]string `json:"headers"`
-	Body    string              `json:"body"`
+	Body    any                 `json:"body"`
+}
+
+func yonResponseBody(body string) any {
+	if utf8.ValidString(body) {
+		return body
+	}
+	return yonRequestBody{Encoding: "base64", Data: base64.StdEncoding.EncodeToString([]byte(body))}
 }
 
 func yonArgument[T any](request *yonRequest, index int) T {
@@ -743,6 +750,7 @@ func yonEnvelopeText(value json.RawMessage) string {
 
 type SocketSession struct {
 	id       string
+	request  *yonRequest
 	inbox    []string
 	closed   bool
 	sessions []string
@@ -770,6 +778,10 @@ type yonSocketEndpoint interface {
 
 func (session *SocketSession) ID() string {
 	return session.id
+}
+
+func (session *SocketSession) Request() *http.Request {
+	return yonNativeRequest(session.request).WithContext(yoncontext.Background())
 }
 
 func (session *SocketSession) Send(message any) error {
@@ -896,8 +908,8 @@ func yonSocketAttempt(session *SocketSession, endpoint yonSocketEndpoint, action
 	yonSocketCall(func() error { return endpoint.Fail(session, failure) })
 }
 
-func yonSocketRun(endpoint yonSocketEndpoint) {
-	session := &SocketSession{id: yoninvocation.RequestID()}
+func yonSocketRun(endpoint yonSocketEndpoint, request *yonRequest) {
+	session := &SocketSession{id: yoninvocation.RequestID(), request: request}
 	yonSocketAttempt(session, endpoint, func() error { return endpoint.Open(session) })
 	for {
 		data, open := session.next()
@@ -997,7 +1009,7 @@ func main() {
 		response.stream.answer()
 		return
 	}
-	answer := yonResponseFields{Status: response.status, Headers: response.headers, Body: response.body}
+	answer := yonResponseFields{Status: response.status, Headers: response.headers, Body: yonResponseBody(response.body)}
 	output, err := json.Marshal(answer)
 	if err != nil {
 		return

@@ -126,7 +126,7 @@ impl GoContainer {
         );
         let _ = write!(
             text,
-            "\ntype Handler struct{{}}\n\nfunc (Handler) GET(request *yonRequest) any {{\n\tyonSocketRun(__YonSocketEndpoint{{target: (&{}{{}}).resolve_{controller}()}})\n\treturn nil\n}}\n",
+            "\ntype Handler struct{{}}\n\nfunc (Handler) GET(request *yonRequest) any {{\n\tyonSocketRun(__YonSocketEndpoint{{target: (&{}{{}}).resolve_{controller}()}}, request)\n\treturn nil\n}}\n",
             Self::TYPE
         );
         Ok(text)

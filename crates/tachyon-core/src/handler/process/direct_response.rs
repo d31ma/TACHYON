@@ -15,9 +15,28 @@ pub(super) struct DirectResponse {
     #[serde(default)]
     headers: HandlerHeaders,
     #[serde(default)]
-    body: Option<String>,
+    body: Option<DirectBody>,
     #[serde(default)]
     topics: Vec<Value>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum DirectBody {
+    Text(String),
+    Encoded(HandlerBody),
+}
+
+impl DirectBody {
+    fn into_body(self) -> HandlerBody {
+        match self {
+            Self::Text(data) => HandlerBody {
+                encoding: HandlerBodyEncoding::Utf8,
+                data,
+            },
+            Self::Encoded(body) => body,
+        }
+    }
 }
 
 impl DirectResponse {
@@ -116,10 +135,7 @@ impl DirectResponse {
             request_id: String::from(request_id),
             status: self.status,
             headers: self.headers,
-            body: self.body.map(|data| HandlerBody {
-                encoding: HandlerBodyEncoding::Utf8,
-                data,
-            }),
+            body: self.body.map(DirectBody::into_body),
             error: None,
         }
     }
