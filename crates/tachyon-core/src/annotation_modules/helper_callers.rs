@@ -1,5 +1,6 @@
 use super::Module;
 use crate::Failure;
+use crate::compiler::PortablePath;
 use std::path::{Path, PathBuf};
 
 pub(super) struct HelperCallers {
@@ -91,10 +92,10 @@ impl HelperCallers {
     }
 
     fn unit_span(&self, unit: &Module, start: u64, span: &mut tachyon_diagnostics::SourceSpan) {
-        if span.file == self.entry.to_string_lossy()
+        if span.file == PortablePath::file(&self.entry)
             && (start..start + unit.source.len() as u64).contains(&span.start)
         {
-            span.file = unit.path.to_string_lossy().into_owned();
+            span.file = PortablePath::file(&unit.path);
             span.start -= start;
             span.end = span.end.saturating_sub(start).min(unit.source.len() as u64);
         }

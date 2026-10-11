@@ -1,4 +1,6 @@
+use crate::compiler::PortablePath;
 use std::fmt;
+use std::path::Path;
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticReport, Severity, SourceSpan};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -78,7 +80,10 @@ pub(crate) fn diagnostic(
 }
 
 pub(crate) fn source_span(file: &str, start: usize, end: usize) -> Option<SourceSpan> {
-    SourceSpan::new(file, start as u64, end as u64).ok()
+    if Path::new(file).is_absolute() {
+        return None;
+    }
+    SourceSpan::new(PortablePath::file_text(file), start as u64, end as u64).ok()
 }
 
 const fn severity_label(severity: Severity) -> &'static str {
@@ -91,7 +96,7 @@ const fn severity_label(severity: Severity) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{Failure, diagnostic};
+    use super::{Failure, Path, diagnostic, source_span};
     use tachyon_diagnostics::{Diagnostic, Severity, SourceSpan};
 
     #[test]
@@ -132,5 +137,21 @@ mod tests {
         assert!(rendered.contains("warning[TY1001]"));
         assert!(rendered.contains("client/pages/tac.html:1..4"));
         assert!(rendered.contains("\n\ninformation[TY1002]"));
+    }
+
+    #[test]
+    fn a_native_relative_path_becomes_a_forward_slash_span_file() {
+        let native = Path::new("client").join("helpers").join("StepHelper.cs");
+        let span = source_span(&native.to_string_lossy(), 14, 15);
+        assert_eq!(
+            span.map(|span| span.file),
+            Some(String::from("client/helpers/StepHelper.cs"))
+        );
+    }
+
+    #[test]
+    fn an_absolute_native_path_never_becomes_a_span_file() {
+        let absolute = std::env::temp_dir().join("client").join("tac.html");
+        assert_eq!(source_span(&absolute.to_string_lossy(), 0, 1), None);
     }
 }
