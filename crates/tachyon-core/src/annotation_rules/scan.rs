@@ -1224,3 +1224,44 @@ impl Messages {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Scan;
+
+    #[test]
+    fn first_and_declared_names_read_leading_ascii_word_characters() {
+        let alphabet = (0..=0x7f_u8)
+            .map(char::from)
+            .chain(['é', 'Ü', 'ß', '٣'])
+            .collect::<Vec<_>>();
+        let mut texts = vec![String::new()];
+        for first in &alphabet {
+            texts.push(first.to_string());
+            texts.extend(alphabet.iter().map(|second| format!("{first}{second}")));
+        }
+        for text in texts {
+            let length = text
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                .count();
+            let expected = (length > 0).then(|| (&text[..length], text[length..].trim_start()));
+            assert_eq!(Scan::first_word(&text), expected, "{text:?}");
+            for header in [format!("class {text}"), format!("public static {text}")] {
+                let mut rest = Scan::without_modifiers(header.trim());
+                if let Some((_, after)) = Scan::first_word(rest) {
+                    rest = after;
+                }
+                let length = rest
+                    .bytes()
+                    .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                    .count();
+                assert_eq!(Scan::declared_name(&header), &rest[..length], "{header:?}");
+            }
+        }
+        assert_eq!(
+            Scan::declared_name("public final class Catalog<T>"),
+            "Catalog"
+        );
+    }
+}

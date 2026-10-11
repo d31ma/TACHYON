@@ -1,3 +1,4 @@
+use super::Members;
 use super::rust_fields::RustFields;
 use crate::route_types::{Model, ModelTable, Record, Shape};
 
@@ -247,4 +248,31 @@ fn rust_alias_enum_and_unnamed_tuple_models_keep_existing_behavior() {
     assert_eq!(fields.len(), 1);
     assert_eq!(fields[0].0, "Named");
     assert_eq!(fields[0].1[0].name, "label");
+}
+
+#[test]
+fn member_identifiers_skip_leading_space_then_read_ascii_word_characters() {
+    let alphabet = (0..=0x7f_u8)
+        .map(char::from)
+        .chain(['é', 'Ü', 'ß', '٣'])
+        .collect::<Vec<_>>();
+    let mut texts = vec![String::new()];
+    for first in &alphabet {
+        texts.push(first.to_string());
+        texts.extend(alphabet.iter().map(|second| format!("{first}{second}")));
+    }
+    for text in texts {
+        for padded in [text.clone(), format!("  {text}"), format!("\t{text}")] {
+            let trimmed = padded.trim_start();
+            let length = trimmed
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                .count();
+            assert_eq!(
+                Members::identifier(&padded),
+                &trimmed[..length],
+                "{padded:?}"
+            );
+        }
+    }
 }

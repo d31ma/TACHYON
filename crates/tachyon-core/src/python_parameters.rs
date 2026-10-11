@@ -268,6 +268,26 @@ mod tests {
     use super::PythonAnnotated;
 
     #[test]
+    fn marker_names_are_the_leading_ascii_word_characters() {
+        let alphabet = (0..=0x7f_u8)
+            .map(char::from)
+            .chain(['é', 'Ü', 'ß', '٣'])
+            .collect::<Vec<_>>();
+        let mut texts = vec![String::new()];
+        for first in &alphabet {
+            texts.push(first.to_string());
+            texts.extend(alphabet.iter().map(|second| format!("{first}{second}")));
+        }
+        for text in texts {
+            let length = text
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                .count();
+            assert_eq!(PythonAnnotated::name_length(&text), length, "{text:?}");
+        }
+    }
+
+    #[test]
     fn an_annotated_parameter_names_its_type_marker_and_argument() {
         let source = "view: Annotated[list[str], from_query(\"view\")]";
         let code = "view: Annotated[list[str], from_query(      )]";
