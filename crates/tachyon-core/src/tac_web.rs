@@ -1388,6 +1388,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_tinygo_service_compiles_a_regexp_with_long_repetitions() {
+        if !go_installed() || !tinygo_installed() || !node_available() {
+            eprintln!("skipping: go, tinygo or node is unavailable");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        write_service(
+            root.path(),
+            "client/manifest.json",
+            "{\"tac\":{\"go\":{\"compiler\":\"tinygo\"}}}",
+        );
+        let source = write_service(
+            root.path(),
+            "client/services/AddressService.go",
+            "import \"regexp\"\n\n// @Service\ntype AddressService struct{}\n\n\
+             func (service *AddressService) Valid(text string) bool {\n\t\
+             return regexp.MustCompile(`^[a-z]{1,200}@[a-z]{1,200}$`).MatchString(text)\n}\n",
+        );
+        let service = ("address", "AddressService");
+        let profile = crate::BuildProfile::Release;
+        build_and_publish_with(root.path(), service, WebLanguage::Go, source, profile).await;
+        let driver = format!(
+            "{}const {{ default: AddressService }} = await import('./AddressService.js')\n\
+             const address = new AddressService({{}})\n\
+             console.log(JSON.stringify({{ valid: await address.valid('ada@example') }}))\n\
+             process.exit(0)\n",
+            Fixtures::FILE_FETCH
+        );
+        assert_eq!(
+            run_driver(root.path(), &driver),
+            serde_json::json!({"valid": true})
+        );
+    }
+
+    #[tokio::test]
     async fn the_go_compiler_setting_keeps_the_standard_compiler_in_a_release_build() {
         if !go_installed() || !node_available() {
             eprintln!("skipping: go or node is unavailable");

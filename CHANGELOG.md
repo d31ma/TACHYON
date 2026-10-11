@@ -344,6 +344,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- TinyGo builds give each goroutine a 512 KB stack instead of TinyGo's
+  64 KB. Every Go Tac call runs on its own goroutine, and deep work such as
+  compiling a regexp with `{1,200}` overflowed the small stack and crashed
+  the page's Go program.
+
 - A browser HTTP call from a Tac service (C#, F#, Kotlin, Dart, Swift, C++
   and the other WebAssembly languages) no longer shows up as a failed request
   after it succeeds. The page's HTTP transport cancelled the response reader

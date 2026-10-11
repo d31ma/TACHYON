@@ -50,6 +50,7 @@ impl GoCompiler {
             "-opt=z",
             "-no-debug",
             "-gc=boehm",
+            "-stack-size=512KB",
             "-o",
             Self::OUTPUT,
             ".",
