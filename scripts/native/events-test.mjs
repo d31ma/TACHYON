@@ -131,7 +131,7 @@ async function main() {
   try {
     for (const language of selected) {
       const unit = await readFile(join(NativeEventsTest.emitted, `owner.${language}`),'utf8');
-      const prelude = await readFile(join(NativeEventsTest.root, `crates/tachyon-core/src/native/prelude.${language}`),'utf8');
+      const prelude = await readFile(join(NativeEventsTest.emitted, `prelude.${language}`),'utf8');
       const { program, args } = await buildOwner(scratch, language, unit, prelude);
       verify(run(scratch,program,args,{input:ProbeSequence.requests.map(value=>JSON.stringify(value)).join('\n')+'\n'}),language);
     }
