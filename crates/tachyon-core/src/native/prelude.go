@@ -28,6 +28,7 @@ type Member struct {
 	Listener *Listener
 	Hook     func() error
 	Destroy  bool
+	Instance any
 }
 
 type ApplicationEventPublisher struct{}
@@ -71,10 +72,20 @@ type delivery struct {
 	value    any
 }
 
+type node struct {
+	name    string
+	members []Member
+	needs   []*node
+	holders int
+	started bool
+	failed  bool
+}
+
 type ownerActivation struct {
 	route     string
 	service   string
 	owner     string
+	node      *node
 	members   []Member
 	listeners []*Listener
 	disposed  bool
@@ -85,6 +96,10 @@ type ownerActivation struct {
 
 var services = map[string]service{}
 var owners = map[string]*ownerActivation{}
+var shared = map[string]bool{}
+var nodes = map[string]*node{}
+var order []*node
+var building *node
 var executing *ownerActivation
 var handling bool
 var Emit func(payload string)
@@ -92,6 +107,26 @@ var Storage func(request string) string
 
 func Register(name string, create func() []Member, required []string) {
 	services[name] = service{create: create, required: required}
+}
+
+func Shared(name string) {
+	shared[name] = true
+}
+
+func Need(name string) any {
+	needed := obtain(name)
+	if building != nil {
+		building.needs = append(building.needs, needed)
+	}
+	if !start(needed) {
+		panic("Native initializer failed.")
+	}
+	for index := range needed.members {
+		if needed.members[index].Instance != nil {
+			return needed.members[index].Instance
+		}
+	}
+	return nil
 }
 
 func Invoke(text string) (reply string) {
@@ -227,9 +262,15 @@ func activate(request *companionRequest) string {
 	if len(owners) >= 256 {
 		return `{"error":"Too many native activations."}`
 	}
-	activation := newActivation(request, known.create())
+	activation := &ownerActivation{
+		route:    request.route,
+		service:  request.service,
+		owner:    request.owner,
+		retained: map[string]string{},
+	}
 	owners[request.owner] = activation
 	executing = activation
+	attach(activation, known)
 	assignProperties(activation, known.required, request.properties)
 	if !runInitializers(activation) {
 		disposeOwner(request.owner)
@@ -239,14 +280,21 @@ func activate(request *companionRequest) string {
 	return ""
 }
 
-func newActivation(request *companionRequest, members []Member) *ownerActivation {
-	activation := &ownerActivation{
-		route:    request.route,
-		service:  request.service,
-		owner:    request.owner,
-		members:  members,
-		retained: map[string]string{},
+func attach(activation *ownerActivation, known service) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			disposeOwner(activation.owner)
+			panic(recovered)
+		}
+	}()
+	if shared[activation.service] {
+		activation.node = obtain(activation.service)
+	} else {
+		activation.node = build(activation.service, known.create)
+		activation.node.holders = 1
 	}
+	members := activation.node.members
+	activation.members = members
 	for index := range members {
 		if members[index].Listener != nil {
 			activation.listeners = append(activation.listeners, members[index].Listener)
@@ -255,7 +303,104 @@ func newActivation(request *companionRequest, members []Member) *ownerActivation
 	sort.SliceStable(activation.listeners, func(left int, right int) bool {
 		return activation.listeners[left].Order < activation.listeners[right].Order
 	})
-	return activation
+}
+
+func obtain(name string) *node {
+	existing := nodes[name]
+	if existing != nil {
+		existing.holders++
+		return existing
+	}
+	known, isKnown := services[name]
+	if !isKnown {
+		panic("Unknown native service.")
+	}
+	made := build(name, known.create)
+	made.holders = 1
+	nodes[name] = made
+	order = append(order, made)
+	return made
+}
+
+func build(name string, create func() []Member) *node {
+	made := &node{name: name}
+	outer := building
+	building = made
+	defer func() {
+		building = outer
+		if recovered := recover(); recovered != nil {
+			releaseNeeds(made)
+			panic(recovered)
+		}
+	}()
+	made.members = create()
+	return made
+}
+
+func start(started *node) bool {
+	if started.started {
+		return true
+	}
+	started.started = true
+	for index := range started.members {
+		member := &started.members[index]
+		if member.Hook == nil || member.Destroy {
+			continue
+		}
+		if member.Hook() != nil {
+			started.failed = true
+			return false
+		}
+	}
+	return true
+}
+
+func release(held *node) {
+	held.holders--
+	parks := shared[held.name] && !held.failed && len(owners) > 0 && nodes[held.name] == held
+	if held.holders > 0 || parks {
+		return
+	}
+	finish(held)
+}
+
+func finish(held *node) {
+	if nodes[held.name] == held {
+		delete(nodes, held.name)
+	}
+	if held.started {
+		for index := range held.members {
+			member := &held.members[index]
+			if member.Hook == nil || !member.Destroy {
+				continue
+			}
+			if member.Hook() != nil {
+				eventFailure()
+			}
+		}
+	}
+	releaseNeeds(held)
+}
+
+func sweep() {
+	if len(owners) > 0 {
+		return
+	}
+	for index := len(order) - 1; index >= 0; index-- {
+		parked := order[index]
+		if parked.holders == 0 && nodes[parked.name] == parked {
+			finish(parked)
+		}
+	}
+	order = nil
+}
+
+func releaseNeeds(held *node) {
+	needs := held.needs
+	held.needs = nil
+	for index := len(needs) - 1; index >= 0; index-- {
+		release(needs[index])
+	}
 }
 
 func assignProperties(activation *ownerActivation, required []string, properties map[string]any) {
@@ -271,16 +416,7 @@ func assignProperties(activation *ownerActivation, required []string, properties
 }
 
 func runInitializers(activation *ownerActivation) bool {
-	for index := range activation.members {
-		member := &activation.members[index]
-		if member.Hook == nil || member.Destroy {
-			continue
-		}
-		if member.Hook() != nil {
-			return false
-		}
-	}
-	return true
+	return start(activation.node)
 }
 
 func describe(members []Member) string {
@@ -623,14 +759,10 @@ func disposeActivation(owner *ownerActivation) {
 	owner.queue = nil
 	owner.retained = map[string]string{}
 	owner.deferred = nil
-	for index := range owner.members {
-		member := &owner.members[index]
-		if member.Hook == nil || !member.Destroy {
-			continue
-		}
-		if member.Hook() != nil {
-			eventFailure()
-		}
+	held := owner.node
+	owner.node = nil
+	if held != nil {
+		release(held)
 	}
 }
 
@@ -644,6 +776,7 @@ func disposeOwner(id string) {
 	if owner != nil {
 		disposeActivation(owner)
 	}
+	sweep()
 }
 
 func disposeAll() {
@@ -653,4 +786,5 @@ func disposeAll() {
 	for _, owner := range active {
 		disposeActivation(owner)
 	}
+	sweep()
 }

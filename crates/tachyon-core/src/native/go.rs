@@ -1,5 +1,6 @@
 use super::go_compiler_choice::GoCompilerChoice;
 use super::go_events::GoEvents;
+use super::go_needs::GoNeeds;
 use super::go_web_build::GoWebBuild;
 use super::host::{native_io, native_tool_failure};
 use crate::Failure;
@@ -14,6 +15,7 @@ pub(crate) struct GoServices {
     parts: BTreeMap<String, GoFile>,
     owners: BTreeMap<String, PageOwner>,
     registrations: Vec<StagedService>,
+    needs: GoNeeds,
 }
 
 type PageOwner = (String, GoEvents);
@@ -119,6 +121,7 @@ impl GoServices {
             parts: BTreeMap::new(),
             owners: BTreeMap::new(),
             registrations: Vec::new(),
+            needs: GoNeeds::default(),
         };
         for (instance, class, source) in services {
             let input = ServiceInput {
@@ -128,11 +131,14 @@ impl GoServices {
             };
             page.add_owner(instance, &input)?;
         }
+        page.needs.resolve()?;
         Ok(page)
     }
 
     fn add_owner(&mut self, instance: &str, input: &ServiceInput<'_>) -> Result<(), Failure> {
         let (path, parts, required, events) = service_files(input)?;
+        let authored = read_service(input.source)?;
+        self.needs.add((instance, input.class), &path, &authored)?;
         self.add_class(&path, input.class, events)?;
         for part in parts {
             self.add_part(part)?;
@@ -261,9 +267,12 @@ impl GoServices {
             .owners
             .iter()
             .enumerate()
-            .map(|(index, (path, owner))| Self::owner_file(index, path, owner, &parts))
+            .map(|(index, (path, owner))| {
+                Self::owner_file(index, path, owner, (&parts, &self.needs))
+            })
             .collect::<Result<Vec<_>, Failure>>()?;
         files.extend(tables);
+        files.extend(self.needs.shared_file(Self::PAGE_PACKAGE, Self::MODULE));
         let alias = publisher_alias(Self::PAGE_PACKAGE);
         files.push((Path::new(Self::PAGE_PACKAGE).join("tac.go"), alias));
         files.extend(Self::model_files(models));
@@ -311,7 +320,7 @@ impl GoServices {
         index: usize,
         path: &str,
         owner: &PageOwner,
-        parts: &[GoFile],
+        (parts, needs): (&[GoFile], &GoNeeds),
     ) -> Result<(PathBuf, String), Failure> {
         let part = parts
             .iter()
@@ -319,13 +328,16 @@ impl GoServices {
             .ok_or_else(|| Self::conflicting_source(path))?;
         let (class, events) = owner;
         let factory = format!("TacCreate{class}");
+        let mut excluded = events.excluded.clone();
+        excluded.extend(needs.excluded(class));
         let table = crate::companion::go::owner_table_named(
             &GoTable {
                 source: &part.text,
                 source_path: path,
                 class,
-                excluded: &events.excluded,
+                excluded: &excluded,
                 extra: &events.entries,
+                needs: &needs.statements(class),
             },
             &factory,
         )?;
@@ -1018,6 +1030,48 @@ type PageClient interface {
         );
         assert!(String::from_utf8_lossy(&built.glue).contains("globalThis.Go = class"));
         assert!(!String::from_utf8_lossy(&built.glue).contains("wasi_snapshot_preview1"));
+    }
+
+    #[test]
+    fn a_needed_service_is_assigned_in_the_factory_and_kept_off_the_page() {
+        let root = tempfile::tempdir().expect("project");
+        let counter = "// @Service\ntype CounterService struct {\n\tCount int\n}\n\nfunc (counter *CounterService) Increment() int {\n\tcounter.Count++\n\treturn counter.Count\n}\n";
+        let tally = "// @Service\ntype TallyService struct {\n\t// @Needs\n\tcounter *CounterService\n\tTotal   int\n}\n\nfunc (tally *TallyService) Bump() int {\n\ttally.Total = tally.counter.Increment()\n\treturn tally.Total\n}\n";
+        let mut services = Vec::new();
+        for (instance, class, source) in [
+            ("counter", "CounterService", counter),
+            ("tally", "TallyService", tally),
+        ] {
+            let relative = format!("client/services/{class}.go");
+            PageFixtures::write(root.path(), &relative, source);
+            services.push((
+                String::from(instance),
+                String::from(class),
+                root.path().join(relative),
+            ));
+        }
+        let files = program_files(root.path(), &services).expect("page source");
+        let (_, table) = PageFixtures::file(&files, "func TacCreateTallyService()");
+        assert!(table.starts_with("package page\n\nimport \"tachyonservices/tac\"\n\nfunc TacCreateTallyService() []tac.Member {\n\tinstance := &TallyService{}\n\tinstance.counter = tac.Need(\"counter\").(*CounterService)\n\treturn []tac.Member{\n\t\t{Instance: instance},\n"), "{table}");
+        assert!(table.contains("{Name: \"total\", Read:"), "{table}");
+        assert!(!table.contains("{Name: \"counter\""), "{table}");
+        let (_, counter_table) = PageFixtures::file(&files, "func TacCreateCounterService()");
+        assert!(
+            counter_table.contains("{Name: \"count\", Read:"),
+            "{counter_table}"
+        );
+        assert!(!counter_table.contains("tac.Need("), "{counter_table}");
+        let (path, shared) = PageFixtures::file(&files, "tac.Shared(");
+        assert_eq!(path, Path::new("page/tac_needs.go"));
+        assert!(
+            shared.contains("func init() {\n\ttac.Shared(\"counter\")\n}\n"),
+            "{shared}"
+        );
+        let (_, registry) = PageFixtures::file(&files, "func registerServices()");
+        assert!(
+            registry
+                .contains("tac.Register(\"counter\", page.TacCreateCounterService, []string{})")
+        );
     }
 
     #[test]
