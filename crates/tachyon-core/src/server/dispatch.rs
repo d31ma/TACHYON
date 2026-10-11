@@ -73,7 +73,7 @@ impl Dispatch {
         let uri = request.uri().clone();
         let method = Self::protocol_method(request.method()).unwrap_or(HttpMethod::Get);
         let request_headers = request.headers().clone();
-        let response = state.serve(request).await;
+        let response = Box::pin(state.serve(request)).await;
         state
             .after_middleware(response, &uri, method, &request_headers)
             .await
