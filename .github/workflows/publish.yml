@@ -279,6 +279,11 @@ jobs:
             emit { print }
           ' CHANGELOG.md > release-notes.md
           test -s release-notes.md
+          # GitHub refuses a release body over 125,000 characters; bytes >= characters.
+          if test "$(wc -c < release-notes.md)" -gt 120000; then
+            printf 'The notes for this release are too long for GitHub. Read them in [CHANGELOG.md](https://github.com/%s/blob/v%s/CHANGELOG.md).\n' \
+              "${GITHUB_REPOSITORY}" "${VERSION}" > release-notes.md
+          fi
 
       - name: Create a non-public draft from the existing tag
         env:
