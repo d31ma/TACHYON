@@ -27,6 +27,7 @@ pub struct ApplicationConfig {
     handler_environment: EnvironmentAllowlist,
     handler_json: Option<String>,
     topics_directory: Option<String>,
+    max_request_bytes: Option<usize>,
 }
 
 impl fmt::Debug for ApplicationConfig {
@@ -46,6 +47,10 @@ impl ApplicationConfig {
     const MAX_KEYS: usize = 128;
     const HOSTS_MESSAGE: &str = "yon.server.hosts must be a list of host names without scheme, port or path, such as \"app.example.com\" or \"*.example.com\".";
     const TRUSTED_PROXIES_MESSAGE: &str = "yon.server.proxies must be a list of proxy IP addresses or CIDR ranges, such as \"10.0.0.5\" or \"10.0.0.0/8\" (ADR 0096).";
+    const DEFAULT_REQUEST_BYTES: usize = 1024 * 1024;
+    const MOST_REQUEST_BYTES: usize = 12 * 1024 * 1024;
+    const REQUEST_BYTES_MESSAGE: &str =
+        "yon.server.maxbody must be a whole number of bytes from 1 to 12582912 (12 MiB).";
     const ENVIRONMENT_MESSAGE: &str = "yon.server.environment must be a list of environment variable names or prefix patterns, such as \"HOME\" or \"HD_*\".";
     const TAC_CONFIG_MOVED: &str = "tac.config is no longer read; client/manifest.json is the Tac configuration (ADR 0052). Move application to tac.application (name and entryRoute become name and start_url), scripts, styles and cache to tac.scripts, tac.styles and tac.cache, metadata to tac.metadata.routes, and origin to tac.origin. postBundle is replaced by the built-in sitemap.xml and robots.txt; list dynamic route values in tac.sitemap. `ty migrate fix --write` moves plain values.";
 
@@ -132,6 +137,11 @@ impl ApplicationConfig {
         self.handler_json.as_deref()
     }
 
+    pub(crate) fn max_request_bytes(&self) -> usize {
+        self.max_request_bytes
+            .unwrap_or(Self::DEFAULT_REQUEST_BYTES)
+    }
+
     #[must_use]
     pub fn topics_directory(&self) -> Option<&str> {
         self.topics_directory.as_deref()
@@ -197,6 +207,10 @@ impl ApplicationConfig {
             Self::handler_environment_from(document.pointer("/yon/server/environment"))?;
         let topics_directory =
             Self::topics_directory_from(document.pointer("/yon/topics/directory"))?;
+        let max_request_bytes = document
+            .pointer("/yon/server/maxbody")
+            .map(Self::request_bytes)
+            .transpose()?;
         normalize_endpoint(&mut document, host.as_ref(), port);
         parser::validate_bounds(&document)?;
         let serialized = serde_json::to_string(&document)
@@ -215,7 +229,16 @@ impl ApplicationConfig {
             handler_environment,
             handler_json,
             topics_directory,
+            max_request_bytes,
         })
+    }
+
+    fn request_bytes(value: &Value) -> Result<usize, Failure> {
+        value
+            .as_u64()
+            .and_then(|bytes| usize::try_from(bytes).ok())
+            .filter(|bytes| (1..=Self::MOST_REQUEST_BYTES).contains(bytes))
+            .ok_or_else(|| invalid(Self::REQUEST_BYTES_MESSAGE))
     }
 
     fn hosts_from(value: Option<&Value>) -> Result<Vec<String>, Failure> {

@@ -41,7 +41,7 @@ pub(in crate::server) struct Dispatch {
 }
 
 impl Dispatch {
-    const MAX_REQUEST_BODY_BYTES: usize = 1024 * 1024;
+    const DRAINED_REQUEST_BYTES: usize = 16 * 1024 * 1024;
     const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
     pub(in crate::server) const SSE_BRIDGE_BYTES: usize = 16 * 1024;
     pub(in crate::server) const STREAM_EVENT_QUEUE: usize = 2;
@@ -436,8 +436,12 @@ impl Dispatch {
         matched: RouteMatch,
         request: Request<Body>,
     ) -> Response<Body> {
+        let limit = self.supervisor.application().max_request_bytes();
         let (parts, body) = request.into_parts();
-        let body = axum::body::to_bytes(body, Self::MAX_REQUEST_BODY_BYTES).await;
+        let body = axum::body::to_bytes(body, Self::DRAINED_REQUEST_BYTES)
+            .await
+            .ok()
+            .filter(|body| body.len() <= limit);
         self.serve_route_body(entry, matched, &parts, body).await
     }
 
@@ -446,13 +450,13 @@ impl Dispatch {
         entry: &DispatchRoute,
         matched: RouteMatch,
         parts: &Parts,
-        body: Result<Bytes, axum::Error>,
+        body: Option<Bytes>,
     ) -> Response<Body> {
         match body {
-            Err(_) => {
+            None => {
                 ServerResponse::text(StatusCode::PAYLOAD_TOO_LARGE, "Request body is too large.")
             }
-            Ok(body) => {
+            Some(body) => {
                 self.serve_route_with_body(entry, matched, parts, &body)
                     .await
             }

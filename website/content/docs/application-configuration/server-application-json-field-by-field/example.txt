@@ -23,6 +23,12 @@ server.environment
   that cover ty's own TAC_*, TACHYON_*, YON_* or proxy variables
   are refused (TY2010).
 
+server.maxbody
+  The largest request body that a route reads, in bytes: 1 MiB
+  (1048576) unless set, at most 12 MiB (12582912). A larger body
+  gets 413. Tachyon reads the rest of a larger body, up to 16 MiB,
+  before it answers, so the sender sees the 413.
+
 server.port
   The port, 0 to 65535. ty serve and ty start use 8080 unless
   set, ty preview uses 3000, and ty preview --static ignores it.

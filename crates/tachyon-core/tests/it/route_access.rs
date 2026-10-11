@@ -281,6 +281,26 @@ impl Server {
         String::from_utf8_lossy(&response).into_owned()
     }
 
+    async fn post_bytes(&self, path: &str, size: usize) -> String {
+        let mut stream = TcpStream::connect(("127.0.0.1", self.port))
+            .await
+            .expect("connect");
+        let head = format!(
+            "POST {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: text/plain\r\nContent-Length: {size}\r\nConnection: close\r\n\r\n"
+        );
+        stream.write_all(head.as_bytes()).await.expect("write head");
+        stream
+            .write_all(&vec![b'x'; size])
+            .await
+            .expect("the server reads the whole body before it answers");
+        let mut response = Vec::new();
+        tokio::time::timeout(Duration::from_mins(5), stream.read_to_end(&mut response))
+            .await
+            .expect("answer within the deadline")
+            .expect("read");
+        String::from_utf8_lossy(&response).into_owned()
+    }
+
     async fn stop(self) {
         self.stop.send(()).expect("stop");
         self.running.await.expect("server task").expect("shutdown");
@@ -542,5 +562,31 @@ async fn a_browser_navigation_gets_the_page_that_shares_a_guarded_route_path() {
         .call("POST", "/orders", "Sec-Fetch-Mode: navigate\r\n")
         .await;
     assert!(posted.contains("405 Method Not Allowed"), "{posted}");
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn a_body_over_the_configured_limit_gets_413_after_it_is_read() {
+    if !available("node") {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    Project::base(root.path());
+    Project::write(
+        root.path(),
+        "server/controllers/UploadController.js",
+        "@RequestRoute(\"/upload\")\n@Public\nexport class UploadController {\n  @PostRoute\n  postUpload(request) {\n    return { ok: true };\n  }\n}\n",
+    );
+    Project::write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"maxbody":2097152}}"#,
+    );
+    let server = Server::start(root.path()).await;
+    let accepted = server.post_bytes("/upload", 1_572_864).await;
+    assert!(accepted.contains("200 OK"), "{accepted}");
+    let refused = server.post_bytes("/upload", 3_145_728).await;
+    assert!(refused.contains("HTTP/1.1 413"), "{refused}");
     server.stop().await;
 }

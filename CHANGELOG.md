@@ -257,6 +257,11 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- `server.maxbody` in `server/application.json` raises the request body
+  limit of every Yon route from 1 MiB up to 12 MiB. A body over the limit
+  still gets 413, now after Tachyon has read up to 16 MiB of it, so a sender
+  that is still uploading sees the 413 instead of a broken connection.
+
 - An entry may compose up to 512 annotated role files instead of 128, and a
   realm may hold up to 1024 model files per language instead of 256, also
   when its event listeners read the models. That error now names the models
