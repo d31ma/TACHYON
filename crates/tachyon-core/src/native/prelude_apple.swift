@@ -41,6 +41,7 @@ func tacFailureAnswer(_ error: Error) -> String { "{\"error\":\"Native companion
 enum TacPlatform {
     static let pageListeners = false
     static let taskHost = false
+    static let pageServices = true
 }
 
 func tacOnOwnerThread() -> Bool { Thread.isMainThread }

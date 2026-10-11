@@ -11,6 +11,7 @@ pub(crate) struct SwiftWebServices;
 impl SwiftWebServices {
     const PRELUDE: &'static str = concat!(
         include_str!("prelude.swift"),
+        include_str!("TacServicePages.swift"),
         include_str!("prelude_web.swift"),
         include_str!("swift_web_services/TacJSONReader.swift"),
         include_str!("swift_web_services/TacValueDecoder.swift"),

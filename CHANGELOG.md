@@ -257,6 +257,17 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- A Swift service linked into a macOS or iOS app is now a page singleton, as
+  CONTEXT.md describes and as a native Rust service already is. Every
+  component on a page that names it shares one instance, its OnStart runs
+  once, disposing a component leaves it running, and it stops once when the
+  page goes away, newest service first. Its FilePicker belongs to the
+  service, so it keeps working after the first component goes. A service
+  with `@Lifetime({"value":"prototype"})` or `@NeedsAll` keeps one instance
+  for each component and stops with it, now before its FilePicker is
+  released. An OnStart that throws stops the new service and leaves it off
+  the page. Swift services that run as WebAssembly are unchanged.
+
 - A behaviour module may declare up to 512 types instead of 128, so a Go or
   Ruby app with many clients no longer has to share one Setup between them.
 

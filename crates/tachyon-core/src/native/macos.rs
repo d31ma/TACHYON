@@ -13,6 +13,7 @@ pub(super) struct MacOsHostGenerator;
 impl MacOsHostGenerator {
     const SWIFT_COMPANION_PRELUDE: &str = concat!(
         include_str!("prelude.swift"),
+        include_str!("TacServicePages.swift"),
         include_str!("prelude_apple.swift"),
         include_str!("TacAwaited.swift"),
         include_str!("TacOwnerThread.swift"),

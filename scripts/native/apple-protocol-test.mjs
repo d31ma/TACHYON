@@ -43,6 +43,7 @@ private var value: Any?
 private var calls = 0
 func tacServiceKnown(_ service: String) -> Bool { ["probe", "other"].contains(service) }
 func tacServiceRequired(_ service: String) -> [String] { [] }
+func tacServicePrototype(_ service: String) -> Bool { false }
 func tacServiceMembers(_ service: String, _ tacProps: [String: Any]) -> [String: TacMember]? {
     guard tacServiceKnown(service) else { return nil }
     return [

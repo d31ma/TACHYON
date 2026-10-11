@@ -147,7 +147,7 @@ private func tacHandle(_ raw: String) throws -> String {
     }
     if operation == "host-dispose" { tacDisposeAll(); return "{\"value\":null}" }
     guard let route = request["route"] as? String, let owner = request["owner"] as? String,
-          tacValidOwner(owner) else { return "{\"error\":\"Missing native owner identity.\",\"code\":\"TY_NATIVE_OWNER\"}" }
+          tacValidOwner(owner), !TacServicePages.reserved(owner) else { return "{\"error\":\"Missing native owner identity.\",\"code\":\"TY_NATIVE_OWNER\"}" }
     guard let service = request["service"] as? String else {
         return "{\"error\":\"Missing companion name.\",\"code\":\"TY_NATIVE_SERVICE\"}"
     }
@@ -157,21 +157,18 @@ private func tacHandle(_ raw: String) throws -> String {
         guard tacServiceKnown(service) else {
             return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"
         }
-        if TacNativeState.activations.count >= 256 { return "{\"error\":\"Too many native activations.\"}" }
-        guard let members = tacCreateNativeOwner(owner, { tacServiceMembers(service, request["props"] as? [String: Any] ?? [:]) }) else {
-            tacDisposeNativeOwner(owner)
+        if TacNativeState.activations.count >= 256 || TacServicePages.full() { return "{\"error\":\"Too many native activations.\"}" }
+        guard let node = TacServicePages.obtain(route, service, owner, request["props"] as? [String: Any] ?? [:]) else {
             return "{\"error\":\"Native service is missing a required property or it has the wrong type.\",\"code\":\"TY_NATIVE_REQUIRED\"}"
         }
-        let activation = TacActivation(route, service, owner, members)
+        let activation = TacActivation(route, service, owner, node.members)
         TacNativeState.activations[owner] = activation
         TacNativeState.executing = activation
         do {
             tacAssignProperties(activation, request["props"] as? [String: Any])
-            for (_, member) in activation.members.sorted(by: { $0.key < $1.key }) {
-                if case .hook(false, let invoke) = member { try invoke() }
-            }
+            try node.start()
             tacDrain(activation)
-        } catch { tacDisposeOwner(owner); throw error }
+        } catch { tacDisposeOwner(owner); TacServicePages.discard(route, node); throw error }
     }
     guard let activation = TacNativeState.activations[owner], activation.route == route, activation.service == service else {
         return "{\"error\":\"Stale native owner.\",\"code\":\"TY_NATIVE_OWNER\"}"
@@ -505,17 +502,16 @@ private func tacDrain(_ owner: TacActivation) {
 
 private func tacDisposeActivation(_ owner: TacActivation) {
     owner.disposed = true
-    tacDisposeNativeOwner(owner.owner)
     owner.queue.removeAll(); owner.retained.removeAll(); owner.deferred.removeAll()
-    for (_, member) in owner.members.sorted(by: { $0.key < $1.key }) {
-        if case .hook(true, let invoke) = member { do { try invoke() } catch { tacEventFailure() } }
-    }
 }
+// An owner stops only its prototypes; page singletons stop at page exit, newest first.
 private func tacDisposeOwner(_ id: String) {
     tacCancelTasks(id)
     guard let owner = TacNativeState.activations.removeValue(forKey: id) else { return }
     if TacNativeState.executing === owner { TacNativeState.executing = nil }
     tacDisposeActivation(owner)
+    TacServicePages.disposeOwner(id)
+    tacDisposeNativeOwner(id)
 }
 private func tacDisposeAll() {
     tacCancelTasks(nil)
@@ -523,4 +519,6 @@ private func tacDisposeAll() {
     TacNativeState.activations = [:]
     TacNativeState.executing = nil
     for (_, owner) in owners { tacDisposeActivation(owner) }
+    TacServicePages.disposeAll()
+    for (id, _) in owners { tacDisposeNativeOwner(id) }
 }

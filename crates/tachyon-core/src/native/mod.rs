@@ -89,6 +89,8 @@ mod native_rust_capability_tests;
 mod native_rust_crate_tests;
 mod native_rust_project;
 mod native_service_roots;
+#[cfg(test)]
+mod native_swift_page_lifetime_tests;
 mod native_title_bar;
 mod native_title_bar_button_inset;
 #[cfg(all(test, target_os = "macos"))]

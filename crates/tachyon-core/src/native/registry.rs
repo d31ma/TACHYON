@@ -168,6 +168,7 @@ fn compiled_service_body(
         !roles.required.is_empty(),
     )?;
     body.push_str(&required_declaration(language, &roles.required));
+    body.push_str(&lifetime_declaration(language, roles.prototype));
     Ok(body)
 }
 
@@ -359,6 +360,13 @@ fn required_declaration(language: NativeCompanion, required: &[String]) -> Strin
     }
 }
 
+fn lifetime_declaration(language: NativeCompanion, prototype: bool) -> String {
+    match language {
+        NativeCompanion::Swift => format!("static let tacPrototype = {prototype}\n"),
+        _ => String::new(),
+    }
+}
+
 fn namespace_source(language: NativeCompanion, namespace: &str, source: &str) -> String {
     match language {
         NativeCompanion::Swift => format!("private enum {namespace} {{\n{source}\n}}\n"),
@@ -404,15 +412,21 @@ fn dispatch(language: NativeCompanion, services: &[(String, String)]) -> String 
 fn swift_dispatch(services: &[(String, String)], entries: &str) -> String {
     let mut known = Vec::new();
     let mut required = String::new();
+    let mut prototypes = String::new();
     for (service, namespace) in services {
         known.push(serde_json::to_string(service).unwrap_or_default());
         let service = quoted_service(service);
         let _ = writeln!(required, "case {service}: return {namespace}.tacRequired");
+        let _ = writeln!(
+            prototypes,
+            "case {service}: return {namespace}.tacPrototype"
+        );
     }
     let known = known.join(",");
     format!(
         "\nfunc tacServiceKnown(_ service: String) -> Bool {{ [{known}].contains(service) }}\nfunc tacServiceMembers(_ service: String, _ tacProps: [String: Any]) -> [String: TacMember]? {{\nswitch service {{\n{entries}default: return nil\n}}\n}}\n\
-         func tacServiceRequired(_ service: String) -> [String] {{\nswitch service {{\n{required}default: return []\n}}\n}}\n"
+         func tacServiceRequired(_ service: String) -> [String] {{\nswitch service {{\n{required}default: return []\n}}\n}}\n\
+         func tacServicePrototype(_ service: String) -> Bool {{\nswitch service {{\n{prototypes}default: return true\n}}\n}}\n"
     )
 }
 
