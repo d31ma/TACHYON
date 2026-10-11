@@ -135,44 +135,42 @@ impl GoServices {
     }
 
     fn add_owner(&mut self, instance: &str, input: &ServiceInput<'_>) -> Result<(), Failure> {
-        let service = service_files(input)?;
-        self.add_class(&service.path, input.class, service.events)?;
-        for part in service.parts {
+        let (path, parts, required, events) = service_files(input)?;
+        self.add_class(&path, input.class, events)?;
+        for part in parts {
             self.add_part(part)?;
         }
         self.registrations.push(StagedService {
             package: Self::PAGE_PACKAGE.to_owned(),
             instance: instance.to_owned(),
-            required: service.required,
+            required,
             class: Some(input.class.to_owned()),
         });
         Ok(())
     }
 
     fn add_class(&mut self, path: &str, class: &str, events: GoEvents) -> Result<(), Failure> {
-        let Some(previous) = self.owners.get(path) else {
-            let owner = PageOwner {
+        let owner = self
+            .owners
+            .entry(path.to_owned())
+            .or_insert_with(|| PageOwner {
                 class: class.to_owned(),
                 events,
-            };
-            self.owners.insert(path.to_owned(), owner);
-            return Ok(());
-        };
-        if previous.class != class {
-            return Err(Self::conflicting_source(path));
-        }
-        Ok(())
+            });
+        (owner.class == class)
+            .then_some(())
+            .ok_or_else(|| Self::conflicting_source(path))
     }
 
     fn add_part(&mut self, part: GoFile) -> Result<(), Failure> {
-        let Some(previous) = self.parts.get(&part.path) else {
-            self.parts.insert(part.path.clone(), part);
-            return Ok(());
-        };
-        if previous.text != part.text {
-            return Err(Self::conflicting_source(&part.path));
-        }
-        Ok(())
+        let path = part.path.clone();
+        let same = self
+            .parts
+            .get(&path)
+            .is_none_or(|previous| previous.text == part.text);
+        self.parts.entry(path.clone()).or_insert(part);
+        same.then_some(())
+            .ok_or_else(|| Self::conflicting_source(&path))
     }
 
     fn conflicting_source(path: &str) -> Failure {
@@ -186,14 +184,21 @@ impl GoServices {
 
     fn validate_names(&self, models: &crate::model_sources::ModelSources) -> Result<(), Failure> {
         let mut names = BTreeMap::new();
-        for part in self.parts.values() {
-            Self::add_names(&mut names, &part.path, &part.text)?;
-        }
-        for (path, source) in models.project_files() {
-            let portable = path.to_string_lossy().replace('\\', "/");
-            if !self.parts.contains_key(&portable) {
-                Self::add_names(&mut names, &portable, &source)?;
-            }
+        let model_files: Vec<(String, String)> = models
+            .project_files()
+            .into_iter()
+            .map(|(path, source)| (path.to_string_lossy().replace('\\', "/"), source))
+            .filter(|(path, _)| !self.parts.contains_key(path))
+            .collect();
+        let authored = self
+            .parts
+            .values()
+            .map(|part| (part.path.as_str(), part.text.as_str()));
+        let modeled = model_files
+            .iter()
+            .map(|(path, source)| (path.as_str(), source.as_str()));
+        for (path, source) in authored.chain(modeled) {
+            Self::add_names(&mut names, path, source)?;
         }
         Ok(())
     }
@@ -205,11 +210,13 @@ impl GoServices {
     ) -> Result<(), Failure> {
         let code = masked_code(source, path)?;
         for declared in crate::go_source::types(&code) {
-            if let Some((previous_path, previous_start)) = names.get(&declared.name) {
-                let first = (previous_path.as_str(), *previous_start);
-                let second = (path, declared.start);
-                return Err(Self::duplicate_name(&declared.name, first, second));
-            }
+            let second = (path, declared.start);
+            names
+                .get(&declared.name)
+                .map_or(Ok(()), |(previous_path, previous_start)| {
+                    let first = (previous_path.as_str(), *previous_start);
+                    Err(Self::duplicate_name(&declared.name, first, second))
+                })?;
             names.insert(declared.name, (path.to_owned(), declared.start));
         }
         Ok(())
@@ -246,19 +253,26 @@ impl GoServices {
         source
     }
 
-    fn files(&self, snapshot_root: &Path) -> Result<Vec<(PathBuf, String)>, Failure> {
+    fn files(
+        &self,
+        snapshot_root: &Path,
+        models: &crate::model_sources::ModelSources,
+    ) -> Result<Vec<(PathBuf, String)>, Failure> {
         let Some(identity) = self.owners.keys().next() else {
             return Ok(Vec::new());
         };
         let parts = self.lowered_parts(snapshot_root, Path::new(identity))?;
         let mut files = Self::part_files(&parts);
-        for (index, (path, owner)) in self.owners.iter().enumerate() {
-            let name = format!("members{index}.go");
-            let table = Self::owner_file(path, owner, &parts)?;
-            files.push((Path::new(Self::PAGE_PACKAGE).join(name), table));
-        }
+        let tables = self
+            .owners
+            .iter()
+            .enumerate()
+            .map(|(index, (path, owner))| Self::owner_file(index, path, owner, &parts))
+            .collect::<Result<Vec<_>, Failure>>()?;
+        files.extend(tables);
         let alias = publisher_alias(Self::PAGE_PACKAGE);
         files.push((Path::new(Self::PAGE_PACKAGE).join("tac.go"), alias));
+        files.extend(Self::model_files(models));
         Ok(files)
     }
 
@@ -277,39 +291,56 @@ impl GoServices {
     }
 
     fn part_files(parts: &[GoFile]) -> Vec<(PathBuf, String)> {
-        let mut files = Vec::new();
-        for (index, part) in parts.iter().enumerate() {
-            if part.text.trim().is_empty() {
-                continue;
-            }
-            let text = in_package(&part.text, Self::PAGE_PACKAGE);
-            let located = if part.path.is_empty() {
-                text
-            } else {
-                format!("//line {}:1\n{text}", part.path)
-            };
-            let name = format!("part{index}.go");
-            files.push((Path::new(Self::PAGE_PACKAGE).join(name), located));
-        }
-        files
+        parts
+            .iter()
+            .enumerate()
+            .filter(|(_, part)| !part.text.trim().is_empty())
+            .map(|(index, part)| {
+                let name = format!("part{index}.go");
+                (
+                    Path::new(Self::PAGE_PACKAGE).join(name),
+                    Self::located(part),
+                )
+            })
+            .collect()
     }
 
-    fn owner_file(path: &str, owner: &PageOwner, parts: &[GoFile]) -> Result<String, Failure> {
-        let Some(part) = parts.iter().find(|part| part.path == path) else {
-            return Err(Self::conflicting_source(path));
-        };
-        let table = crate::companion::go::page_owner_table(&GoTable {
-            source: &part.text,
-            source_path: path,
-            class: &owner.class,
-            excluded: &owner.events.excluded,
-            extra: &owner.events.entries,
-        })?;
-        Ok(format!(
+    fn located(part: &GoFile) -> String {
+        let text = in_package(&part.text, Self::PAGE_PACKAGE);
+        if part.path.is_empty() {
+            return text;
+        }
+        format!("//line {}:1\n{text}", part.path)
+    }
+
+    fn owner_file(
+        index: usize,
+        path: &str,
+        owner: &PageOwner,
+        parts: &[GoFile],
+    ) -> Result<(PathBuf, String), Failure> {
+        let part = parts
+            .iter()
+            .find(|part| part.path == path)
+            .ok_or_else(|| Self::conflicting_source(path))?;
+        let factory = format!("TacCreate{}", owner.class);
+        let table = crate::companion::go::owner_table_named(
+            &GoTable {
+                source: &part.text,
+                source_path: path,
+                class: &owner.class,
+                excluded: &owner.events.excluded,
+                extra: &owner.events.entries,
+            },
+            &factory,
+        )?;
+        let name = format!("members{index}.go");
+        let text = format!(
             "package {}\n\nimport \"{}/tac\"\n\n{table}",
             Self::PAGE_PACKAGE,
             Self::MODULE
-        ))
+        );
+        Ok((Path::new(Self::PAGE_PACKAGE).join(name), text))
     }
 }
 
@@ -365,10 +396,7 @@ fn program_files(
     let models = crate::model_sources::ModelSources::read(snapshot_root, "client", "go")?;
     let page = GoServices::page(snapshot_root, services)?;
     page.validate_names(&models)?;
-    files.extend(page.files(snapshot_root)?);
-    if !services.is_empty() {
-        files.extend(GoServices::model_files(&models));
-    }
+    files.extend(page.files(snapshot_root, &models)?);
     files.push((PathBuf::from("services.go"), registry(&page.registrations)));
     Ok(files)
 }
@@ -384,12 +412,7 @@ fn read_service(source: &Path) -> Result<String, Failure> {
     Ok(String::from(crate::without_bom(&text)))
 }
 
-struct ServiceParts {
-    path: String,
-    parts: Vec<GoFile>,
-    required: Vec<String>,
-    events: GoEvents,
-}
+type ServiceParts = (String, Vec<GoFile>, Vec<String>, GoEvents);
 
 fn service_files(input: &ServiceInput<'_>) -> Result<ServiceParts, Failure> {
     let relative = input
@@ -416,12 +439,7 @@ fn service_files(input: &ServiceInput<'_>) -> Result<ServiceParts, Failure> {
         entry.path.clone_from(&portable);
         input.class.clone_into(&mut entry.name);
     }
-    Ok(ServiceParts {
-        path: portable,
-        parts,
-        required: roles.required,
-        events: prepared,
-    })
+    Ok((portable, parts, roles.required, prepared))
 }
 
 pub(crate) fn in_package(text: &str, package: &str) -> String {
@@ -444,20 +462,20 @@ pub(crate) fn in_package(text: &str, package: &str) -> String {
 }
 
 fn registry(services: &[StagedService]) -> String {
-    let mut imports = format!("\t\"{}/tac\"\n", GoServices::MODULE);
-    let mut registrations = String::new();
+    let tac = format!("\t\"{}/tac\"\n", GoServices::MODULE);
     let packages = services
         .iter()
         .map(|service| &service.package)
-        .collect::<BTreeSet<_>>();
-    for package in packages {
-        let _ = writeln!(imports, "\t\"{}/{package}\"", GoServices::MODULE);
-    }
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(|package| format!("\t\"{}/{package}\"\n", GoServices::MODULE));
+    let imports = std::iter::once(tac).chain(packages).collect::<String>();
+    let mut registrations = String::new();
     for service in services {
-        let factory = match &service.class {
-            Some(class) => format!("TacCreate{class}"),
-            None => String::from("TacCreate"),
-        };
+        let factory = service.class.as_ref().map_or_else(
+            || String::from("TacCreate"),
+            |class| format!("TacCreate{class}"),
+        );
         let _ = writeln!(
             registrations,
             "\ttac.Register({:?}, {}.{factory}, {})",

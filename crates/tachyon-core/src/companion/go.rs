@@ -97,12 +97,7 @@ pub(crate) fn owner_table(table: &GoTable<'_>) -> Result<String, Failure> {
     owner_table_named(table, "TacCreate")
 }
 
-pub(crate) fn page_owner_table(table: &GoTable<'_>) -> Result<String, Failure> {
-    let factory = format!("TacCreate{}", table.class);
-    owner_table_named(table, &factory)
-}
-
-fn owner_table_named(table: &GoTable<'_>, factory: &str) -> Result<String, Failure> {
+pub(crate) fn owner_table_named(table: &GoTable<'_>, factory: &str) -> Result<String, Failure> {
     let code = masked_code(table.source, table.source_path)?;
     let Some(body) = struct_body(&code, table.class) else {
         return Err(super::unnamed_service(
