@@ -27,10 +27,18 @@ impl<'a> ContractRewrite<'a> {
     const PYTHON: &'static str = "py";
     const CLASS: &'static str = "class";
     const INTERFACE: &'static str = "interface";
-    const CONTRACT_WORDS: [(&'static str, &'static str); 2] =
-        [("swift", "protocol"), ("dart", "abstract interface class")];
+    const CONTRACT_WORDS: [(&'static str, &'static str); 3] = [
+        ("swift", "protocol"),
+        ("dart", "abstract interface class"),
+        ("cs", "public interface"),
+    ];
     const DROPPED_MODIFIERS: [&'static str; 6] =
         ["final", "sealed", "abstract", "open", "data", "static"];
+    // A C# contract must be public (CS0051), so its written access word gives way to `public interface`.
+    const CSHARP_DROPPED_MODIFIERS: [&'static str; 8] = [
+        "final", "sealed", "abstract", "open", "data", "static", "public", "internal",
+    ];
+    const CSHARP: &'static str = "cs";
     const CSHARP_METHOD_MODIFIERS: [&'static str; 3] = ["public", "async", "virtual"];
     const PROTOCOL: &'static str = "Protocol";
     const PROTOCOL_IMPORT: &'static str = "from typing import Protocol\n\n";
@@ -149,10 +157,17 @@ impl<'a> ContractRewrite<'a> {
             .map_or(Self::INTERFACE, |(_, word)| *word);
         let kept: Vec<&str> = text
             .split_whitespace()
-            .filter(|word| !Self::DROPPED_MODIFIERS.contains(word))
+            .filter(|word| !self.dropped_modifiers().contains(word))
             .map(|word| [word, contract][usize::from(word == Self::CLASS)])
             .collect();
         format!("{} ", kept.join(" "))
+    }
+
+    fn dropped_modifiers(&self) -> &'static [&'static str] {
+        [
+            &Self::DROPPED_MODIFIERS[..],
+            &Self::CSHARP_DROPPED_MODIFIERS[..],
+        ][usize::from(self.form.language == Self::CSHARP)]
     }
 
     fn protocol_import(&self) -> Option<SourceEdit> {

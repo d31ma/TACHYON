@@ -22,7 +22,7 @@ impl StoreSamples {
         ),
         (
             "cs",
-            "[Store(typeof(ProductEntity), OPTIONS)]\ninterface ProductStore {\n    System.Threading.Tasks.Task<BehaviorJSON> findByStatus(BehaviorJSON status);\n}\n",
+            "[Store(typeof(ProductEntity), OPTIONS)]\npublic interface ProductStore {\n    System.Threading.Tasks.Task<BehaviorJSON> findByStatus(BehaviorJSON status);\n}\n",
         ),
         (
             "php",

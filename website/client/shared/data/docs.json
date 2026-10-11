@@ -7995,7 +7995,7 @@
             },
             {
               "name": "server/remotes/ReportClient.cs",
-              "code": "[HTTPClient]\ninterface ReportClient {\n    [Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})]\n    BehaviorJSON Summarize(BehaviorJSON period);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
+              "code": "[HTTPClient]\npublic interface ReportClient {\n    [Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})]\n    BehaviorJSON Summarize(BehaviorJSON period);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
             },
             {
               "name": "server/controllers/ReportController.cs",
@@ -10087,7 +10087,7 @@
             },
             {
               "name": "server/remotes/BillingClient.cs",
-              "code": "[HTTPClient(\"/billing\")]\ninterface BillingClient {\n  [GetRequest(\"/surcharge\")]\n  System.Threading.Tasks.Task<BehaviorJSON> Surcharge();\n}\n"
+              "code": "[HTTPClient(\"/billing\")]\npublic interface BillingClient {\n  [GetRequest(\"/surcharge\")]\n  System.Threading.Tasks.Task<BehaviorJSON> Surcharge();\n}\n"
             },
             {
               "name": "server/helpers/BillingHelper.cs",
@@ -12234,7 +12234,7 @@
             },
             {
               "name": "server/remotes/CatalogClient.cs",
-              "code": "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All([RequestParam(\"page\")] BehaviorJSON page);\n\n    [PostRequest(\"/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> Add([RequestBody] BehaviorJSON product);\n}\n"
+              "code": "[HTTPClient]\npublic interface CatalogClient {\n    [GetRequest(\"/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All([RequestParam(\"page\")] BehaviorJSON page);\n\n    [PostRequest(\"/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> Add([RequestBody] BehaviorJSON product);\n}\n"
             },
             {
               "name": "server/remotes/CatalogClient.fs",
@@ -12602,7 +12602,7 @@
             },
             {
               "name": "server/remotes/ReportClient.cs",
-              "code": "[HTTPClient]\ninterface ReportClient {\n    [Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})]\n    BehaviorJSON Summarize(BehaviorJSON period);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
+              "code": "[HTTPClient]\npublic interface ReportClient {\n    [Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})]\n    BehaviorJSON Summarize(BehaviorJSON period);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
             },
             {
               "name": "server/controllers/ReportController.cs",
@@ -13994,7 +13994,7 @@
             },
             {
               "name": "server/converters/ProductConverter.cs",
-              "code": "[Converter]\ninterface ProductConverter {\n    [Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    BehaviorJSON toSummary(BehaviorJSON product);\n}\n"
+              "code": "[Converter]\npublic interface ProductConverter {\n    [Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    BehaviorJSON toSummary(BehaviorJSON product);\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.cs",
@@ -14338,7 +14338,7 @@
             },
             {
               "name": "server/converters/ProductConverter.cs",
-              "code": "using Models;\n[Converter]\ninterface ProductConverter {\n    [Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    Summary map(Product product);\n}\n"
+              "code": "using Models;\n[Converter]\npublic interface ProductConverter {\n    [Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    Summary map(Product product);\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.cs",
@@ -14466,7 +14466,7 @@
             },
             {
               "name": "client/converters/ProductConverter.cs",
-              "code": "[Converter]\ninterface ProductConverter {\n    [Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    BehaviorJSON toSummary(BehaviorJSON product);\n}\n"
+              "code": "[Converter]\npublic interface ProductConverter {\n    [Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    BehaviorJSON toSummary(BehaviorJSON product);\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.fs",
@@ -14786,7 +14786,7 @@
             },
             {
               "name": "client/converters/ProductConverter.cs",
-              "code": "using Models;\n[Converter]\ninterface ProductConverter {\n    [Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    Summary map(Product product);\n\n    Product copy(Product product);\n}\n"
+              "code": "using Models;\n[Converter]\npublic interface ProductConverter {\n    [Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    Summary map(Product product);\n\n    Product copy(Product product);\n}\n"
             },
             {
               "name": "client/services/CatalogService.cs",

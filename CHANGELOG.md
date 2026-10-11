@@ -679,6 +679,11 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- A C# HTTPClient, Store or Converter interface without `public` stops the
+  build with `TY1308`. C# makes such an interface internal, so a public
+  controller or service that needs it failed later in `dotnet build` with
+  CS0051. Declare it as `public interface`; `ty migrate fix --write` now
+  writes `public interface` when it turns a class client into a contract.
 - A JavaScript, TypeScript or Dart file that imports a file of the other realm
   with a relative path, such as a client service that imports
   `../../server/controllers/HomeController.js`, stops the build with

@@ -116,7 +116,7 @@ fn abstract_repository_cases() -> [(&'static str, String, &'static str); 8] {
         (
             "cs",
             format!(
-                "[Entity({{\"adapter\":\"data\"}})]\n[Table(\"products\")]\nclass Product {{\n  [Id]\n  public int id;\n}}\n[Store({repository})]\ninterface ProductRepository {{\n  BehaviorJSON FindByStatus(BehaviorJSON status);\n}}\n"
+                "[Entity({{\"adapter\":\"data\"}})]\n[Table(\"products\")]\nclass Product {{\n  [Id]\n  public int id;\n}}\n[Store({repository})]\npublic interface ProductRepository {{\n  BehaviorJSON FindByStatus(BehaviorJSON status);\n}}\n"
             ),
             "class ProductRepository",
         ),
@@ -212,7 +212,7 @@ fn mapper_cases() -> [(&'static str, String); 8] {
         (
             "cs",
             format!(
-                "[Converter()]\ninterface ProductMapper {{\n  [Convert({plan})]\n  BehaviorJSON ToSummary(BehaviorJSON product);\n}}\n"
+                "[Converter()]\npublic interface ProductMapper {{\n  [Convert({plan})]\n  BehaviorJSON ToSummary(BehaviorJSON product);\n}}\n"
             ),
         ),
         (

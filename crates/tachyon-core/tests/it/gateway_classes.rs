@@ -478,7 +478,7 @@ impl Callers {
             (
                 String::from("server/remotes/ReportClient.cs"),
                 format!(
-                    "[HTTPClient]\ninterface ReportClient {{\n    [Gateway({{\"class\":\"{target}\"}})]\n    BehaviorJSON summarize(BehaviorJSON mode, BehaviorJSON detail);\n}}\n"
+                    "[HTTPClient]\npublic interface ReportClient {{\n    [Gateway({{\"class\":\"{target}\"}})]\n    BehaviorJSON summarize(BehaviorJSON mode, BehaviorJSON detail);\n}}\n"
                 ),
             ),
             (
@@ -1424,7 +1424,7 @@ impl TypedTargets {
         ),
         (
             "cs",
-            "[HTTPClient]\ninterface ReportClient {\n    [Gateway({\"class\":\"server/services/ReportService.py\"})]\n    BehaviorJSON summarize(string mode, BehaviorJSON detail);\n}\n",
+            "[HTTPClient]\npublic interface ReportClient {\n    [Gateway({\"class\":\"server/services/ReportService.py\"})]\n    BehaviorJSON summarize(string mode, BehaviorJSON detail);\n}\n",
         ),
         (
             "rs",

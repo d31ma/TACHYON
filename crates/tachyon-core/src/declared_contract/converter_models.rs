@@ -450,7 +450,7 @@ mod tests {
             ),
             (
                 "cs",
-                "[Converter]\ninterface ProductConverter {\nSummary map(Product product);\n}\n",
+                "[Converter]\npublic interface ProductConverter {\nSummary map(Product product);\n}\n",
             ),
             (
                 "php",

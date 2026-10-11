@@ -2407,7 +2407,7 @@
         },
         {
           "name": "server/remotes/LedgerClient.cs",
-          "code": "[HTTPClient]\ninterface LedgerClient {\n    [Gateway({\"class\":\"server/services/LedgerService.py\",\"method\":\"balance\"})]\n    BehaviorJSON Balance(BehaviorJSON account);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
+          "code": "[HTTPClient]\npublic interface LedgerClient {\n    [Gateway({\"class\":\"server/services/LedgerService.py\",\"method\":\"balance\"})]\n    BehaviorJSON Balance(BehaviorJSON account);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
         },
         {
           "name": "server/controllers/LedgerController.cs",

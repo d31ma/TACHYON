@@ -115,7 +115,7 @@ fn compiled_mapping_sources(language: &str) -> MappingSources {
             "public record Detail(string name, string secret);\n",
             "public record Summary(int id, string name, ShortDetail detail, ShortDetail[] items, string kind);\n",
             "public record ShortDetail(string name);\n",
-            "using Models;\n[Converter]\ninterface ProductConverter {\n[Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\nSummary map(Product product);\n}\n",
+            "using Models;\n[Converter]\npublic interface ProductConverter {\n[Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\nSummary map(Product product);\n}\n",
             "using Models;\n[RequestRoute(\"/catalog\")]\n[Public]\nclass CatalogController {\n[Needs]\nProductConverter _converter;\n[GetRoute]\npublic Summary GetCatalog() {\nvar detail = new Detail(\"detail\", \"hidden\");\nreturn _converter.map(new Product(7, \"Anvil\", detail, new[] {detail}, \"hidden\"));\n}\n}\n",
         ),
         "rs" => (

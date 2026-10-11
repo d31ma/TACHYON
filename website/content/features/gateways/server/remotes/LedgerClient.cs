@@ -1,5 +1,5 @@
 [HTTPClient]
-interface LedgerClient {
+public interface LedgerClient {
     [Gateway({"class":"server/services/LedgerService.py","method":"balance"})]
     BehaviorJSON Balance(BehaviorJSON account);
 

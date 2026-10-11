@@ -19,7 +19,7 @@ impl Samples {
         ),
         (
             "cs",
-            "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/products\")]\n    Task<BehaviorJSON> All([RequestParam(\"page\")] BehaviorJSON page);\n}\n",
+            "[HTTPClient]\npublic interface CatalogClient {\n    [GetRequest(\"/products\")]\n    Task<BehaviorJSON> All([RequestParam(\"page\")] BehaviorJSON page);\n}\n",
         ),
         (
             "php",
@@ -111,7 +111,7 @@ impl Samples {
         ),
         (
             "cs",
-            "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/products\")]\n    BehaviorJSON All() { return null; }\n}\n",
+            "[HTTPClient]\npublic interface CatalogClient {\n    [GetRequest(\"/products\")]\n    BehaviorJSON All() { return null; }\n}\n",
         ),
         (
             "php",
@@ -307,6 +307,17 @@ fn a_method_without_a_request_annotation_is_refused() {
     let source = "@HTTPClient\ninterface CatalogClient {\n    Object all();\n}\n";
     let message = Samples::refusal("java", source);
     assert!(message.contains("has no request annotation"), "{message}");
+}
+
+#[test]
+fn a_csharp_contract_that_is_not_public_is_refused() {
+    for header in ["interface", "internal interface"] {
+        let source = format!(
+            "[HTTPClient]\n{header} CatalogClient {{\n    [GetRequest(\"/products\")]\n    BehaviorJSON All();\n}}\n"
+        );
+        let message = Samples::refusal("cs", &source);
+        assert!(message.contains("CS0051"), "{header}: {message}");
+    }
 }
 
 #[test]
