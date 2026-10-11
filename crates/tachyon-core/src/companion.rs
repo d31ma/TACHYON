@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::unicode_name::UnicodeName;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
@@ -265,7 +266,7 @@ fn csharp_required_members(body: &str) -> Vec<String> {
         .filter_map(|line| {
             let words = line.split_whitespace().collect::<Vec<_>>();
             let at = words.iter().position(|word| *word == "required")?;
-            let name = identifier(words.get(at + 2)?);
+            let name = UnicodeName::leading(words.get(at + 2)?);
             (!name.is_empty()).then_some(name)
         })
         .collect()
@@ -656,7 +657,7 @@ fn class_body_at(source: &str) -> Option<(String, &str)> {
         let Some(after) = after_declaration_keyword(line, "class") else {
             continue;
         };
-        let name = identifier(after);
+        let name = UnicodeName::leading(after);
         if name.is_empty() {
             continue;
         }
@@ -768,7 +769,7 @@ fn rust_field(line: &str) -> Option<Member> {
     if line.starts_with("//") || line.starts_with('#') {
         return None;
     }
-    let name = identifier(line);
+    let name = UnicodeName::leading(line);
     if name.is_empty() {
         return None;
     }
@@ -812,7 +813,7 @@ fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
     let asynchronous = line.starts_with("async ");
     let line = line.trim_start_matches("async ").trim_start();
     let rest = line.strip_prefix("fn").and_then(after_keyword)?;
-    let name = identifier(rest);
+    let name = UnicodeName::leading(rest);
     let arguments = rest[name.len()..].trim_start();
     let takes_self = arguments.starts_with("(&self") || arguments.starts_with("(&mut self");
     if name.is_empty() || !takes_self {
@@ -908,7 +909,7 @@ fn block_named<'a>(
     wanted: Option<&str>,
 ) -> Option<(String, &'a str)> {
     for (header, body) in blocks(source, keyword) {
-        let name = identifier(header.trim());
+        let name = UnicodeName::leading(header.trim());
         let Some(wanted) = wanted else {
             return Some((name, body));
         };
@@ -1014,7 +1015,7 @@ fn name_first(
         let Some(rest) = line.strip_prefix(keyword).and_then(after_keyword) else {
             continue;
         };
-        let name = identifier(rest);
+        let name = UnicodeName::leading(rest);
         if name.is_empty() {
             continue;
         }
@@ -1039,7 +1040,7 @@ fn name_first(
 }
 
 fn name_first_method(rest: &str, language: &str) -> Option<Member> {
-    let name = identifier(rest);
+    let name = UnicodeName::leading(rest);
     Member::require_name(&name)?;
     let signature = rest[name.len()..].trim_start();
     let parameters = signature
@@ -1117,7 +1118,7 @@ fn type_first(line: &str) -> Option<Member> {
         return None;
     }
     let (declared_type, rest) = csharp_declared_type(line)?;
-    let name = identifier(rest);
+    let name = UnicodeName::leading(rest);
     if name.is_empty() {
         return None;
     }
@@ -1150,7 +1151,7 @@ fn csharp_declared_type(line: &str) -> Option<(String, &str)> {
             return Some((String::from(declared), rest));
         }
     }
-    let name = identifier(line);
+    let name = UnicodeName::leading(line);
     if name.is_empty() {
         return None;
     }
@@ -1194,7 +1195,7 @@ fn is_getter_only(after_name: &str) -> bool {
 fn strip_attribute(line: &str) -> &str {
     let mut rest = line.trim_start();
     while let Some(after) = rest.strip_prefix('@') {
-        let name_length = identifier(after).len();
+        let name_length = UnicodeName::leading(after).len();
         if name_length == 0 {
             return rest;
         }
@@ -1223,13 +1224,6 @@ fn after_closing_parenthesis(arguments: &str) -> &str {
         }
     }
     arguments
-}
-
-fn identifier(value: &str) -> String {
-    value
-        .chars()
-        .take_while(|character| character.is_alphanumeric() || *character == '_')
-        .collect()
 }
 
 fn after_keyword(rest: &str) -> Option<&str> {

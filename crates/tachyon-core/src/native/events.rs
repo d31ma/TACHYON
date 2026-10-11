@@ -3,6 +3,7 @@ use crate::{
     companion::CompanionLanguage,
     events::{EventListener, EventMethod, EventModule, EventType},
     project::NativeCompanion,
+    unicode_name::UnicodeName,
 };
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -199,7 +200,7 @@ fn publisher_declaration(language: NativeCompanion, line: &str) -> Option<Publis
 fn swift_or_kotlin_publisher(line: &str, keywords: &[&str]) -> Option<PublisherField> {
     let mut rest = line;
     loop {
-        let word = identifier(rest);
+        let word = UnicodeName::leading(rest);
         if word.is_empty() {
             return None;
         }
@@ -221,7 +222,7 @@ fn swift_or_kotlin_publisher(line: &str, keywords: &[&str]) -> Option<PublisherF
 }
 
 fn swift_or_kotlin_property(keyword: &str, declaration: &str) -> Option<PublisherField> {
-    let name = identifier(declaration);
+    let name = UnicodeName::leading(declaration);
     if name.is_empty() {
         return None;
     }
@@ -249,7 +250,7 @@ fn swift_or_kotlin_property(keyword: &str, declaration: &str) -> Option<Publishe
 fn csharp_publisher(line: &str) -> Option<PublisherField> {
     let mut rest = line;
     loop {
-        let word = identifier(rest);
+        let word = UnicodeName::leading(rest);
         if word.is_empty() {
             return None;
         }
@@ -271,7 +272,7 @@ fn csharp_publisher(line: &str) -> Option<PublisherField> {
 }
 
 fn csharp_field(modifiers: &str, declaration: &str) -> Option<PublisherField> {
-    let name = identifier(declaration);
+    let name = UnicodeName::leading(declaration);
     if name.is_empty() {
         return None;
     }
@@ -298,7 +299,7 @@ fn rust_publisher(line: &str) -> Option<PublisherField> {
         .strip_prefix("pub(crate) ")
         .or_else(|| line.strip_prefix("pub "))
         .unwrap_or(line);
-    let name = identifier(rest);
+    let name = UnicodeName::leading(rest);
     let declared = rest[name.len()..].trim_start().strip_prefix(':')?.trim();
     let declared_type = declared.trim_end_matches(',').trim();
     if name.is_empty() || declared_type != PublisherField::TYPE_NAME {
@@ -308,13 +309,6 @@ fn rust_publisher(line: &str) -> Option<PublisherField> {
         name,
         replacement: None,
     })
-}
-
-fn identifier(value: &str) -> String {
-    value
-        .chars()
-        .take_while(|character| character.is_alphanumeric() || *character == '_')
-        .collect()
 }
 
 fn string_literal(language: NativeCompanion, text: &str) -> String {
