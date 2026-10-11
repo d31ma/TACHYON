@@ -2,7 +2,10 @@ use crate::Failure;
 use crate::ascii_name::AsciiName;
 use crate::go_source::GoMarkerName;
 use crate::lexical::LexicalMask;
+use ruby_needs::RubyNeeds;
 use std::path::Path;
+
+mod ruby_needs;
 
 pub(crate) struct RubyMarkers;
 
@@ -87,6 +90,13 @@ pub(crate) struct RubyMembers {
 
 impl RubyMembers {
     const HIDING_SECTIONS: [&'static str; 2] = ["private", "protected"];
+
+    pub(crate) fn without_needed(mut self, source: &str) -> Self {
+        let needed = RubyNeeds::fields(source);
+        self.fields.retain(|field| !needed.contains(field));
+        self.writable.retain(|field| !needed.contains(field));
+        self
+    }
 
     pub(crate) fn read(code: &str) -> Self {
         let mut members = Self::default();

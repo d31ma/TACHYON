@@ -219,3 +219,43 @@ fn a_java_service_field_that_needs_a_remote_builds_the_client() {
         "{filled}"
     );
 }
+
+#[test]
+fn a_ruby_service_field_that_needs_a_remote_builds_the_client_with_the_test_context() {
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    let files = [
+        (
+            "client/remotes/GreetingClient.rb",
+            "#[HTTPClient(\"/api\")]\nclass GreetingClient\n  # @return [Hash]\n  #[GetRequest(\"/greeting\")]\n  def read\n  end\nend\n",
+        ),
+        (
+            "client/setups/GreetingSetup.rb",
+            "#[Setup]\nclass GreetingSetup\n  # @param execution [BehaviorExecution]\n  # @return [Hash]\n  def self.configure(execution)\n    {}\n  end\nend\n",
+        ),
+    ];
+    for (relative, text) in files {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().unwrap_or(root.path()))
+            .unwrap_or_else(|error| panic!("folder: {error}"));
+        std::fs::write(path, text).unwrap_or_else(|error| panic!("source: {error}"));
+    }
+    let source = "#[Service]\nclass GreetingService\n  #[Needs]\n  # @return [GreetingClient]\n  attr_reader :greeting_client\n\n  def ask\n    greeting_client.read\n  end\nend\n";
+    let service = root.path().join("client/services/GreetingService.rb");
+    std::fs::create_dir_all(service.parent().unwrap_or(root.path()))
+        .unwrap_or_else(|error| panic!("folder: {error}"));
+    std::fs::write(service, source).unwrap_or_else(|error| panic!("service: {error}"));
+    let assembled = crate::annotation_modules::assemble(
+        root.path(),
+        Path::new("client/services/GreetingService.rb"),
+        source,
+        "tac",
+    )
+    .unwrap_or_else(|failure| panic!("assembled: {failure}"))
+    .unwrap_or_default();
+    assert!(
+        assembled.contains(
+            "  private def greeting_client\n    @greeting_client ||= GreetingClient.new(@tachyon_test_context)\n  end"
+        ),
+        "{assembled}"
+    );
+}

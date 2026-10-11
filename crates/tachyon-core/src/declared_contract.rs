@@ -84,9 +84,23 @@ impl DeclaredContract {
         InjectedContract::injected_names(paths)
     }
 
+    pub(crate) fn injected_remotes<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
+        InjectedContract::remote_names(paths)
+    }
+
+    #[cfg(test)]
     pub(crate) fn injected(path: &Path, source: &str, contracts: &[String]) -> Option<String> {
+        Self::injected_with_remotes(path, source, contracts, &[])
+    }
+
+    pub(crate) fn injected_with_remotes(
+        path: &Path,
+        source: &str,
+        contracts: &[String],
+        remotes: &[String],
+    ) -> Option<String> {
         FsharpInjectedContract::filled(path, source, contracts)
-            .or_else(|| InjectedContract::filled(path, source, contracts))
+            .or_else(|| InjectedContract::filled(path, source, contracts, remotes))
     }
 
     pub(crate) fn concrete(path: &Path, source: &str, environment: &str) -> Option<String> {

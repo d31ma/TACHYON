@@ -68,6 +68,7 @@ mod python_members_tests;
 mod query_frontend;
 mod ruby;
 mod ruby_syntax;
+mod ruby_typed_answer;
 mod rust;
 mod rust_async_client;
 #[cfg(test)]

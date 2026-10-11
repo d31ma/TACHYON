@@ -604,10 +604,12 @@ Setup: `{"setup":"CatalogSetup"}` on `@HTTPClient` names it, and the default is
 the client name with `Setup` instead of `Client`. The partition is the adapter
 name. A client whose methods are all `@Gateway` methods needs no context. In
 Yon, `@Needs` injects the client. A Tac service in Rust, Go, Kotlin, Swift,
-Java, C# or Dart gets it with `@Needs` too (in Kotlin `@Needs private val
+Java, Ruby, C# or Dart gets it with `@Needs` too (in Kotlin `@Needs private val
 catalog: CatalogClient`, in Swift `@Needs private let catalog: CatalogClient`
 and in Java `@Needs private final CatalogClient catalog;`, which Tachyon fills
-with `CatalogClient()` or `new CatalogClient()`). A Tac service in F# builds it:
+with `CatalogClient()` or `new CatalogClient()`; in Ruby `#[Needs]` stands
+above `attr_reader :catalog` with a `# @return [CatalogClient]` comment, and
+Tachyon builds it with `CatalogClient.new`). A Tac service in F# builds it:
 `CatalogClient()`. Tac JavaScript and TypeScript clients stay managed by the
 page.
 
@@ -872,6 +874,10 @@ module keeps its continuation while the browser transport works (ADR 0090). A
 Tac Java HTTPClient method stays synchronous and may return a model from
 `client/models`; without a Setup adapter, the TeaVM fiber that runs the
 service call waits for the browser transport and the page gets a promise
+(ADR 0090). A
+Tac Ruby HTTPClient method stays synchronous, and its YARD `@return` may name a
+model from `client/models`; without a Setup adapter, the Ruby fiber that runs
+the service call waits for the browser transport and the page gets a promise
 (ADR 0090). A
 Tac Swift HTTPClient method is `async throws` and may return a `Codable`
 model; without a Setup adapter the Swift WebAssembly module parks its task

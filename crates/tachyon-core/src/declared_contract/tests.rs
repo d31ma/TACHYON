@@ -366,6 +366,11 @@ fn tac_clients_create_their_context_when_they_are_built() {
             "java",
             "this(Behaviors.create(\"CatalogSetup\", new Behaviors.Options(\"catalog\"",
         ),
+        ("rb", "def initialize(context = nil)"),
+        (
+            "rb",
+            "@behaviors = context || Behaviors.create(CatalogSetup, partition: \"catalog\"",
+        ),
     ];
     for (extension, part) in expected {
         let lowered = Samples::concrete(extension, "tac");

@@ -48,7 +48,7 @@ end
 
 class BehaviorExecution
   attr_reader :partition, :environment, :deadline, :signal
-  attr_accessor :policy, :expires_at
+  attr_accessor :policy, :expires_at, :public_read, :revalidate
 
   def initialize(partition, environment, signal, owner, timeout_ms)
     @partition = partition
@@ -60,6 +60,8 @@ class BehaviorExecution
     @signal = BehaviorCancellation.new(signal, owner, @until_ms)
     @policy = {}
     @expires_at = 0
+    @public_read = false
+    @revalidate = false
   end
 
   def check
@@ -306,6 +308,7 @@ class BehaviorContext
   ADAPTER_KEYS = ["caches", "http", "entities", "authorize", "authorizeEntity"].freeze
   RESERVED_NAMES = ["__proto__", "prototype", "constructor", "behaviors", "tac"].freeze
   QUERY_RESULTS = { "find" => "array", "findOne" => "array", "count" => "count", "exists" => "boolean", "delete" => "count" }.freeze
+  MAX_REVALIDATIONS = 256
 
   attr_reader :partition, :adapters
 
@@ -325,6 +328,7 @@ class BehaviorContext
     @adapters = {}
     @slots = {}
     @active = 0
+    @revalidations = {}
   end
 
   def configure(factory = nil, &block)
@@ -376,6 +380,8 @@ class BehaviorContext
         key = cache_key(record, method, arguments, execution, "cache:read")
         hit = cached(policy, key, execution)
         return hit[:value] if hit
+        execution.public_read = true
+        execution.revalidate = !@revalidations.delete(key).nil?
       end
       execution.check
       result = BehaviorBoundary.copy(resilient(record, method, metadata, arguments, original, execution))
@@ -592,15 +598,15 @@ class BehaviorContext
     policy = metadata["httpExchange"]
     if policy && policy["generated"]
       generated = policy.merge("path" => BehaviorBoundary.exchange_path(policy, arguments))
-      return exchange(generated, BehaviorBoundary.exchange_request(policy, arguments), execution)
+      return exchange(generated, BehaviorBoundary.exchange_request(policy, arguments), execution, true)
     end
     result = original.call(*arguments)
     execution.check
-    result = exchange(policy, result, execution) if policy
+    result = exchange(policy, result, execution, true) if policy
     result
   end
 
-  def exchange(policy, descriptor, execution)
+  def exchange(policy, descriptor, execution, browser = false)
     descriptor = BehaviorBoundary.copy(BehaviorBoundary.keys(descriptor, ["query", "headers", "body"]))
     query = descriptor["query"] || {}
     headers = descriptor["headers"] || {}
@@ -616,6 +622,8 @@ class BehaviorContext
       "redirect" => "error", "credentials" => "omit", "maxResponseBytes" => 1_048_576,
       "signal" => execution.signal, "deadline" => execution.deadline
     )
+    custom = (@adapters["http"] || {})[policy["client"]]
+    return BehaviorBrowserHttp.exchange(request, execution) if browser && custom.nil? && BehaviorBrowserHttp.available?
     function = adapter("http", policy["client"], "exchange")
     BehaviorBoundary.copy(BehaviorBoundary.adapter(function, [request, execution], execution))
   end
@@ -651,8 +659,14 @@ class BehaviorContext
     else
       BehaviorBoundary.adapter(function, [key, execution], execution)
     end
+    revalidate_later(key)
     execution.check
     result
+  end
+
+  def revalidate_later(key)
+    @revalidations.shift if @revalidations.size >= MAX_REVALIDATIONS
+    @revalidations[key] = true
   end
 
   def query(policy, arguments, execution)
@@ -772,6 +786,45 @@ class BehaviorRestCall
 
   def retrieve
     @context.rest_exchange(@name, @method, @path, @descriptor)
+  end
+end
+
+class BehaviorBrowserHttp
+  KEYS = ["method", "path", "query", "headers", "body", "redirect", "credentials", "maxResponseBytes"].freeze
+  CODES = ["HTTP_REQUEST", "HTTP_ORIGIN", "HTTP_HEADER", "HTTP_QUERY", "HTTP_BODY", "HTTP_LIMIT", "HTTP_RESPONSE",
+    "HTTP_STATUS", "HTTP_CAPACITY", "HTTP_NETWORK", "HTTP_MISSING", "CANCELLED", "DEADLINE"].freeze
+
+  def self.available?
+    Behaviors.environment == "tac" && Object.const_defined?(:TacTasks) && TachyonWeb.respond_to?(:host_emit)
+  end
+
+  def self.exchange(request, execution)
+    browser = {}
+    KEYS.each { |key| browser[key] = request[key] if request.key?(key) }
+    browser["deadline"] = execution.deadline
+    browser["publicRead"] = execution.public_read == true && request["method"] == "GET"
+    browser["revalidate"] = execution.revalidate == true
+    execution.check
+    answer = JSON.parse(TacTasks.exchange(JSON.generate(browser)))
+    value = value_of(answer)
+    execution.check
+    BehaviorBoundary.copy(value)
+  end
+
+  def self.value_of(answer)
+    raise failure("HTTP_RESPONSE") unless answer.is_a?(Hash)
+    raise failure(code_of(answer["error"])) if answer.key?("error")
+    raise failure("HTTP_RESPONSE") unless answer.key?("value")
+    answer["value"]
+  end
+
+  def self.code_of(error)
+    code = error.is_a?(Hash) ? error["code"] : nil
+    CODES.include?(code) ? code : "HTTP_NETWORK"
+  end
+
+  def self.failure(code)
+    BehaviorError.new(code, "The browser HTTP request failed (#{code}).")
   end
 end
 
@@ -1061,10 +1114,11 @@ class Behaviors
     BehaviorBoundary.invalid("A test unit constructs roles with its own behavior context.") unless context.is_a?(BehaviorContext)
     instance = type.new
     fakes.each do |name, fake|
-      BehaviorBoundary.invalid("Fake '#{name}' names no field on this type.") unless instance.respond_to?(name)
+      BehaviorBoundary.invalid("Fake '#{name}' names no field on this type.") unless instance.respond_to?(name, true)
       instance.instance_variable_set("@#{name}", fake) unless fake.nil?
     end
     instance.instance_variable_set(:@behaviors, context)
+    instance.instance_variable_set(:@tachyon_test_context, context)
     instance
   end
 

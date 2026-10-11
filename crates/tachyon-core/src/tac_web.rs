@@ -590,19 +590,40 @@ const transport = (text) => java.exports.tacInvoke(text)
 "
     );
 
-    const RUBY_ENGINE: &str = r"const { TachyonRuby } = await import('./ruby/tachyon-ruby.js')
+    const RUBY_ENGINE: &str = concat!(
+        include_str!("native/browser/tac-task-answers.js"),
+        include_str!("native/browser/tac-ticket-http.js"),
+        r"const { TachyonRuby } = await import('./ruby/tachyon-ruby.js')
 const rubyResponse = await fetch(new URL('./ruby/tachyon-ruby.wasm', import.meta.url))
 const rubyModule = await WebAssembly.compile(await rubyResponse.arrayBuffer())
 const writeLine = (line, descriptor) => { if (descriptor === 2) console.error(line); else console.log(line) }
+const taskAnswers = new TacTaskAnswers()
+const rubyHttp = new TacTicketHttp()
+const rubySettle = (ticket, answer) => {
+  try {
+    ruby.invoke(`tachyon-http:settle ${ticket}\n${answer}`)
+  } finally {
+    deliver()
+  }
+}
+const rubyTasks = (request) => {
+  if (request.http === 'start') rubyHttp.start(request.ticket, request.request, (answer) => rubySettle(request.ticket, answer))
+  if (request.http === 'cancel') rubyHttp.cancel(request.ticket)
+  if (request.http === 'done') taskAnswers.done(request.task, request.answer)
+  return JSON.stringify({ value: null })
+}
 const rubyHost = (text) => {
-  if (JSON.parse(text).api) return webHost(text)
+  const request = JSON.parse(text)
+  if (request.api) return webHost(text)
+  if (request.http) return rubyTasks(request)
   return storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' })
 }
 const ruby = await TachyonRuby.start(rubyModule, writeLine, (payload) => { published.push(payload) }, rubyHost)
 const bootFailure = ruby.boot(__RUBY_PROGRAM__)
 if (bootFailure) throw new Error(`Ruby services did not start: ${JSON.parse(bootFailure).error}`)
 const transport = (text) => ruby.invoke(text)
-";
+"
+    );
 
     const SHARED_TAIL: &str = r"const publishers = new Map()
 

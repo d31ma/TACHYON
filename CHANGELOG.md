@@ -184,6 +184,22 @@ machine contracts have their own, independent major versions.
   reach the page with their code. Removing the component cancels the request
   (`CANCELLED`). Java test units get `construct(Service.class)` with a
   `Fake` client and keep `http-adapter` without an adapter (ADR 0090).
+- Ruby Tac services call the server from the browser too. The YARD
+  `@return` of an `HTTPClient` method names its answer: a model from
+  `client/models`, an `Array` of models or a plain value; `Hash` and
+  `Object` keep the answer as it is. A service gets the client with
+  `#[Needs]` above `attr_reader :name` and a `# @return [Client]` comment.
+  Without a Setup adapter, the request goes to the same origin through the
+  browser host. Credentials are omitted, `Cached` reads are public, and the
+  next read revalidates after `ClearCache`. Each page call runs in a Ruby
+  fiber on the existing mruby runtime. A call that waits returns a promise to
+  the page, and other calls run meanwhile. A wrong answer shape fails with
+  `HTTP_RESPONSE`, and errors reach the page with their code. Removing the
+  component cancels the request (`CANCELLED`). Ruby test units get
+  `construct(Service)` with a `Fake` client and keep `Required behavior
+  adapter is missing.` without an adapter. Method coverage no longer asks a
+  test case to call a Ruby method whose body is empty, such as a request
+  method of an `HTTPClient` (ADR 0090).
 - Method coverage no longer asks a test case to call a Setup's methods or the
   methods of a generated HTTPClient: Tachyon calls a Setup itself and writes
   the client's methods.

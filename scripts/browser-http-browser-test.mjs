@@ -20,6 +20,7 @@ class BrowserHttpGate {
     kotlin: { folder: 'browser-http-kotlin', factory: false, label: 'compiled Kotlin' },
     swift: { folder: 'browser-http-swift', factory: false, label: 'compiled Swift' },
     java: { folder: 'browser-http-java', factory: false, label: 'compiled Java' },
+    ruby: { folder: 'browser-http-ruby', factory: false, label: 'Ruby' },
   }
 
   static chosen() {
