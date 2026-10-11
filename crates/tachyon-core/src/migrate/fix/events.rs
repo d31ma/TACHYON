@@ -1,4 +1,5 @@
 use super::ManualStep;
+use super::conversion_plan::ConversionPlan;
 use super::edits::TextEdit;
 use super::markers::{Marker, MarkerLine};
 use super::scan::SourceText;
@@ -13,13 +14,6 @@ pub(super) struct EventConversion<'a> {
     models: Vec<String>,
 }
 
-#[derive(Default)]
-pub(super) struct EventPlan {
-    pub(super) edits: Vec<TextEdit>,
-    pub(super) notes: Vec<String>,
-    pub(super) steps: Vec<ManualStep>,
-}
-
 struct Publication {
     name_start: usize,
     value_start: usize,
@@ -31,13 +25,13 @@ impl<'a> EventConversion<'a> {
     const NAMES: [&'static str; 1] = ["onevent"];
     const CALLS: [&'static str; 3] = ["publishEvent(", "publish_event(", "PublishEvent("];
 
-    pub(super) fn plan(root: &Path, relative: &'a str, source: &'a str) -> EventPlan {
+    pub(super) fn plan(root: &Path, relative: &'a str, source: &'a str) -> ConversionPlan {
         let extension = Path::new(relative)
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
         let Some(text) = SourceText::read(extension, source) else {
-            return EventPlan::default();
+            return ConversionPlan::default();
         };
         let conversion = Self {
             relative,
@@ -63,8 +57,8 @@ impl<'a> EventConversion<'a> {
         table.record_names()
     }
 
-    fn convert(&self) -> EventPlan {
-        let mut plan = EventPlan::default();
+    fn convert(&self) -> ConversionPlan {
+        let mut plan = ConversionPlan::default();
         for marker in Marker::lines(&self.text, self.extension, &Self::NAMES) {
             self.listener(&marker, &mut plan);
         }
@@ -74,7 +68,7 @@ impl<'a> EventConversion<'a> {
         plan
     }
 
-    fn listener(&self, marker: &MarkerLine, plan: &mut EventPlan) {
+    fn listener(&self, marker: &MarkerLine, plan: &mut ConversionPlan) {
         let Some((open, close)) = marker.arguments else {
             return;
         };
@@ -275,7 +269,7 @@ impl<'a> EventConversion<'a> {
         None
     }
 
-    fn publication(&self, publication: &Publication, plan: &mut EventPlan) {
+    fn publication(&self, publication: &Publication, plan: &mut ConversionPlan) {
         let name = &publication.name;
         let Some(model) = self.model_for(name) else {
             plan.steps.push(self.missing_model(name));

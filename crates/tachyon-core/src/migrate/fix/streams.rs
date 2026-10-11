@@ -1,15 +1,9 @@
 use super::ManualStep;
+use super::conversion_plan::ConversionPlan;
 use super::edits::TextEdit;
 use super::markers::{Marker, MarkerLine};
 use super::scan::SourceText;
 use std::path::Path;
-
-#[derive(Default)]
-pub(super) struct StreamPlan {
-    pub(super) edits: Vec<TextEdit>,
-    pub(super) notes: Vec<String>,
-    pub(super) steps: Vec<ManualStep>,
-}
 
 pub(super) struct StreamConversion<'a> {
     relative: &'a str,
@@ -33,20 +27,20 @@ impl<'a> StreamConversion<'a> {
     ];
     const ACTION: &'static str = "Write @StreamRoute alone on the method and start the method name with 'stream', for example streamTicks (ADR 0048).";
 
-    pub(super) fn plan(relative: &'a str, source: &'a str) -> StreamPlan {
+    pub(super) fn plan(relative: &'a str, source: &'a str) -> ConversionPlan {
         let extension = Path::new(relative)
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
         let Some(text) = SourceText::read(extension, source) else {
-            return StreamPlan::default();
+            return ConversionPlan::default();
         };
         let conversion = Self {
             relative,
             extension,
             text,
         };
-        let mut plan = StreamPlan::default();
+        let mut plan = ConversionPlan::default();
         let markers = Marker::lines(&conversion.text, extension, &Self::ROUTES);
         for stream in markers
             .iter()
@@ -57,7 +51,7 @@ impl<'a> StreamConversion<'a> {
         plan
     }
 
-    fn convert(&self, stream: &MarkerLine, markers: &[MarkerLine], plan: &mut StreamPlan) {
+    fn convert(&self, stream: &MarkerLine, markers: &[MarkerLine], plan: &mut ConversionPlan) {
         let line = self.text.line_number(stream.start);
         let Some(declaration) = Marker::next_declaration(&self.text, self.extension, stream.start)
         else {
