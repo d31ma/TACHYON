@@ -346,8 +346,9 @@ impl MigrationFix {
 
     fn is_small_file(path: &Path) -> Result<bool, Failure> {
         let metadata = Self::metadata(path)?;
-        let is_file = metadata.is_file() && !metadata.is_symlink();
-        Ok(is_file && metadata.len() <= MigrationAnalysis::MAX_SOURCE_BYTES)
+        Ok(metadata.is_file()
+            && !metadata.is_symlink()
+            && metadata.len() <= MigrationAnalysis::MAX_SOURCE_BYTES)
     }
 
     fn metadata(path: &Path) -> Result<fs::Metadata, Failure> {

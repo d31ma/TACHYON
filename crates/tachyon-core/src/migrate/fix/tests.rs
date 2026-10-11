@@ -530,3 +530,29 @@ fn a_plan_that_names_a_file_outside_the_fix_targets_writes_nothing() {
         "export class CartService {}\n"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn only_regular_unlinked_files_within_the_source_limit_are_small() {
+    let project = project();
+    let root = project.path();
+    let limit = crate::migrate::MigrationAnalysis::MAX_SOURCE_BYTES;
+    write(root, "small.ts", "export class Small {}\n");
+    let at_limit = fs::File::create(root.join("at-limit.ts")).expect("at limit");
+    at_limit.set_len(limit).expect("limit length");
+    let oversized = fs::File::create(root.join("oversized.ts")).expect("oversized");
+    oversized.set_len(limit + 1).expect("oversized length");
+    fs::create_dir(root.join("folder.ts")).expect("folder");
+    std::os::unix::fs::symlink(root.join("small.ts"), root.join("linked.ts")).expect("link");
+    for (name, small) in [
+        ("small.ts", true),
+        ("at-limit.ts", true),
+        ("oversized.ts", false),
+        ("folder.ts", false),
+        ("linked.ts", false),
+    ] {
+        let actual = MigrationFix::is_small_file(&root.join(name)).expect(name);
+        assert_eq!(actual, small, "{name}");
+    }
+    assert!(MigrationFix::is_small_file(&root.join("missing.ts")).is_err());
+}
