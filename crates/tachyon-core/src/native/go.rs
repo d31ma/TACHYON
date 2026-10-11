@@ -508,7 +508,8 @@ fn with_authored_paths(failure: &Failure) -> Failure {
         return failure.clone();
     };
     let staged = format!("{}/client/", GoServices::PAGE_PACKAGE);
-    let message = first.message.replace(&staged, "client/");
+    let message =
+        crate::compiler::PortablePath::tool_output(&first.message).replace(&staged, "client/");
     native_tool_failure(GoServices::FAILURE_CODE, &message)
 }
 

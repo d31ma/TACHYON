@@ -1,4 +1,5 @@
 use crate::Failure;
+use crate::compiler::PortablePath;
 use crate::failure::{diagnostic, source_span};
 use std::path::Path;
 
@@ -72,7 +73,7 @@ impl BehaviorsImport {
     }
 
     fn failure(path: &Path, source: &str, at: usize) -> Failure {
-        let file = path.to_string_lossy();
+        let file = PortablePath::file(path);
         let line = source[..at].matches('\n').count() + 1;
         Failure::one(diagnostic(
             1308,

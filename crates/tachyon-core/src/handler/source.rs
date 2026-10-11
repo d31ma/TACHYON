@@ -1264,7 +1264,7 @@ fn check_compiler_output(
             portable,
             &format!(
                 "Handler failed to compile: {}",
-                compiler_error_line(&detail)
+                crate::compiler::PortablePath::tool_output(compiler_error_line(&detail))
             ),
         ));
     }
