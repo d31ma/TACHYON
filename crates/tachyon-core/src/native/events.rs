@@ -691,6 +691,84 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    fn publisher_parts(field: Option<PublisherField>) -> Option<(String, Option<String>)> {
+        field.map(|field| (field.name, field.replacement))
+    }
+
+    #[test]
+    fn publisher_fields_skip_only_their_language_modifiers() {
+        let swift = [
+            (
+                "public let events: ApplicationEventPublisher",
+                Some((
+                    "events",
+                    Some("public let events = ApplicationEventPublisher()"),
+                )),
+            ),
+            (
+                "public  lazy var bus: ApplicationEventPublisher",
+                Some((
+                    "bus",
+                    Some("public  lazy var bus = ApplicationEventPublisher()"),
+                )),
+            ),
+            (
+                "private var events: ApplicationEventPublisher = ApplicationEventPublisher()",
+                Some(("events", None)),
+            ),
+            ("static let events: ApplicationEventPublisher", None),
+            ("public", None),
+            ("public let", None),
+            ("", None),
+        ];
+        for (line, expected) in swift {
+            let expected = expected
+                .map(|(name, replacement)| (name.to_owned(), replacement.map(str::to_owned)));
+            assert_eq!(
+                publisher_parts(swift_or_kotlin_publisher(line, &["let", "var"])),
+                expected,
+                "{line:?}"
+            );
+        }
+        assert_eq!(
+            publisher_parts(swift_or_kotlin_publisher(
+                "val events: ApplicationEventPublisher",
+                &["val", "var"]
+            )),
+            Some((
+                String::from("events"),
+                Some(String::from("val events = ApplicationEventPublisher()"))
+            ))
+        );
+        let csharp = [
+            (
+                "private readonly ApplicationEventPublisher events;",
+                Some((
+                    "events",
+                    Some(
+                        "private readonly ApplicationEventPublisher events = new ApplicationEventPublisher();",
+                    ),
+                )),
+            ),
+            (
+                "ApplicationEventPublisher events = new();",
+                Some(("events", None)),
+            ),
+            ("public lazy ApplicationEventPublisher events;", None),
+            ("public static", None),
+            ("ApplicationEventPublisherevents;", None),
+        ];
+        for (line, expected) in csharp {
+            let expected = expected
+                .map(|(name, replacement)| (name.to_owned(), replacement.map(str::to_owned)));
+            assert_eq!(
+                publisher_parts(csharp_publisher(line)),
+                expected,
+                "{line:?}"
+            );
+        }
+    }
+
     fn probe_path(extension: &str) -> PathBuf {
         PathBuf::from(format!("client/services/ProbeService.{extension}"))
     }
