@@ -1,4 +1,4 @@
-use super::{BudgetLimit, LoadedFiles, RouteBudgetSettings, RouteSize};
+use super::{BudgetLimit, LoadedFiles, RouteBudgetSettings, RouteRuntimes, RouteSize};
 use crate::Failure;
 use crate::tac_python::{RuntimeInventory, RuntimeProfile};
 use std::collections::{BTreeMap, BTreeSet};
@@ -33,25 +33,44 @@ impl<'a> PageBudget<'a> {
         let inventory = RuntimeInventory::reachable(&loaded, files, self.sent_bytes)?;
         self.require_profile(&inventory)?;
         loaded.extend(inventory.iter().map(|(name, _)| name.clone()));
-        let settings = self.settings.for_python_route(!inventory.is_empty());
+        let without_runtimes = self.settings.for_python_route(!inventory.is_empty());
+        let runtimes = RouteRuntimes::of(&loaded);
+        let settings = without_runtimes.for_runtimes(&runtimes);
         let route = Self::route(page);
-        let diagnostics = Self::over_budget(&route, &loaded, sizes, settings);
+        let basis = Self::basis(without_runtimes, settings, &runtimes);
+        let script = Self::route_size(&route, &loaded, sizes, settings.script).explained(basis);
+        let web_assembly = Self::route_size(&route, &loaded, sizes, settings.web_assembly);
+        let diagnostics = Self::over_budget([script, web_assembly]);
         let notes = Self::python_notes(&route, &inventory);
         Ok((diagnostics, notes))
     }
 
-    fn over_budget(
+    fn route_size(
         route: &str,
         loaded: &BTreeSet<String>,
         sizes: &BTreeMap<String, u64>,
-        settings: RouteBudgetSettings,
-    ) -> Vec<Diagnostic> {
-        [settings.script, settings.web_assembly]
+        limit: BudgetLimit,
+    ) -> RouteSize {
+        RouteSize::new(route.to_owned(), limit, Self::sizes(loaded, sizes, limit))
+    }
+
+    fn over_budget(route_sizes: [RouteSize; 2]) -> Vec<Diagnostic> {
+        route_sizes
             .into_iter()
-            .map(|limit| RouteSize::new(route.to_owned(), limit, Self::sizes(loaded, sizes, limit)))
             .filter(RouteSize::is_over)
             .map(|size| size.diagnostic())
             .collect()
+    }
+
+    fn basis(
+        without_runtimes: RouteBudgetSettings,
+        settings: RouteBudgetSettings,
+        runtimes: &RouteRuntimes,
+    ) -> String {
+        if settings.script == without_runtimes.script {
+            return String::new();
+        }
+        runtimes.basis(RouteBudgetSettings::SCRIPT.bytes)
     }
 
     fn require_profile(&self, inventory: &[(String, u64)]) -> Result<(), Failure> {

@@ -6,6 +6,7 @@ pub(super) struct RouteSize {
     route: String,
     limit: BudgetLimit,
     files: Vec<(String, u64)>,
+    basis: String,
 }
 
 impl RouteSize {
@@ -18,7 +19,12 @@ impl RouteSize {
             route,
             limit,
             files,
+            basis: String::new(),
         }
+    }
+
+    pub(super) fn explained(self, basis: String) -> Self {
+        Self { basis, ..self }
     }
 
     pub(super) fn is_over(&self) -> bool {
@@ -27,11 +33,12 @@ impl RouteSize {
 
     pub(super) fn diagnostic(&self) -> Diagnostic {
         let message = format!(
-            "Route '{}' loads {} KB of {}, and its budget is {} KB.",
+            "Route '{}' loads {} KB of {}, and its budget is {} KB.{}",
             self.route,
             Self::kilobytes(self.total()),
             self.limit.name,
-            Self::kilobytes(self.limit.bytes)
+            Self::kilobytes(self.limit.bytes),
+            self.basis
         );
         let help = format!(
             "The biggest files: {}. Load less on this route: split a big service, remove a library that the route does not need, or move work to the server. If the size is right, raise tac.budgets.{} in client/manifest.json. Sizes are the bytes that Tachyon sends: the Brotli copy when the build wrote one, else the file itself (ADR 0074).",

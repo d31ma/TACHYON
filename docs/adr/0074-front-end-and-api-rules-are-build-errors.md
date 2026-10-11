@@ -120,3 +120,14 @@ baseline file is not checked.
   Fixtures that load the web runtimes of many languages on one route, such as
   window-controls and cached-client, keep `tac.budgets.check: false`; the
   budget is not raised.
+
+## Amendment (2026-10-11): a route with several web runtimes
+
+- [ADR 0100](0100-a-route-with-several-web-runtimes-gets-a-measured-allowance.md)
+  changes the default script budget of a route that loads more than one web
+  runtime: 200 KB plus a measured allowance for each runtime after the
+  largest one. A route with no runtime or one runtime keeps 200 KB, and
+  `tac.budgets.script` still wins when it is set.
+- The statement above that window-controls and cached-client keep
+  `tac.budgets.check: false` is no longer true. Their manifests do not set
+  it, so the check is on, and the computed budget covers them.
