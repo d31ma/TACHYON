@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- C++ Tac test units can now replace and answer what a service needs. A
+  `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
+  fields of the service that `construct<CounterService>()` makes. A static
+  `configure()` method of the TestSetup returns `BehaviorAdapters`, and
+  `adapters.http["greeting"]` answers every request of `GreetingClient`
+  with a `JsonNode`; a request without an answer fails its case with
+  `HTTP_ADAPTER`, and no request leaves the test. A case may return
+  `Task<void>` and `co_await` a service. `[[ValueSource([1, 2, 3])]]` runs a
+  case once for each input. `ty test --coverage` and the `ty preview` gate
+  now count the public methods of C++ services by the calls that each case
+  makes. The first-app step 5 C++ test checks `askServer` too (ADR 0099).
 - The standard `theme_color` member of `client/manifest.json` now becomes
   `<meta name="theme-color" content="...">` in every web and native page
   head, HTML-escaped, when it is text that is not blank. A missing or

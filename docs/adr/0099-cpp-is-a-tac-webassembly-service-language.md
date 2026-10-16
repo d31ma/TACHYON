@@ -65,8 +65,8 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
 - The rule table lists C++ (`hpp`) as a Tac language and is the one place
   that decides where each marker works. Today C++ reaches `Service`, `Needs`,
   `OnEvent`, `OnStart`, `OnStop`, `Order`, `InBackground`, `Test`,
-  `TestSetup`, `HTTPClient`, the request markers and the request-part
-  markers. Every other marker fails with the rule's own code (most often
+  `TestSetup`, `Fake`, `ValueSource`, `HTTPClient`, the request markers and
+  the request-part markers. Every other marker fails with the rule's own code (most often
   `TY1308`) and the message names the languages where it works and says that
   C++ gets it in a later step. The same shared checker (`PlacedMarker`) reports
   a wrong target, missing or extra arguments, a missing partner, a clash and a
@@ -183,8 +183,53 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   body, `[[RequestParam]]` adds it to the query and
   `[[RequestHeader("X-Name")]]` sends it as a header. A service asks for the
   client with `[[Needs]] OrderClient& orders;`.
-- C++ test units do not answer HTTP requests yet: a request in a test unit
-  stays open until its task is destroyed.
+- Each method of a declarative client sends its request with the client's
+  adapter name: the class name without `Client`, in lowerCamel case
+  (`GreetingClient` sends with `greeting`), as `@HTTPClient` names its
+  adapter in the other languages. A plain `HttpClient` sends with `http`.
+  The browser transport does not read the name; a test unit uses it to find
+  the answer (see Test units).
+
+### Test units
+
+- A test unit is `client/tests/<Name>Test.hpp` with one class marked
+  `[[Test(<Name>TestSetup)]]`; the TestSetup lives beside it. `ty test`
+  composes one program with the test prelude, the models, every service and
+  client, the TestSetup, the unit and a generated `main`, compiles it with
+  clang++ (or `TAC_CPP_TEST_COMPILER`) and runs the binary. It needs no
+  Emscripten. Each public method whose name starts with `test` and that has
+  no parameter is a case; a method with `[[ValueSource]]` takes one.
+- A case may return `Task<void>`. The test transport answers at once, so the
+  task has finished when the case returns; a task that still waits fails its
+  case.
+- A static `configure()` method of the TestSetup returns `BehaviorAdapters`.
+  `adapters.http["greeting"]` is a `BehaviorHTTPAdapter`, a function that
+  takes the `tachyon::http::HttpRequestMessage` and returns the answer body
+  as a `JsonNode`, for example
+  `tachyon::json::JsonSerializer::serializeToNode(Greeting{"Hi"})`. Tachyon calls
+  `configure()` again for each case, so a case never sees another case's
+  answers. A request whose adapter has no answer fails with an
+  `HttpRequestException` whose code is `HTTP_ADAPTER`; an answer function may
+  throw `HttpRequestException("HTTP_STATUS")` to test a failure. No request
+  leaves a test unit.
+- `[[Fake]] GreetingClient greetingClient;` is a field of the test class that
+  holds the stand-in object itself: no reference, no pointer, no `static`.
+  Its type is a C++ service or HTTP client of the project (`TY1372`
+  otherwise). Tachyon writes a member `construct<T>()` into the test class:
+  while it makes a `T`, every `[[Needs]]` field of a Fake's type gets the
+  Fake field's object instead of the program-wide one. A shared service that
+  is first made during `construct` keeps the shared objects, so a Fake never
+  leaks into a later case. `CounterService counter;` still makes the service
+  with the shared objects.
+- `[[ValueSource([1, 2, 3])]]` on a case with one parameter runs it once for
+  each input, named `testName[1]`, `testName[2]` and so on (ADR 0080). The
+  list is JSON with 1 to 256 numbers, strings or booleans; Tachyon writes
+  each input as a C++ literal into the call.
+- Executed-method coverage reads C++ services: the public non-static methods
+  with a body are the methods that a case must call. In a test unit, Tachyon
+  adds `BehaviorCalls::record("CounterService.increment");` at the start of
+  each of them, and each case reports the methods it ran. A call on a Fake
+  client does not count, because a client has no written methods.
 
 ### Size
 
@@ -208,8 +253,6 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   `@NeedsAll`, converters, helpers, topics, streams and sockets. The rule table
   refuses each of them for C++ (most with `TY1308`, naming ADR 0099) until it
   lands.
-- `@Fake`, `@ValueSource` and HTTP answers in C++ test units; executed-method
-  coverage for C++ (the shared coverage reader does not read C++ classes yet).
 - `ty migrate` rewriting the legacy C++ Yon handlers.
 
 ## Consequences
