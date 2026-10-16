@@ -92,3 +92,56 @@ Groovy remains a Yon language. Its source and call-hook coverage registration
 must include `.groovy` services, with the existing Java syntax reader and JVM
 runtime. This amendment does not introduce Tac Groovy support. F# private values
 may use `let`; F# members retain the self identifier required by that language.
+
+## Receiver elision feasibility amendment — 2026-10-16
+
+This section is design only. It changes no code and adds no suggestion code.
+It records, for every Tac and Yon language, whether a member can be written by
+its bare name instead of through a receiver, and whether TY1362 could suggest
+that rewrite. The answer depends on two things: the language's own name
+lookup, and how Tachyon reads and lowers the authored class.
+
+Two facts hold for every language:
+
+- **The compiler does not depend on the authored receiver.** The web host and
+  the Yon runtimes read service and controller state by member name across
+  their boundary, and the code that the compiler generates writes its own
+  receivers (for example `this.{field} = {field}` in
+  `behavior/mod.rs`, `$this->{name}` in `behavior/polyglot/php.rs`,
+  `self.{name}` in `behavior/polyglot/swift.rs`, and the `self.` call style for
+  Rust in `behavior/call_style.rs`). So elision is only a question of the
+  source language. It never needs a lowering change.
+- **A suggestion needs a reader.** TY1362 uses the cohesion tokenizer and its
+  method finder. That reader knows `js`, `ts`, `java`, `cs`, `dart`, `kt`,
+  `swift`, `php`, `rs`, `go`, `py` and `rb`, and Groovy through the Java
+  syntax (`cohesion/spelling.rs`, `groovy_source.rs`). It does not read Lua,
+  F# or C++.
+
+| Language | Realms | Receiver in authored code | Bare member name means | Elision | TY1362 |
+| --- | --- | --- | --- | --- | --- |
+| Java | Tac, Yon | `this.x` optional | the field, unless a local or parameter has the name | Possible | Done |
+| Kotlin | Tac, Yon | `this.x` optional | the property; nested lambdas can have another receiver | Possible outside nested blocks | Done |
+| C# | Tac, Yon | `this.X` optional; the scaffold already writes `Message` | the field or property | Possible | Done |
+| Groovy | Yon | `this.x` optional | the property; closures can change the delegate | Possible outside nested blocks | Done |
+| Swift | Tac | `self.x` optional; the scaffold already writes `message` | the property; escaping closures need `self` | Possible outside nested blocks | Done |
+| Dart | Tac, Yon | `this.x` optional, except `this.x` initializing formals | the field | Possible outside initializing formals | Done |
+| C++ | Tac | `this->x` optional; the scaffold already writes `message` | the member, unless a local or parameter has the name | Possible | Not possible yet: the reader does not know `.hpp`, and the receiver is `this->`, not `this.` |
+| JavaScript | Tac, Yon | `this.x` required | a module, global or closure binding, never the field | Not possible | Out of scope |
+| TypeScript | Tac, Yon | `this.x` required | the same as JavaScript | Not possible | Out of scope |
+| Python | Tac, Yon | `self.x` required (`self` is an ordinary parameter) | a local, then a module name; an assignment makes a new local | Not possible | Out of scope |
+| Ruby | Tac, Yon | `@x` for instance variables; `attr_reader` makes a method | a reader can be called as `x`, but `x = value` makes a local and never calls a writer | Not possible as a receiver rewrite; reading through `attr_reader` is already a bare call, and `@x` is not a receiver | Out of scope |
+| Lua | Tac, Yon | `self.x` required (`self` comes from `function T:m()`) | a local, then a global; the scaffold class table itself is a global | Not possible | Out of scope; the Lua shadow writer also writes `self.` fields for the type checker (`lua_source/shadow_writer.rs`) |
+| PHP | Yon | `$this->x` required | a local variable `$x` | Not possible | Out of scope |
+| Go | Tac, Yon | the named receiver, such as `greeting.Message` | a package-level name | Not possible | Out of scope |
+| Rust | Tac, Yon | `self.x` required | a local, then an item in scope | Not possible | Out of scope |
+| F# | Tac, Yon | `member this.M()` needs a self identifier, and `this.X` is required for members | a `let` value of the type, or an outer binding | Not possible for members; private `let` values are already bare | Out of scope; F# behavior lowering also calls the hidden method as `this.<name>` (`fsharp_source/fsharp_behaviors.rs`) |
+
+Result: the six languages that TY1362 covers are the only ones where the
+language allows a bare member name and Tachyon already has a reader. C++ is the
+one remaining language where elision is legal. A C++ rule would need the C++
+tokenizer from `tac_cpp` in the suggestion scan and a `this->` receiver form,
+with the same owned-method, declared-member and no-shadowing checks. Because
+the C++ scaffold already writes bare members, that rule would help only code
+written by hand, so it stays a later option and is not planned here. In the
+other nine languages a bare name does not mean the member, so no suggestion
+and no compiler rewrite can offer it without changing behavior.
