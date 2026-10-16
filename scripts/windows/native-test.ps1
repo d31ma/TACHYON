@@ -138,6 +138,62 @@ function Write-WebViewDiagnostics {
     }
 }
 
+function Write-WebViewProcesses([string] $app) {
+    Write-Host "WebView2 arguments: $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+    Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'" -OperationTimeoutSec 2 |
+        Select-Object -First 4 | ForEach-Object {
+            $line = [string] $_.CommandLine
+            if ($line.Length -gt 600) { $line = $line.Substring(0, 600) + '...' }
+            Write-Host ("WebView2 process {0} (parent {1}): {2}" -f $_.ProcessId, $_.ParentProcessId, $line)
+        }
+    Get-ChildItem -LiteralPath (Join-Path $app 'bin') -Recurse -Filter 'DevToolsActivePort' -ErrorAction SilentlyContinue |
+        Select-Object -First 2 | ForEach-Object {
+            Write-Host ("DevToolsActivePort {0}: {1}" -f $_.FullName, ((Get-Content -LiteralPath $_.FullName) -join ' '))
+        }
+}
+
+function Add-CompanionProbe {
+    if ('TachyonCompanionProbe' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class TachyonCompanionProbe
+{
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate IntPtr Invoke(IntPtr request);
+
+    [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr LoadLibraryW(string path);
+
+    [DllImport("kernel32", CharSet = CharSet.Ansi, ExactSpelling = true)]
+    private static extern IntPtr GetProcAddress(IntPtr module, string name);
+
+    public static string Call(string library, string request)
+    {
+        var module = LoadLibraryW(library);
+        if (module == IntPtr.Zero) return "load failed: " + Marshal.GetLastWin32Error();
+        var entry = GetProcAddress(module, "tac_native_invoke");
+        if (entry == IntPtr.Zero) return "no tac_native_invoke export";
+        var invoke = Marshal.GetDelegateForFunctionPointer<Invoke>(entry);
+        var text = Marshal.StringToCoTaskMemUTF8(request);
+        try { return Marshal.PtrToStringUTF8(invoke(text)) ?? "null answer"; }
+        finally { Marshal.FreeCoTaskMem(text); }
+    }
+}
+'@
+}
+
+function Write-CompanionAnswers([string] $app) {
+    Add-CompanionProbe
+    $owner = [guid]::NewGuid().ToString()
+    $request = '{"op":"init","props":{},"route":"/","service":"gateRoot","owner":"' + $owner + '"}'
+    foreach ($name in @('TachyonCompanion.dll', 'TachyonRustCompanion.dll')) {
+        $library = Join-Path $app "bin\$name"
+        Write-Host ("Companion {0} init gateRoot: {1}" -f $name, [TachyonCompanionProbe]::Call($library, $request))
+    }
+}
+
 function Write-NativeLogTail([string] $log) {
     if (-not (Test-Path $log)) {
         Write-Host 'Native lifecycle log: absent'
@@ -161,13 +217,17 @@ function Write-OwnedProcessState($process) {
         Format-Table -AutoSize | Out-String | Write-Host
 }
 
-function Write-NativeFailureDiagnostics($process, $window, [string] $log) {
+function Write-NativeFailureDiagnostics($process, $window, [string] $log, [string] $app) {
     Write-Host 'Windows native failure diagnostics (before owned-process cleanup):'
     Write-NativeLogTail $log
     Write-OwnedProcessState $process
+    try { Write-WebViewProcesses $app }
+    catch { Write-Host "WebView2 process diagnostics were incomplete: $($_.Exception.Message)" }
     try { Write-WebViewDiagnostics }
     catch { Write-Host "WebView2 diagnostics were incomplete: $($_.Exception.Message)" }
     Write-UiaFailureDiagnostics $window
+    try { Write-CompanionAnswers $app }
+    catch { Write-Host "Companion diagnostics were incomplete: $($_.Exception.Message)" }
 }
 
 function Stop-NativeProcesses($process) {
@@ -326,7 +386,7 @@ function Invoke-NativeGate {
     }
     catch {
         $gateFailure = $_
-        try { Write-NativeFailureDiagnostics $script:process $script:window $log }
+        try { Write-NativeFailureDiagnostics $script:process $script:window $log $app }
         catch { Write-Warning "Native failure diagnostics were incomplete: $($_.Exception.Message)" }
         throw $gateFailure
     }
