@@ -333,6 +333,12 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
 
+      - name: Serve the default JavaScript and TypeScript scaffolds in every browser
+        run: bun run test:scaffold-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+          YON_JAVASCRIPT_RUNTIME: bun
+
       - name: Verify shared Tac and Yon behavior adapters
         run: |
           bun run test:behavior-runtime

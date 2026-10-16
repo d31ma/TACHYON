@@ -15,6 +15,7 @@
     "scripts/native/apple-protocol-test.mjs",
     "scripts/release/server-probe.mjs",
     "scripts/release/feature-smoke.mjs",
+    "scripts/scaffold-browser-gate.mjs",
     "scripts/schema-contract-smoke.mjs",
     "scripts/website-browser-test.mjs",
     "website/scripts/build-content.mjs",
