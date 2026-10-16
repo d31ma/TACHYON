@@ -7,10 +7,8 @@ pub(super) struct SourceText<'a> {
 impl<'a> SourceText<'a> {
     pub(super) fn read(extension: &str, source: &'a str) -> Option<Self> {
         let mask = crate::lexical::code_mask(extension, source);
-        if mask.error.is_some() {
-            return None;
-        }
-        Some(Self {
+        let readable = mask.error.is_none();
+        readable.then_some(Self {
             source,
             bytes: source.as_bytes(),
             code: mask.code,
@@ -25,74 +23,62 @@ impl<'a> SourceText<'a> {
         self.code.get(at).copied().unwrap_or(false)
     }
 
+    fn is_word_character(byte: u8) -> bool {
+        [byte.is_ascii_alphanumeric(), byte == b'_', byte == b'$'].contains(&true)
+    }
+
     pub(super) fn is_word_byte(&self, at: usize) -> bool {
-        if !self.is_code(at) {
-            return false;
-        }
-        let byte = self.bytes[at];
-        byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'$')
+        let next = self.bytes.get(at).copied();
+        let word = next.is_some_and(Self::is_word_character);
+        [self.is_code(at), word] == [true, true]
     }
 
     pub(super) fn starts_word(&self, at: usize) -> bool {
-        self.is_word_byte(at) && (at == 0 || !self.is_word_byte(at - 1))
+        let before = at.checked_sub(1);
+        let follows_word = before.is_some_and(|before| self.is_word_byte(before));
+        [self.is_word_byte(at), follows_word] == [true, false]
     }
 
     pub(super) fn word_end(&self, start: usize) -> usize {
-        let mut end = start;
-        while self.is_word_byte(end) {
-            end += 1;
-        }
-        end
+        let end = (start..self.len()).find(|at| !self.is_word_byte(*at));
+        end.unwrap_or(self.len().max(start))
     }
 
     pub(super) fn word_start(&self, end: usize) -> usize {
-        let mut start = end;
-        while start > 0 && self.is_word_byte(start - 1) {
-            start -= 1;
-        }
-        start
+        let before_word = (0..end).rev().find(|at| !self.is_word_byte(*at));
+        before_word.map_or(0, |at| at + 1)
+    }
+
+    fn is_whole_word(&self, at: usize, length: usize) -> bool {
+        [self.starts_word(at), self.word_end(at) == at + length] == [true, true]
     }
 
     pub(super) fn code_words(&self, word: &str) -> Vec<usize> {
-        let mut positions = Vec::new();
-        for (at, _) in self.source.match_indices(word) {
-            if self.starts_word(at) && self.word_end(at) == at + word.len() {
-                positions.push(at);
-            }
-        }
-        positions
+        self.source
+            .match_indices(word)
+            .map(|(at, _)| at)
+            .filter(|at| self.is_whole_word(*at, word.len()))
+            .collect()
+    }
+
+    fn is_visible_code(&self, at: usize) -> bool {
+        let next = self.bytes.get(at);
+        let visible = next.is_some_and(|byte| !byte.is_ascii_whitespace());
+        [self.is_code(at), visible] == [true, true]
     }
 
     pub(super) fn next_code(&self, from: usize) -> Option<usize> {
-        let mut at = from;
-        while at < self.len() {
-            if self.is_code(at) && !self.bytes[at].is_ascii_whitespace() {
-                return Some(at);
-            }
-            at += 1;
-        }
-        None
+        (from..self.len()).find(|at| self.is_visible_code(*at))
     }
 
     pub(super) fn previous_code(&self, before: usize) -> Option<usize> {
-        let mut at = before;
-        while at > 0 {
-            at -= 1;
-            if self.is_code(at) && !self.bytes[at].is_ascii_whitespace() {
-                return Some(at);
-            }
-        }
-        None
+        (0..before).rev().find(|at| self.is_visible_code(*at))
     }
 
     pub(super) fn previous_word(&self, before: usize) -> &'a str {
-        let Some(last) = self.previous_code(before) else {
-            return "";
-        };
-        if !self.is_word_byte(last) {
-            return "";
-        }
-        &self.source[self.word_start(last + 1)..=last]
+        let last = self.previous_code(before);
+        let last_word_byte = last.filter(|last| self.is_word_byte(*last));
+        last_word_byte.map_or("", |last| &self.source[self.word_start(last + 1)..=last])
     }
 
     pub(super) fn matching(&self, open: usize) -> Option<usize> {
@@ -155,14 +141,14 @@ impl<'a> SourceText<'a> {
     }
 
     pub(super) fn is_blank_line(&self, line_start: usize) -> bool {
-        line_start < self.len() && self.line_text(line_start).trim().is_empty()
+        let inside = line_start < self.len();
+        let text = inside.then(|| self.line_text(line_start));
+        text.is_some_and(|text| text.trim().is_empty())
     }
 
     pub(super) fn previous_line_start(&self, line_start: usize) -> Option<usize> {
-        if line_start == 0 {
-            return None;
-        }
-        Some(self.line_start(line_start - 1))
+        let before = line_start.checked_sub(1);
+        before.map(|before| self.line_start(before))
     }
 
     pub(super) fn indentation(&self, line_start: usize) -> usize {
