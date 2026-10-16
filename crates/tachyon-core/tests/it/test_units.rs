@@ -221,7 +221,17 @@ async fn a_java_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.java",
-        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
+        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    @Fake\n    CatalogCounterHelper catalogCounterHelper;\n    @Fake\n    long count;\n    @Fake\n    boolean seen;\n\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n        Assert.isTrue(catalogCounterHelper == null, \"a fake starts empty\");\n        count = 3;\n        seen = true;\n        catalogCounterHelper = new CatalogCounterHelper() {\n            int count() { return 4; }\n        };\n        Assert.equals(8, construct(CatalogService.class).total(), \"the total\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(catalogCounterHelper == null, \"the fake is empty again\");\n        Assert.equals(0L, count, \"a primitive fake is zero again\");\n        Assert.isTrue(!seen, \"a boolean fake is false again\");\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/helpers/CatalogCounterHelper.java",
+        "@Helper\nclass CatalogCounterHelper {\n    int count() { return 21; }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/services/CatalogService.java",
+        "@Service\nclass CatalogService {\n    @Needs\n    private final CatalogCounterHelper catalogCounterHelper;\n\n    int total() { return catalogCounterHelper.count() * 2; }\n}\n",
     );
 
     let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.java")
@@ -688,7 +698,7 @@ fn assert_java_report(response: tachyon_contracts::HandlerResponse) {
     assert!(
         cases[1]["error"]
             .as_str()
-            .is_some_and(|error| error.contains("meant to fail")),
+            .is_some_and(|error| error.starts_with("this case is meant to fail")),
         "{body}"
     );
 }

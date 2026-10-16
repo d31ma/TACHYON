@@ -21,6 +21,36 @@ impl<'a> JavaTestConstruction<'a> {
         .source()
     }
 
+    pub(super) fn cleared_fakes(owner: &Type, unit: &Unit) -> String {
+        let lines: Vec<String> = unit
+            .mocks
+            .iter()
+            .map(|name| Self::cleared_fake(owner, name))
+            .collect();
+        lines.concat()
+    }
+
+    fn cleared_fake(owner: &Type, name: &str) -> String {
+        let empty = Self::empty_value(owner, name);
+        format!("this.{name} = {empty};\n")
+    }
+
+    fn empty_value(owner: &Type, name: &str) -> &'static str {
+        let declared = owner.fields.iter().find(|field| field.name == name);
+        let kind = declared.map_or("", |field| field.type_source.trim());
+        match kind {
+            "boolean" => "false",
+            "byte" => "(byte) 0",
+            "short" => "(short) 0",
+            "char" => "(char) 0",
+            "int" => "0",
+            "long" => "0L",
+            "float" => "0.0f",
+            "double" => "0.0d",
+            _ => "null",
+        }
+    }
+
     fn source(&self) -> String {
         format!(
             "\n<T> T construct(Class<T> type) {{\n\

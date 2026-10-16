@@ -69,3 +69,29 @@ fn an_empty_client_fake_is_a_client_bound_to_the_test_context() {
         "{lowered}"
     );
 }
+
+#[test]
+fn every_fake_is_cleared_before_each_java_case() {
+    let source = lowered(
+        "@Fake\n    String value;\n    @Fake\n    long count;\n    @Fake\n    boolean seen;",
+    );
+    assert!(source.contains(
+        "for (String name : new String[]{\"testRead\"}) {\nthis.value = null;\nthis.count = 0L;\nthis.seen = false;\nstartBehaviors();"
+    ));
+}
+
+#[test]
+fn every_fake_is_cleared_before_each_groovy_case() {
+    let source = "@Test(StatusTestSetup)\nclass StatusServiceTest {\n    @Fake\n    def note\n    @Fake\n    int total\n    void testRead() {}\n}\n";
+    let lowered = crate::behavior::lower(
+        Path::new("server/tests/StatusServiceTest.groovy"),
+        source,
+        "yon",
+    )
+    .expect("Groovy Test with fakes")
+    .expect("Groovy lowering");
+    assert!(
+        lowered.contains("this.note = null;\nthis.total = 0;\nstartBehaviors();"),
+        "{lowered}"
+    );
+}

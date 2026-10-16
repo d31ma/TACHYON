@@ -546,6 +546,12 @@ machine contracts have their own, independent major versions.
   the refusal appears on a machine without Emscripten (ADR 0054 and ADR 0085
   amendments).
 
+- A Java or Groovy test unit now clears every `@Fake` field before each
+  case, as the documentation says. Before, a test double that one case
+  assigned was still there in the next case. A reference field becomes
+  `null`, a `boolean` becomes `false` and a number or `char` becomes zero.
+  `construct(Class)` works as before.
+
 - A Go `@HTTPClient` request body model now follows its `json` tags as
   `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
   and the other empty values instead of sending `""` and `null`, `omitzero`

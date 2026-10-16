@@ -83,7 +83,8 @@ fn lower_type(
         members.push_str(&helper);
     }
     if let Some(unit) = super::super::testing::polyglot_unit(type_declaration) {
-        members.push_str(&test_members(&unit));
+        let cleared_fakes = JavaTestConstruction::cleared_fakes(type_declaration, &unit);
+        members.push_str(&test_members(&unit, &cleared_fakes));
         members.push_str(&JavaTestConstruction::members(
             module,
             type_declaration,
@@ -1047,7 +1048,7 @@ fn quote(value: &str) -> String {
     Value::String(value.to_owned()).to_string()
 }
 
-fn test_members(unit: &Unit) -> String {
+fn test_members(unit: &Unit, cleared_fakes: &str) -> String {
     let calls = super::super::ValueSource::jvm_calls(&unit.cases, &unit.inputs);
     let case_names: Vec<String> = calls.iter().map(|(name, _)| name.clone()).collect();
     let names = quoted_list(&case_names);
@@ -1065,6 +1066,7 @@ fn test_members(unit: &Unit) -> String {
          Object POST() {{\n\
          java.util.List<Object> cases = new java.util.ArrayList<>();\n\
          for (String name : new String[]{{{names}}}) {{\n\
+         {cleared_fakes}\
          startBehaviors();\n\
          BehaviorCalls.take();\n\
          try {{ runCase(name); cases.add(Behaviors.record(\"name\", name, \"passed\", true, \"called\", BehaviorCalls.take())); }}\n\
