@@ -94,6 +94,14 @@ failed with "must use async def" while an `async def` failed with `TY1605`.
 `OnEvent`, `Order` and `InBackground` stay available: see the events and
 topics amendment below.
 
+Python Tac code cannot call the server through a client either. The rule
+table leaves Python out of `HTTPClient` and its request annotations
+(`GetRequest`, `PostRequest`, `PutRequest`, `PatchRequest`, `DeleteRequest`,
+`StreamRequest` and `SocketRequest`), so a Python Tac client fails with
+`TY1308`, as Lua does (ADR 0085). Call the server from a JavaScript,
+TypeScript or compiled service and pass the answer to the Python service as
+an argument.
+
 At run time a request or answer over 1 MiB, a member request over 64 KiB,
 more than 256 live owners, or a call on a busy owner is refused. Python runs
 on the page thread, so a long computation blocks the page. Threads,
