@@ -222,6 +222,55 @@ fn fake_and_value_source_forms_are_checked_before_compiling() {
 }
 
 #[test]
+fn a_fake_in_the_test_setup_is_refused_instead_of_ignored() {
+    let root = tempfile::tempdir().expect("project");
+    UnitProject::report_project(
+        root.path(),
+        "class [[Test(ReportTestSetup)]] ReportServiceTest {\npublic:\n    void testOne() { Assert::isTrue(true); }\n};\n",
+    );
+    UnitProject::write(
+        root.path(),
+        &[(
+            "client/tests/ReportTestSetup.hpp",
+            "class [[TestSetup]] ReportTestSetup {\npublic:\n    [[Fake]] TallyService tally;\n};\n",
+        )],
+    );
+    let refused = UnitProject::refusal(root.path(), "client/tests/ReportServiceTest.hpp");
+    assert!(
+        refused.contains("belongs in the [[Test]] class"),
+        "{refused}"
+    );
+}
+
+#[test]
+fn a_constexpr_service_method_still_compiles_with_recorded_calls() {
+    if !UnitProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    UnitProject::write(
+        root.path(),
+        &[
+            (
+                "client/services/TallyService.hpp",
+                "class [[Service]] TallyService {\npublic:\n    constexpr int doubled(int value) const { return value * 2; }\n};\n",
+            ),
+            (
+                "client/tests/TallyTestSetup.hpp",
+                "class [[TestSetup]] TallyTestSetup {};\n",
+            ),
+            (
+                "client/tests/TallyServiceTest.hpp",
+                "class [[Test(TallyTestSetup)]] TallyServiceTest {\npublic:\n    void testDoubles() {\n        TallyService tally;\n        Assert::equals(4, tally.doubled(2));\n    }\n};\n",
+            ),
+        ],
+    );
+    let report = UnitProject::report(root.path(), "client/tests/TallyServiceTest.hpp");
+    assert!(report.cases[0].passed, "{report:?}");
+    assert_eq!(report.cases[0].called, ["TallyService.doubled"]);
+}
+
+#[test]
 fn coverage_lists_the_public_methods_of_cpp_services() {
     let root = tempfile::tempdir().expect("project");
     UnitProject::write(root.path(), &UnitProject::FIRST_APP);

@@ -28,6 +28,7 @@ impl CppClientUnit {
     const NO_SETUP: &'static str = "[[Test]] names its TestSetup class first, for example [[Test(TallyTestSetup)]], and client/tests/TallyTestSetup.hpp declares class [[TestSetup]] TallyTestSetup";
     const FAKE_FORM: &'static str = "A C++ [[Fake]] field holds the stand-in object itself, for example `[[Fake]] GreetingClient greetingClient;`: no reference, no pointer, no static";
     const FAKE_TYPE: &'static str = "A C++ [[Fake]] field stands in for a C++ service in client/services or a C++ [[HTTPClient]] in client/remotes";
+    const FAKE_IN_SETUP: &'static str = "A C++ [[Fake]] field belongs in the [[Test]] class, where construct<T>() gives it to the service; the TestSetup class cannot hold one";
 
     pub(crate) fn run(project: &Path, relative: &Path, source: &str) -> Result<String, Failure> {
         let unit = Self::read(relative, source)?;
@@ -117,6 +118,18 @@ impl CppClientUnit {
         valid
             .then_some(())
             .ok_or_else(|| CppFailure::unreadable(&relative, file.class.name_at, Self::NO_SETUP))?;
+        let fake = file
+            .class
+            .members
+            .iter()
+            .find(|member| member.marked("Fake"));
+        fake.map_or(Ok(()), |fake| {
+            Err(CppFailure::unreadable(
+                &relative,
+                fake.name_at,
+                Self::FAKE_IN_SETUP,
+            ))
+        })?;
         let answers = file.class.members.iter().any(Self::is_configure);
         let lowered = CppLowering::model(&file, &source);
         Ok((CppProgram::located(&relative, &lowered), answers))

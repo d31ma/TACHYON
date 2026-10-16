@@ -220,7 +220,8 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   Fake field's object instead of the program-wide one. A shared service that
   is first made during `construct` keeps the shared objects, so a Fake never
   leaks into a later case. `CounterService counter;` still makes the service
-  with the shared objects.
+  with the shared objects. A `[[Fake]]` field in the TestSetup class is
+  refused, because no `construct` reads it there.
 - `[[ValueSource([1, 2, 3])]]` on a case with one parameter runs it once for
   each input, named `testName[1]`, `testName[2]` and so on (ADR 0080). The
   list is JSON with 1 to 256 numbers, strings or booleans; Tachyon writes
@@ -229,7 +230,9 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   with a body are the methods that a case must call. In a test unit, Tachyon
   adds `BehaviorCalls::record("CounterService.increment");` at the start of
   each of them, and each case reports the methods it ran. A call on a Fake
-  client does not count, because a client has no written methods.
+  client does not count, because a client has no written methods. The call
+  is recorded only at run time, so a `constexpr` method still compiles; a
+  call that the compiler evaluates does not count.
 
 ### Size
 

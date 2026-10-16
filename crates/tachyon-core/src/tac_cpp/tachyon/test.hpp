@@ -71,10 +71,9 @@ namespace tachyon {
 
 class BehaviorCalls {
 public:
-    static void record(const char* key) {
-        std::vector<std::string>& keys = recorded();
-        if (std::find(keys.begin(), keys.end(), key) == keys.end()) {
-            keys.emplace_back(key);
+    static constexpr void record(const char* key) {
+        if (!std::is_constant_evaluated()) {
+            recordAtRunTime(key);
         }
     }
 
@@ -88,6 +87,13 @@ public:
     }
 
 private:
+    static void recordAtRunTime(const char* key) {
+        std::vector<std::string>& keys = recorded();
+        if (std::find(keys.begin(), keys.end(), key) == keys.end()) {
+            keys.emplace_back(key);
+        }
+    }
+
     static std::vector<std::string>& recorded() {
         static std::vector<std::string> keys;
         return keys;
