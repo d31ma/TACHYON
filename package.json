@@ -38,6 +38,7 @@
     "test:web-apis-browser": "node scripts/web-apis-browser-test.mjs",
     "test:web-components-browser": "node scripts/web-components-browser-test.mjs",
     "test:authored-node-browser": "node scripts/authored-node-browser-gate.mjs",
+    "test:scaffold-browser": "node scripts/scaffold-browser-gate.mjs",
     "test:native-companion": "node scripts/native/companion-test.mjs"
   },
   "keywords": [
