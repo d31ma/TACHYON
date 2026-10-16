@@ -249,3 +249,17 @@ fn the_manifest_grants_browser_apis_by_name() {
         "{twice}"
     );
 }
+
+#[test]
+fn the_manifest_theme_color_reaches_every_page_head() {
+    let manifest = json!({ "name": "Shop", "theme_color": "#0b5fff", "tac": {} });
+    let bytes = manifest.to_string().into_bytes();
+    let settings = SiteSettings::from_captured_manifest(Some(&bytes)).expect("settings");
+    assert!(
+        settings
+            .manifest_head
+            .ends_with(r##"<meta name="theme-color" content="#0b5fff">"##),
+        "{}",
+        settings.manifest_head
+    );
+}

@@ -148,7 +148,7 @@ func Invoke(text string) (reply string) {
 			reply = `{"error":"Native companion operation failed."}`
 		}
 		executing = nil
-		handling = false
+		yieldTurn()
 	}()
 	reply = handle(text)
 	if executing != nil {
@@ -809,7 +809,8 @@ func disposeAll() {
 	active := owners
 	owners = map[string]*ownerActivation{}
 	executing = nil
-	for _, owner := range active {
+	for id, owner := range active {
+		cancelHTTP(id)
 		disposeActivation(owner)
 	}
 	sweep()

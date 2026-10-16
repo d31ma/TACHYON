@@ -341,6 +341,7 @@ pub(super) fn manifest_head(manifest: &WebAppManifest) -> String {
             html_attribute_escape(largest)
         );
     }
+    head.push_str(&manifest.theme_color_meta());
     head
 }
 
@@ -351,6 +352,8 @@ pub(crate) struct WebAppManifest {
     start_url: Option<String>,
     #[serde(default)]
     icons: Vec<ManifestIcon>,
+    #[serde(default)]
+    theme_color: Option<serde_json::Value>,
     #[serde(default)]
     tac: Option<TacMember>,
     #[serde(default)]
@@ -414,6 +417,23 @@ impl WebAppManifest {
         }
         icons.sort_by_key(|(edge, _)| std::cmp::Reverse(*edge));
         icons
+    }
+
+    fn theme_color_meta(&self) -> String {
+        use crate::compiler::html_attribute_escape;
+
+        self.theme_color
+            .as_ref()
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|color| !color.is_empty())
+            .map(|color| {
+                format!(
+                    r#"<meta name="theme-color" content="{}">"#,
+                    html_attribute_escape(color)
+                )
+            })
+            .unwrap_or_default()
     }
 
     fn display_name(&self) -> Option<String> {
@@ -718,6 +738,52 @@ mod tests {
             tags.push((name, attributes));
         }
         tags
+    }
+
+    #[test]
+    fn the_manifest_theme_color_becomes_a_literal_theme_color_meta() {
+        for color in [
+            "#0b5fff",
+            "rgb(11 95 255)",
+            "#fff\"><script src=\"/shared/injected.js\"></script><meta name=\"x",
+            "a&copy;<b>'",
+        ] {
+            let root = tempfile::tempdir().expect("project");
+            write_manifest_document(
+                root.path(),
+                &serde_json::json!({ "theme_color": color, "icons": [] }),
+            );
+            let manifest = super::read_manifest(root.path())
+                .expect("manifest")
+                .expect("manifest present");
+            let head = super::manifest_head(&manifest);
+            let tags = start_tags(&head);
+            assert_eq!(tags.len(), 2, "a manifest link and one meta: {head}");
+            let (name, attributes) = &tags[1];
+            assert_eq!(name, "meta", "{head}");
+            assert_eq!(attributes.len(), 2, "no injected meta attributes: {head}");
+            assert_eq!(attributes["name"], "theme-color");
+            assert_eq!(attributes["content"], color);
+        }
+    }
+
+    #[test]
+    fn a_missing_blank_or_non_text_theme_color_writes_no_meta() {
+        for manifest in [
+            serde_json::json!({}),
+            serde_json::json!({ "theme_color": "" }),
+            serde_json::json!({ "theme_color": "   " }),
+            serde_json::json!({ "theme_color": 12 }),
+            serde_json::json!({ "theme_color": null }),
+        ] {
+            let root = tempfile::tempdir().expect("project");
+            write_manifest_document(root.path(), &manifest);
+            let read = super::read_manifest(root.path())
+                .expect("manifest")
+                .expect("manifest present");
+            let head = super::manifest_head(&read);
+            assert!(!head.contains("theme-color"), "{manifest}: {head}");
+        }
     }
 
     #[test]

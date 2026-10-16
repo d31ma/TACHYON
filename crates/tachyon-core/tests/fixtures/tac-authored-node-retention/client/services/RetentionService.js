@@ -26,6 +26,14 @@ export default class RetentionService {
   ]
   /** @type {Row[]} */
   rows = [{ id: RetentionService._ROW_ID, label: 'Original row' }]
+  /** @type {Choice[]} */
+  _choices = [
+    { id: 'alpha', label: 'Alpha' },
+    { id: 'beta', label: 'Beta' },
+    { id: 'gamma', label: 'Gamma' },
+  ]
+  /** @type {string} */
+  picked = 'beta'
 
   /** @returns {void} */
   update() {
@@ -41,6 +49,16 @@ export default class RetentionService {
   /** @returns {void} */
   replaceRows() {
     this.rows = [{ id: RetentionService._ROW_ID, label: 'Replacement row' }]
+  }
+
+  /** @returns {Choice[]} */
+  choiceList() {
+    return this._choices.map((choice) => ({ ...choice }))
+  }
+
+  /** @returns {void} */
+  renameChoices() {
+    this._choices = this._choices.map((choice) => ({ ...choice, label: `${choice.label}!` }))
   }
 
   /** @returns {void} */

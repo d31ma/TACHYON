@@ -127,7 +127,8 @@ Never put a secret in it, including in `tac.application`.
 | `short_name` | The label that a launcher shows. | browser, native |
 | `start_url` | The route where the application opens, and the entry route of a native build. It must be a canonical local route. | browser, native |
 | `icons` | `[{ "src", "sizes" }]`, with local bundle paths. A native build uses the largest raster icon. A manifest with only SVG icons gets no native icon. | browser, native |
-| `display`, `theme_color`, `background_color`, … | Standard members for browser install. Tachyon publishes them as written. | browser |
+| `theme_color` | The color of the browser's interface around the page. Tachyon publishes it as written. When it is a text value that is not blank, every page head also gets `<meta name="theme-color" content="…">` with that value, HTML-escaped, so the color applies before installation and in a native build's page. A number or another JSON value writes no tag. The manifest has one theme color: there is no light and dark pair (ADR 0052 amendment). | browser, build |
+| `display`, `background_color`, … | Standard members for browser install. Tachyon publishes them as written. | browser |
 | `tac` | Tac's public configuration (ADR 0034). It binds with `TAC_` names and `tac.` paths. Keys are lowercase. Names that look like secrets are not allowed. The Tachyon members below are read by the build and are not service configuration. | Tac services |
 | `tac.application.id` | Bundle identifier in reverse-DNS form, such as `com.example.catalog`. Without it, the id is derived from the project folder. | native |
 | `tac.application.version` | Portable version string, such as `1.4.0` (1.0.0 unless set). | native |

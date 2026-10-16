@@ -208,6 +208,52 @@ func plainPolicy() BehaviorMethodPolicy {
 	return plain
 }
 
+func cancellationRetryPolicy() BehaviorMethodPolicy {
+	result := plainPolicy()
+	result.Retry = &BehaviorRetryPolicy{MaxRetries: 2, Multiplier: 1}
+	return result
+}
+
+func checkCancellationDoesNotRetry(failure error, code string) {
+	context := must(createContext("cancelled-retry"))
+	defer context.Dispose()
+	calls := 0
+	_, err := context.Invoke(cancellationRetryPolicy(), nil, func([]BehaviorValue) (BehaviorValue, error) {
+		calls++
+		return nil, failure
+	})
+	expectCode(err, code, "a cancelled invocation keeps its error code")
+	expect(calls == 1, "a cancelled invocation must not retry: "+code)
+}
+
+func checkRetryableFailureStillRetries() {
+	context := must(createContext("network-retry"))
+	defer context.Dispose()
+	calls := 0
+	value, err := context.Invoke(cancellationRetryPolicy(), nil, func([]BehaviorValue) (BehaviorValue, error) {
+		calls++
+		if calls < 3 {
+			return nil, behaviorError("HTTP_NETWORK", "temporary network failure")
+		}
+		return "recovered", nil
+	})
+	expect(err == nil && value == "recovered", "a retryable failure can recover")
+	expect(calls == 3, "a retryable failure keeps the configured attempts")
+}
+
+func cancellationRetryContracts() {
+	_, browserFailure := behaviorBrowserAnswer(`{"error":{"code":"CANCELLED"}}`)
+	expectCode(browserFailure, "CANCELLED", "browser cancellation uses its wire code")
+	for _, failure := range []error{browserFailure, fmt.Errorf("wrapped cancellation: %w", browserFailure)} {
+		checkCancellationDoesNotRetry(failure, "CANCELLED")
+	}
+	failure := behaviorError("cancelled", "cancelled operation")
+	for _, cancellation := range []error{failure, fmt.Errorf("wrapped cancellation: %w", failure)} {
+		checkCancellationDoesNotRetry(cancellation, "cancelled")
+	}
+	checkRetryableFailureStillRetries()
+}
+
 func mutationPolicy(operation string) BehaviorMethodPolicy {
 	result := policy()
 	result.Name = "update"
@@ -906,6 +952,78 @@ type codecSample struct {
 	hidden int
 }
 
+type taggedNote struct {
+	Text string `json:"text,omitempty"`
+}
+
+type taggedStamp struct {
+	Seconds int
+}
+
+func (stamp *taggedStamp) IsZero() bool {
+	return stamp.Seconds <= 0
+}
+
+type taggedLevel int
+
+func (level taggedLevel) IsZero() bool {
+	return level < 0
+}
+
+type taggedRequest struct {
+	Title    string            `json:"title,omitempty"`
+	Owner    *string           `json:"owner,omitempty"`
+	Tags     []string          `json:"tags,omitempty"`
+	Labels   map[string]string `json:"labels,omitempty"`
+	Count    int               `json:"count,omitempty"`
+	Draft    bool              `json:"draft,omitempty"`
+	Ratio    float64           `json:",omitempty"`
+	Note     taggedNote        `json:"note,omitempty"`
+	Any      any               `json:"any,omitempty"`
+	Fixed    [0]int            `json:"fixed,omitempty"`
+	Hidden   string            `json:"-"`
+	Dash     string            `json:"-,"`
+	Odd      string            `json:"bad\"name"`
+	At       time.Time         `json:"at,omitzero"`
+	Stamp    taggedStamp       `json:"stamp,omitzero"`
+	Level    taggedLevel       `json:"level,omitzero"`
+	Pair     [2]int            `json:"pair,omitzero"`
+	Kept     *string           `json:"kept"`
+	Quoted   int               `json:"quoted,string"`
+	Flag     *bool             `json:"flag,string"`
+	Phrase   string            `json:"phrase,string"`
+	Skipped  []int             `json:"skipped,string,omitempty"`
+	Untagged string
+}
+
+func sameAsEncodingJSON(value any, message string) string {
+	encoded := must(behaviorEncode(value, 4096))
+	reference, failure := json.Marshal(value)
+	expect(failure == nil, "encoding/json encodes "+message)
+	expect(same(must(behaviorParseJSON(encoded)), must(behaviorParseJSON(string(reference)))), message+" matches encoding/json: "+encoded+" "+string(reference))
+	return encoded
+}
+
+func checkJSONTags() {
+	empty := sameAsEncodingJSON(taggedRequest{Dash: "d"}, "an empty tagged request")
+	expect(empty == `{"-":"d","Odd":"","Untagged":"","flag":null,"kept":null,"level":0,"note":{},"phrase":"\"\"","quoted":"0"}`, "omitempty, omitzero, - and string follow encoding/json: "+empty)
+	owner := ""
+	yes := true
+	full := sameAsEncodingJSON(taggedRequest{
+		Title: "t", Owner: &owner, Tags: []string{}, Labels: map[string]string{"a": "b"}, Count: 3, Draft: true, Ratio: 0.5,
+		Note: taggedNote{Text: "n"}, Any: 0, Hidden: "h", Stamp: taggedStamp{Seconds: 2}, Level: -1,
+		Pair: [2]int{0, 1}, Quoted: 12, Flag: &yes, Phrase: "a\"b", Skipped: []int{1},
+	}, "a full tagged request")
+	expect(strings.Contains(full, `"owner":""`), "a non-nil pointer to an empty string is kept: "+full)
+	expect(strings.Contains(full, `"stamp":{"Seconds":2}`), "an IsZero method decides omitzero: "+full)
+	expect(!strings.Contains(full, `"level"`) && !strings.Contains(full, `"tags"`), "a zero level and an empty list are left out: "+full)
+	expect(strings.Contains(full, `"phrase":"\"a\\\"b\""`) && strings.Contains(full, `"flag":"true"`), "string quotes scalar values: "+full)
+	policy := &BehaviorHttpPolicy{Client: "catalog", Method: "POST", Path: "/products"}
+	request := must(behaviorHttpRequest(policy, map[string]any{"body": taggedRequest{Dash: "d"}}))
+	body := must(behaviorEncode(request.Body, 4096))
+	expect(body == empty, "a request body model leaves out its omitempty fields: "+body)
+}
+
 func checkJSONCodec() {
 	text := must(behaviorEncode(map[string]any{"b": 1, "a": []int{1, 2}, "c": "é\n\u2028<"}, 1024))
 	expect(text == `{"a":[1,2],"b":1,"c":"é\n\u2028<"}`, "the codec writes sorted compact JSON: "+text)
@@ -1021,7 +1139,9 @@ func checkJoinedTransaction() {
 }
 
 func main() {
+	cancellationRetryContracts()
 	checkJSONCodec()
+	checkJSONTags()
 	validationContracts()
 	configurationContracts()
 	mutationContracts()

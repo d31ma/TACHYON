@@ -129,3 +129,27 @@ inline scripts, so the work cannot move into the page head as text.
   list short and each file small.
 - A blocking script is a classic script: it cannot use `import` or `export`,
   and its top-level class becomes a global name of the page.
+
+## Amendment (2026-10-11): The theme color reaches every page head
+
+A browser reads the manifest's standard `theme_color` only for an installed
+application. A page in a browser tab, and a native build's page, colored the
+browser's interface only with `<meta name="theme-color">` in the page head,
+and an application could not add that tag: the build writes the head.
+
+### Decision
+
+- When `theme_color` in `client/manifest.json` is a text value that is not
+  blank, the build adds `<meta name="theme-color" content="...">` to every
+  page head, after the manifest and icon links. The value is trimmed and
+  HTML-escaped, so it stays one attribute value.
+- A missing, blank, number or other non-text `theme_color` writes no tag and
+  still does not stop the build. The manifest is still published as written.
+- The manifest models one theme color. A light and dark pair
+  (`media="(prefers-color-scheme: dark)"`) is not added until the manifest
+  has a member for it.
+
+### Consequences
+
+- The color is declared once, in the manifest, for installation, browser
+  tabs and native pages.

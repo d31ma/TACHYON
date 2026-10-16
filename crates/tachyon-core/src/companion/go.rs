@@ -67,6 +67,21 @@ pub(crate) struct GoTable<'a> {
     pub(crate) needs: &'a str,
 }
 
+impl GoTable<'_> {
+    pub(crate) fn member_keys(&self) -> Option<Vec<String>> {
+        let code = masked_code(self.source, self.source_path).ok()?;
+        let body = struct_body(&code, self.class)?;
+        let fields = go_source::fields(&code, body)
+            .into_iter()
+            .filter_map(|field| field_entry(self, &field));
+        let methods = go_source::methods(&code)
+            .into_iter()
+            .filter(|method| method.receiver_type == self.class)
+            .filter_map(|method| method_entry(self, &code, &method));
+        Some(fields.chain(methods).map(|(key, _)| key).collect())
+    }
+}
+
 struct GoTypes;
 
 impl GoTypes {
@@ -308,6 +323,45 @@ mod tests {
         let check = output.find("\"check\"").expect("check");
         let results = output.find("\"results\"").expect("results");
         assert!(check < results, "members are sorted by key");
+    }
+
+    #[test]
+    fn member_keys_are_the_owner_table_names() {
+        let table = GoTable {
+            source: Fixtures::SERVICE,
+            source_path: "client/services/SearchService.go",
+            class: "SearchService",
+            excluded: &[],
+            extra: "",
+            needs: "",
+        };
+        let keys = table.member_keys().expect("keys");
+        let output = owner_table(&table).expect("table");
+        for key in &keys {
+            assert!(output.contains(&format!("{{Name: {key:?},")), "{key}");
+        }
+        assert_eq!(
+            keys.len(),
+            output.matches("{Name: ").count(),
+            "{keys:?}\n{output}"
+        );
+        let acronym = GoTable {
+            source: "type SettingsService struct {\n\tOAuthNotice string\n}\n\nfunc (service *SettingsService) URLFor(name string) string { return name }\n",
+            source_path: "client/services/SettingsService.go",
+            class: "SettingsService",
+            excluded: &[],
+            extra: "",
+            needs: "",
+        };
+        assert_eq!(
+            acronym.member_keys(),
+            Some(vec![String::from("oAuthNotice"), String::from("uRLFor")])
+        );
+        let missing = GoTable {
+            class: "OtherService",
+            ..acronym
+        };
+        assert_eq!(missing.member_keys(), None);
     }
 
     #[test]

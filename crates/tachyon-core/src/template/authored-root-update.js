@@ -37,10 +37,29 @@ class AuthoredRootUpdate {
     return chain.some((pair) => this._refused.has(pair.old) && AuthoredRootUpdate._isCustom(pair.old))
   }
   commit() {
+    const selections = this._pairs.filter((pair) => pair.old instanceof HTMLSelectElement).map((pair) => this._selection(pair))
     for (const pair of this._pairs) this._syncElement(pair)
     for (const text of this._texts) this._syncText(text)
     for (const [parent, desired] of this._children) this._commitGroup(parent, desired)
+    for (const selection of selections) AuthoredRootUpdate._restoreSelection(selection)
     this._recordElements()
+  }
+  _selection(pair) {
+    const rendered = [...pair.fresh.selectedOptions].map((option) => this._resolve(option))
+    const kept = this._bindsSelection(pair) ? rendered : [...pair.old.selectedOptions]
+    return { select: pair.old, kept, rendered }
+  }
+  _bindsSelection(pair) {
+    if (changedDuringRender(pair.old, this._active, this._editingAtStart)) return false
+    return Elements.records.get(pair.fresh).attributes.has('value') || pair.fresh.querySelector('option[selected]') !== null
+  }
+  static _restoreSelection({ select, kept, rendered }) {
+    const options = [...select.options]
+    const surviving = kept.filter((option) => options.includes(option))
+    const chosen = new Set(surviving.length ? surviving : rendered)
+    for (const option of options) {
+      if (option.selected !== chosen.has(option)) option.selected = chosen.has(option)
+    }
   }
   static _recordedChildren(parent) {
     const record = Elements.records.get(parent)

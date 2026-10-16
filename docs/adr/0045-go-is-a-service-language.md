@@ -363,3 +363,36 @@ service had its own package.
   page owner, so its own `OnEvent` methods are not registered.
 - Standard Go and TinyGo build the same program; the tests build both and
   run them under Node.
+
+## Amendment (2026-10-11): the behavior runtime honours `encoding/json` tags
+
+The behavior runtime turns each Go value into JSON data itself (see Annotation
+Notes). For a struct it read only the key of the `json` tag, so a Go
+`@HTTPClient` request body model sent `""` for an empty `omitempty` string and
+`null` for a nil `omitempty` pointer, where `encoding/json`, and every other
+language's model, leaves the member out. The server then saw a member the model
+meant to omit.
+
+- A struct field's `json` tag now means what it means to `encoding/json`:
+  - The key is the tag name, or the Go field name when the tag has no name or
+    a name that `encoding/json` would not accept. `json:"-"` leaves the field
+    out; `json:"-,"` uses the key `-`.
+  - `omitempty` leaves out `false`, a zero number, a nil pointer or interface,
+    and an empty string, slice, map or array. A struct is never empty.
+  - `omitzero` leaves out a zero value. When the field's type, or a pointer to
+    it, has an `IsZero() bool` method, that method decides, as for
+    `time.Time`; a nil pointer is always zero. A field whose type is an
+    interface is zero only when it is nil.
+  - `string` writes a bool, number or string field (or a pointer to one) as
+    JSON text inside a string, such as `"12"` or `"\"text\""`. A nil pointer
+    stays `null`.
+- This applies wherever the behavior runtime writes a value: request bodies,
+  query values, cache keys, stored entities and validation. A validated field
+  that `omitempty` leaves out is absent, so `notNull` now refuses an empty
+  `omitempty` string, as the server would see it.
+- The runtime still does not call `MarshalJSON` or `MarshalText`, and does not
+  lift the fields of an embedded struct into the outer object. The values that
+  a Go service gives a view keep their own rule (exported fields with a
+  lower-case first letter, ADR 0045 Web Service Notes).
+- The Go contract test compares the runtime's output with `encoding/json` for
+  each of these cases, and through `behaviorHttpRequest` for a request body.

@@ -13,6 +13,7 @@ mod expression;
 mod feature_inputs_tests;
 mod frontend;
 mod model;
+mod owner_method_binding;
 pub(crate) mod required_fields;
 mod script_service_references;
 mod service;
@@ -25,6 +26,10 @@ mod shipped_script;
 #[allow(clippy::expect_used)]
 pub(crate) mod shipped_script_tests;
 mod slotted_children;
+mod view_member_check;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod view_member_check_tests;
 
 pub(crate) use accessibility::AccessibilityCheck;
 pub(crate) use braced_attribute::BracedAttribute;
@@ -40,5 +45,6 @@ pub(crate) use model::{
 pub(crate) use service::{ServiceDefinition, ServiceRegistry, instance_name};
 pub(crate) use service_reach::ServiceReach;
 pub(crate) use shipped_script::ShippedScript;
+pub(crate) use view_member_check::ViewMemberCheck;
 
 pub(crate) use required_fields::RequiredFields;

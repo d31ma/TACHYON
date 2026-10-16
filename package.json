@@ -26,6 +26,7 @@
     "test:window-grant-macos": "node scripts/window-grant-macos-test.mjs",
     "test:island-expression": "node scripts/island-expression-test.mjs",
     "test:runtime-browser": "node scripts/runtime-browser-test.mjs",
+    "test:safe-html-browser": "node scripts/safe-html-browser-test.mjs",
     "test:behavior-runtime": "node scripts/behavior-runtime-test.mjs",
     "test:behavior-browser": "node scripts/behavior-browser-test.mjs",
     "test:tac-client": "node scripts/tac-client-test.mjs",

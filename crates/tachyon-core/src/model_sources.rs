@@ -10,6 +10,9 @@ pub(crate) use model_metadata::ModelMetadata;
 mod model_file;
 use model_file::ModelFile;
 
+mod model_selection;
+use model_selection::ModelSelection;
+
 pub(crate) struct ModelSources {
     extension: String,
     files: Vec<ModelFile>,
@@ -80,6 +83,13 @@ impl ModelSources {
                 .map(|file| (PathBuf::from(&file.portable), file.source.clone()))
                 .collect(),
         )
+    }
+
+    pub(crate) fn used_by(&self, programs: [&str; 2]) -> Self {
+        Self {
+            extension: self.extension.clone(),
+            files: ModelSelection::used(&self.extension, &self.files, programs),
+        }
     }
 
     pub(crate) fn changes_program_text(&self) -> bool {

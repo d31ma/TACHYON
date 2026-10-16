@@ -593,3 +593,76 @@ fn a_go_model_with_behavior_is_refused_when_read() {
     };
     assert_eq!(failure.diagnostics()[0].code.number(), 1310);
 }
+
+#[test]
+fn a_script_service_gets_only_the_models_it_names_and_the_models_they_name() {
+    let root = tempfile::tempdir().expect("project");
+    for (relative, source) in [
+        (
+            "client/models/Order.js",
+            "/**\n * @typedef {Object} Order\n * @property {OrderLine[]} lines\n */\nexport {}\n",
+        ),
+        (
+            "client/models/OrderLine.js",
+            "/**\n * @typedef {Object} OrderLine\n * @property {Money} price\n */\nexport {}\n",
+        ),
+        (
+            "client/models/Money.js",
+            "/** @typedef {number} Money */\nexport {}\n",
+        ),
+        (
+            "client/models/Unrelated.js",
+            "/**\n * @typedef {Object} Unrelated\n * @property {string} note\n */\nexport {}\n",
+        ),
+        (
+            "client/models/ProductInput.js",
+            "@Checked\nexport default class ProductInput {\n  @Required\n  name;\n}\n",
+        ),
+    ] {
+        write(root.path(), relative, source);
+    }
+    let models = super::ModelSources::read(root.path(), "client", "js").expect("models");
+    let program = "export default class Orders {\n  /** @param {Order} order */\n  place(order) { return order; }\n}\n";
+    let selected = models.used_by([program, program]).add_to_program(program);
+    for kept in ["{OrderLine[]} lines", "{Money} price", "{number} Money"] {
+        assert!(selected.contains(kept), "{kept}: {selected}");
+    }
+    assert!(!selected.contains("Unrelated"), "{selected}");
+    assert!(!selected.contains("class ProductInput"), "{selected}");
+    assert!(selected.ends_with(program), "{selected}");
+    let checked = "export default class Inputs { make() { return new ProductInput(); } }\n";
+    let selected = models.used_by(["", checked]).add_to_program(checked);
+    assert!(selected.contains("class ProductInput"), "{selected}");
+    assert!(!selected.contains("@typedef"), "{selected}");
+    assert_eq!(
+        models.used_by(["", "plain"]).add_to_program("plain"),
+        "plain"
+    );
+}
+
+#[test]
+fn a_typescript_service_keeps_the_field_types_of_the_models_it_names() {
+    let root = tempfile::tempdir().expect("project");
+    for (relative, source) in [
+        (
+            "client/models/Guide.ts",
+            "export interface Guide {\n  section: Section\n}\n",
+        ),
+        (
+            "client/models/Section.ts",
+            "export interface Section {\n  title: string\n}\n",
+        ),
+        (
+            "client/models/Other.ts",
+            "export interface Other {\n  count: number\n}\n",
+        ),
+    ] {
+        write(root.path(), relative, source);
+    }
+    let models = super::ModelSources::read(root.path(), "client", "ts").expect("models");
+    let program = "export default class Guides { read(guide: Guide): string { return guide.section.title; } }\n";
+    let selected = models.used_by([program, program]).add_to_program(program);
+    assert!(selected.contains("interface Guide"), "{selected}");
+    assert!(selected.contains("interface Section"), "{selected}");
+    assert!(!selected.contains("interface Other"), "{selected}");
+}

@@ -19,6 +19,10 @@
     <w-card variant="outlined" id="form-card"><input id="slotted-draft" aria-label="Slotted draft" value="abcdef" /></w-card>
     <unknown-wrap id="opaque"><input id="wrapped" aria-label="Wrapped" value="abcdef" /></unknown-wrap>
     <section id="rows"><loop :for="row of retention.rows"><button class="row" :data-id="row.id" on:click="retention.choose(row.id)">{row.label}</button></loop></section>
+    <button id="rename-choices" on:click="retention.renameChoices()">Rename choices</button>
+    <ul id="choices"><loop :for="choice of retention.choiceList()"><li class="choice" :data-id="choice.id"><label>{choice.label}<input class="choice-note" /></label></li></loop></ul>
+    <label>Selected choice<select id="selected-choice" on:change="retention.picked = $event.target.value"><loop :for="choice of retention.choiceList()"><option :value="choice.id" :selected="choice.id === retention.picked">{choice.label}</option></loop></select></label>
+    <label>Valued choice<select id="valued-choice" :value="retention.picked" on:change="retention.picked = $event.target.value"><loop :for="choice of retention.choiceList()"><option :value="choice.id">{choice.label}</option></loop></select></label>
     <logic :if="retention.visible"><section id="conditional">Conditional authored node</section></logic>
   </main>
 </w-container>

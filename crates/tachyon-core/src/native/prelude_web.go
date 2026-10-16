@@ -74,10 +74,10 @@ func settleWith(ticket int, answer js.Value) {
 	answer.Call("then", settle)
 }
 
-func cancelHTTP(ticket int) {
+func cancelHTTP(ticket int) bool {
 	started, present := httpStarted[ticket]
-	delete(httpStarted, ticket)
 	if present {
 		started.Call("cancel")
 	}
+	return present
 }

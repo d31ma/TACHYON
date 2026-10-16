@@ -47,6 +47,8 @@ impl<'a> ClientViewRenderer<'a> {
         "\n",
         include_str!("tac-http.js"),
         "\n",
+        include_str!("tac-safe-html.js"),
+        "\n",
         include_str!("tac-native.js"),
         "\n",
         include_str!("authored-root-update.js"),
@@ -83,6 +85,7 @@ impl<'a> ClientViewRenderer<'a> {
         let reached = ServiceReach::expand(self.services, &encoder.used_services);
         let catalog = self.service_catalog(&reached);
         self.check_shared_data(program, &nodes)?;
+        super::ViewMemberCheck::run(self.services, &nodes, &program.source_path)?;
         let plan = json!({
             "schemaVersion": 1,
             "route": route,
@@ -394,6 +397,7 @@ impl<'a> Encoder<'a> {
         let template = self.component_template(template_nodes, active);
         self.enclosing.pop();
         let template = template?;
+        super::ViewMemberCheck::run(self.services, &template, &component.program().source_path)?;
         let slot = self.nodes(&slotted.unnamed)?;
         let slots = self.named_slot_nodes(&slotted)?;
         Ok(json!({
@@ -437,6 +441,8 @@ impl<'a> Encoder<'a> {
         });
         let template = self.component_template(template_nodes, active);
         self.enclosing.pop();
+        let template = template?;
+        super::ViewMemberCheck::run(self.services, &template, &component.program().source_path)?;
         let slots = ComponentSlots::of(template_nodes);
         Ok(json!({
             "props": props,
@@ -448,7 +454,7 @@ impl<'a> Encoder<'a> {
                 "mount": active.then_some(HydrationPolicy::Load.name()),
                 "services": services,
                 "scope": true,
-                "template": template?,
+                "template": template,
                 "slot": slots.native_unnamed(),
                 "slots": slots.native_named(),
             },

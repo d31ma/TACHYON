@@ -94,3 +94,13 @@ fn scripts_without_the_blocking_option_stay_deferred_modules() {
     assert!(runtime < module, "{html}");
     assert!(!html.contains("<script src="), "{html}");
 }
+
+#[test]
+fn the_manifest_theme_color_is_a_meta_in_the_page_head() {
+    let html = PageHeadFixture::home(r##"{"theme_color":"#0b5fff","tac":{}}"##);
+    let meta = PageHeadFixture::position(&html, r##"<meta name="theme-color" content="#0b5fff">"##);
+    let head_end = PageHeadFixture::position(&html, "</head>");
+    assert!(meta < head_end, "{html}");
+    let plain = PageHeadFixture::home(r#"{"tac":{}}"#);
+    assert!(!plain.contains("theme-color"), "{plain}");
+}

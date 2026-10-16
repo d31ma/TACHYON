@@ -247,3 +247,42 @@ fn an_unreachable_runtime_does_not_consume_the_unchanged_route_budget() {
             .any(|problem| problem.code.to_string() == "TY1337")
     );
 }
+
+#[test]
+fn binding_the_owner_to_its_own_methods_does_not_reach_every_provider() {
+    for body in [
+        "this.handle = this.tap.bind(this)",
+        "this.handle = this.pick(1).call(this)",
+        "this.handle = this.tap.apply(this, [])",
+        "this.handle = this.handlers['tap'].bind( this )",
+    ] {
+        let root = project();
+        let source = format!(
+            "@Service\nexport default class RootService {{ middle: MiddleService; count = 1; constructor() {{ {body}; }} tap() {{}} pick() {{ return this.tap; }} }}"
+        );
+        write(root.path(), "client/services/RootService.ts", &source);
+        let page = render(root.path(), "<reachable />");
+        assert_eq!(page.services, names(&["root", "middle", "leaf"]), "{body}");
+        assert!(!page.html.contains("UnusedService.js"), "{body}");
+    }
+}
+
+#[test]
+fn binding_the_owner_to_outside_code_still_reaches_every_provider() {
+    for body in [
+        "helper.call(this, values)",
+        "this.handle = helper.bind(this)",
+        "this.handle = helpers.tap.apply(this, [values])",
+        "this.handle = make(this.tap).bind(this)",
+        "this.handle = this.tap.bind(this, this)",
+    ] {
+        let root = project();
+        let source = format!(
+            "@Service\nexport default class RootService {{ count = 1; constructor(values) {{ {body}; }} tap() {{}} }}"
+        );
+        write(root.path(), "client/services/RootService.ts", &source);
+        let services = ServiceRegistry::discover(root.path()).expect("services");
+        let page = render(root.path(), "<reachable />");
+        assert_eq!(page.services, services.names(), "{body}");
+    }
+}

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
 )
@@ -79,7 +80,7 @@ func behaviorInvalid() error {
 
 func behaviorRetryable(err error) bool {
 	switch BehaviorErrorCode(err) {
-	case "invalid", "unauthorized", "capacity", "cancelled", "timeout", "configuration":
+	case "invalid", "unauthorized", "capacity", "cancelled", "CANCELLED", "timeout", "configuration":
 		return false
 	}
 	return true
@@ -211,6 +212,10 @@ func behaviorNormalizeMap(value reflect.Value, depth int) (any, error) {
 	return object, nil
 }
 
+type behaviorZeroer interface {
+	IsZero() bool
+}
+
 func behaviorNormalizeStruct(value reflect.Value, depth int) (any, error) {
 	object := map[string]any{}
 	for index := 0; index < value.NumField(); index++ {
@@ -218,23 +223,109 @@ func behaviorNormalizeStruct(value reflect.Value, depth int) (any, error) {
 		if !field.IsExported() {
 			continue
 		}
-		name := field.Name
-		if tag, tagged := field.Tag.Lookup("json"); tagged {
-			tagName := strings.Split(tag, ",")[0]
-			if tagName == "-" {
-				continue
-			}
-			if tagName != "" {
-				name = tagName
-			}
+		name, options, skipped := behaviorFieldTag(field)
+		if skipped || behaviorFieldOmitted(value.Field(index), options) {
+			continue
 		}
 		item, err := behaviorNormalize(value.Field(index), depth+1)
 		if err != nil {
 			return nil, err
 		}
+		if strings.Contains(options, ",string,") && behaviorQuotable(field.Type) {
+			item = behaviorQuoted(item)
+		}
 		object[name] = item
 	}
 	return object, nil
+}
+
+func behaviorFieldTag(field reflect.StructField) (string, string, bool) {
+	tag, tagged := field.Tag.Lookup("json")
+	if tag == "-" {
+		return "", "", true
+	}
+	name, options, _ := strings.Cut(tag, ",")
+	if !tagged || !behaviorValidTagName(name) {
+		name = field.Name
+	}
+	return name, "," + options + ",", false
+}
+
+func behaviorValidTagName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, character := range name {
+		if !strings.ContainsRune("!#$%&()*+-./:;<=>?@[]^_{|}~ ", character) && !unicode.IsLetter(character) && !unicode.IsDigit(character) {
+			return false
+		}
+	}
+	return true
+}
+
+func behaviorFieldOmitted(value reflect.Value, options string) bool {
+	if strings.Contains(options, ",omitempty,") && behaviorEmptyValue(value) {
+		return true
+	}
+	return strings.Contains(options, ",omitzero,") && behaviorZeroValue(value)
+}
+
+func behaviorEmptyValue(value reflect.Value) bool {
+	switch value.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return value.Len() == 0
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Interface, reflect.Pointer:
+		return value.IsZero()
+	}
+	return false
+}
+
+func behaviorZeroValue(value reflect.Value) bool {
+	switch value.Kind() {
+	case reflect.Interface:
+		return value.IsNil()
+	case reflect.Pointer:
+		if value.IsNil() {
+			return true
+		}
+	}
+	if !value.CanInterface() {
+		return value.IsZero()
+	}
+	if zeroer, implemented := value.Interface().(behaviorZeroer); implemented {
+		return zeroer.IsZero()
+	}
+	boxed := reflect.New(value.Type())
+	boxed.Elem().Set(value)
+	if zeroer, implemented := boxed.Interface().(behaviorZeroer); implemented {
+		return zeroer.IsZero()
+	}
+	return value.IsZero()
+}
+
+func behaviorQuotable(kind reflect.Type) bool {
+	if kind.Kind() == reflect.Pointer && kind.Name() == "" {
+		kind = kind.Elem()
+	}
+	switch kind.Kind() {
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.String:
+		return true
+	}
+	return false
+}
+
+func behaviorQuoted(item any) any {
+	switch item.(type) {
+	case bool, float64, string:
+		var builder strings.Builder
+		behaviorWriteJSON(&builder, item)
+		return builder.String()
+	}
+	return item
 }
 
 func behaviorWriteJSON(builder *strings.Builder, value any) {

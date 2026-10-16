@@ -2,7 +2,6 @@ package tac
 
 import (
 	"encoding/json"
-	"runtime"
 	"strconv"
 )
 
@@ -19,17 +18,19 @@ type pause struct {
 }
 
 type httpTicket struct {
-	owner  string
-	answer chan string
+	owner     string
+	answer    chan string
+	cancelled bool
 }
 
 var currentTask *task
 var lastTask int
 var lastTicket int
 var httpTickets = map[int]*httpTicket{}
+var turns []chan struct{}
 var TaskDone func(id int, answer string)
 var HTTPStart func(ticket int, request string)
-var HTTPCancel func(ticket int)
+var HTTPCancel func(ticket int) bool
 var SocketStart func(ticket int, owner string, request string)
 
 const httpMissing = `{"error":{"code":"HTTP_MISSING"}}`
@@ -127,6 +128,9 @@ func awaitTicket(start func(id int, owner string)) string {
 	if currentTask == nil {
 		return httpOutsideTask
 	}
+	if executing != nil && executing.disposed {
+		return httpCancelled
+	}
 	lastTicket++
 	ticket := &httpTicket{owner: executingOwner(), answer: make(chan string, 1)}
 	httpTickets[lastTicket] = ticket
@@ -140,20 +144,25 @@ func awaitTicket(start func(id int, owner string)) string {
 func SettleHTTP(id int, answer string) {
 	ticket := httpTickets[id]
 	delete(httpTickets, id)
-	if ticket != nil {
-		ticket.answer <- answer
+	if ticket == nil {
+		return
 	}
+	if ticket.cancelled {
+		answer = httpCancelled
+	}
+	ticket.answer <- answer
 }
 
 func cancelHTTP(owner string) {
 	for id, ticket := range httpTickets {
-		if ticket.owner != owner {
+		if ticket.owner != owner || ticket.cancelled {
+			continue
+		}
+		ticket.cancelled = true
+		if HTTPCancel != nil && HTTPCancel(id) {
 			continue
 		}
 		delete(httpTickets, id)
-		if HTTPCancel != nil {
-			HTTPCancel(id)
-		}
 		ticket.answer <- httpCancelled
 	}
 }
@@ -168,8 +177,8 @@ func executingOwner() string {
 func suspend() pause {
 	paused := pause{owner: executing, task: currentTask}
 	executing = nil
-	handling = false
 	currentTask = nil
+	yieldTurn()
 	select {
 	case paused.task.waiting <- struct{}{}:
 	default:
@@ -178,10 +187,23 @@ func suspend() pause {
 }
 
 func (paused pause) resume() {
-	for handling {
-		runtime.Gosched()
+	if handling {
+		turn := make(chan struct{})
+		turns = append(turns, turn)
+		<-turn
 	}
 	handling = true
 	executing = paused.owner
 	currentTask = paused.task
+}
+
+func yieldTurn() {
+	handling = false
+	if len(turns) == 0 {
+		return
+	}
+	next := turns[0]
+	turns = turns[1:]
+	handling = true
+	close(next)
 }

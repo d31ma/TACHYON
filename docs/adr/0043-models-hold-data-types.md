@@ -106,3 +106,20 @@ file.
   type. It rejects every item kind that is not listed above.
 - JavaScript has no type declarations. It describes types with JSDoc in the
   file that uses them.
+
+## Amendment (2026-10-11): a script service carries only the models it names
+
+- The build no longer adds every client models file to each JavaScript and
+  TypeScript Tac service module. A module gets the models whose file name or
+  declared name (a JSDoc `@typedef`, a class, an interface, a type alias) the
+  service writes anywhere in its file, in code or in a comment, and then the
+  models that those models name, until no new name appears. The models keep
+  their folder order.
+- A typedef-only JavaScript model is only a comment in the browser, so it
+  changed nothing at run time but made every service module larger. In a
+  project with about 100 JavaScript models, each service module carried
+  about 17 KB of them, about 4 KB as sent.
+- Every other program keeps every models file of its language: Yon
+  handlers, WebAssembly and other web services, the project-root middleware
+  and test units. The statement above that the framework adds the realm's
+  models files "to every program it builds" holds for those programs.

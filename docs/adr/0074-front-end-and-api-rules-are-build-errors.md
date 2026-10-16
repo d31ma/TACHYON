@@ -131,3 +131,32 @@ baseline file is not checked.
 - The statement above that window-controls and cached-client keep
   `tac.budgets.check: false` is no longer true. Their manifests do not set
   it, so the check is on, and the computed budget covers them.
+
+## Amendment (2026-10-11): which services and models a route counts
+
+- The view plan of a route lists the services that its views use and the
+  services that those reach, and the size check counts the module of each
+  listed service, because the page loads it when a view needs it. That stays
+  as it is.
+- A JavaScript or TypeScript service reaches another service when its file
+  names the field that receives it, such as `middle;` or
+  `this.middle = undefined`. The build cannot see the names that a write with
+  a computed key adds (`this[key] = ...`, `Object.assign(this, ...)`,
+  `Object.defineProperty(this, ...)`, `Reflect.set(this, ...)`), or the names
+  that code in another file adds when the service hands `this` to it
+  (`initialize(this)`, `helper.call(this)`, `const owner = this`). In those
+  cases, and when it cannot read the file, the build lists every service of
+  the project.
+- `this` handed to `.bind`, `.call` or `.apply` of the service's own member
+  (`this.save.bind(this)`, `this.pick(id).call(this)`) is no longer such a
+  case: the method is in the same file, so the build already sees every name
+  that it uses. Before, one such line made every route that reached that
+  service list every service of the project.
+- Each JavaScript or TypeScript service module carries only the models that
+  it names (ADR 0043 amendment).
+- In the CADUCEUS probe (70 services, 16 of them JavaScript, about 100
+  JavaScript models), a simulation over its release output gives: every
+  route except one listed all 70 services and loaded 200.4 KB of script as
+  sent, at the budget. Two services bound `this` to their own methods. With
+  the narrower rule a route lists 14 to 48 services and loads 133 to 172 KB.
+  With the smaller service modules as well, it loads 115 to 136 KB.

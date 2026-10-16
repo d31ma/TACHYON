@@ -141,6 +141,10 @@ class AuthoredNodeBrowserGate {
       await AuthoredNodeBrowserGate._checkSlotChanges(page)
       diagnostics.phase = 'focused-input'
       await AuthoredNodeBrowserGate._checkFocusedInput(page)
+      diagnostics.phase = 'equal-loop-items'
+      await AuthoredNodeBrowserGate._checkEqualLoopItems(page)
+      diagnostics.phase = 'looped-select-options'
+      await AuthoredNodeBrowserGate._checkLoopedSelects(page)
       diagnostics.phase = 'conditional-removal'
       await AuthoredNodeBrowserGate._checkConditionalRemoval(page)
     } finally {
@@ -301,6 +305,69 @@ class AuthoredNodeBrowserGate {
       }
     }, AuthoredNodeBrowserGate._settle)
     assert.deepEqual(slotted, { kept: true, hostKept: true, selection: [2, 5, 'forward'] })
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _checkEqualLoopItems(page) {
+    const note = page.locator('.choice-note').nth(1)
+    await note.fill('typed')
+    const result = await note.evaluate(async (input, settle) => {
+      const items = [...document.querySelectorAll('.choice')]
+      const updates = Number(document.getElementById('updates').textContent)
+      input.focus()
+      input.setSelectionRange(1, 3, 'forward')
+      dispatchEvent(new Event('tachyon:rerender'))
+      await new Promise((resolve) => setTimeout(resolve, settle))
+      document.getElementById('update').click()
+      await new Promise((resolve) => setTimeout(resolve, settle))
+      const current = [...document.querySelectorAll('.choice')]
+      return {
+        kept: items.length === 3 && items.every((item, index) => item === current[index]),
+        inputKept: current[1].contains(input),
+        focused: input === document.activeElement,
+        value: input.value,
+        selection: [input.selectionStart, input.selectionEnd, input.selectionDirection],
+        updated: Number(document.getElementById('updates').textContent) === updates + 1,
+      }
+    }, AuthoredNodeBrowserGate._settle)
+    assert.deepEqual(result, { kept: true, inputKept: true, focused: true, value: 'typed', selection: [1, 3, 'forward'], updated: true })
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _checkLoopedSelects(page) {
+    await page.evaluate(() => document.activeElement?.blur())
+    assert.deepEqual(await AuthoredNodeBrowserGate._selectValues(page), ['beta', 'beta'], 'first render')
+    await page.evaluate(AuthoredNodeBrowserGate._rerender, AuthoredNodeBrowserGate._settle)
+    assert.deepEqual(await AuthoredNodeBrowserGate._selectValues(page), ['beta', 'beta'], 'unrelated update')
+    await page.selectOption('#selected-choice', 'alpha')
+    await page.evaluate(AuthoredNodeBrowserGate._rerender, AuthoredNodeBrowserGate._settle)
+    assert.deepEqual(await AuthoredNodeBrowserGate._selectValues(page), ['alpha', 'alpha'], 'picked with :selected')
+    assert.equal(await page.evaluate(AuthoredNodeBrowserGate._renameChoices, AuthoredNodeBrowserGate._settle), true)
+    assert.deepEqual(await AuthoredNodeBrowserGate._selectValues(page), ['alpha', 'alpha'], 'renamed options with :selected')
+    await page.selectOption('#valued-choice', 'beta')
+    await page.evaluate(AuthoredNodeBrowserGate._rerender, AuthoredNodeBrowserGate._settle)
+    assert.deepEqual(await AuthoredNodeBrowserGate._selectValues(page), ['beta', 'beta'], 'picked with :value')
+    assert.equal(await page.evaluate(AuthoredNodeBrowserGate._renameChoices, AuthoredNodeBrowserGate._settle), true)
+    assert.deepEqual(await AuthoredNodeBrowserGate._selectValues(page), ['beta', 'beta'], 'renamed options with :value')
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<string[]>} */
+  static _selectValues(page) {
+    return page.evaluate(() => ['selected-choice', 'valued-choice'].map((id) => /** @type {HTMLSelectElement} */ (document.getElementById(id)).value))
+  }
+
+  /** @type {(settle: number) => Promise<void>} */
+  static _rerender = async (settle) => {
+    dispatchEvent(new Event('tachyon:rerender'))
+    await new Promise((resolve) => setTimeout(resolve, settle))
+  }
+
+  /** @type {(settle: number) => Promise<boolean>} */
+  static _renameChoices = async (settle) => {
+    const options = [...document.querySelectorAll('#selected-choice option, #valued-choice option')]
+    document.getElementById('rename-choices').click()
+    await new Promise((resolve) => setTimeout(resolve, settle))
+    return options.length === 6 && options.every((option) => !option.isConnected)
   }
 
   /** @param {import('playwright').Page} page @returns {Promise<void>} */

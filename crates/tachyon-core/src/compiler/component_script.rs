@@ -66,8 +66,9 @@ impl ComponentScript {
             .map(|text| metadata.without_declarations(path, &text))
             .transpose()?;
         let plain = metadata.without_declarations(path, source)?;
+        let used = models.used_by([source, lowered.as_deref().unwrap_or(&plain)]);
         let prepared = Self::lowered_bytes(lowered, &plain);
-        let mut bytes = models
+        let mut bytes = used
             .add_to_program(&String::from_utf8_lossy(&prepared))
             .into_bytes();
         bytes.extend(Self::event_plan_export(events.as_ref(), source_path)?);

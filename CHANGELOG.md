@@ -10,6 +10,23 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The standard `theme_color` member of `client/manifest.json` now becomes
+  `<meta name="theme-color" content="...">` in every web and native page
+  head, HTML-escaped, when it is text that is not blank. A missing or
+  non-text value writes no tag (ADR 0052 amendment).
+- A view that reads a Go service member in a case the service does not
+  expose, such as `settings.oauthNotice` for the Go field `OAuthNotice`
+  (which reaches views as `oAuthNotice`), now stops the build with TY1311:
+  `oauthNotice is not a member of SettingsService; did you mean
+  oAuthNotice?`. Before, the view built and rendered nothing (ADR 0036
+  amendment).
+- `:safe-html` on a template element renders HTML that comes as data, such as
+  an email body or pasted rich text, through a fixed allowlist: formatting
+  elements, safe links and images, and a small set of style properties.
+  Scripts, styles, frames, forms, SVG, event attributes, `id`, `name`,
+  `class` and unsafe URLs are dropped. A browser test checks a list of known
+  script-injection attacks.
+
 - A Go Tac service can need another Go service: `// @Needs` above a field
   such as `counter *CounterService` gives it the instance that the page uses.
   The needed service starts first and stops last, events it publishes during
@@ -257,6 +274,17 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Tac routes load less script. A JavaScript or TypeScript service that hands
+  `this` to its own method (`this.save.bind(this)`,
+  `this.pick(id).call(this)`) no longer makes every route that uses it list,
+  load and count every service of the project; handing `this` to code from
+  another file, or writing to `this` with a computed name, still does. Each
+  JavaScript or TypeScript service module also carries only the client
+  models that it names, and the models that those name, instead of every
+  models file. In a simulation over the CADUCEUS probe's release output, a
+  route went from 200.4 KB of script as sent, at its budget, to 115-136 KB
+  (ADR 0043 and ADR 0074 amendments).
+
 - A Swift service linked into a macOS or iOS app is now a page singleton, as
   CONTEXT.md describes and as a native Rust service already is. Every
   component on a page that names it shares one instance, its OnStart runs
@@ -426,6 +454,41 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- A Go `@HTTPClient` request body model now follows its `json` tags as
+  `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
+  and the other empty values instead of sending `""` and `null`, `omitzero`
+  leaves out zero values (asking an `IsZero` method when there is one),
+  `string` writes a scalar as JSON text in a string, and `json:"-,"` uses the
+  key `-`. The same codec writes query values, cache keys and stored entities
+  (ADR 0045 amendment).
+
+- Leaving a page while a Go Tac service waits for an HTTP answer no longer
+  freezes the page. The page stops its services when it is hidden; stopping a
+  service woke the waiting call inside that same synchronous stop, and the
+  woken call spun until the stop finished. When the stop ran an `OnStop`
+  hook that printed, or the woken call printed or published, the standard Go
+  runtime waited for the spinning call and the page hung until the browser
+  gave up on the navigation. A woken call now waits on a channel for its
+  turn, stopping a service aborts its fetches and lets the aborted answer
+  wake the call afterwards, and a call whose service is gone gets
+  `CANCELLED` without starting a new request. `OnStop` hooks still run when
+  the page is left. Standard Go and TinyGo builds both work (ADR 0090
+  amendment).
+
+- A Tac update keeps the elements of a loop item whose values did not
+  change, also when the list holds new objects on every render, such as a
+  getter that maps a list or values read from a native service. A click,
+  the focus, the caret and an open native `<select>` inside the item now
+  survive the update. A loop item whose values changed still gets a new
+  element. A custom element that rewrites its own children, such as a
+  DuVay `<w-select>`, is still created again on each update.
+
+- A `<select>` whose `<option>`s come from a `<loop>` shows the bound value.
+  `:value` on the select now applies after its options exist, and an update
+  that replaces the options keeps the option that `:value` or `:selected`
+  chooses, or the user's choice when neither is bound. Before, the select
+  showed the last option.
 
 - `scripts/native/apple-protocol-test.mjs` compiles again, so the macOS
   release checks (`test:phase4-macos` and the iOS native test) run again.

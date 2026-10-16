@@ -30,6 +30,7 @@ class Rendering {
   static instanceKeys = new Set()
   static elements = new Map()
   static mounts = []
+  static loopContents = new WeakMap()
 }
 
 /** @typedef {{nodes: object[], named: Record<string, object[]>, environment: object}} RenderSlot */
@@ -347,6 +348,7 @@ const bindEvent = (element, type, binding, environment) => {
 }
 
 const applyAttributes = async (element, attributes, environment) => {
+  let safeHtml
   for (const attribute of attributes || []) {
     if (attribute.event) {
       bindEvent(element, attribute.eventType, attribute.event, environment)
@@ -355,6 +357,10 @@ const applyAttributes = async (element, attributes, environment) => {
     const value = 'expression' in attribute
       ? await evaluate(attribute.expression, environment)
       : attribute.value
+    if (attribute.name === 'safe-html') {
+      safeHtml = value === false || value === null || value === undefined ? '' : String(value)
+      continue
+    }
     if (value === false || value === null || value === undefined) {
       Elements.removeAttribute(element, attribute.name)
       continue
@@ -366,6 +372,7 @@ const applyAttributes = async (element, attributes, environment) => {
       try { element.value = rendered } catch {}
     }
   }
+  return safeHtml
 }
 
 class StaticCache {
@@ -901,8 +908,31 @@ const recordElement = (element, node, environment, path) => {
   return element
 }
 
+const plainLoopData = (_key, value) => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype === Object.prototype || prototype === null) return value
+  throw new TypeError('Tac loop item is not plain data.')
+}
+
+const loopContent = (value) => {
+  if (value === null || typeof value !== 'object') return undefined
+  if (!Rendering.loopContents.has(value)) {
+    let content
+    try { content = JSON.stringify(value, plainLoopData) } catch {}
+    Rendering.loopContents.set(value, content)
+  }
+  return Rendering.loopContents.get(value)
+}
+
+const sameLocal = (previous, next) => {
+  if (Object.is(previous, next)) return true
+  const content = loopContent(previous)
+  return content !== undefined && content === loopContent(next)
+}
+
 const sameLocals = (previous, next) => previous.length === next.length
-  && previous.every(([name, value], index) => next[index][0] === name && Object.is(next[index][1], value))
+  && previous.every(([name, value], index) => next[index][0] === name && sameLocal(value, next[index][1]))
 
 const retainedPair = (old, freshChild) => {
   const previous = Elements.records.get(old)
@@ -1240,12 +1270,14 @@ const renderNode = async (node, environment, path, context) => {
   if (node.k === 'component') return renderComponent(node, environment, path)
   if (node.k !== 'element') return document.createDocumentFragment()
   const element = Elements.create(node.tag, context.namespace)
-  await applyAttributes(element, node.attributes, environment)
-  if (!node.void) {
+  const safeHtml = await applyAttributes(element, node.attributes, environment)
+  if (!node.void && safeHtml !== undefined) element.append(TacSafeHtml.fragment(safeHtml))
+  else if (!node.void) {
     const children = node.children || []
     const childContext = Elements.childContext(element, context)
     element.append(await renderNodes(children, environment, `${path}.children`, childContext))
   }
+  if (element instanceof HTMLSelectElement && element.hasAttribute('value')) element.value = element.getAttribute('value')
   return recordElement(element, node, environment, path)
 }
 
@@ -1380,6 +1412,7 @@ const renderDocument = async (environment) => {
   Rendering.instanceKeys = new Set()
   Rendering.elements = new Map()
   Rendering.mounts = []
+  Rendering.loopContents = new WeakMap()
   const focused = focusedElement()
   const editingAtStart = { element: focused, value: focused?.value }
   if (ClientView.page) commitRoot(document.body, await renderNodes(ClientView.plan.nodes || [], environment, 'body'), editingAtStart)

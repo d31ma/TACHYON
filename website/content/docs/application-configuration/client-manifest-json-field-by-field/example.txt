@@ -15,7 +15,12 @@ icons                                         browser, native
   paths. A native build uses the largest raster icon; an SVG-only
   manifest gets no native icon rather than a blurry one.
 
-display, theme_color, background_color, ...           browser
+theme_color                                    browser, build
+  Published as written. Text that is not blank also becomes
+  <meta name="theme-color" content="..."> in every page head,
+  HTML-escaped. One color: there is no light and dark pair.
+
+display, background_color, ...                        browser
   Standard members for a browser's install, published as written.
 
 tac                                              Tac services

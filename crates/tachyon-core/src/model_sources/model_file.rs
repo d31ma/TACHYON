@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+#[derive(Clone)]
 pub(super) struct ModelFile {
     pub(super) inside: PathBuf,
     pub(super) portable: String,

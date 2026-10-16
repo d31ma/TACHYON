@@ -72,3 +72,23 @@ async fn script_model_schemas_validate_real_tac_calls_after_emission() {
         ModelScriptFixture::invoke(root.path()).await;
     }
 }
+
+#[tokio::test]
+async fn a_script_service_ships_only_the_models_it_names() {
+    let root = tempfile::tempdir().expect("project");
+    ModelScriptFixture::project(root.path(), "js");
+    ModelScriptFixture::write(
+        root.path(),
+        "client/models/AuditNote.js",
+        "/**\n * @typedef {Object} AuditNote\n * @property {string} text\n */\nexport {}\n",
+    );
+    WebCompiler::build_async(root.path(), &BuildOptions::default())
+        .await
+        .expect("selective build");
+    let service =
+        std::fs::read_to_string(root.path().join("dist/.tachyon/services/InputService.js"))
+            .expect("service module");
+    assert!(service.contains("class ProductInput"), "{service}");
+    assert!(!service.contains("AuditNote"), "{service}");
+    ModelScriptFixture::invoke(root.path()).await;
+}

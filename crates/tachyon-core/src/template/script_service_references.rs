@@ -1,3 +1,4 @@
+use super::owner_method_binding::OwnerMethodBinding;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -69,10 +70,10 @@ impl ScriptServiceReferences {
     fn escaped_owner(code: &str) -> bool {
         code.match_indices("this")
             .map(|(offset, _)| Self::owner_evidence(code, offset))
-            .any(|evidence| evidence == (true, true))
+            .any(|evidence| evidence == [true, true, false])
     }
 
-    fn owner_evidence(code: &str, offset: usize) -> (bool, bool) {
+    fn owner_evidence(code: &str, offset: usize) -> [bool; 3] {
         let before = code[..offset].chars().next_back();
         let after = code[offset + 4..].chars().next();
         let identifiers = [
@@ -81,7 +82,11 @@ impl ScriptServiceReferences {
         ];
         let token = !identifiers.contains(&true);
         let escaped = !code[offset + 4..].trim_start().starts_with(['.', '[']);
-        (token, escaped)
+        [
+            token,
+            escaped,
+            OwnerMethodBinding::binds_owner(code, offset),
+        ]
     }
 
     fn identifier_character(character: char) -> bool {

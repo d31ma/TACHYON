@@ -451,3 +451,52 @@ clients opens them; a valid tick reaches its `@OnEvent` method and an invalid
 one is refused; a socket message reaches its listener; sends queued before
 the socket opened are flushed in order, the seventeenth gets `HTTP_NETWORK`;
 and disposing the owner closes both connections.
+
+## Amendment (2026-10-11): Go services stop promptly when the page is left
+
+The page stops every service on `pagehide` (when the page is not kept in the
+back-forward cache), and that stop is a synchronous call into the Go
+program. Before this amendment, stopping a service whose call waited for
+HTTP sent `CANCELLED` straight to the waiting goroutine. Both Go runtimes
+then run that goroutine before the synchronous call returns: the standard
+runtime returns to JavaScript only when every goroutine is idle, and TinyGo
+empties its run queue. The woken goroutine waited for the service lock in a
+`runtime.Gosched()` loop, so it never became idle. As soon as the stop let
+the scheduler run while it held the lock (an `OnStop` hook or the woken
+call writing to the console, which calls back into Go in the standard
+runtime), the standard runtime waited forever for the spinning goroutine
+and the page froze until the browser abandoned the navigation. Under TinyGo
+the woken call ran to the end inside the stop instead, and a call that
+asked the server again after `CANCELLED` started a new fetch for a service
+that was already gone; nothing ever aborted it.
+
+Three changes fix the cause:
+
+- A goroutine that returns from a wait and finds the service lock taken
+  queues on a channel and is handed the lock when the holder releases it.
+  It never spins, so the scheduler can go idle.
+- Stopping a service aborts each of its pending fetches through the page's
+  HTTP host and marks the ticket cancelled. The aborted fetch answers
+  later, as any answer does, and the call then gets `CANCELLED` whatever the
+  answer was. A ticket without a page request to abort (a socket send, or a
+  page without the HTTP host) is still answered at once. The host-wide stop
+  (`host-dispose`) now cancels requests too.
+- A call whose service is already gone gets `CANCELLED` without starting a
+  request or socket send.
+
+Disposal on `pagehide` stays. Aborting fetches there is redundant, because
+the browser drops them with the page, but `OnStop` hooks run only there, so
+removing it would skip them. The stop is now bounded by the hooks
+themselves.
+
+Evidence: `tac_web::go_pagehide_tests` builds a prototype Go service with an
+HTTP client and an `OnStop` hook that prints, plus a shared Go service with
+one, with both the standard compiler and TinyGo, and drives them under Node
+with the real `tac-http.js` and event bus and a fetch that waits until it is
+aborted. For one waiting call, two waiting calls, a call that publishes and
+asks again after `CANCELLED`, two such calls, and a call from an `@OnEvent`
+listener, disposing both services as `pagehide` does returns within a
+second, aborts every pending fetch, starts no new one, runs both `OnStop`
+hooks before any woken call, and settles each call with `CANCELLED`. Before
+the change every standard-Go case hung past 30 seconds, and under TinyGo the
+"asks again" cases started fetches that were never aborted.

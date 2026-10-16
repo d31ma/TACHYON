@@ -54,3 +54,32 @@ page as WebAssembly (ADR 0035).
 - Suppose a data file is removed but its route does not change. An
   incremental build that reuses the route does not revalidate it. A full build
   reports it.
+
+## Amendment (2026-10-11): a Go member read in the wrong case fails the build
+
+A Go service reaches views under its exported names with only the first letter
+lowered (ADR 0045), so `OAuthNotice` is `oAuthNotice`, as in C#. A view that
+wrote `settings.oauthNotice` built, and the page rendered nothing in its place:
+the browser looks members up by exact name.
+
+### Decision
+
+- After a view is encoded, the build reads every member that it names on a
+  service, in braces, `:` attributes, event calls and assignments.
+- When that service runs on the page as Go WebAssembly, the build reads its
+  exposed member names from the Go source, the same names its member table
+  uses. A member that is not one of them but equals one when ASCII case is
+  ignored fails with TY1311, at the view that names it: `The view reads
+  settings.oauthNotice, but oauthNotice is not a member of SettingsService;
+  did you mean oAuthNotice?`
+- Each component view is checked once, at its own file. A nested component's
+  view is not checked again as part of its parent.
+
+### Consequences
+
+- The naming rule does not change, so no existing member is renamed.
+- The check reports only near misses. A member name that matches nothing,
+  in any case, is not reported, because a view may also read names that the
+  Go source does not declare.
+- Other languages are not checked yet. C# uses the same first-letter rule but
+  its member names are read in a later build step.
