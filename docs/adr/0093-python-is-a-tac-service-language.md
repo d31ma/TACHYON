@@ -159,3 +159,41 @@ the runtime files; `ty doctor` names the folder.
   allowance. Python is not one of those runtimes, and the 512 KiB budget of
   a Python route does not change. When a Python route also loads other web
   runtimes, its budget is the larger of the two.
+
+## Amendment 2026-10-16: `async def` service methods
+
+- A public method of a Python Tac service may be `async def`. The page gets
+  a promise for it, like the asynchronous methods of other Tac languages
+  (ADR 0090). Its arguments and its answer cross through the same typed
+  codecs as a synchronous method. A Python Helper may have `async def`
+  methods that a service awaits.
+- The runtime starts the coroutine as an asyncio task on the Pyodide event
+  loop and answers the call with `{"task": id}`. When the task ends, it
+  reports the encoded answer to the page through the host's `done` callback;
+  the page settles the promise through the shared task answers
+  (`TacTaskAnswers`), as Go, Kotlin and Ruby do, and then delivers the
+  events that the task published.
+- A waiting method does not hold its service: other calls, field reads and
+  writes run while it waits, as in JavaScript, Go, Kotlin and Swift. The
+  page always gets a promise, even when the method does not wait.
+- An exception in the task rejects the promise with
+  `Python Tac operation failed.`; Python's own message stays in the
+  runtime. An answer over 1 MiB is refused the same way.
+- Disposing the owner cancels its waiting tasks before the `@on_stop`
+  hooks run, and their promises reject with code `CANCELLED`. Cancellation
+  reaches the coroutine as `asyncio.CancelledError` at its next `await`, so
+  its `finally` blocks run after the stop hooks. Leaving the page cancels
+  every task.
+- At most 256 tasks wait at once; another `async def` call is refused
+  before the method starts.
+- Still refused with `TY1605`: asynchronous `@on_start`, `@on_stop` and
+  `@on_event` methods, streams and browser API resources. Python has no
+  HTTPClient; that is a separate product decision. Native hosts stay out of
+  scope.
+- Evidence: `backend_tests::python_async_methods_settle_through_page_tasks_and_cancel_on_dispose`
+  runs the generated program in CPython. The ignored browser test
+  `pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler`
+  builds `crates/tachyon-core/tests/fixtures/tac-python` and checks a view
+  click, the promise, a field read while the method waits, a failure and a
+  cancellation on dispose, online and after an offline reload, in Chromium.
+  Firefox and WebKit runs are still owed.

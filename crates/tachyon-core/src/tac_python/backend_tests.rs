@@ -126,20 +126,32 @@ fn python_inferred_needs_cannot_become_an_unknown_page_property() {
 }
 
 #[test]
-fn python_async_and_async_lifecycle_are_explicitly_pending() {
+fn python_async_methods_are_described_for_the_page() {
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    let provider = Project::provider(
+        "@service\nclass CounterService:\n    async def answer(self) -> int:\n        return 1\n\n    def plain(self) -> int:\n        return 2\n",
+    );
+    let description = provider
+        .describe(&BTreeSet::new(), &Project::models(root.path()))
+        .unwrap_or_else(|error| panic!("async method: {error:?}"));
+    assert_eq!(description["methods"]["answer"]["asynchronous"], true);
+    assert_eq!(description["methods"]["answer"]["returns"], "integer");
+    assert_eq!(description["methods"]["plain"]["asynchronous"], false);
+}
+
+#[test]
+fn python_async_lifecycle_and_async_listeners_stay_pending() {
     for source in [
-        "@service\nclass CounterService:\n    async def answer(self) -> int:\n        return 1\n",
         "@service\nclass CounterService:\n    @on_start\n    async def _start(self):\n        pass\n",
+        "@service\nclass CounterService:\n    @on_stop\n    async def _stop(self):\n        pass\n",
+        "from models import Guide\n\n@service\nclass CounterService:\n    @on_event\n    async def heard(self, guide: Guide) -> None:\n        pass\n",
     ] {
         let failure =
             PythonProviderSource::read(Path::new("client/services/CounterService.py"), source)
                 .err()
-                .unwrap_or_else(|| panic!("async continuation is pending"));
+                .unwrap_or_else(|| panic!("async lifecycle and listeners are pending: {source}"));
         assert_eq!(failure.diagnostics()[0].code.number(), 1605);
-        assert!(
-            failure.to_string().contains("async")
-                || failure.to_string().contains("synchronous OnStart")
-        );
+        assert!(failure.to_string().contains("synchronous OnStart"));
     }
 }
 
@@ -279,10 +291,11 @@ fn python_missing_opt_in_profile_is_reported_by_doctor_without_installing() {
 struct PythonPage;
 
 impl PythonPage {
-    const OWNERS: [(&'static str, &'static str); 3] = [
+    const OWNERS: [(&'static str, &'static str); 4] = [
         ("shelf", "00000000-0000-4000-8000-000000000001"),
         ("checkout", "00000000-0000-4000-8000-000000000002"),
         ("audit", "00000000-0000-4000-8000-000000000003"),
+        ("library", "00000000-0000-4000-8000-000000000004"),
     ];
     const SHELF: [(&'static str, &'static str); 3] = [
         (
@@ -321,9 +334,37 @@ impl PythonPage {
     const CHECKOUT_DRIVER: &'static str = "_report = {'checkout': _ask('checkout', {'op': 'init', 'props': {}}), 'audit': _ask('audit', {'op': 'init', 'props': {}}),\n\
          \x20   'settled': _ask('audit', {'op': 'event', 'name': 'settle', 'value': {'status': 'paid', 'total': 25}}),\n\
          \x20   'audited': _ask('audit', {'op': 'event', 'name': 'audit', 'value': {'total': 25}})}\n";
-    const DRIVER_HEAD: &'static str = "import json\n_emitted = []\n_TacPythonRuntime.connect(_emitted.append)\n_owners = {}\n\
+    const LIBRARY: [(&'static str, &'static str); 3] = [
+        (
+            "client/models/ShelfCounted.py",
+            "from dataclasses import dataclass\n\n\n@dataclass\nclass ShelfCounted:\n    total: int\n",
+        ),
+        (
+            "client/helpers/CatalogHelper.py",
+            "import asyncio\n\n\n@helper\nclass CatalogHelper:\n    async def count(self, shelf: str) -> int:\n        await asyncio.sleep(0)\n        return len(shelf)\n",
+        ),
+        (
+            "client/services/LibraryService.py",
+            "import asyncio\nfrom typing import Annotated\nfrom models import ShelfCounted\n\n\n@service\nclass LibraryService:\n    catalog: Annotated[CatalogHelper, needs]\n    total: int = 0\n    application_event_publisher: ApplicationEventPublisher\n\n    async def count(self, shelf: str) -> ShelfCounted:\n        self.total = await self.catalog.count(shelf)\n        self.application_event_publisher.publish_event(ShelfCounted(self.total))\n        return ShelfCounted(self.total)\n\n    async def wait(self) -> int:\n        await asyncio.sleep(3600)\n        return 0\n\n    async def fail(self) -> int:\n        await asyncio.sleep(0)\n        raise ValueError('private detail')\n\n    def current(self) -> int:\n        return self.total\n",
+        ),
+    ];
+    const LIBRARY_DRIVER: &'static str = "import asyncio\n\
+         async def _library():\n\
+         \x20   report = {'init': _ask('library', {'op': 'init', 'props': {}})}\n\
+         \x20   report['started'] = _ask('library', {'op': 'call', 'name': 'count', 'args': ['shelf']})\n\
+         \x20   report['meanwhile'] = _ask('library', {'op': 'call', 'name': 'current', 'args': []})\n\
+         \x20   await asyncio.sleep(0.01)\n\
+         \x20   report['after'] = _ask('library', {'op': 'get', 'name': 'total'})\n\
+         \x20   report['failing'] = _ask('library', {'op': 'call', 'name': 'fail', 'args': []})\n\
+         \x20   report['waiting'] = _ask('library', {'op': 'call', 'name': 'wait', 'args': []})\n\
+         \x20   await asyncio.sleep(0.01)\n\
+         \x20   report['disposed'] = _ask('library', {'op': 'dispose'})\n\
+         \x20   await asyncio.sleep(0.01)\n\
+         \x20   return report\n\
+         _report = asyncio.run(_library())\n";
+    const DRIVER_HEAD: &'static str = "import json\n_emitted = []\n_finished = []\n_TacPythonRuntime.connect(_emitted.append, lambda task, text: _finished.append([task, json.loads(text)]))\n_owners = {}\n\
          def _ask(service, request):\n    request.update({'route': 'web', 'service': service, 'owner': _owners[service]})\n    return json.loads(_TacPythonRuntime.invoke(json.dumps(request)))\n";
-    const DRIVER_TAIL: &'static str = "_report['emitted'] = [json.loads(item) for item in _emitted]\nprint(json.dumps(_report))\n";
+    const DRIVER_TAIL: &'static str = "_report['emitted'] = [json.loads(item) for item in _emitted]\n_report['finished'] = _finished\nprint(json.dumps(_report))\n";
 
     fn has_python() -> bool {
         let found = std::process::Command::new("python3")
@@ -475,4 +516,39 @@ fn python_program_lists_fields_whose_default_is_a_model_call() {
         );
     }
     assert!(program.contains("\\\"model\\\":\\\"Product\\\""));
+}
+
+#[test]
+fn python_async_methods_settle_through_page_tasks_and_cancel_on_dispose() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &PythonPage::LIBRARY,
+        &["library"],
+        PythonPage::LIBRARY_DRIVER,
+    );
+    let declared = &report["init"]["value"];
+    assert_eq!(
+        declared["asyncMethods"],
+        json!(["count", "fail", "wait"]),
+        "{report}"
+    );
+    assert_eq!(report["started"], json!({"task": 1}), "{report}");
+    assert_eq!(report["meanwhile"], json!({"value": 0}), "{report}");
+    assert_eq!(report["after"], json!({"value": 5}), "{report}");
+    assert_eq!(report["failing"], json!({"task": 2}), "{report}");
+    assert_eq!(report["waiting"], json!({"task": 3}), "{report}");
+    assert_eq!(report["disposed"], json!({"value": null}), "{report}");
+    assert_eq!(
+        report["finished"],
+        json!([
+            [1, {"value": {"total": 5}}],
+            [2, {"error": "Python Tac operation failed."}],
+            [3, {"error": "Python Tac task owner was disposed.", "code": "CANCELLED"}],
+        ]),
+        "{report}"
+    );
+    let counted = PythonPage::signal("library", "ShelfCounted", &json!({"total": 5}), false);
+    assert_eq!(report["emitted"], json!([counted]), "{report}");
 }

@@ -10,6 +10,12 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A Python Tac service method may be `async def`. The page gets a promise
+  that settles when the asyncio task ends; other calls run while it waits,
+  and disposing the service cancels the task and rejects the promise with
+  `CANCELLED`. Before, `async def` stopped the build with TY1605.
+  Asynchronous `on_start`, `on_stop` and `on_event` methods still do
+  (ADR 0093 amendment).
 - The standard `theme_color` member of `client/manifest.json` now becomes
   `<meta name="theme-color" content="...">` in every web and native page
   head, HTML-escaped, when it is text that is not blank. A missing or
