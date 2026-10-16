@@ -128,6 +128,49 @@ function writeBooleanFixtures(root) {
   write(root, 'client/services/TogglePanelService.js', "@Service()\nexport default class TogglePanelService { open = false; }")
 }
 
+function writeSetupFixtures(root) {
+  write(root, 'client/manifest.json', '{"tac":{"duplication":{"check":false}}}\n')
+  write(root, 'client/setups/SharedPageSetup.js', `@Setup
+export default class SharedPageSetup {
+  static configured = 0
+  static services = 0
+  static configure() {
+    SharedPageSetup.configured += 1
+    return {}
+  }
+}`)
+  write(root, 'client/pages/setups/tac.html', '<setup-panel />')
+  write(root, 'client/components/setup/panel/tac.html', '<main><button id="first-read" on:click="firstPage.read()">First</button><button id="second-read" on:click="secondPage.read()">Second</button><p id="first-page">{firstPage.configured}/{firstPage.services}</p><p id="second-page">{secondPage.configured}/{secondPage.services}</p></main>')
+  for (const name of ['First', 'Second']) {
+    write(root, `client/services/${name}PageService.js`, `
+@Service()
+export default class ${name}PageService {
+  configured = 0;
+  services = 0;
+  @OnStart()
+  async initialize() {
+    SharedPageSetup.services += 1;
+    await Behaviors.create(SharedPageSetup, {partition: '${name.toLowerCase()}-page', signal: new AbortController().signal});
+    this.read();
+  }
+  read() {
+    this.configured = SharedPageSetup.configured;
+    this.services = SharedPageSetup.services;
+  }
+}`)
+  }
+}
+
+function checkSetupModules(root) {
+  for (const name of ['First', 'Second']) {
+    const module = readFileSync(path.join(root, `dist/.tachyon/services/${name}PageService.js`), 'utf8')
+    assert.ok(!module.includes('class SharedPageSetup'), `${name}PageService imports the Setup instead of carrying its own copy`)
+    assert.match(module.split('\n')[0], /import \{ __tachyon_create_behaviors__, SharedPageSetup \} from '\.\.\/behavior-runtime\.js';/)
+  }
+  const runtime = readFileSync(path.join(root, 'dist/.tachyon/behavior-runtime.js'), 'utf8')
+  assert.equal(runtime.split('export class SharedPageSetup').length, 2, 'the shared runtime module holds the one Setup definition')
+}
+
 function serveFixture(root) {
   return createServer((request, response) => {
     const url = new URL(request.url, 'http://localhost')
@@ -181,6 +224,17 @@ async function checkPages(browser, origin) {
   await page.goto(`${origin}/providers`)
   await page.waitForFunction(() => document.querySelector('#quote')?.textContent.includes('='))
   assert.equal(await page.locator('#quote').textContent(), 'Products=5 direct=5', 'a service receives its Inject-bound component and bare repository, and the component its own client and repository')
+  await page.goto(`${origin}/setups`)
+  await page.waitForFunction(() => document.querySelector('#first-page')?.textContent !== '0/0' && document.querySelector('#second-page')?.textContent !== '0/0')
+  await page.locator('#first-read').click()
+  await page.locator('#second-read').click()
+  const setupViews = async () => [await page.locator('#first-page').textContent(), await page.locator('#second-page').textContent()]
+  let seen = await setupViews()
+  for (let retry = 0; seen.join() !== '1/2,1/2' && retry < 100; retry++) {
+    await page.waitForTimeout(20)
+    seen = await setupViews()
+  }
+  assert.deepEqual(seen, ['1/2', '1/2'], 'two services on one page see one Setup class that configured once')
   await page.goto(origin)
   await page.waitForSelector('#pending')
   await assert.doesNotReject(async () => {
@@ -202,18 +256,20 @@ async function main() {
   writePendingFixtures(root)
   writeRequiredFixtures(root)
   writeBooleanFixtures(root)
+  writeSetupFixtures(root)
   let browser
   let server
   try {
     const built = spawnSync(binary, ['build', root], {encoding:'utf8', timeout:120000,
       env:{...process.env,PATH:`${path.resolve('node_modules/.bin')}${path.delimiter}${process.env.PATH || ''}`}})
     assert.equal(built.status, 0, built.stdout + built.stderr)
+    checkSetupModules(root)
     server = serveFixture(root)
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
     browser = await chromium.launch({headless:true})
     const origin = `http://127.0.0.1:${server.address().port}`
     await checkPages(browser, origin)
-    console.log('Tac Client browser contract passed: JS, TS, annotation discovery, NeedsAll required props, boolean attributes, Inject-bound component and repository providers, prototype service disposal.')
+    console.log('Tac Client browser contract passed: JS, TS, annotation discovery, NeedsAll required props, boolean attributes, Inject-bound component and repository providers, one Setup for two services on a page, prototype service disposal.')
   } finally {
     await browser?.close()
     server?.closeAllConnections()
