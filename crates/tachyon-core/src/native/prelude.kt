@@ -96,7 +96,7 @@ private class TacServiceNode(val identity: String, val page: TacPageScope, val m
     fun start() {
         if (started) return
         started = true
-        try { hooks.forEach { if (!it.destroy) it.invoke() } } catch (error: Exception) { dispose(); throw error }
+        try { hooks.forEach { if (!it.destroy) it.invoke() } } catch (error: Throwable) { dispose(); throw error }
     }
     fun dispose() {
         if (disposed) return
@@ -454,7 +454,7 @@ private fun tacHandle(request: String): String {
             val activation = TacActivation(route, service, owner, node.members)
             TacNativeState.activations[owner] = activation; TacNativeState.executing = activation
             try { tacAssignProperties(activation, props); node.start(); tacDrain(activation) }
-            catch (error: Exception) { if (fresh) TacPageServices.discard(node); tacDisposeOwner(owner); throw error }
+            catch (error: Throwable) { if (fresh) TacPageServices.discard(node); tacDisposeOwner(owner); throw error }
         }
         val activation = TacNativeState.activations[owner]
         require(activation != null && activation.route == route && activation.service == service) { "Stale native owner." }
