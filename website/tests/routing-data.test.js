@@ -117,7 +117,9 @@ describe('annotation routes and clients in published examples', () => {
     const section = docs.topics.annotations.sections.find(section => section.heading === 'Outgoing HTTP: Tac')
     assert.ok(section)
     for (const extension of ['cs', 'dart', 'go', 'java', 'kt', 'rs', 'swift']) {
+      /** @type {{ name: string, code: string } | undefined} */
       const service = section.files.find(file => file.name === `client/services/CatalogService.${extension}`)
+      /** @type {{ name: string, code: string } | undefined} */
       const client = section.files.find(file => file.name === `client/remotes/CatalogClient.${extension}`)
       assert.ok(service)
       assert.ok(client)
