@@ -26,6 +26,7 @@ mod go_streams;
 mod handler_process;
 mod host_names;
 mod implicit_mapping;
+mod java_checked_models;
 mod local_events;
 mod managed_resources;
 mod migrate_fix;
