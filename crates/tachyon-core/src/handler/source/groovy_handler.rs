@@ -207,7 +207,8 @@ impl GroovyHandler {
     }
 
     fn error_line(detail: &str) -> &str {
-        Self::source_line(detail).unwrap_or_else(|| super::compiler_error_line(detail))
+        Self::source_line(detail)
+            .unwrap_or_else(|| super::CompilerErrorLine::read("groovy", detail))
     }
 
     fn source_line(detail: &str) -> Option<&str> {

@@ -18,6 +18,7 @@ use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+mod compiler_error_line;
 mod compiler_identities;
 mod fsharp_handler;
 mod fsharp_program;
@@ -29,9 +30,11 @@ mod rust_error_place;
 mod shared_handler_artifacts;
 mod staged_files;
 mod test_unit_asserts;
+use compiler_error_line::CompilerErrorLine;
 use compiler_identities::CompilerIdentities;
 use fsharp_handler::FsharpHandler;
-use go::{GoHandler, GoSharedCode};
+use go::GoHandler;
+pub(crate) use go::GoSharedCode;
 use go_native_module::GoNativeModule;
 use groovy_handler::GroovyHandler;
 use rust_error_place::RustErrorPlace;
@@ -1264,7 +1267,9 @@ fn check_compiler_output(
             portable,
             &format!(
                 "Handler failed to compile: {}",
-                crate::compiler::PortablePath::tool_output(compiler_error_line(&detail))
+                crate::compiler::PortablePath::tool_output(CompilerErrorLine::read(
+                    program, &detail
+                ))
             ),
         ));
     }
@@ -1289,21 +1294,6 @@ fn missing_compiler(program: &str, portable: &str) -> Failure {
         Some(help),
         source_span(portable, 0, portable.len()),
     ))
-}
-
-fn compiler_error_line(detail: &str) -> &str {
-    for line in detail.lines() {
-        if line.contains("error") {
-            return line.trim();
-        }
-    }
-    for line in detail.lines() {
-        let names_a_package = line.starts_with("# ");
-        if !line.trim().is_empty() && !names_a_package {
-            return line.trim();
-        }
-    }
-    "no detail"
 }
 
 fn compile_handler(
@@ -1668,7 +1658,7 @@ impl DartPackages {
         portable: &str,
     ) -> Failure {
         let detail = Self::offline_detail(cached);
-        let cause = compiler_error_line(&detail);
+        let cause = CompilerErrorLine::read("dart", &detail);
         let message = format!("The offline package fetch failed first: {cause}");
         let offline_failure = invalid_source(portable, &message);
         let mut diagnostics = online_failure.diagnostics().to_vec();

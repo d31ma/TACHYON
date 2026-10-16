@@ -69,8 +69,19 @@ impl ManualHelpers {
     }
 
     fn caller(code: &str, helper: &HelperSource, extension: &str) -> bool {
-        code.match_indices(&helper.name)
-            .any(|(at, _)| Self::call_matches(code, helper, extension, at))
+        let results = (extension == "go")
+            .then(|| crate::go_source::GoFunctionResults::read(code))
+            .unwrap_or_default();
+        code.match_indices(&helper.name).any(|(at, _)| {
+            [
+                !Self::go_result(&results, at),
+                Self::call_matches(code, helper, extension, at),
+            ] == [true; 2]
+        })
+    }
+
+    fn go_result(results: &[std::ops::Range<usize>], at: usize) -> bool {
+        results.iter().any(|result| result.contains(&at))
     }
 
     fn call_matches(code: &str, helper: &HelperSource, extension: &str, at: usize) -> bool {
@@ -437,6 +448,81 @@ mod tests {
         let source = "// @Helper\ntype ProbeHelper struct { context *BehaviorContext }\nfunc caller() { value := &ProbeHelper{context: context} }";
         assert_eq!(names("go", source), BTreeSet::from(["ProbeHelper".into()]));
         assert!(names("go", &source.replace("context: context", "")).is_empty());
+    }
+
+    #[test]
+    fn go_function_results_are_not_construction() {
+        let declaration = "// @Helper\ntype ProbeHelper struct { value int }\ntype Caller struct { stored *ProbeHelper }\n";
+        for reference in [
+            "func (caller *Caller) Read() *ProbeHelper { return caller.stored }",
+            "func Read() *ProbeHelper { return nil }",
+            "func Read() ProbeHelper { return ProbeHelper{} }",
+            "func Read() []ProbeHelper { return nil }",
+            "func Read() map[string]*ProbeHelper { return nil }",
+            "func Read() chan *ProbeHelper { return nil }",
+            "func Read() func() *ProbeHelper { return nil }",
+            "func Read() { _ = func() *ProbeHelper { return nil } }",
+            "func Read() (*ProbeHelper) { return nil }",
+            "func Read() (result *ProbeHelper) { return }",
+            "func Read() (*ProbeHelper, error) { return nil, nil }",
+            "func Read[T any]() *ProbeHelper { return nil }",
+            "func Read() *\nProbeHelper { return nil }",
+            "func Read() { _ = func() *\nProbeHelper { return nil } }",
+        ] {
+            assert!(
+                names("go", &format!("{declaration}{reference}")).is_empty(),
+                "{reference}"
+            );
+        }
+    }
+
+    #[test]
+    fn go_function_results_keep_real_literal_construction() {
+        let declaration = "// @Helper\ntype ProbeHelper struct { value int }\ntype Caller struct { stored *ProbeHelper }\n";
+        for caller in [
+            "func (caller *Caller) Read() *ProbeHelper { return &ProbeHelper{value: 1} }",
+            "func Read() ProbeHelper { return ProbeHelper{1} }",
+            "func Read() *ProbeHelper { return &ProbeHelper{1} }",
+            "func Read() { _ = func() *ProbeHelper { return &ProbeHelper{value: 1} } }",
+            "var callback func() *ProbeHelper = &ProbeHelper{value: 1}",
+            "func Read() { accept((func() *ProbeHelper)(nil), ProbeHelper{value: 1}) }",
+            "func Read() *\nProbeHelper { return &ProbeHelper{value: 1} }",
+            "func Read() { _ = BehaviorsConstruct[ProbeHelper](context) }",
+            "func Read() ProbeHelper { var _ func() func()\n return ProbeHelper{value: 1} }",
+        ] {
+            assert_eq!(
+                names("go", &format!("{declaration}{caller}")),
+                BTreeSet::from(["ProbeHelper".into()]),
+                "{caller}"
+            );
+        }
+    }
+
+    #[test]
+    fn go_result_getter_keeps_injected_helper_and_literal_still_requires_optin() {
+        let path = Path::new("server/controllers/C.go");
+        let source = "// @Helper\ntype ProbeHelper struct { value int }\n// @RequestRoute(\"/c\")\n// @Needs(ProbeHelper)\ntype C struct { helper *ProbeHelper }\nfunc (caller *C) Read() *ProbeHelper { return caller.helper }\n// @GetRoute\nfunc (caller *C) Get() any { return nil }\n";
+        let parsed = super::super::parser::parse(path, source)
+            .unwrap_or_else(|failure| panic!("{failure}"))
+            .unwrap_or_else(|| panic!("expected managed source"));
+        assert!(
+            parsed
+                .plan
+                .providers
+                .iter()
+                .any(|provider| provider.name == "ProbeHelper")
+        );
+        let literal = source.replace("return caller.helper", "return &ProbeHelper{value: 1}");
+        let failure = super::super::parser::parse(path, &literal)
+            .err()
+            .unwrap_or_else(|| panic!("expected caller-owned injection failure"));
+        assert!(
+            failure
+                .to_string()
+                .contains("uses explicit caller construction")
+        );
+        let managed = literal.replace("// @Helper", "// @Helper\n// @Needs()");
+        assert!(super::super::parser::parse(path, &managed).is_ok());
     }
 
     #[test]

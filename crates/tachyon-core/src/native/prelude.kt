@@ -76,7 +76,6 @@ private fun tacFits(models: Any?, shape: String, value: Any?): Boolean {
 
 private class TacActivation(val route: String, val service: String, val owner: String, val members: Map<String, Any>) {
     var disposed = false
-    lateinit var pageScope: TacPageScope
     val queue = ArrayDeque<Triple<String, String, Boolean>>()
     val retained = linkedMapOf<String, String>()
     val deferred = ArrayDeque<Pair<TacListener, String>>()
@@ -89,6 +88,69 @@ private object TacNativeState {
     val activations = linkedMapOf<String, TacActivation>()
     var executing: TacActivation? = null
     var handling = false
+}
+private class TacServiceNode(val identity: String, val page: TacPageScope, val members: Map<String, Any>) {
+    private val hooks = members.entries.sortedBy { it.key }.map { it.value }.filterIsInstance<TacHook>()
+    private var started = false
+    private var disposed = false
+    fun start() {
+        if (started) return
+        started = true
+        try { hooks.forEach { if (!it.destroy) it.invoke() } } catch (error: Exception) { dispose(); throw error }
+    }
+    fun dispose() {
+        if (disposed) return
+        disposed = true
+        if (started) hooks.forEach { if (it.destroy) try { it.invoke() } catch (_: Exception) { tacEventFailure() } }
+        page.dispose()
+        NativeCapabilities.dispose(identity)
+    }
+}
+private object TacPageServices {
+    const val OWNER_PREFIX = "00000000-0000-4000-a000-"
+    const val NODE_LIMIT = 4096
+    private val pages = linkedMapOf<String, LinkedHashMap<Pair<String, String>, TacServiceNode>>()
+    private var next = 0L
+    val size: Int get() = pages.values.sumOf { it.size }
+    fun reserved(owner: String): Boolean = owner.lowercase().startsWith(OWNER_PREFIX)
+    private fun key(service: String, owner: String): Pair<String, String> =
+        service to (if (tacPageSingletons && !tacServicePrototype(service)) "" else owner)
+    fun admits(route: String, service: String, owner: String): Boolean {
+        val existing = pages[route]?.containsKey(key(service, owner)) == true
+        return hasCapacity(existing)
+    }
+    private fun hasCapacity(existing: Boolean): Boolean = existing || size < NODE_LIMIT
+    fun obtain(route: String, service: String, owner: String, props: Map<String, Any?>?): Pair<TacServiceNode, Boolean>? {
+        val key = key(service, owner)
+        pages[route]?.get(key)?.let { return it to false }
+        val shared = key.second.isEmpty()
+        val identity = if (shared) OWNER_PREFIX + (++next).toString(16).padStart(12, '0') else owner
+        val scope = tacPageScope()
+        val members = try { NativeCapabilities.create(identity) { tacServiceMembers(service, props, scope) } }
+            catch (error: Exception) { scope.dispose(); NativeCapabilities.dispose(identity); throw error }
+            ?: run { scope.dispose(); NativeCapabilities.dispose(identity); return null }
+        val node = TacServiceNode(identity, scope, members)
+        pages.getOrPut(route) { linkedMapOf() }[key] = node
+        return node to true
+    }
+    fun discard(node: TacServiceNode) {
+        pages.values.forEach { page -> page.values.removeAll { it === node } }
+        pages.entries.removeAll { it.value.isEmpty() }
+        node.dispose()
+    }
+    fun disposeOwner(owner: String) {
+        for (page in pages.values) {
+            val owned = page.filterKeys { it.second == owner }
+            owned.keys.forEach { page.remove(it) }
+            owned.values.reversed().forEach { it.dispose() }
+        }
+        pages.entries.removeAll { it.value.isEmpty() }
+    }
+    fun disposeAll() {
+        val disposed = pages.keys.sorted().mapNotNull { pages[it] }
+        pages.clear()
+        disposed.forEach { page -> page.values.reversed().forEach { it.dispose() } }
+    }
 }
 private fun tacEventPublish(name: String, value: Any?, retain: Boolean) {
     val owner = TacNativeState.executing
@@ -256,22 +318,21 @@ private fun tacDrain(owner: TacActivation) {
 }
 private fun tacDisposeActivation(owner: TacActivation) {
     owner.disposed = true
-    owner.pageScope.dispose()
-    NativeCapabilities.dispose(owner.owner)
     owner.queue.clear(); owner.retained.clear(); owner.deferred.clear()
-    owner.sorted.forEach { if (it is TacHook && it.destroy) try { it.invoke() } catch (_: Exception) { tacEventFailure() } }
 }
 private fun tacDisposeOwner(id: String) {
     tacCancelTasks(id)
-    val owner = TacNativeState.activations.remove(id) ?: return
-    if (TacNativeState.executing === owner) TacNativeState.executing = null
-    tacDisposeActivation(owner)
+    val owner = TacNativeState.activations.remove(id)
+    if (owner != null && TacNativeState.executing === owner) TacNativeState.executing = null
+    owner?.let { tacDisposeActivation(it) }
+    TacPageServices.disposeOwner(id)
 }
 private fun tacDisposeAll() {
     tacCancelTasks(null)
     val owners = TacNativeState.activations.values.toList()
     TacNativeState.activations.clear(); TacNativeState.executing = null
     owners.forEach { tacDisposeActivation(it) }
+    TacPageServices.disposeAll()
 }
 
 private fun tacText(value: Any?): String = if (value == null) "" else value.toString()
@@ -378,23 +439,22 @@ private fun tacHandle(request: String): String {
         if (operation == "host-dispose") { tacDisposeAll(); return "{\"value\":null}" }
         val route = tacText(parsed["route"])
         val owner = tacText(parsed["owner"])
-        require(tacOwnerId(owner)) { "Missing native owner identity." }
+        require(tacOwnerId(owner) && !TacPageServices.reserved(owner)) { "Missing native owner identity." }
         val service = tacText(parsed["service"])
         require(service.isNotEmpty()) { "Missing companion name." }
         val existing = TacNativeState.activations[owner]
         if (operation == "init" && (existing == null || existing.route != route || existing.service != service)) {
             if (existing != null) tacDisposeOwner(owner)
+            check(TacNativeState.activations.size < 256) { "Too many native activations." }
+            check(TacPageServices.admits(route, service, owner)) { "Too many native services." }
             val props = tacObject(parsed["props"])
-            val pageScope = tacPageScope()
-            val members = try { NativeCapabilities.create(owner) { tacServiceMembers(service, props, pageScope) } }
-                catch (_: Exception) { pageScope.dispose(); NativeCapabilities.dispose(owner); return "{\"error\":\"Native service is missing a required property or it has the wrong type.\",\"code\":\"TY_NATIVE_REQUIRED\"}" }
-                ?: run { pageScope.dispose(); NativeCapabilities.dispose(owner); return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}" }
-            if (TacNativeState.activations.size >= 256) { pageScope.dispose(); NativeCapabilities.dispose(owner); error("Too many native activations.") }
-            val activation = TacActivation(route, service, owner, members)
-            activation.pageScope = pageScope
+            val (node, fresh) = try { TacPageServices.obtain(route, service, owner, props) }
+                catch (_: Exception) { return "{\"error\":\"Native service is missing a required property or it has the wrong type.\",\"code\":\"TY_NATIVE_REQUIRED\"}" }
+                ?: return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"
+            val activation = TacActivation(route, service, owner, node.members)
             TacNativeState.activations[owner] = activation; TacNativeState.executing = activation
-            try { tacAssignProperties(activation, props); activation.sorted.forEach { if (it is TacHook && !it.destroy) it.invoke() }; tacDrain(activation) }
-            catch (error: Exception) { tacDisposeOwner(owner); throw error }
+            try { tacAssignProperties(activation, props); node.start(); tacDrain(activation) }
+            catch (error: Exception) { if (fresh) TacPageServices.discard(node); tacDisposeOwner(owner); throw error }
         }
         val activation = TacNativeState.activations[owner]
         require(activation != null && activation.route == route && activation.service == service) { "Stale native owner." }

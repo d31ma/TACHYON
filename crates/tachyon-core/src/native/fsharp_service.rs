@@ -11,7 +11,7 @@ use std::path::Path;
 pub(super) struct FsharpService;
 
 impl FsharpService {
-    const NO_REQUIRED: &'static str = "internal static class TacServiceInfo { internal static readonly string[] Required = { }; }\n";
+    const NO_REQUIRED: &'static str = "internal static class TacServiceInfo { internal static readonly string[] Required = { }; }\ninternal static class TacServiceLifetime { internal const bool Prototype = true; }\n";
     const TAC: &'static str = "tac";
 
     pub(super) fn body_or(

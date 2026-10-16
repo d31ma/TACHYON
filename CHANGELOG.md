@@ -268,6 +268,28 @@ machine contracts have their own, independent major versions.
   released. An OnStart that throws stops the new service and leaves it off
   the page. Swift services that run as WebAssembly are unchanged.
 
+- A C# service linked into a Windows app is now a page singleton too, in the
+  same way: one shared instance per page, one OnStart, OnStop once when the
+  page goes away (newest service first), and FilePicker and WindowControls
+  that belong to the service rather than to its first component. A service
+  with `[Lifetime({"value":"prototype"})]`, or `[NeedsAll]` without a
+  singleton Lifetime, keeps one instance for each component and stops with
+  it, now before its providers are released. An OnStart that throws stops
+  the new service and leaves it off the page; a service that already ran
+  keeps running. C# services that run as WebAssembly, and F# services, keep
+  one instance for each activation.
+
+- A Kotlin service linked into the Android app is now one instance per page,
+  as CONTEXT.md and the Rust companion already describe. Components on the
+  same route share it, its `@OnStart` runs once, and its `@OnStop` runs when
+  the user leaves the page, not when the first component goes away. A
+  service with `@Lifetime({"value":"prototype"})`, or with `@NeedsAll` and no
+  Lifetime, still gets its own instance for each component and stops with
+  it. `@OnStop` now runs before the service's FilePicker is released. A
+  Kotlin service that kept state for each component without either marker
+  needs `@Lifetime({"value":"prototype"})`. Kotlin services that run as
+  WebAssembly keep one instance for each component.
+
 - A behaviour module may declare up to 512 types instead of 128, so a Go or
   Ruby app with many clients no longer has to share one Setup between them.
 

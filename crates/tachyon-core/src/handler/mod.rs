@@ -30,7 +30,7 @@ pub(crate) use readiness::{
     RuntimeProbe, RuntimeProbeResult, RuntimeProbeState, RuntimeRequirements, YonLanguage,
 };
 pub(crate) use route_schema::RouteSchema;
-pub(crate) use source::OwnedSourceRoot;
+pub(crate) use source::{GoSharedCode, OwnedSourceRoot};
 pub use source::{HandlerLanguage, HandlerSource};
 pub use topic_bus::TopicDeliveries;
 pub(crate) use topic_bus::{TopicFolder, TopicLogMove};

@@ -6,17 +6,17 @@ use crate::project::NativeCompanion;
 use std::path::Path;
 use std::process::Command;
 
-struct ManagedCapabilityCheck;
+pub(super) struct ManagedCapabilityCheck;
 
 impl ManagedCapabilityCheck {
-    fn available(program: &str, flag: &str) -> bool {
+    pub(super) fn available(program: &str, flag: &str) -> bool {
         Command::new(program)
             .arg(flag)
             .output()
             .is_ok_and(|output| output.status.success())
     }
 
-    const CSHARP: &'static str = "[Service]\n[NeedsAll]\npublic class ImportService\n{\n    public readonly FilePicker Picker;\n    public readonly WindowControls Controls;\n    public string Choose() => Picker.Open().Status.ToString().ToLowerInvariant();\n    public bool Allowed() => Controls.Granted(\"minimize\");\n}\n";
+    const CSHARP: &'static str = "[Service]\n[Lifetime({\"value\":\"prototype\"})]\n[NeedsAll]\npublic class ImportService\n{\n    public readonly FilePicker Picker;\n    public readonly WindowControls Controls;\n    public string Choose() => Picker.Open().Status.ToString().ToLowerInvariant();\n    public bool Allowed() => Controls.Granted(\"minimize\");\n}\n";
     const KOTLIN: &'static str = "@Service\n@NeedsAll\nclass ImportService {\n    val picker: FilePicker\n    val controls: WindowControls\n    fun choose(): String = picker.open().status.wire\n    fun allowed(): Boolean = controls.granted(\"minimize\")\n}\n";
     const CSHARP_CALLER: &'static str = r#"public static unsafe class Program {
     private static int called, freed, replyMode;
@@ -178,6 +178,15 @@ impl ManagedCapabilityCheck {
     fn kotlin(explicit: bool) -> String {
         let root = tempfile::tempdir().expect("project");
         let registry = Self::registry(root.path(), NativeCompanion::Kotlin, explicit);
+        Self::kotlin_jvm(root.path(), &registry, Self::KOTLIN_CALLER, false)
+    }
+
+    pub(super) fn kotlin_jvm(
+        root: &Path,
+        registry: &str,
+        caller: &str,
+        page_singletons: bool,
+    ) -> String {
         let platform = include_str!("prelude_web.kt")
             .split("private const val tacPageListeners")
             .nth(1)
@@ -187,6 +196,10 @@ impl ManagedCapabilityCheck {
             .expect("plain platform");
         let platform = format!(
             "private fun tacHostEmit(payload: String) {{}}\nprivate fun tacHostWeb(text: String): String = \"{{}}\"\nprivate const val tacPageListeners{platform}"
+        )
+        .replace(
+            "private const val tacPageSingletons = false",
+            &format!("private const val tacPageSingletons = {page_singletons}"),
         );
         let models = include_str!("prelude_android.kt")
             .split("private fun tacPlainModel")
@@ -208,11 +221,11 @@ impl ManagedCapabilityCheck {
             ManagedNativeCapabilities::KOTLIN_WINDOWS,
             include_str!("capabilities/TacNativeCapabilityCall.kt"),
             include_str!("capabilities/TacNativeCapabilityRegistration.kt"),
-            Self::KOTLIN_CALLER
+            caller
         );
-        let source = root.path().join("Capabilities.kt");
+        let source = root.join("Capabilities.kt");
         std::fs::write(&source, program).expect("program");
-        let jar = root.path().join("capabilities.jar");
+        let jar = root.join("capabilities.jar");
         Self::succeeds(
             Command::new("kotlinc")
                 .arg(&source)

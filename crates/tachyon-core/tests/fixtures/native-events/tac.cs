@@ -1,3 +1,4 @@
+[Lifetime({"value":"prototype"})]
 public class OwnerProbeService {
     public int Count = 0;
     public string Log = "";

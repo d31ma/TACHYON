@@ -36,6 +36,22 @@ impl NativeCompanionInput {
             })
             .collect()
     }
+    fn lifetime_declaration(
+        language: NativeCompanion,
+        prototype: bool,
+        web_assembly: bool,
+    ) -> String {
+        match language {
+            NativeCompanion::Swift => format!("static let tacPrototype = {prototype}\n"),
+            NativeCompanion::Kotlin => format!("val tacPrototype: Boolean = {prototype}\n"),
+            NativeCompanion::CSharp => format!(
+                "internal static class TacServiceLifetime {{ internal const bool Prototype = {}; }}\n",
+                [prototype, web_assembly].contains(&true)
+            ),
+            _ => String::new(),
+        }
+    }
+
     fn refuse_preferences(&self, captured: &str) -> Result<(), Failure> {
         if self.web_assembly {
             Ok(())
@@ -168,7 +184,11 @@ fn compiled_service_body(
         !roles.required.is_empty(),
     )?;
     body.push_str(&required_declaration(language, &roles.required));
-    body.push_str(&lifetime_declaration(language, roles.prototype));
+    body.push_str(&NativeCompanionInput::lifetime_declaration(
+        language,
+        roles.prototype,
+        item.web_assembly,
+    ));
     Ok(body)
 }
 
@@ -360,13 +380,6 @@ fn required_declaration(language: NativeCompanion, required: &[String]) -> Strin
     }
 }
 
-fn lifetime_declaration(language: NativeCompanion, prototype: bool) -> String {
-    match language {
-        NativeCompanion::Swift => format!("static let tacPrototype = {prototype}\n"),
-        _ => String::new(),
-    }
-}
-
 fn namespace_source(language: NativeCompanion, namespace: &str, source: &str) -> String {
     match language {
         NativeCompanion::Swift => format!("private enum {namespace} {{\n{source}\n}}\n"),
@@ -432,28 +445,37 @@ fn swift_dispatch(services: &[(String, String)], entries: &str) -> String {
 
 fn kotlin_dispatch(services: &[(String, String)], entries: &str) -> String {
     let mut required = String::new();
+    let mut prototype = String::new();
     for (service, namespace) in services {
         let service = quoted_service(service);
         let _ = writeln!(required, "{service} -> {namespace}.tacRequired");
+        let _ = writeln!(prototype, "{service} -> {namespace}.tacPrototype");
     }
     format!(
         "\nprivate fun tacServiceMembers(service: String, tacProps: Map<String, Any?>?, tacPage: TacPageScope): Map<String, Any>? = when (service) {{\n{entries}else -> null\n}}\n\
-         private fun tacServiceRequired(service: String): List<String> = when (service) {{\n{required}else -> emptyList()\n}}\n"
+         private fun tacServiceRequired(service: String): List<String> = when (service) {{\n{required}else -> emptyList()\n}}\n\
+         private fun tacServicePrototype(service: String): Boolean = when (service) {{\n{prototype}else -> true\n}}\n"
     )
 }
 
 fn csharp_dispatch(services: &[(String, String)], entries: &str) -> String {
     let mut required = String::new();
+    let mut prototypes = String::new();
     for (service, namespace) in services {
         let service = quoted_service(service);
         let _ = writeln!(
             required,
             "{service} => {namespace}.TacServiceInfo.Required,"
         );
+        let _ = writeln!(
+            prototypes,
+            "{service} => {namespace}.TacServiceLifetime.Prototype,"
+        );
     }
     format!(
         "\ninternal static class TacServices {{\ninternal static Dictionary<string, TacMember> Members(string service) => service switch {{\n{entries}_ => null\n}};\n\
-         internal static string[] Required(string service) => service switch {{\n{required}_ => System.Array.Empty<string>()\n}};\n}}\n"
+         internal static string[] Required(string service) => service switch {{\n{required}_ => System.Array.Empty<string>()\n}};\n\
+         internal static bool Prototype(string service) => service switch {{\n{prototypes}_ => true\n}};\n}}\n"
     )
 }
 

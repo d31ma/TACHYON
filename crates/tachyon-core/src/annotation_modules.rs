@@ -13,7 +13,9 @@ mod client_utilities;
 mod csharp_test_helpers;
 mod helper_callers;
 mod selected_test_setups;
+mod server_test_closure;
 use helper_callers::HelperCallers;
+use server_test_closure::ServerTestClosure;
 mod module_input;
 mod shared_imports;
 mod test_configuration;
@@ -29,6 +31,8 @@ mod helper_callers_tests;
 #[cfg(test)]
 mod shared_utility_tests;
 
+#[cfg(test)]
+mod server_test_closure_tests;
 #[cfg(test)]
 mod test_configuration_tests;
 
@@ -197,7 +201,7 @@ fn read_modules(
         let text = converters.written(path, text)?;
         let text = crate::declared_contract::DeclaredContract::concrete(path, &text, environment)
             .unwrap_or(text);
-        let text = crate::method_coverage::CallHooks::for_entry(entry, path, text)?;
+        let text = ServerTestClosure::discovery_coverage(entry, path, text)?;
         modules.push(Module {
             path: path.clone(),
             source: erase_exports(path, text, extension)?,
@@ -442,6 +446,7 @@ impl Module {
             &mut modules,
             total,
         )?;
+        ServerTestClosure::select(snapshot_root, input, &mut modules)?;
         if modules.is_empty() {
             return Ok(utilities.changed().then_some(source));
         }

@@ -38,6 +38,7 @@ pub(crate) use single_class::rule_switch::RuleSwitch;
 pub(crate) use single_class::simpler_forms::SimplerForm;
 pub use single_class::simpler_forms::SimplerForms;
 pub(crate) use single_class::utility_layout::UtilityLayout;
+pub(crate) use single_class::{Token, Tokens};
 
 #[cfg(test)]
 mod error_tests;

@@ -1,3 +1,4 @@
+@Lifetime({"value":"prototype"})
 class OwnerProbeService {
     var count: Int = 0
     var log: String = ""

@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 pub(super) struct GoHandler;
 
-pub(super) struct GoSharedCode;
+pub(crate) struct GoSharedCode;
 
 struct GoFiles<'a> {
     native: &'a GoNativeModule,
@@ -380,7 +380,7 @@ impl GoSharedCode {
     const FOLDER: &str = "server/shared";
     const HELP: &str = "server/shared/ holds plain Go code of package main. Put an annotated type in its role folder, for example server/services/.";
 
-    pub(super) fn read(source_root: &Path) -> Result<Vec<(PathBuf, String)>, Failure> {
+    pub(crate) fn read(source_root: &Path) -> Result<Vec<(PathBuf, String)>, Failure> {
         let mut paths = StagedFiles::beneath(source_root, Path::new(Self::FOLDER));
         paths.retain(|path| GoHandler::is_go(path));
         let mut files = Vec::new();

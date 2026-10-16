@@ -28,6 +28,13 @@ pub(crate) struct Tokens<'a> {
 impl<'a> Tokens<'a> {
     const MAX_TOKENS: usize = 262_144;
 
+    pub(crate) fn read_source(path: &'a std::path::Path, source: &'a str) -> Result<Self, Failure> {
+        let input = Input::new(path, source);
+        let tokens = Self::read(&input)?;
+        tokens.check_complete(&input)?;
+        Ok(tokens)
+    }
+
     pub(crate) fn read_script_source(
         path: &'a std::path::Path,
         source: &'a str,

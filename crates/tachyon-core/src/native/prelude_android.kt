@@ -47,6 +47,8 @@ private object TacAndroidThread {
 
 private const val tacPageListeners = false
 
+private const val tacPageSingletons = true
+
 private fun tacPageScope(): TacPageScope = TacPageScope { throw IllegalStateException("DocumentTitle needs a browser page.") }
 
 private fun tacOnOwnerThread(): Boolean = Thread.currentThread() === TacAndroidThread.owner

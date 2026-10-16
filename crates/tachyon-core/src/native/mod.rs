@@ -33,6 +33,8 @@ mod kotlin_document_title_tests;
 
 #[cfg(test)]
 mod kotlin_document_title_scope_tests;
+#[cfg(test)]
+mod kotlin_page_graph_tests;
 mod linux;
 #[cfg(test)]
 mod linux_host_tests;
@@ -205,6 +207,8 @@ mod csharp_browser_bindings;
 #[cfg(test)]
 mod csharp_browser_client_tests;
 mod csharp_browser_factory;
+#[cfg(test)]
+mod csharp_page_lifetime_tests;
 mod csharp_task_inventory;
 
 #[cfg(test)]

@@ -9,6 +9,8 @@ private external fun tacHostStorage(text: String): String
 
 private const val tacPageListeners = true
 
+private const val tacPageSingletons = false
+
 private fun tacOnOwnerThread(): Boolean = true
 
 private fun tacEventFailure() { println("Tachyon web event delivery failed.") }
