@@ -307,6 +307,7 @@ jobs:
         run: |
           bun run test:storage-browser
           bun run test:runtime-browser
+          bun run test:safe-html-browser
 
       - name: Run the real-browser web components contract
         run: bun run test:web-components-browser
