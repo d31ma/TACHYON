@@ -6,6 +6,10 @@ use std::str::FromStr;
 
 pub(crate) type Scope = BTreeMap<String, Value>;
 
+type PrefixNode = fn(Box<ExpressionNode>) -> ExpressionNode;
+
+type OperandParser<'a> = fn(&mut Parser<'a>, usize) -> Result<ExpressionNode, Failure>;
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Expression {
     source: String,
@@ -20,14 +24,7 @@ impl Expression {
         source_path: &str,
         source_start: usize,
     ) -> Result<Self, Failure> {
-        if source.is_empty() || source.len() > Self::MAX_EXPRESSION_BYTES {
-            return Err(expression_failure(
-                source_path,
-                source_start,
-                source_start.saturating_add(source.len()),
-                "Template expression must contain 1 through 1,024 bytes.",
-            ));
-        }
+        Self::check_length(source, source_path, source_start)?;
         let tokens = Lexer::new(source, source_path, source_start).tokenize()?;
         let mut parser = Parser {
             tokens: &tokens,
@@ -37,12 +34,26 @@ impl Expression {
             source_len: source.len(),
         };
         let node = parser.parse_ternary(0)?;
-        if !matches!(parser.peek().kind, TokenKind::End) {
-            return Err(parser.error("Template expression contains unexpected trailing syntax."));
-        }
+        let finished = parser.peek().kind == TokenKind::End;
+        parser.require(
+            finished,
+            "Template expression contains unexpected trailing syntax.",
+        )?;
         Ok(Self {
             source: String::from(source),
             node,
+        })
+    }
+
+    fn check_length(source: &str, source_path: &str, source_start: usize) -> Result<(), Failure> {
+        let fits = (1..=Self::MAX_EXPRESSION_BYTES).contains(&source.len());
+        fits.then_some(()).ok_or_else(|| {
+            Self::failure(
+                source_path,
+                source_start,
+                source_start.saturating_add(source.len()),
+                "Template expression must contain 1 through 1,024 bytes.",
+            )
         })
     }
 
@@ -62,7 +73,7 @@ impl Expression {
     }
 
     pub(crate) fn to_client_json(&self) -> String {
-        client_json(&self.node)
+        self.node.client_json()
     }
 
     pub(crate) fn equals(&self, other: &Self) -> Self {
@@ -75,70 +86,17 @@ impl Expression {
             },
         }
     }
-}
 
-fn client_json(node: &ExpressionNode) -> String {
-    match node {
-        ExpressionNode::Literal(value) => format!(r#"{{"k":"lit","v":{value}}}"#),
-        ExpressionNode::Identifier(name) => format!(r#"{{"k":"id","n":"{name}"}}"#),
-        ExpressionNode::Access(parent, Access::Property(property)) => format!(
-            r#"{{"k":"get","o":{},"p":"{property}"}}"#,
-            client_json(parent)
-        ),
-        ExpressionNode::Access(parent, Access::Index(index)) => {
-            format!(r#"{{"k":"idx","o":{},"i":{index}}}"#, client_json(parent))
-        }
-        ExpressionNode::Not(inner) => format!(r#"{{"k":"not","e":{}}}"#, client_json(inner)),
-        ExpressionNode::Compare {
-            left,
-            operator,
-            right,
-        } => binary_client_json("cmp", operator.client_name(), left, right),
-        ExpressionNode::Logical {
-            left,
-            operator,
-            right,
-        } => binary_client_json("log", operator.client_name(), left, right),
-        ExpressionNode::Arithmetic {
-            left,
-            operator,
-            right,
-        } => binary_client_json("num", operator.client_name(), left, right),
-        ExpressionNode::Conditional {
-            condition,
-            when_true,
-            when_false,
-        } => format!(
-            r#"{{"k":"if","c":{},"t":{},"f":{}}}"#,
-            client_json(condition),
-            client_json(when_true),
-            client_json(when_false)
-        ),
-        ExpressionNode::Await(inner) => format!(r#"{{"k":"await","e":{}}}"#, client_json(inner)),
-        ExpressionNode::Call { callee, arguments } => format!(
-            r#"{{"k":"call","c":{},"a":[{}]}}"#,
-            client_json(callee),
-            client_json_list(arguments)
-        ),
+    fn failure(source_path: &str, start: usize, end: usize, message: &str) -> Failure {
+        Failure::one(diagnostic(
+            1303,
+            message,
+            Some(String::from(
+                "Use bounded JSON paths, literals, comparisons, and boolean operators.",
+            )),
+            source_span(source_path, start, end),
+        ))
     }
-}
-
-fn binary_client_json(
-    kind: &str,
-    operator: &str,
-    left: &ExpressionNode,
-    right: &ExpressionNode,
-) -> String {
-    format!(
-        r#"{{"k":"{kind}","op":"{operator}","l":{},"r":{}}}"#,
-        client_json(left),
-        client_json(right)
-    )
-}
-
-fn client_json_list(nodes: &[ExpressionNode]) -> String {
-    let items: Vec<String> = nodes.iter().map(client_json).collect();
-    items.join(",")
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -174,6 +132,91 @@ enum ExpressionNode {
     Await(Box<Self>),
 }
 
+impl ExpressionNode {
+    fn client_json(&self) -> String {
+        match self {
+            Self::Literal(value) => format!(r#"{{"k":"lit","v":{value}}}"#),
+            Self::Identifier(name) => format!(r#"{{"k":"id","n":"{name}"}}"#),
+            Self::Access(parent, Access::Property(property)) => format!(
+                r#"{{"k":"get","o":{},"p":"{property}"}}"#,
+                parent.client_json()
+            ),
+            Self::Access(parent, Access::Index(index)) => {
+                format!(r#"{{"k":"idx","o":{},"i":{index}}}"#, parent.client_json())
+            }
+            Self::Not(inner) => format!(r#"{{"k":"not","e":{}}}"#, inner.client_json()),
+            Self::Compare {
+                left,
+                operator,
+                right,
+            } => operator.binary_json(left, right),
+            Self::Logical {
+                left,
+                operator,
+                right,
+            } => operator.binary_json(left, right),
+            Self::Arithmetic {
+                left,
+                operator,
+                right,
+            } => operator.binary_json(left, right),
+            Self::Conditional {
+                condition,
+                when_true,
+                when_false,
+            } => format!(
+                r#"{{"k":"if","c":{},"t":{},"f":{}}}"#,
+                condition.client_json(),
+                when_true.client_json(),
+                when_false.client_json()
+            ),
+            Self::Await(inner) => format!(r#"{{"k":"await","e":{}}}"#, inner.client_json()),
+            Self::Call { callee, arguments } => format!(
+                r#"{{"k":"call","c":{},"a":[{}]}}"#,
+                callee.client_json(),
+                Self::client_json_list(arguments)
+            ),
+        }
+    }
+
+    fn binary_client_json(kind: &str, operator: &str, left: &Self, right: &Self) -> String {
+        format!(
+            r#"{{"k":"{kind}","op":"{operator}","l":{},"r":{}}}"#,
+            left.client_json(),
+            right.client_json()
+        )
+    }
+
+    fn client_json_list(nodes: &[Self]) -> String {
+        let items: Vec<String> = nodes.iter().map(Self::client_json).collect();
+        items.join(",")
+    }
+
+    fn compare(left: Self, operator: CompareOperator, right: Self) -> Self {
+        Self::Compare {
+            left: Box::new(left),
+            operator,
+            right: Box::new(right),
+        }
+    }
+
+    fn logical(left: Self, operator: LogicalOperator, right: Self) -> Self {
+        Self::Logical {
+            left: Box::new(left),
+            operator,
+            right: Box::new(right),
+        }
+    }
+
+    fn arithmetic(left: Self, operator: ArithmeticOperator, right: Self) -> Self {
+        Self::Arithmetic {
+            left: Box::new(left),
+            operator,
+            right: Box::new(right),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ArithmeticOperator {
     Add,
@@ -191,12 +234,23 @@ impl ArithmeticOperator {
             Self::Divide => "div",
         }
     }
+
+    fn binary_json(self, left: &ExpressionNode, right: &ExpressionNode) -> String {
+        ExpressionNode::binary_client_json("num", self.client_name(), left, right)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 enum Access {
     Property(String),
     Index(usize),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AccessStep {
+    Property,
+    Call,
+    Index,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -220,6 +274,10 @@ impl CompareOperator {
             Self::GreaterEqual => "ge",
         }
     }
+
+    fn binary_json(self, left: &ExpressionNode, right: &ExpressionNode) -> String {
+        ExpressionNode::binary_client_json("cmp", self.client_name(), left, right)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -234,6 +292,10 @@ impl LogicalOperator {
             Self::And => "and",
             Self::Or => "or",
         }
+    }
+
+    fn binary_json(self, left: &ExpressionNode, right: &ExpressionNode) -> String {
+        ExpressionNode::binary_client_json("log", self.client_name(), left, right)
     }
 }
 
@@ -293,6 +355,46 @@ impl TokenKind {
             _ => None,
         }
     }
+
+    fn word(text: &str) -> Self {
+        match text {
+            "true" => Self::Literal(Value::Bool(true)),
+            "false" => Self::Literal(Value::Bool(false)),
+            "null" => Self::Literal(Value::Null),
+            value => Self::Identifier(String::from(value)),
+        }
+    }
+
+    fn prefix(&self) -> Option<PrefixNode> {
+        match self {
+            Self::Bang => Some(ExpressionNode::Not),
+            Self::Identifier(name) if name == "await" => Some(ExpressionNode::Await),
+            _ => None,
+        }
+    }
+
+    fn access_step(&self) -> Option<AccessStep> {
+        match self {
+            Self::Dot => Some(AccessStep::Property),
+            Self::LeftParen => Some(AccessStep::Call),
+            Self::LeftBracket => Some(AccessStep::Index),
+            _ => None,
+        }
+    }
+
+    fn property_name(&self) -> Option<String> {
+        let Self::Identifier(name) = self else {
+            return None;
+        };
+        Some(name.clone())
+    }
+
+    fn number_literal(&self) -> Option<&Number> {
+        let Self::Literal(Value::Number(number)) = self else {
+            return None;
+        };
+        Some(number)
+    }
 }
 
 struct Lexer<'a> {
@@ -303,6 +405,25 @@ struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
+    const LONG_OPERATORS: [(&'static str, TokenKind); 8] = [
+        ("!==", TokenKind::NotEqual),
+        ("!=", TokenKind::NotEqual),
+        ("===", TokenKind::Equal),
+        ("==", TokenKind::Equal),
+        ("<=", TokenKind::LessEqual),
+        (">=", TokenKind::GreaterEqual),
+        ("&&", TokenKind::And),
+        ("||", TokenKind::Or),
+    ];
+    const ESCAPES: [(u8, char); 6] = [
+        (b'\\', '\\'),
+        (b'\'', '\''),
+        (b'"', '"'),
+        (b'n', '\n'),
+        (b'r', '\r'),
+        (b't', '\t'),
+    ];
+
     const fn new(source: &'a str, source_path: &'a str, source_start: usize) -> Self {
         Self {
             source,
@@ -312,21 +433,26 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn identifier_start(byte: u8) -> bool {
+        [byte.is_ascii_alphabetic(), byte == b'_', byte == b'$'].contains(&true)
+    }
+
+    fn identifier_continue(byte: u8) -> bool {
+        [Self::identifier_start(byte), byte.is_ascii_digit()].contains(&true)
+    }
+
     fn tokenize(mut self) -> Result<Vec<Token>, Failure> {
         let mut tokens = Vec::new();
+        self.skip_whitespace();
         while self.current < self.source.len() {
-            let byte = self.source.as_bytes()[self.current];
-            if byte.is_ascii_whitespace() {
-                self.current += 1;
-                continue;
-            }
             let start = self.current;
-            let kind = self.token_kind(byte)?;
+            let kind = self.token_kind()?;
             tokens.push(Token {
                 kind,
                 start,
                 end: self.current,
             });
+            self.skip_whitespace();
         }
         tokens.push(Token {
             kind: TokenKind::End,
@@ -336,73 +462,71 @@ impl<'a> Lexer<'a> {
         Ok(tokens)
     }
 
-    fn token_kind(&mut self, byte: u8) -> Result<TokenKind, Failure> {
-        if let Some(kind) = self.long_operator() {
-            return Ok(kind);
-        }
-        if let Some(kind) = TokenKind::single_byte(byte) {
-            self.current += 1;
-            return Ok(kind);
-        }
-        if byte == b'\'' || byte == b'"' {
-            return self.string(byte);
-        }
-        if byte.is_ascii_digit() {
-            return self.number();
-        }
-        if identifier_start(byte) {
-            return Ok(self.identifier());
-        }
-        let start = self.current;
-        Err(self.error(
-            start,
-            start.saturating_add(1),
-            "Template expression contains unsupported syntax.",
-        ))
+    fn token_kind(&mut self) -> Result<TokenKind, Failure> {
+        let byte = self.source.as_bytes()[self.current];
+        let operator = self.operator(byte);
+        operator.map_or_else(|| self.value_token(byte), Ok)
+    }
+
+    fn operator(&mut self, byte: u8) -> Option<TokenKind> {
+        let long = self.long_operator();
+        long.or_else(|| self.single_operator(byte))
     }
 
     fn long_operator(&mut self) -> Option<TokenKind> {
-        let operators = [
-            ("!==", TokenKind::NotEqual),
-            ("!=", TokenKind::NotEqual),
-            ("===", TokenKind::Equal),
-            ("==", TokenKind::Equal),
-            ("<=", TokenKind::LessEqual),
-            (">=", TokenKind::GreaterEqual),
-            ("&&", TokenKind::And),
-            ("||", TokenKind::Or),
-        ];
-        for (text, kind) in operators {
-            if self.consume(text.as_bytes()) {
-                return Some(kind);
+        let operator = Self::LONG_OPERATORS
+            .into_iter()
+            .find(|(text, _)| self.consume(text.as_bytes()));
+        operator.map(|(_, kind)| kind)
+    }
+
+    fn single_operator(&mut self, byte: u8) -> Option<TokenKind> {
+        let kind = TokenKind::single_byte(byte);
+        self.current += usize::from(kind.is_some());
+        kind
+    }
+
+    fn value_token(&mut self, byte: u8) -> Result<TokenKind, Failure> {
+        match byte {
+            b'\'' | b'"' => self.string(byte),
+            b'0'..=b'9' => self.number(),
+            _ if Self::identifier_start(byte) => Ok(self.identifier()),
+            _ => {
+                let start = self.current;
+                Err(self.error(
+                    start,
+                    start.saturating_add(1),
+                    "Template expression contains unsupported syntax.",
+                ))
             }
         }
-        None
     }
 
     fn consume(&mut self, expected: &[u8]) -> bool {
         let end = self.current.saturating_add(expected.len());
-        if self.source.as_bytes().get(self.current..end) != Some(expected) {
-            return false;
+        let found = self.source.as_bytes().get(self.current..end) == Some(expected);
+        if found {
+            self.current = end;
         }
-        self.current = end;
-        true
+        found
     }
 
     fn consume_one_of(&mut self, choices: &[u8]) -> bool {
-        let Some(byte) = self.source.as_bytes().get(self.current) else {
-            return false;
-        };
-        if !choices.contains(byte) {
-            return false;
-        }
-        self.current += 1;
-        true
+        let next = self.source.as_bytes().get(self.current);
+        let found = next.is_some_and(|byte| choices.contains(byte));
+        self.current += usize::from(found);
+        found
     }
 
     fn next_byte_matches(&self, test: fn(u8) -> bool) -> bool {
         let next = self.source.as_bytes().get(self.current);
         next.is_some_and(|byte| test(*byte))
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self.next_byte_matches(|byte| byte.is_ascii_whitespace()) {
+            self.current += 1;
+        }
     }
 
     fn skip_digits(&mut self) {
@@ -415,94 +539,104 @@ impl<'a> Lexer<'a> {
         let start = self.current;
         self.current += 1;
         let mut value = String::new();
-        while self.current < self.source.len() {
-            let byte = self.source.as_bytes()[self.current];
-            self.current += 1;
-            if byte == quote {
-                return Ok(TokenKind::Literal(Value::String(value)));
-            }
-            if byte == b'\\' {
-                let Some(escaped) = self.source.as_bytes().get(self.current).copied() else {
-                    break;
-                };
-                self.current += 1;
-                let Some(character) = escaped_character(escaped) else {
-                    return Err(self.error(
-                        self.current.saturating_sub(2),
-                        self.current,
-                        "Template string contains an unsupported escape.",
-                    ));
-                };
-                value.push(character);
-                continue;
-            }
-            let Some(character) = self.source[self.current - 1..].chars().next() else {
-                break;
-            };
+        while self.inside_string(quote) {
+            let character = self.string_character(start)?;
             value.push(character);
-            self.current = self.current.saturating_sub(1) + character.len_utf8();
         }
-        Err(self.error(
-            start,
+        let closed = self.consume_one_of(&[quote]);
+        let literal = TokenKind::Literal(Value::String(value));
+        closed
+            .then_some(literal)
+            .ok_or_else(|| self.unterminated_string(start))
+    }
+
+    fn inside_string(&self, quote: u8) -> bool {
+        let next = self.source.as_bytes().get(self.current);
+        next.is_some_and(|byte| *byte != quote)
+    }
+
+    fn string_character(&mut self, string_start: usize) -> Result<char, Failure> {
+        let source = self.source;
+        let rest = &source[self.current..];
+        if rest.starts_with('\\') {
+            return self.escaped_character(string_start);
+        }
+        let character = rest.chars().next().unwrap_or_default();
+        self.current += character.len_utf8();
+        Ok(character)
+    }
+
+    fn escaped_character(&mut self, string_start: usize) -> Result<char, Failure> {
+        self.current += 1;
+        let escaped = self.source.as_bytes().get(self.current).copied();
+        let escaped = escaped.ok_or_else(|| self.unterminated_string(string_start))?;
+        self.current += 1;
+        let escape = Self::ESCAPES
+            .iter()
+            .find(|(written, _)| *written == escaped);
+        let character = escape.map(|(_, character)| *character);
+        character.ok_or_else(|| {
+            self.error(
+                self.current.saturating_sub(2),
+                self.current,
+                "Template string contains an unsupported escape.",
+            )
+        })
+    }
+
+    fn unterminated_string(&self, string_start: usize) -> Failure {
+        self.error(
+            string_start,
             self.source.len(),
             "Template string is not terminated.",
-        ))
+        )
     }
 
     fn number(&mut self) -> Result<TokenKind, Failure> {
         let start = self.current;
         self.skip_digits();
-        if self.consume(b".") {
+        self.skip_fraction();
+        self.skip_exponent();
+        let raw = &self.source[start..self.current];
+        let number = Number::from_str(raw).map_err(|_| {
+            self.error(
+                start,
+                self.current,
+                "Template expression contains an invalid finite number.",
+            )
+        })?;
+        Ok(TokenKind::Literal(Value::Number(number)))
+    }
+
+    fn skip_fraction(&mut self) {
+        if self.consume_one_of(b".") {
             self.skip_digits();
         }
+    }
+
+    fn skip_exponent(&mut self) {
         if self.consume_one_of(b"eE") {
             self.consume_one_of(b"+-");
             self.skip_digits();
         }
-        let raw = &self.source[start..self.current];
-        let Ok(number) = Number::from_str(raw) else {
-            return Err(self.error(
-                start,
-                self.current,
-                "Template expression contains an invalid finite number.",
-            ));
-        };
-        Ok(TokenKind::Literal(Value::Number(number)))
     }
 
     fn identifier(&mut self) -> TokenKind {
         let start = self.current;
         self.current += 1;
-        while self.next_byte_matches(identifier_continue) {
+        while self.next_byte_matches(Self::identifier_continue) {
             self.current += 1;
         }
-        match &self.source[start..self.current] {
-            "true" => TokenKind::Literal(Value::Bool(true)),
-            "false" => TokenKind::Literal(Value::Bool(false)),
-            "null" => TokenKind::Literal(Value::Null),
-            value => TokenKind::Identifier(String::from(value)),
-        }
+        TokenKind::word(&self.source[start..self.current])
     }
 
     fn error(&self, start: usize, end: usize, message: &str) -> Failure {
-        expression_failure(
+        Expression::failure(
             self.source_path,
             self.source_start.saturating_add(start),
             self.source_start.saturating_add(end),
             message,
         )
-    }
-}
-
-fn escaped_character(escaped: u8) -> Option<char> {
-    match escaped {
-        b'\\' => Some('\\'),
-        b'\'' => Some('\''),
-        b'"' => Some('"'),
-        b'n' => Some('\n'),
-        b'r' => Some('\r'),
-        b't' => Some('\t'),
-        _ => None,
     }
 }
 
@@ -514,24 +648,41 @@ struct Parser<'a> {
     source_len: usize,
 }
 
-impl Parser<'_> {
+impl<'a> Parser<'a> {
     const MAX_EXPRESSION_DEPTH: usize = 32;
     const MAX_CALL_ARGUMENTS: usize = 8;
     const FORBIDDEN_PROPERTIES: &'static [&'static str] =
         &["__proto__", "constructor", "prototype"];
+    const OR: [(TokenKind, LogicalOperator); 1] = [(TokenKind::Or, LogicalOperator::Or)];
+    const AND: [(TokenKind, LogicalOperator); 1] = [(TokenKind::And, LogicalOperator::And)];
+    const COMPARISONS: [(TokenKind, CompareOperator); 6] = [
+        (TokenKind::Equal, CompareOperator::Equal),
+        (TokenKind::NotEqual, CompareOperator::NotEqual),
+        (TokenKind::Less, CompareOperator::Less),
+        (TokenKind::LessEqual, CompareOperator::LessEqual),
+        (TokenKind::Greater, CompareOperator::Greater),
+        (TokenKind::GreaterEqual, CompareOperator::GreaterEqual),
+    ];
+    const ADDITIVE: [(TokenKind, ArithmeticOperator); 2] = [
+        (TokenKind::Plus, ArithmeticOperator::Add),
+        (TokenKind::Minus, ArithmeticOperator::Subtract),
+    ];
+    const MULTIPLICATIVE: [(TokenKind, ArithmeticOperator); 2] = [
+        (TokenKind::Star, ArithmeticOperator::Multiply),
+        (TokenKind::Slash, ArithmeticOperator::Divide),
+    ];
 
     fn parse_ternary(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let condition = self.parse_or(depth + 1)?;
-        if !matches!(self.peek().kind, TokenKind::Question) {
+        if !self.eat(&TokenKind::Question) {
             return Ok(condition);
         }
-        self.advance();
         let when_true = self.parse_ternary(depth + 1)?;
-        if !matches!(self.peek().kind, TokenKind::Colon) {
-            return Err(self.error("Conditional expression requires ':' before its alternative."));
-        }
-        self.advance();
+        self.expect(
+            &TokenKind::Colon,
+            "Conditional expression requires ':' before its alternative.",
+        )?;
         let when_false = self.parse_ternary(depth + 1)?;
         Ok(ExpressionNode::Conditional {
             condition: Box::new(condition),
@@ -541,133 +692,103 @@ impl Parser<'_> {
     }
 
     fn parse_or(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
-        self.assert_depth(depth)?;
-        let mut expression = self.parse_and(depth + 1)?;
-        while matches!(self.peek().kind, TokenKind::Or) {
-            self.advance();
-            let right = self.parse_and(depth + 1)?;
-            expression = ExpressionNode::Logical {
-                left: Box::new(expression),
-                operator: LogicalOperator::Or,
-                right: Box::new(right),
-            };
-        }
-        Ok(expression)
+        self.parse_chain(depth, &Self::OR, Self::parse_and, ExpressionNode::logical)
     }
 
     fn parse_and(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
-        self.assert_depth(depth)?;
-        let mut expression = self.parse_comparison(depth + 1)?;
-        while matches!(self.peek().kind, TokenKind::And) {
-            self.advance();
-            let right = self.parse_comparison(depth + 1)?;
-            expression = ExpressionNode::Logical {
-                left: Box::new(expression),
-                operator: LogicalOperator::And,
-                right: Box::new(right),
-            };
-        }
-        Ok(expression)
+        self.parse_chain(
+            depth,
+            &Self::AND,
+            Self::parse_comparison,
+            ExpressionNode::logical,
+        )
     }
 
     fn parse_comparison(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let left = self.parse_additive(depth + 1)?;
-        let operator = match self.peek().kind {
-            TokenKind::Equal => Some(CompareOperator::Equal),
-            TokenKind::NotEqual => Some(CompareOperator::NotEqual),
-            TokenKind::Less => Some(CompareOperator::Less),
-            TokenKind::LessEqual => Some(CompareOperator::LessEqual),
-            TokenKind::Greater => Some(CompareOperator::Greater),
-            TokenKind::GreaterEqual => Some(CompareOperator::GreaterEqual),
-            _ => None,
-        };
-        let Some(operator) = operator else {
+        let Some(operator) = self.eat_operator(&Self::COMPARISONS) else {
             return Ok(left);
         };
-        self.advance();
         let right = self.parse_additive(depth + 1)?;
-        Ok(ExpressionNode::Compare {
-            left: Box::new(left),
-            operator,
-            right: Box::new(right),
-        })
+        Ok(ExpressionNode::compare(left, operator, right))
     }
 
     fn parse_additive(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
-        self.assert_depth(depth)?;
-        let mut left = self.parse_multiplicative(depth + 1)?;
-        loop {
-            let operator = match self.peek().kind {
-                TokenKind::Plus => ArithmeticOperator::Add,
-                TokenKind::Minus => ArithmeticOperator::Subtract,
-                _ => return Ok(left),
-            };
-            self.advance();
-            let right = self.parse_multiplicative(depth + 1)?;
-            left = ExpressionNode::Arithmetic {
-                left: Box::new(left),
-                operator,
-                right: Box::new(right),
-            };
-        }
+        self.parse_chain(
+            depth,
+            &Self::ADDITIVE,
+            Self::parse_multiplicative,
+            ExpressionNode::arithmetic,
+        )
     }
 
     fn parse_multiplicative(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
+        self.parse_chain(
+            depth,
+            &Self::MULTIPLICATIVE,
+            Self::parse_unary,
+            ExpressionNode::arithmetic,
+        )
+    }
+
+    fn parse_chain<T: Copy>(
+        &mut self,
+        depth: usize,
+        operators: &[(TokenKind, T)],
+        parse_operand: OperandParser<'a>,
+        combine: fn(ExpressionNode, T, ExpressionNode) -> ExpressionNode,
+    ) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
-        let mut left = self.parse_unary(depth + 1)?;
-        loop {
-            let operator = match self.peek().kind {
-                TokenKind::Star => ArithmeticOperator::Multiply,
-                TokenKind::Slash => ArithmeticOperator::Divide,
-                _ => return Ok(left),
-            };
-            self.advance();
-            let right = self.parse_unary(depth + 1)?;
-            left = ExpressionNode::Arithmetic {
-                left: Box::new(left),
-                operator,
-                right: Box::new(right),
-            };
+        let mut left = parse_operand(self, depth + 1)?;
+        while let Some(operator) = self.eat_operator(operators) {
+            let right = parse_operand(self, depth + 1)?;
+            left = combine(left, operator, right);
         }
+        Ok(left)
     }
 
     fn parse_unary(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
-        if matches!(&self.peek().kind, TokenKind::Identifier(name) if name == "await") {
-            self.advance();
-            return Ok(ExpressionNode::Await(Box::new(
-                self.parse_unary(depth + 1)?,
-            )));
-        }
-        if matches!(self.peek().kind, TokenKind::Bang) {
-            self.advance();
-            return Ok(ExpressionNode::Not(Box::new(self.parse_unary(depth + 1)?)));
-        }
-        self.parse_access(depth + 1)
+        let Some(wrap) = self.eat_prefix() else {
+            return self.parse_access(depth + 1);
+        };
+        let operand = self.parse_unary(depth + 1)?;
+        Ok(wrap(Box::new(operand)))
     }
 
     fn parse_access(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let mut expression = self.parse_primary(depth + 1)?;
-        loop {
-            expression = match self.peek().kind {
-                TokenKind::Dot => self.parse_property(expression)?,
-                TokenKind::LeftParen => self.parse_call(expression, depth)?,
-                TokenKind::LeftBracket => self.parse_index(expression)?,
-                _ => return Ok(expression),
-            };
+        while let Some(step) = self.peek().kind.access_step() {
+            expression = self.parse_access_step(step, expression, depth)?;
+        }
+        Ok(expression)
+    }
+
+    fn parse_access_step(
+        &mut self,
+        step: AccessStep,
+        object: ExpressionNode,
+        depth: usize,
+    ) -> Result<ExpressionNode, Failure> {
+        match step {
+            AccessStep::Property => self.parse_property(object),
+            AccessStep::Call => self.parse_call(object, depth),
+            AccessStep::Index => self.parse_index(object),
         }
     }
 
     fn parse_property(&mut self, object: ExpressionNode) -> Result<ExpressionNode, Failure> {
         self.advance();
-        let TokenKind::Identifier(property) = self.peek().kind.clone() else {
-            return Err(self.error("Property access requires an identifier."));
-        };
-        if Self::FORBIDDEN_PROPERTIES.contains(&property.as_str()) {
-            return Err(self.error("Template expressions cannot access prototype properties."));
-        }
+        let property = self.peek().kind.property_name();
+        let property =
+            property.ok_or_else(|| self.error("Property access requires an identifier."))?;
+        let allowed = !Self::FORBIDDEN_PROPERTIES.contains(&property.as_str());
+        self.require(
+            allowed,
+            "Template expressions cannot access prototype properties.",
+        )?;
         self.advance();
         Ok(ExpressionNode::Access(
             Box::new(object),
@@ -681,43 +802,41 @@ impl Parser<'_> {
         depth: usize,
     ) -> Result<ExpressionNode, Failure> {
         self.advance();
-        let mut arguments = Vec::new();
-        while !matches!(self.peek().kind, TokenKind::RightParen) {
-            if arguments.len() >= Self::MAX_CALL_ARGUMENTS {
-                return Err(self.error("A call accepts at most eight arguments."));
-            }
-            arguments.push(self.parse_ternary(depth + 1)?);
-            if !matches!(self.peek().kind, TokenKind::Comma) {
-                break;
-            }
-            self.advance();
-        }
-        if !matches!(self.peek().kind, TokenKind::RightParen) {
-            return Err(self.error("A call is missing ')'."));
-        }
-        self.advance();
+        let arguments = self.parse_arguments(depth)?;
+        self.expect(&TokenKind::RightParen, "A call is missing ')'.")?;
         Ok(ExpressionNode::Call {
             callee: Box::new(callee),
             arguments,
         })
     }
 
+    fn parse_arguments(&mut self, depth: usize) -> Result<Vec<ExpressionNode>, Failure> {
+        let mut arguments = Vec::new();
+        let mut expecting = self.peek().kind != TokenKind::RightParen;
+        while expecting {
+            let room = arguments.len() < Self::MAX_CALL_ARGUMENTS;
+            self.require(room, "A call accepts at most eight arguments.")?;
+            arguments.push(self.parse_ternary(depth + 1)?);
+            let separated = self.eat(&TokenKind::Comma);
+            let closing = self.peek().kind == TokenKind::RightParen;
+            expecting = [separated, !closing] == [true, true];
+        }
+        Ok(arguments)
+    }
+
     fn parse_index(&mut self, array: ExpressionNode) -> Result<ExpressionNode, Failure> {
         self.advance();
-        let TokenKind::Literal(Value::Number(number)) = self.peek().kind.clone() else {
-            return Err(self.error("Array access requires a non-negative integer literal."));
-        };
+        let number =
+            self.peek().kind.number_literal().ok_or_else(|| {
+                self.error("Array access requires a non-negative integer literal.")
+            })?;
         let index = number
             .as_u64()
             .and_then(|value| usize::try_from(value).ok());
-        let Some(index) = index else {
-            return Err(self.error("Array index is outside the supported range."));
-        };
+        let index =
+            index.ok_or_else(|| self.error("Array index is outside the supported range."))?;
         self.advance();
-        if !matches!(self.peek().kind, TokenKind::RightBracket) {
-            return Err(self.error("Array access is missing ']'."));
-        }
-        self.advance();
+        self.expect(&TokenKind::RightBracket, "Array access is missing ']'.")?;
         Ok(ExpressionNode::Access(
             Box::new(array),
             Access::Index(index),
@@ -735,24 +854,52 @@ impl Parser<'_> {
                 self.advance();
                 Ok(ExpressionNode::Identifier(identifier))
             }
-            TokenKind::LeftParen => {
-                self.advance();
-                let expression = self.parse_ternary(depth + 1)?;
-                if !matches!(self.peek().kind, TokenKind::RightParen) {
-                    return Err(self.error("Template expression is missing ')'."));
-                }
-                self.advance();
-                Ok(expression)
-            }
+            TokenKind::LeftParen => self.parse_group(depth),
             _ => Err(self.error("Template expression is incomplete.")),
         }
     }
 
+    fn parse_group(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
+        self.advance();
+        let expression = self.parse_ternary(depth + 1)?;
+        self.expect(
+            &TokenKind::RightParen,
+            "Template expression is missing ')'.",
+        )?;
+        Ok(expression)
+    }
+
     fn assert_depth(&self, depth: usize) -> Result<(), Failure> {
-        if depth > Self::MAX_EXPRESSION_DEPTH {
-            return Err(self.error("Template expression exceeds the nesting limit of 32."));
-        }
-        Ok(())
+        self.require(
+            depth <= Self::MAX_EXPRESSION_DEPTH,
+            "Template expression exceeds the nesting limit of 32.",
+        )
+    }
+
+    fn eat_prefix(&mut self) -> Option<PrefixNode> {
+        let wrap = self.peek().kind.prefix();
+        wrap.inspect(|_| self.advance())
+    }
+
+    fn eat_operator<T: Copy>(&mut self, operators: &[(TokenKind, T)]) -> Option<T> {
+        let kind = &self.peek().kind;
+        let found = operators.iter().find(|(token, _)| token == kind);
+        let operator = found.map(|(_, operator)| *operator);
+        operator.inspect(|_| self.advance())
+    }
+
+    fn eat(&mut self, kind: &TokenKind) -> bool {
+        let found = self.peek().kind == *kind;
+        found.then(|| self.advance()).is_some()
+    }
+
+    fn expect(&mut self, kind: &TokenKind, message: &str) -> Result<(), Failure> {
+        let found = self.eat(kind);
+        self.require(found, message)
+    }
+
+    fn require(&self, condition: bool, message: &str) -> Result<(), Failure> {
+        condition.then_some(()).ok_or_else(|| self.error(message))
     }
 
     fn peek(&self) -> &Token {
@@ -760,15 +907,14 @@ impl Parser<'_> {
     }
 
     fn advance(&mut self) {
-        if self.current + 1 < self.tokens.len() {
-            self.current += 1;
-        }
+        let last = self.tokens.len() - 1;
+        self.current = (self.current + 1).min(last);
     }
 
     fn error(&self, message: &str) -> Failure {
         let token = self.peek();
         let end = token.end.max(token.start + 1).min(self.source_len);
-        expression_failure(
+        Expression::failure(
             self.source_path,
             self.source_start.saturating_add(token.start),
             self.source_start.saturating_add(end),
@@ -777,38 +923,19 @@ impl Parser<'_> {
     }
 }
 
-fn identifier_start(byte: u8) -> bool {
-    byte.is_ascii_alphabetic() || byte == b'_' || byte == b'$'
-}
-
-fn identifier_continue(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$'
-}
-
-fn expression_failure(source_path: &str, start: usize, end: usize, message: &str) -> Failure {
-    Failure::one(diagnostic(
-        1303,
-        message,
-        Some(String::from(
-            "Use bounded JSON paths, literals, comparisons, and boolean operators.",
-        )),
-        source_span(source_path, start, end),
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{Expression, identifier_continue, identifier_start};
+    use super::{Expression, Lexer};
 
     #[test]
     fn identifier_bytes_keep_ascii_word_and_dollar_classification() {
         for byte in u8::MIN..=u8::MAX {
             let start = byte.is_ascii_alphabetic() || byte == b'_' || byte == b'$';
-            assert_eq!(identifier_start(byte), start, "start byte {byte}");
+            assert_eq!(Lexer::identifier_start(byte), start, "start byte {byte}");
             assert_eq!(
-                identifier_continue(byte),
+                Lexer::identifier_continue(byte),
                 start || byte.is_ascii_digit(),
                 "continue byte {byte}"
             );
