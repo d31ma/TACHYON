@@ -53,9 +53,10 @@ impl<'a> OneClassReport<'a> {
             .count()
             + 1;
         let mut action = diagnostic.help.clone().unwrap_or_default();
-        let splits_class = diagnostic.message.starts_with(Self::ONE_CLASS_MESSAGE);
-        let split = splits_class.then(|| format!(" {}", self.split(&diagnostic.message, line)));
-        action.push_str(&split.unwrap_or_default());
+        if diagnostic.message.starts_with(Self::ONE_CLASS_MESSAGE) {
+            action.push(' ');
+            action.push_str(&self.split(&diagnostic.message, line));
+        }
         ManualStep::new(
             &format!("{}:{line}", self.relative),
             diagnostic.message.clone(),
