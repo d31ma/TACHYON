@@ -181,7 +181,7 @@ impl RoleRename {
         let utility_edits = self
             .moves_utilities
             .then(|| SharedUtilsMove::path_edits(relative, source));
-        edits.extend(utility_edits.unwrap_or_default());
+        edits.extend(utility_edits.into_iter().flatten());
         edits
     }
 
@@ -196,7 +196,7 @@ impl RoleRename {
         let moves_utilities = SharedUtilsMove::moves_folder(from);
         self.moves_utilities |= moves_utilities;
         let pairs = (!moves_utilities).then(|| Self::folder_path_pairs(from, to));
-        self.folder_paths.extend(pairs.unwrap_or_default());
+        self.folder_paths.extend(pairs.into_iter().flatten());
     }
 
     fn folder_path_pairs(from: &str, to: &str) -> Vec<(String, String)> {
