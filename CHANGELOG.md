@@ -276,6 +276,17 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- JavaScript and TypeScript services share one Setup class. Before, each
+  service module carried its own copy of every Setup class; now, when two or
+  more modules hold the same Setup, the build moves its class into the shared
+  `.tachyon/behavior-runtime.js` module and each service imports it. Two
+  services on one page therefore see one Setup definition, one configuration
+  and one set of static fields. A Setup whose copies differ, that has an
+  annotated method, or whose class uses another name of its module, `import`
+  or `eval`, stays in each module as before. A route with four services and a
+  1.25 KB Setup sends 999 fewer bytes of script (brotli); a route with one
+  service sends about 20 bytes more or less (ADR 0022 amendment).
+
 - Tac routes load less script. A JavaScript or TypeScript service that hands
   `this` to its own method (`this.save.bind(this)`,
   `this.pick(id).call(this)`) no longer makes every route that uses it list,
