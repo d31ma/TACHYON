@@ -265,6 +265,9 @@ jobs:
       - name: Check the generated website styles
         run: node website/scripts/build-styles.mjs --check
 
+      - name: Check that every website snippet language gap has an example or a stated reason
+        run: node website/scripts/language-coverage.mjs --strict
+
       - name: Build the Phase 3 CLI
         run: cargo build --locked --bin ty
 
