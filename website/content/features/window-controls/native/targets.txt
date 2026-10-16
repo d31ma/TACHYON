@@ -20,6 +20,9 @@ registers its window adapter and checks the manifest grants again.
 
 The manifest grants minimize, resize and title. It does not grant close,
 maximize or fullscreen. Browser tabs have no native window and refuse
-these calls. The macOS and Linux (GTK) hosts run the controls on the
-app's own window. Windows and Android source or SDK checks on macOS do
-not prove those operating systems' window interactions.
+these calls. The macOS host runs the controls on the app's own window,
+and a macOS test checks this on a real app window. The Linux (GTK) host
+has the controls too, but no test calls them on a Linux desktop yet. On
+Windows, a test that needs MSVC drives the host's control code against a
+real Win32 window, without the full app or WebView2. The Android check
+only type-checks the code against the SDK; it does not run on a device.

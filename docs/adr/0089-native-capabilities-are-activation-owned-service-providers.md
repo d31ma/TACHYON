@@ -99,7 +99,11 @@ read; framework implementation remains subject to the repository unsafe ban.
 
 Later C# and Kotlin registration tests and four native example checks passed.
 They replace the earlier pending C# and Kotlin registration status. Windows
-desktop and Android device interaction are still not tested. On macOS, a test
+desktop and Android device interaction are still not tested. (Later, an ignored
+Windows test that needs MSVC was added. It compiles the generated Windows
+control code and drives a real Win32 window with it: title, resize,
+fullscreen, minimize, a refused close and a refused call from another thread.
+It does not open the full app or WebView2.) On macOS, a test
 selects a file, revokes access, grants it again, and checks that the old file
 handle is refused.
 
