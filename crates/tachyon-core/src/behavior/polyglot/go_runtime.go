@@ -245,22 +245,30 @@ func behaviorFieldTag(field reflect.StructField) (string, string, bool) {
 		return "", "", true
 	}
 	name, options, _ := strings.Cut(tag, ",")
-	if !tagged || !behaviorValidTagName(name) {
-		name = field.Name
+	if !tagged {
+		return field.Name, "," + options + ",", false
 	}
-	return name, "," + options + ",", false
+	return behaviorTagName(name, field.Name), "," + options + ",", false
 }
 
-func behaviorValidTagName(name string) bool {
+// behaviorTagName follows encoding/json from Go 1.27: a name without a comma,
+// backslash or quote is used as written; otherwise the leading Go identifier
+// is the name, and a name that does not start with one is the field name.
+func behaviorTagName(name string, field string) string {
 	if name == "" {
-		return false
+		return field
 	}
-	for _, character := range name {
-		if !strings.ContainsRune("!#$%&()*+-./:;<=>?@[]^_{|}~ ", character) && !unicode.IsLetter(character) && !unicode.IsDigit(character) {
-			return false
-		}
+	if !strings.ContainsAny(name, "\\'\"`") {
+		return name
 	}
-	return true
+	first, _ := utf8.DecodeRuneInString(name)
+	if first != '_' && !unicode.IsLetter(first) {
+		return field
+	}
+	identifier := strings.IndexFunc(name, func(character rune) bool {
+		return character != '_' && !unicode.IsLetter(character) && !unicode.IsNumber(character)
+	})
+	return name[:identifier]
 }
 
 func behaviorFieldOmitted(value reflect.Value, options string) bool {

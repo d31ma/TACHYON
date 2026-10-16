@@ -996,6 +996,18 @@ type taggedRequest struct {
 	Untagged string
 }
 
+type taggedNames struct {
+	Slash  string `json:"x\\y"`
+	Quote  string `json:"q'uote"`
+	Space  string `json:"sp ace"`
+	Lead   string `json:"\"lead"`
+	Tab    string `json:"x\ty"`
+	Accent string `json:"naïve\"x"`
+	Under  string `json:"_u\"v"`
+	Number string `json:"9n\"m"`
+	Pct    string `json:"pct%"`
+}
+
 func sameAsEncodingJSON(value any, message string) string {
 	encoded := must(behaviorEncode(value, 4096))
 	reference, failure := json.Marshal(value)
@@ -1006,7 +1018,9 @@ func sameAsEncodingJSON(value any, message string) string {
 
 func checkJSONTags() {
 	empty := sameAsEncodingJSON(taggedRequest{Dash: "d"}, "an empty tagged request")
-	expect(empty == `{"-":"d","Odd":"","Untagged":"","flag":null,"kept":null,"level":0,"note":{},"phrase":"\"\"","quoted":"0"}`, "omitempty, omitzero, - and string follow encoding/json: "+empty)
+	expect(empty == `{"-":"d","Untagged":"","bad":"","flag":null,"kept":null,"level":0,"note":{},"phrase":"\"\"","quoted":"0"}`, "omitempty, omitzero, - and string follow encoding/json: "+empty)
+	names := sameAsEncodingJSON(taggedNames{}, "malformed tag names")
+	expect(names == `{"Lead":"","Number":"","_u":"","naïve":"","pct%":"","q":"","sp ace":"","x":"","x\ty":""}`, "malformed tag names follow encoding/json: "+names)
 	owner := ""
 	yes := true
 	full := sameAsEncodingJSON(taggedRequest{

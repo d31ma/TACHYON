@@ -374,9 +374,11 @@ language's model, leaves the member out. The server then saw a member the model
 meant to omit.
 
 - A struct field's `json` tag now means what it means to `encoding/json`:
-  - The key is the tag name, or the Go field name when the tag has no name or
-    a name that `encoding/json` would not accept. `json:"-"` leaves the field
-    out; `json:"-,"` uses the key `-`.
+  - The key is the tag name, or the Go field name when the tag has no name.
+    As in `encoding/json` from Go 1.27, a name that holds a backslash or a
+    quote keeps only its leading Go identifier (`json:"q'x"` is `q`), and is
+    the Go field name when it does not start with one. `json:"-"` leaves the
+    field out; `json:"-,"` uses the key `-`.
   - `omitempty` leaves out `false`, a zero number, a nil pointer or interface,
     and an empty string, slice, map or array. A struct is never empty.
   - `omitzero` leaves out a zero value. When the field's type, or a pointer to
