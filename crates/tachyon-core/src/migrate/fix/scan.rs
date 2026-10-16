@@ -135,6 +135,11 @@ impl<'a> SourceText<'a> {
             .map_or(self.len(), |newline| at + newline + 1)
     }
 
+    pub(super) fn line_starts(&self, from: usize) -> Vec<usize> {
+        let starts = std::iter::successors(Some(from), |at| Some(self.line_end(*at)));
+        starts.take_while(|at| *at < self.len()).collect()
+    }
+
     pub(super) fn line_text(&self, line_start: usize) -> &'a str {
         let end = self.line_end(line_start);
         self.source[line_start..end].trim_end_matches(['\n', '\r'])
