@@ -16,7 +16,7 @@ tachyon-diagnostics.workspace = true
 
 [dev-dependencies]
 cohesion-scan.workspace = true
-jsonschema = { version = "0.49.1", default-features = false }
+jsonschema = { version = "0.58.6", default-features = false }
 
 [lints]
 workspace = true
