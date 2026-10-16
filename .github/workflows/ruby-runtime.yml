@@ -8,7 +8,7 @@ on:
       - scripts/ruby-runtime-test.mjs
       - .github/workflows/ruby-runtime.yml
   push:
-    branches: [main, codex/rust-rewrite]
+    branches: [main, develop, codex/rust-rewrite]
     paths:
       - runtimes/ruby-web/**
       - scripts/ruby-runtime-test.mjs

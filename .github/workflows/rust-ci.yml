@@ -3,10 +3,10 @@ name: Rust Rewrite
 on:
   workflow_call:
   pull_request:
-    branches: [main, codex/rust-rewrite]
+    branches: [main, develop, codex/rust-rewrite]
     types: [opened, reopened, ready_for_review, synchronize]
   push:
-    branches: [codex/rust-rewrite]
+    branches: [develop, codex/rust-rewrite]
 
 permissions:
   contents: read

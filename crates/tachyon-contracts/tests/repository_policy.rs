@@ -571,6 +571,18 @@ fn exact_toolchain_is_consistent_across_repository_controls()
 }
 
 #[test]
+fn ci_runs_on_the_develop_integration_branch() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let rust = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
+    let ruby = fs::read_to_string(root.join(".github/workflows/ruby-runtime.yml"))?;
+
+    assert!(rust.contains("branches: [main, develop, codex/rust-rewrite]"));
+    assert!(rust.contains("branches: [develop, codex/rust-rewrite]"));
+    assert!(ruby.contains("branches: [main, develop, codex/rust-rewrite]"));
+    Ok(())
+}
+
+#[test]
 fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
