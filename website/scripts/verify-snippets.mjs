@@ -1680,7 +1680,7 @@ async function typeCheckProject(project, scaffoldFiles) {
     const cached = await unlessPassedBefore(project.label, root, work, async () => {
       await runCommand(Settings.binary, ['types', root], { timeout: 60_000 })
       for (const realm of project.realms) {
-        await runCommand('tsc', ['-p', path.join(root, realm, 'jsconfig.json')], { cwd: root, timeout: 60_000 })
+        await runCommand('bun', ['check', '-p', path.join(root, realm, 'jsconfig.json')], { cwd: root, timeout: 60_000 })
       }
     })
     pass(`${project.label} [tsc]${cached}`, 'types')
@@ -1688,10 +1688,10 @@ async function typeCheckProject(project, scaffoldFiles) {
 }
 
 async function verifyTypeChecks() {
-  console.log('== tsc over every JavaScript and TypeScript example project')
+  console.log('== bun check over every JavaScript and TypeScript example project')
   const label = 'JavaScript and TypeScript example projects'
-  if (!await isToolAvailable('tsc')) {
-    const missing = new Error('tsc is not installed; run bun install at the repository root')
+  if (!await isToolAvailable('bun')) {
+    const missing = new Error('bun is not installed; install Bun 1.4.3 or later for bun check')
     if (Settings.requireToolchains) fail(label, missing)
     else skip(label, missing.message)
     return

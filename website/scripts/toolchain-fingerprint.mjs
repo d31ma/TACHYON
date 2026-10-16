@@ -50,7 +50,6 @@ export class ToolchainFingerprint {
       ['luac', ['-v']],
       ['em++', ['--version']],
       ['clang++', ['--version']],
-      ['tsc', ['--version']],
     ]
   }
 

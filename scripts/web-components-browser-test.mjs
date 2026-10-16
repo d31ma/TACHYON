@@ -5,7 +5,6 @@ import { chromium, firefox, webkit } from 'playwright'
 import { createServer } from 'node:http'
 import { spawnSync } from 'node:child_process'
 import { createReadStream, existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
@@ -21,7 +20,6 @@ class WebComponentsGate {
     { language: 'Go', tag: 'shop-steps', count: '#steps', add: '#steps-add', event: 'heardSteps', runtime: 'tachyon-go.js' },
     { language: 'Ruby', tag: 'shop-bell', count: '#rings', add: '#bell-ring', event: null, runtime: 'tachyon-ruby-services.js' },
   ]
-  static typescript = path.join(path.dirname(createRequire(import.meta.url).resolve('typescript/package.json')), 'bin', 'tsc')
   static typedConsumer = `import type { ShopCounterElement } from './dist/.tachyon/elements/shop-counter.js'
 const counter: ShopCounterElement | null = document.querySelector('shop-counter')
 counter?.addEventListener('count-changed', (event) => {
@@ -191,8 +189,9 @@ export default class CounterService {
   static typeCheck(source) {
     const file = path.join(WebComponentsGate.project, 'consumer.ts')
     writeFileSync(file, source)
-    const options = ['--noEmit', '--strict', '--target', 'es2022', '--module', 'esnext', '--moduleResolution', 'bundler', '--lib', 'es2022,dom', file]
-    return spawnSync(process.execPath, [WebComponentsGate.typescript, ...options], { encoding: 'utf8' })
+    const options = ['check', '--no-pretty', '--strict', '--target', 'es2022', '--module', 'esnext', '--moduleResolution', 'bundler', '--lib', 'es2022,dom', file]
+    const { AGENT, CLAUDECODE, REPL_ID, ...env } = process.env
+    return spawnSync('bun', options, { encoding: 'utf8', env })
   }
 
   static checkDeclarations() {
