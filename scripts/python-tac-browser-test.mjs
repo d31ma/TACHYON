@@ -41,7 +41,7 @@ class PythonTacGate {
   }
 
   static async receipt(fixture, result) {
-    await writeFile(path.join(fixture, 'python-tac-browser.json'), JSON.stringify({ ...result, scope: 'initial synchronous Python Tac Chromium fixture', asynchronousQualified: false, fullPythonTacQualified: false }, null, 2) + '\n')
+    await writeFile(path.join(fixture, 'python-tac-browser.json'), JSON.stringify({ ...result, scope: 'Python Tac Chromium fixture: synchronous and async def services', asyncMethodsChromium: true, firefoxAndWebKitOwed: true, fullPythonTacQualified: false }, null, 2) + '\n')
   }
 
   static async serve(fixture, diagnostics) {
@@ -143,6 +143,9 @@ class PythonTacGate {
     await page.locator('#view-echo').click()
     await page.waitForFunction(() => document.querySelector('#view-echo-count')?.textContent === '1', undefined, { timeout: 5_000 })
     assert.equal(await page.locator('#view-model').textContent(), 'initial')
+    await page.locator('#view-load').click()
+    await page.waitForFunction(() => document.querySelector('#view-loaded')?.textContent === 'atlas', undefined, { timeout: 5_000 })
+    const asynchronous = await PythonTacGate.exerciseAsync(page)
     const lifetime = await page.evaluateHandle(async () => {
       const { default: CounterService } = await import('/.tachyon/services/CounterService.js')
       const { default: AuditService } = await import('/.tachyon/services/AuditService.js')
@@ -175,7 +178,7 @@ class PythonTacGate {
     try {
       await page.locator('#view-hide').click()
       await page.locator('[data-tachyon-component="python-probe"]').waitFor({ state: 'detached', timeout: 5_000 })
-      return await lifetime.evaluate(async ({ audit, result }) => {
+      const managed = await lifetime.evaluate(async ({ audit, result }) => {
         try {
           const deadline = performance.now() + 5_000
           while (audit.snapshot()[1] !== 1) {
@@ -187,9 +190,28 @@ class PythonTacGate {
           audit.__tachyonDispose()
         }
       })
+      return { ...managed, asynchronous }
     } finally {
       await lifetime.dispose()
     }
+  }
+
+  static async exerciseAsync(page) {
+    return page.evaluate(async () => {
+      const { default: LibraryService } = await import('/.tachyon/services/LibraryService.js')
+      const library = new LibraryService({})
+      const before = library.total
+      const pending = library.load('globe')
+      const isPromise = typeof pending?.then === 'function'
+      const meanwhile = library.total - before
+      const loaded = await pending
+      const after = { added: library.total - before, loaded: library.loaded }
+      const failed = await library.fail().then(() => '', error => String(error.message))
+      const holding = library.hold()
+      library.__tachyonDispose()
+      const cancelled = await holding.then(() => '', error => error.code)
+      return { isPromise, meanwhile, loaded, after, failed, cancelled }
+    })
   }
 
   static assertResult(result) {
@@ -205,6 +227,7 @@ class PythonTacGate {
       assert.deepEqual(probe.retained, { lifecycle: [1, 0], secondIncremented: 4 })
       assert.deepEqual(probe.stopped, [1, 1])
       assert.equal(probe.teardown, 'managed conditional unmount via Python service event')
+      assert.deepEqual(probe.asynchronous, { isPromise: true, meanwhile: 0, loaded: { title: 'globe', pages: 5 }, after: { added: 5, loaded: 'globe' }, failed: 'Web service library: Python Tac operation failed.', cancelled: 'CANCELLED' })
     }
   }
 }

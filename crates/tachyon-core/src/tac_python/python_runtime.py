@@ -14,8 +14,9 @@ class _TacPythonRuntime:
         cls.instance = cls(types, metadata, models)
 
     @classmethod
-    def connect(cls, emit):
+    def connect(cls, emit, done):
         cls.instance.emit = emit
+        cls.instance.tasks.done = done
 
     @classmethod
     def invoke(cls, text):
@@ -29,6 +30,7 @@ class _TacPythonRuntime:
         return self._release_all()
 
     def _release_all(self):
+        self.tasks.cancel_all()
         owners = list(self.owners.values())
         self.owners.clear()
         failures = [self._release_owner(owner) for owner in owners]
@@ -45,6 +47,7 @@ class _TacPythonRuntime:
         self.metadata = metadata
         self.codec = _TacPythonCodec(models, metadata['models'])
         self.graph = _TacPythonGraph(types, metadata['providers'], self.codec, self._publisher)
+        self.tasks = _TacPythonTasks(self.codec)
         self.owners = {}
         self.busy = False
         self.emit = None
@@ -135,7 +138,11 @@ class _TacPythonRuntime:
         metadata = self._metadata(owner)
         listeners = [self._listener_description(listener) for listener in metadata['listeners'].values()]
         return {'fields': list(metadata['fields']), 'writable': metadata['writable'],
-                'methods': list(metadata['methods']), 'listeners': listeners}
+                'methods': list(metadata['methods']), 'listeners': listeners,
+                'asyncMethods': self._async_methods(metadata)}
+
+    def _async_methods(self, metadata):
+        return [name for name, method in metadata['methods'].items() if method['asynchronous']]
 
     def _listener_description(self, listener):
         names = ['key', 'events', 'replay', 'order', 'asynchronous', 'condition', 'models']
@@ -154,6 +161,7 @@ class _TacPythonRuntime:
         if request['owner'] in self.owners:
             owner = self._owner(request)
             del self.owners[owner.id]
+            self.tasks.cancel_owner(owner)
             self.graph.dispose(owner)
         return None
 
@@ -179,9 +187,18 @@ class _TacPythonRuntime:
         owner = self._owner(request)
         method = self._metadata(owner)['methods'][request['name']]
         arguments = self._arguments(method, request.get('args', []))
+        if method['asynchronous']:
+            return self._start_task(owner, method, arguments)
         value = getattr(owner.root, method['name'])(*arguments)
         self._synchronous(value)
         return self.codec.result(method['returns'], value)
+
+    def _start_task(self, owner, method, arguments):
+        self.tasks.require_capacity()
+        value = getattr(owner.root, method['name'])(*arguments)
+        if not _tac_inspect.isawaitable(value):
+            raise ValueError('Python Tac async method did not return an awaitable.')
+        return _TacPythonTaskTicket(self.tasks.start(owner, method['returns'], value))
 
     def _arguments(self, method, values):
         if type(values) is not list or len(values) != len(method['arguments']):
@@ -191,7 +208,7 @@ class _TacPythonRuntime:
     def _synchronous(self, value):
         if _tac_inspect.isawaitable(value):
             self.graph.require_synchronous([value])
-            raise ValueError('Python Tac async methods need their continuation adapter.')
+            raise ValueError('Python Tac synchronous method returned an awaitable.')
 
     def _event(self, request):
         owner = self._owner(request)
@@ -230,6 +247,8 @@ class _TacPythonRuntime:
         return []
 
     def _response(self, value):
+        if type(value) is _TacPythonTaskTicket:
+            return _tac_json.dumps({'task': value.task_id})
         answer = _tac_json.dumps({'value': self.codec.plain(value)}, allow_nan=False)
         if len(answer.encode('utf-8')) > self.MAX_REQUEST:
             raise ValueError('Python Tac response exceeds bounds.')
