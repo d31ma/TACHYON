@@ -36,11 +36,8 @@ impl ShippedScript {
         let keeps_a_comment = Self::KEPT_COMMENT_MARKS
             .iter()
             .any(|mark| source.contains(mark));
-        if keeps_a_comment {
-            return false;
-        }
         let continued_line = source.lines().any(Self::continues_on_next_line);
-        !continued_line
+        [keeps_a_comment, continued_line] == [false, false]
     }
 
     fn continues_on_next_line(line: &str) -> bool {
@@ -57,15 +54,14 @@ impl ShippedScript {
 
     fn without_comment_blocks(text: &str) -> String {
         let mut pieces = text.split(Self::COMMENT_START);
-        let mut kept = pieces.next().unwrap_or_default().to_owned();
-        for piece in pieces {
-            let Some((_, rest)) = piece.split_once(Self::COMMENT_END) else {
-                continue;
-            };
-            kept.push_str(Self::LINE_BREAK);
-            kept.push_str(rest);
-        }
-        kept
+        let first = pieces.next().unwrap_or_default().to_owned();
+        pieces
+            .filter_map(|piece| piece.split_once(Self::COMMENT_END).map(|(_, rest)| rest))
+            .fold(first, |mut kept, rest| {
+                kept.push_str(Self::LINE_BREAK);
+                kept.push_str(rest);
+                kept
+            })
     }
 
     fn is_code(line: &str) -> bool {

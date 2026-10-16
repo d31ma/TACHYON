@@ -307,14 +307,17 @@ impl WebEngine {
     }
 
     fn shipped_glue(glue: Vec<u8>) -> Vec<u8> {
-        let text = match String::from_utf8(glue) {
-            Ok(text) => text,
-            Err(error) => return error.into_bytes(),
-        };
-        if !crate::template::ShippedScript::compacts_safely(&text) {
-            return text.into_bytes();
+        String::from_utf8(glue).map_or_else(std::string::FromUtf8Error::into_bytes, |text| {
+            Self::compacted_glue(text).into_bytes()
+        })
+    }
+
+    fn compacted_glue(text: String) -> String {
+        if crate::template::ShippedScript::compacts_safely(&text) {
+            crate::template::ShippedScript::compact_keeping_notice(&text)
+        } else {
+            text
         }
-        crate::template::ShippedScript::compact_keeping_notice(&text).into_bytes()
     }
 
     fn linear_memory(instance: &str) -> String {

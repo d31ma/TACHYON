@@ -69,17 +69,21 @@ impl ManualHelpers {
     }
 
     fn caller(code: &str, helper: &HelperSource, extension: &str) -> bool {
-        let results = if extension == "go" {
-            crate::go_source::GoFunctionResults::read(code)
-        } else {
-            Vec::new()
-        };
+        let results = Self::go_results(code, extension);
         code.match_indices(&helper.name).any(|(at, _)| {
             [
                 !Self::go_result(&results, at),
                 Self::call_matches(code, helper, extension, at),
             ] == [true; 2]
         })
+    }
+
+    fn go_results(code: &str, extension: &str) -> Vec<std::ops::Range<usize>> {
+        if extension == "go" {
+            crate::go_source::GoFunctionResults::read(code)
+        } else {
+            Vec::new()
+        }
     }
 
     fn go_result(results: &[std::ops::Range<usize>], at: usize) -> bool {
