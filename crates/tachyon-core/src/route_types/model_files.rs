@@ -166,6 +166,8 @@ impl ModelParser {
                 "rb",
                 crate::lua_source::LuaShadow::joined(source).text(),
             ))
+        } else if extension == crate::tac_cpp::CppSource::EXTENSION {
+            Some(crate::yon_cpp::CppYonModels::read(source))
         } else {
             None
         }

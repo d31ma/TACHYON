@@ -11,8 +11,7 @@ pub(crate) struct CppModel {
 
 impl CppModel {
     const NAMED: &'static str = "A C++ model is named after its file";
-    const CLIENT: &'static str = "client";
-    const CLIENT_ONLY: &'static str = "C++ is a Tac language only for now: a C++ model goes in client/models. Yon C++ comes later (ADR 0099)";
+    const REALM: &'static str = "A C++ model goes in client/models or server/models (ADR 0099)";
 
     pub(crate) fn read(relative: &Path, source: &str) -> Result<Self, Failure> {
         let file = CppFile::read(relative, source)?;
@@ -22,10 +21,8 @@ impl CppModel {
         named
             .then_some(())
             .ok_or_else(|| CppFailure::unreadable(relative, file.class.name_at, Self::NAMED))?;
-        relative
-            .starts_with(Self::CLIENT)
-            .then_some(())
-            .ok_or_else(|| CppFailure::pending(relative, 0, Self::CLIENT_ONLY))?;
+        crate::annotation_rules::Realm::of(relative)
+            .ok_or_else(|| CppFailure::pending(relative, 0, Self::REALM))?;
         CppMarkerCheck::check(relative, &file.class)?;
         Ok(Self {
             file,

@@ -143,7 +143,7 @@ fn doctor_succeeds_when_only_a_native_target_toolchain_is_missing() {
 struct CompiledRoute;
 
 impl CompiledRoute {
-    const ROUTES: [(&str, &str, &str, &str); 4] = [
+    const ROUTES: [(&str, &str, &str, &str); 5] = [
         (
             "server/controllers/HelloController.rs",
             "#[RequestRoute(\"/hello\")]\n#[Public]\nstruct HelloController {}\nimpl HelloController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get(&self) -> String {\n        String::from(\"ok\")\n    }\n}\n",
@@ -167,6 +167,12 @@ impl CompiledRoute {
             "[RequestRoute(\"/hello\")]\n[Public]\nsealed class HelloController {\n    [GetRoute]\n    public object Get() => new { };\n}\n",
             "Required Yon C# runtime 'dotnet' was not found.",
             "Install the .NET SDK and Microsoft.NETCore.App runtime.",
+        ),
+        (
+            "server/controllers/HelloController.hpp",
+            "class [[RequestRoute(\"/hello\")]] [[Public]] HelloController {\npublic:\n    [[GetRoute]]\n    bool getHello() { return true; }\n};\n",
+            "Required Yon C++ compiler 'clang++' was not found.",
+            "Install clang++ with C++20 support",
         ),
     ];
 
@@ -192,6 +198,19 @@ fn compiled_handlers_without_their_compiler_fail_with_the_missing_toolchain_erro
         assert!(printed.contains(message), "{route}: {printed}");
         assert!(printed.contains(help), "{route}: {printed}");
     }
+}
+
+#[test]
+fn doctor_names_clang_for_a_cpp_controller() {
+    let project = tempfile::tempdir().expect("project");
+    let (route, source, _, _) = CompiledRoute::ROUTES[4];
+    CompiledRoute::write(project.path(), route, source);
+    let (doctor_ready, doctor) = run_with_an_empty_path(project.path(), &["doctor"]);
+    assert!(!doctor_ready, "{doctor}");
+    assert!(
+        doctor.contains("missing   Yon C++ compiler 'clang++'  clang++  not on PATH"),
+        "{doctor}"
+    );
 }
 
 #[cfg(unix)]

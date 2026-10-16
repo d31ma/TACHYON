@@ -12,6 +12,7 @@ pub(crate) struct CppProgram {
 
 impl CppProgram {
     const MODELS: &'static str = "client/models";
+    const SERVER_MODELS: &'static str = "server/models";
     const GENERATED: &'static str = "#line 1 \"tachyon-generated.cpp\"\n";
 
     pub(crate) fn read(root: &Path, chosen: &[(String, String, PathBuf)]) -> Result<Self, Failure> {
@@ -36,10 +37,28 @@ impl CppProgram {
         })
     }
 
+    pub(crate) fn server_models(root: &Path) -> Result<Self, Failure> {
+        Ok(Self {
+            models: Self::models_in(root, Self::SERVER_MODELS)?,
+            services: Vec::new(),
+            registered: Vec::new(),
+            records_calls: false,
+        })
+    }
+
     pub(crate) fn has_class(&self, name: &str) -> bool {
         self.services
             .iter()
             .any(|service| service.class().name == name)
+    }
+
+    pub(crate) fn model_source(&self) -> String {
+        format!(
+            "{}{}{}",
+            self.located_models(),
+            Self::GENERATED,
+            self.codecs()
+        )
     }
 
     pub(crate) fn web_source(&self) -> String {
@@ -74,8 +93,12 @@ impl CppProgram {
     }
 
     fn models(root: &Path) -> Result<Vec<CppModel>, Failure> {
+        Self::models_in(root, Self::MODELS)
+    }
+
+    fn models_in(root: &Path, folder: &str) -> Result<Vec<CppModel>, Failure> {
         let mut models = Vec::new();
-        for path in CppFolder::files(root, Self::MODELS)? {
+        for path in CppFolder::files(root, folder)? {
             let (relative, source) = CppFolder::read(root, &path)?;
             models.push(CppModel::read(&relative, &source)?);
         }
@@ -111,13 +134,7 @@ impl CppProgram {
     }
 
     fn authored(&self) -> String {
-        format!(
-            "{}{}{}{}",
-            self.located_models(),
-            Self::GENERATED,
-            self.codecs(),
-            self.located_services()
-        )
+        format!("{}{}", self.model_source(), self.located_services())
     }
 
     fn located_models(&self) -> String {

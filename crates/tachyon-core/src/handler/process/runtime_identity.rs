@@ -64,9 +64,8 @@ impl RuntimeIdentity {
             Some(YonLanguage::Php) => Self::Php,
             Some(YonLanguage::Lua) => Self::Lua,
             Some(YonLanguage::CSharp | YonLanguage::FSharp) => Self::Dotnet,
-            Some(YonLanguage::Rust | YonLanguage::Dart | YonLanguage::Go) | None => {
-                Self::PreparedArtifact
-            }
+            Some(YonLanguage::Rust | YonLanguage::Dart | YonLanguage::Go | YonLanguage::Cpp)
+            | None => Self::PreparedArtifact,
         }
     }
 

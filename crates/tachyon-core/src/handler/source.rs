@@ -502,7 +502,7 @@ impl HandlerSource {
         }
         let go = GoHandler::is_go(relative_source);
         let annotation_entry = !middleware && crate::convention::is_yon_language(relative_source);
-        let assembled = if annotation_entry {
+        let assembled = if annotation_entry && !crate::tac_cpp::CppSource::is_cpp(relative_source) {
             crate::annotation_modules::assemble(
                 source_root.path(),
                 relative_source,
@@ -881,6 +881,12 @@ fn lower_annotated_source(
         crate::fsharp_source::FsharpYon::lower(relative_source, contents, Some(models_root))?
     } else if crate::lua_source::LuaSource::is_lua(relative_source) {
         crate::lua_source::LuaYon::lower(relative_source, contents, Some(models_root))?
+    } else if crate::tac_cpp::CppSource::is_cpp(relative_source) {
+        Some(crate::yon_cpp::CppYon::lower(
+            relative_source,
+            contents,
+            models_root,
+        )?)
     } else {
         crate::yon::lower_with_routes(relative_source, contents, Some(models_root))?
     };
@@ -1193,6 +1199,24 @@ impl Compiler {
                 run: &["java", "-jar"],
                 suffix: ".jar",
                 lists_model_files: true,
+            },
+        ),
+        (
+            "hpp",
+            Compiler {
+                compile: &[
+                    "clang++",
+                    "-std=c++20",
+                    "-O2",
+                    "-o",
+                    "{out}",
+                    "-x",
+                    "c++",
+                    "{src}",
+                ],
+                run: &[],
+                suffix: "",
+                lists_model_files: false,
             },
         ),
         (

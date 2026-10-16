@@ -262,6 +262,10 @@ impl AnnotationRules {
     ];
     pub(crate) const YON: &'static [&'static str] = &[
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
+        "lua", "hpp",
+    ];
+    const YON_EXCEPT_CPP: &'static [&'static str] = &[
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
         "lua",
     ];
     const YON_BEHAVIOR: &'static [&'static str] = &[
@@ -372,14 +376,14 @@ impl AnnotationRules {
             "marks a test class and names the TestSetup class it runs with",
         )
         .needs_arguments()
-        .reach(Self::TAC, Self::YON),
+        .reach(Self::TAC, Self::YON_EXCEPT_CPP),
         Rule::new(
             "TestSetup",
             Self::TYPE,
             "marks the class that prepares the objects a test uses",
         )
         .bare()
-        .reach(Self::TAC, Self::YON),
+        .reach(Self::TAC, Self::YON_EXCEPT_CPP),
         Rule::new(
             "Fake",
             Self::FIELD,
@@ -387,7 +391,7 @@ impl AnnotationRules {
         )
         .bare()
         .class_needs(Self::TEST_CLASSES)
-        .reach(Self::TAC_FAKE, Self::YON),
+        .reach(Self::TAC_FAKE, Self::YON_EXCEPT_CPP),
         Rule::new(
             "ValueSource",
             Self::METHOD,
@@ -403,7 +407,7 @@ impl AnnotationRules {
             "turns on the named profiles while this test runs",
         )
         .needs_arguments()
-        .reach(Self::TAC_EXCEPT_CPP, Self::YON)
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON_EXCEPT_CPP)
         .class_needs(Self::TEST_CLASSES),
         Rule::new(
             "TestSettings",
@@ -437,21 +441,21 @@ impl AnnotationRules {
             "marks a class that other classes can use",
         )
         .bare()
-        .reach(Self::TAC_ROLE, Self::YON),
+        .reach(Self::TAC_ROLE, Self::YON_EXCEPT_CPP),
         Rule::new(
             "Lifetime",
             Self::TYPE,
             "says how long one object of this class lives",
         )
         .needs_arguments()
-        .reach(Self::TAC_EXCEPT_CPP, Self::YON),
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON_EXCEPT_CPP),
         Rule::new(
             "Helper",
             Self::TYPE,
             "marks a class that services use for part of their work",
         )
         .bare()
-        .reach(Self::TAC_HELPER, Self::YON)
+        .reach(Self::TAC_HELPER, Self::YON_EXCEPT_CPP)
         .advice(Self::HELPER_ADVICE),
         Rule::new(
             "Converter",
@@ -471,7 +475,7 @@ impl AnnotationRules {
             Self::FIELD_OR_TYPE,
             "asks Tachyon to supply an object that this class uses",
         )
-        .reach(Self::TAC, Self::YON)
+        .reach(Self::TAC, Self::YON_EXCEPT_CPP)
         .refuses_nullable(),
         Rule::new(
             "Named",
@@ -479,7 +483,7 @@ impl AnnotationRules {
             "chooses which object fills a Needs field when there are several",
         )
         .needs_arguments()
-        .reach(Self::TAC_EXCEPT_CPP, Self::YON)
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON_EXCEPT_CPP)
         .with(&["Needs"]),
         Rule::new(
             "Setup",
@@ -499,7 +503,7 @@ impl AnnotationRules {
             "runs this worker again and again after a fixed delay",
         )
         .needs_arguments()
-        .reach(Self::NOWHERE, Self::YON)
+        .reach(Self::NOWHERE, Self::YON_EXCEPT_CPP)
         .code(1502),
         Rule::new(
             "NeedsAll",
@@ -507,7 +511,7 @@ impl AnnotationRules {
             "requires every field that has no initial value: collaborators are injected and the other fields come from the component's props",
         )
         .bare()
-        .reach(Self::TAC_NEEDS_ALL, Self::YON)
+        .reach(Self::TAC_NEEDS_ALL, Self::YON_EXCEPT_CPP)
         .advice(Self::RUBY_NEEDS_ADVICE)
         .refuses_constructor()
         .refuses_nullable()
@@ -604,7 +608,7 @@ impl AnnotationRules {
             "sends each published event of this model to the listeners in every Yon language and in open pages",
         )
         .bare()
-        .reach(Self::TAC_EXCEPT_CPP, Self::YON),
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON_EXCEPT_CPP),
         Rule::new(
             "Table",
             Self::TYPE,
@@ -630,7 +634,7 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a class that saves and finds records",
         )
-        .reach(Self::TAC_RESOURCE, Self::YON),
+        .reach(Self::TAC_RESOURCE, Self::YON_EXCEPT_CPP),
         Rule::new(
             "Query",
             Self::METHOD,
@@ -712,7 +716,7 @@ impl AnnotationRules {
             "runs the method when an event of its parameter's type is published",
         )
         .instance()
-        .reach(Self::TAC, Self::YON)
+        .reach(Self::TAC, Self::YON_EXCEPT_CPP)
         .clashes(Self::LIFECYCLE),
         Rule::new(
             "OnStart",
@@ -721,7 +725,7 @@ impl AnnotationRules {
         )
         .bare()
         .instance()
-        .reach(Self::TAC, Self::YON)
+        .reach(Self::TAC, Self::YON_EXCEPT_CPP)
         .clashes(Self::LIFECYCLE),
         Rule::new(
             "OnStop",
@@ -730,7 +734,7 @@ impl AnnotationRules {
         )
         .bare()
         .instance()
-        .reach(Self::TAC, Self::YON)
+        .reach(Self::TAC, Self::YON_EXCEPT_CPP)
         .clashes(Self::LIFECYCLE),
         Rule::retired(
             "Resource",
@@ -743,7 +747,7 @@ impl AnnotationRules {
             "sets when this listener runs compared with the other listeners of the event",
         )
         .needs_arguments()
-        .reach(Self::TAC, Self::YON)
+        .reach(Self::TAC, Self::YON_EXCEPT_CPP)
         .with(&["OnEvent"]),
         Rule::new(
             "InBackground",
@@ -771,7 +775,7 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a class whose methods answer the errors of controllers",
         )
-        .reach(Self::NOWHERE, Self::YON)
+        .reach(Self::NOWHERE, Self::YON_EXCEPT_CPP)
         .code(2015),
         Rule::new(
             "HandlesError",
@@ -779,7 +783,7 @@ impl AnnotationRules {
             "answers one kind of error with an HTTP response",
         )
         .bare()
-        .reach(Self::NOWHERE, Self::YON)
+        .reach(Self::NOWHERE, Self::YON_EXCEPT_CPP)
         .class_needs(&["ErrorHandler"])
         .code(2015),
         Rule::new(
@@ -818,7 +822,7 @@ impl AnnotationRules {
             "sets the HTTP status of a normal answer",
         )
         .needs_arguments()
-        .reach(Self::NOWHERE, Self::YON)
+        .reach(Self::NOWHERE, Self::YON_EXCEPT_CPP)
         .with(Self::ANSWERS)
         .code(2015),
         Rule::new(
@@ -943,7 +947,7 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a controller that keeps a WebSocket connection open and gives its path",
         )
-        .reach(Self::NOWHERE, Self::YON)
+        .reach(Self::NOWHERE, Self::YON_EXCEPT_CPP)
         .clashes(&["RequestRoute"])
         .advice(Self::SOCKET_ADVICE)
         .code(2015),
@@ -1001,7 +1005,7 @@ impl AnnotationRules {
             "marks the one class that reads the request and says who is signed in and which roles they have",
         )
         .bare()
-        .reach(Self::NOWHERE, Self::YON)
+        .reach(Self::NOWHERE, Self::YON_EXCEPT_CPP)
         .clashes(&["RequestRoute", "SocketRoute", "ErrorHandler"])
         .advice("Put the one @IdentityProvider class in server/controllers/<Name>IdentityProvider.<ext>, with one method identify(request)")
         .code(2015),
@@ -1182,7 +1186,7 @@ impl Rule {
         Self {
             arguments: Arguments::None,
             tac: AnnotationRules::NOWHERE,
-            yon: AnnotationRules::YON,
+            yon: AnnotationRules::YON_EXCEPT_CPP,
             instance: true,
             clashes: AnnotationRules::SOCKET_EVENTS,
             class_needs: &["SocketRoute"],
