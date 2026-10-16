@@ -69,6 +69,15 @@ class BrowserHttpRuntimeCheck {
     environment.fetch = async () => BrowserHttpRuntimeCheck.streamed(['123', '45'], cancelledReads)
     assert.equal((await answer(BrowserHttpRuntimeCheck.request({ maxResponseBytes: 4 }))).error.code, 'HTTP_LIMIT')
     assert.equal(cancelledReads.length, 1, 'a body over the limit is cancelled')
+    const declared = (text, length) => {
+      const response = new Response(text, { headers: { 'content-length': String(length) } })
+      Object.defineProperty(response, 'body', { value: { getReader: () => { throw new Error('a declared body is read whole') } } })
+      return response
+    }
+    environment.fetch = async () => declared('{"message":"declared"}', 22)
+    assert.equal((await answer(BrowserHttpRuntimeCheck.request())).value.message, 'declared', 'a body with a declared length is read whole, so Chromium finishes the load before the answer')
+    environment.fetch = async () => declared('12345', 5)
+    assert.equal((await answer(BrowserHttpRuntimeCheck.request({ maxResponseBytes: 4 }))).error.code, 'HTTP_LIMIT', 'a declared length over the limit is refused before reading')
     environment.fetch = async () => new Response('not JSON')
     assert.equal((await answer(BrowserHttpRuntimeCheck.request())).error.code, 'HTTP_RESPONSE')
     environment.fetch = async () => new Response(new Uint8Array([0xff]))
