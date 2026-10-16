@@ -172,6 +172,10 @@ impl WebEventSources {
         if fields.is_empty() {
             return format!("\ntype {name}() = class end\n");
         }
+        format!("\ntype {name} = {{ {} }}\n", Self::fsharp_fields(fields))
+    }
+
+    fn fsharp_fields(fields: &[ModelField]) -> String {
         let declared: Vec<String> = fields
             .iter()
             .map(|field| {
@@ -179,7 +183,7 @@ impl WebEventSources {
                 format!("{}: {kind}", Self::capitalized(&field.name))
             })
             .collect();
-        format!("\ntype {name} = {{ {} }}\n", declared.join("; "))
+        declared.join("; ")
     }
 
     fn dart_model(name: &str, fields: &[ModelField]) -> String {
