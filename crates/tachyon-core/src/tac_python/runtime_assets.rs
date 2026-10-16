@@ -15,6 +15,9 @@ impl RuntimeAssets {
     pub(crate) const OUTPUT: &'static str = ".tachyon/services/python/314.0.7";
     pub(crate) const WASM: &'static str = "pyodide.asm.wasm";
     pub(crate) const ARCHIVE: &'static str = "pyodide-core-314.0.7.tar.bz2";
+    const NOTICES_NAME: &'static str = "THIRD_PARTY_NOTICES.txt";
+    const NOTICES: &'static str =
+        include_str!("../../../../runtimes/python-web/THIRD_PARTY_NOTICES.txt");
     const ASSETS: [RuntimeAsset; 5] = [
         RuntimeAsset {
             name: "pyodide.mjs",
@@ -49,6 +52,13 @@ impl RuntimeAssets {
 
     pub(crate) fn read(root: &Path) -> Result<Vec<(String, Vec<u8>)>, Failure> {
         Self::read_assets(root)
+    }
+
+    pub(crate) fn notices() -> (String, Vec<u8>) {
+        (
+            Self::output_name(Self::NOTICES_NAME),
+            Self::NOTICES.as_bytes().to_vec(),
+        )
     }
 
     pub(crate) fn names() -> Vec<String> {

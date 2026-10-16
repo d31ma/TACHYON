@@ -20,6 +20,8 @@ mod backend_tests;
 mod browser_tests;
 #[cfg(test)]
 mod host_tests;
+#[cfg(test)]
+mod notices_tests;
 #[cfg(all(test, unix))]
 mod test_unit_parity_tests;
 #[cfg(test)]

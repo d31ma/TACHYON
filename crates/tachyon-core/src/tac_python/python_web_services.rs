@@ -43,6 +43,7 @@ impl PythonWebServices {
         let engine = Self::ENGINE.replace("__TAC_PYTHON_PROGRAM__", &quoted);
         let assets = RuntimeAssets::read(&RuntimeAssets::cached_root())?
             .into_iter()
+            .chain([RuntimeAssets::notices()])
             .map(Self::service_asset)
             .collect();
         Ok(PythonBuild { engine, assets })

@@ -62,6 +62,14 @@ to pin and limit what it loads.
   installed app works offline. A route with a Python service gets a
   512 KiB script budget unless the project sets its own; the WebAssembly
   file may be up to 10 MiB and the other runtime files up to 4 MiB each.
+- (Amended 2026-10-16) The build also writes `THIRD_PARTY_NOTICES.txt`
+  beside the runtime in `.tachyon/services/python/314.0.7/`, as Ruby and Lua
+  do. It holds the licenses of Pyodide (MPL-2.0, with the address of its
+  source code), CPython 3.14.2 (PSF License) and the libraries linked into
+  `pyodide.asm.wasm`: hiwire, HACL\*, libffi, zlib, bzip2, Zstandard,
+  liblzma, SQLite, Emscripten, musl, compiler-rt, libc++ and libc++abi. The
+  text is kept in `runtimes/python-web/THIRD_PARTY_NOTICES.txt`, taken from
+  the upstream sources of the pinned release.
 - Only the standard library in the pinned archive and the project's own
   modules are available. Pyodide loads its index, lock file and standard
   library from the copied files, and Tachyon installs no packages.
