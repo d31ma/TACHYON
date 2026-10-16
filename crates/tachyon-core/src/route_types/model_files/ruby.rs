@@ -14,60 +14,74 @@ struct RubyDeclaration {
 impl RubyModels {
     const RECORD_BUILDERS: [&'static str; 2] = ["Data.define", "Struct.new"];
     const ATTRIBUTE_METHODS: [&'static str; 2] = ["attr_reader", "attr_accessor"];
+    const LINE_BREAKS: &'static [u8] = b"\n\r";
+    const CONSTANT_SYMBOLS: &'static [u8] = b"_:";
 
     pub(super) fn read(source: &str) -> Vec<(String, Model)> {
         let code = Self::code(source);
-        let mut models = Vec::new();
-        let mut offset = 0;
-        for line in code.split_inclusive('\n') {
+        Self::lines_from(&code, 0)
+            .filter(|(_, line)| !line.starts_with([' ', '\t']))
+            .filter_map(|(start, line)| Self::declaration(&code, line.trim_end(), start))
+            .map(|declaration| Self::model(source, &code, declaration))
+            .collect()
+    }
+
+    fn lines_from(text: &str, first: usize) -> impl Iterator<Item = (usize, &str)> {
+        let mut offset = first;
+        text.split_inclusive('\n').map(move |line| {
             let start = offset;
             offset += line.len();
-            if line.starts_with([' ', '\t']) {
-                continue;
-            }
-            let Some(declaration) = Self::declaration(&code, line.trim_end(), start) else {
-                continue;
-            };
-            let record = Self::record(source, &code, &declaration);
-            models.push((declaration.name, Model::Record(record)));
-        }
-        models
+            (start, line)
+        })
+    }
+
+    fn model(source: &str, code: &str, declaration: RubyDeclaration) -> (String, Model) {
+        let record = Self::record(source, code, &declaration);
+        (declaration.name, Model::Record(record))
     }
 
     fn code(source: &str) -> String {
         let mask = crate::lexical::code_mask("rb", source);
         let mut bytes = source.as_bytes().to_vec();
         for (byte, visible) in bytes.iter_mut().zip(mask.code) {
-            if !visible && !matches!(*byte, b'\n' | b'\r') {
-                *byte = b' ';
-            }
+            *byte = Self::masked(*byte, visible);
         }
         String::from_utf8(bytes).unwrap_or_default()
     }
 
+    fn masked(byte: u8, visible: bool) -> u8 {
+        let keeps = [visible, Self::LINE_BREAKS.contains(&byte)].contains(&true);
+        if keeps { byte } else { b' ' }
+    }
+
     fn declaration(code: &str, line: &str, start: usize) -> Option<RubyDeclaration> {
-        if let Some(rest) = line.strip_prefix("class ") {
-            let name = Self::constant(rest)?;
-            let after_name = rest[name.len()..].trim_start();
-            let parent = after_name.strip_prefix('<').map(str::trim);
-            let members = Self::members(code, start);
-            let base = parent.filter(|parent| !Self::is_record_builder(parent));
-            return Some(RubyDeclaration {
-                name: Self::last_segment(name),
-                base: base.and_then(Self::constant).map(Self::last_segment),
-                members,
-                region: start..Self::class_end(code, start),
-            });
-        }
+        line.strip_prefix("class ").map_or_else(
+            || Self::builder_declaration(code, line, start),
+            |rest| Self::class_declaration(code, rest, start),
+        )
+    }
+
+    fn class_declaration(code: &str, rest: &str, start: usize) -> Option<RubyDeclaration> {
+        let name = Self::constant(rest)?;
+        let after_name = rest[name.len()..].trim_start();
+        let parent = after_name.strip_prefix('<').map(str::trim);
+        let members = Self::members(code, start);
+        let base = parent.filter(|parent| !Self::is_record_builder(parent));
+        Some(RubyDeclaration {
+            name: Self::last_segment(name),
+            base: base.and_then(Self::constant).map(Self::last_segment),
+            members,
+            region: start..Self::class_end(code, start),
+        })
+    }
+
+    fn builder_declaration(code: &str, line: &str, start: usize) -> Option<RubyDeclaration> {
         let name = Self::constant(line)?;
         let value = line[name.len()..]
             .trim_start()
             .strip_prefix('=')?
             .trim_start();
-        if !Self::is_record_builder(value) {
-            return None;
-        }
-        Some(RubyDeclaration {
+        Self::is_record_builder(value).then(|| RubyDeclaration {
             name: Self::last_segment(name),
             base: None,
             members: Self::members(code, start),
@@ -80,14 +94,8 @@ impl RubyModels {
         comments.push('\n');
         comments.push_str(&Self::inner_comments(source, &declaration.region));
         let documented = Yard::attribute_types(&comments);
-        let mut names = declaration.members.clone();
-        let mut attribute_types = Vec::new();
-        for (name, type_text) in Self::attributes(source, code, &declaration.region) {
-            if !names.contains(&name) {
-                names.push(name.clone());
-            }
-            attribute_types.push((name, type_text));
-        }
+        let attribute_types = Self::attributes(source, code, &declaration.region);
+        let names = Self::member_names(&declaration.members, &attribute_types);
         let mut record = Record {
             bases: declaration.base.iter().cloned().collect(),
             ..Record::default()
@@ -99,116 +107,127 @@ impl RubyModels {
         record
     }
 
+    fn member_names(members: &[String], attributes: &[(String, String)]) -> Vec<String> {
+        let mut names = members.to_vec();
+        for (name, _) in attributes {
+            Self::add_once(&mut names, name);
+        }
+        names
+    }
+
+    fn add_once(names: &mut Vec<String>, name: &String) {
+        if !names.contains(name) {
+            names.push(name.clone());
+        }
+    }
+
     fn type_of(
         name: &str,
         documented: &[(String, String)],
         attributes: &[(String, String)],
     ) -> String {
-        for (attribute, type_text) in attributes.iter().chain(documented) {
-            if attribute == name && !type_text.is_empty() {
-                return type_text.clone();
-            }
-        }
-        String::new()
+        attributes
+            .iter()
+            .chain(documented)
+            .filter(|(attribute, _)| attribute == name)
+            .find(|(_, type_text)| !type_text.is_empty())
+            .map_or_else(String::new, |(_, type_text)| type_text.clone())
     }
 
     fn attributes(source: &str, code: &str, region: &Range<usize>) -> Vec<(String, String)> {
-        let mut found = Vec::new();
-        let mut offset = region.start;
-        for line in code[region.clone()].split_inclusive('\n') {
-            let start = offset;
-            offset += line.len();
-            let text = line.trim();
-            let Some(rest) = Self::ATTRIBUTE_METHODS
-                .iter()
-                .find_map(|method| text.strip_prefix(method))
-            else {
-                continue;
-            };
-            let indent = line.len() - line.trim_start().len();
-            let comments = Yard::comments_before(source, start + indent);
-            let type_text = Yard::return_type(&comments);
-            for name in Self::symbols(rest) {
-                found.push((name, type_text.clone()));
-            }
-        }
-        found
+        Self::lines_from(&code[region.clone()], region.start)
+            .filter_map(|(start, line)| Self::attribute_line(source, start, line))
+            .flatten()
+            .collect()
+    }
+
+    fn attribute_line(source: &str, start: usize, line: &str) -> Option<Vec<(String, String)>> {
+        let text = line.trim();
+        let rest = Self::ATTRIBUTE_METHODS
+            .iter()
+            .find_map(|method| text.strip_prefix(method))?;
+        let indent = line.len() - line.trim_start().len();
+        let comments = Yard::comments_before(source, start + indent);
+        let type_text = Yard::return_type(&comments);
+        let names = Self::symbols(rest).into_iter();
+        Some(names.map(|name| (name, type_text.clone())).collect())
     }
 
     fn inner_comments(source: &str, region: &Range<usize>) -> String {
         let mut comments = String::new();
-        for line in source[region.clone()].lines() {
-            let text = line.trim();
-            let Some(comment) = text.strip_prefix('#') else {
-                continue;
-            };
-            if comment.starts_with('[') {
-                continue;
-            }
+        for comment in source[region.clone()]
+            .lines()
+            .filter_map(Self::inner_comment)
+        {
             comments.push_str(comment);
             comments.push('\n');
         }
         comments
     }
 
+    fn inner_comment(line: &str) -> Option<&str> {
+        let comment = line.trim().strip_prefix('#')?;
+        (!comment.starts_with('[')).then_some(comment)
+    }
+
     fn members(code: &str, start: usize) -> Vec<String> {
+        Self::builder_arguments(code, start).map_or_else(Vec::new, Self::symbols)
+    }
+
+    fn builder_arguments(code: &str, start: usize) -> Option<&str> {
         let line_end = code[start..].find('\n').map_or(code.len(), |at| start + at);
         let line = &code[start..line_end];
-        let Some(builder) = Self::RECORD_BUILDERS
+        let builder = Self::RECORD_BUILDERS
             .iter()
-            .find_map(|builder| line.find(builder).map(|at| at + builder.len()))
-        else {
-            return Vec::new();
-        };
+            .find_map(|builder| line.find(builder).map(|at| at + builder.len()))?;
         let opening = start + builder;
-        if code.as_bytes().get(opening) != Some(&b'(') {
-            return Vec::new();
-        }
-        let Some(closing) = Self::closing_parenthesis(code, opening) else {
-            return Vec::new();
-        };
-        Self::symbols(&code[opening + 1..closing])
+        code.as_bytes().get(opening).filter(|&&byte| byte == b'(')?;
+        let closing = Self::closing_parenthesis(code, opening)?;
+        Some(&code[opening + 1..closing])
     }
 
     fn symbols(text: &str) -> Vec<String> {
-        let mut names = Vec::new();
-        for part in text.split(',') {
-            let Some(name) = part.trim().strip_prefix(':') else {
-                continue;
-            };
-            let valid = !name.is_empty()
-                && name
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
-            if valid {
-                names.push(name.to_owned());
-            }
-        }
-        names
+        text.split(',').filter_map(Self::symbol).collect()
+    }
+
+    fn symbol(part: &str) -> Option<String> {
+        let name = part.trim().strip_prefix(':')?;
+        Self::is_symbol_name(name).then(|| name.to_owned())
+    }
+
+    fn is_symbol_name(name: &str) -> bool {
+        !name.is_empty() && name.bytes().all(Self::is_word_byte)
+    }
+
+    fn is_word_byte(byte: u8) -> bool {
+        [byte.is_ascii_alphanumeric(), byte == b'_'].contains(&true)
     }
 
     fn closing_parenthesis(code: &str, opening: usize) -> Option<usize> {
         let mut depth = 0_usize;
-        for (at, byte) in code.bytes().enumerate().skip(opening) {
-            match byte {
-                b'(' => depth += 1,
-                b')' if depth == 1 => return Some(at),
-                b')' => depth -= 1,
-                _ => {}
-            }
+        let closing = code
+            .bytes()
+            .enumerate()
+            .skip(opening)
+            .find(|&(_, byte)| Self::closes_group(byte, &mut depth));
+        closing.map(|(at, _)| at)
+    }
+
+    fn closes_group(byte: u8, depth: &mut usize) -> bool {
+        match byte {
+            b'(' => *depth += 1,
+            b')' if *depth == 1 => return true,
+            b')' => *depth -= 1,
+            _ => {}
         }
-        None
+        false
     }
 
     fn class_end(code: &str, start: usize) -> usize {
-        let mut offset = start;
-        for line in code[start..].split_inclusive('\n') {
-            offset += line.len();
-            if offset - line.len() > start && line.trim_end() == "end" {
-                return offset;
-            }
-        }
-        code.len()
+        Self::lines_from(&code[start..], start)
+            .filter(|&(line_start, _)| line_start > start)
+            .find(|(_, line)| line.trim_end() == "end")
+            .map_or(code.len(), |(line_start, line)| line_start + line.len())
     }
 
     fn statement_end(code: &str, start: usize) -> usize {
@@ -228,11 +247,19 @@ impl RubyModels {
     fn constant(text: &str) -> Option<&str> {
         let length = text
             .bytes()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b':'))
+            .take_while(|&byte| Self::is_constant_byte(byte))
             .count();
         let name = &text[..length];
         let capitalized = name.as_bytes().first().is_some_and(u8::is_ascii_uppercase);
         capitalized.then_some(name)
+    }
+
+    fn is_constant_byte(byte: u8) -> bool {
+        [
+            byte.is_ascii_alphanumeric(),
+            Self::CONSTANT_SYMBOLS.contains(&byte),
+        ]
+        .contains(&true)
     }
 
     fn last_segment(name: &str) -> String {
