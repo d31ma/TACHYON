@@ -11,129 +11,167 @@ impl TypeText {
         "multipart.File",
         "multipart.Form",
     ];
+    const NULL_WORDS: [&'static str; 5] = ["null", "undefined", "None", "void", "nil"];
+    const OPTIONAL_NAMES: [&'static str; 3] = ["Optional", "Option", "FSharpOption"];
+    const TUPLE_NAMES: [&'static str; 2] = ["tuple", "Tuple"];
+    const QUOTES: [char; 2] = ['\'', '"'];
 
     pub(crate) fn shape(extension: &str, text: &str) -> Result<Shape, String> {
         Self::read(extension, text.trim(), 0)
     }
 
     fn read(extension: &str, text: &str, depth: usize) -> Result<Shape, String> {
-        if depth > Self::MAX_DEPTH {
-            return Err(format!("The type '{text}' is nested too deeply"));
-        }
+        Self::require_shallow(text, depth)?;
         let text = text.trim();
-        if text.is_empty() {
-            return Ok(Shape::Any);
-        }
-        if let Some(shape) = Self::optional(extension, text, depth)? {
-            return Ok(shape);
-        }
-        if let Some(shape) = Self::python_tuple(extension, text, depth)? {
-            return Ok(shape);
-        }
-        if let Some(shape) = Self::list(extension, text, depth)? {
-            return Ok(shape);
-        }
-        if let Some(inner) = Self::wrapper(extension, text) {
-            return Self::read(extension, &inner, depth + 1);
-        }
-        if let Some(shape) = Self::scalar(extension, text) {
-            return Ok(shape);
-        }
-        if Self::is_any(extension, text) {
-            return Ok(Shape::Any);
-        }
-        Self::model_name(text)
+        let shape = Self::read_empty(text)
+            .or_else(|| Self::read_union(extension, text, depth))
+            .or_else(|| Self::read_optional(extension, text, depth))
+            .or_else(|| Self::read_python_tuple(extension, text, depth))
+            .or_else(|| Self::read_ruby_array(extension, text))
+            .or_else(|| Self::read_list(extension, text, depth))
+            .or_else(|| Self::read_wrapped(extension, text, depth))
+            .or_else(|| Self::read_scalar(extension, text))
+            .or_else(|| Self::read_any(extension, text));
+        shape.unwrap_or_else(|| Self::model_name(text))
     }
 
-    fn optional(extension: &str, text: &str, depth: usize) -> Result<Option<Shape>, String> {
-        if let Some(members) = Self::union_members(extension, text) {
-            return Self::union(extension, &members, depth).map(Some);
-        }
-        let inner = match extension {
+    fn require_shallow(text: &str, depth: usize) -> Result<(), String> {
+        (depth <= Self::MAX_DEPTH)
+            .then_some(())
+            .ok_or_else(|| format!("The type '{text}' is nested too deeply"))
+    }
+
+    fn read_empty(text: &str) -> Option<Result<Shape, String>> {
+        text.is_empty().then_some(Ok(Shape::Any))
+    }
+
+    fn read_union(extension: &str, text: &str, depth: usize) -> Option<Result<Shape, String>> {
+        let members = Self::union_members(extension, text)?;
+        Some(Self::union(extension, &members, depth))
+    }
+
+    fn read_optional(extension: &str, text: &str, depth: usize) -> Option<Result<Shape, String>> {
+        let inner = Self::optional_marker(extension, text)
+            .or_else(|| Self::generic(text, &Self::OPTIONAL_NAMES))
+            .or_else(|| text.strip_suffix('=').filter(|_| extension == "js"))?;
+        let inner = Self::read(extension, inner, depth + 1);
+        Some(inner.map(|inner| Shape::Optional(Box::new(inner))))
+    }
+
+    fn read_python_tuple(
+        extension: &str,
+        text: &str,
+        depth: usize,
+    ) -> Option<Result<Shape, String>> {
+        let inner = Self::generic(text, &Self::TUPLE_NAMES).filter(|_| extension == "py")?;
+        let item = Self::tuple_item(inner);
+        Some(item.map_or(Ok(Shape::Any), |item| {
+            Self::list_of(extension, &item, depth)
+        }))
+    }
+
+    fn read_ruby_array(extension: &str, text: &str) -> Option<Result<Shape, String>> {
+        let is_ruby_array = [extension, text] == ["rb", "Array"];
+        is_ruby_array.then(|| Ok(Shape::List(Box::new(Shape::Any))))
+    }
+
+    fn read_list(extension: &str, text: &str, depth: usize) -> Option<Result<Shape, String>> {
+        let inner = Self::list_marker(extension, text)
+            .or_else(|| Self::generic(text, Self::list_names(extension)))?;
+        Some(Self::list_of(extension, inner, depth))
+    }
+
+    fn read_wrapped(extension: &str, text: &str, depth: usize) -> Option<Result<Shape, String>> {
+        let inner = Self::wrapper(extension, text)?;
+        Some(Self::read(extension, &inner, depth + 1))
+    }
+
+    fn read_scalar(extension: &str, text: &str) -> Option<Result<Shape, String>> {
+        let names = Self::scalar_names(extension)?;
+        Self::scalar_shape(names, text).map(Ok)
+    }
+
+    fn read_any(extension: &str, text: &str) -> Option<Result<Shape, String>> {
+        Self::is_any(extension, text).then_some(Ok(Shape::Any))
+    }
+
+    fn optional_marker<'a>(extension: &str, text: &'a str) -> Option<&'a str> {
+        match extension {
             "kt" | "cs" | "dart" | "ts" | "swift" => text.strip_suffix('?'),
             "php" | "js" => text.strip_prefix('?'),
             "go" => text.strip_prefix('*'),
             _ => None,
-        };
-        let inner = inner.or_else(|| Self::generic(text, &["Optional", "Option", "FSharpOption"]));
-        let inner = if extension == "js" {
-            inner.or_else(|| text.strip_suffix('='))
-        } else {
-            inner
-        };
-        match inner {
-            Some(inner) => Ok(Some(Shape::Optional(Box::new(Self::read(
-                extension,
-                inner,
-                depth + 1,
-            )?)))),
-            None => Ok(None),
         }
     }
 
     fn union_members(extension: &str, text: &str) -> Option<Vec<String>> {
-        let separator = match extension {
-            "ts" | "js" | "py" | "php" => '|',
-            "rb" => ',',
-            _ => return None,
-        };
+        let separator = Self::union_separator(extension)?;
         let members = Self::split_top_level(text, separator);
-        if members.len() < 2 {
-            return None;
+        (members.len() >= 2).then_some(members)
+    }
+
+    fn union_separator(extension: &str) -> Option<char> {
+        match extension {
+            "ts" | "js" | "py" | "php" => Some('|'),
+            "rb" => Some(','),
+            _ => None,
         }
-        Some(members)
     }
 
     fn union(extension: &str, members: &[String], depth: usize) -> Result<Shape, String> {
-        let mut kept = Vec::new();
-        let mut nullable = false;
-        for member in members {
-            let member = member.trim();
-            if matches!(member, "null" | "undefined" | "None" | "void" | "nil") {
-                nullable = true;
-            } else {
-                kept.push(member);
-            }
-        }
-        let shape = if kept.len() == 1 {
-            Self::read(extension, kept[0], depth + 1)?
+        let (nulls, kept): (Vec<&str>, Vec<&str>) = members
+            .iter()
+            .map(|member| member.trim())
+            .partition(|member| Self::NULL_WORDS.contains(member));
+        let shape = Self::union_shape(extension, &kept, depth)?;
+        Ok(Self::nullable_if(!nulls.is_empty(), shape))
+    }
+
+    fn union_shape(extension: &str, kept: &[&str], depth: usize) -> Result<Shape, String> {
+        if kept.len() == 1 {
+            Self::read(extension, kept[0], depth + 1)
         } else if kept == ["true", "false"] || kept == ["false", "true"] {
-            Shape::Boolean
+            Ok(Shape::Boolean)
         } else if kept.iter().all(|member| Self::is_quoted(member)) {
-            Shape::Text
+            Ok(Shape::Text)
         } else {
-            Shape::Any
-        };
-        if nullable {
-            return Ok(Shape::Optional(Box::new(shape)));
+            Ok(Shape::Any)
         }
-        Ok(shape)
     }
 
-    fn python_tuple(extension: &str, text: &str, depth: usize) -> Result<Option<Shape>, String> {
-        let Some(inner) = Self::generic(text, &["tuple", "Tuple"]).filter(|_| extension == "py")
-        else {
-            return Ok(None);
-        };
-        let item = match Self::split_top_level(inner, ',').as_slice() {
-            [item] => item.clone(),
-            [item, rest] if rest == "..." => item.clone(),
-            _ => return Ok(Some(Shape::Any)),
-        };
-        let item = Self::read(extension, &item, depth + 1)?;
-        Ok(Some(Shape::List(Box::new(item))))
+    fn nullable_if(nullable: bool, shape: Shape) -> Shape {
+        if nullable {
+            return Shape::Optional(Box::new(shape));
+        }
+        shape
     }
 
-    fn list(extension: &str, text: &str, depth: usize) -> Result<Option<Shape>, String> {
-        let inner = match extension {
+    fn tuple_item(inner: &str) -> Option<String> {
+        match Self::split_top_level(inner, ',').as_slice() {
+            [item] => Some(item.clone()),
+            [item, rest] if rest == "..." => Some(item.clone()),
+            _ => None,
+        }
+    }
+
+    fn list_of(extension: &str, item: &str, depth: usize) -> Result<Shape, String> {
+        let item = Self::read(extension, item, depth + 1)?;
+        Ok(Shape::List(Box::new(item)))
+    }
+
+    fn list_marker<'a>(extension: &str, text: &'a str) -> Option<&'a str> {
+        match extension {
             "go" => text.strip_prefix("[]"),
             "ts" | "js" | "java" | "cs" | "php" => text.strip_suffix("[]"),
             "swift" if !text.contains(':') => text
                 .strip_prefix('[')
                 .and_then(|rest| rest.strip_suffix(']')),
             _ => None,
-        };
-        let names: &[&str] = match extension {
+        }
+    }
+
+    fn list_names(extension: &str) -> &'static [&'static str] {
+        match extension {
             "ts" => &["Array", "ReadonlyArray"],
             "js" => &["Array", "Array."],
             "py" => &["list", "List", "Sequence"],
@@ -160,20 +198,17 @@ impl TypeText {
             "rb" => &["Array", "Set", "Enumerable"],
             "php" => &["list", "array", "non-empty-list"],
             _ => &[],
-        };
-        if extension == "rb" && text == "Array" {
-            return Ok(Some(Shape::List(Box::new(Shape::Any))));
         }
-        let inner = inner.or_else(|| Self::generic(text, names));
-        let Some(inner) = inner else {
-            return Ok(None);
-        };
-        let item = Self::read(extension, inner, depth + 1)?;
-        Ok(Some(Shape::List(Box::new(item))))
     }
 
     fn wrapper(extension: &str, text: &str) -> Option<String> {
-        let names: &[&str] = match extension {
+        Self::generic(text, Self::wrapper_names(extension))
+            .map(Self::first_type_argument)
+            .or_else(|| Self::go_result(extension, text))
+    }
+
+    fn wrapper_names(extension: &str) -> &'static [&'static str] {
+        match extension {
             "ts" | "js" => &["Promise"],
             "java" => &["CompletableFuture", "CompletionStage"],
             "cs" => &["Task", "ValueTask"],
@@ -181,138 +216,159 @@ impl TypeText {
             "py" => &["Awaitable", "Coroutine"],
             "rs" => &["Result", "Box"],
             _ => &[],
-        };
-        if let Some(inner) = Self::generic(text, names) {
-            let first = Self::split_top_level(inner, ',').into_iter().next();
-            return first.or_else(|| Some(inner.to_owned()));
         }
-        if extension != "go" {
-            return None;
-        }
-        let inner = text.strip_prefix('(')?.strip_suffix(')')?;
-        let parts = Self::split_top_level(inner, ',');
-        if parts.len() == 2 && parts[1] == "error" {
-            return Some(parts[0].clone());
-        }
-        None
     }
 
-    fn scalar(extension: &str, text: &str) -> Option<Shape> {
+    fn first_type_argument(inner: &str) -> String {
+        let first = Self::split_top_level(inner, ',').into_iter().next();
+        first.unwrap_or_else(|| inner.to_owned())
+    }
+
+    fn go_result(extension: &str, text: &str) -> Option<String> {
+        let inner = text
+            .strip_prefix('(')
+            .filter(|_| extension == "go")?
+            .strip_suffix(')')?;
+        match Self::split_top_level(inner, ',').as_slice() {
+            [value, error] if error == "error" => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn scalar_names(extension: &str) -> Option<[&'static [&'static str]; 4]> {
+        let names: [&'static [&'static str]; 4] = match extension {
+            "ts" | "js" => [
+                &["string", "String"],
+                &["integer", "bigint"],
+                &["number", "Number"],
+                &["boolean", "Boolean"],
+            ],
+            "py" => [&["str"], &["int"], &["float"], &["bool"]],
+            "php" => [&["string"], &["int"], &["float"], &["bool"]],
+            "java" => [
+                &["String", "CharSequence"],
+                &[
+                    "int",
+                    "long",
+                    "short",
+                    "byte",
+                    "Integer",
+                    "Long",
+                    "Short",
+                    "Byte",
+                    "BigInteger",
+                ],
+                &["double", "float", "Double", "Float", "BigDecimal"],
+                &["boolean", "Boolean"],
+            ],
+            "kt" => [
+                &["String"],
+                &["Int", "Long", "Short", "Byte"],
+                &["Double", "Float"],
+                &["Boolean"],
+            ],
+            "cs" => [
+                &["string", "String"],
+                &[
+                    "int", "long", "short", "byte", "uint", "ulong", "ushort", "sbyte", "Int32",
+                    "Int64", "Int16",
+                ],
+                &["double", "float", "decimal", "Double", "Single", "Decimal"],
+                &["bool", "Boolean"],
+            ],
+            "rs" => [
+                &["String", "&str", "&'static str", "str"],
+                &[
+                    "i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", "isize",
+                    "usize",
+                ],
+                &["f32", "f64"],
+                &["bool"],
+            ],
+            "dart" => [&["String"], &["int"], &["double", "num"], &["bool"]],
+            "swift" => [
+                &["String"],
+                &["Int", "Int64", "Int32"],
+                &["Double", "Float"],
+                &["Bool"],
+            ],
+            "rb" => [
+                &["String", "Symbol"],
+                &["Integer"],
+                &["Float", "Numeric", "BigDecimal", "Rational"],
+                &["Boolean", "TrueClass", "FalseClass"],
+            ],
+            "go" => [
+                &["string"],
+                &[
+                    "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32",
+                    "uint64",
+                ],
+                &["float32", "float64"],
+                &["bool"],
+            ],
+            _ => return None,
+        };
+        Some(names)
+    }
+
+    fn scalar_shape(names: [&[&str]; 4], text: &str) -> Option<Shape> {
+        let [texts, integers, numbers, booleans] = names;
         let name = Self::last_segment(text);
-        let (texts, integers, numbers, booleans): (&[&str], &[&str], &[&str], &[&str]) =
-            match extension {
-                "ts" | "js" => (
-                    &["string", "String"],
-                    &["integer", "bigint"],
-                    &["number", "Number"],
-                    &["boolean", "Boolean"],
-                ),
-                "py" => (&["str"], &["int"], &["float"], &["bool"]),
-                "php" => (&["string"], &["int"], &["float"], &["bool"]),
-                "java" => (
-                    &["String", "CharSequence"],
-                    &[
-                        "int",
-                        "long",
-                        "short",
-                        "byte",
-                        "Integer",
-                        "Long",
-                        "Short",
-                        "Byte",
-                        "BigInteger",
-                    ],
-                    &["double", "float", "Double", "Float", "BigDecimal"],
-                    &["boolean", "Boolean"],
-                ),
-                "kt" => (
-                    &["String"],
-                    &["Int", "Long", "Short", "Byte"],
-                    &["Double", "Float"],
-                    &["Boolean"],
-                ),
-                "cs" => (
-                    &["string", "String"],
-                    &[
-                        "int", "long", "short", "byte", "uint", "ulong", "ushort", "sbyte",
-                        "Int32", "Int64", "Int16",
-                    ],
-                    &["double", "float", "decimal", "Double", "Single", "Decimal"],
-                    &["bool", "Boolean"],
-                ),
-                "rs" => (
-                    &["String", "&str", "&'static str", "str"],
-                    &[
-                        "i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128",
-                        "isize", "usize",
-                    ],
-                    &["f32", "f64"],
-                    &["bool"],
-                ),
-                "dart" => (&["String"], &["int"], &["double", "num"], &["bool"]),
-                "swift" => (
-                    &["String"],
-                    &["Int", "Int64", "Int32"],
-                    &["Double", "Float"],
-                    &["Bool"],
-                ),
-                "rb" => (
-                    &["String", "Symbol"],
-                    &["Integer"],
-                    &["Float", "Numeric", "BigDecimal", "Rational"],
-                    &["Boolean", "TrueClass", "FalseClass"],
-                ),
-                "go" => (
-                    &["string"],
-                    &[
-                        "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16",
-                        "uint32", "uint64",
-                    ],
-                    &["float32", "float64"],
-                    &["bool"],
-                ),
-                _ => return None,
-            };
         if texts.contains(&name) || texts.contains(&text) {
-            return Some(Shape::Text);
+            Some(Shape::Text)
+        } else if integers.contains(&name) {
+            Some(Shape::Integer)
+        } else if numbers.contains(&name) {
+            Some(Shape::Number)
+        } else if booleans.contains(&name) {
+            Some(Shape::Boolean)
+        } else {
+            None
         }
-        if integers.contains(&name) {
-            return Some(Shape::Integer);
-        }
-        if numbers.contains(&name) {
-            return Some(Shape::Number);
-        }
-        if booleans.contains(&name) {
-            return Some(Shape::Boolean);
-        }
-        None
     }
 
     fn is_any(extension: &str, text: &str) -> bool {
-        let name = Self::generic_name(text);
-        let name = Self::last_segment(name);
-        if text.starts_with('{') || text.starts_with('(') || Self::is_quoted(text) {
-            return true;
-        }
         let names = Self::any_names(extension);
-        if extension == "rb" && text.starts_with("Hash{") {
-            return true;
+        let name = Self::last_segment(Self::generic_name(text));
+        [
+            Self::is_inline_type(text),
+            Self::is_dictionary(extension, text),
+            Self::is_open_name(extension, names, name, text),
+        ]
+        .contains(&true)
+    }
+
+    fn is_inline_type(text: &str) -> bool {
+        [
+            text.starts_with('{'),
+            text.starts_with('('),
+            Self::is_quoted(text),
+        ]
+        .contains(&true)
+    }
+
+    fn is_dictionary(extension: &str, text: &str) -> bool {
+        match extension {
+            "rb" => text.starts_with("Hash{"),
+            "swift" => [text.starts_with('['), text.contains(':')] == [true, true],
+            _ => false,
         }
-        if extension == "swift" && text.starts_with('[') && text.contains(':') {
-            return true;
-        }
+    }
+
+    fn is_open_name(extension: &str, names: &[&str], name: &str, text: &str) -> bool {
         names.contains(&name)
             || names.contains(&text)
             || text.starts_with("map[")
             || text.starts_with("impl ")
-            || (extension == "go" && Self::is_open_go_type(text))
+            || Self::is_open_go_type(extension, text)
     }
 
-    fn is_open_go_type(text: &str) -> bool {
+    fn is_open_go_type(extension: &str, text: &str) -> bool {
         let name = text.trim_start_matches('*');
         let qualified = name.contains('.');
         let request_bound = Self::GO_REQUEST_BOUND.contains(&name);
-        [qualified, request_bound] == [true, false]
+        [extension == "go", qualified, request_bound] == [true, true, false]
     }
 
     fn any_names(extension: &str) -> &'static [&'static str] {
@@ -399,40 +455,46 @@ impl TypeText {
     }
 
     fn model_name(text: &str) -> Result<Shape, String> {
-        let name = Self::last_segment(text.trim_matches(['\'', '"']));
-        let valid = name
-            .bytes()
-            .next()
-            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
-            && name
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
-        if valid {
-            return Ok(Shape::Model(name.to_owned()));
-        }
-        Err(format!(
-            "The type '{text}' is not supported here. Use text, a number, true or false, a list, or a model from server/models/"
-        ))
+        let name = Self::last_segment(text.trim_matches(Self::QUOTES));
+        Self::is_identifier(name)
+            .then(|| Shape::Model(name.to_owned()))
+            .ok_or_else(|| {
+                format!(
+                    "The type '{text}' is not supported here. Use text, a number, true or false, a list, or a model from server/models/"
+                )
+            })
+    }
+
+    fn is_identifier(name: &str) -> bool {
+        let starts_well = name.bytes().next().is_some_and(Self::is_identifier_start);
+        starts_well && name.bytes().all(Self::is_identifier_byte)
+    }
+
+    fn is_identifier_start(byte: u8) -> bool {
+        [byte.is_ascii_alphabetic(), byte == b'_'].contains(&true)
+    }
+
+    fn is_identifier_byte(byte: u8) -> bool {
+        [byte.is_ascii_alphanumeric(), byte == b'_'].contains(&true)
     }
 
     fn generic<'a>(text: &'a str, names: &[&str]) -> Option<&'a str> {
         let open = text.find(['<', '['])?;
         let close = text.rfind(['>', ']'])?;
-        if close != text.len() - 1 || close <= open {
-            return None;
-        }
+        let ends_with_close = [close == text.len() - 1, close > open] == [true, true];
         let name = text[..open].trim();
-        if !names.contains(&name) && !names.contains(&Self::last_segment(name)) {
-            return None;
-        }
-        Some(text[open + 1..close].trim())
+        let is_named = [
+            names.contains(&name),
+            names.contains(&Self::last_segment(name)),
+        ]
+        .contains(&true);
+        let is_generic = [ends_with_close, is_named] == [true, true];
+        is_generic.then(|| text[open + 1..close].trim())
     }
 
     fn generic_name(text: &str) -> &str {
-        match text.find(['<', '[']) {
-            Some(open) if open > 0 => text[..open].trim(),
-            _ => text,
-        }
+        let open = text.find(['<', '[']).filter(|&open| open > 0);
+        open.map_or(text, |open| text[..open].trim())
     }
 
     fn last_segment(text: &str) -> &str {
@@ -443,9 +505,13 @@ impl TypeText {
     }
 
     fn is_quoted(text: &str) -> bool {
-        text.len() >= 2
-            && ((text.starts_with('\'') && text.ends_with('\''))
-                || (text.starts_with('"') && text.ends_with('"')))
+        Self::QUOTES
+            .iter()
+            .any(|&quote| Self::is_wrapped_in(text, quote))
+    }
+
+    fn is_wrapped_in(text: &str, quote: char) -> bool {
+        text.len() >= 2 && text.starts_with(quote) && text.ends_with(quote)
     }
 
     pub(super) fn split_top_level(text: &str, separator: char) -> Vec<String> {
