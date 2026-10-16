@@ -330,20 +330,26 @@ no implementation, and Tachyon generates each query.
   Rust, a `globalThis` map in JavaScript). It holds only what open contexts
   already use, and the registry is still not a general bean container.
   Contexts, partitions and signals stay separate for each context.
-- JavaScript keys a Setup by realm and name, because the compiler inlines
-  the Setup class into each service module. The generated
-  `TacClientConfiguration` of a managed-client owner is `moduleOwned`, so it
-  stays one for each module: each owner module has its own adapter policies.
+- JavaScript keys a Setup by realm and name. The JavaScript and TypeScript
+  service modules of a site share one Setup class: when two or more of
+  them hold the same Setup, the build moves its class into the shared
+  `.tachyon/behavior-runtime.js` module, and each service module imports it
+  by name instead of carrying its own copy. A Setup moves only when every
+  copy is identical, it has no annotated method, and its class uses no other
+  name of its service module, no `import` and no `eval`; otherwise each
+  module keeps its copy, and the realm-and-name key still gives them one
+  configuration. One class also means one set of static fields. The
+  generated `TacClientConfiguration` of a managed-client owner is
+  `moduleOwned`, so it stays one for each module: each owner module has its
+  own adapter policies.
 - Current limit: in Swift, Kotlin, Java, C#, F#, Rust and Dart browser
   services, each service is lowered on its own, with its own copy of the
   runtime and of each Setup and client type (a namespace or a Java holder
   for each service). Two such services therefore still get separate
-  adapters; the clients inside one service share them. Lowering a page's
-  services as one program will remove this limit.
-- Go had this limit too, with a Go package for each service. Since the
-  ADR 0045 amendment of 2026-10-11, all Go services of a page compile into
-  one package with the Setup and client files of the page once, so they
-  share one Setup registry and its adapters.
+  adapters; the clients inside one service share them. Go services already
+  build into one page program (ADR 0045), and JavaScript and TypeScript
+  services share one Setup class as described above. Lowering a page's
+  services as one program will remove this limit for the other languages.
 - Every runtime's contract test opens two contexts from one Setup, checks
   that `configure` ran once and that both contexts see the same adapter
   state, disposes one context twice, and checks that `configure` runs again
