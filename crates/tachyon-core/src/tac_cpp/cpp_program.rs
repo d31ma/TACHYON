@@ -7,6 +7,7 @@ pub(crate) struct CppProgram {
     models: Vec<CppModel>,
     services: Vec<CppService>,
     registered: Vec<(String, String)>,
+    records_calls: bool,
 }
 
 impl CppProgram {
@@ -20,17 +21,25 @@ impl CppProgram {
             models: Self::models(root)?,
             services: graph.finish(),
             registered,
+            records_calls: false,
         })
     }
 
-    pub(crate) fn every_service(root: &Path) -> Result<Self, Failure> {
+    pub(crate) fn tested(root: &Path) -> Result<Self, Failure> {
         let mut graph = CppServiceGraph::new(root)?;
         graph.add_every()?;
         Ok(Self {
             models: Self::models(root)?,
             services: graph.finish(),
             registered: Vec::new(),
+            records_calls: true,
         })
+    }
+
+    pub(crate) fn has_class(&self, name: &str) -> bool {
+        self.services
+            .iter()
+            .any(|service| service.class().name == name)
     }
 
     pub(crate) fn web_source(&self) -> String {
@@ -130,12 +139,16 @@ impl CppProgram {
     fn located_services(&self) -> String {
         let mut text = String::new();
         for service in &self.services {
-            text.push_str(&Self::located(
-                &service.path,
-                &CppLowering::service(service),
-            ));
+            text.push_str(&Self::located(&service.path, &self.lowered(service)));
         }
         text
+    }
+
+    fn lowered(&self, service: &CppService) -> String {
+        if self.records_calls {
+            return CppLowering::recorded_service(service);
+        }
+        CppLowering::service(service)
     }
 
     fn bindings(&self) -> String {

@@ -1,4 +1,7 @@
-use super::{CppAttribute, CppClass, CppFile, CppMarkerCheck, CppRemote, CppService};
+use super::{
+    CppAttribute, CppClass, CppCoverage, CppFile, CppMarkerCheck, CppMember, CppRemote, CppService,
+};
+use std::fmt::Write as _;
 use std::ops::Range;
 
 pub(crate) struct CppLowering {
@@ -14,14 +17,64 @@ impl CppLowering {
         Self::blanked(file, source).finished()
     }
 
+    pub(crate) fn test_unit(file: &CppFile, source: &str, fakes: &[&CppMember]) -> String {
+        let mut lowering = Self::blanked(file, source);
+        let provided = Self::provided_fakes(fakes);
+        let construct = format!(
+            " public: template <typename Made> Made construct() {{{provided} return Made(); }}"
+        );
+        lowering
+            .insertions
+            .push((file.class.body.end.saturating_sub(1), construct));
+        lowering.finished()
+    }
+
+    fn provided_fakes(fakes: &[&CppMember]) -> String {
+        let mut provided = String::new();
+        for fake in fakes {
+            let _ = write!(
+                provided,
+                " tachyon::TacFake<{}> {}Fake({});",
+                fake.plain_type(),
+                fake.name,
+                fake.name
+            );
+        }
+        provided
+    }
+
     pub(crate) fn service(service: &CppService) -> String {
+        Self::service_lowering(service).finished_service(service)
+    }
+
+    pub(crate) fn recorded_service(service: &CppService) -> String {
+        let mut lowering = Self::service_lowering(service);
+        lowering.record_calls(service);
+        lowering.finished_service(service)
+    }
+
+    fn service_lowering(service: &CppService) -> Self {
         let mut lowering = Self::blanked(&service.file, &service.source);
         let class = service.class();
         let friend = format!(" friend class {};", service.binding_name());
         lowering.insertions.push((class.body.start + 1, friend));
         lowering.fill_needs(class);
+        lowering
+    }
+
+    fn finished_service(self, service: &CppService) -> String {
         let remote = Self::remote_definitions(service);
-        format!("{}{remote}", lowering.finished())
+        format!("{}{remote}", self.finished())
+    }
+
+    fn record_calls(&mut self, service: &CppService) {
+        let class = service.class();
+        for member in CppCoverage::covered_members(&service.source, &class.members) {
+            let key = format!("{}.{}", class.name, member.name);
+            let hook =
+                crate::method_coverage::CallHooks::statement(super::CppSource::EXTENSION, &key);
+            self.insertions.push((member.terminator + 1, hook));
+        }
     }
 
     fn remote_definitions(service: &CppService) -> String {

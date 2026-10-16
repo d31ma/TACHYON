@@ -53,6 +53,8 @@ class HttpRequestException : public TacCodedError {
 public:
     explicit HttpRequestException(const std::string& code)
         : TacCodedError("The browser HTTP request failed: " + code + ".", code) {}
+
+    HttpRequestException(const std::string& code, const std::string& message) : TacCodedError(message, code) {}
 };
 
 }
@@ -241,47 +243,3 @@ private:
 
 }
 
-namespace tachyon::http {
-
-class TacRemoteCall {
-public:
-    static Task<HttpResponseMessage> send(HttpRequestMessage request) {
-        std::string answer = co_await TacHttpTicket(TacBrowserRequest::text(request));
-        co_return TacBrowserRequest::response(answer);
-    }
-
-    template <typename T>
-    static Task<T> answer(HttpRequestMessage request) {
-        HttpResponseMessage response = co_await send(std::move(request));
-        if constexpr (std::is_void_v<T>) {
-            co_return;
-        } else {
-            co_return response.content.readFromJson<T>();
-        }
-    }
-};
-
-class HttpClient {
-public:
-    Task<HttpResponseMessage> sendAsync(HttpRequestMessage request) const {
-        return TacRemoteCall::send(std::move(request));
-    }
-
-    Task<HttpResponseMessage> getAsync(std::string requestUri) const {
-        return TacRemoteCall::send(HttpRequestMessage(HttpMethod::Get, std::move(requestUri)));
-    }
-
-    template <typename T>
-    Task<T> getFromJsonAsync(std::string requestUri) const {
-        return TacRemoteCall::answer<T>(HttpRequestMessage(HttpMethod::Get, std::move(requestUri)));
-    }
-
-    template <typename T>
-    Task<HttpResponseMessage> postAsJsonAsync(std::string requestUri, const T& value) const {
-        HttpRequestMessage request(HttpMethod::Post, std::move(requestUri));
-        request.content = JsonContent::create(value);
-        return TacRemoteCall::send(std::move(request));
-    }
-};
-
-}

@@ -5,6 +5,7 @@ use std::path::Path;
 pub(crate) struct CppRemote<'a> {
     class: &'a CppClass,
     base: String,
+    adapter: String,
 }
 
 impl<'a> CppRemote<'a> {
@@ -40,6 +41,7 @@ impl<'a> CppRemote<'a> {
                     .iter()
                     .find(|marker| marker.name == "HTTPClient"),
             ),
+            adapter: crate::behavior::HttpClientSource::adapter_name(&class.name),
         };
         remote.every_definition()
     }
@@ -96,8 +98,9 @@ impl<'a> CppRemote<'a> {
         let constant = [" ", " const "][usize::from(member.is_const)];
         let target = Self::path_expression(&path);
         let parts = Self::request_parts(&member.parameters);
+        let adapter = Self::literal(&self.adapter);
         format!(
-            "inline {} {}::{}({parameters}){constant}{{\n    tachyon::http::HttpRequestMessage request(tachyon::http::HttpMethod::{verb}, {target});\n{parts}    co_return co_await tachyon::http::TacRemoteCall::answer<{answer}>(std::move(request));\n}}\n",
+            "inline {} {}::{}({parameters}){constant}{{\n    tachyon::http::HttpRequestMessage request(tachyon::http::HttpMethod::{verb}, {target});\n{parts}    co_return co_await tachyon::http::TacRemoteCall::answer<{answer}>({adapter}, std::move(request));\n}}\n",
             member.type_text, self.class.name, member.name
         )
     }

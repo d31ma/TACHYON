@@ -2,6 +2,7 @@ use super::{FsharpMembers, PublicMethod, PublicMethods, RoleFiles};
 use crate::Failure;
 use crate::annotation_layout::UtilityLayout;
 use crate::fsharp_source::FsharpView;
+use crate::tac_cpp::CppCoverage;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
@@ -19,6 +20,22 @@ impl RoleClass {
     const STATIC_BLANK: &'static str = "       ";
 
     pub(crate) fn read(relative: &Path, source: &str) -> Result<Option<Self>, Failure> {
+        let read = Self::reader(relative);
+        read(relative, source)
+    }
+
+    pub(crate) fn key(&self, method: &str) -> String {
+        format!("{}.{method}", self.type_name)
+    }
+
+    fn reader(relative: &Path) -> fn(&Path, &str) -> Result<Option<Self>, Failure> {
+        if crate::tac_cpp::CppSource::is_cpp(relative) {
+            return Self::cpp;
+        }
+        Self::annotated
+    }
+
+    fn annotated(relative: &Path, source: &str) -> Result<Option<Self>, Failure> {
         let utility = UtilityLayout::is_utility(relative);
         let type_name = Self::type_name(relative, source, utility)?;
         type_name
@@ -27,8 +44,30 @@ impl RoleClass {
             .transpose()
     }
 
-    pub(crate) fn key(&self, method: &str) -> String {
-        format!("{}.{method}", self.type_name)
+    fn cpp(relative: &Path, source: &str) -> Result<Option<Self>, Failure> {
+        let coverage = RoleFiles::contains(relative)
+            .then(|| CppCoverage::read(relative, source))
+            .transpose()?
+            .flatten();
+        coverage
+            .map(|coverage| Self::with_cpp(relative, source, coverage))
+            .transpose()
+    }
+
+    fn with_cpp(relative: &Path, source: &str, coverage: CppCoverage) -> Result<Self, Failure> {
+        let methods = coverage
+            .methods
+            .into_iter()
+            .map(|(name, line)| PublicMethod::new(name, line))
+            .collect();
+        Ok(Self {
+            file: relative.to_string_lossy().replace('\\', "/"),
+            realm: Self::text(relative.iter().next()),
+            language: String::from(crate::tac_cpp::CppSource::EXTENSION),
+            type_name: coverage.class,
+            masked: crate::annotation_layout::masked_source(relative, source)?,
+            methods,
+        })
     }
 
     fn type_name(relative: &Path, source: &str, utility: bool) -> Result<Option<String>, Failure> {

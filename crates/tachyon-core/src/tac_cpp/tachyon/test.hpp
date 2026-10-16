@@ -69,6 +69,48 @@ private:
 
 namespace tachyon {
 
+class BehaviorCalls {
+public:
+    static void record(const char* key) {
+        std::vector<std::string>& keys = recorded();
+        if (std::find(keys.begin(), keys.end(), key) == keys.end()) {
+            keys.emplace_back(key);
+        }
+    }
+
+    static json::JsonArray take() {
+        json::JsonArray called;
+        for (const std::string& key : recorded()) {
+            called.add(key);
+        }
+        recorded().clear();
+        return called;
+    }
+
+private:
+    static std::vector<std::string>& recorded() {
+        static std::vector<std::string> keys;
+        return keys;
+    }
+};
+
+class TacTestCase {
+public:
+    template <typename Call>
+    static void finish(Call call) {
+        using Answer = decltype(call());
+        if constexpr (TacIsTask<Answer>::value) {
+            Answer task = call();
+            if (!task.await_ready()) {
+                throw std::runtime_error("The test case waits for something that never answers in a C++ test unit.");
+            }
+            task.await_resume();
+        } else {
+            call();
+        }
+    }
+};
+
 class TacTestRunner {
 public:
     explicit TacTestRunner(std::string unit) {
@@ -81,6 +123,7 @@ public:
         json::JsonObject result;
         result["name"] = name;
         result["passed"] = true;
+        BehaviorCalls::take();
         try {
             testCase();
         } catch (const std::exception& problem) {
@@ -90,6 +133,7 @@ public:
             result["passed"] = false;
             result["error"] = "The case threw something that is not a std::exception.";
         }
+        result["called"] = BehaviorCalls::take();
         report["cases"].add(result);
     }
 
@@ -104,3 +148,4 @@ private:
 }
 
 using tachyon::Assert;
+using tachyon::BehaviorCalls;

@@ -1,4 +1,4 @@
-use super::{MethodBody, RoleClass, SourceEdit};
+use super::{HookStatement, MethodBody, RoleClass, SourceEdit};
 use crate::Failure;
 use std::path::Path;
 
@@ -7,7 +7,7 @@ pub(crate) struct CallHooks;
 impl CallHooks {
     const TEST_FOLDER: &'static str = "tests";
     const GENERATED_FOLDERS: [&'static str; 2] = ["remotes", "clients"];
-    const RECORDED: [(&'static str, &'static str); 26] = [
+    const RECORDED: [(&'static str, &'static str); 27] = [
         ("client", "js"),
         ("client", "ts"),
         ("client", "rb"),
@@ -20,6 +20,7 @@ impl CallHooks {
         ("client", "kt"),
         ("client", "java"),
         ("client", "lua"),
+        ("client", "hpp"),
         ("server", "js"),
         ("server", "ts"),
         ("server", "py"),
@@ -35,6 +36,10 @@ impl CallHooks {
         ("server", "go"),
         ("server", "lua"),
     ];
+
+    pub(crate) fn statement(language: &str, key: &str) -> String {
+        HookStatement::statement(language, key)
+    }
 
     pub(crate) fn records(realm: &str, language: &str) -> bool {
         Self::RECORDED.contains(&(realm, language))

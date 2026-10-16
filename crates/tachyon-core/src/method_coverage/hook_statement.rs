@@ -5,7 +5,7 @@ impl HookStatement {
     const RECORD: &'static str = " BehaviorCalls.record(\"KEY\");";
     const LINE_RECORD: &'static str = "BehaviorCalls.record(\"KEY\")";
     const KOTLIN_EXPRESSION: &'static str = " BehaviorCalls.record(\"KEY\") behaviorThen";
-    const STATEMENTS: [(&'static str, &'static str); 13] = [
+    const STATEMENTS: [(&'static str, &'static str); 14] = [
         ("js", " Behaviors.called(\"KEY\");"),
         ("ts", " Behaviors.called(\"KEY\");"),
         ("java", Self::RECORD),
@@ -19,6 +19,7 @@ impl HookStatement {
         ("dart", " BehaviorCalls.record(r'KEY');"),
         ("go", " behaviorCallsRecord(\"KEY\");"),
         ("rs", " BehaviorCalls::record(\"KEY\");"),
+        ("hpp", " BehaviorCalls::record(\"KEY\");"),
     ];
 
     pub(crate) fn statement(language: &str, key: &str) -> String {
