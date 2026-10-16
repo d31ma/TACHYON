@@ -503,6 +503,14 @@ machine contracts have their own, independent major versions.
   the refusal appears on a machine without Emscripten (ADR 0054 and ADR 0085
   amendments).
 
+- A same-origin answer from the page's browser HTTP host is no longer
+  reported by Chromium as an aborted request after the page has read it.
+  An answer with a declared, uncompressed length is read whole, so the load
+  completes before the call answers; the .NET browser gate failed about half
+  of its runs on this (ADR 0090 amendment). The first-app .NET gate reads the
+  greeting from the page instead of DevTools, which sometimes no longer held
+  the body.
+
 - A Go `@HTTPClient` request body model now follows its `json` tags as
   `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
   and the other empty values instead of sending `""` and `null`, `omitzero`
