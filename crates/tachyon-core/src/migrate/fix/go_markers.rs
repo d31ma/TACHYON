@@ -4,6 +4,10 @@ use super::scan::SourceText;
 pub(super) struct GoMarkerEdits;
 
 impl GoMarkerEdits {
+    const OPENERS: &'static [u8] = b"([{";
+    const CLOSERS: &'static [u8] = b")]}";
+    const SPACES: &'static [u8] = b" \t";
+
     pub(super) fn plan(text: &SourceText<'_>, start: usize, end: usize) -> Option<Vec<TextEdit>> {
         let source = text.source;
         let line_start = source[..start].rfind('\n').map_or(0, |at| at + 1);
@@ -77,15 +81,15 @@ impl GoMarkerEdits {
     fn joins_tightly(text: &SourceText<'_>, from: usize, to: usize, end: usize) -> bool {
         let previous = text.source[..from].trim_end().bytes().last();
         let next = text.bytes.get(to).copied();
-        matches!(previous, Some(b'(' | b'[' | b'{'))
-            || to >= end
-            || matches!(next, Some(b')' | b']' | b'}'))
+        let after_opener = previous.is_some_and(|byte| Self::OPENERS.contains(&byte));
+        let before_closer = next.is_some_and(|byte| Self::CLOSERS.contains(&byte));
+        [after_opener, to >= end, before_closer].contains(&true)
     }
 
     fn spaces(source: &str, from: usize) -> usize {
         source[from..]
             .bytes()
-            .take_while(|byte| matches!(byte, b' ' | b'\t'))
+            .take_while(|byte| Self::SPACES.contains(byte))
             .count()
     }
 
@@ -97,7 +101,7 @@ impl GoMarkerEdits {
         at - source[..at]
             .bytes()
             .rev()
-            .take_while(|byte| matches!(byte, b' ' | b'\t'))
+            .take_while(|byte| Self::SPACES.contains(byte))
             .count()
     }
 }
