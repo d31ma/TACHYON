@@ -50,7 +50,7 @@ mod ruby;
 mod service_roles;
 pub(crate) use service_roles::ServiceRoles;
 mod stored_state;
-pub(crate) use stored_state::StoredState;
+pub(crate) use stored_state::{SigilField, StoredState};
 mod test_assert;
 mod testing;
 mod unit_table;
