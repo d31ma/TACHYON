@@ -69,9 +69,11 @@ impl ManualHelpers {
     }
 
     fn caller(code: &str, helper: &HelperSource, extension: &str) -> bool {
-        let results = (extension == "go")
-            .then(|| crate::go_source::GoFunctionResults::read(code))
-            .unwrap_or_default();
+        let results = if extension == "go" {
+            crate::go_source::GoFunctionResults::read(code)
+        } else {
+            Vec::new()
+        };
         code.match_indices(&helper.name).any(|(at, _)| {
             [
                 !Self::go_result(&results, at),

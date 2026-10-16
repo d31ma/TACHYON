@@ -48,7 +48,7 @@ impl NativeCompanionInput {
                 "internal static class TacServiceLifetime {{ internal const bool Prototype = {}; }}\n",
                 [prototype, web_assembly].contains(&true)
             ),
-            _ => String::new(),
+            NativeCompanion::Rust => String::new(),
         }
     }
 

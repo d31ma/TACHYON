@@ -63,6 +63,7 @@ final class BrokenService {
     func stopped() { tachyonProbe("broken.stop") }
 }
 "#;
+    #[cfg(target_os = "macos")]
     const CALLER: &str = r#"import Foundation
 
 nonisolated(unsafe) var tachyonProbeTape: [String] = []

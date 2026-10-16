@@ -572,8 +572,7 @@ fn body_open(code: &str, mut at: usize) -> Option<usize> {
             }
             b'{' => return Some(at),
             b'\n' if GoFunctionResults::continues(code, at, previous_word) => at += 1,
-            b'\n' | b';' => return None,
-            b')' | b']' | b'}' | b',' | b'=' | b'&' => return None,
+            b'\n' | b';' | b')' | b']' | b'}' | b',' | b'=' | b'&' => return None,
             byte if AsciiName::is_name_byte(byte) => {
                 previous_word = word_at(code, at);
                 at += previous_word.len();

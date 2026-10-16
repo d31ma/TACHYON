@@ -54,9 +54,11 @@ impl GoFunctionResults {
             method != "func",
             code.as_bytes().get(parameters) == Some(&b'('),
         ] == [true; 4];
-        receiver
-            .then(|| super::matching(code, parameters, b'(', b')'))
-            .unwrap_or(Some(close))
+        if receiver {
+            super::matching(code, parameters, b'(', b')')
+        } else {
+            Some(close)
+        }
     }
 
     pub(super) fn continues(code: &str, at: usize, previous_word: &str) -> bool {
