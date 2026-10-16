@@ -597,9 +597,9 @@ fn completed_phase_acceptance_is_enforced_by_ci_and_documentation()
     let version = fs::read_to_string(root.join("VERSION"))?;
 
     assert!(workflow.contains("Run unit and Phase 4 real-process acceptance tests"));
-    assert!(workflow.contains("actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38"));
+    assert!(workflow.contains("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020"));
     assert!(workflow.contains("node-version: 24.18.0"));
-    assert!(workflow.contains("actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1"));
+    assert!(workflow.contains("actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"));
     assert!(workflow.contains("python-version: 3.14.6"));
     assert!(workflow.contains("ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8"));
     assert!(workflow.contains("ruby-version: \"4.0.6\""));
