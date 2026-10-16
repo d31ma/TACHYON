@@ -1,11 +1,11 @@
+/** @import { Greeting } from '/models/Greeting.ts' */
 @RequestRoute("/api/greeting")
 @Public
 export default class GreetingController {
-  static _message = 'Hello from Yon'
-
-  /** @returns {{message: string}} */
+  /** @returns {Promise<Greeting>} */
   @GetRoute
-  getGreeting() {
-    return { message: GreetingController._message }
+  async getGreeting() {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    return { message: 'Hello from Yon' };
   }
 }

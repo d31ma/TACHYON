@@ -6,6 +6,7 @@ use crate::failure::{diagnostic, source_span};
 use std::path::Path;
 
 pub(crate) struct FieldNeeds {
+    marker: &'static str,
     needs: Vec<FieldNeed>,
     misplaced: Option<usize>,
     owner: Option<usize>,
@@ -47,8 +48,34 @@ impl FieldNeeds {
         Self::read(&text).construct_owners(&lines, csharp)
     }
 
+    pub(crate) fn marked_properties(
+        contents: &str,
+        marker: &'static str,
+    ) -> Vec<(String, Vec<(String, String)>)> {
+        let text = FsharpLexer::without_comments(contents);
+        let lines: Vec<&str> = text.split('\n').collect();
+        let found = Self::read_marked(&text, marker);
+        found
+            .owners()
+            .into_iter()
+            .map(|(owner, needs)| {
+                let name = TypeHeader::read(lines[owner].trim(), &[], false).name;
+                let properties = needs
+                    .iter()
+                    .map(|need| (need.name.clone(), need.provider.clone()))
+                    .collect();
+                (name, properties)
+            })
+            .collect()
+    }
+
     fn read(text: &str) -> Self {
+        Self::read_marked(text, Self::NEEDS)
+    }
+
+    fn read_marked(text: &str, marker: &'static str) -> Self {
         let mut found = Self {
+            marker,
             needs: Vec::new(),
             misplaced: None,
             owner: None,
@@ -81,7 +108,7 @@ impl FieldNeeds {
         let attributes = AttributeLine::read(line.trim());
         let needs = attributes
             .iter()
-            .any(|attribute| attribute.name == Self::NEEDS);
+            .any(|attribute| attribute.name == self.marker);
         let named = Self::named(&attributes);
         let marks = [needs, named.is_some()].contains(&true);
         self.markers

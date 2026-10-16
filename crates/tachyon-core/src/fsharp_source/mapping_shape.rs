@@ -1,4 +1,4 @@
-pub(super) struct MappingShape;
+pub(crate) struct MappingShape;
 
 impl MappingShape {
     const NUMBERS: [&'static str; 16] = [
@@ -20,29 +20,32 @@ impl MappingShape {
         "nativeint",
     ];
 
-    pub(super) fn read(kind: &str, value: &str) -> Result<String, String> {
-        Self::optional_read(kind, value)
-            .or_else(|| Self::list_read(kind, value))
-            .unwrap_or_else(|| Self::scalar_read(kind, value))
+    pub(crate) const MAPPING_READER: &'static str = "read";
+    pub(crate) const ANSWER_READER: &'static str = "answer";
+
+    pub(crate) fn read(kind: &str, value: &str, reader: &str) -> Result<String, String> {
+        Self::optional_read(kind, value, reader)
+            .or_else(|| Self::list_read(kind, value, reader))
+            .unwrap_or_else(|| Self::scalar_read(kind, value, reader))
     }
 
-    fn optional_read(kind: &str, value: &str) -> Option<Result<String, String>> {
+    fn optional_read(kind: &str, value: &str, reader: &str) -> Option<Result<String, String>> {
         kind.strip_suffix(" option").map(|inner| {
-            let read = Self::read(inner, value)?;
+            let read = Self::read(inner, value, reader)?;
             Ok(format!("(if ({value}).IsNull then None else Some({read}))"))
         })
     }
 
-    fn list_read(kind: &str, value: &str) -> Option<Result<String, String>> {
+    fn list_read(kind: &str, value: &str, reader: &str) -> Option<Result<String, String>> {
         Self::container(kind).map(|(inner, container)| {
-            let read = Self::read(inner, "item")?;
+            let read = Self::read(inner, "item", reader)?;
             Ok(format!(
                 "(({value}).Items |> Array.map (fun item -> {read}){container})"
             ))
         })
     }
 
-    fn scalar_read(kind: &str, value: &str) -> Result<String, String> {
+    fn scalar_read(kind: &str, value: &str, reader: &str) -> Result<String, String> {
         match kind {
             "string" => Ok(format!("({value}).Text")),
             "bool" => Ok(format!("({value}).Boolean")),
@@ -52,7 +55,7 @@ impl MappingShape {
                 let conversion = Self::number_conversion(kind);
                 Ok(format!("({conversion} (({value}).{property}))"))
             }
-            kind if Self::model_name(kind) => Ok(format!("read{kind} ({value})")),
+            kind if Self::model_name(kind) => Ok(format!("{reader}{kind} ({value})")),
             _ => Err(format!("Unsupported F# typed mapping field: {kind}")),
         }
     }

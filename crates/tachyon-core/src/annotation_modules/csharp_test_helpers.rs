@@ -30,7 +30,7 @@ impl CsharpTestHelpers {
                 input.environment,
                 input.entry.starts_with("client/tests")
             ),
-            (Some("cs"), Self::ENVIRONMENT, false)
+            (Some("cs" | "fs"), Self::ENVIRONMENT, false)
         )
     }
 

@@ -1,6 +1,8 @@
 use super::{dotnet_framework, execute, fail, stage_failure};
 use crate::Failure;
-use crate::fsharp_source::{FsharpProject, FsharpSource, FsharpTestUnit, FsharpView};
+use crate::fsharp_source::{
+    FsharpMappingModels, FsharpProject, FsharpSource, FsharpTestUnit, FsharpView,
+};
 use crate::model_sources::ModelSources;
 use std::path::Path;
 use std::process::Command;
@@ -73,7 +75,11 @@ impl FsharpUnit {
             ),
             (
                 library.join(FsharpProject::PROGRAM_FILE),
-                FsharpProject::program_file(portable, fsharp),
+                FsharpMappingModels::program(
+                    &FsharpProject::program_file(portable, fsharp),
+                    &models.project_files(),
+                )
+                .map_err(|message| fail(portable, &message))?,
             ),
             (
                 library.join("service.fsproj"),

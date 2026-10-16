@@ -1,6 +1,9 @@
-use super::{FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpView, FsharpYon};
+use super::{
+    FsharpAnswer, FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpTestConstruction, FsharpView,
+    FsharpYon,
+};
 use crate::Failure;
-use crate::behavior::{DetachedCsharp, ServiceRoles, TestAssert};
+use crate::behavior::{DetachedCsharp, HttpClientSource, ServiceRoles, TestAssert};
 use crate::yon::Lowered;
 use std::fmt::Write as _;
 use std::path::Path;
@@ -41,13 +44,13 @@ impl FsharpTestUnit {
             .file_stem()
             .and_then(|stem| stem.to_str())
             .unwrap_or_default();
-        let calls = crate::behavior::csharp_case_calls(view.path(), view.text(), environment)
-            .map_err(|failure| view.failure(&failure))?;
+        let calls = Self::case_calls(view, environment)?;
         let detached = Self::detached(source, view, environment)?;
         let roles = FsharpBehaviors::program(view, &FsharpMarkers::strip(contents), &detached)
             .map_err(|message| FsharpYon::failure(source, &message))?;
+        let construction = FsharpTestConstruction::members(name, contents, view)?;
         let fsharp = format!(
-            "{roles}{}{}",
+            "{roles}{}{}{construction}",
             TestAssert::FSHARP,
             Self::CONTEXT_MEMBER.replace(Self::UNIT, name)
         );
@@ -73,12 +76,34 @@ impl FsharpTestUnit {
         view: &FsharpView,
         environment: &str,
     ) -> Result<DetachedCsharp, Failure> {
-        let text = Self::behavior_text(view, environment)?;
+        let text = FsharpAnswer::exchange_text(&Self::behavior_text(view, environment)?);
         let detached = crate::behavior::detached_csharp(view.path(), &text, environment)
             .map_err(|failure| view.failure(&failure))?;
         detached
             .map(DetachedCsharp::without_page_storage)
             .ok_or_else(|| FsharpYon::failure(source, Self::NO_UNIT))
+    }
+
+    fn case_calls(view: &FsharpView, environment: &str) -> Result<Vec<(String, String)>, Failure> {
+        let rewritten = HttpClientSource::rewrite(view.path(), view.text())
+            .map_err(|failure| view.failure(&failure))?;
+        let Some(rewritten) = rewritten else {
+            return crate::behavior::csharp_case_calls(view.path(), view.text(), environment)
+                .map_err(|failure| view.failure(&failure));
+        };
+        let text = Self::without_roles(view, &rewritten, environment)?;
+        crate::behavior::csharp_case_calls(view.path(), &text, environment)
+            .map_err(|failure| view.failure(&failure))
+    }
+
+    fn without_roles(view: &FsharpView, text: &str, environment: &str) -> Result<String, Failure> {
+        let tac = environment == Self::TAC;
+        let read = tac.then(|| {
+            ServiceRoles::read(view.path(), text)
+                .map(|roles| roles.source)
+                .map_err(|failure| view.failure(&failure))
+        });
+        read.unwrap_or_else(|| Ok(text.to_owned()))
     }
 
     fn behavior_text(view: &FsharpView, environment: &str) -> Result<String, Failure> {
