@@ -1,4 +1,6 @@
-use super::{Declaration, Input, ManagedType, method_body, method_owner, method_signature};
+use super::{
+    Annotation, Declaration, Input, ManagedType, method_body, method_owner, method_signature,
+};
 use crate::Failure;
 use crate::yon::plan::{ErrorMethod, Role};
 use std::collections::BTreeSet;
@@ -15,152 +17,16 @@ pub(super) fn read(
     declarations: &[Declaration],
     types: &[ManagedType],
 ) -> Result<Vec<ErrorMethod>, Failure> {
-    let mut methods = Vec::new();
     let mut handled = BTreeSet::new();
-    for declaration in declarations {
-        if !is_method(declaration) {
-            continue;
-        }
-        let method = read_method(input, declaration, types)?;
-        let key = if input.extension == "php" {
-            method.error_type.to_ascii_lowercase()
-        } else {
-            method.error_type.clone()
-        };
-        if !handled.insert(key) {
-            return Err(input.failure(declaration.start, format!(
-                "Two @HandlesError methods handle {}. Each error type needs one handler in the project",
-                method.error_type
-            )));
-        }
-        methods.push(method);
-    }
-    for managed in types {
-        if managed.provider.role == Role::ErrorHandler
-            && !methods
-                .iter()
-                .any(|method| method.owner == managed.provider.name)
-        {
-            return Err(input.failure(
-                managed.declaration,
-                "An @ErrorHandler class needs at least one @HandlesError instance method",
-            ));
-        }
-    }
+    let methods = declarations
+        .iter()
+        .filter(|declaration| is_method(declaration))
+        .map(|declaration| ErrorRules::read_unique_method(input, declaration, types, &mut handled))
+        .collect::<Result<Vec<_>, _>>()?;
+    types
+        .iter()
+        .try_for_each(|managed| ErrorRules::require_handler_method(input, managed, &methods))?;
     Ok(methods)
-}
-
-fn read_method(
-    input: &Input<'_>,
-    declaration: &Declaration,
-    types: &[ManagedType],
-) -> Result<ErrorMethod, Failure> {
-    let start = declaration.start;
-    let owner = method_owner(input, start, types)?;
-    if !types.iter().any(|managed| {
-        managed.provider.name == owner && managed.provider.role == Role::ErrorHandler
-    }) {
-        return Err(input.failure(
-            start,
-            "@HandlesError belongs on a method of an @ErrorHandler class",
-        ));
-    }
-    let status = read_status(input, declaration)?;
-    refuse_static(input, start)?;
-    let signature = method_signature(input, start)?;
-    super::reject_python_static(input, start)?;
-    let body = method_body(input, start, signature.end)?;
-    if signature.generator || super::generator_body(input, &body, start) {
-        return Err(input.failure(
-            start,
-            "@HandlesError returns one response and cannot stream",
-        ));
-    }
-    let list = super::routes::parameter_list(input, start)?;
-    let documentation = super::routes::documentation_before(input, declaration);
-    let parameters = read_parameters(input, &list, start)?;
-    if parameters.len() == 2 && input.extension == "php" {
-        return Err(input.failure(start, super::routes::RouteMarker::PHP_REQUEST_ADVICE));
-    }
-    let error_type = error_type(input, &parameters[0], &documentation, start)?;
-    let mut returns = super::routes::ReturnType::read(
-        input,
-        start,
-        list.start - 1,
-        list.end + 1,
-        &signature.name,
-    );
-    if input.extension == "rb" {
-        returns = crate::ruby_source::Yard::return_type(&documentation);
-    }
-    Ok(ErrorMethod {
-        owner: owner.to_owned(),
-        method: signature.name,
-        error_type,
-        takes_request: parameters.len() == 2,
-        status,
-        returns,
-        documentation,
-    })
-}
-
-fn read_status(input: &Input<'_>, declaration: &Declaration) -> Result<u16, Failure> {
-    let mut seen = BTreeSet::new();
-    let mut status = 500;
-    for marker in &declaration.annotations {
-        if !seen.insert(marker.name.as_str()) {
-            return Err(input.failure(marker.span.start, "Duplicate error handler annotation"));
-        }
-        match marker.name.as_str() {
-            "handleserror" if marker.arguments.is_empty() => {}
-            "handleserror" => return Err(input.failure(marker.span.start,
-                "@HandlesError takes no arguments. Declare the handled error type on the method's first parameter")),
-            "responsestatus" => {
-                status = marker.arguments.trim().parse::<u16>().ok()
-                    .filter(|value| (400..=599).contains(value))
-                    .ok_or_else(|| input.failure(marker.span.start,
-                        "@ResponseStatus on @HandlesError takes an error status from 400 to 599"))?;
-            }
-            _ => return Err(input.failure(marker.span.start,
-                "An @HandlesError method accepts only @HandlesError and @ResponseStatus")),
-        }
-    }
-    Ok(status)
-}
-
-fn read_parameters(
-    input: &Input<'_>,
-    list: &std::ops::Range<usize>,
-    start: usize,
-) -> Result<Vec<(String, String)>, Failure> {
-    let mut pieces = super::parameters(input, &input.code[list.clone()], start)?;
-    if matches!(input.extension, "py" | "rs") {
-        let expected = if input.extension == "py" {
-            "self"
-        } else {
-            "&self"
-        };
-        if pieces.first().map(String::as_str) != Some(expected) {
-            return Err(input.failure(
-                start,
-                "@HandlesError is an instance method and needs self or &self first",
-            ));
-        }
-        pieces.remove(0);
-    }
-    if !(1..=2).contains(&pieces.len()) {
-        return Err(input.failure(
-            start,
-            "@HandlesError takes one typed error parameter and optionally the request",
-        ));
-    }
-    let mut parameters = Vec::new();
-    for piece in pieces {
-        let parameter = super::routes::name_and_type(input.extension, &piece)
-            .ok_or_else(|| input.failure(start, ErrorRules::type_needed(input.extension)))?;
-        parameters.push(parameter);
-    }
-    Ok(parameters)
 }
 
 struct ErrorRules;
@@ -189,6 +55,12 @@ impl ErrorRules {
         "Unit",
     ];
 
+    const TYPE_NAME_PUNCTUATION: [u8; 4] = *b"_.:\\";
+
+    const RECEIVERS: [(&'static str, &'static str); 2] = [("py", "self"), ("rs", "&self")];
+
+    const DEFAULT_STATUS: u16 = 500;
+
     const TYPE_NEEDED: &'static str = "@HandlesError needs one error type on its first parameter, such as OrderNotFound error. The type must be a native error class or type. any, Object, unions and plain values are refused";
 
     const JSDOC_TYPE_NEEDED: &'static str = "@HandlesError needs one error type for its first parameter. Add @param {OrderNotFound} error to the method's JSDoc. The type must be an Error class";
@@ -198,75 +70,285 @@ impl ErrorRules {
     const STATIC_METHOD: &'static str =
         "@HandlesError goes on an instance method. Remove static from the method";
 
+    const STREAMING: &'static str = "@HandlesError returns one response and cannot stream";
+
+    fn require(condition: bool, refusal: impl FnOnce() -> Failure) -> Result<(), Failure> {
+        condition.then_some(()).ok_or_else(refusal)
+    }
+
+    fn read_unique_method(
+        input: &Input<'_>,
+        declaration: &Declaration,
+        types: &[ManagedType],
+        handled: &mut BTreeSet<String>,
+    ) -> Result<ErrorMethod, Failure> {
+        let method = Self::read_method(input, declaration, types)?;
+        let first_handler = handled.insert(Self::handled_key(input.extension, &method.error_type));
+        Self::require(first_handler, || {
+            input.failure(declaration.start, format!(
+                "Two @HandlesError methods handle {}. Each error type needs one handler in the project",
+                method.error_type
+            ))
+        })?;
+        Ok(method)
+    }
+
+    fn handled_key(extension: &str, error_type: &str) -> String {
+        if extension == "php" {
+            error_type.to_ascii_lowercase()
+        } else {
+            error_type.to_owned()
+        }
+    }
+
+    fn require_handler_method(
+        input: &Input<'_>,
+        managed: &ManagedType,
+        methods: &[ErrorMethod],
+    ) -> Result<(), Failure> {
+        let lacks_method = managed.provider.role == Role::ErrorHandler
+            && !Self::has_method_for(methods, &managed.provider.name);
+        Self::require(!lacks_method, || {
+            input.failure(
+                managed.declaration,
+                "An @ErrorHandler class needs at least one @HandlesError instance method",
+            )
+        })
+    }
+
+    fn has_method_for(methods: &[ErrorMethod], owner: &str) -> bool {
+        methods.iter().any(|method| method.owner == owner)
+    }
+
+    fn read_method(
+        input: &Input<'_>,
+        declaration: &Declaration,
+        types: &[ManagedType],
+    ) -> Result<ErrorMethod, Failure> {
+        let start = declaration.start;
+        let owner = method_owner(input, start, types)?;
+        let on_error_handler = types
+            .iter()
+            .any(|managed| Self::is_error_handler_named(managed, owner));
+        Self::require(on_error_handler, || {
+            input.failure(
+                start,
+                "@HandlesError belongs on a method of an @ErrorHandler class",
+            )
+        })?;
+        let status = Self::read_status(input, declaration)?;
+        Self::refuse_static(input, start)?;
+        let signature = method_signature(input, start)?;
+        super::reject_python_static(input, start)?;
+        let body = method_body(input, start, signature.end)?;
+        Self::require(!signature.generator, || {
+            input.failure(start, Self::STREAMING)
+        })?;
+        Self::require(!super::generator_body(input, &body, start), || {
+            input.failure(start, Self::STREAMING)
+        })?;
+        let list = super::routes::parameter_list(input, start)?;
+        let documentation = super::routes::documentation_before(input, declaration);
+        let parameters = Self::read_parameters(input, &list, start)?;
+        let php_request = [parameters.len() == 2, input.extension == "php"] == [true, true];
+        Self::require(!php_request, || {
+            input.failure(start, super::routes::RouteMarker::PHP_REQUEST_ADVICE)
+        })?;
+        let error_type = Self::error_type(input, &parameters[0], &documentation, start)?;
+        let returns = Self::return_type(input, &list, start, &signature.name, &documentation);
+        Ok(ErrorMethod {
+            owner: owner.to_owned(),
+            method: signature.name,
+            error_type,
+            takes_request: parameters.len() == 2,
+            status,
+            returns,
+            documentation,
+        })
+    }
+
+    fn is_error_handler_named(managed: &ManagedType, owner: &str) -> bool {
+        managed.provider.name == owner && managed.provider.role == Role::ErrorHandler
+    }
+
+    fn return_type(
+        input: &Input<'_>,
+        list: &std::ops::Range<usize>,
+        start: usize,
+        method: &str,
+        documentation: &str,
+    ) -> String {
+        if input.extension == "rb" {
+            crate::ruby_source::Yard::return_type(documentation)
+        } else {
+            super::routes::ReturnType::read(input, start, list.start - 1, list.end + 1, method)
+        }
+    }
+
+    fn read_status(input: &Input<'_>, declaration: &Declaration) -> Result<u16, Failure> {
+        let mut seen = BTreeSet::new();
+        declaration
+            .annotations
+            .iter()
+            .try_fold(Self::DEFAULT_STATUS, |status, marker| {
+                Self::require(seen.insert(marker.name.as_str()), || {
+                    input.failure(marker.span.start, "Duplicate error handler annotation")
+                })?;
+                Self::status_after(input, marker, status)
+            })
+    }
+
+    fn status_after(input: &Input<'_>, marker: &Annotation, status: u16) -> Result<u16, Failure> {
+        match marker.name.as_str() {
+            "handleserror" if marker.arguments.is_empty() => Ok(status),
+            "handleserror" => Err(input.failure(marker.span.start,
+                "@HandlesError takes no arguments. Declare the handled error type on the method's first parameter")),
+            "responsestatus" => Self::response_status(input, marker),
+            _ => Err(input.failure(marker.span.start,
+                "An @HandlesError method accepts only @HandlesError and @ResponseStatus")),
+        }
+    }
+
+    fn response_status(input: &Input<'_>, marker: &Annotation) -> Result<u16, Failure> {
+        marker
+            .arguments
+            .trim()
+            .parse::<u16>()
+            .ok()
+            .filter(|value| (400..=599).contains(value))
+            .ok_or_else(|| {
+                input.failure(
+                    marker.span.start,
+                    "@ResponseStatus on @HandlesError takes an error status from 400 to 599",
+                )
+            })
+    }
+
+    fn read_parameters(
+        input: &Input<'_>,
+        list: &std::ops::Range<usize>,
+        start: usize,
+    ) -> Result<Vec<(String, String)>, Failure> {
+        let mut pieces = super::parameters(input, &input.code[list.clone()], start)?;
+        Self::remove_receiver(input, &mut pieces, start)?;
+        Self::require((1..=2).contains(&pieces.len()), || {
+            input.failure(
+                start,
+                "@HandlesError takes one typed error parameter and optionally the request",
+            )
+        })?;
+        pieces
+            .iter()
+            .map(|piece| {
+                super::routes::name_and_type(input.extension, piece)
+                    .ok_or_else(|| input.failure(start, Self::type_needed(input.extension)))
+            })
+            .collect()
+    }
+
+    fn remove_receiver(
+        input: &Input<'_>,
+        pieces: &mut Vec<String>,
+        start: usize,
+    ) -> Result<(), Failure> {
+        let Some(expected) = Self::receiver(input.extension) else {
+            return Ok(());
+        };
+        Self::require(pieces.first().map(String::as_str) == Some(expected), || {
+            input.failure(
+                start,
+                "@HandlesError is an instance method and needs self or &self first",
+            )
+        })?;
+        pieces.remove(0);
+        Ok(())
+    }
+
+    fn receiver(extension: &str) -> Option<&'static str> {
+        Self::RECEIVERS
+            .iter()
+            .find(|(language, _)| *language == extension)
+            .map(|(_, receiver)| *receiver)
+    }
+
     fn type_needed(extension: &str) -> &'static str {
-        if extension == "js" {
-            return Self::JSDOC_TYPE_NEEDED;
+        match extension {
+            "js" => Self::JSDOC_TYPE_NEEDED,
+            "rb" => Self::YARD_TYPE_NEEDED,
+            _ => Self::TYPE_NEEDED,
         }
-        if extension == "rb" {
-            return Self::YARD_TYPE_NEEDED;
+    }
+
+    fn refuse_static(input: &Input<'_>, start: usize) -> Result<(), Failure> {
+        let rest = &input.code[start..];
+        let before_parameters = rest.split('(').next().unwrap_or(rest);
+        let is_static = super::words(before_parameters).any(|word| word == "static");
+        Self::require(!is_static, || input.failure(start, Self::STATIC_METHOD))
+    }
+
+    fn error_type(
+        input: &Input<'_>,
+        parameter: &(String, String),
+        documentation: &str,
+        start: usize,
+    ) -> Result<String, Failure> {
+        let value = Self::declared_error_type(input.extension, parameter, documentation);
+        let bare = value.trim_start_matches(['&', '*']);
+        Self::require(Self::is_error_type(bare), || {
+            input.failure(start, Self::type_needed(input.extension))
+        })?;
+        Self::require(Self::is_borrowed_in_rust(input.extension, &value), || {
+            input.failure(
+                start,
+                "Rust @HandlesError borrows its error: declare the first parameter as &ErrorType",
+            )
+        })?;
+        Ok(value)
+    }
+
+    fn declared_error_type(
+        extension: &str,
+        parameter: &(String, String),
+        documentation: &str,
+    ) -> String {
+        match extension {
+            "js" => Self::documented_type(documentation, &parameter.0),
+            "rb" => crate::ruby_source::Yard::parameter_type(documentation, &parameter.0),
+            _ => parameter.1.trim().to_owned(),
         }
-        Self::TYPE_NEEDED
+    }
+
+    fn is_error_type(bare: &str) -> bool {
+        Self::is_type_name(bare) && !Self::NOT_ERROR_TYPES.contains(&bare)
     }
 
     fn is_type_name(value: &str) -> bool {
-        if value.is_empty() {
-            return false;
-        }
-        value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b':' | b'\\'))
+        let only_type_bytes = value.bytes().all(Self::is_type_byte);
+        [!value.is_empty(), only_type_bytes] == [true, true]
     }
-}
 
-fn refuse_static(input: &Input<'_>, start: usize) -> Result<(), Failure> {
-    let rest = &input.code[start..];
-    let before_parameters = rest.split('(').next().unwrap_or(rest);
-    if super::words(before_parameters).any(|word| word == "static") {
-        return Err(input.failure(start, ErrorRules::STATIC_METHOD));
+    fn is_type_byte(byte: u8) -> bool {
+        let punctuation = Self::TYPE_NAME_PUNCTUATION.contains(&byte);
+        [byte.is_ascii_alphanumeric(), punctuation].contains(&true)
     }
-    Ok(())
-}
 
-fn error_type(
-    input: &Input<'_>,
-    parameter: &(String, String),
-    documentation: &str,
-    start: usize,
-) -> Result<String, Failure> {
-    let value = if input.extension == "js" {
-        documented_type(documentation, &parameter.0)
-    } else if input.extension == "rb" {
-        crate::ruby_source::Yard::parameter_type(documentation, &parameter.0)
-    } else {
-        parameter.1.trim().to_owned()
-    };
-    let bare = value.trim_start_matches(['&', '*']);
-    if !ErrorRules::is_type_name(bare) || ErrorRules::NOT_ERROR_TYPES.contains(&bare) {
-        return Err(input.failure(start, ErrorRules::type_needed(input.extension)));
+    fn is_borrowed_in_rust(extension: &str, value: &str) -> bool {
+        extension != "rs" || value.starts_with('&')
     }
-    if input.extension == "rs" && !value.starts_with('&') {
-        return Err(input.failure(
-            start,
-            "Rust @HandlesError borrows its error: declare the first parameter as &ErrorType",
-        ));
-    }
-    Ok(value)
-}
 
-fn documented_type(documentation: &str, name: &str) -> String {
-    for (at, _) in documentation.match_indices("@param") {
-        let rest = documentation[at + 6..].trim_start();
-        let Some(rest) = rest.strip_prefix('{') else {
-            continue;
-        };
-        let Some((kind, after)) = rest.split_once('}') else {
-            continue;
-        };
-        if after.split_whitespace().next() == Some(name) {
-            return kind.trim().to_owned();
-        }
+    fn documented_type(documentation: &str, name: &str) -> String {
+        documentation
+            .match_indices("@param")
+            .find_map(|(at, _)| Self::braced_type_for(&documentation[at + 6..], name))
+            .unwrap_or_default()
     }
-    String::new()
+
+    fn braced_type_for(after_param: &str, name: &str) -> Option<String> {
+        let rest = after_param.trim_start().strip_prefix('{')?;
+        let (kind, after) = rest.split_once('}')?;
+        let names_parameter = after.split_whitespace().next() == Some(name);
+        names_parameter.then(|| kind.trim().to_owned())
+    }
 }
 
 #[cfg(test)]
