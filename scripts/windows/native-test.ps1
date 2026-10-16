@@ -138,6 +138,14 @@ function Write-WebViewDiagnostics {
     }
 }
 
+function Enable-WebViewDevTools {
+    $arguments = "--remote-debugging-port=$($script:devToolsPort)"
+    $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = $arguments
+    $policy = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+    New-Item -Path $policy -Force | Out-Null
+    New-ItemProperty -Path $policy -Name 'NativeGate.exe' -Value $arguments -PropertyType String -Force | Out-Null
+}
+
 function Write-WebViewProcesses([string] $app) {
     Write-Host "WebView2 arguments: $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
     Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'" -OperationTimeoutSec 2 |
@@ -157,6 +165,7 @@ function Add-CompanionProbe {
     Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 public static class TachyonCompanionProbe
 {
@@ -171,14 +180,29 @@ public static class TachyonCompanionProbe
 
     public static string Call(string library, string request)
     {
-        var module = LoadLibraryW(library);
+        IntPtr module = LoadLibraryW(library);
         if (module == IntPtr.Zero) return "load failed: " + Marshal.GetLastWin32Error();
-        var entry = GetProcAddress(module, "tac_native_invoke");
+        IntPtr entry = GetProcAddress(module, "tac_native_invoke");
         if (entry == IntPtr.Zero) return "no tac_native_invoke export";
-        var invoke = Marshal.GetDelegateForFunctionPointer<Invoke>(entry);
-        var text = Marshal.StringToCoTaskMemUTF8(request);
-        try { return Marshal.PtrToStringUTF8(invoke(text)) ?? "null answer"; }
-        finally { Marshal.FreeCoTaskMem(text); }
+        Invoke invoke = (Invoke)Marshal.GetDelegateForFunctionPointer(entry, typeof(Invoke));
+        byte[] bytes = Encoding.UTF8.GetBytes(request + "\0");
+        IntPtr text = Marshal.AllocHGlobal(bytes.Length);
+        try
+        {
+            Marshal.Copy(bytes, 0, text, bytes.Length);
+            return ReadText(invoke(text));
+        }
+        finally { Marshal.FreeHGlobal(text); }
+    }
+
+    private static string ReadText(IntPtr answer)
+    {
+        if (answer == IntPtr.Zero) return "null answer";
+        int length = 0;
+        while (length < 65536 && Marshal.ReadByte(answer, length) != 0) length++;
+        byte[] bytes = new byte[length];
+        Marshal.Copy(answer, bytes, 0, length);
+        return Encoding.UTF8.GetString(bytes);
     }
 }
 '@
@@ -340,7 +364,7 @@ function Test-RenderedControls([string] $app, [string] $log) {
     if (Test-Path $log) { Remove-Item $log }
     Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     $script:desktop = [System.Windows.Automation.AutomationElement]::RootElement
-    $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=$($script:devToolsPort)"
+    Enable-WebViewDevTools
     $script:process = Start-Process -FilePath (Join-Path $app 'bin\NativeGate.exe') -PassThru
     $script:deadline = [DateTime]::UtcNow.AddSeconds(120)
 
