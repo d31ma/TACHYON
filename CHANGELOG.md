@@ -898,12 +898,15 @@ machine contracts have their own, independent major versions.
   two services that used the same client got separate adapters (the list in
   the signal-driven UI cookbook never saw the form's save). JavaScript and
   TypeScript services share a Setup that the compiler inlines into each
-  service module, and Ruby browser services share it too. Browser services
-  in Swift, Kotlin, Java, C#, F#, Rust, Go and Dart still get a separate
-  copy of a Setup for each service until the page is lowered as one program
-  (planned); the clients inside one such service already share it. The
-  signal-driven UI cookbook gains a Ruby tab, whose two services share one
-  UsersSetup list.
+  service module, and Ruby browser services share it too. The Go services
+  of a page compile into one Go package, so they share one Setup as well
+  (ADR 0045 amendment). Browser services in Swift, Kotlin, Java, C#, F#,
+  Rust and Dart still get a separate copy of a Setup for each service until
+  the page is lowered as one program (planned); the clients inside one such
+  service already share it. The signal-driven UI cookbook now has
+  JavaScript, TypeScript, Dart, Rust, Go, C#, F#, Kotlin, Swift, Java, Ruby
+  and C++ tabs; in each tab only the form uses the client, and the list
+  hears the save as an event.
 
 - A Store can extend `Repository<Entity, Id>`, like Spring Data's
   `CrudRepository` (ADR 0022 amendment), and then gets `findById`,

@@ -334,12 +334,16 @@ no implementation, and Tachyon generates each query.
   the Setup class into each service module. The generated
   `TacClientConfiguration` of a managed-client owner is `moduleOwned`, so it
   stays one for each module: each owner module has its own adapter policies.
-- Current limit: in Swift, Kotlin, Java, C#, F#, Rust, Go and Dart browser
+- Current limit: in Swift, Kotlin, Java, C#, F#, Rust and Dart browser
   services, each service is lowered on its own, with its own copy of the
-  runtime and of each Setup and client type (a Go package, a namespace or a
-  Java holder for each service). Two such services therefore still get
-  separate adapters; the clients inside one service share them. Lowering a
-  page's services as one program will remove this limit.
+  runtime and of each Setup and client type (a namespace or a Java holder
+  for each service). Two such services therefore still get separate
+  adapters; the clients inside one service share them. Lowering a page's
+  services as one program will remove this limit.
+- Go had this limit too, with a Go package for each service. Since the
+  ADR 0045 amendment of 2026-10-11, all Go services of a page compile into
+  one package with the Setup and client files of the page once, so they
+  share one Setup registry and its adapters.
 - Every runtime's contract test opens two contexts from one Setup, checks
   that `configure` ran once and that both contexts see the same adapter
   state, disposes one context twice, and checks that `configure` runs again
