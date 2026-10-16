@@ -27,6 +27,9 @@ class SafeHtmlCheck {
     '<a href="vbscript:msgbox(18)">x</a>',
     '<style>@import "javascript:window.__pwned = 19";</style>',
     '<meta http-equiv="refresh" content="0;url=javascript:window.__pwned = 20">',
+    '<blockquote cite="javascript:window.__pwned = 21">q</blockquote>',
+    '<img srcset="javascript:window.__pwned = 22 1x" src="https://example.com/a.png">',
+    '<A HREF="JAVASCRIPT:window.__pwned = 23" ONCLICK="window.__pwned = 23">x</A>',
   ]
 
   static async run() {
@@ -39,7 +42,8 @@ class SafeHtmlCheck {
       await SafeHtmlCheck.attacksAreInert(page)
       await SafeHtmlCheck.mailIsKept(page)
       await SafeHtmlCheck.limitsHold(page)
-      console.log('safe-html: attacks are inert, mail formatting is kept, limits hold')
+      await SafeHtmlCheck.rawTextHostsAreRefused(page)
+      console.log('safe-html: attacks are inert, mail formatting is kept, limits hold, raw-text hosts are refused')
     } finally {
       await browser.close()
     }
@@ -61,7 +65,7 @@ class SafeHtmlCheck {
       return {
         tags: elements.map((element) => element.localName),
         handlers: elements.flatMap((element) => element.getAttributeNames().filter((name) => name.startsWith('on'))),
-        urls: elements.flatMap((element) => ['href', 'src', 'action', 'data', 'srcdoc'].map((name) => element.getAttribute(name)).filter(Boolean)),
+        urls: elements.flatMap((element) => ['href', 'src', 'srcset', 'cite', 'action', 'data', 'srcdoc'].map((name) => element.getAttribute(name)).filter(Boolean)),
         styles: elements.map((element) => element.getAttribute('style')).filter(Boolean),
       }
     }, html)
@@ -93,6 +97,19 @@ class SafeHtmlCheck {
     assert.match(html, /<img alt="inline" src="data:image\/png;base64,iVBORw0KGgo=">/)
     assert.match(html, /<em>kept text<\/em>/)
     assert.doesNotMatch(html, /custom-tag|clobber|class=|position|url\(/)
+    const styled = await SafeHtmlCheck.render(page, '<span style="text-decoration: underline; white-space: pre; border-radius: 4px">s</span>')
+    assert.match(styled, /text-decoration-line: underline/, styled)
+    assert.match(styled, /white-space(?:-collapse)?: pre/, styled)
+    assert.match(styled, /border-top-left-radius: 4px/, styled)
+  }
+
+  static async rawTextHostsAreRefused(page) {
+    const refused = await page.evaluate(() => ['style', 'textarea', 'title', 'noscript'].map((tag) => {
+      try { window.TacSafeHtml.fill(document.createElement(tag), '<b>x</b>'); return null } catch (error) { return error.name }
+    }))
+    assert.deepEqual(refused, ['TypeError', 'TypeError', 'TypeError', 'TypeError'])
+    const filled = await page.evaluate(() => window.TacSafeHtml.fill(document.createElement('div'), '<b>x</b>').childNodes.length)
+    assert.equal(filled, 1)
   }
 
   static async limitsHold(page) {

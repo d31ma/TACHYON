@@ -1271,7 +1271,7 @@ const renderNode = async (node, environment, path, context) => {
   if (node.k !== 'element') return document.createDocumentFragment()
   const element = Elements.create(node.tag, context.namespace)
   const safeHtml = await applyAttributes(element, node.attributes, environment)
-  if (!node.void && safeHtml !== undefined) element.append(TacSafeHtml.fragment(safeHtml))
+  if (!node.void && safeHtml !== undefined) element.append(TacSafeHtml.fill(element, safeHtml))
   else if (!node.void) {
     const children = node.children || []
     const childContext = Elements.childContext(element, context)

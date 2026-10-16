@@ -9,15 +9,23 @@ class TacSafeHtml {
     'colgroup', 'dd', 'del', 'details', 'dfn', 'div', 'dl', 'dt', 'em', 'figcaption', 'figure', 'font', 'h1', 'h2', 'h3', 'h4', 'h5',
     'h6', 'hr', 'i', 'img', 'ins', 'kbd', 'li', 'mark', 'ol', 'p', 'pre', 'q', 's', 'samp', 'small', 'span', 'strike', 'strong', 'sub',
     'summary', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'time', 'tr', 'tt', 'u', 'ul', 'var', 'wbr'])
-  static keptAttributes = new Set(['abbr', 'align', 'alt', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'cite', 'color', 'colspan',
+  static keptAttributes = new Set(['abbr', 'align', 'alt', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'color', 'colspan',
     'datetime', 'dir', 'face', 'headers', 'height', 'lang', 'reversed', 'rowspan', 'scope', 'size', 'span', 'start', 'title', 'type',
     'valign', 'width'])
+  static refusedHosts = new Set(['script', 'style', 'template', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript',
+    'plaintext', 'object', 'select', 'option'])
   static urlAttributes = new Map([['a', 'href'], ['img', 'src']])
   static linkProtocols = ['http:', 'https:', 'mailto:', 'tel:']
   static imageProtocols = ['http:', 'https:']
   static dataImage = /^data:image\/(?:png|gif|jpeg|webp);base64,[a-z0-9+/=\s]*$/i
-  static styleProperties = /^(?:color|background-color|font(?:-[a-z]+)?|text-(?:align|decoration|indent|transform)|line-height|letter-spacing|word-spacing|white-space|vertical-align|(?:margin|padding)(?:-(?:top|right|bottom|left))?|border(?:-(?:top|right|bottom|left))?(?:-(?:color|style|width))?|border-(?:collapse|spacing|radius)|width|height|max-width|min-width|max-height|min-height|list-style-type|direction|display|table-layout)$/
+  static styleProperties = /^(?:color|background-color|font(?:-[a-z]+)?|text-(?:align|indent|transform)|text-decoration(?:-(?:line|style|color|thickness))?|line-height|letter-spacing|word-spacing|white-space(?:-collapse)?|text-wrap-mode|vertical-align|(?:margin|padding)(?:-(?:top|right|bottom|left))?|border(?:-(?:top|right|bottom|left))?(?:-(?:color|style|width))?|border-(?:collapse|spacing|radius)|border-(?:top|bottom)-(?:left|right)-radius|-webkit-border-(?:horizontal|vertical)-spacing|width|height|max-width|min-width|max-height|min-height|list-style-type|direction|display|table-layout)$/
   static unsafeStyleValue = /url\s*\(|expression\s*\(|javascript:|@import|\\|<|>/i
+
+  /** @param {Element} host @param {unknown} html @returns {DocumentFragment} */
+  static fill(host, html) {
+    if (TacSafeHtml.refusedHosts.has(host.localName)) throw new TypeError(`Tac safe-html cannot fill <${host.localName}>.`)
+    return TacSafeHtml.fragment(html)
+  }
 
   /** @param {unknown} html @returns {DocumentFragment} */
   static fragment(html) {
@@ -53,6 +61,9 @@ class TacSafeHtml {
     for (const attribute of [...source.attributes]) {
       if (TacSafeHtml.keptAttributes.has(attribute.name)) element.setAttribute(attribute.name, attribute.value)
     }
+    const cite = source.getAttribute('cite')
+    const safeCite = cite === null ? null : TacSafeHtml.#linkUrl(cite)
+    if (safeCite !== null) element.setAttribute('cite', safeCite)
     TacSafeHtml.#copyStyle(source, element)
     TacSafeHtml.#copyUrl(source, element, tag)
     return element

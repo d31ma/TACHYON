@@ -24,7 +24,9 @@ machine contracts have their own, independent major versions.
   an email body or pasted rich text, through a fixed allowlist: formatting
   elements, safe links and images, and a small set of style properties.
   Scripts, styles, frames, forms, SVG, event attributes, `id`, `name`,
-  `class` and unsafe URLs are dropped. A browser test checks a list of known
+  `class` and unsafe URLs are dropped. `:safe-html` on an element whose
+  content is text, such as `<style>`, `<textarea>` or `<title>`, stops
+  rendering with an error. A browser test checks a list of known
   script-injection attacks.
 
 - A Go Tac service can need another Go service: `// @Needs` above a field
