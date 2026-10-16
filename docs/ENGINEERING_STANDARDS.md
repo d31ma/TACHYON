@@ -218,7 +218,7 @@ Compiled and staged Yon artifacts live in the project-local
   content.
 - Pruning keeps the cache at no more than 256 entries and 512 MiB. The count
   includes nested entries.
-- A Kotlin, Rust, Dart, Go or Groovy artifact is also copied to
+- A Kotlin, Rust, Dart, Go, Groovy or C++ artifact is also copied to
   `runtime/handlers-v1` in the cache that `TAC_CACHE_DIR` selects, under the
   same digest name. When the project cache has no valid artifact, Tachyon
   restores a regular, non-empty shared copy instead of compiling again. It

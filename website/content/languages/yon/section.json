@@ -13,6 +13,7 @@
     { "include": "go/entry.json" },
     { "include": "dart/entry.json" },
     { "include": "ruby/entry.json" },
-    { "include": "lua/entry.json" }
+    { "include": "lua/entry.json" },
+    { "include": "cpp/entry.json" }
   ]
 }

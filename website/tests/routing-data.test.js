@@ -10,9 +10,10 @@ class PublishedData {
   static languages = ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rs', 'ts']
   static withRuby = ['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts']
   static withoutLua = PublishedData.withRuby.filter(language => language !== 'lua')
+  static withCpp = [...PublishedData.withRuby, 'hpp'].sort()
   /** @type {Record<string, string[]>} */
   static sectionLanguages = {
-    'Annotated controllers and providers': PublishedData.withRuby,
+    'Annotated controllers and providers': PublishedData.withCpp,
     'Checking values and method arguments': PublishedData.withoutLua,
     'Limited Store and Query': PublishedData.withRuby,
     'Reading settings and choosing configuration': PublishedData.withoutLua,
