@@ -47,7 +47,7 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 | `bun run test` | Runs the site tests. |
 | `ty test .` | Runs the services' test units. |
 | `bun run verify:snippets` | Builds and runs every code example on the site. |
-| `bun run verify:snippets --suite=tsc` | Type-checks every JavaScript and TypeScript example project with `tsc`, the way a `ty init` project checks itself. |
+| `bun run verify:snippets --suite=tsc` | Type-checks every JavaScript and TypeScript example project with `bun check`, using the `jsconfig.json` files that `ty init` writes. The suite keeps the name `tsc`; `bun check` reports the same diagnostics. |
 | `bun run verify:snippets --feature=<id>` | Checks one feature, such as `--feature=iteration`. It runs only the features suite. |
 | `bun run verify:snippets --section="<heading>"` | Checks one docs section, such as `--section="Security"`. It runs only the guides suite. Add `--suite=` to choose another suite, for example `--suite=tsc`. |
 | `bun run verify:snippets --no-cache` | Builds every example again, even one that passed before with the same inputs. Use it for a scheduled full run. |
@@ -60,12 +60,12 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 `verify:snippets` runs before the site is published. An example that does not
 build is worse than no example.
 
-`verify:snippets` remembers each build, test-unit and `tsc` step that passed.
-The next run skips a step when all of its inputs are the same: the example's
-files, the `ty` binary, the lock files, the verifier scripts, the `TAC_*`
-settings and the version of every toolchain (`rustc`, `dotnet`, `swiftc`,
-`go`, `tinygo`, `emcc`, `dart`, `kotlinc`, TeaVM and the others). A skipped
-step shows `(cached)`. HTTP and browser checks always run. A step that failed
+`verify:snippets` remembers each build, test-unit and type-check step that
+passed. The next run skips a step when all of its inputs are the same: the
+example's files, the `ty` binary, the lock files, the verifier scripts, the
+`TAC_*` settings and the version of every toolchain (`rustc`, `dotnet`,
+`swiftc`, `go`, `tinygo`, `emcc`, `dart`, `kotlinc`, TeaVM and the others).
+A skipped step shows `(cached)`. HTTP and browser checks always run. A step that failed
 is never remembered. The cache lives in `.step-cache` inside the staging
 folder (`TAC_SNIPPETS_SCRATCH`, or `tachyon-snippets` in the system temporary
 folder), never in the repository.

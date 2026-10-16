@@ -1614,7 +1614,7 @@ machine contracts have their own, independent major versions.
   parameters (ADR 0039 and 0073 amendments); TY1405 now refuses only a
   collaborator parameter, or a parameter without `[<NeedsAll>]`. The
   "One per page, or one per component" guide shows Java and F#.
-- `verify:snippets` remembers each build, test-unit and `tsc` step that
+- `verify:snippets` remembers each build, test-unit and type-check step that
   passed and skips it the next time all of its inputs are the same: the
   example's files, the `ty` binary, the lock files, the verifier scripts, the
   `TAC_*` settings and the version of every toolchain. HTTP and browser checks
@@ -1908,10 +1908,12 @@ machine contracts have their own, independent major versions.
   its runtime does not compile with TeaVM.
 
 - `website/scripts/verify-snippets.mjs --suite=tsc` (also part of the default
-  run) checks every JavaScript and TypeScript example project on the website
-  with `tsc`, the way a `ty init` project checks itself: it stages each
-  project once per language with the `ty init` `jsconfig.json` files, runs
-  `ty types`, and runs `tsc -p` for each realm that holds the language.
+  run) type-checks every JavaScript and TypeScript example project on the
+  website, the way a `ty init` project checks itself: it stages each project
+  once per language with the `ty init` `jsconfig.json` files, runs
+  `ty types`, and runs `bun check -p` for each realm that holds the language.
+  `bun check` (Bun 1.4.3) reports the same diagnostics as `tsc` 7; the
+  repository's own `typecheck` scripts use it too.
 - `tachyon-env.d.ts` declares `process.env` and `relay(command, request)` for
   Yon code and `tachyonWindow` for native window controls, and
   `tachyon-behaviors.d.ts` declares `BehaviorTransactionCommand`, the
