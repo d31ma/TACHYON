@@ -268,6 +268,7 @@ mod tests {
             YonLanguage::Go,
             YonLanguage::Ruby,
             YonLanguage::Lua,
+            YonLanguage::Cpp,
         ] {
             let failure = firecracker
                 .validate_backend_yon_language(language)

@@ -19,6 +19,10 @@ impl CppPrelude {
     const TEST: &'static str = include_str!("tachyon/test.hpp");
     pub(crate) const EXPORTS: &'static str = include_str!("tachyon/exports.hpp");
 
+    pub(crate) fn json() -> String {
+        [Self::INCLUDES, Self::JSON].concat()
+    }
+
     pub(crate) fn web() -> String {
         [
             Self::INCLUDES,

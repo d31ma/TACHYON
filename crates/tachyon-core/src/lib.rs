@@ -61,6 +61,7 @@ mod wasm_release_step;
 mod web_api_clients;
 mod web_runtime;
 mod yon;
+mod yon_cpp;
 
 pub use annotation_layout::SimplerForms;
 pub use application::ApplicationConfig;

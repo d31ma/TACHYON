@@ -304,6 +304,17 @@ impl RuntimeRequirements {
                 ProbeKind::GoVersion,
             ),
         );
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Cpp),
+            RuntimeRequirement::fixed(
+                RuntimeRequirementKey::CppCompiler,
+                "clang++",
+                RuntimeRequirement::CPP_LABEL,
+                RuntimeRequirement::CPP_HELP,
+                ProbeKind::Version(&["--version"]),
+            ),
+        );
     }
 }
 

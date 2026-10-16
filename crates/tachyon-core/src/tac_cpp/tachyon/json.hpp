@@ -363,9 +363,9 @@ public:
     static constexpr std::size_t MAX_BYTES = 1048576;
     static constexpr int MAX_DEPTH = 64;
 
-    static JsonNode read(std::string_view json) {
-        if (json.size() > MAX_BYTES) {
-            throw JsonException("The JSON text is larger than 1 MiB.");
+    static JsonNode read(std::string_view json, std::size_t limit = MAX_BYTES) {
+        if (json.size() > limit) {
+            throw JsonException("The JSON text is larger than " + std::to_string(limit / MAX_BYTES) + " MiB.");
         }
         JsonReader reader(json);
         reader.skipSpace();
