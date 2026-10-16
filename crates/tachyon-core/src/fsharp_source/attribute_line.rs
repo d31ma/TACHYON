@@ -34,6 +34,13 @@ impl AttributeLine {
         Self::written(trimmed)
     }
 
+    pub(crate) fn on_member(trimmed: &str) -> Vec<Self> {
+        Self::groups(trimmed)
+            .into_iter()
+            .filter(Self::is_csharp)
+            .collect()
+    }
+
     pub(crate) fn raw(trimmed: &str) -> Vec<Self> {
         Self::groups(trimmed)
     }
@@ -70,9 +77,12 @@ impl AttributeLine {
     }
 
     fn is_written(attribute: &Self) -> bool {
-        let fsharp_only = Self::FSHARP_ONLY.contains(&attribute.name.as_str());
         let constructor = Self::PRIMARY_CONSTRUCTOR_MARKERS.contains(&attribute.csharp.as_str());
-        !fsharp_only && !constructor
+        [Self::is_csharp(attribute), constructor] == [true, false]
+    }
+
+    fn is_csharp(attribute: &Self) -> bool {
+        !Self::FSHARP_ONLY.contains(&attribute.name.as_str())
     }
 
     fn attribute(written: &str) -> Self {
@@ -156,5 +166,14 @@ mod tests {
             written("[<NeedsAll(\"store\")>]"),
             vec!["[NeedsAll(\"store\")]"]
         );
+    }
+
+    #[test]
+    fn a_member_keeps_needs_all_so_the_rules_can_refuse_it() {
+        let attributes: Vec<String> = AttributeLine::on_member("[<NeedsAll; DefaultValue>]")
+            .into_iter()
+            .map(|attribute| attribute.csharp)
+            .collect();
+        assert_eq!(attributes, ["[NeedsAll]"]);
     }
 }

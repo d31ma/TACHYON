@@ -261,13 +261,15 @@ impl AnnotationRules {
         "lua", "fs", "hpp",
     ];
     pub(crate) const YON: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb", "lua",
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
+        "lua",
     ];
     const YON_BEHAVIOR: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb", "lua",
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
+        "lua",
     ];
     pub(crate) const YON_RESOURCE: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb",
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
     ];
     const TAC: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "hpp",
@@ -301,7 +303,8 @@ impl AnnotationRules {
         "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua",
     ];
     const YON_VALUE_SOURCE: &'static [&'static str] = &[
-        "js", "ts", "py", "rs", "java", "groovy", "kt", "cs", "go", "rb", "php", "dart", "lua",
+        "js", "ts", "py", "rs", "java", "groovy", "kt", "cs", "fs", "go", "rb", "php", "dart",
+        "lua",
     ];
     const NOWHERE: &'static [&'static str] = &[];
     const TYPE: &'static [Target] = &[Target::Type];

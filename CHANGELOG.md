@@ -461,6 +461,15 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The shared annotation rule table now lists F# (`.fs`) as a Yon language,
+  with the same reach as C# (ADR 0073). The checks that ask the table about
+  a language directly, such as the role-folder message and the `@Topic`
+  model check, now cover F# Yon files as they cover C# files; before, they
+  skipped them. `[<NeedsAll>]` on an F# member is now refused with TY1308
+  ("is on a method, but it belongs on a class"); before, the C# view of the
+  file dropped it and the build ignored it. Valid F# code, including every
+  F# example on the website, is accepted as before.
+
 - A Go `@HTTPClient` request body model now follows its `json` tags as
   `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
   and the other empty values instead of sending `""` and `null`, `omitzero`

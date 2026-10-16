@@ -28,6 +28,7 @@ impl Sample {
         match language {
             "rs" | "php" | "rb" | "cs" => format!("{}(\"x\")]", spelled.trim_end_matches(']')),
             "hpp" => format!("{}(\"x\")]]", spelled.trim_end_matches(']')),
+            "fs" => format!("{}(\"x\")>]", spelled.trim_end_matches(">]")),
             _ => format!("{spelled}(\"x\")"),
         }
     }
@@ -122,6 +123,13 @@ impl Sample {
             ("fs", Target::Method) => format!(
                 "{class}\ntype SampleService() =\n{}    member this.Load(value: string) : string = value\n",
                 lines("    ")
+            ),
+            ("fs", Target::Field) => format!(
+                "{class}\ntype SampleService() =\n{}    member val Value : string = \"\" with get, set\n",
+                lines("    ")
+            ),
+            ("fs", Target::Parameter) => format!(
+                "{class}\ntype SampleService() =\n    member this.Load({inline}value: string) : string = value\n"
             ),
             ("js", Target::Type) => format!("{all}\nclass SampleService {{\n}}\n"),
             ("js", Target::Field) => format!(
@@ -310,6 +318,12 @@ impl Sample {
         }
     }
 
+    fn fsharp_message(path: &str, source: &str) -> Option<String> {
+        AnnotationRules::check(std::path::Path::new(path), source)
+            .err()
+            .map(|failure| failure.diagnostics()[0].message.clone())
+    }
+
     fn message(language: &str, realm: Realm, source: &str) -> Option<String> {
         let path = Self::path(language, realm);
         AnnotationRules::check(&path, source)
@@ -382,6 +396,60 @@ fn fsharp_helper_on_a_member_reports_its_authored_spelling_and_path() {
         failure.diagnostics()[0].spans[0].file,
         Sample::FSHARP_HELPER_PATH
     );
+}
+
+#[test]
+fn fsharp_yon_annotations_are_checked_where_they_are_written() {
+    let controller = "server/controllers/OrdersController.fs";
+    let route = "[<RequestRoute(\"/orders\"); Public>]\ntype OrdersController() =\n    [<GetRoute>]\n    member this.GetOrder([<FromPath>] id: int) : int = id\n";
+    assert_eq!(Sample::fsharp_message(controller, route), None);
+    let service = "server/services/PriceService.fs";
+    let cached = "[<Service>]\n[<NeedsAll>]\n[<CacheSettings(\"x\")>]\ntype PriceService(store: PriceStore) =\n    [<Cached>]\n    member this.Price(sku: string) : int = 1\n";
+    assert_eq!(Sample::fsharp_message(service, cached), None);
+    let refused = [
+        (
+            controller,
+            "[<RequestRoute(\"/orders\"); Public>]\n[<GetRoute>]\ntype OrdersController() =\n    member this.GetOrder(id: int) : int = id\n",
+            "[<GetRoute>] is on a class, but it belongs on a method",
+        ),
+        (
+            service,
+            "[<Service>]\ntype PriceService() =\n    [<NeedsAll>]\n    member this.Price(sku: string) : int = 1\n",
+            "[<NeedsAll>] is on a method, but it belongs on a class",
+        ),
+        (
+            service,
+            "[<Service>]\ntype PriceService() =\n    [<OnEvent>]\n    [<InBackground>]\n    member this.Record(order: PlacedOrder) : unit = ()\n",
+            "[<InBackground>] is not available in F# Yon code",
+        ),
+    ];
+    for (path, source, expected) in refused {
+        let message =
+            Sample::fsharp_message(path, source).unwrap_or_else(|| panic!("accepted:\n{source}"));
+        assert!(message.contains(expected), "{message}");
+        assert!(message.contains(path), "{message}");
+    }
+}
+
+#[test]
+fn the_shared_language_check_reaches_fsharp_yon_code() {
+    let refusal = AnnotationRules::checked_refusal("SocketRequest", "fs", Realm::Yon)
+        .expect("a browser socket client is not Yon code");
+    assert!(
+        refusal.starts_with("[<SocketRequest>] is not used in Yon code"),
+        "{refusal}"
+    );
+    for name in [
+        "Service",
+        "RequestRoute",
+        "GetRoute",
+        "Cached",
+        "Topic",
+        "HTTPClient",
+    ] {
+        let refusal = AnnotationRules::checked_refusal(name, "fs", Realm::Yon);
+        assert_eq!(refusal, None, "{name}");
+    }
 }
 
 #[test]

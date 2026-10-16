@@ -71,6 +71,7 @@ impl<'a> ShadowWriter<'a> {
             }
             (Some(BlockKind::Value), _) => self.write_value_body(index),
             (Some(BlockKind::Skip), _) => self.write_empty(index),
+            (Some(BlockKind::Type), LineKind::Attribute) => self.write_member_attributes(index),
             (_, LineKind::Attribute) => self.write_attributes(index),
             (None, LineKind::Open) => self.write_open(index),
             (_, LineKind::Type) => self.write_type(index),
@@ -142,6 +143,15 @@ impl<'a> ShadowWriter<'a> {
 
     fn write_attributes(&mut self, index: usize) {
         let attributes = AttributeLine::read(self.lines[index].trimmed());
+        self.write_attribute_list(index, attributes);
+    }
+
+    fn write_member_attributes(&mut self, index: usize) {
+        let attributes = AttributeLine::on_member(self.lines[index].trimmed());
+        self.write_attribute_list(index, attributes);
+    }
+
+    fn write_attribute_list(&mut self, index: usize, attributes: Vec<AttributeLine>) {
         for attribute in &attributes {
             self.push(index, &attribute.csharp);
         }
