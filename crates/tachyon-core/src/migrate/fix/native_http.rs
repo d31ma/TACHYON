@@ -31,29 +31,58 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
         text: &'t SourceText<'a>,
         only_notes: bool,
     ) -> NativeHttpPlan {
-        let mut plan = NativeHttpPlan::default();
-        if !Self::LANGUAGES.contains(&extension) {
-            return plan;
-        }
         let fix = Self { text, extension };
-        let parameters = fix.parameters();
-        let mut still_used = fix.answers_used();
-        for parameter in &parameters {
-            if only_notes || fix.is_read(parameter, &parameters) {
-                still_used = true;
-                continue;
-            }
-            plan.edits.push(fix.removal(parameter));
-            plan.notes.push(format!(
-                "Removed the unused YonRequest parameter '{}' on line {}: the method does not read the request.",
-                parameter.name,
-                text.line_number(parameter.name_at)
-            ));
+        fix.supported_plan(only_notes)
+    }
+
+    fn supported_plan(&self, only_notes: bool) -> NativeHttpPlan {
+        if !Self::LANGUAGES.contains(&self.extension) {
+            return NativeHttpPlan::default();
         }
-        if still_used || fix.other_requests(&parameters) {
-            plan.manual = Some(fix.manual_step());
+        self.planned(only_notes)
+    }
+
+    fn planned(&self, only_notes: bool) -> NativeHttpPlan {
+        let parameters = self.parameters();
+        let (kept, unused): (Vec<&RequestParameter>, Vec<&RequestParameter>) = parameters
+            .iter()
+            .partition(|parameter| self.keeps(parameter, &parameters, only_notes));
+        let edits = unused
+            .iter()
+            .map(|parameter| self.removal(parameter))
+            .collect();
+        let notes = unused
+            .iter()
+            .map(|parameter| self.removal_note(parameter))
+            .collect();
+        let still_used = [
+            self.answers_used(),
+            !kept.is_empty(),
+            self.other_requests(&parameters),
+        ];
+        let manual = still_used.contains(&true).then(|| self.manual_step());
+        NativeHttpPlan {
+            edits,
+            notes,
+            manual,
         }
-        plan
+    }
+
+    fn keeps(
+        &self,
+        parameter: &RequestParameter,
+        parameters: &[RequestParameter],
+        only_notes: bool,
+    ) -> bool {
+        [only_notes, self.is_read(parameter, parameters)].contains(&true)
+    }
+
+    fn removal_note(&self, parameter: &RequestParameter) -> String {
+        format!(
+            "Removed the unused YonRequest parameter '{}' on line {}: the method does not read the request.",
+            parameter.name,
+            self.text.line_number(parameter.name_at)
+        )
     }
 
     fn answers_used(&self) -> bool {
@@ -86,13 +115,11 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
     }
 
     fn parameters(&self) -> Vec<RequestParameter> {
-        let mut found = Vec::new();
-        for at in self.text.code_words(Self::REQUEST) {
-            if let Some(parameter) = self.parameter_at(at) {
-                found.push(parameter);
-            }
-        }
-        found
+        self.text
+            .code_words(Self::REQUEST)
+            .into_iter()
+            .filter_map(|at| self.parameter_at(at))
+            .collect()
     }
 
     fn parameter_at(&self, at: usize) -> Option<RequestParameter> {
@@ -144,20 +171,16 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
     }
 
     fn parameter_name(&self, start: usize, end: usize) -> Option<(usize, String)> {
-        let mut at = start;
-        while at < end {
-            if !self.text.starts_word(at) {
-                at += 1;
-                continue;
-            }
-            let word_end = self.text.word_end(at);
-            let word = &self.text.source[at..word_end];
-            if word != Self::REQUEST && !Self::MODIFIERS.contains(&word) {
-                return Some((at, String::from(word)));
-            }
-            at = word_end;
-        }
-        None
+        let source = self.text.source;
+        let found = (start..end)
+            .filter(|at| self.text.starts_word(*at))
+            .map(|at| (at, &source[at..self.text.word_end(at)]))
+            .find(|(_, word)| Self::is_parameter_name(word));
+        found.map(|(at, word)| (at, String::from(word)))
+    }
+
+    fn is_parameter_name(word: &str) -> bool {
+        [word == Self::REQUEST, Self::MODIFIERS.contains(&word)] == [false, false]
     }
 
     fn is_read(&self, parameter: &RequestParameter, parameters: &[RequestParameter]) -> bool {
@@ -169,22 +192,26 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
 
     fn removal(&self, parameter: &RequestParameter) -> TextEdit {
         let bytes = self.text.bytes;
-        if bytes[parameter.close] == b',' {
-            let mut end = parameter.close + 1;
-            while end < bytes.len() && bytes[end].is_ascii_whitespace() {
-                end += 1;
+        match (bytes[parameter.open], bytes[parameter.close]) {
+            (_, b',') => {
+                TextEdit::delete(parameter.open + 1, self.after_spaces(parameter.close + 1))
             }
-            return TextEdit::delete(parameter.open + 1, end);
+            (b',', _) => TextEdit::delete(parameter.open, parameter.close),
+            _ => TextEdit::delete(parameter.open + 1, parameter.close),
         }
-        if bytes[parameter.open] == b',' {
-            return TextEdit::delete(parameter.open, parameter.close);
-        }
-        TextEdit::delete(parameter.open + 1, parameter.close)
+    }
+
+    fn after_spaces(&self, from: usize) -> usize {
+        let spaces = self.text.bytes[from..]
+            .iter()
+            .take_while(|byte| byte.is_ascii_whitespace())
+            .count();
+        from + spaces
     }
 }
 
 impl RequestParameter {
     fn contains(&self, at: usize) -> bool {
-        self.open < at && at < self.close
+        [self.open < at, at < self.close] == [true, true]
     }
 }
