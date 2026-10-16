@@ -431,10 +431,11 @@ machine contracts have their own, independent major versions.
   `dotnet-web` group runs at most two .NET browser builds at once.
 
 - Tac utilities have a canonical recursive `client/shared/utils` location
-  and keep the existing stateless class contract. Client pages reject all authored CSS filenames recursively.
-  Component scopes stop at nested ownership boundaries, including unstyled
-  and slotted components. Global foundation and application migration work
-  remains a separate unfinished part of the source-conventions queue item.
+  and keep the existing stateless class contract. Client pages reject all
+  authored CSS filenames recursively. Component scopes stop at nested
+  ownership boundaries, including unstyled and slotted components. Global
+  stylesheets hold foundation CSS only (see the `tac.styles` entry below);
+  the website's `site.css` is one.
 
 - The first-app C# steps now call the existing Yon greeting endpoint through
   an injected private client returning `Task<Models.Greeting>`. Their tests
