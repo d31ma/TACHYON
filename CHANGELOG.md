@@ -377,7 +377,10 @@ machine contracts have their own, independent major versions.
   `tachyon-csharp.js`, `tachyon-ruby-services.js` and the others) and Go's
   `wasm_exec.js` without comment lines, indentation or blank lines, keeping
   the generated-file notice and Go's license notice. A route with Rust, Go
-  and C# services loads about 1.8 KB less with Brotli.
+  and C# services loads about 1.8 KB less with Brotli. A `wasm_exec.js` with
+  a template literal or string that runs across lines, or a `/*!` or
+  `@license` comment, ships unchanged, because removing its indentation or
+  comments could change the program.
 - The website's style generator reads `TAC_WEBSITE_DEPENDENCIES` instead of
   `TACHYON_WEBSITE_DEPENDENCIES` to find the website's `node_modules` folder
   when dependencies live outside the source folder. Rename the variable where

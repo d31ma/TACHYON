@@ -76,6 +76,13 @@ fn the_go_glue_keeps_its_license_and_ships_without_comments_or_indentation() {
 }
 
 #[test]
+fn go_glue_with_a_template_literal_across_lines_ships_unchanged() {
+    let glue = b"// Copyright 2018 The Go Authors.\nconst usage = `run\n  with care`\n".to_vec();
+
+    assert_eq!(WebEngine::shipped_glue(glue.clone()), glue);
+}
+
+#[test]
 fn go_glue_that_is_not_text_ships_unchanged() {
     let glue = vec![0xff, b' ', b' ', b'\n'];
 
