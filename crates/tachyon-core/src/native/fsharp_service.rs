@@ -4,8 +4,11 @@ use super::registry::NativeCompanionInput;
 use crate::Failure;
 use crate::behavior::{DetachedCsharp, ServiceRoles};
 use crate::companion::CompanionLanguage;
-use crate::fsharp_source::{FieldNeeds, FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpView};
+use crate::fsharp_source::{
+    FieldNeeds, FsharpAnswer, FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpView,
+};
 use crate::model_sources::ModelSources;
+use crate::route_types::ModelTable;
 use std::path::Path;
 
 pub(super) struct FsharpService;
@@ -44,16 +47,22 @@ impl FsharpService {
         }
         let view = FsharpView::tac(relative, authored);
         FsharpSource::refuse_unsupported(&view, relative, authored)?;
-        FsharpTaskResults::require(&view, item.web_assembly)?;
+        let tasks = FsharpTaskResults::read(
+            &view,
+            item.web_assembly,
+            (&item.class, &Self::models(item)?),
+        )?;
         let needs_all = crate::fsharp_source::FsharpConstructorProps::needs_all(authored);
         let events = FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class, needs_all)?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
+        let mut excluded = events.prepared.excluded.clone();
+        excluded.extend(tasks.names);
         let table = crate::companion::owner_table(
             CompanionLanguage::CSharp.for_web(item.web_assembly),
             view.text(),
             &shadow_path,
-            &events.prepared.excluded,
-            &events.prepared.entries,
+            &excluded,
+            &format!("{}{}", events.prepared.entries, tasks.entries),
             false,
         )
         .map_err(|failure| view.failure(&failure))?;
@@ -77,10 +86,16 @@ impl FsharpService {
         ))
     }
 
+    fn models(item: &NativeCompanionInput) -> Result<ModelTable, Failure> {
+        ModelTable::read_realm(&item.snapshot_root, "client", FsharpSource::EXTENSION)
+            .map_err(|message| super::host::native_tool_failure(1605, &message))
+    }
+
     fn detached(view: &FsharpView) -> Result<Option<DetachedCsharp>, Failure> {
         let roles = ServiceRoles::read(view.path(), view.text())
             .map_err(|failure| view.failure(&failure))?;
-        crate::behavior::detached_csharp(view.path(), &roles.source, Self::TAC)
+        let exchanged = FsharpAnswer::exchange_text(&roles.source);
+        crate::behavior::detached_csharp(view.path(), &exchanged, Self::TAC)
             .map_err(|failure| view.failure(&failure))
     }
 
@@ -113,7 +128,21 @@ mod tests {
         authored: &str,
         web_assembly: bool,
     ) -> Result<String, crate::Failure> {
+        table_with(class, authored, web_assembly, &[])
+    }
+
+    fn table_with(
+        class: &str,
+        authored: &str,
+        web_assembly: bool,
+        others: &[(&str, &str)],
+    ) -> Result<String, crate::Failure> {
         let root = tempfile::tempdir().expect("project");
+        for (relative, text) in others {
+            let path = root.path().join(relative);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("folders");
+            std::fs::write(path, text).expect("other source");
+        }
         let source = root.path().join(format!("client/services/{class}.fs"));
         std::fs::create_dir_all(source.parent().expect("parent")).expect("folders");
         std::fs::write(&source, authored).expect("source");
@@ -136,7 +165,7 @@ mod tests {
         let failure =
             table_for("WaitingService", &source, true).expect_err("unsupported Task shape");
         assert!(
-            failure.to_string().contains("Task<BehaviorJSON>"),
+            failure.to_string().contains("Task or ValueTask"),
             "{failure}"
         );
         assert!(failure.diagnostics().iter().any(|item| {
@@ -185,12 +214,47 @@ mod tests {
     }
 
     #[test]
-    fn fsharp_browser_container_result_is_located() {
-        unsupported_result("Task<list<int>>");
+    fn a_needs_http_client_is_built_by_the_page_and_hidden_from_it() {
+        let client = "open System.Threading.Tasks\n\n[<HTTPClient({\"path\":\"/api/greeting\",\"setup\":\"GreetingSetup\"})>]\ntype GreetingClient =\n    [<GetRequest>]\n    abstract read: unit -> Task<BehaviorJSON>\n";
+        let setup = "[<Setup>]\ntype GreetingSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n";
+        let service = "open System.Threading.Tasks\n\n[<Service>]\ntype GreetingService() =\n    [<Needs>]\n    member val GreetingClient : GreetingClient = Unchecked.defaultof<GreetingClient> with get, set\n\n    member this.Ask() : Task<BehaviorJSON> =\n        this.GreetingClient.read()\n";
+        let others = [
+            ("client/remotes/GreetingClient.fs", client),
+            ("client/setups/GreetingSetup.fs", setup),
+        ];
+        let body = table_with("GreetingService", service, true, &others)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        assert!(
+            body.contains("new GreetingService() { GreetingClient = new GreetingClient() }"),
+            "{body}"
+        );
+        assert!(!body.contains("[\"greetingClient\"]"), "{body}");
+        assert!(
+            body.contains("type GreetingClient(context: BehaviorContext) ="),
+            "{body}"
+        );
+        assert!(
+            body.contains("new() = GreetingClient(Behaviors.create(typeof<GreetingSetup>"),
+            "{body}"
+        );
     }
 
     #[test]
-    fn fsharp_browser_value_task_result_is_located() {
-        unsupported_result("ValueTask<BehaviorJSON>");
+    fn fsharp_browser_map_result_is_located() {
+        unsupported_result("Task<Map<string, int>>");
+    }
+
+    #[test]
+    fn fsharp_browser_lists_and_value_tasks_answer_plain_values() {
+        let source = "[<Service>]\ntype WaitingService() =\n    member this.Numbers() : Task<int list> =\n        Task.FromResult([ 1 ])\n\n    member this.Pause() : ValueTask =\n        ValueTask()\n";
+        let browser = body_of("WaitingService", source);
+        assert!(
+            browser.contains("[\"numbers\"] = TacMember.TaskMethod(async arguments => { return TacModels.Plain(await Instance.Numbers()); })"),
+            "{browser}"
+        );
+        assert!(
+            browser.contains("[\"pause\"] = TacMember.TaskMethod(async arguments => { await Instance.Pause(); return null; })"),
+            "{browser}"
+        );
     }
 }

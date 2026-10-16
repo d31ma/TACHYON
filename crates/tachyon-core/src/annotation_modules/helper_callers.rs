@@ -63,8 +63,16 @@ impl HelperCallers {
     fn ownership_graph(&self) -> Result<crate::behavior::CsharpHelperGraph, Failure> {
         let source = self.joined();
         Module::require_source_bound(&self.entry, &source)?;
-        crate::behavior::CsharpHelperGraph::read(&self.entry, &source)
-            .map_err(|failure| self.located(&failure))
+        Self::graph_of(&self.entry, &source).map_err(|failure| self.located(&failure))
+    }
+
+    fn graph_of(entry: &Path, source: &str) -> Result<crate::behavior::CsharpHelperGraph, Failure> {
+        if !crate::fsharp_source::FsharpSource::is_fsharp(entry) {
+            return crate::behavior::CsharpHelperGraph::read(entry, source);
+        }
+        let view = crate::fsharp_source::FsharpView::tac(entry, source);
+        crate::behavior::CsharpHelperGraph::read(view.path(), view.text())
+            .map_err(|failure| view.failure(&failure))
     }
 
     fn joined(&self) -> String {

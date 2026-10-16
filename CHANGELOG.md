@@ -32,6 +32,18 @@ machine contracts have their own, independent major versions.
   The page saves and restores it like the fields of the other web service
   languages. Before, the build refused both with TY1308 (ADR 0093
   amendment).
+- Browser F# services can take an HTTPClient through `Needs`, as C# services
+  do: `[<Needs>] member val GreetingClient : GreetingClient = ... with get, set`.
+  An F# HTTPClient member may answer `Task` or `ValueTask` of a record from
+  `client/models`, a list or array of records, a plain value, `BehaviorJSON`
+  or nothing; an answer of another shape fails with `HTTP_RESPONSE`. Service
+  members may return the same `Task` and `ValueTask` results. `Cached` and
+  `ClearCache` work as in the other languages. F# Tac test units get
+  `this.construct<T>()` and typed `[<Fake>]` properties; an empty Fake client
+  is bound to the test's BehaviorContext. The F# first-app Steps 4 and 5 now
+  call the greeting endpoint and test the service (ADR 0073 and ADR 0090
+  amendments).
+
 - The standard `theme_color` member of `client/manifest.json` now becomes
   `<meta name="theme-color" content="...">` in every web and native page
   head, HTML-escaped, when it is text that is not blank. A missing or

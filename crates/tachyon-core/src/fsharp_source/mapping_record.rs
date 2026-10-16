@@ -9,6 +9,10 @@ impl MappingRecord {
             .iter()
             .map(|(field, kind)| Self::read(field, kind))
             .collect::<Result<Vec<_>, _>>()?;
+        let answers = fields
+            .iter()
+            .map(|(field, kind)| Self::answer(field, kind))
+            .collect::<Result<Vec<_>, _>>()?;
         let writes = fields
             .iter()
             .map(|(field, kind)| Self::write(field, kind))
@@ -21,6 +25,10 @@ impl MappingRecord {
             format!(
                 "write{name} (value: Models.{name}) : BehaviorJSON = BehaviorJSON.Object(dict [ {} ])",
                 writes.join("; ")
+            ),
+            format!(
+                "answer{name} (value: BehaviorJSON) : Models.{name} = value.Members |> ignore; {{ {} }}",
+                answers.join("; ")
             ),
         ])
     }
@@ -50,7 +58,15 @@ impl MappingRecord {
     }
 
     fn read(field: &str, kind: &str) -> Result<String, String> {
-        let read = MappingShape::read(kind, &format!("value.Get(\"{field}\")"))?;
+        let value = format!("value.Get(\"{field}\")");
+        let read = MappingShape::read(kind, &value, MappingShape::MAPPING_READER)?;
+        Ok(format!("{field} = {read}"))
+    }
+
+    fn answer(field: &str, kind: &str) -> Result<String, String> {
+        let wire = crate::companion::lower_first(field);
+        let value = format!("value.Get(\"{wire}\")");
+        let read = MappingShape::read(kind, &value, MappingShape::ANSWER_READER)?;
         Ok(format!("{field} = {read}"))
     }
 

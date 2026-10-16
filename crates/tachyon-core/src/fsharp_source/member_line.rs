@@ -41,6 +41,13 @@ impl MemberLine {
         line.split_whitespace().next() == Some("static")
     }
 
+    pub(crate) fn result(line: &str) -> Option<String> {
+        let declaration = Self::without_abstract_words(line.trim_start());
+        let (_, signature) = declaration.split_once(':')?;
+        let parts = FsharpType::split_top_level(signature, "->");
+        parts.last().map(|result| result.trim().to_owned())
+    }
+
     pub(crate) fn concrete(line: &str, body: &str) -> Option<String> {
         let indent = &line[..line.len() - line.trim_start().len()];
         let declaration = Self::without_abstract_words(line.trim_start());
