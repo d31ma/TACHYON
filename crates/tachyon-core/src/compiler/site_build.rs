@@ -14,6 +14,7 @@ use super::script_assets::ScriptAssets;
 use super::service_checks::ServiceChecks;
 use super::service_script::ServiceScript;
 use super::service_worker::ServiceWorker;
+use super::setup_sharing::SetupSharing;
 use super::shared_assets::SharedAssets;
 use super::tool_build::ToolBuild;
 use super::{BuildOptions, BuildProfile, BuildResult, WebCompiler};
@@ -682,20 +683,35 @@ impl<'a> SiteBuild<'a> {
         let started = Instant::now();
         let mut built = BuiltServices::default();
         let mut assets = ScriptAssets::new(self.project.root(), self.snapshot_root);
-        let mut shared_runtime = false;
+        let mut modules = Vec::new();
         for (source, class) in self.script_services() {
             let module =
                 ServiceScript::module(self.project.root(), self.snapshot_root, source).await?;
-            shared_runtime |= module.behavior_runtime;
             let output = PathBuf::from(format!(".tachyon/services/{class}.js"));
             let bytes = assets.rewrite(source, &output, module.bytes)?;
-            let bytes = ServiceScript::linked(bytes, module.behavior_runtime);
-            built.files.push((format!("{class}.js"), bytes));
+            modules.push((class, bytes, module.behavior_runtime));
         }
+        let shared_runtime = modules.iter().any(|(_, _, runtime)| *runtime);
+        let setups = Self::shared_setups(&modules);
+        built
+            .files
+            .extend(modules.into_iter().map(|(class, bytes, runtime)| {
+                let linked = ServiceScript::linked(bytes, runtime, &setups);
+                (format!("{class}.js"), linked)
+            }));
         let mut files = assets.collect().await?;
-        files.extend(ServiceScript::runtime(shared_runtime));
+        files.extend(ServiceScript::runtime(shared_runtime, &setups));
         Self::add_script_timing(&mut built, started);
         Ok((built, files))
+    }
+
+    fn shared_setups(modules: &[(&str, Vec<u8>, bool)]) -> SetupSharing {
+        let runtime_modules: Vec<&[u8]> = modules
+            .iter()
+            .filter(|(_, _, runtime)| *runtime)
+            .map(|(_, bytes, _)| bytes.as_slice())
+            .collect();
+        SetupSharing::plan(&runtime_modules)
     }
 
     fn script_services(&self) -> Vec<(&Path, &str)> {

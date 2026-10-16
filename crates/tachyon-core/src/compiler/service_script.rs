@@ -1,6 +1,7 @@
 use super::build_stage::BuildStage;
 use super::component_script::ComponentScript;
 use super::portable_path::PortablePath;
+use super::setup_sharing::SetupSharing;
 use super::typescript_compiler::TypeScriptCompiler;
 use crate::Failure;
 use std::fs;
@@ -14,8 +15,7 @@ pub(super) struct ServiceScript {
 impl ServiceScript {
     const RUNTIME: &'static str = include_str!("../behavior/runtime.js");
     const RUNTIME_PATH: &'static str = ".tachyon/behavior-runtime.js";
-    const RUNTIME_IMPORT: &'static [u8] =
-        b"import { __tachyon_create_behaviors__ } from '../behavior-runtime.js';\n";
+    const RUNTIME_FACTORY: &'static str = "__tachyon_create_behaviors__";
 
     pub(super) async fn module(
         tools_root: &Path,
@@ -45,25 +45,34 @@ impl ServiceScript {
         }
     }
 
-    pub(super) fn linked(bytes: Vec<u8>, shared: bool) -> Vec<u8> {
-        Self::linked_bytes(bytes, shared)
+    pub(super) fn linked(bytes: Vec<u8>, shared: bool, setups: &SetupSharing) -> Vec<u8> {
+        Self::linked_bytes(bytes, shared, setups)
     }
 
-    fn linked_bytes(bytes: Vec<u8>, shared: bool) -> Vec<u8> {
+    fn linked_bytes(bytes: Vec<u8>, shared: bool, setups: &SetupSharing) -> Vec<u8> {
         if !shared {
             return bytes;
         }
-        let mut output = Self::RUNTIME_IMPORT.to_vec();
+        let (bytes, setup_names) = setups.without_setups(&bytes);
+        let mut output = Self::runtime_import(setup_names);
         output.extend(bytes);
         output
     }
 
-    pub(super) fn runtime(enabled: bool) -> Option<(PathBuf, Vec<u8>)> {
+    fn runtime_import(setup_names: Vec<String>) -> Vec<u8> {
+        let mut names = vec![String::from(Self::RUNTIME_FACTORY)];
+        names.extend(setup_names);
+        let names = names.join(", ");
+        format!("import {{ {names} }} from '../behavior-runtime.js';\n").into_bytes()
+    }
+
+    pub(super) fn runtime(enabled: bool, setups: &SetupSharing) -> Option<(PathBuf, Vec<u8>)> {
         enabled.then(|| {
             let mut source = b"export ".to_vec();
             source.extend_from_slice(
                 crate::template::ShippedScript::compact(Self::RUNTIME).as_bytes(),
             );
+            source.extend(setups.exports());
             (PathBuf::from(Self::RUNTIME_PATH), source)
         })
     }

@@ -32,6 +32,7 @@ mod foundation_properties;
 mod foundation_rules;
 mod foundation_selectors;
 mod foundation_values;
+mod module_code;
 mod output_path;
 mod page_composition;
 mod page_head;
@@ -50,6 +51,11 @@ pub(crate) mod script_imports;
 mod service_checks;
 mod service_script;
 mod service_worker;
+mod setup_class;
+mod setup_registrations;
+mod setup_sharing;
+#[cfg(test)]
+mod setup_sharing_tests;
 mod shared_assets;
 pub(crate) mod shared_scripts;
 #[cfg(test)]
