@@ -1,3 +1,4 @@
+use super::routes::{ReturnType, RouteMarker};
 use super::{
     Annotation, Declaration, Input, ManagedType, method_body, method_owner, method_signature,
 };
@@ -147,12 +148,12 @@ impl ErrorRules {
         Self::require(!super::generator_body(input, &body, start), || {
             input.failure(start, Self::STREAMING)
         })?;
-        let list = super::routes::parameter_list(input, start)?;
-        let documentation = super::routes::documentation_before(input, declaration);
+        let list = RouteMarker::parameter_list(input, start)?;
+        let documentation = RouteMarker::documentation_before(input, declaration);
         let parameters = Self::read_parameters(input, &list, start)?;
         let php_request = [parameters.len() == 2, input.extension == "php"] == [true, true];
         Self::require(!php_request, || {
-            input.failure(start, super::routes::RouteMarker::PHP_REQUEST_ADVICE)
+            input.failure(start, RouteMarker::PHP_REQUEST_ADVICE)
         })?;
         let error_type = Self::error_type(input, &parameters[0], &documentation, start)?;
         let returns = Self::return_type(input, &list, start, &signature.name, &documentation);
@@ -181,7 +182,7 @@ impl ErrorRules {
         if input.extension == "rb" {
             crate::ruby_source::Yard::return_type(documentation)
         } else {
-            super::routes::ReturnType::read(input, start, list.start - 1, list.end + 1, method)
+            ReturnType::read(input, start, list.start - 1, list.end + 1, method)
         }
     }
 
@@ -240,7 +241,7 @@ impl ErrorRules {
         pieces
             .iter()
             .map(|piece| {
-                super::routes::name_and_type(input.extension, piece)
+                RouteMarker::name_and_type(input.extension, piece)
                     .ok_or_else(|| input.failure(start, Self::type_needed(input.extension)))
             })
             .collect()
