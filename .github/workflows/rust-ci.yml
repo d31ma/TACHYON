@@ -2,6 +2,7 @@ name: Rust Rewrite
 
 on:
   workflow_call:
+  workflow_dispatch:
   pull_request:
     branches: [main, develop, codex/rust-rewrite]
     types: [opened, reopened, ready_for_review, synchronize]
