@@ -15,6 +15,7 @@ class FirstAppCsharpBrowserGate {
   /** @param {import('playwright').Page} page @param {string} origin @param {TutorialDiagnostics} diagnostics @returns {Promise<Record<string, unknown>>} */
   static async #probe(page, origin, diagnostics) {
     diagnostics.phase = 'cumulative-csharp-counter'
+    await page.addInitScript(FirstAppCsharpBrowserGate.#recordAnswers)
     await page.goto(`${origin}/hello/`, { waitUntil: 'networkidle', timeout: 15_000 })
     await page.waitForFunction(() => document.querySelector('section p')?.textContent?.trim() === 'You clicked 0 times.')
     await page.getByRole('button', { name: 'Click me', exact: true }).click()
@@ -25,7 +26,7 @@ class FirstAppCsharpBrowserGate {
     const answer = await pending
     assert.equal(answer.status(), 200)
     assert.equal(answer.request().method(), 'GET')
-    const greeting = await answer.json()
+    const greeting = await (await page.waitForFunction(() => Reflect.get(globalThis, 'tachyonAnswers')?.['/api/greeting'])).jsonValue()
     assert.deepEqual(greeting, { message: 'Hello from Yon' })
     const headers = await answer.request().allHeaders()
     assert.equal(headers.cookie ?? null, null, 'the runner seeds a same-origin cookie which must not reach Yon')
@@ -42,6 +43,22 @@ class FirstAppCsharpBrowserGate {
     assert.deepEqual(diagnostics.externalRequests, [])
     diagnostics.phase = 'complete'
     return { counts: [0, 1, 2], greeting, privateClient, publishedJavascriptYon: true, registeredScalarTaskModelQualified: true, stepFiveSdkQualified: false, arbitraryTaskDtoQualified: false, serviceWorkerQualified: false, browserHostReplaced: false }
+  }
+
+  /** @returns {void} */
+  static #recordAnswers() {
+    const original = globalThis.fetch
+    /** @type {Record<string, unknown>} */
+    const answers = {}
+    Reflect.set(globalThis, 'tachyonAnswers', answers)
+    /** @param {RequestInfo | URL} input @param {RequestInit} [options] @returns {Promise<Response>} */
+    const recorded = async (input, options) => {
+      const response = await original(input, options)
+      const path = new URL(String(input), location.href).pathname
+      if (path.startsWith('/api/')) response.clone().json().then(value => { answers[path] = value }, () => {})
+      return response
+    }
+    globalThis.fetch = recorded
   }
 
   /** @param {import('playwright').Page} page @returns {Promise<boolean>} */
