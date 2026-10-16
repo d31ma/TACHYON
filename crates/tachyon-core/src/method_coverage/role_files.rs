@@ -8,9 +8,9 @@ impl RoleFiles {
     const SERVER_UTILITY_FOLDER: &'static str = "server/utils";
     const TEST_FOLDER: &'static str = "tests";
     const SETUP_FOLDER: &'static str = "setups";
-    const SOURCE_EXTENSIONS: [&'static str; 15] = [
+    const SOURCE_EXTENSIONS: [&'static str; 16] = [
         "js", "ts", "py", "php", "java", "kt", "cs", "fs", "rs", "swift", "dart", "go", "rb",
-        "lua", "groovy",
+        "lua", "groovy", "hpp",
     ];
 
     pub(crate) fn sources(project: &Path) -> Vec<(PathBuf, String)> {

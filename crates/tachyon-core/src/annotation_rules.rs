@@ -288,6 +288,9 @@ impl AnnotationRules {
     const TAC_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py",
     ];
+    const TAC_FAKE: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "hpp",
+    ];
     const TAC_BEHAVIOR_ADAPTER: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const TAC_HELPER: &'static [&'static str] = &["js", "ts", "dart", "rs", "py", "cs", "fs"];
@@ -300,7 +303,7 @@ impl AnnotationRules {
     ];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts", "go"];
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
-        "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua",
+        "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua", "hpp",
     ];
     const YON_VALUE_SOURCE: &'static [&'static str] = &[
         "js", "ts", "py", "rs", "java", "groovy", "kt", "cs", "fs", "go", "rb", "php", "dart",
@@ -384,7 +387,7 @@ impl AnnotationRules {
         )
         .bare()
         .class_needs(Self::TEST_CLASSES)
-        .reach(Self::TAC_BEHAVIOR, Self::YON),
+        .reach(Self::TAC_FAKE, Self::YON),
         Rule::new(
             "ValueSource",
             Self::METHOD,

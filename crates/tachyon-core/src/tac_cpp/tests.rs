@@ -340,7 +340,7 @@ fn an_http_client_gets_its_request_methods_written() {
     );
     assert!(
         lowered.contains(
-            "co_return co_await tachyon::http::TacRemoteCall::answer<Order>(std::move(request));"
+            "co_return co_await tachyon::http::TacRemoteCall::answer<Order>(\"order\", std::move(request));"
         ),
         "{lowered}"
     );

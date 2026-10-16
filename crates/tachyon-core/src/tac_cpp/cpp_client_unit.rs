@@ -1,6 +1,6 @@
 use super::{
-    CppAttribute, CppFailure, CppFile, CppFolder, CppLowering, CppMarkerCheck, CppMemberKind,
-    CppProgram, CppTools,
+    CppAttribute, CppFailure, CppFile, CppFolder, CppLowering, CppMarkerCheck, CppMember,
+    CppMemberKind, CppProgram, CppTestCase, CppTools,
 };
 use crate::Failure;
 use std::fmt::Write as _;
@@ -10,28 +10,32 @@ use std::process::{Command, Output};
 pub(crate) struct CppClientUnit {
     name: String,
     setup: String,
-    cases: Vec<String>,
+    cases: Vec<CppTestCase>,
+    fakes: Vec<(String, usize)>,
     lowered: String,
     path: PathBuf,
 }
 
 impl CppClientUnit {
     const TESTS: &'static str = "client/tests";
-    const CASE_PREFIX: &'static str = "test";
     const SOURCE: &'static str = "unit.cpp";
     const BINARY: &'static str = "unit";
     const FLAGS: [&'static str; 3] = ["-std=c++20", "-O0", "-fno-color-diagnostics"];
     const FAILED: u16 = 2021;
+    const CONFIGURE: &'static str = "configure";
     const NO_TEST: &'static str =
         "A C++ test unit declares one class marked [[Test(<Name>TestSetup)]]";
     const NO_SETUP: &'static str = "[[Test]] names its TestSetup class first, for example [[Test(TallyTestSetup)]], and client/tests/TallyTestSetup.hpp declares class [[TestSetup]] TallyTestSetup";
+    const FAKE_FORM: &'static str = "A C++ [[Fake]] field holds the stand-in object itself, for example `[[Fake]] GreetingClient greetingClient;`: no reference, no pointer, no static";
+    const FAKE_TYPE: &'static str = "A C++ [[Fake]] field stands in for a C++ service in client/services or a C++ [[HTTPClient]] in client/remotes";
 
     pub(crate) fn run(project: &Path, relative: &Path, source: &str) -> Result<String, Failure> {
         let unit = Self::read(relative, source)?;
-        let setup = Self::setup(project, &unit)?;
-        let program = CppProgram::every_service(project)?;
+        let (setup, answers) = Self::setup(project, &unit)?;
+        let program = CppProgram::tested(project)?;
+        unit.check_fake_types(&program)?;
         let located = CppProgram::located(&unit.path, &unit.lowered);
-        let units = format!("{setup}{located}{}", unit.main());
+        let units = format!("{setup}{located}{}", unit.main(answers));
         Self::compiled_and_run(relative, &program.test_source(&units))
     }
 
@@ -45,26 +49,44 @@ impl CppClientUnit {
             .find(|marker| marker.name == "Test")
             .ok_or_else(|| CppFailure::unreadable(relative, file.class.name_at, Self::NO_TEST))?;
         let setup = Self::setup_name(relative, marker)?;
-        let cases = file
-            .class
-            .members
+        let fakes = Self::fakes(relative, &file.class.members)?;
+        let fake_types = fakes
             .iter()
-            .filter(|member| member.is_public_instance(CppMemberKind::Method))
-            .filter(|member| {
-                [
-                    member.name.starts_with(Self::CASE_PREFIX),
-                    member.parameters.is_empty(),
-                ] == [true, true]
-            })
-            .map(|member| member.name.clone())
+            .map(|member| (member.plain_type(), member.name_at))
             .collect();
         Ok(Self {
             name: file.class.name.clone(),
             setup,
-            cases,
-            lowered: CppLowering::model(&file, source),
+            cases: CppTestCase::read_all(relative, &file.class)?,
+            fakes: fake_types,
+            lowered: CppLowering::test_unit(&file, source, &fakes),
             path: relative.to_path_buf(),
         })
+    }
+
+    fn fakes<'a>(relative: &Path, members: &'a [CppMember]) -> Result<Vec<&'a CppMember>, Failure> {
+        let fakes: Vec<&CppMember> = members
+            .iter()
+            .filter(|member| member.marked("Fake"))
+            .collect();
+        for fake in &fakes {
+            let plain =
+                [fake.is_instance(CppMemberKind::Field), !fake.is_reference()] == [true, true];
+            plain
+                .then_some(())
+                .ok_or_else(|| CppFailure::unreadable(relative, fake.name_at, Self::FAKE_FORM))?;
+        }
+        Ok(fakes)
+    }
+
+    fn check_fake_types(&self, program: &CppProgram) -> Result<(), Failure> {
+        for (type_name, at) in &self.fakes {
+            program
+                .has_class(type_name)
+                .then_some(())
+                .ok_or_else(|| CppFailure::pending(&self.path, *at, Self::FAKE_TYPE))?;
+        }
+        Ok(())
     }
 
     fn setup_name(relative: &Path, marker: &CppAttribute) -> Result<String, Failure> {
@@ -78,7 +100,7 @@ impl CppClientUnit {
             .ok_or_else(|| CppFailure::unreadable(relative, marker.at, Self::NO_SETUP))
     }
 
-    fn setup(project: &Path, unit: &Self) -> Result<String, Failure> {
+    fn setup(project: &Path, unit: &Self) -> Result<(String, bool), Failure> {
         let path = project
             .join(Self::TESTS)
             .join(format!("{}.hpp", unit.setup));
@@ -95,17 +117,38 @@ impl CppClientUnit {
         valid
             .then_some(())
             .ok_or_else(|| CppFailure::unreadable(&relative, file.class.name_at, Self::NO_SETUP))?;
+        let answers = file.class.members.iter().any(Self::is_configure);
         let lowered = CppLowering::model(&file, &source);
-        Ok(CppProgram::located(&relative, &lowered))
+        Ok((CppProgram::located(&relative, &lowered), answers))
     }
 
-    fn main(&self) -> String {
+    fn is_configure(member: &CppMember) -> bool {
+        [
+            member.kind == CppMemberKind::Method,
+            member.is_static,
+            member.name == Self::CONFIGURE,
+        ] == [true, true, true]
+    }
+
+    fn prepared(&self, answers: bool) -> String {
+        if !answers {
+            return String::new();
+        }
+        format!(
+            "tachyon::TacTestAnswers answers({}::{}()); ",
+            self.setup,
+            Self::CONFIGURE
+        )
+    }
+
+    fn main(&self, answers: bool) -> String {
+        let prepared = self.prepared(answers);
         let mut cases = String::new();
         for case in &self.cases {
             let _ = writeln!(
                 cases,
-                "    runner.run(\"{case}\", [] {{ {} unit; unit.{case}(); }});",
-                self.name
+                "    runner.run(\"{}\", [] {{ {prepared}{} unit; tachyon::TacTestCase::finish([&unit] {{ return unit.{}; }}); }});",
+                case.name, self.name, case.call
             );
         }
         format!(

@@ -2,6 +2,7 @@ mod cpp_attribute;
 mod cpp_attributes;
 mod cpp_class;
 mod cpp_client_unit;
+mod cpp_coverage;
 mod cpp_declaration;
 mod cpp_failure;
 mod cpp_file;
@@ -28,18 +29,23 @@ mod cpp_shape;
 mod cpp_source;
 mod cpp_spelling;
 mod cpp_step;
+mod cpp_test_case;
 mod cpp_token;
 mod cpp_tokens;
 mod cpp_tools;
 mod cpp_type_text;
+mod cpp_value_source;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod unit_tests;
 
 use cpp_attribute::CppAttribute;
 use cpp_attributes::CppAttributes;
 use cpp_class::CppClass;
 pub(crate) use cpp_client_unit::CppClientUnit;
+pub(crate) use cpp_coverage::CppCoverage;
 use cpp_declaration::CppDeclaration;
 use cpp_failure::CppFailure;
 use cpp_file::CppFile;
@@ -66,7 +72,9 @@ use cpp_shape::CppShape;
 pub(crate) use cpp_source::CppSource;
 use cpp_spelling::CppSpelling;
 use cpp_step::CppStep;
+use cpp_test_case::CppTestCase;
 use cpp_token::CppToken;
 use cpp_tokens::CppTokens;
 pub(crate) use cpp_tools::CppTools;
 use cpp_type_text::CppTypeText;
+use cpp_value_source::CppValueSource;
