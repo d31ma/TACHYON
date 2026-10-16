@@ -44,9 +44,12 @@ Still open:
   `bun run coverage:languages` in `website/` for the current list.
 - Windows and Android runtime proof for window controls and the file picker.
 - Decisions for the maintainer: who is trusted to approve a native live update,
-  which service receives a custom menu command, how to build a Linux `ty`, and
-  whether compiled browser languages get async support one at a time or through
-  a worker.
+  how to build a Linux `ty`, and whether compiled browser languages get async
+  support one at a time or through a worker.
+- ADR 0097 decided which service receives a custom menu command for Rust: a
+  Rust application service, which forwards to Rust page services with
+  `CurrentPageEvents` (TY1370). Whether a service in another language, such as
+  Swift on macOS or C# on Windows, can receive a menu command is still open.
 
 ## Previous continuation — 2026-09-26
 
