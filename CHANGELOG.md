@@ -481,6 +481,16 @@ machine contracts have their own, independent major versions.
   file dropped it and the build ignored it. Valid F# code, including every
   F# example on the website, is accepted as before.
 
+- A Tac Ruby or Lua service whose `Needs` field has the type of another
+  service, such as a TallyService with a needed CounterService field, now
+  stops the build with TY2015 at the field. Before, the build accepted it,
+  the page never filled the field, and the first call through it failed in
+  the browser with `handler_failed`. Needs in these languages takes a Store,
+  a Converter or an HTTPClient in Ruby, and a Converter in Lua. The Ruby and
+  Lua web builds also read their services before they build the runtime, so
+  the refusal appears on a machine without Emscripten (ADR 0054 and ADR 0085
+  amendments).
+
 - A Go `@HTTPClient` request body model now follows its `json` tags as
   `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
   and the other empty values instead of sending `""` and `null`, `omitzero`

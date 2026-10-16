@@ -2,9 +2,11 @@ use crate::Failure;
 use crate::ascii_name::AsciiName;
 use crate::go_source::GoMarkerName;
 use crate::lexical::LexicalMask;
-use ruby_needs::RubyNeeds;
+pub(crate) use needed_field::NeededField;
+pub(crate) use ruby_needs::RubyNeeds;
 use std::path::Path;
 
+mod needed_field;
 mod ruby_needs;
 
 pub(crate) struct RubyMarkers;

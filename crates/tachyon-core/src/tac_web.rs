@@ -202,12 +202,14 @@ async fn build_language(
             built.engine
         }
         WebLanguage::Ruby => {
+            let engine = ruby_engine(snapshot_root, &chosen)?;
             published.extend(crate::tac_ruby::RubyWebServices::runtime_files().await?);
-            ruby_engine(snapshot_root, &chosen)?
+            engine
         }
         WebLanguage::Lua => {
+            let engine = crate::tac_lua::LuaWebServices::engine(snapshot_root, &chosen)?;
             published.extend(crate::tac_lua::LuaWebServices::runtime_files().await?);
-            crate::tac_lua::LuaWebServices::engine(snapshot_root, &chosen)?
+            engine
         }
     };
     let shared = language.shared_module();

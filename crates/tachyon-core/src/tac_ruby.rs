@@ -1,8 +1,10 @@
+mod needed_services;
 mod ruby_model_readers;
 mod runtime_build;
 mod runtime_sources;
 mod runtime_tools;
 
+pub(crate) use needed_services::NeededServices;
 pub(crate) use runtime_build::RubyRuntimeBuild;
 
 use crate::Failure;
@@ -125,6 +127,7 @@ impl RubyWebServices {
         let text = crate::without_bom(&text);
         let identity = PathBuf::from(format!("client/services/{class}.rb"));
         let relative = source.strip_prefix(snapshot_root).unwrap_or(&identity);
+        NeededServices::RUBY.refuse(snapshot_root, relative, text)?;
         let roles = crate::behavior::ServiceRoles::read(relative, text)?;
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, &roles.source, "tac")?
@@ -239,6 +242,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     mod browser_http_tests;
+    mod needed_service_tests;
 
     fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
         let path = root.join(relative);

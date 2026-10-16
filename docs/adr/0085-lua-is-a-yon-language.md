@@ -1,7 +1,8 @@
 # ADR 0085: Lua Is a Yon Language
 
 - Status: Accepted; amended 2026-09-29 (Tac Lua services), 2026-10-04 (Lua
-  stores, Schedule and converter nulls)
+  stores, Schedule and converter nulls), 2026-10-16 (a Tac Lua Needs field
+  cannot name another service)
 - Date: 2026-09-29
 - Builds on: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes),
   [ADR 0050](0050-go-annotations-are-comments.md) (comment markers),
@@ -351,3 +352,21 @@ This amendment replaces "Topic stops the build in Lua" above.
 - An unresolved `-- @Needs` dependency (`TY2015`) points at the field that
   needs it in every Yon language, not at the class. In Lua the span covers
   the field's whole line instead of an empty span at the class table.
+
+## Amendment 2026-10-16: a Tac Lua Needs field cannot name another service
+
+- A Tac Lua service whose `-- @Needs` field has the type of another Tac
+  service, such as `---@type CounterService` above `counter = nil,`, used to
+  build. The page never filled the field, so it stayed `nil`, and the first
+  call through it failed in the browser (`handler_failed`).
+- Now the build stops with `TY2015` at the field's line, like a
+  `WindowControls` or `FilePicker` field, and the message names the field,
+  the service and this ADR. Another service is a file of that name in
+  `client/services/`, in any language.
+- The check reads the Ruby shadow with the same reader as Ruby Tac
+  (ADR 0054), so both languages refuse the field in the same way.
+- A Tac Lua `-- @Needs` field still takes a Converter. The
+  `application_event_publisher` field and the global browser APIs do not
+  use `-- @Needs` and are not affected. A Lua service that wants another
+  service lets the view call it, or publishes an event that the other
+  service handles with `-- @OnEvent`.

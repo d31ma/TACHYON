@@ -406,3 +406,54 @@ fn the_tac_lua_runtime_passes_its_contract() {
         "{printed}"
     );
 }
+
+struct NeededServicePage;
+
+impl NeededServicePage {
+    const COUNTER: &str = "// @Service\nexport default class CounterService {\n  count = 0\n\n  increment() {\n    this.count += 1\n  }\n}\n";
+    const TALLY: &str = "-- @Service\n---@class TallyService\nTallyService = {\n  -- @Needs\n  ---@type CounterService\n  counter = nil,\n}\n\n---@return nil\nfunction TallyService:bump()\n  self.counter:increment()\nend\n";
+    const MESSAGE: &str = "The `-- @Needs` field 'counter' names CounterService, another Tac service. A Lua Tac service cannot need another service yet (ADR 0085): the page does not fill the field, so it would stay nil and the first call through it would fail.";
+}
+
+#[tokio::test]
+async fn a_lua_service_that_needs_another_service_stops_the_build_at_the_field() {
+    let root = tempfile::tempdir().expect("project");
+    Page::write(
+        root.path(),
+        "client/services/CounterService.js",
+        NeededServicePage::COUNTER,
+    );
+    let tally = Page::write(
+        root.path(),
+        "client/services/TallyService.lua",
+        NeededServicePage::TALLY,
+    );
+    let chosen = [(
+        String::from("tally"),
+        String::from("TallyService"),
+        crate::tac_web::WebLanguage::Lua,
+        tally,
+    )];
+    let jobs = crate::tac_web::BuildJobs::new(1);
+    let built =
+        crate::tac_web::build_all(root.path(), &chosen, &jobs, crate::BuildProfile::Release).await;
+    let Err(failure) = built else {
+        panic!("the build accepted a Lua service that needs another service");
+    };
+    assert_eq!(failure.diagnostics().len(), 1, "{failure}");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.to_string(), "TY2015", "{failure}");
+    assert_eq!(diagnostic.message, NeededServicePage::MESSAGE, "{failure}");
+    assert!(
+        diagnostic
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("A Lua Needs field takes a Converter")),
+        "{failure}"
+    );
+    let span = &diagnostic.spans[0];
+    assert_eq!(span.file, "client/services/TallyService.lua", "{failure}");
+    let start = usize::try_from(span.start).expect("start");
+    let end = usize::try_from(span.end).expect("end");
+    assert_eq!(&NeededServicePage::TALLY[start..end], "  counter = nil,");
+}

@@ -5,7 +5,7 @@ use crate::failure::{diagnostic, source_span};
 use crate::lua_source::{LuaBehaviorEdits, LuaSource, LuaView};
 use crate::model_sources::ModelSources;
 use crate::ruby_source::RubyMembers;
-use crate::tac_ruby::RubyWebServices;
+use crate::tac_ruby::{NeededServices, RubyWebServices};
 use std::path::{Path, PathBuf};
 
 pub(crate) struct LuaWebServices;
@@ -107,6 +107,9 @@ const transport = (text) => lua.invoke(text)
         let relative = source.strip_prefix(snapshot_root).unwrap_or(&identity);
         Self::refuse_capabilities(relative, text)?;
         let view = LuaView::joined(relative, text);
+        NeededServices::LUA
+            .refuse(snapshot_root, view.path(), view.text())
+            .map_err(|failure| view.failure(&failure))?;
         let mut metadata = Self::metadata(snapshot_root, relative, &view)?;
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, text, Self::REALM)?

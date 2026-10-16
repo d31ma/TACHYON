@@ -1,6 +1,7 @@
 # ADR 0054: Ruby Is a Yon Language and a Tac Service Language
 
-- Status: Accepted
+- Status: Accepted; amended 2026-09-30 (model arguments from the view),
+  2026-10-16 (a Tac Needs field cannot name another service)
 - Date: 2026-09-26
 - Builds on: [ADR 0049](0049-tac-ruby-uses-a-pinned-mruby-runtime.md) (the
   browser runtime), [ADR 0048](0048-yon-routes-come-from-annotations.md)
@@ -150,3 +151,24 @@ checked by the shared rule table (ADR 0056); Ruby has no checks of its own.
   model, with the models inside it, instead of a Hash. The service metadata
   carries those shapes and the models they use; listeners read their event
   the same way.
+
+## Amendment (2026-10-16): a Tac Needs field cannot name another service
+
+- A Tac Ruby service whose `#[Needs]` field has the type of another Tac
+  service, such as `# @return [CounterService]` on `attr_reader :counter`,
+  used to build. Tachyon kept the field off the page but injected only
+  stores, converters and HTTP clients, so the field stayed `nil`, and the
+  first call through it failed in the browser (`handler_failed`).
+- Now the build stops with `TY2015` at the `attr_reader` line, the code
+  that Lua Tac uses for a field that the page would leave `nil`
+  (ADR 0085). The message names the field, the service and this ADR.
+  Another service is a file of that name in `client/services/`, in any
+  language. The `@return` comment may come before or after the marker.
+- A Tac Ruby `#[Needs]` field still takes a Store, a Converter or an
+  HTTPClient. A Ruby service that wants another service lets the view call
+  it, or publishes an event that the other service handles with
+  `#[OnEvent]`. JavaScript, TypeScript, Go, Python, Dart and C++ services can
+  need another service.
+- The Ruby web build now reads the services before it builds the mruby
+  runtime, so the refusal appears on a machine without Emscripten too. Tac
+  Lua does the same with its runtime.
