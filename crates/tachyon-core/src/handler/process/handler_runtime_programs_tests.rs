@@ -4,7 +4,7 @@ use super::HandlerRuntimePrograms;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-struct InstalledPrograms;
+pub(crate) struct InstalledPrograms;
 
 impl InstalledPrograms {
     fn folder(names: &[&str]) -> tempfile::TempDir {
@@ -31,14 +31,17 @@ impl InstalledPrograms {
     #[cfg(not(unix))]
     fn make_runnable(_path: &Path) {}
 
-    fn javascript(names: &[&str], configured: Option<&str>) -> PathBuf {
+    pub(crate) fn runtimes(names: &[&str], configured: Option<&str>) -> HandlerRuntimePrograms {
         let folder = Self::folder(names);
         HandlerRuntimePrograms::from_lookup(|name| match name {
             "PATH" => Some(folder.path().as_os_str().to_os_string()),
             "YON_JAVASCRIPT_RUNTIME" => configured.map(OsString::from),
             _ => None,
         })
-        .javascript
+    }
+
+    fn javascript(names: &[&str], configured: Option<&str>) -> PathBuf {
+        Self::runtimes(names, configured).javascript
     }
 }
 

@@ -116,7 +116,7 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::{DoctorReport, Toolchain, ToolchainState, check};
-    use crate::handler::{HandlerRuntimePrograms, HandlerSupervisorOptions};
+    use crate::handler::{HandlerRuntimePrograms, HandlerSupervisorOptions, InstalledPrograms};
     use std::fs;
     use std::path::{Path, PathBuf};
     use tempfile::TempDir;
@@ -141,6 +141,18 @@ mod tests {
             commands.push(toolchain.command.as_str());
         }
         commands
+    }
+
+    fn check_with_runtimes(
+        root: &Path,
+        installed: &[&str],
+        configured: Option<&str>,
+    ) -> DoctorReport {
+        let options = HandlerSupervisorOptions {
+            runtimes: InstalledPrograms::runtimes(installed, configured),
+            ..HandlerSupervisorOptions::default()
+        };
+        DoctorReport::check_with_options(root, &options).expect("report")
     }
 
     fn python_command() -> &'static str {
@@ -291,7 +303,7 @@ mod tests {
                 r#"{"workers":{"server/workers/cleanup.rs":{"every_seconds":60}}}"#,
             ),
         ]);
-        let report = check(root.path()).expect("report");
+        let report = check_with_runtimes(root.path(), &["node"], None);
         let commands = command_names(&report);
         for expected in [
             "node", "java", "dotnet", "kotlinc", "groovyc", "php-cgi", "cargo",
@@ -302,6 +314,28 @@ mod tests {
         assert_eq!(count_of(&commands, "php-cgi"), 1);
         assert_eq!(count_of(&commands, "node"), 1);
         assert_eq!(count_of(&commands, "java"), 1);
+    }
+
+    #[test]
+    fn yon_javascript_runtime_is_the_installed_program_or_the_configured_one() {
+        let root = project_with(&[("server/controllers/AController.js", "source")]);
+        let cases: [(&[&str], Option<&str>, &str); 6] = [
+            (&["node"], None, "node"),
+            (&["bun"], None, "bun"),
+            (&["bun", "node"], None, "node"),
+            (&[], None, "node"),
+            (&["node"], Some("bun"), "bun"),
+            (
+                &["bun", "node"],
+                Some("/opt/javascript/run"),
+                "YON_JAVASCRIPT_RUNTIME",
+            ),
+        ];
+        for (installed, configured, expected) in cases {
+            let report = check_with_runtimes(root.path(), installed, configured);
+            let commands = command_names(&report);
+            assert_eq!(commands, [expected], "{installed:?} {configured:?}");
+        }
     }
 
     #[test]
@@ -482,7 +516,7 @@ mod tests {
         symlink(outside.path(), controllers.join("outside")).expect("outside link");
         std::fs::create_dir_all(controllers.join("live")).expect("live folder");
         symlink(&controllers, controllers.join("live/parent")).expect("cycle");
-        let report = check(root.path()).expect("bounded discovery");
+        let report = check_with_runtimes(root.path(), &["node"], None);
         let commands = command_names(&report);
         assert!(commands.contains(&"node"), "{commands:?}");
         assert!(!commands.contains(&python_command()), "{commands:?}");

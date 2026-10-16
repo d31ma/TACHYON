@@ -31,6 +31,8 @@ pub use environment_policy::EnvironmentPolicy;
 pub use handler_cancellation::HandlerCancellation;
 pub use handler_event::HandlerEvent;
 pub use handler_runtime_programs::HandlerRuntimePrograms;
+#[cfg(test)]
+pub(crate) use handler_runtime_programs_tests::InstalledPrograms;
 pub use handler_supervisor_options::HandlerSupervisorOptions;
 pub(in crate::handler) use process_reaper::ProcessReaper;
 pub(crate) use socket::{SocketChannels, SocketInput, SocketOutput};

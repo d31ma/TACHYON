@@ -21,6 +21,8 @@ pub(crate) use api_reference::files as api_reference_files;
 pub(crate) use egress::{EgressProxy, NodeProxyGate};
 pub use interpreters::Workers;
 pub use isolation::{FirecrackerIsolation, YonIsolationPolicy};
+#[cfg(test)]
+pub(crate) use process::InstalledPrograms;
 pub use process::{
     EnvironmentPolicy, HandlerCancellation, HandlerEvent, HandlerRuntimePrograms,
     HandlerSupervisor, HandlerSupervisorOptions,
