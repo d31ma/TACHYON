@@ -5207,7 +5207,8 @@ that expected the old `dist/layouts/` output.
 
 See the Git history and GitHub release notes for changes before 2.0.
 
-[Unreleased]: https://github.com/d31ma/Tachyon/compare/v26.35.07...HEAD
+[Unreleased]: https://github.com/d31ma/Tachyon/compare/v26.36.01...HEAD
+[26.36.01]: https://github.com/d31ma/Tachyon/compare/v26.35.07...v26.36.01
 [26.35.07]: https://github.com/d31ma/Tachyon/compare/v26.33.02...v26.35.07
 [26.33.02]: https://github.com/d31ma/Tachyon/compare/v26.33.01...v26.33.02
 [26.33.01]: https://github.com/d31ma/Tachyon/compare/v26.31.06...v26.33.01
