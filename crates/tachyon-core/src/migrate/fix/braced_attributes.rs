@@ -1,6 +1,6 @@
 use super::edits::TextEdit;
 use crate::template::BracedAttribute;
-use html5gum::{DefaultEmitter, Token, Tokenizer};
+use html5gum::{DefaultEmitter, StartTag, Token, Tokenizer};
 
 #[derive(Default)]
 pub(super) struct BracedAttributeEdits {
@@ -9,35 +9,59 @@ pub(super) struct BracedAttributeEdits {
 }
 
 impl BracedAttributeEdits {
+    const QUOTES: [char; 2] = ['"', '\''];
+
     pub(super) fn plan_view(source: &str) -> Self {
         let mut plan = Self::default();
-        let mut inside_style = false;
-        let emitter = DefaultEmitter::<usize>::new_with_span();
-        for token in Tokenizer::new_with_emitter(source, emitter).flatten() {
-            match token {
-                Token::StartTag(tag) if !inside_style => {
-                    inside_style = tag.name.as_slice() == b"style";
-                    for (name, value) in &tag.attributes {
-                        let name = String::from_utf8_lossy(name);
-                        let text = String::from_utf8_lossy(&value.value);
-                        plan.add(source, &name, &text, value.span.start);
-                    }
-                }
-                Token::EndTag(tag) if tag.name.as_slice() == b"style" => inside_style = false,
-                _ => {}
-            }
-        }
+        plan.read_tags(source);
         plan
     }
 
-    fn add(&mut self, source: &str, name: &str, value: &str, start: usize) {
-        let Some(braced) = BracedAttribute::find(name, value) else {
-            return;
-        };
-        match Self::edit(source, &braced, name, value, start) {
-            Some(edit) => self.edits.push(edit),
-            None => self.steps.push((braced.message(), braced.help())),
+    fn read_tags(&mut self, source: &str) {
+        let mut inside_style = false;
+        let emitter = DefaultEmitter::<usize>::new_with_span();
+        for token in Tokenizer::new_with_emitter(source, emitter).flatten() {
+            inside_style = self.read_token(source, token, inside_style);
         }
+    }
+
+    fn read_token(&mut self, source: &str, token: Token<usize>, inside_style: bool) -> bool {
+        match token {
+            Token::StartTag(tag) if !inside_style => {
+                self.add_attributes(source, &tag);
+                tag.name.as_slice() == b"style"
+            }
+            Token::EndTag(tag) if tag.name.as_slice() == b"style" => false,
+            _ => inside_style,
+        }
+    }
+
+    fn add_attributes(&mut self, source: &str, tag: &StartTag<usize>) {
+        for (name, value) in &tag.attributes {
+            let name = String::from_utf8_lossy(name);
+            let text = String::from_utf8_lossy(&value.value);
+            self.add(source, &name, &text, value.span.start);
+        }
+    }
+
+    fn add(&mut self, source: &str, name: &str, value: &str, start: usize) {
+        if let Some(braced) = BracedAttribute::find(name, value) {
+            self.add_braced(source, &braced, name, value, start);
+        }
+    }
+
+    fn add_braced(
+        &mut self,
+        source: &str,
+        braced: &BracedAttribute,
+        name: &str,
+        value: &str,
+        start: usize,
+    ) {
+        let edit = Self::edit(source, braced, name, value, start);
+        let step = edit.is_none().then(|| (braced.message(), braced.help()));
+        self.edits.extend(edit);
+        self.steps.extend(step);
     }
 
     fn edit(
@@ -48,22 +72,17 @@ impl BracedAttributeEdits {
         start: usize,
     ) -> Option<TextEdit> {
         let expression = braced.whole_value()?;
-        if braced.is_boolean() || expression.contains('"') {
-            return None;
-        }
+        let rejected = [braced.is_boolean(), expression.contains('"')];
+        (rejected == [false, false]).then_some(())?;
         let written = source.get(start..)?;
         let quote = written
             .strip_prefix(name)?
             .strip_prefix('=')?
             .chars()
             .next()?;
-        if !matches!(quote, '"' | '\'') {
-            return None;
-        }
+        Self::QUOTES.contains(&quote).then_some(())?;
         let expected = format!("{name}={quote}{value}{quote}");
-        if !written.starts_with(&expected) {
-            return None;
-        }
+        written.starts_with(&expected).then_some(())?;
         let replacement = format!(":{name}=\"{expression}\"");
         Some(TextEdit::replace(
             start,
