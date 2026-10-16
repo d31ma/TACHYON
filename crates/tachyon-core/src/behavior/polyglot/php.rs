@@ -277,6 +277,7 @@ fn test_members(unit: &Unit) -> String {
         &super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string(),
     );
     let properties = unit.properties.to_string().replace('\'', "\\'");
+    let clear_fakes = clear_fakes(unit);
     format!(
         "\npublic mixed $behaviors = null;\n\
          public function startBehaviors(): void {{\n\
@@ -289,6 +290,7 @@ fn test_members(unit: &Unit) -> String {
          public function POST($request): mixed {{\n\
          $cases = [];\n\
          foreach (json_decode('{cases}', true) as [$name, $method, $input]) {{\n\
+         {clear_fakes}\
          $this->startBehaviors();\n\
          \\BehaviorCalls::take();\n\
          try {{ $this->$method(...$input); $cases[] = ['name' => $name, 'passed' => true, 'called' => \\BehaviorCalls::take()]; }}\n\
@@ -302,4 +304,15 @@ fn test_members(unit: &Unit) -> String {
         unit.profiles,
         serde_json::Value::String(unit.name.clone()),
     )
+}
+
+fn clear_fakes(unit: &Unit) -> String {
+    let mut clear = String::new();
+    for name in &unit.mocks {
+        let _ = writeln!(
+            clear,
+            "if ((new \\ReflectionProperty($this, '{name}'))->hasType()) {{ unset($this->{name}); }} else {{ $this->{name} = null; }}"
+        );
+    }
+    clear
 }

@@ -162,7 +162,17 @@ async fn a_php_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.php",
-        "<?php\n#[Test(CatalogTestSetup::class, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest {\n    public function testOpensAContext(): void {\n        Assert::isTrue($this->behaviors !== null, 'the case has a context');\n    }\n    public function testReportsAFailure(): void {\n        Assert::isTrue(false, 'this case is meant to fail');\n    }\n}\n",
+        "<?php\n#[Test(CatalogTestSetup::class, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest {\n    #[Fake]\n    public CatalogCounterHelper $catalogCounterHelper;\n    #[Fake]\n    public $note;\n\n    public function testOpensAContext(): void {\n        Assert::isTrue($this->behaviors !== null, 'the case has a context');\n        Assert::isTrue(!isset($this->catalogCounterHelper), 'a fake starts empty');\n        $this->note = 'set';\n        $this->catalogCounterHelper = new class extends CatalogCounterHelper {\n            public function count(): int { return 4; }\n        };\n        Assert::equals(8, (new CatalogService($this->catalogCounterHelper))->total(), 'the total');\n    }\n    public function testReportsAFailure(): void {\n        Assert::isTrue(!isset($this->catalogCounterHelper), 'the fake is empty again');\n        Assert::equals(null, $this->note, 'an untyped fake is null again');\n        Assert::isTrue(false, 'this case is meant to fail');\n    }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/helpers/CatalogCounterHelper.php",
+        "<?php\n#[Helper]\nclass CatalogCounterHelper {\n    public function count(): int { return 21; }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/services/CatalogService.php",
+        "<?php\n#[Service]\nclass CatalogService {\n    #[Needs]\n    public CatalogCounterHelper $catalogCounterHelper;\n\n    public function total(): int { return $this->catalogCounterHelper->count() * 2; }\n}\n",
     );
 
     let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.php")
@@ -184,6 +194,12 @@ async fn a_php_test_unit_runs_its_cases_through_the_supervisor() {
     assert_eq!(cases.len(), 2, "{body}");
     assert_eq!(cases[0]["passed"], true, "{body}");
     assert_eq!(cases[1]["passed"], false, "{body}");
+    assert!(
+        cases[1]["error"]
+            .as_str()
+            .is_some_and(|error| error.starts_with("this case is meant to fail")),
+        "{body}"
+    );
 }
 
 #[tokio::test]
