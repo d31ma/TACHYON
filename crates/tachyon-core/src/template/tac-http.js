@@ -125,22 +125,39 @@ class TacBrowserHttp {
 
   static async #read(response, limit) {
     if (!response.body) return ''
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder('utf-8', { fatal: true })
+    const bytes = TacBrowserHttp.#declared(response, limit)
+      ? new Uint8Array(await response.arrayBuffer())
+      : await TacBrowserHttp.#streamed(response.body.getReader(), limit)
+    if (bytes.byteLength > limit) TacBrowserHttp.#fail('HTTP_LIMIT')
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes) } catch { TacBrowserHttp.#fail('HTTP_RESPONSE') }
+  }
+
+  static #declared(response, limit) {
+    const headers = response.headers
+    const length = Number(headers?.get('content-length') ?? Number.NaN)
+    if (length > limit) TacBrowserHttp.#fail('HTTP_LIMIT')
+    const identity = (headers?.get('content-encoding') ?? 'identity') === 'identity'
+    return Number.isSafeInteger(length) && identity
+  }
+
+  static async #streamed(reader, limit) {
+    const chunks = []
     let length = 0
-    let text = ''
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         length += value.byteLength
         if (length > limit) TacBrowserHttp.#fail('HTTP_LIMIT')
-        try { text += decoder.decode(value, { stream: true }) } catch { TacBrowserHttp.#fail('HTTP_RESPONSE') }
+        chunks.push(value)
       }
     } catch (error) {
       await reader.cancel().catch(() => {})
       throw error
     } finally { reader.releaseLock() }
-    try { return text + decoder.decode() } catch { TacBrowserHttp.#fail('HTTP_RESPONSE') }
+    const bytes = new Uint8Array(length)
+    let offset = 0
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
+    return bytes
   }
 }

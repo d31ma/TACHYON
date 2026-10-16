@@ -535,3 +535,24 @@ second, aborts every pending fetch, starts no new one, runs both `OnStop`
 hooks before any woken call, and settles each call with `CANCELLED`. Before
 the change every standard-Go case hung past 30 seconds, and under TinyGo the
 "asks again" cases started fetches that were never aborted.
+
+## Amendment (2026-10-16): a declared answer is read whole
+
+The browser host read every answer through a stream reader and resolved the
+call as soon as the reader reported the end of the body. In Chromium that
+can happen before the network load itself completes, and Chromium then
+reports the finished request as aborted (`net::ERR_ABORTED`), although the
+page already has the whole answer. The .NET gate saw this in about half of
+its runs as an unexpected failed `/api/probe` request; no abort or stream
+cancel ran in the page.
+
+An answer that declares its length in `Content-Length` and has no
+`Content-Encoding` is now read whole with `arrayBuffer()`, which resolves only
+after the load completes. A declared length over the limit is refused with
+`HTTP_LIMIT` before the body is read. Any other answer keeps the bounded
+streaming read, so the 1 MiB limit holds while the body arrives. Yon JSON
+answers declare their length and are not compressed.
+
+Evidence: the C# `dotnet_http_browser_fixture` gate passed 8 of 15 runs before
+the change and 15 of 15 after it in Chromium, and
+`scripts/browser-http-runtime-test.mjs` checks both read paths.

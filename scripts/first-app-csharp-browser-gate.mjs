@@ -15,7 +15,7 @@ class FirstAppCsharpBrowserGate {
   /** @param {import('playwright').Page} page @param {string} origin @param {TutorialDiagnostics} diagnostics @returns {Promise<Record<string, unknown>>} */
   static async #probe(page, origin, diagnostics) {
     diagnostics.phase = 'cumulative-csharp-counter'
-    await page.addInitScript(FirstAppCsharpBrowserGate.#recordAnswers)
+    await page.addInitScript(FirstAppCsharpBrowserGate.recordAnswers)
     await page.goto(`${origin}/hello/`, { waitUntil: 'networkidle', timeout: 15_000 })
     await page.waitForFunction(() => document.querySelector('section p')?.textContent?.trim() === 'You clicked 0 times.')
     await page.getByRole('button', { name: 'Click me', exact: true }).click()
@@ -45,8 +45,8 @@ class FirstAppCsharpBrowserGate {
     return { counts: [0, 1, 2], greeting, privateClient, publishedJavascriptYon: true, registeredScalarTaskModelQualified: true, stepFiveSdkQualified: false, arbitraryTaskDtoQualified: false, serviceWorkerQualified: false, browserHostReplaced: false }
   }
 
-  /** @returns {void} */
-  static #recordAnswers() {
+  /** @type {() => void} */
+  static recordAnswers = () => {
     const original = globalThis.fetch
     /** @type {Record<string, unknown>} */
     const answers = {}
