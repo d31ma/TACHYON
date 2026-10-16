@@ -577,7 +577,7 @@ fn ci_runs_on_the_develop_integration_branch() -> Result<(), Box<dyn std::error:
     let ruby = fs::read_to_string(root.join(".github/workflows/ruby-runtime.yml"))?;
 
     assert!(rust.contains("branches: [main, develop, codex/rust-rewrite]"));
-    assert!(rust.contains("branches: [develop, codex/rust-rewrite]"));
+    assert!(rust.contains("branches: [develop, codex/rust-rewrite, \"work/**\"]"));
     assert!(ruby.contains("branches: [main, develop, codex/rust-rewrite]"));
     Ok(())
 }

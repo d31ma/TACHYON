@@ -7,7 +7,7 @@ on:
     branches: [main, develop, codex/rust-rewrite]
     types: [opened, reopened, ready_for_review, synchronize]
   push:
-    branches: [develop, codex/rust-rewrite]
+    branches: [develop, codex/rust-rewrite, "work/**"]
 
 permissions:
   contents: read
