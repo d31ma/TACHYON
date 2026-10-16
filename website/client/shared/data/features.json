@@ -2792,7 +2792,7 @@
         },
         {
           "name": "client/services/StreamService.go",
-          "code": "// @Service\ntype StreamService struct {\n\t// @Needs\n\tticksClient *TicksClient\n\tTicks       []Tick\n}\n\n// @OnEvent\nfunc (service *StreamService) AddTick(tick Tick) {\n\tservice.Ticks = append(service.Ticks, tick)\n\tif len(service.Ticks) > 128 {\n\t\tservice.Ticks = service.Ticks[len(service.Ticks)-128:]\n\t}\n}\n"
+          "code": "// @Service\ntype StreamService struct {\n\t// @Needs\n\tticksClient *TicksClient\n\tTicks       []Tick\n}\n\n// @OnEvent\nfunc (service *StreamService) AddTick(tick Tick) {\n\tservice.Ticks = service.recent(append(service.Ticks, tick))\n}\n\nfunc (StreamService) tickLimit() int { return 128 }\n\nfunc (service *StreamService) recent(ticks []Tick) []Tick {\n\tif len(ticks) > service.tickLimit() {\n\t\treturn ticks[len(ticks)-service.tickLimit():]\n\t}\n\treturn ticks\n}\n"
         },
         {
           "name": "client/models/Tick.go",
@@ -2972,7 +2972,7 @@
         },
         {
           "name": "client/services/ChatService.go",
-          "code": "// @Service\ntype ChatService struct {\n\t// @Needs\n\tchatClient *ChatClient\n\tMessages   []ChatMessage\n}\n\n// @OnEvent\nfunc (service *ChatService) AddMessage(message ChatMessage) {\n\tservice.Messages = append(service.Messages, message)\n\tif len(service.Messages) > 50 {\n\t\tservice.Messages = service.Messages[len(service.Messages)-50:]\n\t}\n}\n\nfunc (service *ChatService) SayHello() error {\n\treturn service.chatClient.Send(ChatMessage{Text: \"Hello from a tab\"})\n}\n"
+          "code": "// @Service\ntype ChatService struct {\n\t// @Needs\n\tchatClient *ChatClient\n\tMessages   []ChatMessage\n}\n\n// @OnEvent\nfunc (service *ChatService) AddMessage(message ChatMessage) {\n\tservice.Messages = service.recent(append(service.Messages, message))\n}\n\nfunc (service *ChatService) SayHello() error {\n\treturn service.chatClient.Send(ChatMessage{Text: \"Hello from a tab\"})\n}\n\nfunc (ChatService) messageLimit() int { return 50 }\n\nfunc (service *ChatService) recent(messages []ChatMessage) []ChatMessage {\n\tif len(messages) > service.messageLimit() {\n\t\treturn messages[len(messages)-service.messageLimit():]\n\t}\n\treturn messages\n}\n"
         },
         {
           "name": "client/models/ChatMessage.go",

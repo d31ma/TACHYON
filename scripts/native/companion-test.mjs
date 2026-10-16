@@ -28,7 +28,9 @@ const run = (command, args) => {
 };
 
 class NativeServices {
-  static first = `#[derive(Default)]
+  static first = `#[Service]
+#[Lifetime({"value":"prototype"})]
+#[derive(Default)]
 struct NativeFirstService {
     count: i64,
     application_event_publisher: ApplicationEventPublisher,
@@ -44,7 +46,8 @@ impl NativeFirstService {
     }
 }
 `
-  static second = `#[derive(Default)]
+  static second = `#[Service]
+#[derive(Default)]
 struct NativeSecondService {
     count: i64,
 }

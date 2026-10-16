@@ -7,8 +7,14 @@ type StreamService struct {
 
 // @OnEvent
 func (service *StreamService) AddTick(tick Tick) {
-	service.Ticks = append(service.Ticks, tick)
-	if len(service.Ticks) > 128 {
-		service.Ticks = service.Ticks[len(service.Ticks)-128:]
+	service.Ticks = service.recent(append(service.Ticks, tick))
+}
+
+func (StreamService) tickLimit() int { return 128 }
+
+func (service *StreamService) recent(ticks []Tick) []Tick {
+	if len(ticks) > service.tickLimit() {
+		return ticks[len(ticks)-service.tickLimit():]
 	}
+	return ticks
 }
