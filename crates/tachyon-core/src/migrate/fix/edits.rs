@@ -29,14 +29,8 @@ impl TextEdit {
     }
 
     pub(super) fn are_separate(edits: &[Self]) -> bool {
-        let mut previous_end = 0;
-        for edit in Self::sorted(edits) {
-            if edit.start < previous_end {
-                return false;
-            }
-            previous_end = edit.end;
-        }
-        true
+        let sorted = Self::sorted(edits);
+        sorted.windows(2).all(|pair| pair[1].start >= pair[0].end)
     }
 
     pub(super) fn apply(source: &str, edits: &[Self]) -> String {
@@ -85,7 +79,8 @@ impl Hunk {
 
     fn lines_around(source: &str, edit: &TextEdit) -> (usize, usize) {
         let start = source[..edit.start].rfind('\n').map_or(0, |at| at + 1);
-        let ends_on_line_start = edit.end > edit.start && source[..edit.end].ends_with('\n');
+        let not_empty = edit.end > edit.start;
+        let ends_on_line_start = [not_empty, source[..edit.end].ends_with('\n')] == [true, true];
         if ends_on_line_start {
             return (start, edit.end);
         }

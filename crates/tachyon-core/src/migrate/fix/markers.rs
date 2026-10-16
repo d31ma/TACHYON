@@ -14,27 +14,43 @@ pub(super) struct Marker;
 
 impl Marker {
     const NAMESPACES: [&'static str; 2] = ["yon::", "tac::"];
+    const PREFIXES: [(&'static str, &'static str); 5] = [
+        ("rs", "#["),
+        ("php", "#["),
+        ("rb", "#["),
+        ("go", "// @"),
+        ("cs", "["),
+    ];
+    const UNBRACKETED_PREFIXES: [&'static str; 2] = ["@", "// @"];
 
     pub(super) fn prefix(extension: &str) -> &'static str {
-        match extension {
-            "rs" | "php" | "rb" => "#[",
-            "go" => "// @",
-            "cs" => "[",
-            _ => "@",
-        }
+        let known = Self::PREFIXES
+            .iter()
+            .find(|(written, _)| *written == extension);
+        known.map_or("@", |(_, prefix)| *prefix)
     }
 
     pub(super) fn spelled(extension: &str, name: &str, arguments: &str) -> String {
-        let written = if extension == "py" {
-            RoutingRename::snake_case(name)
-        } else {
-            String::from(name)
-        };
-        let arguments = if arguments.is_empty() {
-            String::new()
-        } else {
-            format!("({arguments})")
-        };
+        let written = Self::written_name(extension, name);
+        let arguments = Self::argument_list(arguments);
+        Self::wrapped(extension, &written, &arguments)
+    }
+
+    fn written_name(extension: &str, name: &str) -> String {
+        if extension == "py" {
+            return RoutingRename::snake_case(name);
+        }
+        String::from(name)
+    }
+
+    fn argument_list(arguments: &str) -> String {
+        if arguments.is_empty() {
+            return String::new();
+        }
+        format!("({arguments})")
+    }
+
+    fn wrapped(extension: &str, written: &str, arguments: &str) -> String {
         match Self::prefix(extension) {
             "@" => format!("@{written}{arguments}"),
             "// @" => format!("// @{written}{arguments}"),
@@ -50,18 +66,22 @@ impl Marker {
         serde_json::Value::String(String::from(text)).to_string()
     }
 
-    pub(super) fn lines(text: &SourceText<'_>, extension: &str, names: &[&str]) -> Vec<MarkerLine> {
-        let mut found = Vec::new();
-        let mut line_start = 0;
+    fn line_starts(text: &SourceText<'_>, from: usize) -> Vec<usize> {
+        let mut starts = Vec::new();
+        let mut line_start = from;
         while line_start < text.len() {
-            if let Some(marker) = Self::at_line(text, extension, line_start)
-                && names.contains(&Self::normalized(&marker.name).as_str())
-            {
-                found.push(marker);
-            }
+            starts.push(line_start);
             line_start = text.line_end(line_start);
         }
-        found
+        starts
+    }
+
+    pub(super) fn lines(text: &SourceText<'_>, extension: &str, names: &[&str]) -> Vec<MarkerLine> {
+        Self::line_starts(text, 0)
+            .into_iter()
+            .filter_map(|line_start| Self::at_line(text, extension, line_start))
+            .filter(|marker| names.contains(&Self::normalized(&marker.name).as_str()))
+            .collect()
     }
 
     pub(super) fn at_line(
@@ -69,40 +89,14 @@ impl Marker {
         extension: &str,
         line_start: usize,
     ) -> Option<MarkerLine> {
-        let line = text.line_text(line_start);
-        let start = line_start + line.len() - line.trim_start().len();
-        let prefix = if extension == "go" && text.source[start..].starts_with("#[") {
-            "#["
-        } else {
-            Self::prefix(extension)
-        };
-        let code_start = start + usize::from(prefix == "// @") * 3;
-        if !text.is_code(code_start) || !text.source[start..].starts_with(prefix) {
-            return None;
-        }
-        let mut name_start = start + prefix.len();
-        for namespace in Self::NAMESPACES {
-            if text.source[name_start..].starts_with(namespace) {
-                name_start += namespace.len();
-            }
-        }
+        let start = line_start + text.indentation(line_start);
+        let prefix = Self::prefix_at(text, extension, start);
+        Self::starts_marker(text, start, prefix).then_some(())?;
+        let name_start = Self::name_start(text, start + prefix.len());
         let name_end = text.word_end(name_start);
-        if name_end == name_start {
-            return None;
-        }
-        let mut end = name_end;
-        let mut arguments = None;
-        if text.bytes.get(end) == Some(&b'(') {
-            let close = text.matching(end)?;
-            arguments = Some((end + 1, close));
-            end = close + 1;
-        }
-        if !matches!(prefix, "@" | "// @") {
-            if text.bytes.get(end) != Some(&b']') {
-                return None;
-            }
-            end += 1;
-        }
+        (name_end > name_start).then_some(())?;
+        let (arguments, after_arguments) = Self::arguments_at(text, name_end)?;
+        let end = Self::marker_end(text, prefix, after_arguments)?;
         Some(MarkerLine {
             line_start,
             start,
@@ -112,24 +106,64 @@ impl Marker {
         })
     }
 
+    fn prefix_at(text: &SourceText<'_>, extension: &str, start: usize) -> &'static str {
+        let rust_style = text.source[start..].starts_with("#[");
+        if [extension == "go", rust_style] == [true, true] {
+            return "#[";
+        }
+        Self::prefix(extension)
+    }
+
+    fn starts_marker(text: &SourceText<'_>, start: usize, prefix: &str) -> bool {
+        let code_start = start + usize::from(prefix == "// @") * 3;
+        let written = text.source[start..].starts_with(prefix);
+        [text.is_code(code_start), written] == [true, true]
+    }
+
+    fn name_start(text: &SourceText<'_>, after_prefix: usize) -> usize {
+        let mut name_start = after_prefix;
+        for namespace in Self::NAMESPACES {
+            let written = text.source[name_start..].starts_with(namespace);
+            name_start += usize::from(written) * namespace.len();
+        }
+        name_start
+    }
+
+    fn arguments_at(
+        text: &SourceText<'_>,
+        name_end: usize,
+    ) -> Option<(Option<(usize, usize)>, usize)> {
+        if text.bytes.get(name_end) != Some(&b'(') {
+            return Some((None, name_end));
+        }
+        let close = text.matching(name_end)?;
+        Some((Some((name_end + 1, close)), close + 1))
+    }
+
+    fn marker_end(text: &SourceText<'_>, prefix: &str, after_arguments: usize) -> Option<usize> {
+        if Self::UNBRACKETED_PREFIXES.contains(&prefix) {
+            return Some(after_arguments);
+        }
+        let closed = text.bytes.get(after_arguments) == Some(&b']');
+        closed.then_some(after_arguments + 1)
+    }
+
     pub(super) fn next_declaration(
         text: &SourceText<'_>,
         extension: &str,
         from: usize,
     ) -> Option<usize> {
-        let mut line_start = text.line_end(from);
-        while line_start < text.len() {
-            let is_marker = Self::at_line(text, extension, line_start).is_some();
-            if !is_marker && !text.is_blank_line(line_start) {
-                let line = text.line_text(line_start);
-                let at = line_start + line.len() - line.trim_start().len();
-                if text.is_code(at) {
-                    return Some(at);
-                }
-            }
-            line_start = text.line_end(line_start);
-        }
-        None
+        Self::line_starts(text, text.line_end(from))
+            .into_iter()
+            .find_map(|line_start| Self::declaration_at(text, extension, line_start))
+    }
+
+    fn declaration_at(text: &SourceText<'_>, extension: &str, line_start: usize) -> Option<usize> {
+        let is_marker = Self::at_line(text, extension, line_start).is_some();
+        let is_blank = text.is_blank_line(line_start);
+        ([is_marker, is_blank] == [false, false]).then_some(())?;
+        let at = line_start + text.indentation(line_start);
+        text.is_code(at).then_some(at)
     }
 
     pub(super) fn indentation<'a>(text: &SourceText<'a>, line_start: usize) -> &'a str {
