@@ -1,16 +1,16 @@
 class TacPythonHost {
-  static async start(program, emit) {
+  static async start(program, emit, done) {
     const root = new URL('./python/314.0.7/', import.meta.url)
     const loader = await import(new URL('pyodide.mjs', root).href)
     const runtime = await loader.loadPyodide({ indexURL: root.href, lockFileURL: new URL('pyodide-lock.json', root).href, stdLibURL: new URL('python_stdlib.zip', root).href })
     runtime.runPython(program)
     const type = runtime.globals.get('_TacPythonRuntime')
-    return TacPythonHost.retain(type, emit)
+    return TacPythonHost.retain(type, emit, done)
   }
 
-  static retain(type, emit) {
+  static retain(type, emit, done) {
     try {
-      type.connect(emit)
+      type.connect(emit, done)
       return TacPythonHost.copyMethods(type)
     } finally {
       type.destroy()
@@ -82,5 +82,8 @@ class TacPythonHost {
   }
 }
 
-const pythonHost = await TacPythonHost.start(__TAC_PYTHON_PROGRAM__, (payload) => { published.push(payload) })
+const taskAnswers = new TacTaskAnswers()
+const pythonHost = await TacPythonHost.start(__TAC_PYTHON_PROGRAM__, (payload) => { published.push(payload) }, (task, text) => { taskAnswers.done(task, text) })
 const transport = (text) => pythonHost.exchange(text)
+/** @param {string} text @returns {Promise<string>} */
+const transportAsync = (text) => taskAnswers.answer(transport(text))

@@ -24,9 +24,16 @@ impl PythonWebServices {
         "\n",
         include_str!("python_graph.py"),
         "\n",
+        include_str!("python_task_ticket.py"),
+        "\n",
+        include_str!("python_tasks.py"),
+        "\n",
         include_str!("python_runtime.py"),
     );
-    const ENGINE: &'static str = include_str!("python_host.js");
+    const ENGINE: &'static str = concat!(
+        include_str!("../native/browser/tac-task-answers.js"),
+        include_str!("python_host.js"),
+    );
 
     pub(crate) fn build(
         root: &Path,
