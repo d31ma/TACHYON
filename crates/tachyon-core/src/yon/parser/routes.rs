@@ -3,6 +3,7 @@ use super::{
     method_owner, method_signature, parameters, reject_python_static, validate_streaming_method,
 };
 use crate::Failure;
+use crate::python_parameters::PythonAnnotated;
 use crate::routing::RoutePath;
 use crate::yon::plan::{ParameterSource, Route, RouteParameter};
 use std::collections::BTreeSet;
@@ -13,6 +14,305 @@ pub(super) struct MappedRoutes {
     pub markers: Vec<Range<usize>>,
 }
 
+impl MappedRoutes {
+    const RECEIVERS: [(&'static str, &'static str); 2] = [("py", "self"), ("rs", "&self")];
+
+    fn base_path(input: &Input<'_>, declarations: &[Declaration]) -> Result<String, Failure> {
+        declarations
+            .iter()
+            .flat_map(|declaration| &declaration.annotations)
+            .find(|annotation| annotation.name == RouteMarker::CLASS)
+            .filter(|annotation| !annotation.arguments.is_empty())
+            .map_or_else(
+                || Ok(String::new()),
+                |annotation| RouteMarker::path_literal(input, annotation, "@RequestRoute"),
+            )
+    }
+
+    fn reject_verb_named_methods(
+        input: &Input<'_>,
+        types: &[ManagedType],
+        controller: &str,
+    ) -> Result<(), Failure> {
+        let Some(managed) = types
+            .iter()
+            .find(|managed| managed.provider.name == controller)
+        else {
+            return Ok(());
+        };
+        let first_method = super::controller_methods(input, managed)?.first().copied();
+        first_method.map_or(Ok(()), |start| Self::refuse_verb_named_method(input, start))
+    }
+
+    fn refuse_verb_named_method(input: &Input<'_>, start: usize) -> Result<(), Failure> {
+        let signature = method_signature(input, start)?;
+        let verb = signature.name.to_ascii_lowercase();
+        Err(input.failure(
+            start,
+            format!(
+                "A method named {} no longer answers requests by its name. Mark it with @{}Route and give it a name that starts with '{verb}', for example {}Items(): @{}Route means the method answers {} requests",
+                signature.name,
+                RouteMarker::capitalized(&verb),
+                verb,
+                RouteMarker::capitalized(&verb),
+                signature.name
+            ),
+        ))
+    }
+
+    fn add_route(
+        &mut self,
+        input: &Input<'_>,
+        declaration: &Declaration,
+        types: &[ManagedType],
+        controller: &str,
+        base: &str,
+        seen: &mut BTreeSet<(Option<String>, String)>,
+    ) -> Result<(), Failure> {
+        let route = self.mapped_route(input, declaration, types, controller, base)?;
+        let first_route = seen.insert((route.pattern.clone(), route.verb.clone()));
+        RouteMarker::require(first_route, || {
+            input.failure(
+                declaration.start,
+                format!(
+                    "Two methods answer {} {}. Each route path and HTTP method pair needs one method",
+                    route.verb,
+                    RoutePath::template(route.pattern.as_deref().unwrap_or("/"))
+                ),
+            )
+        })?;
+        self.routes.push(route);
+        Ok(())
+    }
+
+    fn check_route_count(&self, input: &Input<'_>) -> Result<(), Failure> {
+        RouteMarker::require(!self.routes.is_empty(), || {
+            input.failure(
+                0,
+                "A @RequestRoute controller needs at least one route method. Mark a method with @GetRoute, @PostRoute, @PutRoute, @PatchRoute or @DeleteRoute: @GetRoute means the method answers GET requests",
+            )
+        })?;
+        RouteMarker::require(self.routes.len() <= RouteMarker::MAX_ROUTES, || {
+            input.failure(0, "A controller may declare at most 64 route methods")
+        })
+    }
+
+    fn mapped_route(
+        &mut self,
+        input: &Input<'_>,
+        declaration: &Declaration,
+        types: &[ManagedType],
+        controller: &str,
+        base: &str,
+    ) -> Result<Route, Failure> {
+        let markers = MethodMarkers::of_declaration(input, declaration)?;
+        let start = declaration.start;
+        let owner = method_owner(input, start, types)?;
+        RouteMarker::require(owner == controller, || {
+            input.failure(
+                start,
+                format!(
+                    "@{} belongs on a method of the controller class, not on {owner}",
+                    markers.written
+                ),
+            )
+        })?;
+        let signature = method_signature(input, start)?;
+        markers.check_verb_prefix(input, start, &signature.name)?;
+        let pattern = RoutePath::pattern(base, &markers.path)
+            .map_err(|message| input.failure(markers.at, message))?;
+        let mut route = self.method_route(input, start, &markers, &pattern)?;
+        route.access = super::access_marker::AccessMarker::read(input, declaration)?;
+        Ok(route)
+    }
+
+    fn method_route(
+        &mut self,
+        input: &Input<'_>,
+        start: usize,
+        markers: &MethodMarkers,
+        pattern: &str,
+    ) -> Result<Route, Failure> {
+        let signature = method_signature(input, start)?;
+        reject_python_static(input, start)?;
+        let list = RouteMarker::parameter_list(input, start)?;
+        let mut parameters = self.route_parameters(input, start, &list, pattern, markers)?;
+        let written_returns =
+            ReturnType::read(input, start, list.start - 1, list.end + 1, &signature.name);
+        let documentation = markers.documentation.clone();
+        let returns = ReturnType::documented(
+            input.extension,
+            &documentation,
+            &mut parameters,
+            written_returns,
+        );
+        let body = method_body(input, start, signature.end)?;
+        markers.refuse_unmarked_stream(
+            input,
+            start,
+            &signature.name,
+            signature.generator,
+            &body,
+        )?;
+        let streaming = markers.stream;
+        validate_streaming_method(input, start, signature.end, streaming)?;
+        let takes_request = parameters
+            .iter()
+            .any(|parameter| parameter.source == ParameterSource::Request);
+        Ok(Route {
+            verb: markers.verb.to_owned(),
+            method: signature.name,
+            streaming,
+            socket: None,
+            takes_request,
+            pattern: Some(pattern.to_owned()),
+            status: markers.status,
+            parameters,
+            returns,
+            documentation,
+            return_shape: crate::route_types::Shape::Any,
+            error_responses: Vec::new(),
+            dispatcher: false,
+            access: crate::yon::route_access::RouteAccess::Missing,
+        })
+    }
+
+    fn route_parameters(
+        &mut self,
+        input: &Input<'_>,
+        start: usize,
+        list: &Range<usize>,
+        pattern: &str,
+        markers: &MethodMarkers,
+    ) -> Result<Vec<RouteParameter>, Failure> {
+        let text = &input.code[list.clone()];
+        let pieces = parameters(input, text, start)?;
+        let mut result = Vec::new();
+        let mut search = list.start;
+        for (index, piece) in pieces.iter().enumerate() {
+            let at = input.code[search..list.end]
+                .find(piece.as_str())
+                .map_or(search, |offset| search + offset);
+            search = at + piece.len();
+            result.extend(self.declared_parameter(input, start, index, at, piece)?);
+        }
+        markers.check_parameters(input, start, &result, pattern)?;
+        Ok(result)
+    }
+
+    fn declared_parameter(
+        &mut self,
+        input: &Input<'_>,
+        start: usize,
+        index: usize,
+        at: usize,
+        piece: &str,
+    ) -> Result<Option<RouteParameter>, Failure> {
+        let receiver = (index == 0)
+            .then(|| Self::receiver(input.extension))
+            .flatten();
+        match receiver {
+            Some(receiver) if piece == receiver => Ok(None),
+            Some(_) => Err(input.failure(
+                start,
+                "Route methods are instance methods: annotated routes require an instance receiver, self in Python or &self in Rust, as the first parameter",
+            )),
+            None => self.route_parameter(input, at, piece).map(Some),
+        }
+    }
+
+    fn receiver(extension: &str) -> Option<&'static str> {
+        Self::RECEIVERS
+            .iter()
+            .find(|(language, _)| *language == extension)
+            .map(|(_, receiver)| *receiver)
+    }
+
+    fn route_parameter(
+        &mut self,
+        input: &Input<'_>,
+        at: usize,
+        piece: &str,
+    ) -> Result<RouteParameter, Failure> {
+        let (parameter, erased) = Self::python_annotated(input, at, piece).map_or_else(
+            || Self::marked_parameter(input, at, piece),
+            |(annotated, found)| Self::python_parameter(input, at, annotated, found),
+        )?;
+        self.markers.extend(erased);
+        Ok(parameter)
+    }
+
+    fn python_annotated(
+        input: &Input<'_>,
+        at: usize,
+        piece: &str,
+    ) -> Option<(PythonAnnotated, (ParameterSource, &'static str))> {
+        let original = &input.source[at..at + piece.len()];
+        let annotated = (input.extension == "py")
+            .then(|| {
+                PythonAnnotated::read(piece, original, at, |name| {
+                    RouteMarker::source(name).is_some()
+                })
+            })
+            .flatten()?;
+        let found = RouteMarker::source(&annotated.marker)?;
+        Some((annotated, found))
+    }
+
+    fn python_parameter(
+        input: &Input<'_>,
+        at: usize,
+        annotated: PythonAnnotated,
+        (source, written): (ParameterSource, &'static str),
+    ) -> Result<(RouteParameter, Vec<Range<usize>>), Failure> {
+        let name = annotated.argument.as_ref().map_or_else(
+            || Ok(annotated.name.clone()),
+            |argument| ParameterMarker::marker_name(input, at, argument, written),
+        )?;
+        let parameter = RouteParameter {
+            source,
+            name,
+            code_name: annotated.name,
+            type_text: annotated.type_text,
+            shape: crate::route_types::Shape::Any,
+        };
+        Ok((parameter, Vec::from(annotated.erased)))
+    }
+
+    fn marked_parameter(
+        input: &Input<'_>,
+        at: usize,
+        piece: &str,
+    ) -> Result<(RouteParameter, Vec<Range<usize>>), Failure> {
+        let marker = ParameterMarker::read_marker(input, at, piece)?;
+        let declaration = marker
+            .as_ref()
+            .map_or(piece, |marker| &piece[marker.length..])
+            .trim();
+        let (code_name, type_text) = RouteMarker::name_and_type(input.extension, declaration)
+            .ok_or_else(|| input.failure(at, format!("Cannot read the parameter '{piece}'")))?;
+        let source = marker
+            .as_ref()
+            .map_or(ParameterSource::Request, |marker| marker.source);
+        let erased = marker
+            .as_ref()
+            .map(|marker| at..at + marker.length)
+            .into_iter()
+            .collect();
+        let name = marker
+            .and_then(|marker| marker.name)
+            .unwrap_or_else(|| code_name.clone());
+        let parameter = RouteParameter {
+            source,
+            name,
+            code_name,
+            type_text,
+            shape: crate::route_types::Shape::Any,
+        };
+        Ok((parameter, erased))
+    }
+}
+
 pub(super) struct RouteMarker;
 
 impl RouteMarker {
@@ -20,6 +320,7 @@ impl RouteMarker {
     const STATUS: &'static str = "responsestatus";
     const STREAM: &'static str = "stream";
     const MAX_ROUTES: usize = 64;
+    const QUOTES: [char; 2] = ['"', '\''];
     const VERBS: [(&'static str, &'static str, &'static str); 6] = [
         ("getroute", "GET", "GetRoute"),
         ("postroute", "POST", "PostRoute"),
@@ -39,20 +340,28 @@ impl RouteMarker {
     ];
 
     pub(super) fn is_method_marker(name: &str) -> bool {
-        name == Self::STATUS || Self::verb(name).is_some()
+        [name == Self::STATUS, Self::verb(name).is_some()].contains(&true)
     }
 
     pub(super) fn is_name(name: &str) -> bool {
-        name == Self::CLASS || Self::is_method_marker(name)
+        [name == Self::CLASS, Self::is_method_marker(name)].contains(&true)
     }
 
     fn verb(name: &str) -> Option<(&'static str, &'static str)> {
-        for (marker, verb, written) in Self::VERBS {
-            if marker == name {
-                return Some((verb, written));
-            }
-        }
-        None
+        Self::VERBS
+            .iter()
+            .find(|(marker, _, _)| *marker == name)
+            .map(|(_, verb, written)| (*verb, *written))
+    }
+
+    fn require(condition: bool, refusal: impl FnOnce() -> Failure) -> Result<(), Failure> {
+        condition.then_some(()).ok_or_else(refusal)
+    }
+
+    fn capitalized(word: &str) -> String {
+        let mut characters = word.chars();
+        let first = characters.next().unwrap_or_default().to_ascii_uppercase();
+        format!("{first}{}", characters.as_str())
     }
 
     fn refuse_client_marker(
@@ -84,12 +393,159 @@ impl RouteMarker {
             .unwrap_or(name)
             .replace('_', "")
             .to_ascii_lowercase();
-        for (marker, source, written) in Self::SOURCES {
-            if marker == normalized {
-                return Some((source, written));
-            }
+        Self::SOURCES
+            .iter()
+            .find(|(marker, _, _)| *marker == normalized)
+            .map(|(_, source, written)| (*source, *written))
+    }
+
+    pub(super) fn path_literal(
+        input: &Input<'_>,
+        annotation: &Annotation,
+        written: &str,
+    ) -> Result<String, Failure> {
+        Self::quoted_inner(annotation.arguments.trim())
+            .filter(|inner| !inner.contains(['"', '\'', '\\']))
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                input.failure(
+                    annotation.span.start,
+                    format!(
+                        "{written} takes one path in quotes, for example {written}(\"/orders\"). The path says which URL the code answers"
+                    ),
+                )
+            })
+    }
+
+    fn quoted_inner(text: &str) -> Option<&str> {
+        let wrapped = Self::QUOTES
+            .iter()
+            .any(|quote| Self::is_wrapped_in(text, *quote));
+        let quoted = [text.len() >= 2, wrapped] == [true, true];
+        quoted.then(|| &text[1..text.len() - 1])
+    }
+
+    fn is_wrapped_in(text: &str, quote: char) -> bool {
+        text.starts_with(quote) && text.ends_with(quote)
+    }
+
+    pub(super) fn documentation_before(input: &Input<'_>, declaration: &Declaration) -> String {
+        match input.extension {
+            "rb" => crate::ruby_source::Yard::comments_before(input.source, declaration.start),
+            "js" | "php" => Self::doc_comment_before(input, declaration),
+            _ => String::new(),
         }
-        None
+    }
+
+    fn doc_comment_before(input: &Input<'_>, declaration: &Declaration) -> String {
+        let first = declaration
+            .annotations
+            .iter()
+            .map(|annotation| annotation.span.start)
+            .min()
+            .unwrap_or(declaration.start);
+        let before = input.source[..first].trim_end();
+        before
+            .strip_suffix("*/")
+            .and_then(|body| body.rfind("/**").map(|open| body[open + 3..].to_owned()))
+            .unwrap_or_default()
+    }
+
+    pub(super) fn parameter_list(input: &Input<'_>, start: usize) -> Result<Range<usize>, Failure> {
+        match input.extension {
+            "rb" => super::ruby::RubyMethod::parameter_list(input, start),
+            _ => Self::bracketed_parameter_list(input, start),
+        }
+    }
+
+    fn bracketed_parameter_list(input: &Input<'_>, start: usize) -> Result<Range<usize>, Failure> {
+        let search_from = Self::parameters_search_start(input, start);
+        let opening = input.code[search_from..]
+            .find('(')
+            .map(|at| search_from + at)
+            .ok_or_else(|| input.failure(start, "A route method needs a parameter list"))?;
+        let closing = matching(&input.code, opening, b'(', b')')
+            .ok_or_else(|| input.failure(start, "Unbalanced route method parameters"))?;
+        Ok(opening + 1..closing)
+    }
+
+    fn parameters_search_start(input: &Input<'_>, start: usize) -> usize {
+        let suffix = &input.code[start..];
+        match input.extension {
+            "rs" => suffix
+                .find("fn ")
+                .map_or(start, |offset| start + offset + 3),
+            "go" => Self::go_name_start(input, start),
+            _ => start,
+        }
+    }
+
+    fn go_name_start(input: &Input<'_>, start: usize) -> usize {
+        input.code[start..]
+            .find('(')
+            .map(|at| start + at)
+            .and_then(|opening| matching(&input.code, opening, b'(', b')'))
+            .map_or(start, |closing| closing + 1)
+    }
+
+    pub(super) fn name_and_type(extension: &str, declaration: &str) -> Option<(String, String)> {
+        let declaration = declaration.trim();
+        match extension {
+            "js" | "rb" => Self::untyped(declaration),
+            "ts" | "py" | "kt" | "rs" => Self::colon_typed(declaration),
+            "go" => Self::go_typed(declaration),
+            "php" => Self::php_typed(declaration),
+            _ => Self::type_first(declaration),
+        }
+    }
+
+    fn simple_name(text: &str) -> Option<String> {
+        let valid = [super::identifier(text), text == "request"].contains(&true);
+        valid.then(|| text.to_owned())
+    }
+
+    fn untyped(declaration: &str) -> Option<(String, String)> {
+        Self::simple_name(declaration).map(|name| (name, String::new()))
+    }
+
+    fn colon_typed(declaration: &str) -> Option<(String, String)> {
+        let declaration = declaration.strip_prefix("mut ").unwrap_or(declaration);
+        declaration.split_once(':').map_or_else(
+            || Self::untyped(declaration),
+            |(name, kind)| Self::colon_typed_pair(name, kind),
+        )
+    }
+
+    fn colon_typed_pair(name: &str, kind: &str) -> Option<(String, String)> {
+        let name = name.trim();
+        let kind = Self::optional_kind(kind.trim(), name.ends_with('?'));
+        Self::simple_name(name.trim_end_matches('?')).map(|name| (name, kind))
+    }
+
+    fn optional_kind(kind: &str, optional: bool) -> String {
+        if optional {
+            format!("{kind} | undefined")
+        } else {
+            kind.to_owned()
+        }
+    }
+
+    fn go_typed(declaration: &str) -> Option<(String, String)> {
+        let (name, kind) = declaration.split_once(char::is_whitespace)?;
+        Self::simple_name(name).map(|name| (name, kind.trim().to_owned()))
+    }
+
+    fn php_typed(declaration: &str) -> Option<(String, String)> {
+        let at = declaration.find('$')?;
+        let name = declaration[at + 1..].trim();
+        Self::simple_name(name).map(|name| (name, declaration[..at].trim().to_owned()))
+    }
+
+    fn type_first(declaration: &str) -> Option<(String, String)> {
+        let declaration = declaration.strip_prefix("final ").unwrap_or(declaration);
+        let at = declaration.rfind(char::is_whitespace)?;
+        let name = declaration[at..].trim();
+        Self::simple_name(name).map(|name| (name, declaration[..at].trim().to_owned()))
     }
 }
 
@@ -108,221 +564,22 @@ pub(super) fn mapped(
     types: &[ManagedType],
     controller: &str,
 ) -> Result<MappedRoutes, Failure> {
-    let base = base_path(input, declarations)?;
-    reject_verb_named_methods(input, types, controller)?;
+    let base = MappedRoutes::base_path(input, declarations)?;
+    MappedRoutes::reject_verb_named_methods(input, types, controller)?;
     let mut found = MappedRoutes {
         routes: Vec::new(),
         markers: Vec::new(),
     };
     let mut seen = BTreeSet::new();
-    for declaration in declarations {
-        if declared_type(input, declaration).is_some() {
-            continue;
-        }
-        if super::errors::is_method(declaration) {
-            continue;
-        }
-        let route = mapped_route(input, declaration, types, controller, &base, &mut found)?;
-        let key = (route.pattern.clone(), route.verb.clone());
-        if !seen.insert(key) {
-            return Err(input.failure(
-                declaration.start,
-                format!(
-                    "Two methods answer {} {}. Each route path and HTTP method pair needs one method",
-                    route.verb,
-                    RoutePath::template(route.pattern.as_deref().unwrap_or("/"))
-                ),
-            ));
-        }
-        found.routes.push(route);
-    }
-    if found.routes.is_empty() {
-        return Err(input.failure(
-            0,
-            "A @RequestRoute controller needs at least one route method. Mark a method with @GetRoute, @PostRoute, @PutRoute, @PatchRoute or @DeleteRoute: @GetRoute means the method answers GET requests",
-        ));
-    }
-    if found.routes.len() > RouteMarker::MAX_ROUTES {
-        return Err(input.failure(0, "A controller may declare at most 64 route methods"));
-    }
-    Ok(found)
-}
-
-fn base_path(input: &Input<'_>, declarations: &[Declaration]) -> Result<String, Failure> {
-    for declaration in declarations {
-        for annotation in &declaration.annotations {
-            if annotation.name != RouteMarker::CLASS {
-                continue;
-            }
-            if annotation.arguments.is_empty() {
-                return Ok(String::new());
-            }
-            return path_literal(input, annotation, "@RequestRoute");
-        }
-    }
-    Ok(String::new())
-}
-
-pub(super) fn path_literal(
-    input: &Input<'_>,
-    annotation: &Annotation,
-    written: &str,
-) -> Result<String, Failure> {
-    let text = annotation.arguments.trim();
-    let quoted = text.len() >= 2
-        && ((text.starts_with('"') && text.ends_with('"'))
-            || (text.starts_with('\'') && text.ends_with('\'')));
-    let inner = text.get(1..text.len().saturating_sub(1)).unwrap_or("");
-    if !quoted || inner.contains(['"', '\'', '\\']) {
-        return Err(input.failure(
-            annotation.span.start,
-            format!(
-                "{written} takes one path in quotes, for example {written}(\"/orders\"). The path says which URL the code answers"
-            ),
-        ));
-    }
-    Ok(inner.to_owned())
-}
-
-fn reject_verb_named_methods(
-    input: &Input<'_>,
-    types: &[ManagedType],
-    controller: &str,
-) -> Result<(), Failure> {
-    let Some(managed) = types
+    declarations
         .iter()
-        .find(|managed| managed.provider.name == controller)
-    else {
-        return Ok(());
-    };
-    let Some(start) = super::controller_methods(input, managed)?.first().copied() else {
-        return Ok(());
-    };
-    let signature = method_signature(input, start)?;
-    let verb = signature.name.to_ascii_lowercase();
-    Err(input.failure(
-        start,
-        format!(
-            "A method named {} no longer answers requests by its name. Mark it with @{}Route and give it a name that starts with '{verb}', for example {}Items(): @{}Route means the method answers {} requests",
-            signature.name,
-            capitalized(&verb),
-            verb,
-            capitalized(&verb),
-            signature.name
-        ),
-    ))
-}
-
-fn capitalized(word: &str) -> String {
-    let mut characters = word.chars();
-    let first = characters.next().unwrap_or_default().to_ascii_uppercase();
-    format!("{first}{}", characters.as_str())
-}
-
-struct MethodMarkers {
-    verb: &'static str,
-    written: &'static str,
-    path: String,
-    status: Option<u16>,
-    stream: bool,
-    at: usize,
-    documentation: String,
-}
-
-fn method_markers(input: &Input<'_>, declaration: &Declaration) -> Result<MethodMarkers, Failure> {
-    let mut mapping: Option<(&'static str, &'static str, String)> = None;
-    let mut status = None;
-    for annotation in &declaration.annotations {
-        if annotation.name == RouteMarker::STREAM {
-            return Err(input.failure(annotation.span.start, RouteMarker::STREAM_ADVICE));
-        }
-        if annotation.name == RouteMarker::STATUS {
-            status = Some(status_code(input, annotation)?);
-            continue;
-        }
-        if super::access_marker::AccessMarker::is_name(&annotation.name) {
-            continue;
-        }
-        let Some((verb, written)) = RouteMarker::verb(&annotation.name) else {
-            return Err(input.failure(
-                annotation.span.start,
-                "This annotation belongs on a type, not on a method",
-            ));
-        };
-        if mapping.is_some() {
-            return Err(input.failure(
-                annotation.span.start,
-                "A method answers one HTTP method. Keep one of @GetRoute, @PostRoute, @PutRoute, @PatchRoute, @DeleteRoute or @StreamRoute",
-            ));
-        }
-        let path = if annotation.arguments.is_empty() {
-            String::new()
-        } else {
-            path_literal(input, annotation, &format!("@{written}"))?
-        };
-        mapping = Some((verb, written, path));
-    }
-    if mapping.is_none() && super::access_marker::AccessMarker::only_access(declaration) {
-        return Err(input.failure(
-            declaration.start,
-            super::access_marker::AccessMarker::METHOD_ADVICE,
-        ));
-    }
-    let Some((verb, written, path)) = mapping else {
-        return Err(input.failure(
-            declaration.start,
-            "@ResponseStatus needs a route annotation on the same method, such as @GetRoute or @PostRoute",
-        ));
-    };
-    Ok(MethodMarkers {
-        verb,
-        written,
-        path,
-        status,
-        stream: written == "StreamRoute",
-        at: declaration.start,
-        documentation: documentation_before(input, declaration),
-    })
-}
-
-fn status_code(input: &Input<'_>, annotation: &Annotation) -> Result<u16, Failure> {
-    let code = annotation.arguments.trim().parse::<u16>().ok();
-    match code {
-        Some(code) if (200..=299).contains(&code) => Ok(code),
-        _ => Err(input.failure(
-            annotation.span.start,
-            "@ResponseStatus takes one success status number from 200 to 299, for example @ResponseStatus(201). It sets the status of a normal answer",
-        )),
-    }
-}
-
-fn mapped_route(
-    input: &Input<'_>,
-    declaration: &Declaration,
-    types: &[ManagedType],
-    controller: &str,
-    base: &str,
-    found: &mut MappedRoutes,
-) -> Result<Route, Failure> {
-    let markers = method_markers(input, declaration)?;
-    let start = declaration.start;
-    let owner = method_owner(input, start, types)?;
-    if owner != controller {
-        return Err(input.failure(
-            start,
-            format!(
-                "@{} belongs on a method of the controller class, not on {owner}",
-                markers.written
-            ),
-        ));
-    }
-    let signature = method_signature(input, start)?;
-    check_verb_prefix(input, start, &signature.name, &markers)?;
-    let pattern = RoutePath::pattern(base, &markers.path)
-        .map_err(|message| input.failure(markers.at, message))?;
-    let mut route = method_route(input, start, &markers, &pattern, found)?;
-    route.access = super::access_marker::AccessMarker::read(input, declaration)?;
-    Ok(route)
+        .filter(|declaration| declared_type(input, declaration).is_none())
+        .filter(|declaration| !super::errors::is_method(declaration))
+        .try_for_each(|declaration| {
+            found.add_route(input, declaration, types, controller, &base, &mut seen)
+        })?;
+    found.check_route_count(input)?;
+    Ok(found)
 }
 
 pub(super) fn identity_route(
@@ -342,63 +599,270 @@ pub(super) fn identity_route(
         status: None,
         stream: false,
         at: start,
-        documentation: documentation_before(input, &declaration),
+        documentation: RouteMarker::documentation_before(input, &declaration),
     };
-    method_route(input, start, &markers, pattern, found)
+    found.method_route(input, start, &markers, pattern)
 }
 
-fn method_route(
-    input: &Input<'_>,
-    start: usize,
-    markers: &MethodMarkers,
-    pattern: &str,
-    found: &mut MappedRoutes,
-) -> Result<Route, Failure> {
-    let signature = method_signature(input, start)?;
-    reject_python_static(input, start)?;
-    let list = parameter_list(input, start)?;
-    let mut parameters = route_parameters(input, start, &list, pattern, markers, found)?;
-    let mut returns = ReturnType::read(input, start, list.start - 1, list.end + 1, &signature.name);
-    let documentation = markers.documentation.clone();
-    if input.extension == "rb" {
-        returns = super::ruby::RubyMethod::read_types(&documentation, &mut parameters);
+struct MethodMarkers {
+    verb: &'static str,
+    written: &'static str,
+    path: String,
+    status: Option<u16>,
+    stream: bool,
+    at: usize,
+    documentation: String,
+}
+
+impl MethodMarkers {
+    fn of_declaration(input: &Input<'_>, declaration: &Declaration) -> Result<Self, Failure> {
+        let mut mapping = None;
+        let mut status = None;
+        declaration.annotations.iter().try_for_each(|annotation| {
+            Self::read_annotation(input, annotation, &mut mapping, &mut status)
+        })?;
+        let (verb, written, path) =
+            mapping.ok_or_else(|| Self::missing_mapping(input, declaration))?;
+        Ok(Self {
+            verb,
+            written,
+            path,
+            status,
+            stream: written == "StreamRoute",
+            at: declaration.start,
+            documentation: RouteMarker::documentation_before(input, declaration),
+        })
     }
-    if input.extension == "php" {
-        returns = crate::route_types::PhpDoc::read_types(&documentation, &mut parameters, returns);
+
+    fn read_annotation(
+        input: &Input<'_>,
+        annotation: &Annotation,
+        mapping: &mut Option<(&'static str, &'static str, String)>,
+        status: &mut Option<u16>,
+    ) -> Result<(), Failure> {
+        if annotation.name == RouteMarker::STREAM {
+            Err(input.failure(annotation.span.start, RouteMarker::STREAM_ADVICE))
+        } else if annotation.name == RouteMarker::STATUS {
+            *status = Some(Self::status_code(input, annotation)?);
+            Ok(())
+        } else if super::access_marker::AccessMarker::is_name(&annotation.name) {
+            Ok(())
+        } else {
+            Self::read_mapping(input, annotation, mapping)
+        }
     }
-    let body = method_body(input, start, signature.end)?;
-    let generator = super::generator_body(input, &body, start) || signature.generator;
-    if generator && !markers.stream {
-        return Err(input.failure(
-            start,
-            format!(
-                "{} produces many values with yield, so it answers with a stream. {}",
-                signature.name,
-                RouteMarker::STREAM_ADVICE
-            ),
-        ));
+
+    fn read_mapping(
+        input: &Input<'_>,
+        annotation: &Annotation,
+        mapping: &mut Option<(&'static str, &'static str, String)>,
+    ) -> Result<(), Failure> {
+        let (verb, written) = RouteMarker::verb(&annotation.name).ok_or_else(|| {
+            input.failure(
+                annotation.span.start,
+                "This annotation belongs on a type, not on a method",
+            )
+        })?;
+        RouteMarker::require(mapping.is_none(), || {
+            input.failure(
+                annotation.span.start,
+                "A method answers one HTTP method. Keep one of @GetRoute, @PostRoute, @PutRoute, @PatchRoute, @DeleteRoute or @StreamRoute",
+            )
+        })?;
+        let path = Self::mapping_path(input, annotation, written)?;
+        *mapping = Some((verb, written, path));
+        Ok(())
     }
-    let streaming = markers.stream;
-    validate_streaming_method(input, start, signature.end, streaming)?;
-    let takes_request = parameters
-        .iter()
-        .any(|parameter| parameter.source == ParameterSource::Request);
-    Ok(Route {
-        verb: markers.verb.to_owned(),
-        method: signature.name,
-        streaming,
-        socket: None,
-        takes_request,
-        pattern: Some(pattern.to_owned()),
-        status: markers.status,
-        parameters,
-        returns,
-        documentation,
-        return_shape: crate::route_types::Shape::Any,
-        error_responses: Vec::new(),
-        dispatcher: false,
-        access: crate::yon::route_access::RouteAccess::Missing,
-    })
+
+    fn mapping_path(
+        input: &Input<'_>,
+        annotation: &Annotation,
+        written: &str,
+    ) -> Result<String, Failure> {
+        if annotation.arguments.is_empty() {
+            Ok(String::new())
+        } else {
+            RouteMarker::path_literal(input, annotation, &format!("@{written}"))
+        }
+    }
+
+    fn missing_mapping(input: &Input<'_>, declaration: &Declaration) -> Failure {
+        if super::access_marker::AccessMarker::only_access(declaration) {
+            input.failure(
+                declaration.start,
+                super::access_marker::AccessMarker::METHOD_ADVICE,
+            )
+        } else {
+            input.failure(
+                declaration.start,
+                "@ResponseStatus needs a route annotation on the same method, such as @GetRoute or @PostRoute",
+            )
+        }
+    }
+
+    fn status_code(input: &Input<'_>, annotation: &Annotation) -> Result<u16, Failure> {
+        annotation
+            .arguments
+            .trim()
+            .parse::<u16>()
+            .ok()
+            .filter(|code| (200..=299).contains(code))
+            .ok_or_else(|| {
+                input.failure(
+                    annotation.span.start,
+                    "@ResponseStatus takes one success status number from 200 to 299, for example @ResponseStatus(201). It sets the status of a normal answer",
+                )
+            })
+    }
+
+    fn check_verb_prefix(
+        &self,
+        input: &Input<'_>,
+        start: usize,
+        name: &str,
+    ) -> Result<(), Failure> {
+        let verb = self.written.trim_end_matches("Route").to_ascii_lowercase();
+        RouteMarker::require(Self::starts_with_verb(name, &verb), || {
+            let example = Self::verb_example(input.extension, &verb);
+            input.failure(
+                start,
+                format!(
+                    "@{} means this method answers {} requests, so its name must start with '{verb}', for example {example}. Rename {name} or change the annotation",
+                    self.written, self.verb
+                ),
+            )
+        })
+    }
+
+    fn verb_example(extension: &str, verb: &str) -> String {
+        match extension {
+            "py" | "rs" | "rb" => format!("{verb}_items"),
+            "cs" | "go" => format!("{}Items", RouteMarker::capitalized(verb)),
+            _ => format!("{verb}Items"),
+        }
+    }
+
+    fn starts_with_verb(name: &str, verb: &str) -> bool {
+        let prefix_matches = name
+            .get(..verb.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(verb));
+        prefix_matches
+            && name[verb.len()..]
+                .chars()
+                .next()
+                .is_none_or(Self::starts_next_word)
+    }
+
+    fn starts_next_word(next: char) -> bool {
+        [
+            next == '_',
+            next.is_ascii_uppercase(),
+            next.is_ascii_digit(),
+        ]
+        .contains(&true)
+    }
+
+    fn refuse_unmarked_stream(
+        &self,
+        input: &Input<'_>,
+        start: usize,
+        method: &str,
+        generator_signature: bool,
+        body: &Range<usize>,
+    ) -> Result<(), Failure> {
+        let generator = super::generator_body(input, body, start) || generator_signature;
+        let unmarked = [generator, !self.stream] == [true, true];
+        RouteMarker::require(!unmarked, || {
+            input.failure(
+                start,
+                format!(
+                    "{method} produces many values with yield, so it answers with a stream. {}",
+                    RouteMarker::STREAM_ADVICE
+                ),
+            )
+        })
+    }
+
+    fn check_parameters(
+        &self,
+        input: &Input<'_>,
+        start: usize,
+        parameters: &[RouteParameter],
+        pattern: &str,
+    ) -> Result<(), Failure> {
+        parameters
+            .iter()
+            .try_for_each(|parameter| Self::check_parameter(input, start, parameter, pattern))?;
+        let requests = Self::count_from(parameters, ParameterSource::Request);
+        let bodies = Self::count_from(parameters, ParameterSource::Body);
+        RouteMarker::require(requests <= 1, || {
+            input.failure(
+                start,
+                "Mark each route parameter with @FromPath, @FromQuery, @FromBody, @FromHeader or @FromCookie. Only one parameter may be left unmarked, and it receives the whole request",
+            )
+        })?;
+        RouteMarker::require(bodies <= 1, || {
+            input.failure(
+                start,
+                "A request has one body, so only one parameter may use @FromBody",
+            )
+        })?;
+        let get_body = [bodies == 1, self.verb == "GET"] == [true, true];
+        RouteMarker::require(!get_body, || {
+            input.failure(
+                start,
+                "@GetRoute means this method answers GET requests, and a GET request has no body. Remove @FromBody or use @PostRoute",
+            )
+        })
+    }
+
+    fn count_from(parameters: &[RouteParameter], source: ParameterSource) -> usize {
+        parameters
+            .iter()
+            .filter(|parameter| parameter.source == source)
+            .count()
+    }
+
+    fn check_parameter(
+        input: &Input<'_>,
+        start: usize,
+        parameter: &RouteParameter,
+        pattern: &str,
+    ) -> Result<(), Failure> {
+        let php_request = [
+            parameter.source == ParameterSource::Request,
+            input.extension == "php",
+        ] == [true, true];
+        RouteMarker::require(!php_request, || {
+            input.failure(start, RouteMarker::PHP_REQUEST_ADVICE)
+        })?;
+        if parameter.source == ParameterSource::Path {
+            Self::check_path_variable(input, start, parameter, pattern)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn check_path_variable(
+        input: &Input<'_>,
+        start: usize,
+        parameter: &RouteParameter,
+        pattern: &str,
+    ) -> Result<(), Failure> {
+        let wanted = format!("_{}", parameter.name);
+        let in_path = pattern.split('/').any(|segment| segment == wanted);
+        RouteMarker::require(in_path, || {
+            input.failure(
+                start,
+                format!(
+                    "@FromPath means the value comes from the route path, but '{}' has no {{{}}} part. Add {{{}}} to the path or use another marker",
+                    RoutePath::template(pattern),
+                    parameter.name,
+                    parameter.name
+                ),
+            )
+        })
+    }
 }
 
 pub(super) struct ReturnType;
@@ -433,7 +897,25 @@ impl ReturnType {
         match input.extension {
             "java" | "cs" | "dart" => Self::before_name(input, start, opening, name),
             "js" | "rb" => String::new(),
-            _ => Self::after_parameters(input, after),
+            "py" => Self::after_marker(input, after, "->", &[":"]),
+            "rs" => Self::after_marker(input, after, "->", &["{", "where"]),
+            "go" => Self::until(&input.source[after..], &["{"])
+                .trim()
+                .to_owned(),
+            _ => Self::after_marker(input, after, ":", &["{", "=>", "="]),
+        }
+    }
+
+    fn documented(
+        extension: &str,
+        documentation: &str,
+        parameters: &mut [RouteParameter],
+        written: String,
+    ) -> String {
+        match extension {
+            "rb" => super::ruby::RubyMethod::read_types(documentation, parameters),
+            "php" => crate::route_types::PhpDoc::read_types(documentation, parameters, written),
+            _ => written,
         }
     }
 
@@ -445,224 +927,24 @@ impl ReturnType {
         words.join(" ")
     }
 
-    fn after_parameters(input: &Input<'_>, after: usize) -> String {
-        let rest = &input.source[after..];
-        let text = match input.extension {
-            "py" => rest
-                .trim_start()
-                .strip_prefix("->")
-                .map(|value| Self::until(value, &[":"])),
-            "rs" => rest
-                .trim_start()
-                .strip_prefix("->")
-                .map(|value| Self::until(value, &["{", "where"])),
-            "go" => Some(Self::until(rest, &["{"])),
-            _ => rest
-                .trim_start()
-                .strip_prefix(':')
-                .map(|value| Self::until(value, &["{", "=>", "="])),
-        };
-        text.unwrap_or_default().trim().to_owned()
+    fn after_marker(input: &Input<'_>, after: usize, marker: &str, stops: &[&str]) -> String {
+        input.source[after..]
+            .trim_start()
+            .strip_prefix(marker)
+            .map(|value| Self::until(value, stops))
+            .unwrap_or_default()
+            .trim()
+            .to_owned()
     }
 
     fn until<'a>(text: &'a str, stops: &[&str]) -> &'a str {
-        let mut end = text.len();
-        for stop in stops {
-            if let Some(at) = text.find(stop) {
-                end = end.min(at);
-            }
-        }
+        let end = stops
+            .iter()
+            .filter_map(|stop| text.find(stop))
+            .min()
+            .unwrap_or(text.len());
         &text[..end]
     }
-}
-
-pub(super) fn documentation_before(input: &Input<'_>, declaration: &Declaration) -> String {
-    if input.extension == "rb" {
-        return crate::ruby_source::Yard::comments_before(input.source, declaration.start);
-    }
-    if !matches!(input.extension, "js" | "php") {
-        return String::new();
-    }
-    let first = declaration
-        .annotations
-        .iter()
-        .map(|annotation| annotation.span.start)
-        .min()
-        .unwrap_or(declaration.start);
-    let before = input.source[..first].trim_end();
-    let Some(body) = before.strip_suffix("*/") else {
-        return String::new();
-    };
-    let Some(open) = body.rfind("/**") else {
-        return String::new();
-    };
-    body[open + 3..].to_owned()
-}
-
-fn check_verb_prefix(
-    input: &Input<'_>,
-    start: usize,
-    name: &str,
-    markers: &MethodMarkers,
-) -> Result<(), Failure> {
-    let verb = markers
-        .written
-        .trim_end_matches("Route")
-        .to_ascii_lowercase();
-    if starts_with_verb(name, &verb) {
-        return Ok(());
-    }
-    let example = match input.extension {
-        "py" | "rs" | "rb" => format!("{verb}_items"),
-        "cs" | "go" => format!("{}Items", capitalized(&verb)),
-        _ => format!("{verb}Items"),
-    };
-    Err(input.failure(
-        start,
-        format!(
-            "@{} means this method answers {} requests, so its name must start with '{verb}', for example {example}. Rename {name} or change the annotation",
-            markers.written, markers.verb
-        ),
-    ))
-}
-
-fn starts_with_verb(name: &str, verb: &str) -> bool {
-    let Some(prefix) = name.get(..verb.len()) else {
-        return false;
-    };
-    if !prefix.eq_ignore_ascii_case(verb) {
-        return false;
-    }
-    match name[verb.len()..].chars().next() {
-        None => true,
-        Some(next) => next == '_' || next.is_ascii_uppercase() || next.is_ascii_digit(),
-    }
-}
-
-pub(super) fn parameter_list(input: &Input<'_>, start: usize) -> Result<Range<usize>, Failure> {
-    if input.extension == "rb" {
-        return super::ruby::RubyMethod::parameter_list(input, start);
-    }
-    let suffix = &input.code[start..];
-    let search_from = match input.extension {
-        "rs" => suffix
-            .find("fn ")
-            .map_or(start, |offset| start + offset + 3),
-        "go" => go_name_start(input, start),
-        _ => start,
-    };
-    let opening = input.code[search_from..]
-        .find('(')
-        .map(|at| search_from + at)
-        .ok_or_else(|| input.failure(start, "A route method needs a parameter list"))?;
-    let closing = matching(&input.code, opening, b'(', b')')
-        .ok_or_else(|| input.failure(start, "Unbalanced route method parameters"))?;
-    Ok(opening + 1..closing)
-}
-
-fn go_name_start(input: &Input<'_>, start: usize) -> usize {
-    let Some(opening) = input.code[start..].find('(').map(|at| start + at) else {
-        return start;
-    };
-    matching(&input.code, opening, b'(', b')').map_or(start, |closing| closing + 1)
-}
-
-fn route_parameters(
-    input: &Input<'_>,
-    start: usize,
-    list: &Range<usize>,
-    pattern: &str,
-    markers: &MethodMarkers,
-    found: &mut MappedRoutes,
-) -> Result<Vec<RouteParameter>, Failure> {
-    let text = &input.code[list.clone()];
-    let pieces = parameters(input, text, start)?;
-    let mut result = Vec::new();
-    let mut search = list.start;
-    for (index, piece) in pieces.iter().enumerate() {
-        let at = input.code[search..list.end]
-            .find(piece.as_str())
-            .map_or(search, |offset| search + offset);
-        search = at + piece.len();
-        if index == 0 && is_receiver(input.extension, piece, true) {
-            continue;
-        }
-        if index == 0 && matches!(input.extension, "py" | "rs") {
-            return Err(input.failure(
-                start,
-                "Route methods are instance methods: annotated routes require an instance receiver, self in Python or &self in Rust, as the first parameter",
-            ));
-        }
-        let parameter = route_parameter(input, at, piece, found)?;
-        result.push(parameter);
-    }
-    check_parameters(input, start, &result, pattern, markers)?;
-    Ok(result)
-}
-
-fn is_receiver(extension: &str, piece: &str, first: bool) -> bool {
-    if !first {
-        return false;
-    }
-    match extension {
-        "py" => piece == "self",
-        "rs" => piece == "&self",
-        _ => false,
-    }
-}
-
-fn route_parameter(
-    input: &Input<'_>,
-    at: usize,
-    piece: &str,
-    found: &mut MappedRoutes,
-) -> Result<RouteParameter, Failure> {
-    let original = &input.source[at..at + piece.len()];
-    if input.extension == "py"
-        && let Some(annotated) =
-            crate::python_parameters::PythonAnnotated::read(piece, original, at, |name| {
-                RouteMarker::source(name).is_some()
-            })
-        && let Some((source, written)) = RouteMarker::source(&annotated.marker)
-    {
-        let name = match &annotated.argument {
-            Some(argument) => marker_name(input, at, argument, written)?,
-            None => annotated.name.clone(),
-        };
-        found.markers.extend(annotated.erased);
-        return Ok(RouteParameter {
-            source,
-            name,
-            code_name: annotated.name,
-            type_text: annotated.type_text,
-            shape: crate::route_types::Shape::Any,
-        });
-    }
-    let marker = parameter_marker(input, at, piece, original)?;
-    let declaration = match &marker {
-        Some(marker) => piece[marker.length..].trim(),
-        None => piece.trim(),
-    };
-    let (code_name, type_text) = name_and_type(input.extension, declaration)
-        .ok_or_else(|| input.failure(at, format!("Cannot read the parameter '{piece}'")))?;
-    let Some(marker) = marker else {
-        return Ok(RouteParameter {
-            source: ParameterSource::Request,
-            name: code_name.clone(),
-            code_name,
-            type_text,
-            shape: crate::route_types::Shape::Any,
-        });
-    };
-    found.markers.push(at..at + marker.length);
-    let name = marker.name.unwrap_or_else(|| code_name.clone());
-    Ok(RouteParameter {
-        source: marker.source,
-        name,
-        code_name,
-        type_text,
-        shape: crate::route_types::Shape::Any,
-    })
 }
 
 struct ParameterMarker {
@@ -671,196 +953,153 @@ struct ParameterMarker {
     length: usize,
 }
 
-fn parameter_marker(
-    input: &Input<'_>,
-    at: usize,
-    piece: &str,
-    original: &str,
-) -> Result<Option<ParameterMarker>, Failure> {
-    let prefix = match input.extension {
-        "rs" | "php" | "rb" => "#[",
-        "cs" => "[",
-        _ => "@",
-    };
-    let Some(rest) = piece.strip_prefix(prefix) else {
-        return Ok(None);
-    };
-    let length = rest
-        .bytes()
-        .take_while(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b':'))
-        .count();
-    let Some((source, written)) = RouteMarker::source(&rest[..length]) else {
-        return RouteMarker::refuse_client_marker(input, at, &rest[..length]);
-    };
-    if input.extension == "py" {
-        return Err(input.failure(
-            at,
-            crate::annotation_rules::AnnotationRules::python_parameter(written),
-        ));
+impl ParameterMarker {
+    const NAME_PUNCTUATION: [u8; 3] = *b"_-.";
+    const MARKER_PUNCTUATION: [u8; 2] = *b"_:";
+    const MAX_NAME: usize = 256;
+
+    fn read_marker(input: &Input<'_>, at: usize, piece: &str) -> Result<Option<Self>, Failure> {
+        let prefix = Self::prefix(input.extension);
+        piece.strip_prefix(prefix).map_or(Ok(None), |rest| {
+            Self::read_known_marker(input, at, piece, prefix, rest)
+        })
     }
-    let mut end = prefix.len() + length;
-    let mut name = None;
-    if piece[end..].starts_with('(') {
+
+    fn prefix(extension: &str) -> &'static str {
+        match extension {
+            "rs" | "php" | "rb" => "#[",
+            "cs" => "[",
+            _ => "@",
+        }
+    }
+
+    fn read_known_marker(
+        input: &Input<'_>,
+        at: usize,
+        piece: &str,
+        prefix: &str,
+        rest: &str,
+    ) -> Result<Option<Self>, Failure> {
+        let length = rest
+            .bytes()
+            .take_while(|byte| Self::is_marker_byte(*byte))
+            .count();
+        let name = &rest[..length];
+        RouteMarker::source(name).map_or_else(
+            || RouteMarker::refuse_client_marker(input, at, name),
+            |found| {
+                Self::read_source_marker(input, at, piece, prefix, prefix.len() + length, found)
+                    .map(Some)
+            },
+        )
+    }
+
+    fn is_marker_byte(byte: u8) -> bool {
+        let punctuation = Self::MARKER_PUNCTUATION.contains(&byte);
+        [byte.is_ascii_alphanumeric(), punctuation].contains(&true)
+    }
+
+    fn read_source_marker(
+        input: &Input<'_>,
+        at: usize,
+        piece: &str,
+        prefix: &str,
+        name_end: usize,
+        (source, written): (ParameterSource, &'static str),
+    ) -> Result<Self, Failure> {
+        RouteMarker::require(input.extension != "py", || {
+            input.failure(
+                at,
+                crate::annotation_rules::AnnotationRules::python_parameter(written),
+            )
+        })?;
+        let (name, end) = Self::marker_arguments(input, at, piece, name_end, written)?;
+        let length = Self::bracket_end(input, at, piece, prefix, end, written)?;
+        Ok(Self {
+            source,
+            name,
+            length,
+        })
+    }
+
+    fn marker_arguments(
+        input: &Input<'_>,
+        at: usize,
+        piece: &str,
+        end: usize,
+        written: &str,
+    ) -> Result<(Option<String>, usize), Failure> {
+        if piece[end..].starts_with('(') {
+            Self::marker_argument(input, at, piece, end, written)
+        } else {
+            Ok((None, end))
+        }
+    }
+
+    fn marker_argument(
+        input: &Input<'_>,
+        at: usize,
+        piece: &str,
+        end: usize,
+        written: &str,
+    ) -> Result<(Option<String>, usize), Failure> {
         let closing = matching(piece, end, b'(', b')')
             .ok_or_else(|| input.failure(at, format!("Close the arguments of @{written}")))?;
-        name = Some(marker_name(
-            input,
-            at,
-            &original[end + 1..closing],
-            written,
-        )?);
-        end = closing + 1;
+        let original = &input.source[at..at + piece.len()];
+        let name = Self::marker_name(input, at, &original[end + 1..closing], written)?;
+        Ok((Some(name), closing + 1))
     }
-    if prefix != "@" {
-        if !piece[end..].starts_with(']') {
-            return Err(input.failure(at, format!("Close @{written} with ']'")));
+
+    fn bracket_end(
+        input: &Input<'_>,
+        at: usize,
+        piece: &str,
+        prefix: &str,
+        end: usize,
+        written: &str,
+    ) -> Result<usize, Failure> {
+        if prefix == "@" {
+            return Ok(end);
         }
-        end += 1;
+        RouteMarker::require(piece[end..].starts_with(']'), || {
+            input.failure(at, format!("Close @{written} with ']'"))
+        })?;
+        Ok(end + 1)
     }
-    Ok(Some(ParameterMarker {
-        source,
-        name,
-        length: end,
-    }))
-}
 
-fn marker_name(input: &Input<'_>, at: usize, text: &str, written: &str) -> Result<String, Failure> {
-    let text = text.trim();
-    let quoted = text.len() >= 2
-        && ((text.starts_with('"') && text.ends_with('"'))
-            || (text.starts_with('\'') && text.ends_with('\'')));
-    let inner = text.get(1..text.len().saturating_sub(1)).unwrap_or("");
-    let valid = !inner.is_empty()
-        && inner.len() <= 256
-        && inner
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'));
-    if quoted && valid {
-        return Ok(inner.to_owned());
+    fn marker_name(
+        input: &Input<'_>,
+        at: usize,
+        text: &str,
+        written: &str,
+    ) -> Result<String, Failure> {
+        RouteMarker::quoted_inner(text.trim())
+            .filter(|inner| Self::is_marker_name(inner))
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                input.failure(
+                    at,
+                    format!(
+                        "@{written} takes one name in quotes, for example @{written}(\"page_size\"). Without a name it uses the parameter name"
+                    ),
+                )
+            })
     }
-    Err(input.failure(
-        at,
-        format!(
-            "@{written} takes one name in quotes, for example @{written}(\"page_size\"). Without a name it uses the parameter name"
-        ),
-    ))
-}
 
-pub(super) fn name_and_type(extension: &str, declaration: &str) -> Option<(String, String)> {
-    let declaration = declaration.trim();
-    match extension {
-        "js" | "rb" => simple_name(declaration).map(|name| (name, String::new())),
-        "ts" | "py" | "kt" | "rs" => colon_typed(declaration),
-        "go" => go_typed(declaration),
-        "php" => php_typed(declaration),
-        _ => type_first(declaration),
+    fn is_marker_name(inner: &str) -> bool {
+        !inner.is_empty() && inner.len() <= Self::MAX_NAME && inner.bytes().all(Self::is_name_byte)
     }
-}
 
-fn simple_name(text: &str) -> Option<String> {
-    let valid = super::identifier(text) || text == "request";
-    valid.then(|| text.to_owned())
-}
-
-fn colon_typed(declaration: &str) -> Option<(String, String)> {
-    let declaration = declaration.strip_prefix("mut ").unwrap_or(declaration);
-    let Some((name, kind)) = declaration.split_once(':') else {
-        return simple_name(declaration).map(|name| (name, String::new()));
-    };
-    let name = name.trim();
-    let optional = name.ends_with('?');
-    let name = name.trim_end_matches('?');
-    let mut kind = kind.trim().to_owned();
-    if optional {
-        kind = format!("{kind} | undefined");
+    fn is_name_byte(byte: u8) -> bool {
+        let punctuation = Self::NAME_PUNCTUATION.contains(&byte);
+        [byte.is_ascii_alphanumeric(), punctuation].contains(&true)
     }
-    simple_name(name).map(|name| (name, kind))
-}
-
-fn go_typed(declaration: &str) -> Option<(String, String)> {
-    let (name, kind) = declaration.split_once(char::is_whitespace)?;
-    simple_name(name).map(|name| (name, kind.trim().to_owned()))
-}
-
-fn php_typed(declaration: &str) -> Option<(String, String)> {
-    let at = declaration.find('$')?;
-    let name = declaration[at + 1..].trim();
-    simple_name(name).map(|name| (name, declaration[..at].trim().to_owned()))
-}
-
-fn type_first(declaration: &str) -> Option<(String, String)> {
-    let declaration = declaration.strip_prefix("final ").unwrap_or(declaration);
-    let at = declaration.rfind(char::is_whitespace)?;
-    let name = declaration[at..].trim();
-    simple_name(name).map(|name| (name, declaration[..at].trim().to_owned()))
-}
-
-fn check_parameters(
-    input: &Input<'_>,
-    start: usize,
-    parameters: &[RouteParameter],
-    pattern: &str,
-    markers: &MethodMarkers,
-) -> Result<(), Failure> {
-    let mut requests = 0;
-    let mut bodies = 0;
-    for parameter in parameters {
-        if parameter.source == ParameterSource::Request && input.extension == "php" {
-            return Err(input.failure(start, RouteMarker::PHP_REQUEST_ADVICE));
-        }
-        match parameter.source {
-            ParameterSource::Request => requests += 1,
-            ParameterSource::Body => bodies += 1,
-            ParameterSource::Path => check_path_variable(input, start, parameter, pattern)?,
-            _ => {}
-        }
-    }
-    if requests > 1 {
-        return Err(input.failure(
-            start,
-            "Mark each route parameter with @FromPath, @FromQuery, @FromBody, @FromHeader or @FromCookie. Only one parameter may be left unmarked, and it receives the whole request",
-        ));
-    }
-    if bodies > 1 {
-        return Err(input.failure(
-            start,
-            "A request has one body, so only one parameter may use @FromBody",
-        ));
-    }
-    if bodies == 1 && markers.verb == "GET" {
-        return Err(input.failure(
-            start,
-            "@GetRoute means this method answers GET requests, and a GET request has no body. Remove @FromBody or use @PostRoute",
-        ));
-    }
-    Ok(())
-}
-
-fn check_path_variable(
-    input: &Input<'_>,
-    start: usize,
-    parameter: &RouteParameter,
-    pattern: &str,
-) -> Result<(), Failure> {
-    let wanted = format!("_{}", parameter.name);
-    if pattern.split('/').any(|segment| segment == wanted) {
-        return Ok(());
-    }
-    Err(input.failure(
-        start,
-        format!(
-            "@FromPath means the value comes from the route path, but '{}' has no {{{}}} part. Add {{{}}} to the path or use another marker",
-            RoutePath::template(pattern),
-            parameter.name,
-            parameter.name
-        ),
-    ))
 }
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
-    use super::starts_with_verb;
+    use super::MethodMarkers;
     use crate::yon::plan::{ParameterSource, Route};
     use std::path::Path;
 
@@ -982,10 +1221,10 @@ mod tests {
     #[test]
     fn a_method_name_starts_with_its_verb_in_any_casing() {
         for name in ["get", "getOrder", "GetOrder", "get_order", "GET", "get2"] {
-            assert!(starts_with_verb(name, "get"), "{name}");
+            assert!(MethodMarkers::starts_with_verb(name, "get"), "{name}");
         }
         for name in ["getter", "target", "ge", "post"] {
-            assert!(!starts_with_verb(name, "get"), "{name}");
+            assert!(!MethodMarkers::starts_with_verb(name, "get"), "{name}");
         }
     }
 }

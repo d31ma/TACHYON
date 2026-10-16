@@ -1,4 +1,4 @@
-use super::routes::{documentation_before, name_and_type, parameter_list, path_literal};
+use super::routes::RouteMarker;
 use super::{
     Annotation, Declaration, Input, ManagedType, declared_type, method_owner, method_signature,
 };
@@ -65,7 +65,7 @@ impl SocketMarker {
         if annotation.arguments.is_empty() {
             Ok(String::new())
         } else {
-            path_literal(input, annotation, "@SocketRoute")
+            RouteMarker::path_literal(input, annotation, "@SocketRoute")
         }
     }
 
@@ -115,7 +115,7 @@ impl SocketMarker {
         piece: &str,
         documentation: &str,
     ) -> Result<RouteParameter, Failure> {
-        let (code_name, written_type) = name_and_type(input.extension, piece)
+        let (code_name, written_type) = RouteMarker::name_and_type(input.extension, piece)
             .ok_or_else(|| input.failure(start, format!("Cannot read the parameter '{piece}'")))?;
         let type_text =
             Self::message_type(input.extension, written_type, documentation, &code_name);
@@ -205,7 +205,7 @@ impl SocketHandlers {
             )
         })?;
         let signature = method_signature(input, start)?;
-        let list = parameter_list(input, start)?;
+        let list = RouteMarker::parameter_list(input, start)?;
         let pieces = super::parameters(input, &input.code[list.clone()], start)?;
         let pieces = SocketMarker::without_receiver(input.extension, pieces);
         SocketMarker::require(
@@ -247,7 +247,7 @@ impl SocketHandlers {
         SocketMarker::require(self.message_route.is_none(), || {
             input.failure(start, SocketMarker::twice("OnMessage"))
         })?;
-        let documentation = documentation_before(input, declaration);
+        let documentation = RouteMarker::documentation_before(input, declaration);
         let message = SocketMarker::message_parameter(input, start, &pieces[1], &documentation)?;
         self.methods.message.clone_from(&method);
         self.message_route = Some(Route {
