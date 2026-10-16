@@ -377,6 +377,21 @@
             "code": "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {\n  -- @Needs\n  ---@type OrderService\n  order_service = nil,\n}\n\n---@return OrderList\n-- @GetRoute\nfunction OrdersController:get_orders()\n  return { orders = self.order_service:list() }\nend\n"
           }
         ]
+      },
+      {
+        "id": "cpp",
+        "name": "C++",
+        "note": "clang++ compiles each C++ controller into its own program (ADR 0099). A controller is one header-only class in server/controllers, and its markers are standard attributes: `class [[RequestRoute(\"/orders\")]] [[Public]] OrdersController` and `[[GetRoute]]` on the method declare GET /orders. A parameter says where its value comes from with `[[FromPath]]`, `[[FromQuery]]`, `[[FromBody]]`, `[[FromHeader]]` or `[[FromCookie]]`. The method returns a value: `bool`, a number, `std::string`, `std::vector`, `std::optional`, `tachyon::json::JsonNode` or a model from server/models, and Tachyon writes it as JSON with status 200. `void` and an empty `std::optional` answer 204. Tachyon writes the JSON code of every model, because C++ has no reflection. A C++ controller has no services, middleware, error handlers, sockets, relays or test units yet: their markers stop the build (most with TY1308) and the message says that C++ gets them in a later step.",
+        "files": [
+          {
+            "name": "server/models/OrderList.hpp",
+            "code": "#pragma once\n#include <string>\n#include <vector>\n\nstruct OrderList {\n    std::vector<std::string> orders;\n};\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.hpp",
+            "code": "#pragma once\n#include \"../models/OrderList.hpp\"\n\nclass [[RequestRoute(\"/orders\")]] [[Public]] OrdersController {\npublic:\n    [[GetRoute]]\n    OrderList getOrders() {\n        OrderList list;\n        list.orders.push_back(\"anvil\");\n        return list;\n    }\n};\n"
+          }
+        ]
       }
     ]
   }

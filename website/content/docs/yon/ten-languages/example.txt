@@ -10,3 +10,4 @@ ItemsController.rs         cargo build --release with the http crate
 ItemsController.dart       dart pub get (shelf), then dart compile aot-snapshot
 ItemsController.go         go build 1.27+ plus protocol prelude
 ItemsController.lua        lua 5.4+ plus protocol prelude
+ItemsController.hpp        clang++ -std=c++20 -O2 plus protocol prelude, cached

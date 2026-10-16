@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- C++ is a Yon language for route controllers. A header-only class in
+  `server/controllers/<Name>.hpp`, such as
+  `class [[RequestRoute("/orders")]] [[Public]] OrderController`, declares
+  routes with `[[GetRoute]]`, `[[PostRoute]]`, `[[PutRoute]]`,
+  `[[PatchRoute]]` and `[[DeleteRoute]]`, reads its arguments with
+  `[[FromPath]]`, `[[FromQuery]]`, `[[FromBody]]`, `[[FromHeader]]` and
+  `[[FromCookie]]`, and returns a typed value or a model from
+  `server/models/<Name>.hpp`, which Tachyon writes as JSON. Tachyon compiles
+  each controller with `clang++ -std=c++20 -O2`, caches the program and runs
+  it under the handler supervisor. `ty doctor` checks for `clang++`, compiler
+  errors name the authored line, a wrong argument type answers 400 and an
+  exception answers 500 without its text. Other Yon markers in C++ (services,
+  `Needs`, error handlers, sockets, streams, test units, ...) stop the build
+  and say that C++ gets them in a later step (ADR 0099 amendment).
 - The standard `theme_color` member of `client/manifest.json` now becomes
   `<meta name="theme-color" content="...">` in every web and native page
   head, HTML-escaped, when it is text that is not blank. A missing or
