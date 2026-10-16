@@ -117,6 +117,9 @@ impl ModelParser {
         if extension == crate::lua_source::LuaSource::EXTENSION {
             return Self::models("rb", crate::lua_source::LuaShadow::joined(source).text());
         }
+        if extension == crate::tac_cpp::CppSource::EXTENSION {
+            return crate::yon_cpp::CppYonModels::read(source);
+        }
         let typed = if extension == "php" {
             super::PhpDoc::typed_arrays(source)
         } else {

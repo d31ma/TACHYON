@@ -1,0 +1,39 @@
+use super::{CppYonController, CppYonProgram};
+use crate::Failure;
+use crate::tac_cpp::{CppProgram, CppSource};
+use crate::yon::Lowered;
+use std::path::Path;
+
+pub(crate) struct CppYon;
+
+impl CppYon {
+    pub(crate) fn lower(source: &Path, contents: &str, root: &Path) -> Result<Lowered, Failure> {
+        let controller = CppYonController::read(source, contents)?;
+        let models = CppProgram::server_models(root)?;
+        Ok(Lowered {
+            source: CppYonProgram::source(&controller, &models),
+            routes: controller.routes,
+            topics: crate::events::TopicUse::default(),
+        })
+    }
+
+    pub(crate) fn either(
+        source: &Path,
+        contents: &str,
+        other: impl Fn(&Path, &str) -> Result<(), Failure>,
+    ) -> Result<(), Failure> {
+        Self::routed(CppSource::is_cpp(source), source, contents, other)
+    }
+
+    fn routed(
+        cpp: bool,
+        source: &Path,
+        contents: &str,
+        other: impl Fn(&Path, &str) -> Result<(), Failure>,
+    ) -> Result<(), Failure> {
+        if cpp {
+            return CppYonController::read(source, contents).map(drop);
+        }
+        other(source, contents)
+    }
+}
