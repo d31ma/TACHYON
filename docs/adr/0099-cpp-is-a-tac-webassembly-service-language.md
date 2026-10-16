@@ -1,6 +1,7 @@
 # ADR 0099: C++ Is a Tac WebAssembly Service Language
 
-- Status: Accepted (Tac slice; the Yon slice is pending)
+- Status: Accepted (Tac slice; Yon route controllers, 2026-10-16 amendment;
+  the rest of the Yon slice is pending)
 - Date: 2026-10-04
 - Builds on: [ADR 0035](0035-rust-services-reach-the-web-as-webassembly.md)
   (the linear-memory page bridge),
@@ -246,10 +247,77 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   prints numbers with the shortest of `%.15g`, `%.16g` and `%.17g` that
   reads back exactly.
 
+## Amendment (2026-10-16): Yon route controllers
+
+C++ is now a Yon language for route controllers. Services, middleware and the
+other Yon roles stay pending (see Pending).
+
+### Files and markers
+
+- A C++ controller is a header-only `.hpp` file in `server/controllers` with
+  one class named after the file, as on the Tac side:
+  `class [[RequestRoute("/orders")]] [[Public]] OrderController { ... };`.
+  The same reader, marker check and `#include` rules apply: Tachyon removes
+  `#pragma once` and quoted includes and keeps the standard includes.
+- A model is a struct or an `enum class` in `server/models/<Name>.hpp`.
+  Tachyon generates its `JsonCodec` as for a Tac model, and the route types
+  read its public fields. A field with an initializer, or a
+  `std::optional` field, is optional in a request body; any other field is
+  required, like a C# model.
+- The rule table lists `hpp` as a Yon language. `RequestRoute`, `GetRoute`,
+  `PostRoute`, `PutRoute`, `PatchRoute`, `DeleteRoute`, `Public`, `SignedIn`,
+  `Allow`, `FromPath`, `FromQuery`, `FromBody`, `FromHeader` and `FromCookie`
+  reach C++. Every other Yon marker in a C++ file (`Service`, `Needs`,
+  `ErrorHandler`, `SocketRoute`, `StreamRoute`, `ResponseStatus`, `Test`, the
+  behavior markers, ...) fails with its rule's code, and the message says that
+  C++ gets it in a later step. A C++ file in `server/controllers` without
+  `[[RequestRoute]]` fails with `TY1363` or `TY2015`.
+
+### Routes
+
+- A route method is an instance method whose name starts with its verb
+  (`getOrder` for `[[GetRoute]]`). It may be private: Tachyon adds a
+  `friend` declaration for the generated dispatcher. A static route method
+  fails with `TY2015`.
+- Every parameter names its source with `[[FromPath]]`, `[[FromQuery]]`,
+  `[[FromBody]]`, `[[FromHeader]]` or `[[FromCookie]]`; a quoted argument
+  renames it, as in the other languages. C++ has no native HTTP request type
+  in Yon yet, so a parameter without a source marker fails with `TY2015`
+  instead of receiving the whole request. One parameter at most reads the
+  body, and a GET route reads none.
+- Parameter and return types map to route shapes: `bool`; `int`, `long`,
+  `std::int64_t` and the other integer types; `double` and `float`;
+  `std::string`; `std::vector<T>`; `std::optional<T>`;
+  `tachyon::json::JsonNode` and `std::map<std::string, T>` (any JSON); and
+  models. The server checks and converts the arguments before the process
+  starts, as for every Yon language.
+
+### Build and run
+
+- Tachyon composes one translation unit per controller: the JSON prelude
+  (`tachyon/json.hpp`), a small Yon runtime (`YonFrame`, `YonAnswer`,
+  `YonMain`), the server models and their codecs, the controller and a
+  generated `TachyonYonRoutes` dispatcher with `main`. `#line` directives
+  point compiler errors at the authored files.
+- `clang++ -std=c++20 -O2` compiles it into a native program. The handler
+  cache keys it by the program, the compiler version, the architecture and
+  the operating system, and shares it through `runtime/handlers-v1` like the
+  other compiled languages. A missing `clang++` fails with `TY2112`, and
+  `ty doctor` lists "Yon C++ compiler 'clang++'" when a controller is C++.
+- The program reads one request frame (at most 16 MiB) from standard input
+  and writes one direct answer, like a Rust or Go handler. A returned value is
+  written as JSON with status 200; `void`, or a value that is JSON `null`
+  such as an empty `std::optional`, answers 204. An argument that does not
+  fit its C++ type answers 400. An exception that leaves a route method
+  answers 500 with `{"error":"Handler failed."}`; its `what()` text goes to
+  standard error as a `handler.cpp_exception` line and never into the
+  answer.
+
 ## Pending
 
-- Yon C++ handlers (controllers, routes, middleware, error handlers, sockets,
-  relays, Yon test units), compiled per handler with clang++.
+- Yon C++ services and `Needs`, middleware, error handlers, `ResponseStatus`
+  and native request and response types, sockets, streams, relays, gateways,
+  topics and Yon test units.
 - `@Cached` / `@ClearCache` / `@UpdateCache` on HTTP clients, `@Store`, browser
   storage markers (`@LocalState`, `@SessionState`), the curated web APIs
   (Clock, Preferences, ...), behaviors (`@Retry`, ...), `@Lifetime`, `@Named`,
