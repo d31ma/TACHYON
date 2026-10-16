@@ -15,7 +15,6 @@ pub(super) struct SelectedTestSetups<'a> {
 }
 
 impl<'a> SelectedTestSetups<'a> {
-    const LANGUAGE: &'static str = "cs";
     const ENVIRONMENT: &'static str = "tac";
 
     pub(super) fn read(
@@ -45,7 +44,12 @@ impl<'a> SelectedTestSetups<'a> {
             bytes: total,
         };
         let client = open_parent(root, Path::new("client/entry"))?;
-        let mut discovery = Discovery::new(Self::LANGUAGE);
+        let language = input
+            .entry
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        let mut discovery = Discovery::new(language);
         discovery.search_role_folder(&client, Path::new("client/tests"), "tests")?;
         discovery
             .paths
@@ -61,10 +65,12 @@ impl<'a> SelectedTestSetups<'a> {
             Module::MAX_SOURCE.saturating_sub(self.bytes),
         )?;
         self.account(path, &source)?;
-        crate::behavior::test_configuration_name(path, &source, Self::ENVIRONMENT)?
-            .map(|_| self.selected(path, &source))
-            .transpose()
-            .map(|_| ())
+        crate::fsharp_source::FsharpView::either(path, &source, |path, source| {
+            crate::behavior::test_configuration_name(path, source, Self::ENVIRONMENT)
+        })?
+        .map(|_| self.selected(path, &source))
+        .transpose()
+        .map(|_| ())
     }
 
     fn selected(&mut self, path: &Path, source: &str) -> Result<(), Failure> {
@@ -77,11 +83,15 @@ impl<'a> SelectedTestSetups<'a> {
                 source: module.source.clone(),
             })
             .collect();
+        let language = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
         test_configuration::include(
             self.root,
             path,
             source,
-            Self::LANGUAGE,
+            language,
             Self::ENVIRONMENT,
             &mut modules,
             self.bytes,

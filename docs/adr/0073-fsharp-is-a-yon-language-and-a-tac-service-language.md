@@ -290,3 +290,24 @@ F# never ignores an annotation.
   once per component. Without `[<NeedsAll>]`, and for a parameter typed as
   another service, the constructor still takes only its
   `ApplicationEventPublisher` (TY1405).
+
+## Amendment (2026-10-16): a Tac service takes its HTTP clients
+
+- A Tac F# service may take an HTTPClient from `client/remotes` through a
+  settable property with `[<Needs>]` above it, as in
+  `[<Needs>] member val GreetingClient : GreetingClient = Unchecked.defaultof<GreetingClient> with get, set`.
+  On the page, the member table sets the property to `GreetingClient()`
+  after the constructor runs, as for the C# private readonly field. The
+  page does not see the property. A service takes at most five clients;
+  any other Needs type is still refused with TY1405.
+- An F# Tac HTTPClient has two constructors: `GreetingClient()` builds its
+  context from its Setup, and `GreetingClient(context)` uses a given
+  BehaviorContext.
+- In an F# Tac test unit, `this.construct<CounterService>()` builds a service
+  and sets each of its `Needs` properties from the `[<Fake>]` property of
+  the test with the same name and type. While a Fake client property is
+  empty, the service gets a client bound to the test's BehaviorContext, so
+  the TestSetup adapter answers. Any other empty Fake, or a Needs property
+  without a matching Fake, fails the case with a message that names it.
+- A Helper constructed only by a selected F# TestSetup is checked against
+  that TestSetup and left out of the production build, as in C#.

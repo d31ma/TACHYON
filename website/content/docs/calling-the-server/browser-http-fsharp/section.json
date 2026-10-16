@@ -1,5 +1,5 @@
 {
-  "heading": "F# awaits JSON with its own context",
+  "heading": "F# waits for a typed answer from a real Yon endpoint",
   "target": "web",
   "notApplicable": [
     "ts",
@@ -16,7 +16,7 @@
     "rb",
     "lua"
   ],
-  "summary": "F# does not inject an HTTPClient yet. The service makes its own BehaviorContext from `BrowserHttpSetup` and asks the REST client of that context for `/api/greeting`. `BrowserHttpSetup` returns empty `BehaviorAdapters`, so the request goes through the browser to the server of the page, without cookies; an adapter of the same name in the Setup answers instead. `Read` is a `task { }` that waits for the answer, a `BehaviorJSON` value, and then saves its message in `Last`. The service owns its context and its signal, so `Close`, marked `OnStop`, disposes both; this also cancels a request that is still waiting. Today an F# service can wait for `Task` and `Task<BehaviorJSON>` only: an F# model, a list or `ValueTask` as the answer is not supported yet. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
+  "summary": "An F# HTTPClient is a type with only abstract members, such as `abstract read: unit -> Task<Greeting>`. Tachyon writes each member and reads the answer into the record `Greeting` from `client/models`. A member may also answer a list or an array of records, a plain value, `BehaviorJSON`, nothing (`Task`) or a `ValueTask`. An answer of another shape raises a `BehaviorError` whose `Code` is `HTTP_RESPONSE`, and a failed request raises the code of the browser transport, such as `HTTP_STATUS`. A service gets the client from a settable property with `[<Needs>]` above it; the page does not see this property, and a service takes at most five clients. A service member may return `Task` or `ValueTask` of the same kinds of values, and the page gets a promise that settles when the task ends. While the task waits for the server, the page keeps working. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, an F# object expression, and that adapter answers instead of the network. Removing the component cancels the request, and the promise is rejected with the code `CANCELLED`. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
   "files": [
     {
       "name": "client/manifest.json",
@@ -31,27 +31,63 @@
       }
     },
     {
+      "name": "server/controllers/ClearController.js",
+      "code": {
+        "file": "server/controllers/ClearController.js"
+      }
+    },
+    {
+      "name": "server/models/Greeting.ts",
+      "code": {
+        "file": "server/models/Greeting.ts"
+      }
+    },
+    {
       "name": "client/pages/tac.html",
       "code": {
         "file": "client/pages/tac.html"
       }
     },
     {
-      "name": "client/components/http/probe/tac.html",
+      "name": "client/components/greeting/panel/tac.html",
       "code": {
-        "file": "client/components/http/probe/tac.html"
+        "file": "client/components/greeting/panel/tac.html"
       }
     },
     {
-      "name": "client/setups/BrowserHttpSetup.fs",
+      "name": "client/remotes/GreetingClient.fs",
       "code": {
-        "file": "client/setups/BrowserHttpSetup.fs"
+        "file": "client/remotes/GreetingClient.fs"
       }
     },
     {
-      "name": "client/services/HttpProbeService.fs",
+      "name": "client/remotes/OverrideClient.fs",
       "code": {
-        "file": "client/services/HttpProbeService.fs"
+        "file": "client/remotes/OverrideClient.fs"
+      }
+    },
+    {
+      "name": "client/models/Greeting.fs",
+      "code": {
+        "file": "client/models/Greeting.fs"
+      }
+    },
+    {
+      "name": "client/setups/GreetingSetup.fs",
+      "code": {
+        "file": "client/setups/GreetingSetup.fs"
+      }
+    },
+    {
+      "name": "client/setups/OverrideSetup.fs",
+      "code": {
+        "file": "client/setups/OverrideSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/GreetingService.fs",
+      "code": {
+        "file": "client/services/GreetingService.fs"
       }
     }
   ]

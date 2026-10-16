@@ -78,6 +78,21 @@ class IgnoredBrowserGates {
       ]
     },
     {
+      name: 'first-app-fsharp',
+      group: 'dotnet',
+      prefix: 'TAC_DOTNET_HTTP',
+      tests: ['first_app_csharp_browser_fixture::first_app_fsharp_cumulative_step_four_uses_published_yon']
+    },
+    {
+      name: 'first-app-fsharp-tests',
+      group: 'dotnet',
+      prefix: 'TAC_DOTNET_HTTP',
+      tests: [
+        'first_app_csharp_browser_fixture::first_app_fsharp_cumulative_step_five_uses_owned_typed_fake',
+        'first_app_csharp_browser_fixture::first_app_fsharp_post_step_five_browser_uses_published_yon'
+      ]
+    },
+    {
       name: 'fsharp-http',
       group: 'dotnet',
       prefix: 'TAC_DOTNET_HTTP',
