@@ -1,55 +1,90 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} SvgEngine */
 /** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, engine: SvgEngine, browserVersion?: string, errors: string[], failedRequests: string[], externalRequests: string[]}} SvgDiagnostics */
+/** @typedef {{root: string, retained: boolean, sourceCommit: string, compilerSha256: string}} SvgRun */
 
 class SvgNamespaceBrowserGate {
   static #timeout = 15_000
+  static #engines = ['chromium', 'firefox', 'webkit']
+  static #repository = fileURLToPath(new URL('..', import.meta.url))
+  static #fixture = 'crates/tachyon-core/tests/fixtures/tac-svg-namespace'
   static #svgNamespace = 'http://www.w3.org/2000/svg'
   static #htmlNamespace = 'http://www.w3.org/1999/xhtml'
   static #standaloneHost = `<!doctype html><html lang="en"><head><title>Standalone SVG namespace regression</title><script type="module" src="/.tachyon/elements/svg-namespace.js"></script></head><body><svg-namespace></svg-namespace></body></html>`
 
   /** @returns {Promise<void>} */
   static async run() {
-    const root = path.resolve(SvgNamespaceBrowserGate.#required('TAC_SVG_NAMESPACE_FIXTURE_OUT'))
-    const binary = path.resolve(SvgNamespaceBrowserGate.#required('TAC_BIN'))
-    const sourceCommit = SvgNamespaceBrowserGate.#required('TAC_SVG_NAMESPACE_SOURCE_COMMIT')
-    const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
-    const engine = SvgNamespaceBrowserGate.#engine()
-    const diagnostics = { phase: 'starting', sourceCommit, compilerSha256, engine, errors: [], failedRequests: [], externalRequests: [] }
-    const receipt = path.join(root, `svg-namespace-browser-${engine}-${randomUUID()}.json`)
+    const binary = SvgNamespaceBrowserGate.#binary()
+    const engines = SvgNamespaceBrowserGate.#selectedEngines()
+    const retainedRoot = process.env.TAC_SVG_NAMESPACE_FIXTURE_OUT
+    const root = retainedRoot ? path.resolve(retainedRoot) : await mkdtemp(path.join(tmpdir(), 'tac-svg-namespace-'))
+    try {
+      await cp(path.join(SvgNamespaceBrowserGate.#repository, SvgNamespaceBrowserGate.#fixture), root, { recursive: true })
+      await promisify(execFile)(binary, ['bundle', root])
+      /** @type {SvgRun} */
+      const run = {
+        root,
+        retained: Boolean(retainedRoot),
+        sourceCommit: process.env.TAC_SVG_NAMESPACE_SOURCE_COMMIT ?? await SvgNamespaceBrowserGate.#headCommit(),
+        compilerSha256: createHash('sha256').update(await readFile(binary)).digest('hex'),
+      }
+      await withServer(binary, ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
+        const origin = new URL((await request('/')).url).origin
+        for (const engine of engines) await SvgNamespaceBrowserGate.#runEngine(engine, origin, run)
+      })
+    } finally {
+      if (!retainedRoot) await rm(root, { recursive: true, force: true })
+    }
+  }
+
+  /** @param {SvgEngine} engine @param {string} origin @param {SvgRun} run @returns {Promise<void>} */
+  static async #runEngine(engine, origin, run) {
+    /** @type {SvgDiagnostics} */
+    const diagnostics = { phase: 'starting', sourceCommit: run.sourceCommit, compilerSha256: run.compilerSha256, engine, errors: [], failedRequests: [], externalRequests: [] }
+    const receipt = path.join(run.root, `svg-namespace-browser-${engine}-${randomUUID()}.json`)
     const started = performance.now()
     try {
-      const proof = await withServer(binary, ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
-        const origin = new URL((await request('/')).url).origin
-        return SvgNamespaceBrowserGate.#probe(origin, diagnostics)
-      })
-      await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'pass', proof, elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false, standaloneHostFixture: true }, null, 2) + '\n')
-      console.log(JSON.stringify({ status: 'pass', engine, receipt, proof }))
+      const proof = await SvgNamespaceBrowserGate.#probe(origin, diagnostics)
+      if (run.retained) await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'pass', proof, elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false, standaloneHostFixture: true }, null, 2) + '\n')
+      console.log(JSON.stringify({ status: 'pass', engine, browserVersion: diagnostics.browserVersion, receipt: run.retained ? receipt : null, proof }))
     } catch (error) {
-      await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'fail', error: String(error), elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
+      if (run.retained) await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'fail', error: String(error), elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
+      console.error(JSON.stringify({ status: 'fail', ...diagnostics }))
       throw error
     }
   }
 
-  /** @param {string} name @returns {string} */
-  static #required(name) {
-    const value = process.env[name]
-    assert.ok(value, `${name} identifies this retained fixture`)
-    return value
+  /** @returns {Promise<string>} */
+  static async #headCommit() {
+    const { stdout } = await promisify(execFile)('git', ['rev-parse', 'HEAD'], { cwd: SvgNamespaceBrowserGate.#repository })
+    return stdout.trim()
   }
 
-  /** @returns {SvgEngine} */
-  static #engine() {
-    const engine = process.env.TAC_SVG_NAMESPACE_BROWSER ?? 'chromium'
-    assert.ok(engine === 'chromium' || engine === 'firefox' || engine === 'webkit')
-    return engine
+  /** @returns {string} */
+  static #binary() {
+    const binary = process.env.TAC_BIN
+    assert.ok(binary, 'TAC_BIN names the ty binary under test')
+    return path.resolve(binary)
+  }
+
+  /** @returns {SvgEngine[]} */
+  static #selectedEngines() {
+    const requested = process.env.TAC_SVG_NAMESPACE_BROWSERS
+    if (!requested) return /** @type {SvgEngine[]} */ (SvgNamespaceBrowserGate.#engines)
+    const engines = requested.split(',')
+    for (const engine of engines) assert.ok(SvgNamespaceBrowserGate.#engines.includes(engine), `unknown browser ${engine}`)
+    return /** @type {SvgEngine[]} */ (engines)
   }
 
   /** @param {SvgEngine} engine @returns {import('playwright').BrowserType} */

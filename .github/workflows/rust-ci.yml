@@ -319,6 +319,16 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
 
+      - name: Keep SVG namespaces across Tac updates in every browser
+        run: bun run test:svg-namespace-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
+      - name: Run Tac logic and loop controls in every browser
+        run: bun run test:logic-controls-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
       - name: Verify shared Tac and Yon behavior adapters
         run: |
           bun run test:behavior-runtime

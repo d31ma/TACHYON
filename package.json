@@ -38,6 +38,8 @@
     "test:web-apis-browser": "node scripts/web-apis-browser-test.mjs",
     "test:web-components-browser": "node scripts/web-components-browser-test.mjs",
     "test:authored-node-browser": "node scripts/authored-node-browser-gate.mjs",
+    "test:svg-namespace-browser": "node scripts/svg-namespace-browser-gate.mjs",
+    "test:logic-controls-browser": "node scripts/logic-controls-browser-gate.mjs",
     "test:native-companion": "node scripts/native/companion-test.mjs"
   },
   "keywords": [

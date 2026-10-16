@@ -1,17 +1,25 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} LogicEngine */
 /** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, engine: LogicEngine, browserVersion?: string, errors: string[], failedRequests: string[], externalRequests: string[]}} LogicDiagnostics */
 /** @typedef {{background: string, color: string, font: string, owner: string | null}} LogicStyle */
+/** @typedef {{root: string, retained: boolean, sourceCommit: string, compilerSha256: string}} LogicRun */
 
 class LogicControlsBrowserGate {
   static #timeout = 15_000
+  static #engines = ['chromium', 'firefox', 'webkit']
+  static #repository = fileURLToPath(new URL('..', import.meta.url))
+  static #fixture = 'crates/tachyon-core/tests/fixtures/tac-logic-controls'
   static #svgNamespace = 'http://www.w3.org/2000/svg'
   static #htmlNamespace = 'http://www.w3.org/1999/xhtml'
   static #parentColor = 'rgb(12, 34, 56)'
@@ -19,39 +27,66 @@ class LogicControlsBrowserGate {
 
   /** @returns {Promise<void>} */
   static async run() {
-    const root = path.resolve(LogicControlsBrowserGate.#required('TAC_LOGIC_CONTROLS_FIXTURE_OUT'))
-    const binary = path.resolve(LogicControlsBrowserGate.#required('TAC_BIN'))
-    const sourceCommit = LogicControlsBrowserGate.#required('TAC_LOGIC_CONTROLS_SOURCE_COMMIT')
-    const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
-    const engine = LogicControlsBrowserGate.#engine()
-    const diagnostics = { phase: 'starting', sourceCommit, compilerSha256, engine, errors: [], failedRequests: [], externalRequests: [] }
-    const receipt = path.join(root, `logic-controls-browser-${engine}-${randomUUID()}.json`)
+    const binary = LogicControlsBrowserGate.#binary()
+    const engines = LogicControlsBrowserGate.#selectedEngines()
+    const retainedRoot = process.env.TAC_LOGIC_CONTROLS_FIXTURE_OUT
+    const root = retainedRoot ? path.resolve(retainedRoot) : await mkdtemp(path.join(tmpdir(), 'tac-logic-controls-'))
+    try {
+      await cp(path.join(LogicControlsBrowserGate.#repository, LogicControlsBrowserGate.#fixture), root, { recursive: true })
+      await promisify(execFile)(binary, ['bundle', root])
+      /** @type {LogicRun} */
+      const run = {
+        root,
+        retained: Boolean(retainedRoot),
+        sourceCommit: process.env.TAC_LOGIC_CONTROLS_SOURCE_COMMIT ?? await LogicControlsBrowserGate.#headCommit(),
+        compilerSha256: createHash('sha256').update(await readFile(binary)).digest('hex'),
+      }
+      await withServer(binary, ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
+        const origin = new URL((await request('/')).url).origin
+        for (const engine of engines) await LogicControlsBrowserGate.#runEngine(engine, origin, run)
+      })
+    } finally {
+      if (!retainedRoot) await rm(root, { recursive: true, force: true })
+    }
+  }
+
+  /** @param {LogicEngine} engine @param {string} origin @param {LogicRun} run @returns {Promise<void>} */
+  static async #runEngine(engine, origin, run) {
+    /** @type {LogicDiagnostics} */
+    const diagnostics = { phase: 'starting', sourceCommit: run.sourceCommit, compilerSha256: run.compilerSha256, engine, errors: [], failedRequests: [], externalRequests: [] }
+    const receipt = path.join(run.root, `logic-controls-browser-${engine}-${randomUUID()}.json`)
     const started = performance.now()
     try {
-      const proof = await withServer(binary, ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
-        const origin = new URL((await request('/')).url).origin
-        return LogicControlsBrowserGate.#probe(origin, diagnostics)
-      })
-      await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'pass', proof, elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
-      console.log(JSON.stringify({ status: 'pass', engine, receipt, proof }))
+      const proof = await LogicControlsBrowserGate.#probe(origin, diagnostics)
+      if (run.retained) await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'pass', proof, elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
+      console.log(JSON.stringify({ status: 'pass', engine, browserVersion: diagnostics.browserVersion, receipt: run.retained ? receipt : null, proof }))
     } catch (error) {
-      await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'fail', error: String(error), elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
+      if (run.retained) await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'fail', error: String(error), elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
+      console.error(JSON.stringify({ status: 'fail', ...diagnostics }))
       throw error
     }
   }
 
-  /** @param {string} name @returns {string} */
-  static #required(name) {
-    const value = process.env[name]
-    assert.ok(value, `${name} identifies this retained fixture`)
-    return value
+  /** @returns {Promise<string>} */
+  static async #headCommit() {
+    const { stdout } = await promisify(execFile)('git', ['rev-parse', 'HEAD'], { cwd: LogicControlsBrowserGate.#repository })
+    return stdout.trim()
   }
 
-  /** @returns {LogicEngine} */
-  static #engine() {
-    const engine = process.env.TAC_LOGIC_CONTROLS_BROWSER ?? 'chromium'
-    assert.ok(engine === 'chromium' || engine === 'firefox' || engine === 'webkit')
-    return engine
+  /** @returns {string} */
+  static #binary() {
+    const binary = process.env.TAC_BIN
+    assert.ok(binary, 'TAC_BIN names the ty binary under test')
+    return path.resolve(binary)
+  }
+
+  /** @returns {LogicEngine[]} */
+  static #selectedEngines() {
+    const requested = process.env.TAC_LOGIC_CONTROLS_BROWSERS
+    if (!requested) return /** @type {LogicEngine[]} */ (LogicControlsBrowserGate.#engines)
+    const engines = requested.split(',')
+    for (const engine of engines) assert.ok(LogicControlsBrowserGate.#engines.includes(engine), `unknown browser ${engine}`)
+    return /** @type {LogicEngine[]} */ (engines)
   }
 
   /** @param {LogicEngine} engine @returns {import('playwright').BrowserType} */
