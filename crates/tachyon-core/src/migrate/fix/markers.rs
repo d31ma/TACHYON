@@ -66,18 +66,8 @@ impl Marker {
         serde_json::Value::String(String::from(text)).to_string()
     }
 
-    fn line_starts(text: &SourceText<'_>, from: usize) -> Vec<usize> {
-        let mut starts = Vec::new();
-        let mut line_start = from;
-        while line_start < text.len() {
-            starts.push(line_start);
-            line_start = text.line_end(line_start);
-        }
-        starts
-    }
-
     pub(super) fn lines(text: &SourceText<'_>, extension: &str, names: &[&str]) -> Vec<MarkerLine> {
-        Self::line_starts(text, 0)
+        text.line_starts(0)
             .into_iter()
             .filter_map(|line_start| Self::at_line(text, extension, line_start))
             .filter(|marker| names.contains(&Self::normalized(&marker.name).as_str()))
@@ -120,13 +110,12 @@ impl Marker {
         [text.is_code(code_start), written] == [true, true]
     }
 
-    fn name_start(text: &SourceText<'_>, after_prefix: usize) -> usize {
-        let mut name_start = after_prefix;
-        for namespace in Self::NAMESPACES {
-            let written = text.source[name_start..].starts_with(namespace);
-            name_start += usize::from(written) * namespace.len();
-        }
-        name_start
+    pub(super) fn name_start(text: &SourceText<'_>, after_prefix: usize) -> usize {
+        let [first, second] = Self::NAMESPACES;
+        let rest = &text.source[after_prefix..];
+        let rest = rest.strip_prefix(first).unwrap_or(rest);
+        let rest = rest.strip_prefix(second).unwrap_or(rest);
+        text.len() - rest.len()
     }
 
     fn arguments_at(
@@ -153,7 +142,7 @@ impl Marker {
         extension: &str,
         from: usize,
     ) -> Option<usize> {
-        Self::line_starts(text, text.line_end(from))
+        text.line_starts(text.line_end(from))
             .into_iter()
             .find_map(|line_start| Self::declaration_at(text, extension, line_start))
     }
