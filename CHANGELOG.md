@@ -461,6 +461,20 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
+  `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
+  for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`
+  variables, so the Emscripten that the .NET wasm-tools workload bundles
+  reads its own configuration. Before, it read the emsdk configuration,
+  could not find its compiler (`"$CFGDIR/upstream/bin/clang"`,
+  `FileNotFoundError`) and the build stopped with TY1605. The emsdk
+  setting stays in the terminal for Tachyon's own `emcc` builds.
+
+- On Windows, Tachyon now runs `emcc` from Emscripten 6.0.10 and newer,
+  which ships `emcc.exe` instead of `emcc.bat`. Before, `ty doctor` reported
+  Emscripten as missing for C++, Ruby and Lua web services, and the Tac Ruby
+  and Tac Lua runtime builds could not start `emcc`.
+
 - The shared annotation rule table now lists F# (`.fs`) as a Yon language,
   with the same reach as C# (ADR 0073). The checks that ask the table about
   a language directly, such as the role-folder message and the `@Topic`

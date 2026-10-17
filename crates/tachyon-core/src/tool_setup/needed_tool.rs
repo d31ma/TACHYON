@@ -86,7 +86,7 @@ impl NeededTool {
         },
         ToolEntry {
             label: "Emscripten",
-            commands: &["emcc", "emcc.bat"],
+            commands: &["emcc"],
         },
         ToolEntry {
             label: "a Java JDK",
