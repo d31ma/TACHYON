@@ -48,6 +48,12 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
   return hostCall(capability, payload);
 };
 `);
+  write(project, 'client/models/NativeEvent.js', `/**
+ * @typedef {Object} NativeEvent
+ * @property {string} text
+ */
+export {}
+`);
   write(project, 'client/models/NativeEvent.kt', 'data class NativeEvent(val text: String)\n');
   write(project, 'client/shared/identity.txt', 'root-relative-native-asset');
   write(project, 'client/shared/bridge-probe.html', '<!doctype html><title>Native frame boundary probe</title><p>Frame content remains supported.</p>');
@@ -55,13 +61,9 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
     const name = prefix ? 'Second' : 'First';
     const instance = `android${name}`;
     write(project, `client/pages/${prefix}tac.html`, `<android-${name.toLowerCase()} />`);
-    write(project, `client/components/android/${name.toLowerCase()}/tac.html`, `<main aria-label="Android native evidence"><h1>${prefix ? 'Second route' : 'First route'}</h1><p>Built by {${instance}.builtBy}</p><button on:click="${instance}.increase()" aria-label="Increase count">Increase</button><output aria-label="Count">{${instance}.count}</output><input aria-label="Your name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" placeholder="Name"><a href="/items/7/">Second route</a></main>`);
+    write(project, `client/components/android/${name.toLowerCase()}/tac.html`, androidView(name, instance));
     write(project, `client/components/android/${name.toLowerCase()}/tac.css`, 'h1 { color: rgb(12, 34, 56); }');
-    write(project, `client/services/Android${name}Service.js`, `/**
- * @typedef {Object} NativeEvent
- * @property {string} text
- */
-@Service()
+    write(project, `client/services/Android${name}Service.js`, `@Service()
 export default class Android${name}Service {
   received = '';
   /** @param {NativeEvent} value */
@@ -69,7 +71,21 @@ export default class Android${name}Service {
   receive(value) { this.received = value.text; }
 }
 `);
-    write(project, `client/services/Android${name}Service.kt`, `class Android${name}Service {
+    write(project, `client/services/Android${name}Service.kt`, prefix ? androidSecondService() : androidFirstService());
+  }
+}
+
+// The first route drives every native call the gate checks, so its view binds them; the second route only counts.
+function androidView(name, instance) {
+  const first = name === 'First';
+  const nameInput = first ? `<input aria-label="Your name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" placeholder="Name">` : '';
+  const nativeCalls = first ? `<button on:click="${instance}.announce()">Announce native event</button><button on:click="${instance}.processId()">Read process id</button><button on:click="${instance}.delayedProcessId()">Read process id later</button>` : '';
+  return `<main aria-label="Android native evidence"><h1>${name} route</h1><p>Built by {${instance}.builtBy}</p><p>Received {${instance}.received}</p><button on:click="${instance}.increase()" aria-label="Increase count">Increase</button><output aria-label="Count">{${instance}.count}</output>${nameInput}${nativeCalls}<a href="/items/7/">Second route</a></main>`;
+}
+
+function androidFirstService() {
+  return `@Service
+class AndroidFirstService {
   var count: Int = 0
   var name: String = ""
     set(value) { Thread.sleep(100); field = value }
@@ -77,14 +93,23 @@ export default class Android${name}Service {
   val applicationEventPublisher: ApplicationEventPublisher
   fun increase(): Int { count += 21; return count }
   fun processId(): Int = android.os.Process.myPid()
-  fun delayedProcessId(): Int { Thread.sleep(1200); return android.os.Process.myPid() }
+  fun delayedProcessId(): Int { Thread.sleep(1200); return processId() }
   fun announce(): String {
-    applicationEventPublisher.publishEvent(models.NativeEvent("Kotlin"))
-    return "Kotlin"
+    applicationEventPublisher.publishEvent(models.NativeEvent(builtBy))
+    return builtBy
   }
 }
-`);
-  }
+`;
+}
+
+function androidSecondService() {
+  return `@Service
+class AndroidSecondService {
+  var count: Int = 0
+  val builtBy: String = "Kotlin"
+  fun increase(): Int { count += 21; return count }
+}
+`;
 }
 
 function resolveBinary() {
