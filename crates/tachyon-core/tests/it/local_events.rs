@@ -633,6 +633,48 @@ class ProbeController {
 }
 
 #[tokio::test]
+async fn php_background_listeners_run_after_the_delivery_pass_and_never_republish() {
+    execute_expected(
+        "php",
+        r#"<?php
+#[Service()]
+class ProbeService {
+  public $log = [];
+  #[OnEvent]
+  #[InBackground]
+  function later(\Models\ProbeReady $value): \Models\ProbeDerived { $this->log[] = 'later:' . $value->status; return new \Models\ProbeDerived('never'); }
+  #[OnEvent]
+  #[Order(5)]
+  function first(\Models\ProbeReady $value) { $this->log[] = 'first:' . $value->status; }
+  #[OnEvent]
+  function derived(\Models\ProbeDerived $value) { $this->log[] = 'derived:' . $value->tag; }
+}
+#[Service()]
+#[NeedsAll()]
+class PublishService {
+  private ApplicationEventPublisher $publisher;
+  #[OnStart()]
+  function initialize() {
+    $this->publisher->publishEvent(new \Models\ProbeReady('paid', 10));
+    $this->publisher->publishEvent(new \Models\ProbeReady('free', 0));
+  }
+}
+#[RequestRoute("/probe")]
+#[Public]
+#[NeedsAll()]
+class ProbeController {
+  public ProbeService $probe;
+  public PublishService $publish;
+  #[GetRoute]
+  function getProbe() { return ["log" => $this->probe->log]; }
+}
+"#,
+        serde_json::json!({"log": ["first:paid", "later:paid", "first:free", "later:free"]}),
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn ruby_events_and_lifecycle() {
     execute(
         "rb",
@@ -1492,29 +1534,9 @@ func (controller *ProbeController) GetProbe() any {
 struct ListenerFixtures;
 
 impl ListenerFixtures {
-    const SYNCHRONOUS: &[(&str, &str)] = &[
-        (
-            "php",
-            r#"<?php
-#[Service()]
-class ProbeService {
-  #[OnEvent]
-  #[InBackground()]
-  function observe(\Models\ProbeTagged $value) { }
-}
-#[RequestRoute("/probe")]
-#[Public]
-#[NeedsAll()]
-class ProbeController {
-  public ProbeService $probe;
-  #[GetRoute]
-  function getProbe() { return ["ok" => true]; }
-}
-"#,
-        ),
-        (
-            "rs",
-            r#"
+    const SYNCHRONOUS: &[(&str, &str)] = &[(
+        "rs",
+        r#"
 #[Service()]
 struct ProbeService {}
 impl ProbeService {
@@ -1532,8 +1554,7 @@ impl ProbeController {
   fn get_probe(&self) -> Json { Json::map([("ok", Json::from(true))]) }
 }
 "#,
-        ),
-    ];
+    )];
 }
 
 #[tokio::test]
