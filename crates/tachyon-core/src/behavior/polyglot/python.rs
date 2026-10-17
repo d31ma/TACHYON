@@ -126,7 +126,7 @@ fn body_indent(module: &Module, type_declaration: &Type) -> String {
 fn test_members(unit: &Unit, indent: &str) -> String {
     let mut mocks = String::new();
     for name in &unit.mocks {
-        let _ = writeln!(mocks, "{indent}{indent}self.{name} = None");
+        let _ = writeln!(mocks, "{indent}{indent}{indent}self.{name} = None");
     }
     let table = super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string();
     let cases = serde_json::Value::String(table);
@@ -140,9 +140,9 @@ fn test_members(unit: &Unit, indent: &str) -> String {
          {indent}{indent}{indent}context.dispose()\n\
          {indent}{indent}self.behaviors = None\n\
          {indent}async def POST(self):\n\
-{mocks}\
          {indent}{indent}cases = []\n\
          {indent}{indent}for name, method, arguments in _behavior_json.loads({cases}):\n\
+{mocks}\
          {indent}{indent}{indent}await self.startBehaviors()\n\
          {indent}{indent}{indent}BehaviorCalls.take()\n\
          {indent}{indent}{indent}try:\n\

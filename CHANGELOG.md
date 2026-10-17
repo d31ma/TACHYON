@@ -552,6 +552,10 @@ machine contracts have their own, independent major versions.
   `null`, a `boolean` becomes `false` and a number or `char` becomes zero.
   `construct(Class)` works as before.
 
+- A Python test unit now sets every `@Fake` field to `None` before each
+  case. Before, it set them once before the first case, so a test double
+  that one case assigned was still there in the next case.
+
 - A Go `@HTTPClient` request body model now follows its `json` tags as
   `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
   and the other empty values instead of sending `""` and `null`, `omitzero`

@@ -125,7 +125,7 @@ async fn a_python_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.py",
-        "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    async def test_opens_a_context(self):\n        Assert.is_true(self.behaviors is not None, 'the case has a context')\n\n    async def test_reports_a_failure(self):\n        Assert.is_true(False, 'this case is meant to fail')\n",
+        "from typing import Annotated\n\n@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    catalog_counter_helper: Annotated[object, fake]\n\n    async def test_opens_a_context(self):\n        Assert.is_true(self.behaviors is not None, 'the case has a context')\n        Assert.equals(None, self.catalog_counter_helper, 'a fake starts empty')\n        self.catalog_counter_helper = object()\n\n    async def test_reports_a_failure(self):\n        Assert.equals(None, self.catalog_counter_helper, 'the fake is empty again')\n        Assert.is_true(False, 'this case is meant to fail')\n",
     );
 
     let relative = "server/tests/CatalogServiceTest.py";
@@ -682,7 +682,7 @@ fn assert_python_report(response: tachyon_contracts::HandlerResponse) {
     assert!(
         cases[1]["error"]
             .as_str()
-            .is_some_and(|error| error.contains("meant to fail")),
+            .is_some_and(|error| error.starts_with("this case is meant to fail")),
         "{body}"
     );
 }
