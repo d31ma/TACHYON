@@ -169,15 +169,20 @@ impl NativeUiCapture {
     }
 
     fn portable(path: &Path) -> Result<String, Failure> {
-        let name = path
-            .to_str()
-            .ok_or_else(|| NativeUiProblem::failure("Native UI paths must be UTF-8."))?;
+        let parts = path
+            .iter()
+            .map(|part| {
+                part.to_str()
+                    .ok_or_else(|| NativeUiProblem::failure("Native UI paths must be UTF-8."))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let name = parts.join("/");
         if name.len() > 1024 || name.contains(['\\', ':', '?', '#', '%']) {
             return Err(NativeUiProblem::failure(
                 "Native UI paths must be bounded canonical local asset names.",
             ));
         }
-        Ok(name.to_owned())
+        Ok(name)
     }
 
     fn count_entry(&mut self) -> Result<(), Failure> {
