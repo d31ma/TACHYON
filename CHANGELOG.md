@@ -517,6 +517,13 @@ machine contracts have their own, independent major versions.
   assigned was still there in the next case, and `construct(Role)` passed
   it on.
 
+- The `lua/THIRD_PARTY_NOTICES.txt` that a build writes beside the Lua web
+  runtime now also holds the Emscripten, musl and compiler-rt licenses, as
+  the Ruby notices do. The runtime is linked with Emscripten, which adds its
+  C library and compiler builtins, but the file listed only Lua. Because the
+  notices are part of the runtime source, the next build links the Lua
+  runtime again once.
+
 - A Go `@HTTPClient` request body model now follows its `json` tags as
   `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
   and the other empty values instead of sending `""` and `null`, `omitzero`
