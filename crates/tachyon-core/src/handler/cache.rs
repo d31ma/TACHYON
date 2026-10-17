@@ -845,7 +845,8 @@ impl CacheDirectory {
     where
         L: Fn(u32) -> bool,
     {
-        let current = Some(snapshot).filter(|snapshot| snapshot.modified <= now);
+        let latest_current = now.saturating_add(CacheLock::CLOCK_STEP_TOLERANCE);
+        let current = Some(snapshot).filter(|snapshot| snapshot.modified <= latest_current);
         current.is_none_or(|snapshot| Self::lease_is_over(snapshot, now, process_live))
     }
 
@@ -1114,6 +1115,11 @@ impl Drop for OwnedCacheEntry {
 impl CacheLock {
     const MAX_METADATA_BYTES: usize = 1024;
     const MAX_LEASE: Duration = Duration::from_mins(10);
+    /// How far a lock may look newer than the clock and still be current. The wall clock can
+    /// step back while a lock is held (virtual machines resynchronise with their host every few
+    /// seconds), and treating every newer lock as forged would hand a live lock to a second
+    /// holder.
+    const CLOCK_STEP_TOLERANCE: Duration = Duration::from_mins(1);
 
     fn is_still_held(&self) -> bool {
         self.cache
@@ -1417,6 +1423,44 @@ mod tests {
             assert_eq!(pid, 43);
             true
         });
+    }
+
+    #[test]
+    fn a_live_lock_survives_the_clock_stepping_back() {
+        let root = tempfile::tempdir().expect("cache");
+        let cache = CacheDirectory::open_test_root(root.path()).expect("cache capability");
+        let lock = Path::new("digest.lock");
+        let held = cache
+            .acquire_lock(lock, Duration::from_secs(1))
+            .expect("first holder");
+        let modified = cache.inspect_lock(lock).expect("held lock").modified;
+        let stepped_back = || {
+            modified
+                .checked_sub(Duration::from_millis(250))
+                .expect("positive time")
+        };
+        let live = |_| true;
+
+        let competing = cache.acquire_lock_with_runtime(
+            lock,
+            Duration::from_millis(50),
+            |file, pid, created, token| writeln!(file, "{pid} {created} {token}"),
+            &stepped_back,
+            &live,
+        );
+        assert!(competing.is_err(), "a second holder took a live lock");
+        cache
+            .prune_entries_with_runtime(
+                CacheDirectory::MAX_ENTRIES,
+                CacheDirectory::MAX_BYTES,
+                CacheDirectory::remove,
+                CacheDirectory::path_usage,
+                &stepped_back,
+                &live,
+            )
+            .expect("prune with a stepped clock");
+        assert!(held.is_still_held(), "pruning reclaimed a live lock");
+        drop(held);
     }
 
     #[test]
