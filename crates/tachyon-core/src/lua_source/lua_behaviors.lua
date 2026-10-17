@@ -47,9 +47,22 @@ function BehaviorClock.monotonic_ms()
   if BehaviorClock.host ~= nil then
     return BehaviorClock.host.monotonic_ms()
   end
-  local measured = math.floor(os.clock() * 1000) + BehaviorClock.slept_ms
+  local measured = math.floor(os.clock() * 1000) + BehaviorClock.sleep_not_in_clock_ms()
   local whole_seconds_passed = os.difftime(os.time(), BehaviorClock.started_seconds) - 1
   return math.max(measured, math.floor(whole_seconds_passed * 1000))
+end
+
+-- os.clock() is C clock(): processor time on POSIX, but wall time on Windows,
+-- where it already includes the time spent sleeping.
+function BehaviorClock.clock_counts_sleep()
+  return package.config:sub(1, 1) == BehaviorClock.WINDOWS_SEPARATOR
+end
+
+function BehaviorClock.sleep_not_in_clock_ms()
+  if BehaviorClock.clock_counts_sleep() then
+    return 0
+  end
+  return BehaviorClock.slept_ms
 end
 
 function BehaviorClock.wait(milliseconds)
