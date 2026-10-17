@@ -415,13 +415,30 @@ before execution. Test setup files are not production role files and
 never enter browser bundles. A unit may still select an existing production
 `Setup` from its realm's `setups/` folder.
 
-**`@Fake`.** `@Fake` declares a field that the driver clears before
-every case. In JavaScript and TypeScript, `this.construct(Role)` then builds the
-role under test with those test doubles in place of its `@Needs`
-collaborators. The other six Yon languages get the declaration and the
-clearing, but not the construction. Rust cannot inject a collaborator again
-through reflection at all. So a unit in those languages tests the logic
-directly instead of going through the container.
+**`@Fake`.** `@Fake` declares a field that the test assigns. Every Yon
+language accepts it. A construct helper then builds the role under test with
+those test doubles in place of its `@Needs` collaborators. What each Yon
+language gets:
+
+| Language | Declaration | Cleared before every case | Construct helper |
+| --- | --- | --- | --- |
+| JavaScript, TypeScript | yes | yes, to `undefined` | `this.construct(Role)` |
+| Python | yes | yes, to `None` | no |
+| Ruby | yes | yes, to `nil` | `construct(Role)` |
+| Lua | yes | yes, to `nil` | `self:construct(Role)` |
+| PHP | yes | yes: a typed field is unset, an untyped field becomes `null` | no |
+| Java, Groovy | yes | yes, to `null`, `false` or zero | `construct(Role.class)` |
+| F# | yes | yes, because every case runs on a new instance | no |
+| Kotlin | yes | no | `construct(Role::class)` |
+| C# | yes | no | `construct<Role>()` |
+| Dart | yes | no | `construct<Role>(Role)` |
+| Go | yes | no | no; only a Tac unit gets `construct` |
+| Rust | yes | no | no; only a Tac unit gets `construct()` |
+
+In Kotlin, C#, Dart, Go and Rust a test double that one case assigns is
+still there in the next case, so a case assigns every Fake it reads. A unit
+without a construct helper passes its Fakes to the role's own constructor,
+for example `new CatalogService($this->catalogCounterHelper)` in PHP.
 
 **Every public method needs a test.** Every public method of an annotated class
 must have a test, and the development server enforces this:
