@@ -291,11 +291,12 @@ fn python_missing_opt_in_profile_is_reported_by_doctor_without_installing() {
 struct PythonPage;
 
 impl PythonPage {
-    const OWNERS: [(&'static str, &'static str); 4] = [
+    const OWNERS: [(&'static str, &'static str); 5] = [
         ("shelf", "00000000-0000-4000-8000-000000000001"),
         ("checkout", "00000000-0000-4000-8000-000000000002"),
         ("audit", "00000000-0000-4000-8000-000000000003"),
         ("library", "00000000-0000-4000-8000-000000000004"),
+        ("tally", "00000000-0000-4000-8000-000000000005"),
     ];
     const SHELF: [(&'static str, &'static str); 3] = [
         (
@@ -362,6 +363,15 @@ impl PythonPage {
          \x20   await asyncio.sleep(0.01)\n\
          \x20   return report\n\
          _report = asyncio.run(_library())\n";
+    const TALLY: [(&'static str, &'static str); 1] = [(
+        "client/services/TallyService.py",
+        "from typing import Annotated\n\n\n@service\nclass TallyService:\n    count: Annotated[int, local_state] = 0\n    last_title: Annotated[str, SessionState] = ''\n\n    def add(self) -> int:\n        self.count += 1\n        return self.count\n",
+    )];
+    const TALLY_DRIVER: &'static str = "_report = {'init': _ask('tally', {'op': 'init', 'props': {}}),\n\
+         \x20   'restored': _ask('tally', {'op': 'set', 'name': 'count', 'value': 4}),\n\
+         \x20   'added': _ask('tally', {'op': 'call', 'name': 'add', 'args': []}),\n\
+         \x20   'title': _ask('tally', {'op': 'set', 'name': 'lastTitle', 'value': 'atlas'}),\n\
+         \x20   'read': _ask('tally', {'op': 'get', 'name': 'lastTitle'})}\n";
     const DRIVER_HEAD: &'static str = "import json\n_emitted = []\n_finished = []\n_TacPythonRuntime.connect(_emitted.append, lambda task, text: _finished.append([task, json.loads(text)]))\n_owners = {}\n\
          def _ask(service, request):\n    request.update({'route': 'web', 'service': service, 'owner': _owners[service]})\n    return json.loads(_TacPythonRuntime.invoke(json.dumps(request)))\n";
     const DRIVER_TAIL: &'static str = "_report['emitted'] = [json.loads(item) for item in _emitted]\n_report['finished'] = _finished\nprint(json.dumps(_report))\n";
@@ -551,4 +561,40 @@ fn python_async_methods_settle_through_page_tasks_and_cancel_on_dispose() {
     );
     let counted = PythonPage::signal("library", "ShelfCounted", &json!({"total": 5}), false);
     assert_eq!(report["emitted"], json!([counted]), "{report}");
+}
+
+#[test]
+fn python_local_and_session_state_fields_reach_the_page_storage() {
+    let (relative, source) = PythonPage::TALLY[0];
+    let stored = crate::behavior::StoredState::fields(Path::new(relative), source)
+        .unwrap_or_else(|error| panic!("stored fields: {error:?}"));
+    let local_only = "from typing import Annotated\n\n@service\nclass TallyService:\n    count: Annotated[int, local_state] = 0\n";
+    let found = crate::behavior::StoredState::fields(Path::new(relative), local_only)
+        .unwrap_or_else(|error| panic!("snake case stored field: {error:?}"));
+    assert_eq!(found.get("count").map(String::as_str), Some("local"));
+    assert_eq!(
+        stored.into_iter().collect::<Vec<_>>(),
+        [
+            ("count".to_owned(), "local".to_owned()),
+            ("lastTitle".to_owned(), "session".to_owned()),
+        ]
+    );
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(&PythonPage::TALLY, &["tally"], PythonPage::TALLY_DRIVER);
+    let declared = &report["init"]["value"];
+    assert_eq!(
+        declared["fields"],
+        json!(["count", "lastTitle"]),
+        "{report}"
+    );
+    assert_eq!(
+        declared["writable"],
+        json!(["count", "lastTitle"]),
+        "{report}"
+    );
+    assert_eq!(report["restored"], json!({"value": null}), "{report}");
+    assert_eq!(report["added"], json!({"value": 5}), "{report}");
+    assert_eq!(report["read"], json!({"value": "atlas"}), "{report}");
 }

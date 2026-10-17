@@ -197,3 +197,38 @@ the runtime files; `ty doctor` names the folder.
   click, the promise, a field read while the method waits, a failure and a
   cancellation on dispose, online and after an offline reload, in Chromium.
   Firefox and WebKit runs are still owed.
+
+## Amendment 2026-10-16: saved fields
+
+- A Python Tac service field may be marked `LocalState` or `SessionState`
+  inside its type: `theme: Annotated[str, local_state] = 'light'`
+  (`LocalState` and `SessionState` are accepted spellings too). The rule
+  table (ADR 0056) now lets Python use these two markers in Tac; the other
+  behavior annotations of the 2026-10-04 amendment still fail with
+  `TY1308`.
+- The page saves and restores these fields as it does for the other web
+  service languages: through the field's getter and setter, under a key
+  named after the page, the service and the field's page name (`last_title`
+  is saved as `lastTitle`). The Python runtime needs no storage adapter of
+  its own. A restored value crosses the field's typed codec, like any other
+  write from the page.
+- The stored-field reader now notices the snake_case spellings; before, a
+  source that spelled only `local_state` or `session_state` was skipped.
+- Evidence: `backend_tests::python_local_and_session_state_fields_reach_the_page_storage`
+  and the browser test above, whose `LibraryService.loaded` field is
+  `LocalState` and comes back after the offline reload in Chromium.
+  `SessionState` shares the page code but has no browser check of its own
+  for Python yet. Firefox and WebKit runs are still owed.
+
+## Note 2026-10-16: offline through `ty preview` is not qualified
+
+The browser test serves the compiler's `dist` from its own HTTPS test origin
+with `public, max-age=60` and no `Vary`. Served through `ty preview` (with
+or without `--static`), every response carries `Cache-Control: no-store`
+from the server's defensive headers and `Vary: accept-encoding`, and the
+service worker caches only public responses without `Vary`. The page then
+caches none of the Pyodide files, so it cannot reload offline. This holds
+for every web service language, not only Python. Whether the preview server
+should send cacheable headers for build outputs is a separate server
+decision; until then, offline Python Tac is qualified only from an origin
+that serves the build as public static files.
