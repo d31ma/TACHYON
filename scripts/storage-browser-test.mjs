@@ -1001,7 +1001,7 @@ const rootHelper = () => { globalThis.__root = (name) => __tachyonTac.service(na
 
 function buildFixture(project) {
   const built = spawnSync(StorageGate.binary, ['build', project], {
-    encoding: 'utf8', timeout: 120_000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
+    encoding: 'utf8', timeout: 600_000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
   });
   if (built.status !== 0) {
     throw new Error(`storage fixture build failed: ${built.error?.message || built.stderr || built.stdout}`);

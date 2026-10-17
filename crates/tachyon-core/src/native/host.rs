@@ -89,7 +89,7 @@ impl NativeHost {
         Self::supervised_output(program, &mut command, time_limit).await
     }
 
-    pub(super) async fn run_tool_in_environment(
+    pub(super) async fn run_long_tool_in_environment(
         program: &str,
         arguments: &[&str],
         working_directory: &Path,
@@ -97,7 +97,7 @@ impl NativeHost {
     ) -> Result<String, Failure> {
         let mut command = Self::tool_command(program, arguments, Some(working_directory));
         command.env_clear().envs(variables);
-        let limit = Self::TOOL_TIME_LIMIT;
+        let limit = Self::LONG_TOOL_TIME_LIMIT;
         let output = Self::supervised_output(program, &mut command, limit).await?;
         Ok(bounded_text(&output.stdout))
     }

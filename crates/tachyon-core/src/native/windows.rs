@@ -409,7 +409,7 @@ async fn publish_web_framework(
     for (relative, contents) in extra_files {
         write(&staged.path().join(relative), contents.as_bytes())?;
     }
-    super::host::NativeHost::run_tool_in_environment(
+    super::host::NativeHost::run_long_tool_in_environment(
         "dotnet",
         &["publish", "-c", "Release", "--nologo", "-o", "out"],
         staged.path(),
