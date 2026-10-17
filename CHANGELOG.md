@@ -524,6 +524,13 @@ machine contracts have their own, independent major versions.
   notices are part of the runtime source, the next build links the Lua
   runtime again once.
 
+- A build with a Go Tac service now writes `.tachyon/services/go/LICENSE`
+  beside `go/wasm_exec.js`, whose header says its license "can be found in
+  the LICENSE file". The file comes from the root of the Go or TinyGo
+  installation that built the module, or is Go 1.27.0's `LICENSE` when the
+  installation has none. Route budgets do not count it. Cached Go modules
+  are built again once, so the cache holds the license too.
+
 - A Go `@HTTPClient` request body model now follows its `json` tags as
   `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
   and the other empty values instead of sending `""` and `null`, `omitzero`

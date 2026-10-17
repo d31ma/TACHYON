@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct GoWebBuild {
     pub(crate) wasm: Vec<u8>,
     pub(crate) glue: Vec<u8>,
+    pub(crate) license: Vec<u8>,
     pub(crate) note: Option<String>,
 }
 
@@ -16,6 +17,8 @@ impl GoWebBuild {
     const FAILURE_CODE: u16 = 1605;
     const CACHE_FOLDER: &'static str = "go-wasm";
     const GLUE: &'static str = "wasm_exec.js";
+    const LICENSE: &'static str = "LICENSE";
+    const CACHED_FILES: &'static str = "services.wasm wasm_exec.js LICENSE note.txt";
     const NOTE: &'static str = "note.txt";
     const MAX_CAUSE_CHARACTERS: usize = 512;
 
@@ -31,7 +34,7 @@ impl GoWebBuild {
     }
 
     async fn identity(choice: &GoCompilerChoice, release: &WasmReleaseStep) -> String {
-        let mut identity = format!("{choice:?} {}", release.identity());
+        let mut identity = format!("{choice:?} {} {}", release.identity(), Self::CACHED_FILES);
         for compiler in [Some(choice.first), choice.fallback].into_iter().flatten() {
             identity.push_str(&Self::version(compiler).await);
         }
@@ -76,9 +79,11 @@ impl GoWebBuild {
             .shrink(&output, compiled.compiler.optimizer_flags)
             .await;
         let note = release.release_only(compiled.note(shrunk));
+        let (glue, license) = compiled.compiler.glue_and_license().await?;
         let build = Self {
             wasm: native_io(std::fs::read(&output), &output)?,
-            glue: compiled.compiler.glue().await?,
+            glue,
+            license,
             note,
         };
         Ok((build, shrunk == release.will_shrink()))
@@ -151,6 +156,7 @@ impl GoWebBuild {
         Ok(Self {
             wasm: std::fs::read(cached.join(GoCompiler::OUTPUT))?,
             glue: std::fs::read(cached.join(Self::GLUE))?,
+            license: std::fs::read(cached.join(Self::LICENSE))?,
             note: (!note.is_empty()).then_some(note),
         })
     }
@@ -169,6 +175,7 @@ impl GoWebBuild {
             .tempdir_in(cache)?;
         std::fs::write(copy.path().join(GoCompiler::OUTPUT), &self.wasm)?;
         std::fs::write(copy.path().join(Self::GLUE), &self.glue)?;
+        std::fs::write(copy.path().join(Self::LICENSE), &self.license)?;
         std::fs::write(
             copy.path().join(Self::NOTE),
             self.note.as_deref().unwrap_or_default(),

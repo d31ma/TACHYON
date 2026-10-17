@@ -156,6 +156,14 @@ points are not written above, or differ from how other languages spell them:
   `wasm_exec.js` from the toolchain that built it. The page fetches both
   files from its own origin; the module is not embedded as base64. So, as for
   C#, a page opened from `file:` cannot load a Go service.
+- (Amended 2026-10-17) `wasm_exec.js` keeps its notice that its license
+  "can be found in the LICENSE file". So the build also writes
+  `.tachyon/services/go/LICENSE`: the `LICENSE` file at the root of the
+  toolchain that built the module (`go env GOROOT` for the standard
+  compiler, `tinygo env TINYGOROOT` for TinyGo). A Go installation without
+  that file, such as some Linux packages, ships the Go 1.27.0 `LICENSE` that
+  `runtimes/go-web/LICENSE` keeps. Route budgets do not count the file,
+  because a page never loads it.
 - Each service compiles in its own Go package, as each Rust service sits in
   its own module. A service's behavior code and its copy of the client models
   stay inside that package, so two services never clash. (Replaced: all Go
