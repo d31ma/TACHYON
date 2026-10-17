@@ -30,9 +30,17 @@ impl AnnotationValidation {
         crate::fsharp_source::FsharpStyle::check(path, source)?;
         crate::lua_source::LuaStyle::validate(path, source)?;
         crate::lua_source::LuaStyle::check_rules(path, source)?;
-        LuaView::either(path, source, |path, source| {
-            FolderRoleCheck::check_source(path, source)?;
-            Input::validate_source(path, source)
-        })
+        LuaView::either_shadow(
+            path,
+            source,
+            |path, source| {
+                FolderRoleCheck::check_source(path, source)?;
+                Input::validate_source(path, source)
+            },
+            |path, source| {
+                FolderRoleCheck::check_source(path, source)?;
+                Input::validate_lua_shadow(path, source)
+            },
+        )
     }
 }

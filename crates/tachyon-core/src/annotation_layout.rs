@@ -113,7 +113,12 @@ pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
 }
 
 pub(crate) fn validate_transformed(path: &Path, source: &str) -> Result<(), Failure> {
-    LuaView::either(path, source, Input::validate_source)
+    LuaView::either_shadow(
+        path,
+        source,
+        Input::validate_source,
+        Input::validate_lua_shadow,
+    )
 }
 
 fn check_topics(path: &Path, source: &str) -> Result<(), Failure> {
@@ -458,6 +463,16 @@ struct Input<'a> {
 
 impl<'a> Input<'a> {
     fn validate_source(path: &Path, source: &str) -> Result<(), Failure> {
+        Self::validate_layout(path, source)?;
+        crate::annotation_rules::AnnotationRules::check(path, source)
+    }
+
+    fn validate_lua_shadow(path: &Path, source: &str) -> Result<(), Failure> {
+        Self::validate_layout(path, source)?;
+        crate::annotation_rules::AnnotationRules::check_lua_shadow(path, source)
+    }
+
+    fn validate_layout(path: &Path, source: &str) -> Result<(), Failure> {
         reject_renamed_annotations(path, source)?;
         ImportBoundary::check(path, source)?;
         UtilityLayout::check(path, source)?;
@@ -476,8 +491,7 @@ impl<'a> Input<'a> {
             InlineModelCheck::check(path, source)?;
             FileNameCheck::check(path, source)?;
         }
-        crate::declared_contract::DeclaredContract::check(path, source)?;
-        crate::annotation_rules::AnnotationRules::check(path, source)
+        crate::declared_contract::DeclaredContract::check(path, source)
     }
 
     const MAX_CAPTURED_SOURCE: usize = 16 * 1024 * 1024;

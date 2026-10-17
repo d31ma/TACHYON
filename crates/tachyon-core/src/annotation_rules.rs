@@ -271,6 +271,10 @@ impl AnnotationRules {
     pub(crate) const YON_RESOURCE: &'static [&'static str] = &[
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
     ];
+    const YON_CLIENT: &'static [&'static str] = &[
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
+        "lua",
+    ];
     const TAC: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "hpp",
     ];
@@ -299,7 +303,7 @@ impl AnnotationRules {
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
     ];
     pub(crate) const YON_BACKGROUND: &'static [&'static str] =
-        &["js", "ts", "py", "kt", "dart", "cs", "fs"];
+        &["js", "ts", "py", "kt", "dart", "cs", "fs", "lua"];
     const YON_STREAM: &'static [&'static str] = &[
         "js", "ts", "py", "php", "kt", "cs", "fs", "dart", "rb", "lua", "go",
     ];
@@ -859,7 +863,7 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a class that sends HTTP requests and gives the path they start with",
         )
-        .reach(Self::TAC_REMOTE, Self::YON_RESOURCE),
+        .reach(Self::TAC_REMOTE, Self::YON_CLIENT),
         Rule::new(
             "GetRequest",
             Self::METHOD,
@@ -1029,6 +1033,10 @@ impl AnnotationRules {
             let message = scan::Messages::unavailable(rule, "cs", Realm::Yon);
             Err(Self::failure_at(path, source, at, rule.code, &message))
         })
+    }
+
+    pub(crate) fn check_lua_shadow(path: &Path, source: &str) -> Result<(), Failure> {
+        Self::check_as(path, source, crate::lua_source::LuaSource::EXTENSION)
     }
 
     fn check_direct(path: &Path, source: &str) -> Result<(), Failure> {
@@ -1213,7 +1221,7 @@ impl Rule {
     const fn request(self) -> Self {
         Self {
             tac: AnnotationRules::TAC_REMOTE,
-            yon: AnnotationRules::YON_RESOURCE,
+            yon: AnnotationRules::YON_CLIENT,
             clashes: AnnotationRules::HTTP_METHODS,
             class_needs: &["HTTPClient"],
             ..self
@@ -1234,7 +1242,7 @@ impl Rule {
     const fn request_part(self) -> Self {
         Self {
             tac: AnnotationRules::TAC_REMOTE,
-            yon: AnnotationRules::YON_RESOURCE,
+            yon: AnnotationRules::YON_CLIENT,
             clashes: AnnotationRules::REQUEST_PARTS,
             class_needs: &["HTTPClient"],
             ..self

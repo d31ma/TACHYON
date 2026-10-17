@@ -172,3 +172,102 @@ async fn a_lua_stream_route_yields_each_value_from_a_coroutine() {
         ]
     );
 }
+
+struct LuaClients;
+
+impl LuaClients {
+    const CATALOG: [(&str, &str); 5] = [
+        (
+            "server/helpers/EchoHttpHelper.lua",
+            "-- @Helper\n---@class EchoHttpHelper\nEchoHttpHelper = {}\n\n---@param request table\n---@param execution table\n---@return table\nfunction EchoHttpHelper:exchange(request, execution)\n  return { method = request.method, path = request.path, query = request.query, headers = request.headers, body = request.body, partition = execution.partition }\nend\n",
+        ),
+        (
+            "server/setups/CatalogSetup.lua",
+            "-- @Setup\n---@class CatalogSetup\nCatalogSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  return { http = { catalog = EchoHttpHelper } }\nend\n",
+        ),
+        (
+            "server/remotes/CatalogClient.lua",
+            "-- @HTTPClient({\"path\":\"/api\"})\n---@class CatalogClient\nCatalogClient = {}\n\n---@param id string\n---@param view string\n---@param tenant string\n---@return table\n-- @GetRequest(\"/products/{id}\")\nfunction CatalogClient:find(\n  -- @PathVariable(\"id\")\n  id,\n  -- @RequestParam(\"view\")\n  view,\n  -- @RequestHeader(\"X-Tenant\")\n  tenant\n)\nend\n\n---@param product table\n---@return table\n-- @PostRequest(\"/products\")\nfunction CatalogClient:save(\n  -- @RequestBody\n  product\n)\nend\n\n---@param id integer\n---@return table\n-- @DeleteRequest(\"/products/{id}\")\nfunction CatalogClient:remove(\n  -- @PathVariable(\"id\")\n  id\n)\nend\n",
+        ),
+        (
+            "server/controllers/CatalogController.lua",
+            "-- @RequestRoute(\"/catalog\")\n-- @Public\n---@class CatalogController\nCatalogController = {\n  -- @Needs\n  ---@type CatalogClient\n  catalog_client = nil,\n}\n\n---@return table\n-- @GetRoute\nfunction CatalogController:get_catalog()\n  return { found = self.catalog_client:find(\"anvil\", \"full\", \"acme\"), saved = self.catalog_client:save({ sku = \"anvil\" }), removed = self.catalog_client:remove(7) }\nend\n",
+        ),
+        (
+            "server/tests/CatalogClientTest.lua",
+            "-- @Test(CatalogSetup, {\"partition\":\"tests\"})\n---@class CatalogClientTest\nCatalogClientTest = {}\n\nfunction CatalogClientTest:test_a_path_variable_fills_the_path()\n  Assert.equals(\"/api/products/anvil\", self:construct(CatalogClient):find(\"anvil\", \"full\", \"acme\").path)\nend\n",
+        ),
+    ];
+}
+
+fn write_project(files: &[(&str, &str)]) -> tempfile::TempDir {
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in files {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, text).expect("source");
+    }
+    root
+}
+
+#[tokio::test]
+async fn a_lua_http_client_sends_each_request_through_its_setup_adapter() {
+    if !lua_available() {
+        eprintln!("skipping: lua is unavailable");
+        return;
+    }
+    let root = write_project(&LuaClients::CATALOG);
+    let answer = call(
+        root.path(),
+        "server/controllers/CatalogController.lua",
+        "/catalog",
+        HttpMethod::Get,
+    )
+    .await;
+    assert_eq!(
+        answer,
+        serde_json::json!({
+            "found": {
+                "method": "GET",
+                "path": "/api/products/anvil",
+                "query": {"view": "full"},
+                "headers": {"X-Tenant": "acme"},
+                "partition": "catalog",
+            },
+            "saved": {
+                "method": "POST",
+                "path": "/api/products",
+                "query": {},
+                "headers": {},
+                "body": {"sku": "anvil"},
+                "partition": "catalog",
+            },
+            "removed": {
+                "method": "DELETE",
+                "path": "/api/products/7",
+                "query": {},
+                "headers": {},
+                "partition": "catalog",
+            },
+        })
+    );
+}
+
+#[tokio::test]
+async fn a_lua_test_unit_constructs_an_http_client_with_its_setup() {
+    if !lua_available() {
+        eprintln!("skipping: lua is unavailable");
+        return;
+    }
+    let root = write_project(&LuaClients::CATALOG);
+    let report = call(
+        root.path(),
+        "server/tests/CatalogClientTest.lua",
+        "/",
+        HttpMethod::Post,
+    )
+    .await;
+    let cases = report["cases"].as_array().expect("cases");
+    assert_eq!(cases.len(), 1, "{report}");
+    assert_eq!(cases[0]["passed"], true, "{report}");
+}

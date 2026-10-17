@@ -585,6 +585,7 @@ members: the behavior context, the constructor and every body.
 | F# | `type CatalogClient =` with only `abstract` members (an F# interface) | an `abstract` member |
 | Python | `class CatalogClient(Protocol)` | `...` |
 | JavaScript, TypeScript, Ruby | `class CatalogClient` | an empty body |
+| Lua (Yon) | `CatalogClient = {}` marked `-- @HTTPClient` | `function CatalogClient:find(...)` with an empty body |
 
 JavaScript and Ruby have no method without a body, and TypeScript accepts
 annotations only on a method with a body (an interface or an `abstract` member

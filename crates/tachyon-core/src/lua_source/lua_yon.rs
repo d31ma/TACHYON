@@ -2,7 +2,7 @@ use super::{
     LuaBehaviorEdits, LuaInput, LuaLowering, LuaResources, LuaSockets, LuaTestUnit, LuaView,
 };
 use crate::Failure;
-use crate::behavior::LuaBehaviorPlan;
+use crate::behavior::{HttpClientSource, LuaBehaviorPlan};
 use crate::events::EventModule;
 use crate::failure::{diagnostic, source_span};
 use crate::yon::Lowered;
@@ -46,6 +46,8 @@ impl LuaYon {
         let text = events
             .as_ref()
             .map_or(view.text(), |module| module.source.as_str());
+        let clients = HttpClientSource::rewrite(view.path(), text).map_err(mapped)?;
+        let text = clients.as_deref().unwrap_or(text);
         let behaviors = LuaBehaviorPlan::read(view.path(), text, Self::REALM).map_err(mapped)?;
         let erased = behaviors.as_ref().map_or(text, |plan| plan.erased.as_str());
         let parsed = crate::yon::parser::parse(view.path(), erased).map_err(mapped)?;
@@ -82,8 +84,13 @@ impl LuaYon {
     fn test_unit(input: &LuaInput<'_>) -> Result<Option<Lowered>, Failure> {
         let view = input.view;
         let mapped = |failure: Failure| view.failure(&failure);
-        let behaviors =
-            LuaBehaviorPlan::read(view.path(), view.text(), Self::REALM).map_err(mapped)?;
+        let clients = HttpClientSource::rewrite(view.path(), view.text()).map_err(mapped)?;
+        let behaviors = LuaBehaviorPlan::read(
+            view.path(),
+            clients.as_deref().unwrap_or(view.text()),
+            Self::REALM,
+        )
+        .map_err(mapped)?;
         let text = behaviors
             .as_ref()
             .map_or(view.text(), |plan| plan.erased.as_str());

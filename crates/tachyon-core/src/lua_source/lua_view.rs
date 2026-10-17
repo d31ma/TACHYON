@@ -63,6 +63,18 @@ impl LuaView {
         )
     }
 
+    pub(crate) fn either_shadow<T>(
+        path: &Path,
+        source: &str,
+        check: impl Fn(&Path, &str) -> Result<T, Failure>,
+        shadow_check: impl Fn(&Path, &str) -> Result<T, Failure>,
+    ) -> Result<T, Failure> {
+        Self::of(path, source).map_or_else(
+            || crate::fsharp_source::FsharpView::either(path, source, &check),
+            |view| view.checked(&shadow_check),
+        )
+    }
+
     pub(crate) fn path(&self) -> &Path {
         &self.shadow_path
     }

@@ -387,6 +387,61 @@ function BehaviorBoundary.callable(value)
   return type(meta) == "table" and type(meta.__call) == "function"
 end
 
+BehaviorExchange = {
+  PATH_VALUE = "^[%w._~-]+$",
+  MAX_PATH_VALUE = 256,
+}
+
+function BehaviorExchange.scalar(value)
+  return type(value) == "string" or type(value) == "number" or type(value) == "boolean"
+end
+
+function BehaviorExchange.path(policy, arguments)
+  local path = policy.path
+  for name, index in pairs(policy.pathVariables or {}) do
+    local value = arguments[index + 1]
+    local text = value
+    if type(value) == "number" or type(value) == "boolean" then
+      text = tostring(value)
+    end
+    local safe = type(text) == "string" and #text <= BehaviorExchange.MAX_PATH_VALUE
+      and text:match(BehaviorExchange.PATH_VALUE) ~= nil and text ~= "." and text ~= ".."
+    if not safe then
+      BehaviorBoundary.invalid("A path variable may use only letters, digits and - _ . ~")
+    end
+    path = path:gsub("{" .. name:gsub("%p", "%%%0") .. "}", text)
+  end
+  return path
+end
+
+function BehaviorExchange.present(value, message)
+  if value == nil or value == YonNull then
+    BehaviorBoundary.invalid(message)
+  end
+  return value
+end
+
+function BehaviorExchange.request(policy, arguments)
+  local count = arguments.n or #arguments
+  local pick = function(index)
+    if index >= count then
+      BehaviorBoundary.invalid("A request argument is missing.")
+    end
+    return arguments[index + 1]
+  end
+  local descriptor = { query = {}, headers = {} }
+  for name, index in pairs(policy.query or {}) do
+    descriptor.query[name] = BehaviorExchange.present(pick(index), "Invalid HTTP query.")
+  end
+  for name, index in pairs(policy.headers or {}) do
+    descriptor.headers[name] = BehaviorExchange.present(pick(index), "Invalid HTTP header.")
+  end
+  if policy.body ~= nil then
+    descriptor.body = pick(policy.body)
+  end
+  return descriptor
+end
+
 BehaviorOpenTransactions = { open = {} }
 
 function BehaviorOpenTransactions.of(adapter)
@@ -410,8 +465,12 @@ function BehaviorOpenTransactions.within(adapter, identifier, action)
 end
 
 BehaviorContext = {
-  ADAPTER_GROUPS = { "caches", "entities" },
-  ADAPTER_KEYS = { "caches", "entities", "authorize", "authorizeEntity" },
+  ADAPTER_GROUPS = { "caches", "http", "entities" },
+  ADAPTER_KEYS = { "caches", "http", "entities", "authorize", "authorizeEntity" },
+  READS = { GET = true, HEAD = true },
+  TRANSPORT_HEADERS = { host = true, connection = true, ["content-length"] = true, ["transfer-encoding"] = true, cookie = true },
+  HEADER_NAME = "^[!#$%%&'*+.^_`|~%w-]+$",
+  MAX_RESPONSE_BYTES = 1048576,
   RESERVED_NAMES = { __proto__ = true, prototype = true, constructor = true, behaviors = true, tac = true },
   RESULT_KINDS = { find = "list", count = "count", exists = "boolean" },
 }
@@ -744,9 +803,66 @@ function BehaviorContext:body(metadata, arguments, original, execution)
   if metadata.mapping ~= nil then
     return BehaviorBoundary.map_value(metadata.mapping, arguments)
   end
+  local policy = metadata.httpExchange
+  if policy ~= nil and policy.generated then
+    local generated = {}
+    for key, value in pairs(policy) do
+      generated[key] = value
+    end
+    generated.path = BehaviorExchange.path(policy, arguments)
+    return self:exchange(generated, BehaviorExchange.request(policy, arguments), execution)
+  end
   local result = original(table.unpack(arguments, 1, arguments.n or #arguments))
   execution:check()
+  if policy ~= nil then
+    result = self:exchange(policy, result, execution)
+  end
   return result
+end
+
+function BehaviorContext:exchange(policy, descriptor, execution)
+  descriptor = BehaviorBoundary.copy(BehaviorBoundary.keys(descriptor, { "query", "headers", "body" }))
+  local query = descriptor.query or {}
+  local headers = descriptor.headers or {}
+  if type(query) ~= "table" or type(headers) ~= "table" then
+    BehaviorBoundary.invalid("Invalid HTTP descriptor.")
+  end
+  for _, value in pairs(query) do
+    if not BehaviorExchange.scalar(value) then
+      BehaviorBoundary.invalid("Invalid HTTP query.")
+    end
+  end
+  for name, value in pairs(headers) do
+    BehaviorContext.check_header(name, value)
+  end
+  if BehaviorContext.READS[policy.method] and descriptor.body ~= nil then
+    BehaviorBoundary.invalid("HTTP reads cannot contain a request body.")
+  end
+  local request = {
+    method = policy.method,
+    path = policy.path,
+    query = setmetatable(query, YonJson.OBJECT),
+    headers = setmetatable(headers, YonJson.OBJECT),
+    body = descriptor.body,
+    redirect = "error",
+    credentials = "omit",
+    maxResponseBytes = BehaviorContext.MAX_RESPONSE_BYTES,
+    signal = execution.signal,
+    deadline = execution.deadline,
+  }
+  local action = self:adapter("http", policy.client, "exchange")
+  return BehaviorBoundary.copy(BehaviorBoundary.adapter(action, { request, execution, n = 2 }, execution))
+end
+
+function BehaviorContext.check_header(name, value)
+  local valid = type(name) == "string" and #name >= 1 and #name <= 128 and name:match(BehaviorContext.HEADER_NAME) ~= nil
+    and type(value) == "string" and value:find("[\r\n\0]") == nil
+  if not valid then
+    BehaviorBoundary.invalid("Invalid HTTP header.")
+  end
+  if BehaviorContext.TRANSPORT_HEADERS[string.lower(name)] then
+    BehaviorBoundary.invalid("HTTP header is transport-owned.")
+  end
 end
 
 function BehaviorContext:mutate(record, metadata, arguments, original, execution)

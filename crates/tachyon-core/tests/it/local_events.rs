@@ -771,6 +771,37 @@ async fn lua_events_and_lifecycle() {
 }
 
 #[tokio::test]
+async fn a_lua_in_background_listener_runs_after_the_others_and_publishes_nothing() {
+    if !runtime_available("lua") {
+        return;
+    }
+    let root = tempfile::tempdir().expect("fixture");
+    let files = [
+        LuaProbe::FILES[0],
+        LuaProbe::FILES[1],
+        (
+            "server/services/ProbeService.lua",
+            "-- @Service\n---@class ProbeService\nProbeService = {\n  ---@type string[]\n  log = {},\n}\n\n---@param value ProbeReady\n---@return ProbeDerived\n-- @OnEvent\n-- @Order(-5)\n-- @InBackground\nfunction ProbeService:later(value)\n  self.log[#self.log + 1] = \"later:\" .. value.status\n  return setmetatable({ tag = \"late\" }, ProbeDerived)\nend\n\n---@param value ProbeReady\n---@return nil\n-- @OnEvent\nfunction ProbeService:now(value)\n  self.log[#self.log + 1] = \"now:\" .. value.status\nend\n\n---@param value ProbeDerived\n---@return nil\n-- @OnEvent\nfunction ProbeService:derived(value)\n  self.log[#self.log + 1] = \"derived:\" .. value.tag\nend\n",
+        ),
+        (
+            "server/controllers/ProbeController.lua",
+            "-- @RequestRoute(\"/probe\")\n-- @Public\n---@class ProbeController\nProbeController = {\n  -- @Needs\n  ---@type ProbeService\n  probe_service = nil,\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@return table\n-- @GetRoute\nfunction ProbeController:get_probe()\n  self.application_event_publisher:publish_event(setmetatable({ status = \"paid\", total = 10 }, ProbeReady))\n  local published = #self.probe_service.log\n  return { published = published, log = self.probe_service.log }\nend\n",
+        ),
+    ];
+    for (relative, text) in files {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, text).expect("source");
+    }
+    let source = HandlerSource::discover(root.path(), "server/controllers/ProbeController.lua")
+        .unwrap_or_else(|failure| panic!("{failure}"));
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    let expected = serde_json::json!({"published": 0, "log": ["now:paid", "later:paid"]});
+    assert_event_results("lua", &source, &supervisor, &expected).await;
+}
+
+#[tokio::test]
 async fn ruby_publishes_an_event_that_no_listener_takes() {
     execute_expected(
         "rb",

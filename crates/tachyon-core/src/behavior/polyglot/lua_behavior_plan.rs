@@ -12,8 +12,7 @@ pub(crate) struct LuaBehaviorPlan {
 }
 
 impl LuaBehaviorPlan {
-    const RESOURCES: [(&'static str, &'static str); 2] =
-        [("gateway", "Gateway"), ("httpExchange", "HTTPClient")];
+    const RESOURCES: [(&'static str, &'static str); 1] = [("gateway", "Gateway")];
 
     pub(crate) fn read(
         path: &Path,

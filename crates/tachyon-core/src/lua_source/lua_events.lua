@@ -117,6 +117,7 @@ function YonEvents:listen(options, callback, replay, key)
       callback = callback,
       order = math.tointeger(options.order) or 0,
       condition = options.condition,
+      background = options.async == true,
       models = options.models,
       returns = options.returns,
       sequence = #self.listeners,
@@ -164,10 +165,14 @@ function YonEvents:drain()
       io.stderr:write("Yon local event delivery bound exceeded.\n")
       return
     end
+    local deferred = {}
     for _, listener in ipairs(self.listeners) do
       if listener.name == event[1] then
-        self:deliver(listener, event[1], event[2])
+        self:deliver(listener, event[1], event[2], deferred)
       end
+    end
+    for _, later in ipairs(deferred) do
+      self:run_later(later[1], later[2])
     end
   end
   self:send_topics()
@@ -197,7 +202,7 @@ function YonEvents:close()
   YonEvents.active = nil
 end
 
-function YonEvents:deliver(listener, name, encoded)
+function YonEvents:deliver(listener, name, encoded, deferred)
   local ok = pcall(function()
     local value = YonJson.decode(encoded)
     if listener.models ~= nil and not YonEventModels.fits(listener.models, name, value) then
@@ -207,8 +212,19 @@ function YonEvents:deliver(listener, name, encoded)
     if listener.condition ~= nil and not YonEventConditions.matches(listener.condition, value, name) then
       return
     end
+    if listener.background then
+      deferred[#deferred + 1] = { listener, value }
+      return
+    end
     self:republish(listener.callback(value), listener.returns)
   end)
+  if not ok then
+    io.stderr:write("Yon local event listener failed.\n")
+  end
+end
+
+function YonEvents:run_later(listener, value)
+  local ok = pcall(listener.callback, value)
   if not ok then
     io.stderr:write("Yon local event listener failed.\n")
   end

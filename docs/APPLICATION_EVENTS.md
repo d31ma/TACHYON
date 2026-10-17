@@ -280,12 +280,14 @@ This is not an error, and nothing is republished for it.
   event is delivered. An `async void` listener is a compile error.
 - Yon F# defers it through the same C# event runtime. An F# listener stays
   synchronous and returns `unit` or a model record.
+- Lua runs it after the other listeners of the same event, in the same drain
+  pass, so the publisher does not wait for it (ADR 0085).
 
 An async listener never republishes its return value, as in Spring.
 
 `@InBackground` is a compile error in Yon PHP, Java, Groovy and Rust, because
 their event runtimes do not defer listeners yet. The error is "InBackground
-listeners require a Yon language that defers them (js, ts, py, kt, dart, cs, fs)".
+listeners require a Yon language that defers them (js, ts, py, kt, dart, cs, fs, lua)".
 
 ### Returned events
 

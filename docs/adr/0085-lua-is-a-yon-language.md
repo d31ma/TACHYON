@@ -2,7 +2,8 @@
 
 - Status: Accepted; amended 2026-09-29 (Tac Lua services), 2026-10-04 (Lua
   stores, Schedule and converter nulls), 2026-10-16 (a Tac Lua Needs field
-  cannot name another service)
+  cannot name another service), 2026-10-17 (Yon Lua HTTP clients and
+  InBackground)
 - Date: 2026-09-29
 - Builds on: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes),
   [ADR 0050](0050-go-annotations-are-comments.md) (comment markers),
@@ -370,3 +371,40 @@ This amendment replaces "Topic stops the build in Lua" above.
   use `-- @Needs` and are not affected. A Lua service that wants another
   service lets the view call it, or publishes an event that the other
   service handles with `-- @OnEvent`.
+
+## Amendment 2026-10-17: Yon Lua HTTP clients and InBackground
+
+- `-- @HTTPClient`, `-- @GetRequest`, `-- @PostRequest`, `-- @PutRequest`,
+  `-- @PatchRequest`, `-- @DeleteRequest`, `-- @PathVariable`,
+  `-- @RequestParam`, `-- @RequestBody` and `-- @RequestHeader` work in Yon
+  Lua. A Yon HTTPClient never needed the resource channel: like Ruby, it sends
+  each request through the `http` adapter of its Setup, so the refusal was
+  wider than the missing sockets.
+- A Lua client is a class table in `server/remotes/` or `server/clients/`,
+  marked `-- @HTTPClient`, whose methods have empty bodies. Parameter markers
+  stand inside the parameter list, above the parameter they mark. Tachyon adds
+  an `-- @OnStart` method, `start_context`, that opens the behavior context from
+  the Setup (`{"setup":"CatalogSetup"}`, or the client name with `Setup`
+  instead of `Client`), with the adapter name as the partition. A controller or
+  service asks for the client with a typed `-- @Needs` field, and a test unit
+  builds it with `self:construct(CatalogClient)`.
+- The Lua behavior runtime builds the request like the Ruby one: it fills the
+  path variables (letters, digits and `- _ . ~` only), the query, the headers
+  and the body from the arguments, refuses a missing query or header value, a
+  body on GET or HEAD and a transport-owned header, and calls
+  `adapter:exchange(request, execution)` of the Setup's `http` adapter named
+  by the client. The request carries `method`, `path`, `query`, `headers`,
+  `body`, `redirect = "error"`, `credentials = "omit"`,
+  `maxResponseBytes`, `signal` and `deadline`. Stock Lua has no HTTP library,
+  so the adapter is the application's code, as for caches and entities.
+- `-- @InBackground` works on a Yon Lua `-- @OnEvent` method. The Lua event
+  runtime runs such a listener after every other listener of the same event,
+  in the same drain pass, and never publishes its return value again. That is
+  what JavaScript, TypeScript and Python do, and it needs no asynchronous
+  methods. The other event checks are unchanged: a Lua method still cannot be
+  asynchronous.
+- The rule table checks a Lua file's Ruby shadow with the Lua language list,
+  so a marker that Lua accepts and Ruby refuses no longer stops the build in
+  Ruby words.
+- `@Gateway` stays refused in Lua: a gateway call waits for an answer from
+  another language over the resource channel, and stock Lua cannot open it.
