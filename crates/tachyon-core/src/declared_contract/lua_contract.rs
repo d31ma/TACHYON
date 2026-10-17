@@ -11,14 +11,14 @@ pub(crate) struct LuaContract<'a> {
 }
 
 impl<'a> LuaContract<'a> {
-    const YON: &'static str = "yon";
+    const REALMS: [&'static str; 2] = ["yon", "tac"];
     const LANGUAGE: &'static str = "lua";
     const SHADOW_LANGUAGE: &'static str = "rb";
     const PROVIDER: &'static str = "-- @Store\n";
     const CLIENT: &'static str = "HTTPClient";
 
     pub(crate) fn lower(path: &Path, source: &'a str, environment: &str) -> Option<String> {
-        let view = LuaView::of(path, source).filter(|_| environment == Self::YON)?;
+        let view = LuaView::of(path, source).filter(|_| Self::REALMS.contains(&environment))?;
         let contract = Self { source, view };
         contract
             .contract()

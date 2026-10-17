@@ -224,21 +224,24 @@ fn a_lua_service_registers_its_public_members_after_the_prelude() {
 }
 
 #[test]
-fn a_behavior_annotation_on_a_lua_service_names_the_later_step() {
+fn a_behavior_annotation_on_a_lua_service_wraps_the_method_for_the_page() {
     let root = tempfile::tempdir().expect("project");
     let service = Page::write(
         root.path(),
         "client/services/PriceService.lua",
         "-- @Service\n---@class PriceService\nPriceService = {}\n\n---@param sku string\n---@return integer\n-- @Retry({\"maxRetries\":3,\"delayMs\":5,\"multiplier\":1,\"maxDelayMs\":5,\"jitterMs\":0})\nfunction PriceService:price(sku)\n  return #sku\nend\n",
     );
-    let failure = LuaWebServices::program(
+    let program = LuaWebServices::program(
         root.path(),
         &[(String::from("price"), String::from("PriceService"), service)],
     )
-    .expect_err("a Lua service refuses behavior annotations");
-    let text = failure.to_string();
-    assert!(text.contains("ADR 0085"), "{text}");
-    assert!(text.contains("PriceService.lua"), "{text}");
+    .unwrap_or_else(|failure| panic!("{failure}"));
+    assert!(
+        program.contains("function PriceService:price(sku) return self.behaviors:invoke(self, \"PriceService\", \"price\", table.pack(sku), function(sku)"),
+        "{program}"
+    );
+    assert!(program.contains("Behaviors.register([["), "{program}");
+    assert!(program.contains("]], \"tac\", "), "{program}");
 }
 
 #[test]

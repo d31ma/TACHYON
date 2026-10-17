@@ -157,6 +157,9 @@ function TacServices.construct(class)
       error("Missing converter provider " .. name, 0)
     end
     instance[field] = TacServices.construct(provider)
+    if type(provider.start_context) == "function" then
+      instance[field]:start_context()
+    end
   end
   return setmetatable(instance, {
     __index = function(_, key)

@@ -658,6 +658,9 @@ end
 
 function BehaviorContext:adapter(group, name, operation)
   local found = (self.adapters[group] or {})[name]
+  if found == nil then
+    found = BehaviorStorage.adapter(group, name)
+  end
   local action = type(found) == "table" and found[operation] or nil
   if type(action) ~= "function" then
     BehaviorBoundary.invalid("Required behavior adapter is missing.")
@@ -665,6 +668,10 @@ function BehaviorContext:adapter(group, name, operation)
   return function(...)
     return action(found, ...)
   end
+end
+
+function BehaviorContext:builtin(group, name)
+  return (self.adapters[group] or {})[name] == nil and BehaviorStorage.adapter(group, name) ~= nil
 end
 
 function BehaviorContext:checked_arguments(arguments, metadata)
@@ -719,7 +726,8 @@ function BehaviorContext:cache_key(record, method, arguments, execution, operati
   selected = BehaviorBoundary.copy(selected, 4096)
   local call = { operation = operation, cache = record.cache.name, type = record.name, method = method, keyArguments = BehaviorBoundary.copy(selected) }
   local authorize = self.adapters.authorize
-  local allowed = BehaviorBoundary.callable(authorize) and BehaviorBoundary.adapter(authorize, { call, execution, n = 2 }, execution) == true
+  local built_in = authorize == nil and self:builtin("caches", record.cache.name)
+  local allowed = built_in or (BehaviorBoundary.callable(authorize) and BehaviorBoundary.adapter(authorize, { call, execution, n = 2 }, execution) == true)
   if not allowed then
     BehaviorError.raise("unauthorized", "Behavior cache access denied.")
   end
@@ -933,11 +941,12 @@ function BehaviorContext:query(policy, arguments, execution)
   local command = { operation = "query", entity = entity.name, table = entity.table, idField = entity.id, query = query }
   command.transaction = BehaviorOpenTransactions.of(entity.adapter)
   local authorize = self.adapters.authorizeEntity
-  if not BehaviorBoundary.callable(authorize) then
+  local built_in = authorize == nil and self:builtin("entities", entity.adapter)
+  if not built_in and not BehaviorBoundary.callable(authorize) then
     BehaviorBoundary.invalid("Store query requires entity authorization.")
   end
   local action = self:adapter("entities", entity.adapter, "execute")
-  if BehaviorBoundary.adapter(authorize, { BehaviorBoundary.copy(command), execution, n = 2 }, execution) ~= true then
+  if not built_in and BehaviorBoundary.adapter(authorize, { BehaviorBoundary.copy(command), execution, n = 2 }, execution) ~= true then
     BehaviorError.raise("unauthorized", "Store query was not authorized.")
   end
   local result = BehaviorBoundary.copy(BehaviorBoundary.adapter(action, { BehaviorBoundary.copy(command), execution, n = 2 }, execution))
@@ -1034,6 +1043,62 @@ function BehaviorContext:entity_value(record, operation, value)
   end
   BehaviorBoundary.entity_id(value)
   return value
+end
+
+BehaviorHostCache = {}
+BehaviorHostCache.__index = BehaviorHostCache
+
+function BehaviorHostCache.new(name)
+  return setmetatable({ name = name }, BehaviorHostCache)
+end
+
+function BehaviorHostCache:get(key)
+  return BehaviorStorage.ask({ op = "cache.get", cache = self.name, key = key })
+end
+
+function BehaviorHostCache:set(key, value, execution)
+  return BehaviorStorage.ask({ op = "cache.set", cache = self.name, key = key, value = value,
+    expiresAt = execution.expires_at, maxEntries = execution.policy.maxEntries })
+end
+
+function BehaviorHostCache:delete(key)
+  return BehaviorStorage.ask({ op = "cache.delete", cache = self.name, key = key })
+end
+
+BehaviorHostEntities = {}
+BehaviorHostEntities.__index = BehaviorHostEntities
+
+function BehaviorHostEntities:execute(command)
+  return BehaviorStorage.ask({ op = "entity", command = command })
+end
+
+BehaviorStorage = {}
+
+function BehaviorStorage.adapter(group, name)
+  if Behaviors.environment ~= "tac" or TacWebHost == nil then
+    return nil
+  end
+  if group == "caches" then
+    return BehaviorHostCache.new(name)
+  end
+  if group == "entities" and name == "indexeddb" then
+    return setmetatable({}, BehaviorHostEntities)
+  end
+  return nil
+end
+
+function BehaviorStorage.ask(request)
+  local answer = TacWebHost.ask(request)
+  if type(answer.error) == "string" then
+    BehaviorError.raise("storage", answer.error)
+  end
+  if type(answer.error) == "table" then
+    BehaviorError.raise("storage", "Tachyon storage did not answer.")
+  end
+  if answer.value == YonNull then
+    return nil
+  end
+  return answer.value
 end
 
 BehaviorRepository = {}

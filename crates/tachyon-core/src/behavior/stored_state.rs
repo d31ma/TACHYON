@@ -23,7 +23,7 @@ impl StoredState {
     }
 
     pub(crate) fn fields(path: &Path, source: &str) -> Result<BTreeMap<String, String>, Failure> {
-        crate::fsharp_source::FsharpView::either(path, source, Self::written_fields)
+        crate::lua_source::LuaView::either(path, source, Self::written_fields)
     }
 
     fn written_fields(path: &Path, source: &str) -> Result<BTreeMap<String, String>, Failure> {

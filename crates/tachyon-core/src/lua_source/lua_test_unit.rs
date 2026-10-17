@@ -109,8 +109,27 @@ impl<'u> LuaTestUnit<'u> {
             "{{ partition = {}, profiles = YonJson.decode({}), properties = YonJson.decode({}) }}",
             Self::quoted(&self.unit.partition),
             Self::quoted(&self.unit.profiles.to_string()),
-            Self::quoted(&self.unit.properties.to_string())
+            Self::quoted(&self.flat_properties().to_string())
         )
+    }
+
+    fn flat_properties(&self) -> serde_json::Value {
+        let flat = self
+            .unit
+            .properties
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter_map(|(path, value)| {
+                let text = match value {
+                    serde_json::Value::String(text) => text.clone(),
+                    serde_json::Value::Null => return None,
+                    other => other.to_string(),
+                };
+                Some((path.replace('.', "_").to_ascii_uppercase(), text.into()))
+            })
+            .collect();
+        serde_json::Value::Object(flat)
     }
 
     fn quoted(text: &str) -> String {

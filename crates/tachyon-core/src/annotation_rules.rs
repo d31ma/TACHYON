@@ -281,19 +281,21 @@ impl AnnotationRules {
     const TAC_ROLE: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",
     ];
-    pub(crate) const TAC_RESOURCE: &'static [&'static str] =
-        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
+    pub(crate) const TAC_RESOURCE: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua",
+    ];
     const TAC_REMOTE: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "hpp",
     ];
     const TAC_BEHAVIOR: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "lua",
     ];
     const TAC_FAKE: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "hpp",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "hpp", "lua",
     ];
-    const TAC_BEHAVIOR_ADAPTER: &'static [&'static str] =
-        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
+    const TAC_BEHAVIOR_ADAPTER: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua",
+    ];
     const TAC_HELPER: &'static [&'static str] =
         &["js", "ts", "dart", "rs", "py", "cs", "fs", "go", "rb"];
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
