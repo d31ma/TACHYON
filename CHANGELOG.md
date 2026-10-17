@@ -490,7 +490,9 @@ machine contracts have their own, independent major versions.
   reads its own configuration. Before, it read the emsdk configuration,
   could not find its compiler (`"$CFGDIR/upstream/bin/clang"`,
   `FileNotFoundError`) and the build stopped with TY1605. The emsdk
-  setting stays in the terminal for Tachyon's own `emcc` builds.
+  setting stays in the terminal for Tachyon's own `emcc` builds. The C#
+  web publish, which relinks the .NET runtime with Emscripten, now has the
+  15-minute deadline of the other long native tools instead of 2 minutes.
 
 - On Windows, Tachyon now runs `emcc` from Emscripten 6.0.10 and newer,
   which ships `emcc.exe` instead of `emcc.bat`. Before, `ty doctor` reported
