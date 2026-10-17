@@ -1067,10 +1067,8 @@ fn a_filled_field_keeps_its_non_null_form_and_state_keeps_its_value() {
 }
 
 #[test]
-fn python_tac_refuses_behavior_and_storage_annotations_but_keeps_listeners() {
+fn python_tac_refuses_behavior_annotations_but_keeps_listeners_and_stored_state() {
     for source in [
-        "from typing import Annotated\n\n@service\nclass SampleService:\n    count: Annotated[int, local_state] = 0\n",
-        "from typing import Annotated\n\n@service\nclass SampleService:\n    count: Annotated[int, session_state] = 0\n",
         "@service\nclass SampleService:\n    @retry({\"attempts\": 3})\n    def load(self) -> int:\n        return 1\n",
         "@service\n@cache_settings(\"prices\")\nclass SampleService:\n    @cached\n    def load(self) -> int:\n        return 1\n",
     ] {
@@ -1082,6 +1080,12 @@ fn python_tac_refuses_behavior_and_storage_annotations_but_keeps_listeners() {
     }
     let listener = "@service\nclass SampleService:\n    @on_event\n    def heard(self, event: Placed) -> None:\n        pass\n";
     assert_eq!(Sample::message("py", Realm::Tac, listener), None);
+    for stored in ["local_state", "session_state"] {
+        let source = format!(
+            "from typing import Annotated\n\n@service\nclass SampleService:\n    count: Annotated[int, {stored}] = 0\n"
+        );
+        assert_eq!(Sample::message("py", Realm::Tac, &source), None, "{stored}");
+    }
     let retried = "class SampleService:\n    @retry({\"attempts\": 3})\n    async def load(self) -> int:\n        return 1\n";
     assert_eq!(Sample::message("py", Realm::Yon, retried), None);
 }

@@ -16,6 +16,8 @@ pub(crate) struct SigilField {
 impl StoredState {
     const LOCAL: &'static str = "LocalState";
     const SESSION: &'static str = "SessionState";
+    const SPELLINGS: [&'static str; 4] =
+        ["LocalState", "SessionState", "local_state", "session_state"];
     const SIGIL_LANGUAGES: [&'static str; 3] = ["js", "ts", "dart"];
 
     pub(crate) fn marks(name: &str) -> bool {
@@ -31,7 +33,7 @@ impl StoredState {
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        if !(source.contains(Self::LOCAL) || source.contains(Self::SESSION)) {
+        if !Self::mentioned(source) {
             return Ok(BTreeMap::new());
         }
         let mask = crate::lexical::code_mask(language, source);
@@ -53,6 +55,12 @@ impl StoredState {
         Ok(fields)
     }
 
+    fn mentioned(source: &str) -> bool {
+        Self::SPELLINGS
+            .iter()
+            .any(|spelling| source.contains(spelling))
+    }
+
     fn area(marker: &Marker) -> String {
         if marker.name == Self::LOCAL {
             String::from("local")
@@ -64,7 +72,7 @@ impl StoredState {
     fn visible_name(language: &str, name: &str) -> String {
         match language {
             "cs" | "go" => crate::companion::lower_first(name),
-            "rs" | "rb" => crate::companion::camel_case(name),
+            "rs" | "rb" | "py" => crate::companion::camel_case(name),
             _ => name.to_owned(),
         }
     }
