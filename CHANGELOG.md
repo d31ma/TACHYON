@@ -503,6 +503,11 @@ machine contracts have their own, independent major versions.
   6.0.10 and newer ships. Tachyon still looked for `em++.bat`, so the build
   stopped with TY1605 even when `ty doctor` found Emscripten.
 
+- On Windows, the Tac Ruby runtime build now passes mruby its build folder
+  with forward slashes. mruby names its build tasks by joining that folder
+  with `/`, so a backslash path left it unable to build its own `mrbc`, and
+  Ruby web services stopped with TY1605.
+
 - The shared annotation rule table now lists F# (`.fs`) as a Yon language,
   with the same reach as C# (ADR 0073). The checks that ask the table about
   a language directly, such as the role-folder message and the `@Topic`

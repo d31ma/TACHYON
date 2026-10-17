@@ -97,7 +97,7 @@ impl RubyRuntimeBuild {
             .arg("all")
             .current_dir(work.join("mruby"))
             .env("MRUBY_CONFIG", configuration)
-            .env("TAC_RUBY_BUILD_DIR", work.join("build"));
+            .env("TAC_RUBY_BUILD_DIR", Self::build_folder(work));
         RubyRuntimeSources::SOURCES
             .step
             .run(&mut command, "the mruby build", Self::COMPILE_LIMIT)
@@ -121,9 +121,27 @@ impl RubyRuntimeBuild {
             .await
     }
 
+    /// mruby joins its rake task names to this folder with `/`, so a Windows path with
+    /// backslashes names tasks that never match and the host `mrbc` is never built.
+    fn build_folder(work: &Path) -> String {
+        crate::compiler::PortablePath::file(&work.join("build"))
+    }
+
     fn jobs() -> usize {
         std::thread::available_parallelism()
             .map_or(1, NonZeroUsize::get)
             .min(Self::MAXIMUM_JOBS)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RubyRuntimeBuild;
+    use std::path::Path;
+
+    #[test]
+    fn the_mruby_build_folder_uses_forward_slashes_on_every_platform() {
+        let folder = RubyRuntimeBuild::build_folder(&Path::new("cache").join("work"));
+        assert_eq!(folder, "cache/work/build");
     }
 }
