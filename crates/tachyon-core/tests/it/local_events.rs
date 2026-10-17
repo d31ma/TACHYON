@@ -821,6 +821,70 @@ end
 }
 
 #[tokio::test]
+async fn ruby_runs_in_background_listeners_after_the_pass_without_republishing() {
+    execute_expected(
+        "rb",
+        r#"#[Service]
+class ProbeService
+  attr_reader :log
+
+  def initialize
+    @log = []
+  end
+
+  # @param value [ProbeReady]
+  # @return [ProbeDerived]
+  #[OnEvent]
+  #[InBackground]
+  #[Order(-5)]
+  def later(value)
+    @log << "later:#{value.status}"
+    ProbeDerived.new(tag: "unpublished")
+  end
+
+  # @param value [ProbeReady]
+  #[OnEvent]
+  #[Order(3)]
+  def now(value)
+    @log << "now:#{value.status}"
+  end
+
+  # @param value [ProbeDerived]
+  #[OnEvent]
+  def derived(value)
+    @log << "derived:#{value.tag}"
+  end
+end
+#[Service]
+class PublishService
+  #[OnStart]
+  def announce
+    publisher = ApplicationEventPublisher.new
+    publisher.publish_event(ProbeReady.new(status: "paid", total: 10))
+    publisher.publish_event(ProbeReady.new(status: "free", total: 0))
+  end
+end
+#[RequestRoute("/probe")]
+#[Public]
+class ProbeController
+  #[Needs]
+  attr_reader :probe_service
+
+  #[Needs]
+  attr_reader :publish_service
+
+  #[GetRoute]
+  def get_probe
+    { "log" => probe_service.log }
+  end
+end
+"#,
+        serde_json::json!({"log": ["now:paid", "later:paid", "now:free", "later:free"]}),
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn java_events_and_lifecycle() {
     execute(
         "java",

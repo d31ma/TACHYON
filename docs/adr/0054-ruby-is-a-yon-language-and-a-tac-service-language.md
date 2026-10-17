@@ -138,6 +138,8 @@ checked by the shared rule table (ADR 0056); Ruby has no checks of its own.
   `# @param order [PlacedOrder]`, a model `@return` publishes the returned
   value, and `publish_event(model)` publishes a `Data.define` or `Struct`
   value. Yon Ruby services get the local event bus, `OnStart` and `OnStop`.
+  A Yon Ruby `#[InBackground]` listener runs after the other listeners of
+  its event and never republishes its return value, as in Yon JavaScript.
 - Test units get `Fake` fields, cleared before each case, and
   `construct(Role)`, which builds a role with the fakes and the unit's
   context. Ruby can set fields from outside the class, so it gets the

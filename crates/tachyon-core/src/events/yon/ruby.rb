@@ -70,7 +70,8 @@ class YonEvents
       @listeners << {
         "name" => name, "callback" => callback, "order" => options["order"].to_i,
         "condition" => options["condition"], "models" => options["models"],
-        "returns" => options["returns"], "sequence" => @listeners.size
+        "returns" => options["returns"], "background" => options["async"] == true,
+        "sequence" => @listeners.size
       }
       @queue << [name, @retained[name]] if replay && @retained.key?(name)
     end
@@ -86,7 +87,7 @@ class YonEvents
         STDERR.write("Yon local event delivery bound exceeded.\n")
         return
       end
-      @listeners.each { |listener| deliver(listener, name, encoded) if listener["name"] == name }
+      deliver_pass(name, encoded)
     end
     send_topics
   end
@@ -118,6 +119,13 @@ class YonEvents
 
   private
 
+  def deliver_pass(name, encoded)
+    listeners = @listeners.select { |listener| listener["name"] == name }
+    background, foreground = listeners.partition { |listener| listener["background"] }
+    foreground.each { |listener| deliver(listener, name, encoded) }
+    background.each { |listener| deliver(listener, name, encoded) }
+  end
+
   def deliver(listener, name, encoded)
     value = JSON.parse(encoded)
     if listener["models"] && !YonEventModels.fits?(listener["models"], name, value)
@@ -125,7 +133,8 @@ class YonEvents
       return
     end
     return if listener["condition"] && !YonEventConditions.matches?(listener["condition"], value, name)
-    republish(listener["callback"].call(value), listener["returns"])
+    result = listener["callback"].call(value)
+    republish(result, listener["returns"]) unless listener["background"]
   rescue StandardError
     STDERR.write("Yon local event listener failed.\n")
   end
