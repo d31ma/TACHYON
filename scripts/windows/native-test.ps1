@@ -58,7 +58,7 @@ function Write-UiaFailureDiagnostics($window) {
         $element = $queue.Dequeue()
         $current = $element.Current
         $name = ($current.Name -replace '[\r\n\t]', ' ')
-        if ($name.Length -gt 160) { $name = $name.Substring(0, 160) + '...' }
+        if ($name.Length -gt 2000) { $name = $name.Substring(0, 2000) + '...' }
         Write-Host ("UIA: type={0}; name={1}; class={2}; pid={3}; offscreen={4}" -f
             $current.ControlType.ProgrammaticName, $name, $current.ClassName,
             $current.ProcessId, $current.IsOffscreen)

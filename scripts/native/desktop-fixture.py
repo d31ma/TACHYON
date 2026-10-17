@@ -4,6 +4,47 @@ import argparse
 from pathlib import Path
 
 
+GATE_ERRORS = r"""export default class GateErrors {
+  static errors = []
+
+  static start() {
+    addEventListener('error', (event) => GateErrors.errors.push(`error ${event.message} ${event.filename}:${event.lineno}`))
+    addEventListener('unhandledrejection', (event) => GateErrors.errors.push(`rejection ${event.reason?.stack || event.reason}`))
+    setTimeout(() => GateErrors.report(), 6000)
+  }
+
+  static async probe() {
+    const request = JSON.stringify({ op: 'init', props: {}, route: '/', service: 'gateRoot', owner: crypto.randomUUID() })
+    const timeout = new Promise((resolve) => setTimeout(() => resolve('probe timeout'), 3000))
+    try {
+      return String(await Promise.race([globalThis.__tachyonNativeHostCall?.('companion.invoke', request), timeout]))
+    } catch (error) {
+      return `probe threw ${error}`
+    }
+  }
+
+  static async report() {
+    const facts = {
+      errors: GateErrors.errors,
+      host: typeof globalThis.__tachyonNativeHostCall,
+      tac: typeof globalThis.__tachyonTac,
+      html: { ...document.documentElement.dataset },
+      body: { ...document.body.dataset },
+      children: document.body.children.length,
+      probe: await GateErrors.probe(),
+    }
+    const text = JSON.stringify(facts)
+    document.title = `GATE ${text}`.slice(0, 1000)
+    const output = document.createElement('p')
+    output.textContent = `GATE ${text}`
+    document.body.append(output)
+  }
+}
+
+GateErrors.start()
+"""
+
+
 def write(root, relative, source):
     destination = root / relative
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -13,7 +54,7 @@ def write(root, relative, source):
 def manifest(platform):
     visibility = ""
     if platform == "windows":
-        visibility = ',\n    "visibility": { "check": false }'
+        visibility = ',\n    "visibility": { "check": false },\n    "scripts": ["/shared/gate-errors.js"]'
     return f"""{{
   "name": "Native Gate",
   "start_url": "/",
@@ -27,6 +68,7 @@ def manifest(platform):
 
 def write_shared_files(root, platform):
     write(root, "client/manifest.json", manifest(platform))
+    write(root, "client/shared/gate-errors.js", GATE_ERRORS)
     write(root, "client/models/NativeEvent.js", """/**
  * @typedef {Object} NativeEvent
  * @property {string} text
