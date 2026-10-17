@@ -55,6 +55,8 @@ impl<'a> InjectedContract<'a> {
     const EMPTY_ARGUMENTS: &'static str = "()";
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const REMOTES: &'static str = "client/remotes";
+    const GO_HELPERS: &'static str = "client/helpers";
+    const HELPER_SUFFIX: &'static str = "Helper";
     const GO: &'static str = "go";
     const REMOTE_LANGUAGES: [&'static str; 5] = [Self::GO, "kt", "swift", "java", Self::RUBY];
     const RUBY: &'static str = "rb";
@@ -63,6 +65,7 @@ impl<'a> InjectedContract<'a> {
     const GO_METHOD: &'static str =
         "\nfunc (service *{owner}) {start}() error {\n{assignments}\treturn nil\n}\n";
     const GO_ASSIGNMENT: &'static str = "\t{name}, err := New{type}()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.{name} = {name}\n";
+    const GO_HELPER_ASSIGNMENT: &'static str = "\tservice.{name} = &{type}{}\n";
 
     pub(crate) fn injected_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
         paths
@@ -101,7 +104,19 @@ impl<'a> InjectedContract<'a> {
         let in_folder = Self::INJECTED_FOLDERS
             .iter()
             .any(|folder| path.parent() == Some(Path::new(folder)));
-        [in_folder, Self::injected_remote(path)].contains(&true)
+        [
+            in_folder,
+            Self::injected_remote(path),
+            Self::go_helper(path),
+        ]
+        .contains(&true)
+    }
+
+    fn go_helper(path: &Path) -> bool {
+        [
+            path.starts_with(Self::GO_HELPERS),
+            path.extension().and_then(|extension| extension.to_str()) == Some(Self::GO),
+        ] == [true, true]
     }
 
     fn injected_remote(path: &Path) -> bool {
@@ -181,10 +196,15 @@ impl<'a> InjectedContract<'a> {
         [trimmed.is_empty(), documentation] == [false, false]
     }
 
+    fn go_assignment(field: &InjectedField) -> &'static str {
+        let helper = field.type_name.ends_with(Self::HELPER_SUFFIX);
+        [Self::GO_ASSIGNMENT, Self::GO_HELPER_ASSIGNMENT][usize::from(helper)]
+    }
+
     fn go_start(&self, owner: &str, fields: &[&InjectedField]) -> String {
         let assignments: String = fields
             .iter()
-            .map(|field| field.filled(Self::GO_ASSIGNMENT))
+            .map(|field| field.filled(Self::go_assignment(field)))
             .collect();
         let wanted = [self.language == Self::GO, !fields.is_empty()] == [true, true];
         if !wanted {

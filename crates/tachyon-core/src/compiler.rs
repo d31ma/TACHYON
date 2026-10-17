@@ -498,9 +498,10 @@ mod tests {
     }
 
     #[test]
-    fn a_go_helper_failure_names_the_helper_file() {
+    fn a_go_helper_is_supported_at_its_own_file() {
         let root = tempfile::tempdir().expect("project");
-        let service = "// @Service\ntype TallyService struct{}\n";
+        let service =
+            "// @Service\ntype TallyService struct {\n\t// @Needs\n\tstep *StepHelper\n}\n";
         write_file(root.path(), "client/services/TallyService.go", service);
         write_file(
             root.path(),
@@ -509,12 +510,28 @@ mod tests {
         );
         let path = Path::new("client/services/TallyService.go");
         let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
-        let failure = ServiceChecks::check_native_source(root.path(), path, &roles.source)
-            .expect_err("Helper is unavailable in Go");
+        ServiceChecks::check_native_source(root.path(), path, &roles.source)
+            .expect("Go Helper source is supported");
+    }
+
+    #[test]
+    fn a_go_helper_with_its_own_lifetime_names_the_helper_file() {
+        let helper =
+            "\n// @Helper\n// @Lifetime({\"value\":\"prototype\"})\ntype StepHelper struct{}\n";
+        let failure = helper_failure("// @Service\ntype TallyService struct{}\n", helper, "go");
         let diagnostic = &failure.diagnostics()[0];
-        assert!(diagnostic.message.contains("not available"), "{failure}");
+        assert_eq!(diagnostic.code.to_string(), "TY1308");
+        assert!(
+            diagnostic
+                .message
+                .contains("no Needs, NeedsAll or Lifetime"),
+            "{failure}"
+        );
         assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.go");
-        assert_eq!(diagnostic.spans[0].start, 4);
+        assert_eq!(
+            diagnostic.spans[0].start,
+            u64::try_from(helper.find("@Lifetime").expect("marker")).expect("offset")
+        );
     }
 
     fn helper_failure(service: &str, helper: &str, extension: &str) -> Failure {

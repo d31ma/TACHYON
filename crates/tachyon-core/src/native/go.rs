@@ -875,19 +875,24 @@ type PageClient interface {
     }
 
     #[test]
-    fn page_composition_keeps_helper_refusal_at_the_authored_helper() {
+    fn page_composition_refuses_a_helper_need_at_the_authored_helper() {
         let root = PageFixtures::project();
-        let source = "// @Helper\ntype StepHelper struct{}\n";
+        let source = "// @Helper\ntype StepHelper struct {\n\t// @Needs\n\tclient *PageClient\n}\n";
         PageFixtures::write(root.path(), "client/helpers/StepHelper.go", source);
+        let writer = PageFixtures::WRITER.replace(
+            "    client *PageClient\n}",
+            "    client *PageClient\n    // @Needs\n    step *StepHelper\n}",
+        );
+        PageFixtures::write(root.path(), "client/services/WriterService.go", &writer);
         let failure = program_files(root.path(), &PageFixtures::services(root.path()))
-            .expect_err("Go Tac Helper is unavailable");
+            .expect_err("a Go Tac Helper has no Needs of its own");
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.to_string(), "TY1308");
-        assert!(diagnostic.message.contains("not available"), "{failure}");
+        assert!(diagnostic.message.contains("no Needs"), "{failure}");
         assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.go");
         assert_eq!(
             diagnostic.spans[0].start,
-            u64::try_from(source.find("@Helper").expect("marker")).expect("offset")
+            u64::try_from(source.find("@Needs").expect("marker")).expect("offset")
         );
     }
 
@@ -965,7 +970,16 @@ type PageClient interface {
     }
 
     #[tokio::test]
-    async fn a_helper_is_refused_at_its_own_file() {
+    async fn a_helper_builds_with_the_service_that_creates_it() {
+        let go_missing = std::process::Command::new("go")
+            .arg("version")
+            .output()
+            .is_err();
+        if go_missing {
+            assert!(std::env::var_os("CI").is_none(), "CI must provide go");
+            eprintln!("skipping: go is unavailable");
+            return;
+        }
         let root = tempfile::tempdir().expect("project");
         let files = [
             (
@@ -987,17 +1001,10 @@ type PageClient interface {
             String::from("TallyService"),
             root.path().join(files[0].0),
         )];
-        let Err(failure) = web_go(root.path(), &services, crate::BuildProfile::Release).await
-        else {
-            panic!("Go Tac Helper is unavailable");
-        };
-        let diagnostic = &failure.diagnostics()[0];
-        assert_eq!(diagnostic.code.to_string(), "TY1308");
-        assert!(diagnostic.message.contains("not available"), "{failure}");
-        let span = &diagnostic.spans[0];
-        assert_eq!(span.file, "client/helpers/StepHelper.go");
-        let marker = files[1].1.find("@Helper").expect("marker");
-        assert_eq!(span.start, u64::try_from(marker).expect("offset"));
+        let built = web_go(root.path(), &services, crate::BuildProfile::Release)
+            .await
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        assert!(built.wasm.starts_with(b"\0asm"));
     }
 
     #[tokio::test]

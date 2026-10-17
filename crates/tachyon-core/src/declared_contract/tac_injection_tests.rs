@@ -206,6 +206,30 @@ fn a_swift_service_field_that_needs_a_remote_builds_the_client() {
 }
 
 #[test]
+fn a_go_service_field_that_needs_a_helper_creates_its_own_helper() {
+    let paths = [
+        Path::new("client/helpers/StepHelper.go"),
+        Path::new("client/helpers/text/WordHelper.go"),
+        Path::new("client/helpers/StepHelper.cs"),
+    ];
+    let names = DeclaredContract::injected_names(paths.into_iter());
+    assert_eq!(names, ["StepHelper", "WordHelper"]);
+    let source = "// @Service\ntype TallyService struct {\n\t// @Needs\n\tstep *StepHelper\n\t// @Needs\n\tproducts *ProductStore\n}\n";
+    let contracts = [names, TacInjection::stores()].concat();
+    let path = TacInjection::service_path("go");
+    let filled = DeclaredContract::injected(Path::new(&path), source, &contracts);
+    let filled = filled.unwrap_or_default();
+    for part in [
+        "\tstep *StepHelper\n",
+        "\tservice.step = &StepHelper{}\n",
+        "\tproducts, err := NewProductStore()\n",
+    ] {
+        assert!(filled.contains(part), "{part:?}:\n{filled}");
+    }
+    assert!(!filled.contains("NewStepHelper"), "{filled}");
+}
+
+#[test]
 fn a_java_service_field_that_needs_a_remote_builds_the_client() {
     let paths = [Path::new("client/remotes/GreetingClient.java")];
     let names = DeclaredContract::injected_names(paths.into_iter());

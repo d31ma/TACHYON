@@ -913,6 +913,9 @@ mod converter_model_tests;
 mod go_needs_tests;
 
 #[cfg(test)]
+mod go_helper_tests;
+
+#[cfg(test)]
 mod go_pagehide_tests;
 
 #[cfg(test)]
