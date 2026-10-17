@@ -54,14 +54,25 @@ class EmscriptenInstall {
   /** @param {string} emsdk */
   static async publish(emsdk) {
     const compiler = join(emsdk, 'upstream', 'emscripten');
-    const config = join(emsdk, '.emscripten');
     if (process.env.GITHUB_PATH) await appendFile(process.env.GITHUB_PATH, `${compiler}\n`);
-    if (process.env.GITHUB_ENV) await appendFile(process.env.GITHUB_ENV, `EMSDK=${emsdk}\nEM_CONFIG=${config}\n`);
-    const emcc = process.platform === 'win32' ? 'emcc.bat' : 'emcc';
+    const emcc = process.platform === 'win32' ? 'emcc.exe' : 'emcc';
     const printed = execFileSync(join(compiler, emcc), ['--version'], {
-      encoding: 'utf8', env: { ...process.env, EM_CONFIG: config }, shell: process.platform === 'win32',
+      encoding: 'utf8', env: this.withoutEmscriptenSettings(process.env),
     });
     console.log(printed.split('\n')[0]);
+  }
+
+  /**
+   * @param {NodeJS.ProcessEnv} environment
+   * @returns {NodeJS.ProcessEnv}
+   */
+  static withoutEmscriptenSettings(environment) {
+    const kept = { ...environment };
+    for (const name of Object.keys(kept)) {
+      const upper = name.toUpperCase();
+      if (upper === 'EM_CONFIG' || upper.startsWith('EMSDK')) delete kept[name];
+    }
+    return kept;
   }
 
   static async main() {
