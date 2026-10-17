@@ -1334,6 +1334,71 @@ func (controller *ProbeController) GetProbe() any {
     .await;
 }
 
+#[tokio::test]
+async fn go_runs_background_listeners_after_the_delivery_pass() {
+    execute_expected(
+        "go",
+        r#"
+// @Service()
+type ProbeService struct {
+	log []string
+}
+
+// @OnEvent
+// @Order(1)
+func (probe *ProbeService) First(value ProbeReady) {
+	probe.log = append(probe.log, "first:"+value.Status)
+}
+
+// @OnEvent
+// @InBackground()
+func (probe *ProbeService) Later(value ProbeReady) ProbeDerived {
+	probe.log = append(probe.log, "later:"+value.Status)
+	return ProbeDerived{Tag: "never"}
+}
+
+// @OnEvent
+// @Order(2)
+func (probe *ProbeService) Second(value ProbeReady) {
+	probe.log = append(probe.log, "second:"+value.Status)
+}
+
+// @OnEvent
+func (probe *ProbeService) Derived(value ProbeDerived) {
+	probe.log = append(probe.log, "derived:"+value.Tag)
+}
+// @Service()
+// @NeedsAll()
+type PublishService struct {
+	publisher *ApplicationEventPublisher
+}
+
+// @OnStart()
+func (service *PublishService) Initialize() {
+	service.publisher.PublishEvent(ProbeReady{Status: "paid", Total: 10}, false)
+	service.publisher.PublishEvent(ProbeReady{Status: "free", Total: 0}, false)
+}
+// @RequestRoute("/probe")
+// @Public
+// @NeedsAll()
+type ProbeController struct {
+	probe   *ProbeService
+	publish *PublishService
+}
+
+// @GetRoute
+func (controller *ProbeController) GetProbe() any {
+	return map[string]any{"log": controller.probe.log}
+}
+"#,
+        serde_json::json!({"log": [
+            "first:paid", "second:paid", "later:paid",
+            "first:free", "second:free", "later:free"
+        ]}),
+    )
+    .await;
+}
+
 struct ListenerFixtures;
 
 impl ListenerFixtures {
@@ -1395,28 +1460,6 @@ impl ProbeController {
   #[GetRoute]
   fn get_probe(&self) -> Json { Json::map([("ok", Json::from(true))]) }
 }
-"#,
-        ),
-        (
-            "go",
-            r#"
-// @Service()
-type ProbeService struct {
-	count int
-}
-
-// @OnEvent
-// @InBackground()
-func (probe *ProbeService) Observe(value ProbeTagged) {}
-// @RequestRoute("/probe")
-// @Public
-// @NeedsAll()
-type ProbeController struct {
-	probe *ProbeService
-}
-
-// @GetRoute
-func (controller *ProbeController) GetProbe() any { return map[string]any{"ok": true} }
 "#,
         ),
     ];

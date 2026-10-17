@@ -313,13 +313,19 @@ func __yonEventMatches(node any, value any, event string) bool {
 }
 
 type __yonEventListener struct {
-	name      string
-	order     float64
-	condition any
-	models    map[string]any
-	returns   string
-	sequence  int
-	callback  func(any) any
+	name       string
+	order      float64
+	condition  any
+	models     map[string]any
+	returns    string
+	background bool
+	sequence   int
+	callback   func(any) any
+}
+
+type __yonEventDelivery struct {
+	listener __yonEventListener
+	value    any
 }
 
 type __yonEvents struct {
@@ -366,6 +372,7 @@ func (events *__yonEvents) listen(options string, listener func(any) any, replay
 	order, _ := parsed["order"].(float64)
 	models, _ := parsed["models"].(map[string]any)
 	returns, _ := parsed["returns"].(string)
+	background, _ := parsed["async"].(bool)
 	names, _ := parsed["events"].([]any)
 	for _, entry := range names {
 		if len(events.listeners) >= 1024 {
@@ -376,13 +383,14 @@ func (events *__yonEvents) listen(options string, listener func(any) any, replay
 			__yonEventReplay(name)
 		}
 		events.listeners = append(events.listeners, __yonEventListener{
-			name:      name,
-			order:     order,
-			condition: parsed["condition"],
-			models:    models,
-			returns:   returns,
-			sequence:  len(events.listeners),
-			callback:  listener,
+			name:       name,
+			order:      order,
+			condition:  parsed["condition"],
+			models:     models,
+			returns:    returns,
+			background: background,
+			sequence:   len(events.listeners),
+			callback:   listener,
 		})
 	}
 	sort.SliceStable(events.listeners, func(left int, right int) bool {
@@ -434,27 +442,41 @@ func (events *__yonEvents) drain() {
 			os.Stderr.WriteString("Yon local event delivery bound exceeded.\n")
 			return
 		}
-		for _, listener := range events.listeners {
-			if listener.name != message.name {
-				continue
-			}
-			var value any
-			json.Unmarshal([]byte(message.encoded), &value)
-			if listener.models != nil && !__yonEventFits(listener.models, message.name, value) {
-				os.Stderr.WriteString("Yon local event payload does not fit the listener model.\n")
-				continue
-			}
-			if listener.condition != nil && !__yonEventMatches(listener.condition, value, message.name) {
-				continue
-			}
-			result, failed := __yonEventCall(listener.callback, value)
-			if failed {
+		for _, later := range events.deliver(message) {
+			if _, failed := __yonEventCall(later.listener.callback, later.value); failed {
 				__yonListenerFailed()
-				continue
 			}
-			__yonEventRepublish(result, listener.returns)
 		}
 	}
+}
+
+func (events *__yonEvents) deliver(message __yonEventMessage) []__yonEventDelivery {
+	var deferred []__yonEventDelivery
+	for _, listener := range events.listeners {
+		if listener.name != message.name {
+			continue
+		}
+		var value any
+		json.Unmarshal([]byte(message.encoded), &value)
+		if listener.models != nil && !__yonEventFits(listener.models, message.name, value) {
+			os.Stderr.WriteString("Yon local event payload does not fit the listener model.\n")
+			continue
+		}
+		if listener.condition != nil && !__yonEventMatches(listener.condition, value, message.name) {
+			continue
+		}
+		if listener.background {
+			deferred = append(deferred, __yonEventDelivery{listener: listener, value: value})
+			continue
+		}
+		result, failed := __yonEventCall(listener.callback, value)
+		if failed {
+			__yonListenerFailed()
+			continue
+		}
+		__yonEventRepublish(result, listener.returns)
+	}
+	return deferred
 }
 
 func (events *__yonEvents) close() {

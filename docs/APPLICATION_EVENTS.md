@@ -284,12 +284,14 @@ This is not an error, and nothing is republished for it.
   pass, so the publisher does not wait for it (ADR 0085).
 - Yon Ruby defers it in the same way. Ruby methods stay synchronous, so the
   listener runs after the other listeners of the event, inside the same drain.
+- Go defers it in the same way. Go has no asynchronous methods, so the listener
+  runs synchronously after the other listeners of the same event.
 
 An async listener never republishes its return value, as in Spring.
 
 `@InBackground` is a compile error in Yon PHP, Java, Groovy and Rust, because
 their event runtimes do not defer listeners yet. The error is "InBackground
-listeners require a Yon language that defers them (js, ts, py, kt, dart, cs, fs, lua, rb)".
+listeners require a Yon language that defers them (js, ts, py, kt, dart, cs, fs, lua, rb, go)".
 
 ### Returned events
 
