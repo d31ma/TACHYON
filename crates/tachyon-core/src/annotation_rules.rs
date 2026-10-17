@@ -297,7 +297,7 @@ impl AnnotationRules {
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
     ];
-    const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py"];
+    const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py", "cs"];
     const YON_STREAM: &'static [&'static str] = &[
         "js", "ts", "py", "php", "kt", "cs", "fs", "dart", "rb", "lua", "go",
     ];
@@ -1013,8 +1013,22 @@ impl AnnotationRules {
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
         crate::tac_cpp::CppMarkerCheck::either(path, source, |path, source| {
-            crate::fsharp_source::FsharpView::either(path, source, Self::check_direct)
+            crate::fsharp_source::FsharpView::run(path, source, Self::check_fsharp)
+                .unwrap_or_else(|| Self::check_direct(path, source))
         })
+    }
+
+    fn check_fsharp(path: &Path, source: &str) -> Result<(), Failure> {
+        Self::check_direct(path, source)?;
+        if Realm::of(path) != Some(Realm::Yon) {
+            return Ok(());
+        }
+        let found = scan::Scan::run_as("cs", "cs", source);
+        let Some((at, rule)) = found.outside_reach("fs", Realm::Yon) else {
+            return Ok(());
+        };
+        let message = scan::Messages::unavailable(rule, "cs", Realm::Yon);
+        Err(Self::failure_at(path, source, at, rule.code, &message))
     }
 
     fn check_direct(path: &Path, source: &str) -> Result<(), Failure> {
@@ -1053,16 +1067,20 @@ impl AnnotationRules {
         let Some((at, code, message)) = problem else {
             return Ok(());
         };
+        Err(Self::failure_at(path, source, at, code, &message))
+    }
+
+    fn failure_at(path: &Path, source: &str, at: usize, code: u16, message: &str) -> Failure {
         let portable = path.to_string_lossy().replace('\\', "/");
         let line = source[..at.min(source.len())].matches('\n').count() + 1;
-        Err(Failure::one(diagnostic(
+        Failure::one(diagnostic(
             code,
             format!("{} ({portable}:{line})", message.trim_end_matches('.')),
             Some(String::from(
                 "Each annotation checks the class, method, field or parameter it is written on (ADR 0056). docs/BEHAVIOR_ANNOTATIONS.md lists where each one goes.",
             )),
             source_span(&portable, at, (at + 1).min(source.len())),
-        )))
+        ))
     }
 
     pub(crate) fn injected_fields(path: &Path, source: &str) -> Vec<injected_field::InjectedField> {

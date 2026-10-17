@@ -10,6 +10,11 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Yon C# now accepts `[InBackground]` on an `[OnEvent]` listener. The
+  listener runs after the other listeners of the same event, as in Yon
+  JavaScript and Python. It may be a `void` method or return `Task` or
+  `Task<T>`; Yon waits for the task before the next event, and the task may
+  publish events after an `await`. An `async void` listener stops the build.
 - C++ Tac test units can now replace and answer what a service needs. A
   `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
   fields of the service that `construct<CounterService>()` makes. A static

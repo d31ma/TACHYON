@@ -13,7 +13,10 @@ impl EventLowering {
     const SYNCHRONOUS_ONLY: &str =
         "This Yon language supports synchronous local event and lifecycle completion only";
     const BACKGROUND_NEEDS_ASYNC: &str =
-        "InBackground listeners require a Yon language with asynchronous methods (js, ts, py)";
+        "InBackground listeners require a Yon language with asynchronous methods (js, ts, py, cs)";
+    const BACKGROUND_RETURNS_TASK: &str =
+        "An asynchronous C# InBackground listener must return Task or Task<T>";
+    const DEFERS_BACKGROUND: [&str; 1] = ["cs"];
     const NO_STREAMS: &str = "Local event containers do not support streaming endpoints; use a separate non-streaming event controller";
 
     pub(crate) fn check(
@@ -24,6 +27,31 @@ impl EventLowering {
         Self::synchronous(events, asynchronous)?;
         validate_providers(plan, events)?;
         Self::without_streams(plan)
+    }
+
+    fn check_language(plan: &Plan, events: &EventModule, extension: &str) -> Result<(), String> {
+        if !Self::DEFERS_BACKGROUND.contains(&extension) {
+            return Self::check(plan, events, is_async_language(extension));
+        }
+        Self::background_tasks(events)?;
+        validate_providers(plan, events)?;
+        Self::without_streams(plan)
+    }
+
+    fn background_tasks(events: &EventModule) -> Result<(), String> {
+        let asynchronous = events
+            .methods
+            .iter()
+            .filter(|method| is_asynchronous_method(method));
+        for method in asynchronous {
+            if !is_background_listener(events, method) {
+                return Err(String::from(Self::SYNCHRONOUS_ONLY));
+            }
+            if !returns_task(method) {
+                return Err(String::from(Self::BACKGROUND_RETURNS_TASK));
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn listener_options(listener: &crate::events::EventListener) -> String {
@@ -64,7 +92,7 @@ pub(crate) fn lower(
             .and_then(|value| value.to_str())
             .unwrap_or(""),
     );
-    EventLowering::check(plan, events, is_async_language(extension))?;
+    EventLowering::check_language(plan, events, extension)?;
     let relocated = super::relocate(path, source, events)
         .map_err(|error| format!("Cannot locate event methods: {error:?}"))?;
     let source = relocated.source.clone();
@@ -98,6 +126,23 @@ fn has_async_listener(events: &EventModule) -> bool {
             .iter()
             .any(|listener| listener.asynchronous)
     })
+}
+
+fn is_background_listener(events: &EventModule, method: &EventMethod) -> bool {
+    events
+        .types
+        .iter()
+        .filter(|event_type| event_type.name == method.owner)
+        .flat_map(|event_type| &event_type.listeners)
+        .any(|listener| listener.asynchronous && listener.method == method.name)
+}
+
+fn returns_task(method: &EventMethod) -> bool {
+    let return_type = method.return_type.trim();
+    let return_type = return_type
+        .strip_prefix("System.Threading.Tasks.")
+        .unwrap_or(return_type);
+    return_type == "Task" || return_type.starts_with("Task<")
 }
 
 fn validate_providers(plan: &Plan, events: &EventModule) -> Result<(), String> {

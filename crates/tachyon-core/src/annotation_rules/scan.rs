@@ -559,6 +559,17 @@ impl Scan {
         !after[open..open + close].contains("self")
     }
 
+    pub(super) fn outside_reach(
+        &self,
+        language: &str,
+        realm: Realm,
+    ) -> Option<(usize, &'static Rule)> {
+        self.found
+            .iter()
+            .find(|found| !found.rule.is_retired() && !found.rule.allows(language, realm))
+            .map(|found| (found.at, found.rule))
+    }
+
     pub(super) fn problem(&self, realm: Option<Realm>) -> Option<(usize, &'static Rule, String)> {
         let class_names: Vec<&str> = self
             .found

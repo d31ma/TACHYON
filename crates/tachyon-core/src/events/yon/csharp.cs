@@ -4,9 +4,9 @@ sealed class ApplicationEventPublisher {
 }
 sealed class __YonEvents : System.IDisposable {
     private sealed class Subscription {
-        internal string Name; internal System.Func<System.Text.Json.JsonElement, object> Callback; internal long Order; internal System.Text.Json.JsonElement? Condition; internal System.Text.Json.JsonElement? Models; internal string Returns; internal int Sequence;
+        internal string Name; internal System.Func<System.Text.Json.JsonElement, object> Callback; internal long Order; internal System.Text.Json.JsonElement? Condition; internal System.Text.Json.JsonElement? Models; internal string Returns; internal int Sequence; internal bool Background;
     }
-    [System.ThreadStatic] private static __YonEvents active;
+    private static readonly System.Threading.AsyncLocal<__YonEvents> current = new();
     private readonly System.Collections.Generic.Queue<(string Name,string Json)> queue = new();
     private readonly System.Collections.Generic.Dictionary<string,string> retained = new();
     private readonly System.Collections.Generic.List<Subscription> listeners = new();
@@ -18,9 +18,9 @@ sealed class __YonEvents : System.IDisposable {
     private bool closed;
     private int deliveries;
     internal __YonEvents(params string[] topics) {
-        if (active != null) throw new System.InvalidOperationException("Nested local event invocation");
+        if (current.Value != null) throw new System.InvalidOperationException("Nested local event invocation");
         this.topics = new(topics);
-        active = this;
+        current.Value = this;
     }
     internal static __YonEvents Delivery(string body, params string[] topics) {
         var events = new __YonEvents(topics);
@@ -34,13 +34,16 @@ sealed class __YonEvents : System.IDisposable {
     internal void ReceiveDelivery() { if (delivered.HasValue) queue.Enqueue(delivered.Value); }
     internal static T Publish<T>(string name, T value, bool retain) {
         try {
-        var scope = active;
+        var scope = current.Value;
         if (scope == null || scope.closed) throw new System.InvalidOperationException("Local event owner is disposed");
         var json = value is System.Text.Json.JsonElement element ? element.GetRawText() : System.Text.Json.JsonSerializer.Serialize(value, value.GetType(), YonModels.Options);
-        if (System.Text.Encoding.UTF8.GetByteCount(json) > 65536 || scope.queue.Count >= 128) throw new System.InvalidOperationException("Local event capacity exceeded");
+        if (System.Text.Encoding.UTF8.GetByteCount(json) > 65536) throw new System.InvalidOperationException("Local event capacity exceeded");
+        lock (scope.queue) {
+        if (scope.queue.Count >= 128) throw new System.InvalidOperationException("Local event capacity exceeded");
         if (retain) scope.retained[name] = json;
         scope.queue.Enqueue((name,json));
         if (scope.topics.Contains(name)) scope.outbound.Add((name,json));
+        }
         } catch (System.Exception) { System.Console.Error.WriteLine("Yon local event publication failed."); }
         return value;
     }
@@ -138,10 +141,11 @@ sealed class __YonEvents : System.IDisposable {
         System.Text.Json.JsonElement? condition = compiled.TryGetProperty("condition", out var matcher) && matcher.ValueKind == System.Text.Json.JsonValueKind.Object ? matcher.Clone() : null;
         System.Text.Json.JsonElement? models = compiled.TryGetProperty("models", out var declaredModels) && declaredModels.ValueKind == System.Text.Json.JsonValueKind.Object ? declaredModels.Clone() : null;
         string returns = compiled.TryGetProperty("returns", out var returned) && returned.ValueKind == System.Text.Json.JsonValueKind.String ? returned.GetString() : null;
+        bool background = compiled.TryGetProperty("async", out var deferred) && deferred.ValueKind == System.Text.Json.JsonValueKind.True;
         foreach (var name in compiled.GetProperty("events").EnumerateArray()) {
             if (listeners.Count >= 1024) throw new System.InvalidOperationException("Local listener capacity exceeded");
             var eventName = name.GetString();
-            listeners.Add(new Subscription { Name = eventName, Callback = callback, Order = order, Condition = condition, Models = models, Returns = returns, Sequence = listeners.Count });
+            listeners.Add(new Subscription { Name = eventName, Callback = callback, Order = order, Condition = condition, Models = models, Returns = returns, Sequence = listeners.Count, Background = background });
             if (replay && retained.TryGetValue(eventName,out var json)) queue.Enqueue((eventName,json));
         }
         listeners.Sort((left, right) => left.Order != right.Order ? left.Order.CompareTo(right.Order) : left.Sequence.CompareTo(right.Sequence));
@@ -158,14 +162,20 @@ sealed class __YonEvents : System.IDisposable {
         while (queue.Count != 0) {
             var item = queue.Dequeue();
             if (++deliveries > 4096) { queue.Clear(); System.Console.Error.WriteLine("Yon local event delivery bound exceeded."); return; }
+            var deferred = new System.Collections.Generic.List<(Subscription Listener, System.Text.Json.JsonElement Value)>();
             foreach (var listener in listeners) if (listener.Name == item.Name) {
                 try {
                     using var document = System.Text.Json.JsonDocument.Parse(item.Json);
                     var value = document.RootElement.Clone();
                     if (listener.Models is System.Text.Json.JsonElement models && !Fits(models, item.Name, value)) { System.Console.Error.WriteLine("Yon local event payload does not fit the listener model."); continue; }
                     if (listener.Condition is System.Text.Json.JsonElement condition && !Matches(condition, value, item.Name)) continue;
+                    if (listener.Background) { deferred.Add((listener, value)); continue; }
                     Republish(listener.Callback(value), listener.Returns);
                 }
+                catch (System.Exception) { System.Console.Error.WriteLine("Yon local event listener failed."); }
+            }
+            foreach (var (listener, value) in deferred) {
+                try { if (listener.Callback(value) is System.Threading.Tasks.Task task) task.GetAwaiter().GetResult(); }
                 catch (System.Exception) { System.Console.Error.WriteLine("Yon local event listener failed."); }
             }
         }
@@ -183,6 +193,6 @@ sealed class __YonEvents : System.IDisposable {
         for (var index = destroyers.Count-1; index >= 0; index--) {
             try { destroyers[index](); } catch (System.Exception) { System.Console.Error.WriteLine("Yon local lifecycle cleanup failed."); }
         }
-        retained.Clear(); active = null;
+        retained.Clear(); current.Value = null;
     }
 }
