@@ -438,7 +438,11 @@ jobs:
             --output "${archive}" "${url}"
           echo "${expected_checksum}  ${archive}" | shasum -a 256 --check
           tar -xzf "${archive}" -C "${RUNNER_TEMP}"
-          make -C "${RUNNER_TEMP}/lua-${version}" macosx
+          platform=linux
+          if [ "${RUNNER_OS}" = "macOS" ]; then
+            platform=macosx
+          fi
+          make -C "${RUNNER_TEMP}/lua-${version}" "${platform}"
           make -C "${RUNNER_TEMP}/lua-${version}" install INSTALL_TOP="${RUNNER_TEMP}/lua"
           "${RUNNER_TEMP}/lua/bin/lua" -v
           echo "${RUNNER_TEMP}/lua/bin" >> "${GITHUB_PATH}"
@@ -1068,7 +1072,7 @@ jobs:
   coverage:
     name: Rust coverage ratchet
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
 
     steps:
       - name: Check out source
@@ -1117,6 +1121,29 @@ jobs:
           test -n "${jdk}"
           echo "JAVA_HOME=${jdk}" >> "${GITHUB_ENV}"
           echo "${jdk}/bin" >> "${GITHUB_PATH}"
+
+      - name: Install Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.14.6
+
+      - name: Install Lua from the checksum-pinned source in runtimes/lua-web/sources.txt
+        run: |
+          set -euo pipefail
+          read -r _ version expected_checksum url < <(grep '^lua ' runtimes/lua-web/sources.txt)
+          archive="${RUNNER_TEMP}/lua-${version}.tar.gz"
+          curl --fail --location --silent --show-error --max-time 120 \
+            --output "${archive}" "${url}"
+          echo "${expected_checksum}  ${archive}" | shasum -a 256 --check
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}"
+          platform=linux
+          if [ "${RUNNER_OS}" = "macOS" ]; then
+            platform=macosx
+          fi
+          make -C "${RUNNER_TEMP}/lua-${version}" "${platform}"
+          make -C "${RUNNER_TEMP}/lua-${version}" install INSTALL_TOP="${RUNNER_TEMP}/lua"
+          "${RUNNER_TEMP}/lua/bin/lua" -v
+          echo "${RUNNER_TEMP}/lua/bin" >> "${GITHUB_PATH}"
 
       - name: Install Go for the Go rows of the workspace tests
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
