@@ -16,6 +16,9 @@ pub(super) struct GoCompiler {
 impl GoCompiler {
     const FAILURE_CODE: u16 = 1605;
     pub(super) const OUTPUT: &'static str = "services.wasm";
+    const LICENSE_FILE: &'static str = "LICENSE";
+    pub(super) const PINNED_GO_LICENSE: &'static str =
+        include_str!("../../../../runtimes/go-web/LICENSE");
     const ENVIRONMENT: [(&'static str, &'static str); 8] = [
         ("GO111MODULE", "on"),
         ("GOFLAGS", ""),
@@ -100,14 +103,21 @@ impl GoCompiler {
         Ok(())
     }
 
-    pub(super) async fn glue(self) -> Result<Vec<u8>, Failure> {
+    pub(super) async fn glue_and_license(self) -> Result<(Vec<u8>, Vec<u8>), Failure> {
         let root =
             run_tool_with(self.program, &self.root_arguments, None, &Self::ENVIRONMENT).await?;
-        let path = Path::new(root.trim()).join(self.glue_path);
+        let root = Path::new(root.trim());
+        let path = root.join(self.glue_path);
         let original = std::fs::read_to_string(&path).map_err(|error| {
             self.glue_failure(&format!("cannot read {}: {error}", path.display()))
         })?;
-        Ok(self.changed(original)?.into_bytes())
+        let glue = self.changed(original)?.into_bytes();
+        Ok((glue, Self::license(root)))
+    }
+
+    pub(super) fn license(root: &Path) -> Vec<u8> {
+        let path = root.join(Self::LICENSE_FILE);
+        std::fs::read(path).unwrap_or_else(|_| Self::PINNED_GO_LICENSE.as_bytes().to_vec())
     }
 
     fn changed(self, original: String) -> Result<String, Failure> {
@@ -141,8 +151,26 @@ impl GoCompiler {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::GoCompiler;
+
+    #[test]
+    fn the_license_beside_the_glue_comes_from_the_toolchain_root() {
+        let root = tempfile::tempdir().expect("toolchain root");
+        std::fs::write(root.path().join("LICENSE"), "The TinyGo Authors").expect("license");
+        assert_eq!(GoCompiler::license(root.path()), b"The TinyGo Authors");
+    }
+
+    #[test]
+    fn a_toolchain_root_without_a_license_ships_the_pinned_go_license() {
+        let root = tempfile::tempdir().expect("toolchain root");
+        let license = GoCompiler::license(root.path());
+        assert_eq!(license, GoCompiler::PINNED_GO_LICENSE.as_bytes());
+        let text = String::from_utf8(license).expect("text");
+        assert!(text.starts_with("Copyright 2009 The Go Authors."));
+        assert!(text.contains("Redistribution and use in source and binary forms"));
+    }
 
     #[test]
     fn tinygo_builds_with_the_boehm_collector_so_calls_do_not_pause_for_milliseconds() {

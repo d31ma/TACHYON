@@ -166,6 +166,7 @@ async fn build_language(
                 String::from(WebEngine::GO_GLUE),
                 WebEngine::shipped_glue(built.glue),
             ));
+            published.push((String::from(WebEngine::GO_LICENSE), built.license));
             String::from(WebEngine::GO_ENGINE)
         }
         WebLanguage::Kotlin => {
@@ -496,6 +497,7 @@ const transportAsync = (text) => companion.InvokeAsync(text)
 
     const GO_MODULE: &str = "go/services.wasm";
     const GO_GLUE: &str = "go/wasm_exec.js";
+    const GO_LICENSE: &str = "go/LICENSE";
 
     const GO_ENGINE: &str = concat!(
         include_str!("native/browser/tac-task-answers.js"),
@@ -1551,6 +1553,10 @@ mod tests {
         assert!(root.path().join("go/services.wasm").is_file());
         let glue = std::fs::read_to_string(root.path().join("go/wasm_exec.js")).expect("glue");
         assert!(glue.contains("globalThis.Go = class"));
+        assert!(glue.contains("license that can be found in the LICENSE file."));
+        let license = std::fs::read_to_string(root.path().join("go/LICENSE")).expect("license");
+        assert!(license.starts_with("Copyright 2009 The Go Authors."));
+        assert!(license.contains("Redistribution and use in source and binary forms"));
     }
 
     #[tokio::test]
