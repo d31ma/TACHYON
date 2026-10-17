@@ -17,6 +17,7 @@ impl CppYonParameter {
     ];
     const MAX_NAME_BYTES: usize = 256;
     const UNMARKED: &'static str = "Mark each parameter of a C++ route method with [[FromPath]], [[FromQuery]], [[FromBody]], [[FromHeader]] or [[FromCookie]] and give it a name. A C++ route method cannot take the whole request yet (ADR 0099)";
+    const DEFAULT: &'static str = "A C++ route parameter cannot have a default value, because the server checks every argument before the method runs and does not see the default. Write std::optional<T> and choose the value in the method, for example page.value_or(1)";
     const BODY: &'static str = "A request has one body, so one parameter at most uses [[FromBody]], and a GET request has no body: use [[PostRoute]] for a method that reads a body";
 
     pub(crate) fn all(
@@ -41,6 +42,9 @@ impl CppYonParameter {
             .find_map(Self::source_of)
             .filter(|_| !parameter.name.is_empty())
             .ok_or_else(|| route.failure(Self::UNMARKED))?;
+        if parameter.has_default {
+            return Err(route.failure(Self::DEFAULT));
+        }
         Ok(RouteParameter {
             source,
             name: Self::name(route, marker, &parameter.name)?,

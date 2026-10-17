@@ -126,6 +126,11 @@ fn route_methods_follow_the_shared_route_rules() {
             "[[FromQuery(\"a b\")]]",
             "takes one name in quotes",
         ),
+        (
+            "[[FromPath]] long id)",
+            "[[FromPath]] long id = 1)",
+            "cannot have a default value",
+        ),
     ];
     for (from, to, expected) in cases {
         let failure = Sample::refusal(from, to);
@@ -195,5 +200,23 @@ fn cpp_type_names_have_route_shapes() {
     ];
     for (text, shape) in cases {
         assert_eq!(TypeText::shape("hpp", text), Ok(shape), "{text}");
+    }
+}
+
+#[test]
+fn cpp_types_without_a_json_codec_have_no_route_shape() {
+    for text in [
+        "std::set<int>",
+        "std::deque<int>",
+        "std::list<int>",
+        "std::string_view",
+        "std::unordered_map<std::string, int>",
+        "tachyon::json::JsonObject",
+    ] {
+        let shape = TypeText::shape("hpp", text);
+        assert!(
+            matches!(shape, Err(_) | Ok(Shape::Model(_))),
+            "{text}: {shape:?}"
+        );
     }
 }

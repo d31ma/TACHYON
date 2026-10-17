@@ -284,7 +284,9 @@ other Yon roles stay pending (see Pending).
   renames it, as in the other languages. C++ has no native HTTP request type
   in Yon yet, so a parameter without a source marker fails with `TY2015`
   instead of receiving the whole request. One parameter at most reads the
-  body, and a GET route reads none.
+  body, and a GET route reads none. A parameter with a default value fails
+  with `TY2015`, because the server never sees the default: write
+  `std::optional<T>` and choose the value in the method.
 - Parameter and return types map to route shapes: `bool`; `int`, `long`,
   `std::int64_t` and the other integer types; `double` and `float`;
   `std::string`; `std::vector<T>`; `std::optional<T>`;
