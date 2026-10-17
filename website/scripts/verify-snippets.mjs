@@ -74,11 +74,11 @@ class Patterns {
   static tutorials = new Set(['first-app'])
   static excerptManifest = JSON.stringify({ tac: { visibility: { check: false } } })
   static roleFile = /\/(controllers|services|stores|remotes|clients|helpers|setups|converters|entities)\/[^/]+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)$/
-  static controllerPath = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
+  static controllerPath = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua|hpp)$/
   static identityProviderPath = /^server\/controllers\/[A-Z]\w*IdentityProvider\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
-  static classRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)(?:RequestRoute|request_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
+  static classRoute = /^\s*(?:class\s+)?(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(?:RequestRoute|request_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
   static socketRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)(?:SocketRoute|socket_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
-  static methodRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)(Get|Post|Put|Patch|Delete|Stream|get|post|put|patch|delete|stream)(?:Route|_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/gm
+  static methodRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(Get|Post|Put|Patch|Delete|Stream|get|post|put|patch|delete|stream)(?:Route|_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/gm
   static pathVariable = /\{[a-z0-9_]+\}/g
   static pagePath = /^client\/pages\/.*tac\.html$/
   static componentViewPath = /^client\/components\/.*\/tac\.html$/
@@ -121,6 +121,10 @@ class Toolchains {
     '.rb': ['ruby'],
     '.lua': ['lua'],
     '.hpp': ['em++', 'clang++'],
+  }
+  /** @type {Record<string,string[]>} */
+  static serverTools = {
+    '.hpp': ['clang++'],
   }
   /** @type {Map<string,Promise<boolean>>} */
   static checks = new Map()
@@ -553,7 +557,8 @@ function skipAfterRepeatedLoadFailures(label, extension) {
  */
 async function canRun(label, name, extraTools = []) {
   const extension = path.extname(name)
-  const tools = Toolchains.requiredTools[extension]
+  const serverTools = name.startsWith('server/') ? Toolchains.serverTools[extension] : undefined
+  const tools = serverTools ?? Toolchains.requiredTools[extension]
   if (!tools) {
     skip(label, `no execution checker for ${extension || 'descriptive example'}`)
     return false
