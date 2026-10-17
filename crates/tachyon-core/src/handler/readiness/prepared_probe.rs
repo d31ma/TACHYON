@@ -55,12 +55,7 @@ impl PreparedProbe {
         workspace: &Path,
         host: impl Fn(&str) -> Option<OsString>,
     ) -> Vec<(&'static str, OsString)> {
-        const MACHINE_FOLDERS: [&str; 4] = [
-            "ProgramData",
-            "ProgramFiles",
-            "ProgramFiles(x86)",
-            "SystemDrive",
-        ];
+        const MACHINE_FOLDERS: [&str; 2] = ["ProgramData", "ProgramFiles"];
         let profile = workspace.join("profile");
         let mut variables = vec![
             ("USERPROFILE", profile.clone().into_os_string()),
