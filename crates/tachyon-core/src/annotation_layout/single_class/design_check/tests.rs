@@ -677,9 +677,16 @@ fn a_huge_single_token_file_is_checked_in_linear_time() {
         &[("server/services/LongService.js", long_name.as_str())],
     );
     assert_eq!(refused.len(), 1, "{refused:?}");
+    // The sanitizer CI job runs this suite several times slower, so it raises the budget scale.
+    let budget_scale = std::env::var("TAC_TEST_TIME_SCALE")
+        .ok()
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or(1)
+        .max(1);
+    let budget = std::time::Duration::from_secs(10) * budget_scale;
     assert!(
-        started.elapsed() < std::time::Duration::from_secs(10),
-        "{:?}",
+        started.elapsed() < budget,
+        "{:?} is over the {budget:?} budget",
         started.elapsed()
     );
 }
