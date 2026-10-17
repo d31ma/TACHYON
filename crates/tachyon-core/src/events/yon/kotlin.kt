@@ -104,7 +104,7 @@ private class __YonEvents(vararg topics: String) : AutoCloseable {
             return when (op) { "lt" -> order < 0; "le" -> order <= 0; "gt" -> order > 0; else -> order >= 0 }
         }
     }
-    private class Subscription(val name: String, val callback: (Any?) -> Any?, val order: Long, val condition: Any?, val models: Map<*, *>?, val returns: String?, val sequence: Int)
+    private class Subscription(val name: String, val callback: (Any?) -> Any?, val order: Long, val condition: Any?, val background: Boolean, val models: Map<*, *>?, val returns: String?, val sequence: Int)
     private val queue = java.util.ArrayDeque<Pair<String,String>>()
     private val retained = linkedMapOf<String,String>()
     private val listeners = mutableListOf<Subscription>()
@@ -123,9 +123,10 @@ private class __YonEvents(vararg topics: String) : AutoCloseable {
         val order = (compiled["order"] as? Number)?.toLong() ?: 0L
         val models = compiled["models"] as? Map<*, *>
         val returns = compiled["returns"] as? String
+        val background = compiled["async"] == true
         for (name in compiled["events"] as List<*>) {
             check(listeners.size < 1024) { "Local listener capacity exceeded" }
-            listeners.add(Subscription(name.toString(), callback, order, compiled["condition"], models, returns, listeners.size))
+            listeners.add(Subscription(name.toString(), callback, order, compiled["condition"], background, models, returns, listeners.size))
             if (replay) retained[name.toString()]?.let { queue.add(name.toString() to it) }
         }
         listeners.sortWith(compareBy<Subscription>({ it.order }, { it.sequence }))
@@ -141,6 +142,7 @@ private class __YonEvents(vararg topics: String) : AutoCloseable {
         while (!queue.isEmpty()) {
             val (name,json) = queue.remove()
             if (++deliveries > 4096) { queue.clear(); System.err.println("Yon local event delivery bound exceeded."); return }
+            val deferred = mutableListOf<Pair<Subscription, Any?>>()
             for (listener in listeners) if (listener.name == name) {
                 val value = Json.parse(json)
                 if (listener.models != null && !fits(listener.models, name, value)) {
@@ -148,7 +150,11 @@ private class __YonEvents(vararg topics: String) : AutoCloseable {
                     continue
                 }
                 if (listener.condition != null && !matches(listener.condition, value, name)) continue
+                if (listener.background) { deferred.add(listener to value); continue }
                 try { republish(listener.callback(value), listener.returns) } catch (failure: Exception) { System.err.println("Yon local event listener failed.") }
+            }
+            for ((listener, value) in deferred) {
+                try { listener.callback(value) } catch (failure: Exception) { System.err.println("Yon local event listener failed.") }
             }
         }
         sendTopics()

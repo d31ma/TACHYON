@@ -910,6 +910,49 @@ class ProbeController {
 }
 
 #[tokio::test]
+async fn kotlin_background_listeners_run_after_the_delivery_pass() {
+    execute_expected(
+        "kt",
+        r#"
+@Service()
+class ProbeService {
+  val log = mutableListOf<String>()
+  @OnEvent
+  @Order(-1)
+  @InBackground()
+  fun later(value: models.ProbeReady): models.ProbeDerived { log.add("later:" + value.status); return models.ProbeDerived("ignored") }
+  @OnEvent
+  @Order(1)
+  fun first(value: models.ProbeReady) { log.add("first:" + value.status) }
+  @OnEvent
+  fun derived(value: models.ProbeDerived) { log.add("derived:" + value.tag) }
+}
+@Service()
+@NeedsAll()
+class PublishService {
+  lateinit var publisher: ApplicationEventPublisher
+  @OnStart()
+  fun initialize() {
+    publisher.publishEvent(models.ProbeReady("paid", 10))
+    publisher.publishEvent(models.ProbeReady("free", 0))
+  }
+}
+@RequestRoute("/probe")
+@Public
+@NeedsAll()
+class ProbeController {
+  lateinit var probe: ProbeService
+  lateinit var publish: PublishService
+  @GetRoute
+  fun getProbe(): Any? { return mapOf("log" to probe.log) }
+}
+"#,
+        serde_json::json!({"log": ["first:paid", "later:paid", "first:free", "later:free"]}),
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn csharp_events_and_lifecycle() {
     execute(
         "cs",
@@ -1162,25 +1205,6 @@ class ProbeController {
 "#,
         ),
         (
-            "kt",
-            r#"
-@Service()
-class ProbeService {
-  @OnEvent
-  @InBackground()
-  fun observe(value: models.ProbeTagged) { }
-}
-@RequestRoute("/probe")
-@Public
-@NeedsAll()
-class ProbeController {
-  lateinit var probe: ProbeService
-  @GetRoute
-  fun getProbe(): Any? { return mapOf("ok" to true) }
-}
-"#,
-        ),
-        (
             "cs",
             r#"
 [Service()]
@@ -1257,9 +1281,7 @@ async fn synchronous_languages_refuse_async_listeners() {
             .unwrap_or_else(|| panic!("{extension} accepted an InBackground listener"))
             .to_string();
         assert!(
-            failure.contains(
-                "InBackground listeners require a Yon language with asynchronous methods"
-            ),
+            failure.contains("InBackground listeners require a Yon language that defers them"),
             "{extension}: {failure}"
         );
     }

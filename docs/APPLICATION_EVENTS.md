@@ -273,12 +273,14 @@ This is not an error, and nothing is republished for it.
 - The browser runs it in a microtask, outside the publisher's call.
 - Yon JS/TS runs it after the current drain pass.
 - Python defers it in the same way.
+- Kotlin defers it in the same way. Its event methods stay synchronous, so the
+  listener runs on the request's thread after the other listeners of the event.
 
 An async listener never republishes its return value, as in Spring.
 
-`@InBackground` is a compile error in Yon PHP, Java, Groovy, Kotlin, C# and Rust, because
-their event methods are synchronous there. The error is "InBackground listeners
-require a Yon language with asynchronous methods (js, ts, py)".
+`@InBackground` is a compile error in Yon PHP, Java, Groovy, C# and Rust, because
+their event runtimes do not defer listeners yet. The error is "InBackground
+listeners require a Yon language that defers them (js, ts, py, kt)".
 
 ### Returned events
 
@@ -377,8 +379,9 @@ a request, or a background job API. The one exception is a `@Topic` model
 - Cleanup is still subject to the existing supervisor deadline and forced
   termination.
 - Yon JS/TS/Python support asynchronous hooks and event methods. PHP, Java,
-  Kotlin, C# and Rust currently require synchronous methods. This is also why
-  they refuse `@InBackground`.
+  Kotlin, C# and Rust currently require synchronous methods. Kotlin still
+  accepts `@InBackground`, because its runtime defers those listeners; the
+  others refuse it.
 - Streaming event containers and transient event providers are rejected. They
   are never partly initialized.
 

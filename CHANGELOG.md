@@ -10,6 +10,10 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Yon Kotlin now accepts `@InBackground` on an `@OnEvent` method. The
+  listener runs after the other listeners of the event, as in Yon JS, TS and
+  Python, and its return value is never published again. Kotlin event methods
+  stay synchronous.
 - C++ Tac test units can now replace and answer what a service needs. A
   `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
   fields of the service that `construct<CounterService>()` makes. A static
