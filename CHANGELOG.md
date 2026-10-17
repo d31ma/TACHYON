@@ -14,6 +14,11 @@ machine contracts have their own, independent major versions.
   listener runs after the other listeners of the event, as in Yon JS, TS and
   Python, and its return value is never published again. Kotlin event methods
   stay synchronous.
+- Yon Dart now accepts `@InBackground` on an `@OnEvent` listener. The
+  listener runs after the other listeners of the event and never republishes
+  its return value, as in Yon JS/TS and Python. Yon Dart hooks and listeners
+  may also be asynchronous: an `@OnStart`, `@OnStop` or listener that returns
+  a `Future` is awaited before the invocation goes on.
 - C++ Tac test units can now replace and answer what a service needs. A
   `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
   fields of the service that `construct<CounterService>()` makes. A static

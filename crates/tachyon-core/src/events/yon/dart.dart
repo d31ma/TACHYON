@@ -11,10 +11,11 @@ final class ApplicationEventPublisher {
 }
 
 final class __YonSubscription {
-  __YonSubscription(this.name, this.callback, this.order, this.condition, this.models, this.returns, this.sequence);
+  __YonSubscription(this.name, this.callback, this.order, this.condition, this.asynchronous, this.models, this.returns, this.sequence);
   final String name;
   final Object? Function(Object?) callback;
   final int order;
+  final bool asynchronous;
   final Object? condition;
   final Map? models;
   final String? returns;
@@ -39,7 +40,7 @@ final class __YonEvents {
   final List<(String, String)> _queue = [];
   final Map<String, String> _retained = {};
   final List<__YonSubscription> _listeners = [];
-  final List<void Function()> destroyers = [];
+  final List<Object? Function()> destroyers = [];
   final List<(String, String)> _outbound = [];
   final Set<String> _topics;
   Set<String>? _only;
@@ -74,14 +75,20 @@ final class __YonEvents {
     if (only != null && !only.contains(key)) return;
     final compiled = yon_convert.jsonDecode(options) as Map;
     final order = (compiled['order'] as num?)?.toInt() ?? 0;
+    final asynchronous = compiled['async'] == true;
     for (final name in compiled['events'] as List) {
       if (_listeners.length >= 1024) throw StateError('Local listener capacity exceeded');
-      _listeners.add(__YonSubscription('$name', callback, order, compiled['condition'], compiled['models'] as Map?, compiled['returns'] as String?, _listeners.length));
+      _listeners.add(__YonSubscription('$name', callback, order, compiled['condition'], asynchronous, compiled['models'] as Map?, compiled['returns'] as String?, _listeners.length));
       final retained = _retained['$name'];
       if (replay && retained != null) _queue.add(('$name', retained));
     }
     _listeners.sort((left, right) =>
         left.order != right.order ? left.order.compareTo(right.order) : left.sequence.compareTo(right.sequence));
+  }
+
+  static Future<Object?> settle(Object? Function() call) async {
+    final result = call();
+    return result is Future ? await result : result;
   }
 
   void _republish(Object? result, String? returns) {
@@ -131,6 +138,7 @@ final class __YonEvents {
         yon_io.stderr.writeln('Yon local event delivery bound exceeded.');
         return;
       }
+      final deferred = <(__YonSubscription, Object?)>[];
       for (final listener in List.of(_listeners)) {
         if (listener.name != name) continue;
         final value = yon_convert.jsonDecode(json);
@@ -140,10 +148,19 @@ final class __YonEvents {
           continue;
         }
         if (listener.condition != null && !_matches(listener.condition, value, name)) continue;
+        if (listener.asynchronous) {
+          deferred.add((listener, value));
+          continue;
+        }
         try {
-          var result = listener.callback(value);
-          if (result is Future) result = await result;
-          _republish(result, listener.returns);
+          _republish(await settle(() => listener.callback(value)), listener.returns);
+        } catch (_) {
+          yon_io.stderr.writeln('Yon local event listener failed.');
+        }
+      }
+      for (final (listener, value) in deferred) {
+        try {
+          await settle(() => listener.callback(value));
         } catch (_) {
           yon_io.stderr.writeln('Yon local event listener failed.');
         }
@@ -163,14 +180,14 @@ final class __YonEvents {
     _outbound.clear();
   }
 
-  void close() {
+  Future<void> close() async {
     if (_closed) return;
     _closed = true;
     _queue.clear();
     _listeners.clear();
     for (final destroy in destroyers.reversed) {
       try {
-        destroy();
+        await settle(destroy);
       } catch (_) {
         yon_io.stderr.writeln('Yon local lifecycle cleanup failed.');
       }

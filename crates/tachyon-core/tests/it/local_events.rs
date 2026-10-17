@@ -1373,3 +1373,76 @@ class ProbeController {
     )
     .await;
 }
+
+#[tokio::test]
+async fn dart_background_listeners_and_async_hooks() {
+    execute_expected(
+        "dart",
+        r#"
+import 'models/ProbeReady.dart';
+import 'models/ProbeDerived.dart';
+@Service()
+class ProbeService {
+  final List<String> log = [];
+  String tag = '';
+
+  @OnStart()
+  Future<void> initialize() async {
+    await Future<void>.delayed(Duration.zero);
+    log.add('started');
+  }
+
+  @OnStop()
+  Future<void> stop() async {
+    await Future<void>.delayed(Duration.zero);
+  }
+
+  // Runs after the other listeners of the event and never republishes.
+  @InBackground
+  @OnEvent
+  @Order(-5)
+  Future<ProbeDerived> later(ProbeReady value) async {
+    await Future<void>.delayed(Duration.zero);
+    log.add('later:${value.status}');
+    return const ProbeDerived('never');
+  }
+
+  @OnEvent
+  void now(ProbeReady value) {
+    log.add('now:${value.status}');
+  }
+
+  @OnEvent
+  void derived(ProbeDerived value) {
+    log.add('derived:${value.tag}');
+  }
+}
+import 'models/ProbeReady.dart';
+@Service()
+class PublishService {
+  @Needs()
+  final ApplicationEventPublisher publisher;
+
+  @OnStart()
+  void initialize() {
+    publisher.publishEvent(const ProbeReady('paid', 10));
+  }
+}
+@RequestRoute("/probe")
+@Public
+class ProbeController {
+  @Needs()
+  final ProbeService probe;
+  @Needs()
+  final PublishService publish;
+
+  @GetRoute
+  Object? getProbe() {
+    return {'log': probe.log, 'tag': probe.tag};
+  }
+}
+"#,
+        serde_json::json!({"log": ["started", "now:paid", "later:paid"], "tag": ""}),
+    )
+    .await;
+}

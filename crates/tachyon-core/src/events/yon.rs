@@ -79,7 +79,7 @@ pub(crate) fn lower(
 }
 
 fn is_async_language(extension: &str) -> bool {
-    matches!(extension, "js" | "ts" | "py")
+    matches!(extension, "js" | "ts" | "py" | "dart")
 }
 
 fn is_asynchronous_method(method: &EventMethod) -> bool {

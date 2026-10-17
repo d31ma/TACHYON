@@ -791,7 +791,7 @@ fn dart(plan: &Plan, events: &EventModule) -> Result<String, String> {
             dart_topics(events)
         );
         dart_setup(&mut out, plan, events)?;
-        out.push_str("      events.receiveDelivery();\n      await events.drain();\n      return null;\n    } finally {\n      events.close();\n    }\n  }\n");
+        out.push_str("      events.receiveDelivery();\n      await events.drain();\n      return null;\n    } finally {\n      await events.close();\n    }\n  }\n");
     }
     out.push_str("}\n");
     Ok(out)
@@ -840,7 +840,7 @@ fn dart_route(
         RouteCalls::invocation_errors(route, &format!("c.p{controller}"), ".", request, &errors);
     let _ = writeln!(
         out,
-        "      await events.drain();\n      Object? result = {invocation};\n      if (result is Future) result = await result;\n      await events.drain();\n      return result;\n    }} finally {{\n      events.close();\n    }}\n  }}"
+        "      await events.drain();\n      Object? result = {invocation};\n      if (result is Future) result = await result;\n      await events.drain();\n      return result;\n    }} finally {{\n      await events.close();\n    }}\n  }}"
     );
     Ok(())
 }
@@ -873,7 +873,10 @@ fn dart_lifecycle(out: &mut String, plan: &Plan, events: &EventModule) -> Result
         let owner = index(plan, &event_type.name)?;
         let _ = writeln!(out, "          case {owner}:");
         if let Some(method) = &event_type.post_construct {
-            let _ = writeln!(out, "            c.p{owner}.{method}();");
+            let _ = writeln!(
+                out,
+                "            await __YonEvents.settle(() => c.p{owner}.{method}());"
+            );
         }
         if let Some(method) = &event_type.pre_destroy {
             let _ = writeln!(

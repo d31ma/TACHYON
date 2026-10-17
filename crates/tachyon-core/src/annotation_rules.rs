@@ -297,7 +297,7 @@ impl AnnotationRules {
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
     ];
-    pub(crate) const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py", "kt"];
+    pub(crate) const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py", "kt", "dart"];
     const YON_STREAM: &'static [&'static str] = &[
         "js", "ts", "py", "php", "kt", "cs", "fs", "dart", "rb", "lua", "go",
     ];
