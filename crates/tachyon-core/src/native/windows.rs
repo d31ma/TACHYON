@@ -1,6 +1,7 @@
 use super::config::NativeApplication;
 use super::csharp_browser_bindings::CsharpBrowserBindings;
 use super::csharp_web_apis::CsharpWebApis;
+use super::dotnet_web_environment::DotnetWebEnvironment;
 use super::dotnet_web_release::DotnetWebRelease;
 use super::host::{
     GeneratedHost, first_line, native_tool_failure, run_tool, stage_application, write,
@@ -408,10 +409,11 @@ async fn publish_web_framework(
     for (relative, contents) in extra_files {
         write(&staged.path().join(relative), contents.as_bytes())?;
     }
-    super::host::run_tool_in(
+    super::host::NativeHost::run_tool_in_environment(
         "dotnet",
         &["publish", "-c", "Release", "--nologo", "-o", "out"],
-        Some(staged.path()),
+        staged.path(),
+        DotnetWebEnvironment::without_emscripten_settings(),
     )
     .await?;
     let framework = staged.path().join("out/wwwroot/_framework");

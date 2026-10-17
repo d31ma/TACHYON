@@ -8,6 +8,7 @@ mod cpp_web_services;
 mod csharp_web_apis;
 mod desktop_host_source;
 mod desktop_menu_items;
+mod dotnet_web_environment;
 mod dotnet_web_release;
 mod events;
 mod file_picker_sources;

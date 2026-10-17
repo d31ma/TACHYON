@@ -5,9 +5,6 @@ pub(crate) struct EmscriptenTool {
 }
 
 impl EmscriptenTool {
-    #[cfg(windows)]
-    pub(crate) const EMCC: &'static str = "emcc.bat";
-    #[cfg(not(windows))]
     pub(crate) const EMCC: &'static str = "emcc";
 
     pub(crate) const LINK_ARGUMENTS: [&'static str; 9] = [
