@@ -273,12 +273,15 @@ This is not an error, and nothing is republished for it.
 - The browser runs it in a microtask, outside the publisher's call.
 - Yon JS/TS runs it after the current drain pass.
 - Python defers it in the same way.
+- Java runs it after the other listeners of the same event, as JavaScript
+  does, on the same thread.
 
 An async listener never republishes its return value, as in Spring.
 
-`@InBackground` is a compile error in Yon PHP, Java, Groovy, Kotlin, C# and Rust, because
+`@InBackground` is a compile error in Yon PHP, Groovy, Kotlin, C# and Rust, because
 their event methods are synchronous there. The error is "InBackground listeners
-require a Yon language with asynchronous methods (js, ts, py)".
+require a Yon language with asynchronous methods or deferred listeners (js, ts,
+py, java)".
 
 ### Returned events
 

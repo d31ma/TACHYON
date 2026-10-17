@@ -1320,7 +1320,11 @@ fn validate_streaming_method(
     start: usize,
     signature_end: usize,
     streaming: bool,
+    returns: &str,
 ) -> Result<(), Failure> {
+    if input.extension == "java" {
+        return validate_java_stream(input, start, streaming, returns);
+    }
     if streaming
         && input.extension == "py"
         && words(&input.code[start..signature_end]).any(|word| word == "async")
@@ -1330,10 +1334,34 @@ fn validate_streaming_method(
             "Python async generators are not supported; use a synchronous generator for streaming",
         ));
     }
-    if streaming && matches!(input.extension, "rs" | "java") {
+    if streaming && input.extension == "rs" {
         return Err(input.failure(
             start,
-            "@StreamRoute needs JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby, Lua or Go: Java, Groovy and Rust have no generator to produce the stream",
+            "@StreamRoute needs JavaScript, TypeScript, Python, PHP, Java, Kotlin, C#, F#, Dart, Ruby, Lua or Go: Rust has no generator to produce the stream",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_java_stream(
+    input: &Input<'_>,
+    start: usize,
+    streaming: bool,
+    returns: &str,
+) -> Result<(), Failure> {
+    let generic = returns.split('<').next().unwrap_or_default().trim();
+    let kind = generic.rsplit('.').next().unwrap_or_default();
+    let produces_many = matches!(kind, "Stream" | "Iterator");
+    if streaming && !produces_many {
+        return Err(input.failure(
+            start,
+            "A Java @StreamRoute method returns java.util.stream.Stream<T> or java.util.Iterator<T>, so Tachyon can send each value as one event",
+        ));
+    }
+    if !streaming && produces_many {
+        return Err(input.failure(
+            start,
+            "This method returns a Stream or an Iterator, so it answers with a stream. Mark it @StreamRoute and start the method name with 'stream', for example streamTicks",
         ));
     }
     Ok(())
@@ -2180,7 +2208,7 @@ mod tests {
         rejects(
             "java",
             "@RequestRoute(\"/c\")\nclass C {\n @StreamRoute\n public Object streamTicks() { return null; }\n}",
-            "@StreamRoute needs JavaScript",
+            "A Java @StreamRoute method returns java.util.stream.Stream<T>",
         );
         rejects(
             "py",
@@ -2389,6 +2417,31 @@ mod tests {
                 "{extension}"
             );
         }
+    }
+
+    #[test]
+    fn java_streams_come_from_stream_or_iterator_returns() {
+        for returns in [
+            "java.util.stream.Stream<Object>",
+            "java.util.Iterator<Object>",
+        ] {
+            let source = format!(
+                "@RequestRoute(\"/c\")\nclass C {{\n @StreamRoute\n {returns} streamItems() {{ return null; }}\n}}"
+            );
+            let plan = parsed("java", &source).plan;
+            assert_eq!(plan.routes[0].verb, "GET");
+            assert!(plan.routes[0].streaming, "{returns}");
+        }
+        rejects(
+            "java",
+            "@RequestRoute(\"/c\")\nclass C {\n @StreamRoute\n Object streamItems() { return null; }\n}",
+            "A Java @StreamRoute method returns java.util.stream.Stream<T>",
+        );
+        rejects(
+            "java",
+            "@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n java.util.stream.Stream<Object> getItems() { return null; }\n}",
+            "Mark it @StreamRoute",
+        );
     }
 
     #[test]

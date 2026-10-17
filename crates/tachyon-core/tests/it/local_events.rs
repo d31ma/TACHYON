@@ -854,6 +854,51 @@ class ProbeController {
 }
 
 #[tokio::test]
+async fn java_background_listeners_run_after_each_event_and_never_publish() {
+    execute_expected(
+        "java",
+        r#"
+import models.ProbeReady;
+import models.ProbeDerived;
+@Service()
+class ProbeService {
+  java.util.List<String> log = new java.util.ArrayList<>();
+  @OnEvent
+  @Order(-5)
+  @InBackground()
+  ProbeDerived later(ProbeReady value) { log.add("later:" + value.status()); return new ProbeDerived("never"); }
+  @OnEvent
+  void first(ProbeReady value) { log.add("first:" + value.status()); }
+  @OnEvent
+  void derived(ProbeDerived value) { log.add("derived:" + value.tag()); }
+}
+import models.ProbeReady;
+@Service()
+@NeedsAll()
+class PublishService {
+  ApplicationEventPublisher publisher;
+  @OnStart()
+  void initialize() {
+    publisher.publishEvent(new ProbeReady("paid", 10));
+    publisher.publishEvent(new ProbeReady("free", 0));
+  }
+}
+@RequestRoute("/probe")
+@Public
+@NeedsAll()
+class ProbeController {
+  ProbeService probe;
+  PublishService publish;
+  @GetRoute
+  Object getProbe() { return java.util.Map.of("log", probe.log); }
+}
+"#,
+        serde_json::json!({"log": ["first:paid", "later:paid", "first:free", "later:free"]}),
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn kotlin_events_and_lifecycle() {
     execute(
         "kt",
@@ -1139,25 +1184,6 @@ class ProbeController {
   public ProbeService $probe;
   #[GetRoute]
   function getProbe() { return ["ok" => true]; }
-}
-"#,
-        ),
-        (
-            "java",
-            r#"
-@Service()
-class ProbeService {
-  @OnEvent
-  @InBackground()
-  void observe(models.ProbeTagged value) { }
-}
-@RequestRoute("/probe")
-@Public
-@NeedsAll()
-class ProbeController {
-  ProbeService probe;
-  @GetRoute
-  Object getProbe() { return java.util.Map.of("ok", true); }
 }
 "#,
         ),

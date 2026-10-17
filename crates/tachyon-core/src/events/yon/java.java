@@ -5,7 +5,8 @@ final class ApplicationEventPublisher {
 final class __YonEvents implements AutoCloseable {
     interface Hook { void run() throws Exception; }
     interface Listener { Object run(Object value) throws Exception; }
-    private record Subscription(String name, Listener call, long order, Object condition, java.util.Map<?,?> models, String returns, int sequence) {}
+    private record Subscription(String name, Listener call, long order, Object condition, java.util.Map<?,?> models, String returns, boolean background, int sequence) {}
+    private record Deferred(Subscription listener, Object value) {}
     private record Event(String name, String json) {}
     private static final ThreadLocal<__YonEvents> active = new ThreadLocal<>();
     private final java.util.ArrayDeque<Event> queue = new java.util.ArrayDeque<>();
@@ -133,9 +134,10 @@ final class __YonEvents implements AutoCloseable {
         long order = compiled.get("order") instanceof Number number ? number.longValue() : 0;
         var models = compiled.get("models") instanceof java.util.Map<?,?> declared ? declared : null;
         var returns = compiled.get("returns") instanceof String returned ? returned : null;
+        boolean background = Boolean.TRUE.equals(compiled.get("async"));
         for (Object name : (java.util.List<?>) compiled.get("events")) {
             if (listeners.size() >= 1024) throw new IllegalStateException("Local listener capacity exceeded");
-            listeners.add(new Subscription(String.valueOf(name), callback, order, compiled.get("condition"), models, returns, listeners.size()));
+            listeners.add(new Subscription(String.valueOf(name), callback, order, compiled.get("condition"), models, returns, background, listeners.size()));
             if (replay && retained.containsKey(String.valueOf(name))) queue.add(new Event(String.valueOf(name), retained.get(String.valueOf(name))));
         }
         listeners.sort(java.util.Comparator.comparingLong(Subscription::order).thenComparingInt(Subscription::sequence));
@@ -151,11 +153,17 @@ final class __YonEvents implements AutoCloseable {
         while (!queue.isEmpty()) {
             var event = queue.remove();
             if (++deliveries > 4096) { queue.clear(); System.err.println("Yon local event delivery bound exceeded."); return; }
+            var deferred = new java.util.ArrayList<Deferred>();
             for (var listener : listeners) if (listener.name.equals(event.name)) {
                 var value = Json.parse(event.json);
                 if (listener.models != null && !fits(listener.models, event.name, value)) { System.err.println("Yon local event payload does not fit the listener model."); continue; }
                 if (listener.condition != null && !matches(listener.condition, value, event.name)) continue;
+                if (listener.background) { deferred.add(new Deferred(listener, value)); continue; }
                 try { republish(listener.call.run(value), listener.returns); }
+                catch (Exception failure) { System.err.println("Yon local event listener failed."); }
+            }
+            for (var later : deferred) {
+                try { later.listener.call.run(later.value); }
                 catch (Exception failure) { System.err.println("Yon local event listener failed."); }
             }
         }

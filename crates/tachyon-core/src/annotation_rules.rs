@@ -297,9 +297,9 @@ impl AnnotationRules {
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
     ];
-    const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py"];
+    const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py", "java"];
     const YON_STREAM: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "kt", "cs", "fs", "dart", "rb", "lua", "go",
+        "js", "ts", "py", "php", "java", "kt", "cs", "fs", "dart", "rb", "lua", "go",
     ];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts", "go"];
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
@@ -753,7 +753,7 @@ impl AnnotationRules {
         .bare()
         .reach(Self::TAC, Self::YON_BACKGROUND)
         .with(&["OnEvent"])
-        .advice("InBackground listeners require a Yon language with asynchronous methods."),
+        .advice("InBackground listeners require a Yon language with asynchronous methods or deferred listeners: JavaScript, TypeScript, Python or Java."),
         Rule::retired(
             "Behaviors",
             "",

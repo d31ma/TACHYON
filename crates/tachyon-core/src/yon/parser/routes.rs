@@ -155,7 +155,7 @@ impl MappedRoutes {
             &body,
         )?;
         let streaming = markers.stream;
-        validate_streaming_method(input, start, signature.end, streaming)?;
+        validate_streaming_method(input, start, signature.end, streaming, &returns)?;
         let takes_request = parameters
             .iter()
             .any(|parameter| parameter.source == ParameterSource::Request);

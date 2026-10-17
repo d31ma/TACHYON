@@ -12,8 +12,7 @@ impl EventLowering {
         ["Task", "Future", "CompletionStage", "Sequence", "Iterator"];
     const SYNCHRONOUS_ONLY: &str =
         "This Yon language supports synchronous local event and lifecycle completion only";
-    const BACKGROUND_NEEDS_ASYNC: &str =
-        "InBackground listeners require a Yon language with asynchronous methods (js, ts, py)";
+    const BACKGROUND_NEEDS_ASYNC: &str = "InBackground listeners require a Yon language with asynchronous methods or deferred listeners (js, ts, py, java)";
     const NO_STREAMS: &str = "Local event containers do not support streaming endpoints; use a separate non-streaming event controller";
 
     pub(crate) fn check(
@@ -21,7 +20,16 @@ impl EventLowering {
         events: &EventModule,
         asynchronous: bool,
     ) -> Result<(), String> {
-        Self::synchronous(events, asynchronous)?;
+        Self::check_listeners(plan, events, asynchronous, asynchronous)
+    }
+
+    pub(crate) fn check_listeners(
+        plan: &Plan,
+        events: &EventModule,
+        asynchronous: bool,
+        background: bool,
+    ) -> Result<(), String> {
+        Self::synchronous(events, asynchronous, background)?;
         validate_providers(plan, events)?;
         Self::without_streams(plan)
     }
@@ -30,18 +38,27 @@ impl EventLowering {
         containers::listener_options(listener)
     }
 
-    fn synchronous(events: &EventModule, asynchronous: bool) -> Result<(), String> {
+    fn synchronous(
+        events: &EventModule,
+        asynchronous: bool,
+        background: bool,
+    ) -> Result<(), String> {
         let problems = [
             (
                 events.methods.iter().any(is_asynchronous_method),
+                asynchronous,
                 Self::SYNCHRONOUS_ONLY,
             ),
-            (has_async_listener(events), Self::BACKGROUND_NEEDS_ASYNC),
+            (
+                has_async_listener(events),
+                background,
+                Self::BACKGROUND_NEEDS_ASYNC,
+            ),
         ];
         problems
             .into_iter()
-            .find(|(present, _)| [*present, asynchronous] == [true, false])
-            .map_or(Ok(()), |(_, message)| Err(String::from(message)))
+            .find(|(present, allowed, _)| [*present, *allowed] == [true, false])
+            .map_or(Ok(()), |(_, _, message)| Err(String::from(message)))
     }
 
     fn without_streams(plan: &Plan) -> Result<(), String> {
@@ -64,7 +81,12 @@ pub(crate) fn lower(
             .and_then(|value| value.to_str())
             .unwrap_or(""),
     );
-    EventLowering::check(plan, events, is_async_language(extension))?;
+    EventLowering::check_listeners(
+        plan,
+        events,
+        is_async_language(extension),
+        runs_listeners_later(extension),
+    )?;
     let relocated = super::relocate(path, source, events)
         .map_err(|error| format!("Cannot locate event methods: {error:?}"))?;
     let source = relocated.source.clone();
@@ -80,6 +102,10 @@ pub(crate) fn lower(
 
 fn is_async_language(extension: &str) -> bool {
     matches!(extension, "js" | "ts" | "py")
+}
+
+fn runs_listeners_later(extension: &str) -> bool {
+    is_async_language(extension) || extension == "java"
 }
 
 fn is_asynchronous_method(method: &EventMethod) -> bool {
