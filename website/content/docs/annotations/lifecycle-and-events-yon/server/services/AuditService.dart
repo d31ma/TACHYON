@@ -5,6 +5,7 @@ import 'models/SettledOrder.dart';
 class AuditService {
   final List<String> log = [];
   int settled = 0;
+  int audited = 0;
 
   @OnEvent({"id":"audit-log"})
   @Order(-10)
@@ -21,5 +22,11 @@ class AuditService {
   @OnEvent
   void saveSettled(SettledOrder order) {
     settled = order.total;
+  }
+
+  @OnEvent
+  @InBackground
+  Future<void> audit(SettledOrder order) async {
+    audited = order.total;
   }
 }

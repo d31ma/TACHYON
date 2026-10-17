@@ -10,6 +10,6 @@ class LifecycleController {
 
   @GetRoute
   Lifecycle getLifecycle() {
-    return Lifecycle(audit.log, audit.settled);
+    return Lifecycle(audit.log, audit.settled, audit.audited);
   }
 }
