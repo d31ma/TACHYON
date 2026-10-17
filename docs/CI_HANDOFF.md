@@ -53,7 +53,7 @@ this note; `git fetch origin` and compare before starting.
 | `work/python-ci` | `ffe55532` | Python `async def` service methods as page tasks; LocalState/SessionState for Python | Awaiting CI |
 | `work/fakes-ci` | `f565ff12` | Java/Groovy, Python and JS/TS test units clear Fakes before every case; per-language table in `docs/BEHAVIOR_ANNOTATIONS.md`; Lua runtime notices; Go `LICENSE` shipped next to `wasm_exec.js` | Awaiting CI |
 | `work/fakes-rest` | `056dd059` | Same Fake clearing for Kotlin, C#, Dart, Go and Rust (on top of `work/fakes-ci`) | Kotlin, C# and Dart fixes not yet tested by any run (head carries `[skip ci]`); run `test_units::every_typed_language_clears_its_fakes_before_each_case` on a machine with kotlinc, dotnet and dart. Locally, one `behavior_jvm` test and four `tachyon-core` lib tests failed and were not yet compared with `develop` |
-| `work/cpp-yon-ci` | `94c013a3` | C++ Yon route controllers compiled with clang++, with the review fixes (route types limited to what the JSON codec reads, default parameter values refused, snippet check runs the C++ examples) | Rebased onto develop; awaiting CI |
+| `work/cpp-yon-ci` | `94c013a3` | C++ Yon route controllers compiled with clang++, with the review fixes (route types limited to what the JSON codec reads, default parameter values refused, snippet check runs the C++ examples) | Based on `cd1e55cd`; CI run 39050254718 shows no failure that `develop` lacks, and the strict language-gap step passes. Needs another rebase: `develop` has since lowered the cohesion baselines (`31855d03`) and refactored `ty migrate` and template code, so re-measure the baselines on a clean tree after rebasing |
 | `work/ci-self-hosted` | `50c5cc3a` (local) | Opt-in switch (repository variable `TACHYON_SELF_HOSTED`) that runs push-triggered jobs on self-hosted macOS, Windows and WSL runners while pull requests stay on GitHub-hosted runners; `docs/SELF_HOSTED_RUNNERS.md` | **Not pushed yet.** The workflow switch and its policy test are committed. `docs/SELF_HOSTED_RUNNERS.md` and its links from `CONTRIBUTING.md`, `docs/README.md` and `docs/RELEASE_ENGINEERING.md` are not committed yet. Any new job in `rust-ci.yml` must use its guarded `runs-on` form |
 
 Already merged into `develop` or superseded, safe to delete:
@@ -160,6 +160,9 @@ clean run. Things that matter:
 - The relay boundary tests should tolerate a loaded runner.
 - A Ruby `#[Needs]` field typed as a browser API class is probably left nil;
   a `Needs` field without a `@return` type is not checked.
+- C++ Yon: a root `middleware.hpp` is compiled as a handler and fails with a
+  clang++ link error (`TY2004`) instead of a clear "C++ middleware comes later"
+  refusal.
 - C++ Yon: invalid UTF-8 in a returned string gives an opaque 500; a body
   nested 64 levels gives 500 instead of 400; the handler's exception line is
   never logged.
