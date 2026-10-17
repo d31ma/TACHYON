@@ -1,6 +1,5 @@
 use super::ToolchainState;
 use crate::external_command::{ToolOutput, run_sync};
-use std::process::Command;
 use std::time::Duration;
 
 pub(crate) struct CommandProbe;
@@ -20,7 +19,7 @@ impl CommandProbe {
     }
 
     pub(crate) fn output(program: &str, arguments: &[&str]) -> Option<String> {
-        let mut command = Command::new(program);
+        let mut command = crate::kotlin_home::KotlinHome::command(program);
         command.args(arguments);
         let result = run_sync(&mut command, Self::DEADLINE, Self::OUTPUT_BYTES).ok()?;
         let result = Self::successful(result)?;

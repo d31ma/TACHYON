@@ -196,7 +196,8 @@ impl KotlinWasmProgram {
     }
 
     fn command(staged: &Path, library: &Path) -> tokio::process::Command {
-        let mut command = tokio::process::Command::new(Self::COMPILER);
+        let mut command =
+            tokio::process::Command::from(crate::kotlin_home::KotlinHome::command(Self::COMPILER));
         command
             .args(Self::TARGET)
             .arg("-libraries")

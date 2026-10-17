@@ -23,7 +23,8 @@ impl WebProgramBuild {
         flag: &str,
         install_help: &str,
     ) -> Result<Vec<u8>, Failure> {
-        let mut command = tokio::process::Command::new(program);
+        let mut command =
+            tokio::process::Command::from(crate::kotlin_home::KotlinHome::command(program));
         command.arg(flag).stdin(std::process::Stdio::null());
         let output = run_tool(&mut command, Self::VERSION_DEADLINE, Self::OUTPUT_BYTES)
             .await

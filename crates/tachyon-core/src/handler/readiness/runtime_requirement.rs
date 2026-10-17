@@ -195,7 +195,7 @@ impl RuntimeRequirement {
     }
 
     pub(super) fn prepare(&self) -> Result<PreparedProbe, Failure> {
-        let mut command = StdCommand::new(&self.program);
+        let mut command = crate::kotlin_home::KotlinHome::command(&self.program);
         let workspace = self.prepare_arguments(&mut command)?;
         Ok(PreparedProbe { command, workspace })
     }

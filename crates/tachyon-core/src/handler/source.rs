@@ -246,7 +246,7 @@ fn compiler_command(
     arguments: &[String],
     current_dir: Option<&Path>,
 ) -> std::process::Command {
-    let mut command = std::process::Command::new(program);
+    let mut command = crate::kotlin_home::KotlinHome::command(program);
     command
         .args(arguments)
         .stdin(Stdio::null())

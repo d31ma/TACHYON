@@ -25,6 +25,7 @@ mod handler;
 mod helper_new_call;
 mod hot_update;
 mod html;
+mod kotlin_home;
 mod lexical;
 mod lua_source;
 pub mod method_coverage;
