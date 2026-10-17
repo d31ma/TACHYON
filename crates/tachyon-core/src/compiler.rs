@@ -612,7 +612,11 @@ mod tests {
     }
 
     fn typescript_available() -> bool {
-        let Ok(output) = std::process::Command::new("tsc").arg("--version").output() else {
+        let program = TypeScriptCompiler::program(Path::new("/nonexistent"));
+        let Ok(output) = std::process::Command::new(program)
+            .arg("--version")
+            .output()
+        else {
             return false;
         };
         let banner = String::from_utf8_lossy(&output.stdout);
