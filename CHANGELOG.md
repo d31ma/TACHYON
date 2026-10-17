@@ -499,6 +499,10 @@ machine contracts have their own, independent major versions.
   Emscripten as missing for C++, Ruby and Lua web services, and the Tac Ruby
   and Tac Lua runtime builds could not start `emcc`.
 
+- On Windows, C++ web services now build with the `em++.exe` that Emscripten
+  6.0.10 and newer ships. Tachyon still looked for `em++.bat`, so the build
+  stopped with TY1605 even when `ty doctor` found Emscripten.
+
 - The shared annotation rule table now lists F# (`.fs`) as a Yon language,
   with the same reach as C# (ADR 0073). The checks that ask the table about
   a language directly, such as the role-folder message and the `@Topic`
