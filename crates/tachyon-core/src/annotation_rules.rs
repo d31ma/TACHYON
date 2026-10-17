@@ -297,7 +297,7 @@ impl AnnotationRules {
     const TAC_HELPER: &'static [&'static str] =
         &["js", "ts", "dart", "rs", "py", "cs", "fs", "go", "rb"];
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py", "hpp",
     ];
     pub(crate) const YON_BACKGROUND: &'static [&'static str] = Self::YON;
     const YON_STREAM: &'static [&'static str] = Self::YON;
@@ -444,7 +444,7 @@ impl AnnotationRules {
             "says how long one object of this class lives",
         )
         .needs_arguments()
-        .reach(Self::TAC_EXCEPT_CPP, Self::YON),
+        .reach(Self::TAC, Self::YON),
         Rule::new(
             "Helper",
             Self::TYPE,
@@ -479,7 +479,7 @@ impl AnnotationRules {
             "chooses which object fills a Needs field when there are several",
         )
         .needs_arguments()
-        .reach(Self::TAC_EXCEPT_CPP, Self::YON)
+        .reach(Self::TAC, Self::YON)
         .with(&["Needs"]),
         Rule::new(
             "Setup",
