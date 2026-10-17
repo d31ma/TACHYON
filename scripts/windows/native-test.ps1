@@ -160,9 +160,10 @@ function Write-WebViewProcesses([string] $app) {
         }
 }
 
-function Add-CompanionProbe {
-    if ('TachyonCompanionProbe' -as [type]) { return }
-    Add-Type -TypeDefinition @'
+function Write-CompanionAnswers([string] $app) {
+    $probe = {
+        param([string] $app)
+        Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -206,16 +207,29 @@ public static class TachyonCompanionProbe
     }
 }
 '@
+        $owner = [guid]::NewGuid().ToString()
+        $request = '{"op":"init","props":{},"route":"/","service":"gateRoot","owner":"' + $owner + '"}'
+        foreach ($name in @('TachyonCompanion.dll', 'TachyonRustCompanion.dll')) {
+            $library = Join-Path $app "bin\$name"
+            "Companion {0} init gateRoot: {1}" -f $name, [TachyonCompanionProbe]::Call($library, $request)
+        }
+    }
+    & powershell.exe -NoProfile -NonInteractive -Command $probe -args $app | ForEach-Object { Write-Host $_ }
 }
 
-function Write-CompanionAnswers([string] $app) {
-    Add-CompanionProbe
-    $owner = [guid]::NewGuid().ToString()
-    $request = '{"op":"init","props":{},"route":"/","service":"gateRoot","owner":"' + $owner + '"}'
-    foreach ($name in @('TachyonCompanion.dll', 'TachyonRustCompanion.dll')) {
-        $library = Join-Path $app "bin\$name"
-        Write-Host ("Companion {0} init gateRoot: {1}" -f $name, [TachyonCompanionProbe]::Call($library, $request))
-    }
+function Write-BundleDiagnostics([string] $app) {
+    $bundle = Join-Path $app 'resources\WebBundle'
+    $index = Get-Content -Raw -LiteralPath (Join-Path $bundle 'index.html')
+    if ($index.Length -gt 4000) { $index = $index.Substring(0, 4000) + '...' }
+    Write-Host "Bundle index.html: $index"
+    $files = @(Get-ChildItem -LiteralPath $bundle -Recurse -File -Include '*.html', '*.js', '*.json')
+    Write-Host ("Bundle files: {0}" -f (($files | ForEach-Object { $_.FullName.Substring($bundle.Length + 1) + ' ' + $_.Length }) -join '; '))
+    $files | Select-String -Pattern '[''"][^''"\s]*\\[^''"\s]*\.(js|css|json|html|wasm)[''"]' |
+        Select-Object -First 12 | ForEach-Object {
+            $line = $_.Line.Trim()
+            if ($line.Length -gt 300) { $line = $line.Substring(0, 300) + '...' }
+            Write-Host ("Bundle backslash path {0}:{1}: {2}" -f $_.Filename, $_.LineNumber, $line)
+        }
 }
 
 function Write-NativeLogTail([string] $log) {
@@ -252,6 +266,8 @@ function Write-NativeFailureDiagnostics($process, $window, [string] $log, [strin
     Write-UiaFailureDiagnostics $window
     try { Write-CompanionAnswers $app }
     catch { Write-Host "Companion diagnostics were incomplete: $($_.Exception.Message)" }
+    try { Write-BundleDiagnostics $app }
+    catch { Write-Host "Bundle diagnostics were incomplete: $($_.Exception.Message)" }
 }
 
 function Stop-NativeProcesses($process) {
