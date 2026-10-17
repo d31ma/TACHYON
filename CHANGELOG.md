@@ -27,6 +27,11 @@ machine contracts have their own, independent major versions.
   `CANCELLED`. Before, `async def` stopped the build with TY1605.
   Asynchronous `on_start`, `on_stop` and `on_event` methods still do
   (ADR 0093 amendment).
+- A Python Tac service field may be marked `LocalState` or `SessionState`
+  inside its type, such as `theme: Annotated[str, local_state] = 'light'`.
+  The page saves and restores it like the fields of the other web service
+  languages. Before, the build refused both with TY1308 (ADR 0093
+  amendment).
 - The standard `theme_color` member of `client/manifest.json` now becomes
   `<meta name="theme-color" content="...">` in every web and native page
   head, HTML-escaped, when it is text that is not blank. A missing or

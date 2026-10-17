@@ -41,7 +41,7 @@ class PythonTacGate {
   }
 
   static async receipt(fixture, result) {
-    await writeFile(path.join(fixture, 'python-tac-browser.json'), JSON.stringify({ ...result, scope: 'Python Tac Chromium fixture: synchronous and async def services', asyncMethodsChromium: true, firefoxAndWebKitOwed: true, fullPythonTacQualified: false }, null, 2) + '\n')
+    await writeFile(path.join(fixture, 'python-tac-browser.json'), JSON.stringify({ ...result, scope: 'Python Tac Chromium fixture: synchronous and async def services and a LocalState field', asyncMethodsChromium: true, firefoxAndWebKitOwed: true, fullPythonTacQualified: false }, null, 2) + '\n')
   }
 
   static async serve(fixture, diagnostics) {
@@ -125,16 +125,20 @@ class PythonTacGate {
 
   static async waitForPinnedCache(page) {
     const urls = PythonTacGate.assets.map(name => `/.tachyon/services/python/314.0.7/${name}`)
-    const snapshot = await page.waitForFunction(async paths => {
-      const names = await caches.keys()
-      const matches = await Promise.all(paths.map(async asset => {
-        const responses = await Promise.all(names.map(async name => (await caches.open(name)).match(asset)))
-        const response = responses.find(value => value?.ok)
-        return response ? { path: asset, bytes: (await response.arrayBuffer()).byteLength } : null
-      }))
-      return matches.every(Boolean) ? matches : false
-    }, urls, { timeout: 15_000 })
-    try { return await snapshot.jsonValue() } finally { await snapshot.dispose() }
+    return page.evaluate(async paths => {
+      const deadline = performance.now() + 15_000
+      while (performance.now() < deadline) {
+        const names = await caches.keys()
+        const matches = await Promise.all(paths.map(async asset => {
+          const responses = await Promise.all(names.map(async name => (await caches.open(name)).match(asset)))
+          const response = responses.find(value => value?.ok)
+          return response ? { path: asset, bytes: (await response.arrayBuffer()).byteLength } : null
+        }))
+        if (matches.every(Boolean)) return matches
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      throw new Error('The service worker did not cache every pinned Python runtime file within 15 seconds')
+    }, urls)
   }
 
   static async exercise(page) {
@@ -143,8 +147,10 @@ class PythonTacGate {
     await page.locator('#view-echo').click()
     await page.waitForFunction(() => document.querySelector('#view-echo-count')?.textContent === '1', undefined, { timeout: 5_000 })
     assert.equal(await page.locator('#view-model').textContent(), 'initial')
+    const restored = await page.locator('#view-loaded').textContent()
     await page.locator('#view-load').click()
-    await page.waitForFunction(() => document.querySelector('#view-loaded')?.textContent === 'atlas', undefined, { timeout: 5_000 })
+    await page.waitForFunction(() => document.querySelector('#view-total')?.textContent === '5', undefined, { timeout: 5_000 })
+    assert.equal(await page.locator('#view-loaded').textContent(), 'atlas')
     const asynchronous = await PythonTacGate.exerciseAsync(page)
     const lifetime = await page.evaluateHandle(async () => {
       const { default: CounterService } = await import('/.tachyon/services/CounterService.js')
@@ -190,7 +196,7 @@ class PythonTacGate {
           audit.__tachyonDispose()
         }
       })
-      return { ...managed, asynchronous }
+      return { ...managed, asynchronous, restored }
     } finally {
       await lifetime.dispose()
     }
@@ -219,6 +225,8 @@ class PythonTacGate {
     assert.deepEqual(result.errors, [])
     assert.deepEqual(result.externalRequests, [])
     assert.deepEqual(result.cached.map(asset => asset.bytes), [17_931, 1_250_344, 9_598_218, 2_545_637, 119_077])
+    assert.equal(result.online.restored, 'waiting')
+    assert.equal(result.offline.restored, 'atlas')
     for (const probe of [result.online, result.offline]) {
       assert.deepEqual(probe.before, { started: [1, 0], first: 1, second: 1 })
       assert.equal(probe.incremented, 4)

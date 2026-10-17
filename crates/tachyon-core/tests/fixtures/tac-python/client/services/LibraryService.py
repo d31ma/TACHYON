@@ -6,7 +6,7 @@ from models import Guide
 class LibraryService:
     shelf: Annotated[ShelfHelper, needs]
     total: int = 0
-    loaded: str = 'waiting'
+    loaded: Annotated[str, local_state] = 'waiting'
 
     async def load(self, title: str) -> Guide:
         pages = await self.shelf.count(title)

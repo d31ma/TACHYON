@@ -293,6 +293,9 @@ impl AnnotationRules {
     ];
     const TAC_BEHAVIOR_ADAPTER: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
+    const TAC_STORED_STATE: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py",
+    ];
     const TAC_HELPER: &'static [&'static str] = &["js", "ts", "dart", "rs", "py", "cs", "fs"];
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
@@ -518,7 +521,7 @@ impl AnnotationRules {
             "keeps this field in the browser's localStorage, so its value comes back after a reload and in later visits on this device",
         )
         .bare()
-        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::NOWHERE)
+        .reach(Self::TAC_STORED_STATE, Self::NOWHERE)
         .clashes(&["SessionState", "Needs"]),
         Rule::new(
             "SessionState",
@@ -526,7 +529,7 @@ impl AnnotationRules {
             "keeps this field in the browser's sessionStorage, so its value comes back after a reload in the same tab",
         )
         .bare()
-        .reach(Self::TAC_BEHAVIOR_ADAPTER, Self::NOWHERE)
+        .reach(Self::TAC_STORED_STATE, Self::NOWHERE)
         .clashes(&["LocalState", "Needs"]),
         Rule::new(
             "CacheSettings",
