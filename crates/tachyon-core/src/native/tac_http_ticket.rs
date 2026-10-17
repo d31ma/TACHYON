@@ -3,6 +3,13 @@
 unsafe extern "C" {
     fn tac_host_http_start(ticket: u32, request: *const u8, length: usize);
     fn tac_host_http_cancel(ticket: u32);
+    fn tac_host_socket_start(
+        ticket: u32,
+        owner: *const u8,
+        owner_length: usize,
+        request: *const u8,
+        length: usize,
+    );
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -35,17 +42,39 @@ impl TacHttpTicket {
     }
 
     pub fn start(request: &str) -> Self {
+        let ticket = Self::reserve();
+        unsafe { tac_host_http_start(ticket, request.as_ptr(), request.len()) };
+        Self {
+            ticket,
+            settled: false,
+        }
+    }
+
+    pub fn socket(owner: &str, request: &str) -> Self {
+        let ticket = Self::reserve();
+        unsafe {
+            tac_host_socket_start(
+                ticket,
+                owner.as_ptr(),
+                owner.len(),
+                request.as_ptr(),
+                request.len(),
+            )
+        };
+        Self {
+            ticket,
+            settled: false,
+        }
+    }
+
+    fn reserve() -> u32 {
         let ticket = Self::last().with(|last| {
             let next = last.get().wrapping_add(1).max(1);
             last.set(next);
             next
         });
         Self::slots().with(|slots| slots.borrow_mut().insert(ticket, (None, None)));
-        unsafe { tac_host_http_start(ticket, request.as_ptr(), request.len()) };
-        Self {
-            ticket,
-            settled: false,
-        }
+        ticket
     }
 
     fn settle(ticket: u32, answer: String) {

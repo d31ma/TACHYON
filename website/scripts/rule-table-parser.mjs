@@ -1,7 +1,7 @@
 /** @typedef {'tac' | 'yon'} Realm */
 /** @typedef {{ name: string, tac: string[], yon: string[], code: number }} AnnotationRule */
 /** @typedef {{ tac?: string, yon?: string, code?: string }} ReachSettings */
-/** @typedef {{ realmLanguages: Record<Realm, string[]>, rules: AnnotationRule[] }} RuleTable */
+/** @typedef {{ realmLanguages: Record<Realm, string[]>, browserHeld: string[], rules: AnnotationRule[] }} RuleTable */
 
 export class RuleTableParser {
   static listConstant = /const (\w+): &'static \[&'static str\]\s*=\s*&\[([^\]]*)\]/g
@@ -18,6 +18,7 @@ export class RuleTableParser {
   static reachBuilder = 'reach'
   static codeBuilder = 'code'
   static realmLists = { tac: 'TAC', yon: 'YON' }
+  static browserHeldList = 'TAC_STREAM'
   static startingReach = { tac: 'TAC_BEHAVIOR', yon: 'YON_BEHAVIOR', code: '1308' }
   static retiredReach = { tac: 'NOWHERE', yon: 'NOWHERE', code: '1308' }
 
@@ -32,8 +33,9 @@ export class RuleTableParser {
       tac: RuleTableParser.listNamed(lists, RuleTableParser.realmLists.tac),
       yon: RuleTableParser.listNamed(lists, RuleTableParser.realmLists.yon),
     }
+    const browserHeld = RuleTableParser.listNamed(lists, RuleTableParser.browserHeldList)
     const rules = RuleTableParser.ruleTexts(source).map(text => RuleTableParser.ruleFrom(text, lists, presets))
-    return { realmLanguages, rules }
+    return { realmLanguages, browserHeld, rules }
   }
 
   /**

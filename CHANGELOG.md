@@ -40,6 +40,15 @@ machine contracts have their own, independent major versions.
   for each owner. A Ruby Helper with `#[OnStart]`, `#[OnStop]` or
   `#[OnEvent]` is refused with `TY1605`, because the page never runs those
   hooks (ADR 0054 amendment).
+- A Rust Tac `#[HTTPClient]` trait method may carry `#[StreamRequest]` or
+  `#[SocketRequest]`. The page's event bus holds the stream or socket for
+  the Rust service that keeps the client in a `#[Needs]` field, with the
+  same origin, JSON, size and reconnect rules as JavaScript, and closes it
+  when the service's owner goes away. The service receives each message
+  with `#[OnEvent]` on a method whose parameter is the message model. A
+  socket client gets `send(message).await`, which waits for the page like
+  an HTTP call and returns a `BehaviorError` code instead of a rejected
+  promise (ADR 0058, ADR 0060 and ADR 0090 amendments).
 - C++ Tac test units can now replace and answer what a service needs. A
   `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
   fields of the service that `construct<CounterService>()` makes. A static

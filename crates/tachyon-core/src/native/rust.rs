@@ -41,7 +41,8 @@ impl RustCompanion {
             include_str!("tac_task_error.rs"),
             include_str!("tac_task_waker.rs"),
             include_str!("tac_tasks.rs"),
-            include_str!("tac_http_ticket.rs")
+            include_str!("tac_http_ticket.rs"),
+            include_str!("tac_stream.rs")
         ),
         include_str!("web_apis/clock.rs"),
         include_str!("web_apis/secure_random.rs"),

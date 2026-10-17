@@ -265,6 +265,7 @@ pub enum TacMember {
     FallibleMethod(Box<dyn Fn(Vec<TacValue>) -> Result<TacValue, &'static str>>),
     Task(Box<dyn Fn(Vec<TacValue>) -> TacTask>),
     Listener(TacListener),
+    Stream(TacStream),
     Hook(bool, Box<dyn Fn() -> Result<(), &'static str>>),
 }
 
@@ -682,6 +683,7 @@ fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
     let mut methods = Vec::new();
     let mut tasks = Vec::new();
     let mut listeners = Vec::new();
+    let mut streams = Vec::new();
     for (name, member) in members {
         match member {
             TacMember::Field { .. } => fields.push(TacValue::Text(String::from(*name))),
@@ -693,16 +695,18 @@ fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
                 tasks.push(TacValue::Text(String::from(*name)));
             }
             TacMember::Listener(listener) => listeners.push(tac_describe_listener(name, listener)),
+            TacMember::Stream(stream) => streams.push(stream.describe()),
             TacMember::Hook(..) => {}
         }
     }
     let exclusive = !tasks.is_empty();
     format!(
-        "{{\"value\":{{\"fields\":{},\"methods\":{},\"asyncMethods\":{},\"exclusive\":{exclusive},\"listeners\":{}}}}}",
+        "{{\"value\":{{\"fields\":{},\"methods\":{},\"asyncMethods\":{},\"exclusive\":{exclusive},\"listeners\":{},\"streams\":{}}}}}",
         tac_write(&TacValue::List(fields)),
         tac_write(&TacValue::List(methods)),
         tac_write(&TacValue::List(tasks)),
-        tac_write(&TacValue::List(listeners))
+        tac_write(&TacValue::List(listeners)),
+        tac_write(&TacValue::List(streams))
     )
 }
 

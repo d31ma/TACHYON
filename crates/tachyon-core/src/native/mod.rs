@@ -142,6 +142,7 @@ mod rust_crate_build;
 mod rust_dependency;
 #[cfg(test)]
 mod rust_filename_tests;
+mod rust_held_streams;
 mod rust_imports;
 mod rust_local_paths;
 mod rust_native_libraries;

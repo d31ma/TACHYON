@@ -161,3 +161,13 @@ sockets". The other compiled Tac languages still refuse `@SocketRequest`.
   holds the socket for the Ruby service that keeps the client in a
   `#[Needs]` field. The client gets `send_message(message)`, which waits for
   the page like an HTTP call (ADR 0054 amendment of 2026-10-17).
+
+## Amendment (2026-10-17): Rust socket clients
+
+`#[SocketRequest]` is also written on a Rust HTTPClient trait method. The
+page's event bus holds the `WebSocket` for the Rust service that keeps the
+client in a field; the service receives each message with `#[OnEvent]`, and
+the generated `send(message).await` writes to the socket and returns a
+`BehaviorError` code instead of a rejected promise. See ADR 0090, "Rust
+streams and sockets". C#, F#, Dart, Swift, Kotlin, Java, Python, Lua and
+C++ still refuse `@SocketRequest`.

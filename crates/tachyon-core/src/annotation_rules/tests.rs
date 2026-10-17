@@ -648,7 +648,9 @@ fn routes_check_their_verbs_status_and_parameter_sources() {
         assert!(message.contains(expected), "{message}");
     }
     let rust_stream = "#[HTTPClient(\"/ticks\")]\npub struct TicksClient {\n}\n\nimpl TicksClient {\n    #[StreamRequest]\n    pub fn stream_ticks(&self, tick: Tick) {}\n}\n";
-    let message = Sample::message("rs", Realm::Tac, rust_stream).expect("refused in Rust");
+    assert_eq!(Sample::message("rs", Realm::Tac, rust_stream), None);
+    let kotlin_stream = "@HTTPClient(\"/ticks\")\ninterface TicksClient {\n    @StreamRequest\n    fun streamTicks(tick: Tick)\n}\n";
+    let message = Sample::message("kt", Realm::Tac, kotlin_stream).expect("refused in Kotlin");
     assert!(message.contains("receives it with @OnEvent"), "{message}");
     let client_route = "@RequestRoute(\"/orders\")\nexport class OrdersController {\n}\n";
     let message = Sample::message("ts", Realm::Tac, client_route).expect("refused in Tac");
@@ -705,7 +707,9 @@ fn sockets_check_their_class_their_markers_and_their_language() {
         "{message}"
     );
     let rust_client = "#[HTTPClient(\"/chat\")]\npub struct ChatClient {\n}\n\nimpl ChatClient {\n    #[SocketRequest]\n    pub fn receive(&self, message: ChatMessage) {}\n}\n";
-    let message = Sample::message("rs", Realm::Tac, rust_client).expect("refused in Rust");
+    assert_eq!(Sample::message("rs", Realm::Tac, rust_client), None);
+    let kotlin_client = "@HTTPClient(\"/chat\")\ninterface ChatClient {\n    @SocketRequest\n    fun receive(message: ChatMessage)\n}\n";
+    let message = Sample::message("kt", Realm::Tac, kotlin_client).expect("refused in Kotlin");
     assert!(message.contains("receives it with @OnEvent"), "{message}");
 }
 

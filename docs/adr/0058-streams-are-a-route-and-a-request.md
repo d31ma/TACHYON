@@ -140,3 +140,11 @@ and sockets". The other compiled Tac languages still refuse `@StreamRequest`.
   holds the stream for the Ruby service that keeps the client in a
   `#[Needs]` field, and the service receives each message with
   `#[OnEvent]` (ADR 0054 amendment of 2026-10-17).
+
+## Amendment (2026-10-17): Rust stream clients
+
+`#[StreamRequest]` is also written on a Rust HTTPClient trait method. The
+page's JavaScript still holds the `EventSource` for the Rust service that
+keeps the client in a field, and the service receives each message with
+`#[OnEvent]`. See ADR 0090, "Rust streams and sockets". C#, F#, Dart, Swift,
+Kotlin, Java, Python, Lua and C++ still refuse `@StreamRequest`.

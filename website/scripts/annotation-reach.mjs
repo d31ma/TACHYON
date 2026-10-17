@@ -9,19 +9,22 @@ import { RuleTableParser } from './rule-table-parser.mjs'
 export class AnnotationReach {
   static ruleTable = fileURLToPath(new URL('../../crates/tachyon-core/src/annotation_rules.rs', import.meta.url))
   static codePrefix = 'TY'
-  static browserHeld = ['js', 'ts', 'go', 'rb']
 
   /** @type {Record<Realm, string[]>} */
   realmLanguages
   /** @type {Map<string, AnnotationRule>} */
   rules
+  /** @type {string[]} */
+  browserHeld
 
   /**
    * @param {Record<Realm, string[]>} realmLanguages
    * @param {AnnotationRule[]} rules
+   * @param {string[]} browserHeld
    */
-  constructor(realmLanguages, rules) {
+  constructor(realmLanguages, rules, browserHeld) {
     this.realmLanguages = realmLanguages
+    this.browserHeld = browserHeld
     this.rules = new Map(rules.map(rule => [AnnotationReach.plainName(rule.name), rule]))
   }
 
@@ -36,7 +39,7 @@ export class AnnotationReach {
    */
   static parse(source) {
     const table = RuleTableParser.parse(source)
-    return new AnnotationReach(table.realmLanguages, table.rules)
+    return new AnnotationReach(table.realmLanguages, table.rules, table.browserHeld)
   }
 
   /**
@@ -77,15 +80,15 @@ export class AnnotationReach {
   refuses(rule, realm, language) {
     if (rule[realm].includes(language)) return false
     if (this.realmLanguages[realm].includes(language)) return true
-    return AnnotationReach.isBrowserHeldOnly(rule[realm])
+    return this.isBrowserHeldOnly(rule[realm])
   }
 
   /**
    * @param {string[]} languages
    * @returns {boolean}
    */
-  static isBrowserHeldOnly(languages) {
-    return languages.length > 0 && languages.every(language => AnnotationReach.browserHeld.includes(language))
+  isBrowserHeldOnly(languages) {
+    return languages.length > 0 && languages.every(language => this.browserHeld.includes(language))
   }
 
   /**

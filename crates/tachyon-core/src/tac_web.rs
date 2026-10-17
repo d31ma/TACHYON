@@ -369,7 +369,7 @@ const tachyonImports = {
 const wasmText = '__WASM__'
 const binary = new Uint8Array(wasmText.length / 2)
 for (let index = 0; index < binary.length; index += 1) binary[index] = parseInt(wasmText.slice(index * 2, index * 2 + 2), 16)
-const { instance } = await WebAssembly.instantiate(binary, { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead) } })
+const { instance } = await WebAssembly.instantiate(binary, { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead, (owner, text) => socketHost(owner, text)) } })
 const exports = instance.exports
 wasmTasks.attach(exports)
 "
@@ -871,6 +871,9 @@ mod reach_tests;
 
 #[cfg(test)]
 mod go_stream_tests;
+
+#[cfg(test)]
+mod rust_stream_tests;
 
 #[cfg(test)]
 mod rust_embedding_tests;

@@ -464,6 +464,24 @@ fn a_ruby_socket_client_needs_no_setup_and_gets_a_send_message_method() {
 }
 
 #[test]
+fn a_rust_socket_client_needs_no_context_and_gets_a_send_method() {
+    let source = "#[HTTPClient(\"/chat\")]\ntrait ChatClient {\n    #[SocketRequest]\n    fn receive(&self, message: ChatMessage);\n}\n";
+    let path = Path::new("client/remotes/ChatClient.rs");
+    let lowered = DeclaredContract::concrete(path, source, "tac").expect("lowered");
+    for part in [
+        "struct ChatClient;\n",
+        "fn receive(&self, message: ChatMessage) {}",
+        "\n    pub async fn send<T: TacModel>(&self, message: T) -> BehaviorResult<()> {\n        BehaviorBrowserSocket::send(\"ChatClient\", message).await\n    }\n",
+    ] {
+        assert!(lowered.contains(part), "{part:?}:\n{lowered}");
+    }
+    let stream = source.replace("SocketRequest", "StreamRequest");
+    let lowered = DeclaredContract::concrete(path, &stream, "tac").expect("lowered");
+    assert!(!lowered.contains("send("), "{lowered}");
+    assert!(lowered.contains("struct ChatClient;\n"), "{lowered}");
+}
+
+#[test]
 fn tac_browser_clients_stay_as_written() {
     let source = Samples::CONTRACTS[10].1;
     assert!(

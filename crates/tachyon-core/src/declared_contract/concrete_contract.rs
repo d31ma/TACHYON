@@ -36,6 +36,7 @@ impl<'a> ConcreteContract<'a> {
     const HELD: [&'static str; 2] = ["streamrequest", "socketrequest"];
     const SOCKET: [&'static str; 1] = ["socketrequest"];
     const GO_SEND: &'static str = "\nfunc ({receiver} *{owner}) Send(message any) error {\n\treturn behaviorSocketSend(\"{owner}\", message)\n}\n";
+    const RUST_SEND: &'static str = "\n{indent}pub async fn send<T: TacModel>(&self, message: T) -> BehaviorResult<()> {\n{indent}    BehaviorBrowserSocket::send(\"{owner}\", message).await\n{indent}}\n";
     const RUBY_HELD_START: &'static str = "def initialize(_context = nil)\nend";
     const RUBY_SEND: &'static str = "def send_message(message)\n  BehaviorBrowserSocket.send_message(\"{owner}\", message)\nend";
     const RUST_FIELDS: [&'static str; 2] = [";", " { behaviors: BehaviorContext }"];
@@ -167,7 +168,11 @@ impl<'a> ConcreteContract<'a> {
     }
 
     fn exchanged(&self, members: &[ContractMember]) -> Vec<ContractMember> {
-        let held: &[&str] = [&[][..], &Self::HELD[..]][usize::from(self.holds_in_ruby_page())];
+        let rust_page = [self.tac, self.form.language == Self::RUST] == [true, true];
+        let pages = [self.holds_in_ruby_page(), rust_page];
+        let held_in_page = [pages.contains(&true), self.form.language == Self::GO].contains(&true);
+        let held: [&[&str]; 2] = [&[], &Self::HELD];
+        let held = held[usize::from(held_in_page)];
         members
             .iter()
             .filter(|member| !member.is_marked_with(held))
@@ -203,6 +208,23 @@ impl<'a> ConcreteContract<'a> {
         Some((declaration.close..declaration.close, block))
     }
 
+    fn rust_send(
+        &self,
+        declaration: &ContractDeclaration,
+        members: &[ContractMember],
+        indent: &str,
+    ) -> String {
+        let socket = members
+            .iter()
+            .any(|member| member.is_marked_with(&Self::SOCKET));
+        if [self.tac, self.form.language == Self::RUST, socket] != [true, true, true] {
+            return String::new();
+        }
+        Self::RUST_SEND
+            .replace("{indent}", indent)
+            .replace("{owner}", &declaration.name)
+    }
+
     fn is_bodiless_method(member: &ContractMember) -> bool {
         [member.method, member.has_block()] == [true, false]
     }
@@ -228,7 +250,8 @@ impl<'a> ConcreteContract<'a> {
             indent: &indent,
         };
         let (field, text) = context.parts_for(declaration.role.marker);
-        let crud = self.crud_members(declaration, &indent);
+        let crud = self.crud_members(declaration, &indent)
+            + &self.rust_send(declaration, members, &indent);
         let open = declaration.header.end + 1;
         let field_edit = (!field.is_empty()).then_some((open..open, field));
         let member_edit = Some((declaration.close..declaration.close, text + &crud));
@@ -354,12 +377,7 @@ impl<'a> ConcreteContract<'a> {
 
     fn go_edits(&self, declaration: &ContractDeclaration) -> Vec<SourceEdit> {
         let members = declaration.members(self.form, &self.code);
-        let exchanged: Vec<ContractMember> = members
-            .iter()
-            .filter(|member| !member.is_marked_with(&Self::HELD))
-            .cloned()
-            .collect();
-        let needs_context = declaration.role.needs_context(&exchanged);
+        let needs_context = declaration.role.needs_context(&self.exchanged(&members));
         let end = (declaration.close + 1).min(self.source.len());
         let text = self.go_type(declaration, &members, needs_context);
         vec![(declaration.header.start..end, text)]

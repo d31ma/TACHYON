@@ -13,6 +13,8 @@ impl RustNames {
         include_str!("behavior_browser_http.rs"),
         include_str!("behavior_tasks.rs")
     );
+    const SOCKET_SENDER: &str = "BehaviorBrowserSocket::send(";
+    const SOCKET_SEND: &str = include_str!("behavior_browser_socket.rs");
     const TYPED_ANSWER: &str = include_str!("behavior_typed_answer.rs");
 }
 
@@ -30,6 +32,9 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
     generated.push_str(&runtime(&module.module_id, &module.environment));
     if module.types.iter().any(RustAsyncClient::reads_models) {
         generated.push_str(RustNames::TYPED_ANSWER);
+    }
+    if module.source.contains(RustNames::SOCKET_SENDER) {
+        generated.push_str(RustNames::SOCKET_SEND);
     }
     render(module, edits, &generated)
 }

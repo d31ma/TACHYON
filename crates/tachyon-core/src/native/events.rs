@@ -1,7 +1,7 @@
 use crate::{
     Failure,
     companion::CompanionLanguage,
-    events::{EventListener, EventMethod, EventModule, EventType},
+    events::{EventListener, EventMethod, EventModule, EventType, HeldStreams},
     project::NativeCompanion,
     unicode_name::UnicodeName,
 };
@@ -93,13 +93,22 @@ pub(super) fn prepare(
             entries: String::new(),
         });
     };
-    validate_module(language, module, path)?;
+    let owner = validate_module(language, module, path)?;
     let mut output = Prepared {
         source: module.source.clone(),
         excluded: Vec::new(),
-        entries: String::new(),
+        entries: super::rust_held_streams::RustHeldStreams::of_owner(
+            language,
+            module,
+            owner.as_deref(),
+        )
+        .map_err(|message| failure(path, message))?,
     };
-    if let Some(metadata) = module.types.first() {
+    let metadata = module
+        .types
+        .iter()
+        .find(|event_type| Some(event_type.name.as_str()) == owner.as_deref());
+    if let Some(metadata) = metadata {
         add_members(language, module, metadata, path, &mut output)?;
     }
     let (rewritten, publishers) = publisher_members(language, &output.source);
@@ -117,7 +126,8 @@ fn add_members(
 ) -> Result<(), Failure> {
     let mut seen = BTreeSet::new();
     for method in &module.methods {
-        if !seen.insert((method.owner.as_str(), method.name.as_str())) {
+        let of_another_type = method.owner != metadata.name;
+        if of_another_type || !seen.insert((method.owner.as_str(), method.name.as_str())) {
             continue;
         }
         if is_asynchronous(method) {
@@ -157,21 +167,27 @@ fn validate_module(
     language: NativeCompanion,
     module: &EventModule,
     path: &Path,
-) -> Result<(), Failure> {
-    if module.types.len() > 1 {
-        return Err(failure(
-            path,
-            "Native events belong to the page companion type only.",
-        ));
-    }
-    let Some(metadata) = module.types.first() else {
-        return Ok(());
-    };
+) -> Result<Option<String>, Failure> {
     let owner = crate::companion::owner_name(
         companion_language(language),
         &module.source,
         &path.to_string_lossy(),
     );
+    let clients = HeldStreams::clients(module, owner.as_deref().unwrap_or_default());
+    let typed: Vec<&EventType> = module
+        .types
+        .iter()
+        .filter(|event_type| !clients.iter().any(|client| client.name == event_type.name))
+        .collect();
+    if typed.len() > 1 {
+        return Err(failure(
+            path,
+            "Native events belong to the page companion type only.",
+        ));
+    }
+    let Some(metadata) = typed.first() else {
+        return Ok(owner);
+    };
     if owner.as_deref() != Some(&metadata.name) {
         return Err(failure(
             path,
@@ -190,7 +206,7 @@ fn validate_module(
             "Native event metadata exceeds its 32-topic/128-listener bounds.",
         ));
     }
-    Ok(())
+    Ok(owner)
 }
 
 fn publisher_members(language: NativeCompanion, source: &str) -> (String, Vec<String>) {
@@ -899,6 +915,26 @@ mod tests {
             csharp.source
         );
         assert_excluded(&csharp, "applicationEventPublisher");
+    }
+
+    #[test]
+    fn a_held_rust_stream_client_becomes_a_stream_entry_and_an_unheld_one_does_not() {
+        let client = "#[HTTPClient(\"/ticks\")]\nstruct TicksClient;\nimpl TicksClient {\n    #[StreamRequest]\n    fn receive(&self, tick: Tick) {}\n}\n";
+        let held = format!(
+            "{client}struct ProbeService {{\n    ticks: std::sync::Arc<TicksClient>,\n    level: i64,\n}}\nimpl ProbeService {{\n    #[OnEvent]\n    fn heard(&mut self, tick: Tick) {{ self.level = tick.level; }}\n}}\n"
+        );
+        let output = prepared("rs", NativeCompanion::Rust, &held);
+        assert_eq!(output.excluded, ["heard"]);
+        assert_contains(
+            &output.entries,
+            "(\"__stream_TicksClient_receive\", TacMember::Stream(TacStream { client: \"TicksClient\", path: \"/ticks\", event: \"Tick\", socket: false, models: None })),",
+        );
+        let unheld = format!(
+            "{client}struct ProbeService {{\n    level: i64,\n}}\nimpl ProbeService {{\n    fn read(&self) -> i64 {{ self.level }}\n}}\n"
+        );
+        let output = prepared("rs", NativeCompanion::Rust, &unheld);
+        assert!(output.entries.is_empty(), "{}", output.entries);
+        assert!(output.excluded.is_empty());
     }
 
     fn rust_publisher_is_kept() {

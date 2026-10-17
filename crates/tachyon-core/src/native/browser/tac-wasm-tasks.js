@@ -15,11 +15,12 @@ class TacWasmTasks {
   /** @type {TacTaskAnswers} */
   answers = new TacTaskAnswers()
 
-  /** @param {(pointer: number, length: number) => string} read @returns {Record<string, Function>} */
-  imports(read) {
+  /** @param {(pointer: number, length: number) => string} read @param {(owner: string, text: string) => Promise<string>} [socket] @returns {Record<string, Function>} */
+  imports(read, socket) {
     return {
       tac_host_http_start: (ticket, pointer, length) => { this.#start(ticket, read(pointer, length)) },
       tac_host_http_cancel: (ticket) => { this.#cancel(ticket) },
+      tac_host_socket_start: (ticket, owner, ownerLength, pointer, length) => { this.#send(ticket, read(owner, ownerLength), read(pointer, length), socket) },
       tac_host_task_done: (task, pointer, length) => { this.answers.done(task, read(pointer, length)) },
     }
   }
@@ -31,7 +32,16 @@ class TacWasmTasks {
   #start(ticket, text) {
     /** @type {WasmHttpEndpoint | undefined} */
     const endpoint = globalThis[TacWasmTasks.symbol]
-    const started = typeof endpoint?.start === 'function' ? endpoint.start(text) : { answer: Promise.resolve(TacWasmTasks.missing), cancel() {} }
+    this.#wait(ticket, typeof endpoint?.start === 'function' ? endpoint.start(text) : { answer: Promise.resolve(TacWasmTasks.missing), cancel() {} })
+  }
+
+  /** @param {number} ticket @param {string} owner @param {string} text @param {((owner: string, text: string) => Promise<string>) | undefined} socket @returns {void} */
+  #send(ticket, owner, text, socket) {
+    this.#wait(ticket, { answer: typeof socket === 'function' ? Promise.resolve().then(() => socket(owner, text)) : Promise.resolve(TacWasmTasks.missing), cancel() {} })
+  }
+
+  /** @param {number} ticket @param {WasmHttpTicket} started @returns {void} */
+  #wait(ticket, started) {
     this.#tickets.set(ticket, started)
     started.answer.then((answer) => this.#settle(ticket, answer), () => this.#settle(ticket, TacWasmTasks.missing))
   }

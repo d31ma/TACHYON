@@ -500,3 +500,43 @@ second, aborts every pending fetch, starts no new one, runs both `OnStop`
 hooks before any woken call, and settles each call with `CANCELLED`. Before
 the change every standard-Go case hung past 30 seconds, and under TinyGo the
 "asks again" cases started fetches that were never aborted.
+
+## Rust streams and sockets — 2026-10-17
+
+A Rust HTTPClient trait method may carry `#[StreamRequest]` or
+`#[SocketRequest]`, as in Go. The method takes `&self` and one parameter
+whose model type says what each message holds, for example
+`fn receive(&self, tick: Tick);`, and has no result. The generated client
+keeps an empty method. A Rust client with only stream or socket methods has
+no behavior context and needs no Setup.
+
+The page's JavaScript still holds the connection. A Rust service that keeps
+the client in a field (`#[Needs] ticks: std::sync::Arc<TicksClient>`)
+declares the client's streams in its `init` answer, next to its listeners,
+as a Go service does, and the page shell gives them to the page's event bus.
+The same limits apply as in JavaScript and Go, and a service holds at most
+16 such methods through its clients.
+
+A socket client gets a generated
+`pub async fn send<T: TacModel>(&self, message: T) -> BehaviorResult<()>`.
+It writes the message as JSON and waits for the page through a new
+WebAssembly import, `tac_host_socket_start`, which uses the same ticket table
+as an HTTP request: the bus sends or queues the text, and `send` returns
+`Ok(())` or a `BehaviorError` whose code is `HTTP_NETWORK` (for example, 16
+messages already wait for the socket to open), `HTTP_MISSING` (the service
+does not hold the client, or there is no page), `HTTP_REQUEST` (no service is
+running the call) or `CANCELLED` (the owner went away). A message larger than
+64 KiB fails with `HTTP_BODY`. Outside WebAssembly, for example in a Rust test
+unit or a native companion, `send` fails with `HTTP_MISSING`.
+
+The assembled service is one Rust scope, so a model imported by a client
+file (`use crate::models::Tick;`) is already in scope for the service; a
+second import of the same model in the service file is a duplicate.
+
+Evidence: `tac_web::rust_stream_tests` builds a real Rust service to
+WebAssembly and runs it under Node with the real event bus and fake
+`EventSource` and `WebSocket` classes. The service opens only its two
+clients' connections, receives a stream message and a socket message
+through `#[OnEvent]`, drops a message that does not fit its model, sends 16
+queued socket messages and one after the socket opens, gets `HTTP_NETWORK`
+for a 17th queued message, and closes both connections when it is disposed.

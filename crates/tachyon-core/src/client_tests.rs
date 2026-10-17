@@ -288,7 +288,10 @@ fn native_source(relative: &Path, extension: &str, assembled: String) -> Result<
 }
 
 fn rust_typed_answers(project: &Path, lowered: &str, portable: &str) -> Result<String, Failure> {
-    if !lowered.contains("BehaviorTypedAnswer::") {
+    let reads_models = ["BehaviorTypedAnswer::", "BehaviorBrowserSocket::"]
+        .iter()
+        .any(|reader| lowered.contains(reader));
+    if !reads_models {
         return Ok(lowered.to_owned());
     }
     let values = if lowered.contains("pub enum TacValue") {
