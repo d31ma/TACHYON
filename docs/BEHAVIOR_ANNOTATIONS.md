@@ -773,9 +773,9 @@ These tests cover web builds only, not native apps.
 In Lua, a Converter is a class table marked `-- @Converter`. Its methods are
 empty and use LuaCATS type comments for the models. A service or controller
 receives it through a typed `-- @Needs` field. Plain mappings run in Yon and in
-the Tac Lua WebAssembly runtime. Other Tac behavior annotations and Lua
-resources are not available yet; see
-[ADR 0085](adr/0085-lua-is-a-yon-language.md).
+the Tac Lua WebAssembly runtime. The other behavior annotations run in Tac
+Lua too; Tac Lua has no HTTPClient or Helper yet, and Lua resources are not
+available; see [ADR 0085](adr/0085-lua-is-a-yon-language.md).
 Swift is a Tac language only, so it has no server test.
 
 ## Adapter Contracts
@@ -933,7 +933,9 @@ instead of `Store`. The partition is the store name in lowerCamel case without
   `-- @OnStart` method that opens its context, so a typed `-- @Needs` field
   receives it. The Setup's entity adapter is a table with an `execute` method.
   Lua has no base classes, so a Lua store declares `find_by_id` and its other
-  queries instead of extending `Repository` (ADR 0085).
+  queries instead of extending `Repository` (ADR 0085). A Tac Lua store in
+  `client/stores/` works the same way: each service activation builds its
+  own store and opens the store's context from its Setup.
 - A Store without an Entity fails with `TY1308`. Code that only runs SQL
   belongs in a service that asks for a `DataSource`.
 - Do not put the Service role and the Store role on one type.

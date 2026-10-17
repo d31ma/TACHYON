@@ -38,7 +38,6 @@ const transport = (text) => lua.invoke(text)
     const PUBLISHER: &'static str = "application_event_publisher";
     const TYPE_ANNOTATION: &'static str = "---@type";
     const CAPABILITY: &'static str = "Lua services do not support {} yet (ADR 0085): the page gives Lua no {} provider, so the field would stay nil. Write the service that needs it in another Tac language, such as JavaScript, TypeScript, Rust, Swift, C# or Kotlin";
-    const BEHAVIORS: &'static str = "Lua services do not support behavior annotations (for example Cached, Retry or AllOrNothing) yet (ADR 0085). Write this service in another Tac language, or leave the annotation out.";
 
     pub(crate) async fn runtime_files() -> Result<Vec<(String, Vec<u8>)>, Failure> {
         let runtime = LuaRuntimeBuild::runtime().await?;
@@ -66,12 +65,17 @@ const transport = (text) => lua.invoke(text)
         snapshot_root: &Path,
         services: &[(String, String, PathBuf)],
     ) -> Result<String, Failure> {
-        let services = Self::services(snapshot_root, services)?;
+        let (services, behaviors) = Self::services(snapshot_root, services)?;
         Ok(format!(
-            "{}\n{}",
+            "{}\n{}{}",
             Self::PRELUDE,
+            Self::behavior_runtime(behaviors),
             Self::client_models(snapshot_root)?.add_to_program(&services)
         ))
+    }
+
+    pub(crate) fn behavior_runtime(used: bool) -> &'static str {
+        if used { LuaBehaviorEdits::RUNTIME } else { "" }
     }
 
     pub(crate) fn client_models(snapshot_root: &Path) -> Result<ModelSources, Failure> {
@@ -86,12 +90,15 @@ const transport = (text) => lua.invoke(text)
     fn services(
         snapshot_root: &Path,
         services: &[(String, String, PathBuf)],
-    ) -> Result<String, Failure> {
+    ) -> Result<(String, bool), Failure> {
         let mut program = Self::model_names(snapshot_root)?;
+        let mut behaviors = false;
         for (instance, class, source) in services {
-            program.push_str(&Self::service(snapshot_root, instance, class, source)?);
+            let (service, planned) = Self::service(snapshot_root, instance, class, source)?;
+            program.push_str(&service);
+            behaviors |= planned;
         }
-        Ok(program)
+        Ok((program, behaviors))
     }
 
     fn service(
@@ -99,7 +106,7 @@ const transport = (text) => lua.invoke(text)
         instance: &str,
         class: &str,
         source: &Path,
-    ) -> Result<String, Failure> {
+    ) -> Result<(String, bool), Failure> {
         let text = std::fs::read_to_string(source)
             .map_err(|error| Self::failure(source, "", &format!("Cannot read it: {error}")))?;
         let text = crate::without_bom(&text);
@@ -114,6 +121,8 @@ const transport = (text) => lua.invoke(text)
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, text, Self::REALM)?
                 .unwrap_or_else(|| text.to_owned());
+        let assembled = ModelSources::client_metadata(snapshot_root, LuaSource::EXTENSION)?
+            .assembled(relative, &assembled)?;
         let joined = LuaView::joined(relative, &assembled);
         let roles = crate::behavior::ServiceRoles::read(joined.path(), joined.text())
             .map_err(|failure| joined.failure(&failure))?;
@@ -131,11 +140,12 @@ const transport = (text) => lua.invoke(text)
             .transpose()
             .map_err(|message| Self::failure(relative, text, &message))?
             .unwrap_or_default();
-        Ok(format!(
+        let registered = format!(
             "\n{lowered}\n{providers}TacServices.register({}, {class}, {})\n",
             LuaSource::long_string(instance),
             LuaSource::long_string(&metadata.to_string())
-        ))
+        );
+        Ok((registered, plan.is_some()))
     }
 
     fn with_converters(
@@ -153,11 +163,8 @@ const transport = (text) => lua.invoke(text)
         assembled: &str,
         plan: &crate::behavior::LuaBehaviorPlan,
     ) -> Result<String, Failure> {
-        if plan.methods.iter().any(|method| method.mapping.is_none()) {
-            return Err(Self::failure(relative, assembled, Self::BEHAVIORS));
-        }
-        LuaBehaviorEdits::new(plan)
-            .program(relative, assembled)
+        LuaBehaviorEdits::tac(plan)
+            .tac_program(relative, assembled)
             .map_err(|message| Self::failure(relative, assembled, &message))
     }
 
@@ -170,10 +177,6 @@ const transport = (text) => lua.invoke(text)
         let roles =
             crate::behavior::ServiceRoles::read(view.path(), view.text()).map_err(mapped)?;
         let events = Self::events(snapshot_root, relative, view, &roles.source)?;
-        let evented = events
-            .as_ref()
-            .map_or(roles.source.as_str(), |module| module.source.as_str());
-        Self::refuse_behaviors(relative, view, evented)?;
         let code =
             crate::annotation_layout::masked_source(view.path(), &roles.source).map_err(mapped)?;
         let members = Self::public_members(RubyMembers::read(&code));
@@ -196,14 +199,6 @@ const transport = (text) => lua.invoke(text)
                 text,
                 &Self::CAPABILITY.replace("{}", name),
             ))
-        })
-    }
-
-    fn refuse_behaviors(relative: &Path, view: &LuaView, evented: &str) -> Result<(), Failure> {
-        let lowered = crate::behavior::lower(view.path(), evented, Self::REALM)
-            .map_err(|failure| view.failure(&failure))?;
-        lowered.map_or(Ok(()), |_| {
-            Err(Self::failure(relative, view.text(), Self::BEHAVIORS))
         })
     }
 

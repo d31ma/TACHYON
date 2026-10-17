@@ -39,13 +39,19 @@ impl LuaConverterProviders {
     fn converter_fields(class: &str, source: &str, records: &Value) -> Vec<(String, String)> {
         LuaFields::without_values(source, class)
             .into_iter()
-            .filter(|(_, name, marked)| Self::is_converter(name, *marked, records))
+            .filter(|(_, name, marked)| Self::is_provider(name, *marked, records))
             .map(|(field, name, _)| (field, name))
             .collect()
     }
 
-    fn is_converter(name: &str, marked: bool, records: &Value) -> bool {
-        marked && records[name]["mapper"] == true
+    fn is_provider(name: &str, marked: bool, records: &Value) -> bool {
+        marked && (records[name]["mapper"] == true || Self::is_store(&records[name]))
+    }
+
+    fn is_store(record: &Value) -> bool {
+        record["methods"]
+            .as_object()
+            .is_some_and(|methods| methods.values().any(|method| method.get("query").is_some()))
     }
 
     fn entries(fields: &[(String, String)]) -> String {

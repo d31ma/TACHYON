@@ -3,7 +3,8 @@
 - Status: Accepted; amended 2026-09-29 (Tac Lua services), 2026-10-04 (Lua
   stores, Schedule and converter nulls), 2026-10-16 (a Tac Lua Needs field
   cannot name another service), 2026-10-17 (Yon Lua HTTP clients,
-  Gateway and InBackground)
+  Gateway and InBackground; Tac Lua behavior annotations, browser state,
+  stores and schema models)
 - Date: 2026-09-29
 - Builds on: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes),
   [ADR 0050](0050-go-annotations-are-comments.md) (comment markers),
@@ -109,10 +110,9 @@ table, and its methods are functions stored in the table.
 These stop the build until a later step adds them: the rule table says that
 the annotation is not available in Lua (`TY1308`), or the lowering names this
 ADR (`TY2015`):
-topics, and behavior annotations in Tac. Resources are not available in Lua: DataSource,
-RedisTemplate, gateway clients (`@HTTPClient`, `@Gateway`), Tac stores
-(`@Store`) and `relay`. The rule table refuses `@HTTPClient`, its request
-markers, `@Gateway` and Tac `@Store` in Lua, and every Lua refusal of the
+topics, Tac `@Helper` and Tac `@HTTPClient`. Resources are not available
+in Lua: DataSource, RedisTemplate and `relay`. The rule table refuses Tac
+`@HTTPClient` and its request markers in Lua, and every Lua refusal of the
 rule table ends with "Lua gets it in a later step (ADR 0085)". A Yon Lua
 class that needs DataSource or RedisTemplate, or calls `relay(...)`, stops
 the build with `TY2015`, and the message names the resource and this ADR.
@@ -418,3 +418,52 @@ This amendment replaces "Topic stops the build in Lua" above.
   is the handler's answer. The pipe serves only gateway calls, and only in a
   plain request and answer: a Lua stream or socket route that calls a gateway
   gets the `adapter` failure.
+
+## Amendment 2026-10-17: Tac Lua behavior annotations, browser state, stores and schema models
+
+This amendment replaces "Other Tac behavior annotations remain unavailable"
+in the converter amendment and "Retry stays unavailable in Tac Lua" in the
+clock amendment.
+
+- A Tac Lua service runs the behavior annotations on the same Lua behavior
+  runtime as Yon Lua: CacheSettings, Cached, CacheKey, UpdateCache,
+  ClearCache, Retry, MaxAtOnce (policy reject, because the page calls a Lua
+  service one call at a time), AllOrNothing, Setup, Description, Settings,
+  Setting, WhenProfile, WhenSetting, Checked, Check and the validation
+  markers, Entity, Id, Table, Store, Query and PageDefaults. The rule table
+  lists Lua for each of them in Tac.
+- Tachyon wraps each behavior method on its own lines, as in Yon, and
+  registers the records with `Behaviors.register(records, "tac", module)`.
+  The page program holds the behavior runtime once, after the prelude, and
+  only when a service uses it.
+- A service opens its context itself, like a Ruby service:
+  `self.behaviors = Behaviors.create(BrowserSetup, { partition = "notes",
+  signal = BehaviorSignal.new() })` in an `-- @OnStart` method.
+- With no adapter of that name in its Setup, a cache and the `indexeddb`
+  entity adapter use the page's Tachyon storage through `TachyonHost.ask`
+  (`cache.get`, `cache.set`, `cache.delete` and `entity`), and need no
+  `authorize` function, as in Ruby. The behavior clock reads the page clock
+  and rounds the wall time down to whole milliseconds.
+- Retry runs the next attempt at once, without waiting, like Tac Ruby: the
+  page gives Lua no way to wait, and blocking the page would freeze it.
+- A Tac Lua Store in `client/stores/` is a provider, like a Converter. A
+  typed `-- @Needs` field receives it, Tachyon adds `start_context` to the
+  store, and each service activation builds its own store and opens the
+  store's context from its Setup.
+- `-- @LocalState` and `-- @SessionState` mark a Lua service field. The page
+  keeps the field in `localStorage` or `sessionStorage` through the same
+  field accessors that it uses for every WebAssembly service.
+- A Lua schema model in `client/models/` (Checked, Settings, Setting and the
+  validation markers) is read like the other Tac languages (ADR 0092). Its
+  markers are comments, so the model runs unchanged. Yon Lua schema models
+  stay refused with `TY1310`.
+- A Tac Lua test unit opens a behavior context from its TestSetup for each
+  case when the program uses behaviors. `-- @TestSettings` paths reach the
+  context as `TAC_` keys, `-- @FreshStart` is the default for every Lua unit,
+  and `-- @Fake` replaces the field with the same name. The unit uses the
+  `lua` program's own clock.
+- Still refused in Tac Lua: `-- @Helper` (Lua is read through the Ruby
+  shadow, and Ruby Tac has no Helper yet), `@HTTPClient` and its request
+  markers (Lua has no browser HTTP transport yet), and `@StreamRequest` and
+  `@SocketRequest` (the browser's JavaScript holds the stream; a Lua service
+  hears each message with `-- @OnEvent`).

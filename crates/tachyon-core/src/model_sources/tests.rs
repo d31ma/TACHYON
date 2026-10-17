@@ -187,24 +187,25 @@ fn javascript_metadata_removes_only_injected_schema_declarations() {
 }
 
 #[test]
-fn lua_client_schema_models_are_refused_at_the_marker() {
+fn lua_client_schema_models_are_read_and_server_ones_stay_refused() {
     let root = tempfile::tempdir().expect("project");
-    let relative = "client/models/OrderInput.lua";
-    let path = root.path().join(relative);
-    std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
-    let source = "-- @Checked\n---@class OrderInput\n---@field name string\nOrderInput = {}\n";
-    std::fs::write(&path, source).expect("schema model");
-    let failure = super::ModelSources::read(root.path(), "client", "lua")
+    let source = "-- @Checked\n---@class OrderInput\nOrderInput = {\n  -- @Required\n  ---@type string\n  name = nil,\n}\n";
+    for realm in ["client", "server"] {
+        let path = root.path().join(format!("{realm}/models/OrderInput.lua"));
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
+        std::fs::write(&path, source).expect("schema model");
+    }
+    let client = super::ModelSources::read(root.path(), "client", "lua")
+        .unwrap_or_else(|failure| panic!("{failure}"));
+    assert!(client.joined_sources().contains("OrderInput = {"));
+    let failure = super::ModelSources::read(root.path(), "server", "lua")
         .err()
-        .expect("Lua schema models stay refused");
-    assert_eq!(failure.diagnostics()[0].code.number(), 1308);
-    assert_eq!(failure.diagnostics()[0].spans[0].file, relative);
-    std::fs::write(
-        path,
-        "---@class OrderInput\n---@field name string\nOrderInput = {}\n",
-    )
-    .expect("plain DTO");
-    super::ModelSources::read(root.path(), "client", "lua").expect("plain client models unchanged");
+        .expect("Yon Lua schema models stay refused");
+    assert_eq!(failure.diagnostics()[0].code.number(), 1310);
+    assert_eq!(
+        failure.diagnostics()[0].spans[0].file,
+        "server/models/OrderInput.lua"
+    );
 }
 
 struct Sources;

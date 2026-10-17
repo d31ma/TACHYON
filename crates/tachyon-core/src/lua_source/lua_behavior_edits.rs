@@ -5,27 +5,50 @@ use std::path::Path;
 
 pub(crate) struct LuaBehaviorEdits<'p> {
     plan: &'p LuaBehaviorPlan,
+    environment: &'static str,
 }
 
 impl<'p> LuaBehaviorEdits<'p> {
-    const RUNTIME: &'static str = include_str!("lua_behaviors.lua");
+    pub(crate) const RUNTIME: &'static str = include_str!("lua_behaviors.lua");
     const BLOCK_OPENERS: [&'static str; 3] = ["function", "if", "do"];
     const BLOCK_END: &'static str = "end";
     const INNER_ENDS: [&'static str; 2] = ["end) ", "end "];
 
     pub(crate) fn new(plan: &'p LuaBehaviorPlan) -> Self {
-        Self { plan }
+        Self {
+            plan,
+            environment: "yon",
+        }
+    }
+
+    pub(crate) fn tac(plan: &'p LuaBehaviorPlan) -> Self {
+        Self {
+            plan,
+            environment: "tac",
+        }
     }
 
     pub(crate) fn program(&self, path: &Path, authored: &str) -> Result<String, String> {
-        let masked = crate::annotation_layout::masked_source(path, authored)
-            .map_err(|failure| failure.to_string())?;
         Ok(format!(
             "{}\n{}\n{}",
-            Self::applied(authored, self.edits(&masked)?),
+            self.wrapped(path, authored)?,
             Self::RUNTIME,
             self.registration()
         ))
+    }
+
+    pub(crate) fn tac_program(&self, path: &Path, authored: &str) -> Result<String, String> {
+        Ok(format!(
+            "{}\n{}",
+            self.wrapped(path, authored)?,
+            self.registration()
+        ))
+    }
+
+    fn wrapped(&self, path: &Path, authored: &str) -> Result<String, String> {
+        let masked = crate::annotation_layout::masked_source(path, authored)
+            .map_err(|failure| failure.to_string())?;
+        Ok(Self::applied(authored, self.edits(&masked)?))
     }
 
     fn edits(&self, masked: &str) -> Result<Vec<(usize, String)>, String> {
@@ -199,8 +222,9 @@ impl<'p> LuaBehaviorEdits<'p> {
                 lines
             });
         format!(
-            "{names}Behaviors.register({}, \"yon\", {:?})\n",
+            "{names}Behaviors.register({}, {:?}, {:?})\n",
             LuaSource::long_string(&self.plan.records),
+            self.environment,
             self.plan.module_id
         )
     }

@@ -116,3 +116,10 @@ The same examples needed two Yon fixes:
 
 Rust Yon needed no change. A schema model is reached with
 `use crate::models::{Name}` and must be `pub`, like every Rust model.
+
+## Amendment 2026-10-17: Tac Lua schema models
+
+A Lua schema model in `client/models/` is now read like the other Tac
+languages. Its markers are `--` comments, so the model table runs unchanged,
+and the service program reads the schema from the Ruby shadow. Yon Lua schema
+models stay refused with `TY1310`. See ADR 0085.

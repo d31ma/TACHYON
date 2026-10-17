@@ -53,7 +53,7 @@ BehaviorHostClock = {
 }
 
 function BehaviorHostClock.now_ms()
-  return Clock:now_ms()
+  return math.floor(Clock:now_ms())
 end
 
 function BehaviorHostClock.monotonic_ms()

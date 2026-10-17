@@ -27,9 +27,7 @@ impl StoredState {
             path,
             source,
             crate::tac_cpp::CppRoles::stored,
-            |path, source| {
-                crate::fsharp_source::FsharpView::either(path, source, Self::written_fields)
-            },
+            |path, source| crate::lua_source::LuaView::either(path, source, Self::written_fields),
         )
     }
 

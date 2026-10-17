@@ -6,9 +6,10 @@ pub(crate) struct ModelSchema;
 
 impl ModelSchema {
     const NAMES: [&'static str; 9] = crate::annotation_layout::SchemaMarkers::NAMES;
-    const CLIENT_LANGUAGES: [&'static str; 12] = [
-        "java", "js", "ts", "py", "cs", "fs", "rs", "swift", "kt", "go", "dart", "rb",
+    const CLIENT_LANGUAGES: [&'static str; 13] = [
+        "java", "js", "ts", "py", "cs", "fs", "rs", "swift", "kt", "go", "dart", "rb", "lua",
     ];
+    const CLIENT_MODELS: &'static str = "client/models";
 
     pub(crate) fn plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
         crate::lua_source::LuaView::of(path, source).map_or_else(
@@ -27,7 +28,7 @@ impl ModelSchema {
     pub(crate) fn require_realm(path: &Path, source: &str, schema: bool) -> Result<(), Failure> {
         let unsupported = ![
             schema,
-            path.starts_with("client/models"),
+            path.starts_with(Self::CLIENT_MODELS),
             !path
                 .extension()
                 .and_then(|extension| extension.to_str())
@@ -43,7 +44,7 @@ impl ModelSchema {
         let at = Self::marker_offset(path, source).unwrap_or(0);
         Failure::one(crate::failure::diagnostic(
             1310, "This client model schema needs its Tac metadata adapter",
-            Some("Plain client models remain supported. Tac reads schema models in JavaScript, TypeScript, Python, Java, C#, F#, Rust, Swift, Kotlin, Go, Dart and Ruby (ADR0092).".to_owned()),
+            Some("Plain client models remain supported. Tac reads schema models in JavaScript, TypeScript, Python, Java, C#, F#, Rust, Swift, Kotlin, Go, Dart, Ruby and Lua (ADR0092).".to_owned()),
             crate::failure::source_span(&path.to_string_lossy(), at, at + 1),
         ))
     }
@@ -75,14 +76,18 @@ impl ModelSchema {
     ) -> Result<Option<String>, Failure> {
         let plain =
             Self::native_plain(view.path(), view.text()).map_err(|error| view.failure(&error))?;
-        plain.map_or(Ok(None), |_| Err(Self::lua_failure(path, source)))
+        match plain {
+            None => Ok(None),
+            Some(_) if path.starts_with(Self::CLIENT_MODELS) => Ok(Some(source.to_owned())),
+            Some(_) => Err(Self::lua_failure(path, source)),
+        }
     }
 
     fn lua_failure(path: &Path, source: &str) -> Failure {
         let at = Self::marker_offset(path, source).unwrap_or(0);
         Failure::one(crate::failure::diagnostic(1310,
             "Lua model schemas need the model metadata adapter",
-            Some("Plain Lua models and Converter roles remain supported. Lua schema models are outside the affected Yon adapter qualification in ADR0092.".to_owned()),
+            Some("Plain Lua models and Converter roles remain supported. Lua schema models work in client/models; Yon Lua schema models are outside the affected Yon adapter qualification in ADR0092.".to_owned()),
             crate::failure::source_span(&path.to_string_lossy(), at, at + 1)))
     }
 
