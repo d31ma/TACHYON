@@ -6,6 +6,15 @@ enum ValuePart<'a> {
     Value(&'a str),
 }
 
+impl<'a> ValuePart<'a> {
+    fn value(&self) -> Option<&'a str> {
+        match self {
+            Self::Value(value) => Some(value),
+            Self::Text(_) => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct BracedAttribute<'a> {
     name: &'a str,
@@ -14,6 +23,8 @@ pub(crate) struct BracedAttribute<'a> {
 
 impl<'a> BracedAttribute<'a> {
     pub(crate) const CODE: u16 = 1313;
+    const PATH_MARKS: &'static [u8] = b"_$.";
+    const COUNT_MARKS: &'static [u8] = b", ";
     const BOOLEAN_NAMES: &'static [&'static str] = &[
         "allowfullscreen",
         "async",
@@ -44,7 +55,7 @@ impl<'a> BracedAttribute<'a> {
 
     pub(crate) fn find(name: &'a str, value: &'a str) -> Option<Self> {
         let parts = Self::split(value);
-        let has_value = parts.iter().any(|part| matches!(part, ValuePart::Value(_)));
+        let has_value = parts.iter().any(|part| part.value().is_some());
         has_value.then_some(Self { name, parts })
     }
 
@@ -70,10 +81,8 @@ impl<'a> BracedAttribute<'a> {
     }
 
     pub(crate) fn whole_value(&self) -> Option<&'a str> {
-        match self.parts.as_slice() {
-            [ValuePart::Value(value)] => Some(value),
-            _ => None,
-        }
+        let only = self.parts.first().filter(|_| self.parts.len() == 1);
+        only.and_then(ValuePart::value)
     }
 
     pub(crate) fn is_boolean(&self) -> bool {
@@ -81,19 +90,21 @@ impl<'a> BracedAttribute<'a> {
     }
 
     fn expression(&self) -> String {
-        if let Some(value) = self.whole_value() {
-            return String::from(value);
-        }
-        let pieces: Vec<String> = self
-            .parts
-            .iter()
-            .map(|part| match part {
-                ValuePart::Text(text) => Self::quoted(text),
-                ValuePart::Value(value) if Self::is_path(value) => String::from(*value),
-                ValuePart::Value(value) => format!("({value})"),
-            })
-            .collect();
+        self.whole_value()
+            .map_or_else(|| self.joined_expression(), String::from)
+    }
+
+    fn joined_expression(&self) -> String {
+        let pieces: Vec<String> = self.parts.iter().map(Self::piece).collect();
         pieces.join(" + ")
+    }
+
+    fn piece(part: &ValuePart<'_>) -> String {
+        match part {
+            ValuePart::Text(text) => Self::quoted(text),
+            ValuePart::Value(value) if Self::is_path(value) => String::from(*value),
+            ValuePart::Value(value) => format!("({value})"),
+        }
     }
 
     fn quoted(text: &str) -> String {
@@ -102,48 +113,55 @@ impl<'a> BracedAttribute<'a> {
     }
 
     fn is_path(value: &str) -> bool {
-        value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'$' | b'.'))
+        value.bytes().all(|byte| {
+            [
+                byte.is_ascii_alphanumeric(),
+                Self::PATH_MARKS.contains(&byte),
+            ]
+            .contains(&true)
+        })
     }
 
     fn split(value: &'a str) -> Vec<ValuePart<'a>> {
         let mut parts = Vec::new();
         let mut text_start = 0;
-        let mut search = 0;
-        while let Some(offset) = value[search..].find('{') {
-            let open = search + offset;
-            let Some(length) = value[open + 1..].find('}') else {
-                break;
-            };
-            let close = open + 1 + length;
-            let inner = value[open + 1..close].trim();
-            search = open + 1;
-            if Self::is_escaped(value, open) || !Self::is_template_value(inner) {
-                continue;
-            }
-            if text_start < open {
-                parts.push(ValuePart::Text(&value[text_start..open]));
-            }
+        while let Some((open, close, inner)) = Self::next_value(value, text_start) {
+            let text = (text_start < open).then(|| ValuePart::Text(&value[text_start..open]));
+            parts.extend(text);
             parts.push(ValuePart::Value(inner));
-            search = close + 1;
-            text_start = search;
+            text_start = close + 1;
         }
-        if text_start < value.len() {
-            parts.push(ValuePart::Text(&value[text_start..]));
-        }
+        let rest = (text_start < value.len()).then(|| ValuePart::Text(&value[text_start..]));
+        parts.extend(rest);
         parts
     }
 
+    fn next_value(value: &'a str, from: usize) -> Option<(usize, usize, &'a str)> {
+        value[from..]
+            .match_indices('{')
+            .find_map(|(offset, _)| Self::value_at(value, from + offset))
+    }
+
+    fn value_at(value: &'a str, open: usize) -> Option<(usize, usize, &'a str)> {
+        let close = open + 1 + value[open + 1..].find('}')?;
+        let inner = value[open + 1..close].trim();
+        let checks = [
+            Self::is_escaped(value, open),
+            Self::is_template_value(inner),
+        ];
+        (checks == [false, true]).then_some((open, close, inner))
+    }
+
     fn is_escaped(value: &str, open: usize) -> bool {
-        open > 0 && value.as_bytes()[open - 1] == b'\\'
+        let before = open.checked_sub(1);
+        before.is_some_and(|before| value.as_bytes()[before] == b'\\')
     }
 
     fn is_template_value(inner: &str) -> bool {
         let is_count = inner
             .bytes()
-            .all(|byte| byte.is_ascii_digit() || matches!(byte, b',' | b' '));
-        !is_count && Expression::parse(inner, "", 0).is_ok()
+            .all(|byte| [byte.is_ascii_digit(), Self::COUNT_MARKS.contains(&byte)].contains(&true));
+        [is_count, Expression::parse(inner, "", 0).is_ok()] == [false, true]
     }
 }
 
