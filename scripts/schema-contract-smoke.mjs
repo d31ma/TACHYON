@@ -6,12 +6,15 @@ import { join, resolve } from 'node:path';
 import { withServer } from './release/server-probe.mjs';
 
 class SchemaProject {
-  static controller = `/**
+  static model = `/**
  * @typedef {Object} Item
  * @property {string} name
  * @property {number} [count]
  */
-@RequestRoute("/items")
+export {}
+`;
+
+  static controller = `@RequestRoute("/items")
 @Public
 class ItemsController {
   /**
@@ -43,8 +46,10 @@ async function writeSchemaProject(root) {
   await mkdir(join(root, 'client/pages'), { recursive: true });
   await mkdir(join(root, 'client/components/schema/page'), { recursive: true });
   await mkdir(join(root, 'server/controllers'), { recursive: true });
+  await mkdir(join(root, 'server/models'), { recursive: true });
   await writeFile(join(root, 'client/pages/tac.html'), '<schema-page />');
   await writeFile(join(root, 'client/components/schema/page/tac.html'), '<main>Schema acceptance</main>');
+  await writeFile(join(root, 'server/models/Item.js'), SchemaProject.model);
   await writeFile(join(root, 'server/controllers/ItemsController.js'), SchemaProject.controller);
 }
 
