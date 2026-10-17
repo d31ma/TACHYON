@@ -35,6 +35,8 @@ mod prepared;
 use prepared::Prepared;
 mod go;
 mod go_syntax;
+mod go_tac_helpers;
+use go_tac_helpers::GoTacHelpers;
 mod go_test_construction;
 mod go_typed_exchange;
 mod java;
@@ -600,6 +602,7 @@ impl HelperRole {
     pub(crate) fn refuse_in_tac(path: &Path, source: &str) -> Result<(), Failure> {
         crate::fsharp_source::FsharpTacHelpers::source(path, source)?;
         CsharpTacHelpers::source(path, source)?;
+        GoTacHelpers::source(path, source)?;
         let Some(message) = Self::refusal(path) else {
             return Ok(());
         };

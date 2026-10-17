@@ -80,6 +80,17 @@ is removed. Field `Needs` constructor lowering works only for typed
 constructors that are called explicitly. C# has no managed Helper injection
 and no automatic Helper cleanup.
 
+## Go Tac Helpers
+
+A Go Tac Helper is built into the page package with the services that use
+it. A Go service gets a Helper in one of two ways. A `// @Needs` field such as
+`step *StepHelper` gives the service its own new Helper before OnStart runs,
+and the service can also create one itself, for example `&StepHelper{}`. A Go
+Helper is never shared between services and is not exposed to the view unless
+its field is exported. A Go Helper has no Needs, NeedsAll or Lifetime of its
+own (TY1308) and no lifecycle or event hooks (TY1405); it receives what it uses
+through method parameters or fields that its service sets.
+
 ## Amendment (2026-10-03): one structure check before the build
 
 The rules of this ADR, ADR 0067 (file names) and ADR 0064 (utilities) run as
