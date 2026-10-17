@@ -46,13 +46,22 @@ class TacTasks
   end
 
   def self.exchange(request)
+    park { |task| { "http" => "start", "ticket" => task.ticket, "request" => request } }
+  end
+
+  def self.send_socket(client, message)
+    request = "{\"client\":#{JSON.generate(client)},\"message\":#{message}}"
+    park { |task| { "http" => "socket", "ticket" => task.ticket, "owner" => task.owner.id, "request" => request } }
+  end
+
+  def self.park
     task = @current
     return OUTSIDE_TASK if task.nil? || task.owner.nil?
     return TOO_MANY if @waiting.size >= MAX_WAITING
     @last_ticket += 1
     task.ticket = @last_ticket
     @waiting[task.ticket] = task
-    TacWebHost.ask({ "http" => "start", "ticket" => task.ticket, "request" => request })
+    TacWebHost.ask(yield(task))
     Fiber.yield
   end
 

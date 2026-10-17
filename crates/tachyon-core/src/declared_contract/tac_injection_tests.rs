@@ -191,6 +191,24 @@ fn only_stores_and_converters_are_injected_contracts() {
 }
 
 #[test]
+fn a_ruby_helper_is_injected_and_a_helper_of_another_language_is_not() {
+    let paths = [
+        Path::new("client/helpers/LevelHelper.rb"),
+        Path::new("client/helpers/money/MoneyHelper.rb"),
+        Path::new("client/helpers/LevelHelper.kt"),
+    ];
+    let names = DeclaredContract::injected_names(paths.into_iter());
+    assert_eq!(names, ["LevelHelper", "MoneyHelper"]);
+    let source = "#[Service]\nclass TallyService\n  #[Needs]\n  # @return [LevelHelper]\n  attr_reader :levels\nend\n";
+    let path = TacInjection::service_path("rb");
+    let filled = DeclaredContract::injected(Path::new(&path), source, &names).unwrap_or_default();
+    assert!(
+        filled.contains("  private def levels\n    @levels ||= LevelHelper.new\n  end"),
+        "{filled}"
+    );
+}
+
+#[test]
 fn a_swift_service_field_that_needs_a_remote_builds_the_client() {
     let paths = [Path::new("client/remotes/GreetingClient.swift")];
     let names = DeclaredContract::injected_names(paths.into_iter());

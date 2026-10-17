@@ -14,7 +14,7 @@ impl NeededServices {
     pub(crate) const RUBY: Self = Self {
         language: "Ruby",
         decision: "ADR 0054",
-        injected: "a Store, a Converter or an HTTPClient",
+        injected: "a Store, a Converter, a Helper or an HTTPClient",
     };
     pub(crate) const LUA: Self = Self {
         language: "Lua",

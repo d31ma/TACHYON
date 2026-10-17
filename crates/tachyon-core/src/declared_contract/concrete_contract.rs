@@ -4,6 +4,7 @@ use super::contract_form::ContractForm;
 use super::contract_member::ContractMember;
 use super::contract_role::ContractRole;
 use super::crud_members::CrudMembers;
+use super::member_indent::MemberIndent;
 use crate::annotation_rules::Messages;
 use crate::behavior::HttpClientSource;
 use std::ops::Range;
@@ -31,9 +32,12 @@ impl<'a> ConcreteContract<'a> {
     const TASKS: [&'static str; 2] = ["Task", "System.Threading.Tasks.Task"];
     const FUTURE: &'static str = "Future";
     const GO_FIELDS: [&'static str; 2] = ["struct{}", "struct {\n\tbehaviors *BehaviorContext\n}"];
-    const GO_HELD: [&'static str; 2] = ["streamrequest", "socketrequest"];
-    const GO_SOCKET: [&'static str; 1] = ["socketrequest"];
+    const RUBY: &'static str = "rb";
+    const HELD: [&'static str; 2] = ["streamrequest", "socketrequest"];
+    const SOCKET: [&'static str; 1] = ["socketrequest"];
     const GO_SEND: &'static str = "\nfunc ({receiver} *{owner}) Send(message any) error {\n\treturn behaviorSocketSend(\"{owner}\", message)\n}\n";
+    const RUBY_HELD_START: &'static str = "def initialize(_context = nil)\nend";
+    const RUBY_SEND: &'static str = "def send_message(message)\n  BehaviorBrowserSocket.send_message(\"{owner}\", message)\nend";
     const RUST_FIELDS: [&'static str; 2] = [";", " { behaviors: BehaviorContext }"];
     const TRAIT: &'static str = "trait";
     const RUST_DEFAULTS: [&'static str; 2] = [
@@ -141,7 +145,7 @@ impl<'a> ConcreteContract<'a> {
 
     fn braced_edits(&self, declaration: &ContractDeclaration) -> Vec<SourceEdit> {
         let members = declaration.members(self.form, &self.code);
-        let needs_context = declaration.role.needs_context(&members);
+        let needs_context = declaration.role.needs_context(&self.exchanged(&members));
         let mut edits: Vec<SourceEdit> = self
             .header(declaration, needs_context)
             .into_iter()
@@ -154,7 +158,49 @@ impl<'a> ConcreteContract<'a> {
                 .filter_map(|member| self.method_edit(member)),
         );
         edits.extend(self.context_edits(declaration, &members, needs_context));
+        edits.extend(self.ruby_held_edit(declaration, &members, needs_context));
         edits
+    }
+
+    fn holds_in_ruby_page(&self) -> bool {
+        [self.tac, self.form.language == Self::RUBY] == [true, true]
+    }
+
+    fn exchanged(&self, members: &[ContractMember]) -> Vec<ContractMember> {
+        let held: &[&str] = [&[][..], &Self::HELD[..]][usize::from(self.holds_in_ruby_page())];
+        members
+            .iter()
+            .filter(|member| !member.is_marked_with(held))
+            .cloned()
+            .collect()
+    }
+
+    fn ruby_held_edit(
+        &self,
+        declaration: &ContractDeclaration,
+        members: &[ContractMember],
+        needs_context: bool,
+    ) -> Option<SourceEdit> {
+        let held = members
+            .iter()
+            .any(|member| member.is_marked_with(&Self::HELD));
+        if [self.holds_in_ruby_page(), held] != [true, true] {
+            return None;
+        }
+        let socket = members
+            .iter()
+            .any(|member| member.is_marked_with(&Self::SOCKET));
+        let start = [Self::RUBY_HELD_START, ""][usize::from(needs_context)];
+        let send = ["", Self::RUBY_SEND][usize::from(socket)];
+        let text = [start, send]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n\n")
+            .replace("{owner}", &declaration.name);
+        let indent = self.indent(members);
+        let block = MemberIndent { indent: &indent }.block(&text);
+        Some((declaration.close..declaration.close, block))
     }
 
     fn is_bodiless_method(member: &ContractMember) -> bool {
@@ -310,7 +356,7 @@ impl<'a> ConcreteContract<'a> {
         let members = declaration.members(self.form, &self.code);
         let exchanged: Vec<ContractMember> = members
             .iter()
-            .filter(|member| !member.is_marked_with(&Self::GO_HELD))
+            .filter(|member| !member.is_marked_with(&Self::HELD))
             .cloned()
             .collect();
         let needs_context = declaration.role.needs_context(&exchanged);
@@ -341,7 +387,7 @@ impl<'a> ConcreteContract<'a> {
     fn go_send(&self, declaration: &ContractDeclaration, members: &[ContractMember]) -> String {
         let socket = members
             .iter()
-            .any(|member| member.is_marked_with(&Self::GO_SOCKET));
+            .any(|member| member.is_marked_with(&Self::SOCKET));
         if [self.tac, socket] != [true, true] {
             return String::new();
         }

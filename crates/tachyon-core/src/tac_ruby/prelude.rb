@@ -326,7 +326,7 @@ class TacServices
         "models" => listener["models"]
       }
     end
-    { "fields" => names(metadata, "fields"), "methods" => names(metadata, "methods"), "listeners" => listeners }
+    { "fields" => names(metadata, "fields"), "methods" => names(metadata, "methods"), "listeners" => listeners, "streams" => names(metadata, "streams") }
   end
 
   def self.receive(owner, name, value)

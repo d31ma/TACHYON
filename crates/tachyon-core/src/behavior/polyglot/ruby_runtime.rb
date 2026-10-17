@@ -828,6 +828,33 @@ class BehaviorBrowserHttp
   end
 end
 
+class BehaviorBrowserSocket
+  MAX_MESSAGE_BYTES = 65_536
+  CODES = ["HTTP_MISSING", "HTTP_REQUEST", "HTTP_CAPACITY", "CANCELLED"].freeze
+
+  def self.send_message(client, message)
+    raise failure("HTTP_MISSING") unless available?
+    text = JSON.generate(TacValues.plain(message))
+    raise failure("HTTP_BODY") if text.bytesize > MAX_MESSAGE_BYTES
+    answer = JSON.parse(TacTasks.send_socket(client, text))
+    raise failure(code_of(answer["error"])) unless answer.is_a?(Hash) && answer.key?("value")
+    nil
+  end
+
+  def self.available?
+    Object.const_defined?(:TacTasks) && TachyonWeb.respond_to?(:host_emit)
+  end
+
+  def self.code_of(error)
+    code = error.is_a?(Hash) ? error["code"] : nil
+    CODES.include?(code) ? code : "HTTP_NETWORK"
+  end
+
+  def self.failure(code)
+    BehaviorError.new(code, "The socket message was not sent (#{code}).")
+  end
+end
+
 class BehaviorHostCache
   def initialize(name)
     @name = name

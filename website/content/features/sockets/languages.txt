@@ -26,7 +26,7 @@ fields keep state in a Cell or a lock.
 When OnOpen or OnMessage fails, OnError runs and the socket stays
 open, as in Jakarta. The error text goes to the server log only.
 
-In the browser, @SocketRequest is JavaScript, TypeScript or Go.
+In the browser, @SocketRequest is JavaScript, TypeScript, Go or Ruby.
 Every Tac language receives the messages with @OnEvent. A Go
 client is an interface method; the page holds the socket for the
 Go service that keeps the client in a // @Needs field, and the

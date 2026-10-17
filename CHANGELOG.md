@@ -27,6 +27,19 @@ machine contracts have their own, independent major versions.
 - Yon F# now accepts `[<InBackground>]` on an `[<OnEvent>]` listener. F#
   shares the C# event runtime, so the listener runs after the other
   listeners of the same event and its returned model is never published.
+- A Ruby Tac `@HTTPClient` method may carry `#[StreamRequest]` or
+  `#[SocketRequest]`. The page's event bus holds the stream or socket for the
+  Ruby service that keeps the client in a `#[Needs]` field, and the service
+  receives each message with `#[OnEvent]`. A client that only holds streams
+  needs no Setup. A socket client gets `send_message(message)`, which waits
+  for the page like an HTTP call and raises a `BehaviorError` (`HTTP_NETWORK`,
+  `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or `CANCELLED`) when the
+  message is not sent (ADR 0054, ADR 0058 and ADR 0060 amendments).
+- A Ruby Tac service or Helper can need a Helper from `client/helpers/`
+  with `#[Needs]`. The Helper is made the first time its owner uses it, one
+  for each owner. A Ruby Helper with `#[OnStart]`, `#[OnStop]` or
+  `#[OnEvent]` is refused with `TY1605`, because the page never runs those
+  hooks (ADR 0054 amendment).
 - C++ Tac test units can now replace and answer what a service needs. A
   `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
   fields of the service that `construct<CounterService>()` makes. A static

@@ -172,3 +172,25 @@ checked by the shared rule table (ADR 0056); Ruby has no checks of its own.
 - The Ruby web build now reads the services before it builds the mruby
   runtime, so the refusal appears on a machine without Emscripten too. Tac
   Lua does the same with its runtime.
+
+## Amendment (2026-10-17): Helpers, stream clients and socket clients
+
+- A Tac Ruby `#[Needs]` field may name a Helper from `client/helpers/`
+  (at any depth). It is filled like a Store: a private reader that makes
+  the Helper with `.new` the first time the owner uses it, so each service
+  object gets its own Helper. A Helper may need another Helper the same way.
+- Because the Helper is made on first use, it has no lifecycle. A Ruby
+  Helper with `#[OnStart]`, `#[OnStop]` or `#[OnEvent]` fails with `TY1605`
+  and names the Helper; the hook belongs on the service.
+- A Tac Ruby `@HTTPClient` method may carry `#[StreamRequest]` or
+  `#[SocketRequest]` (ADR 0058, ADR 0060). The browser's JavaScript holds the
+  connection, as for Go: the service metadata lists the streams of the
+  clients that the service needs, and the page's event bus opens them,
+  publishes each message as its model's event and closes them with the
+  owner. The service receives the messages with `#[OnEvent]`.
+- A client whose methods all hold connections gets an `initialize` that
+  takes the optional test context and needs no Setup. A socket client gets
+  `send_message(message)`. It is not called `send`, which every Ruby object
+  already has. It parks the calling fiber on a ticket like an HTTP call and
+  raises a `BehaviorError` with `HTTP_NETWORK`, `HTTP_MISSING`,
+  `HTTP_REQUEST`, `HTTP_CAPACITY`, `HTTP_BODY` (over 64 KiB) or `CANCELLED`.

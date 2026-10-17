@@ -1,4 +1,5 @@
 mod needed_services;
+mod ruby_held_streams;
 mod ruby_model_readers;
 mod runtime_build;
 mod runtime_sources;
@@ -11,6 +12,7 @@ use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::diagnostic;
 use crate::ruby_source::RubyMembers;
+use ruby_held_streams::RubyHeldStreams;
 use ruby_model_readers::RubyModelReaders;
 use runtime_sources::RubyRuntimeSources;
 use std::path::{Path, PathBuf};
@@ -34,6 +36,7 @@ impl RubyWebServices {
         include_str!("tac_ruby/geolocation.rb"),
         include_str!("tac_ruby/window_controls.rb")
     );
+    const BEHAVIOR_RUNTIME: &'static str = include_str!("behavior/polyglot/ruby_runtime.rb");
     pub(crate) const RUNTIME_PATH: &'static str = "ruby/tachyon-ruby.wasm";
     pub(crate) const GLUE_PATH: &'static str = "ruby/tachyon-ruby.js";
     pub(crate) const NOTICES_PATH: &'static str = "ruby/THIRD_PARTY_NOTICES.txt";
@@ -147,15 +150,40 @@ impl RubyWebServices {
         let code = crate::annotation_layout::masked_source(&identity, &roles.source)?;
         let members = RubyMembers::read(&code).without_needed(&roles.source);
         let mut metadata = Self::metadata(&members, events.as_ref(), &roles.required);
+        metadata["streams"] = events
+            .as_ref()
+            .map(|module| {
+                Self::held_streams(snapshot_root, module, class, (&roles.source, relative))
+            })
+            .transpose()?
+            .unwrap_or_default();
         let models = crate::route_types::ModelTable::read_realm(snapshot_root, "client", "rb")
             .map_err(|message| Self::failure(&message))?;
         metadata["readers"] =
             RubyModelReaders::new(models, &roles.source, &code).describe(&members);
         let instance = serde_json::to_string(instance).unwrap_or_default();
+        let runtime = ["", Self::BEHAVIOR_RUNTIME][usize::from(Self::holds_a_socket(&metadata))];
         Ok(format!(
-            "\n{lowered}\nTacServices.register({instance}, {class}, {})\n",
+            "\n{runtime}\n{lowered}\nTacServices.register({instance}, {class}, {})\n",
             Self::single_quoted(&metadata.to_string())
         ))
+    }
+
+    fn held_streams(
+        snapshot_root: &Path,
+        module: &EventModule,
+        class: &str,
+        (source, path): (&str, &Path),
+    ) -> Result<serde_json::Value, Failure> {
+        let held = RubyHeldStreams::new(module, class);
+        held.refuse_helper_hooks(snapshot_root)?;
+        held.describe(source, path)
+    }
+
+    fn holds_a_socket(metadata: &serde_json::Value) -> bool {
+        metadata["streams"]
+            .as_array()
+            .is_some_and(|streams| streams.iter().any(|stream| stream["socket"] == true))
     }
 
     pub(crate) fn metadata(
@@ -242,6 +270,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     mod browser_http_tests;
+    mod browser_stream_tests;
     mod needed_service_tests;
 
     fn write(root: &Path, relative: &str, text: &str) -> PathBuf {

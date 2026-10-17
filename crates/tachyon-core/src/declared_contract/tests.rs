@@ -435,6 +435,35 @@ fn a_go_socket_client_needs_no_context_and_gets_a_send_method() {
 }
 
 #[test]
+fn a_ruby_socket_client_needs_no_setup_and_gets_a_send_message_method() {
+    let source = "#[HTTPClient(\"/chat\")]\nclass ChatClient\n  # @param message [ChatMessage]\n  #[SocketRequest]\n  def receive(message)\n  end\nend\n";
+    let path = Path::new("client/remotes/ChatClient.rb");
+    let lowered = DeclaredContract::concrete(path, source, "tac").expect("lowered");
+    for part in [
+        "\n  def initialize(_context = nil)\n  end\n",
+        "\n  def send_message(message)\n    BehaviorBrowserSocket.send_message(\"ChatClient\", message)\n  end\n",
+    ] {
+        assert!(lowered.contains(part), "{part:?}:\n{lowered}");
+    }
+    assert!(!lowered.contains("Behaviors.create"), "{lowered}");
+    let stream = source.replace("SocketRequest", "StreamRequest");
+    let lowered = DeclaredContract::concrete(path, &stream, "tac").expect("lowered");
+    assert!(!lowered.contains("send_message"), "{lowered}");
+    assert!(
+        lowered.contains("def initialize(_context = nil)"),
+        "{lowered}"
+    );
+    let mixed = source.replace(
+        "  #[SocketRequest]",
+        "  # @return [ChatMessage]\n  #[GetRequest(\"/last\")]\n  def last\n  end\n\n  #[SocketRequest]",
+    );
+    let lowered = DeclaredContract::concrete(path, &mixed, "tac").expect("lowered");
+    assert!(lowered.contains("Behaviors.create(ChatSetup"), "{lowered}");
+    assert!(!lowered.contains("_context = nil"), "{lowered}");
+    assert!(lowered.contains("def send_message(message)"), "{lowered}");
+}
+
+#[test]
 fn tac_browser_clients_stay_as_written() {
     let source = Samples::CONTRACTS[10].1;
     assert!(

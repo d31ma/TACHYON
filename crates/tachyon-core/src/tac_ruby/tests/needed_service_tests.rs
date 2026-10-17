@@ -49,7 +49,7 @@ async fn a_ruby_service_that_needs_another_service_stops_the_build_at_the_field(
         diagnostic
             .help
             .as_deref()
-            .is_some_and(|help| help.contains("a Store, a Converter or an HTTPClient")),
+            .is_some_and(|help| help.contains("a Store, a Converter, a Helper or an HTTPClient")),
         "{failure}"
     );
     let span = &diagnostic.spans[0];

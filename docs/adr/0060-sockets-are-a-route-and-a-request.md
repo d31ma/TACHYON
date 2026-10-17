@@ -154,3 +154,10 @@ client in a field; the Go service receives each message with `// @OnEvent`,
 and the generated `Send(message any) error` writes to the socket and returns
 an error code instead of a rejected promise. See ADR 0090, "Go streams and
 sockets". The other compiled Tac languages still refuse `@SocketRequest`.
+
+## Amendment (2026-10-17): Ruby socket clients
+
+- A Ruby Tac `@HTTPClient` method may carry `#[SocketRequest]`. The page
+  holds the socket for the Ruby service that keeps the client in a
+  `#[Needs]` field. The client gets `send_message(message)`, which waits for
+  the page like an HTTP call (ADR 0054 amendment of 2026-10-17).

@@ -133,3 +133,10 @@ the client in a field declares the stream, the page's event bus opens it with
 the same rules, and the Go service receives each message with `// @OnEvent`
 on a method whose parameter is the message model. See ADR 0090, "Go streams
 and sockets". The other compiled Tac languages still refuse `@StreamRequest`.
+
+## Amendment (2026-10-17): Ruby stream clients
+
+- A Ruby Tac `@HTTPClient` method may carry `#[StreamRequest]`. The page
+  holds the stream for the Ruby service that keeps the client in a
+  `#[Needs]` field, and the service receives each message with
+  `#[OnEvent]` (ADR 0054 amendment of 2026-10-17).

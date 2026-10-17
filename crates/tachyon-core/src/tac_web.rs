@@ -618,6 +618,7 @@ const rubySettle = (ticket, answer) => {
 const rubyTasks = (request) => {
   if (request.http === 'start') rubyHttp.start(request.ticket, request.request, (answer) => rubySettle(request.ticket, answer))
   if (request.http === 'cancel') rubyHttp.cancel(request.ticket)
+  if (request.http === 'socket') socketHost(request.owner, request.request).then((answer) => rubySettle(request.ticket, answer))
   if (request.http === 'done') taskAnswers.done(request.task, request.answer)
   return JSON.stringify({ value: null })
 }
