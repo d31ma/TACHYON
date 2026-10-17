@@ -38,31 +38,44 @@ compared with a `develop` baseline, and the relevant Chromium gates):
 
 Each `*-ci` branch is a finished change rebased onto `develop` and pushed so CI
 runs the full matrix. Merge a branch once its CI shows no failure that
-`develop` does not also have (see "Reading a CI run" below).
+`develop` does not also have (see "Reading a CI run" below). Heads are as of
+this note; `git fetch origin` and compare before starting.
 
-| Branch | What it does | State |
+| Branch | Head | What it does | State |
+|---|---|---|---|
+| `work/ci-emscripten` | `73f86751` | Stops exporting `EM_CONFIG`/`EMSDK` (it broke the .NET wasm workload's Emscripten); strips them from `dotnet publish` in the product; Windows uses `emcc.exe`; longer deadline for the C# web publish | Unblocks Phase 3 Chromium, C# tests on Ubuntu/macOS, Windows native |
+| `work/ci-toolchains` | `955e9367` | JDK 21 everywhere, Node/Ruby/Emscripten/Dart/Python/Lua for coverage and sanitizers, Lua for the macOS website job, sanitizer flags kept out of nested builds | Fixed the Java/TeaVM test; iterating |
+| `work/ci-small-fixes` | `cd05b247` | Android bridge test regex, managed-storage fixture (TY1310), fuzz crash in `template/frontend.rs` `doctype()`, stderr in the dev-server readiness test | Iterating |
+| `work/ci-macos-windows` | `5724a923` | macOS Swift singleton test; diagnostics for the Windows WebView2 gate, whose page renders empty on develop | Root cause of the Windows gate not found yet |
+| `work/ci-windows-bisect` | `c9a1b9f3` | Diagnostic probes for the Windows gate (page errors, a bridge probe, the staged bundle, WebView2 arguments) | **Not for merging** |
+| `work/ci-windows-bisect-prelude` | `bf9a93a7` | Bisect probe: restores the per-activation C# prelude from before `e1921367` to test whether that change empties the Windows gate page | **Not for merging**; head carries `[skip ci]`, run it on Windows by hand |
+| `work/fsharp-ci` | `c8397342` | F# typed HTTPClient injection, typed answers, caching and test Fakes; fixes the .NET first-app gate flake and a shared browser-HTTP race (a declared-length answer is read whole) | No new failures vs develop on Ubuntu/macOS native; Firefox/WebKit not reached yet because Phase 3 stops early |
+| `work/python-ci` | `ffe55532` | Python `async def` service methods as page tasks; LocalState/SessionState for Python | Awaiting CI |
+| `work/fakes-ci` | `f565ff12` | Java/Groovy, Python and JS/TS test units clear Fakes before every case; per-language table in `docs/BEHAVIOR_ANNOTATIONS.md`; Lua runtime notices; Go `LICENSE` shipped next to `wasm_exec.js` | Awaiting CI |
+| `work/fakes-rest` | `056dd059` | Same Fake clearing for Kotlin, C#, Dart, Go and Rust (on top of `work/fakes-ci`) | Kotlin, C# and Dart fixes not yet tested by any run (head carries `[skip ci]`); run `test_units::every_typed_language_clears_its_fakes_before_each_case` on a machine with kotlinc, dotnet and dart. Locally, one `behavior_jvm` test and four `tachyon-core` lib tests failed and were not yet compared with `develop` |
+| `work/cpp-yon-ci` | `94c013a3` | C++ Yon route controllers compiled with clang++, with the review fixes (route types limited to what the JSON codec reads, default parameter values refused, snippet check runs the C++ examples) | Rebased onto develop; awaiting CI |
+| `work/ci-self-hosted` | `50c5cc3a` (local) | Opt-in switch (repository variable `TACHYON_SELF_HOSTED`) that runs push-triggered jobs on self-hosted macOS, Windows and WSL runners while pull requests stay on GitHub-hosted runners; `docs/SELF_HOSTED_RUNNERS.md` | **Not pushed yet.** The workflow switch and its policy test are committed. `docs/SELF_HOSTED_RUNNERS.md` and its links from `CONTRIBUTING.md`, `docs/README.md` and `docs/RELEASE_ENGINEERING.md` are not committed yet. Any new job in `rust-ci.yml` must use its guarded `runs-on` form |
+
+Already merged into `develop` or superseded, safe to delete:
+
+| Branch | Head | Where its work is |
 |---|---|---|
-| `work/ci-emscripten` | Stops exporting `EM_CONFIG`/`EMSDK` (it broke the .NET wasm workload's Emscripten); strips them from `dotnet publish` in the product; Windows uses `emcc.exe`; longer deadline for the C# web publish | Unblocks Phase 3 Chromium, C# tests on Ubuntu/macOS, Windows native |
-| `work/ci-toolchains` | JDK 21 everywhere, Node/Ruby/Emscripten/Dart/Python/Lua for coverage and sanitizers, Lua for the macOS website job, sanitizer flags kept out of nested builds | Fixed the Java/TeaVM test; iterating |
-| `work/ci-small-fixes` | Android bridge test regex, managed-storage fixture (TY1310), fuzz crash in `template/frontend.rs` `doctype()`, stderr in the dev-server readiness test | Iterating |
-| `work/ci-macos-windows` | macOS Swift singleton test; diagnostics for the Windows WebView2 gate, whose page renders empty on develop | Root cause of the Windows gate not found yet |
-| `work/ci-windows-bisect` | Diagnostic probes for the Windows gate | **Not for merging** |
-| `work/fsharp-ci` | F# typed HTTPClient injection, typed answers, caching and test Fakes; fixes the .NET first-app gate flake and a shared browser-HTTP race (a declared-length answer is read whole) | No new failures vs develop on Ubuntu/macOS native; Firefox/WebKit not reached yet because Phase 3 stops early |
-| `work/python-ci` | Python `async def` service methods as page tasks; LocalState/SessionState for Python | Awaiting CI |
-| `work/fakes-ci` | Java/Groovy, Python and JS/TS test units clear Fakes before every case; per-language table in `docs/BEHAVIOR_ANNOTATIONS.md`; Lua runtime notices; Go `LICENSE` shipped next to `wasm_exec.js` | Awaiting CI |
-| `work/fakes-rest` | Same Fake clearing for Kotlin, C#, Dart, Go and Rust (on top of `work/fakes-ci`) | Kotlin/C#/Dart verified only in CI |
-| `work/cpp-yon-ci` | C++ Yon route controllers compiled with clang++, with the review fixes (route types limited to what the JSON codec reads, default parameter values refused, snippet check runs the C++ examples) | Rebased onto develop; awaiting CI |
+| `work/cohesion-yon` | `4fa56905` | Merged into `develop` |
+| `work/cohesion-template-migrate` | `2c2262d4` | Merged into `develop` |
+| `work/cpp-test-units` | `e24c98f4` | Merged into `develop` |
+| `work/cpp-yon` | `3247ba6a` | Superseded by `work/cpp-yon-ci` |
+| `work/java-checked-models` | `ba06e71d` | Merged into `develop` |
+| `work/scaffold-gate` | `c18dde22` | Merged into `develop` |
+| `work/tac-page-program-js` | `b3c08198` | Merged into `develop` |
+| `work/fsharp-http` | `068504e0` | Superseded by `work/fsharp-ci` |
+| `work/python-tac` | `65617876` | Superseded by `work/python-ci` |
 
-Already merged or superseded, safe to delete: `work/cohesion-yon`,
-`work/cohesion-template-migrate`, `work/cpp-test-units`, `work/cpp-yon`,
-`work/java-checked-models`, `work/scaffold-gate`, `work/tac-page-program-js`,
-`work/fsharp-http` (see `work/fsharp-ci`), `work/python-tac` (see
-`work/python-ci`).
-
-A local-only branch, `work/ci-self-hosted`, is being prepared: an opt-in switch
-(repository variable `TACHYON_SELF_HOSTED`) that runs push-triggered jobs on
-self-hosted macOS, Windows and WSL runners while pull requests stay on
-GitHub-hosted runners, plus `docs/SELF_HOSTED_RUNNERS.md`.
+These branches were integrated by cherry-pick from the integration machine and
+never pushed. Nothing on them is missing from `develop` or the branches above:
+`work/ci-gates`, `work/ci-fixes`, `work/core-small`, `work/docs-loose-ends`,
+`work/snippet-coverage`, `work/notices-fakes` and `work/lua-ruby-needs` are in
+`develop`; `work/fakes-notices-2` is in `work/fakes-ci`; the review branches
+for C++ test units and C++ Yon are in `develop` and `work/cpp-yon-ci`.
 
 ## Why develop CI is red
 
