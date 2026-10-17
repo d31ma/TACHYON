@@ -25,6 +25,14 @@ impl PreparedProbe {
             ("DOTNET_CLI_TELEMETRY_OPTOUT", OsString::from("1")),
             ("DOTNET_NOLOGO", OsString::from("1")),
             ("DOTNET_SKIP_FIRST_TIME_EXPERIENCE", OsString::from("1")),
+            // A fresh DOTNET_CLI_HOME is a first run: without these, the SDK
+            // appends its tools folder to the user's persistent Windows PATH
+            // and installs a development certificate, once per probe.
+            ("DOTNET_ADD_GLOBAL_TOOLS_TO_PATH", OsString::from("false")),
+            (
+                "DOTNET_GENERATE_ASPNET_CERTIFICATE",
+                OsString::from("false"),
+            ),
             (
                 "NUGET_PACKAGES",
                 workspace.join("packages").into_os_string(),
@@ -107,5 +115,20 @@ mod tests {
             "user folders must stay inside the probe workspace: {variables:?}"
         );
         assert_eq!(variables[3].1, OsString::from("host-ProgramData"));
+    }
+
+    #[test]
+    fn dotnet_probes_never_change_the_users_path_or_certificates() {
+        let variables = PreparedProbe::dotnet_variables(Path::new("probe-workspace"));
+        for name in [
+            "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH",
+            "DOTNET_GENERATE_ASPNET_CERTIFICATE",
+        ] {
+            let value = variables
+                .iter()
+                .find(|(listed, _)| *listed == name)
+                .map(|(_, value)| value);
+            assert_eq!(value, Some(&OsString::from("false")), "{name}");
+        }
     }
 }
