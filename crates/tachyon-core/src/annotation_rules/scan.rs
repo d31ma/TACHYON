@@ -566,7 +566,7 @@ impl Scan {
     ) -> Option<(usize, &'static Rule)> {
         self.found
             .iter()
-            .find(|found| !found.rule.is_retired() && !found.rule.allows(language, realm))
+            .find(|found| !found.rule.allows(language, realm))
             .map(|found| (found.at, found.rule))
     }
 

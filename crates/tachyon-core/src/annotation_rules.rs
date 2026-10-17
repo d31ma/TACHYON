@@ -1020,15 +1020,13 @@ impl AnnotationRules {
 
     fn check_fsharp(path: &Path, source: &str) -> Result<(), Failure> {
         Self::check_direct(path, source)?;
-        if Realm::of(path) != Some(Realm::Yon) {
-            return Ok(());
-        }
+        let in_yon = Realm::of(path) == Some(Realm::Yon);
         let found = scan::Scan::run_as("cs", "cs", source);
-        let Some((at, rule)) = found.outside_reach("fs", Realm::Yon) else {
-            return Ok(());
-        };
-        let message = scan::Messages::unavailable(rule, "cs", Realm::Yon);
-        Err(Self::failure_at(path, source, at, rule.code, &message))
+        let outside = found.outside_reach("fs", Realm::Yon).filter(|_| in_yon);
+        outside.map_or(Ok(()), |(at, rule)| {
+            let message = scan::Messages::unavailable(rule, "cs", Realm::Yon);
+            Err(Self::failure_at(path, source, at, rule.code, &message))
+        })
     }
 
     fn check_direct(path: &Path, source: &str) -> Result<(), Failure> {

@@ -24,52 +24,74 @@ impl EventLowering {
         events: &EventModule,
         asynchronous: bool,
     ) -> Result<(), String> {
-        Self::synchronous(events, asynchronous)?;
-        validate_providers(plan, events)?;
-        Self::without_streams(plan)
+        Self::check_deferring(plan, events, asynchronous, false)
     }
 
-    fn check_language(plan: &Plan, events: &EventModule, extension: &str) -> Result<(), String> {
-        if !Self::DEFERS_BACKGROUND.contains(&extension) {
-            return Self::check(plan, events, is_async_language(extension));
-        }
-        Self::background_tasks(events)?;
+    fn check_deferring(
+        plan: &Plan,
+        events: &EventModule,
+        asynchronous: bool,
+        defers: bool,
+    ) -> Result<(), String> {
+        Self::synchronous(events, asynchronous, defers)?;
         validate_providers(plan, events)?;
         Self::without_streams(plan)
-    }
-
-    fn background_tasks(events: &EventModule) -> Result<(), String> {
-        let asynchronous = events
-            .methods
-            .iter()
-            .filter(|method| is_asynchronous_method(method));
-        for method in asynchronous {
-            if !is_background_listener(events, method) {
-                return Err(String::from(Self::SYNCHRONOUS_ONLY));
-            }
-            if !returns_task(method) {
-                return Err(String::from(Self::BACKGROUND_RETURNS_TASK));
-            }
-        }
-        Ok(())
     }
 
     pub(crate) fn listener_options(listener: &crate::events::EventListener) -> String {
         containers::listener_options(listener)
     }
 
-    fn synchronous(events: &EventModule, asynchronous: bool) -> Result<(), String> {
+    fn synchronous(events: &EventModule, asynchronous: bool, defers: bool) -> Result<(), String> {
+        let asynchronous_methods: Vec<&EventMethod> = events
+            .methods
+            .iter()
+            .filter(|method| is_asynchronous_method(method))
+            .collect();
+        let background_methods: Vec<&EventMethod> = asynchronous_methods
+            .iter()
+            .copied()
+            .filter(|method| Self::is_background_listener(events, method))
+            .collect();
+        let untyped_background = background_methods
+            .iter()
+            .any(|method| !Self::returns_task(method));
         let problems = [
             (
-                events.methods.iter().any(is_asynchronous_method),
+                asynchronous_methods.len() > background_methods.len() * usize::from(defers),
                 Self::SYNCHRONOUS_ONLY,
             ),
-            (has_async_listener(events), Self::BACKGROUND_NEEDS_ASYNC),
+            (
+                [defers, untyped_background] == [true, true],
+                Self::BACKGROUND_RETURNS_TASK,
+            ),
+            (
+                [has_async_listener(events), defers] == [true, false],
+                Self::BACKGROUND_NEEDS_ASYNC,
+            ),
         ];
         problems
             .into_iter()
             .find(|(present, _)| [*present, asynchronous] == [true, false])
             .map_or(Ok(()), |(_, message)| Err(String::from(message)))
+    }
+
+    fn is_background_listener(events: &EventModule, method: &EventMethod) -> bool {
+        events
+            .types
+            .iter()
+            .filter(|event_type| event_type.name == method.owner)
+            .flat_map(|event_type| &event_type.listeners)
+            .filter(|listener| listener.asynchronous)
+            .any(|listener| listener.method == method.name)
+    }
+
+    fn returns_task(method: &EventMethod) -> bool {
+        let return_type = method.return_type.trim();
+        let return_type = return_type
+            .strip_prefix("System.Threading.Tasks.")
+            .unwrap_or(return_type);
+        return_type.split('<').next() == Some("Task")
     }
 
     fn without_streams(plan: &Plan) -> Result<(), String> {
@@ -92,7 +114,12 @@ pub(crate) fn lower(
             .and_then(|value| value.to_str())
             .unwrap_or(""),
     );
-    EventLowering::check_language(plan, events, extension)?;
+    EventLowering::check_deferring(
+        plan,
+        events,
+        is_async_language(extension),
+        EventLowering::DEFERS_BACKGROUND.contains(&extension),
+    )?;
     let relocated = super::relocate(path, source, events)
         .map_err(|error| format!("Cannot locate event methods: {error:?}"))?;
     let source = relocated.source.clone();
@@ -126,23 +153,6 @@ fn has_async_listener(events: &EventModule) -> bool {
             .iter()
             .any(|listener| listener.asynchronous)
     })
-}
-
-fn is_background_listener(events: &EventModule, method: &EventMethod) -> bool {
-    events
-        .types
-        .iter()
-        .filter(|event_type| event_type.name == method.owner)
-        .flat_map(|event_type| &event_type.listeners)
-        .any(|listener| listener.asynchronous && listener.method == method.name)
-}
-
-fn returns_task(method: &EventMethod) -> bool {
-    let return_type = method.return_type.trim();
-    let return_type = return_type
-        .strip_prefix("System.Threading.Tasks.")
-        .unwrap_or(return_type);
-    return_type == "Task" || return_type.starts_with("Task<")
 }
 
 fn validate_providers(plan: &Plan, events: &EventModule) -> Result<(), String> {
