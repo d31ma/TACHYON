@@ -95,6 +95,12 @@ fn repository_modules() -> Option<PathBuf> {
     modules.join(".bin/tsc").is_file().then_some(modules)
 }
 
+fn repository_compiler(modules: &Path) -> PathBuf {
+    // npm's `.bin/tsc` is a POSIX shell script; on Windows the `tsc.cmd` beside it runs instead.
+    let name = if cfg!(windows) { "tsc.cmd" } else { "tsc" };
+    modules.join(".bin").join(name)
+}
+
 fn link_modules(project: &Path, modules: &Path) {
     #[cfg(unix)]
     std::os::unix::fs::symlink(modules, project.join("node_modules")).expect("node_modules link");
@@ -113,7 +119,7 @@ fn every_feature_project_type_checks_and_passes_its_tests_on_node_and_bun() {
         .into_iter()
         .filter(|runtime| available(runtime))
         .collect();
-    let compiler = modules.join(".bin/tsc");
+    let compiler = repository_compiler(&modules);
     let workspace = tempfile::tempdir().expect("workspace");
     for case in &FeatureProject::CASES {
         let project = case.initialized(workspace.path(), &modules);
