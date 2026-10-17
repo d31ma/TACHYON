@@ -218,7 +218,7 @@ public static class TachyonCompanionProbe
 }
 
 function Write-BundleDiagnostics([string] $app) {
-    $bundle = Join-Path $app 'resources\WebBundle'
+    $bundle = (Get-Item -LiteralPath (Join-Path $app 'resources\WebBundle')).FullName
     $index = Get-Content -Raw -LiteralPath (Join-Path $bundle 'index.html')
     if ($index.Length -gt 4000) { $index = $index.Substring(0, 4000) + '...' }
     Write-Host "Bundle index.html: $index"
@@ -381,7 +381,10 @@ function Test-RenderedControls([string] $app, [string] $log) {
     Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     $script:desktop = [System.Windows.Automation.AutomationElement]::RootElement
     Enable-WebViewDevTools
-    $script:process = Start-Process -FilePath (Join-Path $app 'bin\NativeGate.exe') -PassThru
+    $start = [System.Diagnostics.ProcessStartInfo]::new((Join-Path $app 'bin\NativeGate.exe'))
+    $start.UseShellExecute = $false
+    $start.EnvironmentVariables['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS'] = $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
+    $script:process = [System.Diagnostics.Process]::Start($start)
     $script:deadline = [DateTime]::UtcNow.AddSeconds(120)
 
     Expect-Controls @('Root route', 'Root count 0', 'Shared module ready', 'Verify native Root')
