@@ -52,21 +52,23 @@ impl<'a> ArgumentConversion<'a> {
     ];
     const RECEIVERS: [&'static str; 3] = ["self", "&self", "&mut self"];
     const TYPED_BY_DECLARATION: [&'static str; 3] = ["js", "ts", "py"];
+    const DEFAULTS_IN_OPTIONS: [&'static str; 2] = ["rs", "go"];
+    const BOUNDS: [(&'static str, &'static str); 2] = [("min", "Min"), ("max", "Max")];
 
     pub(super) fn plan(relative: &'a str, source: &'a str) -> ConversionPlan {
         let extension = Path::new(relative)
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        let Some(text) = SourceText::read(extension, source) else {
-            return ConversionPlan::default();
-        };
-        let conversion = Self {
+        let text = SourceText::read(extension, source);
+        let conversion = text.map(|text| Self {
             relative,
             extension,
             text,
-        };
-        conversion.convert()
+        });
+        conversion
+            .map(|conversion| conversion.convert())
+            .unwrap_or_default()
     }
 
     fn convert(&self) -> ConversionPlan {
@@ -74,24 +76,44 @@ impl<'a> ArgumentConversion<'a> {
         let markers = Marker::lines(&self.text, self.extension, &Self::NAMES);
         let methods = self.method_parameters(&markers);
         let mut parameters: BTreeMap<usize, ParameterEdits> = BTreeMap::new();
-        for marker in &markers {
-            let Some(arguments) = self.arguments(marker) else {
-                continue;
-            };
-            let line = self.text.line_number(marker.start);
-            let before = plan.edits.len();
-            self.convert_marker(marker, &arguments, &methods, &mut parameters, &mut plan);
-            if plan.edits.len() > before {
-                plan.notes.push(format!(
-                    "Changed the {} arguments on line {line} to the typed form (ADR 0055).",
-                    marker.name
-                ));
-            }
+        let with_arguments = markers
+            .iter()
+            .filter_map(|marker| self.arguments(marker).map(|arguments| (marker, arguments)));
+        for (marker, arguments) in with_arguments {
+            self.convert_line(marker, &arguments, &methods, &mut parameters, &mut plan);
         }
-        for (declaration, edits) in &parameters {
-            self.parameter_edits(*declaration, edits, &mut plan);
-        }
+        self.add_parameter_edits(&parameters, &mut plan);
         plan
+    }
+
+    fn convert_line(
+        &self,
+        marker: &MarkerLine,
+        arguments: &Map<String, Value>,
+        methods: &BTreeMap<String, Vec<String>>,
+        parameters: &mut BTreeMap<usize, ParameterEdits>,
+        plan: &mut ConversionPlan,
+    ) {
+        let line = self.text.line_number(marker.start);
+        let before = plan.edits.len();
+        self.convert_marker(marker, arguments, methods, parameters, plan);
+        let changed = plan.edits.len() > before;
+        plan.notes.extend(changed.then(|| {
+            format!(
+                "Changed the {} arguments on line {line} to the typed form (ADR 0055).",
+                marker.name
+            )
+        }));
+    }
+
+    fn add_parameter_edits(
+        &self,
+        parameters: &BTreeMap<usize, ParameterEdits>,
+        plan: &mut ConversionPlan,
+    ) {
+        for (declaration, edits) in parameters {
+            self.parameter_edits(*declaration, edits, plan);
+        }
     }
 
     fn arguments(&self, marker: &MarkerLine) -> Option<Map<String, Value>> {
@@ -120,10 +142,10 @@ impl<'a> ArgumentConversion<'a> {
     }
 
     fn replace_arguments(marker: &MarkerLine, replacement: &str, plan: &mut ConversionPlan) {
-        let Some((start, end)) = marker.arguments else {
-            return;
-        };
-        plan.edits.push(TextEdit::replace(start, end, replacement));
+        let edit = marker
+            .arguments
+            .map(|(start, end)| TextEdit::replace(start, end, replacement));
+        plan.edits.extend(edit);
     }
 
     fn reference(&self, name: &str) -> String {
@@ -131,32 +153,45 @@ impl<'a> ArgumentConversion<'a> {
     }
 
     fn test(&self, marker: &MarkerLine, arguments: &Map<String, Value>, plan: &mut ConversionPlan) {
-        let Some(configuration) = arguments.get("configuration").and_then(Value::as_str) else {
-            return;
-        };
-        let Some((start, end)) = marker.arguments else {
-            return;
-        };
+        let configuration = arguments.get("configuration").and_then(Value::as_str);
+        let parts = configuration.zip(marker.arguments);
+        let edits = parts
+            .map(|(configuration, range)| self.test_edits(configuration, range, arguments))
+            .unwrap_or_default();
+        plan.edits.extend(edits);
+    }
+
+    fn test_edits(
+        &self,
+        configuration: &str,
+        (start, end): (usize, usize),
+        arguments: &Map<String, Value>,
+    ) -> Vec<TextEdit> {
         let reference = self.reference(configuration);
         let (before, after) = reference.split_once(configuration).unwrap_or(("", ""));
-        let mut tail = after.to_owned();
-        if let Some(partition) = arguments.get("partition") {
-            let _ = write!(tail, ", {{\"partition\":{partition}}}");
-        }
+        let partition = arguments
+            .get("partition")
+            .map(|partition| format!(", {{\"partition\":{partition}}}"))
+            .unwrap_or_default();
+        let tail = format!("{after}{partition}");
         let written = &self.text.source[start..end];
         let key = "{\"configuration\":\"";
         let value_end = key.len() + configuration.len();
-        let name_first =
-            written.starts_with(key) && written[key.len()..].starts_with(configuration);
-        if !name_first || written.as_bytes().get(value_end) != Some(&b'"') {
+        let name_first = [
+            written.starts_with(key),
+            written
+                .get(key.len()..)
+                .is_some_and(|rest| rest.starts_with(configuration)),
+            written.as_bytes().get(value_end) == Some(&b'"'),
+        ];
+        if name_first != [true; 3] {
             let replacement = format!("{before}{configuration}{tail}");
-            Self::replace_arguments(marker, &replacement, plan);
-            return;
+            return vec![TextEdit::replace(start, end, &replacement)];
         }
-        plan.edits
-            .push(TextEdit::replace(start, start + key.len(), before));
-        plan.edits
-            .push(TextEdit::replace(start + value_end, end, &tail));
+        vec![
+            TextEdit::replace(start, start + key.len(), before),
+            TextEdit::replace(start + value_end, end, &tail),
+        ]
     }
 
     fn store(
@@ -215,20 +250,21 @@ impl<'a> ArgumentConversion<'a> {
 
     fn field_line(&self, marker: &MarkerLine, name: &str) -> Option<usize> {
         let declaration = Marker::next_declaration(&self.text, self.extension, marker.line_start)?;
-        let mut line_start = self.text.line_end(declaration);
         let body_indent = self.text.indentation(self.text.line_start(declaration));
-        while line_start < self.text.len() {
-            let line = self.text.line_text(line_start);
-            let trimmed = line.trim();
-            if !trimmed.is_empty() && self.text.indentation(line_start) <= body_indent {
-                return None;
-            }
-            if Self::declares_field(self.extension, trimmed, name) {
-                return Some(line_start);
-            }
-            line_start = self.text.line_end(line_start);
-        }
-        None
+        let lines = self.text.line_starts(self.text.line_end(declaration));
+        lines
+            .into_iter()
+            .take_while(|line_start| self.inside_body(*line_start, body_indent))
+            .find(|line_start| {
+                let trimmed = self.text.line_text(*line_start).trim();
+                Self::declares_field(self.extension, trimmed, name)
+            })
+    }
+
+    fn inside_body(&self, line_start: usize, body_indent: usize) -> bool {
+        let blank = self.text.line_text(line_start).trim().is_empty();
+        let outdented = self.text.indentation(line_start) <= body_indent;
+        [blank, outdented] != [false, true]
     }
 
     fn declares_field(extension: &str, line: &str, name: &str) -> bool {
@@ -244,20 +280,19 @@ impl<'a> ArgumentConversion<'a> {
         arguments: &Map<String, Value>,
         plan: &mut ConversionPlan,
     ) {
-        let Some(argument) = arguments.get("argument") else {
-            return;
-        };
-        if argument.as_u64() != Some(0) {
-            plan.steps.push(self.step(
+        match arguments.get("argument").map(Value::as_u64) {
+            None => {}
+            Some(Some(0)) => {
+                let mut options = arguments.clone();
+                options.remove("argument");
+                Self::replace_arguments(marker, &Value::Object(options).to_string(), plan);
+            }
+            Some(_) => plan.steps.push(self.step(
                 marker,
                 String::from("Convert reads a parameter other than the first one."),
                 String::from("Give the Convert method one parameter, the value it converts, and remove \"argument\"."),
-            ));
-            return;
+            )),
         }
-        let mut options = arguments.clone();
-        options.remove("argument");
-        Self::replace_arguments(marker, &Value::Object(options).to_string(), plan);
     }
 
     fn step(&self, marker: &MarkerLine, problem: String, action: String) -> ManualStep {
@@ -270,22 +305,19 @@ impl<'a> ArgumentConversion<'a> {
 
 impl ArgumentConversion<'_> {
     fn parameters(&self, declaration: usize) -> Option<Parameters> {
-        let mut open = declaration + self.text.source[declaration..].find('(')?;
-        if self.extension == "go" && self.text.source[declaration..].starts_with("func (") {
-            let receiver_close = self.text.matching(open)?;
-            open = receiver_close + 1 + self.text.source[receiver_close + 1..].find('(')?;
-        }
+        let first_open = declaration + self.text.source[declaration..].find('(')?;
+        let open = self.after_go_receiver(declaration, first_open)?;
         let close = self.text.matching(open)?;
-        let mut items = Vec::new();
-        let mut names = Vec::new();
-        for item in self.items(open, close) {
-            let piece = self.text.source[item.clone()].trim();
-            if Self::RECEIVERS.contains(&piece) {
-                continue;
-            }
-            names.push(Self::parameter_name(self.extension, piece));
-            items.push(item);
-        }
+        let (items, names) = self
+            .items(open, close)
+            .into_iter()
+            .filter(|item| !Self::RECEIVERS.contains(&self.text.source[item.clone()].trim()))
+            .map(|item| {
+                let piece = self.text.source[item.clone()].trim();
+                let name = Self::parameter_name(self.extension, piece);
+                (item, name)
+            })
+            .unzip();
         Some(Parameters {
             open,
             close,
@@ -294,28 +326,46 @@ impl ArgumentConversion<'_> {
         })
     }
 
+    fn after_go_receiver(&self, declaration: usize, first_open: usize) -> Option<usize> {
+        let receiver = self.text.source[declaration..].starts_with("func (");
+        if [self.extension == "go", receiver] != [true, true] {
+            return Some(first_open);
+        }
+        let receiver_close = self.text.matching(first_open)?;
+        Some(receiver_close + 1 + self.text.source[receiver_close + 1..].find('(')?)
+    }
+
     fn items(&self, open: usize, close: usize) -> Vec<Range<usize>> {
-        let mut items = Vec::new();
-        let mut depth = 0_i64;
-        let mut start = open + 1;
-        for at in open + 1..close {
-            if !self.text.is_code(at) {
-                continue;
-            }
-            match self.text.bytes[at] {
-                b'(' | b'[' | b'{' | b'<' => depth += 1,
-                b')' | b']' | b'}' | b'>' => depth -= 1,
-                b',' if depth == 0 => {
-                    items.push(start..at);
-                    start = at + 1;
-                }
-                _ => {}
-            }
-        }
-        if !self.text.source[start..close].trim().is_empty() {
-            items.push(start..close);
-        }
+        let separators = self.separators(open, close);
+        let starts = std::iter::once(open + 1).chain(separators.iter().map(|at| at + 1));
+        let mut items: Vec<Range<usize>> = starts
+            .clone()
+            .zip(separators.iter().copied())
+            .map(|(start, end)| start..end)
+            .collect();
+        let last_start = starts.last().unwrap_or(open + 1);
+        let last_written = !self.text.source[last_start..close].trim().is_empty();
+        items.extend(last_written.then_some(last_start..close));
         items
+    }
+
+    fn separators(&self, open: usize, close: usize) -> Vec<usize> {
+        let mut depth = 0_i64;
+        let mut found = Vec::new();
+        for at in (open + 1..close).filter(|at| self.text.is_code(*at)) {
+            found.extend(self.separator_at(at, &mut depth));
+        }
+        found
+    }
+
+    fn separator_at(&self, at: usize, depth: &mut i64) -> Option<usize> {
+        match self.text.bytes[at] {
+            b'(' | b'[' | b'{' | b'<' => *depth += 1,
+            b')' | b']' | b'}' | b'>' => *depth -= 1,
+            b',' if *depth == 0 => return Some(at),
+            _ => {}
+        }
+        None
     }
 
     fn parameter_name(extension: &str, piece: &str) -> String {
@@ -337,22 +387,20 @@ impl ArgumentConversion<'_> {
     }
 
     fn method_parameters(&self, markers: &[MarkerLine]) -> BTreeMap<String, Vec<String>> {
-        let mut methods = BTreeMap::new();
-        for marker in markers {
-            let Some(declaration) =
-                Marker::next_declaration(&self.text, self.extension, marker.line_start)
-            else {
-                continue;
-            };
-            let Some(parameters) = self.parameters(declaration) else {
-                continue;
-            };
-            let before_open = self.text.source[declaration..parameters.open].trim_end();
-            let name_start = self.text.word_start(declaration + before_open.len());
-            let name = &self.text.source[name_start..declaration + before_open.len()];
-            methods.insert(name.to_owned(), parameters.names);
-        }
-        methods
+        markers
+            .iter()
+            .filter_map(|marker| self.method_entry(marker))
+            .collect()
+    }
+
+    fn method_entry(&self, marker: &MarkerLine) -> Option<(String, Vec<String>)> {
+        let declaration = Marker::next_declaration(&self.text, self.extension, marker.line_start)?;
+        let parameters = self.parameters(declaration)?;
+        let before_open = self.text.source[declaration..parameters.open].trim_end();
+        let name_end = declaration + before_open.len();
+        let name_start = self.text.word_start(name_end);
+        let name = &self.text.source[name_start..name_end];
+        Some((name.to_owned(), parameters.names))
     }
 
     fn mutation(
@@ -375,28 +423,29 @@ impl ArgumentConversion<'_> {
                 .map(|parameters| parameters.names)
                 .unwrap_or_default();
         let target_parameters = methods.get(target).cloned().unwrap_or_default();
-        for (position, index) in indexes.iter().enumerate() {
-            let own_name = index
-                .as_u64()
-                .and_then(|number| own_parameters.get(usize::try_from(number).ok()?));
-            let target_name = target_parameters.get(position);
-            if own_name != target_name {
-                plan.steps.push(self.step(
-                    marker,
-                    format!(
-                        "{} now matches parameters by name, and the names differ from '{target}'.",
-                        marker.name
-                    ),
-                    format!(
-                        "Rename this method's parameters to match the key parameters of '{target}'."
-                    ),
-                ));
-                break;
-            }
-        }
+        let differs = indexes.iter().enumerate().any(|(position, index)| {
+            Self::own_parameter(&own_parameters, index) != target_parameters.get(position)
+        });
+        plan.steps.extend(differs.then(|| {
+            self.step(
+                marker,
+                format!(
+                    "{} now matches parameters by name, and the names differ from '{target}'.",
+                    marker.name
+                ),
+                format!(
+                    "Rename this method's parameters to match the key parameters of '{target}'."
+                ),
+            )
+        }));
         let mut options = arguments.clone();
         options.remove("arguments");
         Self::replace_arguments(marker, &Value::Object(options).to_string(), plan);
+    }
+
+    fn own_parameter<'p>(own_parameters: &'p [String], index: &Value) -> Option<&'p String> {
+        let index = usize::try_from(index.as_u64()?).ok()?;
+        own_parameters.get(index)
     }
 }
 
@@ -460,16 +509,13 @@ impl ArgumentConversion<'_> {
         edits: &mut ParameterEdits,
         extension: &str,
     ) -> Option<MarkerChange> {
-        let Some(Value::Array(keys)) = arguments.get("keyArgs") else {
-            return None;
-        };
+        let keys = arguments.get("keyArgs")?.as_array()?;
         let every: Vec<Value> = (0..list.items.len()).map(Value::from).collect();
-        if *keys != every {
-            for key in keys {
-                let index = usize::try_from(key.as_u64()?).ok()?;
-                let marker = Self::marker_text(extension, "CacheKey", "");
-                edits.markers.entry(index).or_default().push(marker);
-            }
+        let some_keys = *keys != every;
+        for key in keys.iter().filter(|_| some_keys) {
+            let index = usize::try_from(key.as_u64()?).ok()?;
+            let marker = Self::marker_text(extension, "CacheKey", "");
+            edits.markers.entry(index).or_default().push(marker);
         }
         Some(MarkerChange::Rewrite(String::new()))
     }
@@ -485,11 +531,9 @@ impl ArgumentConversion<'_> {
         let parameter = list.names.get(index)?;
         let written = if Self::TYPED_BY_DECLARATION.contains(&self.extension) {
             edits.checked_types.insert(index, checked_type.to_owned());
-            if self.extension == "js" {
-                edits
-                    .documentation
-                    .push(format!("/** @param {{{checked_type}}} {parameter} */"));
-            }
+            let documentation = (self.extension == "js")
+                .then(|| format!("/** @param {{{checked_type}}} {parameter} */"));
+            edits.documentation.extend(documentation);
             String::new()
         } else {
             self.reference(checked_type)
@@ -584,14 +628,12 @@ impl ArgumentConversion<'_> {
     }
 
     fn block_start(&self, declaration_line: usize) -> usize {
-        let mut start = declaration_line;
-        while let Some(previous) = self.text.previous_line_start(start) {
-            if Marker::at_line(&self.text, self.extension, previous).is_none() {
-                break;
-            }
-            start = previous;
-        }
-        start
+        let first = self.text.previous_line_start(declaration_line);
+        let previous_lines = std::iter::successors(first, |at| self.text.previous_line_start(*at));
+        let marker_lines = previous_lines.take_while(|previous| {
+            Marker::at_line(&self.text, self.extension, *previous).is_some()
+        });
+        marker_lines.last().unwrap_or(declaration_line)
     }
 
     fn with_type(extension: &str, parameter: &str, kind: &str) -> String {
@@ -602,6 +644,12 @@ impl ArgumentConversion<'_> {
         format!("{name}: {kind}")
     }
 
+    fn write_go_markers(lines: &mut String, indent: &str, markers: &[String]) {
+        for marker in markers {
+            let _ = writeln!(lines, "{indent}\t// {marker}");
+        }
+    }
+
     fn go_parameter_list(
         &self,
         list: &Parameters,
@@ -610,9 +658,8 @@ impl ArgumentConversion<'_> {
     ) -> TextEdit {
         let mut lines = String::from("\n");
         for (index, item) in list.items.iter().enumerate() {
-            for marker in edits.markers.get(&index).into_iter().flatten() {
-                let _ = writeln!(lines, "{indent}\t// {marker}");
-            }
+            let markers = edits.markers.get(&index).map_or(&[][..], Vec::as_slice);
+            Self::write_go_markers(&mut lines, indent, markers);
             let piece = self.text.source[item.clone()].trim();
             let _ = writeln!(lines, "{indent}\t{piece},");
         }
@@ -663,24 +710,30 @@ impl ArgumentConversion<'_> {
     }
 
     fn empty_body(&self, declaration: usize) -> Option<Range<usize>> {
+        if self.extension == "py" {
+            return self.python_empty_body(declaration);
+        }
+        self.braced_empty_body(declaration)
+    }
+
+    fn python_empty_body(&self, declaration: usize) -> Option<Range<usize>> {
         let line_end = self.text.line_end(declaration);
         let line = &self.text.source[declaration..line_end];
-        if self.extension == "py" {
-            let next = self.text.line_text(line_end).trim();
-            if line.trim_end().ends_with(':') && next == "pass" {
-                let pass_end = self.text.line_end(line_end);
-                let end = pass_end - usize::from(self.text.source[..pass_end].ends_with('\n'));
-                return Some(declaration + line.trim_end().len()..end);
-            }
-            return None;
-        }
+        let next = self.text.line_text(line_end).trim();
+        let empty = [line.trim_end().ends_with(':'), next == "pass"] == [true, true];
+        empty.then_some(())?;
+        let pass_end = self.text.line_end(line_end);
+        let end = pass_end - usize::from(self.text.source[..pass_end].ends_with('\n'));
+        Some(declaration + line.trim_end().len()..end)
+    }
+
+    fn braced_empty_body(&self, declaration: usize) -> Option<Range<usize>> {
+        let line_end = self.text.line_end(declaration);
+        let line = &self.text.source[declaration..line_end];
         let open = declaration + line.find('{')?;
         let close = self.text.matching(open)?;
         let inside = &self.text.source[open + 1..close];
-        if !inside.trim().is_empty() {
-            return None;
-        }
-        Some(open..close + 1)
+        inside.trim().is_empty().then_some(open..close + 1)
     }
 
     fn settings_options(
@@ -689,39 +742,42 @@ impl ArgumentConversion<'_> {
         extension: &str,
     ) -> Map<String, Value> {
         let mut options = Map::new();
-        if let Some(prefix) = arguments.get("prefix") {
-            options.insert("prefix".to_owned(), prefix.clone());
-        }
-        let mut names = Map::new();
-        let mut defaults = Map::new();
-        for (field, descriptor) in fields {
-            let name = descriptor["name"].as_str().unwrap_or("");
-            if name != Self::environment_suffix(field) {
-                names.insert(field.clone(), Value::String(name.to_owned()));
-            }
-            if matches!(extension, "rs" | "go")
-                && let Some(default) = descriptor.get("default")
-            {
-                defaults.insert(field.clone(), default.clone());
-            }
-        }
-        if !names.is_empty() {
-            options.insert("names".to_owned(), Value::Object(names));
-        }
-        if !defaults.is_empty() {
-            options.insert("defaults".to_owned(), Value::Object(defaults));
-        }
+        let prefix = arguments.get("prefix");
+        options.extend(prefix.map(|prefix| ("prefix".to_owned(), prefix.clone())));
+        let names: Map<String, Value> = fields
+            .iter()
+            .filter_map(|(field, descriptor)| Self::renamed_field(field, descriptor))
+            .collect();
+        let keeps_defaults = Self::DEFAULTS_IN_OPTIONS.contains(&extension);
+        let defaults: Map<String, Value> = fields
+            .iter()
+            .filter(|_| keeps_defaults)
+            .filter_map(|(field, descriptor)| {
+                let default = descriptor.get("default");
+                default.map(|default| (field.clone(), default.clone()))
+            })
+            .collect();
+        let has_names = !names.is_empty();
+        options.extend(has_names.then(|| ("names".to_owned(), Value::Object(names))));
+        let has_defaults = !defaults.is_empty();
+        options.extend(has_defaults.then(|| ("defaults".to_owned(), Value::Object(defaults))));
         options
+    }
+
+    fn renamed_field(field: &str, descriptor: &Value) -> Option<(String, Value)> {
+        let name = descriptor["name"].as_str().unwrap_or("");
+        let renamed = name != Self::environment_suffix(field);
+        renamed.then(|| (field.to_owned(), Value::String(name.to_owned())))
     }
 
     fn environment_suffix(field: &str) -> String {
         let mut name = String::new();
         let mut previous_lowercase = false;
         for character in field.chars() {
-            if character.is_ascii_uppercase() && previous_lowercase {
-                name.push('_');
-            }
-            previous_lowercase = character.is_ascii_lowercase() || character.is_ascii_digit();
+            let starts_word = [character.is_ascii_uppercase(), previous_lowercase] == [true, true];
+            name.extend(starts_word.then_some('_'));
+            previous_lowercase =
+                [character.is_ascii_lowercase(), character.is_ascii_digit()].contains(&true);
             name.push(character.to_ascii_uppercase());
         }
         name
@@ -730,24 +786,26 @@ impl ArgumentConversion<'_> {
     fn settings_fields(&self, fields: &Map<String, Value>) -> Option<Vec<String>> {
         let mut lines = Vec::new();
         for (field, descriptor) in fields {
-            let mut bounds = Vec::new();
-            for bound in ["min", "max"] {
-                if let Some(value) = descriptor.get(bound) {
-                    let name = if bound == "min" { "Min" } else { "Max" };
-                    bounds.push(Marker::spelled(self.extension, name, &value.to_string()));
-                }
-            }
-            let declaration = self.settings_field(field, descriptor)?;
-            if self.extension == "py" && !bounds.is_empty() {
-                lines.push(PythonParameterEdits::annotated_declaration(
-                    &declaration,
-                    &bounds,
-                ));
-                continue;
-            }
-            lines.extend(bounds);
-            lines.push(declaration);
+            lines.extend(self.settings_field_lines(field, descriptor)?);
         }
+        Some(lines)
+    }
+
+    fn settings_field_lines(&self, field: &str, descriptor: &Value) -> Option<Vec<String>> {
+        let bounds: Vec<String> = Self::BOUNDS
+            .iter()
+            .filter_map(|(bound, name)| {
+                let value = descriptor.get(*bound);
+                value.map(|value| Marker::spelled(self.extension, name, &value.to_string()))
+            })
+            .collect();
+        let declaration = self.settings_field(field, descriptor)?;
+        if [self.extension == "py", bounds.is_empty()] == [true, false] {
+            let annotated = PythonParameterEdits::annotated_declaration(&declaration, &bounds);
+            return Some(vec![annotated]);
+        }
+        let mut lines = bounds;
+        lines.push(declaration);
         Some(lines)
     }
 
@@ -756,7 +814,7 @@ impl ArgumentConversion<'_> {
         let spelled = SettingsTypes::spelled(self.extension, kind)?;
         let default = descriptor
             .get("default")
-            .filter(|_| !matches!(self.extension, "rs" | "go"))
+            .filter(|_| !Self::DEFAULTS_IN_OPTIONS.contains(&self.extension))
             .map(|value| SettingsTypes::literal(self.extension, kind, value));
         Some(SettingsTypes::declaration(
             self.extension,
@@ -767,21 +825,29 @@ impl ArgumentConversion<'_> {
     }
 
     fn settings_body(extension: &str, lines: &[String], indent: &str) -> String {
-        let member_indent = if extension == "go" {
-            format!("{indent}\t")
-        } else {
-            format!("{indent}    ")
-        };
+        let body = Self::member_lines(extension, lines, indent);
+        Self::wrapped_body(extension, &body, indent)
+    }
+
+    fn member_lines(extension: &str, lines: &[String], indent: &str) -> String {
+        let member_indent = Self::member_indent(extension, indent);
         let mut body = String::new();
-        for line in lines {
-            for part in line.split('\n') {
-                body.push('\n');
-                body.push_str(&member_indent);
-                body.push_str(part);
-            }
+        for part in lines.iter().flat_map(|line| line.split('\n')) {
+            let _ = write!(body, "\n{member_indent}{part}");
         }
+        body
+    }
+
+    fn member_indent(extension: &str, indent: &str) -> String {
+        if extension == "go" {
+            return format!("{indent}\t");
+        }
+        format!("{indent}    ")
+    }
+
+    fn wrapped_body(extension: &str, body: &str, indent: &str) -> String {
         if extension == "py" {
-            return body;
+            return String::from(body);
         }
         format!(" {{{body}\n{indent}}}")
     }
@@ -790,7 +856,16 @@ impl ArgumentConversion<'_> {
 struct SettingsTypes;
 
 impl SettingsTypes {
+    const KINDS: [&'static str; 4] = ["string", "integer", "number", "boolean"];
+    const QUOTED_STRINGS: [&'static str; 5] = ["js", "ts", "py", "php", "dart"];
+
     fn spelled(extension: &str, kind: &str) -> Option<&'static str> {
+        let names = Self::type_names(extension)?;
+        let index = Self::KINDS.iter().position(|known| *known == kind)?;
+        Some(names[index])
+    }
+
+    fn type_names(extension: &str) -> Option<[&'static str; 4]> {
         let names: [&'static str; 4] = match extension {
             "java" => ["String", "int", "double", "boolean"],
             "kt" => ["String", "Int", "Double", "Boolean"],
@@ -804,20 +879,14 @@ impl SettingsTypes {
             "go" => ["string", "int64", "float64", "bool"],
             _ => return None,
         };
-        match kind {
-            "string" => Some(names[0]),
-            "integer" => Some(names[1]),
-            "number" => Some(names[2]),
-            "boolean" => Some(names[3]),
-            _ => None,
-        }
+        Some(names)
     }
 
     fn literal(extension: &str, kind: &str, value: &Value) -> String {
         match value {
             Value::Bool(true) if extension == "py" => String::from("True"),
             Value::Bool(false) if extension == "py" => String::from("False"),
-            Value::String(text) if matches!(extension, "js" | "ts" | "py" | "php" | "dart") => {
+            Value::String(text) if Self::QUOTED_STRINGS.contains(&extension) => {
                 format!("'{text}'")
             }
             Value::Number(number) if kind == "number" && number.is_i64() => {
