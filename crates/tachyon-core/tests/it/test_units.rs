@@ -77,7 +77,7 @@ async fn run_javascript_test_unit(extension: &str) {
         root.path(),
         &format!("server/tests/CatalogServiceTest.{extension}"),
         &javascript_unit_source(
-            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake()\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testReportsAFailure() {\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake()\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testReportsAFailure() {\n    Assert.equals(undefined, this.catalogCounterHelper, 'the fake is empty again');\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
             extension,
         ),
     );
@@ -567,7 +567,7 @@ fn assert_javascript_report(response: tachyon_contracts::HandlerResponse) {
     assert!(
         failing["error"]
             .as_str()
-            .is_some_and(|error| error.contains("meant to fail")),
+            .is_some_and(|error| error.starts_with("this case is meant to fail")),
         "{body}"
     );
 }
