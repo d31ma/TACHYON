@@ -183,7 +183,7 @@ fn write_multiple_native_services(project: &tempfile::TempDir) {
                 .path()
                 .join(format!("client/services/{class}.swift")),
             &format!(
-                "@Service\nfinal class {class} {{\n var count: Int = 0\n func doubled() -> Int {{ count * 2 }}\n}}\n"
+                "@Service\n@Lifetime({{\"value\":\"prototype\"}})\nfinal class {class} {{\n var count: Int = 0\n func doubled() -> Int {{ count * 2 }}\n}}\n"
             ),
         );
     }
@@ -216,31 +216,36 @@ fn write_native_probe(probe: &Path) {
    let raw = String(decoding: try JSONSerialization.data(withJSONObject: request), as: UTF8.self)
    return try JSONSerialization.jsonObject(with: Data(tacNativeInvoke(raw).utf8)) as! [String: Any]
   }
+  func check(_ condition: Bool, _ message: String) {
+   if condition { return }
+   FileHandle.standardError.write(Data((message + "\n").utf8))
+   exit(1)
+  }
   let ownerA = "00000000-0000-4000-8000-000000000001"
   let ownerB = "00000000-0000-4000-8000-000000000002"
   let ownerC = "00000000-0000-4000-8000-000000000003"
   let first = try invoke("nativeFirst", ownerA, "init")
-  precondition(first["value"] is [String: Any])
+  check(first["value"] is [String: Any], "init must answer the service snapshot: \(first)")
   _ = try invoke("nativeFirst", ownerA, "set", ["name":"count", "value":7])
   let doubled = try invoke("nativeFirst", ownerA, "call", ["name":"doubled", "args":[]])
-  precondition(doubled["value"] as? Int == 14)
+  check(doubled["value"] as? Int == 14, "doubled must read the count this owner set: \(doubled)")
   _ = try invoke("nativeSecond", ownerB, "init")
   let second = try invoke("nativeSecond", ownerB, "get", ["name":"count"])
-  precondition(second["value"] as? Int == 0)
+  check(second["value"] as? Int == 0, "a second service must keep its own state: \(second)")
   let coexisting = try invoke("nativeFirst", ownerA, "get", ["name":"count"])
-  precondition(coexisting["value"] as? Int == 7)
+  check(coexisting["value"] as? Int == 7, "the first service must keep its state beside the second: \(coexisting)")
   _ = try invoke("nativeFirst", ownerC, "init")
   let sibling = try invoke("nativeFirst", ownerC, "get", ["name":"count"])
-  precondition(sibling["value"] as? Int == 0)
+  check(sibling["value"] as? Int == 0, "a prototype must give another owner its own instance: \(sibling)")
   _ = try invoke("nativeFirst", ownerA, "dispose")
   let stale = try invoke("nativeFirst", ownerA, "get", ["name":"count"])
-  precondition(stale["error"] != nil)
+  check(stale["error"] != nil, "a disposed owner must be rejected: \(stale)")
   let staleDispose = try invoke("nativeFirst", ownerA, "dispose")
-  precondition(staleDispose["error"] != nil)
+  check(staleDispose["error"] != nil, "disposing a disposed owner must be rejected: \(staleDispose)")
   let stillActive = try invoke("nativeFirst", ownerC, "get", ["name":"count"])
-  precondition(stillActive["value"] as? Int == 0)
+  check(stillActive["value"] as? Int == 0, "disposing one owner must leave the other active: \(stillActive)")
   let unknown = try invoke("nativeMissing", ownerC, "init")
-  precondition(unknown["code"] as? String == "TY_NATIVE_SERVICE")
+  check(unknown["code"] as? String == "TY_NATIVE_SERVICE", "an unknown service must be refused: \(unknown)")
   print("Swift native service activation, coexistence, isolation and stale-owner rejection passed")
  }
 }
