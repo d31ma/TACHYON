@@ -1,5 +1,10 @@
 # Handoff — Tachyon Rust Rewrite
 
+## CI continuation — 2026-10-17
+
+The open CI and integration work, the `work/*` branches and why `develop` CI
+is red are in [CI_HANDOFF.md](CI_HANDOFF.md).
+
 ## Current continuation — 2026-10-03
 
 From 30 September to 3 October 2026, a Codex session worked on this branch and
