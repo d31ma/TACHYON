@@ -583,3 +583,35 @@ the socket opened are flushed in order and the seventeenth fails with
 module also builds and drives the Dart samples of the realtime and sockets
 feature pages. `client_tests::dart_construct_tests` runs a Dart test unit
 with a socket client in the Dart VM.
+
+## Swift streams and sockets — 2026-10-17
+
+A Swift HTTPClient protocol method may carry `@StreamRequest` or
+`@SocketRequest`, as in Go. The method takes one parameter whose model type
+says what each message holds, for example `func receive(_ tick: Tick)`, and
+has no result. The generated client class keeps an empty method. A Swift
+client with only stream or socket methods needs no Setup: it has no behavior
+context.
+
+The page's JavaScript still holds the connection, with the rules and limits
+of "Go streams and sockets" above. A Swift web service that keeps the client
+in a stored property (`@Needs private let ticks: TicksClient`) declares the
+client's streams in its `init` answer; a Swift service that does not hold
+the client opens nothing. A service holds at most 16 such methods through its
+clients. A Swift service of a native app that holds such a client fails with
+`TY1405`, because no page holds the connection there.
+
+A socket client gets a generated
+`func send<Message: Encodable>(_ message: Message) async throws`. It waits
+for the page like an HTTP call, through the `tac_host_socket_start` import
+of "Rust streams and sockets" above. It throws
+`TacSocketError`, whose description is `<code>: The socket message was not
+sent.`, with the code `HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST` (outside
+an async method), `CANCELLED` or `HTTP_BODY` (a message over 64 KiB).
+
+Evidence: `tac_web::swift_stream_tests` builds two real Swift services to
+WebAssembly and runs the same Node scenario as the Go test: only the service
+that needs the clients opens them, a valid tick reaches `@OnEvent` and an
+invalid one is refused, a socket message reaches its listener, 16 queued
+sends are flushed in order and the seventeenth gets `HTTP_NETWORK`, and
+disposing the owner closes both connections.

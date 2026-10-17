@@ -56,7 +56,7 @@ impl<'a> InjectedContract<'a> {
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const REMOTES: &'static str = "client/remotes";
     const HELPERS: &'static str = "client/helpers";
-    const HELPER_LANGUAGES: [&'static str; 2] = [Self::GO, Self::RUBY];
+    const HELPER_LANGUAGES: [&'static str; 3] = [Self::GO, Self::RUBY, "swift"];
     const HELPER_SUFFIX: &'static str = "Helper";
     const GO: &'static str = "go";
     const REMOTE_LANGUAGES: [&'static str; 5] = [Self::GO, "kt", "swift", "java", Self::RUBY];

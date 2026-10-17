@@ -34,11 +34,17 @@ impl<'a> ConcreteContract<'a> {
     const GO_FIELDS: [&'static str; 2] = ["struct{}", "struct {\n\tbehaviors *BehaviorContext\n}"];
     const RUBY: &'static str = "rb";
     const DART: &'static str = "dart";
+    const SWIFT: &'static str = "swift";
     const DART_SEND: &'static str = "{indent}Future<void> Function(Object? message) _tachyonSocket = (message) async => throw StateError('HTTP_MISSING: only a browser page holds the socket');\n{indent}Future<void> send(Object? message) => _tachyonSocket(message);\n";
     const HELD: [&'static str; 2] = ["streamrequest", "socketrequest"];
     const SOCKET: [&'static str; 1] = ["socketrequest"];
     const GO_SEND: &'static str = "\nfunc ({receiver} *{owner}) Send(message any) error {\n\treturn behaviorSocketSend(\"{owner}\", message)\n}\n";
     const RUST_SEND: &'static str = "\n{indent}pub async fn send<T: TacModel>(&self, message: T) -> BehaviorResult<()> {\n{indent}    BehaviorBrowserSocket::send(\"{owner}\", message).await\n{indent}}\n";
+    const SWIFT_SEND: &'static str = "\n{indent}func send<Message: Encodable>(_ message: Message) async throws {\n{indent}{indent}try await tacSocketSend(\"{owner}\", message)\n{indent}}\n";
+    const PAGE_SENDS: [(&'static str, &'static str); 2] = [
+        (Self::RUST, Self::RUST_SEND),
+        (Self::SWIFT, Self::SWIFT_SEND),
+    ];
     const RUBY_HELD_START: &'static str = "def initialize(_context = nil)\nend";
     const RUBY_SEND: &'static str = "def send_message(message)\n  BehaviorBrowserSocket.send_message(\"{owner}\", message)\nend";
     const RUST_FIELDS: [&'static str; 2] = [";", " { behaviors: BehaviorContext }"];
@@ -186,7 +192,8 @@ impl<'a> ConcreteContract<'a> {
     fn exchanged(&self, members: &[ContractMember]) -> Vec<ContractMember> {
         let rust_page = [self.tac, self.form.language == Self::RUST] == [true, true];
         let dart_page = [self.tac, self.form.language == Self::DART] == [true, true];
-        let pages = [self.holds_in_ruby_page(), rust_page, dart_page];
+        let swift_page = [self.tac, self.form.language == Self::SWIFT] == [true, true];
+        let pages = [self.holds_in_ruby_page(), rust_page, dart_page, swift_page];
         let held_in_page = [pages.contains(&true), self.form.language == Self::GO].contains(&true);
         let held: [&[&str]; 2] = [&[], &Self::HELD];
         let held = held[usize::from(held_in_page)];
@@ -225,7 +232,7 @@ impl<'a> ConcreteContract<'a> {
         Some((declaration.close..declaration.close, block))
     }
 
-    fn rust_send(
+    fn page_send(
         &self,
         declaration: &ContractDeclaration,
         members: &[ContractMember],
@@ -234,12 +241,15 @@ impl<'a> ConcreteContract<'a> {
         let socket = members
             .iter()
             .any(|member| member.is_marked_with(&Self::SOCKET));
-        if [self.tac, self.form.language == Self::RUST, socket] != [true, true, true] {
-            return String::new();
-        }
-        Self::RUST_SEND
-            .replace("{indent}", indent)
-            .replace("{owner}", &declaration.name)
+        Self::PAGE_SENDS
+            .iter()
+            .find(|(language, _)| *language == self.form.language)
+            .filter(|_| [self.tac, socket] == [true, true])
+            .map(|(_, send)| {
+                send.replace("{indent}", indent)
+                    .replace("{owner}", &declaration.name)
+            })
+            .unwrap_or_default()
     }
 
     fn is_bodiless_method(member: &ContractMember) -> bool {
@@ -268,7 +278,7 @@ impl<'a> ConcreteContract<'a> {
         };
         let (field, text) = context.parts_for(declaration.role.marker);
         let crud = self.crud_members(declaration, &indent)
-            + &self.rust_send(declaration, members, &indent);
+            + &self.page_send(declaration, members, &indent);
         let open = declaration.header.end + 1;
         let field_edit = (!field.is_empty()).then_some((open..open, field));
         let member_edit = Some((declaration.close..declaration.close, text + &crud));

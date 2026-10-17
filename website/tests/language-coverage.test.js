@@ -110,7 +110,7 @@ describe('the annotation rule table parser', () => {
 
   test('reads the real rule table of the compiler', () => {
     const reach = AnnotationReach.load()
-    expect(reach.rule('Helper')?.tac).toEqual(['js', 'ts', 'dart', 'rs', 'py', 'cs', 'fs', 'go', 'rb', 'hpp'])
+    expect(reach.rule('Helper')?.tac).toEqual(['js', 'ts', 'dart', 'rs', 'py', 'cs', 'fs', 'go', 'rb', 'hpp', 'swift'])
     expect(reach.rule('Public')?.tac).toEqual([])
     expect(reach.rule('stream_route')?.yon).not.toContain('java')
     expect(reach.refusal('yon', 'java', ['StreamRoute'], ['js'])).toEqual({ annotation: 'StreamRoute', code: 'TY2015' })

@@ -448,7 +448,7 @@ const wasi = {
 for (const { module, name, kind } of WebAssembly.Module.imports(swiftModule)) {
   if (module === 'wasi_snapshot_preview1' && kind === 'function') wasi[name] ??= () => wasiNotSupported
 }
-const instance = await WebAssembly.instantiate(swiftModule, { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead) }, wasi_snapshot_preview1: wasi })
+const instance = await WebAssembly.instantiate(swiftModule, { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead, (owner, text) => socketHost(owner, text)) }, wasi_snapshot_preview1: wasi })
 const exports = instance.exports
 exports._initialize()
 wasmTasks.attach(exports)
@@ -898,6 +898,12 @@ mod kotlin_tests;
 
 #[cfg(test)]
 pub(crate) mod swift_tests;
+
+#[cfg(test)]
+mod swift_helper_tests;
+
+#[cfg(test)]
+mod swift_stream_tests;
 
 #[cfg(test)]
 mod java_behavior_tests;

@@ -27,7 +27,7 @@ When OnOpen or OnMessage fails, OnError runs and the socket stays
 open, as in Jakarta. The error text goes to the server log only.
 
 In the browser, @SocketRequest is JavaScript, TypeScript, Go, Ruby,
-Rust or Dart. Every Tac language receives the messages with @OnEvent. A
+Rust, Dart or Swift. Every Tac language receives the messages with @OnEvent. A
 Go client is an interface method; the page holds the socket for
 the Go service that keeps the client in a // @Needs field, and the
 generated Send(message any) error returns HTTP_NETWORK when 16
@@ -38,7 +38,8 @@ send(message).await returns the same error codes. A Dart client is
 a method of an abstract interface class; the page holds the socket
 for the Dart service that keeps the client in a @Needs field, and
 the generated Future<void> send(Object? message) fails with the
-same codes.
+same codes. A Swift client is a protocol method, and its generated
+send(_ message:) async throws throws the same codes.
 
 Limits: messages are JSON text of at most 64 KiB, at most 32
 sockets are open at once, five idle minutes or one hour close a
