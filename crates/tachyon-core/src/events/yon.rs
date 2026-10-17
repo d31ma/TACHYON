@@ -12,16 +12,11 @@ impl EventLowering {
         ["Task", "Future", "CompletionStage", "Sequence", "Iterator"];
     const SYNCHRONOUS_ONLY: &str =
         "This Yon language supports synchronous local event and lifecycle completion only";
-    const BACKGROUND_NEEDS_ASYNC: &str =
-        "InBackground listeners require a Yon language with asynchronous methods (js, ts, py)";
     const NO_STREAMS: &str = "Local event containers do not support streaming endpoints; use a separate non-streaming event controller";
 
-    pub(crate) fn check(
-        plan: &Plan,
-        events: &EventModule,
-        asynchronous: bool,
-    ) -> Result<(), String> {
-        Self::synchronous(events, asynchronous)?;
+    pub(crate) fn check(plan: &Plan, events: &EventModule, extension: &str) -> Result<(), String> {
+        Self::synchronous(events, is_async_language(extension))?;
+        Self::background(events, extension)?;
         validate_providers(plan, events)?;
         Self::without_streams(plan)
     }
@@ -31,17 +26,22 @@ impl EventLowering {
     }
 
     fn synchronous(events: &EventModule, asynchronous: bool) -> Result<(), String> {
-        let problems = [
-            (
-                events.methods.iter().any(is_asynchronous_method),
-                Self::SYNCHRONOUS_ONLY,
-            ),
-            (has_async_listener(events), Self::BACKGROUND_NEEDS_ASYNC),
-        ];
-        problems
+        let refused = events.methods.iter().any(is_asynchronous_method) && !asynchronous;
+        [Ok(()), Err(String::from(Self::SYNCHRONOUS_ONLY))]
             .into_iter()
-            .find(|(present, _)| [*present, asynchronous] == [true, false])
-            .map_or(Ok(()), |(_, message)| Err(String::from(message)))
+            .nth(usize::from(refused))
+            .unwrap_or(Ok(()))
+    }
+
+    fn background(events: &EventModule, extension: &str) -> Result<(), String> {
+        let supported = crate::annotation_rules::AnnotationRules::YON_BACKGROUND;
+        if !has_async_listener(events) || supported.contains(&extension) {
+            return Ok(());
+        }
+        Err(format!(
+            "InBackground listeners require a Yon language that defers them ({})",
+            supported.join(", ")
+        ))
     }
 
     fn without_streams(plan: &Plan) -> Result<(), String> {
@@ -64,7 +64,7 @@ pub(crate) fn lower(
             .and_then(|value| value.to_str())
             .unwrap_or(""),
     );
-    EventLowering::check(plan, events, is_async_language(extension))?;
+    EventLowering::check(plan, events, extension)?;
     let relocated = super::relocate(path, source, events)
         .map_err(|error| format!("Cannot locate event methods: {error:?}"))?;
     let source = relocated.source.clone();
