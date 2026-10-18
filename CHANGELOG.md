@@ -66,6 +66,19 @@ machine contracts have their own, independent major versions.
   as in the other compiled languages, on macOS and Linux; on Windows a C++
   relay answers that fixed 502 (ADR 0099 amendment).
 
+- Tac C++ clients and Stores take their adapters from a page Setup. A
+  `[[HTTPClient]]` opens its context from `client/setups/<Name>Setup.hpp`,
+  or the Setup that its `{"setup":"..."}` option names, and an
+  `adapters.http` entry under the client's adapter name answers instead of
+  the network; a client without that Setup still sends through the page. A
+  Store whose Entity names an adapter other than `"indexeddb"` gets it from
+  `adapters.entities` of its Setup, checked by `adapters.authorizeEntity`,
+  and AllOrNothing opens its transaction there. A missing Setup that a client
+  names, or that such a Store needs, fails with `TY1371`. The behavior
+  markers now go on `Task` service methods too (AllOrNothing stays on
+  synchronous methods), and a client method takes `[[Cached]]`,
+  `[[UpdateCache]]`, `[[ClearCache]]` and `[[CacheKey]]`; a cached read is a
+  public read, and the read after a clear revalidates (ADR 0099 amendment).
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with

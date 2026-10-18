@@ -190,7 +190,7 @@ private:
         request["adapter"] = entity["adapter"];
         request["command"] = command;
         TacBehaviorData::bounded(request, 1048576);
-        json::JsonNode answer = TacBehaviorData::ask(request);
+        json::JsonNode answer = TacEntityRouter::ask(request);
         TacBehaviorData::bounded(answer, 1048576);
         return answer;
     }

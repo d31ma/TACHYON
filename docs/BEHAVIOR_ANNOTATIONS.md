@@ -991,9 +991,10 @@ instead of `Store`. The partition is the store name in lowerCamel case without
   `client/stores` for Tac and `server/stores` for Yon. A service or
   controller asks for it with `[[Needs]] ProductStore& products;`. In Yon,
   Tachyon opens the store's context from its Setup; a missing Setup fails
-  with `TY2015` and names `server/setups/ProductSetup.hpp`. Only Tac C++
-  stores are limited to the `"indexeddb"` adapter; a Yon C++ Entity may name
-  any entity adapter of its Setup.
+  with `TY2015` and names `server/setups/ProductSetup.hpp`. A Tac C++ Store
+  of the built-in `"indexeddb"` adapter needs no Setup; for another adapter,
+  Tachyon opens its context from `client/setups/ProductSetup.hpp`, and a
+  missing Setup fails with `TY1371`.
 - A Yon Lua store is a class table marked `-- @Store(ProductEntity, {...})`
   whose methods have empty bodies. Tachyon adds the provider role and an
   `-- @OnStart` method that opens its context, so a typed `-- @Needs` field
@@ -1823,8 +1824,10 @@ Its sockets come in a later step (see
 [Yon controllers](YON_ANNOTATIONS.md#language-spellings)). A Yon C++
 `[[HTTPClient]]` method returns its answer instead of a `Task`, and sends
 through `adapters.http` of the client's Setup. In Tac and in Yon,
-behavior markers go on synchronous methods with a body. A Tac C++ Store keeps
-its rows in IndexedDB; that limit holds for Tac only. A Yon C++ class whose
+behavior markers go on methods with a body; a Tac C++ method may also return
+a `Task`, and a Tac `[[HTTPClient]]` method takes the cache markers. A Tac C++
+client or Store takes its adapters from its Setup in `client/setups`. A Yon
+C++ class whose
 methods cache or run in a transaction keeps a `BehaviorContext behaviors;`
 field and opens it from a Setup in `server/setups`, whose `BehaviorAdapters`
 gives `caches`, `entities`, `authorize` and `authorizeEntity`;

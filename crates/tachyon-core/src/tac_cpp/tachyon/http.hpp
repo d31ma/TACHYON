@@ -1,3 +1,13 @@
+namespace tachyon {
+
+class TacCall {
+public:
+    bool publicRead = false;
+    bool revalidate = false;
+};
+
+}
+
 namespace tachyon::http {
 
 class HttpMethod {
@@ -176,7 +186,7 @@ public:
     static constexpr double DEADLINE_MILLISECONDS = 30000;
     static constexpr int MOST_RESPONSE_BYTES = 1048576;
 
-    static std::string text(const HttpRequestMessage& request) {
+    static std::string text(const HttpRequestMessage& request, const TacCall& call = TacCall()) {
         std::size_t mark = request.requestUri.find('?');
         json::JsonObject sent;
         sent["method"] = request.method.toString();
@@ -187,6 +197,8 @@ public:
         sent["credentials"] = "omit";
         sent["deadline"] = std::floor(TacHost::epochMilliseconds() + DEADLINE_MILLISECONDS);
         sent["maxResponseBytes"] = MOST_RESPONSE_BYTES;
+        sent["publicRead"] = call.publicRead;
+        sent["revalidate"] = call.revalidate;
         if (request.content.has_value()) {
             sent["body"] = json::JsonNode::parse(request.content->readAsString());
         }

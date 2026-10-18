@@ -13,7 +13,6 @@ pub(crate) struct CppYonStores {
 impl CppYonStores {
     const SETUPS: &'static str = "server/setups";
     const STORE: &'static str = "Store";
-    const SETUP: &'static str = "Setup";
 
     pub(crate) fn read(root: &Path, models: &CppProgram) -> Result<Self, Failure> {
         let setups = CppFolder::files(root, Self::SETUPS)?
@@ -66,9 +65,7 @@ impl CppYonStores {
             arguments,
             at,
         })?;
-        let stem = class.name.strip_suffix(Self::STORE).unwrap_or(&class.name);
-        let setup =
-            Self::setup_option(arguments).unwrap_or_else(|| format!("{stem}{}", Self::SETUP));
+        let (setup, partition, _) = CppStore::setup(class).unwrap_or_default();
         self.setups
             .contains(&setup)
             .then_some(())
@@ -76,21 +73,8 @@ impl CppYonStores {
         Ok(format!(
             " ::tachyon::yon::YonStore<::{setup}> tachyonStore{{\"{}\", \"{}\"}};",
             store["entity"].as_str().unwrap_or_default(),
-            Self::partition(stem)
+            partition
         ))
-    }
-
-    fn setup_option(arguments: &str) -> Option<String> {
-        let (_, options) = crate::behavior::literal::reference_and_options(arguments);
-        let parsed = options.and_then(|options| crate::behavior::literal::parse(options).ok());
-        parsed.and_then(|options| options["setup"].as_str().map(str::to_owned))
-    }
-
-    fn partition(stem: &str) -> String {
-        let mut characters = stem.chars();
-        characters.next().map_or_else(String::new, |first| {
-            format!("{}{}", first.to_ascii_lowercase(), characters.as_str())
-        })
     }
 
     fn no_setup(path: &Path, at: usize, store: &str, setup: &str) -> Failure {

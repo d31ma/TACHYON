@@ -24,9 +24,7 @@ public:
         if (found == http.end()) {
             throw http::HttpRequestException("HTTP_ADAPTER", missing(adapter));
         }
-        http::HttpResponseMessage response;
-        response.content = http::HttpContent(found->second(request).toJsonString());
-        return response;
+        return TacAdapters::answered(found->second(request));
     }
 
 private:
@@ -49,6 +47,10 @@ namespace tachyon::http {
 class TacTransport {
 public:
     static Task<HttpResponseMessage> send(std::string adapter, HttpRequestMessage request) {
+        co_return TacTestAnswers::answer(adapter, request);
+    }
+
+    static Task<HttpResponseMessage> send(const BehaviorContext*, std::string adapter, HttpRequestMessage request, TacCall) {
         co_return TacTestAnswers::answer(adapter, request);
     }
 };

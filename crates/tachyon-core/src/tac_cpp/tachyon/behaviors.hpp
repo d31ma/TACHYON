@@ -118,6 +118,32 @@ private:
     }
 };
 
+class TacEntityRouter {
+public:
+    virtual ~TacEntityRouter() = default;
+    virtual std::optional<json::JsonNode> answer(const json::JsonNode& request) = 0;
+    virtual bool keeps(const std::string& adapter) = 0;
+
+    static TacEntityRouter*& current() {
+        static TacEntityRouter* router = nullptr;
+        return router;
+    }
+
+    static json::JsonNode ask(const json::JsonNode& request) {
+        if (current() != nullptr) {
+            std::optional<json::JsonNode> routed = current()->answer(request);
+            if (routed.has_value()) {
+                return *routed;
+            }
+        }
+        return TacBehaviorData::ask(request);
+    }
+
+    static bool kept(const std::string& adapter) {
+        return current() != nullptr && current()->keeps(adapter);
+    }
+};
+
 class TacTransactions {
 public:
     template <typename Work>
@@ -129,10 +155,10 @@ public:
         if (!open(adapter).empty()) {
             return work();
         }
-        if (std::string(TacHost::REALM) == "tac" && adapter != "indexeddb") {
+        if (std::string(TacHost::REALM) == "tac" && adapter != "indexeddb" && !TacEntityRouter::kept(adapter)) {
             throw TacCodedError("This entity adapter has no transactions.", "adapter");
         }
-        json::JsonNode begun = TacBehaviorData::ask(control(adapter, "begin", ""));
+        json::JsonNode begun = TacEntityRouter::ask(control(adapter, "begin", ""));
         std::string id = begun.getValueKind() == json::JsonValueKind::Object && begun["transaction"].getValueKind() == json::JsonValueKind::String
             ? begun["transaction"].getValue<std::string>()
             : std::string();
@@ -144,17 +170,17 @@ public:
             if constexpr (std::is_void_v<decltype(work())>) {
                 work();
                 opened.close();
-                TacBehaviorData::ask(control(adapter, "commit", id));
+                TacEntityRouter::ask(control(adapter, "commit", id));
             } else {
                 auto value = work();
                 opened.close();
-                TacBehaviorData::ask(control(adapter, "commit", id));
+                TacEntityRouter::ask(control(adapter, "commit", id));
                 return value;
             }
         } catch (...) {
             opened.close();
             try {
-                TacBehaviorData::ask(control(adapter, "rollback", id));
+                TacEntityRouter::ask(control(adapter, "rollback", id));
             } catch (const std::exception&) {
             }
             throw;
@@ -203,25 +229,13 @@ private:
     }
 };
 
+class TacTaskBehaviors;
+
 class TacBehaviors {
 public:
     template <typename Result, typename Encode, typename Body>
     static Result run(const json::JsonNode& policy, Encode encode, Body body) {
-        std::vector<json::JsonNode> arguments = encode();
-        if (arguments.size() > 64) {
-            throw TacBehaviorData::invalid();
-        }
-        for (json::JsonNode& argument : arguments) {
-            TacBehaviorData::bounded(argument, 1048576);
-        }
-        const json::JsonNode& page = policy["pageable"];
-        if (TacBehaviorData::present(page)) {
-            std::size_t index = static_cast<std::size_t>(TacBehaviorData::integer(page["argument"], 0, 0, 31));
-            if (index >= arguments.size()) {
-                throw TacBehaviorData::invalid();
-            }
-            arguments[index] = TacPageRequest::normalized(arguments[index], page);
-        }
+        std::vector<json::JsonNode> arguments = prepared(policy, encode());
         if (TacBehaviorData::present(policy["mutation"])) {
             return mutate<Result>(policy, arguments, body);
         }
@@ -238,6 +252,42 @@ public:
     }
 
 private:
+    friend class TacTaskBehaviors;
+
+    static std::vector<json::JsonNode> prepared(const json::JsonNode& policy, std::vector<json::JsonNode> arguments) {
+        if (arguments.size() > 64) {
+            throw TacBehaviorData::invalid();
+        }
+        for (json::JsonNode& argument : arguments) {
+            TacBehaviorData::bounded(argument, 1048576);
+        }
+        return paged(policy["pageable"], std::move(arguments));
+    }
+
+    static std::vector<json::JsonNode> paged(const json::JsonNode& page, std::vector<json::JsonNode> arguments) {
+        if (!TacBehaviorData::present(page)) {
+            return arguments;
+        }
+        std::size_t index = static_cast<std::size_t>(TacBehaviorData::integer(page["argument"], 0, 0, 31));
+        if (index >= arguments.size()) {
+            throw TacBehaviorData::invalid();
+        }
+        arguments[index] = TacPageRequest::normalized(arguments[index], page);
+        return arguments;
+    }
+
+    static std::vector<json::JsonNode> mapped(const json::JsonNode& mutation, const std::vector<json::JsonNode>& arguments) {
+        std::vector<json::JsonNode> chosen;
+        for (const json::JsonNode& index : mutation["arguments"].items()) {
+            std::size_t at = static_cast<std::size_t>(TacBehaviorData::integer(index, 0, 0, 31));
+            if (at >= arguments.size()) {
+                throw TacBehaviorData::invalid();
+            }
+            chosen.push_back(arguments[at]);
+        }
+        return paged(mutation["pageable"], std::move(chosen));
+    }
+
     static std::map<std::string, long long>& slots() {
         static std::map<std::string, long long> taken;
         return taken;
@@ -285,24 +335,8 @@ private:
     static Result mutate(const json::JsonNode& policy, const std::vector<json::JsonNode>& arguments, Body& body) {
         const json::JsonNode& mutation = policy["mutation"];
         const json::JsonNode& cache = policy["cache"];
-        std::vector<json::JsonNode> mapped;
-        for (const json::JsonNode& index : mutation["arguments"].items()) {
-            std::size_t at = static_cast<std::size_t>(TacBehaviorData::integer(index, 0, 0, 31));
-            if (at >= arguments.size()) {
-                throw TacBehaviorData::invalid();
-            }
-            mapped.push_back(arguments[at]);
-        }
-        const json::JsonNode& page = mutation["pageable"];
-        if (TacBehaviorData::present(page)) {
-            std::size_t index = static_cast<std::size_t>(TacBehaviorData::integer(page["argument"], 0, 0, 31));
-            if (index >= mapped.size()) {
-                throw TacBehaviorData::invalid();
-            }
-            mapped[index] = TacPageRequest::normalized(mapped[index], page);
-        }
         std::string operation = mutation["operation"].getValue<std::string>();
-        TacCacheCall call = cacheCall(policy, mutation["method"], mutation["keyArgs"], mapped, operation);
+        TacCacheCall call = cacheCall(policy, mutation["method"], mutation["keyArgs"], mapped(mutation, arguments), operation);
         bool putting = operation == "cache:put";
         if constexpr (std::is_void_v<Result>) {
             result<Result>(policy, arguments, body);

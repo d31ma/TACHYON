@@ -17,7 +17,8 @@ impl CppPrelude {
     const TEST_EVENTS: &'static str = include_str!("tachyon/test_events.hpp");
     const HTTP_AND_SETUP: &'static str = concat!(
         include_str!("tachyon/http.hpp"),
-        include_str!("tachyon/setup.hpp")
+        include_str!("tachyon/setup.hpp"),
+        include_str!("tachyon/adapters.hpp")
     );
     const TRANSPORT: &'static str = include_str!("tachyon/transport.hpp");
     const TEST_TRANSPORT: &'static str = include_str!("tachyon/test_transport.hpp");

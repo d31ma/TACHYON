@@ -1,6 +1,6 @@
 use super::{
-    CppChecks, CppClass, CppConverter, CppFailure, CppFolder, CppHeldStreams, CppLowering,
-    CppModel, CppPrelude, CppService, CppServiceGraph, CppSetup, CppStore,
+    CppChecks, CppClass, CppContexts, CppConverter, CppFailure, CppFolder, CppHeldStreams,
+    CppLowering, CppModel, CppPrelude, CppService, CppServiceGraph, CppSetup, CppStore,
 };
 use crate::Failure;
 use crate::annotation_rules::Realm;
@@ -16,6 +16,7 @@ pub(crate) struct CppProgram {
     registered: Vec<(String, String)>,
     records_calls: bool,
     stores: BTreeMap<String, String>,
+    contexts: BTreeMap<String, String>,
 }
 
 impl CppProgram {
@@ -37,8 +38,9 @@ impl CppProgram {
             registered,
             records_calls: false,
             stores: BTreeMap::new(),
+            contexts: BTreeMap::new(),
         }
-        .checked()
+        .checked(root)
     }
 
     pub(crate) fn tested(root: &Path) -> Result<Self, Failure> {
@@ -51,16 +53,30 @@ impl CppProgram {
             registered: Vec::new(),
             records_calls: true,
             stores: BTreeMap::new(),
+            contexts: BTreeMap::new(),
         }
-        .checked()
+        .checked(root)
     }
 
-    fn checked(mut self) -> Result<Self, Failure> {
+    fn checked(mut self, root: &Path) -> Result<Self, Failure> {
         self.services
             .iter()
             .try_for_each(|service| self.check_uses(&service.path, service.class()))?;
         self.stores = self.store_definitions()?;
+        self.contexts = self.context_members(&CppContexts::read(root)?)?;
         Ok(self)
+    }
+
+    fn context_members(&self, contexts: &CppContexts) -> Result<BTreeMap<String, String>, Failure> {
+        let entities = self.entities();
+        self.services
+            .iter()
+            .map(|service| {
+                contexts
+                    .member(service, &entities)
+                    .map(|member| (service.class().name.clone(), member))
+            })
+            .collect()
     }
 
     pub(crate) fn check_role(
@@ -135,6 +151,7 @@ impl CppProgram {
             registered: Vec::new(),
             records_calls: false,
             stores: BTreeMap::new(),
+            contexts: BTreeMap::new(),
         })
     }
 
@@ -306,10 +323,14 @@ impl CppProgram {
 
     fn lowered(&self, service: &CppService) -> String {
         let prototypes = self.prototypes();
+        let context = self
+            .contexts
+            .get(&service.class().name)
+            .map_or("", String::as_str);
         if self.records_calls {
-            return CppLowering::recorded_service(service, &prototypes);
+            return CppLowering::recorded_service(service, &prototypes, context);
         }
-        CppLowering::service(service, &prototypes)
+        CppLowering::service(service, &prototypes, context)
     }
 
     fn prototypes(&self) -> Vec<String> {

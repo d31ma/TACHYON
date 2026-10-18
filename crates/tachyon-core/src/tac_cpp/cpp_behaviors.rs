@@ -7,10 +7,22 @@ use std::path::Path;
 
 pub(crate) struct CppBehaviors;
 
+type CppMarked<'m> = (&'m [&'m CppAttribute], &'m [(usize, &'m CppAttribute)]);
+
 impl CppBehaviors {
     const CACHE: &'static str = "CacheSettings";
     const PARTITION: &'static str = "default";
-    const SYNCHRONOUS: &'static str = "A C++ method with [[Cached]], [[UpdateCache]], [[ClearCache]], [[Retry]], [[MaxAtOnce]], [[AllOrNothing]] or a [[PageDefaults]] parameter is a synchronous instance method with a body that returns a value or void, not a reference, like the Rust ones: Tachyon wraps the body. A Task method or an [[HTTPClient]] method cannot carry these markers yet";
+    const SHAPES: [&'static str; 3] = [
+        "A Yon C++ method with [[Cached]], [[UpdateCache]], [[ClearCache]], [[Retry]], [[MaxAtOnce]], [[AllOrNothing]] or a [[PageDefaults]] parameter is a synchronous instance method with a body that returns a value or void, not a reference: Tachyon wraps the body",
+        "A C++ method with [[Cached]], [[UpdateCache]], [[ClearCache]], [[Retry]], [[MaxAtOnce]], [[AllOrNothing]] or a [[PageDefaults]] parameter is an instance method with a body that returns a value, void or a Task, not a reference: Tachyon wraps the body. [[AllOrNothing]] goes on a method that returns no Task, because its transaction cannot stay open while the method waits",
+        "A C++ [[HTTPClient]] method takes only [[Cached]], [[UpdateCache]] or [[ClearCache]] and [[CacheKey]] parameters next to its request marker; [[Retry]], [[MaxAtOnce]], [[AllOrNothing]] and [[PageDefaults]] belong on a service method",
+    ];
+    const OPENINGS: [&'static str; 2] = [
+        " static const ::tachyon::json::JsonNode tachyonPolicy = ::tachyon::json::JsonNode::parse({literal}); return ::tachyon::TacBehaviors::run<{result}>(tachyonPolicy, [&]() { return std::vector<::tachyon::json::JsonNode>{{encoded}}; }, [&](const std::vector<::tachyon::json::JsonNode>& tachyonArguments) -> {result} { (void)tachyonArguments;{page}",
+        " static const ::tachyon::json::JsonNode tachyonPolicy = ::tachyon::json::JsonNode::parse({literal}); co_return co_await ::tachyon::TacTaskBehaviors::run<{answer}>(tachyonPolicy, std::vector<::tachyon::json::JsonNode>{{encoded}}, nullptr, [&](const std::vector<::tachyon::json::JsonNode>& tachyonArguments, ::tachyon::TacCall) -> {result} { (void)tachyonArguments;{page}",
+    ];
+    const CLIENT_MARKERS: [&'static str; 3] = ["Cached", "ClearCache", "UpdateCache"];
+    const TRANSACTION: &'static str = "AllOrNothing";
     const NEEDS_CACHE: &'static str = "[[Cached]], [[UpdateCache]] and [[ClearCache]] need [[CacheSettings]] on their C++ class, for example `class [[Service, CacheSettings({\"name\":\"prices\",\"ttlMs\":60000,\"maxBytes\":65536,\"maxEntries\":100})]] PriceService`";
     const METHOD_MARKERS: [&'static str; 6] = [
         "Cached",
@@ -34,6 +46,7 @@ impl CppBehaviors {
         class: &CppClass,
     ) -> Result<BTreeMap<String, Value>, Failure> {
         let written = WrittenPolicies::new(path, source, super::CppSource::EXTENSION);
+        let shape = Self::shape(path, class);
         let cache = class
             .markers
             .iter()
@@ -44,7 +57,7 @@ impl CppBehaviors {
             .members
             .iter()
             .map(|member| {
-                Self::metadata(&written, source, member)
+                Self::metadata(&written, source, member, shape)
                     .map(|metadata| metadata.map(|metadata| (member.name.clone(), metadata)))
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -69,13 +82,16 @@ impl CppBehaviors {
             .into_iter()
             .collect();
         let page = Self::page_parameter(member, policy);
-        let opening = format!(
-            " static const ::tachyon::json::JsonNode tachyonPolicy = ::tachyon::json::JsonNode::parse({literal}); return ::tachyon::TacBehaviors::run<{result}>(tachyonPolicy, [&]() {{ return std::vector<::tachyon::json::JsonNode>{{{encoded}}}; }}, [&](const std::vector<::tachyon::json::JsonNode>& tachyonArguments) -> {result} {{ (void)tachyonArguments;{page}"
-        );
+        let opening = Self::OPENINGS[usize::from(member.is_task())]
+            .replace("{literal}", &literal)
+            .replace("{answer}", &super::CppRemote::answer_type(member))
+            .replace("{result}", &result)
+            .replace("{encoded}", &encoded)
+            .replace("{page}", &page);
         (opening, String::from(" }); "))
     }
 
-    fn encoded(member: &CppMember) -> String {
+    pub(crate) fn encoded(member: &CppMember) -> String {
         member
             .parameters
             .iter()
@@ -117,10 +133,21 @@ impl CppBehaviors {
         }
     }
 
+    fn shape(path: &Path, class: &CppClass) -> usize {
+        let tac =
+            crate::annotation_rules::Realm::of(path) != Some(crate::annotation_rules::Realm::Yon);
+        let client = class
+            .markers
+            .iter()
+            .any(|marker| marker.name == "HTTPClient");
+        usize::from(tac) + usize::from([tac, client] == [true, true])
+    }
+
     fn metadata(
         written: &WrittenPolicies<'_>,
         source: &str,
         member: &CppMember,
+        shape: usize,
     ) -> Result<Option<Map<String, Value>>, Failure> {
         let method_markers: Vec<&CppAttribute> = member
             .markers
@@ -142,7 +169,13 @@ impl CppBehaviors {
         let marked = [method_markers.is_empty(), parameter_markers.is_empty()] != [true, true];
         marked
             .then(|| {
-                Self::marked_metadata(written, source, member, &method_markers, &parameter_markers)
+                Self::marked_metadata(
+                    written,
+                    source,
+                    member,
+                    (&method_markers, &parameter_markers),
+                    shape,
+                )
             })
             .transpose()
     }
@@ -151,10 +184,13 @@ impl CppBehaviors {
         written: &WrittenPolicies<'_>,
         source: &str,
         member: &CppMember,
-        method_markers: &[&CppAttribute],
-        parameter_markers: &[(usize, &CppAttribute)],
+        (method_markers, parameter_markers): (&[&CppAttribute], &[(usize, &CppAttribute)]),
+        shape: usize,
     ) -> Result<Map<String, Value>, Failure> {
-        Self::check_shape(written, source, member)?;
+        let shapes = [Self::yon_shape, Self::service_shape, Self::client_shape];
+        shapes[shape](source, member, (method_markers, parameter_markers))
+            .then_some(())
+            .ok_or_else(|| written.failure(member.name_at, Self::SHAPES[shape]))?;
         let mut metadata = Map::new();
         method_markers.iter().try_for_each(|marker| {
             Self::add_method_marker(written, &mut metadata, member, marker)
@@ -246,25 +282,39 @@ impl CppBehaviors {
         Ok(())
     }
 
-    fn check_shape(
-        written: &WrittenPolicies<'_>,
-        source: &str,
-        member: &CppMember,
-    ) -> Result<(), Failure> {
+    fn yon_shape(source: &str, member: &CppMember, markers: CppMarked<'_>) -> bool {
+        [
+            Self::service_shape(source, member, markers),
+            !member.is_task(),
+        ] == [true, true]
+    }
+
+    fn service_shape(source: &str, member: &CppMember, (methods, _): CppMarked<'_>) -> bool {
         let has_body = source.as_bytes().get(member.terminator) == Some(&b'{');
         let named = member
             .parameters
             .iter()
             .all(|parameter| !parameter.name.is_empty());
-        let fits = [
+        let transacted = methods
+            .iter()
+            .any(|marker| marker.name == Self::TRANSACTION);
+        [
             member.is_instance(CppMemberKind::Method),
             has_body,
-            !member.is_task(),
+            [member.is_task(), transacted] != [true, true],
             !member.type_text.contains('&'),
             named,
-        ] == [true; 5];
-        fits.then_some(())
-            .ok_or_else(|| written.failure(member.name_at, Self::SYNCHRONOUS))
+        ] == [true; 5]
+    }
+
+    fn client_shape(_: &str, member: &CppMember, (methods, parameters): CppMarked<'_>) -> bool {
+        let requests = methods
+            .iter()
+            .all(|marker| Self::CLIENT_MARKERS.contains(&marker.name.as_str()));
+        let keys = parameters
+            .iter()
+            .all(|(_, marker)| marker.name == "CacheKey");
+        [member.is_task(), requests, keys] == [true; 3]
     }
 
     fn policy(
@@ -286,10 +336,12 @@ impl CppBehaviors {
         ([caching, cache.is_none()] != [true, true])
             .then_some(())
             .ok_or_else(|| written.failure(at, Self::NEEDS_CACHE))?;
-        let returns_void = class
-            .members
-            .iter()
-            .any(|member| [member.name == name, member.plain_type() == "void"] == [true, true]);
+        let returns_void = class.members.iter().any(|member| {
+            [
+                member.name == name,
+                super::CppRemote::answer_type(member) == "void",
+            ] == [true, true]
+        });
         let keeps_value = ["cacheable", "cachePut"]
             .iter()
             .any(|key| metadata.contains_key(*key));

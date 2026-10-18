@@ -25,6 +25,7 @@ class BrowserHttpGate {
     fsharp: { folder: 'browser-http-fsharp', factory: false, label: 'compiled F#' },
     python: { folder: 'browser-http-python', factory: false, label: 'Python' },
     lua: { folder: 'browser-http-lua', factory: false, label: 'Lua' },
+    cpp: { folder: 'browser-http-cpp', factory: false, label: 'compiled C++', modules: false },
   }
 
   static chosen() {
@@ -83,27 +84,31 @@ class BrowserHttpGate {
       await page.locator('#override').click()
       await page.waitForFunction(() => document.querySelector('#custom')?.textContent === 'Custom adapter wins')
       assert.ok(!requests.some(request => request.url().endsWith('/api/never')), 'matching custom adapter prevents fetch')
-      const disposal = await page.evaluate(async (factory) => {
-        const entry = performance.getEntriesByType('resource').find(entry => new URL(entry.name).pathname.endsWith('/GreetingService.js'))
-        if (!entry) throw new Error('compiled service module missing')
-        const module = await import(entry.name)
-        const owners = [new AbortController(), new AbortController()]
-        const make = (owner) => factory ? module.__tachyon_create_owner__({}, owner.signal) : new module.default({})
-        const end = (target, owner) => factory ? owner.abort() : target.__tachyonDispose()
-        const [first, second] = await Promise.all(owners.map(make))
-        await first.clear()
-        const cancelled = first.ask().then(() => 'completed', error => `${error?.code ?? ''} ${error}`)
-        const completed = second.ask().then(() => second.message)
-        setTimeout(() => end(first, owners[0]), 15)
-        const result = { cancelled: await cancelled, completed: await completed }
-        end(second, owners[1])
-        return result
-      }, language.factory)
-      assert.match(disposal.cancelled, /CANCELLED/, 'disposing one owner aborts its pending request')
-      assert.equal(disposal.completed, 'Hello from Yon', 'another owner remains live')
+      if (language.modules !== false) await BrowserHttpGate.dispose(page, language)
       assert.deepEqual(errors, [])
       await context.close()
     } finally { await browser.close() }
+  }
+
+  static async dispose(page, language) {
+    const disposal = await page.evaluate(async (factory) => {
+      const entry = performance.getEntriesByType('resource').find(entry => new URL(entry.name).pathname.endsWith('/GreetingService.js'))
+      if (!entry) throw new Error('compiled service module missing')
+      const module = await import(entry.name)
+      const owners = [new AbortController(), new AbortController()]
+      const make = (owner) => factory ? module.__tachyon_create_owner__({}, owner.signal) : new module.default({})
+      const end = (target, owner) => factory ? owner.abort() : target.__tachyonDispose()
+      const [first, second] = await Promise.all(owners.map(make))
+      await first.clear()
+      const cancelled = first.ask().then(() => 'completed', error => `${error?.code ?? ''} ${error}`)
+      const completed = second.ask().then(() => second.message)
+      setTimeout(() => end(first, owners[0]), 15)
+      const result = { cancelled: await cancelled, completed: await completed }
+      end(second, owners[1])
+      return result
+    }, language.factory)
+    assert.match(disposal.cancelled, /CANCELLED/, 'disposing one owner aborts its pending request')
+    assert.equal(disposal.completed, 'Hello from Yon', 'another owner remains live')
   }
 
   static async run(language) {
@@ -116,7 +121,7 @@ class BrowserHttpGate {
         const origin = new URL(response.url).origin
         for (const name of BrowserHttpGate.browsers) {
           await BrowserHttpGate.check(BrowserHttpGate.launchers[name], origin, language)
-          console.log(`${name}: injected ${language.label} client, typed real Yon answer, async responsiveness, once-only service, omitted cookies, cache/revalidation, custom override and isolated disposal pass`)
+          console.log(`${name}: injected ${language.label} client, typed real Yon answer, async responsiveness, once-only service, omitted cookies, cache/revalidation and custom override${language.modules === false ? '' : ', with isolated disposal,'} pass`)
         }
       })
     } finally { rmSync(project, { recursive: true, force: true }) }

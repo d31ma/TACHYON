@@ -10,11 +10,12 @@ pub(crate) struct CppStore;
 
 impl CppStore {
     const STORE: &'static str = "Store";
+    const SETUP: &'static str = "Setup";
     const ENTITY: &'static str = "Entity";
     const TABLE: &'static str = "Table";
     const QUERY: &'static str = "Query";
     const PAGE: &'static str = "PageDefaults";
-    const ADAPTER: &'static str = "indexeddb";
+    pub(crate) const BUILT_IN: &'static str = "indexeddb";
     const CRUD: [&'static str; 3] = ["findById", "findAll", "deleteById"];
     const INTEGERS: [&'static str; 7] = [
         "int",
@@ -25,13 +26,35 @@ impl CppStore {
         "std::size_t",
         "unsigned",
     ];
-    const ADAPTERS: &'static str = "A C++ Store keeps its rows in the browser's IndexedDB for now: write [[Entity({\"adapter\":\"indexeddb\"})]]. Other adapters come later for C++ (ADR 0099)";
     const NEEDS_TABLE: &'static str = "A C++ [[Entity]] names its table, for example `struct [[Entity({\"adapter\":\"indexeddb\"}), Table(\"notes\")]] NoteEntity`";
     const ONE_ID: &'static str = "A C++ [[Entity]] has exactly one public field marked [[Id]], for example `[[Id]] std::string id;`";
     const QUERY_ONLY: &'static str = "A C++ Store holds only queries: instance methods with no body that Tachyon writes, for example `std::vector<NoteEntity> findByText(const std::string& text);`. Put other work in a service";
     const QUERY_MARKERS: &'static str = "A C++ Store method carries only [[Query]], and its page parameter only a bare [[PageDefaults]]";
     const OVERLOADED: &'static str = "A C++ Store method has one name; rename one of the methods";
     const NO_ENTITY: &'static str = "A C++ [[Store]] names an [[Entity]] model in client/entities or client/models, or in server/entities or server/models for Yon";
+
+    pub(crate) fn setup(class: &CppClass) -> Option<(String, String, bool)> {
+        let marker = Self::marker(class, Self::STORE)?;
+        let stem = class.name.strip_suffix(Self::STORE).unwrap_or(&class.name);
+        let named = Self::setup_option(&marker.arguments);
+        let setup = named
+            .clone()
+            .unwrap_or_else(|| format!("{stem}{}", Self::SETUP));
+        Some((setup, Self::partition(stem), named.is_some()))
+    }
+
+    fn setup_option(arguments: &str) -> Option<String> {
+        let (_, options) = crate::behavior::literal::reference_and_options(arguments);
+        let parsed = options.and_then(|options| crate::behavior::literal::parse(options).ok());
+        parsed.and_then(|options| options["setup"].as_str().map(str::to_owned))
+    }
+
+    fn partition(stem: &str) -> String {
+        let mut characters = stem.chars();
+        characters.next().map_or_else(String::new, |first| {
+            format!("{}{}", first.to_ascii_lowercase(), characters.as_str())
+        })
+    }
 
     pub(crate) fn is_store(class: &CppClass) -> bool {
         Self::marker(class, Self::STORE).is_some()
@@ -72,11 +95,6 @@ impl CppStore {
     ) -> Result<Value, Failure> {
         let written = WrittenPolicies::new(path, source, super::CppSource::EXTENSION);
         let mut entity = written.entity(&Self::written(marker))?;
-        let browser =
-            crate::annotation_rules::Realm::of(path) != Some(crate::annotation_rules::Realm::Yon);
-        ([browser, entity["adapter"] != Self::ADAPTER] != [true, true])
-            .then_some(())
-            .ok_or_else(|| CppFailure::pending(path, marker.at, Self::ADAPTERS))?;
         let table = Self::marker(class, Self::TABLE)
             .ok_or_else(|| CppFailure::unreadable(path, marker.at, Self::NEEDS_TABLE))?;
         let table = written.table(&Self::written(table))?;
@@ -145,10 +163,7 @@ impl CppStore {
     ) -> Result<(String, String), Failure> {
         let written = WrittenPolicies::new(path, source, super::CppSource::EXTENSION);
         let store = written.store(&Self::written(marker))?;
-        let entity = entities
-            .iter()
-            .find(|entity| entity["name"] == store["entity"])
-            .ok_or_else(|| CppFailure::unreadable(path, marker.at, Self::NO_ENTITY))?;
+        let entity = Self::found_entity(path, marker, &store, entities)?;
         let mut text = Self::plan(&written, marker.at, &store, entity)?;
         for member in &class.members {
             let query = Self::member_query(&written, &store, entity, member)?;
@@ -157,6 +172,31 @@ impl CppStore {
         }
         let name = entity["name"].as_str().unwrap_or_default().to_owned();
         Ok((name, text))
+    }
+
+    pub(crate) fn kept_entity<'e>(
+        path: &Path,
+        source: &str,
+        class: &CppClass,
+        entities: &'e [Value],
+    ) -> Result<&'e Value, Failure> {
+        let marker = Self::marker(class, Self::STORE)
+            .ok_or_else(|| CppFailure::unreadable(path, class.name_at, Self::NO_ENTITY))?;
+        let written = WrittenPolicies::new(path, source, super::CppSource::EXTENSION);
+        let store = written.store(&Self::written(marker))?;
+        Self::found_entity(path, marker, &store, entities)
+    }
+
+    fn found_entity<'e>(
+        path: &Path,
+        marker: &CppAttribute,
+        store: &Value,
+        entities: &'e [Value],
+    ) -> Result<&'e Value, Failure> {
+        entities
+            .iter()
+            .find(|entity| entity["name"] == store["entity"])
+            .ok_or_else(|| CppFailure::unreadable(path, marker.at, Self::NO_ENTITY))
     }
 
     fn member_query(

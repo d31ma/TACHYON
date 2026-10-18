@@ -5,8 +5,8 @@ public:
     static constexpr const char* PLAIN_ADAPTER = "http";
 
     template <typename T>
-    static Task<T> answer(std::string adapter, HttpRequestMessage request) {
-        HttpResponseMessage response = co_await TacTransport::send(std::move(adapter), std::move(request));
+    static Task<T> answer(const BehaviorContext* behaviors, std::string adapter, HttpRequestMessage request, TacCall call) {
+        HttpResponseMessage response = co_await TacTransport::send(behaviors, std::move(adapter), std::move(request), call);
         if constexpr (std::is_void_v<T>) {
             co_return;
         } else {
@@ -27,7 +27,7 @@ public:
 
     template <typename T>
     Task<T> getFromJsonAsync(std::string requestUri) const {
-        return TacRemoteCall::answer<T>(TacRemoteCall::PLAIN_ADAPTER, HttpRequestMessage(HttpMethod::Get, std::move(requestUri)));
+        return TacRemoteCall::answer<T>(nullptr, TacRemoteCall::PLAIN_ADAPTER, HttpRequestMessage(HttpMethod::Get, std::move(requestUri)), TacCall());
     }
 
     template <typename T>

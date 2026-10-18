@@ -81,7 +81,7 @@ fn listeners_and_lifecycle_hooks_are_described_for_the_page() {
 #[test]
 fn lowering_removes_markers_and_fills_needs_fields() {
     let service = Sources::service(Sources::TALLY);
-    let lowered = super::CppLowering::service(&service, &[]);
+    let lowered = super::CppLowering::service(&service, &[], "");
     assert!(!lowered.contains("[[Service]]"), "{lowered}");
     assert!(!lowered.contains("#pragma once"), "{lowered}");
     assert!(!lowered.contains("CounterService.hpp"), "{lowered}");
@@ -344,7 +344,7 @@ fn an_http_client_gets_its_request_methods_written() {
         CppService::read(Path::new("client/remotes/OrderClient.hpp"), source).expect("remote");
     assert!(service.is_remote());
     assert_eq!(service.binding(), "");
-    let lowered = super::CppLowering::service(&service, &[]);
+    let lowered = super::CppLowering::service(&service, &[], "");
     assert!(
         lowered.contains("inline Task<Order> OrderClient::find(int id, int page) const {"),
         "{lowered}"
@@ -356,7 +356,7 @@ fn an_http_client_gets_its_request_methods_written() {
     );
     assert!(
         lowered.contains(
-            "co_return co_await tachyon::http::TacRemoteCall::answer<Order>(\"order\", std::move(request));"
+            "co_return co_await tachyon::http::TacRemoteCall::answer<Order>(tachyonBehaviors.get(), \"order\", std::move(request), ::tachyon::TacCall());"
         ),
         "{lowered}"
     );
@@ -747,12 +747,16 @@ fn a_topic_goes_on_a_model_with_fields() {
 }
 
 #[test]
-fn behavior_markers_wrap_only_synchronous_cpp_methods() {
+fn behavior_markers_wrap_cpp_methods_with_a_body() {
     let cache = "CacheSettings({\"name\":\"prices\",\"ttlMs\":60000,\"maxBytes\":65536,\"maxEntries\":100})";
     for (source, expected) in [
         (
-            "class [[Service]] TallyService {\npublic:\n    [[Retry({\"maxRetries\":2})]] Task<int> read() { co_return 1; }\n};\n".to_owned(),
-            "is a synchronous instance method",
+            "class [[Service]] TallyService {\npublic:\n    [[AllOrNothing({\"adapter\":\"indexeddb\"})]] Task<int> read() { co_return 1; }\n};\n".to_owned(),
+            "its transaction cannot stay open while the method waits",
+        ),
+        (
+            "class [[Service]] TallyService {\npublic:\n    [[Retry({\"maxRetries\":2})]] int& read();\n};\n".to_owned(),
+            "is an instance method with a body",
         ),
         (
             "class [[Service]] TallyService {\npublic:\n    [[Cached]] int read(int item) { return item; }\n};\n".to_owned(),
@@ -813,7 +817,7 @@ fn a_store_and_its_entity_are_checked_when_tachyon_writes_the_queries() {
         (
             entity.replace("indexeddb", "ledger"),
             "",
-            "IndexedDB for now",
+            "there is no client/setups/NoteSetup.hpp",
         ),
         (
             entity.replace(", Table(\"notes\")", ""),
@@ -1043,4 +1047,46 @@ fn a_service_holds_at_most_sixteen_streams() {
         .expect("refused")
         .to_string();
     assert!(refused.contains("holds at most 16"), "{refused}");
+}
+
+#[test]
+fn an_http_client_method_carries_only_the_cache_markers() {
+    let cache = "CacheSettings({\"name\":\"greetings\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})";
+    for (markers, expected) in [
+        (
+            "[[Retry({\"maxRetries\":2})]]",
+            "belong on a service method",
+        ),
+        (
+            "[[MaxAtOnce({\"limit\":1,\"policy\":\"reject\"})]]",
+            "belong on a service method",
+        ),
+        ("[[Cached]]", "CacheSettings"),
+    ] {
+        let source = format!(
+            "class [[HTTPClient(\"/api\")]] GreetingClient {{\npublic:\n    {markers} [[GetRequest(\"/greeting\")]] Task<Greeting> read();\n}};\n"
+        );
+        let refused = Sources::refusal("client/remotes/GreetingClient.hpp", &source);
+        assert!(refused.contains(expected), "{source}: {refused}");
+    }
+    let accepted = format!(
+        "class [[HTTPClient(\"/api\"), {cache}]] GreetingClient {{\npublic:\n    [[Cached]] [[GetRequest(\"/greeting/{{id}}\")]] Task<Greeting> read([[CacheKey]] std::string id);\n}};\n"
+    );
+    let service = CppService::read(Path::new("client/remotes/GreetingClient.hpp"), &accepted)
+        .expect("a cached client read");
+    let lowered = super::CppLowering::service(
+        &service,
+        &[],
+        " ::tachyon::TacLazyContext tachyonBehaviors;",
+    );
+    assert!(
+        lowered.contains("::tachyon::TacTaskBehaviors::run<Greeting>(tachyonPolicy"),
+        "{lowered}"
+    );
+    assert!(lowered.contains("\\\"publicRead\\\":true"), "{lowered}");
+    let options = Sources::refusal(
+        "client/remotes/GreetingClient.hpp",
+        "class [[HTTPClient({\"path\":\"/api\",\"cache\":\"no\"})]] GreetingClient {\npublic:\n    [[GetRequest(\"/greeting\")]] Task<Greeting> read();\n};\n",
+    );
+    assert!(options.contains("an object of strings"), "{options}");
 }

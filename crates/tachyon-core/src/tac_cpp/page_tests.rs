@@ -57,7 +57,9 @@ char* tac_host_storage(const char* text, int length) {
 }
 char* tac_host_web(const char*, int) { return nullptr; }
 double tac_host_epoch_ms() { return tachyonPageClock; }
-void tac_host_http_start(std::uint32_t, const char*, int) {}
+void tac_host_http_start(std::uint32_t ticket, const char* text, int length) {
+    tachyonPageNotes().add(tachyon::json::JsonNode("http " + std::to_string(ticket) + " " + std::string(text, length)));
+}
 void tac_host_task_done(std::uint32_t task, const char* text, int length) {
     tachyonPageNotes().add(tachyon::json::JsonNode("done " + std::to_string(task) + " " + std::string(text, length)));
 }
@@ -188,6 +190,24 @@ int main() {
         String::from_utf8_lossy(&output.stdout)
             .lines()
             .map(|line| serde_json::from_str(line).expect("answer"))
+            .collect()
+    }
+
+    fn text_notes(notes: &Value) -> Vec<&str> {
+        notes
+            .as_array()
+            .expect("notes")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect()
+    }
+
+    fn sent_requests(notes: &[&str]) -> Vec<Value> {
+        notes
+            .iter()
+            .filter_map(|note| note.strip_prefix("http "))
+            .filter_map(|note| note.split_once(' '))
+            .map(|(_, text)| serde_json::from_str(text).expect("request"))
             .collect()
     }
 }
@@ -823,6 +843,157 @@ fn a_socket_client_sends_through_the_page_and_reports_its_code() {
     assert_eq!(
         notes[3],
         "done 3 {\"error\":\"A socket message is JSON of at most 64 KiB.\",\"code\":\"HTTP_BODY\"}",
+        "{answers:?}"
+    );
+}
+
+#[test]
+fn a_client_uses_its_setup_adapter_and_cached_tasks_ask_the_page_once() {
+    if !PageProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    PageProject::write(
+        root.path(),
+        &[
+            (
+                "client/models/Greeting.hpp",
+                "#include <string>\nstruct Greeting {\n    std::string message;\n};\n",
+            ),
+            (
+                "client/remotes/GreetingClient.hpp",
+                "class [[HTTPClient(\"/api\"), CacheSettings({\"name\":\"greetings\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})]] GreetingClient {\npublic:\n    [[Cached]] [[GetRequest(\"/greeting\")]] Task<Greeting> read();\n    [[ClearCache({\"method\":\"read\"})]] [[PostRequest(\"/clear\")]] Task<Greeting> clear();\n};\n",
+            ),
+            (
+                "client/remotes/OverrideClient.hpp",
+                "class [[HTTPClient(\"/api\")]] OverrideClient {\npublic:\n    [[GetRequest(\"/never\")]] Task<Greeting> read();\n};\n",
+            ),
+            (
+                "client/setups/GreetingSetup.hpp",
+                "class [[Setup]] GreetingSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution&) {\n        return {};\n    }\n};\n",
+            ),
+            (
+                "client/setups/OverrideSetup.hpp",
+                "class [[Setup]] OverrideSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution& execution) {\n        BehaviorAdapters adapters;\n        std::string partition = execution.partition;\n        adapters.http[\"override\"] = [partition](const tachyon::http::HttpRequestMessage& request) {\n            tachyon::json::JsonObject answer;\n            answer[\"message\"] = \"Custom adapter wins for \" + request.requestUri + \" in \" + partition;\n            return tachyon::json::JsonNode(answer);\n        };\n        return adapters;\n    }\n};\n",
+            ),
+            (
+                "client/services/GreetingService.hpp",
+                "class [[Service, CacheSettings({\"name\":\"doubles\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})]] GreetingService {\npublic:\n    [[Needs]] GreetingClient& greetingClient;\n    [[Needs]] OverrideClient& overrideClient;\n    std::string message;\n    std::string custom;\n    int attempts = 0;\n    int doublings = 0;\n\n    Task<void> ask() {\n        Greeting greeting = co_await greetingClient.read();\n        message = greeting.message;\n    }\n\n    Task<void> clear() {\n        co_await greetingClient.clear();\n    }\n\n    Task<void> askCustom() {\n        Greeting greeting = co_await overrideClient.read();\n        custom = greeting.message;\n    }\n\n    [[Retry({\"maxRetries\":3})]] Task<int> steady() {\n        attempts += 1;\n        if (attempts < 3) {\n            throw std::runtime_error(\"not yet\");\n        }\n        co_return attempts;\n    }\n\n    [[Cached]] Task<int> doubled([[CacheKey]] int value) {\n        doublings += 1;\n        co_return value * 2 + doublings;\n    }\n};\n",
+            ),
+        ],
+    );
+    let lines = [
+        PageProject::init("greeting", 1, &json!({})).to_string(),
+        PageProject::call("greeting", 1, "ask", &json!([])).to_string(),
+        String::from("notes"),
+        String::from("settle 1 {\"value\":{\"message\":\"Hello from Yon\"}}"),
+        PageProject::call("greeting", 1, "ask", &json!([])).to_string(),
+        PageProject::call("greeting", 1, "clear", &json!([])).to_string(),
+        String::from("settle 2 {\"value\":{\"message\":\"cleared\"}}"),
+        PageProject::call("greeting", 1, "ask", &json!([])).to_string(),
+        String::from("notes"),
+        String::from("settle 3 {\"value\":{\"message\":\"Hello again\"}}"),
+        PageProject::call("greeting", 1, "askCustom", &json!([])).to_string(),
+        PageProject::call("greeting", 1, "steady", &json!([])).to_string(),
+        PageProject::call("greeting", 1, "doubled", &json!([2])).to_string(),
+        PageProject::call("greeting", 1, "doubled", &json!([2])).to_string(),
+        PageProject::get("greeting", 1, "message").to_string(),
+        PageProject::get("greeting", 1, "custom").to_string(),
+        String::from("notes"),
+    ];
+    let answers =
+        PageProject::answered_lines(root.path(), &[("greeting", "GreetingService")], &lines);
+    let first = PageProject::sent_requests(&PageProject::text_notes(&answers[2]));
+    let sent = &first[0];
+    assert_eq!(sent["path"], "/api/greeting", "{answers:?}");
+    assert_eq!(
+        [&sent["publicRead"], &sent["revalidate"]],
+        [&json!(true), &json!(false)],
+        "{answers:?}"
+    );
+    let middle = PageProject::text_notes(&answers[6]);
+    assert!(middle.contains(&"done 1 {\"value\":null}"), "{middle:?}");
+    assert!(middle.contains(&"done 2 {\"value\":null}"), "{middle:?}");
+    let requests = PageProject::sent_requests(&middle);
+    assert_eq!(requests.len(), 2, "{middle:?}");
+    assert_eq!(
+        [&requests[0]["path"], &requests[0]["publicRead"]],
+        [&json!("/api/clear"), &json!(false)],
+        "{middle:?}"
+    );
+    assert_eq!(
+        [&requests[1]["path"], &requests[1]["revalidate"]],
+        [&json!("/api/greeting"), &json!(true)],
+        "{middle:?}"
+    );
+    assert_eq!(answers[11]["value"], "Hello again", "{answers:?}");
+    assert_eq!(
+        answers[12]["value"], "Custom adapter wins for /api/never in override",
+        "{answers:?}"
+    );
+    let last = PageProject::text_notes(&answers[13]);
+    assert!(PageProject::sent_requests(&last).is_empty(), "{last:?}");
+    assert!(last.contains(&"done 6 {\"value\":3}"), "{last:?}");
+    assert!(last.contains(&"done 7 {\"value\":5}"), "{last:?}");
+    assert!(last.contains(&"done 8 {\"value\":5}"), "{last:?}");
+}
+
+#[test]
+fn a_store_uses_the_entity_adapter_of_its_setup() {
+    if !PageProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    PageProject::write(
+        root.path(),
+        &[
+            (
+                "client/entities/LedgerEntity.hpp",
+                "struct [[Entity({\"adapter\":\"ledger\"}), Table(\"entries\")]] LedgerEntity {\n    [[Id]] std::string id;\n    int amount = 0;\n};\n",
+            ),
+            (
+                "client/stores/LedgerStore.hpp",
+                "class [[Store(LedgerEntity, {\"fields\":[\"id\",\"amount\"],\"defaultSize\":5,\"maxSize\":10})]] LedgerStore : public tachyon::Repository<LedgerEntity, std::string> {\npublic:\n    std::vector<LedgerEntity> findByAmount(int amount);\n};\n",
+            ),
+            (
+                "client/setups/LedgerSetup.hpp",
+                "class [[Setup]] LedgerSetup {\npublic:\n    static std::string& log() {\n        static std::string text;\n        return text;\n    }\n\n    static bool& refusing() {\n        static bool refused = false;\n        return refused;\n    }\n\n    static BehaviorAdapters configure(const BehaviorExecution&) {\n        BehaviorAdapters adapters;\n        adapters.entities[\"ledger\"] = [](const tachyon::json::JsonNode& command, const BehaviorExecution& execution) -> tachyon::json::JsonNode {\n            static std::map<std::string, tachyon::json::JsonNode> rows;\n            std::string operation = command[\"operation\"].getValue<std::string>();\n            log() += operation + \"@\" + execution.partition + \";\";\n            if (operation == \"transaction\") {\n                log() += command[\"action\"].getValue<std::string>() + \";\";\n                return tachyon::json::JsonNode(std::string(\"t1\"));\n            }\n            if (operation == \"save\") {\n                rows[command[\"value\"][\"id\"].getValue<std::string>()] = command[\"value\"];\n                return command[\"value\"];\n            }\n            tachyon::json::JsonArray found;\n            std::string wanted = command[\"query\"][\"where\"][std::size_t{0}][\"value\"].toJsonString();\n            for (const auto& [id, row] : rows) {\n                if (row[\"amount\"].toJsonString() == wanted) {\n                    found.add(row);\n                }\n            }\n            return found;\n        };\n        adapters.authorizeEntity = [](const tachyon::json::JsonNode&, const BehaviorExecution&) {\n            return !refusing();\n        };\n        return adapters;\n    }\n};\n",
+            ),
+            (
+                "client/services/LedgerService.hpp",
+                "class [[Service]] LedgerService {\npublic:\n    [[Needs]] LedgerStore& ledger;\n    int add(std::string id, int amount) { return ledger.save(LedgerEntity{id, amount}).amount; }\n    int matching(int amount) { return static_cast<int>(ledger.findByAmount(amount).size()); }\n    void refuse(bool refused) { LedgerSetup::refusing() = refused; }\n    [[AllOrNothing({\"adapter\":\"ledger\"})]] int undone(std::string id) {\n        ledger.save(LedgerEntity{id, 1});\n        throw std::runtime_error(\"undone\");\n    }\n    std::string log() { return LedgerSetup::log(); }\n};\n",
+            ),
+        ],
+    );
+    let answers = PageProject::answers(
+        root.path(),
+        &[("ledger", "LedgerService")],
+        &[
+            PageProject::init("ledger", 1, &json!({})),
+            PageProject::call("ledger", 1, "add", &json!(["a", 5])),
+            PageProject::call("ledger", 1, "add", &json!(["b", 5])),
+            PageProject::call("ledger", 1, "add", &json!(["c", 7])),
+            PageProject::call("ledger", 1, "matching", &json!([5])),
+            PageProject::call("ledger", 1, "refuse", &json!([true])),
+            PageProject::call("ledger", 1, "matching", &json!([5])),
+            PageProject::call("ledger", 1, "undone", &json!(["d"])),
+            PageProject::call("ledger", 1, "log", &json!([])),
+        ],
+    );
+    let values: Vec<Value> = answers
+        .iter()
+        .map(|answer| answer["value"].clone())
+        .collect();
+    assert_eq!(
+        values[1..5],
+        [json!(5), json!(5), json!(7), json!(2)],
+        "{answers:?}"
+    );
+    assert_eq!(answers[6]["code"], "unauthorized", "{answers:?}");
+    assert!(answers[7].get("value").is_none(), "{answers:?}");
+    assert_eq!(
+        values[8],
+        "save@ledger;save@ledger;save@ledger;query@ledger;transaction@ledger;begin;save@ledger;transaction@ledger;rollback;",
         "{answers:?}"
     );
 }

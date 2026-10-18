@@ -202,8 +202,9 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   adapter name: the class name without `Client`, in lowerCamel case
   (`GreetingClient` sends with `greeting`), as `@HTTPClient` names its
   adapter in the other languages. A plain `HttpClient` sends with `http`.
-  The browser transport does not read the name; a test unit uses it to find
-  the answer (see Test units).
+  The browser transport does not read the name; the client's Setup and a
+  test unit use it to find the adapter (see Test units and the amendment
+  "Tac C++ page adapters, Task behaviors and Store adapters").
 
 ### Validation and converters
 
@@ -233,12 +234,12 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
 - `[[Cached]]`, `[[UpdateCache]]`, `[[ClearCache]]` (with `[[CacheKey]]`
   parameters and `[[CacheSettings]]` on the class), `[[Retry]]`,
   `[[MaxAtOnce]]`, `[[AllOrNothing]]` and a `[[PageDefaults]]` parameter go on
-  a synchronous instance method with a body that returns a value or `void`.
+  an instance method with a body that returns a value or `void`.
   Tachyon wraps the body: the shared planner checks the options, and a small
   C++ runtime runs the policy and keeps cached values in the page's built-in
   cache through the storage host. A `Task` method and an `[[HTTPClient]]`
-  method cannot carry these markers yet, because the policies run around a
-  synchronous body.
+  method carry them too since the amendment "Tac C++ page adapters, Task
+  behaviors and Store adapters".
 
 ### Stores
 
@@ -257,9 +258,10 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
 - The rows live in the browser's IndexedDB through the page's entity mirror.
   `[[AllOrNothing]]` on a service method collects the writes and commits them
   in one transaction, or rolls them back when the method throws.
-- Only the `"indexeddb"` adapter builds. Other adapters stay out of the
-  plan for now, so they fail with `TY1372`. A project
-  has one Store for each Entity, and a Store method has one name.
+- A project has one Store for each Entity, and a Store method has one name.
+  An Entity may name another adapter than `"indexeddb"`; its Store then gets
+  the adapter from its Setup (see the amendment "Tac C++ page adapters, Task
+  behaviors and Store adapters").
 
 ### Settings
 
@@ -445,9 +447,10 @@ Tac languages (ADR 0022).
   own properties.
 - A service keeps its context in a `BehaviorContext` field. Such a field is
   neither a prop nor saved page state.
-- A C++ `[[HTTPClient]]` still sends its requests through the page to the same
-  origin. The `http` adapters of a context answer requests only in a test
-  unit.
+- A C++ `[[HTTPClient]]` opens its own context from its Setup, and an `http`
+  adapter of that context answers before the page's transport (see the
+  amendment "Tac C++ page adapters, Task behaviors and Store adapters"). In
+  a test unit the TestSetup's adapters answer.
 
 ### Test units
 
@@ -1054,6 +1057,77 @@ fixture's `yon.cpp` and builds a migrated handler with `clang++`.
   answered, with control characters removed, so a 500 from a C++ route
   says what was thrown in the server log and never in the answer.
 
+## Amendment (2026-10-18): Tac C++ page adapters, Task behaviors and Store adapters
+
+A C++ `[[HTTPClient]]` and a C++ `[[Store]]` now open their behavior context
+from a Setup on the page, as in the other WebAssembly Tac languages, and the
+behavior markers go on `Task` methods and on client request methods.
+
+### Client adapters
+
+- A client opens its context from the Setup that the `"setup"` option names,
+  or by default from `client/setups/<Stem>Setup.hpp` (`GreetingClient` uses
+  `GreetingSetup`). The partition and the adapter name are the `"adapter"`
+  option, or the class name without `Client` in lowerCamel case
+  (`greeting`). `[[HTTPClient]]` takes a path in quotes or an object of
+  strings with `"path"`, `"adapter"` and `"setup"`; another key fails with
+  `TY1371`.
+- The context opens at the first request, not when the client is made, so a
+  Setup whose WhenProfile does not match fails that request with
+  `inactive-configuration`. One configuration is shared by every context of
+  the same Setup and selection, as before.
+- When the context's `adapters.http` has the adapter name, that function
+  answers with the `tachyon::http::HttpRequestMessage` and no request
+  leaves the page. Otherwise the request goes through the page's transport.
+  A client whose default Setup does not exist sends through the page, as it
+  did before; a `"setup"` option that names a missing file fails with
+  `TY1371`. A test unit still answers from the TestSetup's adapters.
+- `TacLazyContext` holds the context in a `tachyonBehaviors` member that
+  Tachyon adds to the client class.
+
+### Behavior markers on Task and client methods
+
+- `[[Cached]]`, `[[UpdateCache]]`, `[[ClearCache]]`, `[[Retry]]`,
+  `[[MaxAtOnce]]` and a `[[PageDefaults]]` parameter go on a `Task` method of
+  a service. Tachyon writes the body into a coroutine that
+  `TacTaskBehaviors::run` awaits: the cache is read before the body runs and
+  written after it ends, the retry waits between attempts, and the
+  MaxAtOnce slot is held while the body waits. `[[AllOrNothing]]` stays on
+  methods that return no `Task`, because its transaction cannot stay open
+  while the method waits (`TY1371`).
+- A client request method takes `[[Cached]]`, `[[UpdateCache]]` or
+  `[[ClearCache]]` with `[[CacheKey]]` parameters and `[[CacheSettings]]` on
+  the client class, as in Rust. `[[Retry]]`, `[[MaxAtOnce]]`,
+  `[[AllOrNothing]]` and `[[PageDefaults]]` fail there with `TY1371`; they
+  belong on a service method.
+- A `Cached` GET is sent as a public read (`publicRead`), and the first read
+  after a successful `ClearCache` revalidates the browser HTTP cache
+  (`revalidate`), with the rules of the shared browser transport.
+- A client's cache uses `adapters.caches` of its context when the Setup gives
+  a cache of that name, with `adapters.authorize` required; otherwise the
+  page's built-in cache, where a declared `authorize` still runs. A service
+  method keeps using the built-in cache.
+
+### Store adapters
+
+- A Store opens its context from the Setup that the `"setup"` option of
+  `[[Store]]` names, or by default `client/setups/<Stem>Setup.hpp`
+  (`LedgerStore` uses `LedgerSetup`); the partition is the stem in lowerCamel
+  case (`ledger`). The Store keeps it in a `TacStoreContext` member.
+- An Entity may name any adapter. A Store whose Entity names an adapter other
+  than `"indexeddb"` needs its Setup, or the build fails with `TY1371`, and
+  its commands go to `adapters.entities` of that name; a query also needs
+  `adapters.authorizeEntity`. A Store on `"indexeddb"` without a Setup keeps
+  the page's IndexedDB mirror; with a Setup, an entity adapter of that name
+  answers instead, and otherwise a declared `authorizeEntity` runs before the
+  mirror.
+- `[[AllOrNothing({"adapter":"ledger"})]]` on a service method begins,
+  commits and rolls back through the open Store context whose Setup gives
+  that adapter, and the Store calls inside the method join the transaction.
+- `TacAdapters` (cache and entity calls on a context, shared with Yon C++,
+  which used `YonAdapters`) and `TacStores` (the page's Store router) live in
+  `tachyon/adapters.hpp`.
+
 ## Pending
 
 All planned Yon C++ steps have landed, and the rule table lists `hpp` for
@@ -1062,8 +1136,6 @@ each of their markers. These stay out of the plan for now:
 - A C++ class as the target of another language's `[[Gateway]]`: Tachyon
   writes no `server/gateways/<id>/yon.hpp` unit yet, so such a target fails
   with "No Yon gateway unit exists for .hpp yet". C++ code calls gateways.
-- Tac C++ Store adapters other than `"indexeddb"`, and the behavior markers
-  on `Task` and `[[HTTPClient]]` methods.
 - The curated web APIs (Clock, Preferences, ...) for C++ `[[Needs]]` fields.
 - Lifetime `"application"` stays refused: a C++ service runs in the page and
   has no native host.

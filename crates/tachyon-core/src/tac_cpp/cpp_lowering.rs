@@ -92,24 +92,28 @@ impl CppLowering {
         provided
     }
 
-    pub(crate) fn service(service: &CppService, prototypes: &[String]) -> String {
-        Self::service_lowering(service, prototypes).finished_service(service)
+    pub(crate) fn service(service: &CppService, prototypes: &[String], context: &str) -> String {
+        Self::service_lowering(service, prototypes, context).finished_service(service)
     }
 
-    pub(crate) fn recorded_service(service: &CppService, prototypes: &[String]) -> String {
-        let mut lowering = Self::service_lowering(service, prototypes);
+    pub(crate) fn recorded_service(
+        service: &CppService,
+        prototypes: &[String],
+        context: &str,
+    ) -> String {
+        let mut lowering = Self::service_lowering(service, prototypes, context);
         lowering.record_calls(service.class(), &service.source);
         lowering.finished_service(service)
     }
 
-    fn service_lowering(service: &CppService, prototypes: &[String]) -> Self {
+    fn service_lowering(service: &CppService, prototypes: &[String], context: &str) -> Self {
         let mut lowering = Self::blanked(&service.file, &service.source);
         let class = service.class();
         let friend = format!(" friend class {};", service.binding_name());
         lowering.insertions.push((class.body.start + 1, friend));
         lowering.insertions.push((
             class.body.end.saturating_sub(1),
-            CppStreamRequest::send_member(class),
+            format!("{context}{}", CppStreamRequest::send_member(class)),
         ));
         lowering.fill_needs(class, prototypes);
         lowering.wrap_behaviors(service);
@@ -118,7 +122,9 @@ impl CppLowering {
     }
 
     fn wrap_behaviors(&mut self, service: &CppService) {
-        self.wrap_policies(&service.class().members, &service.behaviors, "");
+        if !service.is_remote() {
+            self.wrap_policies(&service.class().members, &service.behaviors, "");
+        }
     }
 
     fn wrap_policies(
@@ -173,7 +179,10 @@ impl CppLowering {
         if !service.is_remote() {
             return String::new();
         }
-        format!("\n{}", CppRemote::definitions(service.class()))
+        format!(
+            "\n{}",
+            CppRemote::definitions(service.class(), &service.behaviors)
+        )
     }
 
     fn fill_needs(&mut self, class: &CppClass, prototypes: &[String]) {
