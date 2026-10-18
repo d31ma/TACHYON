@@ -1,13 +1,15 @@
 #![allow(clippy::expect_used)]
 
 use super::{BuildJobs, WebLanguage, build_all};
+use crate::node_driver::NodeDriver;
 use std::path::Path;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::process::Command;
+use std::time::Duration;
 
 struct GoPageHide;
 
 impl GoPageHide {
+    const DEADLINE: Duration = Duration::from_secs(30);
     const FILES: [(&str, &str); 4] = [
         (
             "client/models/LoadFailed.go",
@@ -164,28 +166,25 @@ process.exit(0)
     }
 
     fn drive(root: &Path, scenario: &str) -> serde_json::Value {
-        let mut child = Command::new("node")
-            .args(["drive.mjs", scenario])
-            .current_dir(root)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("node");
-        let deadline = Instant::now() + Duration::from_secs(30);
-        let mut hung = false;
-        while child.try_wait().expect("node status").is_none() {
-            if Instant::now() > deadline {
-                hung = true;
-                let _killed = child.kill();
+        let finished = NodeDriver::output_within(
+            NodeDriver::command()
+                .args(["drive.mjs", scenario])
+                .current_dir(root),
+            Self::DEADLINE,
+        );
+        let output = match finished {
+            Ok(output) => output,
+            Err(failure) => {
+                let stdout = failure
+                    .stdout_before_deadline()
+                    .unwrap_or_else(|| panic!("{scenario}: {failure}"));
+                let printed = String::from_utf8_lossy(stdout);
+                let last = printed.lines().last().unwrap_or_default();
+                return serde_json::json!({ "scenario": scenario, "hung": true, "phase": last });
             }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        let output = child.wait_with_output().expect("node output");
+        };
         let stdout = String::from_utf8_lossy(&output.stdout);
         let last = stdout.lines().last().unwrap_or_default();
-        if hung {
-            return serde_json::json!({ "scenario": scenario, "hung": true, "phase": last });
-        }
         assert!(
             output.status.success(),
             "{scenario}: {stdout}{}",

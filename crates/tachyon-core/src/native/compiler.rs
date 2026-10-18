@@ -919,11 +919,7 @@ mod tests {
     fn public_native_build_from_project_reuses_the_owned_web_and_config_snapshot() {
         use std::os::unix::fs::symlink;
 
-        if std::process::Command::new("node")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
+        if !crate::node_driver::NodeDriver::available() {
             return;
         }
         let workspace = tempfile::tempdir().expect("workspace");

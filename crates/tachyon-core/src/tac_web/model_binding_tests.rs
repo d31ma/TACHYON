@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{BuildJobs, WebLanguage, build_all};
+use crate::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -106,7 +107,7 @@ impl TacService {
          process.exit(0)\n";
 
     fn ready(&self) -> bool {
-        let node = Command::new("node").arg("--version").output().is_ok();
+        let node = NodeDriver::available();
         let tool = match self.language {
             WebLanguage::Ruby => crate::tac_ruby::RubyRuntimeBuild::unavailable_reason().is_none(),
             WebLanguage::Rust => Command::new("rustc")
@@ -166,11 +167,8 @@ fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
 
 fn drive(root: &Path, script: &str) -> serde_json::Value {
     std::fs::write(root.join("drive.mjs"), script).expect("driver");
-    let output = Command::new("node")
-        .arg("drive.mjs")
-        .current_dir(root)
-        .output()
-        .expect("node");
+    let output =
+        NodeDriver::output(NodeDriver::command().arg("drive.mjs").current_dir(root)).expect("node");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         output.status.success(),

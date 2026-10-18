@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::node_driver::NodeDriver;
 use crate::tac_web::WebLanguage;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -298,11 +299,8 @@ fn publish(root: &Path, published: Vec<(String, Vec<u8>)>) {
 fn run_driver(root: &Path, driver: &str) -> serde_json::Value {
     let dist = root.join("dist");
     std::fs::write(dist.join("drive.js"), driver).expect("driver");
-    let output = Command::new("node")
-        .arg("drive.js")
-        .current_dir(&dist)
-        .output()
-        .expect("node");
+    let output =
+        NodeDriver::output(NodeDriver::command().arg("drive.js").current_dir(&dist)).expect("node");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         output.status.success(),

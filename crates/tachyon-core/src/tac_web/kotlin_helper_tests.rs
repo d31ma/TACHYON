@@ -2,8 +2,8 @@
 
 use super::kotlin_tests::kotlin_web_ready;
 use super::{BuildJobs, WebLanguage, build_all};
+use crate::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 struct KotlinHelpers;
 
@@ -66,11 +66,12 @@ async fn a_kotlin_service_needs_a_helper_that_needs_another_helper() {
         std::fs::write(path, bytes).expect("publish");
     }
     KotlinHelpers::write(root.path(), "drive.mjs", KotlinHelpers::DRIVER);
-    let output = Command::new("node")
-        .arg("drive.mjs")
-        .current_dir(root.path())
-        .output()
-        .expect("node");
+    let output = NodeDriver::output(
+        NodeDriver::command()
+            .arg("drive.mjs")
+            .current_dir(root.path()),
+    )
+    .expect("node");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         output.status.success(),

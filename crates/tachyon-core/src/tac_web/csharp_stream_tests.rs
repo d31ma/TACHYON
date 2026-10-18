@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{BuildJobs, WebLanguage, build_all};
+use crate::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -81,10 +82,7 @@ impl CsharpStreams {
          process.exit(0)\n";
 
     fn tools_available() -> bool {
-        let node = Command::new("node")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success());
+        let node = NodeDriver::available();
         let workload = Command::new("dotnet")
             .args(["workload", "list"])
             .output()
@@ -137,10 +135,7 @@ impl CsharpStreams {
 
     fn drive(root: &Path) -> serde_json::Value {
         Self::write(root, "drive.mjs", Self::DRIVER.as_bytes());
-        let output = Command::new("node")
-            .arg("drive.mjs")
-            .current_dir(root)
-            .output()
+        let output = NodeDriver::output(NodeDriver::command().arg("drive.mjs").current_dir(root))
             .expect("node");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(

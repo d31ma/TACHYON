@@ -79,7 +79,7 @@ impl DocumentTitleBrowserFixture {
     }
 
     fn browser_command(&self) -> tokio::process::Command {
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command.arg(Self::repository().join("scripts/document-title-browser-gate.mjs"));
         command
             .env("TAC_BIN", &self.binary)

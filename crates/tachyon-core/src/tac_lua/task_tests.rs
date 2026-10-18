@@ -49,10 +49,7 @@ impl TaskTests {
          process.exit(0)\n";
 
     fn missing_tool() -> Option<String> {
-        let node = std::process::Command::new("node")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success());
+        let node = crate::node_driver::NodeDriver::available();
         assert!(
             node || std::env::var_os("CI").is_none(),
             "CI must provide node"
@@ -100,11 +97,12 @@ impl TaskTests {
     }
 
     fn report(root: &Path) -> serde_json::Value {
-        let finished = std::process::Command::new("node")
-            .arg("tasks.mjs")
-            .current_dir(root)
-            .output()
-            .expect("node");
+        let finished = crate::node_driver::NodeDriver::output(
+            crate::node_driver::NodeDriver::command()
+                .arg("tasks.mjs")
+                .current_dir(root),
+        )
+        .expect("node");
         let printed = String::from_utf8_lossy(&finished.stdout);
         let problems = String::from_utf8_lossy(&finished.stderr);
         assert!(finished.status.success(), "{printed}{problems}");

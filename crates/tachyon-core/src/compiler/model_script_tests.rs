@@ -41,15 +41,14 @@ impl ModelScriptFixture {
 
     async fn invoke(root: &Path) {
         Self::write(root, "dist/package.json", "{\"type\":\"module\"}");
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command.args([
             "--input-type=module", "--eval",
             "const {default: InputService} = await import('./.tachyon/services/InputService.js'); const service = new InputService(); const accepted = await service.submit({name: 'Ready'}); if (accepted.name !== 'Ready' || service.calls !== 1) throw new Error('valid input lost'); let denied = false; try { await service.submit({}); } catch (error) { denied = error.code === 'validation'; } if (!denied || service.calls !== 1) throw new Error('invalid input reached service');",
         ]).current_dir(root.join("dist"));
-        let output = crate::external_command::run(
+        let output = crate::node_driver::NodeDriver::run_within(
             &mut command,
             std::time::Duration::from_secs(30),
-            64 * 1024,
         )
         .await
         .expect("supervised Node");

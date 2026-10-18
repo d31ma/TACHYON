@@ -445,10 +445,7 @@ mod tests {
              process.exit(0)\n";
 
         fn node_available() -> bool {
-            let found = std::process::Command::new("node")
-                .arg("--version")
-                .output()
-                .is_ok_and(|output| output.status.success());
+            let found = crate::node_driver::NodeDriver::available();
             assert!(
                 found || std::env::var_os("CI").is_none(),
                 "CI must provide node"
@@ -499,11 +496,12 @@ mod tests {
                 format!("{}{driver}", Self::FILE_FETCH),
             )
             .expect("driver");
-            let output = std::process::Command::new("node")
-                .arg("drive.mjs")
-                .current_dir(root)
-                .output()
-                .expect("node");
+            let output = crate::node_driver::NodeDriver::output(
+                crate::node_driver::NodeDriver::command()
+                    .arg("drive.mjs")
+                    .current_dir(root),
+            )
+            .expect("node");
             let stdout = String::from_utf8_lossy(&output.stdout);
             assert!(
                 output.status.success(),

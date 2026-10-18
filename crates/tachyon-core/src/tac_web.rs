@@ -1274,7 +1274,7 @@ mod tests {
     }
 
     fn node_available() -> bool {
-        Command::new("node").arg("--version").output().is_ok()
+        crate::node_driver::NodeDriver::available()
     }
 
     fn write_service(root: &Path, relative: &str, source: &str) -> PathBuf {
@@ -1323,11 +1323,12 @@ mod tests {
 
     fn run_driver(root: &Path, script: &str) -> serde_json::Value {
         std::fs::write(root.join("drive.mjs"), script).expect("driver");
-        let output = Command::new("node")
-            .arg("drive.mjs")
-            .current_dir(root)
-            .output()
-            .expect("node");
+        let output = crate::node_driver::NodeDriver::output(
+            crate::node_driver::NodeDriver::command()
+                .arg("drive.mjs")
+                .current_dir(root),
+        )
+        .expect("node");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
             output.status.success(),

@@ -587,17 +587,14 @@ mod tests {
         let contract = directory.path().join("contract.mjs");
         std::fs::write(&module, module_source).unwrap();
         std::fs::write(&contract, include_str!("client_contract.mjs")).unwrap();
-        let mut command = tokio::process::Command::new("node");
-        command
-            .args([
-                contract.as_os_str(),
-                module.as_os_str(),
-                std::ffi::OsStr::new(extension),
-            ])
-            .kill_on_drop(true);
-        tokio::time::timeout(std::time::Duration::from_secs(30), command.output())
+        let mut command = crate::node_driver::NodeDriver::async_command();
+        command.args([
+            contract.as_os_str(),
+            module.as_os_str(),
+            std::ffi::OsStr::new(extension),
+        ]);
+        crate::node_driver::NodeDriver::run_within(&mut command, std::time::Duration::from_secs(30))
             .await
-            .unwrap()
             .unwrap()
     }
 
@@ -620,12 +617,11 @@ console.log(JSON.stringify(seen))
             format!("{}\n{checks}", include_str!("client_runtime.js")),
         )
         .unwrap();
-        let mut command = std::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::command();
         command.arg(script);
-        let output = crate::external_command::run_sync(
+        let output = crate::node_driver::NodeDriver::output_within(
             &mut command,
             std::time::Duration::from_secs(20),
-            65_536,
         )
         .unwrap();
         assert!(

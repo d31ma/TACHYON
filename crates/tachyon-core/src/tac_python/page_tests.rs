@@ -51,10 +51,7 @@ impl PythonPage {
          process.exit(0)\n";
 
     pub(super) fn skip_reason() -> Option<String> {
-        let node = std::process::Command::new("node")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success());
+        let node = crate::node_driver::NodeDriver::available();
         if !node {
             return Some(String::from("node is unavailable"));
         }
@@ -100,11 +97,12 @@ impl PythonPage {
 
     pub(super) fn run(root: &Path, driver: &str) -> serde_json::Value {
         Self::write(root, "drive.mjs", &format!("{}{driver}", Self::FILE_FETCH));
-        let output = std::process::Command::new("node")
-            .arg("drive.mjs")
-            .current_dir(root)
-            .output()
-            .unwrap_or_else(|error| panic!("node: {error}"));
+        let output = crate::node_driver::NodeDriver::output(
+            crate::node_driver::NodeDriver::command()
+                .arg("drive.mjs")
+                .current_dir(root),
+        )
+        .unwrap_or_else(|error| panic!("node: {error}"));
         let printed = String::from_utf8_lossy(&output.stdout);
         assert!(
             output.status.success(),

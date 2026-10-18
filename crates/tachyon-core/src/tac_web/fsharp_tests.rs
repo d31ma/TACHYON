@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{BuildJobs, WebLanguage, build_all};
+use crate::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -48,7 +49,7 @@ pub(super) fn fsharp_web_ready() -> bool {
     let workloads = Command::new("dotnet").args(["workload", "list"]).output();
     let has_workload = workloads
         .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("wasm-tools"));
-    has_workload && Command::new("node").arg("--version").output().is_ok()
+    has_workload && NodeDriver::available()
 }
 
 pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
@@ -60,11 +61,8 @@ pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
 
 pub(super) fn run_driver(root: &Path, script: &str) -> serde_json::Value {
     std::fs::write(root.join("drive.mjs"), script).expect("driver");
-    let output = Command::new("node")
-        .arg("drive.mjs")
-        .current_dir(root)
-        .output()
-        .expect("node");
+    let output =
+        NodeDriver::output(NodeDriver::command().arg("drive.mjs").current_dir(root)).expect("node");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         output.status.success(),

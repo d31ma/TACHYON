@@ -42,7 +42,7 @@ impl TacUtilityImportTests {
             .unwrap_or_else(|failure| panic!("ordinary shared utility bundle: {failure}"));
         let output = result.output_directory();
         Self::write(output, "package.json", "{\"type\":\"module\"}");
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command
             .args([
                 "--input-type=module",
@@ -50,10 +50,12 @@ impl TacUtilityImportTests {
                 "import assert from 'node:assert/strict'; const {default: LabelService} = await import('./.tachyon/services/LabelService.js'); const label = new LabelService(); assert.equal(label.text, 'Ready'); assert.ok(new URL(label.location).pathname.endsWith('/shared/utils/text/TitleUtils.js'));",
             ])
             .current_dir(output);
-        let captured =
-            crate::external_command::run(&mut command, std::time::Duration::from_secs(30), 65_536)
-                .await
-                .unwrap_or_else(|failure| panic!("supervised emitted module execution: {failure}"));
+        let captured = crate::node_driver::NodeDriver::run_within(
+            &mut command,
+            std::time::Duration::from_secs(30),
+        )
+        .await
+        .unwrap_or_else(|failure| panic!("supervised emitted module execution: {failure}"));
         assert!(
             captured.status.success(),
             "{}",

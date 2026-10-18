@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::WebLanguage;
+use crate::node_driver::NodeDriver;
 use std::path::Path;
 use std::process::Command;
 
@@ -11,7 +12,6 @@ impl WebApis {
     const MOST_RUNTIME_BYTES: usize = 9_500;
     /// A driver whose promises never settle fails its test instead of holding the suite.
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
-    const DRIVER_OUTPUT_BYTES: usize = 1_048_576;
 
     const RUNTIME_DRIVER: &str = ";(0, eval)(await readFile('./tac-web.js', 'utf8'))\n\
          const web = globalThis[Symbol.for('tachyon.tac.web')]\n\
@@ -1096,10 +1096,7 @@ process.exit(0)
          process.exit(0)\n";
 
     fn node_available() -> bool {
-        Command::new("node")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success())
+        NodeDriver::available()
     }
 
     fn rust_web_target() -> bool {
@@ -1128,17 +1125,10 @@ process.exit(0)
         let script = format!("import {{ readFile }} from 'node:fs/promises'\n{driver}");
         Self::write(root, "drive.mjs", script.as_bytes());
         Self::write(root, "tac-web.js", Self::RUNTIME.as_bytes());
-        let mut command = Command::new("node");
-        command
-            .arg("drive.mjs")
-            .current_dir(root)
-            .stdin(std::process::Stdio::null());
-        let output = crate::external_command::run_sync(
-            &mut command,
-            Self::DRIVER_DEADLINE,
-            Self::DRIVER_OUTPUT_BYTES,
-        )
-        .expect("node drive.mjs within its deadline");
+        let mut command = NodeDriver::command();
+        command.arg("drive.mjs").current_dir(root);
+        let output = NodeDriver::output_within(&mut command, Self::DRIVER_DEADLINE)
+            .expect("node drive.mjs within its deadline");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
             output.status.success(),

@@ -31,7 +31,7 @@ async fn script_assets_share_behavior_code_without_merging_source_contexts() {
         "one transferable behavior factory module"
     );
     ScriptAssetFixture::write(root.path(), "dist/package.json", "{\"type\":\"module\"}");
-    let mut command = tokio::process::Command::new("node");
+    let mut command = crate::node_driver::NodeDriver::async_command();
     command.args([
         "--input-type=module",
         "--eval",
@@ -51,10 +51,12 @@ assert.equal(first.construct(Input, {name: 'Ready'}).name, 'Ready');
 assert.throws(() => second.construct(Input, {name: 'wrong-context'}), /NeedsAll/);
 console.log('shared-code-independent-contexts-passed');",
     ]).current_dir(root.path().join("dist"));
-    let output =
-        crate::external_command::run(&mut command, std::time::Duration::from_secs(30), 64 * 1024)
-            .await
-            .expect("supervised actual emitted modules");
+    let output = crate::node_driver::NodeDriver::run_within(
+        &mut command,
+        std::time::Duration::from_secs(30),
+    )
+    .await
+    .expect("supervised actual emitted modules");
     assert!(
         output.status.success(),
         "{}",
@@ -118,16 +120,15 @@ impl ScriptAssetFixture {
 
     async fn invoke(root: &Path) {
         Self::write(root, "dist/package.json", "{\"type\":\"module\"}");
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command.args([
             "--input-type=module",
             "--eval",
             "const { default: LabelService } = await import('./.tachyon/services/LabelService.js'); if (new LabelService().text !== 'Ready') throw new Error('wrong utility result');",
         ]).current_dir(root.join("dist"));
-        let output = crate::external_command::run(
+        let output = crate::node_driver::NodeDriver::run_within(
             &mut command,
             std::time::Duration::from_secs(30),
-            64 * 1024,
         )
         .await
         .expect("supervised Node");
@@ -192,17 +193,16 @@ impl ScriptAssetFixture {
 
     async fn invoke_managed_utility(root: &Path, default_export: bool) {
         Self::write(root, "dist/package.json", "{\"type\":\"module\"}");
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         let probe = format!(
             "const {{ default: LabelService }} = await import('./.tachyon/services/LabelService.js'); const {{ default: SnapshotService }} = await import('./.tachyon/services/SnapshotService.js'); const utility = await import('./shared/utils/nested/TitleUtils.js'); const actual = new SnapshotService().read(); const expected = new URL('./shared/assets/item.txt', import.meta.url).href; if (actual !== expected || new LabelService().text !== 'Ready') throw new Error('utility module base or ambient definition changed'); if ({default_export} && utility.default !== utility.TitleUtils) throw new Error('default export changed'); console.log('Ready; utility URL base preserved');"
         );
         command
             .args(["--input-type=module", "--eval", &probe])
             .current_dir(root.join("dist"));
-        let output = crate::external_command::run(
+        let output = crate::node_driver::NodeDriver::run_within(
             &mut command,
             std::time::Duration::from_secs(30),
-            64 * 1024,
         )
         .await
         .expect("supervised Node");
@@ -244,16 +244,18 @@ async fn script_assets_managed_javascript_graph_preserves_module_and_ambient_uti
 #[ignore = "requires TAC_SCRIPT_ASSET_BUNDLE pointing to a completed CLI web bundle"]
 async fn script_assets_completed_native_bundle_executes_authored_utility() {
     let root = std::env::var_os("TAC_SCRIPT_ASSET_BUNDLE").expect("completed bundle path");
-    let mut command = tokio::process::Command::new("node");
+    let mut command = crate::node_driver::NodeDriver::async_command();
     command.args([
         "--input-type=module",
         "--eval",
         "const { default: LabelService } = await import('./tachyon-runtime/services/LabelService.js'); if (new LabelService().text !== 'Ready') throw new Error('wrong utility result'); console.log('LabelService.text=Ready');",
     ]).current_dir(root);
-    let output =
-        crate::external_command::run(&mut command, std::time::Duration::from_secs(30), 64 * 1024)
-            .await
-            .expect("supervised Node");
+    let output = crate::node_driver::NodeDriver::run_within(
+        &mut command,
+        std::time::Duration::from_secs(30),
+    )
+    .await
+    .expect("supervised Node");
     assert!(
         output.status.success(),
         "{}",
@@ -370,7 +372,7 @@ async fn script_assets_completed_monitor_bundle_executes_dependency_and_utility_
     let copied = tempfile::tempdir().expect("probe bundle copy");
     ScriptAssetFixture::copy_bundle(Path::new(&source), copied.path());
     ScriptAssetFixture::write(copied.path(), "package.json", "{\"type\":\"module\"}");
-    let mut command = tokio::process::Command::new("node");
+    let mut command = crate::node_driver::NodeDriver::async_command();
     let probe = r"const scripts = [];
 const attributes = new Map();
 globalThis.document = {
@@ -397,10 +399,12 @@ console.log('Ready; injected snapshot and original utility URL base preserved');
     command
         .args(["--input-type=module", "--eval", probe])
         .current_dir(copied.path());
-    let output =
-        crate::external_command::run(&mut command, std::time::Duration::from_secs(30), 64 * 1024)
-            .await
-            .expect("supervised Node");
+    let output = crate::node_driver::NodeDriver::run_within(
+        &mut command,
+        std::time::Duration::from_secs(30),
+    )
+    .await
+    .expect("supervised Node");
     assert!(
         output.status.success(),
         "{}",

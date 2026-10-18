@@ -81,10 +81,10 @@ await DotnetHttpChecks.run()
             Self::CHECKS
         );
         std::fs::write(&script, source).expect("actual default HTTP and ticket host sources");
-        let mut command = std::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::command();
         command.arg(script);
         let output =
-            crate::external_command::run_sync(&mut command, Duration::from_secs(20), 65_536)
+            crate::node_driver::NodeDriver::output_within(&mut command, Duration::from_secs(20))
                 .expect("supervised controlled HTTP boundary unit");
         assert!(
             output.status.success(),

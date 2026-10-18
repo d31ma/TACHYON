@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::node_driver::NodeDriver;
 use std::path::Path;
 use std::process::Command;
 
@@ -197,11 +198,12 @@ impl DartStreams {
 
     fn drive(root: &Path, driver: &str) -> serde_json::Value {
         Self::write(root, "drive.js", driver.as_bytes());
-        let output = Command::new("node")
-            .args(["--import", "./fetch-files.js", "drive.js"])
-            .current_dir(root)
-            .output()
-            .expect("node");
+        let output = NodeDriver::output(
+            NodeDriver::command()
+                .args(["--import", "./fetch-files.js", "drive.js"])
+                .current_dir(root),
+        )
+        .expect("node");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
             output.status.success(),

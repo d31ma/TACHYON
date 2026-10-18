@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::WebLanguage;
+use crate::node_driver::NodeDriver;
 use std::path::Path;
 use std::process::Command;
 
@@ -219,12 +220,13 @@ impl Reach {
     fn run(root: &Path, prefix: &str, methods: &[&str]) -> serde_json::Value {
         std::fs::write(root.join("reach.mjs"), format!("{prefix}{}", Self::DRIVER))
             .expect("driver");
-        let output = Command::new("node")
-            .arg("reach.mjs")
-            .args(methods)
-            .current_dir(root)
-            .output()
-            .expect("node");
+        let output = NodeDriver::output(
+            NodeDriver::command()
+                .arg("reach.mjs")
+                .args(methods)
+                .current_dir(root),
+        )
+        .expect("node");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
             output.status.success(),

@@ -92,10 +92,10 @@ await TaskBridgeChecks.run()
         let root = tempfile::tempdir().expect("bridge source fixture");
         let script = root.path().join("TaskBridgeChecks.mjs");
         std::fs::write(&script, source).expect("actual emitted Task bridge");
-        let mut command = std::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::command();
         command.arg(script);
         let output =
-            crate::external_command::run_sync(&mut command, Duration::from_secs(20), 65_536)
+            crate::node_driver::NodeDriver::output_within(&mut command, Duration::from_secs(20))
                 .expect("supervised bridge unit");
         assert!(
             output.status.success(),

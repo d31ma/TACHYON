@@ -1,6 +1,5 @@
 #![allow(clippy::expect_used)]
 
-use std::process::Command;
 use std::time::Duration;
 
 struct DocumentTitleFixture;
@@ -139,10 +138,9 @@ console.log('document-title-plain-owner-lifecycle-qualified');
         let root = tempfile::tempdir().expect("fixture");
         let script = root.path().join("document-title.mjs");
         std::fs::write(&script, program).expect("program");
-        let output = crate::external_command::run_sync(
-            Command::new("node").arg(script),
+        let output = crate::node_driver::NodeDriver::output_within(
+            crate::node_driver::NodeDriver::command().arg(script),
             Duration::from_secs(20),
-            65_536,
         )
         .expect("supervised Node");
         assert!(

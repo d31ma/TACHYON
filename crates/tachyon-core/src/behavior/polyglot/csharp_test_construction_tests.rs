@@ -118,10 +118,10 @@ async fn csharp_test_http_client_fakes_compile_and_execute_per_construction() {
     std::fs::write(&output, emitted).expect("lowered fixture");
     let script = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../scripts/behavior-native-runtime-test.mjs");
-    let mut command = tokio::process::Command::new("node");
+    let mut command = crate::node_driver::NodeDriver::async_command();
     command.arg(script).arg("cs").arg("--emitted").arg(output);
     let result =
-        crate::external_command::run(&mut command, std::time::Duration::from_mins(4), 1024 * 1024)
+        crate::node_driver::NodeDriver::run_within(&mut command, std::time::Duration::from_mins(4))
             .await
             .expect("supervised C# SDK fixture");
     assert!(

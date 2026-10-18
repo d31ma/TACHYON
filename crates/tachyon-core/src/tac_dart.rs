@@ -1857,11 +1857,12 @@ class CounterService {
              globalThis.fetch = async (url) => new Response(await readFile(url))\n",
         )
         .expect("file fetch");
-        let output = std::process::Command::new("node")
-            .args(["--import", "./fetch-files.js", "drive.js"])
-            .current_dir(root)
-            .output()
-            .expect("node");
+        let output = crate::node_driver::NodeDriver::output(
+            crate::node_driver::NodeDriver::command()
+                .args(["--import", "./fetch-files.js", "drive.js"])
+                .current_dir(root),
+        )
+        .expect("node");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
             output.status.success(),

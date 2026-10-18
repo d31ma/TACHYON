@@ -46,11 +46,27 @@ pub(crate) struct ToolOutput {
     pub(crate) stderr: Vec<u8>,
 }
 
+#[derive(Default)]
+pub(crate) struct PartialOutput {
+    pub(crate) stdout: Vec<u8>,
+    pub(crate) stderr: Vec<u8>,
+}
+
+impl std::fmt::Debug for PartialOutput {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PartialOutput")
+            .field("stdout", &String::from_utf8_lossy(&self.stdout))
+            .field("stderr", &String::from_utf8_lossy(&self.stderr))
+            .finish()
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum ToolError {
     Spawn(io::Error),
     Wait(io::Error),
-    TimedOut,
+    TimedOut(#[cfg_attr(not(test), allow(dead_code))] PartialOutput),
     Pipe(io::Error),
 }
 
@@ -59,7 +75,7 @@ impl std::fmt::Display for ToolError {
         match self {
             Self::Spawn(error) => write!(formatter, "cannot spawn tool: {error}"),
             Self::Wait(error) => write!(formatter, "cannot wait for tool: {error}"),
-            Self::TimedOut => formatter.write_str("tool exceeded its deadline"),
+            Self::TimedOut(_) => formatter.write_str("tool exceeded its deadline"),
             Self::Pipe(error) => write!(formatter, "cannot drain tool output: {error}"),
         }
     }
@@ -111,13 +127,13 @@ async fn run_owned(
                     stderr_result = Some(result);
                 }
                 () = tokio::time::sleep_until(leader_deadline) => {
-                    break Err(ToolError::TimedOut);
+                    break Err(ToolError::TimedOut(PartialOutput::default()));
                 }
             }
         }
     };
     if !settle_tree_until(&mut child, tree_deadline).await {
-        return Err(ToolError::TimedOut);
+        return Err(ToolError::TimedOut(PartialOutput::default()));
     }
 
     while stdout_result.is_none() || stderr_result.is_none() {
@@ -129,12 +145,25 @@ async fn run_owned(
             result = &mut stderr_drain, if stderr_result.is_none() => {
                 stderr_result = Some(result);
             }
-            () = tokio::time::sleep_until(deadline) => return Err(ToolError::TimedOut),
+            () = tokio::time::sleep_until(deadline) => {
+                return Err(ToolError::TimedOut(PartialOutput::default()));
+            }
         }
     }
-    let status = leader_outcome?;
-    let stdout = drained_bytes(stdout_result, "stdout drain did not settle")?;
-    let stderr = drained_bytes(stderr_result, "stderr drain did not settle")?;
+    let stdout = drained_bytes(stdout_result, "stdout drain did not settle");
+    let stderr = drained_bytes(stderr_result, "stderr drain did not settle");
+    let status = match leader_outcome {
+        Ok(status) => status,
+        Err(ToolError::TimedOut(_)) => {
+            return Err(ToolError::TimedOut(PartialOutput {
+                stdout: stdout.unwrap_or_default(),
+                stderr: stderr.unwrap_or_default(),
+            }));
+        }
+        Err(error) => return Err(error),
+    };
+    let stdout = stdout?;
+    let stderr = stderr?;
     Ok(ToolOutput {
         status,
         stdout,
@@ -248,7 +277,9 @@ fn run_sync_owned(
         .map_err(|_| ToolError::Pipe(io::Error::other("tool supervisor panicked")))?;
     match message {
         Ok(result) => result,
-        Err(_) => receiver.try_recv().unwrap_or(Err(ToolError::TimedOut)),
+        Err(_) => receiver
+            .try_recv()
+            .unwrap_or(Err(ToolError::TimedOut(PartialOutput::default()))),
     }
 }
 
@@ -346,8 +377,11 @@ mod tests {
         ))
         .await
         .expect_err("deadline");
-        assert!(matches!(error, ToolError::TimedOut));
+        let ToolError::TimedOut(partial) = error else {
+            panic!("expected a deadline failure, got {error:?}");
+        };
         assert!(started.elapsed() < Duration::from_secs(1));
+        assert_process_gone(first_line_pid(&partial.stdout)).await;
         assert_eq!(
             active_count(&tracker.active_drains),
             0,
@@ -378,7 +412,7 @@ mod tests {
                 1_024,
                 tracker.clone(),
             ),
-            Err(ToolError::TimedOut)
+            Err(ToolError::TimedOut(_))
         ));
         assert!(started.elapsed() < Duration::from_secs(1));
         assert_eq!(

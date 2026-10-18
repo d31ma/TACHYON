@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used)]
+use crate::support::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use tachyon_core::{BuildOptions, WebCompiler};
 
 struct TacMapping;
@@ -124,11 +124,8 @@ process.exit(0)
         };
         std::fs::write(output.join("package.json"), "{\"type\":\"module\"}").expect("package");
         std::fs::write(output.join("drive.mjs"), driver).expect("driver");
-        let result = Command::new("node")
-            .arg("drive.mjs")
-            .current_dir(&output)
-            .output()
-            .expect("Node");
+        let result =
+            NodeDriver::output(NodeDriver::command().arg("drive.mjs").current_dir(&output));
         assert!(
             result.status.success(),
             "{}{}",

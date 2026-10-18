@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{BuildJobs, WebLanguage, build_all};
+use crate::node_driver::NodeDriver;
 use std::path::Path;
 use std::process::Command;
 
@@ -111,11 +112,12 @@ impl GoNeedsFixtures {
     }
 
     fn drive(root: &Path, created: &str, disposed: &str) -> serde_json::Value {
-        let output = Command::new("node")
-            .args(["drive.mjs", created, disposed])
-            .current_dir(root)
-            .output()
-            .expect("node");
+        let output = NodeDriver::output(
+            NodeDriver::command()
+                .args(["drive.mjs", created, disposed])
+                .current_dir(root),
+        )
+        .expect("node");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
             output.status.success(),

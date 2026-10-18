@@ -1,6 +1,5 @@
 #![allow(clippy::expect_used)]
 
-use std::process::Command;
 use std::time::Duration;
 
 struct PreferenceHostFixture;
@@ -70,10 +69,9 @@ console.log(JSON.stringify(report));
         let program = format!("{}{}{}", Self::BEFORE, Self::RUNTIME, Self::AFTER);
         let script = root.path().join("preferences.mjs");
         std::fs::write(&script, program).expect("script");
-        let output = crate::external_command::run_sync(
-            Command::new("node").arg(script),
+        let output = crate::node_driver::NodeDriver::output_within(
+            crate::node_driver::NodeDriver::command().arg(script),
             Duration::from_secs(20),
-            65_536,
         )
         .expect("supervised Node");
         assert!(

@@ -455,12 +455,11 @@ mod tests {
         std::fs::write(&path, emitted).expect("emitted Swift source");
         let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../scripts/behavior-native-runtime-test.mjs");
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command.arg(script).arg("swift").arg("--emitted").arg(path);
-        let result = crate::external_command::run(
+        let result = crate::node_driver::NodeDriver::run_within(
             &mut command,
             std::time::Duration::from_mins(4),
-            1024 * 1024,
         )
         .await
         .expect("Swift compile and execution tool");

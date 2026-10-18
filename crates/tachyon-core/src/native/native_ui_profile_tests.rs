@@ -71,7 +71,7 @@ impl NativeUiProfileFixture {
     }
 
     async fn consumer(build: &NativeBuildResult) {
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         let shim = super::host::NativeHost::SHIM.replace("__WINDOW_CONTROLS__", "[]");
         let prefix = "globalThis.addEventListener = () => {}; globalThis.location = { hostname: 'bundle' }; let registered = 0, unregistered = 0; Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register() { registered++; throw new Error('native must not register a worker'); }, getRegistrations() { return Promise.resolve([{ unregister() { unregistered++; return Promise.resolve(true); } }]); } } }, configurable: true });";
         let check = "await import('./tachyon-runtime/register-sw.js'); await new Promise((resolve) => setTimeout(resolve, 0)); if (registered !== 0 || unregistered !== 1) throw new Error('wrong native registration behavior'); console.log('native cache inactive; unregistered=1; registered=0');";
@@ -79,10 +79,9 @@ impl NativeUiProfileFixture {
         command
             .args(["--input-type=module", "--eval", &source])
             .current_dir(build.output_directory().join("web"));
-        let output = crate::external_command::run(
+        let output = crate::node_driver::NodeDriver::run_within(
             &mut command,
             std::time::Duration::from_secs(15),
-            64 * 1024,
         )
         .await
         .expect("supervised actual emitted registration consumer");

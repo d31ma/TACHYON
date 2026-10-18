@@ -2,8 +2,8 @@
 
 use super::swift_tests::swift_web_ready;
 use super::{BuildJobs, WebLanguage, build_all};
+use crate::node_driver::NodeDriver;
 use std::path::Path;
-use std::process::Command;
 
 struct SwiftHelpers;
 
@@ -78,10 +78,7 @@ impl SwiftHelpers {
 
     fn drive(root: &Path) -> serde_json::Value {
         std::fs::write(root.join("drive.mjs"), Self::DRIVER).expect("driver");
-        let output = Command::new("node")
-            .arg("drive.mjs")
-            .current_dir(root)
-            .output()
+        let output = NodeDriver::output(NodeDriver::command().arg("drive.mjs").current_dir(root))
             .expect("node");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(

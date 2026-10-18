@@ -164,16 +164,17 @@ impl PythonTacFixture {
     }
 
     async fn browser(&self) {
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command
             .arg(self.repo.join("scripts/python-tac-browser-test.mjs"))
             .current_dir(&self.repo)
             .env("TAC_PYTHON_FIXTURE_OUT", &self.root)
             .env("TAC_PYTHON_SOURCE_COMMIT", &self.source)
             .env("TAC_BIN", &self.binary);
-        let output = crate::external_command::run(&mut command, Duration::from_mins(1), 1_048_576)
-            .await
-            .unwrap_or_else(|error| panic!("supervised browser probe: {error}"));
+        let output =
+            crate::node_driver::NodeDriver::run_within(&mut command, Duration::from_mins(1))
+                .await
+                .unwrap_or_else(|error| panic!("supervised browser probe: {error}"));
         assert!(
             output.status.success(),
             "browser probe: {}{}",

@@ -148,7 +148,7 @@ impl SetupModuleFixture {
 
     async fn invoke(root: &Path) {
         Self::write(root, "dist/package.json", "{\"type\":\"module\"}");
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command
             .args([
                 "--input-type=module",
@@ -171,10 +171,9 @@ assert.notEqual(opened[0][1], opened[1][1]);
 console.log('one-setup-for-two-services-passed');",
             ])
             .current_dir(root.join("dist"));
-        let output = crate::external_command::run(
+        let output = crate::node_driver::NodeDriver::run_within(
             &mut command,
             std::time::Duration::from_secs(30),
-            64 * 1024,
         )
         .await
         .expect("supervised Node");

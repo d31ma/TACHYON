@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{BuildJobs, WebLanguage, build_all};
+use crate::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -123,10 +124,7 @@ impl CppStreams {
 
     fn drive(root: &Path) -> serde_json::Value {
         Self::write(root, "drive.mjs", Self::DRIVER.as_bytes());
-        let output = Command::new("node")
-            .arg("drive.mjs")
-            .current_dir(root)
-            .output()
+        let output = NodeDriver::output(NodeDriver::command().arg("drive.mjs").current_dir(root))
             .expect("node");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(

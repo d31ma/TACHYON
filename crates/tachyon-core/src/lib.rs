@@ -33,6 +33,8 @@ mod migrate;
 mod model_layout;
 mod model_sources;
 mod native;
+#[cfg(test)]
+mod node_driver;
 mod project;
 mod python_parameters;
 mod route_types;

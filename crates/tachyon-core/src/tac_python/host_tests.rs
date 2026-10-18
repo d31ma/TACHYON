@@ -10,12 +10,11 @@ impl PythonHostFixture {
             .unwrap_or_else(|error| panic!("ownership fixture: {error}"));
         std::fs::write(&host, include_str!("python_host.js"))
             .unwrap_or_else(|error| panic!("production host: {error}"));
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command.arg(&script).arg(&host);
-        let output = crate::external_command::run(
+        let output = crate::node_driver::NodeDriver::run_within(
             &mut command,
             std::time::Duration::from_secs(10),
-            64 * 1024,
         )
         .await
         .unwrap_or_else(|error| panic!("supervised ownership probe: {error}"));

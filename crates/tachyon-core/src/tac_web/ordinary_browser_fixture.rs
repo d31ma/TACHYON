@@ -163,7 +163,7 @@ impl OrdinaryBrowserFixture {
         script: &str,
         arguments: &[&str],
     ) {
-        let mut command = tokio::process::Command::new("node");
+        let mut command = crate::node_driver::NodeDriver::async_command();
         command
             .arg(self.repo.join(script))
             .args(arguments)

@@ -30,11 +30,11 @@ All the work this note handed over is resolved. The sections after this one desc
   - On slow machines, set `TAC_HANDLER_COMPILE_SECONDS` (default 60, cap 900) to allow longer handler compiles.
   - Load-sensitive tests tolerate a busy machine, and the `relay_boundaries` tests run in nextest's `serial` group (`4603885c`).
 - **Decision taken:** Phase 6 keeps the scaffold comparison as a tripwire for drift, with every intended difference declared, instead of declaring a deliberate break.
+- **Every `node` driver call has a deadline:** the `tachyon-core` tests start `node` through `NodeDriver` (`crates/tachyon-core/src/node_driver.rs`; the integration tests use `tests/it/support/node_driver.rs`). Stdin is closed, the default deadline is 2 minutes, the process tree is killed at the deadline, and the failure names the command and shows its output so far.
 - **Still open (see the last two sections):**
   - the release candidate
   - in the product, a call that reaches a shared service before its component activates uses the default `tac-client` partition
   - on Windows ARM64, Node 24 sometimes deadlocks at process exit (about 7% of Ruby web drivers under load). Its 2-minute deadline turns that into one failed test.
-  - about 40 other `node` driver call sites have no deadline
 
 ## Where develop is
 
