@@ -43,7 +43,7 @@ impl DesktopHostSource {
             )
             .replace(
                 "__CONTENT_SECURITY_POLICY__",
-                &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
+                &c_string_escape(&application.content_security_policy()),
             )
             .replace("__NATIVE_MENUS__", self.menus)
     }

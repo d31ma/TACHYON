@@ -438,6 +438,7 @@ fn native_application_lifetime_host_startup_and_shutdown_are_not_page_operations
         native_capabilities: Vec::new(),
         menus: super::native_menu_config::NativeMenuConfig::default(),
         rust: crate::native::native_rust_project::NativeRustProject::default(),
+        outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
     };
     let index = super::routes::NativeRouteIndex {
         contract_version: 2,

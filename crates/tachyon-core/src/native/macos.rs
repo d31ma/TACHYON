@@ -486,12 +486,14 @@ impl MacOsHostGenerator {
         let route_documents = super::routes::swift_routes(index);
         let app_type = format!("{}App", application.executable_name);
         let bundle_id = quoted_string_escape(&application.application_id);
+        let policy = quoted_string_escape(&application.content_security_policy());
         let mut values = vec![
             ("__ENTRY_DOCUMENT__", entry_document.as_str()),
             ("__ENTRY_ROUTE__", entry_route.as_str()),
             ("__ROUTE_DOCUMENTS__", route_documents.as_str()),
             ("__APP_TYPE__", app_type.as_str()),
             ("__BUNDLE_ID__", bundle_id.as_str()),
+            ("__CONTENT_SECURITY_POLICY__", policy.as_str()),
         ];
         values.extend_from_slice(platform_values);
         super::placeholder_fill::PlaceholderFill::once(host, &values)
@@ -700,6 +702,7 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
             headerFields: [
                 "Content-Type": TachyonAssetSchemeHandler.mimeType(file.pathExtension),
                 "Content-Length": String(data.count),
+                "Content-Security-Policy": "__CONTENT_SECURITY_POLICY__",
             ]
         )
         guard let response else {
@@ -1011,6 +1014,7 @@ mod tests {
             native_capabilities: Vec::new(),
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
+            outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
         }
     }
 

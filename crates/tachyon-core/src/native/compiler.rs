@@ -862,16 +862,22 @@ mod tests {
                 source.contains("application/wasm"),
                 "{platform} host serves .wasm with the wrong type"
             );
+            assert!(
+                source.contains("Content-Security-Policy"),
+                "{platform} host sends no Content-Security-Policy"
+            );
+            assert!(
+                source.contains("__CONTENT_SECURITY_POLICY__"),
+                "{platform} host does not send the generated policy"
+            );
             let source = source.replace(
                 "__CONTENT_SECURITY_POLICY__",
-                &crate::compiler::ContentSecurityPolicy::native_host(),
+                &crate::compiler::ContentSecurityPolicy::native_host(""),
             );
-            if source.contains("Content-Security-Policy") {
-                assert!(
-                    source.contains("script-src 'self' 'wasm-unsafe-eval'"),
-                    "{platform} host policy blocks WebAssembly"
-                );
-            }
+            assert!(
+                source.contains("script-src 'self' 'wasm-unsafe-eval'"),
+                "{platform} host policy blocks WebAssembly"
+            );
         }
     }
 

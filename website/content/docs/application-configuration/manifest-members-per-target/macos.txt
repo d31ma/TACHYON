@@ -121,7 +121,7 @@ tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The macOS app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  adapted: tac.outgoing.hosts is checked when the macOS app is built, but the app does not limit page requests to these hosts yet (SEC1).
+  honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -196,10 +196,10 @@ stored data (IndexedDB, Cache API, LocalState)
   honored: kept on disk by the web view
 
 Content-Security-Policy
-  adapted: The macOS app sends no Content-Security-Policy for its pages yet (SEC1).
+  honored: the native host policy
 
 reaching Yon
-  adapted: The macOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET1).
+  adapted: The macOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET1).
 
 natively linked service languages
   honored: Rust and Swift services are linked into the app; other languages run in the page

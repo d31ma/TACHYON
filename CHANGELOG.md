@@ -745,6 +745,16 @@ machine contracts have their own, independent major versions.
 
 ### Security
 
+- Every native host now sends a Content-Security-Policy, and its
+  `connect-src` allows only the app's own bundle and the hosts in
+  `tac.outgoing.hosts`. Before, the macOS, iOS and Android hosts sent no
+  policy, and the Windows and Linux hosts allowed every `https:` host. The
+  Android host allows its own bridge script by hash, lets the network serve
+  the listed hosts instead of answering them with an empty body, and asks for
+  the `INTERNET` permission only when the manifest lists a host. A native
+  build refuses a `tac.outgoing.hosts` entry that is not a host name
+  (`TY1601`). See the ADR 0068 amendment.
+
 - Build settings in the `tac` member of `client/manifest.json` (`outgoing`,
   `budgets`, `visibility`, `types`, `tests`, `accessibility`, `simplify`,
   `go` and `dotnet`) no longer reach the public settings that services bind,

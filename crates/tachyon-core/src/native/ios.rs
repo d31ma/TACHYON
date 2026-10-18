@@ -197,16 +197,13 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
     )
 }
 
-fn swift_source(
+pub(super) fn swift_source(
     application: &NativeApplication,
     companion_call: &str,
     index: &NativeRouteIndex,
 ) -> String {
-    let rust_shim = if companion_call.contains("tacRustInvoke") {
-        MacOsHostGenerator::RUST_SHIM
-    } else {
-        ""
-    };
+    let rust_shim =
+        ["", MacOsHostGenerator::RUST_SHIM][usize::from(companion_call.contains("tacRustInvoke"))];
     let framed = IosHostGenerator::SWIFT_HOST
         .replace(
             "__TACHYON_JSON_REQUEST__",
@@ -334,6 +331,7 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
             headerFields: [
                 "Content-Type": TachyonAssetSchemeHandler.mimeType(file.pathExtension),
                 "Content-Length": String(data.count),
+                "Content-Security-Policy": "__CONTENT_SECURITY_POLICY__",
             ]
         )
         guard let response else {
@@ -552,6 +550,7 @@ mod tests {
             native_capabilities: Vec::new(),
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
+            outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
         }
     }
 

@@ -31,6 +31,7 @@ impl MenuHostTests {
             native_capabilities: Vec::new(),
             menus: MenuActionFixture::menus(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
+            outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

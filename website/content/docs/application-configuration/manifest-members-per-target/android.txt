@@ -121,7 +121,7 @@ tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Android app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  adapted: tac.outgoing.hosts is checked when the Android app is built, but the Android app blocks every remote request for now (SEC1).
+  adapted: The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host.
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -196,10 +196,10 @@ stored data (IndexedDB, Cache API, LocalState)
   honored: kept on disk by the web view
 
 Content-Security-Policy
-  adapted: The Android app sends no Content-Security-Policy for its pages yet (SEC1).
+  honored: the native host policy, which also allows the host's bridge script by its hash
 
 reaching Yon
-  adapted: The Android app cannot reach a Yon server: its pages load from a local origin, and the host blocks every remote request (NET0, NET2).
+  adapted: The Android app cannot reach a Yon server: its pages load from a local origin, and only the hosts in tac.outgoing.hosts are reachable (NET0, NET2).
 
 natively linked service languages
   honored: Kotlin services are linked into the app; other languages run in the page

@@ -75,6 +75,8 @@ mod native_capabilities;
 mod native_capability_tests;
 #[cfg(test)]
 mod native_cfg_impl_tests;
+#[cfg(test)]
+mod native_content_security_policy_tests;
 mod native_external_link;
 #[cfg(test)]
 mod native_external_link_tests;
@@ -93,6 +95,7 @@ mod native_menu_entry;
 #[cfg(test)]
 mod native_menu_host_tests;
 mod native_menu_shortcut;
+mod native_outgoing_hosts;
 #[cfg(test)]
 mod native_packaged_utility_tests;
 #[cfg(test)]

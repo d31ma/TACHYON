@@ -121,7 +121,7 @@ tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Linux app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  adapted: tac.outgoing.hosts is checked when the Linux app is built, but the app allows requests to every https host for now (SEC1).
+  honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -199,7 +199,7 @@ Content-Security-Policy
   honored: the native host policy
 
 reaching Yon
-  adapted: The Linux app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET4).
+  adapted: The Linux app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET4).
 
 natively linked service languages
   honored: Rust services are linked into the app; other languages run in the page

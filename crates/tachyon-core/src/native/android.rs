@@ -98,7 +98,7 @@ fn write_project(
     let has_icon = stage_icon(application, web_bundle, project)?;
     write(
         &project.join("app/src/main/AndroidManifest.xml"),
-        android_manifest(has_icon).as_bytes(),
+        android_manifest(application, has_icon).as_bytes(),
     )?;
     write(
         &project.join("app/src/main/res/values/strings.xml"),
@@ -297,14 +297,14 @@ dependencies {{
     )
 }
 
-fn android_manifest(has_icon: bool) -> String {
+fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
     let icon = if has_icon {
         "\n      android:icon=\"@mipmap/ic_launcher\""
     } else {
         ""
     };
     r#"<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">__INTERNET_PERMISSION__
   <application
       android:label="@string/app_name"__ICON__
       android:allowBackup="false"
@@ -323,6 +323,10 @@ fn android_manifest(has_icon: bool) -> String {
 </manifest>
 "#
     .replace("__ICON__", icon)
+    .replace(
+        "__INTERNET_PERMISSION__",
+        AndroidHostGenerator::internet_permission(application),
+    )
 }
 
 fn stage_icon(
@@ -352,7 +356,7 @@ fn strings_xml(application: &NativeApplication) -> String {
     )
 }
 
-fn java_source(
+pub(super) fn java_source(
     application: &NativeApplication,
     package: &str,
     has_companion: bool,
@@ -385,6 +389,13 @@ fn java_source(
     let entry_document = quoted_string_escape(&index.entry_document);
     let bundle_id = quoted_string_escape(&application.application_id);
     let route_documents = quoted_string_escape(&route_documents);
+    let policy = quoted_string_escape(&AndroidHostGenerator::content_security_policy(
+        application,
+        &native_shim,
+    ));
+    let bootstrap_policy =
+        quoted_string_escape(crate::compiler::ContentSecurityPolicy::native_bootstrap());
+    let outgoing_hosts = application.outgoing.java_array();
     super::placeholder_fill::PlaceholderFill::once(
         &framed,
         &[
@@ -392,6 +403,9 @@ fn java_source(
             ("__PACKAGE__", package),
             ("__BUNDLE_ID__", &bundle_id),
             ("__ROUTE_DOCUMENTS__", &route_documents),
+            ("__CONTENT_SECURITY_POLICY__", &policy),
+            ("__BOOTSTRAP_SECURITY_POLICY__", &bootstrap_policy),
+            ("__OUTGOING_HOSTS__", &outgoing_hosts),
         ],
     )
 }
@@ -402,6 +416,20 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl AndroidHostGenerator {
+    const INTERNET_PERMISSION: &str =
+        "\n  <uses-permission android:name=\"android.permission.INTERNET\"/>";
+
+    fn content_security_policy(application: &NativeApplication, native_shim: &str) -> String {
+        crate::compiler::ContentSecurityPolicy::native_host_with_inline_script(
+            &application.outgoing.connect_sources(),
+            &format!("{native_shim}{}", Self::ANDROID_BRIDGE_SHIM),
+        )
+    }
+
+    fn internet_permission(application: &NativeApplication) -> &'static str {
+        [Self::INTERNET_PERMISSION, ""][usize::from(application.outgoing.is_empty())]
+    }
+
     const ANDROID_BRIDGE_SHIM: &str = r"
 ;(() => {
   const host = globalThis.__tachyonAndroidHost;
@@ -478,6 +506,9 @@ public final class MainActivity extends Activity {
   private static final String NATIVE_SHIM = "__NATIVE_SHIM__";
   private static final String ANDROID_BRIDGE_SHIM = "__ANDROID_BRIDGE_SHIM__";
   private static final String ROUTE_DOCUMENTS = "__ROUTE_DOCUMENTS__";
+  private static final String CONTENT_SECURITY_POLICY = "__CONTENT_SECURITY_POLICY__";
+  private static final String BOOTSTRAP_SECURITY_POLICY = "__BOOTSTRAP_SECURITY_POLICY__";
+  private static final String[] OUTGOING_HOSTS = __OUTGOING_HOSTS__;
 
   private WebView view;
   private volatile String route = "";
@@ -748,6 +779,7 @@ __NATIVE_WINDOW_CONTROLS__
           @Override
           public WebResourceResponse shouldInterceptRequest(
               WebView web, WebResourceRequest request) {
+            if (isOutgoingHost(request.getUrl())) return null;
             return assetResponse(request.getUrl());
           }
         });
@@ -795,6 +827,18 @@ __NATIVE_WINDOW_CONTROLS__
         && target.getUserInfo() == null && target.getPort() == -1;
   }
 
+  private static boolean isOutgoingHost(Uri target) {
+    String host = target.getHost();
+    if (!"https".equals(target.getScheme()) || host == null || target.getUserInfo() != null) return false;
+    host = host.toLowerCase(java.util.Locale.ROOT);
+    if (host.endsWith(".")) host = host.substring(0, host.length() - 1);
+    for (String declared : OUTGOING_HOSTS) {
+      boolean matches = declared.startsWith("*.") ? host.endsWith(declared.substring(1)) : declared.equals(host);
+      if (matches) return true;
+    }
+    return false;
+  }
+
   private static String bootstrapDocument() {
     String destination = org.json.JSONObject.quote(ASSET_ORIGIN + ENTRY_DOCUMENT);
     return "<!doctype html><meta charset=utf-8><title>Starting application</title><body><script>"
@@ -813,8 +857,10 @@ __NATIVE_WINDOW_CONTROLS__
       return emptyAssetResponse();
     }
     if (path.equals("/__tachyon_bootstrap__.html")) {
-      return new WebResourceResponse("text/html", "UTF-8", 200, "OK",
-          java.util.Collections.singletonMap("Cache-Control", "no-store"),
+      java.util.Map<String, String> headers = new java.util.HashMap<>();
+      headers.put("Cache-Control", "no-store");
+      headers.put("Content-Security-Policy", BOOTSTRAP_SECURITY_POLICY);
+      return new WebResourceResponse("text/html", "UTF-8", 200, "OK", headers,
           new ByteArrayInputStream(bootstrapDocument().getBytes(StandardCharsets.UTF_8)));
     }
     String document = routeDocument(path);
@@ -823,11 +869,11 @@ __NATIVE_WINDOW_CONTROLS__
       name = "tachyon-runtime/" + name.substring(".tachyon/".length());
     }
     try {
-      return new WebResourceResponse(assetMimeType(name), "UTF-8", open(name));
+      return bundleResponse(name, open(name));
     } catch (Exception error) {
       try {
         String bundled = "WebBundle/" + name;
-        return new WebResourceResponse(assetMimeType(bundled), "UTF-8", open(bundled));
+        return bundleResponse(bundled, open(bundled));
       } catch (Exception ignored) {
         return emptyAssetResponse();
       }
@@ -928,6 +974,12 @@ __NATIVE_WINDOW_CONTROLS__
     }
   }
 
+  private static WebResourceResponse bundleResponse(String name, InputStream data) {
+    java.util.Map<String, String> headers = new java.util.HashMap<>();
+    headers.put("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+    return new WebResourceResponse(assetMimeType(name), "UTF-8", 200, "OK", headers, data);
+  }
+
   private static WebResourceResponse emptyAssetResponse() {
     return new WebResourceResponse(
         "text/plain", "UTF-8", new ByteArrayInputStream(new byte[0]));
@@ -980,6 +1032,7 @@ mod tests {
             native_capabilities: Vec::new(),
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
+            outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
         }
     }
 
@@ -999,6 +1052,53 @@ mod tests {
             has_companion,
             &index(),
         )
+    }
+
+    #[test]
+    fn android_lets_the_network_serve_only_the_declared_hosts() {
+        let mut declared = application();
+        declared.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::listed(&[
+            "api.example.com",
+            "*.cdn.example.com",
+        ]);
+        let source = java_source(&declared, "dev.tachyon.native_catalog", false, &index());
+        assert!(source.contains(
+            r#"private static final String[] OUTGOING_HOSTS = {"api.example.com", "*.cdn.example.com"};"#
+        ));
+        assert!(source.contains(
+            "if (isOutgoingHost(request.getUrl())) return null;\n            return assetResponse(request.getUrl());"
+        ));
+        assert!(catalog_java_source(false).contains("OUTGOING_HOSTS = {};"));
+    }
+
+    #[test]
+    fn android_asks_for_network_access_only_when_the_manifest_lists_hosts() {
+        let mut declared = application();
+        assert!(!android_manifest(&declared, false).contains("android.permission.INTERNET"));
+        declared.outgoing =
+            crate::native::native_outgoing_hosts::NativeOutgoingHosts::listed(&["api.example.com"]);
+        assert!(android_manifest(&declared, false).contains(
+            "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n  <uses-permission android:name=\"android.permission.INTERNET\"/>\n  <application"
+        ));
+    }
+
+    #[test]
+    fn android_documents_allow_only_the_script_the_host_writes_into_them() {
+        let source = catalog_java_source(false);
+        let shim = crate::native::host::native_shim(&application().window);
+        let written = format!("{shim}{}", AndroidHostGenerator::ANDROID_BRIDGE_SHIM);
+        let hash = crate::compiler::ContentSecurityPolicy::inline_script_hash(&written);
+        let policy_line = source
+            .lines()
+            .find(|line| line.contains("String CONTENT_SECURITY_POLICY ="))
+            .unwrap_or_default();
+        assert!(policy_line.contains(&hash), "{policy_line}");
+        assert!(!policy_line.contains("'unsafe-inline' "), "{policy_line}");
+        assert!(source.contains("return bundleResponse(name, open(name));"));
+        assert!(
+            source.contains("headers.put(\"Content-Security-Policy\", BOOTSTRAP_SECURITY_POLICY);")
+        );
+        assert!(!source.contains("\"UTF-8\", open("));
     }
 
     #[test]
@@ -1078,11 +1178,13 @@ mod tests {
         assert!(released_gradle.contains("versionCode = 7\n"));
         assert!(released_gradle.contains("versionName = \"2.1.0-beta\"\n"));
 
-        let manifest = android_manifest(false);
+        let manifest = android_manifest(&application(), false);
         assert!(manifest.contains("android:usesCleartextTraffic=\"false\""));
         assert!(manifest.contains("android.intent.category.LAUNCHER"));
         assert!(!manifest.contains("android:icon"));
-        assert!(android_manifest(true).contains("android:icon=\"@mipmap/ic_launcher\""));
+        assert!(
+            android_manifest(&application(), true).contains("android:icon=\"@mipmap/ic_launcher\"")
+        );
     }
 
     #[test]

@@ -20,6 +20,7 @@ pub(super) struct NativeApplication {
     pub(super) native_capabilities: Vec<String>,
     pub(super) menus: super::native_menu_config::NativeMenuConfig,
     pub(super) rust: super::native_rust_project::NativeRustProject,
+    pub(super) outgoing: super::native_outgoing_hosts::NativeOutgoingHosts,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -483,6 +484,8 @@ pub(crate) struct TacMember {
     pub(super) browser_apis: Vec<String>,
     #[serde(default)]
     pub(super) elements: Vec<String>,
+    #[serde(default)]
+    outgoing: Option<serde_json::Value>,
 }
 
 impl TacMember {
@@ -556,6 +559,11 @@ impl NativeApplication {
             project_root,
             authored_root,
         );
+        application.outgoing = super::native_outgoing_hosts::NativeOutgoingHosts::declared(
+            manifest
+                .as_ref()
+                .and_then(|declared| declared.tac.as_ref()?.outgoing.as_ref()),
+        )?;
         Ok(application)
     }
 
@@ -634,7 +642,12 @@ impl NativeApplication {
             native_capabilities: Vec::new(),
             menus: super::native_menu_config::NativeMenuConfig::default(),
             rust: super::native_rust_project::NativeRustProject::default(),
+            outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
         }
+    }
+
+    pub(super) fn content_security_policy(&self) -> String {
+        crate::compiler::ContentSecurityPolicy::native_host(&self.outgoing.connect_sources())
     }
 }
 

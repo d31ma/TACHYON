@@ -78,6 +78,7 @@ document.getElementById('action').addEventListener('click', () => { globalThis._
             native_capabilities: Vec::new(),
             menus: super::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
+            outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

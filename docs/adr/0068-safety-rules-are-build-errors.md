@@ -164,3 +164,35 @@ This is deny by default, like Spring Security.
   accepted. Any other answer, including an older Node.js, is refused with
   `TY2101` ("Required Yon JavaScript runtime 'node' is not usable."), so a
   handler never runs without the guard.
+
+## Amendment (2026-10-18): every native host sends the policy and enforces `tac.outgoing.hosts`
+
+- Section 4 said the desktop and mobile hosts keep their own built-in policy.
+  In fact only the Windows and Linux hosts sent one, and it allowed
+  `connect-src 'self' https:`, so page code in a native app could reach any
+  host. The macOS, iOS and Android hosts sent no policy at all.
+- Now every native host sends the policy that `ty bundle` builds from the
+  same source as the server's: the macOS and iOS scheme handlers, the Android
+  `WebResourceResponse` for each bundle file, and the Windows and Linux
+  resource handlers. Its `connect-src` is the app's own bundle plus the hosts
+  in `tac.outgoing.hosts`, with the same `https`, `wss`, `http` and `ws`
+  sources as the server. With no list, a native page may connect only to its
+  own bundle. Images and fonts may still load over `https:`.
+- The Android host writes its bridge script into each page as an inline
+  `<script>`. Its policy allows that one script by the SHA-256 hash of its
+  text, which the build computes. The short start-up document that the host
+  makes itself has its own policy (`default-src 'none'`, its one inline
+  script allowed).
+- A native build reads `tac.outgoing.hosts` and refuses an entry that is not
+  a host name, such as one with a scheme or a port, with `TY1601`, because
+  the hosts are written into the generated host source.
+- Android no longer blanks the declared hosts: a request to a listed host
+  over `https` goes to the network, and every other request outside the
+  bundle still gets an empty answer. The app asks for the
+  `android.permission.INTERNET` permission only when `tac.outgoing.hosts`
+  lists a host.
+- The Windows response header buffer is sized from the policy, so a long
+  host list is never cut short.
+- The build check (`TY1326`) is unchanged. The run-time half now holds on
+  the web server and in every native host, as `host_check.rs` already told
+  developers.

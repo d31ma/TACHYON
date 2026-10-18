@@ -173,6 +173,12 @@ impl WindowsHostGenerator {
 }
 
 impl WindowsHostGenerator {
+    const RESPONSE_HEADER_ROOM: usize = 256;
+
+    fn response_header_capacity(application: &NativeApplication) -> String {
+        (application.content_security_policy().len() + Self::RESPONSE_HEADER_ROOM).to_string()
+    }
+
     pub(super) fn companion_project(architecture: WindowsArchitecture) -> String {
         Self::CSHARP_COMPANION_PROJECT
             .replace("__RUNTIME_IDENTIFIER__", architecture.dotnet_runtime())
@@ -632,6 +638,7 @@ pub(super) fn c_source(
 ) -> String {
     let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
     let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
+    let header_capacity = WindowsHostGenerator::response_header_capacity(application);
     super::desktop_host_source::DesktopHostSource {
         template: WindowsHostGenerator::C_HOST.replace(
             "__WINDOW_CONTROLS__",
@@ -646,6 +653,7 @@ pub(super) fn c_source(
         &[
             ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
             ("__SERVICE_COMPANIONS__", &service_companions),
+            ("__RESPONSE_HEADER_CAPACITY__", &header_capacity),
         ],
     )
 }
@@ -1136,8 +1144,8 @@ static HRESULT STDMETHODCALLTYPE resource_invoke(ICoreWebView2WebResourceRequest
     stream = tachyon_resource_stream(relative);
     if (stream == NULL && tachyon_bundle_path(path, relative, sizeof(relative))) stream = tachyon_resource_stream(relative);
   }
-  wchar_t headers[1024];
-  _snwprintf_s(headers, 1024, _TRUNCATE,
+  wchar_t headers[__RESPONSE_HEADER_CAPACITY__];
+  _snwprintf_s(headers, sizeof(headers) / sizeof(headers[0]), _TRUNCATE,
     L"Content-Type: %s\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: __CONTENT_SECURITY_POLICY__\r\n",
     stream == NULL ? L"text/plain" : tachyon_content_type(relative));
   ICoreWebView2WebResourceResponse *response = NULL;
@@ -1551,6 +1559,7 @@ mod tests {
             native_capabilities: Vec::new(),
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
+            outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
         }
     }
 
