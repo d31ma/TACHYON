@@ -1381,6 +1381,60 @@ impl ProbeController {
 }
 
 #[tokio::test]
+async fn rust_background_listeners_run_after_the_other_listeners_and_never_republish() {
+    execute_expected(
+        "rs",
+        r#"
+#[Service()]
+struct ProbeService { log: std::sync::Mutex<Vec<String>> }
+impl ProbeService {
+  fn new() -> Self { Self { log: std::sync::Mutex::new(Vec::new()) } }
+  #[OnEvent]
+  #[Order(-5)]
+  #[InBackground()]
+  fn later(&self, value: crate::models::ProbeReady) -> crate::models::ProbeDerived {
+    self.log.lock().unwrap().push(format!("later:{}", value.status));
+    crate::models::ProbeDerived { tag: String::from("never") }
+  }
+  #[OnEvent]
+  #[Order(1)]
+  fn first(&self, value: crate::models::ProbeReady) -> crate::models::ProbeDerived {
+    self.log.lock().unwrap().push(format!("first:{}", value.status));
+    crate::models::ProbeDerived { tag: String::from("once") }
+  }
+  #[OnEvent]
+  #[InBackground()]
+  fn failing(&self, value: crate::models::ProbeReady) { let _ = value; panic!("private failure detail"); }
+  #[OnEvent]
+  fn derived(&self, value: crate::models::ProbeDerived) { self.log.lock().unwrap().push(format!("derived:{}", value.tag)); }
+}
+#[Service()]
+#[NeedsAll()]
+struct PublishService { publisher: std::sync::Arc<ApplicationEventPublisher> }
+impl PublishService {
+  #[OnStart()]
+  fn initialize(&self) {
+    self.publisher.publish_event(crate::models::ProbeReady { status: String::from("paid"), total: 10 }, false);
+  }
+}
+#[RequestRoute("/probe")]
+#[Public]
+#[NeedsAll()]
+struct ProbeController { probe: std::sync::Arc<ProbeService>, publish: std::sync::Arc<PublishService> }
+impl ProbeController {
+  #[GetRoute]
+  fn get_probe(&self) -> Json {
+    let _ = &self.publish;
+    Json::map([("log", Json::list(self.probe.log.lock().unwrap().clone()))])
+  }
+}
+"#,
+        serde_json::json!({"log": ["first:paid", "later:paid", "derived:once"]}),
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn go_events_and_lifecycle() {
     execute(
         "go",
@@ -1529,50 +1583,6 @@ func (controller *ProbeController) GetProbe() any {
         ]}),
     )
     .await;
-}
-
-struct ListenerFixtures;
-
-impl ListenerFixtures {
-    const SYNCHRONOUS: &[(&str, &str)] = &[(
-        "rs",
-        r#"
-#[Service()]
-struct ProbeService {}
-impl ProbeService {
-  fn new() -> Self { Self {} }
-  #[OnEvent]
-  #[InBackground()]
-  fn observe(&self, value: crate::models::ProbeTagged) { let _ = value; }
-}
-#[RequestRoute("/probe")]
-#[Public]
-#[NeedsAll()]
-struct ProbeController { probe: std::sync::Arc<ProbeService> }
-impl ProbeController {
-  #[GetRoute]
-  fn get_probe(&self) -> Json { Json::map([("ok", Json::from(true))]) }
-}
-"#,
-    )];
-}
-
-#[tokio::test]
-async fn synchronous_languages_refuse_async_listeners() {
-    for &(extension, source) in ListenerFixtures::SYNCHRONOUS {
-        let root = tempfile::tempdir().expect("fixture");
-        ProbeModels::write(root.path(), extension);
-        let entry = format!("server/controllers/ProbeController.{extension}");
-        let entry = yon_layout::write_fixture(root.path(), &entry, source);
-        let failure = HandlerSource::discover(root.path(), &entry)
-            .err()
-            .unwrap_or_else(|| panic!("{extension} accepted an InBackground listener"))
-            .to_string();
-        assert!(
-            failure.contains("InBackground listeners require a Yon language that defers them"),
-            "{extension}: {failure}"
-        );
-    }
 }
 
 #[tokio::test]

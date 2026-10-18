@@ -10,6 +10,10 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Yon Rust listeners accept `#[InBackground]`. The listener stays
+  synchronous and runs after the other listeners of the event, as in
+  JavaScript and Python, and its return value is never published again
+  (ADR 0031 amendment).
 - Yon Kotlin now accepts `@InBackground` on an `@OnEvent` method. The
   listener runs after the other listeners of the event, as in Yon JS, TS and
   Python, and its return value is never published again. Kotlin event methods
