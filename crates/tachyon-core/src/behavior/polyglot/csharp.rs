@@ -273,7 +273,7 @@ fn validation_prefix(method: &Method) -> Result<String, String> {
         return Err("C# Check parameters require BehaviorJSON".to_owned());
     }
     Ok(format!(
-        "{} = Behaviors.ValidateSchema(BehaviorJSON.Parse({}), {});\n",
+        "{} = Behaviors.CheckSchema(BehaviorJSON.Parse({}), {});\n",
         parameter.name,
         quote(&policy["schema"].to_string()),
         parameter.name

@@ -209,36 +209,58 @@ public static class Behaviors {
         catch { throw new BehaviorError("validation", "$.schema"); }
     }
     internal static BehaviorJSON ValidateSchema(BehaviorJSON schema, BehaviorJSON value) {
+        var broken = Violations(schema, CheckedObject(value));
+        if (broken.Count > 0) throw new BehaviorError("validation", broken[0].Field + "." + broken[0].Key);
+        return value;
+    }
+    internal static BehaviorJSON CheckSchema(BehaviorJSON schema, BehaviorJSON value) {
+        try { CheckedObject(value); }
+        catch (BehaviorError invalid) { throw Rejection(invalid.Path, new[] { ("", "object", "Checked") }); }
+        var broken = Violations(schema, value);
+        if (broken.Count > 0) throw Rejection(broken[0].Field + "." + broken[0].Key, broken);
+        return value;
+    }
+    private static BehaviorError Rejection(string path, System.Collections.Generic.IEnumerable<(string Field, string Key, string Rule)> broken) {
+        var entries = new System.Collections.Generic.List<BehaviorJSON>();
+        foreach (var violation in broken) entries.Add(BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["field"] = BehaviorJSON.From(violation.Field), ["rule"] = BehaviorJSON.From(violation.Rule) }));
+        var rejection = new BehaviorError("validation", path);
+        rejection.Data["violations"] = BehaviorJSON.Array(entries.ToArray()).ToString();
+        return rejection;
+    }
+    private static BehaviorJSON CheckedObject(BehaviorJSON value) {
         try { if (value == null) throw new System.Exception(); value.Bound(1048576); }
         catch { throw new BehaviorError("validation", "$.json"); }
         if (value.Value.ValueKind != System.Text.Json.JsonValueKind.Object) throw new BehaviorError("validation", "$.object");
+        return value;
+    }
+    private static System.Collections.Generic.List<(string Field, string Key, string Rule)> Violations(BehaviorJSON schema, BehaviorJSON value) {
+        var broken = new System.Collections.Generic.List<(string Field, string Key, string Rule)>();
         try {
             schema.Keys("fields");
             foreach (var field in schema.Get("fields").Members) {
                 if (!Matches(field.Key, @"\A[A-Za-z_$][A-Za-z0-9_$]{0,63}\z")) throw new BehaviorError("validation", "$.schema");
                 var rules = field.Value; rules.Keys("notNull", "notBlank", "size", "min", "max"); var item = value.Get(field.Key);
-                if (rules.Has("notNull") && rules.Get("notNull").Boolean && item.IsNull) throw new BehaviorError("validation", field.Key + ".notNull");
-                if (rules.Has("notBlank") && rules.Get("notBlank").Boolean) {
-                    if (item.Value.ValueKind != System.Text.Json.JsonValueKind.String || IsBlank(item.Text)) throw new BehaviorError("validation", field.Key + ".notBlank");
-                }
+                if (rules.Has("notNull") && rules.Get("notNull").Boolean && item.IsNull) broken.Add((field.Key, "notNull", "Required"));
+                if (rules.Has("notBlank") && rules.Get("notBlank").Boolean && (item.Value.ValueKind != System.Text.Json.JsonValueKind.String || IsBlank(item.Text))) broken.Add((field.Key, "notBlank", "NotEmpty"));
                 if (item.IsNull) continue;
-                if (rules.Has("size")) {
-                    var size = rules.Get("size"); size.Keys("min", "max");
-                    int count = item.Value.ValueKind switch { System.Text.Json.JsonValueKind.String => System.Text.Encoding.UTF8.GetByteCount(item.Text), System.Text.Json.JsonValueKind.Array => item.Items.Length, System.Text.Json.JsonValueKind.Object => item.Members.Count, _ => -1 };
-                    long minimum = size.Has("min") ? size.Get("min").Integer : 0, maximum = size.Has("max") ? size.Get("max").Integer : 1048576;
-                    if (minimum < 0 || maximum < minimum) throw new BehaviorError("validation", "$.schema");
-                    if (count < minimum || count > maximum) throw new BehaviorError("validation", field.Key + ".size");
-                }
-                foreach (var rule in new[] { "min", "max" }) if (rules.Has(rule)) {
-                    if (item.Value.ValueKind != System.Text.Json.JsonValueKind.Number) throw new BehaviorError("validation", field.Key + "." + rule);
+                if (rules.Has("size") && !SizeFits(rules.Get("size"), item)) broken.Add((field.Key, "size", "Length"));
+                foreach (var (rule, name) in new[] { ("min", "Min"), ("max", "Max") }) if (rules.Has(rule)) {
+                    if (item.Value.ValueKind != System.Text.Json.JsonValueKind.Number) { broken.Add((field.Key, rule, name)); continue; }
                     double bound = rules.Get(rule).Value.GetDouble(), number = item.Value.GetDouble();
                     if (!double.IsFinite(bound) || System.Math.Abs(bound) > 9007199254740991d) throw new BehaviorError("validation", "$.schema");
-                    if ((rule == "min" && number < bound) || (rule == "max" && number > bound)) throw new BehaviorError("validation", field.Key + "." + rule);
+                    if ((rule == "min" && number < bound) || (rule == "max" && number > bound)) broken.Add((field.Key, rule, name));
                 }
             }
-            return value;
+            return broken;
         } catch (BehaviorError error) when (error.Code == "validation") { throw; }
         catch { throw new BehaviorError("validation", "$.schema"); }
+    }
+    private static bool SizeFits(BehaviorJSON size, BehaviorJSON item) {
+        size.Keys("min", "max");
+        int count = item.Value.ValueKind switch { System.Text.Json.JsonValueKind.String => System.Text.Encoding.UTF8.GetByteCount(item.Text), System.Text.Json.JsonValueKind.Array => item.Items.Length, System.Text.Json.JsonValueKind.Object => item.Members.Count, _ => -1 };
+        long minimum = size.Has("min") ? size.Get("min").Integer : 0, maximum = size.Has("max") ? size.Get("max").Integer : 1048576;
+        if (minimum < 0 || maximum < minimum) throw new BehaviorError("validation", "$.schema");
+        return count >= minimum && count <= maximum;
     }
     private static readonly string[] GatewayFailures = { "invalid", "timeout", "capacity", "adapter" };
     public static string GatewayArguments(BehaviorJSON[] values) {

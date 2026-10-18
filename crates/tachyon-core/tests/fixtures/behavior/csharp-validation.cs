@@ -77,6 +77,27 @@ public static class ValidationAnnotationTests {
             } catch (BehaviorError error) when (error.Code == "validation" && error.Path == "name.notBlank") { }
         }
         if (service.calls != 1) throw new System.Exception("invalid method ran");
+        CheckRejectionViolations(service);
+    }
+    private static void CheckRejectionViolations(AnnotatedValidationService service) {
+        var rejections = new[] {
+            ("{\"amount\":\"1\",\"optional\":7}", "amount.min", "[{\"field\":\"amount\",\"rule\":\"Min\"},{\"field\":\"amount\",\"rule\":\"Max\"},{\"field\":\"name\",\"rule\":\"NotEmpty\"},{\"field\":\"optional\",\"rule\":\"Length\"}]"),
+            ("[]", "$.object", "[{\"field\":\"\",\"rule\":\"Checked\"}]"),
+        };
+        foreach (var (json, path, violations) in rejections) {
+            try {
+                service.accept(BehaviorJSON.Parse(json));
+                throw new System.Exception("invalid accepted");
+            } catch (BehaviorError error) when (error.Code == "validation") {
+                if (error.Path != path || error.Data["violations"] as string != violations) throw new System.Exception("wrong rejection " + error.Path + " " + error.Data["violations"]);
+            }
+        }
+        try {
+            Behaviors.validate(typeof(AnnotatedInput), BehaviorJSON.Parse("{}"));
+            throw new System.Exception("invalid accepted");
+        } catch (BehaviorError error) when (error.Code == "validation" && error.Path == "amount.notNull") {
+            if (error.Data.Contains("violations")) throw new System.Exception("explicit validation reported violations");
+        }
     }
     private static void CheckDirectValidation(BehaviorJSON valid) {
         try {

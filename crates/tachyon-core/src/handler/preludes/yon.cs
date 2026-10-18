@@ -677,6 +677,8 @@ static class Yon
     const int MaxRelayStderrBytes = 64 * 1024;
     const double DefaultDeadlineMilliseconds = 30_000;
     const string FailureMessage = "Component invocation failed.";
+    const int MaxCauseDepth = 8;
+    const int CheckRejectedStatus = 422;
     static readonly long startTimestamp = ProcessStartTimestamp();
     static Dictionary<string, string> relayEnvironment;
     static double? deadlineMilliseconds;
@@ -928,6 +930,17 @@ static class Yon
         return __YonAnswer.Json(JsonSerializer.Serialize(new { error = FailureMessage })).Status(502);
     }
 
+    static JsonArray Violations(Exception failure)
+    {
+        var cause = failure;
+        for (var depth = 0; cause is not null && depth < MaxCauseDepth; depth++)
+        {
+            if (cause.Data["violations"] is string written && JsonNode.Parse(written) is JsonArray found) return found;
+            cause = cause.InnerException;
+        }
+        return null;
+    }
+
     static Type entryType;
 
     static MethodInfo EntryMethod(string name, Type[] parameters) =>
@@ -976,9 +989,15 @@ static class Yon
                 if (parameters.Length == 1 && parameters[0].ParameterType == typeof(HttpRequestMessage)) arguments = new object[] { YonHttp.Request(request) };
                 result = method.Invoke(null, arguments);
             }
-            catch (TargetInvocationException)
+            catch (TargetInvocationException failed)
             {
-                Environment.ExitCode = 1;
+                var violations = Violations(failed.InnerException);
+                if (violations is null)
+                {
+                    Environment.ExitCode = 1;
+                    return;
+                }
+                Console.Out.Write(new JsonObject { ["status"] = CheckRejectedStatus, ["violations"] = violations }.ToJsonString());
                 return;
             }
         }

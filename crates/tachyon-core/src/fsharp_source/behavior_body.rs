@@ -99,7 +99,7 @@ impl<'a> BehaviorBody<'a> {
     fn validation(&self, policy: &Value) -> Result<String, String> {
         let name = self.parameter(policy, "Check")?;
         Ok(format!(
-            "let {name} = Behaviors.ValidateSchema(BehaviorJSON.Parse({}), {name}) in ",
+            "let {name} = Behaviors.CheckSchema(BehaviorJSON.Parse({}), {name}) in ",
             Self::quote(&policy["schema"].to_string())
         ))
     }
