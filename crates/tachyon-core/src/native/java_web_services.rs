@@ -309,11 +309,6 @@ impl JavaWebServices {
         (models, needs): (&JavaModels, &JavaServiceNeeds),
     ) -> Result<JavaService, Failure> {
         let relative = authored.path.as_path();
-        let owner = needs.owner(
-            &authored.instance,
-            relative,
-            (&authored.source, &authored.class),
-        )?;
         let roles = crate::behavior::ServiceRoles::read(relative, &authored.source)?;
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, &roles.source, "tac")?;
@@ -325,6 +320,11 @@ impl JavaWebServices {
         let held =
             JavaHeldStreams::new(relative, &authored.class).members(events.as_ref(), source)?;
         let behavior_source = models.behavior_source(source, &authored.class)?;
+        let owner = needs.owner(
+            &authored.instance,
+            relative,
+            (&authored.source, &behavior_source, &authored.class),
+        )?;
         let lowered = crate::behavior::lower(relative, &behavior_source, "tac")?;
         let source =
             lowered.map_or_else(|| behavior_source, |text| JavaBrowserRuntime::adapt(&text));

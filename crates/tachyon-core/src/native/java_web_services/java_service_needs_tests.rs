@@ -38,7 +38,12 @@ impl NeedsFixture {
         (kind, field): (&str, &str),
     ) -> Result<Option<JavaConstructorProvider>, crate::Failure> {
         let path = PathBuf::from(format!("client/services/{class}.java"));
-        let owner = needs.owner("owner", &path, (source, class)).expect("owner");
+        let lowered = crate::behavior::ServiceRoles::read(&path, source)
+            .expect("roles")
+            .source;
+        let owner = needs
+            .owner("owner", &path, (source, &lowered, class))
+            .expect("owner");
         owner.provider(kind, field)
     }
 

@@ -34,10 +34,9 @@ impl JavaServiceNeeds {
         &'a self,
         instance: &'a str,
         path: &'a Path,
-        (authored, class): (&'a str, &str),
+        (authored, lowered, class): (&'a str, &str, &str),
     ) -> Result<JavaNeedOwner<'a>, Failure> {
-        let roles = crate::behavior::ServiceRoles::read(path, authored)?;
-        let written = crate::behavior::ProviderQualifiers::read(path, &roles.source, class)?;
+        let written = crate::behavior::ProviderQualifiers::read(path, lowered, class)?;
         let qualifiers = serde_json::from_value(written).unwrap_or_default();
         Ok(JavaNeedOwner::new(
             &self.page,
