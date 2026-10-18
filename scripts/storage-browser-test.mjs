@@ -51,6 +51,34 @@ class StorageGate {
     }
   }
 
+  static async visit(page, url) {
+    await page.goto(url, { waitUntil: 'networkidle' });
+    await StorageGate.activated(page);
+  }
+
+  static async reload(page) {
+    await page.reload({ waitUntil: 'networkidle' });
+    await StorageGate.activated(page);
+  }
+
+  // A shared service is reachable as soon as the page renders, but its @OnStart (which opens the
+  // service's own behavior context and cache partition) runs when its component activates.
+  static async activated(page) {
+    try {
+      await page.waitForFunction(() => document.documentElement.dataset.tachyonRendered === 'client'
+        && [...document.querySelectorAll('tachyon-component')]
+          .every((host) => !['load', 'idle'].includes(host.dataset.tachyonMount) || host.dataset.tachyonActive !== undefined));
+    } catch (error) {
+      const waiting = await page.evaluate(() => ({
+        rendered: document.documentElement.dataset.tachyonRendered ?? null,
+        components: [...document.querySelectorAll('tachyon-component')]
+          .filter((host) => host.dataset.tachyonActive === undefined)
+          .map((host) => `${host.dataset.tachyonComponent} (${host.dataset.tachyonMount})`),
+      })).catch(() => null);
+      throw new Error(`the page did not finish activating: ${JSON.stringify(waiting)}`, { cause: error });
+    }
+  }
+
   static open(name, project) {
     if (name === 'chromium') return chromium.launch({ timeout: 30_000, args: [StorageGate.hostRule] });
     if (name === 'firefox') return firefox.launch({ timeout: 30_000 });
@@ -1039,7 +1067,7 @@ function expect(actual, wanted, label) {
 
 async function checkFieldStorage(context, origin) {
   const page = await context.newPage();
-  await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
+  await StorageGate.visit(page, `${origin}/`);
 
   expect(await page.textContent('#clicks'), '0', 'declared default renders');
   await page.click('#bump');
@@ -1048,7 +1076,7 @@ async function checkFieldStorage(context, origin) {
   await page.click('#dark');
   expect(await page.textContent('#clicks'), '3', 'assignment renders');
 
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect(await page.textContent('#clicks'), '3', 'SessionState field restored after reload');
   expect(await page.textContent('#theme'), 'dark', 'LocalState field restored after reload');
   expect(await page.textContent('#detail'), 'detail', 'restored state re-opened the branch');
@@ -1063,14 +1091,14 @@ async function checkFieldStorage(context, origin) {
   expect(stored.sessionHasLocalField, null, 'LocalState field kept out of sessionStorage');
 
   const second = await context.newPage();
-  await second.goto(`${origin}/`, { waitUntil: 'networkidle' });
+  await StorageGate.visit(second, `${origin}/`);
   expect(await second.textContent('#clicks'), '0', 'SessionState field is per-tab');
   expect(await second.textContent('#theme'), 'dark', 'LocalState field is shared across tabs');
   await second.evaluate(() => {
     localStorage.removeItem('tac:service:storagePage:/:theme');
     localStorage.setItem('tac:service:storagePage:/:$$theme', '"sepia"');
   });
-  await second.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(second);
   expect(await second.textContent('#theme'), 'sepia', 'a value kept under the old $$ key is adopted');
   const adopted = await second.evaluate(() => [localStorage.getItem('tac:service:storagePage:/:$$theme'), localStorage.getItem('tac:service:storagePage:/:theme')]);
   expect(JSON.stringify(adopted), JSON.stringify([null, '"sepia"']), 'the old key moves to the new key');
@@ -1091,7 +1119,7 @@ async function checkKeptCaches(page) {
     return (await cache.keys()).length;
   });
   expect(stored, 1, 'the entry is written to the browser Cache API');
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect((await find('anvil')).reads, 1, 'the entry survives a reload');
   expect(await page.evaluate(() => __root('storageCatalog').reads), 0, 'the reloaded service did not run the method');
   await find('bolt');
@@ -1117,13 +1145,13 @@ async function checkInsecureCaches(browser, port) {
   const page = await insecure.newPage();
   const notices = [];
   page.on('console', (message) => { if (message.text().includes('memory only')) notices.push(message.text()); });
-  await page.goto(`http://${StorageGate.host}:${port}/`, { waitUntil: 'networkidle' });
+  await StorageGate.visit(page, `http://${StorageGate.host}:${port}/`);
   expect(await page.evaluate(() => globalThis.isSecureContext), false, 'the plain-http host is an insecure origin');
   const first = await page.evaluate(() => __root('storageCatalog').find('anvil'));
   const second = await page.evaluate(() => __root('storageCatalog').find('anvil'));
   expect(JSON.stringify([first.reads, second.reads]), '[1,1]', 'an insecure origin still caches in memory');
   expect(notices.length, 1, 'one console notice explains the memory-only cache');
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect((await page.evaluate(() => __root('storageCatalog').find('anvil'))).reads, 1, 'a memory-only cache starts empty after a reload');
   await insecure.close();
 }
@@ -1139,7 +1167,7 @@ async function checkIndexedStore(browser, origin) {
     request.onsuccess = () => { request.result.close(); resolve(); };
     request.onerror = () => reject(request.error);
   }));
-  await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
+  await StorageGate.visit(page, `${origin}/`);
   const notes = (script) => page.evaluate(script);
   await notes(() => __root('storageNotes').seed());
   const upgraded = await notes(async () => {
@@ -1155,7 +1183,7 @@ async function checkIndexedStore(browser, origin) {
   const failed = await notes(() => __root('storageNotes').failedBatch().then(() => 'saved', (error) => error.message));
   expect(failed, 'stop', 'AllOrNothing rethrows the failure');
   await notes(() => __root('storageNotes').batch());
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect(JSON.stringify(await notes(reports)), JSON.stringify({ open: ['a', 'd', 'y', 'z'], count: 4, ranked: ['y', 'a'], page: ['d', 'y'] }), 'rows survive a reload; a failed AllOrNothing wrote nothing and a finished one wrote everything');
   expect(JSON.stringify(await notes(() => __root('storeNotes').repository())), JSON.stringify({ saved: 'r', found: 'r', firstPage: 1, removed: 1, missing: null }), 'a NoteStore that extends Repository saves, finds by id, pages and deletes by a derived query in IndexedDB');
   expect(summaryText(await notes(() => __root('storeNotes').titled())), StorageGate.mappedNote, 'a JavaScript service that needs NoteConverter maps through the converter, which needs no context');
@@ -1170,7 +1198,7 @@ async function checkIndexedStore(browser, origin) {
     request.onupgradeneeded = () => { request.result.createObjectStore('notes', { keyPath: 'code' }); };
     request.onsuccess = () => { request.result.close(); resolve(); };
   }));
-  await other.goto(`${origin}/`, { waitUntil: 'networkidle' });
+  await StorageGate.visit(other, `${origin}/`);
   const refused = await other.evaluate(() => __root('storageNotes').report().then(() => 'read', (error) => error.message));
   expect(refused.includes("keeps its rows by 'code'"), true, 'a changed Id field is refused, and no row is deleted');
   await changed.close();
@@ -1180,13 +1208,13 @@ async function checkWebAssemblyStorage(browser, origin) {
   const context = await browser.newContext();
   await context.addInitScript(rootHelper);
   const page = await context.newPage();
-  await page.goto(origin, { waitUntil: 'networkidle' });
+  await StorageGate.visit(page, origin);
   const evaluate = (script) => page.evaluate(script);
   expect(JSON.stringify(await evaluate(() => [__root('goNotes').find('a'), __root('goNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Go WebAssembly service reads its Cached value synchronously from memory');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').find('b'))), JSON.stringify({ key: 'b', reads: 2 }), 'a Go WebAssembly service runs the method for a new key');
   await evaluate(() => __root('goNotes').save('g1', 'kept'));
   await evaluate(StorageGate.settleCaches);
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect(JSON.stringify(await evaluate(() => __root('goNotes').find('b'))), JSON.stringify({ key: 'b', reads: 2 }), 'the Go cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').list())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'the Go Store row survives a reload through the IndexedDB copy');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').kept())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'a Go service that needs GoNoteStore reads through the store, which opens the context of its Setup');
@@ -1201,7 +1229,7 @@ async function checkWebAssemblyStorage(browser, origin) {
   const refused = await evaluate(() => { try { __root('rubyNotes').saveThenRefuse('r2'); return ''; } catch (error) { return error.message; } });
   expect(refused.includes('the note was refused'), true, 'a refused Ruby AllOrNothing call reports its error');
   await evaluate(StorageGate.settleCaches);
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Ruby cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').list())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'the Ruby Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').kept())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'a Ruby service that needs RubyNoteStore reads through the store, which opens the context of its Setup');
@@ -1216,7 +1244,7 @@ async function checkWebAssemblyStorage(browser, origin) {
 async function checkWebAssemblyStoredFields(browser, origin) {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await page.goto(origin, { waitUntil: 'networkidle' });
+  await StorageGate.visit(page, origin);
   const services = [['rs', 'rsCounter', 'Rust'], ['go', 'goNotes', 'Go'], ['ruby', 'rubyNotes', 'Ruby']];
   if (StorageGate.withCSharp) services.push(['cs', 'csNotes', 'C#'], ['journal', 'journal', 'F#']);
   if (StorageGate.withKotlin) services.push(['kt', 'ktNotes', 'Kotlin']);
@@ -1227,7 +1255,7 @@ async function checkWebAssemblyStoredFields(browser, origin) {
     await page.waitForFunction((selector) => document.querySelector(selector)?.textContent === '3', `#${id}-count`);
     expect(await page.textContent(`#${id}-count`), '3', `a ${language} WebAssembly method changes its LocalState field`);
   }
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   for (const [id, instance, language] of services) {
     expect(await page.textContent(`#${id}-count`), '3', `a ${language} LocalState field changed by its own method survives a reload`);
     const stored = await page.evaluate((key) => localStorage.getItem(key), `tac:service:${instance}:/:count`);
@@ -1244,7 +1272,7 @@ async function checkCSharpStorage(page, evaluate) {
   const refused = await evaluate(async () => { try { await __root('csNotes').refuse('c2'); return false; } catch { return true; } });
   expect(refused, true, 'a refused C# AllOrNothing call fails');
   await evaluate(StorageGate.settleCaches);
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect(JSON.stringify(await evaluate(() => __root('csNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the C# cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('csNotes').list())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'the C# Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('csNotes').kept())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'a C# service that needs CsNoteStore reads through the store, which opens the context of its Setup');
@@ -1265,7 +1293,7 @@ async function checkKotlinStorage(page, evaluate) {
   const refused = await evaluate(() => { try { __root('ktNotes').saveThenRefuse('k2'); return ''; } catch (error) { return error.message; } });
   expect(refused.includes('the note was refused'), true, 'a refused Kotlin AllOrNothing call reports its error');
   await evaluate(StorageGate.settleCaches);
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Kotlin cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').list())), JSON.stringify([{ id: 'k1', text: 'kept' }]), 'the Kotlin Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').kept())), JSON.stringify([{ id: 'k1', text: 'kept' }]), 'a Kotlin service that needs KtNoteStore reads through the store, which opens the context of its Setup');
@@ -1280,7 +1308,7 @@ async function checkSwiftStorage(page, evaluate) {
   const refused = await evaluate(async () => { try { await __root('swiftCounter').saveThenRefuse('s2'); return ''; } catch (error) { return error.message; } });
   expect(refused.includes('the note was refused'), true, 'a refused Swift AllOrNothing call reports its error');
   await evaluate(StorageGate.settleCaches);
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Swift cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').list())), JSON.stringify([{ id: 's1', text: 'kept' }]), 'the Swift Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').kept())), JSON.stringify([{ id: 's1', text: 'kept' }]), 'a Swift service that needs SwiftNoteStore reads through the store, which opens the context of its Setup');
@@ -1295,7 +1323,7 @@ async function checkJavaStorage(page, evaluate) {
   const refused = await evaluate(() => { try { __root('javaCounter').saveThenRefuse('j2'); return ''; } catch (error) { return error.message; } });
   expect(refused.includes('the note was refused'), true, 'a refused Java AllOrNothing call reports its error');
   await evaluate(StorageGate.settleCaches);
-  await page.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(page);
   expect(JSON.stringify(await evaluate(() => __root('javaCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Java cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('javaCounter').list())), JSON.stringify([{ id: 'j1', text: 'kept' }]), 'the Java Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('javaCounter').kept())), JSON.stringify([{ id: 'j1', text: 'kept' }]), 'a Java service that needs JavaNoteStore reads through the store, which opens the context of its Setup');
@@ -1369,7 +1397,7 @@ async function checkDeniedStorage(browser, origin) {
     }
   });
   const deniedPage = await blocked.newPage();
-  await deniedPage.goto(origin, { waitUntil: 'networkidle' });
+  await StorageGate.visit(deniedPage, origin);
   await deniedPage.click('#bump');
   expect(await deniedPage.textContent('#clicks'), '1', 'denied Web Storage does not break rendering');
   const deniedClient = await deniedPage.evaluate(() => __root('storageClients').freshClient.counter());
@@ -1393,7 +1421,7 @@ function issueCertificate(project) {
 
 async function checkServiceWorkerOffline(secureContext, secureOrigin) {
   const securePage = await secureContext.newPage();
-  await securePage.goto(`${secureOrigin}/`, { waitUntil: 'networkidle' });
+  await StorageGate.visit(securePage, `${secureOrigin}/`);
   await securePage.evaluate(async () => {
     let timer;
     try {
@@ -1403,7 +1431,7 @@ async function checkServiceWorkerOffline(secureContext, secureOrigin) {
       ]);
     } finally { clearTimeout(timer); }
   });
-  await securePage.reload({ waitUntil: 'networkidle' });
+  await StorageGate.reload(securePage);
 
   const detail = '/.tachyon/services/PanelDetailService.js';
   expect(await securePage.textContent('#clicks'), '0', 'fresh profile starts at the default');
