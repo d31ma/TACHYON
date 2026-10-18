@@ -563,3 +563,29 @@ refused in Java Tac code" in the amendments above.
   @OnEvent".
 - In the annotation rule table, `TAC_HELPER` is now the full `TAC` list:
   every Tac language accepts `Helper`.
+
+## Amendment (2026-10-18): one Java program per page
+
+The "own copy" bullet of "The storage host" no longer holds. Each service
+file is still lowered on its own and still becomes its holder class
+`TacService<n>`, but the services of a page now share one copy of every type
+that does not come from their own files:
+
+- Before lowering, the build joins the behavior runtime's switch tables of
+  all the page's services (Setups, entities, cache evictions, properties,
+  values, profiles and checks) and gives the runtime the page's module key,
+  so every service's runtime is the same text.
+- The runtime, the Setups, clients, stores and entities then move into one
+  class, `tachyon/TacPage.java`, and every holder `extends TacPage`. A Java
+  class inherits the member types of its superclass, so the service code
+  names `Behaviors`, a Setup or a client as before, and the page has one
+  Setup registry: two services that need the same client share its Setup
+  configuration and adapters. The moved lines are blanked, so the service's
+  own lines keep their numbers.
+- Each service keeps its own holder with its own copies, as before, when two
+  copies of a moved type differ, two services give one table entry
+  different text, two imports name different types with one simple name,
+  or a service file declares a Setup itself.
+- The page-program fixture (ADR 0022) is `"shared"` for Java. Its route
+  loads 40 KB of script and 82 KB of WebAssembly, against 86 KB before
+  (TY1337, the same Linux container, no Binaryen).

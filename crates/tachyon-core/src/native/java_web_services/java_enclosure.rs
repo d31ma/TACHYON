@@ -3,6 +3,7 @@ use super::java_code::JavaCode;
 pub(super) struct JavaEnclosure;
 
 impl JavaEnclosure {
+    const PAGE: &'static str = "TacPage";
     const MODEL_IMPORT: &'static str = "import models.";
     const MEMBER_MARK: &'static str = "static ";
     const CLOSING: &'static str = "}\n";
@@ -14,13 +15,28 @@ impl JavaEnclosure {
     }
 
     pub(super) fn wrap(source: &str, holder: &str) -> String {
+        Self::enclosed(source, &format!(" final class {holder} {{ "))
+    }
+
+    pub(super) fn wrap_on_page(source: &str, holder: &str) -> String {
+        Self::enclosed(
+            source,
+            &format!(" final class {holder} extends {} {{ ", Self::PAGE),
+        )
+    }
+
+    pub(super) fn page(source: &str) -> String {
+        Self::enclosed(source, &format!(" class {} {{ ", Self::PAGE))
+    }
+
+    fn enclosed(source: &str, header: &str) -> String {
         let without_imports = Self::without_model_imports(source);
         let code = JavaCode::new(&without_imports);
         let types = code.top_level_types();
         let opening = types
             .first()
             .map_or(0, |first| code.statement_end_before(first.keyword_at));
-        let mut inserts = vec![(opening, format!(" final class {holder} {{ "))];
+        let mut inserts = vec![(opening, header.to_owned())];
         inserts.extend(
             types
                 .iter()

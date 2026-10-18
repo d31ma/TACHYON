@@ -42,6 +42,7 @@ pub(crate) use native_application_lifetime::NativeApplicationLifetime;
 mod parameters;
 mod polyglot;
 pub(crate) use polyglot::ModelSchema;
+pub(crate) use polyglot::{JavaPageRuntime, JavaRuntimeSections};
 mod queries;
 mod query_frontend;
 mod renamed;
@@ -399,17 +400,60 @@ pub(crate) fn lower_with_resources(
     environment: &str,
     resources: &BTreeMap<String, BTreeSet<String>>,
 ) -> Result<Option<String>, Failure> {
-    let Some(mut rewritten) = http_client::HttpClientSource::rewrite(path, source)? else {
-        return lower_source(path, source, environment, resources);
-    };
+    let rewritten = rewritten_clients(path, source, environment)?;
+    let text = rewritten.as_deref().unwrap_or(source);
+    let lowered = lower_source(path, text, environment, resources)?;
+    Ok(lowered.or(rewritten))
+}
+
+pub(crate) fn java_page_sections(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Option<JavaRuntimeSections>, Failure> {
+    let rewritten = rewritten_clients(path, source, environment)?;
+    polyglot::java_sections(path, rewritten.as_deref().unwrap_or(source), environment)
+}
+
+pub(crate) fn lower_in_java_page(
+    path: &Path,
+    source: &str,
+    environment: &str,
+    page: &JavaPageRuntime,
+) -> Result<Option<String>, Failure> {
+    let rewritten = rewritten_clients(path, source, environment)?;
+    let text = rewritten.as_deref().unwrap_or(source);
+    let lowered = polyglot::lower_in_java_page(path, text, environment, page)?;
+    Ok(lowered.or(rewritten))
+}
+
+pub(crate) fn page_module_id(path: &Path) -> String {
+    module_id(path)
+}
+
+fn rewritten_clients(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Option<String>, Failure> {
+    http_client::HttpClientSource::rewrite(path, source)?
+        .map(|rewritten| without_native_tac_roles(path, rewritten, environment))
+        .transpose()
+}
+
+fn without_native_tac_roles(
+    path: &Path,
+    rewritten: String,
+    environment: &str,
+) -> Result<String, Failure> {
     let browser_script = path
         .extension()
-        .is_some_and(|value| value == "js" || value == "ts");
-    if environment == "tac" && !browser_script {
-        rewritten = ServiceRoles::read(path, &rewritten)?.source;
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| ["js", "ts"].contains(&value));
+    if [environment == "tac", browser_script] == [true, false] {
+        return ServiceRoles::read(path, &rewritten).map(|roles| roles.source);
     }
-    let lowered = lower_source(path, &rewritten, environment, resources)?;
-    Ok(Some(lowered.unwrap_or(rewritten)))
+    Ok(rewritten)
 }
 
 pub(crate) fn csharp_case_calls(

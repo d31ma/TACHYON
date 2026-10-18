@@ -2,21 +2,46 @@ use super::super::mapper::Plan;
 use super::super::testing::Unit;
 use super::java_test_construction::JavaTestConstruction;
 use super::{Edit, Method, Module, Type, block, concrete_edit, declared_fields, render};
+pub(crate) use java_runtime_sections::{JavaPageRuntime, JavaRuntimeSections};
 use java_typed_client::JavaTypedClient;
 use serde_json::Value;
 use std::fmt::Write as _;
 
+mod java_runtime_sections;
 mod java_typed_client;
 
 pub(super) fn lower(module: &Module) -> Result<String, String> {
+    lower_with(module, None)
+}
+
+pub(super) fn lower_in_page(module: &Module, page: &JavaPageRuntime) -> Result<String, String> {
+    lower_with(module, Some(page))
+}
+
+pub(super) fn sections(module: &Module) -> Result<JavaRuntimeSections, String> {
+    reject_reserved_names(module)?;
+    let mut sections = JavaRuntimeSections::default();
+    module.types.iter().try_for_each(|type_declaration| {
+        lower_type(module, type_declaration, &mut sections, &mut Vec::new())
+    })?;
+    Ok(sections)
+}
+
+fn lower_with(module: &Module, page: Option<&JavaPageRuntime>) -> Result<String, String> {
     reject_reserved_names(module)?;
     let mut edits = Vec::new();
-    let mut sections = RuntimeSections::default();
+    let mut sections = JavaRuntimeSections::default();
     for type_declaration in &module.types {
         edits.extend(concrete_edit(module, type_declaration));
         lower_type(module, type_declaration, &mut sections, &mut edits)?;
     }
-    let mut runtime = sections.fill_runtime(module);
+    let mut runtime = page.map_or_else(
+        || sections.fill_runtime(&module.module_id, &module.environment),
+        |page| {
+            page.sections
+                .fill_runtime(&page.module_id, &module.environment)
+        },
+    );
     runtime.push_str(super::JavaBuiltins::NONE);
     runtime.push_str(super::super::testing::unit_helper(
         &module.types,
@@ -25,55 +50,37 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
     render(module, edits, &runtime)
 }
 
-#[derive(Default)]
-struct RuntimeSections {
-    configurations: String,
-    entities: String,
-    evictions: String,
-    properties: String,
-    values: String,
-    selections: String,
-    validations: String,
-}
-
-impl RuntimeSections {
-    fn fill_runtime(&self, module: &Module) -> String {
-        include_str!("java_runtime.java")
-            .replace("__MODULE__", &module.module_id)
-            .replace("__ENVIRONMENT__", &module.environment)
-            .replace("__CONFIGURATIONS__", &self.configurations)
-            .replace("__ENTITIES__", &self.entities)
-            .replace("__EVICTIONS__", &self.evictions)
-            .replace("__PROPERTIES__", &self.properties)
-            .replace("__VALUES__", &self.values)
-            .replace("__SELECTIONS__", &self.selections)
-            .replace("__VALIDATIONS__", &self.validations)
-    }
-}
-
 fn lower_type(
     module: &Module,
     type_declaration: &Type,
-    sections: &mut RuntimeSections,
+    sections: &mut JavaRuntimeSections,
     edits: &mut Vec<Edit>,
 ) -> Result<(), String> {
     let validation = validation_policy(type_declaration)?;
-    sections.validations.push_str(&validation);
+    sections
+        .validations
+        .add(type_declaration.name.clone(), validation);
     let properties = properties_case(type_declaration)?;
-    sections.properties.push_str(&properties);
+    sections
+        .properties
+        .add(type_declaration.name.clone(), properties);
     let selection = selection_case(type_declaration)?;
-    sections.selections.push_str(&selection);
+    sections
+        .selections
+        .add(type_declaration.name.clone(), selection);
     let values = value_bindings(type_declaration)?;
-    sections.values.push_str(&values);
+    sections.values.add(type_declaration.name.clone(), values);
     let mut members = constructor(type_declaration)?;
     if type_declaration.configuration {
         check_configuration(module, type_declaration)?;
         let configuration = configuration_case(type_declaration);
-        sections.configurations.push_str(&configuration);
+        sections
+            .configurations
+            .add(type_declaration.name.clone(), configuration);
     }
     if let Some(entity) = &type_declaration.entity {
         let entity = entity_case(type_declaration, entity)?;
-        sections.entities.push_str(&entity);
+        sections.entities.add(type_declaration.name.clone(), entity);
     }
     for method in &type_declaration.methods {
         if method.metadata.is_empty() {
@@ -104,7 +111,7 @@ fn lower_method(
     module: &Module,
     type_declaration: &Type,
     method: &Method,
-    sections: &mut RuntimeSections,
+    sections: &mut JavaRuntimeSections,
     edits: &mut Vec<Edit>,
 ) -> Result<String, String> {
     let (body, helper) = wrap(module, type_declaration, method)?;
@@ -114,7 +121,10 @@ fn lower_method(
     });
     if let Some(cacheable) = method.metadata.get("cacheable") {
         let eviction = eviction_case(type_declaration, method, cacheable)?;
-        sections.evictions.push_str(&eviction);
+        sections.evictions.add(
+            format!("{}.{}", type_declaration.name, method.name),
+            eviction,
+        );
     }
     Ok(helper)
 }

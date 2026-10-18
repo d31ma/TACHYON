@@ -342,12 +342,27 @@ no implementation, and Tachyon generates each query.
   generated `TacClientConfiguration` of a managed-client owner is
   `moduleOwned`, so it stays one for each module: each owner module has its
   own adapter policies.
+- Java browser services of a page build into one TeaVM program with one
+  runtime. Each service is still lowered on its own, but the runtime's
+  switch tables (Setups, entities, cache evictions, properties, values,
+  profiles and checks) are the union of every service's tables, and the
+  runtime's module key is the page's. Every type that does not come from a
+  service's own file (the runtime, Setups, clients, stores and entities)
+  then moves into one `tachyon/TacPage.java` class, and each service holder
+  `TacService<N>` extends `TacPage`, so the services name those types as
+  before and share one Setup registry. The service's own file keeps its
+  lines. When two copies of a moved type differ, two services give one
+  table entry different text, two imports name different types alike, or a
+  Setup is declared in a service file, each service keeps its own holder
+  with its own copies, as before. Route size of the page-program fixture
+  (TY1337, the same Linux container): 40 KB of script before and after,
+  86 KB of WebAssembly before and 82 KB after.
 - Current limit: in the languages below, each browser service is lowered on
   its own, with its own copy of the runtime glue and of each Setup, client
   and store type. Two such services on one page therefore get two Setup
   configurations and separate adapters; the clients inside one service share
   them. Go and Rust services already build into one page program (ADR 0045
-  and the Rust bullet below),
+  and the Rust bullet below), Java services do as described above,
   JavaScript and TypeScript services share one Setup class as described
   above, and the Dart services of a site build into one Dart library (see
   the next bullet). The thread that lowers a language's page as one
@@ -359,9 +374,6 @@ no implementation, and Tachyon generates each query.
   - Kotlin: one `private object TachyonService<N>` for each service; the hook
     is `native/page_program/kotlin_page_program.rs`. Baseline 36 KB of
     script, 195 KB of WebAssembly.
-  - Java: one holder class for each service; the hook is
-    `JavaWebServices::services` in `native/java_web_services.rs`. Baseline
-    40 KB of script, 86 KB of WebAssembly.
   - C#: one `namespace TachyonService<N>` for each service; the hook is
     `native/page_program/dotnet_page_program.rs`. Baseline 115 KB of script, 1136 KB of WebAssembly.
   - F#: one `namespace rec TachyonService<N>` for each service in the F#
@@ -421,9 +433,10 @@ no implementation, and Tachyon generates each query.
   see two (`"separate"`), and that the Store record one service saves is
   found by the other. `TAC_PAGE_PROGRAM_LANGUAGES` and
   `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript, Go, Dart,
-  Rust and Swift fixtures are `"shared"` (47 KB of script; 37 KB of script
-  and 990 KB of WebAssembly; 37 KB of script and 44 KB of WebAssembly; 125 KB
-  of script; 35 KB of script and 1513 KB of WebAssembly). The C++ fixture
+  Rust, Swift and Java fixtures are `"shared"` (47 KB of script; 37 KB of
+  script and 990 KB of WebAssembly; 37 KB of script and 44 KB of WebAssembly;
+  125 KB of script; 35 KB of script and 1513 KB of WebAssembly; 40 KB of
+  script and 82 KB of WebAssembly). The C++ fixture
   is marked owed and skipped by default: a C++ page HTTP client does not
   call a Setup's `adapters.http` yet and ignores the `HTTPClient` options
   (CPP3 of the queue plan).

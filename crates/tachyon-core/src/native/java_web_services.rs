@@ -1,11 +1,12 @@
 use crate::Failure;
+use crate::behavior::JavaPageRuntime;
 use java_browser_runtime::JavaBrowserRuntime;
 use java_class_reader::JavaClassReader;
-use java_enclosure::JavaEnclosure;
 use java_event_members::JavaEventMembers;
 use java_held_streams::JavaHeldStreams;
 use java_models::JavaModels;
-use java_service::JavaService;
+use java_page_program::{JavaPageProgram, JavaPageSources};
+use java_service::{JavaService, JavaServiceDraft};
 use java_service_needs::JavaServiceNeeds;
 use java_service_table::JavaServiceTable;
 use java_value_type::JavaValueType;
@@ -31,6 +32,7 @@ mod java_model_reader;
 mod java_model_table;
 mod java_models;
 mod java_need_owner;
+mod java_page_program;
 mod java_preference_constructor;
 mod java_service;
 mod java_service_needs;
@@ -47,6 +49,8 @@ mod tea_vm_toolchain;
 
 #[cfg(test)]
 mod java_browser_http_tests;
+#[cfg(test)]
+mod java_page_program_tests;
 #[cfg(test)]
 mod java_service_needs_tests;
 #[cfg(test)]
@@ -213,18 +217,17 @@ impl JavaWebServices {
         let models = JavaModels::read(snapshot_root, &all_authored)?;
         let values = models.values();
         let needs = JavaServiceNeeds::read(services, &authored)?;
-        let read = Self::services(
-            snapshot_root,
-            services,
-            &authored,
-            &values,
-            (&models, &needs),
-        )?;
+        let drafts = Self::drafts(snapshot_root, services, &authored, (&models, &needs))?;
+        let runtime = JavaPageProgram::runtime(&drafts)?;
+        let page = (&values, &models, &needs);
+        let built = Self::built(&drafts, page, runtime)?;
+        let read = built.services;
         let shared = JavaServiceNeeds::shared(&read, &authored)?;
         let mut sources: Vec<(PathBuf, String)> = read
             .iter()
             .map(|service| (service.path.clone(), service.source.clone()))
             .collect();
+        sources.extend(built.page);
         sources.extend(models.sources(&values)?);
         sources.extend(Self::prelude(&read, &values, &shared));
         sources.extend(JavaWebApis::clients(
@@ -232,6 +235,30 @@ impl JavaWebServices {
             &all_authored,
         ));
         Ok(sources)
+    }
+
+    fn built(
+        drafts: &[JavaServiceDraft],
+        page: (&JavaValueType, &JavaModels, &JavaServiceNeeds),
+        runtime: Option<JavaPageRuntime>,
+    ) -> Result<JavaPageSources, Failure> {
+        let shared = runtime
+            .map(|runtime| Self::shared(drafts, page, &runtime))
+            .transpose()?
+            .flatten();
+        shared.map_or_else(
+            || Self::services(drafts, page, None).map(JavaPageProgram::separate),
+            Ok,
+        )
+    }
+
+    fn shared(
+        drafts: &[JavaServiceDraft],
+        page: (&JavaValueType, &JavaModels, &JavaServiceNeeds),
+        runtime: &JavaPageRuntime,
+    ) -> Result<Option<JavaPageSources>, Failure> {
+        let finished = Self::services(drafts, page, Some(runtime))?;
+        Ok(JavaPageProgram::shared(finished, drafts, runtime))
     }
 
     pub(crate) fn test_answer_readers(project: &Path, lowered: &str) -> Result<String, Failure> {
@@ -270,17 +297,15 @@ impl JavaWebServices {
             .collect()
     }
 
-    fn services(
+    fn drafts(
         snapshot_root: &Path,
         services: &[(String, String, PathBuf)],
         texts: &[String],
-        values: &JavaValueType,
         (models, needs): (&JavaModels, &JavaServiceNeeds),
-    ) -> Result<Vec<JavaService>, Failure> {
-        let mut read = Vec::new();
-        for (index, ((instance, class, path), authored)) in services.iter().zip(texts).enumerate() {
+    ) -> Result<Vec<JavaServiceDraft>, Failure> {
+        let mut drafts = Vec::new();
+        for ((instance, class, path), authored) in services.iter().zip(texts) {
             let relative = path.strip_prefix(snapshot_root).unwrap_or(path);
-            let authored = authored.clone();
             let service = JavaService {
                 instance: instance.to_owned(),
                 class: class.to_owned(),
@@ -288,26 +313,18 @@ impl JavaWebServices {
                 required: Vec::new(),
                 providers: Vec::new(),
                 path: relative.to_path_buf(),
-                source: authored,
+                source: authored.clone(),
             };
-            read.push(Self::service(
-                snapshot_root,
-                service,
-                index,
-                values,
-                (models, needs),
-            )?);
+            drafts.push(Self::draft(snapshot_root, service, (models, needs))?);
         }
-        Ok(read)
+        Ok(drafts)
     }
 
-    fn service(
+    fn draft(
         snapshot_root: &Path,
         authored: JavaService,
-        index: usize,
-        values: &JavaValueType,
         (models, needs): (&JavaModels, &JavaServiceNeeds),
-    ) -> Result<JavaService, Failure> {
+    ) -> Result<JavaServiceDraft, Failure> {
         let relative = authored.path.as_path();
         let roles = crate::behavior::ServiceRoles::read(relative, &authored.source)?;
         let assembled =
@@ -320,14 +337,54 @@ impl JavaWebServices {
         let held =
             JavaHeldStreams::new(relative, &authored.class).members(events.as_ref(), source)?;
         let behavior_source = models.behavior_source(source, &authored.class)?;
-        let owner = needs.owner(
+        needs.owner(
             &authored.instance,
             relative,
             (&authored.source, &behavior_source, &authored.class),
         )?;
-        let lowered = crate::behavior::lower(relative, &behavior_source, "tac")?;
-        let source =
-            lowered.map_or_else(|| behavior_source, |text| JavaBrowserRuntime::adapt(&text));
+        Ok(JavaServiceDraft {
+            required: roles.required,
+            events,
+            held,
+            behavior_source,
+            service: authored,
+        })
+    }
+
+    fn services(
+        drafts: &[JavaServiceDraft],
+        page: (&JavaValueType, &JavaModels, &JavaServiceNeeds),
+        runtime: Option<&JavaPageRuntime>,
+    ) -> Result<Vec<JavaService>, Failure> {
+        drafts
+            .iter()
+            .map(|draft| Self::service(draft, page, runtime))
+            .collect()
+    }
+
+    fn service(
+        draft: &JavaServiceDraft,
+        (values, models, needs): (&JavaValueType, &JavaModels, &JavaServiceNeeds),
+        runtime: Option<&JavaPageRuntime>,
+    ) -> Result<JavaService, Failure> {
+        let authored = &draft.service;
+        let relative = authored.path.as_path();
+        let behavior_source = &draft.behavior_source;
+        let owner = needs.owner(
+            &authored.instance,
+            relative,
+            (&authored.source, behavior_source, &authored.class),
+        )?;
+        let lowered = match runtime {
+            Some(runtime) => {
+                crate::behavior::lower_in_java_page(relative, behavior_source, "tac", runtime)?
+            }
+            None => crate::behavior::lower(relative, behavior_source, "tac")?,
+        };
+        let source = lowered.map_or_else(
+            || behavior_source.clone(),
+            |text| JavaBrowserRuntime::adapt(&text),
+        );
         let source = models.without_declarations(relative, &source)?;
         let providers = java_preference_constructor::JavaPreferenceConstructor::read(
             relative,
@@ -344,17 +401,19 @@ impl JavaWebServices {
         let reader = JavaClassReader::new(&shown, &source);
         let events_of_class = JavaEventMembers::new(relative, &authored.class, values);
         let mut members = reader.members_without_fields(&authored.class, values, &needed)?;
-        members.extend(events_of_class.listeners(events.as_ref())?);
-        members.extend(held);
+        members.extend(events_of_class.listeners(draft.events.as_ref())?);
+        members.extend(draft.held.iter().cloned());
         let compiled =
             JavaEventMembers::with_publishers(&reader.without_markers(&source), &providers);
         let compiled = needs.qualified(&compiled, &authored.class, &providers);
         Ok(JavaService {
+            instance: authored.instance.clone(),
+            class: authored.class.clone(),
             members,
             providers,
-            source: JavaEnclosure::wrap(&compiled, &JavaEnclosure::holder(index)),
-            required: roles.required,
-            ..authored
+            source: compiled,
+            required: draft.required.clone(),
+            path: authored.path.clone(),
         })
     }
 

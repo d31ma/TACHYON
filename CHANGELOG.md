@@ -832,6 +832,19 @@ machine contracts have their own, independent major versions.
   `BehaviorResult` of a model is no longer left off the service: the page
   calls it as a task, and an error rejects the call (ADR 0022 amendment).
 
+- The Java browser services of a page share one Setup. Two Java services
+  that need the same HTTP client or Store now see one Setup configuration
+  and one set of adapters, as in JavaScript, Go and C++: an increment one
+  service sends through its client is seen by the other. The page's Java
+  program holds one copy of the behavior runtime and of each Setup, client,
+  store and entity, in `tachyon/TacPage.java`, and each service holder
+  extends it; the runtime's tables join every service's entries. When two
+  copies of such a type differ, or two services give one table entry
+  different text, each service keeps its own copies as before. The
+  page-program fixture loads 82 KB of WebAssembly instead of 86 KB, and its
+  Java entry is now `"shared"`. In the Signal-driven UI cookbook, the Java
+  list service needs `UsersClient` too and loads the saved names in
+  `OnStart` (ADR 0022, ADR 0083 amendment).
 - The Streaming controllers and Socket controllers pages show a Ruby and a
   Swift browser client: the model, the `HTTPClient` with `StreamRequest` or
   `SocketRequest`, and the service that keeps it in a `Needs` field and

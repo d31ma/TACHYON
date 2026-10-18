@@ -40,6 +40,7 @@ use go_tac_helpers::GoTacHelpers;
 mod go_test_construction;
 mod go_typed_exchange;
 mod java;
+pub(crate) use java::{JavaPageRuntime, JavaRuntimeSections};
 mod java_builtins;
 mod java_test_construction;
 pub(crate) use java_builtins::JavaBuiltins;
@@ -239,6 +240,47 @@ pub(super) fn lower(
         Prepared::Annotated(module) => lower_module(&module)
             .map(Some)
             .map_err(|message| module_failure(path, source, message)),
+    }
+}
+
+pub(super) fn java_sections(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Option<JavaRuntimeSections>, Failure> {
+    prepare(path, source, environment)?
+        .and_then(annotated_module)
+        .map(|module| {
+            java::sections(&module).map_err(|message| module_failure(path, source, message))
+        })
+        .transpose()
+}
+
+pub(super) fn lower_in_java_page(
+    path: &Path,
+    source: &str,
+    environment: &str,
+    page: &JavaPageRuntime,
+) -> Result<Option<String>, Failure> {
+    prepare(path, source, environment)?
+        .map(|prepared| {
+            java_page_lowering(prepared, page)
+                .map_err(|message| module_failure(path, source, message))
+        })
+        .transpose()
+}
+
+fn annotated_module(prepared: Prepared) -> Option<Module> {
+    match prepared {
+        Prepared::Annotated(module) => Some(module),
+        Prepared::Erased(_) => None,
+    }
+}
+
+fn java_page_lowering(prepared: Prepared, page: &JavaPageRuntime) -> Result<String, String> {
+    match prepared {
+        Prepared::Erased(erased) => Ok(erased),
+        Prepared::Annotated(module) => java::lower_in_page(&module, page),
     }
 }
 

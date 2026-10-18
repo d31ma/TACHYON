@@ -87,9 +87,12 @@ impl PreferenceFixture {
         let needs =
             super::java_service_needs::JavaServiceNeeds::read(&page, &[String::from(source)])
                 .expect("page");
-        let service = JavaWebServices::service(root, authored, 0, &values, (&models, &needs))
+        let draft =
+            JavaWebServices::draft(root, authored, (&models, &needs)).expect("Java service draft");
+        let service = JavaWebServices::service(&draft, (&values, &models, &needs), None)
             .expect("production Java lowering");
-        (service, values)
+        let mut built = super::java_page_program::JavaPageProgram::separate(vec![service]);
+        (built.services.remove(0), values)
     }
 
     fn staged(root: &Path) -> Vec<std::path::PathBuf> {
