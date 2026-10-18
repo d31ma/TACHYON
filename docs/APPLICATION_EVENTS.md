@@ -405,8 +405,8 @@ A model marked `@Topic` works like a Spring Cloud Bus remote event
 ([ADR 0061](adr/0061-topic-events-cross-languages.md)):
 
 - Write `@Topic` above the model in a models folder: `@topic` in Python,
-  `#[Topic]` in Rust, PHP and Ruby, `[Topic]` in C#, `// @Topic` in Go and
-  `/** @Topic */` in TypeScript. JavaScript writes ` * @Topic` in the model's
+  `#[Topic]` in Rust, PHP and Ruby, `[Topic]` in C#, `// @Topic` in Go,
+  `struct [[Topic]] OrderPlaced` in C++ and `/** @Topic */` in TypeScript. JavaScript writes ` * @Topic` in the model's
   `@typedef` block. The compiler refuses it anywhere else.
 - The topic name is the kebab-case model name: `OrderPlaced` is
   `data/topics/order-placed.jsonl` and `/.tachyon/topics/order-placed`. The
@@ -426,7 +426,8 @@ A model marked `@Topic` works like a Spring Cloud Bus remote event
 - Each language marks its own model. A listener hears other processes only
   when its own model is a Topic, and only when its class is part of a
   controller, like every Yon provider.
-- All eleven Yon languages send and receive Topic events.
+- Every Yon language sends and receives Topic events. C++, like Lua, puts
+  its Topic events on the direct answer instead of the resource channel.
 - In Tac, an `@OnEvent` listener for a Topic model opens the topic stream by
   itself; all listeners of one topic share one stream, which replays the kept
   records, resumes after the last record it received and reconnects like

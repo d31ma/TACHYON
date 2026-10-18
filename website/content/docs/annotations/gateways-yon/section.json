@@ -3,7 +3,7 @@
   "axis": "language",
   "notApplicable": ["lua"],
   "summary": "Gateway declares a method that another language answers. Declare it on an HTTPClient contract as a signature. In JavaScript and TypeScript its answer is Promise<BehaviorJsonValue | void>, because an empty body returns nothing to the type checker. It names a class in another Yon language or a program under server/helpers.",
-  "body": "Choose one language for GET /report. Each implementation returns {\"summary\":{\"period\":\"2026-Q3\",\"total\":42,...},\"forecast\":{\"months\":2,\"growth\":[1.5,1.5]}}. The controller returns a `Report` model, and each of its two fields holds a gateway result. A gateway is a method that calls code written in another language. `ReportClient` declares two gateways. `summarize` names the Python class `server/services/ReportService.py`. The Python tab names the JavaScript class `server/services/ReportService.js` instead, because a gateway never calls the caller's own language. The TypeScript tab names the Go class `server/services/ReportService.go` to show a Go target. The Go tab holds that class. Tachyon calls its exported method `Summarize`. `forecast` names the program `python3 server/helpers/forecast.py`. This program reads `{\"method\": \"forecast\", \"arguments\": [2]}` on stdin (standard input). It writes only the JSON result on stdout (standard output). So the Python tab also holds two more things: the class that most of the other languages call, and the program that every language calls. The arguments and results use the JSON value type of each language. JavaScript and Python use none. TypeScript uses `BehaviorJsonValue`. PHP uses `mixed` or no type. Ruby uses no type. Java uses `Object`. Kotlin uses `Any?`. C# and F# use `BehaviorJSON`. Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`. Dart uses `Object?` and `Future<Object?>`. Go uses `BehaviorValue` and `(BehaviorValue, error)`. The C#, F# and Go methods are named `Summarize`, so their options add `\"method\":\"summarize\"`. A failure is a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. Gateway exists only in Yon. The full rules are in the Yon guide, in the section Calling a method in another language. A gateway program gets only the platform variables (such as PATH) and the variables that server.environment in server/application.json lists (ADR 0026). Lua has no tab here yet. A Lua `-- @HTTPClient` method can carry `-- @Gateway` too. Tachyon answers its calls over the handler's own standard input and output, because stock Lua cannot open a socket (ADR 0085).\n\nC++ has no tab here, because C++ Yon code has only controllers, error handlers, an identity provider, services, helpers, workers, setups, validation, converters, caching, retries, transactions and stores so far: the build refuses `HTTPClient` in C++ with `TY1308` (ADR 0099).",
+  "body": "Choose one language for GET /report. Each implementation returns {\"summary\":{\"period\":\"2026-Q3\",\"total\":42,...},\"forecast\":{\"months\":2,\"growth\":[1.5,1.5]}}. The controller returns a `Report` model, and each of its two fields holds a gateway result. A gateway is a method that calls code written in another language. `ReportClient` declares two gateways. `summarize` names the Python class `server/services/ReportService.py`. The Python tab names the JavaScript class `server/services/ReportService.js` instead, because a gateway never calls the caller's own language. The TypeScript tab names the Go class `server/services/ReportService.go` to show a Go target. The Go tab holds that class. Tachyon calls its exported method `Summarize`. `forecast` names the program `python3 server/helpers/forecast.py`. This program reads `{\"method\": \"forecast\", \"arguments\": [2]}` on stdin (standard input). It writes only the JSON result on stdout (standard output). So the Python tab also holds two more things: the class that most of the other languages call, and the program that every language calls. The arguments and results use the JSON value type of each language. JavaScript and Python use none. TypeScript uses `BehaviorJsonValue`. PHP uses `mixed` or no type. Ruby uses no type. Java uses `Object`. Kotlin uses `Any?`. C# and F# use `BehaviorJSON`. Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`. Dart uses `Object?` and `Future<Object?>`. Go uses `BehaviorValue` and `(BehaviorValue, error)`. C++ uses `tachyon::json::JsonNode` (a parameter may be a `const` reference) and returns the answer directly. The C#, F# and Go methods are named `Summarize`, so their options add `\"method\":\"summarize\"`. A failure is a `BehaviorError`, and in C++ a thrown `tachyon::TacCodedError` whose `code()` is that code. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. Gateway exists only in Yon. The full rules are in the Yon guide, in the section Calling a method in another language. A gateway program gets only the platform variables (such as PATH) and the variables that server.environment in server/application.json lists (ADR 0026). Lua has no tab here yet. A Lua `-- @HTTPClient` method can carry `-- @Gateway` too. Tachyon answers its calls over the handler's own standard input and output, because stock Lua cannot open a socket (ADR 0085).\n\nA C++ class can call a gateway, but it cannot be the target of one yet: Tachyon builds no gateway unit for a `.hpp` file, so the C++ tab names the Python class like most of the other languages (ADR 0099).",
   "files": [
     {
       "name": "server/remotes/ReportClient.js",
@@ -255,6 +255,24 @@
       "name": "server/controllers/ReportController.fs",
       "code": {
         "file": "server/controllers/ReportController.fs"
+      }
+    },
+    {
+      "name": "server/models/Report.hpp",
+      "code": {
+        "file": "server/models/Report.hpp"
+      }
+    },
+    {
+      "name": "server/remotes/ReportClient.hpp",
+      "code": {
+        "file": "server/remotes/ReportClient.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.hpp",
+      "code": {
+        "file": "server/controllers/ReportController.hpp"
       }
     }
   ]

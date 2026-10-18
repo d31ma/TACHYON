@@ -145,6 +145,14 @@ impl CppProgram {
             .collect()
     }
 
+    pub(crate) fn topics(&self) -> Vec<String> {
+        self.models
+            .iter()
+            .filter(|model| model.is_topic())
+            .map(|model| model.name().to_owned())
+            .collect()
+    }
+
     pub(crate) fn has_class(&self, name: &str) -> bool {
         self.services
             .iter()

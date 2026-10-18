@@ -11,7 +11,7 @@ use tachyon_core::{
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::TcpStream;
 
-struct CppProject;
+pub(super) struct CppProject;
 
 impl CppProject {
     const MODEL: &'static str = r"#pragma once
@@ -59,7 +59,7 @@ private:
 };
 "#;
 
-    fn write(root: &Path, relative: &str, source: &str) {
+    pub(super) fn write(root: &Path, relative: &str, source: &str) {
         let path = root.join(relative);
         fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         fs::write(path, source).expect("source");
@@ -76,7 +76,7 @@ private:
         root
     }
 
-    fn compiler_available() -> bool {
+    pub(super) fn compiler_available() -> bool {
         std::process::Command::new("clang++")
             .arg("--version")
             .output()
@@ -91,7 +91,7 @@ private:
     }
 }
 
-struct Exchange;
+pub(super) struct Exchange;
 
 impl Exchange {
     async fn send(port: u16, request: String) -> String {
@@ -107,7 +107,7 @@ impl Exchange {
         String::from_utf8(bytes).expect("UTF-8 response")
     }
 
-    async fn without_body(port: u16, method: &str, path: &str) -> String {
+    pub(super) async fn without_body(port: u16, method: &str, path: &str) -> String {
         Self::send(
             port,
             format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"),
@@ -115,7 +115,7 @@ impl Exchange {
         .await
     }
 
-    async fn with_body(port: u16, path: &str, body: &str) -> String {
+    pub(super) async fn with_body(port: u16, path: &str, body: &str) -> String {
         Self::send(
             port,
             format!(
@@ -126,7 +126,7 @@ impl Exchange {
         .await
     }
 
-    fn body(response: &str) -> serde_json::Value {
+    pub(super) fn body(response: &str) -> serde_json::Value {
         let (_, body) = response.split_once("\r\n\r\n").expect("response body");
         serde_json::from_str(body).expect("JSON body")
     }

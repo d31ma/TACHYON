@@ -2368,7 +2368,7 @@
     {
       "id": "gateways",
       "title": "Calling a method in another language",
-      "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed. In the example, JavaScript and TypeScript call the Java class `ReportService.java`, and Python calls it too. Java, Groovy and every other language call the Python class `LedgerService.py`, and every language also runs the program `forecast.py`. A Lua client can declare `-- @Gateway` too. Its call travels over the handler's own standard input and output, because stock Lua cannot open a socket (ADR 0085). C++ has no tab here, because C++ Yon code has only controllers, error handlers, an identity provider, services, helpers, workers, setups, validation, converters, caching, retries, transactions and stores so far: the build refuses `HTTPClient` in C++ with `TY1308` (ADR 0099).",
+      "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed. In the example, JavaScript and TypeScript call the Java class `ReportService.java`, and Python calls it too. Java, Groovy and every other language, C++ included, call the Python class `LedgerService.py`, and every language also runs the program `forecast.py`. A Lua client can declare `-- @Gateway` too. Its call travels over the handler's own standard input and output, because stock Lua cannot open a socket (ADR 0085). A C++ class can call a gateway, but it cannot be the target of one yet, because Tachyon builds no gateway unit for a `.hpp` file (ADR 0099).",
       "group": "Polyglot",
       "files": [
         {
@@ -2389,7 +2389,7 @@
         },
         {
           "name": "spellings",
-          "code": "Declaring a method that another language answers\n\nEvery Yon language declares a Gateway the same way: the marker on its own\nline, strict JSON options, and a signature in an HTTPClient contract (an\ninterface, trait, Protocol class or abstract interface class; a class with\nempty method bodies in JavaScript, TypeScript and Ruby).\n\n  JavaScript  @Gateway({...})    async summarize(period) {}\n  TypeScript  @Gateway({...})    async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n  Ruby        #[Gateway({...})]  def summarize(period) ... end\n  Python      @gateway({...})    def summarize(self, period): ...\n  PHP         #[Gateway({...})]  public function summarize($period);\n  Java        @Gateway({...})    Object summarize(Object period);\n  Groovy      @Gateway({...})    Object summarize(Object period)\n  Kotlin      @Gateway({...})    fun summarize(period: Any?): Any?\n  C#          [Gateway({...})]   BehaviorJSON Summarize(BehaviorJSON period);\n  Rust        #[Gateway({...})]  fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n  Dart        @Gateway({...})    Future<Object?> summarize(Object? period);\n  F#          [<Gateway({...})>] abstract Summarize: period: BehaviorJSON -> BehaviorJSON\n  Go          // @Gateway({...}) on the line before Summarize(period BehaviorValue) (BehaviorValue, error) in the interface\n\nThe options name one target:\n\n  {\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}\n  {\"command\":[\"python3\",\"server/helpers/forecast.py\"]}\n"
+          "code": "Declaring a method that another language answers\n\nEvery Yon language declares a Gateway the same way: the marker on its own\nline, strict JSON options, and a signature in an HTTPClient contract (an\ninterface, trait, Protocol class or abstract interface class; a class with\nempty method bodies in JavaScript, TypeScript and Ruby; a class of bodiless\nmethod declarations in C++).\n\n  JavaScript  @Gateway({...})    async summarize(period) {}\n  TypeScript  @Gateway({...})    async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n  Ruby        #[Gateway({...})]  def summarize(period) ... end\n  Python      @gateway({...})    def summarize(self, period): ...\n  PHP         #[Gateway({...})]  public function summarize($period);\n  Java        @Gateway({...})    Object summarize(Object period);\n  Groovy      @Gateway({...})    Object summarize(Object period)\n  Kotlin      @Gateway({...})    fun summarize(period: Any?): Any?\n  C#          [Gateway({...})]   BehaviorJSON Summarize(BehaviorJSON period);\n  Rust        #[Gateway({...})]  fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n  Dart        @Gateway({...})    Future<Object?> summarize(Object? period);\n  F#          [<Gateway({...})>] abstract Summarize: period: BehaviorJSON -> BehaviorJSON\n  Go          // @Gateway({...}) on the line before Summarize(period BehaviorValue) (BehaviorValue, error) in the interface\n  C++         [[Gateway({...})]] tachyon::json::JsonNode summarize(const tachyon::json::JsonNode& period) const;\n\nThe options name one target:\n\n  {\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}\n  {\"command\":[\"python3\",\"server/helpers/forecast.py\"]}\n"
         },
         {
           "name": "server/remotes/ReportClient.js",
@@ -2546,6 +2546,18 @@
         {
           "name": "server/models/Balance.rb",
           "code": "# @!attribute [r] balance\n#   @return [Object]\n# @!attribute [r] forecast\n#   @return [Object]\nBalance = Data.define(:balance, :forecast)\n"
+        },
+        {
+          "name": "server/remotes/LedgerClient.hpp",
+          "code": "#pragma once\n\nclass [[HTTPClient]] LedgerClient {\npublic:\n    [[Gateway({\"class\":\"server/services/LedgerService.py\"})]]\n    tachyon::json::JsonNode balance(const tachyon::json::JsonNode& account) const;\n\n    [[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]]\n    tachyon::json::JsonNode forecast(const tachyon::json::JsonNode& months) const;\n};\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.hpp",
+          "code": "#pragma once\n#include \"../models/Balance.hpp\"\n#include \"../remotes/LedgerClient.hpp\"\n\nclass [[RequestRoute(\"/ledger\")]] [[Public]] LedgerController {\n    [[Needs]] LedgerClient& ledgerClient;\n\npublic:\n    [[GetRoute]]\n    Balance getLedger() {\n        return Balance{ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1)};\n    }\n};\n"
+        },
+        {
+          "name": "server/models/Balance.hpp",
+          "code": "#pragma once\n\nstruct Balance {\n    tachyon::json::JsonNode balance;\n    tachyon::json::JsonNode forecast;\n};\n"
         }
       ],
       "verify": "yon-gateway"

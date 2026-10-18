@@ -1,5 +1,6 @@
 use super::{
     CppYonContainer, CppYonController, CppYonDispatcher, CppYonErrors, CppYonGraph, CppYonRuntime,
+    CppYonTopics,
 };
 use crate::tac_cpp::CppProgram;
 
@@ -17,6 +18,7 @@ impl CppYonProgram {
             models.model_source(),
             errors.type_source(),
             models.setup_source(),
+            CppYonTopics::source(&models.topics()),
             CppYonContainer::declarations(graph),
             graph.located(),
             CppYonContainer::definitions(graph),

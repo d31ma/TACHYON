@@ -11,7 +11,7 @@ impl CppYonDispatcher {
     pub(crate) fn source(controller: &CppYonController, errors: &CppYonErrors) -> String {
         let branches: String = controller.routes.iter().map(Self::branch).collect();
         format!(
-            "{start}class {routes} {{\npublic:\n    static tachyon::yon::YonAnswer answer(const tachyon::yon::YonFrame& frame) {{\n        tachyon::yon::YonInvocation invocation;\n        {class}& controller = tachyon::yon::YonNeeds::of<{class}>();\n        invocation.start();\n        std::string verb = frame.text(\"method\");\n        std::string route = frame.text(\"route\");\n        try {{\n{branches}        }} catch (...) {{\n            return handled(std::current_exception(), frame);\n        }}\n        return tachyon::yon::YonAnswer::empty(405);\n    }}\n\nprivate:\n{handling}}};\n\nint main() {{\n    return tachyon::yon::YonMain::run<{routes}>();\n}}\n",
+            "{start}class {routes} {{\npublic:\n    static tachyon::yon::YonAnswer answer(const tachyon::yon::YonFrame& frame) {{\n        tachyon::yon::YonInvocation invocation;\n        {class}& controller = tachyon::yon::YonNeeds::of<{class}>();\n        invocation.start();\n        std::string verb = frame.text(\"method\");\n        std::string route = frame.text(\"route\");\n        try {{\n{branches}        }} catch (...) {{\n            return handled(std::current_exception(), frame);\n        }}\n        return tachyon::yon::YonDelivery::unrouted();\n    }}\n\nprivate:\n{handling}}};\n\nint main() {{\n    return tachyon::yon::YonMain::run<{routes}>();\n}}\n",
             start = Self::START,
             routes = Self::ROUTES,
             class = controller.file.class.name,

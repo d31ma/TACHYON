@@ -126,6 +126,16 @@ private:
     }
 };
 
+class YonTopics {
+public:
+    static const std::vector<std::string>& names();
+
+    static bool named(const std::string& name) {
+        const std::vector<std::string>& topics = names();
+        return std::find(topics.begin(), topics.end(), name) != topics.end();
+    }
+};
+
 class YonPublished {
 public:
     std::string name;
@@ -166,10 +176,27 @@ public:
             retained[name] = encoded;
         }
         queue.push_back(YonPublished{name, encoded});
+        send(name, encoded);
+    }
+
+    void receive(const std::string& name, const json::JsonNode& value) {
+        queue.push_back(YonPublished{name, value.toJsonString()});
+    }
+
+    void only(std::vector<std::string> keys) {
+        delivering = true;
+        admitted = std::move(keys);
+    }
+
+    const json::JsonArray& published() const {
+        return outbound;
     }
 
     void listen(const std::string& options, std::function<json::JsonNode(const json::JsonNode&)> callback) {
         json::JsonNode read = json::JsonReader::read(options);
+        if (!admits(read["key"].getValue<std::string>())) {
+            return;
+        }
         for (const json::JsonNode& event : read["events"].items()) {
             if (listeners.size() >= MAX_LISTENERS) {
                 throw std::runtime_error("Local listener capacity exceeded");
@@ -221,6 +248,23 @@ private:
     std::vector<YonListenerEntry> listeners;
     std::size_t deliveries = 0;
     bool closed = false;
+    bool delivering = false;
+    std::vector<std::string> admitted;
+    json::JsonArray outbound;
+
+    bool admits(const std::string& key) const {
+        return !delivering || std::find(admitted.begin(), admitted.end(), key) != admitted.end();
+    }
+
+    void send(const std::string& name, const std::string& encoded) {
+        if (!YonTopics::named(name)) {
+            return;
+        }
+        json::JsonObject topic;
+        topic["topic"] = name;
+        topic["payload_json"] = encoded;
+        outbound.add(topic);
+    }
 
     void replay(bool wanted, const std::string& name) {
         std::map<std::string, std::string>::const_iterator found = retained.find(name);

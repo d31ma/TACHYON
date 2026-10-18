@@ -1,5 +1,6 @@
 use super::{
-    CppYonController, CppYonHandler, CppYonHooks, CppYonPolicies, CppYonScope, CppYonStores,
+    CppYonController, CppYonHandler, CppYonHooks, CppYonPolicies, CppYonRemote, CppYonScope,
+    CppYonStores,
 };
 use crate::Failure;
 use crate::tac_cpp::{CppBehaviors, CppFile, CppLifetime, CppLowering, CppProgram, CppService};
@@ -33,13 +34,18 @@ impl CppYonProvider {
             &service.file,
             service.source.as_str(),
         );
-        Self::read(
+        let remote = CppYonRemote::members(service);
+        let mut provider = Self::read(
             written,
             &service.behaviors,
-            Scope::Singleton,
+            (Scope::Singleton, &remote),
             models,
             stores,
-        )
+        )?;
+        provider
+            .lowered
+            .push_str(&CppYonRemote::definitions(service));
+        Ok(provider)
     }
 
     pub(crate) fn root(
@@ -79,7 +85,7 @@ impl CppYonProvider {
         Self::read(
             (path, file, source),
             &behaviors,
-            Scope::Request,
+            (Scope::Request, ""),
             models,
             stores,
         )
@@ -88,14 +94,18 @@ impl CppYonProvider {
     fn read(
         (path, file, source): (&Path, &CppFile, &str),
         behaviors: &BTreeMap<String, Value>,
-        unwritten: Scope,
+        (unwritten, remote): (Scope, &str),
         models: &CppProgram,
         stores: &CppYonStores,
     ) -> Result<Self, Failure> {
         let class = &file.class;
         models.check_role(path, source, class)?;
         let scope = CppYonPolicies::scope(path, class, behaviors)?;
-        let opening = format!("{}{}", Self::FRIENDS, stores.member(path, source, class)?);
+        let opening = format!(
+            "{}{remote}{}",
+            Self::FRIENDS,
+            stores.member(path, source, class)?
+        );
         let lowered = CppLowering::yon(file, source, &opening, behaviors, scope);
         let (entity, defined) = stores.definitions(path, source, class)?.unzip();
         Ok(Self {

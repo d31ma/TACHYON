@@ -43,7 +43,12 @@ impl GatewayTable {
         contents: &str,
         portable: &str,
     ) -> Result<Option<Arc<Self>>, Failure> {
-        let declarations = crate::behavior::gateway_declarations(caller, contents)?;
+        let declarations = crate::yon_cpp::CppYon::gateways(
+            snapshot.source_root.path(),
+            caller,
+            contents,
+            crate::behavior::gateway_declarations,
+        )?;
         if declarations.is_empty() {
             return Ok(None);
         }

@@ -2,12 +2,14 @@ use super::{
     CppAttribute, CppClass, CppFailure, CppMember, CppMemberKind, CppParameter, CppStreamRequest,
 };
 use crate::Failure;
+use crate::annotation_rules::Realm;
 use std::path::Path;
 
 pub(crate) struct CppRemote<'a> {
     class: &'a CppClass,
     base: String,
     adapter: String,
+    call: &'static str,
 }
 
 impl<'a> CppRemote<'a> {
@@ -20,7 +22,15 @@ impl<'a> CppRemote<'a> {
     ];
     const TASK_PREFIXES: [&'static str; 2] = ["tachyon::Task<", "Task<"];
     const SEGMENT: &'static str = "tachyon::http::TacBrowserRequest::segment";
-    const ONE_REQUEST: &'static str = "Each method of a C++ [[HTTPClient]] class has one request marker ([[GetRequest(\"/path\")]], [[PostRequest]], [[PutRequest]], [[PatchRequest]] or [[DeleteRequest]]), returns Task<Answer> and has no body: Tachyon writes it. A [[StreamRequest]] or [[SocketRequest]] method returns void instead";
+    const GATEWAY: &'static str = "Gateway";
+    const ONE_REQUEST: [&'static str; 2] = [
+        "Each method of a C++ [[HTTPClient]] class has one request marker ([[GetRequest(\"/path\")]], [[PostRequest]], [[PutRequest]], [[PatchRequest]] or [[DeleteRequest]]), returns Task<Answer> and has no body: Tachyon writes it. A [[StreamRequest]] or [[SocketRequest]] method returns void instead",
+        "Each method of a Yon C++ [[HTTPClient]] class has one request marker ([[GetRequest(\"/path\")]], [[PostRequest]], [[PutRequest]], [[PatchRequest]] or [[DeleteRequest]]) or a [[Gateway({...})]] marker, returns its answer and has no body: Tachyon writes it. Yon C++ runs synchronously, so the answer is not a Task, for example `Order find([[PathVariable]] int id) const;`",
+    ];
+    const CALLS: [&'static str; 2] = [
+        "    co_return co_await tachyon::http::TacRemoteCall::answer<{answer}>({adapter}, std::move(request));\n",
+        "    return ::tachyon::yon::YonRemote::answer<{answer}>(tachyonBehaviors, {adapter}, std::move(request));\n",
+    ];
     const PATH_FORM: &'static str = "A C++ request path is one string that starts with /, for example [[GetRequest(\"/orders/{id}\")]]";
 
     pub(crate) fn check(path: &Path, source: &str, class: &'a CppClass) -> Result<(), Failure> {
@@ -38,26 +48,44 @@ impl<'a> CppRemote<'a> {
     }
 
     fn check_members(path: &Path, class: &CppClass) -> Result<(), Failure> {
-        let requests = class
-            .members
-            .iter()
-            .filter(|member| !CppStreamRequest::is_stream(member));
-        for member in requests {
-            Self::check_member(path, member)?;
+        let yon = Realm::of(path) == Some(Realm::Yon);
+        for member in Self::requests(class) {
+            Self::check_member(path, member, yon)?;
         }
         Ok(())
     }
 
+    pub(crate) fn requests(class: &CppClass) -> impl Iterator<Item = &CppMember> {
+        class
+            .members
+            .iter()
+            .filter(|member| !CppStreamRequest::is_stream(member))
+            .filter(|member| !member.marked(Self::GATEWAY))
+    }
+
     pub(crate) fn definitions(class: &'a CppClass) -> String {
+        Self::written(class, Self::CALLS[0])
+    }
+
+    pub(crate) fn yon_definitions(class: &'a CppClass) -> String {
+        Self::written(class, Self::CALLS[1])
+    }
+
+    pub(crate) fn adapter(class: &CppClass) -> String {
+        crate::behavior::HttpClientSource::adapter_name(&class.name)
+    }
+
+    fn written(class: &'a CppClass, call: &'static str) -> String {
         let remote = Self {
             class,
             base: Self::base(class),
-            adapter: crate::behavior::HttpClientSource::adapter_name(&class.name),
+            adapter: Self::adapter(class),
+            call,
         };
         remote.every_definition()
     }
 
-    fn check_member(path: &Path, member: &CppMember) -> Result<(), Failure> {
+    fn check_member(path: &Path, member: &CppMember, yon: bool) -> Result<(), Failure> {
         let verbs = Self::VERBS
             .iter()
             .filter(|(marker, _)| member.marked(marker))
@@ -65,10 +93,11 @@ impl<'a> CppRemote<'a> {
         let fits = [
             member.kind == CppMemberKind::Method,
             verbs == 1,
-            member.is_task(),
+            member.is_task() != yon,
         ] == [true, true, true];
+        let refused = Self::ONE_REQUEST[usize::from(yon)];
         fits.then_some(())
-            .ok_or_else(|| CppFailure::unreadable(path, member.name_at, Self::ONE_REQUEST))?;
+            .ok_or_else(|| CppFailure::unreadable(path, member.name_at, refused))?;
         let marker = Self::request_marker(member);
         let written = marker.map_or("", |marker| marker.arguments.as_str());
         let valid = serde_json::from_str::<String>(written).is_ok_and(|path| path.starts_with('/'));
@@ -91,12 +120,7 @@ impl<'a> CppRemote<'a> {
 
     fn every_definition(&self) -> String {
         let mut text = String::new();
-        let requests = self
-            .class
-            .members
-            .iter()
-            .filter(|member| !CppStreamRequest::is_stream(member));
-        for member in requests {
+        for member in Self::requests(self.class) {
             text.push_str(&self.definition(member));
         }
         text
@@ -112,17 +136,21 @@ impl<'a> CppRemote<'a> {
         let answer = Self::answer_type(member);
         let parameters = Self::parameter_list(&member.parameters);
         let constant = [" ", " const "][usize::from(member.is_const)];
-        let target = Self::path_expression(&path);
+        let target = Self::path_expression(&path, &member.parameters);
         let parts = Self::request_parts(&member.parameters);
         let guards = super::CppChecks::guards(member);
         let adapter = Self::literal(&self.adapter);
+        let call = self
+            .call
+            .replace("{answer}", &answer)
+            .replace("{adapter}", &adapter);
         format!(
-            "inline {} {}::{}({parameters}){constant}{{{guards}\n    tachyon::http::HttpRequestMessage request(tachyon::http::HttpMethod::{verb}, {target});\n{parts}    co_return co_await tachyon::http::TacRemoteCall::answer<{answer}>({adapter}, std::move(request));\n}}\n",
+            "inline {} {}::{}({parameters}){constant}{{{guards}\n    tachyon::http::HttpRequestMessage request(tachyon::http::HttpMethod::{verb}, {target});\n{parts}{call}}}\n",
             member.type_text, self.class.name, member.name
         )
     }
 
-    fn answer_type(member: &CppMember) -> String {
+    pub(crate) fn answer_type(member: &CppMember) -> String {
         let plain = member.plain_type();
         let inner = Self::TASK_PREFIXES
             .iter()
@@ -131,7 +159,7 @@ impl<'a> CppRemote<'a> {
         inner.strip_suffix('>').unwrap_or(inner).trim().to_owned()
     }
 
-    fn parameter_list(parameters: &[CppParameter]) -> String {
+    pub(crate) fn parameter_list(parameters: &[CppParameter]) -> String {
         let written: Vec<String> = parameters
             .iter()
             .map(|parameter| format!("{} {}", parameter.type_text, parameter.name))
@@ -139,7 +167,7 @@ impl<'a> CppRemote<'a> {
         written.join(", ")
     }
 
-    fn path_expression(path: &str) -> String {
+    fn path_expression(path: &str, parameters: &[CppParameter]) -> String {
         let mut pieces = vec![String::from("std::string()")];
         let mut rest = path;
         while let Some(open) = rest.find('{') {
@@ -147,14 +175,25 @@ impl<'a> CppRemote<'a> {
                 .find('}')
                 .map_or(rest.len(), |close| open + close);
             pieces.push(Self::literal(&rest[..open]));
-            pieces.push(format!("{}({})", Self::SEGMENT, &rest[open + 1..close]));
+            let variable = Self::path_variable(parameters, &rest[open + 1..close]);
+            pieces.push(format!("{}({variable})", Self::SEGMENT));
             rest = rest.get(close + 1..).unwrap_or_default();
         }
         pieces.push(Self::literal(rest));
         pieces.join(" + ")
     }
 
-    fn literal(text: &str) -> String {
+    fn path_variable<'p>(parameters: &'p [CppParameter], written: &'p str) -> &'p str {
+        parameters
+            .iter()
+            .find(|parameter| {
+                Self::marker(parameter, "PathVariable")
+                    .is_some_and(|marker| Self::named(marker, &parameter.name) == written)
+            })
+            .map_or(written, |parameter| parameter.name.as_str())
+    }
+
+    pub(crate) fn literal(text: &str) -> String {
         format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
     }
 

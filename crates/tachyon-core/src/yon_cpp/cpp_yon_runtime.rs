@@ -9,10 +9,13 @@ impl CppYonRuntime {
         include_str!("tachyon/yon_request.hpp"),
         include_str!("tachyon/yon_answer.hpp"),
         include_str!("tachyon/yon_events.hpp"),
+        include_str!("tachyon/yon_delivery.hpp"),
         include_str!("tachyon/yon_needs.hpp"),
+        include_str!("tachyon/yon_gateway.hpp"),
         include_str!("tachyon/yon_main.hpp"),
         include_str!("tachyon/yon_application.hpp"),
         include_str!("tachyon/yon_storage.hpp"),
+        include_str!("tachyon/yon_remote.hpp"),
     ];
 
     pub(crate) fn source() -> String {

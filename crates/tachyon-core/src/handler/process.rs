@@ -546,8 +546,13 @@ impl HandlerSupervisor {
     }
 
     fn pipes_resources(source: &HandlerSource, direct_protocol: bool) -> bool {
-        let lua = crate::lua_source::LuaSource::is_lua(Path::new(source.relative_path()));
-        [direct_protocol, source.gateways().is_some(), lua] == [true, true, true]
+        let path = Path::new(source.relative_path());
+        let framed = [
+            crate::lua_source::LuaSource::is_lua(path),
+            crate::tac_cpp::CppSource::is_cpp(path),
+        ]
+        .contains(&true);
+        [direct_protocol, source.gateways().is_some(), framed] == [true, true, true]
     }
 
     async fn resource_access_in_time(

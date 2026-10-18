@@ -422,6 +422,61 @@ end
 "#,
     };
 
+    const CPP: Self = Self {
+        extension: "hpp",
+        program: "clang++",
+        tag: "cpp",
+        models: [
+            (
+                "server/models/OrderPlaced.hpp",
+                "#pragma once\n#include <string>\n\nstruct [[Topic]] OrderPlaced {\n    std::string id;\n};\n",
+            ),
+            (
+                "server/models/OrderSeen.hpp",
+                "#pragma once\n#include <string>\n\nstruct [[Topic]] OrderSeen {\n    std::string by;\n};\n",
+            ),
+        ],
+        publisher: r#"#pragma once
+#include "../models/OrderPlaced.hpp"
+#include "../models/OrderSeen.hpp"
+
+class [[RequestRoute("/orders")]] [[Public]] OrdersController {
+    ApplicationEventPublisher applicationEventPublisher;
+
+public:
+    [[GetRoute]]
+    bool getOrder() {
+        applicationEventPublisher.publishEvent(OrderPlaced{"A-1"});
+        return true;
+    }
+
+    [[OnEvent]]
+    OrderSeen seen(const OrderPlaced& order) {
+        return OrderSeen{"local"};
+    }
+};
+"#,
+        listener_path: "server/controllers/CppAuditController.hpp",
+        listener: r#"#pragma once
+#include <string>
+#include "../models/OrderPlaced.hpp"
+#include "../models/OrderSeen.hpp"
+
+class [[RequestRoute("/cpp-audit")]] [[Public]] CppAuditController {
+public:
+    [[OnEvent]]
+    OrderSeen seen(const OrderPlaced& order) {
+        return OrderSeen{"cpp:" + order.id};
+    }
+
+    [[GetRoute]]
+    std::string getAudit() {
+        return "ok";
+    }
+};
+"#,
+    };
+
     async fn crosses_both_ways(&self) {
         if !TopicFixture::available(self.program) {
             eprintln!(
@@ -667,10 +722,10 @@ end
     }
 
     fn write(root: &Path, relative: &str, source: &str) -> HandlerSource {
-        let is_lua = Path::new(relative)
+        let written_as_is = Path::new(relative)
             .extension()
-            .is_some_and(|extension| extension == "lua");
-        let entry = if is_lua {
+            .is_some_and(|extension| ["lua", "hpp"].contains(&extension.to_str().unwrap_or("")));
+        let entry = if written_as_is {
             Self::write_models(root, &[(relative, source)]);
             relative.to_owned()
         } else {
@@ -857,4 +912,9 @@ async fn php_topic_events_cross_to_python_and_back() {
 #[tokio::test]
 async fn lua_topic_events_cross_to_python_and_back() {
     TypedTopic::LUA.crosses_both_ways().await;
+}
+
+#[tokio::test]
+async fn cpp_topic_events_cross_to_python_and_back() {
+    TypedTopic::CPP.crosses_both_ways().await;
 }

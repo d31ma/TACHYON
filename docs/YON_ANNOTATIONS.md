@@ -307,9 +307,29 @@ Tachyon opens the Store's behavior context from its Setup (`ProductSetup` for
 `ProductStore`, or the `"setup"` option), and a controller or service reaches
 it with `[[Needs]] ProductStore& products;`.
 
-C++ has no HTTP client, gateway, topic, error handler, socket or test markers
-in Yon yet: they fail with their rule's code, and the message says that C++
-gets them in a later step. The Pending section of ADR 0099 lists those steps.
+A C++ `[[HTTPClient]]` is one bodiless class in `server/remotes/<Name>.hpp`.
+Its request methods return the answer, because Yon C++ code is synchronous,
+and they send through the `adapters.http` entry of the client's Setup
+(`CatalogClient` uses `CatalogSetup` and the adapter `"catalog"`). A
+`[[Gateway]]` method of the client takes and returns
+`tachyon::json::JsonNode`, and a `struct [[Topic]]` model in `server/models`
+reaches listeners in the other files and languages (ADR 0099 amendment of
+2026-10-18, "Yon C++ HTTP clients, gateways and topics"):
+
+```cpp
+class [[HTTPClient("/api")]] CatalogClient {
+public:
+    [[GetRequest("/products/{id}")]]
+    Product find([[PathVariable]] std::string id, [[RequestHeader("X-Tenant")]] std::string tenant) const;
+
+    [[Gateway({"class":"server/services/ReportService.java"})]]
+    tachyon::json::JsonNode summarize(const tachyon::json::JsonNode& period) const;
+};
+```
+
+C++ has no socket or test markers in Yon yet: they fail with their rule's
+code, and the message says that C++ gets them in a later step.
+The Pending section of ADR 0099 lists those steps.
 
 ## Calling another language
 
@@ -325,6 +345,7 @@ or a program under `server/helpers/`:
 | C# | `[Gateway({...})]` |
 | PHP, Rust | `#[Gateway({...})]` |
 | Go | `// @Gateway({...})` |
+| C++ | `[[Gateway({...})]]` |
 
 The arguments and the result are bounded JSON in the language's JSON value
 type. Only one hop is allowed. `server/gateways/` is reserved for the units

@@ -86,7 +86,7 @@ pub(crate) use cpp_parameter::CppParameter;
 pub(crate) use cpp_prelude::CppPrelude;
 pub(crate) use cpp_program::CppProgram;
 pub(crate) use cpp_raw_text::CppRawText;
-use cpp_remote::CppRemote;
+pub(crate) use cpp_remote::CppRemote;
 pub(crate) use cpp_roles::CppRoles;
 pub(crate) use cpp_service::CppService;
 pub(crate) use cpp_service_graph::CppServiceGraph;

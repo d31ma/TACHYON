@@ -3,7 +3,8 @@ Declaring a method that another language answers
 Every Yon language declares a Gateway the same way: the marker on its own
 line, strict JSON options, and a signature in an HTTPClient contract (an
 interface, trait, Protocol class or abstract interface class; a class with
-empty method bodies in JavaScript, TypeScript and Ruby).
+empty method bodies in JavaScript, TypeScript and Ruby; a class of bodiless
+method declarations in C++).
 
   JavaScript  @Gateway({...})    async summarize(period) {}
   TypeScript  @Gateway({...})    async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}
@@ -18,6 +19,7 @@ empty method bodies in JavaScript, TypeScript and Ruby).
   Dart        @Gateway({...})    Future<Object?> summarize(Object? period);
   F#          [<Gateway({...})>] abstract Summarize: period: BehaviorJSON -> BehaviorJSON
   Go          // @Gateway({...}) on the line before Summarize(period BehaviorValue) (BehaviorValue, error) in the interface
+  C++         [[Gateway({...})]] tachyon::json::JsonNode summarize(const tachyon::json::JsonNode& period) const;
 
 The options name one target:
 

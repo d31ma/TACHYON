@@ -23,6 +23,18 @@ machine contracts have their own, independent major versions.
   `const tachyon::http::HttpRequestMessage& request`, receives the whole
   request, and a route may return `tachyon::http::HttpResponseMessage` to
   set its own status, headers and body (ADR 0099 amendment).
+- C++ Yon code has `[[HTTPClient]]` with `[[GetRequest]]`, `[[PostRequest]]`,
+  `[[PutRequest]]`, `[[PatchRequest]]`, `[[DeleteRequest]]`,
+  `[[PathVariable]]`, `[[RequestParam]]`, `[[RequestBody]]` and
+  `[[RequestHeader]]`, and `[[Gateway]]` and `[[Topic]]`. A client is a
+  bodiless class in `server/remotes/<Name>.hpp` whose methods return their
+  answer and send through `adapters.http["<stem>"]` of the client's Setup; a
+  `[[Gateway]]` method takes and returns `tachyon::json::JsonNode` and
+  throws `tachyon::TacCodedError` with `Gateway call failed.`; a
+  `struct [[Topic]]` model in `server/models` reaches `[[OnEvent]]` listeners
+  in other files and languages, and C++ listeners receive topics from them.
+  `[[PathVariable("id")]]` now names the path variable in C++ Tac clients too
+  (ADR 0099 amendment).
 - A Tac C++ `[[HTTPClient]]` method may carry `[[StreamRequest]]` or
   `[[SocketRequest]]`, declared without a body as
   `void receive(const Tick& tick);`. The page's event bus holds the stream or

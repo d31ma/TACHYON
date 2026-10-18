@@ -1,11 +1,15 @@
-use super::{CppYonController, CppYonErrors, CppYonProvider, CppYonStores};
+use super::{
+    CppYonController, CppYonErrors, CppYonGateway, CppYonProvider, CppYonRemote, CppYonStores,
+};
 use crate::Failure;
+use crate::behavior::GatewayDeclaration;
 use crate::tac_cpp::{CppClass, CppFailure, CppLifetime, CppProgram, CppServiceGraph};
 use crate::yon::plan::Scope;
 use std::path::Path;
 
 pub(crate) struct CppYonGraph {
     pub(crate) providers: Vec<CppYonProvider>,
+    pub(crate) gateways: Vec<GatewayDeclaration>,
 }
 
 impl CppYonGraph {
@@ -14,6 +18,7 @@ impl CppYonGraph {
         "server/helpers",
         "server/converters",
         "server/stores",
+        "server/remotes",
     ];
     const SHARED_ENTITY: &'static str =
         "One C++ [[Store]] keeps each [[Entity]]; another Store already names this one";
@@ -29,14 +34,26 @@ impl CppYonGraph {
         let mut graph = CppServiceGraph::within(root, Self::FOLDERS, Self::missing)?;
         Self::add_handler_needs(&mut graph, errors)?;
         Self::add_needs(&mut graph, &controller.path, &controller.file.class)?;
-        let mut providers = graph
-            .finish()
+        let services = graph.finish();
+        services
+            .iter()
+            .try_for_each(|service| CppYonRemote::check(root, service))?;
+        CppYonGateway::refuse_outside(&controller.path, &controller.file.class, false)?;
+        let gateways = services
+            .iter()
+            .map(CppYonGateway::declarations)
+            .collect::<Result<Vec<_>, _>>()?
+            .concat();
+        let mut providers = services
             .iter()
             .map(|service| CppYonProvider::service(service, models, stores))
             .collect::<Result<Vec<_>, _>>()?;
         providers.extend(Self::handler_providers(errors, models, stores)?);
         providers.push(CppYonProvider::root(controller, models, stores)?);
-        let graph = Self { providers };
+        let graph = Self {
+            providers,
+            gateways,
+        };
         graph.check_entities()?;
         graph.check_captures()?;
         graph.check_transient()?;
@@ -94,7 +111,7 @@ impl CppYonGraph {
             path,
             at,
             &format!(
-                "A C++ [[Needs]] field names a C++ [[Service]] in server/services, a C++ [[Helper]] in server/helpers or a C++ [[Converter]] in server/converters, and there is no {needed}.hpp in any of them. Write the class in its own file there, named after the class"
+                "A C++ [[Needs]] field names a C++ [[Service]] in server/services, a C++ [[Helper]] in server/helpers, a C++ [[Converter]] in server/converters or a C++ [[HTTPClient]] in server/remotes, and there is no {needed}.hpp in any of them. Write the class in its own file there, named after the class"
             ),
         )
     }

@@ -228,6 +228,22 @@ fn a_gateway_in_every_jvm_language_keeps_the_method_it_calls_public() {
 }
 
 #[test]
+fn a_cpp_gateway_keeps_the_method_it_calls_public() {
+    let service = "@service\nclass ReportService:\n    def summarize(self, period: str) -> str:\n        return period\n";
+    let client = "#pragma once\n#include <tachyon/yon.hpp>\n\nclass [[HTTPClient]] ReportClient {\npublic:\n    [[Gateway({\"class\":\"server/services/ReportService.py\"})]]\n    tachyon::json::JsonNode summarize(tachyon::json::JsonNode period) const;\n};\n";
+    let controller = "#pragma once\n#include \"../remotes/ReportClient.hpp\"\n\nclass [[RequestRoute(\"/report\")]] ReportController {\npublic:\n    [[Needs]] ReportClient reportClient;\n\n    [[GetRoute]] tachyon::json::JsonNode getReport() const {\n        return reportClient.summarize(tachyon::json::JsonNode(\"2026-Q3\"));\n    }\n};\n";
+    let files = [
+        ("server/services/ReportService.py", service),
+        ("server/remotes/ReportClient.hpp", client),
+        ("server/controllers/ReportController.hpp", controller),
+    ];
+    assert_eq!(
+        VisibilityProject::names_in(&files, "server/services"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
 fn a_gateway_that_names_another_method_keeps_that_method_public() {
     let service = "@Service\nclass ReportService {\n    Object summarize(Object period) {\n        return period;\n    }\n}\n";
     let client = "@h_t_t_p_client\nclass ForecastClient:\n    @gateway({\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"})\n    def summary(self, period: str) -> None: ...\n";

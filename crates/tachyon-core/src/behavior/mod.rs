@@ -17,6 +17,7 @@ mod event_frontend;
 pub(crate) use event_frontend::event_target;
 mod gateway;
 mod http_client;
+mod written_gateway;
 pub(crate) use gateway::{
     GatewayDeclaration, GatewayLimits, GatewayTarget, declarations as gateway_declarations,
     target_failure as gateway_target_failure, target_signature as gateway_target_signature,
@@ -26,6 +27,7 @@ pub(crate) use polyglot::{
     LuaBehaviorPlan, NativeStorage, PlannedMethod, PlannedType, PythonMembers, SwiftPlatform,
     gateway_unit_runtime,
 };
+pub(crate) use written_gateway::WrittenGateway;
 #[cfg(test)]
 mod extensions_tests;
 mod jsdoc_signature;

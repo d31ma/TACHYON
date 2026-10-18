@@ -85,6 +85,7 @@ impl CppYonContainer {
             "async": listener.background,
             "returns": listener.returns,
             "replay": listener.replay,
+            "key": format!("{owner}.{}", listener.method),
         });
         format!(
             "            events.listen(R\"tachyon({options})tachyon\", [&owner](const json::JsonNode& value) {{ return YonListener::call(owner, &::{owner}::{}, value); }});\n",

@@ -282,7 +282,7 @@ impl AnnotationRules {
 
     const YON_POLICIES: &'static [&'static str] = Self::YON;
 
-    const YON_OUTBOUND: &'static [&'static str] = Self::YON_EXCEPT_CPP;
+    const YON_OUTBOUND: &'static [&'static str] = Self::YON;
 
     const YON_SOCKET: &'static [&'static str] = Self::YON_EXCEPT_CPP;
 

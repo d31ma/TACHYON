@@ -15,15 +15,28 @@ public:
         if (!fields.has_value()) {
             return PROTOCOL_FAILURE;
         }
+        YonDelivery::receive(*fields);
         YonFrame frame(std::move(*fields));
-        std::string written = answered<Routes>(frame).write();
-        std::fwrite(written.data(), 1, written.size(), stdout);
-        std::fflush(stdout);
+        YonAnswer answer = answered<Routes>(frame);
+        std::string written = answer.write(YonEvents::current().published());
+        writeOutput(written);
         return 0;
     }
 
 private:
+    static void writeOutput(const std::string& written) {
+        if (YonFrames::enabled()) {
+            YonFrames::write(written);
+            return;
+        }
+        std::fwrite(written.data(), 1, written.size(), stdout);
+        std::fflush(stdout);
+    }
+
     static bool readInput(std::string& raw) {
+        if (YonFrames::enabled()) {
+            return YonFrames::read(raw);
+        }
         char buffer[65536];
         std::size_t count = std::fread(buffer, 1, sizeof buffer, stdin);
         while (count > 0) {

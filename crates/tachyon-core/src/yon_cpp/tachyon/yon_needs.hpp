@@ -86,6 +86,8 @@ public:
             started = index + 1;
         }
         YonEvents::current().drain();
+        YonDelivery::deliver();
+        YonEvents::current().drain();
     }
 
     void drain() {

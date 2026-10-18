@@ -767,16 +767,86 @@ C++ Yon code now has the behavior policies and Stores. The rule table lists
   and Store calls inside the method join the open transaction, as in the
   other languages.
 
+## Amendment (2026-10-18): Yon C++ HTTP clients, gateways and topics
+
+C++ Yon code now has `[[HTTPClient]]` with `[[GetRequest]]`,
+`[[PostRequest]]`, `[[PutRequest]]`, `[[PatchRequest]]`, `[[DeleteRequest]]`,
+`[[PathVariable]]`, `[[RequestParam]]`, `[[RequestBody]]` and
+`[[RequestHeader]]`, and `[[Gateway]]` and `[[Topic]]`, with the rules of the
+other Yon languages (ADR 0042, ADR 0048, BEHAVIOR_ANNOTATIONS.md "Outbound
+HTTP" and "Gateways", APPLICATION_EVENTS.md "Topics"). The rule table lists
+`hpp` for them (`YON_OUTBOUND`).
+
+### HTTP clients
+
+- A client is a header-only `.hpp` file in `server/remotes` with one class
+  named after the file, in the bodiless form of a C++ Tac client:
+  `class [[HTTPClient("/api")]] CatalogClient { public: [[GetRequest("/products/{id}")]] Product find([[PathVariable("id")]] std::string sku) const; };`.
+  `server/remotes` is a role folder of the Yon C++ graph, so a controller,
+  service or helper injects the client with `[[Needs]] CatalogClient& catalog;`.
+- Yon C++ code is synchronous, so a request method returns its answer
+  (`Product`, `std::vector<Product>`, `tachyon::json::JsonNode`, `void`, ...)
+  instead of a `Task`; a method that returns a `Task`, has a body or has no
+  single request marker fails with `TY1371`. The Tac form keeps `Task<T>`.
+- Tachyon writes each method as on the Tac side: the path is the client path
+  plus the method path, `{name}` takes the parameter of that name or the one
+  whose `[[PathVariable("name")]]` names it (this now works on the Tac side
+  too), `[[RequestParam]]` adds a query entry, `[[RequestHeader]]` a header
+  and `[[RequestBody]]` the JSON body.
+- The client sends through its Setup, as in the other Yon languages: the
+  Setup is `server/setups/<Stem>Setup.hpp` (`CatalogClient` uses
+  `CatalogSetup`), the context partition and adapter name is the lower-camel
+  stem (`catalog`), and the method calls `adapters.http["catalog"]` with the
+  `tachyon::http::HttpRequestMessage`, then reads the answer type from the
+  JSON the adapter returns. The client keeps its context in a private
+  `tachyonBehaviors` field, opened with
+  `tachyon::yon::YonRemote::open<CatalogSetup>("catalog")` when the client is
+  made. A client with a request method and no such Setup file fails with
+  `TY2015`; a missing adapter throws `HTTP_ADAPTER`. A client whose methods
+  are all gateways needs no Setup.
+
+### Gateways
+
+- A gateway is a bodiless method of an `[[HTTPClient]]` class whose
+  parameters and result are `tachyon::json::JsonNode` (a `const` reference
+  is accepted):
+  `[[Gateway({"class":"server/services/ReportService.java"})]] tachyon::json::JsonNode summarize(const tachyon::json::JsonNode& period) const;`.
+  The configuration and its checks are the shared ones (`TY1308`, `TY1312`);
+  the key is `<Client>.<method>`. `[[Gateway]]` on any other class, or next
+  to another method marker, fails at build time.
+- The build reads the declarations from the C++ graph of the caller, so the
+  supervisor's gateway table sees them as for any other caller. A C++ caller
+  with gateways speaks the piped resource frames that Lua uses
+  (`YON_RESOURCE_FRAMES=1`): the request, each
+  `{"kind":"resource","command":{"operation":"gateway",...}}` question and
+  the answer are length-prefixed frames on standard input and output, so the
+  C++ runtime opens no socket.
+- `tachyon::yon::YonGateway::call` returns the result, or throws
+  `tachyon::TacCodedError` with the message `Gateway call failed.` and the
+  code `invalid`, `timeout`, `capacity` or `adapter`.
+
+### Topics
+
+- `struct [[Topic]] OrderPlaced { ... };` in `server/models` makes the model
+  a topic. Publishing it with `applicationEventPublisher.publishEvent(...)`
+  still delivers it to the local listeners first, and also puts
+  `{"topic":"OrderPlaced","payload_json":"..."}` on the `topics` list of the
+  direct answer, which the supervisor appends to the topic log, as for Lua.
+  A listener that returns a topic model publishes it again.
+- The program lists the topic names of `server/models` in
+  `tachyon::yon::YonTopics::names()`. The source reports its topics and its
+  `[[OnEvent]]` listeners of topic models (`Owner.method`, from the
+  controller and every class in its graph) to the topic bus, which delivers
+  topics from other files and languages with the `event.deliver` operation.
+  For that operation the program registers only the named listeners, starts
+  the objects, queues the delivered event after the `[[OnStart]]` methods,
+  drains, and answers 204.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
 bullet, when it lands.
 
-- Yon C++ outbound calls: `[[HTTPClient]]` with `[[GetRequest]]`,
-  `[[PostRequest]]`, `[[PutRequest]]`, `[[PatchRequest]]`,
-  `[[DeleteRequest]]`, `[[PathVariable]]`, `[[RequestParam]]`,
-  `[[RequestBody]]` and `[[RequestHeader]]`, and `[[Gateway]]` and
-  `[[Topic]]`.
 
 - Yon C++ streams and sockets: `[[StreamRoute]]`, `[[SocketRoute]]`,
   `[[OnOpen]]`, `[[OnMessage]]`, `[[OnClose]]` and `[[OnError]]`.
@@ -789,6 +859,9 @@ The rule table refuses each of these markers for C++ until its step lands.
 These stay out of the plan for now:
 
 - Yon C++ middleware and relays.
+- A C++ class as the target of another language's `[[Gateway]]`: Tachyon
+  writes no `server/gateways/<id>/yon.hpp` unit yet, so such a target fails
+  with "No Yon gateway unit exists for .hpp yet". C++ code calls gateways.
 - Tac C++ Store adapters other than `"indexeddb"`, and the behavior markers
   on `Task` and `[[HTTPClient]]` methods.
 - The curated web APIs (Clock, Preferences, ...) for C++ `[[Needs]]` fields.

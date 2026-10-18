@@ -42,7 +42,7 @@ pub(crate) struct GatewayDeclaration {
 }
 
 impl GatewayDeclaration {
-    fn from_policy(policy: &Value) -> Option<Self> {
+    pub(super) fn from_policy(policy: &Value) -> Option<Self> {
         let key = policy.get("key")?.as_str()?;
         let (owner, method) = key.split_once('.')?;
         let arity = usize::try_from(policy.get("arity")?.as_u64()?).ok()?;
@@ -195,6 +195,7 @@ impl JsonValueType {
             "rs" => Some(("BehaviorValue", "BehaviorResult<BehaviorValue>", true)),
             "go" => Some(("BehaviorValue", "(BehaviorValue, error)", true)),
             "dart" => Some(("Object?", "Future<Object?>", true)),
+            "hpp" => Some(("tachyon::json::JsonNode", "tachyon::json::JsonNode", true)),
             _ => None,
         }
     }

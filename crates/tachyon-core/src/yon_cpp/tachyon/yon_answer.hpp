@@ -57,7 +57,7 @@ public:
         return answer;
     }
 
-    std::string write() const {
+    std::string write(const json::JsonNode& topics) const {
         json::JsonObject answer;
         answer["status"] = status;
         if (violations.count() > 0) {
@@ -77,6 +77,7 @@ public:
         }
         answer["headers"] = written;
         answer["body"] = body;
+        answer["topics"] = topics;
         return answer.toJsonString();
     }
 
