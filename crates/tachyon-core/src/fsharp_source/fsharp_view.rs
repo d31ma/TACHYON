@@ -203,20 +203,22 @@ mod tests {
 
     #[test]
     fn a_refusal_on_the_shadow_speaks_fsharp() {
-        let path = Path::new("client/remotes/ChatClient.fs");
-        let source = "[<HTTPClient(\"/chat\")>]\ntype ChatClient =\n    [<SocketRequest>]\n    abstract Receive: Tick -> unit\n";
+        let path = Path::new("client/services/ChatService.fs");
+        let source =
+            "[<RequestRoute(\"/chat\")>]\ntype ChatService() =\n    member this.Run() = ()\n";
         let message = crate::annotation_rules::AnnotationRules::check(path, source)
             .err()
-            .unwrap_or_else(|| panic!("F# Tac holds no sockets"))
+            .unwrap_or_else(|| panic!("F# Tac has no routes"))
             .to_string();
         assert!(
-            message.contains("[<SocketRequest>] is not available in F# Tac code"),
+            message.contains("[<RequestRoute>] is not used in Tac code"),
             "{message}"
         );
         assert!(
-            message.contains("client/remotes/ChatClient.fs"),
+            message.contains("client/services/ChatService.fs"),
             "{message}"
         );
+        assert!(!message.contains("C#"), "{message}");
     }
 
     #[test]

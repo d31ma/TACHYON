@@ -198,6 +198,27 @@ you choose them instead of generated constructors. Their spellings are:
 An explicit `Needs` list together with an explicit NeedsAll field
 list keeps its earlier positional contract.
 
+C++ is a Yon language for route controllers
+([ADR 0099](adr/0099-cpp-is-a-tac-webassembly-service-language.md),
+amendment of 2026-10-16). A C++ controller is a header-only `.hpp` file in
+`server/controllers`, and its models are structs or `enum class` types in
+`server/models/<Name>.hpp`. Markers are bare PascalCase standard attributes.
+A class marker goes after the class key, and a method or parameter marker
+leads its declaration:
+
+```cpp
+class [[RequestRoute("/products")]] [[Public]] ProductsController {
+public:
+    [[GetRoute("/{id}")]]
+    Product getProduct([[FromPath]] std::int64_t id) { return find(id); }
+};
+```
+
+C++ has no providers yet. `NeedsAll`, `Needs`, `Service` and the other
+provider, behavior, socket and test markers fail in a C++ file with their
+rule's code, and the message says that C++ gets them in a later step. The
+Pending section of ADR 0099 lists those steps.
+
 ## Calling another language
 
 A managed role may declare a method that another language answers. The
@@ -234,6 +255,11 @@ type (ADR 0062): a Fetch `Request` in JavaScript and TypeScript,
 in C#, `http::Request<Vec<u8>>` in Rust, a `package:shelf` `Request` in Dart and
 `*http.Request` in Go. PHP has no request object: a PHP method takes no request
 parameter and reads `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE` and `php://input`.
+C++ has no native request type yet (ADR 0099), so every parameter of a C++
+route names its source, and a parameter without a source marker fails with
+`TY2015`. A C++ route method may be private, a static one fails with
+`TY2015`, and a parameter with a default value fails too: write
+`std::optional<T>` and choose the value in the method.
 `YonRequest` and `YonResponse` are removed and refused at build time. Declared types
 validate input before the method runs; model return types validate its answer.
 Model records reject undeclared fields, including nested records and list
@@ -273,7 +299,9 @@ in Ruby, `http_response_code()`, `header()` and `echo` in PHP, a write on the
 same `HttpExchange` (`getResponseHeaders()`, `sendResponseHeaders()`,
 `getResponseBody()`) in Java and Kotlin, `HttpResponseMessage` in C#,
 `http::Response<Vec<u8>>` in Rust, a `package:shelf` `Response` in Dart and
-`*http.Response` in Go. Rust handlers build with Cargo and the `http` crate; Dart
+`*http.Response` in Go. A C++ route returns a value, which answers 200 as
+JSON, or `void` or an empty `std::optional`, which answers 204; C++ has no
+native response type yet (ADR 0099). Rust handlers build with Cargo and the `http` crate; Dart
 handlers fetch `shelf`. An explicit Content-Type: text/html passes through
 without interpolation or rendering. Tac stays client-rendered. Support for
 ordinary asynchronous methods in compiled languages is separate from

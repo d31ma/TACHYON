@@ -100,7 +100,9 @@ The annotation rule table (ADR 0056) therefore leaves Python out of
 saved field built and was never saved, and a synchronous `@retry` method
 failed with "must use async def" while an `async def` failed with `TY1605`.
 `OnEvent`, `Order` and `InBackground` stay available: see the events and
-topics amendment below.
+topics amendment below. (Replaced: Python joins the Tac lists of these
+behavior annotations and of the saved fields; see the amendment of
+2026-10-17.)
 
 Python Tac code cannot call the server through a client either. The rule
 table leaves Python out of `HTTPClient` and its request annotations
@@ -108,7 +110,9 @@ table leaves Python out of `HTTPClient` and its request annotations
 `StreamRequest` and `SocketRequest`), so a Python Tac client fails with
 `TY1308`, as Lua does (ADR 0085). Call the server from a JavaScript,
 TypeScript or compiled service and pass the answer to the Python service as
-an argument.
+an argument. (Replaced: Python now has `HTTPClient` and the request
+annotations other than `StreamRequest` and `SocketRequest`; see the
+amendment of 2026-10-17.)
 
 At run time a request or answer over 1 MiB, a member request over 64 KiB,
 more than 256 live owners, or a call on a busy owner is refused. Python runs
@@ -188,8 +192,9 @@ the runtime files; `ty doctor` names the folder.
   before the method starts.
 - Still refused with `TY1605`: asynchronous `@on_start`, `@on_stop` and
   `@on_event` methods, streams and browser API resources. Python has no
-  HTTPClient; that is a separate product decision. Native hosts stay out of
-  scope.
+  HTTPClient; that is a separate product decision. (Replaced: Python has an
+  `HTTPClient`, and an asynchronous `@on_start` builds; see the amendment of
+  2026-10-17.) Native hosts stay out of scope.
 - Evidence: `backend_tests::python_async_methods_settle_through_page_tasks_and_cancel_on_dispose`
   runs the generated program in CPython. The ignored browser test
   `pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler`

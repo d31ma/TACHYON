@@ -653,8 +653,8 @@ fn routes_check_their_verbs_status_and_parameter_sources() {
     assert_eq!(Sample::message("kt", Realm::Tac, kotlin_stream), None);
     let csharp_stream = "[HTTPClient(\"/ticks\")]\npublic interface TicksClient\n{\n    [StreamRequest]\n    void StreamTicks(Tick tick);\n}\n";
     assert_eq!(Sample::message("cs", Realm::Tac, csharp_stream), None);
-    let cpp_stream = "class [[HTTPClient(\"/ticks\")]] TicksClient {\n  [[StreamRequest]]\n  void receive(Tick tick);\n};\n";
-    let message = Sample::message("hpp", Realm::Tac, cpp_stream).expect("refused in C++");
+    let message =
+        AnnotationRules::unavailable("StreamRequest", "java", "tac").expect("refused in Java");
     assert!(message.contains("receives it with @OnEvent"), "{message}");
     let client_route = "@RequestRoute(\"/orders\")\nexport class OrdersController {\n}\n";
     let message = Sample::message("ts", Realm::Tac, client_route).expect("refused in Tac");
@@ -716,8 +716,8 @@ fn sockets_check_their_class_their_markers_and_their_language() {
     assert_eq!(Sample::message("kt", Realm::Tac, kotlin_client), None);
     let csharp_client = "[HTTPClient(\"/chat\")]\npublic interface ChatClient\n{\n    [SocketRequest]\n    void Receive(ChatMessage message);\n}\n";
     assert_eq!(Sample::message("cs", Realm::Tac, csharp_client), None);
-    let cpp_client = "class [[HTTPClient(\"/chat\")]] ChatClient {\n  [[SocketRequest]]\n  void receive(ChatMessage message);\n};\n";
-    let message = Sample::message("hpp", Realm::Tac, cpp_client).expect("refused in C++");
+    let message =
+        AnnotationRules::unavailable("SocketRequest", "java", "tac").expect("refused in Java");
     assert!(message.contains("receives it with @OnEvent"), "{message}");
 }
 

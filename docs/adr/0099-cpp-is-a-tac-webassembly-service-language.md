@@ -403,18 +403,60 @@ other Yon roles stay pending (see Pending).
 
 ## Pending
 
-- Yon C++ services and `Needs`, middleware, error handlers, `ResponseStatus`
-  and native request and response types, sockets, streams, relays, gateways,
-  topics and Yon test units.
-- A C++ `[[Setup]]` with a behavior context, and with it `[[WhenProfile]]`,
-  `[[WhenSetting]]`, `[[UseProfiles]]` and `[[TestSettings]]`, Store adapters
-  other than `"indexeddb"`, and the behavior markers on `Task` and
-  `[[HTTPClient]]` methods. The rule table refuses these for C++ until they
-  land.
+Each bullet is one planned step. A step deletes its own bullet, and only that
+bullet, when it lands.
+
+- Yon C++ roles: services and helpers in `server/services` and
+  `server/helpers`, `[[Needs]]`, `[[NeedsAll]]`, `[[Named]]`, `[[Lifetime]]`,
+  `[[Description]]`, `[[OnStart]]`, `[[OnStop]]`, `[[OnEvent]]`, `[[Order]]`,
+  `[[InBackground]]` and `[[Schedule]]` workers.
+
+- Yon C++ Setup and settings: a Yon `[[Setup]]` with a behavior context,
+  `[[Settings]]`, `[[Setting]]`, `[[WhenProfile]]` and `[[WhenSetting]]`.
+
+- Yon C++ errors: `[[ErrorHandler]]`, `[[HandlesError]]`,
+  `[[ResponseStatus]]`, `[[IdentityProvider]]`, and the native request and
+  response types. Until then a route parameter without a source marker fails
+  with `TY2015`.
+
+- Yon C++ validation and converters: `[[Checked]]`, `[[Check]]`,
+  `[[Required]]`, `[[NotEmpty]]`, `[[Min]]`, `[[Max]]`, `[[Length]]`,
+  `[[Converter]]` and `[[Convert]]`.
+
+- Yon C++ caching, policies and stores: `[[Cached]]`, `[[CacheKey]]`,
+  `[[CacheSettings]]`, `[[UpdateCache]]`, `[[ClearCache]]`, `[[Retry]]`,
+  `[[MaxAtOnce]]`, `[[AllOrNothing]]`, `[[PageDefaults]]`, `[[Entity]]`,
+  `[[Table]]`, `[[Id]]`, `[[Store]]` and `[[Query]]`.
+
+- Yon C++ outbound calls: `[[HTTPClient]]` with `[[GetRequest]]`,
+  `[[PostRequest]]`, `[[PutRequest]]`, `[[PatchRequest]]`,
+  `[[DeleteRequest]]`, `[[PathVariable]]`, `[[RequestParam]]`,
+  `[[RequestBody]]` and `[[RequestHeader]]`, and `[[Gateway]]` and
+  `[[Topic]]`.
+
+- Yon C++ streams and sockets: `[[StreamRoute]]`, `[[SocketRoute]]`,
+  `[[OnOpen]]`, `[[OnMessage]]`, `[[OnClose]]` and `[[OnError]]`.
+
+- Yon C++ test units in `server/tests`: `[[Test]]`, `[[TestSetup]]`,
+  `[[Fake]]`, `[[FreshStart]]`, `[[ValueSource]]`, `[[UseProfiles]]` and
+  `[[TestSettings]]`.
+
+- Tac C++ Setup: a C++ `[[Setup]]` with a behavior context, and with it
+  `[[WhenProfile]]`, `[[WhenSetting]]`, `[[UseProfiles]]` and
+  `[[TestSettings]]`.
+
+- Tac C++ streams and sockets: `[[StreamRequest]]` and `[[SocketRequest]]`
+  on a C++ client that holds a page stream or socket, as the ADR 0090
+  languages do. Until then a C++ service receives the messages with
+  `[[OnEvent]]`.
+
+The rule table refuses each of these markers for C++ until its step lands.
+These stay out of the plan for now:
+
+- Yon C++ middleware and relays.
+- Tac C++ Store adapters other than `"indexeddb"`, and the behavior markers
+  on `Task` and `[[HTTPClient]]` methods.
 - The curated web APIs (Clock, Preferences, ...) for C++ `[[Needs]]` fields.
-- `[[StreamRequest]]` and `[[SocketRequest]]` stay refused for C++. ADR 0090
-  lists the languages whose clients hold a browser stream or socket. A C++
-  service receives the messages with `[[OnEvent]]`.
 - Lifetime `"application"` stays refused: a C++ service runs in the page and
   has no native host.
 - `ty migrate` rewriting the legacy C++ Yon handlers.

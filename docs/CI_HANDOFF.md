@@ -69,7 +69,7 @@ compared with a `develop` baseline, and the relevant Chromium gates):
   Ruby and Lua refuse a `Needs` field that names another service (TY2015).
 - C++ test units: Fakes, HTTP answers, `@ValueSource`, coverage.
 - Cohesion refactors of the Yon parser, route types, handler cache, template
-  expressions and `ty migrate` fixes. Baselines: cohesion 2269, structure 2898,
+  expressions and `ty migrate` fixes. Baselines: cohesion 2268, structure 2898,
   duplicated blocks 109, file names 156.
 
 ## Branches still open
