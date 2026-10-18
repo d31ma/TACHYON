@@ -277,15 +277,18 @@ impl<'a> ConcreteContract<'a> {
             indent: &indent,
         };
         let (field, text) = context.parts_for(declaration.role.marker);
-        let crud = self.crud_members(declaration, &indent)
-            + &self.page_send(declaration, members, &indent);
+        let send = self.page_send(declaration, members, &indent);
+        let crud = self.crud_members(declaration, &indent) + &send;
         let open = declaration.header.end + 1;
         let field_edit = (!field.is_empty()).then_some((open..open, field));
         let member_edit = Some((declaration.close..declaration.close, text + &crud));
+        let send_edit = Some((declaration.close..declaration.close, send))
+            .filter(|(_, send)| [wanted, send.is_empty()] == [false, false]);
         [field_edit, member_edit]
             .into_iter()
             .flatten()
             .filter(|_| wanted)
+            .chain(send_edit)
             .collect()
     }
 
