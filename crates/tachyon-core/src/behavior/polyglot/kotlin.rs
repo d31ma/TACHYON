@@ -316,7 +316,7 @@ fn validation_policy(type_declaration: &Type) -> Result<String, String> {
         rules.push(validation_rule(name, rule)?);
     }
     Ok(format!(
-        "{} -> validateRules(value, arrayOf({}))\n",
+        "{} -> arrayOf({})\n",
         quote(&type_declaration.name),
         rules.join(", ")
     ))
@@ -646,7 +646,7 @@ fn valid_arguments(method: &Method, arguments: &mut [String]) -> Result<String, 
         return Err("Kotlin Check argument must be Any? or Map<String, Any?>".to_owned());
     }
     let prefix = format!(
-        "val __ty_valid = Behaviors.validate({}, {})\n",
+        "val __ty_valid = Behaviors.check({}, {})\n",
         string(valid, "type")?,
         parameter.name
     );
@@ -1180,6 +1180,21 @@ mod tests {
             "fun ping(): Any? { return Behaviors.gatewayResult(YonGateway.call(\"ReportClient.ping\", arrayOf<Any?>()))\n }"
         ));
         assert!(!lowered.contains("lateinit var behaviors"));
+    }
+
+    #[test]
+    fn a_check_parameter_collects_every_broken_rule() {
+        let lowered = super::super::lower(
+            std::path::Path::new("server/services/OrderService.kt"),
+            "@Checked\nclass OrderInput {\n    @Required\n    var name: String? = null\n}\n@Service\nclass OrderService {\n    fun accept(@Check(OrderInput::class) order: Any?): Any? { return order }\n}\n",
+            "yon",
+        )
+        .expect("Kotlin Check lowering")
+        .expect("lowered source");
+        assert!(lowered.contains("val __ty_valid = Behaviors.check(\"OrderInput\", order)"));
+        assert!(lowered.contains(
+            "\"OrderInput\" -> arrayOf(Rule(\"name\", true, false, null, null, null, null))"
+        ));
     }
 
     #[test]

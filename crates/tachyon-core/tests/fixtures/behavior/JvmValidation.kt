@@ -20,6 +20,7 @@ object ValidationChecks {
         checkNumbersAndSizes()
         checkMissingOptionalValues()
         checkInvalidJson()
+        checkRejections()
         println("Kotlin DTO validation boundary checks passed")
     }
     private fun checkResultIsCopied() {
@@ -77,5 +78,25 @@ object ValidationChecks {
         val cycle = mutableListOf<Any?>()
         cycle.add(cycle)
         fails("$.json", cycle)
+    }
+    private fun rejects(path: String, value: Any?, expected: List<String>) {
+        try {
+            Behaviors.check("Input", value)
+            error("expected rejection")
+        } catch (rejection: Behaviors.Rejection) {
+            check(rejection.code == "validation" && rejection.path == path)
+            check(rejection.violations.map { it.field + "." + it.rule } == expected)
+            check((rejection.get()["violations"] as List<*>).size == expected.size)
+        }
+    }
+    private fun checkRejections() {
+        val broken = validInput()
+        broken.remove("id")
+        broken["name"] = ""
+        broken["price"] = "5"
+        rejects("id.notNull", broken, listOf("id.Required", "name.NotEmpty", "name.Length", "price.Min", "price.Max"))
+        rejects("$.object", emptyList<Any?>(), listOf(".Checked"))
+        rejects("$.json", Any(), listOf(".Checked"))
+        check(Behaviors.check("Input", validInput())["name"] == "é")
     }
 }

@@ -495,6 +495,8 @@ class __YonAnswer private constructor(private var status: Int, private val body:
 }
 
 object Yon {
+    private const val MAX_CAUSE_DEPTH = 8
+    private const val CHECK_REJECTED_STATUS = 422
     private const val MAX_RELAY_STDOUT_BYTES = 16 * 1024 * 1024
     private const val MAX_RELAY_STDERR_BYTES = 64 * 1024
     private const val DEFAULT_DEADLINE_MILLISECONDS = 30_000L
@@ -508,6 +510,21 @@ object Yon {
         kotlin.concurrent.thread(isDaemon = true) { task.run() }
     }
     private data class RelayOutput(val bytes: ByteArray, val overflow: Boolean)
+
+    fun rejection(failure: Throwable?): Map<*, *>? {
+        var cause = failure
+        var depth = 0
+        while (cause != null && depth < MAX_CAUSE_DEPTH) {
+            val found = (cause as? java.util.function.Supplier<*>)?.get()
+            if (found is Map<*, *> && found["violations"] is List<*>) return found
+            cause = cause.cause
+            depth++
+        }
+        return null
+    }
+
+    fun rejectionEnvelope(rejection: Map<*, *>): String =
+        Json.write(mapOf("status" to CHECK_REJECTED_STATUS, "violations" to rejection["violations"]))
 
     private fun drain(pipe: java.io.InputStream, limit: Int): RelayOutput {
         val kept = java.io.ByteArrayOutputStream(minOf(limit, 8192))
@@ -929,7 +946,9 @@ fun main() {
                 else -> method.invoke(__YON_HANDLER__, Yon.exchange(request))
             }
         } catch (failed: java.lang.reflect.InvocationTargetException) {
-            kotlin.system.exitProcess(1)
+            val rejection = Yon.rejection(failed.cause) ?: kotlin.system.exitProcess(1)
+            print(Yon.rejectionEnvelope(rejection))
+            return
         }
     }
 

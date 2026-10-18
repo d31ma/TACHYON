@@ -2,7 +2,7 @@ object Behaviors {
     private const val MODULE = "__MODULE__"
     private const val ENVIRONMENT = "__ENVIRONMENT__"
     private const val WRONG_SHAPE = "The server answer does not have the shape of the model."
-    class Failure(val code: String, val path: String? = null, message: String = code) : RuntimeException(message)
+    open class Failure(val code: String, val path: String? = null, message: String = code) : RuntimeException(message)
     private fun fail(code: String): Nothing = throw Failure(code)
     class Signal internal constructor(private val parent: Signal? = null, private val owner: Context? = null) {
         @Volatile private var cancelled = false
@@ -223,32 +223,54 @@ object Behaviors {
         fail("configuration-properties")
     }
     class Rule(val field: String, val notNull: Boolean, val notBlank: Boolean, val sizeMin: Long?, val sizeMax: Long?, val minimum: Number?, val maximum: Number?)
-    fun validate(name: String, value: Any?): Map<String, Any?> = when (name) {
+    class Violation(val field: String, val key: String, val rule: String)
+    class Rejection(val violations: List<Violation>, path: String?) : Failure("validation", path), java.util.function.Supplier<Map<String, Any?>> {
+        override fun get(): Map<String, Any?> = mapOf("violations" to violations.map { mapOf("field" to it.field, "rule" to it.rule) })
+    }
+    fun rules(name: String): Array<Rule> = when (name) {
         __VALIDATIONS__
         else -> throw Failure("validation", "$.schema")
     }
-    fun validateRules(input: Any?, rules: Array<Rule>): Map<String, Any?> {
+    fun validate(name: String, value: Any?): Map<String, Any?> {
+        val rules = rules(name)
+        val checked = checkedObject(value)
+        val broken = violations(checked, rules)
+        if (broken.isNotEmpty()) throw Failure("validation", broken[0].field + "." + broken[0].key)
+        return checked
+    }
+    fun check(name: String, value: Any?): Map<String, Any?> {
+        val rules = rules(name)
+        val checked = try { checkedObject(value) } catch (invalid: Failure) { throw Rejection(listOf(Violation("", "object", "Checked")), invalid.path) }
+        val broken = violations(checked, rules)
+        if (broken.isNotEmpty()) throw Rejection(broken, broken[0].field + "." + broken[0].key)
+        return checked
+    }
+    private fun checkedObject(input: Any?): Map<String, Any?> {
         val copied = try { copy(input, 1048576) } catch (_: RuntimeException) { throw Failure("validation", "$.json") }
         if (copied !is Map<*, *>) throw Failure("validation", "$.object")
-        val value = map(copied)
+        return map(copied)
+    }
+    private fun violations(value: Map<String, Any?>, rules: Array<Rule>): List<Violation> {
+        val broken = mutableListOf<Violation>()
         for (rule in rules) {
             val field = value[rule.field]
-            if (rule.notNull && field == null) throw Failure("validation", rule.field + ".notNull")
-            if (rule.notBlank && (field !is String || field.codePoints().allMatch { whiteSpace(it) })) throw Failure("validation", rule.field + ".notBlank")
+            if (rule.notNull && field == null) broken.add(Violation(rule.field, "notNull", "Required"))
+            if (rule.notBlank && (field !is String || field.codePoints().allMatch { whiteSpace(it) })) broken.add(Violation(rule.field, "notBlank", "NotEmpty"))
             if (field == null) continue
-            if (rule.sizeMin != null || rule.sizeMax != null) {
-                val size = when (field) {
-                    is String -> bytes(field).toLong()
-                    is List<*> -> field.size.toLong()
-                    is Map<*, *> -> field.size.toLong()
-                    else -> throw Failure("validation", rule.field + ".size")
-                }
-                if ((rule.sizeMin != null && size < rule.sizeMin) || (rule.sizeMax != null && size > rule.sizeMax)) throw Failure("validation", rule.field + ".size")
-            }
-            if (rule.minimum != null && (field !is Number || field.toDouble() < rule.minimum.toDouble())) throw Failure("validation", rule.field + ".min")
-            if (rule.maximum != null && (field !is Number || field.toDouble() > rule.maximum.toDouble())) throw Failure("validation", rule.field + ".max")
+            if ((rule.sizeMin != null || rule.sizeMax != null) && !sizeFits(field, rule)) broken.add(Violation(rule.field, "size", "Length"))
+            if (rule.minimum != null && (field !is Number || field.toDouble() < rule.minimum.toDouble())) broken.add(Violation(rule.field, "min", "Min"))
+            if (rule.maximum != null && (field !is Number || field.toDouble() > rule.maximum.toDouble())) broken.add(Violation(rule.field, "max", "Max"))
         }
-        return value
+        return broken
+    }
+    private fun sizeFits(field: Any, rule: Rule): Boolean {
+        val size = when (field) {
+            is String -> bytes(field).toLong()
+            is List<*> -> field.size.toLong()
+            is Map<*, *> -> field.size.toLong()
+            else -> return false
+        }
+        return (rule.sizeMin == null || size >= rule.sizeMin) && (rule.sizeMax == null || size <= rule.sizeMax)
     }
     private fun whiteSpace(code: Int): Boolean = code in 9..13 || code == 32 || code == 133 || code == 160 || code == 5760 || code in 8192..8202 || code == 8232 || code == 8233 || code == 8239 || code == 8287 || code == 12288
     private fun entity(name: String): Entity = when (name) {

@@ -10,7 +10,7 @@ struct CheckLanguage {
 }
 
 impl CheckLanguage {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self {
             extension: "java",
             programs: &["java", "javac"],
@@ -39,6 +39,10 @@ impl CheckLanguage {
             extension: "ts",
             programs: &["node"],
         },
+        Self {
+            extension: "kt",
+            programs: &["java", "kotlinc"],
+        },
     ];
 
     fn available(&self) -> bool {
@@ -58,7 +62,7 @@ impl CheckLanguage {
     }
 
     fn runs(program: &str) -> bool {
-        let flag = if program == "java" || program == "javac" {
+        let flag = if matches!(program, "java" | "javac" | "kotlinc") {
             "-version"
         } else {
             "--version"

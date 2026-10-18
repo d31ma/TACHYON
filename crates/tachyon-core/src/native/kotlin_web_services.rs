@@ -38,7 +38,7 @@ impl KotlinWebServices {
         include_str!("web_apis/WindowControls.kt")
     );
 
-    const JVM_SHIMS: [(&'static str, &'static str); 3] = [
+    const JVM_SHIMS: [(&'static str, &'static str); 4] = [
         (
             "jvm_shims/java_util.kt",
             include_str!("kotlin_web_services/jvm_shims/java_util.kt"),
@@ -46,6 +46,10 @@ impl KotlinWebServices {
         (
             "jvm_shims/java_util_concurrent.kt",
             include_str!("kotlin_web_services/jvm_shims/java_util_concurrent.kt"),
+        ),
+        (
+            "jvm_shims/java_util_function.kt",
+            include_str!("kotlin_web_services/jvm_shims/java_util_function.kt"),
         ),
         (
             "jvm_shims/jvm_names.kt",
