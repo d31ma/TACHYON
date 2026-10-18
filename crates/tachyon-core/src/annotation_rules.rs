@@ -291,9 +291,7 @@ impl AnnotationRules {
     const TAC: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",
     ];
-    const TAC_ROLE: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",
-    ];
+    const TAC_ROLE: &'static [&'static str] = Self::TAC;
     const TAC_REMOTE: &'static [&'static str] = Self::TAC;
     const TAC_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "lua", "java", "fs",
