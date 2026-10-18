@@ -1,7 +1,8 @@
 # ADR 0054: Ruby Is a Yon Language and a Tac Service Language
 
 - Status: Accepted; amended 2026-09-30 (model arguments from the view),
-  2026-10-16 (a Tac Needs field cannot name another service)
+  2026-10-16 (a Tac Needs field cannot name another service), 2026-10-18
+  (browser API Needs fields and untyped Needs fields)
 - Date: 2026-09-26
 - Builds on: [ADR 0049](0049-tac-ruby-uses-a-pinned-mruby-runtime.md) (the
   browser runtime), [ADR 0048](0048-yon-routes-come-from-annotations.md)
@@ -196,3 +197,19 @@ checked by the shared rule table (ADR 0056); Ruby has no checks of its own.
   already has. It parks the calling fiber on a ticket like an HTTP call and
   raises a `BehaviorError` with `HTTP_NETWORK`, `HTTP_MISSING`,
   `HTTP_REQUEST`, `HTTP_CAPACITY`, `HTTP_BODY` (over 64 KiB) or `CANCELLED`.
+
+## Amendment (2026-10-18): browser API Needs fields and untyped Needs fields
+
+- A Tac Ruby `#[Needs]` field may name one of the browser APIs that the
+  Ruby runtime defines: `Clock`, `SecureRandom`, `Connectivity`,
+  `PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications`,
+  `Geolocation` or `WindowControls`. It is filled like a Store: a private
+  reader that makes the API with `.new` the first time the service uses it.
+  Before, the page left the field `nil`. Calling `Clipboard.new` in the
+  service still works.
+- A Tac Ruby `#[Needs]` field without a `# @return [Type]` comment stops the
+  build with `TY2015` at the `attr_reader` line. The page fills a field only
+  from its type, so such a field stayed `nil`. The message names the field
+  and this ADR.
+- The `@return` comment may come before or after the marker for every field
+  that the page fills, as it already could for the check above.

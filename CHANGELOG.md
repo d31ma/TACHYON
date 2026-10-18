@@ -884,6 +884,16 @@ machine contracts have their own, independent major versions.
   Lua gateway examples in the Yon guide, the gateways feature and Gateways:
   Yon now run, and the Python Tac tabs of Configuration binding: Tac and
   Public Tac output and private Yon lifetime are new.
+- A Tac Ruby `#[Needs]` field whose type is a browser API, such as
+  `# @return [Clipboard]` on `attr_reader :clipboard`, is now filled with
+  that API, as in Go, Dart and the other Tac languages: a private reader
+  makes it with `.new` the first time the service uses it. Before, the page
+  left the field nil and the first call through it failed. A Tac Ruby
+  `#[Needs]` field without a `# @return [Type]` comment now stops the build
+  with TY2015 at the field, because the page cannot tell what to fill it
+  with. A Store, Converter, Helper or browser API field is also filled when
+  its `@return` comment comes before the marker (ADR 0054 amendment).
+
 - An F# Tac service property set from a primary-constructor parameter
   without a written type, such as `member val Title = label with get, set`
   in `ShelfService(label: string)`, now takes that parameter's type. Before,

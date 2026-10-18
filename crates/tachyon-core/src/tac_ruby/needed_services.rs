@@ -1,7 +1,8 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
-use crate::ruby_source::{NeededField, RubyNeeds};
+use crate::ruby_source::{NeededField, RubyNeeds, UntypedField};
 use std::collections::BTreeSet;
+use std::ops::Range;
 use std::path::Path;
 
 pub(crate) struct NeededServices {
@@ -14,7 +15,7 @@ impl NeededServices {
     pub(crate) const RUBY: Self = Self {
         language: "Ruby",
         decision: "ADR 0054",
-        injected: "a Store, a Converter, a Helper or an HTTPClient",
+        injected: "a Store, a Converter, a Helper, an HTTPClient or a browser API such as Clock or Clipboard",
     };
     pub(crate) const LUA: Self = Self {
         language: "Lua",
@@ -35,7 +36,26 @@ impl NeededServices {
         let needed = RubyNeeds::typed(source)
             .into_iter()
             .find(|field| services.contains(&field.type_name));
-        needed.map_or(Ok(()), |field| Err(self.failure(path, &field)))
+        needed.map_or(Ok(()), |field| {
+            Err(Self::failure(
+                path,
+                &field.span,
+                self.message(&field),
+                self.help(&field),
+            ))
+        })
+    }
+
+    pub(crate) fn refuse_untyped(&self, path: &Path, source: &str) -> Result<(), Failure> {
+        let untyped = RubyNeeds::untyped(source).into_iter().next();
+        untyped.map_or(Ok(()), |field| {
+            Err(Self::failure(
+                path,
+                &field.span,
+                self.untyped_message(&field),
+                self.untyped_help(),
+            ))
+        })
     }
 
     fn service_names(snapshot_root: &Path) -> BTreeSet<String> {
@@ -52,15 +72,10 @@ impl NeededServices {
         path.file_stem()?.to_str().map(str::to_owned)
     }
 
-    fn failure(&self, path: &Path, field: &NeededField) -> Failure {
+    fn failure(path: &Path, span: &Range<usize>, message: String, help: String) -> Failure {
         let portable = path.to_string_lossy().replace('\\', "/");
-        let span = source_span(&portable, field.span.start, field.span.end);
-        Failure::one(diagnostic(
-            Self::CODE,
-            self.message(field),
-            Some(self.help(field)),
-            span,
-        ))
+        let located = source_span(&portable, span.start, span.end);
+        Failure::one(diagnostic(Self::CODE, message, Some(help), located))
     }
 
     fn message(&self, field: &NeededField) -> String {
@@ -80,6 +95,23 @@ impl NeededServices {
         let supporting = Self::SUPPORTING;
         format!(
             "A {language} Needs field takes {injected}. Let the view call {service} itself, publish an event that {service} handles in an OnEvent method, or write both services in a Tac language that can need another service: {supporting}."
+        )
+    }
+
+    fn untyped_message(&self, field: &UntypedField) -> String {
+        let name = &field.name;
+        let language = self.language;
+        let decision = self.decision;
+        format!(
+            "The `#[Needs]` field '{name}' has no type. A {language} Tac service fills a Needs field from the `# @return [Type]` comment next to it ({decision}): without one the page does not fill the field, so it would stay nil and the first call through it would fail."
+        )
+    }
+
+    fn untyped_help(&self) -> String {
+        let language = self.language;
+        let injected = self.injected;
+        format!(
+            "Write the type in a comment next to the field, such as `# @return [CounterStore]` or `# @return [Clipboard]`. A {language} Needs field takes {injected}."
         )
     }
 }

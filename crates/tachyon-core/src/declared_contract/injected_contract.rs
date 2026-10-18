@@ -66,6 +66,7 @@ impl<'a> InjectedContract<'a> {
     const RUBY: &'static str = "rb";
     const RUBY_REMOTE: &'static str = "{indent}private def {name}\n{indent}  @{name} ||= {type}.new(@tachyon_test_context)\n{indent}end";
     const RUBY_COMMENT: &'static str = "# ";
+    const RUBY_COMMENT_START: char = '#';
     const GO_METHOD: &'static str =
         "\nfunc (service *{owner}) {start}() error {\n{assignments}\treturn nil\n}\n";
     const GO_ASSIGNMENT: &'static str = "\t{name}, err := New{type}()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.{name} = {name}\n";
@@ -193,13 +194,27 @@ impl<'a> InjectedContract<'a> {
     fn edit(&self, lines: &[&str], marker_at: usize) -> Option<(usize, usize, InjectedField)> {
         let field_at = (marker_at + 1..lines.len()).find(|at| self.is_field(lines[*at]))?;
         let field = if self.language == Self::RUBY {
-            InjectedField::read_ruby(&lines[marker_at + 1..field_at], lines[field_at])?
+            let documentation = Self::ruby_documentation(lines, marker_at, field_at);
+            InjectedField::read_ruby(&documentation, lines[field_at])?
         } else {
             InjectedField::read(lines[field_at], self.language == Self::GO)?
         };
         self.contracts
             .contains(&field.type_name)
             .then_some((marker_at, field_at, field))
+    }
+
+    fn ruby_documentation<'l>(
+        lines: &[&'l str],
+        marker_at: usize,
+        field_at: usize,
+    ) -> Vec<&'l str> {
+        let above = lines[..marker_at]
+            .iter()
+            .rev()
+            .take_while(|line| line.trim().starts_with(Self::RUBY_COMMENT_START));
+        let below = lines[marker_at + 1..field_at].iter();
+        above.chain(below).copied().collect()
     }
 
     fn is_field(&self, line: &str) -> bool {

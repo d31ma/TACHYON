@@ -1,4 +1,5 @@
-use super::NeededField;
+use super::{NeededField, UntypedField};
+use std::ops::Range;
 
 pub(crate) struct RubyNeeds;
 
@@ -27,7 +28,33 @@ impl RubyNeeds {
         lines
     }
 
+    pub(crate) fn untyped(source: &str) -> Vec<UntypedField> {
+        let lines = Self::located_lines(source);
+        (0..lines.len())
+            .filter_map(|at| Self::untyped_at(&lines, at))
+            .collect()
+    }
+
     fn typed_at(lines: &[(usize, &str)], at: usize) -> Option<NeededField> {
+        let (name, documentation, span) = Self::marked_reader(lines, at)?;
+        let type_name = Self::documented_type(&documentation)?;
+        Some(NeededField {
+            name,
+            type_name,
+            span,
+        })
+    }
+
+    fn untyped_at(lines: &[(usize, &str)], at: usize) -> Option<UntypedField> {
+        let (name, documentation, span) = Self::marked_reader(lines, at)?;
+        let typed = Self::documented_type(&documentation).is_some();
+        (!typed).then_some(UntypedField { name, span })
+    }
+
+    fn marked_reader<'a>(
+        lines: &[(usize, &'a str)],
+        at: usize,
+    ) -> Option<(String, Vec<&'a str>, Range<usize>)> {
         let (start, line) = lines[at];
         let symbols = line.trim().strip_prefix(Self::READER)?;
         let name = Self::names(symbols).into_iter().next()?;
@@ -35,12 +62,7 @@ impl RubyNeeds {
         let marked = documentation
             .iter()
             .any(|text| Self::MARKERS.contains(text));
-        let type_name = Self::documented_type(&documentation)?;
-        marked.then(|| NeededField {
-            name,
-            type_name,
-            span: start..start + line.len(),
-        })
+        marked.then(|| (name, documentation, start..start + line.len()))
     }
 
     fn documentation_above<'a>(lines: &[(usize, &'a str)]) -> Vec<&'a str> {
@@ -110,5 +132,16 @@ mod tests {
                 ("counter", "CounterService", "  attr_reader :counter"),
             ]
         );
+    }
+
+    #[test]
+    fn a_needed_reader_without_a_return_type_is_untyped() {
+        let source = "class TallyService\n  #[Needs]\n  attr_reader :counter\n  #[Needs]\n  # @return [CounterStore]\n  attr_reader :store\n  attr_reader :total\nend\n";
+        let untyped = RubyNeeds::untyped(source);
+        let found: Vec<(&str, &str)> = untyped
+            .iter()
+            .map(|field| (field.name.as_str(), &source[field.span.clone()]))
+            .collect();
+        assert_eq!(found, [("counter", "  attr_reader :counter")]);
     }
 }

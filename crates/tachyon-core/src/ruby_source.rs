@@ -5,9 +5,11 @@ use crate::lexical::LexicalMask;
 pub(crate) use needed_field::NeededField;
 pub(crate) use ruby_needs::RubyNeeds;
 use std::path::Path;
+pub(crate) use untyped_field::UntypedField;
 
 mod needed_field;
 mod ruby_needs;
+mod untyped_field;
 
 pub(crate) struct RubyMarkers;
 

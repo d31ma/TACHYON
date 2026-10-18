@@ -198,8 +198,6 @@ clean run. Things that matter:
 ## Smaller follow-ups found on the way
 
 - The relay boundary tests should tolerate a loaded runner.
-- A Ruby `#[Needs]` field typed as a browser API class is probably left nil;
-  a `Needs` field without a `@return` type is not checked.
 - C++ Yon: a root `middleware.hpp` is compiled as a handler and fails with a
   clang++ link error (`TY2004`) instead of a clear "C++ middleware comes later"
   refusal.

@@ -1,3 +1,4 @@
+mod browser_api_fields;
 mod needed_services;
 mod ruby_held_streams;
 mod ruby_model_readers;
@@ -12,6 +13,7 @@ use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::diagnostic;
 use crate::ruby_source::RubyMembers;
+use browser_api_fields::BrowserApiFields;
 pub(crate) use ruby_held_streams::RubyHeldStreams;
 use ruby_model_readers::RubyModelReaders;
 use runtime_sources::RubyRuntimeSources;
@@ -131,10 +133,12 @@ impl RubyWebServices {
         let identity = PathBuf::from(format!("client/services/{class}.rb"));
         let relative = source.strip_prefix(snapshot_root).unwrap_or(&identity);
         NeededServices::RUBY.refuse(snapshot_root, relative, text)?;
+        NeededServices::RUBY.refuse_untyped(relative, text)?;
         let roles = crate::behavior::ServiceRoles::read(relative, text)?;
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, &roles.source, "tac")?
                 .unwrap_or_else(|| roles.source.clone());
+        let assembled = BrowserApiFields::injected(relative, &assembled);
         let mut events = crate::events::extract(&identity, &assembled, "tac")?;
         if let Some(module) = events.as_mut() {
             crate::events::describe(module, relative, snapshot_root, "client")?;
