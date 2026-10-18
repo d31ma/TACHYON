@@ -282,7 +282,7 @@ impl AnnotationRules {
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",
     ];
     const TAC_REMOTE: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "hpp", "lua",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "hpp", "lua", "py",
     ];
     const TAC_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "lua",
@@ -292,7 +292,7 @@ impl AnnotationRules {
     ];
     const TAC_BEHAVIOR_AND_CPP: &'static [&'static str] = Self::TAC_FAKE;
     const TAC_ADAPTER_AND_CPP: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "hpp", "lua",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "hpp", "lua", "py",
     ];
     const TAC_STORED_STATE: &'static [&'static str] = Self::TAC_ADAPTER_AND_CPP;
     const TAC_HELPER: &'static [&'static str] = &[
@@ -306,7 +306,7 @@ impl AnnotationRules {
     const TAC_STREAM: &'static [&'static str] =
         &["js", "ts", "go", "rb", "rs", "dart", "swift", "kt", "cs"];
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
-        "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua", "hpp",
+        "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua", "hpp", "py",
     ];
     const YON_VALUE_SOURCE: &'static [&'static str] = &[
         "js", "ts", "py", "rs", "java", "groovy", "kt", "cs", "fs", "go", "rb", "php", "dart",

@@ -203,6 +203,7 @@ impl PythonMembers {
         if written.is_empty() {
             return Ok(Shape::Any);
         }
-        TypeText::shape("py", written).map_err(|message| input.failure(0, message))
+        TypeText::shape("py", super::PythonAnnotatedType::base(written))
+            .map_err(|message| input.failure(0, message))
     }
 }

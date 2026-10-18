@@ -26,7 +26,10 @@ impl PythonWebServices {
         "\n",
         include_str!("python_runtime.py"),
     );
-    const ENGINE: &'static str = include_str!("python_host.js");
+    const ENGINE: &'static str = concat!(
+        include_str!("../native/browser/tac-task-answers.js"),
+        include_str!("python_host.js")
+    );
 
     pub(crate) fn build(
         root: &Path,
@@ -114,7 +117,14 @@ impl PythonWebServices {
     }
 
     fn provider_path(path: &Path) -> bool {
-        path.starts_with("client/services") || path.starts_with("client/helpers")
+        [
+            "client/services",
+            "client/helpers",
+            "client/stores",
+            "client/remotes",
+        ]
+        .iter()
+        .any(|folder| path.starts_with(folder))
     }
 
     fn descriptions(
