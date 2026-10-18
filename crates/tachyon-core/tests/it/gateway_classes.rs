@@ -238,7 +238,7 @@ impl ReportService {
 
     fn fail_when(mode: &BehaviorValue) -> BehaviorResult<()> {
         if *mode == BehaviorValue::from("fail") {
-            return Err(BehaviorError { code: "failed", message: "secret-canary target failure", path: None });
+            return Err(BehaviorError::new("failed", "secret-canary target failure"));
         }
         Ok(())
     }

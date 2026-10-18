@@ -718,10 +718,24 @@ pub struct __YonAnswer {
     headers: Vec<(String, String)>,
     body: String,
     streamed: bool,
+    violations: Vec<Json>,
+}
+
+pub trait YonFailure {
+    const MESSAGE: &'static str;
+
+    fn check_violations(&self) -> Vec<(&'static str, &'static str)>;
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct YonResourceError;
+impl YonFailure for YonResourceError {
+    const MESSAGE: &'static str = "Yon managed resource operation failed.";
+
+    fn check_violations(&self) -> Vec<(&'static str, &'static str)> {
+        Vec::new()
+    }
+}
 impl std::fmt::Display for YonResourceError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("Yon managed resource operation failed.")
@@ -947,11 +961,11 @@ impl YonReturn for __YonAnswer {
         self
     }
 }
-impl<T: Into<Json>> YonReturn for Result<T, YonResourceError> {
+impl<T: Into<Json>, E: YonFailure> YonReturn for Result<T, E> {
     fn into_response(self) -> __YonAnswer {
         match self {
             Ok(value) => value.into_response(),
-            Err(_) => __YonAnswer::json("{\"error\":\"Yon managed resource operation failed.\"}").status(500),
+            Err(error) => __YonAnswer::failed(&error),
         }
     }
 }
@@ -1043,6 +1057,8 @@ fn yon_relay_message(request: &http::Request<Vec<u8>>) -> String {
 }
 
 impl __YonAnswer {
+    const CHECK_REJECTED_STATUS: u16 = 422;
+
     #[must_use]
     pub fn json(body: impl Into<String>) -> Self {
         Self {
@@ -1053,6 +1069,7 @@ impl __YonAnswer {
             )],
             body: body.into(),
             streamed: false,
+            violations: Vec::new(),
         }
     }
 
@@ -1063,7 +1080,25 @@ impl __YonAnswer {
             headers: Vec::new(),
             body: String::new(),
             streamed: false,
+            violations: Vec::new(),
         }
+    }
+
+    fn failed<F: YonFailure>(failure: &F) -> Self {
+        let violations = failure.check_violations();
+        let rejected = !violations.is_empty();
+        rejected
+            .then(|| Self::rejected(violations))
+            .unwrap_or_else(|| Self::json(Json::map([("error", F::MESSAGE)]).write()).status(500))
+    }
+
+    fn rejected(violations: Vec<(&'static str, &'static str)>) -> Self {
+        let mut answer = Self::empty(Self::CHECK_REJECTED_STATUS);
+        answer.violations = violations
+            .into_iter()
+            .map(|(field, rule)| Json::map([("field", field), ("rule", rule)]))
+            .collect();
+        answer
     }
 
     #[must_use]
@@ -1092,12 +1127,15 @@ impl __YonAnswer {
                 .into_iter()
                 .map(|(name, values)| (name, Json::List(values))),
         );
-        Json::map([
+        let mut fields = vec![
             (String::from("status"), Json::from(i64::from(self.status))),
             (String::from("headers"), headers),
             (String::from("body"), Json::from(self.body.clone())),
-        ])
-        .write()
+        ];
+        if !self.violations.is_empty() {
+            fields.push((String::from("violations"), Json::List(self.violations.clone())));
+        }
+        Json::Map(fields).write()
     }
 }
 

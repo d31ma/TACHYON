@@ -856,6 +856,47 @@ fn check_invalid_schemas(value: BehaviorValue) {
     assert_eq!(error.path.as_deref(), Some("$.schema"));
 }
 
+fn check_collected_violations() {
+    let input = BehaviorValue::object([("amount", "5".into()), ("items", true.into())]);
+    let error = Behaviors::check::<ValidatedInput>(input.clone()).unwrap_err();
+    assert_eq!(error.code, "validation");
+    assert_eq!(error.path.as_deref(), Some("name.notNull"));
+    let rules: Vec<(&str, &str)> = error
+        .violations
+        .iter()
+        .map(|violation| (violation.field, violation.rule))
+        .collect();
+    assert_eq!(
+        rules,
+        vec![
+            ("name", "Required"),
+            ("name", "NotEmpty"),
+            ("amount", "Min"),
+            ("amount", "Max"),
+            ("items", "Length"),
+        ]
+    );
+    let first = Behaviors::validate::<ValidatedInput>(input).unwrap_err();
+    assert_eq!(first.path.as_deref(), Some("name.notNull"));
+    assert!(first.violations.is_empty());
+    let error = Behaviors::check::<ValidatedInput>(BehaviorValue::Null).unwrap_err();
+    assert_eq!(error.path.as_deref(), Some("$.object"));
+    assert_eq!(
+        error.violations,
+        vec![BehaviorViolation {
+            field: "",
+            rule: "Checked",
+        }]
+    );
+    let mut schema = ValidatedInput::behavior_validation();
+    schema.fields[0].name = "input.secret";
+    let error = BehaviorViolation::check_value(schema, empty_object()).unwrap_err();
+    assert_eq!(error.path.as_deref(), Some("$.schema"));
+    assert!(error.violations.is_empty());
+    let value = BehaviorValue::object([("name", "ok".into())]);
+    assert_eq!(Behaviors::check::<ValidatedInput>(value.clone()), Ok(value));
+}
+
 fn validation_contracts() -> BehaviorResult<()> {
     let value = BehaviorValue::object([("name", "é".into()), ("unknown", true.into())]);
     check_validated_shape(&value)?;
@@ -863,6 +904,7 @@ fn validation_contracts() -> BehaviorResult<()> {
     check_field_rules();
     check_validation_limits();
     check_invalid_schemas(value);
+    check_collected_violations();
     Ok(())
 }
 

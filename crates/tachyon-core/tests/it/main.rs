@@ -42,6 +42,7 @@ mod requestless_methods;
 mod root_middleware;
 mod route_access;
 mod ruby_handlers;
+mod rust_check_rejections;
 mod rust_streams;
 mod single_class_layout;
 mod sockets;

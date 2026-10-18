@@ -135,7 +135,7 @@ impl Ledger {
     #[AllOrNothing({"adapter":"data"})]
     fn refuse(&self, id: BehaviorValue) -> BehaviorResult<BehaviorValue> {
         let _ = self.behaviors.repository::<Product>()?.save(BehaviorValue::object([("id", id)]))?;
-        Err(BehaviorError { code: "validation", message: "the ledger refused the entry", path: None })
+        Err(BehaviorError::new("validation", "the ledger refused the entry"))
     }
 }
 
@@ -150,7 +150,7 @@ impl Resilient {
     fn flaky(&self) -> BehaviorResult<BehaviorValue> {
         let count = self.attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
         if count < 3 {
-            return Err(BehaviorError { code: "adapter", message: "transient", path: None });
+            return Err(BehaviorError::new("adapter", "transient"));
         }
         Ok(BehaviorValue::Number(count as f64))
     }

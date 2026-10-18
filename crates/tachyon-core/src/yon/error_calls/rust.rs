@@ -4,6 +4,9 @@ use std::fmt::Write as _;
 pub(crate) struct RustErrors;
 
 impl RustErrors {
+    const BEHAVIOR_FAILURE: &'static str = "impl YonFailure for BehaviorError {";
+    const UNHANDLED_BEHAVIOR_ERROR: &'static str = "    if let Some(error) = error.downcast_ref::<BehaviorError>() {\n        return __YonAnswer::failed(error);\n    }\n";
+
     pub(crate) fn result_error(returns: &str) -> Option<String> {
         let compact = returns.split_whitespace().collect::<String>();
         let inside = compact
@@ -23,7 +26,7 @@ impl RustErrors {
         }
     }
 
-    pub(super) fn functions(plan: &Plan) -> String {
+    pub(super) fn functions(plan: &Plan, stripped: &str) -> String {
         let parameters = ErrorCalls::parameters(plan, "rs");
         let mut source = format!(
             "\n#[allow(unused_variables)]\nfn __yon_handle_error__(error: &(dyn std::error::Error + 'static), request: &__YonFrame{parameters}) -> __YonAnswer {{\n"
@@ -59,6 +62,9 @@ impl RustErrors {
                 "        let mut response = yon_response(value);\n        if response.status == 200 {{ response = response.status({}); }}\n        return response;\n    }}",
                 method.status
             );
+        }
+        if stripped.contains(Self::BEHAVIOR_FAILURE) {
+            source.push_str(Self::UNHANDLED_BEHAVIOR_ERROR);
         }
         source.push_str("    __yon_error_failure__()\n}\nfn __yon_error_failure__() -> __YonAnswer {\n    __YonAnswer::json(\"{\\\"error\\\":\\\"Yon controller execution failed.\\\"}\").status(500)\n}\n");
         source

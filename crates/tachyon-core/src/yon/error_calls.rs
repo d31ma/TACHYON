@@ -59,7 +59,7 @@ impl ErrorCalls {
             "kt" => Ok(kotlin::functions(plan)),
             "dart" => Ok(dart::functions(plan, stripped)),
             "go" => go::functions(plan, stripped),
-            "rs" => Ok(rust::RustErrors::functions(plan)),
+            "rs" => Ok(rust::RustErrors::functions(plan, stripped)),
             _ => Err(format!(
                 "Error handler execution for .{extension} is not implemented"
             )),

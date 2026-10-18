@@ -8,6 +8,29 @@ struct RustNames;
 
 impl RustNames {
     const NO_BUILTINS: &str = "fn behavior_builtin_cache(_name: &str) -> Option<std::sync::Arc<dyn BehaviorCacheAdapter>> { None }\nfn behavior_builtin_entities(_name: &str) -> Option<std::sync::Arc<dyn BehaviorEntityAdapter>> { None }\n";
+    const YON_ANSWERS: &str = r#"impl YonFailure for BehaviorError {
+    const MESSAGE: &'static str = "Yon controller execution failed.";
+
+    fn check_violations(&self) -> Vec<(&'static str, &'static str)> {
+        self.violations
+            .iter()
+            .map(|violation| (violation.field, violation.rule))
+            .collect()
+    }
+}
+impl From<BehaviorValue> for Json {
+    fn from(value: BehaviorValue) -> Self {
+        match value {
+            BehaviorValue::Null => Self::Null,
+            BehaviorValue::Bool(value) => Self::Bool(value),
+            BehaviorValue::Number(value) => Self::Number(value),
+            BehaviorValue::String(value) => Self::Text(value),
+            BehaviorValue::Array(values) => Self::list(values),
+            BehaviorValue::Object(entries) => Self::map(entries),
+        }
+    }
+}
+"#;
     const TAC_ASYNC_RUNTIME: &str = concat!(
         include_str!("behavior_exchange.rs"),
         include_str!("behavior_browser_http.rs"),
@@ -57,6 +80,7 @@ pub(super) fn runtime(module_id: &str, environment: &str) -> String {
         generated.push_str(RustNames::NO_BUILTINS);
     }
     if environment == "yon" {
+        generated.push_str(RustNames::YON_ANSWERS);
         generated.push_str("impl From<Json> for BehaviorValue { fn from(value: Json) -> Self { match value { Json::Null => Self::Null, Json::Bool(value) => Self::Bool(value), Json::Number(value) => Self::Number(value), Json::Integer(value) => Self::Number(value as f64), Json::Unsigned(value) => Self::Number(value as f64), Json::Text(value) => Self::String(value), Json::List(values) => Self::Array(values.into_iter().map(Self::from).collect()), Json::Map(entries) => Self::Object(entries.into_iter().map(|(key, value)| (key, Self::from(value))).collect()) } } }\n");
     }
     generated
@@ -712,7 +736,7 @@ fn validation_prefix(method: &Method, tokens: &[&str]) -> Result<String, String>
         ""
     };
     Ok(format!(
-        "let {mutable}{} = Behaviors::validate::<{}>({})?;\n",
+        "let {mutable}{} = Behaviors::check::<{}>({})?;\n",
         parameter.name,
         string(valid, "type")?,
         parameter.name

@@ -27,6 +27,7 @@ impl BehaviorHost {
                 code: "storage",
                 message: "Tachyon storage refused the request.",
                 path: Some(message),
+                violations: Vec::new(),
             });
         }
         Ok(object.remove("value").unwrap_or(BehaviorValue::Null))

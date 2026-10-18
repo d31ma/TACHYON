@@ -33,7 +33,7 @@ impl OrdersService {
 
     fn fail_first_two_attempts(attempts: f64) -> BehaviorResult<()> {
         if attempts < Self::FIRST_WORKING_ATTEMPT {
-            return Err(BehaviorError { code: "adapter", message: "the payment gateway is unavailable", path: None });
+            return Err(BehaviorError::new("adapter", "the payment gateway is unavailable"));
         }
         Ok(())
     }

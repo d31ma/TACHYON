@@ -2815,10 +2815,10 @@ mod gateway_runtime_tests {
             "43733838cf302d6470aea36f93c1a3e4fe8374481814733b2ef2d816028192a9"
         );
         let rust = super::gateway_unit_runtime("rs", "").expect("Rust runtime");
-        assert_eq!(rust.len(), 87_486);
+        assert_eq!(rust.len(), 92_090);
         assert_eq!(
             digest(&rust),
-            "82a7816a8a0a3dff566fca77c2e2eb6daf08349624e8cff748ca1fe6393d97ff"
+            "cc88ab21098dfb5ba96b25693cb88db7224ea540314011c2644cedce3fa57adb"
         );
         let go = super::gateway_unit_runtime("go", "").expect("Go runtime");
         assert_eq!(go.len(), 89_898);

@@ -10,7 +10,7 @@ impl Resilient {
     fn flaky(&self) -> BehaviorResult<BehaviorValue> {
         let count = self.attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
         if count < 3 {
-            return Err(BehaviorError { code: "adapter", message: "transient", path: None });
+            return Err(BehaviorError::new("adapter", "transient"));
         }
         Ok(BehaviorValue::Number(count as f64))
     }

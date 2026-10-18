@@ -39,7 +39,7 @@ impl OrdersService {
 
     fn fail_first_two_tries(tries: f64) -> BehaviorResult<()> {
         if tries < Self::FIRST_WORKING_ATTEMPT {
-            return Err(BehaviorError { code: "adapter", message: "the checkout API is unavailable", path: None });
+            return Err(BehaviorError::new("adapter", "the checkout API is unavailable"));
         }
         Ok(())
     }

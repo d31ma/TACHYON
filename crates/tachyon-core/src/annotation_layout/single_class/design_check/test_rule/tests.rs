@@ -90,7 +90,7 @@ fn a_python_case_may_use_the_language_assert() {
 
 #[test]
 fn a_rust_case_may_use_the_assert_macros() {
-    let unit = "#[Test(StatusTestSetup)]\nstruct StatusServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl StatusServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testSaysOk(&self) -> BehaviorResult<BehaviorValue> {\n        assert_eq!(\"ok\", \"ok\");\n        Ok(BehaviorValue::Null)\n    }\n    fn testUsesAssert(&self) -> BehaviorResult<BehaviorValue> {\n        Assert::is_true(1 < 2);\n        Ok(BehaviorValue::Null)\n    }\n    fn testMatches(&self) -> BehaviorResult<BehaviorValue> {\n        match 1 { 1 => Ok(BehaviorValue::Null), _ => Err(BehaviorError { code: \"adapter\", message: \"not one\", path: None }) }\n    }\n}\n";
+    let unit = "#[Test(StatusTestSetup)]\nstruct StatusServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl StatusServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testSaysOk(&self) -> BehaviorResult<BehaviorValue> {\n        assert_eq!(\"ok\", \"ok\");\n        Ok(BehaviorValue::Null)\n    }\n    fn testUsesAssert(&self) -> BehaviorResult<BehaviorValue> {\n        Assert::is_true(1 < 2);\n        Ok(BehaviorValue::Null)\n    }\n    fn testMatches(&self) -> BehaviorResult<BehaviorValue> {\n        match 1 { 1 => Ok(BehaviorValue::Null), _ => Err(BehaviorError::new(\"adapter\", \"not one\")) }\n    }\n}\n";
     assert_eq!(
         TestedProject::messages(&[("server/tests/StatusServiceTest.rs", unit)]),
         [

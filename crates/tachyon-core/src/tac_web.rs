@@ -1090,7 +1090,7 @@ mod tests {
                  self.behaviors.repository::<NoteEntity>()?.save(BehaviorValue::object([(\"id\", id), (\"text\", text)]))\n    }\n\n    \
                  #[AllOrNothing({\"adapter\":\"indexeddb\"})]\n    fn keep_then_refuse(&self, id: BehaviorValue) -> BehaviorResult<BehaviorValue> {\n        \
                  self.keep(id, BehaviorValue::from(\"draft\"))?;\n        \
-                 Err(BehaviorError { code: \"validation\", message: \"the note was refused\", path: None })\n    }\n\n    \
+                 Err(BehaviorError::new(\"validation\", \"the note was refused\"))\n    }\n\n    \
                  fn answer(result: BehaviorResult<BehaviorValue>) -> String {\n        \
                  match result {\n            Ok(value) => value.to_json(65536).unwrap_or_default(),\n            \
                  Err(error) => format!(\"{{\\\"error\\\":\\\"{error}\\\"}}\"),\n        }\n    }\n\n    \

@@ -3,6 +3,22 @@ pub struct BehaviorError {
     pub code: &'static str,
     pub message: &'static str,
     pub path: Option<String>,
+    pub violations: Vec<BehaviorViolation>,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BehaviorViolation {
+    pub field: &'static str,
+    pub rule: &'static str,
+}
+impl BehaviorError {
+    pub fn new(code: &'static str, message: &'static str) -> Self {
+        Self {
+            code,
+            message,
+            path: None,
+            violations: Vec::new(),
+        }
+    }
 }
 impl std::fmt::Display for BehaviorError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -16,11 +32,7 @@ impl std::fmt::Display for BehaviorError {
 impl std::error::Error for BehaviorError {}
 pub type BehaviorResult<T> = Result<T, BehaviorError>;
 fn behavior_error(code: &'static str, message: &'static str) -> BehaviorError {
-    BehaviorError {
-        code,
-        message,
-        path: None,
-    }
+    BehaviorError::new(code, message)
 }
 fn behavior_invalid() -> BehaviorError {
     behavior_error("invalid", "Invalid or out-of-bounds behavior data.")
@@ -641,6 +653,9 @@ impl Behaviors {
     pub fn validate<V: BehaviorValidated>(value: BehaviorValue) -> BehaviorResult<BehaviorValue> {
         behavior_validate_value(V::behavior_validation(), value)
     }
+    pub fn check<V: BehaviorValidated>(value: BehaviorValue) -> BehaviorResult<BehaviorValue> {
+        BehaviorViolation::check_value(V::behavior_validation(), value)
+    }
     pub fn properties<P: BehaviorPropertiesSource>(
         values: &impl BehaviorPropertyInput,
     ) -> BehaviorResult<BehaviorValue> {
@@ -734,6 +749,7 @@ fn behavior_validation_error(field: &str, rule: &str) -> BehaviorError {
         code: "validation",
         message: "Behavior validation failed.",
         path: Some(format!("{field}.{rule}")),
+        violations: Vec::new(),
     }
 }
 fn behavior_unicode_whitespace(character: char) -> bool {
@@ -743,82 +759,171 @@ fn behavior_validate_value(
     schema: BehaviorValidationSchema,
     value: BehaviorValue,
 ) -> BehaviorResult<BehaviorValue> {
-    let value = value
-        .checked(1_048_576)
-        .map_err(|_| behavior_validation_error("$", "json"))?;
-    let BehaviorValue::Object(values) = &value else {
-        return Err(behavior_validation_error("$", "object"));
-    };
-    if schema.fields.len() > 64 {
-        return Err(behavior_validation_error("$", "schema"));
+    let values = BehaviorViolation::checked_object(value)?;
+    BehaviorViolation::valid_schema(&schema)?;
+    BehaviorViolation::first_broken(&BehaviorViolation::broken_rules(&schema, &values))?;
+    Ok(BehaviorValue::Object(values))
+}
+impl BehaviorViolation {
+    const RULES: [(&'static str, &'static str); 5] = [
+        ("notNull", "Required"),
+        ("notBlank", "NotEmpty"),
+        ("size", "Length"),
+        ("min", "Min"),
+        ("max", "Max"),
+    ];
+    fn check_value(
+        schema: BehaviorValidationSchema,
+        value: BehaviorValue,
+    ) -> BehaviorResult<BehaviorValue> {
+        let values = Self::checked_object(value).map_err(Self::unchecked)?;
+        Self::valid_schema(&schema)?;
+        Self::reject(&Self::broken_rules(&schema, &values))?;
+        Ok(BehaviorValue::Object(values))
     }
-    let mut seen = std::collections::BTreeSet::new();
-    for field in schema.fields {
-        if !behavior_identifier(field.name)
-            || !seen.insert(field.name)
-            || behavior_invalid_validation_bounds(&field)
-        {
-            return Err(behavior_validation_error("$", "schema"));
+    fn unchecked(error: BehaviorError) -> BehaviorError {
+        BehaviorError {
+            violations: vec![Self {
+                field: "",
+                rule: "Checked",
+            }],
+            ..error
         }
-        behavior_validate_field(&field, values.get(field.name))?;
     }
-    Ok(value)
-}
-fn behavior_invalid_validation_bounds(field: &BehaviorValidationField) -> bool {
-    let invalid_size = field
-        .size
-        .is_some_and(|(min, max)| min > max || max > 1_048_576);
-    let invalid_number = field
-        .min
-        .into_iter()
-        .chain(field.max)
-        .any(|value| !behavior_property_number(value, false));
-    let reversed = field.min.zip(field.max).is_some_and(|(min, max)| min > max);
-    invalid_size || invalid_number || reversed
-}
-fn behavior_validate_field(
-    field: &BehaviorValidationField,
-    item: Option<&BehaviorValue>,
-) -> BehaviorResult<()> {
-    let absent = matches!(item, None | Some(BehaviorValue::Null));
-    if field.not_null && absent {
-        return Err(behavior_validation_error(field.name, "notNull"));
+    fn checked_object(
+        value: BehaviorValue,
+    ) -> BehaviorResult<std::collections::BTreeMap<String, BehaviorValue>> {
+        let value = value
+            .checked(1_048_576)
+            .map_err(|_| behavior_validation_error("$", "json"))?;
+        let BehaviorValue::Object(values) = value else {
+            return Err(behavior_validation_error("$", "object"));
+        };
+        Ok(values)
     }
-    if field.not_blank && !behavior_not_blank(item) {
-        return Err(behavior_validation_error(field.name, "notBlank"));
+    fn valid_schema(schema: &BehaviorValidationSchema) -> BehaviorResult<()> {
+        let mut seen = std::collections::BTreeSet::new();
+        let fits = schema.fields.len() <= 64;
+        let fields = schema
+            .fields
+            .iter()
+            .all(|field| Self::valid_field(field, &mut seen));
+        ([fits, fields] == [true, true])
+            .then_some(())
+            .ok_or_else(|| behavior_validation_error("$", "schema"))
     }
-    if absent {
-        return Ok(());
+    fn valid_field(
+        field: &BehaviorValidationField,
+        seen: &mut std::collections::BTreeSet<&'static str>,
+    ) -> bool {
+        let named = behavior_identifier(field.name);
+        let first = seen.insert(field.name);
+        let bounded = !Self::invalid_bounds(field);
+        [named, first, bounded] == [true, true, true]
     }
-    if let Some((min, max)) = field.size {
+    fn invalid_bounds(field: &BehaviorValidationField) -> bool {
+        let invalid_size = field
+            .size
+            .is_some_and(|(min, max)| min > max || max > 1_048_576);
+        let invalid_number = field
+            .min
+            .into_iter()
+            .chain(field.max)
+            .any(|value| !behavior_property_number(value, false));
+        let reversed = field.min.zip(field.max).is_some_and(|(min, max)| min > max);
+        invalid_size || invalid_number || reversed
+    }
+    fn broken_rules(
+        schema: &BehaviorValidationSchema,
+        values: &std::collections::BTreeMap<String, BehaviorValue>,
+    ) -> Vec<(&'static str, &'static str)> {
+        schema
+            .fields
+            .iter()
+            .flat_map(|field| {
+                Self::broken_field_rules(field, values.get(field.name))
+                    .into_iter()
+                    .map(|key| (field.name, key))
+            })
+            .collect()
+    }
+    fn broken_field_rules(
+        field: &BehaviorValidationField,
+        item: Option<&BehaviorValue>,
+    ) -> Vec<&'static str> {
+        let present = Self::field_present(item);
+        let number = Self::field_number(item);
+        let sized = field
+            .size
+            .is_none_or(|(min, max)| Self::field_size_fits(item, min, max));
+        let above_min = field
+            .min
+            .is_none_or(|bound| number.is_some_and(|number| number >= bound));
+        let below_max = field
+            .max
+            .is_none_or(|bound| number.is_some_and(|number| number <= bound));
+        let broken = [
+            [field.not_null, !present] == [true, true],
+            [field.not_blank, !Self::not_blank(item)] == [true, true],
+            [present, !sized] == [true, true],
+            [present, !above_min] == [true, true],
+            [present, !below_max] == [true, true],
+        ];
+        Self::RULES
+            .into_iter()
+            .zip(broken)
+            .filter(|(_, broken)| *broken)
+            .map(|((key, _), _)| key)
+            .collect()
+    }
+    fn first_broken(broken: &[(&'static str, &'static str)]) -> BehaviorResult<()> {
+        let Some((field, key)) = broken.first() else {
+            return Ok(());
+        };
+        Err(behavior_validation_error(field, key))
+    }
+    fn reject(broken: &[(&'static str, &'static str)]) -> BehaviorResult<()> {
+        Self::first_broken(broken).map_err(|error| BehaviorError {
+            violations: broken
+                .iter()
+                .map(|(field, key)| Self {
+                    field,
+                    rule: Self::rule_name(key),
+                })
+                .collect(),
+            ..error
+        })
+    }
+    fn rule_name(key: &str) -> &'static str {
+        Self::RULES
+            .into_iter()
+            .find(|(name, _)| *name == key)
+            .map_or("", |(_, rule)| rule)
+    }
+    fn field_present(item: Option<&BehaviorValue>) -> bool {
+        !matches!(item, None | Some(BehaviorValue::Null))
+    }
+    fn field_number(item: Option<&BehaviorValue>) -> Option<f64> {
+        match item {
+            Some(BehaviorValue::Number(number)) => Some(*number),
+            _ => None,
+        }
+    }
+    fn field_size_fits(item: Option<&BehaviorValue>, min: usize, max: usize) -> bool {
         let size = match item {
             Some(BehaviorValue::String(value)) => value.len(),
             Some(BehaviorValue::Array(value)) => value.len(),
             Some(BehaviorValue::Object(value)) => value.len(),
-            _ => return Err(behavior_validation_error(field.name, "size")),
+            _ => return false,
         };
-        if !(min..=max).contains(&size) {
-            return Err(behavior_validation_error(field.name, "size"));
-        }
+        (min..=max).contains(&size)
     }
-    for (rule, bound) in [("min", field.min), ("max", field.max)] {
-        let Some(bound) = bound else {
-            continue;
+    fn not_blank(item: Option<&BehaviorValue>) -> bool {
+        let Some(BehaviorValue::String(text)) = item else {
+            return false;
         };
-        let Some(BehaviorValue::Number(number)) = item else {
-            return Err(behavior_validation_error(field.name, rule));
-        };
-        if (rule == "min" && *number < bound) || (rule == "max" && *number > bound) {
-            return Err(behavior_validation_error(field.name, rule));
-        }
+        !text.is_empty() && !text.chars().all(behavior_unicode_whitespace)
     }
-    Ok(())
-}
-fn behavior_not_blank(item: Option<&BehaviorValue>) -> bool {
-    let Some(BehaviorValue::String(text)) = item else {
-        return false;
-    };
-    !text.is_empty() && !text.chars().all(behavior_unicode_whitespace)
 }
 
 fn behavior_framework_prefix() -> &'static str {
