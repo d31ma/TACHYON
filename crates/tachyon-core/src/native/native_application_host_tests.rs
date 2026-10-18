@@ -24,6 +24,7 @@ impl ApplicationHostTests {
             icons: Vec::new(),
             window: super::config::WindowConfiguration::default(),
             native_capabilities: Vec::new(),
+            outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
             menus: super::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
         };
