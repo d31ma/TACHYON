@@ -169,6 +169,9 @@ function TacServices.construct(class)
       instance[field]:start_context()
     end
   end
+  for field, name in pairs(class.__tachyonHelpers or {}) do
+    instance[field] = TacHelpers.build(name)
+  end
   return setmetatable(instance, {
     __index = function(_, key)
       local value = class[key]
@@ -178,6 +181,27 @@ function TacServices.construct(class)
       return value
     end,
   })
+end
+
+TacHelpers = {
+  building = {},
+}
+
+function TacHelpers.build(name)
+  local helper = rawget(_G, name)
+  if type(helper) ~= "table" then
+    error("Missing Helper " .. name, 0)
+  end
+  if TacHelpers.building[name] then
+    error("The Helper " .. name .. " needs itself through its -- @Needs fields. Remove one of those fields.", 0)
+  end
+  TacHelpers.building[name] = true
+  local built, instance = pcall(TacServices.construct, helper)
+  TacHelpers.building[name] = nil
+  if not built then
+    error(instance, 0)
+  end
+  return instance
 end
 
 function TacServices.invoke(text)

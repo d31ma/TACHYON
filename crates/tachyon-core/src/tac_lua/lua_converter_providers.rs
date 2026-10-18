@@ -61,12 +61,16 @@ impl LuaConverterProviders {
         })
     }
 
-    fn entries(fields: &[(String, String)]) -> String {
+    pub(super) fn entries(fields: &[(String, String)]) -> String {
         fields
             .iter()
             .map(|(field, name)| format!("[{field:?}] = {name:?}"))
             .collect::<Vec<_>>()
             .join(", ")
+    }
+
+    pub(super) fn hide_named_fields(metadata: &mut Value, fields: &[(String, String)]) {
+        Self::remove_fields(metadata, fields);
     }
 
     fn remove_fields(metadata: &mut Value, fields: &[(String, String)]) {

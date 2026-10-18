@@ -774,8 +774,10 @@ In Lua, a Converter is a class table marked `-- @Converter`. Its methods are
 empty and use LuaCATS type comments for the models. A service or controller
 receives it through a typed `-- @Needs` field. Plain mappings run in Yon and in
 the Tac Lua WebAssembly runtime. The other behavior annotations run in Tac
-Lua too, and so does `-- @HTTPClient`. Tac Lua has no Helper yet, and Lua
-resources are not available; see [ADR 0085](adr/0085-lua-is-a-yon-language.md).
+Lua too, and so do `-- @HTTPClient` and `-- @Helper`. A Tac Lua `-- @Helper` in `client/helpers/` reaches a service or
+another Helper through a typed `-- @Needs` field; the page builds it with the
+service, and a Lua Helper with `-- @OnStart`, `-- @OnStop` or `-- @OnEvent`
+fails with `TY1605`. Lua resources are not available; see [ADR 0085](adr/0085-lua-is-a-yon-language.md).
 Swift is a Tac language only, so it has no server test.
 
 ## Adapter Contracts

@@ -1,4 +1,4 @@
-use super::{LuaConverterProviders, LuaRuntimeBuild, LuaRuntimeSources};
+use super::{LuaConverterProviders, LuaHelperFields, LuaRuntimeBuild, LuaRuntimeSources};
 use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::{diagnostic, source_span};
@@ -141,6 +141,8 @@ const transport = (text) => lua.invoke(text)
             .refuse(snapshot_root, view.path(), view.text())
             .map_err(|failure| view.failure(&failure))?;
         let mut metadata = Self::metadata(snapshot_root, relative, &view)?;
+        let helpers = LuaHelperFields::read(snapshot_root)?;
+        helpers.hide_fields(&mut metadata, class, text);
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, text, Self::REALM)?
                 .unwrap_or_else(|| text.to_owned());
@@ -168,8 +170,11 @@ const transport = (text) => lua.invoke(text)
             .transpose()
             .map_err(|message| Self::failure(relative, text, &message))?
             .unwrap_or_default();
+        let helper_tables = helpers
+            .written(class, text, plan.as_ref())
+            .map_err(|message| Self::failure(relative, text, &message))?;
         let registered = format!(
-            "\n{lowered}\n{providers}TacServices.register({}, {class}, {})\n",
+            "\n{lowered}\n{providers}{helper_tables}TacServices.register({}, {class}, {})\n",
             LuaSource::long_string(instance),
             LuaSource::long_string(&metadata.to_string())
         );
