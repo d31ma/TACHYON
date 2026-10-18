@@ -487,10 +487,11 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
-- F# Tac caching, policies and stores now have runtime proof: an F# test
-  unit runs `Cached`, `CacheKey`, `UpdateCache`, `ClearCache`, `Retry`,
-  `MaxAtOnce`, `AllOrNothing`, `PageDefaults` and a `[<Query>]` Store on
-  host .NET (ADR 0073 amendment).
+- F# Tac caching, policies, stores and page state now have runtime proof:
+  an F# test unit runs `Cached`, `CacheKey`, `UpdateCache`, `ClearCache`,
+  `Retry`, `MaxAtOnce`, `AllOrNothing`, `PageDefaults` and a `[<Query>]`
+  Store on host .NET, and the browser storage gate checks an F#
+  `[<SessionState>]` field (ADR 0073 amendment).
 
 - The Linux browser CI job installs the checksum-pinned TeaVM jars and JDK 21,
   so the Java part of the real-browser storage gate runs there instead of
