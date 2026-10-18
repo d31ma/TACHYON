@@ -1,4 +1,6 @@
 #pragma once
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <random>
 #include <string>
@@ -13,15 +15,20 @@ public:
             if (request.method == tachyon::http::HttpMethod::Post && endsWith(request.requestUri, "/increment")) {
                 state->count += 1;
             }
-            return tachyon::json::JsonSerializer::serializeToNode(*state);
+            tachyon::json::JsonObject answer;
+            answer["identity"] = state->identity;
+            answer["count"] = state->count;
+            return tachyon::json::JsonNode(answer);
         };
         return adapters;
     }
 
 private:
     static std::string identity() {
-        std::random_device device;
-        std::mt19937_64 random(device());
+        static std::uint64_t configured = 0;
+        configured += 1;
+        const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+        std::mt19937_64 random(static_cast<std::uint64_t>(now) ^ (configured << 32));
         const char* digits = "0123456789abcdef";
         std::string text;
         for (int index = 0; index < 32; index += 1) {
