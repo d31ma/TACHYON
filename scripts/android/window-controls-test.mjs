@@ -90,8 +90,9 @@ class WindowProbeService {
   }
 
   static applicationWindowTitle() {
-    const { adbShell } = AndroidWindowControlsGate;
-    adbShell('uiautomator', 'dump', '--windows', '/sdcard/tachyon-windows.xml');
+    const { adb, adbShell, repo } = AndroidWindowControlsGate;
+    const dump = spawnSync(adb, ['shell', 'uiautomator', 'dump', '--windows', '/sdcard/tachyon-windows.xml'], { cwd: repo, encoding: 'utf8', timeout: 60000 });
+    if (!`${dump.stdout}${dump.stderr}`.includes('dumped to')) return '';
     const windows = adbShell('cat', '/sdcard/tachyon-windows.xml');
     return windows.match(/<window [^>]*title="([^"]*)"[^>]*type="TYPE_APPLICATION"/)?.[1] ?? '';
   }

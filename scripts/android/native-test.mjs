@@ -65,7 +65,10 @@ export {}
     write(project, `client/components/android/${name.toLowerCase()}/tac.css`, 'h1 { color: rgb(12, 34, 56); }');
     write(project, `client/services/Android${name}Service.js`, `@Service()
 export default class Android${name}Service {
-  received = '';
+  received = '';${prefix ? '' : `
+  @LocalState
+  visits = 0;
+  visit() { this.visits += 1; return this.visits; }`}
   /** @param {NativeEvent} value */
   @OnEvent
   receive(value) { this.received = value.text; }
@@ -79,7 +82,7 @@ export default class Android${name}Service {
 function androidView(name, instance) {
   const first = name === 'First';
   const nameInput = first ? `<input aria-label="Your name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" placeholder="Name">` : '';
-  const nativeCalls = first ? `<button on:click="${instance}.announce()">Announce native event</button><button on:click="${instance}.processId()">Read process id</button><button on:click="${instance}.delayedProcessId()">Read process id later</button>` : '';
+  const nativeCalls = first ? `<button on:click="${instance}.announce()">Announce native event</button><button on:click="${instance}.processId()">Read process id</button><button on:click="${instance}.delayedProcessId()">Read process id later</button><button on:click="${instance}.visit()">Visit</button><output aria-label="Visits">{${instance}.visits}</output>` : '';
   return `<main aria-label="Android native evidence"><h1>${name} route</h1><p>Built by {${instance}.builtBy}</p><p>Received {${instance}.received}</p><button on:click="${instance}.increase()" aria-label="Increase count">Increase</button><output aria-label="Count">{${instance}.count}</output>${nameInput}${nativeCalls}<a href="/items/7/">Second route</a></main>`;
 }
 
@@ -87,11 +90,14 @@ function androidFirstService() {
   return `@Service
 class AndroidFirstService {
   var count: Int = 0
+  @LocalState
+  var visits: Int = 0
   var name: String = ""
     set(value) { Thread.sleep(100); field = value }
   val builtBy: String = "Kotlin"
   val applicationEventPublisher: ApplicationEventPublisher
   fun increase(): Int { count += 21; return count }
+  fun visit(): Int { visits += 1; return visits }
   fun processId(): Int = android.os.Process.myPid()
   fun delayedProcessId(): Int { Thread.sleep(1200); return processId() }
   fun announce(): String {
@@ -141,7 +147,7 @@ async function installAndLaunch(out) {
   const packageInfo = run(AndroidDevice.adb, ['shell', 'dumpsys', 'package', AndroidDevice.packageName]);
   assert.match(packageInfo, /versionCode=5\b/, 'versionCode must be tac.application.build');
   assert.match(packageInfo, /versionName=0\.1\.0\b/, 'versionName must be tac.application.version');
-  run(AndroidDevice.adb, ['shell', 'am', 'force-stop', AndroidDevice.packageName]);
+  run(AndroidDevice.adb, ['shell', 'pm', 'clear', AndroidDevice.packageName]);
   run(AndroidDevice.adb, ['shell', 'am', 'start', '-W', '-n', `${AndroidDevice.packageName}/.MainActivity`]);
   let pid;
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -310,6 +316,31 @@ async function checkNavigation(page) {
   console.log('PASS: Android main-frame/origin/depth/byte/navigation boundary probes');
 }
 
+async function visitOnEntryPage(page) {
+  const visits = page.getByRole('status', {name:'Visits'});
+  const start = Number(await visits.textContent());
+  for (const expected of [start + 1, start + 2]) {
+    await page.getByRole('button', {name:'Visit'}).click();
+    await visits.filter({hasText:String(expected)}).waitFor();
+  }
+  return { entry: new URL(page.url()).pathname, visits: start + 2 };
+}
+
+async function checkStoredFieldAfterReload(page, entry) {
+  const visits = page.getByRole('status', {name:'Visits'});
+  try { await visits.filter({hasText:String(entry.visits)}).waitFor({timeout:5000}); }
+  catch (error) { throw new Error(`A LocalState value set on ${entry.entry} must be read on ${new URL(page.url()).pathname}; it shows ${await visits.textContent()}`); }
+  await page.getByRole('button', {name:'Visit'}).click();
+  await visits.filter({hasText:String(entry.visits + 1)}).waitFor();
+  await page.reload();
+  try { await page.getByRole('heading', {name:'First route'}).waitFor(); }
+  catch (error) { console.error('Android reloaded document:', (await page.content()).slice(0,4096)); throw error; }
+  await visits.filter({hasText:String(entry.visits + 1)}).waitFor({timeout:5000});
+  assert.equal(await page.evaluate(async () => JSON.parse(await globalThis.__tachyonNativeHostCall(
+    'companion.invoke', JSON.stringify({route:'/',service:'androidFirst',owner:globalThis.androidGateOwner,op:'get',name:'visits'}))).value), entry.visits + 1, 'The restored LocalState value reaches the new native owner');
+  console.log(`PASS: Android LocalState field set by a native method on ${entry.entry} survives navigation to / and a reload`);
+}
+
 async function checkInputAndWriteReport(page, host, pid) {
   const input = page.getByRole('textbox', {name:'Your name'});
   await input.focus();
@@ -321,7 +352,7 @@ async function checkInputAndWriteReport(page, host, pid) {
   await page.waitForFunction(() => document.querySelector('output')?.textContent === '21');
   assert.equal(await page.evaluate(async () => JSON.parse(await globalThis.__tachyonNativeHostCall(
     'companion.invoke', JSON.stringify({route:'/',service:'androidFirst',owner:globalThis.androidGateOwner,op:'get',name:'name'}))).value), 'Ada Lovelace');
-  writeFileSync(path.join(AndroidDevice.evidence,'report.json'), JSON.stringify({target:'android',host,pid:Number(pid),runtime:await page.evaluate(() => navigator.userAgent),checks:['Kotlin compilation','live WebView','field mutation','native OS API','route isolation','route ownership rejection','opaque sandboxed srcdoc bridge absence','local subframe rejection despite spoofed origin and frame claims','foreign origin bridge absence','raw authorized main-frame call','outer and inner JSON depth64/65 budgets','native UTF8 payload budget','bounded async pending queue and navigation retirement','native publish','accessible controls','per-character input focus and DOM identity','stale service worker retirement','packaged dynamic route','dynamic route stylesheet','root-relative shared asset']},null,2)+'\n');
+  writeFileSync(path.join(AndroidDevice.evidence,'report.json'), JSON.stringify({target:'android',host,pid:Number(pid),runtime:await page.evaluate(() => navigator.userAgent),checks:['Kotlin compilation','live WebView','field mutation','native OS API','route isolation','route ownership rejection','opaque sandboxed srcdoc bridge absence','local subframe rejection despite spoofed origin and frame claims','foreign origin bridge absence','raw authorized main-frame call','outer and inner JSON depth64/65 budgets','native UTF8 payload budget','bounded async pending queue and navigation retirement','native publish','accessible controls','per-character input focus and DOM identity','stale service worker retirement','packaged dynamic route','dynamic route stylesheet','root-relative shared asset','LocalState after a native method and a reload']},null,2)+'\n');
   console.log(`PASS: Android WebView and Kotlin native evidence: ${AndroidDevice.evidence}`);
 }
 
@@ -342,10 +373,12 @@ async function main() {
     page.on('console', message => { if (message.type() === 'error') console.error('Android console:', message.text()); });
     assert.ok(page, 'Android WebView exposes a live document');
     await checkStartup(page, pid);
+    const entry = await visitOnEntryPage(page);
     await checkFrameBoundaries(page);
     await checkRawMainCalls(page, pid);
     await checkNativeEvent(page);
     await checkNavigation(page);
+    await checkStoredFieldAfterReload(page, entry);
     await checkInputAndWriteReport(page, host, pid);
   } finally {
     if (browser) await browser.close();

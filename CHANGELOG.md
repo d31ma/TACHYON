@@ -10,6 +10,10 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Android native test checks that a `@LocalState` field set by a Kotlin
+  method on the first page (`/index.html`) keeps its value after a
+  navigation to `/` and after a reload. The test clears the app's data
+  after each install, so values from earlier runs cannot hide a lost one.
 - The Windows app opens its window from `client/manifest.json`, as the macOS
   app does. Its client area starts at `tac.application.window` `width` by
   `height` device-independent pixels, so it keeps its size on a high-DPI
