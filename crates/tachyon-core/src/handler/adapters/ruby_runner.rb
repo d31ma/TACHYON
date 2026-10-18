@@ -606,6 +606,9 @@ class YonRunnerLimits
   FRAME_TOO_LARGE = "Serialized handler result exceeds the protocol frame limit."
   EVENT_TOO_LARGE = "Streamed event exceeds the protocol frame limit."
   JSON_CONTENT_TYPE = "application/json; charset=utf-8"
+  CHECK_REJECTED = "Input breaks a Checked rule."
+  CHECK_REJECTED_STATUS = 422
+  MAX_CAUSE_DEPTH = 8
 end
 
 class YonNoRoute < StandardError
@@ -659,8 +662,31 @@ class YonRunnerFailures
   end
 
   def self.for_error(request_id, error)
+    broken = violations(error)
+    return rejected(request_id, broken) unless broken.nil?
     return build(request_id, "TY2203", error.message) if shape_error?(error)
     build(request_id, "TY2201", error.message)
+  end
+
+  def self.rejected(request_id, violations)
+    response = build(request_id, "TY2205", YonRunnerLimits::CHECK_REJECTED, YonRunnerLimits::CHECK_REJECTED_STATUS)
+    response["error"]["violations"] = violations
+    response
+  end
+
+  def self.violations(error)
+    cause = error
+    YonRunnerLimits::MAX_CAUSE_DEPTH.times do
+      return nil if cause.nil?
+      return cause.violations if rejection?(cause)
+      cause = cause.cause
+    end
+    nil
+  end
+
+  def self.rejection?(error)
+    return false unless error.respond_to?(:violations) && error.respond_to?(:behavior_code)
+    error.behavior_code == "validation" && error.violations.is_a?(Array)
   end
 
   def self.shape_error?(error)

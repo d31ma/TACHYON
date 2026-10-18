@@ -49,6 +49,23 @@ class HandlerChecks
       Behaviors.validate(ProductInput, { "name" => "\u0085\u00a0" })
     end
     raise error unless error.behavior_code == "validation" && error.path == "name.notBlank"
+    check_rejection
+  end
+
+  def self.check_rejection
+    error = behavior_error("three two-byte letters must break Length") do
+      ValidationService.new.accept({ "name" => "\u00e9\u00e9\u00e9", "price" => 20 })
+    end
+    raise error unless error.path == "name.size" && error.violations == [{ "field" => "name", "rule" => "Length" }]
+    error = behavior_error("every broken rule must be reported") do
+      ValidationService.new.accept({ "price" => "x" })
+    end
+    rules = error.violations.map { |violation| "#{violation["field"]}.#{violation["rule"]}" }
+    raise error unless error.path == "name.notNull" && rules == ["name.Required", "name.NotEmpty", "price.Min", "price.Max"]
+    error = behavior_error("the explicit API must stop at the first rule") do
+      Behaviors.validate(ProductInput, { "price" => "x" })
+    end
+    raise error if error.respond_to?(:violations) || error.path != "name.notNull"
   end
 
   def self.check_inactive_configuration(signal)

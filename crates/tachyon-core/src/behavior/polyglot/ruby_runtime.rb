@@ -476,7 +476,7 @@ class BehaviorContext
     arguments = arguments.dup
     if metadata.key?("valid")
       policy = metadata["valid"]
-      arguments[policy["argument"]] = BehaviorValidation.apply(policy["schema"], arguments[policy["argument"]])
+      arguments[policy["argument"]] = BehaviorValidation.check(policy["schema"], arguments[policy["argument"]])
     end
     BehaviorBoundary.invalid("Too many behavior arguments.") if arguments.size > 32
     if metadata.key?("pageable")
@@ -917,36 +917,87 @@ class BehaviorRepository
   end
 end
 
+class BehaviorRejection < BehaviorError
+  attr_reader :violations
+
+  def initialize(violations, path)
+    super("validation", "Behavior validation failed.", path)
+    @violations = violations
+  end
+end
+
 class BehaviorValidation
   BLANK = /\A[\u0009-\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]*\z/
+  RULES = { "notNull" => "Required", "notBlank" => "NotEmpty", "size" => "Length", "min" => "Min", "max" => "Max" }
 
   def self.error(path)
     raise BehaviorError.new("validation", "Behavior validation failed.", path)
   end
 
   def self.apply(schema, input)
+    value = object(input)
+    broken = violations(fields(schema), value)
+    error(broken.first.join(".")) unless broken.empty?
+    value
+  end
+
+  def self.check(schema, input)
+    fields = fields(schema)
+    value = begin
+      object(input)
+    rescue BehaviorError => failure
+      raise BehaviorRejection.new([{ "field" => "", "rule" => "Checked" }], failure.path)
+    end
+    broken = violations(fields, value)
+    return value if broken.empty?
+    entries = broken.map { |field, key| { "field" => field, "rule" => RULES[key] } }
+    raise BehaviorRejection.new(entries, broken.first.join("."))
+  end
+
+  def self.object(input)
     value = begin
       BehaviorBoundary.copy(input)
     rescue StandardError
       error("$.json")
     end
     error("$.object") unless value.is_a?(Hash)
-    error("$.schema") unless schema.is_a?(Hash) && schema.key?("fields")
-    schema["fields"].each { |field, rules| check(field, rules, value[field]) }
     value
   end
 
-  def self.check(field, rules, data)
-    error("#{field}.notNull") if rules["notNull"] && data.nil?
-    error("#{field}.notBlank") if rules["notBlank"] && (!data.is_a?(String) || data.match?(BLANK))
-    return if data.nil?
-    if rules.key?("size")
-      size = data.is_a?(String) || data.is_a?(Array) || data.is_a?(Hash) ? data.size : -1
-      error("#{field}.size") if size < rules["size"]["min"] || size > rules["size"]["max"]
+  def self.fields(schema)
+    error("$.schema") unless schema.is_a?(Hash) && schema.key?("fields")
+    schema["fields"]
+  end
+
+  def self.violations(fields, value)
+    found = []
+    fields.each do |field, rules|
+      broken(rules, value[field]).each { |key| found << [field, key] }
     end
+    found
+  end
+
+  def self.broken(rules, data)
+    keys = []
+    keys << "notNull" if rules["notNull"] && data.nil?
+    keys << "notBlank" if rules["notBlank"] && (!data.is_a?(String) || data.match?(BLANK))
+    return keys if data.nil?
+    keys << "size" if rules.key?("size") && !size_fits?(rules["size"], data)
     number = data.is_a?(Integer) || data.is_a?(Float)
-    error("#{field}.min") if rules.key?("min") && (!number || data < rules["min"])
-    error("#{field}.max") if rules.key?("max") && (!number || data > rules["max"])
+    keys << "min" if rules.key?("min") && (!number || data < rules["min"])
+    keys << "max" if rules.key?("max") && (!number || data > rules["max"])
+    keys
+  end
+
+  def self.size_fits?(limits, data)
+    size = if data.is_a?(String)
+      data.bytesize
+    elsif data.is_a?(Array) || data.is_a?(Hash)
+      data.size
+    else
+      -1
+    end
+    size >= limits["min"] && size <= limits["max"]
   end
 end
 

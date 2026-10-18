@@ -143,6 +143,8 @@ class RuntimeContract
     optional_schema = { "fields" => { "name" => { "size" => { "min" => 1, "max" => 16 } } } }
     reject_behavior("a list is not a DTO object", "validation") { BehaviorValidation.apply(optional_schema, []) }
     raise "empty DTO object shape lost" unless BehaviorValidation.apply(optional_schema, {}) == {}
+    two_bytes = { "fields" => { "name" => { "size" => { "min" => 1, "max" => 2 } } } }
+    reject_behavior("Length counts UTF-8 bytes", "validation") { BehaviorValidation.check(two_bytes, { "name" => "\u00e9\u00e9" }) }
     raise "symbol keys are JSON text" unless BehaviorBoundary.copy({ b: 1, a: :x }) == { "a" => "x", "b" => 1 }
   end
 

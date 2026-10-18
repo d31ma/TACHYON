@@ -92,7 +92,7 @@ impl RubyLowering {
                 .unwrap_or_default();
             let name = &method.parameters[index].name;
             format!(
-                "; {name} = BehaviorValidation.apply(JSON.parse({}), {name});{original}",
+                "; {name} = BehaviorValidation.check(JSON.parse({}), {name});{original}",
                 Self::single_quoted(&policy["schema"].to_string())
             )
         } else {
