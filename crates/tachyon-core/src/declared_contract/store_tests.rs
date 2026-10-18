@@ -509,7 +509,20 @@ fn a_lua_yon_store_becomes_a_provider_that_opens_its_own_context() {
         lowered.ends_with("end\n\n---@return nil\n-- @OnStart\nfunction ProductStore:start_context()\n  self.behaviors = Behaviors.create(ProductSetup, { partition = \"product\", signal = BehaviorSignal.new() })\nend\n"),
         "{lowered}"
     );
-    assert_eq!(DeclaredContract::concrete(path, &contract, "tac"), None);
+    let browser = DeclaredContract::concrete(
+        Path::new("client/stores/ProductStore.lua"),
+        &contract,
+        "tac",
+    )
+    .expect("browser store");
+    assert!(
+        browser.starts_with("-- @Store\n-- @Store(ProductEntity, "),
+        "{browser}"
+    );
+    assert!(
+        browser.contains("function ProductStore:start_context()"),
+        "{browser}"
+    );
     let service = "-- @Service\n---@class ProductService\nProductService = {}\n";
     assert_eq!(
         DeclaredContract::concrete(
