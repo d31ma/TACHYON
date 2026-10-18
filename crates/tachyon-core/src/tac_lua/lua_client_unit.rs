@@ -36,8 +36,13 @@ impl LuaClientUnit {
             .assembled(relative, &assembled)?;
         let joined = LuaView::joined(relative, &assembled);
         let joined_failure = |failure: Failure| joined.failure(&failure);
-        let joined_roles = crate::behavior::ServiceRoles::read(joined.path(), joined.text())
+        let clients = crate::behavior::HttpClientSource::rewrite(joined.path(), joined.text())
             .map_err(joined_failure)?;
+        let joined_roles = crate::behavior::ServiceRoles::read(
+            joined.path(),
+            clients.as_deref().unwrap_or(joined.text()),
+        )
+        .map_err(joined_failure)?;
         let plan = LuaBehaviorPlan::read(joined.path(), &joined_roles.source, Self::REALM)
             .map_err(joined_failure)?;
         let authored = plan

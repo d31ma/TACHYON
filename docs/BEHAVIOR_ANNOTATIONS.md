@@ -585,7 +585,7 @@ members: the behavior context, the constructor and every body.
 | F# | `type CatalogClient =` with only `abstract` members (an F# interface) | an `abstract` member |
 | Python | `class CatalogClient(Protocol)` | `...` |
 | JavaScript, TypeScript, Ruby | `class CatalogClient` | an empty body |
-| Lua (Yon) | `CatalogClient = {}` marked `-- @HTTPClient` | `function CatalogClient:find(...)` with an empty body |
+| Lua | `CatalogClient = {}` marked `-- @HTTPClient` | `function CatalogClient:find(...)` with an empty body |
 
 JavaScript and Ruby have no method without a body, and TypeScript accepts
 annotations only on a method with a body (an interface or an `abstract` member
@@ -774,8 +774,8 @@ In Lua, a Converter is a class table marked `-- @Converter`. Its methods are
 empty and use LuaCATS type comments for the models. A service or controller
 receives it through a typed `-- @Needs` field. Plain mappings run in Yon and in
 the Tac Lua WebAssembly runtime. The other behavior annotations run in Tac
-Lua too; Tac Lua has no HTTPClient or Helper yet, and Lua resources are not
-available; see [ADR 0085](adr/0085-lua-is-a-yon-language.md).
+Lua too, and so does `-- @HTTPClient`. Tac Lua has no Helper yet, and Lua
+resources are not available; see [ADR 0085](adr/0085-lua-is-a-yon-language.md).
 Swift is a Tac language only, so it has no server test.
 
 ## Adapter Contracts

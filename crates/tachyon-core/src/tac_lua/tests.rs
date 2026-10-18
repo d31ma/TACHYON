@@ -451,7 +451,8 @@ async fn a_lua_service_that_needs_another_service_stops_the_build_at_the_field()
         diagnostic
             .help
             .as_deref()
-            .is_some_and(|help| help.contains("A Lua Needs field takes a Converter")),
+            .is_some_and(|help| help
+                .contains("A Lua Needs field takes a Store, a Converter or an HTTPClient")),
         "{failure}"
     );
     let span = &diagnostic.spans[0];

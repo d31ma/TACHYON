@@ -454,3 +454,54 @@ async fn a_lua_service_queries_its_store_on_the_page() {
         "{report}"
     );
 }
+
+struct HttpPage;
+
+impl HttpPage {
+    const FILES: [(&str, &str); 2] = [
+        (
+            "client/setups/CatalogSetup.lua",
+            "-- @Setup\n---@class CatalogSetup\nCatalogSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  local echo = {\n    exchange = function(_, request, call)\n      return { method = request.method, path = request.path, query = request.query, headers = request.headers, body = request.body }\n    end,\n  }\n  return { http = { catalog = echo } }\nend\n",
+        ),
+        (
+            "client/remotes/CatalogClient.lua",
+            "-- @HTTPClient({\"path\":\"/api\"})\n---@class CatalogClient\nCatalogClient = {}\n\n---@param id string\n---@param view string\n---@param tenant string\n---@return table\n-- @GetRequest(\"/products/{id}\")\nfunction CatalogClient:find(\n  -- @PathVariable(\"id\")\n  id,\n  -- @RequestParam(\"view\")\n  view,\n  -- @RequestHeader(\"X-Tenant\")\n  tenant\n)\nend\n\n---@param product table\n---@return table\n-- @PostRequest(\"/products\")\nfunction CatalogClient:save(\n  -- @RequestBody\n  product\n)\nend\n\n---@param id integer\n---@return table\n-- @DeleteRequest(\"/products/{id}\")\nfunction CatalogClient:remove(\n  -- @PathVariable(\"id\")\n  id\n)\nend\n",
+        ),
+    ];
+
+    const SERVICE: &str = "-- @Service\n---@class CatalogService\nCatalogService = {\n  -- @Needs\n  ---@type CatalogClient\n  catalog_client = nil,\n}\n\n---@return table\nfunction CatalogService:report()\n  return { found = self.catalog_client:find(\"anvil\", \"full\", \"acme\"), saved = self.catalog_client:save({ sku = \"anvil\" }), removed = self.catalog_client:remove(7) }\nend\n";
+
+    const DRIVER: &str = "const { default: CatalogService } = await import('./CatalogService.js')\n\
+         const catalog = new CatalogService({})\n\
+         console.log(JSON.stringify(catalog.report()))\n\
+         process.exit(0)\n";
+}
+
+#[tokio::test]
+async fn a_lua_http_client_sends_each_request_through_its_setup_adapter_on_the_page() {
+    if let Some(reason) = Page::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in HttpPage::FILES {
+        Page::write(root.path(), relative, text);
+    }
+    Page::publish(
+        root.path(),
+        &[("catalog", "CatalogService", HttpPage::SERVICE)],
+    )
+    .await;
+    let report = Page::run(root.path(), HttpPage::DRIVER);
+    assert_eq!(
+        report["found"],
+        serde_json::json!({"method": "GET", "path": "/api/products/anvil", "query": {"view": "full"}, "headers": {"X-Tenant": "acme"}}),
+        "{report}"
+    );
+    assert_eq!(
+        report["saved"],
+        serde_json::json!({"method": "POST", "path": "/api/products", "query": {}, "headers": {}, "body": {"sku": "anvil"}}),
+        "{report}"
+    );
+    assert_eq!(report["removed"]["path"], "/api/products/7", "{report}");
+}

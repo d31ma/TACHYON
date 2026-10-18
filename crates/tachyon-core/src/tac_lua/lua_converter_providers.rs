@@ -5,6 +5,8 @@ use serde_json::Value;
 pub(super) struct LuaConverterProviders;
 
 impl LuaConverterProviders {
+    const PROVIDED_METHODS: [&'static str; 2] = ["query", "httpExchange"];
+
     pub(super) fn written(
         class: &str,
         source: &str,
@@ -46,13 +48,17 @@ impl LuaConverterProviders {
 
     fn is_provider(name: &str, marked: bool, records: &Value) -> bool {
         let record = &records[name];
-        marked && [record["mapper"] == true, Self::is_store(record)].contains(&true)
+        marked && [record["mapper"] == true, Self::answers_calls(record)].contains(&true)
     }
 
-    fn is_store(record: &Value) -> bool {
-        record["methods"]
-            .as_object()
-            .is_some_and(|methods| methods.values().any(|method| method.get("query").is_some()))
+    fn answers_calls(record: &Value) -> bool {
+        record["methods"].as_object().is_some_and(|methods| {
+            methods.values().any(|method| {
+                Self::PROVIDED_METHODS
+                    .iter()
+                    .any(|key| method.get(key).is_some())
+            })
+        })
     }
 
     fn entries(fields: &[(String, String)]) -> String {
