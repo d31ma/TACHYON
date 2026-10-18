@@ -24,7 +24,12 @@ these calls. The macOS host runs the controls on the app's own window,
 and a macOS test checks this on a real app window. The Linux (GTK) host
 has the controls too. A Linux test runs the generated app under Xvfb with
 a window manager: a Rust page service sets the title, resizes and
-minimizes the app's window, and a close without its grant is refused. On
+minimizes the app's window, and a close without its grant is refused. A
+JavaScript page caller reaches the same GTK controls, and when the host
+refuses a call, the service hears a BrowserCallFailed event with the
+host's answer. An iOS app has no window controls, because the system owns
+the window: only title applies there, as the scene title, granted()
+answers false for the other controls, and the build prints a note. On
 Windows, a test that needs MSVC drives the host's control code against a
 real Win32 window, without the full app or WebView2. The Android check
 only type-checks the code against the SDK; it does not run on a device.

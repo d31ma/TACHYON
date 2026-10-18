@@ -49,7 +49,7 @@ class TacWebApis {
     granted: (control) => TacWebApis.windowGrants().includes(control),
     ...Object.fromEntries(['minimize', 'maximize', 'fullscreen', 'close'].map((control) => [control, () => TacWebApis.window(control, {})])),
     resize: (width, height) => TacWebApis.window('resize', TacWebApis.windowSize(width, height)),
-    setTitle: (text) => TacWebApis.window('title', { title: String(text) }),
+    setTitle: (text) => TacWebApis.window('title', { title: String(text) }, 'setTitle'),
   })
   static apis = Object.freeze({
     clock: TacWebApis.clock,
@@ -140,11 +140,17 @@ class TacWebApis {
     return Array.isArray(globalThis.__tachyonWindowControls) ? globalThis.__tachyonWindowControls : []
   }
 
-  static window(control, payload) {
+  static window(control, payload, call = control) {
     if (typeof globalThis.__tachyonNativeHostCall !== 'function') throw new Error(`The ${control} window control needs the native app window.`)
     if (!TacWebApis.windowGrants().includes(control)) throw new Error(`The ${control} window control is not granted. Add "${control}" to tac.application.window.controls in client/manifest.json.`)
-    void Promise.resolve(globalThis.__tachyonNativeHostCall(`window.${control}`, JSON.stringify(payload))).catch(() => {})
+    const owner = TacWebApis.caller
+    new Promise((resolve) => resolve(globalThis.__tachyonNativeHostCall(`window.${control}`, JSON.stringify(payload)))).then(TacWebApis.refusal).catch(TacWebApis.message).then((message) => message && TacWebApis.reply(owner, ['BrowserCallFailed', { api: 'windowControls', call, message }]))
     return null
+  }
+
+  static refusal(answer) {
+    const { ok, error } = typeof answer === 'string' ? JSON.parse(answer) : answer ?? {}
+    return error ?? (ok === false ? 'The native host refused the call.' : '')
   }
 
   static windowSize(width, height) {

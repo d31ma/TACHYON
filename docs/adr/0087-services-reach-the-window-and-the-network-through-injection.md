@@ -248,3 +248,39 @@ worker checks a package file against its digest, so the value says nothing
 private. Any other `Vary` value, `Vary: *` included, still keeps a response
 out of both caches. The same servers now let the worker keep the files that
 its asset table lists (ADR 0093 amendment).
+
+## Amendment (2026-10-18): window controls tell the truth
+
+The page runtime no longer drops the host's answer to a window control.
+`TacWebApis.windowControls` still checks the grant and the size at once and
+fails the call there. A call the host refuses after it started (an answer
+with an `error` member or `"ok": false`, or a rejected host call) now reaches
+the calling service as `BrowserCallFailed { api: "windowControls", call,
+message }`, where `call` is the method name (`setTitle` for `title`) and the
+message is the host's answer, for example `denied`. This is the same rule
+ADR 0065 set for the other browser APIs: synchronous failures are errors of
+the call, and failures after the call started are events. The page runtime's
+size budget (`tac-web.js`) moves from 9,500 to 10,000 bytes for this.
+
+The Linux page bridge now sends every `window.*` call from the page to the
+same GTK controls that the Rust C ABI adapter uses
+(`linux_window_controls.c`), with the same manifest grants. Before this,
+it answered only `companion.invoke`, so JavaScript, TypeScript and
+WebAssembly callers on Linux got no effect and no error. The Linux Xvfb
+test (`linux_window_control_tests`) now starts with a JavaScript caller that
+runs the real page runtime: it sets the title and resizes the window to
+700x500 through the bridge, and when it calls `close` without the host's
+grant, it hears `BrowserCallFailed` with the message `denied` and the window
+stays open. It passed on 2026-10-18 under Xvfb with xfwm4 on Ubuntu 24.04
+(x86_64, GTK 4.14.5, WebKitGTK 2.52.6).
+
+An iOS app has no window controls: the system owns the window. The iOS host
+now gives the page only the `title` grant, answers `window.granted`, and maps
+`window.title` to the scene title (`UIWindowScene.title`, shown in the iPad
+window switcher). `granted` answers `false` for every other control. The per-target support
+table (ADR 0102) now marks the controls adapted on iOS with that note, which
+an iOS build that declares `tac.application.window.controls` prints, and
+honored on Linux. A Swift service
+that the iOS app links in still has no window adapter there, so its
+`granted` answers `false` and its calls throw. The iOS host change is
+checked on the generated source only; the simulator gate runs on a Mac.

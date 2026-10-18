@@ -155,8 +155,8 @@
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "close, fullscreen, maximize (zoom), minimize, resize and title"},
     "windows": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title"},
-    "linux": {"reach": "adapted", "note": "tac.application.window.controls work on Linux only from a linked Rust service. A call from a page service does nothing yet (WIN6)."},
-    "ios": {"reach": "adapted", "note": "tac.application.window.controls are not built for iOS yet. A WindowControls call does nothing (WIN6)."},
+    "linux": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services"},
+    "ios": {"reach": "adapted", "note": "tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title. granted() answers false for the other controls."},
     "android": {"reach": "adapted", "note": "tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, and fullscreen hides the system bars."}
   },
   {

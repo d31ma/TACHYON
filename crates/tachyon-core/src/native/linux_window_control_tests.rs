@@ -57,6 +57,20 @@ if (globalThis.__windowStep === undefined) {
   return results.join(',');
 }
 return 'minimize=' + (await send('call', 'minimize', [])).value;";
+    const PAGE_SCRIPT: &'static str = r"__PAGE_RUNTIME__
+const failures = [];
+let heard = null;
+const failure = new Promise((resolve) => { heard = resolve; });
+TacWebApis.events = { send: (owner, name, value) => { failures.push(name + ' ' + value.api + '.' + value.call + ': ' + value.message); heard(); } };
+const controls = globalThis[Symbol.for('tachyon.tac.web')].windowControls;
+controls.setTitle('Page title é漢');
+controls.resize(700, 500);
+globalThis.__tachyonWindowControls = Object.freeze([...globalThis.__tachyonWindowControls, 'close']);
+controls.close();
+await Promise.race([failure, new Promise((resolve) => setTimeout(resolve, 5000))]);
+return 'title=' + controls.granted('title') + ',close=' + controls.granted('close') + ',' + failures.join(';');";
+    const PAGE_EXPECTED: &'static str =
+        "title=true,close=true,BrowserCallFailed windowControls.close: denied";
     const EXPECTED: &'static str = "title=true,resize=true,minimize=true,close=false,fullscreen=false,rename=,long=unavailable,resize=,small=invalid,close=denied";
 
     fn write(path: &Path, source: &str) -> PathBuf {
@@ -97,6 +111,15 @@ return 'minimize=' + (await send('call', 'minimize', [])).value;";
                 &super::host::c_string_escape(Self::SCRIPT),
             )
             .replace("__WINDOW_EXPECTED__", Self::EXPECTED)
+            .replace(
+                "__PAGE_SCRIPT__",
+                &super::host::c_string_escape(&Self::page_script()),
+            )
+            .replace("__PAGE_EXPECTED__", Self::PAGE_EXPECTED)
+    }
+
+    fn page_script() -> String {
+        Self::PAGE_SCRIPT.replace("__PAGE_RUNTIME__", include_str!("../template/tac-web.js"))
     }
 }
 
@@ -113,7 +136,9 @@ fn the_window_control_fixture_stages_a_granted_service_and_a_real_bridge_script(
     assert!(!host.contains("strcmp(control, \"close\") == 0) return TRUE;"));
     let fixture = LinuxWindowControlTests::fixture();
     assert!(fixture.contains("window.webkit.messageHandlers.tachyon.postMessage"));
+    assert!(fixture.contains("static installed = TacWebApis.install()"));
     assert!(!fixture.contains("__WINDOW_"));
+    assert!(!fixture.contains("__PAGE_"));
 }
 
 #[cfg(target_os = "linux")]

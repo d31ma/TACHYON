@@ -96,3 +96,11 @@ static unsigned char *tachyon_capability_call(const char *operation, const char 
   g_object_unref(context);
   return tachyon_capability_answer(answer, length);
 }
+
+static gchar *tachyon_window_page_call(const gchar *operation, const gchar *payload) {
+  size_t length = 0;
+  unsigned char *answer = tachyon_capability_call(operation, payload, &length);
+  gchar *text = g_strndup((const gchar *)answer, length);
+  tachyon_capability_free(answer, length);
+  return text;
+}

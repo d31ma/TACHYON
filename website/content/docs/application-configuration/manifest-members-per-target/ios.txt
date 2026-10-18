@@ -46,7 +46,7 @@ tac.application.window.minWidth, minHeight
   not applicable: tac.application.window minWidth and minHeight have no meaning on iOS: the system sizes the app.
 
 tac.application.window.controls
-  adapted: tac.application.window.controls are not built for iOS yet. A WindowControls call does nothing (WIN6).
+  adapted: tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title. granted() answers false for the other controls.
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" is built only for macOS. The iOS app keeps the standard status bar (ADR 0098, WIN5).

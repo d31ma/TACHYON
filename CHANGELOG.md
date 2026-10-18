@@ -1068,6 +1068,17 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Window controls tell the truth. A window control that the native host
+  refuses after the call started now reaches the calling service as a
+  `BrowserCallFailed` event (`api` `windowControls`, the call's name and the
+  host's answer) instead of being dropped. On Linux, JavaScript, TypeScript
+  and WebAssembly page callers now reach the GTK window controls; before,
+  the page bridge answered only `companion.invoke` and the call did nothing.
+  The Linux Xvfb test now also drives the controls from a JavaScript caller.
+  On iOS only `title` is granted to the page, and it sets the scene title;
+  `granted` answers `false` for the other controls. The per-target support
+  table now says so for iOS and marks Linux honored (ADR 0087 amendment).
+
 - An Android build no longer fails in Gradle with `resource mipmap/ic_launcher
   not found` when `client/manifest.json` names an icon file that does not
   exist. The app then uses the default Android icon, like the other hosts.

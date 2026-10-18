@@ -3,6 +3,7 @@ use super::host::{
     GeneratedHost, first_line, native_tool_failure, run_tool, stage_application, write,
     write_host_source, xml_escape,
 };
+use super::ios_window_controls::IosWindowControls;
 use super::macos::{MacOsHostGenerator, optional_unicode_path, unicode_path};
 use super::routes::NativeRouteIndex;
 use crate::Failure;
@@ -211,7 +212,11 @@ pub(super) fn swift_source(
         )
         .replace(
             "__NATIVE_SHIM__",
-            &super::host::native_shim(&application.window),
+            &super::host::native_shim(&IosWindowControls::page_window(&application.window)),
+        )
+        .replace(
+            "__IOS_WINDOW_CONTROLS__",
+            &IosWindowControls::bridge_cases(&application.window),
         )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace(
@@ -407,6 +412,7 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         let data = payload.data(using: .utf8) ?? Data()
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         switch capability {
+__IOS_WINDOW_CONTROLS__
         case "companion.invoke":
             return __TACHYON_COMPANION_CALL__
         case "route.open":

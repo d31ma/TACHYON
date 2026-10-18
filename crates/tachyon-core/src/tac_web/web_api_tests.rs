@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 9_500;
+    const MOST_RUNTIME_BYTES: usize = 10_000;
     /// A driver whose promises never settle fails its test instead of holding the suite.
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
@@ -491,8 +491,8 @@ await new Promise((resolve) => setTimeout(resolve, 0))
 console.log(JSON.stringify({ answers, effects }))
 ";
 
-    const WINDOW_DRIVER: &str = r"globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: () => null }
-;(0, eval)(await readFile('./tac-web.js', 'utf8'))
+    const WINDOW_DRIVER: &str = r#"globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: () => null }
+;(0, eval)(`${await readFile('./tac-web.js', 'utf8')}\nglobalThis.TacWebApis = TacWebApis`)
 const web = globalThis[Symbol.for('tachyon.tac.web')]
 const ask = (call, args = []) => JSON.parse(web.host(JSON.stringify({ api: 'windowControls', call, args })))
 const answers = { tabGranted: ask('granted', ['minimize']), tabMinimize: ask('minimize') }
@@ -506,8 +506,17 @@ answers.close = ask('close')
 answers.resize = ask('resize', [1280, 800])
 answers.tooSmall = ask('resize', [10, 800])
 answers.title = ask('setTitle', ['Report'])
-console.log(JSON.stringify({ answers, sent }))
-";
+const failed = []
+TacWebApis.events = { send: (owner, name, value) => failed.push([owner?.name ?? 'everyone', name, value]) }
+const replies = { 'window.minimize': () => '{"error":"denied"}', 'window.title': async () => '{"ok":true}', 'window.resize': async () => { throw new Error('Native calls require the local application document.') } }
+globalThis.__tachyonNativeHostCall = (capability) => replies[capability]()
+web.calling({ name: 'ReportService' }, () => [ask('minimize'), ask('setTitle', ['Kept']), ask('resize', [800, 600])])
+globalThis.__tachyonNativeHostCall = () => '{"ok":false}'
+ask('minimize')
+await new Promise((resolve) => setTimeout(resolve, 0))
+failed.sort((first, second) => first[2].message < second[2].message ? -1 : 1)
+console.log(JSON.stringify({ answers, sent, failed }))
+"#;
 
     const RUST_PROMPTS: &str = r#"#[Service]
 #[derive(Default)]
@@ -1561,6 +1570,20 @@ fn the_page_runtime_sends_only_granted_window_controls_to_the_native_host() {
             ["window.resize", {"width": 1280, "height": 800}],
             ["window.title", {"title": "Report"}],
         ])
+    );
+    let failure = |owner: &str, call: &str, message: &str| serde_json::json!([owner, "BrowserCallFailed", {"api": "windowControls", "call": call, "message": message}]);
+    assert_eq!(
+        report["failed"],
+        serde_json::json!([
+            failure(
+                "ReportService",
+                "resize",
+                "Native calls require the local application document."
+            ),
+            failure("everyone", "minimize", "The native host refused the call."),
+            failure("ReportService", "minimize", "denied"),
+        ]),
+        "{report}"
     );
 }
 

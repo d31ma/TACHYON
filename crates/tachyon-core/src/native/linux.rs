@@ -540,10 +540,12 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
     answer = operation && route != NULL && tachyon_payload_route_matches(payload, route->route)
       ? tachyon_companion_invoke(payload) : g_strdup("{\"error\":\"Native route mismatch.\"}");
     tachyon_menus_refresh();
+  } else if (g_str_has_prefix(capability, "window.")) {
+    answer = tachyon_window_page_call(capability, payload);
   } else {
     gchar *safe = tachyon_safe_name(capability);
     answer = g_strdup_printf(
-        "{\"ok\":false,\"error\":\"linux host answers companion.invoke, not '%s'\"}", safe);
+        "{\"ok\":false,\"error\":\"linux host answers companion.invoke and window controls, not '%s'\"}", safe);
     g_free(safe);
   }
 

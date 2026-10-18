@@ -29,6 +29,7 @@ mod go_web_build;
 mod held_service;
 mod host;
 mod ios;
+mod ios_window_controls;
 mod java_web_services;
 mod kotlin_held_streams;
 #[cfg(test)]

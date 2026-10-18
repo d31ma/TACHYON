@@ -46,7 +46,7 @@ tac.application.window.minWidth, minHeight
   adapted: tac.application.window minWidth and minHeight are not read yet. The Linux window has no minimum size (WIN2).
 
 tac.application.window.controls
-  adapted: tac.application.window.controls work on Linux only from a linked Rust service. A call from a page service does nothing yet (WIN6).
+  honored: close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" is built only for macOS. The Linux app keeps the standard title bar (ADR 0098, WIN4).
