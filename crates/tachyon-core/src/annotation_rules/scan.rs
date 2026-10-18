@@ -563,9 +563,11 @@ impl Scan {
         &self,
         language: &str,
         realm: Realm,
+        checked: impl Fn(&Rule) -> bool,
     ) -> Option<(usize, &'static Rule)> {
         self.found
             .iter()
+            .filter(|found| checked(found.rule))
             .find(|found| !found.rule.allows(language, realm))
             .map(|found| (found.at, found.rule))
     }

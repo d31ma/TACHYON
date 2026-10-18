@@ -205,11 +205,10 @@ mod tests {
     fn a_refusal_on_the_shadow_speaks_fsharp() {
         let path = Path::new("client/remotes/ChatClient.fs");
         let source = "[<HTTPClient(\"/chat\")>]\ntype ChatClient =\n    [<SocketRequest>]\n    abstract Receive: Tick -> unit\n";
-        let view = FsharpView::of(path, source).unwrap_or_else(|| panic!("fsharp"));
-        let failure = crate::annotation_rules::AnnotationRules::check(view.path(), view.text())
+        let message = crate::annotation_rules::AnnotationRules::check(path, source)
             .err()
-            .unwrap_or_else(|| panic!("the browser script holds sockets"));
-        let message = view.failure(&failure).to_string();
+            .unwrap_or_else(|| panic!("F# Tac holds no sockets"))
+            .to_string();
         assert!(
             message.contains("[<SocketRequest>] is not available in F# Tac code"),
             "{message}"

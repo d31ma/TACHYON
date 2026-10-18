@@ -299,6 +299,7 @@ impl AnnotationRules {
     ];
     pub(crate) const YON_BACKGROUND: &'static [&'static str] = Self::YON;
     const YON_STREAM: &'static [&'static str] = Self::YON;
+    const FSHARP_TAC_CHECKED: [&'static str; 2] = ["StreamRequest", "SocketRequest"];
     const TAC_STREAM: &'static [&'static str] =
         &["js", "ts", "go", "rb", "rs", "dart", "swift", "kt", "cs"];
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
@@ -1033,13 +1034,21 @@ impl AnnotationRules {
 
     fn check_fsharp(path: &Path, source: &str) -> Result<(), Failure> {
         Self::check_direct(path, source)?;
-        let in_yon = Realm::of(path) == Some(Realm::Yon);
         let found = scan::Scan::run_as("cs", "cs", source);
-        let outside = found.outside_reach("fs", Realm::Yon).filter(|_| in_yon);
-        outside.map_or(Ok(()), |(at, rule)| {
-            let message = scan::Messages::unavailable(rule, "cs", Realm::Yon);
+        let outside = Realm::of(path).and_then(|realm| {
+            found
+                .outside_reach("fs", realm, |rule| Self::checked_in_fsharp(rule, realm))
+                .map(|hit| (hit, realm))
+        });
+        outside.map_or(Ok(()), |((at, rule), realm)| {
+            let message = scan::Messages::unavailable(rule, "cs", realm);
             Err(Self::failure_at(path, source, at, rule.code, &message))
         })
+    }
+
+    fn checked_in_fsharp(rule: &Rule, realm: Realm) -> bool {
+        let page_held = Self::FSHARP_TAC_CHECKED.contains(&rule.name);
+        [page_held, true][usize::from(realm == Realm::Yon)]
     }
 
     pub(crate) fn check_lua_shadow(path: &Path, source: &str) -> Result<(), Failure> {
