@@ -944,6 +944,9 @@ mod fsharp_lifecycle_tests;
 mod fsharp_tests;
 
 #[cfg(test)]
+mod fsharp_needs_tests;
+
+#[cfg(test)]
 mod model_binding_tests;
 
 #[cfg(test)]

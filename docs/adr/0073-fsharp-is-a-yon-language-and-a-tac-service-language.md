@@ -3,7 +3,8 @@
 - Status: Accepted
 - Date: 2026-09-28 (behavior annotations, events, lifecycle hooks,
   `NeedsAll`, sockets, streams, executed coverage and the test context:
-  2026-09-29; Needs properties: 2026-09-29; browser APIs: 2026-09-30)
+  2026-09-29; Needs properties: 2026-09-29; browser APIs: 2026-09-30;
+  another F# Tac service as a need: 2026-10-18)
 - Builds on: [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)
   (the .NET browser runtime), [ADR 0048](0048-yon-routes-come-from-annotations.md)
   (routes), [ADR 0062](0062-yon-uses-native-http-types.md) (native HTTP
@@ -158,7 +159,8 @@ replay and a returned model that is published again), `OnStart` and
   `ApplicationEventPublisher` next to the behavior runtime; a module
   initializer in the C# glue connects it to the page event bus. The C#
   member table passes a new publisher to the F# constructor. A Tac F#
-  service takes no other constructor parameter. F# records join the .NET
+  service takes no other constructor parameter (amended 2026-10-18: it may
+  also take another F# service of the page). F# records join the .NET
   JSON model context, so listeners read and publish them.
 - The Yon library makes `DataSource` and `RedisTemplate` public for F#, so
   an F# service takes them as constructor parameters.
@@ -236,7 +238,9 @@ parameters stay the recommended form.
   this.Names)`, where the test unit declares `[<Fake>] member val Names :
   NameService = ... with get, set`.
 - A Tac F# service still takes only its `ApplicationEventPublisher`, as a
-  constructor parameter or as a Needs property.
+  constructor parameter or as a Needs property. (Amended 2026-10-16: it may
+  also take HTTP clients; amended 2026-10-18: it may also take another F#
+  service of the page.)
 - `TY2015` refuses `[<Needs>]` on anything but a settable `member val` with a
   written type, and a type that takes the same role twice: as a constructor
   parameter and as a Needs property, or as two Needs properties.
@@ -291,7 +295,8 @@ F# never ignores an annotation.
   type with the properties of the start-up request, so the service exists
   once per component. Without `[<NeedsAll>]`, and for a parameter typed as
   another service, the constructor still takes only its
-  `ApplicationEventPublisher` (TY1405).
+  `ApplicationEventPublisher` (TY1405). (Amended 2026-10-18: a parameter
+  typed as another F# service of the page is now accepted.)
 
 ## Amendment (2026-10-16): a Tac service takes its HTTP clients
 
@@ -301,7 +306,8 @@ F# never ignores an annotation.
   On the page, the member table sets the property to `GreetingClient()`
   after the constructor runs, as for the C# private readonly field. The
   page does not see the property. A service takes at most five clients;
-  any other Needs type is still refused with TY1405.
+  any other Needs type is still refused with TY1405. (Amended 2026-10-18:
+  another F# service of the page is now accepted.)
 - An F# Tac HTTPClient has two constructors: `GreetingClient()` builds its
   context from its Setup, and `GreetingClient(context)` uses a given
   BehaviorContext.
@@ -424,3 +430,68 @@ F# never ignores an annotation.
   page registry read only the `@Lifetime` spelling, so it ignored the F#
   attribute and shared one instance. It now reads the service through the
   F# view, so a prototype service gets one instance for each component.
+
+## Amendment (2026-10-18): an F# Tac service needs another F# service
+
+An F# Tac service can now need another F# Tac service of the same page, as
+Go (ADR 0045 amendment of 2026-10-11) and C++ (ADR 0099) already allow.
+Before this amendment the build refused such a property or parameter with
+TY1405.
+
+- There are two forms. A Needs property:
+  `[<Needs>] member val Counter : CounterService = Unchecked.defaultof<CounterService> with get, set`,
+  or a primary constructor parameter typed with the other service:
+  `type ReportService(counter: CounterService) =`. The C# view already reads
+  a Needs property as one more constructor parameter (see "Needs
+  properties"), so both forms are checked the same way.
+- `[<Named("LoudGreeterService")>]` under `[<Needs>]` chooses the F#
+  service that fills a property whose type is a base service, for example
+  `member val Greeter : GreeterService` when `LoudGreeterService` writes
+  `inherit GreeterService()` and overrides its `default` members. A client
+  model cannot be an interface (TY1310), so the base type is a service too.
+  `"fs"` is now in `TAC_NAMED`, so the rule table accepts F# Tac `Named`;
+  the amendment above, which refused it by name with TY1308, is
+  superseded on this point, and so is its TY1405 for a `Needs` property of
+  another service. The member table of a C# or F# service now
+  also reads `virtual` and `override` members, so a base service and its
+  provider expose their methods to the page.
+- The property or parameter holds the same instance that the page uses. The
+  page never sees it as a member or as a prop.
+- Build: all F# services of a page are in one `Services.fs` file, each in its
+  own `namespace rec TachyonServiceN`. Tachyon places the namespace of a
+  needed service, or of any other page service that a file names (a base
+  service, for example), before the services that name it. In the namespace
+  of the naming service it writes a type abbreviation,
+  `type CounterService = TachyonService0.CounterService`, so the F# code names
+  the other service directly, without an `open`. The generated C# member
+  table fills the property or parameter with
+  `(global::TachyonService0.CounterService)Tac.Need("counter")`.
+- Runtime: the C# prelude (`native/prelude.cs`), which C# and F# services
+  share, keeps a needed service as one page node that every activation of
+  the page shares: its `TacServiceLifetime.Prototype` is `false`. An F#
+  service that no other service needs keeps one instance for each
+  activation, as before. `Tac.Need` creates the node when it does not exist
+  yet and runs its OnStart first, so the needed service starts before the
+  service that needs it. The node keeps its state while the components that
+  use it come and go.
+- Stop order: the browser never sends `host-dispose`. There, the shared
+  nodes stop when the last .NET activation of the page is disposed, in
+  reverse creation order, like the parked nodes of Go. So a service that
+  needs another one always runs its OnStop before the service it needs. In a
+  linked native app the needed service stays a page singleton until the host
+  disposes the page, as before.
+- TY1406 refuses a needed service that has one instance for each component
+  (`Lifetime` prototype or `NeedsAll`), because one property cannot hold
+  several instances. It also refuses services that need each other in a
+  circle; break the circle with an event that one service publishes and the
+  other handles with `OnEvent`.
+- A Needs of a C# service from F#, of a browser API such as `Clock`, or of
+  any other type that is not an F# service, an HTTPClient or the
+  `ApplicationEventPublisher` is still refused with TY1405.
+- Proof: `tac_web/fsharp_needs_tests.rs` builds a page where one F# service
+  needs another, runs it as WebAssembly under Node, and checks that the page
+  and the needing service share one instance and that OnStart and OnStop run
+  in this order, and that Named fills a base-service property with the
+  provider it names. The unit tests of `native/fsharp_service_needs.rs`
+  check the namespace order, the type abbreviations, the member table and
+  the refusals.

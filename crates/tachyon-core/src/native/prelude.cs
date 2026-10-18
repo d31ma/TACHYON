@@ -473,6 +473,7 @@ public partial class Tac
         internal readonly Dictionary<string, TacMember> Members = members;
         internal readonly string Capabilities = capabilities;
         internal readonly System.Threading.CancellationTokenSource Lifetime = lifetime;
+        internal readonly object Instance = CreatedInstance;
         internal bool Started;
         internal bool Disposed;
         internal List<TacMember> Hooks(bool destroy) => Members
@@ -480,6 +481,25 @@ public partial class Tac
             .Select(pair => pair.Value)
             .Where(member => member.Lifecycle != null && member.Destroy == destroy)
             .ToList();
+    }
+    private static object CreatedInstance;
+    private static string CreatingRoute = "";
+    // A service that another service needs keeps its instance in its page node, so the needing
+    // service and the page share it. The browser never sends host-dispose, so there the shared
+    // nodes stop when the last activation of the page is disposed (ADR 0073, 2026-10-18).
+    internal static void Keep(object instance) => CreatedInstance = instance;
+    internal static object Need(string service)
+    {
+        var node = ObtainNode(CreatingRoute, service, "", CreatingCancellation, out var created);
+        if (node == null) throw new InvalidOperationException("Unknown needed service.");
+        if (created) PageNodes.Add(node);
+        StartNode(node);
+        return node.Instance;
+    }
+    private static void SweepBrowserNodes()
+    {
+        if (WebEmit == null || Activations.Count > 0) return;
+        foreach (var node in Enumerable.Reverse(PageNodes.ToList())) DisposeNode(node);
     }
     private const string ProviderOwnerPrefix = "00000000-0000-4000-a000-";
     private static readonly List<ServiceNode> PageNodes = new();
@@ -498,11 +518,18 @@ public partial class Tac
         var capabilities = owner.Length > 0 ? owner : ProviderOwner();
         var lifetime = owner.Length > 0 ? null : new System.Threading.CancellationTokenSource();
         Dictionary<string, TacMember> members = null;
-        try { members = CreateMembers(capabilities, service, lifetime ?? activation); }
+        var outerRoute = CreatingRoute;
+        CreatingRoute = route;
+        CreatedInstance = null;
+        try {
+            members = CreateMembers(capabilities, service, lifetime ?? activation);
+            return members == null ? null : new ServiceNode(route, service, owner, members, capabilities, lifetime);
+        }
         finally {
             if (members == null) { NativeCapabilities.Dispose(capabilities); lifetime?.Cancel(); lifetime?.Dispose(); }
+            CreatingRoute = outerRoute;
+            CreatedInstance = null;
         }
-        return members == null ? null : new ServiceNode(route, service, owner, members, capabilities, lifetime);
     }
     private static void StartNode(ServiceNode node)
     {
@@ -535,6 +562,7 @@ public partial class Tac
         if (Executing == owner) Executing = null;
         RetireActivation(owner);
         foreach (var node in PageNodes.Where(node => node.Owner == id).Reverse().ToList()) DisposeNode(node);
+        SweepBrowserNodes();
     }
     private static void DisposeAll()
     {

@@ -598,8 +598,10 @@ impl Modifiers {
 
     const CSHARP_READABLE: [&str; 2] = ["public ", "internal "];
 
-    const TYPE_FIRST: [(&str, bool); 8] = [
+    const TYPE_FIRST: [(&str, bool); 10] = [
         ("public ", false),
+        ("virtual ", false),
+        ("override ", false),
         ("async ", false),
         ("required ", false),
         ("internal ", false),

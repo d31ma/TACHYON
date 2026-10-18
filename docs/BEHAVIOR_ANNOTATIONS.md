@@ -242,7 +242,7 @@ These restrictions fail before any adapter runs.
 | --- | --- |
 | `@Setup` | Makes `static configure(execution)` available to an explicitly selected `Behaviors.create`. No calls at build time. No hidden global registration. |
 | `@Needs` | Field injection, like Spring's `@Autowired`. The constructor that Tachyon generates takes the fields that carry this marker, in declaration order. The field must be a direct instance field, without an initial value, and not static. Tachyon resolves each field to a provider by its own type or, in JavaScript, by its lower-camel name. |
-| `@Named('ProductStore')` | Names the provider for the field next to it, when the field's own name or type does not select one. Java and F# Tac code refuse it with `TY1308`. |
+| `@Named('ProductStore')` | Names the provider for the field next to it, when the field's own name or type does not select one. Java Tac code refuses it with `TY1308`. |
 | `@CacheSettings({"name":"products","ttlMs":30000,"maxBytes":65536,"maxEntries":256})` | Declares the policy for the Cached methods of that class. Selects `configuration.caches.products`. |
 | `@Cached` | Wraps a service method with these steps: authorization, bounded key construction, lookup, running the method on a miss, and storing a successful JSON result. The key is the parameters marked `@CacheKey`, or every parameter when none is marked. Whether it is sync or async follows the language table below. |
 | `@CacheKey` (on a parameter) | Makes that parameter part of the cache key of its `@Cached` method. |
@@ -520,6 +520,12 @@ supported marker. Reasons:
 
 **Injection.** A field carries `@Needs`, like a field with Spring's `@Autowired`.
 `@Named` names the provider when the field's own name or type does not.
+A Tac F# service can need another F# service of the same page, with a
+`[<Needs>]` property or a primary constructor parameter typed with that
+service; `[<Named("LoudGreeterService")>]` under `[<Needs>]` chooses the F#
+service for a property whose type is a base service that it inherits. The
+needed service is one instance that the page and every service that needs
+it share (ADR 0073 amendment of 2026-10-18).
 
 `@NeedsAll` takes no arguments, like Lombok's `@RequiredArgsConstructor`
 (ADR 0056). A field list such as `@NeedsAll("a", "b")` is refused, and

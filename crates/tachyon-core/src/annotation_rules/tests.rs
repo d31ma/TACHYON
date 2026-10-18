@@ -1313,18 +1313,15 @@ impl TacFamilies {
             "[<Test(typeof<CatalogTestSetup>)>]\n[<UseProfiles(\"public\")>]\n[<TestSettings({\"tac.cache.enabled\":\"true\"})>]\n[<FreshStart>]\ntype CatalogServiceTest() =\n    [<Fake>]\n    member val Names : NameService = Unchecked.defaultof<NameService> with get, set\n\n    [<ValueSource([1, 2])>]\n    member this.testKeepsPositiveInputs(value: int) : unit =\n        Assert.isTrue(value > 0)\n",
         ),
     ];
-    const NAMED: [(&'static str, &'static str, &'static str); 2] = [
-        (
-            "java",
-            "@Service\npublic class SampleService {\n    @Needs\n    @Named(\"FastStore\")\n    private OrderStore store;\n}\n",
-            "@Named is not available in Java Tac code",
-        ),
-        (
-            "fs",
-            "[<Service>]\ntype SampleService() =\n    [<Needs>]\n    [<Named(\"FastStore\")>]\n    member val Store : OrderStore = Unchecked.defaultof<OrderStore> with get, set\n",
-            "[<Named>] is not available in F# Tac code",
-        ),
-    ];
+    const NAMED: [(&'static str, &'static str, &'static str); 1] = [(
+        "java",
+        "@Service\npublic class SampleService {\n    @Needs\n    @Named(\"FastStore\")\n    private OrderStore store;\n}\n",
+        "@Named is not available in Java Tac code",
+    )];
+    const FSHARP_NAMED: [(&'static str, &'static str); 1] = [(
+        "injection",
+        "[<Service>]\ntype SampleService() =\n    [<Needs>]\n    [<Named(\"LoudGreeterService\")>]\n    member val Greeter : GreeterService = Unchecked.defaultof<GreeterService> with get, set\n",
+    )];
 
     fn accepts_every_family(language: &str, samples: &[(&str, &str)]) {
         for (family, source) in samples {
@@ -1369,6 +1366,6 @@ fn java_tac_refuses_named_by_name() {
 }
 
 #[test]
-fn fsharp_tac_refuses_named_by_name() {
-    TacFamilies::refuses_named("fs");
+fn fsharp_tac_accepts_named() {
+    TacFamilies::accepts_every_family("fs", &TacFamilies::FSHARP_NAMED);
 }

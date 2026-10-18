@@ -71,6 +71,18 @@ machine contracts have their own, independent major versions.
   context from its Setup, and `[[Needs]] ProductStore& products;` reaches it.
   A Yon C++ Entity may name any entity adapter; Tac C++ keeps `"indexeddb"`
   (ADR 0099 amendment).
+- An F# Tac service can need another F# Tac service of the same page, with
+  `[<Needs>] member val Counter : CounterService = Unchecked.defaultof<CounterService> with get, set`
+  or a primary constructor parameter typed with that service, and
+  `[<Named("LoudGreeterService")>]` chooses the F# service for a property
+  typed with a base service that it inherits. Tachyon orders the services' namespaces in
+  `Services.fs` and writes a type abbreviation, so the code names the other
+  service directly. The page and the needing service share one instance,
+  which starts first and, in the browser, stops after every service that
+  needs it when the last .NET activation of the page is disposed. TY1406
+  refuses a needed service with one instance per component and a circle of
+  needs; a C# service, a browser API or any other type stays TY1405
+  (ADR 0073 amendment).
 - A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
   `-- @SocketRequest`, written as an empty
   `function TicksClient:receive(tick)` with `---@param tick Tick`. The page's

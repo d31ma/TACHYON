@@ -87,8 +87,9 @@ pub(super) fn source(
     let mut services = Vec::new();
     let mut fsharp = String::new();
     let mut runtimes = String::new();
+    let (needs, selected) = super::fsharp_service_needs::FsharpServiceNeeds::ordered(&selected)?;
     for (index, item) in selected.iter().enumerate() {
-        let body = service_body(language, item, &mut imports)?;
+        let body = service_body(language, item, &needs, &mut imports)?;
         let namespace = format!("TachyonService{index}");
         let (body, fsharp_body) = crate::fsharp_source::FsharpSource::web_split(&body);
         let (fsharp_body, runtime) = crate::fsharp_source::FsharpSource::runtime_split(fsharp_body);
@@ -149,12 +150,13 @@ fn language_extension(language: NativeCompanion) -> &'static str {
 fn service_body(
     language: NativeCompanion,
     item: &NativeCompanionInput,
+    needs: &super::fsharp_service_needs::FsharpServiceNeeds,
     imports: &mut BTreeSet<String>,
 ) -> Result<String, Failure> {
     let captured = read_captured_source(&item.source)?;
     let captured = crate::without_bom(&captured);
     item.refuse_preferences(captured)?;
-    super::fsharp_service::FsharpService::body_or(item, captured, || {
+    super::fsharp_service::FsharpService::body_or((item, needs), captured, || {
         compiled_service_body(language, item, captured, imports)
     })
 }
@@ -193,7 +195,7 @@ fn compiled_service_body(
     Ok(body)
 }
 
-fn read_captured_source(path: &Path) -> Result<String, Failure> {
+pub(super) fn read_captured_source(path: &Path) -> Result<String, Failure> {
     std::fs::read_to_string(path).map_err(|error| {
         super::host::native_tool_failure(
             1605,

@@ -1,4 +1,5 @@
 use super::fsharp_service_events::FsharpServiceEvents;
+use super::fsharp_service_needs::FsharpServiceNeeds;
 use super::fsharp_task_results::FsharpTaskResults;
 use super::registry::NativeCompanionInput;
 use crate::Failure;
@@ -14,21 +15,26 @@ use std::path::Path;
 pub(super) struct FsharpService;
 
 impl FsharpService {
-    const NO_REQUIRED: &'static str = "internal static class TacServiceInfo { internal static readonly string[] Required = { }; }\ninternal static class TacServiceLifetime { internal const bool Prototype = true; }\n";
+    const NO_REQUIRED: &'static str = "internal static class TacServiceInfo { internal static readonly string[] Required = { }; }\n";
+    const KEPT: &'static str = "\nTac.Keep(Instance);\nreturn new() {";
+    const RETURNED: &'static str = "\nreturn new() {";
     const TAC: &'static str = "tac";
     const SOCKET_SEND: &'static str = "BehaviorBrowserSocket.Send(";
 
     pub(super) fn body_or(
-        item: &NativeCompanionInput,
+        (item, needs): (&NativeCompanionInput, &FsharpServiceNeeds),
         authored: &str,
         other: impl FnOnce() -> Result<String, Failure>,
     ) -> Result<String, Failure> {
         Some(item)
             .filter(|item| FsharpSource::is_fsharp(&item.source))
-            .map_or_else(other, |item| Self::body(item, authored))
+            .map_or_else(other, |item| Self::body((item, needs), authored))
     }
 
-    fn body(item: &NativeCompanionInput, authored: &str) -> Result<String, Failure> {
+    fn body(
+        (item, needs): (&NativeCompanionInput, &FsharpServiceNeeds),
+        authored: &str,
+    ) -> Result<String, Failure> {
         let relative = item
             .source
             .strip_prefix(&item.snapshot_root)
@@ -58,7 +64,7 @@ impl FsharpService {
             &view,
             &item.snapshot_root,
             (&item.class, item.web_assembly),
-            needs_all,
+            (needs_all, needs),
         )?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
         let mut excluded = events.prepared.excluded.clone();
@@ -72,20 +78,26 @@ impl FsharpService {
             false,
         )
         .map_err(|failure| view.failure(&failure))?;
-        let table = FieldNeeds::constructed(authored, &events.table(&table, &item.class));
+        let needed = needs.is_needed(&item.class);
+        let table = FieldNeeds::constructed(authored, &events.table(&table, &item.class)).replacen(
+            Self::RETURNED,
+            Self::KEPT,
+            usize::from(needed),
+        );
+        let table = format!("{table}{}{}", Self::NO_REQUIRED, Self::lifetime(needed));
         let detached = Self::detached(&view)?;
         let stripped = models.without_declarations(relative, &FsharpMarkers::strip(authored))?;
+        let stripped = format!("{stripped}{}", needs.aliases(&item.class));
         let Some(detached) = detached else {
-            let csharp = format!("{table}{}", Self::NO_REQUIRED);
             let runtime = format!("{}{}", Self::socket_runtime(&view, ""), events.runtime());
             return Ok(FsharpSource::web_body(
-                &csharp,
+                &table,
                 &FsharpSource::with_runtime(&stripped, &runtime),
             ));
         };
         let fsharp = FsharpBehaviors::program(&view, &stripped, &detached)
             .map_err(|message| Self::failure(relative, &message))?;
-        let csharp = format!("{table}{}{}", Self::NO_REQUIRED, detached.setups);
+        let csharp = format!("{table}{}", detached.setups);
         let runtime = format!(
             "{}{}{}",
             detached.runtime,
@@ -104,6 +116,13 @@ impl FsharpService {
             .then(|| DetachedCsharp::page_socket_runtime(view.path()))
             .into_iter()
             .collect()
+    }
+
+    fn lifetime(shared: bool) -> String {
+        format!(
+            "internal static class TacServiceLifetime {{ internal const bool Prototype = {}; }}\n",
+            !shared
+        )
     }
 
     fn models(item: &NativeCompanionInput) -> Result<ModelTable, Failure> {
@@ -175,7 +194,7 @@ mod tests {
             web_assembly,
             application_provider: false,
         };
-        FsharpService::body(&item, authored)
+        FsharpService::body((&item, &super::FsharpServiceNeeds::default()), authored)
     }
 
     fn unsupported_result(kind: &str) {
@@ -231,6 +250,24 @@ mod tests {
     #[test]
     fn fsharp_browser_unknown_record_result_is_located() {
         unsupported_result("Task<Greeting>");
+    }
+
+    #[test]
+    fn virtual_and_override_members_reach_the_page() {
+        let base = body_of(
+            "GreeterService",
+            "[<Service>]\ntype GreeterService() =\n    abstract Greet : unit -> string\n    default this.Greet() : string = \"hello\"\n",
+        );
+        assert!(
+            base.contains("[\"greet\"] = TacMember.Method(arguments => Instance.Greet()),"),
+            "{base}"
+        );
+        assert!(!base.contains("[\"string\"]"), "{base}");
+        let provider = body_of(
+            "LoudGreeterService",
+            "[<Service>]\ntype LoudGreeterService() =\n    inherit GreeterService()\n    override this.Greet() : string = \"HI\"\n",
+        );
+        assert!(provider.contains("[\"greet\"]"), "{provider}");
     }
 
     #[test]

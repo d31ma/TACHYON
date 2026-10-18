@@ -1,5 +1,6 @@
 use super::csharp_stream_clients::CsharpStreamClients;
 use super::events::Prepared;
+use super::fsharp_service_needs::FsharpServiceNeeds;
 use super::held_service::HeldService;
 use crate::Failure;
 use crate::behavior::HttpClientSource;
@@ -22,7 +23,7 @@ impl FsharpServiceEvents {
     const PUBLISHER_TYPE: &'static str = "ApplicationEventPublisher";
     const PUBLISHER: &'static str = "public sealed class ApplicationEventPublisher {\n    public static System.Action<object, bool> Sink;\n    public void PublishEvent(object value, bool retain = false) => Sink?.Invoke(value, retain);\n    public void publishEvent(object value, bool retain = false) => PublishEvent(value, retain);\n}\n";
     const CONNECTION: &'static str = "static class FsharpEventSetup {\n    [System.Runtime.CompilerServices.ModuleInitializer]\n    internal static void Connect() { ApplicationEventPublisher.Sink = Tac.PublishModel; }\n}\n";
-    const CONSTRUCTOR_REFUSAL: &'static str = "An F# Tac service takes no primary constructor parameter or Needs property except its ApplicationEventPublisher, an HTTPClient from client/remotes and, under [<NeedsAll>], the component's props (ADR 0073)";
+    const CONSTRUCTOR_REFUSAL: &'static str = "An F# Tac service takes no primary constructor parameter or Needs property except its ApplicationEventPublisher, an HTTPClient from client/remotes, another F# service of the page and, under [<NeedsAll>], the component's props (ADR 0073)";
     const MAX_CLIENTS: usize = 5;
     const TOO_MANY_CLIENTS: &'static str =
         "An F# Tac service takes at most 5 HTTPClients; split larger responsibilities (ADR 0073)";
@@ -33,12 +34,12 @@ impl FsharpServiceEvents {
         view: &FsharpView,
         root: &Path,
         service: (&str, bool),
-        needs_all: bool,
+        (needs_all, needs): (bool, &FsharpServiceNeeds),
     ) -> Result<Self, Failure> {
         let class = service.0;
         let parameters = FsharpConstructorProps::from_shadow(view.text(), class);
         let clients = Self::clients(view, &parameters)?;
-        let arguments = Self::arguments(&parameters, class, (needs_all, &clients))
+        let arguments = Self::arguments(&parameters, class, (needs_all, &clients, needs))
             .map_err(|message| super::host::native_tool_failure(1405, &message))?;
         let publisher = parameters
             .iter()
@@ -65,6 +66,9 @@ impl FsharpServiceEvents {
         prepared
             .excluded
             .extend(Self::hidden(&parameters, &clients));
+        prepared
+            .excluded
+            .extend(Self::hidden(&parameters, &Self::needed(&parameters, needs)));
         Ok(Self {
             prepared,
             arguments,
@@ -96,6 +100,14 @@ impl FsharpServiceEvents {
         Ok(clients)
     }
 
+    fn needed(parameters: &[FsharpConstructorProps], needs: &FsharpServiceNeeds) -> Vec<String> {
+        parameters
+            .iter()
+            .filter(|parameter| needs.argument(&parameter.type_name).is_some())
+            .map(|parameter| parameter.type_name.clone())
+            .collect()
+    }
+
     fn hidden(parameters: &[FsharpConstructorProps], clients: &[String]) -> Vec<String> {
         parameters
             .iter()
@@ -113,7 +125,7 @@ impl FsharpServiceEvents {
     fn arguments(
         parameters: &[FsharpConstructorProps],
         class: &str,
-        given: (bool, &[String]),
+        given: (bool, &[String], &FsharpServiceNeeds),
     ) -> Result<String, String> {
         Self::bounded(class, given.1)?;
         let mut written = Vec::new();
@@ -131,12 +143,16 @@ impl FsharpServiceEvents {
             .ok_or_else(|| format!("{class}: {}", Self::TOO_MANY_CLIENTS))
     }
 
-    fn argument(parameter: &FsharpConstructorProps, given: (bool, &[String])) -> Option<String> {
+    fn argument(
+        parameter: &FsharpConstructorProps,
+        given: (bool, &[String], &FsharpServiceNeeds),
+    ) -> Option<String> {
         let publisher = parameter.type_name == Self::PUBLISHER_TYPE;
         let client = given.1.contains(&parameter.type_name);
         publisher
             .then(|| format!("new {}()", Self::PUBLISHER_TYPE))
             .or_else(|| client.then(|| format!("new {}()", parameter.type_name)))
+            .or_else(|| given.2.argument(&parameter.type_name))
             .or_else(|| Self::prop(parameter, given.0))
     }
 
@@ -176,7 +192,7 @@ impl FsharpServiceEvents {
 
 #[cfg(test)]
 mod tests {
-    use super::FsharpServiceEvents;
+    use super::{FsharpServiceEvents, FsharpServiceNeeds};
     use crate::fsharp_source::FsharpConstructorProps;
     use crate::native::events::Prepared;
 
@@ -195,7 +211,11 @@ mod tests {
 
     fn arguments(shadow: &str, class: &str, needs_all: bool) -> Result<String, String> {
         let parameters = FsharpConstructorProps::from_shadow(shadow, class);
-        FsharpServiceEvents::arguments(&parameters, class, (needs_all, &[]))
+        FsharpServiceEvents::arguments(
+            &parameters,
+            class,
+            (needs_all, &[], &FsharpServiceNeeds::default()),
+        )
     }
 
     #[test]

@@ -170,7 +170,7 @@ checked by the shared rule table (ADR 0056); Ruby has no checks of its own.
   HTTPClient. A Ruby service that wants another service lets the view call
   it, or publishes an event that the other service handles with
   `#[OnEvent]`. JavaScript, TypeScript, Go, Python, Dart and C++ services can
-  need another service.
+  need another service. F# services can too, since 2026-10-18 (ADR 0073).
 - The Ruby web build now reads the services before it builds the mruby
   runtime, so the refusal appears on a machine without Emscripten too. Tac
   Lua does the same with its runtime.
