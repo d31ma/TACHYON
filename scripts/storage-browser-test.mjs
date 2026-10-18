@@ -777,6 +777,13 @@ type JournalService(entries: JournalStore, converter: JournalConverter) =
         this.count <- this.count + 1
         this.count
 
+    [<SessionState>]
+    member val visits : int = 0 with get, set
+
+    member this.visit() : int =
+        this.visits <- this.visits + 1
+        this.visits
+
     member this.keep(id: BehaviorJSON, text: BehaviorJSON) : Task<BehaviorJSON> =
         entries.save(BehaviorJSON.Object(dict [ "id", id; "text", text ]))
 
@@ -785,7 +792,7 @@ type JournalService(entries: JournalStore, converter: JournalConverter) =
     member this.titled() : Task<BehaviorJSON> =
         Task.FromResult(converter.toSummary(BehaviorJSON.Object(dict [ "body", BehaviorJSON.From("mapped"); "extra", BehaviorJSON.From(1) ])))
 `);
-  write(project, 'client/components/storage/journal/tac.html', '<p id="journal">{journal.label}</p>\n<button id="journal-bump" on:click="journal.increment()">+</button>\n<p id="journal-count">{journal.count}</p>\n');
+  write(project, 'client/components/storage/journal/tac.html', '<p id="journal">{journal.label}</p>\n<button id="journal-bump" on:click="journal.increment()">+</button>\n<p id="journal-count">{journal.count}</p>\n<button id="journal-visit" on:click="journal.visit()">visit</button>\n<p id="journal-visits">{journal.visits}</p>\n');
 }
 
 function writeFixture(project) {
@@ -1269,6 +1276,7 @@ async function checkWebAssemblyStoredFields(browser, origin) {
     expect(stored, '3', `a ${language} LocalState field changed by its own method is written to localStorage`);
   }
   if (StorageGate.withJava) await checkJavaSessionState(context, page, origin);
+  if (StorageGate.withCSharp) await checkFsharpSessionState(context, page, origin);
   await context.close();
 }
 
@@ -1283,6 +1291,25 @@ async function checkJavaSessionState(context, page, origin) {
   await StorageGate.visit(second, origin);
   expect(await second.textContent('#java-draft'), '', 'a Java SessionState field is per-tab');
   expect(await second.textContent('#java-count'), '3', 'a Java LocalState field is shared across tabs');
+  await second.close();
+}
+
+async function checkFsharpSessionState(context, page, origin) {
+  for (let click = 0; click < 2; click += 1) await page.click('#journal-visit');
+  await page.waitForFunction(() => document.querySelector('#journal-visits')?.textContent === '2');
+  expect(await page.textContent('#journal-visits'), '2', 'an F# WebAssembly method changes its SessionState field');
+  await StorageGate.reload(page);
+  expect(await page.textContent('#journal-visits'), '2', 'an F# SessionState field changed by its own method survives a reload in the same tab');
+  const stored = await page.evaluate(() => ({
+    session: sessionStorage.getItem('tac:service:journal:/:visits'),
+    local: localStorage.getItem('tac:service:journal:/:visits'),
+  }));
+  expect(stored.session, '2', 'an F# SessionState field changed by its own method is written to sessionStorage');
+  expect(stored.local, null, 'an F# SessionState field is kept out of localStorage');
+  const second = await context.newPage();
+  await StorageGate.visit(second, origin);
+  expect(await second.textContent('#journal-visits'), '0', 'an F# SessionState field is gone in a new tab');
+  expect(await second.textContent('#journal-count'), '3', 'an F# LocalState field is shared with a new tab');
   await second.close();
 }
 

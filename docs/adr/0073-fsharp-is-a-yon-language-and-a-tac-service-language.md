@@ -314,7 +314,7 @@ F# never ignores an annotation.
 - A Helper constructed only by a selected F# TestSetup is checked against
   that TestSetup and left out of the production build, as in C#.
 
-## Amendment (2026-10-18): caching, policies and stores have runtime proof
+## Amendment (2026-10-18): caching, policies, stores and page state have runtime proof
 
 - An F# Tac test unit, run on host .NET by
   `crates/tachyon-core/tests/it/tac_fsharp_behaviors.rs`, composes
@@ -326,6 +326,9 @@ F# never ignores an annotation.
   Store's query joining the open transaction), a derived query and a
   `[<Query>]` Store member, and `PageDefaults` (normalized page,
   `PAGE_INVALID`).
+- The F# Journal service in `scripts/storage-browser-test.mjs` has a
+  `[<SessionState>]` member: it survives a reload in the same tab and is gone
+  in a new tab.
 - These markers already worked in F# through the C# lowering; this only adds
   the proof. The rule table does not change.
 
