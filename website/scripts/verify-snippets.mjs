@@ -1422,6 +1422,7 @@ async function verifyTacConfiguration(label, files) {
       pass(stepLabel, 'bundle')
       await checkConfigurationBrowser(Settings.binary, root)
       pass(`${stepLabel} (browser runtime)`, 'browser')
+      if (extension === '.fs') await testConfigurationBinding(stepLabel, root, files, extension)
     })
   }
 }
@@ -1455,11 +1456,21 @@ async function findWebTarget(extension) {
  * @param {string} extension
  */
 async function verifyNativeConfiguration(label, root, files, extension) {
-  const service = files.find(file => file.name === `client/services/SettingsService${extension}`)
-  assert.ok(service, 'The native configuration example must publish its SettingsService')
   const bundleArguments = ['bundle', root, '--target', Languages.nativeTargets[extension], '--native']
   const bundled = await unlessPassedBefore(label, root, bundleArguments, () => runCommand(Settings.binary, bundleArguments))
   pass(`${label} (native source staging)${bundled}`, 'bundle')
+  await testConfigurationBinding(label, root, files, extension)
+}
+
+/**
+ * @param {string} label
+ * @param {string} root
+ * @param {Snippet[]} files
+ * @param {string} extension
+ */
+async function testConfigurationBinding(label, root, files, extension) {
+  const service = files.find(file => file.name === `client/services/SettingsService${extension}`)
+  assert.ok(service, 'The configuration example must publish its SettingsService')
   for (const file of configurationTestFiles(extension, service.code)) writeSnippetFile(root, file.name, file.code)
   const tested = await unlessPassedBefore(label, root, ['test', root], async () => {
     const output = await runCommand(Settings.binary, ['test', root], { timeout: 300_000 })

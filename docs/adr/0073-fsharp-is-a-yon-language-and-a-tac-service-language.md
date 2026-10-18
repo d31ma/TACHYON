@@ -344,3 +344,30 @@ F# never ignores an annotation.
 - A Tac `[<Needs>]` property of a browser API such as `Clock`, or of a
   Store, stays TY1405. A Tac service creates a browser API with
   `let clock = Clock()`.
+
+## Amendment (2026-10-18): an F# test unit takes its settings and models
+
+- An F# test unit runs on the C# driver, so it passes its
+  `[<TestSettings>]` to the behavior runtime in the same way as a C# unit.
+  Each path becomes its environment name, by the rule that
+  `Behaviors.properties` uses for application JSON: `tac.catalog.mode`
+  becomes `TAC_CATALOG_MODE`. Each value becomes its text: `"fast"` becomes
+  `fast`, `5` becomes `5` and `true` becomes `true`. So the
+  `[<WhenSetting>]` and `[<Settings>]` of the TestSetup see them. Before,
+  the driver passed the dotted path and the JSON text (`"\"fast\""`),
+  `Behaviors.create` refused them with `configuration`, and every C# or F#
+  unit with TestSettings failed before its first case.
+- A Tac F# test unit now includes the `client/models` metadata, as the F#
+  page build does. So `Behaviors.values(typeof<SomeModel>, ...)` binds a
+  `client/models` type with `[<Setting>]` fields in a test unit too. Before,
+  it failed with `configuration-properties`.
+- `crates/tachyon-core/tests/it/tac_fsharp_context.rs` proves the whole
+  context of a Tac F# unit: `[<UseProfiles>]`, `[<TestSettings>]`,
+  `[<FreshStart>]` and a `[<ValueSource>]` case against a TestSetup with
+  `[<WhenProfile>]` and `[<WhenSetting>]`; a client Setup with
+  `[<Settings>]`, `[<Min>]` and `[<Max>]` that is picked only for the right
+  profile and setting; a model with `[<Setting>]` fields; and a `[<Fake>]`
+  HTTPClient that answers through the TestSetup adapter until the test
+  assigns a fake. A unit without the profile, or with the wrong setting
+  value, is refused by its TestSetup with `inactive-configuration`, and
+  the run fails before any case.

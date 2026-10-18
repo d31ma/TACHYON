@@ -3,7 +3,7 @@ use crate::Failure;
 use crate::fsharp_source::{
     FsharpMappingModels, FsharpProject, FsharpSource, FsharpTestUnit, FsharpView,
 };
-use crate::model_sources::ModelSources;
+use crate::model_sources::{ModelMetadata, ModelSources};
 use std::path::Path;
 use std::process::Command;
 
@@ -23,16 +23,29 @@ impl FsharpUnit {
     ) -> Result<String, Failure> {
         let assembled = crate::annotation_modules::assemble(project, relative, source, "tac")?
             .unwrap_or_else(|| source.to_owned());
+        let models = ModelSources::read(project, "client", FsharpSource::EXTENSION)?;
+        let metadata = models.metadata();
+        let assembled = metadata.assembled(relative, &assembled)?;
         let view = FsharpView::tac(relative, &assembled);
         let lowered = FsharpTestUnit::lower(relative, &assembled, &view, "tac")?
             .ok_or_else(|| fail(portable, Self::NO_UNIT))?;
-        let models = ModelSources::read(project, "client", FsharpSource::EXTENSION)?;
+        let program = Self::without_models(&metadata, relative, &lowered.source)?;
         let staging = tempfile::Builder::new()
             .prefix("tachyon-fsharp-unit-")
             .tempdir()
             .map_err(|error| stage_failure(portable, &error))?;
-        Self::write(staging.path(), portable, &lowered.source, &models)?;
+        Self::write(staging.path(), portable, &program, &models)?;
         Self::build_and_run(staging.path(), portable)
+    }
+
+    fn without_models(
+        metadata: &ModelMetadata,
+        relative: &Path,
+        program: &str,
+    ) -> Result<String, Failure> {
+        let (fsharp, generated) = FsharpSource::split(program);
+        let fsharp = metadata.without_declarations(relative, fsharp)?;
+        Ok(FsharpSource::with_generated(&fsharp, generated))
     }
 
     fn write(

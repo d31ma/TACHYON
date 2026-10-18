@@ -42,6 +42,7 @@ export async function checkConfigurationBrowser(binary, root) {
 export function configurationTestFiles(extension, service) {
   if (extension === '.rs') return rustConfigurationTests(service)
   if (extension === '.cs') return csharpConfigurationTests(service)
+  if (extension === '.fs') return fsharpConfigurationTests()
   const swift = extension === '.swift'
   const configuration = swift
     ? '@TestSetup\nfinal class BindingTestSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters { BehaviorAdapters() }\n}\n'
@@ -60,6 +61,13 @@ function csharpConfigurationTests(service) {
   return [
     { name: 'client/tests/BindingTestSetup.cs', code: '[TestSetup]\npublic sealed class BindingTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n' },
     { name: 'client/tests/BindingServiceTest.cs', code: `[Test(typeof(BindingTestSetup), {"partition":"tests"})]\nsealed class BindingServiceTest {\n${service}\n    void testBindsPublishedConfiguration() {\n        var settings = new SettingsService();\n        Assert.equals("Catalog", settings.title);\n        Assert.equals(20, settings.pageSize);\n    }\n}\n` },
+  ]
+}
+
+function fsharpConfigurationTests() {
+  return [
+    { name: 'client/tests/BindingTestSetup.fs', code: '[<TestSetup>]\ntype BindingTestSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters = BehaviorAdapters()\n' },
+    { name: 'client/tests/BindingServiceTest.fs', code: 'open Models\n\n[<Test(typeof<BindingTestSetup>, {"partition":"tests"})>]\ntype BindingServiceTest() =\n    member this.testBindsPublishedConfiguration() : unit =\n        let settings = SettingsService()\n        Assert.equals("Catalog", settings.title)\n        Assert.equals(20L, settings.pageSize)\n        let bound = Behaviors.properties(typeof<CatalogSetup>, BehaviorJSON.Parse("{\\"tac\\":{\\"catalog\\":{\\"page\\":{\\"size\\":35}}}}"))\n        Assert.equals(35L, bound.Get("pageSize").Integer)\n        let values = Behaviors.values(typeof<PublicValues>, BehaviorJSON.Parse("{\\"tac\\":{\\"catalog\\":{\\"title\\":\\"Shelf\\"}}}"))\n        Assert.equals("Shelf", values.Get("title").Text)\n' },
   ]
 }
 

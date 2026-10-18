@@ -712,6 +712,27 @@ machine contracts have their own, independent major versions.
   the page bridge saw it as `object` and the .NET build stopped with
   `CS0266: Cannot implicitly convert type 'object' to 'string'` (ADR 0073
   amendment).
+
+- A C# or F# test unit with `@TestSettings` (`[<TestSettings>]` in F#) now
+  runs. The C# driver passed each path as a dotted key with a JSON-quoted
+  value, such as `tac.catalog.mode` = `"\"fast\""`, and `Behaviors.create`
+  refused it with `configuration`, so the unit failed before any case ran.
+  Now each path becomes its environment name (`TAC_CATALOG_MODE`, the rule
+  that `Behaviors.properties` uses for application JSON) and each value its
+  text (`fast`, `5`, `true`), so the `WhenSetting` and `Settings` of a
+  TestSetup see them (ADR 0073 amendment of 2026-10-18).
+
+- A Tac F# test unit now includes the `client/models` metadata, as the F#
+  page build does. So `Behaviors.values(typeof<SomeModel>, ...)` binds a
+  `client/models` type with `[<Setting>]` fields in a test unit; before, it
+  failed with `configuration-properties`. New tests in
+  `crates/tachyon-core/tests/it/tac_fsharp_context.rs` prove the context of
+  a Tac F# unit: profiles, TestSettings, FreshStart and ValueSource; a
+  client Setup that is picked only for the right profile and setting; a
+  model with Setting fields; and a Fake HTTPClient. A unit without the
+  profile, or with the wrong setting value, is refused with
+  `inactive-configuration`.
+
 - A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
   `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
   for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`

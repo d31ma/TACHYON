@@ -496,7 +496,11 @@ fn property_entries(unit: &Unit) -> String {
         return String::new();
     };
     joined(entries, |(key, value)| {
-        format!("[{}] = {}, ", quote(key), quote(&value.to_string()))
+        let name = key.replace('.', "_").to_uppercase();
+        let text = value
+            .as_str()
+            .map_or_else(|| value.to_string(), str::to_owned);
+        format!("[{}] = {}, ", quote(&name), quote(&text))
     })
 }
 

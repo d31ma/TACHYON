@@ -428,7 +428,7 @@ language gets:
 | Lua | yes | yes, to `nil` | `self:construct(Role)` |
 | PHP | yes | yes: a typed field is unset, an untyped field becomes `null` | no |
 | Java, Groovy | yes | yes, to `null`, `false` or zero | `construct(Role.class)` |
-| F# | yes | yes, because every case runs on a new instance | no |
+| F# | yes | yes, because every case runs on a new instance | no; only a Tac unit gets `this.construct<Role>()` |
 | Kotlin | yes | yes, to `null`, `false` or zero | `construct(Role::class)` |
 | C# | yes | yes, to `default`: `null`, `false` or zero | `construct<Role>()` |
 | Dart | yes | yes, to `null`, `false` or zero | `construct<Role>(Role)` |
@@ -487,7 +487,7 @@ makes Rust work, since Rust has no reflection to find cases at run time.
 | `@Test(CatalogTestSetup, {"partition":"tests"})` | Selects a sibling TestSetup class or an existing production Setup class. Java writes `CatalogTestSetup.class`, Kotlin and PHP `CatalogTestSetup::class`, C# `typeof(CatalogTestSetup)`. `partition` defaults to `test`. |
 | `@TestSetup` | A test-only Setup in its own same-language sibling file named after the class. |
 | `@UseProfiles("test")` | Profiles for that context, with the same limits as `@WhenProfile`. |
-| `@TestSettings({"yon.catalog.size":5})` | At most 64 bounded literal properties. Each must be inside the realm's own namespace: a Tac unit cannot reach `yon.*`. |
+| `@TestSettings({"yon.catalog.size":5})` | At most 64 bounded literal properties. Each must be inside the realm's own namespace: a Tac unit cannot reach `yon.*`. A C# or F# unit passes each path as its environment name (`tac.catalog.mode` is `TAC_CATALOG_MODE`) and each value as text (`"fast"` is `fast`), so the TestSetup's `@WhenSetting` and `@Settings` see it. |
 | `@Fake` | A field that the test assigns. In JavaScript and TypeScript, `construct(Role)` passes it to any role with a `@Needs` field of that name. At most 32 per unit. Each must be a field without an initial value and not static. |
 | `@FreshStart` | Disposes the context between cases. Accepted, and the driver already does this. |
 
