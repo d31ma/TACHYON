@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- CI checks component style ownership in Chromium, Firefox and WebKit.
+  `bun run test:component-scope-browser` bundles the
+  `tac-component-scope` fixture and checks that a parent's `tac.css` styles
+  its own elements but not a nested or slotted child component, that
+  inherited color, font and custom properties still reach the child, and
+  that the styles survive a hide and show. The gate no longer needs a
+  retained fixture folder; `TAC_COMPONENT_SCOPE_BROWSERS` picks engines.
+
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with

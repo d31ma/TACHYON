@@ -679,6 +679,7 @@ fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Erro
         "bun run test:cached-client-browser",
         "bun run test:authored-node-browser",
         "bun run test:svg-namespace-browser",
+        "bun run test:component-scope-browser",
         "bun run test:logic-controls-browser",
         "bun run test:scaffold-browser",
         "node website/scripts/build-styles.mjs --check",

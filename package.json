@@ -40,6 +40,7 @@
     "test:web-components-browser": "node scripts/web-components-browser-test.mjs",
     "test:authored-node-browser": "node scripts/authored-node-browser-gate.mjs",
     "test:svg-namespace-browser": "node scripts/svg-namespace-browser-gate.mjs",
+    "test:component-scope-browser": "node scripts/component-scope-browser-gate.mjs",
     "test:logic-controls-browser": "node scripts/logic-controls-browser-gate.mjs",
     "test:scaffold-browser": "node scripts/scaffold-browser-gate.mjs",
     "test:native-companion": "node scripts/native/companion-test.mjs"

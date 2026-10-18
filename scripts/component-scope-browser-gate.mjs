@@ -1,18 +1,26 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} ScopeEngine */
 /** @typedef {{background: string, outline: string, outlineStyle: string, color: string, font: string, token: string, scopeToken: string, owner: string | null}} ScopeStyle */
 /** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, engine: ScopeEngine, browserVersion?: string, errors: string[], failedRequests: string[], externalRequests: string[]}} ScopeDiagnostics */
+/** @typedef {{root: string, retained: boolean, sourceCommit: string, compilerSha256: string}} ScopeRun */
 
 class ComponentScopeBrowserGate {
   /** @type {number} */
   static #timeout = 15_000
+  static #engines = ['chromium', 'firefox', 'webkit']
+  static #repository = fileURLToPath(new URL('..', import.meta.url))
+  static #fixture = 'crates/tachyon-core/tests/fixtures/tac-component-scope'
   /** @type {string} */
   static #parentColor = 'rgb(12, 34, 56)'
   /** @type {string} */
@@ -24,27 +32,66 @@ class ComponentScopeBrowserGate {
 
   /** @returns {Promise<void>} */
   static async run() {
-    const root = path.resolve(ComponentScopeBrowserGate.#required('TAC_COMPONENT_SCOPE_FIXTURE_OUT'))
-    const binary = path.resolve(ComponentScopeBrowserGate.#required('TAC_BIN'))
-    const sourceCommit = ComponentScopeBrowserGate.#required('TAC_COMPONENT_SCOPE_SOURCE_COMMIT')
-    const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
-    const engine = ComponentScopeBrowserGate.#engine()
-    const diagnostics = { phase: 'starting', sourceCommit, compilerSha256, engine, errors: [], failedRequests: [], externalRequests: [] }
-    await ComponentScopeBrowserGate.#execute(root, binary, diagnostics)
+    const binary = ComponentScopeBrowserGate.#binary()
+    const engines = ComponentScopeBrowserGate.#selectedEngines()
+    const retainedRoot = process.env.TAC_COMPONENT_SCOPE_FIXTURE_OUT
+    const root = retainedRoot ? path.resolve(retainedRoot) : await mkdtemp(path.join(tmpdir(), 'tac-component-scope-'))
+    try {
+      await cp(path.join(ComponentScopeBrowserGate.#repository, ComponentScopeBrowserGate.#fixture), root, { recursive: true })
+      await promisify(execFile)(binary, ['bundle', root])
+      /** @type {ScopeRun} */
+      const run = {
+        root,
+        retained: Boolean(retainedRoot),
+        sourceCommit: process.env.TAC_COMPONENT_SCOPE_SOURCE_COMMIT ?? await ComponentScopeBrowserGate.#headCommit(),
+        compilerSha256: createHash('sha256').update(await readFile(binary)).digest('hex'),
+      }
+      await withServer(binary, ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
+        const origin = new URL((await request('/')).url).origin
+        for (const engine of engines) await ComponentScopeBrowserGate.#runEngine(engine, origin, run)
+      })
+    } finally {
+      if (!retainedRoot) await rm(root, { recursive: true, force: true })
+    }
   }
 
-  /** @param {string} name @returns {string} */
-  static #required(name) {
-    const value = process.env[name]
-    assert.ok(value, `${name} identifies this retained fixture`)
-    return value
+  /** @param {ScopeEngine} engine @param {string} origin @param {ScopeRun} run @returns {Promise<void>} */
+  static async #runEngine(engine, origin, run) {
+    /** @type {ScopeDiagnostics} */
+    const diagnostics = { phase: 'starting', sourceCommit: run.sourceCommit, compilerSha256: run.compilerSha256, engine, errors: [], failedRequests: [], externalRequests: [] }
+    const receipt = path.join(run.root, `component-scope-browser-${engine}-${randomUUID()}.json`)
+    const started = performance.now()
+    try {
+      const proof = await ComponentScopeBrowserGate.#probe(origin, diagnostics)
+      if (run.retained) await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'pass', proof, elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
+      console.log(JSON.stringify({ status: 'pass', engine, browserVersion: diagnostics.browserVersion, receipt: run.retained ? receipt : null }))
+    } catch (error) {
+      if (run.retained) await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'fail', error: String(error), elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
+      console.error(JSON.stringify({ status: 'fail', ...diagnostics }))
+      throw error
+    }
   }
 
-  /** @returns {ScopeEngine} */
-  static #engine() {
-    const engine = process.env.TAC_COMPONENT_SCOPE_BROWSER ?? 'chromium'
-    assert.ok(engine === 'chromium' || engine === 'firefox' || engine === 'webkit')
-    return engine
+  /** @returns {Promise<string>} */
+  static async #headCommit() {
+    const { stdout } = await promisify(execFile)('git', ['rev-parse', 'HEAD'], { cwd: ComponentScopeBrowserGate.#repository })
+    return stdout.trim()
+  }
+
+  /** @returns {string} */
+  static #binary() {
+    const binary = process.env.TAC_BIN
+    assert.ok(binary, 'TAC_BIN names the ty binary under test')
+    return path.resolve(binary)
+  }
+
+  /** @returns {ScopeEngine[]} */
+  static #selectedEngines() {
+    const requested = process.env.TAC_COMPONENT_SCOPE_BROWSERS
+    if (!requested) return /** @type {ScopeEngine[]} */ (ComponentScopeBrowserGate.#engines)
+    const engines = requested.split(',')
+    for (const engine of engines) assert.ok(ComponentScopeBrowserGate.#engines.includes(engine), `unknown browser ${engine}`)
+    return /** @type {ScopeEngine[]} */ (engines)
   }
 
   /** @param {ScopeEngine} engine @returns {import('playwright').BrowserType} */
@@ -53,23 +100,6 @@ class ComponentScopeBrowserGate {
       case 'chromium': return chromium
       case 'firefox': return firefox
       case 'webkit': return webkit
-    }
-  }
-
-  /** @param {string} root @param {string} binary @param {ScopeDiagnostics} diagnostics @returns {Promise<void>} */
-  static async #execute(root, binary, diagnostics) {
-    const started = performance.now()
-    const receipt = path.join(root, `component-scope-browser-${diagnostics.engine}-${randomUUID()}.json`)
-    try {
-      const proof = await withServer(binary, ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
-        const origin = new URL((await request('/')).url).origin
-        return ComponentScopeBrowserGate.#probe(origin, diagnostics)
-      })
-      await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'pass', proof, elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
-      console.log(JSON.stringify({ status: 'pass', engine: diagnostics.engine, receipt, proof }))
-    } catch (error) {
-      await writeFile(receipt, JSON.stringify({ ...diagnostics, status: 'fail', error: String(error), elapsedMilliseconds: performance.now() - started, runtimeReplaced: false, stylesInjected: false }, null, 2) + '\n')
-      throw error
     }
   }
 

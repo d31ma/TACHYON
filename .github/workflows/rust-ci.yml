@@ -375,6 +375,11 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
 
+      - name: Keep component styles out of nested components in every browser
+        run: bun run test:component-scope-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
       - name: Run Tac logic and loop controls in every browser
         run: bun run test:logic-controls-browser
         env:
