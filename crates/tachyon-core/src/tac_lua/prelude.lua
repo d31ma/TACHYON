@@ -33,6 +33,14 @@ function TacAnswer.coded(message, code)
   return { error = message, code = code }
 end
 
+function TacAnswer.failure_of(failure)
+  local answer = TacAnswer.failure(TacAnswer.message(failure))
+  if type(failure) == "table" then
+    answer.code = failure.behavior_code
+  end
+  return answer
+end
+
 function TacAnswer.message(failure)
   if type(failure) == "table" then
     return tostring(failure.message or failure)
@@ -177,7 +185,7 @@ function TacServices.invoke(text)
     return YonJson.encode(TacAnswer.failure("Native owner is busy."))
   end
   TacServices.handling = true
-  local ok, answer = pcall(TacServices.handle, text)
+  local ok, answer = pcall(TacTasks.handle, text)
   if ok and TacServices.executing ~= nil then
     TacServices.drain(TacServices.executing)
   end
@@ -186,11 +194,15 @@ function TacServices.invoke(text)
   if not ok then
     answer = TacAnswer.failure(TacAnswer.message(answer))
   end
-  local encoded, text_answer = pcall(YonJson.encode, answer)
-  if not encoded then
-    return YonJson.encode(TacAnswer.failure(TacAnswer.message(text_answer)))
+  return TacTasks.encoded(answer)
+end
+
+function TacServices.answered(text)
+  local ok, answer = pcall(TacServices.handle, text)
+  if not ok then
+    return TacAnswer.failure_of(answer)
   end
-  return text_answer
+  return answer
 end
 
 function TacServices.handle(text)
@@ -253,6 +265,9 @@ function TacServices.handle_owned(request, operation)
   end
   if not TacServices.present(request.name) then
     return TacAnswer.failure("Companion request has no member name.")
+  end
+  if operation == "call" or operation == "event" then
+    TacTasks.allow_waiting(owner)
   end
   if operation == "event" then
     return TacServices.receive(owner, request.name, request.value)
@@ -432,6 +447,7 @@ function TacServices.event_failure()
 end
 
 function TacServices.dispose_owner(id)
+  TacTasks.cancel(id)
   local owner = TacServices.owners[id]
   if owner == nil then
     return
@@ -448,6 +464,7 @@ function TacServices.dispose_owner(id)
 end
 
 function TacServices.dispose_all()
+  TacTasks.cancel(nil)
   local active = TacServices.owners
   TacServices.owners = {}
   TacServices.owner_count = 0
