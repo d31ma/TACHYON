@@ -121,15 +121,19 @@ impl<'u> LuaTestUnit<'u> {
             .into_iter()
             .flatten()
             .filter_map(|(path, value)| {
-                let text = match value {
-                    serde_json::Value::String(text) => text.clone(),
-                    serde_json::Value::Null => return None,
-                    other => other.to_string(),
-                };
-                Some((path.replace('.', "_").to_ascii_uppercase(), text.into()))
+                let name = path.replace('.', "_").to_ascii_uppercase();
+                Self::property_text(value).map(|text| (name, text))
             })
             .collect();
         serde_json::Value::Object(flat)
+    }
+
+    fn property_text(value: &serde_json::Value) -> Option<serde_json::Value> {
+        match value {
+            serde_json::Value::String(text) => Some(text.clone().into()),
+            serde_json::Value::Null => None,
+            other => Some(other.to_string().into()),
+        }
     }
 
     fn quoted(text: &str) -> String {
