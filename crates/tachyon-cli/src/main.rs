@@ -1851,11 +1851,10 @@ impl TestResults {
         HandlerResponse::error(
             "ty-test",
             500,
-            HandlerProtocolError {
-                code: diagnostic.code.to_string(),
-                message: format!("{}: {}", diagnostic.code, diagnostic.message),
-                retryable: false,
-            },
+            HandlerProtocolError::new(
+                diagnostic.code.to_string(),
+                format!("{}: {}", diagnostic.code, diagnostic.message),
+            ),
         )
     }
 

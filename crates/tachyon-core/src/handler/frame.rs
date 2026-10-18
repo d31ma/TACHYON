@@ -177,7 +177,19 @@ impl HandlerFrame {
             response.body.as_ref().is_none_or(Self::valid_body),
             response.body.is_some() != response.error.is_some(),
             response.error.as_ref().is_none_or(Self::valid_error),
+            response
+                .error
+                .as_ref()
+                .is_none_or(|error| Self::valid_rejection(response.status, error)),
         ])
+    }
+
+    fn valid_rejection(status: u16, error: &HandlerProtocolError) -> bool {
+        if !error.is_check_rejection() {
+            return error.violations.is_empty();
+        }
+        status == crate::check_rejection::CheckProblem::STATUS
+            && crate::check_rejection::CheckProblem::accepts(&error.violations)
     }
 
     fn valid_error(error: &HandlerProtocolError) -> bool {

@@ -2,7 +2,7 @@ final class Behaviors {
     private Behaviors() {}
     static final String MODULE = "__MODULE__";
     static final String ENVIRONMENT = "__ENVIRONMENT__";
-    static final class Failure extends RuntimeException {
+    static class Failure extends RuntimeException {
         final String code;
         final String path;
         Failure(String code) { this(code, null); }
@@ -333,31 +333,63 @@ final class Behaviors {
             this.field = field; this.notNull = notNull; this.notBlank = notBlank; this.sizeMin = sizeMin; this.sizeMax = sizeMax; this.minimum = minimum; this.maximum = maximum;
         }
     }
-    static java.util.Map<String, Object> validate(String name, Object value) {
+    static final class Violation {
+        final String field, key, rule;
+        Violation(String field, String key, String rule) { this.field = field; this.key = key; this.rule = rule; }
+    }
+    static final class Rejection extends Failure implements java.util.function.Supplier<java.util.Map<String, Object>> {
+        final java.util.List<Violation> violations;
+        Rejection(java.util.List<Violation> violations, String path) { super("validation", path); this.violations = violations; }
+        public java.util.Map<String, Object> get() {
+            java.util.List<java.util.Map<String, Object>> entries = new java.util.ArrayList<>();
+            for (Violation violation : violations) entries.add(java.util.Map.of("field", violation.field, "rule", violation.rule));
+            return java.util.Map.of("violations", entries);
+        }
+    }
+    static Rule[] rules(String name) {
         switch (name) { __VALIDATIONS__ default: throw new Failure("validation", "$.schema"); }
     }
-    static java.util.Map<String, Object> validateRules(Object input, Rule[] rules) {
+    static java.util.Map<String, Object> validate(String name, Object value) {
+        Rule[] rules = rules(name);
+        java.util.Map<String, Object> checked = checkedObject(value);
+        java.util.List<Violation> broken = violations(checked, rules);
+        if (!broken.isEmpty()) throw new Failure("validation", broken.get(0).field + "." + broken.get(0).key);
+        return checked;
+    }
+    static java.util.Map<String, Object> check(String name, Object value) {
+        Rule[] rules = rules(name);
+        java.util.Map<String, Object> checked;
+        try { checked = checkedObject(value); } catch (Failure invalid) { throw new Rejection(java.util.List.of(new Violation("", "object", "Checked")), invalid.path); }
+        java.util.List<Violation> broken = violations(checked, rules);
+        if (!broken.isEmpty()) throw new Rejection(broken, broken.get(0).field + "." + broken.get(0).key);
+        return checked;
+    }
+    static java.util.Map<String, Object> checkedObject(Object input) {
         Object copied;
         try { copied = copy(input, 1048576); } catch (RuntimeException error) { throw new Failure("validation", "$.json"); }
         if (!(copied instanceof java.util.Map<?, ?>)) throw new Failure("validation", "$.object");
-        java.util.Map<String, Object> value = map(copied);
+        return map(copied);
+    }
+    static java.util.List<Violation> violations(java.util.Map<String, Object> value, Rule[] rules) {
+        java.util.List<Violation> broken = new java.util.ArrayList<>();
         for (Rule rule : rules) {
             Object field = value.get(rule.field);
-            if (rule.notNull && field == null) throw new Failure("validation", rule.field + ".notNull");
-            if (rule.notBlank && (!(field instanceof String) || ((String)field).codePoints().allMatch(Behaviors::whiteSpace))) throw new Failure("validation", rule.field + ".notBlank");
+            if (rule.notNull && field == null) broken.add(new Violation(rule.field, "notNull", "Required"));
+            if (rule.notBlank && (!(field instanceof String) || ((String)field).codePoints().allMatch(Behaviors::whiteSpace))) broken.add(new Violation(rule.field, "notBlank", "NotEmpty"));
             if (field == null) continue;
-            if (rule.sizeMin != null || rule.sizeMax != null) {
-                long size;
-                if (field instanceof String) size = bytes((String)field);
-                else if (field instanceof java.util.List<?>) size = ((java.util.List<?>)field).size();
-                else if (field instanceof java.util.Map<?, ?>) size = ((java.util.Map<?, ?>)field).size();
-                else throw new Failure("validation", rule.field + ".size");
-                if ((rule.sizeMin != null && size < rule.sizeMin) || (rule.sizeMax != null && size > rule.sizeMax)) throw new Failure("validation", rule.field + ".size");
-            }
-            if (rule.minimum != null && (!(field instanceof Number) || ((Number)field).doubleValue() < rule.minimum.doubleValue())) throw new Failure("validation", rule.field + ".min");
-            if (rule.maximum != null && (!(field instanceof Number) || ((Number)field).doubleValue() > rule.maximum.doubleValue())) throw new Failure("validation", rule.field + ".max");
+            if ((rule.sizeMin != null || rule.sizeMax != null) && !sizeFits(field, rule)) broken.add(new Violation(rule.field, "size", "Length"));
+            if (rule.minimum != null && (!(field instanceof Number) || ((Number)field).doubleValue() < rule.minimum.doubleValue())) broken.add(new Violation(rule.field, "min", "Min"));
+            if (rule.maximum != null && (!(field instanceof Number) || ((Number)field).doubleValue() > rule.maximum.doubleValue())) broken.add(new Violation(rule.field, "max", "Max"));
         }
-        return value;
+        return broken;
+    }
+    static boolean sizeFits(Object field, Rule rule) {
+        long size;
+        if (field instanceof String) size = bytes((String)field);
+        else if (field instanceof java.util.List<?>) size = ((java.util.List<?>)field).size();
+        else if (field instanceof java.util.Map<?, ?>) size = ((java.util.Map<?, ?>)field).size();
+        else return false;
+        return (rule.sizeMin == null || size >= rule.sizeMin) && (rule.sizeMax == null || size <= rule.sizeMax);
     }
     static boolean whiteSpace(int code) {
         return (code >= 9 && code <= 13) || code == 32 || code == 133 || code == 160 || code == 5760 || (code >= 8192 && code <= 8202) || code == 8232 || code == 8233 || code == 8239 || code == 8287 || code == 12288;

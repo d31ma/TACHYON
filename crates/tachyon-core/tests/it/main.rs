@@ -9,6 +9,7 @@ mod behavior_go;
 mod behavior_jvm;
 mod behavior_lua;
 mod behavior_rust;
+mod check_rejections;
 mod client_application_config;
 mod composed_types;
 mod controller_errors;

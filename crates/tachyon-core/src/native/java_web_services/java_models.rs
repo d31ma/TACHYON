@@ -179,7 +179,7 @@ mod tests {
             .find(|(path, _)| path.ends_with("OrderInput.java"))
             .expect("dto");
         assert!(!service.contains("class OrderInput"));
-        assert!(service.contains("case \"OrderInput\": return validateRules"));
+        assert!(service.contains("case \"OrderInput\": return new Rule[]"));
         for marker in [
             "@Checked",
             "@NotEmpty",

@@ -5,6 +5,7 @@ mod application;
 mod ascii_name;
 mod behavior;
 pub mod cache;
+mod check_rejection;
 pub mod client_tests;
 mod companion;
 mod compiler;

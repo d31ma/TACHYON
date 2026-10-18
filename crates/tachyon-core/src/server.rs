@@ -1,5 +1,6 @@
 mod access_verdict;
 mod asset_cache_policy;
+mod check_answer;
 mod controller_dispatch;
 mod dev_server_options;
 mod diagnostic_entry;
@@ -66,6 +67,7 @@ use crate::{BuildResult, Failure, Project, ProjectDiscovery, WebCompiler};
 use access_verdict::AccessVerdict;
 use asset_cache_policy::AssetCachePolicy;
 use axum::Router;
+use check_answer::CheckAnswer;
 use diagnostic_entry::DiagnosticEntry;
 use dispatch::Dispatch;
 use dispatch_route::DispatchRoute;

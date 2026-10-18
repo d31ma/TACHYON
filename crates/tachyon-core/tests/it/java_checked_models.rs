@@ -1,11 +1,8 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::json_http::JsonHttp;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::time::Duration;
-use tachyon_core::{DevServer, DevServerOptions, ProjectDiscovery};
-use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
-use tokio::net::TcpStream;
 
 struct CheckedOrders;
 
@@ -40,29 +37,58 @@ impl CheckedOrders {
         ),
     ];
 
-    const REJECTED: [(&'static str, &'static str); 10] = [
-        ("Required refuses a missing value", r#"{"name":"order"}"#),
-        ("Required refuses null", r#"{"name":"order","level":null}"#),
-        ("NotEmpty refuses a missing value", r#"{"level":3}"#),
-        ("NotEmpty refuses an empty text", r#"{"name":"","level":3}"#),
-        ("NotEmpty refuses blank text", r#"{"name":"   ","level":3}"#),
-        ("Length refuses a short text", r#"{"name":"a","level":3}"#),
+    const REJECTED: [(&'static str, &'static str, &'static str); 10] = [
+        (
+            "Required refuses a missing value",
+            r#"{"name":"order"}"#,
+            r#"[{"field":"level","rule":"Required"}]"#,
+        ),
+        (
+            "Required refuses null",
+            r#"{"name":"order","level":null}"#,
+            r#"[{"field":"level","rule":"Required"}]"#,
+        ),
+        (
+            "NotEmpty refuses a missing value",
+            r#"{"level":3}"#,
+            r#"[{"field":"name","rule":"NotEmpty"}]"#,
+        ),
+        (
+            "NotEmpty refuses an empty text",
+            r#"{"name":"","level":3}"#,
+            r#"[{"field":"name","rule":"NotEmpty"},{"field":"name","rule":"Length"}]"#,
+        ),
+        (
+            "NotEmpty refuses blank text",
+            r#"{"name":"   ","level":3}"#,
+            r#"[{"field":"name","rule":"NotEmpty"}]"#,
+        ),
+        (
+            "Length refuses a short text",
+            r#"{"name":"a","level":3}"#,
+            r#"[{"field":"name","rule":"Length"}]"#,
+        ),
         (
             "Length refuses a long text",
             r#"{"name":"abcdefghi","level":3}"#,
+            r#"[{"field":"name","rule":"Length"}]"#,
         ),
         (
             "Min refuses a smaller number",
             r#"{"name":"order","level":0}"#,
+            r#"[{"field":"level","rule":"Min"}]"#,
         ),
         (
             "Max refuses a larger number",
             r#"{"name":"order","level":10}"#,
+            r#"[{"field":"level","rule":"Max"}]"#,
         ),
-        ("Min refuses a text", r#"{"name":"order","level":"3"}"#),
+        (
+            "Min refuses a text",
+            r#"{"name":"order","level":"3"}"#,
+            r#"[{"field":"level","rule":"Min"},{"field":"level","rule":"Max"}]"#,
+        ),
     ];
-
-    const REJECTED_PREFIX: &'static str = "Handler execution failed. Reference: ";
 
     fn java_available() -> bool {
         let found = ["java", "javac"].iter().all(|program| {
@@ -93,7 +119,7 @@ impl CheckedOrders {
         for (_, body) in Self::ACCEPTED {
             bodies.push(body);
         }
-        for (_, body) in Self::REJECTED {
+        for (_, body, _) in Self::REJECTED {
             bodies.push(body);
         }
         bodies
@@ -117,70 +143,34 @@ impl CheckedOrders {
         assert_eq!(answered, expected, "{name}");
     }
 
-    fn check_rejected(name: &str, response: &str) {
+    fn check_rejected(name: &str, errors: &str, response: &str) {
         let (status_line, body) = Self::split(response);
         assert_eq!(
-            status_line, "HTTP/1.1 500 Internal Server Error",
+            status_line, "HTTP/1.1 422 Unprocessable Entity",
             "{name}: {response}"
         );
         assert!(
-            response.contains("content-type: text/plain; charset=utf-8"),
+            response.contains("content-type: application/problem+json"),
             "{name}: {response}"
         );
-        let reference = body
-            .strip_prefix(Self::REJECTED_PREFIX)
-            .and_then(|rest| rest.strip_suffix('.'))
-            .unwrap_or_else(|| panic!("{name}: {body}"));
-        assert!(!reference.is_empty(), "{name}: {body}");
+        let answered: serde_json::Value =
+            serde_json::from_str(body).unwrap_or_else(|_| panic!("{name}: {body}"));
+        let reference = answered["reference"].as_str().unwrap_or_default();
         let reference_is_plain = reference
             .chars()
             .all(|character| character.is_ascii_alphanumeric());
-        assert!(reference_is_plain, "{name}: {body}");
-    }
-}
-
-struct Http;
-
-impl Http {
-    async fn post_json(port: u16, path: &str, body: &str) -> String {
-        let mut socket = TcpStream::connect(("127.0.0.1", port))
-            .await
-            .expect("connect");
-        let length = body.len();
-        let request = format!(
-            "POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {length}\r\nConnection: close\r\n\r\n{body}"
+        assert!(
+            !reference.is_empty() && reference_is_plain,
+            "{name}: {body}"
         );
-        socket.write_all(request.as_bytes()).await.expect("request");
-        let mut response = Vec::new();
-        tokio::time::timeout(Duration::from_mins(2), socket.read_to_end(&mut response))
-            .await
-            .expect("response deadline")
-            .expect("response");
-        String::from_utf8(response).expect("UTF-8 response")
-    }
-
-    async fn post_all(root: &Path, path: &str, bodies: &[&str]) -> Vec<String> {
-        let project = ProjectDiscovery::discover(root).expect("discover");
-        let options = DevServerOptions {
-            port: 0,
-            watch: false,
-            ..DevServerOptions::default()
-        };
-        let server = DevServer::bind_project(&project, &options)
-            .await
-            .expect("bind");
-        let port = server.address().port();
-        let (stop, stopped) = tokio::sync::oneshot::channel();
-        let running = tokio::spawn(server.run_until(async {
-            let _ = stopped.await;
-        }));
-        let mut responses = Vec::new();
-        for body in bodies {
-            responses.push(Self::post_json(port, path, body).await);
-        }
-        stop.send(()).expect("stop");
-        running.await.expect("task").expect("shutdown");
-        responses
+        assert!(
+            response.contains(&format!("x-tachyon-request-id: {reference}")),
+            "{name}: {response}"
+        );
+        let expected = format!(
+            r#"{{"type":"about:blank","title":"Invalid input","status":422,"errors":{errors},"truncated":false,"reference":"{reference}"}}"#
+        );
+        assert_eq!(body, expected, "{name}");
     }
 }
 
@@ -192,12 +182,12 @@ async fn a_java_service_checks_a_model_from_server_models_over_http() {
     let root = tempfile::tempdir().expect("project");
     CheckedOrders::write(root.path());
     let bodies = CheckedOrders::all_bodies();
-    let responses = Http::post_all(root.path(), "/orders", &bodies).await;
+    let responses = JsonHttp::post_all(root.path(), "/orders", &bodies).await;
     let (accepted, rejected) = responses.split_at(CheckedOrders::ACCEPTED.len());
     for ((name, sent), response) in CheckedOrders::ACCEPTED.iter().zip(accepted) {
         CheckedOrders::check_accepted(name, sent, response);
     }
-    for ((name, _), response) in CheckedOrders::REJECTED.iter().zip(rejected) {
-        CheckedOrders::check_rejected(name, response);
+    for ((name, _, errors), response) in CheckedOrders::REJECTED.iter().zip(rejected) {
+        CheckedOrders::check_rejected(name, errors, response);
     }
 }

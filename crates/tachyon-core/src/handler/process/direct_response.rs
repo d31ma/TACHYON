@@ -1,11 +1,13 @@
 use crate::Failure;
+use crate::check_rejection::CheckProblem;
 use crate::handler::frame::{FrameLimits, HandlerFrame};
 use crate::handler::topic_bus::TopicOutbox;
 use futures_util::future::OptionFuture;
 use serde_json::Value;
 use std::sync::Arc;
 use tachyon_contracts::{
-    HandlerBody, HandlerBodyEncoding, HandlerHeaders, HandlerResponse, HandlerResponseKind,
+    HandlerBody, HandlerBodyEncoding, HandlerHeaders, HandlerProtocolError, HandlerResponse,
+    HandlerResponseKind, HandlerViolation,
 };
 
 #[derive(serde::Deserialize)]
@@ -18,6 +20,8 @@ pub(super) struct DirectResponse {
     body: Option<DirectBody>,
     #[serde(default)]
     topics: Vec<Value>,
+    #[serde(default)]
+    violations: Vec<HandlerViolation>,
 }
 
 #[derive(serde::Deserialize)]
@@ -72,6 +76,7 @@ impl DirectResponse {
             )
         })?;
         parsed.check_status()?;
+        parsed.check_violations()?;
         Ok(parsed)
     }
 
@@ -128,7 +133,20 @@ impl DirectResponse {
         Ok(())
     }
 
+    fn check_violations(&self) -> Result<(), Failure> {
+        if self.violations.is_empty() || CheckProblem::accepts(&self.violations) {
+            return Ok(());
+        }
+        Err(HandlerFrame::protocol_failure(
+            2004,
+            "Direct handler violations must name a field path and a Checked rule.",
+        ))
+    }
+
     fn into_response(self, request_id: &str) -> HandlerResponse {
+        if !self.violations.is_empty() {
+            return Self::rejection(self.violations, request_id);
+        }
         HandlerResponse {
             protocol_version: 1,
             kind: HandlerResponseKind::Response,
@@ -138,5 +156,13 @@ impl DirectResponse {
             body: self.body.map(DirectBody::into_body),
             error: None,
         }
+    }
+
+    fn rejection(violations: Vec<HandlerViolation>, request_id: &str) -> HandlerResponse {
+        HandlerResponse::error(
+            request_id,
+            CheckProblem::STATUS,
+            HandlerProtocolError::check_rejected(violations),
+        )
     }
 }

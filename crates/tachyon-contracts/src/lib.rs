@@ -17,6 +17,7 @@ mod handler_request;
 mod handler_request_kind;
 mod handler_response;
 mod handler_response_kind;
+mod handler_violation;
 mod hot_update;
 mod hot_update_kind;
 mod http_method;
@@ -55,6 +56,7 @@ pub use handler_request::HandlerRequest;
 pub use handler_request_kind::HandlerRequestKind;
 pub use handler_response::HandlerResponse;
 pub use handler_response_kind::HandlerResponseKind;
+pub use handler_violation::HandlerViolation;
 pub use hot_update::HotUpdate;
 pub use hot_update_kind::HotUpdateKind;
 pub use http_method::HttpMethod;
@@ -459,11 +461,7 @@ mod tests {
         let failure = HandlerResponse::error(
             "req_02",
             500,
-            HandlerProtocolError {
-                code: String::from("TY2201"),
-                message: String::from("Handler failed."),
-                retryable: false,
-            },
+            HandlerProtocolError::new("TY2201", "Handler failed."),
         );
         let failure_value = serde_json::to_value(failure)?;
         assert!(failure_value.get("body").is_none());

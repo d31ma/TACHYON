@@ -3,9 +3,9 @@ use super::controller_dispatch::{
 };
 use super::socket_dispatch::{SocketHub, SocketSession};
 use super::{
-    AssetCachePolicy, DispatchRoute, ForwardedHeaders, HandlerEventBridge, HostGuard, HotUpdateHub,
-    InvocationLog, Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest, RouteGuard,
-    ServerResponse, StaticFiles, TopicHub, TopicStream,
+    AssetCachePolicy, CheckAnswer, DispatchRoute, ForwardedHeaders, HandlerEventBridge, HostGuard,
+    HotUpdateHub, InvocationLog, Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest,
+    RouteGuard, ServerResponse, StaticFiles, TopicHub, TopicStream,
 };
 use crate::Failure;
 use crate::handler::{HandlerCancellation, HandlerSource, HandlerSupervisor};
@@ -600,6 +600,9 @@ impl Dispatch {
         entry: &DispatchRoute,
         request_id: &str,
     ) -> Response<Body> {
+        if let Some(error) = CheckAnswer::rejection(&response) {
+            return CheckAnswer::response(error, request_id);
+        }
         let mapping = entry.mapping.as_ref();
         let problem = RouteResult::problem(mapping, entry.handler.models(), &response);
         Self::answer_or_mismatch(problem, response, mapping, request_id)

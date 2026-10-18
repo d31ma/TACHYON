@@ -290,7 +290,7 @@ fn validation_policy(type_declaration: &Type) -> Result<String, String> {
         rules.push(validation_rule(name, rule)?);
     }
     Ok(format!(
-        "case {}: return validateRules(value, new Rule[]{{{}}});",
+        "case {}: return new Rule[]{{{}}};",
         quote(&type_declaration.name),
         rules.join(", ")
     ))
@@ -601,7 +601,7 @@ fn valid_arguments(method: &Method, arguments: &mut [String]) -> Result<String, 
         return Err("Java Check argument must be Object or Map<String, Object>".to_owned());
     }
     let prefix = format!(
-        "java.util.Map<String, Object> __ty_valid = Behaviors.validate({}, {});",
+        "java.util.Map<String, Object> __ty_valid = Behaviors.check({}, {});",
         string(valid, "type")?,
         parameter.name
     );

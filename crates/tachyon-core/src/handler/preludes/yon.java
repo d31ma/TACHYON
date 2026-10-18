@@ -879,6 +879,8 @@ final class __YonAnswer {
 }
 
 final class Yon {
+    private static final int MAX_CAUSE_DEPTH = 8;
+    private static final int CHECK_REJECTED_STATUS = 422;
     static final int MAX_RELAY_STDOUT_BYTES = 16 * 1024 * 1024;
     static final int MAX_RELAY_STDERR_BYTES = 64 * 1024;
     private static final long DEFAULT_DEADLINE_MILLISECONDS = 30_000;
@@ -1131,11 +1133,35 @@ final class Yon {
             else response = __YonAnswer.json(Json.stringify(result));
         } catch (NoSuchMethodException absent) {
             response = __YonAnswer.empty(missingStatus);
+        } catch (java.lang.reflect.InvocationTargetException failed) {
+            java.util.Map<?, ?> rejection = rejection(failed.getCause());
+            if (rejection == null) {
+                System.exit(1);
+                return;
+            }
+            System.out.print(rejectionEnvelope(rejection));
+            return;
         } catch (java.lang.ReflectiveOperationException failed) {
             System.exit(1);
             return;
         }
         System.out.print(response.envelope());
+    }
+
+    private static java.util.Map<?, ?> rejection(Throwable failure) {
+        Throwable cause = failure;
+        for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++) {
+            if (cause instanceof java.util.function.Supplier<?> supplier && supplier.get() instanceof java.util.Map<?, ?> found && found.get("violations") instanceof java.util.List<?>) return found;
+            cause = cause.getCause();
+        }
+        return null;
+    }
+
+    private static String rejectionEnvelope(java.util.Map<?, ?> rejection) {
+        var envelope = new java.util.LinkedHashMap<String, Object>();
+        envelope.put("status", CHECK_REJECTED_STATUS);
+        envelope.put("violations", rejection.get("violations"));
+        return Json.write(envelope);
     }
 
     private static java.lang.reflect.Method entryMethod(String name) throws NoSuchMethodException {
