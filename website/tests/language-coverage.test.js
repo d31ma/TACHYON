@@ -114,7 +114,8 @@ describe('the annotation rule table parser', () => {
     expect(reach.rule('Public')?.tac).toEqual([])
     expect(reach.rule('stream_route')?.yon).toEqual(reach.realmLanguages.yon)
     expect(reach.refusal('yon', 'groovy', ['StreamRoute'], ['js'])).toBeUndefined()
-    expect(reach.refusal('tac', 'java', ['StreamRequest'], ['js', 'ts'])).toEqual({ annotation: 'StreamRequest', code: 'TY1308' })
+    expect(reach.refusal('tac', 'java', ['StreamRequest'], ['js', 'ts'])).toBeUndefined()
+    expect(reach.refusal('tac', 'js', ['Public'], [])).toEqual({ annotation: 'Public', code: 'TY2015' })
   })
 })
 
