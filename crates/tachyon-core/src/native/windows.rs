@@ -75,7 +75,12 @@ impl WindowsHostGenerator {
 }
 
 impl WindowsHostGenerator {
-    const MENU_MNEMONIC: char = '&';
+    const DESKTOP: super::desktop_host_source::DesktopHostSource =
+        super::desktop_host_source::DesktopHostSource {
+            menus: include_str!("windows_menus.c"),
+            mnemonic: '&',
+            target: tachyon_contracts::NativeTarget::Windows,
+        };
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
     const DEVELOPER_TARGET: &str = "VSCMD_ARG_TGT_ARCH";
     pub(super) const LINKER_ARGUMENTS: [&str; 13] = [
@@ -641,15 +646,12 @@ pub(super) fn c_source(
     let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
     let header_capacity = WindowsHostGenerator::response_header_capacity(application);
     let frame = super::windows_window_frame::WindowsWindowFrame::source(&application.window);
-    super::desktop_host_source::DesktopHostSource {
-        template: WindowsHostGenerator::C_HOST.replace(
-            "__WINDOW_CONTROLS__",
-            &super::native_window_controls::NativeWindowControls::windows(&application.window),
-        ),
-        menus: include_str!("windows_menus.c"),
-        mnemonic: WindowsHostGenerator::MENU_MNEMONIC,
-    }
-    .render(
+    let template = WindowsHostGenerator::C_HOST.replace(
+        "__WINDOW_CONTROLS__",
+        &super::native_window_controls::NativeWindowControls::windows(&application.window),
+    );
+    WindowsHostGenerator::DESKTOP.render(
+        &template,
         application,
         index,
         &[
@@ -1568,6 +1570,7 @@ mod tests {
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
+            permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
         }
     }
 

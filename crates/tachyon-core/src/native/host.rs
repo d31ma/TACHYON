@@ -29,6 +29,7 @@ globalThis.__tachyonNativeHostCall = (capability, payload) =>
     ? globalThis.webkit.messageHandlers.tachyon.postMessage({ capability, payload })
     : globalThis.__tachyonHostPost?.(capability, payload)
 globalThis.__tachyonWindowControls = Object.freeze(__WINDOW_CONTROLS__)
+globalThis.__tachyonBrowserApiBridge = Object.freeze(__BROWSER_API_BRIDGE__)
 addEventListener('DOMContentLoaded', () => {
   if (document.body) document.body.dataset.platform = 'native'
 })
@@ -144,13 +145,21 @@ impl NativeHost {
     }
 }
 
-pub(super) fn native_shim(window: &super::config::WindowConfiguration) -> String {
+pub(super) fn native_shim(
+    window: &super::config::WindowConfiguration,
+    target: tachyon_contracts::NativeTarget,
+) -> String {
     let mut quoted = Vec::new();
     for control in &window.controls {
         quoted.push(format!("'{control}'"));
     }
     let granted = quoted.join(", ");
-    NativeHost::SHIM.replace("__WINDOW_CONTROLS__", &format!("[{granted}]"))
+    NativeHost::SHIM
+        .replace("__WINDOW_CONTROLS__", &format!("[{granted}]"))
+        .replace(
+            "__BROWSER_API_BRIDGE__",
+            &super::browser_api_bridge::BrowserApiBridge::page_list(target),
+        )
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -419,16 +428,23 @@ mod tests {
             controls: vec![String::from("minimize"), String::from("title")],
             ..crate::native::config::WindowConfiguration::default()
         };
-        let shim = native_shim(&window);
+        let shim = native_shim(&window, tachyon_contracts::NativeTarget::Linux);
         assert!(
             shim.contains(
                 "globalThis.__tachyonWindowControls = Object.freeze(['minimize', 'title'])"
             ),
             "{shim}"
         );
-        let nothing = native_shim(&crate::native::config::WindowConfiguration::default());
+        let nothing = native_shim(
+            &crate::native::config::WindowConfiguration::default(),
+            tachyon_contracts::NativeTarget::Ios,
+        );
         assert!(
             nothing.contains("globalThis.__tachyonWindowControls = Object.freeze([])"),
+            "{nothing}"
+        );
+        assert!(
+            nothing.contains("globalThis.__tachyonBrowserApiBridge = Object.freeze([])"),
             "{nothing}"
         );
     }

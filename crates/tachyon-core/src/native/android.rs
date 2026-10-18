@@ -351,8 +351,9 @@ fn stage_icon(
 fn strings_xml(application: &NativeApplication) -> String {
     format!(
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
-         <resources>\n  <string name=\"app_name\">{name}</string>\n</resources>\n",
+         <resources>\n  <string name=\"app_name\">{name}</string>\n{reasons}</resources>\n",
         name = xml_escape(&application.name),
+        reasons = application.permissions.android_strings(),
     )
 }
 
@@ -362,7 +363,10 @@ pub(super) fn java_source(
     has_companion: bool,
     index: &NativeRouteIndex,
 ) -> String {
-    let native_shim = super::host::native_shim(&application.window);
+    let native_shim = super::host::native_shim(
+        &application.window,
+        tachyon_contracts::NativeTarget::Android,
+    );
     let route_documents = super::routes::route_documents_json(index);
     let companion_call = if has_companion {
         "TachyonCompanionKt.tacNativeInvoke(request)"
@@ -1033,6 +1037,7 @@ mod tests {
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
+            permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
         }
     }
 
@@ -1085,7 +1090,10 @@ mod tests {
     #[test]
     fn android_documents_allow_only_the_script_the_host_writes_into_them() {
         let source = catalog_java_source(false);
-        let shim = crate::native::host::native_shim(&application().window);
+        let shim = crate::native::host::native_shim(
+            &application().window,
+            tachyon_contracts::NativeTarget::Android,
+        );
         let written = format!("{shim}{}", AndroidHostGenerator::ANDROID_BRIDGE_SHIM);
         let hash = crate::compiler::ContentSecurityPolicy::inline_script_hash(&written);
         let policy_line = source
@@ -1213,5 +1221,31 @@ mod tests {
         );
         assert_eq!(java_package("com.1st.app"), "com._1st.app");
         assert_eq!(java_package("com.class.app"), "com._class.app");
+    }
+
+    #[test]
+    fn string_resources_carry_the_manifest_reasons_for_the_permission_rationale() {
+        assert!(!super::strings_xml(&application()).contains("tachyon_permission_"));
+        let mut asking = application();
+        asking.permissions =
+            crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+                &[String::from("geolocation"), String::from("notifications")],
+                &std::collections::BTreeMap::from([
+                    (
+                        String::from("geolocation"),
+                        String::from("Shows stores & more"),
+                    ),
+                    (String::from("notifications"), String::from("Order updates")),
+                ]),
+            );
+        let strings = super::strings_xml(&asking);
+        assert!(strings.contains(
+            "<string name=\"tachyon_permission_geolocation\">Shows stores &amp; more</string>"
+        ));
+        assert!(
+            strings.contains(
+                "<string name=\"tachyon_permission_notifications\">Order updates</string>"
+            )
+        );
     }
 }

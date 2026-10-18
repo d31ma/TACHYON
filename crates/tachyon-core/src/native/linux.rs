@@ -18,7 +18,12 @@ impl LinuxHostGenerator {
         "gmodule-2.0",
         "gio-unix-2.0",
     ];
-    const MENU_MNEMONIC: char = '_';
+    const DESKTOP: super::desktop_host_source::DesktopHostSource =
+        super::desktop_host_source::DesktopHostSource {
+            menus: include_str!("linux_menus.c"),
+            mnemonic: '_',
+            target: tachyon_contracts::NativeTarget::Linux,
+        };
 
     pub(super) async fn generate(
         application: &NativeApplication,
@@ -164,15 +169,12 @@ fn stage_icon(
 pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
     let local_bundle = super::routes::c_local_bundle(index, &[], "tachyon://app");
     let gtk_app_id = c_string_escape(&gtk_application_id(&application.application_id));
-    super::desktop_host_source::DesktopHostSource {
-        template: LinuxHostGenerator::C_HOST.replace(
-            "__NATIVE_WINDOW_CONTROLS__",
-            &super::linux_window_controls::LinuxWindowControls::source(&application.window),
-        ),
-        menus: include_str!("linux_menus.c"),
-        mnemonic: LinuxHostGenerator::MENU_MNEMONIC,
-    }
-    .render(
+    let template = LinuxHostGenerator::C_HOST.replace(
+        "__NATIVE_WINDOW_CONTROLS__",
+        &super::linux_window_controls::LinuxWindowControls::source(&application.window),
+    );
+    LinuxHostGenerator::DESKTOP.render(
+        &template,
         application,
         index,
         &[
@@ -699,6 +701,7 @@ mod tests {
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
+            permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
         }
     }
 

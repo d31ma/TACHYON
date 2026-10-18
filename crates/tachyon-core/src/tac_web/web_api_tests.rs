@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 10_000;
+    const MOST_RUNTIME_BYTES: usize = 11_000;
     /// A driver whose promises never settle fails its test instead of holding the suite.
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
@@ -489,6 +489,42 @@ answers.notGranted = asOwner('clipboard', 'readText')
 answers.permissionNotGranted = ask('notifications', 'permission')
 await new Promise((resolve) => setTimeout(resolve, 0))
 console.log(JSON.stringify({ answers, effects }))
+";
+
+    const BRIDGE_DRIVER: &str = r"__GRANT_STUBS__
+const calls = []
+const host = {
+  'browserApi.clipboard.writeText': ({ text }) => text === 'refused' ? JSON.stringify({ error: 'Host denied' }) : JSON.stringify({ value: null }),
+  'browserApi.clipboard.readText': () => ({ value: 'from the host' }),
+  'browserApi.notifications.requestPermission': () => JSON.stringify({ value: 'granted' }),
+  'browserApi.notifications.show': () => '{}',
+  'browserApi.geolocation.currentPosition': () => JSON.stringify({ value: { coords: { latitude: 1, longitude: 2, accuracy: 3 }, timestamp: 4 } }),
+}
+globalThis.__tachyonNativeHostCall = async (capability, payload) => { calls.push([capability, JSON.parse(payload)]); return host[capability](JSON.parse(payload)) }
+globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'notifications', 'geolocation'])
+globalThis.__tachyonNotificationPermission = 'denied'
+;(0, eval)(`${await readFile('./tac-web.js', 'utf8')}\nglobalThis.TacWebApis = TacWebApis`)
+const web = globalThis[Symbol.for('tachyon.tac.web')]
+TacWebApis.events = { publish: () => {}, send: (owner, name, value) => effects.sent.push([owner?.name ?? 'everyone', name, value]) }
+const ask = (api, call, args = []) => JSON.parse(web.host(JSON.stringify({ api, call, args })))
+const owner = { name: 'caller' }
+const asOwner = (api, call, args) => web.calling(owner, () => ask(api, call, args))
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+const answers = { permissionBefore: ask('notifications', 'permission'), early: ask('notifications', 'show', ['Hi', 'There']) }
+answers.write = asOwner('clipboard', 'writeText', ['copied'])
+answers.refused = asOwner('clipboard', 'writeText', ['refused'])
+answers.read = asOwner('clipboard', 'readText')
+answers.share = asOwner('share', 'open', ['Title', 'Text', 'https://example.com/'])
+answers.request = asOwner('notifications', 'requestPermission')
+await tick()
+answers.permissionAfter = ask('notifications', 'permission')
+answers.show = asOwner('notifications', 'show', ['Hi', 'There'])
+answers.position = asOwner('geolocation', 'currentPosition')
+grants.content = 'share'
+answers.notGranted = asOwner('clipboard', 'readText')
+await tick()
+effects.sent.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
+console.log(JSON.stringify({ answers, effects, calls }))
 ";
 
     const WINDOW_DRIVER: &str = r#"globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: () => null }
@@ -1528,6 +1564,65 @@ fn the_page_runtime_grants_checks_gestures_and_answers_its_caller_with_events() 
             ["caller", "NotificationPermissionChanged", {"permission": "granted"}],
             ["everyone", "PositionFound", position],
             ["everyone", "PositionFound", position],
+        ])
+    );
+}
+
+#[test]
+fn the_page_runtime_sends_bridged_browser_apis_to_the_native_host_and_keeps_web_answers() {
+    if !WebApis::node_available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("root");
+    let driver = WebApis::BRIDGE_DRIVER.replace("__GRANT_STUBS__", WebApis::GRANT_STUBS);
+    let report = WebApis::run(root.path(), &driver);
+    let answers = &report["answers"];
+    assert_eq!(answers["permissionBefore"]["value"], "denied");
+    assert_eq!(
+        answers["early"]["error"],
+        "Notifications are not allowed. Call requestPermission first."
+    );
+    assert_eq!(answers["permissionAfter"]["value"], "granted");
+    for started in [
+        "write", "refused", "read", "share", "request", "show", "position",
+    ] {
+        assert_eq!(
+            answers[started],
+            serde_json::json!({"value": null}),
+            "{started}: {report}"
+        );
+    }
+    assert_eq!(
+        answers["notGranted"]["error"],
+        "The clipboard browser API is not granted. Add \"clipboard\" to tac.browserApis in client/manifest.json."
+    );
+    assert_eq!(
+        report["calls"],
+        serde_json::json!([
+            ["browserApi.clipboard.writeText", {"text": "copied"}],
+            ["browserApi.clipboard.writeText", {"text": "refused"}],
+            ["browserApi.clipboard.readText", {}],
+            ["browserApi.notifications.requestPermission", {}],
+            ["browserApi.notifications.show", {"title": "Hi", "body": "There"}],
+            ["browserApi.geolocation.currentPosition", {"timeout": 10000}],
+        ])
+    );
+    let effects = &report["effects"];
+    assert_eq!(effects["written"], serde_json::json!([]));
+    assert_eq!(effects["shown"], serde_json::json!([]));
+    assert_eq!(
+        effects["shared"],
+        serde_json::json!({"title": "Title", "text": "Text", "url": "https://example.com/"})
+    );
+    assert_eq!(
+        effects["sent"],
+        serde_json::json!([
+            ["caller", "BrowserCallFailed", {"api": "clipboard", "call": "writeText", "message": "Host denied"}],
+            ["caller", "ClipboardTextRead", {"text": "from the host"}],
+            ["caller", "NotificationPermissionChanged", {"permission": "granted"}],
+            ["caller", "PositionFound", {"latitude": 1, "longitude": 2, "accuracy": 3, "timestamp": 4}],
+            ["caller", "ShareFinished", {}],
         ])
     );
 }

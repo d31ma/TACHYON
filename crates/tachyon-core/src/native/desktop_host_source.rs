@@ -3,19 +3,20 @@ use super::host::c_string_escape;
 use super::routes::NativeRouteIndex;
 
 pub(super) struct DesktopHostSource {
-    pub(super) template: String,
     pub(super) menus: &'static str,
     pub(super) mnemonic: char,
+    pub(super) target: tachyon_contracts::NativeTarget,
 }
 
 impl DesktopHostSource {
     pub(super) fn render(
         &self,
+        template: &str,
         application: &NativeApplication,
         index: &NativeRouteIndex,
         platform_values: &[(&str, &str)],
     ) -> String {
-        let framed = self.frame(application);
+        let framed = self.frame(template, application);
         let menu_items =
             super::desktop_menu_items::DesktopMenuItems::c_table(&application.menus, self.mnemonic);
         let app_name = c_string_escape(&application.name);
@@ -35,11 +36,11 @@ impl DesktopHostSource {
         super::placeholder_fill::PlaceholderFill::once(&framed, &values)
     }
 
-    fn frame(&self, application: &NativeApplication) -> String {
-        self.template
+    fn frame(&self, template: &str, application: &NativeApplication) -> String {
+        template
             .replace(
                 "__NATIVE_SHIM__",
-                &c_string_escape(&super::host::native_shim(&application.window)),
+                &c_string_escape(&super::host::native_shim(&application.window, self.target)),
             )
             .replace(
                 "__CONTENT_SECURITY_POLICY__",

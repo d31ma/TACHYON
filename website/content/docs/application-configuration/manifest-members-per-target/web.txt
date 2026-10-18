@@ -90,6 +90,9 @@ tac.cache
 tac.metadata
   honored: head tags in every page
 
+tac.application.permissions
+  not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
+
 tac.browserApis
   honored: the page grants only the listed browser APIs
 

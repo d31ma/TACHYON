@@ -195,3 +195,72 @@ grant. The known names in `tac.browserApis` are now `clipboard`, `share`,
 `notifications`, `geolocation` and `preferenceStrings`
 (`BrowserApiGrants::KNOWN`). Without the grant, `read` answers `null` and
 `write` answers `false`. It needs no user action.
+
+## Amendment (2026-10-18): browser APIs go through a host bridge in native apps
+
+A native app's page runs in the operating system's web view, not in a
+browser. There, `navigator.clipboard`, `navigator.share`, `Notification` and
+`navigator.geolocation` may be missing, may need a secure context that the
+app's own scheme is not, or may need a permission prompt that only the host
+can show. So the page runtime (`tac-web.js`) now sends these calls to the
+host when the host says it can answer them.
+
+1. **Which host answers what.** Every native host's shim sets
+   `globalThis.__tachyonBrowserApiBridge`, a frozen list of the browser APIs
+   that the host answers. The build fills it from one table,
+   `BrowserApiBridge` (`native/browser_api_bridge.rs`). Today every list is
+   empty; BA1 to BA4 of the platform plan add their APIs to it as each host
+   implements them. A policy test refuses a listed API whose host source does
+   not answer every one of its operations.
+2. **Operations.** For a listed API, the page calls
+   `__tachyonNativeHostCall("browserApi.<api>.<call>", payload)` with a JSON
+   payload:
+
+   | Operation | Payload | `value` in the answer |
+   | --- | --- | --- |
+   | `browserApi.clipboard.writeText` | `{ "text" }` | `null` |
+   | `browserApi.clipboard.readText` | `{}` | the text |
+   | `browserApi.share.open` | `{ "title", "text", "url" }` | `null` |
+   | `browserApi.notifications.requestPermission` | `{}` | `"granted"`, `"denied"` or `"default"` |
+   | `browserApi.notifications.show` | `{ "title", "body" }` | `null` |
+   | `browserApi.geolocation.currentPosition` | `{ "timeout" }` in milliseconds | `{ "coords": { "latitude", "longitude", "accuracy" }, "timestamp" }` |
+
+   The host answers `{"value": …}` or `{"error": "message"}`, as a JSON
+   string or an object. An error becomes the same `BrowserCallFailed` event
+   that a refused browser call gives on the web.
+3. **The same results as the web.** Services see no difference: the same
+   events (`ClipboardTextRead`, `ShareFinished`,
+   `NotificationPermissionChanged`, `PositionFound`, `BrowserCallFailed`), the
+   same permission words and the same refusals. The grant check
+   (`tac.browserApis`) and the user-action check still run in the page
+   before anything reaches the host. `notifications.permission()` stays
+   synchronous: on a bridged host it answers the last word the host gave,
+   starting from `globalThis.__tachyonNotificationPermission` when the host
+   sets it at document start, and `"default"` otherwise.
+4. **Fallback.** An API that the host does not list goes to the web view's
+   own browser API, exactly as on the web, and fails the same way when the
+   web view lacks it. The per-target support table says which hosts bridge
+   which API.
+5. **Reasons for asking.** `tac.application.permissions` maps an API to the
+   text that the operating system shows when the app asks the user, such as
+   `{"geolocation": "Shows stores near you", "notifications": "Order
+   updates"}`. Only `geolocation` and `notifications` take a reason; each
+   must be granted in `tac.browserApis` and be 1 to 200 characters of text
+   without control characters. A native build for iOS, macOS or Android that
+   grants `geolocation` without a reason, or an Android build that grants
+   `notifications` without one (Android 13 and later ask), stops with
+   `TY1601` and names the member. The iOS host writes the reason as
+   `NSLocationWhenInUseUsageDescription`, the macOS host as
+   `NSLocationUsageDescription` and `NSLocationWhenInUseUsageDescription`,
+   and the Android host as the string resources
+   `tachyon_permission_geolocation` and `tachyon_permission_notifications`
+   for its permission rationale. Windows and Linux read no reason: each of
+   those hosts decides how it asks when it bridges the API (BA3, BA4).
+
+Evidence: `tac_web::web_api_tests` (the page runtime sends bridged APIs to
+the host with their payloads, keeps the web events, turns a host error into
+`BrowserCallFailed`, keeps the grant check, and falls back to the web view
+for an API the host does not list), `native::browser_api_bridge` (the table
+and the host-answers-every-operation policy), `native::browser_api_permissions`
+(the refusals per target, the text rules and the escaped host values) and
+`native::host` (the shim carries the list). Host runs belong to BA1 to BA4.

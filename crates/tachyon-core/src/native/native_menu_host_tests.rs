@@ -32,6 +32,7 @@ impl MenuHostTests {
             menus: MenuActionFixture::menus(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
+            permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

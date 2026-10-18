@@ -176,7 +176,7 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
 <key>CFBundleExecutable</key><string>{executable}</string>
 <key>CFBundleIdentifier</key><string>{identifier}</string>{icon_block}
 <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-<key>CFBundleName</key><string>{name}</string>
+<key>CFBundleName</key><string>{name}</string>{location}
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>{version}</string>
 <key>CFBundleVersion</key><string>{build}</string>
@@ -195,6 +195,9 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
         build = application.build,
         deployment = IosHostGenerator::DEPLOYMENT_TARGET,
         icon_block = icon_block(icons),
+        location = application.permissions.location_plist_entries(
+            &super::browser_api_permissions::BrowserApiPermissions::IOS_LOCATION_KEYS
+        ),
     )
 }
 
@@ -212,7 +215,10 @@ pub(super) fn swift_source(
         )
         .replace(
             "__NATIVE_SHIM__",
-            &super::host::native_shim(&IosWindowControls::page_window(&application.window)),
+            &super::host::native_shim(
+                &IosWindowControls::page_window(&application.window),
+                tachyon_contracts::NativeTarget::Ios,
+            ),
         )
         .replace(
             "__IOS_WINDOW_CONTROLS__",
@@ -557,6 +563,7 @@ mod tests {
             menus: crate::native::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
+            permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
         }
     }
 
@@ -618,5 +625,26 @@ mod tests {
         let triple = simulator_triple();
         assert!(triple.ends_with("-simulator"));
         assert!(triple.contains(IosHostGenerator::DEPLOYMENT_TARGET));
+    }
+
+    #[test]
+    fn plist_carries_the_manifest_reason_for_location() {
+        assert!(!info_plist(&application(), &[]).contains("NSLocation"));
+        let mut located = application();
+        located.permissions =
+            crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+                &[String::from("geolocation"), String::from("notifications")],
+                &std::collections::BTreeMap::from([
+                    (
+                        String::from("geolocation"),
+                        String::from("Shows stores & more"),
+                    ),
+                    (String::from("notifications"), String::from("Order updates")),
+                ]),
+            );
+        let plist = info_plist(&located, &[]);
+        assert!(plist.contains(
+            "<key>NSLocationWhenInUseUsageDescription</key><string>Shows stores &amp; more</string>"
+        ));
     }
 }

@@ -90,6 +90,9 @@ tac.cache
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Windows app.
 
+tac.application.permissions
+  not applicable: tac.application.permissions is not used by the Windows app: Windows asks without a reason from the app.
+
 tac.browserApis
   honored: the same grant list in the page
 

@@ -90,6 +90,9 @@ tac.cache
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Linux app.
 
+tac.application.permissions
+  not applicable: tac.application.permissions is not used by the Linux app: Linux asks without a reason from the app.
+
 tac.browserApis
   honored: the same grant list in the page
 

@@ -9,6 +9,7 @@ class TacWebApis {
   static largestWindow = 16384
   static caller = null
   static events = null
+  static hostPermission = globalThis.__tachyonNotificationPermission ?? 'default'
   static clock = Object.freeze({
     now: () => Date.now(),
     monotonic: () => performance.now(),
@@ -31,19 +32,19 @@ class TacWebApis {
   })
   static documentTitle = Object.freeze({ set: (...arguments_) => TacDocumentTitle.host(...arguments_) })
   static clipboard = Object.freeze({
-    writeText: (text) => TacWebApis.later({ api: 'clipboard', call: 'writeText', gesture: true }, () => navigator.clipboard.writeText(String(text)), () => null),
+    writeText: (text) => TacWebApis.later({ api: 'clipboard', call: 'writeText', gesture: true, values: { text: String(text) } }, () => navigator.clipboard.writeText(String(text)), () => null),
     readText: () => TacWebApis.later({ api: 'clipboard', call: 'readText', gesture: true }, () => navigator.clipboard.readText(), (text) => ['ClipboardTextRead', { text }]),
   })
   static share = Object.freeze({
-    open: (title, text, url) => TacWebApis.later({ api: 'share', call: 'open', gesture: true }, () => navigator.share({ title, text, url }), () => ['ShareFinished', {}]),
+    open: (title, text, url) => TacWebApis.later({ api: 'share', call: 'open', gesture: true, values: { title, text, url } }, () => navigator.share({ title, text, url }), () => ['ShareFinished', {}]),
   })
   static notifications = Object.freeze({
     permission: () => TacWebApis.permission(),
-    requestPermission: () => TacWebApis.later({ api: 'notifications', call: 'requestPermission', gesture: true }, () => Notification.requestPermission(), (permission) => ['NotificationPermissionChanged', { permission }]),
+    requestPermission: () => TacWebApis.later({ api: 'notifications', call: 'requestPermission', gesture: true }, () => Notification.requestPermission(), (permission) => ['NotificationPermissionChanged', { permission: TacWebApis.hostPermission = permission }]),
     show: (title, body) => TacWebApis.notify(title, body),
   })
   static geolocation = Object.freeze({
-    currentPosition: () => TacWebApis.later({ api: 'geolocation', call: 'currentPosition', gesture: false }, () => TacWebApis.position(), (position) => TacWebApis.found(position)),
+    currentPosition: () => TacWebApis.later({ api: 'geolocation', call: 'currentPosition', gesture: false, values: { timeout: TacWebApis.positionTimeout } }, () => TacWebApis.position(), (position) => TacWebApis.found(position)),
   })
   static windowControls = Object.freeze({
     granted: (control) => TacWebApis.windowGrants().includes(control),
@@ -106,12 +107,24 @@ class TacWebApis {
     }
   }
 
-  static later({ api, call, gesture }, work, answer) {
+  static later({ api, call, gesture, values = {} }, work, answer) {
     TacWebApis.allowed(api, gesture)
     const owner = TacWebApis.caller
     const failed = (error) => ['BrowserCallFailed', { api, call, message: TacWebApis.message(error) }]
-    new Promise((resolve) => resolve(work())).then(answer, failed).then((event) => TacWebApis.reply(owner, event))
+    const run = TacWebApis.bridged(api) ? () => TacWebApis.bridge(api, call, values) : work
+    new Promise((resolve) => resolve(run())).then(answer, failed).then((event) => TacWebApis.reply(owner, event))
     return null
+  }
+
+  static bridged(api) {
+    return typeof globalThis.__tachyonNativeHostCall === 'function' && globalThis.__tachyonBrowserApiBridge?.includes(api) === true
+  }
+
+  static async bridge(api, call, values) {
+    const raw = await globalThis.__tachyonNativeHostCall(`browserApi.${api}.${call}`, JSON.stringify(values))
+    const reply = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!reply || 'error' in reply) throw new Error(reply?.error || `The native app could not run ${api}.${call}.`)
+    return reply.value ?? null
   }
 
   static reply(owner, event) {
@@ -126,13 +139,14 @@ class TacWebApis {
 
   static permission() {
     TacWebApis.allowed('notifications', false)
-    return Notification.permission
+    return TacWebApis.bridged('notifications') ? TacWebApis.hostPermission : Notification.permission
   }
 
   static notify(title, body) {
-    TacWebApis.allowed('notifications', false)
-    if (Notification.permission !== 'granted') throw new Error('Notifications are not allowed. Call requestPermission first.')
-    new Notification(String(title), { body: String(body ?? '') })
+    if (TacWebApis.permission() !== 'granted') throw new Error('Notifications are not allowed. Call requestPermission first.')
+    const values = { title: String(title), body: String(body ?? '') }
+    if (TacWebApis.bridged('notifications')) return TacWebApis.later({ api: 'notifications', call: 'show', gesture: false, values }, null, () => null)
+    new Notification(values.title, { body: values.body })
     return null
   }
 

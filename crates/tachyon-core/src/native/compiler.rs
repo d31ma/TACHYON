@@ -200,6 +200,7 @@ impl NativeCompiler {
         application.menus.validate_for(options.target, &index)?;
         super::native_release_version::NativeReleaseVersion::of(&application)
             .validate_for(options.target)?;
+        application.permissions.validate_for(options.target)?;
         let notes = super::target_support::TargetSupport::native_notes(
             project.snapshot_root(),
             options.target,

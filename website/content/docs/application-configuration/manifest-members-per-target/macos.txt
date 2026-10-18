@@ -90,6 +90,9 @@ tac.cache
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the macOS app.
 
+tac.application.permissions
+  honored: NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist
+
 tac.browserApis
   honored: the same grant list in the page
 
@@ -103,7 +106,7 @@ tac.browserApis notifications
   adapted: notifications do not work in the macOS app yet: its web view has no Notification API (BA1).
 
 tac.browserApis geolocation
-  adapted: geolocation does not work in the macOS app yet: the app has no location usage string, so the system refuses (BA0, BA1).
+  adapted: geolocation in the macOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1).
 
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk

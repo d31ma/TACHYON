@@ -90,6 +90,9 @@ tac.cache
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Android app.
 
+tac.application.permissions
+  adapted: tac.application.permissions is written into the Android string resources. The app shows it once it asks for the permission itself (BA2).
+
 tac.browserApis
   honored: the same grant list in the page
 

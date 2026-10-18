@@ -21,6 +21,7 @@ pub(super) struct NativeApplication {
     pub(super) menus: super::native_menu_config::NativeMenuConfig,
     pub(super) rust: super::native_rust_project::NativeRustProject,
     pub(super) outgoing: super::native_outgoing_hosts::NativeOutgoingHosts,
+    pub(super) permissions: super::browser_api_permissions::BrowserApiPermissions,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -257,6 +258,7 @@ fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
             "Manifest tac.nativeCapabilities accepts filePicker once.",
         ));
     }
+    manifest.browser_api_permissions().validate()?;
     let Some(application) = manifest.application() else {
         return Ok(());
     };
@@ -459,6 +461,18 @@ impl WebAppManifest {
         self.tac.as_ref()?.application.as_ref()
     }
 
+    fn browser_api_permissions(&self) -> super::browser_api_permissions::BrowserApiPermissions {
+        let granted = self
+            .tac
+            .as_ref()
+            .map_or(&[][..], |tac| tac.browser_apis.as_slice());
+        let usage = self
+            .application()
+            .map(|application| application.permissions.clone())
+            .unwrap_or_default();
+        super::browser_api_permissions::BrowserApiPermissions::declared(granted, &usage)
+    }
+
     pub(super) fn into_tac(self) -> TacMember {
         self.tac.unwrap_or_default()
     }
@@ -543,6 +557,8 @@ struct ManifestApplication {
     menus: super::native_menu_config::NativeMenuConfig,
     #[serde(default)]
     rust: super::rust_companion_crate::RustCompanionCrate,
+    #[serde(default)]
+    permissions: BTreeMap<String, String>,
 }
 
 impl NativeApplication {
@@ -605,6 +621,7 @@ impl NativeApplication {
             .as_ref()
             .map_or_else(Vec::new, |tac| tac.native_capabilities.clone());
         self.icons = manifest.raster_icons();
+        self.permissions = manifest.browser_api_permissions();
         self
     }
 
@@ -655,6 +672,7 @@ impl NativeApplication {
             menus: super::native_menu_config::NativeMenuConfig::default(),
             rust: super::native_rust_project::NativeRustProject::default(),
             outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
+            permissions: super::browser_api_permissions::BrowserApiPermissions::default(),
         }
     }
 

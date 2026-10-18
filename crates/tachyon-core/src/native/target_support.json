@@ -300,6 +300,16 @@
     "android": {"reach": "adapted", "note": "tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Android app."}
   },
   {
+    "member": "tac.application.permissions",
+    "paths": ["tac.application.permissions"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist"},
+    "windows": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Windows app: Windows asks without a reason from the app."},
+    "linux": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Linux app: Linux asks without a reason from the app."},
+    "ios": {"reach": "honored", "how": "NSLocationWhenInUseUsageDescription in Info.plist"},
+    "android": {"reach": "adapted", "note": "tac.application.permissions is written into the Android string resources. The app shows it once it asks for the permission itself (BA2)."}
+  },
+  {
     "member": "tac.browserApis",
     "paths": ["tac.browserApis"],
     "web": {"reach": "honored", "how": "the page grants only the listed browser APIs"},
@@ -343,10 +353,10 @@
     "member": "tac.browserApis geolocation",
     "paths": ["tac.browserApis[geolocation]"],
     "web": {"reach": "honored", "how": "navigator.geolocation"},
-    "macos": {"reach": "adapted", "note": "geolocation does not work in the macOS app yet: the app has no location usage string, so the system refuses (BA0, BA1)."},
+    "macos": {"reach": "adapted", "note": "geolocation in the macOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1)."},
     "windows": {"reach": "adapted", "note": "geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3)."},
     "linux": {"reach": "adapted", "note": "geolocation in the Linux app uses the web view's navigator.geolocation. The host asks for no permission yet (BA4)."},
-    "ios": {"reach": "adapted", "note": "geolocation does not work in the iOS app yet: the app has no location usage string, so the system refuses (BA0, BA1)."},
+    "ios": {"reach": "adapted", "note": "geolocation in the iOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1)."},
     "android": {"reach": "adapted", "note": "geolocation does not work in the Android app yet: the host turns it off in the web view (BA2)."}
   },
   {

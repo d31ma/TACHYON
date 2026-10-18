@@ -69,6 +69,17 @@ machine contracts have their own, independent major versions.
   `ty doctor --install` use the same rows and recipes (ADR 0066 amendment).
 - Releases publish `ty-windows-arm64.exe`, built and verified on a Windows
   ARM64 runner, and `install.ps1` picks it on ARM64 Windows.
+- Native apps can answer browser APIs themselves. The page runtime sends
+  `clipboard`, `share`, `notifications` and `geolocation` calls to the host
+  as `browserApi.<api>.<call>` operations when the host lists the API in
+  `__tachyonBrowserApiBridge`, with the same events, permission words and
+  refusals as the web; an API the host does not list keeps using the web
+  view's own browser API. No host lists an API yet. The new
+  `tac.application.permissions` member gives the reason the app shows when
+  it asks: iOS and macOS write it into `Info.plist`, Android into its string
+  resources, and an iOS, macOS or Android build that grants `geolocation`
+  (or an Android build that grants `notifications`) without a reason stops
+  with `TY1601` (ADR 0065 amendment).
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain

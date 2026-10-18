@@ -1,6 +1,10 @@
 mod android;
 mod apple_icons;
+mod browser_api_bridge;
 mod browser_api_grants;
+#[cfg(test)]
+mod browser_api_permission_build_tests;
+mod browser_api_permissions;
 #[cfg(test)]
 mod browser_task_tests;
 mod compiler;

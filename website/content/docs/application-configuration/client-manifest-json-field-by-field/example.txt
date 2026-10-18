@@ -65,6 +65,13 @@ tac.application.window                                 native
   note), and titleBarButtonInset { "leading", "top" }, 0 to 200
   points each, moves those buttons (see Window controls).
 
+tac.application.permissions                            native
+  The reason the app shows when it asks the user: { "geolocation":
+  "Shows stores near you", "notifications": "Order updates" }.
+  Each must also be in tac.browserApis; 1 to 200 characters. iOS,
+  macOS and Android builds that grant geolocation need one, and
+  Android builds that grant notifications need one (TY1601).
+
 tac.application.menus                           native desktop
   Your items in the File, View and Help menus of a macOS, Linux
   or Windows app: { "help": [{ "id": "guide", "label": "Guide",
