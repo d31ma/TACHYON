@@ -128,6 +128,15 @@ machine contracts have their own, independent major versions.
   (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or
   `CANCELLED`). A stream-only client needs no Setup (ADR 0058, ADR 0060,
   ADR 0083 and ADR 0090 amendments).
+- A Java Tac service can need another Java service of the page with
+  `@Needs private final CounterService counter;`; the field and the page
+  share one instance, which starts first and stops after its last holder.
+  A field gets the service of its exact class; `@Named("LoudGreeterService")`
+  on its own line picks another service class, such as a subclass. A Java
+  service file may also name another Java service class of the page, for
+  example in `extends`. A prototype or `@NeedsAll` service, an unclear
+  provider, a circle and an unknown `@Named` fail with `TY1406` at the field
+  (ADR 0083 amendment).
 - C++ Tac code accepts `[[Setup]]`, `[[WhenProfile]]`, `[[WhenSetting]]`,
   `[[UseProfiles]]` and `[[TestSettings]]`. A Setup is a class in
   `client/setups/<Name>.hpp` with
@@ -591,10 +600,8 @@ machine contracts have their own, independent major versions.
 
 - The annotation rule table checks Java and F# Tac code. Every marker that
   the Java and F# page builds support is accepted by name. Java Tac code
-  refuses Helper, Named, StreamRequest and SocketRequest with TY1308, and a
-  Java `@Needs` field of another service with TY1405. F# Tac code refuses
-  Named with TY1308 (it failed with TY1405 before), and accepts
-  StreamRequest and SocketRequest, which F# services now hold. Two fixes
+  refuses Helper with TY1308. F# Tac code accepts StreamRequest and
+  SocketRequest, which F# services now hold. Two fixes
   come with it: an F# Tac service with
   `[<Lifetime({"value":"prototype"})>]` gets one instance for each
   component (the attribute was ignored), and `@TestSettings` in a Java Tac

@@ -470,3 +470,67 @@ the reason "The storage host" gives, so it parks the service method's fiber
 on a ticket, like a browser HTTP request. See ADR 0090, "Java streams and
 sockets". Java Tac code no longer refuses StreamRequest and SocketRequest;
 Helper and Named are still refused.
+
+## Amendment (2026-10-18): Java services need services and Named providers
+
+A Java Tac service can now take another Java service of the page through
+`@Needs`, as Go (ADR 0045 amendment of 2026-10-11) and C++ (ADR 0099)
+already allow, and `@Named` names the provider. Before this amendment the
+build stopped both with `TY1405`.
+
+### A service that needs another service
+
+- `@Needs private final CounterService counter;` gives TallyService the
+  page's own CounterService. The needed service is a page singleton: the
+  service that needs it and the page share one instance, as with Go's
+  `tac.Need`.
+- The needed service starts first. Its `@OnStart` runs before the
+  `@OnStart` of the service that needs it.
+- Holders are counted. The needed service runs `@OnStop` only after the
+  last holder lets go, so a service stops before the services it needs.
+  When no component holds anything any more, it stops.
+- An event that a needed service publishes goes out through the component
+  whose call is running, so it reaches the listeners on the page as if that
+  component had published it.
+- When the page has two instances of one service class, the field name
+  picks the instance, as in Go.
+
+### Named providers
+
+- A field gets the service of its exact class. With a base service
+  `@Service class GreeterService { String greet() { return "hi"; } }` and a
+  subclass service
+  `@Service class LoudGreeterService extends GreeterService`, which
+  overrides `greet()` to return `"HI"`, the field
+  `@Needs private final GreeterService greeter;` gets GreeterService.
+- `@Named("LoudGreeterService")` names the provider class when the field's
+  type does not pick the one you want. With `@Named("LoudGreeterService")`
+  on its own line under `@Needs`, the same field gets LoudGreeterService.
+  `@Named` takes the class name of a Java service of the page. Each
+  annotation goes on its own line.
+- The shared type is a service, not a model: a Java models file refuses an
+  interface, so the base type of two providers is a base service class.
+
+### Naming other services
+
+- A Java service file may name another Java service class of the page: in
+  `extends`, in a field type or in a local variable. The build qualifies the
+  name, so it reaches that service's class.
+
+### Refusals
+
+The build refuses these fields with `TY1406`, at the field:
+
+- a needed service that is `@Lifetime` prototype or `@NeedsAll`, because it
+  has one instance for each component, so a field cannot name one;
+- a field that cannot tell which provider it means: several services fit,
+  and the field name matches none of them;
+- services that need each other in a circle; break the circle with an
+  event (publish it, and handle it with `@OnEvent`);
+- a `@Named` that names no Java service of the page.
+
+### Not changed
+
+- `@Helper` is still refused in Java Tac code.
+- `@StreamRequest` and `@SocketRequest` are still refused in Java Tac code.
+- `@Lifetime` application stays a native Rust service feature only.
