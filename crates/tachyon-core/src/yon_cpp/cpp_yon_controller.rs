@@ -1,4 +1,4 @@
-use super::{CppYonAccess, CppYonPath, CppYonRoute};
+use super::{CppYonAccess, CppYonPath, CppYonRoute, CppYonWorker};
 use crate::Failure;
 use crate::tac_cpp::{CppAttribute, CppClass, CppFailure, CppFile, CppMarkerCheck};
 use crate::yon::plan::Route;
@@ -16,11 +16,22 @@ impl CppYonController {
     pub(crate) const CODE: u16 = 2015;
     const ROUTE_MARKER: &'static str = "RequestRoute";
     const MAX_ROUTES: usize = 64;
-    const NOT_A_CONTROLLER: &'static str = "A C++ Yon file is a controller: write `class [[RequestRoute(\"/orders\")]] OrderController`. C++ Yon has route controllers only for now; services, middleware, error handlers, sockets, relays and test units come in a later step (ADR 0099)";
+    const NOT_A_CONTROLLER: &'static str = "A C++ file in server/controllers is a controller: write `class [[RequestRoute(\"/orders\")]] OrderController`. A [[Service]] goes in server/services and a [[Helper]] in server/helpers, and a controller reaches them with [[Needs]] fields. Middleware, error handlers, sockets, relays and test units come in a later step (ADR 0099)";
     const ROUTE_COUNT: &'static str = "A [[RequestRoute]] controller declares from 1 to 64 route methods. Mark a method with [[GetRoute]], [[PostRoute]], [[PutRoute]], [[PatchRoute]] or [[DeleteRoute]]: [[GetRoute]] means the method answers GET requests";
     const TWICE: &'static str = "Two methods answer the same HTTP method and path. Each route path and HTTP method pair needs one method";
 
     pub(crate) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
+        Self::routed(CppYonWorker::is_worker(path), path, source)
+    }
+
+    fn routed(worker: bool, path: &Path, source: &str) -> Result<Self, Failure> {
+        if worker {
+            return CppYonWorker::read(path, source);
+        }
+        Self::controller(path, source)
+    }
+
+    fn controller(path: &Path, source: &str) -> Result<Self, Failure> {
         let file = CppFile::read(path, source)?;
         CppMarkerCheck::check(path, &file.class)?;
         let marker = Self::route_marker(path, &file.class)?;

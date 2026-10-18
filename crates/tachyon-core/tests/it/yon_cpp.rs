@@ -3,7 +3,11 @@
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
-use tachyon_core::{DevServer, DevServerOptions, ProjectDiscovery};
+use tachyon_contracts::{HandlerRequest, HttpMethod};
+use tachyon_core::{
+    DevServer, DevServerOptions, HandlerCancellation, HandlerSource, HandlerSupervisor,
+    HandlerSupervisorOptions, ProjectDiscovery,
+};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::TcpStream;
 
@@ -214,19 +218,149 @@ fn a_cpp_socket_controller_is_refused_until_cpp_sockets_land() {
     assert!(failure.contains("C++ gets it in a later step"), "{failure}");
 }
 
-#[test]
-fn a_cpp_service_role_is_not_yet_a_yon_role() {
-    let root = CppProject::with_controller(CppProject::CONTROLLER);
+struct CppRoles;
+
+impl CppRoles {
+    const FILES: [(&'static str, &'static str); 5] = [
+        (
+            "server/models/PlacedOrder.hpp",
+            "#pragma once\n#include <string>\n\nstruct PlacedOrder {\n    std::string status;\n    int total = 0;\n};\n",
+        ),
+        (
+            "server/models/Ledger.hpp",
+            "#pragma once\n#include <vector>\n#include <string>\n\nstruct Ledger {\n    int total = 0;\n    std::vector<std::string> log;\n};\n",
+        ),
+        (
+            "server/services/LedgerService.hpp",
+            r#"#pragma once
+#include <string>
+#include <vector>
+
+class [[Service]] LedgerService {
+    ApplicationEventPublisher applicationEventPublisher;
+    [[Needs]] LedgerAmountsHelper& amounts;
+
+public:
+    std::vector<std::string> log;
+
+    int subtotal() const { return amounts.subtotal(); }
+
+private:
+    [[OnStart]]
+    void open() { applicationEventPublisher.publishEvent(PlacedOrder{"paid", 40}); }
+
+    [[OnEvent({"condition":"value.total >= 10"})]]
+    void placed(const PlacedOrder& order) { log.push_back(order.status); }
+};
+"#,
+        ),
+        (
+            "server/helpers/LedgerAmountsHelper.hpp",
+            "#pragma once\n\nclass [[Helper, Lifetime(\"singleton\")]] LedgerAmountsHelper {\npublic:\n    int subtotal() const { return 40; }\n    int surcharge() const { return 2; }\n};\n",
+        ),
+        (
+            "server/controllers/LedgerController.hpp",
+            r#"#pragma once
+#include "../services/LedgerService.hpp"
+
+class [[RequestRoute("/ledger")]] [[Public]] LedgerController {
+    [[Needs]] [[Named("LedgerService")]] LedgerService& service;
+    [[Needs]] LedgerAmountsHelper& amounts;
+
+public:
+    [[GetRoute]]
+    Ledger getLedger() { return Ledger{service.subtotal() + amounts.surcharge(), service.log}; }
+};
+"#,
+        ),
+    ];
+
+    fn project() -> tempfile::TempDir {
+        let root = tempfile::tempdir().expect("project");
+        for (relative, source) in Self::FILES {
+            CppProject::write(root.path(), relative, source);
+        }
+        root
+    }
+}
+
+#[tokio::test]
+async fn a_cpp_controller_reaches_its_services_helpers_and_events() {
+    if !CppProject::compiler_available() {
+        eprintln!("skipping: clang++ is not installed");
+        return;
+    }
+    let root = CppRoles::project();
+    let project = ProjectDiscovery::discover(root.path()).expect("discovery");
+    let server = DevServer::bind_project(
+        &project,
+        &DevServerOptions {
+            port: 0,
+            watch: false,
+            ..DevServerOptions::default()
+        },
+    )
+    .await
+    .expect("bind");
+    let port = server.address().port();
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let running = tokio::spawn(server.run_until(async {
+        let _ = stopped.await;
+    }));
+
+    let ledger = Exchange::without_body(port, "GET", "/ledger").await;
+    assert!(ledger.starts_with("HTTP/1.1 200"), "{ledger}");
+    assert_eq!(
+        Exchange::body(&ledger),
+        serde_json::json!({"total": 42, "log": ["paid"]})
+    );
+
+    let _ = stop.send(());
+    running.await.expect("server task").expect("server");
+}
+
+#[tokio::test]
+async fn a_scheduled_cpp_worker_runs_with_its_helpers() {
+    if !CppProject::compiler_available() {
+        eprintln!("skipping: clang++ is not installed");
+        return;
+    }
+    let root = CppRoles::project();
+    let relative = "server/workers/beat.hpp";
     CppProject::write(
         root.path(),
-        "server/services/PriceService.hpp",
-        "class [[Service]] PriceService {\npublic:\n    int price() { return 3; }\n};\n",
+        relative,
+        "#pragma once\n\nclass [[Schedule({\"fixedDelaySeconds\":30})]] Handler {\n    [[Needs]] LedgerAmountsHelper& amounts;\n\npublic:\n    int POST() { return amounts.subtotal(); }\n};\n",
     );
+    ProjectDiscovery::discover(root.path()).expect("discovery");
+    let source = HandlerSource::discover(root.path(), relative).expect("worker discovery");
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    let response = supervisor
+        .invoke(
+            &source,
+            &HandlerRequest::route("cpp_worker", "/", HttpMethod::Post),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("invocation");
+    assert!(response.error.is_none(), "{:?}", response.error);
+    assert_eq!(response.body.expect("body").data, "40");
+}
+
+#[test]
+fn a_cpp_needs_field_names_a_class_in_the_role_folders() {
+    let root = CppRoles::project();
+    std::fs::remove_file(root.path().join("server/helpers/LedgerAmountsHelper.hpp"))
+        .expect("helper removed");
     let failure = ProjectDiscovery::discover(root.path())
-        .expect_err("a C++ Yon service is refused")
+        .expect_err("a missing provider is refused")
         .to_string();
-    assert!(failure.contains("[[Service]]"), "{failure}");
-    assert!(failure.contains("C++ gets it in a later step"), "{failure}");
+    assert!(failure.contains("TY2015"), "{failure}");
+    assert!(
+        failure.contains("there is no LedgerAmountsHelper.hpp"),
+        "{failure}"
+    );
 }
 
 #[test]

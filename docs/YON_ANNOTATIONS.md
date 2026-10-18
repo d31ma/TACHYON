@@ -214,10 +214,31 @@ public:
 };
 ```
 
-C++ has no providers yet. `NeedsAll`, `Needs`, `Service` and the other
-provider, behavior, socket and test markers fail in a C++ file with their
-rule's code, and the message says that C++ gets them in a later step. The
-Pending section of ADR 0099 lists those steps.
+A C++ controller reaches its collaborators with `[[Needs]]` reference
+fields (ADR 0099 amendment of 2026-10-18). A `[[Service]]` lives in
+`server/services/<Name>.hpp` and a `[[Helper]]` in
+`server/helpers/<Name>.hpp`, each one class named after its file. The field
+type, or `[[Named("FastGreeterService")]]`, chooses the class; a
+`[[NeedsAll]]` class gets every reference field without an initial value:
+
+```cpp
+class [[Service]] PriceService {
+    [[Needs]] TaxHelper& taxes;
+
+public:
+    int price(int net) const { return net + taxes.tax(net); }
+};
+```
+
+`[[Lifetime("singleton")]]`, `"request"` and `"transient"` work as in the
+other languages (see Scopes). `[[OnStart]]`, `[[OnStop]]`, `[[OnEvent]]`,
+`[[Order]]` and `[[InBackground]]` run synchronously, and a plain
+`ApplicationEventPublisher applicationEventPublisher;` field publishes with
+`publishEvent(model)`. A worker in `server/workers/<name>.hpp` is a
+`class Handler` with a `POST()` method, and `[[Schedule({...})]]` goes after
+its class key. C++ has no `[[Setup]]`, behavior, socket or test markers in
+Yon yet: they fail with their rule's code, and the message says that C++ gets
+them in a later step. The Pending section of ADR 0099 lists those steps.
 
 ## Calling another language
 
@@ -285,6 +306,10 @@ Scopes:
   execution.
 - No instance lasts across HTTP requests, worker ticks or independent
   invocations.
+- C++ follows the same scopes. A `[[Needs]]` field is a reference that the
+  invocation's container fills before the constructor body runs, so the
+  container owns every object and destroys them in reverse order after
+  `OnStop`.
 
 ## Responses, streams and boundaries
 

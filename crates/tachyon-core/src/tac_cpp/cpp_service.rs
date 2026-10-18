@@ -4,6 +4,7 @@ use super::{
     CppStore,
 };
 use crate::Failure;
+use crate::annotation_rules::Realm;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -231,7 +232,11 @@ impl CppService {
             .members
             .iter()
             .try_for_each(|member| Self::check_member(relative, member))?;
-        let named_once = [CppConverter::is_converter(class), CppStore::is_store(class)];
+        let named_once = [
+            CppConverter::is_converter(class),
+            CppStore::is_store(class),
+            Realm::of(relative) == Some(Realm::Yon),
+        ];
         (!named_once.contains(&true))
             .then(|| Self::check_overloads(relative, class))
             .transpose()
@@ -246,13 +251,7 @@ impl CppService {
 
     fn member_problem(member: &CppMember) -> Option<&'static str> {
         let nested = member.kind == CppMemberKind::NestedType;
-        let wrong_reference = [
-            !member.type_text.ends_with('&'),
-            member.has_initializer,
-            member.declarators > 1,
-        ]
-        .contains(&true);
-        let wrong_needs = [member.marked("Needs"), wrong_reference] == [true, true];
+        let wrong_needs = Self::wrong_needs(member);
         let crowded = [member.kind == CppMemberKind::Field, member.declarators > 1] == [true, true];
         let stored = [member.marked("LocalState"), member.marked("SessionState")].contains(&true);
         let page_field = [
@@ -269,6 +268,30 @@ impl CppService {
         .into_iter()
         .find(|(found, _)| *found)
         .map(|(_, message)| message)
+    }
+
+    pub(crate) fn check_needs(relative: &Path, class: &CppClass) -> Result<(), Failure> {
+        let wrong = class
+            .members
+            .iter()
+            .find(|member| Self::wrong_needs(member));
+        wrong.map_or(Ok(()), |member| {
+            Err(CppFailure::unreadable(
+                relative,
+                member.name_at,
+                Self::NEEDS_FORM,
+            ))
+        })
+    }
+
+    fn wrong_needs(member: &CppMember) -> bool {
+        let wrong_reference = [
+            !member.type_text.ends_with('&'),
+            member.has_initializer,
+            member.declarators > 1,
+        ]
+        .contains(&true);
+        [member.marked("Needs"), wrong_reference] == [true, true]
     }
 
     fn check_overloads(relative: &Path, class: &CppClass) -> Result<(), Failure> {

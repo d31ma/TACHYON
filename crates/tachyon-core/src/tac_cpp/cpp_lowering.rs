@@ -18,6 +18,22 @@ impl CppLowering {
         Self::blanked(file, source).finished()
     }
 
+    pub(crate) fn yon(file: &CppFile, source: &str, friends: &str) -> String {
+        let mut lowering = Self::blanked(file, source);
+        lowering
+            .insertions
+            .push((file.class.body.start + 1, friends.to_owned()));
+        lowering.fill_yon_needs(&file.class);
+        lowering.finished()
+    }
+
+    fn fill_yon_needs(&mut self, class: &CppClass) {
+        for injection in CppLifetime::injections(class) {
+            let filled = format!(" = ::tachyon::yon::YonNeeds::of<{}>()", injection.provider);
+            self.insertions.push((injection.terminator, filled));
+        }
+    }
+
     pub(crate) fn test_unit(file: &CppFile, source: &str, fakes: &[&CppMember]) -> String {
         let mut lowering = Self::blanked(file, source);
         let provided = Self::provided_fakes(fakes);

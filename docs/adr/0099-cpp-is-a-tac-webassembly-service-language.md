@@ -453,15 +453,95 @@ Tac languages (ADR 0022).
   Test class's markers win over the TestSetup's. A test class field
   `BehaviorContext behaviors;` receives the case's context.
 
+## Amendment (2026-10-18): Yon roles, injection and lifecycle
+
+C++ Yon code now has services, helpers, injection, lifecycle hooks, local
+events and scheduled workers. The rule table lists `hpp` for `Service`,
+`Helper`, `Needs`, `NeedsAll`, `Named`, `Lifetime`, `Description`,
+`OnStart`, `OnStop`, `OnEvent`, `Order`, `InBackground` and `Schedule`.
+
+### Composition
+
+- C++ keeps its own composer instead of joining the shared `yon/plan.rs`
+  pipeline. That pipeline reads text-parsed sources and writes a container
+  per language; C++ already has a typed reader, a service graph and a
+  lowering in `tac_cpp`, and the Yon side reuses them. C++ still produces
+  `plan::Route` values for the route table and the server's checks.
+- One translation unit per controller or worker, in this order: the C++
+  prelude (`includes`, `json`, `task`), the Yon runtime pieces
+  (`yon_frame.hpp`, `yon_answer.hpp`, `yon_events.hpp`, `yon_needs.hpp`,
+  `yon_main.hpp`) and `services.hpp`, the server models and their codecs,
+  forward declarations of every provider, the providers in dependency order
+  with the controller last, the generated container, and the generated
+  `TachyonYonRoutes` dispatcher with `main`. `CppYonRuntime::PIECES` lists
+  the runtime pieces, and `CppYonProgram::source` lists the parts, so a later
+  step adds a header or a generated part as one new line.
+- `yon_cpp` is split by job: `CppYonGraph` (providers and their checks),
+  `CppYonProvider`, `CppYonScope`, `CppYonHooks`, `CppYonContainer`,
+  `CppYonDispatcher`, `CppYonWorker`. The graph's `FOLDERS` list names the
+  role folders; Y2 to Y6 add `server/setups`, `server/converters`,
+  `server/stores` and `server/remotes` there.
+
+### Providers
+
+- A `[[Service]]` is one class in `server/services/<Name>.hpp` and a
+  `[[Helper]]` one class in `server/helpers/<Name>.hpp`, named after the
+  file. `[[Needs]] T& name;` names its provider by type, or by
+  `[[Named("Class")]]`; a `[[NeedsAll]]` class declares no constructor and
+  gets every reference field without an initial value. A needed class that is
+  not in those folders fails with `TY2015`, and a circle fails with `TY1371`.
+- Tachyon lowers each `[[Needs]]` field to
+  `T& name = ::tachyon::yon::YonNeeds::of<T>();`. `YonNeeds::of<T>` is a
+  template that the program specializes for each provider, so a controller,
+  service or helper keeps its default constructor, and its fields are filled
+  before its constructor body runs. Each class gets a `friend` declaration
+  for `YonNeeds` and the dispatcher, so hooks, listeners and routes may be
+  private.
+- Scopes are the Yon scopes, written `[[Lifetime("singleton")]]`,
+  `"request"` or `"transient"` (the Tac object form `{"value": ...}` is read
+  too). A controller is request-scoped and every other class a singleton,
+  and both are made once per invocation. A transient class is made for each
+  field that needs it. A singleton that keeps a request-scoped object,
+  directly or through another class, fails with `TY2015`. One invocation
+  makes at most 4096 objects.
+
+### Lifecycle and events
+
+- The container records each object in the order it was made. Before the
+  route runs, the invocation registers every `[[OnEvent]]` listener, runs
+  `[[OnStart]]` methods in that order and drains the events; after the route
+  it drains them again before it writes the answer; when the request ends,
+  even through an exception, it closes the queue, runs `[[OnStop]]` in
+  reverse order and destroys the objects in reverse order. A cleanup failure
+  writes `Yon local lifecycle cleanup failed.` to standard error.
+- `ApplicationEventPublisher applicationEventPublisher;` is a plain field,
+  as on the Tac side; `publishEvent(model, retain)` queues the model under
+  its `JsonCodec` name. Listener options, `[[Order]]`, conditions, replay and
+  a returned model that is published again follow the other Yon languages,
+  with the same bounds (128 queued events, 4096 deliveries, 1024 listeners,
+  64 KiB payloads, 32 republished items). `[[InBackground]]` listeners run
+  after the other listeners of the event, and their return value is not
+  published again.
+- C++ Yon code is synchronous: a hook or listener that returns `Task` fails
+  with `TY2015`, as does an `[[OnStart]]` or `[[OnStop]]` method with
+  parameters. A transient class in a graph with hooks or listeners fails
+  with `TY2015`, as in the other languages. `[[Topic]]` models stay pending.
+- `[[Description("...")]]` on a role class is checked as on the Tac side.
+
+### Workers
+
+- A worker is `server/workers/<name>.hpp` with one `class Handler` and a
+  `POST()` method without parameters; the runtime calls it on its schedule,
+  and its return value is the answer, as for a Go or Rust worker. The worker
+  is the root of its own provider graph, so it may use `[[Needs]]`.
+  `[[Schedule({"fixedDelaySeconds":300,"initialDelaySeconds":30})]]` goes
+  after the class key and has the shared limits; declaring it here and in
+  `.tachyonrc` fails with `TY1502`.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
 bullet, when it lands.
-
-- Yon C++ roles: services and helpers in `server/services` and
-  `server/helpers`, `[[Needs]]`, `[[NeedsAll]]`, `[[Named]]`, `[[Lifetime]]`,
-  `[[Description]]`, `[[OnStart]]`, `[[OnStop]]`, `[[OnEvent]]`, `[[Order]]`,
-  `[[InBackground]]` and `[[Schedule]]` workers.
 
 - Yon C++ Setup and settings: a Yon `[[Setup]]` with a behavior context,
   `[[Settings]]`, `[[Setting]]`, `[[WhenProfile]]` and `[[WhenSetting]]`.

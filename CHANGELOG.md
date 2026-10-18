@@ -40,6 +40,19 @@ machine contracts have their own, independent major versions.
   one is disposed. Each C++ test case now opens and disposes its own context
   from its TestSetup, with the test's profiles and settings
   (ADR 0099 amendment).
+- Yon C++ has services, helpers and scheduled workers. A C++ controller
+  reaches a `[[Service]]` in `server/services` or a `[[Helper]]` in
+  `server/helpers` with a `[[Needs]] T& name;` field, and `[[Named]]`,
+  `[[NeedsAll]]` and `[[Lifetime("singleton" | "request" | "transient")]]`
+  work as in the other Yon languages. `[[OnStart]]` runs in creation order,
+  `[[OnEvent]]` listeners with `[[Order]]`, conditions, replay and
+  `[[InBackground]]` hear `publishEvent` before and after the route, and
+  `[[OnStop]]` runs in reverse order when the request ends. A worker in
+  `server/workers` is a `class Handler` with `POST()` and may declare its
+  `[[Schedule]]`. Each controller still compiles into one `clang++` program;
+  a missing class, a singleton that keeps a request-scoped object, a
+  transient class beside lifecycle hooks and a `Task` hook fail with
+  `TY2015` (ADR 0099 amendment).
 - Yon Rust controllers stream. A `#[StreamRoute]` method returns
   `impl Iterator<Item = Model>`, or `impl Iterator<Item = Result<Model, E>>`
   when the stream can fail; the prelude sends each item as one server-sent

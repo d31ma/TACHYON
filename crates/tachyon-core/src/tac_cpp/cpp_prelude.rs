@@ -28,8 +28,12 @@ impl CppPrelude {
     const TEST: &'static str = include_str!("tachyon/test.hpp");
     pub(crate) const EXPORTS: &'static str = include_str!("tachyon/exports.hpp");
 
-    pub(crate) fn json() -> String {
-        [Self::INCLUDES, Self::JSON].concat()
+    pub(crate) fn yon() -> String {
+        [Self::INCLUDES, Self::JSON, Self::TASK].concat()
+    }
+
+    pub(crate) fn services() -> &'static str {
+        Self::SERVICES
     }
 
     pub(crate) fn web() -> String {

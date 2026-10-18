@@ -14,6 +14,22 @@ impl Schedule {
     const KEYS: [&str; 2] = ["fixedDelaySeconds", "initialDelaySeconds"];
 
     pub(crate) fn declared(relative: &str, source: &str) -> Result<Option<Self>, Failure> {
+        let cpp = crate::tac_cpp::CppSource::is_cpp(std::path::Path::new(relative));
+        Self::routed(cpp, relative, source)
+    }
+
+    pub(crate) fn written(relative: &str, at: usize, arguments: &str) -> Result<Self, Failure> {
+        parse(relative, at, &format!("({arguments})"))
+    }
+
+    fn routed(cpp: bool, relative: &str, source: &str) -> Result<Option<Self>, Failure> {
+        if cpp {
+            return crate::yon_cpp::CppYonWorker::schedule(relative, source);
+        }
+        Self::declared_outside_cpp(relative, source)
+    }
+
+    fn declared_outside_cpp(relative: &str, source: &str) -> Result<Option<Self>, Failure> {
         crate::lua_source::LuaView::of(std::path::Path::new(relative), source).map_or_else(
             || declared(relative, source),
             |view| Self::declared_in_lua(&view),

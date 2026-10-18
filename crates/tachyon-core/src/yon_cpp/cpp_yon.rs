@@ -1,4 +1,4 @@
-use super::{CppYonController, CppYonProgram};
+use super::{CppYonController, CppYonGraph, CppYonProgram};
 use crate::Failure;
 use crate::tac_cpp::{CppProgram, CppSource};
 use crate::yon::Lowered;
@@ -9,10 +9,15 @@ pub(crate) struct CppYon;
 impl CppYon {
     pub(crate) fn lower(source: &Path, contents: &str, root: &Path) -> Result<Lowered, Failure> {
         let controller = CppYonController::read(source, contents)?;
+        let graph = CppYonGraph::read(root, &controller)?;
         let models = CppProgram::server_models(root)?;
         Ok(Lowered {
-            source: CppYonProgram::source(&controller, &models),
-            routes: controller.routes,
+            source: CppYonProgram::source(&controller, &graph, &models),
+            routes: controller
+                .routes
+                .into_iter()
+                .filter(|route| route.pattern.is_some())
+                .collect(),
             topics: crate::events::TopicUse::default(),
         })
     }

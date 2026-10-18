@@ -272,7 +272,7 @@ impl AnnotationRules {
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
         "lua",
     ];
-    const YON_ROLES: &'static [&'static str] = Self::YON_EXCEPT_CPP;
+    const YON_ROLES: &'static [&'static str] = Self::YON;
 
     const YON_CONTEXT: &'static [&'static str] = Self::YON_EXCEPT_CPP;
 

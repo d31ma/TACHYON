@@ -73,14 +73,21 @@ fn the_program_dispatches_each_route_and_lets_it_reach_private_methods() {
     let lowered =
         CppYon::lower(Path::new(Sample::PATH), Sample::CONTROLLER, root.path()).expect("lowered");
     let program = lowered.source;
-    assert!(program.contains("friend class TachyonYonRoutes;"));
+    assert!(
+        program.contains("friend class ::tachyon::yon::YonNeeds; friend class TachyonYonRoutes;")
+    );
     assert!(program.contains("#line 1 \"server/controllers/OrderController.hpp\""));
     assert!(program.contains(
-        "if (verb == \"GET\" && route == \"/orders/_id\") {\n            return tachyon::yon::YonAnswer::of(controller.getOrder(frame.argument<int>(0), frame.argument<std::string>(1)));"
+        "if (verb == \"GET\" && route == \"/orders/_id\") {\n            auto result = controller.getOrder(frame.argument<int>(0), frame.argument<std::string>(1));\n            invocation.drain();\n            return tachyon::yon::YonAnswer::of(result);"
     ));
     assert!(program.contains(
-        "controller.postOrder(frame.argument<Order>(0), frame.argument<std::string>(1));\n            return tachyon::yon::YonAnswer::empty(204);"
+        "controller.postOrder(frame.argument<Order>(0), frame.argument<std::string>(1));\n            invocation.drain();\n            return tachyon::yon::YonAnswer::empty(204);"
     ));
+    assert!(
+        program.contains(
+            "OrderController& controller = tachyon::yon::YonNeeds::of<OrderController>();"
+        )
+    );
     assert!(program.contains("return tachyon::yon::YonMain::run<TachyonYonRoutes>();"));
     assert!(!program.contains("[[GetRoute"));
     assert!(!program.contains("#pragma once"));
@@ -142,8 +149,6 @@ fn route_methods_follow_the_shared_route_rules() {
 fn unsupported_markers_name_the_later_step() {
     let failure = Sample::refusal("[[Public]]\n", "[[Public]] [[ResponseStatus(201)]]\n");
     assert!(failure.contains("C++ gets it in a later step"), "{failure}");
-    let failure = Sample::refusal("[[SignedIn]]", "[[SignedIn]] [[Needs]]");
-    assert!(failure.contains("[[Needs]]"), "{failure}");
 }
 
 #[test]

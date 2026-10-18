@@ -392,9 +392,10 @@ a request, or a background job API. The one exception is a `@Topic` model
 - Cleanup is still subject to the existing supervisor deadline and forced
   termination.
 - Yon JS/TS/Python/Dart support asynchronous hooks and event methods. PHP, Java,
-  Kotlin, C#, F#, Ruby and Rust currently require synchronous methods. They
-  all still accept `@InBackground`, because their runtimes defer those
-  listeners, and a C# `@InBackground` listener may return `Task`.
+  Kotlin, C#, F#, Ruby, Rust and C++ currently require synchronous methods.
+  They all still accept `@InBackground`, because their runtimes defer those
+  listeners, and a C# `@InBackground` listener may return `Task`. A C++ hook
+  or listener that returns `Task` fails with `TY2015`.
 - Streaming event containers and transient event providers are rejected. They
   are never partly initialized.
 

@@ -8,6 +8,7 @@ pub(crate) struct CppServiceGraph<'a> {
     available: BTreeMap<String, PathBuf>,
     visiting: BTreeSet<PathBuf>,
     ordered: Vec<CppService>,
+    missing: fn(&Path, usize, &str) -> Failure,
 }
 
 impl<'a> CppServiceGraph<'a> {
@@ -22,7 +23,15 @@ impl<'a> CppServiceGraph<'a> {
         "C++ services need each other in a circle; break the circle with an event";
 
     pub(crate) fn new(root: &'a Path) -> Result<Self, Failure> {
-        let files = Self::FOLDERS
+        Self::within(root, &Self::FOLDERS, Self::missing_tac)
+    }
+
+    pub(crate) fn within(
+        root: &'a Path,
+        folders: &[&str],
+        missing: fn(&Path, usize, &str) -> Failure,
+    ) -> Result<Self, Failure> {
+        let files = folders
             .iter()
             .map(|folder| CppFolder::files(root, folder))
             .collect::<Result<Vec<_>, _>>()?
@@ -34,7 +43,18 @@ impl<'a> CppServiceGraph<'a> {
             available: Self::by_class(files),
             visiting: BTreeSet::new(),
             ordered: Vec::new(),
+            missing,
         })
+    }
+
+    pub(crate) fn add_need(
+        &mut self,
+        relative: &Path,
+        at: usize,
+        needed: &str,
+    ) -> Result<(), Failure> {
+        let path = self.needed_path(relative, at, needed)?;
+        self.add_service(&path)
     }
 
     pub(crate) fn add(&mut self, path: &Path) -> Result<(), Failure> {
@@ -91,23 +111,25 @@ impl<'a> CppServiceGraph<'a> {
 
     fn add_needed(&mut self, relative: &Path, service: &CppService) -> Result<(), Failure> {
         for (field, needed) in service.needs() {
-            let path = self.needed_path(relative, service, &field, &needed)?;
-            self.add_service(&path)?;
+            self.add_need(relative, service.field_at(&field), &needed)?;
         }
         Ok(())
     }
 
-    fn needed_path(
-        &self,
-        relative: &Path,
-        service: &CppService,
-        field: &str,
-        needed: &str,
-    ) -> Result<PathBuf, Failure> {
-        self.available.get(needed).cloned().ok_or_else(|| {
-            CppFailure::pending(relative, service.field_at(field), &format!(
+    fn needed_path(&self, relative: &Path, at: usize, needed: &str) -> Result<PathBuf, Failure> {
+        self.available
+            .get(needed)
+            .cloned()
+            .ok_or_else(|| (self.missing)(relative, at, needed))
+    }
+
+    fn missing_tac(relative: &Path, at: usize, needed: &str) -> Failure {
+        CppFailure::pending(
+            relative,
+            at,
+            &format!(
                 "A C++ [[Needs]] field names another C++ service in client/services, a C++ [[HTTPClient]] in client/remotes, a C++ [[Converter]] in client/converters, a C++ [[Helper]] in client/helpers or a C++ [[Store]] in client/stores; there is no {needed}.hpp in any of them. Other C++ roles come later (ADR 0099)"
-            ))
-        })
+            ),
+        )
     }
 }

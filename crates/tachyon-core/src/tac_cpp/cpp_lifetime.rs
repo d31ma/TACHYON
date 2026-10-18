@@ -1,5 +1,6 @@
 use super::{CppAttribute, CppClass, CppFailure, CppInjection, CppMember, CppMemberKind};
 use crate::Failure;
+use crate::annotation_rules::Realm;
 use serde_json::Value;
 use std::path::Path;
 
@@ -18,7 +19,8 @@ impl CppLifetime {
     const NEVER_EMPTY: &'static str = "A C++ [[NeedsAll]] field without an initial value is a component property or a collaborator, so it is never empty: write the plain type (`std::string path;`) instead of std::optional or a pointer, or give the field an initial value";
 
     pub(crate) fn check(path: &Path, class: &CppClass) -> Result<(), Failure> {
-        Self::scope(path, class)?;
+        let tac = Realm::of(path) != Some(Realm::Yon);
+        tac.then(|| Self::scope(path, class)).transpose()?;
         class
             .members
             .iter()

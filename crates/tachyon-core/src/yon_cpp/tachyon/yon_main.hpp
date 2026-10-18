@@ -1,0 +1,71 @@
+namespace tachyon::yon {
+
+class YonMain {
+public:
+    static constexpr std::size_t MAX_FRAME_BYTES = 16 * 1024 * 1024;
+    static constexpr int PROTOCOL_FAILURE = 70;
+
+    template <typename Routes>
+    static int run() {
+        std::string raw;
+        if (!readInput(raw)) {
+            return PROTOCOL_FAILURE;
+        }
+        std::optional<json::JsonNode> fields = parsed(raw);
+        if (!fields.has_value()) {
+            return PROTOCOL_FAILURE;
+        }
+        YonFrame frame(std::move(*fields));
+        std::string written = answered<Routes>(frame).write();
+        std::fwrite(written.data(), 1, written.size(), stdout);
+        std::fflush(stdout);
+        return 0;
+    }
+
+private:
+    static bool readInput(std::string& raw) {
+        char buffer[65536];
+        std::size_t count = std::fread(buffer, 1, sizeof buffer, stdin);
+        while (count > 0) {
+            raw.append(buffer, count);
+            if (raw.size() > MAX_FRAME_BYTES) {
+                return false;
+            }
+            count = std::fread(buffer, 1, sizeof buffer, stdin);
+        }
+        return true;
+    }
+
+    static std::optional<json::JsonNode> parsed(const std::string& raw) {
+        try {
+            return json::JsonReader::read(raw, MAX_FRAME_BYTES);
+        } catch (const json::JsonException&) {
+            return std::nullopt;
+        }
+    }
+
+    template <typename Routes>
+    static YonAnswer answered(const YonFrame& frame) {
+        try {
+            return Routes::answer(frame);
+        } catch (const YonArgumentException& error) {
+            return YonAnswer::failure(400, error.what());
+        } catch (const std::exception& error) {
+            report(frame, error.what());
+        } catch (...) {
+            report(frame, "The route method threw a value that is not a std::exception.");
+        }
+        return YonAnswer::failure(500, "Handler failed.");
+    }
+
+    static void report(const YonFrame& frame, const std::string& message) {
+        json::JsonObject line;
+        line["event"] = "handler.cpp_exception";
+        line["request_id"] = frame.text("request_id");
+        line["message"] = message.substr(0, 2048);
+        std::string written = line.toJsonString() + "\n";
+        std::fwrite(written.data(), 1, written.size(), stderr);
+    }
+};
+
+}

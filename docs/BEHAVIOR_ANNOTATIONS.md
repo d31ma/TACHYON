@@ -1708,10 +1708,13 @@ one `[[A, B(1)]]`. Lowercase spellings such as `[[service]]`, a namespace
 such as `[[tachyon::Service]]` and unknown PascalCase names fail with
 `TY1371`; standard attributes such as `[[nodiscard]]` and vendor attributes
 such as `[[gnu::cold]]` pass through. Tachyon removes its markers before
-`em++` compiles, so no line number changes. In Yon, C++ is a language for
-route controllers only, since the
-[ADR 0099 amendment of 2026-10-16](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-16-yon-route-controllers):
-its providers, behaviors, sockets and test units come in later steps (see
+`em++` compiles, so no line number changes. In Yon, C++ has route
+controllers since the
+[ADR 0099 amendment of 2026-10-16](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-16-yon-route-controllers),
+and services, helpers, injection, lifecycle hooks, local events and scheduled
+workers since the
+[amendment of 2026-10-18](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-roles-injection-and-lifecycle);
+its Setup, behaviors, sockets and test units come in later steps (see
 [Yon controllers](YON_ANNOTATIONS.md#language-spellings)). In Tac, behavior
 markers go on synchronous service methods with a body, and a
 C++ Store keeps its rows in IndexedDB. A C++ `[[Setup]]` lives in
