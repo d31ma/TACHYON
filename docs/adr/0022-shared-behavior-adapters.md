@@ -356,9 +356,6 @@ no implementation, and Tachyon generates each query.
   0100). The baseline sizes were measured on 2026-10-18 in a Linux container
   without Binaryen or TinyGo, so compare a language only with itself on the
   same machine.
-  - Swift: one `private enum TachyonService<N>` for each service; the hook is
-    `native/page_program/swift_page_program.rs`. Baseline 35 KB of script,
-    1519 KB of WebAssembly.
   - Kotlin: one `private object TachyonService<N>` for each service; the hook
     is `native/page_program/kotlin_page_program.rs`. Baseline 36 KB of
     script, 195 KB of WebAssembly.
@@ -401,6 +398,19 @@ no implementation, and Tachyon generates each query.
   method that returns `BehaviorResult<()>` or `BehaviorResult` of a model is now a task member
   (a promise in the page that rejects with the error) instead of being left
   off the service; the fixture's `remember` and `recall` are synchronous.
+- Swift builds one page program. `native/page_program/swift_page_program.rs`
+  lowers every Swift browser service of a page together: each service's
+  source and its role files are split into top-level declarations, a
+  declaration that several services share (the same Setup, client, store or
+  entity) is kept once, and the behavior markers of the whole page are
+  lowered in one pass, so the page holds one behavior runtime and one Setup
+  registry. Each `private enum TachyonService<N>` keeps only its service's
+  member table, required fields and lifetime. If two services bring
+  different declarations with the same name, the page falls back to one
+  namespace for each service, and the Swift services that a native app
+  links in are still lowered one by one. The Swift fixture went from 35 KB
+  of script and 1519 KB of WebAssembly to 35 KB and 1513 KB (TY1337, same
+  container).
 - The page-program gate (`scripts/page-program-browser-gate.mjs`,
   `bun run test:page-program-browser`) builds one project for each
   language: two services, `writer` and `reader`, on one page, both needing
@@ -410,10 +420,10 @@ no implementation, and Tachyon generates each query.
   increment through one client reaches the other (`"shared"`), or that they
   see two (`"separate"`), and that the Store record one service saves is
   found by the other. `TAC_PAGE_PROGRAM_LANGUAGES` and
-  `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript, Go, Dart and
-  Rust fixtures are `"shared"` (47 KB of script; 37 KB of script and 990 KB
-  of WebAssembly; 37 KB of script and 44 KB of WebAssembly; 125 KB of
-  script). The C++ fixture
+  `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript, Go, Dart,
+  Rust and Swift fixtures are `"shared"` (47 KB of script; 37 KB of script
+  and 990 KB of WebAssembly; 37 KB of script and 44 KB of WebAssembly; 125 KB
+  of script; 35 KB of script and 1513 KB of WebAssembly). The C++ fixture
   is marked owed and skipped by default: a C++ page HTTP client does not
   call a Setup's `adapters.http` yet and ignores the `HTTPClient` options
   (CPP3 of the queue plan).

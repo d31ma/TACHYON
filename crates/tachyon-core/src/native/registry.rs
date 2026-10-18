@@ -130,6 +130,20 @@ fn language_extension(language: NativeCompanion) -> &'static str {
     }
 }
 
+pub(super) struct CompiledService {
+    pub(super) unlowered: String,
+    pub(super) source: String,
+    pub(super) members: String,
+    pub(super) portable: String,
+    pub(super) needs_all: bool,
+}
+
+struct LoweredService {
+    unlowered: String,
+    source: String,
+    table: String,
+}
+
 pub(super) fn service_body(
     language: NativeCompanion,
     item: &NativeCompanionInput,
@@ -140,16 +154,28 @@ pub(super) fn service_body(
     let captured = crate::without_bom(&captured);
     item.refuse_preferences(captured)?;
     super::fsharp_service::FsharpService::body_or((item, needs), captured, || {
-        compiled_service_body(language, item, captured, imports)
+        let service = compiled_service(language, item, captured)?;
+        let mut body = body_without_imports(language, &service.source, imports);
+        body.push_str(&service.members);
+        Ok(body)
     })
 }
 
-fn compiled_service_body(
+pub(super) fn page_service(
+    language: NativeCompanion,
+    item: &NativeCompanionInput,
+) -> Result<CompiledService, Failure> {
+    let captured = read_captured_source(&item.source)?;
+    let captured = crate::without_bom(&captured);
+    item.refuse_preferences(captured)?;
+    compiled_service(language, item, captured)
+}
+
+fn compiled_service(
     language: NativeCompanion,
     item: &NativeCompanionInput,
     captured: &str,
-    imports: &mut BTreeSet<String>,
-) -> Result<String, Failure> {
+) -> Result<CompiledService, Failure> {
     let identity = service_identity(language, &item.class);
     let relative = item
         .source
@@ -162,20 +188,22 @@ fn compiled_service_body(
         .map(|field| crate::companion::lower_first(field))
         .collect::<Vec<_>>();
     roles.required.retain(|name| !native_fields.contains(name));
-    let mut body = lowered_body(
-        language,
-        item,
-        &roles.source,
-        imports,
-        !roles.required.is_empty(),
-    )?;
-    body.push_str(&required_declaration(language, &roles.required));
-    body.push_str(&NativeCompanionInput::lifetime_declaration(
+    let needs_all = !roles.required.is_empty();
+    let lowered = lowered_service(language, item, &roles.source, needs_all)?;
+    let mut members = lowered.table;
+    members.push_str(&required_declaration(language, &roles.required));
+    members.push_str(&NativeCompanionInput::lifetime_declaration(
         language,
         roles.prototype,
         item.web_assembly,
     ));
-    Ok(body)
+    Ok(CompiledService {
+        unlowered: lowered.unlowered,
+        source: lowered.source,
+        members,
+        portable: item.source.to_string_lossy().into_owned(),
+        needs_all,
+    })
 }
 
 pub(super) fn read_captured_source(path: &Path) -> Result<String, Failure> {
@@ -187,13 +215,12 @@ pub(super) fn read_captured_source(path: &Path) -> Result<String, Failure> {
     })
 }
 
-fn lowered_body(
+fn lowered_service(
     language: NativeCompanion,
     item: &NativeCompanionInput,
     authored: &str,
-    imports: &mut BTreeSet<String>,
     needs_all: bool,
-) -> Result<String, Failure> {
+) -> Result<LoweredService, Failure> {
     let identity = service_identity(language, &item.class);
     let relative = item
         .source
@@ -240,6 +267,7 @@ fn lowered_body(
         crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
         NativeWebApis::refuse_with_models(&identity, authored, &item.snapshot_root)?;
     }
+    let unlowered = authored.to_owned();
     let lowered = task_lowered(item, &models, &identity, authored)?;
     let authored = lowered.as_deref().unwrap_or(authored);
     let portable = item.source.to_string_lossy();
@@ -279,15 +307,17 @@ fn lowered_body(
     )?;
     let table =
         CsharpBrowserFactory::table(&table, csharp_factory.as_deref(), &item.class, relative)?;
-    let authored = crate::companion::with_required_constructor(
+    let source = crate::companion::with_required_constructor(
         super::events::companion_language(language),
         authored,
         &portable,
         needs_all,
     );
-    let mut body = body_without_imports(language, &authored, imports);
-    body.push_str(&table);
-    Ok(body)
+    Ok(LoweredService {
+        unlowered,
+        source,
+        table,
+    })
 }
 
 fn native_service(
@@ -325,7 +355,7 @@ pub(super) fn client_models(
     )
 }
 
-fn task_lowered(
+pub(super) fn task_lowered(
     item: &NativeCompanionInput,
     models: &crate::model_sources::ModelMetadata,
     identity: &Path,
@@ -341,7 +371,7 @@ pub(super) fn service_identity(language: NativeCompanion, class: &str) -> PathBu
     PathBuf::from(format!("client/services/{class}.{extension}"))
 }
 
-fn body_without_imports(
+pub(super) fn body_without_imports(
     language: NativeCompanion,
     authored: &str,
     imports: &mut BTreeSet<String>,

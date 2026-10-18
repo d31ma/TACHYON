@@ -181,6 +181,13 @@ machine contracts have their own, independent major versions.
   browser lowering of Swift, Kotlin, .NET and Rust services now goes through
   one file per language (`native/page_program/`), and ADR 0022 lists the
   remaining limit and today's route size for each language.
+- Swift browser services on one page share one program. Two Swift services
+  that need the same Setup, HTTP client or Store now get one Setup
+  configuration and one behavior runtime, so an increment through one
+  service's client is seen by the other's. The page lowers every Swift
+  service together and keeps each shared Setup, client, store and entity
+  once (35 KB of script and 1513 KB of WebAssembly for the page-program
+  fixture, from 1519 KB; ADR 0022).
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with
