@@ -1,5 +1,5 @@
 use super::super::testing::{Unit, polyglot_unit};
-use super::ruby_typed_answer::RubyTypedAnswer;
+use super::typed_answer::TypedAnswer;
 use super::{Edit, Method, Module, Type, render};
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
@@ -105,7 +105,7 @@ impl RubyLowering {
                 "@behaviors.invoke(self, {:?}, {:?}, [{arguments}], lambda do{parameters}{original}end)",
                 type_declaration.name, method.name
             );
-            RubyTypedAnswer::wrapped(module, method, &invoked)
+            TypedAnswer::ruby_wrapped(module, method, &invoked)
         };
         Edit {
             range: method.body.clone(),

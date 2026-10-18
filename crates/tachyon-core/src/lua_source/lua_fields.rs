@@ -24,7 +24,11 @@ impl LuaFields {
     fn table_body<'s>(source: &'s str, class: &str) -> Option<&'s str> {
         let opening = format!("{class} = {{");
         let start = source.find(&opening)? + opening.len();
-        source[start..].split(Self::TABLE_END).next()
+        let rest = &source[start..];
+        let closed_at_once = rest.trim_start_matches([' ', '\t']).starts_with('}');
+        rest.split(Self::TABLE_END)
+            .next()
+            .filter(|_| !closed_at_once)
     }
 
     fn read(&mut self, line: &str) {

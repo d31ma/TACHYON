@@ -389,6 +389,59 @@ fn a_lua_test_unit_gets_a_behavior_context_settings_and_fakes() {
     assert_eq!(report.cases.len(), 3);
 }
 
+struct ClientUnitPage;
+
+impl ClientUnitPage {
+    const FILES: [(&str, &str); 6] = [
+        (
+            "client/models/Greeting.lua",
+            "---@class Greeting\n---@field message string\nGreeting = {}\n",
+        ),
+        (
+            "client/remotes/GreetingClient.lua",
+            "-- @HTTPClient(\"/api\")\n---@class GreetingClient\nGreetingClient = {}\n\n---@return Greeting\n-- @GetRequest(\"/greeting\")\nfunction GreetingClient:get_greeting()\nend\n",
+        ),
+        (
+            "client/setups/GreetingSetup.lua",
+            "-- @Setup\n---@class GreetingSetup\nGreetingSetup = {}\n\n---@param execution table\n---@return table\nfunction GreetingSetup.configure(execution)\n  return {}\nend\n",
+        ),
+        (
+            "client/services/CounterService.lua",
+            "-- @Service\n---@class CounterService\nCounterService = {\n  -- @Needs\n  ---@type GreetingClient\n  greeting_client = nil,\n  ---@type string\n  message = \"\",\n}\n\n---@return nil\nfunction CounterService:ask_server()\n  self.message = self.greeting_client:get_greeting().message\nend\n",
+        ),
+        (
+            "client/tests/HelloTestSetup.lua",
+            "-- @TestSetup\n---@class HelloTestSetup\nHelloTestSetup = {}\n\n---@param execution table\n---@return table\nfunction HelloTestSetup.configure(execution)\n  return { http = { greeting = HelloTestSetup } }\nend\n\n---@param request table\n---@param execution table\n---@return table\nfunction HelloTestSetup:exchange(request, execution)\n  return { message = \"Hi \" .. request.method .. \" \" .. request.path }\nend\n",
+        ),
+        (
+            "client/tests/CounterServiceTest.lua",
+            "-- @Test(HelloTestSetup, {\"partition\":\"tests\"})\n---@class CounterServiceTest\nCounterServiceTest = {}\n\nfunction CounterServiceTest:test_ask_server_saves_the_message()\n  local counter = self:construct(CounterService)\n  counter:ask_server()\n  Assert.equals(\"Hi GET /api/greeting\", counter.message)\nend\n",
+        ),
+    ];
+}
+
+#[test]
+fn a_lua_test_unit_gives_a_service_an_http_client_answered_by_its_test_setup() {
+    if crate::lua_source::LuaProgram::new().is_none() {
+        eprintln!("skipping: lua is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in ClientUnitPage::FILES {
+        Page::write(root.path(), relative, text);
+    }
+    let report = crate::client_tests::run(
+        root.path(),
+        Path::new("client/tests/CounterServiceTest.lua"),
+    )
+    .unwrap_or_else(|failure| panic!("{failure}"));
+    assert_eq!(report.unit, "CounterServiceTest");
+    for case in &report.cases {
+        assert!(case.passed, "{}: {:?}", case.name, case.error);
+    }
+    assert_eq!(report.cases.len(), 1);
+}
+
 struct StorePage;
 
 impl StorePage {
@@ -574,6 +627,85 @@ async fn a_lua_http_client_fetches_through_the_browser_without_a_setup_adapter()
     assert_eq!(
         report["sent"][1]["body"],
         serde_json::json!({"sku": "anvil"}),
+        "{report}"
+    );
+}
+
+struct RevalidatePage;
+
+impl RevalidatePage {
+    const SETUP: (&str, &str) = (
+        "client/setups/GreetingSetup.lua",
+        "-- @Setup\n---@class GreetingSetup\nGreetingSetup = {}\n\n---@param execution table\n---@return table\nfunction GreetingSetup.configure(execution)\n  return {}\nend\n",
+    );
+
+    const CLIENT: (&str, &str) = (
+        "client/remotes/GreetingClient.lua",
+        "-- @HTTPClient(\"/api\")\n-- @CacheSettings({\"name\":\"greetings\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\n---@class GreetingClient\nGreetingClient = {}\n\n---@return table\n-- @Cached\n-- @GetRequest(\"/greeting\")\nfunction GreetingClient:read()\nend\n\n---@return table\n-- @ClearCache({\"method\":\"read\"})\n-- @PostRequest(\"/clear\")\nfunction GreetingClient:clear()\nend\n",
+    );
+
+    const SERVICE: &str = "-- @Service\n---@class GreetingService\nGreetingService = {\n  -- @Needs\n  ---@type GreetingClient\n  greeting_client = nil,\n}\n\n---@return string\nfunction GreetingService:ask()\n  return self.greeting_client:read().message\nend\n\n---@return string\nfunction GreetingService:clear()\n  return self.greeting_client:clear().message\nend\n";
+
+    const DRIVER: &str = "console.info = () => {}\n\
+         globalThis.location = new URL('http://localhost/')\n\
+         globalThis.indexedDB = { databases: async () => [], open: () => ({}) }\n\
+         ;(0, eval)(await readFile('./tac-storage.js', 'utf8'))\n\
+         ;(0, eval)(await readFile('./tac-http.js', 'utf8'))\n\
+         const { default: GreetingService } = await import('./GreetingService.js')\n\
+         const sent = []\n\
+         globalThis.fetch = async (url, options) => {\n\
+         \x20 const target = new URL(url)\n\
+         \x20 sent.push({ method: options.method, path: target.pathname, cache: options.cache })\n\
+         \x20 return new Response(JSON.stringify({ message: 'Hi ' + sent.length }), { status: 200, headers: { 'content-type': 'application/json' } })\n\
+         }\n\
+         const outcome = (promise) => Promise.resolve(promise).then((value) => ({ value }), (error) => ({ code: error.code ?? '', message: String(error.message) }))\n\
+         const greetings = new GreetingService({})\n\
+         const first = await outcome(greetings.ask())\n\
+         const second = await outcome(greetings.ask())\n\
+         const cleared = await outcome(greetings.clear())\n\
+         const third = await outcome(greetings.ask())\n\
+         console.log(JSON.stringify({ first, second, cleared, third, sent }))\n\
+         process.exit(0)\n";
+}
+
+#[tokio::test]
+async fn a_lua_cached_browser_read_revalidates_after_its_cache_is_cleared() {
+    if let Some(reason) = Page::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let (setup, setup_text) = RevalidatePage::SETUP;
+    Page::write(root.path(), setup, setup_text);
+    let (client, client_text) = RevalidatePage::CLIENT;
+    Page::write(root.path(), client, client_text);
+    Page::write(
+        root.path(),
+        "tac-storage.js",
+        include_str!("../template/tac-storage.js"),
+    );
+    Page::write(
+        root.path(),
+        "tac-http.js",
+        include_str!("../template/tac-http.js"),
+    );
+    Page::publish(
+        root.path(),
+        &[("greetings", "GreetingService", RevalidatePage::SERVICE)],
+    )
+    .await;
+    let report = Page::run(root.path(), RevalidatePage::DRIVER);
+    assert_eq!(report["first"]["value"], "Hi 1", "{report}");
+    assert_eq!(report["second"]["value"], "Hi 1", "{report}");
+    assert_eq!(report["cleared"]["value"], "Hi 2", "{report}");
+    assert_eq!(report["third"]["value"], "Hi 3", "{report}");
+    assert_eq!(
+        report["sent"],
+        serde_json::json!([
+            {"method": "GET", "path": "/api/greeting", "cache": "default"},
+            {"method": "POST", "path": "/api/clear", "cache": "no-store"},
+            {"method": "GET", "path": "/api/greeting", "cache": "no-cache"},
+        ]),
         "{report}"
     );
 }

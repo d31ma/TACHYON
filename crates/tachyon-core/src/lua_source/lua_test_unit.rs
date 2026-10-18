@@ -51,7 +51,7 @@ impl<'u> LuaTestUnit<'u> {
 
     fn construct(&self, builder: &str) -> String {
         format!(
-            "function {unit}:construct(role)\n  local built = {builder}\n  for _, name in ipairs({fakes}) do\n    if self[name] ~= nil and rawget(built, name) ~= nil then\n      built[name] = self[name]\n    end\n  end\n  built.behaviors = rawget(self, \"__behaviors\") or built.behaviors\n  return built\nend\n\n",
+            "function {unit}:construct(role)\n  local built = {builder}\n  local behaviors = rawget(self, \"__behaviors\")\n  for field in pairs(rawget(role, \"__tachyonContracts\") or {{}}) do\n    if behaviors ~= nil and type(rawget(built, field)) == \"table\" then\n      built[field].behaviors = behaviors\n    end\n  end\n  for _, name in ipairs({fakes}) do\n    if self[name] ~= nil and rawget(built, name) ~= nil then\n      built[name] = self[name]\n    end\n  end\n  built.behaviors = behaviors or built.behaviors\n  return built\nend\n\n",
             unit = self.unit.name,
             fakes = self.fake_list()
         )

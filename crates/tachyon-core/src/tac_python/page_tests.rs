@@ -219,3 +219,129 @@ async fn python_needs_a_store_and_an_http_client_from_their_contracts() {
         "{report}"
     );
 }
+
+struct PythonAnswers;
+
+impl PythonAnswers {
+    const FILES: [(&'static str, &'static str); 3] = [
+        (
+            "client/models/Greeting.py",
+            "from dataclasses import dataclass\n\n\n@dataclass\nclass Greeting:\n    message: str\n",
+        ),
+        (
+            "client/setups/GreetingSetup.py",
+            "@setup\nclass GreetingSetup:\n    @staticmethod\n    def configure(execution: object) -> dict[str, object]:\n        return {}\n",
+        ),
+        (
+            "client/remotes/GreetingClient.py",
+            "from typing import Protocol\n\nfrom models import Greeting\n\n\n@http_client(\"/api\")\nclass GreetingClient(Protocol):\n    @get_request(\"/greeting\")\n    async def read(self) -> Greeting: ...\n\n    @get_request(\"/greetings\")\n    async def all(self) -> list[Greeting]: ...\n\n    @get_request(\"/extra\")\n    async def extra(self) -> Greeting: ...\n\n    @get_request(\"/empty\")\n    async def empty(self) -> Greeting: ...\n",
+        ),
+    ];
+
+    const SERVICE: &'static str = "from typing import Annotated\n\n\n@service\nclass GreetingService:\n    greeting_client: Annotated[GreetingClient, needs]\n\n    async def one(self) -> str:\n        greeting = await self.greeting_client.read()\n        return type(greeting).__name__ + ':' + greeting.message\n\n    async def many(self) -> str:\n        greetings = await self.greeting_client.all()\n        return ','.join(type(greeting).__name__ + ':' + greeting.message for greeting in greetings)\n\n    async def extra(self) -> str:\n        greeting = await self.greeting_client.extra()\n        return greeting.message\n\n    async def empty(self) -> str:\n        greeting = await self.greeting_client.empty()\n        return greeting.message\n";
+
+    const DRIVER: &'static str = "console.info = () => {}\n\
+         const answers = { '/api/greeting': { message: 'Hi' }, '/api/greetings': [{ message: 'A' }, { message: 'B' }], '/api/extra': { message: 'Hi', mood: 'glad' }, '/api/empty': {} }\n\
+         globalThis[Symbol.for('tachyon.tac.http')] = { start: (text) => {\n\
+         \x20 const request = JSON.parse(text)\n\
+         \x20 return { answer: Promise.resolve(JSON.stringify({ value: answers[request.path] })), cancel() {} }\n\
+         } }\n\
+         const outcome = (promise) => Promise.resolve(promise).then((value) => ({ value }), (error) => ({ code: error.code ?? '', message: String(error.message) }))\n\
+         const { default: GreetingService } = await import('./GreetingService.js')\n\
+         const greetings = new GreetingService({})\n\
+         const one = await outcome(greetings.one())\n\
+         const many = await outcome(greetings.many())\n\
+         const extra = await outcome(greetings.extra())\n\
+         const empty = await outcome(greetings.empty())\n\
+         console.log(JSON.stringify({ one, many, extra, empty }))\n\
+         process.exit(0)\n";
+}
+
+#[tokio::test]
+async fn python_http_answers_become_the_declared_model() {
+    if let Some(reason) = PythonPage::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    for (relative, text) in PythonAnswers::FILES {
+        PythonPage::write(root.path(), relative, text);
+    }
+    PythonPage::publish(
+        root.path(),
+        &[("greetings", "GreetingService", PythonAnswers::SERVICE)],
+    )
+    .await;
+    let report = PythonPage::run(root.path(), PythonAnswers::DRIVER);
+    assert_eq!(report["one"]["value"], "Greeting:Hi", "{report}");
+    assert_eq!(report["many"]["value"], "Greeting:A,Greeting:B", "{report}");
+    assert_eq!(report["extra"]["code"], "HTTP_RESPONSE", "{report}");
+    assert_eq!(report["empty"]["code"], "HTTP_RESPONSE", "{report}");
+}
+
+struct PythonRevalidation;
+
+impl PythonRevalidation {
+    const CLIENT: (&'static str, &'static str) = (
+        "client/remotes/GreetingClient.py",
+        "from typing import Protocol\n\nfrom models import Greeting\n\n\n@cache_settings({\"name\":\"greetings\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\n@http_client(\"/api\")\nclass GreetingClient(Protocol):\n    @cached\n    @get_request(\"/greeting\")\n    async def read(self) -> Greeting: ...\n\n    @clear_cache({\"method\":\"read\"})\n    @post_request(\"/clear\")\n    async def clear(self) -> Greeting: ...\n",
+    );
+
+    const SERVICE: &'static str = "from typing import Annotated\n\n\n@service\nclass GreetingService:\n    greeting_client: Annotated[GreetingClient, needs]\n\n    async def ask(self) -> str:\n        greeting = await self.greeting_client.read()\n        return greeting.message\n\n    async def clear(self) -> str:\n        greeting = await self.greeting_client.clear()\n        return greeting.message\n";
+
+    const DRIVER: &'static str = "console.info = () => {}\n\
+         globalThis.indexedDB = { databases: async () => [], open: () => ({}) }\n\
+         ;(0, eval)(await readFile('./tac-storage.js', 'utf8'))\n\
+         const sent = []\n\
+         globalThis[Symbol.for('tachyon.tac.http')] = { start: (text) => {\n\
+         \x20 const request = JSON.parse(text)\n\
+         \x20 sent.push({ method: request.method, path: request.path, publicRead: request.publicRead, revalidate: request.revalidate })\n\
+         \x20 return { answer: Promise.resolve(JSON.stringify({ value: { message: 'Hi ' + sent.length } })), cancel() {} }\n\
+         } }\n\
+         const { default: GreetingService } = await import('./GreetingService.js')\n\
+         const greetings = new GreetingService({})\n\
+         const first = await greetings.ask()\n\
+         const second = await greetings.ask()\n\
+         const cleared = await greetings.clear()\n\
+         const third = await greetings.ask()\n\
+         console.log(JSON.stringify({ first, second, cleared, third, sent }))\n\
+         process.exit(0)\n";
+}
+
+#[tokio::test]
+async fn a_python_cached_browser_read_revalidates_after_its_cache_is_cleared() {
+    if let Some(reason) = PythonPage::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    let (client, client_text) = PythonRevalidation::CLIENT;
+    for (relative, text) in PythonAnswers::FILES.into_iter().take(2) {
+        PythonPage::write(root.path(), relative, text);
+    }
+    PythonPage::write(root.path(), client, client_text);
+    PythonPage::write(
+        root.path(),
+        "tac-storage.js",
+        include_str!("../template/tac-storage.js"),
+    );
+    PythonPage::publish(
+        root.path(),
+        &[("greetings", "GreetingService", PythonRevalidation::SERVICE)],
+    )
+    .await;
+    let report = PythonPage::run(root.path(), PythonRevalidation::DRIVER);
+    assert_eq!(report["first"], "Hi 1", "{report}");
+    assert_eq!(report["second"], "Hi 1", "{report}");
+    assert_eq!(report["cleared"], "Hi 2", "{report}");
+    assert_eq!(report["third"], "Hi 3", "{report}");
+    assert_eq!(
+        report["sent"],
+        serde_json::json!([
+            {"method": "GET", "path": "/api/greeting", "publicRead": true, "revalidate": false},
+            {"method": "POST", "path": "/api/clear", "publicRead": false, "revalidate": false},
+            {"method": "GET", "path": "/api/greeting", "publicRead": true, "revalidate": true},
+        ]),
+        "{report}"
+    );
+}

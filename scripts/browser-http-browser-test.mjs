@@ -13,6 +13,7 @@ class BrowserHttpGate {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static examples = fileURLToPath(new URL('../website/content/docs/calling-the-server/', import.meta.url))
   static launchers = { chromium, firefox, webkit }
+  static browsers = (process.env.TAC_BROWSER_HTTP_BROWSERS ?? 'chromium,firefox,webkit').split(',')
   static languages = {
     dart: { folder: 'browser-http-dart', factory: true, label: 'compiled Dart' },
     rust: { folder: 'browser-http-rust', factory: false, label: 'compiled Rust' },
@@ -22,6 +23,8 @@ class BrowserHttpGate {
     java: { folder: 'browser-http-java', factory: false, label: 'compiled Java' },
     ruby: { folder: 'browser-http-ruby', factory: false, label: 'Ruby' },
     fsharp: { folder: 'browser-http-fsharp', factory: false, label: 'compiled F#' },
+    python: { folder: 'browser-http-python', factory: false, label: 'Python' },
+    lua: { folder: 'browser-http-lua', factory: false, label: 'Lua' },
   }
 
   static chosen() {
@@ -111,8 +114,8 @@ class BrowserHttpGate {
       await withServer(BrowserHttpGate.binary, ['serve', project, '--host', '127.0.0.1', '--port', '0', '--no-watch', '--no-self-restart', '--no-bundle'], async request => {
         const response = await request('/')
         const origin = new URL(response.url).origin
-        for (const [name, launcher] of Object.entries(BrowserHttpGate.launchers)) {
-          await BrowserHttpGate.check(launcher, origin, language)
+        for (const name of BrowserHttpGate.browsers) {
+          await BrowserHttpGate.check(BrowserHttpGate.launchers[name], origin, language)
           console.log(`${name}: injected ${language.label} client, typed real Yon answer, async responsiveness, once-only service, omitted cookies, cache/revalidation, custom override and isolated disposal pass`)
         }
       })

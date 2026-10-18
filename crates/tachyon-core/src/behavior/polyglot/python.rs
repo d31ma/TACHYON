@@ -1,4 +1,5 @@
 use super::super::testing::{Unit, polyglot_unit};
+use super::typed_answer::TypedAnswer;
 use super::{Edit, Method, Module, Type, concrete_edit, render};
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
@@ -9,7 +10,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
     let mut helpers = String::new();
     for type_declaration in &module.types {
         edits.extend(concrete_edit(module, type_declaration));
-        let data = type_data(type_declaration)?;
+        let data = type_data(module, type_declaration)?;
         if let Some(fields) = &type_declaration.constructor {
             edits.push(constructor_edit(module, type_declaration, fields));
         }
@@ -33,7 +34,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
     render(module, edits, &suffix)
 }
 
-fn type_data(type_declaration: &Type) -> Result<Map<String, Value>, String> {
+fn type_data(module: &Module, type_declaration: &Type) -> Result<Map<String, Value>, String> {
     let mut data = Map::new();
     data.extend(type_declaration.policies.clone());
     data.insert("name".into(), Value::String(type_declaration.name.clone()));
@@ -50,7 +51,7 @@ fn type_data(type_declaration: &Type) -> Result<Map<String, Value>, String> {
     if let Some(value) = &type_declaration.table {
         data.insert("table".into(), Value::String(value.clone()));
     }
-    let methods = method_data(type_declaration)?;
+    let methods = method_data(module, type_declaration)?;
     data.insert("methods".into(), Value::Object(methods));
     if let Some(fields) = &type_declaration.constructor {
         data.insert("constructor".into(), serde_json::json!(fields));
@@ -58,13 +59,16 @@ fn type_data(type_declaration: &Type) -> Result<Map<String, Value>, String> {
     Ok(data)
 }
 
-fn method_data(type_declaration: &Type) -> Result<Map<String, Value>, String> {
+fn method_data(module: &Module, type_declaration: &Type) -> Result<Map<String, Value>, String> {
     let mut methods = Map::new();
     for method in &type_declaration.methods {
         if requires_async_def(method) && !method.asynchronous {
             return Err("Python Cached/WebCall/Retry/MaxAtOnce methods must use async def; Pageable-only preserves synchronous methods".into());
         }
-        methods.insert(method.name.clone(), Value::Object(method.metadata.clone()));
+        methods.insert(
+            method.name.clone(),
+            Value::Object(TypedAnswer::python_metadata(module, method)),
+        );
     }
     Ok(methods)
 }

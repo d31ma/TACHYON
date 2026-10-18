@@ -324,3 +324,28 @@ gate's fixture has no Python service.
 - This amendment replaces the stream and socket limits above: in "Limits",
   in the events and topics amendment, and in the 2026-10-16 and
   2026-10-17 amendments.
+
+## Amendment 2026-10-18: typed HTTP answers and cached reads
+
+- A Python Tac `@http_client` method reads its answer into its return
+  annotation. `-> Greeting`, where `Greeting` is a dataclass of
+  `client/models`, gives a `Greeting`; `-> list[Greeting]` and
+  `-> Greeting | None` work too, nested dataclass fields are read the same
+  way, and `str`, `int`, `float` and `bool` check a plain value. `dict`,
+  `object` and a `TypedDict` model keep the JSON value. An answer that does
+  not fit, such as one with a field the dataclass does not declare or
+  without a field it needs, raises `BehaviorError` with code
+  `HTTP_RESPONSE`. The same happens in a Python test unit, where the
+  TestSetup's `http` adapter answers. Before this amendment such a method
+  returned the plain dict whatever its annotation said.
+- A `@cached` read is a public read: on a cache miss the browser request
+  carries `publicRead`. The first read of a key after a successful
+  `@clear_cache` or `@update_cache` of that key carries `revalidate`, so the
+  browser asks the server again, as in Tac Ruby and Tac Lua.
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=python` builds
+`website/content/docs/calling-the-server/browser-http-python`, serves it with
+`ty serve` and checks it in Chromium, Firefox and WebKit (on 2026-10-18 it
+passed in Chromium in a Linux container; the Firefox and WebKit runs belong
+to the local CI runner) with the checks of the Lua gate (ADR 0085). The
+first-app tutorial has Python tabs for step 4 and step 5.

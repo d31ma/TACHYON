@@ -1,0 +1,94 @@
+{
+  "heading": "Python waits for a real Yon endpoint",
+  "notApplicable": [
+    "ts",
+    "py",
+    "php",
+    "java",
+    "groovy",
+    "cs",
+    "fs",
+    "kt",
+    "rs",
+    "go",
+    "dart",
+    "rb",
+    "lua",
+    "hpp"
+  ],
+  "summary": "A Python HTTPClient is a `Protocol` class in `client/remotes` whose methods end in `...`, such as `async def read(self) -> Greeting: ...`. Tachyon writes each method. The return annotation names the answer: `-> Greeting` reads the answer into the dataclass `Greeting` of `client/models`, which the client imports with `from models import Greeting`. `-> list[Greeting]` reads a list of models, and `str`, `int`, `float` or `bool` read a plain value. `dict[str, object]` and `object` keep the answer as it is. An answer of another shape, such as one with a field that `Greeting` does not declare, raises a `BehaviorError` whose `code` is `HTTP_RESPONSE`, and a failed request raises the code of the browser transport, such as `HTTP_STATUS`. A service gets the client with a field written as `greeting_client: Annotated[GreetingClient, needs]` and awaits its methods from an `async def` method. While the method waits for the server, the page keeps working, other calls to the service run, and the page gets a promise that settles when the method returns. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. `@cached` lets the browser cache answer a read, and after a successful `@clear_cache` the next read asks the server again; a failed `@clear_cache` keeps the cached answer. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component cancels the request, and the promise is rejected with the code `CANCELLED`. A Python test unit runs in CPython and has no browser transport: there a client without an adapter fails with `Required behavior adapter is missing.` The page needs the Python runtime, so `client/manifest.json` names `pyodide-314.0.7`. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
+  "files": [
+    {
+      "name": "client/components/greeting/panel/tac.html",
+      "code": {
+        "file": "client/components/greeting/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/models/Greeting.py",
+      "code": {
+        "file": "client/models/Greeting.py"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/remotes/GreetingClient.py",
+      "code": {
+        "file": "client/remotes/GreetingClient.py"
+      }
+    },
+    {
+      "name": "client/remotes/OverrideClient.py",
+      "code": {
+        "file": "client/remotes/OverrideClient.py"
+      }
+    },
+    {
+      "name": "client/services/GreetingService.py",
+      "code": {
+        "file": "client/services/GreetingService.py"
+      }
+    },
+    {
+      "name": "client/setups/GreetingSetup.py",
+      "code": {
+        "file": "client/setups/GreetingSetup.py"
+      }
+    },
+    {
+      "name": "client/setups/OverrideSetup.py",
+      "code": {
+        "file": "client/setups/OverrideSetup.py"
+      }
+    },
+    {
+      "name": "server/controllers/ClearController.js",
+      "code": {
+        "file": "server/controllers/ClearController.js"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.js",
+      "code": {
+        "file": "server/controllers/GreetingController.js"
+      }
+    },
+    {
+      "name": "server/models/Greeting.ts",
+      "code": {
+        "file": "server/models/Greeting.ts"
+      }
+    }
+  ]
+}

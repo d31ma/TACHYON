@@ -192,3 +192,14 @@ fn a_lua_needs_all_prop_is_a_field_without_a_starting_value() {
         ]
     );
 }
+
+#[test]
+fn a_lua_table_closed_on_its_own_line_has_no_fields() {
+    for opened in ["GreetingClient = {}", "GreetingClient = { }"] {
+        let source = format!(
+            "---@class GreetingClient\n{opened}\n\nfunction GreetingClient:read()\n  local query = {{\n    name = nil,\n  }}\n  return query\nend\n"
+        );
+        let fields = super::LuaFields::without_values(&source, "GreetingClient");
+        assert_eq!(fields, [], "{opened}");
+    }
+}

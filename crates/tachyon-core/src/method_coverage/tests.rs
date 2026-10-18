@@ -221,6 +221,19 @@ fn a_ruby_http_client_declares_its_requests_so_nobody_tests_them() {
 }
 
 #[test]
+fn a_lua_http_client_declares_its_requests_so_nobody_tests_them() {
+    let report = report_for(&[(
+        "client/remotes/GreetingClient.lua",
+        "-- @HTTPClient(\"/api\")\n---@class GreetingClient\nGreetingClient = {}\n\n---@return Greeting\n-- @GetRequest(\"/greeting\")\nfunction GreetingClient:read()\nend\n\n---@param id integer\n---@param page integer\n---@return Greeting\n-- @GetRequest(\"/greeting/{id}\")\nfunction GreetingClient:find(\n  -- @PathVariable(\"id\")\n  id,\n  -- @RequestParam(\"page\")\n  page\n)\nend\n\n---@return string\nfunction GreetingClient:label()\n  return self:read().message\nend\n\n---@return string\nfunction GreetingClient:endless()\n  return \"\"\nend\n",
+    )]);
+    assert_eq!(
+        uncovered_methods(&report),
+        vec!["label", "endless"],
+        "{report:?}"
+    );
+}
+
+#[test]
 fn a_ruby_method_that_only_returns_a_string_still_needs_a_test() {
     let report = report_for(&[(
         "server/services/GreetingService.rb",

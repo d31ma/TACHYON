@@ -1,6 +1,7 @@
 import asyncio as _behavior_asyncio
 import builtins as _behavior_builtins
 import contextvars as _behavior_contextvars
+import dataclasses as _behavior_dataclasses
 import inspect as _behavior_inspect
 import json as _behavior_json
 import math as _behavior_math
@@ -42,6 +43,7 @@ class _BehaviorLimits:
     MAX_PROFILES = 32
     MAX_SIGNAL_LISTENERS = 128
     MAX_ACTIVE_CALLS = 64
+    MAX_REVALIDATIONS = 256
     MAX_ARGUMENTS = 32
     MAX_ADAPTERS = 128
     MAX_PARTITION_BYTES = 256
@@ -217,6 +219,8 @@ class _BehaviorExecution:
         self.signal = context.signal
         self.deadline = int(_behavior_time.time() * 1000) + context.timeout
         self._until = _behavior_time.monotonic() + context.timeout / 1000
+        self.public_read = False
+        self.revalidate = False
     def check(self):
         if self.signal.aborted:
             raise BehaviorError('cancelled', 'Behavior operation was cancelled.')
@@ -708,6 +712,7 @@ class _BehaviorContext:
         self.adapters = {}
         self.active = 0
         self._slots = {}
+        self._revalidations = {}
         self.setup_key = None
     def dispose(self):
         self.signal.abort()
@@ -801,6 +806,8 @@ class _BehaviorContext:
             execution.check()
             return result
         execution.check()
+        execution.public_read = True
+        execution.revalidate = self._revalidations.pop(key, None) is not None
         result = await self._resilient(record, name, metadata, instance, args, original, execution)
         result = _behavior_copy(result)
         result = _behavior_copy(result, policy['maxBytes'])
@@ -938,8 +945,13 @@ class _BehaviorContext:
             await _behavior_adapter(adapter, (key, _behavior_copy(result), execution), execution)
         else:
             await _behavior_adapter(adapter, (key, execution), execution)
+        self._revalidate_later(key)
         execution.check()
         return result
+    def _revalidate_later(self, key):
+        if len(self._revalidations) >= _BehaviorLimits.MAX_REVALIDATIONS:
+            self._revalidations.pop(next(iter(self._revalidations)))
+        self._revalidations[key] = True
     async def _exchange(self, policy, descriptor, execution, browser=False):
         _behavior_keys(descriptor, ('query', 'headers', 'body'))
         descriptor = _behavior_copy(descriptor)
@@ -1044,6 +1056,67 @@ class _BehaviorHostAdapters:
             raise BehaviorError('storage', answer['error'])
         return answer.get('value')
 
+class _BehaviorAnswer:
+    PLAIN = {'string': (str,), 'integer': (int,), 'number': (int, float), 'boolean': (bool,)}
+    @staticmethod
+    def read(shape, value):
+        try:
+            return _BehaviorAnswer._shaped(shape, value, 0)
+        except (TypeError, ValueError):
+            raise BehaviorError('HTTP_RESPONSE', 'The server answer does not have the shape of the model.') from None
+    @staticmethod
+    def _shaped(shape, value, depth):
+        if depth > _BehaviorLimits.MAX_JSON_DEPTH:
+            raise ValueError('The answer is nested too deeply.')
+        if shape == 'any':
+            return value
+        if shape.startswith('?'):
+            return None if value is None else _BehaviorAnswer._shaped(shape[1:], value, depth + 1)
+        if shape.startswith('[]'):
+            return [_BehaviorAnswer._shaped(shape[2:], item, depth + 1) for item in _BehaviorAnswer._list(value)]
+        if shape in _BehaviorAnswer.PLAIN:
+            return _BehaviorAnswer._plain(_BehaviorAnswer.PLAIN[shape], value)
+        return _BehaviorAnswer._model(_BehaviorAnswer._model_type(shape), value, depth)
+    @staticmethod
+    def _list(value):
+        if type(value) is not list:
+            raise TypeError('The answer is not a list.')
+        return value
+    @staticmethod
+    def _plain(kinds, value):
+        if type(value) not in kinds:
+            raise TypeError('The answer is not a plain value of the declared type.')
+        return value
+    @staticmethod
+    def _model_type(name):
+        found = globals().get(name)
+        if found is None:
+            found = getattr(_behavior_sys.modules.get('models'), name, None)
+        return found
+    @staticmethod
+    def _model(model, value, depth):
+        if not _behavior_dataclasses.is_dataclass(model):
+            return value
+        if type(value) is not dict:
+            raise TypeError('The answer is not an object.')
+        hints = _behavior_typing.get_type_hints(model)
+        names = {field.name for field in _behavior_dataclasses.fields(model)}
+        if not set(value).issubset(names):
+            raise ValueError('The answer has a field the model does not declare.')
+        return model(**{key: _BehaviorAnswer._field(hints.get(key), item, depth + 1) for key, item in value.items()})
+    @staticmethod
+    def _field(hint, value, depth):
+        if value is None or depth > _BehaviorLimits.MAX_JSON_DEPTH:
+            return value
+        if _behavior_dataclasses.is_dataclass(hint):
+            return _BehaviorAnswer._model(hint, value, depth)
+        inner = [kind for kind in _behavior_typing.get_args(hint) if kind is not type(None)]
+        if _behavior_typing.get_origin(hint) is list:
+            return [_BehaviorAnswer._field(inner[0], item, depth + 1) for item in _BehaviorAnswer._list(value)]
+        if len(inner) == 1:
+            return _BehaviorAnswer._field(inner[0], value, depth + 1)
+        return value
+
 class _BehaviorBrowserHttp:
     KEYS = ('method', 'path', 'query', 'headers', 'body', 'redirect', 'credentials', 'maxResponseBytes')
     CODES = ('HTTP_REQUEST', 'HTTP_ORIGIN', 'HTTP_HEADER', 'HTTP_QUERY', 'HTTP_BODY', 'HTTP_LIMIT', 'HTTP_RESPONSE',
@@ -1055,6 +1128,8 @@ class _BehaviorBrowserHttp:
     async def exchange(request, execution):
         browser = {key: request[key] for key in _BehaviorBrowserHttp.KEYS if key in request}
         browser['deadline'] = execution.deadline
+        browser['publicRead'] = execution.public_read and request['method'] == 'GET'
+        browser['revalidate'] = execution.revalidate
         execution.check()
         ticket = _behavior_builtins.TacHttp(_behavior_json.dumps(browser, allow_nan=False))
         remove = execution.signal._listen(lambda: ticket.cancel())
@@ -1292,10 +1367,10 @@ class _BehaviorFactory:
         if not isinstance(context, _BehaviorContext) or context.factory is not self:
             _behavior_invalid('Behavior method requires its source-local context.')
         return context
-    def _invoking_wrapper(self, name, original):
+    def _invoking_wrapper(self, name, answer, original):
         async def wrapped(instance, *args):
             context = self._owned_context(instance)
-            return await context.invoke(instance, name, args, original)
+            return _BehaviorAnswer.read(answer, await context.invoke(instance, name, args, original))
         return wrapped
     def _checking_wrapper(self, metadata, original):
         def wrapped(instance, *args):
@@ -1316,7 +1391,7 @@ class _BehaviorFactory:
         if set(metadata) == {'mapping'}:
             return _behavior_mapping_wrapper(metadata['mapping'], original)
         if _behavior_inspect.iscoroutinefunction(original):
-            return self._invoking_wrapper(name, original)
+            return self._invoking_wrapper(name, metadata.get('answer', 'any'), original)
         return self._checking_wrapper(metadata, original)
     setups = {}
     async def create(self, configuration, options):

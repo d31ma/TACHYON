@@ -75,7 +75,6 @@ mod python_members_tests;
 mod query_frontend;
 mod ruby;
 mod ruby_syntax;
-mod ruby_typed_answer;
 mod rust;
 mod rust_async_client;
 #[cfg(test)]
@@ -85,6 +84,7 @@ mod string_literal;
 mod swift;
 mod swift_platform;
 mod test_clients;
+mod typed_answer;
 pub(crate) use swift_platform::SwiftPlatform;
 
 #[derive(Clone, Debug)]

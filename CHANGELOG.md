@@ -36,6 +36,22 @@ machine contracts have their own, independent major versions.
   failed with TY1405. Maps, nested lists, nullable results, deeper or
   recursive nesting and a nested record with a list are still refused with
   TY1405, and native C# targets are unchanged (ADR 0090 amendment).
+- Python and Lua Tac pages call the server like the other Tac languages. The
+  docs have a "Python waits for a real Yon endpoint" and a "Lua waits for a
+  real Yon endpoint" section, the first-app tutorial has Python and Lua tabs
+  for step 4 (call the server) and step 5 (test it with a Fake client), and
+  "Client classes that call the server" has a Lua tab.
+  `scripts/browser-http-browser-test.mjs` checks both languages in Chromium,
+  Firefox and WebKit (`TAC_BROWSER_HTTP_BROWSERS` picks the engines).
+- A Python Tac HTTP client reads its answer into the dataclass named by its
+  return annotation; an answer of another shape fails with `HTTP_RESPONSE`
+  (ADR 0093 amendment).
+- Python and Lua `Cached` HTTP reads are public reads, and the first read
+  after `ClearCache` or `UpdateCache` revalidates with the server
+  (ADR 0093, ADR 0085 amendments).
+- A Lua Tac test unit's `self:construct(Service)` gives the service its HTTP
+  clients, stores and converters, bound to the test's behavior context
+  (ADR 0085 amendment).
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with

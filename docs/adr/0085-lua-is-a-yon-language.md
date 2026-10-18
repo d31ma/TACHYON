@@ -568,3 +568,30 @@ WebAssembly and runs it under Node with the real event bus and fake
 `EventSource` and `WebSocket` classes, with the checks of the Go test in
 ADR 0090. It also covers the `init` streams, the generated `send`, a service
 that holds no stream, and `HTTP_MISSING` in a test unit.
+
+## Amendment 2026-10-18: Tac Lua cached reads, test units and the browser HTTP gate
+
+- A `-- @Cached` read on a Tac Lua HTTP client is a public read: on a cache
+  miss the browser request carries `publicRead`, so the browser may answer it
+  from its HTTP cache. The first read of a key after a successful
+  `-- @ClearCache` or `-- @UpdateCache` of that key carries `revalidate`, so
+  the browser asks the server again (`cache: 'no-cache'`), as in Tac Ruby.
+  A context remembers at most 256 such keys.
+- A Tac Lua test unit now gives a service its HTTP client, Store or
+  Converter: `self:construct(CounterService)` builds the service with each
+  typed `-- @Needs` provider, and the provider uses the test's behavior
+  context, so the TestSetup's `http` adapter answers. A `-- @Fake` field
+  that is set replaces the provider. Without an adapter a request fails with
+  `HTTP_REQUEST`, because a test unit has no browser.
+- Executed-method coverage leaves out Lua methods with an empty body, such
+  as the request methods of an HTTP client, because Tachyon writes them.
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=lua` builds
+`website/content/docs/calling-the-server/browser-http-lua`, serves it with
+`ty serve` and checks it in Chromium, Firefox and WebKit (on 2026-10-18 it
+passed in Chromium in a Linux container; the Firefox and WebKit runs belong
+to the local CI runner): the real Yon answer, a page that keeps running
+while the server waits, cookies left out, the cached read and its
+revalidation after `-- @ClearCache`, a Setup adapter that answers instead of
+the network, and cancellation when one owner is disposed while another stays
+live. The first-app tutorial has Lua tabs for step 4 and step 5.

@@ -13,8 +13,24 @@ impl LuaConverterProviders {
         plan: &LuaBehaviorPlan,
     ) -> Result<String, String> {
         let fields = Self::bindings(class, source, plan)?;
-        let entries = Self::entries(&fields);
-        Ok(format!("{class}.__tachyonContracts = {{ {entries} }}\n"))
+        Ok(Self::table(class, &fields))
+    }
+
+    pub(super) fn written_when_bound(
+        class: &str,
+        source: &str,
+        plan: &LuaBehaviorPlan,
+    ) -> Result<String, String> {
+        let fields = Self::bindings(class, source, plan)?;
+        Ok(Some(&fields)
+            .filter(|fields| !fields.is_empty())
+            .map(|fields| Self::table(class, fields))
+            .unwrap_or_default())
+    }
+
+    fn table(class: &str, fields: &[(String, String)]) -> String {
+        let entries = Self::entries(fields);
+        format!("{class}.__tachyonContracts = {{ {entries} }}\n")
     }
 
     pub(super) fn hide_fields(

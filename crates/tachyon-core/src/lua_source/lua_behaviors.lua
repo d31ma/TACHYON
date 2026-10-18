@@ -111,6 +111,8 @@ function BehaviorExecution.new(partition, environment, signal, owner, timeout_ms
     signal = BehaviorCancellation.new(signal, owner, until_ms),
     policy = {},
     expires_at = 0,
+    public_read = false,
+    revalidate = false,
   }, BehaviorExecution)
 end
 
@@ -510,6 +512,7 @@ BehaviorContext = {
   TRANSPORT_HEADERS = { host = true, connection = true, ["content-length"] = true, ["transfer-encoding"] = true, cookie = true },
   HEADER_NAME = "^[!#$%%&'*+.^_`|~%w-]+$",
   MAX_RESPONSE_BYTES = 1048576,
+  MAX_REVALIDATIONS = 256,
   RESERVED_NAMES = { __proto__ = true, prototype = true, constructor = true, behaviors = true, tac = true },
   RESULT_KINDS = { find = "list", count = "count", exists = "boolean" },
 }
@@ -533,6 +536,7 @@ function BehaviorContext.new(records, options)
     timeout_ms = timeout,
     adapters = {},
     slots = {},
+    revalidations = {},
     active = 0,
   }, BehaviorContext)
 end
@@ -609,6 +613,8 @@ function BehaviorContext:read_through(record, method, metadata, arguments, origi
     if hit ~= nil then
       return hit.value
     end
+    execution.public_read = true
+    execution.revalidate = self:take_revalidation(key)
   end
   execution:check()
   local result = BehaviorBoundary.copy(self:resilient(record, method, metadata, arguments, original, execution))
@@ -938,8 +944,26 @@ function BehaviorContext:mutate(record, metadata, arguments, original, execution
   else
     BehaviorBoundary.adapter(action, { key, execution, n = 2 }, execution)
   end
+  self:revalidate_later(key)
   execution:check()
   return result
+end
+
+function BehaviorContext:revalidate_later(key)
+  if #self.revalidations >= BehaviorContext.MAX_REVALIDATIONS then
+    table.remove(self.revalidations, 1)
+  end
+  self.revalidations[#self.revalidations + 1] = key
+end
+
+function BehaviorContext:take_revalidation(key)
+  for index, marked in ipairs(self.revalidations) do
+    if marked == key then
+      table.remove(self.revalidations, index)
+      return true
+    end
+  end
+  return false
 end
 
 function BehaviorContext:query(policy, arguments, execution)
@@ -1102,8 +1126,8 @@ function BehaviorBrowserHttp:exchange(request, execution)
     browser[key] = request[key]
   end
   browser.deadline = execution.deadline
-  browser.publicRead = false
-  browser.revalidate = false
+  browser.publicRead = execution.public_read and request.method == "GET"
+  browser.revalidate = execution.revalidate
   execution:check()
   local answer = YonJson.decode(TacTasks.exchange(YonJson.encode(browser)))
   local value = BehaviorBrowserHttp.value_of(answer)
