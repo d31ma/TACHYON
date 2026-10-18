@@ -127,6 +127,64 @@ final class CatalogService {
 "#,
         ),
     ];
+    const JAVA: [(&'static str, &'static str); 7] = [
+        (
+            "client/models/Detail.java",
+            "record Detail(String name, String secret) {}\n",
+        ),
+        (
+            "client/models/ShortDetail.java",
+            "record ShortDetail(String name) {}\n",
+        ),
+        (
+            "client/models/Product.java",
+            "import models.Detail;\nrecord Product(int id, String name, Detail detail, java.util.List<Detail> items, String secret) {}\n",
+        ),
+        (
+            "client/models/Summary.java",
+            "import models.ShortDetail;\nrecord Summary(int id, String name, ShortDetail detail, java.util.List<ShortDetail> items, String kind) {}\n",
+        ),
+        (
+            "client/models/Projection.java",
+            "import models.ShortDetail;\nrecord Projection(int id, String name, ShortDetail detail, java.util.List<ShortDetail> items) {}\n",
+        ),
+        (
+            "client/converters/ProductConverter.java",
+            r#"import models.Product;
+import models.Projection;
+import models.Summary;
+@Converter
+interface ProductConverter {
+    @Convert({"fields":[{"target":"name","constant":"fixed"},{"target":"kind","constant":"public"}]})
+    Summary map(Product product);
+
+    Projection copy(Product product);
+}
+"#,
+        ),
+        (
+            "client/services/CatalogService.java",
+            r#"import models.Detail;
+import models.Product;
+import models.Projection;
+import models.Summary;
+@Service
+class CatalogService {
+    @Needs
+    ProductConverter productConverter;
+    Summary summary = null;
+    Projection copied = null;
+
+    void load() {
+        Detail detail = new Detail("detail", "hidden");
+        Product product = new Product(7, "Anvil", detail, java.util.List.of(detail), "hidden");
+        summary = productConverter.map(product);
+        copied = productConverter.copy(product);
+    }
+}
+"#,
+        ),
+    ];
 
     fn write(root: &Path, relative: &str, source: &str) {
         let path = root.join(relative);
@@ -137,6 +195,7 @@ final class CatalogService {
     fn ready(language: WebLanguage) -> bool {
         match language {
             WebLanguage::Swift => crate::native::SwiftWebServices::sdk_installed(),
+            WebLanguage::Java => super::java_tests::java_web_ready(),
             _ => Command::new("node")
                 .arg("--version")
                 .output()
@@ -233,5 +292,16 @@ async fn a_swift_tac_converter_executes_with_overrides_nested_values_and_lists()
     }
     ConverterProject::check(
         &ConverterProject::report(WebLanguage::Swift, &ConverterProject::SWIFT).await,
+    );
+}
+
+#[tokio::test]
+async fn a_java_web_service_converter_returns_records_with_overrides_nested_values_and_lists() {
+    if !ConverterProject::ready(WebLanguage::Java) {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return;
+    }
+    ConverterProject::check(
+        &ConverterProject::report(WebLanguage::Java, &ConverterProject::JAVA).await,
     );
 }
