@@ -10,6 +10,11 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `TAC_HANDLER_COMPILE_SECONDS` raises the time one handler compile (Kotlin, C#, F#, Rust,
+  Dart, Go, Groovy) may take before Yon stops it with TY2004, for slow or busy machines.
+  The default stays 60 seconds and the limit is at most 900; a value that is not a positive
+  whole number keeps the default. The deadline message now names the setting.
+
 - C++ Tac test units can now replace and answer what a service needs. A
   `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
   fields of the service that `construct<CounterService>()` makes. A static
