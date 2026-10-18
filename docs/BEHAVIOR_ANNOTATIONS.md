@@ -139,7 +139,12 @@ application container.
 Rules for each place:
 
 - **JS/TS Tac.** Create the context inside OnStart. Use the owner's
-  `lifecycle` signal, which a `@Needs lifecycle` field receives.
+  `lifecycle` signal, which a `@Needs lifecycle` field receives. A shared
+  service is reachable before its component activates, for example through
+  `__tachyonTac.service`. An annotated method called then waits until
+  OnStart assigns `this.behaviors`, so it always runs under the service's
+  own partition. It fails with `aborted` if the component is removed first
+  and with `timeout` after 10 seconds without a context.
 - **No context needed.** Methods that use only `Check`, and the functions
   `Behaviors.validate`/`Behaviors.properties`, need no context. They do not
   create instances of their schema classes.

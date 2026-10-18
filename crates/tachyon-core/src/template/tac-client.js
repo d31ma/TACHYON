@@ -590,6 +590,7 @@ const createOwner = async (module, properties) => {
     } else {
       owner = await module.__tachyon_create_owner__(properties, controller.signal, clientRequest)
     }
+    if (typeof module.__tachyon_own_context__ === 'function') module.__tachyon_own_context__(owner, controller.signal)
     Owners.managed.set(owner, controller)
     Owners.modules.set(owner, module)
     return owner

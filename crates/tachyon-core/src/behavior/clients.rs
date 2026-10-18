@@ -290,12 +290,16 @@ fn factory(
 ) -> Result<String, Failure> {
     let mut cases = String::new();
     let mut stores = Vec::new();
+    let mut owning = Vec::new();
     for name in graph.keys() {
         let Some(registration) = registrations.iter().find(|item| &item.name == name) else {
             return Err(input.failure(0, "Managed client graph is incomplete"));
         };
         if registration.data.contains_key("repositoryRole") {
             stores.push(format!("['{name}',{name}]"));
+        }
+        if super::own_context::OwnContext::opened_by(input, registration) {
+            owning.push(name.as_str());
         }
         let arguments = if name == root && registration.constructor.is_none() {
             String::from("properties")
@@ -311,10 +315,20 @@ fn factory(
     let adapters = serde_json::to_string(adapters)
         .map_err(|_| input.failure(0, "Cannot encode client adapters"))?;
     let stores = format!("[{}]", stores.join(","));
-    Ok(owner_factory_source(&cases, root, &adapters, &stores))
+    let owning = serde_json::to_string(&owning)
+        .map_err(|_| input.failure(0, "Cannot encode own behavior contexts"))?;
+    Ok(owner_factory_source(
+        &cases, root, &adapters, &stores, &owning,
+    ))
 }
 
-fn owner_factory_source(cases: &str, root: &str, adapters: &str, stores: &str) -> String {
+fn owner_factory_source(
+    cases: &str,
+    root: &str,
+    adapters: &str,
+    stores: &str,
+    owning: &str,
+) -> String {
     format!(
         r"
 const __tachyon_owner_graphs__ = new WeakMap();
@@ -328,7 +342,8 @@ export async function __tachyon_create_owner__(properties, signal, transport) {{
     if (instances.has(name)) return instances.get(name);
     let instance;
     switch(name) {{ {cases} default: throw new TypeError('Unknown managed Tac client.'); }}
-    Object.defineProperty(instance, 'behaviors', {{value:stores.get(name) || context, configurable:true}});
+    if ({owning}.includes(name)) Behaviors.expectOwnContext(instance, signal);
+    else Object.defineProperty(instance, 'behaviors', {{value:stores.get(name) || context, configurable:true}});
     instances.set(name,instance);
     return instance;
   }}
@@ -480,6 +495,26 @@ mod tests {
 
     fn products_source() -> &'static str {
         "@Client()\nclass ProductsClient {\n@WebCall({\"client\":\"api\",\"method\":\"GET\",\"path\":\"/api/products\"})\nasync all() {return {}}\n}\n@NeedsAll()\nexport default class Products {\nproductsClient;\n}"
+    }
+
+    #[test]
+    fn a_managed_root_that_opens_its_own_context_waits_for_it() {
+        let source = products_source().replace(
+            "productsClient;\n}",
+            "productsClient;\nasync open() { this.behaviors = await Behaviors.create(Setup, {}); }\n}",
+        );
+        let lowered = lowered_tac_js(&source);
+        assert!(
+            lowered.contains(
+                "if ([\"Products\"].includes(name)) Behaviors.expectOwnContext(instance, signal);"
+            ),
+            "{lowered}"
+        );
+        let plain = lowered_tac_js(products_source());
+        assert!(
+            plain.contains("if ([].includes(name)) Behaviors.expectOwnContext(instance, signal);"),
+            "{plain}"
+        );
     }
 
     #[test]

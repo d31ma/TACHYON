@@ -36,6 +36,7 @@ mod mapper;
 mod model_mapping;
 mod mutations;
 mod native_application_lifetime;
+mod own_context;
 pub(crate) use native_application_lifetime::NativeApplicationLifetime;
 mod parameters;
 mod polyglot;
@@ -67,6 +68,9 @@ pub(crate) use written_field::WrittenField;
 pub(crate) use written_marker::WrittenMarker;
 pub(crate) use written_policies::WrittenPolicies;
 pub(crate) use written_query::WrittenQuery;
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod own_context_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod value_source_tests;
@@ -547,7 +551,8 @@ fn lower_annotated_module(
     }
     supply_declared(input, &mut registrations)?;
     let clients = clients::plan(input, &mut registrations, environment, resources)?;
-    if environment == "tac" && clients.is_none() {
+    let unmanaged_tac = environment == "tac" && clients.is_none();
+    if unmanaged_tac {
         infer_required_fields(input, &mut registrations, resources)?;
     }
     resolve_policies(input, &mut registrations, environment)?;
@@ -567,6 +572,9 @@ fn lower_annotated_module(
     );
     if let Some(clients) = clients {
         output.push_str(&clients);
+    }
+    if unmanaged_tac {
+        own_context::OwnContext::append_export(input, &registrations, &mut output);
     }
     if registrations
         .iter()

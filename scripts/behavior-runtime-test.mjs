@@ -1080,4 +1080,52 @@ for (const environment of ['tac', 'yon']) {
   })
 }
 
+await test('tac: a call before OnStart opens the owner context waits for it and never uses another partition', async () => {
+  const keys = []
+  class Configuration {
+    static configure() { return { caches: { items: {
+      get: (key) => { keys.push(key); return { hit: false } },
+      set: () => {},
+      delete: () => {},
+    } }, authorize: () => true } }
+  }
+  class Items {
+    reads = 0
+    async find(id) { this.reads += 1; return { id, reads: this.reads } }
+  }
+  const Behaviors = BehaviorRuntimeTest.createBehaviors([
+    { type: Configuration, name: 'Configuration', configuration: true, methods: [] },
+    { type: Items, name: 'Items', cache: { name: 'items', ttlMs: 30000, maxBytes: 4096, maxEntries: 8 }, methods: [
+      { name: 'find', cacheable: { keyArgs: [0] } },
+    ] },
+  ], 'tac', BehaviorRuntimeTest.moduleId)
+  const lifetime = new AbortController()
+  const items = new Items()
+  Behaviors.expectOwnContext(items, lifetime.signal)
+  const early = items.find('anvil')
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.equal(items.reads, 0)
+  assert.equal(Object.keys(items).includes('behaviors'), false)
+  items.behaviors = await Behaviors.create(Configuration, { partition: 'catalog', signal: lifetime.signal })
+  assert.deepEqual(await early, { id: 'anvil', reads: 1 })
+  assert.equal(keys.length, 1)
+  assert.equal(JSON.parse(keys[0])[0], 'catalog')
+
+  const removed = new AbortController()
+  const gone = new Items()
+  Behaviors.expectOwnContext(gone, removed.signal)
+  const waiting = gone.find('bolt')
+  removed.abort()
+  await assert.rejects(waiting, (error) => error.code === 'aborted' && /Items\.find was called before its OnStart/.test(error.message))
+
+  const never = new Items()
+  Behaviors.expectOwnContext(never, new AbortController().signal)
+  const schedule = globalThis.setTimeout
+  globalThis.setTimeout = (run) => schedule(run, 0)
+  try { await assert.rejects(never.find('cog'), { code: 'timeout' }) }
+  finally { globalThis.setTimeout = schedule }
+  assert.equal(never.reads, 0)
+  lifetime.abort()
+})
+
 process.stdout.write(`Behavior runtime: ${BehaviorRuntimeTest.passed} checks passed.\n`)

@@ -911,6 +911,7 @@ export default class StorageCatalogService {
   async invalidate(sku) { return { sku }; }
 }
 `);
+  writeEarlyFixture(project);
   write(project, 'client/entities/NoteEntity.js', `@Entity({"adapter":"indexeddb"})
 @Table('notes')
 class NoteEntity {
@@ -1039,6 +1040,31 @@ export default class StorageNotesService {
 `);
 }
 
+function writeEarlyFixture(project) {
+  write(project, 'client/pages/early/tac.html', '<storage-early hydrate="interaction" />\n');
+  write(project, 'client/components/storage/early/tac.html', '<button id="early">{storageEarly.reads}</button>\n');
+  write(project, 'client/services/StorageEarlyService.js', `@Service
+@CacheSettings({"name":"early","ttlMs":60000,"maxBytes":4096,"maxEntries":4})
+export default class StorageEarlyService {
+  @Needs
+  lifecycle;
+  behaviors = null;
+  reads = 0;
+
+  @OnStart
+  async open() {
+    this.behaviors = await Behaviors.create(StorageSetup, { partition: 'early', signal: this.lifecycle });
+  }
+
+  @Cached
+  async find(sku) {
+    this.reads += 1;
+    return { sku, reads: this.reads };
+  }
+}
+`);
+}
+
 const rootHelper = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
 
 function buildFixture(project) {
@@ -1151,6 +1177,36 @@ async function checkKeptCaches(page) {
   const before = await page.evaluate(() => __root('storageCatalog').reads);
   await page.waitForTimeout(4100);
   expect((await find('cog')).reads, before + 1, 'an expired entry runs the method again');
+}
+
+async function checkEarlyCalls(browser, origin) {
+  const context = await browser.newContext();
+  await context.addInitScript(rootHelper);
+  try {
+    const page = await context.newPage();
+    await page.goto(`${origin}/early`, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => document.documentElement.dataset.tachyonRendered === 'client');
+    const active = () => page.evaluate(() => document.querySelector('[data-tachyon-component]')?.dataset.tachyonActive ?? null);
+    expect(await active(), null, 'the interaction component has not activated yet');
+    await page.evaluate(() => {
+      globalThis.__early = __root('storageEarly').find('anvil')
+        .then((value) => ({ reads: value.reads }), (error) => ({ code: error.code, message: error.message }));
+    });
+    await page.waitForTimeout(250);
+    expect(await page.evaluate(() => __root('storageEarly').reads), 0, 'a call before activation waits for the service context');
+    await page.click('#early');
+    await page.waitForFunction(() => document.querySelector('[data-tachyon-component]')?.dataset.tachyonActive === 'true');
+    expect(JSON.stringify(await page.evaluate(() => globalThis.__early)), '{"reads":1}', 'the early call runs once the component activates');
+    await page.evaluate(StorageGate.settleCaches);
+    const keys = await page.evaluate(async () => {
+      const cache = await caches.open('tachyon-cache:early');
+      return (await cache.keys()).map((request) => JSON.parse(decodeURIComponent(new URL(request.url).pathname.split('/').pop()))[0]);
+    });
+    expect(JSON.stringify(keys), '["early"]', 'the early call cached under the service partition, not tac-client');
+    expect((await page.evaluate(() => __root('storageEarly').find('anvil'))).reads, 1, 'a later call reads the entry the early call wrote');
+  } finally {
+    await context.close();
+  }
 }
 
 async function checkInsecureCaches(browser, port) {
@@ -1509,6 +1565,7 @@ async function checkBrowser(browser, name, origin, port) {
   context.setDefaultNavigationTimeout(15_000);
   const page = await checkFieldStorage(context, origin);
   await checkKeptCaches(page);
+  await checkEarlyCalls(browser, origin);
   if (name === 'chromium') await checkInsecureCaches(browser, port);
   await checkIndexedStore(browser, origin);
   await checkWebAssemblyStorage(browser, origin);

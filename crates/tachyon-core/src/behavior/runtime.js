@@ -755,6 +755,44 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       for (const operation of this.#active) operation.cancel('disposed', 'Behavior context is disposed.')
     }
   }
+  class OwnContexts {
+    static #waitMs = 10000
+    static #waiting = new WeakMap()
+    static expect(owner, signal) {
+      let current = null
+      let open
+      const opened = new Promise((resolve) => { open = resolve })
+      Object.defineProperty(owner, 'behaviors', { configurable: true, enumerable: false,
+        get: () => current,
+        set: (value) => { current = value; if (contexts.has(value)) open() } })
+      OwnContexts.#waiting.set(owner, { opened, signal })
+    }
+    static current(owner, record, method) {
+      const context = owner?.behaviors
+      if (contexts.has(context)) return context
+      if (OwnContexts.#waiting.has(owner)) throw OwnContexts.#early('invalid', record, method)
+      invalid('Annotated method requires its source-local behavior context.')
+    }
+    static async opened(owner, record, method) {
+      const wait = OwnContexts.#waiting.get(owner)
+      if (!wait || contexts.has(owner?.behaviors)) return OwnContexts.current(owner, record, method)
+      let timer
+      let stopWaiting
+      const stopped = new Promise((_, reject) => {
+        stopWaiting = () => reject(OwnContexts.#early('aborted', record, method))
+        if (wait.signal.aborted) stopWaiting()
+        wait.signal.addEventListener('abort', stopWaiting, { once: true })
+        timer = setTimeout(() => reject(OwnContexts.#early('timeout', record, method)), OwnContexts.#waitMs)
+      })
+      try { await Promise.race([wait.opened, stopped]) }
+      finally { clearTimeout(timer); wait.signal.removeEventListener('abort', stopWaiting) }
+      return OwnContexts.current(owner, record, method)
+    }
+    static #early(code, record, method) {
+      return new BehaviorError(code, `${record.name}.${method.name} was called before its OnStart opened the behavior context. Call it after the component that uses it activates.`)
+    }
+  }
+
   function declareStorage(record) {
     const storage = environment === 'tac' ? globalThis[Symbol.for('tachyon.tac.storage')] : undefined
     if (!storage) return
@@ -990,16 +1028,12 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
           : function (...args) { return validate(this, args) } })
         continue
       }
-      const contextFor = (owner) => {
-        const context = owner?.behaviors
-        if (!contexts.has(context)) invalid('Annotated method requires its source-local behavior context.')
-        return context
-      }
       const asynchronous = async function (...args) {
-        return contextFor(this).invoke(this, record, method, original, args)
+        const context = contexts.has(this?.behaviors) ? this.behaviors : await OwnContexts.opened(this, record, method)
+        return context.invoke(this, record, method, original, args)
       }
       const synchronous = function (...args) {
-        return contextFor(this).paginate(this, method, original, args)
+        return OwnContexts.current(this, record, method).paginate(this, method, original, args)
       }
       Object.defineProperty(type.prototype, method.name, { ...descriptor,
         value: method.cacheable || method.cachePut || method.cacheEvict || method.httpExchange || method.query
@@ -1023,6 +1057,11 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       const keys = [...calledKeys]
       calledKeys.clear()
       return keys
+    },
+    expectOwnContext: (owner, signal) => {
+      if (owner === null || typeof owner !== 'object') invalid('An own behavior context belongs to an instance.')
+      if (!signalLike(signal)) invalid('An own behavior context requires an AbortSignal.')
+      OwnContexts.expect(owner, signal)
     },
     create: async (Configuration, options) => {
       if (!records.get(Configuration)?.configuration) invalid('Behaviors.create requires a registered Setup.')

@@ -923,6 +923,18 @@ machine contracts have their own, independent major versions.
   with TY2015 at the field, because the page cannot tell what to fill it
   with. A Store, Converter, Helper or browser API field is also filled when
   its `@return` comment comes before the marker (ADR 0054 amendment).
+- A JS or TS Tac service that opens its own behavior context in `@OnStart`
+  (`this.behaviors = await Behaviors.create(...)`) can be reached through
+  `__tachyonTac.service` or a template before its component activates. A
+  `@Cached`, `@Retry` or other annotated call made then now waits for that
+  context and runs under its partition. Before, in a project with an HTTP
+  client or a Helper the call ran at once under the generated `tac-client`
+  context, so a `@Cached` value was written under the wrong partition and
+  the service's own reads missed it; without one it failed with "Annotated
+  method requires its source-local behavior context". If the component is
+  removed first the call now fails with `aborted`, and if no context
+  arrives within 10 seconds it fails with `timeout`; both messages name the
+  method and say to call it after the component activates.
 
 - A Yon C++ answer with text that is not valid UTF-8 no longer fails as an
   opaque 500: a returned value's broken bytes become U+FFFD, as in Go, and a
