@@ -921,6 +921,8 @@ mod swift_stream_tests;
 #[cfg(test)]
 mod java_behavior_tests;
 #[cfg(test)]
+mod java_lifecycle_tests;
+#[cfg(test)]
 mod java_tests;
 
 #[cfg(test)]

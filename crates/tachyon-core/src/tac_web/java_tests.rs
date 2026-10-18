@@ -295,7 +295,7 @@ pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
     path
 }
 
-async fn publish(root: &Path, instance: &str, class: &str) {
+pub(super) async fn publish(root: &Path, instance: &str, class: &str) {
     let services = [(
         String::from(instance),
         String::from(class),
