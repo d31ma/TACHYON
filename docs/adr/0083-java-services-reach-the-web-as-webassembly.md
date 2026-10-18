@@ -459,3 +459,14 @@ images, fonts and connections over `https:`.
   runtime refused with `configuration`. It now passes flat `TAC_X` keys
   with plain values (`java.util.Map.ofEntries`), the form the runtime
   reads. Kotlin has the same bug; a separate change fixes it.
+
+## Amendment: Java streams and sockets (2026-10-18)
+
+A Java `@HTTPClient` interface method may now carry `@StreamRequest` or
+`@SocketRequest`. The page's JavaScript holds the connection, and a Java
+service that keeps the client in a `@Needs` field receives each message with
+`@OnEvent`. A socket client's `send` cannot block in an exported call, for
+the reason "The storage host" gives, so it parks the service method's fiber
+on a ticket, like a browser HTTP request. See ADR 0090, "Java streams and
+sockets". Java Tac code no longer refuses StreamRequest and SocketRequest;
+Helper and Named are still refused.

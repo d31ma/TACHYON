@@ -107,5 +107,6 @@ const tachyonBodies=new Map([
 ["milliseconds\nreturn globalThis[Symbol.for('tachyon.java.host')].pause(milliseconds);",function(milliseconds){return globalThis[Symbol.for('tachyon.java.host')].pause(milliseconds);}],
 ["ticket,text\nreturn globalThis[Symbol.for('tachyon.java.host')].httpStart(ticket, text);",function(ticket,text){return globalThis[Symbol.for('tachyon.java.host')].httpStart(ticket, text);}],
 ["ticket\nreturn globalThis[Symbol.for('tachyon.java.host')].httpCancel(ticket);",function(ticket){return globalThis[Symbol.for('tachyon.java.host')].httpCancel(ticket);}],
+["ticket,owner,text\nreturn globalThis[Symbol.for('tachyon.java.host')].socket(ticket, owner, text);",function(ticket,owner,text){return globalThis[Symbol.for('tachyon.java.host')].socket(ticket, owner, text);}],
 ["task,text\nreturn globalThis[Symbol.for('tachyon.java.host')].taskDone(task, text);",function(task,text){return globalThis[Symbol.for('tachyon.java.host')].taskDone(task, text);}]
 ]);

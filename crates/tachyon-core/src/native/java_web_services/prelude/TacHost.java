@@ -20,6 +20,9 @@ final class TacHost {
     @org.teavm.jso.JSBody(params = "ticket", script = "return globalThis[Symbol.for('tachyon.java.host')].httpCancel(ticket);")
     static native void httpCancel(int ticket);
 
+    @org.teavm.jso.JSBody(params = {"ticket", "owner", "text"}, script = "return globalThis[Symbol.for('tachyon.java.host')].socket(ticket, owner, text);")
+    static native void socket(int ticket, String owner, String text);
+
     @org.teavm.jso.JSBody(params = {"task", "text"}, script = "return globalThis[Symbol.for('tachyon.java.host')].taskDone(task, text);")
     static native void taskDone(int task, String text);
 }

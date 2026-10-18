@@ -86,6 +86,11 @@ impl JavaDeclaration {
         is_field.then(|| Self::type_and_name(declared))
     }
 
+    pub(super) fn field_type(&self) -> Option<String> {
+        let declared = self.rest.split('=').next().unwrap_or_default();
+        (!self.is_method()).then(|| Self::type_and_name(declared).0)
+    }
+
     pub(super) fn refuse_class_annotations(&self) -> Result<(), String> {
         self.refuse_unknown_annotations()
     }

@@ -3,6 +3,7 @@ use java_browser_runtime::JavaBrowserRuntime;
 use java_class_reader::JavaClassReader;
 use java_enclosure::JavaEnclosure;
 use java_event_members::JavaEventMembers;
+use java_held_streams::JavaHeldStreams;
 use java_models::JavaModels;
 use java_service::JavaService;
 use java_service_table::JavaServiceTable;
@@ -20,6 +21,7 @@ mod java_constructor_provider;
 mod java_declaration;
 mod java_enclosure;
 mod java_event_members;
+mod java_held_streams;
 mod java_member;
 mod java_member_kind;
 mod java_model;
@@ -48,7 +50,7 @@ mod preference_strings_tests;
 pub(crate) struct JavaWebServices;
 
 impl JavaWebServices {
-    const PRELUDE: [(&'static str, &'static str); 26] = [
+    const PRELUDE: [(&'static str, &'static str); 28] = [
         (
             "TacPreferenceScope.java",
             include_str!("java_web_services/prelude/TacPreferenceScope.java"),
@@ -152,6 +154,14 @@ impl JavaWebServices {
         (
             "TacText.java",
             include_str!("java_web_services/prelude/TacText.java"),
+        ),
+        (
+            "TacStream.java",
+            include_str!("java_web_services/prelude/TacStream.java"),
+        ),
+        (
+            "TacSocket.java",
+            include_str!("java_web_services/prelude/TacSocket.java"),
         ),
     ];
     const PRELUDE_FOLDER: &'static str = "tachyon";
@@ -286,6 +296,8 @@ impl JavaWebServices {
         if let Some(module) = events.as_mut() {
             crate::events::describe(module, relative, snapshot_root, "client")?;
         }
+        let held =
+            JavaHeldStreams::new(relative, &authored.class).members(events.as_ref(), source)?;
         let behavior_source = models.behavior_source(source, &authored.class)?;
         let lowered = crate::behavior::lower(relative, &behavior_source, "tac")?;
         let source =
@@ -301,6 +313,7 @@ impl JavaWebServices {
         let events_of_class = JavaEventMembers::new(relative, &authored.class, values);
         let mut members = reader.members(&authored.class, values)?;
         members.extend(events_of_class.listeners(events.as_ref())?);
+        members.extend(held);
         let compiled =
             JavaEventMembers::with_publishers(&reader.without_markers(&source), &providers);
         Ok(JavaService {

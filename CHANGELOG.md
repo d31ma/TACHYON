@@ -66,6 +66,18 @@ machine contracts have their own, independent major versions.
   `BehaviorError` (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`,
   `HTTP_BODY` or `CANCELLED`). A stream-only client needs no Setup
   (ADR 0058, ADR 0060, ADR 0090 and ADR 0093 amendments).
+- A Tac Java `@HTTPClient` interface method may carry `@StreamRequest` or
+  `@SocketRequest`, written as a bodiless `void receive(Tick tick);` that
+  takes one model. The page's event bus holds the stream or socket for the
+  Java service that keeps the client in a `@Needs` field, with the same
+  origin, JSON, size and reconnect rules as JavaScript, and the service
+  receives each message with `@OnEvent`. A socket client gets
+  `void send(Object message)`, which parks the service method's TeaVM fiber
+  until the page answers, so that method answers the page as a task. It
+  throws a runtime exception whose message starts with the code
+  (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or
+  `CANCELLED`). A stream-only client needs no Setup (ADR 0058, ADR 0060,
+  ADR 0083 and ADR 0090 amendments).
 - C++ Tac code accepts `[[Setup]]`, `[[WhenProfile]]`, `[[WhenSetting]]`,
   `[[UseProfiles]]` and `[[TestSettings]]`. A Setup is a class in
   `client/setups/<Name>.hpp` with

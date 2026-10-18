@@ -911,3 +911,53 @@ failure and `HTTP_BODY`; `tac_cpp::unit_tests` checks `HTTP_MISSING` in a test
 unit; `tac_cpp::tests` checks the init description (a service that does not
 need a client lists no streams, and a client needed by two fields is listed
 once) and the refusals.
+
+## Java streams and sockets — 2026-10-18
+
+A Java HTTPClient interface method may carry `@StreamRequest` or
+`@SocketRequest`, as in Go and Kotlin. The method has no body, returns
+`void` and takes one model from `client/models`, which says what each message
+holds: `@StreamRequest void receive(Tick tick);`. The generated client keeps
+an empty method. A Java client with only stream or socket methods has no
+behavior context and needs no Setup.
+
+The page's JavaScript still holds the connection, with the rules and limits
+of "Go streams and sockets" above. A Java service that keeps the client in a
+`@Needs` field lists the client's streams in its `init` answer as `streams`,
+next to its listeners. Tachyon builds these entries from the client types
+that the service's `@Needs` fields name. The page's event bus opens each
+`EventSource` or `WebSocket` when the service starts, checks each message
+against its model, publishes it as that model's event for the service's
+`@OnEvent` method, and closes the connection when the owner goes away. A Java
+service that does not hold the client opens nothing. A service holds at most
+16 such methods through its clients. The rule table's `TAC_STREAM` list and
+`BrowserStreams` now list Java for both markers.
+
+A socket client gets a generated `void send(Object message)`, which calls
+`TacSocket.send("ChatClient", message)`. It writes the message as JSON and
+hands it to the page's `socketHost` through the TeaVM host
+(`TacHost.socket`). TeaVM cannot block in an exported call (ADR 0083,
+"The storage host"), so `send` waits like a browser HTTP request (the "Java
+browser extension" section above): the service method's fiber parks on a
+`TacHttpTickets` ticket, and the page's answer resumes it. A service method
+that calls `send` therefore answers the page later, as a task. `send` returns
+once the page has sent or queued the text. Otherwise it throws a runtime
+exception, `TacSocket.Failure`, with a `code` field and a message that starts
+with the code (for example, `HTTP_NETWORK: The socket message was not
+sent.`). The code is `HTTP_NETWORK` (for example, 16 messages already wait
+for the socket to open, so the seventeenth fails),
+`HTTP_MISSING` (there is no page), `HTTP_REQUEST` (the call cannot wait, for
+example in a getter, a setter or `OnStart`), `HTTP_BODY` (a message over
+64 KiB, or a value that cannot be written as JSON) or `CANCELLED` (the owner
+went away). The page's promise rejects with that code. A Java test unit runs
+on the JVM and has no page, so `send` throws an `IllegalStateException` whose
+message starts with `HTTP_MISSING` there.
+
+Evidence: `tac_web::java_stream_tests` builds a real Java service with TeaVM
+and runs it under Node with the real event bus and fake `EventSource` and
+`WebSocket` classes. Only the service that needs the clients opens them; a
+valid tick reaches `@OnEvent` and an invalid one is dropped; a socket message
+reaches its listener; 16 queued sends are sent in order once the socket
+opens, and the seventeenth gets `HTTP_NETWORK`; and disposing the owner
+closes both connections. `client_tests::java_stream_unit_tests` runs a Java test unit
+on the JVM, where `send` throws `HTTP_MISSING`.

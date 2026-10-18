@@ -531,6 +531,24 @@ fn an_fsharp_socket_client_needs_no_context_and_gets_a_send_method() {
 }
 
 #[test]
+fn a_java_socket_client_needs_no_context_and_gets_a_send_method() {
+    let source = "@HTTPClient(\"/chat\")\ninterface ChatClient {\n    @SocketRequest\n    void receive(ChatMessage message);\n}\n";
+    let path = Path::new("client/remotes/ChatClient.java");
+    let lowered = DeclaredContract::concrete(path, source, "tac").expect("lowered");
+    for part in [
+        "class ChatClient {\n",
+        "\n    void send(Object message) {\n        TacSocket.send(\"ChatClient\", message);\n    }\n",
+    ] {
+        assert!(lowered.contains(part), "{part:?}:\n{lowered}");
+    }
+    assert!(!lowered.contains("Behaviors.Context"), "{lowered}");
+    let stream = source.replace("SocketRequest", "StreamRequest");
+    let lowered = DeclaredContract::concrete(path, &stream, "tac").expect("lowered");
+    assert!(!lowered.contains("send("), "{lowered}");
+    assert!(!lowered.contains("Behaviors.Context"), "{lowered}");
+}
+
+#[test]
 fn a_dart_socket_client_needs_no_context_and_gets_a_send_method() {
     let source = "@HTTPClient(\"/chat\")\nabstract interface class ChatClient {\n  @SocketRequest\n  void receive(ChatMessage message);\n}\n";
     let path = Path::new("client/remotes/ChatClient.dart");

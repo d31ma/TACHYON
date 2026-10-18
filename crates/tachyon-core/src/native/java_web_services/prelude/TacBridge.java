@@ -186,6 +186,7 @@ final class TacBridge {
         java.util.List<String> fields = new java.util.ArrayList<>();
         java.util.List<String> methods = new java.util.ArrayList<>();
         java.util.List<Object> listeners = new java.util.ArrayList<>();
+        java.util.List<Object> streams = new java.util.ArrayList<>();
         for (java.util.Map.Entry<String, Object> member : members.entrySet()) {
             if (member.getValue() instanceof TacField) {
                 fields.add(member.getKey());
@@ -193,10 +194,13 @@ final class TacBridge {
                 methods.add(member.getKey());
             } else if (member.getValue() instanceof TacListener listener) {
                 listeners.add(listener.described(member.getKey()));
+            } else if (member.getValue() instanceof TacStream stream) {
+                streams.add(stream.description);
             }
         }
         return "{\"value\":{\"fields\":" + TacJsonWriter.write(fields) + ",\"methods\":"
-                + TacJsonWriter.write(methods) + ",\"listeners\":" + TacJsonWriter.write(listeners) + "}}";
+                + TacJsonWriter.write(methods) + ",\"listeners\":" + TacJsonWriter.write(listeners) + ",\"streams\":"
+                + TacJsonWriter.write(streams) + "}}";
     }
 
     private static void dispose(String owner) {

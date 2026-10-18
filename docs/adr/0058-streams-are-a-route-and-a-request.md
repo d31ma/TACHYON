@@ -148,8 +148,8 @@ and sockets". The other compiled Tac languages still refuse `@StreamRequest`.
 page's JavaScript still holds the `EventSource` for the Rust service that
 keeps the client in a field, and the service receives each message with
 `#[OnEvent]`. See ADR 0090, "Rust streams and sockets". Dart,
-Java and C++ still refuse `@StreamRequest`. (Dart, Python, F# and C++ hold
-stream clients since; see their amendments below.)
+Java and C++ still refused `@StreamRequest` then. (Dart, Python, F#, C++
+and Java hold stream clients since; see their amendments below.)
 
 ## Amendment (2026-10-17): Rust stream routes with Iterator
 
@@ -246,5 +246,13 @@ declared without a body as `[[StreamRequest]] void receive(const Tick& tick);`.
 The page's JavaScript holds the `EventSource` for the C++ service that keeps
 the client in a `[[Needs]]` field, and the service receives each message with
 `[[OnEvent]]`. See ADR 0090, "C++ streams and sockets", and the ADR 0099
-amendment of 2026-10-18. Java is now the only Tac language that refuses
-`@StreamRequest`.
+amendment of 2026-10-18.
+
+## Amendment (2026-10-18): Java stream clients
+
+`@StreamRequest` is also written on a Tac Java HTTPClient interface method,
+a bodiless `void receive(Tick tick);` that takes one model. The page's
+JavaScript holds the `EventSource` for the Java service that keeps the client
+in a `@Needs` field, as for Go and Kotlin, and the service receives each
+message with `@OnEvent`. See ADR 0090, "Java streams and sockets". No Tac
+language refuses `@StreamRequest` now.

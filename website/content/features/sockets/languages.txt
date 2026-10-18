@@ -27,7 +27,7 @@ When OnOpen or OnMessage fails, OnError runs and the socket stays
 open, as in Jakarta. The error text goes to the server log only.
 
 In the browser, @SocketRequest is JavaScript, TypeScript, Go, Ruby,
-Rust, Dart, Swift, Kotlin, C#, Lua, Python, F# or C++. Every Tac language receives the messages with @OnEvent. A
+Rust, Dart, Swift, Kotlin, Java, C#, Lua, Python, F# or C++. Every Tac language receives the messages with @OnEvent. A
 Go client is an interface method; the page holds the socket for
 the Go service that keeps the client in a // @Needs field, and the
 generated Send(message any) error returns HTTP_NETWORK when 16
@@ -53,6 +53,10 @@ BehaviorError with the code.
 A Python client is a Protocol method, held for the Python service
 that keeps it in a Needs field; its async def send(self, message)
 raises a BehaviorError with the code.
+A Java client is an interface method, held for the Java service
+that keeps it in a @Needs field; its generated
+void send(Object message) throws an exception that starts with the code,
+and a method that calls send is a page task.
 
 Limits: messages are JSON text of at most 64 KiB, at most 32
 sockets are open at once, five idle minutes or one hour close a

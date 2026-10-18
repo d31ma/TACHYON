@@ -595,6 +595,7 @@ globalThis[Symbol.for('tachyon.java.host')] = {
   httpStart: (ticket, text) => { javaHttp.start(ticket, text, (answer) => { java.exports.tacHttpSettle(ticket, answer) }) },
   httpCancel: (ticket) => { javaHttp.cancel(ticket) },
   taskDone: (task, text) => { taskAnswers.done(task, text) },
+  socket: (ticket, owner, text) => { socketHost(owner, text).then((answer) => { java.exports.tacHttpSettle(ticket, answer) }) },
 }
 const { load } = await import('./java/runtime.js')
 const javaResponse = await fetch(new URL('./java/services.wasm', import.meta.url))
@@ -927,6 +928,8 @@ mod swift_stream_tests;
 mod java_behavior_tests;
 #[cfg(test)]
 mod java_lifecycle_tests;
+#[cfg(test)]
+mod java_stream_tests;
 #[cfg(test)]
 mod java_tests;
 

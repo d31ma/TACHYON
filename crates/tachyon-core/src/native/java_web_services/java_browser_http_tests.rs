@@ -64,7 +64,7 @@ fn java_clients_and_services_reach_the_browser_transport() {
         "return TacTasks.run(request);",
         "public static void tacHttpSettle(int ticket, String answer) {",
         "org.teavm.runtime.Fiber.start(() -> finish(task, TacBridge.handle(request)), true);",
-        "private static native String await(int ticket, TacTask task, String request);",
+        "private static native String await(int ticket, TacTask task, String request, boolean socket);",
     ] {
         assert!(program.contains(expected), "missing {expected}");
     }

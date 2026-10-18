@@ -4,4 +4,5 @@ pub(super) enum JavaMemberKind {
     Method,
     Hook { destroy: bool },
     Listener { key: String, description: String },
+    Stream { description: String },
 }

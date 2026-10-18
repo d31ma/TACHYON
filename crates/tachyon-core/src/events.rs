@@ -1685,25 +1685,19 @@ mod tests {
     }
 
     #[test]
-    fn a_stream_client_outside_browser_script_names_its_language() {
+    fn a_stream_client_outside_browser_script_is_refused() {
         let cases = [
-            (
-                "client/services/TicksService.java",
-                "tac",
-                "@HTTPClient(\"/ticks\")\ninterface TicksClient {\n    @StreamRequest\n    void receive(Tick tick);\n}\n",
-                "@StreamRequest is not available in Java Tac code; it works in JavaScript, TypeScript",
-            ),
-            (
-                "client/services/ChatService.java",
-                "tac",
-                "@HTTPClient(\"/chat\")\npublic interface ChatClient {\n    @SocketRequest\n    void receive(ChatMessage message);\n}\n",
-                "@SocketRequest is not available in Java Tac code",
-            ),
             (
                 "server/controllers/TicksController.js",
                 "yon",
                 "class TicksClient {\n  @StreamRequest\n  receive(tick) {}\n}\n",
                 "@StreamRequest is not used in Yon code",
+            ),
+            (
+                "server/controllers/ChatController.java",
+                "yon",
+                "@HTTPClient(\"/chat\")\npublic interface ChatClient {\n    @SocketRequest\n    void receive(ChatMessage message);\n}\n",
+                "@SocketRequest is not used in Yon code",
             ),
         ];
         for (path, environment, source, expected) in cases {

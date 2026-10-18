@@ -2,7 +2,17 @@ pub(super) struct JavaTestContracts;
 
 impl JavaTestContracts {
     pub(super) fn read(source: &str) -> String {
-        format!("{}{}", Self::preference(source), Self::publisher(source))
+        format!(
+            "{}{}{}",
+            Self::preference(source),
+            Self::publisher(source),
+            Self::socket(source)
+        )
+    }
+
+    fn socket(source: &str) -> &'static str {
+        ["", include_str!("test_contracts/TacSocket.java")]
+            [usize::from(source.contains("TacSocket.send("))]
     }
 
     fn preference(source: &str) -> &'static str {

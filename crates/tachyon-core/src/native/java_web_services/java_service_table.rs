@@ -81,6 +81,9 @@ impl<'a> JavaServiceTable<'a> {
             JavaMemberKind::Method => self.method(member),
             JavaMemberKind::Hook { destroy } => Self::hook(member, *destroy),
             JavaMemberKind::Listener { description, .. } => self.listener(member, description),
+            JavaMemberKind::Stream { description } => {
+                format!("new TacStream({})", Self::quoted(description))
+            }
         }
     }
 
