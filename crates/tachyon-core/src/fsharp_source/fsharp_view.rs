@@ -222,6 +222,18 @@ mod tests {
     }
 
     #[test]
+    fn a_tac_socket_client_passes_the_check() {
+        let path = Path::new("client/remotes/ChatClient.fs");
+        let source = "[<HTTPClient(\"/chat\")>]\ntype ChatClient =\n    [<SocketRequest>]\n    abstract Receive: Tick -> unit\n";
+        let checked = crate::annotation_rules::AnnotationRules::check(path, source);
+        assert!(
+            checked.is_ok(),
+            "{:?}",
+            checked.err().map(|error| error.to_string())
+        );
+    }
+
+    #[test]
     fn other_languages_have_no_view() {
         assert!(FsharpView::of(Path::new("server/services/A.cs"), "class A {}").is_none());
     }
