@@ -12,7 +12,7 @@ struct PlainHandler {
 }
 
 impl PlainHandler {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self {
             extension: "js",
             source: "// @ts-check\n\nexport class Handler {\n  static GET(request) {\n    return { id: request.path }\n  }\n\n  static POST() {\n    return Handler.saved()\n  }\n\n  static saved() {\n    return { saved: true }\n  }\n}\n",
@@ -52,6 +52,11 @@ impl PlainHandler {
             extension: "go",
             source: "type Handler struct{}\n\nfunc (Handler) GET(request *YonRequest) any {\n\treturn map[string]any{\"id\": 1}\n}\n",
             expected: "// @RequestRoute(\"/orders/{id}\")\n// @Public\ntype OrdersIdController struct{}\n\n// @GetRoute\nfunc (OrdersIdController) Get() any {\n\treturn map[string]any{\"id\": 1}\n}\n",
+        },
+        Self {
+            extension: "cpp",
+            source: "#include <string>\n\nclass Handler {\npublic:\n    static std::string GET() {\n        return Handler::label();\n    }\n\n    static void DELETE() {}\n\n    static std::string label() { return \"order\"; }\n};\n",
+            expected: "#pragma once\n#include <string>\n\nclass [[RequestRoute(\"/orders/{id}\")]] [[Public]] OrdersIdController {\npublic:\n    [[GetRoute]]\n    std::string getOrdersId() {\n        return OrdersIdController::label();\n    }\n\n    [[DeleteRoute]]\n    void deleteOrdersId() {}\n\n    static std::string label() { return \"order\"; }\n};\n",
         },
     ];
 }
@@ -101,10 +106,8 @@ fn a_plain_handler_becomes_a_controller_in_every_language_that_has_one() {
     for handler in PlainHandler::ALL {
         let project = project();
         let from = format!("server/routes/orders/_id/yon.{}", handler.extension);
-        let to = format!(
-            "server/controllers/OrdersIdController.{}",
-            handler.extension
-        );
+        let written = [handler.extension, "hpp"][usize::from(handler.extension == "cpp")];
+        let to = format!("server/controllers/OrdersIdController.{written}");
         write(project.path(), &from, handler.source);
         let plan = plan(project.path());
         let text = plan.to_text(false);
@@ -139,7 +142,7 @@ fn a_plain_handler_becomes_a_controller_in_every_language_that_has_one() {
         }
         let verbs: &[(&str, &str)] = match handler.extension {
             "js" => &[("GET", "/orders/_id"), ("POST", "/orders/_id")],
-            "py" => &[("GET", "/orders/_id"), ("DELETE", "/orders/_id")],
+            "py" | "cpp" => &[("GET", "/orders/_id"), ("DELETE", "/orders/_id")],
             _ => &[("GET", "/orders/_id")],
         };
         assert_routes(project.path(), &to, verbs);
@@ -561,5 +564,31 @@ fn nullable_fields_that_tachyon_fills_become_non_null() {
     assert_eq!(
         read(project.path(), "server/services/OrderService.ts"),
         "@Service\nexport class OrderService {\n  @Needs\n  store!: OrderStore\n  label: string | null = null\n}\n"
+    );
+}
+
+#[test]
+fn a_cpp_handler_that_reads_yon_json_moves_with_a_manual_step() {
+    let project = project();
+    let from = "server/routes/language/yon.cpp";
+    write(
+        project.path(),
+        from,
+        "class Handler {\npublic:\n    static YonJson GET(const YonJson& request) {\n        return YonJson::object({{\"language\", \"cpp\"}});\n    }\n\n    static YonJson PUT(const YonJson& input) {\n        const YonJson* body = input.get(\"body\");\n        return body == nullptr ? YonJson() : *body;\n    }\n};\n",
+    );
+    let plan = plan(project.path());
+    let text = plan.to_text(false);
+    let to = "server/controllers/LanguageController.hpp";
+    assert!(text.contains(&format!("move     {from} -> {to}")), "{text}");
+    assert!(
+        text.contains("Removed the unused YonJson parameter 'request' on line 3"),
+        "{text}"
+    );
+    assert!(text.contains(&format!("manual   {from}")), "{text}");
+    assert!(text.contains("which Tachyon removed (ADR 0099)"), "{text}");
+    plan.write(project.path()).expect("write");
+    assert_eq!(
+        read(project.path(), to),
+        "#pragma once\nclass [[RequestRoute(\"/language\")]] [[Public]] LanguageController {\npublic:\n    [[GetRoute]]\n    YonJson getLanguage() {\n        return YonJson::object({{\"language\", \"cpp\"}});\n    }\n\n    [[PutRoute]]\n    YonJson putLanguage(const YonJson& input) {\n        const YonJson* body = input.get(\"body\");\n        return body == nullptr ? YonJson() : *body;\n    }\n};\n"
     );
 }

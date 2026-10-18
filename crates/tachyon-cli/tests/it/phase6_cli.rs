@@ -321,3 +321,68 @@ fn migrate_fix_writes_the_automatic_fixes_and_the_project_builds() {
         stdout(&again)
     );
 }
+
+#[test]
+fn migrate_fix_makes_the_fixture_cpp_handler_a_controller() {
+    let project = tempfile::tempdir().expect("project");
+    copy_tree(
+        &repository_root().join("crates/tachyon-cli/tests/fixtures/migration-fullstack"),
+        project.path(),
+    );
+    let written = run(ty()
+        .arg("migrate")
+        .arg("fix")
+        .arg(project.path())
+        .arg("--write"));
+    let text = stdout(&written);
+    assert!(written.status.success(), "{text}");
+    assert!(
+        text.contains(
+            "moved    server/routes/language/yon.cpp -> server/controllers/LanguageController.hpp"
+        ),
+        "{text}"
+    );
+    assert!(text.contains("uses YonJson"), "{text}");
+    let controller = fs::read_to_string(
+        project
+            .path()
+            .join("server/controllers/LanguageController.hpp"),
+    )
+    .expect("controller");
+    for expected in [
+        "#pragma once\nclass [[RequestRoute(\"/language\")]] [[Public]] LanguageController {",
+        "    [[PutRoute]]\n    YonJson putLanguage(const YonJson& request) {",
+        "    [[PatchRoute]]\n    YonJson patchLanguage(const YonJson& request) {",
+    ] {
+        assert!(controller.contains(expected), "{controller}");
+    }
+}
+
+#[test]
+fn a_migrated_cpp_handler_builds_as_a_controller() {
+    let compiler = Command::new("clang++").arg("--version").output();
+    if !compiler.is_ok_and(|output| output.status.success()) {
+        eprintln!("deferring the migrated C++ controller build: clang++ is unavailable");
+        return;
+    }
+    let project = tempfile::tempdir().expect("project");
+    write(&project.path().join("VERSION"), "26.36.01\n");
+    write(
+        &project.path().join("server/routes/greeting/yon.cpp"),
+        "#include <string>\n\nclass Handler {\npublic:\n    static std::string GET() {\n        return \"hello\";\n    }\n};\n",
+    );
+    let written = run(ty()
+        .arg("migrate")
+        .arg("fix")
+        .arg(project.path())
+        .arg("--write"));
+    let text = stdout(&written);
+    assert!(text.contains("0 manual step(s)"), "{text}");
+    assert!(!project.path().join("server/routes").exists(), "{text}");
+    let built = build(project.path());
+    assert!(
+        built.status.success(),
+        "{}",
+        String::from_utf8_lossy(&built.stderr)
+    );
+}

@@ -10,6 +10,13 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `ty migrate fix --write` rewrites legacy C++ Yon handlers. A
+  `server/routes/**/yon.cpp` file with a `Handler` class moves to
+  `server/controllers/<Route>Controller.hpp` with `#pragma once`,
+  `[[RequestRoute]]`, `[[Public]]` and a route marker on each verb method,
+  which is named after the verb and the route (`putLanguage`). An unused
+  `YonJson` request parameter is removed; a file that still uses `YonJson`
+  moves with a manual step that names the new forms (ADR 0099 amendment).
 - CI checks component style ownership in Chromium, Firefox and WebKit.
   `bun run test:component-scope-browser` bundles the
   `tac-component-scope` fixture and checks that a parent's `tac.css` styles

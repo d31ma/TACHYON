@@ -168,8 +168,8 @@ pub struct MigrationFixPlan {
 pub struct MigrationFix;
 
 impl MigrationFix {
-    const LANGUAGES: [&str; 12] = [
-        "js", "ts", "py", "php", "java", "kt", "cs", "rs", "swift", "dart", "go", "rb",
+    const LANGUAGES: [&str; 13] = [
+        "js", "ts", "py", "php", "java", "kt", "cs", "rs", "swift", "dart", "go", "rb", "cpp",
     ];
     const SOURCE_FOLDERS: [&str; 2] = ["client", "server"];
 

@@ -14,12 +14,13 @@ pub(super) struct Marker;
 
 impl Marker {
     const NAMESPACES: [&'static str; 2] = ["yon::", "tac::"];
-    const PREFIXES: [(&'static str, &'static str); 5] = [
+    const PREFIXES: [(&'static str, &'static str); 6] = [
         ("rs", "#["),
         ("php", "#["),
         ("rb", "#["),
         ("go", "// @"),
         ("cs", "["),
+        ("cpp", "[["),
     ];
     const UNBRACKETED_PREFIXES: [&'static str; 2] = ["@", "// @"];
 
@@ -54,8 +55,12 @@ impl Marker {
         match Self::prefix(extension) {
             "@" => format!("@{written}{arguments}"),
             "// @" => format!("// @{written}{arguments}"),
-            prefix => format!("{prefix}{written}{arguments}]"),
+            prefix => format!("{prefix}{written}{arguments}{}", Self::closing(prefix)),
         }
+    }
+
+    fn closing(prefix: &str) -> String {
+        "]".repeat(prefix.matches('[').count())
     }
 
     pub(super) fn normalized(name: &str) -> String {
@@ -133,8 +138,9 @@ impl Marker {
         if Self::UNBRACKETED_PREFIXES.contains(&prefix) {
             return Some(after_arguments);
         }
-        let closed = text.bytes.get(after_arguments) == Some(&b']');
-        closed.then_some(after_arguments + 1)
+        let closing = Self::closing(prefix);
+        let closed = text.source[after_arguments..].starts_with(&closing);
+        closed.then_some(after_arguments + closing.len())
     }
 
     pub(super) fn next_declaration(

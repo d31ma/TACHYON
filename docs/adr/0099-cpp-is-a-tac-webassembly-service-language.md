@@ -968,6 +968,35 @@ C++ Yon code now answers with streams and WebSockets. The rule table lists
   `SocketMethods`, and `CppYonSocketCalls` writes the generated socket
   dispatcher.
 
+## Amendment (2026-10-18): `ty migrate` rewrites legacy C++ handlers
+
+`ty migrate fix --write` now turns a legacy `server/routes/**/yon.cpp`
+handler into a controller, as it does for the other languages (ADR 0048).
+
+- The file moves to `server/controllers/<Route>Controller.hpp`, the same
+  name as in the other languages with the `.hpp` extension, and gains
+  `#pragma once` when it has none.
+- `class Handler` (or `struct Handler`) becomes
+  `class [[RequestRoute("/route")]] [[Public]] <Route>Controller`, and other
+  uses of `Handler` take the new name.
+- Each `static` verb method loses `static`, gains `[[GetRoute]]`,
+  `[[PostRoute]]` and so on, and is named after the verb and the route, for
+  example `putLanguage`. A plain verb name would not work: `delete` is a C++
+  keyword.
+- An unused `const YonJson& request` parameter is removed. `YonJson` was the
+  JSON type of the old C++ runner and Tachyon no longer has it, so a file
+  that still uses it, or includes `"YonJson.hpp"`, moves with a manual step
+  that names the new forms: a `[[FromBody]]` model or
+  `tachyon::json::JsonNode` parameter, or
+  `const tachyon::http::HttpRequestMessage& request`, and a model or
+  `tachyon::json::JsonNode` result.
+- `HEAD` and `OPTIONS` methods, a method that shares its line, and a file
+  with no `Handler` class stay manual steps with their reason, as in the
+  other languages. Other `.cpp` files in `server/routes` stay manual too.
+
+`crates/tachyon-cli/tests/it/phase6_cli.rs` runs the fix on the migration
+fixture's `yon.cpp` and builds a migrated handler with `clang++`.
+
 ## Pending
 
 All planned Yon C++ steps have landed, and the rule table lists `hpp` for
@@ -982,7 +1011,6 @@ each of their markers. These stay out of the plan for now:
 - The curated web APIs (Clock, Preferences, ...) for C++ `[[Needs]]` fields.
 - Lifetime `"application"` stays refused: a C++ service runs in the page and
   has no native host.
-- `ty migrate` rewriting the legacy C++ Yon handlers.
 
 ## Consequences
 

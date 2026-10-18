@@ -38,6 +38,7 @@ impl RouteMigration {
     const LANGUAGES: [&'static str; 10] = [
         "js", "ts", "py", "php", "java", "kt", "cs", "rs", "dart", "go",
     ];
+    const HEADER_ROUTES: [(&'static str, &'static str); 1] = [("cpp", "hpp")];
 
     pub(super) fn plan(root: &Path) -> Result<Self, Failure> {
         let mut migration = Self::default();
@@ -83,7 +84,7 @@ impl RouteMigration {
         let name = rest.and_then(|rest| rest.rsplit('/').next()).unwrap_or("");
         let is_route_file = name
             .strip_prefix("yon.")
-            .is_some_and(|extension| Self::LANGUAGES.contains(&extension));
+            .is_some_and(|extension| Self::controller_extension(extension).is_some());
         [normal, in_routes, is_route_file] == [true; 3]
     }
 
@@ -144,14 +145,21 @@ impl RouteMigration {
     }
 
     fn route_target(segments: &[&str], name: &str) -> Option<String> {
-        let extension = name.strip_prefix("yon.")?;
-        Self::LANGUAGES.contains(&extension).then_some(())?;
+        let extension = Self::controller_extension(name.strip_prefix("yon.")?)?;
         Self::template(segments)?;
         Some(format!(
             "{}/{}Controller.{extension}",
             Self::TARGET,
             Self::class_stem(segments)
         ))
+    }
+
+    fn controller_extension(extension: &str) -> Option<&str> {
+        let header = Self::HEADER_ROUTES
+            .iter()
+            .find(|(source, _)| *source == extension)
+            .map(|(_, header)| *header);
+        header.or_else(|| Self::LANGUAGES.contains(&extension).then_some(extension))
     }
 
     fn walk(
@@ -415,7 +423,8 @@ impl RouteFile {
     const RELATIVE_PATHS: [&'static str; 5] = ["../", "./", "__file__", "__dirname", "import.meta"];
     const TYPE_WORDS: [&'static str; 4] = ["class", "object", "type", "struct"];
     const SCRIPTS: [&'static str; 2] = ["js", "ts"];
-    const CAPITALIZED_METHODS: [&'static str; 2] = ["cs", "go"];
+    const CONTROLLER: &'static str = "Controller";
+    const HEADER_GUARD: &'static str = "#pragma once";
     const MEMBER_MARKS: &'static [u8] = b".:>=(,";
     const SPACES: &'static [u8] = b" \t";
 
@@ -438,12 +447,22 @@ impl RouteFile {
             "It has no GET, POST, PUT, PATCH or DELETE method.",
         )?;
         self.add_methods(&text, extension, methods, &mut result)?;
+        result.edits.extend(Self::header_guard(source, extension));
         result.steps.extend(self.relative_path_step(&text, source));
         result.notes.push(format!(
             "Made the route {} a controller in {} (ADR 0048).",
             self.template, self.to
         ));
         Ok(result)
+    }
+
+    fn header_guard(source: &str, extension: &str) -> Option<TextEdit> {
+        let header = RouteMigration::HEADER_ROUTES
+            .iter()
+            .any(|(written, _)| *written == extension);
+        let guarded = source.contains(Self::HEADER_GUARD);
+        ([header, guarded] == [true, false])
+            .then(|| TextEdit::insert(0, &format!("{}\n", Self::HEADER_GUARD)))
     }
 
     fn refuse(&self, found: bool, problem: &str) -> Result<(), ManualStep> {
@@ -578,15 +597,32 @@ impl RouteFile {
             .iter()
             .map(|at| TextEdit::replace(*at, at + Self::HANDLER.len(), class));
         edits.extend(renamed);
-        let line_start = text.line_start(declaration);
-        let indentation = Marker::indentation(text, line_start);
         let route = Marker::spelled(extension, "RequestRoute", &Marker::quoted(&self.template));
         let access = Marker::spelled(extension, "Public", "");
-        edits.push(TextEdit::insert(
-            line_start,
-            &format!("{indentation}{route}\n{indentation}{access}\n"),
+        edits.push(Self::class_markers(
+            text,
+            extension,
+            declaration,
+            [&route, &access],
         ));
         Ok(())
+    }
+
+    fn class_markers(
+        text: &SourceText<'_>,
+        extension: &str,
+        declaration: usize,
+        [route, access]: [&str; 2],
+    ) -> TextEdit {
+        if Marker::prefix(extension) == "[[" {
+            return TextEdit::insert(declaration, &format!("{route} {access} "));
+        }
+        let line_start = text.line_start(declaration);
+        let indentation = Marker::indentation(text, line_start);
+        TextEdit::insert(
+            line_start,
+            &format!("{indentation}{route}\n{indentation}{access}\n"),
+        )
     }
 
     fn kotlin_object_edit(
@@ -668,7 +704,7 @@ impl RouteFile {
         (!shares_line).then_some(()).ok_or_else(|| {
             self.manual(format!("The {verb} method does not start its own line."))
         })?;
-        let name = Self::method_name(extension, verb);
+        let name = self.method_name(extension, verb);
         edits.push(TextEdit::replace(at, at + verb.len(), &name));
         edits.extend(Self::php_request_edit(text, extension, at + verb.len()));
         let handler_edits = self
@@ -689,12 +725,18 @@ impl RouteFile {
         Ok(())
     }
 
-    fn method_name(extension: &str, verb: &str) -> String {
+    fn method_name(&self, extension: &str, verb: &str) -> String {
         let lower = verb.to_ascii_lowercase();
-        if Self::CAPITALIZED_METHODS.contains(&extension) {
-            return format!("{}{}", &verb[..1], &lower[1..]);
+        match extension {
+            "cs" | "go" => format!("{}{}", &verb[..1], &lower[1..]),
+            "cpp" => format!("{lower}{}", self.route_stem()),
+            _ => lower,
         }
-        lower
+    }
+
+    fn route_stem(&self) -> &str {
+        let class = self.handler.as_deref().unwrap_or_default();
+        class.strip_suffix(Self::CONTROLLER).unwrap_or(class)
     }
 
     fn php_request_edit(

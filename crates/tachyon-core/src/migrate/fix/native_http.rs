@@ -18,20 +18,35 @@ pub(super) struct NativeHttpPlan {
 pub(super) struct NativeHttpFix<'t, 'a> {
     text: &'t SourceText<'a>,
     extension: &'t str,
+    request: &'static str,
 }
 
 impl<'t, 'a> NativeHttpFix<'t, 'a> {
     const REQUEST: &'static str = "YonRequest";
+    const JSON: &'static str = "YonJson";
     const ANSWERS: [&'static str; 3] = ["YonResponse", "YonJSON", "YonEmpty"];
-    const LANGUAGES: [&'static str; 7] = ["php", "java", "kt", "cs", "rs", "dart", "go"];
+    const LANGUAGES: [&'static str; 8] = ["php", "java", "kt", "cs", "rs", "dart", "go", "cpp"];
     const MODIFIERS: [&'static str; 4] = ["final", "mut", "var", "const"];
+    const OWN_JSON: [(&'static str, &'static str, &'static str); 1] = [(
+        "cpp",
+        "The file still uses YonJson, the JSON type of the old C++ runner, which Tachyon removed (ADR 0099).",
+        "Read the body with a [[FromBody]] parameter of a model struct or tachyon::json::JsonNode, or take `const tachyon::http::HttpRequestMessage& request`. Return a model struct or tachyon::json::JsonNode.",
+    )];
 
     pub(super) fn plan(
         extension: &'t str,
         text: &'t SourceText<'a>,
         only_notes: bool,
     ) -> NativeHttpPlan {
-        let fix = Self { text, extension };
+        let request = Self::OWN_JSON
+            .iter()
+            .find(|(written, _, _)| *written == extension)
+            .map_or(Self::REQUEST, |_| Self::JSON);
+        let fix = Self {
+            text,
+            extension,
+            request,
+        };
         fix.supported_plan(only_notes)
     }
 
@@ -55,10 +70,15 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
             .iter()
             .map(|parameter| self.removal_note(parameter))
             .collect();
+        let headers = self
+            .text
+            .source
+            .contains(&format!("\"{}.hpp\"", self.request));
         let still_used = [
             self.answers_used(),
             !kept.is_empty(),
             self.other_requests(&parameters),
+            headers,
         ];
         let manual = still_used.contains(&true).then(|| self.manual_step());
         NativeHttpPlan {
@@ -79,7 +99,8 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
 
     fn removal_note(&self, parameter: &RequestParameter) -> String {
         format!(
-            "Removed the unused YonRequest parameter '{}' on line {}: the method does not read the request.",
+            "Removed the unused {} parameter '{}' on line {}: the method does not read the request.",
+            self.request,
             parameter.name,
             self.text.line_number(parameter.name_at)
         )
@@ -93,7 +114,7 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
 
     fn other_requests(&self, parameters: &[RequestParameter]) -> bool {
         self.text
-            .code_words(Self::REQUEST)
+            .code_words(self.request)
             .iter()
             .any(|at| !parameters.iter().any(|parameter| parameter.contains(*at)))
     }
@@ -103,6 +124,16 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
     }
 
     pub(super) fn manual_step_for(extension: &str) -> (String, String) {
+        let own = Self::OWN_JSON
+            .iter()
+            .find(|(written, _, _)| *written == extension);
+        own.map_or_else(
+            || Self::removed_types_step(extension),
+            |(_, problem, action)| (String::from(*problem), String::from(*action)),
+        )
+    }
+
+    fn removed_types_step(extension: &str) -> (String, String) {
         let problem = String::from(
             "The file still uses YonRequest or YonResponse, which Tachyon removed (ADR 0062).",
         );
@@ -116,7 +147,7 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
 
     fn parameters(&self) -> Vec<RequestParameter> {
         self.text
-            .code_words(Self::REQUEST)
+            .code_words(self.request)
             .into_iter()
             .filter_map(|at| self.parameter_at(at))
             .collect()
@@ -175,12 +206,12 @@ impl<'t, 'a> NativeHttpFix<'t, 'a> {
         let found = (start..end)
             .filter(|at| self.text.starts_word(*at))
             .map(|at| (at, &source[at..self.text.word_end(at)]))
-            .find(|(_, word)| Self::is_parameter_name(word));
+            .find(|(_, word)| self.is_parameter_name(word));
         found.map(|(at, word)| (at, String::from(word)))
     }
 
-    fn is_parameter_name(word: &str) -> bool {
-        [word == Self::REQUEST, Self::MODIFIERS.contains(&word)] == [false, false]
+    fn is_parameter_name(&self, word: &str) -> bool {
+        [word == self.request, Self::MODIFIERS.contains(&word)] == [false, false]
     }
 
     fn is_read(&self, parameter: &RequestParameter, parameters: &[RequestParameter]) -> bool {
