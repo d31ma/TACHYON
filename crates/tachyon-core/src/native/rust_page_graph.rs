@@ -9,6 +9,7 @@ pub(super) struct RustPageGraph {
     arcs: BTreeSet<String>,
     initializers: BTreeMap<String, String>,
     imports: super::rust_imports::RustImports,
+    service_scopes: super::rust_service_scopes::RustServiceScopes,
     utilities: BTreeSet<String>,
 }
 
@@ -41,6 +42,7 @@ impl RustPageGraph {
             arcs: BTreeSet::new(),
             initializers: BTreeMap::new(),
             imports: super::rust_imports::RustImports::default(),
+            service_scopes: super::rust_service_scopes::RustServiceScopes::default(),
             utilities: BTreeSet::new(),
         };
         for (path, source) in units {
@@ -152,10 +154,18 @@ impl RustPageGraph {
     }
 
     fn unit_imports(&mut self, path: &std::path::Path, source: &str) -> Result<String, Failure> {
-        match Self::utility_name(path, source) {
-            Some(name) => super::rust_imports::RustImports::scoped(path, source, &name),
-            None => self.imports.take(path, source),
+        match (Self::utility_name(path, source), self.service_name(path)) {
+            (Some(name), _) => super::rust_imports::RustImports::scoped(path, source, &name),
+            (None, Some(name)) => self.service_scopes.mark(path, source, &name),
+            (None, None) => self.imports.take(path, source),
         }
+    }
+
+    fn service_name(&self, path: &std::path::Path) -> Option<String> {
+        self.services
+            .values()
+            .find(|service| service.path == path)
+            .map(|service| service.name.clone())
     }
 
     fn utility_name(path: &std::path::Path, source: &str) -> Option<String> {
@@ -232,15 +242,16 @@ impl RustPageGraph {
         let definitions = self
             .initializers
             .keys()
-            .map(|name| self.definition(&self.services[name]))
-            .collect::<Result<Vec<_>, _>>()?
-            .join("\n");
+            .map(|name| Ok((name.clone(), self.definition(&self.services[name])?)))
+            .collect::<Result<Vec<_>, Failure>>()?;
         let tables = inputs
             .iter()
             .filter(|input| !input.application_provider)
-            .map(|input| self.table(input))
-            .collect::<Result<Vec<_>, _>>()?
-            .join("\n");
+            .map(|input| Ok((input.class.clone(), self.table(input)?)))
+            .collect::<Result<Vec<_>, Failure>>()?;
+        let services = self
+            .service_scopes
+            .wrap(&self.source, &[definitions, tables].concat())?;
         let mut imports = BTreeSet::new();
         let models = super::registry::models_source(
             crate::project::NativeCompanion::Rust,
@@ -255,11 +266,9 @@ impl RustPageGraph {
             &models,
             &self.utilities,
         )?;
-        let definitions = paths.source(&definitions)?;
-        let tables = paths.source(&tables)?;
         let models = paths.source(&models)?;
         Ok(format!(
-            "#[allow(non_snake_case)]\n{}{}\n{}\n{definitions}\n{tables}\n{models}\n{application}\n}}\n{dispatch}",
+            "#[allow(non_snake_case)]\n{}{}\n{}\n{models}\n{application}\n}}\n{dispatch}",
             Self::MODULE_START,
             self.imports
                 .source()
@@ -267,7 +276,7 @@ impl RustPageGraph {
                 .filter_map(|line| paths.import(line))
                 .collect::<Vec<_>>()
                 .join("\n"),
-            paths.source(&self.source)?
+            paths.source(&services)?
         ))
     }
 
@@ -280,7 +289,7 @@ impl RustPageGraph {
         let start = service.lifecycle(arc, false)?;
         let stop = service.lifecycle(arc, true)?;
         Ok(format!(
-            "fn tac_definition_{name}() -> NativeServiceDefinition<{storage}> {{ NativeServiceDefinition {{ name: {name:?}, prototype: {}, application: {}, create: |scope| Ok({value}), start: |value| {start}, stop: |value| {stop} }} }}\n",
+            "pub(super) fn tac_definition_{name}() -> NativeServiceDefinition<{storage}> {{ NativeServiceDefinition {{ name: {name:?}, prototype: {}, application: {}, create: |scope| Ok({value}), start: |value| {start}, stop: |value| {stop} }} }}\n",
             service.prototype, service.application
         ))
     }

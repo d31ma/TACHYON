@@ -156,6 +156,7 @@ mod rust_local_paths;
 mod rust_native_libraries;
 mod rust_page_graph;
 mod rust_service_plan;
+mod rust_service_scopes;
 mod rust_web_module;
 mod service_companions;
 mod site;

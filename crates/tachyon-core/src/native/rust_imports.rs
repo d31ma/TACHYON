@@ -16,13 +16,36 @@ impl RustImports {
     pub(super) fn scoped(path: &Path, source: &str, name: &str) -> Result<String, Failure> {
         let mut imports = Self::default();
         let body = imports.take(path, source)?;
-        let (body, public) =
-            crate::annotation_layout::UtilityLayout::native_rust_exports(path, &body)?;
+        let (body, public) = crate::annotation_layout::RustModuleExports::source(path, &body)?;
         let export = Self::visibility(public);
+        let module = format!("__TachyonUtility_{name}");
         Ok(format!(
-            "mod __TachyonUtility_{name} {{\nuse super::*;\n{}\n{body}\n}}\n{export}use self::__TachyonUtility_{name}::{name};\n",
-            imports.source()
+            "{}{export}use self::{module}::{name};\n",
+            Self::module(&module, &imports, &body)
         ))
+    }
+
+    pub(super) fn service_module(
+        &self,
+        path: &Path,
+        body: &str,
+        generated: &str,
+        name: &str,
+    ) -> Result<String, Failure> {
+        let (body, _) = crate::annotation_layout::RustModuleExports::source(path, body)?;
+        let body = format!("{body}\n{generated}");
+        let module = format!("__TachyonService_{name}");
+        Ok(format!(
+            "{}pub(super) use self::{module}::*;\n",
+            Self::module(&module, self, &body)
+        ))
+    }
+
+    fn module(module: &str, imports: &Self, body: &str) -> String {
+        format!(
+            "mod {module} {{\nuse super::*;\n{}\n{body}\n}}\n",
+            imports.source()
+        )
     }
 
     fn visibility(public: bool) -> &'static str {

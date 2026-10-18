@@ -77,3 +77,45 @@ fn main() {
 "#;
     super::super::native_page_graph_tests::NativePageGraphCheck::execute(&source, caller).await;
 }
+
+#[test]
+fn rust_service_modules_open_members_to_the_page_scope_and_keep_authored_visibility() {
+    let path = Path::new("client/services/CounterService.rs");
+    let source = r"
+use std::cmp::Ordering;
+struct CounterService {
+    count: i64,
+    pub(crate) limit: std::sync::Arc<i64>,
+}
+impl CounterService {
+    const START: i64 = 0;
+    fn compare(&self) -> Ordering { self.count.cmp(&Self::START) }
+    pub(crate) fn limit(&self) -> i64 { *self.limit }
+}
+impl Default for CounterService { fn default() -> Self { Self { count: 0, limit: std::sync::Arc::new(1) } } }
+";
+    let mut imports = RustImports::default();
+    let body = imports.take(path, source).expect("service imports");
+    let scoped = imports
+        .service_module(
+            path,
+            &body,
+            "fn tac_definition_CounterService() {}",
+            "CounterService",
+        )
+        .expect("service module");
+    assert!(
+        scoped.contains(
+            "mod __TachyonService_CounterService {\nuse super::*;\nuse std::cmp::Ordering;"
+        )
+    );
+    assert!(scoped.contains("pub(super) struct CounterService"));
+    assert!(scoped.contains("pub(super) count: i64"));
+    assert!(scoped.contains("pub(crate) limit: std::sync::Arc<i64>"));
+    assert!(scoped.contains("pub(super) const START"));
+    assert!(scoped.contains("pub(super) fn compare"));
+    assert!(scoped.contains("pub(crate) fn limit"));
+    assert!(scoped.contains("impl Default for CounterService { fn default() -> Self"));
+    assert!(scoped.contains("fn tac_definition_CounterService() {}\n}"));
+    assert!(scoped.contains("pub(super) use self::__TachyonService_CounterService::*;"));
+}

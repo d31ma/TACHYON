@@ -35,6 +35,7 @@ pub(crate) use single_class::design_check::{
 };
 pub(crate) use single_class::duplication::DuplicationCheck;
 pub(crate) use single_class::rule_switch::RuleSwitch;
+pub(crate) use single_class::rust_module_exports::RustModuleExports;
 pub(crate) use single_class::simpler_forms::SimplerForm;
 pub use single_class::simpler_forms::SimplerForms;
 pub(crate) use single_class::utility_layout::UtilityLayout;

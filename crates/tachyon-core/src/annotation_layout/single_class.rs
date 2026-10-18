@@ -9,7 +9,7 @@ mod shared_class;
 pub(super) use shared_class::SharedClass;
 mod ruby;
 pub(super) mod rule_switch;
-mod rust_utility_exports;
+pub(super) mod rust_module_exports;
 mod schema_markers;
 pub(super) mod simpler_forms;
 pub(crate) use schema_markers::SchemaMarkers;

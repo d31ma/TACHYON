@@ -63,7 +63,7 @@ impl RustGraph {
             .strip_suffix("]\n}\n")
             .ok_or_else(|| unnamed_service(path, Some(&name), "struct"))?;
         Ok(format!(
-            "pub(super) fn tac_members_{name}(scope: &NativeServiceScope) -> ::core::result::Result<Vec<(&'static str, TacMember)>, String> {{\nlet instance = {instance};\nOk(vec![{members}])\n}}\n"
+            "pub(crate) fn tac_members_{name}(scope: &NativeServiceScope) -> ::core::result::Result<Vec<(&'static str, TacMember)>, String> {{\nlet instance = {instance};\nOk(vec![{members}])\n}}\n"
         ))
     }
 

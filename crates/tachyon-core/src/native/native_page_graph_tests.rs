@@ -646,6 +646,31 @@ impl ComparisonUtils {
 }
 
 #[tokio::test]
+async fn native_rust_page_graph_scopes_imports_to_each_service_file() {
+    let root = tempfile::tempdir().expect("fixture");
+    let provider = "use std::sync::atomic::Ordering;\n".to_owned()
+        + &NativePageGraphCheck::PROVIDER
+            .replace("std::sync::atomic::Ordering::SeqCst", "Ordering::SeqCst");
+    let writer = "use std::cmp::Ordering;\n".to_owned()
+        + &NativePageGraphCheck::WRITER.replace(
+            "fn increment(&self) { self.counter.increment(); }",
+            "fn increment(&self) { if 1_i64.cmp(&2) == Ordering::Less { self.counter.increment(); } }",
+        );
+    let source = NativePageGraphCheck::stage_roots(
+        root.path(),
+        &provider,
+        [&writer, NativePageGraphCheck::READER],
+    )
+    .expect("services with different Ordering imports");
+    let emitted = std::fs::read_to_string(&source).expect("emitted source");
+    assert!(emitted.contains("mod __TachyonService_CounterService"));
+    assert!(emitted.contains("mod __TachyonService_WriterService"));
+    assert!(emitted.contains("use std::cmp::Ordering;"));
+    assert!(emitted.contains("use std::sync::atomic::Ordering;"));
+    NativePageGraphCheck::execute(&source, NativePageGraphCheck::CALLER).await;
+}
+
+#[tokio::test]
 async fn native_rust_service_reaches_a_nested_shared_utility_through_the_crate_utils_path() {
     let root = tempfile::tempdir().expect("fixture");
     let utilities = root.path().join("client/shared/utils/nested");
@@ -678,6 +703,16 @@ fn native_rust_page_graph_rejects_duplicate_imports_inside_one_utility() {
     std::fs::write(utilities.join("ComparisonUtils.rs"), "use std::cmp::Ordering;\nuse std::sync::atomic::Ordering;\nstruct ComparisonUtils;\nimpl ComparisonUtils { fn equal() -> bool { true } }\n")
         .expect("invalid imports");
     let error = NativePageGraphCheck::stage(root.path(), NativePageGraphCheck::PROVIDER)
+        .expect_err("same-file conflicting imports remain invalid");
+    assert!(error.to_string().contains("TY1406"), "{error}");
+}
+
+#[test]
+fn native_rust_page_graph_rejects_duplicate_imports_inside_one_service() {
+    let root = tempfile::tempdir().expect("fixture");
+    let provider = "use std::cmp::Ordering;\nuse std::sync::atomic::Ordering;\n".to_owned()
+        + NativePageGraphCheck::PROVIDER;
+    let error = NativePageGraphCheck::stage(root.path(), &provider)
         .expect_err("same-file conflicting imports remain invalid");
     assert!(error.to_string().contains("TY1406"), "{error}");
 }
