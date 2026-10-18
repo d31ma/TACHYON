@@ -26,6 +26,10 @@ impl DesktopHostSource {
             ("__BUNDLE_ID__", bundle_id.as_str()),
             ("__ENTRY_ROUTE__", entry_route.as_str()),
             ("__NATIVE_MENU_ITEMS__", menu_items.as_str()),
+            (
+                "__EXTERNAL_LINK_HELPER__",
+                super::native_external_link::NativeExternalLink::C_HELPER,
+            ),
         ];
         values.extend_from_slice(platform_values);
         super::placeholder_fill::PlaceholderFill::once(&framed, &values)

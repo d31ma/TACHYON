@@ -645,10 +645,6 @@ pub(super) fn c_source(
         index,
         &[
             ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
-            (
-                "__EXTERNAL_LINK_HELPER__",
-                super::native_external_link::NativeExternalLink::C_HELPER,
-            ),
             ("__SERVICE_COMPANIONS__", &service_companions),
         ],
     )

@@ -177,10 +177,6 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
         index,
         &[
             ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
-            (
-                "__EXTERNAL_LINK_HELPER__",
-                super::native_external_link::NativeExternalLink::C_HELPER,
-            ),
             ("__GTK_APP_ID__", &gtk_app_id),
         ],
     )
