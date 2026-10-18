@@ -59,6 +59,8 @@ mod java_stream_unit_tests;
 #[cfg(test)]
 mod java_test_settings_tests;
 #[cfg(test)]
+mod java_unit_marker_tests;
+#[cfg(test)]
 mod module_url_tests;
 #[cfg(test)]
 mod ruby_http_construct_tests;
@@ -70,6 +72,8 @@ mod java_publisher_tests;
 
 #[cfg(test)]
 mod kotlin_construct_tests;
+#[cfg(test)]
+mod kotlin_test_settings_tests;
 
 #[cfg(test)]
 mod kotlin_helper_unit_tests;

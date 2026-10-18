@@ -841,6 +841,14 @@ machine contracts have their own, independent major versions.
   converter is now built as a curried member. Before, Tachyon built it with
   one tupled parameter list, so calling it as declared failed to compile.
 
+- A Kotlin test unit with `@TestSettings`, in Tac or Yon, now opens its
+  context. The test runner passed each setting with its dotted path and its
+  JSON spelling (`"tac.catalog.size"` with `"5"` in quotes), which the
+  Kotlin behavior runtime refused, so every case failed with
+  `configuration`. It now passes `TAC_CATALOG_SIZE` with the plain value
+  `5`, the form that `@Settings` and `@WhenSetting` read. Java test units
+  with `@ValueSource`, `@UseProfiles`, `@TestSettings`, `@FreshStart`,
+  `@Fake` and `@TestSetup` now have JVM tests that run in CI.
 - A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
   `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
   for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`

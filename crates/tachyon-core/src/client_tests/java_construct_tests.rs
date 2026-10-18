@@ -2,11 +2,10 @@
 
 use std::path::Path;
 
-#[test]
-#[ignore = "requires the installed JDK; runs through the supervised native Test runner"]
-fn native_java_tests_construct_with_typed_fakes_and_preserve_private_fields() {
-    let root = tempfile::tempdir().expect("test project");
-    let files = [
+struct JavaConstructProject;
+
+impl JavaConstructProject {
+    const FILES: [(&'static str, &'static str); 5] = [
         (
             "client/services/NumberService.java",
             "@Service\nclass NumberService {\n    @Needs\n    private final long count;\n    long answer() { return count; }\n}\n",
@@ -21,7 +20,7 @@ fn native_java_tests_construct_with_typed_fakes_and_preserve_private_fields() {
         ),
         (
             "client/tests/ChoiceServiceTest.java",
-            r#"@Test(ChoiceTestSetup)
+            r#"@Test(ChoiceTestSetup.class)
 class ChoiceServiceTest {
     @Fake
     java.util.function.Supplier<String> port;
@@ -73,7 +72,7 @@ class ChoiceServiceTest {
         ),
         (
             "client/tests/WrongFakeTest.java",
-            r#"@Test(ChoiceTestSetup)
+            r#"@Test(ChoiceTestSetup.class)
 class WrongFakeTest {
     @Fake
     String port;
@@ -88,11 +87,30 @@ class WrongFakeTest {
 "#,
         ),
     ];
-    for (relative, source) in files {
-        let path = root.path().join(relative);
-        std::fs::create_dir_all(path.parent().expect("fixture parent")).expect("fixture directory");
-        std::fs::write(path, source).expect("fixture source");
+
+    fn write(root: &Path) {
+        for (relative, source) in Self::FILES {
+            let path = root.join(relative);
+            std::fs::create_dir_all(path.parent().expect("fixture parent"))
+                .expect("fixture directory");
+            std::fs::write(path, source).expect("fixture source");
+        }
     }
+}
+
+#[test]
+fn native_java_tests_construct_with_typed_fakes_and_preserve_private_fields() {
+    if std::process::Command::new("javac")
+        .arg("-version")
+        .output()
+        .is_err()
+    {
+        assert!(std::env::var_os("CI").is_none(), "CI must provide javac");
+        eprintln!("skipping: javac is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("test project");
+    JavaConstructProject::write(root.path());
     for (name, cases) in [("ChoiceServiceTest", 5), ("WrongFakeTest", 1)] {
         let relative = format!("client/tests/{name}.java");
         let report =

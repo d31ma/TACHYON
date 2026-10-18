@@ -1138,13 +1138,11 @@ fn profile_list(unit: &Unit) -> String {
 }
 
 fn property_entries(unit: &Unit) -> String {
-    let Some(entries) = unit.properties.as_object() else {
-        return String::new();
-    };
-    let mut pairs = Vec::new();
-    for (key, value) in entries {
-        pairs.push(format!("{} to {}", quote(key), quote(&value.to_string())));
-    }
+    let pairs: Vec<String> = unit
+        .flat_settings()
+        .iter()
+        .map(|(key, text)| format!("{} to {}", quote(key), quote(text)))
+        .collect();
     pairs.join(", ")
 }
 

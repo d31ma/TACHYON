@@ -164,6 +164,22 @@ pub(super) struct Unit {
     pub mocks: Vec<String>,
 }
 
+impl Unit {
+    pub(super) fn flat_settings(&self) -> Vec<(String, String)> {
+        self.properties
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(path, value)| {
+                let text = value
+                    .as_str()
+                    .map_or_else(|| value.to_string(), str::to_owned);
+                (path.replace('.', "_").to_uppercase(), text)
+            })
+            .collect()
+    }
+}
+
 pub(super) fn polyglot_unit(ty: &super::polyglot::Type) -> Option<Unit> {
     let declared = ty.policies.get("test")?.as_object()?;
     let configuration = declared.get("configuration")?.as_str()?.to_owned();
