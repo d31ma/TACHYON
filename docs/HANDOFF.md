@@ -58,7 +58,12 @@ Still open:
 
 ## Previous continuation — 2026-09-26
 
-[Routing recovery](ROUTING_RECOVERY_2026_09_26.md) records the continuation of
+The dated records these sections link to (routing recovery, WebAssembly events,
+single-class files, Gateway review, simplification recovery and the local
+events proposal) were removed on 2026-10-18 because every item in them is done.
+Read them in git history before that date.
+
+The routing recovery record recorded the continuation of
 Claude's interrupted coordinated routing wave. ADR 0048 replaces Yon folder
 routes with RequestRoute controllers and replaces Client/WebCall with
 HTTPClient and request method annotations. The website, editor declarations
@@ -76,7 +81,7 @@ website probes, remaining NEXT phases and platform limits.
 
 ## Previous continuation — 2026-09-25
 
-[WebAssembly events](WASM_EVENTS_2026_09_25.md) records continuation of
+The WebAssembly events record recorded continuation of
 Claude's latest interrupted session after Go support. Rust, C# and Go web
 services now join the page event bus for both incoming and self-published
 events. The evidence record tracks ordering, async delivery, replay, cleanup
@@ -84,7 +89,7 @@ and final verification. The entries below are previous milestones.
 
 ## Previous feature — 2026-09-25
 
-[Authored single-class files](SINGLE_CLASS_LAYOUT_2026_09_25.md) records the
+The authored single-class files record recorded the
 ADR 0044 implementation and its verification status. An empty or
 comment-only route marker is allowed only when a controller for that route
 exists; without one it fails with TY2015. Root middleware is a `Middleware`
@@ -93,7 +98,7 @@ is the completed preceding milestone.
 
 ## Previous continuation — 2026-09-25
 
-See [Gateway review and recovery](GATEWAY_REVIEW_2026_09_25.md) for the prior milestone. The
+The Gateway review and recovery record covered the prior milestone. The
 newer Claude session implemented Gateway, relay hardening and models across
 the service languages. Its independent review was interrupted. This
 continuation repairs confirmed boundary defects and records fresh evidence.
@@ -103,7 +108,7 @@ unimplemented is historical.
 
 ## Latest recovery — 2026-09-24
 
-Read [Simplification recovery](SIMPLIFICATION_RECOVERY.md) first. It records
+The simplification recovery record recorded
 the latest Claude session, repaired interrupted edits, completed R5/R6/X3
 cleanup, fresh verification, and the separate accepted Gateway feature.
 The sections below are historical and may describe superseded APIs.
@@ -461,7 +466,7 @@ the request. Client supplies layout, discovery and injection.
 the style of EventPublisher/EventListener. The user explicitly chose local
 application events only.
 
-- LOCAL_EVENTS_PROPOSAL.md records the contract. No executable event markers
+- The local events proposal recorded the contract. No executable event markers
   exist yet.
 - Keep the existing Yon topic/SSE network subsystem.
 - Implement all language and lifecycle slices before removing the old local
