@@ -7,17 +7,20 @@ import WebKit
     let window: NSWindow
     let assets: NativeUiStyleAssets
     let session: NativeUiStyleSession
+    let recorder: NativeUiStyleRecorder
 
     init(_ installed: NativeUiRuntimeGeneration) {
         let assets = NativeUiStyleAssets(installed)
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
-        configuration.setURLSchemeHandler(NativeUiStyleScheme(assets), forURLScheme: "tachyon-app")
+        let recorder = NativeUiStyleRecorder(assets)
+        configuration.setURLSchemeHandler(recorder, forURLScheme: "tachyon-app")
         let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 500, height: 300), configuration: configuration)
         let window = NSWindow(contentRect: view.frame, styleMask: [.titled, .closable], backing: .buffered, defer: false)
         self.view = view
         self.window = window
         self.assets = assets
+        self.recorder = recorder
         session = NativeUiStyleSession(view, assets)
         window.contentView = view
         window.title = "Tachyon local stylesheet acceptance"
@@ -35,6 +38,14 @@ import WebKit
             let reply = NativeUiStyleReply(continuation)
             reply.deadline()
             view.callAsyncJavaScript(body, arguments: [:], in: nil, in: .page, completionHandler: { reply.resolve($0) })
+        }
+    }
+
+    func requested(_ path: String) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while !recorder.requests.contains(path) {
+            try NativeUiRuntimeFailure.require(Date() < deadline, "WebKit did not request \(path); requests=\(recorder.requests)")
+            try await Task.sleep(nanoseconds: 50_000_000)
         }
     }
 

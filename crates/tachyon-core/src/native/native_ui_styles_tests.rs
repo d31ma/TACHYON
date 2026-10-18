@@ -14,6 +14,12 @@ impl NativeUiStylesFixture {
     const SERVICE: &str = "@Service\nfinal class LiveCounterService {\n    static var starts: Int = 0\n    static var stops: Int = 0\n    var count: Int = 0\n    @OnStart\n    func start() { Self.starts += 1 }\n    @OnStop\n    func stop() { Self.stops += 1 }\n    func increment() -> Int { count += 1; return count }\n    func read() -> Int { count }\n    func identity() -> Int { ObjectIdentifier(self).hashValue }\n    func started() -> Int { Self.starts }\n    func stopped() -> Int { Self.stops }\n}\n";
     pub(super) const DOCUMENT: &str = r#"<!DOCTYPE html><html><head><link rel="stylesheet" href="/styles/theme.css"></head><body><input id="field" value="initial"><button id="click">Click</button><main id="sample">Native live style fixture</main><script>window.marker=Math.random().toString(36);window.events=0;document.querySelector('#click').addEventListener('click',()=>{window.events+=1})</script></body></html>"#;
 
+    const RESOURCE_DOCUMENT: &str = r#"<!DOCTYPE html><html><head><link rel="stylesheet" href="/styles/theme.css"></head><body><main id="sample">Live stylesheet resources</main><div id="escaped" class="w-1/2 md:tall"></div></body></html>"#;
+    const RESOURCE_THEME: &str = "@import url(\"parts/tokens.css\") layer(tokens);\n@import 'parts/shape.css';\n@property --gap { syntax: '<length>'; inherits: false; initial-value: GAP; }\nmain { color: var(--ink, rgb(9, 9, 9)); padding-left: var(--gap); }\nmain::before { content: url(\"../images/dot.svg\"); }\n";
+    const RESOURCE_SHAPE: &str =
+        r".w-1\/2 { display: block; width: 50px; } .md\:tall { height: 20px; }";
+    const RESOURCE_IMAGE: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>"#;
+
     pub(super) fn new() -> Self {
         Self {
             root: tempfile::tempdir().expect("stylesheet fixture"),
@@ -44,6 +50,23 @@ impl NativeUiStylesFixture {
         self.write(&format!("{folder}/index.html"), Self::DOCUMENT.as_bytes());
         self.write(&format!("{folder}/styles/theme.css"), style.as_bytes());
         self.capture_generation(folder, fingerprint)
+    }
+
+    pub(super) fn resource_generation(&self, folder: &str, ink: &str, gap: &str) -> [String; 3] {
+        let files = [
+            ("index.html", Self::RESOURCE_DOCUMENT.to_owned()),
+            ("styles/theme.css", Self::RESOURCE_THEME.replace("GAP", gap)),
+            (
+                "styles/parts/tokens.css",
+                format!(":root {{ --ink: {ink}; }}"),
+            ),
+            ("styles/parts/shape.css", Self::RESOURCE_SHAPE.to_owned()),
+            ("images/dot.svg", Self::RESOURCE_IMAGE.to_owned()),
+        ];
+        for (path, text) in files {
+            self.write(&format!("{folder}/{path}"), text.as_bytes());
+        }
+        self.capture_generation(folder, &"a".repeat(64))
     }
 
     pub(super) fn capture_generation(&self, folder: &str, fingerprint: &str) -> [String; 3] {
@@ -88,6 +111,11 @@ impl NativeUiStylesFixture {
     }
 
     async fn compile(&self) -> PathBuf {
+        self.compile_check(include_str!("live/NativeUiStyleCheck.fixture.swift"))
+            .await
+    }
+
+    async fn compile_check(&self, check: &str) -> PathBuf {
         let mut arguments = vec![
             "swiftc".to_owned(),
             "-parse-as-library".to_owned(),
@@ -115,9 +143,10 @@ impl NativeUiStylesFixture {
                 include_str!("live/NativeUiStyleScene.fixture.swift"),
             ),
             (
-                "StyleCheck.swift",
-                include_str!("live/NativeUiStyleCheck.fixture.swift"),
+                "StyleRecorder.swift",
+                include_str!("live/NativeUiStyleRecorder.fixture.swift"),
             ),
+            ("StyleCheck.swift", check),
             (
                 "AppleJson.swift",
                 super::macos::MacOsHostGenerator::APPLE_JSON_REQUEST,
@@ -183,6 +212,29 @@ async fn native_ui_styles_keeps_real_window_document_native_service_state_and_ro
     let result = NativeUiStylesFixture::execute(&executable, &arguments).await;
     assert!(
         result.contains("native-ui-styles-webkit-passed pid="),
+        "{result}"
+    );
+}
+
+#[tokio::test]
+#[ignore = "Requires an actual AppKit/WKWebView window; run explicitly in the coordinator SDK lane"]
+async fn native_ui_styles_updates_imports_resources_variables_and_escaped_selectors_in_webkit() {
+    let fixture = NativeUiStylesFixture::new();
+    let installed = fixture.resource_generation("installed", "rgb(0, 0, 0)", "3px");
+    let candidate = fixture.resource_generation("candidate", "rgb(0, 0, 255)", "7px");
+    let executable = fixture
+        .compile_check(include_str!(
+            "live/NativeUiStyleResourceCheck.fixture.swift"
+        ))
+        .await;
+    let arguments = installed
+        .iter()
+        .chain(candidate.iter())
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let result = NativeUiStylesFixture::execute(&executable, &arguments).await;
+    assert!(
+        result.contains("native-ui-styles-resources-passed"),
         "{result}"
     );
 }

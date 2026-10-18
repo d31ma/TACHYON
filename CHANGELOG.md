@@ -10,6 +10,18 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Native live stylesheet updates on macOS accept `@import`, `url()`,
+  `var()`, `@property`, `@font-face` and escaped selectors such as
+  `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain
+  relative path that resolves, from its own stylesheet, to an asset in the
+  same captured generation, so a candidate's resources load only from the
+  candidate. An `@import` must be a top-level rule that names a captured
+  stylesheet. Remote, root-relative, `data:`, query, percent-encoded and
+  escaped URLs stay refused, as do `env()`, `attr()`, `image-set()`,
+  `local()`, import cycles and import chains longer than 16. A WebKit test
+  commits and rolls back a candidate whose imported tokens, registered
+  property, image and escaped class names all resolve inside the candidate
+  generation.
 - A Linux test runs the generated GTK host's window controls. A Rust page
   service calls `set_title`, `resize` and `minimize` through the real WebKit
   bridge under Xvfb with a window manager, and the test checks the GTK

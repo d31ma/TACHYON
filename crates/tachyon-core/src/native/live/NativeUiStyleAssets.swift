@@ -103,9 +103,14 @@ import Foundation
     }
 
     private func styles(_ generation: NativeUiRuntimeGeneration) throws {
-        try generation.descriptor.assets.filter { $0.stylesheet() }.forEach { record in
-            try NativeUiCssProfile.validate(generation.asset(record.path) ?? Data())
-        }
         try NativeUiRuntimeFailure.require(!generation.descriptor.assets.contains { $0.path.hasPrefix(".tachyon-native-ui/") }, "Reserved native generation namespace")
+        let imports = try sheets(generation).map { sheet in (sheet.path, try NativeUiCssProfile.validate(generation.asset(sheet.path) ?? Data(), sheet)) }
+        try NativeUiCssImports.validate(Dictionary(uniqueKeysWithValues: imports))
+    }
+
+    private func sheets(_ generation: NativeUiRuntimeGeneration) -> [NativeUiCssSheet] {
+        let assets = Set(generation.descriptor.assets.map { $0.path })
+        let stylesheets = generation.descriptor.assets.filter { $0.stylesheet() }.map { $0.path }
+        return stylesheets.map { NativeUiCssSheet(path: $0, assets: assets, stylesheets: Set(stylesheets)) }
     }
 }

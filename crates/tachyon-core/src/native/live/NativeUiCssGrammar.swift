@@ -1,7 +1,7 @@
 import Foundation
 
 struct NativeUiCssGrammar {
-    private static let rules: Set<String> = ["media", "layer", "supports", "container", "keyframes", "view-transition"]
+    private static let rules: Set<String> = ["media", "layer", "supports", "container", "keyframes", "view-transition", "import", "property", "font-face"]
     private static let functions: Set<String> = [
         "calc", "clamp", "min", "max", "minmax", "repeat",
         "rgb", "rgba", "hsl", "hsla", "color-mix", "linear-gradient", "radial-gradient",
@@ -9,6 +9,7 @@ struct NativeUiCssGrammar {
         "cubic-bezier", "steps", "blur", "brightness", "saturate", "invert", "sepia",
         "rotate", "scale", "scalex", "scaley", "translate", "translatex", "translatey", "skewy",
         "is", "where", "not", "has", "nth-child", "nth-of-type", "lang", "and", "or",
+        "url", "var", "format", "layer", "supports",
     ]
 
     static func validate(_ source: String) throws {

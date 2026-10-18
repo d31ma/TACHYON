@@ -1,11 +1,19 @@
 pub(super) struct NativeUiStylesSources;
 
 impl NativeUiStylesSources {
-    const STYLES: [&str; 14] = [
+    const CSS: [&str; 10] = [
         include_str!("live/NativeUiCssMode.swift"),
         include_str!("live/NativeUiCssMask.swift"),
         include_str!("live/NativeUiCssProfile.swift"),
         include_str!("live/NativeUiCssGrammar.swift"),
+        include_str!("live/NativeUiCssText.swift"),
+        include_str!("live/NativeUiCssSheet.swift"),
+        include_str!("live/NativeUiCssReference.swift"),
+        include_str!("live/NativeUiCssReferences.swift"),
+        include_str!("live/NativeUiCssShapes.swift"),
+        include_str!("live/NativeUiCssImports.swift"),
+    ];
+    const STYLES: [&str; 10] = [
         include_str!("live/NativeUiStyleAddress.swift"),
         include_str!("live/NativeUiStyleAssets.swift"),
         include_str!("live/NativeUiStyleScheme.swift"),
@@ -36,8 +44,9 @@ impl NativeUiStylesSources {
     }
 
     fn styles() -> impl Iterator<Item = (String, &'static str)> {
-        Self::STYLES
+        Self::CSS
             .into_iter()
+            .chain(Self::STYLES)
             .enumerate()
             .map(|(position, source)| (format!("StylePart{position}.swift"), source))
     }

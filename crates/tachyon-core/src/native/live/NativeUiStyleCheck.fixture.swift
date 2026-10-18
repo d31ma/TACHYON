@@ -28,12 +28,20 @@ import WebKit
         }
     }
 
+    private static let controlSheet = NativeUiCssSheet(
+        path: "styles/theme.css",
+        assets: ["index.html", "styles/theme.css", "styles/parts/base.css", "images/dot.svg", "fonts/body.woff2"],
+        stylesheets: ["styles/theme.css", "styles/parts/base.css"]
+    )
+
     private static func css() throws {
-        try NativeUiCssProfile.validate(Data("/* @import url('no') */ main::before { content: '@import url(ignored)'; color: blue; }".utf8))
-        try NativeUiCssProfile.validate(Data("main { content: 'escaped \\\" quote'; margin: 2px; }".utf8))
+        try acceptedCss("/* @import url('no') */ main::before { content: '@import url(ignored)'; color: blue; }")
+        try acceptedCss("main { content: 'escaped \\\" quote'; margin: 2px; }")
         let invalid = ["@import 'remote.css';", "\\75rl('x');", "main { background: url('x'); }", "main { background: image-set('x' 1x); }", "/*/", "main { content: 'first\n@import'; }"]
         try invalid.forEach { try refusedCss($0) }
         try grammar()
+        try resourceGrammar()
+        try importGraph()
         try NativeUiRuntimeFailure.require(!NativeUiStylePhase.invalidating(nil).mayPrepare(), "New preparation was allowed during invalidation")
         print("native-ui-styles-css-profile-passed")
     }
@@ -45,24 +53,78 @@ import WebKit
             "@supports (display: grid) { main { grid-template-columns: repeat(2, minmax(0, 1fr)); background: radial-gradient(red, blue); } }",
             "@container sidebar (width > 10px) { main { transform: translateX(2px); } } @keyframes pulse { from { opacity: .5; } to { opacity: 1; } }",
             "@container telemetry/**/ (min-width: 10px) { main { width: max(10px, 20px); } } @media screen and (min-width: 800px) { main { color: blue; } }",
+            "@property --color { syntax: '<color>'; initial-value: red; inherits: false; } main { background: var(--outside); }",
         ]
-        try sources.forEach { try NativeUiCssProfile.validate(Data($0.utf8)) }
+        try sources.forEach { try acceptedCss($0) }
         let refused = [
-            "@font-face { src: url('unknown.woff'); }", "@namespace url('outside');", "@property --color { syntax: '<color>'; initial-value: red; inherits: false; }",
-            "main { background: URL('outside'); }", "main { background: ur/**/l('outside'); }", "main { background: image-set('outside' 1x); }", "main { background: var(--outside); }",
+            "@font-face { src: url('unknown.woff'); }", "@namespace url('outside');",
+            "main { background: URL('outside'); }", "main { background: ur/**/l('outside'); }", "main { background: image-set('outside' 1x); }",
             "main { background: attr(data-image); }", "main { width: env(unknown); }", "main { width: unknown(1); }", "@/**/media { main { color: red; } }",
             "main { width: calc(1px; }", "main { color: blue; } }", "main { width: " + String(repeating: "(", count: 65) + "1" + String(repeating: ")", count: 65) + "; }",
         ]
         try refused.forEach { try refusedCss($0) }
     }
 
+    private static func resourceGrammar() throws {
+        let sources = [
+            #"@import url("parts/base.css") layer(base) supports(display: grid) screen and (min-width: 10px); @import 'parts/base.css'; @IMPORT URL(./parts/base.css); main { color: red; }"#,
+            #"main { background: url(../images/dot.svg) no-repeat, url( './../images/dot.svg' ); mask: url("../images/dot.svg"); filter: url(#soft-edge); }"#,
+            #"@font-face { font-family: Body; src: url("../fonts/body.woff2") format("woff2"); } main { font-family: Body, serif; }"#,
+            #":root { --ink: rgb(1 2 3); } main { color: var(--ink); margin: var( --gap , calc(1px + var(--edge, 2px)) ); }"#,
+            #"@property --gap { syntax: '<length>'; inherits: false; initial-value: 3px; } @property /**/ --tone /**/ { syntax: '*'; inherits: true; }"#,
+            #".md\:flex, .w-1\/2, .\31 0, .a\(b\), #\@id, .\E9 t\E9 , .a\\b, .\"quoted\" { display: flex; } .hover\:bg-blue:hover { color: blue; }"#,
+            #"main::before { content: "url(../outside)"; } main { --url: 'https://example.com'; }"#,
+        ]
+        try sources.forEach { try acceptedCss($0) }
+        let refused = [
+            #"@import url("https://example.com/x.css");"#, #"@import "/styles/parts/base.css";"#, #"@import "../../escape.css";"#,
+            #"@import "../images/dot.svg";"#, #"@import url(parts/base.css)"#, #"main { @import 'parts/base.css'; }"#, #"@import parts/base.css;"#,
+            #"@import "parts/base.css" { }"#, #"@import url("parts/base.css" x);"#,
+            #"main { background: url(//example.com/a.png); }"#, #"main { background: url(https://example.com/a.png); }"#,
+            #"main { background: url(data:image/png;base64,AA==); }"#, #"main { background: url("../images/dot.svg?v=1"); }"#,
+            #"main { background: url(../images/dot.svg#frag); }"#, #"main { background: url(../images/%64ot.svg); }"#,
+            #"main { background: url(../images/dot.svg x); }"#, #"main { background: url("../images/dot.svg" x); }"#,
+            #"main { background: url(../images\/dot.svg); }"#, #"main { background: url("../images\/dot.svg"); }"#,
+            #"main { background: url(../../../../images/dot.svg); }"#, #"main { background: url(../images//dot.svg); }"#,
+            #"main { background: url(../images/); }"#, #"main { background: url(); }"#, #"main { background: url(""); }"#,
+            #"main { background: url(../images/dot.svg/*x*/); }"#, #"main { background: u\72l(../images/dot.svg); }"#,
+            #"main { background: url(#); }"#, #"main { background: url(#a.b); }"#, #"main { background: url(../IMAGES/dot.svg); }"#,
+            #"main { background: url('../images/dot.svg); }"#, #"main { background: url(../images/dot.svg; }"#, #"#url(https://example.com/a.png) { color: red; }"#,
+            #"main { color: var(outside); }"#, #"main { color: var(); }"#, #"main { color: var(--); }"#, #"main { color: var(--a b); }"#,
+            #"@property color { syntax: '*'; }"#, #"@property --a, --b { syntax: '*'; }"#, #"@font-face rule { src: local(Body); }"#,
+            #"main { color: blue; } .a\"#, "main\\\n{ color: red; }", #"@\69mport 'parts/base.css';"#,
+        ]
+        try refused.forEach { try refusedCss($0) }
+    }
+
+    private static func importGraph() throws {
+        try NativeUiCssImports.validate(["a.css": ["b.css", "c.css"], "b.css": ["c.css"], "c.css": []])
+        let chain = (0..<16).map { "s\($0).css" }
+        try NativeUiCssImports.validate(Dictionary(uniqueKeysWithValues: chain.indices.map { (chain[$0], Array(chain.dropFirst($0 + 1).prefix(1))) }))
+        let graphs: [[String: [String]]] = [
+            ["a.css": ["a.css"]], ["a.css": ["b.css"], "b.css": ["c.css"], "c.css": ["a.css"]],
+            Dictionary(uniqueKeysWithValues: (chain + ["s16.css"]).indices.map { ((chain + ["s16.css"])[$0], Array((chain + ["s16.css"]).dropFirst($0 + 1).prefix(1))) }),
+        ]
+        try graphs.forEach { graph in try NativeUiRuntimeFailure.require(importFailure(graph) != nil, "Unbounded CSS import graph was accepted: \(graph.count)") }
+    }
+
+    private static func importFailure(_ graph: [String: [String]]) -> Error? {
+        do { try NativeUiCssImports.validate(graph); return nil } catch { return error }
+    }
+
+    private static func acceptedCss(_ source: String) throws {
+        do { _ = try NativeUiCssProfile.validate(Data(source.utf8), controlSheet) } catch {
+            throw NativeUiRuntimeFailure(description: "Supported CSS was refused: \(source): \(error)")
+        }
+    }
+
     private static func refusedCss(_ source: String) throws {
         let failure = cssFailure(source)
-        try NativeUiRuntimeFailure.require(failure != nil, "Unsupported CSS was accepted")
+        try NativeUiRuntimeFailure.require(failure != nil, "Unsupported CSS was accepted: \(source)")
     }
 
     private static func cssFailure(_ source: String) -> Error? {
-        do { try NativeUiCssProfile.validate(Data(source.utf8)); return nil } catch { return error }
+        do { _ = try NativeUiCssProfile.validate(Data(source.utf8), controlSheet); return nil } catch { return error }
     }
 
     @MainActor private static func retainedStore(_ arguments: [String]) throws {
