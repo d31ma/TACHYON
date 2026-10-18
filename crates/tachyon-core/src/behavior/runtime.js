@@ -216,7 +216,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
   function methodArguments(args, method) {
     if (!Array.isArray(args) || args.length > 64) invalid('Invalid behavior method arguments.')
     const result = args.slice()
-    if (method.valid) result[method.valid.argument] = validateData(method.valid.schema, result[method.valid.argument])
+    if (method.valid) result[method.valid.argument] = checkData(method.valid.schema, result[method.valid.argument])
     if (method.pageable) {
       const index = method.pageable.argument
       result[index] = normalizePage(result[index] === undefined ? {} : result[index], method.pageable)
@@ -230,24 +230,49 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     })
     return freeze(json(selected, 4096))
   }
+  class CheckRejection extends BehaviorError {
+    constructor(violations, path) {
+      super('validation', 'Behavior validation failed.', path)
+      this.violations = violations.map(({ field, rule }) => ({ field, rule }))
+    }
+  }
   function validationFailure(path) { throw new BehaviorError('validation', 'Behavior validation failed.', path) }
-  function validateData(schema, input) {
+  function checkedObject(input) {
     let value
     try { value = json(input) } catch { validationFailure('$.json') }
     if (!plain(value)) validationFailure('$.object')
-    if (!plain(schema?.fields)) validationFailure('$.schema')
+    return value
+  }
+  function violations(schema, value) {
+    const broken = []
+    const add = (field, key, rule) => broken.push({ field, rule, path: `${field}.${key}` })
     for (const [field, rules] of Object.entries(schema.fields)) {
       const data = own(value, field) ? value[field] : null
-      if (rules.notNull && data === null) validationFailure(`${field}.notNull`)
-      if (rules.notBlank && (typeof data !== 'string' || /^[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$/u.test(data))) validationFailure(`${field}.notBlank`)
+      if (rules.notNull && data === null) add(field, 'notNull', 'Required')
+      if (rules.notBlank && (typeof data !== 'string' || /^[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$/u.test(data))) add(field, 'notBlank', 'NotEmpty')
       if (data === null) continue
       if (rules.size) {
         const size = typeof data === 'string' ? encoder.encode(data).length : Array.isArray(data) ? data.length : plain(data) ? Object.keys(data).length : -1
-        if (size < rules.size.min || size > rules.size.max) validationFailure(`${field}.size`)
+        if (size < rules.size.min || size > rules.size.max) add(field, 'size', 'Length')
       }
-      if (rules.min !== undefined && (typeof data !== 'number' || data < rules.min)) validationFailure(`${field}.min`)
-      if (rules.max !== undefined && (typeof data !== 'number' || data > rules.max)) validationFailure(`${field}.max`)
+      if (rules.min !== undefined && (typeof data !== 'number' || data < rules.min)) add(field, 'min', 'Min')
+      if (rules.max !== undefined && (typeof data !== 'number' || data > rules.max)) add(field, 'max', 'Max')
     }
+    return broken
+  }
+  function validateData(schema, input) {
+    const value = checkedObject(input)
+    if (!plain(schema?.fields)) validationFailure('$.schema')
+    const broken = violations(schema, value)
+    if (broken.length) validationFailure(broken[0].path)
+    return value
+  }
+  function checkData(schema, input) {
+    if (!plain(schema?.fields)) validationFailure('$.schema')
+    let value
+    try { value = checkedObject(input) } catch (error) { throw new CheckRejection([{ field: '', rule: 'Checked' }], error.path) }
+    const broken = violations(schema, value)
+    if (broken.length) throw new CheckRejection(broken, broken[0].path)
     return value
   }
   function cacheKey(partition, record, method, args) {

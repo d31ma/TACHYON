@@ -375,6 +375,38 @@ function failure(requestId, code, message, status = 500) {
   })
 }
 
+class CheckRejection {
+  static status = 422
+  static code = 'TY2205'
+  static message = 'Input breaks a Checked rule.'
+  static maxCauseDepth = 8
+
+  static violations(error) {
+    let cause = error
+    for (let depth = 0; cause && depth < CheckRejection.maxCauseDepth; depth += 1) {
+      if (cause.code === 'validation' && Array.isArray(cause.violations)) return cause.violations
+      cause = cause.cause
+    }
+    return null
+  }
+
+  static answer(requestId, violations) {
+    writeFrame({
+      protocol_version: 1,
+      kind: 'response',
+      request_id: requestId,
+      status: CheckRejection.status,
+      headers: {},
+      error: {
+        code: CheckRejection.code,
+        message: CheckRejection.message,
+        retryable: false,
+        violations: violations.map((entry) => ({ field: String(entry?.field), rule: String(entry?.rule) })),
+      },
+    })
+  }
+}
+
 class YonHttp {
   static bodiless = new Set([101, 204, 205, 304])
 
@@ -731,6 +763,11 @@ async function invoke(request) {
     }
     await writeResult(request, result)
   } catch (error) {
+    const violations = CheckRejection.violations(error)
+    if (violations) {
+      CheckRejection.answer(RunnerState.activeRequest.request_id, violations)
+      return
+    }
     failure(RunnerState.activeRequest.request_id, 'TY2201', publicMessage(error))
   }
 }

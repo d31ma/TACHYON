@@ -1046,4 +1046,38 @@ await test('two service modules that each inline the same Setup share it, and a 
   for (const context of [writer, reader, ownedOne, ownedTwo]) context.dispose()
 })
 
+for (const environment of ['tac', 'yon']) {
+  await test(`${environment}: a Check guard reports every broken rule while validate keeps the first`, async () => {
+    const schema = { fields: {
+      name: { notBlank: true, size: { min: 1, max: 80 } },
+      level: { notNull: true, min: 1, max: 9 },
+    } }
+    class OrderInput {}
+    class OrderService { accept(order) { return order } }
+    const Behaviors = BehaviorRuntimeTest.createBehaviors([
+      { type: OrderInput, name: 'OrderInput', validated: schema, methods: [] },
+      { type: OrderService, name: 'OrderService', methods: [{ name: 'accept', valid: { argument: 0, schema } }] },
+    ], environment, BehaviorRuntimeTest.moduleId)
+    const service = new OrderService()
+    const rejected = (input) => { try { service.accept(input) } catch (error) { return error } assert.fail('accepted') }
+    const broken = rejected({ name: '', level: '3' })
+    assert.equal(broken.name, 'BehaviorError')
+    assert.equal(broken.code, 'validation')
+    assert.equal(broken.path, 'level.min')
+    assert.deepEqual(broken.violations, [
+      { field: 'level', rule: 'Min' },
+      { field: 'level', rule: 'Max' },
+      { field: 'name', rule: 'NotEmpty' },
+      { field: 'name', rule: 'Length' },
+    ])
+    assert.deepEqual(rejected({}).violations, [{ field: 'level', rule: 'Required' }, { field: 'name', rule: 'NotEmpty' }])
+    const notObject = rejected([1])
+    assert.equal(notObject.path, '$.object')
+    assert.deepEqual(notObject.violations, [{ field: '', rule: 'Checked' }])
+    assert.deepEqual(service.accept({ name: 'order', level: 3 }), { name: 'order', level: 3 })
+    assert.throws(() => Behaviors.validate(OrderInput, { name: '', level: '3' }), (error) =>
+      error.code === 'validation' && error.path === 'level.min' && error.violations === undefined)
+  })
+}
+
 process.stdout.write(`Behavior runtime: ${BehaviorRuntimeTest.passed} checks passed.\n`)
