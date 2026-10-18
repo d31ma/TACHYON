@@ -40,6 +40,11 @@ machine contracts have their own, independent major versions.
   reaches; Tachyon writes each mapping (ADR 0099 amendment).
 - C++ Tac checks now collect every broken rule before they throw; the
   `TacValidationError` message still names the first one.
+- Tests now prove the F# Tac outbound HTTP markers: `PostRequest`,
+  `PutRequest`, `PatchRequest`, `DeleteRequest`, `PathVariable`,
+  `RequestParam`, `RequestHeader` and `RequestBody` send the right method,
+  path, query, headers and body, in tupled (`a * b`) and curried (`a -> b`)
+  abstract signatures (ADR 0073 amendment).
 - A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
   `-- @SocketRequest`, written as an empty
   `function TicksClient:receive(tick)` with `---@param tick Tick`. The page's
@@ -766,6 +771,12 @@ machine contracts have their own, independent major versions.
   `bun run test:preview-offline-browser` gate reloads a page offline under
   `ty preview --static` in Chromium, Firefox and WebKit (ADR 0087 and ADR
   0093 amendments).
+
+- An F# abstract member with curried parameters (`abstract Replace: id: int
+  -> product: BehaviorJSON -> Task<BehaviorJSON>`) in a client, store or
+  converter is now built as a curried member. Before, Tachyon built it with
+  one tupled parameter list, so calling it as declared failed to compile.
+
 - A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
   `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
   for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`

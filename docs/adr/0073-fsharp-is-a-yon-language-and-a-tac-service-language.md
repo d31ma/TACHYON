@@ -371,3 +371,28 @@ F# never ignores an annotation.
   assigns a fake. A unit without the profile, or with the wrong setting
   value, is refused by its TestSetup with `inactive-configuration`, and
   the run fails before any case.
+
+## Amendment (2026-10-18): every outbound HTTP marker is proven
+
+- A Tac F# HTTPClient may use every request marker: `GetRequest`,
+  `PostRequest`, `PutRequest`, `PatchRequest` and `DeleteRequest` select the
+  verb and path, and `PathVariable`, `RequestParam`, `RequestHeader` and
+  `RequestBody` select argument values. The F# client goes through the same
+  C# lowering as before.
+- A parameter marker may stand on any parameter of an abstract member,
+  tupled (`id: int * [<RequestBody>] change: BehaviorJSON -> ...`) or curried
+  (`[<PathVariable("id")>] id: int -> [<RequestBody>] product: BehaviorJSON -> ...`).
+  Tachyon writes the concrete member with the same parameter groups the
+  abstract member declares, so a curried member is called curried. Before
+  this amendment every abstract member became a tupled member, and a caller
+  that used the declared curried form failed to compile with an F# type
+  error. This applies to every F# role with abstract members (clients,
+  stores, converters).
+- The test `an_fsharp_http_client_sends_every_verb_and_request_part_through_its_test_adapter`
+  (`crates/tachyon-core/tests/it/tac_fsharp_http.rs`) proves it on host
+  .NET: a service with `[<Needs>]` calls one client member per verb, and a
+  TestSetup adapter answers with the method, path, query, headers and body
+  it received. A GET and a DELETE send no body, and the curried PUT member
+  is called curried. `an_fsharp_page_service_calls_a_curried_and_a_tupled_http_client_member`
+  (`crates/tachyon-core/src/tac_web/fsharp_http_client_tests.rs`) shows the
+  curried and tupled members on the .NET page build, driven in node.

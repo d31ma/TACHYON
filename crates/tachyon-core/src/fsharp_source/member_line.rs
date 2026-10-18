@@ -55,7 +55,7 @@ impl MemberLine {
         let parts = FsharpType::split_top_level(signature, "->");
         let (result, parameters) = parts.split_last()?;
         Some(format!(
-            "{indent}member this.{}({}) : {result} = {body}",
+            "{indent}member this.{}{} : {result} = {body}",
             name.trim(),
             Self::parameters(parameters)
         ))
@@ -81,12 +81,23 @@ impl MemberLine {
     }
 
     fn parameters(parts: &[&str]) -> String {
-        let written: Vec<String> = Self::pieces(parts)
+        let groups: Vec<String> = parts
+            .iter()
+            .scan(0, |first, part| Some(Self::group(part, first)))
+            .collect();
+        groups.join(" ")
+    }
+
+    fn group(part: &str, first: &mut usize) -> String {
+        let pieces = Self::pieces(&[part]);
+        let start = *first;
+        *first += pieces.len();
+        let written: Vec<String> = pieces
             .into_iter()
             .enumerate()
-            .map(|(index, piece)| Self::parameter(piece, index))
+            .map(|(offset, piece)| Self::parameter(piece, start + offset))
             .collect();
-        written.join(", ")
+        format!("({})", written.join(", "))
     }
 
     fn parameter(piece: &str, index: usize) -> String {
@@ -147,6 +158,22 @@ mod tests {
         assert_eq!(
             MemberLine::concrete(line, "body").as_deref(),
             Some("    member this.toSummary(value0: BehaviorJSON) : BehaviorJSON = body")
+        );
+    }
+
+    #[test]
+    fn a_curried_abstract_member_keeps_one_parenthesis_group_per_arrow() {
+        let line = "    abstract Replace: [<PathVariable(\"id\")>] id: int -> [<RequestBody>] product: BehaviorJSON -> Task<BehaviorJSON>";
+        assert_eq!(
+            MemberLine::concrete(line, "body").as_deref(),
+            Some(
+                "    member this.Replace([<PathVariable(\"id\")>] id: int) ([<RequestBody>] product: BehaviorJSON) : Task<BehaviorJSON> = body"
+            )
+        );
+        let line = "    abstract mix: BehaviorJSON -> left: int * right: int -> Task";
+        assert_eq!(
+            MemberLine::concrete(line, "body").as_deref(),
+            Some("    member this.mix(value0: BehaviorJSON) (left: int, right: int) : Task = body")
         );
     }
 }

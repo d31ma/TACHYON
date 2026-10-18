@@ -636,9 +636,9 @@ catalog: CatalogClient`, in Swift `@Needs private let catalog: CatalogClient`
 and in Java `@Needs private final CatalogClient catalog;`, which Tachyon fills
 with `CatalogClient()` or `new CatalogClient()`; in Ruby `#[Needs]` stands
 above `attr_reader :catalog` with a `# @return [CatalogClient]` comment, and
-Tachyon builds it with `CatalogClient.new`). A Tac service in F# builds it:
-`CatalogClient()`. Tac JavaScript and TypeScript clients stay managed by the
-page.
+Tachyon builds it with `CatalogClient.new`). A Tac service in F# gets it with
+`[<Needs>]` above a settable `member val CatalogClient : CatalogClient`
+property. Tac JavaScript and TypeScript clients stay managed by the page.
 
 In the example below, `findByStatus` and `countByStatus` are derived from their
 names and checked against the field allowlist. The client methods are declared
