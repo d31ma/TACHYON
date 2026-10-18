@@ -700,6 +700,16 @@
     "android": {"reach": "honored", "how": "Kotlin services are linked into the app; other languages run in the page"}
   },
   {
+    "member": "build architecture (--arch)",
+    "paths": [],
+    "web": {"reach": "notApplicable", "note": "--arch does not apply to the web build: it holds no native code."},
+    "macos": {"reach": "honored", "how": "--arch x64, arm64 or universal; universal joins an arm64 and an x86_64 build with lipo"},
+    "windows": {"reach": "honored", "how": "--arch x64 or arm64"},
+    "linux": {"reach": "adapted", "note": "--arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture."},
+    "ios": {"reach": "adapted", "note": "--arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture. Device builds wait on PKG2."},
+    "android": {"reach": "adapted", "note": "--arch does not choose Android ABIs: the APK holds no native code yet, so it runs on every ABI. Builds per ABI come with linked Rust on Android (MR2)."}
+  },
+  {
     "member": "release packaging",
     "paths": [],
     "web": {"reach": "honored", "how": "a static site in dist/web"},

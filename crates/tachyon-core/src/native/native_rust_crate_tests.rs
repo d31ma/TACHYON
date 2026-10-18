@@ -80,10 +80,20 @@ impl NativeRustCrateTests {
     }
 
     async fn build(root: &Path, target: NativeTarget, package: bool) -> PathBuf {
+        Self::build_for(root, target, package, super::MacOsArchitecture::default()).await
+    }
+
+    async fn build_for(
+        root: &Path,
+        target: NativeTarget,
+        package: bool,
+        macos_architecture: super::MacOsArchitecture,
+    ) -> PathBuf {
         let options = super::compiler::NativeBuildOptions {
             output_directory: root.join("dist"),
             target,
             package,
+            macos_architecture,
             ..Default::default()
         };
         super::compiler::NativeCompiler::build_async(root, &options)
@@ -296,6 +306,43 @@ async fn the_macos_bundle_places_the_signed_helper_in_contents_macos_and_it_runs
     let bundle = output.join("Greeter.app");
     let helper = bundle.join("Contents/MacOS/probe-helper");
     NativeRustCrateTests::run_helper(&helper, NativeTarget::Macos);
+    let verified = std::process::Command::new("/usr/bin/codesign")
+        .args(["--verify", "--strict"])
+        .arg(&bundle)
+        .status()
+        .expect("codesign runs");
+    assert!(verified.success());
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+#[ignore = "Builds and signs the full universal macOS host (swiftc, lipo, codesign, cargo for both Apple targets); run explicitly on the Mac lane"]
+async fn the_universal_macos_bundle_holds_both_architectures_and_its_helper_runs() {
+    let root = NativeRustCrateTests::project(NativeTarget::Macos);
+    let output = NativeRustCrateTests::build_for(
+        root.path(),
+        NativeTarget::Macos,
+        true,
+        super::MacOsArchitecture::UNIVERSAL,
+    )
+    .await;
+    let bundle = output.join("Greeter.app");
+    for program in ["Greeter", "probe-helper"] {
+        let archs = std::process::Command::new("/usr/bin/lipo")
+            .arg("-archs")
+            .arg(bundle.join("Contents/MacOS").join(program))
+            .output()
+            .expect("lipo runs");
+        let listed = String::from_utf8_lossy(&archs.stdout);
+        assert!(
+            listed.contains("arm64") && listed.contains("x86_64"),
+            "{program}: {listed}"
+        );
+    }
+    NativeRustCrateTests::run_helper(
+        &bundle.join("Contents/MacOS/probe-helper"),
+        NativeTarget::Macos,
+    );
     let verified = std::process::Command::new("/usr/bin/codesign")
         .args(["--verify", "--strict"])
         .arg(&bundle)

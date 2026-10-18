@@ -57,8 +57,12 @@ mod linux_page_call_tests;
 #[cfg(test)]
 mod linux_window_control_tests;
 mod linux_window_controls;
+mod mac_os_architecture;
+mod mac_os_built_slice;
+mod mac_os_executable;
 mod mac_os_menu_action_source;
 mod mac_os_menu_source;
+mod mac_os_slice;
 mod mac_os_title_bar_source;
 mod macos;
 #[cfg(test)]
@@ -218,6 +222,7 @@ pub(crate) use go::{
 };
 pub(crate) use java_web_services::JavaWebServices;
 pub(crate) use kotlin_web_services::KotlinWebServices;
+pub use mac_os_architecture::MacOsArchitecture;
 pub use native_ui_change::NativeUiChange;
 pub use native_ui_contract::NativeUiContract;
 pub use native_ui_generation::NativeUiGeneration;

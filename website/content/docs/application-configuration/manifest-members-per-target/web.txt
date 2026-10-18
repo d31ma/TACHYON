@@ -210,5 +210,8 @@ reaching Yon
 natively linked service languages
   not applicable: A browser runs every service in the page, as JavaScript or WebAssembly.
 
+build architecture (--arch)
+  not applicable: --arch does not apply to the web build: it holds no native code.
+
 release packaging
   honored: a static site in dist/web

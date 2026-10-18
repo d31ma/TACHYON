@@ -6,6 +6,7 @@ mod architecture_choice;
 mod coverage_gate;
 mod init_choices;
 mod init_command;
+mod package_architectures;
 mod package_plan;
 mod resilient_serve;
 mod restart;
@@ -30,7 +31,7 @@ use tachyon_core::{
     DevServerOptions, EnvironmentPolicy, Failure, HandlerCancellation, HandlerRuntimePrograms,
     HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, MigrationAnalysis, MigrationFix,
     NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, RouteInvocation,
-    ServerHost, TargetSupport, WebCompiler, WindowsArchitecture, method_coverage::RecordedCalls,
+    ServerHost, TargetSupport, WebCompiler, method_coverage::RecordedCalls,
     native_target_directory,
 };
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, Severity};
@@ -42,6 +43,7 @@ use architecture_choice::ArchitectureChoice;
 use coverage_gate::CoverageGate;
 use init_choices::InitChoices;
 use init_command::InitCommand;
+use package_architectures::PackageArchitectures;
 use package_plan::PackagePlan;
 use resilient_serve::ResilientServe;
 use shutdown::{LongRunningCommand, ShutdownSignals};
@@ -164,7 +166,7 @@ enum Command {
         )]
         native: bool,
         #[arg(
-            help = "Windows host architecture: x64 or arm64. Defaults to the build machine's architecture",
+            help = "Native app architecture: x64 or arm64 for Windows and macOS, or universal for macOS. Defaults to the build machine's architecture",
             long,
             value_enum
         )]
@@ -237,7 +239,7 @@ enum Command {
         #[arg(help = "Native packaging target", long, visible_alias = "targets", value_enum, value_delimiter = ',', num_args = 1..)]
         target: Vec<BuildTarget>,
         #[arg(
-            help = "Windows host architecture: x64 or arm64. Defaults to the build machine's architecture",
+            help = "Native app architecture: x64 or arm64 for Windows and macOS, or universal for macOS. Defaults to the build machine's architecture",
             long,
             value_enum
         )]
@@ -710,7 +712,8 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
     if *native {
         require_one_native_target(&targets, "bundle --native")?;
     }
-    let windows_architecture = ArchitectureChoice::for_targets(*arch, &targets)?;
+    let architectures = ArchitectureChoice::for_targets(*arch, &targets)?;
+    print_architecture_notes(*arch, &targets)?;
     let output = bundle_output(out_dir.as_deref(), &targets);
     let options = BundleExecution {
         no_incremental: *no_incremental,
@@ -721,9 +724,19 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
             InitialBuild::Run
         },
         package: !*skip_package && !*native,
-        windows_architecture,
+        architectures,
     };
     execute_bundle(project, &output, &targets, options).await
+}
+
+fn print_architecture_notes(
+    choice: Option<ArchitectureChoice>,
+    targets: &[BuildTarget],
+) -> Result<(), Failure> {
+    for note in ArchitectureChoice::notes(choice, targets)? {
+        println!("{note}");
+    }
+    Ok(())
 }
 
 async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure> {
@@ -741,14 +754,15 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
     reject_render_mode(render_mode.as_deref())?;
     let targets = resolve_targets(target, &["TAC_BUNDLE_TARGET", "TAC_TARGET"], None)?;
     let target = require_one_native_target(&targets, "native-bundle")?;
-    let windows_architecture = ArchitectureChoice::for_targets(*arch, &targets)?;
+    let architectures = ArchitectureChoice::for_targets(*arch, &targets)?;
+    print_architecture_notes(*arch, &targets)?;
     let output = out_dir
         .clone()
         .or_else(|| environment_path("TAC_DIST_PATH"))
         .unwrap_or_else(|| PathBuf::from("dist"));
     let plan = PackagePlan {
         package: false,
-        windows_architecture,
+        architectures,
     };
     execute_build_with_package(project, &output, *no_incremental, target, plan).await
 }
@@ -922,7 +936,7 @@ struct BundleExecution {
     watch: bool,
     initial_build: InitialBuild,
     package: bool,
-    windows_architecture: WindowsArchitecture,
+    architectures: PackageArchitectures,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -1196,7 +1210,7 @@ async fn execute_build_targets(
 ) -> Result<(), Failure> {
     let plan = PackagePlan {
         package: options.package,
-        windows_architecture: options.windows_architecture,
+        architectures: options.architectures,
     };
     let multiple = targets.len() > 1;
     for target in targets {
@@ -1573,7 +1587,7 @@ async fn execute_build(
 ) -> Result<(), Failure> {
     let plan = PackagePlan {
         package: true,
-        windows_architecture: WindowsArchitecture::default(),
+        architectures: PackageArchitectures::default(),
     };
     execute_build_with_package(project, out_dir, no_incremental, target, plan).await
 }
@@ -1657,7 +1671,8 @@ async fn execute_native_build(
             output_directory: out_dir.to_path_buf(),
             target: native,
             package: plan.package,
-            windows_architecture: plan.windows_architecture,
+            windows_architecture: plan.architectures.windows,
+            macos_architecture: plan.architectures.macos,
         },
     )
     .await?;

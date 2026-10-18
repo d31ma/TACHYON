@@ -40,6 +40,21 @@ impl TargetSupport {
         Ok(sections.join("\n"))
     }
 
+    /// Returns the note that one built-in capability has on one target.
+    ///
+    /// # Errors
+    ///
+    /// Returns a failure when the built-in support table cannot be read.
+    pub fn capability_note(capability: &str, target: AppTarget) -> Result<Option<String>, Failure> {
+        let table = Self::load()?;
+        let note = table
+            .entries
+            .iter()
+            .find(|entry| entry.member() == capability)
+            .and_then(|entry| entry.reach(target).build_note());
+        Ok(note.map(String::from))
+    }
+
     pub(super) fn native_notes(
         project_root: &Path,
         target: NativeTarget,

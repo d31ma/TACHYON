@@ -1,6 +1,6 @@
 use super::config::NativeApplication;
 use super::host::{
-    GeneratedHost, first_line, native_io, native_tool_failure, quoted_string_escape, run_tool,
+    GeneratedHost, native_io, native_tool_failure, quoted_string_escape, run_tool,
     stage_application, write, write_host_source, xml_escape,
 };
 use super::routes::NativeRouteIndex;
@@ -27,24 +27,13 @@ impl MacOsHostGenerator {
         include_str!("capabilities/NativeCapabilityFailure.swift")
     );
     pub(super) const APPLE_JSON_REQUEST: &str = include_str!("apple_json.swift");
-    const FRAMEWORK_ARGUMENTS: [&str; 8] = [
-        "-framework",
-        "AppKit",
-        "-framework",
-        "SwiftUI",
-        "-framework",
-        "WebKit",
-        "-framework",
-        "JavaScriptCore",
-    ];
-
     pub(super) async fn generate(
         application: &NativeApplication,
         index: &NativeRouteIndex,
         companions: &[super::registry::NativeCompanionInput],
         web_bundle: &Path,
         stage: &Path,
-        package: bool,
+        options: &super::compiler::NativeBuildOptions,
     ) -> Result<GeneratedHost, Failure> {
         let bundle = stage.join(format!("{}.app", application.executable_name));
         let contents = bundle.join("Contents");
@@ -66,20 +55,21 @@ impl MacOsHostGenerator {
             &contents.join("Info.plist"),
             info_plist(application, icon.as_deref()).as_bytes(),
         )?;
-        if !package {
+        if !options.package {
             return Ok(GeneratedHost::not_packaged(PathBuf::from(
                 "project/TachyonHost.swift",
             )));
         }
 
         let executable = executable_path(application, &contents)?;
-        let library = compile_rust_library(application, rust_companion.as_deref(), stage).await?;
-        let swift_version = compile_swift(
-            &swift_path,
-            companion.as_deref(),
-            library.as_ref(),
-            &executable,
-        )
+        let swift_version = super::mac_os_executable::MacOsExecutable {
+            application,
+            stage,
+            source: &swift_path,
+            companion: companion.as_deref(),
+            rust_companion: rust_companion.as_deref(),
+        }
+        .build(options.macos_architecture, &executable)
         .await?;
         sign_bundle(&bundle).await?;
         Ok(GeneratedHost {
@@ -90,15 +80,6 @@ impl MacOsHostGenerator {
     }
 }
 
-impl MacOsHostGenerator {
-    async fn sign_helpers(helpers: &[PathBuf]) -> Result<(), Failure> {
-        for helper in helpers {
-            sign_bundle(helper).await?;
-        }
-        Ok(())
-    }
-}
-
 fn executable_path(application: &NativeApplication, contents: &Path) -> Result<PathBuf, Failure> {
     let executable_directory = contents.join("MacOS");
     native_io(
@@ -106,31 +87,6 @@ fn executable_path(application: &NativeApplication, contents: &Path) -> Result<P
         &executable_directory,
     )?;
     Ok(executable_directory.join(&application.executable_name))
-}
-
-async fn compile_rust_library(
-    application: &NativeApplication,
-    rust_companion: Option<&Path>,
-    stage: &Path,
-) -> Result<Option<super::rust::RustCompanionOutput>, Failure> {
-    let Some(source) = rust_companion else {
-        return Ok(None);
-    };
-    let path = stage.join("project").join("libtachyoncompanion.a");
-    let helpers = stage
-        .join(format!("{}.app", application.executable_name))
-        .join("Contents/MacOS");
-    let placed = super::rust::RustCompanion::compile_companion(
-        application,
-        source,
-        super::rust::Linkage::Static,
-        None,
-        &path,
-        &helpers,
-    )
-    .await?;
-    MacOsHostGenerator::sign_helpers(&placed.executables).await?;
-    Ok(Some(placed))
 }
 
 pub(super) fn stage_swift_companion(
@@ -190,42 +146,6 @@ pub(super) fn optional_unicode_path<'a>(
         Some(path) => Ok(Some(unicode_path(path, message)?)),
         None => Ok(None),
     }
-}
-
-async fn compile_swift(
-    source: &Path,
-    companion: Option<&Path>,
-    library: Option<&super::rust::RustCompanionOutput>,
-    executable: &Path,
-) -> Result<String, Failure> {
-    if !cfg!(target_os = "macos") {
-        return Err(native_tool_failure(
-            1605,
-            "The macOS host requires an Apple macOS build machine.",
-        ));
-    }
-    let version_output = run_tool("/usr/bin/xcrun", &["swiftc", "--version"]).await?;
-    let version = first_line(&version_output, "Swift unknown");
-    let source = unicode_path(source, "Swift source path is not valid Unicode.")?;
-    let executable = unicode_path(executable, "Application path is not valid Unicode.")?;
-    let companion =
-        optional_unicode_path(companion, "Companion source path is not valid Unicode.")?;
-    let archive = optional_unicode_path(
-        library.map(|compiled| compiled.library.as_path()),
-        "Companion library path is not valid Unicode.",
-    )?;
-    let mut arguments = vec!["swiftc", "-parse-as-library", "-O"];
-    arguments.extend(MacOsHostGenerator::FRAMEWORK_ARGUMENTS);
-    arguments.extend(["-o", executable, source]);
-    arguments.extend(companion);
-    arguments.extend(archive);
-    let native_arguments = library
-        .into_iter()
-        .flat_map(|compiled| compiled.native_libraries.arguments.iter())
-        .map(String::as_str);
-    arguments.extend(native_arguments);
-    run_tool("/usr/bin/xcrun", &arguments).await?;
-    Ok(version)
 }
 
 pub(super) async fn sign_bundle(bundle: &Path) -> Result<(), Failure> {
@@ -311,7 +231,7 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>{version}</string>
 <key>CFBundleVersion</key><string>{build}</string>
-<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>LSMinimumSystemVersion</key><string>{minimum}</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 "#,
@@ -320,6 +240,7 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
         identifier = application.application_id,
         version = application.version,
         build = application.build,
+        minimum = super::mac_os_executable::MacOsExecutable::MINIMUM_SYSTEM_VERSION,
         icon = icon,
         location = application.permissions.location_plist_entries(
             &super::browser_api_permissions::BrowserApiPermissions::MACOS_LOCATION_KEYS

@@ -210,5 +210,8 @@ reaching Yon
 natively linked service languages
   honored: Swift services are linked into the app; other languages run in the page
 
+build architecture (--arch)
+  adapted: --arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture. Device builds wait on PKG2.
+
 release packaging
   adapted: The iOS build runs only in the simulator. Device builds and an .ipa wait on PKG2.

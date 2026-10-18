@@ -210,5 +210,8 @@ reaching Yon
 natively linked service languages
   honored: Rust services are linked into the app; other languages run in the page
 
+build architecture (--arch)
+  adapted: --arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture.
+
 release packaging
   adapted: The Linux build is a folder with the program. There are no packages yet (PKG5).

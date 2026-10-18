@@ -210,5 +210,8 @@ reaching Yon
 natively linked service languages
   honored: Rust and C# services are linked into the app; other languages run in the page
 
+build architecture (--arch)
+  honored: --arch x64 or arm64
+
 release packaging
   adapted: The Windows build is a folder with the .exe. There is no installer or signature yet (PKG4).

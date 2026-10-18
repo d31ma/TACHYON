@@ -20,6 +20,13 @@ machine contracts have their own, independent major versions.
   `display` value outside the web manifest list (`fullscreen`, `standalone`,
   `minimal-ui`, `browser`) now stops the build with `TY1601` (ADR 0052
   amendment).
+- `ty bundle --target macos --arch universal` builds a universal macOS app:
+  the app and each Rust helper executable hold an `arm64` and an `x86_64`
+  part, joined with `lipo`. `--arch x64` and `--arch arm64` now also choose
+  the macOS architecture. A target that does not take `--arch` (web, Linux
+  and iOS for another architecture, Android) prints one `Note:` line; when no
+  target being built takes the choice, the build stops with `TY1001`
+  (ADR 0097 amendment).
 - `scripts/android/native-test.sh` also runs the Kotlin window-controls
   example on the Android emulator. Granted `minimize`, `resize` and `title`
   act on the app window, and `maximize`, `fullscreen` and `close`, which the

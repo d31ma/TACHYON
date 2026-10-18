@@ -4,6 +4,7 @@ use super::config::NativeApplication;
 use super::host::GeneratedHost;
 use super::ios::IosHostGenerator;
 use super::linux::LinuxHostGenerator;
+use super::mac_os_architecture::MacOsArchitecture;
 use super::macos::MacOsHostGenerator;
 use super::native_web_stage::NativeWebStage;
 use super::routes::NativeRouteIndex;
@@ -27,6 +28,7 @@ pub struct NativeBuildOptions {
     pub target: NativeTarget,
     pub package: bool,
     pub windows_architecture: WindowsArchitecture,
+    pub macos_architecture: MacOsArchitecture,
 }
 
 impl Default for NativeBuildOptions {
@@ -36,6 +38,7 @@ impl Default for NativeBuildOptions {
             target: NativeTarget::Macos,
             package: true,
             windows_architecture: WindowsArchitecture::default(),
+            macos_architecture: MacOsArchitecture::default(),
         }
     }
 }
@@ -54,6 +57,7 @@ pub const fn native_target_directory(target: NativeTarget) -> &'static str {
 pub(super) fn artifact_target(
     target: NativeTarget,
     windows: WindowsArchitecture,
+    macos: MacOsArchitecture,
 ) -> ArtifactTarget {
     let host_architecture = if cfg!(target_arch = "aarch64") {
         "aarch64"
@@ -62,7 +66,7 @@ pub(super) fn artifact_target(
     };
     let (os, architecture, abi) = match target {
         NativeTarget::Linux => ("linux", host_architecture, "webkitgtk"),
-        NativeTarget::Macos => ("macos", host_architecture, "wkwebview"),
+        NativeTarget::Macos => ("macos", macos.artifact_architecture(), "wkwebview"),
         NativeTarget::Windows => ("windows", windows.artifact_architecture(), "webview2"),
         NativeTarget::Android => ("android", "universal", "android-webview"),
         NativeTarget::Ios => ("ios", host_architecture, "wkwebview-simulator"),
@@ -361,7 +365,7 @@ async fn generate_host(
     let package = options.package;
     match options.target {
         NativeTarget::Macos => {
-            MacOsHostGenerator::generate(application, index, companions, web_bundle, stage, package)
+            MacOsHostGenerator::generate(application, index, companions, web_bundle, stage, options)
                 .await
         }
         NativeTarget::Ios => {
@@ -492,7 +496,11 @@ fn artifact_manifest(
         release_version: String::from(tachyon_contracts::PRODUCT_VERSION),
         commit: source_revision(),
         source_date_epoch: source_date_epoch(),
-        target: artifact_target(options.target, options.windows_architecture),
+        target: artifact_target(
+            options.target,
+            options.windows_architecture,
+            options.macos_architecture,
+        ),
         toolchains: vec![
             ArtifactToolchain {
                 name: String::from("rust"),

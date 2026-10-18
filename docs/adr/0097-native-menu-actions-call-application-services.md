@@ -323,3 +323,38 @@ mnemonic underscore, as its accessible label.
   on 2026-10-18 under Xvfb with GTK 4.14.5 and WebKitGTK 2.52.6 (Ubuntu
   24.04), and in the pinned `scripts/linux/Dockerfile` image with GTK 4.18.6
   and WebKitGTK 2.54.0 (Debian trixie).
+
+## Amendment (2026-10-18): `--arch` chooses the macOS architecture too
+
+`--arch` is no longer a Windows-only switch. Each target either honors it,
+says in one `Note:` line that it does not, or the build refuses it:
+
+| Target | `--arch` |
+| --- | --- |
+| Windows | `x64` or `arm64`, as above. `universal` gets a note and builds for the build machine. |
+| macOS | `x64`, `arm64` or `universal`. `universal` builds an `arm64` and an `x86_64` app (Swift `-target <arch>-apple-macosx13.0`, Rust `aarch64-apple-darwin` and `x86_64-apple-darwin`) and joins the app and each Rust helper executable with `lipo`. The artifact manifest names `universal`. |
+| Linux | Built for the build machine. A matching `--arch` (or `native`) is honored; any other gets a note. |
+| iOS | The simulator app is built for the build machine, as Linux. Device builds wait on PKG2. |
+| Android | No `--arch`: the APK holds no native code yet, so it runs on every ABI. ABIs follow linked Rust on Android (MR2). |
+| Web | No `--arch`: the web build holds no native code. |
+
+When none of the targets being built honors the choice, the build stops
+with `TY1001` and names what each target takes. A build for the build
+machine's own architecture runs the same commands as before; only another
+architecture, or `universal`, passes `-target` and `--target`. A Rust
+companion for another architecture needs its standard library (`rustup
+target add x86_64-apple-darwin` on Apple silicon); without it the build stops
+with `TY1605` and that command. The notes come from the
+`build architecture (--arch)` entry of the per-target support table
+(ADR 0102).
+
+### Evidence
+
+- Cloud: `native_architecture_cli` stages the macOS host for `universal`,
+  `x64` and `arm64` and reads the architecture back from the artifact
+  manifest, checks the `TY1001` refusals, and checks the notes for Windows
+  and Android in a three-target build.
+- Mac: `native_rust_crate_tests::the_universal_macos_bundle_holds_both_architectures_and_its_helper_runs`
+  (ignored; run on the Mac lane) builds, joins and signs the app and its Rust
+  helper, checks `lipo -archs` for both architectures, runs the helper and
+  verifies the signature. It has not run yet.

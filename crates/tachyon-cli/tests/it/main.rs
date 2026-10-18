@@ -7,6 +7,7 @@ mod handler_invoke_arguments;
 mod init_features;
 mod init_wizard;
 mod lua_yon_cli;
+mod native_architecture_cli;
 mod native_capability_cli;
 mod phase1_cli;
 mod phase2_cli;
@@ -20,4 +21,3 @@ mod reconciled_templates;
 #[cfg(unix)]
 mod structure_validation_cli;
 mod test_preflight;
-mod windows_architecture_cli;

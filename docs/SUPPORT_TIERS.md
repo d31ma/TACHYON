@@ -63,6 +63,14 @@ sets the Rust companion target, WebView2 library folder, C# runtime identifier
 and linker architecture together. The build refuses a developer prompt whose
 `VSCMD_ARG_TGT_ARCH` disagrees with the selected architecture.
 
+macOS bundles accept `--arch arm64`, `--arch x64` or `--arch universal`
+(ADR 0097 amendment of 2026-10-18). The default is the build machine's
+architecture. `universal` builds both architectures and joins them with
+`lipo`. Only the staging and the artifact manifest are tested so far; the
+universal build, its `lipo -archs` check and a run on an Intel Mac are not
+yet verified. Linux and iOS builds use the build machine's architecture, and
+Android has no `--arch` until MR2.
+
 On 2026-10-04, commit `2be294ba` built the Observer fixture through
 `ty bundle --target windows` for both architectures on Windows 11 ARM64.
 Each bundle included its host executable, Rust companion DLL and

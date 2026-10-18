@@ -210,5 +210,8 @@ reaching Yon
 natively linked service languages
   honored: Kotlin services are linked into the app; other languages run in the page
 
+build architecture (--arch)
+  adapted: --arch does not choose Android ABIs: the APK holds no native code yet, so it runs on every ABI. Builds per ABI come with linked Rust on Android (MR2).
+
 release packaging
   adapted: The Android build is a debug APK. Release APK and AAB builds wait on PKG3.

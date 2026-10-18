@@ -210,5 +210,8 @@ reaching Yon
 natively linked service languages
   honored: Rust and Swift services are linked into the app; other languages run in the page
 
+build architecture (--arch)
+  honored: --arch x64, arm64 or universal; universal joins an arm64 and an x86_64 build with lipo
+
 release packaging
   adapted: The macOS build is an unsigned .app bundle. Signing, notarization and a .dmg wait on PKG1.

@@ -1,7 +1,7 @@
-use tachyon_core::WindowsArchitecture;
+use crate::package_architectures::PackageArchitectures;
 
 #[derive(Clone, Copy, Debug)]
 pub struct PackagePlan {
     pub package: bool,
-    pub windows_architecture: WindowsArchitecture,
+    pub architectures: PackageArchitectures,
 }
