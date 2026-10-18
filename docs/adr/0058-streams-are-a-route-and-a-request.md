@@ -149,3 +149,29 @@ page's JavaScript still holds the `EventSource` for the Rust service that
 keeps the client in a field, and the service receives each message with
 `#[OnEvent]`. See ADR 0090, "Rust streams and sockets". C#, F#, Dart, Swift,
 Kotlin, Java, Python, Lua and C++ still refuse `@StreamRequest`.
+
+## Amendment (2026-10-17): Rust stream routes with Iterator
+
+Rust's `Iterator` is a lazy sequence that the caller pulls one item at a time,
+like Go's `iter.Seq`. It is enough to produce a stream, so Rust no longer
+refuses `#[StreamRoute]`, and every Yon language now accepts it.
+
+- A Rust `#[StreamRoute]` method returns `impl Iterator<Item = Model>`. When the
+  stream can fail, the items are `Result<Model, E>`, and the first `Err` ends
+  the stream. `Box<dyn Iterator<Item = Model>>` is accepted too, and a
+  `+ '_` bound lets the iterator borrow the controller. Any other result,
+  such as `Vec<Model>`, is refused with TY2015, and the message names these
+  shapes.
+- The Rust prelude takes one item at a time and writes it as one
+  length-prefixed Handler Protocol event frame, like Go and Dart. When the
+  iterator ends, the process exits and the server sends `event: end`. An
+  `Err` item, a panic, or an item that cannot be written as JSON sends the
+  fixed TY2204 frame, so the browser gets `event: error` and never the error
+  text. An item larger than the frame limit sends TY2203.
+- Backpressure is the pipe: a write blocks while the server has not read the
+  last frames, so a slow reader slows the iterator. When the reader goes
+  away, the server stops the process group at once, as in every language.
+- The time limit does not change: a stream has the request time limit, and
+  at the limit the server stops the process and sends `event: error`.
+- A test unit calls the method and collects it with `.collect::<Vec<_>>()`.
+- Java and Groovy still refuse `@StreamRoute`.

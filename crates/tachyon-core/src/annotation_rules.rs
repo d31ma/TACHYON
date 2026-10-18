@@ -300,9 +300,7 @@ impl AnnotationRules {
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
     ];
     pub(crate) const YON_BACKGROUND: &'static [&'static str] = Self::YON;
-    const YON_STREAM: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "dart", "rb", "lua", "go",
-    ];
+    const YON_STREAM: &'static [&'static str] = Self::YON;
     const TAC_STREAM: &'static [&'static str] = &["js", "ts", "go", "rb", "rs"];
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
         "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua", "hpp",
