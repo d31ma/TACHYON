@@ -38,7 +38,7 @@ impl ClientSchema {
         service: "[<Service>]\ntype OrderService() =\n    member this.accept([<Check(typeof<OrderInput>)>] order: BehaviorJSON) : BehaviorJSON = order\n",
     };
 
-    const FSHARP_CHECK: &'static str = r#"order = Behaviors.ValidateSchema(BehaviorJSON.Parse("{\"fields\":{\"level\":{\"max\":9,\"min\":1,\"notNull\":true},\"name\":{\"notBlank\":true,\"size\":{\"max\":80,\"min\":1}}}}"), order);"#;
+    const FSHARP_CHECK: &'static str = r#"order = Behaviors.CheckSchema(BehaviorJSON.Parse("{\"fields\":{\"level\":{\"max\":9,\"min\":1,\"notNull\":true},\"name\":{\"notBlank\":true,\"size\":{\"max\":80,\"min\":1}}}}"), order);"#;
 
     fn declares_input(lowered: &str) -> bool {
         ["class OrderInput", "struct OrderInput"]
