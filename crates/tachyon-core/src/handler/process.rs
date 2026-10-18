@@ -1209,6 +1209,30 @@ mod tests {
     }
 
     #[test]
+    fn a_cpp_exception_line_is_surfaced_for_its_own_request_only() {
+        let stderr = Drained {
+            bytes: concat!(
+                "{\"event\":\"handler.cpp_exception\",\"request_id\":\"other\",\"message\":\"elsewhere\"}\n",
+                "not json\n",
+                "{\"event\":\"handler.cpp_exception\",\"request_id\":\"request-7\",\"message\":\"too many cups\\u0007\"}\n",
+            )
+            .as_bytes()
+            .to_vec(),
+            overflow: false,
+            read_error: false,
+        };
+        let surfaced = stderr.exceptions("request-7");
+        assert_eq!(
+            surfaced,
+            vec![serde_json::json!({
+                "event": "handler.cpp_exception",
+                "request_id": "request-7",
+                "message": "too many cups",
+            })]
+        );
+    }
+
+    #[test]
     fn unsettled_cleanup_event_is_correlated_and_contains_no_process_output() {
         let event = ProcessReaper::cleanup_unsettled_event("request-42", Some(123), true);
         assert_eq!(event["request_id"], "request-42");

@@ -8,14 +8,16 @@ Which languages middleware is written in
   middleware.lua   Lua
   middleware.java, middleware.groovy, middleware.kt,
   middleware.cs, middleware.fs, middleware.rs,
-  middleware.dart, middleware.go
+  middleware.dart, middleware.go, middleware.hpp
                    the compiled Yon languages
 
 In every language, root middleware is one class named Middleware;
 Rust and Go declare a struct, Lua declares a table, and Go spells
-the methods Before and After. Tachyon calls its before(request) before the route and its
-after(request) after the route, for every request, whatever its
-HTTP method. A missing before or after lets the request pass.
+the methods Before and After. A C++ phase returns
+std::optional<tachyon::http::HttpResponseMessage>, an
+HttpResponseMessage or void. Tachyon calls its before(request)
+before the route and its after(request) after the route, for every
+request, whatever its HTTP method. A missing before or after lets the request pass.
 request is the language's own request (PHP reads $_SERVER, $_GET,
 $_COOKIE and php://input). Answering nothing, or a 204, continues or
 adds its headers to the response; any other status answers or

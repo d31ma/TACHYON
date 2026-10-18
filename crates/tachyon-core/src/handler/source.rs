@@ -3,6 +3,7 @@ use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use crate::handler::readiness::RuntimeRequirement;
 use crate::model_sources::ModelSources;
+use crate::yon_cpp::CppYon;
 use cap_fs_ext::{DirExt as _, FollowSymlinks, OpenOptionsFollowExt as _};
 use cap_std::ambient_authority;
 use cap_std::fs::{Dir, OpenOptions};
@@ -553,7 +554,7 @@ impl HandlerSource {
                 has_modules,
             )?
         } else {
-            (None, Vec::new(), crate::events::TopicUse::default())
+            CppYon::middleware(middleware, relative_source, contents, source_root.path())?
         };
         let route_types = route_models(source_root.path(), relative_source, contents, &mut routes)?;
         let lowered = with_route_converters(lowered, source_root.path(), relative_source, &routes)?;

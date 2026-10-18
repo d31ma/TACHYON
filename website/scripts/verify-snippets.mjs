@@ -90,7 +90,7 @@ class Patterns {
   static serviceExcerpt = /^@Service(?:\(\))?\s*\n/
   static loadFailure = /Server readiness timed out|exceeded \d+ms|deadline|aborted due to timeout/
   static sharedFile = /^server\/shared\/.+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
-  static middlewareFile = /^middleware\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
+  static middlewareFile = /^middleware\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua|hpp)$/
   static typeScaffoldFiles = ['package.json', 'tachyon-env.d.ts', 'tachyon-behaviors.d.ts', 'client/jsconfig.json', 'server/jsconfig.json']
   static middlewareController = '@RequestRoute("/private")\n@Public\nclass PrivateController {\n  @GetRoute\n  getPrivate() {\n    return { secret: 42 }\n  }\n}\n'
 }
@@ -557,7 +557,8 @@ function skipAfterRepeatedLoadFailures(label, extension) {
  */
 async function canRun(label, name, extraTools = []) {
   const extension = path.extname(name)
-  const serverTools = name.startsWith('server/') ? Toolchains.serverTools[extension] : undefined
+  const serverSide = name.startsWith('server/') || Patterns.middlewareFile.test(name)
+  const serverTools = serverSide ? Toolchains.serverTools[extension] : undefined
   const tools = serverTools ?? Toolchains.requiredTools[extension]
   if (!tools) {
     skip(label, `no execution checker for ${extension || 'descriptive example'}`)

@@ -23,8 +23,12 @@ public:
 
     template <typename T>
     T argument(std::size_t index) const {
+        json::JsonNode value = argumentNode(index);
+        if (depth(value, 0) > json::JsonReader::MAX_DEPTH) {
+            throw YonArgumentException("Argument " + std::to_string(index + 1) + " is nested more than " + std::to_string(json::JsonReader::MAX_DEPTH) + " levels deep.");
+        }
         try {
-            return json::JsonSerializer::deserialize<T>(argumentNode(index));
+            return json::JsonSerializer::deserialize<T>(value);
         } catch (const json::JsonException& error) {
             throw YonArgumentException("Argument " + std::to_string(index + 1) + " does not match its parameter type: " + error.what());
         }
@@ -40,6 +44,17 @@ public:
 
 private:
     json::JsonNode fields;
+
+    static int depth(const json::JsonNode& node, int reached) {
+        int deepest = reached;
+        for (const json::JsonNode& item : node.items()) {
+            if (deepest > json::JsonReader::MAX_DEPTH) {
+                return deepest;
+            }
+            deepest = std::max(deepest, depth(item, reached + 1));
+        }
+        return deepest;
+    }
 
     json::JsonNode argumentNode(std::size_t index) const {
         const json::JsonNode& values = field("arguments");

@@ -18,7 +18,7 @@ struct Language {
 }
 
 impl Language {
-    const ALL: [Self; 13] = [
+    const ALL: [Self; 14] = [
         Self {
             extension: "js",
             program: "node",
@@ -368,6 +368,45 @@ class Middleware
 end
 "#,
         },
+        Self {
+            extension: "hpp",
+            program: "clang++",
+            version_flag: "--version",
+            both_phases: r#"#pragma once
+#include <string>
+
+class Middleware {
+public:
+    tachyon::http::HttpResponseMessage before(const tachyon::http::HttpRequestMessage& request) {
+        return phase("before-" + request.method.toString());
+    }
+
+    static tachyon::http::HttpResponseMessage after(const tachyon::http::HttpRequestMessage& request) {
+        return phase("after-" + request.method.toString());
+    }
+
+private:
+    static tachyon::http::HttpResponseMessage phase(const std::string& name) {
+        tachyon::http::HttpResponseMessage response;
+        response.statusCode = tachyon::http::HttpStatusCode::NoContent;
+        response.headers.add("x-phase", name);
+        return response;
+    }
+};
+"#,
+            after_only: r#"#pragma once
+
+class Middleware {
+public:
+    tachyon::http::HttpResponseMessage after() {
+        tachyon::http::HttpResponseMessage response;
+        response.statusCode = tachyon::http::HttpStatusCode::NoContent;
+        response.headers.add("x-phase", "after");
+        return response;
+    }
+};
+"#,
+        },
     ];
 
     fn is_available(&self) -> bool {
@@ -653,6 +692,28 @@ final class Middleware
 }
 ";
 
+    const CPP: &str = r#"#pragma once
+#include <optional>
+#include <string>
+
+class Middleware {
+public:
+    std::optional<tachyon::http::HttpResponseMessage> before(const tachyon::http::HttpRequestMessage& request) {
+        std::string target = request.requestUri;
+        bool isPrivate = target.rfind("/private", 0) == 0;
+        if (!isPrivate || request.headers.get("Authorization") == "let-me-in") {
+            return std::nullopt;
+        }
+        std::string page = target.substr(target.find("page=") + 5);
+        tachyon::http::HttpResponseMessage response;
+        response.statusCode = tachyon::http::HttpStatusCode::Unauthorized;
+        response.headers.add("Content-Type", "application/json");
+        response.content = tachyon::http::StringContent("{\"error\":\"Unauthorized\",\"query\":\"" + page + "\"}");
+        return response;
+    }
+};
+"#;
+
     fn language(extension: &str) -> Option<&'static Language> {
         let language = Language::ALL
             .iter()
@@ -751,4 +812,9 @@ async fn rust_middleware_reads_an_http_request_and_answers_with_an_http_response
 #[tokio::test]
 async fn php_middleware_reads_the_superglobals_and_answers_with_native_calls() {
     NativeRequest::check("php", NativeRequest::PHP).await;
+}
+
+#[tokio::test]
+async fn cpp_middleware_reads_an_http_request_message_and_answers_with_an_http_response_message() {
+    NativeRequest::check("hpp", NativeRequest::CPP).await;
 }

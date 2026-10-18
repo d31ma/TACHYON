@@ -52,6 +52,20 @@ machine contracts have their own, independent major versions.
 - A Lua Tac test unit's `self:construct(Service)` gives the service its HTTP
   clients, stores and converters, bound to the test's behavior context
   (ADR 0085 amendment).
+
+- Yon C++ has root middleware and relays. `middleware.hpp` at the project
+  root holds one `class Middleware` with `before(request)` and
+  `after(request)` methods that take
+  `const tachyon::http::HttpRequestMessage&` (or nothing) and return
+  `std::optional<tachyon::http::HttpResponseMessage>`, an
+  `HttpResponseMessage` or `void`; a missing phase lets the request pass.
+  It used to compile as a handler and fail with a `clang++` link error
+  (`TY2004`). A route method that takes the request can return
+  `relay({"perl", "server/relays/report.pl"}, request)`, with the same
+  deadline, environment, output limits, closed descriptors and fixed 502
+  as in the other compiled languages, on macOS and Linux; on Windows a C++
+  relay answers that fixed 502 (ADR 0099 amendment).
+
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with
@@ -909,6 +923,13 @@ machine contracts have their own, independent major versions.
   with TY2015 at the field, because the page cannot tell what to fill it
   with. A Store, Converter, Helper or browser API field is also filled when
   its `@return` comment comes before the marker (ADR 0054 amendment).
+
+- A Yon C++ answer with text that is not valid UTF-8 no longer fails as an
+  opaque 500: a returned value's broken bytes become U+FFFD, as in Go, and a
+  `tachyon::http::HttpResponseMessage` body that is not text is sent as it
+  is. A request body nested more than 64 levels now answers 400 instead of
+  500, and the `handler.cpp_exception` line of a route that throws now
+  reaches the server log (ADR 0099 amendment).
 
 - An F# Tac service property set from a primary-constructor parameter
   without a written type, such as `member val Title = label with get, set`

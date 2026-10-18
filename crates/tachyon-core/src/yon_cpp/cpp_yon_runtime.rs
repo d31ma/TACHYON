@@ -8,6 +8,7 @@ impl CppYonRuntime {
     const TEST_HOST: &'static str = include_str!("tachyon/yon_test_host.hpp");
     const FAKES: &'static str = include_str!("tachyon/yon_fakes.hpp");
     const PIECES: &'static [&'static str] = &[
+        include_str!("tachyon/yon_text.hpp"),
         include_str!("tachyon/yon_frame.hpp"),
         include_str!("tachyon/yon_request.hpp"),
         include_str!("tachyon/yon_answer.hpp"),
@@ -18,6 +19,7 @@ impl CppYonRuntime {
         include_str!("tachyon/yon_stream.hpp"),
         include_str!("tachyon/yon_socket.hpp"),
         include_str!("tachyon/yon_gateway.hpp"),
+        include_str!("tachyon/yon_relay.hpp"),
         include_str!("tachyon/yon_main.hpp"),
         include_str!("tachyon/yon_application.hpp"),
         include_str!("tachyon/yon_storage.hpp"),

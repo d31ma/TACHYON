@@ -997,12 +997,68 @@ handler into a controller, as it does for the other languages (ADR 0048).
 `crates/tachyon-cli/tests/it/phase6_cli.rs` runs the fix on the migration
 fixture's `yon.cpp` and builds a migrated handler with `clang++`.
 
+## Amendment (2026-10-18): Yon C++ middleware, relays and answer edge cases
+
+### Middleware
+
+- Root middleware is `middleware.hpp` at the project root with one plain
+  `class Middleware`, as in the other Yon languages. It used to compile as
+  a handler and fail with a `clang++` link error (`TY2004`).
+- `before` and `after` are methods, instance or static, that take
+  `const tachyon::http::HttpRequestMessage& request` or nothing. Each
+  returns `std::optional<tachyon::http::HttpResponseMessage>`,
+  `tachyon::http::HttpResponseMessage` or `void`. An empty optional,
+  `void` or a 204 lets the request pass and adds the answer's headers; any
+  other status answers instead of the route (or replaces its answer, after
+  it). A missing phase lets the request pass.
+- Any other class name, a marker anywhere in the class, a second method of
+  a phase's name, another parameter or another result fails with `TY2015`,
+  and the message shows the shape. `CppYonMiddleware` reads the file into
+  the controller pipeline, so the program is composed like a controller's;
+  its dispatcher picks the phase from the frame's `operation` and answers
+  204 for a phase the class does not declare.
+
+### Relays
+
+- A route method that takes the request may return
+  `relay({"perl", "server/relays/report.pl"}, request)`, a global function
+  that returns `tachyon::http::HttpResponseMessage` (`yon_relay.hpp`). The
+  relay program reads the request as `route`, `method`, `headers` and a
+  UTF-8 `body`, and writes one JSON answer, as in every Yon language.
+- The deadline is the frame's `deadline_ms`, counted from the start of the
+  program, and every relay of the request shares it. The program gets the
+  handler's environment without `YON_APPLICATION_JSON` and the
+  `YON_RESOURCE_*` values, standard output is limited to 16 MiB and
+  standard error to 64 KiB, and no descriptor above 2 is inherited
+  (`posix_spawn` with `closefrom` on Linux and `POSIX_SPAWN_CLOEXEC_DEFAULT`
+  on macOS). A program that cannot start, runs out of time, overflows,
+  exits with a failure or writes something else than one JSON object
+  answers 502 with `{"error":"Component invocation failed."}` and writes a
+  `handler.relay_failed` line with the category to standard error.
+- Windows has no `posix_spawn`, so there a C++ relay answers that fixed 502
+  with the category `start`. A project that relays on Windows writes the
+  relaying controller in another Yon language.
+
+### Answers
+
+- A returned value whose text is not valid UTF-8 is written with U+FFFD in
+  place of each broken sequence, as Go's JSON writer does, instead of
+  failing the answer with an opaque 500. A
+  `tachyon::http::HttpResponseMessage` body that is not valid UTF-8 is sent
+  base64-encoded in the Handler Protocol answer, so its bytes reach the
+  client unchanged. Stream and socket frames are repaired the same way.
+- The program reads its frame with a depth limit of 256, and an argument
+  nested more than 64 levels (the C++ JSON limit) answers 400 instead of
+  failing the frame with 500.
+- The server now logs the `handler.cpp_exception` line of the request it
+  answered, with control characters removed, so a 500 from a C++ route
+  says what was thrown in the server log and never in the answer.
+
 ## Pending
 
 All planned Yon C++ steps have landed, and the rule table lists `hpp` for
 each of their markers. These stay out of the plan for now:
 
-- Yon C++ middleware and relays.
 - A C++ class as the target of another language's `[[Gateway]]`: Tachyon
   writes no `server/gateways/<id>/yon.hpp` unit yet, so such a target fails
   with "No Yon gateway unit exists for .hpp yet". C++ code calls gateways.

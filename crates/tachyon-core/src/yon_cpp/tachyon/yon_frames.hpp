@@ -35,7 +35,7 @@ public:
     static std::string payload(const std::string& requestId, json::JsonNode fields) {
         fields["protocol_version"] = 1;
         fields["request_id"] = requestId;
-        return fields.toJsonString();
+        return YonText::repaired(fields.toJsonString());
     }
 
     static bool fits(const std::string& payload) {

@@ -363,11 +363,11 @@ public:
     static constexpr std::size_t MAX_BYTES = 1048576;
     static constexpr int MAX_DEPTH = 64;
 
-    static JsonNode read(std::string_view json, std::size_t limit = MAX_BYTES) {
+    static JsonNode read(std::string_view json, std::size_t limit = MAX_BYTES, int depthLimit = MAX_DEPTH) {
         if (json.size() > limit) {
             throw JsonException("The JSON text is larger than " + std::to_string(limit / MAX_BYTES) + " MiB.");
         }
-        JsonReader reader(json);
+        JsonReader reader(json, depthLimit);
         reader.skipSpace();
         JsonNode node = reader.readValue(0);
         reader.skipSpace();
@@ -384,8 +384,9 @@ private:
 
     std::string_view json;
     std::size_t position = 0;
+    int depthLimit = MAX_DEPTH;
 
-    explicit JsonReader(std::string_view json) : json(json) {}
+    JsonReader(std::string_view json, int depthLimit) : json(json), depthLimit(depthLimit) {}
 
     [[noreturn]] void fail(const std::string& problem) const {
         throw JsonException("Invalid JSON at byte " + std::to_string(position) + ": " + problem + ".");
@@ -409,8 +410,8 @@ private:
     }
 
     JsonNode readValue(int depth) {
-        if (depth > MAX_DEPTH) {
-            fail("the value is nested more than 64 levels deep");
+        if (depth > depthLimit) {
+            fail("the value is nested more than " + std::to_string(depthLimit) + " levels deep");
         }
         char start = current();
         if (start == '{') {

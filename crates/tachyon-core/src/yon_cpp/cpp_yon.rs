@@ -4,6 +4,7 @@ use super::{
 };
 use crate::Failure;
 use crate::behavior::GatewayDeclaration;
+use crate::events::TopicUse;
 use crate::tac_cpp::{CppProgram, CppSource, CppTestUnit};
 use crate::yon::Lowered;
 use crate::yon::plan::Route;
@@ -17,6 +18,22 @@ impl CppYon {
         let lower =
             [Self::controller, CppYonTestUnit::lower][usize::from(CppYonTestUnit::is_test(source))];
         lower(source, contents, root)
+    }
+
+    pub(crate) fn middleware(
+        middleware: bool,
+        source: &Path,
+        contents: &str,
+        root: &Path,
+    ) -> Result<(Option<String>, Vec<Route>, TopicUse), Failure> {
+        let cpp = [middleware, CppSource::is_cpp(source)] == [true, true];
+        let lowered = cpp
+            .then(|| Self::lower(source, contents, root))
+            .transpose()?;
+        Ok(lowered.map_or_else(
+            || (None, Vec::new(), TopicUse::default()),
+            |lowered| (Some(lowered.source), Vec::new(), lowered.topics),
+        ))
     }
 
     fn controller(source: &Path, contents: &str, root: &Path) -> Result<Lowered, Failure> {

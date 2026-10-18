@@ -4,9 +4,11 @@ class YonMain {
 public:
     static constexpr std::size_t MAX_FRAME_BYTES = 16 * 1024 * 1024;
     static constexpr int PROTOCOL_FAILURE = 70;
+    static constexpr int MAX_FRAME_DEPTH = 256;
 
     template <typename Routes>
     static int run() {
+        std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
         std::string raw;
         if (!readInput(raw)) {
             return PROTOCOL_FAILURE;
@@ -15,6 +17,7 @@ public:
         if (!fields.has_value()) {
             return PROTOCOL_FAILURE;
         }
+        YonRelay::begin(started, *fields);
         YonDelivery::receive(*fields);
         YonFrame frame(std::move(*fields));
         YonAnswer answer = answered<Routes>(frame);
@@ -57,7 +60,7 @@ private:
 
     static std::optional<json::JsonNode> parsed(const std::string& raw) {
         try {
-            return json::JsonReader::read(raw, MAX_FRAME_BYTES);
+            return json::JsonReader::read(raw, MAX_FRAME_BYTES, MAX_FRAME_DEPTH);
         } catch (const json::JsonException&) {
             return std::nullopt;
         }

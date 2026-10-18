@@ -12,6 +12,7 @@ mod cpp_yon_graph;
 mod cpp_yon_handler;
 mod cpp_yon_hooks;
 mod cpp_yon_identity;
+mod cpp_yon_middleware;
 mod cpp_yon_models;
 mod cpp_yon_parameter;
 mod cpp_yon_path;
@@ -33,6 +34,9 @@ mod cpp_yon_worker;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod check_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod middleware_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod policy_tests;
@@ -63,6 +67,7 @@ use cpp_yon_graph::CppYonGraph;
 use cpp_yon_handler::CppYonHandler;
 use cpp_yon_hooks::CppYonHooks;
 use cpp_yon_identity::CppYonIdentity;
+pub(crate) use cpp_yon_middleware::CppYonMiddleware;
 pub(crate) use cpp_yon_models::CppYonModels;
 use cpp_yon_parameter::CppYonParameter;
 use cpp_yon_path::CppYonPath;

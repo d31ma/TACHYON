@@ -23,6 +23,7 @@ impl Drained {
     const KEPT_CONTROLS: [char; 2] = ['\n', '\t'];
     const KNOWN_RELAY_CATEGORIES: [&'static str; 5] =
         ["start", "timeout", "overflow", "exit", "protocol"];
+    const EXCEPTION_EVENT: &'static str = "handler.cpp_exception";
 
     pub(in crate::handler) async fn read_all<R>(mut reader: R, limit: usize) -> Self
     where
@@ -100,12 +101,44 @@ impl Drained {
         visible.trim().to_owned()
     }
 
-    pub(super) fn surface_relay_events(&self, request_id: &str) {
+    pub(super) fn surface_events(&self, request_id: &str) {
+        self.events()
+            .iter()
+            .filter_map(|event| Self::relay_failure_category(event, request_id))
+            .for_each(|category| Self::print_relay_failure(request_id, category));
+        self.exceptions(request_id)
+            .iter()
+            .for_each(|line| eprintln!("{line}"));
+    }
+
+    pub(super) fn exceptions(&self, request_id: &str) -> Vec<Value> {
+        self.events()
+            .iter()
+            .filter_map(|event| Self::exception(event, request_id))
+            .collect()
+    }
+
+    fn events(&self) -> Vec<Value> {
         String::from_utf8_lossy(&self.bytes)
             .lines()
             .filter_map(|line| serde_json::from_str::<Value>(line).ok())
-            .filter_map(|event| Self::relay_failure_category(&event, request_id))
-            .for_each(|category| Self::print_relay_failure(request_id, category));
+            .collect()
+    }
+
+    fn exception(event: &Value, request_id: &str) -> Option<Value> {
+        let named = [
+            event.get("event").and_then(Value::as_str) == Some(Self::EXCEPTION_EVENT),
+            event.get("request_id").and_then(Value::as_str) == Some(request_id),
+        ] == [true, true];
+        let message = event
+            .get("message")
+            .and_then(Value::as_str)
+            .filter(|_| named)?;
+        Some(serde_json::json!({
+            "event": Self::EXCEPTION_EVENT,
+            "request_id": request_id,
+            "message": Self::bounded_sideband(message.as_bytes()),
+        }))
     }
 
     async fn read_until_end<R>(&mut self, reader: &mut R, limit: usize)

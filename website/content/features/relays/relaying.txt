@@ -21,8 +21,10 @@ Yon::relay(command) forwards the current request.
   Dart        return relay(['perl', 'server/relays/report.pl'], request)
   Go          return Relay([]string{"perl", "server/relays/report.pl"}, request)
   Ruby        relay(["perl", "server/relays/report.pl"], request)
+  C++         return relay({"perl", "server/relays/report.pl"}, request);
 
-Lua refuses relay (TY2015).
+Lua refuses relay (TY2015). C++ relays on macOS and Linux; on
+Windows a C++ relay answers the fixed 502.
 
 The program reads the request as JSON on its standard input: route
 (the path and query), method, headers and body. It answers with JSON

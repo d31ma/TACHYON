@@ -137,6 +137,32 @@ class Handler
 end
 "#;
 
+    const CPP: &str = r#"#pragma once
+#include <string>
+
+class [[RequestRoute("/probe")]] [[Public]] ProbeController {
+public:
+    [[PostRoute]]
+    tachyon::http::HttpResponseMessage postProbe(const tachyon::http::HttpRequestMessage& request) {
+        std::string text = request.content.has_value() ? request.content->readAsString() : std::string();
+        std::size_t space = text.find(' ');
+        std::string mode = text.substr(0, space);
+        std::string extra = space == std::string::npos ? std::string() : text.substr(space + 1);
+        if (mode == "missing") {
+            return relay({"tachyon-missing-relay-program"}, request);
+        }
+        if (mode != "twice") {
+            return relay({"python3", "server/helpers/probe.py", mode, extra}, request);
+        }
+        int first = static_cast<int>(relay({"python3", "server/helpers/probe.py", "sleep:1.5"}, request).statusCode);
+        int second = static_cast<int>(relay({"python3", "server/helpers/probe.py", "sleep:1.5"}, request).statusCode);
+        tachyon::http::HttpResponseMessage response;
+        response.content = tachyon::http::HttpContent("{\"first\":" + std::to_string(first) + ",\"second\":" + std::to_string(second) + "}");
+        return response;
+    }
+};
+"#;
+
     const JAVASCRIPT_SLOW_START: &str = r"
 export class Handler {
   static started = Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000)
@@ -216,6 +242,10 @@ export class Handler {
                 "import \"net/http\"\n\ntype Handler struct{{}}\n\nfunc (Handler) POST(request *http.Request) *http.Response {{\n\treturn Relay([]string{{\"{program}\", \"{}\", \"{mode}\", \"{extra}\"}}, request)\n}}\n",
                 Delegate::PATH
             ),
+            "hpp" => format!(
+                "#pragma once\n\nclass [[RequestRoute(\"/probe\")]] [[Public]] ProbeController {{\npublic:\n    [[PostRoute]]\n    tachyon::http::HttpResponseMessage postProbe(const tachyon::http::HttpRequestMessage& request) {{\n        return relay({{\"{program}\", \"{}\", \"{mode}\", \"{extra}\"}}, request);\n    }}\n}};\n",
+                Delegate::PATH
+            ),
             _ => return None,
         };
         Some(source)
@@ -230,6 +260,7 @@ fn toolchain(extension: &str) -> &'static str {
         "rs" => "rustc",
         "dart" => "dart",
         "go" => "go",
+        "hpp" => "clang++",
         "php" => "php-cgi",
         "py" => "python3",
         "rb" => "ruby",
@@ -285,7 +316,11 @@ fn project(extension: &str, handler: &str) -> (tempfile::TempDir, HandlerSource)
         "server/application.json",
         r#"{"datasource":{"driver":"sqlite","url":"sqlite::memory:"}}"#,
     );
-    let relative = format!("server/workers/probe.{extension}");
+    let relative = if extension == "hpp" {
+        String::from("server/controllers/ProbeController.hpp")
+    } else {
+        format!("server/workers/probe.{extension}")
+    };
     write(root.path(), &relative, handler);
     let source = HandlerSource::discover(root.path(), &relative).expect("handler source");
     (root, source)
@@ -455,7 +490,7 @@ async fn interpreted_handlers_keep_their_capabilities_but_relay_programs_do_not(
 #[tokio::test]
 async fn compiled_relay_programs_receive_only_the_baseline_and_allowlist() {
     let (name, value) = ordinary_variable();
-    for extension in ["php", "java", "kt", "cs", "rs", "dart", "go"] {
+    for extension in ["php", "java", "kt", "cs", "rs", "dart", "go", "hpp"] {
         if !runnable(extension) {
             continue;
         }
@@ -644,7 +679,7 @@ async fn queue_time_counts_against_the_relay_deadline() {
 #[tokio::test]
 async fn the_supervisor_default_timeout_limits_relays_without_a_request_deadline() {
     for extension in [
-        "js", "py", "rb", "php", "java", "kt", "cs", "rs", "dart", "go",
+        "js", "py", "rb", "php", "java", "kt", "cs", "rs", "dart", "go", "hpp",
     ] {
         if !runnable(extension) {
             continue;
@@ -684,6 +719,7 @@ async fn sequential_relays_and_a_longer_request_deadline_share_one_budget() {
         ("js", Handlers::JAVASCRIPT),
         ("py", Handlers::PYTHON),
         ("rb", Handlers::RUBY),
+        ("hpp", Handlers::CPP),
     ] {
         if !runnable(extension) {
             continue;
@@ -708,6 +744,7 @@ async fn a_relay_program_that_never_reads_its_input_is_bounded() {
         ("js", Handlers::JAVASCRIPT),
         ("py", Handlers::PYTHON),
         ("rb", Handlers::RUBY),
+        ("hpp", Handlers::CPP),
     ] {
         if !runnable(extension) {
             continue;
@@ -732,6 +769,7 @@ async fn a_descendant_holding_the_relay_pipes_is_bounded_and_reaped() {
         ("js", Handlers::JAVASCRIPT),
         ("py", Handlers::PYTHON),
         ("rb", Handlers::RUBY),
+        ("hpp", Handlers::CPP),
     ] {
         if !runnable(extension) {
             continue;
@@ -756,6 +794,7 @@ async fn cancelling_an_invocation_reaps_its_relay_program() {
         ("js", Handlers::JAVASCRIPT),
         ("py", Handlers::PYTHON),
         ("rb", Handlers::RUBY),
+        ("hpp", Handlers::CPP),
     ] {
         if !runnable(extension) {
             continue;
@@ -812,18 +851,20 @@ struct RelayCase;
 impl RelayCase {
     const FIXED_FAILURE: &str = "Component invocation failed.";
     const MISSING_PROGRAM: &str = "tachyon-missing-relay-program";
-    const DYNAMIC: [(&str, &str); 4] = [
+    const DYNAMIC: [(&str, &str); 5] = [
         ("js", "node"),
         ("js", "bun"),
         ("py", "python3"),
         ("rb", "ruby"),
+        ("hpp", "clang++"),
     ];
-    const COMPILED: [&str; 7] = ["php", "java", "kt", "cs", "rs", "dart", "go"];
+    const COMPILED: [&str; 8] = ["php", "java", "kt", "cs", "rs", "dart", "go", "hpp"];
 
     fn dynamic_handler(extension: &str) -> &'static str {
         match extension {
             "py" => Handlers::PYTHON,
             "rb" => Handlers::RUBY,
+            "hpp" => Handlers::CPP,
             _ => Handlers::JAVASCRIPT,
         }
     }
@@ -1116,6 +1157,66 @@ async fn csharp_work_before_main_counts_against_the_relay_deadline() {
     let (root, source) = project("cs", &handler);
     let supervisor = supervisor_for(root.path(), timing_options());
     let mut slow = request("csharp_slow_start", HttpMethod::Post, "");
+    slow.deadline_ms = Some(3_000);
+    assert_relay_fails_before(
+        &supervisor,
+        &source,
+        &slow,
+        Instant::now(),
+        Duration::from_millis(2_600),
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_cpp_relay_program_cannot_write_to_descriptors_the_handler_opened() {
+    if !runnable("hpp") {
+        return;
+    }
+    let handler = Handlers::compiled("hpp", "forge", "")
+        .expect("handler")
+        .replacen("#pragma once\n", "#pragma once\n#include <cstdio>\n", 1)
+        .replacen(
+            "        return relay",
+            "        std::FILE* log = std::fopen(\"/dev/stdout\", \"w\");\n        tachyon::http::HttpResponseMessage answer = relay",
+            1,
+        )
+        .replacen(
+            "request);\n    }",
+            "request);\n        std::fclose(log);\n        return answer;\n    }",
+            1,
+        );
+    let (root, source) = project("hpp", &handler);
+    let supervisor = supervisor_for(root.path(), HandlerSupervisorOptions::default());
+    let response = supervisor
+        .invoke(
+            &source,
+            &request("cpp_descriptors", HttpMethod::Post, ""),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("genuine relay response");
+    assert_eq!(response.status, 200, "{response:?}");
+    assert_eq!(body(&response), serde_json::json!({"genuine": true}));
+}
+
+#[tokio::test]
+async fn cpp_work_before_the_relay_counts_against_its_deadline() {
+    if !runnable("hpp") {
+        return;
+    }
+    let handler = Handlers::compiled("hpp", "sleep:10", "")
+        .expect("handler")
+        .replacen("#pragma once\n", "#pragma once\n#include <chrono>\n#include <thread>\n", 1)
+        .replacen(
+            "        return relay",
+            "        std::this_thread::sleep_for(std::chrono::milliseconds(800));\n        return relay",
+            1,
+        );
+    let (root, source) = project("hpp", &handler);
+    let supervisor = supervisor_for(root.path(), timing_options());
+    let mut slow = request("cpp_slow_start", HttpMethod::Post, "");
     slow.deadline_ms = Some(3_000);
     assert_relay_fails_before(
         &supervisor,

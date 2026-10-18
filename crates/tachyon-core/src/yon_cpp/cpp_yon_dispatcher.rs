@@ -1,4 +1,4 @@
-use super::{CppYonController, CppYonErrors, CppYonSocketCalls};
+use super::{CppYonController, CppYonErrors, CppYonMiddleware, CppYonSocketCalls};
 use crate::yon::plan::{ParameterSource, Route};
 
 pub(crate) struct CppYonDispatcher;
@@ -29,7 +29,9 @@ impl CppYonDispatcher {
     fn routes(controller: &CppYonController) -> String {
         let branches: String = controller.routes.iter().map(Self::branch).collect();
         format!(
-            "        std::string verb = frame.text(\"method\");\n        std::string route = frame.text(\"route\");\n        try {{\n{branches}        }} catch (...) {{\n            return handled(std::current_exception(), frame);\n        }}\n        return tachyon::yon::YonDelivery::unrouted();\n"
+            "        std::string verb = frame.text(\"{field}\");\n        std::string route = frame.text(\"route\");\n        try {{\n{branches}        }} catch (...) {{\n            return handled(std::current_exception(), frame);\n        }}\n        return {unrouted};\n",
+            field = CppYonMiddleware::field(&controller.path),
+            unrouted = CppYonMiddleware::unrouted(&controller.path),
         )
     }
 

@@ -6,8 +6,8 @@ public:
         return YonAnswer(status, std::string(), false);
     }
 
-    static YonAnswer json(int status, std::string body) {
-        return YonAnswer(status, std::move(body), true);
+    static YonAnswer json(int status, const std::string& body) {
+        return YonAnswer(status, YonText::repaired(body), true);
     }
 
     static YonAnswer failure(int status, const std::string& message) {
@@ -52,6 +52,13 @@ public:
         return answer;
     }
 
+    static YonAnswer of(const std::optional<http::HttpResponseMessage>& message) {
+        if (!message.has_value()) {
+            return empty(204);
+        }
+        return of(*message);
+    }
+
     template <typename T>
     static YonAnswer handled(const T& value, int status) {
         return json(status, json::JsonSerializer::serializeToNode(value).toJsonString());
@@ -72,7 +79,7 @@ public:
         answer["status"] = status;
         if (violations.count() > 0) {
             answer["violations"] = violations;
-            return answer.toJsonString();
+            return YonText::repaired(answer.toJsonString());
         }
         json::JsonObject written;
         if (hasJson) {
@@ -86,9 +93,9 @@ public:
             written[name] = values;
         }
         answer["headers"] = written;
-        answer["body"] = body;
+        answer["body"] = YonText::valid(body) ? json::JsonNode(body) : encoded(body);
         answer["topics"] = topics;
-        return answer.toJsonString();
+        return YonText::repaired(answer.toJsonString());
     }
 
 private:
@@ -100,6 +107,13 @@ private:
     bool alreadySent = false;
 
     YonAnswer(int status, std::string body, bool hasJson) : status(status), body(std::move(body)), hasJson(hasJson) {}
+
+    static json::JsonNode encoded(const std::string& bytes) {
+        json::JsonObject body;
+        body["encoding"] = "base64";
+        body["data"] = YonText::base64(bytes);
+        return body;
+    }
 
     static std::string ruleName(const std::string& rule) {
         static const std::map<std::string, std::string> names = {
