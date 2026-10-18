@@ -366,6 +366,52 @@ func (service *ReportArchiveService) Store(detail BehaviorValue) (any, error) {
 }
 "#,
     );
+
+    const CPP: (&str, &str) = (
+        "server/services/ReportService.hpp",
+        r#"#pragma once
+#include <stdexcept>
+#include <string>
+
+class [[Service]] ReportService {
+    [[Needs]] ReportLabels& labels;
+
+public:
+    tachyon::json::JsonNode summarize(tachyon::json::JsonNode mode, const tachyon::json::JsonNode& detail) {
+        std::string written = mode.getValueKind() == tachyon::json::JsonValueKind::String ? mode.getValue<std::string>() : std::string();
+        if (written == "fail") {
+            throw std::runtime_error("secret-canary target failure");
+        }
+        if (written == "nothing") {
+            return tachyon::json::JsonNode(nullptr);
+        }
+        tachyon::json::JsonObject answer;
+        answer["language"] = labels.language();
+        answer["mode"] = mode;
+        answer["detail"] = detail;
+        return answer;
+    }
+
+    tachyon::json::JsonNode count() const {
+        return tachyon::json::JsonNode(3);
+    }
+};
+"#,
+    );
+
+    const CPP_HELPER: (&str, &str) = (
+        "server/helpers/ReportLabels.hpp",
+        r#"#pragma once
+#include <string>
+
+class [[Helper]] ReportLabels {
+public:
+    std::string language() const {
+        return "cpp";
+    }
+};
+"#,
+    );
 }
 
 struct Callers;
@@ -567,6 +613,23 @@ impl Callers {
                 String::from("server/controllers/ReportController.lua"),
                 String::from(
                     "-- @RequestRoute(\"/report\")\n-- @Public\n---@class ReportController\nReportController = {\n  -- @Needs\n  ---@type ReportClient\n  report_client = nil,\n}\n\n---@param input any[]\n---@return table\n-- @PostRoute\nfunction ReportController:post_report(\n  -- @FromBody\n  input\n)\n  local ok, answer = pcall(self.report_client.summarize, self.report_client, input[1], input[2])\n  if ok then\n    return answer\n  end\n  return { code = answer.behavior_code, message = answer.message }\nend\n",
+                ),
+            ),
+        ]
+    }
+
+    fn cpp(target: &str) -> [(String, String); 2] {
+        [
+            (
+                String::from("server/remotes/ReportClient.hpp"),
+                format!(
+                    "#pragma once\n\nclass [[HTTPClient]] ReportClient {{\npublic:\n    [[Gateway({{\"class\":\"{target}\"}})]]\n    tachyon::json::JsonNode summarize(tachyon::json::JsonNode mode, const tachyon::json::JsonNode& detail) const;\n}};\n"
+                ),
+            ),
+            (
+                String::from("server/controllers/ReportController.hpp"),
+                String::from(
+                    "#pragma once\n\nclass [[RequestRoute(\"/report\")]] [[Public]] ReportController {\n    [[Needs]] ReportClient& reportClient;\n\npublic:\n    [[PostRoute]]\n    tachyon::json::JsonNode postReport([[FromBody]] tachyon::json::JsonNode input) {\n        try {\n            return reportClient.summarize(input[0], input[1]);\n        } catch (const tachyon::TacCodedError& error) {\n            tachyon::json::JsonObject failed;\n            failed[\"code\"] = error.code();\n            failed[\"message\"] = std::string(error.what());\n            return failed;\n        }\n    }\n};\n",
                 ),
             ),
         ]
@@ -1035,6 +1098,73 @@ fn class_targets_are_checked_when_the_caller_is_built() {
     }
 }
 
+#[tokio::test]
+async fn a_python_service_calls_a_cpp_class() {
+    if !usable("python3") || !usable("clang++") {
+        return;
+    }
+    let files = [Targets::CPP, Targets::CPP_HELPER];
+    assert_python_reaches_compiled_target(&files, "cpp").await;
+}
+
+#[tokio::test]
+async fn a_cpp_service_calls_a_python_class() {
+    if !usable("python3") || !usable("clang++") {
+        return;
+    }
+    let project = Project::new(
+        &[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE],
+        &Callers::cpp(Targets::PYTHON.0),
+    );
+    let source = project.discover("hpp");
+    let detail = serde_json::json!({"period": "2026-Q3", "values": [1, 2.5]});
+    let answer = call_bound(&project, &source, &serde_json::json!(["store", detail])).await;
+    assert_eq!(answer["language"], "python", "{answer}");
+    assert_eq!(answer["detail"], detail, "{answer}");
+    assert_eq!(answer["stored"], 1, "{answer}");
+    let failed = call_bound(&project, &source, &serde_json::json!(["fail", null])).await;
+    assert_eq!(failed["code"], "adapter", "{failed}");
+    assert_eq!(failed["message"], "Gateway call failed.", "{failed}");
+}
+
+#[test]
+fn cpp_gateway_targets_are_public_json_instance_methods() {
+    let summarize = "tachyon::json::JsonNode summarize(tachyon::json::JsonNode mode, const tachyon::json::JsonNode& detail) {";
+    let cases = [
+        (
+            summarize,
+            "std::string summarize(tachyon::json::JsonNode mode, const tachyon::json::JsonNode& detail) {",
+            "JSON value type",
+        ),
+        (
+            summarize,
+            "static tachyon::json::JsonNode summarize(tachyon::json::JsonNode mode, const tachyon::json::JsonNode& detail) {",
+            "not a concrete instance method",
+        ),
+        (
+            "public:\n    tachyon::json::JsonNode summarize(",
+            "    tachyon::json::JsonNode summarize(",
+            "not a concrete instance method",
+        ),
+        (
+            summarize,
+            "tachyon::json::JsonNode summarize(tachyon::json::JsonNode mode) {",
+            "takes 1 arguments",
+        ),
+    ];
+    for (from, to, expected) in cases {
+        assert!(Targets::CPP.1.contains(from), "{from}");
+        let target = Targets::CPP.1.replace(from, to);
+        let project = Project::new(
+            &[(Targets::CPP.0, target.as_str()), Targets::CPP_HELPER],
+            &Callers::python(Targets::CPP.0),
+        );
+        let failure = project.failure("py");
+        assert!(failure.contains("TY1312"), "{to}: {failure}");
+        assert!(failure.contains(expected), "{to}: {failure}");
+    }
+}
+
 #[test]
 fn rust_gateway_targets_require_shared_receivers() {
     for receiver in ["self", "&mut self"] {
@@ -1354,6 +1484,14 @@ async fn a_go_service_calls_a_csharp_class() {
         return;
     }
     assert_go_caller_reaches(&[Targets::CSHARP], "csharp").await;
+}
+
+#[tokio::test]
+async fn a_go_service_calls_a_cpp_class() {
+    if !usable("clang++") || !usable("go") {
+        return;
+    }
+    assert_go_caller_reaches(&[Targets::CPP, Targets::CPP_HELPER], "cpp").await;
 }
 
 #[tokio::test]

@@ -24,6 +24,10 @@ impl CppYonErrors {
         Self::with_handlers(root, true)
     }
 
+    pub(crate) fn types(root: &Path) -> Result<Self, Failure> {
+        Self::with_handlers(root, false)
+    }
+
     fn with_handlers(root: &Path, handled: bool) -> Result<Self, Failure> {
         let types = CppYonErrorTypes::read(root)?;
         let handlers = handled

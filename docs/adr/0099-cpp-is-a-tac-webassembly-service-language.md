@@ -533,7 +533,8 @@ events and scheduled workers. The rule table lists `hpp` for `Service`,
 - C++ Yon code is synchronous: a hook or listener that returns `Task` fails
   with `TY2015`, as does an `[[OnStart]]` or `[[OnStop]]` method with
   parameters. A transient class in a graph with hooks or listeners fails
-  with `TY2015`, as in the other languages. `[[Topic]]` models stay pending.
+  with `TY2015`, as in the other languages. `[[Topic]]` models came with
+  the amendment "Yon C++ HTTP clients, gateways and topics" below.
 - `[[Description("...")]]` on a role class is checked as on the Tac side.
 
 ### Workers
@@ -1128,14 +1129,47 @@ behavior markers go on `Task` methods and on client request methods.
   which used `YonAdapters`) and `TacStores` (the page's Store router) live in
   `tachyon/adapters.hpp`.
 
+## Amendment (2026-10-18): C++ classes as gateway targets
+
+A C++ class can now be the target of another language's `[[Gateway]]`, for
+example `[[Gateway({"class":"server/services/ReportService.hpp"})]]` in a
+Python or Go `[[HTTPClient]]`. This was the last Yon C++ item that stayed out
+of the plan.
+
+- The target method is a public instance method with a body, and its
+  parameters and result are `tachyon::json::JsonNode` (a parameter may be a
+  `const` reference):
+  `tachyon::json::JsonNode summarize(tachyon::json::JsonNode mode, const tachyon::json::JsonNode& detail);`.
+  The class is in `server/services`, `server/helpers`, `server/converters`,
+  `server/stores` or `server/remotes`. A static, private or bodiless method,
+  another type or another argument count fails with `TY1312`, with the
+  shared messages of ADR 0042. `CppYonGatewayUnit::signatures` reads the
+  method with the C++ reader, so overloads are chosen by argument count and
+  JSON types as in the other languages.
+- Tachyon writes the unit `server/gateways/<id>/yon.hpp` as a C++ program
+  and builds it like a controller (`clang++ -std=c++20 -O2`). The program
+  holds the Yon runtime, `server/models`, the error types of
+  `server/errors`, the Setups, and the graph of the target class: the class
+  and every object its `[[Needs]]` fields reach (`CppYonGraph::targeted`).
+  The usual graph checks apply (captured request objects, transient objects
+  next to hooks, one Store for each Entity).
+- The program reads `{"method":...,"arguments":[...]}` from the request
+  body (`YonGatewayCall` in `yon_gateway.hpp`), makes the target, runs the
+  `[[OnStart]]` methods, calls the method that was asked for, drains the
+  events and answers `{"result":...}`. Only the methods that callers
+  declared are called; another name answers 400. A thrown exception answers
+  500, and the caller gets the fixed `adapter` failure, as for every target
+  language. The unit has no gateway table, so a call to a further gateway
+  from inside it fails as `adapter`: only one hop is allowed.
+- `crates/tachyon-core/tests/it/gateway_classes.rs` has a Python and a Go
+  service that call a C++ class with a `[[Needs]]` Helper, a C++ service
+  that calls a Python class, and the signature refusals.
+
 ## Pending
 
 All planned Yon C++ steps have landed, and the rule table lists `hpp` for
 each of their markers. These stay out of the plan for now:
 
-- A C++ class as the target of another language's `[[Gateway]]`: Tachyon
-  writes no `server/gateways/<id>/yon.hpp` unit yet, so such a target fails
-  with "No Yon gateway unit exists for .hpp yet". C++ code calls gateways.
 - The curated web APIs (Clock, Preferences, ...) for C++ `[[Needs]]` fields.
 - Lifetime `"application"` stays refused: a C++ service runs in the page and
   has no native host.

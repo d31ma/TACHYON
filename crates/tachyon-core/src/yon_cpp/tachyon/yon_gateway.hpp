@@ -56,3 +56,47 @@ private:
 };
 
 }
+
+namespace tachyon::yon {
+
+class YonGatewayCall {
+public:
+    explicit YonGatewayCall(const YonFrame& frame) : fields(read(frame)) {}
+
+    std::string method() const {
+        bool named = fields.getValueKind() == json::JsonValueKind::Object && fields.containsKey("method") && fields["method"].getValueKind() == json::JsonValueKind::String;
+        return named ? fields["method"].getValue<std::string>() : std::string();
+    }
+
+    json::JsonNode argument(std::size_t index) const {
+        bool listed = fields.getValueKind() == json::JsonValueKind::Object && fields.containsKey("arguments") && fields["arguments"].getValueKind() == json::JsonValueKind::Array;
+        if (!listed || index >= fields["arguments"].count()) {
+            return json::JsonNode(nullptr);
+        }
+        return fields["arguments"][index];
+    }
+
+    static YonAnswer answer(const json::JsonNode& result) {
+        json::JsonObject written;
+        written["result"] = result;
+        return YonAnswer::json(200, written.toJsonString());
+    }
+
+private:
+    json::JsonNode fields;
+
+    static json::JsonNode read(const YonFrame& frame) {
+        const json::JsonNode& body = frame.field("body");
+        bool written = body.getValueKind() == json::JsonValueKind::Object && body.containsKey("data") && body["data"].getValueKind() == json::JsonValueKind::String;
+        if (!written) {
+            return json::JsonNode(nullptr);
+        }
+        try {
+            return json::JsonNode::parse(body["data"].getValue<std::string>());
+        } catch (const std::exception&) {
+            return json::JsonNode(nullptr);
+        }
+    }
+};
+
+}

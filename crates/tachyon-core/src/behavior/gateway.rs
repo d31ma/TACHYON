@@ -116,6 +116,8 @@ pub(crate) fn target_signature(
             .collect()
     } else if extension == "rb" {
         super::ruby::RubyBehaviors::target_signatures(source, class, method)
+    } else if extension == "hpp" {
+        crate::yon_cpp::CppYon::gateway_target_signatures(path, source, class, method)?
     } else {
         super::polyglot::target_signatures(path, source, class, method)?
     };

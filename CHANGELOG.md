@@ -10,6 +10,12 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A C++ class can be the target of another language's `[[Gateway]]`.
+  Tachyon writes the `server/gateways/<id>/yon.hpp` unit, builds it with
+  `clang++` and makes the class with its own `[[Needs]]` graph; the target
+  method is public and takes and returns `tachyon::json::JsonNode`. Such a
+  target used to fail with "No Yon gateway unit exists for .hpp yet"
+  (ADR 0099 amendment).
 - `ty migrate fix --write` rewrites legacy C++ Yon handlers. A
   `server/routes/**/yon.cpp` file with a `Handler` class moves to
   `server/controllers/<Route>Controller.hpp` with `#pragma once`,

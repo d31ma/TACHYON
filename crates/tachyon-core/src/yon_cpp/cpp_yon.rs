@@ -1,14 +1,14 @@
 use super::{
-    CppYonController, CppYonErrors, CppYonGraph, CppYonProgram, CppYonStores, CppYonTestUnit,
-    CppYonTopics,
+    CppYonController, CppYonErrors, CppYonGatewayUnit, CppYonGraph, CppYonProgram, CppYonStores,
+    CppYonTestUnit, CppYonTopics,
 };
 use crate::Failure;
-use crate::behavior::GatewayDeclaration;
+use crate::behavior::{GatewayDeclaration, TargetSignature};
 use crate::events::TopicUse;
 use crate::tac_cpp::{CppProgram, CppSource, CppTestUnit};
 use crate::yon::Lowered;
 use crate::yon::plan::Route;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 pub(crate) struct CppYon;
@@ -93,6 +93,28 @@ impl CppYon {
     ) -> Result<Vec<GatewayDeclaration>, Failure> {
         let controller = CppYonController::read(caller, contents)?;
         Ok(Self::graph(root, &controller)?.2.gateways)
+    }
+
+    pub(crate) fn gateway_unit(
+        root: &Path,
+        unit: &Path,
+        target: &str,
+        methods: &BTreeMap<String, usize>,
+        other: impl Fn() -> Result<(String, String), Failure>,
+    ) -> Result<(String, String), Failure> {
+        let lowered = CppSource::is_cpp(unit)
+            .then(|| CppYonGatewayUnit::lower(root, unit, target, methods))
+            .transpose()?;
+        lowered.map_or_else(other, |lowered| Ok((lowered.clone(), lowered)))
+    }
+
+    pub(crate) fn gateway_target_signatures(
+        path: &Path,
+        source: &str,
+        class: &str,
+        method: &str,
+    ) -> Result<Vec<TargetSignature>, Failure> {
+        CppYonGatewayUnit::signatures(path, source, class, method)
     }
 
     fn graph(

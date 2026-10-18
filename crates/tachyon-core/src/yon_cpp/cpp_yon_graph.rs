@@ -56,6 +56,31 @@ impl CppYonGraph {
         Ok(graph)
     }
 
+    pub(crate) fn targeted(
+        root: &Path,
+        unit: &Path,
+        target: &str,
+        models: &CppProgram,
+        stores: &CppYonStores,
+    ) -> Result<Self, Failure> {
+        let mut graph = CppServiceGraph::within(root, Self::FOLDERS, Self::missing)?;
+        graph.add_need(unit, 0, target)?;
+        let services = graph.finish();
+        let gateways = Self::gateways(root, &services)?;
+        let providers = services
+            .iter()
+            .map(|service| CppYonProvider::service(service, models, stores, false))
+            .collect::<Result<Vec<_>, _>>()?;
+        let graph = Self {
+            providers,
+            gateways,
+        };
+        graph.check_entities()?;
+        graph.check_captures()?;
+        graph.check_transient()?;
+        Ok(graph)
+    }
+
     pub(crate) fn located(&self) -> String {
         self.providers
             .iter()

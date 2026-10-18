@@ -19,8 +19,9 @@ mod gateway;
 mod http_client;
 mod written_gateway;
 pub(crate) use gateway::{
-    GatewayDeclaration, GatewayLimits, GatewayTarget, declarations as gateway_declarations,
-    target_failure as gateway_target_failure, target_signature as gateway_target_signature,
+    GatewayDeclaration, GatewayLimits, GatewayTarget, TargetSignature,
+    declarations as gateway_declarations, target_failure as gateway_target_failure,
+    target_signature as gateway_target_signature,
 };
 pub(crate) use polyglot::{
     CsharpHelperGraph, DetachedCsharp, HelperRole, JavaBuiltins, KotlinBuiltins, LuaBehaviorMethod,

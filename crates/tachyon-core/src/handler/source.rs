@@ -625,20 +625,11 @@ impl HandlerSource {
         if !source_root.path().join(unit).is_file() {
             source_root.stage(unit, b"", &portable)?;
         }
-        let assembled = crate::annotation_modules::assemble(source_root.path(), unit, "", "yon")?
-            .ok_or_else(|| {
-            crate::behavior::gateway_target_failure(
-                &portable,
-                0,
-                "Gateway target has no role files to compose",
-            )
-        })?;
         let models = server_models(source_root.path(), unit, true)?;
-        let metadata = models.metadata();
-        let assembled = metadata.assembled(unit, &assembled)?;
-        let lowered = crate::yon::lower_gateway_unit(unit, &assembled, target, methods)?;
-        let lowered = metadata.without_declarations(unit, &lowered)?;
-        let lowered = with_models(Some(lowered), &assembled, &models, false).unwrap_or_default();
+        let (assembled, lowered) =
+            CppYon::gateway_unit(source_root.path(), unit, target, methods, || {
+                Self::managed_gateway_unit(source_root, unit, &portable, target, methods, &models)
+            })?;
         let execution_relative_path =
             stage_annotated_source(source_root, unit, &lowered, &portable)?;
         let (language, interpreter, prebuilt, prepared_workspace) = language(
@@ -669,6 +660,30 @@ impl HandlerSource {
             gateways: None,
             topics: Arc::default(),
         })
+    }
+
+    fn managed_gateway_unit(
+        source_root: &OwnedSourceRoot,
+        unit: &Path,
+        portable: &str,
+        target: &str,
+        methods: &std::collections::BTreeMap<String, usize>,
+        models: &ModelSources,
+    ) -> Result<(String, String), Failure> {
+        let assembled = crate::annotation_modules::assemble(source_root.path(), unit, "", "yon")?
+            .ok_or_else(|| {
+            crate::behavior::gateway_target_failure(
+                portable,
+                0,
+                "Gateway target has no role files to compose",
+            )
+        })?;
+        let metadata = models.metadata();
+        let assembled = metadata.assembled(unit, &assembled)?;
+        let lowered = crate::yon::lower_gateway_unit(unit, &assembled, target, methods)?;
+        let lowered = metadata.without_declarations(unit, &lowered)?;
+        let lowered = with_models(Some(lowered), &assembled, models, false).unwrap_or_default();
+        Ok((assembled, lowered))
     }
 
     #[must_use]
