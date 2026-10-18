@@ -155,7 +155,12 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   from `tachyon`:
   the same linear-memory protocol as Rust and Swift (`init`, `get`, `set`,
   `call`, `event`, `dispose`). A small WASI shim prints standard output and
-  standard error to the console.
+  standard error to the console, answers `clock_time_get` from `Date.now()`
+  (realtime) and `performance.now()` (the other clocks), and answers
+  `random_get` from `crypto.getRandomValues`, so `std::chrono` clocks and
+  `std::random_device` work in the page. Without them a clock or entropy call
+  failed, its `std::system_error` escaped a Setup, and the page trapped with
+  `RuntimeError: unreachable`.
 - Exceptions are on. Every request runs inside `try`, so a C++ exception
   (`JsonException`, `std::runtime_error`, ...) becomes the request's error
   answer and never reaches the page as a trap.

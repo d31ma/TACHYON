@@ -960,6 +960,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A C++ page program no longer traps with `RuntimeError: unreachable` when
+  its code reads a `std::chrono` clock or `std::random_device`. The page's
+  WASI shim now answers `clock_time_get` and `random_get`; before, the call
+  failed and its exception escaped, for example from a Setup's
+  `configure`. The C++ fixture of the page-program gate runs again (ADR 0099).
 - A Yon Lua `-- @HTTPClient` method with `-- @Gateway` now keeps the target
   method public. Before, the visibility check did not read Lua files, so a
   Python service that only a Lua gateway called failed with `TY1333`. The

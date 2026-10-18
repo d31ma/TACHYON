@@ -55,6 +55,16 @@ impl WebApis {
          int count() { return static_cast<int>(secureRandom.bytes(16).size()); }\n\n    \
          std::string refused() {\n        try {\n            secureRandom.bytes(65537);\n            return \"\";\n        } catch (const std::runtime_error& problem) {\n            return problem.what();\n        }\n    }\n};\n";
 
+    const CPP_STANDARD: &str = "#pragma once\n#include <chrono>\n#include <random>\n\nclass [[Service]] StampService {\npublic:\n    \
+         bool seeded() {\n        std::random_device device;\n        return device() != device() || device() != device();\n    }\n\n    \
+         bool ticking() {\n        auto now = std::chrono::system_clock::now().time_since_epoch();\n        auto steady = std::chrono::steady_clock::now().time_since_epoch();\n        return std::chrono::duration_cast<std::chrono::seconds>(now).count() > 1700000000 && steady.count() > 0;\n    }\n};\n";
+
+    const STANDARD_DRIVER: &str = ";(0, eval)(await readFile('./tac-web.js', 'utf8'))\n\
+         const { default: StampService } = await import('./StampService.js')\n\
+         const stamp = new StampService({})\n\
+         console.log(JSON.stringify({ seeded: stamp.seeded(), ticking: stamp.ticking() }))\n\
+         process.exit(0)\n";
+
     const SWIFT_SERVICE: &str = "@Service\nfinal class StampService {\n    private let clock = Clock()\n    private let secureRandom = SecureRandom()\n\n    \
          func now() -> Double {\n        clock.nowMs()\n    }\n\n    \
          func zone() throws -> String {\n        try clock.timeZone()\n    }\n\n    \
@@ -1915,4 +1925,17 @@ async fn a_cpp_web_service_hears_the_answers_to_its_own_browser_calls() {
     let root = tempfile::tempdir().expect("project");
     WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", WebApis::CPP_PROMPTS).await;
     WebApis::assert_answered(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_cpp_web_service_reads_the_standard_clock_and_random_device() {
+    if !WebApis::node_available() || !WebApis::cpp_available() {
+        eprintln!("skipping: node or em++ is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", WebApis::CPP_STANDARD).await;
+    let driver = format!("{}{}", WebApis::FILE_FETCH, WebApis::STANDARD_DRIVER);
+    let report = WebApis::run(root.path(), &driver);
+    assert_eq!(report, serde_json::json!({"seeded": true, "ticking": true}));
 }

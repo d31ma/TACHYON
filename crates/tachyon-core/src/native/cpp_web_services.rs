@@ -34,6 +34,14 @@ const cppSystem = {
     return 0
   },
   proc_exit: (code) => { throw new Error(`C++ services stopped with exit code ${code}.`) },
+  clock_time_get: (clock, precision, target) => {
+    new DataView(exports.memory.buffer).setBigUint64(target, BigInt(Math.round((clock === 0 ? Date.now() : performance.now()) * 1e6)), true)
+    return 0
+  },
+  random_get: (pointer, length) => {
+    for (let start = 0; start < length; start += 65536) crypto.getRandomValues(new Uint8Array(exports.memory.buffer, pointer + start, Math.min(65536, length - start)))
+    return 0
+  },
 }
 for (const { module, name, kind } of WebAssembly.Module.imports(cppModule)) {
   if (module === 'wasi_snapshot_preview1' && kind === 'function') cppSystem[name] ??= () => cppNotSupported
