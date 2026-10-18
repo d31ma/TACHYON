@@ -2,32 +2,18 @@ use super::super::mapper::Plan;
 use super::super::testing::Unit;
 use super::java_test_construction::JavaTestConstruction;
 use super::{Edit, Method, Module, Type, block, concrete_edit, declared_fields, render};
-pub(crate) use java_runtime_sections::{JavaPageRuntime, JavaRuntimeSections};
+pub(crate) use java_page_runtime::JavaPageRuntime;
+pub(crate) use java_runtime_sections::JavaRuntimeSections;
 use java_typed_client::JavaTypedClient;
 use serde_json::Value;
 use std::fmt::Write as _;
 
+mod java_page_runtime;
+mod java_runtime_section;
 mod java_runtime_sections;
 mod java_typed_client;
 
-pub(super) fn lower(module: &Module) -> Result<String, String> {
-    lower_with(module, None)
-}
-
-pub(super) fn lower_in_page(module: &Module, page: &JavaPageRuntime) -> Result<String, String> {
-    lower_with(module, Some(page))
-}
-
-pub(super) fn sections(module: &Module) -> Result<JavaRuntimeSections, String> {
-    reject_reserved_names(module)?;
-    let mut sections = JavaRuntimeSections::default();
-    module.types.iter().try_for_each(|type_declaration| {
-        lower_type(module, type_declaration, &mut sections, &mut Vec::new())
-    })?;
-    Ok(sections)
-}
-
-fn lower_with(module: &Module, page: Option<&JavaPageRuntime>) -> Result<String, String> {
+pub(super) fn lower(module: &Module, page: Option<&JavaPageRuntime>) -> Result<String, String> {
     reject_reserved_names(module)?;
     let mut edits = Vec::new();
     let mut sections = JavaRuntimeSections::default();
@@ -37,10 +23,7 @@ fn lower_with(module: &Module, page: Option<&JavaPageRuntime>) -> Result<String,
     }
     let mut runtime = page.map_or_else(
         || sections.fill_runtime(&module.module_id, &module.environment),
-        |page| {
-            page.sections
-                .fill_runtime(&page.module_id, &module.environment)
-        },
+        |page| page.fill_runtime(&module.environment),
     );
     runtime.push_str(super::JavaBuiltins::NONE);
     runtime.push_str(super::super::testing::unit_helper(

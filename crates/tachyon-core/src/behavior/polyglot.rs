@@ -243,47 +243,6 @@ pub(super) fn lower(
     }
 }
 
-pub(super) fn java_sections(
-    path: &Path,
-    source: &str,
-    environment: &str,
-) -> Result<Option<JavaRuntimeSections>, Failure> {
-    prepare(path, source, environment)?
-        .and_then(annotated_module)
-        .map(|module| {
-            java::sections(&module).map_err(|message| module_failure(path, source, message))
-        })
-        .transpose()
-}
-
-pub(super) fn lower_in_java_page(
-    path: &Path,
-    source: &str,
-    environment: &str,
-    page: &JavaPageRuntime,
-) -> Result<Option<String>, Failure> {
-    prepare(path, source, environment)?
-        .map(|prepared| {
-            java_page_lowering(prepared, page)
-                .map_err(|message| module_failure(path, source, message))
-        })
-        .transpose()
-}
-
-fn annotated_module(prepared: Prepared) -> Option<Module> {
-    match prepared {
-        Prepared::Annotated(module) => Some(module),
-        Prepared::Erased(_) => None,
-    }
-}
-
-fn java_page_lowering(prepared: Prepared, page: &JavaPageRuntime) -> Result<String, String> {
-    match prepared {
-        Prepared::Erased(erased) => Ok(erased),
-        Prepared::Annotated(module) => java::lower_in_page(&module, page),
-    }
-}
-
 pub(super) fn unit_tables(
     path: &Path,
     source: &str,
@@ -492,7 +451,7 @@ fn has_behavior(ty: &Type) -> bool {
 
 fn lower_module(module: &Module) -> Result<String, String> {
     match module.language.as_str() {
-        "java" => java::lower(module),
+        "java" => java::lower(module, None),
         "kt" => kotlin::lower(module),
         "cs" => csharp::lower(module),
         "swift" => swift::lower(module),

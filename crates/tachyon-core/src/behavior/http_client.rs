@@ -7,6 +7,8 @@ use std::path::Path;
 pub(crate) struct HttpClientSource;
 
 impl HttpClientSource {
+    const TAC: &'static str = "tac";
+    const BROWSER_SCRIPTS: [&'static str; 2] = ["js", "ts"];
     const CLASS: &'static str = "httpclient";
     const STREAM: &'static str = "streamrequest";
     const SOCKET: &'static str = "socketrequest";
@@ -60,6 +62,31 @@ impl HttpClientSource {
         let code = Self::code(path, source);
         let input = SourceText::of(path, source, &code);
         input.classes(&input.marker_lines())
+    }
+
+    pub(crate) fn lowering_source(
+        path: &Path,
+        source: &str,
+        environment: &str,
+    ) -> Result<Option<String>, Failure> {
+        Self::rewrite(path, source)?
+            .map(|rewritten| Self::without_native_tac_roles(path, rewritten, environment))
+            .transpose()
+    }
+
+    fn without_native_tac_roles(
+        path: &Path,
+        rewritten: String,
+        environment: &str,
+    ) -> Result<String, Failure> {
+        let browser_script = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| Self::BROWSER_SCRIPTS.contains(&value));
+        if [environment == Self::TAC, browser_script] == [true, false] {
+            return super::ServiceRoles::read(path, &rewritten).map(|roles| roles.source);
+        }
+        Ok(rewritten)
     }
 
     pub(crate) fn rewrite(path: &Path, source: &str) -> Result<Option<String>, Failure> {

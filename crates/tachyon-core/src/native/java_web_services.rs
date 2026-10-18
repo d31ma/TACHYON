@@ -5,8 +5,10 @@ use java_class_reader::JavaClassReader;
 use java_event_members::JavaEventMembers;
 use java_held_streams::JavaHeldStreams;
 use java_models::JavaModels;
-use java_page_program::{JavaPageProgram, JavaPageSources};
-use java_service::{JavaService, JavaServiceDraft};
+use java_page_program::JavaPageProgram;
+use java_page_sources::JavaPageSources;
+use java_service::JavaService;
+use java_service_draft::JavaServiceDraft;
 use java_service_needs::JavaServiceNeeds;
 use java_service_table::JavaServiceTable;
 use java_value_type::JavaValueType;
@@ -32,9 +34,13 @@ mod java_model_reader;
 mod java_model_table;
 mod java_models;
 mod java_need_owner;
+mod java_page_file;
 mod java_page_program;
+mod java_page_sources;
+mod java_page_type;
 mod java_preference_constructor;
 mod java_service;
+mod java_service_draft;
 mod java_service_needs;
 mod java_service_table;
 mod java_test_contracts;
@@ -376,9 +382,7 @@ impl JavaWebServices {
             (&authored.source, behavior_source, &authored.class),
         )?;
         let lowered = match runtime {
-            Some(runtime) => {
-                crate::behavior::lower_in_java_page(relative, behavior_source, "tac", runtime)?
-            }
+            Some(runtime) => runtime.lowered(relative, behavior_source, "tac")?,
             None => crate::behavior::lower(relative, behavior_source, "tac")?,
         };
         let source = lowered.map_or_else(

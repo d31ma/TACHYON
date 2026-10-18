@@ -2,7 +2,8 @@
 
 use super::JavaWebServices;
 use super::java_page_program::JavaPageProgram;
-use super::java_service::{JavaService, JavaServiceDraft};
+use super::java_service::JavaService;
+use super::java_service_draft::JavaServiceDraft;
 use crate::behavior::{JavaPageRuntime, JavaRuntimeSections};
 use std::path::{Path, PathBuf};
 
@@ -89,7 +90,10 @@ impl PageFixture {
     }
 
     fn runtime() -> JavaPageRuntime {
-        JavaPageRuntime::new(String::from("page"), JavaRuntimeSections::default())
+        JavaPageRuntime::new(
+            Path::new("client/services/One.java"),
+            JavaRuntimeSections::default(),
+        )
     }
 
     fn shared(written: &[(&str, &str, &str)]) -> Option<Vec<String>> {
