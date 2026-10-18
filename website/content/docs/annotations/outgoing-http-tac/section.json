@@ -238,5 +238,5 @@
       }
     }
   ],
-  "body": "Lua has no tab here, because the build refuses HTTPClient in Lua Tac code with TY1308. A C++ HTTPClient method cannot carry the cache markers yet (ADR 0099)."
+  "body": "Lua has no example here yet. A C++ HTTPClient method cannot carry the cache markers yet (ADR 0099)."
 }
