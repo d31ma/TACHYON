@@ -2,6 +2,7 @@ mod python_browser_apis;
 mod python_build;
 mod python_events;
 mod python_graph_guard;
+mod python_held_streams;
 mod python_provider_source;
 mod python_web_services;
 pub(crate) use python_web_services::PythonWebServices;
@@ -24,6 +25,8 @@ mod host_tests;
 mod notices_tests;
 #[cfg(test)]
 mod page_tests;
+#[cfg(test)]
+mod stream_tests;
 #[cfg(all(test, unix))]
 mod test_unit_parity_tests;
 #[cfg(test)]

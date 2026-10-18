@@ -95,6 +95,15 @@ impl PythonProviderSource {
         )
     }
 
+    pub(super) fn held_streams(
+        &self,
+        models: &ModelTable,
+    ) -> Result<Vec<crate::events::EventStream>, Failure> {
+        self.events
+            .held_streams(models)
+            .map_err(|message| Self::failure(&self.path, &message))
+    }
+
     fn require_constructor(&self) -> Result<(), Failure> {
         let constructor = self.members["constructor"].as_array();
         let has_arguments = constructor.is_some_and(|arguments| !arguments.is_empty());

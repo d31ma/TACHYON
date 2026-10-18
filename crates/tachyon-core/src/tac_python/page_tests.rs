@@ -1,7 +1,7 @@
 use super::runtime_assets::RuntimeAssets;
 use std::path::{Path, PathBuf};
 
-struct PythonPage;
+pub(super) struct PythonPage;
 
 impl PythonPage {
     const MANIFEST: &'static str =
@@ -50,7 +50,7 @@ impl PythonPage {
          console.log(JSON.stringify({ early, later, first, second, third, retried, held: held.value, rejected: rejected.status, refused, saved, priced, written, size, cancelled }))\n\
          process.exit(0)\n";
 
-    fn skip_reason() -> Option<String> {
+    pub(super) fn skip_reason() -> Option<String> {
         let node = std::process::Command::new("node")
             .arg("--version")
             .output()
@@ -63,7 +63,7 @@ impl PythonPage {
             .map(|_| String::from("the pinned Pyodide runtime is not in the Tachyon cache"))
     }
 
-    fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
+    pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
         let path = root.join(relative);
         std::fs::create_dir_all(path.parent().unwrap_or(root))
             .unwrap_or_else(|error| panic!("directory: {error}"));
@@ -71,7 +71,7 @@ impl PythonPage {
         path
     }
 
-    async fn publish(root: &Path, services: &[(&str, &str, &str)]) {
+    pub(super) async fn publish(root: &Path, services: &[(&str, &str, &str)]) {
         Self::write(root, "client/manifest.json", Self::MANIFEST);
         let chosen = services
             .iter()
@@ -98,7 +98,7 @@ impl PythonPage {
         }
     }
 
-    fn run(root: &Path, driver: &str) -> serde_json::Value {
+    pub(super) fn run(root: &Path, driver: &str) -> serde_json::Value {
         Self::write(root, "drive.mjs", &format!("{}{driver}", Self::FILE_FETCH));
         let output = std::process::Command::new("node")
             .arg("drive.mjs")

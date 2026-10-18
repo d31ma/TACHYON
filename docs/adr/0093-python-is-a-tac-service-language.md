@@ -82,6 +82,8 @@ These fail at build time with `TY1605`, which names the file:
   is synchronous; the asynchronous settlement contract of other Tac
   languages is not connected to Python yet.
 - Streams and browser API resources (see the amendment below for events).
+  (Replaced for streams: Python holds stream and socket clients; see the
+  amendment of 2026-10-18.)
 - Constructor arguments that are not typed `Needs` or `NeedsAll` fields, and
   `Needs` fields that name no Python provider.
 - A missing, changed or incomplete runtime.
@@ -154,7 +156,7 @@ the runtime files; `ty doctor` names the folder.
 - A listener for a model marked `@topic` opens the topic stream
   `/.tachyon/topics/<name>` by itself, like the other WebAssembly services.
 - `async def` methods, streams and browser API resources still fail with
-  `TY1605`.
+  `TY1605`. (Replaced for streams: see the amendment of 2026-10-18.)
 
 ## Amendment 2026-10-11: routes with several web runtimes
 
@@ -194,7 +196,8 @@ the runtime files; `ty doctor` names the folder.
   `@on_event` methods, streams and browser API resources. Python has no
   HTTPClient; that is a separate product decision. (Replaced: Python has an
   `HTTPClient`, and an asynchronous `@on_start` builds; see the amendment of
-  2026-10-17.) Native hosts stay out of scope.
+  2026-10-17. Streams are replaced too: Python holds stream and socket
+  clients; see the amendment of 2026-10-18.) Native hosts stay out of scope.
 - Evidence: `backend_tests::python_async_methods_settle_through_page_tasks_and_cancel_on_dispose`
   runs the generated program in CPython. The ignored browser test
   `pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler`
@@ -270,8 +273,35 @@ that serves the build as public static files.
 - `StreamRequest` and `SocketRequest` stay refused with `TY1308`. The
   page's JavaScript holds a browser stream or socket, and the Python
   runtime has no adapter that hands its messages to a Python client yet.
+  (Replaced: Python accepts both; see the amendment of 2026-10-18.)
 - This amendment replaces the 2026-10-04 limits on behaviors, saved fields
   and `HTTPClient`, and the `async def` limit in "Limits" above. It also
   replaces two limits of the 2026-10-16 amendments above: an asynchronous
   `@on_start` no longer fails with `TY1605`, and Python now has an
   `HTTPClient` and the other behavior annotations listed here.
+
+## Amendment 2026-10-18: stream and socket clients
+
+- A Python Tac `@http_client` contract method may carry `@stream_request` or
+  `@socket_request` (`StreamRequest` and `SocketRequest` are accepted
+  spellings too). The method takes one parameter whose model type says what
+  each message holds, for example
+  `def receive(self, tick: Tick) -> None: ...`. The rule table (ADR 0056)
+  adds Python to the Tac list of both markers, so they no longer fail with
+  `TY1308`, and a Python service that needs such a client no longer fails
+  with `TY1605`.
+- The page's JavaScript still holds the connection. A Python service that
+  keeps the client in a `Needs` field lists the client's streams in its
+  `init` answer, and the page's event bus opens, checks, publishes and
+  closes them as for the other Tac languages (ADR 0090, "Python streams and
+  sockets"). Each message reaches the service's `@on_event` method whose
+  parameter is the message model.
+- A client with only stream or socket methods needs no Setup: it has no
+  behavior context.
+- A socket client gets `async def send(self, message) -> None`. It raises
+  `BehaviorError` with code `HTTP_NETWORK`, `HTTP_MISSING`,
+  `HTTP_REQUEST`, `HTTP_BODY` or `CANCELLED`. A Python test unit runs in
+  CPython without a page, so `send` raises `HTTP_MISSING` there.
+- This amendment replaces the stream and socket limits above: in "Limits",
+  in the events and topics amendment, and in the 2026-10-16 and
+  2026-10-17 amendments.

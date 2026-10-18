@@ -1,6 +1,7 @@
 use super::RuntimeProfile;
 use super::python_build::PythonBuild;
 use super::python_graph_guard::PythonGraphGuard;
+use super::python_held_streams::PythonHeldStreams;
 use super::python_provider_source::PythonProviderSource;
 use super::runtime_assets::RuntimeAssets;
 use crate::Failure;
@@ -69,7 +70,8 @@ impl PythonWebServices {
         let models = ModelSources::read(root, "client", "py")?;
         let table = ModelTable::read_realm(root, "client", "py")
             .map_err(|message| PythonProviderSource::failure(relative, &message))?;
-        let descriptions = Self::descriptions(&providers, &table)?;
+        let mut descriptions = Self::descriptions(&providers, &table)?;
+        PythonHeldStreams::read(&providers, &table)?.describe(&mut descriptions)?;
         PythonGraphGuard::check(&descriptions)?;
         let metadata = Self::metadata(services, &descriptions, &table);
         let source = Self::prepared(relative, units, &providers)?;

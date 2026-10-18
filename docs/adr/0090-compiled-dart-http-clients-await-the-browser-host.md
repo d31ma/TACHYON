@@ -775,3 +775,45 @@ streams and sockets".
 Evidence: `tac_lua::tests::stream_tests` builds a real Lua service to
 WebAssembly and runs it under Node with the real event bus and fake
 `EventSource` and `WebSocket` classes, with the same checks as the Go test.
+
+## Python streams and sockets — 2026-10-18
+
+A Python Tac `@http_client` contract method may carry `@stream_request` or
+`@socket_request`, as in Go. The method takes one parameter whose model type
+says what each message holds, for example
+`def receive(self, tick: Tick) -> None: ...`, and has no result. The
+generated client keeps the empty method. A Python client with only stream or
+socket methods has no behavior context and needs no Setup.
+
+The page's JavaScript still holds the connection, with the rules and limits
+of "Go streams and sockets" above. A Python service that keeps the client in
+a `Needs` field (`ticks: Annotated[TicksClient, needs]`) lists the client's
+streams in its `init` answer, next to its listeners, and the page's event bus
+opens them, checks each message against its model, publishes it as that
+model's event for the service's `@on_event` method, and closes them when the
+owner goes away. A Python service that does not hold the client opens
+nothing. A service holds at most 16 such methods through its clients; more
+fail the build with `TY1605`.
+
+A socket client gets a generated `async def send(self, message) -> None`. The
+Pyodide runtime knows which owner a call or task belongs to, because each
+page request sets that owner in a context variable that the call's asyncio
+tasks inherit. `send` writes the message as JSON through the model codec and
+waits for the page's socket host, which sends or queues the text. It raises
+`BehaviorError` whose `code` is `HTTP_NETWORK` (for example, 16 messages
+already wait for the socket to open), `HTTP_MISSING` (the service does not
+hold the client, or there is no page), `HTTP_REQUEST` (no owner is running
+the call), `HTTP_BODY` (a message over 64 KiB, or a value the codec cannot
+write) or `CANCELLED`. An `async def` service method that lets the error
+escape rejects the page's promise with that code. A Python test unit runs in
+CPython without a page, so `send` raises `HTTP_MISSING` there.
+
+Evidence: `tac_python::stream_tests` builds a real Python service on the
+pinned Pyodide 314.0.7 runtime and runs it under Node with the real event bus
+and fake `EventSource` and `WebSocket` classes. Only the clients the service
+needs are opened; a valid tick reaches `@on_event` and an invalid one is
+dropped; a socket message reaches its listener; 16 queued sends are flushed
+in order and the seventeenth gets `HTTP_NETWORK`; a message over 64 KiB gets
+`HTTP_BODY`; and disposing the owner closes both connections.
+`client_tests::python_unit::tests::a_python_socket_client_in_a_test_unit_has_no_page_to_send_on`
+runs a Python test unit in CPython.

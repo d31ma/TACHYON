@@ -21,6 +21,16 @@ machine contracts have their own, independent major versions.
   (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or
   `CANCELLED`). A stream-only client needs no Setup (ADR 0058, ADR 0060,
   ADR 0085 and ADR 0090 amendments).
+- A Python Tac `@http_client` method may carry `@stream_request` or
+  `@socket_request`, written in the `Protocol` client as
+  `def receive(self, tick: Tick) -> None: ...`. The page's event bus holds
+  the stream or socket for the Python service that keeps the client in a
+  `Needs` field, with the same origin, JSON, size and reconnect rules as
+  JavaScript, and the service receives each message with `@on_event`. A
+  socket client gets `async def send(self, message) -> None`, which raises a
+  `BehaviorError` (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`,
+  `HTTP_BODY` or `CANCELLED`). A stream-only client needs no Setup
+  (ADR 0058, ADR 0060, ADR 0090 and ADR 0093 amendments).
 - Yon Rust controllers stream. A `#[StreamRoute]` method returns
   `impl Iterator<Item = Model>`, or `impl Iterator<Item = Result<Model, E>>`
   when the stream can fail; the prelude sends each item as one server-sent

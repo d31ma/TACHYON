@@ -1046,6 +1046,26 @@ class _BehaviorBrowserHttp:
     def failure(code):
         return BehaviorError(code, 'The browser HTTP request failed (' + code + ').')
 
+class _BehaviorBrowserSocket:
+    CODES = ('HTTP_NETWORK', 'HTTP_MISSING', 'HTTP_REQUEST', 'HTTP_BODY', 'CANCELLED')
+    @staticmethod
+    async def send(client, message):
+        socket = getattr(_behavior_builtins, 'TacSocket', None)
+        if not callable(socket):
+            raise _BehaviorBrowserSocket.failure('HTTP_MISSING')
+        answer = _behavior_json.loads(str(await socket(client, message)))
+        if type(answer) is dict and 'value' in answer:
+            return None
+        raise _BehaviorBrowserSocket.failure(_BehaviorBrowserSocket.code_of(answer))
+    @staticmethod
+    def code_of(answer):
+        error = answer.get('error') if type(answer) is dict else None
+        code = error.get('code') if type(error) is dict else None
+        return code if code in _BehaviorBrowserSocket.CODES else 'HTTP_NETWORK'
+    @staticmethod
+    def failure(code):
+        return BehaviorError(code, 'The socket message was not sent (' + code + ').')
+
 class _BehaviorRestClient:
     def __init__(self, context, name):
         self.context = context

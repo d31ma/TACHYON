@@ -8,7 +8,7 @@ pub(crate) struct BrowserStreams;
 impl BrowserStreams {
     const NAMES: [&'static str; 2] = ["StreamRequest", "SocketRequest"];
     const HOLDER_LANGUAGES: &'static [&'static str] = &[
-        "js", "ts", "go", "rb", "rs", "dart", "swift", "kt", "cs", "lua",
+        "js", "ts", "go", "rb", "rs", "dart", "swift", "kt", "cs", "lua", "py",
     ];
     const BROWSER: &'static str = "tac";
 

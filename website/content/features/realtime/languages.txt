@@ -36,7 +36,7 @@ time limit: at the limit the server stops it and sends
 event: error, and the browser opens the stream again.
 
 In the browser, @StreamRequest is JavaScript, TypeScript, Go, Ruby,
-Rust, Dart, Swift, Kotlin, C# or Lua. A Go client is an interface method such as Receive(tick Tick);
+Rust, Dart, Swift, Kotlin, C#, Lua or Python. A Go client is an interface method such as Receive(tick Tick);
 the page holds the stream for the Go service that keeps the client
 in a // @Needs field, and that service receives each message with
 // @OnEvent. A Rust client is a trait method such as
@@ -59,6 +59,10 @@ A Lua client is an empty method such as
 function TicksClient:receive(tick), held the same way for the Lua
 service that keeps it in a -- @Needs field and receives with
 -- @OnEvent.
+A Python client is a Protocol method such as
+def receive(self, tick: Tick) -> None: ..., held the same way for
+the Python service that keeps the client in a Needs field and
+received with @on_event.
 
 JavaScript and TypeScript require a runtime supporting the authored
 stream syntax; Node is the default. Other languages still require

@@ -148,7 +148,8 @@ and sockets". The other compiled Tac languages still refuse `@StreamRequest`.
 page's JavaScript still holds the `EventSource` for the Rust service that
 keeps the client in a field, and the service receives each message with
 `#[OnEvent]`. See ADR 0090, "Rust streams and sockets". F#, Dart,
-Java, Python and C++ still refuse `@StreamRequest`.
+Java and C++ still refuse `@StreamRequest`. (Python holds stream clients
+since; see its amendment below.)
 
 ## Amendment (2026-10-17): Rust stream routes with Iterator
 
@@ -217,3 +218,12 @@ JavaScript holds the `EventSource` for the Lua service that keeps the client
 in a typed `-- @Needs` field, as for Ruby, and the service receives each
 message with `-- @OnEvent`. See ADR 0085, "Tac Lua streams and sockets", and
 ADR 0090, "Lua streams and sockets".
+
+## Amendment (2026-10-18): Python stream clients
+
+`@stream_request` is also written on a Python Tac `@http_client` contract
+method, such as `def receive(self, tick: Tick) -> None: ...`. The page's
+JavaScript holds the `EventSource` for the Python service that keeps the
+client in a `Needs` field, and the service receives each message with
+`@on_event`. See ADR 0090, "Python streams and sockets", and the ADR 0093
+amendment of 2026-10-18.

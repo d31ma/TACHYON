@@ -43,10 +43,12 @@ impl<'a> ConcreteContract<'a> {
     const GO_SEND: &'static str = "\nfunc ({receiver} *{owner}) Send(message any) error {\n\treturn behaviorSocketSend(\"{owner}\", message)\n}\n";
     const RUST_SEND: &'static str = "\n{indent}pub async fn send<T: TacModel>(&self, message: T) -> BehaviorResult<()> {\n{indent}    BehaviorBrowserSocket::send(\"{owner}\", message).await\n{indent}}\n";
     const SWIFT_SEND: &'static str = "\n{indent}func send<Message: Encodable>(_ message: Message) async throws {\n{indent}{indent}try await tacSocketSend(\"{owner}\", message)\n{indent}}\n";
-    const PAGE_SENDS: [(&'static str, &'static str); 3] = [
+    const PYTHON_SEND: &'static str = "\n{indent}async def send(self, message) -> None:\n{indent}    await _BehaviorBrowserSocket.send(\"{owner}\", message)\n";
+    const PAGE_SENDS: [(&'static str, &'static str); 4] = [
         (Self::RUST, Self::RUST_SEND),
         (Self::SWIFT, Self::SWIFT_SEND),
         (Self::CSHARP, Self::CSHARP_SEND),
+        (Self::PYTHON, Self::PYTHON_SEND),
     ];
     const RUBY_HELD_START: &'static str = "def initialize(_context = nil)\nend";
     const RUBY_SEND: &'static str = "def send_message(message)\n  BehaviorBrowserSocket.send_message(\"{owner}\", message)\nend";
@@ -204,6 +206,7 @@ impl<'a> ConcreteContract<'a> {
         let dart_page = [self.tac, self.form.language == Self::DART] == [true, true];
         let swift_page = [self.tac, self.form.language == Self::SWIFT] == [true, true];
         let kotlin_page = [self.tac, self.form.language == Self::KOTLIN] == [true, true];
+        let python_page = [self.tac, self.form.language == Self::PYTHON] == [true, true];
         let pages = [
             self.holds_in_ruby_page(),
             rust_page,
@@ -211,6 +214,7 @@ impl<'a> ConcreteContract<'a> {
             swift_page,
             kotlin_page,
             self.holds_in_csharp_page(),
+            python_page,
         ];
         let held_in_page = [pages.contains(&true), self.form.language == Self::GO].contains(&true);
         let held: [&[&str]; 2] = [&[], &Self::HELD];

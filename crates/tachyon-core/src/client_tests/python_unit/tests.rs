@@ -185,3 +185,24 @@ fn python_client_value_source_runs_the_case_once_for_each_input() {
         .collect::<Vec<_>>();
     assert_eq!(passed, [true, true, true, true, false]);
 }
+
+#[test]
+fn a_python_socket_client_in_a_test_unit_has_no_page_to_send_on() {
+    let unit_path = "client/tests/ChatClientTest.py";
+    let unit = "from models import ChatMessage\n\n@Test(UnitTestSetup)\nclass ChatClientTest:\n    async def test_01_send_without_a_page(self) -> None:\n        try:\n            await ChatClient().send(ChatMessage('hi'))\n        except BehaviorError as error:\n            Assert.equals('HTTP_MISSING', error.code)\n            return\n        Assert.is_true(False, 'send needs a page')\n";
+    let project = PythonProject::project(unit);
+    PythonProject::write(
+        project.path(),
+        "client/models/ChatMessage.py",
+        "from dataclasses import dataclass\n\n@dataclass\nclass ChatMessage:\n    text: str\n",
+    );
+    PythonProject::write(
+        project.path(),
+        "client/remotes/ChatClient.py",
+        "from typing import Protocol\nfrom models import ChatMessage\n\n@http_client(\"/chat\")\nclass ChatClient(Protocol):\n    @socket_request\n    def receive(self, message: ChatMessage) -> None: ...\n",
+    );
+    PythonProject::write(project.path(), unit_path, unit);
+    let report = run(project.path(), Path::new(unit_path)).expect("Python unit");
+    assert_eq!(report.cases.len(), 1);
+    assert!(report.cases[0].passed, "{:?}", report.cases[0]);
+}

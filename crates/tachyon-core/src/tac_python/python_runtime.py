@@ -1,5 +1,6 @@
 import asyncio as _tac_asyncio
 import builtins as _tac_builtins
+import contextvars as _tac_contextvars
 import json as _tac_json
 import inspect as _tac_inspect
 import uuid as _tac_uuid
@@ -9,6 +10,10 @@ class _TacPythonRuntime:
     MAX_REQUEST = 1048576
     MAX_MEMBER_REQUEST = 65536
     MAX_RETURNED_EVENTS = 32
+    MAX_SOCKET_MESSAGE = 65536
+    SOCKET_BODY = '{"error":{"code":"HTTP_BODY"}}'
+    SOCKET_REQUEST = '{"error":{"code":"HTTP_REQUEST"}}'
+    current = _tac_contextvars.ContextVar('tachyon_python_owner', default=None)
     instance = None
 
     @classmethod
@@ -16,13 +21,16 @@ class _TacPythonRuntime:
         cls.instance = cls(types, metadata, models)
 
     @classmethod
-    def connect(cls, emit, done=None, storage=None, http=None):
+    def connect(cls, emit, done=None, storage=None, http=None, socket=None):
         cls.instance.emit = emit
         cls.instance.tasks.done = done
         if storage is not None:
             _tac_builtins.TacStorage = storage
         if http is not None:
             _tac_builtins.TacHttp = http
+        if socket is not None:
+            cls.instance.socket = socket
+            _tac_builtins.TacSocket = cls.instance.send_socket
 
     @classmethod
     def invoke(cls, text):
@@ -57,6 +65,7 @@ class _TacPythonRuntime:
         self.owners = {}
         self.busy = False
         self.emit = None
+        self.socket = None
 
     def exchange(self, text):
         return self._exchange(text)
@@ -72,7 +81,7 @@ class _TacPythonRuntime:
     def _answer(self, text):
         try:
             request = self._request(text)
-            return self._response(self._dispatch(request))
+            return self._response(self._as_owner(request))
         except Exception:
             return _tac_json.dumps({'error': 'Python Tac operation failed.'})
 
@@ -106,6 +115,13 @@ class _TacPythonRuntime:
     def _member_size(self, request, text):
         if request.get('op') != 'init' and len(text.encode('utf-8')) > self.MAX_MEMBER_REQUEST:
             raise ValueError('Python Tac member request exceeds bounds.')
+
+    def _as_owner(self, request):
+        token = self.current.set(request['owner'])
+        try:
+            return self._dispatch(request)
+        finally:
+            self.current.reset(token)
 
     def _dispatch(self, request):
         handlers = {'init': self._initialize, 'dispose': self._dispose,
@@ -146,7 +162,7 @@ class _TacPythonRuntime:
         listeners = [self._listener_description(listener) for listener in metadata['listeners'].values()]
         return {'fields': list(metadata['fields']), 'writable': metadata['writable'],
                 'methods': list(metadata['methods']), 'listeners': listeners,
-                'asyncMethods': self._async_methods(metadata)}
+                'asyncMethods': self._async_methods(metadata), 'streams': metadata.get('streams', [])}
 
     def _async_methods(self, metadata):
         return [name for name, method in metadata['methods'].items() if method['asynchronous']]
@@ -260,6 +276,24 @@ class _TacPythonRuntime:
         signal = {'route': owner.route, 'service': owner.service, 'owner': owner.id,
                   'name': name, 'value': self.codec.result({'model': name}, value), 'retain': retain}
         self.emit(_tac_json.dumps(signal, allow_nan=False))
+
+    async def send_socket(self, client, message):
+        owner = self.owners.get(self.current.get())
+        if owner is None or self.socket is None:
+            return self.SOCKET_REQUEST
+        text = self._socket_text(client, message)
+        if text is None:
+            return self.SOCKET_BODY
+        return str(await self.socket(owner.id, text))
+
+    def _socket_text(self, client, message):
+        try:
+            plain = _tac_json.dumps(self.codec.plain(message), allow_nan=False)
+        except Exception:
+            return None
+        if len(plain.encode('utf-8')) > self.MAX_SOCKET_MESSAGE:
+            return None
+        return '{"client":' + _tac_json.dumps(client) + ',"message":' + plain + '}'
 
     def _take_events(self, request):
         self._owner(request)

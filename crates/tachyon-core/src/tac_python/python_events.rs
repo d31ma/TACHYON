@@ -1,5 +1,5 @@
 use crate::Failure;
-use crate::events::{EventListener, EventMethod, EventModule, EventType};
+use crate::events::{EventListener, EventMethod, EventModule, EventStream, EventType};
 use crate::route_types::ModelTable;
 use serde_json::{Map, Value, json};
 use std::path::Path;
@@ -11,7 +11,7 @@ pub(super) struct PythonEvents {
 
 impl PythonEvents {
     const PUBLISHER: &'static str = "applicationEventPublisher";
-    const PENDING: &'static str = "Python Tac streams, browser API adapters and async OnStop or OnEvent methods remain pending; async def service methods, an async OnStart, synchronous OnStop and OnEvent methods and ApplicationEventPublisher are supported.";
+    const PENDING: &'static str = "Python Tac browser API adapters and async OnStop or OnEvent methods remain pending; async def service methods, an async OnStart, synchronous OnStop and OnEvent methods, ApplicationEventPublisher and stream and socket clients are supported.";
 
     pub(super) fn read(
         path: &Path,
@@ -65,6 +65,22 @@ impl PythonEvents {
             .flat_map(|owner| &owner.listeners)
             .map(|listener| listener.method.clone())
             .collect()
+    }
+
+    pub(super) fn held_streams(&self, models: &ModelTable) -> Result<Vec<EventStream>, String> {
+        let mut module = EventModule {
+            source: String::new(),
+            types: self.owner.iter().cloned().collect(),
+            methods: Vec::new(),
+            topics: Vec::new(),
+        };
+        module.describe_models(models)?;
+        Ok(module
+            .types
+            .into_iter()
+            .flat_map(|owner| owner.streams)
+            .filter(|stream| !stream.topic)
+            .collect())
     }
 
     pub(super) fn listeners(
@@ -145,10 +161,9 @@ impl PythonEvents {
     }
 
     fn pending_owner(owner: &EventType) -> bool {
-        let browser_resource = owner
+        owner
             .resources
             .iter()
-            .any(|resource| resource.name != Self::PUBLISHER);
-        browser_resource || !owner.streams.is_empty()
+            .any(|resource| resource.name != Self::PUBLISHER)
     }
 }
