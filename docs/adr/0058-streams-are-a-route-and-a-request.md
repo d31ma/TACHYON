@@ -123,7 +123,8 @@ Tachyon needs Go 1.27, so the reason Go refused `@StreamRoute` is gone.
 - The cohesion rule (ADR 0063) does not count Go's `if !yield(item) { return }`
   stop check as a decision. It belongs to `yield`, which stops by itself in
   the other languages, so a private iterator method keeps its one loop.
-- Java, Groovy and Rust still refuse `@StreamRoute`.
+- Java, Groovy and Rust still refuse `@StreamRoute`. (Java and Groovy stream
+  since 2026-10-17: see ADR 0072, "Groovy streams and background listeners".)
 
 ## Amendment (2026-10-11): Go stream clients
 

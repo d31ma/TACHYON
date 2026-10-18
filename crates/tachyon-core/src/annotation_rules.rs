@@ -300,10 +300,10 @@ impl AnnotationRules {
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
     ];
     pub(crate) const YON_BACKGROUND: &'static [&'static str] = &[
-        "js", "ts", "py", "kt", "dart", "cs", "fs", "lua", "rb", "go",
+        "js", "ts", "py", "kt", "dart", "cs", "fs", "lua", "rb", "go", "java", "groovy",
     ];
     const YON_STREAM: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "kt", "cs", "fs", "dart", "rb", "lua", "go",
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "dart", "rb", "lua", "go",
     ];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts", "go", "rb", "rs"];
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[

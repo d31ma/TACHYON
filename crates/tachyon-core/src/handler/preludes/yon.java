@@ -630,6 +630,78 @@ final class SocketSession {
     }
 }
 
+final class YonStream {
+    private static final int MAX_FRAME_BYTES = 16 * 1024 * 1024;
+
+    static void send(String requestId, Object result) {
+        try {
+            if (result instanceof java.util.stream.Stream<?> stream) {
+                try (stream) {
+                    send(requestId, stream.iterator());
+                }
+            } else {
+                send(requestId, (java.util.Iterator<?>) result);
+            }
+        } catch (Throwable failed) {
+            failure(requestId);
+        }
+    }
+
+    private static void send(String requestId, java.util.Iterator<?> events) throws java.io.IOException {
+        while (events.hasNext()) {
+            if (!event(requestId, events.next())) return;
+        }
+    }
+
+    private static boolean event(String requestId, Object value) throws java.io.IOException {
+        var body = new java.util.LinkedHashMap<String, Object>();
+        body.put("encoding", "utf8");
+        body.put("data", Json.stringify(value));
+        var frame = new java.util.LinkedHashMap<String, Object>();
+        frame.put("protocol_version", 1);
+        frame.put("kind", "event");
+        frame.put("request_id", requestId);
+        frame.put("body", body);
+        byte[] payload = Json.stringify(frame).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if (payload.length > MAX_FRAME_BYTES) {
+            write(refusal(requestId, "TY2203", "Streamed event exceeds the protocol frame limit."));
+            return false;
+        }
+        write(payload);
+        return true;
+    }
+
+    private static void failure(String requestId) {
+        try {
+            write(refusal(requestId, "TY2204", "The handler stream failed."));
+        } catch (java.io.IOException closed) {
+            System.exit(1);
+        }
+    }
+
+    private static byte[] refusal(String requestId, String code, String message) {
+        var error = new java.util.LinkedHashMap<String, Object>();
+        error.put("code", code);
+        error.put("message", message);
+        error.put("retryable", false);
+        var frame = new java.util.LinkedHashMap<String, Object>();
+        frame.put("protocol_version", 1);
+        frame.put("kind", "response");
+        frame.put("request_id", requestId);
+        frame.put("status", 500);
+        frame.put("headers", new java.util.LinkedHashMap<String, Object>());
+        frame.put("error", error);
+        return Json.stringify(frame).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static void write(byte[] payload) throws java.io.IOException {
+        var output = new java.io.DataOutputStream(System.out);
+        output.writeInt(payload.length);
+        output.write(payload);
+        output.flush();
+    }
+}
+
 final class YonSocket {
     private static final int MAX_FRAME_BYTES = 16 * 1024 * 1024;
     private static final java.io.DataInputStream INPUT = new java.io.DataInputStream(System.in);
@@ -1049,6 +1121,10 @@ final class Yon {
             java.lang.reflect.Method method = entryMethod(entryName);
             method.setAccessible(true);
             Object result = method.invoke(null, entryArguments(method, request));
+            if (result instanceof java.util.stream.Stream<?> || result instanceof java.util.Iterator<?>) {
+                YonStream.send(String.valueOf(request.raw().getOrDefault("request_id", "")), result);
+                return;
+            }
             if (exchange != null && exchange.answered()) response = exchange.answer();
             else if (result instanceof __YonAnswer explicit) response = explicit;
             else if (phase != null) response = __YonAnswer.empty(204);

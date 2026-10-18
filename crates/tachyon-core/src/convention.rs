@@ -176,6 +176,13 @@ class MoneyController {
     }
 
     #[test]
+    fn a_groovy_stream_route_streams_its_get_method() {
+        let source = "@RequestRoute('/ticks')\n@Public\nclass TicksController {\n    @StreamRoute\n    Iterator<Object> streamTicks() {\n        return [1, 2].iterator()\n    }\n}\n";
+        let path = "server/controllers/TicksController.groovy";
+        assert_eq!(streaming(path, source), ["GET"]);
+    }
+
+    #[test]
     fn yield_is_the_stream_declaration() {
         let typescript = "server/workers/events.ts";
         let methods = streaming(

@@ -479,9 +479,52 @@ async fn go_annotations_resolve_scopes_and_preserve_responses() {
     assert_controller("go", "go", Fixtures::GO).await;
 }
 
-#[tokio::test]
-async fn annotated_kotlin_and_csharp_generators_keep_stream_discovery_and_delivery() {
-    let cases = [
+struct StreamFixtures;
+
+impl StreamFixtures {
+    const GENERATORS: [(&str, &str, &str); 6] = [
+        (
+            "groovy",
+            "groovyc",
+            r"
+@RequestRoute('/products')
+@Public
+class EventsController {
+    @StreamRoute
+    Iterator<Object> streamEvents() {
+        return (1..2).collect { value -> [value: value] }.iterator()
+    }
+}
+",
+        ),
+        (
+            "java",
+            "java",
+            r#"
+@RequestRoute("/products")
+@Public
+class EventsController {
+    @StreamRoute
+    java.util.stream.Stream<Object> streamEvents() {
+        return java.util.stream.Stream.of(java.util.Map.of("value", 1), java.util.Map.of("value", 2));
+    }
+}
+"#,
+        ),
+        (
+            "java",
+            "java",
+            r#"
+@RequestRoute("/products")
+@Public
+class IteratorEventsController {
+    @StreamRoute
+    java.util.Iterator<Object> streamEvents() {
+        return java.util.List.<Object>of(java.util.Map.of("value", 1), java.util.Map.of("value", 2)).iterator();
+    }
+}
+"#,
+        ),
         (
             "kt",
             "kotlinc",
@@ -529,7 +572,11 @@ class AsyncEventsController {
 "#,
         ),
     ];
-    for (extension, program, contents) in cases {
+}
+
+#[tokio::test]
+async fn annotated_generators_keep_stream_discovery_and_delivery() {
+    for (extension, program, contents) in StreamFixtures::GENERATORS {
         if !available(program) {
             eprintln!("Skipping {extension} annotated streaming: {program} unavailable");
             continue;

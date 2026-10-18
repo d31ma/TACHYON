@@ -753,7 +753,15 @@ fn deeper_paths_share_the_table_messages() {
         AnnotationRules::unavailable("StreamRoute", "fs", "yon"),
         None
     );
-    assert!(AnnotationRules::unavailable("StreamRoute", "groovy", "yon").is_some());
+    assert_eq!(
+        AnnotationRules::unavailable("StreamRoute", "groovy", "yon"),
+        None
+    );
+    assert_eq!(
+        AnnotationRules::unavailable("InBackground", "groovy", "yon"),
+        None
+    );
+    assert!(AnnotationRules::unavailable("StreamRoute", "rs", "yon").is_some());
     assert_eq!(Messages::snake_case("HTTPClient"), "http_client");
     assert_eq!(Messages::snake_case("OnEvent"), "on_event");
 }

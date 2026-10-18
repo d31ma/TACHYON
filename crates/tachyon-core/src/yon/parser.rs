@@ -14,6 +14,7 @@ mod helper_providers;
 mod helper_sources;
 pub(super) use helper_sources::HelperSources;
 mod identity_marker;
+mod java_stream_return;
 mod parameter_markers;
 mod routes;
 mod ruby;
@@ -1320,7 +1321,11 @@ fn validate_streaming_method(
     start: usize,
     signature_end: usize,
     streaming: bool,
+    returns: &str,
 ) -> Result<(), Failure> {
+    if input.extension == "java" {
+        return java_stream_return::JavaStreamReturn::check(input, start, streaming, returns);
+    }
     if streaming
         && input.extension == "py"
         && words(&input.code[start..signature_end]).any(|word| word == "async")
@@ -1330,10 +1335,10 @@ fn validate_streaming_method(
             "Python async generators are not supported; use a synchronous generator for streaming",
         ));
     }
-    if streaming && matches!(input.extension, "rs" | "java") {
+    if streaming && input.extension == "rs" {
         return Err(input.failure(
             start,
-            "@StreamRoute needs JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby, Lua or Go: Java, Groovy and Rust have no generator to produce the stream",
+            "@StreamRoute needs JavaScript, TypeScript, Python, PHP, Java, Groovy, Kotlin, C#, F#, Dart, Ruby, Lua or Go: Rust has no generator to produce the stream",
         ));
     }
     Ok(())
@@ -2180,7 +2185,7 @@ mod tests {
         rejects(
             "java",
             "@RequestRoute(\"/c\")\nclass C {\n @StreamRoute\n public Object streamTicks() { return null; }\n}",
-            "@StreamRoute needs JavaScript",
+            "A Java @StreamRoute method returns java.util.stream.Stream<T>",
         );
         rejects(
             "py",
@@ -2389,6 +2394,49 @@ mod tests {
                 "{extension}"
             );
         }
+    }
+
+    #[test]
+    fn java_streams_come_from_stream_or_iterator_returns() {
+        for returns in [
+            "java.util.stream.Stream<Object>",
+            "java.util.Iterator<Object>",
+        ] {
+            let source = format!(
+                "@RequestRoute(\"/c\")\nclass C {{\n @StreamRoute\n {returns} streamItems() {{ return null; }}\n}}"
+            );
+            let plan = parsed("java", &source).plan;
+            assert_eq!(plan.routes[0].verb, "GET");
+            assert!(plan.routes[0].streaming, "{returns}");
+        }
+        rejects(
+            "java",
+            "@RequestRoute(\"/c\")\nclass C {\n @StreamRoute\n Object streamItems() { return null; }\n}",
+            "A Java @StreamRoute method returns java.util.stream.Stream<T>",
+        );
+        rejects(
+            "java",
+            "@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n java.util.stream.Stream<Object> getItems() { return null; }\n}",
+            "Mark it @StreamRoute",
+        );
+    }
+
+    #[test]
+    fn groovy_streams_name_groovy_when_the_return_type_is_wrong() {
+        for returns in ["Iterator<Object>", "java.util.stream.Stream<Object>"] {
+            let source = format!(
+                "@RequestRoute('/c')\nclass C {{\n @StreamRoute\n {returns} streamItems() {{ return [1].iterator() }}\n}}"
+            );
+            assert!(
+                parsed("groovy", &source).plan.routes[0].streaming,
+                "{returns}"
+            );
+        }
+        rejects(
+            "groovy",
+            "@RequestRoute('/c')\nclass C {\n @StreamRoute\n List<Object> streamItems() { return [1] }\n}",
+            "A Groovy @StreamRoute method returns java.util.stream.Stream<T>",
+        );
     }
 
     #[test]

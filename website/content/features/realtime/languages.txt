@@ -4,6 +4,9 @@ Which languages a stream is written in
   .py        a generator
   .php       a generator, framed by the prelude
   .kt        a Sequence, framed by the prelude
+  .java      a Stream or an Iterator, framed by the prelude
+  .groovy    a Stream or an Iterator, framed by the Java
+             prelude
   .cs        an IEnumerable or IAsyncEnumerable, framed
              by the prelude
   .fs        a seq or IAsyncEnumerable, framed by the prelude
@@ -19,10 +22,10 @@ than once, and native generator syntax produces it.
 Each language adapter or protocol prelude keeps that generator open
 and emits one bounded frame per value.
 
-Java, Groovy and Rust are deliberately single-response because
-none of them has a native generator. Tachyon refuses StreamRoute on
-them (TY2015). A streaming route can use any generator-capable Yon
-language.
+Java and Groovy have no native generator, so a stream method
+returns a Stream or an Iterator, which gives its values one at a
+time. Rust is deliberately single-response, and Tachyon refuses
+StreamRoute on it (TY2015).
 
 In one controller, either every GET route is a StreamRoute or none is.
 

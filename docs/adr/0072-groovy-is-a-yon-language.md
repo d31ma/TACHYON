@@ -46,8 +46,8 @@ new one.
   `import models.Order`.
 - Groovy follows the Spring and Lombok meaning of each annotation, like Java.
   `Needs`, `NeedsAll`, the behavior annotations, error handlers and test
-  units work as in Java. `StreamRoute` is not available, as in Java: a Groovy
-  method has no generator.
+  units work as in Java, and so do `StreamRoute` and `InBackground` (see the
+  amendment of 2026-10-17).
 
 ### Runtime
 
@@ -87,3 +87,17 @@ new one.
   `new CatalogSummary(summary: summary)`.
 - The first request after a change compiles the handler once (a few seconds
   for joint compilation); later requests reuse the cached jar.
+
+## Amendment (2026-10-17): Groovy streams and background listeners
+
+Groovy runs on the generated Java part, so it takes the Java stream and
+listener runtime unchanged.
+
+- A Groovy `@StreamRoute` method declares `Iterator<T>` or
+  `java.util.stream.Stream<T>` as its return type, for example
+  `return (2..1).collect { new Tick('ANVIL-1', it) }.iterator()`. An untyped
+  `def` method or any other return type is refused with TY2015, and so is a
+  route that returns a Stream or Iterator without `@StreamRoute`.
+- `@InBackground` on an `@OnEvent` listener runs it after the other listeners
+  of the same event, on the same thread, and never republishes its return
+  value, as in Java and Yon JavaScript.
