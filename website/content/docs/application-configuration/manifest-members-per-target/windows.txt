@@ -184,7 +184,7 @@ window drag regions (data-tac-drag-region)
   adapted: data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3).
 
 external links
-  adapted: The Windows app blocks links to other sites instead of opening the system browser (LK1).
+  honored: http, https and mailto links open in the default browser or mail app (ShellExecuteW)
 
 deep links
   adapted: The Windows app cannot be opened at a route from a link yet (LK2).

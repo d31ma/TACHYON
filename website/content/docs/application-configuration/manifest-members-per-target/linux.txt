@@ -184,7 +184,7 @@ window drag regions (data-tac-drag-region)
   adapted: data-tac-drag-region does nothing in the Linux app yet, because its title bar is standard (WIN4).
 
 external links
-  adapted: The Linux app blocks links to other sites instead of opening the system browser (LK1).
+  honored: http, https and mailto links open in the default browser or mail app (GtkUriLauncher)
 
 deep links
   adapted: The Linux app cannot be opened at a route from a link yet (LK2).

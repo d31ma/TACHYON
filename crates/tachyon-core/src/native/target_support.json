@@ -613,11 +613,11 @@
     "member": "external links",
     "paths": [],
     "web": {"reach": "honored", "how": "the browser follows the link"},
-    "macos": {"reach": "honored", "how": "http and https links open in the system browser"},
-    "windows": {"reach": "adapted", "note": "The Windows app blocks links to other sites instead of opening the system browser (LK1)."},
-    "linux": {"reach": "adapted", "note": "The Linux app blocks links to other sites instead of opening the system browser (LK1)."},
-    "ios": {"reach": "honored", "how": "http and https links open in the system browser"},
-    "android": {"reach": "honored", "how": "http and https links open in the system browser"}
+    "macos": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (NSWorkspace)"},
+    "windows": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (ShellExecuteW)"},
+    "linux": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (GtkUriLauncher)"},
+    "ios": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (UIApplication)"},
+    "android": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (ACTION_VIEW)"}
   },
   {
     "member": "deep links",

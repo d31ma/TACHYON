@@ -184,7 +184,7 @@ window drag regions (data-tac-drag-region)
   not applicable: An Android app has no window to move.
 
 external links
-  honored: http and https links open in the system browser
+  honored: http, https and mailto links open in the default browser or mail app (ACTION_VIEW)
 
 deep links
   adapted: The Android app cannot be opened at a route from a link yet (LK2).
