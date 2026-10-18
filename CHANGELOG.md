@@ -726,6 +726,18 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Dart browser services share one Setup, client and store. Every Dart
+  browser service of the site is built into one Dart library with one
+  behavior runtime and one copy of each Setup, client, store and helper type
+  the services assemble, so two Dart services on one page get one Setup
+  configuration and share its adapters; before, each service was its own
+  library with its own copy and its own configuration. A top-level name that
+  two Dart services declare with different text now stops the build and
+  names both files. The page-program fixture's WebAssembly went from 46 KB
+  to 44 KB, and its Dart entry in the page-program gate is now `"shared"`.
+  In the signal-driven UI recipe, the Dart list reloads the saved users
+  through its own UsersClient from the Setup's in-page adapter (ADR 0022).
+
 - The Streaming controllers and Socket controllers pages show a Ruby and a
   Swift browser client: the model, the `HTTPClient` with `StreamRequest` or
   `SocketRequest`, and the service that keeps it in a `Needs` field and

@@ -346,10 +346,11 @@ no implementation, and Tachyon generates each query.
   its own, with its own copy of the runtime glue and of each Setup, client
   and store type. Two such services on one page therefore get two Setup
   configurations and separate adapters; the clients inside one service share
-  them. Go services already build into one page program (ADR 0045), and
+  them. Go services already build into one page program (ADR 0045),
   JavaScript and TypeScript services share one Setup class as described
-  above. The thread that lowers a language's page as one program deletes
-  that language's bullet, flips `scripts/page-program/<language>/expected.json`
+  above, and the Dart services of a site build into one Dart library (see
+  the next bullet). The thread that lowers a language's page as one
+  program deletes that language's bullet, flips `scripts/page-program/<language>/expected.json`
   to `"shared"`, and reports the route size before and after (TY1337, ADR
   0100). The baseline sizes were measured on 2026-10-18 in a Linux container
   without Binaryen or TinyGo, so compare a language only with itself on the
@@ -370,9 +371,18 @@ no implementation, and Tachyon generates each query.
   - Rust: one `mod TachyonService<N>` for each service; the hook is
     `native/page_program/rust_page_program.rs`. Baseline 127 KB of script
     (the module is embedded in `tachyon-rust.js`), 0 KB of WebAssembly.
-  - Dart: one library for each service inside the one Dart program; the
-    hook is `build_service` in `tac_dart.rs`. Baseline 37 KB of script,
-    46 KB of WebAssembly.
+- Dart builds every browser service of the site into one library,
+  `services.dart`, inside its one Dart program. Each service is still
+  prepared and lowered alone first, so its diagnostics name its own file;
+  then the build splits each prepared source into its top-level
+  declarations, keeps one copy of each declaration that several services
+  share (the Setup, client, store and helper types they assemble), and
+  lowers the result once, so the library has one behavior runtime, one
+  Setup registry and one copy of each type. A name that two services
+  declare with different text stops the build and names both files. Each
+  service keeps its own bridge class (`__TacDartBridge<Service>`) and its
+  own JavaScript module. The page-program fixture went from 37 KB of script
+  and 46 KB of WebAssembly to 37 KB and 44 KB (TY1337, same container).
 - The page-program gate (`scripts/page-program-browser-gate.mjs`,
   `bun run test:page-program-browser`) builds one project for each
   language: two services, `writer` and `reader`, on one page, both needing
@@ -382,11 +392,12 @@ no implementation, and Tachyon generates each query.
   increment through one client reaches the other (`"shared"`), or that they
   see two (`"separate"`), and that the Store record one service saves is
   found by the other. `TAC_PAGE_PROGRAM_LANGUAGES` and
-  `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript and Go fixtures
-  are `"shared"` (47 KB of script; 37 KB of script and 990 KB of
-  WebAssembly). The C++ fixture is marked owed and skipped by default: a C++
-  page HTTP client does not call a Setup's `adapters.http` yet and ignores
-  the `HTTPClient` options (CPP3 of the queue plan).
+  `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript, Go and Dart
+  fixtures are `"shared"` (47 KB of script; 37 KB of script and 990 KB of
+  WebAssembly; 37 KB of script and 44 KB of WebAssembly). The C++ fixture
+  is marked owed and skipped by default: a C++ page HTTP client does not
+  call a Setup's `adapters.http` yet and ignores the `HTTPClient` options
+  (CPP3 of the queue plan).
 - Every runtime's contract test opens two contexts from one Setup, checks
   that `configure` ran once and that both contexts see the same adapter
   state, disposes one context twice, and checks that `configure` runs again
