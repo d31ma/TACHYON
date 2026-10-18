@@ -14,7 +14,7 @@ public:
         check(values);
         std::string prefix = plan["prefix"].getValue<std::string>();
         const json::JsonNode& fields = plan["fields"];
-        bool shaped = name(prefix) && prefix.size() <= 128 && prefix.rfind("TAC_", 0) == 0 && prefix.back() == '_'
+        bool shaped = name(prefix) && prefix.size() <= 128 && prefix.rfind(framework(), 0) == 0 && prefix.back() == '_'
             && fields.getValueKind() == json::JsonValueKind::Object && !fields.propertyNames().empty() && fields.propertyNames().size() <= 64;
         if (!shaped) {
             throw TacBehaviorData::invalid();
@@ -63,7 +63,7 @@ public:
     static Values fromApplication(const json::JsonNode& application) {
         Values inputs;
         for (const auto& [path, written] : flattened(application)) {
-            if (path.rfind("tac.", 0) != 0) {
+            if (path.rfind(std::string(TacHost::REALM) + ".", 0) != 0) {
                 continue;
             }
             std::string key = path;
@@ -81,7 +81,7 @@ public:
         }
         json::JsonObject written;
         for (const auto& [key, text] : values) {
-            if (!name(key) || key.rfind("TAC_", 0) != 0 || text.size() > 4096) {
+            if (!name(key) || key.rfind(framework(), 0) != 0 || text.size() > 4096) {
                 throw TacBehaviorData::invalid();
             }
             written[key] = text;
@@ -90,6 +90,14 @@ public:
     }
 
 private:
+    static std::string framework() {
+        std::string prefix = TacHost::REALM;
+        for (char& character : prefix) {
+            character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
+        }
+        return prefix + "_";
+    }
+
     static bool name(const std::string& text) {
         if (text.empty() || text.size() > 256 || !std::isupper(static_cast<unsigned char>(text[0]))) {
             return false;

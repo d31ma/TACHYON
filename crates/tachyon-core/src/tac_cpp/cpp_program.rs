@@ -3,6 +3,7 @@ use super::{
     CppPrelude, CppService, CppServiceGraph, CppSetup, CppStore,
 };
 use crate::Failure;
+use crate::annotation_rules::Realm;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -31,7 +32,7 @@ impl CppProgram {
         CppHeldStreams::attach(root, &mut services)?;
         Self {
             models: Self::models(root)?,
-            setups: CppSetup::read_all(root)?,
+            setups: CppSetup::read_all(root, Realm::Tac)?,
             services,
             registered,
             records_calls: false,
@@ -45,7 +46,7 @@ impl CppProgram {
         graph.add_every()?;
         Self {
             models: Self::models(root)?,
-            setups: CppSetup::read_all(root)?,
+            setups: CppSetup::read_all(root, Realm::Tac)?,
             services: graph.finish(),
             registered: Vec::new(),
             records_calls: true,
@@ -119,7 +120,7 @@ impl CppProgram {
     pub(crate) fn server_models(root: &Path) -> Result<Self, Failure> {
         Ok(Self {
             models: Self::models_in(root, &Self::SERVER_MODELS)?,
-            setups: Vec::new(),
+            setups: CppSetup::read_all(root, Realm::Yon)?,
             services: Vec::new(),
             registered: Vec::new(),
             records_calls: false,
@@ -140,6 +141,10 @@ impl CppProgram {
             Self::GENERATED,
             self.codecs()
         )
+    }
+
+    pub(crate) fn setup_source(&self) -> String {
+        self.setups.concat()
     }
 
     pub(crate) fn web_source(&self) -> String {

@@ -145,6 +145,17 @@ impl<'a> WrittenPolicies<'a> {
         Ok(condition)
     }
 
+    pub(crate) fn check_realm(
+        &self,
+        at: usize,
+        policy: &str,
+        value: Value,
+        environment: &str,
+    ) -> Result<(), Failure> {
+        let policies = Map::from_iter([(policy.to_owned(), value)]);
+        super::configuration::validate(&self.input, at, &policies, false, environment)
+    }
+
     pub(crate) fn profiles(&self, written: &WrittenMarker<'_>) -> Result<Value, Failure> {
         super::configuration::profiles(&self.input, &Self::marker(written))
     }

@@ -91,7 +91,7 @@ pub(crate) use cpp_roles::CppRoles;
 pub(crate) use cpp_service::CppService;
 pub(crate) use cpp_service_graph::CppServiceGraph;
 use cpp_settings::CppSettings;
-use cpp_setup::CppSetup;
+pub(crate) use cpp_setup::CppSetup;
 use cpp_shape::CppShape;
 pub(crate) use cpp_source::CppSource;
 use cpp_spelling::CppSpelling;

@@ -236,9 +236,27 @@ other languages (see Scopes). `[[OnStart]]`, `[[OnStop]]`, `[[OnEvent]]`,
 `ApplicationEventPublisher applicationEventPublisher;` field publishes with
 `publishEvent(model)`. A worker in `server/workers/<name>.hpp` is a
 `class Handler` with a `POST()` method, and `[[Schedule({...})]]` goes after
-its class key. C++ has no `[[Setup]]`, behavior, socket or test markers in
-Yon yet: they fail with their rule's code, and the message says that C++ gets
-them in a later step. The Pending section of ADR 0099 lists those steps.
+its class key.
+
+A C++ `[[Setup]]` is one class in `server/setups/<Name>.hpp` with
+`static BehaviorAdapters configure(const BehaviorExecution& execution)`, and
+it may add `[[WhenProfile]]` and `[[WhenSetting]]` (ADR 0099 amendment of
+2026-10-18, "Yon C++ Setup and settings"). `[[Settings]]` and `[[Setting]]`
+go on models in `server/models`, as in C++ Tac code. A route binds the private
+snapshot and opens a behavior context:
+
+```cpp
+tachyon::json::JsonNode application = tachyon::yon::YonApplication::snapshot();
+CatalogSettings catalog = Behaviors::properties<CatalogSettings>(application);
+BehaviorOptions options;
+options.partition = "public-catalog";
+options.profiles = {"production"};
+BehaviorContext context = Behaviors::create<CatalogSetup>(options.withApplication(application));
+```
+
+C++ has no behavior, socket or test markers in Yon yet: they fail with their
+rule's code, and the message says that C++ gets them in a later step. The
+Pending section of ADR 0099 lists those steps.
 
 ## Calling another language
 

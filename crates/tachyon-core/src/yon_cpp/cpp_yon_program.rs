@@ -12,6 +12,7 @@ impl CppYonProgram {
         [
             CppYonRuntime::source(),
             models.model_source(),
+            models.setup_source(),
             CppYonContainer::declarations(graph),
             graph.located(),
             CppYonContainer::definitions(graph),

@@ -3,6 +3,7 @@ use super::{
     CppMemberKind, CppProgram, CppSettings, CppSource, CppSpelling,
 };
 use crate::Failure;
+use crate::annotation_rules::Realm;
 use crate::behavior::{WrittenMarker, WrittenPolicies};
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -10,19 +11,19 @@ use std::path::Path;
 pub(crate) struct CppSetup;
 
 impl CppSetup {
-    const FOLDER: &'static str = "client/setups";
+    const FOLDERS: [&'static str; 2] = ["client/setups", "server/setups"];
+    const OPENERS: [&'static str; 2] = ["a service", "a controller, service or helper"];
+    const ENVIRONMENTS: [&'static str; 2] = ["tac", "yon"];
     const SETUP: &'static str = "Setup";
     const CONFIGURE: &'static str = "configure";
     pub(crate) const ENVIRONMENT: &'static str = "tac";
     const CLASS_MARKERS: [&'static str; 4] = ["Setup", "WhenProfile", "WhenSetting", "Description"];
-    const NO_SETUP: &'static str = "A C++ file in client/setups declares one class marked [[Setup]] and named after the file, for example `class [[Setup]] CatalogSetup` in client/setups/CatalogSetup.hpp";
     const NO_CONFIGURE: &'static str = "A C++ [[Setup]] declares `static BehaviorAdapters configure(const BehaviorExecution& execution)`, which returns the adapters of its behavior context";
     const OTHER_MARKER: &'static str = "A C++ [[Setup]] class takes only [[WhenProfile]], [[WhenSetting]] and [[Description]] next to [[Setup]]; it has no other role";
     const MEMBER_MARKER: &'static str = "A C++ [[Setup]] class has no member markers: its static configure method returns the adapters, and Behaviors::create<Setup>(options) opens a context from it";
-    const ELSEWHERE: &'static str = "[[Setup]] goes on a class in client/setups/<Name>.hpp, for example `class [[Setup]] CatalogSetup`, and a service opens a context with Behaviors::create<CatalogSetup>(options)";
 
-    pub(crate) fn read_all(root: &Path) -> Result<Vec<String>, Failure> {
-        CppFolder::files(root, Self::FOLDER)?
+    pub(crate) fn read_all(root: &Path, realm: Realm) -> Result<Vec<String>, Failure> {
+        CppFolder::files(root, Self::FOLDERS[Self::index(realm)])?
             .iter()
             .map(|path| Self::read(root, path))
             .collect()
@@ -30,10 +31,11 @@ impl CppSetup {
 
     pub(crate) fn plan(path: &Path, source: &str, class: &CppClass) -> Result<String, Failure> {
         let written = WrittenPolicies::new(path, source, CppSource::EXTENSION);
+        let environment = Self::environment(path);
         let conditions = class
             .markers
             .iter()
-            .map(|marker| Self::condition(&written, marker))
+            .map(|marker| Self::condition(&written, marker, environment))
             .collect::<Result<Vec<_>, _>>()?;
         let mut plan: Map<String, Value> = conditions.into_iter().flatten().collect();
         plan.insert(String::from("name"), Value::String(class.name.clone()));
@@ -50,8 +52,39 @@ impl CppSetup {
             .iter()
             .find(|marker| marker.name == Self::SETUP)
             .map_or(Ok(()), |marker| {
-                Err(CppFailure::unreadable(path, marker.at, Self::ELSEWHERE))
+                Err(CppFailure::unreadable(
+                    path,
+                    marker.at,
+                    &Self::elsewhere(Self::index(Self::realm(path))),
+                ))
             })
+    }
+
+    pub(crate) fn environment(path: &Path) -> &'static str {
+        Self::ENVIRONMENTS[Self::index(Self::realm(path))]
+    }
+
+    fn realm(path: &Path) -> Realm {
+        Realm::of(path).unwrap_or(Realm::Tac)
+    }
+
+    fn index(realm: Realm) -> usize {
+        usize::from(realm == Realm::Yon)
+    }
+
+    fn elsewhere(index: usize) -> String {
+        format!(
+            "[[Setup]] goes on a class in {folder}/<Name>.hpp, for example `class [[Setup]] CatalogSetup`, and {opener} opens a context with Behaviors::create<CatalogSetup>(options)",
+            folder = Self::FOLDERS[index],
+            opener = Self::OPENERS[index]
+        )
+    }
+
+    fn no_setup(path: &Path) -> String {
+        let folder = Self::FOLDERS[Self::index(Self::realm(path))];
+        format!(
+            "A C++ file in {folder} declares one class marked [[Setup]] and named after the file, for example `class [[Setup]] CatalogSetup` in {folder}/CatalogSetup.hpp"
+        )
     }
 
     fn read(root: &Path, path: &Path) -> Result<String, Failure> {
@@ -73,6 +106,7 @@ impl CppSetup {
     fn condition(
         written: &WrittenPolicies<'_>,
         marker: &CppAttribute,
+        environment: &str,
     ) -> Result<Option<(String, Value)>, Failure> {
         let written_marker = WrittenMarker {
             name: &marker.name,
@@ -84,7 +118,7 @@ impl CppSetup {
                 .profiles(&written_marker)
                 .map(|value| Some((String::from("profiles"), value))),
             "WhenSetting" => written
-                .condition(&written_marker, Self::ENVIRONMENT)
+                .condition(&written_marker, environment)
                 .map(|value| Some((String::from("conditionalOnProperty"), value))),
             _ => Ok(None),
         }
@@ -100,7 +134,7 @@ impl CppSetup {
             .any(|marker| marker.name == Self::SETUP);
         ([named, marked] == [true, true])
             .then_some(())
-            .ok_or_else(|| CppFailure::unreadable(path, class.name_at, Self::NO_SETUP))
+            .ok_or_else(|| CppFailure::unreadable(path, class.name_at, &Self::no_setup(path)))
     }
 
     fn check_markers(path: &Path, class: &CppClass) -> Result<(), Failure> {

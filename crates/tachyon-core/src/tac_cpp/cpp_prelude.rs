@@ -32,6 +32,10 @@ impl CppPrelude {
         [Self::INCLUDES, Self::JSON, Self::TASK].concat()
     }
 
+    pub(crate) fn context() -> String {
+        [Self::BEHAVIORS, Self::SETTINGS, Self::HTTP_AND_SETUP].concat()
+    }
+
     pub(crate) fn services() -> &'static str {
         Self::SERVICES
     }

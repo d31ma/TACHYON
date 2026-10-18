@@ -563,13 +563,51 @@ page as for the ADR 0090 languages (ADR 0090, "C++ streams and sockets").
   `CANCELLED`. The page program imports `tac_host_socket_start` for it. In a
   test unit there is no page, so `send` throws `HTTP_MISSING`.
 
+## Amendment (2026-10-18): Yon C++ Setup and settings
+
+C++ Yon code now has `[[Setup]]`, `[[Settings]]`, `[[Setting]]`,
+`[[WhenProfile]]` and `[[WhenSetting]]`, with the rules of the other Yon
+languages (ADR 0022, ADR 0023). The rule table lists `hpp` for them
+(`YON_CONTEXT`).
+
+- A Setup is a header-only `.hpp` file in `server/setups` with one class
+  named after the file and marked `[[Setup]]`, with the same shape as a C++
+  Tac Setup: only `[[WhenProfile]]`, `[[WhenSetting]]` and `[[Description]]`
+  next to it, no member markers, and
+  `static BehaviorAdapters configure(const BehaviorExecution& execution)`.
+  `CppSetup` serves both realms: the realm of the path picks the folder and
+  the environment, so a Yon WhenSetting name must start with `YON_`.
+  `[[Setup]]` on a controller, worker, service, helper or model fails with
+  `TY1371`. Every program of the project includes every Setup, after the
+  models.
+- `[[Settings({"prefix":"YON_CATALOG_"})]]` and
+  `[[Setting("${yon.active.profile:development}")]]` go on models in
+  `server/models`, as in C++ Tac code. A Settings prefix that does not start
+  with `YON_`, or a Setting path outside `yon.`, fails at build time; the
+  same check now runs for C++ Tac models with `TAC_` and `tac.`. Settings
+  fields have no `[[Min]]` and `[[Max]]` until the validation step, because
+  those markers belong to it.
+- The Yon runtime adds a native `TacHost` (`yon_host.hpp`) with the realm
+  `"yon"`, a clock and a sleep, and no behavior storage yet. The program
+  includes the shared `behaviors.hpp`, `settings.hpp`, `http.hpp` and
+  `setup.hpp` after it, so `Behaviors::properties<T>`,
+  `Behaviors::values<T>`, `Behaviors::create<Setup>`, `BehaviorOptions` and
+  `BehaviorContext` are the Tac ones. `settings.hpp` and `setup.hpp` read the
+  realm from `TacHost::REALM`, so the binders want `YON_` names and `yon.`
+  paths, and `execution.environment` is `"yon"`.
+- `tachyon::yon::YonApplication::snapshot()` parses `YON_APPLICATION_JSON`
+  and fails with the `configuration` code when the supervisor did not set it.
+  A failed binding (`configuration-properties`) or an inactive Setup
+  (`inactive-configuration`) that leaves a route method answers 500, like any
+  exception.
+- One configuration serves every context with the same Setup, profiles and
+  properties within one invocation, which is one process. The caching,
+  store and HTTP-client steps take their adapters from `context.adapters()`.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
 bullet, when it lands.
-
-- Yon C++ Setup and settings: a Yon `[[Setup]]` with a behavior context,
-  `[[Settings]]`, `[[Setting]]`, `[[WhenProfile]]` and `[[WhenSetting]]`.
 
 - Yon C++ errors: `[[ErrorHandler]]`, `[[HandlesError]]`,
   `[[ResponseStatus]]`, `[[IdentityProvider]]`, and the native request and

@@ -3,7 +3,7 @@
   "notApplicable": [
     "lua"
   ],
-  "body": "Code in every language reads the private YON_APPLICATION_JSON snapshot. Your code passes it to behavior binding; this does not happen automatically. Settings turns its prefixed names into nested paths. Setting names the full standard path directly. Return data, not a response object or a JSON string that you serialized yourself. This example returns only some fields, and none of them are secret. Never return the complete snapshot. Lua has no tab here: a Lua model cannot carry Settings or Setting yet, so the build refuses it with TY1310.\n\nC++ has no tab here, because C++ Yon code has only controllers, services, helpers and workers so far: the build refuses `Settings` in C++ with `TY1308` (ADR 0099).",
+  "body": "Code in every language reads the private YON_APPLICATION_JSON snapshot. Your code passes it to behavior binding; this does not happen automatically. Settings turns its prefixed names into nested paths. Setting names the full standard path directly. Return data, not a response object or a JSON string that you serialized yourself. This example returns only some fields, and none of them are secret. Never return the complete snapshot. Lua has no tab here: a Lua model cannot carry Settings or Setting yet, so the build refuses it with TY1310.\n\nC++ code reads the snapshot with `tachyon::yon::YonApplication::snapshot()`. C++ Yon code has no `[[Min]]` and `[[Max]]` yet, so its Settings fields have no limits (ADR 0099).",
   "axis": "language",
   "files": [
     {
@@ -316,6 +316,30 @@
       "name": "server/controllers/ConfigurationController.rb",
       "code": {
         "file": "server/controllers/ConfigurationController.rb"
+      }
+    },
+    {
+      "name": "server/models/CatalogSettings.hpp",
+      "code": {
+        "file": "server/models/CatalogSettings.hpp"
+      }
+    },
+    {
+      "name": "server/models/Endpoint.hpp",
+      "code": {
+        "file": "server/models/Endpoint.hpp"
+      }
+    },
+    {
+      "name": "server/models/Configuration.hpp",
+      "code": {
+        "file": "server/models/Configuration.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.hpp",
+      "code": {
+        "file": "server/controllers/ConfigurationController.hpp"
       }
     }
   ]

@@ -236,7 +236,7 @@ public:
         TacSetupSelection::check(options);
         TacSetupSelection::active(plan, options);
         std::string key = TacSetupSelection::key(plan, options);
-        BehaviorExecution execution{"tac", options.partition, TacSetupSelection::sorted(options)};
+        BehaviorExecution execution{TacHost::REALM, options.partition, TacSetupSelection::sorted(options)};
         return BehaviorContext(key, TacSetups::acquire<Setup>(key, execution), options);
     }
 

@@ -1,6 +1,6 @@
 use super::{CppYonAccess, CppYonPath, CppYonRoute, CppYonWorker};
 use crate::Failure;
-use crate::tac_cpp::{CppAttribute, CppClass, CppFailure, CppFile, CppMarkerCheck};
+use crate::tac_cpp::{CppAttribute, CppClass, CppFailure, CppFile, CppMarkerCheck, CppSetup};
 use crate::yon::plan::Route;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -21,7 +21,9 @@ impl CppYonController {
     const TWICE: &'static str = "Two methods answer the same HTTP method and path. Each route path and HTTP method pair needs one method";
 
     pub(crate) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
-        Self::routed(CppYonWorker::is_worker(path), path, source)
+        let controller = Self::routed(CppYonWorker::is_worker(path), path, source)?;
+        CppSetup::refuse_elsewhere(path, &controller.file.class)?;
+        Ok(controller)
     }
 
     fn routed(worker: bool, path: &Path, source: &str) -> Result<Self, Failure> {

@@ -20,6 +20,16 @@ machine contracts have their own, independent major versions.
   `tachyon::http::HttpRequestException` (`HTTP_NETWORK`, `HTTP_MISSING`,
   `HTTP_REQUEST`, `HTTP_BODY` or `CANCELLED`). A stream-only client needs no
   Setup (ADR 0058, ADR 0060, ADR 0090 and ADR 0099 amendments).
+- C++ Yon code has `[[Setup]]`, `[[Settings]]`, `[[Setting]]`,
+  `[[WhenProfile]]` and `[[WhenSetting]]`. A Setup is a class in
+  `server/setups/<Name>.hpp` with a static `configure(execution)` that
+  returns its adapters, and Settings and Setting go on models in
+  `server/models`. A route reads the private snapshot with
+  `tachyon::yon::YonApplication::snapshot()`, binds it with
+  `Behaviors::properties<T>` and `Behaviors::values<T>`, and opens a context
+  with `Behaviors::create<Setup>(options)`; the binders want `YON_` names and
+  `yon.` paths. A C++ Settings prefix or Setting path from the other realm
+  now fails at build time, for Tac too (ADR 0099 amendment).
 - A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
   `-- @SocketRequest`, written as an empty
   `function TicksClient:receive(tick)` with `---@param tick Tick`. The page's

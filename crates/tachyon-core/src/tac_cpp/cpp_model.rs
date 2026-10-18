@@ -1,6 +1,6 @@
 use super::{
     CppChecks, CppFailure, CppFile, CppFolder, CppLowering, CppMarkerCheck, CppMemberKind,
-    CppSettings, CppStore,
+    CppSettings, CppSetup, CppStore,
 };
 use crate::Failure;
 use serde_json::Value;
@@ -36,6 +36,7 @@ impl CppModel {
         crate::annotation_rules::Realm::of(relative)
             .ok_or_else(|| CppFailure::pending(relative, 0, Self::REALM))?;
         CppMarkerCheck::check(relative, &file.class)?;
+        CppSetup::refuse_elsewhere(relative, &file.class)?;
         (!CppSettings::is_settings(&file.class))
             .then(|| CppChecks::check_model(relative, &file.class))
             .transpose()

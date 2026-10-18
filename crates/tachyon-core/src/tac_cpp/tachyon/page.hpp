@@ -14,6 +14,8 @@ namespace tachyon {
 
 class TacHost {
 public:
+    static constexpr const char* REALM = "tac";
+
     static void emit(const std::string& text) {
         tac_host_emit(text.data(), static_cast<int>(text.size()));
     }

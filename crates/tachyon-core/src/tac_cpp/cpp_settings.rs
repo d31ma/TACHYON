@@ -1,4 +1,4 @@
-use super::{CppAttribute, CppClass, CppFailure, CppMember, CppMemberKind};
+use super::{CppAttribute, CppClass, CppFailure, CppMember, CppMemberKind, CppSetup};
 use crate::Failure;
 use crate::behavior::{WrittenField, WrittenMarker, WrittenPolicies};
 use serde_json::{Map, Value, json};
@@ -49,6 +49,12 @@ impl CppSettings {
             .then_some(())
             .ok_or_else(|| CppFailure::unreadable(path, marker.at, Self::BOTH))?;
         let plan = Self::settings(written, path, source, class, marker)?;
+        written.check_realm(
+            marker.at,
+            "configurationProperties",
+            plan.clone(),
+            CppSetup::environment(path),
+        )?;
         Ok(Self::specialization("TacSettingsPlan", &class.name, &plan))
     }
 
@@ -67,6 +73,12 @@ impl CppSettings {
         let mut values = Map::new();
         for (member, marker) in marked {
             Self::add_value(written, path, &mut values, member, marker)?;
+            written.check_realm(
+                marker.at,
+                "values",
+                json!({ "field": values[&member.name] }),
+                CppSetup::environment(path),
+            )?;
         }
         Ok(Self::values_text(&class.name, &values))
     }
