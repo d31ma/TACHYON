@@ -463,16 +463,16 @@ struct Input<'a> {
 
 impl<'a> Input<'a> {
     fn validate_source(path: &Path, source: &str) -> Result<(), Failure> {
-        Self::validate_layout(path, source)?;
-        crate::annotation_rules::AnnotationRules::check(path, source)
+        let blanked = Self::validate_layout(path, source)?;
+        crate::annotation_rules::AnnotationRules::check(path, &blanked)
     }
 
     fn validate_lua_shadow(path: &Path, source: &str) -> Result<(), Failure> {
-        Self::validate_layout(path, source)?;
-        crate::annotation_rules::AnnotationRules::check_lua_shadow(path, source)
+        let blanked = Self::validate_layout(path, source)?;
+        crate::annotation_rules::AnnotationRules::check_lua_shadow(path, &blanked)
     }
 
-    fn validate_layout(path: &Path, source: &str) -> Result<(), Failure> {
+    fn validate_layout(path: &Path, source: &str) -> Result<String, Failure> {
         reject_renamed_annotations(path, source)?;
         ImportBoundary::check(path, source)?;
         UtilityLayout::check(path, source)?;
@@ -481,7 +481,8 @@ impl<'a> Input<'a> {
         }
         typed_members::TypedMembers::check(path, source)?;
         check_topics(path, source)?;
-        let source = &crate::topics::Topics::blanked(source);
+        let blanked = crate::topics::Topics::blanked(source);
+        let source = &blanked;
         if is_error_source(path) {
             single_class::validate_error_source(path, source)?;
         } else {
@@ -491,7 +492,8 @@ impl<'a> Input<'a> {
             InlineModelCheck::check(path, source)?;
             FileNameCheck::check(path, source)?;
         }
-        crate::declared_contract::DeclaredContract::check(path, source)
+        crate::declared_contract::DeclaredContract::check(path, source)?;
+        Ok(blanked)
     }
 
     const MAX_CAPTURED_SOURCE: usize = 16 * 1024 * 1024;
