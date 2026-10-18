@@ -1,4 +1,5 @@
 use super::component_style_ownership::ComponentStyleOwnership;
+use super::html_names::HtmlNames;
 use super::model::{AttributeValue, TemplateAttribute};
 use super::{TemplateNode, TemplateNodeKind, TemplateProgram};
 use crate::Failure;
@@ -392,7 +393,7 @@ fn component_name(root: &Path, directory: &Path) -> Option<String> {
         return None;
     }
     let name = segments.join("-");
-    if crate::html::is_standard_html_tag(&name) {
+    if HtmlNames::is_standard_tag(&name) {
         return None;
     }
     Some(name)

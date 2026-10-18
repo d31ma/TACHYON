@@ -44,7 +44,7 @@ only for the behavioral compatibility differential.
 
 | Boundary | Where | Existing assurance |
 | --- | --- | --- |
-| Application HTML into the compiler | `html.rs`, `template/` | Bounded parser; fuzzed |
+| Application HTML into the compiler | `template/` | Bounded parser; fuzzed |
 | Project source discovery and reuse | `project.rs`, `handler/source.rs`, `compiler.rs`, `native/compiler.rs` | One retained capability root; deterministic, bounded traversal that does not follow symlinks; captured bytes for pages, components, shared, config, and server; owned working roots for the compiler and for execution; regression tests for ambient whole-root swaps |
 | Untrusted child-process output | `handler/frame.rs` | Length-prefixed protocol; fuzzed for 4.4M (million) executions |
 | Handler process lifetime and environment | `handler/process.rs` | Spawned as a process group, never through a shell; environment denied by default; deadlines; cancellation; bounded drain settlement; descendant reaping |

@@ -22,6 +22,9 @@ default.
 | `native_planner` | 197,845 | 3,559 | 1,598 | 0 | 0 | 0 |
 | **total** | **7,197,692** | | **8,487** | **0** | **0** | **0** |
 
+The `html_frontend` target was removed on 2026-10-18 together with the
+static HTML parser it fuzzed. `template_frontend` covers application HTML.
+
 `handler_frame` is the highest-value target. It decodes length-prefixed
 frames that an untrusted child process writes. It sustained 97,000 executions
 per second. It never produced anything other than a decoded response or a

@@ -571,7 +571,8 @@ run `go mod vendor` with `git diff --exit-code`, `go mod verify` and
   timeouts or out-of-memory conditions. Details are in `PHASE_7_EVIDENCE.md`.
   - `handler_frame` decodes frames written by an untrusted child process:
     4,482,194 executions.
-  - `html_frontend` and `template_frontend` parse application source.
+  - `template_frontend` parses application source. The `html_frontend`
+    target was removed on 2026-10-18 with the static HTML parser it fuzzed.
   - `native_planner` lowers resolved HTML and checks that all five native
     targets agree on what is valid. So the choice of platform cannot widen
     what Tachyon accepts.

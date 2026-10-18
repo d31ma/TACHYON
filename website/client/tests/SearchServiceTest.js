@@ -1,17 +1,15 @@
-// @ts-nocheck
-
 @Test(SiteTestSetup, {"partition":"tests"})
 export default class SearchServiceTest {
-  clipboard(write) {
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: write }, configurable: true })
-  }
-
+  /**
+   * @param {SearchService} service
+   * @returns {{ lifetime: AbortController, renders: () => number }}
+   */
   mounted(service) {
-    service.renders = 0
-    service.taskScheduler = { render: async () => { service.renders += 1 } }
+    let renders = 0
+    service.taskScheduler = { render: async () => { renders += 1 } }
     const lifetime = new AbortController()
     service.lifecycle = lifetime.signal
-    return lifetime
+    return { lifetime, renders: () => renders }
   }
 
   async testOpenCloseAndDismissDriveShowing() {
@@ -20,9 +18,9 @@ export default class SearchServiceTest {
     search.open()
     Assert.isTrue(Boolean(search.showing), 'open shows the dialog')
     search.term = 'stale'
-    search.dismiss(null, 'Tab')
+    search.dismiss(new Event('keydown'), 'Tab')
     Assert.isTrue(Boolean(search.showing), 'only Escape dismisses')
-    search.dismiss(null, 'Escape')
+    search.dismiss(new Event('keydown'), 'Escape')
     Assert.isTrue(!search.showing && search.term === '', 'Escape closes and clears')
     search.open()
     search.close()
@@ -37,24 +35,24 @@ export default class SearchServiceTest {
     Assert.equals('Keep typing…', search.status(), 'one letter is not a search')
     search.term = 'zzzz'
     Assert.equals('Nothing matches “zzzz”.', search.status())
-    search.results = [{}]
+    search.results = [{ title: 'Routing', path: '/docs/routing', kind: 'guide' }]
     Assert.equals('1 result', search.status())
   }
 
   async testFindSearchesTheDocsAfterAPause() {
     const search = new SearchService()
-    this.mounted(search)
-    search.find(null, 'routing')
+    const { renders } = this.mounted(search)
+    search.find(new Event('input'), 'routing')
     Assert.equals('Searching…', search.status(), 'a two-letter term starts a search')
     await new Promise((resolve) => setTimeout(resolve, 200))
     search.dispose()
     Assert.isTrue(search.status() !== 'Searching…' && search.results.length > 0, 'routing is in the docs')
-    Assert.equals(1, search.renders, 'one render for one search')
+    Assert.equals(1, renders(), 'one render for one search')
   }
 
   async testInitializeOpensOnCommandKUntilUnmounted() {
     const search = new SearchService()
-    const lifetime = this.mounted(search)
+    const { lifetime } = this.mounted(search)
     search.initialize()
     dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
     Assert.isTrue(Boolean(search.showing), '⌘K opens search')
@@ -67,7 +65,7 @@ export default class SearchServiceTest {
 
   async testControlKTogglesAndOtherKeysDoNothing() {
     const search = new SearchService()
-    const lifetime = this.mounted(search)
+    const { lifetime } = this.mounted(search)
     search.initialize()
     dispatchEvent(new KeyboardEvent('keydown', { key: 'k' }))
     dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true }))

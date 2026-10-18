@@ -25,7 +25,6 @@ mod groovy_source;
 mod handler;
 mod helper_new_call;
 mod hot_update;
-mod html;
 mod kotlin_home;
 mod lexical;
 mod lua_source;
@@ -76,7 +75,6 @@ pub use handler::{
     HandlerRuntimePrograms, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
     TopicDeliveries, Workers, YonIsolationPolicy,
 };
-pub use html::{HtmlDocument, HtmlFrontend};
 pub use migrate::{
     MigrationAnalysis, MigrationFinding, MigrationFix, MigrationFixPlan, MigrationReport,
     MigrationStatus,

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 @Test(SiteTestSetup, {"partition":"tests"})
 export default class SnippetServiceTest {
   files() {
@@ -11,9 +9,17 @@ export default class SnippetServiceTest {
     ]
   }
 
-  snippet(files, axis, saved = null) {
-    const snippet = new SnippetService(files, axis)
-    snippet.preferenceStrings = { read: (key) => (key === 'tachyon.platform' ? saved : null) }
+  /**
+   * @param {unknown} files
+   * @param {string} [axis]
+   * @param {string | null} [saved]
+   * @returns {SnippetService}
+   */
+  snippet(files, axis = '', saved = null) {
+    const snippet = new SnippetService()
+    snippet.files = /** @type {SnippetService['files']} */ (files)
+    snippet.axis = axis
+    snippet.preferenceStrings = { read: (key) => (key === 'tachyon.platform' ? saved : null), write: () => true }
     return snippet
   }
 
@@ -38,7 +44,7 @@ export default class SnippetServiceTest {
     const snippet = this.snippet(this.files(), 'language')
     const names = snippet.companions().map((entry) => entry.name)
     Assert.equals('JavaScript,Python,Swift', names.join())
-    snippet.pick(null, 'Python')
+    snippet.pick(new Event('click'), 'Python')
     const shown = snippet.shown().map((file) => file.language)
     Assert.isTrue(shown.includes('Python') && !shown.includes('Swift'), shown.join())
   }
@@ -48,13 +54,13 @@ export default class SnippetServiceTest {
     snippet.companion = 'Swift'
     snippet.platformChanged({ platform: 'ios' })
     const current = snippet.platforms().find((platform) => platform.current)
-    Assert.isTrue(current.id === 'ios' && snippet.companion === '', 'a new platform resets the language')
+    Assert.isTrue(current?.id === 'ios' && snippet.companion === '', 'a new platform resets the language')
   }
 
   async testTheSavedPlatformIsTheFirstChoice() {
     const snippet = this.snippet(this.files(), undefined, 'ios')
     const current = snippet.platforms().find((platform) => platform.current)
-    Assert.equals('ios', current.id, 'the platform saved in preferences is chosen')
+    Assert.equals('ios', current?.id, 'the platform saved in preferences is chosen')
     const unknown = this.snippet(this.files(), undefined, 'amiga')
     Assert.isTrue(unknown.platforms().some((platform) => platform.current), 'an unknown saved platform falls back to a known one')
   }

@@ -1,5 +1,6 @@
 use super::braced_attribute::BracedAttribute;
 use super::expression::Expression;
+use super::html_names::HtmlNames;
 use super::model::{
     Assignment, AttributeValue, ConditionalBranch, EventArgument, EventBinding, HydrationPolicy,
     SourceRange, TemplateAttribute, TemplateNode, TemplateNodeKind, TemplateProgram, TextPart,
@@ -7,7 +8,6 @@ use super::model::{
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
-use crate::html::{is_event_handler_attribute, is_standard_html_tag, valid_custom_element};
 use html5gum::{DefaultEmitter, HtmlString, Span, Spanned, StartTag, Token, Tokenizer};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
@@ -374,7 +374,7 @@ impl<'a> Parser<'a> {
         if let Some(event) = name.strip_prefix("on:") {
             return self.event_attribute(event, &value, range);
         }
-        if is_event_handler_attribute(name) {
+        if HtmlNames::is_event_handler_attribute(name) {
             return Err(self.failure(
                 1306,
                 range,
@@ -489,7 +489,7 @@ impl<'a> Parser<'a> {
             _ if self.components.contains(name) => {
                 component_kind(name, attributes, source_path, range)
             }
-            _ if is_standard_html_tag(name) || valid_custom_element(name) => {
+            _ if HtmlNames::is_standard_tag(name) || HtmlNames::is_custom_element(name) => {
                 self.element_kind(name, attributes, range)
             }
             _ => Err(self.failure(

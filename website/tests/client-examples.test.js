@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { CargoArtifacts } from '../../scripts/cargo-artifacts.mjs'
 import { expect, test } from 'bun:test'
 import { spawnSync } from 'node:child_process'
@@ -8,24 +7,43 @@ import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+/**
+ * @typedef {{ name: string, code: string }} ExampleFile
+ * @typedef {{ heading: string, code?: string, files?: ExampleFile[] }} DocsSection
+ * @typedef {{ topics: Record<string, { sections: DocsSection[] }> }} DocsCatalogue
+ * @typedef {{ features: { id: string, files?: ExampleFile[] }[] }} FeatureCatalogue
+ * @typedef {{ name: string, classes: string[], files: ExampleFile[] }} Example
+ * @typedef {{ load(): Promise<void>, title?: string, products?: unknown }} LoadedService
+ * @typedef {object} ServiceModule
+ * @property {new (client: { all(): Promise<unknown[]> }) => LoadedService} default
+ * @property {(settings: object, lifecycle: AbortSignal, transport: () => Promise<never>) => Promise<LoadedService>} __tachyon_create_owner__
+ */
+
 class Locations {
   static repository = fileURLToPath(new URL('../../', import.meta.url))
   static dataRoot = new URL('../client/shared/data/', import.meta.url)
 }
 
+/** @param {string} name */
 function isService(name) {
   return /^client\/services\/[A-Z]\w*Service\.(js|ts)$/.test(name)
 }
 
+/** @param {string} name */
 function classNameOf(name) {
   return name.slice(name.lastIndexOf('/') + 1, name.lastIndexOf('.'))
 }
 
+/** @param {string} className */
 function instanceNameOf(className) {
   const stem = className.replace(/Service$/, '')
   return stem[0].toLowerCase() + stem.slice(1)
 }
 
+/**
+ * @param {string[]} classNames
+ * @returns {ExampleFile[]}
+ */
 function generatedPageFiles(classNames) {
   const placeholders = classNames.map((className) => `{${instanceNameOf(className)}}`)
   return [
@@ -34,6 +52,7 @@ function generatedPageFiles(classNames) {
   ]
 }
 
+/** @param {string} repository */
 function findBinary(repository) {
   if (process.env.TAC_BIN !== undefined) return process.env.TAC_BIN
   const executable = process.platform === 'win32' ? 'ty.exe' : 'ty'
@@ -44,6 +63,10 @@ function findBinary(repository) {
   return null
 }
 
+/**
+ * @param {string} project
+ * @param {ExampleFile[]} files
+ */
 async function writeProject(project, files) {
   for (const file of files) {
     const destination = join(project, file.name)
@@ -52,14 +75,20 @@ async function writeProject(project, files) {
   }
 }
 
+/**
+ * @param {string} label
+ * @param {ExampleFile[]} [files]
+ * @returns {Example[]}
+ */
 function serviceExamplesFromFiles(label, files = []) {
+  /** @type {Example[]} */
   const examples = []
   for (const extension of ['js', 'ts']) {
     const services = files.filter(({ name }) => isService(name) && name.endsWith(`.${extension}`))
     if (services.length === 0) continue
     const sameLanguageCode = files.filter(({ name }) => name.endsWith(`.${extension}`)).map(({ code }) => code).join('\n')
-    const isImported = (name) => sameLanguageCode.includes(`/${name.split('/').slice(1).join('/')}`)
-    const isClientFileForLanguage = (name) => name.startsWith('client/')
+    const isImported = (/** @type {string} */ name) => sameLanguageCode.includes(`/${name.split('/').slice(1).join('/')}`)
+    const isClientFileForLanguage = (/** @type {string} */ name) => name.startsWith('client/')
       && (!/\.(js|ts|dart|swift|kt|cs|rs|go)$/.test(name) || name.endsWith(`.${extension}`) || isImported(name))
     const project = files.filter(({ name }) => isClientFileForLanguage(name))
     const classes = services.map(({ name }) => classNameOf(name))
@@ -70,6 +99,11 @@ function serviceExamplesFromFiles(label, files = []) {
   return examples
 }
 
+/**
+ * @param {string} label
+ * @param {string} [code]
+ * @returns {Example[]}
+ */
 function serviceExamplesFromClass(label, code = '') {
   const className = code.match(/export default class ([A-Z]\w*Service)\b/)?.[1]
   if (!className) return []
@@ -78,7 +112,25 @@ function serviceExamplesFromClass(label, code = '') {
   return [{ name: label, classes: [className], files: [...generatedPageFiles([className]), noViewUsesSettings, serviceFile] }]
 }
 
+/**
+ * @param {DocsCatalogue} docs
+ * @param {string} topic
+ * @param {string} heading
+ * @returns {DocsSection}
+ */
+function sectionNamed(docs, topic, heading) {
+  const section = docs.topics[topic].sections.find((entry) => entry.heading === heading)
+  if (section === undefined) throw new Error(`docs topic '${topic}' has no section '${heading}'`)
+  return section
+}
+
+/**
+ * @param {DocsCatalogue} docs
+ * @param {FeatureCatalogue} catalogue
+ * @returns {Example[]}
+ */
 function collectExamples(docs, catalogue) {
+  /** @type {Example[]} */
   const examples = []
   const browserSections = [
     ['behavior-annotations', 'Shared browser behavior annotations'],
@@ -89,13 +141,13 @@ function collectExamples(docs, catalogue) {
     for (const section of docs.topics[topic].sections) browserSections.push([topic, section.heading])
   }
   for (const [topic, heading] of browserSections) {
-    const section = docs.topics[topic].sections.find((entry) => entry.heading === heading)
+    const section = sectionNamed(docs, topic, heading)
     examples.push(...serviceExamplesFromClass(`${topic}: ${section.heading}`, section.code))
     examples.push(...serviceExamplesFromFiles(`${topic}: ${section.heading}`, section.files))
   }
-  const recipe = docs.topics.cookbook.sections.find((section) => section.heading === 'Signal-driven UI')
+  const recipe = sectionNamed(docs, 'cookbook', 'Signal-driven UI')
   examples.push(...serviceExamplesFromFiles('signal recipe', recipe.files))
-  const mapping = docs.topics.annotations.sections.find((section) => section.heading === 'Mapping: Tac')
+  const mapping = sectionNamed(docs, 'annotations', 'Mapping: Tac')
   examples.push(...serviceExamplesFromFiles('annotations: Mapping: Tac', mapping.files))
   for (const section of docs.topics['application-configuration'].sections) {
     examples.push(...serviceExamplesFromFiles('application configuration', section.files))
@@ -106,6 +158,10 @@ function collectExamples(docs, catalogue) {
   return examples
 }
 
+/**
+ * @param {Example} example
+ * @param {ServiceModule} module
+ */
 async function checkRuntimeContract(example, module) {
   if (example.name.startsWith('annotations: Mapping: Tac')) {
     expect(typeof module.__tachyon_create_owner__, example.name).toBe('function')
@@ -115,6 +171,7 @@ async function checkRuntimeContract(example, module) {
     expect(service.title, example.name).toBe('product 7: Anvil')
   }
   if (example.name === 'calling-the-server: Client classes that call the server [js]') {
+    /** @type {string[]} */
     const calls = []
     expect(typeof module.__tachyon_create_owner__).toBe('function')
     const service = new module.default({ all: async () => {
@@ -128,7 +185,9 @@ async function checkRuntimeContract(example, module) {
 }
 
 test('published browser service examples compile and use the documented runtime contract', async () => {
+  /** @type {DocsCatalogue} */
   const docs = JSON.parse(await readFile(new URL('docs.json', Locations.dataRoot), 'utf8'))
+  /** @type {FeatureCatalogue} */
   const catalogue = JSON.parse(await readFile(new URL('features.json', Locations.dataRoot), 'utf8'))
   const examples = collectExamples(docs, catalogue)
   expect(examples.length).toBeGreaterThan(10)
@@ -149,6 +208,7 @@ test('published browser service examples compile and use the documented runtime 
       const built = spawnSync(command[0], command.slice(1), { encoding: 'utf8', timeout: 120000, env })
       expect(built.status, `${example.name}\n${built.stderr || built.stdout}`).toBe(0)
       for (const className of example.classes) {
+        /** @type {ServiceModule} */
         const module = await import(pathToFileURL(join(project, 'dist/.tachyon/services', `${className}.js`)).href)
         expect(typeof module.default, `${example.name}: ${className}`).toBe('function')
         await checkRuntimeContract(example, module)

@@ -614,6 +614,11 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The old static HTML frontend (`HtmlFrontend`, `HtmlDocument`) and its
+  `html_frontend` fuzz target are removed. Nothing but that fuzz target called
+  it; the template frontend is the only HTML frontend, and its codes TY1101 to
+  TY1107 are retired (ADR 0002 amendment). The website tests and client test
+  files no longer turn type checking off with `// @ts-nocheck`.
 - F# Tac caching, policies, stores and page state now have runtime proof:
   an F# test unit runs `Cached`, `CacheKey`, `UpdateCache`, `ClearCache`,
   `Retry`, `MaxAtOnce`, `AllOrNothing`, `PageDefaults` and a `[<Query>]`

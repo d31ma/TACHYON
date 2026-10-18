@@ -933,7 +933,7 @@ jobs:
       - name: Fuzz every trust boundary under AddressSanitizer
         run: |
           set -euo pipefail
-          for target in html_frontend template_frontend handler_frame native_planner yon_annotations application_config managed_resource_headers; do
+          for target in template_frontend handler_frame native_planner yon_annotations application_config managed_resource_headers; do
             echo "==> ${target}"
             cargo +nightly-2026-07-20 fuzz run "${target}" -- \
               "-max_total_time=${FUZZ_SECONDS}" -rss_limit_mb=2048 -timeout=10

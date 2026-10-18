@@ -69,3 +69,14 @@ must produce byte-identical View IR.
   not as other parsers;
 - any future parser proves deterministic source-to-IR output with golden
   fixtures.
+
+## Amendment (2026-10-18): one HTML frontend
+
+The template frontend in `crates/tachyon-core/src/template/` is the only HTML
+frontend. The earlier static HTML frontend (`HtmlFrontend`, `HtmlDocument`)
+had no caller outside its own fuzz target, so it is removed together with that
+`html_frontend` fuzz target. Its codes TY1101 to TY1107 are retired and no
+longer appear. The list of standard HTML tags, event-handler attributes and
+custom-element names that the template frontend uses now lives in
+`template/html_names.rs`. The `template_frontend` fuzz target still covers
+application HTML.

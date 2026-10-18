@@ -191,7 +191,6 @@ fn every_phase7_fuzz_boundary_has_a_target_seed_and_ci_campaign()
     assert!(manifest.contains("libfuzzer-sys = \"=0.4.10\""));
     assert!(lockfile.contains("name = \"libfuzzer-sys\""));
     for target in [
-        "html_frontend",
         "template_frontend",
         "handler_frame",
         "native_planner",
@@ -209,11 +208,11 @@ fn every_phase7_fuzz_boundary_has_a_target_seed_and_ci_campaign()
         assert!(!seeds.is_empty(), "{target} has no hand-written seed");
     }
     assert!(workflow.contains(
-        "for target in html_frontend template_frontend handler_frame native_planner yon_annotations application_config managed_resource_headers"
+        "for target in template_frontend handler_frame native_planner yon_annotations application_config managed_resource_headers"
     ));
     assert!(workflow.contains("-max_total_time=${FUZZ_SECONDS}"));
     assert!(scheduled.contains("name: Fuzz ${{ matrix.target }}"));
-    assert!(scheduled.contains("target: [html_frontend, template_frontend, handler_frame, native_planner, yon_annotations, application_config, managed_resource_headers]"));
+    assert!(scheduled.contains("target: [template_frontend, handler_frame, native_planner, yon_annotations, application_config, managed_resource_headers]"));
     assert!(scheduled.contains("path: fuzz/corpus/${{ matrix.target }}"));
     assert!(scheduled.contains("actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25"));
     assert!(scheduled.contains("actions/cache/save@caa296126883cff596d87d8935842f9db880ef25"));

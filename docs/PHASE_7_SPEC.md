@@ -15,7 +15,6 @@ Every input that crosses a trust boundary has a fuzz target under `fuzz/`.
 
 | Target | Boundary |
 | --- | --- |
-| `html_frontend` | Application HTML that reaches the bounded parser. |
 | `template_frontend` | Control tags, bindings, and component references. |
 | `handler_frame` | Length-prefixed frames read from an untrusted child process. |
 | `native_planner` | Resolved HTML converted into Native UI v1 for five targets. |

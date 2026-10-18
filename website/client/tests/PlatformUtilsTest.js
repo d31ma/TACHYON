@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 @Test(SiteTestSetup, {"partition":"tests"})
 export default class PlatformUtilsTest {
   files() {

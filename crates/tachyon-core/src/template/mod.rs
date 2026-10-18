@@ -12,6 +12,7 @@ mod expression;
 #[allow(clippy::expect_used)]
 mod feature_inputs_tests;
 mod frontend;
+mod html_names;
 mod model;
 mod owner_method_binding;
 pub(crate) mod required_fields;

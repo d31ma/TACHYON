@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [html_frontend, template_frontend, handler_frame, native_planner, yon_annotations, application_config, managed_resource_headers]
+        target: [template_frontend, handler_frame, native_planner, yon_annotations, application_config, managed_resource_headers]
 
     steps:
       - name: Check out source

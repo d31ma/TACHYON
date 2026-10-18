@@ -13,13 +13,6 @@ tachyon-contracts = { path = "../crates/tachyon-contracts" }
 tachyon-core = { path = "../crates/tachyon-core", features = ["fuzzing"] }
 
 [[bin]]
-name = "html_frontend"
-path = "fuzz_targets/html_frontend.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "template_frontend"
 path = "fuzz_targets/template_frontend.rs"
 test = false
