@@ -1,10 +1,40 @@
-# CI handoff — 2026-10-17
+# CI handoff — 2026-10-17 (status updated 2026-10-18)
 
 This note hands the open CI and integration work over to a maintainer who
 continues on their own machines. It lists what is on `develop`, what is still on
 `work/*` branches, why `develop` CI is red, and how to check each branch
 locally. Read it with `docs/HANDOFF.md`, `AGENTS.md` and
 `docs/ENGINEERING_STANDARDS.md`.
+
+## Status on 2026-10-18
+
+All the work this note handed over is resolved. The sections after this one describe the state on 2026-10-17 and are kept as history.
+
+- **Every branch in "Branches still open" is merged into `develop`, except the diagnostic and bisect branches.** That covers the three CI branches, `cpp-yon-ci`, `fsharp-ci`, `python-ci`, `fakes-ci`, `fakes-rest` and `ci-self-hosted`, plus the macOS Swift test from `ci-macos-windows`. `ci-windows-bisect`, `ci-windows-bisect-prelude` and the WebView2 diagnostics were not for merging. All the `work/*` branches have been deleted.
+- **Every red job in "Why develop CI is red" has a fix on `develop`:**
+  - **Windows WebView2 gate:** the Windows host now sends each native call to the companion that owns the service (`08746f7f`).
+  - **Phase 6:** the scaffold differences are declared migrations (`8f0b6a21`). The Phase 6 job now installs Node 24.18.0 (`f062fb18`).
+  - **Android:** the gate expects the native event by its model name (`54374177`).
+  - **Phase 3 in Firefox:** the storage gate waits for components to activate (`0de0ecf1`).
+- **New fixes found while running the gate on Windows and WSL:**
+  - Kotlin compilers that exist only as `.bat` launchers
+  - `em++` on Windows
+  - the mruby build folder on Windows
+  - Lua behavior clocks on Windows
+  - the handler cache lock when the clock steps back
+  - the .NET readiness probe environment
+  - F# `Needs` construction for primary-constructor types
+- **CI now runs locally:**
+  - GitHub Actions runs only for pull requests from `develop` into `main`.
+  - Day-to-day CI is the same gate on the maintainer's machines: macOS, plus Windows ARM64 and WSL. It runs under `cargo nextest` and `sccache`.
+  - On slow machines, set `TAC_HANDLER_COMPILE_SECONDS` (default 60, cap 900) to allow longer handler compiles.
+  - Load-sensitive tests tolerate a busy machine, and the `relay_boundaries` tests run in nextest's `serial` group (`4603885c`).
+- **Decision taken:** Phase 6 keeps the scaffold comparison as a tripwire for drift, with every intended difference declared, instead of declaring a deliberate break.
+- **Still open (see the last two sections):**
+  - the `@Check` status code and `ty preview` caching decisions, and the release candidate
+  - in the product, a call that reaches a shared service before its component activates uses the default `tac-client` partition
+  - on Windows ARM64, Node 24 sometimes deadlocks at process exit (about 7% of Ruby web drivers under load). Its 2-minute deadline turns that into one failed test.
+  - about 40 other `node` driver call sites have no deadline
 
 ## Where develop is
 
@@ -155,8 +185,8 @@ clean run. Things that matter:
   That needs an ADR.
 - `ty preview` sends `Cache-Control: no-store` and `Vary`, so the offline
   service worker caches nothing in preview, in any language.
-- Phase 6 legacy differential: declare the new scaffold a deliberate break, or
-  update the migration list in `scripts/compat/differential.mjs`.
+- ~~Phase 6 legacy differential~~: decided on 2026-10-18. The migration list in
+  `scripts/compat/differential.mjs` declares each intended difference.
 - Python and Lua `HTTPClient`; who is the trusted authority for native live
   updates; menu command recipients other than Rust; whether the planned
   languages and Zig still stand.
