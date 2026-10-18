@@ -147,9 +147,9 @@ and sockets". The other compiled Tac languages still refuse `@StreamRequest`.
 `#[StreamRequest]` is also written on a Rust HTTPClient trait method. The
 page's JavaScript still holds the `EventSource` for the Rust service that
 keeps the client in a field, and the service receives each message with
-`#[OnEvent]`. See ADR 0090, "Rust streams and sockets". F#, Dart,
-Java and C++ still refuse `@StreamRequest`. (Python holds stream clients
-since; see its amendment below.)
+`#[OnEvent]`. See ADR 0090, "Rust streams and sockets". Dart,
+Java and C++ still refuse `@StreamRequest`. (Python and F# hold stream
+clients since; see their amendments below.)
 
 ## Amendment (2026-10-17): Rust stream routes with Iterator
 
@@ -227,3 +227,14 @@ JavaScript holds the `EventSource` for the Python service that keeps the
 client in a `Needs` field, and the service receives each message with
 `@on_event`. See ADR 0090, "Python streams and sockets", and the ADR 0093
 amendment of 2026-10-18.
+
+## Amendment (2026-10-18): F# stream clients
+
+`[<StreamRequest>]` is also written on an abstract member of an F# HTTPClient
+type, for example `abstract Receive: Tick -> unit`. F# compiles into the same
+.NET WebAssembly project as C#, so the page's JavaScript holds the
+`EventSource` for the browser F# service that keeps the client in a
+`[<Needs>]` property, and the service receives each message with
+`[<OnEvent>]`. A natively linked F# service refuses the client. This replaces
+the 2026-10-18 refusal that kept F# Tac out of the C# reach for these
+markers. See ADR 0090, "F# streams and sockets".

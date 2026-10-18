@@ -16,6 +16,7 @@ mod fsharp_class_type;
 mod fsharp_contract;
 mod fsharp_contract_rewrite;
 mod fsharp_declaration;
+mod fsharp_held_members;
 mod fsharp_injected_contract;
 mod go_contract_rewrite;
 mod go_method;

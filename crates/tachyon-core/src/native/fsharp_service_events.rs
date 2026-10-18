@@ -1,4 +1,6 @@
+use super::csharp_stream_clients::CsharpStreamClients;
 use super::events::Prepared;
+use super::held_service::HeldService;
 use crate::Failure;
 use crate::behavior::HttpClientSource;
 use crate::companion::CsharpModelType;
@@ -30,9 +32,10 @@ impl FsharpServiceEvents {
     pub(super) fn read(
         view: &FsharpView,
         root: &Path,
-        class: &str,
+        service: (&str, bool),
         needs_all: bool,
     ) -> Result<Self, Failure> {
+        let class = service.0;
         let parameters = FsharpConstructorProps::from_shadow(view.text(), class);
         let clients = Self::clients(view, &parameters)?;
         let arguments = Self::arguments(&parameters, class, (needs_all, &clients))
@@ -40,13 +43,25 @@ impl FsharpServiceEvents {
         let publisher = parameters
             .iter()
             .any(|parameter| parameter.type_name == Self::PUBLISHER_TYPE);
-        let module = Self::module(view, root)?;
+        let mut module = Self::module(view, root)?;
+        let held = HeldService {
+            class,
+            language: CsharpStreamClients::FSHARP,
+            web_assembly: service.1,
+            path: view.path(),
+        };
+        let streams = module
+            .as_mut()
+            .map(|found| CsharpStreamClients::held_entries(found, &clients, &held))
+            .transpose()
+            .map_err(|failure| view.failure(&failure))?;
         let mut prepared = super::events::prepare(
             NativeCompanion::CSharp,
             view.text(),
             module.as_ref(),
             view.path(),
         )?;
+        prepared.entries.push_str(streams.as_deref().unwrap_or(""));
         prepared
             .excluded
             .extend(Self::hidden(&parameters, &clients));

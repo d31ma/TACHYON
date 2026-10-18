@@ -169,9 +169,9 @@ page's event bus holds the `WebSocket` for the Rust service that keeps the
 client in a field; the service receives each message with `#[OnEvent]`, and
 the generated `send(message).await` writes to the socket and returns a
 `BehaviorError` code instead of a rejected promise. See ADR 0090, "Rust
-streams and sockets". F#, Dart, Java and
-C++ still refuse `@SocketRequest`. (Python holds socket clients since;
-see its amendment below.)
+streams and sockets". Dart, Java and
+C++ still refuse `@SocketRequest`. (Python and F# hold socket clients
+since; see their amendments below.)
 
 ## Amendment (2026-10-17): Dart socket clients
 
@@ -225,3 +225,14 @@ that keeps the client in a `Needs` field; the service receives each message
 with `@on_event`, and the generated `async def send(self, message)` writes
 to the socket and raises a `BehaviorError` with a code instead of rejecting
 a promise. See ADR 0090, "Python streams and sockets".
+
+## Amendment (2026-10-18): F# socket clients
+
+`[<SocketRequest>]` is also written on an abstract member of an F# HTTPClient
+type. The page's event bus holds the `WebSocket` for the browser F# service
+that keeps the client in a `[<Needs>]` property; the service receives each
+message with `[<OnEvent>]`, and the generated
+`member _.Send(message: obj) : System.Threading.Tasks.Task` writes to the
+socket through the same .NET socket sender as C# and raises a `BehaviorError`
+with a code instead of rejecting a promise. A natively linked F# service
+refuses the client. See ADR 0090, "F# streams and sockets".

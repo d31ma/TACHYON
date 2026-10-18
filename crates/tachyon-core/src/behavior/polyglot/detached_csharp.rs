@@ -20,6 +20,7 @@ impl DetachedCsharp {
     const CONTEXT: &'static str = "behaviors";
     const TAC: &'static str = "tac";
     const NO_STORAGE: &'static str = "";
+    const NO_REGISTRY: &'static str = "{}";
     const PAGE_STORAGE: &'static str = " BehaviorStorage.Host ??= TacWeb.Storage;";
 
     pub(super) fn of(module: &Module) -> Result<Self, String> {
@@ -63,15 +64,30 @@ impl DetachedCsharp {
             .unwrap_or_default()
     }
 
+    pub(crate) fn page_socket_runtime(path: &std::path::Path) -> String {
+        let module_id = super::super::module_id(path);
+        Self::configured(&csharp::runtime(
+            &module_id,
+            Self::TAC,
+            Self::NO_REGISTRY,
+            Self::CONFIGURATIONS_CALL,
+            "",
+            "",
+        ))
+    }
+
     fn runtime(module: &Module) -> String {
-        let runtime = csharp::runtime(
+        Self::configured(&csharp::runtime(
             &module.module_id,
             &module.environment,
             &Self::registry(module),
             Self::CONFIGURATIONS_CALL,
             &Self::entities(module),
             &Self::policies(module),
-        );
+        ))
+    }
+
+    fn configured(runtime: &str) -> String {
         runtime.replacen(
             Self::CONFIGURE,
             &format!("{}{}", Self::CONFIGURATIONS_FIELD, Self::CONFIGURE),

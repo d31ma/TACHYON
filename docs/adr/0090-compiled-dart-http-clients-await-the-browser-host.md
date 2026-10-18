@@ -817,3 +817,45 @@ in order and the seventeenth gets `HTTP_NETWORK`; a message over 64 KiB gets
 `HTTP_BODY`; and disposing the owner closes both connections.
 `client_tests::python_unit::tests::a_python_socket_client_in_a_test_unit_has_no_page_to_send_on`
 runs a Python test unit in CPython.
+
+## F# streams and sockets — 2026-10-18
+
+An abstract member of an F# HTTPClient type may carry `[<StreamRequest>]` or
+`[<SocketRequest>]`, as in C#. The member takes one parameter whose record
+from `client/models` says what each message holds, for example
+`abstract Receive: Tick -> unit`, and returns nothing. The generated client
+writes it as an empty member. An F# client with only stream or socket members
+needs no Setup: it has no behavior context, and the browser Service factory
+creates it with `new TicksClient()`.
+
+F# compiles into the same .NET WebAssembly project as C#, so it shares the C#
+page parts: a browser F# service that keeps the client in a `[<Needs>]`
+property gets one `TacMember.ClientStream` entry for each stream or socket
+member, its `init` answer lists them as `streams`, and the page's event bus
+opens and closes the connections. The limits are the ones of the C# section
+above, including at most 16 such members through a service's clients.
+
+A socket client gets a generated
+`member _.Send(message: obj) : System.Threading.Tasks.Task`. It calls the C#
+`BehaviorBrowserSocket.Send`, so it waits for the page through the same
+`socketSend` import and raises a `BehaviorError` whose `Code` is
+`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_BODY` or `CANCELLED`. A service whose
+behavior context does not already bring the C# behavior runtime gets it with
+the socket sender. A natively linked F# service has no page, so its build
+refuses a stream or socket client with `TY1405`.
+
+Until this section, F# Tac was kept from these two markers: F# is checked
+through its C# view, so it inherited the C# reach of 2026-10-17 without a
+runtime, and commit `2d9c3bf8` refused them for F# Tac on purpose. With the
+runtime above, that refusal is no longer needed, and F# Tac follows the C#
+reach for both markers.
+
+Evidence: `tac_web::fsharp_stream_tests` builds two real F# services with the
+.NET wasm-tools workload and runs them under Node with the real event bus and
+fake `EventSource` and `WebSocket` classes, with the same checks as the C#
+test (it shares that test's driver and checks).
+`declared_contract::tests::an_fsharp_socket_client_needs_no_context_and_gets_a_send_method`,
+`native::fsharp_service::tests::a_held_fsharp_socket_client_is_described_as_a_stream_and_brings_its_sender`
+and
+`native::csharp_stream_clients::tests::a_natively_linked_fsharp_service_refuses_a_stream_client_in_its_own_words`
+cover the lowering, the stream entries, the runtime and the native refusal.

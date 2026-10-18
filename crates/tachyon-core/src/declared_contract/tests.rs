@@ -501,6 +501,36 @@ fn a_csharp_socket_client_needs_no_context_and_gets_a_send_method() {
 }
 
 #[test]
+fn an_fsharp_socket_client_needs_no_context_and_gets_a_send_method() {
+    let source = "[<HTTPClient(\"/chat\")>]\ntype ChatClient =\n    [<SocketRequest>]\n    abstract Receive: ChatMessage -> unit\n";
+    let path = Path::new("client/remotes/ChatClient.fs");
+    let lowered = DeclaredContract::concrete(path, source, "tac").expect("lowered");
+    assert_eq!(
+        lowered,
+        "[<HTTPClient(\"/chat\")>]\ntype ChatClient() =\n    [<SocketRequest>]\n    member this.Receive(value0: ChatMessage) : unit = ()\n    member _.Send(message: obj) : System.Threading.Tasks.Task = BehaviorBrowserSocket.Send(\"ChatClient\", message)\n"
+    );
+    let stream = source.replace("SocketRequest", "StreamRequest");
+    let lowered = DeclaredContract::concrete(path, &stream, "tac").expect("lowered");
+    assert!(!lowered.contains("Send("), "{lowered}");
+    assert!(!lowered.contains("BehaviorContext"), "{lowered}");
+    assert!(
+        lowered.contains("member this.Receive(value0: ChatMessage) : unit = ()"),
+        "{lowered}"
+    );
+    let mixed = format!(
+        "{}\n    [<GetRequest(\"/history\")>]\n    abstract history: unit -> System.Threading.Tasks.Task<BehaviorJSON>\n",
+        source.trim_end()
+    );
+    let lowered = DeclaredContract::concrete(path, &mixed, "tac").expect("lowered");
+    assert!(
+        lowered.contains("type ChatClient(context: BehaviorContext) ="),
+        "{lowered}"
+    );
+    assert!(lowered.contains("member _.Send(message: obj)"), "{lowered}");
+    assert!(lowered.contains("abstract history: unit ->"), "{lowered}");
+}
+
+#[test]
 fn a_dart_socket_client_needs_no_context_and_gets_a_send_method() {
     let source = "@HTTPClient(\"/chat\")\nabstract interface class ChatClient {\n  @SocketRequest\n  void receive(ChatMessage message);\n}\n";
     let path = Path::new("client/remotes/ChatClient.dart");

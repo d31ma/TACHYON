@@ -16,6 +16,7 @@ pub(super) struct FsharpService;
 impl FsharpService {
     const NO_REQUIRED: &'static str = "internal static class TacServiceInfo { internal static readonly string[] Required = { }; }\ninternal static class TacServiceLifetime { internal const bool Prototype = true; }\n";
     const TAC: &'static str = "tac";
+    const SOCKET_SEND: &'static str = "BehaviorBrowserSocket.Send(";
 
     pub(super) fn body_or(
         item: &NativeCompanionInput,
@@ -53,7 +54,12 @@ impl FsharpService {
             (&item.class, &Self::models(item)?),
         )?;
         let needs_all = crate::fsharp_source::FsharpConstructorProps::needs_all(authored);
-        let events = FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class, needs_all)?;
+        let events = FsharpServiceEvents::read(
+            &view,
+            &item.snapshot_root,
+            (&item.class, item.web_assembly),
+            needs_all,
+        )?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
         let mut excluded = events.prepared.excluded.clone();
         excluded.extend(tasks.names);
@@ -71,19 +77,33 @@ impl FsharpService {
         let stripped = models.without_declarations(relative, &FsharpMarkers::strip(authored))?;
         let Some(detached) = detached else {
             let csharp = format!("{table}{}", Self::NO_REQUIRED);
+            let runtime = format!("{}{}", Self::socket_runtime(&view, ""), events.runtime());
             return Ok(FsharpSource::web_body(
                 &csharp,
-                &FsharpSource::with_runtime(&stripped, events.runtime()),
+                &FsharpSource::with_runtime(&stripped, &runtime),
             ));
         };
         let fsharp = FsharpBehaviors::program(&view, &stripped, &detached)
             .map_err(|message| Self::failure(relative, &message))?;
         let csharp = format!("{table}{}{}", Self::NO_REQUIRED, detached.setups);
-        let runtime = format!("{}{}", detached.runtime, events.runtime());
+        let runtime = format!(
+            "{}{}{}",
+            detached.runtime,
+            Self::socket_runtime(&view, &detached.runtime),
+            events.runtime()
+        );
         Ok(FsharpSource::web_body(
             &csharp,
             &FsharpSource::with_runtime(&fsharp, &runtime),
         ))
+    }
+
+    fn socket_runtime(view: &FsharpView, runtime: &str) -> String {
+        let wanted = [view.text().contains(Self::SOCKET_SEND), runtime.is_empty()];
+        (wanted == [true, true])
+            .then(|| DetachedCsharp::page_socket_runtime(view.path()))
+            .into_iter()
+            .collect()
     }
 
     fn models(item: &NativeCompanionInput) -> Result<ModelTable, Failure> {
@@ -255,6 +275,40 @@ mod tests {
         assert!(
             browser.contains("[\"pause\"] = TacMember.TaskMethod(async arguments => { await Instance.Pause(); return null; })"),
             "{browser}"
+        );
+    }
+
+    #[test]
+    fn a_held_fsharp_socket_client_is_described_as_a_stream_and_brings_its_sender() {
+        let message = "type ChatMessage = { Text: string }\n";
+        let client = "open Models\n\n[<HTTPClient(\"/chat\")>]\ntype ChatClient =\n    [<SocketRequest>]\n    abstract Receive: ChatMessage -> unit\n";
+        let service = "open System.Threading.Tasks\nopen Models\n\n[<Service>]\ntype ChatService() =\n    [<Needs>]\n    member val ChatClient : ChatClient = Unchecked.defaultof<ChatClient> with get, set\n\n    member val Said : string = \"\" with get, set\n\n    [<OnEvent>]\n    member this.Heard(message: ChatMessage) : unit =\n        this.Said <- message.Text\n\n    member this.Say(text: string) : Task =\n        this.ChatClient.Send({ Text = text })\n";
+        let others = [
+            ("client/remotes/ChatClient.fs", client),
+            ("client/models/ChatMessage.fs", message),
+        ];
+        let body = table_with("ChatService", service, true, &others)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        assert!(
+            body.contains("[\"__stream_ChatClient_Receive\"] = TacMember.ClientStream(\"{\\\"client\\\":\\\"ChatClient\\\""),
+            "{body}"
+        );
+        assert!(body.contains("\\\"socket\\\":true"), "{body}");
+        assert!(
+            body.contains("new ChatService() { ChatClient = new ChatClient() }"),
+            "{body}"
+        );
+        assert!(
+            body.contains("internal static class BehaviorBrowserSocket"),
+            "{body}"
+        );
+        assert!(body.contains("type ChatClient() =\n"), "{body}");
+        let native = table_with("ChatService", service, false, &others).expect_err("native");
+        assert!(
+            native
+                .to_string()
+                .contains("A natively linked F# service has no page to hold"),
+            "{native}"
         );
     }
 }

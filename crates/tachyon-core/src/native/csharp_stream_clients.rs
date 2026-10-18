@@ -1,3 +1,4 @@
+use super::held_service::HeldService;
 use super::registry::NativeCompanionInput;
 use super::swift_streams::SwiftStreams;
 use crate::Failure;
@@ -8,6 +9,11 @@ use std::path::Path;
 pub(super) struct CsharpStreamClients;
 
 impl CsharpStreamClients {
+    pub(super) const CSHARP: &'static str = "C#";
+    pub(super) const FSHARP: &'static str = "F#";
+    const NATIVE: &'static str = "A natively linked {language} service has no page to hold its @StreamRequest or @SocketRequest client. Hold the client in a {language} service that runs in the browser, or in a JavaScript or TypeScript service.";
+    const TOO_MANY: &'static str = "A {language} service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.";
+
     pub(super) fn page_streams(
         item: &NativeCompanionInput,
         language: NativeCompanion,
@@ -44,29 +50,38 @@ impl CsharpStreamClients {
         module: &mut EventModule,
         path: &Path,
     ) -> Result<String, Failure> {
-        let names: Vec<String> = HeldStreams::clients(module, &item.class)
+        let held = Self::held_clients(path, &module.source, &item.class);
+        let service = HeldService {
+            class: &item.class,
+            language: Self::CSHARP,
+            web_assembly: item.web_assembly,
+            path,
+        };
+        Self::held_entries(module, &held, &service)
+    }
+
+    pub(super) fn held_entries(
+        module: &mut EventModule,
+        held: &[String],
+        service: &HeldService<'_>,
+    ) -> Result<String, Failure> {
+        let names: Vec<String> = HeldStreams::clients(module, service.class)
             .iter()
             .map(|client| client.name.clone())
             .collect();
-        Self::refuse_native(item, &names, path)?;
-        let entries = Self::entries(module, &item.class, path)?;
+        Self::refuse_native(service, &names)?;
+        let entries = Self::entries(module, held, service)?;
         Self::remove(module, &names);
         Ok(entries)
     }
 
-    fn refuse_native(
-        item: &NativeCompanionInput,
-        names: &[String],
-        path: &Path,
-    ) -> Result<(), Failure> {
-        let unheld = [names.is_empty(), item.web_assembly] == [false, false];
+    fn refuse_native(service: &HeldService<'_>, names: &[String]) -> Result<(), Failure> {
+        let unheld = [names.is_empty(), service.web_assembly] == [false, false];
         if !unheld {
             return Ok(());
         }
-        Err(Self::failure(
-            path,
-            "A natively linked C# service has no page to hold its @StreamRequest or @SocketRequest client. Hold the client in a C# service that runs in the browser, or in a JavaScript or TypeScript service.",
-        ))
+        let message = Self::NATIVE.replace("{language}", service.language);
+        Err(Self::failure(service.path, &message))
     }
 
     fn held_clients(path: &Path, source: &str, class: &str) -> Vec<String> {
@@ -76,15 +91,16 @@ impl CsharpStreamClients {
             .collect()
     }
 
-    fn entries(module: &EventModule, class: &str, path: &Path) -> Result<String, Failure> {
-        let clients = HeldStreams::clients(module, class);
-        let held = Self::held_clients(path, &module.source, class);
-        let streams = HeldStreams::held(&clients, &held);
+    fn entries(
+        module: &EventModule,
+        held: &[String],
+        service: &HeldService<'_>,
+    ) -> Result<String, Failure> {
+        let clients = HeldStreams::clients(module, service.class);
+        let streams = HeldStreams::held(&clients, held);
         if streams.len() > HeldStreams::MOST_STREAMS {
-            return Err(Self::failure(
-                path,
-                "A C# service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.",
-            ));
+            let message = Self::TOO_MANY.replace("{language}", service.language);
+            return Err(Self::failure(service.path, &message));
         }
         Ok(streams
             .into_iter()
@@ -206,6 +222,53 @@ mod tests {
         assert!(
             refused.to_string().contains("has no page to hold"),
             "{refused}"
+        );
+    }
+
+    #[test]
+    fn a_natively_linked_fsharp_service_refuses_a_stream_client_in_its_own_words() {
+        let source = format!(
+            "{}[Service]\npublic sealed class ProbeService {{\n    public TicksClient Ticks;\n}}\n",
+            Samples::CLIENT
+        );
+        let path = Path::new(Samples::PATH);
+        let mut module = crate::events::extract(path, &source, "tac")
+            .expect("events")
+            .expect("module");
+        let service = super::super::held_service::HeldService {
+            class: "ProbeService",
+            language: CsharpStreamClients::FSHARP,
+            web_assembly: false,
+            path,
+        };
+        let refused = CsharpStreamClients::held_entries(
+            &mut module,
+            &[String::from("TicksClient")],
+            &service,
+        )
+        .expect_err("native refusal");
+        assert!(
+            refused
+                .to_string()
+                .contains("A natively linked F# service has no page to hold"),
+            "{refused}"
+        );
+        let browser = super::super::held_service::HeldService {
+            web_assembly: true,
+            ..service
+        };
+        let mut module = crate::events::extract(path, &source, "tac")
+            .expect("events")
+            .expect("module");
+        let entries = CsharpStreamClients::held_entries(
+            &mut module,
+            &[String::from("TicksClient")],
+            &browser,
+        )
+        .expect("entries");
+        assert!(
+            entries.starts_with("[\"__stream_TicksClient_Receive\"] = TacMember.ClientStream("),
+            "{entries}"
         );
     }
 }

@@ -889,6 +889,9 @@ mod kotlin_stream_tests;
 mod csharp_stream_tests;
 
 #[cfg(test)]
+mod fsharp_stream_tests;
+
+#[cfg(test)]
 mod rust_embedding_tests;
 
 #[cfg(test)]

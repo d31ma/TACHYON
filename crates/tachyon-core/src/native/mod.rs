@@ -24,6 +24,7 @@ mod go_compiler_choice;
 mod go_events;
 mod go_needs;
 mod go_web_build;
+mod held_service;
 mod host;
 mod ios;
 mod java_web_services;

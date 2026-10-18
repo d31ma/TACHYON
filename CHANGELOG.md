@@ -53,6 +53,16 @@ machine contracts have their own, independent major versions.
   a missing class, a singleton that keeps a request-scoped object, a
   transient class beside lifecycle hooks and a `Task` hook fail with
   `TY2015` (ADR 0099 amendment).
+- Tac F# browser services hold `[<StreamRequest>]` and `[<SocketRequest>]`
+  clients, as C# does. An abstract member such as
+  `abstract Receive: Tick -> unit` on an F# HTTPClient type opens a stream or
+  a socket for the browser F# service that keeps the client in a `[<Needs>]`
+  property; the service receives each message with `[<OnEvent>]`, and a
+  socket client gets `Send(message: obj) : Task`, which raises a
+  `BehaviorError` with `HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_BODY` or
+  `CANCELLED`. A stream or socket client needs no Setup, and a natively
+  linked F# service refuses one with TY1405 (ADR 0090, "F# streams and
+  sockets"; ADR 0058 and ADR 0060 amendments).
 - Yon Rust controllers stream. A `#[StreamRoute]` method returns
   `impl Iterator<Item = Model>`, or `impl Iterator<Item = Result<Model, E>>`
   when the stream can fail; the prelude sends each item as one server-sent

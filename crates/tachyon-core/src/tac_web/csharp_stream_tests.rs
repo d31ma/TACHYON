@@ -4,7 +4,7 @@ use super::{BuildJobs, WebLanguage, build_all};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-struct CsharpStreams;
+pub(super) struct CsharpStreams;
 
 impl CsharpStreams {
     const FILES: [(&str, &str); 4] = [
@@ -99,15 +99,15 @@ impl CsharpStreams {
         path
     }
 
-    async fn publish(root: &Path) {
-        for (relative, text) in Self::FILES {
+    async fn publish(root: &Path, sources: &Sources<'_>) {
+        for &(relative, text) in sources.files {
             Self::write(root, relative, text.as_bytes());
         }
         let mut services = Vec::new();
-        for (instance, class, text) in Self::SERVICES {
+        for &(instance, class, text) in sources.services {
             let path = Self::write(
                 root,
-                &format!("client/services/{class}.cs"),
+                &format!("client/services/{class}.{}", sources.extension),
                 text.as_bytes(),
             );
             services.push((
@@ -150,56 +150,76 @@ impl CsharpStreams {
         );
         serde_json::from_str(stdout.trim()).expect("report")
     }
+
+    pub(super) async fn report(sources: &Sources<'_>) -> Option<serde_json::Value> {
+        if !Self::tools_available() {
+            assert!(
+                std::env::var_os("CI").is_none(),
+                "CI must provide the .NET wasm-tools workload and node"
+            );
+            eprintln!("skipping: the .NET wasm-tools workload or node is unavailable");
+            return None;
+        }
+        let root = tempfile::tempdir().expect("project");
+        Self::publish(root.path(), sources).await;
+        Some(Self::drive(root.path()))
+    }
+
+    pub(super) fn check(report: &serde_json::Value) {
+        assert_eq!(
+            report["urls"],
+            serde_json::json!(["/ticks", "ws://127.0.0.1:4000/chat"]),
+            "only the service that needs the clients opens them: {report}"
+        );
+        assert_eq!(report["level"], 3, "{report}");
+        assert_eq!(
+            report["ticks"],
+            serde_json::json!([{"sku": "anvil", "level": 3}]),
+            "a list of models reaches the view as objects: {report}"
+        );
+        assert_eq!(report["said"], "hello", "{report}");
+        assert_eq!(
+            report["quietCount"], 0,
+            "a service that does not hold the clients hears nothing: {report}"
+        );
+        assert_eq!(
+            report["published"],
+            serde_json::json!([{"sku": "anvil", "level": 3}]),
+            "{report}"
+        );
+        assert_eq!(report["failures"], 1, "{report}");
+        assert_eq!(
+            report["refused"], "HTTP_NETWORK",
+            "the seventeenth queued message is refused with its code: {report}"
+        );
+        let sent = report["sent"].as_array().expect("sent");
+        assert_eq!(sent.len(), 17, "{report}");
+        assert_eq!(sent[0], "{\"text\":\"early\"}", "{report}");
+        assert_eq!(sent[15], "{\"text\":\"queued 14\"}", "{report}");
+        assert_eq!(sent[16], "{\"text\":\"late\"}", "{report}");
+        assert_eq!(
+            report["closed"],
+            serde_json::json!([true, true]),
+            "{report}"
+        );
+        assert_eq!(report["afterDispose"], 2, "{report}");
+    }
+}
+
+pub(super) struct Sources<'a> {
+    pub(super) files: &'a [(&'a str, &'a str)],
+    pub(super) services: &'a [(&'a str, &'a str, &'a str)],
+    pub(super) extension: &'a str,
 }
 
 #[tokio::test]
 async fn a_csharp_service_receives_its_client_streams_as_events_and_sends_on_its_socket() {
-    if !CsharpStreams::tools_available() {
-        assert!(
-            std::env::var_os("CI").is_none(),
-            "CI must provide the .NET wasm-tools workload and node"
-        );
-        eprintln!("skipping: the .NET wasm-tools workload or node is unavailable");
-        return;
+    let sources = Sources {
+        files: &CsharpStreams::FILES,
+        services: &CsharpStreams::SERVICES,
+        extension: "cs",
+    };
+    if let Some(report) = CsharpStreams::report(&sources).await {
+        CsharpStreams::check(&report);
     }
-    let root = tempfile::tempdir().expect("project");
-    CsharpStreams::publish(root.path()).await;
-    let report = CsharpStreams::drive(root.path());
-    assert_eq!(
-        report["urls"],
-        serde_json::json!(["/ticks", "ws://127.0.0.1:4000/chat"]),
-        "only the service that needs the clients opens them: {report}"
-    );
-    assert_eq!(report["level"], 3, "{report}");
-    assert_eq!(
-        report["ticks"],
-        serde_json::json!([{"sku": "anvil", "level": 3}]),
-        "a list of models reaches the view as objects: {report}"
-    );
-    assert_eq!(report["said"], "hello", "{report}");
-    assert_eq!(
-        report["quietCount"], 0,
-        "a service that does not hold the clients hears nothing: {report}"
-    );
-    assert_eq!(
-        report["published"],
-        serde_json::json!([{"sku": "anvil", "level": 3}]),
-        "{report}"
-    );
-    assert_eq!(report["failures"], 1, "{report}");
-    assert_eq!(
-        report["refused"], "HTTP_NETWORK",
-        "the seventeenth queued message is refused with its code: {report}"
-    );
-    let sent = report["sent"].as_array().expect("sent");
-    assert_eq!(sent.len(), 17, "{report}");
-    assert_eq!(sent[0], "{\"text\":\"early\"}", "{report}");
-    assert_eq!(sent[15], "{\"text\":\"queued 14\"}", "{report}");
-    assert_eq!(sent[16], "{\"text\":\"late\"}", "{report}");
-    assert_eq!(
-        report["closed"],
-        serde_json::json!([true, true]),
-        "{report}"
-    );
-    assert_eq!(report["afterDispose"], 2, "{report}");
 }

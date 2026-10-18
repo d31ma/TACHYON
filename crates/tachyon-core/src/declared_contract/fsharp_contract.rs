@@ -1,6 +1,7 @@
 use super::contract_member::ContractMember;
 use super::contract_role::ContractRole;
 use super::fsharp_declaration::FsharpDeclaration;
+use super::fsharp_held_members::FsharpHeldMembers;
 use crate::behavior::HttpClientSource;
 use std::path::Path;
 
@@ -152,7 +153,7 @@ impl<'a> FsharpContract<'a> {
             .iter()
             .find(|declaration| declaration.header == index)
             .map_or_else(
-                || line.to_owned(),
+                || self.member_text(declarations, index, line),
                 |declaration| self.concrete_header(declaration, line),
             );
         let removed = declarations.iter().any(|declaration| {
@@ -163,6 +164,36 @@ impl<'a> FsharpContract<'a> {
         });
         let kept = [text.as_str(), "\n"][usize::from(removed)];
         format!("{provider}{kept}")
+    }
+
+    fn member_text(&self, declarations: &[FsharpDeclaration], index: usize, line: &str) -> String {
+        let held = self
+            .page_held(declarations, &FsharpHeldMembers::HELD)
+            .contains(&index);
+        let concrete = held.then(|| FsharpHeldMembers::concrete(line)).flatten();
+        let text = concrete.unwrap_or_else(|| line.to_owned());
+        let send = self.send_after(declarations, index, &text);
+        format!("{text}{send}")
+    }
+
+    fn page_held(&self, declarations: &[FsharpDeclaration], names: &[&str]) -> Vec<usize> {
+        let wanted: [&[FsharpDeclaration]; 2] = [&[], declarations];
+        wanted[usize::from(self.tac)]
+            .iter()
+            .flat_map(|declaration| FsharpHeldMembers::member_lines(&self.code, declaration, names))
+            .collect()
+    }
+
+    fn send_after(&self, declarations: &[FsharpDeclaration], index: usize, line: &str) -> String {
+        let sockets = self.page_held(declarations, &FsharpHeldMembers::SOCKET);
+        declarations
+            .iter()
+            .filter(|declaration| declaration.body.last() == Some(&index))
+            .filter(|declaration| sockets.iter().any(|at| declaration.body.contains(at)))
+            .map(|declaration| {
+                FsharpHeldMembers::send(&declaration.name, &self.indent(declaration), line)
+            })
+            .collect()
     }
 
     fn provider_line(&self, declaration: &FsharpDeclaration) -> String {
@@ -211,8 +242,14 @@ impl<'a> FsharpContract<'a> {
             .body
             .iter()
             .map(|index| Self::member_of(&self.code[*index]))
+            .filter(|member| !member.is_marked_with(self.held_in_page()))
             .collect();
         declaration.role.needs_context(&members)
+    }
+
+    fn held_in_page(&self) -> &'static [&'static str] {
+        let held: [&'static [&'static str]; 2] = [&[], &FsharpHeldMembers::HELD];
+        held[usize::from(self.tac)]
     }
 
     fn is_tac_client(&self, declaration: &FsharpDeclaration) -> bool {
@@ -234,13 +271,16 @@ impl<'a> FsharpContract<'a> {
         format!("{}{text}\n\n", self.indent(declaration))
     }
 
-    fn member_of(line: &str) -> ContractMember {
+    pub(super) fn member_of(line: &str) -> ContractMember {
         let trimmed = line.trim_start();
-        if !trimmed.starts_with(Self::ATTRIBUTE_OPEN) {
-            return ContractMember::default();
-        }
+        let markers = trimmed
+            .starts_with(Self::ATTRIBUTE_OPEN)
+            .then(|| Self::attribute_names(trimmed))
+            .into_iter()
+            .flatten()
+            .collect();
         ContractMember {
-            markers: Self::attribute_names(trimmed),
+            markers,
             ..ContractMember::default()
         }
     }

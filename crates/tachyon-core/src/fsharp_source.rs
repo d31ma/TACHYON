@@ -72,7 +72,7 @@ pub(crate) use fsharp_yon::FsharpYon;
 use later_features::LaterFeatures;
 use line_kind::LineKind;
 use member_header::MemberHeader;
-use member_line::MemberLine;
+pub(crate) use member_line::MemberLine;
 use member_words::MemberWords;
 use open_block::OpenBlock;
 use record_fields::RecordFields;
