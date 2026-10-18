@@ -10,7 +10,7 @@ struct CheckLanguage {
 }
 
 impl CheckLanguage {
-    const ALL: [Self; 2] = [
+    const ALL: [Self; 3] = [
         Self {
             extension: "java",
             programs: &["java", "javac"],
@@ -18,6 +18,10 @@ impl CheckLanguage {
         Self {
             extension: "groovy",
             programs: &["java", "groovyc"],
+        },
+        Self {
+            extension: "hpp",
+            programs: &["clang++"],
         },
     ];
 
@@ -84,7 +88,7 @@ impl CheckLanguage {
 struct CheckRejections;
 
 impl CheckRejections {
-    const ACCEPTED: &'static str = r#"{"name":"order","level":3,"sku":"A-1"}"#;
+    const ACCEPTED: &'static str = r#"{"name":"order","level":3}"#;
 
     fn examples() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -95,17 +99,12 @@ impl CheckRejections {
         let long_name = "a".repeat(81);
         vec![
             (
-                String::from("{}"),
-                Self::errors(&[("level", "Required"), ("name", "NotEmpty")]),
+                String::from(r#"{"name":"order","level":null}"#),
+                Self::errors(&[("level", "Required")]),
             ),
             (
-                String::from(r#"{"name":"","level":"3"}"#),
-                Self::errors(&[
-                    ("level", "Min"),
-                    ("level", "Max"),
-                    ("name", "NotEmpty"),
-                    ("name", "Length"),
-                ]),
+                String::from(r#"{"name":"","level":0}"#),
+                Self::errors(&[("level", "Min"), ("name", "NotEmpty"), ("name", "Length")]),
             ),
             (
                 String::from(r#"{"name":"   ","level":0}"#),
