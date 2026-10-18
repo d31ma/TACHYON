@@ -632,6 +632,12 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The Streaming controllers and Socket controllers pages show a Ruby and a
+  Swift browser client: the model, the `HTTPClient` with `StreamRequest` or
+  `SocketRequest`, and the service that keeps it in a `Needs` field and
+  receives each message with `OnEvent`. A Ruby socket client sends with
+  `send_message(message)`.
+
 - The old static HTML frontend (`HtmlFrontend`, `HtmlDocument`) and its
   `html_frontend` fuzz target are removed. Nothing but that fuzz target called
   it; the template frontend is the only HTML frontend, and its codes TY1101 to
