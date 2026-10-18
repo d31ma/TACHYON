@@ -242,17 +242,10 @@ fn lowered_body(
         (relative, &models.assembled(relative, authored)?),
         events.as_ref(),
     )?;
-    let csharp_streams = CsharpStreamClients::take(item, language, events.as_mut(), &identity)?;
-    let streams = super::swift_streams::SwiftStreams::held(
-        language,
-        item.web_assembly,
-        events.as_ref(),
-        (&item.class, &identity),
-    )?;
+    let streams = CsharpStreamClients::page_streams(item, language, &mut events, &identity)?;
     let held = streams.module.as_ref().or(events.as_ref());
     let mut prepared = super::events::prepare(language, authored, held, &identity)?;
     prepared.entries.push_str(&streams.entries);
-    prepared.entries.push_str(&csharp_streams);
     let (native_source, native_fields) =
         native_service(language, item, &prepared.source, &identity);
     let authored = native_source.as_str();

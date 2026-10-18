@@ -1,4 +1,5 @@
 use super::registry::NativeCompanionInput;
+use super::swift_streams::SwiftStreams;
 use crate::Failure;
 use crate::events::{EventModule, EventStream, HeldStreams};
 use crate::project::NativeCompanion;
@@ -7,6 +8,23 @@ use std::path::Path;
 pub(super) struct CsharpStreamClients;
 
 impl CsharpStreamClients {
+    pub(super) fn page_streams(
+        item: &NativeCompanionInput,
+        language: NativeCompanion,
+        events: &mut Option<EventModule>,
+        path: &Path,
+    ) -> Result<SwiftStreams, Failure> {
+        let csharp = Self::take(item, language, events.as_mut(), path)?;
+        let mut streams = SwiftStreams::held(
+            language,
+            item.web_assembly,
+            events.as_ref(),
+            (&item.class, path),
+        )?;
+        streams.entries.push_str(&csharp);
+        Ok(streams)
+    }
+
     pub(super) fn take(
         item: &NativeCompanionInput,
         language: NativeCompanion,
