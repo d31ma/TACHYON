@@ -17,20 +17,14 @@ impl CheckRule {
         Self::Min,
         Self::Max,
     ];
+    const NAMES: [&'static str; 6] = ["Checked", "Required", "NotEmpty", "Length", "Min", "Max"];
 
     pub(crate) fn parse(name: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|rule| rule.name() == name)
     }
 
     pub(crate) fn name(self) -> &'static str {
-        match self {
-            Self::Checked => "Checked",
-            Self::Required => "Required",
-            Self::NotEmpty => "NotEmpty",
-            Self::Length => "Length",
-            Self::Min => "Min",
-            Self::Max => "Max",
-        }
+        Self::NAMES[self as usize]
     }
 }
 

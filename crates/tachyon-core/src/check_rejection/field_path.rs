@@ -28,7 +28,8 @@ impl FieldPath {
 
     pub(crate) fn parse(text: &str) -> Option<Self> {
         let text = Self::within_limit(text)?;
-        let segments = Self::read_segments(text)?;
+        let dotted = Self::with_leading_dot(text);
+        let segments = Self::read_segments(&dotted)?;
         Some(Self { segments })
     }
 
@@ -39,30 +40,30 @@ impl FieldPath {
         Some(text)
     }
 
+    fn with_leading_dot(text: &str) -> String {
+        if matches!(text.chars().next(), None | Some('[')) {
+            return text.to_owned();
+        }
+        format!(".{text}")
+    }
+
     fn read_segments(text: &str) -> Option<Vec<PathSegment>> {
         let mut segments = Vec::new();
         let mut rest = text;
         while !rest.is_empty() {
-            let (segment, after) = Self::next_segment(rest, segments.is_empty())?;
+            let (segment, after) = Self::next_segment(rest)?;
             segments.push(segment);
             rest = after;
         }
         Some(segments)
     }
 
-    fn next_segment(text: &str, first: bool) -> Option<(PathSegment, &str)> {
+    fn next_segment(text: &str) -> Option<(PathSegment, &str)> {
         if let Some(inside) = text.strip_prefix('[') {
             return Self::read_item(inside);
         }
-        let name = Self::name_start(text, first)?;
+        let name = text.strip_prefix('.')?;
         Self::read_name(name)
-    }
-
-    fn name_start(text: &str, first: bool) -> Option<&str> {
-        if first {
-            return Some(text);
-        }
-        text.strip_prefix('.')
     }
 
     fn read_name(text: &str) -> Option<(PathSegment, &str)> {
@@ -94,6 +95,13 @@ impl FieldPath {
         Self::name_byte(byte) && !byte.is_ascii_digit()
     }
 
+    fn write_all(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (index, segment) in self.segments.iter().enumerate() {
+            Self::write_segment(formatter, index, segment)?;
+        }
+        Ok(())
+    }
+
     fn write_segment(
         formatter: &mut fmt::Formatter<'_>,
         index: usize,
@@ -109,10 +117,7 @@ impl FieldPath {
 
 impl fmt::Display for FieldPath {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (index, segment) in self.segments.iter().enumerate() {
-            Self::write_segment(formatter, index, segment)?;
-        }
-        Ok(())
+        self.write_all(formatter)
     }
 }
 

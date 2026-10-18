@@ -188,8 +188,14 @@ impl HandlerFrame {
         if !error.is_check_rejection() {
             return error.violations.is_empty();
         }
-        status == crate::check_rejection::CheckProblem::STATUS
-            && crate::check_rejection::CheckProblem::accepts(&error.violations)
+        Self::valid_check_rejection(status, error)
+    }
+
+    fn valid_check_rejection(status: u16, error: &HandlerProtocolError) -> bool {
+        Self::all_pass(&[
+            status == crate::check_rejection::CheckProblem::STATUS,
+            crate::check_rejection::CheckProblem::accepts(&error.violations),
+        ])
     }
 
     fn valid_error(error: &HandlerProtocolError) -> bool {

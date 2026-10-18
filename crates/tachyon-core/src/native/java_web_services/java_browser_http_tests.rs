@@ -60,7 +60,7 @@ fn java_clients_and_services_reach_the_browser_transport() {
         "GreetingClient(Behaviors.Context context) {",
         "Object value = BehaviorBuiltins.exchange(java.util.Collections.unmodifiableMap(browser), execution);",
         "Object answer = TacJsonReader.read(TacHttpTickets.exchange(Behaviors.encode(request)));",
-        "static final class Failure extends TacFailure {",
+        "static class Failure extends TacFailure {",
         "return TacTasks.run(request);",
         "public static void tacHttpSettle(int ticket, String answer) {",
         "org.teavm.runtime.Fiber.start(() -> finish(task, TacBridge.handle(request)), true);",

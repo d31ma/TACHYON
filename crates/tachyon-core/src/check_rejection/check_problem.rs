@@ -37,10 +37,14 @@ impl CheckProblem {
 
     pub(crate) fn accepts(violations: &[HandlerViolation]) -> bool {
         let counted = (1..=Self::MAX_VIOLATIONS).contains(&violations.len());
-        counted
-            && violations
-                .iter()
-                .all(|violation| ProblemEntry::read(violation).is_some())
+        let readable = Self::all_readable(violations);
+        ![counted, readable].contains(&false)
+    }
+
+    fn all_readable(violations: &[HandlerViolation]) -> bool {
+        violations
+            .iter()
+            .all(|violation| ProblemEntry::read(violation).is_some())
     }
 
     pub(crate) fn json(&self) -> String {

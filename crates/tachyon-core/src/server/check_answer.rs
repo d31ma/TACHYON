@@ -3,25 +3,24 @@ use crate::check_rejection::CheckProblem;
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{Response, StatusCode};
-use tachyon_contracts::{HandlerProtocolError, HandlerResponse};
+use tachyon_contracts::{HandlerProtocolError, HandlerResponse, HandlerViolation};
 
 pub(in crate::server) struct CheckAnswer;
 
 impl CheckAnswer {
-    pub(in crate::server) fn rejection(
-        response: &HandlerResponse,
-    ) -> Option<&HandlerProtocolError> {
+    pub(in crate::server) fn is_rejection(response: &HandlerResponse) -> bool {
         response
             .error
             .as_ref()
-            .filter(|error| error.is_check_rejection())
+            .is_some_and(HandlerProtocolError::is_check_rejection)
     }
 
     pub(in crate::server) fn response(
-        error: &HandlerProtocolError,
+        handler_response: &HandlerResponse,
         request_id: &str,
     ) -> Response<Body> {
-        let problem = CheckProblem::new(&error.violations, request_id);
+        let violations = Self::violations(handler_response);
+        let problem = CheckProblem::new(violations, request_id);
         let mut response = Response::builder()
             .status(StatusCode::UNPROCESSABLE_ENTITY)
             .header(CONTENT_TYPE, CheckProblem::CONTENT_TYPE)
@@ -29,6 +28,13 @@ impl CheckAnswer {
             .unwrap_or_else(|_| Response::new(Body::empty()));
         ServerResponse::insert_request_id(&mut response, request_id);
         response
+    }
+
+    fn violations(response: &HandlerResponse) -> &[HandlerViolation] {
+        let Some(error) = &response.error else {
+            return &[];
+        };
+        &error.violations
     }
 }
 
@@ -45,10 +51,8 @@ mod tests {
             HandlerViolation::new("name", "NotEmpty"),
         ]);
         let handler_response = HandlerResponse::error("ref7", 422, error);
-        let Some(found) = CheckAnswer::rejection(&handler_response) else {
-            return Err(axum::Error::new("no rejection"));
-        };
-        let response = CheckAnswer::response(found, "ref7");
+        assert!(CheckAnswer::is_rejection(&handler_response));
+        let response = CheckAnswer::response(&handler_response, "ref7");
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(
             response.headers()["content-type"],
@@ -66,6 +70,6 @@ mod tests {
     #[test]
     fn other_handler_errors_are_not_rejections() {
         let failed = HandlerResponse::error("ref8", 500, HandlerProtocolError::new("TY2201", "x"));
-        assert!(CheckAnswer::rejection(&failed).is_none());
+        assert!(!CheckAnswer::is_rejection(&failed));
     }
 }

@@ -582,6 +582,9 @@ impl Dispatch {
         request_id: &str,
     ) -> Response<Body> {
         match result {
+            Ok(response) if CheckAnswer::is_rejection(&response) => {
+                CheckAnswer::response(&response, request_id)
+            }
             Ok(response) => Self::checked_answer(response, entry, request_id),
             Err(failure) => {
                 InvocationLog::log_failure(
@@ -600,9 +603,6 @@ impl Dispatch {
         entry: &DispatchRoute,
         request_id: &str,
     ) -> Response<Body> {
-        if let Some(error) = CheckAnswer::rejection(&response) {
-            return CheckAnswer::response(error, request_id);
-        }
         let mapping = entry.mapping.as_ref();
         let problem = RouteResult::problem(mapping, entry.handler.models(), &response);
         Self::answer_or_mismatch(problem, response, mapping, request_id)
