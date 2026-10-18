@@ -645,6 +645,10 @@ pub(super) fn c_source(
         index,
         &[
             ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
+            (
+                "__EXTERNAL_LINK_HELPER__",
+                super::native_external_link::NativeExternalLink::C_HELPER,
+            ),
             ("__SERVICE_COMPANIONS__", &service_companions),
         ],
     )
@@ -679,6 +683,8 @@ impl WindowsHostGenerator {
 #include <WebView2.h>
 
 __LOCAL_BUNDLE_HELPERS__
+
+__EXTERNAL_LINK_HELPER__
 
 __SERVICE_COMPANIONS__
 
@@ -1021,6 +1027,20 @@ static ICoreWebView2WebMessageReceivedEventHandlerVtbl g_message_vtbl = {
     message_query, message_add_ref, message_release, message_invoke};
 static TachyonMessageHandler g_message_handler = {&g_message_vtbl};
 
+typedef void (*TachyonExternalLaunch)(const wchar_t *);
+
+static void tachyon_shell_open(const wchar_t *uri) {
+  if ((INT_PTR)ShellExecuteW(NULL, L"open", uri, NULL, NULL, SW_SHOWNORMAL) <= 32) tachyon_record("link.external.failed");
+}
+
+static TachyonExternalLaunch g_external_launch = tachyon_shell_open;
+
+static void tachyon_open_external(const wchar_t *uri) {
+  char *text = tachyon_narrow(uri);
+  if (tachyon_external_link(text)) g_external_launch(uri);
+  free(text);
+}
+
 typedef struct { ICoreWebView2NavigationStartingEventHandlerVtbl *lpVtbl; int top_level; } TachyonNavigationHandler;
 static HRESULT STDMETHODCALLTYPE navigation_query(ICoreWebView2NavigationStartingEventHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{9adbe429-f36d-432b-9ddc-f8881fbd76e3}"); }
 static ULONG STDMETHODCALLTYPE navigation_add_ref(ICoreWebView2NavigationStartingEventHandler *self) { (void)self; return 1; }
@@ -1030,8 +1050,10 @@ static HRESULT STDMETHODCALLTYPE navigation_invoke(ICoreWebView2NavigationStarti
   if (FAILED(ICoreWebView2NavigationStartingEventArgs_get_Uri(arguments, &uri)) || uri == NULL) return E_FAIL;
   char *text = tachyon_narrow(uri), path[TACHYON_PATH_LIMIT];
   const TachyonLocalRoute *route = text != NULL && tachyon_local_path(text, path, sizeof(path)) ? tachyon_document_route(path) : NULL;
-  if (route == NULL) ICoreWebView2NavigationStartingEventArgs_put_Cancel(arguments, TRUE);
-  else if (((TachyonNavigationHandler *)self)->top_level) {
+  if (route == NULL) {
+    ICoreWebView2NavigationStartingEventArgs_put_Cancel(arguments, TRUE);
+    if (((TachyonNavigationHandler *)self)->top_level) tachyon_open_external(uri);
+  } else if (((TachyonNavigationHandler *)self)->top_level) {
     g_route = route->route;
     if (path[strlen(path) - 1] != '/' && strcmp(path + 1, route->document) != 0) {
       size_t boundary = wcscspn(uri, L"?#"), length = wcslen(uri);
@@ -1055,7 +1077,11 @@ static HRESULT STDMETHODCALLTYPE new_window_query(ICoreWebView2NewWindowRequeste
 static ULONG STDMETHODCALLTYPE new_window_add_ref(ICoreWebView2NewWindowRequestedEventHandler *self) { (void)self; return 1; }
 static ULONG STDMETHODCALLTYPE new_window_release(ICoreWebView2NewWindowRequestedEventHandler *self) { (void)self; return 1; }
 static HRESULT STDMETHODCALLTYPE new_window_invoke(ICoreWebView2NewWindowRequestedEventHandler *self, ICoreWebView2 *sender, ICoreWebView2NewWindowRequestedEventArgs *arguments) {
-  (void)self; (void)sender; ICoreWebView2NewWindowRequestedEventArgs_put_Handled(arguments, TRUE); return S_OK;
+  (void)self; (void)sender;
+  LPWSTR uri = NULL;
+  if (SUCCEEDED(ICoreWebView2NewWindowRequestedEventArgs_get_Uri(arguments, &uri)) && uri != NULL) tachyon_open_external(uri);
+  CoTaskMemFree(uri);
+  ICoreWebView2NewWindowRequestedEventArgs_put_Handled(arguments, TRUE); return S_OK;
 }
 static ICoreWebView2NewWindowRequestedEventHandlerVtbl g_new_window_vtbl = {new_window_query, new_window_add_ref, new_window_release, new_window_invoke};
 static TachyonNewWindowHandler g_new_window_handler = {&g_new_window_vtbl};

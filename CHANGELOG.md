@@ -1045,6 +1045,19 @@ machine contracts have their own, independent major versions.
 - An Android build no longer fails in Gradle with `resource mipmap/ic_launcher
   not found` when `client/manifest.json` names an icon file that does not
   exist. The app then uses the default Android icon, like the other hosts.
+- External links open outside the app on Windows and Linux. A link,
+  `location` change or `window.open` to an `http`, `https` or `mailto`
+  address now opens in the default browser or mail app, as it already did on
+  macOS, iOS and Android; before, the Windows and Linux hosts cancelled it and
+  nothing opened. Windows calls `ShellExecuteW` from the WebView2 navigation
+  and new-window handlers, and Linux uses `GtkUriLauncher` from WebKitGTK's
+  `decide-policy` and `create` signals. Every host now uses one rule: `mailto`
+  joins `http` and `https` on macOS, iOS and Android, and an `http` or `https`
+  link must name a host and carry no user name or password. Other schemes,
+  and addresses on the app's own origin, still open nothing. Tests run the
+  shared C check against hostile links, the Windows opener under Wine, and
+  the generated GTK host under Xvfb with a fake launcher (ADR 0018
+  amendment).
 - A C++ page program no longer traps with `RuntimeError: unreachable` when
   its code reads a `std::chrono` clock or `std::random_device`. The page's
   WASI shim now answers `clock_time_get` and `random_get`; before, the call

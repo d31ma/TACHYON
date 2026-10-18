@@ -105,6 +105,20 @@ Native calls have a ten-second browser wait limit. This limit does not stop or
 roll back native service code. Services must stay responsive. A hung
 application may need to be relaunched.
 
+### External links on native hosts (2026-10-18)
+
+ADR 0018's amendment of 2026-10-18 covers links that leave the app. A link to
+an `http`, `https` or `mailto` address opens in the default browser or mail
+app; every other scheme opens nothing. This evidence does not promote any
+tier.
+
+| Host | Implemented | Validated |
+| --- | --- | --- |
+| Linux WebKitGTK | yes, `GtkUriLauncher` | `native_external_link_tests::the_linux_host_hands_external_links_to_the_launcher_and_keeps_the_page` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb in an x86_64 Ubuntu 24.04 cloud container, four of four runs: a page script's `location` changes, `window.open` calls and a `target="_blank"` link reached a fake launcher only for the `http`, `https` and `mailto` links, and the page stayed on `tachyon://app/`. Not run: the real launcher on a desktop, WSL, Wayland |
+| Windows WebView2 | yes, `ShellExecuteW` | the opener and the shared check, built with MinGW-w64 and run under Wine 9.0, open only the external links. Not run: WebView2 on an interactive desktop |
+| macOS, iOS WKWebView | yes, `NSWorkspace` and `UIApplication` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on the Mac |
+| Android WebView | yes, `ACTION_VIEW` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on an emulator |
+
 ## Historical Phase 5 Native Target Status
 
 **Reconciliation notice (2026-08-30):**

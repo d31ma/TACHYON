@@ -78,3 +78,41 @@ Native gates must do all of the following:
 
 Checks on source strings add to the platform build and execution gates. They
 do not replace them.
+
+## Amendment (2026-10-18): external links open outside the app
+
+A navigation or new window that leaves the local application origin is still
+cancelled on every host. When it is an external link, the host also hands it
+to the operating system, so the default browser or mail app opens it:
+
+| Host | How it opens the link |
+| --- | --- |
+| macOS | `NSWorkspace.shared.open` |
+| iOS | `UIApplication.shared.open` |
+| Android | an `ACTION_VIEW` intent |
+| Windows | `ShellExecuteW` from the WebView2 `NavigationStarting` (top-level frame only) and `NewWindowRequested` handlers |
+| Linux | `GtkUriLauncher` from the WebKitGTK `decide-policy` (navigation and new-window decisions) and `create` signals |
+
+Every host uses the same rule for an external link:
+
+- the scheme is `http`, `https` or `mailto`, in any letter case;
+- an `http` or `https` link names a host and carries no user name or
+  password;
+- a `mailto` link has an address part;
+- on Apple hosts the request comes from the main frame or asks for a new
+  window.
+
+The Windows and Linux hosts check the link in one C helper
+(`native_external_link.h`). It also refuses a link longer than 8192 bytes, a
+link with a space, control character, non-ASCII byte or `"`, and a link on the
+application's own origin (`https://tachyon.local` on Windows). So a page
+address that matches no route still opens nothing. A link that the system
+cannot open records `link.external.failed` in the host's lifecycle log on
+Windows and Linux. Every other scheme, such as `file:`, `javascript:`,
+`ftp:` or `ms-settings:`, opens nothing on any host.
+
+Checks: `native_external_link_tests` runs the C helper against hostile links
+for both origins, builds the Windows opener with MinGW and runs it under Wine,
+and (on the Linux lane) runs the generated GTK host under Xvfb, where a page
+script follows links and opens windows and a fake launcher records what the
+host handed out.

@@ -177,6 +177,10 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
         index,
         &[
             ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
+            (
+                "__EXTERNAL_LINK_HELPER__",
+                super::native_external_link::NativeExternalLink::C_HELPER,
+            ),
             ("__GTK_APP_ID__", &gtk_app_id),
         ],
     )
@@ -207,6 +211,8 @@ impl LinuxHostGenerator {
 #include <stdbool.h>
 
 __LOCAL_BUNDLE_HELPERS__
+
+__EXTERNAL_LINK_HELPER__
 
 #define TACHYON_APP_NAME "__APP_NAME__"
 #define TACHYON_BUNDLE_ID "__BUNDLE_ID__"
@@ -295,15 +301,46 @@ static void tachyon_scheme_request(WebKitURISchemeRequest *request, gpointer dat
   g_object_unref(response); g_object_unref(stream);
 }
 
+typedef void (*TachyonExternalLaunch)(const char *);
+
+static void tachyon_external_launched(GObject *source, GAsyncResult *result, gpointer data) {
+  (void)data;
+  GError *error = NULL;
+  if (!gtk_uri_launcher_launch_finish(GTK_URI_LAUNCHER(source), result, &error)) tachyon_record("link.external.failed");
+  g_clear_error(&error);
+  g_object_unref(source);
+}
+
+static void tachyon_launch_external(const char *uri) {
+  GtkUriLauncher *launcher = gtk_uri_launcher_new(uri);
+  gtk_uri_launcher_launch(launcher, g_native_window, NULL, tachyon_external_launched, NULL);
+}
+
+static TachyonExternalLaunch g_external_launch = tachyon_launch_external;
+
+static void tachyon_open_external(WebKitNavigationAction *action) {
+  const char *uri = webkit_uri_request_get_uri(webkit_navigation_action_get_request(action));
+  if (tachyon_external_link(uri)) g_external_launch(uri);
+}
+
+static GtkWidget *tachyon_create_view(WebKitWebView *view, WebKitNavigationAction *action, gpointer data) {
+  (void)view;
+  (void)data;
+  tachyon_open_external(action);
+  return NULL;
+}
+
 static gboolean tachyon_decide_policy(WebKitWebView *view, WebKitPolicyDecision *decision, WebKitPolicyDecisionType type, gpointer data) {
   (void)data;
-  if (type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION) { webkit_policy_decision_ignore(decision); return TRUE; }
-  if (type != WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION) return FALSE;
+  if (type != WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && type != WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION) return FALSE;
   WebKitNavigationAction *action = webkit_navigation_policy_decision_get_navigation_action(WEBKIT_NAVIGATION_POLICY_DECISION(decision));
+  if (type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION) {
+    tachyon_open_external(action); webkit_policy_decision_ignore(decision); return TRUE;
+  }
   const char *uri = webkit_uri_request_get_uri(webkit_navigation_action_get_request(action));
   char path[TACHYON_PATH_LIMIT];
   if (!tachyon_local_path(uri, path, sizeof(path)) || tachyon_document_route(path) == NULL) {
-    webkit_policy_decision_ignore(decision); return TRUE;
+    tachyon_open_external(action); webkit_policy_decision_ignore(decision); return TRUE;
   }
   const TachyonLocalRoute *route = tachyon_document_route(path);
   g_free(g_route); g_route = g_strdup(route->route);
@@ -599,6 +636,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
                    G_CALLBACK(tachyon_on_host_call), view);
   g_signal_connect(view, "load-changed", G_CALLBACK(tachyon_on_load), NULL);
   g_signal_connect(view, "decide-policy", G_CALLBACK(tachyon_decide_policy), NULL);
+  g_signal_connect(view, "create", G_CALLBACK(tachyon_create_view), NULL);
 
   gtk_window_set_child(GTK_WINDOW(window), GTK_WIDGET(view));
   gtk_widget_set_hexpand(GTK_WIDGET(view), TRUE);

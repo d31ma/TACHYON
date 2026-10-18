@@ -936,7 +936,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         guard let url = action.request.url else { decisionHandler(.cancel); return }
         if url.scheme == "tachyon-app" && url.host == "bundle" && url.port == nil && url.user == nil && url.password == nil { decisionHandler(.allow); return }
         decisionHandler(.cancel)
-        if action.targetFrame?.isMainFrame != false && ["https", "http"].contains(url.scheme ?? "") {
+        let scheme = url.scheme?.lowercased() ?? ""
+        let web = ["https", "http"].contains(scheme) && url.host?.isEmpty == false && url.user == nil && url.password == nil
+        let mail = scheme == "mailto" && url.absoluteString.count > "mailto:".count
+        if action.targetFrame?.isMainFrame != false && (web || mail) {
             NSWorkspace.shared.open(url)
         }
     }

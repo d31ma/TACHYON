@@ -916,7 +916,12 @@ __NATIVE_WINDOW_CONTROLS__
 
   private void openExternal(Uri target) {
     String scheme = target.getScheme();
-    if (!"https".equals(scheme) && !"http".equals(scheme)) return;
+    String host = target.getHost();
+    String address = target.getSchemeSpecificPart();
+    boolean web = ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme))
+        && host != null && !host.isEmpty() && target.getUserInfo() == null;
+    boolean mail = "mailto".equalsIgnoreCase(scheme) && address != null && !address.isEmpty();
+    if (!web && !mail) return;
     try {
       startActivity(new Intent(Intent.ACTION_VIEW, target));
     } catch (Exception ignored) {
