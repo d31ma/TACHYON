@@ -941,9 +941,9 @@ mod fsharp_http_client_tests;
 #[cfg(test)]
 mod fsharp_lifecycle_tests;
 #[cfg(test)]
-mod java_needs_tests;
-#[cfg(test)]
 mod fsharp_tests;
+#[cfg(test)]
+mod java_needs_tests;
 
 #[cfg(test)]
 mod fsharp_needs_tests;

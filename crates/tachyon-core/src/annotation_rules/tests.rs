@@ -1313,10 +1313,9 @@ impl TacFamilies {
             "[<Test(typeof<CatalogTestSetup>)>]\n[<UseProfiles(\"public\")>]\n[<TestSettings({\"tac.cache.enabled\":\"true\"})>]\n[<FreshStart>]\ntype CatalogServiceTest() =\n    [<Fake>]\n    member val Names : NameService = Unchecked.defaultof<NameService> with get, set\n\n    [<ValueSource([1, 2])>]\n    member this.testKeepsPositiveInputs(value: int) : unit =\n        Assert.isTrue(value > 0)\n",
         ),
     ];
-    const NAMED: [(&'static str, &'static str, &'static str); 1] = [(
-        "java",
+    const JAVA_NAMED: [(&'static str, &'static str); 1] = [(
+        "named",
         "@Service\npublic class SampleService {\n    @Needs\n    @Named(\"FastStore\")\n    private OrderStore store;\n}\n",
-        "@Named is not available in Java Tac code",
     )];
     const FSHARP_NAMED: [(&'static str, &'static str); 1] = [(
         "injection",
@@ -1332,22 +1331,6 @@ impl TacFamilies {
             );
         }
     }
-
-    fn refuses_named(language: &str) {
-        let (_, source, expected) = Self::NAMED
-            .into_iter()
-            .find(|(named, _, _)| *named == language)
-            .expect("a Named sample");
-        let failure = AnnotationRules::check(&Sample::path(language, Realm::Tac), source)
-            .expect_err(&format!("{language} Tac accepted Named:\n{source}"));
-        let diagnostic = &failure.diagnostics()[0];
-        assert_eq!(diagnostic.code.number(), 1308, "{}", diagnostic.message);
-        assert!(
-            diagnostic.message.contains(expected),
-            "{}",
-            diagnostic.message
-        );
-    }
 }
 
 #[test]
@@ -1361,8 +1344,8 @@ fn fsharp_tac_accepts_a_marker_from_every_family() {
 }
 
 #[test]
-fn java_tac_refuses_named_by_name() {
-    TacFamilies::refuses_named("java");
+fn java_tac_accepts_named_beside_needs() {
+    TacFamilies::accepts_every_family("java", &TacFamilies::JAVA_NAMED);
 }
 
 #[test]

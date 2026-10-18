@@ -529,8 +529,13 @@ The build refuses these fields with `TY1406`, at the field:
   event (publish it, and handle it with `@OnEvent`);
 - a `@Named` that names no Java service of the page.
 
+### Rule table
+
+- With F# (ADR 0073 amendment of 2026-10-18) and Java both accepting
+  `Named`, every Tac language accepts it, so `Named` reaches `TAC` and the
+  separate list `TAC_NAMED` is gone.
+
 ### Not changed
 
 - `@Helper` is still refused in Java Tac code.
-- `@StreamRequest` and `@SocketRequest` are still refused in Java Tac code.
 - `@Lifetime` application stays a native Rust service feature only.

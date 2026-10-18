@@ -291,9 +291,6 @@ impl AnnotationRules {
     const TAC: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",
     ];
-    const TAC_NAMED: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "fs", "hpp",
-    ];
     const TAC_ROLE: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",
     ];
@@ -494,7 +491,7 @@ impl AnnotationRules {
             "chooses which object fills a Needs field when there are several",
         )
         .needs_arguments()
-        .reach(Self::TAC_NAMED, Self::YON_ROLES)
+        .reach(Self::TAC, Self::YON_ROLES)
         .with(&["Needs"]),
         Rule::new(
             "Setup",
