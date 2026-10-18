@@ -934,6 +934,8 @@ mod java_tests;
 mod java_store_tests;
 
 #[cfg(test)]
+mod fsharp_lifecycle_tests;
+#[cfg(test)]
 mod fsharp_tests;
 
 #[cfg(test)]

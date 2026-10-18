@@ -51,14 +51,14 @@ pub(super) fn fsharp_web_ready() -> bool {
     has_workload && Command::new("node").arg("--version").output().is_ok()
 }
 
-fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
+pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
     let path = root.join(relative);
     std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
     std::fs::write(&path, text).expect("file");
     path
 }
 
-fn run_driver(root: &Path, script: &str) -> serde_json::Value {
+pub(super) fn run_driver(root: &Path, script: &str) -> serde_json::Value {
     std::fs::write(root.join("drive.mjs"), script).expect("driver");
     let output = Command::new("node")
         .arg("drive.mjs")
@@ -74,16 +74,16 @@ fn run_driver(root: &Path, script: &str) -> serde_json::Value {
     serde_json::from_str(stdout.trim()).expect("report")
 }
 
-async fn publish_signal(root: &Path, service: &str) {
-    for (relative, text) in FsharpSignal::MODELS {
+pub(super) async fn publish(root: &Path, files: &[(&str, &str)], service: (&str, &str)) {
+    for (relative, text) in files {
         write(root, relative, text);
     }
-    let source = write(root, FsharpSignal::SERVICE, service);
+    let (class, relative) = service;
     let services = [(
-        String::from("signal"),
-        String::from("SignalService"),
+        class.to_lowercase(),
+        String::from(class),
         WebLanguage::CSharp,
-        source,
+        root.join(relative),
     )];
     let built = build_all(
         root,
@@ -92,7 +92,7 @@ async fn publish_signal(root: &Path, service: &str) {
         crate::BuildProfile::Release,
     )
     .await
-    .expect("the F# signal service builds");
+    .expect("the F# service builds");
     for (name, bytes) in built.files {
         write(root, &name, "");
         std::fs::write(root.join(name), bytes).expect("publish");
@@ -113,7 +113,14 @@ async fn signal_report(service: &str) -> Option<serde_json::Value> {
         return None;
     }
     let root = tempfile::tempdir().expect("project");
-    publish_signal(root.path(), service).await;
+    let [sent, echo] = FsharpSignal::MODELS;
+    let files = [sent, echo, (FsharpSignal::SERVICE, service)];
+    publish(
+        root.path(),
+        &files,
+        ("SignalService", FsharpSignal::SERVICE),
+    )
+    .await;
     Some(run_driver(root.path(), FsharpSignal::DRIVER))
 }
 
