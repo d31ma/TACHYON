@@ -505,3 +505,77 @@ async fn a_lua_http_client_sends_each_request_through_its_setup_adapter_on_the_p
     );
     assert_eq!(report["removed"]["path"], "/api/products/7", "{report}");
 }
+
+struct BrowserHttpPage;
+
+impl BrowserHttpPage {
+    const SETUP: (&str, &str) = (
+        "client/setups/CatalogSetup.lua",
+        "-- @Setup\n---@class CatalogSetup\nCatalogSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  return {}\nend\n",
+    );
+
+    const SERVICE: &str = "-- @Service\n---@class CatalogService\nCatalogService = {\n  -- @Needs\n  ---@type CatalogClient\n  catalog_client = nil,\n}\n\n---@param id string\n---@return table\nfunction CatalogService:find(id)\n  return self.catalog_client:find(id, \"full\", \"acme\")\nend\n\n---@param sku string\n---@return table\nfunction CatalogService:save(sku)\n  return self.catalog_client:save({ sku = sku })\nend\n";
+
+    const DRIVER: &str = "globalThis.location = new URL('http://localhost/')\n\
+         ;(0, eval)(await readFile('./tac-http.js', 'utf8'))\n\
+         const { default: CatalogService } = await import('./CatalogService.js')\n\
+         const sent = []\n\
+         globalThis.fetch = async (url, options) => {\n\
+         \x20 const target = new URL(url)\n\
+         \x20 sent.push({ method: options.method, path: target.pathname, search: target.search, tenant: new Headers(options.headers).get('X-Tenant'), body: options.body ? JSON.parse(options.body) : null })\n\
+         \x20 if (target.pathname === '/api/products/missing') return new Response('', { status: 404 })\n\
+         \x20 return new Response(JSON.stringify({ served: target.pathname }), { status: 200, headers: { 'content-type': 'application/json' } })\n\
+         }\n\
+         const outcome = (promise) => Promise.resolve(promise).then((value) => ({ value }), (error) => ({ code: error.code ?? '', message: String(error.message) }))\n\
+         const catalog = new CatalogService({})\n\
+         const found = await outcome(catalog.find('anvil'))\n\
+         const saved = await outcome(catalog.save('anvil'))\n\
+         const missing = await outcome(catalog.find('missing'))\n\
+         console.log(JSON.stringify({ found, saved, missing, sent }))\n\
+         process.exit(0)\n";
+}
+
+#[tokio::test]
+async fn a_lua_http_client_fetches_through_the_browser_without_a_setup_adapter() {
+    if let Some(reason) = Page::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let (setup, setup_text) = BrowserHttpPage::SETUP;
+    Page::write(root.path(), setup, setup_text);
+    Page::write(root.path(), HttpPage::FILES[1].0, HttpPage::FILES[1].1);
+    Page::write(
+        root.path(),
+        "tac-http.js",
+        include_str!("../template/tac-http.js"),
+    );
+    Page::publish(
+        root.path(),
+        &[("catalog", "CatalogService", BrowserHttpPage::SERVICE)],
+    )
+    .await;
+    let report = Page::run(root.path(), BrowserHttpPage::DRIVER);
+    assert_eq!(
+        report["found"]["value"],
+        serde_json::json!({"served": "/api/products/anvil"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["saved"]["value"],
+        serde_json::json!({"served": "/api/products"}),
+        "{report}"
+    );
+    assert_eq!(report["missing"]["code"], "HTTP_STATUS", "{report}");
+    assert_eq!(
+        report["sent"][0],
+        serde_json::json!({"method": "GET", "path": "/api/products/anvil", "search": "?view=full", "tenant": "acme", "body": null}),
+        "{report}"
+    );
+    assert_eq!(report["sent"][1]["method"], "POST", "{report}");
+    assert_eq!(
+        report["sent"][1]["body"],
+        serde_json::json!({"sku": "anvil"}),
+        "{report}"
+    );
+}
