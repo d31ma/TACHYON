@@ -231,11 +231,9 @@ impl ModelParser {
 
     fn next_jsdoc_block(rest: &str) -> Option<(&str, &str)> {
         let start = rest.find("/**")?;
-        let length = rest[start..].find("*/")?;
-        Some((
-            &rest[start + 3..start + length],
-            &rest[start + length + 2..],
-        ))
+        let close = start + 2 + rest[start + 2..].find("*/")?;
+        let body = rest.get(start + 3..close).unwrap_or_default();
+        Some((body, &rest[close + 2..]))
     }
 
     fn without_comments(extension: &str, source: &str) -> String {

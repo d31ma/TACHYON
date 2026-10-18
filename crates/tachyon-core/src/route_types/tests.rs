@@ -573,6 +573,21 @@ fn javascript_reads_typescript_and_jsdoc_models_but_not_other_languages() {
 }
 
 #[test]
+fn javascript_reads_jsdoc_models_after_an_empty_block_comment() {
+    let root = tempfile::tempdir().expect("root");
+    let models = root.path().join("server/models");
+    std::fs::create_dir_all(&models).expect("models");
+    std::fs::write(
+        models.join("Receipt.js"),
+        "/**/\n/***/\n/**\n * @typedef {Object} Receipt\n * @property {string} sku\n */\nexport {}\n/**/",
+    )
+    .expect("write");
+    let javascript = ModelTable::read(root.path(), "js").expect("javascript");
+    assert_eq!(field_names(&javascript, "Receipt"), pairs(&[("sku", true)]));
+    assert_eq!(javascript.check_all(), Ok(()));
+}
+
+#[test]
 fn go_json_native_fields_are_open_json_values() {
     let go = table(
         "go",
