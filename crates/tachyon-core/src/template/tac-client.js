@@ -566,8 +566,9 @@ const bindPersistentFields = (owner, scope) => {
   return owner
 }
 
+const storedPath = () => location.pathname.replace(/\/index\.html$/, '/')
 const persistScope = (id, properties) =>
-  `${id}:${properties?.persistId ?? properties?.['persist-id'] ?? location.pathname}`
+  `${id}:${properties?.persistId ?? properties?.['persist-id'] ?? storedPath()}`
 
 const importAsset = (raw) => {
   const url = new URL(raw, location.href)
@@ -664,7 +665,7 @@ const serviceSingleton = (name) => {
   const service = Services.catalog[name]
   if (!service) throw new TypeError(`Tac service '${name}' is not declared.`)
   Services.creating.add(name)
-  const promise = createServiceInstance(name, service, {}, `service:${name}:${location.pathname}`)
+  const promise = createServiceInstance(name, service, {}, `service:${name}:${storedPath()}`)
     .then((instance) => {
       registerSingleton(name, instance)
       return instance
@@ -759,7 +760,7 @@ const serviceBoundary = (service) => {
 }
 
 const replaceSharedService = async (entry, version) => {
-  const next = await createServiceInstance(entry.name, hotService(entry.service, version), {}, `service:${entry.name}:${location.pathname}`)
+  const next = await createServiceInstance(entry.name, hotService(entry.service, version), {}, `service:${entry.name}:${storedPath()}`)
   await carryHotState(entry.instance, next)
   disposeSharedInstance(entry.instance)
   registerSingleton(entry.name, next)
@@ -1495,7 +1496,7 @@ const attachRuntime = (owner, scope, element) => {
   if (composed) {
     const graph = []
     for (const entry of composed) {
-      attachRuntime(entry.instance, entry.shared ? `service:${entry.name}:${location.pathname}` : scope, element)
+      attachRuntime(entry.instance, entry.shared ? `service:${entry.name}:${storedPath()}` : scope, element)
       graph.push(...(Runtime.graphs.get(entry.instance) || [entry.instance]))
     }
     Runtime.graphs.set(owner, graph)
@@ -1609,6 +1610,7 @@ const bindNativeInstance = async (owner, service, properties) => {
       await NativeState.writes
       const answer = await call({ op: 'call', name, args })
       await refreshNativeFields()
+      owner.__tachyonStoredChanged?.()
       return answer
     }
     NativeState.methods.add(method)

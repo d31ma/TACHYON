@@ -152,3 +152,14 @@ Ubuntu 24.04 (aarch64, GTK 4.14.5, WebKitGTK 2.52.6). Without a window
 manager, X11 has nothing to minimize the window, so the test fails there. A
 physical Linux desktop, Wayland and x86_64 are not covered. The Linux
 `FilePicker` still answers `unsupported`.
+
+## Amendment (2026-10-18): a test holds the macOS handle limits
+
+`MacOsFilePicker` reads the time through its `clock` field, and `keep` stores
+a selected file without the panel. `open` still checks every limit before it
+shows the panel, so `keep` adds no path around them. The macOS test
+`native_file_picker_limit_tests` compiles the picker with a caller that
+fills all 128 handles (16 owners with 8 each) and checks that the next
+`open` answers `unavailable` without adding a handle, that a ninth handle for
+one owner is refused, and, with a fake clock, that a handle still reads at
+299 seconds and at 300 seconds answers `invalid` and is removed.

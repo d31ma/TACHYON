@@ -1134,6 +1134,20 @@ machine contracts have their own, independent major versions.
   WASI shim now answers `clock_time_get` and `random_get`; before, the call
   failed and its exception escaped, for example from a Setup's
   `configure`. The C++ fixture of the page-program gate runs again (ADR 0099).
+
+- A `@LocalState` or `@SessionState` field of a native companion service
+  (iOS, Android, macOS) now survives a reload after a native method changes
+  it. Before, the page refreshed its copy of the field after the method but
+  never saved it, so the next load restored the old value. The native hosts
+  open their first page as `/index.html`, and saved fields now use the same
+  key there as on `/`, so a route keeps its fields when the app returns to it
+  by navigation. `scripts/runtime-browser-test.mjs` and the iOS simulator gate
+  (`scripts/ios/native-test.mjs`, which builds again under today's project
+  rules) check both (ADR 0059 amendment).
+- A test holds the macOS file picker limits: the handle after 128 is refused,
+  a ninth handle for one owner is refused, and a handle answers `invalid` and
+  is removed at 300 seconds (fake clock; ADR 0089 amendment).
+
 - A Yon Lua `-- @HTTPClient` method with `-- @Gateway` now keeps the target
   method public. Before, the visibility check did not read Lua files, so a
   Python service that only a Lua gateway called failed with `TY1333`. The

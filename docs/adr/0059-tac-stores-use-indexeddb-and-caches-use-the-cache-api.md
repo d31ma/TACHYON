@@ -159,3 +159,20 @@ table, the TypeScript hover text and the other Tac languages did not know it.
   host; `behavior/polyglot/native_storage.rs` and
   `native/storage_tests.rs` (a Kotlin, Swift or native Rust service whose
   Setup does not name its adapter stops the native build).
+
+## Amendment (2026-10-18): native methods save stored fields, and `/index.html` is `/`
+
+A native companion's fields reach the page through the native field bridge,
+which reads them again after every native method. The page now saves its
+`@LocalState` and `@SessionState` fields after that refresh, as it already did
+after an assignment, so a value a native method sets survives a reload.
+
+The saved-field key uses the page path with a trailing `/index.html` written as
+`/`. The iOS, Android and macOS hosts open their first page as `/index.html`,
+and a link back to the same route opens `/`; both now read the same key. A
+value saved before this change under a `/index.html` key is not moved.
+
+Tests: `scripts/runtime-browser-test.mjs` (a native field set by a method
+survives a reload and is read at `/stored/index.html`), and the iOS simulator
+gate `scripts/ios/native-test.mjs` (the root route's field set by a Swift
+method is read again after the app navigates away and back).

@@ -5,10 +5,11 @@ final class MacOsFilePicker {
     static let handleLimit = 128
     static let ownerLimit = 8
     static let lifetime: TimeInterval = 300
-    private var files: [String: (owner: String, url: URL, expiry: Date, scoped: Bool)] = [:]
+    private(set) var files: [String: (owner: String, url: URL, expiry: Date, scoped: Bool)] = [:]
     private var panel: NSOpenPanel? = nil
     private var panelOwner: String? = nil
     var granted: Bool = false
+    var clock: () -> Date = Date.init
 
     func call(_ operation: String, _ request: [String: Any]) -> String {
         guard let owner = request["owner"] as? String, UUID(uuidString: owner) != nil else { return answer(.invalid) }
@@ -48,9 +49,12 @@ final class MacOsFilePicker {
         defer { timeout.invalidate(); panel = nil; panelOwner = nil }
         guard picker.runModal() == .OK, let url = picker.url else { return answer(.cancelled) }
         guard granted else { return answer(.denied) }
-        let scoped = url.startAccessingSecurityScopedResource()
+        return keep(owner, url, scoped: url.startAccessingSecurityScopedResource())
+    }
+
+    func keep(_ owner: String, _ url: URL, scoped: Bool) -> String {
         let handle = UUID().uuidString
-        files[handle] = (owner, url, Date().addingTimeInterval(Self.lifetime), scoped)
+        files[handle] = (owner, url, clock().addingTimeInterval(Self.lifetime), scoped)
         return encode(FilePickerResult(status: .selected, handle: handle, name: url.lastPathComponent))
     }
 
@@ -78,7 +82,7 @@ final class MacOsFilePicker {
     }
 
     private func prune() {
-        for (handle, file) in files where file.expiry <= Date() { remove(handle) }
+        for (handle, file) in files where file.expiry <= clock() { remove(handle) }
     }
 
     private func remove(_ handle: String) {

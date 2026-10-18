@@ -152,6 +152,15 @@ export default class RuntimeNativeService {
   receive(early) { this.early = early.text; }
   act() { throw new Error('native transport was not selected'); }
 }`);
+  write(project, 'client/pages/stored/tac.html', '<runtime-stored />');
+  write(project, 'client/components/runtime/stored/tac.html', '<main><p id="stored-value">{runtimeStored.saved}</p><button id="stored-remember" on:click="runtimeStored.remember(&quot;kept&quot;)">Remember</button></main>');
+  write(project, 'client/services/RuntimeStoredService.rs', '#[Service]\n#[derive(Default)]\nstruct RuntimeStoredService { saved: String }\nimpl RuntimeStoredService {\n    fn remember(&mut self, value: String) -> String { self.saved = value.clone(); value }\n}\n');
+  write(project, 'client/services/RuntimeStoredService.js', `@Service()
+export default class RuntimeStoredService {
+  @LocalState
+  saved = '';
+  remember() { throw new Error('native transport was not selected'); }
+}`);
 }
 
 function writeLoopAndMountFixtures(project) {
@@ -1215,6 +1224,35 @@ async function checkNativeBridge(browser, origin) {
     [['called'], [7], ['authored']], 'native events pass only authored arguments; direct calls are unchanged');
 }
 
+async function checkNativeLocalState(browser, origin) {
+  const stored = await browser.newPage();
+  await stored.addInitScript(rootHelper);
+  await stored.addInitScript(() => {
+    let saved = '';
+    globalThis.__tachyonNativeHostCall = async (_capability, payload) => {
+      const request = JSON.parse(payload);
+      if (request.op === 'set') saved = request.value;
+      if (request.op === 'call') saved = request.args[0];
+      const value = request.op === 'init' ? { fields: ['saved'], methods: ['remember'] }
+        : request.op === 'get' ? saved : request.args?.[0];
+      return JSON.stringify({ value });
+    };
+  });
+  await stored.goto(`${origin}/stored/`);
+  await stored.waitForSelector('#stored-value', { state: 'attached' });
+  await stored.click('#stored-remember');
+  await stored.waitForFunction(() => document.querySelector('#stored-value')?.textContent === 'kept');
+  await stored.reload();
+  await stored.waitForSelector('#stored-value', { state: 'attached' });
+  await stored.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(await stored.textContent('#stored-value'), 'kept', 'a LocalState field changed by a native method survives a reload');
+  await stored.goto(`${origin}/stored/index.html`);
+  await stored.waitForSelector('#stored-value', { state: 'attached' });
+  await stored.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(await stored.textContent('#stored-value'), 'kept', 'a native host entry document at index.html reads the same saved fields as its route');
+  await stored.close();
+}
+
 async function checkDelayedNativeEdits(browser, origin) {
   const delayedNative = await browser.newPage();
   await delayedNative.addInitScript(rootHelper);
@@ -1295,6 +1333,7 @@ async function main() {
     await checkLoops(browser, origin);
     await checkNativeBridge(browser, nativeOrigin);
     await checkDelayedNativeEdits(browser, nativeOrigin);
+    await checkNativeLocalState(browser, nativeOrigin);
     await checkGoService(browser);
     await checkRubyService(browser);
     await checkLuaService(browser);

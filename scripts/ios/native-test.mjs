@@ -46,7 +46,8 @@ process.once('SIGTERM', () => { cleanup(); process.exit(143); });
 
 function writeFixture() {
   mkdirSync(IosGate.deviceSet);
-  write('client/manifest.json', JSON.stringify({ name: 'NativeIOSGate', start_url: '/', tac: { application: { id: 'dev.tachyon.ios-gate', version: '0.0.1', build: 4 }, styles: ['/shared/ios-gate.css'] } }));
+  write('client/manifest.json', JSON.stringify({ name: 'NativeIOSGate', start_url: '/', tac: { application: { id: 'dev.tachyon.ios-gate', version: '0.0.1', build: 4 }, styles: ['/shared/ios-gate.css'], names: { check: false }, constants: { check: false }, visibility: { check: false }, duplication: { check: false }, cohesion: { check: false } } }));
+  write('client/models/IosEvent.js', '/**\n * @typedef {Object} IosEvent\n * @property {string} text\n */\nexport {}\n');
   write('client/models/IosEvent.swift', 'struct IosEvent {\n    let text: String\n}\n');
   write('client/shared/ios-gate.js', `export const marker = 'Shared module ready';
 const hostCall = globalThis.__tachyonNativeHostCall;
@@ -55,7 +56,7 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
   if (capability === 'companion.invoke' && request.op === 'init' && request.service && !globalThis.iosGateService) { globalThis.iosGateOwner = request.owner; globalThis.iosGateService = request.service; }
   return hostCall(capability, payload);
 };\n`);
-  write('client/shared/ios-gate.css', 'body { --ios-gate: ready; font-family: sans-serif; padding: 24px; } button,input { min-height: 44px; }\n');
+  write('client/shared/ios-gate.css', 'body { --ios-gate: ready; font-family: sans-serif; }\n');
   for (const [prefix, label, value] of [['', 'root', 7], ['items/_id/', 'second', 9]]) {
     const service = 'Ios' + label[0].toUpperCase() + label.slice(1) + 'Service';
     const instance = 'ios' + label[0].toUpperCase() + label.slice(1);
@@ -66,14 +67,12 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
 <input id="name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" aria-label="Name">
 <a id="next" href="${prefix ? '/?returned=1' : '/items/7/'}">Next route</a></main>`);
     write('client/services/' + service + '.js', String.raw`import { marker } from '/shared/ios-gate.js';
-/**
- * @typedef {Object} IosEvent
- * @property {string} text
- */
 @Service()
 export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) + ';\n' + String.raw`  marker = marker;
   name = '';
   signal = 'waiting';
+  @LocalState
+  saved = '';
   /** @param {IosEvent} value */
   @OnEvent
   receive(value) { this.signal = value.text; }
@@ -93,6 +92,8 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
       await this.until(() => document.querySelector('#heading')?.textContent === this.pageLabel + ' route');
       const returned = this.pageLabel === 'root' && new URLSearchParams(location.search).has('returned');
       if (this.count !== 0) throw new Error('Native document owner state leaked');
+      if (this.pageLabel === 'root' && this.saved !== (returned ? 'kept' : '')) throw new Error('LocalState after a native method and a page load: ' + JSON.stringify({ returned, saved: this.saved, stored: Object.entries(localStorage), path: location.href }));
+      if (this.pageLabel === 'root' && !returned && await this.remember() !== 'kept') throw new Error('Native LocalState method');
       if (document.querySelector('#marker').textContent !== 'Shared module ready') throw new Error('Shared JS');
       await this.until(() => getComputedStyle(document.body).getPropertyValue('--ios-gate').trim() === 'ready');
       document.querySelector('#update').click();
@@ -108,7 +109,7 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
       if (document.querySelector('#name') !== input || document.activeElement !== input) throw new Error('Input focus');
       let routeRejected = false;
       try {
-        const rejected = JSON.parse(await globalThis.__tachyonNativeHostCall(
+        const rejected = JSON.parse(await __tachyonNativeHostCall(
           'companion.invoke', JSON.stringify({ route:'/not-this-route', op:'init' })));
         routeRejected = Boolean(rejected.error);
       } catch { routeRejected = true; }
@@ -120,13 +121,13 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
         const ambiguous = '{"route":' + JSON.stringify(ownRoute) + ',"' + spelling + '":' +
           JSON.stringify(otherRoute) + ',"op":"get","name":"count"}';
         try {
-          duplicateRejected = Boolean(JSON.parse(await globalThis.__tachyonNativeHostCall(
+          duplicateRejected = Boolean(JSON.parse(await __tachyonNativeHostCall(
             'companion.invoke', ambiguous)).error);
         } catch { duplicateRejected = true; }
         if (!duplicateRejected) throw new Error('Duplicate route key crossed the native guard');
       }
-      const unicode = JSON.parse(await globalThis.__tachyonNativeHostCall('companion.invoke',
-        JSON.stringify({ '\u0301': '😀', route: ownRoute, service: globalThis.iosGateService, owner: globalThis.iosGateOwner, op: 'get', name: 'count' })));
+      const unicode = JSON.parse(await __tachyonNativeHostCall('companion.invoke',
+        JSON.stringify({ '\u0301': '😀', route: ownRoute, service: iosGateService, owner: iosGateOwner, op: 'get', name: 'count' })));
       if (unicode.value !== expected) throw new Error('Unicode JSON failed at native boundary');
       await this.announce();
       await this.until(() => document.querySelector('#signal')?.textContent === 'received');
@@ -135,7 +136,7 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
         doubled: await this.doubled(), nativePid: await this.processId(),
         sharedAssets: true, renderedInteraction: true, focusPreserved: true,
         routeRejected: true, duplicateRouteRejected: true, unicodeBoundaryPassed: true,
-        publishReceived: true });
+        publishReceived: true, saved: this.saved });
       await this.record();
       if (!returned) document.querySelector('#next').click();
     } catch (error) {
@@ -147,10 +148,16 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
 }
 `);
     write('client/services/' + service + '.swift', `import Foundation
+@Service
 final class ${service} {
     var count: Int = 0
     var phase: String = "initial"
     var proof: String = ""
+    var saved: String = ""
+    func remember() -> String {
+        saved = "kept"
+        return saved
+    }
     private let applicationEventPublisher: ApplicationEventPublisher
     func doubled() -> Int { count * 2 }
     func processId() -> Int { Int(ProcessInfo.processInfo.processIdentifier) }
@@ -259,6 +266,7 @@ function collectProofs(documents, required, pid) {
       'duplicateRouteRejected', 'unicodeBoundaryPassed', 'publishReceived']) {
       assert.equal(proof[key], true, name + ': ' + key);
     }
+    assert.equal(proof.saved, name.startsWith('root') ? 'kept' : '', name + ': LocalState after a native method');
     return { file: name, ...native, proof };
   });
   return proofs;
@@ -280,7 +288,7 @@ async function main() {
     writeFileSync(path.join(IosGate.evidence, 'report.json'), JSON.stringify({
       runtime: runtime.version, deviceType: phone.name, binary, pid, proofs,
     }, null, 2) + '\n');
-    console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, shared assets, dynamic routes, and isolation');
+    console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, shared assets, dynamic routes, isolation, and LocalState kept after a native method and a page load');
   } finally {
     cleanup();
   }
