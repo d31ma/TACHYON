@@ -166,3 +166,35 @@ impl DirectResponse {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DirectResponse;
+
+    #[tokio::test]
+    async fn a_direct_rejection_becomes_a_check_rejected_response() -> Result<(), String> {
+        let written = br#"{"status":422,"violations":[{"field":"name","rule":"NotEmpty"}]}"#;
+        let response = DirectResponse::parse(written, "req", None)
+            .await
+            .map_err(|failure| format!("{failure:?}"))?;
+        assert_eq!(response.status, 422);
+        assert!(response.body.is_none());
+        let error = response.error.ok_or("no error")?;
+        assert!(error.is_check_rejection());
+        assert_eq!(error.violations.len(), 1);
+        assert_eq!(error.violations[0].field, "name");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn malformed_direct_violations_fail_the_handler() {
+        let bodies: [&[u8]; 3] = [
+            br#"{"status":422,"violations":[{"field":"a b","rule":"NotEmpty"}]}"#,
+            br#"{"status":422,"violations":[{"field":"name","rule":"notBlank"}]}"#,
+            br#"{"status":422,"violations":[{"field":"name"}]}"#,
+        ];
+        for body in bodies {
+            assert!(DirectResponse::parse(body, "req", None).await.is_err());
+        }
+    }
+}

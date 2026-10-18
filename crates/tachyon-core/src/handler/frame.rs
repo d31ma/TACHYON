@@ -362,4 +362,46 @@ mod tests {
             assert!(HandlerFrame::response(&frame, "req").is_err());
         }
     }
+
+    fn framed(response: &HandlerResponse) -> Vec<u8> {
+        let json = serde_json::to_vec(response).unwrap_or_else(|_| unreachable!());
+        let length = u32::try_from(json.len()).unwrap_or_else(|_| unreachable!());
+        let mut frame = Vec::from(length.to_be_bytes());
+        frame.extend_from_slice(&json);
+        frame
+    }
+
+    #[test]
+    fn check_rejection_frames_must_be_well_formed() {
+        use tachyon_contracts::{HandlerProtocolError, HandlerViolation};
+        let violations = vec![HandlerViolation::new("items[2].name", "NotEmpty")];
+        let accepted = HandlerResponse::error(
+            "req",
+            422,
+            HandlerProtocolError::check_rejected(violations.clone()),
+        );
+        assert!(HandlerFrame::response(&framed(&accepted), "req").is_ok());
+        let wrong_status = HandlerResponse::error(
+            "req",
+            500,
+            HandlerProtocolError::check_rejected(violations.clone()),
+        );
+        assert!(HandlerFrame::response(&framed(&wrong_status), "req").is_err());
+        let empty =
+            HandlerResponse::error("req", 422, HandlerProtocolError::check_rejected(Vec::new()));
+        assert!(HandlerFrame::response(&framed(&empty), "req").is_err());
+        let mut other_code = HandlerProtocolError::new("TY2201", "Handler failed.");
+        other_code.violations = violations;
+        let smuggled = HandlerResponse::error("req", 500, other_code);
+        assert!(HandlerFrame::response(&framed(&smuggled), "req").is_err());
+        let echoed = HandlerResponse::error(
+            "req",
+            422,
+            HandlerProtocolError::check_rejected(vec![HandlerViolation::new(
+                "secret value",
+                "Required",
+            )]),
+        );
+        assert!(HandlerFrame::response(&framed(&echoed), "req").is_err());
+    }
 }
