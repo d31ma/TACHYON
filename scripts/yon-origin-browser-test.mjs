@@ -7,11 +7,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
+import { CargoArtifacts } from './cargo-artifacts.mjs'
 import { withServer } from './release/server-probe.mjs'
 
 class YonOriginTest {
   static repository = fileURLToPath(new URL('..', import.meta.url))
-  static binary = process.env.TAC_BIN
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static fixture = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'yon-origin-'))
   static features = ['sockets', 'realtime']
   static timeout = 15000
@@ -142,7 +143,6 @@ class NoteController {
   }
 
   static async run() {
-    assert.ok(this.binary, 'Set TAC_BIN to a qualified compiler checkpoint')
     const pagePort = await this.freePort()
     const yonPort = await this.freePort()
     this.prepare(pagePort, yonPort)

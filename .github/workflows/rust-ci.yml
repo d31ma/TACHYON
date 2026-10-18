@@ -323,6 +323,9 @@ jobs:
       - name: Run the real-browser Tac event contract
         run: bun run test:events-browser
 
+      - name: Run the real-browser contract for a page calling Yon on another origin
+        run: bun run test:yon-origin-browser
+
       - name: Run the real-browser offline cache contract
         run: bun run test:service-worker-browser
 
