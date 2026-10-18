@@ -175,7 +175,7 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
 <key>CFBundleName</key><string>{name}</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>{version}</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleVersion</key><string>{build}</string>
 <key>CFBundleSupportedPlatforms</key><array><string>iPhoneSimulator</string></array>
 <key>DTPlatformName</key><string>iphonesimulator</string>
 <key>MinimumOSVersion</key><string>{deployment}</string>
@@ -188,6 +188,7 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
         executable = application.executable_name,
         identifier = application.application_id,
         version = application.version,
+        build = application.build,
         deployment = IosHostGenerator::DEPLOYMENT_TARGET,
         icon_block = icon_block(icons),
     )
@@ -538,6 +539,7 @@ mod tests {
             executable_name: String::from("NativeCatalog"),
             application_id: String::from("dev.tachyon.native-catalog"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
@@ -588,6 +590,16 @@ mod tests {
         assert!(plist.contains("<string>iPhoneSimulator</string>"));
         assert!(plist.contains("<key>UILaunchScreen</key>"));
         assert!(plist.contains(IosHostGenerator::DEPLOYMENT_TARGET));
+    }
+
+    #[test]
+    fn plist_carries_the_version_and_the_build() {
+        let mut application = application();
+        application.version = String::from("2.1.0");
+        application.build = 7;
+        let plist = info_plist(&application, &[]);
+        assert!(plist.contains("<key>CFBundleShortVersionString</key><string>2.1.0</string>"));
+        assert!(plist.contains("<key>CFBundleVersion</key><string>7</string>"));
     }
 
     #[test]

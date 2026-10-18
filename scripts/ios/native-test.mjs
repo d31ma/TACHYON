@@ -46,7 +46,7 @@ process.once('SIGTERM', () => { cleanup(); process.exit(143); });
 
 function writeFixture() {
   mkdirSync(IosGate.deviceSet);
-  write('client/manifest.json', JSON.stringify({ name: 'NativeIOSGate', start_url: '/', tac: { application: { id: 'dev.tachyon.ios-gate', version: '0.0.1' }, styles: ['/shared/ios-gate.css'] } }));
+  write('client/manifest.json', JSON.stringify({ name: 'NativeIOSGate', start_url: '/', tac: { application: { id: 'dev.tachyon.ios-gate', version: '0.0.1', build: 4 }, styles: ['/shared/ios-gate.css'] } }));
   write('client/models/IosEvent.swift', 'struct IosEvent {\n    let text: String\n}\n');
   write('client/shared/ios-gate.js', `export const marker = 'Shared module ready';
 const hostCall = globalThis.__tachyonNativeHostCall;
@@ -196,6 +196,9 @@ function buildIosApp(binary) {
   ]);
   assert.deepEqual(readFileSync(path.join(output, 'web/index.html')),
     readFileSync(path.join(bundle, 'WebBundle/index.html')));
+  const plist = path.join(bundle, 'Info.plist');
+  assert.equal(run('/usr/bin/plutil', ['-extract', 'CFBundleShortVersionString', 'raw', plist]), '0.0.1');
+  assert.equal(run('/usr/bin/plutil', ['-extract', 'CFBundleVersion', 'raw', plist]), '4');
   return bundle;
 }
 

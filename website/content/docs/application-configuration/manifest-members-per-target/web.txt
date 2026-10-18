@@ -36,6 +36,9 @@ tac.application.id
 tac.application.version
   honored: the version in api.json, which the API baseline check compares by major version
 
+tac.application.build
+  not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
+
 tac.application.window.width, height
   not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
 

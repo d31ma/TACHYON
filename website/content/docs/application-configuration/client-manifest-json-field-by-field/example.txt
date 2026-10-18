@@ -33,7 +33,19 @@ tac.application.id                                     native
   Derived from the project folder when absent.
 
 tac.application.version                                native
-  A portable version, such as 1.4.0 (1.0.0 when absent).
+  The version people see, such as 1.4.0 (1.0.0 when absent). It is
+  CFBundleShortVersionString on Apple targets, versionName on
+  Android, the Windows file and product version, and
+  X-Tachyon-Version on Linux. macOS, iOS and Windows need one to
+  three numbers, such as 1.4.0 (each at most 65535 on Windows),
+  or the build for them stops (TY1601).
+
+tac.application.build                                  native
+  The build number, a whole number from 1 (1 when absent). It is
+  CFBundleVersion on Apple targets, versionCode on Android (at
+  most 2100000000), the fourth Windows file version number (at
+  most 65535: 1.4.0 with build 12 is 1.4.0.12) and
+  X-Tachyon-Build on Linux.
 
 tac.application.window                                 native
   width and height the window opens at (1024 by 768 unless set,

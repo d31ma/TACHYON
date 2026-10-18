@@ -13,6 +13,7 @@ pub(super) struct NativeApplication {
     pub(super) executable_name: String,
     pub(super) application_id: String,
     pub(super) version: String,
+    pub(super) build: u32,
     pub(super) entry_route: String,
     pub(super) icons: Vec<(u32, String)>,
     pub(super) window: WindowConfiguration,
@@ -274,6 +275,11 @@ fn validate_manifest_application(application: &ManifestApplication) -> Result<()
             "Manifest tac.application.version must be a portable version of at most 64 letters, digits, '.', '-' or '+', such as 1.4.0.",
         ));
     }
+    if application.build == Some(0) {
+        return Err(config_failure(
+            "Manifest tac.application.build must be a whole number from 1 to 4294967295, such as 12.",
+        ));
+    }
     let Some(window) = &application.window else {
         return Ok(());
     };
@@ -519,6 +525,7 @@ impl TacMember {
 struct ManifestApplication {
     id: Option<String>,
     version: Option<String>,
+    build: Option<u32>,
     #[serde(default)]
     window: Option<WindowConfiguration>,
     #[serde(default)]
@@ -589,6 +596,9 @@ impl NativeApplication {
         if let Some(version) = &application.version {
             self.version.clone_from(version);
         }
+        if let Some(build) = application.build {
+            self.build = build;
+        }
         if let Some(window) = &application.window {
             self.window.clone_from(window);
         }
@@ -617,6 +627,7 @@ impl NativeApplication {
             executable_name,
             application_id: format!("ma.del.tachyon.{identifier}"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: WindowConfiguration::default(),
@@ -831,6 +842,7 @@ mod tests {
         let defaults = NativeApplication::discover(root.path()).expect("defaults");
         assert!(defaults.application_id.starts_with("ma.del.tachyon."));
         assert_eq!(defaults.version, "1.0.0");
+        assert_eq!(defaults.build, 1);
         assert_eq!(defaults.entry_route, "/");
     }
 
@@ -847,6 +859,7 @@ mod tests {
                     "application": {
                         "id": "dev.example.catalog",
                         "version": "1.2.3",
+                        "build": 42,
                         "window": { "width": 420, "height": 720, "minWidth": 320, "controls": ["close"] },
                     },
                 },
@@ -857,6 +870,7 @@ mod tests {
         assert_eq!(configured.executable_name, "CatalogApp");
         assert_eq!(configured.application_id, "dev.example.catalog");
         assert_eq!(configured.version, "1.2.3");
+        assert_eq!(configured.build, 42);
         assert_eq!(configured.entry_route, "/products");
         assert_eq!(configured.window.width, 420);
         assert_eq!(configured.window.height, 720);
@@ -920,6 +934,12 @@ mod tests {
                 serde_json::json!({ "version": "" }),
                 "tac.application.version must be",
             ),
+            (
+                serde_json::json!({ "build": 0 }),
+                "tac.application.build must be a whole number",
+            ),
+            (serde_json::json!({ "build": -3 }), "invalid value"),
+            (serde_json::json!({ "build": "12" }), "invalid type"),
             (
                 serde_json::json!({ "window": { "width": 10 } }),
                 "tac.application.window sizes",

@@ -53,6 +53,7 @@ mod tests {
             executable_name: String::from("TitleBarCheck"),
             application_id: String::from("dev.tachyon.title-bar-check"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window,

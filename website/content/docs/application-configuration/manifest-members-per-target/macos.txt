@@ -34,7 +34,10 @@ tac.application.id
   honored: CFBundleIdentifier
 
 tac.application.version
-  adapted: tac.application.version becomes CFBundleShortVersionString. The build number CFBundleVersion stays 1 for now (PKG0).
+  honored: CFBundleShortVersionString; a version that is not one to three numbers stops the build (TY1601)
+
+tac.application.build
+  honored: CFBundleVersion
 
 tac.application.window.width, height
   honored: the first size of the window

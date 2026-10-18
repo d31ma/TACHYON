@@ -33,7 +33,18 @@ machine contracts have their own, independent major versions.
   --explain-targets` prints the whole table (or the targets that `--target`
   names) and marks the declared members, and the Settings and configuration
   page shows it in one tab per target.
-
+- `tac.application.build` in `client/manifest.json` is the build number of a
+  native app, a whole number from 1 (1 when absent). macOS and iOS write it as
+  `CFBundleVersion` and Android as `versionCode`; both were always 1 before.
+  Windows executables get a version resource: the file version is the
+  version's numbers then the build (`1.4` with build 12 is `1.4.0.12`), and
+  the product version is `tac.application.version` as written. The Windows
+  manifest's `assemblyIdentity` carries the same file version instead of
+  `1.0.0.0`. The Linux desktop entry adds `X-Tachyon-Build`. A version that a
+  target cannot carry stops the build for that target only (`TY1601`): macOS,
+  iOS and Windows need one to three numbers, such as `1.4.0`; Windows numbers
+  and builds are at most 65535, and an Android build at most 2100000000
+  (ADR 0052 amendment).
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain

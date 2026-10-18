@@ -34,7 +34,10 @@ tac.application.id
   adapted: tac.application.id becomes the Android applicationId after characters that Android refuses are replaced.
 
 tac.application.version
-  adapted: tac.application.version becomes versionName. versionCode stays 1 for now (PKG0).
+  honored: versionName
+
+tac.application.build
+  honored: versionCode; a build above 2100000000 stops the build (TY1601)
 
 tac.application.window.width, height
   not applicable: tac.application.window width and height have no meaning on Android: the system sizes the app.

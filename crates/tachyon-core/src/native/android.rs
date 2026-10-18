@@ -259,7 +259,7 @@ android {{
     applicationId = "{package}"
     minSdk = {min_sdk}
     targetSdk = {compile_sdk}
-    versionCode = 1
+    versionCode = {build}
     versionName = "{version}"
   }}
 
@@ -293,6 +293,7 @@ dependencies {{
         compile_sdk = AndroidHostGenerator::COMPILE_SDK,
         min_sdk = AndroidHostGenerator::MIN_SDK,
         version = application.version,
+        build = application.build,
     )
 }
 
@@ -967,6 +968,7 @@ mod tests {
             executable_name: String::from("NativeCatalog"),
             application_id: String::from("dev.tachyon.native-catalog"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
@@ -1062,6 +1064,14 @@ mod tests {
         assert!(gradle.contains("ignoreAssetsPattern ="));
         assert!(app_gradle(&application(), "x.y", true).contains("org.jetbrains.kotlin.android"));
         assert!(!gradle.contains("kotlin"));
+        assert!(gradle.contains("versionCode = 1\n"));
+        assert!(gradle.contains("versionName = \"1.0.0\"\n"));
+        let mut released = application();
+        released.version = String::from("2.1.0-beta");
+        released.build = 7;
+        let released_gradle = app_gradle(&released, "x.y", false);
+        assert!(released_gradle.contains("versionCode = 7\n"));
+        assert!(released_gradle.contains("versionName = \"2.1.0-beta\"\n"));
 
         let manifest = android_manifest(false);
         assert!(manifest.contains("android:usesCleartextTraffic=\"false\""));

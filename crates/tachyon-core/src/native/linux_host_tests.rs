@@ -27,6 +27,7 @@ impl LinuxHostTests {
             executable_name: String::from("LinuxHostCheck"),
             application_id: String::from("org.tachyon.linux-host-check"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: super::config::WindowConfiguration::default(),

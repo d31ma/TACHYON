@@ -113,11 +113,21 @@
     "member": "tac.application.version",
     "paths": ["tac.application.version"],
     "web": {"reach": "honored", "how": "the version in api.json, which the API baseline check compares by major version"},
-    "macos": {"reach": "adapted", "note": "tac.application.version becomes CFBundleShortVersionString. The build number CFBundleVersion stays 1 for now (PKG0)."},
-    "windows": {"reach": "adapted", "note": "tac.application.version is not used yet. The Windows application manifest keeps version 1.0.0.0 (PKG0)."},
-    "linux": {"reach": "adapted", "note": "tac.application.version is written only as the X-Tachyon-Version key of the .desktop file (PKG0)."},
-    "ios": {"reach": "adapted", "note": "tac.application.version becomes CFBundleShortVersionString. The build number CFBundleVersion stays 1 for now (PKG0)."},
-    "android": {"reach": "adapted", "note": "tac.application.version becomes versionName. versionCode stays 1 for now (PKG0)."}
+    "macos": {"reach": "honored", "how": "CFBundleShortVersionString; a version that is not one to three numbers stops the build (TY1601)"},
+    "windows": {"reach": "honored", "how": "the executable's file and product version and the manifest assemblyIdentity; a version that is not one to three numbers up to 65535 stops the build (TY1601)"},
+    "linux": {"reach": "adapted", "note": "A Linux .desktop file has no application version key, so tac.application.version is written as X-Tachyon-Version."},
+    "ios": {"reach": "honored", "how": "CFBundleShortVersionString; a version that is not one to three numbers stops the build (TY1601)"},
+    "android": {"reach": "honored", "how": "versionName"}
+  },
+  {
+    "member": "tac.application.build",
+    "paths": ["tac.application.build"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "CFBundleVersion"},
+    "windows": {"reach": "honored", "how": "the fourth number of the executable's file version; a build above 65535 stops the build (TY1601)"},
+    "linux": {"reach": "adapted", "note": "A Linux .desktop file has no build number key, so tac.application.build is written as X-Tachyon-Build."},
+    "ios": {"reach": "honored", "how": "CFBundleVersion"},
+    "android": {"reach": "honored", "how": "versionCode; a build above 2100000000 stops the build (TY1601)"}
   },
   {
     "member": "tac.application.window.width, height",

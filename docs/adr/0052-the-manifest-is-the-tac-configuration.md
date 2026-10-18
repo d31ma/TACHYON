@@ -162,3 +162,52 @@ head, native builds included. No native host reads that tag or the manifest's
 Android status bars keep their system colors. A native build that declares
 `theme_color` now prints a note that says so (ADR 0102). The plan items WIN1,
 WIN2 and WIN5 apply the color on Windows, Linux and mobile.
+
+## Amendment (2026-10-18): Versions and build numbers reach every target
+
+`tac.application.version` reached only part of each native app. Windows wrote
+`1.0.0.0` in the executable's manifest and had no version resource, so
+Explorer and installers saw no version. Android `versionCode` and Apple
+`CFBundleVersion` were always 1, so a store or a device could not tell two
+builds of one version apart. Linux wrote the version only as
+`X-Tachyon-Version`.
+
+### Decision
+
+- `tac.application.build` is the build number: a whole number from 1, and 1
+  when absent. Zero, a negative number, a fraction or text stops the build
+  (`TY1601`).
+- Each target takes the version and the build from the manifest:
+  - macOS and iOS: `CFBundleShortVersionString` is the version and
+    `CFBundleVersion` is the build.
+  - Android: `versionName` is the version and `versionCode` is the build.
+  - Windows: a `VERSIONINFO` resource in the executable and the
+    `assemblyIdentity` of its manifest. The four-number file version is the
+    version's numbers, padded with zeros to three, then the build, so `1.4`
+    with build 12 is `1.4.0.12`. `ProductVersion` is the version as written.
+  - Linux: the desktop entry format has no application version key (its
+    `Version` key is the format's own version). The desktop entry keeps
+    `X-Tachyon-Version` and adds `X-Tachyon-Build`. Package metadata, such as
+    AppStream, comes with Linux packaging.
+- A build refuses a version a target cannot carry, and only for that target
+  (`TY1601`, naming the target):
+  - macOS and iOS need one to three numbers separated by dots, as the App
+    Store does, so `1.4.0-beta` is refused there.
+  - Windows needs the same, with each number at most 65535, and a build of
+    at most 65535.
+  - Android needs a build of at most 2100000000, the largest `versionCode`
+    Google Play accepts.
+  - The version stays free text for Android's `versionName` and for Linux.
+- The check runs before any native tool, so a staged build without packaging
+  refuses the same values.
+
+### Consequences
+
+- Raise `tac.application.build` for every build you hand out, and keep the
+  version numeric when the app ships to macOS, iOS or Windows.
+- Every Windows build now compiles a resource script with `rc.exe`, even
+  without an icon. `rc.exe` comes with MSVC's developer environment, which
+  the Windows host already needs.
+- The Windows manifest still sits at the bundle root, where Windows does not
+  read it. Its version is correct, but the executable's version resource is
+  what Windows shows.

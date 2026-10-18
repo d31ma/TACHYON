@@ -130,10 +130,12 @@ fn desktop_entry(application: &NativeApplication) -> String {
          {icon}\
          Terminal=false\n\
          Categories=Utility;\n\
-         X-Tachyon-Version={version}\n",
+         X-Tachyon-Version={version}\n\
+         X-Tachyon-Build={build}\n",
         name = xml_escape(&application.name),
         executable = application.executable_name,
         version = application.version,
+        build = application.build,
     )
 }
 
@@ -651,6 +653,7 @@ mod tests {
             executable_name: String::from("NativeCatalog"),
             application_id: String::from("dev.tachyon.native-catalog"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
@@ -733,5 +736,6 @@ mod tests {
         let entry = desktop_entry(&application());
         assert!(entry.contains("Exec=bin/NativeCatalog"));
         assert!(entry.contains("Type=Application"));
+        assert!(entry.contains("X-Tachyon-Version=1.0.0\nX-Tachyon-Build=1\n"));
     }
 }

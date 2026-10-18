@@ -25,6 +25,8 @@ check_artifacts() {
   test -f "$out/tachyon.host.json"
   test -f "$out/artifact-manifest.json"
   cmp "$out/web/index.html" "$app/resources/WebBundle/index.html"
+  grep -qx 'X-Tachyon-Version=0.0.1' "$app/dev.tachyon.desktop-gate.desktop"
+  grep -qx 'X-Tachyon-Build=7' "$app/dev.tachyon.desktop-gate.desktop"
 }
 
 check_host_descriptor() {

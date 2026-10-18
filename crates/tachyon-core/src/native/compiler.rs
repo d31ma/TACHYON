@@ -189,6 +189,8 @@ impl NativeCompiler {
         let index =
             NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
         application.menus.validate_for(options.target, &index)?;
+        super::native_release_version::NativeReleaseVersion::of(&application)
+            .validate_for(options.target)?;
         let notes = super::target_support::TargetSupport::native_notes(
             project.snapshot_root(),
             options.target,
@@ -912,6 +914,33 @@ mod tests {
             .expect_err("missing entry");
         assert!(error.to_string().contains("TY1601"));
         assert!(error.to_string().contains("'/missing'"));
+    }
+
+    #[test]
+    fn a_labelled_version_is_refused_before_native_tool_execution_where_stores_need_numbers() {
+        let root = tempfile::tempdir().expect("project");
+        let pages = root.path().join("client/pages");
+        fs::create_dir_all(&pages).expect("pages");
+        fs::write(
+            root.path().join("client/manifest.json"),
+            r#"{"name":"Labelled","start_url":"/","tac":{"application":{"id":"dev.tachyon.labelled","version":"1.0-beta","build":3}}}"#,
+        )
+        .expect("manifest");
+        fs::write(pages.join("tac.html"), "<main>Home</main>").expect("view");
+        for target in [
+            tachyon_contracts::NativeTarget::Macos,
+            tachyon_contracts::NativeTarget::Ios,
+            tachyon_contracts::NativeTarget::Windows,
+        ] {
+            let options = NativeBuildOptions {
+                target,
+                ..Default::default()
+            };
+            let error = NativeCompiler::build(root.path(), &options).expect_err("labelled version");
+            let text = error.to_string();
+            assert!(text.contains("TY1601"), "{text}");
+            assert!(text.contains("'1.0-beta'"), "{text}");
+        }
     }
     #[cfg(unix)]
     #[test]

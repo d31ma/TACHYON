@@ -307,7 +307,7 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
 <key>CFBundleName</key><string>{name}</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>{version}</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleVersion</key><string>{build}</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
@@ -316,6 +316,7 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
         executable = application.executable_name,
         identifier = application.application_id,
         version = application.version,
+        build = application.build,
         icon = icon,
     )
 }
@@ -997,6 +998,7 @@ mod tests {
             executable_name: String::from("NativeCatalog"),
             application_id: String::from("dev.tachyon.native-catalog"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
@@ -1071,5 +1073,15 @@ mod tests {
         let plist = info_plist(&application(), Some("AppIcon"));
         assert!(plist.contains("dev.tachyon.native-catalog"));
         assert!(plist.contains("NativeCatalog"));
+    }
+
+    #[test]
+    fn plist_carries_the_version_and_the_build() {
+        let mut application = application();
+        application.version = String::from("2.1.0");
+        application.build = 7;
+        let plist = info_plist(&application, None);
+        assert!(plist.contains("<key>CFBundleShortVersionString</key><string>2.1.0</string>"));
+        assert!(plist.contains("<key>CFBundleVersion</key><string>7</string>"));
     }
 }

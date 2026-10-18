@@ -95,6 +95,7 @@ mod native_packaged_utility_tests;
 mod native_page_call_contract_tests;
 #[cfg(test)]
 mod native_page_graph_tests;
+mod native_release_version;
 #[cfg(test)]
 mod native_rust_capability_tests;
 #[cfg(test)]
@@ -183,6 +184,7 @@ mod windows_architecture;
 mod windows_compiler_plan;
 #[cfg(test)]
 mod windows_host_tests;
+mod windows_version_resource;
 
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{

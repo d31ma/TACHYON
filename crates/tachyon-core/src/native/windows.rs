@@ -53,9 +53,9 @@ impl WindowsHostGenerator {
         let executable = bundle
             .join("bin")
             .join(format!("{}.exe", application.executable_name));
-        let resource = icon_resource(application, web_bundle, stage).await?;
+        let resource = application_resource(application, web_bundle, stage).await?;
         let compiler_version =
-            compile_c(&source_path, &executable, resource.as_deref(), architecture).await?;
+            compile_c(&source_path, &executable, Some(&resource), architecture).await?;
         if let Some(project) = companion {
             publish_companion(&project, &bundle.join("bin"), architecture).await?;
         }
@@ -213,15 +213,31 @@ pub(super) const fn companion_prelude() -> &'static str {
     WindowsHostGenerator::CSHARP_COMPANION_PRELUDE
 }
 
-async fn icon_resource(
+async fn application_resource(
     application: &NativeApplication,
     web_bundle: &Path,
     stage: &Path,
-) -> Result<Option<String>, Failure> {
-    let Some(compiled) = stage_icon(application, web_bundle, stage).await? else {
-        return Ok(None);
-    };
-    Ok(Some(compiler_path(&compiled, "Icon resource")?))
+) -> Result<String, Failure> {
+    let has_icon = stage_icon(application, web_bundle, stage)?;
+    let script = stage.join("application.rc");
+    let source = super::windows_version_resource::WindowsVersionResource {
+        application,
+        has_icon,
+    }
+    .script();
+    write(&script, source.as_bytes())?;
+    let compiled = stage.join("application.res");
+    run_tool(
+        "rc.exe",
+        &[
+            "/nologo",
+            "/fo",
+            &compiler_path(compiled.as_path(), "Application resource")?,
+            &compiler_path(script.as_path(), "Application resource script")?,
+        ],
+    )
+    .await?;
+    compiler_path(&compiled, "Application resource")
 }
 
 async fn compile_rust_companion(
@@ -477,38 +493,23 @@ const fn windows_compiler() -> &'static str {
     "cl"
 }
 
-async fn stage_icon(
+fn stage_icon(
     application: &NativeApplication,
     web_bundle: &Path,
     stage: &Path,
-) -> Result<Option<PathBuf>, Failure> {
+) -> Result<bool, Failure> {
     let Some(source) = application.icon_within(256) else {
-        return Ok(None);
+        return Ok(false);
     };
     let origin = web_bundle.join(source.trim_start_matches('/'));
     let Ok(png) = std::fs::read(&origin) else {
-        return Ok(None);
+        return Ok(false);
     };
     let Ok(length) = u32::try_from(png.len()) else {
-        return Ok(None);
+        return Ok(false);
     };
-    let icon = stage.join("icon.ico");
-    super::host::write(&icon, &ico_bytes(&png, length))?;
-    let script = stage.join("icon.rc");
-    super::host::write(&script, b"1 ICON \"icon.ico\"\n")?;
-
-    let compiled = stage.join("icon.res");
-    run_tool(
-        "rc.exe",
-        &[
-            "/nologo",
-            "/fo",
-            &compiler_path(compiled.as_path(), "Icon resource")?,
-            &compiler_path(script.as_path(), "Icon script")?,
-        ],
-    )
-    .await?;
-    Ok(Some(compiled))
+    super::host::write(&stage.join("icon.ico"), &ico_bytes(&png, length))?;
+    Ok(true)
 }
 
 fn ico_bytes(png: &[u8], length: u32) -> Vec<u8> {
@@ -606,7 +607,7 @@ fn application_manifest(application: &NativeApplication) -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity type="win32" name="{identifier}" version="1.0.0.0"/>
+  <assemblyIdentity type="win32" name="{identifier}" version="{version}"/>
   <dependency><dependentAssembly><assemblyIdentity
     type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0"
     processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
@@ -619,6 +620,8 @@ fn application_manifest(application: &NativeApplication) -> String {
 </assembly>
 "#,
         identifier = application.application_id.replace('.', "-"),
+        version =
+            super::native_release_version::NativeReleaseVersion::of(application).windows_dotted(),
     )
 }
 
@@ -1519,6 +1522,7 @@ mod tests {
             executable_name: String::from("NativeCatalog"),
             application_id: String::from("dev.tachyon.native-catalog"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
@@ -1642,6 +1646,10 @@ mod tests {
         assert!(manifest.contains("Microsoft.Windows.Common-Controls"));
         assert!(manifest.contains("PerMonitorV2"));
         assert!(manifest.contains("dev-tachyon-native-catalog"));
+        assert!(
+            manifest.contains(r#"name="dev-tachyon-native-catalog" version="1.0.0.1""#),
+            "{manifest}"
+        );
     }
 
     #[test]

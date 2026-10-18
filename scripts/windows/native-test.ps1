@@ -163,6 +163,10 @@ function Assert-NativeArtifacts([string] $out, [string] $app) {
     )) {
         if (-not (Test-Path (Join-Path $out $relative))) { throw "missing artifact $relative" }
     }
+    $versionInfo = (Get-Item (Join-Path $app 'bin\NativeGate.exe')).VersionInfo
+    if ($versionInfo.FileVersion -ne '0.0.1.7' -or $versionInfo.ProductVersion -ne '0.0.1') {
+        throw "executable version mismatch: $($versionInfo.FileVersion) / $($versionInfo.ProductVersion)"
+    }
     $hostManifest = Get-Content -Raw (Join-Path $out 'tachyon.host.json') | ConvertFrom-Json
     if ($hostManifest.schemaVersion -ne 3 -or $hostManifest.renderMode -ne 'bundle' -or
         $hostManifest.companions.Count -ne 2) { throw 'native host descriptor mismatch' }

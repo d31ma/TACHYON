@@ -431,6 +431,7 @@ fn native_application_lifetime_host_startup_and_shutdown_are_not_page_operations
         executable_name: String::from("Lifecycle"),
         application_id: String::from("org.tachyon.lifecycle"),
         version: String::from("1.0.0"),
+        build: 1,
         entry_route: String::from("/"),
         icons: Vec::new(),
         window: super::config::WindowConfiguration::default(),

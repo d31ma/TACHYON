@@ -40,7 +40,7 @@ function countStatus(page) {
 }
 
 function writeFixture(project) {
-  write(project, 'client/manifest.json', JSON.stringify({ name: 'Phase Five', start_url: '/', tac: { scripts: ['/shared/android-probe.js'], application: { id: 'dev.tachyon.phase-five', version: '0.1.0' } } }));
+  write(project, 'client/manifest.json', JSON.stringify({ name: 'Phase Five', start_url: '/', tac: { scripts: ['/shared/android-probe.js'], application: { id: 'dev.tachyon.phase-five', version: '0.1.0', build: 5 } } }));
   write(project, 'client/shared/android-probe.js', `const hostCall = globalThis.__tachyonNativeHostCall;
 globalThis.__tachyonNativeHostCall = (capability, payload) => {
   const request = JSON.parse(payload);
@@ -138,6 +138,9 @@ async function installAndLaunch(out) {
   const apkEntries = run('unzip', ['-Z1', path.join(out, 'PhaseFive/PhaseFive.apk')]);
   assert.ok(apkEntries.split('\n').includes('assets/WebBundle/items/_id/index.html'), 'AAPT must retain dynamic route directories');
   run(AndroidDevice.adb, ['install', '-r', path.join(out, 'PhaseFive/PhaseFive.apk')]);
+  const packageInfo = run(AndroidDevice.adb, ['shell', 'dumpsys', 'package', AndroidDevice.packageName]);
+  assert.match(packageInfo, /versionCode=5\b/, 'versionCode must be tac.application.build');
+  assert.match(packageInfo, /versionName=0\.1\.0\b/, 'versionName must be tac.application.version');
   run(AndroidDevice.adb, ['shell', 'am', 'force-stop', AndroidDevice.packageName]);
   run(AndroidDevice.adb, ['shell', 'am', 'start', '-W', '-n', `${AndroidDevice.packageName}/.MainActivity`]);
   let pid;

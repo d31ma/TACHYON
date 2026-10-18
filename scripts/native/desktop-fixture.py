@@ -18,7 +18,7 @@ def manifest(platform):
   "name": "Native Gate",
   "start_url": "/",
   "tac": {{
-    "application": {{ "id": "dev.tachyon.desktop-gate", "version": "0.0.1" }},
+    "application": {{ "id": "dev.tachyon.desktop-gate", "version": "0.0.1", "build": 7 }},
     "styles": ["/shared/native-gate.css"]{visibility}
   }}
 }}
