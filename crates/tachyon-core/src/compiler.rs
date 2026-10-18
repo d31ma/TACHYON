@@ -563,6 +563,35 @@ mod tests {
     }
 
     #[test]
+    fn a_kotlin_helper_is_supported_and_its_hooks_fail_at_its_own_file() {
+        let service = "@Service\nclass TallyService\n";
+        let root = tempfile::tempdir().expect("project");
+        write_file(root.path(), "client/services/TallyService.kt", service);
+        write_file(
+            root.path(),
+            "client/helpers/StepHelper.kt",
+            "@Helper\nclass StepHelper {}\n",
+        );
+        let path = Path::new("client/services/TallyService.kt");
+        let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
+        ServiceChecks::check_native_source(root.path(), path, &roles.source)
+            .expect("Kotlin Helper source is supported");
+        let failure = helper_failure(
+            service,
+            "\n@Helper\nclass StepHelper {\n    @OnStart\n    fun open() {}\n}\n",
+            "kt",
+        );
+        let diagnostic = &failure.diagnostics()[0];
+        assert!(
+            diagnostic
+                .message
+                .contains("A Kotlin Tac Helper is a new object"),
+            "{failure}"
+        );
+        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.kt");
+    }
+
+    #[test]
     fn a_csharp_helper_failure_names_the_helper_file() {
         let failure = helper_failure(
             "using System;\n[Service]\nclass TallyService {}\n",
@@ -582,16 +611,15 @@ mod tests {
     }
 
     #[test]
-    fn a_kotlin_helper_failure_names_the_helper_file() {
-        let service = "@Service\nclass TallyService\n";
-        let helper = "\n@Helper\nclass StepHelper {}\n";
-        let failure = helper_failure(service, helper, "kt");
+    fn a_java_helper_failure_names_the_helper_file() {
+        let failure = helper_failure(
+            "@Service\npublic class TallyService {}\n",
+            "\n@Helper\npublic class StepHelper {}\n",
+            "java",
+        );
         let diagnostic = &failure.diagnostics()[0];
         assert!(diagnostic.message.contains("not available"), "{failure}");
-        assert_eq!(
-            diagnostic.spans[0].file, "client/helpers/StepHelper.kt",
-            "{failure}"
-        );
+        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.java");
         assert_eq!(diagnostic.spans[0].start, 1, "{failure}");
     }
 

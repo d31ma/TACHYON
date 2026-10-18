@@ -148,7 +148,7 @@ and sockets". The other compiled Tac languages still refuse `@StreamRequest`.
 page's JavaScript still holds the `EventSource` for the Rust service that
 keeps the client in a field, and the service receives each message with
 `#[OnEvent]`. See ADR 0090, "Rust streams and sockets". C#, F#, Dart,
-Kotlin, Java, Python, Lua and C++ still refuse `@StreamRequest`.
+Java, Python, Lua and C++ still refuse `@StreamRequest`.
 
 ## Amendment (2026-10-17): Rust stream routes with Iterator
 
@@ -192,3 +192,11 @@ with the same rules, and the Dart service receives each message with
 `@StreamRequest` is also written on a Swift HTTPClient protocol method, held
 by the page for the Swift web service that keeps the client in a property,
 as for Go. See ADR 0090, "Swift streams and sockets".
+
+## Amendment (2026-10-17): Kotlin stream clients
+
+`@StreamRequest` is also written on a Kotlin HTTPClient interface method,
+with the same rules as Go: the page's JavaScript holds the `EventSource` for
+the Kotlin web service that keeps the client in a field, and that service
+receives each message with `@OnEvent`. See ADR 0090, "Kotlin streams and
+sockets".

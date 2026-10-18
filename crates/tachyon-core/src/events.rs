@@ -89,6 +89,14 @@ impl EventModule {
     const MAX_MARKERS: usize = 512;
     const MAX_EVENT_NAMES: usize = 128;
 
+    pub(crate) fn first_marker(source: &str, language: &str, names: &[&str]) -> Option<usize> {
+        scan(source, language)
+            .markers
+            .into_iter()
+            .find(|marker| names.contains(&marker.name.as_str()))
+            .map(|marker| marker.span.start)
+    }
+
     fn add_topic_streams(&mut self) {
         for event_type in &mut self.types {
             for listener in &event_type.listeners {
@@ -1686,10 +1694,10 @@ mod tests {
                 "@StreamRequest is not available in Java Tac code; it works in JavaScript, TypeScript",
             ),
             (
-                "client/services/ChatService.kt",
+                "client/services/ChatService.java",
                 "tac",
-                "@HTTPClient(\"/chat\")\ninterface ChatClient {\n    @SocketRequest\n    fun receive(message: ChatMessage)\n}\n",
-                "@SocketRequest is not available in Kotlin Tac code",
+                "@HTTPClient(\"/chat\")\npublic interface ChatClient {\n    @SocketRequest\n    void receive(ChatMessage message);\n}\n",
+                "@SocketRequest is not available in Java Tac code",
             ),
             (
                 "server/controllers/TicksController.js",

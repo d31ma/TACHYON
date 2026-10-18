@@ -169,7 +169,7 @@ page's event bus holds the `WebSocket` for the Rust service that keeps the
 client in a field; the service receives each message with `#[OnEvent]`, and
 the generated `send(message).await` writes to the socket and returns a
 `BehaviorError` code instead of a rejected promise. See ADR 0090, "Rust
-streams and sockets". C#, F#, Dart, Kotlin, Java, Python, Lua and
+streams and sockets". C#, F#, Dart, Java, Python, Lua and
 C++ still refuse `@SocketRequest`.
 
 ## Amendment (2026-10-17): Dart socket clients
@@ -188,3 +188,10 @@ their amendments above).
 page holds the `WebSocket` for the Swift web service that keeps the client in
 a property, and the generated `send(_ message:) async throws` writes to it.
 See ADR 0090, "Swift streams and sockets".
+
+## Amendment (2026-10-17): Kotlin socket clients
+
+`@SocketRequest` is also written on a Kotlin HTTPClient interface method. The
+page's event bus holds the `WebSocket` for the Kotlin web service that keeps
+the client in a field, and the generated `suspend fun send(message: Any)`
+writes to the socket. See ADR 0090, "Kotlin streams and sockets".

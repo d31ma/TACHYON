@@ -47,6 +47,8 @@ impl<'a> ConcreteContract<'a> {
     ];
     const RUBY_HELD_START: &'static str = "def initialize(_context = nil)\nend";
     const RUBY_SEND: &'static str = "def send_message(message)\n  BehaviorBrowserSocket.send_message(\"{owner}\", message)\nend";
+    const KOTLIN: &'static str = "kt";
+    const KOTLIN_SEND: &'static str = "\n{indent}suspend fun send(message: Any) {\n{indent}{indent}behaviorSocketSend(\"{owner}\", message)\n{indent}}\n";
     const RUST_FIELDS: [&'static str; 2] = [";", " { behaviors: BehaviorContext }"];
     const TRAIT: &'static str = "trait";
     const RUST_DEFAULTS: [&'static str; 2] = [
@@ -169,6 +171,7 @@ impl<'a> ConcreteContract<'a> {
         edits.extend(self.context_edits(declaration, &members, needs_context));
         edits.extend(self.ruby_held_edit(declaration, &members, needs_context));
         edits.extend(self.dart_send(declaration, &members));
+        edits.extend(self.kotlin_send(declaration, &members));
         edits
     }
 
@@ -193,7 +196,14 @@ impl<'a> ConcreteContract<'a> {
         let rust_page = [self.tac, self.form.language == Self::RUST] == [true, true];
         let dart_page = [self.tac, self.form.language == Self::DART] == [true, true];
         let swift_page = [self.tac, self.form.language == Self::SWIFT] == [true, true];
-        let pages = [self.holds_in_ruby_page(), rust_page, dart_page, swift_page];
+        let kotlin_page = [self.tac, self.form.language == Self::KOTLIN] == [true, true];
+        let pages = [
+            self.holds_in_ruby_page(),
+            rust_page,
+            dart_page,
+            swift_page,
+            kotlin_page,
+        ];
         let held_in_page = [pages.contains(&true), self.form.language == Self::GO].contains(&true);
         let held: [&[&str]; 2] = [&[], &Self::HELD];
         let held = held[usize::from(held_in_page)];
@@ -250,6 +260,23 @@ impl<'a> ConcreteContract<'a> {
                     .replace("{owner}", &declaration.name)
             })
             .unwrap_or_default()
+    }
+
+    fn kotlin_send(
+        &self,
+        declaration: &ContractDeclaration,
+        members: &[ContractMember],
+    ) -> Option<SourceEdit> {
+        let socket = members
+            .iter()
+            .any(|member| member.is_marked_with(&Self::SOCKET));
+        let wanted = [self.tac, self.form.language == Self::KOTLIN, socket];
+        (wanted == [true, true, true]).then(|| {
+            let text = Self::KOTLIN_SEND
+                .replace("{indent}", &self.indent(members))
+                .replace("{owner}", &declaration.name);
+            (declaration.close..declaration.close, text)
+        })
     }
 
     fn is_bodiless_method(member: &ContractMember) -> bool {

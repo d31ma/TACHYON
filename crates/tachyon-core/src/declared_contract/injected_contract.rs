@@ -56,8 +56,9 @@ impl<'a> InjectedContract<'a> {
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const REMOTES: &'static str = "client/remotes";
     const HELPERS: &'static str = "client/helpers";
-    const HELPER_LANGUAGES: [&'static str; 3] = [Self::GO, Self::RUBY, "swift"];
+    const HELPER_LANGUAGES: [&'static str; 4] = [Self::GO, Self::RUBY, "swift", Self::KOTLIN];
     const HELPER_SUFFIX: &'static str = "Helper";
+    const KOTLIN: &'static str = "kt";
     const GO: &'static str = "go";
     const REMOTE_LANGUAGES: [&'static str; 5] = [Self::GO, "kt", "swift", "java", Self::RUBY];
     const RUBY: &'static str = "rb";
@@ -111,6 +112,13 @@ impl<'a> InjectedContract<'a> {
             Self::injected_helper(path),
         ]
         .contains(&true)
+    }
+
+    pub(crate) fn kotlin_helper(path: &Path) -> bool {
+        [
+            path.starts_with(Self::HELPERS),
+            path.extension().and_then(|extension| extension.to_str()) == Some(Self::KOTLIN),
+        ] == [true, true]
     }
 
     fn injected_helper(path: &Path) -> bool {

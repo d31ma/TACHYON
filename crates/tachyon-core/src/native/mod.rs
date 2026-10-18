@@ -26,6 +26,11 @@ mod go_web_build;
 mod host;
 mod ios;
 mod java_web_services;
+mod kotlin_held_streams;
+#[cfg(test)]
+mod kotlin_held_streams_tests;
+#[cfg(test)]
+mod kotlin_helper_tests;
 mod kotlin_web_services;
 
 #[cfg(test)]

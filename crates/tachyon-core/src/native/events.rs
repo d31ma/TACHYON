@@ -1,3 +1,4 @@
+use super::kotlin_held_streams::KotlinHeldStreams;
 use crate::{
     Failure,
     companion::CompanionLanguage,
@@ -94,15 +95,17 @@ pub(super) fn prepare(
         });
     };
     let owner = validate_module(language, module, path)?;
+    let held = [
+        super::rust_held_streams::RustHeldStreams::of_owner(language, module, owner.as_deref()),
+        KotlinHeldStreams::of_owner(language, module, owner.as_deref(), path),
+    ];
     let mut output = Prepared {
         source: module.source.clone(),
         excluded: Vec::new(),
-        entries: super::rust_held_streams::RustHeldStreams::of_owner(
-            language,
-            module,
-            owner.as_deref(),
-        )
-        .map_err(|message| failure(path, message))?,
+        entries: held
+            .into_iter()
+            .collect::<Result<String, _>>()
+            .map_err(|message| failure(path, message))?,
     };
     let metadata = module
         .types
@@ -328,7 +331,7 @@ fn rust_publisher(line: &str) -> Option<PublisherField> {
     })
 }
 
-fn string_literal(language: NativeCompanion, text: &str) -> String {
+pub(super) fn string_literal(language: NativeCompanion, text: &str) -> String {
     let mut literal = String::with_capacity(text.len() + 2);
     literal.push('"');
     for character in text.chars() {

@@ -255,6 +255,7 @@ impl Module {
             Self::MODULES_INJECTED.contains(&extension),
             environment == "tac",
         ] == [true, true];
+        let kotlin_tac = [extension == "kt", environment == "tac"] == [true, true];
         let paths = modules.iter().map(|module| module.path.as_path());
         let contracts = crate::declared_contract::DeclaredContract::injected_names(paths);
         let paths = modules.iter().map(|module| module.path.as_path());
@@ -262,7 +263,10 @@ impl Module {
         modules
             .into_iter()
             .map(|module| {
-                let injected = injected_tac
+                let helper =
+                    crate::declared_contract::DeclaredContract::is_kotlin_helper(&module.path);
+                let injected = [injected_tac, [kotlin_tac, helper] == [true, true]]
+                    .contains(&true)
                     .then(|| {
                         crate::declared_contract::DeclaredContract::injected_with_remotes(
                             &module.path,
@@ -2360,10 +2364,10 @@ mod tests {
     #[test]
     fn a_helper_beside_a_native_tac_service_fails_at_its_own_file() {
         let root = tempfile::tempdir().expect("project");
-        let entry = "client/services/ShellService.kt";
+        let entry = "client/services/ShellService.java";
         write(root.path(), entry, "");
-        let helper = "client/helpers/MoneyHelper.kt";
-        write(root.path(), helper, "@Helper\nclass MoneyHelper {}");
+        let helper = "client/helpers/MoneyHelper.java";
+        write(root.path(), helper, "@Helper\npublic class MoneyHelper {}");
         let failure = assemble(root.path(), Path::new(entry), "", "tac")
             .expect_err("unsupported compiled Helper role");
         let diagnostic = &failure.diagnostics()[0];
