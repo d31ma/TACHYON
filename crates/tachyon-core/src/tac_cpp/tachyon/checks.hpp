@@ -1,21 +1,75 @@
 namespace tachyon {
 
+class TacCheckFailure {
+public:
+    std::string field;
+    std::string rule;
+};
+
 class TacValidationError : public TacCodedError {
 public:
-    explicit TacValidationError(const std::string& field) : TacCodedError("Behavior validation failed: " + field + ".", "validation"), failedPath(field) {}
+    explicit TacValidationError(std::vector<TacCheckFailure> found) : TacCodedError("Behavior validation failed: " + found.front().field + "." + found.front().rule + ".", "validation"), failedPath(found.front().field + "." + found.front().rule), failures(std::move(found)) {}
 
     const std::string& path() const {
         return failedPath;
     }
 
+    const std::vector<TacCheckFailure>& all() const {
+        return failures;
+    }
+
 private:
     std::string failedPath;
+    std::vector<TacCheckFailure> failures;
 };
 
 template <typename Model>
 class TacChecks {
 public:
     static void check(const Model&) {}
+};
+
+class TacCheckReport {
+public:
+    template <typename Model>
+    static void check(const Model& value) {
+        std::vector<TacCheckFailure> found;
+        Collecting collecting(found);
+        TacChecks<Model>::check(value);
+        if (!found.empty()) {
+            throw TacValidationError(std::move(found));
+        }
+    }
+
+    static void record(const char* field, const char* rule) {
+        if (current() == nullptr) {
+            throw TacValidationError({TacCheckFailure{field, rule}});
+        }
+        current()->push_back(TacCheckFailure{field, rule});
+    }
+
+private:
+    class Collecting {
+    public:
+        explicit Collecting(std::vector<TacCheckFailure>& found) : outer(current()) {
+            current() = &found;
+        }
+
+        Collecting(const Collecting&) = delete;
+        Collecting& operator=(const Collecting&) = delete;
+
+        ~Collecting() {
+            current() = outer;
+        }
+
+    private:
+        std::vector<TacCheckFailure>* outer;
+    };
+
+    static std::vector<TacCheckFailure>*& current() {
+        static std::vector<TacCheckFailure>* collected = nullptr;
+        return collected;
+    }
 };
 
 template <typename Value>
@@ -120,8 +174,8 @@ private:
         return control || spaces || single;
     }
 
-    [[noreturn]] static void fail(const char* field, const char* rule) {
-        throw TacValidationError(std::string(field) + "." + rule);
+    static void fail(const char* field, const char* rule) {
+        TacCheckReport::record(field, rule);
     }
 };
 

@@ -2,7 +2,7 @@ use super::{CppYon, CppYonController};
 use crate::schedule::Schedule;
 use std::path::Path;
 
-struct Roles;
+pub(super) struct Roles;
 
 impl Roles {
     const CONTROLLER_PATH: &'static str = "server/controllers/LifecycleController.hpp";
@@ -111,7 +111,7 @@ public:
         root
     }
 
-    fn write(root: &Path, relative: &str, source: &str) {
+    pub(super) fn write(root: &Path, relative: &str, source: &str) {
         let path = root.join(relative);
         std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
         std::fs::write(path, source).expect("file");
@@ -129,14 +129,14 @@ public:
             .to_string()
     }
 
-    fn compiler_available() -> bool {
+    pub(super) fn compiler_available() -> bool {
         std::process::Command::new("clang++")
             .arg("--version")
             .output()
             .is_ok_and(|output| output.status.success())
     }
 
-    fn run(program: &str, frame: &str) -> (serde_json::Value, String) {
+    pub(super) fn run(program: &str, frame: &str) -> (serde_json::Value, String) {
         let folder = tempfile::tempdir().expect("build folder");
         let source = folder.path().join("program.cpp");
         let binary = folder.path().join("program");

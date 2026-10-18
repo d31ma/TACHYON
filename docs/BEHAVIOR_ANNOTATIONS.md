@@ -1713,8 +1713,12 @@ controllers since the
 [ADR 0099 amendment of 2026-10-16](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-16-yon-route-controllers),
 and services, helpers, injection, lifecycle hooks, local events and scheduled
 workers since the
-[amendment of 2026-10-18](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-roles-injection-and-lifecycle);
-its Setup, behaviors, sockets and test units come in later steps (see
+[amendment of 2026-10-18](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-roles-injection-and-lifecycle),
+and `[[Checked]]` models in `server/models`, `[[Check]]` arguments and
+`[[Converter]]` classes in `server/converters` since the
+[validation amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-validation-and-converters);
+a broken rule answers 422 (ADR 0101). Its Setup, behaviors, sockets and test
+units come in later steps (see
 [Yon controllers](YON_ANNOTATIONS.md#language-spellings)). In Tac, behavior
 markers go on synchronous service methods with a body, and a
 C++ Store keeps its rows in IndexedDB. A C++ `[[Setup]]` lives in

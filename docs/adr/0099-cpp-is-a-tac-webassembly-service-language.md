@@ -585,8 +585,8 @@ languages (ADR 0022, ADR 0023). The rule table lists `hpp` for them
   `server/models`, as in C++ Tac code. A Settings prefix that does not start
   with `YON_`, or a Setting path outside `yon.`, fails at build time; the
   same check now runs for C++ Tac models with `TAC_` and `tac.`. Settings
-  fields have no `[[Min]]` and `[[Max]]` until the validation step, because
-  those markers belong to it.
+  fields take `[[Min]]` and `[[Max]]` since the validation step (amendment
+  "Yon validation and converters" below).
 - The Yon runtime adds a native `TacHost` (`yon_host.hpp`) with the realm
   `"yon"`, a clock and a sleep, and no behavior storage yet. The program
   includes the shared `behaviors.hpp`, `settings.hpp`, `http.hpp` and
@@ -604,6 +604,42 @@ languages (ADR 0022, ADR 0023). The rule table lists `hpp` for them
   properties within one invocation, which is one process. The caching,
   store and HTTP-client steps take their adapters from `context.adapters()`.
 
+## Amendment (2026-10-18): Yon validation and converters
+
+C++ Yon code now checks arguments and has converters. The rule table lists
+`hpp` for `Checked`, `Check`, `Required`, `NotEmpty`, `Length`, `Min`, `Max`,
+`Converter` and `Convert`.
+
+- A `[[Checked]]` model is a struct in `server/models/<Name>.hpp` with the
+  field rules of the Tac side: `[[Required]]` on a `std::optional` or pointer
+  field, `[[NotEmpty]]` on text, `[[Length({"min":1,"max":80})]]` on text, a
+  `std::vector`, a `std::map` or a `std::set`, and `[[Min(0)]]`/`[[Max(9)]]`
+  on a number. `[[Check]]` takes no arguments and goes on a parameter whose
+  type is a Checked model: on a method of a service, helper or converter, or
+  on a controller route parameter next to `[[FromBody]]`. The type names the
+  model; a C++ parameter is never a plain JSON value. A `[[Check]]` on any
+  other type, or `[[Checked]]` on a role class, fails at build time.
+- The check runs before the method body. It reports every broken rule, in
+  field order and, per field, in the order Required, NotEmpty, Length, Min,
+  Max (`TacCheckReport` collects them; the Tac side still throws the first one
+  as `TacValidationError`). A Yon C++ program then writes
+  `{"status":422,"violations":[{"field":"name","rule":"NotEmpty"}]}` instead
+  of an answer, and the server builds the problem details answer of ADR 0101.
+  A body whose JSON does not fit the model types (`"level":"3"` for a number)
+  is refused with 400 before the check runs, and fields the model does not
+  declare are dropped when the body is read.
+- A `[[Converter]]` is a class in `server/converters/<Name>.hpp` that declares
+  only bodiless methods, each with one named parameter. Model-to-model methods
+  copy same-named fields and may add a `[[Convert({"fields":[...]})]]` plan;
+  a `tachyon::json::JsonNode` method needs the plan. The checks and the
+  generated definitions are the Tac ones (`CppConverter`), over the models in
+  `server/models`. A controller, service or helper reaches a converter with
+  `[[Needs]] ProductConverter& converter;`; `server/converters` is the third
+  folder in `CppYonGraph::FOLDERS`.
+- The Yon prelude now carries `checks.hpp` and `convert.hpp`, and
+  `CppProgram::check_role` and `CppProgram::conversions_of` give the Yon
+  composer the same checks and definitions the Tac program uses.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
@@ -613,10 +649,6 @@ bullet, when it lands.
   `[[ResponseStatus]]`, `[[IdentityProvider]]`, and the native request and
   response types. Until then a route parameter without a source marker fails
   with `TY2015`.
-
-- Yon C++ validation and converters: `[[Checked]]`, `[[Check]]`,
-  `[[Required]]`, `[[NotEmpty]]`, `[[Min]]`, `[[Max]]`, `[[Length]]`,
-  `[[Converter]]` and `[[Convert]]`.
 
 - Yon C++ caching, policies and stores: `[[Cached]]`, `[[CacheKey]]`,
   `[[CacheSettings]]`, `[[UpdateCache]]`, `[[ClearCache]]`, `[[Retry]]`,

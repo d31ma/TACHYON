@@ -29,7 +29,14 @@ impl CppPrelude {
     pub(crate) const EXPORTS: &'static str = include_str!("tachyon/exports.hpp");
 
     pub(crate) fn yon() -> String {
-        [Self::INCLUDES, Self::JSON, Self::TASK].concat()
+        [
+            Self::INCLUDES,
+            Self::JSON,
+            Self::TASK,
+            Self::CHECKS,
+            Self::CONVERT,
+        ]
+        .concat()
     }
 
     pub(crate) fn context() -> String {

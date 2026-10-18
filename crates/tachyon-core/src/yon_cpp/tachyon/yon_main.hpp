@@ -50,6 +50,8 @@ private:
             return Routes::answer(frame);
         } catch (const YonArgumentException& error) {
             return YonAnswer::failure(400, error.what());
+        } catch (const TacValidationError& error) {
+            return YonAnswer::rejected(error.all());
         } catch (const std::exception& error) {
             report(frame, error.what());
         } catch (...) {

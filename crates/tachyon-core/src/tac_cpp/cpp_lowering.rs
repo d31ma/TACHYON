@@ -24,6 +24,7 @@ impl CppLowering {
             .insertions
             .push((file.class.body.start + 1, friends.to_owned()));
         lowering.fill_yon_needs(&file.class);
+        lowering.guard_checked(&file.class, source);
         lowering.finished()
     }
 
@@ -81,7 +82,7 @@ impl CppLowering {
         ));
         lowering.fill_needs(class, prototypes);
         lowering.wrap_behaviors(service);
-        lowering.guard_checked(service);
+        lowering.guard_checked(service.class(), &service.source);
         lowering
     }
 
@@ -99,10 +100,9 @@ impl CppLowering {
         }
     }
 
-    fn guard_checked(&mut self, service: &CppService) {
-        let bytes = service.source.as_bytes();
-        let guarded = service
-            .class()
+    fn guard_checked(&mut self, class: &CppClass, source: &str) {
+        let bytes = source.as_bytes();
+        let guarded = class
             .members
             .iter()
             .map(|member| (member, CppChecks::guards(member)))

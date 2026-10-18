@@ -1,6 +1,6 @@
 use super::{CppYonController, CppYonProvider};
 use crate::Failure;
-use crate::tac_cpp::{CppClass, CppFailure, CppLifetime, CppServiceGraph};
+use crate::tac_cpp::{CppClass, CppFailure, CppLifetime, CppProgram, CppServiceGraph};
 use crate::yon::plan::Scope;
 use std::path::Path;
 
@@ -9,22 +9,23 @@ pub(crate) struct CppYonGraph {
 }
 
 impl CppYonGraph {
-    const FOLDERS: &'static [&'static str] = &["server/services", "server/helpers"];
+    const FOLDERS: &'static [&'static str] =
+        &["server/services", "server/helpers", "server/converters"];
     const TRANSIENT_EVENTS: &'static str = "A Yon C++ class with [[OnEvent]], [[OnStart]] or [[OnStop]] runs with objects that live for the whole request, so no class it works with may be [[Lifetime(\"transient\")]]. Use \"request\" or \"singleton\"";
 
-    pub(crate) fn read(root: &Path, controller: &CppYonController) -> Result<Self, Failure> {
+    pub(crate) fn read(
+        root: &Path,
+        controller: &CppYonController,
+        models: &CppProgram,
+    ) -> Result<Self, Failure> {
         let mut graph = CppServiceGraph::within(root, Self::FOLDERS, Self::missing)?;
         Self::add_needs(&mut graph, &controller.path, &controller.file.class)?;
         let mut providers = graph
             .finish()
             .iter()
-            .map(CppYonProvider::service)
+            .map(|service| CppYonProvider::service(service, models))
             .collect::<Result<Vec<_>, _>>()?;
-        providers.push(CppYonProvider::root(
-            &controller.path,
-            &controller.file,
-            &controller.source,
-        )?);
+        providers.push(CppYonProvider::root(controller, models)?);
         let graph = Self { providers };
         graph.check_captures()?;
         graph.check_transient()?;
@@ -60,7 +61,7 @@ impl CppYonGraph {
             path,
             at,
             &format!(
-                "A C++ [[Needs]] field names a C++ [[Service]] in server/services or a C++ [[Helper]] in server/helpers, and there is no {needed}.hpp in either of them. Write the class in its own file there, named after the class"
+                "A C++ [[Needs]] field names a C++ [[Service]] in server/services, a C++ [[Helper]] in server/helpers or a C++ [[Converter]] in server/converters, and there is no {needed}.hpp in any of them. Write the class in its own file there, named after the class"
             ),
         )
     }

@@ -254,6 +254,13 @@ options.profiles = {"production"};
 BehaviorContext context = Behaviors::create<CatalogSetup>(options.withApplication(application));
 ```
 
+A `[[Checked]]` struct in `server/models/<Name>.hpp` carries the field rules,
+and `[[Check]]` on a parameter of that type (a service method, or a route
+parameter next to `[[FromBody]]`) checks it before the method runs; a broken
+rule answers 422 with every broken field and rule (ADR 0101). A
+`[[Converter]]` class in `server/converters/<Name>.hpp` declares bodiless
+`[[Convert]]` methods, and a `[[Needs]]` field reaches it.
+
 C++ has no behavior, socket or test markers in Yon yet: they fail with their
 rule's code, and the message says that C++ gets them in a later step. The
 Pending section of ADR 0099 lists those steps.

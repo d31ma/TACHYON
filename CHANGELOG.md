@@ -30,6 +30,16 @@ machine contracts have their own, independent major versions.
   with `Behaviors::create<Setup>(options)`; the binders want `YON_` names and
   `yon.` paths. A C++ Settings prefix or Setting path from the other realm
   now fails at build time, for Tac too (ADR 0099 amendment).
+- C++ Yon code accepts `[[Checked]]`, `[[Check]]`, `[[Required]]`,
+  `[[NotEmpty]]`, `[[Length]]`, `[[Min]]`, `[[Max]]`, `[[Converter]]` and
+  `[[Convert]]`. A Checked model is a struct in `server/models`, and
+  `[[Check]]` on a service method or route parameter of that type checks it
+  before the method runs; the program reports every broken field and rule,
+  and the server answers 422 with problem details (ADR 0101). A Converter is
+  a class of bodiless methods in `server/converters` that a `[[Needs]]` field
+  reaches; Tachyon writes each mapping (ADR 0099 amendment).
+- C++ Tac checks now collect every broken rule before they throw; the
+  `TacValidationError` message still names the first one.
 - A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
   `-- @SocketRequest`, written as an empty
   `function TicksClient:receive(tick)` with `---@param tick Tick`. The page's

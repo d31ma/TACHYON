@@ -2,7 +2,7 @@
   "heading": "Typed model mapping: Yon",
   "axis": "language",
   "summary": "Model types supply same-named fields. Convert overrides only the targets it names.",
-  "body": "GET /catalog returns {\"id\":7,\"name\":\"Anvil\",\"detail\":{\"name\":\"detail\"},\"items\":[{\"name\":\"detail\"}],\"kind\":\"product\"}. The controller asks for ProductConverter with Needs. The source Product holds secret fields; the target Summary and ShortDetail do not, so those fields are dropped even inside the list. The explicit kind constant overrides that target. Every other target comes from the model signatures.\n\nWhen source and target fields already match, omit Convert entirely. Missing or incompatible target fields fail the build and name the field that needs an explicit entry. One method maps one model: a parameter or result that is a list, a map, a tuple or two models fails the build. Model-valued fields and lists inside a model are projected recursively. A JSON-value signature still needs its literal field plan.\n\nLua declares its signatures with LuaCATS comments and asks for its provider with -- @Needs. Converter methods have empty bodies; the compiler generates each projection.\n\nC++ has no tab here, because C++ Yon code has only controllers, services, helpers and workers so far: the build refuses `Converter` in C++ with `TY1308` (ADR 0099).",
+  "body": "GET /catalog returns {\"id\":7,\"name\":\"Anvil\",\"detail\":{\"name\":\"detail\"},\"items\":[{\"name\":\"detail\"}],\"kind\":\"product\"}. The controller asks for ProductConverter with Needs. The source Product holds secret fields; the target Summary and ShortDetail do not, so those fields are dropped even inside the list. The explicit kind constant overrides that target. Every other target comes from the model signatures.\n\nWhen source and target fields already match, omit Convert entirely. Missing or incompatible target fields fail the build and name the field that needs an explicit entry. One method maps one model: a parameter or result that is a list, a map, a tuple or two models fails the build. Model-valued fields and lists inside a model are projected recursively. A JSON-value signature still needs its literal field plan.\n\nLua declares its signatures with LuaCATS comments and asks for its provider with -- @Needs. Converter methods have empty bodies; the compiler generates each projection.\n\nIn C++, the models are structs in server/models and the converter is a `[[Converter]]` class in server/converters with only method declarations, such as `Summary map(const Product& product);`. The controller asks for it with `[[Needs]] ProductConverter& converter;`, and Tachyon writes each method. A target field whose source may be empty must be a `std::optional` (ADR 0099).",
   "files": [
     {
       "name": "server/models/Product.ts",
@@ -506,6 +506,42 @@
       "name": "server/controllers/CatalogController.lua",
       "code": {
         "file": "server/controllers/CatalogController.lua"
+      }
+    },
+    {
+      "name": "server/models/Product.hpp",
+      "code": {
+        "file": "server/models/Product.hpp"
+      }
+    },
+    {
+      "name": "server/models/Detail.hpp",
+      "code": {
+        "file": "server/models/Detail.hpp"
+      }
+    },
+    {
+      "name": "server/models/Summary.hpp",
+      "code": {
+        "file": "server/models/Summary.hpp"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.hpp",
+      "code": {
+        "file": "server/models/ShortDetail.hpp"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.hpp",
+      "code": {
+        "file": "server/converters/ProductConverter.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.hpp",
+      "code": {
+        "file": "server/controllers/CatalogController.hpp"
       }
     }
   ]

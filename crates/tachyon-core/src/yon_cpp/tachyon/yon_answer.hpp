@@ -16,6 +16,17 @@ public:
         return json(status, body.toJsonString());
     }
 
+    static YonAnswer rejected(const std::vector<TacCheckFailure>& failures) {
+        YonAnswer answer(422, std::string(), false);
+        for (const TacCheckFailure& failure : failures) {
+            json::JsonObject violation;
+            violation["field"] = failure.field;
+            violation["rule"] = ruleName(failure.rule);
+            answer.violations.add(violation);
+        }
+        return answer;
+    }
+
     template <typename T>
     static YonAnswer of(const T& value) {
         json::JsonNode node = json::JsonSerializer::serializeToNode(value);
@@ -28,6 +39,10 @@ public:
     std::string write() const {
         json::JsonObject answer;
         answer["status"] = status;
+        if (violations.count() > 0) {
+            answer["violations"] = violations;
+            return answer.toJsonString();
+        }
         json::JsonObject headers;
         if (hasJson) {
             json::JsonArray types;
@@ -43,8 +58,21 @@ private:
     int status;
     std::string body;
     bool hasJson;
+    json::JsonArray violations;
 
     YonAnswer(int status, std::string body, bool hasJson) : status(status), body(std::move(body)), hasJson(hasJson) {}
+
+    static std::string ruleName(const std::string& rule) {
+        static const std::map<std::string, std::string> names = {
+            {"notNull", "Required"},
+            {"notBlank", "NotEmpty"},
+            {"size", "Length"},
+            {"min", "Min"},
+            {"max", "Max"},
+        };
+        std::map<std::string, std::string>::const_iterator found = names.find(rule);
+        return found == names.end() ? rule : found->second;
+    }
 };
 
 }

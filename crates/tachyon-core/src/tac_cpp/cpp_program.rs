@@ -1,6 +1,6 @@
 use super::{
-    CppChecks, CppConverter, CppFailure, CppFolder, CppHeldStreams, CppLowering, CppModel,
-    CppPrelude, CppService, CppServiceGraph, CppSetup, CppStore,
+    CppChecks, CppClass, CppConverter, CppFailure, CppFolder, CppHeldStreams, CppLowering,
+    CppModel, CppPrelude, CppService, CppServiceGraph, CppSetup, CppStore,
 };
 use crate::Failure;
 use crate::annotation_rules::Realm;
@@ -56,28 +56,38 @@ impl CppProgram {
     }
 
     fn checked(mut self) -> Result<Self, Failure> {
+        self.services
+            .iter()
+            .try_for_each(|service| self.check_uses(&service.path, service.class()))?;
+        self.stores = self.store_definitions()?;
+        Ok(self)
+    }
+
+    pub(crate) fn check_role(
+        &self,
+        path: &Path,
+        source: &str,
+        class: &CppClass,
+    ) -> Result<(), Failure> {
+        CppChecks::check_service(path, class)?;
+        CppConverter::check(path, source, class)?;
+        self.check_uses(path, class)
+    }
+
+    fn check_uses(&self, path: &Path, class: &CppClass) -> Result<(), Failure> {
         let checked: Vec<String> = self
             .models
             .iter()
             .filter(|model| model.is_checked())
             .map(|model| model.name().to_owned())
             .collect();
-        self.services
-            .iter()
-            .try_for_each(|service| self.check_service(service, &checked))?;
-        self.stores = self.store_definitions()?;
-        Ok(self)
-    }
-
-    fn check_service(&self, service: &CppService, checked: &[String]) -> Result<(), Failure> {
-        CppChecks::checked_types(service.class())
+        CppChecks::checked_types(class)
             .into_iter()
             .try_for_each(|(type_name, at)| {
-                CppChecks::require_checked(&service.path, at, &type_name, checked)
+                CppChecks::require_checked(path, at, &type_name, &checked)
             })?;
-        service
-            .is_converter()
-            .then(|| CppConverter::new(&service.path, &self.models).check_methods(service.class()))
+        CppConverter::is_converter(class)
+            .then(|| CppConverter::new(path, &self.models).check_methods(class))
             .transpose()
             .map(drop)
     }
@@ -266,12 +276,17 @@ impl CppProgram {
     }
 
     fn conversions(&self, service: &CppService) -> String {
-        if !service.is_converter() {
-            return String::new();
-        }
-        let definitions =
-            CppConverter::new(&service.path, &self.models).definitions(service.class());
-        format!("{}{definitions}", Self::GENERATED)
+        self.conversions_of(&service.path, service.class())
+    }
+
+    pub(crate) fn conversions_of(&self, path: &Path, class: &CppClass) -> String {
+        CppConverter::is_converter(class)
+            .then(|| {
+                let definitions = CppConverter::new(path, &self.models).definitions(class);
+                format!("{}{definitions}", Self::GENERATED)
+            })
+            .into_iter()
+            .collect()
     }
 
     fn lowered(&self, service: &CppService) -> String {

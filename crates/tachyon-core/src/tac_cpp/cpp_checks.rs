@@ -43,7 +43,7 @@ impl CppChecks {
         "int32_t",
     ];
     const NEEDS_CHECKED: &'static str = "A C++ field constraint ([[Required]], [[NotEmpty]], [[Length]], [[Min]] or [[Max]]) needs [[Checked]] on its model, for example `struct [[Checked]] SignUp { ... };`";
-    const MODELS_ONLY: &'static str = "[[Checked]] and the field constraints go on a C++ model in client/models; a service checks an argument with [[Check]], for example `void submit([[Check]] const SignUp& form)`";
+    const MODELS_ONLY: &'static str = "[[Checked]] and the field constraints go on a C++ model in client/models (server/models in Yon); a service checks an argument with [[Check]], for example `void submit([[Check]] const SignUp& form)`";
     const MAX_FIELDS: usize = 64;
     const TOO_MANY: &'static str = "A [[Checked]] C++ model has at most 64 constrained fields";
     const REQUIRED_FORM: &'static str = "A plain C++ field always holds a value, so [[Required]] checks a std::optional or pointer field, for example `[[Required]] std::optional<std::string> email;`";
@@ -53,7 +53,7 @@ impl CppChecks {
     const MAX_NUMBER: f64 = 9_007_199_254_740_991.0;
     const LIMIT_FORM: &'static str = "[[Min]] and [[Max]] take one finite JSON number, for example [[Min(0)]], and go on a number field; Min cannot exceed Max";
     const DUPLICATE: &'static str = "Each field constraint appears once on a C++ field";
-    const CHECK_FORM: &'static str = "[[Check]] takes no arguments and goes on a parameter whose type is a [[Checked]] model in client/models, for example `void submit([[Check]] const SignUp& form)`";
+    const CHECK_FORM: &'static str = "[[Check]] takes no arguments and goes on a parameter whose type is a [[Checked]] model in client/models (server/models in Yon), for example `void submit([[Check]] const SignUp& form)`";
 
     pub(crate) fn is_checked(class: &CppClass) -> bool {
         class
@@ -150,7 +150,7 @@ impl CppChecks {
             })
             .map(|parameter| {
                 format!(
-                    " ::tachyon::TacChecks<{}>::check({});",
+                    " ::tachyon::TacCheckReport::check<{}>({});",
                     CppTypeText::plain(&parameter.type_text),
                     parameter.name
                 )

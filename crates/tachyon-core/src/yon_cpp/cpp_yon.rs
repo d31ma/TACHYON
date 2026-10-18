@@ -9,8 +9,8 @@ pub(crate) struct CppYon;
 impl CppYon {
     pub(crate) fn lower(source: &Path, contents: &str, root: &Path) -> Result<Lowered, Failure> {
         let controller = CppYonController::read(source, contents)?;
-        let graph = CppYonGraph::read(root, &controller)?;
         let models = CppProgram::server_models(root)?;
+        let graph = CppYonGraph::read(root, &controller, &models)?;
         Ok(Lowered {
             source: CppYonProgram::source(&controller, &graph, &models),
             routes: controller

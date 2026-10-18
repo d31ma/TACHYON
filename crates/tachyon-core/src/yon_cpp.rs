@@ -17,6 +17,9 @@ mod cpp_yon_worker;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
+mod check_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
 mod role_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
