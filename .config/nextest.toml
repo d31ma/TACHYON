@@ -33,3 +33,8 @@ slow-timeout = { period = "60s", terminate-after = 15 }
 [[profile.default.overrides]]
 filter = 'test(/tac_web::.*(csharp|fsharp|dotnet)|tac_web::fsharp_tests::|model_sources::tests::a_csharp_web|tac_implicit_mapping_(cs|fs)_|tac_model_binding::(a_csharp|an_fsharp)/)'
 test-group = 'dotnet-web'
+
+# The Python Tac browser test starts Pyodide four times in each of Chromium, Firefox and WebKit.
+[[profile.default.overrides]]
+filter = 'test(pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler)'
+slow-timeout = { period = "60s", terminate-after = 16 }

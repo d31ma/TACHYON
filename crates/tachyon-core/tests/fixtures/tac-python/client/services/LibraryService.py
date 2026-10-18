@@ -7,11 +7,13 @@ class LibraryService:
     shelf: Annotated[ShelfHelper, needs]
     total: int = 0
     loaded: Annotated[str, local_state] = 'waiting'
+    shelved: Annotated[str, session_state] = 'none'
 
     async def load(self, title: str) -> Guide:
         pages = await self.shelf.count(title)
         self.total += pages
         self.loaded = title
+        self.shelved = title
         return Guide(title=title, pages=pages)
 
     async def hold(self) -> int:

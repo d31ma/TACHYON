@@ -204,7 +204,9 @@ the runtime files; `ty doctor` names the folder.
   builds `crates/tachyon-core/tests/fixtures/tac-python` and checks a view
   click, the promise, a field read while the method waits, a failure and a
   cancellation on dispose, online and after an offline reload, in Chromium.
-  Firefox and WebKit runs are still owed.
+  Firefox and WebKit runs are still owed. (Replaced: the test runs in
+  Chromium, Firefox and WebKit; see the amendment of 2026-10-18 on browser
+  engines.)
 
 ## Amendment 2026-10-16: saved fields
 
@@ -226,7 +228,9 @@ the runtime files; `ty doctor` names the folder.
   and the browser test above, whose `LibraryService.loaded` field is
   `LocalState` and comes back after the offline reload in Chromium.
   `SessionState` shares the page code but has no browser check of its own
-  for Python yet. Firefox and WebKit runs are still owed.
+  for Python yet. Firefox and WebKit runs are still owed. (Replaced: the
+  browser test checks a `SessionState` field in all three engines; see the
+  amendment of 2026-10-18 on browser engines.)
 
 ## Note 2026-10-16: offline through `ty preview` is not qualified
 
@@ -349,3 +353,28 @@ Evidence: `scripts/browser-http-browser-test.mjs --language=python` builds
 passed in Chromium in a Linux container; the Firefox and WebKit runs belong
 to the local CI runner) with the checks of the Lua gate (ADR 0085). The
 first-app tutorial has Python tabs for step 4 and step 5.
+
+## Amendment 2026-10-18: browser engines and `SessionState`
+
+- `scripts/python-tac-browser-test.mjs` runs the Python Tac browser test in
+  Chromium, Firefox and WebKit. `TAC_PYTHON_BROWSERS` picks engines, as
+  `TAC_*_BROWSERS` does for the other browser gates; the default is all
+  three. Each engine writes its own receipt,
+  `python-tac-browser-<engine>.json`, in the retained fixture folder.
+- The test hostname `python-tac.test` reaches the local test origin through
+  a small HTTP `CONNECT` proxy that Playwright sets for each browser. The
+  Chromium-only `--host-resolver-rules` flag is gone. Firefox needs
+  `dom.serviceWorkers.testing.enabled` to run the service worker behind the
+  local test certificate.
+- Offline means the test origin refuses every request. Chromium and Firefox
+  also emulate offline; WebKit does not, because its emulation fails
+  worker-served navigations. The test checks that no pinned Python runtime
+  file and no service module reached the network while offline.
+- `LibraryService.shelved` in the fixture is a `SessionState` field. The
+  test checks that the page saves it in `sessionStorage` and the
+  `LocalState` field `loaded` in `localStorage`, that both come back after
+  the offline reload, and that a new tab restores `loaded` but starts
+  `shelved` at its default.
+- This amendment replaces the "Firefox and WebKit runs are still owed"
+  notes and the missing `SessionState` browser check in the 2026-10-16
+  amendments above.

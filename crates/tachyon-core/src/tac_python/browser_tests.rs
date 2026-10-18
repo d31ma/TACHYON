@@ -172,7 +172,7 @@ impl PythonTacFixture {
             .env("TAC_PYTHON_SOURCE_COMMIT", &self.source)
             .env("TAC_BIN", &self.binary);
         let output =
-            crate::node_driver::NodeDriver::run_within(&mut command, Duration::from_mins(1))
+            crate::node_driver::NodeDriver::run_within(&mut command, Duration::from_mins(16))
                 .await
                 .unwrap_or_else(|error| panic!("supervised browser probe: {error}"));
         assert!(
@@ -192,7 +192,7 @@ impl PythonTacFixture {
 }
 
 #[tokio::test]
-#[ignore = "requires explicit pinned core assets, retained fixture/cache, source commit, preview binary and Chromium"]
+#[ignore = "requires explicit pinned core assets, retained fixture/cache, source commit, preview binary and Playwright Chromium, Firefox and WebKit"]
 async fn pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler() {
     PythonTacFixture::run().await;
 }

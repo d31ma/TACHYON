@@ -57,6 +57,13 @@ machine contracts have their own, independent major versions.
   such as `ConnectivityChanged`, are C++ structs, so an `[[OnEvent]]`
   listener hears them. A C++ test unit answers the calls with
   `BrowserFakes::answer("clock", "now", 1000)` (ADR 0099).
+- The Python Tac browser test runs in Chromium, Firefox and WebKit, and
+  checks a `SessionState` field. `TAC_PYTHON_BROWSERS` picks engines. The
+  test host now reaches the local origin through a Playwright proxy instead
+  of a Chromium-only flag, and each engine writes its own receipt. The
+  fixture's `SessionState` field is saved in `sessionStorage`, comes back
+  after the offline reload, and starts at its default in a new tab (ADR 0093
+  amendment).
 - `ty migrate fix --write` rewrites legacy C++ Yon handlers. A
   `server/routes/**/yon.cpp` file with a `Handler` class moves to
   `server/controllers/<Route>Controller.hpp` with `#pragma once`,
