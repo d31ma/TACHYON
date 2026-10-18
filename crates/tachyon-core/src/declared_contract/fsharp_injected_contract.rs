@@ -1,4 +1,5 @@
 use super::constructor_parameter::ConstructorParameter;
+use super::fsharp_needed_property::FsharpNeededProperty;
 use std::path::Path;
 
 pub(crate) struct FsharpInjectedContract<'a> {
@@ -14,6 +15,8 @@ impl<'a> FsharpInjectedContract<'a> {
     const SEPARATOR: &'static str = ", ";
     const DEFAULT_INDENT: &'static str = "    ";
     const BINDING: &'static str = "{indent}let {name} = {type}()\n";
+    const HELPER_BINDING: &'static str = "{indent}let {name} = new {type}()\n";
+    const HELPER_SUFFIX: &'static str = "Helper";
     const OPENERS: [char; 3] = ['(', '<', '['];
     const CLOSERS: [char; 3] = [')', '>', ']'];
 
@@ -23,7 +26,11 @@ impl<'a> FsharpInjectedContract<'a> {
         let injected = Self { contracts };
         let lines: Vec<&str> = source.split_inclusive('\n').collect();
         let written: Vec<Option<String>> = (0..lines.len())
-            .map(|at| injected.header(&lines, at))
+            .map(|at| {
+                injected
+                    .header(&lines, at)
+                    .or_else(|| injected.property(&lines, at))
+            })
             .collect();
         written.iter().any(Option::is_some).then(|| {
             lines
@@ -53,7 +60,8 @@ impl<'a> FsharpInjectedContract<'a> {
         let bindings: String = injected
             .iter()
             .map(|parameter| {
-                Self::BINDING
+                let helper = parameter.type_name.ends_with(Self::HELPER_SUFFIX);
+                [Self::BINDING, Self::HELPER_BINDING][usize::from(helper)]
                     .replace("{indent}", indent)
                     .replace("{name}", parameter.name)
                     .replace("{type}", parameter.type_name)
@@ -66,6 +74,14 @@ impl<'a> FsharpInjectedContract<'a> {
             &line[close..]
         );
         Some(format!("{header}{bindings}"))
+    }
+
+    fn property(&self, lines: &[&str], at: usize) -> Option<String> {
+        let marker = FsharpNeededProperty::marker(lines, at, self.contracts).then(String::new);
+        marker.or_else(|| {
+            FsharpNeededProperty::needed(lines, at, self.contracts)
+                .map(|property| property.filled())
+        })
     }
 
     fn parameters(text: &str) -> Vec<ConstructorParameter<'_>> {

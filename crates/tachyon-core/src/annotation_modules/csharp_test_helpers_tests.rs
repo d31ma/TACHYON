@@ -4,7 +4,7 @@ struct CsharpOwnershipProject;
 
 impl CsharpOwnershipProject {
     const HELPER_PATH: &'static str = "client/helpers/deep/StepHelper.cs";
-    const OWNERSHIP_MESSAGE: &'static str = "Tac C# Helper StepHelper requires explicit caller-owned construction outside its own class; managed Helper injection, lifetime and lifecycle hooks are not supported. Construct it in a same-language Setup or Service and retain the caller's ownership.";
+    const OWNERSHIP_MESSAGE: &'static str = "Tac C# Helper StepHelper needs an owner: a [Needs] field of the class that uses it, which makes a new StepHelper for that class, or an explicit caller-owned construction with new outside its own class. A Helper takes no NeedsAll, Lifetime or lifecycle hooks, and a [Needs] field names a Helper from client/helpers.";
     const ENTRY: &'static str = "client/services/TallyService.cs";
     const SERVICE: &'static str =
         "[Service]\npublic class TallyService { public string Read() { return \"ready\"; } }\n";
@@ -381,7 +381,7 @@ fn csharp_service_marker_under_nested_helpers_remains_refused() {
 }
 
 #[test]
-fn csharp_test_witness_does_not_permit_managed_helper_injection() {
+fn csharp_test_witness_does_not_permit_a_needs_all_helper() {
     let root = CsharpOwnershipProject::project();
     CsharpOwnershipProject::setup(root.path(), CsharpOwnershipProject::SETUP);
     CsharpOwnershipProject::write(
@@ -389,7 +389,7 @@ fn csharp_test_witness_does_not_permit_managed_helper_injection() {
         CsharpOwnershipProject::ENTRY,
         "[Service]\n[NeedsAll]\npublic class TallyService { private readonly StepHelper step; }\n",
     );
-    CsharpOwnershipProject::refused(root.path(), "managed Helper injection");
+    CsharpOwnershipProject::refused(root.path(), "takes no NeedsAll");
 }
 
 #[test]

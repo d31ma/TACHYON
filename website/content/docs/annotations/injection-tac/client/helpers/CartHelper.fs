@@ -1,7 +1,5 @@
 [<Helper>]
-type CartHelper() =
-    let prices = new CartPricesHelper()
-
+type CartHelper(prices: CartPricesHelper) =
     member this.Settle(subtotal: int) : int =
         let surcharge = prices.Surcharge()
         subtotal + surcharge

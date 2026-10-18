@@ -168,3 +168,41 @@ It takes no `@NeedsAll`, `@Lifetime`, `@OnStart`, `@OnStop` or `@OnEvent`,
 and the build stops such a Helper at the Helper file (ADR 0083 amendment of
 2026-10-18). With Java, every Tac language accepts Helper: the rule table's
 `TAC_HELPER` is now the full `TAC` list.
+
+## Amendment (2026-10-18): C# and F# Tac Helpers are built by Needs
+
+A C# or F# Tac service or Helper may name a Helper from `client/helpers` in
+a Needs, as Java and Kotlin do. This replaces "C# has no managed Helper
+injection" in "Caller-owned C# Tac Helpers" above.
+
+- C#: the build writes `[Needs] private readonly TaxHelper _tax;` as
+  `private readonly TaxHelper _tax = new TaxHelper();`. The field uses the C#
+  field case (`TY1332`).
+- F#: a primary constructor parameter `type QuoteService(tax: TaxHelper) =`
+  becomes `type QuoteService() =` with `let tax = new TaxHelper()`. A
+  property `[<Needs>] member val Tax : TaxHelper = Unchecked.defaultof<TaxHelper> with get, set`
+  becomes `member val private Tax : TaxHelper = new TaxHelper() with get, set`,
+  so the view does not see it.
+- So each class that needs a Helper gets its own new one. A Helper is not
+  shared. A Helper may need other Helpers in the same way, so it has a
+  constructor without parameters when a Needs builds it.
+- The same writing happens for the services that a Tac test unit or a
+  native build composes, so a test unit builds a service with
+  `new CheckoutService()` and the service has its Helpers.
+- A C# or F# Helper still takes no NeedsAll, Lifetime, OnStart, OnStop or
+  OnEvent, and an F# Helper's `[<Needs>]` property names another Helper:
+  the build stops with `TY1308` at the Helper file.
+- A caller may still build a Helper with `new`, as before.
+- Still standing: every C# or F# Helper in `client/helpers` needs an owner
+  in each service build that composes it, through a Needs or a `new` call
+  (`TY1308` otherwise), so a Helper that one service needs and another does
+  not stops the other service's build. The page program (one .NET program
+  per page) is the step that removes this.
+
+Evidence: `tac_web::dotnet_helper_tests` builds a C# and an F# browser
+service that need a Helper which needs another Helper, runs them under Node,
+and checks that each service has its own Helpers and that the Helpers are
+not view properties. `client_tests::dotnet_helper_unit_tests` runs a C# and
+an F# test unit with two services that each own their Helper, and
+`annotation_modules::helper_callers_tests` checks the written fields and the
+remaining refusals.

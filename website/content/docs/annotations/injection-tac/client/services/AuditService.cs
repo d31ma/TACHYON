@@ -1,10 +1,7 @@
 [Service]
 public sealed class AuditService {
+    [Needs]
     private readonly CartHelper _ledger;
-
-    public AuditService() {
-        _ledger = new CartHelper();
-    }
 
     public int Lines() {
         return _ledger.Count();

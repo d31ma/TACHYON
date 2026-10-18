@@ -15,7 +15,10 @@ impl<'a> FsharpHelperOwnership<'a> {
     const FORBIDDEN: [&'static str; 6] = [
         "Needs", "NeedsAll", "Lifetime", "OnStart", "OnStop", "OnEvent",
     ];
-    const LIMIT: &'static str = "F# Tac Helpers require explicit caller-owned new construction and an ordinary primary constructor. Helper Needs properties, managed injection, lifetime and lifecycle hooks remain unsupported.";
+    const NEEDS: &'static str = "Needs";
+    const PROPERTY: &'static str = "member val ";
+    const HELPER_SUFFIX: &'static str = "Helper";
+    const LIMIT: &'static str = "An F# Tac Helper needs an owner: a caller-owned `new` call outside its own class, or a primary constructor parameter or [<Needs>] property of the class that needs it, which makes a new Helper for that class. A Helper has an ordinary primary constructor, its [<Needs>] properties name other Helpers, and it takes no NeedsAll, Lifetime, OnStart, OnStop or OnEvent.";
 
     pub(super) fn read(path: &'a Path, source: &'a str) -> Result<Self, Failure> {
         let code = crate::annotation_layout::masked_source(path, source)?;
@@ -119,23 +122,41 @@ impl<'a> FsharpHelperOwnership<'a> {
 
     fn require_member_markers(&self, range: &Range<usize>) -> Result<(), Failure> {
         let mut offset = range.start;
-        for line in self.code[range.clone()].split_inclusive('\n') {
+        let lines: Vec<&str> = self.code[range.clone()].split_inclusive('\n').collect();
+        for (at, line) in lines.iter().enumerate() {
             let text = line.trim_end_matches(['\r', '\n']);
-            self.require_member_marker(text, offset)?;
+            let next = lines.get(at + 1).copied().unwrap_or("");
+            self.require_member_marker(text, next, offset)?;
             self.require_primary_only(text, offset)?;
             offset += line.len();
         }
         Ok(())
     }
 
-    fn require_member_marker(&self, line: &str, at: usize) -> Result<(), Failure> {
-        let markers = AttributeLine::raw(line.trim());
-        if line.starts_with(char::is_whitespace)
-            && markers.iter().any(|marker| Self::forbidden(&marker.name))
-        {
+    fn require_member_marker(&self, line: &str, next: &str, at: usize) -> Result<(), Failure> {
+        let refused = AttributeLine::raw(line.trim()).iter().any(|marker| {
+            [
+                Self::forbidden(&marker.name),
+                Self::needed_helper(marker, next),
+            ] == [true, false]
+        });
+        if [line.starts_with(char::is_whitespace), refused] == [true, true] {
             return Err(self.failure(at + line.len() - line.trim_start().len()));
         }
         Ok(())
+    }
+
+    fn needed_helper(marker: &AttributeLine, next: &str) -> bool {
+        let property = next
+            .trim()
+            .strip_prefix(Self::PROPERTY)
+            .and_then(|declared| declared.split_once(':'))
+            .and_then(|(_, rest)| rest.split_once('='))
+            .map(|(type_name, _)| type_name.trim());
+        [
+            Self::marker_name(&marker.name) == Self::NEEDS,
+            property.is_some_and(|type_name| type_name.ends_with(Self::HELPER_SUFFIX)),
+        ] == [true, true]
     }
 
     fn require_primary_only(&self, line: &str, at: usize) -> Result<(), Failure> {

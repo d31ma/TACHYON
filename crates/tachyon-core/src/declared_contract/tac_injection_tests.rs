@@ -195,7 +195,7 @@ fn a_ruby_helper_is_injected_and_a_helper_of_another_language_is_not() {
     let paths = [
         Path::new("client/helpers/LevelHelper.rb"),
         Path::new("client/helpers/money/MoneyHelper.rb"),
-        Path::new("client/helpers/LevelHelper.cs"),
+        Path::new("client/helpers/LevelHelper.rs"),
     ];
     let names = DeclaredContract::injected_names(paths.into_iter());
     assert_eq!(names, ["LevelHelper", "MoneyHelper"]);
@@ -228,7 +228,7 @@ fn a_go_service_field_that_needs_a_helper_creates_its_own_helper() {
     let paths = [
         Path::new("client/helpers/StepHelper.go"),
         Path::new("client/helpers/text/WordHelper.go"),
-        Path::new("client/helpers/StepHelper.cs"),
+        Path::new("client/helpers/StepHelper.rs"),
     ];
     let names = DeclaredContract::injected_names(paths.into_iter());
     assert_eq!(names, ["StepHelper", "WordHelper"]);
@@ -262,6 +262,40 @@ fn a_swift_field_that_needs_a_helper_builds_it_and_a_rust_one_does_not() {
         filled.contains("    private let cartHelper: CartHelper = CartHelper()"),
         "{filled}"
     );
+}
+
+#[test]
+fn a_csharp_field_and_fsharp_needs_that_name_a_helper_build_it() {
+    let paths = [
+        Path::new("client/helpers/TaxHelper.cs"),
+        Path::new("client/helpers/money/RoundHelper.fs"),
+    ];
+    let names = DeclaredContract::injected_names(paths.into_iter());
+    assert_eq!(names, ["TaxHelper", "RoundHelper"]);
+    assert_eq!(
+        DeclaredContract::helper_names(paths.into_iter()),
+        ["TaxHelper", "RoundHelper"]
+    );
+    let source = "[Service]\npublic sealed class CheckoutService {\n    [Needs]\n    private readonly TaxHelper _tax;\n}\n";
+    let path = TacInjection::service_path("cs");
+    let filled = DeclaredContract::injected(Path::new(&path), source, &names).unwrap_or_default();
+    assert!(
+        filled.contains("    private readonly TaxHelper _tax = new TaxHelper();"),
+        "{filled}"
+    );
+    assert!(!filled.contains("[Needs]"), "{filled}");
+    let source = "[<Service>]\ntype CheckoutService(rounding: RoundHelper, label: string) =\n    [<Needs>]\n    member val Tax : TaxHelper = Unchecked.defaultof<TaxHelper> with get, set\n    [<Needs>]\n    member val Prices : PriceStore = Unchecked.defaultof<PriceStore> with get, set\n";
+    let path = TacInjection::service_path("fs");
+    let contracts = [names, vec![String::from("PriceStore")]].concat();
+    let filled =
+        DeclaredContract::injected(Path::new(&path), source, &contracts).unwrap_or_default();
+    for part in [
+        "type CheckoutService(label: string) =\n    let rounding = new RoundHelper()\n",
+        "    member val private Tax : TaxHelper = new TaxHelper() with get, set\n",
+        "    [<Needs>]\n    member val Prices : PriceStore = Unchecked.defaultof<PriceStore> with get, set\n",
+    ] {
+        assert!(filled.contains(part), "{part:?}:\n{filled}");
+    }
 }
 
 #[test]

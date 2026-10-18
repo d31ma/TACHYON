@@ -351,6 +351,6 @@ impl CsharpTacHelpers {
     }
 
     fn failure(input: &Input<'_>, at: usize, name: &str) -> Failure {
-        input.failure(at, format!("Tac C# Helper {name} requires explicit caller-owned construction outside its own class; managed Helper injection, lifetime and lifecycle hooks are not supported. Construct it in a same-language Setup or Service and retain the caller's ownership."))
+        input.failure(at, format!("Tac C# Helper {name} needs an owner: a [Needs] field of the class that uses it, which makes a new {name} for that class, or an explicit caller-owned construction with new outside its own class. A Helper takes no NeedsAll, Lifetime or lifecycle hooks, and a [Needs] field names a Helper from client/helpers."))
     }
 }

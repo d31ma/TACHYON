@@ -1,9 +1,6 @@
 [<Service>]
 [<Lifetime({"value":"prototype"})>]
-type CartService() =
-    let prices = new CartPricesHelper()
-    let cart = new CartHelper()
-
+type CartService(prices: CartPricesHelper, cart: CartHelper) =
     member this.Total() : int =
         let subtotal = prices.Subtotal()
         cart.Settle(subtotal)

@@ -56,3 +56,94 @@ fn csharp_helper_real_service_caller_is_checked_across_captured_files() {
     assert!(source.contains("new StepHelper(\"owned\")"));
     assert!(source.contains("class StepHelper"));
 }
+
+#[test]
+fn csharp_and_fsharp_needs_fields_own_the_helpers_they_name() {
+    for (extension, helper, owner, service, written) in [
+        (
+            "cs",
+            "[Helper]\npublic sealed class RateHelper {\n public int Rate() { return 2; }\n}\n",
+            "[Helper]\npublic sealed class TaxHelper {\n [Needs]\n private readonly RateHelper _rates;\n public int Add(int value) { return value + _rates.Rate(); }\n}\n",
+            "[Service]\npublic sealed class TallyService {\n [Needs]\n private readonly TaxHelper _tax;\n public int Read() { return _tax.Add(40); }\n}\n",
+            [
+                "private readonly RateHelper _rates = new RateHelper();",
+                "private readonly TaxHelper _tax = new TaxHelper();",
+            ],
+        ),
+        (
+            "fs",
+            "[<Helper>]\ntype RateHelper() =\n    member this.Rate() : int = 2\n",
+            "[<Helper>]\ntype TaxHelper(rates: RateHelper) =\n    member this.Add(value: int) : int = value + rates.Rate()\n",
+            "[<Service>]\ntype TallyService() =\n    [<Needs>]\n    member val Tax : TaxHelper = Unchecked.defaultof<TaxHelper> with get, set\n    member this.Read() : int = this.Tax.Add(40)\n",
+            [
+                "let rates = new RateHelper()",
+                "member val private Tax : TaxHelper = new TaxHelper() with get, set",
+            ],
+        ),
+    ] {
+        let root = tempfile::tempdir().expect("captured project");
+        let entry = format!("client/services/TallyService.{extension}");
+        HelperCallerFiles::write(root.path(), &entry, service);
+        HelperCallerFiles::write(
+            root.path(),
+            &format!("client/helpers/RateHelper.{extension}"),
+            helper,
+        );
+        HelperCallerFiles::write(
+            root.path(),
+            &format!("client/helpers/tax/TaxHelper.{extension}"),
+            owner,
+        );
+        let entry = Path::new(&entry);
+        let roles = crate::behavior::ServiceRoles::read(entry, service).expect("Service roles");
+        let authored = [roles.source.as_str(), service][usize::from(extension == "fs")];
+        let source = super::assemble(root.path(), entry, authored, "tac")
+            .unwrap_or_else(|failure| panic!("{extension}: {failure}"))
+            .expect("captured Helpers");
+        for part in written {
+            assert!(source.contains(part), "{extension} {part}:\n{source}");
+        }
+        assert!(!source.contains("Needs"), "{extension}:\n{source}");
+    }
+}
+
+#[test]
+fn csharp_and_fsharp_helpers_still_refuse_lifetime_and_hooks() {
+    for (path, source, marker) in [
+        (
+            "client/helpers/TaxHelper.cs",
+            "[Helper]\n[Lifetime({\"value\":\"prototype\"})]\npublic sealed class TaxHelper {}\n",
+            "[Lifetime",
+        ),
+        (
+            "client/helpers/TaxHelper.cs",
+            "[Helper]\npublic sealed class TaxHelper {\n [OnStart]\n public void Open() {}\n}\n",
+            "[OnStart]",
+        ),
+        (
+            "client/helpers/TaxHelper.fs",
+            "[<Helper>]\n[<NeedsAll>]\ntype TaxHelper() =\n    member this.Read() : int = 1\n",
+            "NeedsAll",
+        ),
+        (
+            "client/helpers/TaxHelper.fs",
+            "[<Helper>]\ntype TaxHelper() =\n    [<OnStop>]\n    member this.Close() : unit = ()\n",
+            "[<OnStop>]",
+        ),
+        (
+            "client/helpers/TaxHelper.fs",
+            "[<Helper>]\ntype TaxHelper() =\n    [<Needs>]\n    member val Prices : PriceStore = Unchecked.defaultof<PriceStore> with get, set\n",
+            "[<Needs>]",
+        ),
+    ] {
+        let failure = crate::behavior::HelperRole::refuse_in_tac(Path::new(path), source)
+            .expect_err("a Helper has no lifetime, hooks or non-Helper Needs");
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.number(), 1308, "{path}: {failure}");
+        let start = source.find(marker).expect("marker");
+        assert!(
+            usize::try_from(diagnostic.spans[0].start).expect("offset") <= start,
+            "{path}: {failure}"
+        );
+    }
+}

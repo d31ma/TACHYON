@@ -1,5 +1,6 @@
 [<Service>]
 type AuditService() =
-    let ledger = new CartHelper()
+    [<Needs>]
+    member val Ledger : CartHelper = Unchecked.defaultof<CartHelper> with get, set
 
-    member this.Lines() : int = ledger.Count()
+    member this.Lines() : int = this.Ledger.Count()

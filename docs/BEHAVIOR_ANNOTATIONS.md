@@ -603,7 +603,15 @@ Java service or Helper names it in a field such as
 a Helper gets its own new one; a Helper is not shared like a Java service. A
 Java Helper may need other Helpers the same way. It takes no `@NeedsAll`,
 `@Lifetime`, `@OnStart`, `@OnStop` or `@OnEvent`, and the build says so at
-the Helper file (ADR 0083 amendment of 2026-10-18).
+the Helper file (ADR 0083 amendment of 2026-10-18). C# and F# Tac Helpers
+work the same way (ADR 0091 amendment of 2026-10-18). The build writes
+`[Needs] private readonly TaxHelper _tax;` as
+`private readonly TaxHelper _tax = new TaxHelper();`, an F# primary
+constructor parameter `(tax: TaxHelper)` as `let tax = new TaxHelper()`, and
+`[<Needs>] member val Tax : TaxHelper = Unchecked.defaultof<TaxHelper> with get, set`
+as `member val private Tax : TaxHelper = new TaxHelper() with get, set`. A C#
+or F# Helper may still be built with `new` by its caller, and it takes no
+NeedsAll, Lifetime, OnStart, OnStop or OnEvent (`TY1308`).
 
 **Transaction limits.** A transaction is bounded on both sides:
 

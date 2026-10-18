@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- C# and F# Tac services and Helpers need Helpers. A C# class names a
+  Helper from `client/helpers` in a field such as
+  `[Needs] private readonly TaxHelper _tax;`, and the build writes it as
+  `private readonly TaxHelper _tax = new TaxHelper();`. An F# class names one
+  in a primary constructor parameter, `type QuoteService(tax: TaxHelper) =`,
+  which becomes `let tax = new TaxHelper()`, or in a `[<Needs>]` property,
+  which becomes a private property set to `new TaxHelper()`. So each class
+  that needs a Helper gets its own new one, in the browser and in a test
+  unit, and a Helper may need other Helpers the same way. A C# or F# Helper
+  still takes no NeedsAll, Lifetime, OnStart, OnStop or OnEvent (TY1308), and
+  a caller may still build one with `new` (ADR 0091 amendment).
 - A C++ class can be the target of another language's `[[Gateway]]`.
   Tachyon writes the `server/gateways/<id>/yon.hpp` unit, builds it with
   `clang++` and makes the class with its own `[[Needs]]` graph; the target

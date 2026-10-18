@@ -56,8 +56,15 @@ impl<'a> InjectedContract<'a> {
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const REMOTES: &'static str = "client/remotes";
     const HELPERS: &'static str = "client/helpers";
-    const HELPER_LANGUAGES: [&'static str; 5] =
-        [Self::GO, Self::RUBY, "swift", Self::KOTLIN, Self::JAVA];
+    const HELPER_LANGUAGES: [&'static str; 7] = [
+        Self::GO,
+        Self::RUBY,
+        "swift",
+        Self::KOTLIN,
+        Self::JAVA,
+        "cs",
+        "fs",
+    ];
     const HELPER_SUFFIX: &'static str = "Helper";
     const KOTLIN: &'static str = "kt";
     const JAVA: &'static str = "java";
@@ -75,6 +82,13 @@ impl<'a> InjectedContract<'a> {
     pub(crate) fn injected_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
         paths
             .filter(|path| Self::injected(path))
+            .filter_map(|path| path.file_stem()?.to_str().map(str::to_owned))
+            .collect()
+    }
+
+    pub(crate) fn helper_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
+        paths
+            .filter(|path| Self::injected_helper(path))
             .filter_map(|path| path.file_stem()?.to_str().map(str::to_owned))
             .collect()
     }

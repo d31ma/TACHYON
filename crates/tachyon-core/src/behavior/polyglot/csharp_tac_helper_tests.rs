@@ -62,7 +62,7 @@ fn csharp_tac_helper_does_not_take_comments_strings_or_self_recursion_as_callers
 }
 
 #[test]
-fn csharp_tac_helper_refuses_managed_helper_dependencies_even_with_another_real_caller() {
+fn csharp_tac_helper_refuses_unfilled_helper_dependencies_even_with_another_real_caller() {
     for marker in ["[Needs]", "[NeedsAll]"] {
         let service = if marker == "[Needs]" {
             "[Service]\nclass ReaderService {\n [Needs]\n private readonly LabelHelper helper;\n}\n"
@@ -75,9 +75,9 @@ fn csharp_tac_helper_refuses_managed_helper_dependencies_even_with_another_real_
             CsharpTacHelperTests::HELPER,
             CsharpTacHelperTests::CALLER
         );
-        let error = CsharpTacHelperTests::lower(&source).expect_err("managed Helper dependency");
+        let error = CsharpTacHelperTests::lower(&source).expect_err("unfilled Helper dependency");
         assert!(
-            error.to_string().contains("managed Helper injection"),
+            error.to_string().contains("takes no NeedsAll"),
             "{marker}: {error}"
         );
     }

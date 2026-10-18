@@ -249,7 +249,8 @@ pub(crate) struct Module {
 
 impl Module {
     const MODULES_INJECTED: [&'static str; 1] = ["rb"];
-    const HELPERS_INJECTED: [&'static str; 3] = ["kt", "swift", "java"];
+    const HELPERS_INJECTED: [&'static str; 5] = ["kt", "swift", "java", "cs", "fs"];
+    const HELPER_OWNERS_INJECTED: [&'static str; 2] = ["cs", "fs"];
 
     fn injected_modules(modules: Vec<Self>, extension: &str, environment: &str) -> Vec<Self> {
         let injected_tac = [
@@ -264,18 +265,27 @@ impl Module {
         let contracts = crate::declared_contract::DeclaredContract::injected_names(paths);
         let paths = modules.iter().map(|module| module.path.as_path());
         let remotes = crate::declared_contract::DeclaredContract::injected_remotes(paths);
+        let paths = modules.iter().map(|module| module.path.as_path());
+        let helpers = crate::declared_contract::DeclaredContract::helper_names(paths);
+        let owners_tac = [
+            Self::HELPER_OWNERS_INJECTED.contains(&extension),
+            environment == "tac",
+        ] == [true, true];
         modules
             .into_iter()
             .map(|module| {
                 let helper =
                     crate::declared_contract::DeclaredContract::is_injected_helper(&module.path);
-                let injected = [injected_tac, [helpers_tac, helper] == [true, true]]
+                let every_contract =
+                    [injected_tac, [helpers_tac, helper] == [true, true]].contains(&true);
+                let names = [&helpers, &contracts][usize::from(every_contract)];
+                let injected = [every_contract, owners_tac]
                     .contains(&true)
                     .then(|| {
                         crate::declared_contract::DeclaredContract::injected_with_remotes(
                             &module.path,
                             &module.source,
-                            &contracts,
+                            names,
                             &remotes,
                         )
                     })
@@ -468,10 +478,11 @@ impl Module {
         }
         refuse_tac_helpers(&modules, extension, environment)?;
         let mut modules = Module::injected_modules(modules, extension, environment);
-        csharp_test_helpers::CsharpTestHelpers::prune(&root, input, &mut modules, total)?;
-        HelperCallers::check(entry, &source, &modules, environment)?;
         let injected = injected_contracts(entry, &source, &modules, environment);
         let source = injected.as_deref().unwrap_or(&source);
+        let input = ModuleInput { source, ..input };
+        csharp_test_helpers::CsharpTestHelpers::prune(&root, input, &mut modules, total)?;
+        HelperCallers::check(entry, source, &modules, environment)?;
         let output = if extension == "go" {
             compose_go(entry, source, &modules)?
         } else {

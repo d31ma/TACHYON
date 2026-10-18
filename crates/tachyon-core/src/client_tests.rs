@@ -43,6 +43,8 @@ mod dart_construct_tests;
 #[cfg(test)]
 mod dart_http_context_tests;
 #[cfg(test)]
+mod dotnet_helper_unit_tests;
+#[cfg(test)]
 mod go_construct_tests;
 #[cfg(test)]
 mod hooked_utilities_tests;

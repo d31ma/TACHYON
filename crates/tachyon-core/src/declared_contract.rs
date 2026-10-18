@@ -18,6 +18,7 @@ mod fsharp_contract_rewrite;
 mod fsharp_declaration;
 mod fsharp_held_members;
 mod fsharp_injected_contract;
+mod fsharp_needed_property;
 mod go_contract_rewrite;
 mod go_method;
 mod indented_members;
@@ -83,6 +84,10 @@ impl DeclaredContract {
 
     pub(crate) fn injected_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
         InjectedContract::injected_names(paths)
+    }
+
+    pub(crate) fn helper_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
+        InjectedContract::helper_names(paths)
     }
 
     pub(crate) fn is_owned_helper(path: &Path) -> bool {
