@@ -1,8 +1,8 @@
-use super::{CppYonAccess, CppYonController, CppYonParameter, CppYonPath};
+use super::{CppYonAccess, CppYonController, CppYonParameter, CppYonPath, CppYonStatus};
 use crate::Failure;
 use crate::routing::RoutePath;
 use crate::tac_cpp::{CppAttribute, CppClass, CppFailure, CppMember};
-use crate::yon::plan::Route;
+use crate::yon::plan::{ParameterSource, Route};
 use crate::yon::route_access::RouteAccess;
 use std::path::Path;
 
@@ -21,6 +21,8 @@ impl<'a> CppYonRoute<'a> {
         ("PatchRoute", "PATCH"),
         ("DeleteRoute", "DELETE"),
     ];
+    const SUCCESS: std::ops::RangeInclusive<u16> = 200..=299;
+    const STATUS: &'static str = "[[ResponseStatus]] takes one success status from 200 to 299, for example [[ResponseStatus(201)]]. It sets the status of a normal answer";
 
     pub(crate) fn all(
         path: &Path,
@@ -55,17 +57,39 @@ impl<'a> CppYonRoute<'a> {
         found.map(|(_, verb)| (marker, *verb))
     }
 
+    pub(crate) fn identity(
+        path: &'a Path,
+        member: &'a CppMember,
+        marker: &'a CppAttribute,
+    ) -> Self {
+        Self {
+            path,
+            member,
+            marker,
+            verb: "GET",
+        }
+    }
+
     fn route(&self, base: &str, class_access: &RouteAccess) -> Result<Route, Failure> {
-        self.check_static()?;
         self.check_name()?;
         let own = CppYonPath::of(self.path, self.marker)?;
         let pattern = RoutePath::pattern(base, &own).map_err(|message| self.failure(&message))?;
-        let parameters = CppYonParameter::all(self, &pattern)?;
         let access = CppYonAccess::read(&self.member.markers).or_class(class_access);
+        self.fixed(pattern, access)
+    }
+
+    pub(crate) fn fixed(&self, pattern: String, access: RouteAccess) -> Result<Route, Failure> {
+        self.check_static()?;
+        let parameters = CppYonParameter::all(self, &pattern)?;
+        let status = CppYonStatus::read(self.path, self.member, Self::SUCCESS, Self::STATUS)?;
         Ok(Route {
             verb: self.verb.to_owned(),
             method: self.member.name.clone(),
+            takes_request: parameters
+                .iter()
+                .any(|parameter| parameter.source == ParameterSource::Request),
             pattern: Some(pattern),
+            status,
             parameters,
             returns: self.member.plain_type(),
             access,

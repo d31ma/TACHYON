@@ -37,11 +37,14 @@ namespace tachyon::http {
 enum class HttpStatusCode : int {
     OK = 200,
     Created = 201,
+    Accepted = 202,
     NoContent = 204,
     BadRequest = 400,
     Unauthorized = 401,
     Forbidden = 403,
     NotFound = 404,
+    Conflict = 409,
+    UnprocessableEntity = 422,
     InternalServerError = 500,
 };
 
@@ -107,12 +110,27 @@ public:
         return values.count(name) > 0;
     }
 
+    std::optional<std::string> get(const std::string& name) const {
+        for (const auto& [written, value] : values) {
+            if (sameName(written, name)) {
+                return value;
+            }
+        }
+        return std::nullopt;
+    }
+
     const std::map<std::string, std::string>& all() const {
         return values;
     }
 
 private:
     std::map<std::string, std::string> values;
+
+    static bool sameName(const std::string& left, const std::string& right) {
+        return std::equal(left.begin(), left.end(), right.begin(), right.end(), [](char first, char second) {
+            return std::tolower(static_cast<unsigned char>(first)) == std::tolower(static_cast<unsigned char>(second));
+        });
+    }
 };
 
 }
@@ -151,7 +169,6 @@ public:
 };
 
 }
-
 namespace tachyon::http {
 
 class TacBrowserRequest {

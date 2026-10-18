@@ -318,13 +318,18 @@ fn has_framework_annotation_source(path: &Path, source: &str) -> Result<bool, Fa
 
 pub(crate) fn has_error_handler(path: &Path, source: &str) -> Result<bool, Failure> {
     LuaView::either(path, source, |path, source| {
-        single_class::has_role(path, source, "ErrorHandler")
+        crate::tac_cpp::CppRoles::either_role(path, source, "ErrorHandler", single_class::has_role)
     })
 }
 
 pub(crate) fn has_identity_provider(path: &Path, source: &str) -> Result<bool, Failure> {
     LuaView::either(path, source, |path, source| {
-        single_class::has_role(path, source, "IdentityProvider")
+        crate::tac_cpp::CppRoles::either_role(
+            path,
+            source,
+            "IdentityProvider",
+            single_class::has_role,
+        )
     })
 }
 
@@ -484,7 +489,11 @@ impl<'a> Input<'a> {
         let blanked = crate::topics::Topics::blanked(source);
         let source = &blanked;
         if is_error_source(path) {
-            single_class::validate_error_source(path, source)?;
+            crate::yon_cpp::CppYonErrorTypes::either(
+                path,
+                source,
+                single_class::validate_error_source,
+            )?;
         } else {
             primary_role(path, source)?;
             crate::model_layout::validate(path, source)?;

@@ -36,6 +36,27 @@ public:
         return json(200, node.toJsonString());
     }
 
+    static YonAnswer of(const http::HttpResponseMessage& message) {
+        int status = static_cast<int>(message.statusCode);
+        std::string body = status == 204 ? std::string() : message.content.readAsString();
+        YonAnswer answer(status, body, !body.empty() && !message.headers.get("content-type").has_value());
+        for (const auto& [name, value] : message.headers.all()) {
+            answer.headers[lowered(name)] = value;
+        }
+        return answer;
+    }
+
+    template <typename T>
+    static YonAnswer handled(const T& value, int status) {
+        return json(status, json::JsonSerializer::serializeToNode(value).toJsonString());
+    }
+
+    static YonAnswer handled(const http::HttpResponseMessage& message, int status) {
+        YonAnswer answer = of(message);
+        answer.status = answer.status == 200 ? status : answer.status;
+        return answer;
+    }
+
     std::string write() const {
         json::JsonObject answer;
         answer["status"] = status;
@@ -43,13 +64,18 @@ public:
             answer["violations"] = violations;
             return answer.toJsonString();
         }
-        json::JsonObject headers;
+        json::JsonObject written;
         if (hasJson) {
             json::JsonArray types;
             types.add("application/json");
-            headers["content-type"] = types;
+            written["content-type"] = types;
         }
-        answer["headers"] = headers;
+        for (const auto& [name, value] : headers) {
+            json::JsonArray values;
+            values.add(value);
+            written[name] = values;
+        }
+        answer["headers"] = written;
         answer["body"] = body;
         return answer.toJsonString();
     }
@@ -59,6 +85,7 @@ private:
     std::string body;
     bool hasJson;
     json::JsonArray violations;
+    std::map<std::string, std::string> headers;
 
     YonAnswer(int status, std::string body, bool hasJson) : status(status), body(std::move(body)), hasJson(hasJson) {}
 
@@ -72,6 +99,13 @@ private:
         };
         std::map<std::string, std::string>::const_iterator found = names.find(rule);
         return found == names.end() ? rule : found->second;
+    }
+
+    static std::string lowered(std::string name) {
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char character) {
+            return static_cast<char>(std::tolower(character));
+        });
+        return name;
     }
 };
 

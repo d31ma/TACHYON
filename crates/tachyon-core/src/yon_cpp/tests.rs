@@ -147,8 +147,76 @@ fn route_methods_follow_the_shared_route_rules() {
 
 #[test]
 fn unsupported_markers_name_the_later_step() {
-    let failure = Sample::refusal("[[Public]]\n", "[[Public]] [[ResponseStatus(201)]]\n");
+    let failure = Sample::refusal("[[Public]]\n", "[[Public]] [[Cached]]\n");
     assert!(failure.contains("C++ gets it in a later step"), "{failure}");
+}
+
+#[test]
+fn a_route_takes_a_response_status_and_the_whole_request() {
+    let source = Sample::CONTROLLER.replace(
+        "[[PostRoute]] [[Allow(Admin, Editor)]]\n    void postOrder(",
+        "[[PostRoute]] [[Allow(Admin, Editor)]] [[ResponseStatus(201)]]\n    void postOrder(const tachyon::http::HttpRequestMessage& request, ",
+    );
+    let controller = Sample::read(&source).expect("controller");
+    let posted = &controller.routes[1];
+    assert_eq!(posted.status, Some(201));
+    assert!(posted.takes_request);
+    assert_eq!(posted.parameters[0].source, ParameterSource::Request);
+    assert_eq!(posted.parameters[1].source, ParameterSource::Body);
+    let cases = [
+        (
+            "[[ResponseStatus(201)]]",
+            "[[ResponseStatus(404)]]",
+            "from 200 to 299",
+        ),
+        (
+            "const tachyon::http::HttpRequestMessage& request, ",
+            "const tachyon::http::HttpRequestMessage& request, tachyon::http::HttpRequestMessage again, ",
+            "Only one parameter may be left unmarked",
+        ),
+    ];
+    for (from, to, expected) in cases {
+        let refused = source.replace(from, to);
+        let failure = Sample::read(&refused)
+            .err()
+            .expect("the controller is refused")
+            .to_string();
+        assert!(failure.contains(expected), "{to}: {failure}");
+    }
+}
+
+#[test]
+fn an_identity_provider_answers_the_identity_route() {
+    let source = "#pragma once\n\nclass [[IdentityProvider]] AppIdentityProvider {\npublic:\n    std::optional<Identity> identify([[FromHeader(\"authorization\")]] std::optional<std::string> token) {\n        return std::nullopt;\n    }\n};\n";
+    let path = Path::new("server/controllers/AppIdentityProvider.hpp");
+    let provider = CppYonController::read(path, source).expect("identity provider");
+    assert_eq!(provider.routes.len(), 1);
+    assert_eq!(provider.routes[0].verb, "GET");
+    assert_eq!(provider.routes[0].method, "identify");
+    assert_eq!(
+        provider.routes[0].pattern.as_deref(),
+        Some("/.tachyon/identity")
+    );
+    assert!(!provider.handles_errors());
+    let cases = [
+        (
+            "class [[IdentityProvider]]",
+            "class [[IdentityProvider]] [[Public]]",
+            "belongs in a class marked [[RequestRoute]]",
+        ),
+        (
+            "identify(",
+            "findUser(",
+            "exactly one method named identify",
+        ),
+    ];
+    for (from, to, expected) in cases {
+        let failure = CppYonController::read(path, &source.replace(from, to))
+            .err()
+            .expect("the identity provider is refused")
+            .to_string();
+        assert!(failure.contains(expected), "{to}: {failure}");
+    }
 }
 
 #[test]

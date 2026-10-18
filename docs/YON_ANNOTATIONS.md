@@ -236,7 +236,9 @@ other languages (see Scopes). `[[OnStart]]`, `[[OnStop]]`, `[[OnEvent]]`,
 `ApplicationEventPublisher applicationEventPublisher;` field publishes with
 `publishEvent(model)`. A worker in `server/workers/<name>.hpp` is a
 `class Handler` with a `POST()` method, and `[[Schedule({...})]]` goes after
-its class key.
+its class key. `[[ErrorHandler]]`, `[[HandlesError]]`, `[[ResponseStatus]]`
+and `[[IdentityProvider]]` work as in the other languages (see Who may call a
+route and Error handlers).
 
 A C++ `[[Setup]]` is one class in `server/setups/<Name>.hpp` with
 `static BehaviorAdapters configure(const BehaviorExecution& execution)`, and
@@ -301,9 +303,10 @@ type (ADR 0062): a Fetch `Request` in JavaScript and TypeScript,
 in C#, `http::Request<Vec<u8>>` in Rust, a `package:shelf` `Request` in Dart and
 `*http.Request` in Go. PHP has no request object: a PHP method takes no request
 parameter and reads `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE` and `php://input`.
-C++ has no native request type yet (ADR 0099), so every parameter of a C++
-route names its source, and a parameter without a source marker fails with
-`TY2015`. A C++ route method may be private, a static one fails with
+In C++ the request is `tachyon::http::HttpRequestMessage`, taken as
+`const tachyon::http::HttpRequestMessage& request` (ADR 0099). Every other
+parameter of a C++ route names its source, and a second parameter without a
+source marker fails with `TY2015`. A C++ route method may be private, a static one fails with
 `TY2015`, and a parameter with a default value fails too: write
 `std::optional<T>` and choose the value in the method.
 `YonRequest` and `YonResponse` are removed and refused at build time. Declared types
@@ -350,8 +353,10 @@ same `HttpExchange` (`getResponseHeaders()`, `sendResponseHeaders()`,
 `getResponseBody()`) in Java and Kotlin, `HttpResponseMessage` in C#,
 `http::Response<Vec<u8>>` in Rust, a `package:shelf` `Response` in Dart and
 `*http.Response` in Go. A C++ route returns a value, which answers 200 as
-JSON, or `void` or an empty `std::optional`, which answers 204; C++ has no
-native response type yet (ADR 0099). Rust handlers build with Cargo and the `http` crate; Dart
+JSON, or `void` or an empty `std::optional`, which answers 204. It may also
+return `tachyon::http::HttpResponseMessage`, which sets its own status,
+headers and content, and `[[ResponseStatus(201)]]` sets another success
+status for a plain value (ADR 0099). Rust handlers build with Cargo and the `http` crate; Dart
 handlers fetch `shelf`. An explicit Content-Type: text/html passes through
 without interpolation or rendering. Tac stays client-rendered. Support for
 ordinary asynchronous methods in compiled languages is separate from
@@ -449,7 +454,9 @@ server calls it before every `@SignedIn` or `@Allow` route, whatever the
 language of the route, and answers 401 without an identity, 403 without one
 of the roles and 500 when `identify` fails. The route method does not run in
 these cases. A guarded route without an identity provider, or two identity
-providers, stops the build with `TY1323`.
+providers, stops the build with `TY1323`. In C++ the method is
+`std::optional<Identity> identify(const tachyon::http::HttpRequestMessage& request)`
+and returns `std::nullopt` when nobody is signed in.
 
 ## Error handlers
 
@@ -517,6 +524,10 @@ How Tachyon chooses a method:
 - Rust matches the error type of the controller method's `Result`. The
   parameter borrows it, such as `error: &OrderNotFound`. A
   `Box<dyn Error>` result matches through the boxed error.
+- C++ sorts its `catch` clauses so that the most derived type comes first.
+  The parameter is a const reference, such as `const OrderNotFound& error`.
+  A C++ error type derives from `std::exception`, a standard error such as
+  `std::runtime_error`, or another error type in `server/errors/`.
 - Two methods for the same error type are refused, also across handler files.
 
 Safety:

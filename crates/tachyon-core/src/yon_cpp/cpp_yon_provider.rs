@@ -1,4 +1,4 @@
-use super::{CppYonController, CppYonHooks, CppYonScope};
+use super::{CppYonController, CppYonHandler, CppYonHooks, CppYonScope};
 use crate::Failure;
 use crate::tac_cpp::{CppFile, CppLifetime, CppLowering, CppProgram, CppService};
 use crate::yon::plan::Scope;
@@ -32,16 +32,27 @@ impl CppYonProvider {
         controller: &CppYonController,
         models: &CppProgram,
     ) -> Result<Self, Failure> {
-        let (path, class) = (&controller.path, &controller.file.class);
-        CppService::check_needs(path, class)?;
-        CppLifetime::check(path, class)?;
-        Self::read(
-            path,
+        Self::rooted(
+            &controller.path,
             &controller.file,
             &controller.source,
-            Scope::Request,
             models,
         )
+    }
+
+    pub(crate) fn handler(handler: &CppYonHandler, models: &CppProgram) -> Result<Self, Failure> {
+        Self::rooted(&handler.path, &handler.file, &handler.source, models)
+    }
+
+    fn rooted(
+        path: &Path,
+        file: &CppFile,
+        source: &str,
+        models: &CppProgram,
+    ) -> Result<Self, Failure> {
+        CppService::check_needs(path, &file.class)?;
+        CppLifetime::check(path, &file.class)?;
+        Self::read(path, file, source, Scope::Request, models)
     }
 
     fn read(

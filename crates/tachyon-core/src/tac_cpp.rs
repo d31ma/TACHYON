@@ -69,7 +69,7 @@ pub(crate) use cpp_failure::CppFailure;
 pub(crate) use cpp_file::CppFile;
 use cpp_file_reader::CppFileReader;
 use cpp_fill::CppFill;
-use cpp_folder::CppFolder;
+pub(crate) use cpp_folder::CppFolder;
 use cpp_held_streams::CppHeldStreams;
 pub(crate) use cpp_injection::CppInjection;
 use cpp_lexer::CppLexer;

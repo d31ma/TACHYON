@@ -276,7 +276,7 @@ impl AnnotationRules {
 
     const YON_CONTEXT: &'static [&'static str] = Self::YON;
 
-    const YON_ERRORS: &'static [&'static str] = Self::YON_EXCEPT_CPP;
+    const YON_ERRORS: &'static [&'static str] = Self::YON;
 
     const YON_CHECKS: &'static [&'static str] = Self::YON;
 

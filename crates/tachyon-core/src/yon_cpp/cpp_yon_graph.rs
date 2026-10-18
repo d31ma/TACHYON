@@ -1,4 +1,4 @@
-use super::{CppYonController, CppYonProvider};
+use super::{CppYonController, CppYonErrors, CppYonProvider};
 use crate::Failure;
 use crate::tac_cpp::{CppClass, CppFailure, CppLifetime, CppProgram, CppServiceGraph};
 use crate::yon::plan::Scope;
@@ -17,14 +17,17 @@ impl CppYonGraph {
         root: &Path,
         controller: &CppYonController,
         models: &CppProgram,
+        errors: &CppYonErrors,
     ) -> Result<Self, Failure> {
         let mut graph = CppServiceGraph::within(root, Self::FOLDERS, Self::missing)?;
+        Self::add_handler_needs(&mut graph, errors)?;
         Self::add_needs(&mut graph, &controller.path, &controller.file.class)?;
         let mut providers = graph
             .finish()
             .iter()
             .map(|service| CppYonProvider::service(service, models))
             .collect::<Result<Vec<_>, _>>()?;
+        providers.extend(Self::handler_providers(errors, models)?);
         providers.push(CppYonProvider::root(controller, models)?);
         let graph = Self { providers };
         graph.check_captures()?;
@@ -36,6 +39,27 @@ impl CppYonGraph {
         self.providers
             .iter()
             .map(|provider| provider.lowered.as_str())
+            .collect()
+    }
+
+    fn add_handler_needs(
+        graph: &mut CppServiceGraph<'_>,
+        errors: &CppYonErrors,
+    ) -> Result<(), Failure> {
+        errors
+            .handlers
+            .iter()
+            .try_for_each(|handler| Self::add_needs(graph, &handler.path, &handler.file.class))
+    }
+
+    fn handler_providers(
+        errors: &CppYonErrors,
+        models: &CppProgram,
+    ) -> Result<Vec<CppYonProvider>, Failure> {
+        errors
+            .handlers
+            .iter()
+            .map(|handler| CppYonProvider::handler(handler, models))
             .collect()
     }
 

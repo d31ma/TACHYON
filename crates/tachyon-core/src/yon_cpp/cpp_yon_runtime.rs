@@ -6,6 +6,7 @@ impl CppYonRuntime {
     const HOST: &'static str = include_str!("tachyon/yon_host.hpp");
     const PIECES: &'static [&'static str] = &[
         include_str!("tachyon/yon_frame.hpp"),
+        include_str!("tachyon/yon_request.hpp"),
         include_str!("tachyon/yon_answer.hpp"),
         include_str!("tachyon/yon_events.hpp"),
         include_str!("tachyon/yon_needs.hpp"),

@@ -6,7 +6,7 @@ use std::path::Path;
 pub(crate) struct CppRoles;
 
 impl CppRoles {
-    const ROLES: [&'static str; 11] = [
+    const ROLES: [&'static str; 12] = [
         "Service",
         "Store",
         "HTTPClient",
@@ -18,6 +18,7 @@ impl CppRoles {
         "TestSetup",
         "RequestRoute",
         "ErrorHandler",
+        "IdentityProvider",
     ];
 
     pub(crate) fn has_role(path: &Path, source: &str) -> Result<bool, Failure> {
@@ -27,6 +28,33 @@ impl CppRoles {
             .markers
             .iter()
             .any(|marker| Self::ROLES.contains(&marker.name.as_str())))
+    }
+
+    pub(crate) fn either_role(
+        path: &Path,
+        source: &str,
+        marker: &str,
+        other: impl Fn(&Path, &str, &str) -> Result<bool, Failure>,
+    ) -> Result<bool, Failure> {
+        Self::routed_role(super::CppSource::is_cpp(path), path, source, marker, other)
+    }
+
+    fn routed_role(
+        cpp: bool,
+        path: &Path,
+        source: &str,
+        marker: &str,
+        other: impl Fn(&Path, &str, &str) -> Result<bool, Failure>,
+    ) -> Result<bool, Failure> {
+        if cpp {
+            return Self::has_marker(path, source, marker);
+        }
+        other(path, source, marker)
+    }
+
+    fn has_marker(path: &Path, source: &str, marker: &str) -> Result<bool, Failure> {
+        let file = CppFile::read(path, source)?;
+        Ok(file.class.markers.iter().any(|found| found.name == marker))
     }
 
     pub(crate) fn service_roles(

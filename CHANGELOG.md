@@ -10,6 +10,19 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Yon C++ has error handlers, an identity provider, `[[ResponseStatus]]`
+  and the native request and response types. An error type in
+  `server/errors` derives from `std::exception`, a standard error or another
+  error type. An `[[ErrorHandler]]` class in `server/controllers` turns it
+  into an answer with `[[HandlesError]]` methods such as
+  `Problem missing(const OrderNotFound& error)`, and the nearest type wins.
+  `[[ResponseStatus(201)]]` sets the status of a route's normal answer, and
+  `[[ResponseStatus(404)]]` the status of a handler's answer. An
+  `[[IdentityProvider]]` class says who is signed in for `[[SignedIn]]` and
+  `[[Allow]]` routes. One unmarked route parameter,
+  `const tachyon::http::HttpRequestMessage& request`, receives the whole
+  request, and a route may return `tachyon::http::HttpResponseMessage` to
+  set its own status, headers and body (ADR 0099 amendment).
 - A Tac C++ `[[HTTPClient]]` method may carry `[[StreamRequest]]` or
   `[[SocketRequest]]`, declared without a body as
   `void receive(const Tick& tick);`. The page's event bus holds the stream or

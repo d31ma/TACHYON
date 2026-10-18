@@ -1,5 +1,5 @@
-use super::CppYonController;
-use crate::yon::plan::Route;
+use super::{CppYonController, CppYonErrors};
+use crate::yon::plan::{ParameterSource, Route};
 
 pub(crate) struct CppYonDispatcher;
 
@@ -8,13 +8,14 @@ impl CppYonDispatcher {
     const VOID: &'static str = "void";
     const START: &'static str = "#line 1 \"tachyon-yon-routes.cpp\"\n";
 
-    pub(crate) fn source(controller: &CppYonController) -> String {
+    pub(crate) fn source(controller: &CppYonController, errors: &CppYonErrors) -> String {
         let branches: String = controller.routes.iter().map(Self::branch).collect();
         format!(
-            "{start}class {routes} {{\npublic:\n    static tachyon::yon::YonAnswer answer(const tachyon::yon::YonFrame& frame) {{\n        tachyon::yon::YonInvocation invocation;\n        {class}& controller = tachyon::yon::YonNeeds::of<{class}>();\n        invocation.start();\n        std::string verb = frame.text(\"method\");\n        std::string route = frame.text(\"route\");\n{branches}        return tachyon::yon::YonAnswer::empty(405);\n    }}\n}};\n\nint main() {{\n    return tachyon::yon::YonMain::run<{routes}>();\n}}\n",
+            "{start}class {routes} {{\npublic:\n    static tachyon::yon::YonAnswer answer(const tachyon::yon::YonFrame& frame) {{\n        tachyon::yon::YonInvocation invocation;\n        {class}& controller = tachyon::yon::YonNeeds::of<{class}>();\n        invocation.start();\n        std::string verb = frame.text(\"method\");\n        std::string route = frame.text(\"route\");\n        try {{\n{branches}        }} catch (...) {{\n            return handled(std::current_exception(), frame);\n        }}\n        return tachyon::yon::YonAnswer::empty(405);\n    }}\n\nprivate:\n{handling}}};\n\nint main() {{\n    return tachyon::yon::YonMain::run<{routes}>();\n}}\n",
             start = Self::START,
             routes = Self::ROUTES,
             class = controller.file.class.name,
+            handling = errors.handling(),
         )
     }
 
@@ -47,8 +48,14 @@ impl CppYonDispatcher {
             .parameters
             .iter()
             .enumerate()
-            .map(|(index, parameter)| format!("frame.argument<{}>({index})", parameter.type_text))
+            .map(|(index, parameter)| Self::argument(index, parameter))
             .collect();
         arguments.join(", ")
+    }
+
+    fn argument(index: usize, parameter: &crate::yon::plan::RouteParameter) -> String {
+        let read = format!("frame.argument<{}>({index})", parameter.type_text);
+        let request = String::from("tachyon::yon::YonRequest::of(frame)");
+        [read, request][usize::from(parameter.source == ParameterSource::Request)].clone()
     }
 }

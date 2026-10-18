@@ -30,9 +30,6 @@ public:
         }
     }
 
-private:
-    json::JsonNode fields;
-
     const json::JsonNode& field(const std::string& key) const {
         static const json::JsonNode nothing;
         if (fields.getValueKind() != json::JsonValueKind::Object || !fields.containsKey(key)) {
@@ -40,6 +37,9 @@ private:
         }
         return fields[key];
     }
+
+private:
+    json::JsonNode fields;
 
     json::JsonNode argumentNode(std::size_t index) const {
         const json::JsonNode& values = field("arguments");

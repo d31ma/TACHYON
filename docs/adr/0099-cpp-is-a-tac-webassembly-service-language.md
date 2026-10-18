@@ -356,10 +356,12 @@ services, helpers, injection, lifecycle hooks and workers.
 - The rule table lists `hpp` as a Yon language. `RequestRoute`, `GetRoute`,
   `PostRoute`, `PutRoute`, `PatchRoute`, `DeleteRoute`, `Public`, `SignedIn`,
   `Allow`, `FromPath`, `FromQuery`, `FromBody`, `FromHeader` and `FromCookie`
-  reach C++. Every other Yon marker in a C++ file (`ErrorHandler`,
-  `SocketRoute`, `StreamRoute`, `ResponseStatus`, `Test`, the behavior
-  markers, ...) fails with its rule's code, and the message says that C++
-  gets it in a later step. A C++ file in `server/controllers` without
+  reach C++. The amendments of 2026-10-18 add the role, injection and
+  lifecycle markers, the Setup and settings markers, and `ErrorHandler`,
+  `HandlesError`, `ResponseStatus` and `IdentityProvider`. Every other Yon
+  marker in a C++ file (`SocketRoute`, `StreamRoute`, `Test`, the behavior
+  markers, ...) fails with its rule's code, and the message says that
+  C++ gets it in a later step. A C++ file in `server/controllers` without
   `[[RequestRoute]]` fails with `TY1363` or `TY2015`.
 
 ### Routes
@@ -370,9 +372,10 @@ services, helpers, injection, lifecycle hooks and workers.
   fails with `TY2015`.
 - Every parameter names its source with `[[FromPath]]`, `[[FromQuery]]`,
   `[[FromBody]]`, `[[FromHeader]]` or `[[FromCookie]]`; a quoted argument
-  renames it, as in the other languages. C++ has no native HTTP request type
-  in Yon yet, so a parameter without a source marker fails with `TY2015`
-  instead of receiving the whole request. One parameter at most reads the
+  renames it, as in the other languages. One parameter may have no source
+  marker when its type is `const tachyon::http::HttpRequestMessage&`: it
+  receives the whole request (amendment of 2026-10-18). Any other parameter
+  without a source marker fails with `TY2015`. One parameter at most reads the
   body, and a GET route reads none. A parameter with a default value fails
   with `TY2015`, because the server never sees the default: write
   `std::optional<T>` and choose the value in the method.
@@ -640,15 +643,76 @@ C++ Yon code now checks arguments and has converters. The rule table lists
   `CppProgram::check_role` and `CppProgram::conversions_of` give the Yon
   composer the same checks and definitions the Tac program uses.
 
+## Amendment (2026-10-18): Yon error handlers, ResponseStatus and native types
+
+C++ Yon code now has error handlers, an identity provider,
+`[[ResponseStatus]]` and the native request and response types. The rule
+table lists `hpp` for `ErrorHandler`, `HandlesError`, `ResponseStatus` and
+`IdentityProvider`.
+
+### Error types and handlers
+
+- An error type is one class in `server/errors/<Name>.hpp`, named after the
+  file, with no Tachyon marker. It derives from `std::exception`, from a
+  standard error such as `std::runtime_error`, or from another error type in
+  `server/errors`. Tachyon places the error types in the program so that each
+  base comes before the types that derive from it.
+- An `[[ErrorHandler]]` class is one class in
+  `server/controllers/<Name>ErrorHandler.hpp`. Every C++ controller uses
+  every C++ error handler. A handler may have `[[Needs]]` fields, like a
+  controller.
+- A `[[HandlesError]]` method is an instance method. The type of its first
+  parameter, such as `const OrderNotFound& error`, is the error that it
+  handles. An optional second parameter,
+  `const tachyon::http::HttpRequestMessage& request`, receives the request.
+  The method returns a model or a `tachyon::http::HttpResponseMessage`.
+- The dispatcher calls the route inside `try` and `catch`. It throws a
+  caught error again inside a generated `handled` function, whose `catch`
+  clauses are sorted with the most derived type first, so the nearest type
+  wins. The depth counts from `std::exception`: `std::exception` is 0,
+  `std::runtime_error` and `std::logic_error` are 1, the other standard
+  errors are 2, and a project error is 1 more than its deepest base.
+- `YonArgumentException` (a bad argument, 400) is thrown again first, so a
+  handler never swallows it. An error that no method handles, or an error
+  thrown inside a handler, keeps the fixed 500 answer.
+
+### ResponseStatus
+
+- On a route method, `[[ResponseStatus]]` takes a status from 200 to 299.
+  The server applies it when the answer is 200.
+- On a `[[HandlesError]]` method, it takes a status from 400 to 599, and the
+  default is 500. A handler that returns an `HttpResponseMessage` with status
+  200 takes the handler's status.
+- The error answers of each route feed `/api.json` and the answer checks, as
+  in the other languages.
+
+### Identity provider
+
+- One `[[IdentityProvider]]` class in
+  `server/controllers/<Name>IdentityProvider.hpp` has exactly one `identify`
+  method. It takes the request, or one `[[FromHeader]]`, `[[FromCookie]]` or
+  `[[FromQuery]]` value, and returns the user and the names of their roles,
+  such as `std::optional<Identity>`.
+- Tachyon compiles it like a controller with the fixed route
+  `GET /.tachyon/identity`. It takes no `[[Public]]`, `[[SignedIn]]` or
+  `[[Allow]]`.
+
+### Native request and response
+
+- Tachyon builds `tachyon::http::HttpRequestMessage` from the request frame:
+  the method, the target, the headers (repeated values joined with `", "`)
+  and the body, decoded from base64 when needed. Only one route parameter
+  without a source marker may have this type, and it receives the whole
+  request.
+- A route or handler that returns `tachyon::http::HttpResponseMessage`
+  answers with its status, headers and content. Status 204 sends no body.
+- The message types are the ones in `tac_cpp/tachyon/http.hpp`, shared with
+  Tac C++, which the Yon program already includes for its Setup context.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
 bullet, when it lands.
-
-- Yon C++ errors: `[[ErrorHandler]]`, `[[HandlesError]]`,
-  `[[ResponseStatus]]`, `[[IdentityProvider]]`, and the native request and
-  response types. Until then a route parameter without a source marker fails
-  with `TY2015`.
 
 - Yon C++ caching, policies and stores: `[[Cached]]`, `[[CacheKey]]`,
   `[[CacheSettings]]`, `[[UpdateCache]]`, `[[ClearCache]]`, `[[Retry]]`,

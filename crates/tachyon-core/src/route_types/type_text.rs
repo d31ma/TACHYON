@@ -468,7 +468,7 @@ impl TypeText {
             "rs" => &["Json", "Response", "()", "HashMap", "BTreeMap", "Value"],
             "dart" => &["Object", "dynamic", "Map", "void", "Response", "Stream"],
             "go" => &["any", "interface{}", "error"],
-            "hpp" => &["JsonNode", "map", "void"],
+            "hpp" => &["JsonNode", "map", "void", "HttpResponseMessage"],
             "swift" => &["Any", "AnyObject", "Void", "()"],
             "rb" => &[
                 "Object",
