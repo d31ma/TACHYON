@@ -28,7 +28,7 @@ impl FsharpProbe {
         ),
         (
             "server/services/ProbeService.fs",
-            "open Models\n\n[<Service>]\ntype ProbeService() =\n    member val Log : ResizeArray<string> = ResizeArray<string>() with get\n    member val Tag = \"\" with get, set\n\n    [<OnEvent>]\n    [<Order(2)>]\n    member this.Wide(value: ProbeReady) : unit =\n        this.Log.Add(\"wide:\" + value.Status)\n\n    [<OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})>]\n    [<Order(1)>]\n    member this.Paid(value: ProbeReady) : ProbeDerived =\n        this.Log.Add(\"paid\")\n        { ProbeDerived.Tag = \"one\" }\n\n    [<OnEvent({\"condition\":\"value.total > 100\"})>]\n    [<Order(0)>]\n    member this.Skipped(value: ProbeReady) : unit =\n        this.Log.Add(\"skipped\")\n\n    [<OnEvent>]\n    member this.Derived(value: ProbeDerived) : unit =\n        this.Log.Add(\"derived:\" + value.Tag)\n\n    [<OnEvent({\"replay\":true})>]\n    member this.Tagged(value: ProbeTagged) : unit =\n        this.Tag <- value.Tag\n",
+            "open Models\n\n[<Service>]\ntype ProbeService() =\n    member val Log : ResizeArray<string> = ResizeArray<string>() with get\n    member val Tag = \"\" with get, set\n\n    [<OnEvent>]\n    [<Order(2)>]\n    member this.Wide(value: ProbeReady) : unit =\n        this.Log.Add(\"wide:\" + value.Status)\n\n    [<OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})>]\n    [<Order(1)>]\n    member this.Paid(value: ProbeReady) : ProbeDerived =\n        this.Log.Add(\"paid\")\n        { ProbeDerived.Tag = \"one\" }\n\n    [<OnEvent({\"condition\":\"value.total > 100\"})>]\n    [<Order(0)>]\n    member this.Skipped(value: ProbeReady) : unit =\n        this.Log.Add(\"skipped\")\n\n    [<OnEvent>]\n    [<Order(-1)>]\n    [<InBackground>]\n    member this.Later(value: ProbeReady) : ProbeDerived =\n        this.Log.Add(\"background:\" + value.Status)\n        { ProbeDerived.Tag = \"never\" }\n\n    [<OnEvent>]\n    member this.Derived(value: ProbeDerived) : unit =\n        this.Log.Add(\"derived:\" + value.Tag)\n\n    [<OnEvent({\"replay\":true})>]\n    member this.Tagged(value: ProbeTagged) : unit =\n        this.Tag <- value.Tag\n",
         ),
         (
             "server/services/PublishService.fs",
@@ -80,7 +80,14 @@ async fn fsharp_events_and_lifecycle_run_through_the_csharp_runtime() {
         assert_eq!(
             body,
             serde_json::json!({
-                "log": ["paid", "wide:paid", "wide:free", "derived:one"],
+                "log": [
+                    "paid",
+                    "wide:paid",
+                    "background:paid",
+                    "wide:free",
+                    "background:free",
+                    "derived:one",
+                ],
                 "tag": "resource",
             })
         );

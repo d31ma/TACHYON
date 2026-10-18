@@ -275,12 +275,17 @@ This is not an error, and nothing is republished for it.
 - Python and Dart defer it in the same way.
 - Kotlin defers it in the same way. Its event methods stay synchronous, so the
   listener runs on the request's thread after the other listeners of the event.
+- C# defers it in the same way. The listener may be a `void` method or
+  return `Task` or `Task<T>`; Yon C# waits for that task before the next
+  event is delivered. An `async void` listener is a compile error.
+- Yon F# defers it through the same C# event runtime. An F# listener stays
+  synchronous and returns `unit` or a model record.
 
 An async listener never republishes its return value, as in Spring.
 
-`@InBackground` is a compile error in Yon PHP, Java, Groovy, C# and Rust, because
+`@InBackground` is a compile error in Yon PHP, Java, Groovy and Rust, because
 their event runtimes do not defer listeners yet. The error is "InBackground
-listeners require a Yon language that defers them (js, ts, py, kt, dart)".
+listeners require a Yon language that defers them (js, ts, py, kt, dart, cs, fs)".
 
 ### Returned events
 
@@ -379,9 +384,10 @@ a request, or a background job API. The one exception is a `@Topic` model
 - Cleanup is still subject to the existing supervisor deadline and forced
   termination.
 - Yon JS/TS/Python/Dart support asynchronous hooks and event methods. PHP, Java,
-  Kotlin, C# and Rust currently require synchronous methods. Kotlin still
-  accepts `@InBackground`, because its runtime defers those listeners; the
-  others refuse it.
+  Kotlin, C#, F# and Rust currently require synchronous methods. Kotlin, C#
+  and F# still accept `@InBackground`, because their runtimes defer those
+  listeners, and a C# `@InBackground` listener may return `Task`; the others
+  refuse it.
 - Streaming event containers and transient event providers are rejected. They
   are never partly initialized.
 

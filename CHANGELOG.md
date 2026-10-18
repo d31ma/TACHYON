@@ -19,6 +19,14 @@ machine contracts have their own, independent major versions.
   its return value, as in Yon JS/TS and Python. Yon Dart hooks and listeners
   may also be asynchronous: an `@OnStart`, `@OnStop` or listener that returns
   a `Future` is awaited before the invocation goes on.
+- Yon C# now accepts `[InBackground]` on an `[OnEvent]` listener. The
+  listener runs after the other listeners of the same event, as in Yon
+  JavaScript and Python. It may be a `void` method or return `Task` or
+  `Task<T>`; Yon waits for the task before the next event, and the task may
+  publish events after an `await`. An `async void` listener stops the build.
+- Yon F# now accepts `[<InBackground>]` on an `[<OnEvent>]` listener. F#
+  shares the C# event runtime, so the listener runs after the other
+  listeners of the same event and its returned model is never published.
 - C++ Tac test units can now replace and answer what a service needs. A
   `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
   fields of the service that `construct<CounterService>()` makes. A static

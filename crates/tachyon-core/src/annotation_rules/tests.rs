@@ -406,6 +406,8 @@ fn fsharp_yon_annotations_are_checked_where_they_are_written() {
     let service = "server/services/PriceService.fs";
     let cached = "[<Service>]\n[<NeedsAll>]\n[<CacheSettings(\"x\")>]\ntype PriceService(store: PriceStore) =\n    [<Cached>]\n    member this.Price(sku: string) : int = 1\n";
     assert_eq!(Sample::fsharp_message(service, cached), None);
+    let background = "[<Service>]\ntype PriceService() =\n    [<OnEvent>]\n    [<InBackground>]\n    member this.Record(order: PlacedOrder) : unit = ()\n";
+    assert_eq!(Sample::fsharp_message(service, background), None);
     let refused = [
         (
             controller,
@@ -416,11 +418,6 @@ fn fsharp_yon_annotations_are_checked_where_they_are_written() {
             service,
             "[<Service>]\ntype PriceService() =\n    [<NeedsAll>]\n    member this.Price(sku: string) : int = 1\n",
             "[<NeedsAll>] is on a method, but it belongs on a class",
-        ),
-        (
-            service,
-            "[<Service>]\ntype PriceService() =\n    [<OnEvent>]\n    [<InBackground>]\n    member this.Record(order: PlacedOrder) : unit = ()\n",
-            "[<InBackground>] is not available in F# Yon code",
         ),
     ];
     for (path, source, expected) in refused {

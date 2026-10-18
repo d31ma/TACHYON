@@ -144,8 +144,10 @@ replay and a returned model that is published again), `OnStart` and
   ApplicationEventPublisher) =`. It publishes a model record with
   `applicationEventPublisher.PublishEvent(order)`.
 - A listener takes one model record and returns `unit` or a model record.
-  Hooks and listeners are synchronous, as in C#, so `InBackground` is refused
-  in Yon and allowed in Tac, where it only delays delivery.
+  Hooks and listeners are synchronous, as in C#. `InBackground` is allowed
+  in both realms: in Tac it only delays delivery, and in Yon (amended
+  2026-10-17) the C# event runtime calls it after the other listeners of the
+  event and never publishes its returned value again.
 - Yon: Tachyon runs the C# event lowering on the C# view of the F# file. The
   generated event container stays in the C# program; the C# event runtime
   moves into the C# library that the F# assembly references, so F# code and

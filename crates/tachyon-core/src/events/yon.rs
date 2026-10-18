@@ -12,10 +12,13 @@ impl EventLowering {
         ["Task", "Future", "CompletionStage", "Sequence", "Iterator"];
     const SYNCHRONOUS_ONLY: &str =
         "This Yon language supports synchronous local event and lifecycle completion only";
+    const BACKGROUND_RETURNS_TASK: &str =
+        "An asynchronous C# InBackground listener must return Task or Task<T>";
+    const WAITS_FOR_BACKGROUND_TASKS: [&str; 1] = ["cs"];
     const NO_STREAMS: &str = "Local event containers do not support streaming endpoints; use a separate non-streaming event controller";
 
     pub(crate) fn check(plan: &Plan, events: &EventModule, extension: &str) -> Result<(), String> {
-        Self::synchronous(events, is_async_language(extension))?;
+        Self::synchronous(events, extension)?;
         Self::background(events, extension)?;
         validate_providers(plan, events)?;
         Self::without_streams(plan)
@@ -25,12 +28,48 @@ impl EventLowering {
         containers::listener_options(listener)
     }
 
-    fn synchronous(events: &EventModule, asynchronous: bool) -> Result<(), String> {
-        let refused = events.methods.iter().any(is_asynchronous_method) && !asynchronous;
-        [Ok(()), Err(String::from(Self::SYNCHRONOUS_ONLY))]
+    fn synchronous(events: &EventModule, extension: &str) -> Result<(), String> {
+        let synchronous = !is_async_language(extension);
+        let waits_for_tasks = Self::WAITS_FOR_BACKGROUND_TASKS.contains(&extension);
+        let (background, other): (Vec<&EventMethod>, Vec<&EventMethod>) = events
+            .methods
+            .iter()
+            .filter(|method| is_asynchronous_method(method))
+            .partition(|method| {
+                [
+                    waits_for_tasks,
+                    Self::is_background_listener(events, method),
+                ] == [true, true]
+            });
+        let problems = [
+            (!other.is_empty(), Self::SYNCHRONOUS_ONLY),
+            (
+                background.iter().any(|method| !Self::returns_task(method)),
+                Self::BACKGROUND_RETURNS_TASK,
+            ),
+        ];
+        problems
             .into_iter()
-            .nth(usize::from(refused))
-            .unwrap_or(Ok(()))
+            .find(|(present, _)| [*present, synchronous] == [true, true])
+            .map_or(Ok(()), |(_, message)| Err(String::from(message)))
+    }
+
+    fn is_background_listener(events: &EventModule, method: &EventMethod) -> bool {
+        events
+            .types
+            .iter()
+            .filter(|event_type| event_type.name == method.owner)
+            .flat_map(|event_type| &event_type.listeners)
+            .filter(|listener| listener.asynchronous)
+            .any(|listener| listener.method == method.name)
+    }
+
+    fn returns_task(method: &EventMethod) -> bool {
+        let return_type = method.return_type.trim();
+        let return_type = return_type
+            .strip_prefix("System.Threading.Tasks.")
+            .unwrap_or(return_type);
+        return_type.split('<').next() == Some("Task")
     }
 
     fn background(events: &EventModule, extension: &str) -> Result<(), String> {

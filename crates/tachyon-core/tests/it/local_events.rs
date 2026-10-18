@@ -1012,6 +1012,83 @@ class ProbeController {
 }
 
 #[tokio::test]
+async fn csharp_background_listeners_run_after_the_others() {
+    execute_expected(
+        "cs",
+        r#"
+[Service()]
+[NeedsAll()]
+class ProbeService {
+  readonly ApplicationEventPublisher _publisher;
+  public System.Collections.Generic.List<string> Log = new System.Collections.Generic.List<string>();
+  public string Tag = "";
+  [OnEvent]
+  [InBackground()]
+  [Order(-1)]
+  public void Deferred(Models.ProbeReady value) { Log.Add("deferred:" + value.Status); }
+  [OnEvent]
+  public void Now(Models.ProbeReady value) { Log.Add("now:" + value.Status); }
+  [OnEvent]
+  [InBackground()]
+  public async System.Threading.Tasks.Task Later(Models.ProbeReady value) {
+    await System.Threading.Tasks.Task.Yield();
+    Log.Add("later:" + value.Status);
+    _publisher.PublishEvent(new Models.ProbeTagged("background"));
+  }
+  [OnEvent]
+  public void Tagged(Models.ProbeTagged value) { Tag = value.Tag; }
+  [OnStart()]
+  public void Initialize() { _publisher.PublishEvent(new Models.ProbeReady("paid", 10)); }
+}
+[RequestRoute("/probe")]
+[Public]
+[NeedsAll()]
+class ProbeController {
+  readonly ProbeService _probe;
+  [GetRoute]
+  public object GetProbe() { return new { log = _probe.Log, tag = _probe.Tag }; }
+}
+"#,
+        serde_json::json!({
+            "log": ["now:paid", "deferred:paid", "later:paid"],
+            "tag": "background",
+        }),
+    )
+    .await;
+}
+
+#[test]
+fn csharp_asynchronous_listeners_need_in_background_and_a_task() {
+    let cases = [
+        (
+            "[OnEvent]\n  public async System.Threading.Tasks.Task Observe(Models.ProbeTagged value) { await System.Threading.Tasks.Task.Yield(); }",
+            "This Yon language supports synchronous local event and lifecycle completion only",
+        ),
+        (
+            "[OnEvent]\n  [InBackground()]\n  public async void Observe(Models.ProbeTagged value) { await System.Threading.Tasks.Task.Yield(); }",
+            "An asynchronous C# InBackground listener must return Task or Task<T>",
+        ),
+    ];
+    for (listener, expected) in cases {
+        let source = format!(
+            "[Service()]\nclass ProbeService {{\n  {listener}\n}}\n[RequestRoute(\"/probe\")]\n[Public]\n[NeedsAll()]\nclass ProbeController {{\n  readonly ProbeService _probe;\n  [GetRoute]\n  public object GetProbe() {{ return new {{ ok = true }}; }}\n}}\n"
+        );
+        let root = tempfile::tempdir().expect("fixture");
+        ProbeModels::write(root.path(), "cs");
+        let entry = yon_layout::write_fixture(
+            root.path(),
+            "server/controllers/ProbeController.cs",
+            &source,
+        );
+        let failure = HandlerSource::discover(root.path(), &entry)
+            .err()
+            .unwrap_or_else(|| panic!("C# accepted {listener}"))
+            .to_string();
+        assert!(failure.contains(expected), "{failure}");
+    }
+}
+
+#[tokio::test]
 async fn rust_events_and_lifecycle() {
     execute(
         "rs",
@@ -1201,25 +1278,6 @@ class ProbeController {
   ProbeService probe;
   @GetRoute
   Object getProbe() { return java.util.Map.of("ok", true); }
-}
-"#,
-        ),
-        (
-            "cs",
-            r#"
-[Service()]
-class ProbeService {
-  [OnEvent]
-  [InBackground()]
-  public void Observe(Models.ProbeTagged value) { }
-}
-[RequestRoute("/probe")]
-[Public]
-[NeedsAll()]
-class ProbeController {
-  readonly ProbeService _probe;
-  [GetRoute]
-  public object GetProbe() { return new { ok = true }; }
 }
 "#,
         ),
