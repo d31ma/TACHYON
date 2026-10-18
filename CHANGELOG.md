@@ -10,6 +10,11 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `scripts/android/native-test.sh` also runs the Kotlin window-controls
+  example on the Android emulator. Granted `minimize`, `resize` and `title`
+  act on the app window, and `maximize`, `fullscreen` and `close`, which the
+  example does not grant, are refused from the page and from a Kotlin
+  service.
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain
@@ -984,6 +989,9 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- An Android build no longer fails in Gradle with `resource mipmap/ic_launcher
+  not found` when `client/manifest.json` names an icon file that does not
+  exist. The app then uses the default Android icon, like the other hosts.
 - A C++ page program no longer traps with `RuntimeError: unreachable` when
   its code reads a `std::chrono` clock or `std::random_device`. The page's
   WASI shim now answers `clock_time_get` and `random_get`; before, the call

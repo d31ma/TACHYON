@@ -95,11 +95,11 @@ fn write_project(
         &project.join("app/build.gradle.kts"),
         app_gradle(application, &package, has_companion).as_bytes(),
     )?;
+    let has_icon = stage_icon(application, web_bundle, project)?;
     write(
         &project.join("app/src/main/AndroidManifest.xml"),
-        android_manifest(application).as_bytes(),
+        android_manifest(has_icon).as_bytes(),
     )?;
-    stage_icon(application, web_bundle, project)?;
     write(
         &project.join("app/src/main/res/values/strings.xml"),
         strings_xml(application).as_bytes(),
@@ -296,10 +296,12 @@ dependencies {{
     )
 }
 
-fn android_manifest(application: &NativeApplication) -> String {
-    let icon = application.largest_icon().map_or_else(String::new, |_| {
-        String::from("\n      android:icon=\"@mipmap/ic_launcher\"")
-    });
+fn android_manifest(has_icon: bool) -> String {
+    let icon = if has_icon {
+        "\n      android:icon=\"@mipmap/ic_launcher\""
+    } else {
+        ""
+    };
     r#"<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <application
@@ -319,26 +321,26 @@ fn android_manifest(application: &NativeApplication) -> String {
   </application>
 </manifest>
 "#
-    .replace("__ICON__", &icon)
+    .replace("__ICON__", icon)
 }
 
 fn stage_icon(
     application: &NativeApplication,
     web_bundle: &Path,
     project: &Path,
-) -> Result<(), Failure> {
+) -> Result<bool, Failure> {
     let Some(source) = application.largest_icon() else {
-        return Ok(());
+        return Ok(false);
     };
     let origin = web_bundle.join(source.trim_start_matches('/'));
     if !origin.is_file() {
-        return Ok(());
+        return Ok(false);
     }
     let destination = project.join("app/src/main/res/mipmap-xxxhdpi/ic_launcher.png");
     if let Some(parent) = destination.parent() {
         native_io(fs::create_dir_all(parent), parent)?;
     }
-    native_io(fs::copy(&origin, &destination).map(|_| ()), &destination)
+    native_io(fs::copy(&origin, &destination).map(|_| true), &destination)
 }
 
 fn strings_xml(application: &NativeApplication) -> String {
@@ -1061,9 +1063,29 @@ mod tests {
         assert!(app_gradle(&application(), "x.y", true).contains("org.jetbrains.kotlin.android"));
         assert!(!gradle.contains("kotlin"));
 
-        let manifest = android_manifest(&application());
+        let manifest = android_manifest(false);
         assert!(manifest.contains("android:usesCleartextTraffic=\"false\""));
         assert!(manifest.contains("android.intent.category.LAUNCHER"));
+        assert!(!manifest.contains("android:icon"));
+        assert!(android_manifest(true).contains("android:icon=\"@mipmap/ic_launcher\""));
+    }
+
+    #[test]
+    fn a_named_icon_that_is_missing_leaves_the_manifest_without_an_icon()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = tempfile::tempdir()?;
+        let mut application = application();
+        application.icons = vec![(1024, String::from("/icon-1024.png"))];
+        let project = root.path().join("project");
+        assert!(!super::stage_icon(&application, root.path(), &project)?);
+        std::fs::write(root.path().join("icon-1024.png"), b"png")?;
+        assert!(super::stage_icon(&application, root.path(), &project)?);
+        assert!(
+            project
+                .join("app/src/main/res/mipmap-xxxhdpi/ic_launcher.png")
+                .is_file()
+        );
+        Ok(())
     }
 
     #[test]

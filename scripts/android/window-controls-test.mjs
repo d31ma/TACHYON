@@ -1,0 +1,165 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
+
+class AndroidWindowControlsGate {
+  static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  static feature = path.join(AndroidWindowControlsGate.repo, 'website/content/features/window-controls');
+  static sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;
+  static adb = path.join(AndroidWindowControlsGate.sdk ?? '', 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
+  static packageName = 'com.example.catalog';
+  static refusedControls = ['maximize', 'fullscreen', 'close'];
+  static probeService = `@Service
+@NeedsAll
+class WindowProbeService {
+    private val windowControls: WindowControls
+    var refusals: List<String> = emptyList()
+    var grants: List<String> = emptyList()
+
+    fun probe() {
+        grants = listOf("minimize", "resize", "title", "maximize", "fullscreen", "close").filter { windowControls.granted(it) }
+        refusals = listOf(
+            refusal { windowControls.maximize() },
+            refusal { windowControls.fullscreen() },
+            refusal { windowControls.close() },
+        )
+    }
+
+    private fun refusal(call: () -> Unit): String =
+        try { call(); "acted" }
+        catch (refused: IllegalStateException) { refused.message.orEmpty() }
+}
+`;
+
+  static run(command, args, options = {}) {
+    const result = spawnSync(command, args, { cwd: AndroidWindowControlsGate.repo, encoding: 'utf8', timeout: 240000, maxBuffer: 8 * 1024 * 1024, ...options });
+    assert.equal(result.status, 0, `${command} ${args.join(' ')}: ${result.error || result.stderr || result.stdout}`);
+    return result.stdout.trim();
+  }
+
+  static adbShell(...args) {
+    return AndroidWindowControlsGate.run(AndroidWindowControlsGate.adb, ['shell', ...args]);
+  }
+
+  static pause(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+  }
+
+  static stage(project) {
+    const feature = AndroidWindowControlsGate.feature;
+    for (const entry of ['components', 'manifest.json']) cpSync(path.join(feature, 'client', entry), path.join(project, 'client', entry), { recursive: true });
+    mkdirSync(path.join(project, 'client/services'), { recursive: true });
+    cpSync(path.join(feature, 'native/services/ReportService.kt'), path.join(project, 'client/services/ReportService.kt'));
+    writeFileSync(path.join(project, 'client/services/WindowProbeService.kt'), AndroidWindowControlsGate.probeService);
+    mkdirSync(path.join(project, 'client/components/window/probe'), { recursive: true });
+    writeFileSync(path.join(project, 'client/components/window/probe/tac.html'), '<section aria-label="Window probe"><button type="button" on:click="windowProbe.probe()">Probe</button><output aria-label="Grants">{windowProbe.grants.join(",")}</output><output aria-label="Refusals">{windowProbe.refusals.join("|")}</output></section>');
+    mkdirSync(path.join(project, 'client/pages'), { recursive: true });
+    writeFileSync(path.join(project, 'client/pages/tac.html'), '<report-window hydrate="load" />\n<window-probe />\n');
+  }
+
+  static binary() {
+    if (process.env.TAC_BIN) return process.env.TAC_BIN;
+    const run = AndroidWindowControlsGate.run;
+    run('cargo', ['build', '--locked', '--bin', 'ty']);
+    return path.join(JSON.parse(run('cargo', ['metadata', '--format-version', '1', '--no-deps'])).target_directory, 'debug/ty');
+  }
+
+  static async launch(apk) {
+    const { run, adb, adbShell, packageName, pause } = AndroidWindowControlsGate;
+    run(adb, ['wait-for-device']);
+    run(adb, ['install', '-r', apk]);
+    adbShell('am', 'force-stop', packageName);
+    adbShell('am', 'start', '-W', '-n', `${packageName}/.MainActivity`);
+    let pid = '';
+    for (let attempt = 0; attempt < 60; attempt++) {
+      pid = adbShell('pidof', packageName);
+      if (pid && adbShell('cat', '/proc/net/unix').includes(`webview_devtools_remote_${pid}`)) break;
+      await pause(500);
+    }
+    assert.match(pid, /^\d+$/, 'The window controls app must start');
+    return pid;
+  }
+
+  static resumedActivity() {
+    return AndroidWindowControlsGate.adbShell('dumpsys', 'activity', 'activities').split('\n').find(line => line.includes('topResumedActivity=')) ?? '';
+  }
+
+  static applicationWindowTitle() {
+    const { adbShell } = AndroidWindowControlsGate;
+    adbShell('uiautomator', 'dump', '--windows', '/sdcard/tachyon-windows.xml');
+    const windows = adbShell('cat', '/sdcard/tachyon-windows.xml');
+    return windows.match(/<window [^>]*title="([^"]*)"[^>]*type="TYPE_APPLICATION"/)?.[1] ?? '';
+  }
+
+  static pageSize(page) {
+    return page.evaluate(() => [innerWidth, innerHeight]);
+  }
+
+  static async waitFor(condition, message) {
+    for (let attempt = 0; attempt < 40; attempt++) {
+      if (await condition()) return;
+      await AndroidWindowControlsGate.pause(250);
+    }
+    assert.fail(message);
+  }
+
+  static async checkRefusals(page) {
+    const { refusedControls, resumedActivity, pageSize, packageName } = AndroidWindowControlsGate;
+    const size = await pageSize(page);
+    for (const control of refusedControls) {
+      const answer = await page.evaluate(async control => JSON.parse(await globalThis.__tachyonNativeHostCall(`window.${control}`, '{}')), control);
+      assert.deepEqual(answer, { ok: false, error: 'Window control is not granted.' }, `The page cannot run the ungranted ${control} control`);
+    }
+    await page.getByRole('button', { name: 'Probe' }).click();
+    await page.getByRole('status', { name: 'Grants' }).filter({ hasText: 'minimize,resize,title' }).waitFor();
+    const refusals = await page.getByRole('status', { name: 'Refusals' }).textContent();
+    assert.deepEqual(refusals.split('|'), refusedControls.map(control =>
+      `The ${control} window control is not granted. Add "${control}" to tac.application.window.controls in client/manifest.json.`));
+    assert.ok(resumedActivity().includes(packageName), `Refused close leaves the app resumed: ${resumedActivity()}`);
+    assert.deepEqual(await pageSize(page), size, 'Refused maximize and fullscreen leave the window size as it was');
+  }
+
+  static async checkGranted(page) {
+    const { applicationWindowTitle, resumedActivity, pageSize, waitFor, packageName } = AndroidWindowControlsGate;
+    assert.notEqual(applicationWindowTitle(), 'Quarterly report');
+    await page.getByRole('button', { name: 'Rename' }).click();
+    await waitFor(() => applicationWindowTitle() === 'Quarterly report', `Rename sets the Android window title: ${applicationWindowTitle()}`);
+    await page.getByRole('button', { name: 'Resize' }).click();
+    await waitFor(async () => JSON.stringify(await pageSize(page)) === '[1280,800]', `Resize makes the window 1280 by 800: ${await pageSize(page)}`);
+    assert.equal(await page.locator('main p').textContent(), '', 'Granted controls report no problem');
+    await page.getByRole('button', { name: 'Minimise' }).click();
+    await waitFor(() => !resumedActivity().includes(packageName), `Minimise moves the app behind the launcher: ${resumedActivity()}`);
+  }
+
+  static async main() {
+    assert.ok(AndroidWindowControlsGate.sdk, 'ANDROID_HOME or ANDROID_SDK_ROOT is required');
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-android-window-'));
+    let browser;
+    let port;
+    try {
+      AndroidWindowControlsGate.stage(project);
+      AndroidWindowControlsGate.run(AndroidWindowControlsGate.binary(), ['build', project, '--target', 'android']);
+      const pid = await AndroidWindowControlsGate.launch(path.join(project, 'dist/android/Catalog/Catalog.apk'));
+      port = AndroidWindowControlsGate.run(AndroidWindowControlsGate.adb, ['forward', 'tcp:0', `localabstract:webview_devtools_remote_${pid}`]);
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true });
+      const page = browser.contexts()[0].pages()[0];
+      assert.ok(page, 'Android WebView exposes a live document');
+      await page.getByRole('button', { name: 'Rename' }).waitFor();
+      await AndroidWindowControlsGate.checkRefusals(page);
+      await AndroidWindowControlsGate.checkGranted(page);
+      console.log('PASS: Android window controls: granted minimize, resize and title act; maximize, fullscreen and close are refused');
+    } finally {
+      if (browser) await browser.close();
+      if (port) AndroidWindowControlsGate.run(AndroidWindowControlsGate.adb, ['forward', '--remove', `tcp:${port}`]);
+      AndroidWindowControlsGate.adbShell('am', 'force-stop', AndroidWindowControlsGate.packageName);
+      rmSync(project, { recursive: true, force: true });
+    }
+  }
+}
+
+await AndroidWindowControlsGate.main();

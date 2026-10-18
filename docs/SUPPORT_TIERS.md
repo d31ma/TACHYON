@@ -27,7 +27,7 @@ support tier. They do not replace verification of the real release download.
 | --- | --- | --- |
 | macOS WKWebView | full arm64 application gate passed: controls, accessibility, typing, lifecycle and visual parity at 420x752 | exact release artifact and current-head CI |
 | iOS WKWebView | isolated iPhone SE (3rd generation), iOS 26.5. Passed: Swift calls, publish, input/focus, assets and route state `7 -> 9 -> 7` | exact release artifact; support on physical devices is still not claimed |
-| Android WebView | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement and packaged dynamic routes | exact release artifact; support on physical devices is still not claimed |
+| Android WebView | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, and window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18) | exact release artifact; support on physical devices is still not claimed |
 | Linux WebKitGTK | Rust native service compiles. The shared route/security probe passes. | Linux native GUI CI execution |
 | Windows WebView2 | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. | Windows native GUI CI execution |
 
