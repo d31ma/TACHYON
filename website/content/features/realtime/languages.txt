@@ -57,6 +57,9 @@ that keeps it in a @Needs field and receives with @OnEvent. A Swift
 client is a protocol method such as func receive(_ tick: Tick), held
 the same way for the Swift web service that keeps the client in a
 @Needs field.
+A Ruby client is an empty method of a #[HTTPClient] class such as
+def receive(tick), held the same way for the Ruby service that keeps
+the client in a #[Needs] field and receives with #[OnEvent].
 A Kotlin client is an interface method such as
 fun receive(tick: Tick), held the same way for the Kotlin web service
 that keeps the client in a @Needs field.

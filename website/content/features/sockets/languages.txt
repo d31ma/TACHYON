@@ -42,6 +42,9 @@ for the Dart service that keeps the client in a @Needs field, and
 the generated Future<void> send(Object? message) fails with the
 same codes. A Swift client is a protocol method, and its generated
 send(_ message:) async throws throws the same codes.
+A Ruby client is an empty method in a Ruby service's #[Needs]
+field, and its generated send_message(message) raises a
+BehaviorError with the code.
 A Kotlin client is an interface method, and its generated
 suspend send(message) throws an error whose message starts with the
 same codes.
