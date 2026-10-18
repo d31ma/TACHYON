@@ -36,6 +36,30 @@ function Get-TachyonInstallDirectory {
     return $directory
 }
 
+function Get-TachyonArchitecture {
+    $architecture = ''
+    try {
+        $architecture = [string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+    } catch {
+        $architecture = ''
+    }
+    if (-not $architecture) {
+        $architecture = $env:PROCESSOR_ARCHITECTURE
+        if ($env:PROCESSOR_ARCHITEW6432) {
+            $architecture = $env:PROCESSOR_ARCHITEW6432
+        }
+    }
+    if ($architecture -eq 'Arm64') {
+        return 'arm64'
+    }
+    return 'x64'
+}
+
+function Get-TachyonAsset {
+    param([string]$Architecture)
+    return "ty-windows-$Architecture.exe"
+}
+
 function Get-TachyonChecksums {
     param([string]$BaseUrl)
     $sumsContent = (Invoke-WebRequest -Uri "$BaseUrl/SHA256SUMS" -UseBasicParsing).Content
@@ -82,10 +106,11 @@ function Add-TachyonToUserPath {
 
 function Invoke-TachyonInstall {
     $base = Get-TachyonBaseUrl
-    $asset = 'ty-windows-x64.exe'
+    $architecture = Get-TachyonArchitecture
+    $asset = Get-TachyonAsset $architecture
 
     Write-TachyonBanner
-    Write-TachyonStep "Detected windows/x64"
+    Write-TachyonStep "Detected windows/$architecture"
 
     $dest = Get-TachyonInstallDirectory
     New-Item -ItemType Directory -Force -Path $dest | Out-Null

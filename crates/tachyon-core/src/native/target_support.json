@@ -23,10 +23,10 @@
     "member": "icons",
     "paths": ["icons"],
     "web": {"reach": "honored", "how": "icon links and apple-touch-icon in every page head"},
-    "macos": {"reach": "honored", "how": "the largest raster icon becomes the .icns file"},
+    "macos": {"reach": "honored", "how": "the largest raster icon becomes the .icns file; staging the app on another system skips the icon and prints a note"},
     "windows": {"reach": "adapted", "note": "icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon."},
     "linux": {"reach": "adapted", "note": "icons: the Linux app copies the largest raster icon into share/icon.png without resizing it."},
-    "ios": {"reach": "honored", "how": "the largest raster icon is resized to the app icon set"},
+    "ios": {"reach": "honored", "how": "the largest raster icon is resized to the app icon set; staging the app on another system skips the icon and prints a note"},
     "android": {"reach": "adapted", "note": "icons: the Android app copies the largest raster icon into mipmap-xxxhdpi without resizing it."}
   },
   {

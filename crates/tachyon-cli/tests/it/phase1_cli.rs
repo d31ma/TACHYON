@@ -198,6 +198,57 @@ fn multi_target_bundles_publish_each_target_exactly_one_level_below_the_output()
     }
 }
 
+#[test]
+fn apple_targets_stage_off_a_mac_without_their_icon_and_say_so() {
+    let workspace = tempfile::tempdir().expect("workspace should be created");
+    let project = workspace.path().join("apple-icon");
+    assert!(run(ty().arg("init").arg(&project)).status.success());
+    let manifest_path = project.join("client/manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&manifest_path).expect("manifest"))
+            .expect("manifest is JSON");
+    manifest["icons"] = serde_json::json!([{ "src": "/shared/icons/app.png", "sizes": "512x512" }]);
+    write(&manifest_path, &manifest.to_string());
+    write(
+        &project.join("client/shared/icons/app.png"),
+        "not a real png",
+    );
+    let output = workspace.path().join("published");
+
+    let bundled = run(ty()
+        .arg("bundle")
+        .arg(&project)
+        .args([
+            "--target",
+            "macos,ios",
+            "--skip-package",
+            "--no-incremental",
+        ])
+        .env("TAC_DIST_PATH", &output));
+    assert!(bundled.status.success(), "{}", stderr(&bundled));
+    let printed = stdout(&bundled);
+    for target in ["macos", "ios"] {
+        assert!(
+            output
+                .join(target)
+                .join("web/shared/icons/app.png")
+                .is_file(),
+            "the {target} web bundle holds the icon"
+        );
+        assert!(
+            printed.contains(&format!(
+                "--no-incremental changes nothing for the {target} app"
+            )),
+            "{printed}"
+        );
+        assert_eq!(
+            printed.contains(&format!("the {target} app was staged without its icon")),
+            !cfg!(target_os = "macos"),
+            "{printed}"
+        );
+    }
+}
+
 fn run(command: &mut Command) -> Output {
     command.output().expect("the ty process should start")
 }

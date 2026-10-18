@@ -1,4 +1,5 @@
 use super::android::AndroidHostGenerator;
+use super::apple_icons::AppleIcons;
 use super::config::NativeApplication;
 use super::host::GeneratedHost;
 use super::ios::IosHostGenerator;
@@ -124,6 +125,14 @@ impl NativeCompiler {
         super::native_ui_artifact::NativeUiArtifact::generation(build)
     }
 
+    #[must_use]
+    pub fn no_incremental_note(target: NativeTarget) -> String {
+        format!(
+            "Note: --no-incremental changes nothing for the {} app. Native builds always rebuild the web stage in full.",
+            native_target_directory(target)
+        )
+    }
+
     const MAX_NATIVE_SERVICES: usize = 128;
     const ARTIFACT_MANIFEST_NAME: &str = "artifact-manifest.json";
 
@@ -234,7 +243,10 @@ impl NativeCompiler {
             application_bundle: destination.join(generated.application_bundle),
             route_count: index.routes.len(),
             sha256: digest,
-            notes,
+            notes: notes
+                .into_iter()
+                .chain(AppleIcons::skipped_note(&application, options.target))
+                .collect(),
         })
     }
 }

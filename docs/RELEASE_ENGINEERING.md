@@ -78,7 +78,7 @@ it, and it never creates its own tag. It:
 7. creates an attestation for every published archive;
 8. prepares a draft that is not public, from the tag that already exists;
 9. downloads the prepared assets on Linux x64/arm64, macOS x64/arm64, and
-   Windows x64;
+   Windows x64/arm64;
 10. verifies every checksum, GitHub provenance attestation, and Sigstore
     signature;
 11. tests each raw binary and the real installer, which fails closed. The

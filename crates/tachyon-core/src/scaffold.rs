@@ -52,7 +52,7 @@ use client_files::ClientFiles;
 use feature_files::FeatureFiles;
 use page_file::PageFile;
 use project_files::ProjectFiles;
-use project_state::ProjectState;
+pub(crate) use project_state::ProjectState;
 use project_writer::ProjectWriter;
 use reply_parser::ReplyParser;
 use scaffold_failure::ScaffoldFailure;

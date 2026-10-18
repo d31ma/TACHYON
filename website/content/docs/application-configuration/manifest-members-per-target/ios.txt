@@ -7,7 +7,7 @@ start_url
   honored: the page the app opens first
 
 icons
-  honored: the largest raster icon is resized to the app icon set
+  honored: the largest raster icon is resized to the app icon set; staging the app on another system skips the icon and prints a note
 
 theme_color
   adapted: theme_color is written into each page head, but the iOS status bar does not use it yet (WIN5).

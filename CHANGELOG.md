@@ -45,6 +45,15 @@ machine contracts have their own, independent major versions.
   iOS and Windows need one to three numbers, such as `1.4.0`; Windows numbers
   and builds are at most 65535, and an Android build at most 2100000000
   (ADR 0052 amendment).
+- `ty doctor` reports the host toolchain of each native target that the
+  project declares (a `bundle:<target>` script in `package.json`), as `info`
+  rows that never change the exit status: `xcrun` for macOS; `xcodebuild`
+  and the iOS simulator SDK for iOS; `ANDROID_HOME`, Gradle and `javac` for
+  Android; `cl`, `rc.exe` and `TAC_WEBVIEW2_SDK` for Windows; `cc`, GTK 4 and
+  WebKitGTK 6.0 for Linux. `ty init`, `ty add target` and
+  `ty doctor --install` use the same rows and recipes (ADR 0066 amendment).
+- Releases publish `ty-windows-arm64.exe`, built and verified on a Windows
+  ARM64 runner, and `install.ps1` picks it on ARM64 Windows.
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain
@@ -1058,6 +1067,17 @@ machine contracts have their own, independent major versions.
   shared C check against hostile links, the Windows opener under Wine, and
   the generated GTK host under Xvfb with a fake launcher (ADR 0018
   amendment).
+- The Linux tool setup installs and checks GTK 4 and WebKitGTK 6.0, which
+  the Linux host links. It used to install GTK 3 and WebKitGTK 4.1. The
+  Windows tool setup checks the Microsoft C++ build tools (`cl`, `rc.exe`)
+  and the WebView2 SDK instead of .NET, which only C# services need.
+- `ty cache status` and `ty cache clean` include the `rust-companion` cache
+  that desktop Rust crates build in.
+- Staging a macOS or iOS app off a Mac with a raster icon no longer fails on
+  `sips`. The app is staged without its icon, and the build prints a note.
+- A native build with `--no-incremental` prints a note that the flag changes
+  nothing there, because native builds always rebuild the web stage.
+
 - A C++ page program no longer traps with `RuntimeError: unreachable` when
   its code reads a `std::chrono` clock or `std::random_device`. The page's
   WASI shim now answers `clock_time_get` and `random_get`; before, the call

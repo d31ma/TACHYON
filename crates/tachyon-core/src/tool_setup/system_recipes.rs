@@ -10,6 +10,7 @@ impl SystemRecipes {
     const APPLE_ONLY: &'static str = "Apple apps (macOS and iOS) build only on a Mac with Xcode. Build them on a Mac, or remove the target.";
     const LINUX_ONLY: &'static str =
         "Linux apps build only on Linux. Build them on a Linux computer, or remove the target.";
+    const WINDOWS_ONLY: &'static str = "Windows apps build only on Windows. Build them on a Windows computer, or remove the target.";
     const PYTHON: [&'static str; 3] = [
         "Install Python 3 from https://www.python.org/downloads/macos/ (the installer asks for your password), or run: brew install python",
         "sudo apt-get install -y python3\nThese are the Debian and Ubuntu commands. On Fedora use dnf, and on Arch use pacman.",
@@ -47,8 +48,18 @@ impl SystemRecipes {
     ];
     const LINUX_DESKTOP: [&'static str; 3] = [
         Self::LINUX_ONLY,
-        "sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev\nThese are the Debian and Ubuntu commands. On Fedora use dnf, and on Arch use pacman.",
+        "sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev\nThese are the Debian and Ubuntu commands. The app links GTK 4 and WebKitGTK 6.0.\nOn Fedora run: sudo dnf install gcc pkgconf-pkg-config gtk4-devel webkitgtk6.0-devel\nOn Arch run: sudo pacman -S base-devel pkgconf gtk4 webkitgtk-6.0",
         Self::LINUX_ONLY,
+    ];
+    const MSVC: [&'static str; 3] = [
+        Self::WINDOWS_ONLY,
+        Self::WINDOWS_ONLY,
+        "Install the Visual Studio Build Tools from https://visualstudio.microsoft.com/visual-cpp-build-tools/ and choose the \"Desktop development with C++\" workload. It installs cl and the Windows SDK, which has rc.exe.\nRun ty from a Visual Studio developer prompt, so that cl and rc.exe are on PATH. Open the prompt for the architecture you build (x64 or ARM64).",
+    ];
+    const WEBVIEW2: [&'static str; 3] = [
+        Self::WINDOWS_ONLY,
+        Self::WINDOWS_ONLY,
+        "Download the Microsoft.Web.WebView2 package from https://www.nuget.org/packages/Microsoft.Web.WebView2 (Download package). The .nupkg file is a zip file: unzip it into a folder in your home folder.\nSet TAC_WEBVIEW2_SDK to that folder, for example: setx TAC_WEBVIEW2_SDK \"%USERPROFILE%\\WebView2SDK\"\nThe folder must hold build\\native\\include\\WebView2.h.",
     ];
 
     pub(crate) fn plan(tool: NeededTool, context: &InstallContext) -> InstallPlan {
@@ -64,6 +75,8 @@ impl SystemRecipes {
             NeededTool::CCompiler => Self::C_COMPILER,
             NeededTool::Xcode => Self::XCODE,
             NeededTool::AndroidSdk => Self::ANDROID,
+            NeededTool::Msvc => Self::MSVC,
+            NeededTool::WebView2Sdk => Self::WEBVIEW2,
             _ => Self::LINUX_DESKTOP,
         }
     }

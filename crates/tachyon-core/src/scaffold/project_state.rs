@@ -25,6 +25,10 @@ impl ProjectState {
         })
     }
 
+    pub(crate) fn bundle_targets(root: &Path) -> Vec<AppTarget> {
+        Self::targets(root, RealmChoice::Server)
+    }
+
     fn realm(root: &Path) -> Result<RealmChoice, Failure> {
         let client = root.join(Self::CLIENT).is_dir();
         let server = root.join(Self::SERVER).is_dir();

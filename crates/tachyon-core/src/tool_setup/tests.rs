@@ -387,3 +387,44 @@ fn a_teavm_jar_with_a_wrong_hash_stops_the_install_and_leaves_no_teavm_folder() 
             .exists()
     );
 }
+
+#[test]
+fn native_targets_install_the_tools_their_hosts_link() {
+    let home = tempfile::tempdir().expect("home");
+    let linux = InstallRecipes::plan(
+        NeededTool::LinuxDesktop,
+        &context(home.path(), HostPlatform::LINUX),
+    );
+    let text = linux.lines.join("\n");
+    assert!(text.contains("libgtk-4-dev libwebkitgtk-6.0-dev"), "{text}");
+    assert!(!text.contains("gtk-3") && !text.contains("4.1"), "{text}");
+    let windows = context(home.path(), HostPlatform::WINDOWS);
+    let msvc = InstallRecipes::plan(NeededTool::Msvc, &windows);
+    let webview = InstallRecipes::plan(NeededTool::WebView2Sdk, &windows);
+    assert_eq!(msvc.kind, PlanKind::Manual);
+    assert!(msvc.lines.join(" ").contains("rc.exe"), "{msvc:?}");
+    assert!(
+        webview.lines.join(" ").contains("TAC_WEBVIEW2_SDK"),
+        "{webview:?}"
+    );
+}
+
+#[test]
+fn every_target_toolchain_row_has_an_install_recipe() {
+    use crate::Choice;
+
+    let rows = crate::doctor::TargetToolchains::for_targets(crate::AppTarget::ALL);
+    assert!(!rows.is_empty());
+    let mut windows = Vec::new();
+    for row in &rows {
+        let tool = NeededTool::for_command(&row.command)
+            .unwrap_or_else(|| panic!("{} has no install recipe", row.command));
+        if row.requirement == "windows apps" {
+            windows.push(tool);
+        }
+    }
+    assert_eq!(
+        windows,
+        [NeededTool::Msvc, NeededTool::Msvc, NeededTool::WebView2Sdk]
+    );
+}

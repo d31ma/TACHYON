@@ -13,13 +13,14 @@ pub struct CacheStatus {
 
 impl CacheStatus {
     pub const RUNTIME_FOLDER: &'static str = "runtime";
-    pub const BUILD_FOLDERS: [&'static str; 11] = [
+    pub const BUILD_FOLDERS: [&'static str; 12] = [
         "dotnet-web",
         "go-wasm",
         "swift-wasm",
         "kotlin-wasm",
         "java-wasm",
         "rust-wasm",
+        "rust-companion",
         "dart-wasm",
         "ruby-web",
         "lua-web",
@@ -173,7 +174,12 @@ mod tests {
     fn language_build_caches_are_counted_and_cleaned_but_installed_tools_stay() {
         let directory = tempfile::tempdir().expect("directory");
         let cache = directory.path().join("cache");
-        for folder in ["dotnet-web/key-1", "go-wasm/key-2", "go-wasm/key-3"] {
+        for folder in [
+            "dotnet-web/key-1",
+            "go-wasm/key-2",
+            "go-wasm/key-3",
+            "rust-companion/key-4",
+        ] {
             fs::create_dir_all(cache.join(folder)).expect("build entry");
         }
         for tool in ["python-web/314.0.7", "teavm-0.15.0"] {
@@ -182,7 +188,7 @@ mod tests {
         let status = status_at(cache.clone());
         assert_eq!(
             status.build_entries,
-            vec![("dotnet-web", 1), ("go-wasm", 2)]
+            vec![("dotnet-web", 1), ("go-wasm", 2), ("rust-companion", 1)]
         );
 
         clean_at(cache.clone()).expect("cleaned");

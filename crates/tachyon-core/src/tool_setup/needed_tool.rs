@@ -26,10 +26,12 @@ pub enum NeededTool {
     AndroidSdk,
     LinuxDesktop,
     TeaVm,
+    Msvc,
+    WebView2Sdk,
 }
 
 impl NeededTool {
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 26] = [
         Self::Bun,
         Self::TypeScript,
         Self::Python,
@@ -54,8 +56,10 @@ impl NeededTool {
         Self::AndroidSdk,
         Self::LinuxDesktop,
         Self::TeaVm,
+        Self::Msvc,
+        Self::WebView2Sdk,
     ];
-    const ENTRIES: [ToolEntry; 24] = [
+    const ENTRIES: [ToolEntry; 26] = [
         ToolEntry {
             label: "Bun, the JavaScript and TypeScript runtime",
             commands: &["bun", "node", "YON_JAVASCRIPT_RUNTIME"],
@@ -138,19 +142,32 @@ impl NeededTool {
         },
         ToolEntry {
             label: "Xcode",
-            commands: &["swiftc", "xcrun"],
+            commands: &[
+                "swiftc",
+                "xcrun",
+                "xcodebuild",
+                "xcrun --sdk iphonesimulator",
+            ],
         },
         ToolEntry {
             label: "the Android SDK",
             commands: &["ANDROID_HOME"],
         },
         ToolEntry {
-            label: "the Linux desktop libraries (GTK and WebKitGTK)",
-            commands: &["pkg-config"],
+            label: "the Linux desktop libraries (GTK 4 and WebKitGTK 6.0)",
+            commands: &["pkg-config", "pkg-config gtk4", "pkg-config webkitgtk-6.0"],
         },
         ToolEntry {
             label: "TeaVM 0.15.0, which compiles Java services to WebAssembly",
             commands: &["teavm"],
+        },
+        ToolEntry {
+            label: "the Microsoft C++ build tools (cl and rc.exe)",
+            commands: &["cl", "rc.exe"],
+        },
+        ToolEntry {
+            label: "the WebView2 SDK (TAC_WEBVIEW2_SDK)",
+            commands: &["TAC_WEBVIEW2_SDK"],
         },
     ];
 

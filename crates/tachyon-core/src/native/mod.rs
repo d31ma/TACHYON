@@ -1,4 +1,5 @@
 mod android;
+mod apple_icons;
 mod browser_api_grants;
 #[cfg(test)]
 mod browser_task_tests;

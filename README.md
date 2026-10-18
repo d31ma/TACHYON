@@ -64,7 +64,7 @@ On macOS or Linux (x64 or arm64), run:
 curl -fsSL https://github.com/d31ma/Tachyon/releases/latest/download/install.sh | sh
 ```
 
-On Windows (x64), run this in PowerShell:
+On Windows (x64 or arm64), run this in PowerShell:
 
 ```powershell
 irm https://github.com/d31ma/Tachyon/releases/latest/download/install.ps1 | iex

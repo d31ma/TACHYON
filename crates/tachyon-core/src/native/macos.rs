@@ -243,7 +243,10 @@ async fn stage_icon(
     web_bundle: &Path,
     resources: &Path,
 ) -> Result<Option<String>, Failure> {
-    let Some(source) = application.largest_icon() else {
+    let Some(source) = application
+        .largest_icon()
+        .filter(|_| super::apple_icons::AppleIcons::can_convert())
+    else {
         return Ok(None);
     };
     let origin = web_bundle.join(source.trim_start_matches('/'));

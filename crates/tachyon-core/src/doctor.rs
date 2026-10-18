@@ -1,11 +1,15 @@
 mod command_probe;
 mod known_toolchains;
 mod service_toolchains;
+mod target_probe;
+mod target_toolchain;
+mod target_toolchains;
 mod toolchain;
 mod toolchain_state;
 mod yon_discovery;
 
 pub(crate) use command_probe::CommandProbe;
+pub(crate) use target_toolchains::TargetToolchains;
 pub use toolchain::Toolchain;
 pub use toolchain_state::ToolchainState;
 
@@ -84,6 +88,7 @@ impl DoctorReport {
         let resolved = requirements.resolve(&options.runtimes, &options.isolation)?;
         let probes = RuntimeProbe::all_sync(resolved, &options.environment)?;
         toolchains.extend(probes.iter().map(KnownToolchains::runtime));
+        toolchains.extend(TargetToolchains::for_project(root));
         Ok(Self {
             contract_version: 1,
             toolchains,
@@ -593,6 +598,63 @@ mod tests {
             [("kotlinc", false), (python_command(), true)],
             "{:?}",
             report.toolchains
+        );
+    }
+
+    #[test]
+    fn declared_native_targets_report_their_host_toolchains_as_info() {
+        let root = project_with(&[
+            ("client/pages/tac.html", "<main>x</main>"),
+            (
+                "package.json",
+                "{\"scripts\": {\n    \"bundle:windows\": \"ty bundle --target windows\",\n    \"bundle:linux\": \"ty bundle --target linux\"\n}}",
+            ),
+        ]);
+        let report = check(root.path()).expect("report");
+        let mut rows = Vec::new();
+        for entry in &report.toolchains {
+            rows.push((entry.requirement.as_str(), entry.command.as_str()));
+            assert!(!entry.required, "{entry:?}");
+            assert!(!entry.install.is_empty(), "{entry:?}");
+        }
+        assert_eq!(
+            rows,
+            [
+                ("windows apps", "cl"),
+                ("windows apps", "rc.exe"),
+                ("windows apps", "TAC_WEBVIEW2_SDK"),
+                ("linux apps", "cc"),
+                ("linux apps", "pkg-config gtk4"),
+                ("linux apps", "pkg-config webkitgtk-6.0"),
+            ]
+        );
+        assert!(
+            report.is_ready(),
+            "target tools never change the exit status"
+        );
+    }
+
+    #[test]
+    fn every_native_target_names_its_host_toolchain() {
+        let root = project_with(&[
+            ("client/pages/tac.html", "<main>x</main>"),
+            (
+                "package.json",
+                "{\"scripts\": {\"bundle:macos\": \"\", \"bundle:ios\": \"\", \"bundle:android\": \"\"}}",
+            ),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(
+            commands,
+            [
+                "xcrun",
+                "xcodebuild",
+                "xcrun --sdk iphonesimulator",
+                "ANDROID_HOME",
+                "gradle",
+                "javac"
+            ]
         );
     }
 

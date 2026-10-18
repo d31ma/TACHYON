@@ -1594,12 +1594,12 @@ async fn execute_build_with_package(
             NativeTarget::Android,
             NativeTarget::Ios,
         ] {
-            execute_native_build(project, out_dir, native, plan).await?;
+            execute_native_build(project, out_dir, native, plan, no_incremental).await?;
         }
         return Ok(());
     }
     if let Some(native) = target.native() {
-        return execute_native_build(project, out_dir, native, plan).await;
+        return execute_native_build(project, out_dir, native, plan, no_incremental).await;
     }
 
     execute_web_build(project, out_dir, no_incremental).await
@@ -1649,6 +1649,7 @@ async fn execute_native_build(
     out_dir: &Path,
     native: NativeTarget,
     plan: PackagePlan,
+    no_incremental: bool,
 ) -> Result<(), Failure> {
     let result = NativeCompiler::build_async(
         project,
@@ -1667,7 +1668,8 @@ async fn execute_native_build(
         result.application_bundle().display(),
         result.sha256()
     );
-    for note in result.notes() {
+    let ignored = no_incremental.then(|| NativeCompiler::no_incremental_note(native));
+    for note in result.notes().iter().cloned().chain(ignored) {
         println!("{note}");
     }
     Ok(())

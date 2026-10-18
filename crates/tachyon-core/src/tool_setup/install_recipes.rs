@@ -44,7 +44,9 @@ impl InstallRecipes {
             | NeededTool::CCompiler
             | NeededTool::Xcode
             | NeededTool::AndroidSdk
-            | NeededTool::LinuxDesktop => SystemRecipes::plan(tool, context),
+            | NeededTool::LinuxDesktop
+            | NeededTool::Msvc
+            | NeededTool::WebView2Sdk => SystemRecipes::plan(tool, context),
         }
     }
 }

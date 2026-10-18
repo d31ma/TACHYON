@@ -11,6 +11,7 @@ class ChexRelease {
     'darwin-arm64': ['chex-macos-arm64', 'a3869779fdc12210fdf9c8cc54d4ea136912516a76de47621d304dbbeaac47ce'],
     'darwin-x64': ['chex-macos-x64', '1b410bf166ffddf2921f661a18c3e90ba2ab74818f7a125fff4d20f0c3566806'],
     'win32-x64': ['chex-windows-x64.exe', '3aa465447849d1f0d43318cd7c0e3c69a7db8cc06055a0c6ba0b4d53c24334bc'],
+    'win32-arm64': ['chex-windows-x64.exe', '3aa465447849d1f0d43318cd7c0e3c69a7db8cc06055a0c6ba0b4d53c24334bc'],
   };
 }
 

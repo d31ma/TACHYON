@@ -73,3 +73,22 @@ writes only what was chosen.
 - The .NET install script and the SDKMAN install script have no published
   checksum. Tachyon says so before it runs them; both check the files that
   they download themselves.
+
+## Amendment (2026-10-18): target tools match the hosts, and `ty doctor` reports them
+
+- The target tools are the ones each host actually uses. Linux: a C
+  compiler, `pkg-config`, GTK 4 and WebKitGTK 6.0 (`libgtk-4-dev` and
+  `libwebkitgtk-6.0-dev` on Debian and Ubuntu). Windows: the Microsoft C++
+  build tools (`cl` and the Windows SDK's `rc.exe`, from a Visual Studio
+  developer prompt) and the WebView2 SDK in `TAC_WEBVIEW2_SDK`. .NET is no
+  longer a Windows target tool; it is still checked when the app has C#
+  services. Android: `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) with an SDK
+  platform, Gradle and a JDK. macOS: `xcrun`. iOS: Xcode (`xcodebuild`) and
+  the iOS simulator SDK.
+- `ty doctor` reports these tools for each native target that the project
+  declares (a `bundle:<target>` script in `package.json`), as `info` rows
+  named `<target> apps`. They never change the exit status. `ty init`,
+  `ty add target` and `ty doctor --install` take the same rows from the same
+  table (`doctor/target_toolchains.rs`), so all three name the same tools and
+  offer the same recipes. MSVC and the WebView2 SDK get plain steps, like
+  Xcode and the Android SDK.
