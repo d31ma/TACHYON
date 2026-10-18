@@ -267,3 +267,18 @@ each connection. Its `[[OnOpen]]`, `[[OnMessage]]`, `[[OnClose]]` and
 `[[OnError]]` methods return `void` and take a `SocketSession&`;
 `session.openSessions()` returns `std::vector<SocketPeer>`, and a thrown
 exception counts as a failure. See ADR 0099, "Yon stream and socket routes".
+
+## Amendment (2026-10-18): Origins listed in server.origins
+
+The `Origin` guard above also accepts an origin listed in `server.origins`
+in `server/application.json`
+([ADR 0103](0103-native-apps-reach-yon-through-a-declared-origin.md)). An
+`Origin` that equals the `Host`, or a request with no `Origin`, is still
+allowed. Any other origin gets `403` with "This socket only accepts pages
+from its own origin or an origin listed in server.origins in
+server/application.json."
+
+On the page side, when `client/manifest.json` declares `tac.yon.origin`, the
+event bus opens a `@SocketRequest` WebSocket on that origin: `wss://` for an
+`https` origin, or `ws://` for a local `http` origin. Without
+`tac.yon.origin`, the socket opens on the page's own origin as before.

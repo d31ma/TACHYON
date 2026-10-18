@@ -68,3 +68,19 @@ fn granted_browser_apis_reach_the_page_head_and_no_grant_adds_nothing() {
         "{granted}"
     );
 }
+
+#[test]
+fn a_declared_yon_origin_reaches_the_page_head_and_none_adds_nothing() {
+    let html = String::from("<html lang=\"en\"><head></head><body></body></html>");
+    let mut site = crate::native::SiteSettings::default();
+    let plain = super::page_head::PageHead::apply(&site, html.clone(), "/");
+    assert!(!plain.contains("tachyon-yon-origin"), "{plain}");
+    site.yon_origin = Some(String::from("https://api.example.com"));
+    let declared = super::page_head::PageHead::apply(&site, html, "/");
+    assert!(
+        declared.contains(
+            r#"<meta name="tachyon-yon-origin" content="https://api.example.com"></head>"#
+        ),
+        "{declared}"
+    );
+}

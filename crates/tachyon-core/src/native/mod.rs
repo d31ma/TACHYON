@@ -208,6 +208,11 @@ mod windows_version_resource;
 mod windows_window_frame;
 #[cfg(test)]
 mod windows_window_frame_tests;
+mod yon_member;
+mod yon_reach;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod yon_reach_tests;
 
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{
@@ -236,6 +241,7 @@ pub(crate) use swift_web_services::SwiftWebServices;
 pub use target_support::TargetSupport;
 pub(crate) use windows::web_dotnet;
 pub use windows_architecture::WindowsArchitecture;
+pub(crate) use yon_member::YonMember;
 
 #[cfg(feature = "fuzzing")]
 pub(crate) fn plan_for_fuzzing(

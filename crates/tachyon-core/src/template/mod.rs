@@ -31,6 +31,9 @@ mod view_member_check;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod view_member_check_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod yon_origin_tests;
 
 pub(crate) use accessibility::AccessibilityCheck;
 pub(crate) use braced_attribute::BracedAttribute;

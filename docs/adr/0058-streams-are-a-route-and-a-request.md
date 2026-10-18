@@ -264,3 +264,13 @@ A C++ `[[StreamRoute]]` method returns `tachyon::Generator<Model>`, a
 `std::generator`. The program writes one event frame per item, like Rust;
 a thrown exception sends the fixed TY2204 frame and an item larger than the
 frame limit sends TY2203. See ADR 0099, "Yon stream and socket routes".
+
+## Amendment (2026-10-18): Streams on the declared Yon origin
+
+When `client/manifest.json` declares `tac.yon.origin`
+([ADR 0103](0103-native-apps-reach-yon-through-a-declared-origin.md)), the
+event bus opens a `@StreamRequest` EventSource and a topic stream on that
+origin instead of the page's origin. The EventSource opens over CORS without
+credentials. Yon answers it with `Access-Control-Allow-Origin` when the
+page's origin is listed in `server.origins` in `server/application.json`.
+Without `tac.yon.origin`, a stream opens on the page's own origin as before.

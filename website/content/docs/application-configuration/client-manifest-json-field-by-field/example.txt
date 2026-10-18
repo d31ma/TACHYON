@@ -125,6 +125,14 @@ tac.outgoing.hosts                                      build
   allows only these; any other request host stops the build
   (TY1326).
 
+tac.yon.origin                         build, browser, native
+  The Yon server the pages call, such as https://api.example.com:
+  https and a lowercase host, no path or trailing slash. http only
+  for a local Yon (http://localhost:8080); others stop the build
+  (TY1601). Route paths go there over CORS, without cookies, and
+  connect-src allows it. A native app needs it to reach Yon; list
+  the app origin in server.origins (ADR 0103).
+
 tac.python                                              build
   Exactly { "runtime": "pyodide-314.0.7", "profile": "offline" }
   to run Python services; other values are refused. The build

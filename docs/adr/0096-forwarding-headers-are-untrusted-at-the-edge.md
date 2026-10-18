@@ -69,3 +69,12 @@ field.
   same reason Go's `Request.TLS` stays `nil` and there are no verified client
   certificate chains: mutual TLS ends at the proxy.
 - Tests that build a handler request directly set these headers themselves.
+
+## Amendment (2026-10-18): CORS reads only the Origin header
+
+The CORS answers of
+[ADR 0103](0103-native-apps-reach-yon-through-a-declared-origin.md) depend
+only on the `Origin` header and the list in `server.origins`. They never
+read `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto` or any other
+forwarding header, so the forwarding rules of this ADR do not change them,
+and a trusted proxy cannot change which origins Yon answers.

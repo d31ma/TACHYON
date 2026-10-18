@@ -1085,6 +1085,10 @@ mod tests {
         assert!(android_manifest(&declared, false).contains(
             "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n  <uses-permission android:name=\"android.permission.INTERNET\"/>\n  <application"
         ));
+        let mut yon = application();
+        yon.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::default()
+            .with_yon_origin(Some(String::from("https://yon.example.com")));
+        assert!(android_manifest(&yon, false).contains("android.permission.INTERNET"));
     }
 
     #[test]

@@ -1,4 +1,11 @@
 class TacApplicationEvents {
+  static yonOriginTag = 'meta[name="tachyon-yon-origin"]'
+
+  static yonPath(path) {
+    const declared = globalThis.document?.querySelector?.(TacApplicationEvents.yonOriginTag)?.content
+    return declared ? new URL(path, new URL(declared).origin).href : path
+  }
+
   constructor({ changed, failed, calling = (owner, work) => work(), announced = () => {} }) {
     this.changed = changed
     this.failed = failed
@@ -285,13 +292,13 @@ class TacApplicationEvents {
     const open = () => {
       if (state.disposed) return
       if (socket) {
-        const url = new URL(stream.path, location.href)
+        const url = new URL(TacApplicationEvents.yonPath(stream.path), location.href)
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
         source = new Kind(url)
         source.onopen = () => { for (const text of waiting.splice(0)) source.send(text) }
         source.onclose = ({ code }) => { source = null; if (![1000, 1003, 1007, 1009].includes(code)) retry() }
       } else {
-        source = new Kind(stream.topic && last !== null ? `${stream.path}?position=${last + 1}` : stream.path)
+        source = new Kind(TacApplicationEvents.yonPath(stream.topic && last !== null ? `${stream.path}?position=${last + 1}` : stream.path))
         source.onerror = retry
         source.addEventListener('end', close)
       }

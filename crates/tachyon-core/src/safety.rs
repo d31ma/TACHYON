@@ -1,3 +1,4 @@
+mod app_origins;
 mod code_text;
 mod declared_hosts;
 mod environment_allowlist;
@@ -23,6 +24,9 @@ mod trusted_proxies;
 #[allow(clippy::expect_used)]
 mod code_tests;
 #[cfg(test)]
+#[allow(clippy::expect_used)]
+mod declared_hosts_tests;
+#[cfg(test)]
 mod environment_allowlist_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -39,6 +43,7 @@ mod service_reach_tests;
 #[cfg(test)]
 mod trusted_proxies_tests;
 
+pub(crate) use app_origins::AppOrigins;
 use code_text::CodeText;
 pub(crate) use declared_hosts::DeclaredHosts;
 pub(crate) use environment_allowlist::EnvironmentAllowlist;

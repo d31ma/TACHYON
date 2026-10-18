@@ -4,15 +4,20 @@ class __tachyon_ClientConfiguration {
     if (typeof transport !== 'function' || (this.transport && this.transport !== transport)) throw new TypeError('Invalid Tac Client transport owner.')
     Object.defineProperty(this, 'transport', {value:transport})
   }
+  static yonOrigin() {
+    const declared = globalThis.document?.querySelector?.('meta[name="tachyon-yon-origin"]')?.content
+    return declared ? new URL(declared).origin : null
+  }
   static configure() {
     return { http: Object.fromEntries(this.adapters.map(name =>
       [name, {exchange: request => __tachyon_client_exchange__(request, this.transport)}])) }
   }
 }
 async function __tachyon_client_exchange__(request, transport) {
-  const url = new URL(request.path, location.href)
-  if (!['http:', 'https:'].includes(url.protocol) || url.origin !== location.origin || url.username || url.password) {
-    throw new TypeError('Tac Client requires a same-origin HTTP endpoint.')
+  const yonOrigin = __tachyon_ClientConfiguration.yonOrigin()
+  const url = new URL(request.path, yonOrigin ?? location.href)
+  if (!['http:', 'https:'].includes(url.protocol) || ![location.origin, yonOrigin].includes(url.origin) || url.username || url.password) {
+    throw new TypeError('Tac Client requires a same-origin HTTP endpoint or the tac.yon.origin endpoint.')
   }
   for (const [name, value] of Object.entries(request.query)) url.searchParams.set(name, String(value))
   const headers = new Headers(request.headers)

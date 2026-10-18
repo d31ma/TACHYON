@@ -25,18 +25,18 @@ pub(super) fn validate(document: &Value) -> Result<(), Failure> {
 fn validate_server(server: &Value) -> Result<(), Failure> {
     let server = server.as_object().ok_or_else(|| {
         invalid(
-            "yon.server must be an object containing host, port, hosts, proxies, environment or maxbody.",
+            "yon.server must be an object containing host, port, hosts, origins, proxies, environment or maxbody.",
         )
     })?;
     let has_other_key = server.keys().any(|key| {
         !matches!(
             key.as_str(),
-            "host" | "port" | "hosts" | "proxies" | "environment" | "maxbody"
+            "host" | "port" | "hosts" | "origins" | "proxies" | "environment" | "maxbody"
         )
     });
     if has_other_key {
         return Err(invalid(
-            "yon.server supports only host, port, hosts, proxies, environment and maxbody.",
+            "yon.server supports only host, port, hosts, origins, proxies, environment and maxbody.",
         ));
     }
     let host_is_invalid = server.get("host").is_some_and(|value| !value.is_string());

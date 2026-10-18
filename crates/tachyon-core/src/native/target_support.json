@@ -420,6 +420,16 @@
     "android": {"reach": "adapted", "note": "The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host."}
   },
   {
+    "member": "tac.yon",
+    "paths": ["tac.yon"],
+    "web": {"reach": "honored", "how": "pages send Yon calls to tac.yon.origin over CORS without cookies, and connect-src allows it (ADR 0103)"},
+    "macos": {"reach": "adapted", "note": "tac.yon.origin: the macOS app sends Yon calls to this origin, and its connect-src allows it, but no macOS app has been run against Yon yet (NET1)."},
+    "windows": {"reach": "adapted", "note": "tac.yon.origin: the Windows app sends Yon calls to this origin, and its connect-src allows it, but no Windows app has been run against Yon yet (NET3)."},
+    "linux": {"reach": "adapted", "note": "tac.yon.origin: the Linux app sends Yon calls to this origin, and its connect-src allows it, but no Linux app has been run against Yon yet (NET4)."},
+    "ios": {"reach": "adapted", "note": "tac.yon.origin: the iOS app sends Yon calls to this origin, and its connect-src allows it, but no iOS app has been run against Yon yet (NET1)."},
+    "android": {"reach": "adapted", "note": "tac.yon.origin: the Android app sends Yon calls to this origin over https only and asks for the INTERNET permission, but no Android app has been run against Yon yet (NET2)."}
+  },
+  {
     "member": "tac.go",
     "paths": ["tac.go"],
     "web": {"reach": "honored", "how": "the Go compiler for Go web services"},

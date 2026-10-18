@@ -4,6 +4,7 @@ class TacBrowserHttp {
   static mostBytes = 1048576
   static requestBytes = 1048576
   static pending = 0
+  static yonOriginTag = 'meta[name="tachyon-yon-origin"]'
   static installed = TacBrowserHttp.install()
 
   static install() {
@@ -57,14 +58,15 @@ class TacBrowserHttp {
     const body = TacBrowserHttp.#body(request, headers)
     const cached = request.method === 'GET' && request.publicRead === true && !headers.has('authorization')
     return { url, headers, body, method: request.method, deadline: request.deadline, limit: request.maxResponseBytes,
-      cache: cached ? request.revalidate === true ? 'no-cache' : 'default' : 'no-store' }
+      mode: new URL(url).origin === location.origin ? 'same-origin' : 'cors', cache: cached ? request.revalidate === true ? 'no-cache' : 'default' : 'no-store' }
   }
 
   static #url(request) {
     const path = request.path
     if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//') || /[\s\\?#%]/.test(path) || path.split('/').some((part) => part === '.' || part === '..') || new TextEncoder().encode(path).length > 2048) TacBrowserHttp.#fail('HTTP_ORIGIN')
-    const url = new URL(path, location.href)
-    if (url.origin !== location.origin) TacBrowserHttp.#fail('HTTP_ORIGIN')
+    const yonOrigin = TacBrowserHttp.#yonOrigin()
+    const url = new URL(path, yonOrigin ?? location.href)
+    if (![location.origin, yonOrigin].includes(url.origin)) TacBrowserHttp.#fail('HTTP_ORIGIN')
     const query = request.query ?? {}
     if (!query || typeof query !== 'object' || Array.isArray(query)) TacBrowserHttp.#fail('HTTP_QUERY')
     for (const [key, value] of Object.entries(query)) {
@@ -74,6 +76,11 @@ class TacBrowserHttp {
     }
     if (new TextEncoder().encode(url.href).length > 8192) TacBrowserHttp.#fail('HTTP_QUERY')
     return url.href
+  }
+
+  static #yonOrigin() {
+    const declared = globalThis.document?.querySelector?.(TacBrowserHttp.yonOriginTag)?.content
+    return declared ? new URL(declared).origin : null
   }
 
   static #headers(values = {}) {
@@ -111,7 +118,7 @@ class TacBrowserHttp {
     try {
       if (remaining <= 0) { controller.abort('DEADLINE'); TacBrowserHttp.#fail('HTTP_REQUEST') }
       const response = await fetch(request.url, { method: request.method, headers: request.headers, body: request.body,
-        credentials: 'omit', redirect: 'error', mode: 'same-origin', cache: request.cache, signal: controller.signal })
+        credentials: 'omit', redirect: 'error', mode: request.mode, cache: request.cache, signal: controller.signal })
       if (!response.ok) TacBrowserHttp.#fail('HTTP_STATUS', response.status)
       const text = await TacBrowserHttp.#read(response, request.limit)
       if (controller.signal.aborted) TacBrowserHttp.#fail('HTTP_REQUEST')

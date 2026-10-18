@@ -51,7 +51,8 @@ impl SocketSession {
         let upgrade = WebSocketUpgrade::from_request_parts(&mut parts, &())
             .await
             .ok();
-        let allowed = Self::same_origin(&parts.headers);
+        let allowed =
+            Self::allows_origin(&parts.headers, state.supervisor.application().app_origins());
         Self::answer(upgrade, allowed, &parts, state, entry, matched)
     }
 
@@ -67,7 +68,7 @@ impl SocketSession {
             (None, _) => Self::upgrade_required(),
             (Some(_), false) => ServerResponse::text(
                 StatusCode::FORBIDDEN,
-                "This socket only accepts pages from its own origin.",
+                "This socket only accepts pages from its own origin or an origin listed in server.origins in server/application.json.",
             ),
             (Some(upgrade), true) => Self::join(upgrade, parts, state, entry, matched),
         }
@@ -130,10 +131,21 @@ impl SocketSession {
         response
     }
 
+    fn allows_origin(headers: &HeaderMap, origins: &crate::safety::AppOrigins) -> bool {
+        Self::same_origin(headers) || Self::app_origin(headers, origins)
+    }
+
     fn same_origin(headers: &HeaderMap) -> bool {
         headers
             .get(ORIGIN)
             .is_none_or(|origin| Self::origin_matches_host(origin, headers))
+    }
+
+    fn app_origin(headers: &HeaderMap, origins: &crate::safety::AppOrigins) -> bool {
+        headers
+            .get(ORIGIN)
+            .and_then(|origin| origin.to_str().ok())
+            .is_some_and(|origin| origins.allows(origin))
     }
 
     fn origin_matches_host(origin: &HeaderValue, headers: &HeaderMap) -> bool {
@@ -410,6 +422,50 @@ impl SocketSession {
         CloseFrame {
             code,
             reason: reason[..end].to_owned().into(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use super::SocketSession;
+    use crate::safety::AppOrigins;
+    use axum::http::header::{HOST, ORIGIN};
+    use axum::http::{HeaderMap, HeaderValue};
+
+    fn allowed(origin: Option<&str>, listed: &[&str]) -> bool {
+        let mut headers = HeaderMap::new();
+        headers.insert(HOST, HeaderValue::from_static("api.example.com"));
+        if let Some(origin) = origin {
+            headers.insert(ORIGIN, HeaderValue::from_str(origin).expect("origin"));
+        }
+        let origins = AppOrigins::parse(listed).expect("origins");
+        SocketSession::allows_origin(&headers, &origins)
+    }
+
+    #[test]
+    fn a_socket_accepts_its_own_origin_listed_app_origins_and_non_browsers() {
+        let listed = ["tachyon-app://bundle", "https://tachyon.local"];
+        for origin in [
+            None,
+            Some("https://api.example.com"),
+            Some("tachyon-app://bundle"),
+            Some("https://tachyon.local"),
+        ] {
+            assert!(allowed(origin, &listed), "{origin:?}");
+        }
+    }
+
+    #[test]
+    fn a_socket_refuses_other_origins() {
+        for (origin, listed) in [
+            ("https://evil.example", &["https://tachyon.local"][..]),
+            ("tachyon-app://bundle", &[][..]),
+            ("null", &["tachyon-app://bundle"][..]),
+        ] {
+            assert!(!allowed(Some(origin), listed), "{origin}");
         }
     }
 }

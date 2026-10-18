@@ -11,9 +11,13 @@ impl NativePolicyFixture {
     const CLOSED_SOURCES: &str = "connect-src 'self';";
 
     fn application(outgoing: &Value) -> Result<NativeApplication, String> {
+        Self::tac_application(&json!({ "outgoing": outgoing }))
+    }
+
+    fn tac_application(tac: &Value) -> Result<NativeApplication, String> {
         let root = tempfile::tempdir().expect("project");
         std::fs::create_dir_all(root.path().join("client")).expect("client");
-        let manifest = json!({ "name": "Catalog", "tac": { "outgoing": outgoing } });
+        let manifest = json!({ "name": "Catalog", "tac": tac });
         std::fs::write(
             root.path().join("client/manifest.json"),
             manifest.to_string(),
@@ -79,6 +83,30 @@ fn every_native_host_limits_page_requests_to_the_declared_outgoing_hosts() {
             "{platform} host kept the policy placeholder"
         );
     }
+}
+
+#[test]
+fn every_native_host_lets_the_page_reach_the_declared_yon_origin() {
+    let application = NativePolicyFixture::tac_application(&json!({
+        "outgoing": { "hosts": ["api.example.com"] },
+        "yon": { "origin": "https://yon.example.com:8443" }
+    }))
+    .expect("application");
+    for (platform, source) in NativePolicyFixture::host_sources(&application) {
+        assert!(
+            source.contains(
+                " ws://api.example.com https://yon.example.com:8443 wss://yon.example.com:8443;"
+            ),
+            "{platform} host does not let the page reach tac.yon.origin"
+        );
+    }
+    let android = super::android::java_source(
+        &application,
+        "dev.tachyon.catalog",
+        false,
+        &NativePolicyFixture::index(),
+    );
+    assert!(android.contains(r#"OUTGOING_HOSTS = {"api.example.com", "yon.example.com"};"#));
 }
 
 #[test]

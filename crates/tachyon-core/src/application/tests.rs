@@ -470,7 +470,7 @@ fn build_settings_in_the_tac_member_cannot_be_bound_by_services() {
     write(
         root.path(),
         "client/manifest.json",
-        r#"{"tac":{"api":{"url":"/api"},"outgoing":{"hosts":["api.example.com"]},"budgets":{"default":{"javascript":"80 KiB"}},"visibility":{"check":false},"types":{"check":false},"tests":{"check":false},"accessibility":{"check":false},"simplify":{"suggest":false},"go":{"compiler":"tinygo"},"dotnet":{"aot":true},"application":{"window":{"titleBar":"integrated","titleBarButtonInset":{"leading":12,"top":8}}},"nativeCapabilities":["filePicker"]}}"#,
+        r#"{"tac":{"api":{"url":"/api"},"outgoing":{"hosts":["api.example.com"]},"budgets":{"default":{"javascript":"80 KiB"}},"visibility":{"check":false},"types":{"check":false},"tests":{"check":false},"accessibility":{"check":false},"simplify":{"suggest":false},"go":{"compiler":"tinygo"},"dotnet":{"aot":true},"application":{"window":{"titleBar":"integrated","titleBarButtonInset":{"leading":12,"top":8}}},"nativeCapabilities":["filePicker"],"yon":{"origin":"https://api.example.com"}}}"#,
     );
     let config = loaded(ApplicationConfig::load_client(root.path()));
     assert_eq!(json(&config), json!({"tac":{"api":{"url":"/api"}}}));
@@ -525,6 +525,49 @@ fn trusted_proxies_accept_addresses_and_ranges() {
 
     assert!(config.trusted_proxies().contains([10, 1, 2, 3].into()));
     assert!(!config.trusted_proxies().contains([192, 0, 2, 1].into()));
+}
+
+#[test]
+fn app_origins_list_the_origins_that_may_call_yon_from_another_origin() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"origins":["tachyon-app://bundle","https://appassets.tachyon.local"]}}"#,
+    );
+
+    let config = loaded(load(root.path()));
+
+    assert!(config.app_origins().allows("tachyon-app://bundle"));
+    assert!(
+        config
+            .app_origins()
+            .allows("https://appassets.tachyon.local")
+    );
+    assert!(!config.app_origins().allows("https://tachyon.local"));
+}
+
+#[test]
+fn app_origins_refuse_anything_but_an_origin() {
+    for origins in [
+        r#""tachyon-app://bundle""#,
+        r#"["https://app.example.com/"]"#,
+        r#"["*"]"#,
+    ] {
+        let root = temporary_directory();
+        write(
+            root.path(),
+            "server/application.json",
+            &format!(r#"{{"server":{{"origins":{origins}}}}}"#),
+        );
+
+        let failure = load(root.path()).err().map(|failure| failure.to_string());
+
+        assert!(
+            failure.is_some_and(|message| message.contains("yon.server.origins")),
+            "{origins}"
+        );
+    }
 }
 
 #[test]

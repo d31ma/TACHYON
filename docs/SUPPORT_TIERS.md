@@ -91,6 +91,21 @@ Win32 headers. The MSVC build and the real-window check
 `the_windows_window_frame_drives_a_real_win32_window` still need a run on
 Windows; the caption color also needs a look on an interactive desktop.
 
+### Native apps reach Yon through a declared origin (2026-10-18)
+
+ADR 0103 adds `tac.yon.origin` in `client/manifest.json` and `server.origins`
+in `server/application.json`. The contract is unit-tested in the cloud, and
+`scripts/yon-origin-browser-test.mjs` runs a web page on one port against
+Yon on another in Chromium. No native host has run it yet.
+
+| Host | Yon calls from the packaged app | Evidence |
+| --- | --- | --- |
+| Web | implemented | page transports, CORS, preflight, socket origin and `connect-src` unit tests; Chromium cross-port run |
+| macOS, iOS | implemented, not run on the host | proven by NET1; WebKit may send an opaque `Origin` from `tachyon-app://bundle` |
+| Android | implemented, not run on the host; an `https` origin only | proven by NET2; the host lets the Yon host through its request interception and asks for the INTERNET permission |
+| Windows | implemented, not run on the host | proven by NET3 on a signed-in desktop |
+| Linux | implemented, not run on the host | proven by NET4 under Xvfb |
+
 Use `scripts/phase4-macos-test.mjs`, `scripts/ios/native-test.mjs`,
 `scripts/android/native-test.sh`, `scripts/linux/native-test.sh` and
 `scripts/windows/native-test.ps1` to reproduce each platform gate.

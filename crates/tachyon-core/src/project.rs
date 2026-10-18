@@ -68,6 +68,8 @@ impl PartialEq for Project {
 impl Eq for Project {}
 
 impl Project {
+    pub(crate) const REMOTE_ROOTS: [&'static str; 2] = ["client/remotes", "client/clients"];
+
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root

@@ -259,6 +259,9 @@ fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
         ));
     }
     manifest.browser_api_permissions().validate()?;
+    if let Some(yon) = manifest.tac.as_ref().and_then(|tac| tac.yon.as_ref()) {
+        yon.validate()?;
+    }
     let Some(application) = manifest.application() else {
         return Ok(());
     };
@@ -508,10 +511,12 @@ pub(crate) struct TacMember {
     pub(super) elements: Vec<String>,
     #[serde(default)]
     outgoing: Option<serde_json::Value>,
+    #[serde(default)]
+    pub(super) yon: Option<super::yon_member::YonMember>,
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 30] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 31] = [
         "origin",
         "application",
         "scripts",
@@ -542,6 +547,7 @@ impl TacMember {
         "outgoing",
         "go",
         "dotnet",
+        "yon",
     ];
 }
 
@@ -587,7 +593,12 @@ impl NativeApplication {
             manifest
                 .as_ref()
                 .and_then(|declared| declared.tac.as_ref()?.outgoing.as_ref()),
-        )?;
+        )?
+        .with_yon_origin(
+            manifest
+                .and_then(|declared| declared.tac?.yon)
+                .map(super::yon_member::YonMember::into_origin),
+        );
         Ok(application)
     }
 

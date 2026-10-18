@@ -126,6 +126,9 @@ tac.budgets
 tac.outgoing
   honored: the build checks request hosts and the page's connect-src allows only them
 
+tac.yon
+  honored: pages send Yon calls to tac.yon.origin over CORS without cookies, and connect-src allows it (ADR 0103)
+
 tac.go
   honored: the Go compiler for Go web services
 

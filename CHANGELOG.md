@@ -91,6 +91,32 @@ machine contracts have their own, independent major versions.
   resources, and an iOS, macOS or Android build that grants `geolocation`
   (or an Android build that grants `notifications`) without a reason stops
   with `TY1601` (ADR 0065 amendment).
+- Native apps can reach Yon through a declared origin (ADR 0103). The new
+  manifest member `tac.yon.origin`, such as
+  `{"tac": {"yon": {"origin": "https://api.example.com"}}}`, must be exactly
+  an `https` origin with no path or trailing slash; `http` is allowed only
+  for `localhost`, names under `.localhost` and loopback IP addresses.
+  Anything else stops the build with `TY1601`. The build writes
+  `<meta name="tachyon-yon-origin">` into every page, and Tac Client
+  exchanges, `TacBrowserHttp` and the event bus send route paths such as
+  `/api/notes`, streams and sockets (`wss://`) to that origin over CORS,
+  still without cookies. The transports accept only the page's own origin
+  and the declared one. The `connect-src` that `ty serve`, `ty start` and
+  `ty preview` send also lists the origin and its `wss://` form, and so does
+  the `connect-src` of every native host. The Android app lets requests to
+  an `https` Yon origin through and asks for the `INTERNET` permission when
+  an origin is declared. On the Yon
+  side, `server.origins` in `server/application.json` lists the app origins,
+  such as `tachyon-app://bundle` and `https://appassets.tachyon.local`
+  (`TY2010` for `*`, `null`, a path or an uppercase host). A listed origin
+  gets a `204` preflight before any route and `Access-Control-Allow-Origin`
+  on every response, never `Access-Control-Allow-Credentials`; every
+  response carries `Vary: Origin` when the list is set, and a listed origin
+  may open a socket. `ty init` and `ty add target` write the native app
+  origins. A native `ty bundle` without `tac.yon.origin` now stops with
+  `TY1601` when the project has `client/remotes`, and prints an
+  offline-only note when it only has Yon routes. Whether each host's web
+  view lets the requests through is still to be proven per host.
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain

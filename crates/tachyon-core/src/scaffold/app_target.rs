@@ -28,9 +28,30 @@ impl AppTarget {
         "Android: an app for Android phones",
     ];
 
+    const APP_ORIGINS: [Option<&'static str>; 6] = [
+        None,
+        Some("tachyon-app://bundle"),
+        Some("https://tachyon.local"),
+        Some("tachyon://app"),
+        Some("tachyon-app://bundle"),
+        Some("https://appassets.tachyon.local"),
+    ];
+
     #[must_use]
     pub fn is_native(self) -> bool {
         self != Self::Web
+    }
+
+    pub(crate) fn app_origin(self) -> Option<&'static str> {
+        Self::APP_ORIGINS[self as usize]
+    }
+
+    pub(crate) fn app_origins(targets: &[Self]) -> Vec<&'static str> {
+        let origins: std::collections::BTreeSet<&'static str> = targets
+            .iter()
+            .filter_map(|target| target.app_origin())
+            .collect();
+        origins.into_iter().collect()
     }
 
     pub(crate) fn bundle_script(self) -> String {

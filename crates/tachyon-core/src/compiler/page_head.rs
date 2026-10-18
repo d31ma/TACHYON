@@ -1,4 +1,4 @@
-use crate::native::{BrowserApiGrants, PageMetadata, SiteSettings};
+use crate::native::{BrowserApiGrants, PageMetadata, SiteSettings, YonMember};
 
 pub(crate) struct PageHead;
 
@@ -10,6 +10,7 @@ impl PageHead {
         let html = Self::with_route_metadata(site, html, route);
         let html = Self::with_manifest_head(site, html);
         let html = Self::with_browser_api_grants(site, html);
+        let html = Self::with_yon_origin(site, html);
         let html = Self::with_styles(site, &html);
         let html = Self::with_blocking_scripts(site, &html);
         Self::with_scripts(site, &html)
@@ -73,6 +74,15 @@ impl PageHead {
         }
         let tag = BrowserApiGrants::meta_tag(&site.browser_apis);
         Self::inject_before(&html, Self::HEAD_END, &tag)
+    }
+
+    fn with_yon_origin(site: &SiteSettings, html: String) -> String {
+        match site.yon_origin.as_deref() {
+            Some(origin) => {
+                Self::inject_before(&html, Self::HEAD_END, &YonMember::meta_tag(origin))
+            }
+            None => html,
+        }
     }
 
     fn with_styles(site: &SiteSettings, html: &str) -> String {

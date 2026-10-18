@@ -63,7 +63,8 @@ impl ProjectAddition {
         let mut choices = ProjectState::detect(root)?;
         choices.targets.push(target);
         let choices = choices.checked()?;
-        let notes = Self::add_target_script(root, target)?;
+        let mut notes = Self::add_target_script(root, target)?;
+        notes.extend(Self::add_app_origin(root, target)?);
         Ok(AdditionResult {
             choices,
             written: Vec::new(),
@@ -202,6 +203,74 @@ impl ProjectAddition {
         let missing = !object.contains_key(key);
         object.entry(key).or_insert(value);
         missing
+    }
+
+    fn add_app_origin(root: &Path, target: AppTarget) -> Result<Option<String>, Failure> {
+        let path = root.join(ServerFiles::APPLICATION);
+        let text = std::fs::read_to_string(&path).ok();
+        text.zip(target.app_origin())
+            .map(|(text, origin)| Self::write_app_origin(&path, target, &text, origin))
+            .transpose()
+            .map(Option::flatten)
+    }
+
+    fn write_app_origin(
+        path: &Path,
+        target: AppTarget,
+        text: &str,
+        origin: &str,
+    ) -> Result<Option<String>, Failure> {
+        serde_json::from_str::<serde_json::Value>(text).map_or_else(
+            |_| Ok(Some(Self::origin_note(target, origin, "Add"))),
+            |settings| Self::save_app_origin(path, target, settings, origin),
+        )
+    }
+
+    fn save_app_origin(
+        path: &Path,
+        target: AppTarget,
+        mut settings: serde_json::Value,
+        origin: &str,
+    ) -> Result<Option<String>, Failure> {
+        if !Self::insert_origin(&mut settings, origin) {
+            return Ok(None);
+        }
+        let pretty = serde_json::to_string_pretty(&settings).unwrap_or_default();
+        ScaffoldFailure::checked(std::fs::write(path, format!("{pretty}\n")), path)?;
+        Ok(Some(Self::origin_note(target, origin, "Added")))
+    }
+
+    fn insert_origin(settings: &mut serde_json::Value, origin: &str) -> bool {
+        settings
+            .as_object_mut()
+            .map(|settings| {
+                settings
+                    .entry("server")
+                    .or_insert_with(|| serde_json::json!({}))
+            })
+            .and_then(serde_json::Value::as_object_mut)
+            .map(|server| {
+                server
+                    .entry("origins")
+                    .or_insert_with(|| serde_json::json!([]))
+            })
+            .and_then(serde_json::Value::as_array_mut)
+            .is_some_and(|origins| Self::push_missing(origins, origin))
+    }
+
+    fn push_missing(origins: &mut Vec<serde_json::Value>, origin: &str) -> bool {
+        let missing = !origins.iter().any(|listed| listed == origin);
+        if missing {
+            origins.push(serde_json::Value::from(origin));
+        }
+        missing
+    }
+
+    fn origin_note(target: AppTarget, origin: &str, verb: &str) -> String {
+        format!(
+            "{verb} {origin} to server.origins in server/application.json so the {} app may call Yon. Set tac.yon.origin in client/manifest.json to the https origin where Yon runs (ADR 0103).",
+            target.flag_name()
+        )
     }
 
     fn add_target_script(root: &Path, target: AppTarget) -> Result<Vec<String>, Failure> {

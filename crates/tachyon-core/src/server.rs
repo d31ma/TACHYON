@@ -2,6 +2,10 @@ mod access_verdict;
 mod asset_cache_policy;
 mod check_answer;
 mod controller_dispatch;
+mod cross_origin;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod cross_origin_tests;
 mod dev_server_options;
 mod diagnostic_entry;
 mod dispatch;
@@ -68,6 +72,7 @@ use access_verdict::AccessVerdict;
 use asset_cache_policy::AssetCachePolicy;
 use axum::Router;
 use check_answer::CheckAnswer;
+use cross_origin::CrossOrigin;
 use diagnostic_entry::DiagnosticEntry;
 use dispatch::Dispatch;
 use dispatch_route::DispatchRoute;
@@ -279,7 +284,8 @@ impl DevServer {
             supervisor.application().hosts(),
         );
         let edge = ForwardedHeaders::new(supervisor.application().trusted_proxies().clone());
-        let application = dispatch_state.into_router(&page_hosts, guard, edge);
+        let cross = CrossOrigin::new(supervisor.application().app_origins());
+        let application = dispatch_state.into_router(&page_hosts, guard, edge, cross);
         let public_host = Self::public_host(options, supervisor.application());
         Ok(Self {
             listener: Some(listener),

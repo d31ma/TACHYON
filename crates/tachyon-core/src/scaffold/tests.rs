@@ -343,6 +343,12 @@ fn only_the_chosen_realms_languages_and_features_are_generated() {
     let application = fs::read_to_string(app.join("server/application.json")).expect("application");
     let application: serde_json::Value = serde_json::from_str(&application).expect("JSON");
     assert_eq!(application["datasource"]["driver"], "sqlite");
+    assert_eq!(
+        application["server"]["origins"],
+        serde_json::json!(["tachyon-app://bundle"])
+    );
+    let loaded = crate::ApplicationConfig::load(&app).expect("valid application.json");
+    assert!(loaded.app_origins().allows("tachyon-app://bundle"));
 }
 
 struct ClientStyleFixture;
@@ -699,7 +705,21 @@ fn add_writes_a_new_language_feature_and_target_without_overwriting() {
     assert!(application.contains("sqlite::memory:"), "{application}");
     assert!(application.contains("8080"), "{application}");
     assert!(app.join("server/tests/NoteServiceTest.js").is_file());
-    ProjectAddition::target(&app, AppTarget::Android).expect("android");
+    let added = ProjectAddition::target(&app, AppTarget::Android).expect("android");
+    assert!(
+        added.notes.iter().any(|note| note.starts_with(
+            "Added https://appassets.tachyon.local to server.origins"
+        )),
+        "{:?}",
+        added.notes
+    );
+    let application = fs::read_to_string(app.join("server/application.json")).expect("application");
+    let application: serde_json::Value = serde_json::from_str(&application).expect("JSON");
+    assert_eq!(
+        application["server"]["origins"],
+        serde_json::json!(["https://appassets.tachyon.local"])
+    );
+    assert_eq!(application["server"]["port"], 8080);
     let package = fs::read_to_string(app.join("package.json")).expect("package");
     let package: serde_json::Value = serde_json::from_str(&package).expect("JSON package");
     assert_eq!(
@@ -707,6 +727,14 @@ fn add_writes_a_new_language_feature_and_target_without_overwriting() {
         "ty bundle --target android"
     );
     let state = ProjectAddition::target(&app, AppTarget::Android).expect("idempotent");
+    assert!(
+        !state
+            .notes
+            .iter()
+            .any(|note| note.contains("server.origins")),
+        "{:?}",
+        state.notes
+    );
     assert_eq!(state.choices.features, vec![AppFeature::Storage]);
     assert!(state.choices.targets.contains(&AppTarget::Android));
 }

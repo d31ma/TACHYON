@@ -126,6 +126,9 @@ tac.budgets
 tac.outgoing
   honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
+tac.yon
+  adapted: tac.yon.origin: the iOS app sends Yon calls to this origin, and its connect-src allows it, but no iOS app has been run against Yon yet (NET1).
+
 tac.go
   honored: the same Go WebAssembly build in the web view
 

@@ -18,6 +18,7 @@ pub(crate) struct SiteSettings {
     pub(crate) sitemap: BTreeMap<String, SitemapValues>,
     pub(crate) browser_apis: Vec<String>,
     pub(crate) elements: Vec<String>,
+    pub(crate) yon_origin: Option<String>,
 }
 
 impl SiteSettings {
@@ -44,6 +45,7 @@ impl SiteSettings {
         Self::validate_source_paths(tac.script_sources.keys())?;
         let cache_rules = compile_cache_rules(tac.cache)?;
         let browser_apis = super::browser_api_grants::BrowserApiGrants::checked(tac.browser_apis)?;
+        let yon_origin = tac.yon.map(super::yon_member::YonMember::into_origin);
         validate_sitemap(tac.origin.as_deref(), &tac.sitemap)?;
         let metadata = Self::resolved_metadata(tac.metadata, tac.origin.as_deref());
         Ok(Self {
@@ -59,6 +61,7 @@ impl SiteSettings {
             sitemap: tac.sitemap,
             browser_apis,
             elements: tac.elements,
+            yon_origin,
         })
     }
 

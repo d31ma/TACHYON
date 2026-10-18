@@ -263,3 +263,28 @@ fn the_manifest_theme_color_reaches_every_page_head() {
         settings.manifest_head
     );
 }
+
+#[test]
+fn a_declared_yon_origin_is_read_from_the_manifest() {
+    let settings =
+        load(&json!({ "yon": { "origin": "https://api.example.com" } })).expect("settings");
+    assert_eq!(
+        settings.yon_origin.as_deref(),
+        Some("https://api.example.com")
+    );
+}
+
+#[test]
+fn a_yon_origin_that_is_not_an_origin_stops_the_build() {
+    for yon in [
+        json!({ "origin": "https://api.example.com/" }),
+        json!({ "origin": "http://api.example.com" }),
+        json!({ "url": "https://api.example.com" }),
+    ] {
+        let text = load_error(&json!({ "yon": yon }));
+        assert!(
+            text.contains("tac.yon") || text.contains("unknown field"),
+            "{text}"
+        );
+    }
+}

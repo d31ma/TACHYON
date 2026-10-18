@@ -126,6 +126,9 @@ tac.budgets
 tac.outgoing
   adapted: The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host.
 
+tac.yon
+  adapted: tac.yon.origin: the Android app sends Yon calls to this origin over https only and asks for the INTERNET permission, but no Android app has been run against Yon yet (NET2).
+
 tac.go
   honored: the same Go WebAssembly build in the web view
 

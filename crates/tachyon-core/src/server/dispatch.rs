@@ -3,9 +3,9 @@ use super::controller_dispatch::{
 };
 use super::socket_dispatch::{SocketHub, SocketSession};
 use super::{
-    AssetCachePolicy, CheckAnswer, DispatchRoute, ForwardedHeaders, HandlerEventBridge, HostGuard,
-    HotUpdateHub, InvocationLog, Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest,
-    RouteGuard, ServerResponse, StaticFiles, TopicHub, TopicStream,
+    AssetCachePolicy, CheckAnswer, CrossOrigin, DispatchRoute, ForwardedHeaders,
+    HandlerEventBridge, HostGuard, HotUpdateHub, InvocationLog, Middleware, MiddlewareOutcome,
+    ProducerTasks, ProtocolRequest, RouteGuard, ServerResponse, StaticFiles, TopicHub, TopicStream,
 };
 use crate::Failure;
 use crate::handler::{HandlerCancellation, HandlerSource, HandlerSupervisor};
@@ -57,9 +57,11 @@ impl Dispatch {
         hosts: &crate::safety::DeclaredHosts,
         guard: HostGuard,
         edge: ForwardedHeaders,
+        cross: CrossOrigin,
     ) -> Router {
         let routes = Router::new().fallback(axum::routing::any(Self::handle).with_state(self));
-        ServerResponse::defensive_headers(edge.protect(guard.protect(routes)), hosts)
+        let routes = guard.protect(cross.protect(routes));
+        ServerResponse::defensive_headers(edge.protect(routes), hosts)
     }
 
     pub(in crate::server) async fn invoke(

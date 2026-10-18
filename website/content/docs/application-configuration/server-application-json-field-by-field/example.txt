@@ -10,6 +10,13 @@ server.hosts
   scheme, port or path. Localhost names, IP addresses and the
   tac.origin host always work; other names get 403 (TY1366).
 
+server.origins
+  App origins that may call Yon from another origin with CORS,
+  such as ["tachyon-app://bundle", "https://app.example.com"]:
+  scheme://host[:port], no path. *, null, paths, trailing slashes
+  and uppercase hosts are refused (TY2010). ty init and ty add
+  target write the native app origins (ADR 0103).
+
 server.proxies
   The reverse proxies whose forwarding headers count, as IP
   addresses or CIDR ranges: ["10.0.0.0/8", "192.0.2.10"]. Empty

@@ -6,6 +6,7 @@ use serde_json::Value;
 pub(crate) struct DeclaredHosts {
     hosts: Vec<String>,
     setting: &'static str,
+    yon_origin: Option<String>,
 }
 
 impl DeclaredHosts {
@@ -19,6 +20,7 @@ impl DeclaredHosts {
         "outgoing.hosts in server/application.json (yon.outgoing.hosts)";
     const ANY_SUBDOMAIN: &'static str = "*.";
     const SCHEMES: [&'static str; 4] = ["https", "wss", "http", "ws"];
+    const YON_ORIGIN_POINTER: &'static str = "/tac/yon/origin";
 
     pub(crate) fn tac(project: &Dir) -> Self {
         Self::read(
@@ -57,7 +59,12 @@ impl DeclaredHosts {
         Self {
             hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect(),
             setting,
+            yon_origin: None,
         }
+    }
+
+    pub(crate) fn with_yon_origin(self, yon_origin: Option<String>) -> Self {
+        Self { yon_origin, ..self }
     }
 
     pub(crate) fn is_name_entry(entry: &str) -> bool {
@@ -74,6 +81,7 @@ impl DeclaredHosts {
         Self {
             hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect(),
             setting,
+            yon_origin: None,
         }
     }
 
@@ -93,14 +101,21 @@ impl DeclaredHosts {
             .hosts
             .iter()
             .flat_map(|host| Self::sources_for(host))
+            .chain(
+                self.yon_origin
+                    .iter()
+                    .flat_map(|origin| Self::yon_sources(origin)),
+            )
             .collect();
         sources.join(" ")
     }
 
     fn read(project: &Dir, file: &str, pointer: &str, setting: &'static str) -> Self {
+        let document = Self::stored_document(project, file).unwrap_or_default();
         Self {
-            hosts: Self::stored_hosts(project, file, pointer).unwrap_or_default(),
+            hosts: Self::stored_hosts(&document, pointer).unwrap_or_default(),
             setting,
+            yon_origin: Self::stored_yon_origin(&document),
         }
     }
 
@@ -108,14 +123,36 @@ impl DeclaredHosts {
         Self {
             hosts: Vec::new(),
             setting,
+            yon_origin: None,
         }
     }
 
-    fn stored_hosts(project: &Dir, file: &str, pointer: &str) -> Option<Vec<String>> {
+    fn stored_document(project: &Dir, file: &str) -> Option<Value> {
         let bytes = project.read(file).ok()?;
-        let document: Value = serde_json::from_slice(&bytes).ok()?;
+        serde_json::from_slice(&bytes).ok()
+    }
+
+    fn stored_hosts(document: &Value, pointer: &str) -> Option<Vec<String>> {
         let listed = document.pointer(pointer)?.as_array()?;
         Some(listed.iter().filter_map(Self::host_name).collect())
+    }
+
+    fn stored_yon_origin(document: &Value) -> Option<String> {
+        let text = document.pointer(Self::YON_ORIGIN_POINTER)?.as_str()?;
+        let address = url::Url::parse(text).ok()?;
+        let origin = address.origin();
+        origin.is_tuple().then(|| origin.ascii_serialization())
+    }
+
+    fn yon_sources(origin: &str) -> Vec<String> {
+        let socket = origin
+            .strip_prefix(Self::SCHEMES[0])
+            .map(|rest| format!("{}{rest}", Self::SCHEMES[1]))
+            .or_else(|| {
+                let rest = origin.strip_prefix(Self::SCHEMES[2])?;
+                Some(format!("{}{rest}", Self::SCHEMES[3]))
+            });
+        std::iter::once(origin.to_owned()).chain(socket).collect()
     }
 
     fn host_name(value: &Value) -> Option<String> {

@@ -1,6 +1,6 @@
 use crate::Failure;
 use crate::failure::diagnostic;
-use crate::safety::{EnvironmentAllowlist, ServerHost, TrustedProxies};
+use crate::safety::{AppOrigins, EnvironmentAllowlist, ServerHost, TrustedProxies};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt, OpenOptionsSyncExt};
 use cap_std::fs::{Dir, File, Metadata, OpenOptions};
 use serde_json::{Map, Value};
@@ -24,6 +24,7 @@ pub struct ApplicationConfig {
     port: Option<u16>,
     hosts: Vec<String>,
     trusted_proxies: TrustedProxies,
+    app_origins: AppOrigins,
     handler_environment: EnvironmentAllowlist,
     handler_json: Option<String>,
     topics_directory: Option<String>,
@@ -47,6 +48,7 @@ impl ApplicationConfig {
     const MAX_KEYS: usize = 128;
     const HOSTS_MESSAGE: &str = "yon.server.hosts must be a list of host names without scheme, port or path, such as \"app.example.com\" or \"*.example.com\".";
     const TRUSTED_PROXIES_MESSAGE: &str = "yon.server.proxies must be a list of proxy IP addresses or CIDR ranges, such as \"10.0.0.5\" or \"10.0.0.0/8\" (ADR 0096).";
+    const APP_ORIGINS_MESSAGE: &str = "yon.server.origins must be a list of app origins written as a scheme and host with no path, such as \"tachyon-app://bundle\" or \"https://app.example.com\" (ADR 0103).";
     const DEFAULT_REQUEST_BYTES: usize = 1024 * 1024;
     const MOST_REQUEST_BYTES: usize = 12 * 1024 * 1024;
     const REQUEST_BYTES_MESSAGE: &str =
@@ -128,6 +130,10 @@ impl ApplicationConfig {
         &self.trusted_proxies
     }
 
+    pub(crate) const fn app_origins(&self) -> &AppOrigins {
+        &self.app_origins
+    }
+
     pub(crate) const fn handler_environment(&self) -> &EnvironmentAllowlist {
         &self.handler_environment
     }
@@ -203,6 +209,7 @@ impl ApplicationConfig {
         };
         let hosts = Self::hosts_from(document.pointer("/yon/server/hosts"))?;
         let trusted_proxies = Self::trusted_proxies_from(document.pointer("/yon/server/proxies"))?;
+        let app_origins = Self::app_origins_from(document.pointer("/yon/server/origins"))?;
         let handler_environment =
             Self::handler_environment_from(document.pointer("/yon/server/environment"))?;
         let topics_directory =
@@ -226,6 +233,7 @@ impl ApplicationConfig {
             port,
             hosts,
             trusted_proxies,
+            app_origins,
             handler_environment,
             handler_json,
             topics_directory,
@@ -259,6 +267,11 @@ impl ApplicationConfig {
     fn trusted_proxies_from(value: Option<&Value>) -> Result<TrustedProxies, Failure> {
         let texts = Self::text_list(value, Self::TRUSTED_PROXIES_MESSAGE)?;
         TrustedProxies::parse(&texts).ok_or_else(|| invalid(Self::TRUSTED_PROXIES_MESSAGE))
+    }
+
+    fn app_origins_from(value: Option<&Value>) -> Result<AppOrigins, Failure> {
+        let texts = Self::text_list(value, Self::APP_ORIGINS_MESSAGE)?;
+        AppOrigins::parse(&texts).ok_or_else(|| invalid(Self::APP_ORIGINS_MESSAGE))
     }
 
     fn handler_environment_from(value: Option<&Value>) -> Result<EnvironmentAllowlist, Failure> {

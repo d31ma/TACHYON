@@ -95,3 +95,17 @@ systemd-resolved do not resolve names under `.localhost`.
 - TLS for names under `.localhost`.
 - A setting that lets a named private-network service through the guard.
 - A repeatable `--allowed-host` flag.
+
+## Amendment (2026-10-18): App origins and local Yon origins
+
+[ADR 0103](0103-native-apps-reach-yon-through-a-declared-origin.md) adds
+`server.origins` and `tac.yon.origin`. The `Host` check of this ADR does not
+change, and it still runs before anything else, including a CORS preflight.
+`server.origins` is about the `Origin` header, not the `Host` header: it
+says which app pages may call Yon from another origin. A name in
+`server.origins` is not answered as a `Host`; list it in `server.hosts` for
+that.
+
+`tac.yon.origin` allows `http://` only for a local Yon. Local means a
+localhost name as defined in decision 1 of this ADR (`localhost` or a name
+under `.localhost`), or a loopback IP address.

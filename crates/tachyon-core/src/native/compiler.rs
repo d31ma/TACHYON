@@ -209,6 +209,7 @@ impl NativeCompiler {
             project.snapshot_root(),
             options.target,
         )?;
+        let yon_note = super::yon_reach::YonReach::check(project, options.target)?;
 
         let (temporary_web, companions) =
             build_web_bundle(project, options.target, &base_output).await?;
@@ -251,6 +252,7 @@ impl NativeCompiler {
             notes: notes
                 .into_iter()
                 .chain(AppleIcons::skipped_note(&application, options.target))
+                .chain(yon_note)
                 .collect(),
         })
     }
