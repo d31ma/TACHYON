@@ -73,6 +73,16 @@ ARM64 developer prompt was refused with the required prompt and architecture
 choices. These build and helper results do not qualify WebView2 page rendering
 or interaction; those gates still need an interactive desktop session.
 
+On 2026-10-18 the Windows host started to open its window from the
+manifest: `tac.application.window` size and minimum size in
+device-independent pixels, a hex `theme_color` as the Windows 11 caption
+color, and `"display": "fullscreen"` as a borderless fullscreen start (ADR
+0052 amendment). Validated so far: unit tests of the generated host, a C test
+of the frame code against Win32 stand-ins, and a MinGW compile against the
+Win32 headers. The MSVC build and the real-window check
+`the_windows_window_frame_drives_a_real_win32_window` still need a run on
+Windows; the caption color also needs a look on an interactive desktop.
+
 Use `scripts/phase4-macos-test.mjs`, `scripts/ios/native-test.mjs`,
 `scripts/android/native-test.sh`, `scripts/linux/native-test.sh` and
 `scripts/windows/native-test.ps1` to reproduce each platform gate.

@@ -41,6 +41,10 @@ pub(super) struct WindowConfiguration {
     #[serde(default)]
     pub(super) title_bar_button_inset:
         Option<super::native_title_bar_button_inset::NativeTitleBarButtonInset>,
+    #[serde(skip)]
+    pub(super) theme_color: Option<super::native_theme_color::NativeThemeColor>,
+    #[serde(skip)]
+    pub(super) display: super::native_display::NativeDisplay,
 }
 
 const fn default_width() -> u32 {
@@ -61,6 +65,8 @@ impl Default for WindowConfiguration {
             controls: Vec::new(),
             title_bar: super::native_title_bar::NativeTitleBar::default(),
             title_bar_button_inset: None,
+            theme_color: None,
+            display: super::native_display::NativeDisplay::default(),
         }
     }
 }
@@ -362,6 +368,8 @@ pub(crate) struct WebAppManifest {
     #[serde(default)]
     theme_color: Option<serde_json::Value>,
     #[serde(default)]
+    display: Option<super::native_display::NativeDisplay>,
+    #[serde(default)]
     tac: Option<TacMember>,
     #[serde(default)]
     tachyon: Option<serde_json::Value>,
@@ -588,6 +596,10 @@ impl NativeApplication {
         if let Some(application) = manifest.application() {
             self.apply_manifest_application(application);
         }
+        self.window.theme_color = super::native_theme_color::NativeThemeColor::from_manifest(
+            manifest.theme_color.as_ref(),
+        );
+        self.window.display = manifest.display.unwrap_or_default();
         self.native_capabilities = manifest
             .tac
             .as_ref()
@@ -916,6 +928,39 @@ mod tests {
                 }
             )
         );
+    }
+
+    #[test]
+    fn the_theme_color_and_display_reach_the_native_window() {
+        let root = tempfile::tempdir().expect("root");
+        write_manifest_document(
+            root.path(),
+            &serde_json::json!({
+                "theme_color": "#0f6cbd",
+                "display": "fullscreen",
+                "tac": { "application": { "window": { "width": 800, "height": 600 } } },
+            }),
+        );
+        let configured = NativeApplication::discover(root.path()).expect("configured");
+        assert_eq!(
+            configured.window.theme_color,
+            Some(super::super::native_theme_color::NativeThemeColor {
+                red: 0x0f,
+                green: 0x6c,
+                blue: 0xbd,
+            })
+        );
+        assert!(configured.window.display.starts_fullscreen());
+        assert_eq!(configured.window.width, 800);
+    }
+
+    #[test]
+    fn a_display_mode_outside_the_web_manifest_list_is_refused() {
+        let root = tempfile::tempdir().expect("root");
+        write_manifest_document(root.path(), &serde_json::json!({ "display": "kiosk" }));
+        let text = discovery_error(root.path());
+        assert!(text.contains("TY1601"), "{text}");
+        assert!(text.contains("unknown variant `kiosk`"), "{text}");
     }
 
     #[test]

@@ -78,6 +78,7 @@ mod native_capability_tests;
 mod native_cfg_impl_tests;
 #[cfg(test)]
 mod native_content_security_policy_tests;
+mod native_display;
 mod native_external_link;
 #[cfg(test)]
 mod native_external_link_tests;
@@ -112,6 +113,7 @@ mod native_rust_project;
 mod native_service_roots;
 #[cfg(test)]
 mod native_swift_page_lifetime_tests;
+mod native_theme_color;
 mod native_title_bar;
 mod native_title_bar_button_inset;
 #[cfg(all(test, target_os = "macos"))]
@@ -193,6 +195,9 @@ mod windows_compiler_plan;
 #[cfg(test)]
 mod windows_host_tests;
 mod windows_version_resource;
+mod windows_window_frame;
+#[cfg(test)]
+mod windows_window_frame_tests;
 
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{

@@ -18,7 +18,7 @@ impl WindowsArchitectureTests {
             resource: None,
             architecture,
         }
-        .arguments(WindowsHostGenerator::LINKER_ARGUMENTS)
+        .arguments(&WindowsHostGenerator::LINKER_ARGUMENTS)
     }
 
     fn library_path(architecture: WindowsArchitecture) -> String {

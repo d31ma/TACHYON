@@ -78,9 +78,10 @@ impl WindowsHostGenerator {
     const MENU_MNEMONIC: char = '&';
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
     const DEVELOPER_TARGET: &str = "VSCMD_ARG_TGT_ARCH";
-    pub(super) const LINKER_ARGUMENTS: [&str; 12] = [
+    pub(super) const LINKER_ARGUMENTS: [&str; 13] = [
         "WebView2LoaderStatic.lib",
         "user32.lib",
+        "dwmapi.lib",
         "shell32.lib",
         "shlwapi.lib",
         "comctl32.lib",
@@ -561,7 +562,7 @@ async fn compile_c(
         resource,
         architecture,
     };
-    let arguments = plan.arguments(WindowsHostGenerator::LINKER_ARGUMENTS);
+    let arguments = plan.arguments(&WindowsHostGenerator::LINKER_ARGUMENTS);
     let borrowed = arguments.iter().map(String::as_str).collect::<Vec<_>>();
     run_tool(compiler, &borrowed).await?;
     Ok(version)
@@ -639,6 +640,7 @@ pub(super) fn c_source(
     let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
     let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
     let header_capacity = WindowsHostGenerator::response_header_capacity(application);
+    let frame = super::windows_window_frame::WindowsWindowFrame::source(&application.window);
     super::desktop_host_source::DesktopHostSource {
         template: WindowsHostGenerator::C_HOST.replace(
             "__WINDOW_CONTROLS__",
@@ -654,6 +656,11 @@ pub(super) fn c_source(
             ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
             ("__SERVICE_COMPANIONS__", &service_companions),
             ("__RESPONSE_HEADER_CAPACITY__", &header_capacity),
+            ("__WINDOW_FRAME__", &frame),
+            (
+                "__WINDOW_FRAME_MESSAGES__",
+                super::windows_window_frame::WindowsWindowFrame::messages(&application.window),
+            ),
         ],
     )
 }
@@ -675,6 +682,7 @@ impl WindowsHostGenerator {
 
 #include <windows.h>
 
+#include <dwmapi.h>
 #include <objbase.h>
 #include <shellapi.h>
 #include <shlwapi.h>
@@ -724,7 +732,7 @@ static TachyonApplicationStart g_application_start = NULL;
 static TachyonApplicationShutdown g_application_shutdown = NULL;
 
 __WINDOW_CONTROLS__
-
+__WINDOW_FRAME__
 static unsigned char *tachyon_native_capability(const char *capability, const char *payload, size_t *length) {
   if (length == NULL) return NULL;
   *length = 0;
@@ -1345,7 +1353,7 @@ static TachyonEnvironmentHandler g_environment_handler = {&g_environment_vtbl};
 static LRESULT CALLBACK tachyon_window_proc(HWND window, UINT message, WPARAM wparam,
                                             LPARAM lparam) {
   switch (message) {
-    case WM_SIZE:
+__WINDOW_FRAME_MESSAGES__    case WM_SIZE:
       if (g_controller != NULL) {
         RECT bounds;
         GetClientRect(window, &bounds);
@@ -1412,13 +1420,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
 
   wchar_t *title = tachyon_widen(TACHYON_APP_NAME);
   g_window = CreateWindowExW(0, L"TachyonNativeHost", title != NULL ? title : L"Tachyon",
-                             WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 1024, 768, NULL,
-                             NULL, instance, NULL);
+                             WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+                             CW_USEDEFAULT, NULL, NULL, instance, NULL);
   free(title);
   if (g_window == NULL) { tachyon_application_stop(); CoUninitialize(); return 1; }
   InterlockedExchangePointer(&g_publish_window, g_window);
   tachyon_menus_install(g_window);
-  ShowWindow(g_window, show);
+  ShowWindow(g_window, tachyon_window_open(g_window, show));
 
   CreateCoreWebView2EnvironmentWithOptions(
       NULL, NULL, NULL,

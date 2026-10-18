@@ -15,12 +15,18 @@ icons                                         browser, native
   paths. A native build uses the largest raster icon; an SVG-only
   manifest gets no native icon rather than a blurry one.
 
-theme_color                                    browser, build
+theme_color                            browser, build, native
   Published as written. Text that is not blank also becomes
   <meta name="theme-color" content="..."> in every page head,
   HTML-escaped. One color: there is no light and dark pair.
+  On Windows 11, #rgb or #rrggbb also colors the title bar.
 
-display, background_color, ...                        browser
+display                                       browser, native
+  fullscreen, standalone, minimal-ui or browser; anything else
+  stops the build. "fullscreen" opens a Windows app borderless
+  and full screen.
+
+background_color, ...                                 browser
   Standard members for a browser's install, published as written.
 
 tac                                              Tac services
@@ -49,7 +55,8 @@ tac.application.build                                  native
 
 tac.application.window                                 native
   width and height the window opens at (1024 by 768 unless set,
-  each 64 to 16384), minWidth and minHeight, and controls: which
+  each 64 to 16384; macOS and Windows), minWidth and minHeight
+  (the smallest size the user can drag it to), and controls: which
   window controls a service may use through WindowControls (close,
   fullscreen, maximize, minimize, resize, title). None are granted
   unless listed. titleBar "integrated" lets a macOS page reach the

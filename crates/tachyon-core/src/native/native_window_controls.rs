@@ -21,9 +21,12 @@ impl NativeWindowControls {
         ),
         (
             "fullscreen",
-            r#"if (!tachyon_fullscreen_active) { MONITORINFO info = {sizeof(MONITORINFO)}; if (!GetWindowRect(g_window, &tachyon_fullscreen_bounds) || !GetMonitorInfoW(MonitorFromWindow(g_window, MONITOR_DEFAULTTONEAREST), &info)) return _strdup("{\"ok\":false}"); tachyon_fullscreen_style = GetWindowLongPtrW(g_window, GWL_STYLE); SetWindowLongPtrW(g_window, GWL_STYLE, tachyon_fullscreen_style & ~(LONG_PTR)WS_OVERLAPPEDWINDOW); SetWindowPos(g_window, HWND_TOP, info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right - info.rcMonitor.left, info.rcMonitor.bottom - info.rcMonitor.top, SWP_NOOWNERZORDER | SWP_FRAMECHANGED); } else { SetWindowLongPtrW(g_window, GWL_STYLE, tachyon_fullscreen_style); SetWindowPos(g_window, NULL, tachyon_fullscreen_bounds.left, tachyon_fullscreen_bounds.top, tachyon_fullscreen_bounds.right - tachyon_fullscreen_bounds.left, tachyon_fullscreen_bounds.bottom - tachyon_fullscreen_bounds.top, SWP_NOOWNERZORDER | SWP_FRAMECHANGED); } tachyon_fullscreen_active = !tachyon_fullscreen_active;"#,
+            r#"if (!tachyon_window_toggle_fullscreen(g_window)) return _strdup("{\"ok\":false}");"#,
         ),
     ];
+
+    const WINDOWS_FULLSCREEN: [&'static str; 2] =
+        ["", include_str!("native_window_fullscreen_windows.c")];
 
     pub(super) fn android(window: &WindowConfiguration) -> String {
         let grants = Self::android_grants(window);
@@ -38,8 +41,18 @@ impl NativeWindowControls {
                 "__WINDOW_PAYLOAD__",
                 include_str!("native_window_payload.h"),
             )
+            .replace("__WINDOW_FULLSCREEN__", Self::windows_fullscreen(window))
             .replace("__WINDOW_GRANTS__", &grants)
             .replace("__WINDOW_ACTIONS__", &actions)
+    }
+
+    fn windows_fullscreen(window: &WindowConfiguration) -> &'static str {
+        let needed = [
+            window.grants("fullscreen"),
+            window.display.starts_fullscreen(),
+        ]
+        .contains(&true);
+        Self::WINDOWS_FULLSCREEN[usize::from(needed)]
     }
 
     fn android_grants(window: &WindowConfiguration) -> String {

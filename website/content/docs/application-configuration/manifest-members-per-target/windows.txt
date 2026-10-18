@@ -10,13 +10,13 @@ icons
   adapted: icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon.
 
 theme_color
-  adapted: theme_color is written into each page head, but the Windows window does not use it yet (WIN1).
+  adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color.
 
 background_color
   adapted: background_color is not applied to the Windows app yet.
 
 display
-  adapted: display is not applied yet. The Windows app opens a standard window (WIN1).
+  adapted: display "fullscreen" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window.
 
 orientation
   not applicable: orientation has no meaning for a Windows window.
@@ -40,10 +40,10 @@ tac.application.build
   honored: the fourth number of the executable's file version; a build above 65535 stops the build (TY1601)
 
 tac.application.window.width, height
-  adapted: tac.application.window width and height are not read yet. The Windows window opens at 1024 by 768 (WIN1).
+  honored: the client area, in device-independent pixels
 
 tac.application.window.minWidth, minHeight
-  adapted: tac.application.window minWidth and minHeight are not read yet. The Windows window has no minimum size (WIN1).
+  honored: the smallest client area the user can drag to, in device-independent pixels
 
 tac.application.window.controls
   honored: close, fullscreen, maximize, minimize, resize and title

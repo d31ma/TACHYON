@@ -211,3 +211,41 @@ builds of one version apart. Linux wrote the version only as
 - The Windows manifest still sits at the bundle root, where Windows does not
   read it. Its version is correct, but the executable's version resource is
   what Windows shows.
+
+## Amendment (2026-10-18): The Windows window follows the manifest
+
+Only the macOS host read `tac.application.window`. The Windows host always
+opened a 1024 by 768 window, had no minimum size, and did not apply the
+standard `theme_color` and `display` members; the amendment "Native hosts do not
+read the theme color yet" made the build say so in a note. This amendment applies them on Windows (plan item
+WIN1).
+
+### Decision
+
+- The Windows host opens the window's client area at `width` by `height`
+  device-independent pixels, scaled by the window's DPI, and answers
+  `WM_GETMINMAXINFO` with `minWidth` and `minHeight` scaled the same way. It
+  keeps the system minimum when that is larger, and sets no minimum for an
+  edge that the manifest leaves out.
+- A `theme_color` written as `#rgb` or `#rrggbb` becomes the caption color
+  (`DWMWA_CAPTION_COLOR`), with black or white caption text, whichever has
+  more contrast. Windows 10 does not support the attribute and keeps the
+  system color; named colors and other CSS forms are not applied natively.
+- `display` must be one of the web manifest values `fullscreen`,
+  `standalone`, `minimal-ui` or `browser`; any other value stops every build
+  with `TY1601`. `fullscreen` starts the Windows app borderless and covering
+  its monitor, with the same code as the `fullscreen` window control. The
+  other values open a standard window.
+
+### Consequences
+
+- A manifest's size, minimum size, theme color and display mode give the
+  same first impression on Windows as on macOS and in an installed web app.
+- A fullscreen start can be left only through the `fullscreen` window
+  control or by closing the app, as in a fullscreen web app.
+- The host links `dwmapi.lib`.
+- Evidence: unit tests of the generated host, a C test that runs the frame
+  code against Win32 stand-ins, and a MinGW compile against the Win32
+  headers. The real-window check
+  (`the_windows_window_frame_drives_a_real_win32_window`) still needs a run
+  on Windows with MSVC.

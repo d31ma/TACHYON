@@ -6,6 +6,7 @@
 #define _strdup strdup
 #define TACHYON_MESSAGE_LIMIT 65536
 #define FALSE 0
+#define TRUE 1
 #define SW_MINIMIZE 1
 #define SW_RESTORE 2
 #define SW_MAXIMIZE 3
@@ -19,6 +20,8 @@
 #define MONITOR_DEFAULTTONEAREST 1
 #define HWND_TOP NULL
 typedef intptr_t LONG_PTR;
+typedef void *HWND;
+typedef int BOOL;
 typedef unsigned long DWORD;
 typedef struct { int left, top, right, bottom; } RECT;
 typedef struct { size_t cbSize; RECT rcMonitor; } MONITORINFO;

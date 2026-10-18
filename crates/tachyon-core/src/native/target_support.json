@@ -34,7 +34,7 @@
     "paths": ["theme_color"],
     "web": {"reach": "honored", "how": "a theme-color meta tag in every page head"},
     "macos": {"reach": "adapted", "note": "theme_color is written into each page head, but the macOS window does not use it yet."},
-    "windows": {"reach": "adapted", "note": "theme_color is written into each page head, but the Windows window does not use it yet (WIN1)."},
+    "windows": {"reach": "adapted", "note": "theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color."},
     "linux": {"reach": "adapted", "note": "theme_color is written into each page head, but the Linux window does not use it yet (WIN2)."},
     "ios": {"reach": "adapted", "note": "theme_color is written into each page head, but the iOS status bar does not use it yet (WIN5)."},
     "android": {"reach": "adapted", "note": "theme_color is written into each page head, but the Android status bar does not use it yet (WIN5)."}
@@ -54,7 +54,7 @@
     "paths": ["display"],
     "web": {"reach": "honored", "how": "published in manifest.webmanifest"},
     "macos": {"reach": "adapted", "note": "display is not applied yet. The macOS app opens a standard window."},
-    "windows": {"reach": "adapted", "note": "display is not applied yet. The Windows app opens a standard window (WIN1)."},
+    "windows": {"reach": "adapted", "note": "display \"fullscreen\" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window."},
     "linux": {"reach": "adapted", "note": "display is not applied yet. The Linux app opens a standard window (WIN2)."},
     "ios": {"reach": "adapted", "note": "display is not applied yet. The iOS app keeps the system status bar (WIN5)."},
     "android": {"reach": "adapted", "note": "display is not applied yet. The Android app keeps the system bars (WIN5)."}
@@ -134,7 +134,7 @@
     "paths": ["tac.application.window.width", "tac.application.window.height"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "the first size of the window"},
-    "windows": {"reach": "adapted", "note": "tac.application.window width and height are not read yet. The Windows window opens at 1024 by 768 (WIN1)."},
+    "windows": {"reach": "honored", "how": "the client area, in device-independent pixels"},
     "linux": {"reach": "adapted", "note": "tac.application.window width and height are not read yet. The Linux window opens at 1024 by 768 (WIN2)."},
     "ios": {"reach": "notApplicable", "note": "tac.application.window width and height have no meaning on iOS: the system sizes the app."},
     "android": {"reach": "notApplicable", "note": "tac.application.window width and height have no meaning on Android: the system sizes the app."}
@@ -144,7 +144,7 @@
     "paths": ["tac.application.window.minWidth", "tac.application.window.minHeight"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "the smallest size of the window"},
-    "windows": {"reach": "adapted", "note": "tac.application.window minWidth and minHeight are not read yet. The Windows window has no minimum size (WIN1)."},
+    "windows": {"reach": "honored", "how": "the smallest client area the user can drag to, in device-independent pixels"},
     "linux": {"reach": "adapted", "note": "tac.application.window minWidth and minHeight are not read yet. The Linux window has no minimum size (WIN2)."},
     "ios": {"reach": "notApplicable", "note": "tac.application.window minWidth and minHeight have no meaning on iOS: the system sizes the app."},
     "android": {"reach": "notApplicable", "note": "tac.application.window minWidth and minHeight have no meaning on Android: the system sizes the app."}

@@ -1,9 +1,6 @@
 __WINDOW_PAYLOAD__
 
-static LONG_PTR tachyon_fullscreen_style;
-static RECT tachyon_fullscreen_bounds;
-static int tachyon_fullscreen_active;
-
+__WINDOW_FULLSCREEN__
 static char *tachyon_window_control(const char *capability, const char *payload) {
   (void)payload;
   if (strcmp(capability, "window.granted") == 0) {

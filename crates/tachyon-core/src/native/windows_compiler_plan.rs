@@ -14,7 +14,7 @@ impl WindowsCompilerPlan<'_> {
     const SDK_HEADERS: &'static str = "build/native/include";
     const NO_RESOURCE: &'static str = "/nologo";
 
-    pub(super) fn arguments(&self, linker_arguments: [&str; 12]) -> Vec<String> {
+    pub(super) fn arguments(&self, linker_arguments: &[&str]) -> Vec<String> {
         let mut arguments = Self::COMPILER_OPTIONS.map(String::from).to_vec();
         arguments.extend([
             format!("/I{}", self.sdk.join(Self::SDK_HEADERS).display()),
@@ -31,7 +31,7 @@ impl WindowsCompilerPlan<'_> {
             ),
             String::from(self.architecture.linker_machine()),
         ]);
-        arguments.extend(linker_arguments.map(String::from));
+        arguments.extend(linker_arguments.iter().copied().map(String::from));
         arguments
     }
 }

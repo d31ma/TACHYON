@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Windows app opens its window from `client/manifest.json`, as the macOS
+  app does. Its client area starts at `tac.application.window` `width` by
+  `height` device-independent pixels, so it keeps its size on a high-DPI
+  screen, and `minWidth` and `minHeight` stop the user from making it
+  smaller. On Windows 11 a `theme_color` written as `#rgb` or `#rrggbb`
+  colors the title bar, with black or white title text by contrast, and
+  `"display": "fullscreen"` starts the app borderless and full screen. A
+  `display` value outside the web manifest list (`fullscreen`, `standalone`,
+  `minimal-ui`, `browser`) now stops the build with `TY1601` (ADR 0052
+  amendment).
 - `scripts/android/native-test.sh` also runs the Kotlin window-controls
   example on the Android emulator. Granted `minimize`, `resize` and `title`
   act on the app window, and `maximize`, `fullscreen` and `close`, which the
