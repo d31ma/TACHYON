@@ -31,8 +31,18 @@ impl NativeReproducibility {
         arguments: &[&str],
         working_directory: Option<&Path>,
     ) -> Result<String, Failure> {
+        Self::run_tool_in_with(program, arguments, working_directory, &[]).await
+    }
+
+    pub(super) async fn run_tool_in_with(
+        program: &str,
+        arguments: &[&str],
+        working_directory: Option<&Path>,
+        variables: &[(&str, &str)],
+    ) -> Result<String, Failure> {
         let epoch = Self::source_date_epoch().to_string();
-        let environment = Self::environment(&epoch);
+        let mut environment = Self::environment(&epoch).to_vec();
+        environment.extend_from_slice(variables);
         run_tool_with(program, arguments, working_directory, &environment).await
     }
 

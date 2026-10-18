@@ -18,3 +18,10 @@ Without it the Windows build stops with TY1605.
 Run the Windows build from a Visual Studio developer prompt (x64
 target; on Windows on Arm use the arm64_amd64 prompt). The host
 compiles with warnings as errors (/W4 /WX).
+
+ty bundle --target android --release builds a signed APK and an
+Android App Bundle (.aab) for Google Play. Set TAC_ANDROID_KEYSTORE
+to the keystore file, TAC_ANDROID_KEYSTORE_PASSWORD to its password
+and TAC_ANDROID_KEYSTORE_ALIAS to the upload key's alias. A missing
+one stops the build with TY1605 before Gradle runs. Other targets
+refuse --release with TY1601 until their release packaging lands.

@@ -1,11 +1,12 @@
+use super::android_gradle_build::AndroidGradleBuild;
+use super::android_release::AndroidRelease;
+use super::compiler::NativeBuildOptions;
 use super::config::NativeApplication;
 use super::file_picker_sources::FilePickerSources;
 use super::host::{
-    GeneratedHost, first_line, native_io, native_tool_failure, quoted_string_escape, run_tool_in,
-    stage_application, write, write_host_source, xml_escape,
+    GeneratedHost, native_io, quoted_string_escape, stage_application, write, write_host_source,
+    xml_escape,
 };
-use super::native_build_folders::NativeBuildFolders;
-use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
 use crate::Failure;
 use std::fs;
@@ -51,7 +52,7 @@ impl AndroidHostGenerator {
         companions: &[super::registry::NativeCompanionInput],
         web_bundle: &Path,
         stage: &Path,
-        package_artifact: bool,
+        options: &NativeBuildOptions,
     ) -> Result<GeneratedHost, Failure> {
         let bundle = stage.join(&application.executable_name);
         let project = bundle.join("project");
@@ -59,13 +60,17 @@ impl AndroidHostGenerator {
         stage_application(index, web_bundle, stage, &assets)?;
         write_project(application, index, companions, web_bundle, &project)?;
 
-        if !package_artifact {
+        if !options.package {
             return Ok(GeneratedHost::not_packaged(
                 PathBuf::from(&application.executable_name).join("project"),
             ));
         }
 
-        let (gradle_version, apk) = assemble(&project, &bundle, application).await?;
+        let (gradle_version, apk) = if options.release {
+            AndroidGradleBuild::release(&project, &bundle, application).await?
+        } else {
+            AndroidGradleBuild::debug(&project, &bundle, application).await?
+        };
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(&application.executable_name).join(apk),
             toolchain_name: String::from("gradle"),
@@ -157,36 +162,6 @@ fn stage_kotlin_models(
     Ok(())
 }
 
-async fn assemble(
-    project: &Path,
-    bundle: &Path,
-    application: &NativeApplication,
-) -> Result<(String, String), Failure> {
-    if std::env::var_os("ANDROID_HOME").is_none() && std::env::var_os("ANDROID_SDK_ROOT").is_none()
-    {
-        return Err(native_tool_failure(
-            1605,
-            "The Android host requires ANDROID_HOME or ANDROID_SDK_ROOT on the build machine.",
-        ));
-    }
-    let version = first_line(
-        &run_tool_in("gradle", &["--version"], Some(project)).await?,
-        "Gradle unknown",
-    );
-    NativeReproducibility::run_tool_in(
-        "gradle",
-        &["--no-daemon", "--console=plain", "assembleDebug"],
-        Some(project),
-    )
-    .await?;
-    let built = project.join("app/build/outputs/apk/debug/app-debug.apk");
-    let name = format!("{}.apk", application.executable_name);
-    let published = bundle.join(&name);
-    native_io(fs::copy(&built, &published), &published)?;
-    NativeBuildFolders::remove(project, &NativeBuildFolders::GRADLE)?;
-    Ok((version, name))
-}
-
 fn java_package(application_id: &str) -> String {
     let mut segments = Vec::new();
     for segment in application_id.split('.') {
@@ -265,9 +240,14 @@ android {{
     versionName = "{version}"
   }}
 
+{signing}
   buildTypes {{
     getByName("debug") {{
       isMinifyEnabled = false
+    }}
+    getByName("release") {{
+      isMinifyEnabled = false
+      signingConfig = signingConfigs.getByName("release")
     }}
   }}
 
@@ -304,6 +284,7 @@ tasks.withType<AbstractArchiveTask>().configureEach {{
             .major(),
         version = application.version,
         build = application.build,
+        signing = AndroidRelease::gradle_signing_config(),
     )
 }
 
@@ -1223,6 +1204,13 @@ mod tests {
         let released_gradle = app_gradle(&released, "x.y", false);
         assert!(released_gradle.contains("versionCode = 7\n"));
         assert!(released_gradle.contains("versionName = \"2.1.0-beta\"\n"));
+        let signing = gradle.find("signingConfigs {");
+        let build_types = gradle.find("buildTypes {");
+        assert!(signing.is_some() && signing < build_types);
+        assert!(gradle.contains(
+            "getByName(\"release\") {\n      isMinifyEnabled = false\n      signingConfig = signingConfigs.getByName(\"release\")"
+        ));
+        assert!(!gradle.contains("storePassword = \""));
 
         let mut raised = application();
         raised.minimum_system = raised.minimum_system.with_floor(

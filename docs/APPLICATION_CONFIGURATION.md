@@ -177,6 +177,25 @@ to print the whole list for your project; each declared member is marked
 `crates/tachyon-core/src/native/target_support.json` (ADR 0102), and the
 website shows it as one tab per target.
 
+### Signing a release package
+
+`ty bundle --target android --release` builds a signed APK and Android App
+Bundle (`.aab`) next to each other in `dist/android/<Name>/` (ADR 0104).
+Other targets refuse `--release` with `TY1601` until their release packaging
+lands. Signing material is never part of `client/manifest.json`. `ty` reads it
+from these environment variables of the build machine:
+
+| Variable | Value |
+| --- | --- |
+| `TAC_ANDROID_KEYSTORE` | The keystore file (`.jks` or `.p12`). A relative path is read from the directory where `ty` runs. |
+| `TAC_ANDROID_KEYSTORE_PASSWORD` | The keystore password. |
+| `TAC_ANDROID_KEYSTORE_ALIAS` | The alias of the upload key in the keystore. |
+| `TAC_ANDROID_KEYSTORE_KEY_PASSWORD` | Optional. The key's own password; the keystore password when it is not set. |
+
+A release build stops with `TY1605` before Gradle runs when one of the first
+three is missing or the keystore is not a file. The staged Gradle project reads
+the same variables, so it also signs a release built outside `ty`.
+
 ### `server/application.json`
 
 This file is Yon's configuration. The file itself is the `yon` namespace: its

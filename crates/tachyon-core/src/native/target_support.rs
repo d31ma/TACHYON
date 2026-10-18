@@ -151,6 +151,10 @@ impl TargetSupport {
             .unwrap_or(Value::Null)
     }
 
+    pub(super) fn native_platform(target: NativeTarget) -> &'static str {
+        Self::platform(Self::app_target(target))
+    }
+
     fn app_target(target: NativeTarget) -> AppTarget {
         match target {
             NativeTarget::Macos => AppTarget::Macos,

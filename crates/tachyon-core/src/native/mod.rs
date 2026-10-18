@@ -1,5 +1,7 @@
 mod android;
 mod android_browser_apis;
+mod android_gradle_build;
+mod android_release;
 mod apple_browser_apis;
 mod apple_icons;
 mod browser_api_bridge;
@@ -183,6 +185,7 @@ mod native_window_example_tests;
 mod page_program;
 mod placeholder_fill;
 mod registry;
+mod release_packaging;
 mod routes;
 mod rust;
 mod rust_companion_crate;
@@ -253,6 +256,7 @@ pub use mac_os_architecture::MacOsArchitecture;
 pub use native_ui_change::NativeUiChange;
 pub use native_ui_contract::NativeUiContract;
 pub use native_ui_generation::NativeUiGeneration;
+pub use release_packaging::ReleasePackaging;
 #[cfg(test)]
 pub(crate) use rust::companion_prelude;
 pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};

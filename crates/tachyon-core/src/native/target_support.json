@@ -737,7 +737,7 @@
     "windows": {"reach": "adapted", "note": "The Windows build is a folder with the .exe. There is no installer or signature yet (PKG4)."},
     "linux": {"reach": "adapted", "note": "The Linux build is a folder with the program. There are no packages yet (PKG5)."},
     "ios": {"reach": "adapted", "note": "The iOS build runs only in the simulator. Device builds and an .ipa wait on PKG2."},
-    "android": {"reach": "adapted", "note": "The Android build is a debug APK. Release APK and AAB builds wait on PKG3."}
+    "android": {"reach": "honored", "how": "ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK"}
   },
   {
     "member": "incremental route reuse",

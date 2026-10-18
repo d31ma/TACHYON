@@ -8,6 +8,7 @@ mod init_choices;
 mod init_command;
 mod package_architectures;
 mod package_plan;
+mod release_choice;
 mod resilient_serve;
 mod restart;
 mod shutdown;
@@ -45,6 +46,7 @@ use init_choices::InitChoices;
 use init_command::InitCommand;
 use package_architectures::PackageArchitectures;
 use package_plan::PackagePlan;
+use release_choice::ReleaseChoice;
 use resilient_serve::ResilientServe;
 use shutdown::{LongRunningCommand, ShutdownSignals};
 use test_output::TestOutput;
@@ -171,6 +173,11 @@ enum Command {
             value_enum
         )]
         arch: Option<ArchitectureChoice>,
+        #[arg(
+            help = "Build a signed release package. Android builds an APK and an AAB signed with the keystore in TAC_ANDROID_KEYSTORE",
+            long
+        )]
+        release: bool,
         #[arg(
             help = "Compatibility switch; native hosts are always generated now",
             long,
@@ -681,6 +688,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         target,
         native,
         arch,
+        release,
         skip_initial_build,
         render_mode,
         skip_package,
@@ -714,6 +722,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
     }
     let architectures = ArchitectureChoice::for_targets(*arch, &targets)?;
     print_architecture_notes(*arch, &targets)?;
+    let release = ReleaseChoice::for_targets(*release, *native || *skip_package, &targets)?;
     let output = bundle_output(out_dir.as_deref(), &targets);
     let options = BundleExecution {
         no_incremental: *no_incremental,
@@ -723,8 +732,11 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         } else {
             InitialBuild::Run
         },
-        package: !*skip_package && !*native,
-        architectures,
+        plan: PackagePlan {
+            package: !*skip_package && !*native,
+            release,
+            architectures,
+        },
     };
     execute_bundle(project, &output, &targets, options).await
 }
@@ -762,6 +774,7 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
         .unwrap_or_else(|| PathBuf::from("dist"));
     let plan = PackagePlan {
         package: false,
+        release: false,
         architectures,
     };
     execute_build_with_package(project, &output, *no_incremental, target, plan).await
@@ -935,8 +948,7 @@ struct BundleExecution {
     no_incremental: bool,
     watch: bool,
     initial_build: InitialBuild,
-    package: bool,
-    architectures: PackageArchitectures,
+    plan: PackagePlan,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -1208,10 +1220,7 @@ async fn execute_build_targets(
     targets: &[BuildTarget],
     options: BundleExecution,
 ) -> Result<(), Failure> {
-    let plan = PackagePlan {
-        package: options.package,
-        architectures: options.architectures,
-    };
+    let plan = options.plan;
     let multiple = targets.len() > 1;
     for target in targets {
         let output = if multiple && *target == BuildTarget::Web {
@@ -1587,6 +1596,7 @@ async fn execute_build(
 ) -> Result<(), Failure> {
     let plan = PackagePlan {
         package: true,
+        release: false,
         architectures: PackageArchitectures::default(),
     };
     execute_build_with_package(project, out_dir, no_incremental, target, plan).await
@@ -1671,6 +1681,7 @@ async fn execute_native_build(
             output_directory: out_dir.to_path_buf(),
             target: native,
             package: plan.package,
+            release: plan.release,
             windows_architecture: plan.architectures.windows,
             macos_architecture: plan.architectures.macos,
             incremental: !no_incremental,

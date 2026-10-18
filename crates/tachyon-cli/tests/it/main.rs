@@ -1,3 +1,4 @@
+mod android_release_cli;
 mod application_config;
 mod composed_types_cli;
 mod executed_coverage;

@@ -83,7 +83,7 @@ pub use migrate::{
 };
 pub use native::{
     MacOsArchitecture, NativeBuildOptions, NativeBuildResult, NativeCompiler, NativeUiChange,
-    NativeUiContract, NativeUiGeneration, TargetSupport, WindowsArchitecture,
+    NativeUiContract, NativeUiGeneration, ReleasePackaging, TargetSupport, WindowsArchitecture,
     native_target_directory,
 };
 pub use project::{

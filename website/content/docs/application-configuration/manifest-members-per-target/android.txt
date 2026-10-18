@@ -220,7 +220,7 @@ build architecture (--arch)
   adapted: --arch does not choose Android ABIs: the APK holds no native code yet, so it runs on every ABI. Builds per ABI come with linked Rust on Android (MR2).
 
 release packaging
-  adapted: The Android build is a debug APK. Release APK and AAB builds wait on PKG3.
+  honored: ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off

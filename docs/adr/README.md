@@ -116,3 +116,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [101. Check Rejections Answer 422 Problem Details](0101-check-rejections-answer-422-problem-details.md)
 - [102. Every Manifest Member States Its Reach per Target](0102-every-manifest-member-states-its-reach-per-target.md)
 - [103. Native Apps Reach Yon Through a Declared Origin](0103-native-apps-reach-yon-through-a-declared-origin.md)
+- [104. Release Packages Are Opt-In and Signed From the Environment](0104-release-packages-are-opt-in-and-signed-from-the-environment.md)

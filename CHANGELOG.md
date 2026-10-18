@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `ty bundle --target android --release` builds a signed release APK and an
+  Android App Bundle (`.aab`) for Google Play, both in
+  `dist/android/<Name>/` (ADR 0104). The upload key comes only from the
+  environment: `TAC_ANDROID_KEYSTORE`, `TAC_ANDROID_KEYSTORE_PASSWORD`,
+  `TAC_ANDROID_KEYSTORE_ALIAS` and, when the key has its own password,
+  `TAC_ANDROID_KEYSTORE_KEY_PASSWORD`. A missing variable or keystore file
+  stops the build with `TY1605` before Gradle runs, and the staged Gradle
+  project reads the same variables. Builds without `--release` are
+  unchanged. Other targets, `--native` and web-only builds refuse
+  `--release` (`TY1601`, `TY1001`).
 - A native app now applies its `tac.cache` rules to Yon reads. A native
   build that declares `tac.yon.origin` and `tac.cache` ships
   `/.tachyon/tac-yon-reads.js`, which keeps public Yon reads in the page's

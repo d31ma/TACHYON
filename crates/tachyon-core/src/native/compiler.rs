@@ -27,6 +27,7 @@ pub struct NativeBuildOptions {
     pub output_directory: PathBuf,
     pub target: NativeTarget,
     pub package: bool,
+    pub release: bool,
     pub windows_architecture: WindowsArchitecture,
     pub macos_architecture: MacOsArchitecture,
     pub incremental: bool,
@@ -38,6 +39,7 @@ impl Default for NativeBuildOptions {
             output_directory: PathBuf::from("dist"),
             target: NativeTarget::Macos,
             package: true,
+            release: false,
             windows_architecture: WindowsArchitecture::default(),
             macos_architecture: MacOsArchitecture::default(),
             incremental: true,
@@ -211,6 +213,7 @@ impl NativeCompiler {
         let index =
             NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
         application.menus.validate_for(options.target, &index)?;
+        super::release_packaging::ReleasePackaging::check(options.target, options.release)?;
         super::native_release_version::NativeReleaseVersion::of(&application)
             .validate_for(options.target)?;
         application.permissions.validate_for(options.target)?;
@@ -408,7 +411,7 @@ async fn generate_host(
                 companions,
                 web_bundle,
                 stage,
-                package,
+                options,
             )
             .await
         }

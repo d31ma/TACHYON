@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +25,12 @@ class AndroidDevice {
   static adb = path.join(AndroidGate.sdk, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
   static packageName = 'dev.tachyon.phase_five';
   static evidence = path.join(AndroidGate.repo, 'target/phase5-android-evidence');
+}
+
+class AndroidReleaseGate {
+  static password = 'tachyon-gate-only';
+  static alias = 'upload';
+  static signer = 'CN=Tachyon Release Gate';
 }
 
 function write(project, name, contents) {
@@ -374,6 +380,57 @@ async function checkInputAndWriteReport(page, host, pid) {
   console.log(`PASS: Android WebView and Kotlin native evidence: ${AndroidDevice.evidence}`);
 }
 
+function apksigner() {
+  const tools = path.join(AndroidGate.sdk, 'build-tools');
+  const latest = readdirSync(tools).sort((left, right) => left.localeCompare(right, undefined, {numeric:true})).at(-1);
+  return path.join(tools, latest, process.platform === 'win32' ? 'apksigner.bat' : 'apksigner');
+}
+
+function buildRelease(binary, project) {
+  const keys = mkdtempSync(path.join(tmpdir(), 'tachyon-android-keys-'));
+  const keystore = path.join(keys, 'upload.p12');
+  run('keytool', ['-genkeypair', '-keystore', keystore, '-storetype', 'PKCS12', '-storepass', AndroidReleaseGate.password, '-keypass', AndroidReleaseGate.password, '-alias', AndroidReleaseGate.alias, '-keyalg', 'RSA', '-keysize', '2048', '-validity', '2', '-dname', AndroidReleaseGate.signer]);
+  const env = { ...process.env, TAC_ANDROID_KEYSTORE: keystore, TAC_ANDROID_KEYSTORE_PASSWORD: AndroidReleaseGate.password, TAC_ANDROID_KEYSTORE_ALIAS: AndroidReleaseGate.alias };
+  try {
+    const built = run(binary, ['bundle', project, '--target', 'android', '--release', '--out-dir', 'dist-release'], { env, timeout: 900000 });
+    assert.ok(!built.includes(AndroidReleaseGate.password), 'A release build never prints the keystore password');
+  } finally {
+    rmSync(keys, {recursive:true,force:true});
+  }
+  const bundle = path.join(project, 'dist-release/android/PhaseFive');
+  const apk = path.join(bundle, 'PhaseFive.apk');
+  const aab = path.join(bundle, 'PhaseFive.aab');
+  assert.match(run(apksigner(), ['verify', '--print-certs', apk]), /CN=Tachyon Release Gate/, 'The release APK is signed with the upload key');
+  assert.match(run('jarsigner', ['-verify', '-verbose', '-certs', aab]), /CN="?Tachyon Release Gate/, 'The App Bundle is signed with the upload key');
+  assert.ok(run('unzip', ['-Z1', aab]).split('\n').includes('base/assets/WebBundle/index.html'), 'The App Bundle carries the web bundle');
+  for (const file of ['project/app/build.gradle.kts', 'project/gradle.properties']) {
+    assert.ok(!readFileSync(path.join(bundle, file), 'utf8').includes(AndroidReleaseGate.password), `${file} holds no signing secret`);
+  }
+  return apk;
+}
+
+async function checkReleaseBuild(binary, project) {
+  const apk = buildRelease(binary, project);
+  run(AndroidDevice.adb, ['uninstall', AndroidDevice.packageName]);
+  try {
+    run(AndroidDevice.adb, ['install', apk]);
+    const packageInfo = run(AndroidDevice.adb, ['shell', 'dumpsys', 'package', AndroidDevice.packageName]);
+    assert.match(packageInfo, /versionCode=5\b/, 'The release keeps tac.application.build');
+    assert.doesNotMatch(packageInfo.match(/pkgFlags=\[[^\]]*\]/)?.[0] ?? '', /DEBUGGABLE/, 'The release APK is not debuggable');
+    run(AndroidDevice.adb, ['shell', 'am', 'start', '-W', '-n', `${AndroidDevice.packageName}/.MainActivity`]);
+    let pid = '';
+    for (let attempt = 0; attempt < 20 && !/^\d+$/.test(pid); attempt++) {
+      await pause(500);
+      pid = spawnSync(AndroidDevice.adb, ['shell', 'pidof', AndroidDevice.packageName], { encoding: 'utf8' }).stdout.trim();
+    }
+    assert.match(pid, /^\d+$/, 'The release APK launches');
+    assert.ok(!run(AndroidDevice.adb, ['shell', 'cat', '/proc/net/unix']).includes(`webview_devtools_remote_${pid}`), 'A release build does not open WebView debugging');
+  } finally {
+    spawnSync(AndroidDevice.adb, ['uninstall', AndroidDevice.packageName], { encoding: 'utf8' });
+  }
+  console.log('PASS: Android signed release APK and App Bundle');
+}
+
 async function main() {
   const project = mkdtempSync(path.join(tmpdir(), 'tachyon-android-gate-'));
   let browser;
@@ -398,10 +455,15 @@ async function main() {
     await checkNavigation(page);
     await checkStoredFieldAfterReload(page, entry);
     await checkInputAndWriteReport(page, host, pid);
+    await browser.close();
+    browser = undefined;
+    run(AndroidDevice.adb, ['forward', '--remove', `tcp:${port}`]);
+    port = undefined;
+    await checkReleaseBuild(binary, project);
   } finally {
     if (browser) await browser.close();
     if (port) run(AndroidDevice.adb, ['forward', '--remove', `tcp:${port}`]);
-    run(AndroidDevice.adb, ['shell', 'am', 'force-stop', AndroidDevice.packageName]);
+    spawnSync(AndroidDevice.adb, ['shell', 'am', 'force-stop', AndroidDevice.packageName], { encoding: 'utf8' });
     rmSync(project, {recursive:true,force:true});
   }
 }

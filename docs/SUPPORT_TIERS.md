@@ -31,6 +31,15 @@ support tier. They do not replace verification of the real release download.
 | Linux WebKitGTK | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log | exact release artifact; Linux native GUI CI on the current head; a run on a Linux desktop, because a container or VM does not prove desktop behavior |
 | Windows WebView2 | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. | Windows native GUI CI execution |
 
+Android release packages (2026-10-18, ADR 0104): `ty bundle --target android
+--release` was built in an x86_64 Linux cloud container (Android SDK platform
+35, build-tools 35.0.0, Gradle 8.11.1, AGP 8.7.3, OpenJDK 21) with a throwaway
+PKCS12 keystore. `apksigner verify` and `jarsigner -verify` showed both the APK
+and the `.aab` signed with that key, `aapt2` showed the declared version code
+and name and no `debuggable` flag, and no generated file held the password.
+Not yet run: installing and launching the release APK on the emulator, which
+`scripts/android/native-test.mjs` now does after its debug checks.
+
 ### Application services and declared menus on desktop hosts (2026-10-04)
 
 ADR 0097 and its amendment cover an application-lifetime Rust service and
