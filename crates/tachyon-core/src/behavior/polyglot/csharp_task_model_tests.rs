@@ -131,3 +131,81 @@ fn csharp_registered_typed_collection_exchange_uses_captured_required_closed_sha
     assert!(lowered.contains("HTTP_RESPONSE"));
     Ok(())
 }
+
+#[test]
+fn csharp_typed_exchange_reads_lists_arrays_plain_values_and_value_tasks() -> Result<(), String> {
+    let (_, models) = CsharpTypedExchangeFixture::models()?;
+    let path = Path::new(CsharpTypedExchangeFixture::PATH);
+    for (kind, reading) in [
+        (
+            "System.Threading.Tasks.Task<List<Models.Greeting>>",
+            "TacModels.ReadResultList<Models.Greeting>(__tacAnswer.ToString(), \"[]Greeting\", ",
+        ),
+        (
+            "System.Threading.Tasks.Task<Models.Greeting[]>",
+            "TacModels.ReadResultList<Models.Greeting>(__tacAnswer.ToString(), \"[]Greeting\", ",
+        ),
+        (
+            "System.Threading.Tasks.Task<int>",
+            "TacModels.ReadResultValue<int>(__tacAnswer.ToString(), \"integer\", \"{}\"); }",
+        ),
+        (
+            "System.Threading.Tasks.Task<System.Collections.Generic.List<string>>",
+            "TacModels.ReadResultList<string>(__tacAnswer.ToString(), \"[]string\", \"{}\"); }",
+        ),
+        (
+            "System.Threading.Tasks.ValueTask<Models.Greeting>",
+            "TacModels.ReadResult<Models.Greeting>(__tacAnswer.ToString(), \"Greeting\", ",
+        ),
+    ] {
+        let source = CsharpTypedExchangeFixture::SOURCE
+            .replace("System.Threading.Tasks.Task<Models.Greeting>", kind);
+        let concrete = crate::declared_contract::DeclaredContract::concrete(path, &source, "tac")
+            .unwrap_or(source);
+        let lowered = CsharpTaskModels::lower(path, &concrete, &models)
+            .map_err(|error| format!("{kind}: {error}"))?
+            .unwrap_or_default();
+        assert!(lowered.contains(reading), "{kind}: {lowered}");
+        assert!(
+            lowered.contains(&format!("public async {kind} read()")),
+            "{kind}: {lowered}"
+        );
+        assert!(lowered.contains("\"HTTP_RESPONSE\""), "{kind}");
+    }
+    let array = CsharpTypedExchangeFixture::SOURCE.replace(
+        "System.Threading.Tasks.Task<Models.Greeting>",
+        "System.Threading.Tasks.Task<Models.Greeting[]>",
+    );
+    let concrete =
+        crate::declared_contract::DeclaredContract::concrete(path, &array, "tac").unwrap_or(array);
+    let lowered = CsharpTaskModels::lower(path, &concrete, &models)
+        .map_err(|error| error.to_string())?
+        .unwrap_or_default();
+    assert!(lowered.contains(").ToArray(); }"), "{lowered}");
+    Ok(())
+}
+
+#[test]
+fn csharp_typed_exchange_refuses_maps_and_nested_lists_with_a_location() -> Result<(), String> {
+    let (_, models) = CsharpTypedExchangeFixture::models()?;
+    let path = Path::new(CsharpTypedExchangeFixture::PATH);
+    for kind in [
+        "System.Threading.Tasks.Task<Dictionary<string, Models.Greeting>>",
+        "System.Threading.Tasks.Task<List<List<Models.Greeting>>>",
+        "System.Threading.Tasks.ValueTask<Models.Missing>",
+    ] {
+        let source = CsharpTypedExchangeFixture::SOURCE
+            .replace("System.Threading.Tasks.Task<Models.Greeting>", kind);
+        let concrete = crate::declared_contract::DeclaredContract::concrete(path, &source, "tac")
+            .unwrap_or(source);
+        let message = CsharpTaskModels::lower(path, &concrete, &models)
+            .err()
+            .map(|error| error.to_string())
+            .ok_or_else(|| format!("{kind} was accepted"))?;
+        assert!(
+            message.contains(CsharpTypedExchangeFixture::PATH),
+            "{message}"
+        );
+    }
+    Ok(())
+}

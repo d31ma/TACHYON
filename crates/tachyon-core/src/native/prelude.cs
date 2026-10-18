@@ -111,7 +111,7 @@ public static partial class TacModels
     public static object Plain(object value)
     {
         if (value == null || value is string || value is bool || value.GetType().IsPrimitive || value is decimal) return value;
-        if (value is IDictionary || value is object[]) return value;
+        if (value is IDictionary || value.GetType() == typeof(object[])) return value;
         if (value is IEnumerable items) return items.Cast<object>().Select(Plain).ToArray();
         var model = TacModelContext.Default.GetTypeInfo(value.GetType());
         if (model == null) return value;

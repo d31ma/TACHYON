@@ -3,16 +3,36 @@ public static partial class TacModels
     public static T ReadResult<T>(string json, string shape, string models) =>
         ReadVerifiedResult<T>(json, shape, models);
 
+    public static List<T> ReadResultList<T>(string json, string shape, string models) =>
+        ReadVerifiedNode(json, shape, models).AsArray().Select(ReadResultItem<T>).ToList();
+
+    public static T ReadResultValue<T>(string json, string shape, string models) =>
+        ReadResultItem<T>(ReadVerifiedNode(json, shape, models));
+
     private static T ReadVerifiedResult<T>(string json, string shape, string models)
+    {
+        ReadVerifiedNode(json, shape, models);
+        var information = TacModelContext.Default.GetTypeInfo(typeof(T));
+        if (information == null) throw new System.ArgumentException("Unknown model result.");
+        return (T)System.Text.Json.JsonSerializer.Deserialize(json, information);
+    }
+
+    private static System.Text.Json.Nodes.JsonNode ReadVerifiedNode(string json, string shape, string models)
     {
         RequireResultBound(json);
         var options = new System.Text.Json.JsonDocumentOptions { MaxDepth = 32 };
         var value = System.Text.Json.Nodes.JsonNode.Parse(json, null, options);
         var schema = System.Text.Json.Nodes.JsonNode.Parse(models, null, options);
         RequireResultShape(schema, shape, PlainResult(value));
+        return value;
+    }
+
+    private static T ReadResultItem<T>(System.Text.Json.Nodes.JsonNode node)
+    {
+        if (node == null) return default;
         var information = TacModelContext.Default.GetTypeInfo(typeof(T));
-        if (information == null) throw new System.ArgumentException("Unknown model result.");
-        return (T)System.Text.Json.JsonSerializer.Deserialize(json, information);
+        if (information == null) return node.GetValue<T>();
+        return (T)System.Text.Json.JsonSerializer.Deserialize(node, information);
     }
 
     private static void RequireResultBound(string json)

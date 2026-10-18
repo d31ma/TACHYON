@@ -29,7 +29,12 @@ impl<'a> ConcreteContract<'a> {
     const ASYNC_EMPTY_BODY: &'static str = " async {}";
     const DEFAULT_INDENT: &'static str = "    ";
     const LEADING_MODIFIERS: [&'static str; 4] = ["public", "abstract", "virtual", "async"];
-    const TASKS: [&'static str; 2] = ["Task", "System.Threading.Tasks.Task"];
+    const TASKS: [&'static str; 4] = [
+        "Task",
+        "System.Threading.Tasks.Task",
+        "ValueTask",
+        "System.Threading.Tasks.ValueTask",
+    ];
     const FUTURE: &'static str = "Future";
     const GO_FIELDS: [&'static str; 2] = ["struct{}", "struct {\n\tbehaviors *BehaviorContext\n}"];
     const RUBY: &'static str = "rb";

@@ -4,7 +4,7 @@ pub(super) struct CsharpTaskShape;
 
 impl CsharpTaskShape {
     const SCALARS: [&'static str; 4] = ["string", "integer", "number", "boolean"];
-    const REFUSAL: &'static str = "C# browser Task model fields require scalars or one-level lists of registered scalar records; direct nested records, recursive graphs, nested collections and arbitrary fields remain unsupported.";
+    const REFUSAL: &'static str = "C# browser Task model fields require scalars, one registered record of scalars, or one-level lists of registered scalar records; deeper nesting, recursive graphs, nested collections and arbitrary fields remain unsupported.";
 
     pub(super) fn validate(root: &str, models: &Value) -> Result<(), String> {
         Self::root_fields(root, models)
@@ -22,13 +22,11 @@ impl CsharpTaskShape {
         if Self::SCALARS.contains(&kind) {
             return Ok(());
         }
-        Self::collection(kind, models)
+        Self::nested(kind, models)
     }
 
-    fn collection(kind: &str, models: &Value) -> Result<(), String> {
-        let item = kind
-            .strip_prefix("[]")
-            .ok_or_else(|| Self::REFUSAL.to_owned())?;
+    fn nested(kind: &str, models: &Value) -> Result<(), String> {
+        let item = kind.strip_prefix("[]").unwrap_or(kind);
         let item = item.strip_prefix('?').unwrap_or(item);
         let fields = Self::record_fields(&models[item])?;
         fields.values().try_for_each(Self::scalar_field)

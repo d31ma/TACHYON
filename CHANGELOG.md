@@ -25,6 +25,17 @@ machine contracts have their own, independent major versions.
   that the styles survive a hide and show. The gate no longer needs a
   retained fixture folder; `TAC_COMPONENT_SCOPE_BROWSERS` picks engines.
 
+- Browser C# results match F#. A C# browser HTTPClient member and a public
+  member of a browser `[Service]` may return `Task` or `ValueTask` of a
+  record from `client/models`, a `List` or an array of records or of plain
+  values, or one plain value (`string`, `int`, `long`, `double`, `float`,
+  `decimal` or `bool`). A record may also hold one nested record of plain
+  fields. An answer of another shape fails with `HTTP_RESPONSE`; transport
+  codes such as `HTTP_STATUS` pass through. The page gets a promise of the
+  plain value. Before, only `Task` of one record was accepted, and the rest
+  failed with TY1405. Maps, nested lists, nullable results, deeper or
+  recursive nesting and a nested record with a list are still refused with
+  TY1405, and native C# targets are unchanged (ADR 0090 amendment).
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with

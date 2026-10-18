@@ -71,14 +71,16 @@ fn csharp_registered_task_model_emission_uses_existing_codec_and_native_is_uncha
 }
 
 #[test]
-fn csharp_task_unknown_container_and_value_task_results_are_located_refusals() -> Result<(), String>
-{
+fn csharp_task_unknown_map_nested_list_and_nullable_results_are_located_refusals()
+-> Result<(), String> {
     let (_, models) = CsharpTaskModelFixture::models()?;
     for kind in [
         "Task<Missing>",
-        "Task<List<Greeting>>",
-        "Task<int>",
-        "ValueTask<Greeting>",
+        "Task<Dictionary<string, Greeting>>",
+        "Task<List<List<Greeting>>>",
+        "Task<List<Missing>>",
+        "Task<int?>",
+        "ValueTask<Missing>",
     ] {
         let source = CsharpTaskModelFixture::SOURCE.replace("Task<Models.Greeting>", kind);
         let error = CsharpTaskMembers::entries(&source, CsharpTaskModelFixture::PATH, &models, &[]);
@@ -88,6 +90,33 @@ fn csharp_task_unknown_container_and_value_task_results_are_located_refusals() -
             .map(|error| error.to_string())
             .unwrap_or_default();
         assert!(message.contains(CsharpTaskModelFixture::PATH), "{message}");
+    }
+    Ok(())
+}
+
+#[test]
+fn csharp_task_lists_arrays_plain_values_and_value_tasks_answer_plain_values() -> Result<(), String>
+{
+    let (_, models) = CsharpTaskModelFixture::models()?;
+    for kind in [
+        "Task<List<Greeting>>",
+        "Task<System.Collections.Generic.List<Models.Greeting>>",
+        "Task<Greeting[]>",
+        "Task<int>",
+        "Task<string>",
+        "Task<List<double>>",
+        "ValueTask<Greeting>",
+        "System.Threading.Tasks.ValueTask<bool>",
+    ] {
+        let source = CsharpTaskModelFixture::SOURCE.replace("Task<Models.Greeting>", kind);
+        let entries =
+            CsharpTaskMembers::entries(&source, CsharpTaskModelFixture::PATH, &models, &[])
+                .map_err(|error| format!("{kind}: {error}"))?;
+        assert!(
+            entries.contains("TacModels.Plain(await Instance.Read("),
+            "{kind}: {entries}"
+        );
+        assert!(!entries.contains("Instance.Hidden("), "{kind}");
     }
     Ok(())
 }
@@ -107,29 +136,48 @@ fn csharp_task_model_hooks_and_provider_fields_stay_excluded() -> Result<(), Str
 }
 
 #[test]
-fn csharp_nested_task_model_graph_is_explicitly_pending() -> Result<(), String> {
-    let (root, _) = CsharpTaskModelFixture::models()?;
+fn csharp_nested_task_model_record_of_plain_fields_is_accepted() -> Result<(), String> {
+    let (_, models) = CsharpTaskModelFixture::collection(
+        "public record Greeting(GreetingItem Detail);",
+        "public record GreetingItem(string Message);",
+    )?;
+    let entries = CsharpTaskModelFixture::entries(&models).map_err(|error| error.to_string())?;
+    assert!(entries.contains("TacModels.Plain(await Instance.Read("));
+    let schema = models.event_models("Greeting")?;
+    assert_eq!(schema["Greeting"]["fields"]["detail"], "!GreetingItem");
+    assert_eq!(schema["GreetingItem"]["fields"]["message"], "!string");
+    Ok(())
+}
+
+#[test]
+fn csharp_task_nested_record_cannot_hide_a_second_level() -> Result<(), String> {
+    let (root, _) = CsharpTaskModelFixture::collection(
+        "public record Greeting(GreetingItem Detail);",
+        "public record GreetingItem(GreetingNote Note);",
+    )?;
     std::fs::write(
-        root.path().join("client/models/Greeting.cs"),
-        "public record Greeting(GreetingDetail Detail);",
-    )
-    .map_err(|error| error.to_string())?;
-    std::fs::write(
-        root.path().join("client/models/GreetingDetail.cs"),
-        "public record GreetingDetail(string Message);",
+        root.path().join("client/models/GreetingNote.cs"),
+        "public record GreetingNote(string Text);",
     )
     .map_err(|error| error.to_string())?;
     let models = ModelTable::read_realm(root.path(), "client", "cs")?;
-    assert!(
-        CsharpTaskMembers::entries(
-            CsharpTaskModelFixture::SOURCE,
-            CsharpTaskModelFixture::PATH,
-            &models,
-            &[]
-        )
-        .is_err()
+    assert_eq!(
+        models.event_models("Greeting")?["GreetingNote"]["fields"]["text"],
+        "!string"
     );
+    let failure = CsharpTaskModelFixture::entries(&models)
+        .err()
+        .ok_or_else(|| "a second nested record level was accepted".to_owned())?;
+    assert_eq!(failure.diagnostics()[0].code.number(), 1405);
     Ok(())
+}
+
+#[test]
+fn csharp_task_nested_record_cannot_hide_a_list() -> Result<(), String> {
+    CsharpTaskModelFixture::refused_collection(
+        "public record Greeting(GreetingItem Detail);",
+        "public record GreetingItem(System.Collections.Generic.List<string> Notes);",
+    )
 }
 
 #[test]

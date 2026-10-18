@@ -1,7 +1,7 @@
 use super::prepared::Prepared;
 use super::{Method, Module};
 use crate::Failure;
-use crate::companion::CsharpTaskResult;
+use crate::companion::{CsharpTaskAnswer, CsharpTaskResult};
 use crate::route_types::ModelTable;
 use std::path::Path;
 
@@ -77,17 +77,16 @@ impl CsharpTaskModels {
 
     fn describe_result(method: &mut Method, models: &ModelTable) -> Result<(), String> {
         CsharpTaskResult::model(&method.return_type, models)?
-            .map(|name| Self::describe_model(method, models, &name))
+            .map(|answer| Self::describe_model(method, &answer))
             .transpose()
             .map(|_| ())
     }
 
-    fn describe_model(method: &mut Method, models: &ModelTable, name: &str) -> Result<(), String> {
+    fn describe_model(method: &mut Method, answer: &CsharpTaskAnswer) -> Result<(), String> {
         Self::require_exchange(method)?;
-        method.metadata.insert(
-            "tacModelResult".to_owned(),
-            serde_json::json!({"name": name, "models": models.event_models(name)?}),
-        );
+        method
+            .metadata
+            .insert("tacModelResult".to_owned(), answer.metadata());
         Ok(())
     }
 
@@ -99,7 +98,7 @@ impl CsharpTaskModels {
                 .and_then(|exchange| exchange.get("generated"))
                 .is_none()
         {
-            return Err("C# annotated Task<model> currently requires a generated HTTPClient exchange; other DTO behaviors remain unsupported.".to_owned());
+            return Err("C# annotated Task or ValueTask of a model, list or plain value currently requires a generated HTTPClient exchange; other DTO behaviors remain unsupported.".to_owned());
         }
         Ok(())
     }

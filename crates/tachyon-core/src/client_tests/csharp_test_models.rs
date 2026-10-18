@@ -35,7 +35,7 @@ impl CsharpTestModels {
     }
 
     fn with_codec(root: &Path, lowered: &str) -> Result<String, Failure> {
-        if lowered.contains("TacModels.ReadResult<") {
+        if lowered.contains("TacModels.ReadResult") {
             let context = Converters::csharp_tac_test_text(root)
                 .map_err(|message| Self::failure(Path::new("client/models"), message))?;
             Ok(format!(

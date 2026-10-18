@@ -16,6 +16,20 @@ impl CsharpTaskTestFixture {
         "client/tests/CollectionServiceTest.cs",
     ];
 
+    const RESULT_ROOT: &'static str = "tests/fixtures/tac-csharp-task-results";
+    const RESULT_FILES: [&'static str; 10] = [
+        "client/models/ShelfItem.cs",
+        "client/models/ShelfDetail.cs",
+        "client/models/Shelf.cs",
+        "client/remotes/ResultClient.cs",
+        "client/services/ResultService.cs",
+        "client/setups/ResultSetup.cs",
+        "client/setups/ResultFakeSetup.cs",
+        "client/helpers/ResultAnswerHelper.cs",
+        "client/tests/ResultTestSetup.cs",
+        "client/tests/ResultServiceTest.cs",
+    ];
+
     const ROOT: &'static str = "tests/fixtures/tac-csharp-task-models";
     const FILES: [&'static str; 12] = [
         "client/models/Greeting.cs",
@@ -42,6 +56,13 @@ impl CsharpTaskTestFixture {
     fn collection(root: &Path) -> Result<(), String> {
         for relative in Self::COLLECTION_FILES {
             Self::write_from(root, relative, Self::COLLECTION_ROOT)?;
+        }
+        Ok(())
+    }
+
+    fn results(root: &Path) -> Result<(), String> {
+        for relative in Self::RESULT_FILES {
+            Self::write_from(root, relative, Self::RESULT_ROOT)?;
         }
         Ok(())
     }
@@ -119,5 +140,19 @@ fn csharp_registered_task_collection_pure_context_captures_both_models_without_b
     assert!(context.contains("typeof(Models.MessageItem)"));
     assert!(!context.contains("typeof(PointerEvent)"));
     assert!(!context.contains("CaptureHttpTransport"));
+    Ok(())
+}
+
+#[test]
+#[ignore = "requires installed .NET SDK; typed Fake lists, arrays, plain values, a nested record and a ValueTask without browser transport"]
+fn csharp_task_lists_values_nested_records_and_value_tasks_run_genuine_authored_test_fakes()
+-> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    CsharpTaskTestFixture::results(root.path())?;
+    let report = super::run(root.path(), Path::new("client/tests/ResultServiceTest.cs"))
+        .map_err(|error| error.to_string())?;
+    assert!(report.failure.is_none(), "{report:?}");
+    assert_eq!(report.cases.len(), 4);
+    assert!(report.cases.iter().all(|case| case.passed), "{report:?}");
     Ok(())
 }

@@ -1,66 +1,111 @@
+use super::csharp_task_answer::CsharpTaskAnswer;
 use super::csharp_task_shape::CsharpTaskShape;
 use crate::route_types::ModelTable;
 
 pub(crate) struct CsharpTaskResult;
 
 impl CsharpTaskResult {
-    const TASK: &'static str = "Task<";
-    const QUALIFIED_TASK: &'static str = "System.Threading.Tasks.Task<";
+    const TASKS: [&'static str; 4] = [
+        "Task<",
+        "System.Threading.Tasks.Task<",
+        "ValueTask<",
+        "System.Threading.Tasks.ValueTask<",
+    ];
+    const TASK_BASES: [&'static str; 4] = [
+        "Task",
+        "System.Threading.Tasks.Task",
+        "ValueTask",
+        "System.Threading.Tasks.ValueTask",
+    ];
+    const LISTS: [&'static str; 2] = ["List<", "System.Collections.Generic.List<"];
+    const ARRAY: &'static str = "[]";
+    const SCALARS: [(&'static str, &'static str); 7] = [
+        ("string", "string"),
+        ("int", "integer"),
+        ("long", "integer"),
+        ("double", "number"),
+        ("float", "number"),
+        ("decimal", "number"),
+        ("bool", "boolean"),
+    ];
+    const REFUSAL: &'static str = "A C# browser result is Task or ValueTask of one registered client/models record, a List or array of registered records or plain values, or one plain value (string, int, long, double, float, decimal or bool); maps, nested lists, nullable results and other types are not supported.";
 
-    pub(crate) fn payload(kind: &str) -> Option<&str> {
-        Self::argument(kind.trim())
-    }
-
-    pub(crate) fn model(kind: &str, models: &ModelTable) -> Result<Option<String>, String> {
-        Self::require_task(kind)?;
-        Self::registered(kind, models)
+    pub(crate) fn model(
+        kind: &str,
+        models: &ModelTable,
+    ) -> Result<Option<CsharpTaskAnswer>, String> {
+        Self::require_task(kind.trim())?;
+        Self::registered(kind.trim(), models)
     }
 
     fn require_task(kind: &str) -> Result<(), String> {
-        let malformed = Self::malformed_task(kind);
-        let base = kind.split('<').next().unwrap_or(kind);
-        let value_task = ["ValueTask", "System.Threading.Tasks.ValueTask"].contains(&base);
-        Self::require_supported((value_task, malformed))
-    }
-
-    fn require_supported(unsupported: (bool, bool)) -> Result<(), String> {
-        match unsupported {
-            (false, false) => Ok(()),
-            _ => Err("C# browser result requires Task of one registered client model; ValueTask and Task containers remain unsupported.".to_owned()),
-        }
-    }
-
-    fn malformed_task(kind: &str) -> bool {
-        Self::task_base(kind) && Self::payload(kind).is_none()
+        let malformed = [Self::task_base(kind), Self::argument(kind).is_none()];
+        (malformed != [true, true])
+            .then_some(())
+            .ok_or_else(|| Self::REFUSAL.to_owned())
     }
 
     fn task_base(kind: &str) -> bool {
-        ["Task", "System.Threading.Tasks.Task"].contains(&kind.split('<').next().unwrap_or(kind))
+        Self::TASK_BASES.contains(&kind.split('<').next().unwrap_or(kind))
     }
 
     fn argument(kind: &str) -> Option<&str> {
-        kind.strip_prefix(Self::TASK)
-            .or_else(|| kind.strip_prefix(Self::QUALIFIED_TASK))?
+        Self::TASKS
+            .iter()
+            .find_map(|task| kind.strip_prefix(task))?
             .strip_suffix('>')
             .map(str::trim)
     }
 
-    fn registered(kind: &str, models: &ModelTable) -> Result<Option<String>, String> {
-        Self::payload(kind)
+    fn registered(kind: &str, models: &ModelTable) -> Result<Option<CsharpTaskAnswer>, String> {
+        Self::argument(kind)
             .filter(|item| *item != "BehaviorJSON")
-            .map(|item| Self::record(item, models))
+            .map(|item| Self::answer(item, models))
             .transpose()
     }
 
-    fn record(item: &str, models: &ModelTable) -> Result<String, String> {
+    fn answer(payload: &str, models: &ModelTable) -> Result<CsharpTaskAnswer, String> {
+        let array = payload.strip_suffix(Self::ARRAY);
+        let list = Self::list_item(payload);
+        let item = array.or(list);
+        let single = Self::item(item.unwrap_or(payload), models)?;
+        let forms: [fn(CsharpTaskAnswer, bool) -> CsharpTaskAnswer; 2] =
+            [Self::single, CsharpTaskAnswer::listed];
+        Ok(forms[usize::from(item.is_some())](single, array.is_some()))
+    }
+
+    fn single(answer: CsharpTaskAnswer, _array: bool) -> CsharpTaskAnswer {
+        answer
+    }
+
+    fn list_item(payload: &str) -> Option<&str> {
+        Self::LISTS
+            .iter()
+            .find_map(|list| payload.strip_prefix(list))
+            .and_then(|rest| rest.strip_suffix('>'))
+            .map(str::trim)
+    }
+
+    fn item(item: &str, models: &ModelTable) -> Result<CsharpTaskAnswer, String> {
+        Self::SCALARS
+            .iter()
+            .find(|(name, _)| *name == item)
+            .map_or_else(
+                || Self::record(item, models),
+                |(name, shape)| Ok(CsharpTaskAnswer::value(name, shape)),
+            )
+    }
+
+    fn record(item: &str, models: &ModelTable) -> Result<CsharpTaskAnswer, String> {
         let name = item.strip_prefix("Models.").unwrap_or(item);
         if !models.is_record(name) {
             return Err(format!(
-                "C# browser Task result '{item}' requires one registered client/models record; containers and unknown types are unsupported."
+                "C# browser Task result '{item}' requires a registered client/models record, a List or array of them, or a plain value; maps, nested lists and unknown types are unsupported."
             ));
         }
         models.check_all()?;
-        CsharpTaskShape::validate(name, &models.event_models(name)?)?;
-        Ok(name.to_owned())
+        let schema = models.event_models(name)?;
+        CsharpTaskShape::validate(name, &schema)?;
+        Ok(CsharpTaskAnswer::record(name, schema))
     }
 }

@@ -864,6 +864,8 @@ mod dotnet_task_collection_browser_fixture;
 #[cfg(test)]
 mod dotnet_task_model_browser_fixture;
 #[cfg(test)]
+mod dotnet_task_result_browser_fixture;
+#[cfg(test)]
 mod dotnet_task_tests;
 #[cfg(test)]
 mod first_app_csharp_browser_fixture;

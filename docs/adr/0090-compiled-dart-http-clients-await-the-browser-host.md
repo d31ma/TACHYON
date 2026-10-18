@@ -961,3 +961,60 @@ reaches its listener; 16 queued sends are sent in order once the socket
 opens, and the seventeenth gets `HTTP_NETWORK`; and disposing the owner
 closes both connections. `client_tests::java_stream_unit_tests` runs a Java test unit
 on the JVM, where `send` throws `HTTP_MISSING`.
+
+## Amendment (2026-10-18): C# browser results match F#
+
+Before this change, a C# browser HTTPClient member or a browser `[Service]`
+member could only return `Task` of one registered record from
+`client/models`. The record could hold plain fields and a one-level list of
+plain-field records. The build refused `ValueTask`, a top-level list, a plain
+value and a nested record with `TY1405`. This amendment supersedes the
+"registered scalar record results" scope of "Bounded .NET browser extension"
+above for browser C#.
+
+A C# browser HTTPClient interface member and a public member of a browser
+`[Service]` may now return `Task<T>` or `ValueTask<T>`, also spelled
+`System.Threading.Tasks.Task<T>` and `System.Threading.Tasks.ValueTask<T>`.
+`T` is one of these:
+
+- one registered record from `client/models`;
+- a `List<...>` (or `System.Collections.Generic.List<...>`) or an array
+  `X[]` of registered records or of plain values;
+- one plain value: `string`, `int`, `long`, `double`, `float`, `decimal` or
+  `bool`.
+
+A record may hold plain fields, one-level lists of plain-field records, and
+one directly nested registered record whose fields are plain values. This is
+one level of nesting, as in F#.
+
+The generated client reads the answer with a bounded check of a closed shape:
+`TacModels.ReadResult` for a record, `TacModels.ReadResultList` for a list or
+an array, and `TacModels.ReadResultValue` for a plain value. An answer of
+another shape raises `BehaviorError` with code `HTTP_RESPONSE`, for example
+an object where a list is declared, text where an `int` is declared, or a
+nested record without a required field. The transport codes, such as
+`HTTP_STATUS`, pass through unchanged. A service member's result reaches the
+page as a promise of the plain value: a list becomes an array, and a record a
+plain object with camel-case names.
+
+The build still refuses, with `TY1405` and the file location: a map or
+`Dictionary`, a nested list (`List<List<X>>`), a nullable result
+(`Task<int?>`), an unknown type, a record nested two levels or deeper, a
+recursive record graph, and a nested record that holds a list. Native
+(non-browser) C# targets keep refusing these Task results as before.
+`ValueTask<BehaviorJSON>` and a plain `ValueTask` on a C# HTTPClient are not
+part of this change.
+
+Evidence: Rust unit tests in `companion/csharp_task_model_tests.rs` and
+`behavior/polyglot/csharp_task_model_tests.rs` cover the accepted shapes, the
+readers and the refusals.
+`client_tests::csharp_task_model_tests::csharp_task_lists_values_nested_records_and_value_tasks_run_genuine_authored_test_fakes`
+runs a genuine .NET Test unit with Fakes on the fixture
+`crates/tachyon-core/tests/fixtures/tac-csharp-task-results` (4 cases). The
+browser check `scripts/dotnet-task-result-browser-gate.mjs`, run by
+`tac_web::dotnet_task_result_browser_fixture`, builds the fixture as .NET
+WebAssembly and checks the results through a real Yon controller. On
+2026-10-18 it passed in Chromium, together with the existing
+`dotnet_task_model_browser_fixture` and
+`dotnet_task_collection_browser_fixture` gates; Firefox and WebKit were not
+run for this amendment.

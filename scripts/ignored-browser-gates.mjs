@@ -60,6 +60,12 @@ class IgnoredBrowserGates {
       ]
     },
     {
+      name: 'dotnet-task-result',
+      group: 'dotnet',
+      prefix: 'TAC_DOTNET_HTTP',
+      tests: ['dotnet_task_result_browser_fixture::dotnet_task_lists_values_nested_records_and_value_tasks_use_real_yon']
+    },
+    {
       name: 'first-app-csharp',
       group: 'dotnet',
       prefix: 'TAC_DOTNET_HTTP',
