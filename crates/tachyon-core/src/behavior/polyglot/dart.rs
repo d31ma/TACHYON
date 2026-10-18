@@ -290,7 +290,7 @@ fn validation_prefix(method: &Method) -> Result<String, String> {
     };
     let parameter = parameter_at(method, policy, "Check")?;
     Ok(format!(
-        "    {} = Behaviors.validateSchema(BehaviorJson.parse({}), {}){};\n",
+        "    {} = Behaviors.check(BehaviorJson.parse({}), {}){};\n",
         parameter.name,
         quote(&policy["schema"].to_string()),
         parameter.name,

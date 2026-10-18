@@ -20,6 +20,22 @@ final class BehaviorError implements Exception {
   String toString() => message;
 }
 
+final class BehaviorViolation {
+  const BehaviorViolation(this.field, this.key, this.rule);
+  final String field;
+  final String key;
+  final String rule;
+  String get path => '$field.$key';
+}
+
+final class BehaviorRejection extends BehaviorError {
+  BehaviorRejection(this._broken, String? path) : super('validation', path);
+  final List<BehaviorViolation> _broken;
+  List<Map<String, String>> get violations => [
+        for (final violation in _broken) {'field': violation.field, 'rule': violation.rule},
+      ];
+}
+
 abstract final class BehaviorJson {
   static const int limit = 1048576;
   static const num _safe = 9007199254740991;
@@ -344,58 +360,87 @@ __TAC_BEHAVIOR_CONFIGURATIONS__
       (code >= 8192 && code <= 8202));
 
   static Object? validateSchema(Object? schema, Object? value) {
+    final checked = _checkedObject(value);
+    final broken = _schemaRules(() => _violations(schema, checked).firstOrNull);
+    if (broken != null) throw BehaviorError('validation', broken.path);
+    return checked;
+  }
+
+  static Object? check(Object? schema, Object? value) {
+    final Map<Object?, Object?> checked;
+    try {
+      checked = _checkedObject(value);
+    } on BehaviorError catch (invalid) {
+      throw BehaviorRejection(const [BehaviorViolation('', 'object', 'Checked')], invalid.path);
+    }
+    final broken = _schemaRules(() => _violations(schema, checked).toList());
+    if (broken.isNotEmpty) throw BehaviorRejection(broken, broken.first.path);
+    return checked;
+  }
+
+  static Map<Object?, Object?> _checkedObject(Object? value) {
     try {
       BehaviorJson.encode(value);
     } on BehaviorError {
       throw BehaviorError('validation', r'$.json');
     }
     if (value is! Map) throw BehaviorError('validation', r'$.object');
+    return value;
+  }
+
+  static T _schemaRules<T>(T Function() read) {
     try {
-      BehaviorJson.keys(schema, const ['fields']);
-      for (final entry in BehaviorJson.members(BehaviorJson.get(schema, 'fields')).entries) {
-        final field = entry.key;
-        final rules = entry.value;
-        if (!_name.hasMatch(field)) throw BehaviorError('validation', r'$.schema');
-        BehaviorJson.keys(rules, const ['notNull', 'notBlank', 'size', 'min', 'max']);
-        final item = value[field];
-        if (BehaviorJson.has(rules, 'notNull') && BehaviorJson.boolean(BehaviorJson.get(rules, 'notNull')) && item == null) {
-          throw BehaviorError('validation', '$field.notNull');
-        }
-        if (BehaviorJson.has(rules, 'notBlank') && BehaviorJson.boolean(BehaviorJson.get(rules, 'notBlank'))) {
-          if (item is! String || _blank(item)) throw BehaviorError('validation', '$field.notBlank');
-        }
-        if (item == null) continue;
-        if (BehaviorJson.has(rules, 'size')) {
-          final size = BehaviorJson.get(rules, 'size');
-          BehaviorJson.keys(size, const ['min', 'max']);
-          final count = item is String
-              ? behavior_convert.utf8.encode(item).length
-              : item is List
-                  ? item.length
-                  : item is Map
-                      ? item.length
-                      : -1;
-          final minimum = BehaviorJson.has(size, 'min') ? BehaviorJson.integer(BehaviorJson.get(size, 'min')) : 0;
-          final maximum = BehaviorJson.has(size, 'max') ? BehaviorJson.integer(BehaviorJson.get(size, 'max')) : 1048576;
-          if (minimum < 0 || maximum < minimum) throw BehaviorError('validation', r'$.schema');
-          if (count < minimum || count > maximum) throw BehaviorError('validation', '$field.size');
-        }
-        for (final rule in const ['min', 'max']) {
-          if (!BehaviorJson.has(rules, rule)) continue;
-          if (item is! num) throw BehaviorError('validation', '$field.$rule');
-          final bound = BehaviorJson.get(rules, rule);
-          if (bound is! num) throw BehaviorError('validation', r'$.schema');
-          BehaviorJson.checkedNumber(bound);
-          if ((rule == 'min' && item < bound) || (rule == 'max' && item > bound)) {
-            throw BehaviorError('validation', '$field.$rule');
-          }
-        }
-      }
-      return value;
-    } on BehaviorError catch (error) {
-      if (error.code == 'validation') rethrow;
+      return read();
+    } on BehaviorError {
       throw BehaviorError('validation', r'$.schema');
     }
+  }
+
+  static Iterable<BehaviorViolation> _violations(Object? schema, Map<Object?, Object?> value) sync* {
+    BehaviorJson.keys(schema, const ['fields']);
+    for (final entry in BehaviorJson.members(BehaviorJson.get(schema, 'fields')).entries) {
+      final field = entry.key;
+      final rules = entry.value;
+      if (!_name.hasMatch(field)) throw BehaviorError('validation', r'$.schema');
+      BehaviorJson.keys(rules, const ['notNull', 'notBlank', 'size', 'min', 'max']);
+      final item = value[field];
+      if (BehaviorJson.has(rules, 'notNull') && BehaviorJson.boolean(BehaviorJson.get(rules, 'notNull')) && item == null) {
+        yield BehaviorViolation(field, 'notNull', 'Required');
+      }
+      if (BehaviorJson.has(rules, 'notBlank') && BehaviorJson.boolean(BehaviorJson.get(rules, 'notBlank'))) {
+        if (item is! String || _blank(item)) yield BehaviorViolation(field, 'notBlank', 'NotEmpty');
+      }
+      if (item == null) continue;
+      if (BehaviorJson.has(rules, 'size') && !_sizeFits(BehaviorJson.get(rules, 'size'), item)) {
+        yield BehaviorViolation(field, 'size', 'Length');
+      }
+      for (final (rule, name) in const [('min', 'Min'), ('max', 'Max')]) {
+        if (!BehaviorJson.has(rules, rule)) continue;
+        if (item is! num) {
+          yield BehaviorViolation(field, rule, name);
+          continue;
+        }
+        final bound = BehaviorJson.get(rules, rule);
+        if (bound is! num) throw BehaviorError('validation', r'$.schema');
+        BehaviorJson.checkedNumber(bound);
+        if ((rule == 'min' && item < bound) || (rule == 'max' && item > bound)) yield BehaviorViolation(field, rule, name);
+      }
+    }
+  }
+
+  static bool _sizeFits(Object? size, Object item) {
+    BehaviorJson.keys(size, const ['min', 'max']);
+    final count = item is String
+        ? behavior_convert.utf8.encode(item).length
+        : item is List
+            ? item.length
+            : item is Map
+                ? item.length
+                : -1;
+    final minimum = BehaviorJson.has(size, 'min') ? BehaviorJson.integer(BehaviorJson.get(size, 'min')) : 0;
+    final maximum = BehaviorJson.has(size, 'max') ? BehaviorJson.integer(BehaviorJson.get(size, 'max')) : 1048576;
+    if (minimum < 0 || maximum < minimum) throw BehaviorError('validation', r'$.schema');
+    return count >= minimum && count <= maximum;
   }
 
   static String get _frameworkPrefix => environment == 'tac' ? 'TAC_' : 'YON_';

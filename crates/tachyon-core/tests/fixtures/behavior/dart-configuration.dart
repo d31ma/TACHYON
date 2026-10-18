@@ -215,6 +215,34 @@ Future<void> checkServiceValidation(Map<String, Object?> valid) async {
   check(service.calls == 1, 'INVALID_BODY_RAN');
 }
 
+void checkRejection(Object? input, String path, String expected) {
+  final service = AnnotatedValidationService();
+  try {
+    service.accept(input);
+  } on BehaviorRejection catch (rejection) {
+    check(rejection.code == 'validation' && rejection.path == path, 'REJECTION_PATH ${rejection.path}');
+    check(BehaviorJson.encode(rejection.violations) == expected, 'REJECTION_VIOLATIONS ${rejection.violations}');
+    try {
+      Behaviors.validate(AnnotatedInput, input);
+    } on BehaviorRejection {
+      throw StateError('EXPLICIT_VALIDATION_REJECTED');
+    } on BehaviorError catch (error) {
+      check(error.code == 'validation' && error.path == path, 'EXPLICIT_VALIDATION_PATH ${error.path}');
+    }
+    check(service.calls == 0, 'REJECTED_BODY_RAN');
+    return;
+  }
+  throw StateError('REJECTION_ACCEPTED $path');
+}
+
+void checkRejections() {
+  checkRejection(<String, Object?>{'name': '', 'amount': '1', 'optional': 7}, 'amount.min',
+      '[{"field":"amount","rule":"Min"},{"field":"amount","rule":"Max"},{"field":"name","rule":"NotEmpty"},{"field":"name","rule":"Length"},{"field":"optional","rule":"Length"}]');
+  checkRejection(<String, Object?>{'amount': 11}, 'amount.max', '[{"field":"amount","rule":"Max"},{"field":"name","rule":"NotEmpty"}]');
+  checkRejection(<Object?>[], r'$.object', '[{"field":"","rule":"Checked"}]');
+  checkRejection(double.nan, r'$.json', '[{"field":"","rule":"Checked"}]');
+}
+
 Future<void> checkDirectValidation(Map<String, Object?> valid) async {
   for (final invalid in [double.nan, {'large': 'x' * 1048577}]) {
     await expectValidation(() => Behaviors.validate(AnnotatedInput, invalid), r'$.json', 'INVALID_JSON_ACCEPTED');
@@ -248,6 +276,7 @@ Future<void> main() async {
   checkSharedSetup();
   final valid = <String, Object?>{'name': 'é', 'amount': 1, 'extra': true};
   await checkServiceValidation(valid);
+  checkRejections();
   await checkDirectValidation(valid);
   await checkCachedValidation();
   print('Dart emitted configuration binding and validation executed');

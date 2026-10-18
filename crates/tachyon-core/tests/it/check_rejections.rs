@@ -10,7 +10,7 @@ struct CheckLanguage {
 }
 
 impl CheckLanguage {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self {
             extension: "java",
             programs: &["java", "javac"],
@@ -42,6 +42,10 @@ impl CheckLanguage {
         Self {
             extension: "kt",
             programs: &["java", "kotlinc"],
+        },
+        Self {
+            extension: "dart",
+            programs: &["dart"],
         },
     ];
 

@@ -183,14 +183,19 @@ yon_shelf.Response _yonShelfResponse(__YonAnswer answer) =>
 
 final class __YonAnswer {
   __YonAnswer._(this._status, this._body);
+  static const int _checkRejectedStatus = 422;
   int _status;
   final String _body;
   final Map<String, List<String>> _headers = {};
+  List<Object?>? _violations;
 
   static __YonAnswer json(String body) =>
       __YonAnswer._(200, body).._headers['content-type'] = ['application/json'];
 
   static __YonAnswer empty(int status) => __YonAnswer._(status, '');
+
+  static __YonAnswer rejected(List<Object?> violations) =>
+      __YonAnswer._(_checkRejectedStatus, '').._violations = violations;
 
   __YonAnswer status(int value) {
     _status = value;
@@ -209,7 +214,12 @@ final class __YonAnswer {
     return this;
   }
 
-  String envelope() => yon_convert.jsonEncode({'status': _status, 'headers': _headers, 'body': _body});
+  String envelope() => yon_convert.jsonEncode({
+        'status': _status,
+        'headers': _headers,
+        'body': _body,
+        if (_violations != null) 'violations': _violations,
+      });
 }
 
 abstract final class _YonRelayLimits {
@@ -466,12 +476,25 @@ yon_async.Future<void> main() async {
     } else {
       response = __YonAnswer.json(yon_convert.jsonEncode(result));
     }
-  } catch (_) {
-    yon_io.exitCode = 1;
-    return;
+  } catch (failure) {
+    final violations = _yonViolations(failure);
+    if (violations == null) {
+      yon_io.exitCode = 1;
+      return;
+    }
+    response = __YonAnswer.rejected(violations);
   }
   yon_io.stdout.write(response.envelope());
   await yon_io.stdout.flush();
+}
+
+List<Object?>? _yonViolations(Object failure) {
+  try {
+    final Object? found = (failure as dynamic).violations;
+    return found is List ? found : null;
+  } on NoSuchMethodError {
+    return null;
+  }
 }
 
 abstract interface class YonSocketEndpoint {
