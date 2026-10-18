@@ -169,10 +169,15 @@ fn stage_icon(
 pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
     let local_bundle = super::routes::c_local_bundle(index, &[], "tachyon://app");
     let gtk_app_id = c_string_escape(&gtk_application_id(&application.application_id));
-    let template = LinuxHostGenerator::C_HOST.replace(
-        "__NATIVE_WINDOW_CONTROLS__",
-        &super::linux_window_controls::LinuxWindowControls::source(&application.window),
-    );
+    let template = LinuxHostGenerator::C_HOST
+        .replace(
+            "__NATIVE_WINDOW_CONTROLS__",
+            &super::linux_window_controls::LinuxWindowControls::source(&application.window),
+        )
+        .replace(
+            "__NATIVE_WINDOW_APPEARANCE__",
+            &super::linux_window_appearance::LinuxWindowAppearance::source(&application.window),
+        );
     LinuxHostGenerator::DESKTOP.render(
         &template,
         application,
@@ -231,8 +236,11 @@ typedef void (*TachyonApplicationShutdown)(void);
 
 static TachyonApplicationStart g_application_start = NULL;
 static TachyonApplicationShutdown g_application_shutdown = NULL;
+static void tachyon_window_content_size(GtkWindow *window, int width, int height);
 
 __NATIVE_WINDOW_CONTROLS__
+
+__NATIVE_WINDOW_APPEARANCE__
 
 static gboolean tachyon_trusted_view(WebKitWebView *view) {
   char path[TACHYON_PATH_LIMIT];
@@ -598,7 +606,6 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   gtk_window_set_title(GTK_WINDOW(window), TACHYON_APP_NAME);
   gtk_application_window_set_show_menubar(GTK_APPLICATION_WINDOW(window), TRUE);
   g_signal_connect(window, "map", G_CALLBACK(tachyon_menus_mapped), NULL);
-  gtk_window_set_default_size(GTK_WINDOW(window), 1024, 768);
 
   gchar *resources = tachyon_resource_root();
   gchar *bundle = g_build_filename(resources, "WebBundle", NULL);
@@ -641,6 +648,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   g_signal_connect(view, "create", G_CALLBACK(tachyon_create_view), NULL);
 
   gtk_window_set_child(GTK_WINDOW(window), GTK_WIDGET(view));
+  tachyon_window_appearance(GTK_WINDOW(window), GTK_WIDGET(view));
   gtk_widget_set_hexpand(GTK_WIDGET(view), TRUE);
   gtk_widget_set_vexpand(GTK_WIDGET(view), TRUE);
   gtk_widget_set_can_focus(GTK_WIDGET(view), TRUE);
@@ -753,6 +761,11 @@ mod tests {
         assert!(source.contains("set_adapter(tachyon_capability_call, tachyon_capability_free)"));
         assert!(source.contains("g_object_add_weak_pointer(G_OBJECT(window)"));
         assert!(!source.contains("__NATIVE_WINDOW_CONTROLS__"));
+        assert!(!source.contains("__NATIVE_WINDOW_APPEARANCE__"));
+        assert!(
+            source.contains("tachyon_window_appearance(GTK_WINDOW(window), GTK_WIDGET(view));")
+        );
+        assert!(!source.contains("gtk_window_set_default_size(GTK_WINDOW(window), 1024, 768)"));
     }
 
     #[test]

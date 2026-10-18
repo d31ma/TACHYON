@@ -54,6 +54,9 @@ mod linux;
 mod linux_host_tests;
 #[cfg(test)]
 mod linux_page_call_tests;
+mod linux_window_appearance;
+#[cfg(test)]
+mod linux_window_appearance_tests;
 #[cfg(test)]
 mod linux_window_control_tests;
 mod linux_window_controls;

@@ -10,13 +10,13 @@ icons
   adapted: icons: the Linux app copies the largest raster icon into share/icon.png without resizing it.
 
 theme_color
-  adapted: theme_color is written into each page head, but the Linux window does not use it yet (WIN2).
+  adapted: theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar.
 
 background_color
   adapted: background_color is not applied to the Linux app yet.
 
 display
-  adapted: display is not applied yet. The Linux app opens a standard window (WIN2).
+  adapted: display "fullscreen" starts the Linux app full screen. The other values open a standard window.
 
 orientation
   not applicable: orientation has no meaning for a Linux window.
@@ -40,10 +40,10 @@ tac.application.build
   adapted: A Linux .desktop file has no build number key, so tac.application.build is written as X-Tachyon-Build.
 
 tac.application.window.width, height
-  adapted: tac.application.window width and height are not read yet. The Linux window opens at 1024 by 768 (WIN2).
+  honored: the first size of the page inside the window
 
 tac.application.window.minWidth, minHeight
-  adapted: tac.application.window minWidth and minHeight are not read yet. The Linux window has no minimum size (WIN2).
+  honored: the smallest size of the page inside the window
 
 tac.application.window.controls
   honored: close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services

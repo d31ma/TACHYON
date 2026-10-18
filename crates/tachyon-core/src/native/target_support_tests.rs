@@ -145,7 +145,8 @@ fn a_web_build_names_tac_application_once() {
     assert!(!windows.iter().any(|note| note.contains("width and height")));
     assert!(windows.iter().any(|note| note.contains("theme_color")));
     let linux = TargetSupportTests::notes(&manifest, AppTarget::Linux);
-    assert!(linux.iter().any(|note| note.contains("1024 by 768")));
+    assert!(!linux.iter().any(|note| note.contains("width and height")));
+    assert!(linux.iter().any(|note| note.contains("GTK header bar")));
 }
 
 #[test]

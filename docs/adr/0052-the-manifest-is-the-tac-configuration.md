@@ -249,3 +249,38 @@ WIN1).
   headers. The real-window check
   (`the_windows_window_frame_drives_a_real_win32_window`) still needs a run
   on Windows with MSVC.
+
+## Amendment (2026-10-18): The Linux window follows the manifest
+
+The Linux host still opened every app at 1024 by 768 with no minimum size,
+and did not apply `theme_color` or `display`. This amendment applies them on
+Linux (plan item WIN2), with the same color and display rules as the Windows
+amendment above.
+
+### Decision
+
+- `width` and `height` are the size of the page inside the window, as on
+  macOS and Windows. GTK sizes the whole window, so on the first frame the
+  host measures what the title bar or header bar takes and grows the window
+  by that much. A granted `resize` window control also sets the page size.
+- `minWidth` and `minHeight` are the page's size request, so the window
+  cannot shrink the page below them. An edge the manifest leaves out has no
+  minimum.
+- A `theme_color` written as `#rgb` or `#rrggbb` puts a GTK header bar on the
+  window, with that background and black or white title text, whichever has
+  more contrast. The build writes the color as `#rrggbb`, never as the
+  authored text. The header bar replaces the window manager's title bar.
+  Other color forms keep the standard title bar, and the build's note says
+  so.
+- `display: "fullscreen"` starts the window full screen. The other values
+  open a standard window, and the build's note says so.
+
+### Consequences
+
+- The same manifest gives the same page size on macOS, Windows and Linux.
+- An app with a hex `theme_color` always draws its own title bar on Linux,
+  also under desktops that otherwise draw title bars on the server side.
+- Evidence: `linux_window_appearance_tests` compiled the generated host with
+  GTK 4.14.5 and WebKitGTK 2.52.6 and ran it under Xvfb with a window
+  manager in an x86_64 cloud container. A run on WSL (aarch64) is still
+  owed.

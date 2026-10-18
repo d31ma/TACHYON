@@ -91,6 +91,17 @@ Win32 headers. The MSVC build and the real-window check
 `the_windows_window_frame_drives_a_real_win32_window` still need a run on
 Windows; the caption color also needs a look on an interactive desktop.
 
+On 2026-10-18 the Linux host started to open its window from the manifest
+too: the page at `tac.application.window` size and minimum size, a hex
+`theme_color` as a GTK header bar color, and `"display": "fullscreen"` as a
+fullscreen start (ADR 0052 amendment). `linux_window_appearance_tests`
+compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings
+as errors) and ran it under Xvfb with xfwm4 in an x86_64 Ubuntu 24.04 cloud
+container, three of three runs: the page opened at 900x640, a resize below
+the 720x520 minimum stopped at 720x520, the header bar rendered `#1a237e`
+with white text, and `fullscreen` reached the GTK window and the X11
+toplevel. Not run: WSL (aarch64), a physical desktop, Wayland.
+
 ### Native apps reach Yon through a declared origin (2026-10-18)
 
 ADR 0103 adds `tac.yon.origin` in `client/manifest.json` and `server.origins`

@@ -54,22 +54,16 @@ static void tachyon_window_check_page_calls(void) {
   tachyon_window_require(g_strcmp0(g_window_reply, "__PAGE_EXPECTED__") == 0, "the page runtime did not report the host's refusal");
   tachyon_window_require(g_native_window != NULL && gtk_widget_get_visible(GTK_WIDGET(g_native_window)), "a page close without its grant closed the window");
   tachyon_window_require(g_strcmp0(gtk_window_get_title(g_native_window), "Page title é漢") == 0, "the page title did not reach the GTK window");
-  int width = 0, height = 0;
-  gtk_window_get_default_size(g_native_window, &width, &height);
-  tachyon_window_require(width == 700 && height == 500, "the page resize did not set the window size");
 }
 
 static gboolean tachyon_window_has_size(int width, int height) {
-  return gtk_widget_get_width(GTK_WIDGET(g_native_window)) == width && gtk_widget_get_height(GTK_WIDGET(g_native_window)) == height;
+  return gtk_widget_get_width(GTK_WIDGET(g_view)) == width && gtk_widget_get_height(GTK_WIDGET(g_view)) == height;
 }
 
 static void tachyon_window_check_calls(void) {
   tachyon_window_require(g_strcmp0(g_window_reply, "__WINDOW_EXPECTED__") == 0, "unexpected window control summary");
   tachyon_window_require(g_native_window != NULL && gtk_widget_get_visible(GTK_WIDGET(g_native_window)), "a denied close closed the window");
   tachyon_window_require(g_strcmp0(gtk_window_get_title(g_native_window), "Quarterly report é漢😀") == 0, "the granted title did not reach the GTK window");
-  int width = 0, height = 0;
-  gtk_window_get_default_size(g_native_window, &width, &height);
-  tachyon_window_require(width == 800 && height == 600, "the granted resize did not set the window size");
   tachyon_window_require(tachyon_window_host_refuses("window.close"), "the host closed the window without the close grant");
   tachyon_window_require(tachyon_window_host_refuses("window.fullscreen"), "the host entered fullscreen without the fullscreen grant");
 }

@@ -61,7 +61,7 @@ static const char *tachyon_window_action(const char *control, JSCValue *request)
     int width = 0, height = 0;
     if (!tachyon_capability_edge(request, "width", &width) ||
         !tachyon_capability_edge(request, "height", &height)) return "{\"error\":\"invalid\"}";
-    gtk_window_set_default_size(g_native_window, width, height);
+    tachyon_window_content_size(g_native_window, width, height);
   } else if (strcmp(control, "title") == 0) {
     gchar *title = tachyon_capability_string(request, "title");
     gboolean valid = title != NULL && strlen(title) <= 1024 && g_utf8_validate(title, -1, NULL);

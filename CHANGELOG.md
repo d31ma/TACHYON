@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Linux app opens its window from `client/manifest.json`, as the macOS
+  and Windows apps do. The page inside the window starts at
+  `tac.application.window` `width` by `height` (the host adds what the title
+  bar or header bar takes), and `minWidth` and `minHeight` keep the page from
+  getting smaller. A `theme_color` written as `#rgb` or `#rrggbb` colors a
+  GTK header bar, with black or white title text by contrast, and
+  `"display": "fullscreen"` starts the window full screen. A test runs the
+  generated GTK host under Xvfb and checks the real page size, the minimum,
+  the header bar's rendered color and the fullscreen start (ADR 0052
+  amendment).
 - The Android native test checks that a `@LocalState` field set by a Kotlin
   method on the first page (`/index.html`) keeps its value after a
   navigation to `/` and after a reload. The test clears the app's data
