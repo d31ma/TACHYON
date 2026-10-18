@@ -733,6 +733,14 @@ machine contracts have their own, independent major versions.
   profile, or with the wrong setting value, is refused with
   `inactive-configuration`.
 
+- New tests prove Checked, Check, Required, NotEmpty, Length, Min and Max
+  for F# Tac. A Tac F# unit
+  (`crates/tachyon-core/tests/it/tac_fsharp_checks.rs`) checks a
+  `client/services` parameter with `[<Check(typeof<OrderInput>)>]` against a
+  `[<Checked>]` model in `client/models`: good inputs pass and each rule
+  refuses a bad one with its own `validation` path. The client schema test
+  now covers an F# service as well.
+
 - A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
   `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
   for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`

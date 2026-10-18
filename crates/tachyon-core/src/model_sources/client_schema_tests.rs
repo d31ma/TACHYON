@@ -32,19 +32,53 @@ impl ClientSchema {
         },
     ];
 
+    const FSHARP: Self = Self {
+        extension: "fs",
+        model: "[<Checked>]\ntype OrderInput() =\n    [<NotEmpty>]\n    [<Length({\"min\":1,\"max\":80})>]\n    member val name : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n\n    [<Required>]\n    [<Min(1)>]\n    [<Max(9)>]\n    member val level : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n",
+        service: "[<Service>]\ntype OrderService() =\n    member this.accept([<Check(typeof<OrderInput>)>] order: BehaviorJSON) : BehaviorJSON = order\n",
+    };
+
+    const FSHARP_CHECK: &'static str = r#"order = Behaviors.ValidateSchema(BehaviorJSON.Parse("{\"fields\":{\"level\":{\"max\":9,\"min\":1,\"notNull\":true},\"name\":{\"notBlank\":true,\"size\":{\"max\":80,\"min\":1}}}}"), order);"#;
+
     fn declares_input(lowered: &str) -> bool {
         ["class OrderInput", "struct OrderInput"]
             .iter()
             .any(|declaration| lowered.contains(declaration))
     }
 
-    fn lowered(&self) -> Result<String, String> {
+    fn project(&self) -> tempfile::TempDir {
         let root = tempfile::tempdir().expect("project");
         let model = root
             .path()
             .join(format!("client/models/OrderInput.{}", self.extension));
         std::fs::create_dir_all(model.parent().expect("models")).expect("folder");
         std::fs::write(&model, self.model).expect("model");
+        root
+    }
+
+    fn fsharp_lowered(&self) -> (String, String) {
+        let root = self.project();
+        let path = Path::new("client/services/OrderService.fs");
+        let metadata = super::ModelSources::client_metadata(root.path(), self.extension)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        let assembled = metadata
+            .assembled(path, self.service)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        let view = crate::fsharp_source::FsharpView::tac(path, &assembled);
+        let roles = crate::behavior::ServiceRoles::read(view.path(), view.text())
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        let behaviors = crate::behavior::lower(view.path(), &roles.source, "tac")
+            .unwrap_or_else(|failure| panic!("{failure}\n{assembled}"))
+            .unwrap_or_else(|| panic!("nothing lowered\n{assembled}"));
+        let stripped = crate::fsharp_source::FsharpMarkers::strip(&assembled);
+        let fsharp = metadata
+            .without_declarations(path, &stripped)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        (behaviors, fsharp)
+    }
+
+    fn lowered(&self) -> Result<String, String> {
+        let root = self.project();
         let service = format!("client/services/OrderService.{}", self.extension);
         let path = Path::new(&service);
         let mut assembled = String::new();
@@ -78,4 +112,15 @@ fn compiled_tac_services_check_input_against_a_schema_model() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n----\n"));
+}
+
+#[test]
+fn a_tac_fsharp_service_checks_input_against_a_schema_model() {
+    let (behaviors, fsharp) = ClientSchema::FSHARP.fsharp_lowered();
+    assert!(
+        behaviors.contains(ClientSchema::FSHARP_CHECK),
+        "{behaviors}"
+    );
+    assert!(!fsharp.contains("type OrderInput"), "{fsharp}");
+    assert!(fsharp.contains("type OrderService"), "{fsharp}");
 }

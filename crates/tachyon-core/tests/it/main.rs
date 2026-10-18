@@ -46,6 +46,7 @@ mod sockets;
 mod structure_validation;
 mod support;
 mod tac_fsharp_behaviors;
+mod tac_fsharp_checks;
 mod tac_fsharp_context;
 mod tac_model_binding;
 mod test_assertions;
