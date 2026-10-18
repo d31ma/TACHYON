@@ -313,3 +313,18 @@ F# never ignores an annotation.
   without a matching Fake, fails the case with a message that names it.
 - A Helper constructed only by a selected F# TestSetup is checked against
   that TestSetup and left out of the production build, as in C#.
+
+## Amendment (2026-10-18): caching, policies and stores have runtime proof
+
+- An F# Tac test unit, run on host .NET by
+  `crates/tachyon-core/tests/it/tac_fsharp_behaviors.rs`, composes
+  `client/setups`, `client/entities`, `client/stores` and `client/services`
+  and runs `Cached` with `UpdateCache` and `ClearCache`, `CacheKey`,
+  `Retry` (success after failed attempts, and the error after
+  `maxRetries`), `MaxAtOnce` with `reject` (`OPERATION_LIMIT`),
+  `AllOrNothing` (commit, and rollback when the body raises, with the
+  Store's query joining the open transaction), a derived query and a
+  `[<Query>]` Store member, and `PageDefaults` (normalized page,
+  `PAGE_INVALID`).
+- These markers already worked in F# through the C# lowering; this only adds
+  the proof. The rule table does not change.
