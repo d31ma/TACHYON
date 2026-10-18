@@ -785,6 +785,56 @@ class ChatController {
         ],
     };
 
+    const CPP: Self = Self {
+        program: "clang++",
+        files: &[
+            (
+                "server/models/ChatMessage.hpp",
+                "#pragma once\n#include <string>\n\nstruct ChatMessage {\n    std::string text;\n};\n",
+            ),
+            (
+                "server/controllers/ChatController.hpp",
+                r#"#pragma once
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include "../models/ChatMessage.hpp"
+
+class [[SocketRoute("/chat")]] [[Public]] ChatController {
+public:
+    [[OnOpen]]
+    void onOpen(SocketSession& session) {
+        session.send(ChatMessage{"welcome"});
+    }
+
+    [[OnMessage]]
+    void onMessage(SocketSession& session, ChatMessage message) {
+        count += 1;
+        if (message.text == "all") {
+            for (const SocketPeer& peer : session.openSessions()) {
+                peer.send(ChatMessage{"hello all"});
+            }
+            return;
+        }
+        if (message.text == "fail") {
+            throw std::runtime_error("secret-canary");
+        }
+        session.send(ChatMessage{message.text + " " + std::to_string(count)});
+    }
+
+    [[OnError]]
+    void onError(SocketSession& session, const std::string& error) {
+        session.send(ChatMessage{"sorry"});
+    }
+
+private:
+    int count = 0;
+};
+"#,
+            ),
+        ],
+    };
+
     fn write(root: &Path, relative: &str, contents: &str) {
         let path = root.join(relative);
         fs::create_dir_all(path.parent().expect("parent")).expect("directory");
@@ -1162,6 +1212,16 @@ async fn a_dart_socket_route_keeps_one_object_for_each_connection() {
         return;
     }
     let server = Server::start(&ChatProject::DART).await;
+    server.chat().await;
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn a_cpp_socket_route_keeps_one_object_for_each_connection() {
+    if !ChatProject::CPP.available() {
+        return;
+    }
+    let server = Server::start(&ChatProject::CPP).await;
     server.chat().await;
     server.stop().await;
 }

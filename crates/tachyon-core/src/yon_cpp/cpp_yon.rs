@@ -7,6 +7,7 @@ use crate::behavior::GatewayDeclaration;
 use crate::tac_cpp::{CppProgram, CppSource, CppTestUnit};
 use crate::yon::Lowered;
 use crate::yon::plan::Route;
+use std::collections::BTreeSet;
 use std::path::Path;
 
 pub(crate) struct CppYon;
@@ -86,6 +87,18 @@ impl CppYon {
         let stores = CppYonStores::read(root, &models)?;
         let graph = CppYonGraph::read(root, controller, &models, &errors, &stores)?;
         Ok((errors, models, graph))
+    }
+
+    pub(crate) fn streaming(source: &Path, contents: &str) -> Option<BTreeSet<String>> {
+        let read = CppSource::is_cpp(source).then(|| CppYonController::read(source, contents).ok());
+        read.flatten().map(|controller| {
+            controller
+                .routes
+                .into_iter()
+                .filter(|route| route.streaming)
+                .map(|route| route.verb)
+                .collect()
+        })
     }
 
     pub(crate) fn either(

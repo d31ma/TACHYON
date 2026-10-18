@@ -256,3 +256,11 @@ JavaScript holds the `EventSource` for the Java service that keeps the client
 in a `@Needs` field, as for Go and Kotlin, and the service receives each
 message with `@OnEvent`. See ADR 0090, "Java streams and sockets". No Tac
 language refuses `@StreamRequest` now.
+
+## Amendment (2026-10-18): C++ stream routes
+
+A C++ `[[StreamRoute]]` method returns `tachyon::Generator<Model>`, a
+`co_yield` coroutine type that Tachyon adds because C++20 has no
+`std::generator`. The program writes one event frame per item, like Rust;
+a thrown exception sends the fixed TY2204 frame and an item larger than the
+frame limit sends TY2203. See ADR 0099, "Yon stream and socket routes".

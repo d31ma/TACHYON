@@ -146,9 +146,13 @@ fn route_methods_follow_the_shared_route_rules() {
 }
 
 #[test]
-fn unsupported_markers_name_the_later_step() {
-    let failure = Sample::refusal("[[Public]]\n", "[[Public]] [[OnMessage]]\n");
-    assert!(failure.contains("C++ gets it in a later step"), "{failure}");
+fn a_browser_only_marker_is_refused_in_yon_code() {
+    let failure = Sample::refusal("[[Public]]\n", "[[Public]] [[LocalState]]\n");
+    assert!(failure.contains("TY1308"), "{failure}");
+    assert!(
+        failure.contains("[[LocalState]] is not used in Yon code"),
+        "{failure}"
+    );
 }
 
 #[test]

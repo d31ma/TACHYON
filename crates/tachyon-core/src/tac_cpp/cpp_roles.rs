@@ -6,7 +6,7 @@ use std::path::Path;
 pub(crate) struct CppRoles;
 
 impl CppRoles {
-    const ROLES: [&'static str; 12] = [
+    const ROLES: [&'static str; 13] = [
         "Service",
         "Store",
         "HTTPClient",
@@ -17,6 +17,7 @@ impl CppRoles {
         "Test",
         "TestSetup",
         "RequestRoute",
+        "SocketRoute",
         "ErrorHandler",
         "IdentityProvider",
     ];

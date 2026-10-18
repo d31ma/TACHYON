@@ -18,6 +18,12 @@ public:
         YonDelivery::receive(*fields);
         YonFrame frame(std::move(*fields));
         YonAnswer answer = answered<Routes>(frame);
+        if (answer.isStreamed()) {
+            return 0;
+        }
+        if (YonFrames::framed()) {
+            return PROTOCOL_FAILURE;
+        }
         std::string written = answer.write(YonEvents::current().published());
         writeOutput(written);
         return 0;
@@ -34,7 +40,7 @@ private:
     }
 
     static bool readInput(std::string& raw) {
-        if (YonFrames::enabled()) {
+        if (YonFrames::enabled() || YonFrames::framed()) {
             return YonFrames::read(raw);
         }
         char buffer[65536];

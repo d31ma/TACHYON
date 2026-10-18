@@ -1,4 +1,4 @@
-use super::{CppYonAccess, CppYonIdentity, CppYonPath, CppYonRoute, CppYonWorker};
+use super::{CppYonAccess, CppYonIdentity, CppYonPath, CppYonRoute, CppYonSocket, CppYonWorker};
 use crate::Failure;
 use crate::tac_cpp::{CppAttribute, CppClass, CppFailure, CppFile, CppMarkerCheck, CppSetup};
 use crate::yon::plan::Route;
@@ -16,7 +16,7 @@ impl CppYonController {
     pub(crate) const CODE: u16 = 2015;
     const ROUTE_MARKER: &'static str = "RequestRoute";
     const MAX_ROUTES: usize = 64;
-    const NOT_A_CONTROLLER: &'static str = "A C++ file in server/controllers is a controller: write `class [[RequestRoute(\"/orders\")]] OrderController`. A [[Service]] goes in server/services and a [[Helper]] in server/helpers, and a controller reaches them with [[Needs]] fields. An [[ErrorHandler]] and the one [[IdentityProvider]] also live in server/controllers. A test unit goes in server/tests. Middleware, sockets and relays come in a later step (ADR 0099)";
+    const NOT_A_CONTROLLER: &'static str = "A C++ file in server/controllers is a controller: write `class [[RequestRoute(\"/orders\")]] OrderController`. A [[Service]] goes in server/services and a [[Helper]] in server/helpers, and a controller reaches them with [[Needs]] fields. An [[ErrorHandler]] and the one [[IdentityProvider]] also live in server/controllers, and a [[SocketRoute(\"/chat\")]] class keeps a WebSocket open. A test unit goes in server/tests. Middleware and relays come in a later step (ADR 0099)";
     const ROUTE_COUNT: &'static str = "A [[RequestRoute]] controller declares from 1 to 64 route methods. Mark a method with [[GetRoute]], [[PostRoute]], [[PutRoute]], [[PatchRoute]] or [[DeleteRoute]]: [[GetRoute]] means the method answers GET requests";
     const TWICE: &'static str = "Two methods answer the same HTTP method and path. Each route path and HTTP method pair needs one method";
 
@@ -36,8 +36,11 @@ impl CppYonController {
     fn controller(path: &Path, source: &str) -> Result<Self, Failure> {
         let file = CppFile::read(path, source)?;
         CppMarkerCheck::check(path, &file.class)?;
-        let routes = Self::routes_of(path, &file.class)?;
-        Self::check_routes(path, &routes)?;
+        let socket = CppYonSocket::marker(&file.class);
+        let routes = socket.map_or_else(
+            || Self::request_routes(path, &file.class),
+            |marker| CppYonSocket::read(path, &file.class, marker).map(|route| vec![route]),
+        )?;
         Ok(Self {
             file,
             source: source.to_owned(),
@@ -62,6 +65,12 @@ impl CppYonController {
         let base = CppYonPath::of(path, marker)?;
         let access = CppYonAccess::read(&class.markers);
         CppYonRoute::all(path, class, &base, &access)
+    }
+
+    fn request_routes(path: &Path, class: &CppClass) -> Result<Vec<Route>, Failure> {
+        let routes = Self::routes_of(path, class)?;
+        Self::check_routes(path, &routes)?;
+        Ok(routes)
     }
 
     fn route_marker<'a>(path: &Path, class: &'a CppClass) -> Result<&'a CppAttribute, Failure> {

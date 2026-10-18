@@ -259,3 +259,11 @@ socket. `send` parks the service method's TeaVM fiber until the page answers,
 and throws a runtime exception whose message starts with the code instead
 of rejecting a promise. See ADR 0090, "Java streams and sockets". No Tac
 language refuses `@SocketRequest` now.
+
+## Amendment (2026-10-18): C++ socket routes
+
+A C++ class marked `[[SocketRoute("/chat")]]` holds a socket, one process for
+each connection. Its `[[OnOpen]]`, `[[OnMessage]]`, `[[OnClose]]` and
+`[[OnError]]` methods return `void` and take a `SocketSession&`;
+`session.openSessions()` returns `std::vector<SocketPeer>`, and a thrown
+exception counts as a failure. See ADR 0099, "Yon stream and socket routes".

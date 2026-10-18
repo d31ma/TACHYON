@@ -264,10 +264,6 @@ impl AnnotationRules {
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
         "lua", "hpp",
     ];
-    const YON_EXCEPT_CPP: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
-        "lua",
-    ];
     const YON_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "dart", "go", "rb",
         "lua",
@@ -284,7 +280,7 @@ impl AnnotationRules {
 
     const YON_OUTBOUND: &'static [&'static str] = Self::YON;
 
-    const YON_SOCKET: &'static [&'static str] = Self::YON_EXCEPT_CPP;
+    const YON_SOCKET: &'static [&'static str] = Self::YON;
 
     const YON_TEST: &'static [&'static str] = Self::YON;
 

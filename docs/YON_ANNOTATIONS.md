@@ -335,9 +335,8 @@ case starts with new objects, and `construct<PriceService>()` gives the
 class's `[[Needs]]` fields the `[[Fake]]` objects of the test. The markers
 follow the [test-unit rules](BEHAVIOR_ANNOTATIONS.md#test-units).
 
-C++ has no socket markers in Yon yet: they fail with their rule's code, and
-the message says that C++ gets them in a later step. The Pending section of
-ADR 0099 lists that step.
+A `[[StreamRoute]]` method returns `tachyon::Generator<Model>` and a
+`[[SocketRoute("/chat")]]` class holds a WebSocket (see below).
 
 ## Calling another language
 
@@ -453,7 +452,8 @@ Streaming uses native generator syntax in JS/TS/Python/PHP/Kotlin/C#/F#/Dart/Rub
 `coroutine.yield` in Lua, a range-over-function iterator in Go: the method
 returns `iter.Seq[Model]`, or `iter.Seq2[Model, error]` when the stream can fail,
 and an `Iterator` in Rust: the method returns `impl Iterator<Item = Model>`, or
-`impl Iterator<Item = Result<Model, E>>` when the stream can fail.
+`impl Iterator<Item = Result<Model, E>>` when the stream can fail,
+and `tachyon::Generator<Model>` with `co_yield` in C++.
 `StreamRoute` marks the method: it answers GET requests with server-sent events,
 and the method name starts with `stream` (`streamTicks`, `StreamTicks`,
 `stream_ticks`). A generator under `GetRoute` is refused, and so is the retired
@@ -483,10 +483,11 @@ Every Yon language holds a socket, because its runner or prelude reads the
 socket frames while the class runs. Each language names the session methods in
 its own style: `open_sessions()` in Python, Ruby and Rust, `OpenSessions()` in
 Go and C#, Jakarta's `getOpenSessions()` in Java, and `openSessions()` in
-JavaScript, TypeScript, Kotlin, PHP and Dart. In Go, `session.Request()`
+JavaScript, TypeScript, Kotlin, PHP, Dart and C++. In Go, `session.Request()`
 returns the request that opened the socket as a `*http.Request`, with the
 query string and headers. A method that throws, panics or
-returns an error (Go, Rust) counts as a failure. ADR 0060 lists each
+returns an error (Go, Rust) counts as a failure. A C++ socket method returns
+`void` and takes a `SocketSession&`. ADR 0060 lists each
 language's marker and session shape.
 
 A relay program's deadline is the time left in the request, shared by every

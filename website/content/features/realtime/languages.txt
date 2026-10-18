@@ -17,6 +17,8 @@ Which languages a stream is written in
   .go        an iter.Seq or iter.Seq2 iterator, framed by
              the prelude
   .rs        an impl Iterator, framed by the prelude
+  .hpp       a tachyon::Generator coroutine that calls co_yield,
+             framed by the prelude
 
 Every Yon language with a generator streams. A stream is a route method that answers more
 than once, and native generator syntax produces it.
@@ -26,6 +28,12 @@ and emits one bounded frame per value.
 Java, Groovy and Rust have no native generator, so a stream
 method returns a Stream, an Iterator or an impl Iterator, which
 gives its values one at a time.
+
+C++20 has coroutines but no generator type, so a C++ stream
+method returns tachyon::Generator<Model>, which Tachyon provides,
+and sends each value with co_yield. A thrown exception ends the
+stream, and the browser gets event: error without the exception
+text.
 
 In one controller, either every GET route is a StreamRoute or none is.
 

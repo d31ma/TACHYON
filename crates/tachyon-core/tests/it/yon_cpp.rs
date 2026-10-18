@@ -188,14 +188,17 @@ async fn a_cpp_controller_answers_typed_routes_through_clang() {
 }
 
 #[test]
-fn a_cpp_marker_that_yon_cpp_lacks_is_refused_by_name() {
+fn a_browser_only_cpp_marker_is_refused_by_name() {
     let controller = CppProject::CONTROLLER.replace(
         "[[GetRoute(\"/{id}\")]]",
-        "[[GetRoute(\"/{id}\")]] [[OnMessage]]",
+        "[[GetRoute(\"/{id}\")]] [[LocalState]]",
     );
     let failure = CppProject::refusal(&controller);
-    assert!(failure.contains("[[OnMessage]]"), "{failure}");
-    assert!(failure.contains("C++ gets it in a later step"), "{failure}");
+    assert!(failure.contains("TY1308"), "{failure}");
+    assert!(
+        failure.contains("[[LocalState]] is not used in Yon code"),
+        "{failure}"
+    );
 }
 
 #[test]
@@ -207,14 +210,129 @@ fn a_cpp_route_parameter_without_a_source_marker_is_refused() {
 }
 
 #[test]
-fn a_cpp_socket_controller_is_refused_until_cpp_sockets_land() {
+fn a_cpp_socket_controller_is_a_socket_route() {
     let controller = CppProject::CONTROLLER.replace(
         "class [[RequestRoute(\"/orders\")]] [[Public]] OrderController",
         "class [[SocketRoute(\"/orders\")]] [[Public]] OrderController",
     );
     let failure = CppProject::refusal(&controller);
-    assert!(failure.contains("[[SocketRoute]]"), "{failure}");
-    assert!(failure.contains("C++ gets it in a later step"), "{failure}");
+    assert!(failure.contains("TY2015"), "{failure}");
+    assert!(
+        failure.contains("belongs in a class marked [[RequestRoute]]"),
+        "{failure}"
+    );
+    assert!(
+        !failure.contains("C++ gets it in a later step"),
+        "{failure}"
+    );
+}
+
+struct CppStreams;
+
+impl CppStreams {
+    const MODEL: &'static str = "#pragma once\n#include <string>\n\nstruct Tick {\n    std::string sku;\n    int level = 0;\n};\n";
+    const CONTROLLER: &'static str = r#"#pragma once
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include "../models/Tick.hpp"
+
+class [[RequestRoute("/ticks")]] [[Public]] TicksController {
+public:
+    [[StreamRoute]]
+    tachyon::Generator<Tick> streamTicks([[FromQuery]] std::optional<int> count) {
+        for (int level = 1; level <= count.value_or(3); level++) {
+            co_yield Tick{"anvil", level};
+        }
+    }
+
+    [[StreamRoute("/broken")]]
+    tachyon::Generator<Tick> streamBroken() {
+        co_yield Tick{"gauge", 1};
+        throw std::runtime_error("secret-canary");
+    }
+
+    [[StreamRoute("/huge")]]
+    tachyon::Generator<Tick> streamHuge() {
+        co_yield Tick{std::string(17 * 1024 * 1024, 'x'), 1};
+    }
+};
+"#;
+
+    fn project() -> tempfile::TempDir {
+        let root = tempfile::tempdir().expect("project");
+        CppProject::write(root.path(), "server/models/Tick.hpp", Self::MODEL);
+        CppProject::write(
+            root.path(),
+            "server/controllers/TicksController.hpp",
+            Self::CONTROLLER,
+        );
+        root
+    }
+
+    fn events(streamed: &str) -> Vec<&str> {
+        streamed
+            .lines()
+            .filter_map(|line| line.strip_prefix("data: "))
+            .collect()
+    }
+}
+
+#[tokio::test]
+async fn a_cpp_stream_route_sends_each_item_and_then_the_end_event() {
+    if !CppProject::compiler_available() {
+        eprintln!("skipping: clang++ is unavailable");
+        return;
+    }
+    let root = CppStreams::project();
+    let source = HandlerSource::discover(root.path(), "server/controllers/TicksController.hpp")
+        .expect("source");
+    assert!(source.streams_method(HttpMethod::Get));
+    let project = ProjectDiscovery::discover(root.path()).expect("discovery");
+    let server = DevServer::bind_project(
+        &project,
+        &DevServerOptions {
+            port: 0,
+            watch: false,
+            ..DevServerOptions::default()
+        },
+    )
+    .await
+    .expect("bind");
+    let port = server.address().port();
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let running = tokio::spawn(server.run_until(async {
+        let _ = stopped.await;
+    }));
+
+    let streamed = Exchange::without_body(port, "GET", "/ticks?count=2").await;
+    assert!(streamed.contains("text/event-stream"), "{streamed}");
+    assert_eq!(
+        CppStreams::events(&streamed),
+        [
+            "{\"sku\":\"anvil\",\"level\":1}",
+            "{\"sku\":\"anvil\",\"level\":2}",
+            "{}"
+        ],
+        "{streamed}"
+    );
+    assert!(streamed.contains("event: end"), "{streamed}");
+
+    let broken = Exchange::without_body(port, "GET", "/ticks/broken").await;
+    assert!(
+        broken.contains("data: {\"sku\":\"gauge\",\"level\":1}"),
+        "{broken}"
+    );
+    assert!(broken.contains("event: error"), "{broken}");
+    assert!(!broken.contains("event: end"), "{broken}");
+    assert!(!broken.contains("secret-canary"), "{broken}");
+
+    let huge = Exchange::without_body(port, "GET", "/ticks/huge").await;
+    assert!(huge.contains("event: error"), "{huge}");
+    assert!(!huge.contains("xxxxxxxx"), "{huge}");
+
+    let _ = stop.send(());
+    running.await.expect("server task").expect("server");
 }
 
 struct CppRoles;

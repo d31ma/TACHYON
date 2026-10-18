@@ -77,7 +77,7 @@ class Patterns {
   static controllerPath = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua|hpp)$/
   static identityProviderPath = /^server\/controllers\/[A-Z]\w*IdentityProvider\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
   static classRoute = /^\s*(?:class\s+)?(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(?:RequestRoute|request_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
-  static socketRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)(?:SocketRoute|socket_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
+  static socketRoute = /^\s*(?:class\s+)?(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(?:SocketRoute|socket_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
   static methodRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(Get|Post|Put|Patch|Delete|Stream|get|post|put|patch|delete|stream)(?:Route|_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/gm
   static pathVariable = /\{[a-z0-9_]+\}/g
   static pagePath = /^client\/pages\/.*tac\.html$/
@@ -906,7 +906,7 @@ function controllerRoutes(code) {
 
 /** @param {string} code */
 function isStreamingHandler(code) {
-  return /\byield(?:\s+return)?\b/.test(code)
+  return /\b(?:co_)?yield(?:\s+return)?\b/.test(code)
 }
 
 /** @param {string} code */

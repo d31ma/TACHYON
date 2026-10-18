@@ -22,6 +22,8 @@ mod cpp_yon_remote;
 mod cpp_yon_route;
 mod cpp_yon_runtime;
 mod cpp_yon_scope;
+mod cpp_yon_socket;
+mod cpp_yon_socket_calls;
 mod cpp_yon_status;
 mod cpp_yon_stores;
 mod cpp_yon_test_unit;
@@ -37,6 +39,9 @@ mod policy_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod role_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod stream_socket_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod test_unit_tests;
@@ -68,6 +73,8 @@ use cpp_yon_remote::CppYonRemote;
 use cpp_yon_route::CppYonRoute;
 use cpp_yon_runtime::CppYonRuntime;
 use cpp_yon_scope::CppYonScope;
+use cpp_yon_socket::CppYonSocket;
+use cpp_yon_socket_calls::CppYonSocketCalls;
 use cpp_yon_status::CppYonStatus;
 use cpp_yon_stores::CppYonStores;
 use cpp_yon_test_unit::CppYonTestUnit;

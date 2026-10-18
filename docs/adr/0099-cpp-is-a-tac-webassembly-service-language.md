@@ -906,17 +906,72 @@ C++ Yon code now has test units in `server/tests`. The rule table lists
   controller, and the coverage table lists `("server", "hpp")`, so the
   report uses the recorded calls.
 
+## Amendment (2026-10-18): Yon stream and socket routes
+
+C++ Yon code now answers with streams and WebSockets. The rule table lists
+`hpp` for `StreamRoute`, `SocketRoute`, `OnOpen`, `OnMessage`, `OnClose` and
+`OnError`.
+
+### Streams
+
+- C++20 has no `std::generator`, so Tachyon adds `tachyon::Generator<T>`, a
+  small `co_yield` coroutine type in the Yon runtime (`yon_stream.hpp`). A
+  `[[StreamRoute]]` method on a `[[RequestRoute]]` controller returns
+  `tachyon::Generator<Model>`, its name starts with `stream`, and it answers
+  GET requests with server-sent events, as in the other languages (ADR 0058).
+  Its parameters use the usual source markers. A `[[StreamRoute]]` method
+  with another result, or another route method that returns a generator,
+  fails with `TY2015`, and the message names the shape.
+- The program pulls one item at a time and writes it as one length-prefixed
+  Handler Protocol event frame, like Rust and Go; when the generator ends,
+  the process exits and the server sends `event: end`. A thrown exception,
+  or an item that cannot be written, sends the fixed `TY2204` frame, and an
+  item larger than the frame limit sends `TY2203`, so the browser gets
+  `event: error` and never the error text. Backpressure, the request time
+  limit and process-group cleanup are the same as in every language.
+- The provider graph works as for any route: `[[OnStart]]` runs before the
+  method, and the events are drained when the stream ends.
+
+### Sockets
+
+- A socket controller is a class in `server/controllers` marked
+  `[[SocketRoute("/chat")]]` and an access marker. The path has no
+  `{variables}`. Tachyon starts one process for each connection, so the
+  class's fields hold that connection's state (ADR 0060). A socket class
+  holds no route methods; a `[[GetRoute]]` in it fails with `TY2015`.
+- `[[OnOpen]]`, `[[OnMessage]]`, `[[OnClose]]` and `[[OnError]]` mark
+  instance methods that return `void`. `[[OnMessage]]` is required and takes
+  `(SocketSession& session, ChatMessage message)`, where the message type is
+  a model that the server checks before the method runs. `[[OnOpen]]` and
+  `[[OnClose]]` take `(SocketSession& session)` or nothing; `[[OnError]]`
+  takes `(SocketSession& session, const std::string& error)`, the session
+  only, or nothing. Each marker is used at most once.
+- `SocketSession` has `id()`, `send(model)`, `close()` and `openSessions()`,
+  which returns `std::vector<SocketPeer>`; a `SocketPeer` has `id()` and
+  `send(model)`. The method names follow the JavaScript and Kotlin style.
+- A thrown exception in `[[OnOpen]]` or `[[OnMessage]]` is a failure: its
+  text goes to standard error as `handler.socket_failed`, `[[OnError]]` runs,
+  and the socket stays open. The program reads the socket frames from
+  standard input while the class runs (`YON_SOCKET_FRAMES`), and the events
+  are drained after each socket method.
+
+### Runtime pieces
+
+- `CppYonRuntime::PIECES` gains `yon_frames.hpp` (length-prefixed frames),
+  which now holds the one `YonFrames` class: `enabled()` for the resource
+  frames of `YON_RESOURCE_FRAMES` that gateways use, and `framed()` for the
+  socket frames of `YON_SOCKET_FRAMES`. It also gains `yon_stream.hpp` (`tachyon::Generator` and `YonStream`) and
+  `yon_socket.hpp` (`SocketSession`, `SocketPeer`, `YonSocket`). `YonMain`
+  reads one framed request when `YON_SOCKET_FRAMES` is set, and writes no
+  answer for a route that already streamed.
+- `CppYonSocket` reads a socket class into the shared `plan::Route` with its
+  `SocketMethods`, and `CppYonSocketCalls` writes the generated socket
+  dispatcher.
+
 ## Pending
 
-Each bullet is one planned step. A step deletes its own bullet, and only that
-bullet, when it lands.
-
-
-- Yon C++ streams and sockets: `[[StreamRoute]]`, `[[SocketRoute]]`,
-  `[[OnOpen]]`, `[[OnMessage]]`, `[[OnClose]]` and `[[OnError]]`.
-
-The rule table refuses each of these markers for C++ until its step lands.
-These stay out of the plan for now:
+All planned Yon C++ steps have landed, and the rule table lists `hpp` for
+each of their markers. These stay out of the plan for now:
 
 - Yon C++ middleware and relays.
 - A C++ class as the target of another language's `[[Gateway]]`: Tachyon

@@ -12,6 +12,7 @@ Which languages a socket is written in
   .lua       a -- @SocketRoute class table; the session has open_sessions()
   .rs        a #[SocketRoute] struct; the session has open_sessions()
   .dart      a @SocketRoute class; the session has openSessions()
+  .hpp       a [[SocketRoute]] class; the session has openSessions()
 
 Every Yon language holds a socket. Tachyon keeps one handler
 process running for the whole connection, and the runner or
@@ -21,7 +22,8 @@ own style (above). In Go, session.Request() returns the request
 that opened the socket as an *http.Request, with the query string
 and the headers. A method that throws, panics or returns an
 error counts as a failure. In Rust the object is shared, so its
-fields keep state in a Cell or a lock.
+fields keep state in a Cell or a lock. In C++ each connection
+has its own process, so plain fields of the class keep its state.
 
 When OnOpen or OnMessage fails, OnError runs and the socket stays
 open, as in Jakarta. The error text goes to the server log only.
