@@ -1,4 +1,6 @@
-use super::{LuaConverterProviders, LuaHelperFields, LuaRuntimeBuild, LuaRuntimeSources};
+use super::{
+    LuaConverterProviders, LuaHeldStreams, LuaHelperFields, LuaRuntimeBuild, LuaRuntimeSources,
+};
 use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::{diagnostic, source_span};
@@ -39,6 +41,7 @@ const luaSettle = (ticket, answer) => {
 const luaTasks = (request) => {
   if (request.http === 'start') luaHttp.start(request.ticket, request.request, (answer) => luaSettle(request.ticket, answer))
   if (request.http === 'cancel') luaHttp.cancel(request.ticket)
+  if (request.http === 'socket') socketHost(request.owner, request.request).then((answer) => luaSettle(request.ticket, answer))
   if (request.http === 'done') taskAnswers.done(request.task, request.answer)
   return JSON.stringify({ value: null })
 }
@@ -149,6 +152,12 @@ const transport = (text) => lua.invoke(text)
         let assembled = ModelSources::client_metadata(snapshot_root, LuaSource::EXTENSION)?
             .assembled(relative, &assembled)?;
         let joined = LuaView::joined(relative, &assembled);
+        metadata["streams"] =
+            LuaHeldStreams::new(snapshot_root, relative).describe(&joined, (class, text))?;
+        let socket = RubyWebServices::holds_a_socket(&metadata);
+        let held = LuaHeldStreams::clients(&metadata["streams"], (class, text));
+        LuaConverterProviders::hide_named_fields(&mut metadata, &held);
+        let held = LuaHeldStreams::table(class, &held);
         let clients = crate::behavior::HttpClientSource::rewrite(joined.path(), joined.text())
             .map_err(|failure| joined.failure(&failure))?;
         let roles = crate::behavior::ServiceRoles::read(
@@ -174,11 +183,11 @@ const transport = (text) => lua.invoke(text)
             .written(class, text, plan.as_ref())
             .map_err(|message| Self::failure(relative, text, &message))?;
         let registered = format!(
-            "\n{lowered}\n{providers}{helper_tables}TacServices.register({}, {class}, {})\n",
+            "\n{lowered}\n{providers}{helper_tables}{held}TacServices.register({}, {class}, {})\n",
             LuaSource::long_string(instance),
             LuaSource::long_string(&metadata.to_string())
         );
-        Ok((registered, plan.is_some()))
+        Ok((registered, [plan.is_some(), socket].contains(&true)))
     }
 
     fn with_converters(

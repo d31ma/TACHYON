@@ -746,3 +746,32 @@ test, and a list of the message model reaches the view as objects.
 `native::csharp_stream_clients::tests` and
 `native::csharp_browser_bindings_tests::csharp_socket_bindings_reach_only_namespaces_that_declare_the_socket_sender`
 cover the lowering, the stream entries, the native refusal and the binding.
+
+## Lua streams and sockets — 2026-10-18
+
+A Tac Lua HTTPClient method may carry `-- @StreamRequest` or
+`-- @SocketRequest`, as in Ruby. The method is an empty
+`function TicksClient:receive(tick)` whose `---@param` model type says what
+each message holds. A Lua client with only stream or socket methods has no
+behavior context and needs no Setup.
+
+The page's JavaScript still holds the connection, through the same event bus
+and page-shell entries as Go. A Lua service that keeps the client in a typed
+`-- @Needs` field lists the client's streams in its `init` answer, and the
+page builds the client with the service object. The limits are those of
+ADR 0058, ADR 0060 and the Go section above, and a service holds at most 16
+such methods through its clients.
+
+A socket client gets a generated `client:send(message)`. The Lua runtime
+writes the message as JSON and parks the call's coroutine on a ticket, as
+for a browser HTTP request, with an `http: "socket"` request that the Lua
+engine passes to the page's `socketHost`; the answer resumes the coroutine.
+`send` returns `nil` or raises a `BehaviorError` whose code is
+`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_CAPACITY`, `HTTP_BODY`
+or `CANCELLED`, so a page call that fails rejects with that code. A Lua test
+unit has no page, so `send` raises `HTTP_MISSING`. See ADR 0085, "Tac Lua
+streams and sockets".
+
+Evidence: `tac_lua::tests::stream_tests` builds a real Lua service to
+WebAssembly and runs it under Node with the real event bus and fake
+`EventSource` and `WebSocket` classes, with the same checks as the Go test.

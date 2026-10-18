@@ -1139,6 +1139,38 @@ function BehaviorBrowserHttp.fail(code)
   BehaviorError.raise(code, "The browser HTTP request failed (" .. code .. ").")
 end
 
+BehaviorBrowserSocket = {
+  MAX_MESSAGE_BYTES = 65536,
+  CODES = { HTTP_MISSING = true, HTTP_REQUEST = true, HTTP_CAPACITY = true, CANCELLED = true },
+}
+
+function BehaviorBrowserSocket.send(client, message)
+  if TacTasks == nil or TacWebHost == nil or TachyonHost.test_unit then
+    BehaviorBrowserSocket.fail("HTTP_MISSING")
+  end
+  local ok, text = pcall(YonJson.encode, message)
+  if not ok or #text > BehaviorBrowserSocket.MAX_MESSAGE_BYTES then
+    BehaviorBrowserSocket.fail("HTTP_BODY")
+  end
+  local answer = YonJson.decode(TacTasks.send_socket(client, text))
+  if type(answer) ~= "table" or answer.error ~= nil then
+    BehaviorBrowserSocket.fail(BehaviorBrowserSocket.code_of(type(answer) == "table" and answer.error or nil))
+  end
+  return nil
+end
+
+function BehaviorBrowserSocket.code_of(failure)
+  local code = type(failure) == "table" and failure.code or nil
+  if BehaviorBrowserSocket.CODES[code] then
+    return code
+  end
+  return "HTTP_NETWORK"
+end
+
+function BehaviorBrowserSocket.fail(code)
+  BehaviorError.raise(code, "The socket message was not sent (" .. code .. ").")
+end
+
 BehaviorStorage = {}
 
 function BehaviorStorage.adapter(group, name)

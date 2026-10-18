@@ -169,7 +169,7 @@ page's event bus holds the `WebSocket` for the Rust service that keeps the
 client in a field; the service receives each message with `#[OnEvent]`, and
 the generated `send(message).await` writes to the socket and returns a
 `BehaviorError` code instead of a rejected promise. See ADR 0090, "Rust
-streams and sockets". F#, Dart, Java, Python, Lua and
+streams and sockets". F#, Dart, Java, Python and
 C++ still refuse `@SocketRequest`.
 
 ## Amendment (2026-10-17): Dart socket clients
@@ -205,3 +205,13 @@ the client in a `[Needs]` field; the service receives each message with
 and throws a `BehaviorError` with a code instead of rejecting a promise. A
 natively linked C# service refuses the client. See ADR 0090, "C# streams and
 sockets".
+
+## Amendment (2026-10-18): Lua socket clients
+
+`-- @SocketRequest` is also written on a Tac Lua HTTPClient method. The page's
+event bus holds the `WebSocket` for the Lua service that keeps the client in
+a typed `-- @Needs` field; the service receives each message with
+`-- @OnEvent`, and the generated `client:send(message)` writes to the socket
+from the call's coroutine and raises a `BehaviorError` with a code instead of
+rejecting a promise. See ADR 0085, "Tac Lua streams and sockets", and ADR
+0090, "Lua streams and sockets".

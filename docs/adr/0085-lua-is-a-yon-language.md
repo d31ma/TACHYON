@@ -472,7 +472,8 @@ clock amendment.
   markers (Lua has no browser HTTP transport yet; see the next amendment),
   and `@StreamRequest` and
   `@SocketRequest` (the browser's JavaScript holds the stream; a Lua service
-  hears each message with `-- @OnEvent`).
+  hears each message with `-- @OnEvent`). The Tac Lua streams and sockets
+  amendment below accepts both.
 
 ## Amendment 2026-10-18: Tac Lua HTTP clients
 
@@ -496,7 +497,8 @@ clock amendment.
   cancels its waiting calls with `CANCELLED`. An `-- @AllOrNothing` block
   belongs to the coroutine that opened it.
 - Still refused in Tac Lua: `@StreamRequest` and `@SocketRequest`, for the
-  reason the previous amendment gives.
+  reason the previous amendment gives. The Tac Lua streams and sockets
+  amendment below accepts both.
 
 ## Amendment 2026-10-18: Tac Lua helpers
 
@@ -523,3 +525,46 @@ shadow no longer stands in the way.
   belongs on the service.
 - A Tac Lua test unit does not fill Helper fields yet:
   `self:construct(Role)` leaves them `nil`.
+
+## Amendment 2026-10-18: Tac Lua streams and sockets
+
+This amendment replaces the `@StreamRequest` and `@SocketRequest` parts of
+"Still refused in Tac Lua" in the two amendments above. The page's JavaScript
+still holds each connection, as for every other Tac language, so a Lua
+client only has to declare its streams and give the service a way to send.
+
+- A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
+  `-- @SocketRequest`. The method is empty and takes one parameter whose
+  `---@param` model type says what each message holds:
+  `function TicksClient:receive(tick)` with `---@param tick Tick`. A client
+  has at most one `-- @SocketRequest` method. The rule table lists Lua for
+  both markers in Tac.
+- A Lua service that keeps the client in a typed `-- @Needs` field lists the
+  client's streams in its `init` answer as `streams`, next to its listeners,
+  and the page's event bus opens them when the service starts and closes
+  them with its owner. Each message is checked against its model and
+  published as that model's event, which a `-- @OnEvent` method receives. A
+  service that does not need the client opens nothing. The limits are those
+  of ADR 0058 and ADR 0060, and a service holds at most 16 such methods
+  through its clients.
+- Tachyon writes `TicksService.__tachyonClients = { ["ticks"] =
+  "TicksClient" }` after the service for each held client that is not
+  already a provider, and the page builds the client when it builds the
+  service object. The field is not a page field. A client with only stream
+  or socket methods has no behavior context and needs no Setup.
+- A socket client gets a generated `client:send(message)`. It writes the
+  message as JSON and waits for the page in the call's coroutine, like an
+  HTTP request (the amendment above): it returns `nil` once the page has
+  sent or queued the message, and otherwise raises a `BehaviorError` whose
+  `behavior_code` is `HTTP_NETWORK` (for example, 16 messages already wait
+  for the socket to open), `HTTP_MISSING` (no page), `HTTP_REQUEST` (no
+  service call is running, for example in `-- @OnStart`), `HTTP_CAPACITY`
+  (64 calls already wait), `HTTP_BODY` (more than 64 KiB, or a value that is
+  not JSON) or `CANCELLED` (the owner went away). A Tac Lua test unit has no
+  page, so `send` raises `HTTP_MISSING` there.
+
+Evidence: `tac_lua::tests::stream_tests` builds a real Lua service to
+WebAssembly and runs it under Node with the real event bus and fake
+`EventSource` and `WebSocket` classes, with the checks of the Go test in
+ADR 0090. It also covers the `init` streams, the generated `send`, a service
+that holds no stream, and `HTTP_MISSING` in a test unit.

@@ -172,6 +172,11 @@ function TacServices.construct(class)
   for field, name in pairs(class.__tachyonHelpers or {}) do
     instance[field] = TacHelpers.build(name)
   end
+  for field, name in pairs(class.__tachyonClients or {}) do
+    if instance[field] == nil then
+      instance[field] = TacServices.construct(rawget(_G, name))
+    end
+  end
   return setmetatable(instance, {
     __index = function(_, key)
       local value = class[key]
@@ -368,6 +373,7 @@ function TacServices.describe(metadata)
     fields = metadata.fields or {},
     methods = metadata.methods or {},
     listeners = listeners,
+    streams = metadata.streams or {},
   }
 end
 

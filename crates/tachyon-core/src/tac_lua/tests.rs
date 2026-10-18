@@ -3,6 +3,8 @@
 use super::{LuaRuntimeBuild, LuaWebServices};
 use std::path::{Path, PathBuf};
 
+mod stream_tests;
+
 struct Page;
 
 impl Page {

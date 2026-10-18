@@ -8,6 +8,7 @@ use std::path::Path;
 pub(crate) struct LuaContract<'a> {
     source: &'a str,
     view: LuaView,
+    tac: bool,
 }
 
 impl<'a> LuaContract<'a> {
@@ -16,16 +17,24 @@ impl<'a> LuaContract<'a> {
     const SHADOW_LANGUAGE: &'static str = "rb";
     const PROVIDER: &'static str = "-- @Store\n";
     const CLIENT: &'static str = "HTTPClient";
+    const HELD: [&'static str; 2] = ["streamrequest", "socketrequest"];
+    const SOCKET: [&'static str; 1] = ["socketrequest"];
+    const TAC: &'static str = "tac";
+    const SEND: &'static str = "\nfunction {owner}:send(message)\n  return BehaviorBrowserSocket.send(\"{owner}\", message)\nend\n";
 
     pub(crate) fn lower(path: &Path, source: &'a str, environment: &str) -> Option<String> {
         let view = LuaView::of(path, source).filter(|_| Self::REALMS.contains(&environment))?;
-        let contract = Self { source, view };
+        let contract = Self {
+            source,
+            view,
+            tac: environment == Self::TAC,
+        };
         contract
             .contract()
             .and_then(|found| contract.lowered(&found))
     }
 
-    fn contract(&self) -> Option<(ContractDeclaration, bool)> {
+    fn contract(&self) -> Option<(ContractDeclaration, bool, bool)> {
         let form = ContractForm::of(Self::SHADOW_LANGUAGE)?;
         let shadow = self.view.text();
         let mask = crate::lexical::code_mask(Self::SHADOW_LANGUAGE, shadow);
@@ -35,9 +44,19 @@ impl<'a> LuaContract<'a> {
             .find(|declaration| {
                 [declaration.role.names_entity, Self::is_client(declaration)].contains(&true)
             })?;
-        let members = declaration.members(form, &code);
-        let needs_context = declaration.role.needs_context(&members);
-        Some((declaration, needs_context))
+        let (held, exchanged): (Vec<_>, Vec<_>) = declaration
+            .members(form, &code)
+            .into_iter()
+            .partition(|member| member.is_marked_with(&Self::HELD));
+        let needs_context = declaration.role.needs_context(&exchanged);
+        let socket = held
+            .iter()
+            .any(|member| member.is_marked_with(&Self::SOCKET));
+        Some((
+            declaration,
+            needs_context,
+            [self.tac, socket] == [true, true],
+        ))
     }
 
     fn is_client(declaration: &ContractDeclaration) -> bool {
@@ -46,13 +65,15 @@ impl<'a> LuaContract<'a> {
 
     fn lowered(
         &self,
-        (declaration, needs_context): &(ContractDeclaration, bool),
+        (declaration, needs_context, socket): &(ContractDeclaration, bool, bool),
     ) -> Option<String> {
         let context = [String::new(), Self::context(declaration)];
+        let send = ["", Self::SEND][usize::from(*socket)].replace("{owner}", &declaration.name);
         let provider = ["", Self::PROVIDER][usize::from(declaration.role.names_entity)];
         let marker_line = self.view.source_offset(declaration.marker_at);
         let mut output = self.source.to_owned();
         output.push_str(&context[usize::from(*needs_context)]);
+        output.push_str(&send);
         output.insert_str(marker_line, provider);
         (output != self.source).then_some(output)
     }

@@ -10,7 +10,7 @@ pub(crate) struct LuaClientUnit;
 
 impl LuaClientUnit {
     const REALM: &'static str = "tac";
-    const HOST: &'static str = "TachyonHost = TachyonHost or {\n  emit = function() end,\n  ask = function(text) return YonJson.encode(BrowserFakes.reply(YonJson.decode(text))) end,\n}\n";
+    const HOST: &'static str = "TachyonHost = TachyonHost or {\n  test_unit = true,\n  emit = function() end,\n  ask = function(text) return YonJson.encode(BrowserFakes.reply(YonJson.decode(text))) end,\n}\n";
     const LOCAL_CLOCK: [&'static str; 2] = ["", "BehaviorClock.host = nil\n"];
     const NO_UNIT: &'static str =
         "A test unit declares Test on one class; this source declares none.";

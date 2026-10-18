@@ -51,6 +51,11 @@ function TacTasks.exchange(request)
   return TacTasks.park({ http = "start", request = request })
 end
 
+function TacTasks.send_socket(client, message)
+  local request = "{\"client\":" .. YonJson.text(client) .. ",\"message\":" .. message .. "}"
+  return TacTasks.park({ http = "socket", request = request })
+end
+
 function TacTasks.park(message)
   local task = TacTasks.current
   if task == nil or task.owner == nil or coroutine.running() ~= task.routine then
@@ -64,6 +69,7 @@ function TacTasks.park(message)
   TacTasks.waiting[task.ticket] = task
   TacTasks.waiting_count = TacTasks.waiting_count + 1
   message.ticket = task.ticket
+  message.owner = task.owner.id
   TacWebHost.ask(message)
   return coroutine.yield()
 end

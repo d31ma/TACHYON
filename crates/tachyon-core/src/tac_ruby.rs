@@ -12,7 +12,7 @@ use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::diagnostic;
 use crate::ruby_source::RubyMembers;
-use ruby_held_streams::RubyHeldStreams;
+pub(crate) use ruby_held_streams::RubyHeldStreams;
 use ruby_model_readers::RubyModelReaders;
 use runtime_sources::RubyRuntimeSources;
 use std::path::{Path, PathBuf};
@@ -180,7 +180,7 @@ impl RubyWebServices {
         held.describe(source, path)
     }
 
-    fn holds_a_socket(metadata: &serde_json::Value) -> bool {
+    pub(crate) fn holds_a_socket(metadata: &serde_json::Value) -> bool {
         metadata["streams"]
             .as_array()
             .is_some_and(|streams| streams.iter().any(|stream| stream["socket"] == true))

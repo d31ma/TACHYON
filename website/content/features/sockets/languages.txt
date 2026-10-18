@@ -27,7 +27,7 @@ When OnOpen or OnMessage fails, OnError runs and the socket stays
 open, as in Jakarta. The error text goes to the server log only.
 
 In the browser, @SocketRequest is JavaScript, TypeScript, Go, Ruby,
-Rust, Dart, Swift, Kotlin or C#. Every Tac language receives the messages with @OnEvent. A
+Rust, Dart, Swift, Kotlin, C# or Lua. Every Tac language receives the messages with @OnEvent. A
 Go client is an interface method; the page holds the socket for
 the Go service that keeps the client in a // @Needs field, and the
 generated Send(message any) error returns HTTP_NETWORK when 16
@@ -45,6 +45,9 @@ suspend send(message) throws an error whose message starts with the
 same codes.
 A C# client works the same way through a [Needs] field; its
 Task Send(object message) throws a BehaviorError with the code.
+A Lua client is an empty method in a Lua service's -- @Needs
+field, and its generated client:send(message) raises a
+BehaviorError with the code.
 
 Limits: messages are JSON text of at most 64 KiB, at most 32
 sockets are open at once, five idle minutes or one hour close a

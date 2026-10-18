@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
+  `-- @SocketRequest`, written as an empty
+  `function TicksClient:receive(tick)` with `---@param tick Tick`. The page's
+  event bus holds the stream or socket for the Lua service that keeps the
+  client in a typed `-- @Needs` field, with the same origin, JSON, size and
+  reconnect rules as JavaScript, and the service receives each message with
+  `-- @OnEvent`. A socket client gets `client:send(message)`, which waits for
+  the page in the call's coroutine and raises a `BehaviorError`
+  (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or
+  `CANCELLED`). A stream-only client needs no Setup (ADR 0058, ADR 0060,
+  ADR 0085 and ADR 0090 amendments).
 - Yon Rust controllers stream. A `#[StreamRoute]` method returns
   `impl Iterator<Item = Model>`, or `impl Iterator<Item = Result<Model, E>>`
   when the stream can fail; the prelude sends each item as one server-sent

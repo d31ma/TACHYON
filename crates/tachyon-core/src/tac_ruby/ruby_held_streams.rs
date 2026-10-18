@@ -8,6 +8,7 @@ use std::path::Path;
 pub(crate) struct RubyHeldStreams<'a> {
     module: &'a EventModule,
     class: &'a str,
+    language: &'static str,
 }
 
 impl<'a> RubyHeldStreams<'a> {
@@ -15,10 +16,24 @@ impl<'a> RubyHeldStreams<'a> {
     const MOST_DEPTH: usize = 8;
     const HELPERS: &'static str = "client/helpers";
     const CODE: u16 = 1605;
-    const TOO_MANY: &'static str = "A Ruby service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.";
+    const RUBY: &'static str = "Ruby";
+    const LUA: &'static str = "Lua";
+    const TOO_MANY: &'static str = "A {} service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.";
 
     pub(crate) const fn new(module: &'a EventModule, class: &'a str) -> Self {
-        Self { module, class }
+        Self {
+            module,
+            class,
+            language: Self::RUBY,
+        }
+    }
+
+    pub(crate) const fn lua(module: &'a EventModule, class: &'a str) -> Self {
+        Self {
+            module,
+            class,
+            language: Self::LUA,
+        }
     }
 
     pub(crate) fn refuse_helper_hooks(&self, snapshot_root: &Path) -> Result<(), Failure> {
@@ -40,6 +55,14 @@ impl<'a> RubyHeldStreams<'a> {
             .into_iter()
             .map(|field| field.type_name)
             .collect();
+        self.held(&needed, path)
+    }
+
+    pub(crate) fn held(
+        &self,
+        needed: &[String],
+        path: &Path,
+    ) -> Result<serde_json::Value, Failure> {
         let streams: Vec<(&str, &EventStream)> = self
             .module
             .types
@@ -54,14 +77,14 @@ impl<'a> RubyHeldStreams<'a> {
                     .map(|stream| (client.name.as_str(), stream))
             })
             .collect();
-        Self::bounded(&streams, path)?;
+        self.bounded(&streams, path)?;
         Ok(streams
             .into_iter()
             .map(|(client, stream)| Self::entry(client, stream))
             .collect())
     }
 
-    fn bounded(streams: &[(&str, &EventStream)], path: &Path) -> Result<(), Failure> {
+    fn bounded(&self, streams: &[(&str, &EventStream)], path: &Path) -> Result<(), Failure> {
         if streams.len() <= Self::MOST_STREAMS {
             return Ok(());
         }
@@ -69,7 +92,8 @@ impl<'a> RubyHeldStreams<'a> {
             "Split the streaming clients that {} needs between two services.",
             path.to_string_lossy()
         );
-        Err(Self::failure(Self::TOO_MANY, help))
+        let message = Self::TOO_MANY.replace("{}", self.language);
+        Err(Self::failure(&message, help))
     }
 
     fn entry(client: &str, stream: &EventStream) -> serde_json::Value {
