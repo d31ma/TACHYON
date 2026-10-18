@@ -706,6 +706,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- An F# Tac service property set from a primary-constructor parameter
+  without a written type, such as `member val Title = label with get, set`
+  in `ShelfService(label: string)`, now takes that parameter's type. Before,
+  the page bridge saw it as `object` and the .NET build stopped with
+  `CS0266: Cannot implicitly convert type 'object' to 'string'` (ADR 0073
+  amendment).
 - A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
   `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
   for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`

@@ -19,7 +19,7 @@ impl FsharpLifecycle {
         (
             Self::SERVICE,
             "open Models\n\n[<Service>]\n[<NeedsAll>]\n[<Description(\"Shelf lifecycle, listener order and topic proof\")>]\ntype ShelfService(label: string, count: int, applicationEventPublisher: ApplicationEventPublisher) =\n    static let mutable stops = 0\n\n    \
-             member val Title : string = label with get, set\n    member val Count : int = count with get, set\n    member val Log = \"\" with get, set\n    member val Shelf = 0 with get, set\n\n    \
+             member val Title = label with get, set\n    member val Count = count with get, set\n    member val Log = \"\" with get, set\n    member val Shelf = 0 with get, set\n\n    \
              member this.Stops() : int = stops\n\n    \
              member this.Tick(size: int) : unit =\n        applicationEventPublisher.PublishEvent({ TickSent.Size = size })\n\n    \
              [<OnStart>]\n    member this.Start() : unit =\n        this.Log <- this.Log + \"start;\"\n\n    \

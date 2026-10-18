@@ -328,3 +328,19 @@ F# never ignores an annotation.
   `PAGE_INVALID`).
 - These markers already worked in F# through the C# lowering; this only adds
   the proof. The rule table does not change.
+
+## Amendment (2026-10-18): Tac lifecycle, listener and topic proofs
+
+- An F# Tac service is tested on the page event bus
+  (`tac_web/fsharp_lifecycle_tests.rs`): `[<NeedsAll>]` props reach the
+  primary constructor, `[<Order>]` runs listeners of one event in order, an
+  `[<InBackground>]` listener runs after the others whatever its order, a
+  `[<Topic>]` model in `client/models` opens its topic stream and the
+  message reaches `[<OnEvent>]`, `[<OnStop>]` runs when the page disposes
+  the owner, and `[<Description>]` builds.
+- A `member val` without a written type whose value is a primary-constructor
+  parameter takes that parameter's type in the C# shadow, so the page can
+  read and set it.
+- A Tac `[<Needs>]` property of a browser API such as `Clock`, or of a
+  Store, stays TY1405. A Tac service creates a browser API with
+  `let clock = Clock()`.
