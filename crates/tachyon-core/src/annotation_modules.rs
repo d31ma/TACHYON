@@ -248,14 +248,18 @@ pub(crate) struct Module {
 }
 
 impl Module {
-    const MODULES_INJECTED: [&'static str; 2] = ["rb", "swift"];
+    const MODULES_INJECTED: [&'static str; 1] = ["rb"];
+    const HELPERS_INJECTED: [&'static str; 2] = ["kt", "swift"];
 
     fn injected_modules(modules: Vec<Self>, extension: &str, environment: &str) -> Vec<Self> {
         let injected_tac = [
             Self::MODULES_INJECTED.contains(&extension),
             environment == "tac",
         ] == [true, true];
-        let kotlin_tac = [extension == "kt", environment == "tac"] == [true, true];
+        let helpers_tac = [
+            Self::HELPERS_INJECTED.contains(&extension),
+            environment == "tac",
+        ] == [true, true];
         let paths = modules.iter().map(|module| module.path.as_path());
         let contracts = crate::declared_contract::DeclaredContract::injected_names(paths);
         let paths = modules.iter().map(|module| module.path.as_path());
@@ -264,8 +268,8 @@ impl Module {
             .into_iter()
             .map(|module| {
                 let helper =
-                    crate::declared_contract::DeclaredContract::is_kotlin_helper(&module.path);
-                let injected = [injected_tac, [kotlin_tac, helper] == [true, true]]
+                    crate::declared_contract::DeclaredContract::is_injected_helper(&module.path);
+                let injected = [injected_tac, [helpers_tac, helper] == [true, true]]
                     .contains(&true)
                     .then(|| {
                         crate::declared_contract::DeclaredContract::injected_with_remotes(

@@ -121,7 +121,7 @@ impl<'a> InjectedContract<'a> {
         ] == [true, true]
     }
 
-    fn injected_helper(path: &Path) -> bool {
+    pub(crate) fn injected_helper(path: &Path) -> bool {
         [
             path.starts_with(Self::HELPERS),
             path.extension()

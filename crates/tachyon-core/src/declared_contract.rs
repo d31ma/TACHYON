@@ -88,6 +88,10 @@ impl DeclaredContract {
         InjectedContract::kotlin_helper(path)
     }
 
+    pub(crate) fn is_injected_helper(path: &Path) -> bool {
+        InjectedContract::injected_helper(path)
+    }
+
     pub(crate) fn injected_remotes<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
         InjectedContract::remote_names(paths)
     }
