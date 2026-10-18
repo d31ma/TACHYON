@@ -186,11 +186,11 @@ impl<'a> ShadowWriter<'a> {
     }
 
     fn open_type(&mut self, index: usize, header: TypeHeader) {
+        let indent = self.lines[index].indent();
+        let block = OpenBlock::declared_type(indent, &header);
         for line in header.lines {
             self.push(index, &line);
         }
-        let indent = self.lines[index].indent();
-        let block = OpenBlock::declared_type(indent, header.form, &header.name);
         self.blocks
             .extend((header.form != TypeForm::Alias).then_some(block));
         self.attributes.clear();
@@ -214,7 +214,12 @@ impl<'a> ShadowWriter<'a> {
     }
 
     fn write_member_value(&mut self, index: usize) {
-        let header = MemberHeader::value(self.lines[index].trimmed());
+        let parameters = self
+            .blocks
+            .last()
+            .map(|block| block.parameters.as_str())
+            .unwrap_or_default();
+        let header = MemberHeader::value(self.lines[index].trimmed(), parameters);
         self.open_block(index, &header, BlockKind::Value);
     }
 

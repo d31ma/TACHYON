@@ -177,6 +177,25 @@ mod tests {
     }
 
     #[test]
+    fn a_member_value_of_a_constructor_parameter_takes_the_parameter_type() {
+        let source = "[<Service>]\n[<NeedsAll>]\ntype ShelfService(label: string, count: int) =\n    member val Title = label with get, set\n    member val Count = count with get, set\n    member val Shelf : obj = label with get, set\n";
+        let shadow = FsharpShadow::of(source);
+        let lines: Vec<&str> = shadow.text().lines().collect();
+        assert_eq!(
+            lines[..],
+            [
+                "[Service]",
+                "[Needs(string, int)]",
+                "public class ShelfService { public ShelfService(string label, int count) { }",
+                "    public string Title = label;",
+                "    public int Count = count;",
+                "    public object Shelf = label; }",
+                "",
+            ]
+        );
+    }
+
+    #[test]
     fn a_member_value_over_several_lines_keeps_its_accessors_out_of_the_value() {
         let source = "[<Service>]\ntype InventoryService() =\n    member val Names : obj =\n        [ \"Anvil\"; \"Rope\" ]\n        with get, set\n\n    member val Count : int =\n        2 with get\n";
         let shadow = FsharpShadow::of(source);

@@ -4,6 +4,7 @@ pub(crate) struct TypeHeader {
     pub(crate) name: String,
     pub(crate) form: TypeForm,
     pub(crate) lines: Vec<String>,
+    pub(crate) parameters: String,
 }
 
 impl TypeHeader {
@@ -28,7 +29,16 @@ impl TypeHeader {
             name: declared.name.to_owned(),
             form,
             lines,
+            parameters,
         }
+    }
+
+    pub(crate) fn parameter_type(parameters: &str, name: &str) -> Option<String> {
+        FsharpType::split_top_level(parameters, ",")
+            .into_iter()
+            .filter_map(|parameter| parameter.rsplit_once(' '))
+            .find(|(_, named)| *named == name)
+            .map(|(kind, _)| Self::without_attributes(kind))
     }
 
     pub(crate) fn constructor_types(trimmed: &str) -> Vec<String> {
@@ -43,6 +53,7 @@ impl TypeHeader {
             name: name.to_owned(),
             form: TypeForm::Class,
             lines: vec![format!("public class {name} : System.Exception {{")],
+            parameters: String::new(),
         }
     }
 

@@ -1,5 +1,6 @@
 use super::{
     FsharpBody, FsharpParameters, FsharpType, FsharpValue, MemberLine, MemberWords, TypeForm,
+    TypeHeader,
 };
 
 pub(crate) struct MemberHeader {
@@ -53,7 +54,7 @@ impl MemberHeader {
         Self { text, closer }
     }
 
-    pub(crate) fn value(trimmed: &str) -> Self {
+    pub(crate) fn value(trimmed: &str, parameters: &str) -> Self {
         let words = Self::words(trimmed);
         let modifiers = Self::csharp_modifiers(&words.modifiers);
         let (declaration, initial) = words.rest.split_once('=').unwrap_or((words.rest, ""));
@@ -63,7 +64,9 @@ impl MemberHeader {
             .next()
             .unwrap_or("")
             .trim();
-        let kind = FsharpValue::type_or_guess(kind, initial);
+        let kind = TypeHeader::parameter_type(parameters, initial)
+            .filter(|_| kind.trim().is_empty())
+            .unwrap_or_else(|| FsharpValue::type_or_guess(kind, initial));
         Self {
             text: format!("{modifiers}{kind} {} = {initial}", name.trim()),
             closer: String::from(";"),
@@ -382,10 +385,12 @@ mod tests {
 
     #[test]
     fn auto_properties_and_constructors() {
-        let value = MemberHeader::value("member val Count = 6 with get, set");
+        let value = MemberHeader::value("member val Count = 6 with get, set", "");
         assert_eq!(value.text, "public int Count = 6");
-        let value = MemberHeader::value("member val Label : string = \"x\"");
+        let value = MemberHeader::value("member val Label : string = \"x\"", "");
         assert_eq!(value.text, "public string Label = \"x\"");
+        let value = MemberHeader::value("member val Title = label with get", "string label");
+        assert_eq!(value.text, "public string Title = label");
         let built = MemberHeader::constructor("new(count: int) = { count = count }", "Tally");
         assert_eq!(built.text, "public Tally(int count) { { count = count }");
     }
