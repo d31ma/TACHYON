@@ -10,6 +10,12 @@ The repository `d31ma/TACHYON` is public. Code from a fork must never run on
 these machines. Read [Security Rules](#security-rules) before you register a
 runner.
 
+> **Note (2026-10-18):** `rust-ci.yml` no longer runs on branch pushes. GitHub
+> Actions runs it only for pull requests from `develop` into `main`, for tagged
+> releases and on demand, so the push-only switch below is dormant. Day-to-day
+> CI runs directly on the maintainer's machines instead of through registered
+> runners.
+
 ## How the Switch Works
 
 Every job in `rust-ci.yml` chooses its runner with one expression. A job uses
