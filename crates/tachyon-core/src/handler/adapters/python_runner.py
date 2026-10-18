@@ -665,6 +665,7 @@ def install_builtins(relay_program):
     builtins.YonSocket = YonSocket
     builtins.DataSource = DataSource
     builtins.RedisTemplate = RedisTemplate
+    builtins.ApplicationEventPublisher = type("ApplicationEventPublisher", (), {})
     builtins.YonTopic = TopicClient
     builtins.YonGateway = GatewayClient(relay_program.deadline)
     if not hasattr(builtins, "relay"):
