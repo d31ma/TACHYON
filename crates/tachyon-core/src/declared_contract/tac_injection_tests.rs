@@ -195,7 +195,7 @@ fn a_ruby_helper_is_injected_and_a_helper_of_another_language_is_not() {
     let paths = [
         Path::new("client/helpers/LevelHelper.rb"),
         Path::new("client/helpers/money/MoneyHelper.rb"),
-        Path::new("client/helpers/LevelHelper.java"),
+        Path::new("client/helpers/LevelHelper.cs"),
     ];
     let names = DeclaredContract::injected_names(paths.into_iter());
     assert_eq!(names, ["LevelHelper", "MoneyHelper"]);

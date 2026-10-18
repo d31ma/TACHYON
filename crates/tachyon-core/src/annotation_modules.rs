@@ -249,7 +249,7 @@ pub(crate) struct Module {
 
 impl Module {
     const MODULES_INJECTED: [&'static str; 1] = ["rb"];
-    const HELPERS_INJECTED: [&'static str; 2] = ["kt", "swift"];
+    const HELPERS_INJECTED: [&'static str; 3] = ["kt", "swift", "java"];
 
     fn injected_modules(modules: Vec<Self>, extension: &str, environment: &str) -> Vec<Self> {
         let injected_tac = [
@@ -2371,11 +2371,20 @@ mod tests {
         let entry = "client/services/ShellService.java";
         write(root.path(), entry, "");
         let helper = "client/helpers/MoneyHelper.java";
-        write(root.path(), helper, "@Helper\npublic class MoneyHelper {}");
+        write(
+            root.path(),
+            helper,
+            "@Helper\npublic class MoneyHelper {\n    @OnStart\n    void open() {}\n}",
+        );
         let failure = assemble(root.path(), Path::new(entry), "", "tac")
-            .expect_err("unsupported compiled Helper role");
+            .expect_err("a Java Helper has no lifecycle hooks");
         let diagnostic = &failure.diagnostics()[0];
-        assert_eq!(diagnostic.code.to_string(), "TY1308", "{failure}");
+        assert!(
+            diagnostic
+                .message
+                .contains("A Java Tac Helper is a new object"),
+            "{failure}"
+        );
         assert_eq!(diagnostic.spans[0].file, helper, "{failure}");
     }
 

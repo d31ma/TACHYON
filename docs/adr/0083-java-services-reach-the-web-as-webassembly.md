@@ -539,3 +539,27 @@ The build refuses these fields with `TY1406`, at the field:
 
 - `@Helper` is still refused in Java Tac code.
 - `@Lifetime` application stays a native Rust service feature only.
+
+## Amendment (2026-10-18): Java Tac Helpers
+
+A Java Tac service now accepts `@Helper`, as Kotlin does (ADR 0091
+amendment of 2026-10-17). This replaces the line "`@Helper` is still
+refused in Java Tac code" in the amendments above.
+
+- A Java Tac Helper is a class in `client/helpers` that carries `@Helper`.
+  Its name ends with `Helper`.
+- A service or another Helper asks for it with a field such as
+  `@Needs private final TaxHelper helper;`. The build writes the field as
+  `private final TaxHelper helper = new TaxHelper();`.
+- So each class that names a Helper in a `@Needs` field gets its own new
+  Helper. A Helper is not shared. This is not like a Java service, which is
+  one instance that the page and every service that needs it share.
+- A Helper may need other Helpers in the same way.
+- A Helper has no shared lifetime and no lifecycle of its own. A Java Helper
+  that carries `@NeedsAll`, `@Lifetime`, `@OnStart`, `@OnStop` or
+  `@OnEvent` stops the build at the Helper file. The message starts with "A
+  Java Tac Helper is a new object for each class that names it in a @Needs
+  field, so it takes no @NeedsAll, @Lifetime, @OnStart, @OnStop or
+  @OnEvent".
+- In the annotation rule table, `TAC_HELPER` is now the full `TAC` list:
+  every Tac language accepts `Helper`.

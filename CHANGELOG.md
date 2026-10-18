@@ -152,6 +152,14 @@ machine contracts have their own, independent major versions.
   example in `extends`. A prototype or `@NeedsAll` service, an unclear
   provider, a circle and an unknown `@Named` fail with `TY1406` at the field
   (ADR 0083 amendment).
+- A Java Tac service or Helper may name a Helper from `client/helpers` in a
+  `@Needs` field, such as `@Needs private final TaxHelper helper;`. The build
+  writes the field as `private final TaxHelper helper = new TaxHelper();`, so
+  each needing class gets its own new Helper; a Helper is not shared like a
+  Java service. A Java Helper may need other Helpers. It takes no
+  `@NeedsAll`, `@Lifetime`, `@OnStart`, `@OnStop` or `@OnEvent`, and the
+  build says so at the Helper file. Every Tac language now accepts Helper
+  (ADR 0083 and ADR 0091 amendments).
 - C++ Tac code accepts `[[Setup]]`, `[[WhenProfile]]`, `[[WhenSetting]]`,
   `[[UseProfiles]]` and `[[TestSettings]]`. A Setup is a class in
   `client/setups/<Name>.hpp` with
@@ -614,9 +622,9 @@ machine contracts have their own, independent major versions.
   page.
 
 - The annotation rule table checks Java and F# Tac code. Every marker that
-  the Java and F# page builds support is accepted by name. Java Tac code
-  refuses Helper with TY1308. F# Tac code accepts StreamRequest and
-  SocketRequest, which F# services now hold. Two fixes
+  the Java and F# page builds support is accepted by name. F# Tac code
+  accepts StreamRequest and SocketRequest, which F# services now hold. Two
+  fixes
   come with it: an F# Tac service with
   `[<Lifetime({"value":"prototype"})>]` gets one instance for each
   component (the attribute was ignored), and `@TestSettings` in a Java Tac

@@ -587,33 +587,43 @@ fn reject_http_verb(
 pub(crate) struct HelperRole;
 
 impl HelperRole {
-    const KOTLIN: &'static str = "kt";
-    const KOTLIN_UNMANAGED: [&'static str; 5] =
-        ["NeedsAll", "Lifetime", "OnStart", "OnStop", "OnEvent"];
-    const KOTLIN_UNMANAGED_ADVICE: &'static str = "A Kotlin Tac Helper is a new object for each class that names it in a @Needs field, so it takes no @NeedsAll, @Lifetime, @OnStart, @OnStop or @OnEvent. Mark each field it needs with @Needs, and move lifecycle and event methods to the Service that needs the Helper";
+    const UNMANAGED: [&'static str; 5] = ["NeedsAll", "Lifetime", "OnStart", "OnStop", "OnEvent"];
+    const LANGUAGE_NAMES: [(&'static str, &'static str); 2] = [("kt", "Kotlin"), ("java", "Java")];
+    const UNMANAGED_ADVICE: &'static str = "A {language} Tac Helper is a new object for each class that names it in a @Needs field, so it takes no @NeedsAll, @Lifetime, @OnStart, @OnStop or @OnEvent. Mark each field it needs with @Needs, and move lifecycle and event methods to the Service that needs the Helper";
 
-    fn refuse_kotlin_unmanaged(path: &Path, source: &str) -> Result<(), Failure> {
+    fn refuse_owned_unmanaged(path: &Path, source: &str) -> Result<(), Failure> {
         Some(path)
-            .filter(|path| crate::declared_contract::DeclaredContract::is_kotlin_helper(path))
+            .filter(|path| crate::declared_contract::DeclaredContract::is_owned_helper(path))
             .map_or(Ok(()), |path| Self::refuse_unmanaged_markers(path, source))
     }
 
     fn refuse_unmanaged_markers(path: &Path, source: &str) -> Result<(), Failure> {
-        let mask = crate::lexical::code_mask(Self::KOTLIN, source);
+        let language = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        let mask = crate::lexical::code_mask(language, source);
         let input = Input {
             path,
             source,
             code: visible_code(source, mask.code),
         };
-        let role = annotations(&input, Self::KOTLIN, "tac")?
+        let role = annotations(&input, language, "tac")?
             .into_iter()
-            .find(|marker| Self::KOTLIN_UNMANAGED.contains(&marker.name.as_str()))
+            .find(|marker| Self::UNMANAGED.contains(&marker.name.as_str()))
             .map(|marker| marker.span.start);
-        let hook =
-            crate::events::EventModule::first_marker(source, Self::KOTLIN, &Self::KOTLIN_UNMANAGED);
+        let hook = crate::events::EventModule::first_marker(source, language, &Self::UNMANAGED);
         role.or(hook).map_or(Ok(()), |at| {
-            Err(input.failure(at, Self::KOTLIN_UNMANAGED_ADVICE))
+            Err(input.failure(at, Self::unmanaged_advice(language)))
         })
+    }
+
+    fn unmanaged_advice(language: &str) -> String {
+        let name = Self::LANGUAGE_NAMES
+            .iter()
+            .find(|(extension, _)| *extension == language)
+            .map_or(language, |(_, name)| name);
+        Self::UNMANAGED_ADVICE.replace("{language}", name)
     }
 
     pub(crate) fn keeps_tac_marker(path: &Path) -> bool {
@@ -637,7 +647,7 @@ impl HelperRole {
         crate::fsharp_source::FsharpTacHelpers::source(path, source)?;
         CsharpTacHelpers::source(path, source)?;
         GoTacHelpers::source(path, source)?;
-        Self::refuse_kotlin_unmanaged(path, source)?;
+        Self::refuse_owned_unmanaged(path, source)?;
         let Some(message) = Self::refusal(path) else {
             return Ok(());
         };

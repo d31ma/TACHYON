@@ -140,14 +140,11 @@ fn csharp_tac_helper_keeps_folder_and_role_guards() {
             "{path}"
         );
     }
-    assert!(
-        crate::behavior::HelperRole::refuse_in_tac(
-            Path::new("client/helpers/LabelHelper.java"),
-            "@Helper\npublic class LabelHelper {}"
-        )
-        .is_err()
-    );
     for (path, source) in [
+        (
+            "client/helpers/LabelHelper.java",
+            "@Helper\npublic class LabelHelper {}",
+        ),
         (
             "client/helpers/LabelHelper.kt",
             "@Helper\nclass LabelHelper {}",

@@ -613,16 +613,32 @@ mod tests {
     }
 
     #[test]
-    fn a_java_helper_failure_names_the_helper_file() {
+    fn a_java_helper_is_supported_and_its_hooks_fail_at_its_own_file() {
+        let service = "@Service\npublic class TallyService {}\n";
+        let root = tempfile::tempdir().expect("project");
+        write_file(root.path(), "client/services/TallyService.java", service);
+        write_file(
+            root.path(),
+            "client/helpers/StepHelper.java",
+            "@Helper\npublic class StepHelper {}\n",
+        );
+        let path = Path::new("client/services/TallyService.java");
+        let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
+        ServiceChecks::check_native_source(root.path(), path, &roles.source)
+            .expect("Java Helper source is supported");
         let failure = helper_failure(
-            "@Service\npublic class TallyService {}\n",
-            "\n@Helper\npublic class StepHelper {}\n",
+            service,
+            "\n@Helper\npublic class StepHelper {\n    @OnEvent\n    void heard(StepHelper value) {}\n}\n",
             "java",
         );
         let diagnostic = &failure.diagnostics()[0];
-        assert!(diagnostic.message.contains("not available"), "{failure}");
+        assert!(
+            diagnostic
+                .message
+                .contains("A Java Tac Helper is a new object"),
+            "{failure}"
+        );
         assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.java");
-        assert_eq!(diagnostic.spans[0].start, 1, "{failure}");
     }
 
     fn compose(root: &Path, page: &str, name: &str, markup: &str) {

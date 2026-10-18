@@ -590,9 +590,15 @@ including hits and eviction. Only literal `true` allows access.
 Controller, StreamRoute, SocketRoute and Schedule are the only Yon-only APIs. These are
 mirrored in both realms (ADR 0031): Service, Lifetime, HTTPClient, Helper, Converter,
 Store, Needs, Retry, MaxAtOnce, AllOrNothing,
-Description, and the lifecycle and event markers. Java Tac code has no Helper
-yet (`TY1308`), and a Java or F# Tac service cannot ask for another service
-with `@Needs` (`TY1405`).
+Description, and the lifecycle and event markers. A Java Tac Helper lives in
+`client/helpers`, carries `@Helper` and has a name that ends with `Helper`. A
+Java service or Helper names it in a field such as
+`@Needs private final TaxHelper helper;`, and the build writes that field as
+`private final TaxHelper helper = new TaxHelper();`. So each class that needs
+a Helper gets its own new one; a Helper is not shared like a Java service. A
+Java Helper may need other Helpers the same way. It takes no `@NeedsAll`,
+`@Lifetime`, `@OnStart`, `@OnStop` or `@OnEvent`, and the build says so at
+the Helper file (ADR 0083 amendment of 2026-10-18).
 
 **Transaction limits.** A transaction is bounded on both sides:
 

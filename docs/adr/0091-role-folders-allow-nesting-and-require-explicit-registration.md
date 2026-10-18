@@ -156,3 +156,15 @@ the build at the Helper file and says to mark each needed field with
 `@Needs` and move lifecycle and event methods to the Service. A Kotlin test
 unit replaces a needed Helper with an `@Fake` field, as it does a client.
 Swift still refuses Helper.
+
+## Amendment (2026-10-18): Java Tac Helpers
+
+A Java Tac service or Helper may name a Helper from `client/helpers` in a
+`@Needs` field, as Kotlin does. The build writes
+`@Needs private final TaxHelper helper;` as
+`private final TaxHelper helper = new TaxHelper();`, so each class that
+needs a Helper makes its own new one. A Java Helper may need other Helpers.
+It takes no `@NeedsAll`, `@Lifetime`, `@OnStart`, `@OnStop` or `@OnEvent`,
+and the build stops such a Helper at the Helper file (ADR 0083 amendment of
+2026-10-18). With Java, every Tac language accepts Helper: the rule table's
+`TAC_HELPER` is now the full `TAC` list.

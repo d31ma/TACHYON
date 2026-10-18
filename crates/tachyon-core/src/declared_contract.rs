@@ -85,8 +85,8 @@ impl DeclaredContract {
         InjectedContract::injected_names(paths)
     }
 
-    pub(crate) fn is_kotlin_helper(path: &Path) -> bool {
-        InjectedContract::kotlin_helper(path)
+    pub(crate) fn is_owned_helper(path: &Path) -> bool {
+        InjectedContract::owned_helper(path)
     }
 
     pub(crate) fn is_injected_helper(path: &Path) -> bool {
