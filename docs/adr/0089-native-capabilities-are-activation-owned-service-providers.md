@@ -130,3 +130,25 @@ or `---@type WindowControls` annotation in a Lua service fails the build with
 `TY2015`, like the other Lua resource refusals, instead of leaving the field
 nil at run time. Go, Java, Ruby, Python and F# page services still have no
 FilePicker provider; their `NeedsAll` field remains a page property.
+
+## Amendment (2026-10-18): the Linux host runs the controls on its own window
+
+An ignored Linux test,
+`linux_window_control_tests::linux_generated_host_drives_granted_window_controls_and_refuses_a_denied_one`,
+compiles the generated GTK host with a Rust page service that has a
+`WindowControls` field and grants `title`, `resize` and `minimize`. The page
+calls the service through the real WebKit bridge. The test checks that
+`granted` answers true only for those three, that a title with non-ASCII
+text reaches the GTK window, that a resize to 800x600 changes the window's
+real size, that a size under 64 is refused, and that minimize sets the
+window's minimized state. A `close` without its grant answers `denied` and
+the window stays open. The host also refuses `window.close` and
+`window.fullscreen` when they are called on it directly. A title longer than
+1024 bytes is refused by the host, and the Rust field reports that as
+`unavailable`.
+
+On 2026-10-18 it passed under Xvfb with the xfwm4 window manager on WSL
+Ubuntu 24.04 (aarch64, GTK 4.14.5, WebKitGTK 2.52.6). Without a window
+manager, X11 has nothing to minimize the window, so the test fails there. A
+physical Linux desktop, Wayland and x86_64 are not covered. The Linux
+`FilePicker` still answers `unsupported`.

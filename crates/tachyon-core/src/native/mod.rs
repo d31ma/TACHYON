@@ -48,6 +48,8 @@ mod linux;
 mod linux_host_tests;
 #[cfg(test)]
 mod linux_page_call_tests;
+#[cfg(test)]
+mod linux_window_control_tests;
 mod linux_window_controls;
 mod mac_os_menu_action_source;
 mod mac_os_menu_source;

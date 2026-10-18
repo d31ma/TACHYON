@@ -10,6 +10,11 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A Linux test runs the generated GTK host's window controls. A Rust page
+  service calls `set_title`, `resize` and `minimize` through the real WebKit
+  bridge under Xvfb with a window manager, and the test checks the GTK
+  window's title, real size and minimized state. A `close` without its
+  grant is refused and the window stays open (ADR 0089 amendment).
 - C# and F# Tac services and Helpers need Helpers. A C# class names a
   Helper from `client/helpers` in a field such as
   `[Needs] private readonly TaxHelper _tax;`, and the build writes it as

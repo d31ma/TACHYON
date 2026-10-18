@@ -85,6 +85,16 @@ impl LinuxHostTests {
         menus: NativeMenuConfig,
         fixture: &str,
     ) -> std::path::PathBuf {
+        Self::compile_application(root, source, &Self::application(menus), fixture).await
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(super) async fn compile_application(
+        root: &std::path::Path,
+        source: &std::path::Path,
+        application: &super::config::NativeApplication,
+        fixture: &str,
+    ) -> std::path::PathBuf {
         let bundle = root.join("LinuxHostCheck");
         super::rust::compile(
             source,
@@ -102,7 +112,7 @@ impl LinuxHostTests {
                 ),
             );
         }
-        let host = Self::host(menus).replacen(
+        let host = super::linux::c_source(application, &Self::index()).replacen(
             "int main(int argc, char **argv) {",
             "static int tachyon_host_main(int argc, char **argv) {",
             1,
