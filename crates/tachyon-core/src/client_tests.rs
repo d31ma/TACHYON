@@ -51,6 +51,8 @@ mod java_construct_tests;
 #[cfg(test)]
 mod java_http_construct_tests;
 #[cfg(test)]
+mod java_http_verbs_tests;
+#[cfg(test)]
 mod java_preference_tests;
 #[cfg(test)]
 mod module_url_tests;
