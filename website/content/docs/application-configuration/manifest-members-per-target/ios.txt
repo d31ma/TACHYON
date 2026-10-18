@@ -39,6 +39,9 @@ tac.application.version
 tac.application.build
   honored: CFBundleVersion
 
+tac.application.minimumSystem
+  honored: MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)
+
 tac.application.window.width, height
   not applicable: tac.application.window width and height have no meaning on iOS: the system sizes the app.
 

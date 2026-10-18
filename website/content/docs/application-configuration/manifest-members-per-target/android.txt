@@ -39,6 +39,9 @@ tac.application.version
 tac.application.build
   honored: versionCode; a build above 2100000000 stops the build (TY1601)
 
+tac.application.minimumSystem
+  adapted: On Android, tac.application.minimumSystem.android is the minSdk API level (26 to 35). Dart and Java web services need Android System WebView 119, which Google Play updates apart from Android, so their need does not raise the API level.
+
 tac.application.window.width, height
   not applicable: tac.application.window width and height have no meaning on Android: the system sizes the app.
 

@@ -39,6 +39,9 @@ tac.application.version
 tac.application.build
   not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
 
+tac.application.minimumSystem
+  not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
+
 tac.application.window.width, height
   not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
 

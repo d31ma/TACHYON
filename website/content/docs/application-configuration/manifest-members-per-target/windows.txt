@@ -39,6 +39,9 @@ tac.application.version
 tac.application.build
   honored: the fourth number of the executable's file version; a build above 65535 stops the build (TY1601)
 
+tac.application.minimumSystem
+  adapted: On Windows, tac.application.minimumSystem.windows is the WebView2 Runtime version (86.0 unless set; 119.0 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains a missing or older runtime instead of opening a blank window.
+
 tac.application.window.width, height
   honored: the client area, in device-independent pixels
 

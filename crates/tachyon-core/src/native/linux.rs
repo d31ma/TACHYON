@@ -180,6 +180,10 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
         .replace(
             "__NATIVE_WINDOW_APPEARANCE__",
             &super::linux_window_appearance::LinuxWindowAppearance::source(&application.window),
+        )
+        .replace(
+            "__WEB_ENGINE_CHECK__",
+            &super::linux_web_engine_check::LinuxWebEngineCheck::source(application),
         );
     LinuxHostGenerator::DESKTOP.render(
         &template,
@@ -240,6 +244,8 @@ typedef void (*TachyonApplicationShutdown)(void);
 static TachyonApplicationStart g_application_start = NULL;
 static TachyonApplicationShutdown g_application_shutdown = NULL;
 static void tachyon_window_content_size(GtkWindow *window, int width, int height);
+
+__WEB_ENGINE_CHECK__
 
 __NATIVE_WINDOW_CONTROLS__
 
@@ -589,6 +595,11 @@ static gboolean tachyon_terminate(gpointer data) {
 
 static void tachyon_startup(GApplication *app, gpointer data) {
   (void)data;
+  if (!tachyon_web_engine_ready()) {
+    g_web_engine_too_old = TRUE;
+    tachyon_record("engine.unavailable");
+    return;
+  }
   tachyon_companion_load();
   if (g_application_start != NULL && !g_application_start()) {
     g_application_failed = TRUE;
@@ -602,6 +613,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   (void)data;
   if (g_application_failed) { g_application_quit(G_APPLICATION(app)); return; }
   if (g_native_window != NULL) { gtk_window_present(g_native_window); return; }
+  if (g_web_engine_too_old) { tachyon_show_web_engine_message(app); return; }
   tachyon_record("controller.created");
   GtkWidget *window = gtk_application_window_new(app);
   g_native_window = GTK_WINDOW(window);
@@ -713,6 +725,7 @@ mod tests {
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: crate::native::minimum_system::MinimumSystem::default(),
         }
     }
 
@@ -744,7 +757,10 @@ mod tests {
         assert!(source.contains("webkit_user_content_manager_register_script_message_handler"));
         assert!(source.contains("controller.created"));
         assert!(source.contains("controller.destroyed"));
-        assert!(!source.contains("gtk_label_new"));
+        let engine_check =
+            crate::native::linux_web_engine_check::LinuxWebEngineCheck::source(&application());
+        assert!(source.contains(&engine_check));
+        assert!(!source.replace(&engine_check, "").contains("gtk_label_new"));
         assert!(!source.contains("tachyon_build_node"));
         assert!(source.contains("webkit_web_context_register_uri_scheme"));
         assert!(source.contains("register_script_message_handler_with_reply"));

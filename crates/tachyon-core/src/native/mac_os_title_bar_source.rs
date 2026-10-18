@@ -62,6 +62,7 @@ mod tests {
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: crate::native::minimum_system::MinimumSystem::default(),
         }
     }
 

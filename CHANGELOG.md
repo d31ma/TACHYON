@@ -127,6 +127,17 @@ machine contracts have their own, independent major versions.
   `TY1601` when the project has `client/remotes`, and prints an
   offline-only note when it only has Yon routes. Whether each host's web
   view lets the requests through is still to be proven per host.
+- `tac.application.minimumSystem` in `client/manifest.json` names the
+  oldest system each native app runs on: `ios` and `macos` versions, an
+  `android` API level, the WebView2 Runtime version for `windows` and the
+  WebKitGTK version for `linux`. An app that bundles a Dart, Kotlin or Java
+  web service, which needs WebAssembly garbage collection, now gets iOS 18.2,
+  macOS 15.2, WebView2 119.0 or WebKitGTK 2.46 instead of the old fixed iOS
+  17.0 and macOS 13.0, with one build note. A declared value below the floor
+  stops the build (`TY1601`) and names the languages. The macOS app's
+  `swiftc` target now follows its `LSMinimumSystemVersion`. The Windows and
+  Linux apps check the installed web view at startup and show a readable
+  message instead of a blank window (ADR 0033 amendment).
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain

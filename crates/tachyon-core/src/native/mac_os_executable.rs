@@ -10,6 +10,7 @@ use super::swift_compile_inputs::SwiftCompileInputs;
 use crate::Failure;
 use futures_util::{StreamExt as _, TryStreamExt as _};
 use std::path::{Path, PathBuf};
+use tachyon_contracts::NativeTarget;
 
 pub(super) struct MacOsExecutable<'build> {
     pub(super) application: &'build NativeApplication,
@@ -20,7 +21,6 @@ pub(super) struct MacOsExecutable<'build> {
 }
 
 impl MacOsExecutable<'_> {
-    pub(super) const MINIMUM_SYSTEM_VERSION: &'static str = "13.0";
     const FRAMEWORK_ARGUMENTS: [&'static str; 8] = [
         "-framework",
         "AppKit",
@@ -144,11 +144,8 @@ impl MacOsExecutable<'_> {
         )?;
         let archive = library.map(|compiled| compiled.library.as_path());
         let inputs = SwiftCompileInputs::of(self.source, self.companion, archive, executable)?;
-        let target = slice.map(|slice| slice.swift_target(Self::MINIMUM_SYSTEM_VERSION));
-        let mut arguments = vec!["swiftc", "-parse-as-library", "-O"];
-        if let Some(target) = target.as_deref() {
-            arguments.extend(["-target", target]);
-        }
+        let target = Self::swift_target(self.application, slice);
+        let mut arguments = vec!["swiftc", "-parse-as-library", "-O", "-target", &target];
         arguments.extend(Self::FRAMEWORK_ARGUMENTS);
         arguments.extend(NativeReproducibility::SWIFT_ARGUMENTS);
         arguments.extend(inputs.arguments());
@@ -160,6 +157,16 @@ impl MacOsExecutable<'_> {
         let folder = Some(inputs.folder.as_path());
         NativeReproducibility::run_tool_in("/usr/bin/xcrun", &arguments, folder).await?;
         Ok(version)
+    }
+
+    pub(super) fn swift_target(
+        application: &NativeApplication,
+        slice: Option<MacOsSlice>,
+    ) -> String {
+        let minimum = application.minimum_system.floor(NativeTarget::Macos);
+        slice
+            .unwrap_or_else(MacOsSlice::build_machine)
+            .swift_target(&minimum.to_string())
     }
 
     async fn combine(

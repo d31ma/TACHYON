@@ -92,6 +92,15 @@ tac.application.rust                            native desktop
   go beside the app executable (see Rust crates and helper
   executables). These settings require a native Rust service.
 
+tac.application.minimumSystem                          native
+  The oldest system each app runs on: { "ios": "18.2", "macos":
+  "15.2", "android": 28, "windows": "119.0", "linux": "2.46" }.
+  windows is the WebView2 Runtime and linux is WebKitGTK. Unset
+  targets use the host floor, raised for Dart, Kotlin and Java
+  services (WebAssembly garbage collection) with one note. A value
+  below the floor stops the build (TY1601). Windows and Linux
+  check the web view at startup and explain an old one.
+
 tac.nativeCapabilities                                 native
   ["filePicker"]: native capabilities a native service may use.
   The only name today; without it the picker answers denied.

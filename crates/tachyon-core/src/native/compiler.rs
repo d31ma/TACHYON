@@ -201,8 +201,11 @@ impl NativeCompiler {
         options: &NativeBuildOptions,
         ui_candidate: bool,
     ) -> Result<NativeBuildResult, Failure> {
-        let application =
+        let mut application =
             NativeApplication::discover_from_snapshot(project.snapshot_root(), project.root())?;
+        let floor =
+            super::system_floor::SystemFloor::for_project(project, &application, options.target)?;
+        application.minimum_system = floor.minimum;
         let base_output = resolve_output_path(project.root(), &options.output_directory)?;
         ensure_entry_route_is_a_page(project, &application)?;
         let index =
@@ -261,6 +264,7 @@ impl NativeCompiler {
                 .into_iter()
                 .chain(AppleIcons::skipped_note(&application, options.target))
                 .chain(yon_note)
+                .chain(floor.note)
                 .collect(),
         })
     }

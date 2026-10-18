@@ -130,6 +130,16 @@
     "android": {"reach": "honored", "how": "versionCode; a build above 2100000000 stops the build (TY1601)"}
   },
   {
+    "member": "tac.application.minimumSystem",
+    "paths": ["tac.application.minimumSystem"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)"},
+    "windows": {"reach": "adapted", "note": "On Windows, tac.application.minimumSystem.windows is the WebView2 Runtime version (86.0 unless set; 119.0 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains a missing or older runtime instead of opening a blank window."},
+    "linux": {"reach": "adapted", "note": "On Linux, tac.application.minimumSystem.linux is the WebKitGTK version (2.40 unless set; 2.46 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains an older WebKitGTK instead of opening a blank window."},
+    "ios": {"reach": "honored", "how": "MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)"},
+    "android": {"reach": "adapted", "note": "On Android, tac.application.minimumSystem.android is the minSdk API level (26 to 35). Dart and Java web services need Android System WebView 119, which Google Play updates apart from Android, so their need does not raise the API level."}
+  },
+  {
     "member": "tac.application.window.width, height",
     "paths": ["tac.application.window.width", "tac.application.window.height"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},

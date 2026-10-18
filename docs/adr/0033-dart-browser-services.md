@@ -2,7 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-23
-- Amended: 2026-09-28 (the program compiles to WasmGC; see the amendment)
+- Amended: 2026-09-28 (the program compiles to WasmGC; see the amendment);
+  2026-10-18 (native apps raise their minimum system for WasmGC services)
 - Amends: [ADR 0030](0030-components-use-services.md) (the browser service
   languages), [ADR 0019](0019-companions-compile-for-their-target.md) ("Dart is
   not a companion language")
@@ -190,3 +191,75 @@ program is smaller on the wire and starts a few milliseconds later.
   as a method result, so the view reads plain objects and lists, never an
   opaque Dart object. A model value from the view is read back with the
   model's reader (`__yon_read_<Model>`).
+
+## Amendment (2026-10-18): native apps raise their minimum system for WasmGC services
+
+The 2026-09-28 amendment said that native hosts need a web view as new as
+the browsers that run WasmGC. Nothing checked it: the iOS app declared iOS
+17.0 and the macOS app macOS 13.0, so an app with a Dart, Kotlin or Java
+web service installed on a system whose web view cannot run it.
+
+### The member
+
+`tac.application.minimumSystem` in `client/manifest.json` names the oldest
+system each native app runs on:
+
+```json
+{ "tac": { "application": { "minimumSystem": {
+  "ios": "18.2", "macos": "15.2", "android": 28,
+  "windows": "119.0", "linux": "2.46"
+} } } }
+```
+
+- `ios` and `macos` are system versions. `android` is an API level. A
+  desktop web view is part of the system on macOS only, so `windows` names
+  the WebView2 Runtime version and `linux` the WebKitGTK version.
+- Every key is optional. A malformed value or an unknown key stops every
+  build, web builds included (`TY1601`).
+
+### The floor
+
+Each host has its own floor, the oldest system its host code supports:
+
+| Target | Host floor | Floor with a WasmGC service | Applied as |
+| --- | --- | --- | --- |
+| iOS | 17.0 | 18.2 | `MinimumOSVersion` and the `swiftc` target |
+| macOS | 13.0 | 15.2 | `LSMinimumSystemVersion` and the `swiftc` target |
+| Android | API level 26 | API level 26 (see below) | `minSdk` |
+| Windows | WebView2 86.0 | WebView2 119.0 | a check when the app starts |
+| Linux | WebKitGTK 2.40 | WebKitGTK 2.46 | a check when the app starts |
+
+- A service needs WasmGC on a target when it runs in the page as Dart,
+  Kotlin or Java there. Kotlin linked into the Android app does not count.
+- Without the member, the build uses the floor in the third column when the
+  app bundles such a service, and prints one note that names the languages.
+- A declared value below the host floor, or below the WasmGC floor when such
+  a service is bundled, stops the build with `TY1601`. The message names the
+  languages and the version to raise it to. A declared value at or above both
+  floors is used as written, with no note.
+- WebKitGTK turned WasmGC on by default in 2.46 (`useWasmGC` defaults to
+  true in JavaScriptCore's `OptionsList.h` at the `webkitgtk-2.46.0` tag; it
+  was `false` in 2.44). Chromium, and so WebView2, shipped it in 119.
+- Android System WebView is updated by Google Play apart from Android
+  itself, so no API level guarantees it. The Android app keeps its API level,
+  and the build prints a note that names Android System WebView 119. An older
+  web view shows the service's own "needs a browser with WebAssembly garbage
+  collection" error.
+
+### The startup check
+
+The Windows and Linux apps read the installed web view before they open a
+page. Too old or missing, they show one readable message instead of a blank
+window, record `engine.unavailable`, and start no application service:
+
+- Windows calls `GetAvailableCoreWebView2BrowserVersionString` and
+  `CompareBrowserVersions`, then shows a message box that names the runtime,
+  the floor and the download page.
+- Linux compares `webkit_get_major_version()` and
+  `webkit_get_minor_version()` with the floor, then shows a window with the
+  message and prints it to standard error.
+
+The macOS and iOS systems refuse to open an app below its declared minimum,
+and Android refuses to install one below its `minSdk`, so those hosts need no
+check of their own.
+

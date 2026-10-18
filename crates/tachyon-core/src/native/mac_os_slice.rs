@@ -19,6 +19,12 @@ impl MacOsSlice {
         rust_target: "x86_64-apple-darwin",
     };
 
+    const BY_BUILD_MACHINE: [Self; 2] = [Self::X64, Self::ARM64];
+
+    pub(super) fn build_machine() -> Self {
+        Self::BY_BUILD_MACHINE[usize::from(cfg!(target_arch = "aarch64"))]
+    }
+
     pub(super) const fn name(self) -> &'static str {
         self.name
     }

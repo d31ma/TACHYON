@@ -230,7 +230,9 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
         identifier = application.application_id,
         version = application.version,
         build = application.build,
-        minimum = super::mac_os_executable::MacOsExecutable::MINIMUM_SYSTEM_VERSION,
+        minimum = application
+            .minimum_system
+            .floor(tachyon_contracts::NativeTarget::Macos),
         icon = icon,
         location = application.permissions.location_plist_entries(
             &super::browser_api_permissions::BrowserApiPermissions::MACOS_LOCATION_KEYS
@@ -930,6 +932,7 @@ mod tests {
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: crate::native::minimum_system::MinimumSystem::default(),
         }
     }
 
@@ -998,6 +1001,40 @@ mod tests {
         let plist = info_plist(&application(), Some("AppIcon"));
         assert!(plist.contains("dev.tachyon.native-catalog"));
         assert!(plist.contains("NativeCatalog"));
+        assert!(plist.contains("<key>LSMinimumSystemVersion</key><string>13.0</string>"));
+    }
+
+    #[test]
+    fn a_raised_floor_reaches_the_plist_and_the_compiler_target() {
+        let mut raised = application();
+        raised.minimum_system = raised.minimum_system.with_floor(
+            tachyon_contracts::NativeTarget::Macos,
+            crate::native::system_version::SystemVersion::new(15, 2),
+        );
+        let plist = info_plist(&raised, None);
+        assert!(plist.contains("<key>LSMinimumSystemVersion</key><string>15.2</string>"));
+        assert!(
+            crate::native::mac_os_executable::MacOsExecutable::swift_target(&raised, None)
+                .ends_with("-apple-macosx15.2")
+        );
+    }
+
+    #[test]
+    fn swiftc_targets_the_minimum_system_on_every_slice() {
+        let executable = crate::native::mac_os_executable::MacOsExecutable::swift_target;
+        let slice = crate::native::mac_os_slice::MacOsSlice::build_machine();
+        assert_eq!(
+            crate::native::mac_os_architecture::MacOsArchitecture::build_machine().slices(),
+            [slice]
+        );
+        assert_eq!(executable(&application(), None), slice.swift_target("13.0"));
+        assert_eq!(
+            executable(
+                &application(),
+                Some(crate::native::mac_os_slice::MacOsSlice::X64)
+            ),
+            "x86_64-apple-macosx13.0"
+        );
     }
 
     #[test]

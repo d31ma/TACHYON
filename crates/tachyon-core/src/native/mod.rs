@@ -54,6 +54,7 @@ mod linux;
 mod linux_host_tests;
 #[cfg(test)]
 mod linux_page_call_tests;
+mod linux_web_engine_check;
 mod linux_window_appearance;
 #[cfg(test)]
 mod linux_window_appearance_tests;
@@ -74,6 +75,7 @@ mod macos_menu_tests;
 mod managed_capability_tests;
 mod managed_native_capabilities;
 mod manifest_setting;
+mod minimum_system;
 #[cfg(test)]
 mod model_tests;
 mod native_application_capture;
@@ -200,6 +202,9 @@ mod style_source;
 mod swift_compile_inputs;
 mod swift_streams;
 mod swift_web_services;
+mod system_floor;
+mod system_version;
+mod target_floor;
 mod target_reach;
 mod target_support;
 mod target_support_entry;
@@ -213,6 +218,7 @@ mod windows_compiler_plan;
 #[cfg(test)]
 mod windows_host_tests;
 mod windows_version_resource;
+mod windows_web_engine_check;
 mod windows_window_frame;
 #[cfg(test)]
 mod windows_window_frame_tests;

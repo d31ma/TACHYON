@@ -148,3 +148,12 @@ Kotlin/Wasm has none of these.
   APIs.
 - Continuous integration skips the Kotlin web tests unless `kotlinc-js` and
   `TAC_KOTLIN_WASM_STDLIB` are present.
+
+## Amendment (2026-10-18): the native minimum system
+
+A native app that bundles a Kotlin web service needs a web view that runs
+WasmGC. The build raises the app's minimum system for it, or refuses a
+`tac.application.minimumSystem` below that floor (`TY1601`). The floors and
+the Windows and Linux startup checks are in the
+[ADR 0033 amendment of 2026-10-18](0033-dart-browser-services.md#amendment-2026-10-18-native-apps-raise-their-minimum-system-for-wasmgc-services).
+

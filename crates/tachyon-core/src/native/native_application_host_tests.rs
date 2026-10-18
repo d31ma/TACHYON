@@ -28,6 +28,7 @@ impl ApplicationHostTests {
             menus: super::native_menu_config::NativeMenuConfig::default(),
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: crate::native::minimum_system::MinimumSystem::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

@@ -42,6 +42,7 @@ impl WindowsWindowFrameTests {
             rust: super::native_rust_project::NativeRustProject::default(),
             outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: super::minimum_system::MinimumSystem::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

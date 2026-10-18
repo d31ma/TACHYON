@@ -39,6 +39,9 @@ tac.application.version
 tac.application.build
   adapted: A Linux .desktop file has no build number key, so tac.application.build is written as X-Tachyon-Build.
 
+tac.application.minimumSystem
+  adapted: On Linux, tac.application.minimumSystem.linux is the WebKitGTK version (2.40 unless set; 2.46 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains an older WebKitGTK instead of opening a blank window.
+
 tac.application.window.width, height
   honored: the first size of the page inside the window
 

@@ -8,14 +8,15 @@ use super::macos::MacOsHostGenerator;
 use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
 use super::swift_compile_inputs::SwiftCompileInputs;
+use super::system_version::SystemVersion;
 use crate::Failure;
 use std::path::{Path, PathBuf};
+use tachyon_contracts::NativeTarget;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct IosHostGenerator;
 
 impl IosHostGenerator {
-    const DEPLOYMENT_TARGET: &str = "17.0";
     const FRAMEWORK_ARGUMENTS: [&str; 6] = [
         "-framework",
         "UIKit",
@@ -53,8 +54,9 @@ impl IosHostGenerator {
         }
 
         let executable = bundle.join(&application.executable_name);
+        let deployment = application.minimum_system.floor(NativeTarget::Ios);
         let swift_version =
-            compile_swift(&swift_path, companion.as_deref(), None, &executable).await?;
+            compile_swift(&swift_path, companion.as_deref(), deployment, &executable).await?;
         super::macos::sign_bundle(&bundle).await?;
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(bundle_name),
@@ -64,20 +66,19 @@ impl IosHostGenerator {
     }
 }
 
-fn simulator_triple() -> String {
+fn simulator_triple(deployment: SystemVersion) -> String {
     let architecture = if cfg!(target_arch = "aarch64") {
         "arm64"
     } else {
         "x86_64"
     };
-    let deployment_target = IosHostGenerator::DEPLOYMENT_TARGET;
-    format!("{architecture}-apple-ios{deployment_target}-simulator")
+    format!("{architecture}-apple-ios{deployment}-simulator")
 }
 
 async fn compile_swift(
     source: &Path,
     companion: Option<&Path>,
-    library: Option<&Path>,
+    deployment: SystemVersion,
     executable: &Path,
 ) -> Result<String, Failure> {
     if !cfg!(target_os = "macos") {
@@ -92,8 +93,8 @@ async fn compile_swift(
     )
     .await?;
     let version = first_line(&version_output, "Swift unknown");
-    let inputs = SwiftCompileInputs::of(source, companion, library, executable)?;
-    let triple = simulator_triple();
+    let inputs = SwiftCompileInputs::of(source, companion, None, executable)?;
+    let triple = simulator_triple(deployment);
     let mut arguments = vec![
         "--sdk",
         "iphonesimulator",
@@ -190,7 +191,7 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
         identifier = application.application_id,
         version = application.version,
         build = application.build,
-        deployment = IosHostGenerator::DEPLOYMENT_TARGET,
+        deployment = application.minimum_system.floor(NativeTarget::Ios),
         icon_block = icon_block(icons),
         location = application.permissions.location_plist_entries(
             &super::browser_api_permissions::BrowserApiPermissions::IOS_LOCATION_KEYS
@@ -543,8 +544,9 @@ private func tachyonDisposeCompanions() {
 
 #[cfg(test)]
 mod tests {
-    use super::{IosHostGenerator, info_plist, simulator_triple, swift_source};
+    use super::{SystemVersion, info_plist, simulator_triple, swift_source};
     use crate::native::config::NativeApplication;
+    use tachyon_contracts::NativeTarget;
 
     fn application() -> NativeApplication {
         NativeApplication {
@@ -561,6 +563,7 @@ mod tests {
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: crate::native::minimum_system::MinimumSystem::default(),
         }
     }
 
@@ -604,7 +607,17 @@ mod tests {
         assert!(plist.contains("dev.tachyon.native-catalog"));
         assert!(plist.contains("<string>iPhoneSimulator</string>"));
         assert!(plist.contains("<key>UILaunchScreen</key>"));
-        assert!(plist.contains(IosHostGenerator::DEPLOYMENT_TARGET));
+        assert!(plist.contains("<key>MinimumOSVersion</key><string>17.0</string>"));
+    }
+
+    #[test]
+    fn a_raised_floor_reaches_the_plist() {
+        let mut raised = application();
+        raised.minimum_system = raised
+            .minimum_system
+            .with_floor(NativeTarget::Ios, SystemVersion::new(18, 2));
+        let plist = info_plist(&raised, &[]);
+        assert!(plist.contains("<key>MinimumOSVersion</key><string>18.2</string>"));
     }
 
     #[test]
@@ -619,9 +632,8 @@ mod tests {
 
     #[test]
     fn simulator_triple_matches_the_build_machine() {
-        let triple = simulator_triple();
-        assert!(triple.ends_with("-simulator"));
-        assert!(triple.contains(IosHostGenerator::DEPLOYMENT_TARGET));
+        let triple = simulator_triple(SystemVersion::new(18, 2));
+        assert!(triple.ends_with("-apple-ios18.2-simulator"));
     }
 
     #[test]

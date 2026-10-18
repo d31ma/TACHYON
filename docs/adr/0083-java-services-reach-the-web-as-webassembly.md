@@ -589,3 +589,12 @@ that does not come from their own files:
 - The page-program fixture (ADR 0022) is `"shared"` for Java. Its route
   loads 40 KB of script and 82 KB of WebAssembly, against 86 KB before
   (TY1337, the same Linux container, no Binaryen).
+
+## Amendment (2026-10-18): the native minimum system
+
+A native app that bundles a Java web service needs a web view that runs
+WasmGC. The build raises the app's minimum system for it, or refuses a
+`tac.application.minimumSystem` below that floor (`TY1601`). The floors and
+the Windows and Linux startup checks are in the
+[ADR 0033 amendment of 2026-10-18](0033-dart-browser-services.md#amendment-2026-10-18-native-apps-raise-their-minimum-system-for-wasmgc-services).
+

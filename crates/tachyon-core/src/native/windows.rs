@@ -657,6 +657,8 @@ pub(super) fn c_source(
     let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
     let header_capacity = WindowsHostGenerator::response_header_capacity(application);
     let frame = super::windows_window_frame::WindowsWindowFrame::source(&application.window);
+    let web_engine_check =
+        super::windows_web_engine_check::WindowsWebEngineCheck::source(application);
     let template = WindowsHostGenerator::C_HOST.replace(
         "__WINDOW_CONTROLS__",
         &super::native_window_controls::NativeWindowControls::windows(&application.window),
@@ -674,6 +676,7 @@ pub(super) fn c_source(
                 "__WINDOW_FRAME_MESSAGES__",
                 super::windows_window_frame::WindowsWindowFrame::messages(&application.window),
             ),
+            ("__WEB_ENGINE_CHECK__", &web_engine_check),
         ],
     )
 }
@@ -774,6 +777,8 @@ static const TachyonLocalRoute *tachyon_current_route(void) {
 }
 
 static wchar_t *tachyon_widen(const char *value);
+
+__WEB_ENGINE_CHECK__
 
 static BOOL tachyon_menu_window_open(void) {
   return g_window != NULL && g_webview != NULL;
@@ -1415,6 +1420,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   (void)previous;
   (void)arguments;
   if (FAILED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) return 1;
+  if (!tachyon_web_engine_ready()) {
+    tachyon_record("engine.unavailable");
+    tachyon_show_web_engine_message();
+    CoUninitialize();
+    return 1;
+  }
   tachyon_companion_load();
   if (g_application_start != NULL && !g_application_start()) {
     tachyon_record("application.start.failed");
@@ -1582,6 +1593,7 @@ mod tests {
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: crate::native::minimum_system::MinimumSystem::default(),
         }
     }
 

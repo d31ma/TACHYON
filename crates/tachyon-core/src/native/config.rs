@@ -22,6 +22,7 @@ pub(super) struct NativeApplication {
     pub(super) rust: super::native_rust_project::NativeRustProject,
     pub(super) outgoing: super::native_outgoing_hosts::NativeOutgoingHosts,
     pub(super) permissions: super::browser_api_permissions::BrowserApiPermissions,
+    pub(super) minimum_system: super::minimum_system::MinimumSystem,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -272,6 +273,9 @@ fn validate_manifest_application(application: &ManifestApplication) -> Result<()
     application.menus.validate()?;
     if let Some(problem) = application.rust.problem() {
         return Err(config_failure(&problem));
+    }
+    if let Some(problem) = application.minimum_system.problem() {
+        return Err(config_failure(problem));
     }
     if let Some(id) = &application.id
         && !valid_application_id(id)
@@ -565,6 +569,8 @@ struct ManifestApplication {
     rust: super::rust_companion_crate::RustCompanionCrate,
     #[serde(default)]
     permissions: BTreeMap<String, String>,
+    #[serde(default, rename = "minimumSystem")]
+    minimum_system: super::minimum_system::MinimumSystem,
 }
 
 impl NativeApplication {
@@ -638,6 +644,7 @@ impl NativeApplication {
 
     fn apply_manifest_application(&mut self, application: &ManifestApplication) {
         self.menus.clone_from(&application.menus);
+        self.minimum_system.clone_from(&application.minimum_system);
         if let Some(id) = &application.id {
             self.application_id.clone_from(id);
         }
@@ -684,6 +691,7 @@ impl NativeApplication {
             rust: super::native_rust_project::NativeRustProject::default(),
             outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: super::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: super::minimum_system::MinimumSystem::default(),
         }
     }
 

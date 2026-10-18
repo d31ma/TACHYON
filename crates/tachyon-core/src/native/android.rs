@@ -18,8 +18,7 @@ impl AndroidHostGenerator {
     const ANDROID_GRADLE_PLUGIN: &str = "8.7.3";
     const ANDROIDX_WEBKIT: &str = "1.14.0";
     const KOTLIN_PLUGIN: &str = "2.0.21";
-    const COMPILE_SDK: u32 = 35;
-    const MIN_SDK: u32 = 26;
+    pub(super) const COMPILE_SDK: u32 = 35;
     const JAVA_KEYWORDS: [&str; 16] = [
         "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
         "const", "do", "else", "for", "if", "int", "new",
@@ -299,7 +298,10 @@ tasks.withType<AbstractArchiveTask>().configureEach {{
         webkit = AndroidHostGenerator::ANDROIDX_WEBKIT,
         package = package,
         compile_sdk = AndroidHostGenerator::COMPILE_SDK,
-        min_sdk = AndroidHostGenerator::MIN_SDK,
+        min_sdk = application
+            .minimum_system
+            .floor(tachyon_contracts::NativeTarget::Android)
+            .major(),
         version = application.version,
         build = application.build,
     )
@@ -1046,6 +1048,7 @@ mod tests {
             rust: crate::native::native_rust_project::NativeRustProject::default(),
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: crate::native::minimum_system::MinimumSystem::default(),
         }
     }
 
@@ -1181,10 +1184,9 @@ mod tests {
     fn gradle_and_manifest_pin_the_supported_android_surface() {
         let gradle = app_gradle(&application(), "dev.tachyon.native_catalog", false);
         let webkit = AndroidHostGenerator::ANDROIDX_WEBKIT;
-        let min_sdk = AndroidHostGenerator::MIN_SDK;
         assert!(gradle.contains(AndroidHostGenerator::ANDROID_GRADLE_PLUGIN));
         assert!(gradle.contains(&format!("androidx.webkit:webkit:{webkit}")));
-        assert!(gradle.contains(&format!("minSdk = {min_sdk}")));
+        assert!(gradle.contains("minSdk = 26\n"));
         assert!(gradle.contains("VERSION_17"));
         assert!(gradle.contains("ignoreAssetsPattern ="));
         assert!(app_gradle(&application(), "x.y", true).contains("org.jetbrains.kotlin.android"));
@@ -1197,6 +1199,14 @@ mod tests {
         let released_gradle = app_gradle(&released, "x.y", false);
         assert!(released_gradle.contains("versionCode = 7\n"));
         assert!(released_gradle.contains("versionName = \"2.1.0-beta\"\n"));
+
+        let mut raised = application();
+        raised.minimum_system = raised.minimum_system.with_floor(
+            tachyon_contracts::NativeTarget::Android,
+            crate::native::system_version::SystemVersion::new(30, 0),
+        );
+        let raised_gradle = app_gradle(&raised, "dev.tachyon.native_catalog", false);
+        assert!(raised_gradle.contains("minSdk = 30\n"));
 
         let manifest = android_manifest(&application(), false);
         assert!(manifest.contains("android:usesCleartextTraffic=\"false\""));
