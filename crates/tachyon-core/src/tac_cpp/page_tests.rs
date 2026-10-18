@@ -10,6 +10,10 @@ impl PageProject {
     const OWNER: &'static str = "00000000-0000-4000-8000-00000000000";
     const HOST: &'static str = r#"
 #line 1 "tachyon-page-host.cpp"
+tachyon::json::JsonNode& tachyonPageNotes() {
+    static tachyon::json::JsonNode notes = tachyon::json::JsonArray();
+    return notes;
+}
 extern "C" {
 void tac_host_emit(const char* text, int length) { std::fprintf(stderr, "event %.*s\n", length, text); }
 double tac_host_monotonic_ms() { static double ticks = 0; ticks += 1; return ticks; }
@@ -54,14 +58,30 @@ char* tac_host_storage(const char* text, int length) {
 char* tac_host_web(const char*, int) { return nullptr; }
 double tac_host_epoch_ms() { return tachyonPageClock; }
 void tac_host_http_start(std::uint32_t, const char*, int) {}
-void tac_host_task_done(std::uint32_t, const char*, int) {}
+void tac_host_task_done(std::uint32_t task, const char* text, int length) {
+    tachyonPageNotes().add(tachyon::json::JsonNode("done " + std::to_string(task) + " " + std::string(text, length)));
+}
 void tac_host_http_cancel(std::uint32_t) {}
+void tac_host_socket_start(std::uint32_t ticket, const char* owner, int ownerLength, const char* text, int length) {
+    tachyonPageNotes().add(tachyon::json::JsonNode("socket " + std::to_string(ticket) + " " + std::string(owner, ownerLength) + " " + std::string(text, length)));
+}
 }
 int main() {
     std::string line;
     while (std::getline(std::cin, line)) {
         if (line.rfind("clock ", 0) == 0) {
             tachyonPageClock = std::stod(line.substr(6));
+            continue;
+        }
+        if (line.rfind("settle ", 0) == 0) {
+            std::size_t space = line.find(' ', 7);
+            std::string answer = line.substr(space + 1);
+            tac_http_settle(static_cast<std::uint32_t>(std::stoul(line.substr(7, space - 7))), answer.c_str(), static_cast<int>(answer.size()));
+            continue;
+        }
+        if (line == "notes") {
+            std::printf("%s\n", tachyonPageNotes().toJsonString().c_str());
+            tachyonPageNotes() = tachyon::json::JsonArray();
             continue;
         }
         char* answer = tac_native_invoke(line.c_str());
@@ -737,4 +757,72 @@ fn a_page_service_opens_one_setup_for_its_selection() {
         "{answers:?}"
     );
     assert_eq!(values[6..8], [json!("open"), json!(1)], "{answers:?}");
+}
+
+#[test]
+fn a_socket_client_sends_through_the_page_and_reports_its_code() {
+    if !PageProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    PageProject::write(
+        root.path(),
+        &[
+            (
+                "client/models/ChatMessage.hpp",
+                "#include <string>\nstruct ChatMessage {\n    std::string text;\n};\n",
+            ),
+            (
+                "client/remotes/ChatClient.hpp",
+                "class [[HTTPClient(\"/chat\")]] ChatClient {\npublic:\n    [[SocketRequest]] void receive(const ChatMessage& message);\n};\n",
+            ),
+            (
+                "client/services/ChatService.hpp",
+                "class [[Service]] ChatService {\npublic:\n    [[Needs]] ChatClient& chat;\n    Task<void> say(std::string text) { co_await chat.send(ChatMessage{text}); }\n    Task<void> sayTooMuch() { co_await chat.send(ChatMessage{std::string(70000, 'x')}); }\n};\n",
+            ),
+        ],
+    );
+    let owner = PageProject::owner(1);
+    let lines = [
+        PageProject::init("chat", 1, &json!({})).to_string(),
+        PageProject::call("chat", 1, "say", &json!(["hi"])).to_string(),
+        String::from("notes"),
+        String::from("settle 1 {\"value\":null}"),
+        PageProject::call("chat", 1, "say", &json!(["again"])).to_string(),
+        String::from("settle 2 {\"error\":{\"code\":\"HTTP_NETWORK\"}}"),
+        PageProject::call("chat", 1, "sayTooMuch", &json!([])).to_string(),
+        String::from("notes"),
+    ];
+    let answers = PageProject::answered_lines(root.path(), &[("chat", "ChatService")], &lines);
+    assert_eq!(
+        answers[0]["value"]["streams"],
+        json!([{"client": "ChatClient", "path": "/chat", "event": "ChatMessage", "socket": true, "models": {"ChatMessage": {"open": false, "fields": {"text": "!string"}}}}]),
+        "{answers:?}"
+    );
+    assert_eq!(answers[1]["task"], 1, "{answers:?}");
+    assert_eq!(
+        answers[2],
+        json!([format!(
+            "socket 1 {owner} {{\"client\":\"ChatClient\",\"message\":{{\"text\":\"hi\"}}}}"
+        )]),
+        "{answers:?}"
+    );
+    let notes = answers[5].as_array().expect("notes");
+    assert_eq!(notes[0], "done 1 {\"value\":null}", "{answers:?}");
+    assert!(
+        notes[1]
+            .as_str()
+            .is_some_and(|note| note.starts_with("socket 2 ")),
+        "{answers:?}"
+    );
+    assert_eq!(
+        notes[2],
+        "done 2 {\"error\":\"The socket message was not sent.\",\"code\":\"HTTP_NETWORK\"}",
+        "{answers:?}"
+    );
+    assert_eq!(
+        notes[3],
+        "done 3 {\"error\":\"A socket message is JSON of at most 64 KiB.\",\"code\":\"HTTP_BODY\"}",
+        "{answers:?}"
+    );
 }

@@ -54,3 +54,16 @@ public:
 };
 
 }
+
+namespace tachyon::http {
+
+class TacSocket {
+public:
+    template <typename Message>
+    static Task<void> send(std::string, Message) {
+        throw HttpRequestException("HTTP_MISSING", "A socket client sends only in the browser. A test has no page, so the message was not sent.");
+        co_return;
+    }
+};
+
+}

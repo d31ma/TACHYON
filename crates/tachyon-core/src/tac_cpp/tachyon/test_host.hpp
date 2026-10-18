@@ -51,6 +51,8 @@ public:
 
     static void httpCancel(std::uint32_t) {}
 
+    static void socketStart(std::uint32_t, const std::string&, const std::string&) {}
+
 private:
     static std::string entity(const json::JsonNode& command) {
         json::JsonObject answer;

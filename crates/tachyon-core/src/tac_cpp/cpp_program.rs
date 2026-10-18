@@ -1,6 +1,6 @@
 use super::{
-    CppChecks, CppConverter, CppFailure, CppFolder, CppLowering, CppModel, CppPrelude, CppService,
-    CppServiceGraph, CppSetup, CppStore,
+    CppChecks, CppConverter, CppFailure, CppFolder, CppHeldStreams, CppLowering, CppModel,
+    CppPrelude, CppService, CppServiceGraph, CppSetup, CppStore,
 };
 use crate::Failure;
 use serde_json::Value;
@@ -27,10 +27,12 @@ impl CppProgram {
     pub(crate) fn read(root: &Path, chosen: &[(String, String, PathBuf)]) -> Result<Self, Failure> {
         let mut graph = CppServiceGraph::new(root)?;
         let registered = Self::register(&mut graph, chosen)?;
+        let mut services = graph.finish();
+        CppHeldStreams::attach(root, &mut services)?;
         Self {
             models: Self::models(root)?,
             setups: CppSetup::read_all(root)?,
-            services: graph.finish(),
+            services,
             registered,
             records_calls: false,
             stores: BTreeMap::new(),

@@ -1,4 +1,6 @@
-use super::{CppAttribute, CppClass, CppFailure, CppMember, CppMemberKind, CppParameter};
+use super::{
+    CppAttribute, CppClass, CppFailure, CppMember, CppMemberKind, CppParameter, CppStreamRequest,
+};
 use crate::Failure;
 use std::path::Path;
 
@@ -18,15 +20,29 @@ impl<'a> CppRemote<'a> {
     ];
     const TASK_PREFIXES: [&'static str; 2] = ["tachyon::Task<", "Task<"];
     const SEGMENT: &'static str = "tachyon::http::TacBrowserRequest::segment";
-    const ONE_REQUEST: &'static str = "Each method of a C++ [[HTTPClient]] class has one request marker ([[GetRequest(\"/path\")]], [[PostRequest]], [[PutRequest]], [[PatchRequest]] or [[DeleteRequest]]), returns Task<Answer> and has no body: Tachyon writes it";
+    const ONE_REQUEST: &'static str = "Each method of a C++ [[HTTPClient]] class has one request marker ([[GetRequest(\"/path\")]], [[PostRequest]], [[PutRequest]], [[PatchRequest]] or [[DeleteRequest]]), returns Task<Answer> and has no body: Tachyon writes it. A [[StreamRequest]] or [[SocketRequest]] method returns void instead";
     const PATH_FORM: &'static str = "A C++ request path is one string that starts with /, for example [[GetRequest(\"/orders/{id}\")]]";
 
-    pub(crate) fn check(path: &Path, class: &'a CppClass) -> Result<(), Failure> {
-        Self::check_members(path, class)
+    pub(crate) fn check(path: &Path, source: &str, class: &'a CppClass) -> Result<(), Failure> {
+        Self::check_members(path, class)?;
+        CppStreamRequest::check(path, source, class)
+    }
+
+    pub(crate) fn base(class: &CppClass) -> String {
+        Self::written_path(
+            class
+                .markers
+                .iter()
+                .find(|marker| marker.name == "HTTPClient"),
+        )
     }
 
     fn check_members(path: &Path, class: &CppClass) -> Result<(), Failure> {
-        for member in &class.members {
+        let requests = class
+            .members
+            .iter()
+            .filter(|member| !CppStreamRequest::is_stream(member));
+        for member in requests {
             Self::check_member(path, member)?;
         }
         Ok(())
@@ -35,12 +51,7 @@ impl<'a> CppRemote<'a> {
     pub(crate) fn definitions(class: &'a CppClass) -> String {
         let remote = Self {
             class,
-            base: Self::written_path(
-                class
-                    .markers
-                    .iter()
-                    .find(|marker| marker.name == "HTTPClient"),
-            ),
+            base: Self::base(class),
             adapter: crate::behavior::HttpClientSource::adapter_name(&class.name),
         };
         remote.every_definition()
@@ -80,7 +91,12 @@ impl<'a> CppRemote<'a> {
 
     fn every_definition(&self) -> String {
         let mut text = String::new();
-        for member in &self.class.members {
+        let requests = self
+            .class
+            .members
+            .iter()
+            .filter(|member| !CppStreamRequest::is_stream(member));
+        for member in requests {
             text.push_str(&self.definition(member));
         }
         text

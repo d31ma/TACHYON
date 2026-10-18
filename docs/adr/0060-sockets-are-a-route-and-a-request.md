@@ -170,8 +170,8 @@ client in a field; the service receives each message with `#[OnEvent]`, and
 the generated `send(message).await` writes to the socket and returns a
 `BehaviorError` code instead of a rejected promise. See ADR 0090, "Rust
 streams and sockets". Dart, Java and
-C++ still refuse `@SocketRequest`. (Python and F# hold socket clients
-since; see their amendments below.)
+C++ still refuse `@SocketRequest`. (Dart, Python, F# and C++ hold
+socket clients since; see their amendments below.)
 
 ## Amendment (2026-10-17): Dart socket clients
 
@@ -236,3 +236,16 @@ message with `[<OnEvent>]`, and the generated
 socket through the same .NET socket sender as C# and raises a `BehaviorError`
 with a code instead of rejecting a promise. A natively linked F# service
 refuses the client. See ADR 0090, "F# streams and sockets".
+
+## Amendment (2026-10-18): C++ socket clients
+
+`[[SocketRequest]]` is also written on a Tac C++ `[[HTTPClient]]` method,
+declared without a body as `[[SocketRequest]] void receive(const ChatMessage& message);`.
+The page's event bus holds the `WebSocket` for the C++ service that keeps the
+client in a `[[Needs]]` field; the service receives each message with
+`[[OnEvent]]`, and the generated
+`template <typename Message> tachyon::Task<void> send(Message message) const`
+writes to the socket and throws `tachyon::http::HttpRequestException` with a
+code instead of rejecting a promise. See ADR 0090, "C++ streams and
+sockets". Java is now the only Tac language that refuses
+`@SocketRequest`.

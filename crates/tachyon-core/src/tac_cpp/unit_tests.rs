@@ -581,3 +581,38 @@ fn a_setup_file_is_checked_before_compiling() {
     let refused = UnitProject::refusal(root.path(), "client/tests/ReportServiceTest.hpp");
     assert!(refused.contains("begin with 'tac.'"), "{refused}");
 }
+
+#[test]
+fn a_socket_client_in_a_test_unit_has_no_page_to_send_on() {
+    if !UnitProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    UnitProject::write(
+        root.path(),
+        &[
+            (
+                "client/models/ChatMessage.hpp",
+                "#include <string>\nstruct ChatMessage {\n    std::string text;\n};\n",
+            ),
+            (
+                "client/remotes/ChatClient.hpp",
+                "class [[HTTPClient(\"/chat\")]] ChatClient {\npublic:\n    [[SocketRequest]] void receive(const ChatMessage& message);\n};\n",
+            ),
+            (
+                "client/tests/ChatTestSetup.hpp",
+                "class [[TestSetup]] ChatTestSetup {};\n",
+            ),
+            (
+                "client/tests/ChatClientTest.hpp",
+                "class [[Test(ChatTestSetup)]] ChatClientTest {\npublic:\n    ChatClient chat;\n    Task<void> testSendWithoutAPage() {\n        std::string code;\n        try {\n            co_await chat.send(ChatMessage{\"hi\"});\n        } catch (const tachyon::http::HttpRequestException& error) {\n            code = error.code();\n        }\n        Assert::equals(\"HTTP_MISSING\", code);\n    }\n};\n",
+            ),
+        ],
+    );
+    let report = UnitProject::report(root.path(), "client/tests/ChatClientTest.hpp");
+    assert_eq!(
+        UnitProject::outcomes(&report),
+        [(String::from("testSendWithoutAPage"), true)],
+        "{report:?}"
+    );
+}

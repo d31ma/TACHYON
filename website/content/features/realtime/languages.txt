@@ -36,7 +36,7 @@ time limit: at the limit the server stops it and sends
 event: error, and the browser opens the stream again.
 
 In the browser, @StreamRequest is JavaScript, TypeScript, Go, Ruby,
-Rust, Dart, Swift, Kotlin, C#, Lua, Python or F#. A Go client is an interface method such as Receive(tick Tick);
+Rust, Dart, Swift, Kotlin, C#, Lua, Python, F# or C++. A Go client is an interface method such as Receive(tick Tick);
 the page holds the stream for the Go service that keeps the client
 in a // @Needs field, and that service receives each message with
 // @OnEvent. A Rust client is a trait method such as

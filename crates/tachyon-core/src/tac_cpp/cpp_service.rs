@@ -16,6 +16,7 @@ pub(crate) struct CppService {
     pub(crate) source: String,
     pub(crate) listeners: Vec<CppListener>,
     pub(crate) behaviors: BTreeMap<String, Value>,
+    pub(crate) streams: Vec<Value>,
 }
 
 impl CppService {
@@ -52,7 +53,7 @@ impl CppService {
         CppConverter::check(relative, source, class)?;
         CppStore::check(relative, source, class)?;
         Self::check_members(relative, class)?;
-        Self::check_remote(relative, class)?;
+        Self::check_remote(relative, source, class)?;
         let listeners = class
             .members
             .iter()
@@ -66,6 +67,7 @@ impl CppService {
             source: source.to_owned(),
             listeners,
             behaviors,
+            streams: Vec::new(),
         })
     }
 
@@ -159,6 +161,7 @@ impl CppService {
                 "methods": methods,
                 "asyncMethods": asynchronous,
                 "listeners": self.listeners.iter().map(CppListener::page).collect::<Vec<_>>(),
+                "streams": self.streams,
             },
             "starts": self.hooks("OnStart"),
             "stops": self.hooks("OnStop"),
@@ -213,11 +216,11 @@ impl CppService {
         text
     }
 
-    fn check_remote(relative: &Path, class: &CppClass) -> Result<(), Failure> {
+    fn check_remote(relative: &Path, source: &str, class: &CppClass) -> Result<(), Failure> {
         if !Self::remote_class(class) {
             return Ok(());
         }
-        CppRemote::check(relative, class)
+        CppRemote::check(relative, source, class)
     }
 
     fn remote_class(class: &CppClass) -> bool {

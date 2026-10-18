@@ -64,9 +64,10 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   `[[maybe_unused]]`, ...) and vendor attributes (`[[gnu::...]]`) pass
   through.
 - The rule table lists C++ (`hpp`) as a Tac language and is the one place
-  that decides where each marker works. Today C++ reaches every Tac marker
-  except `StreamRequest` and `SocketRequest`. Those fail with the rule's own
-  code (`TY1308`), and the message names the languages where they work. The same shared checker (`PlacedMarker`) reports
+  that decides where each marker works. C++ reaches every Tac marker.
+  (Until the amendment "Tac C++ streams and sockets" of 2026-10-18 below,
+  `StreamRequest` and `SocketRequest` failed with the rule's own code,
+  `TY1308`.) The same shared checker (`PlacedMarker`) reports
   a wrong target, missing or extra arguments, a missing partner, a clash and a
   class requirement, in the C++ spelling. A `[[Needs]]` field whose type is
   neither a C++ service nor a C++ HTTP client fails with `TY1372`.
@@ -539,6 +540,29 @@ events and scheduled workers. The rule table lists `hpp` for `Service`,
   after the class key and has the shared limits; declaring it here and in
   `.tachyonrc` fails with `TY1502`.
 
+## Amendment (2026-10-18): Tac C++ streams and sockets
+
+C++ Tac code now has `[[StreamRequest]]` and `[[SocketRequest]]`, held by the
+page as for the ADR 0090 languages (ADR 0090, "C++ streams and sockets").
+
+- The method goes in a `[[HTTPClient]]` class in `client/remotes`, without a
+  body: `[[StreamRequest]] void receive(const Tick& tick);` or
+  `[[SocketRequest]] void receive(const ChatMessage& message);`. It returns
+  `void` and takes the message model as its one parameter; anything else
+  fails with `TY1371`. An optional quoted path that starts with `/` is added
+  to the client's path, and a class has at most one `[[SocketRequest]]`. A
+  socket client may not declare its own method named `send`.
+- A C++ service that keeps the client in a `[[Needs]]` field lists the
+  client's streams in its `init` answer, and the page opens them for that
+  service. The service receives each message with `[[OnEvent]]` on a method
+  whose parameter is the message model.
+- A socket client gets
+  `template <typename Message> tachyon::Task<void> send(Message message) const`,
+  which waits for the page and throws `tachyon::http::HttpRequestException`
+  with `HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or
+  `CANCELLED`. The page program imports `tac_host_socket_start` for it. In a
+  test unit there is no page, so `send` throws `HTTP_MISSING`.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
@@ -573,11 +597,6 @@ bullet, when it lands.
 - Yon C++ test units in `server/tests`: `[[Test]]`, `[[TestSetup]]`,
   `[[Fake]]`, `[[FreshStart]]`, `[[ValueSource]]`, `[[UseProfiles]]` and
   `[[TestSettings]]`.
-
-- Tac C++ streams and sockets: `[[StreamRequest]]` and `[[SocketRequest]]`
-  on a C++ client that holds a page stream or socket, as the ADR 0090
-  languages do. Until then a C++ service receives the messages with
-  `[[OnEvent]]`.
 
 The rule table refuses each of these markers for C++ until its step lands.
 These stay out of the plan for now:

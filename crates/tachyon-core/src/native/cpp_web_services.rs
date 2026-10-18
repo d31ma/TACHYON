@@ -38,7 +38,7 @@ const cppSystem = {
 for (const { module, name, kind } of WebAssembly.Module.imports(cppModule)) {
   if (module === 'wasi_snapshot_preview1' && kind === 'function') cppSystem[name] ??= () => cppNotSupported
 }
-const cppImports = { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead) }, wasi_snapshot_preview1: cppSystem, env: { emscripten_notify_memory_growth: () => {} } }
+const cppImports = { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead, (owner, text) => socketHost(owner, text)) }, wasi_snapshot_preview1: cppSystem, env: { emscripten_notify_memory_growth: () => {} } }
 const cppInstance = await WebAssembly.instantiate(cppModule, cppImports)
 const exports = cppInstance.exports
 exports._initialize?.()

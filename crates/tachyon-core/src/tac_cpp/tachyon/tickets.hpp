@@ -21,6 +21,10 @@ public:
         TacHost::httpStart(ticket, request);
     }
 
+    static void sendOnSocket(std::uint32_t ticket, const std::string& owner, const std::string& request) {
+        TacHost::socketStart(ticket, owner, request);
+    }
+
     static void cancel(std::uint32_t ticket) {
         if (current().waiting.erase(ticket) > 0) {
             TacHost::httpCancel(ticket);
@@ -65,12 +69,18 @@ class TacHttpTicket {
 public:
     explicit TacHttpTicket(std::string request) : request(std::move(request)) {}
 
+    TacHttpTicket(std::string owner, std::string request) : request(std::move(request)), socketOwner(std::move(owner)) {}
+
     bool await_ready() const noexcept {
         return false;
     }
 
     void await_suspend(std::coroutine_handle<> waiting) {
         ticket = TacTickets::reserve(waiting);
+        if (socketOwner.has_value()) {
+            TacTickets::sendOnSocket(ticket, *socketOwner, request);
+            return;
+        }
         TacTickets::send(ticket, request);
     }
 
@@ -90,6 +100,7 @@ public:
 
 private:
     std::string request;
+    std::optional<std::string> socketOwner;
     std::uint32_t ticket = 0;
     bool settled = false;
 };

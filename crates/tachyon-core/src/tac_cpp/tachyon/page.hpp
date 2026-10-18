@@ -7,6 +7,7 @@ __attribute__((import_module("tachyon"), import_name("tac_host_monotonic_ms"))) 
 __attribute__((import_module("tachyon"), import_name("tac_host_http_start"))) void tac_host_http_start(std::uint32_t ticket, const char* text, int length);
 __attribute__((import_module("tachyon"), import_name("tac_host_task_done"))) void tac_host_task_done(std::uint32_t task, const char* text, int length);
 __attribute__((import_module("tachyon"), import_name("tac_host_http_cancel"))) void tac_host_http_cancel(std::uint32_t ticket);
+__attribute__((import_module("tachyon"), import_name("tac_host_socket_start"))) void tac_host_socket_start(std::uint32_t ticket, const char* owner, int ownerLength, const char* text, int length);
 }
 
 namespace tachyon {
@@ -41,6 +42,10 @@ public:
 
     static void httpCancel(std::uint32_t ticket) {
         tac_host_http_cancel(ticket);
+    }
+
+    static void socketStart(std::uint32_t ticket, const std::string& owner, const std::string& request) {
+        tac_host_socket_start(ticket, owner.data(), static_cast<int>(owner.size()), request.data(), static_cast<int>(request.size()));
     }
 
     static void taskDone(std::uint32_t task, const std::string& answer) {

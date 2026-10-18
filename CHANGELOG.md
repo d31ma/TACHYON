@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A Tac C++ `[[HTTPClient]]` method may carry `[[StreamRequest]]` or
+  `[[SocketRequest]]`, declared without a body as
+  `void receive(const Tick& tick);`. The page's event bus holds the stream or
+  socket for the C++ service that keeps the client in a `[[Needs]]` field,
+  with the same origin, JSON, size and reconnect rules as JavaScript, and the
+  service receives each message with `[[OnEvent]]`. A socket client gets
+  `tachyon::Task<void> send(Message message) const`, which throws
+  `tachyon::http::HttpRequestException` (`HTTP_NETWORK`, `HTTP_MISSING`,
+  `HTTP_REQUEST`, `HTTP_BODY` or `CANCELLED`). A stream-only client needs no
+  Setup (ADR 0058, ADR 0060, ADR 0090 and ADR 0099 amendments).
 - A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
   `-- @SocketRequest`, written as an empty
   `function TicksClient:receive(tick)` with `---@param tick Tick`. The page's

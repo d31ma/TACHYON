@@ -193,13 +193,19 @@ fn needs_fields_are_references_without_a_value() {
 fn markers_follow_the_shared_rule_table() {
     let refused = Sources::refusal(
         "client/services/TallyService.hpp",
+        "class TallyService {\npublic:\n    [[StreamRoute(\"/ticks\")]] void receive(const Tick& tick) {}\n};\n",
+    );
+    assert!(
+        refused.contains("TY2015") && refused.contains("is not used in Tac code"),
+        "{refused}"
+    );
+    let outside = Sources::refusal(
+        "client/services/TallyService.hpp",
         "class TallyService {\npublic:\n    [[StreamRequest(\"/ticks\")]] void receive(const Tick& tick) {}\n};\n",
     );
     assert!(
-        refused.contains("TY1308")
-            && refused.contains("is not available in C++ Tac code")
-            && refused.contains("C++ gets it in a later step (ADR 0099)"),
-        "{refused}"
+        outside.contains("belongs in a class marked [[HTTPClient]]"),
+        "{outside}"
     );
     let elsewhere = Sources::refusal(
         "client/services/TallyService.hpp",
@@ -877,4 +883,164 @@ fn settings_models_follow_the_shared_settings_rules() {
             "{source}: {failure}"
         );
     }
+}
+
+#[test]
+fn a_stream_client_method_returns_void_and_takes_its_message() {
+    for (source, expected) in [
+        (
+            "class [[HTTPClient(\"/ticks\")]] TicksClient {\npublic:\n    [[StreamRequest]] Task<void> receive(const Tick& tick);\n};\n",
+            "returns void, takes the message model as its one parameter",
+        ),
+        (
+            "class [[HTTPClient(\"/ticks\")]] TicksClient {\npublic:\n    [[StreamRequest(ticks)]] void receive(const Tick& tick);\n};\n",
+            "take an optional path in quotes that starts with /",
+        ),
+        (
+            "class [[HTTPClient(\"/chat\")]] TicksClient {\npublic:\n    [[SocketRequest]] void receive(const ChatMessage& message);\n    [[SocketRequest(\"/other\")]] void other(const ChatMessage& message);\n};\n",
+            "at most one [[SocketRequest]] method",
+        ),
+        (
+            "class [[HTTPClient(\"/ticks\")]] TicksClient {\npublic:\n    [[StreamRequest]] void receive(const Tick& tick) {}\n};\n",
+            "has no body",
+        ),
+        (
+            "class [[HTTPClient(\"/chat\")]] TicksClient {\npublic:\n    [[SocketRequest]] void send(const ChatMessage& message);\n};\n",
+            "none of its own methods may be named send",
+        ),
+    ] {
+        let refused = Sources::refusal("client/remotes/TicksClient.hpp", source);
+        assert!(refused.contains(expected), "{refused}");
+    }
+}
+
+#[test]
+fn a_service_describes_the_streams_of_the_clients_it_needs() {
+    let root = tempfile::tempdir().expect("project");
+    let files = [
+        (
+            "client/models/Tick.hpp",
+            "#include <string>\nstruct Tick {\n    std::string sku;\n    int level = 0;\n};\n",
+        ),
+        (
+            "client/models/ChatMessage.hpp",
+            "#include <string>\nstruct ChatMessage {\n    std::string text;\n};\n",
+        ),
+        (
+            "client/remotes/TicksClient.hpp",
+            "class [[HTTPClient(\"/ticks\")]] TicksClient {\npublic:\n    [[StreamRequest(\"/live\")]] void receive(const Tick& tick);\n};\n",
+        ),
+        (
+            "client/remotes/ChatClient.hpp",
+            "class [[HTTPClient(\"/chat\")]] ChatClient {\npublic:\n    [[SocketRequest]] void receive(const ChatMessage& message);\n};\n",
+        ),
+        (
+            "client/services/TicksService.hpp",
+            "class [[Service]] TicksService {\npublic:\n    [[Needs]] TicksClient& ticks;\n    [[Needs]] ChatClient& chat;\n    [[Needs]] TicksClient& moreTicks;\n    int level = 0;\n    [[OnEvent]] void heard(const Tick& tick) { level = tick.level; }\n};\n",
+        ),
+        (
+            "client/services/QuietService.hpp",
+            "class [[Service]] QuietService {\npublic:\n    int level = 0;\n    [[OnEvent]] void heard(const Tick& tick) { level = tick.level; }\n};\n",
+        ),
+    ];
+    for (relative, source) in files {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, source).expect("file");
+    }
+    let chosen = [("ticks", "TicksService"), ("quiet", "QuietService")].map(|(instance, class)| {
+        (
+            String::from(instance),
+            String::from(class),
+            root.path().join(format!("client/services/{class}.hpp")),
+        )
+    });
+    let program = super::CppProgram::read(root.path(), &chosen)
+        .expect("program")
+        .web_source();
+    for expected in [
+        "\"streams\":[{\"client\":\"ChatClient\",\"event\":\"ChatMessage\"",
+        "\"path\":\"/chat\",\"socket\":true},{\"client\":\"TicksClient\",\"event\":\"Tick\",\"models\":{\"Tick\":",
+        "\"path\":\"/ticks/live\",\"socket\":false}]",
+        "\"streams\":[]",
+        "tachyon::http::TacSocket::send(\"ChatClient\", std::move(message));",
+    ] {
+        assert!(program.contains(expected), "{expected}: {program}");
+    }
+    assert!(!program.contains("TicksClient::receive"), "{program}");
+}
+
+#[test]
+fn a_stream_message_is_a_model() {
+    let root = tempfile::tempdir().expect("project");
+    let files = [
+        (
+            "client/remotes/TicksClient.hpp",
+            "class [[HTTPClient(\"/ticks\")]] TicksClient {\npublic:\n    [[StreamRequest]] void receive(const int& tick);\n};\n",
+        ),
+        (
+            "client/services/TicksService.hpp",
+            "class [[Service]] TicksService {\npublic:\n    [[Needs]] TicksClient& ticks;\n};\n",
+        ),
+    ];
+    for (relative, source) in files {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, source).expect("file");
+    }
+    let chosen = [(
+        String::from("ticks"),
+        String::from("TicksService"),
+        root.path().join("client/services/TicksService.hpp"),
+    )];
+    let refused = super::CppProgram::read(root.path(), &chosen)
+        .err()
+        .expect("refused")
+        .to_string();
+    assert!(
+        refused.contains("The C++ stream method 'receive'") && refused.contains("is not a model"),
+        "{refused}"
+    );
+}
+
+#[test]
+fn a_service_holds_at_most_sixteen_streams() {
+    let root = tempfile::tempdir().expect("project");
+    let methods = (0..17)
+        .map(|index| {
+            format!("    [[StreamRequest(\"/{index}\")]] void receive{index}(const Tick& tick);")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let files = [
+        (
+            String::from("client/models/Tick.hpp"),
+            String::from("struct Tick {\n    int level = 0;\n};\n"),
+        ),
+        (
+            String::from("client/remotes/TicksClient.hpp"),
+            format!("class [[HTTPClient(\"/ticks\")]] TicksClient {{\npublic:\n{methods}\n}};\n"),
+        ),
+        (
+            String::from("client/services/TicksService.hpp"),
+            String::from(
+                "class [[Service]] TicksService {\npublic:\n    [[Needs]] TicksClient& ticks;\n};\n",
+            ),
+        ),
+    ];
+    for (relative, source) in files {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, source).expect("file");
+    }
+    let chosen = [(
+        String::from("ticks"),
+        String::from("TicksService"),
+        root.path().join("client/services/TicksService.hpp"),
+    )];
+    let refused = super::CppProgram::read(root.path(), &chosen)
+        .err()
+        .expect("refused")
+        .to_string();
+    assert!(refused.contains("holds at most 16"), "{refused}");
 }

@@ -859,3 +859,55 @@ test (it shares that test's driver and checks).
 and
 `native::csharp_stream_clients::tests::a_natively_linked_fsharp_service_refuses_a_stream_client_in_its_own_words`
 cover the lowering, the stream entries, the runtime and the native refusal.
+
+## C++ streams and sockets — 2026-10-18
+
+A Tac C++ `[[HTTPClient]]` method may carry `[[StreamRequest]]` or
+`[[SocketRequest]]`, as in Go. The method is declared without a body, returns
+`void` and takes one parameter whose model type says what each message holds,
+for example `[[StreamRequest]] void receive(const Tick& tick);`. An optional
+quoted path, as in `[[StreamRequest("/live")]]`, is added to the client's
+path. A class has at most one `[[SocketRequest]]`, and a socket client has
+no method of its own named `send`. Tachyon writes no
+definition for the method; a client with only stream or socket methods sends
+no HTTP request and needs no Setup.
+
+The page's JavaScript still holds the connection, with the rules and limits
+of "Go streams and sockets" above. A C++ service that keeps the client in a
+`[[Needs]]` field lists the client's streams in its `init` answer, next to its
+listeners, with each message model described from `client/models`, and the
+page's event bus opens them, checks each message against its model, publishes
+it as that model's event for the service's `[[OnEvent]]` method, and closes
+them when the owner goes away. A C++ service that does not hold the client
+opens nothing. A service holds at most 16 such methods through its clients;
+more fail the build with `TY1371`, and a message type that is not a model in
+`client/models` fails the same way.
+
+A socket client gets a generated member
+`template <typename Message> tachyon::Task<void> send(Message message) const`.
+The page program knows which owner a call or task belongs to, as it does for
+HTTP requests. `send` writes the message as JSON with `JsonSerializer` and
+hands it, with that owner, to the page's socket host through the new
+`tac_host_socket_start(ticket, owner, request)` import, the one the Rust
+runtime uses; the answer comes back through `tac_http_settle` like an HTTP
+answer. It throws `tachyon::http::HttpRequestException` whose `code()` is
+`HTTP_NETWORK` (for example, 16 messages already wait for the socket to open),
+`HTTP_MISSING` (the service does not hold the client, or there is no page),
+`HTTP_REQUEST` (no owner is running the call), `HTTP_BODY` (a message over
+64 KiB) or `CANCELLED`; any other code the host answers becomes
+`HTTP_NETWORK`, as in Rust. A `Task` service method that lets the error escape
+rejects the page's promise with that code. A C++ test unit runs natively
+without a page, so `send` throws `HTTP_MISSING` there.
+
+Evidence: `tac_web::cpp_stream_tests` builds a real C++ service with
+Emscripten and runs it under Node with the real event bus and fake
+`EventSource` and `WebSocket` classes. Both clients the service needs are
+opened; a valid tick reaches `[[OnEvent]]` and is published, and an invalid
+one is dropped; a socket message reaches its listener; 16 queued sends are
+flushed in order and the seventeenth gets `HTTP_NETWORK`; and disposing the
+owner closes both connections. `tac_cpp::page_tests` runs the page program
+natively and checks the socket request, its owner, a settled answer, a coded
+failure and `HTTP_BODY`; `tac_cpp::unit_tests` checks `HTTP_MISSING` in a test
+unit; `tac_cpp::tests` checks the init description (a service that does not
+need a client lists no streams, and a client needed by two fields is listed
+once) and the refusals.

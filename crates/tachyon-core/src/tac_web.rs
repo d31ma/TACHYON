@@ -877,6 +877,8 @@ mod reach_tests;
 mod go_stream_tests;
 
 #[cfg(test)]
+mod cpp_stream_tests;
+#[cfg(test)]
 mod rust_stream_tests;
 
 #[cfg(test)]

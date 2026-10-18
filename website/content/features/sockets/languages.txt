@@ -27,7 +27,7 @@ When OnOpen or OnMessage fails, OnError runs and the socket stays
 open, as in Jakarta. The error text goes to the server log only.
 
 In the browser, @SocketRequest is JavaScript, TypeScript, Go, Ruby,
-Rust, Dart, Swift, Kotlin, C#, Lua, Python or F#. Every Tac language receives the messages with @OnEvent. A
+Rust, Dart, Swift, Kotlin, C#, Lua, Python, F# or C++. Every Tac language receives the messages with @OnEvent. A
 Go client is an interface method; the page holds the socket for
 the Go service that keeps the client in a // @Needs field, and the
 generated Send(message any) error returns HTTP_NETWORK when 16
