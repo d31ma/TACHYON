@@ -26,7 +26,7 @@ retries = 1
 slow-timeout = { period = "60s", terminate-after = 15 }
 
 [[profile.default.overrides]]
-filter = 'test(every_generated_combination_passes_its_tests_with_coverage_and_builds) | test(a_method_a_case_only_names_fails_coverage_and_a_called_method_passes)'
+filter = 'test(every_generated_combination_passes_its_tests_with_coverage_and_builds) | test(a_method_a_case_only_names_fails_coverage_and_a_called_method_passes) | test(every_language_answers_the_same_problem_for_the_same_invalid_input)'
 test-group = 'heavy'
 slow-timeout = { period = "60s", terminate-after = 15 }
 

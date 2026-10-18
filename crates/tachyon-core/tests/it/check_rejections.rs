@@ -208,19 +208,16 @@ impl CheckRejections {
 
 #[tokio::test]
 async fn every_language_answers_the_same_problem_for_the_same_invalid_input() {
-    let mut running = tokio::task::JoinSet::new();
-    for language in CheckLanguage::ALL {
-        if language.available() {
-            running.spawn(async move { (language.extension, language.answers().await) });
-        }
-    }
     let expected: Vec<String> = CheckRejections::rejected()
         .into_iter()
         .map(|(_, errors)| errors)
         .collect();
-    while let Some(finished) = running.join_next().await {
-        let (extension, answers) = finished.expect("language task");
-        let bodies = CheckRejections::check(extension, &answers);
-        assert_eq!(bodies, expected, "{extension}");
+    for language in CheckLanguage::ALL {
+        if !language.available() {
+            continue;
+        }
+        let answers = language.answers().await;
+        let bodies = CheckRejections::check(language.extension, &answers);
+        assert_eq!(bodies, expected, "{}", language.extension);
     }
 }
