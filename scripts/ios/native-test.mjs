@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -284,7 +284,9 @@ async function main() {
     const { documents, required } = await waitForProofFiles();
     mkdirSync(IosGate.evidence, { recursive: true });
     const proofs = collectProofs(documents, required, pid);
-    simctl('io', IosGate.device, 'screenshot', path.join(IosGate.evidence, 'ios-returned-root.png'));
+    const screenshot = path.join(IosGate.project, 'ios-returned-root.png');
+    simctl('io', IosGate.device, 'screenshot', screenshot);
+    copyFileSync(screenshot, path.join(IosGate.evidence, 'ios-returned-root.png'));
     writeFileSync(path.join(IosGate.evidence, 'report.json'), JSON.stringify({
       runtime: runtime.version, deviceType: phone.name, binary, pid, proofs,
     }, null, 2) + '\n');
