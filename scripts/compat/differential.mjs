@@ -204,9 +204,6 @@ function withoutRemovedLegacyScaffold(tree) {
   normalized['.env.example'] = Buffer.from(
     '# Copy to .env and add only server secrets. Never commit .env.\n# YON_DATASOURCE_PASSWORD=replace-me\n',
   ).toString('base64');
-  normalized['application.json'] = Buffer.from(
-    `${JSON.stringify({ tac: {}, yon: { server: { host: '127.0.0.1', port: 8080 } } }, null, 2)}\n`,
-  ).toString('base64');
   const readme = Buffer.from(normalized['README.md'], 'base64').toString('utf8')
     .replace(
       /This shows a staged Tachyon progress bar while installing the `ty` binary plus\s+the `fylo`, `chex`, and `ttid` binaries it drives at runtime\./,
@@ -216,10 +213,53 @@ function withoutRemovedLegacyScaffold(tree) {
   const home = Buffer.from(normalized['client/pages/tac.html'], 'base64').toString('utf8')
     .replace('Build your next Bun app with Tachyon.', 'Build your next app with Tachyon.');
   normalized['client/pages/tac.html'] = Buffer.from(home).toString('base64');
-  const route = Buffer.from(normalized['server/routes/yon.js'], 'base64').toString('utf8')
-    .replace('export class Handler {', 'export class Handler {');
-  normalized['server/routes/yon.js'] = Buffer.from(route).toString('base64');
   return normalized;
+}
+
+// Scaffold files that deliberately differ from the v26.30.04 oracle. Each entry names the
+// decision that changed it; PARITY_LEDGER.md's `ty init scaffold` row lists the same set.
+// A difference that is not declared here fails the gate, and so does a declared entry that
+// no longer differs.
+class ScaffoldMigrations {
+  static declared = new Map([
+    ['.gitignore', 'ignores .tachyon/, where composed TypeScript globals are generated (ADR 0053)'],
+    ['.tachyon/types/client/composed.d.ts', 'generated globals for composed client classes (ADR 0053)'],
+    ['.tachyon/types/server/composed.d.ts', 'generated globals for composed server classes (ADR 0053)'],
+    ['README.md', 'the README documents the Rust CLI workflow (install, ty init, ty test --coverage, ty preview)'],
+    ['client/components/hero/tac.css', 'components live in namespaced folders, so hero is app/hero (ADR 0029, ADR 0086)'],
+    ['client/components/hero/tac.html', 'components live in namespaced folders, so hero is app/hero (ADR 0029, ADR 0086)'],
+    ['client/components/app/hero/tac.css', 'components live in namespaced folders, so hero is app/hero (ADR 0029, ADR 0086)'],
+    ['client/components/app/hero/tac.html', 'components live in namespaced folders, so hero is app/hero (ADR 0029, ADR 0086)'],
+    ['client/components/app/shell/tac.css', 'the page layout is the app-shell component (ADR 0029)'],
+    ['client/components/app/shell/tac.html', 'the page layout is the app-shell component (ADR 0029)'],
+    ['client/pages/tac.html', 'pages compose components: <app-shell><app-hero /></app-shell> (ADR 0029)'],
+    ['client/pages/tac.css', 'client pages may not hold CSS; layout styles moved to app-shell and shared/styles/app.css'],
+    ['client/pages/tac.js', 'pages hold no scripts; the document title comes from client/manifest.json (ADR 0052)'],
+    ['client/shared/scripts/imports.js', 'the manifest no longer lists shared scripts; app.css is the only shared asset (29a5dd4a)'],
+    ['client/shared/styles/app.css', 'takes the body style that client/pages/tac.css held'],
+    ['client/manifest.json', 'the Tac configuration is the web app manifest (ADR 0034, ADR 0052)'],
+    ['client/services/ShellService.js', 'components use services (ADR 0030); the shell reads its state from ShellService'],
+    ['client/tests/ShellServiceTest.js', 'every public method has a test unit that calls it (ADR 0070)'],
+    ['client/tests/ShellTestSetup.js', 'every public method has a test unit that calls it (ADR 0070)'],
+    ['jsconfig.json', 'one jsconfig.json per realm replaces the root file (ADR 0031)'],
+    ['client/jsconfig.json', 'one jsconfig.json per realm replaces the root file (ADR 0031)'],
+    ['server/jsconfig.json', 'one jsconfig.json per realm replaces the root file (ADR 0031)'],
+    ['package.json', '`bun test` became `ty test --coverage` (ADR 0012, ADR 0070)'],
+    ['server/application.json', 'server settings live in server/application.json (ADR 0023, ADR 0026)'],
+    ['server/routes/yon.js', 'Yon routes come from annotations in server/controllers/, not server/routes/ (ADR 0048)'],
+    ['server/controllers/HomeController.js', 'Yon routes come from annotations in server/controllers/ (ADR 0048)'],
+    ['server/tests/HomeControllerTest.js', 'every public method has a test unit that calls it (ADR 0070)'],
+    ['server/tests/HomeTestSetup.js', 'every public method has a test unit that calls it (ADR 0070)'],
+    ['tachyon-behaviors.d.ts', 'ambient types for behavior annotations, a Rust-only contract like tachyon-env.d.ts'],
+  ]);
+
+  static undeclared(names, legacyTree, rustTree) {
+    return names.filter((name) => legacyTree[name] !== rustTree[name] && !ScaffoldMigrations.declared.has(name));
+  }
+
+  static stale(legacyTree, rustTree) {
+    return [...ScaffoldMigrations.declared.keys()].filter((name) => legacyTree[name] === rustTree[name]);
+  }
 }
 
 async function compareScaffold() {
@@ -236,11 +276,18 @@ async function compareScaffold() {
     const rustTree = await treeOf(rustRoot);
     delete rustTree['tachyon-env.d.ts'];
     const names = [...new Set([...Object.keys(legacyTree), ...Object.keys(rustTree)])].sort();
-    const difference = names.find((name) => legacyTree[name] !== rustTree[name]);
-    if (difference === undefined) {
-      return { ok: true, detail: `${Object.keys(rustTree).length} generated files match after declared scaffold migrations` };
+    const undeclared = ScaffoldMigrations.undeclared(names, legacyTree, rustTree);
+    const stale = ScaffoldMigrations.stale(legacyTree, rustTree);
+    if (undeclared.length === 0 && stale.length === 0) {
+      const identical = names.filter((name) => legacyTree[name] === rustTree[name]).length;
+      const declared = ScaffoldMigrations.declared.size;
+      return { ok: true, detail: `${identical} files match the oracle; ${declared} differ as declared scaffold migrations` };
     }
-    return { ok: false, detail: `first generated-file difference: ${difference}` };
+    const lines = [
+      ...undeclared.map((name) => `undeclared difference: ${name}`),
+      ...stale.map((name) => `declared migration no longer differs: ${name}`),
+    ];
+    return { ok: false, detail: lines.join('\n    ') };
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

@@ -71,7 +71,7 @@ async function checkScaffold() {
     'client/components/app/shell/tac.html', 'client/services/ShellService.js', 'client/components/app/shell/tac.css',
     'client/components/app/hero/tac.html', 'client/components/app/hero/tac.css',
     'client/shared/assets/.gitkeep', 'client/shared/data/.gitkeep',
-    'client/shared/scripts/imports.js', 'client/shared/styles/app.css',
+    'client/shared/styles/app.css',
     'server/controllers/HomeController.js', 'server/data/.gitkeep', 'server/deps/.gitkeep',
     '.tachyon/types/client/composed.d.ts', '.tachyon/types/server/composed.d.ts',
   ];
