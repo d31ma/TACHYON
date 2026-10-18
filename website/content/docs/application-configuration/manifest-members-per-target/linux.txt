@@ -1,0 +1,199 @@
+Linux
+
+name, short_name
+  honored: the .desktop Name and the window title
+
+start_url
+  honored: the page the app opens first
+
+icons
+  adapted: icons: the Linux app copies the largest raster icon into share/icon.png without resizing it.
+
+theme_color
+  adapted: theme_color is written into each page head, but the Linux window does not use it yet (WIN2).
+
+background_color
+  adapted: background_color is not applied to the Linux app yet.
+
+display
+  adapted: display is not applied yet. The Linux app opens a standard window (WIN2).
+
+orientation
+  not applicable: orientation has no meaning for a Linux window.
+
+tachyon (top-level)
+  refused with TY1601: The top-level tachyon member is gone. Move its values into tac (ADR 0052).
+
+other standard manifest members
+  adapted: The Linux app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers.
+
+tac.application
+  honored: the app's identity, window and menus
+
+tac.application.id
+  adapted: tac.application.id names the .desktop file as written. The GTK application id changes each hyphen to an underscore.
+
+tac.application.version
+  adapted: tac.application.version is written only as the X-Tachyon-Version key of the .desktop file (PKG0).
+
+tac.application.window.width, height
+  adapted: tac.application.window width and height are not read yet. The Linux window opens at 1024 by 768 (WIN2).
+
+tac.application.window.minWidth, minHeight
+  adapted: tac.application.window minWidth and minHeight are not read yet. The Linux window has no minimum size (WIN2).
+
+tac.application.window.controls
+  adapted: tac.application.window.controls work on Linux only from a linked Rust service. A call from a page service does nothing yet (WIN6).
+
+tac.application.window.titleBar
+  adapted: tac.application.window.titleBar "integrated" is built only for macOS. The Linux app keeps the standard title bar (ADR 0098, WIN4).
+
+tac.application.window.titleBarButtonInset
+  adapted: tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Linux app ignores it.
+
+tac.application.menus
+  honored: items in the File, View and Help menus of the window's menu bar
+
+tac.application.rust
+  honored: vendored crates linked into the app's Rust services
+
+tac.application.rust.executables
+  honored: helper programs in bin/ beside the app
+
+tac.origin
+  not applicable: tac.origin is for search engines and the web server. The Linux app bundle still holds sitemap.xml and robots.txt, but nothing reads them there.
+
+tac.sitemap
+  not applicable: tac.sitemap adds entries to sitemap.xml for search engines. The Linux app bundle holds the file, but nothing reads it there.
+
+tac.scripts
+  honored: the same page head as the web build
+
+tac.blockingScripts
+  honored: the same page head as the web build
+
+tac.styles
+  honored: the same page head as the web build
+
+tac.styleSources
+  honored: the same checked files, bundled into the app
+
+tac.scriptSources
+  honored: the same checked files, bundled into the app
+
+tac.cache
+  adapted: tac.cache is not used in the Linux app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6.
+
+tac.metadata
+  adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Linux app.
+
+tac.browserApis
+  honored: the same grant list in the page
+
+tac.browserApis clipboard
+  adapted: clipboard in the Linux app uses the web view's navigator.clipboard, and no host test checks it yet (BA4).
+
+tac.browserApis share
+  adapted: share does not work in the Linux app yet: its web view has no navigator.share (BA4).
+
+tac.browserApis notifications
+  adapted: notifications in the Linux app use the web view's Notification API. The host asks for no permission yet (BA4).
+
+tac.browserApis geolocation
+  adapted: geolocation in the Linux app uses the web view's navigator.geolocation. The host asks for no permission yet (BA4).
+
+tac.browserApis preferenceStrings
+  adapted: preferenceStrings in the Linux app live only while the app runs: the web view does not keep storage yet (ST1).
+
+tac.nativeCapabilities
+  adapted: tac.nativeCapabilities filePicker is not built for Linux yet. FilePicker answers unsupported (FP3).
+
+tac.elements
+  adapted: tac.elements are bundled into the Linux app for its own pages only. Other sites cannot load them from the app.
+
+tac.python
+  honored: Pyodide in the web view, checked in code only (ADR 0093)
+
+tac.budgets
+  not applicable: tac.budgets is checked only by web release builds. The Linux app loads its bundle from disk, so route sizes are not measured (ADR 0074).
+
+tac.outgoing
+  adapted: tac.outgoing.hosts is checked when the Linux app is built, but the app allows requests to every https host for now (SEC1).
+
+tac.go
+  honored: the same Go WebAssembly build in the web view
+
+tac.dotnet
+  honored: the same WebAssembly build in the web view
+
+tac.accessibility
+  honored: the same build check
+
+tac.cohesion
+  honored: the same build check
+
+tac.duplication
+  honored: the same build check
+
+tac.dependencies
+  honored: the same build check
+
+tac.names
+  honored: the same build check
+
+tac.signatures
+  honored: the same build check
+
+tac.constants
+  honored: the same build check
+
+tac.implicitmembers
+  honored: the same build check
+
+tac.visibility
+  honored: the same build check
+
+tac.types
+  honored: the same build check
+
+tac.tests
+  honored: the same build check; ty test runs on the build machine
+
+tac.simplify
+  honored: the same build check
+
+application lifetime services
+  honored: Rust services that start with the app and stop when it quits
+
+standard Edit and Window menus
+  honored: Edit (Undo, Redo, Cut, Copy, Paste, Select All) and Window (Minimize, Maximize) menus in a menu bar that is always shown
+
+menu shortcuts with control
+  honored: the Ctrl key, like command; shortcuts that then collide stop the build (TY1601)
+
+window drag regions (data-tac-drag-region)
+  adapted: data-tac-drag-region does nothing in the Linux app yet, because its title bar is standard (WIN4).
+
+external links
+  adapted: The Linux app blocks links to other sites instead of opening the system browser (LK1).
+
+deep links
+  adapted: The Linux app cannot be opened at a route from a link yet (LK2).
+
+background and foreground signal
+  adapted: The Linux host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1).
+
+stored data (IndexedDB, Cache API, LocalState)
+  adapted: Stored data in the Linux app is lost when the app quits: the web view session is not kept yet (ST1).
+
+Content-Security-Policy
+  honored: the native host policy
+
+reaching Yon
+  adapted: The Linux app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET4).
+
+natively linked service languages
+  honored: Rust services are linked into the app; other languages run in the page
+
+release packaging
+  adapted: The Linux build is a folder with the program. There are no packages yet (PKG5).

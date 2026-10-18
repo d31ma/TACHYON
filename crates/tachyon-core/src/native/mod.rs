@@ -171,6 +171,11 @@ mod storage_tests;
 mod style_source;
 mod swift_streams;
 mod swift_web_services;
+mod target_reach;
+mod target_support;
+mod target_support_entry;
+#[cfg(test)]
+mod target_support_tests;
 mod vendor_provenance;
 mod web_program_build;
 mod windows;
@@ -202,6 +207,7 @@ pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
 pub(crate) use site_map::SiteMap;
 pub(crate) use style_source::StyleSource;
 pub(crate) use swift_web_services::SwiftWebServices;
+pub use target_support::TargetSupport;
 pub(crate) use windows::web_dotnet;
 pub use windows_architecture::WindowsArchitecture;
 

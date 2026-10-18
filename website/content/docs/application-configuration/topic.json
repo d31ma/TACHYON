@@ -15,6 +15,9 @@
       "include": "client-manifest-json-field-by-field/section.json"
     },
     {
+      "include": "manifest-members-per-target/section.json"
+    },
+    {
       "include": "server-application-json-field-by-field/section.json"
     },
     {

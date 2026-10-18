@@ -74,7 +74,8 @@ impl BaseFiles {
              The installer checks the release checksum and installs only the `ty` binary.\n\n\
              ## Commands\n\n\
              | Command | What it does |\n|---|---|\n\
-             | `ty bundle` | Builds the client and native artifacts into `dist/`. |\n\
+             | `ty bundle` | Builds the web app into `dist/web`. |\n\
+             | `ty bundle --target ios` | Builds one native app (`macos`, `windows`, `linux`, `ios` or `android`) into `dist/`. |\n\
              | `ty preview` | Previews the built bundle. |\n\
              | `ty serve` | Runs the development or production server. |\n\
              | `ty test --coverage` | Runs every test unit and checks that each public method has a test. |\n\

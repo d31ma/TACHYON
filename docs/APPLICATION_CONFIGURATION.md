@@ -127,26 +127,26 @@ Never put a secret in it, including in `tac.application`.
 | `short_name` | The label that a launcher shows. | browser, native |
 | `start_url` | The route where the application opens, and the entry route of a native build. It must be a canonical local route. | browser, native |
 | `icons` | `[{ "src", "sizes" }]`, with local bundle paths. A native build uses the largest raster icon. A manifest with only SVG icons gets no native icon. | browser, native |
-| `theme_color` | The color of the browser's interface around the page. Tachyon publishes it as written. When it is a text value that is not blank, every page head also gets `<meta name="theme-color" content="…">` with that value, HTML-escaped, so the color applies before installation and in a native build's page. A number or another JSON value writes no tag. The manifest has one theme color: there is no light and dark pair (ADR 0052 amendment). | browser, build |
+| `theme_color` | The color of the browser's interface around the page. Tachyon publishes it as written. When it is a text value that is not blank, every page head also gets `<meta name="theme-color" content="…">` with that value, HTML-escaped, so the color applies before installation. A native build writes the same tag into its pages, but no native window or status bar uses it yet; the build prints a note. A number or another JSON value writes no tag. The manifest has one theme color: there is no light and dark pair (ADR 0052 amendment). | browser, build |
 | `display`, `background_color`, … | Standard members for browser install. Tachyon publishes them as written. | browser |
 | `tac` | Tac's public configuration (ADR 0034). It binds with `TAC_` names and `tac.` paths. Keys are lowercase. Names that look like secrets are not allowed. The Tachyon members below are read by the build and are not service configuration. | Tac services |
 | `tac.application.id` | Bundle identifier in reverse-DNS form, such as `com.example.catalog`. Without it, the id is derived from the project folder. | native |
 | `tac.application.version` | Portable version string, such as `1.4.0` (1.0.0 unless set). | native |
-| `tac.application.window` | `width`/`height`: 1024 by 768 unless set, each from 64 to 16384. `minWidth`/`minHeight`. `controls`: the window controls that a page may use (`close`, `fullscreen`, `maximize`, `minimize`, `resize`, `title`). A page may use none unless they are listed. `titleBar`: `standard` (default) or `integrated`; on macOS an integrated title bar lets the page reach the top edge under the real window buttons, sets `--tac-titlebar-height`, `--tac-titlebar-leading-inset` and `--tac-titlebar-trailing-inset`, and moves the window from elements marked `data-tac-drag-region` (ADR 0098); other targets keep the standard title bar and print a note. `titleBarButtonInset`: `{ "leading", "top" }` in points (0 to 200), only with `integrated`. | native |
+| `tac.application.window` | `width`/`height`: 1024 by 768 unless set, each from 64 to 16384. `minWidth`/`minHeight`. Only the macOS app reads the sizes today; Windows and Linux print a note and open at 1024 by 768. `controls`: the window controls that a page may use (`close`, `fullscreen`, `maximize`, `minimize`, `resize`, `title`). A page may use none unless they are listed. `titleBar`: `standard` (default) or `integrated`; on macOS an integrated title bar lets the page reach the top edge under the real window buttons, sets `--tac-titlebar-height`, `--tac-titlebar-leading-inset` and `--tac-titlebar-trailing-inset`, and moves the window from elements marked `data-tac-drag-region` (ADR 0098); other targets keep the standard title bar and print a note. `titleBarButtonInset`: `{ "leading", "top" }` in points (0 to 200), only with `integrated`. | native |
 | `tac.nativeCapabilities` | The operating system features that native services may use, such as `["filePicker"]`. Each name may appear once; `filePicker` is the only name today. Without the grant, the file picker answers `denied` before any dialog opens. The grant does not replace the user's consent or the platform's signing entitlements (ADR 0089). | build, native |
 | `tac.origin` | The site's public address, such as `https://example.com`, without a path. It turns on the built-in `sitemap.xml` and `robots.txt`, and a `canonical` or `image` that starts with `/` is joined to it. | build |
 | `tac.scripts`, `tac.styles` | Up to 8 local paths each, such as `/shared/app.js`, linked into every page. Each script is a deferred `type="module"` script after the Tac runtime. | build |
 | `tac.blockingScripts` | Up to 8 local paths, such as `/shared/scripts/ThemeDefault.js`, linked into every page as classic `<script src>` tags before the Tac runtime (`/.tachyon/tac-client.js`). Each one runs before the first paint, for example to apply a saved theme, and the page waits for it: keep it small, with no `import` or `export` (ADR 0052 amendment). | build |
 | `tac.scriptSources` | For each third-party script in `tac.scripts`, its `package`, `version`, `license` and pinned `sha256`. The file stays in `client/shared/` and is listed in both settings (`TY1365`); bytes that do not match the pinned SHA-256 fail with `TY1403`. | build |
 | `tac.styleSources` | The kind of each style in `tac.styles`: `{"kind": "foundation"}` for the project's own foundation styles, or `{"kind": "vendor", ...}` with the same `package`, `version`, `license` and `sha256` as a script source. | build |
-| `tac.browserApis` | The browser APIs that need the user's consent and that services may use: any of `clipboard`, `share`, `notifications` and `geolocation`, each once. Any other name stops the build (`TY1601`); the page refuses an API that is not listed (ADR 0065). | build, browser |
+| `tac.browserApis` | The browser APIs that need the user's consent and that services may use: any of `clipboard`, `share`, `notifications`, `geolocation` and `preferenceStrings`, each once. Any other name stops the build (`TY1601`); the page refuses an API that is not listed (ADR 0065). | build, browser |
 | `tac.elements` | The components that the build also exports as custom elements, such as `["shop-counter"]`. A name without a hyphen, or a name that is not a component, stops the build (`TY1358`, ADR 0086). | build |
 | `tac.application.menus` | The native File, View and Help menu items. An item's action names a client Rust application service, its method and an optional event model (`TY1370`, ADR 0097). | native |
 | `tac.python` | `{"runtime": "pyodide-314.0.7", "profile": "offline"}` turns on Python services on the web. Any other value stops the build. `ty init` and `ty add language client py` write it (ADR 0093). | build |
 | `tac.go.compiler` | `"tinygo"` or `"go"`: the compiler for Go web services. Without it, a release build tries TinyGo first and falls back to Go. | build |
 | `tac.dotnet.aot` | `true` compiles C# and F# web services ahead of time in a release build: faster for heavy computing, but a larger download. | build |
 | `tac.budgets.script`, `tac.budgets.webassembly`, `tac.budgets.check` | The size budget of every route in kilobytes: 200 for scripts and 3584 for WebAssembly unless set. Unless `script` is set, a route that loads more than one web runtime gets a measured allowance for each runtime after the largest one (ADR 0100). `check: false` turns the budget check (`TY1337`) off. | build |
-| `tac.cache` | Up to 64 `{ "path", "policy" }` rules for the service worker; `policy` is `cache-first`, `network-first` or `no-store`, and `*` in `path` matches the rest of a path. | build |
+| `tac.cache` | Up to 64 `{ "path", "policy" }` rules for the service worker; `policy` is `cache-first`, `network-first` or `no-store`, and `*` in `path` matches the rest of a path. A native app has no service worker, so a native build prints a note and does not use the rules. | build |
 | `tac.metadata` | `defaults` and `routes`: page head values (`title`, `description`, `canonical`, `image`, `siteName`, `lang`, `noindex`). `routes` is keyed by route, such as `/docs/_topic`; each page gets its route entry over the defaults. | build |
 | `tac.sitemap` | For a page route with one path variable, the values to list: `{ "data": "/shared/data/items.json", "values": "/items", "field": "id" }`. `values` is a JSON pointer to a list; `field` picks a member of each listed object. | build |
 | `tac.outgoing.hosts` | The hosts that page code may send requests to, such as `["api.example.com", "*.cdn.example.com"]`: names without scheme or port. The build refuses a request to another host (`TY1326`), and the page's `connect-src` allows only these hosts (ADR 0068). | build, browser |
@@ -158,6 +158,19 @@ Never put a secret in it, including in `tac.application`.
 | `tac.accessibility.check` | `false` turns off the accessible-view check (`TY1336`, ADR 0074). Use it only while you migrate. | build |
 | `tac.simplify.suggest` | `false` hides the simpler-form suggestions for Tac code. | build |
 | `tac.names.words` | Words of your domain, such as a brand or a product name, that Tac names may use (`TY1328`, ADR 0069), for example `["fylo"]`. Lowercase. | build |
+
+### Each member on each target
+
+Each member above is honored, adapted, refused or not applicable on each of
+the six targets (Web, macOS, Windows, Linux, iOS, Android). A build prints one
+`Note:` line for each declared member that its target adapts or does not use,
+and stops with a TY code for each declared member that its target refuses.
+It prints nothing for a member that the manifest does not declare. Run
+`ty bundle --explain-targets` (optionally with `--target ios` or a comma list)
+to print the whole list for your project; each declared member is marked
+`(declared)`. The list is one table,
+`crates/tachyon-core/src/native/target_support.json` (ADR 0102), and the
+website shows it as one tab per target.
 
 ### `server/application.json`
 

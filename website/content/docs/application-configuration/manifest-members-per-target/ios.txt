@@ -1,0 +1,199 @@
+iOS
+
+name, short_name
+  honored: CFBundleName and CFBundleDisplayName
+
+start_url
+  honored: the page the app opens first
+
+icons
+  honored: the largest raster icon is resized to the app icon set
+
+theme_color
+  adapted: theme_color is written into each page head, but the iOS status bar does not use it yet (WIN5).
+
+background_color
+  adapted: background_color is not applied to the iOS app yet.
+
+display
+  adapted: display is not applied yet. The iOS app keeps the system status bar (WIN5).
+
+orientation
+  adapted: orientation is not applied yet. The iOS app is locked to portrait (WIN5).
+
+tachyon (top-level)
+  refused with TY1601: The top-level tachyon member is gone. Move its values into tac (ADR 0052).
+
+other standard manifest members
+  adapted: The iOS app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers.
+
+tac.application
+  honored: the app's identity
+
+tac.application.id
+  honored: CFBundleIdentifier
+
+tac.application.version
+  adapted: tac.application.version becomes CFBundleShortVersionString. The build number CFBundleVersion stays 1 for now (PKG0).
+
+tac.application.window.width, height
+  not applicable: tac.application.window width and height have no meaning on iOS: the system sizes the app.
+
+tac.application.window.minWidth, minHeight
+  not applicable: tac.application.window minWidth and minHeight have no meaning on iOS: the system sizes the app.
+
+tac.application.window.controls
+  adapted: tac.application.window.controls are not built for iOS yet. A WindowControls call does nothing (WIN6).
+
+tac.application.window.titleBar
+  adapted: tac.application.window.titleBar "integrated" is built only for macOS. The iOS app keeps the standard status bar (ADR 0098, WIN5).
+
+tac.application.window.titleBarButtonInset
+  not applicable: tac.application.window.titleBarButtonInset has no meaning on iOS: the app has no window buttons.
+
+tac.application.menus
+  refused with TY1601: iOS apps have no menu bar. Put links or buttons in the page instead (D1).
+
+tac.application.rust
+  adapted: tac.application.rust crates are not used on iOS: Rust services run as WebAssembly in the page there (D1).
+
+tac.application.rust.executables
+  refused with TY1601: An iOS app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target.
+
+tac.origin
+  not applicable: tac.origin is for search engines and the web server. The iOS app bundle still holds sitemap.xml and robots.txt, but nothing reads them there.
+
+tac.sitemap
+  not applicable: tac.sitemap adds entries to sitemap.xml for search engines. The iOS app bundle holds the file, but nothing reads it there.
+
+tac.scripts
+  honored: the same page head as the web build
+
+tac.blockingScripts
+  honored: the same page head as the web build
+
+tac.styles
+  honored: the same page head as the web build
+
+tac.styleSources
+  honored: the same checked files, bundled into the app
+
+tac.scriptSources
+  honored: the same checked files, bundled into the app
+
+tac.cache
+  adapted: tac.cache is not used in the iOS app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6.
+
+tac.metadata
+  adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the iOS app.
+
+tac.browserApis
+  honored: the same grant list in the page
+
+tac.browserApis clipboard
+  adapted: clipboard in the iOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1).
+
+tac.browserApis share
+  adapted: share in the iOS app uses the web view's navigator.share, and no host test checks it yet (BA1).
+
+tac.browserApis notifications
+  adapted: notifications do not work in the iOS app yet: its web view has no Notification API (BA1).
+
+tac.browserApis geolocation
+  adapted: geolocation does not work in the iOS app yet: the app has no location usage string, so the system refuses (BA0, BA1).
+
+tac.browserApis preferenceStrings
+  honored: the web view's localStorage, kept on disk
+
+tac.nativeCapabilities
+  adapted: tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4).
+
+tac.elements
+  adapted: tac.elements are bundled into the iOS app for its own pages only. Other sites cannot load them from the app.
+
+tac.python
+  honored: Pyodide in the web view, checked in code only (ADR 0093)
+
+tac.budgets
+  not applicable: tac.budgets is checked only by web release builds. The iOS app loads its bundle from disk, so route sizes are not measured (ADR 0074).
+
+tac.outgoing
+  adapted: tac.outgoing.hosts is checked when the iOS app is built, but the app does not limit page requests to these hosts yet (SEC1).
+
+tac.go
+  honored: the same Go WebAssembly build in the web view
+
+tac.dotnet
+  honored: the same WebAssembly build in the web view
+
+tac.accessibility
+  honored: the same build check
+
+tac.cohesion
+  honored: the same build check
+
+tac.duplication
+  honored: the same build check
+
+tac.dependencies
+  honored: the same build check
+
+tac.names
+  honored: the same build check
+
+tac.signatures
+  honored: the same build check
+
+tac.constants
+  honored: the same build check
+
+tac.implicitmembers
+  honored: the same build check
+
+tac.visibility
+  honored: the same build check
+
+tac.types
+  honored: the same build check
+
+tac.tests
+  honored: the same build check; ty test runs on the build machine
+
+tac.simplify
+  honored: the same build check
+
+application lifetime services
+  refused with TY1406: Application lifetime services must be Rust, and Rust is not linked on iOS yet. Use a page or singleton service (D1).
+
+standard Edit and Window menus
+  not applicable: An iOS app has no menu bar.
+
+menu shortcuts with control
+  not applicable: An iOS app has no menu bar.
+
+window drag regions (data-tac-drag-region)
+  not applicable: An iOS app has no window to move.
+
+external links
+  honored: http and https links open in the system browser
+
+deep links
+  adapted: The iOS app cannot be opened at a route from a link yet (LK2).
+
+background and foreground signal
+  adapted: The iOS host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1).
+
+stored data (IndexedDB, Cache API, LocalState)
+  honored: kept on disk by the web view
+
+Content-Security-Policy
+  adapted: The iOS app sends no Content-Security-Policy for its pages yet (SEC1).
+
+reaching Yon
+  adapted: The iOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET1).
+
+natively linked service languages
+  honored: Swift services are linked into the app; other languages run in the page
+
+release packaging
+  adapted: The iOS build runs only in the simulator. Device builds and an .ipa wait on PKG2.

@@ -153,3 +153,12 @@ and an application could not add that tag: the build writes the head.
 
 - The color is declared once, in the manifest, for installation, browser
   tabs and native pages.
+
+## Amendment (2026-10-18): Native hosts do not read the theme color yet
+
+The 2026-10-11 amendment writes `<meta name="theme-color">` into every page
+head, native builds included. No native host reads that tag or the manifest's
+`theme_color` today: the macOS, Windows and Linux windows and the iOS and
+Android status bars keep their system colors. A native build that declares
+`theme_color` now prints a note that says so (ADR 0102). The plan items WIN1,
+WIN2 and WIN5 apply the color on Windows, Linux and mobile.

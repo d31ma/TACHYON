@@ -122,7 +122,7 @@ on the page thread, so a long computation blocks the page. Threads,
 subprocesses, native sockets, the operating-system file system and native
 extensions are not available. Third-party packages are not supported. This
 decision covers web builds; Python services in native app hosts are not part
-of it.
+of it. (Replaced: see the amendment of 2026-10-18 on native hosts.)
 
 ### Tests
 
@@ -198,6 +198,7 @@ the runtime files; `ty doctor` names the folder.
   `HTTPClient`, and an asynchronous `@on_start` builds; see the amendment of
   2026-10-17. Streams are replaced too: Python holds stream and socket
   clients; see the amendment of 2026-10-18.) Native hosts stay out of scope.
+  (Replaced: see the amendment of 2026-10-18 on native hosts.)
 - Evidence: `backend_tests::python_async_methods_settle_through_page_tasks_and_cancel_on_dispose`
   runs the generated program in CPython. The ignored browser test
   `pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler`
@@ -378,3 +379,32 @@ first-app tutorial has Python tabs for step 4 and step 5.
 - This amendment replaces the "Firefox and WebKit runs are still owed"
   notes and the missing `SessionState` browser check in the 2026-10-16
   amendments above.
+
+## Amendment (2026-10-18): Python services in native hosts
+
+This ADR said that Python services in native app hosts were out of scope.
+The code already builds them, so this amendment records what it does.
+
+- A native build (`ty bundle --target macos`, `windows`, `linux`, `ios` or
+  `android`) runs the same web build as the web target. Python is never
+  linked into a host: the linked languages are only Rust, Swift, Kotlin
+  and C# (`NativeCompanion`). So a Python service runs on Pyodide inside
+  the host's web view, on the page thread, as it does in a browser.
+- No target refuses a Python service. The same rules apply as on the web:
+  `tac.python` must name `pyodide-314.0.7` with the `offline` profile, and
+  the runtime files must be in the Tachyon cache.
+- The build copies the five Pyodide files into
+  `.tachyon/services/python/314.0.7/`, and the host stages the web bundle
+  inside the app. The largest file, `pyodide.asm.wasm` (about 9.2 MiB), is
+  under the 16 MiB limit per bundle file. Every host serves `.wasm` as
+  `application/wasm` and `.mjs` as JavaScript.
+- A service that also has a Rust, Swift, Kotlin or C# source that the target
+  links uses that linked source instead. Python is the last choice among the
+  WebAssembly languages (`WebLanguage::PREFERENCE`).
+- The service worker is off in native builds, so the offline amendments
+  above do not apply there. The files are already inside the app.
+
+This is verified at the code level only. No host has run a Python service
+yet: no native gate loads Pyodide in WKWebView, Android WebView, WebView2 or
+WebKitGTK. Load time, memory and the custom bundle origins of each host are
+not checked.

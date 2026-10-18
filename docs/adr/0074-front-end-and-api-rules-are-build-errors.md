@@ -160,3 +160,22 @@ baseline file is not checked.
   sent, at the budget. Two services bound `this` to their own methods. With
   the narrower rule a route lists 14 to 48 services and loads 133 to 172 KB.
   With the smaller service modules as well, it loads 115 to 136 KB.
+
+## Amendment (2026-10-18): native bundles have no route size budget check
+
+Section 2 says that `ty bundle` checks route budgets. That is true only for
+the web target. A native build (`ty bundle --target macos`, `windows`,
+`linux`, `ios` or `android`) runs the same web build, but it turns off both
+precompression and the budget check (`SiteBuild` sets `compress` only for a
+release build with no native target, and `BudgetCheck::check` runs only
+when `compress` is on). So:
+
+- A native build never reports `TY1337`, even when `tac.budgets.check` is
+  `true`. It reads `tac.budgets` as a known member and then ignores it.
+- What a native build does check is file size, not route size. Each web
+  bundle file that a host copies must be at most 16 MiB, and the generated
+  host source must be at most 4 MiB (`TY1605`, `native/host.rs`).
+- The other build errors in this ADR (accessibility, the API baseline) still
+  run in a native build.
+
+To check the budget of a native app, build the web target too.

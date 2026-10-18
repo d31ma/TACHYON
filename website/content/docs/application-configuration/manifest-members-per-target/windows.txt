@@ -1,0 +1,199 @@
+Windows
+
+name, short_name
+  honored: the window title and the executable name
+
+start_url
+  honored: the page the app opens first
+
+icons
+  adapted: icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon.
+
+theme_color
+  adapted: theme_color is written into each page head, but the Windows window does not use it yet (WIN1).
+
+background_color
+  adapted: background_color is not applied to the Windows app yet.
+
+display
+  adapted: display is not applied yet. The Windows app opens a standard window (WIN1).
+
+orientation
+  not applicable: orientation has no meaning for a Windows window.
+
+tachyon (top-level)
+  refused with TY1601: The top-level tachyon member is gone. Move its values into tac (ADR 0052).
+
+other standard manifest members
+  adapted: The Windows app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers.
+
+tac.application
+  honored: the app's identity, window and menus
+
+tac.application.id
+  adapted: tac.application.id becomes the Windows assembly identity name with each dot changed to a hyphen. C# service storage and the telemetry file use it as written.
+
+tac.application.version
+  adapted: tac.application.version is not used yet. The Windows application manifest keeps version 1.0.0.0 (PKG0).
+
+tac.application.window.width, height
+  adapted: tac.application.window width and height are not read yet. The Windows window opens at 1024 by 768 (WIN1).
+
+tac.application.window.minWidth, minHeight
+  adapted: tac.application.window minWidth and minHeight are not read yet. The Windows window has no minimum size (WIN1).
+
+tac.application.window.controls
+  honored: close, fullscreen, maximize, minimize, resize and title
+
+tac.application.window.titleBar
+  adapted: tac.application.window.titleBar "integrated" is built only for macOS. The Windows app keeps the standard title bar (ADR 0098, WIN3).
+
+tac.application.window.titleBarButtonInset
+  adapted: tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Windows app ignores it.
+
+tac.application.menus
+  honored: items in the File, View and Help menus of the window's menu bar
+
+tac.application.rust
+  honored: vendored crates linked into the app's Rust services
+
+tac.application.rust.executables
+  honored: helper programs in bin/ beside the app
+
+tac.origin
+  not applicable: tac.origin is for search engines and the web server. The Windows app bundle still holds sitemap.xml and robots.txt, but nothing reads them there.
+
+tac.sitemap
+  not applicable: tac.sitemap adds entries to sitemap.xml for search engines. The Windows app bundle holds the file, but nothing reads it there.
+
+tac.scripts
+  honored: the same page head as the web build
+
+tac.blockingScripts
+  honored: the same page head as the web build
+
+tac.styles
+  honored: the same page head as the web build
+
+tac.styleSources
+  honored: the same checked files, bundled into the app
+
+tac.scriptSources
+  honored: the same checked files, bundled into the app
+
+tac.cache
+  adapted: tac.cache is not used in the Windows app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6.
+
+tac.metadata
+  adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Windows app.
+
+tac.browserApis
+  honored: the same grant list in the page
+
+tac.browserApis clipboard
+  adapted: clipboard in the Windows app uses the web view's navigator.clipboard, and no host test checks it yet (BA3).
+
+tac.browserApis share
+  adapted: share in the Windows app uses the web view's navigator.share, and no host test checks it yet (BA3).
+
+tac.browserApis notifications
+  adapted: notifications in the Windows app use the web view's Notification API. The host asks for no permission yet (BA3).
+
+tac.browserApis geolocation
+  adapted: geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3).
+
+tac.browserApis preferenceStrings
+  honored: the web view's localStorage, kept on disk
+
+tac.nativeCapabilities
+  adapted: tac.nativeCapabilities filePicker is not built for Windows yet. FilePicker answers unsupported (FP1).
+
+tac.elements
+  adapted: tac.elements are bundled into the Windows app for its own pages only. Other sites cannot load them from the app.
+
+tac.python
+  honored: Pyodide in the web view, checked in code only (ADR 0093)
+
+tac.budgets
+  not applicable: tac.budgets is checked only by web release builds. The Windows app loads its bundle from disk, so route sizes are not measured (ADR 0074).
+
+tac.outgoing
+  adapted: tac.outgoing.hosts is checked when the Windows app is built, but the app allows requests to every https host for now (SEC1).
+
+tac.go
+  honored: the same Go WebAssembly build in the web view
+
+tac.dotnet
+  adapted: tac.dotnet.aot does not change C# services in the Windows app, because they are linked into the app as native code. F# services still compile ahead of time.
+
+tac.accessibility
+  honored: the same build check
+
+tac.cohesion
+  honored: the same build check
+
+tac.duplication
+  honored: the same build check
+
+tac.dependencies
+  honored: the same build check
+
+tac.names
+  honored: the same build check
+
+tac.signatures
+  honored: the same build check
+
+tac.constants
+  honored: the same build check
+
+tac.implicitmembers
+  honored: the same build check
+
+tac.visibility
+  honored: the same build check
+
+tac.types
+  honored: the same build check
+
+tac.tests
+  honored: the same build check; ty test runs on the build machine
+
+tac.simplify
+  honored: the same build check
+
+application lifetime services
+  honored: Rust services that start with the app and stop when it quits
+
+standard Edit and Window menus
+  honored: Edit (Undo, Redo, Cut, Copy, Paste, Select All) and Window (Minimize, Maximize) menus in a menu bar that is always shown
+
+menu shortcuts with control
+  honored: the Ctrl key, like command; shortcuts that then collide stop the build (TY1601)
+
+window drag regions (data-tac-drag-region)
+  adapted: data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3).
+
+external links
+  adapted: The Windows app blocks links to other sites instead of opening the system browser (LK1).
+
+deep links
+  adapted: The Windows app cannot be opened at a route from a link yet (LK2).
+
+background and foreground signal
+  adapted: The Windows host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1).
+
+stored data (IndexedDB, Cache API, LocalState)
+  honored: kept on disk by the web view
+
+Content-Security-Policy
+  honored: the native host policy
+
+reaching Yon
+  adapted: The Windows app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET3).
+
+natively linked service languages
+  honored: Rust and C# services are linked into the app; other languages run in the page
+
+release packaging
+  adapted: The Windows build is a folder with the .exe. There is no installer or signature yet (PKG4).

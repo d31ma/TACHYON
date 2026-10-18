@@ -1,0 +1,199 @@
+macOS
+
+name, short_name
+  honored: CFBundleName and CFBundleDisplayName
+
+start_url
+  honored: the page the app opens first
+
+icons
+  honored: the largest raster icon becomes the .icns file
+
+theme_color
+  adapted: theme_color is written into each page head, but the macOS window does not use it yet.
+
+background_color
+  adapted: background_color is not applied to the macOS app yet.
+
+display
+  adapted: display is not applied yet. The macOS app opens a standard window.
+
+orientation
+  not applicable: orientation has no meaning for a macOS window.
+
+tachyon (top-level)
+  refused with TY1601: The top-level tachyon member is gone. Move its values into tac (ADR 0052).
+
+other standard manifest members
+  adapted: The macOS app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers.
+
+tac.application
+  honored: the app's identity, window and menus
+
+tac.application.id
+  honored: CFBundleIdentifier
+
+tac.application.version
+  adapted: tac.application.version becomes CFBundleShortVersionString. The build number CFBundleVersion stays 1 for now (PKG0).
+
+tac.application.window.width, height
+  honored: the first size of the window
+
+tac.application.window.minWidth, minHeight
+  honored: the smallest size of the window
+
+tac.application.window.controls
+  honored: close, fullscreen, maximize (zoom), minimize, resize and title
+
+tac.application.window.titleBar
+  honored: "integrated" draws the page under the title bar
+
+tac.application.window.titleBarButtonInset
+  honored: moves the window buttons of an integrated title bar
+
+tac.application.menus
+  honored: items in the File, View and Help menus of the menu bar
+
+tac.application.rust
+  honored: vendored crates linked into the app's Rust services
+
+tac.application.rust.executables
+  honored: signed helper programs in Contents/MacOS
+
+tac.origin
+  not applicable: tac.origin is for search engines and the web server. The macOS app bundle still holds sitemap.xml and robots.txt, but nothing reads them there.
+
+tac.sitemap
+  not applicable: tac.sitemap adds entries to sitemap.xml for search engines. The macOS app bundle holds the file, but nothing reads it there.
+
+tac.scripts
+  honored: the same page head as the web build
+
+tac.blockingScripts
+  honored: the same page head as the web build
+
+tac.styles
+  honored: the same page head as the web build
+
+tac.styleSources
+  honored: the same checked files, bundled into the app
+
+tac.scriptSources
+  honored: the same checked files, bundled into the app
+
+tac.cache
+  adapted: tac.cache is not used in the macOS app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6.
+
+tac.metadata
+  adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the macOS app.
+
+tac.browserApis
+  honored: the same grant list in the page
+
+tac.browserApis clipboard
+  adapted: clipboard in the macOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1).
+
+tac.browserApis share
+  adapted: share in the macOS app uses the web view's navigator.share, and no host test checks it yet (BA1).
+
+tac.browserApis notifications
+  adapted: notifications do not work in the macOS app yet: its web view has no Notification API (BA1).
+
+tac.browserApis geolocation
+  adapted: geolocation does not work in the macOS app yet: the app has no location usage string, so the system refuses (BA0, BA1).
+
+tac.browserApis preferenceStrings
+  honored: the web view's localStorage, kept on disk
+
+tac.nativeCapabilities
+  honored: filePicker opens the system file panel
+
+tac.elements
+  adapted: tac.elements are bundled into the macOS app for its own pages only. Other sites cannot load them from the app.
+
+tac.python
+  honored: Pyodide in the web view, checked in code only (ADR 0093)
+
+tac.budgets
+  not applicable: tac.budgets is checked only by web release builds. The macOS app loads its bundle from disk, so route sizes are not measured (ADR 0074).
+
+tac.outgoing
+  adapted: tac.outgoing.hosts is checked when the macOS app is built, but the app does not limit page requests to these hosts yet (SEC1).
+
+tac.go
+  honored: the same Go WebAssembly build in the web view
+
+tac.dotnet
+  honored: the same WebAssembly build in the web view
+
+tac.accessibility
+  honored: the same build check
+
+tac.cohesion
+  honored: the same build check
+
+tac.duplication
+  honored: the same build check
+
+tac.dependencies
+  honored: the same build check
+
+tac.names
+  honored: the same build check
+
+tac.signatures
+  honored: the same build check
+
+tac.constants
+  honored: the same build check
+
+tac.implicitmembers
+  honored: the same build check
+
+tac.visibility
+  honored: the same build check
+
+tac.types
+  honored: the same build check
+
+tac.tests
+  honored: the same build check; ty test runs on the build machine
+
+tac.simplify
+  honored: the same build check
+
+application lifetime services
+  honored: Rust services that start with the app and stop when it quits
+
+standard Edit and Window menus
+  honored: the App, Edit and Window menus
+
+menu shortcuts with control
+  honored: the Control key
+
+window drag regions (data-tac-drag-region)
+  honored: dragging a marked element moves the window
+
+external links
+  honored: http and https links open in the system browser
+
+deep links
+  adapted: The macOS app cannot be opened at a route from a link yet (LK2).
+
+background and foreground signal
+  adapted: The macOS host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1).
+
+stored data (IndexedDB, Cache API, LocalState)
+  honored: kept on disk by the web view
+
+Content-Security-Policy
+  adapted: The macOS app sends no Content-Security-Policy for its pages yet (SEC1).
+
+reaching Yon
+  adapted: The macOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET1).
+
+natively linked service languages
+  honored: Rust and Swift services are linked into the app; other languages run in the page
+
+release packaging
+  adapted: The macOS build is an unsigned .app bundle. Signing, notarization and a .dmg wait on PKG1.

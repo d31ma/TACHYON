@@ -26,11 +26,11 @@ use tachyon_contracts::{
     HttpMethod, NativeTarget,
 };
 use tachyon_core::{
-    ApiBaselineCheck, ApplicationConfig, BuildOptions, ComposedTypes, DevServer, DevServerOptions,
-    EnvironmentPolicy, Failure, HandlerCancellation, HandlerRuntimePrograms, HandlerSource,
-    HandlerSupervisor, HandlerSupervisorOptions, MigrationAnalysis, MigrationFix,
+    ApiBaselineCheck, AppTarget, ApplicationConfig, BuildOptions, ComposedTypes, DevServer,
+    DevServerOptions, EnvironmentPolicy, Failure, HandlerCancellation, HandlerRuntimePrograms,
+    HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, MigrationAnalysis, MigrationFix,
     NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, RouteInvocation,
-    ServerHost, WebCompiler, WindowsArchitecture, method_coverage::RecordedCalls,
+    ServerHost, TargetSupport, WebCompiler, WindowsArchitecture, method_coverage::RecordedCalls,
     native_target_directory,
 };
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, Severity};
@@ -68,6 +68,18 @@ enum BuildTarget {
 }
 
 impl BuildTarget {
+    const fn app_target(self) -> Option<AppTarget> {
+        match self {
+            Self::All => None,
+            Self::Web => Some(AppTarget::Web),
+            Self::Macos => Some(AppTarget::Macos),
+            Self::Ios => Some(AppTarget::Ios),
+            Self::Linux => Some(AppTarget::Linux),
+            Self::Windows => Some(AppTarget::Windows),
+            Self::Android => Some(AppTarget::Android),
+        }
+    }
+
     const fn native(self) -> Option<NativeTarget> {
         match self {
             Self::Web | Self::All => None,
@@ -193,6 +205,11 @@ enum Command {
             hide = true
         )]
         render_mode: Option<String>,
+        #[arg(
+            help = "Print what each client/manifest.json member does on each target, then stop. Without --target, prints every target",
+            long
+        )]
+        explain_targets: bool,
     },
     #[command(about = "Rewrite-internal deterministic build command", hide = true)]
     Build {
@@ -665,12 +682,22 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         skip_initial_build,
         render_mode,
         skip_package,
+        explain_targets,
         ..
     } = command
     else {
         unreachable!();
     };
     reject_render_mode(render_mode.as_deref())?;
+    if *explain_targets {
+        let requested = resolve_targets(target, &[], Some(BuildTarget::All))?;
+        let chosen: Vec<AppTarget> = requested
+            .iter()
+            .filter_map(|requested| requested.app_target())
+            .collect();
+        print!("{}", TargetSupport::explain(project, &chosen)?);
+        return Ok(());
+    }
     let targets = resolve_targets(
         target,
         &["TAC_BUNDLE_TARGET", "TAC_TARGET"],
@@ -1609,6 +1636,9 @@ async fn execute_web_build(
         println!("{line}");
     }
     for note in result.service_notes() {
+        println!("{note}");
+    }
+    for note in TargetSupport::notes(project, AppTarget::Web)? {
         println!("{note}");
     }
     Ok(())

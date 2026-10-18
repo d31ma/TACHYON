@@ -83,7 +83,7 @@ pub use migrate::{
 };
 pub use native::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, NativeUiChange, NativeUiContract,
-    NativeUiGeneration, WindowsArchitecture, native_target_directory,
+    NativeUiGeneration, TargetSupport, WindowsArchitecture, native_target_directory,
 };
 pub use project::{
     CompanionKind, HandlerNode, NativeCompanion, Project, ProjectDiscovery, RouteGraph, RouteNode,

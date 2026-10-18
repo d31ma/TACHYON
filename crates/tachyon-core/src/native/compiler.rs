@@ -189,6 +189,10 @@ impl NativeCompiler {
         let index =
             NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
         application.menus.validate_for(options.target, &index)?;
+        let notes = super::target_support::TargetSupport::native_notes(
+            project.snapshot_root(),
+            options.target,
+        )?;
 
         let (temporary_web, companions) =
             build_web_bundle(project, options.target, &base_output).await?;
@@ -228,12 +232,7 @@ impl NativeCompiler {
             application_bundle: destination.join(generated.application_bundle),
             route_count: index.routes.len(),
             sha256: digest,
-            notes: application
-                .window
-                .title_bar
-                .fallback_note(options.target)
-                .into_iter()
-                .collect(),
+            notes,
         })
     }
 }

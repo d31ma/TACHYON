@@ -187,3 +187,11 @@ unit), and a native target has no browser at all.
   for the protocol. Evidence: the three `a_swift_web_service_*` tests in
   `tac_web::web_api_tests` and the Swift row of
   `scripts/web-apis-browser-test.mjs`.
+
+## Amendment (2026-10-18): `preferenceStrings` is a granted browser API
+
+`PreferenceStrings` (`read`, `write`) came after this ADR. It also needs a
+grant. The known names in `tac.browserApis` are now `clipboard`, `share`,
+`notifications`, `geolocation` and `preferenceStrings`
+(`BrowserApiGrants::KNOWN`). Without the grant, `read` answers `null` and
+`write` answers `false`. It needs no user action.

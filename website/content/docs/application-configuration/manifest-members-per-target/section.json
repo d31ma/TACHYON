@@ -1,0 +1,42 @@
+{
+  "heading": "What each manifest member does on each target",
+  "body": "A member of `client/manifest.json` is declared once, and each target treats it in one of four ways. Honored means the target uses it natively. Adapted means the target uses the closest thing it has, and the build prints one note that says what changed. Refused means the build stops with a TY code that names the target and says what to do instead. Not applicable means the member has no meaning on that target, and the build prints one note. A build prints notes and refusals only for the members that your manifest declares. Nothing is ignored silently.\n\nThe tabs below list every member and native capability for each target. Run `ty bundle --explain-targets` to print the same list for your project, with each member that your manifest declares marked `(declared)`. Add `--target ios` (or a comma list) to see only some targets. The list comes from one table in the framework (ADR 0102), so the build, this page and the command always agree.",
+  "files": [
+    {
+      "name": "Web",
+      "code": {
+        "file": "web.txt"
+      }
+    },
+    {
+      "name": "macOS",
+      "code": {
+        "file": "macos.txt"
+      }
+    },
+    {
+      "name": "Windows",
+      "code": {
+        "file": "windows.txt"
+      }
+    },
+    {
+      "name": "Linux",
+      "code": {
+        "file": "linux.txt"
+      }
+    },
+    {
+      "name": "iOS",
+      "code": {
+        "file": "ios.txt"
+      }
+    },
+    {
+      "name": "Android",
+      "code": {
+        "file": "android.txt"
+      }
+    }
+  ]
+}

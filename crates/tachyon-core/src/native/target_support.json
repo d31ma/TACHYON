@@ -1,0 +1,662 @@
+[
+  {
+    "member": "name, short_name",
+    "paths": ["name", "short_name"],
+    "web": {"reach": "honored", "how": "published in manifest.webmanifest"},
+    "macos": {"reach": "honored", "how": "CFBundleName and CFBundleDisplayName"},
+    "windows": {"reach": "honored", "how": "the window title and the executable name"},
+    "linux": {"reach": "honored", "how": "the .desktop Name and the window title"},
+    "ios": {"reach": "honored", "how": "CFBundleName and CFBundleDisplayName"},
+    "android": {"reach": "honored", "how": "app_name in strings.xml"}
+  },
+  {
+    "member": "start_url",
+    "paths": ["start_url"],
+    "web": {"reach": "honored", "how": "published in manifest.webmanifest"},
+    "macos": {"reach": "honored", "how": "the page the app opens first"},
+    "windows": {"reach": "honored", "how": "the page the app opens first"},
+    "linux": {"reach": "honored", "how": "the page the app opens first"},
+    "ios": {"reach": "honored", "how": "the page the app opens first"},
+    "android": {"reach": "honored", "how": "the page the app opens first"}
+  },
+  {
+    "member": "icons",
+    "paths": ["icons"],
+    "web": {"reach": "honored", "how": "icon links and apple-touch-icon in every page head"},
+    "macos": {"reach": "honored", "how": "the largest raster icon becomes the .icns file"},
+    "windows": {"reach": "adapted", "note": "icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon."},
+    "linux": {"reach": "adapted", "note": "icons: the Linux app copies the largest raster icon into share/icon.png without resizing it."},
+    "ios": {"reach": "honored", "how": "the largest raster icon is resized to the app icon set"},
+    "android": {"reach": "adapted", "note": "icons: the Android app copies the largest raster icon into mipmap-xxxhdpi without resizing it."}
+  },
+  {
+    "member": "theme_color",
+    "paths": ["theme_color"],
+    "web": {"reach": "honored", "how": "a theme-color meta tag in every page head"},
+    "macos": {"reach": "adapted", "note": "theme_color is written into each page head, but the macOS window does not use it yet."},
+    "windows": {"reach": "adapted", "note": "theme_color is written into each page head, but the Windows window does not use it yet (WIN1)."},
+    "linux": {"reach": "adapted", "note": "theme_color is written into each page head, but the Linux window does not use it yet (WIN2)."},
+    "ios": {"reach": "adapted", "note": "theme_color is written into each page head, but the iOS status bar does not use it yet (WIN5)."},
+    "android": {"reach": "adapted", "note": "theme_color is written into each page head, but the Android status bar does not use it yet (WIN5)."}
+  },
+  {
+    "member": "background_color",
+    "paths": ["background_color"],
+    "web": {"reach": "honored", "how": "published in manifest.webmanifest"},
+    "macos": {"reach": "adapted", "note": "background_color is not applied to the macOS app yet."},
+    "windows": {"reach": "adapted", "note": "background_color is not applied to the Windows app yet."},
+    "linux": {"reach": "adapted", "note": "background_color is not applied to the Linux app yet."},
+    "ios": {"reach": "adapted", "note": "background_color is not applied to the iOS app yet."},
+    "android": {"reach": "adapted", "note": "background_color is not applied to the Android app yet."}
+  },
+  {
+    "member": "display",
+    "paths": ["display"],
+    "web": {"reach": "honored", "how": "published in manifest.webmanifest"},
+    "macos": {"reach": "adapted", "note": "display is not applied yet. The macOS app opens a standard window."},
+    "windows": {"reach": "adapted", "note": "display is not applied yet. The Windows app opens a standard window (WIN1)."},
+    "linux": {"reach": "adapted", "note": "display is not applied yet. The Linux app opens a standard window (WIN2)."},
+    "ios": {"reach": "adapted", "note": "display is not applied yet. The iOS app keeps the system status bar (WIN5)."},
+    "android": {"reach": "adapted", "note": "display is not applied yet. The Android app keeps the system bars (WIN5)."}
+  },
+  {
+    "member": "orientation",
+    "paths": ["orientation"],
+    "web": {"reach": "honored", "how": "published in manifest.webmanifest"},
+    "macos": {"reach": "notApplicable", "note": "orientation has no meaning for a macOS window."},
+    "windows": {"reach": "notApplicable", "note": "orientation has no meaning for a Windows window."},
+    "linux": {"reach": "notApplicable", "note": "orientation has no meaning for a Linux window."},
+    "ios": {"reach": "adapted", "note": "orientation is not applied yet. The iOS app is locked to portrait (WIN5)."},
+    "android": {"reach": "adapted", "note": "orientation is not applied yet. The Android app turns with the device (WIN5)."}
+  },
+  {
+    "member": "tachyon (top-level)",
+    "paths": ["tachyon"],
+    "web": {"reach": "refused", "code": 1601, "alternative": "The top-level tachyon member is gone. Move its values into tac (ADR 0052)."},
+    "macos": {"reach": "refused", "code": 1601, "alternative": "The top-level tachyon member is gone. Move its values into tac (ADR 0052)."},
+    "windows": {"reach": "refused", "code": 1601, "alternative": "The top-level tachyon member is gone. Move its values into tac (ADR 0052)."},
+    "linux": {"reach": "refused", "code": 1601, "alternative": "The top-level tachyon member is gone. Move its values into tac (ADR 0052)."},
+    "ios": {"reach": "refused", "code": 1601, "alternative": "The top-level tachyon member is gone. Move its values into tac (ADR 0052)."},
+    "android": {"reach": "refused", "code": 1601, "alternative": "The top-level tachyon member is gone. Move its values into tac (ADR 0052)."}
+  },
+  {
+    "member": "other standard manifest members",
+    "paths": ["scope", "id", "description", "lang", "shortcuts", "share_target", "file_handlers", "protocol_handlers", "display_override"],
+    "web": {"reach": "honored", "how": "published in manifest.webmanifest for the browser"},
+    "macos": {"reach": "adapted", "note": "The macOS app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers."},
+    "windows": {"reach": "adapted", "note": "The Windows app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers."},
+    "linux": {"reach": "adapted", "note": "The Linux app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers."},
+    "ios": {"reach": "adapted", "note": "The iOS app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers."},
+    "android": {"reach": "adapted", "note": "The Android app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers."}
+  },
+  {
+    "member": "tac.application",
+    "paths": ["tac.application"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "the app's identity, window and menus"},
+    "windows": {"reach": "honored", "how": "the app's identity, window and menus"},
+    "linux": {"reach": "honored", "how": "the app's identity, window and menus"},
+    "ios": {"reach": "honored", "how": "the app's identity"},
+    "android": {"reach": "honored", "how": "the app's identity"}
+  },
+  {
+    "member": "tac.application.id",
+    "paths": ["tac.application.id"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "CFBundleIdentifier"},
+    "windows": {"reach": "adapted", "note": "tac.application.id becomes the Windows assembly identity name with each dot changed to a hyphen. C# service storage and the telemetry file use it as written."},
+    "linux": {"reach": "adapted", "note": "tac.application.id names the .desktop file as written. The GTK application id changes each hyphen to an underscore."},
+    "ios": {"reach": "honored", "how": "CFBundleIdentifier"},
+    "android": {"reach": "adapted", "note": "tac.application.id becomes the Android applicationId after characters that Android refuses are replaced."}
+  },
+  {
+    "member": "tac.application.version",
+    "paths": ["tac.application.version"],
+    "web": {"reach": "honored", "how": "the version in api.json, which the API baseline check compares by major version"},
+    "macos": {"reach": "adapted", "note": "tac.application.version becomes CFBundleShortVersionString. The build number CFBundleVersion stays 1 for now (PKG0)."},
+    "windows": {"reach": "adapted", "note": "tac.application.version is not used yet. The Windows application manifest keeps version 1.0.0.0 (PKG0)."},
+    "linux": {"reach": "adapted", "note": "tac.application.version is written only as the X-Tachyon-Version key of the .desktop file (PKG0)."},
+    "ios": {"reach": "adapted", "note": "tac.application.version becomes CFBundleShortVersionString. The build number CFBundleVersion stays 1 for now (PKG0)."},
+    "android": {"reach": "adapted", "note": "tac.application.version becomes versionName. versionCode stays 1 for now (PKG0)."}
+  },
+  {
+    "member": "tac.application.window.width, height",
+    "paths": ["tac.application.window.width", "tac.application.window.height"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "the first size of the window"},
+    "windows": {"reach": "adapted", "note": "tac.application.window width and height are not read yet. The Windows window opens at 1024 by 768 (WIN1)."},
+    "linux": {"reach": "adapted", "note": "tac.application.window width and height are not read yet. The Linux window opens at 1024 by 768 (WIN2)."},
+    "ios": {"reach": "notApplicable", "note": "tac.application.window width and height have no meaning on iOS: the system sizes the app."},
+    "android": {"reach": "notApplicable", "note": "tac.application.window width and height have no meaning on Android: the system sizes the app."}
+  },
+  {
+    "member": "tac.application.window.minWidth, minHeight",
+    "paths": ["tac.application.window.minWidth", "tac.application.window.minHeight"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "the smallest size of the window"},
+    "windows": {"reach": "adapted", "note": "tac.application.window minWidth and minHeight are not read yet. The Windows window has no minimum size (WIN1)."},
+    "linux": {"reach": "adapted", "note": "tac.application.window minWidth and minHeight are not read yet. The Linux window has no minimum size (WIN2)."},
+    "ios": {"reach": "notApplicable", "note": "tac.application.window minWidth and minHeight have no meaning on iOS: the system sizes the app."},
+    "android": {"reach": "notApplicable", "note": "tac.application.window minWidth and minHeight have no meaning on Android: the system sizes the app."}
+  },
+  {
+    "member": "tac.application.window.controls",
+    "paths": ["tac.application.window.controls"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "close, fullscreen, maximize (zoom), minimize, resize and title"},
+    "windows": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title"},
+    "linux": {"reach": "adapted", "note": "tac.application.window.controls work on Linux only from a linked Rust service. A call from a page service does nothing yet (WIN6)."},
+    "ios": {"reach": "adapted", "note": "tac.application.window.controls are not built for iOS yet. A WindowControls call does nothing (WIN6)."},
+    "android": {"reach": "adapted", "note": "tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, and fullscreen hides the system bars."}
+  },
+  {
+    "member": "tac.application.window.titleBar",
+    "paths": ["tac.application.window.titleBar"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "\"integrated\" draws the page under the title bar"},
+    "windows": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Windows app keeps the standard title bar (ADR 0098, WIN3)."},
+    "linux": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Linux app keeps the standard title bar (ADR 0098, WIN4)."},
+    "ios": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The iOS app keeps the standard status bar (ADR 0098, WIN5)."},
+    "android": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Android app keeps the standard status bar (ADR 0098, WIN5)."}
+  },
+  {
+    "member": "tac.application.window.titleBarButtonInset",
+    "paths": ["tac.application.window.titleBarButtonInset"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "moves the window buttons of an integrated title bar"},
+    "windows": {"reach": "adapted", "note": "tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Windows app ignores it."},
+    "linux": {"reach": "adapted", "note": "tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Linux app ignores it."},
+    "ios": {"reach": "notApplicable", "note": "tac.application.window.titleBarButtonInset has no meaning on iOS: the app has no window buttons."},
+    "android": {"reach": "notApplicable", "note": "tac.application.window.titleBarButtonInset has no meaning on Android: the app has no window buttons."}
+  },
+  {
+    "member": "tac.application.menus",
+    "paths": ["tac.application.menus"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "items in the File, View and Help menus of the menu bar"},
+    "windows": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar"},
+    "linux": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar"},
+    "ios": {"reach": "refused", "code": 1601, "alternative": "iOS apps have no menu bar. Put links or buttons in the page instead (D1)."},
+    "android": {"reach": "refused", "code": 1601, "alternative": "Android apps have no menu bar. Put links or buttons in the page instead (D1)."}
+  },
+  {
+    "member": "tac.application.rust",
+    "paths": ["tac.application.rust.dependencies", "tac.application.rust.platformDependencies"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
+    "windows": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
+    "linux": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
+    "ios": {"reach": "adapted", "note": "tac.application.rust crates are not used on iOS: Rust services run as WebAssembly in the page there (D1)."},
+    "android": {"reach": "adapted", "note": "tac.application.rust crates are not used on Android: Rust services run as WebAssembly in the page there (D1)."}
+  },
+  {
+    "member": "tac.application.rust.executables",
+    "paths": ["tac.application.rust.executables"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "signed helper programs in Contents/MacOS"},
+    "windows": {"reach": "honored", "how": "helper programs in bin/ beside the app"},
+    "linux": {"reach": "honored", "how": "helper programs in bin/ beside the app"},
+    "ios": {"reach": "refused", "code": 1601, "alternative": "An iOS app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target."},
+    "android": {"reach": "refused", "code": 1601, "alternative": "An Android app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target."}
+  },
+  {
+    "member": "tac.origin",
+    "paths": ["tac.origin"],
+    "web": {"reach": "honored", "how": "sitemap.xml, robots.txt, absolute metadata URLs and the server's host check"},
+    "macos": {"reach": "notApplicable", "note": "tac.origin is for search engines and the web server. The macOS app bundle still holds sitemap.xml and robots.txt, but nothing reads them there."},
+    "windows": {"reach": "notApplicable", "note": "tac.origin is for search engines and the web server. The Windows app bundle still holds sitemap.xml and robots.txt, but nothing reads them there."},
+    "linux": {"reach": "notApplicable", "note": "tac.origin is for search engines and the web server. The Linux app bundle still holds sitemap.xml and robots.txt, but nothing reads them there."},
+    "ios": {"reach": "notApplicable", "note": "tac.origin is for search engines and the web server. The iOS app bundle still holds sitemap.xml and robots.txt, but nothing reads them there."},
+    "android": {"reach": "notApplicable", "note": "tac.origin is for search engines and the web server. The Android app bundle still holds sitemap.xml and robots.txt, but nothing reads them there."}
+  },
+  {
+    "member": "tac.sitemap",
+    "paths": ["tac.sitemap"],
+    "web": {"reach": "honored", "how": "dynamic-route entries in sitemap.xml"},
+    "macos": {"reach": "notApplicable", "note": "tac.sitemap adds entries to sitemap.xml for search engines. The macOS app bundle holds the file, but nothing reads it there."},
+    "windows": {"reach": "notApplicable", "note": "tac.sitemap adds entries to sitemap.xml for search engines. The Windows app bundle holds the file, but nothing reads it there."},
+    "linux": {"reach": "notApplicable", "note": "tac.sitemap adds entries to sitemap.xml for search engines. The Linux app bundle holds the file, but nothing reads it there."},
+    "ios": {"reach": "notApplicable", "note": "tac.sitemap adds entries to sitemap.xml for search engines. The iOS app bundle holds the file, but nothing reads it there."},
+    "android": {"reach": "notApplicable", "note": "tac.sitemap adds entries to sitemap.xml for search engines. The Android app bundle holds the file, but nothing reads it there."}
+  },
+  {
+    "member": "tac.scripts",
+    "paths": ["tac.scripts"],
+    "web": {"reach": "honored", "how": "deferred modules after the Tac runtime"},
+    "macos": {"reach": "honored", "how": "the same page head as the web build"},
+    "windows": {"reach": "honored", "how": "the same page head as the web build"},
+    "linux": {"reach": "honored", "how": "the same page head as the web build"},
+    "ios": {"reach": "honored", "how": "the same page head as the web build"},
+    "android": {"reach": "honored", "how": "the same page head as the web build"}
+  },
+  {
+    "member": "tac.blockingScripts",
+    "paths": ["tac.blockingScripts"],
+    "web": {"reach": "honored", "how": "classic scripts before the Tac runtime"},
+    "macos": {"reach": "honored", "how": "the same page head as the web build"},
+    "windows": {"reach": "honored", "how": "the same page head as the web build"},
+    "linux": {"reach": "honored", "how": "the same page head as the web build"},
+    "ios": {"reach": "honored", "how": "the same page head as the web build"},
+    "android": {"reach": "honored", "how": "the same page head as the web build"}
+  },
+  {
+    "member": "tac.styles",
+    "paths": ["tac.styles"],
+    "web": {"reach": "honored", "how": "stylesheet links in every page head"},
+    "macos": {"reach": "honored", "how": "the same page head as the web build"},
+    "windows": {"reach": "honored", "how": "the same page head as the web build"},
+    "linux": {"reach": "honored", "how": "the same page head as the web build"},
+    "ios": {"reach": "honored", "how": "the same page head as the web build"},
+    "android": {"reach": "honored", "how": "the same page head as the web build"}
+  },
+  {
+    "member": "tac.styleSources",
+    "paths": ["tac.styleSources"],
+    "web": {"reach": "honored", "how": "pinned and checked stylesheet sources"},
+    "macos": {"reach": "honored", "how": "the same checked files, bundled into the app"},
+    "windows": {"reach": "honored", "how": "the same checked files, bundled into the app"},
+    "linux": {"reach": "honored", "how": "the same checked files, bundled into the app"},
+    "ios": {"reach": "honored", "how": "the same checked files, bundled into the app"},
+    "android": {"reach": "honored", "how": "the same checked files, bundled into the app"}
+  },
+  {
+    "member": "tac.scriptSources",
+    "paths": ["tac.scriptSources"],
+    "web": {"reach": "honored", "how": "pinned and checked script sources"},
+    "macos": {"reach": "honored", "how": "the same checked files, bundled into the app"},
+    "windows": {"reach": "honored", "how": "the same checked files, bundled into the app"},
+    "linux": {"reach": "honored", "how": "the same checked files, bundled into the app"},
+    "ios": {"reach": "honored", "how": "the same checked files, bundled into the app"},
+    "android": {"reach": "honored", "how": "the same checked files, bundled into the app"}
+  },
+  {
+    "member": "tac.cache",
+    "paths": ["tac.cache"],
+    "web": {"reach": "honored", "how": "offline rules in the service worker"},
+    "macos": {"reach": "adapted", "note": "tac.cache is not used in the macOS app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."},
+    "windows": {"reach": "adapted", "note": "tac.cache is not used in the Windows app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."},
+    "linux": {"reach": "adapted", "note": "tac.cache is not used in the Linux app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."},
+    "ios": {"reach": "adapted", "note": "tac.cache is not used in the iOS app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."},
+    "android": {"reach": "adapted", "note": "tac.cache is not used in the Android app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."}
+  },
+  {
+    "member": "tac.metadata",
+    "paths": ["tac.metadata"],
+    "web": {"reach": "honored", "how": "head tags in every page"},
+    "macos": {"reach": "adapted", "note": "tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the macOS app."},
+    "windows": {"reach": "adapted", "note": "tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Windows app."},
+    "linux": {"reach": "adapted", "note": "tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Linux app."},
+    "ios": {"reach": "adapted", "note": "tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the iOS app."},
+    "android": {"reach": "adapted", "note": "tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Android app."}
+  },
+  {
+    "member": "tac.browserApis",
+    "paths": ["tac.browserApis"],
+    "web": {"reach": "honored", "how": "the page grants only the listed browser APIs"},
+    "macos": {"reach": "honored", "how": "the same grant list in the page"},
+    "windows": {"reach": "honored", "how": "the same grant list in the page"},
+    "linux": {"reach": "honored", "how": "the same grant list in the page"},
+    "ios": {"reach": "honored", "how": "the same grant list in the page"},
+    "android": {"reach": "honored", "how": "the same grant list in the page"}
+  },
+  {
+    "member": "tac.browserApis clipboard",
+    "paths": ["tac.browserApis[clipboard]"],
+    "web": {"reach": "honored", "how": "navigator.clipboard"},
+    "macos": {"reach": "adapted", "note": "clipboard in the macOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1)."},
+    "windows": {"reach": "adapted", "note": "clipboard in the Windows app uses the web view's navigator.clipboard, and no host test checks it yet (BA3)."},
+    "linux": {"reach": "adapted", "note": "clipboard in the Linux app uses the web view's navigator.clipboard, and no host test checks it yet (BA4)."},
+    "ios": {"reach": "adapted", "note": "clipboard in the iOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1)."},
+    "android": {"reach": "adapted", "note": "clipboard in the Android app uses the web view's navigator.clipboard, and no host test checks it yet (BA2)."}
+  },
+  {
+    "member": "tac.browserApis share",
+    "paths": ["tac.browserApis[share]"],
+    "web": {"reach": "honored", "how": "navigator.share"},
+    "macos": {"reach": "adapted", "note": "share in the macOS app uses the web view's navigator.share, and no host test checks it yet (BA1)."},
+    "windows": {"reach": "adapted", "note": "share in the Windows app uses the web view's navigator.share, and no host test checks it yet (BA3)."},
+    "linux": {"reach": "adapted", "note": "share does not work in the Linux app yet: its web view has no navigator.share (BA4)."},
+    "ios": {"reach": "adapted", "note": "share in the iOS app uses the web view's navigator.share, and no host test checks it yet (BA1)."},
+    "android": {"reach": "adapted", "note": "share does not work in the Android app yet: its web view has no navigator.share (BA2)."}
+  },
+  {
+    "member": "tac.browserApis notifications",
+    "paths": ["tac.browserApis[notifications]"],
+    "web": {"reach": "honored", "how": "the Notification API"},
+    "macos": {"reach": "adapted", "note": "notifications do not work in the macOS app yet: its web view has no Notification API (BA1)."},
+    "windows": {"reach": "adapted", "note": "notifications in the Windows app use the web view's Notification API. The host asks for no permission yet (BA3)."},
+    "linux": {"reach": "adapted", "note": "notifications in the Linux app use the web view's Notification API. The host asks for no permission yet (BA4)."},
+    "ios": {"reach": "adapted", "note": "notifications do not work in the iOS app yet: its web view has no Notification API (BA1)."},
+    "android": {"reach": "adapted", "note": "notifications do not work in the Android app yet: its web view has no Notification API (BA2)."}
+  },
+  {
+    "member": "tac.browserApis geolocation",
+    "paths": ["tac.browserApis[geolocation]"],
+    "web": {"reach": "honored", "how": "navigator.geolocation"},
+    "macos": {"reach": "adapted", "note": "geolocation does not work in the macOS app yet: the app has no location usage string, so the system refuses (BA0, BA1)."},
+    "windows": {"reach": "adapted", "note": "geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3)."},
+    "linux": {"reach": "adapted", "note": "geolocation in the Linux app uses the web view's navigator.geolocation. The host asks for no permission yet (BA4)."},
+    "ios": {"reach": "adapted", "note": "geolocation does not work in the iOS app yet: the app has no location usage string, so the system refuses (BA0, BA1)."},
+    "android": {"reach": "adapted", "note": "geolocation does not work in the Android app yet: the host turns it off in the web view (BA2)."}
+  },
+  {
+    "member": "tac.browserApis preferenceStrings",
+    "paths": ["tac.browserApis[preferenceStrings]"],
+    "web": {"reach": "honored", "how": "localStorage"},
+    "macos": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
+    "windows": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
+    "linux": {"reach": "adapted", "note": "preferenceStrings in the Linux app live only while the app runs: the web view does not keep storage yet (ST1)."},
+    "ios": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
+    "android": {"reach": "honored", "how": "the web view's localStorage, kept on disk"}
+  },
+  {
+    "member": "tac.nativeCapabilities",
+    "paths": ["tac.nativeCapabilities"],
+    "web": {"reach": "notApplicable", "note": "tac.nativeCapabilities is read only by native builds. In a browser, FilePicker answers unsupported."},
+    "macos": {"reach": "honored", "how": "filePicker opens the system file panel"},
+    "windows": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker is not built for Windows yet. FilePicker answers unsupported (FP1)."},
+    "linux": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker is not built for Linux yet. FilePicker answers unsupported (FP3)."},
+    "ios": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4)."},
+    "android": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker is not built for Android yet. FilePicker answers unsupported (FP2)."}
+  },
+  {
+    "member": "tac.elements",
+    "paths": ["tac.elements"],
+    "web": {"reach": "honored", "how": "custom elements that other sites can load"},
+    "macos": {"reach": "adapted", "note": "tac.elements are bundled into the macOS app for its own pages only. Other sites cannot load them from the app."},
+    "windows": {"reach": "adapted", "note": "tac.elements are bundled into the Windows app for its own pages only. Other sites cannot load them from the app."},
+    "linux": {"reach": "adapted", "note": "tac.elements are bundled into the Linux app for its own pages only. Other sites cannot load them from the app."},
+    "ios": {"reach": "adapted", "note": "tac.elements are bundled into the iOS app for its own pages only. Other sites cannot load them from the app."},
+    "android": {"reach": "adapted", "note": "tac.elements are bundled into the Android app for its own pages only. Other sites cannot load them from the app."}
+  },
+  {
+    "member": "tac.python",
+    "paths": ["tac.python"],
+    "web": {"reach": "honored", "how": "Python services on Pyodide (WebAssembly)"},
+    "macos": {"reach": "honored", "how": "Pyodide in the web view, checked in code only (ADR 0093)"},
+    "windows": {"reach": "honored", "how": "Pyodide in the web view, checked in code only (ADR 0093)"},
+    "linux": {"reach": "honored", "how": "Pyodide in the web view, checked in code only (ADR 0093)"},
+    "ios": {"reach": "honored", "how": "Pyodide in the web view, checked in code only (ADR 0093)"},
+    "android": {"reach": "honored", "how": "Pyodide in the web view, checked in code only (ADR 0093)"}
+  },
+  {
+    "member": "tac.budgets",
+    "paths": ["tac.budgets"],
+    "web": {"reach": "honored", "how": "each route's size is checked in a release build (TY1337)"},
+    "macos": {"reach": "notApplicable", "note": "tac.budgets is checked only by web release builds. The macOS app loads its bundle from disk, so route sizes are not measured (ADR 0074)."},
+    "windows": {"reach": "notApplicable", "note": "tac.budgets is checked only by web release builds. The Windows app loads its bundle from disk, so route sizes are not measured (ADR 0074)."},
+    "linux": {"reach": "notApplicable", "note": "tac.budgets is checked only by web release builds. The Linux app loads its bundle from disk, so route sizes are not measured (ADR 0074)."},
+    "ios": {"reach": "notApplicable", "note": "tac.budgets is checked only by web release builds. The iOS app loads its bundle from disk, so route sizes are not measured (ADR 0074)."},
+    "android": {"reach": "notApplicable", "note": "tac.budgets is checked only by web release builds. The Android app loads its bundle from disk, so route sizes are not measured (ADR 0074)."}
+  },
+  {
+    "member": "tac.outgoing",
+    "paths": ["tac.outgoing"],
+    "web": {"reach": "honored", "how": "the build checks request hosts and the page's connect-src allows only them"},
+    "macos": {"reach": "adapted", "note": "tac.outgoing.hosts is checked when the macOS app is built, but the app does not limit page requests to these hosts yet (SEC1)."},
+    "windows": {"reach": "adapted", "note": "tac.outgoing.hosts is checked when the Windows app is built, but the app allows requests to every https host for now (SEC1)."},
+    "linux": {"reach": "adapted", "note": "tac.outgoing.hosts is checked when the Linux app is built, but the app allows requests to every https host for now (SEC1)."},
+    "ios": {"reach": "adapted", "note": "tac.outgoing.hosts is checked when the iOS app is built, but the app does not limit page requests to these hosts yet (SEC1)."},
+    "android": {"reach": "adapted", "note": "tac.outgoing.hosts is checked when the Android app is built, but the Android app blocks every remote request for now (SEC1)."}
+  },
+  {
+    "member": "tac.go",
+    "paths": ["tac.go"],
+    "web": {"reach": "honored", "how": "the Go compiler for Go web services"},
+    "macos": {"reach": "honored", "how": "the same Go WebAssembly build in the web view"},
+    "windows": {"reach": "honored", "how": "the same Go WebAssembly build in the web view"},
+    "linux": {"reach": "honored", "how": "the same Go WebAssembly build in the web view"},
+    "ios": {"reach": "honored", "how": "the same Go WebAssembly build in the web view"},
+    "android": {"reach": "honored", "how": "the same Go WebAssembly build in the web view"}
+  },
+  {
+    "member": "tac.dotnet",
+    "paths": ["tac.dotnet"],
+    "web": {"reach": "honored", "how": "ahead-of-time WebAssembly for C# and F# services in a release build"},
+    "macos": {"reach": "honored", "how": "the same WebAssembly build in the web view"},
+    "windows": {"reach": "adapted", "note": "tac.dotnet.aot does not change C# services in the Windows app, because they are linked into the app as native code. F# services still compile ahead of time."},
+    "linux": {"reach": "honored", "how": "the same WebAssembly build in the web view"},
+    "ios": {"reach": "honored", "how": "the same WebAssembly build in the web view"},
+    "android": {"reach": "honored", "how": "the same WebAssembly build in the web view"}
+  },
+  {
+    "member": "tac.accessibility",
+    "paths": ["tac.accessibility"],
+    "web": {"reach": "honored", "how": "the accessible-view check (TY1336)"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.cohesion",
+    "paths": ["tac.cohesion"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.duplication",
+    "paths": ["tac.duplication"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.dependencies",
+    "paths": ["tac.dependencies"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.names",
+    "paths": ["tac.names"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch and domain words"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.signatures",
+    "paths": ["tac.signatures"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.constants",
+    "paths": ["tac.constants"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.implicitmembers",
+    "paths": ["tac.implicitmembers"],
+    "web": {"reach": "honored", "how": "a Tac code suggestion switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.visibility",
+    "paths": ["tac.visibility"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.types",
+    "paths": ["tac.types"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "tac.tests",
+    "paths": ["tac.tests"],
+    "web": {"reach": "honored", "how": "a Tac code rule switch"},
+    "macos": {"reach": "honored", "how": "the same build check; ty test runs on the build machine"},
+    "windows": {"reach": "honored", "how": "the same build check; ty test runs on the build machine"},
+    "linux": {"reach": "honored", "how": "the same build check; ty test runs on the build machine"},
+    "ios": {"reach": "honored", "how": "the same build check; ty test runs on the build machine"},
+    "android": {"reach": "honored", "how": "the same build check; ty test runs on the build machine"}
+  },
+  {
+    "member": "tac.simplify",
+    "paths": ["tac.simplify"],
+    "web": {"reach": "honored", "how": "a Tac code suggestion switch"},
+    "macos": {"reach": "honored", "how": "the same build check"},
+    "windows": {"reach": "honored", "how": "the same build check"},
+    "linux": {"reach": "honored", "how": "the same build check"},
+    "ios": {"reach": "honored", "how": "the same build check"},
+    "android": {"reach": "honored", "how": "the same build check"}
+  },
+  {
+    "member": "application lifetime services",
+    "paths": [],
+    "web": {"reach": "refused", "code": 1406, "alternative": "A browser page has no application lifetime. Use a page or singleton service."},
+    "macos": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
+    "windows": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
+    "linux": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
+    "ios": {"reach": "refused", "code": 1406, "alternative": "Application lifetime services must be Rust, and Rust is not linked on iOS yet. Use a page or singleton service (D1)."},
+    "android": {"reach": "refused", "code": 1406, "alternative": "Application lifetime services must be Rust, and Rust is not linked on Android yet. Use a page or singleton service (D1)."}
+  },
+  {
+    "member": "standard Edit and Window menus",
+    "paths": [],
+    "web": {"reach": "notApplicable", "note": "A browser page has no menu bar."},
+    "macos": {"reach": "honored", "how": "the App, Edit and Window menus"},
+    "windows": {"reach": "honored", "how": "Edit (Undo, Redo, Cut, Copy, Paste, Select All) and Window (Minimize, Maximize) menus in a menu bar that is always shown"},
+    "linux": {"reach": "honored", "how": "Edit (Undo, Redo, Cut, Copy, Paste, Select All) and Window (Minimize, Maximize) menus in a menu bar that is always shown"},
+    "ios": {"reach": "notApplicable", "note": "An iOS app has no menu bar."},
+    "android": {"reach": "notApplicable", "note": "An Android app has no menu bar."}
+  },
+  {
+    "member": "menu shortcuts with control",
+    "paths": [],
+    "web": {"reach": "notApplicable", "note": "A browser page has no menu bar."},
+    "macos": {"reach": "honored", "how": "the Control key"},
+    "windows": {"reach": "honored", "how": "the Ctrl key, like command; shortcuts that then collide stop the build (TY1601)"},
+    "linux": {"reach": "honored", "how": "the Ctrl key, like command; shortcuts that then collide stop the build (TY1601)"},
+    "ios": {"reach": "notApplicable", "note": "An iOS app has no menu bar."},
+    "android": {"reach": "notApplicable", "note": "An Android app has no menu bar."}
+  },
+  {
+    "member": "window drag regions (data-tac-drag-region)",
+    "paths": [],
+    "web": {"reach": "notApplicable", "note": "A browser page cannot move its window."},
+    "macos": {"reach": "honored", "how": "dragging a marked element moves the window"},
+    "windows": {"reach": "adapted", "note": "data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3)."},
+    "linux": {"reach": "adapted", "note": "data-tac-drag-region does nothing in the Linux app yet, because its title bar is standard (WIN4)."},
+    "ios": {"reach": "notApplicable", "note": "An iOS app has no window to move."},
+    "android": {"reach": "notApplicable", "note": "An Android app has no window to move."}
+  },
+  {
+    "member": "external links",
+    "paths": [],
+    "web": {"reach": "honored", "how": "the browser follows the link"},
+    "macos": {"reach": "honored", "how": "http and https links open in the system browser"},
+    "windows": {"reach": "adapted", "note": "The Windows app blocks links to other sites instead of opening the system browser (LK1)."},
+    "linux": {"reach": "adapted", "note": "The Linux app blocks links to other sites instead of opening the system browser (LK1)."},
+    "ios": {"reach": "honored", "how": "http and https links open in the system browser"},
+    "android": {"reach": "honored", "how": "http and https links open in the system browser"}
+  },
+  {
+    "member": "deep links",
+    "paths": [],
+    "web": {"reach": "honored", "how": "every route has its own URL"},
+    "macos": {"reach": "adapted", "note": "The macOS app cannot be opened at a route from a link yet (LK2)."},
+    "windows": {"reach": "adapted", "note": "The Windows app cannot be opened at a route from a link yet (LK2)."},
+    "linux": {"reach": "adapted", "note": "The Linux app cannot be opened at a route from a link yet (LK2)."},
+    "ios": {"reach": "adapted", "note": "The iOS app cannot be opened at a route from a link yet (LK2)."},
+    "android": {"reach": "adapted", "note": "The Android app cannot be opened at a route from a link yet (LK2)."}
+  },
+  {
+    "member": "background and foreground signal",
+    "paths": [],
+    "web": {"reach": "honored", "how": "VisibilityChanged"},
+    "macos": {"reach": "adapted", "note": "The macOS host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."},
+    "windows": {"reach": "adapted", "note": "The Windows host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."},
+    "linux": {"reach": "adapted", "note": "The Linux host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."},
+    "ios": {"reach": "adapted", "note": "The iOS host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."},
+    "android": {"reach": "adapted", "note": "The Android host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."}
+  },
+  {
+    "member": "stored data (IndexedDB, Cache API, LocalState)",
+    "paths": [],
+    "web": {"reach": "honored", "how": "kept by the browser"},
+    "macos": {"reach": "honored", "how": "kept on disk by the web view"},
+    "windows": {"reach": "honored", "how": "kept on disk by the web view"},
+    "linux": {"reach": "adapted", "note": "Stored data in the Linux app is lost when the app quits: the web view session is not kept yet (ST1)."},
+    "ios": {"reach": "honored", "how": "kept on disk by the web view"},
+    "android": {"reach": "honored", "how": "kept on disk by the web view"}
+  },
+  {
+    "member": "Content-Security-Policy",
+    "paths": [],
+    "web": {"reach": "honored", "how": "sent by the server"},
+    "macos": {"reach": "adapted", "note": "The macOS app sends no Content-Security-Policy for its pages yet (SEC1)."},
+    "windows": {"reach": "honored", "how": "the native host policy"},
+    "linux": {"reach": "honored", "how": "the native host policy"},
+    "ios": {"reach": "adapted", "note": "The iOS app sends no Content-Security-Policy for its pages yet (SEC1)."},
+    "android": {"reach": "adapted", "note": "The Android app sends no Content-Security-Policy for its pages yet (SEC1)."}
+  },
+  {
+    "member": "reaching Yon",
+    "paths": [],
+    "web": {"reach": "honored", "how": "same-origin requests to the Yon server"},
+    "macos": {"reach": "adapted", "note": "The macOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET1)."},
+    "windows": {"reach": "adapted", "note": "The Windows app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET3)."},
+    "linux": {"reach": "adapted", "note": "The Linux app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET4)."},
+    "ios": {"reach": "adapted", "note": "The iOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute https URL are not limited yet (NET0, NET1)."},
+    "android": {"reach": "adapted", "note": "The Android app cannot reach a Yon server: its pages load from a local origin, and the host blocks every remote request (NET0, NET2)."}
+  },
+  {
+    "member": "natively linked service languages",
+    "paths": [],
+    "web": {"reach": "notApplicable", "note": "A browser runs every service in the page, as JavaScript or WebAssembly."},
+    "macos": {"reach": "honored", "how": "Rust and Swift services are linked into the app; other languages run in the page"},
+    "windows": {"reach": "honored", "how": "Rust and C# services are linked into the app; other languages run in the page"},
+    "linux": {"reach": "honored", "how": "Rust services are linked into the app; other languages run in the page"},
+    "ios": {"reach": "honored", "how": "Swift services are linked into the app; other languages run in the page"},
+    "android": {"reach": "honored", "how": "Kotlin services are linked into the app; other languages run in the page"}
+  },
+  {
+    "member": "release packaging",
+    "paths": [],
+    "web": {"reach": "honored", "how": "a static site in dist/web"},
+    "macos": {"reach": "adapted", "note": "The macOS build is an unsigned .app bundle. Signing, notarization and a .dmg wait on PKG1."},
+    "windows": {"reach": "adapted", "note": "The Windows build is a folder with the .exe. There is no installer or signature yet (PKG4)."},
+    "linux": {"reach": "adapted", "note": "The Linux build is a folder with the program. There are no packages yet (PKG5)."},
+    "ios": {"reach": "adapted", "note": "The iOS build runs only in the simulator. Device builds and an .ipa wait on PKG2."},
+    "android": {"reach": "adapted", "note": "The Android build is a debug APK. Release APK and AAB builds wait on PKG3."}
+  }
+]

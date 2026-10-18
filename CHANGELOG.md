@@ -22,6 +22,18 @@ machine contracts have their own, independent major versions.
   `control` now gets the Ctrl key on Linux and Windows instead of no key;
   shortcuts that then collide with each other or with a standard command
   stop the Linux or Windows build with `TY1601` (ADR 0097 amendment).
+- Every `client/manifest.json` member now states its reach on each of the
+  six targets in one table (ADR 0102): honored, adapted with a note, refused
+  with a TY code, or not applicable with a note. A build prints one `Note:`
+  line for each declared member that its target adapts or does not use, and
+  stays silent about members the manifest does not declare. For example,
+  `theme_color`, `display`, `tac.cache` and `tac.budgets` in a native build,
+  window sizes on Windows and Linux, and `tac.application` in a web build now
+  print a note instead of being ignored silently. `ty bundle
+  --explain-targets` prints the whole table (or the targets that `--target`
+  names) and marks the declared members, and the Settings and configuration
+  page shows it in one tab per target.
+
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain
@@ -756,6 +768,11 @@ machine contracts have their own, independent major versions.
   to 44 KB, and its Dart entry in the page-program gate is now `"shared"`.
   In the signal-driven UI recipe, the Dart list reloads the saved users
   through its own UsersClient from the Setup's in-page adapter (ADR 0022).
+- Breaking: `tac.application.rust.executables` now stops an iOS or Android
+  build with `TY1601`, because a mobile app may not start other programs. It
+  was ignored silently before (ADR 0102).
+- The integrated title bar note on Windows, Linux, iOS and Android now comes
+  from the per-target table and names the plan item that builds it there.
 
 - The Streaming controllers and Socket controllers pages show a Ruby and a
   Swift browser client: the model, the `HTTPClient` with `StreamRequest` or

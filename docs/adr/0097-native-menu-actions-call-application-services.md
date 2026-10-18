@@ -210,7 +210,8 @@ contract is the same on the macOS, Linux and Windows hosts:
   smaller pages (before, Linux and Windows answered "Invalid native
   response."). A request that becomes larger than 64 KiB when Windows
   converts it to UTF-8 is now answered with an error instead of timing out.
-  macOS does not limit the reply.
+  The macOS host does not limit the reply, but the page does (see the
+  2026-10-18 amendment).
 - Arguments are positional. A model argument is a JSON object whose keys
   are the Rust field names, the same on every host, because every desktop
   builds the same Rust companion code.
@@ -283,3 +284,16 @@ that becomes Ctrl+Y (Redo). macOS builds keep the rules they had.
   The Edit commands inside WebView2 and Minimize/Maximize on a desktop still
   need the interactive Windows run (with the other WebView2 checks in
   `docs/SUPPORT_TIERS.md`).
+
+## Amendment (2026-10-18): The 64 KiB reply limit applies on macOS too
+
+The 2026-10-04 amendment said that macOS does not limit the reply. That was
+wrong. The macOS host itself sends any reply, but the page runtime checks
+every reply on every host. `nativeCall` in `tac-client.js` rejects a text
+reply that is longer than 64 KiB with "Tac native response exceeds 64 KiB."
+The macOS host always replies with text, so the limit applies there too.
+
+- A reply is at most 64 KiB on macOS, Linux and Windows.
+- A request is at most 64 KiB, except the start-up request (`init`). The
+  start-up request may be up to 1 MiB.
+- The advice stays the same: return large data page by page.
