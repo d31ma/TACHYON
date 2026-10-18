@@ -448,11 +448,8 @@ async fn a_lua_service_that_needs_another_service_stops_the_build_at_the_field()
     assert_eq!(diagnostic.code.to_string(), "TY2015", "{failure}");
     assert_eq!(diagnostic.message, NeededServicePage::MESSAGE, "{failure}");
     assert!(
-        diagnostic
-            .help
-            .as_deref()
-            .is_some_and(|help| help
-                .contains("A Lua Needs field takes a Store, a Converter or an HTTPClient")),
+        diagnostic.help.as_deref().is_some_and(|help| help
+            .contains("A Lua Needs field takes a Store, a Converter, a Helper or an HTTPClient")),
         "{failure}"
     );
     let span = &diagnostic.spans[0];

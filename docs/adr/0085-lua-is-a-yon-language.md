@@ -4,7 +4,7 @@
   stores, Schedule and converter nulls), 2026-10-16 (a Tac Lua Needs field
   cannot name another service), 2026-10-17 (Yon Lua HTTP clients,
   Gateway and InBackground; Tac Lua behavior annotations, browser state,
-  stores and schema models), 2026-10-18 (Tac Lua HTTP clients)
+  stores and schema models), 2026-10-18 (Tac Lua HTTP clients and helpers)
 - Date: 2026-09-29
 - Builds on: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes),
   [ADR 0050](0050-go-annotations-are-comments.md) (comment markers),
@@ -110,8 +110,8 @@ table, and its methods are functions stored in the table.
 These stop the build until a later step adds them: the rule table says that
 the annotation is not available in Lua (`TY1308`), or the lowering names this
 ADR (`TY2015`):
-topics and Tac `@Helper`. Resources are not available in Lua: DataSource,
-RedisTemplate and `relay`. Every Lua refusal of the
+topics. Resources are not available in Lua: DataSource, RedisTemplate and
+`relay`. Every Lua refusal of the
 rule table ends with "Lua gets it in a later step (ADR 0085)". A Yon Lua
 class that needs DataSource or RedisTemplate, or calls `relay(...)`, stops
 the build with `TY2015`, and the message names the resource and this ADR.
@@ -491,3 +491,29 @@ clock amendment.
   belongs to the coroutine that opened it.
 - Still refused in Tac Lua: `@StreamRequest` and `@SocketRequest`, for the
   reason the previous amendment gives.
+
+## Amendment 2026-10-18: Tac Lua helpers
+
+This amendment replaces the `-- @Helper` part of "Still refused in Tac Lua"
+in the Tac Lua behavior annotation amendment. Ruby Tac now has Helpers (ADR 0054), so the Ruby
+shadow no longer stands in the way.
+
+- A Tac Lua class table in `client/helpers/` (at any depth) may carry
+  `-- @Helper`. The rule table lists Lua for Helper in Tac.
+- A service asks for a Helper with a typed `-- @Needs` field:
+  `---@type LevelHelper` above `levels = nil,`. A Helper may need another
+  Helper, a Store or a Converter the same way.
+- Tachyon writes `TallyService.__tachyonHelpers = { ["levels"] =
+  "LevelHelper" }` after the service, and the same table for each Helper
+  that needs a Helper. The page builds the Helper when it builds the service
+  object, so each service object gets its own Helper with its own copy of
+  the Helper's fields. The field is not a page field: the view cannot read
+  or set it.
+- A Helper that needs itself through its `-- @Needs` fields stops the
+  service when the page builds it, and the message names the Helper.
+- The page never runs a hook on a Helper. A Lua Helper with
+  `-- @OnStart`, `-- @OnStop` or `-- @OnEvent` fails with `TY1605` at the
+  marker, like a Ruby Helper, and the message names the Helper; the hook
+  belongs on the service.
+- A Tac Lua test unit does not fill Helper fields yet:
+  `self:construct(Role)` leaves them `nil`.

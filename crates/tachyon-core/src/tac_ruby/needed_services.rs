@@ -19,7 +19,7 @@ impl NeededServices {
     pub(crate) const LUA: Self = Self {
         language: "Lua",
         decision: "ADR 0085",
-        injected: "a Store, a Converter or an HTTPClient",
+        injected: "a Store, a Converter, a Helper or an HTTPClient",
     };
     const CODE: u16 = 2015;
     const SERVICES: &'static str = "client/services";
