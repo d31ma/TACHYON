@@ -368,11 +368,15 @@ fn write_rust_members(
         if excluded.contains(&member.name) {
             continue;
         }
-        if member.asynchronous {
+        let returns = member.declared_type.as_deref();
+        if [member.asynchronous, RustTaskMember::fallible(returns)].contains(&true) {
             let declared = parameters.get(&member.name).map_or(&[][..], Vec::as_slice);
-            let returns = member.declared_type.as_deref();
-            let entry =
-                RustTaskMember::entry(&camel_case(&member.name), &member.name, returns, declared);
+            let entry = RustTaskMember::entry(
+                (&camel_case(&member.name), &member.name),
+                returns,
+                declared,
+                member.asynchronous,
+            );
             let _ = writeln!(output, "{entry}");
         } else if member.method {
             let declared = parameters.get(&member.name).map_or(&[][..], Vec::as_slice);
@@ -827,7 +831,8 @@ fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
     }
     let returns = rust_return_type(arguments);
     let crosses = |kind: &str| kind == "()" || RustModelType::crosses(kind);
-    let shown = if asynchronous {
+    let task = [asynchronous, RustTaskMember::fallible(returns.as_deref())].contains(&true);
+    let shown = if task {
         RustTaskMember::crosses(returns.as_deref())
     } else {
         returns.as_deref().is_none_or(crosses)
@@ -1513,6 +1518,10 @@ mod tests {
              fn keep(&self, value: TacValue) -> TacValue { value }\n    \
              fn hidden(&self, inner: std::path::PathBuf) {}\n}\n";
 
+        const RUST_FALLIBLE: &str = "#[derive(Default)]\nstruct NotesService {\n    text: String,\n}\n\n\
+             impl NotesService {\n    pub fn remember(&mut self, text: String) -> BehaviorResult<()> { self.text = text; Ok(()) }\n    \
+             pub async fn recall(&mut self) -> BehaviorResult<()> { Ok(()) }\n}\n";
+
         const RUST_BINDINGS: &str = "let a0 = { let value = arguments.next().unwrap_or(TacValue::Null); value.as_text() }; let a1 = { let value = arguments.next().unwrap_or(TacValue::Null); value.as_int() as u8 }; ";
 
         const CSHARP_ARGUMENTS: &str = "public class DrawerService\n{\n    public object Entries;\n    \
@@ -1784,6 +1793,20 @@ mod tests {
             "{generated}"
         );
         assert!(!generated.contains("\"hidden\""), "{generated}");
+    }
+
+    #[test]
+    fn rust_fallible_methods_become_tasks_and_only_async_ones_wait() {
+        let generated =
+            rust_member_table(Sources::RUST_FALLIBLE, "client/services/NotesService.rs")
+                .expect("a table");
+        for expected in [
+            "(\"remember\", TacMember::Task(",
+            "match service.remember(a0) {",
+            "match service.recall().await {",
+        ] {
+            assert!(generated.contains(expected), "{expected}: {generated}");
+        }
     }
 
     #[test]

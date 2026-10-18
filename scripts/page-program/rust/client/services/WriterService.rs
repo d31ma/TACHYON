@@ -27,13 +27,13 @@ impl WriterService {
         Ok(())
     }
 
-    pub async fn remember(&mut self, text: String) -> BehaviorResult<()> {
+    pub fn remember(&mut self, text: String) -> BehaviorResult<()> {
         let note = BehaviorValue::object([("id", BehaviorValue::from(Self::NOTE)), (Self::TEXT, BehaviorValue::String(text))]);
         self.program_note_store.save(note)?;
         Ok(())
     }
 
-    pub async fn recall(&mut self) -> BehaviorResult<()> {
+    pub fn recall(&mut self) -> BehaviorResult<()> {
         let note = self.program_note_store.find_by_id(BehaviorValue::from(Self::NOTE))?;
         self.recalled = Self::text_of(&note);
         Ok(())

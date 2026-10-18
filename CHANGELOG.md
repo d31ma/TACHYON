@@ -774,6 +774,17 @@ machine contracts have their own, independent major versions.
 - The integrated title bar note on Windows, Linux, iOS and Android now comes
   from the per-target table and names the plan item that builds it there.
 
+- Rust browser services of one page build into one program. Each service
+  file, and each Setup, HTTP client, Store, entity and helper they need,
+  comes in once, and behavior lowering runs once, so two Rust services on a
+  page share one behavior runtime and one Setup configuration: an
+  increment through one service's client is seen through the other's. The
+  page-program fixture for Rust is now `"shared"`; its route is 125 KB of
+  script (127 KB before) and its generated source 246 KB (372 KB before).
+  A synchronous Rust service method that returns `BehaviorResult<()>` or
+  `BehaviorResult` of a model is no longer left off the service: the page
+  calls it as a task, and an error rejects the call (ADR 0022 amendment).
+
 - The Streaming controllers and Socket controllers pages show a Ruby and a
   Swift browser client: the model, the `HTTPClient` with `StreamRequest` or
   `SocketRequest`, and the service that keeps it in a `Needs` field and

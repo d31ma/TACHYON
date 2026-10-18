@@ -315,7 +315,7 @@ fn native_service(
     }
 }
 
-fn client_models(
+pub(super) fn client_models(
     item: &NativeCompanionInput,
     language: NativeCompanion,
 ) -> Result<crate::model_sources::ModelMetadata, Failure> {
@@ -336,7 +336,7 @@ fn task_lowered(
     })
 }
 
-fn service_identity(language: NativeCompanion, class: &str) -> PathBuf {
+pub(super) fn service_identity(language: NativeCompanion, class: &str) -> PathBuf {
     let extension = language_extension(language);
     PathBuf::from(format!("client/services/{class}.{extension}"))
 }

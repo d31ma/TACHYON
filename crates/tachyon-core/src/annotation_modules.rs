@@ -242,6 +242,7 @@ fn erase_exports(path: &Path, text: String, extension: &str) -> Result<String, F
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct Module {
     path: PathBuf,
     source: String,
@@ -428,6 +429,23 @@ impl Module {
         Self::assembled(snapshot_root, entry, source, "tac", true)
     }
 
+    pub(crate) fn page_units(
+        snapshot_root: &Path,
+        entry: &Path,
+        source: &str,
+    ) -> Result<Vec<(PathBuf, String)>, Failure> {
+        let entry = entry.strip_prefix(snapshot_root).unwrap_or(entry);
+        let (source, modules) = Self::assembled_parts(snapshot_root, entry, source, "tac", false)?
+            .unwrap_or_else(|| (source.to_owned(), Vec::new()));
+        let mut units = vec![(entry.to_path_buf(), source)];
+        units.extend(
+            modules
+                .into_iter()
+                .map(|module| (module.path, module.source)),
+        );
+        Ok(units)
+    }
+
     fn assembled(
         snapshot_root: &Path,
         entry: &Path,
@@ -436,6 +454,69 @@ impl Module {
         native_services: bool,
     ) -> Result<Option<String>, Failure> {
         let entry = entry.strip_prefix(snapshot_root).unwrap_or(entry);
+        Self::assembled_parts(snapshot_root, entry, source, environment, native_services)?
+            .map(|parts| Self::composed(entry, environment, parts))
+            .transpose()
+    }
+
+    fn composed(
+        entry: &Path,
+        environment: &str,
+        (source, modules): (String, Vec<Self>),
+    ) -> Result<String, Failure> {
+        let output = if modules.is_empty() {
+            source
+        } else {
+            Self::with_modules(entry, environment, &source, &modules)?
+        };
+        Self::bounded(entry, output)
+    }
+
+    fn with_modules(
+        entry: &Path,
+        environment: &str,
+        source: &str,
+        modules: &[Self],
+    ) -> Result<String, Failure> {
+        let extension = entry_extension(entry, environment)?;
+        let compose = [Self::other_modules, Self::go_modules][usize::from(extension == "go")];
+        compose(entry, (extension, environment), source, modules)
+    }
+
+    fn go_modules(
+        entry: &Path,
+        _: (&str, &str),
+        source: &str,
+        modules: &[Self],
+    ) -> Result<String, Failure> {
+        compose_go(entry, source, modules)
+    }
+
+    fn other_modules(
+        entry: &Path,
+        (extension, environment): (&str, &str),
+        source: &str,
+        modules: &[Self],
+    ) -> Result<String, Failure> {
+        let located = located_modules(modules.to_vec(), extension);
+        let modules = declaration_order(entry, located, extension)?;
+        let source = crate::fsharp_source::FsharpLines::located_in(extension, entry, source);
+        compose(entry, &source, modules, extension, environment)
+    }
+
+    fn bounded(entry: &Path, output: String) -> Result<String, Failure> {
+        (output.len() <= Module::MAX_SOURCE)
+            .then_some(output)
+            .ok_or_else(|| invalid(entry, "Combined annotation source exceeds 1 MiB."))
+    }
+
+    fn assembled_parts(
+        snapshot_root: &Path,
+        entry: &Path,
+        source: &str,
+        environment: &str,
+        native_services: bool,
+    ) -> Result<Option<(String, Vec<Self>)>, Failure> {
         crate::behavior::BehaviorsImport::refuse(entry, source)?;
         let extension = entry_extension(entry, environment)?;
         let root = open_entry_root(snapshot_root, entry, extension, environment)?;
@@ -474,26 +555,19 @@ impl Module {
         )?;
         ServerTestClosure::select(snapshot_root, input, &mut modules)?;
         if modules.is_empty() {
-            return Ok(utilities.changed().then_some(source));
+            return Ok(utilities.changed().then(|| (source.clone(), modules)));
         }
         refuse_tac_helpers(&modules, extension, environment)?;
         let mut modules = Module::injected_modules(modules, extension, environment);
         let injected = injected_contracts(entry, &source, &modules, environment);
-        let source = injected.as_deref().unwrap_or(&source);
-        let input = ModuleInput { source, ..input };
-        csharp_test_helpers::CsharpTestHelpers::prune(&root, input, &mut modules, total)?;
-        HelperCallers::check(entry, source, &modules, environment)?;
-        let output = if extension == "go" {
-            compose_go(entry, source, &modules)?
-        } else {
-            let modules = declaration_order(entry, located_modules(modules, extension), extension)?;
-            let source = crate::fsharp_source::FsharpLines::located_in(extension, entry, source);
-            compose(entry, &source, modules, extension, environment)?
+        let source = injected.unwrap_or_else(|| source.clone());
+        let input = ModuleInput {
+            source: &source,
+            ..input
         };
-        if output.len() > Module::MAX_SOURCE {
-            return Err(invalid(entry, "Combined annotation source exceeds 1 MiB."));
-        }
-        Ok(Some(output))
+        csharp_test_helpers::CsharpTestHelpers::prune(&root, input, &mut modules, total)?;
+        HelperCallers::check(entry, &source, &modules, environment)?;
+        Ok(Some((source, modules)))
     }
 
     fn require_source_bound(entry: &Path, source: &str) -> Result<(), Failure> {

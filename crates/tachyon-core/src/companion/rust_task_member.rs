@@ -4,6 +4,7 @@ impl RustTaskMember {
     const FALLIBLE_FORMS: [(&'static str, &'static str); 2] =
         [("BehaviorResult<", ">"), ("Result<", ",BehaviorError>")];
     const NO_ANSWER: &'static str = "()";
+    const AWAITED: [&'static str; 2] = ["", ".await"];
 
     pub(super) fn crosses(returns: Option<&str>) -> bool {
         let (_, answer) = Self::answer(returns);
@@ -14,15 +15,20 @@ impl RustTaskMember {
         .contains(&true)
     }
 
+    pub(super) fn fallible(returns: Option<&str>) -> bool {
+        Self::answer(returns).0
+    }
+
     pub(super) fn entry(
-        key: &str,
-        name: &str,
+        (key, name): (&str, &str),
         returns: Option<&str>,
         parameters: &[String],
+        asynchronous: bool,
     ) -> String {
         let (bindings, passed) = super::rust_arguments(parameters);
         let (fallible, answer) = Self::answer(returns);
-        let call = format!("service.{name}({passed}).await");
+        let awaited = Self::AWAITED[usize::from(asynchronous)];
+        let call = format!("service.{name}({passed}){awaited}");
         let value = Self::value(fallible, &answer, &call);
         format!(
             "(\"{key}\", TacMember::Task({{let it = instance.clone(); Box::new(move |arguments: Vec<TacValue>| {{ #[allow(unused_mut, unused_variables)] let mut arguments = arguments.into_iter(); {bindings}let owner = it.clone(); Box::pin(async move {{ #[allow(unused_mut)] let mut service = owner.try_borrow_mut().map_err(|_| TacTaskError::busy())?; {value} }}) }})}})),"

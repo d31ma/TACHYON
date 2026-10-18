@@ -346,7 +346,8 @@ no implementation, and Tachyon generates each query.
   its own, with its own copy of the runtime glue and of each Setup, client
   and store type. Two such services on one page therefore get two Setup
   configurations and separate adapters; the clients inside one service share
-  them. Go services already build into one page program (ADR 0045),
+  them. Go and Rust services already build into one page program (ADR 0045
+  and the Rust bullet below),
   JavaScript and TypeScript services share one Setup class as described
   above, and the Dart services of a site build into one Dart library (see
   the next bullet). The thread that lowers a language's page as one
@@ -368,9 +369,6 @@ no implementation, and Tachyon generates each query.
     `native/page_program/dotnet_page_program.rs`. Baseline 115 KB of script, 1136 KB of WebAssembly.
   - F#: one `namespace rec TachyonService<N>` for each service in the F#
     project; the same hook as C#. Baseline 115 KB of script, 1278 KB of WebAssembly.
-  - Rust: one `mod TachyonService<N>` for each service; the hook is
-    `native/page_program/rust_page_program.rs`. Baseline 127 KB of script
-    (the module is embedded in `tachyon-rust.js`), 0 KB of WebAssembly.
 - Dart builds every browser service of the site into one library,
   `services.dart`, inside its one Dart program. Each service is still
   prepared and lowered alone first, so its diagnostics name its own file;
@@ -383,6 +381,26 @@ no implementation, and Tachyon generates each query.
   service keeps its own bridge class (`__TacDartBridge<Service>`) and its
   own JavaScript module. The page-program fixture went from 37 KB of script
   and 46 KB of WebAssembly to 37 KB and 44 KB (TY1337, same container).
+- Rust (2026-10-18): the Rust browser services of a page build into one
+  `mod TachyonPage` (`native/page_program/rust_page_program.rs`). Each
+  service file comes in once, and each Setup, HTTP client, Store, entity,
+  converter and helper that any of them needs comes in once, by its authored
+  path. Behavior lowering runs once over the whole page, so the page has one
+  behavior runtime and one Setup registry, and a Setup's key names
+  `TachyonPage::<Setup>` for every service. Each service keeps only its
+  member table, in `TachyonPage::TachyonService<N>`. The one-class rule for
+  service files (TY1310) means two service files cannot both declare a
+  top-level type or function. The page's `use` lines are merged into one
+  set, and a name that two of them bind to different paths stops the build.
+  The fixture went from separate to shared in Chromium, Firefox and
+  WebKit. Its route went from 127 KB to 125 KB of script for the same fixture (Linux container without Binaryen;
+  the wasm is inside `tachyon-rust.js`): the generated Rust source shrank
+  from 372 KB to 246 KB, but rustc had already dropped most of the second
+  copy. With `remember` and `recall` written as synchronous methods, which
+  adds two task members, it is 125 KB too. A synchronous Rust service
+  method that returns `BehaviorResult<()>` or `BehaviorResult` of a model is now a task member
+  (a promise in the page that rejects with the error) instead of being left
+  off the service; the fixture's `remember` and `recall` are synchronous.
 - The page-program gate (`scripts/page-program-browser-gate.mjs`,
   `bun run test:page-program-browser`) builds one project for each
   language: two services, `writer` and `reader`, on one page, both needing
@@ -392,9 +410,10 @@ no implementation, and Tachyon generates each query.
   increment through one client reaches the other (`"shared"`), or that they
   see two (`"separate"`), and that the Store record one service saves is
   found by the other. `TAC_PAGE_PROGRAM_LANGUAGES` and
-  `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript, Go and Dart
-  fixtures are `"shared"` (47 KB of script; 37 KB of script and 990 KB of
-  WebAssembly; 37 KB of script and 44 KB of WebAssembly). The C++ fixture
+  `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript, Go, Dart and
+  Rust fixtures are `"shared"` (47 KB of script; 37 KB of script and 990 KB
+  of WebAssembly; 37 KB of script and 44 KB of WebAssembly; 125 KB of
+  script). The C++ fixture
   is marked owed and skipped by default: a C++ page HTTP client does not
   call a Setup's `adapters.http` yet and ignores the `HTTPClient` options
   (CPP3 of the queue plan).
