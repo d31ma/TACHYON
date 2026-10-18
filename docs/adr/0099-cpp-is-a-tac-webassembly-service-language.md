@@ -337,7 +337,8 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
 ## Amendment (2026-10-16): Yon route controllers
 
 C++ is now a Yon language for route controllers. Services, middleware and the
-other Yon roles stay pending (see Pending).
+other Yon roles stay pending (see Pending). The amendment of 2026-10-18 adds
+services, helpers, injection, lifecycle hooks and workers.
 
 ### Files and markers
 
@@ -354,10 +355,10 @@ other Yon roles stay pending (see Pending).
 - The rule table lists `hpp` as a Yon language. `RequestRoute`, `GetRoute`,
   `PostRoute`, `PutRoute`, `PatchRoute`, `DeleteRoute`, `Public`, `SignedIn`,
   `Allow`, `FromPath`, `FromQuery`, `FromBody`, `FromHeader` and `FromCookie`
-  reach C++. Every other Yon marker in a C++ file (`Service`, `Needs`,
-  `ErrorHandler`, `SocketRoute`, `StreamRoute`, `ResponseStatus`, `Test`, the
-  behavior markers, ...) fails with its rule's code, and the message says that
-  C++ gets it in a later step. A C++ file in `server/controllers` without
+  reach C++. Every other Yon marker in a C++ file (`ErrorHandler`,
+  `SocketRoute`, `StreamRoute`, `ResponseStatus`, `Test`, the behavior
+  markers, ...) fails with its rule's code, and the message says that C++
+  gets it in a later step. A C++ file in `server/controllers` without
   `[[RequestRoute]]` fails with `TY1363` or `TY2015`.
 
 ### Routes
