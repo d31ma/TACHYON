@@ -129,10 +129,10 @@ public:
         if (!open(adapter).empty()) {
             return work();
         }
-        if (adapter != "indexeddb") {
+        if (std::string(TacHost::REALM) == "tac" && adapter != "indexeddb") {
             throw TacCodedError("This entity adapter has no transactions.", "adapter");
         }
-        json::JsonNode begun = TacBehaviorData::ask(control("begin", ""));
+        json::JsonNode begun = TacBehaviorData::ask(control(adapter, "begin", ""));
         std::string id = begun.getValueKind() == json::JsonValueKind::Object && begun["transaction"].getValueKind() == json::JsonValueKind::String
             ? begun["transaction"].getValue<std::string>()
             : std::string();
@@ -144,17 +144,17 @@ public:
             if constexpr (std::is_void_v<decltype(work())>) {
                 work();
                 opened.close();
-                TacBehaviorData::ask(control("commit", id));
+                TacBehaviorData::ask(control(adapter, "commit", id));
             } else {
                 auto value = work();
                 opened.close();
-                TacBehaviorData::ask(control("commit", id));
+                TacBehaviorData::ask(control(adapter, "commit", id));
                 return value;
             }
         } catch (...) {
             opened.close();
             try {
-                TacBehaviorData::ask(control("rollback", id));
+                TacBehaviorData::ask(control(adapter, "rollback", id));
             } catch (const std::exception&) {
             }
             throw;
@@ -188,7 +188,7 @@ private:
         std::string adapter;
     };
 
-    static json::JsonNode control(const char* action, const std::string& id) {
+    static json::JsonNode control(const std::string& adapter, const char* action, const std::string& id) {
         json::JsonObject command;
         command["operation"] = "transaction";
         command["action"] = action;
@@ -197,6 +197,7 @@ private:
         }
         json::JsonObject request;
         request["op"] = "entity";
+        request["adapter"] = adapter;
         request["command"] = command;
         return request;
     }
@@ -270,13 +271,13 @@ private:
     template <typename Result, typename Body>
     static Result cached(const json::JsonNode& policy, const std::vector<json::JsonNode>& arguments, Body& body) {
         const json::JsonNode& cache = policy["cache"];
-        std::string key = cacheKey(policy, policy["name"], policy["keyArgs"], arguments);
-        json::JsonNode entry = TacBehaviorData::ask(request("cache.get", cache, key));
+        TacCacheCall call = cacheCall(policy, policy["name"], policy["keyArgs"], arguments, "cache:read");
+        json::JsonNode entry = TacBehaviorData::ask(request("cache.get", cache, call));
         if (fresh(entry, cache)) {
             return json::JsonCodec<Result>::fromJson(entry["value"]);
         }
         Result value = result<Result>(policy, arguments, body);
-        write(cache, key, json::JsonCodec<Result>::toJson(value));
+        write(cache, call, json::JsonCodec<Result>::toJson(value));
         return value;
     }
 
@@ -300,17 +301,18 @@ private:
             }
             mapped[index] = TacPageRequest::normalized(mapped[index], page);
         }
-        std::string key = cacheKey(policy, mutation["method"], mutation["keyArgs"], mapped);
-        bool putting = mutation["operation"].getValue<std::string>() == "cache:put";
+        std::string operation = mutation["operation"].getValue<std::string>();
+        TacCacheCall call = cacheCall(policy, mutation["method"], mutation["keyArgs"], mapped, operation);
+        bool putting = operation == "cache:put";
         if constexpr (std::is_void_v<Result>) {
             result<Result>(policy, arguments, body);
-            TacBehaviorData::ask(request("cache.delete", cache, key));
+            TacBehaviorData::ask(request("cache.delete", cache, call));
         } else {
             Result value = result<Result>(policy, arguments, body);
             if (putting) {
-                write(cache, key, json::JsonCodec<Result>::toJson(value));
+                write(cache, call, json::JsonCodec<Result>::toJson(value));
             } else {
-                TacBehaviorData::ask(request("cache.delete", cache, key));
+                TacBehaviorData::ask(request("cache.delete", cache, call));
             }
             return value;
         }
@@ -372,7 +374,13 @@ private:
         return std::max(std::round(waited), 0.0);
     }
 
-    static std::string cacheKey(const json::JsonNode& policy, const json::JsonNode& method, const json::JsonNode& keys, const std::vector<json::JsonNode>& arguments) {
+    class TacCacheCall {
+    public:
+        std::string key;
+        json::JsonNode call;
+    };
+
+    static TacCacheCall cacheCall(const json::JsonNode& policy, const json::JsonNode& method, const json::JsonNode& keys, const std::vector<json::JsonNode>& arguments, const std::string& operation) {
         json::JsonArray selected;
         std::vector<long long> seen;
         for (const json::JsonNode& index : keys.items()) {
@@ -385,20 +393,27 @@ private:
             selected.add(arguments[static_cast<std::size_t>(at)]);
         }
         json::JsonArray key;
-        key.add(policy["partition"]);
+        key.add(TacHost::partition(policy["partition"]));
         key.add(policy["cache"]["name"]);
         key.add(policy["module"]);
         key.add(policy["owner"]);
         key.add(method);
         key.add(selected);
-        return TacBehaviorData::bounded(key, 4096);
+        json::JsonObject call;
+        call["operation"] = operation;
+        call["cache"] = policy["cache"]["name"];
+        call["owner"] = policy["owner"];
+        call["method"] = method;
+        call["keyArguments"] = selected;
+        return TacCacheCall{TacBehaviorData::bounded(key, 4096), call};
     }
 
-    static json::JsonNode request(const char* operation, const json::JsonNode& cache, const std::string& key) {
+    static json::JsonNode request(const char* operation, const json::JsonNode& cache, const TacCacheCall& call) {
         json::JsonObject request;
         request["op"] = operation;
         request["cache"] = cache["name"];
-        request["key"] = key;
+        request["key"] = call.key;
+        request["call"] = call.call;
         return request;
     }
 
@@ -418,9 +433,9 @@ private:
         return true;
     }
 
-    static void write(const json::JsonNode& cache, const std::string& key, const json::JsonNode& value) {
+    static void write(const json::JsonNode& cache, const TacCacheCall& call, const json::JsonNode& value) {
         TacBehaviorData::bounded(value, static_cast<std::size_t>(cache["maxBytes"].getValue<double>()));
-        json::JsonNode sent = request("cache.set", cache, key);
+        json::JsonNode sent = request("cache.set", cache, call);
         sent["value"] = value;
         sent["expiresAt"] = TacHost::epochMilliseconds() + cache["ttlMs"].getValue<double>();
         sent["maxEntries"] = cache["maxEntries"];

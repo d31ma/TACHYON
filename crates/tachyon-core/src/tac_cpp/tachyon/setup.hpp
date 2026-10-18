@@ -1,17 +1,45 @@
 namespace tachyon {
 
-using BehaviorHTTPAdapter = std::function<json::JsonNode(const http::HttpRequestMessage&)>;
-
-class BehaviorAdapters {
-public:
-    std::map<std::string, BehaviorHTTPAdapter> http;
-};
-
 class BehaviorExecution {
 public:
     std::string environment;
     std::string partition;
     std::vector<std::string> profiles;
+};
+
+using BehaviorHTTPAdapter = std::function<json::JsonNode(const http::HttpRequestMessage&)>;
+
+class BehaviorCacheEntry {
+public:
+    json::JsonNode value;
+    double expiresAt = 0;
+};
+
+class BehaviorCacheAdapter {
+public:
+    std::function<std::optional<BehaviorCacheEntry>(const std::string& key, const BehaviorExecution& execution)> get;
+    std::function<void(const std::string& key, const BehaviorCacheEntry& entry, std::size_t maxEntries, const BehaviorExecution& execution)> set;
+    std::function<void(const std::string& key, const BehaviorExecution& execution)> remove;
+};
+
+using BehaviorEntityAdapter = std::function<json::JsonNode(const json::JsonNode& command, const BehaviorExecution& execution)>;
+
+class BehaviorCacheCall {
+public:
+    std::string operation;
+    std::string cache;
+    std::string owner;
+    std::string method;
+    json::JsonNode keyArguments;
+};
+
+class BehaviorAdapters {
+public:
+    std::map<std::string, BehaviorHTTPAdapter> http;
+    std::map<std::string, BehaviorCacheAdapter> caches;
+    std::map<std::string, BehaviorEntityAdapter> entities;
+    std::function<bool(const BehaviorCacheCall& call, const BehaviorExecution& execution)> authorize;
+    std::function<bool(const json::JsonNode& command, const BehaviorExecution& execution)> authorizeEntity;
 };
 
 class BehaviorOptions {
@@ -183,6 +211,10 @@ public:
         return *state().adapters;
     }
 
+    BehaviorExecution execution() const {
+        return BehaviorExecution{TacHost::REALM, partition(), TacSetupSelection::sorted(state().options)};
+    }
+
     template <typename Settings>
     Settings properties() const;
 
@@ -279,7 +311,11 @@ Settings BehaviorContext::properties() const {
 }
 
 using tachyon::BehaviorAdapters;
+using tachyon::BehaviorCacheAdapter;
+using tachyon::BehaviorCacheCall;
+using tachyon::BehaviorCacheEntry;
 using tachyon::BehaviorContext;
+using tachyon::BehaviorEntityAdapter;
 using tachyon::BehaviorExecution;
 using tachyon::BehaviorHTTPAdapter;
 using tachyon::BehaviorOptions;

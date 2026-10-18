@@ -263,9 +263,53 @@ rule answers 422 with every broken field and rule (ADR 0101). A
 `[[Converter]]` class in `server/converters/<Name>.hpp` declares bodiless
 `[[Convert]]` methods, and a `[[Needs]]` field reaches it.
 
-C++ has no behavior, socket or test markers in Yon yet: they fail with their
-rule's code, and the message says that C++ gets them in a later step. The
-Pending section of ADR 0099 lists those steps.
+C++ has the caching, retry, transaction and store markers in Yon (ADR 0099
+amendment of 2026-10-18, "Yon caching, policies and stores"). They follow the
+C++ Tac rules: synchronous instance methods with a body, and
+`[[CacheSettings]]` on the class. A class whose methods carry `[[Cached]]`,
+`[[UpdateCache]]`, `[[ClearCache]]` or `[[AllOrNothing]]` keeps its adapters
+in a `BehaviorContext behaviors;` field and opens it from a Setup; without the
+field the build fails with `TY1371`. `[[Retry]]`, `[[MaxAtOnce]]` and
+`[[PageDefaults]]` need no context:
+
+```cpp
+class [[Service, CacheSettings({"name":"prices","ttlMs":60000,"maxBytes":4096,"maxEntries":16})]] CatalogService {
+    BehaviorContext behaviors;
+
+public:
+    [[Cached]]
+    int price([[CacheKey]] std::string sku) { return static_cast<int>(sku.size()); }
+
+private:
+    [[OnStart]]
+    void open() {
+        BehaviorOptions options;
+        options.partition = "catalog";
+        behaviors = Behaviors::create<CatalogSetup>(options);
+    }
+
+    [[OnStop]]
+    void close() { behaviors.dispose(); }
+};
+```
+
+The Setup's `BehaviorAdapters` gives `caches`, `entities`, `authorize` (needed
+when a cache is used) and `authorizeEntity` (needed when a Store runs a
+query). `BehaviorMemory::cache()` and `BehaviorMemory::entities()` are
+in-memory adapters that live as long as the process, which is one request.
+
+An `[[Entity]]` is a struct in `server/entities` or `server/models` with one
+`[[Id]]` field, and it may name any entity adapter. A route that returns an
+Entity, or a model that holds one, needs the Entity in `server/models`. A
+`[[Store]]` in `server/stores/<Name>Store.hpp` is a class of query methods
+without bodies, and it may extend `tachyon::Repository<ProductEntity, std::string>`.
+Tachyon opens the Store's behavior context from its Setup (`ProductSetup` for
+`ProductStore`, or the `"setup"` option), and a controller or service reaches
+it with `[[Needs]] ProductStore& products;`.
+
+C++ has no HTTP client, gateway, topic, error handler, socket or test markers
+in Yon yet: they fail with their rule's code, and the message says that C++
+gets them in a later step. The Pending section of ADR 0099 lists those steps.
 
 ## Calling another language
 

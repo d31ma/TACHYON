@@ -1,7 +1,11 @@
-use super::{CppYonController, CppYonHandler, CppYonHooks, CppYonScope};
+use super::{
+    CppYonController, CppYonHandler, CppYonHooks, CppYonPolicies, CppYonScope, CppYonStores,
+};
 use crate::Failure;
-use crate::tac_cpp::{CppFile, CppLifetime, CppLowering, CppProgram, CppService};
+use crate::tac_cpp::{CppBehaviors, CppFile, CppLifetime, CppLowering, CppProgram, CppService};
 use crate::yon::plan::Scope;
+use serde_json::Value;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 pub(crate) struct CppYonProvider {
@@ -12,59 +16,88 @@ pub(crate) struct CppYonProvider {
     pub(crate) needs: Vec<String>,
     pub(crate) hooks: CppYonHooks,
     pub(crate) lowered: String,
+    pub(crate) entity: Option<String>,
 }
 
 impl CppYonProvider {
     const FRIENDS: &'static str =
         " friend class ::tachyon::yon::YonNeeds; friend class TachyonYonRoutes;";
 
-    pub(crate) fn service(service: &CppService, models: &CppProgram) -> Result<Self, Failure> {
-        Self::read(
-            &service.path,
+    pub(crate) fn service(
+        service: &CppService,
+        models: &CppProgram,
+        stores: &CppYonStores,
+    ) -> Result<Self, Failure> {
+        let written = (
+            service.path.as_path(),
             &service.file,
-            &service.source,
+            service.source.as_str(),
+        );
+        Self::read(
+            written,
+            &service.behaviors,
             Scope::Singleton,
             models,
+            stores,
         )
     }
 
     pub(crate) fn root(
         controller: &CppYonController,
         models: &CppProgram,
+        stores: &CppYonStores,
     ) -> Result<Self, Failure> {
-        Self::rooted(
-            &controller.path,
+        let written = (
+            controller.path.as_path(),
             &controller.file,
-            &controller.source,
-            models,
-        )
+            controller.source.as_str(),
+        );
+        Self::rooted(written, models, stores)
     }
 
-    pub(crate) fn handler(handler: &CppYonHandler, models: &CppProgram) -> Result<Self, Failure> {
-        Self::rooted(&handler.path, &handler.file, &handler.source, models)
+    pub(crate) fn handler(
+        handler: &CppYonHandler,
+        models: &CppProgram,
+        stores: &CppYonStores,
+    ) -> Result<Self, Failure> {
+        let written = (
+            handler.path.as_path(),
+            &handler.file,
+            handler.source.as_str(),
+        );
+        Self::rooted(written, models, stores)
     }
 
     fn rooted(
-        path: &Path,
-        file: &CppFile,
-        source: &str,
+        (path, file, source): (&Path, &CppFile, &str),
         models: &CppProgram,
+        stores: &CppYonStores,
     ) -> Result<Self, Failure> {
         CppService::check_needs(path, &file.class)?;
         CppLifetime::check(path, &file.class)?;
-        Self::read(path, file, source, Scope::Request, models)
+        let behaviors = CppBehaviors::policies(path, source, &file.class)?;
+        Self::read(
+            (path, file, source),
+            &behaviors,
+            Scope::Request,
+            models,
+            stores,
+        )
     }
 
     fn read(
-        path: &Path,
-        file: &CppFile,
-        source: &str,
+        (path, file, source): (&Path, &CppFile, &str),
+        behaviors: &BTreeMap<String, Value>,
         unwritten: Scope,
         models: &CppProgram,
+        stores: &CppYonStores,
     ) -> Result<Self, Failure> {
         let class = &file.class;
         models.check_role(path, source, class)?;
-        let lowered = CppLowering::yon(file, source, Self::FRIENDS);
+        let scope = CppYonPolicies::scope(path, class, behaviors)?;
+        let opening = format!("{}{}", Self::FRIENDS, stores.member(path, source, class)?);
+        let lowered = CppLowering::yon(file, source, &opening, behaviors, scope);
+        let (entity, defined) = stores.definitions(path, source, class)?.unzip();
         Ok(Self {
             name: class.name.clone(),
             path: path.to_path_buf(),
@@ -75,7 +108,10 @@ impl CppYonProvider {
                 .map(|injection| injection.provider)
                 .collect(),
             hooks: CppYonHooks::read(path, class)?,
-            lowered: CppProgram::located(path, &lowered) + &models.conversions_of(path, class),
+            lowered: CppProgram::located(path, &lowered)
+                + &models.conversions_of(path, class)
+                + &defined.unwrap_or_default(),
+            entity,
         })
     }
 }

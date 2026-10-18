@@ -191,11 +191,10 @@ async fn a_cpp_controller_answers_typed_routes_through_clang() {
 fn a_cpp_marker_that_yon_cpp_lacks_is_refused_by_name() {
     let controller = CppProject::CONTROLLER.replace(
         "[[GetRoute(\"/{id}\")]]",
-        "[[GetRoute(\"/{id}\")]] [[Cached]]",
+        "[[GetRoute(\"/{id}\")]] [[OnMessage]]",
     );
     let failure = CppProject::refusal(&controller);
-    assert!(failure.contains("TY1308"), "{failure}");
-    assert!(failure.contains("[[Cached]]"), "{failure}");
+    assert!(failure.contains("[[OnMessage]]"), "{failure}");
     assert!(failure.contains("C++ gets it in a later step"), "{failure}");
 }
 
@@ -547,4 +546,147 @@ fn a_cpp_setup_lives_in_server_setups() {
         failure.contains("static BehaviorAdapters configure"),
         "{failure}"
     );
+}
+
+struct CppStores;
+
+impl CppStores {
+    const FILES: [(&'static str, &'static str); 6] = [
+        (
+            "server/models/NoteEntity.hpp",
+            "#pragma once\n#include <string>\n\nstruct [[Entity({\"adapter\":\"data\"}), Table(\"notes\")]] NoteEntity {\n    [[Id]] std::string id;\n    std::string text;\n    int stars = 0;\n};\n",
+        ),
+        (
+            "server/models/Notes.hpp",
+            "#pragma once\n#include <vector>\n\nstruct Notes {\n    int first = 0;\n    int again = 0;\n    long long starred = 0;\n    std::vector<NoteEntity> found;\n};\n",
+        ),
+        (
+            "server/setups/NoteSetup.hpp",
+            r#"#pragma once
+
+class [[Setup]] NoteSetup {
+public:
+    static BehaviorAdapters configure(const BehaviorExecution&) {
+        BehaviorAdapters adapters;
+        adapters.caches["notes"] = BehaviorMemory::cache();
+        adapters.entities["data"] = BehaviorMemory::entities();
+        adapters.authorize = [](const BehaviorCacheCall&, const BehaviorExecution& execution) { return execution.partition == "notes"; };
+        adapters.authorizeEntity = [](const tachyon::json::JsonNode&, const BehaviorExecution& execution) { return execution.partition == "note"; };
+        return adapters;
+    }
+};
+"#,
+        ),
+        (
+            "server/stores/NoteStore.hpp",
+            r#"#pragma once
+#include <vector>
+
+class [[Store(NoteEntity, {"fields":["id","text","stars"],"defaultSize":20,"maxSize":100})]] NoteStore : public tachyon::Repository<NoteEntity, std::string> {
+public:
+    long long countByStarsGreaterThan(int stars);
+};
+"#,
+        ),
+        (
+            "server/services/NoteService.hpp",
+            r#"#pragma once
+#include <string>
+
+class [[Service, CacheSettings({"name":"notes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]] NoteService {
+    BehaviorContext behaviors;
+    int reads = 0;
+
+public:
+    [[Cached]]
+    int length(std::string text) {
+        reads += 1;
+        return static_cast<int>(text.size()) * 100 + reads;
+    }
+
+private:
+    [[OnStart]]
+    void open() {
+        BehaviorOptions options;
+        options.partition = "notes";
+        behaviors = Behaviors::create<NoteSetup>(options);
+    }
+};
+"#,
+        ),
+        (
+            "server/controllers/NoteController.hpp",
+            r#"#pragma once
+
+class [[RequestRoute("/notes")]] [[Public]] NoteController {
+    [[Needs]] NoteService& service;
+    [[Needs]] NoteStore& notes;
+
+public:
+    [[GetRoute]]
+    Notes getNotes() {
+        notes.save(NoteEntity{"a", "tea", 3});
+        notes.save(NoteEntity{"b", "cake", 5});
+        Notes answer;
+        answer.first = service.length("tea");
+        answer.again = service.length("tea");
+        answer.starred = notes.countByStarsGreaterThan(4);
+        answer.found = notes.findAll();
+        return answer;
+    }
+};
+"#,
+        ),
+    ];
+
+    fn project() -> tempfile::TempDir {
+        let root = tempfile::tempdir().expect("project");
+        for (relative, source) in Self::FILES {
+            CppProject::write(root.path(), relative, source);
+        }
+        root
+    }
+}
+
+#[tokio::test]
+async fn a_cpp_controller_reaches_cached_services_and_stores() {
+    if !CppProject::compiler_available() {
+        eprintln!("skipping: clang++ is not installed");
+        return;
+    }
+    let root = CppStores::project();
+    let project = ProjectDiscovery::discover(root.path()).expect("discovery");
+    let server = DevServer::bind_project(
+        &project,
+        &DevServerOptions {
+            port: 0,
+            watch: false,
+            ..DevServerOptions::default()
+        },
+    )
+    .await
+    .expect("bind");
+    let port = server.address().port();
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let running = tokio::spawn(server.run_until(async {
+        let _ = stopped.await;
+    }));
+
+    let notes = Exchange::without_body(port, "GET", "/notes").await;
+    assert!(notes.starts_with("HTTP/1.1 200"), "{notes}");
+    assert_eq!(
+        Exchange::body(&notes),
+        serde_json::json!({
+            "first": 301,
+            "again": 301,
+            "starred": 1,
+            "found": [
+                {"id": "a", "text": "tea", "stars": 3},
+                {"id": "b", "text": "cake", "stars": 5}
+            ]
+        })
+    );
+
+    let _ = stop.send(());
+    running.await.expect("server task").expect("server");
 }

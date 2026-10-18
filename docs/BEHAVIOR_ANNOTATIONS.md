@@ -914,6 +914,8 @@ the service call waits for the browser transport and the page gets a promise
 Tac Swift HTTPClient method is `async throws` and may return a `Codable`
 model; without a Setup adapter the Swift WebAssembly module parks its task
 while the browser transport works (ADR 0090).
+A C++ method with a caching, retry, transaction or page policy is a
+synchronous instance method with a body, in Tac and in Yon.
 The synchronous integrations do not quietly adapt futures.
 
 **Repositories.** `context.repository(ProductEntity)` provides `find(page)`,
@@ -955,6 +957,13 @@ instead of `Store`. The partition is the store name in lowerCamel case without
   the reader runs. An F# service takes the store as a primary constructor
   parameter, `type ProductService(products: ProductStore) =`, and Tachyon
   turns it into `let products = ProductStore()`.
+- A C++ Store is a class of query methods without bodies, in
+  `client/stores` for Tac and `server/stores` for Yon. A service or
+  controller asks for it with `[[Needs]] ProductStore& products;`. In Yon,
+  Tachyon opens the store's context from its Setup; a missing Setup fails
+  with `TY2015` and names `server/setups/ProductSetup.hpp`. Only Tac C++
+  stores are limited to the `"indexeddb"` adapter; a Yon C++ Entity may name
+  any entity adapter of its Setup.
 - A Yon Lua store is a class table marked `-- @Store(ProductEntity, {...})`
   whose methods have empty bodies. Tachyon adds the provider role and an
   `-- @OnStart` method that opens its context, so a typed `-- @Needs` field
@@ -989,8 +998,9 @@ Repository<ProductEntity, int>` (Dart), the supertrait
 (Swift), `class ProductStore(Repository[ProductEntity, int], Protocol)`
 (Python), `inherit Repository<ProductEntity, int>` (F#), `extends
 Repository<ProductEntity, number>` (TypeScript), `extends Repository` with
-`/** @extends {Repository<ProductEntity, number>} */` (JavaScript) and
-`class ProductStore < Repository` (Ruby). The compiler removes the base and
+`/** @extends {Repository<ProductEntity, number>} */` (JavaScript),
+`class ProductStore < Repository` (Ruby) and
+`: public tachyon::Repository<ProductEntity, std::string>` (C++). The compiler removes the base and
 writes the four methods next to the other queries; TypeScript and JavaScript
 type-check against the `Repository` class in `types/tachyon-behaviors.d.ts`.
 The Repository must name the Entity of its Store, and only a Store can extend
@@ -1012,7 +1022,8 @@ entity adapter, even though the store was injected with its own behavior
 context. Each runtime keeps the open transactions in storage that belongs to
 one call (AsyncLocalStorage, ThreadLocal, AsyncLocal, a context variable, fiber
 storage, a zone, a task local, a thread local, one entry for each goroutine, or
-the PHP request), keyed by the entity adapter name. An `@AllOrNothing` method on
+the PHP request, or one entry in a C++ process, which serves one request),
+keyed by the entity adapter name. An `@AllOrNothing` method on
 a Store fails with `TY1308`.
 
 Entity, Store and the schemas they reference belong to the same
@@ -1436,6 +1447,7 @@ do not serialize a description of the object.
 | C# | `Behaviors.create(typeof(Adapters), partition, signal)` | `async Task<BehaviorJSON>` |
 | Swift | `try Behaviors.create(Adapters.self, partition: partition, signal: signal)` | `async throws -> BehaviorJSON` |
 | Rust | `Behaviors::create::<Adapters>(BehaviorOptions::new(partition, signal))?` | `BehaviorResult<BehaviorValue>` |
+| C++ | `Behaviors::create<Adapters>(options)` with `options.partition` set | Synchronous value of the declared type |
 
 Query and cache-mutation methods use the same execution and result shape as
 cached and HTTP methods in each language. Details:
@@ -1720,11 +1732,20 @@ workers since the
 and `[[Checked]]` models in `server/models`, `[[Check]]` arguments and
 `[[Converter]]` classes in `server/converters` since the
 [validation amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-validation-and-converters);
-a broken rule answers 422 (ADR 0101). Its Setup, behaviors, sockets and test
-units come in later steps (see
-[Yon controllers](YON_ANNOTATIONS.md#language-spellings)). In Tac, behavior
-markers go on synchronous service methods with a body, and a
-C++ Store keeps its rows in IndexedDB. A C++ `[[Setup]]` lives in
+a broken rule answers 422 (ADR 0101). It has `[[Setup]]` and Settings since the
+[Setup amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-c-setup-and-settings),
+and caching, retries, transactions, pagination, entities and Stores since the
+[caching amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-caching-policies-and-stores).
+Its HTTP clients, gateways, topics, error handlers, sockets and test units
+come in later steps (see
+[Yon controllers](YON_ANNOTATIONS.md#language-spellings)). In Tac and in Yon,
+behavior markers go on synchronous methods with a body. A Tac C++ Store keeps
+its rows in IndexedDB; that limit holds for Tac only. A Yon C++ class whose
+methods cache or run in a transaction keeps a `BehaviorContext behaviors;`
+field and opens it from a Setup in `server/setups`, whose `BehaviorAdapters`
+gives `caches`, `entities`, `authorize` and `authorizeEntity`;
+`BehaviorMemory::cache()` and `BehaviorMemory::entities()` are in-memory
+adapters that live for one request. A C++ `[[Setup]]` lives in
 `client/setups/<Name>.hpp` and declares
 `static BehaviorAdapters configure(const BehaviorExecution& execution)`; a
 service opens its context with `Behaviors::create<CatalogSetup>(options)`

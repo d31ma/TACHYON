@@ -12,12 +12,14 @@ impl CppYonRuntime {
         include_str!("tachyon/yon_needs.hpp"),
         include_str!("tachyon/yon_main.hpp"),
         include_str!("tachyon/yon_application.hpp"),
+        include_str!("tachyon/yon_storage.hpp"),
     ];
 
     pub(crate) fn source() -> String {
         format!(
-            "{}{}{}{}{}",
+            "{}{}{}{}{}{}",
             CppPrelude::yon(),
+            CppPrelude::MEMORY_ENTITIES,
             Self::HOST,
             CppPrelude::context(),
             Self::PIECES.concat(),

@@ -4,6 +4,10 @@ class TacHost {
 public:
     static constexpr const char* REALM = "tac";
 
+    static json::JsonNode partition(const json::JsonNode& written) {
+        return written;
+    }
+
     static std::string storage(const std::string& text) {
         json::JsonNode request = json::JsonNode::parse(text);
         std::string operation = request["op"].getValueKind() == json::JsonValueKind::String ? request["op"].getValue<std::string>() : std::string();

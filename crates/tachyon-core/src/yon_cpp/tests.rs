@@ -147,7 +147,7 @@ fn route_methods_follow_the_shared_route_rules() {
 
 #[test]
 fn unsupported_markers_name_the_later_step() {
-    let failure = Sample::refusal("[[Public]]\n", "[[Public]] [[Cached]]\n");
+    let failure = Sample::refusal("[[Public]]\n", "[[Public]] [[OnMessage]]\n");
     assert!(failure.contains("C++ gets it in a later step"), "{failure}");
 }
 

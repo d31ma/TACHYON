@@ -1,4 +1,4 @@
-use super::{CppYonController, CppYonErrors, CppYonGraph, CppYonProgram};
+use super::{CppYonController, CppYonErrors, CppYonGraph, CppYonProgram, CppYonStores};
 use crate::Failure;
 use crate::tac_cpp::{CppProgram, CppSource};
 use crate::yon::Lowered;
@@ -12,7 +12,8 @@ impl CppYon {
         let controller = CppYonController::read(source, contents)?;
         let errors = CppYonErrors::read(root, &controller)?;
         let models = CppProgram::server_models(root)?;
-        let graph = CppYonGraph::read(root, &controller, &models, &errors)?;
+        let stores = CppYonStores::read(root, &models)?;
+        let graph = CppYonGraph::read(root, &controller, &models, &errors, &stores)?;
         Ok(Lowered {
             source: CppYonProgram::source(&controller, &graph, &models, &errors),
             routes: controller

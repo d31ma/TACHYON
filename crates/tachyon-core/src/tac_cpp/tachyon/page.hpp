@@ -16,6 +16,10 @@ class TacHost {
 public:
     static constexpr const char* REALM = "tac";
 
+    static json::JsonNode partition(const json::JsonNode& written) {
+        return written;
+    }
+
     static void emit(const std::string& text) {
         tac_host_emit(text.data(), static_cast<int>(text.size()));
     }

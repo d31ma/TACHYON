@@ -30,7 +30,7 @@ public:
         }
         json::JsonNode command = TacStore::command(plan["entity"], "query");
         command["query"] = query;
-        json::JsonNode answer = run(command);
+        json::JsonNode answer = run(plan["entity"], command);
         check(operation, query, answer);
         if (operation != "findOne") {
             return json::JsonCodec<Result>::fromJson(answer);
@@ -49,7 +49,7 @@ public:
         identifier(value[entity["id"].getValue<std::string>()]);
         json::JsonNode command = TacStore::command(entity, "save");
         command["value"] = value;
-        return run(command);
+        return run(entity, command);
     }
 
 private:
@@ -184,9 +184,10 @@ private:
         return command;
     }
 
-    static json::JsonNode run(const json::JsonNode& command) {
+    static json::JsonNode run(const json::JsonNode& entity, const json::JsonNode& command) {
         json::JsonObject request;
         request["op"] = "entity";
+        request["adapter"] = entity["adapter"];
         request["command"] = command;
         TacBehaviorData::bounded(request, 1048576);
         json::JsonNode answer = TacBehaviorData::ask(request);

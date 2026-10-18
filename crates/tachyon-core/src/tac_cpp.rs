@@ -57,7 +57,7 @@ mod unit_tests;
 
 pub(crate) use cpp_attribute::CppAttribute;
 use cpp_attributes::CppAttributes;
-use cpp_behaviors::CppBehaviors;
+pub(crate) use cpp_behaviors::CppBehaviors;
 use cpp_checks::CppChecks;
 pub(crate) use cpp_class::CppClass;
 pub(crate) use cpp_client_unit::CppClientUnit;
@@ -96,7 +96,7 @@ use cpp_shape::CppShape;
 pub(crate) use cpp_source::CppSource;
 use cpp_spelling::CppSpelling;
 use cpp_step::CppStep;
-use cpp_store::CppStore;
+pub(crate) use cpp_store::CppStore;
 use cpp_stream_request::CppStreamRequest;
 use cpp_test_case::CppTestCase;
 use cpp_token::CppToken;

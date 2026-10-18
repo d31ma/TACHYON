@@ -40,7 +40,13 @@ impl CppPrelude {
     }
 
     pub(crate) fn context() -> String {
-        [Self::BEHAVIORS, Self::SETTINGS, Self::HTTP_AND_SETUP].concat()
+        [
+            Self::BEHAVIORS,
+            Self::STORE,
+            Self::SETTINGS,
+            Self::HTTP_AND_SETUP,
+        ]
+        .concat()
     }
 
     pub(crate) fn services() -> &'static str {

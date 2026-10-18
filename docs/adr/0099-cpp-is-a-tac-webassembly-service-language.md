@@ -591,7 +591,8 @@ languages (ADR 0022, ADR 0023). The rule table lists `hpp` for them
   fields take `[[Min]]` and `[[Max]]` since the validation step (amendment
   "Yon validation and converters" below).
 - The Yon runtime adds a native `TacHost` (`yon_host.hpp`) with the realm
-  `"yon"`, a clock and a sleep, and no behavior storage yet. The program
+  `"yon"`, a clock and a sleep. Behavior storage came with the caching step
+  (amendment "Yon caching, policies and stores" below). The program
   includes the shared `behaviors.hpp`, `settings.hpp`, `http.hpp` and
   `setup.hpp` after it, so `Behaviors::properties<T>`,
   `Behaviors::values<T>`, `Behaviors::create<Setup>`, `BehaviorOptions` and
@@ -709,15 +710,67 @@ table lists `hpp` for `ErrorHandler`, `HandlesError`, `ResponseStatus` and
 - The message types are the ones in `tac_cpp/tachyon/http.hpp`, shared with
   Tac C++, which the Yon program already includes for its Setup context.
 
+## Amendment (2026-10-18): Yon caching, policies and stores
+
+C++ Yon code now has the behavior policies and Stores. The rule table lists
+`hpp` for `CacheSettings`, `Cached`, `CacheKey`, `UpdateCache`, `ClearCache`,
+`Retry`, `MaxAtOnce`, `AllOrNothing`, `PageDefaults`, `Entity`, `Table`, `Id`,
+`Store` and `Query` (`YON_POLICIES`).
+
+- The markers follow the C++ Tac rules and checks (`CppBehaviors`): they go
+  on synchronous instance methods with a body, and `[[CacheSettings]]` goes
+  on the class. A service, helper or controller whose methods carry
+  `[[Cached]]`, `[[UpdateCache]]`, `[[ClearCache]]` or `[[AllOrNothing]]`
+  declares a `BehaviorContext behaviors;` field and opens it from a Setup,
+  for example in `[[OnStart]]` with
+  `behaviors = Behaviors::create<CatalogSetup>(options);`, and disposes it in
+  `[[OnStop]]`. Without the field the build fails with `TY1371`. `[[Retry]]`,
+  `[[MaxAtOnce]]` and `[[PageDefaults]]` need no context. A cache key holds
+  the partition of the context; Tac C++ keeps `"default"`.
+- `BehaviorAdapters` gains `caches`
+  (`std::map<std::string, BehaviorCacheAdapter>`), `entities`
+  (`std::map<std::string, BehaviorEntityAdapter>`), `authorize` and
+  `authorizeEntity`. A `BehaviorCacheAdapter` has `get`, `set` and `remove`
+  functions over `BehaviorCacheEntry { value, expiresAt }`. `authorize`
+  receives a `BehaviorCacheCall` (operation `cache:read`, `cache:put` or
+  `cache:evict`, cache, owner, method and key arguments) and is required when
+  a cache is used. A `BehaviorEntityAdapter` is a function from the shared
+  entity command to a JSON answer; it answers the transaction `begin`
+  command with the transaction identifier as a JSON string.
+  `authorizeEntity` is required when a Store runs a query; `save` is not
+  gated. `BehaviorMemory::cache()` and `BehaviorMemory::entities()` are the
+  built-in in-memory adapters. They live as long as the process, which is one
+  request, and the memory entity adapters of one process share one database.
+- The native `TacHost` of `yon_host.hpp` now answers behavior storage: a
+  `YonStorage` scope routes cache and transaction requests to the adapters
+  of the calling object's context, and Store commands go to the context of
+  the Store that keeps the entity (`yon_storage.hpp`).
+- An `[[Entity]]` is a struct in `server/entities` or `server/models`, such
+  as `struct [[Entity({"adapter":"data"}), Table("products")]] ProductEntity`
+  with one `[[Id]]` field. Yon accepts any adapter name; Tac C++ keeps only
+  `"indexeddb"`. A route that returns an Entity, or a model that holds one,
+  needs the Entity in `server/models`, because Yon route types read only
+  that folder.
+- A `[[Store]]` is a class in `server/stores/<Name>Store.hpp` with only
+  bodiless query methods, as in Tac C++, and it may extend
+  `tachyon::Repository<ProductEntity, std::string>`. Tachyon opens the
+  Store's own behavior context from the Setup that `"setup"` names in the
+  options, or by default the Store name with `Setup` instead of `Store`
+  (`ProductStore` opens `ProductSetup`); the partition is the Store name in
+  lowerCamel case without `Store` (`"product"`). A missing Setup fails with
+  `TY2015` and names `server/setups/<Setup>.hpp`. A controller, service or
+  helper reaches the Store with `[[Needs]] ProductStore& products;`;
+  `server/stores` is the fourth folder in `CppYonGraph::FOLDERS`. Each Entity
+  has at most one Store.
+- `[[AllOrNothing({"adapter":"data"})]]` on a service method begins, commits
+  and rolls back through `entities["data"]` of the service's own context,
+  and Store calls inside the method join the open transaction, as in the
+  other languages.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
 bullet, when it lands.
-
-- Yon C++ caching, policies and stores: `[[Cached]]`, `[[CacheKey]]`,
-  `[[CacheSettings]]`, `[[UpdateCache]]`, `[[ClearCache]]`, `[[Retry]]`,
-  `[[MaxAtOnce]]`, `[[AllOrNothing]]`, `[[PageDefaults]]`, `[[Entity]]`,
-  `[[Table]]`, `[[Id]]`, `[[Store]]` and `[[Query]]`.
 
 - Yon C++ outbound calls: `[[HTTPClient]]` with `[[GetRequest]]`,
   `[[PostRequest]]`, `[[PutRequest]]`, `[[PatchRequest]]`,

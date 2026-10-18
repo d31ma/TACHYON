@@ -14,17 +14,22 @@ mod cpp_yon_identity;
 mod cpp_yon_models;
 mod cpp_yon_parameter;
 mod cpp_yon_path;
+mod cpp_yon_policies;
 mod cpp_yon_program;
 mod cpp_yon_provider;
 mod cpp_yon_route;
 mod cpp_yon_runtime;
 mod cpp_yon_scope;
 mod cpp_yon_status;
+mod cpp_yon_stores;
 mod cpp_yon_worker;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod check_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod policy_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod role_tests;
@@ -48,10 +53,12 @@ use cpp_yon_identity::CppYonIdentity;
 pub(crate) use cpp_yon_models::CppYonModels;
 use cpp_yon_parameter::CppYonParameter;
 use cpp_yon_path::CppYonPath;
+use cpp_yon_policies::CppYonPolicies;
 use cpp_yon_program::CppYonProgram;
 use cpp_yon_provider::CppYonProvider;
 use cpp_yon_route::CppYonRoute;
 use cpp_yon_runtime::CppYonRuntime;
 use cpp_yon_scope::CppYonScope;
 use cpp_yon_status::CppYonStatus;
+use cpp_yon_stores::CppYonStores;
 pub(crate) use cpp_yon_worker::CppYonWorker;

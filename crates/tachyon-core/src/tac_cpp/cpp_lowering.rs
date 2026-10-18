@@ -2,6 +2,8 @@ use super::{
     CppAttribute, CppBehaviors, CppChecks, CppClass, CppCoverage, CppFile, CppInjection,
     CppLifetime, CppMarkerCheck, CppMember, CppRemote, CppService, CppStreamRequest,
 };
+use serde_json::Value;
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::ops::Range;
 
@@ -18,12 +20,19 @@ impl CppLowering {
         Self::blanked(file, source).finished()
     }
 
-    pub(crate) fn yon(file: &CppFile, source: &str, friends: &str) -> String {
+    pub(crate) fn yon(
+        file: &CppFile,
+        source: &str,
+        opening: &str,
+        behaviors: &BTreeMap<String, Value>,
+        scope: &str,
+    ) -> String {
         let mut lowering = Self::blanked(file, source);
         lowering
             .insertions
-            .push((file.class.body.start + 1, friends.to_owned()));
+            .push((file.class.body.start + 1, opening.to_owned()));
         lowering.fill_yon_needs(&file.class);
+        lowering.wrap_policies(&file.class.members, behaviors, scope);
         lowering.guard_checked(&file.class, source);
         lowering.finished()
     }
@@ -87,16 +96,23 @@ impl CppLowering {
     }
 
     fn wrap_behaviors(&mut self, service: &CppService) {
-        let wrapped = service.class().members.iter().filter_map(|member| {
-            service
-                .behaviors
-                .get(&member.name)
-                .map(|policy| (member, policy))
-        });
+        self.wrap_policies(&service.class().members, &service.behaviors, "");
+    }
+
+    fn wrap_policies(
+        &mut self,
+        members: &[CppMember],
+        behaviors: &BTreeMap<String, Value>,
+        scope: &str,
+    ) {
+        let wrapped = members
+            .iter()
+            .filter_map(|member| behaviors.get(&member.name).map(|policy| (member, policy)));
         for (member, policy) in wrapped {
             let (opening, closing) = CppBehaviors::wrapping(member, policy);
             self.insertions.push((member.body_end, closing));
-            self.insertions.push((member.terminator + 1, opening));
+            self.insertions
+                .push((member.terminator + 1, format!("{scope}{opening}")));
         }
     }
 

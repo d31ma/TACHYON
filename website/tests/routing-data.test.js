@@ -15,8 +15,8 @@ class PublishedData {
   /** @type {Record<string, string[]>} */
   static sectionLanguages = {
     'Annotated controllers and providers': PublishedData.withCpp,
-    'Checking values and method arguments': PublishedData.withoutLua,
-    'Limited Store and Query': PublishedData.withRuby,
+    'Checking values and method arguments': PublishedData.withCppWithoutLua,
+    'Limited Store and Query': PublishedData.withCpp,
     'Reading settings and choosing configuration': PublishedData.withCppWithoutLua,
     'Calling a method in another language': PublishedData.withoutLua,
   }

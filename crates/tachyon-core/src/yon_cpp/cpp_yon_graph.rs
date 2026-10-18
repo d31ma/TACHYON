@@ -1,4 +1,4 @@
-use super::{CppYonController, CppYonErrors, CppYonProvider};
+use super::{CppYonController, CppYonErrors, CppYonProvider, CppYonStores};
 use crate::Failure;
 use crate::tac_cpp::{CppClass, CppFailure, CppLifetime, CppProgram, CppServiceGraph};
 use crate::yon::plan::Scope;
@@ -9,8 +9,14 @@ pub(crate) struct CppYonGraph {
 }
 
 impl CppYonGraph {
-    const FOLDERS: &'static [&'static str] =
-        &["server/services", "server/helpers", "server/converters"];
+    const FOLDERS: &'static [&'static str] = &[
+        "server/services",
+        "server/helpers",
+        "server/converters",
+        "server/stores",
+    ];
+    const SHARED_ENTITY: &'static str =
+        "One C++ [[Store]] keeps each [[Entity]]; another Store already names this one";
     const TRANSIENT_EVENTS: &'static str = "A Yon C++ class with [[OnEvent]], [[OnStart]] or [[OnStop]] runs with objects that live for the whole request, so no class it works with may be [[Lifetime(\"transient\")]]. Use \"request\" or \"singleton\"";
 
     pub(crate) fn read(
@@ -18,6 +24,7 @@ impl CppYonGraph {
         controller: &CppYonController,
         models: &CppProgram,
         errors: &CppYonErrors,
+        stores: &CppYonStores,
     ) -> Result<Self, Failure> {
         let mut graph = CppServiceGraph::within(root, Self::FOLDERS, Self::missing)?;
         Self::add_handler_needs(&mut graph, errors)?;
@@ -25,11 +32,12 @@ impl CppYonGraph {
         let mut providers = graph
             .finish()
             .iter()
-            .map(|service| CppYonProvider::service(service, models))
+            .map(|service| CppYonProvider::service(service, models, stores))
             .collect::<Result<Vec<_>, _>>()?;
-        providers.extend(Self::handler_providers(errors, models)?);
-        providers.push(CppYonProvider::root(controller, models)?);
+        providers.extend(Self::handler_providers(errors, models, stores)?);
+        providers.push(CppYonProvider::root(controller, models, stores)?);
         let graph = Self { providers };
+        graph.check_entities()?;
         graph.check_captures()?;
         graph.check_transient()?;
         Ok(graph)
@@ -55,11 +63,12 @@ impl CppYonGraph {
     fn handler_providers(
         errors: &CppYonErrors,
         models: &CppProgram,
+        stores: &CppYonStores,
     ) -> Result<Vec<CppYonProvider>, Failure> {
         errors
             .handlers
             .iter()
-            .map(|handler| CppYonProvider::handler(handler, models))
+            .map(|handler| CppYonProvider::handler(handler, models, stores))
             .collect()
     }
 
@@ -88,6 +97,25 @@ impl CppYonGraph {
                 "A C++ [[Needs]] field names a C++ [[Service]] in server/services, a C++ [[Helper]] in server/helpers or a C++ [[Converter]] in server/converters, and there is no {needed}.hpp in any of them. Write the class in its own file there, named after the class"
             ),
         )
+    }
+
+    fn check_entities(&self) -> Result<(), Failure> {
+        let kept: Vec<(&CppYonProvider, &str)> = self
+            .providers
+            .iter()
+            .filter_map(|provider| provider.entity.as_deref().map(|entity| (provider, entity)))
+            .collect();
+        let repeated = kept
+            .iter()
+            .enumerate()
+            .find(|(index, (_, entity))| kept[..*index].iter().any(|(_, seen)| seen == entity));
+        repeated.map_or(Ok(()), |(_, (provider, _))| {
+            Err(CppFailure::unreadable(
+                &provider.path,
+                provider.at,
+                Self::SHARED_ENTITY,
+            ))
+        })
     }
 
     fn check_captures(&self) -> Result<(), Failure> {

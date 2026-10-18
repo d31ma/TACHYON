@@ -31,8 +31,7 @@ impl CppStore {
     const QUERY_ONLY: &'static str = "A C++ Store holds only queries: instance methods with no body that Tachyon writes, for example `std::vector<NoteEntity> findByText(const std::string& text);`. Put other work in a service";
     const QUERY_MARKERS: &'static str = "A C++ Store method carries only [[Query]], and its page parameter only a bare [[PageDefaults]]";
     const OVERLOADED: &'static str = "A C++ Store method has one name; rename one of the methods";
-    const NO_ENTITY: &'static str =
-        "A C++ [[Store]] names an [[Entity]] model in client/entities or client/models";
+    const NO_ENTITY: &'static str = "A C++ [[Store]] names an [[Entity]] model in client/entities or client/models, or in server/entities or server/models for Yon";
 
     pub(crate) fn is_store(class: &CppClass) -> bool {
         Self::marker(class, Self::STORE).is_some()
@@ -73,7 +72,9 @@ impl CppStore {
     ) -> Result<Value, Failure> {
         let written = WrittenPolicies::new(path, source, super::CppSource::EXTENSION);
         let mut entity = written.entity(&Self::written(marker))?;
-        (entity["adapter"] == Self::ADAPTER)
+        let browser =
+            crate::annotation_rules::Realm::of(path) != Some(crate::annotation_rules::Realm::Yon);
+        ([browser, entity["adapter"] != Self::ADAPTER] != [true, true])
             .then_some(())
             .ok_or_else(|| CppFailure::pending(path, marker.at, Self::ADAPTERS))?;
         let table = Self::marker(class, Self::TABLE)

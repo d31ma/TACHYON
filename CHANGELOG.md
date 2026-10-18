@@ -58,6 +58,19 @@ machine contracts have their own, independent major versions.
   `RequestParam`, `RequestHeader` and `RequestBody` send the right method,
   path, query, headers and body, in tupled (`a * b`) and curried (`a -> b`)
   abstract signatures (ADR 0073 amendment).
+- C++ Yon code accepts `[[CacheSettings]]`, `[[Cached]]`, `[[CacheKey]]`,
+  `[[UpdateCache]]`, `[[ClearCache]]`, `[[Retry]]`, `[[MaxAtOnce]]`,
+  `[[AllOrNothing]]`, `[[PageDefaults]]`, `[[Entity]]`, `[[Table]]`, `[[Id]]`,
+  `[[Store]]` and `[[Query]]`. A class whose methods cache or run in a
+  transaction keeps a `BehaviorContext behaviors;` field and opens it from a
+  Setup; Retry, MaxAtOnce and PageDefaults need no context. A Setup's
+  `BehaviorAdapters` now also has `caches`, `entities`, `authorize` and
+  `authorizeEntity`, and `BehaviorMemory::cache()` and
+  `BehaviorMemory::entities()` are in-memory adapters for one request. A Store
+  in `server/stores` is a class of bodiless query methods; Tachyon opens its
+  context from its Setup, and `[[Needs]] ProductStore& products;` reaches it.
+  A Yon C++ Entity may name any entity adapter; Tac C++ keeps `"indexeddb"`
+  (ADR 0099 amendment).
 - A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
   `-- @SocketRequest`, written as an empty
   `function TicksClient:receive(tick)` with `---@param tick Tick`. The page's
