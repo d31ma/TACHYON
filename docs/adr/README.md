@@ -113,3 +113,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [98. An Integrated Title Bar Is an Opt-In Window Setting](0098-an-integrated-title-bar-is-an-opt-in-window-setting.md)
 - [99. C++ Is a Tac WebAssembly Service Language](0099-cpp-is-a-tac-webassembly-service-language.md)
 - [100. A Route With Several Web Runtimes Gets a Measured Allowance](0100-a-route-with-several-web-runtimes-gets-a-measured-allowance.md)
+- [101. Check Rejections Answer 422 Problem Details](0101-check-rejections-answer-422-problem-details.md)
