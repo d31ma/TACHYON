@@ -82,12 +82,8 @@ impl CheckLanguage {
     }
 
     fn runs(program: &str) -> bool {
-        let flag = if matches!(program, "java" | "javac" | "kotlinc") {
-            "-version"
-        } else {
-            "--version"
         let flag = match program {
-            "java" | "javac" => "-version",
+            "java" | "javac" | "kotlinc" => "-version",
             "go" => "version",
             _ => "--version",
         };
