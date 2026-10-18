@@ -35,6 +35,7 @@ const transport = (text) => lua.invoke(text)
     const REALM: &'static str = "tac";
     const CLIENT: &'static str = "client";
     const PRIVATE: char = '_';
+    const BEHAVIOR_RUNTIMES: [&'static str; 2] = ["", LuaBehaviorEdits::RUNTIME];
     const PUBLISHER: &'static str = "application_event_publisher";
     const TYPE_ANNOTATION: &'static str = "---@type";
     const CAPABILITY: &'static str = "Lua services do not support {} yet (ADR 0085): the page gives Lua no {} provider, so the field would stay nil. Write the service that needs it in another Tac language, such as JavaScript, TypeScript, Rust, Swift, C# or Kotlin";
@@ -75,7 +76,7 @@ const transport = (text) => lua.invoke(text)
     }
 
     pub(crate) fn behavior_runtime(used: bool) -> &'static str {
-        if used { LuaBehaviorEdits::RUNTIME } else { "" }
+        Self::BEHAVIOR_RUNTIMES[usize::from(used)]
     }
 
     pub(crate) fn client_models(snapshot_root: &Path) -> Result<ModelSources, Failure> {

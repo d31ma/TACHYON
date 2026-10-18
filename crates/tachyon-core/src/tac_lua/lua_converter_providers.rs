@@ -45,7 +45,8 @@ impl LuaConverterProviders {
     }
 
     fn is_provider(name: &str, marked: bool, records: &Value) -> bool {
-        marked && (records[name]["mapper"] == true || Self::is_store(&records[name]))
+        let record = &records[name];
+        marked && [record["mapper"] == true, Self::is_store(record)].contains(&true)
     }
 
     fn is_store(record: &Value) -> bool {
