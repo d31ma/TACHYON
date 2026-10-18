@@ -31,6 +31,15 @@ machine contracts have their own, independent major versions.
   `BehaviorError` (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`,
   `HTTP_BODY` or `CANCELLED`). A stream-only client needs no Setup
   (ADR 0058, ADR 0060, ADR 0090 and ADR 0093 amendments).
+- C++ Tac code accepts `[[Setup]]`, `[[WhenProfile]]`, `[[WhenSetting]]`,
+  `[[UseProfiles]]` and `[[TestSettings]]`. A Setup is a class in
+  `client/setups/<Name>.hpp` with
+  `static BehaviorAdapters configure(const BehaviorExecution& execution)`; a
+  service opens a context with `Behaviors::create<Setup>(options)`, and one
+  configuration serves every context with the same selection until the last
+  one is disposed. Each C++ test case now opens and disposes its own context
+  from its TestSetup, with the test's profiles and settings
+  (ADR 0099 amendment).
 - Yon Rust controllers stream. A `#[StreamRoute]` method returns
   `impl Iterator<Item = Model>`, or `impl Iterator<Item = Result<Model, E>>`
   when the stream can fail; the prelude sends each item as one server-sent

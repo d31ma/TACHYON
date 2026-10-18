@@ -115,6 +115,13 @@ public:
             call();
         }
     }
+
+    template <typename Unit>
+    static void attach(Unit& unit, const BehaviorContext& context) {
+        if constexpr (requires { unit.behaviors = context; }) {
+            unit.behaviors = context;
+        }
+    }
 };
 
 class TacTestRunner {

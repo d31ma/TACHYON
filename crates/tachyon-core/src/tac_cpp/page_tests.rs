@@ -678,3 +678,63 @@ fn settings_and_setting_bind_an_explicit_snapshot() {
         "{answers:?}"
     );
 }
+
+#[test]
+fn a_page_service_opens_one_setup_for_its_selection() {
+    if !PageProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let opening = "    std::string open(std::vector<std::string> profiles, std::string enabled) {\n        BehaviorOptions options;\n        options.partition = \"catalog\";\n        options.profiles = profiles;\n        options.properties[\"TAC_CACHE_ENABLED\"] = enabled;\n        options.properties[\"TAC_CATALOG_SIZE\"] = \"7\";\n        try {\n            behaviors = Behaviors::create<CatalogSetup>(options);\n            return \"open\";\n        } catch (const tachyon::TacCodedError& problem) {\n            return problem.code();\n        }\n    }\n";
+    let catalog = format!(
+        "class [[Service]] CatalogService {{\npublic:\n    BehaviorContext behaviors;\n{opening}    int size() {{ return behaviors.properties<CatalogSettings>().size; }}\n    int configured() {{ return CatalogSetup::configured(); }}\n}};\n"
+    );
+    let shelf = format!(
+        "class [[Service]] ShelfService {{\npublic:\n    BehaviorContext behaviors;\n{opening}}};\n"
+    );
+    PageProject::write(
+        root.path(),
+        &[
+            (
+                "client/models/CatalogSettings.hpp",
+                "struct [[Settings({\"prefix\":\"TAC_CATALOG_\"})]] CatalogSettings {\n    [[Min(1)]] [[Max(10)]] int size = 2;\n};\n",
+            ),
+            (
+                "client/setups/CatalogSetup.hpp",
+                "class [[Setup, WhenProfile(\"test\"), WhenSetting({\"name\":\"TAC_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})]] CatalogSetup {\npublic:\n    static int& configured() {\n        static int count = 0;\n        return count;\n    }\n\n    static BehaviorAdapters configure(const BehaviorExecution&) {\n        configured() += 1;\n        return {};\n    }\n};\n",
+            ),
+            ("client/services/CatalogService.hpp", catalog.as_str()),
+            ("client/services/ShelfService.hpp", shelf.as_str()),
+        ],
+    );
+    let services = [("catalog", "CatalogService"), ("shelf", "ShelfService")];
+    let answers = PageProject::answers(
+        root.path(),
+        &services,
+        &[
+            PageProject::init("catalog", 1, &json!({})),
+            PageProject::call("catalog", 1, "open", &json!([[], "true"])),
+            PageProject::call("catalog", 1, "open", &json!([["test"], "false"])),
+            PageProject::call("catalog", 1, "open", &json!([["test"], "true"])),
+            PageProject::call("catalog", 1, "size", &json!([])),
+            PageProject::init("shelf", 2, &json!({})),
+            PageProject::call("shelf", 2, "open", &json!([["test"], "true"])),
+            PageProject::call("catalog", 1, "configured", &json!([])),
+        ],
+    );
+    let values: Vec<Value> = answers
+        .iter()
+        .map(|answer| answer["value"].clone())
+        .collect();
+    assert_eq!(
+        values[1..5],
+        [
+            json!("inactive-configuration"),
+            json!("inactive-configuration"),
+            json!("open"),
+            json!(7)
+        ],
+        "{answers:?}"
+    );
+    assert_eq!(values[6..8], [json!("open"), json!(1)], "{answers:?}");
+}

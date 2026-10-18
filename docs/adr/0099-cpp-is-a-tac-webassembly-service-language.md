@@ -65,10 +65,8 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   through.
 - The rule table lists C++ (`hpp`) as a Tac language and is the one place
   that decides where each marker works. Today C++ reaches every Tac marker
-  except `Setup`, `WhenProfile`, `WhenSetting`, `UseProfiles`,
-  `TestSettings`, `StreamRequest` and `SocketRequest`. Those fail with the
-  rule's own code (most often `TY1308`), and the message names the languages
-  where they work. The same shared checker (`PlacedMarker`) reports
+  except `StreamRequest` and `SocketRequest`. Those fail with the rule's own
+  code (`TY1308`), and the message names the languages where they work. The same shared checker (`PlacedMarker`) reports
   a wrong target, missing or extra arguments, a missing partner, a clash and a
   class requirement, in the C++ spelling. A `[[Needs]]` field whose type is
   neither a C++ service nor a C++ HTTP client fails with `TY1372`.
@@ -258,8 +256,8 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
 - The rows live in the browser's IndexedDB through the page's entity mirror.
   `[[AllOrNothing]]` on a service method collects the writes and commits them
   in one transaction, or rolls them back when the method throws.
-- Only the `"indexeddb"` adapter builds. Another adapter needs a C++
-  `[[Setup]]`, which is still pending, so it fails with `TY1372`. A project
+- Only the `"indexeddb"` adapter builds. Other adapters stay out of the
+  plan for now, so they fail with `TY1372`. A project
   has one Store for each Entity, and a Store method has one name.
 
 ### Settings
@@ -268,12 +266,13 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
   fields from `TAC_` values; `[[Min]]` and `[[Max]]` bound a number field and
   an initializer is its default. `[[Setting("${tac.app.title:Shop}")]]` binds
   one field of a model from the application configuration.
-- C++ has no `[[Setup]]` yet, so a service binds an explicit snapshot:
+- A service binds an explicit snapshot:
   `Behaviors::properties<ShopSettings>(values)` from a
   `std::map<std::string, std::string>` or from the application `JsonNode`,
   and `Behaviors::values<Model>(application)`. The shared rules check the
   plan at build time and the same limits at run time; a bad value fails with
-  the `configuration-properties` code.
+  the `configuration-properties` code. A behavior context gives the same
+  binding from its own properties (see the 2026-10-18 amendment).
 
 ### Test units
 
@@ -287,13 +286,15 @@ header-only types, shaped like .NET's `System.Text.Json.Nodes` and
 - A case may return `Task<void>`. The test transport answers at once, so the
   task has finished when the case returns; a task that still waits fails its
   case.
-- A static `configure()` method of the TestSetup returns `BehaviorAdapters`.
+- A static `configure()` or `configure(const BehaviorExecution& execution)`
+  method of the TestSetup returns `BehaviorAdapters`.
   `adapters.http["greeting"]` is a `BehaviorHTTPAdapter`, a function that
   takes the `tachyon::http::HttpRequestMessage` and returns the answer body
   as a `JsonNode`, for example
-  `tachyon::json::JsonSerializer::serializeToNode(Greeting{"Hi"})`. Tachyon calls
-  `configure()` again for each case, so a case never sees another case's
-  answers. A request whose adapter has no answer fails with an
+  `tachyon::json::JsonSerializer::serializeToNode(Greeting{"Hi"})`. Each case
+  opens its own behavior context from the TestSetup and disposes it when the
+  case ends, so `configure` runs again for each case and a case never sees
+  another case's answers (see the 2026-10-18 amendment). A request whose adapter has no answer fails with an
   `HttpRequestException` whose code is `HTTP_ADAPTER`; an answer function may
   throw `HttpRequestException("HTTP_STATUS")` to test a failure. No request
   leaves a test unit.
@@ -401,6 +402,57 @@ other Yon roles stay pending (see Pending).
   standard error as a `handler.cpp_exception` line and never into the
   answer.
 
+## Amendment (2026-10-18): Tac C++ Setup and behavior context
+
+C++ Tac code now has `[[Setup]]`, `[[WhenProfile]]`, `[[WhenSetting]]`,
+`[[UseProfiles]]` and `[[TestSettings]]`, with the same rules as the other
+Tac languages (ADR 0022).
+
+### Setup files
+
+- A Setup is a header-only `.hpp` file in `client/setups` with one class
+  named after the file and marked `[[Setup]]`. It is not a service: it takes
+  only `[[WhenProfile]]`, `[[WhenSetting]]` and `[[Description]]` next to
+  `[[Setup]]`, no member markers, and it declares
+  `static BehaviorAdapters configure(const BehaviorExecution& execution)`.
+  The execution names the environment (`"tac"`), the partition and the
+  sorted profiles. `[[Setup]]` on a class anywhere else fails with `TY1371`.
+- `[[WhenProfile("public")]]` and
+  `[[WhenSetting({"name":"TAC_CATALOG_CACHE_ENABLED","havingValue":"true","matchIfMissing":false})]]`
+  use the shared parsers, so a setting name must start with `TAC_`. Tachyon
+  writes them into a plan for the Setup type.
+
+### Behavior context
+
+- `BehaviorContext context = Behaviors::create<CatalogSetup>(options);` opens
+  a context. `BehaviorOptions` holds the partition, the profiles and the
+  properties; `options.withApplication(application)` reads the properties
+  from the application `JsonNode`. A blank or long partition, too many or
+  repeated profiles, a bad profile name or bad properties fail with the
+  `configuration` code. A Setup whose WhenProfile or WhenSetting does not
+  match fails with `inactive-configuration`.
+- One configuration serves every context with the same Setup, sorted
+  profiles and properties. `configure` runs when the first of them opens,
+  and runs again only after the last one is disposed. `context.dispose()`
+  releases one context; a context that is not open fails with `cancelled`.
+  `context.adapters()` gives the adapters, and
+  `context.properties<CatalogSettings>()` binds settings from the context's
+  own properties.
+- A service keeps its context in a `BehaviorContext` field. Such a field is
+  neither a prop nor saved page state.
+- A C++ `[[HTTPClient]]` still sends its requests through the page to the same
+  origin. The `http` adapters of a context answer requests only in a test
+  unit.
+
+### Test units
+
+- Each case opens a context from the test's TestSetup and disposes it when
+  the case ends. The partition is `"test"` unless the `[[Test]]` marker names
+  one, as in `[[Test(CatalogTestSetup, {"partition":"tests"})]]`. `[[UseProfiles("test")]]` gives the profiles and
+  `[[TestSettings({"tac.catalog.page.size":5})]]` gives the properties; the
+  Test class's markers win over the TestSetup's. A test class field
+  `BehaviorContext behaviors;` receives the case's context.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
@@ -439,10 +491,6 @@ bullet, when it lands.
 
 - Yon C++ test units in `server/tests`: `[[Test]]`, `[[TestSetup]]`,
   `[[Fake]]`, `[[FreshStart]]`, `[[ValueSource]]`, `[[UseProfiles]]` and
-  `[[TestSettings]]`.
-
-- Tac C++ Setup: a C++ `[[Setup]]` with a behavior context, and with it
-  `[[WhenProfile]]`, `[[WhenSetting]]`, `[[UseProfiles]]` and
   `[[TestSettings]]`.
 
 - Tac C++ streams and sockets: `[[StreamRequest]]` and `[[SocketRequest]]`

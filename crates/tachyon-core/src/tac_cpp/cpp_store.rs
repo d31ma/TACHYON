@@ -25,7 +25,7 @@ impl CppStore {
         "std::size_t",
         "unsigned",
     ];
-    const ADAPTERS: &'static str = "A C++ Store keeps its rows in the browser's IndexedDB for now: write [[Entity({\"adapter\":\"indexeddb\"})]]. Other adapters need a C++ [[Setup]], which comes later (ADR 0099)";
+    const ADAPTERS: &'static str = "A C++ Store keeps its rows in the browser's IndexedDB for now: write [[Entity({\"adapter\":\"indexeddb\"})]]. Other adapters come later for C++ (ADR 0099)";
     const NEEDS_TABLE: &'static str = "A C++ [[Entity]] names its table, for example `struct [[Entity({\"adapter\":\"indexeddb\"}), Table(\"notes\")]] NoteEntity`";
     const ONE_ID: &'static str = "A C++ [[Entity]] has exactly one public field marked [[Id]], for example `[[Id]] std::string id;`";
     const QUERY_ONLY: &'static str = "A C++ Store holds only queries: instance methods with no body that Tachyon writes, for example `std::vector<NoteEntity> findByText(const std::string& text);`. Put other work in a service";

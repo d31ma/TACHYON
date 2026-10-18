@@ -193,19 +193,29 @@ fn needs_fields_are_references_without_a_value() {
 fn markers_follow_the_shared_rule_table() {
     let refused = Sources::refusal(
         "client/services/TallyService.hpp",
+        "class TallyService {\npublic:\n    [[StreamRequest(\"/ticks\")]] void receive(const Tick& tick) {}\n};\n",
+    );
+    assert!(
+        refused.contains("TY1308")
+            && refused.contains("is not available in C++ Tac code")
+            && refused.contains("C++ gets it in a later step (ADR 0099)"),
+        "{refused}"
+    );
+    let elsewhere = Sources::refusal(
+        "client/services/TallyService.hpp",
         "class [[Setup]] TallyService {};\n",
     );
     assert!(
-        refused.contains("TY1308") && refused.contains("is not available in C++ Tac code"),
-        "{refused}"
+        elsewhere.contains("TY1371") && elsewhere.contains("client/setups/<Name>.hpp"),
+        "{elsewhere}"
     );
-    let pending = Sources::refusal(
+    let alone = Sources::refusal(
         "client/services/TallyService.hpp",
-        "class [[WhenProfile(\"dev\")]] TallyService {};\n",
+        "class [[Service, WhenProfile(\"dev\")]] TallyService {};\n",
     );
     assert!(
-        pending.contains("C++ gets it in a later step (ADR 0099)"),
-        "{pending}"
+        alone.contains("belongs in a class marked [[Setup]] or [[TestSetup]]"),
+        "{alone}"
     );
     let partner = Sources::refusal(
         "client/services/TallyService.hpp",

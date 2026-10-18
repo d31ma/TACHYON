@@ -133,6 +133,52 @@ impl<'a> WrittenPolicies<'a> {
         super::configuration::value(&self.input, &Self::marker(written))
     }
 
+    pub(crate) fn condition(
+        &self,
+        written: &WrittenMarker<'_>,
+        environment: &str,
+    ) -> Result<Value, Failure> {
+        let condition = super::configuration::conditional(&self.input, &Self::marker(written))?;
+        let mut policies = Map::new();
+        policies.insert(String::from("conditionalOnProperty"), condition.clone());
+        super::configuration::validate(&self.input, written.at, &policies, true, environment)?;
+        Ok(condition)
+    }
+
+    pub(crate) fn profiles(&self, written: &WrittenMarker<'_>) -> Result<Value, Failure> {
+        super::configuration::profiles(&self.input, &Self::marker(written))
+    }
+
+    pub(crate) fn test_settings(
+        &self,
+        written: &WrittenMarker<'_>,
+        environment: &str,
+    ) -> Result<Map<String, Value>, Failure> {
+        let properties =
+            super::testing::properties(&self.input, &Self::marker(written), environment)?;
+        Ok(properties
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter_map(|(path, value)| {
+                Self::property_text(value)
+                    .map(|text| (path.replace('.', "_").to_ascii_uppercase(), text))
+            })
+            .collect())
+    }
+
+    fn property_text(value: &Value) -> Option<Value> {
+        match value {
+            Value::String(text) => Some(Value::String(text.clone())),
+            Value::Null => None,
+            other => Some(Value::String(other.to_string())),
+        }
+    }
+
+    pub(crate) fn test_unit(&self, written: &WrittenMarker<'_>) -> Result<Value, Failure> {
+        super::testing::unit(&self.input, &Self::marker(written))
+    }
+
     pub(crate) fn resolve_mutations(
         &self,
         at: usize,

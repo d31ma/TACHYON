@@ -445,3 +445,139 @@ fn a_store_keeps_its_rows_in_memory_within_one_case() {
         "{report:?}"
     );
 }
+
+#[test]
+fn a_test_unit_opens_its_context_with_profiles_and_settings() {
+    if !UnitProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    UnitProject::write(
+        root.path(),
+        &[
+            (
+                "client/models/CatalogSettings.hpp",
+                "struct [[Settings({\"prefix\":\"TAC_CATALOG_\"})]] CatalogSettings {\n    [[Min(1)]] [[Max(10)]] int size = 2;\n};\n",
+            ),
+            (
+                "client/tests/CatalogTestSetup.hpp",
+                "class [[TestSetup, WhenProfile(\"test\"), WhenSetting({\"name\":\"TAC_CATALOG_SIZE\",\"havingValue\":\"5\",\"matchIfMissing\":false})]] CatalogTestSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution& execution) {\n        BehaviorAdapters adapters;\n        std::string seen = execution.partition + \":\" + execution.profiles.at(0);\n        adapters.http[\"seen\"] = [seen](const tachyon::http::HttpRequestMessage&) { return tachyon::json::JsonNode(seen); };\n        return adapters;\n    }\n};\n",
+            ),
+            (
+                "client/tests/CatalogServiceTest.hpp",
+                "class [[Test(CatalogTestSetup, {\"partition\":\"tests\"}), UseProfiles(\"test\"), TestSettings({\"tac.catalog.size\":5})]] CatalogServiceTest {\npublic:\n    BehaviorContext behaviors;\n    void testSeesItsContext() {\n        Assert::equals(\"tests\", behaviors.partition());\n        Assert::equals(std::vector<std::string>{\"test\"}, behaviors.profiles());\n        Assert::equals(5, behaviors.properties<CatalogSettings>().size);\n        tachyon::http::HttpRequestMessage request(tachyon::http::HttpMethod::Get, \"/seen\");\n        Assert::equals(\"tests:test\", behaviors.adapters().http.at(\"seen\")(request).getValue<std::string>());\n    }\n};\n",
+            ),
+        ],
+    );
+    let report = UnitProject::report(root.path(), "client/tests/CatalogServiceTest.hpp");
+    assert_eq!(
+        UnitProject::outcomes(&report),
+        [(String::from("testSeesItsContext"), true)],
+        "{report:?}"
+    );
+    UnitProject::write(
+        root.path(),
+        &[(
+            "client/tests/CatalogServiceTest.hpp",
+            "class [[Test(CatalogTestSetup), UseProfiles(\"other\")]] CatalogServiceTest {\npublic:\n    void testNeverRuns() {}\n};\n",
+        )],
+    );
+    let report = UnitProject::report(root.path(), "client/tests/CatalogServiceTest.hpp");
+    assert_eq!(
+        report.cases[0].error.as_deref(),
+        Some("Setup is inactive for the explicit selection."),
+        "{report:?}"
+    );
+    UnitProject::write(
+        root.path(),
+        &[
+            (
+                "client/tests/CatalogTestSetup.hpp",
+                "class [[TestSetup, UseProfiles(\"other\"), WhenProfile(\"other\")]] CatalogTestSetup {};\n",
+            ),
+            (
+                "client/tests/CatalogServiceTest.hpp",
+                "class [[Test(CatalogTestSetup)]] CatalogServiceTest {\npublic:\n    BehaviorContext behaviors;\n    void testTakesTheProfilesOfItsSetup() {\n        Assert::equals(\"test\", behaviors.partition());\n        Assert::equals(std::vector<std::string>{\"other\"}, behaviors.profiles());\n        Assert::equals(2, behaviors.properties<CatalogSettings>().size);\n    }\n};\n",
+            ),
+        ],
+    );
+    let report = UnitProject::report(root.path(), "client/tests/CatalogServiceTest.hpp");
+    assert!(report.cases[0].passed, "{report:?}");
+}
+
+#[test]
+fn a_setup_is_configured_once_for_the_contexts_that_hold_it() {
+    if !UnitProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    UnitProject::write(
+        root.path(),
+        &[
+            (
+                "client/setups/CatalogSetup.hpp",
+                "class [[Setup, WhenSetting({\"name\":\"TAC_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":true})]] CatalogSetup {\npublic:\n    static int& configured() {\n        static int count = 0;\n        return count;\n    }\n\n    static BehaviorAdapters configure(const BehaviorExecution&) {\n        configured() += 1;\n        return {};\n    }\n};\n",
+            ),
+            (
+                "client/tests/SetupTestSetup.hpp",
+                "class [[TestSetup]] SetupTestSetup {};\n",
+            ),
+            (
+                "client/tests/SetupContractTest.hpp",
+                "class [[Test(SetupTestSetup)]] SetupContractTest {\npublic:\n    static BehaviorOptions options(const std::string& partition) {\n        BehaviorOptions options;\n        options.partition = partition;\n        return options;\n    }\n\n    template <typename Action>\n    static std::string code(Action action) {\n        try {\n            action();\n        } catch (const tachyon::TacCodedError& problem) {\n            return problem.code();\n        }\n        return \"none\";\n    }\n\n    void testConfiguresOnceForTwoContexts() {\n        int before = CatalogSetup::configured();\n        BehaviorContext first = Behaviors::create<CatalogSetup>(options(\"first\"));\n        BehaviorContext second = Behaviors::create<CatalogSetup>(options(\"second\"));\n        Assert::equals(before + 1, CatalogSetup::configured());\n        Assert::isTrue(&first.adapters() == &second.adapters());\n        first.dispose();\n        first.dispose();\n        BehaviorContext third = Behaviors::create<CatalogSetup>(options(\"third\"));\n        Assert::equals(before + 1, CatalogSetup::configured());\n        second.dispose();\n        third.dispose();\n        BehaviorContext fourth = Behaviors::create<CatalogSetup>(options(\"fourth\"));\n        Assert::equals(before + 2, CatalogSetup::configured());\n        Assert::equals(\"cancelled\", code([&] { first.adapters(); }));\n        Assert::equals(\"cancelled\", code([] { BehaviorContext().partition(); }));\n    }\n\n    void testRefusesSelectionsBeforeConfiguring() {\n        int before = CatalogSetup::configured();\n        BehaviorOptions off = options(\"page\");\n        off.properties[\"TAC_CACHE_ENABLED\"] = \"false\";\n        BehaviorOptions nested = options(\"page\");\n        nested.properties[\"TAC_CACHE_ENABLED_SOON\"] = \"true\";\n        BehaviorOptions profile = options(\"page\");\n        profile.profiles = {\"1bad\"};\n        BehaviorOptions twice = options(\"page\");\n        twice.profiles = {\"test\", \"test\"};\n        BehaviorOptions foreign = options(\"page\");\n        foreign.properties[\"YON_CACHE_ENABLED\"] = \"true\";\n        Assert::equals(\"inactive-configuration\", code([&] { Behaviors::create<CatalogSetup>(off); }));\n        Assert::equals(\"inactive-configuration\", code([&] { Behaviors::create<CatalogSetup>(nested); }));\n        Assert::equals(\"configuration\", code([&] { Behaviors::create<CatalogSetup>(profile); }));\n        Assert::equals(\"configuration\", code([&] { Behaviors::create<CatalogSetup>(twice); }));\n        Assert::equals(\"configuration\", code([&] { Behaviors::create<CatalogSetup>(foreign); }));\n        Assert::equals(\"configuration\", code([] { Behaviors::create<CatalogSetup>(options(\" \")); }));\n        Assert::equals(before, CatalogSetup::configured());\n        BehaviorOptions on = options(\"page\");\n        on.properties[\"TAC_CACHE_ENABLED\"] = \"true\";\n        Assert::isTrue(Behaviors::create<CatalogSetup>(on).isOpen());\n    }\n};\n",
+            ),
+        ],
+    );
+    let report = UnitProject::report(root.path(), "client/tests/SetupContractTest.hpp");
+    assert!(report.cases.iter().all(|case| case.passed), "{report:?}");
+    assert_eq!(report.cases.len(), 2, "{report:?}");
+}
+
+#[test]
+fn a_setup_file_is_checked_before_compiling() {
+    let root = tempfile::tempdir().expect("project");
+    let cases = [
+        (
+            "class [[Setup]] CatalogSetup {};\n",
+            "static BehaviorAdapters configure",
+        ),
+        (
+            "class [[Setup, Service]] CatalogSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution&) { return {}; }\n};\n",
+            "it has no other role",
+        ),
+        (
+            "class [[Setup]] CatalogSetup {\npublic:\n    [[Needs]] TallyService& tally;\n    static BehaviorAdapters configure(const BehaviorExecution&) { return {}; }\n};\n",
+            "has no member markers",
+        ),
+        (
+            "class CatalogSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution&) { return {}; }\n};\n",
+            "declares one class marked [[Setup]]",
+        ),
+        (
+            "class [[Setup, WhenSetting({\"name\":\"YON_CACHE\",\"havingValue\":\"true\",\"matchIfMissing\":false})]] CatalogSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution&) { return {}; }\n};\n",
+            "must use TAC_",
+        ),
+        (
+            "class [[Setup, WhenProfile(\"1bad\")]] CatalogSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution&) { return {}; }\n};\n",
+            "simple quoted identifiers",
+        ),
+    ];
+    UnitProject::report_project(
+        root.path(),
+        "class [[Test(ReportTestSetup)]] ReportServiceTest {\npublic:\n    void testOne() {}\n};\n",
+    );
+    for (setup, expected) in cases {
+        UnitProject::write(root.path(), &[("client/setups/CatalogSetup.hpp", setup)]);
+        let refused = UnitProject::refusal(root.path(), "client/tests/ReportServiceTest.hpp");
+        assert!(refused.contains(expected), "{expected}: {refused}");
+    }
+    UnitProject::write(
+        root.path(),
+        &[(
+            "client/tests/ReportServiceTest.hpp",
+            "class [[Test(ReportTestSetup), TestSettings({\"yon.secret\":\"x\"})]] ReportServiceTest {\npublic:\n    void testOne() {}\n};\n",
+        )],
+    );
+    let refused = UnitProject::refusal(root.path(), "client/tests/ReportServiceTest.hpp");
+    assert!(refused.contains("begin with 'tac.'"), "{refused}");
+}

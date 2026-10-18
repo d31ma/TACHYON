@@ -298,7 +298,7 @@ impl AnnotationRules {
     const TAC_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "lua",
     ];
-    const TAC_CONTEXT: &'static [&'static str] = Self::TAC_BEHAVIOR;
+    const TAC_CONTEXT: &'static [&'static str] = Self::TAC_BEHAVIOR_AND_CPP;
     const TAC_FAKE: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "hpp", "lua",
     ];

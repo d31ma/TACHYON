@@ -15,7 +15,10 @@ impl CppPrelude {
     const PAGE_TASKS: &'static str = include_str!("tachyon/page_tasks.hpp");
     const TEST_HOST: &'static str = include_str!("tachyon/test_host.hpp");
     const TEST_EVENTS: &'static str = include_str!("tachyon/test_events.hpp");
-    const HTTP: &'static str = include_str!("tachyon/http.hpp");
+    const HTTP_AND_SETUP: &'static str = concat!(
+        include_str!("tachyon/http.hpp"),
+        include_str!("tachyon/setup.hpp")
+    );
     const TRANSPORT: &'static str = include_str!("tachyon/transport.hpp");
     const TEST_TRANSPORT: &'static str = include_str!("tachyon/test_transport.hpp");
     const HTTP_CLIENT: &'static str = include_str!("tachyon/http_client.hpp");
@@ -42,7 +45,7 @@ impl CppPrelude {
             Self::SETTINGS,
             Self::TICKETS,
             Self::PAGE_TASKS,
-            Self::HTTP,
+            Self::HTTP_AND_SETUP,
             Self::TRANSPORT,
             Self::HTTP_CLIENT,
             Self::NEEDS,
@@ -65,7 +68,7 @@ impl CppPrelude {
             Self::SETTINGS,
             Self::TICKETS,
             Self::TEST_EVENTS,
-            Self::HTTP,
+            Self::HTTP_AND_SETUP,
             Self::TEST_TRANSPORT,
             Self::HTTP_CLIENT,
             Self::TEST_NEEDS,

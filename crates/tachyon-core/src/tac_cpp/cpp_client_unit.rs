@@ -1,8 +1,10 @@
 use super::{
-    CppAttribute, CppFailure, CppFile, CppFolder, CppLowering, CppMarkerCheck, CppMember,
-    CppMemberKind, CppProgram, CppTestCase, CppTools,
+    CppAttribute, CppClass, CppFailure, CppFile, CppFolder, CppLowering, CppMarkerCheck, CppMember,
+    CppMemberKind, CppProgram, CppSetup, CppSource, CppTestCase, CppTools,
 };
 use crate::Failure;
+use crate::behavior::{WrittenMarker, WrittenPolicies};
+use serde_json::{Map, Value};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -13,9 +15,13 @@ pub(crate) struct CppClientUnit {
     cases: Vec<CppTestCase>,
     fakes: Vec<(String, usize)>,
     fresh: bool,
+    partition: String,
+    selection: CppTestSelection,
     lowered: String,
     path: PathBuf,
 }
+
+type CppTestSelection = (Option<Value>, Option<Map<String, Value>>);
 
 impl CppClientUnit {
     const TESTS: &'static str = "client/tests";
@@ -23,7 +29,7 @@ impl CppClientUnit {
     const BINARY: &'static str = "unit";
     const FLAGS: [&'static str; 3] = ["-std=c++20", "-O0", "-fno-color-diagnostics"];
     const FAILED: u16 = 2021;
-    const CONFIGURE: &'static str = "configure";
+    const PARTITION: &'static str = "test";
     const FRESH_START: &'static str = "FreshStart";
     const NO_TEST: &'static str =
         "A C++ test unit declares one class marked [[Test(<Name>TestSetup)]]";
@@ -34,11 +40,14 @@ impl CppClientUnit {
 
     pub(crate) fn run(project: &Path, relative: &Path, source: &str) -> Result<String, Failure> {
         let unit = Self::read(relative, source)?;
-        let (setup, answers, fresh) = Self::setup(project, &unit)?;
+        let (setup, selection, fresh) = Self::setup(project, &unit)?;
         let program = CppProgram::tested(project)?;
         unit.check_fake_types(&program)?;
         let located = CppProgram::located(&unit.path, &unit.lowered);
-        let units = format!("{setup}{located}{}", unit.main(answers, fresh));
+        let profiles = unit.selection.0.clone().or(selection.0);
+        let properties = unit.selection.1.clone().or(selection.1);
+        let options = unit.options(profiles.as_ref(), properties.as_ref());
+        let units = format!("{setup}{located}{options}{}", unit.main(fresh));
         Self::compiled_and_run(relative, &program.test_source(&units))
     }
 
@@ -52,6 +61,9 @@ impl CppClientUnit {
             .find(|marker| marker.name == "Test")
             .ok_or_else(|| CppFailure::unreadable(relative, file.class.name_at, Self::NO_TEST))?;
         let setup = Self::setup_name(relative, marker)?;
+        let written = WrittenPolicies::new(relative, source, CppSource::EXTENSION);
+        let partition = Self::partition(&written, marker)?;
+        let selection = Self::selection(&written, &file.class)?;
         let fakes = Self::fakes(relative, &file.class.members)?;
         let fake_types = fakes
             .iter()
@@ -63,6 +75,8 @@ impl CppClientUnit {
             cases: CppTestCase::read_all(relative, &file.class)?,
             fakes: fake_types,
             fresh: Self::starts_fresh(&file.class),
+            partition,
+            selection,
             lowered: CppLowering::test_unit(&file, source, &fakes),
             path: relative.to_path_buf(),
         })
@@ -104,14 +118,47 @@ impl CppClientUnit {
             .ok_or_else(|| CppFailure::unreadable(relative, marker.at, Self::NO_SETUP))
     }
 
-    fn starts_fresh(class: &super::CppClass) -> bool {
+    fn partition(written: &WrittenPolicies<'_>, marker: &CppAttribute) -> Result<String, Failure> {
+        let unit = written.test_unit(&Self::written(marker))?;
+        Ok(unit["partition"]
+            .as_str()
+            .unwrap_or(Self::PARTITION)
+            .to_owned())
+    }
+
+    fn selection(
+        written: &WrittenPolicies<'_>,
+        class: &CppClass,
+    ) -> Result<CppTestSelection, Failure> {
+        let profiles = Self::marker(class, "UseProfiles")
+            .map(|marker| written.profiles(&Self::written(marker)))
+            .transpose()?;
+        let properties = Self::marker(class, "TestSettings")
+            .map(|marker| written.test_settings(&Self::written(marker), CppSetup::ENVIRONMENT))
+            .transpose()?;
+        Ok((profiles, properties))
+    }
+
+    fn marker<'c>(class: &'c CppClass, name: &str) -> Option<&'c CppAttribute> {
+        class.markers.iter().find(|marker| marker.name == name)
+    }
+
+    fn written(marker: &CppAttribute) -> WrittenMarker<'_> {
+        WrittenMarker {
+            name: &marker.name,
+            arguments: &marker.arguments,
+            at: marker.at,
+        }
+    }
+
+    fn starts_fresh(class: &CppClass) -> bool {
         class
             .markers
             .iter()
             .any(|marker| marker.name == Self::FRESH_START)
     }
 
-    fn setup(project: &Path, unit: &Self) -> Result<(String, bool, bool), Failure> {
+    fn setup(project: &Path, unit: &Self) -> Result<(String, CppTestSelection, bool), Failure> {
         let path = project
             .join(Self::TESTS)
             .join(format!("{}.hpp", unit.setup));
@@ -140,47 +187,58 @@ impl CppClientUnit {
                 Self::FAKE_IN_SETUP,
             ))
         })?;
-        let answers = file.class.members.iter().any(Self::is_configure);
+        let written = WrittenPolicies::new(&relative, &source, CppSource::EXTENSION);
+        let selection = Self::selection(&written, &file.class)?;
+        let plan = CppSetup::plan(&relative, &source, &file.class)?;
         let lowered = CppLowering::model(&file, &source);
         let fresh = [unit.fresh, Self::starts_fresh(&file.class)].contains(&true);
-        Ok((CppProgram::located(&relative, &lowered), answers, fresh))
+        let located = CppProgram::located(&relative, &lowered);
+        Ok((
+            format!("{located}{}{plan}", CppProgram::GENERATED),
+            selection,
+            fresh,
+        ))
     }
 
-    fn is_configure(member: &CppMember) -> bool {
-        [
-            member.kind == CppMemberKind::Method,
-            member.is_static,
-            member.name == Self::CONFIGURE,
-        ] == [true, true, true]
-    }
-
-    fn prepared(&self, answers: bool) -> String {
-        if !answers {
-            return String::new();
-        }
+    fn options(&self, profiles: Option<&Value>, properties: Option<&Map<String, Value>>) -> String {
+        let listed: Vec<String> = profiles
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(Value::to_string)
+            .collect();
+        let pairs: Vec<String> = properties
+            .into_iter()
+            .flatten()
+            .map(|(name, value)| format!("{{{}, {value}}}", Value::String(name.clone())))
+            .collect();
         format!(
-            "tachyon::TacTestAnswers answers({}::{}()); ",
-            self.setup,
-            Self::CONFIGURE
+            "#line 1 \"tachyon-test-main.cpp\"\nstatic tachyon::BehaviorOptions tachyonTestOptions() {{\n    tachyon::BehaviorOptions options;\n    options.partition = {};\n    options.profiles = {{{}}};\n    options.properties = {{{}}};\n    return options;\n}}\n",
+            Value::String(self.partition.clone()),
+            listed.join(", "),
+            pairs.join(", ")
         )
     }
 
-    fn main(&self, answers: bool, fresh: bool) -> String {
+    fn main(&self, fresh: bool) -> String {
         let started = [
             "tachyon::TacHost::reset(); tachyon::TacBehaviors::reset(); ",
             "tachyon::TacHost::reset(); tachyon::TacBehaviors::reset(); tachyon::TacFreshStart::next(); ",
         ][usize::from(fresh)];
-        let prepared = format!("{started}{}", self.prepared(answers));
+        let opened = format!(
+            "{started}tachyon::TacTestAnswers answers(tachyon::Behaviors::create<{}>(tachyonTestOptions())); ",
+            self.setup
+        );
         let mut cases = String::new();
         for case in &self.cases {
             let _ = writeln!(
                 cases,
-                "    runner.run(\"{}\", [] {{ {prepared}{} unit; tachyon::TacTestCase::finish([&unit] {{ return unit.{}; }}); }});",
+                "    runner.run(\"{}\", [] {{ {opened}{} unit; tachyon::TacTestCase::attach(unit, answers.context()); tachyon::TacTestCase::finish([&unit] {{ return unit.{}; }}); }});",
                 case.name, self.name, case.call
             );
         }
         format!(
-            "#line 1 \"tachyon-test-main.cpp\"\nint main() {{\n    tachyon::TacTestRunner runner(\"{}\");\n{cases}    std::puts(runner.text().c_str());\n    return 0;\n}}\n",
+            "int main() {{\n    tachyon::TacTestRunner runner(\"{}\");\n{cases}    std::puts(runner.text().c_str());\n    return 0;\n}}\n",
             self.name
         )
     }

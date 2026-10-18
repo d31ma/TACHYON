@@ -1,6 +1,6 @@
 use super::{
     CppChecks, CppConverter, CppFailure, CppFolder, CppLowering, CppModel, CppPrelude, CppService,
-    CppServiceGraph, CppStore,
+    CppServiceGraph, CppSetup, CppStore,
 };
 use crate::Failure;
 use serde_json::Value;
@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 pub(crate) struct CppProgram {
     models: Vec<CppModel>,
+    setups: Vec<String>,
     services: Vec<CppService>,
     registered: Vec<(String, String)>,
     records_calls: bool,
@@ -21,13 +22,14 @@ impl CppProgram {
     const SHARED_ENTITY: &'static str =
         "One C++ [[Store]] keeps each [[Entity]]; another Store already names this one";
     const SERVER_MODELS: [&'static str; 1] = ["server/models"];
-    const GENERATED: &'static str = "#line 1 \"tachyon-generated.cpp\"\n";
+    pub(crate) const GENERATED: &'static str = "#line 1 \"tachyon-generated.cpp\"\n";
 
     pub(crate) fn read(root: &Path, chosen: &[(String, String, PathBuf)]) -> Result<Self, Failure> {
         let mut graph = CppServiceGraph::new(root)?;
         let registered = Self::register(&mut graph, chosen)?;
         Self {
             models: Self::models(root)?,
+            setups: CppSetup::read_all(root)?,
             services: graph.finish(),
             registered,
             records_calls: false,
@@ -41,6 +43,7 @@ impl CppProgram {
         graph.add_every()?;
         Self {
             models: Self::models(root)?,
+            setups: CppSetup::read_all(root)?,
             services: graph.finish(),
             registered: Vec::new(),
             records_calls: true,
@@ -114,6 +117,7 @@ impl CppProgram {
     pub(crate) fn server_models(root: &Path) -> Result<Self, Failure> {
         Ok(Self {
             models: Self::models_in(root, &Self::SERVER_MODELS)?,
+            setups: Vec::new(),
             services: Vec::new(),
             registered: Vec::new(),
             records_calls: false,
@@ -212,7 +216,12 @@ impl CppProgram {
     }
 
     fn authored(&self) -> String {
-        format!("{}{}", self.model_source(), self.located_services())
+        format!(
+            "{}{}{}",
+            self.model_source(),
+            self.setups.concat(),
+            self.located_services()
+        )
     }
 
     fn located_models(&self) -> String {

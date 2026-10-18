@@ -182,7 +182,7 @@ impl CppSettings {
             .filter(|value| !value.is_empty())
     }
 
-    fn specialization(plan_type: &str, name: &str, plan: &Value) -> String {
+    pub(crate) fn specialization(plan_type: &str, name: &str, plan: &Value) -> String {
         let literal = Value::String(plan.to_string()).to_string();
         format!(
             "namespace tachyon {{\ntemplate <>\nstruct {plan_type}<::{name}> {{\n    static const json::JsonNode& plan() {{\n        static const json::JsonNode written = json::JsonNode::parse({literal});\n        return written;\n    }}\n}};\n}}\n"

@@ -1714,8 +1714,14 @@ route controllers only, since the
 its providers, behaviors, sockets and test units come in later steps (see
 [Yon controllers](YON_ANNOTATIONS.md#language-spellings)). In Tac, behavior
 markers go on synchronous service methods with a body, and a
-C++ Store keeps its rows in IndexedDB. C++ has no `[[Setup]]` yet, so
-`Behaviors::properties<T>(...)` and `Behaviors::values<T>(...)` bind an
+C++ Store keeps its rows in IndexedDB. A C++ `[[Setup]]` lives in
+`client/setups/<Name>.hpp` and declares
+`static BehaviorAdapters configure(const BehaviorExecution& execution)`; a
+service opens its context with `Behaviors::create<CatalogSetup>(options)`
+and keeps it in a `BehaviorContext` field, and each test case opens one from
+its TestSetup with the `[[UseProfiles]]` and `[[TestSettings]]` of the test
+([ADR 0099 amendment of 2026-10-18](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-tac-c-setup-and-behavior-context)).
+`Behaviors::properties<T>(...)` and `Behaviors::values<T>(...)` still bind an
 explicit configuration snapshot. The rule table lists where each marker
 works in C++.
 

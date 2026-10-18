@@ -8,7 +8,7 @@ pub(crate) struct CppLifetime;
 impl CppLifetime {
     const SINGLETON: &'static str = "singleton";
     const PROTOTYPE: &'static str = "prototype";
-    const PUBLISHER: &'static str = "ApplicationEventPublisher";
+    pub(crate) const HELD: [&'static str; 2] = ["ApplicationEventPublisher", "BehaviorContext"];
     const OPTIONAL: &'static str = "std::optional<";
     const SCOPES: [&'static str; 2] = [Self::SINGLETON, Self::PROTOTYPE];
     const LIFETIME_FORM: &'static str = "[[Lifetime]] takes one JSON object whose value is \"singleton\" or \"prototype\", for example [[Lifetime({\"value\":\"prototype\"})]]";
@@ -77,7 +77,7 @@ impl CppLifetime {
             !member.has_initializer,
             !member.type_text.contains('&'),
             !member.is_const,
-            member.plain_type() != Self::PUBLISHER,
+            !Self::HELD.contains(&member.plain_type().as_str()),
             !member.marked("LocalState"),
             !member.marked("SessionState"),
         ] == [true; 7]

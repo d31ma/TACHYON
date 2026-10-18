@@ -75,16 +75,6 @@ public:
         return inputs;
     }
 
-private:
-    static bool name(const std::string& text) {
-        if (text.empty() || text.size() > 256 || !std::isupper(static_cast<unsigned char>(text[0]))) {
-            return false;
-        }
-        return std::all_of(text.begin(), text.end(), [](char character) {
-            return std::isupper(static_cast<unsigned char>(character)) || std::isdigit(static_cast<unsigned char>(character)) || character == '_';
-        });
-    }
-
     static void check(const Values& values) {
         if (values.size() > 256) {
             throw TacBehaviorData::invalid();
@@ -97,6 +87,16 @@ private:
             written[key] = text;
         }
         TacBehaviorData::bounded(written, 65536);
+    }
+
+private:
+    static bool name(const std::string& text) {
+        if (text.empty() || text.size() > 256 || !std::isupper(static_cast<unsigned char>(text[0]))) {
+            return false;
+        }
+        return std::all_of(text.begin(), text.end(), [](char character) {
+            return std::isupper(static_cast<unsigned char>(character)) || std::isdigit(static_cast<unsigned char>(character)) || character == '_';
+        });
     }
 
     static bool whole(double number, bool integer) {
@@ -261,39 +261,6 @@ private:
             throw TacBehaviorData::invalid();
         }
         flat[path] = text;
-    }
-};
-
-class Behaviors {
-public:
-    template <typename Settings>
-    static Settings properties(const std::map<std::string, std::string>& values) {
-        return bound<Settings>([&]() { return TacSettingsBinder::properties(TacSettingsPlan<Settings>::plan(), values); }, PROPERTIES);
-    }
-
-    template <typename Settings>
-    static Settings properties(const json::JsonNode& application) {
-        return bound<Settings>([&]() {
-            return TacSettingsBinder::properties(TacSettingsPlan<Settings>::plan(), TacSettingsBinder::fromApplication(application));
-        }, PROPERTIES);
-    }
-
-    template <typename Model>
-    static Model values(const json::JsonNode& application) {
-        return bound<Model>([&]() { return TacSettingsBinder::values(TacValuesPlan<Model>::plan(), application); }, VALUES);
-    }
-
-private:
-    static constexpr const char* PROPERTIES = "Invalid or missing explicit configuration properties.";
-    static constexpr const char* VALUES = "Invalid or missing application configuration value.";
-
-    template <typename Model, typename Bind>
-    static Model bound(Bind bind, const char* message) {
-        try {
-            return json::JsonCodec<Model>::fromJson(bind());
-        } catch (const std::exception&) {
-            throw TacCodedError(message, "configuration-properties");
-        }
     }
 };
 

@@ -1,6 +1,7 @@
 use super::{
     CppBehaviors, CppChecks, CppClass, CppConverter, CppFailure, CppFile, CppInjection,
-    CppLifetime, CppListener, CppMarkerCheck, CppMember, CppMemberKind, CppRemote, CppStore,
+    CppLifetime, CppListener, CppMarkerCheck, CppMember, CppMemberKind, CppRemote, CppSetup,
+    CppStore,
 };
 use crate::Failure;
 use serde_json::{Value, json};
@@ -17,7 +18,6 @@ pub(crate) struct CppService {
 }
 
 impl CppService {
-    const PUBLISHER: &'static str = "ApplicationEventPublisher";
     const LIFECYCLE: [&'static str; 3] = ["OnEvent", "OnStart", "OnStop"];
     const NEEDS_FORM: &'static str = "A C++ [[Needs]] field is a reference with no initial value, for example `[[Needs]] OrderStore& orders;`";
     const NESTED: &'static str =
@@ -45,6 +45,7 @@ impl CppService {
             .map_or(Ok(()), |topic| {
                 Err(CppFailure::unreadable(relative, topic.at, Self::TOPIC))
             })?;
+        CppSetup::refuse_elsewhere(relative, class)?;
         CppLifetime::check(relative, class)?;
         CppChecks::check_service(relative, class)?;
         CppConverter::check(relative, source, class)?;
@@ -292,8 +293,8 @@ impl CppService {
     }
 
     fn is_page_field(member: &CppMember) -> bool {
-        let publisher = member.plain_type() == Self::PUBLISHER;
-        [member.marked("Needs"), member.is_reference(), publisher] == [false, false, false]
+        let held = CppLifetime::HELD.contains(&member.plain_type().as_str());
+        [member.marked("Needs"), member.is_reference(), held] == [false, false, false]
     }
 
     fn page_methods_of(class: &CppClass) -> Vec<&CppMember> {
