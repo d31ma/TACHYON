@@ -66,6 +66,8 @@ mod python_annotated_type;
 use python_annotated_type::PythonAnnotatedType;
 mod python_fields;
 use python_fields::PythonFields;
+mod provider_qualifiers;
+pub(crate) use provider_qualifiers::ProviderQualifiers;
 mod python_members;
 pub(crate) use python_members::PythonMembers;
 #[cfg(test)]

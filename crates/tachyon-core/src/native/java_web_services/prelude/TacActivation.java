@@ -2,6 +2,7 @@ final class TacActivation {
     final String route;
     final String service;
     final String owner;
+    final TacNode node;
     final java.util.Map<String, Object> members;
     final java.util.ArrayDeque<TacEvent> queue = new java.util.ArrayDeque<>();
     boolean disposed;
@@ -11,12 +12,13 @@ final class TacActivation {
         this.route = route;
         this.service = service;
         this.owner = owner;
-        this.members = created(service);
+        this.node = created(service);
+        this.members = node.members;
     }
 
-    private java.util.Map<String, Object> created(String service) {
+    private TacNode created(String service) {
         try {
-            return TacServiceTable.members(service, preferences, this);
+            return TacNeeds.attach(service, this);
         } catch (RuntimeException failed) {
             preferences.dispose();
             throw failed;
@@ -27,18 +29,19 @@ final class TacActivation {
         return this.route.equals(route) && this.service.equals(service);
     }
 
-    void runHooks(boolean destroy) {
-        for (Object member : new java.util.TreeMap<>(members).values()) {
-            if (member instanceof TacHook hook && hook.destroy == destroy) {
-                hook.invoke.run();
-            }
-        }
+    void start() {
+        TacNeeds.start(node);
+    }
+
+    void abandon() {
+        preferences.dispose();
+        TacNeeds.release(node);
     }
 
     void dispose() {
         disposed = true;
         preferences.dispose();
         queue.clear();
-        runHooks(true);
+        TacNeeds.release(node);
     }
 }

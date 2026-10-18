@@ -2,6 +2,11 @@
 pub(super) enum JavaConstructorProvider {
     Preference(String),
     Publisher(String),
+    Service {
+        name: String,
+        instance: String,
+        class: String,
+    },
 }
 
 impl JavaConstructorProvider {
@@ -13,8 +18,17 @@ impl JavaConstructorProvider {
         self.named()
     }
 
-    pub(super) fn expression(&self) -> &'static str {
+    pub(super) fn expression(&self) -> String {
         self.constructed()
+    }
+
+    pub(super) fn needed(&self) -> Option<(&str, &str)> {
+        match self {
+            Self::Service {
+                instance, class, ..
+            } => Some((instance, class)),
+            _ => None,
+        }
     }
 
     fn typed(kind: &str, name: &str) -> Option<Self> {
@@ -27,14 +41,20 @@ impl JavaConstructorProvider {
 
     fn named(&self) -> &str {
         match self {
-            Self::Preference(name) | Self::Publisher(name) => name,
+            Self::Preference(name) | Self::Publisher(name) | Self::Service { name, .. } => name,
         }
     }
 
-    fn constructed(&self) -> &'static str {
+    fn constructed(&self) -> String {
         match self {
-            Self::Preference(_) => "new BrowserPreferenceStrings(preferences)",
-            Self::Publisher(_) => "new ApplicationEventPublisher(owner)",
+            Self::Preference(_) => String::from("new BrowserPreferenceStrings(preferences)"),
+            Self::Publisher(_) => String::from("new ApplicationEventPublisher(owner)"),
+            Self::Service {
+                instance, class, ..
+            } => format!(
+                "({class}) TacNeeds.need({})",
+                serde_json::to_string(instance).unwrap_or_default()
+            ),
         }
     }
 }

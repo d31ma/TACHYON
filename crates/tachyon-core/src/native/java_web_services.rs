@@ -6,6 +6,7 @@ use java_event_members::JavaEventMembers;
 use java_held_streams::JavaHeldStreams;
 use java_models::JavaModels;
 use java_service::JavaService;
+use java_service_needs::JavaServiceNeeds;
 use java_service_table::JavaServiceTable;
 use java_value_type::JavaValueType;
 use java_wasm_program::JavaWasmProgram;
@@ -29,8 +30,10 @@ mod java_model_kind;
 mod java_model_reader;
 mod java_model_table;
 mod java_models;
+mod java_need_owner;
 mod java_preference_constructor;
 mod java_service;
+mod java_service_needs;
 mod java_service_table;
 mod java_test_contracts;
 mod java_type_declaration;
@@ -45,12 +48,22 @@ mod tea_vm_toolchain;
 #[cfg(test)]
 mod java_browser_http_tests;
 #[cfg(test)]
+mod java_service_needs_tests;
+#[cfg(test)]
 mod preference_strings_tests;
 
 pub(crate) struct JavaWebServices;
 
 impl JavaWebServices {
-    const PRELUDE: [(&'static str, &'static str); 28] = [
+    const PRELUDE: [(&'static str, &'static str); 30] = [
+        (
+            "TacNode.java",
+            include_str!("java_web_services/prelude/TacNode.java"),
+        ),
+        (
+            "TacNeeds.java",
+            include_str!("java_web_services/prelude/TacNeeds.java"),
+        ),
         (
             "TacPreferenceScope.java",
             include_str!("java_web_services/prelude/TacPreferenceScope.java"),
@@ -199,13 +212,21 @@ impl JavaWebServices {
         let all_authored = authored.concat();
         let models = JavaModels::read(snapshot_root, &all_authored)?;
         let values = models.values();
-        let read = Self::services(snapshot_root, services, &authored, &values, &models)?;
+        let needs = JavaServiceNeeds::read(services, &authored)?;
+        let read = Self::services(
+            snapshot_root,
+            services,
+            &authored,
+            &values,
+            (&models, &needs),
+        )?;
+        let shared = JavaServiceNeeds::shared(&read, &authored)?;
         let mut sources: Vec<(PathBuf, String)> = read
             .iter()
             .map(|service| (service.path.clone(), service.source.clone()))
             .collect();
         sources.extend(models.sources(&values)?);
-        sources.extend(Self::prelude(&read, &values));
+        sources.extend(Self::prelude(&read, &values, &shared));
         sources.extend(JavaWebApis::clients(
             Path::new(Self::PRELUDE_FOLDER),
             &all_authored,
@@ -254,7 +275,7 @@ impl JavaWebServices {
         services: &[(String, String, PathBuf)],
         texts: &[String],
         values: &JavaValueType,
-        models: &JavaModels,
+        (models, needs): (&JavaModels, &JavaServiceNeeds),
     ) -> Result<Vec<JavaService>, Failure> {
         let mut read = Vec::new();
         for (index, ((instance, class, path), authored)) in services.iter().zip(texts).enumerate() {
@@ -274,7 +295,7 @@ impl JavaWebServices {
                 service,
                 index,
                 values,
-                models,
+                (models, needs),
             )?);
         }
         Ok(read)
@@ -285,9 +306,14 @@ impl JavaWebServices {
         authored: JavaService,
         index: usize,
         values: &JavaValueType,
-        models: &JavaModels,
+        (models, needs): (&JavaModels, &JavaServiceNeeds),
     ) -> Result<JavaService, Failure> {
         let relative = authored.path.as_path();
+        let owner = needs.owner(
+            &authored.instance,
+            relative,
+            (&authored.source, &authored.class),
+        )?;
         let roles = crate::behavior::ServiceRoles::read(relative, &authored.source)?;
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, &roles.source, "tac")?;
@@ -307,15 +333,22 @@ impl JavaWebServices {
             relative,
             &source,
             &authored.class,
+            &owner,
         )?;
+        let needed: Vec<String> = providers
+            .iter()
+            .filter(|provider| provider.needed().is_some())
+            .map(|provider| provider.name().to_owned())
+            .collect();
         let shown = relative.to_string_lossy();
         let reader = JavaClassReader::new(&shown, &source);
         let events_of_class = JavaEventMembers::new(relative, &authored.class, values);
-        let mut members = reader.members(&authored.class, values)?;
+        let mut members = reader.members_without_fields(&authored.class, values, &needed)?;
         members.extend(events_of_class.listeners(events.as_ref())?);
         members.extend(held);
         let compiled =
             JavaEventMembers::with_publishers(&reader.without_markers(&source), &providers);
+        let compiled = needs.qualified(&compiled, &authored.class, &providers);
         Ok(JavaService {
             members,
             providers,
@@ -335,9 +368,13 @@ impl JavaWebServices {
         Ok(crate::without_bom(&text).to_owned())
     }
 
-    fn prelude(services: &[JavaService], values: &JavaValueType) -> Vec<(PathBuf, String)> {
+    fn prelude(
+        services: &[JavaService],
+        values: &JavaValueType,
+        shared: &std::collections::BTreeSet<String>,
+    ) -> Vec<(PathBuf, String)> {
         let folder = Path::new(Self::PRELUDE_FOLDER);
-        let (table_name, table) = JavaServiceTable::new(values).file(services);
+        let (table_name, table) = JavaServiceTable::new(values).file(services, shared);
         let mut files: Vec<(PathBuf, String)> = Self::PRELUDE
             .iter()
             .map(|(name, text)| (folder.join(name), String::from(*text)))

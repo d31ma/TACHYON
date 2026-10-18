@@ -3,6 +3,7 @@ use super::java_member::JavaMember;
 use super::java_member_kind::JavaMemberKind;
 use super::java_service::JavaService;
 use super::java_value_type::JavaValueType;
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
 pub(super) struct JavaServiceTable<'a> {
@@ -17,19 +18,27 @@ impl<'a> JavaServiceTable<'a> {
         Self { values }
     }
 
-    pub(super) fn file(&self, services: &[JavaService]) -> (String, String) {
-        (String::from(Self::FILE), self.source(services))
+    pub(super) fn file(
+        &self,
+        services: &[JavaService],
+        shared: &BTreeSet<String>,
+    ) -> (String, String) {
+        (String::from(Self::FILE), self.source(services, shared))
     }
 
-    fn source(&self, services: &[JavaService]) -> String {
+    fn source(&self, services: &[JavaService], shared: &BTreeSet<String>) -> String {
         let mut members = String::new();
         let mut required = String::new();
         let mut factories = String::new();
+        let mut sharing = String::new();
+        for name in shared {
+            let _ = writeln!(sharing, "            case {} -> true;", Self::quoted(name));
+        }
         for (index, service) in services.iter().enumerate() {
             let instance = Self::quoted(&service.instance);
             let _ = writeln!(
                 members,
-                "            case {instance} -> service{index}(preferences, owner);"
+                "            case {instance} -> service{index}(node, owner);"
             );
             let _ = writeln!(
                 required,
@@ -40,7 +49,8 @@ impl<'a> JavaServiceTable<'a> {
         }
         format!(
             "final class TacServiceTable {{\n    private TacServiceTable() {{\n    }}\n\n    \
-             static java.util.Map<String, Object> members(String name, TacPreferenceScope preferences, TacActivation owner) {{\n        return switch (name) {{\n{members}            default -> null;\n        }};\n    }}\n\n    \
+             static void build(TacNode node, TacActivation owner) {{\n        switch (node.name) {{\n{members}            default -> {{\n            }}\n        }}\n    }}\n\n    \
+             static boolean shared(String name) {{\n        return switch (name) {{\n{sharing}            default -> false;\n        }};\n    }}\n\n    \
              static String[] required(String name) {{\n        return switch (name) {{\n{required}            default -> new String[0];\n        }};\n    }}\n{factories}}}\n"
         )
     }
@@ -63,8 +73,8 @@ impl<'a> JavaServiceTable<'a> {
             );
         }
         format!(
-            "\n    private static java.util.Map<String, Object> service{index}(TacPreferenceScope preferences, TacActivation owner) {{\n        {class} service = new {class}({arguments});\n        \
-             java.util.Map<String, Object> members = new java.util.LinkedHashMap<>();\n{entries}        return members;\n    }}\n"
+            "\n    private static void service{index}(TacNode node, TacActivation owner) {{\n        TacPreferenceScope preferences = node.preferences;\n        {class} service = new {class}({arguments});\n        \
+             java.util.Map<String, Object> members = new java.util.LinkedHashMap<>();\n{entries}        node.service = service;\n        node.members = members;\n    }}\n"
         )
     }
 

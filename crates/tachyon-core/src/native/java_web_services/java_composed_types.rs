@@ -45,7 +45,8 @@ impl JavaComposedTypes {
             .and_then(|name| name.to_str())
             .unwrap_or_default();
         models.require_service_name(path, class)?;
-        JavaPreferenceConstructor::read(path, source, class)?;
+        let alone = super::java_need_owner::JavaNeedOwner::alone(path, source);
+        JavaPreferenceConstructor::read(path, source, class, &alone)?;
         let roles = crate::behavior::ServiceRoles::read(path, source)?;
         let required = Self::required_properties(path, source, class, !roles.required.is_empty());
         let assembled =

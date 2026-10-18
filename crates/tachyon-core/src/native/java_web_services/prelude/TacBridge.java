@@ -99,22 +99,25 @@ final class TacBridge {
         require(ACTIVATIONS.size() < MOST_ACTIVATIONS, "Too many native activations.");
         TacActivation activation = new TacActivation(route, service, owner);
         if (activation.members == null) {
-            activation.preferences.dispose();
+            activation.abandon();
+            TacNeeds.sweepWhen(ACTIVATIONS.isEmpty());
             return UNKNOWN_SERVICE;
         }
         try {
             if (!assign(activation, props)) {
-                activation.preferences.dispose();
+                activation.abandon();
+                TacNeeds.sweepWhen(ACTIVATIONS.isEmpty());
                 return MISSING_REQUIRED;
             }
         } catch (RuntimeException problem) {
-            activation.preferences.dispose();
+            activation.abandon();
+            TacNeeds.sweepWhen(ACTIVATIONS.isEmpty());
             return MISSING_REQUIRED;
         }
         ACTIVATIONS.put(owner, activation);
         TacEvents.runFor(activation);
         try {
-            activation.runHooks(false);
+            activation.start();
         } catch (RuntimeException problem) {
             dispose(owner);
             throw problem;
@@ -209,6 +212,7 @@ final class TacBridge {
         if (activation != null) {
             activation.dispose();
         }
+        TacNeeds.sweepWhen(ACTIVATIONS.isEmpty());
     }
 
     private static void disposeAll() {

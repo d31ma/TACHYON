@@ -24,8 +24,8 @@ pub(crate) use gateway::{
 };
 pub(crate) use polyglot::{
     CsharpHelperGraph, DetachedCsharp, HelperRole, JavaBuiltins, KotlinBuiltins, LuaBehaviorMethod,
-    LuaBehaviorPlan, NativeStorage, PlannedMethod, PlannedType, PythonMembers, SwiftPlatform,
-    gateway_unit_runtime,
+    LuaBehaviorPlan, NativeStorage, PlannedMethod, PlannedType, ProviderQualifiers, PythonMembers,
+    SwiftPlatform, gateway_unit_runtime,
 };
 pub(crate) use written_gateway::WrittenGateway;
 #[cfg(test)]

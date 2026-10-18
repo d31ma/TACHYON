@@ -79,7 +79,15 @@ impl PreferenceFixture {
             path: path.strip_prefix(root).expect("relative").to_path_buf(),
             source: String::from(source),
         };
-        let service = JavaWebServices::service(root, authored, 0, &values, &models)
+        let page = [(
+            String::from("choice"),
+            String::from("ChoiceService"),
+            root.join("client/services/ChoiceService.java"),
+        )];
+        let needs =
+            super::java_service_needs::JavaServiceNeeds::read(&page, &[String::from(source)])
+                .expect("page");
+        let service = JavaWebServices::service(root, authored, 0, &values, (&models, &needs))
             .expect("production Java lowering");
         (service, values)
     }
@@ -90,7 +98,11 @@ impl PreferenceFixture {
 
     fn staged_source(root: &Path, source: &str) -> Vec<std::path::PathBuf> {
         let (service, values) = Self::prepared_source(root, source);
-        let mut files = JavaWebServices::prelude(std::slice::from_ref(&service), &values);
+        let mut files = JavaWebServices::prelude(
+            std::slice::from_ref(&service),
+            &values,
+            &std::collections::BTreeSet::new(),
+        );
         files.retain(|(path, _)| {
             path.file_name()
                 .is_none_or(|name| name != "TacHost.java" && name != "TacServices.java")
@@ -163,7 +175,8 @@ fn a_java_needs_preference_field_has_a_typed_constructor_and_is_not_a_page_membe
             .source
             .contains("ChoiceService(PreferenceStrings preferences)")
     );
-    let (_, table) = JavaServiceTable::new(&values).file(&[service]);
+    let (_, table) =
+        JavaServiceTable::new(&values).file(&[service], &std::collections::BTreeSet::new());
     assert!(
         table.contains("new TacService0.ChoiceService(new BrowserPreferenceStrings(preferences))")
     );
@@ -176,7 +189,8 @@ fn an_existing_java_no_argument_factory_keeps_unrelated_constructor_overloads() 
     let source = "@Service\nclass ChoiceService {\n ChoiceService() {}\n ChoiceService(String unrelated) {}\n String answer() { return \"legacy\"; }\n}\n";
     let (service, values) = PreferenceFixture::prepared_source(root.path(), source);
     assert!(service.providers.is_empty());
-    let (_, table) = JavaServiceTable::new(&values).file(&[service]);
+    let (_, table) =
+        JavaServiceTable::new(&values).file(&[service], &std::collections::BTreeSet::new());
     assert!(table.contains("new TacService0.ChoiceService()"));
     assert!(!table.contains("new BrowserPreferenceStrings"));
 }
@@ -228,7 +242,8 @@ fn private_final_publisher_and_preference_fields_have_ordered_browser_factories(
             .contains("events = new ApplicationEventPublisher")
     );
     assert!(!service.members.iter().any(|member| member.name == "events"));
-    let (_, table) = JavaServiceTable::new(&values).file(&[service]);
+    let (_, table) =
+        JavaServiceTable::new(&values).file(&[service], &std::collections::BTreeSet::new());
     assert!(table.contains("new TacService0.ChoiceService(new ApplicationEventPublisher(owner), new BrowserPreferenceStrings(preferences))"));
 }
 

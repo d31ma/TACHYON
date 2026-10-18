@@ -15,7 +15,7 @@ impl PythonMembers {
         let mut description = Self::named(&input, &types, class)?;
         let generated = Self::generated(path, &source, class)?;
         description["inferred"] = json!(generated.is_some());
-        description["qualifiers"] = Self::qualifiers(path, &source, class)?;
+        description["qualifiers"] = super::ProviderQualifiers::read(path, &source, class)?;
         Self::set_generated(&mut description, generated);
         Ok(description)
     }
@@ -40,24 +40,6 @@ impl PythonMembers {
             .find(|ty| ty.name == class)?
             .constructor
             .clone()
-    }
-
-    fn qualifiers(path: &Path, source: &str, class: &str) -> Result<Value, Failure> {
-        let prepared = super::prepare(path, source, "tac")?;
-        Ok(Self::prepared_qualifiers(prepared.as_ref(), class))
-    }
-
-    fn prepared_qualifiers(prepared: Option<&super::Prepared>, class: &str) -> Value {
-        let Some(super::Prepared::Annotated(module)) = prepared else {
-            return json!({});
-        };
-        module
-            .types
-            .iter()
-            .find(|ty| ty.name == class)
-            .and_then(|ty| ty.policies.get("qualifiers"))
-            .cloned()
-            .unwrap_or_else(|| json!({}))
     }
 
     fn set_generated(description: &mut Value, generated: Option<Vec<String>>) {

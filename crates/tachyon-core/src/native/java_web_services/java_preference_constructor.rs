@@ -1,6 +1,7 @@
 use super::java_code::JavaCode;
 use super::java_constructor_provider::JavaConstructorProvider;
 use super::java_declaration::JavaDeclaration;
+use super::java_need_owner::JavaNeedOwner;
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use std::path::Path;
@@ -9,6 +10,7 @@ pub(super) struct JavaPreferenceConstructor<'a> {
     path: &'a Path,
     class: &'a str,
     code: JavaCode,
+    needs: &'a JavaNeedOwner<'a>,
 }
 
 impl<'a> JavaPreferenceConstructor<'a> {
@@ -16,15 +18,17 @@ impl<'a> JavaPreferenceConstructor<'a> {
         path: &'a Path,
         source: &str,
         class: &'a str,
+        needs: &'a JavaNeedOwner<'a>,
     ) -> Result<Vec<JavaConstructorProvider>, Failure> {
         let reader = Self {
             path,
             class,
             code: JavaCode::new(source),
+            needs,
         };
         let found = reader.constructors();
         let defaults = Self::defaults(&found);
-        let preferences = Self::preferences(&found);
+        let preferences = reader.preferences(&found);
         let parameters = reader.parameters(&found, defaults, &preferences)?;
         reader.checked(&parameters)
     }
@@ -50,18 +54,25 @@ impl<'a> JavaPreferenceConstructor<'a> {
             .count()
     }
 
-    fn preferences(found: &[Vec<(String, String)>]) -> Vec<Vec<(String, String)>> {
+    fn preferences(&self, found: &[Vec<(String, String)>]) -> Vec<Vec<(String, String)>> {
         found
             .iter()
-            .filter(|parameters| Self::preference_only(parameters))
+            .filter(|parameters| self.preference_only(parameters))
             .cloned()
             .collect()
     }
 
-    fn preference_only(parameters: &[(String, String)]) -> bool {
+    fn preference_only(&self, parameters: &[(String, String)]) -> bool {
         parameters
             .iter()
-            .all(|(kind, name)| JavaConstructorProvider::read(kind, name).is_some())
+            .all(|(kind, name)| self.provider(kind, name).is_ok_and(|found| found.is_some()))
+    }
+
+    fn provider(&self, kind: &str, name: &str) -> Result<Option<JavaConstructorProvider>, Failure> {
+        JavaConstructorProvider::read(kind, name).map_or_else(
+            || self.needs.provider(kind, name),
+            |provider| Ok(Some(provider)),
+        )
     }
 
     fn constructors(&self) -> Vec<Vec<(String, String)>> {
@@ -81,13 +92,14 @@ impl<'a> JavaPreferenceConstructor<'a> {
         &self,
         parameters: &[(String, String)],
     ) -> Result<Vec<JavaConstructorProvider>, Failure> {
-        let unsupported = parameters
+        parameters
             .iter()
-            .find(|(kind, name)| JavaConstructorProvider::read(kind, name).is_none());
-        unsupported.map_or_else(
-            || Ok(parameters.iter().filter_map(|(kind, name)| JavaConstructorProvider::read(kind, name)).collect()),
-            |(kind, _)| Err(self.failure(&format!("Java browser constructor injection supports PreferenceStrings and ApplicationEventPublisher; {kind} needs its own provider adapter."))),
-        )
+            .map(|(kind, name)| self.supported(kind, name))
+            .collect()
+    }
+
+    fn supported(&self, kind: &str, name: &str) -> Result<JavaConstructorProvider, Failure> {
+        self.provider(kind, name)?.ok_or_else(|| self.failure(&format!("Java browser constructor injection supports PreferenceStrings, ApplicationEventPublisher and the Java services of the page; {kind} needs its own provider adapter.")))
     }
 
     fn failure(&self, message: &str) -> Failure {
@@ -107,7 +119,7 @@ impl<'a> JavaPreferenceConstructor<'a> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
-    use super::JavaPreferenceConstructor;
+    use super::{JavaNeedOwner, JavaPreferenceConstructor};
     use std::path::Path;
 
     #[test]
@@ -117,6 +129,7 @@ mod tests {
             Path::new("client/services/ChoiceService.java"),
             source,
             "ChoiceService",
+            &JavaNeedOwner::alone(Path::new("client/services/ChoiceService.java"), source),
         )
         .expect("typed browser constructor");
         assert_eq!(
@@ -139,6 +152,7 @@ mod tests {
                 Path::new("client/services/ChoiceService.java"),
                 source,
                 "ChoiceService",
+                &JavaNeedOwner::alone(Path::new("client/services/ChoiceService.java"), source),
             )
             .expect("existing no-argument factory");
             assert!(names.is_empty(), "{source}");
@@ -152,6 +166,7 @@ mod tests {
             Path::new("client/services/ChoiceService.java"),
             source,
             "ChoiceService",
+            &JavaNeedOwner::alone(Path::new("client/services/ChoiceService.java"), source),
         )
         .expect("unambiguous preference constructor");
         assert_eq!(
@@ -183,6 +198,7 @@ mod tests {
                 Path::new("client/services/ChoiceService.java"),
                 source,
                 "ChoiceService",
+                &JavaNeedOwner::alone(Path::new("client/services/ChoiceService.java"), source),
             )
             .expect_err("unsupported constructor");
             let rendered = failure.to_string();
@@ -196,7 +212,7 @@ mod tests {
 #[cfg(test)]
 mod publisher_tests {
     #![allow(clippy::expect_used)]
-    use super::{JavaConstructorProvider, JavaPreferenceConstructor};
+    use super::{JavaConstructorProvider, JavaNeedOwner, JavaPreferenceConstructor};
     use std::path::Path;
 
     #[test]
@@ -206,6 +222,7 @@ mod publisher_tests {
             Path::new("client/services/ChoiceService.java"),
             source,
             "ChoiceService",
+            &JavaNeedOwner::alone(Path::new("client/services/ChoiceService.java"), source),
         )
         .expect("supported constructor");
         assert_eq!(
@@ -224,6 +241,7 @@ mod publisher_tests {
             Path::new("client/services/ChoiceService.java"),
             source,
             "ChoiceService",
+            &JavaNeedOwner::alone(Path::new("client/services/ChoiceService.java"), source),
         )
         .expect("legacy constructor");
         assert!(providers.is_empty());
