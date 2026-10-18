@@ -140,10 +140,12 @@ const bounded = async (work) => {
   try { return await Promise.race([work, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('cache unavailable')), 2000) })]) }
   finally { clearTimeout(timer) }
 }
+const variesOnlyByEncoding = (response) => (response.headers.get('vary') || '').split(',')
+  .every((name) => !name.trim() || name.trim().toLowerCase() === 'accept-encoding')
 const publicResponse = (response) => response && response.ok && !response.redirected
   && response.type !== 'opaque' && response.type !== 'opaqueredirect'
   && !/(?:^|,)\s*(?:private|no-store)\b/i.test(response.headers.get('cache-control') || '')
-  && !response.headers.has('vary')
+  && variesOnlyByEncoding(response)
 
 async function bodyBytes(response, limit) {
   const reader = response.body?.getReader()

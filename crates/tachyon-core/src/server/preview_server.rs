@@ -1,5 +1,6 @@
 use super::{
-    HostGuard, PreviewDispatch, PreviewServerOptions, ServerListener, ServerResponse, StaticFiles,
+    AssetCachePolicy, HostGuard, PreviewDispatch, PreviewServerOptions, ServerListener,
+    ServerResponse, StaticFiles,
 };
 use crate::Failure;
 use crate::failure::diagnostic;
@@ -35,6 +36,7 @@ impl PreviewServer {
         let state = PreviewDispatch {
             files: StaticFiles::directory(&root, true),
             page_routes: Arc::new(StaticFiles::preview_route_patterns(&root)),
+            asset_cache: AssetCachePolicy::new(Some(&root)),
         };
         let page_hosts = crate::safety::DeclaredHosts::published(&root);
         let guard = HostGuard::for_bundle(options.host, &root, &options.hosts);

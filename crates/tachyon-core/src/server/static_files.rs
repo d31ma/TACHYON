@@ -140,6 +140,10 @@ impl StaticFiles {
         serde_json::from_slice::<Value>(&bytes).ok()
     }
 
+    pub(in crate::server) fn is_small_regular_file(metadata: &std::fs::Metadata) -> bool {
+        Self::small_regular_file(metadata)
+    }
+
     fn small_regular_file(metadata: &std::fs::Metadata) -> bool {
         !metadata.file_type().is_symlink()
             && metadata.is_file()

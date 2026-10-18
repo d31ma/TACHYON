@@ -237,3 +237,14 @@ database (`tachyon-fetch-cache`) are gone from `tac-client.js`, and an
 `ClearCache` and `UpdateCache`, like Spring's `@CacheEvict` and `@CachePut`.
 `ty migrate fix` drops the `cache` option when it turns an old `@Client` into
 `@HTTPClient`, and notes each client whose reads should be marked `Cached`.
+
+## Amendment (2026-10-18): one `Vary` value is public
+
+The worker, and the page's precache of service modules, now keep a response
+whose only `Vary` value is `Accept-Encoding`. `ty start` and
+`ty preview --static` send that value on every precompressed file
+(ADR 0075). The browser unpacks the body before the worker reads it, and the
+worker checks a package file against its digest, so the value says nothing
+private. Any other `Vary` value, `Vary: *` included, still keeps a response
+out of both caches. The same servers now let the worker keep the files that
+its asset table lists (ADR 0093 amendment).

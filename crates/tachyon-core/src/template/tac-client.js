@@ -387,9 +387,12 @@ const openStaticCache = async () => {
   } catch { return null }
 }
 
+const variesOnlyByEncoding = (response) => (response.headers.get('vary') || '').split(',')
+  .every((name) => !name.trim() || name.trim().toLowerCase() === 'accept-encoding')
+
 const storableResponse = (response) => response.ok && response.type === 'basic'
   && !/(?:no-store|private)/i.test(response.headers.get('cache-control') || '')
-  && !response.headers.get('vary')
+  && variesOnlyByEncoding(response)
 
 const precacheAssets = async (urls) => {
   const cache = await openStaticCache()

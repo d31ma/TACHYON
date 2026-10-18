@@ -183,8 +183,10 @@ clean run. Things that matter:
 - `@Check` rejections answer a generic 500 in every language (asserted by the
   Java checked-model test). Should they answer 400 or 422 with field details?
   That needs an ADR.
-- `ty preview` sends `Cache-Control: no-store` and `Vary`, so the offline
-  service worker caches nothing in preview, in any language.
+- ~~`ty preview` sends `Cache-Control: no-store` and `Vary`, so the offline
+  service worker caches nothing in preview, in any language.~~ Fixed on
+  2026-10-18: `ty start` and `ty preview --static` send `no-cache` for the
+  files in the worker's asset table (ADR 0093 amendment).
 - ~~Phase 6 legacy differential~~: decided on 2026-10-18. The migration list in
   `scripts/compat/differential.mjs` declares each intended difference.
 - Python and Lua `HTTPClient`; who is the trusted authority for native live

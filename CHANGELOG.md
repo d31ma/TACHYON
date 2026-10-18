@@ -740,7 +740,22 @@ machine contracts have their own, independent major versions.
   `[<Checked>]` model in `client/models`: good inputs pass and each rule
   refuses a bad one with its own `validation` path. The client schema test
   now covers an F# service as well.
-
+- A page now reloads offline when `ty start` or `ty preview --static`
+  serves it. Both servers sent `Cache-Control: no-store` on every answer,
+  and their precompressed files also carried `Vary: Accept-Encoding`, so the
+  service worker kept nothing. Now a build file that the worker's own asset
+  table lists gets `Cache-Control: no-cache` when it is asked for without
+  `Authorization`, without a cookie and without a query. The worker can keep
+  it and checks it against the table's digest, and the browser checks it
+  again with its ETag on each load, so a new build shows at once. The worker
+  and the Tac precache now accept `Vary: Accept-Encoding` when it is the only
+  Vary value. Everything else keeps `no-store`: controller, Yon, event-stream
+  and error answers, files outside the table, pages on a path that a
+  controller shares, and every answer of the watching development server
+  (`ty preview` and `ty serve` without `--static` or production). The new
+  `bun run test:preview-offline-browser` gate reloads a page offline under
+  `ty preview --static` in Chromium, Firefox and WebKit (ADR 0087 and ADR
+  0093 amendments).
 - A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
   `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
   for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`

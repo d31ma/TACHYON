@@ -1,4 +1,4 @@
-use super::{ServerResponse, StaticFiles};
+use super::{AssetCachePolicy, ServerResponse, StaticFiles};
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{Request, Response, StatusCode};
@@ -9,6 +9,7 @@ use tower_http::services::ServeDir;
 pub(in crate::server) struct PreviewDispatch {
     pub(in crate::server) files: ServeDir,
     pub(in crate::server) page_routes: Arc<Vec<String>>,
+    pub(in crate::server) asset_cache: AssetCachePolicy,
 }
 
 impl PreviewDispatch {
@@ -16,13 +17,15 @@ impl PreviewDispatch {
         State(state): State<Self>,
         request: Request<Body>,
     ) -> Response<Body> {
-        StaticFiles::serve(&state.files, &state.page_routes, request)
+        let public = state.asset_cache.is_public_asset(&request);
+        let response = StaticFiles::serve(&state.files, &state.page_routes, request)
             .await
             .unwrap_or_else(|| {
                 ServerResponse::text(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Cannot serve the preview bundle.",
                 )
-            })
+            });
+        AssetCachePolicy::mark(public, response)
     }
 }

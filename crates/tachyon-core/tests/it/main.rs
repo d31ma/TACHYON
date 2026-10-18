@@ -1,5 +1,6 @@
 mod annotation_layout;
 mod application_config;
+mod asset_caching;
 mod behavior_annotations;
 mod behavior_csharp;
 mod behavior_dynamic;

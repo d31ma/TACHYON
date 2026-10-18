@@ -241,6 +241,25 @@ should send cacheable headers for build outputs is a separate server
 decision; until then, offline Python Tac is qualified only from an origin
 that serves the build as public static files.
 
+## Amendment 2026-10-18: `ty preview --static` and `ty start` qualify offline
+
+The server decision is made. `ty start` and `ty preview --static` send
+`Cache-Control: no-cache` for a file that the built worker's asset table
+lists, when the request has no `Authorization`, no cookie and no query. The
+server reads the table from the `tachyon-sw.js` it serves, and reads it again
+when that file changes, so it never guesses from a file name. Every other
+answer keeps `no-store`, and so does every answer of the watching
+development server. The precompressed files still carry
+`Vary: Accept-Encoding`, which the worker now accepts as its only Vary value
+(ADR 0087 amendment). `no-cache` and not a year-long `immutable` lifetime:
+the build keeps the same URL for a changed file, such as
+`/.tachyon/tac-client.js`, so a long lifetime would keep old bytes in any
+browser that does not run the worker, including every loopback preview.
+`scripts/preview-offline-browser-gate.mjs` reloads a page offline under
+`ty preview --static` in Chromium, Firefox and WebKit. The Pyodide files are
+in the same table, so offline Python Tac is qualified there too; that
+gate's fixture has no Python service.
+
 ## Amendment 2026-10-17: async methods, behaviors, saved fields, stores and clients
 
 - An `async def` method builds. The page gets a promise: the bridge answers

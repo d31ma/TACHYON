@@ -1,4 +1,5 @@
 mod access_verdict;
+mod asset_cache_policy;
 mod controller_dispatch;
 mod dev_server_options;
 mod diagnostic_entry;
@@ -27,6 +28,7 @@ mod preview_dispatch;
 mod preview_server;
 mod preview_server_options;
 mod protocol_request;
+mod public_assets;
 mod route_guard;
 mod route_invocation;
 mod server_listener;
@@ -62,6 +64,7 @@ use crate::handler::{HandlerSupervisor, RuntimeRequirements};
 use crate::tool_restart::ToolRestart;
 use crate::{BuildResult, Failure, Project, ProjectDiscovery, WebCompiler};
 use access_verdict::AccessVerdict;
+use asset_cache_policy::AssetCachePolicy;
 use axum::Router;
 use diagnostic_entry::DiagnosticEntry;
 use dispatch::Dispatch;
@@ -80,6 +83,7 @@ use middleware::Middleware;
 use middleware_outcome::MiddlewareOutcome;
 use preview_dispatch::PreviewDispatch;
 use protocol_request::ProtocolRequest;
+use public_assets::PublicAssets;
 use route_guard::RouteGuard;
 use server_listener::ServerListener;
 use server_response::ServerResponse;
@@ -254,6 +258,9 @@ impl DevServer {
             page_routes: Arc::new(page_routes),
             supervisor: Arc::clone(&supervisor),
             files: StaticFiles::directory(&output_directory, !options.watch),
+            asset_cache: AssetCachePolicy::new(
+                (!options.watch).then_some(output_directory.as_path()),
+            ),
             hot_updates: hot_updates.clone(),
             watch: options.watch,
             middleware,

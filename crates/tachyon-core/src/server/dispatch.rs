@@ -3,9 +3,9 @@ use super::controller_dispatch::{
 };
 use super::socket_dispatch::{SocketHub, SocketSession};
 use super::{
-    DispatchRoute, ForwardedHeaders, HandlerEventBridge, HostGuard, HotUpdateHub, InvocationLog,
-    Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest, RouteGuard, ServerResponse,
-    StaticFiles, TopicHub, TopicStream,
+    AssetCachePolicy, DispatchRoute, ForwardedHeaders, HandlerEventBridge, HostGuard, HotUpdateHub,
+    InvocationLog, Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest, RouteGuard,
+    ServerResponse, StaticFiles, TopicHub, TopicStream,
 };
 use crate::Failure;
 use crate::handler::{HandlerCancellation, HandlerSource, HandlerSupervisor};
@@ -30,6 +30,7 @@ pub(in crate::server) struct Dispatch {
     pub(in crate::server) page_routes: Arc<Vec<String>>,
     pub(in crate::server) supervisor: Arc<HandlerSupervisor>,
     pub(in crate::server) files: ServeDir,
+    pub(in crate::server) asset_cache: AssetCachePolicy,
     pub(in crate::server) hot_updates: HotUpdateHub,
     pub(in crate::server) watch: bool,
     pub(in crate::server) middleware: Option<Arc<HandlerSource>>,
@@ -215,7 +216,7 @@ impl Dispatch {
         request: Request<Body>,
     ) -> Response<Body> {
         match found {
-            None => self.clone().serve_static(request).await,
+            None => self.clone().serve_public_static(request).await,
             Some((entries, matched)) => self.serve_mapped_route(&entries, matched, request).await,
         }
     }
@@ -651,6 +652,12 @@ impl Dispatch {
                 invocation.await
             }
         }
+    }
+
+    async fn serve_public_static(self, request: Request<Body>) -> Response<Body> {
+        let public = self.asset_cache.is_public_asset(&request);
+        let response = self.serve_static(request).await;
+        AssetCachePolicy::mark(public, response)
     }
 
     async fn serve_static(self, request: Request<Body>) -> Response<Body> {
