@@ -8,6 +8,8 @@ mod lua_web_services;
 #[cfg(test)]
 mod behavior_tests;
 #[cfg(test)]
+mod task_tests;
+#[cfg(test)]
 mod tests;
 
 pub(crate) use lua_client_unit::LuaClientUnit;
