@@ -1165,12 +1165,32 @@ of the plan.
   service that call a C++ class with a `[[Needs]]` Helper, a C++ service
   that calls a Python class, and the signature refusals.
 
+## Amendment (2026-10-18): Tac C++ browser APIs
+
+A Tac C++ `[[Needs]]` field may name one of Tachyon's ten browser APIs, the
+same list as Rust and Go: `Clock`, `SecureRandom`, `Connectivity`,
+`PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications`,
+`Geolocation` and `WindowControls` (`[[Needs]] Clock& clock;`, and
+`[[NeedsAll]]` fills such a reference field too). The classes live in
+`tachyon/web_apis.hpp` as global names. Each call is synchronous, uses the
+JavaScript call name in lowerCamel case (`nowMs()`, `writeText(text)`), goes
+to the page through `tac_host_web`, and throws `std::runtime_error` when the
+page refuses it. The eight built-in event models (`ConnectivityChanged`,
+`VisibilityChanged`, `PreferencesChanged`, `ClipboardTextRead`,
+`ShareFinished`, `NotificationPermissionChanged`, `PositionFound` and
+`BrowserCallFailed`) are generated structs, so a project does not declare them
+in `client/models`, and an `[[OnEvent]]` listener takes them like any model.
+A test unit answers the calls with `BrowserFakes::answer("clock", "now",
+1000)`; a call without an answer throws, and its message names
+`BrowserFakes::answer`. A project model with the name of an event model
+replaces Tachyon's struct; the browser API names are taken, so a project class
+does not use them. Yon C++ classes do not get these APIs.
+
 ## Pending
 
 All planned Yon C++ steps have landed, and the rule table lists `hpp` for
 each of their markers. These stay out of the plan for now:
 
-- The curated web APIs (Clock, Preferences, ...) for C++ `[[Needs]]` fields.
 - Lifetime `"application"` stays refused: a C++ service runs in the page and
   has no native host.
 

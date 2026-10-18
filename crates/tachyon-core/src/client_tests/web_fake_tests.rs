@@ -32,6 +32,12 @@ impl Units {
     const FSHARP_SERVICE: &str = "[<Service>]\ntype StampService() =\n    let clock = Clock()\n    let connectivity = Connectivity()\n    member val Online : bool = false with get, set\n\n    member this.Stamp() : string =\n        let state = if connectivity.Online() then \"online\" else \"offline\"\n        string (clock.NowMs()) + \" \" + state\n\n    [<OnEvent>]\n    member this.Hear(changed: ConnectivityChanged) : unit =\n        this.Online <- changed.Online\n";
     const FSHARP_UNIT: &str = "[<Test(typeof<StampTestSetup>, {\"partition\":\"tests\"})>]\ntype StampServiceTest() =\n    member this.testUsesTheBrowserFakes() : unit =\n        BrowserFakes.Answer(\"clock\", \"now\", 1000)\n        BrowserFakes.Answer(\"connectivity\", \"online\", false)\n        Assert.equals(\"1000 offline\", StampService().Stamp())\n\n    member this.testHearsTheBuiltInEventModel() : unit =\n        let service = StampService()\n        service.Hear({ Online = true })\n        Assert.isTrue(service.Online, \"the listener hears the event model\")\n\n    member this.testAsksForAnAnswer() : unit =\n        let error = Assert.throws(fun () -> SecureRandom().Uuid() |> ignore)\n        Assert.isTrue(error.Message.Contains(\"BrowserFakes.Answer\"), \"a refusal that names BrowserFakes.Answer\")\n";
 
+    const CPP_SETUP: &str = "class [[TestSetup]] StampTestSetup {};\n";
+    const CPP_SERVICE: &str = "#pragma once\n#include <string>\n\nclass [[Service]] StampService {\npublic:\n    [[Needs]] Clock& clock;\n    [[Needs]] Connectivity& connectivity;\n    bool online = false;\n\n    std::string stamp() {\n        std::string state = connectivity.online() ? \"online\" : \"offline\";\n        return std::to_string(static_cast<long long>(clock.nowMs())) + \" \" + state;\n    }\n\n    [[OnEvent]] void hearConnectivity(const ConnectivityChanged& changed) { online = changed.online; }\n};\n";
+    const CPP_UNIT: &str = "#pragma once\n#include \"../services/StampService.hpp\"\n\nclass [[Test(StampTestSetup)]] StampServiceTest {\npublic:\n    void testUsesTheBrowserFakes() {\n        BrowserFakes::answer(\"clock\", \"now\", 1000);\n        BrowserFakes::answer(\"connectivity\", \"online\", false);\n        StampService service = construct<StampService>();\n        Assert::equals(\"1000 offline\", service.stamp());\n    }\n\n    void testHearsTheBuiltInEventModel() {\n        StampService service = construct<StampService>();\n        service.hearConnectivity(ConnectivityChanged{true});\n        Assert::isTrue(service.online, \"the listener hears the event model\");\n    }\n\n    void testAsksForAnAnswer() {\n        std::string message = Assert::throws([] { SecureRandom().uuid(); });\n        Assert::isTrue(message.find(\"BrowserFakes::answer\") != std::string::npos, \"a refusal that names BrowserFakes::answer\");\n    }\n};\n";
+    const CPP_WINDOW_SERVICE: &str = "class [[Service]] StampService {\npublic:\n    [[Needs]] WindowControls& windowControls;\n\n    bool allowed() { return windowControls.granted(\"minimize\"); }\n};\n";
+    const CPP_WINDOW_UNIT: &str = "class [[Test(StampTestSetup)]] StampServiceTest {\npublic:\n    void testUsesTheFakeWindow() {\n        BrowserFakes::answer(\"windowControls\", \"granted\", true);\n        Assert::isTrue(construct<StampService>().allowed(), \"the fake window answers\");\n    }\n};\n";
+
     const JS_WINDOW_SERVICE: &str = "@Service\nexport default class StampService {\n  @Needs\n  windowControls;\n\n  shrink() {\n    this.windowControls.minimize();\n    return this.windowControls.granted('minimize');\n  }\n}\n";
     const JS_WINDOW_UNIT: &str = "@Test(StampTestSetup)\nexport default class StampServiceTest {\n  @Fake\n  windowControls;\n\n  async testUsesTheFakeWindow() {\n    this.windowControls = { minimize: () => null, granted: () => true };\n    const service = this.construct(StampService);\n    Assert.isTrue(service.shrink(), 'the fake window answers');\n  }\n}\n";
     const GO_WINDOW_SERVICE: &str = "// @Service\ntype StampService struct {\n\t// @Needs\n\twindowControls WindowControls\n}\n\nfunc (stamp *StampService) Allowed() bool {\n\tgranted, _ := stamp.windowControls.Granted(\"minimize\")\n\treturn granted\n}\n";
@@ -160,6 +166,18 @@ fn an_fsharp_unit_answers_the_browser_apis_with_browser_fakes() {
 }
 
 #[test]
+fn a_cpp_unit_answers_the_browser_apis_with_browser_fakes() {
+    let compiler = crate::tac_cpp::CppTools::test_compiler();
+    if !Units::available(&compiler, "--version") {
+        eprintln!("skipping: {compiler} is unavailable");
+        return;
+    }
+    let files = [Units::CPP_SETUP, Units::CPP_SERVICE, Units::CPP_UNIT];
+    let results = Units::passed("hpp", files);
+    assert_eq!(results.len(), 3, "{results:?}");
+}
+
+#[test]
 fn a_unit_fakes_the_window_controls_in_every_language_with_browser_fakes() {
     let cases = [
         (
@@ -220,6 +238,16 @@ fn a_unit_fakes_the_window_controls_in_every_language_with_browser_fakes() {
                 Units::FSHARP_SETUP,
                 Units::FSHARP_WINDOW_SERVICE,
                 Units::FSHARP_WINDOW_UNIT,
+            ],
+        ),
+        (
+            "clang++",
+            "--version",
+            "hpp",
+            [
+                Units::CPP_SETUP,
+                Units::CPP_WINDOW_SERVICE,
+                Units::CPP_WINDOW_UNIT,
             ],
         ),
     ];

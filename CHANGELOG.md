@@ -32,6 +32,14 @@ machine contracts have their own, independent major versions.
   method is public and takes and returns `tachyon::json::JsonNode`. Such a
   target used to fail with "No Yon gateway unit exists for .hpp yet"
   (ADR 0099 amendment).
+- C++ Tac services get Tachyon's browser APIs. A `[[Needs]]` field may name
+  `Clock`, `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`,
+  `Clipboard`, `Share`, `Notifications`, `Geolocation` or `WindowControls`,
+  the same list as Rust and Go. Each call answers at once and throws
+  `std::runtime_error` when the page refuses it. The built-in event models,
+  such as `ConnectivityChanged`, are C++ structs, so an `[[OnEvent]]`
+  listener hears them. A C++ test unit answers the calls with
+  `BrowserFakes::answer("clock", "now", 1000)` (ADR 0099).
 - `ty migrate fix --write` rewrites legacy C++ Yon handlers. A
   `server/routes/**/yon.cpp` file with a `Handler` class moves to
   `server/controllers/<Route>Controller.hpp` with `#pragma once`,

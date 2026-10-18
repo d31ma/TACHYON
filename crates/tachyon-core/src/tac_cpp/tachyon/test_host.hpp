@@ -42,11 +42,23 @@ public:
 
     static void reset() {
         cached().clear();
+        fakes().clear();
         TacMemoryEntities::reset();
     }
 
-    static std::string web(const std::string&) {
-        return missing();
+    static std::string web(const std::string& text) {
+        json::JsonNode request = json::JsonNode::parse(text);
+        auto found = fakes().find(request["api"].getValue<std::string>() + "." + request["call"].getValue<std::string>());
+        if (found == fakes().end()) {
+            return unanswered();
+        }
+        json::JsonObject answer;
+        answer["value"] = found->second;
+        return answer.toJsonString();
+    }
+
+    static void fake(const std::string& key, json::JsonNode value) {
+        fakes()[key] = std::move(value);
     }
 
     static double epochMilliseconds() {
@@ -75,14 +87,39 @@ private:
         return entries;
     }
 
+    static std::map<std::string, json::JsonNode>& fakes() {
+        static std::map<std::string, json::JsonNode> answers;
+        return answers;
+    }
+
     static std::string missing() {
         json::JsonObject failure;
-        failure["error"] = "Browser APIs are not in C++ test units yet (ADR 0099).";
+        failure["error"] = "C++ test units keep only cache and entity storage (ADR 0099).";
+        return failure.toJsonString();
+    }
+
+    static std::string unanswered() {
+        json::JsonObject failure;
+        failure["error"] = "This browser API needs the page. A test unit has no page: give the call an answer with BrowserFakes::answer in the test unit.";
         return failure.toJsonString();
     }
 };
 
+class BrowserFakes {
+public:
+    template <typename Value>
+    static void answer(const std::string& api, const std::string& call, const Value& value) {
+        if constexpr (std::is_constructible_v<json::JsonNode, const Value&>) {
+            TacHost::fake(api + "." + call, json::JsonNode(value));
+        } else {
+            TacHost::fake(api + "." + call, json::JsonSerializer::serializeToNode(value));
+        }
+    }
+};
+
 }
+
+using tachyon::BrowserFakes;
 
 namespace tachyon {
 

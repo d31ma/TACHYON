@@ -241,6 +241,12 @@ fn the_provider_graph_refuses_what_cannot_be_built() {
             "there is no PriceHelper.hpp",
         ),
         (
+            "server/services/CheckoutService.hpp",
+            "[[Named(\"FeeHelper\")]]",
+            "[[Named(\"Clock\")]]",
+            "there is no Clock.hpp",
+        ),
+        (
             "server/helpers/RateHelper.hpp",
             "class [[Helper]] RateHelper",
             "class [[Helper, Lifetime(\"request\")]] RateHelper",

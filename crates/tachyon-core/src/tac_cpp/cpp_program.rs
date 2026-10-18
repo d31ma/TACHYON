@@ -221,7 +221,23 @@ impl CppProgram {
     }
 
     fn models(root: &Path) -> Result<Vec<CppModel>, Failure> {
-        Self::models_in(root, &Self::MODELS)
+        let written = Self::models_in(root, &Self::MODELS)?;
+        let mut models = Self::web_events(&written)?;
+        models.extend(written);
+        Ok(models)
+    }
+
+    fn web_events(written: &[CppModel]) -> Result<Vec<CppModel>, Failure> {
+        let names: Vec<&str> = written.iter().map(CppModel::name).collect();
+        crate::route_types::WebEventSources::cpp()
+            .into_iter()
+            .filter(|(name, _)| !names.contains(&name.as_str()))
+            .map(|(name, source)| CppModel::read(&Self::web_event_path(&name), &source))
+            .collect()
+    }
+
+    fn web_event_path(name: &str) -> PathBuf {
+        PathBuf::from(format!("{}/{name}.hpp", Self::MODELS[0]))
     }
 
     fn models_in(root: &Path, folders: &[&str]) -> Result<Vec<CppModel>, Failure> {

@@ -48,6 +48,13 @@ impl WebApis {
          func (stamp *StampService) Count() int {\n\tbytes, _ := stamp.secureRandom.Bytes(16)\n\treturn len(bytes)\n}\n\n\
          func (stamp *StampService) Refused() string {\n\t_, err := stamp.secureRandom.Bytes(65537)\n\treturn err.Error()\n}\n";
 
+    const CPP_SERVICE: &str = "#pragma once\n#include <stdexcept>\n#include <string>\n\nclass [[Service]] StampService {\npublic:\n    [[Needs]] Clock& clock;\n    [[Needs]] SecureRandom& secureRandom;\n\n    \
+         double now() { return clock.nowMs(); }\n\n    \
+         std::string zone() { return clock.timeZone(); }\n\n    \
+         std::string token() { return secureRandom.uuid(); }\n\n    \
+         int count() { return static_cast<int>(secureRandom.bytes(16).size()); }\n\n    \
+         std::string refused() {\n        try {\n            secureRandom.bytes(65537);\n            return \"\";\n        } catch (const std::runtime_error& problem) {\n            return problem.what();\n        }\n    }\n};\n";
+
     const SWIFT_SERVICE: &str = "@Service\nfinal class StampService {\n    private let clock = Clock()\n    private let secureRandom = SecureRandom()\n\n    \
          func now() -> Double {\n        clock.nowMs()\n    }\n\n    \
          func zone() throws -> String {\n        try clock.timeZone()\n    }\n\n    \
@@ -231,6 +238,40 @@ func (stamp *StampService) HearPreferences(changed PreferencesChanged) {
 	stamp.Scheme = changed.Scheme
 	stamp.Language = changed.Language
 }
+";
+
+    const CPP_LISTENER: &str = r"#pragma once
+#include <string>
+
+class [[Service]] StampService {
+public:
+    [[Needs]] Connectivity& connectivity;
+    [[Needs]] PageVisibility& pageVisibility;
+    [[Needs]] Preferences& preferences;
+    bool online = false;
+    bool visible = false;
+    std::string scheme;
+    std::string language;
+
+    bool reachable() { return connectivity.online(); }
+
+    bool shown() { return pageVisibility.visible(); }
+
+    std::string theme() { return preferences.scheme(); }
+
+    std::string motion() { return preferences.motion(); }
+
+    std::string locale() { return preferences.language(); }
+
+    [[OnEvent]] void hearConnectivity(const ConnectivityChanged& changed) { online = changed.online; }
+
+    [[OnEvent]] void hearVisibility(const VisibilityChanged& changed) { visible = changed.visible; }
+
+    [[OnEvent]] void hearPreferences(const PreferencesChanged& changed) {
+        scheme = changed.scheme;
+        language = changed.language;
+    }
+};
 ";
 
     const CSHARP_LISTENER: &str = r#"[Service]
@@ -601,6 +642,55 @@ func (stamp *StampService) HearPosition(found PositionFound) {
 func (stamp *StampService) HearFailure(failed BrowserCallFailed) {
 	stamp.Failure = failed.Api + "." + failed.Call + ": " + failed.Message
 }
+"#;
+
+    const CPP_PROMPTS: &str = r#"#pragma once
+#include <stdexcept>
+#include <string>
+
+class [[Service]] StampService {
+public:
+    [[Needs]] Clipboard& clipboard;
+    [[Needs]] Share& share;
+    [[Needs]] Notifications& notifications;
+    [[Needs]] Geolocation& geolocation;
+    std::string pasted;
+    bool shared = false;
+    std::string permission;
+    double latitude = 0;
+    std::string failure;
+
+    void copy(std::string text) { clipboard.writeText(text); }
+
+    void paste() { clipboard.readText(); }
+
+    void tell() { share.open("Title", "Text", "https://example.com/"); }
+
+    void ask() { notifications.requestPermission(); }
+
+    void notify() { notifications.show("Hello", "Body"); }
+
+    void locate() { geolocation.currentPosition(); }
+
+    std::string denied() {
+        try {
+            notifications.show("Hello", "Body");
+            return "";
+        } catch (const std::runtime_error& problem) {
+            return problem.what();
+        }
+    }
+
+    [[OnEvent]] void hearClipboard(const ClipboardTextRead& read) { pasted = read.text; }
+
+    [[OnEvent]] void hearShare(const ShareFinished&) { shared = true; }
+
+    [[OnEvent]] void hearPermission(const NotificationPermissionChanged& changed) { permission = changed.permission; }
+
+    [[OnEvent]] void hearPosition(const PositionFound& found) { latitude = found.latitude; }
+
+    [[OnEvent]] void hearFailure(const BrowserCallFailed& failed) { failure = failed.api + "." + failed.call + ": " + failed.message; }
+};
 "#;
 
     const SWIFT_PROMPTS: &str = r#"@Service
@@ -1171,6 +1261,13 @@ process.exit(0)
         for (name, bytes) in published.files {
             Self::write(root, &name, &bytes);
         }
+    }
+
+    fn cpp_available() -> bool {
+        Command::new("em++")
+            .arg("--version")
+            .output()
+            .is_ok_and(|output| output.status.success())
     }
 
     fn assert_stamp(report: &serde_json::Value) {
@@ -1783,4 +1880,39 @@ async fn a_java_web_service_hears_the_answers_to_its_own_browser_calls() {
     }
     let driver = WebApis::PROMPTS_DRIVER.replace("stamp.notify()", "stamp.notifyPage()");
     WebApis::assert_answered_by(root.path(), true, &driver);
+}
+
+#[tokio::test]
+async fn a_cpp_web_service_reads_the_clock_and_secure_random_from_the_page() {
+    if !WebApis::node_available() || !WebApis::cpp_available() {
+        eprintln!("skipping: node or em++ is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", WebApis::CPP_SERVICE).await;
+    let driver = format!("{}{}", WebApis::FILE_FETCH, WebApis::SERVICE_DRIVER);
+    let report = WebApis::run(root.path(), &driver);
+    WebApis::assert_stamp(&report);
+}
+
+#[tokio::test]
+async fn a_cpp_web_service_reads_and_hears_connectivity_visibility_and_preferences() {
+    if !WebApis::node_available() || !WebApis::cpp_available() {
+        eprintln!("skipping: node or em++ is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", WebApis::CPP_LISTENER).await;
+    WebApis::assert_heard(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_cpp_web_service_hears_the_answers_to_its_own_browser_calls() {
+    if !WebApis::node_available() || !WebApis::cpp_available() {
+        eprintln!("skipping: node or em++ is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", WebApis::CPP_PROMPTS).await;
+    WebApis::assert_answered(root.path(), true);
 }

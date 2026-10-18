@@ -46,6 +46,11 @@ impl WebEventSources {
         number: "double",
         flag: "boolean",
     };
+    const CPP: LanguageKinds = LanguageKinds {
+        text: "std::string",
+        number: "double",
+        flag: "bool",
+    };
     const GO_PACKAGE: &'static str = "package tac\n";
 
     pub(crate) fn rust() -> String {
@@ -89,6 +94,16 @@ impl WebEventSources {
             .into_iter()
             .filter(|(name, _)| source.contains(name.as_str()))
             .map(|(name, model)| Self::java_model(&name, &Self::fields(model)))
+            .collect()
+    }
+
+    pub(crate) fn cpp() -> Vec<(String, String)> {
+        WebEventModels::models()
+            .into_iter()
+            .map(|(name, model)| {
+                let source = Self::cpp_model(&name, &Self::fields(model));
+                (name, source)
+            })
             .collect()
     }
 
@@ -217,25 +232,45 @@ impl WebEventSources {
         fields: &[ModelField],
         write_field: fn(&str, &str) -> String,
     ) -> String {
-        let written: Vec<String> = fields
+        Self::written_fields(kinds, fields, write_field).join(", ")
+    }
+
+    fn lines(
+        kinds: &LanguageKinds,
+        fields: &[ModelField],
+        write_field: fn(&str, &str) -> String,
+    ) -> String {
+        Self::written_fields(kinds, fields, write_field).concat()
+    }
+
+    fn written_fields(
+        kinds: &LanguageKinds,
+        fields: &[ModelField],
+        write_field: fn(&str, &str) -> String,
+    ) -> Vec<String> {
+        fields
             .iter()
             .map(|field| write_field(Self::kind(kinds, &field.shape), &field.name))
-            .collect();
-        written.join(", ")
+            .collect()
     }
 
     fn swift_model(name: &str, fields: &[ModelField]) -> String {
-        let mut declared = String::new();
-        for field in fields {
-            let kind = Self::kind(&Self::SWIFT, &field.shape);
-            let _ = writeln!(declared, "    let {}: {kind}", field.name);
-        }
+        let declared = Self::lines(&Self::SWIFT, fields, |kind, field| {
+            format!("    let {field}: {kind}\n")
+        });
         format!("\nstruct {name}: Codable {{\n{declared}}}\n")
     }
 
     fn java_model(name: &str, fields: &[ModelField]) -> String {
         let components = Self::listed(&Self::JAVA, fields, |kind, field| format!("{kind} {field}"));
         format!("\nrecord {name}({components}) {{\n}}\n")
+    }
+
+    fn cpp_model(name: &str, fields: &[ModelField]) -> String {
+        let declared = Self::lines(&Self::CPP, fields, |kind, field| {
+            format!("    {kind} {field}{{}};\n")
+        });
+        format!("struct {name} {{\n{declared}}};\n")
     }
 
     fn ruby_model(name: &str, fields: &[ModelField]) -> String {

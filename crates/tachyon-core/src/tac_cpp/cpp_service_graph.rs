@@ -9,6 +9,7 @@ pub(crate) struct CppServiceGraph<'a> {
     visiting: BTreeSet<PathBuf>,
     ordered: Vec<CppService>,
     missing: fn(&Path, usize, &str) -> Failure,
+    built_in: &'static [&'static str],
 }
 
 impl<'a> CppServiceGraph<'a> {
@@ -23,7 +24,9 @@ impl<'a> CppServiceGraph<'a> {
         "C++ services need each other in a circle; break the circle with an event";
 
     pub(crate) fn new(root: &'a Path) -> Result<Self, Failure> {
-        Self::within(root, &Self::FOLDERS, Self::missing_tac)
+        let mut graph = Self::within(root, &Self::FOLDERS, Self::missing_tac)?;
+        graph.built_in = &crate::web_api_clients::WebApiClients::TYPE_NAMES;
+        Ok(graph)
     }
 
     pub(crate) fn within(
@@ -44,6 +47,7 @@ impl<'a> CppServiceGraph<'a> {
             visiting: BTreeSet::new(),
             ordered: Vec::new(),
             missing,
+            built_in: &[],
         })
     }
 
@@ -54,7 +58,7 @@ impl<'a> CppServiceGraph<'a> {
         needed: &str,
     ) -> Result<(), Failure> {
         let path = self.needed_path(relative, at, needed)?;
-        self.add_service(&path)
+        path.map_or(Ok(()), |path| self.add_service(&path))
     }
 
     pub(crate) fn add(&mut self, path: &Path) -> Result<(), Failure> {
@@ -116,11 +120,17 @@ impl<'a> CppServiceGraph<'a> {
         Ok(())
     }
 
-    fn needed_path(&self, relative: &Path, at: usize, needed: &str) -> Result<PathBuf, Failure> {
-        self.available
-            .get(needed)
-            .cloned()
-            .ok_or_else(|| (self.missing)(relative, at, needed))
+    fn needed_path(
+        &self,
+        relative: &Path,
+        at: usize,
+        needed: &str,
+    ) -> Result<Option<PathBuf>, Failure> {
+        let found = self.available.get(needed).cloned();
+        let built_in = [found.is_none(), self.built_in.contains(&needed)] == [true, true];
+        (!built_in)
+            .then(|| found.ok_or_else(|| (self.missing)(relative, at, needed)))
+            .transpose()
     }
 
     fn missing_tac(relative: &Path, at: usize, needed: &str) -> Failure {
@@ -128,7 +138,7 @@ impl<'a> CppServiceGraph<'a> {
             relative,
             at,
             &format!(
-                "A C++ [[Needs]] field names another C++ service in client/services, a C++ [[HTTPClient]] in client/remotes, a C++ [[Converter]] in client/converters, a C++ [[Helper]] in client/helpers or a C++ [[Store]] in client/stores; there is no {needed}.hpp in any of them. Other C++ roles come later (ADR 0099)"
+                "A C++ [[Needs]] field names another C++ service in client/services, a C++ [[HTTPClient]] in client/remotes, a C++ [[Converter]] in client/converters, a C++ [[Helper]] in client/helpers, a C++ [[Store]] in client/stores or one of Tachyon's browser APIs (Clock, SecureRandom, Connectivity, PageVisibility, Preferences, Clipboard, Share, Notifications, Geolocation, WindowControls); there is no {needed}.hpp in any of them. Other C++ roles come later (ADR 0099)"
             ),
         )
     }
