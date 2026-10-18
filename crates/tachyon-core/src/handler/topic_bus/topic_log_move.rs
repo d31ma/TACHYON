@@ -17,7 +17,7 @@ impl TopicLogMove {
 
     pub(crate) fn run(project: &Dir, folder: &TopicFolder) -> Result<(), Failure> {
         let old = Self::old_logs(project).map_err(TopicFolder::failure)?;
-        old.map(|(old, names)| Self::move_from(project, &old, &names, folder))
+        old.map(|(old, names)| Self::move_from(project, old, &names, folder))
             .transpose()
             .map_err(TopicFolder::failure)?;
         Ok(())
@@ -64,13 +64,15 @@ impl TopicLogMove {
 
     fn move_from(
         project: &Dir,
-        old: &Dir,
+        old: Dir,
         names: &[String],
         folder: &TopicFolder,
     ) -> Result<(), &'static str> {
         let new = folder.create()?;
         let waiting = Self::names_to_move(&new, names, folder)?;
-        Self::move_each(old, &new, &waiting)?;
+        Self::move_each(&old, &new, &waiting)?;
+        // Windows keeps a directory while a handle to it is open.
+        drop(old);
         Self::finish(project, &waiting, folder);
         Ok(())
     }

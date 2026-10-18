@@ -571,14 +571,102 @@ fn exact_toolchain_is_consistent_across_repository_controls()
 }
 
 #[test]
-fn ci_runs_on_the_develop_integration_branch() -> Result<(), Box<dyn std::error::Error>> {
+fn github_ci_runs_only_for_develop_into_main() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
-    let rust = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
-    let ruby = fs::read_to_string(root.join(".github/workflows/ruby-runtime.yml"))?;
+    let guard = "if: github.event_name != 'pull_request' || github.head_ref == 'develop'";
+    for name in ["rust-ci.yml", "ruby-runtime.yml"] {
+        let workflow = fs::read_to_string(root.join(".github/workflows").join(name))?;
+        assert!(
+            workflow.contains("pull_request:\n    branches: [main]"),
+            "{name}"
+        );
+        assert!(
+            !workflow.contains("\n  push:"),
+            "{name} must not run on pushes"
+        );
+        let jobs = workflow.split("\njobs:\n").nth(1).unwrap_or_default();
+        let lines: Vec<&str> = jobs.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            let is_job = line.len() > 3
+                && line.starts_with("  ")
+                && !line.starts_with("   ")
+                && line.ends_with(':');
+            if is_job {
+                let next = lines.get(index + 1).map(|next| next.trim());
+                assert_eq!(
+                    next,
+                    Some(guard),
+                    "{name}: job {line} must run only for develop into main"
+                );
+            }
+        }
+    }
+    let fuzz = fs::read_to_string(root.join(".github/workflows/fuzz-scheduled.yml"))?;
+    assert!(
+        !fuzz.contains("schedule:"),
+        "fuzzing runs on demand, not on a schedule"
+    );
+    Ok(())
+}
 
-    assert!(rust.contains("branches: [main, develop, codex/rust-rewrite]"));
-    assert!(rust.contains("branches: [develop, codex/rust-rewrite, \"work/**\"]"));
-    assert!(ruby.contains("branches: [main, develop, codex/rust-rewrite]"));
+#[test]
+fn self_hosted_runners_serve_only_opted_in_branch_pushes() -> Result<(), Box<dyn std::error::Error>>
+{
+    let root = repository_root();
+    let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
+    let guard = "github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true'";
+    let hosted_fallbacks = [
+        "|| 'ubuntu-latest' }}",
+        "|| 'macos-latest' }}",
+        "|| 'windows-latest' }}",
+        "|| matrix.os }}",
+    ];
+
+    let runner_lines = workflow
+        .lines()
+        .map(str::trim_start)
+        .filter(|line| line.starts_with("runs-on:"))
+        .collect::<Vec<_>>();
+    assert!(!runner_lines.is_empty());
+    for line in runner_lines {
+        assert!(
+            line.contains(guard),
+            "every Rust CI job chooses a self-hosted runner only behind `{guard}`: {line}"
+        );
+        assert!(
+            hosted_fallbacks
+                .iter()
+                .any(|fallback| line.ends_with(fallback)),
+            "every Rust CI job falls back to a GitHub-hosted runner: {line}"
+        );
+    }
+
+    for line in workflow
+        .lines()
+        .map(str::trim_start)
+        .filter(|line| line.contains("self-hosted"))
+    {
+        let guarded_choice = line.starts_with("runs-on:") && line.contains(guard);
+        let matrix_labels = line.starts_with("self_hosted_labels: '[\"self-hosted\",\"tachyon\",");
+        assert!(
+            guarded_choice || matrix_labels,
+            "self-hosted labels appear only in guarded runner choices and matrix label entries: {line}"
+        );
+    }
+    assert!(workflow.contains("vars.TACHYON_SELF_HOSTED_ANDROID == 'true'"));
+    assert!(!workflow.contains("pull_request_target"));
+
+    for other in collect_files(&root.join(".github/workflows"), "yml")? {
+        if other.ends_with("rust-ci.yml") {
+            continue;
+        }
+        let contents = fs::read_to_string(&other)?;
+        assert!(
+            !contents.contains("self-hosted"),
+            "{} must stay on GitHub-hosted runners",
+            other.display()
+        );
+    }
     Ok(())
 }
 

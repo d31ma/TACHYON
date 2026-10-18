@@ -14,9 +14,9 @@ pub(crate) use streaming_methods::StreamingMethods;
 pub(crate) struct YonConvention;
 
 impl YonConvention {
-    pub(crate) const EXTENSIONS: [&str; 14] = [
+    pub(crate) const EXTENSIONS: [&str; 15] = [
         "js", "ts", "py", "java", "groovy", "cs", "fs", "kt", "php", "rs", "dart", "go", "rb",
-        "lua",
+        "lua", "hpp",
     ];
 
     pub(crate) fn is_yon_language(source: &Path) -> bool {
@@ -116,7 +116,9 @@ pub fn is_yon_language(source: &Path) -> bool {
 }
 
 pub fn check_handler(source: &Path, contents: &str) -> Result<(), crate::Failure> {
-    crate::lua_source::LuaView::either(source, contents, HandlerCheck::check)
+    crate::yon_cpp::CppYon::either(source, contents, |source, contents| {
+        crate::lua_source::LuaView::either(source, contents, HandlerCheck::check)
+    })
 }
 
 #[must_use]

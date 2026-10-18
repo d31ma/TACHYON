@@ -203,7 +203,7 @@ impl<'a> CppMemberReader<'a> {
             .unwrap_or(end);
         let only_void = [self.tokens.is(first, "void"), cut == first + 1] == [true, true];
         let present = [first < cut, !only_void] == [true, true];
-        present.then(|| self.written_parameter(markers, first, cut))
+        present.then(|| self.written_parameter(markers, first, cut, cut < end))
     }
 
     fn parameter_name(&self, last: usize, named: bool) -> String {
@@ -218,6 +218,7 @@ impl<'a> CppMemberReader<'a> {
         markers: Vec<CppAttribute>,
         first: usize,
         cut: usize,
+        has_default: bool,
     ) -> CppParameter {
         let last = cut - 1;
         let named = [cut - first > 1, self.tokens.is_word(last)] == [true, true];
@@ -226,6 +227,7 @@ impl<'a> CppMemberReader<'a> {
             name: self.parameter_name(last, named),
             type_text: self.text_between(first, type_end),
             markers,
+            has_default,
         }
     }
 }

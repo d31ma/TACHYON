@@ -20,6 +20,9 @@ impl<'a> FsharpContract<'a> {
     const DEFAULT_INDENT: &'static str = "    ";
     const NAME_JOINER: char = '_';
     const CONTEXT: &'static str = "member val behaviors : BehaviorContext = Behaviors.create(typeof<{setup}>, \"{partition}\", new BehaviorSignal())";
+    const TAC_CLIENT_CONSTRUCTOR: &'static str = "(context: BehaviorContext)";
+    const TAC_CLIENT_CONTEXT: &'static str = "new() = {owner}(Behaviors.create(typeof<{setup}>, \"{partition}\", new BehaviorSignal()))\n{indent}member val behaviors : BehaviorContext = context";
+    const HTTP_CLIENT: &'static str = "HTTPClient";
     const REPOSITORY_BASE: &'static str = "inherit Repository<";
     const CRUD_MEMBERS: [&'static str; 4] = [
         "abstract findById: id: BehaviorJSON -> System.Threading.Tasks.Task<BehaviorJSON>",
@@ -175,7 +178,9 @@ impl<'a> FsharpContract<'a> {
 
     fn concrete_header(&self, declaration: &FsharpDeclaration, line: &str) -> String {
         let at = line.find(&declaration.name).unwrap_or(0) + declaration.name.len();
-        let header = format!("{}{}{}", &line[..at], Self::CONSTRUCTOR, &line[at..]);
+        let constructor = [Self::CONSTRUCTOR, Self::TAC_CLIENT_CONSTRUCTOR]
+            [usize::from(self.is_tac_client(declaration))];
+        let header = format!("{}{constructor}{}", &line[..at], &line[at..]);
         let context = self.context_line(declaration);
         let crud = self.crud_lines(declaration);
         format!("{header}{context}{crud}")
@@ -210,11 +215,20 @@ impl<'a> FsharpContract<'a> {
         declaration.role.needs_context(&members)
     }
 
+    fn is_tac_client(&self, declaration: &FsharpDeclaration) -> bool {
+        let client = declaration.role.marker == Self::HTTP_CLIENT;
+        [self.tac, client, self.needs_context(declaration)] == [true; 3]
+    }
+
     fn context_line(&self, declaration: &FsharpDeclaration) -> String {
         if !self.needs_context(declaration) {
             return String::new();
         }
-        let text = Self::CONTEXT
+        let template =
+            [Self::CONTEXT, Self::TAC_CLIENT_CONTEXT][usize::from(self.is_tac_client(declaration))];
+        let text = template
+            .replace("{owner}", &declaration.name)
+            .replace("{indent}", &self.indent(declaration))
             .replace("{setup}", &declaration.setup())
             .replace("{partition}", &declaration.partition());
         format!("{}{text}\n\n", self.indent(declaration))

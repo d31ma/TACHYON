@@ -19,9 +19,6 @@ impl CppWasmProgram {
         },
     };
     const COMPILER_SETTING: &'static str = "TAC_CPP_WASM_COMPILER";
-    #[cfg(windows)]
-    const DEFAULT_COMPILER: &'static str = "em++.bat";
-    #[cfg(not(windows))]
     const DEFAULT_COMPILER: &'static str = "em++";
     const FLAGS: [&'static str; 8] = [
         "-std=c++20",

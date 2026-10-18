@@ -4,6 +4,26 @@ pub(crate) struct TypeText;
 
 impl TypeText {
     const MAX_DEPTH: usize = 16;
+    const CPP_INTEGERS: [&'static str; 18] = [
+        "int",
+        "long",
+        "short",
+        "long long",
+        "unsigned",
+        "unsigned int",
+        "unsigned long",
+        "unsigned long long",
+        "unsigned short",
+        "int8_t",
+        "int16_t",
+        "int32_t",
+        "int64_t",
+        "uint8_t",
+        "uint16_t",
+        "uint32_t",
+        "uint64_t",
+        "size_t",
+    ];
     const GO_REQUEST_BOUND: [&'static str; 5] = [
         "http.Request",
         "context.Context",
@@ -100,6 +120,7 @@ impl TypeText {
             "kt" | "cs" | "dart" | "ts" | "swift" => text.strip_suffix('?'),
             "php" | "js" => text.strip_prefix('?'),
             "go" => text.strip_prefix('*'),
+            "hpp" => Self::generic(text, &["optional"]),
             _ => None,
         }
     }
@@ -194,6 +215,7 @@ impl TypeText {
                 "FSharpSet",
             ],
             "rs" => &["Vec", "VecDeque", "HashSet", "BTreeSet"],
+            "hpp" => &["vector"],
             "dart" => &["List", "Set", "Iterable"],
             "rb" => &["Array", "Set", "Enumerable"],
             "php" => &["list", "array", "non-empty-list"],
@@ -297,6 +319,12 @@ impl TypeText {
                 &["Integer"],
                 &["Float", "Numeric", "BigDecimal", "Rational"],
                 &["Boolean", "TrueClass", "FalseClass"],
+            ],
+            "hpp" => [
+                &["string"],
+                &Self::CPP_INTEGERS,
+                &["double", "float"],
+                &["bool"],
             ],
             "go" => [
                 &["string"],
@@ -440,6 +468,7 @@ impl TypeText {
             "rs" => &["Json", "Response", "()", "HashMap", "BTreeMap", "Value"],
             "dart" => &["Object", "dynamic", "Map", "void", "Response", "Stream"],
             "go" => &["any", "interface{}", "error"],
+            "hpp" => &["JsonNode", "map", "void"],
             "swift" => &["Any", "AnyObject", "Void", "()"],
             "rb" => &[
                 "Object",

@@ -711,12 +711,7 @@ fn development_server_builds_and_serves_with_defensive_headers() {
         .stderr(Stdio::piped())
         .spawn()
         .expect("development server should start");
-    let ready = wait_server_ready(&mut child);
-    let address = ready
-        .split_whitespace()
-        .find(|part| part.starts_with("http://"))
-        .expect("readiness line should include an address")
-        .trim_end_matches('/');
+    let address = wait_server_address(&mut child);
     let socket = address.trim_start_matches("http://");
 
     let response = request(
@@ -751,7 +746,22 @@ fn development_server_builds_and_serves_with_defensive_headers() {
     assert!(!traversal.contains("[workspace]"), "{traversal}");
 }
 
-fn wait_server_ready(child: &mut Child) -> String {
+fn wait_server_address(child: &mut Child) -> String {
+    let ready = first_stdout_line(child);
+    let address = ready
+        .split_whitespace()
+        .find(|part| part.starts_with("http://"))
+        .map(|part| part.trim_end_matches('/').to_owned());
+    let Some(address) = address else {
+        let server_stderr = stop_and_read_stderr(child);
+        panic!(
+            "readiness line should include an address: {ready:?}\nserver stderr:\n{server_stderr}"
+        );
+    };
+    address
+}
+
+fn first_stdout_line(child: &mut Child) -> String {
     let output = child.stdout.take().expect("server stdout should be piped");
     let (sender, receiver) = mpsc::channel();
     std::thread::spawn(move || {
@@ -759,8 +769,25 @@ fn wait_server_ready(child: &mut Child) -> String {
         let result = BufReader::new(output).read_line(&mut line).map(|_| line);
         let _ = sender.send(result);
     });
+    match receiver.recv_timeout(Duration::from_secs(10)) {
+        Ok(Ok(line)) => line,
+        Ok(Err(error)) => format!("<stdout could not be read: {error}>"),
+        Err(_) => String::from("<no readiness line within 10 seconds>"),
+    }
+}
+
+fn stop_and_read_stderr(child: &mut Child) -> String {
+    stop(child);
+    let Some(mut error_output) = child.stderr.take() else {
+        return String::from("<stderr was not piped>");
+    };
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = error_output.read_to_end(&mut bytes);
+        let _ = sender.send(String::from_utf8_lossy(&bytes).into_owned());
+    });
     receiver
-        .recv_timeout(Duration::from_secs(10))
-        .expect("server should announce readiness")
-        .expect("readiness line should be readable")
+        .recv_timeout(Duration::from_secs(5))
+        .unwrap_or_else(|_| String::from("<stderr stayed open after the server stopped>"))
 }

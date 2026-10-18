@@ -1,34 +1,98 @@
 use crate::Failure;
+use crate::companion::FsharpTaskMembers;
 use crate::fsharp_source::FsharpView;
+use crate::route_types::ModelTable;
 
-pub(super) struct FsharpTaskResults;
+#[derive(Default)]
+pub(super) struct FsharpTaskResults {
+    pub(super) names: Vec<String>,
+    pub(super) entries: String,
+}
 
 impl FsharpTaskResults {
-    pub(super) fn require(view: &FsharpView, browser: bool) -> Result<(), Failure> {
-        Self::selected(view, browser)
-    }
+    const SCALARS: [&'static str; 16] = [
+        "string",
+        "int",
+        "long",
+        "short",
+        "uint",
+        "ulong",
+        "ushort",
+        "byte",
+        "sbyte",
+        "double",
+        "float",
+        "decimal",
+        "bool",
+        "char",
+        "object",
+        "BehaviorJSON",
+    ];
+    const NAMESPACE: &'static str = "System.Threading.Tasks.";
+    const CLASS: &'static str = "public class ";
+    const MODELS: &'static str = "Models.";
+    const LISTS: [&'static str; 2] = ["FSharpList<", "List<"];
+    const REFUSAL: &'static str = "An F# browser method returns Task or ValueTask of nothing, BehaviorJSON, a plain value, a model from client/models, or a list or array of these; options, maps and other types are not supported.";
 
-    fn selected(view: &FsharpView, browser: bool) -> Result<(), Failure> {
-        if browser {
-            Self::declared(view).map_err(|failure| view.failure(&failure))
-        } else {
-            Ok(())
-        }
-    }
-
-    fn declared(view: &FsharpView) -> Result<(), Failure> {
-        let source = crate::annotation_layout::masked_source(view.path(), view.text())?;
-        for line in source.lines() {
-            Self::signature(view, &source, line)?;
-        }
-        Ok(())
-    }
-
-    fn signature(view: &FsharpView, source: &str, line: &str) -> Result<(), Failure> {
-        Self::task_kind(line)
-            .map(|kind| Self::result(view, source, line, kind))
+    pub(super) fn read(
+        view: &FsharpView,
+        browser: bool,
+        (class, models): (&str, &ModelTable),
+    ) -> Result<Self, Failure> {
+        let selected = browser.then(|| Self::declared(view, class, models));
+        selected
             .transpose()
-            .map(|_| ())
+            .map(Option::unwrap_or_default)
+            .map_err(|failure| view.failure(&failure))
+    }
+
+    fn declared(view: &FsharpView, class: &str, models: &ModelTable) -> Result<Self, Failure> {
+        let source = crate::annotation_layout::masked_source(view.path(), view.text())?;
+        let mut results = Self::default();
+        Self::class_lines(&source, class)
+            .into_iter()
+            .filter(|line| Self::task_kind(line).is_some())
+            .try_for_each(|line| {
+                Self::check(view, &source, line, models)?;
+                results.remember(line);
+                Ok(())
+            })?;
+        Ok(results)
+    }
+
+    fn class_lines<'a>(source: &'a str, class: &str) -> Vec<&'a str> {
+        let header = format!("{}{class} ", Self::CLASS);
+        source
+            .lines()
+            .scan(false, |inside, line| {
+                let top = [line.starts_with(Self::CLASS), line.starts_with('[')].contains(&true);
+                *inside = [*inside, line.starts_with(&header)][usize::from(top)];
+                Some((*inside, line))
+            })
+            .filter(|(inside, _)| *inside)
+            .map(|(_, line)| line)
+            .collect()
+    }
+
+    fn check(
+        view: &FsharpView,
+        source: &str,
+        line: &str,
+        models: &ModelTable,
+    ) -> Result<(), Failure> {
+        let payload = Self::task_kind(line).and_then(Self::payload);
+        let supported = payload.is_none_or(|payload| Self::supported(payload, models));
+        supported
+            .then_some(())
+            .ok_or_else(|| Self::failure(view, source, line))
+    }
+
+    fn remember(&mut self, line: &str) {
+        let Some((name, entry)) = FsharpTaskMembers::entry(line) else {
+            return;
+        };
+        self.names.push(name);
+        self.entries.push_str(&entry);
     }
 
     fn task_kind(line: &str) -> Option<&str> {
@@ -41,32 +105,46 @@ impl FsharpTaskResults {
 
     fn task_name(kind: &str) -> bool {
         let name = kind.split('<').next().unwrap_or(kind);
-        [
-            "Task",
-            "System.Threading.Tasks.Task",
-            "ValueTask",
-            "System.Threading.Tasks.ValueTask",
-        ]
-        .contains(&name)
+        let name = name.strip_prefix(Self::NAMESPACE).unwrap_or(name);
+        ["Task", "ValueTask"].contains(&name)
     }
 
-    fn result(view: &FsharpView, source: &str, line: &str, kind: &str) -> Result<(), Failure> {
-        let supported = [
-            "Task",
-            "System.Threading.Tasks.Task",
-            "Task<BehaviorJSON>",
-            "System.Threading.Tasks.Task<BehaviorJSON>",
-        ]
-        .contains(&kind);
-        if !supported {
-            let at = source.find(line).unwrap_or(0);
-            return Err(Failure::one(crate::failure::diagnostic(
-                1405,
-                "F# browser continuations currently require Task or Task<BehaviorJSON>; model, container and ValueTask results remain unsupported.",
-                None,
-                crate::failure::source_span(&view.path().to_string_lossy(), at, at + line.len()),
-            )));
-        }
-        Ok(())
+    fn payload(kind: &str) -> Option<&str> {
+        let (_, rest) = kind.split_once('<')?;
+        Some(rest.strip_suffix('>').unwrap_or(rest).trim())
+    }
+
+    fn supported(payload: &str, models: &ModelTable) -> bool {
+        let payload = payload.strip_prefix(Self::MODELS).unwrap_or(payload);
+        let item = payload
+            .strip_suffix("[]")
+            .or_else(|| Self::list_item(payload));
+        item.map_or_else(
+            || Self::single(payload, models),
+            |item| Self::supported(item, models),
+        )
+    }
+
+    fn single(payload: &str, models: &ModelTable) -> bool {
+        [Self::SCALARS.contains(&payload), models.is_record(payload)].contains(&true)
+    }
+
+    fn list_item(payload: &str) -> Option<&str> {
+        Self::LISTS.iter().find_map(|list| {
+            payload
+                .strip_prefix(list)
+                .and_then(|rest| rest.strip_suffix('>'))
+                .map(str::trim)
+        })
+    }
+
+    fn failure(view: &FsharpView, source: &str, line: &str) -> Failure {
+        let at = source.find(line).unwrap_or(0);
+        Failure::one(crate::failure::diagnostic(
+            1405,
+            Self::REFUSAL,
+            None,
+            crate::failure::source_span(&view.path().to_string_lossy(), at, at + line.len()),
+        ))
     }
 }

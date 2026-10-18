@@ -1,6 +1,7 @@
 use super::config::NativeApplication;
 use super::csharp_browser_bindings::CsharpBrowserBindings;
 use super::csharp_web_apis::CsharpWebApis;
+use super::dotnet_web_environment::DotnetWebEnvironment;
 use super::dotnet_web_release::DotnetWebRelease;
 use super::host::{
     GeneratedHost, first_line, native_tool_failure, run_tool, stage_application, write,
@@ -410,10 +411,11 @@ async fn publish_web_framework(
     for (relative, contents) in extra_files {
         write(&staged.path().join(relative), contents.as_bytes())?;
     }
-    super::host::run_tool_in(
+    super::host::NativeHost::run_long_tool_in_environment(
         "dotnet",
         &["publish", "-c", "Release", "--nologo", "-o", "out"],
-        Some(staged.path()),
+        staged.path(),
+        DotnetWebEnvironment::without_emscripten_settings(),
     )
     .await?;
     let framework = staged.path().join("out/wwwroot/_framework");
@@ -626,6 +628,7 @@ pub(super) fn c_source(
     companions: &[super::registry::NativeCompanionInput],
 ) -> String {
     let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
+    let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
     super::desktop_host_source::DesktopHostSource {
         template: WindowsHostGenerator::C_HOST.replace(
             "__WINDOW_CONTROLS__",
@@ -637,7 +640,10 @@ pub(super) fn c_source(
     .render(
         application,
         index,
-        &[("__LOCAL_BUNDLE_HELPERS__", &local_bundle)],
+        &[
+            ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
+            ("__SERVICE_COMPANIONS__", &service_companions),
+        ],
     )
 }
 
@@ -670,6 +676,8 @@ impl WindowsHostGenerator {
 #include <WebView2.h>
 
 __LOCAL_BUNDLE_HELPERS__
+
+__SERVICE_COMPANIONS__
 
 #define TACHYON_APP_NAME "__APP_NAME__"
 #define TACHYON_BUNDLE_ID "__BUNDLE_ID__"
@@ -901,20 +909,13 @@ static char *tachyon_handle(const char *capability, const char *payload) {
     if (!operation || route == NULL || !tachyon_payload_route_matches(payload, route->route)) return _strdup("{\"error\":\"Native route mismatch.\"}");
     if (route->language == 0) return _strdup(tachyon_payload_string_matches(payload, "op", "init")
       ? "{\"value\":{\"fields\":[],\"methods\":[]}}" : "{\"error\":\"No native companion for this route.\"}");
-    char *copy = NULL;
-    for (int language = 2; language >= 1; language -= 1) {
-      if (g_companion_invoke[language] == NULL) continue;
-      const char *answer = g_companion_invoke[language](payload);
-      int unknown = answer != NULL && strstr(answer, "\"TY_NATIVE_SERVICE\"") != NULL;
-      if (copy != NULL) free(copy);
-      copy = _strdup(answer == NULL ? TACHYON_EMPTY_REPLY
-        : strnlen(answer, TACHYON_MESSAGE_LIMIT + 1) <= TACHYON_MESSAGE_LIMIT ? answer : TACHYON_REPLY_TOO_LARGE);
-      if (g_companion_free[language] != NULL && answer != NULL) {
-        g_companion_free[language](answer);
-      }
-      if (!unknown) break;
-    }
-    if (copy == NULL) return _strdup("{\"error\":\"This application has no native companion.\"}");
+    int language = tachyon_service_companion(payload);
+    if (language == 0) return _strdup("{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}");
+    if (g_companion_invoke[language] == NULL) return _strdup("{\"error\":\"This application has no native companion.\"}");
+    const char *answer = g_companion_invoke[language](payload);
+    char *copy = _strdup(answer == NULL ? TACHYON_EMPTY_REPLY
+      : strnlen(answer, TACHYON_MESSAGE_LIMIT + 1) <= TACHYON_MESSAGE_LIMIT ? answer : TACHYON_REPLY_TOO_LARGE);
+    if (g_companion_free[language] != NULL && answer != NULL) g_companion_free[language](answer);
     return copy;
   }
   char safe[80];
@@ -1579,6 +1580,8 @@ mod tests {
         assert!(source.contains("g_frame_navigation_handler = {&g_navigation_vtbl, 0}"));
         assert!(source.contains("else tachyon_companion_dispose()"));
         assert!(source.contains("if (!operation || route == NULL"));
+        assert!(source.contains("int language = tachyon_service_companion(payload);"));
+        assert!(!source.contains("TY_NATIVE_SERVICE\\\"\") != NULL"));
         assert!(source.contains("TachyonRustCompanion.dll"));
         assert!(source.contains("CoInitializeEx"));
         assert!(!source.contains("file:///"));

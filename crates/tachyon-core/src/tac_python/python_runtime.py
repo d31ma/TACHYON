@@ -4,13 +4,6 @@ import json as _tac_json
 import inspect as _tac_inspect
 import uuid as _tac_uuid
 
-class _TacPythonTask:
-    CANCELLED = {'error': 'The service was removed before its task finished.', 'code': 'CANCELLED'}
-    FAILED = {'error': 'Python Tac operation failed.'}
-
-    def __init__(self, number):
-        self.number = number
-
 class _TacPythonRuntime:
     MAX_OWNERS = 256
     MAX_REQUEST = 1048576
@@ -25,7 +18,7 @@ class _TacPythonRuntime:
     @classmethod
     def connect(cls, emit, done=None, storage=None, http=None):
         cls.instance.emit = emit
-        cls.instance.done = done
+        cls.instance.tasks.done = done
         if storage is not None:
             _tac_builtins.TacStorage = storage
         if http is not None:
@@ -43,6 +36,7 @@ class _TacPythonRuntime:
         return self._release_all()
 
     def _release_all(self):
+        self.tasks.cancel_all()
         owners = list(self.owners.values())
         self.owners.clear()
         failures = [self._release_owner(owner) for owner in owners]
@@ -59,11 +53,10 @@ class _TacPythonRuntime:
         self.metadata = metadata
         self.codec = _TacPythonCodec(models, metadata['models'])
         self.graph = _TacPythonGraph(types, metadata['providers'], self.codec, self._publisher)
+        self.tasks = _TacPythonTasks(self.codec)
         self.owners = {}
         self.busy = False
         self.emit = None
-        self.done = None
-        self.last_task = 0
 
     def exchange(self, text):
         return self._exchange(text)
@@ -152,7 +145,11 @@ class _TacPythonRuntime:
         metadata = self._metadata(owner)
         listeners = [self._listener_description(listener) for listener in metadata['listeners'].values()]
         return {'fields': list(metadata['fields']), 'writable': metadata['writable'],
-                'methods': list(metadata['methods']), 'listeners': listeners}
+                'methods': list(metadata['methods']), 'listeners': listeners,
+                'asyncMethods': self._async_methods(metadata)}
+
+    def _async_methods(self, metadata):
+        return [name for name, method in metadata['methods'].items() if method['asynchronous']]
 
     def _listener_description(self, listener):
         names = ['key', 'events', 'replay', 'order', 'asynchronous', 'condition', 'models']
@@ -171,13 +168,9 @@ class _TacPythonRuntime:
         if request['owner'] in self.owners:
             owner = self._owner(request)
             del self.owners[owner.id]
-            self._cancel_tasks(owner)
+            self.tasks.cancel_owner(owner)
             self.graph.dispose(owner)
         return None
-
-    def _cancel_tasks(self, owner):
-        for running in list(owner.tasks.values()):
-            running.cancel()
 
     def _get(self, request):
         owner = self._owner(request)
@@ -202,10 +195,12 @@ class _TacPythonRuntime:
         method = self._metadata(owner)['methods'][request['name']]
         arguments = self._arguments(method, request.get('args', []))
         if not self._started(owner):
-            return self._task(owner, self._after_start(owner, method, arguments))
+            return self._ticket(owner, method, self._after_start(owner, method, arguments))
+        if method['asynchronous']:
+            self.tasks.require_capacity()
         value = getattr(owner.root, method['name'])(*arguments)
         if _tac_inspect.isawaitable(value):
-            return self._task(owner, self._settled(method, value))
+            return self._ticket(owner, method, value)
         return self.codec.result(method['returns'], value)
 
     def _started(self, owner):
@@ -216,41 +211,13 @@ class _TacPythonRuntime:
         if not self.graph.started(owner.root):
             raise ValueError('Python Tac service did not start.')
         value = getattr(owner.root, method['name'])(*arguments)
-        return await self._settled(method, value)
-
-    async def _settled(self, method, value):
         if _tac_inspect.isawaitable(value):
             value = await value
-        return self.codec.result(method['returns'], value)
+        return value
 
-    def _task(self, owner, work):
-        self.last_task += 1
-        number = self.last_task
-        running = _tac_asyncio.ensure_future(work)
-        owner.tasks[number] = running
-        running.add_done_callback(lambda finished: self._finish(owner, number, finished))
-        return _TacPythonTask(number)
-
-    def _finish(self, owner, number, finished):
-        owner.tasks.pop(number, None)
-        self.done(number, self._task_answer(finished))
-
-    def _task_answer(self, finished):
-        if finished.cancelled():
-            return _tac_json.dumps(_TacPythonTask.CANCELLED)
-        error = finished.exception()
-        if error is not None:
-            return _tac_json.dumps(self._failure(error), allow_nan=False)
-        try:
-            return self._response(finished.result())
-        except Exception:
-            return _tac_json.dumps(_TacPythonTask.FAILED)
-
-    def _failure(self, error):
-        if type(error).__name__ != 'BehaviorError':
-            return _TacPythonTask.FAILED
-        message = str(error)[:1024]
-        return {'error': message, 'code': str(getattr(error, 'code', 'behavior'))[:64]}
+    def _ticket(self, owner, method, work):
+        self.tasks.require_capacity()
+        return _TacPythonTaskTicket(self.tasks.start(owner, method['returns'], work))
 
     def _arguments(self, method, values):
         if type(values) is not list or len(values) != len(method['arguments']):
@@ -260,7 +227,7 @@ class _TacPythonRuntime:
     def _synchronous(self, value):
         if _tac_inspect.isawaitable(value):
             self.graph.require_synchronous([value])
-            raise ValueError('Python Tac async methods need their continuation adapter.')
+            raise ValueError('Python Tac synchronous method returned an awaitable.')
 
     def _event(self, request):
         owner = self._owner(request)
@@ -299,8 +266,8 @@ class _TacPythonRuntime:
         return []
 
     def _response(self, value):
-        if isinstance(value, _TacPythonTask):
-            return _tac_json.dumps({'task': value.number})
+        if type(value) is _TacPythonTaskTicket:
+            return _tac_json.dumps({'task': value.task_id})
         answer = _tac_json.dumps({'value': self.codec.plain(value)}, allow_nan=False)
         if len(answer.encode('utf-8')) > self.MAX_REQUEST:
             raise ValueError('Python Tac response exceeds bounds.')

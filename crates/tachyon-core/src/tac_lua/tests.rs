@@ -458,3 +458,16 @@ async fn a_lua_service_that_needs_another_service_stops_the_build_at_the_field()
     let end = usize::try_from(span.end).expect("end");
     assert_eq!(&NeededServicePage::TALLY[start..end], "  counter = nil,");
 }
+
+#[test]
+fn the_lua_runtime_notices_cover_the_libraries_emscripten_links() {
+    let notices = super::LuaRuntimeSources::NOTICES;
+    for license in [
+        "Copyright (c) 1994-2026 Lua.org, PUC-Rio.",
+        "Emscripten is available under 2 licenses",
+        "musl as a whole is licensed under the following standard MIT license",
+        "The LLVM Project is under the Apache License v2.0 with LLVM Exceptions",
+    ] {
+        assert!(notices.contains(license), "missing: {license}");
+    }
+}

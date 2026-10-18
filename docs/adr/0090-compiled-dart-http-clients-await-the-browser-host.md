@@ -91,6 +91,41 @@ This extension does not qualify F# DTO/list/ValueTask results, native async,
 async lifecycle adapters, shared compiled page providers or F# cache behavior.
 It adds no new browser worker placement or whole transport-matrix acceptance.
 
+## F# browser extension — 2026-10-16
+
+This section completes the F# part of the bounded .NET extension above, in
+the same design as C#. An F# HTTPClient is a type with only abstract
+members. Tachyon writes each member through the behavior context's existing
+`Invoke`, so `Cached`, `ClearCache` and `UpdateCache` keep working, and reads
+the answer with generated, reflection-free readers in `TacMappingModels`.
+A member may answer `Task` or `ValueTask` of `BehaviorJSON`, a record from
+`client/models`, a list or an array of records, a plain value, or nothing.
+The reader takes the camel-case JSON names of the record fields, as the page
+does. An answer of another shape raises `BehaviorError` with code
+`HTTP_RESPONSE`; the transport codes, such as `HTTP_STATUS`, pass through
+unchanged. The Setup's adapter answers first; without one, the request goes
+to the same browser host as C# (same origin, omitted credentials, `Cached`
+public reads, revalidation after a successful `ClearCache`).
+
+A service gets the client from a settable `[<Needs>]` property (ADR 0073
+amendment). Its members may return `Task` or `ValueTask` of the same kinds
+of values; the page gets a promise of the plain value through the existing
+.NET task host. Disposing the owner cancels pending requests with
+`CANCELLED`, as before. In a Tac test unit, `this.construct<T>()` and a
+`[<Fake>]` property supply the client; an empty Fake gets a client bound to
+the test's BehaviorContext. A test unit has no browser transport.
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=fsharp` builds
+`website/content/docs/calling-the-server/browser-http-fsharp/` and checks the
+injected client, typed answer, responsiveness, omitted cookies, cache and
+revalidation, the custom adapter and isolated disposal. The first-app F#
+fixtures in `first_app_csharp_browser_fixture` build the canonical Step 4
+and Step 5 sources, run the Step 5 test unit and check the page.
+These passed in Chromium when this section was written; Firefox and WebKit
+were not installed in that environment and still need a run.
+Focused Rust tests cover the answer readers, the task members and
+`construct`.
+
 ## Rust browser extension — 2026-10-03
 
 Rust uses its own async pattern. An HTTPClient trait method is an
@@ -500,6 +535,27 @@ second, aborts every pending fetch, starts no new one, runs both `OnStop`
 hooks before any woken call, and settles each call with `CANCELLED`. Before
 the change every standard-Go case hung past 30 seconds, and under TinyGo the
 "asks again" cases started fetches that were never aborted.
+
+## Amendment (2026-10-16): a declared answer is read whole
+
+The browser host read every answer through a stream reader and resolved the
+call as soon as the reader reported the end of the body. In Chromium that
+can happen before the network load itself completes, and Chromium then
+reports the finished request as aborted (`net::ERR_ABORTED`), although the
+page already has the whole answer. The .NET gate saw this in about half of
+its runs as an unexpected failed `/api/probe` request; no abort or stream
+cancel ran in the page.
+
+An answer that declares its length in `Content-Length` and has no
+`Content-Encoding` is now read whole with `arrayBuffer()`, which resolves only
+after the load completes. A declared length over the limit is refused with
+`HTTP_LIMIT` before the body is read. Any other answer keeps the bounded
+streaming read, so the 1 MiB limit holds while the body arrives. Yon JSON
+answers declare their length and are not compressed.
+
+Evidence: the C# `dotnet_http_browser_fixture` gate passed 8 of 15 runs before
+the change and 15 of 15 after it in Chromium, and
+`scripts/browser-http-runtime-test.mjs` checks both read paths.
 
 ## Rust streams and sockets — 2026-10-17
 

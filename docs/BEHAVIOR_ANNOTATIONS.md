@@ -415,13 +415,35 @@ before execution. Test setup files are not production role files and
 never enter browser bundles. A unit may still select an existing production
 `Setup` from its realm's `setups/` folder.
 
-**`@Fake`.** `@Fake` declares a field that the driver clears before
-every case. In JavaScript and TypeScript, `this.construct(Role)` then builds the
-role under test with those test doubles in place of its `@Needs`
-collaborators. The other six Yon languages get the declaration and the
-clearing, but not the construction. Rust cannot inject a collaborator again
-through reflection at all. So a unit in those languages tests the logic
-directly instead of going through the container.
+**`@Fake`.** `@Fake` declares a field that the test assigns. Every Yon
+language accepts it. A construct helper then builds the role under test with
+those test doubles in place of its `@Needs` collaborators. What each Yon
+language gets:
+
+| Language | Declaration | Cleared before every case | Construct helper |
+| --- | --- | --- | --- |
+| JavaScript, TypeScript | yes | yes, to `undefined` | `this.construct(Role)` |
+| Python | yes | yes, to `None` | no |
+| Ruby | yes | yes, to `nil` | `construct(Role)` |
+| Lua | yes | yes, to `nil` | `self:construct(Role)` |
+| PHP | yes | yes: a typed field is unset, an untyped field becomes `null` | no |
+| Java, Groovy | yes | yes, to `null`, `false` or zero | `construct(Role.class)` |
+| F# | yes | yes, because every case runs on a new instance | no |
+| Kotlin | yes | yes, to `null`, `false` or zero | `construct(Role::class)` |
+| C# | yes | yes, to `default`: `null`, `false` or zero | `construct<Role>()` |
+| Dart | yes | yes, to `null`, `false` or zero | `construct<Role>(Role)` |
+| Go | yes | yes, to the zero value: `nil`, `false`, zero or `""` | no; only a Tac unit gets `construct` |
+| Rust | yes | yes: a `RefCell` or `Cell` Fake is reset to its `Default`, `None` for an `Option` | no; only a Tac unit gets `construct()` |
+
+A Kotlin or Dart Fake must be nullable or have a primitive type (`Int`,
+`Boolean` and the other numbers in Kotlin; `int`, `double`, `num` or `bool`
+in Dart). A Fake with another non-nullable type, such as a `lateinit var` or
+a `late` field, has no empty value, so the build refuses it. A Rust case
+reads the unit through `&self`, so a Fake that a case assigns is a `RefCell`
+or a `Cell`; a Fake in a plain field keeps the value that `new()` gave it.
+A unit without a construct helper passes its Fakes to the role's own
+constructor, for example `new CatalogService($this->catalogCounterHelper)` in
+PHP.
 
 **Every public method needs a test.** Every public method of an annotated class
 must have a test, and the development server enforces this:

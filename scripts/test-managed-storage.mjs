@@ -74,11 +74,13 @@ productsService;
 get() { return this.productsService.all(); }
 }
 `)
-  await write('server/services/ProductsService.js', `/**
+  await write('server/models/ProductsListed.js', `/**
  * @typedef {Object} ProductsListed
  * @property {integer} count
  */
-@Service()
+export {}
+`)
+  await write('server/services/ProductsService.js', `@Service()
 @NeedsAll()
 class ProductsService {
 @Needs

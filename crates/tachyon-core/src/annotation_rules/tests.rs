@@ -1170,4 +1170,6 @@ fn python_tac_accepts_saved_fields_behaviors_and_listeners() {
     ] {
         assert_eq!(Sample::message("py", Realm::Tac, source), None, "{source}");
     }
+    let retried = "class SampleService:\n    @retry({\"attempts\": 3})\n    async def load(self) -> int:\n        return 1\n";
+    assert_eq!(Sample::message("py", Realm::Yon, retried), None);
 }

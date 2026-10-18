@@ -25,6 +25,7 @@ mod handler;
 mod helper_new_call;
 mod hot_update;
 mod html;
+mod kotlin_home;
 mod lexical;
 mod lua_source;
 pub mod method_coverage;
@@ -60,6 +61,7 @@ mod wasm_release_step;
 mod web_api_clients;
 mod web_runtime;
 mod yon;
+mod yon_cpp;
 
 pub use annotation_layout::SimplerForms;
 pub use application::ApplicationConfig;

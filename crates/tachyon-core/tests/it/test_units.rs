@@ -77,7 +77,7 @@ async fn run_javascript_test_unit(extension: &str) {
         root.path(),
         &format!("server/tests/CatalogServiceTest.{extension}"),
         &javascript_unit_source(
-            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake()\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testReportsAFailure() {\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake()\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testReportsAFailure() {\n    Assert.equals(undefined, this.catalogCounterHelper, 'the fake is empty again');\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
             extension,
         ),
     );
@@ -125,7 +125,7 @@ async fn a_python_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.py",
-        "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    async def test_opens_a_context(self):\n        Assert.is_true(self.behaviors is not None, 'the case has a context')\n\n    async def test_reports_a_failure(self):\n        Assert.is_true(False, 'this case is meant to fail')\n",
+        "from typing import Annotated\n\n@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    catalog_counter_helper: Annotated[object, fake]\n\n    async def test_opens_a_context(self):\n        Assert.is_true(self.behaviors is not None, 'the case has a context')\n        Assert.equals(None, self.catalog_counter_helper, 'a fake starts empty')\n        self.catalog_counter_helper = object()\n\n    async def test_reports_a_failure(self):\n        Assert.equals(None, self.catalog_counter_helper, 'the fake is empty again')\n        Assert.is_true(False, 'this case is meant to fail')\n",
     );
 
     let relative = "server/tests/CatalogServiceTest.py";
@@ -221,7 +221,17 @@ async fn a_java_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.java",
-        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
+        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    @Fake\n    CatalogCounterHelper catalogCounterHelper;\n    @Fake\n    long count;\n    @Fake\n    boolean seen;\n\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n        Assert.isTrue(catalogCounterHelper == null, \"a fake starts empty\");\n        count = 3;\n        seen = true;\n        catalogCounterHelper = new CatalogCounterHelper() {\n            int count() { return 4; }\n        };\n        Assert.equals(8, construct(CatalogService.class).total(), \"the total\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(catalogCounterHelper == null, \"the fake is empty again\");\n        Assert.equals(0L, count, \"a primitive fake is zero again\");\n        Assert.isTrue(!seen, \"a boolean fake is false again\");\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/helpers/CatalogCounterHelper.java",
+        "@Helper\nclass CatalogCounterHelper {\n    int count() { return 21; }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/services/CatalogService.java",
+        "@Service\nclass CatalogService {\n    @Needs\n    private final CatalogCounterHelper catalogCounterHelper;\n\n    int total() { return catalogCounterHelper.count() * 2; }\n}\n",
     );
 
     let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.java")
@@ -320,6 +330,83 @@ async fn every_compiled_language_runs_its_test_unit() {
         assert_eq!(cases.len(), 2, "{extension}: {body}");
         assert_eq!(cases[0]["passed"], true, "{extension}: {body}");
         assert_eq!(cases[1]["passed"], false, "{extension}: {body}");
+    }
+}
+
+#[tokio::test]
+async fn every_typed_language_clears_its_fakes_before_each_case() {
+    for (extension, probe, configuration, unit) in [
+        (
+            "kt",
+            "kotlinc",
+            "@TestSetup\nclass CatalogTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
+            "@Test(CatalogTestSetup::class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    @Fake\n    var names: MutableList<String>? = null\n    @Fake\n    var count: Int = 0\n    @Fake\n    var seen: Boolean = false\n\n    fun testStartsWithEmptyFakes() {\n        Assert.isTrue(names == null, \"the list fake is null\")\n        Assert.equals(0, count, \"the number fake is zero\")\n        Assert.isTrue(!seen, \"the boolean fake is false\")\n        names = mutableListOf(\"assigned\")\n        count = 3\n        seen = true\n    }\n    fun testStartsWithEmptyFakesAgain() {\n        Assert.isTrue(names == null, \"the list fake is null again\")\n        Assert.equals(0, count, \"the number fake is zero again\")\n        Assert.isTrue(!seen, \"the boolean fake is false again\")\n        names = mutableListOf(\"assigned\")\n        count = 3\n        seen = true\n    }\n}\n",
+        ),
+        (
+            "cs",
+            "dotnet",
+            "[TestSetup]\npublic sealed class CatalogTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n",
+            "[Test(typeof(CatalogTestSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    [Fake]\n    public System.Collections.Generic.List<string> names;\n    [Fake]\n    public int count;\n    [Fake]\n    public bool seen;\n\n    void testStartsWithEmptyFakes() {\n        Assert.isTrue(names == null, \"the list fake is null\");\n        Assert.equals(0, count, \"the number fake is zero\");\n        Assert.isTrue(!seen, \"the boolean fake is false\");\n        names = new System.Collections.Generic.List<string> { \"assigned\" };\n        count = 3;\n        seen = true;\n    }\n    void testStartsWithEmptyFakesAgain() {\n        Assert.isTrue(names == null, \"the list fake is null again\");\n        Assert.equals(0, count, \"the number fake is zero again\");\n        Assert.isTrue(!seen, \"the boolean fake is false again\");\n        names = new System.Collections.Generic.List<string> { \"assigned\" };\n        count = 3;\n        seen = true;\n    }\n}\n",
+        ),
+        (
+            "dart",
+            "dart",
+            "@TestSetup\nclass CatalogTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n  @Fake\n  List<String>? names;\n  @Fake\n  int count = 0;\n  @Fake\n  bool seen = false;\n\n  Future<void> testStartsWithEmptyFakes() async {\n    Assert.isTrue(names == null, 'the list fake is null');\n    Assert.equals(0, count, 'the number fake is zero');\n    Assert.isTrue(!seen, 'the boolean fake is false');\n    names = ['assigned'];\n    count = 3;\n    seen = true;\n  }\n\n  Future<void> testStartsWithEmptyFakesAgain() async {\n    Assert.isTrue(names == null, 'the list fake is null again');\n    Assert.equals(0, count, 'the number fake is zero again');\n    Assert.isTrue(!seen, 'the boolean fake is false again');\n    names = ['assigned'];\n    count = 3;\n    seen = true;\n  }\n}\n",
+        ),
+        (
+            "go",
+            "go",
+            "// @TestSetup\ntype CatalogTestSetup struct{}\n\nfunc (CatalogTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n",
+            "// @Test(CatalogTestSetup, {\"partition\":\"tests\"})\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n\t// @Fake\n\tnames []string\n\t// @Fake\n\tcount int\n\t// @Fake\n\tseen bool\n}\n\nfunc (test *CatalogServiceTest) TestStartsWithEmptyFakes() {\n\tAssert.IsTrue(test.names == nil, \"the slice fake is nil\")\n\tAssert.Equals(0, test.count, \"the number fake is zero\")\n\tAssert.IsTrue(!test.seen, \"the boolean fake is false\")\n\ttest.names = []string{\"assigned\"}\n\ttest.count = 3\n\ttest.seen = true\n}\n\nfunc (test *CatalogServiceTest) TestStartsWithEmptyFakesAgain() {\n\tAssert.IsTrue(test.names == nil, \"the slice fake is nil again\")\n\tAssert.Equals(0, test.count, \"the number fake is zero again\")\n\tAssert.IsTrue(!test.seen, \"the boolean fake is false again\")\n\ttest.names = []string{\"assigned\"}\n\ttest.count = 3\n\ttest.seen = true\n}\n",
+        ),
+        (
+            "rs",
+            "rustc",
+            "#[TestSetup()]\nstruct CatalogTestSetup {}\nimpl CatalogTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> { Ok(BehaviorConfiguration::default()) }\n}\n",
+            "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest {\n    behaviors: std::cell::RefCell<Option<BehaviorContext>>,\n    #[Fake]\n    label: std::cell::RefCell<Option<String>>,\n    #[Fake]\n    count: std::cell::Cell<i64>,\n    #[Fake]\n    seen: std::cell::Cell<bool>,\n}\nimpl CatalogServiceTest {\n    fn new() -> Self {\n        Self {\n            behaviors: std::cell::RefCell::new(None),\n            label: std::cell::RefCell::new(None),\n            count: std::cell::Cell::new(0),\n            seen: std::cell::Cell::new(false),\n        }\n    }\n    fn testStartsWithEmptyFakes(&self) {\n        Assert::is_true_with_message(self.label.borrow().is_none(), \"the text fake is empty\");\n        Assert::is_true_with_message(self.count.get() == 0, \"the number fake is zero\");\n        Assert::is_true_with_message(!self.seen.get(), \"the boolean fake is false\");\n        *self.label.borrow_mut() = Some(String::from(\"assigned\"));\n        self.count.set(3);\n        self.seen.set(true);\n    }\n    fn testStartsWithEmptyFakesAgain(&self) {\n        Assert::is_true_with_message(self.label.borrow().is_none(), \"the text fake is empty again\");\n        Assert::is_true_with_message(self.count.get() == 0, \"the number fake is zero again\");\n        Assert::is_true_with_message(!self.seen.get(), \"the boolean fake is false again\");\n        *self.label.borrow_mut() = Some(String::from(\"assigned\"));\n        self.count.set(3);\n        self.seen.set(true);\n    }\n}\n",
+        ),
+    ] {
+        if !tool_available(probe) {
+            assert_ne!(
+                std::env::var("TAC_TEST_UNITS_REQUIRE_TOOLCHAINS").as_deref(),
+                Ok("1"),
+                "Required test unit toolchain {probe} is unavailable"
+            );
+            eprintln!("skipping {extension}: {probe} is unavailable");
+            continue;
+        }
+        let root = tempfile::tempdir().expect("project");
+        write(
+            root.path(),
+            &format!("server/tests/CatalogTestSetup.{extension}"),
+            configuration,
+        );
+        let relative = format!("server/tests/CatalogServiceTest.{extension}");
+        write(root.path(), &relative, unit);
+        let source = HandlerSource::discover(root.path(), &relative)
+            .unwrap_or_else(|error| panic!("{extension} discovery: {error:?}"));
+        let supervisor =
+            HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+        let response = supervisor
+            .invoke(
+                &source,
+                &HandlerRequest::route("test_unit", "/", HttpMethod::Post),
+                &HandlerCancellation::default(),
+            )
+            .await
+            .unwrap_or_else(|error| panic!("{extension} invocation: {error:?}"));
+        assert!(
+            response.error.is_none(),
+            "{extension}: {:?}",
+            response.error
+        );
+        let body = response.body.expect("body").data;
+        let value: serde_json::Value = serde_json::from_str(&body).expect("JSON report");
+        let cases = value["cases"].as_array().expect("cases");
+        assert_eq!(cases.len(), 2, "{extension}: {body}");
+        assert_eq!(cases[0]["passed"], true, "{extension}: {body}");
+        assert_eq!(cases[1]["passed"], true, "{extension}: {body}");
     }
 }
 
@@ -557,7 +644,7 @@ fn assert_javascript_report(response: tachyon_contracts::HandlerResponse) {
     assert!(
         failing["error"]
             .as_str()
-            .is_some_and(|error| error.contains("meant to fail")),
+            .is_some_and(|error| error.starts_with("this case is meant to fail")),
         "{body}"
     );
 }
@@ -672,7 +759,7 @@ fn assert_python_report(response: tachyon_contracts::HandlerResponse) {
     assert!(
         cases[1]["error"]
             .as_str()
-            .is_some_and(|error| error.contains("meant to fail")),
+            .is_some_and(|error| error.starts_with("this case is meant to fail")),
         "{body}"
     );
 }
@@ -688,7 +775,7 @@ fn assert_java_report(response: tachyon_contracts::HandlerResponse) {
     assert!(
         cases[1]["error"]
             .as_str()
-            .is_some_and(|error| error.contains("meant to fail")),
+            .is_some_and(|error| error.starts_with("this case is meant to fail")),
         "{body}"
     );
 }

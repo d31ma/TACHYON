@@ -53,11 +53,13 @@ impl RuntimeRequirement {
     pub(super) const RUST_HELP: &str = "Install Rust before starting Tachyon.";
     pub(super) const DART_LABEL: &str = "Yon Dart compiler 'dart'";
     pub(super) const DART_HELP: &str = "Install the Dart SDK before starting Tachyon.";
+    pub(super) const CPP_LABEL: &str = "Yon C++ compiler 'clang++'";
+    pub(super) const CPP_HELP: &str = "Install clang++ with C++20 support (Xcode Command Line Tools on macOS, the clang package on Linux, LLVM on Windows) before starting Tachyon.";
     pub(crate) const PHP_LABEL: &str = "Yon PHP runtime 'php-cgi'";
     pub(crate) const PHP_HELP: &str = "Tachyon runs PHP with php-cgi, because header() only works there. \
         Homebrew's php already includes php-cgi. On Debian or Ubuntu, install the php-cgi package. \
         On Windows, the PHP zip file has php-cgi.exe; add its folder to PATH.";
-    const COMPILERS: [(&'static str, &'static str, &'static str); 7] = [
+    const COMPILERS: [(&'static str, &'static str, &'static str); 8] = [
         ("kotlinc", Self::KOTLIN_LABEL, Self::KOTLIN_HELP),
         ("groovyc", Self::GROOVY_LABEL, Self::GROOVY_HELP),
         ("dotnet", Self::DOTNET_LABEL, Self::DOTNET_HELP),
@@ -65,6 +67,7 @@ impl RuntimeRequirement {
         ("cargo", Self::CARGO_LABEL, Self::RUST_HELP),
         ("dart", Self::DART_LABEL, Self::DART_HELP),
         ("go", Self::GO_LABEL, Self::GO_HELP),
+        ("clang++", Self::CPP_LABEL, Self::CPP_HELP),
     ];
 
     pub(crate) fn compiler_label_and_help(program: &str) -> Option<(&'static str, &'static str)> {
@@ -195,7 +198,7 @@ impl RuntimeRequirement {
     }
 
     pub(super) fn prepare(&self) -> Result<PreparedProbe, Failure> {
-        let mut command = StdCommand::new(&self.program);
+        let mut command = crate::kotlin_home::KotlinHome::command(&self.program);
         let workspace = self.prepare_arguments(&mut command)?;
         Ok(PreparedProbe { command, workspace })
     }

@@ -12,6 +12,14 @@ locally. Read it with `docs/HANDOFF.md`, `AGENTS.md` and
 `main` and `codex/rust-rewrite`. It now runs on pushes to `develop` and
 `work/**`, and on pull requests into `main` and `develop`.
 
+> **Update 2026-10-18:** GitHub Actions now runs `rust-ci.yml` and
+> `ruby-runtime.yml` only for pull requests from `develop` into `main` (every job
+> is guarded on the head branch), for the tagged release in `publish.yml`, and
+> on demand; scheduled fuzzing is on demand too. Day-to-day CI runs on the
+> maintainer's own machines (macOS, plus Windows and WSL on the Surface) with
+> the same gate: fmt, clippy `-D warnings`, the full workspace tests and rustdoc.
+> All the branches below are merged into `develop`.
+
 These batches landed on `develop` on 2026-10-16 and 2026-10-17. Each was checked
 locally first (fmt, clippy `-D warnings`, rustdoc, the full workspace test suite
 compared with a `develop` baseline, and the relevant Chromium gates):

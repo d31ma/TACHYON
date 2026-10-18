@@ -1,6 +1,6 @@
 ClockContract = {
   TIMEOUT_MS = 500,
-  BLOCKING_CALL = "sleep 3",
+  BLOCKING_MS = 3000,
   WAIT_MS = 1200,
   MOST_CPU_SECONDS = 0.25,
 }
@@ -32,7 +32,8 @@ function ClockContract:check_wait_uses_no_cpu()
   local before = BehaviorClock.monotonic_ms()
   BehaviorClock.wait(ClockContract.WAIT_MS)
   local used = os.clock() - cpu
-  self:expect(used < ClockContract.MOST_CPU_SECONDS, "a wait used " .. used .. " s of CPU")
+  local measures_cpu = not BehaviorClock.clock_counts_sleep()
+  self:expect(not measures_cpu or used < ClockContract.MOST_CPU_SECONDS, "a wait used " .. used .. " s of CPU")
   self:expect(os.difftime(os.time(), started) >= 1, "a wait returned before its time")
   self:expect(BehaviorClock.monotonic_ms() - before >= ClockContract.WAIT_MS, "the clock missed the time spent waiting")
 end
@@ -51,7 +52,7 @@ function ClockContract:check_timeout_during_blocking_call()
   end)
   local ok, failure = pcall(context.invoke, context, { behaviors = context }, "Orders", "slow", table.pack(), function()
     self.attempts = self.attempts + 1
-    os.execute(ClockContract.BLOCKING_CALL)
+    os.execute(BehaviorClock.sleep_command(ClockContract.BLOCKING_MS, package.config:sub(1, 1)))
     error("transient")
   end)
   local code = BehaviorError.is(failure) and failure.behavior_code or tostring(failure)

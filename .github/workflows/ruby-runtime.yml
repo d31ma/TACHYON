@@ -3,12 +3,7 @@ name: Ruby Web Runtime
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - runtimes/ruby-web/**
-      - scripts/ruby-runtime-test.mjs
-      - .github/workflows/ruby-runtime.yml
-  push:
-    branches: [main, develop, codex/rust-rewrite]
+    branches: [main]
     paths:
       - runtimes/ruby-web/**
       - scripts/ruby-runtime-test.mjs
@@ -23,6 +18,7 @@ concurrency:
 
 jobs:
   rebuild:
+    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
     runs-on: macos-15
     timeout-minutes: 40
     env:

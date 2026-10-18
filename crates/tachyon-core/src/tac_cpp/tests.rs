@@ -383,13 +383,12 @@ fn task_methods_are_asynchronous_on_the_page() {
 }
 
 #[test]
-fn a_cpp_model_lives_in_client_models() {
+fn a_cpp_model_lives_in_client_models_or_server_models() {
     let source = "#pragma once\n#include <string>\n\nstruct Order {\n    std::string status;\n};\n";
     crate::model_layout::validate(Path::new("client/models/Order.hpp"), source)
         .expect("client model");
-    let refused = crate::model_layout::validate(Path::new("server/models/Order.hpp"), source)
-        .expect_err("server model");
-    assert!(refused.to_string().contains("TY1372"), "{refused}");
+    crate::model_layout::validate(Path::new("server/models/Order.hpp"), source)
+        .expect("server model");
 }
 
 #[test]

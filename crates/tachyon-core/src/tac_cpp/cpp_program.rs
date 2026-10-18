@@ -20,6 +20,7 @@ impl CppProgram {
     const MODELS: [&'static str; 2] = ["client/models", "client/entities"];
     const SHARED_ENTITY: &'static str =
         "One C++ [[Store]] keeps each [[Entity]]; another Store already names this one";
+    const SERVER_MODELS: [&'static str; 1] = ["server/models"];
     const GENERATED: &'static str = "#line 1 \"tachyon-generated.cpp\"\n";
 
     pub(crate) fn read(root: &Path, chosen: &[(String, String, PathBuf)]) -> Result<Self, Failure> {
@@ -110,10 +111,29 @@ impl CppProgram {
         })
     }
 
+    pub(crate) fn server_models(root: &Path) -> Result<Self, Failure> {
+        Ok(Self {
+            models: Self::models_in(root, &Self::SERVER_MODELS)?,
+            services: Vec::new(),
+            registered: Vec::new(),
+            records_calls: false,
+            stores: BTreeMap::new(),
+        })
+    }
+
     pub(crate) fn has_class(&self, name: &str) -> bool {
         self.services
             .iter()
             .any(|service| service.class().name == name)
+    }
+
+    pub(crate) fn model_source(&self) -> String {
+        format!(
+            "{}{}{}",
+            self.located_models(),
+            Self::GENERATED,
+            self.codecs()
+        )
     }
 
     pub(crate) fn web_source(&self) -> String {
@@ -148,7 +168,11 @@ impl CppProgram {
     }
 
     fn models(root: &Path) -> Result<Vec<CppModel>, Failure> {
-        let models = Self::MODELS
+        Self::models_in(root, &Self::MODELS)
+    }
+
+    fn models_in(root: &Path, folders: &[&str]) -> Result<Vec<CppModel>, Failure> {
+        let models = folders
             .iter()
             .map(|folder| CppFolder::files(root, folder))
             .collect::<Result<Vec<_>, _>>()?
@@ -188,13 +212,7 @@ impl CppProgram {
     }
 
     fn authored(&self) -> String {
-        format!(
-            "{}{}{}{}",
-            self.located_models(),
-            Self::GENERATED,
-            self.codecs(),
-            self.located_services()
-        )
+        format!("{}{}", self.model_source(), self.located_services())
     }
 
     fn located_models(&self) -> String {

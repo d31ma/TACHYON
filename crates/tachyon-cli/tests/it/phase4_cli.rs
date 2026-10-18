@@ -130,7 +130,7 @@ fn a_mixture_stages_only_the_service_language_that_answers_the_target() {
 
 #[cfg(target_os = "macos")]
 #[test]
-fn multiple_native_services_compile_and_swift_state_is_isolated() {
+fn multiple_native_services_compile_and_swift_lifetimes_hold() {
     let project = tempfile::tempdir().expect("project");
     write_multiple_native_services(&project);
     let output = run(ty()
@@ -164,9 +164,21 @@ fn multiple_native_services_compile_and_swift_state_is_isolated() {
 
 #[cfg(target_os = "macos")]
 fn write_multiple_native_services(project: &tempfile::TempDir) {
-    for (route, component, class, instance) in [
-        ("", "first", "NativeFirstService", "nativeFirst"),
-        ("second/", "second", "NativeSecondService", "nativeSecond"),
+    for (route, component, class, instance, lifetime) in [
+        (
+            "",
+            "first",
+            "NativeFirstService",
+            "nativeFirst",
+            "@Lifetime({\"value\":\"prototype\"})\n",
+        ),
+        (
+            "second/",
+            "second",
+            "NativeSecondService",
+            "nativeSecond",
+            "",
+        ),
     ] {
         write(
             &project.path().join(format!("client/pages/{route}tac.html")),
@@ -183,7 +195,7 @@ fn write_multiple_native_services(project: &tempfile::TempDir) {
                 .path()
                 .join(format!("client/services/{class}.swift")),
             &format!(
-                "@Service\nfinal class {class} {{\n var count: Int = 0\n func doubled() -> Int {{ count * 2 }}\n}}\n"
+                "@Service\n{lifetime}final class {class} {{\n var count: Int = 0\n func doubled() -> Int {{ count * 2 }}\n}}\n"
             ),
         );
     }
@@ -216,32 +228,56 @@ fn write_native_probe(probe: &Path) {
    let raw = String(decoding: try JSONSerialization.data(withJSONObject: request), as: UTF8.self)
    return try JSONSerialization.jsonObject(with: Data(tacNativeInvoke(raw).utf8)) as! [String: Any]
   }
+  func expect(_ step: String, _ answer: [String: Any], _ passed: Bool) {
+   guard !passed else { return }
+   FileHandle.standardError.write(Data("\(step) failed: \(answer)\n".utf8))
+   exit(1)
+  }
+  func count(_ service: String, _ owner: String) throws -> [String: Any] {
+   try invoke(service, owner, "get", ["name":"count"])
+  }
   let ownerA = "00000000-0000-4000-8000-000000000001"
   let ownerB = "00000000-0000-4000-8000-000000000002"
   let ownerC = "00000000-0000-4000-8000-000000000003"
+  let ownerD = "00000000-0000-4000-8000-000000000004"
   let first = try invoke("nativeFirst", ownerA, "init")
-  precondition(first["value"] is [String: Any])
+  expect("prototype init", first, first["value"] is [String: Any])
   _ = try invoke("nativeFirst", ownerA, "set", ["name":"count", "value":7])
   let doubled = try invoke("nativeFirst", ownerA, "call", ["name":"doubled", "args":[]])
-  precondition(doubled["value"] as? Int == 14)
+  expect("prototype call", doubled, doubled["value"] as? Int == 14)
   _ = try invoke("nativeSecond", ownerB, "init")
-  let second = try invoke("nativeSecond", ownerB, "get", ["name":"count"])
-  precondition(second["value"] as? Int == 0)
-  let coexisting = try invoke("nativeFirst", ownerA, "get", ["name":"count"])
-  precondition(coexisting["value"] as? Int == 7)
+  let second = try count("nativeSecond", ownerB)
+  expect("singleton init", second, second["value"] as? Int == 0)
+  let coexisting = try count("nativeFirst", ownerA)
+  expect("services coexist", coexisting, coexisting["value"] as? Int == 7)
   _ = try invoke("nativeFirst", ownerC, "init")
-  let sibling = try invoke("nativeFirst", ownerC, "get", ["name":"count"])
-  precondition(sibling["value"] as? Int == 0)
+  let sibling = try count("nativeFirst", ownerC)
+  expect("prototype per owner", sibling, sibling["value"] as? Int == 0)
   _ = try invoke("nativeFirst", ownerA, "dispose")
-  let stale = try invoke("nativeFirst", ownerA, "get", ["name":"count"])
-  precondition(stale["error"] != nil)
+  let stale = try count("nativeFirst", ownerA)
+  expect("stale owner get", stale, stale["error"] != nil)
   let staleDispose = try invoke("nativeFirst", ownerA, "dispose")
-  precondition(staleDispose["error"] != nil)
-  let stillActive = try invoke("nativeFirst", ownerC, "get", ["name":"count"])
-  precondition(stillActive["value"] as? Int == 0)
+  expect("stale owner dispose", staleDispose, staleDispose["error"] != nil)
+  let stillActive = try count("nativeFirst", ownerC)
+  expect("sibling survives dispose", stillActive, stillActive["value"] as? Int == 0)
+  _ = try invoke("nativeSecond", ownerB, "set", ["name":"count", "value":5])
+  _ = try invoke("nativeSecond", ownerD, "init")
+  let shared = try count("nativeSecond", ownerD)
+  expect("singleton shared by owners", shared, shared["value"] as? Int == 5)
+  _ = try invoke("nativeSecond", ownerB, "dispose")
+  let survivor = try count("nativeSecond", ownerD)
+  expect("singleton outlives an owner", survivor, survivor["value"] as? Int == 5)
+  _ = try invoke("nativeSecond", ownerD, "dispose")
+  _ = try invoke("nativeSecond", ownerB, "init")
+  let kept = try count("nativeSecond", ownerB)
+  expect("singleton outlives every owner", kept, kept["value"] as? Int == 5)
+  _ = try invoke("", ownerB, "host-dispose")
+  _ = try invoke("nativeSecond", ownerB, "init")
+  let fresh = try count("nativeSecond", ownerB)
+  expect("singleton ends with the page", fresh, fresh["value"] as? Int == 0)
   let unknown = try invoke("nativeMissing", ownerC, "init")
-  precondition(unknown["code"] as? String == "TY_NATIVE_SERVICE")
-  print("Swift native service activation, coexistence, isolation and stale-owner rejection passed")
+  expect("unknown service", unknown, unknown["code"] as? String == "TY_NATIVE_SERVICE")
+  print("Swift native prototype isolation, page singleton sharing, coexistence and stale-owner rejection passed")
  }
 }
 "#,

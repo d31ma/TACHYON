@@ -47,7 +47,7 @@
       {
         "name": "client/services/TallyService.py",
         "code": "@service\nclass TallyService:\n    count: int = 6\n    runtime: str = \"Python, on the pinned Pyodide web runtime\"\n\n    def doubled(self) -> int:\n        return self.count * 2\n",
-        "note": "Python runs typed services on the pinned Pyodide 314.0.7 WebAssembly runtime (CPython 3.14.2, ADR 0093). The page reads the fields and calls the methods of the Service class; `self` stays required. Put the five pinned Pyodide files in `python-web/314.0.7/` in the Tachyon cache: `ty` never downloads them, and `ty doctor` checks that they are present and match. The build copies them into the output only when a route uses a Python service, about 13 MB before compression, and gives that route a 512 KiB script budget unless you set your own. A Python service can use injection, models, helpers, `async def` methods, saved fields, the behavior annotations, stores, HTTP clients, `on_start`, `on_stop` and `on_event` methods, topics and an `ApplicationEventPublisher` field. An `async def` method gives the page a promise. `on_stop` and `on_event` stay plain methods; an `async def` one, streams and browser API resources other than `ApplicationEventPublisher` stop the build with `TY1605`. A request may carry up to 1 MiB, a method call up to 64 KiB, and a page may hold up to 256 live Python service objects. Python runs on the page thread, so a long computation blocks the page. `ty test` runs Python test units. See \"Which languages can I use?\" for what Python cannot do yet."
+        "note": "Python runs typed services on the pinned Pyodide 314.0.7 WebAssembly runtime (CPython 3.14.2, ADR 0093). The page reads the fields and calls the methods of the Service class; `self` stays required. Put the five pinned Pyodide files in `python-web/314.0.7/` in the Tachyon cache: `ty` never downloads them, and `ty doctor` checks that they are present and match. The build copies them into the output only when a route uses a Python service, about 13 MB before compression, and gives that route a 512 KiB script budget unless you set your own. A Python service can use injection, models, helpers, `async def` methods, saved fields, the behavior annotations, stores, HTTP clients, `on_start`, `on_stop` and `on_event` methods, topics and an `ApplicationEventPublisher` field. The page gets a promise for an `async def` method; other calls run while it waits, and disposing the service cancels it and rejects the promise with `CANCELLED`. `on_stop` and `on_event` stay plain methods; an `async def` one, streams and browser API resources other than `ApplicationEventPublisher` stop the build with `TY1605`. A request may carry up to 1 MiB, a method call up to 64 KiB, and a page may hold up to 256 live Python service objects. Python runs on the page thread, so a long computation blocks the page. `ty test` runs Python test units. See \"Which languages can I use?\" for what Python cannot do yet."
       },
       {
         "name": "client/services/TallyService.lua",
@@ -375,6 +375,21 @@
           {
             "name": "server/controllers/OrdersController.lua",
             "code": "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {\n  -- @Needs\n  ---@type OrderService\n  order_service = nil,\n}\n\n---@return OrderList\n-- @GetRoute\nfunction OrdersController:get_orders()\n  return { orders = self.order_service:list() }\nend\n"
+          }
+        ]
+      },
+      {
+        "id": "cpp",
+        "name": "C++",
+        "note": "clang++ compiles each C++ controller into its own program (ADR 0099). A controller is one header-only class in server/controllers, and its markers are standard attributes: `class [[RequestRoute(\"/orders\")]] [[Public]] OrdersController` and `[[GetRoute]]` on the method declare GET /orders. A parameter says where its value comes from with `[[FromPath]]`, `[[FromQuery]]`, `[[FromBody]]`, `[[FromHeader]]` or `[[FromCookie]]`. The method returns a value: `bool`, a number, `std::string`, `std::vector`, `std::optional`, `tachyon::json::JsonNode` or a model from server/models, and Tachyon writes it as JSON with status 200. `void` and an empty `std::optional` answer 204. Tachyon writes the JSON code of every model, because C++ has no reflection. A C++ controller has no services, middleware, error handlers, sockets, relays or test units yet: their markers stop the build (most with TY1308) and the message says that C++ gets them in a later step.",
+        "files": [
+          {
+            "name": "server/models/OrderList.hpp",
+            "code": "#pragma once\n#include <string>\n#include <vector>\n\nstruct OrderList {\n    std::vector<std::string> orders;\n};\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.hpp",
+            "code": "#pragma once\n#include \"../models/OrderList.hpp\"\n\nclass [[RequestRoute(\"/orders\")]] [[Public]] OrdersController {\npublic:\n    [[GetRoute]]\n    OrderList getOrders() {\n        OrderList list;\n        list.orders.push_back(\"anvil\");\n        return list;\n    }\n};\n"
           }
         ]
       }

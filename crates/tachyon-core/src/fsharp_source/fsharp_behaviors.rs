@@ -1,4 +1,4 @@
-use super::{BehaviorBody, FsharpView, MemberLine};
+use super::{BehaviorBody, FsharpAnswer, FsharpView, MemberLine};
 use crate::behavior::{DetachedCsharp, PlannedMethod, PlannedType};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -79,9 +79,22 @@ impl<'a> FsharpBehaviors<'a> {
     fn write_declared(&mut self, index: usize, method: &PlannedMethod) -> Result<(), String> {
         let receiver = self.receiver_for(&method.owner);
         let body = BehaviorBody::new(method, receiver).expression(None)?;
+        let body = Self::typed_answer(method, &self.lines[index], &body)?;
         self.lines[index] = MemberLine::concrete(&self.lines[index], &body)
             .ok_or_else(|| format!("Cannot read the F# abstract member {}", method.name))?;
         Ok(())
+    }
+
+    fn typed_answer(method: &PlannedMethod, line: &str, body: &str) -> Result<String, String> {
+        let generated = method
+            .metadata
+            .get("httpExchange")
+            .is_some_and(|exchange| exchange.get("generated").is_some());
+        let result = MemberLine::result(line).filter(|_| generated);
+        result.map_or(Ok(body.to_owned()), |result| {
+            FsharpAnswer::wrapped(&result, body)
+                .map_err(|message| format!("{}.{}: {message}", method.owner, method.name))
+        })
     }
 
     fn receiver_for(&self, owner: &str) -> &'static str {

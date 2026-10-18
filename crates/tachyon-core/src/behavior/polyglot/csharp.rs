@@ -433,6 +433,7 @@ fn test_members(unit: &Unit, environment: &str) -> String {
         format!("case {}: {call}; return;", quote(name))
     });
     let context = test_context(unit);
+    let cleared_fakes = joined(&unit.mocks, |name| format!("this.{name} = default;\n"));
     format!(
         "\npublic BehaviorContext behaviors;\n\
          public void startBehaviors() {{ stopBehaviors(); this.behaviors = {context}; }}\n\
@@ -441,6 +442,7 @@ fn test_members(unit: &Unit, environment: &str) -> String {
          public {report} POST() {{\n\
          var cases = new System.Collections.Generic.List<BehaviorJSON>();\n\
          foreach (var name in new string[] {{{names}}}) {{\n\
+         {cleared_fakes}\
          startBehaviors();\n\
          BehaviorCalls.TakeJson();\n\
          try {{ runCase(name); cases.Add(BehaviorJSON.Parse(\"{{\\\"name\\\":\" + Quoted(name) + \",\\\"passed\\\":true,\\\"called\\\":\" + BehaviorCalls.TakeJson() + \"}}\")); }}\n\

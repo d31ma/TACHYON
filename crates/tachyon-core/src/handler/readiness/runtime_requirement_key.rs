@@ -13,6 +13,7 @@ pub(crate) enum RuntimeRequirementKey {
     RustCompiler,
     DartCompiler,
     GoCompiler,
+    CppCompiler,
     FirecrackerDriver,
     GatewayProgram,
 }

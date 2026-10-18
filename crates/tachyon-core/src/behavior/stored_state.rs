@@ -38,10 +38,7 @@ impl StoredState {
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        if !Self::SPELLINGS
-            .iter()
-            .any(|spelling| source.contains(spelling))
-        {
+        if !Self::mentioned(source) {
             return Ok(BTreeMap::new());
         }
         let mask = crate::lexical::code_mask(language, source);
@@ -61,6 +58,12 @@ impl StoredState {
             fields.insert(Self::visible_name(language, &name), Self::area(marker));
         }
         Ok(fields)
+    }
+
+    fn mentioned(source: &str) -> bool {
+        Self::SPELLINGS
+            .iter()
+            .any(|spelling| source.contains(spelling))
     }
 
     fn area(marker: &Marker) -> String {

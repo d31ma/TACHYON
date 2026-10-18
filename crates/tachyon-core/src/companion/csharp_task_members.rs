@@ -86,7 +86,7 @@ impl CsharpTaskMembers {
         Ok(())
     }
 
-    fn member(line: &str) -> Option<Member> {
+    pub(super) fn member(line: &str) -> Option<Member> {
         let line = line.trim();
         line.strip_prefix("public ")?;
         let (signature, _) = without_type_first_modifiers(line);

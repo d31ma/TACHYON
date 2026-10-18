@@ -638,7 +638,9 @@ fn preview_rechecks_stale_calls_and_shows_newly_uncovered_methods() {
     drop(first);
     case.project(root.path(), case.named);
     let record = root.path().join(".tachyon/coverage/calls.json");
-    std::fs::File::open(record)
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(record)
         .expect("record")
         .set_times(std::fs::FileTimes::new().set_modified(std::time::UNIX_EPOCH))
         .expect("old record time");

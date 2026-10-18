@@ -144,8 +144,8 @@ fn the_cargo_build_is_offline_and_reads_crates_only_from_the_vendor_folder() {
         );
     }
     let directory = format!(
-        "source.tachyon-vendored.directory=\"{}\"",
-        paths.2.display()
+        "source.tachyon-vendored.directory={}",
+        RustCompanionCrate::toml_path(&paths.2)
     );
     assert!(arguments.contains(&directory), "{arguments:?}");
     let helpers_only: RustCompanionCrate = serde_json::from_value(

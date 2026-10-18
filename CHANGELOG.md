@@ -116,6 +116,43 @@ machine contracts have their own, independent major versions.
   case once for each input. `ty test --coverage` and the `ty preview` gate
   now count the public methods of C++ services by the calls that each case
   makes. The first-app step 5 C++ test checks `askServer` too (ADR 0099).
+- A Python Tac service method may be `async def`. The page gets a promise
+  that settles when the asyncio task ends; other calls run while it waits,
+  and disposing the service cancels the task and rejects the promise with
+  `CANCELLED`. Before, `async def` stopped the build with TY1605.
+  Asynchronous `on_start`, `on_stop` and `on_event` methods still do
+  (ADR 0093 amendment).
+- A Python Tac service field may be marked `LocalState` or `SessionState`
+  inside its type, such as `theme: Annotated[str, local_state] = 'light'`.
+  The page saves and restores it like the fields of the other web service
+  languages. Before, the build refused both with TY1308 (ADR 0093
+  amendment).
+- Browser F# services can take an HTTPClient through `Needs`, as C# services
+  do: `[<Needs>] member val GreetingClient : GreetingClient = ... with get, set`.
+  An F# HTTPClient member may answer `Task` or `ValueTask` of a record from
+  `client/models`, a list or array of records, a plain value, `BehaviorJSON`
+  or nothing; an answer of another shape fails with `HTTP_RESPONSE`. Service
+  members may return the same `Task` and `ValueTask` results. `Cached` and
+  `ClearCache` work as in the other languages. F# Tac test units get
+  `this.construct<T>()` and typed `[<Fake>]` properties; an empty Fake client
+  is bound to the test's BehaviorContext. The F# first-app Steps 4 and 5 now
+  call the greeting endpoint and test the service (ADR 0073 and ADR 0090
+  amendments).
+
+- C++ is a Yon language for route controllers. A header-only class in
+  `server/controllers/<Name>.hpp`, such as
+  `class [[RequestRoute("/orders")]] [[Public]] OrderController`, declares
+  routes with `[[GetRoute]]`, `[[PostRoute]]`, `[[PutRoute]]`,
+  `[[PatchRoute]]` and `[[DeleteRoute]]`, reads its arguments with
+  `[[FromPath]]`, `[[FromQuery]]`, `[[FromBody]]`, `[[FromHeader]]` and
+  `[[FromCookie]]`, and returns a typed value or a model from
+  `server/models/<Name>.hpp`, which Tachyon writes as JSON. Tachyon compiles
+  each controller with `clang++ -std=c++20 -O2`, caches the program and runs
+  it under the handler supervisor. `ty doctor` checks for `clang++`, compiler
+  errors name the authored line, a wrong argument type answers 400 and an
+  exception answers 500 without its text. Other Yon markers in C++ (services,
+  `Needs`, error handlers, sockets, streams, test units, ...) stop the build
+  and say that C++ gets them in a later step (ADR 0099 amendment).
 - The standard `theme_color` member of `client/manifest.json` now becomes
   `<meta name="theme-color" content="...">` in every web and native page
   head, HTML-escaped, when it is text that is not blank. A missing or
@@ -578,6 +615,39 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
+  `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
+  for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`
+  variables, so the Emscripten that the .NET wasm-tools workload bundles
+  reads its own configuration. Before, it read the emsdk configuration,
+  could not find its compiler (`"$CFGDIR/upstream/bin/clang"`,
+  `FileNotFoundError`) and the build stopped with TY1605. The emsdk
+  setting stays in the terminal for Tachyon's own `emcc` builds. The C#
+  web publish, which relinks the .NET runtime with Emscripten, now has the
+  15-minute deadline of the other long native tools instead of 2 minutes.
+
+- On Windows, Tachyon now runs `emcc` from Emscripten 6.0.10 and newer,
+  which ships `emcc.exe` instead of `emcc.bat`. Before, `ty doctor` reported
+  Emscripten as missing for C++, Ruby and Lua web services, and the Tac Ruby
+  and Tac Lua runtime builds could not start `emcc`.
+
+- On Windows, C++ web services now build with the `em++.exe` that Emscripten
+  6.0.10 and newer ships. Tachyon still looked for `em++.bat`, so the build
+  stopped with TY1605 even when `ty doctor` found Emscripten.
+
+- On Windows, the Tac Ruby runtime build now passes mruby its build folder
+  with forward slashes. mruby names its build tasks by joining that folder
+  with `/`, so a backslash path left it unable to build its own `mrbc`, and
+  Ruby web services stopped with TY1605.
+
+- A Windows app that links both a Rust and a C# service now sends each
+  native call to the companion that owns the call's service. Before, the
+  host asked the C# companion first and moved on to Rust only when the C#
+  answer was "unknown service", which `init` gives but `get`, `set`, `call`
+  and `dispose` do not. So a page with a Rust service failed its first
+  field read and rendered nothing. The build now writes a table of linked
+  services and their companions into the Windows host.
+
 - The shared annotation rule table now lists F# (`.fs`) as a Yon language,
   with the same reach as C# (ADR 0073). The checks that ask the table about
   a language directly, such as the role-folder message and the `@Topic`
@@ -596,6 +666,75 @@ machine contracts have their own, independent major versions.
   Lua web builds also read their services before they build the runtime, so
   the refusal appears on a machine without Emscripten (ADR 0054 and ADR 0085
   amendments).
+
+- A Java or Groovy test unit now clears every `@Fake` field before each
+  case, as the documentation says. Before, a test double that one case
+  assigned was still there in the next case. A reference field becomes
+  `null`, a `boolean` becomes `false` and a number or `char` becomes zero.
+  `construct(Class)` works as before.
+
+- A Python test unit now sets every `@Fake` field to `None` before each
+  case. Before, it set them once before the first case, so a test double
+  that one case assigned was still there in the next case.
+
+- A JavaScript or TypeScript test unit now sets every `@Fake` field to
+  `undefined` before each case. Before, a test double that one case
+  assigned was still there in the next case, and `construct(Role)` passed
+  it on.
+
+- A Go test unit now sets every `// @Fake` field to its zero value before
+  each case: `nil` for a pointer, slice, map, function or interface, zero
+  for a number, `false` for a `bool` and `""` for a `string`. Before, a test
+  double that one case assigned was still there in the next case, and a Tac
+  unit's `construct` passed it on.
+
+- A Rust test unit now resets every `#[Fake]` field that is a `RefCell` or
+  a `Cell` to its `Default` value before each case, so a
+  `RefCell<Option<T>>` becomes `None` and a `Cell<i64>` becomes zero.
+  Before, a test double that one case assigned was still there in the next
+  case, and a Tac unit's `construct()` passed it on. A case reads the unit
+  through `&self`, so a Fake in a plain field cannot change between cases.
+
+- A Kotlin test unit now clears every `@Fake` field before each case: a
+  nullable field becomes `null`, a `Boolean` becomes `false` and a number or
+  `Char` becomes zero. Before, a test double that one case assigned was still
+  there in the next case, and `construct(Role::class)` passed it on. A Fake
+  with another non-nullable type, such as a `lateinit var`, has no empty
+  value, so the build now refuses it and asks for a nullable type.
+
+- A C# test unit now sets every `[Fake]` field to `default` before each
+  case: `null` for a reference, zero for a number and `false` for a `bool`.
+  Before, a test double that one case assigned was still there in the next
+  case, and `construct<Role>()` passed it on.
+
+- A Dart test unit now clears every `@Fake` field before each case: a
+  nullable or `dynamic` field becomes `null`, a `bool` becomes `false` and
+  an `int`, `double` or `num` becomes zero. Before, a test double that one
+  case assigned was still there in the next case, and
+  `construct<Role>(Role)` passed it on. A Fake with another non-nullable
+  type, such as a `late` field, has no empty value, so the build now refuses
+  it and asks for a nullable declaration.
+
+- The `lua/THIRD_PARTY_NOTICES.txt` that a build writes beside the Lua web
+  runtime now also holds the Emscripten, musl and compiler-rt licenses, as
+  the Ruby notices do. The runtime is linked with Emscripten, which adds its
+  C library and compiler builtins, but the file listed only Lua. Because the
+  notices are part of the runtime source, the next build links the Lua
+  runtime again once.
+
+- A build with a Go Tac service now writes `.tachyon/services/go/LICENSE`
+  beside `go/wasm_exec.js`, whose header says its license "can be found in
+  the LICENSE file". The file comes from the root of the Go or TinyGo
+  installation that built the module, or is Go 1.27.0's `LICENSE` when the
+  installation has none. Route budgets do not count it. Cached Go modules
+  are built again once, so the cache holds the license too.
+- A same-origin answer from the page's browser HTTP host is no longer
+  reported by Chromium as an aborted request after the page has read it.
+  An answer with a declared, uncompressed length is read whole, so the load
+  completes before the call answers; the .NET browser gate failed about half
+  of its runs on this (ADR 0090 amendment). The first-app .NET gate reads the
+  greeting from the page instead of DevTools, which sometimes no longer held
+  the body.
 
 - A Go `@HTTPClient` request body model now follows its `json` tags as
   `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer

@@ -304,6 +304,17 @@ impl RuntimeRequirements {
                 ProbeKind::GoVersion,
             ),
         );
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Cpp),
+            RuntimeRequirement::fixed(
+                RuntimeRequirementKey::CppCompiler,
+                "clang++",
+                RuntimeRequirement::CPP_LABEL,
+                RuntimeRequirement::CPP_HELP,
+                ProbeKind::Version(&["--version"]),
+            ),
+        );
     }
 }
 
@@ -374,9 +385,10 @@ mod tests {
 
     #[test]
     fn gateways_are_refused_under_firecracker_isolation() {
+        let driver = std::env::current_exe().expect("test executable");
         let firecracker = YonIsolationPolicy::from_lookup(|name| match name {
             "YON_ISOLATION" => Some("firecracker".into()),
-            "YON_FIRECRACKER_DRIVER" => Some("/usr/bin/true".into()),
+            "YON_FIRECRACKER_DRIVER" => Some(driver.clone().into_os_string()),
             _ => None,
         })
         .expect("firecracker policy");

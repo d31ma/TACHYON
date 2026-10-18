@@ -91,3 +91,5 @@ const pythonHost = await TacPythonHost.start(__TAC_PYTHON_PROGRAM__, {
   http: (text) => (globalThis[Symbol.for('tachyon.tac.http')]?.start ?? pythonHttpMissing)(text),
 })
 const transport = (text) => pythonHost.exchange(text)
+/** @param {string} text @returns {Promise<string>} */
+const transportAsync = (text) => taskAnswers.answer(transport(text))

@@ -111,7 +111,6 @@ struct Parser<'a> {
     roots: Vec<TemplateNode>,
     stack: Vec<OpenNode>,
     diagnostics: Vec<Diagnostic>,
-    cursor: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -141,7 +140,6 @@ impl<'a> Parser<'a> {
             roots: Vec::new(),
             stack: Vec::new(),
             diagnostics: Vec::new(),
-            cursor: 0,
         }
     }
 
@@ -159,9 +157,6 @@ impl<'a> Parser<'a> {
     }
 
     fn read_token(&mut self, token: Token<usize>) {
-        if let Some(end) = Self::token_end(&token) {
-            self.cursor = end;
-        }
         match token {
             Token::StartTag(tag) => self.start_tag(tag),
             Token::EndTag(tag) => {
@@ -170,7 +165,7 @@ impl<'a> Parser<'a> {
             }
             Token::String(text) => self.text(span_range(text.span)),
             Token::Comment(comment) => self.comment(span_range(comment.span)),
-            Token::Doctype(_) => self.doctype(),
+            Token::Doctype(doctype) => self.doctype(span_range(doctype.span)),
             Token::Error(error) => {
                 let diagnostic = self.diagnostic(
                     1301,
@@ -183,28 +178,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn token_end(token: &Token<usize>) -> Option<usize> {
-        match token {
-            Token::StartTag(tag) => Some(tag.span.end),
-            Token::EndTag(tag) => Some(tag.span.end),
-            Token::String(text) => Some(text.span.end),
-            Token::Comment(comment) => Some(comment.span.end),
-            Token::Error(error) => Some(error.span.end),
-            Token::Doctype(_) => None,
-        }
-    }
-
-    fn doctype(&mut self) {
-        let rest = &self.source[self.cursor..];
-        let start = self.cursor + rest.find("<!").unwrap_or_default();
-        let length = self.source[start..]
-            .find('>')
-            .map_or(0, |offset| offset + 1);
+    fn doctype(&mut self, span: SourceRange) {
         let range = SourceRange {
-            start,
-            end: start + length,
+            start: self.source.floor_char_boundary(span.start),
+            end: self.source.ceil_char_boundary(span.end),
         };
-        self.cursor = range.end;
         let diagnostic = self.diagnostic(
             Self::DOCUMENT_CODE,
             range,
@@ -2067,6 +2045,17 @@ mod tests {
                 .collect();
             assert_eq!(found, tags, "{source}");
         }
+    }
+
+    #[test]
+    fn an_unclosed_doctype_before_a_wide_character_is_refused_without_a_panic() {
+        let source = "s/p><&\u{1} &&&ya\u{90}nw&&e}<>\u{7f}\u{7f} ic wotitl w&ya\u{90}nw&&e}<>\u{7f}\u{7f} ic w&ya\u{90}nw&&e}one;iN>mlot>%>2text <~pd</p><?slo%datdetails\u{1}<ain><h1>\u{10}}\u{e}\u{e}\u{e}\u{e}\u{e}<e <t;&!  m   reath;<!d{ +{tp><!doctype  {\"{Y&YY\r\u{d8109}\n\n";
+        let error = compile_without_components(source).expect_err("doctype is refused");
+        let found = diagnostic_with_number(&error, 1307);
+        let span = found.spans.first().expect("doctype span");
+        let start = usize::try_from(span.start).expect("span start");
+        assert!(source.is_char_boundary(start));
+        assert!(source[start..].starts_with("<!doctype"), "{start}");
     }
 
     #[test]

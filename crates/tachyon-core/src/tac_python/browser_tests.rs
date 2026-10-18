@@ -12,46 +12,52 @@ struct PythonTacFixture {
 }
 
 impl PythonTacFixture {
-    const FILES: [(&'static str, &'static str); 9] = [
+    const FILES: [(&'static str, &'static str); 11] = [
+        (
+            "client/helpers/ShelfHelper.py",
+            include_str!("../../tests/fixtures/tac-python/client/helpers/ShelfHelper.py"),
+        ),
+        (
+            "client/services/LibraryService.py",
+            include_str!("../../tests/fixtures/tac-python/client/services/LibraryService.py"),
+        ),
         (
             "client/models/Guide.py",
-            include_str!("../../tests/fixtures/tac-python-sync/client/models/Guide.py"),
+            include_str!("../../tests/fixtures/tac-python/client/models/Guide.py"),
         ),
         (
             "client/helpers/AuditHelper.py",
-            include_str!("../../tests/fixtures/tac-python-sync/client/helpers/AuditHelper.py"),
+            include_str!("../../tests/fixtures/tac-python/client/helpers/AuditHelper.py"),
         ),
         (
             "client/helpers/CounterHelper.py",
-            include_str!("../../tests/fixtures/tac-python-sync/client/helpers/CounterHelper.py"),
+            include_str!("../../tests/fixtures/tac-python/client/helpers/CounterHelper.py"),
         ),
         (
             "client/services/AuditService.py",
-            include_str!("../../tests/fixtures/tac-python-sync/client/services/AuditService.py"),
+            include_str!("../../tests/fixtures/tac-python/client/services/AuditService.py"),
         ),
         (
             "client/services/CounterService.py",
-            include_str!("../../tests/fixtures/tac-python-sync/client/services/CounterService.py"),
+            include_str!("../../tests/fixtures/tac-python/client/services/CounterService.py"),
         ),
         (
             "client/pages/tac.html",
-            include_str!("../../tests/fixtures/tac-python-sync/client/pages/tac.html"),
+            include_str!("../../tests/fixtures/tac-python/client/pages/tac.html"),
         ),
         (
             "client/components/python/probe/tac.html",
-            include_str!(
-                "../../tests/fixtures/tac-python-sync/client/components/python/probe/tac.html"
-            ),
+            include_str!("../../tests/fixtures/tac-python/client/components/python/probe/tac.html"),
         ),
         (
             "client/components/python/lifecycle/tac.html",
             include_str!(
-                "../../tests/fixtures/tac-python-sync/client/components/python/lifecycle/tac.html"
+                "../../tests/fixtures/tac-python/client/components/python/lifecycle/tac.html"
             ),
         ),
         (
             "client/manifest.json",
-            include_str!("../../tests/fixtures/tac-python-sync/client/manifest.json"),
+            include_str!("../../tests/fixtures/tac-python/client/manifest.json"),
         ),
     ];
 
@@ -119,7 +125,7 @@ impl PythonTacFixture {
         let built = WebCompiler::build_async(&self.root, &options)
             .await
             .unwrap_or_else(|error| panic!("ordinary compiler build: {error:?}"));
-        let receipt = serde_json::json!({"sourceCommit": self.source, "buildSha256": built.sha256(), "runtime": RuntimeAssets::RUNTIME, "scope": "initial synchronous Python Tac fixture; runtime qualification follows"});
+        let receipt = serde_json::json!({"sourceCommit": self.source, "buildSha256": built.sha256(), "runtime": RuntimeAssets::RUNTIME, "scope": "Python Tac fixture: synchronous and async def services; runtime qualification follows"});
         Self::write(
             &self.root.join("python-tac-build.json"),
             receipt.to_string().as_bytes(),
@@ -186,7 +192,7 @@ impl PythonTacFixture {
 
 #[tokio::test]
 #[ignore = "requires explicit pinned core assets, retained fixture/cache, source commit, preview binary and Chromium"]
-async fn pinned_python_tac_sync_di_models_and_offline_reload_use_the_real_compiler() {
+async fn pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler() {
     PythonTacFixture::run().await;
 }
 

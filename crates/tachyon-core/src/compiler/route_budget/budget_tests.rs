@@ -318,3 +318,15 @@ fn an_explicit_script_budget_wins_over_the_runtime_allowance() {
         .is_empty()
     );
 }
+
+#[test]
+fn the_go_license_beside_the_glue_does_not_count_toward_a_budget() {
+    let manifest = r#"{"tac":{"budgets":{"check":true,"script":3,"webassembly":2}}}"#;
+    let mut files = site();
+    files.push(file(
+        ".tachyon/services/go/LICENSE",
+        "Copyright 2009 The Go Authors.",
+        100 * 1024,
+    ));
+    assert_eq!(messages_for(manifest, &files), messages(manifest));
+}

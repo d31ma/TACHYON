@@ -160,12 +160,86 @@ the runtime files; `ty doctor` names the folder.
   a Python route does not change. When a Python route also loads other web
   runtimes, its budget is the larger of the two.
 
+## Amendment 2026-10-16: `async def` service methods
+
+- A public method of a Python Tac service may be `async def`. The page gets
+  a promise for it, like the asynchronous methods of other Tac languages
+  (ADR 0090). Its arguments and its answer cross through the same typed
+  codecs as a synchronous method. A Python Helper may have `async def`
+  methods that a service awaits.
+- The runtime starts the coroutine as an asyncio task on the Pyodide event
+  loop and answers the call with `{"task": id}`. When the task ends, it
+  reports the encoded answer to the page through the host's `done` callback;
+  the page settles the promise through the shared task answers
+  (`TacTaskAnswers`), as Go, Kotlin and Ruby do, and then delivers the
+  events that the task published.
+- A waiting method does not hold its service: other calls, field reads and
+  writes run while it waits, as in JavaScript, Go, Kotlin and Swift. The
+  page always gets a promise, even when the method does not wait.
+- An exception in the task rejects the promise with
+  `Python Tac operation failed.`; Python's own message stays in the
+  runtime. An answer over 1 MiB is refused the same way.
+- Disposing the owner cancels its waiting tasks before the `@on_stop`
+  hooks run, and their promises reject with code `CANCELLED`. Cancellation
+  reaches the coroutine as `asyncio.CancelledError` at its next `await`, so
+  its `finally` blocks run after the stop hooks. Leaving the page cancels
+  every task.
+- At most 256 tasks wait at once; another `async def` call is refused
+  before the method starts.
+- Still refused with `TY1605`: asynchronous `@on_start`, `@on_stop` and
+  `@on_event` methods, streams and browser API resources. Python has no
+  HTTPClient; that is a separate product decision. Native hosts stay out of
+  scope.
+- Evidence: `backend_tests::python_async_methods_settle_through_page_tasks_and_cancel_on_dispose`
+  runs the generated program in CPython. The ignored browser test
+  `pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler`
+  builds `crates/tachyon-core/tests/fixtures/tac-python` and checks a view
+  click, the promise, a field read while the method waits, a failure and a
+  cancellation on dispose, online and after an offline reload, in Chromium.
+  Firefox and WebKit runs are still owed.
+
+## Amendment 2026-10-16: saved fields
+
+- A Python Tac service field may be marked `LocalState` or `SessionState`
+  inside its type: `theme: Annotated[str, local_state] = 'light'`
+  (`LocalState` and `SessionState` are accepted spellings too). The rule
+  table (ADR 0056) now lets Python use these two markers in Tac; the other
+  behavior annotations of the 2026-10-04 amendment still fail with
+  `TY1308`.
+- The page saves and restores these fields as it does for the other web
+  service languages: through the field's getter and setter, under a key
+  named after the page, the service and the field's page name (`last_title`
+  is saved as `lastTitle`). The Python runtime needs no storage adapter of
+  its own. A restored value crosses the field's typed codec, like any other
+  write from the page.
+- The stored-field reader now notices the snake_case spellings; before, a
+  source that spelled only `local_state` or `session_state` was skipped.
+- Evidence: `backend_tests::python_local_and_session_state_fields_reach_the_page_storage`
+  and the browser test above, whose `LibraryService.loaded` field is
+  `LocalState` and comes back after the offline reload in Chromium.
+  `SessionState` shares the page code but has no browser check of its own
+  for Python yet. Firefox and WebKit runs are still owed.
+
+## Note 2026-10-16: offline through `ty preview` is not qualified
+
+The browser test serves the compiler's `dist` from its own HTTPS test origin
+with `public, max-age=60` and no `Vary`. Served through `ty preview` (with
+or without `--static`), every response carries `Cache-Control: no-store`
+from the server's defensive headers and `Vary: accept-encoding`, and the
+service worker caches only public responses without `Vary`. The page then
+caches none of the Pyodide files, so it cannot reload offline. This holds
+for every web service language, not only Python. Whether the preview server
+should send cacheable headers for build outputs is a separate server
+decision; until then, offline Python Tac is qualified only from an origin
+that serves the build as public static files.
+
 ## Amendment 2026-10-17: async methods, behaviors, saved fields, stores and clients
 
 - An `async def` method builds. The page gets a promise: the bridge answers
   `{"task": n}`, and the shared task settlement of the other Tac languages
   sends the answer when the coroutine finishes. Disposal cancels the
-  owner's unfinished tasks, and their callers get `CANCELLED`.
+  owner's unfinished tasks, and their callers get `CANCELLED`. The
+  2026-10-16 `async def` amendment above gives the details.
 - `@on_start` may be `async def`. A call that arrives before it finishes
   waits for it. `@on_stop` and `@on_event` stay synchronous; an
   `async def` one still fails with `TY1605`.
@@ -185,11 +259,14 @@ the runtime files; `ty doctor` names the folder.
 - `LocalState` and `SessionState` fields are written in the type, as
   `Annotated[str, local_state]`. The page saves and restores them like the
   saved fields of the other languages; the field's page name is its
-  lowerCamelCase name.
+  lowerCamelCase name, as the 2026-10-16 saved fields amendment above says.
 - `ValueSource` works in Python Tac test units, which run under native
   CPython as in Yon.
 - `StreamRequest` and `SocketRequest` stay refused with `TY1308`. The
   page's JavaScript holds a browser stream or socket, and the Python
   runtime has no adapter that hands its messages to a Python client yet.
 - This amendment replaces the 2026-10-04 limits on behaviors, saved fields
-  and `HTTPClient`, and the `async def` limit in "Limits" above.
+  and `HTTPClient`, and the `async def` limit in "Limits" above. It also
+  replaces two limits of the 2026-10-16 amendments above: an asynchronous
+  `@on_start` no longer fails with `TY1605`, and Python now has an
+  `HTTPClient` and the other behavior annotations listed here.

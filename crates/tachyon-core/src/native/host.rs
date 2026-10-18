@@ -2,6 +2,7 @@ use super::routes::NativeRouteIndex;
 use crate::Failure;
 use crate::external_command::{ToolOutput, run as supervise_tool};
 use crate::failure::diagnostic;
+use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -83,16 +84,38 @@ impl NativeHost {
         environment: &[(&str, &str)],
         time_limit: Duration,
     ) -> Result<ToolOutput, Failure> {
+        let mut command = Self::tool_command(program, arguments, working_directory);
+        command.envs(environment.iter().copied());
+        Self::supervised_output(program, &mut command, time_limit).await
+    }
+
+    pub(super) async fn run_long_tool_in_environment(
+        program: &str,
+        arguments: &[&str],
+        working_directory: &Path,
+        variables: Vec<(OsString, OsString)>,
+    ) -> Result<String, Failure> {
+        let mut command = Self::tool_command(program, arguments, Some(working_directory));
+        command.env_clear().envs(variables);
+        let limit = Self::LONG_TOOL_TIME_LIMIT;
+        let output = Self::supervised_output(program, &mut command, limit).await?;
+        Ok(bounded_text(&output.stdout))
+    }
+
+    fn tool_command(
+        program: &str,
+        arguments: &[&str],
+        working_directory: Option<&Path>,
+    ) -> Command {
         let mut command = Command::new(program);
         command
             .args(arguments)
-            .envs(environment.iter().copied())
             .stdin(Stdio::null())
             .kill_on_drop(true);
         if let Some(working_directory) = working_directory {
             command.current_dir(working_directory);
         }
-        Self::supervised_output(program, &mut command, time_limit).await
+        command
     }
 
     async fn supervised_output(

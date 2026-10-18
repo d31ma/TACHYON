@@ -21,6 +21,7 @@ class BrowserHttpGate {
     swift: { folder: 'browser-http-swift', factory: false, label: 'compiled Swift' },
     java: { folder: 'browser-http-java', factory: false, label: 'compiled Java' },
     ruby: { folder: 'browser-http-ruby', factory: false, label: 'Ruby' },
+    fsharp: { folder: 'browser-http-fsharp', factory: false, label: 'compiled F#' },
   }
 
   static chosen() {

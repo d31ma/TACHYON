@@ -143,6 +143,12 @@ the build with `TY2015`, and the message names the resource and this ADR.
   Tachyon cache. Nothing is committed or written into the project. The build
   shares its download, checksum and cache steps with the Ruby runtime. The
   runtime is about 170 KB.
+- (Amended 2026-10-17) Like the Ruby runtime, the Lua runtime links the C
+  library, `malloc` and the compiler builtins that Emscripten brings. So the
+  `lua/THIRD_PARTY_NOTICES.txt` that a build writes beside the runtime holds
+  the Lua license and the Emscripten, musl and compiler-rt licenses, taken
+  from the Emscripten 6.0.10 sources (`LICENSE`,
+  `system/lib/libc/musl/COPYRIGHT` and `system/lib/compiler-rt/LICENSE.TXT`).
 - The runtime has no `io`, `os`, `package`, `debug`, `dofile` or
   `loadfile`. It loads only Lua text, never bytecode. The boundary is the
   same synchronous `tac_boot`, `tac_invoke`, `tac_alloc` and `tac_free` as

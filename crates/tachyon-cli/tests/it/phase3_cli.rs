@@ -666,7 +666,7 @@ fn check_component_paths(component_shapes: &tempfile::TempDir) {
     #[cfg(unix)]
     assert!(stderr(&output).contains("TY1004"));
     #[cfg(windows)]
-    assert!(stderr(&output).contains("TY1401"));
+    assert!(stderr(&output).contains("TY1310"));
 }
 
 fn check_missing_slot(missing_slot: &tempfile::TempDir) {

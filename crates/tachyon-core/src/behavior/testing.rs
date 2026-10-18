@@ -250,8 +250,12 @@ pub(super) fn members(registration: &super::Registration) -> Option<String> {
         .get("testProperties")
         .map_or_else(|| String::from("{}"), ToString::to_string);
     let mocks = mock_bindings(&registration.data);
+    let fakes = registration
+        .data
+        .get("mockBeans")
+        .map_or_else(|| String::from("[]"), ToString::to_string);
     Some(format!(
-        " async startBehaviors() {{ await this.stopBehaviors();          this.behaviors = await Behaviors.create({configuration}, {{ partition: {},          signal: new AbortController().signal, profiles: {profiles}, properties: {properties} }}); }}          async stopBehaviors() {{ if (this.behaviors) {{ this.behaviors.dispose(); this.behaviors = undefined; }} }}          construct(Type) {{ return Behaviors.constructWith(Type, this.behaviors, {{ {mocks} }}); }}          async POST() {{ const cases = [];          for (const [name, method, input] of {}) {{          await this.startBehaviors(); Behaviors.takeCalled();          try {{ await this[method](...input); cases.push({{ name, passed: true, called: Behaviors.takeCalled() }}); }}          catch (error) {{ cases.push({{ name, passed: false, error: String(error && error.message || error), called: Behaviors.takeCalled() }}); }}          finally {{ await this.stopBehaviors(); }} }}          return {{ unit: {}, cases }}; }} ",
+        " async startBehaviors() {{ await this.stopBehaviors();          this.behaviors = await Behaviors.create({configuration}, {{ partition: {},          signal: new AbortController().signal, profiles: {profiles}, properties: {properties} }}); }}          async stopBehaviors() {{ if (this.behaviors) {{ this.behaviors.dispose(); this.behaviors = undefined; }} }}          construct(Type) {{ return Behaviors.constructWith(Type, this.behaviors, {{ {mocks} }}); }}          async POST() {{ const cases = [];          for (const [name, method, input] of {}) {{          for (const fake of {fakes}) this[fake] = undefined;          await this.startBehaviors(); Behaviors.takeCalled();          try {{ await this[method](...input); cases.push({{ name, passed: true, called: Behaviors.takeCalled() }}); }}          catch (error) {{ cases.push({{ name, passed: false, error: String(error && error.message || error), called: Behaviors.takeCalled() }}); }}          finally {{ await this.stopBehaviors(); }} }}          return {{ unit: {}, cases }}; }} ",
         serde_json::Value::String(partition.to_owned()),
         case_table(registration),
         serde_json::Value::String(registration.name.clone()),

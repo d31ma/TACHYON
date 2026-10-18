@@ -11,7 +11,7 @@ pub(super) struct PythonEvents {
 
 impl PythonEvents {
     const PUBLISHER: &'static str = "applicationEventPublisher";
-    const PENDING: &'static str = "Python Tac streams, browser API adapters and async OnStop or OnEvent methods remain pending; OnStart may be async, and synchronous OnStop and OnEvent methods and ApplicationEventPublisher are supported.";
+    const PENDING: &'static str = "Python Tac streams, browser API adapters and async OnStop or OnEvent methods remain pending; async def service methods, an async OnStart, synchronous OnStop and OnEvent methods and ApplicationEventPublisher are supported.";
 
     pub(super) fn read(
         path: &Path,

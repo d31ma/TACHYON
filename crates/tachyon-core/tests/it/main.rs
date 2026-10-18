@@ -51,6 +51,7 @@ mod test_units;
 mod topic_events;
 mod yon_annotations_discovery;
 mod yon_compiled_annotations;
+mod yon_cpp;
 mod yon_dart;
 mod yon_dynamic_annotations;
 mod yon_json_returns;
