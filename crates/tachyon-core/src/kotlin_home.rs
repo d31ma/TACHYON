@@ -12,6 +12,15 @@ impl KotlinHome {
     const PATH_VARIABLE: &'static str = "PATH";
     const JAVA_HOME_VARIABLE: &'static str = "JAVA_HOME";
     const JAVA: &'static str = "java";
+    /// The options `kotlinc.bat` gives a Java 9 or newer runtime.
+    const JVM_OPTIONS: [&'static str; 4] = [
+        "-Xmx512M",
+        "-Xms128M",
+        "--add-opens",
+        "java.base/java.util=ALL-UNNAMED",
+    ];
+    /// The launcher a spawn can run comes before the one it cannot, so a real executable wins.
+    const LAUNCHER_EXTENSIONS: [&'static str; 2] = [".exe", ".bat"];
     const LIBRARY_FOLDER: &'static str = "lib";
     const PRELOADER_JAR: &'static str = "kotlin-preloader.jar";
     const COMPILER_JAR: &'static str = "kotlin-compiler.jar";
@@ -19,13 +28,6 @@ impl KotlinHome {
     const COMPILERS: [(&'static str, &'static str); 2] = [
         ("kotlinc", "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler"),
         ("kotlinc-js", "org.jetbrains.kotlin.cli.js.K2JSCompiler"),
-    ];
-    /// The options `kotlinc.bat` gives a Java 9 or newer runtime.
-    const JVM_OPTIONS: [&'static str; 4] = [
-        "-Xmx512M",
-        "-Xms128M",
-        "--add-opens",
-        "java.base/java.util=ALL-UNNAMED",
     ];
 
     /// A command for `program`; a Kotlin compiler reached only through its Windows launcher runs
@@ -53,17 +55,19 @@ impl KotlinHome {
     }
 
     fn behind_launcher(search_path: &OsStr, program: &OsStr) -> Option<Self> {
-        let executable = Self::named(program, ".exe");
-        let launcher = Self::named(program, ".bat");
-        for folder in std::env::split_paths(search_path) {
-            if folder.join(&executable).is_file() {
-                return None;
-            }
-            if folder.join(&launcher).is_file() {
-                return folder.parent().and_then(Self::at);
-            }
-        }
-        None
+        let names = Self::LAUNCHER_EXTENSIONS.map(|extension| Self::named(program, extension));
+        let first = std::env::split_paths(search_path)
+            .find_map(|folder| Self::first_program_in(&folder, &names))?;
+        let only_a_launcher = first.extension() == Some(OsStr::new("bat"));
+        let bin = first.parent().filter(|_| only_a_launcher)?;
+        bin.parent().and_then(Self::at)
+    }
+
+    fn first_program_in(folder: &Path, names: &[OsString]) -> Option<PathBuf> {
+        names
+            .iter()
+            .map(|name| folder.join(name))
+            .find(|path| path.is_file())
     }
 
     fn named(program: &OsStr, extension: &str) -> OsString {
