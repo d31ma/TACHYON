@@ -175,3 +175,14 @@ refuses `#[StreamRoute]`, and every Yon language now accepts it.
   at the limit the server stops the process and sends `event: error`.
 - A test unit calls the method and collects it with `.collect::<Vec<_>>()`.
 - Java and Groovy still refuse `@StreamRoute`.
+
+## Amendment (2026-10-17): Dart stream clients
+
+`@StreamRequest` is also written on a Dart HTTPClient method, in the
+`abstract interface class` client. The page's JavaScript still holds the
+`EventSource`: the Dart service that keeps the client in a `@Needs` field
+declares the stream in its module's event plan, the page's event bus opens it
+with the same rules, and the Dart service receives each message with
+`@OnEvent` on a method whose parameter is the message model. See ADR 0090,
+"Dart streams and sockets". Go, Ruby and Rust clients are held the same way
+(see their amendments above).
