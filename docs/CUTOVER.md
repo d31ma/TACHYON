@@ -30,14 +30,14 @@ Current status: **reconciliation in progress, not release-ready**.
 The cutover gate in [`PROJECT_PLAN.md`](PROJECT_PLAN.md) lists six conditions
 that must all hold before the Rust implementation becomes Tachyon's default.
 
-**Five conditions are met and one remains open.**
+**All six conditions are met.** Condition 4 was the last one. It closed when
+the tag workflow published v26.35.07 and v26.36.01; see section 4.
 
 - Automated security qualification is the security gate before tagging.
 - An independent human review is optional. It does not block merge, tagging,
   or publication.
-- The open condition needs one real run of the release workflow. That run makes
-  the repository produce release artifacts and attestations that others can
-  verify.
+- Meeting this historical gate does not make the current head release-ready.
+  The reconciliation gate above decides that.
 
 Every claim below is one of two things:
 
@@ -53,7 +53,7 @@ Nothing here is a claim that the implementation makes about itself.
 | 1 | Every stable behavior has passing compatibility evidence or a documented migration | **Met** | Execution, re-verified 2026-07-31 |
 | 2 | Supported platforms pass their native evidence profiles | **Met**, under the evidence standard amended below | Execution on three platforms, 2026-07-31; macOS and Windows named below |
 | 3 | Install, upgrade, rollback, and uninstall have been exercised | **Met** for the `ty` artifact | Execution, re-verified 2026-07-31 |
-| 4 | Release artifacts are signed, attested, and independently verifiable | **Open** | Repository work complete; awaits one real workflow run |
+| 4 | Release artifacts are signed, attested, and independently verifiable | **Met** | Execution: Stable Release runs 33301688118 (v26.35.07) and 33363597481 (v26.36.01); assets verified again outside the workflow, 2026-10-18 |
 | 5 | No unowned critical threat-model finding remains | **Met** | Automated technical audit, remediation, and exact-head enterprise qualification; no critical or high blocker remains |
 | 6 | Stable documentation describes the Rust implementation rather than plans | **Met** | Repository and website documentation rewritten and checked against executable behavior, 2026-08-01 |
 
@@ -173,39 +173,69 @@ application artifacts. Each platform's gate installs, launches, and drives the
 generated application. It then removes the application together with the
 emulator or container it ran in.
 
-## 4. Signed, Attested, Independently Verifiable — Open Until a Release Runs
+## 4. Signed, Attested, Independently Verifiable — Met
 
-**Independently verifiable: met.**
+The tag workflow (`.github/workflows/publish.yml`) has published two stable
+releases:
+
+| Release | Run | Tag commit | Published |
+| --- | --- | --- | --- |
+| v26.35.07 | [33301688118](https://github.com/d31ma/Tachyon/actions/runs/33301688118) | `4a2e41a9` | 2026-08-30 |
+| v26.36.01 | [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (attempt 2) | `61589a7c` | 2026-08-31 |
+
+Both runs finished with `success`. In each run, these jobs passed in order:
+
+1. Five native release artifact jobs and the CycloneDX SBOM job attested what
+   they built (`actions/attest-build-provenance`).
+2. "Sign and stage immutable draft release" attested every distributed input,
+   gave every asset a keyless Sigstore signature bound to the workflow
+   identity, and created a non-public draft.
+3. "Verify staged release" ran on five runners (macos-arm64, macos-x64,
+   linux-x64, linux-arm64, windows-x64). Each one downloaded the draft and
+   verified checksums, attestations, and workflow-identity signatures.
+4. "Publish verified stable release" made the release public.
+
+**Signed: met.** Every asset has a `.sigstore.json` bundle. In both runs,
+`cosign verify-blob` checked every bundle on all five verify runners against
+`publish.yml@refs/tags/v*` and the GitHub Actions OIDC issuer.
+
+**Attested and independently verifiable: met.** On 2026-10-18 the assets of
+both public releases were downloaded from GitHub into a clean Linux container
+that had no part in the build, and checked there:
+
+```bash
+gh api repos/d31ma/Tachyon/releases/tags/<tag>   # download every asset
+sha256sum --check --strict SHA256SUMS
+for file in *; do
+  [[ "${file}" == *.sigstore.json ]] && continue
+  gh attestation verify "${file}" --repo d31ma/Tachyon
+done
+```
+
+```
+v26.35.07: 15 of 15 checksums OK, 16 of 16 attestations verified
+v26.36.01: 15 of 15 checksums OK, 16 of 16 attestations verified
+```
+
+Each attestation names the signing workflow
+`d31ma/Tachyon/.github/workflows/publish.yml@refs/tags/<tag>`, the tag commit,
+and the run that built it. That container did not re-run `cosign verify-blob`
+on the signature bundles. The verify runners in each release run did that.
+
+**Reproducible: met.**
 
 - Each artifact has `SHA256SUMS` over every published file.
 - Each artifact has a `manifest.json` that records the release version, commit,
   `SOURCE_DATE_EPOCH`, target, and toolchain.
 - Builds are reproducible. The bit-identical rebuild above proved this again
-  today. So a third party can rebuild from the recorded commit and compare
+  on 2026-07-31. So a third party can rebuild from the recorded commit and compare
   digests without trusting the publisher.
 - `rust-ci.yml` also publishes a CycloneDX software bill of materials (SBOM)
   and builds with `cargo auditable`.
 
-**Attested: the repository work is complete.** The release lifecycle job now
-attests build provenance with `actions/attest-build-provenance`. It uses the
-workflow's own identity, not a maintainer key. So only one real workflow run
-remains. To verify after that run:
-
-```bash
-gh attestation verify tachyon-<target>.tar.gz --repo <owner>/TACHYON
-```
-
-The stable workflow now does these steps in order:
-
-1. It gives every asset a keyless Sigstore signature bound to the workflow
-   identity.
-2. It stages a draft that is not public.
-3. On all five release runners, it verifies the checksum, attestation,
-   signature, raw executable, and installer.
-4. Only then does it make the release public.
-
-This repository work still needs one real tag run. Only then does evidence
-support the condition.
+These results prove the published v26.35.07 and v26.36.01 assets only. Each
+new version needs its own tag run. Its draft assets must pass the same
+verification before publication.
 
 ## 5. Threat-Model Findings — Met by Automated Qualification
 

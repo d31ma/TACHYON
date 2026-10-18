@@ -619,6 +619,20 @@ machine contracts have their own, independent major versions.
   it; the template frontend is the only HTML frontend, and its codes TY1101 to
   TY1107 are retired (ADR 0002 amendment). The website tests and client test
   files no longer turn type checking off with `// @ts-nocheck`.
+
+- The cutover gate records release provenance as met. `docs/CUTOVER.md` names
+  the tag runs that published v26.35.07 and v26.36.01 and what they checked,
+  and the published assets of both releases passed `sha256sum` and
+  `gh attestation verify` again outside the workflow on 2026-10-18.
+  `docs/PROJECT_PLAN.md` no longer says the gate is not met; a new version
+  still needs the reconciliation gate on its own assets.
+
+- The docs table "What each service language can use in the browser" now
+  says that F# services get an `HTTPClient` with `Needs`, and that Lua,
+  Python and C++ services have `Store`, caches, `LocalState` and
+  `SessionState`. C++ still has no page Setup `http` adapter, and its cache
+  markers go only on a synchronous method.
+
 - F# Tac caching, policies, stores and page state now have runtime proof:
   an F# test unit runs `Cached`, `CacheKey`, `UpdateCache`, `ClearCache`,
   `Retry`, `MaxAtOnce`, `AllOrNothing`, `PageDefaults` and a `[<Query>]`

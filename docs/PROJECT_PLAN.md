@@ -353,10 +353,16 @@ does not block CI, packaging, support-tier claims, tagging, or publication.
 
 ## Cutover Gate
 
-[`CUTOVER.md`](CUTOVER.md) records the current status of each condition.
-**The gate is not met.**
+[`CUTOVER.md`](CUTOVER.md) records the status of each condition.
+**All six conditions are met.** Release provenance was the last one. It closed
+when the tag workflow published v26.35.07 and v26.36.01, and their assets were
+verified again outside the workflow on 2026-10-18.
 
-The Rust implementation becomes Tachyon's default only when all of these are
+This gate does not make a new version release-ready. Each new version must
+also pass the reconciliation gate in [`CUTOVER.md`](CUTOVER.md) and
+[`RECONCILIATION.md`](RECONCILIATION.md), on its own downloaded release assets.
+
+The Rust implementation became Tachyon's default only when all of these were
 true:
 
 - every stable behavior has passing compatibility evidence or a documented
