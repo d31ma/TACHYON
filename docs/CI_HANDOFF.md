@@ -31,7 +31,7 @@ All the work this note handed over is resolved. The sections after this one desc
   - Load-sensitive tests tolerate a busy machine, and the `relay_boundaries` tests run in nextest's `serial` group (`4603885c`).
 - **Decision taken:** Phase 6 keeps the scaffold comparison as a tripwire for drift, with every intended difference declared, instead of declaring a deliberate break.
 - **Still open (see the last two sections):**
-  - the `@Check` status code and `ty preview` caching decisions, and the release candidate
+  - the release candidate
   - in the product, a call that reaches a shared service before its component activates uses the default `tac-client` partition
   - on Windows ARM64, Node 24 sometimes deadlocks at process exit (about 7% of Ruby web drivers under load). Its 2-minute deadline turns that into one failed test.
   - about 40 other `node` driver call sites have no deadline
@@ -180,9 +180,9 @@ clean run. Things that matter:
 
 ## Decisions waiting on the maintainer
 
-- `@Check` rejections answer a generic 500 in every language (asserted by the
-  Java checked-model test). Should they answer 400 or 422 with field details?
-  That needs an ADR.
+- ~~`@Check` status code~~: decided by
+  [ADR 0101](adr/0101-check-rejections-answer-422-problem-details.md). A
+  rejection answers 422 with RFC 9457 problem details in every language.
 - ~~`ty preview` sends `Cache-Control: no-store` and `Vary`, so the offline
   service worker caches nothing in preview, in any language.~~ Fixed on
   2026-10-18: `ty start` and `ty preview --static` send `no-cache` for the

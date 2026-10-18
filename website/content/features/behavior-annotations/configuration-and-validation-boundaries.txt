@@ -10,5 +10,7 @@ Length counts UTF-8 string bytes or array/object entries. Min/Max accept finite
 numbers without coercion. Length/Min/Max otherwise ignore missing/null.
 Check validates the selected method argument before pagination/cache/HTTP/body.
 Behaviors.validate(Type, value) needs no context or DTO construction.
-Errors expose redacted field/rule paths. Unknown fields remain allowed.
+A rejected Check answers 422 application/problem+json: sorted field/rule
+entries, at most 32, never the submitted values. validate keeps field.rule paths.
+Unknown fields remain allowed.
 No nested groups or automatic field assignment; validate again in Yon.

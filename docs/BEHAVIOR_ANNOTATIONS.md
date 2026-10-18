@@ -263,7 +263,7 @@ These restrictions fail before any adapter runs.
 | `@WhenSetting({"name":"YON_CACHE_ENABLED","havingValue":"true","matchIfMissing":false})` | Requires an exact, explicitly supplied string value before the Setup runs. |
 | `@Setting("${yon.server.port:8080}")` | Declares one instance field that `Behaviors.values` binds from the resolved application configuration. The object form `{"path","type","default","min","max"}` adds a type and bounds. Tac may name only `tac.*`. Yon may name only `yon.*`. |
 | `@Checked` | Declares a DTO (data transfer object) validation schema over direct fields. The DTO is a behavior-only class in its own file in a role folder, usually `helpers/`. Discovery composes it into the same unit as the method that names it ([ADR 0044](adr/0044-an-annotated-file-holds-one-class.md)). |
-| `@Check` (on a parameter) | Validates that parameter against a `@Checked` class before pagination, caching, HTTP or method code. In JavaScript, TypeScript and Python the parameter's type names the class (JavaScript uses a JSDoc `@param` type). The other languages keep the JSON parameter type and name the class: `@Check(ProductInput.class) Object input` in Java. |
+| `@Check` (on a parameter) | Validates that parameter against a `@Checked` class before pagination, caching, HTTP or method code. In JavaScript, TypeScript and Python the parameter's type names the class (JavaScript uses a JSDoc `@param` type). The other languages keep the JSON parameter type and name the class: `@Check(ProductInput.class) Object input` in Java. An input that breaks a rule answers `422` with an `application/problem+json` body that lists each broken rule, unless an application `@ErrorHandler` handles the error (see [What an invalid input answers](#what-an-invalid-input-answers) and [ADR 0101](adr/0101-check-rejections-answer-422-problem-details.md)). |
 | `@Required` | Rejects a missing or null field. |
 | `@NotEmpty` | Requires a string that is not empty and contains at least one Unicode scalar that is not whitespace. |
 | `@Length({"min":1,"max":100})` | Limits the number of UTF-8 bytes in a string, or the number of items in an array or object. Missing or null values are ignored. |
@@ -1312,13 +1312,54 @@ Methods that use only Check may stay synchronous and need no context. With
 adapter policies, validation runs first. Then come pagination, cache
 authorization and read, HTTP, and the method body.
 
-Errors use the code `validation` and a bounded path of field and rule, such as
-`name.notBlank`, or `$.json`, `$.object`, `$.schema`. Messages do not include
-input values.
-
 Tac validation helps the user interface. It is not server authorization. Yon
 must validate again. Accepting unknown fields does not give permission for
 mass assignment.
+
+### What an invalid input answers
+
+When a `@Check` parameter breaks a rule, the method does not run. If no
+application `@ErrorHandler` handles the error, Yon answers
+`422 Unprocessable Content` with an RFC 9457 `application/problem+json` body
+([ADR 0101](adr/0101-check-rejections-answer-422-problem-details.md)). Every
+Yon language that supports Check sends the same body (JavaScript, TypeScript,
+Python, Ruby, PHP, Java, Groovy, Kotlin, C#, F#, Dart, Go, Rust and C++):
+
+```json
+{"type":"about:blank","title":"Invalid input","status":422,"errors":[{"field":"level","rule":"Required"},{"field":"name","rule":"NotEmpty"}],"truncated":false,"reference":"4WHBW1MLRC6"}
+```
+
+- `errors` has one entry for each broken rule. `rule` is the annotation name:
+  `Required`, `NotEmpty`, `Length`, `Min` or `Max`.
+- A value that is not a JSON object, or that is larger than the 1 MiB copy
+  limit, gives one entry: `{"field":"","rule":"Checked"}`.
+- `field` is a path such as `name`, `parent.child` or `items[2].name`. Check
+  validates direct fields only today, so each path is a top-level field name.
+- Entries are sorted by field path. Paths are compared one segment at a time,
+  and array indexes are compared as numbers. For one field, the rule order is
+  `Checked`, `Required`, `NotEmpty`, `Length`, `Min`, `Max`. Repeated entries
+  are removed.
+- The body has at most 32 entries. `truncated` is `true` when more rules were
+  broken.
+- The body never contains the submitted values.
+- `reference` is the request ID: the same value as the `x-tachyon-request-id`
+  header and the ID in the server log.
+
+The language runner reports the broken rules to the server with the handler
+protocol error code `TY2205` and its `violations` member. The server builds
+the answer.
+
+To application code, the error from a Check parameter is still a validation
+error: code `validation`, with the path of the first broken rule, such as
+`name.notBlank`. An `@ErrorHandler` that handles it answers instead of the
+422.
+
+Explicit validation does not change. `Behaviors.validate(Type, value)` stops
+at the first broken rule and raises or returns an error with the code
+`validation` and a bounded path of field and rule, such as `name.notBlank`, or
+`$.json`, `$.object`, `$.schema`. Messages do not include input values. An
+explicit validation error that nothing handles answers `500`, like any other
+handler error.
 
 ### Outbound HTTP
 
@@ -1475,6 +1516,13 @@ cached and HTTP methods in each language. Details:
 - C# and Swift: Check parameters use `BehaviorJSON`. Results of Check-only
   methods use `BehaviorJSON` (or C# async `Task<BehaviorJSON>`).
 - Swift declares `throws`, also for synchronous validation.
+- Go and Rust controllers return the error of a Check parameter unchanged, so
+  the server answers `422`. A controller that maps it to another status
+  hides the problem details.
+- C++ parameters are typed. The controller reads the body into the model, so
+  a value of the wrong type or a field that the model does not declare gets
+  the `400` body error before Check runs. A broken rule then answers `422`,
+  as in the other languages.
 - Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`.
 - JVM languages use their strict native JSON maps, lists and scalars, not
   arbitrary DTO instances.

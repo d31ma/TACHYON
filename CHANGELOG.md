@@ -1341,6 +1341,29 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- An input that breaks a `@Checked` rule on a `@Check` parameter now answers
+  `422 Unprocessable Content` with an RFC 9457 `application/problem+json`
+  body, in JavaScript, TypeScript, Python, Ruby, PHP, Java, Groovy, Kotlin,
+  C#, F#, Dart, Go, Rust and C++. Before, it answered `500` (`text/plain`
+  `Handler execution failed. Reference: <id>.`, or an empty body in
+  JavaScript, TypeScript, Python and Ruby). The body is
+  `{"type":"about:blank","title":"Invalid input","status":422,"errors":[{"field":"name","rule":"NotEmpty"}],"truncated":false,"reference":"<id>"}`:
+  one entry for each broken rule, named after its annotation (`Required`,
+  `NotEmpty`, `Length`, `Min`, `Max`), or one `{"field":"","rule":"Checked"}`
+  entry for a value that is not a JSON object or is over 1 MiB. Entries are
+  sorted by field path and rule, repeats are removed, and at most 32 are
+  sent (`truncated` is `true` when more rules were broken). Submitted values
+  are never sent back. `reference` is the `x-tachyon-request-id` value from
+  the header and the server log. Runners report the rules with the new
+  handler protocol code `TY2205` and an optional `violations` member of the
+  v1 error object (additive). An application `@ErrorHandler` that handles the
+  validation error still answers first, and an explicit
+  `Behaviors.validate(...)` call keeps its first-violation `validation` error.
+  A Go or Rust controller returns the Check error unchanged so that it
+  reaches the server; the website examples no longer map it to `400`. C++
+  bodies are typed, so a value of the wrong type or an undeclared field is
+  still refused with the 400 body error before Check runs. Ruby's `Length` now counts UTF-8 bytes, as documented; it
+  counted characters (ADR 0101).
 - A C# HTTPClient, Store or Converter interface without `public` stops the
   build with `TY1308`. C# makes such an interface internal, so a public
   controller or service that needs it failed later in `dotnet build` with

@@ -175,7 +175,9 @@ back to another language or to a shell command.
   during the readiness check, or in the race when the process is spawned after
   readiness. Tachyon hides (redacts) configured executable paths.
 - `TY2201`–`TY2209`: handler authoring or execution failures that the adapter
-  reports.
+  reports. `TY2205` ("Input breaks a Checked rule.") carries the broken rules
+  of a `@Check` parameter in the optional `violations` member of the v1 error
+  object; the server answers `422` with problem details (ADR 0101).
 
 Messages are bounded. They may include a source path relative to the project
 and shortened stderr. They never include environment values or an unbounded

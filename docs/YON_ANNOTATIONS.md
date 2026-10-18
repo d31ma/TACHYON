@@ -605,7 +605,9 @@ How Tachyon chooses a method:
 
 Safety:
 
-- An error that no method handles keeps the fixed 500 answer.
+- An error that no method handles keeps the fixed 500 answer. The error of a
+  `@Check` parameter is the exception: it answers `422` with the broken rules
+  ([ADR 0101](adr/0101-check-rejections-answer-422-problem-details.md)).
 - An error thrown inside a handler method also gets the fixed 500 answer.
   Tachyon does not call a handler again for it.
 - Nothing from the error, such as its message or stack, reaches the client.
