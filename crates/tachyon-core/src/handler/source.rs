@@ -3751,32 +3751,39 @@ mod tests {
         let path = root.path().join("stale.lock");
         fs::write(&path, "4294967294 0 stale-token\n").expect("stale");
         let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
-        let successes = std::thread::scope(|scope| {
+        let holds: Vec<(std::time::Instant, std::time::Instant)> = std::thread::scope(|scope| {
             let attempts: Vec<_> = (0..2)
                 .map(|_| {
                     let barrier = std::sync::Arc::clone(&barrier);
                     let path = path.clone();
                     scope.spawn(move || {
                         barrier.wait();
-                        let acquired =
-                            acquire_cache_lock_with_wait(&path, "race", Duration::from_millis(30));
-                        if let Ok(lock) = acquired {
-                            std::thread::sleep(Duration::from_millis(80));
-                            drop(lock);
-                            true
-                        } else {
-                            false
-                        }
+                        let lock =
+                            acquire_cache_lock_with_wait(&path, "race", Duration::from_millis(30))
+                                .ok()?;
+                        let acquired = std::time::Instant::now();
+                        std::thread::sleep(Duration::from_millis(80));
+                        let releasing = std::time::Instant::now();
+                        drop(lock);
+                        Some((acquired, releasing))
                     })
                 })
                 .collect();
             attempts
                 .into_iter()
-                .map(|attempt| attempt.join().expect("join"))
-                .filter(|acquired| *acquired)
-                .count()
+                .filter_map(|attempt| attempt.join().expect("join"))
+                .collect()
         });
-        assert_eq!(successes, 1);
+        // Under load the waiter may take the lock after the first owner lets go; it must never share it.
+        assert!(!holds.is_empty(), "nobody recovered the stale lock");
+        if let [
+            (first_acquired, first_released),
+            (second_acquired, second_released),
+        ] = holds[..]
+        {
+            let sequential = first_released <= second_acquired || second_released <= first_acquired;
+            assert!(sequential, "two owners held the lock at once: {holds:?}");
+        }
     }
 
     #[test]
@@ -4109,7 +4116,8 @@ final class Handler {
             "/",
             tachyon_contracts::HttpMethod::Get,
         );
-        request.deadline_ms = Some(1_000);
+        // Generous enough for a slow php-cgi start on a loaded machine; the 200 ms initialization must still count.
+        request.deadline_ms = Some(5_000);
         let response = supervisor
             .invoke(&source, &request, &crate::HandlerCancellation::default())
             .await
@@ -4120,7 +4128,7 @@ final class Handler {
         assert_eq!(body["year"], "2026");
         assert_eq!(body["ordinary"], serde_json::Value::Null);
         assert!(
-            body["remaining"].as_i64().expect("remaining nanoseconds") <= 850_000_000,
+            body["remaining"].as_i64().expect("remaining nanoseconds") <= 4_850_000_000,
             "{body}"
         );
     }

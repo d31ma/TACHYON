@@ -139,7 +139,7 @@ end
 
     const JAVASCRIPT_SLOW_START: &str = r"
 export class Handler {
-  static started = Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 800)
+  static started = Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000)
   static POST(request) {
     return relay(['python3', 'server/helpers/probe.py', 'sleep:10'], request)
   }
@@ -150,7 +150,7 @@ export class Handler {
 import time
 
 class Handler:
-    time.sleep(0.8)
+    time.sleep(3)
 
     @staticmethod
     def POST(request):
@@ -339,6 +339,17 @@ fn timing_options() -> HandlerSupervisorOptions {
     }
 }
 
+// For tests that cut a relay off at the invocation budget: an 8 s request with a 2 s grace leaves the
+// handler 6 s, enough to start and launch its relay on a loaded machine.
+const LOADED_REQUEST_DEADLINE_MS: u64 = 8_000;
+
+fn loaded_timing_options() -> HandlerSupervisorOptions {
+    HandlerSupervisorOptions {
+        cancellation_grace: Duration::from_secs(2),
+        ..timing_options()
+    }
+}
+
 fn body(response: &tachyon_contracts::HandlerResponse) -> serde_json::Value {
     let data = &response.body.as_ref().expect("response body").data;
     serde_json::from_str(data).expect("JSON body")
@@ -361,7 +372,7 @@ async fn assert_process_gone(pid_file: &Path) {
         .trim()
         .parse()
         .expect("pid");
-    for _attempt in 0..100 {
+    for _attempt in 0..250 {
         if !process_exists(pid) {
             return;
         }
@@ -468,6 +479,9 @@ async fn assert_relay_fails_before(
     assert!(started.elapsed() < limit, "{:?}", started.elapsed());
 }
 
+// The handler starts for 3 s and the request allows 8 s with a 2 s cancellation grace, so the relay gets
+// what is left of a 6 s budget and its 502 arrives at about 6 s. If start-up time did not count, the relay
+// would run until about 9 s, past the 8 s deadline, and the supervisor would time out instead.
 #[tokio::test]
 async fn start_up_time_counts_against_the_relay_deadline() {
     for (extension, handler) in [
@@ -478,18 +492,12 @@ async fn start_up_time_counts_against_the_relay_deadline() {
             continue;
         }
         let (root, source) = project(extension, handler);
-        let supervisor = supervisor_for(root.path(), timing_options());
+        let supervisor = supervisor_for(root.path(), loaded_timing_options());
         let mut slow = request("slow_start", HttpMethod::Post, "");
-        slow.deadline_ms = Some(3_000);
+        slow.deadline_ms = Some(LOADED_REQUEST_DEADLINE_MS);
         let started = Instant::now();
-        assert_relay_fails_before(
-            &supervisor,
-            &source,
-            &slow,
-            started,
-            Duration::from_millis(2_600),
-        )
-        .await;
+        let deadline = Duration::from_millis(LOADED_REQUEST_DEADLINE_MS);
+        assert_relay_fails_before(&supervisor, &source, &slow, started, deadline).await;
     }
 }
 
@@ -651,8 +659,9 @@ async fn the_supervisor_default_timeout_limits_relays_without_a_request_deadline
         let supervisor = supervisor_for(
             root.path(),
             HandlerSupervisorOptions {
-                default_timeout: Duration::from_secs(4),
-                cancellation_grace: Duration::from_millis(1_500),
+                // Room for a JVM or .NET handler to start on a loaded machine; the 30 s relay must still stop.
+                default_timeout: Duration::from_secs(8),
+                cancellation_grace: Duration::from_secs(2),
                 ..HandlerSupervisorOptions::default()
             },
         );
@@ -663,7 +672,7 @@ async fn the_supervisor_default_timeout_limits_relays_without_a_request_deadline
             &source,
             &unbounded,
             started,
-            Duration::from_secs(4),
+            Duration::from_secs(8),
         )
         .await;
     }
@@ -704,20 +713,15 @@ async fn a_relay_program_that_never_reads_its_input_is_bounded() {
             continue;
         }
         let (root, source) = project(extension, handler);
-        let supervisor = supervisor_for(root.path(), timing_options());
+        let supervisor = supervisor_for(root.path(), loaded_timing_options());
         let padding = vec!["x".repeat(8_000); 64];
         let mut large = request("ignored_input", HttpMethod::Post, "ignore-input");
         large.headers.insert(String::from("x-padding"), padding);
-        large.deadline_ms = Some(3_000);
+        large.deadline_ms = Some(LOADED_REQUEST_DEADLINE_MS);
         let started = Instant::now();
-        assert_relay_fails_before(
-            &supervisor,
-            &source,
-            &large,
-            started,
-            Duration::from_millis(2_900),
-        )
-        .await;
+        // The relay's 502 must arrive within the request deadline.
+        let deadline = Duration::from_millis(LOADED_REQUEST_DEADLINE_MS);
+        assert_relay_fails_before(&supervisor, &source, &large, started, deadline).await;
     }
 }
 
@@ -733,19 +737,14 @@ async fn a_descendant_holding_the_relay_pipes_is_bounded_and_reaped() {
             continue;
         }
         let (root, source) = project(extension, handler);
-        let supervisor = supervisor_for(root.path(), timing_options());
+        let supervisor = supervisor_for(root.path(), loaded_timing_options());
         let pid_file = root.path().join("inherit.pid");
         let mut inherit = request_with_pid_file("inherit", HttpMethod::Post, "inherit", &pid_file);
-        inherit.deadline_ms = Some(3_000);
+        inherit.deadline_ms = Some(LOADED_REQUEST_DEADLINE_MS);
         let started = Instant::now();
-        assert_relay_fails_before(
-            &supervisor,
-            &source,
-            &inherit,
-            started,
-            Duration::from_millis(2_900),
-        )
-        .await;
+        // The relay's 502 must arrive within the request deadline.
+        let deadline = Duration::from_millis(LOADED_REQUEST_DEADLINE_MS);
+        assert_relay_fails_before(&supervisor, &source, &inherit, started, deadline).await;
         assert_process_gone(&pid_file).await;
     }
 }

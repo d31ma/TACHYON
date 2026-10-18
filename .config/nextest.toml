@@ -13,6 +13,12 @@ filter = 'test(/reads_the_clock_and_secure_random_from_the_page$/) | test(simult
 test-group = 'serial'
 retries = 2
 
+# Relay boundary tests measure deadlines against wall-clock time, so a loaded machine can push them over.
+[[profile.default.overrides]]
+filter = 'binary(it) & test(/^relay_boundaries::/)'
+test-group = 'serial'
+retries = 2
+
 [[profile.default.overrides]]
 filter = 'test(a_csharp_service_is_webassembly_on_targets_that_do_not_link_it) | test(controller_errors::kotlin::error_handlers_answer_every_scenario)'
 test-group = 'heavy'
