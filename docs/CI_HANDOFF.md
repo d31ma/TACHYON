@@ -31,9 +31,9 @@ All the work this note handed over is resolved. The sections after this one desc
   - Load-sensitive tests tolerate a busy machine, and the `relay_boundaries` tests run in nextest's `serial` group (`4603885c`).
 - **Decision taken:** Phase 6 keeps the scaffold comparison as a tripwire for drift, with every intended difference declared, instead of declaring a deliberate break.
 - **Every `node` driver call has a deadline:** the `tachyon-core` tests start `node` through `NodeDriver` (`crates/tachyon-core/src/node_driver.rs`; the integration tests use `tests/it/support/node_driver.rs`). Stdin is closed, the default deadline is 2 minutes, the process tree is killed at the deadline, and the failure names the command and shows its output so far.
+- **The Node exit hang on Windows ARM64 no longer fails a test:** Node 24.21 sometimes deadlocks inside `process.exit` there. The main thread waits forever to join a V8 platform worker that missed its wake-up (WinDbg, 2026-10-17). On IYOR-Surface, 5 of 400 reruns of the real Ruby web drivers hung this way, and every one had already printed its JSON report. `NodeDriver` (both helpers) now gives a driver one more run when it reaches its deadline with a complete JSON report as its last stdout line, and says so on stderr. A driver that hangs that way twice still fails, and the failure says it was the retry. A driver that hangs before its report is not retried. Node is not pinned to another version: the hang is in Node's own shutdown, and the retry covers whichever Node a machine has.
 - **Still open (see the last two sections):**
   - the release candidate
-  - on Windows ARM64, Node 24 sometimes deadlocks at process exit (about 7% of Ruby web drivers under load). Its 2-minute deadline turns that into one failed test.
 
 ## Where develop is
 
