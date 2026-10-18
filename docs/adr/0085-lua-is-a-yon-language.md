@@ -4,7 +4,7 @@
   stores, Schedule and converter nulls), 2026-10-16 (a Tac Lua Needs field
   cannot name another service), 2026-10-17 (Yon Lua HTTP clients,
   Gateway and InBackground; Tac Lua behavior annotations, browser state,
-  stores and schema models)
+  stores and schema models), 2026-10-18 (Tac Lua HTTP clients)
 - Date: 2026-09-29
 - Builds on: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes),
   [ADR 0050](0050-go-annotations-are-comments.md) (comment markers),
@@ -110,9 +110,8 @@ table, and its methods are functions stored in the table.
 These stop the build until a later step adds them: the rule table says that
 the annotation is not available in Lua (`TY1308`), or the lowering names this
 ADR (`TY2015`):
-topics, Tac `@Helper` and Tac `@HTTPClient`. Resources are not available
-in Lua: DataSource, RedisTemplate and `relay`. The rule table refuses Tac
-`@HTTPClient` and its request markers in Lua, and every Lua refusal of the
+topics and Tac `@Helper`. Resources are not available in Lua: DataSource,
+RedisTemplate and `relay`. Every Lua refusal of the
 rule table ends with "Lua gets it in a later step (ADR 0085)". A Yon Lua
 class that needs DataSource or RedisTemplate, or calls `relay(...)`, stops
 the build with `TY2015`, and the message names the resource and this ADR.
@@ -464,6 +463,31 @@ clock amendment.
   `lua` program's own clock.
 - Still refused in Tac Lua: `-- @Helper` (Lua is read through the Ruby
   shadow, and Ruby Tac has no Helper yet), `@HTTPClient` and its request
-  markers (Lua has no browser HTTP transport yet), and `@StreamRequest` and
+  markers (Lua has no browser HTTP transport yet; see the next amendment),
+  and `@StreamRequest` and
   `@SocketRequest` (the browser's JavaScript holds the stream; a Lua service
   hears each message with `-- @OnEvent`).
+
+## Amendment 2026-10-18: Tac Lua HTTP clients
+
+- `-- @HTTPClient`, `-- @GetRequest`, `-- @PostRequest`, `-- @PutRequest`,
+  `-- @PatchRequest`, `-- @DeleteRequest`, `-- @PathVariable`,
+  `-- @RequestParam`, `-- @RequestBody` and `-- @RequestHeader` work in Tac
+  Lua. The client is written as in Yon Lua, in `client/remotes/` or
+  `client/clients/`, and Tachyon adds the same `start_context` method.
+- A Tac Lua client is a provider, like a Store or a Converter. A typed
+  `-- @Needs` field receives it, and each service activation builds its own
+  client and opens the client's context from its Setup.
+- With an `http` adapter of the client's name in its Setup, the request goes
+  to that adapter, as in Yon. Without one, it goes to the browser through the
+  same fetch transport that every WebAssembly Tac language uses, with the
+  same request fields, limits and `HTTP_*` failure codes as Tac Ruby.
+- The browser answers a fetch later, so each page call to a Lua service runs
+  in its own coroutine. A call that sends a request waits in its coroutine
+  and the page carries on; the answer resumes it. Like Tac Ruby, a request
+  can only be sent during a service call or an event, never from
+  `-- @OnStart`, at most 64 requests wait at once, and removing a service
+  cancels its waiting calls with `CANCELLED`. An `-- @AllOrNothing` block
+  belongs to the coroutine that opened it.
+- Still refused in Tac Lua: `@StreamRequest` and `@SocketRequest`, for the
+  reason the previous amendment gives.

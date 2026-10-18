@@ -467,22 +467,23 @@ function BehaviorExchange.request(policy, arguments)
   return descriptor
 end
 
-BehaviorOpenTransactions = { open = {} }
+BehaviorOpenTransactions = { open = setmetatable({}, { __mode = "k" }) }
 
 function BehaviorOpenTransactions.of(adapter)
-  return BehaviorOpenTransactions.open[adapter]
+  return (BehaviorOpenTransactions.open[coroutine.running()] or {})[adapter]
 end
 
 function BehaviorOpenTransactions.within(adapter, identifier, action)
-  local outer = BehaviorOpenTransactions.open
+  local task = coroutine.running()
+  local outer = BehaviorOpenTransactions.open[task]
   local inner = {}
-  for key, value in pairs(outer) do
+  for key, value in pairs(outer or {}) do
     inner[key] = value
   end
   inner[adapter] = identifier
-  BehaviorOpenTransactions.open = inner
+  BehaviorOpenTransactions.open[task] = inner
   local results = table.pack(pcall(action))
-  BehaviorOpenTransactions.open = outer
+  BehaviorOpenTransactions.open[task] = outer
   if not results[1] then
     error(results[2], 0)
   end
@@ -1072,6 +1073,59 @@ function BehaviorHostEntities:execute(command)
   return BehaviorStorage.ask({ op = "entity", command = command })
 end
 
+BehaviorBrowserHttp = {
+  KEYS = { "method", "path", "query", "headers", "body", "redirect", "credentials", "maxResponseBytes" },
+  CODES = {
+    HTTP_REQUEST = true, HTTP_ORIGIN = true, HTTP_HEADER = true, HTTP_QUERY = true, HTTP_BODY = true,
+    HTTP_LIMIT = true, HTTP_RESPONSE = true, HTTP_STATUS = true, HTTP_CAPACITY = true, HTTP_NETWORK = true,
+    HTTP_MISSING = true, CANCELLED = true, DEADLINE = true,
+  },
+}
+BehaviorBrowserHttp.__index = BehaviorBrowserHttp
+
+function BehaviorBrowserHttp:exchange(request, execution)
+  local browser = setmetatable({}, YonJson.OBJECT)
+  for _, key in ipairs(BehaviorBrowserHttp.KEYS) do
+    browser[key] = request[key]
+  end
+  browser.deadline = execution.deadline
+  browser.publicRead = false
+  browser.revalidate = false
+  execution:check()
+  local answer = YonJson.decode(TacTasks.exchange(YonJson.encode(browser)))
+  local value = BehaviorBrowserHttp.value_of(answer)
+  execution:check()
+  return value
+end
+
+function BehaviorBrowserHttp.value_of(answer)
+  if type(answer) ~= "table" then
+    BehaviorBrowserHttp.fail("HTTP_RESPONSE")
+  end
+  if answer.error ~= nil then
+    BehaviorBrowserHttp.fail(BehaviorBrowserHttp.code_of(answer.error))
+  end
+  if answer.value == nil then
+    BehaviorBrowserHttp.fail("HTTP_RESPONSE")
+  end
+  if answer.value == YonNull then
+    return nil
+  end
+  return answer.value
+end
+
+function BehaviorBrowserHttp.code_of(failure)
+  local code = type(failure) == "table" and failure.code or nil
+  if BehaviorBrowserHttp.CODES[code] then
+    return code
+  end
+  return "HTTP_NETWORK"
+end
+
+function BehaviorBrowserHttp.fail(code)
+  BehaviorError.raise(code, "The browser HTTP request failed (" .. code .. ").")
+end
+
 BehaviorStorage = {}
 
 function BehaviorStorage.adapter(group, name)
@@ -1083,6 +1137,9 @@ function BehaviorStorage.adapter(group, name)
   end
   if group == "entities" and name == "indexeddb" then
     return setmetatable({}, BehaviorHostEntities)
+  end
+  if group == "http" and TacTasks ~= nil then
+    return setmetatable({}, BehaviorBrowserHttp)
   end
   return nil
 end

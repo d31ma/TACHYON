@@ -125,8 +125,13 @@ const transport = (text) => lua.invoke(text)
         let assembled = ModelSources::client_metadata(snapshot_root, LuaSource::EXTENSION)?
             .assembled(relative, &assembled)?;
         let joined = LuaView::joined(relative, &assembled);
-        let roles = crate::behavior::ServiceRoles::read(joined.path(), joined.text())
+        let clients = crate::behavior::HttpClientSource::rewrite(joined.path(), joined.text())
             .map_err(|failure| joined.failure(&failure))?;
+        let roles = crate::behavior::ServiceRoles::read(
+            joined.path(),
+            clients.as_deref().unwrap_or(joined.text()),
+        )
+        .map_err(|failure| joined.failure(&failure))?;
         let plan =
             crate::behavior::LuaBehaviorPlan::read(joined.path(), &roles.source, Self::REALM)
                 .map_err(|failure| joined.failure(&failure))?;
