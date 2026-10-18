@@ -350,8 +350,8 @@ gate's fixture has no Python service.
 Evidence: `scripts/browser-http-browser-test.mjs --language=python` builds
 `website/content/docs/calling-the-server/browser-http-python`, serves it with
 `ty serve` and checks it in Chromium, Firefox and WebKit (on 2026-10-18 it
-passed in Chromium in a Linux container; the Firefox and WebKit runs belong
-to the local CI runner) with the checks of the Lua gate (ADR 0085). The
+passed in Chromium in a Linux container, and in Firefox 153 and WebKit 26.5
+on the macOS CI runner) with the checks of the Lua gate (ADR 0085). The
 first-app tutorial has Python tabs for step 4 and step 5.
 
 ## Amendment 2026-10-18: browser engines and `SessionState`

@@ -589,8 +589,8 @@ that holds no stream, and `HTTP_MISSING` in a test unit.
 Evidence: `scripts/browser-http-browser-test.mjs --language=lua` builds
 `website/content/docs/calling-the-server/browser-http-lua`, serves it with
 `ty serve` and checks it in Chromium, Firefox and WebKit (on 2026-10-18 it
-passed in Chromium in a Linux container; the Firefox and WebKit runs belong
-to the local CI runner): the real Yon answer, a page that keeps running
+passed in Chromium in a Linux container, and in Firefox 153 and WebKit 26.5
+on the macOS CI runner): the real Yon answer, a page that keeps running
 while the server waits, cookies left out, the cached read and its
 revalidation after `-- @ClearCache`, a Setup adapter that answers instead of
 the network, and cancellation when one owner is disposed while another stays
