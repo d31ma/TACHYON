@@ -440,3 +440,22 @@ images, fonts and connections over `https:`.
   WebKit: before the change WebKit logged the invalid source and the refused
   block; after it, no engine logged a policy or speculation rules message,
   and the Java service answered a click in all three.
+
+## Amendment: the rule table checks Java Tac code (2026-10-18)
+
+- `"java"` is now in the Tac reach lists of the annotation rule table
+  (`TAC`, `TAC_BEHAVIOR`, `TAC_FAKE`, `TAC_VALUE_SOURCE`, and the lists that
+  follow them; it was already in `TAC_ROLE` and `TAC_NEEDS_ALL`). Before,
+  the table never checked a Java Tac marker, and only the Java build's own
+  allow-list decided. Now every marker that the Java pipeline supports is
+  accepted by name, and the table states what Java still refuses.
+- Java Tac code still refuses Helper, Named, StreamRequest and
+  SocketRequest, with `TY1308`. Named has its own reach list, `TAC_NAMED`,
+  without Java, so it fails by name instead of with `TY1405`. A `@Needs`
+  field of another service still stops with `TY1405`. Each of these has
+  its own follow-up.
+- `@TestSettings` in a Java Tac test unit works. The generated test passed
+  its properties as dotted keys with JSON-quoted values, which the Java
+  runtime refused with `configuration`. It now passes flat `TAC_X` keys
+  with plain values (`java.util.Map.ofEntries`), the form the runtime
+  reads. Kotlin has the same bug; a separate change fixes it.

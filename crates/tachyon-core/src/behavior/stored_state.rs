@@ -242,6 +242,10 @@ mod tests {
                 "#[Service]\nclass EditorService\n  #[SessionState]\n  attr_accessor :draft\n  #[LocalState]\n  attr_accessor :theme\nend\n",
             ),
             (
+                "EditorService.java",
+                "@Service\npublic class EditorService {\n    @SessionState\n    private String draft = \"\";\n    @LocalState\n    private String theme = \"light\";\n}\n",
+            ),
+            (
                 "EditorService.fs",
                 "[<Service>]\ntype EditorService() =\n    [<SessionState>]\n    member val Draft = \"\" with get, set\n\n    [<LocalState>]\n    member val theme : string = \"light\" with get, set\n",
             ),

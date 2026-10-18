@@ -542,7 +542,11 @@ fn set_native_service_scopes(services: &mut BTreeMap<String, ServiceDefinition>)
             continue;
         };
         if let Ok(source) = fs::read_to_string(path) {
-            let roles = crate::behavior::ServiceRoles::read(path, &source);
+            let roles = crate::fsharp_source::FsharpView::either(
+                path,
+                &source,
+                crate::behavior::ServiceRoles::read,
+            );
             definition.prototype = roles.is_ok_and(|roles| roles.prototype)
                 || FsharpConstructorProps::takes_props(path, &source);
         }
@@ -1173,6 +1177,23 @@ mod tests {
             assert_eq!(service.required(), ["files", "owner"], "{instance}");
             assert!(service.is_prototype(), "{instance}");
         }
+    }
+
+    #[test]
+    fn an_fsharp_prototype_service_gets_one_instance_per_component() {
+        let root = project(&[
+            (
+                "client/services/CounterService.fs",
+                "[<Service>]\n[<Lifetime({\"value\":\"prototype\"})>]\ntype CounterService() =\n    member val Count = 0 with get, set\n",
+            ),
+            (
+                "client/services/LedgerService.fs",
+                "[<Service>]\ntype LedgerService() =\n    member val Total = 0 with get, set\n",
+            ),
+        ]);
+        let registry = ServiceRegistry::discover(root.path()).expect("F# services");
+        assert!(registry.get("counter").expect("counter").is_prototype());
+        assert!(!registry.get("ledger").expect("ledger").is_prototype());
     }
 
     #[test]

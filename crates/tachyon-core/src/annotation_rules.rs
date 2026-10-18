@@ -289,6 +289,9 @@ impl AnnotationRules {
     const YON_TEST: &'static [&'static str] = Self::YON_EXCEPT_CPP;
 
     const TAC: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",
+    ];
+    const TAC_NAMED: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "hpp",
     ];
     const TAC_ROLE: &'static [&'static str] = &[
@@ -296,11 +299,11 @@ impl AnnotationRules {
     ];
     const TAC_REMOTE: &'static [&'static str] = Self::TAC;
     const TAC_BEHAVIOR: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "lua",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "lua", "java", "fs",
     ];
     const TAC_CONTEXT: &'static [&'static str] = Self::TAC_BEHAVIOR_AND_CPP;
     const TAC_FAKE: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "hpp", "lua",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py", "hpp", "lua", "java", "fs",
     ];
     const TAC_BEHAVIOR_AND_CPP: &'static [&'static str] = Self::TAC_FAKE;
     const TAC_ADAPTER_AND_CPP: &'static [&'static str] = Self::TAC;
@@ -309,14 +312,14 @@ impl AnnotationRules {
         "js", "ts", "dart", "rs", "py", "cs", "fs", "go", "rb", "hpp", "swift", "kt", "lua",
     ];
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py", "hpp",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py", "hpp", "fs",
     ];
     pub(crate) const YON_BACKGROUND: &'static [&'static str] = Self::YON_ROLES;
     const TAC_STREAM: &'static [&'static str] = &[
-        "js", "ts", "go", "rb", "rs", "dart", "swift", "kt", "cs", "lua", "py", "hpp",
+        "js", "ts", "go", "rb", "rs", "dart", "swift", "kt", "cs", "lua", "py", "hpp", "fs",
     ];
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
-        "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua", "hpp", "py",
+        "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua", "hpp", "py", "java", "fs",
     ];
     const NOWHERE: &'static [&'static str] = &[];
     const TYPE: &'static [Target] = &[Target::Type];
@@ -491,7 +494,7 @@ impl AnnotationRules {
             "chooses which object fills a Needs field when there are several",
         )
         .needs_arguments()
-        .reach(Self::TAC, Self::YON_ROLES)
+        .reach(Self::TAC_NAMED, Self::YON_ROLES)
         .with(&["Needs"]),
         Rule::new(
             "Setup",
@@ -1040,18 +1043,24 @@ impl AnnotationRules {
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
         crate::tac_cpp::CppMarkerCheck::either(path, source, |path, source| {
-            crate::fsharp_source::FsharpView::run(path, source, Self::check_fsharp)
-                .unwrap_or_else(|| Self::check_direct(path, source))
+            crate::fsharp_source::FsharpView::run(path, source, Self::check_direct).map_or_else(
+                || Self::check_direct(path, source),
+                |checked| checked.and_then(|()| Self::check_fsharp(path, source)),
+            )
         })
     }
 
     fn check_fsharp(path: &Path, source: &str) -> Result<(), Failure> {
-        Self::check_direct(path, source)?;
-        let in_yon = Realm::of(path) == Some(Realm::Yon);
+        let view = crate::fsharp_source::FsharpView::unmoved(path, source);
+        Self::check_fsharp_reach(view.path(), view.text()).map_err(|failure| view.failure(&failure))
+    }
+
+    fn check_fsharp_reach(path: &Path, source: &str) -> Result<(), Failure> {
         let found = scan::Scan::run_as("cs", "cs", source);
-        let outside = found.outside_reach("fs", Realm::Yon).filter(|_| in_yon);
-        outside.map_or(Ok(()), |(at, rule)| {
-            let message = scan::Messages::unavailable(rule, "cs", Realm::Yon);
+        let outside = Realm::of(path)
+            .and_then(|realm| found.outside_reach("fs", realm).map(|hit| (hit, realm)));
+        outside.map_or(Ok(()), |((at, rule), realm)| {
+            let message = scan::Messages::unavailable(rule, "cs", realm);
             Err(Self::failure_at(path, source, at, rule.code, &message))
         })
     }

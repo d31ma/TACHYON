@@ -1060,7 +1060,7 @@ fn test_members(unit: &Unit, cleared_fakes: &str) -> String {
     format!(
         "\nBehaviors.Context behaviors;\n\
          void startBehaviors() {{ stopBehaviors(); this.behaviors = Behaviors.create({}, \
-         new Behaviors.Options({}, new Behaviors.Signal(), 10000, java.util.List.of({profiles}), java.util.Map.of({properties}))); }}\n\
+         new Behaviors.Options({}, new Behaviors.Signal(), 10000, java.util.List.of({profiles}), java.util.Map.ofEntries({properties}))); }}\n\
          void stopBehaviors() {{ if (this.behaviors != null) {{ this.behaviors.close(); this.behaviors = null; }} }}\n\
          void runCase(String name) {{ switch (name) {{ {dispatch} default: return; }} }}\n\
          Object POST() {{\n\
@@ -1100,7 +1100,15 @@ fn property_entries(unit: &Unit) -> String {
     };
     let mut pairs = Vec::new();
     for (key, value) in entries {
-        pairs.push(format!("{}, {}", quote(key), quote(&value.to_string())));
+        let name = key.replace('.', "_").to_uppercase();
+        let text = value
+            .as_str()
+            .map_or_else(|| value.to_string(), str::to_owned);
+        pairs.push(format!(
+            "java.util.Map.entry({}, {})",
+            quote(&name),
+            quote(&text)
+        ));
     }
     pairs.join(", ")
 }

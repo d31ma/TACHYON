@@ -525,6 +525,19 @@ machine contracts have their own, independent major versions.
   tests prove Java Tac `@CacheKey`, `@UpdateCache`, `@Store`, `@Query`,
   `@PageDefaults`, `@Converter` and `@Convert` (map and record forms) on the
   page.
+
+- The annotation rule table checks Java and F# Tac code. Every marker that
+  the Java and F# page builds support is accepted by name. Java Tac code
+  refuses Helper, Named, StreamRequest and SocketRequest with TY1308, and a
+  Java `@Needs` field of another service with TY1405. F# Tac code refuses
+  Named with TY1308 (it failed with TY1405 before), and accepts
+  StreamRequest and SocketRequest, which F# services now hold. Two fixes
+  come with it: an F# Tac service with
+  `[<Lifetime({"value":"prototype"})>]` gets one instance for each
+  component (the attribute was ignored), and `@TestSettings` in a Java Tac
+  test unit no longer fails with `configuration` (ADR 0073 and ADR 0083
+  amendments).
+
 - JavaScript and TypeScript services share one Setup class. Before, each
   service module carried its own copy of every Setup class; now, when two or
   more modules hold the same Setup, the build moves its class into the shared

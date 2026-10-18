@@ -1173,3 +1173,190 @@ fn python_tac_accepts_saved_fields_behaviors_and_listeners() {
     let retried = "class SampleService:\n    @retry({\"attempts\": 3})\n    async def load(self) -> int:\n        return 1\n";
     assert_eq!(Sample::message("py", Realm::Yon, retried), None);
 }
+
+struct TacFamilies;
+
+impl TacFamilies {
+    const JAVA: [(&'static str, &'static str); 15] = [
+        (
+            "roles, lifecycle and events",
+            "@Service\n@Lifetime({\"value\":\"prototype\"})\n@Description(\"Keeps the orders\")\npublic class SampleService {\n    @Needs\n    private OrderStore store;\n\n    @OnStart\n    public void start() {\n    }\n\n    @OnStop\n    public void stop() {\n    }\n\n    @OnEvent\n    @Order(1)\n    public void placed(OrderPlaced event) {\n    }\n\n    @OnEvent\n    @InBackground\n    public void archived(OrderPlaced event) {\n    }\n}\n",
+        ),
+        (
+            "roles, lifecycle and events",
+            "@Topic\npublic class OrderPlaced {\n    private String id;\n}\n",
+        ),
+        (
+            "roles, lifecycle and events",
+            "@NeedsAll\npublic class SampleService {\n    private String label;\n}\n",
+        ),
+        (
+            "caching",
+            "@Service\n@CacheSettings(\"prices\")\npublic class SampleService {\n    @Cached\n    public int price(@CacheKey String sku, String note) {\n        return 1;\n    }\n\n    @UpdateCache(\"prices\")\n    public int refresh(@CacheKey String sku) {\n        return 2;\n    }\n\n    @ClearCache(\"prices\")\n    public void forget() {\n    }\n}\n",
+        ),
+        (
+            "policies",
+            "@Service\npublic class SampleService {\n    @Retry({\"maxRetries\":3,\"delayMs\":10})\n    public int steady() {\n        return 1;\n    }\n\n    @MaxAtOnce({\"limit\":2,\"policy\":\"block\"})\n    public int once() {\n        return 1;\n    }\n\n    @AllOrNothing({\"adapter\":\"indexeddb\"})\n    public void save() {\n    }\n}\n",
+        ),
+        (
+            "stores and state",
+            "@Entity\n@Table(\"orders\")\npublic class OrderEntity {\n    @Id\n    private long id;\n}\n",
+        ),
+        (
+            "stores and state",
+            "@Store(ProductEntity.class, OPTIONS)\ninterface ProductStore {\n    Object findByStatus(String status);\n\n    @Query(QUERY)\n    Object excluding(String status, @PageDefaults java.util.Map<String, Object> page);\n}\n",
+        ),
+        (
+            "stores and state",
+            "@Service\npublic class SampleService {\n    @LocalState\n    private String theme = \"light\";\n\n    @SessionState\n    private String draft = \"\";\n}\n",
+        ),
+        (
+            "stores and state",
+            "@Converter\npublic class MoneyConverter {\n    @Convert\n    public long toColumn(Money money) {\n        return money.cents();\n    }\n}\n",
+        ),
+        (
+            "validation",
+            "@Checked\npublic class OrderInput {\n    @Required\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    private String name;\n\n    @Min(1)\n    @Max(9)\n    private int level;\n}\n",
+        ),
+        (
+            "validation",
+            "@Service\npublic class SampleService {\n    public Object accept(@Check(OrderInput.class) Object order) {\n        return order;\n    }\n}\n",
+        ),
+        (
+            "settings and profiles",
+            "@Setup\n@WhenProfile(\"public\")\n@WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\"})\npublic class CatalogSetup {\n}\n",
+        ),
+        (
+            "settings and profiles",
+            "@Settings({\"prefix\":\"TAC_CATALOG_\"})\npublic class CatalogSettings {\n    @Setting(\"${tac.catalog.size:20}\")\n    private int size;\n}\n",
+        ),
+        (
+            "outbound HTTP",
+            "@HTTPClient(\"/api\")\ninterface CatalogClient {\n    @GetRequest(\"/products/{id}\")\n    Object find(@PathVariable(\"id\") String id, @RequestParam(\"view\") String view, @RequestHeader(\"X-Tenant\") String tenant);\n\n    @PostRequest(\"/products\")\n    Object save(@RequestBody Object product);\n\n    @PutRequest(\"/products/{id}\")\n    Object replace(@PathVariable(\"id\") String id, @RequestBody Object product);\n\n    @PatchRequest(\"/products/{id}\")\n    Object change(@PathVariable(\"id\") String id, @RequestBody Object change);\n\n    @DeleteRequest(\"/products/{id}\")\n    Object remove(@PathVariable(\"id\") String id);\n}\n",
+        ),
+        (
+            "test units",
+            "@Test(CatalogTestSetup.class)\n@UseProfiles(\"public\")\n@TestSettings({\"tac.cache.enabled\":\"true\"})\n@FreshStart\npublic class CatalogServiceTest {\n    @Fake\n    private NameService names;\n\n    @ValueSource({1, 2})\n    public void testKeepsPositiveInputs(int value) {\n    }\n}\n",
+        ),
+    ];
+    const FSHARP: [(&'static str, &'static str); 15] = [
+        (
+            "roles, lifecycle and events",
+            "[<Service>]\n[<Lifetime(\"prototype\")>]\n[<Description(\"Keeps the orders\")>]\ntype SampleService() =\n    [<Needs>]\n    member val Orders : OrdersClient = Unchecked.defaultof<OrdersClient> with get, set\n\n    [<OnStart>]\n    member this.Start() : unit = ()\n\n    [<OnStop>]\n    member this.Stop() : unit = ()\n\n    [<OnEvent>]\n    [<Order(1)>]\n    member this.Placed(event: OrderPlaced) : unit = ()\n\n    [<OnEvent>]\n    [<InBackground>]\n    member this.Archived(event: OrderPlaced) : unit = ()\n",
+        ),
+        (
+            "roles, lifecycle and events",
+            "[<Topic>]\ntype OrderPlaced() =\n    member val Id : string = \"\" with get, set\n",
+        ),
+        (
+            "roles, lifecycle and events",
+            "[<NeedsAll>]\ntype SampleService() =\n    member val Label : string = \"\" with get, set\n",
+        ),
+        (
+            "caching",
+            "[<Service>]\n[<CacheSettings(\"prices\")>]\ntype SampleService() =\n    [<Cached>]\n    member this.Price([<CacheKey>] sku: string, note: string) : int = 1\n\n    [<UpdateCache(\"prices\")>]\n    member this.Refresh([<CacheKey>] sku: string) : int = 2\n\n    [<ClearCache(\"prices\")>]\n    member this.Forget() : unit = ()\n",
+        ),
+        (
+            "policies",
+            "[<Service>]\ntype SampleService() =\n    [<Retry({\"maxRetries\":3,\"delayMs\":10})>]\n    member this.Steady() : int = 1\n\n    [<MaxAtOnce({\"limit\":2,\"policy\":\"block\"})>]\n    member this.Once() : int = 1\n\n    [<AllOrNothing({\"adapter\":\"indexeddb\"})>]\n    member this.Save() : unit = ()\n",
+        ),
+        (
+            "stores and state",
+            "[<Entity>]\n[<Table(\"orders\")>]\ntype OrderEntity() =\n    [<Id>]\n    member val Id : int = 0 with get, set\n",
+        ),
+        (
+            "stores and state",
+            "open System.Threading.Tasks\n\n[<Store(typeof<ProductEntity>, OPTIONS)>]\ntype ProductStore =\n    abstract findByStatus: status: BehaviorJSON -> Task<BehaviorJSON>\n\n    [<Query(QUERY)>]\n    abstract excluding: status: BehaviorJSON * [<PageDefaults>] page: BehaviorJSON -> Task<BehaviorJSON>\n",
+        ),
+        (
+            "stores and state",
+            "[<Service>]\ntype SampleService() =\n    [<LocalState>]\n    member val Theme : string = \"light\" with get, set\n\n    [<SessionState>]\n    member val Draft : string = \"\" with get, set\n",
+        ),
+        (
+            "stores and state",
+            "[<Converter>]\ntype MoneyConverter() =\n    [<Convert>]\n    member this.ToColumn(money: Money) : int64 = money.Cents\n",
+        ),
+        (
+            "validation",
+            "[<Checked>]\ntype OrderInput() =\n    [<Required>]\n    [<NotEmpty>]\n    [<Length({\"min\":1,\"max\":80})>]\n    member val name : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n\n    [<Min(1)>]\n    [<Max(9)>]\n    member val level : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n",
+        ),
+        (
+            "validation",
+            "[<Service>]\ntype SampleService() =\n    member this.accept([<Check(typeof<OrderInput>)>] order: BehaviorJSON) : BehaviorJSON = order\n",
+        ),
+        (
+            "settings and profiles",
+            "[<Setup>]\n[<WhenProfile(\"public\")>]\n[<WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\"})>]\ntype CatalogSetup() =\n    member this.Name() : string = \"catalog\"\n",
+        ),
+        (
+            "settings and profiles",
+            "[<Settings({\"prefix\":\"TAC_CATALOG_\"})>]\ntype CatalogSettings() =\n    [<Setting(\"${tac.catalog.size:20}\")>]\n    member val Size : int = 20 with get, set\n",
+        ),
+        (
+            "outbound HTTP",
+            "open System.Threading.Tasks\n\n[<HTTPClient(\"/api\")>]\ntype CatalogClient =\n    [<GetRequest(\"/products/{id}\")>]\n    abstract Find: [<PathVariable(\"id\")>] id: string * [<RequestParam(\"view\")>] view: string * [<RequestHeader(\"X-Tenant\")>] tenant: string -> Task<BehaviorJSON>\n\n    [<PostRequest(\"/products\")>]\n    abstract Save: [<RequestBody>] product: BehaviorJSON -> Task<BehaviorJSON>\n\n    [<PutRequest(\"/products/{id}\")>]\n    abstract Replace: [<PathVariable(\"id\")>] id: string * [<RequestBody>] product: BehaviorJSON -> Task<BehaviorJSON>\n\n    [<PatchRequest(\"/products/{id}\")>]\n    abstract Change: [<PathVariable(\"id\")>] id: string * [<RequestBody>] change: BehaviorJSON -> Task<BehaviorJSON>\n\n    [<DeleteRequest(\"/products/{id}\")>]\n    abstract Remove: [<PathVariable(\"id\")>] id: string -> Task<BehaviorJSON>\n",
+        ),
+        (
+            "test units",
+            "[<Test(typeof<CatalogTestSetup>)>]\n[<UseProfiles(\"public\")>]\n[<TestSettings({\"tac.cache.enabled\":\"true\"})>]\n[<FreshStart>]\ntype CatalogServiceTest() =\n    [<Fake>]\n    member val Names : NameService = Unchecked.defaultof<NameService> with get, set\n\n    [<ValueSource([1, 2])>]\n    member this.testKeepsPositiveInputs(value: int) : unit =\n        Assert.isTrue(value > 0)\n",
+        ),
+    ];
+    const NAMED: [(&'static str, &'static str, &'static str); 2] = [
+        (
+            "java",
+            "@Service\npublic class SampleService {\n    @Needs\n    @Named(\"FastStore\")\n    private OrderStore store;\n}\n",
+            "@Named is not available in Java Tac code",
+        ),
+        (
+            "fs",
+            "[<Service>]\ntype SampleService() =\n    [<Needs>]\n    [<Named(\"FastStore\")>]\n    member val Store : OrderStore = Unchecked.defaultof<OrderStore> with get, set\n",
+            "[<Named>] is not available in F# Tac code",
+        ),
+    ];
+
+    fn accepts_every_family(language: &str, samples: &[(&str, &str)]) {
+        for (family, source) in samples {
+            assert_eq!(
+                Sample::message(language, Realm::Tac, source),
+                None,
+                "{language} {family}:\n{source}"
+            );
+        }
+    }
+
+    fn refuses_named(language: &str) {
+        let (_, source, expected) = Self::NAMED
+            .into_iter()
+            .find(|(named, _, _)| *named == language)
+            .expect("a Named sample");
+        let failure = AnnotationRules::check(&Sample::path(language, Realm::Tac), source)
+            .expect_err(&format!("{language} Tac accepted Named:\n{source}"));
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.number(), 1308, "{}", diagnostic.message);
+        assert!(
+            diagnostic.message.contains(expected),
+            "{}",
+            diagnostic.message
+        );
+    }
+}
+
+#[test]
+fn java_tac_accepts_a_marker_from_every_family() {
+    TacFamilies::accepts_every_family("java", &TacFamilies::JAVA);
+}
+
+#[test]
+fn fsharp_tac_accepts_a_marker_from_every_family() {
+    TacFamilies::accepts_every_family("fs", &TacFamilies::FSHARP);
+}
+
+#[test]
+fn java_tac_refuses_named_by_name() {
+    TacFamilies::refuses_named("java");
+}
+
+#[test]
+fn fsharp_tac_refuses_named_by_name() {
+    TacFamilies::refuses_named("fs");
+}

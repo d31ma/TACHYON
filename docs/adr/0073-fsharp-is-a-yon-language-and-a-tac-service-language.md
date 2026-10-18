@@ -396,3 +396,28 @@ F# never ignores an annotation.
   is called curried. `an_fsharp_page_service_calls_a_curried_and_a_tupled_http_client_member`
   (`crates/tachyon-core/src/tac_web/fsharp_http_client_tests.rs`) shows the
   curried and tupled members on the .NET page build, driven in node.
+
+## Amendment (2026-10-18): the rule table checks F# Tac code
+
+- `"fs"` is now in the Tac reach lists of the annotation rule table
+  (`TAC`, `TAC_BEHAVIOR`, `TAC_FAKE`, `TAC_VALUE_SOURCE`, `TAC_NEEDS_ALL`,
+  `TAC_STREAM`, and the lists that follow them). F# Tac code still passes
+  through its C# view with C#'s rules, and then every marker is checked
+  against the F# reach. The `FSHARP_TAC_CHECKED` list, which limited the F#
+  check to StreamRequest and SocketRequest, is gone: F# Tac code holds
+  stream and socket clients now (see the amendment above).
+- Named has its own reach list, `TAC_NAMED`, without F#, so F# Tac code
+  refuses it by name with `TY1308`. Before, Named failed with `TY1405`,
+  because an F# Tac constructor parameter or `Needs` property may only be
+  the `ApplicationEventPublisher`, an HTTPClient or a NeedsAll property.
+  The F# reach check reads a view of the file that keeps the `[<Needs>]`
+  and `[<Named>]` lines of a property; the C# view moves those properties
+  into the constructor and drops their markers.
+- A `Needs` property of a browser API such as Clock still stops with
+  `TY1405`, by design: an F# service builds it, as in
+  `let clock = Clock()`. A `Needs` property of another service stops with
+  `TY1405` too.
+- `[<Lifetime({"value":"prototype"})>]` on an F# Tac service works. The
+  page registry read only the `@Lifetime` spelling, so it ignored the F#
+  attribute and shared one instance. It now reads the service through the
+  F# view, so a prototype service gets one instance for each component.

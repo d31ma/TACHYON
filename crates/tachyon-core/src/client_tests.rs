@@ -55,6 +55,8 @@ mod java_http_verbs_tests;
 #[cfg(test)]
 mod java_preference_tests;
 #[cfg(test)]
+mod java_test_settings_tests;
+#[cfg(test)]
 mod module_url_tests;
 #[cfg(test)]
 mod ruby_http_construct_tests;

@@ -43,6 +43,13 @@ impl FsharpView {
         }
     }
 
+    pub(crate) fn unmoved(path: &Path, source: &str) -> Self {
+        Self {
+            shadow: FsharpShadow::unmoved(source),
+            ..Self::new(path, source)
+        }
+    }
+
     pub(crate) fn either<T>(
         path: &Path,
         source: &str,

@@ -12,9 +12,19 @@ impl FsharpShadow {
     const CONSTRUCTOR_NEEDS: &'static str = "[Needs(";
 
     pub(crate) fn of(source: &str) -> Self {
-        let plain = FieldNeeds::moved(&FsharpLexer::without_comments(source));
-        let code = FsharpLexer::code_mask(&plain).code;
-        let written = ShadowWriter::write(&plain, &code);
+        Self::written(
+            source,
+            &FieldNeeds::moved(&FsharpLexer::without_comments(source)),
+        )
+    }
+
+    pub(crate) fn unmoved(source: &str) -> Self {
+        Self::written(source, &FsharpLexer::without_comments(source))
+    }
+
+    fn written(source: &str, plain: &str) -> Self {
+        let code = FsharpLexer::code_mask(plain).code;
+        let written = ShadowWriter::write(plain, &code);
         let (source_starts, source_lengths) = Self::source_lines(source);
         let (text, shadow_starts, origins) = Self::joined(written);
         Self {
