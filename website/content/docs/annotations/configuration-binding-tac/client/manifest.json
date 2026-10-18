@@ -4,6 +4,10 @@
   "start_url": "/",
   "display": "standalone",
   "tac": {
+    "python": {
+      "runtime": "pyodide-314.0.7",
+      "profile": "offline"
+    },
     "catalog": {
       "title": "Catalog",
       "page": {

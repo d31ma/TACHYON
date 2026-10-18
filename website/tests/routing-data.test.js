@@ -18,7 +18,7 @@ class PublishedData {
     'Checking values and method arguments': PublishedData.withCppWithoutLua,
     'Limited Store and Query': PublishedData.withCpp,
     'Reading settings and choosing configuration': PublishedData.withCppWithoutLua,
-    'Calling a method in another language': PublishedData.withCppWithoutLua,
+    'Calling a method in another language': PublishedData.withCpp,
   }
 
   /** @param {string} name @returns {Promise<Documentation>} */

@@ -854,6 +854,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Yon Lua `-- @HTTPClient` method with `-- @Gateway` now keeps the target
+  method public. Before, the visibility check did not read Lua files, so a
+  Python service that only a Lua gateway called failed with `TY1333`. The
+  Lua gateway examples in the Yon guide, the gateways feature and Gateways:
+  Yon now run, and the Python Tac tabs of Configuration binding: Tac and
+  Public Tac output and private Yon lifetime are new.
 - An F# Tac service property set from a primary-constructor parameter
   without a written type, such as `member val Title = label with get, set`
   in `ShelfService(label: string)`, now takes that parameter's type. Before,

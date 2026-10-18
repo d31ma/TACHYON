@@ -244,6 +244,22 @@ fn a_cpp_gateway_keeps_the_method_it_calls_public() {
 }
 
 #[test]
+fn a_lua_gateway_keeps_the_method_it_calls_public() {
+    let service = "@service\nclass ReportService:\n    def summarize(self, period: str) -> str:\n        return period\n";
+    let client = "-- @HTTPClient\n---@class ReportClient\nReportClient = {}\n\n---@param period string\n---@return any\n-- @Gateway({\"class\":\"server/services/ReportService.py\"})\nfunction ReportClient:summarize(period)\nend\n";
+    let controller = "-- @RequestRoute(\"/report\")\n---@class ReportController\nReportController = {\n  -- @Needs\n  ---@type ReportClient\n  report_client = nil,\n}\n\n---@return any\n-- @GetRoute\nfunction ReportController:get_report()\n  return self.report_client:summarize(\"2026-Q3\")\nend\n";
+    let files = [
+        ("server/services/ReportService.py", service),
+        ("server/remotes/ReportClient.lua", client),
+        ("server/controllers/ReportController.lua", controller),
+    ];
+    assert_eq!(
+        VisibilityProject::names_in(&files, "server/services"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
 fn a_gateway_that_names_another_method_keeps_that_method_public() {
     let service = "@Service\nclass ReportService {\n    Object summarize(Object period) {\n        return period;\n    }\n}\n";
     let client = "@h_t_t_p_client\nclass ForecastClient:\n    @gateway({\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"})\n    def summary(self, period: str) -> None: ...\n";
