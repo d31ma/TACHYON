@@ -30,10 +30,7 @@ impl<'a> JavaServiceTable<'a> {
         let mut members = String::new();
         let mut required = String::new();
         let mut factories = String::new();
-        let mut sharing = String::new();
-        for name in shared {
-            let _ = writeln!(sharing, "            case {} -> true;", Self::quoted(name));
-        }
+        let sharing = Self::sharing(shared);
         for (index, service) in services.iter().enumerate() {
             let instance = Self::quoted(&service.instance);
             let _ = writeln!(
@@ -53,6 +50,13 @@ impl<'a> JavaServiceTable<'a> {
              static boolean shared(String name) {{\n        return switch (name) {{\n{sharing}            default -> false;\n        }};\n    }}\n\n    \
              static String[] required(String name) {{\n        return switch (name) {{\n{required}            default -> new String[0];\n        }};\n    }}\n{factories}}}\n"
         )
+    }
+
+    fn sharing(shared: &BTreeSet<String>) -> String {
+        shared.iter().fold(String::new(), |mut cases, name| {
+            let _ = writeln!(cases, "            case {} -> true;", Self::quoted(name));
+            cases
+        })
     }
 
     fn factory(&self, index: usize, service: &JavaService) -> String {

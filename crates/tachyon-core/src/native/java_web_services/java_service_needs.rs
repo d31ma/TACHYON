@@ -1,4 +1,5 @@
 use super::java_code::JavaCode;
+use super::java_constructor_provider::JavaConstructorProvider;
 use super::java_enclosure::JavaEnclosure;
 use super::java_need_owner::JavaNeedOwner;
 use super::java_service::JavaService;
@@ -61,24 +62,39 @@ impl JavaServiceNeeds {
         &self,
         source: &str,
         own: &str,
-        providers: &[super::java_constructor_provider::JavaConstructorProvider],
+        providers: &[JavaConstructorProvider],
     ) -> String {
-        let mut classes: BTreeMap<&str, String> = BTreeMap::new();
-        for (_, class, index, _) in self.page.iter().rev() {
-            classes.insert(class, format!("{}.{class}", JavaEnclosure::holder(*index)));
-        }
-        for (_, class) in providers
+        self.holders(own, providers)
             .iter()
-            .filter_map(super::java_constructor_provider::JavaConstructorProvider::needed)
-        {
-            classes.insert(Self::plain(class), class.to_owned());
-        }
+            .fold(source.to_owned(), |text, (plain, class)| {
+                Self::qualify(&text, plain, class)
+            })
+    }
+
+    fn holders(
+        &self,
+        own: &str,
+        providers: &[JavaConstructorProvider],
+    ) -> BTreeMap<String, String> {
+        let mut classes: BTreeMap<String, String> = self
+            .page
+            .iter()
+            .rev()
+            .map(|(_, class, index, _)| {
+                (
+                    class.clone(),
+                    format!("{}.{class}", JavaEnclosure::holder(*index)),
+                )
+            })
+            .collect();
+        classes.extend(
+            providers
+                .iter()
+                .filter_map(JavaConstructorProvider::needed)
+                .map(|(_, class)| (Self::plain(class).to_owned(), class.to_owned())),
+        );
         classes.remove(own);
-        let mut text = source.to_owned();
-        for (plain, class) in classes {
-            text = Self::qualify(&text, plain, &class);
-        }
-        text
+        classes
     }
 
     fn entry(
@@ -115,7 +131,7 @@ impl JavaServiceNeeds {
         let before = at.checked_sub(1).and_then(|previous| code.get(previous));
         let after = code.get(at + length);
         let word = |byte: Option<&u8>| {
-            byte.is_some_and(|byte| byte.is_ascii_alphanumeric() || [b'_', b'$'].contains(byte))
+            byte.is_some_and(|byte| byte.is_ascii_alphanumeric() || b"_$".contains(byte))
         };
         [word(before), before == Some(&Self::QUALIFIED), word(after)] == [false, false, false]
     }
@@ -131,7 +147,7 @@ impl JavaServiceNeeds {
         service
             .providers
             .iter()
-            .filter_map(super::java_constructor_provider::JavaConstructorProvider::needed)
+            .filter_map(JavaConstructorProvider::needed)
             .map(|(instance, _)| instance.to_owned())
             .collect()
     }
@@ -143,29 +159,21 @@ impl JavaServiceNeeds {
         let needs = edges.get(&service.instance).cloned().unwrap_or_default();
         let circle = needs
             .iter()
-            .find(|target| Self::reached(edges, target).contains(&service.instance));
+            .find(|target| Self::reaches(edges, target, &service.instance));
         circle.map_or(Ok(()), |target| {
             Err(Self::circle(service, authored, target))
         })
     }
 
-    fn reached(edges: &BTreeMap<String, BTreeSet<String>>, from: &str) -> BTreeSet<String> {
-        let mut seen = BTreeSet::from([from.to_owned()]);
-        for _ in 0..edges.len() {
-            seen = Self::widened(edges, &seen);
+    fn reaches(edges: &BTreeMap<String, BTreeSet<String>>, from: &str, wanted: &str) -> bool {
+        let mut seen = BTreeSet::new();
+        let mut waiting = vec![from.to_owned()];
+        while let Some(next) = waiting.pop() {
+            let fresh = seen.insert(next.clone());
+            let onward = edges.get(&next).filter(|_| fresh);
+            waiting.extend(onward.into_iter().flatten().cloned());
         }
-        seen
-    }
-
-    fn widened(
-        edges: &BTreeMap<String, BTreeSet<String>>,
-        seen: &BTreeSet<String>,
-    ) -> BTreeSet<String> {
-        let mut next = seen.clone();
-        for instance in seen {
-            next.extend(edges.get(instance).into_iter().flatten().cloned());
-        }
-        next
+        seen.contains(wanted)
     }
 
     fn circle(service: &JavaService, authored: &str, target: &str) -> Failure {

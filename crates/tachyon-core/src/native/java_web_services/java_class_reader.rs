@@ -35,14 +35,6 @@ impl<'a> JavaClassReader<'a> {
         }
     }
 
-    pub(super) fn members(
-        &self,
-        class: &str,
-        values: &JavaValueType,
-    ) -> Result<Vec<JavaMember>, Failure> {
-        self.members_without_fields(class, values, &[])
-    }
-
     pub(super) fn members_without_fields(
         &self,
         class: &str,
@@ -186,7 +178,7 @@ mod tests {
 
     fn read(source: &str) -> Result<Vec<(String, String, Vec<String>, JavaMemberKind)>, String> {
         let members = JavaClassReader::new(PATH, source)
-            .members("ShelfService", &JavaValueType::new(Vec::new()))
+            .members_without_fields("ShelfService", &JavaValueType::new(Vec::new()), &[])
             .map_err(|failure| failure.to_string())?;
         Ok(members
             .into_iter()

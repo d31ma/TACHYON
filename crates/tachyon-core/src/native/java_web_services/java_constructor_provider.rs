@@ -23,6 +23,10 @@ impl JavaConstructorProvider {
     }
 
     pub(super) fn needed(&self) -> Option<(&str, &str)> {
+        self.target()
+    }
+
+    fn target(&self) -> Option<(&str, &str)> {
         match self {
             Self::Service {
                 instance, class, ..
