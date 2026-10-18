@@ -20,7 +20,7 @@ impl<'a> FsharpTestConstruction<'a> {
         contents: &str,
         view: &FsharpView,
     ) -> Result<String, Failure> {
-        let owners = FieldNeeds::marked_properties(contents, Self::NEEDS);
+        let owners = FieldNeeds::settable_owners(contents, Self::NEEDS);
         let fakes = Self::fakes(unit, contents);
         let wanted = [owners.is_empty(), fakes.is_empty()] == [false, false];
         let written = wanted.then(|| Self::with_clients((unit, fakes), view, &owners));
@@ -158,6 +158,14 @@ mod tests {
             ),
             "{members}"
         );
+    }
+
+    #[test]
+    fn a_type_with_primary_constructor_parameters_gets_no_construct_branch() {
+        let controller = "[<RequestRoute(\"/stock\")>]\ntype StockController(stock: StockService) =\n    [<Needs>]\n    member val Clock : Clock = Unchecked.defaultof<Clock> with get, set\n\n";
+        let members = members(&format!("{controller}{SOURCE}"));
+        assert!(!members.contains("StockController"), "{members}");
+        assert!(members.contains("typeof<CounterService>"), "{members}");
     }
 
     #[test]

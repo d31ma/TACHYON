@@ -52,12 +52,32 @@ impl FieldNeeds {
         contents: &str,
         marker: &'static str,
     ) -> Vec<(String, Vec<(String, String)>)> {
+        Self::marked_owners(contents, marker, |_| true)
+    }
+
+    /// The marked owners that property setters alone can make: types without a primary
+    /// constructor parameter, which `Test.construct` cannot supply.
+    pub(crate) fn settable_owners(
+        contents: &str,
+        marker: &'static str,
+    ) -> Vec<(String, Vec<(String, String)>)> {
+        Self::marked_owners(contents, marker, |header| {
+            TypeHeader::constructor_types(header).is_empty()
+        })
+    }
+
+    fn marked_owners(
+        contents: &str,
+        marker: &'static str,
+        keep: fn(&str) -> bool,
+    ) -> Vec<(String, Vec<(String, String)>)> {
         let text = FsharpLexer::without_comments(contents);
         let lines: Vec<&str> = text.split('\n').collect();
         let found = Self::read_marked(&text, marker);
         found
             .owners()
             .into_iter()
+            .filter(|(owner, _)| keep(lines[*owner].trim()))
             .map(|(owner, needs)| {
                 let name = TypeHeader::read(lines[owner].trim(), &[], false).name;
                 let properties = needs
