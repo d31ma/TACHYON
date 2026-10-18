@@ -9,7 +9,6 @@ pub(crate) struct LuaBehaviorEdits<'p> {
 
 impl<'p> LuaBehaviorEdits<'p> {
     const RUNTIME: &'static str = include_str!("lua_behaviors.lua");
-    const RESOURCE: &'static str = "Lua classes do not support {} yet (ADR 0085): it is a resource, like DataSource, RedisTemplate and relay. Write this class in another Yon language";
     const BLOCK_OPENERS: [&'static str; 3] = ["function", "if", "do"];
     const BLOCK_END: &'static str = "end";
     const INNER_ENDS: [&'static str; 2] = ["end) ", "end "];
@@ -19,7 +18,6 @@ impl<'p> LuaBehaviorEdits<'p> {
     }
 
     pub(crate) fn program(&self, path: &Path, authored: &str) -> Result<String, String> {
-        self.refuse_resources()?;
         let masked = crate::annotation_layout::masked_source(path, authored)
             .map_err(|failure| failure.to_string())?;
         Ok(format!(
@@ -36,14 +34,6 @@ impl<'p> LuaBehaviorEdits<'p> {
             edits.extend(Self::method_edits(masked, method)?);
         }
         Ok(edits)
-    }
-
-    fn refuse_resources(&self) -> Result<(), String> {
-        self.plan
-            .methods
-            .iter()
-            .find_map(|method| method.resource)
-            .map_or(Ok(()), |name| Err(Self::RESOURCE.replace("{}", name)))
     }
 
     fn method_edits(
@@ -71,7 +61,12 @@ impl<'p> LuaBehaviorEdits<'p> {
     }
 
     fn needs_inner_end(method: &LuaBehaviorMethod) -> bool {
-        method.validated.is_some() || method.mapping.is_some()
+        [
+            method.validated.is_some(),
+            method.mapping.is_some(),
+            method.gateway.is_some(),
+        ]
+        .contains(&true)
     }
 
     fn line_start_of(masked: &str, signature: &str) -> Option<usize> {
@@ -133,9 +128,27 @@ impl<'p> LuaBehaviorEdits<'p> {
 
     fn opening(method: &LuaBehaviorMethod) -> String {
         let arguments = method.parameters.join(", ");
-        if let Some(policy) = &method.mapping {
-            return Self::mapping(policy, &arguments);
-        }
+        method
+            .mapping
+            .as_ref()
+            .map(|policy| Self::mapping(policy, &arguments))
+            .or_else(|| {
+                method
+                    .gateway
+                    .as_ref()
+                    .map(|key| Self::gateway(key, &arguments))
+            })
+            .unwrap_or_else(|| Self::invocation(method, &arguments))
+    }
+
+    fn gateway(key: &str, arguments: &str) -> String {
+        format!(
+            " do return BehaviorBoundary.gateway({}, table.pack({arguments}))",
+            LuaSource::long_string(key)
+        )
+    }
+
+    fn invocation(method: &LuaBehaviorMethod, arguments: &str) -> String {
         method.validated.as_ref().map_or_else(
             || {
                 format!(
@@ -205,7 +218,7 @@ mod tests {
             parameters: vec![String::from("limit")],
             mapping: None,
             validated: None,
-            resource: None,
+            gateway: None,
         };
         LuaBehaviorEdits::method_edits(source, &method)
             .unwrap_or_else(|message| panic!("{message}"))[1]

@@ -16,6 +16,7 @@ mod process_failure;
 mod process_outcome;
 mod process_pipes;
 mod process_reaper;
+mod resource_pipe;
 mod running_process;
 mod running_stream;
 mod runtime_identity;
@@ -40,7 +41,7 @@ pub(crate) use socket::{SocketChannels, SocketInput, SocketOutput};
 use super::frame::{FrameLimits, HandlerFrame};
 use super::gateway::{GatewayCallSetup, GatewayCalls, GatewayTable};
 use super::readiness::{RuntimeProbe, RuntimeProbeResult, RuntimeRequirement, RuntimeRequirements};
-use super::resources::ResourceAccess;
+use super::resources::{PipedResources, ResourceAccess};
 use super::topic_bus::{TopicBus, TopicOutbox};
 use super::{FirecrackerIsolation, HandlerLanguage, HandlerSource};
 use crate::Failure;
@@ -54,6 +55,7 @@ use planned_command::PlannedCommand;
 use process_failure::ProcessFailure;
 use process_outcome::ProcessOutcome;
 use process_pipes::ProcessPipes;
+use resource_pipe::ResourcePipe;
 use running_process::RunningProcess;
 use running_stream::RunningStream;
 use runtime_identity::RuntimeIdentity;
@@ -91,6 +93,9 @@ pub struct HandlerSupervisor {
 }
 
 impl HandlerSupervisor {
+    const SOCKET_FRAMES: &'static str = "YON_SOCKET_FRAMES";
+    const RESOURCE_FRAMES: &'static str = "YON_RESOURCE_FRAMES";
+
     pub fn from_environment() -> Result<Self, Failure> {
         Self::new(HandlerSupervisorOptions::from_environment()?)
     }
@@ -487,13 +492,13 @@ impl HandlerSupervisor {
         request: &HandlerRequest,
         deadline: Instant,
         cancellation: &HandlerCancellation,
-        socket: bool,
+        frames: Option<&'static str>,
     ) -> Result<StartedProcess, Failure> {
         let adapter = AdapterFiles::materialize(source.language())?;
         let mut planned = self.handler_command(source, &adapter);
         self.require_node_proxy_switch(planned.runtime.runs_javascript())
             .await?;
-        Self::mark_socket_frames(&mut planned.command, socket);
+        Self::mark_frames(&mut planned.command, frames);
         let resource_access = self
             .resource_access_in_time(source, request, deadline, cancellation)
             .await?;
@@ -534,10 +539,15 @@ impl HandlerSupervisor {
         }
     }
 
-    fn mark_socket_frames(command: &mut Command, socket: bool) {
-        if socket {
-            command.env("YON_SOCKET_FRAMES", "1");
+    fn mark_frames(command: &mut Command, frames: Option<&'static str>) {
+        if let Some(switch) = frames {
+            command.env(switch, "1");
         }
+    }
+
+    fn pipes_resources(source: &HandlerSource, direct_protocol: bool) -> bool {
+        let lua = crate::lua_source::LuaSource::is_lua(Path::new(source.relative_path()));
+        [direct_protocol, source.gateways().is_some(), lua] == [true, true, true]
     }
 
     async fn resource_access_in_time(
@@ -612,6 +622,8 @@ impl HandlerSupervisor {
         deadline: Instant,
         cancellation: &HandlerCancellation,
     ) -> Result<HandlerResponse, Failure> {
+        let shares_resources = Self::pipes_resources(source, direct_protocol);
+        let frames = [None, Some(Self::RESOURCE_FRAMES)][usize::from(shares_resources)];
         let StartedProcess {
             child,
             stdin,
@@ -620,13 +632,17 @@ impl HandlerSupervisor {
             resource_access,
             _adapter,
         } = self
-            .start_process(source, request, deadline, cancellation, false)
+            .start_process(source, request, deadline, cancellation, frames)
             .await?;
         let pipes = ProcessPipes {
             child,
             stdin,
             stdout,
             stderr,
+            resource_pipe: resource_access
+                .as_ref()
+                .map(ResourceAccess::piped)
+                .filter(|_| shares_resources),
         };
         let topics = resource_access.as_ref().and_then(ResourceAccess::topics);
         let result = self
@@ -654,19 +670,25 @@ impl HandlerSupervisor {
     ) -> Result<HandlerResponse, Failure> {
         let ProcessPipes {
             mut child,
-            mut stdin,
+            stdin,
             stdout,
             stderr,
+            resource_pipe,
         } = pipes;
         let request_id = &request.request_id;
-        let request_bytes = self.request_with_time_left(request, direct_protocol, deadline);
+        let raw_request = [direct_protocol, resource_pipe.is_none()] == [true, true];
+        let request_bytes = self.request_with_time_left(request, raw_request, deadline);
         let request_bytes =
             Self::terminate_on_failure(request_bytes, &mut child, request_id).await?;
-        let stdout_limit = FrameLimits::MAX_BYTES + FrameLimits::PREFIX_BYTES;
-        let stdout_task = tokio::spawn(Drained::read_all(stdout, stdout_limit));
+        let (mut stdin, stdout_task) =
+            Self::read_stdout((stdin, stdout), resource_pipe, &request_bytes);
         let stderr_task = tokio::spawn(Drained::read_all(stderr, self.options.stderr_limit));
         let write_failure =
-            Self::write_request_until(&mut stdin, &request_bytes, cancellation, deadline).await;
+            OptionFuture::from(stdin.as_mut().map(|stdin| {
+                Self::write_request_until(stdin, &request_bytes, cancellation, deadline)
+            }))
+            .await
+            .flatten();
         let (stdout_task, stderr_task) = Self::stop_after_write_failure(
             write_failure,
             &mut child,
@@ -677,7 +699,7 @@ impl HandlerSupervisor {
         .await?;
         let running = RunningProcess {
             child,
-            stdin: Self::stdin_kept_open(stdin, direct_protocol),
+            stdin: stdin.and_then(|stdin| Self::stdin_kept_open(stdin, direct_protocol)),
             stdout_task,
             stderr_task,
             deadline,
@@ -687,6 +709,29 @@ impl HandlerSupervisor {
         running
             .run(cancellation, request_id, self.options.cancellation_grace)
             .await
+    }
+
+    fn read_stdout(
+        (stdin, stdout): (ChildStdin, ChildStdout),
+        resource_pipe: Option<PipedResources>,
+        request_bytes: &[u8],
+    ) -> (Option<ChildStdin>, JoinHandle<Drained>) {
+        let Some(resources) = resource_pipe else {
+            let stdout_limit = FrameLimits::MAX_BYTES + FrameLimits::PREFIX_BYTES;
+            return (
+                Some(stdin),
+                tokio::spawn(Drained::read_all(stdout, stdout_limit)),
+            );
+        };
+        let pipe = ResourcePipe {
+            resources,
+            stdin,
+            limit: FrameLimits::MAX_BYTES,
+        };
+        (
+            None,
+            tokio::spawn(pipe.serve(request_bytes.to_vec(), stdout)),
+        )
     }
 
     async fn stop_after_write_failure(
@@ -910,7 +955,7 @@ impl HandlerSupervisor {
                 process.request,
                 process.deadline,
                 process.cancellation,
-                false,
+                None,
             )
             .await?;
         let pipes = ProcessPipes {
@@ -918,6 +963,7 @@ impl HandlerSupervisor {
             stdin,
             stdout,
             stderr,
+            resource_pipe: None,
         };
         let result = self.drive_streaming_process(pipes, process).await;
         Self::close_resource_access(resource_access).await;
@@ -943,6 +989,7 @@ impl HandlerSupervisor {
             mut stdin,
             stdout,
             stderr,
+            resource_pipe: _,
         } = pipes;
         let request_bytes = self.request_with_time_left(request, direct_protocol, deadline);
         let request_bytes =

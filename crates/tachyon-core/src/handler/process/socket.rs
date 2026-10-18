@@ -53,7 +53,13 @@ impl SocketProcess {
             resource_access,
             _adapter,
         } = supervisor
-            .start_process(source, request, deadline, cancellation, true)
+            .start_process(
+                source,
+                request,
+                deadline,
+                cancellation,
+                Some(HandlerSupervisor::SOCKET_FRAMES),
+            )
             .await?;
         let process = Self {
             child,

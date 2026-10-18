@@ -1,5 +1,8 @@
 mod access;
+mod piped_resources;
 mod resource_request;
+
+pub(super) use piped_resources::PipedResources;
 
 use super::gateway::GatewayCalls;
 use super::process::HandlerCancellation;
@@ -20,6 +23,7 @@ pub(super) struct ResourceAccess {
     endpoint: String,
     token: String,
     topics: Option<Arc<TopicOutbox>>,
+    gateways: Option<Arc<GatewayCalls>>,
     stop: HandlerCancellation,
     task: JoinHandle<()>,
 }
@@ -50,9 +54,10 @@ impl ResourceAccess {
         let address = listener.local_addr().map_err(|_| Self::unavailable())?;
         let token = Self::random_token()?;
         let topics = topics.map(Arc::new);
+        let gateways = gateways.map(Arc::new);
         let access = Access {
             storage,
-            gateways: gateways.map(Arc::new),
+            gateways: gateways.clone(),
             topics: topics.clone(),
             token: token.clone(),
             host: address.to_string(),
@@ -64,6 +69,7 @@ impl ResourceAccess {
             endpoint: format!("http://{address}/"),
             token,
             topics,
+            gateways,
             stop,
             task,
         })
@@ -71,6 +77,12 @@ impl ResourceAccess {
 
     pub(super) fn topics(&self) -> Option<Arc<TopicOutbox>> {
         self.topics.clone()
+    }
+
+    pub(super) fn piped(&self) -> PipedResources {
+        PipedResources {
+            gateways: self.gateways.clone(),
+        }
     }
 
     pub(super) async fn close(mut self) {

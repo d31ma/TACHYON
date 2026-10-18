@@ -115,6 +115,7 @@ BehaviorBoundary = {
   UNSAFE_FIELDS = { __proto__ = true, prototype = true, constructor = true, behaviors = true },
   ADAPTER_NAME = "^[%a_$][%w_$]*$",
   MAX_ADAPTER_NAME = 128,
+  GATEWAY_FAILURES = { invalid = true, timeout = true, capacity = true, adapter = true },
 }
 
 function BehaviorBoundary.invalid(message)
@@ -359,6 +360,30 @@ function BehaviorBoundary.map_shape(value, fields)
     return output
   end
   return BehaviorBoundary.map_value({ argument = 0, fields = fields }, { value })
+end
+
+function BehaviorBoundary.gateway(key, arguments)
+  if YonGateway == nil then
+    BehaviorError.raise("adapter", "Gateway call failed.")
+  end
+  local count = arguments.n or #arguments
+  local list = {}
+  for index = 1, count do
+    local value = arguments[index]
+    if value == nil then
+      value = YonNull
+    end
+    list[index] = value
+  end
+  local answer = YonGateway.call(key, list)
+  if type(answer) ~= "table" or type(answer.error) == "string" then
+    local kind = type(answer) == "table" and answer.error or "adapter"
+    if not BehaviorBoundary.GATEWAY_FAILURES[kind] then
+      kind = "adapter"
+    end
+    BehaviorError.raise(kind, "Gateway call failed.")
+  end
+  return answer.result
 end
 
 function BehaviorBoundary.retryable(failure)

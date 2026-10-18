@@ -12,8 +12,6 @@ pub(crate) struct LuaBehaviorPlan {
 }
 
 impl LuaBehaviorPlan {
-    const RESOURCES: [(&'static str, &'static str); 1] = [("gateway", "Gateway")];
-
     pub(crate) fn read(
         path: &Path,
         source: &str,
@@ -64,7 +62,7 @@ impl LuaBehaviorPlan {
                 .filter(|_| method.metadata.len() == 1)
                 .cloned(),
             validated: Self::validated(method),
-            resource: Self::resource(method),
+            gateway: Self::gateway(method),
         }
     }
 
@@ -79,10 +77,11 @@ impl LuaBehaviorPlan {
         Some((index, policy["schema"].to_string()))
     }
 
-    fn resource(method: &Method) -> Option<&'static str> {
-        Self::RESOURCES
-            .iter()
-            .find(|(key, _)| method.metadata.contains_key(*key))
-            .map(|(_, name)| *name)
+    fn gateway(method: &Method) -> Option<String> {
+        method
+            .metadata
+            .get("gateway")
+            .and_then(|policy| policy["key"].as_str())
+            .map(str::to_owned)
     }
 }

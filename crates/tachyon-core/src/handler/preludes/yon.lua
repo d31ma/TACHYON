@@ -215,10 +215,39 @@ function YonInput.read()
 end
 
 function YonInput.text()
-  if os.getenv("YON_SOCKET_FRAMES") == "1" then
+  if os.getenv("YON_SOCKET_FRAMES") == "1" or YonResourceFrames.enabled() then
     return YonFrames.read() or ""
   end
   return io.stdin:read("a") or ""
+end
+
+YonResourceFrames = {
+  SWITCH = "YON_RESOURCE_FRAMES",
+  FAILED = { error = "adapter" },
+}
+
+function YonResourceFrames.enabled()
+  return os.getenv(YonResourceFrames.SWITCH) == "1"
+end
+
+function YonResourceFrames.ask(command)
+  local ok, encoded = pcall(YonJson.encode, { kind = "resource", command = command })
+  if not ok then
+    return { error = "invalid" }
+  end
+  YonFrames.write(encoded)
+  local raw = YonFrames.read()
+  local decoded, answer = pcall(YonJson.decode, raw or "")
+  if raw == nil or not decoded or type(answer) ~= "table" then
+    return YonResourceFrames.FAILED
+  end
+  return answer
+end
+
+YonGatewayFrames = {}
+
+function YonGatewayFrames.call(key, arguments)
+  return YonResourceFrames.ask({ operation = "gateway", key = key, arguments = arguments })
 end
 
 YonFrames = { output = io.stdout }
@@ -489,6 +518,9 @@ function YonRunner.main(program)
   YonFrames.output = standard_output
   io.output(io.stderr)
   print = YonRunner.print
+  if YonResourceFrames.enabled() then
+    YonGateway = YonGatewayFrames
+  end
   local request = YonInput.read()
   local answer = YonTopics.add_to(YonRunner.run(program, request))
   if getmetatable(answer) == YonStream then
@@ -497,6 +529,10 @@ function YonRunner.main(program)
   local ok, text = pcall(YonJson.encode, answer)
   if not ok then
     YonFailures.stop(YonJson.NOT_SERIALIZABLE)
+  end
+  if YonResourceFrames.enabled() then
+    YonFrames.write(text)
+    os.exit(0)
   end
   standard_output:write(text)
   standard_output:flush()

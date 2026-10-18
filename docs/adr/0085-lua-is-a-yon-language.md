@@ -2,8 +2,8 @@
 
 - Status: Accepted; amended 2026-09-29 (Tac Lua services), 2026-10-04 (Lua
   stores, Schedule and converter nulls), 2026-10-16 (a Tac Lua Needs field
-  cannot name another service), 2026-10-17 (Yon Lua HTTP clients and
-  InBackground)
+  cannot name another service), 2026-10-17 (Yon Lua HTTP clients,
+  Gateway and InBackground)
 - Date: 2026-09-29
 - Builds on: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes),
   [ADR 0050](0050-go-annotations-are-comments.md) (comment markers),
@@ -372,7 +372,7 @@ This amendment replaces "Topic stops the build in Lua" above.
   service lets the view call it, or publishes an event that the other
   service handles with `-- @OnEvent`.
 
-## Amendment 2026-10-17: Yon Lua HTTP clients and InBackground
+## Amendment 2026-10-17: Yon Lua HTTP clients, Gateway and InBackground
 
 - `-- @HTTPClient`, `-- @GetRequest`, `-- @PostRequest`, `-- @PutRequest`,
   `-- @PatchRequest`, `-- @DeleteRequest`, `-- @PathVariable`,
@@ -406,5 +406,15 @@ This amendment replaces "Topic stops the build in Lua" above.
 - The rule table checks a Lua file's Ruby shadow with the Lua language list,
   so a marker that Lua accepts and Ruby refuses no longer stops the build in
   Ruby words.
-- `@Gateway` stays refused in Lua: a gateway call waits for an answer from
-  another language over the resource channel, and stock Lua cannot open it.
+- `-- @Gateway` works on a method of a Yon Lua `-- @HTTPClient`. Other
+  languages reach the resource channel over a local socket, and stock Lua
+  cannot open one, so a Lua handler that has gateways gets a resource pipe
+  instead. The supervisor sets `YON_RESOURCE_FRAMES=1` and sends the request
+  as a length-prefixed frame. A gateway call writes a frame
+  `{"kind":"resource","command":{"operation":"gateway",...}}` to standard
+  output, and the supervisor answers it with a frame on standard input, with
+  the same limits and the same `invalid`, `timeout`, `capacity` and `adapter`
+  failures as the socket channel. The last frame that is not a resource call
+  is the handler's answer. The pipe serves only gateway calls, and only in a
+  plain request and answer: a Lua stream or socket route that calls a gateway
+  gets the `adapter` failure.

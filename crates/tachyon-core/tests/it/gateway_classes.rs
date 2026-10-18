@@ -555,6 +555,23 @@ impl Callers {
         caller
     }
 
+    fn lua(target: &str) -> [(String, String); 2] {
+        [
+            (
+                String::from("server/remotes/ReportClient.lua"),
+                format!(
+                    "-- @HTTPClient\n---@class ReportClient\nReportClient = {{}}\n\n---@param mode any\n---@param detail any\n---@return any\n-- @Gateway({{\"class\":\"{target}\"}})\nfunction ReportClient:summarize(mode, detail)\nend\n"
+                ),
+            ),
+            (
+                String::from("server/controllers/ReportController.lua"),
+                String::from(
+                    "-- @RequestRoute(\"/report\")\n-- @Public\n---@class ReportController\nReportController = {\n  -- @Needs\n  ---@type ReportClient\n  report_client = nil,\n}\n\n---@param input any[]\n---@return table\n-- @PostRoute\nfunction ReportController:post_report(\n  -- @FromBody\n  input\n)\n  local ok, answer = pcall(self.report_client.summarize, self.report_client, input[1], input[2])\n  if ok then\n    return answer\n  end\n  return { code = answer.behavior_code, message = answer.message }\nend\n",
+                ),
+            ),
+        ]
+    }
+
     fn python(target: &str) -> [(String, String); 2] {
         [
             (
@@ -574,10 +591,10 @@ impl Callers {
 }
 
 fn available(program: &str) -> bool {
-    let version = if program == "go" {
-        "version"
-    } else {
-        "--version"
+    let version = match program {
+        "go" => "version",
+        "lua" => "-v",
+        _ => "--version",
     };
     StdCommand::new(program)
         .arg(version)
@@ -690,7 +707,26 @@ async fn call_with(
     source: &HandlerSource,
     arguments: &serde_json::Value,
 ) -> serde_json::Value {
+    let request = HandlerRequest::route("gateway_class", "/report", HttpMethod::Post);
+    call_using(supervisor, source, arguments, request).await
+}
+
+async fn call_bound(
+    project: &Project,
+    source: &HandlerSource,
+    arguments: &serde_json::Value,
+) -> serde_json::Value {
     let mut request = HandlerRequest::route("gateway_class", "/report", HttpMethod::Post);
+    request.arguments = Some(vec![arguments.clone()]);
+    call_using(&project.supervisor(), source, arguments, request).await
+}
+
+async fn call_using(
+    supervisor: &HandlerSupervisor,
+    source: &HandlerSource,
+    arguments: &serde_json::Value,
+    mut request: HandlerRequest,
+) -> serde_json::Value {
     request.headers.insert(
         String::from("authorization"),
         vec![String::from("Bearer caller-secret")],
@@ -814,6 +850,25 @@ async fn a_ruby_service_calls_a_python_class() {
     assert_eq!(answer["language"], "python", "{answer}");
     assert_eq!(answer["stored"], 1, "{answer}");
     let failed = call(&project, &source, &serde_json::json!(["fail", null])).await;
+    assert_eq!(failed["code"], "adapter", "{failed}");
+    assert_eq!(failed["message"], "Gateway call failed.", "{failed}");
+}
+
+#[tokio::test]
+async fn a_lua_service_calls_a_python_class() {
+    if !available("lua") || !usable("python3") {
+        return;
+    }
+    let project = Project::new(
+        &[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE],
+        &Callers::lua(Targets::PYTHON.0),
+    );
+    let source = project.discover("lua");
+    let answer = call_bound(&project, &source, &serde_json::json!(["store", "report"])).await;
+    assert_eq!(answer["language"], "python", "{answer}");
+    assert_eq!(answer["detail"], "report", "{answer}");
+    assert_eq!(answer["stored"], 1, "{answer}");
+    let failed = call_bound(&project, &source, &serde_json::json!(["fail", null])).await;
     assert_eq!(failed["code"], "adapter", "{failed}");
     assert_eq!(failed["message"], "Gateway call failed.", "{failed}");
 }
