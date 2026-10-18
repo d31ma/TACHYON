@@ -51,7 +51,25 @@ struct CompilerOutput {
 
 impl CompilerOutput {
     const MAX_BYTES: usize = 1024 * 1024;
-    const DEADLINE: Duration = Duration::from_mins(1);
+    const DEADLINE_SETTING: &'static str = "TAC_HANDLER_COMPILE_SECONDS";
+    const DEFAULT_DEADLINE_SECONDS: u64 = 60;
+    const LONGEST_DEADLINE_SECONDS: u64 = 900;
+
+    /// How long one handler compile may run. Slow or busy machines can raise it with
+    /// `TAC_HANDLER_COMPILE_SECONDS`; it stays bounded, and an unusable value keeps the default.
+    fn deadline() -> Duration {
+        Self::deadline_from(std::env::var(Self::DEADLINE_SETTING).ok().as_deref())
+    }
+
+    fn deadline_from(configured: Option<&str>) -> Duration {
+        let seconds = configured
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .filter(|seconds| *seconds > 0)
+            .map_or(Self::DEFAULT_DEADLINE_SECONDS, |seconds| {
+                seconds.min(Self::LONGEST_DEADLINE_SECONDS)
+            });
+        Duration::from_secs(seconds)
+    }
 }
 
 struct RuntimeWorkspace {
@@ -186,7 +204,7 @@ fn bounded_compiler_output(
         program,
         arguments,
         current_dir,
-        CompilerOutput::DEADLINE,
+        CompilerOutput::deadline(),
         CompilerOutput::MAX_BYTES,
     )
 }
@@ -227,8 +245,9 @@ fn bounded_command_output(
         let _stdout = stdout.join();
         let _stderr = stderr.join();
         return Err(format!(
-            "compiler exceeded its {} millisecond deadline",
-            compiler_deadline.as_millis()
+            "compiler exceeded its {} millisecond deadline (set {} to allow longer)",
+            compiler_deadline.as_millis(),
+            CompilerOutput::DEADLINE_SETTING
         ));
     };
     let (stdout, stdout_overflow) = stdout.join().map_err(|_| "compiler stdout reader failed")?;
@@ -1587,12 +1606,18 @@ impl RustPackages {
         )?;
         let target = workspace.join("target");
         let offline = Self::cargo(workspace, &target, true);
-        let built =
-            bounded_command_output(offline, CompilerOutput::DEADLINE, CompilerOutput::MAX_BYTES);
+        let built = bounded_command_output(
+            offline,
+            CompilerOutput::deadline(),
+            CompilerOutput::MAX_BYTES,
+        );
         if !built.as_ref().is_ok_and(|result| result.status.success()) {
             let online = Self::cargo(workspace, &target, false);
-            let fetched =
-                bounded_command_output(online, CompilerOutput::DEADLINE, CompilerOutput::MAX_BYTES);
+            let fetched = bounded_command_output(
+                online,
+                CompilerOutput::deadline(),
+                CompilerOutput::MAX_BYTES,
+            );
             let source = Self::failed_file(fetched.as_ref().ok(), workspace, source_name);
             check_compiler_output("cargo", fetched, source.as_deref().unwrap_or(portable))?;
         }
@@ -1747,7 +1772,7 @@ fn compiler_arguments(compiler: &Compiler, output: &Path, staged: &Path) -> Vec<
 
 fn acquire_prune_lock(cache: &CacheDirectory, portable: &str) -> Result<CacheLock, Failure> {
     cache
-        .acquire_lock(Path::new(".prune.lock"), CompilerOutput::DEADLINE)
+        .acquire_lock(Path::new(".prune.lock"), CompilerOutput::deadline())
         .map_err(|error| cache_failure(portable, "Cannot coordinate cache pruning", error))
 }
 
@@ -1760,7 +1785,7 @@ fn acquire_named_lock(
     cache
         .acquire_lock(
             Path::new(&format!("{lock_prefix}.lock")),
-            CompilerOutput::DEADLINE,
+            CompilerOutput::deadline(),
         )
         .map_err(|error| cache_failure(portable, context, error))
 }
@@ -2983,6 +3008,26 @@ mod tests {
                 .contains("Could not find package shelf in the offline cache."),
             "{failure}"
         );
+    }
+
+    #[test]
+    fn the_handler_compile_deadline_defaults_to_a_minute_and_stays_bounded() {
+        let cases = [
+            (None, 60),
+            (Some("240"), 240),
+            (Some(" 90 "), 90),
+            (Some("0"), 60),
+            (Some("-5"), 60),
+            (Some("soon"), 60),
+            (Some("100000"), 900),
+        ];
+        for (configured, seconds) in cases {
+            assert_eq!(
+                super::CompilerOutput::deadline_from(configured),
+                std::time::Duration::from_secs(seconds),
+                "{configured:?}"
+            );
+        }
     }
 
     #[test]

@@ -307,8 +307,11 @@ impl GoHandler {
 
     fn compiler_identity(portable: &str) -> Result<String, Failure> {
         let command = Self::command(&[String::from("version")], None);
-        let result =
-            bounded_command_output(command, CompilerOutput::DEADLINE, CompilerOutput::MAX_BYTES);
+        let result = bounded_command_output(
+            command,
+            CompilerOutput::deadline(),
+            CompilerOutput::MAX_BYTES,
+        );
         match result {
             Ok(output) => Ok(format!(
                 "go:{}",
@@ -358,8 +361,11 @@ impl GoHandler {
             format!("./{program_folder}"),
         ];
         let command = Self::command(&arguments, Some(directory));
-        let result =
-            bounded_command_output(command, CompilerOutput::DEADLINE, CompilerOutput::MAX_BYTES);
+        let result = bounded_command_output(
+            command,
+            CompilerOutput::deadline(),
+            CompilerOutput::MAX_BYTES,
+        );
         result.as_ref().map_or(Ok(()), |finished| {
             GoNativeModule::check_build(finished, directory, portable)
         })?;
