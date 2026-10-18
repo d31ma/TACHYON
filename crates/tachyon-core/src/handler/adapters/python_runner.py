@@ -30,6 +30,13 @@ class ProtocolLimits:
     MAX_RELAY_STDERR_BYTES = 64 * 1024
     MAX_RESOURCE_BYTES = 1024 * 1024
     MAX_MESSAGE_CHARACTERS = 2048
+    MAX_CAUSE_DEPTH = 8
+
+
+class CheckRejection:
+    CODE = "TY2205"
+    MESSAGE = "Input breaks a Checked rule."
+    STATUS = 422
 
 
 class RunnerSettings:
@@ -209,6 +216,12 @@ class RedisTemplate:
 def public_message(error):
     value = str(error) or "Handler failed."
     return value[:ProtocolLimits.MAX_MESSAGE_CHARACTERS]
+
+
+def check_rejected(request_id, violations):
+    response = failure(request_id, CheckRejection.CODE, CheckRejection.MESSAGE, CheckRejection.STATUS)
+    response["error"]["violations"] = violations
+    return response
 
 
 def serialization_failure(envelope, message):
@@ -842,10 +855,29 @@ def invoke(handler, request):
             stream_events(request["request_id"], result)
             return
         RunnerState.completed.put(result_response(request, result))
-    except (TypeError, ValueError) as error:
-        RunnerState.completed.put(failure(request["request_id"], "TY2203", public_message(error)))
     except BaseException as error:
-        RunnerState.completed.put(failure(request["request_id"], "TY2201", public_message(error)))
+        RunnerState.completed.put(error_response(request["request_id"], error))
+
+
+def error_response(request_id, error):
+    violations = check_violations(error)
+    if violations is not None:
+        return check_rejected(request_id, violations)
+    if isinstance(error, (TypeError, ValueError)):
+        return failure(request_id, "TY2203", public_message(error))
+    return failure(request_id, "TY2201", public_message(error))
+
+
+def check_violations(error):
+    cause = error
+    for _ in range(ProtocolLimits.MAX_CAUSE_DEPTH):
+        if cause is None:
+            return None
+        violations = getattr(cause, "violations", None)
+        if getattr(cause, "code", None) == "validation" and isinstance(violations, list):
+            return violations
+        cause = cause.__cause__
+    return None
 
 
 def is_request(envelope):

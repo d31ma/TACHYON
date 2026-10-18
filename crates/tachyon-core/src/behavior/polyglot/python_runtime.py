@@ -79,6 +79,12 @@ class BehaviorError(Exception):
         self.code = code
         self.path = path
 
+class BehaviorRejection(BehaviorError):
+    RULES = {'notNull': 'Required', 'notBlank': 'NotEmpty', 'size': 'Length', 'min': 'Min', 'max': 'Max'}
+    def __init__(self, path, violations):
+        super().__init__('validation', 'Behavior validation failed.', path)
+        self.violations = violations
+
 def _behavior_invalid(message):
     raise BehaviorError('invalid', message)
 
@@ -508,39 +514,66 @@ def _behavior_size(data):
         return len(data)
     return -1
 
-def _behavior_validate_field(field, rules, data):
+def _behavior_broken_rules(rules, data):
+    broken = []
     if rules.get('notNull') and data is None:
-        _behavior_validation_failure(field + '.notNull')
+        broken.append('notNull')
     if rules.get('notBlank') and (type(data) is not str or not data.strip(_BehaviorText.WHITESPACE)):
-        _behavior_validation_failure(field + '.notBlank')
+        broken.append('notBlank')
     if data is None:
-        return
-    if 'size' in rules:
-        size = _behavior_size(data)
-        if not rules['size']['min'] <= size <= rules['size']['max']:
-            _behavior_validation_failure(field + '.size')
+        return broken
+    if 'size' in rules and not rules['size']['min'] <= _behavior_size(data) <= rules['size']['max']:
+        broken.append('size')
     if 'min' in rules and (type(data) not in (int, float) or data < rules['min']):
-        _behavior_validation_failure(field + '.min')
+        broken.append('min')
     if 'max' in rules and (type(data) not in (int, float) or data > rules['max']):
-        _behavior_validation_failure(field + '.max')
+        broken.append('max')
+    return broken
 
-def _behavior_validate(schema, candidate):
+def _behavior_violations(schema, value):
+    broken = []
+    for field, rules in schema['fields'].items():
+        for key in _behavior_broken_rules(rules, value.get(field)):
+            broken.append((field, key))
+    return broken
+
+def _behavior_checked_object(candidate):
     try:
         value = _behavior_copy(candidate)
     except Exception:
         _behavior_validation_failure('$.json')
     if type(value) is not dict:
         _behavior_validation_failure('$.object')
+    return value
+
+def _behavior_known_schema(schema):
     if type(schema) is not dict or type(schema.get('fields')) is not dict:
         _behavior_validation_failure('$.schema')
-    for field, rules in schema['fields'].items():
-        _behavior_validate_field(field, rules, value.get(field))
+
+def _behavior_validate(schema, candidate):
+    value = _behavior_checked_object(candidate)
+    _behavior_known_schema(schema)
+    broken = _behavior_violations(schema, value)
+    if broken:
+        _behavior_validation_failure(broken[0][0] + '.' + broken[0][1])
+    return value
+
+def _behavior_check(schema, candidate):
+    _behavior_known_schema(schema)
+    try:
+        value = _behavior_checked_object(candidate)
+    except BehaviorError as invalid:
+        raise BehaviorRejection(invalid.path, [{'field': '', 'rule': 'Checked'}]) from None
+    broken = _behavior_violations(schema, value)
+    if broken:
+        violations = [{'field': field, 'rule': BehaviorRejection.RULES[key]} for field, key in broken]
+        raise BehaviorRejection(broken[0][0] + '.' + broken[0][1], violations)
     return value
 
 def _behavior_validate_argument(args, policy):
     if policy['argument'] >= len(args):
         _behavior_validation_failure('$.json')
-    args[policy['argument']] = _behavior_validate(policy['schema'], args[policy['argument']])
+    args[policy['argument']] = _behavior_check(policy['schema'], args[policy['argument']])
 
 def _behavior_check_partition(partition):
     if type(partition) is not str or not partition.strip():

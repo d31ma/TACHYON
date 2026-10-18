@@ -445,6 +445,30 @@ async def shared_setup():
     assert len(calls) == 2, 'a Setup is configured again after its last context is disposed'
 
 
+def raised(action):
+    try:
+        action()
+    except Contract.runtime.BehaviorError as error:
+        return error
+    raise AssertionError('validation unexpectedly accepted')
+
+
+def check_rejections():
+    runtime = Contract.runtime
+    schema = {'fields': {'name': {'notBlank': True, 'size': {'min': 1, 'max': 80}}, 'level': {'notNull': True, 'min': 1, 'max': 9}}}
+    rejection = raised(lambda: runtime._behavior_check(schema, {'name': '', 'level': '3'}))
+    assert rejection.code == 'validation' and rejection.path == 'name.notBlank', rejection.path
+    expected = [{'field': 'name', 'rule': 'NotEmpty'}, {'field': 'name', 'rule': 'Length'}, {'field': 'level', 'rule': 'Min'}, {'field': 'level', 'rule': 'Max'}]
+    assert rejection.violations == expected, rejection.violations
+    rejection = raised(lambda: runtime._behavior_check(schema, []))
+    assert rejection.path == '$.object' and rejection.violations == [{'field': '', 'rule': 'Checked'}], rejection.path
+    unknown = raised(lambda: runtime._behavior_check(None, {}))
+    assert type(unknown) is runtime.BehaviorError and unknown.path == '$.schema', unknown.path
+    explicit = raised(lambda: runtime._behavior_validate(schema, {'name': '', 'level': '3'}))
+    assert type(explicit) is runtime.BehaviorError and explicit.path == 'name.notBlank', explicit.path
+    assert runtime._behavior_check(schema, {'name': 'order', 'level': 3}) == {'name': 'order', 'level': 3}
+
+
 async def main():
     runtime = Contract.runtime
     await reject('huge integer', lambda: runtime._behavior_copy(10 ** 1000))
@@ -452,6 +476,7 @@ async def main():
     await reject('nonfinite value', lambda: runtime._behavior_copy(float('nan')))
     await reject('JSON bytes', lambda: runtime._behavior_copy('x' * 1048577))
     await reject('boolean offset', lambda: runtime._behavior_page({'offset': False}, {'defaultSize': 20, 'maxSize': 100, 'sort': []}))
+    check_rejections()
     await scenario()
     await resilience()
     await transactions()
