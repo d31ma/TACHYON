@@ -1362,8 +1362,11 @@ machine contracts have their own, independent major versions.
   A Go or Rust controller returns the Check error unchanged so that it
   reaches the server; the website examples no longer map it to `400`. C++
   bodies are typed, so a value of the wrong type or an undeclared field is
-  still refused with the 400 body error before Check runs. Ruby's `Length` now counts UTF-8 bytes, as documented; it
-  counted characters (ADR 0101).
+  still refused with the 400 body error before Check runs. Ruby's `Length`
+  now counts UTF-8 bytes, as documented; it counted characters. Rust
+  `BehaviorError` gains a public `violations` field, so code that builds it
+  with a struct literal or destructures it without `..` no longer compiles;
+  use the new `BehaviorError::new(code, message)` (ADR 0101).
 - A C# HTTPClient, Store or Converter interface without `public` stops the
   build with `TY1308`. C# makes such an interface internal, so a public
   controller or service that needs it failed later in `dotnet build` with
