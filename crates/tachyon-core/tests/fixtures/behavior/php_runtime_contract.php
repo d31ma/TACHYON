@@ -141,6 +141,37 @@ final class RuntimeContract {
         if (!($validated instanceof stdClass)) throw new Exception('empty DTO object shape lost');
     }
 
+    public static function checkRejections(): void {
+        $schema = ['fields' => ['name' => ['notBlank' => true, 'size' => ['min' => 1, 'max' => 80]], 'level' => ['notNull' => true, 'min' => 1, 'max' => 9]]];
+        $input = ['name' => '', 'level' => '3'];
+        try {
+            BehaviorValidation::apply($schema, $input);
+            self::$failures[] = 'apply accepted broken input';
+        } catch (BehaviorRejection $error) {
+            self::$failures[] = 'apply raised a rejection';
+        } catch (BehaviorError $error) {
+            if ($error->path !== 'name.notBlank') self::$failures[] = "apply path {$error->path}";
+        }
+        $expected = [['field' => 'name', 'rule' => 'NotEmpty'], ['field' => 'name', 'rule' => 'Length'], ['field' => 'level', 'rule' => 'Min'], ['field' => 'level', 'rule' => 'Max']];
+        self::expectRejection('every broken rule', fn() => BehaviorValidation::check($schema, $input), $expected, 'name.notBlank');
+        self::expectRejection('a list is not an object', fn() => BehaviorValidation::check($schema, [1]), [['field' => '', 'rule' => 'Checked']], '$.object');
+        self::expectRejection('an empty body is an empty object', fn() => BehaviorValidation::check($schema, []), [['field' => 'name', 'rule' => 'NotEmpty'], ['field' => 'level', 'rule' => 'Required']], 'name.notBlank');
+        self::rejectBehavior('an unknown schema', fn() => BehaviorValidation::check(null, $input), 'validation');
+        if (BehaviorValidation::check($schema, ['name' => 'a', 'level' => 3]) !== ['level' => 3, 'name' => 'a']) self::$failures[] = 'check changed valid input';
+    }
+
+    public static function expectRejection(string $label, callable $action, array $violations, string $path): void {
+        try {
+            $action();
+            self::$failures[] = "$label: unexpectedly accepted";
+        } catch (BehaviorRejection $error) {
+            if ($error->violations !== $violations) self::$failures[] = "$label: violations ".json_encode($error->violations);
+            if ($error->behaviorCode !== 'validation' || $error->path !== $path) self::$failures[] = "$label: {$error->behaviorCode} {$error->path}";
+        } catch (Throwable $error) {
+            self::$failures[] = "$label: leaked ".get_class($error);
+        }
+    }
+
     public static function resilientContext(): BehaviorContext {
         $resilient = ['name' => 'Orders', 'methods' => [
             'flaky' => ['retryable' => ['maxRetries' => 3, 'delayMs' => 0, 'multiplier' => 1, 'maxDelayMs' => 100, 'jitterMs' => 0]],
@@ -351,6 +382,7 @@ final class RuntimeContract {
         self::checkHttp($context, $service);
         self::checkRepository($context, $entity);
         self::checkBoundaries();
+        self::checkRejections();
         self::checkResilience();
         self::checkTransactions();
         self::checkJoinedTransactions();

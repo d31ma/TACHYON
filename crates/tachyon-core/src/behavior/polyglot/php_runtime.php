@@ -1,5 +1,8 @@
-final class BehaviorError extends \RuntimeException {
+class BehaviorError extends \RuntimeException {
     public function __construct(public readonly string $behaviorCode, string $message, public readonly ?string $path=null) { parent::__construct($message); }
+}
+final class BehaviorRejection extends BehaviorError {
+    public function __construct(public readonly array $violations, ?string $path) { parent::__construct('validation','Behavior validation failed.',$path); }
 }
 final class BehaviorSignal {
     private bool $cancelled = false;
@@ -210,7 +213,7 @@ final class BehaviorContext {
     private function arguments(array $args,array $metadata): array {
         if(isset($metadata['valid'])) {
             $policy=$metadata['valid'];
-            $args[$policy['argument']]=BehaviorValidation::apply($policy['schema'],$args[$policy['argument']]??null);
+            $args[$policy['argument']]=BehaviorValidation::check($policy['schema'],$args[$policy['argument']]??null);
         }
         if(count($args)>32)BehaviorBoundary::invalid('Too many behavior arguments.');
         if(isset($metadata['pageable'])) {
@@ -461,25 +464,47 @@ final class BehaviorRepository {
     }
 }
 final class BehaviorValidation {
+    private const RULES=['notNull'=>'Required','notBlank'=>'NotEmpty','size'=>'Length','min'=>'Min','max'=>'Max'];
     private static function error(string $path): never {throw new BehaviorError('validation','Behavior validation failed.',$path);}
     public static function apply(?array $schema,mixed $input): mixed {
+        $value=self::checkedObject($input);
+        $broken=self::violations(self::fields($schema),(array)$value);
+        if($broken)self::error($broken[0][0].'.'.$broken[0][1]);
+        return $value;
+    }
+    public static function check(?array $schema,mixed $input): mixed {
+        $fields=self::fields($schema);
+        try {$value=$input===[]?[]:self::checkedObject($input);}catch(BehaviorError $invalid){throw new BehaviorRejection([['field'=>'','rule'=>'Checked']],$invalid->path);}
+        $broken=self::violations($fields,(array)$value);
+        if(!$broken)return $value;
+        $violations=[];foreach($broken as [$field,$key])$violations[]=['field'=>$field,'rule'=>self::RULES[$key]];
+        throw new BehaviorRejection($violations,$broken[0][0].'.'.$broken[0][1]);
+    }
+    private static function checkedObject(mixed $input): mixed {
         try {$value=BehaviorBoundary::copy($input);}catch(\Throwable $error){self::error('$.json');}
         if(!($value instanceof stdClass)&&(!is_array($value)||array_is_list($value)))self::error('$.object');
-        if($schema===null||!isset($schema['fields']))self::error('$.schema');
-        $fields=(array)$value;
-        foreach($schema['fields'] as $field=>$rules) {
-            $data=$fields[$field]??null;
-            if(($rules['notNull']??false)&&$data===null)self::error($field.'.notNull');
-            if(($rules['notBlank']??false)&&(!is_string($data)||preg_match('/^[\x{0009}-\x{000D}\x{0020}\x{0085}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*$/uD',$data)))self::error($field.'.notBlank');
-            if($data===null)continue;
-            if(isset($rules['size'])) {
-                $size=is_string($data)?strlen($data):(is_array($data)||$data instanceof stdClass?count((array)$data):-1);
-                if($size<$rules['size']['min']||$size>$rules['size']['max'])self::error($field.'.size');
-            }
-            if(isset($rules['min'])&&((!is_int($data)&&!is_float($data))||$data<$rules['min']))self::error($field.'.min');
-            if(isset($rules['max'])&&((!is_int($data)&&!is_float($data))||$data>$rules['max']))self::error($field.'.max');
-        }
         return $value;
+    }
+    private static function fields(?array $schema): array {
+        if($schema===null||!isset($schema['fields']))self::error('$.schema');
+        return $schema['fields'];
+    }
+    private static function violations(array $schema,array $fields): array {
+        $broken=[];
+        foreach($schema as $field=>$rules) {
+            $field=(string)$field;$data=$fields[$field]??null;
+            if(($rules['notNull']??false)&&$data===null)$broken[]=[$field,'notNull'];
+            if(($rules['notBlank']??false)&&(!is_string($data)||preg_match('/^[\x{0009}-\x{000D}\x{0020}\x{0085}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*$/uD',$data)))$broken[]=[$field,'notBlank'];
+            if($data===null)continue;
+            if(isset($rules['size'])&&!self::sizeFits($data,$rules['size']))$broken[]=[$field,'size'];
+            if(isset($rules['min'])&&((!is_int($data)&&!is_float($data))||$data<$rules['min']))$broken[]=[$field,'min'];
+            if(isset($rules['max'])&&((!is_int($data)&&!is_float($data))||$data>$rules['max']))$broken[]=[$field,'max'];
+        }
+        return $broken;
+    }
+    private static function sizeFits(mixed $data,array $size): bool {
+        $length=is_string($data)?strlen($data):(is_array($data)||$data instanceof stdClass?count((array)$data):-1);
+        return $length>=$size['min']&&$length<=$size['max'];
     }
 }
 final class BehaviorProperties {

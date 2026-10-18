@@ -234,7 +234,7 @@ fn validation_body(policy: &Value, arguments: &[String], original: &str) -> Stri
     let schema = escape_single_quoted(&policy["schema"].to_string());
     let argument = &arguments[index];
     format!(
-        "\n{argument} = BehaviorValidation::apply(json_decode('{schema}',true,32,JSON_THROW_ON_ERROR), {argument});\n{original}\n"
+        "\n{argument} = BehaviorValidation::check(json_decode('{schema}',true,32,JSON_THROW_ON_ERROR), {argument});\n{original}\n"
     )
 }
 

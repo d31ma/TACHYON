@@ -1068,12 +1068,25 @@ final class YonSocket
 
 final class YonMain
 {
+    private const MAX_CAUSE_DEPTH = 8;
+    private const CHECK_REJECTED_STATUS = 422;
+
     public static function run(): void
     {
         YonRelayContext::captureStart();
         $request = YonRelayContext::readInvocation();
         YonNativeHttp::begin($request);
-        $response = self::invoke($request);
+        try {
+            $response = self::invoke($request);
+        } catch (Throwable $failure) {
+            $violations = self::violations($failure);
+            if ($violations === null) {
+                throw $failure;
+            }
+            ob_end_clean();
+            echo json_encode(['status' => self::CHECK_REJECTED_STATUS, 'violations' => $violations], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return;
+        }
         if ($response instanceof Generator) {
             self::stream($request, $response);
         }
@@ -1084,6 +1097,18 @@ final class YonMain
             ));
         }
         echo $response->envelope();
+    }
+
+    private static function violations(Throwable $failure): ?array
+    {
+        $cause = $failure;
+        for ($depth = 0; $cause !== null && $depth < self::MAX_CAUSE_DEPTH; $depth++) {
+            if ($cause instanceof BehaviorRejection) {
+                return $cause->violations;
+            }
+            $cause = $cause->getPrevious();
+        }
+        return null;
     }
 
     private static function phase(__YonFrame $request): ?string
