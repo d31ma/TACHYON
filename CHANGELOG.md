@@ -477,6 +477,14 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The Linux browser CI job installs the checksum-pinned TeaVM jars and JDK 21,
+  so the Java part of the real-browser storage gate runs there instead of
+  being skipped. That part now also checks a Java `@SessionState` field: it
+  survives a reload in its tab, is kept out of `localStorage`, and a new tab
+  starts without it, while the `@LocalState` field is shared. New TeaVM
+  tests prove Java Tac `@CacheKey`, `@UpdateCache`, `@Store`, `@Query`,
+  `@PageDefaults`, `@Converter` and `@Convert` (map and record forms) on the
+  page.
 - JavaScript and TypeScript services share one Setup class. Before, each
   service module carried its own copy of every Setup class; now, when two or
   more modules hold the same Setup, the build moves its class into the shared

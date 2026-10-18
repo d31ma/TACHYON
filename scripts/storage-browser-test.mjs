@@ -471,7 +471,7 @@ class JavaNoteEntity {
     String text = "";
 }
 `);
-  write(project, 'client/components/storage/java/tac.html', '<button id="java-bump" on:click="javaCounter.increment()">+</button>\n<p id="java-count">{javaCounter.count}</p>\n');
+  write(project, 'client/components/storage/java/tac.html', '<button id="java-bump" on:click="javaCounter.increment()">+</button>\n<p id="java-count">{javaCounter.count}</p>\n<button id="java-keep" on:click="javaCounter.keepDraft()">keep</button>\n<p id="java-draft">{javaCounter.draft}</p>\n');
   write(project, 'client/stores/JavaNoteStore.java', `@Store(JavaNoteEntity.class, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"JavaNotesSetup"})
 interface JavaNoteStore {
     Object findByText(String text);
@@ -490,6 +490,8 @@ interface JavaNoteConverter {
 class JavaCounterService {
     @LocalState
     int count = 0;
+    @SessionState
+    String draft = "";
     Behaviors.Context behaviors;
     private long reads = 0;
     @Needs
@@ -513,6 +515,11 @@ class JavaCounterService {
     int increment() {
         count += 1;
         return count;
+    }
+
+    String keepDraft() {
+        draft = "kept";
+        return draft;
     }
 
     @Cached
@@ -1261,7 +1268,22 @@ async function checkWebAssemblyStoredFields(browser, origin) {
     const stored = await page.evaluate((key) => localStorage.getItem(key), `tac:service:${instance}:/:count`);
     expect(stored, '3', `a ${language} LocalState field changed by its own method is written to localStorage`);
   }
+  if (StorageGate.withJava) await checkJavaSessionState(context, page, origin);
   await context.close();
+}
+
+async function checkJavaSessionState(context, page, origin) {
+  await page.click('#java-keep');
+  await page.waitForFunction((selector) => document.querySelector(selector)?.textContent === 'kept', '#java-draft');
+  await StorageGate.reload(page);
+  expect(await page.textContent('#java-draft'), 'kept', 'a Java SessionState field changed by its own method survives a reload');
+  const stored = await page.evaluate((key) => [sessionStorage.getItem(key), localStorage.getItem(key)], 'tac:service:javaCounter:/:draft');
+  expect(JSON.stringify(stored), JSON.stringify(['"kept"', null]), 'a Java SessionState field is written to sessionStorage and kept out of localStorage');
+  const second = await context.newPage();
+  await StorageGate.visit(second, origin);
+  expect(await second.textContent('#java-draft'), '', 'a Java SessionState field is per-tab');
+  expect(await second.textContent('#java-count'), '3', 'a Java LocalState field is shared across tabs');
+  await second.close();
 }
 
 async function checkCSharpStorage(page, evaluate) {
