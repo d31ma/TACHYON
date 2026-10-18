@@ -1889,7 +1889,7 @@
         {
           "heading": "Saved service fields",
           "target": "web",
-          "body": "A service field marked @SessionState is saved in sessionStorage for the life of the tab. A field marked @LocalState is saved in localStorage, so it comes back in later visits on this device. Both markers work in JavaScript, TypeScript, Dart, Swift, Kotlin, Java, C#, F#, Rust, Go, Ruby and Python services. A Python field writes the marker in its type, as `Annotated[str, session_state]`. Lua has no tab here, because the build refuses both markers in Lua Tac code with TY1308. One field takes one of the two markers, and never together with Needs. The old `$` and `$$` field prefixes are refused, and the message names the marker to write. `ty migrate fix --write` changes the fields, their uses in the class and in the views, and a value saved under the old key moves to the new key once. Tachyon restores saved values before OnStart runs. Each assignment stores JSON of up to 64 KiB. When a service method changes its own saved field, the new value is saved as the method returns; this is also true for a Rust, Go, C#, F#, Swift, Kotlin, Java or Ruby service that runs as WebAssembly. To save a change inside the value, assign the field again. Template handlers and OnEvent methods render the view again automatically. Background work uses an injected taskScheduler. If the browser denies storage or its quota (storage limit) is full, the UI still works. Never save secrets.",
+          "body": "A service field marked @SessionState is saved in sessionStorage for the life of the tab. A field marked @LocalState is saved in localStorage, so it comes back in later visits on this device. Both markers work in JavaScript, TypeScript, Dart, Swift, Kotlin, Java, C#, F#, Rust, Go, Ruby, Python and Lua services. A Python field writes the marker in its type, as `Annotated[str, session_state]`. A Lua field writes the marker as a comment line above it, as `-- @SessionState`. One field takes one of the two markers, and never together with Needs. The old `$` and `$$` field prefixes are refused, and the message names the marker to write. `ty migrate fix --write` changes the fields, their uses in the class and in the views, and a value saved under the old key moves to the new key once. Tachyon restores saved values before OnStart runs. Each assignment stores JSON of up to 64 KiB. When a service method changes its own saved field, the new value is saved as the method returns; this is also true for a Rust, Go, C#, F#, Swift, Kotlin, Java or Ruby service that runs as WebAssembly. To save a change inside the value, assign the field again. Template handlers and OnEvent methods render the view again automatically. Background work uses an injected taskScheduler. If the browser denies storage or its quota (storage limit) is full, the UI still works. Never save secrets.",
           "axis": "language",
           "files": [
             {
@@ -1919,6 +1919,10 @@
             {
               "name": "client/services/EditorService.py",
               "code": "from typing import Annotated\n\n\n@service\nclass EditorService:\n    draft: Annotated[str, session_state] = ''\n    theme: Annotated[str, local_state] = 'calm'\n"
+            },
+            {
+              "name": "client/services/EditorService.lua",
+              "code": "-- @Service\n---@class EditorService\nEditorService = {\n  -- @SessionState\n  ---@type string\n  draft = \"\",\n  -- @LocalState\n  ---@type string\n  theme = \"calm\",\n}\n"
             },
             {
               "name": "client/services/EditorService.swift",
@@ -13427,7 +13431,7 @@
         {
           "heading": "Outgoing HTTP: Tac",
           "axis": "language",
-          "summary": "In the browser, HTTPClient is the auto-managed transport. A read is sent no-store, so it is always fresh; to keep a read, put CacheSettings on the client and Cached on the read, as CatalogClient does (see the feature \"Caching public reads\"). HTTPClient takes no cache option: the build refuses `{\"cache\": ...}` and names CacheSettings and Cached (ADR 0087). A Tac HTTPClient must declare at least one request method, such as GetRequest. Like a Spring @HttpExchange interface, a client has no implementation: JavaScript, TypeScript and Ruby write a class whose methods have empty bodies. Swift, Kotlin, Java, C#, F#, Rust, Go and Dart write the client in their bodiless form (a protocol, an interface, an F# type with only abstract members, a trait, a Go interface or an abstract interface class). The client lives in client/remotes. Tachyon generates the client and its behavior context from the Setup with the same stem (CatalogClient uses CatalogSetup), whose HTTP adapter sends the request. A JavaScript, TypeScript, Dart, Rust, Go, Kotlin, Swift, Java, C# or Ruby service injects the client with Needs; in Rust the field is `#[Needs] catalog_client: std::sync::Arc<CatalogClient>`, in Go `// @Needs` stands above `catalogClient *CatalogClient`, in Kotlin `@Needs` stands above `private val catalog: CatalogClient`, in Swift above `private let catalog: CatalogClient`, in Java above `private final CatalogClient catalog;`, in C# `[Needs]` stands above `private readonly CatalogClient _catalog;`, and in Ruby `#[Needs]` stands above `attr_reader :catalog_client`, with `# @return [CatalogClient]` between them. An F# service builds the client: CatalogClient(). A client with a method body, a field or another role, such as a service that is also an HTTPClient, fails with TY1308. A request to another origin needs its host in `tac.outgoing.hosts`: the build checks request URLs, and the page's `connect-src` lets the browser reach only these hosts. In Dart, C#, F#, Rust, Go, Kotlin, Swift, Java, Ruby and C++, when the Setup has no matching HTTP adapter, the browser sends the request to the same origin (ADR 0090). A C++ client builds its context from the same Setup, which every C++ service of the page shares, because they build into one program (ADR 0099). See \"Calling the server from a page\".",
+          "summary": "In the browser, HTTPClient is the auto-managed transport. A read is sent no-store, so it is always fresh; to keep a read, put CacheSettings on the client and Cached on the read, as CatalogClient does (see the feature \"Caching public reads\"). HTTPClient takes no cache option: the build refuses `{\"cache\": ...}` and names CacheSettings and Cached (ADR 0087). A Tac HTTPClient must declare at least one request method, such as GetRequest. Like a Spring @HttpExchange interface, a client has no implementation: JavaScript, TypeScript and Ruby write a class whose methods have empty bodies, and Lua writes a table whose functions have empty bodies. Swift, Kotlin, Java, C#, F#, Rust, Go and Dart write the client in their bodiless form (a protocol, an interface, an F# type with only abstract members, a trait, a Go interface or an abstract interface class). The client lives in client/remotes. Tachyon generates the client and its behavior context from the Setup with the same stem (CatalogClient uses CatalogSetup), whose HTTP adapter sends the request. A JavaScript, TypeScript, Dart, Rust, Go, Kotlin, Swift, Java, C#, Ruby or Lua service injects the client with Needs; in Rust the field is `#[Needs] catalog_client: std::sync::Arc<CatalogClient>`, in Go `// @Needs` stands above `catalogClient *CatalogClient`, in Kotlin `@Needs` stands above `private val catalog: CatalogClient`, in Swift above `private let catalog: CatalogClient`, in Java above `private final CatalogClient catalog;`, in C# `[Needs]` stands above `private readonly CatalogClient _catalog;`, and in Ruby `#[Needs]` stands above `attr_reader :catalog_client`, with `# @return [CatalogClient]` between them. In Lua `-- @Needs` stands above `catalog_client = nil` in the service table, with `---@type CatalogClient` between them. An F# service builds the client: CatalogClient(). A client with a method body, a field or another role, such as a service that is also an HTTPClient, fails with TY1308. A request to another origin needs its host in `tac.outgoing.hosts`: the build checks request URLs, and the page's `connect-src` lets the browser reach only these hosts. In Dart, C#, F#, Rust, Go, Kotlin, Swift, Java, Ruby, Lua and C++, when the Setup has no matching HTTP adapter, the browser sends the request to the same origin (ADR 0090). A C++ client builds its context from the same Setup, which every C++ service of the page shares, because they build into one program (ADR 0099). See \"Calling the server from a page\".",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -13562,6 +13566,18 @@
               "code": "from typing import Protocol\n\n\n@http_client\nclass CatalogClient(Protocol):\n    @get_request(\"/api/products\")\n    async def all(self) -> dict[str, list[str]]: ...\n"
             },
             {
+              "name": "client/setups/CatalogSetup.lua",
+              "code": "-- @Setup\n---@class CatalogSetup\nCatalogSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  local catalog = {\n    exchange = function(_, request, call)\n      return { items = { \"anvil\" } }\n    end,\n  }\n  return { http = { catalog = catalog } }\nend\n"
+            },
+            {
+              "name": "client/services/CatalogService.lua",
+              "code": "-- @Service\n---@class CatalogService\nCatalogService = {\n  -- @Needs\n  ---@type CatalogClient\n  catalog_client = nil,\n  ---@type integer\n  count = 0,\n}\n\n---@return nil\nfunction CatalogService:load()\n  self.count = #self.catalog_client:all().items\nend\n"
+            },
+            {
+              "name": "client/remotes/CatalogClient.lua",
+              "code": "-- @HTTPClient\n---@class CatalogClient\nCatalogClient = {}\n\n---@return table\n-- @GetRequest(\"/api/products\")\nfunction CatalogClient:all()\nend\n"
+            },
+            {
               "name": "client/setups/CatalogSetup.java",
               "code": "@Setup\nclass CatalogSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(\n            java.util.Map.of(),\n            java.util.Map.of(\"catalog\", (request, current) -> java.util.Map.of(\"items\", java.util.List.of(\"anvil\"))),\n            java.util.Map.of(), null);\n    }\n}\n"
             },
@@ -13589,8 +13605,7 @@
               "name": "client/services/CatalogService.hpp",
               "code": "#pragma once\n#include \"../remotes/CatalogClient.hpp\"\n\nclass [[Service]] CatalogService {\npublic:\n    int count = 0;\n    [[Needs]] CatalogClient& catalogClient;\n\n    Task<void> load() {\n        Catalog catalog = co_await catalogClient.all();\n        count = static_cast<int>(catalog.items.size());\n    }\n};\n"
             }
-          ],
-          "body": "Lua has no example here yet."
+          ]
         },
         {
           "heading": "Gateways: Yon",
@@ -14048,7 +14063,7 @@
           "heading": "Configuration binding: Tac",
           "axis": "language",
           "summary": "Tac binds only values that are explicitly public. Its source is the tac member of client/manifest.json. This is the web app manifest that the build publishes at /manifest.webmanifest. server/application.json and .env belong to Yon and never reach Tac. So Settings uses a TAC_ prefix, Setting uses tac. paths and WhenSetting names a TAC_ property. A private Yon secret cannot be bound here at all. Browser services load the published manifest through an injected HTTPClient. Native services bind a public snapshot that is supplied explicitly. A native service file keeps its service type first. The class that Setting reads is a model in `client/models/` (ADR 0092), so a service reaches it like any model: C# and F# open `Models`, Rust uses `crate::models::PublicValues` and Dart imports `models/PublicValues.dart`. Every key under TAC_CATALOG_ must be a field of the Settings class, including title. Setting demonstrates binding that same title individually; it does not exempt the key from prefix validation. Every language passes the full public snapshot to both binders.",
-          "body": "Lua has no example here yet. In C++, Settings and Setting go on models, so the Setup only selects: `Behaviors::properties<T>(...)` and `Behaviors::values<T>(...)` bind the snapshot, and `options.withApplication(published)` gives `Behaviors::create<CatalogSetup>(options)` the same public values for WhenSetting (ADR 0099).",
+          "body": "A Lua service binds the same snapshot with `Behaviors.properties(CatalogSetup, published)` and `Behaviors.values(PublicValues, published)`, and reads the size as `catalog.page_size`. In C++, Settings and Setting go on models, so the Setup only selects: `Behaviors::properties<T>(...)` and `Behaviors::values<T>(...)` bind the snapshot, and `options.withApplication(published)` gives `Behaviors::create<CatalogSetup>(options)` the same public values for WhenSetting (ADR 0099).",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -14201,6 +14216,18 @@
             {
               "name": "client/models/PublicValues.rb",
               "code": "class PublicValues\n  # @return [String]\n  #[Setting(\"${tac.catalog.title:Catalog}\")]\n  attr_reader :title\nend\n"
+            },
+            {
+              "name": "client/setups/CatalogSetup.lua",
+              "code": "-- @Setup\n-- @Settings({\"prefix\":\"TAC_CATALOG_\"})\n-- @WhenProfile(\"public\")\n-- @WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\n---@class CatalogSetup\nCatalogSetup = {\n  -- @Min(1)\n  -- @Max(100)\n  ---@type integer\n  page_size = 20,\n  ---@type boolean\n  cache_enabled = false,\n  ---@type string\n  title = \"Catalog\",\n}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  return {}\nend\n"
+            },
+            {
+              "name": "client/services/SettingsService.lua",
+              "code": "-- @Service\n---@class SettingsService\nSettingsService = {\n  ---@type string\n  title = \"Catalog\",\n  ---@type integer\n  page_size = 20,\n}\n\n---@return nil\n-- @OnStart\nfunction SettingsService:bind()\n  local published = self:_public_manifest()\n  local catalog = Behaviors.properties(CatalogSetup, published)\n  local values = Behaviors.values(PublicValues, published)\n  local context = Behaviors.create(CatalogSetup, {\n    partition = \"public-catalog\",\n    signal = BehaviorSignal.new(),\n    profiles = { \"public\" },\n    properties = published,\n  })\n  context:dispose()\n  self.title = values.title\n  self.page_size = catalog.page_size\nend\n\n---@return table\nfunction SettingsService:_public_manifest()\n  local catalog = { title = \"Catalog\", page = { size = 20 }, cache = { enabled = true } }\n  return { tac = { catalog = catalog } }\nend\n"
+            },
+            {
+              "name": "client/models/PublicValues.lua",
+              "code": "---@class PublicValues\nPublicValues = {\n  -- @Setting(\"${tac.catalog.title:Catalog}\")\n  ---@type string\n  title = nil,\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.py",
@@ -14414,8 +14441,8 @@
         {
           "heading": "Validation: Tac",
           "axis": "language",
-          "summary": "The same seven markers work in Tac, on a service instead of a controller. The data transfer object (DTO) that `Check` names is a model: a data class in its own file, `client/models/OrderInput.<ext>` (ADR 0092). Discovery composes its rules into the service that it protects (ADR 0044), and the model itself compiles once, without its markers. A service reaches it the way the language reaches any model: C# and F# open `Models`, Rust uses `crate::models::OrderInput`, Kotlin imports `models.OrderInput` and Dart imports `models/OrderInput.dart`; Swift, Go and Ruby need no import. A Swift model is a struct, and a Rust model and its fields are `pub`. JavaScript, TypeScript and Dart keep Service without an import, as their Yon services do. The compiled languages mark the service with Service too: the build refuses a service in client/services without its marker with TY1363. Swift and C# take checked parameters as BehaviorJSON, Rust and Go take them as BehaviorValue, and Java takes them as Object, as its Yon service does; Check names the class, as in Yon. Tac validation protects only the user experience (UX). It is not authorization, so Yon must validate the same payload again.",
-          "body": "Lua has no tab here, because the build refuses Check in Lua Tac code with TY1308. Python has no tab either: Python Tac does not read a Checked model from client/models yet, so the build stops a Python Check with TY1308.",
+          "summary": "The same seven markers work in Tac, on a service instead of a controller. The data transfer object (DTO) that `Check` names is a model: a data class in its own file, `client/models/OrderInput.<ext>` (ADR 0092). Discovery composes its rules into the service that it protects (ADR 0044), and the model itself compiles once, without its markers. A service reaches it the way the language reaches any model: C# and F# open `Models`, Rust uses `crate::models::OrderInput`, Kotlin imports `models.OrderInput` and Dart imports `models/OrderInput.dart`; Swift, Go, Ruby and Lua need no import. A Swift model is a struct, and a Rust model and its fields are `pub`. JavaScript, TypeScript and Dart keep Service without an import, as their Yon services do. The compiled languages mark the service with Service too: the build refuses a service in client/services without its marker with TY1363. Swift and C# take checked parameters as BehaviorJSON, Rust and Go take them as BehaviorValue, and Java takes them as Object, as its Yon service does; Check names the class, as in Yon. Tac validation protects only the user experience (UX). It is not authorization, so Yon must validate the same payload again.",
+          "body": "Lua writes each marker as a comment: `-- @Checked` above the model table, the field markers above each field, and `-- @Check(OrderInput)` on its own line inside the parameter list. Python has no tab here: Python Tac does not read a Checked model from client/models yet, so the build stops a Python Check with TY1308.",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -14512,6 +14539,14 @@
             {
               "name": "client/models/OrderInput.rb",
               "code": "#[Checked]\nclass OrderInput\n  # @return [String]\n  #[NotEmpty]\n  #[Length({\"min\":1,\"max\":80})]\n  attr_reader :name\n\n  # @return [Integer]\n  #[Required]\n  #[Min(1)]\n  #[Max(9)]\n  attr_reader :level\nend\n"
+            },
+            {
+              "name": "client/services/OrderService.lua",
+              "code": "-- @Service\n---@class OrderService\nOrderService = {\n  ---@type string\n  status = \"ready\",\n}\n\n---@param order OrderInput\n---@return OrderInput\nfunction OrderService:accept(\n  -- @Check(OrderInput)\n  order\n)\n  return order\nend\n"
+            },
+            {
+              "name": "client/models/OrderInput.lua",
+              "code": "-- @Checked\n---@class OrderInput\nOrderInput = {\n  -- @NotEmpty\n  -- @Length({\"min\":1,\"max\":80})\n  ---@type string\n  name = nil,\n  -- @Required\n  -- @Min(1)\n  -- @Max(9)\n  ---@type integer\n  level = nil,\n}\n"
             },
             {
               "name": "client/services/OrderService.hpp",
