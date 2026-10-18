@@ -776,6 +776,25 @@ func checkInvalidSchemas(value BehaviorValue) {
 	expect(BehaviorErrorPath(err) == "$.schema", "an infinite bound fails")
 }
 
+func checkRejections(value BehaviorValue) {
+	expect(same(must(BehaviorsCheck[ValidatedInput](value)), value), "a passing Check keeps the value")
+	_, err := BehaviorsCheck[ValidatedInput](map[string]any{"name": true, "amount": "5", "items": []any{}})
+	expectCode(err, "validation", "a Check rejection")
+	expect(BehaviorErrorPath(err) == "name.notBlank", "a Check rejection keeps the first path")
+	found, _ := json.Marshal(err.(*BehaviorError).checkViolations())
+	wanted := `[{"field":"name","rule":"NotEmpty"},{"field":"name","rule":"Length"},{"field":"amount","rule":"Min"},{"field":"amount","rule":"Max"},{"field":"items","rule":"Length"}]`
+	expect(string(found) == wanted, "a Check rejection lists every broken rule: "+string(found))
+	_, err = BehaviorsCheck[ValidatedInput](nil)
+	found, _ = json.Marshal(err.(*BehaviorError).checkViolations())
+	expect(BehaviorErrorPath(err) == "$.object" && string(found) == `[{"field":"","rule":"Checked"}]`, "a Check of a non-object is one Checked entry")
+	_, err = BehaviorsValidate[ValidatedInput](map[string]any{})
+	expect(len(err.(*BehaviorError).checkViolations()) == 0, "the explicit validation carries no rejection")
+	schema := ValidatedInput{}.behaviorValidation()
+	schema.Fields[0].Name = "input.secret"
+	_, err = behaviorCheckValue(schema, value)
+	expect(BehaviorErrorPath(err) == "$.schema" && len(err.(*BehaviorError).checkViolations()) == 0, "an unsafe schema is not a rejection")
+}
+
 func validationContracts() {
 	value := map[string]any{"name": "é", "unknown": true}
 	checkValidatedShape(value)
@@ -783,6 +802,7 @@ func validationContracts() {
 	checkFieldRules()
 	checkValidationLimits()
 	checkInvalidSchemas(value)
+	checkRejections(value)
 }
 
 type Owner struct {

@@ -1,9 +1,3 @@
-import (
-	"io"
-	"net/http"
-	"strings"
-)
-
 // @RequestRoute("/products")
 // @Public
 type ProductsController struct {
@@ -15,17 +9,10 @@ type ProductsController struct {
 func (controller *ProductsController) PostProduct(
 	// @FromBody
 	product Product,
-) any {
+) (any, error) {
 	input := map[string]any{"name": product.Name, "level": product.Level}
-	_, err := controller.productService.Accept(input)
-	return controller.answer(product, err)
-}
-
-func (controller *ProductsController) answer(product Product, failure error) any {
-	if failure != nil {
-		header := http.Header{"Content-Type": {"application/json"}}
-		body := io.NopCloser(strings.NewReader(`{"error":"validation"}`))
-		return &http.Response{StatusCode: http.StatusBadRequest, Header: header, Body: body}
+	if _, err := controller.productService.Accept(input); err != nil {
+		return nil, err
 	}
-	return product
+	return product, nil
 }

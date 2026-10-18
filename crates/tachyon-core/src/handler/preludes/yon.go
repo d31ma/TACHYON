@@ -78,10 +78,15 @@ func (request *yonRequest) Raw() string {
 }
 
 type yonResponse struct {
-	status  int
-	headers map[string][]string
-	body    string
-	stream  *yonEventStream
+	status     int
+	headers    map[string][]string
+	body       string
+	stream     *yonEventStream
+	violations []map[string]string
+}
+
+type yonCheckRejection interface {
+	checkViolations() []map[string]string
 }
 
 func yonJSON(body string) *yonResponse {
@@ -105,9 +110,10 @@ func (response *yonResponse) Header(name string, value string) *yonResponse {
 }
 
 type yonResponseFields struct {
-	Status  int                 `json:"status"`
-	Headers map[string][]string `json:"headers"`
-	Body    any                 `json:"body"`
+	Status     int                 `json:"status"`
+	Headers    map[string][]string `json:"headers"`
+	Body       any                 `json:"body"`
+	Violations []map[string]string `json:"violations,omitempty"`
 }
 
 func yonResponseBody(body string) any {
@@ -137,6 +143,10 @@ func yonAnswer(value any, failures ...error) *yonResponse {
 		var resourceError YonResourceError
 		if errors.As(failure, &resourceError) {
 			return yonJSON(`{"error":"Yon managed resource operation failed."}`).Status(500)
+		}
+		var rejection yonCheckRejection
+		if errors.As(failure, &rejection) && len(rejection.checkViolations()) > 0 {
+			return &yonResponse{status: 422, headers: map[string][]string{}, violations: rejection.checkViolations()}
 		}
 		panic(failure)
 	}
@@ -1009,7 +1019,7 @@ func main() {
 		response.stream.answer()
 		return
 	}
-	answer := yonResponseFields{Status: response.status, Headers: response.headers, Body: yonResponseBody(response.body)}
+	answer := yonResponseFields{Status: response.status, Headers: response.headers, Body: yonResponseBody(response.body), Violations: response.violations}
 	output, err := json.Marshal(answer)
 	if err != nil {
 		return

@@ -20,10 +20,17 @@ import (
 type BehaviorValue = any
 
 type BehaviorError struct {
-	Code    string
-	Message string
-	Path    string
-	Status  int
+	Code       string
+	Message    string
+	Path       string
+	Status     int
+	violations []behaviorViolation
+}
+
+type behaviorViolation struct {
+	field string
+	key   string
+	rule  string
 }
 
 func (failure *BehaviorError) Error() string {
@@ -36,6 +43,14 @@ func (failure *BehaviorError) Error() string {
 
 func (failure *BehaviorError) BehaviorCode() string {
 	return failure.Code
+}
+
+func (failure *BehaviorError) checkViolations() []map[string]string {
+	entries := []map[string]string{}
+	for _, violation := range failure.violations {
+		entries = append(entries, map[string]string{"field": violation.field, "rule": violation.rule})
+	}
+	return entries
 }
 
 func BehaviorErrorStatus(err error) int {
@@ -1001,6 +1016,11 @@ func BehaviorsValidate[V behaviorValidated](value BehaviorValue) (BehaviorValue,
 	return behaviorValidateValue(validated.behaviorValidation(), value)
 }
 
+func BehaviorsCheck[V behaviorValidated](value BehaviorValue) (BehaviorValue, error) {
+	var validated V
+	return behaviorCheckValue(validated.behaviorValidation(), value)
+}
+
 func BehaviorsProperties[P behaviorPropertiesSource](input any) (BehaviorValue, error) {
 	var source P
 	values, err := behaviorPropertyInputs(input)
@@ -1263,6 +1283,40 @@ func behaviorUnicodeWhitespace(character rune) bool {
 }
 
 func behaviorValidateValue(schema BehaviorValidationSchema, value BehaviorValue) (BehaviorValue, error) {
+	values, err := behaviorCheckedObject(value)
+	if err != nil {
+		return nil, err
+	}
+	broken, err := behaviorViolations(schema, values)
+	if len(broken) > 0 {
+		return nil, behaviorValidationError(broken[0].field, broken[0].key)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return values, nil
+}
+
+func behaviorCheckValue(schema BehaviorValidationSchema, value BehaviorValue) (BehaviorValue, error) {
+	values, err := behaviorCheckedObject(value)
+	if err != nil {
+		return nil, behaviorRejection([]behaviorViolation{{field: "", key: "object", rule: "Checked"}}, BehaviorErrorPath(err))
+	}
+	broken, err := behaviorViolations(schema, values)
+	if err != nil {
+		return nil, err
+	}
+	if len(broken) > 0 {
+		return nil, behaviorRejection(broken, broken[0].field+"."+broken[0].key)
+	}
+	return values, nil
+}
+
+func behaviorRejection(violations []behaviorViolation, path string) error {
+	return &BehaviorError{Code: "validation", Message: "Behavior validation failed.", Path: path, violations: violations}
+}
+
+func behaviorCheckedObject(value BehaviorValue) (map[string]any, error) {
 	checked, err := behaviorChecked(value, 1048576)
 	if err != nil {
 		return nil, behaviorValidationError("$", "json")
@@ -1271,20 +1325,23 @@ func behaviorValidateValue(schema BehaviorValidationSchema, value BehaviorValue)
 	if !isObject {
 		return nil, behaviorValidationError("$", "object")
 	}
+	return values, nil
+}
+
+func behaviorViolations(schema BehaviorValidationSchema, values map[string]any) ([]behaviorViolation, error) {
 	if len(schema.Fields) > 64 {
 		return nil, behaviorValidationError("$", "schema")
 	}
+	broken := []behaviorViolation{}
 	seen := map[string]bool{}
 	for _, field := range schema.Fields {
 		if !behaviorIdentifier(field.Name) || seen[field.Name] || behaviorInvalidValidationBounds(field) {
-			return nil, behaviorValidationError("$", "schema")
+			return broken, behaviorValidationError("$", "schema")
 		}
 		seen[field.Name] = true
-		if err := behaviorValidateField(field, values[field.Name]); err != nil {
-			return nil, err
-		}
+		broken = append(broken, behaviorFieldViolations(field, values[field.Name])...)
 	}
-	return checked, nil
+	return broken, nil
 }
 
 func behaviorInvalidValidationBounds(field BehaviorValidationField) bool {
@@ -1300,39 +1357,42 @@ func behaviorInvalidValidationBounds(field BehaviorValidationField) bool {
 	return field.HasMin && field.HasMax && field.Min > field.Max
 }
 
-func behaviorValidateField(field BehaviorValidationField, item BehaviorValue) error {
+func behaviorFieldViolations(field BehaviorValidationField, item BehaviorValue) []behaviorViolation {
+	broken := []behaviorViolation{}
 	absent := item == nil
 	if field.NotNull && absent {
-		return behaviorValidationError(field.Name, "notNull")
+		broken = append(broken, behaviorViolation{field: field.Name, key: "notNull", rule: "Required"})
 	}
 	if field.NotBlank && !behaviorNotBlank(item) {
-		return behaviorValidationError(field.Name, "notBlank")
+		broken = append(broken, behaviorViolation{field: field.Name, key: "notBlank", rule: "NotEmpty"})
 	}
 	if absent {
-		return nil
+		return broken
 	}
-	if field.HasSize {
-		size := -1
-		switch typed := item.(type) {
-		case string:
-			size = len(typed)
-		case []any:
-			size = len(typed)
-		case map[string]any:
-			size = len(typed)
-		}
-		if size < field.SizeMin || size > field.SizeMax {
-			return behaviorValidationError(field.Name, "size")
-		}
+	if field.HasSize && !behaviorSizeFits(field, item) {
+		broken = append(broken, behaviorViolation{field: field.Name, key: "size", rule: "Length"})
 	}
 	number, isNumber := item.(float64)
 	if field.HasMin && (!isNumber || number < field.Min) {
-		return behaviorValidationError(field.Name, "min")
+		broken = append(broken, behaviorViolation{field: field.Name, key: "min", rule: "Min"})
 	}
 	if field.HasMax && (!isNumber || number > field.Max) {
-		return behaviorValidationError(field.Name, "max")
+		broken = append(broken, behaviorViolation{field: field.Name, key: "max", rule: "Max"})
 	}
-	return nil
+	return broken
+}
+
+func behaviorSizeFits(field BehaviorValidationField, item BehaviorValue) bool {
+	size := -1
+	switch typed := item.(type) {
+	case string:
+		size = len(typed)
+	case []any:
+		size = len(typed)
+	case map[string]any:
+		size = len(typed)
+	}
+	return size >= field.SizeMin && size <= field.SizeMax
 }
 
 func behaviorNotBlank(item BehaviorValue) bool {

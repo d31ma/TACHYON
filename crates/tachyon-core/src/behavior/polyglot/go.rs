@@ -589,7 +589,7 @@ fn validation_prefix(method: &Method) -> Result<String, String> {
         .get(index)
         .ok_or("Go Check argument does not exist")?;
     Ok(format!(
-        " {}, __tachyon_error := BehaviorsValidate[{}]({}); if __tachyon_error != nil {{ return nil, __tachyon_error }};",
+        " {}, __tachyon_error := BehaviorsCheck[{}]({}); if __tachyon_error != nil {{ return nil, __tachyon_error }};",
         parameter.name,
         string(valid, "type")?,
         parameter.name
