@@ -180,6 +180,9 @@ Window menu
 menu shortcuts with control
   honored: the Control key
 
+page accessibility (roles and names through the system accessibility API)
+  honored: the web view's accessibility tree, checked by the macOS gate
+
 window drag regions (data-tac-drag-region)
   honored: dragging a marked element moves the window
 

@@ -180,6 +180,9 @@ Window menu
 menu shortcuts with control
   refused with TY1601: Android apps have no menu bar, so menus are refused until MN1.
 
+page accessibility (roles and names through the system accessibility API)
+  adapted: The Android app exposes its pages through the web view to TalkBack, but no host test checks the roles and names yet (AX1).
+
 window drag regions (data-tac-drag-region)
   not applicable: An Android app has no window to move.
 

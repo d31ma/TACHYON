@@ -180,6 +180,9 @@ Window menu
 menu shortcuts with control
   adapted: A shortcut with control gets Ctrl on Windows, like command. Shortcuts that then collide stop the build (TY1601).
 
+page accessibility (roles and names through the system accessibility API)
+  adapted: The Windows app exposes its pages through WebView2 UI Automation, but no host test checks the roles and names yet (AX2).
+
 window drag regions (data-tac-drag-region)
   adapted: data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3).
 

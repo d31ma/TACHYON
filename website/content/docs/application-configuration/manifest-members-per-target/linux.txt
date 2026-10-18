@@ -180,6 +180,9 @@ Window menu
 menu shortcuts with control
   adapted: A shortcut with control gets Ctrl on Linux, like command. Shortcuts that then collide stop the build (TY1601).
 
+page accessibility (roles and names through the system accessibility API)
+  honored: the web view's AT-SPI tree; scripts/linux/a11y-probe.py checks the window name, menu bar, page roles and names, and activation
+
 window drag regions (data-tac-drag-region)
   adapted: data-tac-drag-region does nothing in the Linux app yet, because its title bar is standard (WIN4).
 

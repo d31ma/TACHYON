@@ -600,6 +600,16 @@
     "android": {"reach": "refused", "code": 1601, "alternative": "Android apps have no menu bar, so menus are refused until MN1."}
   },
   {
+    "member": "page accessibility (roles and names through the system accessibility API)",
+    "paths": [],
+    "web": {"reach": "honored", "how": "the browser's accessibility tree"},
+    "macos": {"reach": "honored", "how": "the web view's accessibility tree, checked by the macOS gate"},
+    "windows": {"reach": "adapted", "note": "The Windows app exposes its pages through WebView2 UI Automation, but no host test checks the roles and names yet (AX2)."},
+    "linux": {"reach": "honored", "how": "the web view's AT-SPI tree; scripts/linux/a11y-probe.py checks the window name, menu bar, page roles and names, and activation"},
+    "ios": {"reach": "adapted", "note": "The iOS app exposes its pages through the web view to VoiceOver, but no host test checks the roles and names yet (AX1)."},
+    "android": {"reach": "adapted", "note": "The Android app exposes its pages through the web view to TalkBack, but no host test checks the roles and names yet (AX1)."}
+  },
+  {
     "member": "window drag regions (data-tac-drag-region)",
     "paths": [],
     "web": {"reach": "notApplicable", "note": "A browser page cannot move its window."},

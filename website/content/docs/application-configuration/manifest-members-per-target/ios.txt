@@ -180,6 +180,9 @@ Window menu
 menu shortcuts with control
   refused with TY1601: iOS apps have no menu bar, so menus are refused until MN1.
 
+page accessibility (roles and names through the system accessibility API)
+  adapted: The iOS app exposes its pages through the web view to VoiceOver, but no host test checks the roles and names yet (AX1).
+
 window drag regions (data-tac-drag-region)
   not applicable: An iOS app has no window to move.
 

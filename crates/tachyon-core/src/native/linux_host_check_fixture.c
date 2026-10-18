@@ -115,6 +115,8 @@ static void tachyon_fixture_home(void) {
   tachyon_fixture_require(tachyon_fixture_count("created") == 1, "the application service did not start once at launch");
   GMenuModel *bar = gtk_application_get_menubar(g_menu_application);
   tachyon_fixture_require(bar != NULL && g_menu_model_get_n_items(bar) == 5, "menubar does not have File, Edit, View, Window and Help");
+  tachyon_fixture_require(g_native_window != NULL && gtk_application_window_get_show_menubar(GTK_APPLICATION_WINDOW(g_native_window)),
+                          "the window does not show its menubar");
   tachyon_fixture_require(tachyon_fixture_accelerator("app.menu-1", "<Primary>1"), "Command-1 is not Ctrl+1");
   tachyon_fixture_require(tachyon_fixture_accelerator("app.menu-2", "<Primary><Alt>g"), "Command-Option-G is not Ctrl+Alt+G");
   tachyon_fixture_require(tachyon_fixture_accelerator("app.close-window", "<Primary>w"), "Close Window is not Ctrl+W");

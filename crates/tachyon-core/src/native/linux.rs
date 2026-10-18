@@ -594,6 +594,8 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   g_native_window = GTK_WINDOW(window);
   g_object_add_weak_pointer(G_OBJECT(window), (gpointer *)&g_native_window);
   gtk_window_set_title(GTK_WINDOW(window), TACHYON_APP_NAME);
+  gtk_application_window_set_show_menubar(GTK_APPLICATION_WINDOW(window), TRUE);
+  g_signal_connect(window, "map", G_CALLBACK(tachyon_menus_mapped), NULL);
   gtk_window_set_default_size(GTK_WINDOW(window), 1024, 768);
 
   gchar *resources = tachyon_resource_root();

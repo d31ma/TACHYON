@@ -180,6 +180,9 @@ Window menu
 menu shortcuts with control
   not applicable: A browser tab has no native menu bar.
 
+page accessibility (roles and names through the system accessibility API)
+  honored: the browser's accessibility tree
+
 window drag regions (data-tac-drag-region)
   not applicable: A browser page cannot move its window.
 

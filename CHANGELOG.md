@@ -25,6 +25,11 @@ machine contracts have their own, independent major versions.
   act on the app window, and `maximize`, `fullscreen` and `close`, which the
   example does not grant, are refused from the page and from a Kotlin
   service.
+- `scripts/linux/native-test.sh` now also checks the Linux app through
+  AT-SPI (the Linux accessibility bus) by role and name: the window name,
+  the File, Edit and Window menu items, the items of the File menu opened
+  with F10, and the page's landmark, heading, button and links. The
+  per-target support table has a row for page accessibility on each target.
 - Linux and Windows apps always have a menu bar, also without declared
   menu items. Next to File it has an Edit menu (Undo, Redo, Cut, Copy,
   Paste and Select All, sent to the focused field of the page) and a Window
@@ -1091,6 +1096,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The Linux app window now shows its menu bar. GTK 4 hides the menu bar of
+  an application window by default, so the File, Edit, Window, View and Help
+  menus existed but were not drawn, could not be opened with F10 and were
+  not visible to screen readers. The items inside each menu now also have
+  their visible text as their accessible name; before, AT-SPI reported them
+  with an empty name (ADR 0097 amendment).
 - Window controls tell the truth. A window control that the native host
   refuses after the call started now reaches the calling service as a
   `BrowserCallFailed` event (`api` `windowControls`, the call's name and the

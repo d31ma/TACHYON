@@ -297,3 +297,29 @@ The macOS host always replies with text, so the limit applies there too.
 - A request is at most 64 KiB, except the start-up request (`init`). The
   start-up request may be up to 1 MiB.
 - The advice stays the same: return large data page by page.
+
+## Amendment (2026-10-18): The Linux menu bar is shown and named
+
+GTK 4 changed the default of `GtkApplicationWindow:show-menubar` to false.
+The Linux host installed its menu bar on the application, but the window
+never drew it. The menu shortcuts worked, but nobody could see the menus,
+open them with F10, or find them with a screen reader. The Linux host now
+sets `show-menubar` to true on its window.
+
+The items inside the menus also had no accessible name. GTK 4.14 and 4.18
+name each popover menu item after a label that they leave out of the
+accessibility tree, so AT-SPI (the Linux accessibility bus) reported every
+item, for example Close Window and Quit, with an empty name. When a menu
+opens, the Linux host now gives each item its visible text, without the
+mnemonic underscore, as its accessible label.
+
+### Evidence
+
+- `linux_host_check_fixture.c` checks that the generated window shows its
+  menu bar.
+- `scripts/linux/a11y-probe.py`, run by `scripts/linux/native-test.sh`,
+  finds the File, Edit and Window menu items over AT-SPI, opens the File
+  menu with F10, and finds Close Window and Quit by role and name. It passed
+  on 2026-10-18 under Xvfb with GTK 4.14.5 and WebKitGTK 2.52.6 (Ubuntu
+  24.04), and in the pinned `scripts/linux/Dockerfile` image with GTK 4.18.6
+  and WebKitGTK 2.54.0 (Debian trixie).

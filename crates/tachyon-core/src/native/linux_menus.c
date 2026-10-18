@@ -161,6 +161,47 @@ static GMenu *tachyon_menus_window(void) {
   return window;
 }
 
+static gchar *tachyon_menu_spoken_text(const char *text) {
+  GString *spoken = g_string_new(NULL);
+  for (const char *cursor = text; *cursor != '\0'; cursor += 1) {
+    if (*cursor == '_' && cursor[1] != '\0') cursor += 1;
+    g_string_append_c(spoken, *cursor);
+  }
+  return g_string_free(spoken, FALSE);
+}
+
+static void tachyon_menu_name_item(GtkWidget *widget) {
+  if (gtk_accessible_get_accessible_role(GTK_ACCESSIBLE(widget)) != GTK_ACCESSIBLE_ROLE_MENU_ITEM) return;
+  if (g_object_class_find_property(G_OBJECT_GET_CLASS(widget), "text") == NULL) return;
+  gchar *text = NULL;
+  g_object_get(widget, "text", &text, NULL);
+  if (text != NULL && text[0] != '\0') {
+    gchar *spoken = tachyon_menu_spoken_text(text);
+    gtk_accessible_reset_relation(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_RELATION_LABELLED_BY);
+    gtk_accessible_update_property(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_PROPERTY_LABEL, spoken, -1);
+    g_free(spoken);
+  }
+  g_free(text);
+}
+
+static void tachyon_menus_name_tree(GtkWidget *widget);
+
+static void tachyon_menus_mapped(GtkWidget *widget, gpointer data) {
+  (void)data;
+  tachyon_menus_name_tree(widget);
+}
+
+static void tachyon_menus_name_tree(GtkWidget *widget) {
+  if (GTK_IS_POPOVER(widget)) {
+    g_signal_handlers_disconnect_by_func(widget, G_CALLBACK(tachyon_menus_mapped), NULL);
+    g_signal_connect(widget, "map", G_CALLBACK(tachyon_menus_mapped), NULL);
+  }
+  tachyon_menu_name_item(widget);
+  for (GtkWidget *child = gtk_widget_get_first_child(widget); child != NULL; child = gtk_widget_get_next_sibling(child)) {
+    tachyon_menus_name_tree(child);
+  }
+}
+
 static void tachyon_menus_install(GtkApplication *application) {
   g_menu_application = application;
   GMenu *groups[] = {g_menu_new(), g_menu_new(), g_menu_new()};
