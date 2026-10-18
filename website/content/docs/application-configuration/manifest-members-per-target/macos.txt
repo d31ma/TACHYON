@@ -165,8 +165,14 @@ tac.simplify
 application lifetime services
   honored: Rust services that start with the app and stop when it quits
 
-standard Edit and Window menus
-  honored: the App, Edit and Window menus
+standard menu bar without declared items
+  honored: the App, File, Edit and Window menus
+
+Edit menu
+  honored: Undo, Redo, Cut, Copy, Paste and Select All
+
+Window menu
+  honored: Minimize, Zoom and Bring All to Front
 
 menu shortcuts with control
   honored: the Control key

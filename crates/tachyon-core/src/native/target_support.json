@@ -550,24 +550,44 @@
     "android": {"reach": "refused", "code": 1406, "alternative": "Application lifetime services must be Rust, and Rust is not linked on Android yet. Use a page or singleton service (D1)."}
   },
   {
-    "member": "standard Edit and Window menus",
+    "member": "standard menu bar without declared items",
     "paths": [],
-    "web": {"reach": "notApplicable", "note": "A browser page has no menu bar."},
-    "macos": {"reach": "honored", "how": "the App, Edit and Window menus"},
-    "windows": {"reach": "honored", "how": "Edit (Undo, Redo, Cut, Copy, Paste, Select All) and Window (Minimize, Maximize) menus in a menu bar that is always shown"},
-    "linux": {"reach": "honored", "how": "Edit (Undo, Redo, Cut, Copy, Paste, Select All) and Window (Minimize, Maximize) menus in a menu bar that is always shown"},
-    "ios": {"reach": "notApplicable", "note": "An iOS app has no menu bar."},
-    "android": {"reach": "notApplicable", "note": "An Android app has no menu bar."}
+    "web": {"reach": "notApplicable", "note": "A browser tab has no native menu bar."},
+    "macos": {"reach": "honored", "how": "the App, File, Edit and Window menus"},
+    "windows": {"reach": "honored", "how": "File, Edit and Window menus, shown even when the manifest declares no items"},
+    "linux": {"reach": "honored", "how": "File, Edit and Window menus, shown even when the manifest declares no items"},
+    "ios": {"reach": "notApplicable", "note": "An iOS app has no menu bar (MN1 adapts declared items)."},
+    "android": {"reach": "notApplicable", "note": "An Android app has no menu bar (MN1 adapts declared items)."}
+  },
+  {
+    "member": "Edit menu",
+    "paths": [],
+    "web": {"reach": "notApplicable", "note": "The browser owns editing."},
+    "macos": {"reach": "honored", "how": "Undo, Redo, Cut, Copy, Paste and Select All"},
+    "windows": {"reach": "honored", "how": "Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Y"},
+    "linux": {"reach": "honored", "how": "Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Shift+Z"},
+    "ios": {"reach": "notApplicable", "note": "The system edit menu handles text on iOS."},
+    "android": {"reach": "notApplicable", "note": "The system text toolbar handles text on Android."}
+  },
+  {
+    "member": "Window menu",
+    "paths": [],
+    "web": {"reach": "notApplicable", "note": "A browser tab has no native menu bar."},
+    "macos": {"reach": "honored", "how": "Minimize, Zoom and Bring All to Front"},
+    "windows": {"reach": "adapted", "note": "The Windows Window menu has Minimize and Maximize, with no shortcuts."},
+    "linux": {"reach": "adapted", "note": "The Linux Window menu has Minimize and Maximize, with no shortcuts."},
+    "ios": {"reach": "notApplicable", "note": "The system owns the iOS window."},
+    "android": {"reach": "notApplicable", "note": "The system owns the Android window."}
   },
   {
     "member": "menu shortcuts with control",
     "paths": [],
-    "web": {"reach": "notApplicable", "note": "A browser page has no menu bar."},
+    "web": {"reach": "notApplicable", "note": "A browser tab has no native menu bar."},
     "macos": {"reach": "honored", "how": "the Control key"},
-    "windows": {"reach": "honored", "how": "the Ctrl key, like command; shortcuts that then collide stop the build (TY1601)"},
-    "linux": {"reach": "honored", "how": "the Ctrl key, like command; shortcuts that then collide stop the build (TY1601)"},
-    "ios": {"reach": "notApplicable", "note": "An iOS app has no menu bar."},
-    "android": {"reach": "notApplicable", "note": "An Android app has no menu bar."}
+    "windows": {"reach": "adapted", "note": "A shortcut with control gets Ctrl on Windows, like command. Shortcuts that then collide stop the build (TY1601)."},
+    "linux": {"reach": "adapted", "note": "A shortcut with control gets Ctrl on Linux, like command. Shortcuts that then collide stop the build (TY1601)."},
+    "ios": {"reach": "refused", "code": 1601, "alternative": "iOS apps have no menu bar, so menus are refused until MN1."},
+    "android": {"reach": "refused", "code": 1601, "alternative": "Android apps have no menu bar, so menus are refused until MN1."}
   },
   {
     "member": "window drag regions (data-tac-drag-region)",

@@ -165,11 +165,17 @@ tac.simplify
 application lifetime services
   refused with TY1406: Application lifetime services must be Rust, and Rust is not linked on iOS yet. Use a page or singleton service (D1).
 
-standard Edit and Window menus
-  not applicable: An iOS app has no menu bar.
+standard menu bar without declared items
+  not applicable: An iOS app has no menu bar (MN1 adapts declared items).
+
+Edit menu
+  not applicable: The system edit menu handles text on iOS.
+
+Window menu
+  not applicable: The system owns the iOS window.
 
 menu shortcuts with control
-  not applicable: An iOS app has no menu bar.
+  refused with TY1601: iOS apps have no menu bar, so menus are refused until MN1.
 
 window drag regions (data-tac-drag-region)
   not applicable: An iOS app has no window to move.

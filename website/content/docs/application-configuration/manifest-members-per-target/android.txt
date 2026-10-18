@@ -165,11 +165,17 @@ tac.simplify
 application lifetime services
   refused with TY1406: Application lifetime services must be Rust, and Rust is not linked on Android yet. Use a page or singleton service (D1).
 
-standard Edit and Window menus
-  not applicable: An Android app has no menu bar.
+standard menu bar without declared items
+  not applicable: An Android app has no menu bar (MN1 adapts declared items).
+
+Edit menu
+  not applicable: The system text toolbar handles text on Android.
+
+Window menu
+  not applicable: The system owns the Android window.
 
 menu shortcuts with control
-  not applicable: An Android app has no menu bar.
+  refused with TY1601: Android apps have no menu bar, so menus are refused until MN1.
 
 window drag regions (data-tac-drag-region)
   not applicable: An Android app has no window to move.

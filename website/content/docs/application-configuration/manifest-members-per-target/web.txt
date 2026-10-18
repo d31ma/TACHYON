@@ -165,11 +165,17 @@ tac.simplify
 application lifetime services
   refused with TY1406: A browser page has no application lifetime. Use a page or singleton service.
 
-standard Edit and Window menus
-  not applicable: A browser page has no menu bar.
+standard menu bar without declared items
+  not applicable: A browser tab has no native menu bar.
+
+Edit menu
+  not applicable: The browser owns editing.
+
+Window menu
+  not applicable: A browser tab has no native menu bar.
 
 menu shortcuts with control
-  not applicable: A browser page has no menu bar.
+  not applicable: A browser tab has no native menu bar.
 
 window drag regions (data-tac-drag-region)
   not applicable: A browser page cannot move its window.

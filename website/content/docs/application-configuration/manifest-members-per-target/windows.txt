@@ -165,11 +165,17 @@ tac.simplify
 application lifetime services
   honored: Rust services that start with the app and stop when it quits
 
-standard Edit and Window menus
-  honored: Edit (Undo, Redo, Cut, Copy, Paste, Select All) and Window (Minimize, Maximize) menus in a menu bar that is always shown
+standard menu bar without declared items
+  honored: File, Edit and Window menus, shown even when the manifest declares no items
+
+Edit menu
+  honored: Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Y
+
+Window menu
+  adapted: The Windows Window menu has Minimize and Maximize, with no shortcuts.
 
 menu shortcuts with control
-  honored: the Ctrl key, like command; shortcuts that then collide stop the build (TY1601)
+  adapted: A shortcut with control gets Ctrl on Windows, like command. Shortcuts that then collide stop the build (TY1601).
 
 window drag regions (data-tac-drag-region)
   adapted: data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3).
