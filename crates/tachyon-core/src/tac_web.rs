@@ -486,6 +486,7 @@ runtime.setModuleImports('tachyon', {
   httpStart: (text) => http.start(text),
   httpAnswer: (ticket) => http.answer(ticket),
   httpCancel: (ticket) => http.cancel(ticket),
+  socketSend: (owner, text) => socketHost(owner, text),
 })
 const companion = (await runtime.getAssemblyExports(runtime.getConfig().mainAssemblyName)).TacWeb
 const transport = (text) => companion.Invoke(text)
@@ -881,6 +882,9 @@ mod kotlin_helper_tests;
 
 #[cfg(test)]
 mod kotlin_stream_tests;
+
+#[cfg(test)]
+mod csharp_stream_tests;
 
 #[cfg(test)]
 mod rust_embedding_tests;

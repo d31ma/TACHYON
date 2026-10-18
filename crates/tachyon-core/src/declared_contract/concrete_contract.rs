@@ -38,12 +38,15 @@ impl<'a> ConcreteContract<'a> {
     const DART_SEND: &'static str = "{indent}Future<void> Function(Object? message) _tachyonSocket = (message) async => throw StateError('HTTP_MISSING: only a browser page holds the socket');\n{indent}Future<void> send(Object? message) => _tachyonSocket(message);\n";
     const HELD: [&'static str; 2] = ["streamrequest", "socketrequest"];
     const SOCKET: [&'static str; 1] = ["socketrequest"];
+    const CSHARP: &'static str = "cs";
+    const CSHARP_SEND: &'static str = "{indent}public System.Threading.Tasks.Task Send(object message) => BehaviorBrowserSocket.Send(\"{owner}\", message);\n";
     const GO_SEND: &'static str = "\nfunc ({receiver} *{owner}) Send(message any) error {\n\treturn behaviorSocketSend(\"{owner}\", message)\n}\n";
     const RUST_SEND: &'static str = "\n{indent}pub async fn send<T: TacModel>(&self, message: T) -> BehaviorResult<()> {\n{indent}    BehaviorBrowserSocket::send(\"{owner}\", message).await\n{indent}}\n";
     const SWIFT_SEND: &'static str = "\n{indent}func send<Message: Encodable>(_ message: Message) async throws {\n{indent}{indent}try await tacSocketSend(\"{owner}\", message)\n{indent}}\n";
-    const PAGE_SENDS: [(&'static str, &'static str); 2] = [
+    const PAGE_SENDS: [(&'static str, &'static str); 3] = [
         (Self::RUST, Self::RUST_SEND),
         (Self::SWIFT, Self::SWIFT_SEND),
+        (Self::CSHARP, Self::CSHARP_SEND),
     ];
     const RUBY_HELD_START: &'static str = "def initialize(_context = nil)\nend";
     const RUBY_SEND: &'static str = "def send_message(message)\n  BehaviorBrowserSocket.send_message(\"{owner}\", message)\nend";
@@ -192,6 +195,10 @@ impl<'a> ConcreteContract<'a> {
         [self.tac, self.form.language == Self::RUBY] == [true, true]
     }
 
+    fn holds_in_csharp_page(&self) -> bool {
+        [self.tac, self.form.language == Self::CSHARP] == [true, true]
+    }
+
     fn exchanged(&self, members: &[ContractMember]) -> Vec<ContractMember> {
         let rust_page = [self.tac, self.form.language == Self::RUST] == [true, true];
         let dart_page = [self.tac, self.form.language == Self::DART] == [true, true];
@@ -203,6 +210,7 @@ impl<'a> ConcreteContract<'a> {
             dart_page,
             swift_page,
             kotlin_page,
+            self.holds_in_csharp_page(),
         ];
         let held_in_page = [pages.contains(&true), self.form.language == Self::GO].contains(&true);
         let held: [&[&str]; 2] = [&[], &Self::HELD];

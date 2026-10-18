@@ -7,8 +7,8 @@ pub(crate) struct BrowserStreams;
 
 impl BrowserStreams {
     const NAMES: [&'static str; 2] = ["StreamRequest", "SocketRequest"];
-    const HOLDER_LANGUAGES: [&'static str; 8] =
-        ["js", "ts", "go", "rb", "rs", "dart", "swift", "kt"];
+    const HOLDER_LANGUAGES: [&'static str; 9] =
+        ["js", "ts", "go", "rb", "rs", "dart", "swift", "kt", "cs"];
     const BROWSER: &'static str = "tac";
 
     pub(crate) fn held_by(language: &str, environment: &str) -> bool {
