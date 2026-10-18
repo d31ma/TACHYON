@@ -8,6 +8,7 @@ pub(crate) struct FieldPath {
 
 impl FieldPath {
     pub(crate) const MAX_TEXT_BYTES: usize = 512;
+    const PREFIXES: [&'static str; 2] = ["", "."];
 
     #[cfg(test)]
     pub(crate) fn root() -> Self {
@@ -41,10 +42,10 @@ impl FieldPath {
     }
 
     fn with_leading_dot(text: &str) -> String {
-        if matches!(text.chars().next(), None | Some('[')) {
-            return text.to_owned();
-        }
-        format!(".{text}")
+        let first = text.chars().next().unwrap_or('[');
+        let needs_dot = first != '[';
+        let prefix = Self::PREFIXES[usize::from(needs_dot)];
+        format!("{prefix}{text}")
     }
 
     fn read_segments(text: &str) -> Option<Vec<PathSegment>> {
