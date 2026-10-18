@@ -79,6 +79,15 @@ machine contracts have their own, independent major versions.
   synchronous methods), and a client method takes `[[Cached]]`,
   `[[UpdateCache]]`, `[[ClearCache]]` and `[[CacheKey]]`; a cached read is a
   public read, and the read after a clear revalidates (ADR 0099 amendment).
+- A page-program browser gate (`bun run test:page-program-browser`) puts two
+  services of one language on one page, both needing the same Setup, HTTP
+  client and Store, and checks in Chromium, Firefox and WebKit whether they
+  share one Setup configuration. JavaScript and Go do; Swift, Kotlin, Java,
+  C#, F#, Rust and Dart still lower each service on its own, and their
+  fixtures say so until each language builds one program per page. The
+  browser lowering of Swift, Kotlin, .NET and Rust services now goes through
+  one file per language (`native/page_program/`), and ADR 0022 lists the
+  remaining limit and today's route size for each language.
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with

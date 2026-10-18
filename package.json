@@ -23,6 +23,7 @@
     "test:service-worker-browser": "node scripts/service-worker-browser-test.mjs",
     "test:preview-offline-browser": "node scripts/preview-offline-browser-gate.mjs",
     "test:cached-client-browser": "node scripts/cached-client-browser-test.mjs",
+    "test:page-program-browser": "node scripts/page-program-browser-gate.mjs",
     "test:window-controls-browser": "node scripts/window-controls-browser-test.mjs",
     "test:window-grant-macos": "node scripts/window-grant-macos-test.mjs",
     "test:island-expression": "node scripts/island-expression-test.mjs",

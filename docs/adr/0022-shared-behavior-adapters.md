@@ -342,14 +342,51 @@ no implementation, and Tachyon generates each query.
   generated `TacClientConfiguration` of a managed-client owner is
   `moduleOwned`, so it stays one for each module: each owner module has its
   own adapter policies.
-- Current limit: in Swift, Kotlin, Java, C#, F#, Rust and Dart browser
-  services, each service is lowered on its own, with its own copy of the
-  runtime and of each Setup and client type (a namespace or a Java holder
-  for each service). Two such services therefore still get separate
-  adapters; the clients inside one service share them. Go services already
-  build into one page program (ADR 0045), and JavaScript and TypeScript
-  services share one Setup class as described above. Lowering a page's
-  services as one program will remove this limit for the other languages.
+- Current limit: in the languages below, each browser service is lowered on
+  its own, with its own copy of the runtime glue and of each Setup, client
+  and store type. Two such services on one page therefore get two Setup
+  configurations and separate adapters; the clients inside one service share
+  them. Go services already build into one page program (ADR 0045), and
+  JavaScript and TypeScript services share one Setup class as described
+  above. The thread that lowers a language's page as one program deletes
+  that language's bullet, flips `scripts/page-program/<language>/expected.json`
+  to `"shared"`, and reports the route size before and after (TY1337, ADR
+  0100). The baseline sizes were measured on 2026-10-18 in a Linux container
+  without Binaryen or TinyGo, so compare a language only with itself on the
+  same machine.
+  - Swift: one `private enum TachyonService<N>` for each service; the hook is
+    `native/page_program/swift_page_program.rs`. Baseline 35 KB of script,
+    1519 KB of WebAssembly.
+  - Kotlin: one `private object TachyonService<N>` for each service; the hook
+    is `native/page_program/kotlin_page_program.rs`. Baseline 36 KB of
+    script, 195 KB of WebAssembly.
+  - Java: one holder class for each service; the hook is
+    `JavaWebServices::services` in `native/java_web_services.rs`. Baseline
+    40 KB of script, 86 KB of WebAssembly.
+  - C#: one `namespace TachyonService<N>` for each service; the hook is
+    `native/page_program/dotnet_page_program.rs`. Baseline 115 KB of script, 1136 KB of WebAssembly.
+  - F#: one `namespace rec TachyonService<N>` for each service in the F#
+    project; the same hook as C#. Baseline 115 KB of script, 1278 KB of WebAssembly.
+  - Rust: one `mod TachyonService<N>` for each service; the hook is
+    `native/page_program/rust_page_program.rs`. Baseline 127 KB of script
+    (the module is embedded in `tachyon-rust.js`), 0 KB of WebAssembly.
+  - Dart: one library for each service inside the one Dart program; the
+    hook is `build_service` in `tac_dart.rs`. Baseline 37 KB of script,
+    46 KB of WebAssembly.
+- The page-program gate (`scripts/page-program-browser-gate.mjs`,
+  `bun run test:page-program-browser`) builds one project for each
+  language: two services, `writer` and `reader`, on one page, both needing
+  the same Setup, the same HTTP client (bound to the Setup's own
+  `pageprogram` adapter) and the same Store. In Chromium, Firefox and WebKit
+  it checks that the two services see one Setup configuration and that an
+  increment through one client reaches the other (`"shared"`), or that they
+  see two (`"separate"`), and that the Store record one service saves is
+  found by the other. `TAC_PAGE_PROGRAM_LANGUAGES` and
+  `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript and Go fixtures
+  are `"shared"` (47 KB of script; 37 KB of script and 990 KB of
+  WebAssembly). The C++ fixture is marked owed and skipped by default: a C++
+  page HTTP client does not call a Setup's `adapters.http` yet and ignores
+  the `HTTPClient` options (CPP3 of the queue plan).
 - Every runtime's contract test opens two contexts from one Setup, checks
   that `configure` ran once and that both contexts see the same adapter
   state, disposes one context twice, and checks that `configure` runs again

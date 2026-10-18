@@ -700,6 +700,13 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/debug/ty
 
+      - name: Verify one Setup and one client for two services on a page in every Tac language and browser
+        run: |
+          export PATH="${JAVA_HOME_21_arm64}/bin:${PATH}"
+          bun run test:page-program-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/debug/ty
+
       - name: Run native launch, accessibility, lifecycle, and visual parity gate
         run: bun run test:phase4-macos
 

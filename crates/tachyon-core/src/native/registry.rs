@@ -83,40 +83,23 @@ pub(super) fn source(
         return super::rust_page_graph::RustPageGraph::source(&selected).map(Some);
     }
     let mut imports = BTreeSet::new();
-    let mut namespaces = String::new();
-    let mut services = Vec::new();
-    let mut fsharp = String::new();
-    let mut runtimes = String::new();
     let (needs, selected) = super::fsharp_service_needs::FsharpServiceNeeds::ordered(&selected)?;
-    for (index, item) in selected.iter().enumerate() {
-        let body = service_body(language, item, &needs, &mut imports)?;
-        let namespace = format!("TachyonService{index}");
-        let (body, fsharp_body) = crate::fsharp_source::FsharpSource::web_split(&body);
-        let (fsharp_body, runtime) = crate::fsharp_source::FsharpSource::runtime_split(fsharp_body);
-        namespaces.push_str(&namespace_source(language, &namespace, body));
-        fsharp.push_str(&crate::fsharp_source::FsharpSource::web_namespace(
-            &namespace,
-            fsharp_body,
-        ));
-        runtimes.push_str(&crate::fsharp_source::FsharpSource::runtime_namespace(
-            &namespace, runtime,
-        ));
-        services.push((item.service.clone(), namespace));
-    }
+    let program =
+        super::page_program::PageProgram::lowered(language, (&selected, &needs, &mut imports))?;
     let models = models_source(language, &selected[0].snapshot_root, &mut imports)?;
     let mut result = imports.into_iter().collect::<Vec<_>>().join("\n");
     result.push('\n');
-    result.push_str(&namespaces);
+    result.push_str(&program.namespaces);
     result.push_str(&models);
-    result.push_str(&dispatch(language, &services));
+    result.push_str(&dispatch(language, &program.services));
     let result = super::fsharp_web_project::FsharpWebProject::with_model_context(
         &result,
         &selected[0].snapshot_root,
-        &fsharp,
+        &program.fsharp,
     )?;
     Ok(Some(crate::fsharp_source::FsharpSource::web_body(
         &result,
-        &crate::fsharp_source::FsharpSource::with_runtime(&fsharp, &runtimes),
+        &crate::fsharp_source::FsharpSource::with_runtime(&program.fsharp, &program.runtimes),
     )))
 }
 
@@ -147,7 +130,7 @@ fn language_extension(language: NativeCompanion) -> &'static str {
     }
 }
 
-fn service_body(
+pub(super) fn service_body(
     language: NativeCompanion,
     item: &NativeCompanionInput,
     needs: &super::fsharp_service_needs::FsharpServiceNeeds,
@@ -389,17 +372,6 @@ fn required_declaration(language: NativeCompanion, required: &[String]) -> Strin
         ),
         NativeCompanion::Swift => format!("static let tacRequired: [String] = [{required}]\n"),
         NativeCompanion::Kotlin => format!("val tacRequired: List<String> = listOf({required})\n"),
-    }
-}
-
-fn namespace_source(language: NativeCompanion, namespace: &str, source: &str) -> String {
-    match language {
-        NativeCompanion::Swift => format!("private enum {namespace} {{\n{source}\n}}\n"),
-        NativeCompanion::Kotlin => format!("private object {namespace} {{\n{source}\n}}\n"),
-        NativeCompanion::CSharp => format!("namespace {namespace} {{\n{source}\n}}\n"),
-        NativeCompanion::Rust => {
-            format!("#[allow(non_snake_case)]\nmod {namespace} {{\nuse super::*;\n{source}\n}}\n")
-        }
     }
 }
 
