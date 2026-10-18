@@ -10,6 +10,21 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
+  one class marked `[[Test(<Name>TestSetup)]]` and a
+  `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with
+  `clang++` (no Emscripten), with the models, every server Setup, service,
+  helper, converter, store, HTTP client, controller and error handler and a
+  test host whose clock stands at 0, and runs it once. Cases,
+  `[[ValueSource]]`, `Assert` and `BehaviorContext behaviors;` work as in Tac
+  C++. `[[Fake]] RateHelper rates;` holds the stand-in object, and
+  `construct<T>()` gives it to every `[[Needs]]` field of that type. The
+  TestSetup's `adapters.http` answers the requests of HTTP clients. Each
+  case is one invocation with new objects, its own OnStart, events and
+  OnStop, and its own context with the test's `[[UseProfiles]]` and
+  `[[TestSettings]]` (`yon.` keys). `[[FreshStart]]` is accepted and changes
+  nothing. Executed-method coverage now reads server C++ services, helpers
+  and controllers (ADR 0099 amendment).
 - Yon C++ has error handlers, an identity provider, `[[ResponseStatus]]`
   and the native request and response types. An error type in
   `server/errors` derives from `std::exception`, a standard error or another

@@ -27,6 +27,28 @@ impl CppLowering {
         behaviors: &BTreeMap<String, Value>,
         scope: &str,
     ) -> String {
+        Self::yon_lowering(file, source, opening, behaviors, scope).finished()
+    }
+
+    pub(crate) fn recorded_yon(
+        file: &CppFile,
+        source: &str,
+        opening: &str,
+        behaviors: &BTreeMap<String, Value>,
+        scope: &str,
+    ) -> String {
+        let mut lowering = Self::yon_lowering(file, source, opening, behaviors, scope);
+        lowering.record_calls(&file.class, source);
+        lowering.finished()
+    }
+
+    fn yon_lowering(
+        file: &CppFile,
+        source: &str,
+        opening: &str,
+        behaviors: &BTreeMap<String, Value>,
+        scope: &str,
+    ) -> Self {
         let mut lowering = Self::blanked(file, source);
         lowering
             .insertions
@@ -34,7 +56,7 @@ impl CppLowering {
         lowering.fill_yon_needs(&file.class);
         lowering.wrap_policies(&file.class.members, behaviors, scope);
         lowering.guard_checked(&file.class, source);
-        lowering.finished()
+        lowering
     }
 
     fn fill_yon_needs(&mut self, class: &CppClass) {
@@ -76,7 +98,7 @@ impl CppLowering {
 
     pub(crate) fn recorded_service(service: &CppService, prototypes: &[String]) -> String {
         let mut lowering = Self::service_lowering(service, prototypes);
-        lowering.record_calls(service);
+        lowering.record_calls(service.class(), &service.source);
         lowering.finished_service(service)
     }
 
@@ -138,9 +160,8 @@ impl CppLowering {
         format!("{}{remote}", self.finished())
     }
 
-    fn record_calls(&mut self, service: &CppService) {
-        let class = service.class();
-        for member in CppCoverage::covered_members(&service.source, &class.members) {
+    fn record_calls(&mut self, class: &CppClass, source: &str) {
+        for member in CppCoverage::covered_members(source, &class.members) {
             let key = format!("{}.{}", class.name, member.name);
             let hook =
                 crate::method_coverage::CallHooks::statement(super::CppSource::EXTENSION, &key);

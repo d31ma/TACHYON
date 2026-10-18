@@ -16,7 +16,6 @@ impl CppSetup {
     const ENVIRONMENTS: [&'static str; 2] = ["tac", "yon"];
     const SETUP: &'static str = "Setup";
     const CONFIGURE: &'static str = "configure";
-    pub(crate) const ENVIRONMENT: &'static str = "tac";
     const CLASS_MARKERS: [&'static str; 4] = ["Setup", "WhenProfile", "WhenSetting", "Description"];
     const NO_CONFIGURE: &'static str = "A C++ [[Setup]] declares `static BehaviorAdapters configure(const BehaviorExecution& execution)`, which returns the adapters of its behavior context";
     const OTHER_MARKER: &'static str = "A C++ [[Setup]] class takes only [[WhenProfile]], [[WhenSetting]] and [[Description]] next to [[Setup]]; it has no other role";

@@ -17,8 +17,15 @@ impl CppYonErrors {
     const NO_METHOD: &'static str = "A C++ [[ErrorHandler]] class needs at least one [[HandlesError]] instance method, for example `[[HandlesError]] [[ResponseStatus(404)]] Problem missing(const OrderNotFound& error)`";
 
     pub(crate) fn read(root: &Path, controller: &CppYonController) -> Result<Self, Failure> {
+        Self::with_handlers(root, controller.handles_errors())
+    }
+
+    pub(crate) fn every(root: &Path) -> Result<Self, Failure> {
+        Self::with_handlers(root, true)
+    }
+
+    fn with_handlers(root: &Path, handled: bool) -> Result<Self, Failure> {
         let types = CppYonErrorTypes::read(root)?;
-        let handled = controller.handles_errors();
         let handlers = handled
             .then(|| Self::handlers(root))
             .transpose()?
@@ -85,7 +92,7 @@ impl CppYonErrors {
         Ok(read.into_iter().flatten().collect())
     }
 
-    fn generated(path: &Path) -> bool {
+    pub(crate) fn generated(path: &Path) -> bool {
         path.file_name()
             .and_then(|name| name.to_str())
             .is_some_and(|name| name.starts_with('.'))

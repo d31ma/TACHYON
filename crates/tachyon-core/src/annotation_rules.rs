@@ -286,7 +286,7 @@ impl AnnotationRules {
 
     const YON_SOCKET: &'static [&'static str] = Self::YON_EXCEPT_CPP;
 
-    const YON_TEST: &'static [&'static str] = Self::YON_EXCEPT_CPP;
+    const YON_TEST: &'static [&'static str] = Self::YON;
 
     const TAC: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",

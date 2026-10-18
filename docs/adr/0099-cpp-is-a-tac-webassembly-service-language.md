@@ -357,10 +357,10 @@ services, helpers, injection, lifecycle hooks and workers.
   `PostRoute`, `PutRoute`, `PatchRoute`, `DeleteRoute`, `Public`, `SignedIn`,
   `Allow`, `FromPath`, `FromQuery`, `FromBody`, `FromHeader` and `FromCookie`
   reach C++. The amendments of 2026-10-18 add the role, injection and
-  lifecycle markers, the Setup and settings markers, and `ErrorHandler`,
-  `HandlesError`, `ResponseStatus` and `IdentityProvider`. Every other Yon
-  marker in a C++ file (`SocketRoute`, `StreamRoute`, `Test`, the behavior
-  markers, ...) fails with its rule's code, and the message says that
+  lifecycle markers, the Setup and settings markers, `ErrorHandler`,
+  `HandlesError`, `ResponseStatus` and `IdentityProvider`, and the test
+  markers. Every other Yon marker in a C++ file (`SocketRoute`,
+  `StreamRoute`, the behavior markers, ...) fails with its rule's code, and the message says that
   C++ gets it in a later step. A C++ file in `server/controllers` without
   `[[RequestRoute]]` fails with `TY1363` or `TY2015`.
 
@@ -842,6 +842,70 @@ HTTP" and "Gateways", APPLICATION_EVENTS.md "Topics"). The rule table lists
   the objects, queues the delivered event after the `[[OnStart]]` methods,
   drains, and answers 204.
 
+## Amendment (2026-10-18): Yon C++ test units
+
+C++ Yon code now has test units in `server/tests`. The rule table lists
+`hpp` for `Test`, `TestSetup`, `Fake`, `FreshStart`, `ValueSource`,
+`UseProfiles` and `TestSettings` (`YON_TEST`).
+
+- A test unit is `server/tests/<Name>Test.hpp` with one class marked
+  `[[Test(<Name>TestSetup)]]` or
+  `[[Test(<Name>TestSetup, {"partition":"tests"})]]`. The TestSetup is
+  `server/tests/<Name>TestSetup.hpp` with
+  `class [[TestSetup]] <Name>TestSetup`, and it may declare `static BehaviorAdapters configure()` or
+  `configure(const BehaviorExecution& execution)`.
+- `ty test` finds the unit like the other server units. It builds the unit
+  with the C++ handler build (`clang++ -std=c++20 -O2`) and posts to `/`
+  once. The program answers the usual JSON report:
+  `{"unit":...,"cases":[{"name":...,"passed":...,"error":...,"called":[...]}]}`.
+  It needs no Emscripten.
+- The program holds the Yon runtime with a test host (`TacHost` with the
+  realm `"yon"`, clock 0 and a sleep that does nothing). The host answers
+  behavior storage as the native host does, through the adapters of the
+  calling object's context (`YonHostStorage`), and the memory entity
+  database is reset before each case. The program also holds all of
+  `server/models` and `server/entities`, the error types of `server/errors`,
+  every server Setup, every class of `server/services`, `server/helpers`,
+  `server/converters`, `server/stores`, `server/remotes` and
+  `server/controllers` with the error handlers, the TestSetup, the unit and a
+  generated dispatcher. A gateway that a class of the program declares is
+  read for the unit as for a controller.
+- An `[[HTTPClient]]` in a test unit sends its requests to `adapters.http`
+  of the TestSetup instead of its own Setup, as Tac C++ test units do
+  (`YonRemote::answering()`); a missing adapter names the TestSetup.
+- Cases, `[[ValueSource]]`, `Assert`, `Task<void>` cases and a
+  `BehaviorContext behaviors;` field work as in Tac C++ test units (see "Test
+  units" above and the Tac C++ Setup amendment).
+- `[[Fake]] RateHelper rates;` holds the stand-in object itself: no
+  reference, no pointer, no `static` (`TY1371`). Its type is a C++ class of
+  the project in `server/services`, `server/helpers`, `server/converters`,
+  `server/stores`, `server/remotes` or `server/controllers` (`TY1372`
+  otherwise). Tachyon writes a
+  member `construct<T>()` into the test class. While it makes a `T`, every
+  `[[Needs]]` field whose type is a Fake's type gets the Fake object. A
+  shared (singleton or request) object that is first made during `construct`
+  keeps the real objects, so a Fake never leaks into it. A `[[Fake]]` field
+  in the TestSetup class fails with `TY1371`. Yon Rust and Go have no
+  construct helper; C++ has one, as in Tac C++.
+- Each case is one invocation. Objects are new for each case, singletons
+  too. `[[OnStart]]` runs when an object is made, also for an object that a
+  case makes after it started. Listeners hear the events that the case
+  publishes, and the events are delivered when the case ends. `[[OnStop]]`
+  runs in reverse order at the end of the case. `[[FreshStart]]` is accepted
+  but changes nothing, as in Rust and Go, because each case already starts
+  with new objects. A transient or capture check that a controller build
+  makes is not made again for the test program.
+- Each case opens a context from the TestSetup. The partition is `"test"`
+  unless the marker names one. `[[UseProfiles("test")]]` gives the profiles
+  and `[[TestSettings({"yon.catalog.size":5})]]` gives the properties; a key
+  must start with `yon.` and becomes `YON_CATALOG_SIZE`. The Test class's
+  markers win over the TestSetup's.
+- Executed-method coverage reads server C++ code too. In a test unit,
+  Tachyon adds `BehaviorCalls::record("PriceService.price");` at the start of
+  each public non-static method with a body of a service, helper or
+  controller, and the coverage table lists `("server", "hpp")`, so the
+  report uses the recorded calls.
+
 ## Pending
 
 Each bullet is one planned step. A step deletes its own bullet, and only that
@@ -850,10 +914,6 @@ bullet, when it lands.
 
 - Yon C++ streams and sockets: `[[StreamRoute]]`, `[[SocketRoute]]`,
   `[[OnOpen]]`, `[[OnMessage]]`, `[[OnClose]]` and `[[OnError]]`.
-
-- Yon C++ test units in `server/tests`: `[[Test]]`, `[[TestSetup]]`,
-  `[[Fake]]`, `[[FreshStart]]`, `[[ValueSource]]`, `[[UseProfiles]]` and
-  `[[TestSettings]]`.
 
 The rule table refuses each of these markers for C++ until its step lands.
 These stay out of the plan for now:

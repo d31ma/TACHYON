@@ -823,11 +823,23 @@ function testUnitExtensions(files) {
 }
 
 /**
+ * @param {Snippet[]} files
+ * @param {string} extension
+ * @returns {string}
+ */
+function testUnitToolName(files, extension) {
+  const units = files.filter(file => isTestUnit(file.name) && path.extname(file.name) === extension)
+  const serverOnly = units.length > 0 && units.every(file => file.name.startsWith('server/'))
+  return serverOnly ? `server/unit${extension}` : `unit${extension}`
+}
+
+/**
  * @param {string} label
  * @param {string} extension
+ * @param {Snippet[]} files
  */
-async function canRunTestUnits(label, extension) {
-  if (extension !== '.swift') return canRun(label, `unit${extension}`)
+async function canRunTestUnits(label, extension, files) {
+  if (extension !== '.swift') return canRun(label, testUnitToolName(files, extension))
   if (skipAfterRepeatedLoadFailures(label, extension)) return false
   if (await isToolAvailable('swiftc')) return true
   skip(label, 'toolchain unavailable or failed its bounded startup probe: swiftc')
@@ -844,7 +856,7 @@ async function runTestUnits(label, files, earlierSteps) {
   for (const extension of testUnitExtensions(files)) {
     if (!isSelectedLanguage(`unit${extension}`)) continue
     const stepLabel = `${label} [${extension.slice(1)}]`
-    if (!await canRunTestUnits(stepLabel, extension)) continue
+    if (!await canRunTestUnits(stepLabel, extension, files)) continue
     await inStagingDirectory(stepLabel, async root => {
       for (const file of [...earlierSteps, ...files]) {
         if (path.extname(file.name) === extension) writeSnippetFile(root, file.name, file.code)
@@ -1411,7 +1423,7 @@ async function verifyGuideSection(slug, section, earlierSteps) {
 async function verifyTacConfiguration(label, files) {
   for (const extension of extensionsToBundle(files)) {
     const stepLabel = `${label} [${extension.slice(1)}]`
-    if (!await canRunTestUnits(stepLabel, extension)) continue
+    if (!await canRunTestUnits(stepLabel, extension, files)) continue
     await inStagingDirectory(stepLabel, async root => {
       for (const file of filesForTacLanguage(files, extension)) writeSnippetFile(root, file.name, file.code)
       if (!await hasWebTarget(extension)) {

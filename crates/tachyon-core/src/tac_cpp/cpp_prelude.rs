@@ -53,6 +53,10 @@ impl CppPrelude {
         Self::SERVICES
     }
 
+    pub(crate) fn test_harness() -> String {
+        [Self::TEST_TRANSPORT, Self::TEST_NEEDS, Self::TEST].concat()
+    }
+
     pub(crate) fn web() -> String {
         [
             Self::INCLUDES,

@@ -3,7 +3,10 @@ use crate::tac_cpp::CppPrelude;
 pub(crate) struct CppYonRuntime;
 
 impl CppYonRuntime {
+    const HOST_STORAGE: &'static str = include_str!("tachyon/yon_host_storage.hpp");
     const HOST: &'static str = include_str!("tachyon/yon_host.hpp");
+    const TEST_HOST: &'static str = include_str!("tachyon/yon_test_host.hpp");
+    const FAKES: &'static str = include_str!("tachyon/yon_fakes.hpp");
     const PIECES: &'static [&'static str] = &[
         include_str!("tachyon/yon_frame.hpp"),
         include_str!("tachyon/yon_request.hpp"),
@@ -19,11 +22,20 @@ impl CppYonRuntime {
     ];
 
     pub(crate) fn source() -> String {
+        Self::composed(Self::HOST, "")
+    }
+
+    pub(crate) fn tested() -> String {
+        let harness = format!("{}{}", CppPrelude::test_harness(), Self::FAKES);
+        Self::composed(Self::TEST_HOST, &harness)
+    }
+
+    fn composed(host: &str, harness: &str) -> String {
         format!(
-            "{}{}{}{}{}{}",
+            "{}{}{}{host}{}{}{}{harness}",
             CppPrelude::yon(),
             CppPrelude::MEMORY_ENTITIES,
-            Self::HOST,
+            Self::HOST_STORAGE,
             CppPrelude::context(),
             Self::PIECES.concat(),
             CppPrelude::services()

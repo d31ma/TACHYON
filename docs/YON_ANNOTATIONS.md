@@ -327,9 +327,17 @@ public:
 };
 ```
 
-C++ has no socket or test markers in Yon yet: they fail with their rule's
-code, and the message says that C++ gets them in a later step.
-The Pending section of ADR 0099 lists those steps.
+A C++ test unit is `server/tests/<Name>Test.hpp` with one class marked
+`[[Test(<Name>TestSetup)]]`, and its TestSetup is
+`server/tests/<Name>TestSetup.hpp` (ADR 0099 amendment of 2026-10-18, "Yon
+C++ test units"). `ty test` builds it with `clang++` and runs it once. Each
+case starts with new objects, and `construct<PriceService>()` gives the
+class's `[[Needs]]` fields the `[[Fake]]` objects of the test. The markers
+follow the [test-unit rules](BEHAVIOR_ANNOTATIONS.md#test-units).
+
+C++ has no socket markers in Yon yet: they fail with their rule's code, and
+the message says that C++ gets them in a later step. The Pending section of
+ADR 0099 lists that step.
 
 ## Calling another language
 

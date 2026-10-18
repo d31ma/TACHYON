@@ -24,6 +24,7 @@ mod cpp_yon_runtime;
 mod cpp_yon_scope;
 mod cpp_yon_status;
 mod cpp_yon_stores;
+mod cpp_yon_test_unit;
 mod cpp_yon_topics;
 mod cpp_yon_worker;
 
@@ -36,6 +37,9 @@ mod policy_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod role_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod test_unit_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests;
@@ -66,5 +70,6 @@ use cpp_yon_runtime::CppYonRuntime;
 use cpp_yon_scope::CppYonScope;
 use cpp_yon_status::CppYonStatus;
 use cpp_yon_stores::CppYonStores;
+use cpp_yon_test_unit::CppYonTestUnit;
 use cpp_yon_topics::CppYonTopics;
 pub(crate) use cpp_yon_worker::CppYonWorker;

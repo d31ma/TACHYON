@@ -1,9 +1,10 @@
 use super::{
-    CppYonController, CppYonErrors, CppYonGraph, CppYonProgram, CppYonStores, CppYonTopics,
+    CppYonController, CppYonErrors, CppYonGraph, CppYonProgram, CppYonStores, CppYonTestUnit,
+    CppYonTopics,
 };
 use crate::Failure;
 use crate::behavior::GatewayDeclaration;
-use crate::tac_cpp::{CppProgram, CppSource};
+use crate::tac_cpp::{CppProgram, CppSource, CppTestUnit};
 use crate::yon::Lowered;
 use crate::yon::plan::Route;
 use std::path::Path;
@@ -12,6 +13,12 @@ pub(crate) struct CppYon;
 
 impl CppYon {
     pub(crate) fn lower(source: &Path, contents: &str, root: &Path) -> Result<Lowered, Failure> {
+        let lower =
+            [Self::controller, CppYonTestUnit::lower][usize::from(CppYonTestUnit::is_test(source))];
+        lower(source, contents, root)
+    }
+
+    fn controller(source: &Path, contents: &str, root: &Path) -> Result<Lowered, Failure> {
         let controller = CppYonController::read(source, contents)?;
         let (errors, models, graph) = Self::graph(root, &controller)?;
         Ok(Lowered {
@@ -56,6 +63,16 @@ impl CppYon {
         caller: &Path,
         contents: &str,
     ) -> Result<Vec<GatewayDeclaration>, Failure> {
+        let declared = [Self::controller_gateways, CppYonTestUnit::gateways]
+            [usize::from(CppYonTestUnit::is_test(caller))];
+        declared(root, caller, contents)
+    }
+
+    fn controller_gateways(
+        root: &Path,
+        caller: &Path,
+        contents: &str,
+    ) -> Result<Vec<GatewayDeclaration>, Failure> {
         let controller = CppYonController::read(caller, contents)?;
         Ok(Self::graph(root, &controller)?.2.gateways)
     }
@@ -86,8 +103,14 @@ impl CppYon {
         other: impl Fn(&Path, &str) -> Result<(), Failure>,
     ) -> Result<(), Failure> {
         if cpp {
-            return CppYonController::read(source, contents).map(drop);
+            let check = [Self::read_controller, CppTestUnit::check]
+                [usize::from(CppYonTestUnit::is_test(source))];
+            return check(source, contents);
         }
         other(source, contents)
+    }
+
+    fn read_controller(source: &Path, contents: &str) -> Result<(), Failure> {
+        CppYonController::read(source, contents).map(drop)
     }
 }

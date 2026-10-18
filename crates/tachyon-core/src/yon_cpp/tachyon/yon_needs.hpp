@@ -19,9 +19,10 @@ public:
     static constexpr std::size_t MAX_INSTANCES = 4096;
 
     template <typename Provider>
-    static Provider& shared(Provider*& slot, void (*describe)(Provider&, YonMade&)) {
-        if (slot == nullptr) {
+    static Provider& shared(Provider*& slot, std::size_t& madeIn, void (*describe)(Provider&, YonMade&)) {
+        if (slot == nullptr || madeIn != generation()) {
             slot = &fresh<Provider>(describe);
+            madeIn = generation();
         }
         return *slot;
     }
@@ -36,12 +37,25 @@ public:
         entry.owner = owner;
         describe(*owner, entry);
         made().push_back(std::move(entry));
+        if (joined()) {
+            joined()();
+        }
         return *owner;
     }
 
     static std::vector<YonMade>& made() {
         static std::vector<YonMade> objects;
         return objects;
+    }
+
+    static std::function<void()>& joined() {
+        static std::function<void()> join;
+        return join;
+    }
+
+    static std::size_t& generation() {
+        static std::size_t current = 0;
+        return current;
     }
 };
 
@@ -72,7 +86,10 @@ public:
 
 class YonInvocation {
 public:
-    YonInvocation() = default;
+    YonInvocation() {
+        YonEvents::current().open();
+    }
+
     YonInvocation(const YonInvocation&) = delete;
     YonInvocation& operator=(const YonInvocation&) = delete;
 
@@ -85,6 +102,7 @@ public:
             begin(objects[index]);
             started = index + 1;
         }
+        YonContainer::joined() = [this] { join(); };
         YonEvents::current().drain();
         YonDelivery::deliver();
         YonEvents::current().drain();
@@ -95,6 +113,7 @@ public:
     }
 
     ~YonInvocation() {
+        YonContainer::joined() = nullptr;
         YonEvents::current().close();
         std::vector<YonMade>& objects = YonContainer::made();
         for (std::size_t index = started; index > 0; index -= 1) {
@@ -103,10 +122,24 @@ public:
         while (!objects.empty()) {
             objects.pop_back();
         }
+        YonContainer::generation() += 1;
     }
 
 private:
     std::size_t started = 0;
+
+    void join() {
+        std::vector<YonMade>& objects = YonContainer::made();
+        while (started < objects.size()) {
+            std::size_t index = started;
+            started += 1;
+            listen(objects[index]);
+            std::function<void()> run = objects[index].start;
+            if (run) {
+                run();
+            }
+        }
+    }
 
     static void listen(YonMade& object) {
         if (object.listen) {

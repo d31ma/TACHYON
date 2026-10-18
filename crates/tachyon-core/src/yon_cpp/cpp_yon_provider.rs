@@ -9,6 +9,8 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+type CppYonKnown<'a> = (&'a CppProgram, &'a CppYonStores, bool);
+
 pub(crate) struct CppYonProvider {
     pub(crate) name: String,
     pub(crate) path: PathBuf,
@@ -28,6 +30,7 @@ impl CppYonProvider {
         service: &CppService,
         models: &CppProgram,
         stores: &CppYonStores,
+        recorded: bool,
     ) -> Result<Self, Failure> {
         let written = (
             service.path.as_path(),
@@ -39,8 +42,7 @@ impl CppYonProvider {
             written,
             &service.behaviors,
             (Scope::Singleton, &remote),
-            models,
-            stores,
+            (models, stores, recorded),
         )?;
         provider
             .lowered
@@ -52,32 +54,33 @@ impl CppYonProvider {
         controller: &CppYonController,
         models: &CppProgram,
         stores: &CppYonStores,
+        recorded: bool,
     ) -> Result<Self, Failure> {
         let written = (
             controller.path.as_path(),
             &controller.file,
             controller.source.as_str(),
         );
-        Self::rooted(written, models, stores)
+        Self::rooted(written, (models, stores, recorded))
     }
 
     pub(crate) fn handler(
         handler: &CppYonHandler,
         models: &CppProgram,
         stores: &CppYonStores,
+        recorded: bool,
     ) -> Result<Self, Failure> {
         let written = (
             handler.path.as_path(),
             &handler.file,
             handler.source.as_str(),
         );
-        Self::rooted(written, models, stores)
+        Self::rooted(written, (models, stores, recorded))
     }
 
     fn rooted(
         (path, file, source): (&Path, &CppFile, &str),
-        models: &CppProgram,
-        stores: &CppYonStores,
+        known: CppYonKnown<'_>,
     ) -> Result<Self, Failure> {
         CppService::check_needs(path, &file.class)?;
         CppLifetime::check(path, &file.class)?;
@@ -86,8 +89,7 @@ impl CppYonProvider {
             (path, file, source),
             &behaviors,
             (Scope::Request, ""),
-            models,
-            stores,
+            known,
         )
     }
 
@@ -95,8 +97,7 @@ impl CppYonProvider {
         (path, file, source): (&Path, &CppFile, &str),
         behaviors: &BTreeMap<String, Value>,
         (unwritten, remote): (Scope, &str),
-        models: &CppProgram,
-        stores: &CppYonStores,
+        (models, stores, recorded): CppYonKnown<'_>,
     ) -> Result<Self, Failure> {
         let class = &file.class;
         models.check_role(path, source, class)?;
@@ -106,7 +107,8 @@ impl CppYonProvider {
             Self::FRIENDS,
             stores.member(path, source, class)?
         );
-        let lowered = CppLowering::yon(file, source, &opening, behaviors, scope);
+        let lowering = [CppLowering::yon, CppLowering::recorded_yon][usize::from(recorded)];
+        let lowered = lowering(file, source, &opening, behaviors, scope);
         let (entity, defined) = stores.definitions(path, source, class)?.unzip();
         Ok(Self {
             name: class.name.clone(),

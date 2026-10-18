@@ -434,6 +434,7 @@ language gets:
 | Dart | yes | yes, to `null`, `false` or zero | `construct<Role>(Role)` |
 | Go | yes | yes, to the zero value: `nil`, `false`, zero or `""` | no; only a Tac unit gets `construct` |
 | Rust | yes | yes: a `RefCell` or `Cell` Fake is reset to its `Default`, `None` for an `Option` | no; only a Tac unit gets `construct()` |
+| C++ | yes | yes, because every case runs on a new instance | `construct<Role>()`, in Tac and Yon units |
 
 A Kotlin or Dart Fake must be nullable or have a primitive type (`Int`,
 `Boolean` and the other numbers in Kotlin; `int`, `double`, `num` or `bool`
@@ -1756,8 +1757,10 @@ a broken rule answers 422 (ADR 0101). It has `[[Setup]]` and Settings since the
 and caching, retries, transactions, pagination, entities and Stores since the
 [caching amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-caching-policies-and-stores).
 Its HTTP clients, gateways and topics come from the
-[outbound amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-c-http-clients-gateways-and-topics);
-its sockets and test units come in later steps (see
+[outbound amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-c-http-clients-gateways-and-topics),
+and test units in `server/tests/<Name>Test.hpp` since the
+[test-unit amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-c-test-units).
+Its sockets come in a later step (see
 [Yon controllers](YON_ANNOTATIONS.md#language-spellings)). A Yon C++
 `[[HTTPClient]]` method returns its answer instead of a `Task`, and sends
 through `adapters.http` of the client's Setup. In Tac and in Yon,

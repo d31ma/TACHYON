@@ -294,6 +294,12 @@ async fn every_compiled_language_runs_its_test_unit() {
             "// @TestSetup\ntype CatalogTestSetup struct{}\n\nfunc (CatalogTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n",
             "// @Test(CatalogTestSetup, {\"partition\":\"tests\"})\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CatalogServiceTest) TestOpensAContext() {\n\tAssert.IsTrue(test.behaviors != nil, \"the case has a context\")\n}\n\nfunc (test *CatalogServiceTest) TestReportsAFailure() {\n\tAssert.IsTrue(false, \"this case is meant to fail\")\n}\n",
         ),
+        (
+            "hpp",
+            "clang++",
+            "class [[TestSetup]] CatalogTestSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution&) { return BehaviorAdapters(); }\n};\n",
+            "class [[Test(CatalogTestSetup, {\"partition\":\"tests\"})]] CatalogServiceTest {\npublic:\n    BehaviorContext behaviors;\n    void testOpensAContext() {\n        Assert::equals(\"tests\", behaviors.partition(), \"the case has a context\");\n    }\n    void testReportsAFailure() {\n        Assert::isTrue(false, \"this case is meant to fail\");\n    }\n};\n",
+        ),
     ] {
         if !tool_available(probe) {
             eprintln!("skipping {extension}: {probe} is unavailable");
@@ -783,7 +789,7 @@ fn assert_java_report(response: tachyon_contracts::HandlerResponse) {
 struct ControllerProject;
 
 impl ControllerProject {
-    const LANGUAGES: [(&str, &str); 13] = [
+    const LANGUAGES: [(&str, &str); 14] = [
         ("js", "node"),
         ("ts", "bun"),
         ("rb", "ruby"),
@@ -797,6 +803,7 @@ impl ControllerProject {
         ("rs", "cargo"),
         ("go", "go"),
         ("dart", "dart"),
+        ("hpp", "clang++"),
     ];
 
     fn copy(from: &std::path::Path, to: &std::path::Path) {

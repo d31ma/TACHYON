@@ -1,7 +1,7 @@
 use super::CppYon;
 use std::path::Path;
 
-struct Policies;
+pub(super) struct Policies;
 
 impl Policies {
     const CONTROLLER_PATH: &'static str = "server/controllers/CatalogController.hpp";
@@ -44,7 +44,7 @@ public:
     }
 };
 "#;
-    const FILES: [(&'static str, &'static str); 5] = [
+    pub(super) const FILES: [(&'static str, &'static str); 5] = [
         (
             "server/models/Report.hpp",
             "#pragma once\n\nstruct Report {\n    int first = 0;\n    int again = 0;\n    int reads = 0;\n    int forgotten = 0;\n    int updated = 0;\n    int kept = 0;\n    int steady = 0;\n    std::string once;\n    double page = 0;\n    int active = 0;\n    int count = 0;\n    bool found = false;\n    int cheap = 0;\n    int removed = 0;\n    int all = 0;\n};\n",

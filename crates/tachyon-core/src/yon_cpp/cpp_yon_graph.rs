@@ -3,7 +3,9 @@ use super::{
 };
 use crate::Failure;
 use crate::behavior::GatewayDeclaration;
-use crate::tac_cpp::{CppClass, CppFailure, CppLifetime, CppProgram, CppServiceGraph};
+use crate::tac_cpp::{
+    CppClass, CppFailure, CppFile, CppFolder, CppLifetime, CppProgram, CppService, CppServiceGraph,
+};
 use crate::yon::plan::Scope;
 use std::path::Path;
 
@@ -20,6 +22,7 @@ impl CppYonGraph {
         "server/stores",
         "server/remotes",
     ];
+    const CONTROLLERS: &'static str = "server/controllers";
     const SHARED_ENTITY: &'static str =
         "One C++ [[Store]] keeps each [[Entity]]; another Store already names this one";
     const TRANSIENT_EVENTS: &'static str = "A Yon C++ class with [[OnEvent]], [[OnStart]] or [[OnStop]] runs with objects that live for the whole request, so no class it works with may be [[Lifetime(\"transient\")]]. Use \"request\" or \"singleton\"";
@@ -35,21 +38,14 @@ impl CppYonGraph {
         Self::add_handler_needs(&mut graph, errors)?;
         Self::add_needs(&mut graph, &controller.path, &controller.file.class)?;
         let services = graph.finish();
-        services
-            .iter()
-            .try_for_each(|service| CppYonRemote::check(root, service))?;
         CppYonGateway::refuse_outside(&controller.path, &controller.file.class, false)?;
-        let gateways = services
-            .iter()
-            .map(CppYonGateway::declarations)
-            .collect::<Result<Vec<_>, _>>()?
-            .concat();
+        let gateways = Self::gateways(root, &services)?;
         let mut providers = services
             .iter()
-            .map(|service| CppYonProvider::service(service, models, stores))
+            .map(|service| CppYonProvider::service(service, models, stores, false))
             .collect::<Result<Vec<_>, _>>()?;
-        providers.extend(Self::handler_providers(errors, models, stores)?);
-        providers.push(CppYonProvider::root(controller, models, stores)?);
+        providers.extend(Self::handler_providers(errors, models, stores, false)?);
+        providers.push(CppYonProvider::root(controller, models, stores, false)?);
         let graph = Self {
             providers,
             gateways,
@@ -81,12 +77,81 @@ impl CppYonGraph {
         errors: &CppYonErrors,
         models: &CppProgram,
         stores: &CppYonStores,
+        recorded: bool,
     ) -> Result<Vec<CppYonProvider>, Failure> {
         errors
             .handlers
             .iter()
-            .map(|handler| CppYonProvider::handler(handler, models, stores))
+            .map(|handler| CppYonProvider::handler(handler, models, stores, recorded))
             .collect()
+    }
+
+    pub(crate) fn tested(
+        root: &Path,
+        models: &CppProgram,
+        errors: &CppYonErrors,
+        stores: &CppYonStores,
+    ) -> Result<Self, Failure> {
+        let controllers = Self::controllers(root)?;
+        let mut graph = CppServiceGraph::within(root, Self::FOLDERS, Self::missing)?;
+        graph.add_every()?;
+        Self::add_handler_needs(&mut graph, errors)?;
+        controllers.iter().try_for_each(|controller| {
+            Self::add_needs(&mut graph, &controller.path, &controller.file.class)
+        })?;
+        let services = graph.finish();
+        controllers.iter().try_for_each(|controller| {
+            CppYonGateway::refuse_outside(&controller.path, &controller.file.class, false)
+        })?;
+        let gateways = Self::gateways(root, &services)?;
+        let mut providers = services
+            .iter()
+            .map(|service| CppYonProvider::service(service, models, stores, true))
+            .collect::<Result<Vec<_>, _>>()?;
+        providers.extend(Self::handler_providers(errors, models, stores, true)?);
+        let roots = controllers
+            .iter()
+            .map(|controller| CppYonProvider::root(controller, models, stores, true))
+            .collect::<Result<Vec<_>, _>>()?;
+        providers.extend(roots);
+        let graph = Self {
+            providers,
+            gateways,
+        };
+        graph.check_entities()?;
+        Ok(graph)
+    }
+
+    fn gateways(root: &Path, services: &[CppService]) -> Result<Vec<GatewayDeclaration>, Failure> {
+        services
+            .iter()
+            .try_for_each(|service| CppYonRemote::check(root, service))?;
+        Ok(services
+            .iter()
+            .map(CppYonGateway::declarations)
+            .collect::<Result<Vec<_>, _>>()?
+            .concat())
+    }
+
+    pub(crate) fn has_class(&self, name: &str) -> bool {
+        self.providers.iter().any(|provider| provider.name == name)
+    }
+
+    fn controllers(root: &Path) -> Result<Vec<CppYonController>, Failure> {
+        let read = CppFolder::files(root, Self::CONTROLLERS)?
+            .iter()
+            .filter(|path| !CppYonErrors::generated(path))
+            .map(|path| CppFolder::read(root, path))
+            .map(|read| read.and_then(|(path, source)| Self::controller(&path, &source)))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(read.into_iter().flatten().collect())
+    }
+
+    fn controller(path: &Path, source: &str) -> Result<Option<CppYonController>, Failure> {
+        let handler = CppYonErrors::is_handler(&CppFile::read(path, source)?);
+        (!handler)
+            .then(|| CppYonController::read(path, source))
+            .transpose()
     }
 
     fn add_needs(

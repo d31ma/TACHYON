@@ -32,19 +32,40 @@ impl CppYonContainer {
     }
 
     pub(crate) fn definitions(graph: &CppYonGraph) -> String {
-        let made: String = graph.providers.iter().map(Self::definition).collect();
+        Self::defined(graph, false)
+    }
+
+    pub(crate) fn faked_definitions(graph: &CppYonGraph) -> String {
+        Self::defined(graph, true)
+    }
+
+    fn defined(graph: &CppYonGraph, faked: bool) -> String {
+        let made: String = graph
+            .providers
+            .iter()
+            .map(|provider| Self::definition(provider, faked))
+            .collect();
         format!("{}namespace tachyon::yon {{\n{made}}}\n", Self::START)
     }
 
-    fn definition(provider: &CppYonProvider) -> String {
+    fn definition(provider: &CppYonProvider, faked: bool) -> String {
         let name = &provider.name;
         let describe = Self::describe(provider);
+        let transient = usize::from(provider.scope == Scope::Transient);
+        let fake = format!(
+            "::{name}* fake = YonFakes::of<::{name}>();\n    if (fake != nullptr) {{\n        return *fake;\n    }}\n    "
+        );
+        let guard = [
+            [String::new(), String::new()],
+            [format!("{fake}TacSharedMaking making;\n    "), fake],
+        ][usize::from(faked)][transient]
+            .clone();
         let shared = format!(
-            "static ::{name}* slot = nullptr;\n    return YonContainer::shared<::{name}>(slot, {describe});"
+            "static ::{name}* slot = nullptr;\n    static std::size_t madeIn = 0;\n    return YonContainer::shared<::{name}>(slot, madeIn, {describe});"
         );
         let fresh = format!("return YonContainer::fresh<::{name}>({describe});");
-        let made = [shared, fresh][usize::from(provider.scope == Scope::Transient)].clone();
-        format!("template <>\n::{name}& YonNeeds::of<::{name}>() {{\n    {made}\n}}\n")
+        let made = [shared, fresh][transient].clone();
+        format!("template <>\n::{name}& YonNeeds::of<::{name}>() {{\n    {guard}{made}\n}}\n")
     }
 
     fn describe(provider: &CppYonProvider) -> String {

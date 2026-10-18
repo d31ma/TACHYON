@@ -231,6 +231,12 @@ public:
         }
     }
 
+    void open() {
+        closed = false;
+        deliveries = 0;
+        retained.clear();
+    }
+
     void close() {
         closed = true;
         queue.clear();
