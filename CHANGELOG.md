@@ -15,6 +15,13 @@ machine contracts have their own, independent major versions.
   act on the app window, and `maximize`, `fullscreen` and `close`, which the
   example does not grant, are refused from the page and from a Kotlin
   service.
+- Linux and Windows apps always have a menu bar, also without declared
+  menu items. Next to File it has an Edit menu (Undo, Redo, Cut, Copy,
+  Paste and Select All, sent to the focused field of the page) and a Window
+  menu (Minimize and Maximize), as macOS apps have. A menu shortcut that uses
+  `control` now gets the Ctrl key on Linux and Windows instead of no key;
+  shortcuts that then collide with each other or with a standard command
+  stop the Linux or Windows build with `TY1601` (ADR 0097 amendment).
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain

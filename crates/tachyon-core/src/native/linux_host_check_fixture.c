@@ -114,11 +114,15 @@ static void tachyon_fixture_script(const char *body) {
 static void tachyon_fixture_home(void) {
   tachyon_fixture_require(tachyon_fixture_count("created") == 1, "the application service did not start once at launch");
   GMenuModel *bar = gtk_application_get_menubar(g_menu_application);
-  tachyon_fixture_require(bar != NULL && g_menu_model_get_n_items(bar) == 3, "menubar does not have File, View and Help");
+  tachyon_fixture_require(bar != NULL && g_menu_model_get_n_items(bar) == 5, "menubar does not have File, Edit, View, Window and Help");
   tachyon_fixture_require(tachyon_fixture_accelerator("app.menu-1", "<Primary>1"), "Command-1 is not Ctrl+1");
   tachyon_fixture_require(tachyon_fixture_accelerator("app.menu-2", "<Primary><Alt>g"), "Command-Option-G is not Ctrl+Alt+G");
   tachyon_fixture_require(tachyon_fixture_accelerator("app.close-window", "<Primary>w"), "Close Window is not Ctrl+W");
   tachyon_fixture_require(tachyon_fixture_accelerator("app.quit", "<Primary>q"), "Quit is not Ctrl+Q");
+  tachyon_fixture_require(tachyon_fixture_accelerator("app.edit-copy", "<Primary>c"), "Copy is not Ctrl+C");
+  tachyon_fixture_require(tachyon_fixture_accelerator("app.edit-redo", "<Primary><Shift>z"), "Redo is not Ctrl+Shift+Z");
+  tachyon_fixture_require(tachyon_fixture_enabled("edit-select-all") && tachyon_fixture_enabled("minimize") && tachyon_fixture_enabled("maximize"),
+                          "Edit and Window items are disabled");
   tachyon_fixture_require(!tachyon_fixture_enabled("menu-1"), "page action is enabled without a recipient");
   tachyon_fixture_require(tachyon_fixture_enabled("menu-0"), "application action is disabled");
   gchar *script = g_strdup_printf(
@@ -143,8 +147,14 @@ static void tachyon_fixture_action(void) {
   tachyon_fixture_script("return String(globalThis.__menuMarker);");
 }
 
-static void tachyon_fixture_help(void) {
+static void tachyon_fixture_select(void) {
   tachyon_fixture_require(g_strcmp0(g_fixture_reply, "41") == 0, "menu action reloaded the document");
+  g_action_group_activate_action(G_ACTION_GROUP(g_menu_application), "edit-select-all", NULL);
+  tachyon_fixture_script("return String(getSelection()).trim();");
+}
+
+static void tachyon_fixture_help(void) {
+  tachyon_fixture_require(g_strcmp0(g_fixture_reply, "Home") == 0, "Edit > Select All did not reach the web view");
   g_action_group_activate_action(G_ACTION_GROUP(g_menu_application), "menu-2", NULL);
 }
 
@@ -171,9 +181,10 @@ static gboolean tachyon_fixture_tick(gpointer data) {
   switch (g_fixture_step) {
     case 0: if (!tachyon_fixture_loaded("tachyon://app/")) return G_SOURCE_CONTINUE; tachyon_fixture_home(); break;
     case 1: tachyon_fixture_action(); break;
-    case 2: tachyon_fixture_help(); break;
-    case 3: if (!tachyon_fixture_loaded("tachyon://app/help/")) return G_SOURCE_CONTINUE; tachyon_fixture_on_help(); break;
-    case 4: if (!tachyon_fixture_loaded("tachyon://app/")) return G_SOURCE_CONTINUE; tachyon_fixture_on_return(); break;
+    case 2: tachyon_fixture_select(); break;
+    case 3: tachyon_fixture_help(); break;
+    case 4: if (!tachyon_fixture_loaded("tachyon://app/help/")) return G_SOURCE_CONTINUE; tachyon_fixture_on_help(); break;
+    case 5: if (!tachyon_fixture_loaded("tachyon://app/")) return G_SOURCE_CONTINUE; tachyon_fixture_on_return(); break;
     default: return G_SOURCE_REMOVE;
   }
   g_fixture_step += 1;
@@ -192,10 +203,10 @@ int main(int argc, char **argv) {
   g_fixture_started = g_get_monotonic_time();
   g_timeout_add_seconds(100, tachyon_fixture_deadline, NULL);
   int status = tachyon_host_main(argc, argv);
-  tachyon_fixture_require(status == 0 && g_fixture_step == 5, "the host did not finish its run");
+  tachyon_fixture_require(status == 0 && g_fixture_step == 6, "the host did not finish its run");
   tachyon_fixture_require(tachyon_fixture_count("stopped") == 1, "Close Window did not stop the application service once");
   tachyon_application_stop();
   tachyon_fixture_require(tachyon_fixture_count("stopped") == 1, "a second stop ran the cleanup again");
-  printf("linux host: launch, menu action, disabled recipient, Help and Home, Close Window and one stop passed\n");
+  printf("linux host: launch, menu action, Edit > Select All, disabled recipient, Help and Home, Close Window and one stop passed\n");
   return 0;
 }

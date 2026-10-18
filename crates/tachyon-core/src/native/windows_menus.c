@@ -2,6 +2,10 @@ typedef bool (*TachyonMenuCall)(const char *);
 
 #define TACHYON_MENU_CLOSE_COMMAND 0x7000
 #define TACHYON_MENU_EXIT_COMMAND 0x7001
+#define TACHYON_MENU_MINIMIZE_COMMAND 0x7002
+#define TACHYON_MENU_MAXIMIZE_COMMAND 0x7003
+#define TACHYON_MENU_EDIT_COMMAND 0x7010
+#define TACHYON_MENU_EDIT_COUNT 6
 #define TACHYON_MENU_FIRST_COMMAND 0x7100
 #define TACHYON_MENU_TEXT_LIMIT 320
 
@@ -54,6 +58,30 @@ static void tachyon_menu_group(HMENU bar, int group, const wchar_t *title) {
   else DestroyMenu(popup);
 }
 
+static const char *tachyon_menu_edit_command(UINT command) {
+  static const char *const commands[TACHYON_MENU_EDIT_COUNT] = {"Undo", "Redo", "Cut", "Copy", "Paste", "SelectAll"};
+  if (command < TACHYON_MENU_EDIT_COMMAND || command >= TACHYON_MENU_EDIT_COMMAND + TACHYON_MENU_EDIT_COUNT) return NULL;
+  return commands[command - TACHYON_MENU_EDIT_COMMAND];
+}
+
+static HMENU tachyon_menu_edit_popup(void) {
+  static const wchar_t *const labels[TACHYON_MENU_EDIT_COUNT] = {
+      L"&Undo\tCtrl+Z", L"&Redo\tCtrl+Y", L"Cu&t\tCtrl+X", L"&Copy\tCtrl+C", L"&Paste\tCtrl+V", L"Select &All\tCtrl+A"};
+  HMENU popup = CreatePopupMenu();
+  for (int index = 0; index < TACHYON_MENU_EDIT_COUNT; index += 1) {
+    if (index == 2 || index == 5) AppendMenuW(popup, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(popup, MF_STRING, (UINT_PTR)(TACHYON_MENU_EDIT_COMMAND + index), labels[index]);
+  }
+  return popup;
+}
+
+static HMENU tachyon_menu_window_popup(void) {
+  HMENU popup = CreatePopupMenu();
+  AppendMenuW(popup, MF_STRING, TACHYON_MENU_MINIMIZE_COMMAND, L"Mi&nimize");
+  AppendMenuW(popup, MF_STRING, TACHYON_MENU_MAXIMIZE_COMMAND, L"Ma&ximize");
+  return popup;
+}
+
 static BYTE tachyon_menu_flags(int modifiers) {
   BYTE flags = FVIRTKEY;
   if (modifiers & TACHYON_MENU_PRIMARY) flags |= FCONTROL;
@@ -63,14 +91,15 @@ static BYTE tachyon_menu_flags(int modifiers) {
 }
 
 static void tachyon_menus_install(HWND window) {
-  if (TACHYON_MENU_ITEM_COUNT == 0) return;
   HMENU bar = CreateMenu();
   HMENU file = tachyon_menu_popup(TACHYON_MENU_FILE);
   if (GetMenuItemCount(file) > 0) AppendMenuW(file, MF_SEPARATOR, 0, NULL);
   AppendMenuW(file, MF_STRING, TACHYON_MENU_CLOSE_COMMAND, L"&Close Window\tCtrl+W");
   AppendMenuW(file, MF_STRING, TACHYON_MENU_EXIT_COMMAND, L"E&xit\tCtrl+Q");
   AppendMenuW(bar, MF_POPUP, (UINT_PTR)file, L"&File");
+  AppendMenuW(bar, MF_POPUP, (UINT_PTR)tachyon_menu_edit_popup(), L"&Edit");
   tachyon_menu_group(bar, TACHYON_MENU_VIEW, L"&View");
+  AppendMenuW(bar, MF_POPUP, (UINT_PTR)tachyon_menu_window_popup(), L"&Window");
   tachyon_menu_group(bar, TACHYON_MENU_HELP, L"&Help");
   SetMenu(window, bar);
   ACCEL accelerators[TACHYON_MENU_LIMIT + 2];
@@ -95,6 +124,19 @@ static void tachyon_menus_refresh(HMENU popup) {
 static BOOL tachyon_menus_command(HWND window, UINT command) {
   if (command == TACHYON_MENU_CLOSE_COMMAND || command == TACHYON_MENU_EXIT_COMMAND) {
     PostMessageW(window, WM_CLOSE, 0, 0);
+    return TRUE;
+  }
+  if (command == TACHYON_MENU_MINIMIZE_COMMAND) {
+    ShowWindow(window, SW_MINIMIZE);
+    return TRUE;
+  }
+  if (command == TACHYON_MENU_MAXIMIZE_COMMAND) {
+    ShowWindow(window, IsZoomed(window) ? SW_RESTORE : SW_MAXIMIZE);
+    return TRUE;
+  }
+  const char *edit = tachyon_menu_edit_command(command);
+  if (edit != NULL) {
+    if (!tachyon_menu_edit(edit)) MessageBeep(MB_OK);
     return TRUE;
   }
   int index = (int)command - TACHYON_MENU_FIRST_COMMAND;

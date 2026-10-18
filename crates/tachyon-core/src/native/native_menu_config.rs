@@ -30,12 +30,18 @@ impl NativeMenuConfig {
         tachyon_contracts::NativeTarget::Windows,
     ];
 
+    const CTRL_TARGETS: [tachyon_contracts::NativeTarget; 2] = [
+        tachyon_contracts::NativeTarget::Linux,
+        tachyon_contracts::NativeTarget::Windows,
+    ];
+
     pub(super) fn validate_for(
         &self,
         target: tachyon_contracts::NativeTarget,
         index: &NativeRouteIndex,
     ) -> Result<(), Failure> {
         self.require_target(target)?;
+        self.require_desktop_shortcuts(target)?;
         self.items()
             .try_for_each(|item| Self::require_document(item, index))
     }
@@ -91,6 +97,33 @@ impl NativeMenuConfig {
                 super::config::config_failure(
                     "Native menu shortcuts must be unique across File, View and Help.",
                 )
+            })
+    }
+
+    fn require_desktop_shortcuts(
+        &self,
+        target: tachyon_contracts::NativeTarget,
+    ) -> Result<(), Failure> {
+        if !Self::CTRL_TARGETS.contains(&target) {
+            return Ok(());
+        }
+        let shortcuts = self
+            .items()
+            .filter_map(|item| item.shortcut.as_ref())
+            .collect::<Vec<_>>();
+        shortcuts
+            .iter()
+            .try_for_each(|shortcut| shortcut.require_desktop_available(target))?;
+        let unique = shortcuts
+            .iter()
+            .map(|shortcut| shortcut.desktop_identity())
+            .collect::<std::collections::BTreeSet<_>>();
+        (unique.len() == shortcuts.len())
+            .then_some(())
+            .ok_or_else(|| {
+                super::config::config_failure(&format!(
+                    "Native menu shortcuts must stay unique on {target:?}, where control is Ctrl like command; two shortcuts that differ only by control and command get the same key, so change one of them.",
+                ))
             })
     }
 

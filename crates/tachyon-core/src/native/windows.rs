@@ -749,6 +749,8 @@ static BOOL tachyon_menu_page_shown(void) {
   return tachyon_current_route() != NULL;
 }
 
+static BOOL tachyon_menu_edit(const char *command);
+
 static void tachyon_menu_open_route(const char *route) {
   wchar_t *wide = g_webview != NULL ? tachyon_widen(route) : NULL;
   if (wide == NULL) return;
@@ -1163,6 +1165,27 @@ static HRESULT STDMETHODCALLTYPE accelerator_invoke(ICoreWebView2AcceleratorKeyP
 }
 static ICoreWebView2AcceleratorKeyPressedEventHandlerVtbl g_accelerator_vtbl = {accelerator_query, accelerator_add_ref, accelerator_release, accelerator_invoke};
 static TachyonAcceleratorHandler g_accelerator_handler = {&g_accelerator_vtbl};
+
+typedef struct { ICoreWebView2CallDevToolsProtocolMethodCompletedHandlerVtbl *lpVtbl; } TachyonEditHandler;
+static HRESULT STDMETHODCALLTYPE edit_query(ICoreWebView2CallDevToolsProtocolMethodCompletedHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{5c4889f0-5ef6-4c5a-952c-d8f1b92d0574}"); }
+static ULONG STDMETHODCALLTYPE edit_add_ref(ICoreWebView2CallDevToolsProtocolMethodCompletedHandler *self) { (void)self; return 1; }
+static ULONG STDMETHODCALLTYPE edit_release(ICoreWebView2CallDevToolsProtocolMethodCompletedHandler *self) { (void)self; return 1; }
+static HRESULT STDMETHODCALLTYPE edit_invoke(ICoreWebView2CallDevToolsProtocolMethodCompletedHandler *self, HRESULT result, LPCWSTR answer) {
+  (void)self; (void)answer;
+  if (FAILED(result)) MessageBeep(MB_OK);
+  return S_OK;
+}
+static ICoreWebView2CallDevToolsProtocolMethodCompletedHandlerVtbl g_edit_vtbl = {edit_query, edit_add_ref, edit_release, edit_invoke};
+static TachyonEditHandler g_edit_handler = {&g_edit_vtbl};
+
+static BOOL tachyon_menu_edit(const char *command) {
+  if (g_webview == NULL || g_controller == NULL) return FALSE;
+  wchar_t parameters[128];
+  if (_snwprintf_s(parameters, 128, _TRUNCATE, L"{\"type\":\"rawKeyDown\",\"commands\":[\"%hs\"]}", command) < 0) return FALSE;
+  ICoreWebView2Controller_MoveFocus(g_controller, COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+  return SUCCEEDED(ICoreWebView2_CallDevToolsProtocolMethod(g_webview, L"Input.dispatchKeyEvent", parameters,
+                                                            (ICoreWebView2CallDevToolsProtocolMethodCompletedHandler *)&g_edit_handler));
+}
 
 typedef struct {
   ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl *lpVtbl;

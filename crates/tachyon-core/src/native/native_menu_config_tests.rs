@@ -218,6 +218,43 @@ fn native_menu_declarations_require_exact_compiled_static_documents_and_supporte
 }
 
 #[test]
+fn control_shortcuts_become_ctrl_on_linux_and_windows_and_must_not_collide_there() {
+    let shortcut = |id: &str, key: &str, modifiers: &[&str]| json!({"id":id,"label":id,"route":"/","shortcut":{"key":key,"modifiers":modifiers}});
+    let check = |menus: Value, target: NativeTarget| {
+        serde_json::from_value::<NativeMenuConfig>(menus)
+            .expect("menu declarations")
+            .validate_for(target, &NativeMenuTests::index())
+            .map_err(|failure| failure.to_string())
+    };
+    let pair = json!({"view":[
+        shortcut("plain", "k", &["command"]),
+        shortcut("control", "k", &["command", "control"])
+    ]});
+    check(pair.clone(), NativeTarget::Macos)
+        .expect("Command-K and Control-Command-K differ on macOS");
+    for target in [NativeTarget::Linux, NativeTarget::Windows] {
+        let failure = check(pair.clone(), target).expect_err("both become Ctrl+K");
+        assert!(
+            failure.contains("must stay unique") && failure.contains("TY1601"),
+            "{failure}"
+        );
+    }
+    let quit = json!({"file":[shortcut("quit", "q", &["command", "control"])]});
+    check(quit.clone(), NativeTarget::Macos).expect("Control-Command-Q is free on macOS");
+    let failure = check(quit, NativeTarget::Linux).expect_err("Ctrl+Q is Quit");
+    assert!(failure.contains("becomes Ctrl+Q on Linux"), "{failure}");
+    let redo = json!({"file":[shortcut("redo", "y", &["command"])]});
+    check(redo.clone(), NativeTarget::Linux).expect("Ctrl+Y is free on Linux");
+    let failure = check(redo, NativeTarget::Windows).expect_err("Ctrl+Y is Redo on Windows");
+    assert!(failure.contains("becomes Ctrl+Y on Windows"), "{failure}");
+    check(
+        json!({"help":[shortcut("guide", "g", &["command", "control", "shift"])]}),
+        NativeTarget::Windows,
+    )
+    .expect("Ctrl+Shift+G is free on Windows");
+}
+
+#[test]
 fn native_menu_declarations_do_not_apply_native_route_constraints_to_browser_builds() {
     let root =
         NativeMenuTests::project(&json!({"help":[NativeMenuTests::entry("help","/native-only")]}));

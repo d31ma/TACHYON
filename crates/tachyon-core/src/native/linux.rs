@@ -330,6 +330,12 @@ static void tachyon_menu_open_route(const char *route) {
   g_free(uri);
 }
 
+static gboolean tachyon_menu_edit(const char *command) {
+  if (g_view == NULL) return FALSE;
+  webkit_web_view_execute_editing_command(g_view, command);
+  return TRUE;
+}
+
 __NATIVE_MENUS__
 
 static gchar *tachyon_resource_root(void) {

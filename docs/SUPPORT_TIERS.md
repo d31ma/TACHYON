@@ -45,6 +45,18 @@ entry. This evidence does not promote any tier.
 | Windows WebView2 (x64) | yes | built and run on Windows 11 ARM64 on 2026-10-04 with Visual Studio Build Tools 2022 17.14 (MSVC 14.44, ARM64-hosted x64 tools), Windows SDK 10.0.26100.0 and WebView2 SDK 1.0.3485.44. `ty`, built natively for `aarch64-pc-windows-msvc`, ran `ty bundle --target windows` for the `menu-actions` and `menu-items-that-open-a-page` examples: the whole host compiled with `cl /W4 /WX`, linked `WebView2LoaderStatic.lib`, and `TachyonRustCompanion.dll` was built (after the C4100 fix of 2026-10-04). The WebView2 handler interface IDs match `WebView2.h`. The apps ran from an SSH session and were driven with Win32 messages: the application service started once before the window, the File, View and Help menus showed the declared items and shortcuts, a menu action ran, an item whose event had no recipient stayed disabled and did not run, and Close Window ended the process with exit code 0 after exactly one stop (also after `WM_ENDSESSION`). Not run: anything inside WebView2. Outside a signed-in desktop session `CreateCoreWebView2Controller` fails with `0x80070578` (invalid window handle), so page rendering, page events from a menu action, route items, the `AcceleratorKeyPressed` handler and `scripts/windows/native-test.ps1` still need a run on an interactive desktop |
 | iOS, Android | refused at build time | `TY1601` for menus, `TY1406` for the application lifetime |
 
+Standard menus on Linux and Windows (2026-10-18, ADR 0097 amendment): both
+hosts now always show a menu bar with File, Edit (Undo, Redo, Cut, Copy,
+Paste, Select All) and Window (Minimize, Maximize), and a `control`
+shortcut gets Ctrl. Linux: the same `linux_host_tests` run, extended to
+check the five menus, the Copy and Redo accelerators and Edit > Select All
+in the real web view, passed three of three runs under Xvfb in an x86_64
+Ubuntu 24.04 cloud container (GTK 4.14.5, WebKitGTK 2.52.6), and the Linux
+window-control run still passed with the always-on menu bar (xfwm4 under
+Xvfb). Windows: generated-source tests and the MinGW-w64 compile only; the
+Edit commands inside WebView2 (sent through the DevTools protocol) and
+Minimize/Maximize still need the interactive desktop run listed above.
+
 Windows bundles accept `--arch arm64` or `--arch x64`. The default matches
 an ARM64 build host and falls back to x64 on other architectures. This choice
 sets the Rust companion target, WebView2 library folder, C# runtime identifier

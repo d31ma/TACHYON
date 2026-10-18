@@ -231,3 +231,55 @@ session. The Windows host passes no user data folder to WebView2, so
 WebView2 keeps its data in its default folder beside the executable
 (`<App>.exe.WebView2`); an app installed in a folder the user cannot write
 needs a per-user data folder, which is not part of this amendment.
+
+## Amendment (2026-10-18): Standard menus and Ctrl shortcuts on Linux and Windows
+
+The Linux and Windows menu bars now match the macOS one where the platforms
+allow it.
+
+### Always a menu bar
+
+The host shows a menu bar even when the manifest declares no menu items.
+This replaces the rule of the 2026-10-04 amendment that showed it only when
+at least one item was declared. The bar has, in order:
+
+- File: the declared File items, then Close Window (Ctrl+W) and Quit
+  (Ctrl+Q; Exit on Windows), as before.
+- Edit: Undo, Redo, Cut, Copy, Paste and Select All. Each item sends the
+  editing command to the web view, so it acts on the focused field of the
+  page. Linux calls `webkit_web_view_execute_editing_command`. Windows moves
+  the focus to the web view and sends the command through the DevTools
+  protocol (`Input.dispatchKeyEvent` with `commands`), because WebView2 has
+  no editing-command call. Redo is Ctrl+Shift+Z on Linux and Ctrl+Y on
+  Windows, each platform's convention.
+- View: the declared View items, when there are any.
+- Window: Minimize, and Maximize, which restores a maximized window (the
+  macOS item is Zoom). Neither has a shortcut, because neither platform has
+  a Ctrl shortcut for them.
+- Help: the declared Help items, when there are any.
+
+On Linux the Edit shortcuts are application accelerators, as in other GTK
+apps. On Windows the Edit items show their keys, but the keys are left to
+WebView2, which already handles them in the page. An Edit item runs while a
+web view exists; otherwise it beeps.
+
+### `control` is Ctrl
+
+A shortcut that uses `control` now gets an accelerator on Linux and Windows:
+`control` is Ctrl there, the same key as `command`. On macOS `control` stays
+Control. Because two shortcuts that differ only by `control` would get the
+same key, `--target linux` and `--target windows` refuse them with `TY1601`.
+They also refuse a shortcut that becomes a standard one there (for example
+Command-Control-Q becomes Ctrl+Q, which is Quit), and on Windows a shortcut
+that becomes Ctrl+Y (Redo). macOS builds keep the rules they had.
+
+### Evidence
+
+- Linux: `linux_host_tests::linux_generated_host_runs_menu_actions_and_one_application_lifetime`
+  now also checks the five menus, the Copy and Redo accelerators, that the
+  Edit and Window items are enabled, and that Edit > Select All selects the
+  page text through the real WebKitGTK web view.
+- Windows: generated-source tests and the MinGW-w64 compile of the menu code.
+  The Edit commands inside WebView2 and Minimize/Maximize on a desktop still
+  need the interactive Windows run (with the other WebView2 checks in
+  `docs/SUPPORT_TIERS.md`).

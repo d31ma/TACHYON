@@ -20,6 +20,7 @@ static HWND g_window = NULL;
 static BOOL tachyon_menu_window_open(void) { return g_window != NULL; }
 static BOOL tachyon_menu_page_shown(void) { return g_window != NULL; }
 static void tachyon_menu_open_route(const char *route) { (void)route; }
+static BOOL tachyon_menu_edit(const char *command) { return command != NULL; }
 ";
     #[cfg(unix)]
     const HARNESS_MAIN: &str = r#"
@@ -114,6 +115,41 @@ fn windows_host_installs_a_menu_bar_with_accelerators_for_the_window_and_the_web
     let key = WindowsHostTests::section(&source, "static BOOL tachyon_menus_key(");
     assert!(key.contains("if (g_menu_accelerators == NULL) return FALSE;"));
     assert!(!source.contains("__NATIVE_MENU"));
+}
+
+#[test]
+fn windows_host_always_shows_file_edit_and_window_menus_sent_to_the_web_view() {
+    let source = WindowsHostTests::host(NativeMenuConfig::default());
+    assert!(source.contains("static const int TACHYON_MENU_ITEM_COUNT = 0;"));
+    let install = WindowsHostTests::section(&source, "static void tachyon_menus_install(");
+    assert!(!install.contains("TACHYON_MENU_ITEM_COUNT == 0"));
+    assert!(install.contains("L\"&Edit\""));
+    assert!(install.contains("L\"&Window\""));
+    assert!(source.contains("{\"Undo\", \"Redo\", \"Cut\", \"Copy\", \"Paste\", \"SelectAll\"}"));
+    assert!(source.contains("L\"&Redo\\tCtrl+Y\""));
+    let command = WindowsHostTests::section(&source, "static BOOL tachyon_menus_command(");
+    assert!(command.contains("ShowWindow(window, SW_MINIMIZE);"));
+    assert!(command.contains("ShowWindow(window, IsZoomed(window) ? SW_RESTORE : SW_MAXIMIZE);"));
+    assert!(command.contains("if (!tachyon_menu_edit(edit)) MessageBeep(MB_OK);"));
+    let edit = WindowsHostTests::section(
+        &source,
+        "static BOOL tachyon_menu_edit(const char *command) {",
+    );
+    assert!(edit.contains("ICoreWebView2Controller_MoveFocus(g_controller, COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);"));
+    assert!(edit.contains("L\"Input.dispatchKeyEvent\""));
+    assert!(edit.contains("\\\"commands\\\":[\\\"%hs\\\"]"));
+}
+
+#[test]
+fn windows_host_gives_control_shortcuts_the_ctrl_accelerator() {
+    let menus = serde_json::from_value(json!({
+        "view": [
+            {"id":"find","label":"Find","route":"/help","shortcut":{"key":"k","modifiers":["command","control","shift"]}}
+        ]
+    }))
+    .expect("menu declarations");
+    let source = WindowsHostTests::host(menus);
+    assert!(source.contains("{\"find\", \"Find\", TACHYON_MENU_VIEW, \"/help\", NULL, 'k', 5}"));
 }
 
 #[test]

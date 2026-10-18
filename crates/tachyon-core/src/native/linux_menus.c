@@ -1,5 +1,12 @@
 typedef bool (*TachyonMenuCall)(const char *);
 
+typedef struct {
+  const char *name;
+  const char *label;
+  const char *command;
+  const char *accelerator;
+} TachyonMenuStandard;
+
 static TachyonMenuCall g_menu_perform = NULL;
 static TachyonMenuCall g_menu_ready = NULL;
 static GtkApplication *g_menu_application = NULL;
@@ -58,6 +65,30 @@ static void tachyon_menu_quit(GSimpleAction *action, GVariant *parameter, gpoint
   g_application_quit(G_APPLICATION(g_menu_application));
 }
 
+static void tachyon_menu_edit_activate(GSimpleAction *action, GVariant *parameter, gpointer data) {
+  (void)action;
+  (void)parameter;
+  if (!tachyon_menu_edit(data)) tachyon_menu_refuse();
+}
+
+static void tachyon_menu_minimize(GSimpleAction *action, GVariant *parameter, gpointer data) {
+  (void)action;
+  (void)parameter;
+  (void)data;
+  GtkWindow *window = gtk_application_get_active_window(g_menu_application);
+  if (window != NULL) gtk_window_minimize(window);
+}
+
+static void tachyon_menu_maximize(GSimpleAction *action, GVariant *parameter, gpointer data) {
+  (void)action;
+  (void)parameter;
+  (void)data;
+  GtkWindow *window = gtk_application_get_active_window(g_menu_application);
+  if (window == NULL) return;
+  if (gtk_window_is_maximized(window)) gtk_window_unmaximize(window);
+  else gtk_window_maximize(window);
+}
+
 static void tachyon_menu_action(const char *name, const char *accelerator, GCallback activate, gpointer data) {
   GSimpleAction *action = g_simple_action_new(name, NULL);
   g_signal_connect(action, "activate", activate, data);
@@ -89,8 +120,48 @@ static void tachyon_menu_group(GMenu *bar, const char *title, GMenu *items) {
   if (g_menu_model_get_n_items(G_MENU_MODEL(items)) > 0) g_menu_append_submenu(bar, title, G_MENU_MODEL(items));
 }
 
+static void tachyon_menu_standard(GMenu *menu, const TachyonMenuStandard *item) {
+  tachyon_menu_action(item->name, item->accelerator, G_CALLBACK(tachyon_menu_edit_activate), (gpointer)item->command);
+  gchar *detailed = g_strdup_printf("app.%s", item->name);
+  g_menu_append(menu, item->label, detailed);
+  g_free(detailed);
+}
+
+static GMenu *tachyon_menus_edit(void) {
+  static const TachyonMenuStandard history[] = {
+    {"edit-undo", "_Undo", "Undo", "<Primary>z"},
+    {"edit-redo", "_Redo", "Redo", "<Primary><Shift>z"},
+  };
+  static const TachyonMenuStandard clipboard[] = {
+    {"edit-cut", "Cu_t", "Cut", "<Primary>x"},
+    {"edit-copy", "_Copy", "Copy", "<Primary>c"},
+    {"edit-paste", "_Paste", "Paste", "<Primary>v"},
+  };
+  static const TachyonMenuStandard selection[] = {
+    {"edit-select-all", "Select _All", "SelectAll", "<Primary>a"},
+  };
+  GMenu *sections[] = {g_menu_new(), g_menu_new(), g_menu_new()};
+  for (gsize index = 0; index < G_N_ELEMENTS(history); index += 1) tachyon_menu_standard(sections[0], &history[index]);
+  for (gsize index = 0; index < G_N_ELEMENTS(clipboard); index += 1) tachyon_menu_standard(sections[1], &clipboard[index]);
+  for (gsize index = 0; index < G_N_ELEMENTS(selection); index += 1) tachyon_menu_standard(sections[2], &selection[index]);
+  GMenu *edit = g_menu_new();
+  for (gsize section = 0; section < G_N_ELEMENTS(sections); section += 1) {
+    g_menu_append_section(edit, NULL, G_MENU_MODEL(sections[section]));
+    g_object_unref(sections[section]);
+  }
+  return edit;
+}
+
+static GMenu *tachyon_menus_window(void) {
+  tachyon_menu_action("minimize", NULL, G_CALLBACK(tachyon_menu_minimize), NULL);
+  tachyon_menu_action("maximize", NULL, G_CALLBACK(tachyon_menu_maximize), NULL);
+  GMenu *window = g_menu_new();
+  g_menu_append(window, "Mi_nimize", "app.minimize");
+  g_menu_append(window, "Ma_ximize", "app.maximize");
+  return window;
+}
+
 static void tachyon_menus_install(GtkApplication *application) {
-  if (TACHYON_MENU_ITEM_COUNT == 0) return;
   g_menu_application = application;
   GMenu *groups[] = {g_menu_new(), g_menu_new(), g_menu_new()};
   for (int index = 0; index < TACHYON_MENU_ITEM_COUNT && index < TACHYON_MENU_LIMIT; index += 1) {
@@ -98,20 +169,26 @@ static void tachyon_menus_install(GtkApplication *application) {
   }
   tachyon_menu_action("close-window", "<Primary>w", G_CALLBACK(tachyon_menu_close_window), NULL);
   tachyon_menu_action("quit", "<Primary>q", G_CALLBACK(tachyon_menu_quit), NULL);
-  GMenu *window = g_menu_new();
-  g_menu_append(window, "Close Window", "app.close-window");
-  g_menu_append(window, "Quit", "app.quit");
+  GMenu *closing = g_menu_new();
+  g_menu_append(closing, "Close Window", "app.close-window");
+  g_menu_append(closing, "Quit", "app.quit");
   GMenu *file = g_menu_new();
   g_menu_append_section(file, NULL, G_MENU_MODEL(groups[TACHYON_MENU_FILE]));
-  g_menu_append_section(file, NULL, G_MENU_MODEL(window));
+  g_menu_append_section(file, NULL, G_MENU_MODEL(closing));
+  GMenu *edit = tachyon_menus_edit();
+  GMenu *window = tachyon_menus_window();
   GMenu *bar = g_menu_new();
   g_menu_append_submenu(bar, "_File", G_MENU_MODEL(file));
+  g_menu_append_submenu(bar, "_Edit", G_MENU_MODEL(edit));
   tachyon_menu_group(bar, "_View", groups[TACHYON_MENU_VIEW]);
+  g_menu_append_submenu(bar, "_Window", G_MENU_MODEL(window));
   tachyon_menu_group(bar, "_Help", groups[TACHYON_MENU_HELP]);
   gtk_application_set_menubar(application, G_MENU_MODEL(bar));
   g_object_unref(bar);
-  g_object_unref(file);
   g_object_unref(window);
+  g_object_unref(edit);
+  g_object_unref(file);
+  g_object_unref(closing);
   for (gsize group = 0; group < G_N_ELEMENTS(groups); group += 1) g_object_unref(groups[group]);
   tachyon_menus_refresh();
 }

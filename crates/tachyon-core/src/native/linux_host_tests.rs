@@ -181,6 +181,29 @@ fn linux_host_starts_the_application_once_before_its_window_and_stops_it_at_shut
     assert!(source.contains("static const int TACHYON_MENU_ITEM_COUNT = 0;"));
 }
 
+#[test]
+fn linux_host_always_shows_file_edit_and_window_menus_sent_to_the_web_view() {
+    let source = LinuxHostTests::host(NativeMenuConfig::default());
+    let install = LinuxHostTests::section(&source, "static void tachyon_menus_install(");
+    assert!(!install.contains("TACHYON_MENU_ITEM_COUNT == 0"));
+    assert!(install.contains("g_menu_append_submenu(bar, \"_Edit\", G_MENU_MODEL(edit));"));
+    assert!(install.contains("g_menu_append_submenu(bar, \"_Window\", G_MENU_MODEL(window));"));
+    for row in [
+        "{\"edit-undo\", \"_Undo\", \"Undo\", \"<Primary>z\"}",
+        "{\"edit-redo\", \"_Redo\", \"Redo\", \"<Primary><Shift>z\"}",
+        "{\"edit-copy\", \"_Copy\", \"Copy\", \"<Primary>c\"}",
+        "{\"edit-select-all\", \"Select _All\", \"SelectAll\", \"<Primary>a\"}",
+    ] {
+        assert!(source.contains(row), "{row}");
+    }
+    let edit = LinuxHostTests::section(&source, "static gboolean tachyon_menu_edit(");
+    assert!(edit.contains("webkit_web_view_execute_editing_command(g_view, command);"));
+    let maximize = LinuxHostTests::section(&source, "static void tachyon_menu_maximize(");
+    assert!(
+        maximize.contains("if (gtk_window_is_maximized(window)) gtk_window_unmaximize(window);")
+    );
+}
+
 #[cfg(target_os = "linux")]
 #[tokio::test]
 #[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, a display and a working WebKit sandbox; run explicitly on the Linux lane"]

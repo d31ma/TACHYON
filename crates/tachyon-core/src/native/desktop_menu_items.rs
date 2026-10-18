@@ -24,7 +24,6 @@ typedef struct {
 } TachyonMenuItem;
 ";
     const EMPTY_ROW: &'static str = "{NULL, NULL, TACHYON_MENU_FILE, NULL, NULL, 0, 0}";
-    const UNBOUND_MODIFIER: &'static str = "control";
     const PRIMARY: u8 = 1;
     const ALT: u8 = 2;
     const SHIFT: u8 = 4;
@@ -57,7 +56,6 @@ typedef struct {
         let (key, modifiers) = entry
             .shortcut
             .as_ref()
-            .filter(|shortcut| Self::bound(shortcut))
             .map_or((String::from("0"), 0), |shortcut| {
                 (format!("'{}'", shortcut.key), Self::modifiers(shortcut))
             });
@@ -74,13 +72,6 @@ typedef struct {
         )
     }
 
-    fn bound(shortcut: &NativeMenuShortcut) -> bool {
-        !shortcut
-            .modifiers
-            .iter()
-            .any(|modifier| modifier == Self::UNBOUND_MODIFIER)
-    }
-
     fn modifiers(shortcut: &NativeMenuShortcut) -> u8 {
         shortcut
             .modifiers
@@ -91,7 +82,7 @@ typedef struct {
 
     fn modifier_bit(modifier: &str) -> u8 {
         match modifier {
-            "command" => Self::PRIMARY,
+            "command" | "control" => Self::PRIMARY,
             "option" => Self::ALT,
             "shift" => Self::SHIFT,
             _ => 0,
@@ -130,7 +121,7 @@ mod tests {
             ],
             "view": [
                 {"id":"show_running","label":"What's_Running","action":{"service":"SectionMenuService","method":"show_running","event":"SectionChosen"},"shortcut":{"key":"1","modifiers":["command","shift"]}},
-                {"id":"full","label":"Caf\u{e9}","route":"/full","shortcut":{"key":"f","modifiers":["command","control"]}}
+                {"id":"full","label":"Caf\u{e9}","route":"/full","shortcut":{"key":"k","modifiers":["command","control"]}}
             ],
             "help": [
                 {"id":"guide","label":"Guide","route":"/help","shortcut":{"key":"g","modifiers":["command","option"]}}
@@ -157,11 +148,11 @@ mod tests {
     }
 
     #[test]
-    fn a_shortcut_with_control_has_no_desktop_accelerator_and_labels_stay_portable_c() {
+    fn a_shortcut_with_control_uses_ctrl_and_labels_stay_portable_c() {
         let table = DesktopMenuItems::c_table(&menus(), '&');
         assert!(
             table.contains(
-                "{\"full\", \"Caf\\303\\251\", TACHYON_MENU_VIEW, \"/full\", NULL, 0, 0}"
+                "{\"full\", \"Caf\\303\\251\", TACHYON_MENU_VIEW, \"/full\", NULL, 'k', 1}"
             )
         );
         assert!(table.contains("\"Refresh && Reload\""));
