@@ -64,7 +64,7 @@ tac.application.menus
   refused with TY1601: iOS apps have no menu bar. Put links or buttons in the page instead (D1).
 
 tac.application.rust
-  adapted: tac.application.rust crates are not used on iOS: Rust services run as WebAssembly in the page there (D1).
+  honored: vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here
 
 tac.application.rust.executables
   refused with TY1601: An iOS app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target.
@@ -178,7 +178,7 @@ tac.simplify
   honored: the same build check
 
 application lifetime services
-  refused with TY1406: Application lifetime services must be Rust, and Rust is not linked on iOS yet. Use a page or singleton service (D1).
+  refused with TY1406: Rust services are linked into the iOS app, but none starts with the app yet (LT1). Use a page or singleton service.
 
 standard menu bar without declared items
   not applicable: An iOS app has no menu bar (MN1 adapts declared items).
@@ -217,7 +217,7 @@ reaching Yon
   adapted: The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1).
 
 natively linked service languages
-  honored: Swift services are linked into the app; other languages run in the page
+  honored: Rust and Swift services are linked into the app, with Swift chosen when a service has both; other languages run in the page
 
 build architecture (--arch)
   adapted: --arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64.

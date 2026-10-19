@@ -49,6 +49,9 @@ mod ios_destination;
 mod ios_device_build;
 mod ios_entitlements;
 mod ios_provisioning_profile;
+mod ios_rust_library;
+#[cfg(test)]
+mod ios_rust_link_tests;
 mod ios_signing;
 mod ios_signing_identity;
 mod ios_toolchain_facts;
@@ -246,6 +249,7 @@ mod rust_native_libraries;
 mod rust_page_graph;
 mod rust_service_plan;
 mod rust_service_scopes;
+mod rust_standard_library;
 mod rust_web_module;
 mod service_companions;
 mod site;

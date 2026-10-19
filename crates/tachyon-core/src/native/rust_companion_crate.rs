@@ -21,7 +21,8 @@ pub(super) struct RustCompanionCrate {
 impl RustCompanionCrate {
     pub(super) const PACKAGE: &'static str = "tachyon-companion";
     pub(super) const LIBRARY: &'static str = "tachyon_companion";
-    const PLATFORMS: [(&'static str, &'static str); 3] = [
+    const PLATFORMS: [(&'static str, &'static str); 4] = [
+        ("ios", "cfg(target_os = \"ios\")"),
         ("linux", "cfg(target_os = \"linux\")"),
         ("macos", "cfg(target_os = \"macos\")"),
         ("windows", "cfg(windows)"),
@@ -173,7 +174,7 @@ impl RustCompanionCrate {
         (!known)
             .then(|| {
                 format!(
-                    "tac.application.rust.platformDependencies names \"{platform}\"; use linux, macos or windows."
+                    "tac.application.rust.platformDependencies names \"{platform}\"; use ios, linux, macos or windows."
                 )
             })
             .or_else(|| {

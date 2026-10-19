@@ -96,11 +96,23 @@ fn crate_versions_must_be_exact_so_the_vendored_copy_matches() {
 }
 
 #[test]
-fn platform_crates_name_a_desktop_platform() {
+fn platform_crates_name_a_platform_that_links_rust() {
     let problem = RustCompanionCrateTests::problem(
         json!({"platformDependencies": {"freebsd": {"libc": "=0.2.189"}}}),
     );
-    assert!(problem.contains("use linux, macos or windows"), "{problem}");
+    assert!(
+        problem.contains("use ios, linux, macos or windows"),
+        "{problem}"
+    );
+    let ios = RustCompanionCrateTests::declaration(
+        json!({"platformDependencies": {"ios": {"objc2": "=0.6.3"}}}),
+    );
+    assert_eq!(ios.problem(), None);
+    let manifest = ios.manifest(Path::new("/stage/companion.rs"), &["staticlib"], &[]);
+    assert!(
+        manifest.contains("[target.'cfg(target_os = \"ios\")'.dependencies]\nobjc2 = "),
+        "{manifest}"
+    );
     let nested = RustCompanionCrateTests::problem(
         json!({"platformDependencies": {"windows": {"windows-sys": "0.61"}}}),
     );

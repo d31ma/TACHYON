@@ -58,7 +58,7 @@ export const bridgedApis = () => globalThis.__tachyonBrowserApiBridge?.join(',')
 const hostCall = globalThis.__tachyonNativeHostCall;
 globalThis.__tachyonNativeHostCall = (capability, payload) => {
   const request = JSON.parse(payload);
-  if (capability === 'companion.invoke' && request.op === 'init' && request.service && !globalThis.iosGateService) { globalThis.iosGateOwner = request.owner; globalThis.iosGateService = request.service; }
+  if (capability === 'companion.invoke' && request.op === 'init' && request.service && request.service !== 'iosTally' && !globalThis.iosGateService) { globalThis.iosGateOwner = request.owner; globalThis.iosGateService = request.service; }
   return hostCall(capability, payload);
 };\n`);
   write('client/shared/relaunch-storage.js', RelaunchStorageProbe.pageModule());
@@ -67,7 +67,8 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
     const service = 'Ios' + label[0].toUpperCase() + label.slice(1) + 'Service';
     const instance = 'ios' + label[0].toUpperCase() + label.slice(1);
     write('client/pages/' + prefix + 'tac.html', `<ios-${label} />`);
-    write('client/components/ios/' + label + '/tac.html', `<main><h1 id="heading">${label} route</h1><p id="marker">{${instance}.marker}</p>
+    const tally = prefix ? '' : '<p id="tally">{iosTally.count}</p><p id="tally-origin">{iosTally.origin}</p><button id="tally-double" on:click="iosTally.double()">Double in Rust</button>';
+    write('client/components/ios/' + label + '/tac.html', `<main><h1 id="heading">${label} route</h1><p id="marker">{${instance}.marker}</p>${tally}
 <p id="count">{${instance}.count}</p><p id="signal">{${instance}.signal}</p>
 <button id="update" on:click="${instance}.count = ${value}">Update native</button>
 <input id="name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" aria-label="Name">
@@ -87,6 +88,12 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
   initialize() {
     setTimeout(() => { void this.probe(); }, 50);
   }
+  async linkedRust() {
+    await this.until(() => document.querySelector('#tally')?.textContent === '21');
+    document.querySelector('#tally-double').click();
+    await this.until(() => document.querySelector('#tally')?.textContent === '42');
+    return document.querySelector('#tally-origin').textContent + ':' + document.querySelector('#tally').textContent;
+  }
   async until(check) {
     for (let attempt = 0; attempt < 100; attempt++) {
       if (check()) return;
@@ -104,6 +111,7 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
       if (this.pageLabel === 'root' && this.saved !== (returned || relaunched ? 'kept' : '')) throw new Error('LocalState after a native method and a page load: ' + JSON.stringify({ returned, relaunched, saved: this.saved, stored: Object.entries(localStorage), path: location.href }));
       if (this.pageLabel === 'root' && !returned && await this.remember() !== 'kept') throw new Error('Native LocalState method');
       if (document.querySelector('#marker').textContent !== 'Shared module ready') throw new Error('Shared JS');
+      const rustTally = this.pageLabel === 'root' && !returned ? await this.linkedRust() : 'not checked';
       await this.until(() => getComputedStyle(document.body).getPropertyValue('--ios-gate').trim() === 'ready');
       document.querySelector('#update').click();
       const expected = this.pageLabel === 'root' ? 7 : 9;
@@ -152,7 +160,7 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
         doubled: await this.doubled(), nativePid: await this.processId(),
         sharedAssets: true, renderedInteraction: true, focusPreserved: true,
         routeRejected: true, duplicateRouteRejected: true, unicodeBoundaryPassed: true, clipboardBridge: true,
-        publishReceived: true, saved: this.saved, storage });
+        publishReceived: true, saved: this.saved, storage, rustTally });
       await this.record();
       if (!returned) document.querySelector('#next').click();
     } catch (error) {
@@ -195,6 +203,28 @@ final class ${service} {
 }
 `);
   }
+  write('client/services/IosTallyService.rs', `#[Service]
+#[derive(Default)]
+struct IosTallyService {
+    count: i64,
+    origin: String,
+}
+
+impl IosTallyService {
+    #[OnStart]
+    fn initialize(&mut self) {
+        self.count = 21;
+        self.origin = String::from(if cfg!(target_os = "ios") { "ios" } else { "elsewhere" });
+        let home = std::env::var("HOME").unwrap_or_default();
+        let proof = format!("{{\\"pid\\":{},\\"origin\\":\\"{}\\"}}", std::process::id(), self.origin);
+        let _ = std::fs::write(format!("{home}/Documents/rust-start.json"), proof);
+    }
+
+    pub fn double(&mut self) {
+        self.count *= 2;
+    }
+}
+`);
 }
 
 function resolveBinary() {
@@ -208,7 +238,7 @@ function resolveBinary() {
 }
 
 function buildIosApp(binary) {
-  console.log('Building actual iOS host with two Swift services...');
+  console.log('Building actual iOS host with two Swift services and a linked Rust service...');
   run(binary, ['build', IosGate.project, '--target', 'ios'], 240000);
   const output = path.join(IosGate.project, 'dist/ios');
   const bundle = path.join(output, 'NativeIOSGate.app');
@@ -216,6 +246,7 @@ function buildIosApp(binary) {
   assert.equal(manifest.schemaVersion, 3);
   assert.deepEqual(manifest.companions, [
     { service: 'iosRoot', language: 'Swift' }, { service: 'iosSecond', language: 'Swift' },
+    { service: 'iosTally', language: 'Rust' },
   ]);
   assert.deepEqual(readFileSync(path.join(output, 'web/index.html')),
     readFileSync(path.join(bundle, 'WebBundle/index.html')));
@@ -354,6 +385,7 @@ function collectProofs(documents, required, pid) {
       assert.equal(proof[key], true, name + ': ' + key);
     }
     assert.equal(proof.saved, name.startsWith('root') ? 'kept' : '', name + ': LocalState after a native method');
+    assert.equal(proof.rustTally, name === 'root-initial.json' ? 'ios:42' : 'not checked', name + ': the linked Rust service');
     return { file: name, ...native, proof };
   });
   return proofs;
@@ -413,6 +445,8 @@ async function main() {
     const { documents, required } = await waitForProofFiles();
     mkdirSync(IosGate.evidence, { recursive: true });
     const proofs = collectProofs(documents, required, pid);
+    const rust = JSON.parse(readFileSync(path.join(documents, 'rust-start.json'), 'utf8'));
+    assert.deepEqual(rust, { pid, origin: 'ios' }, 'the Rust service must run natively in the app process');
     assert.equal(simctl('pbpaste', IosGate.device), 'tachyon ios bridge', 'the page clipboard write must reach UIPasteboard');
     const written = storageResult(proofs);
     assert.equal(written, RelaunchStorageProbe.WRITTEN, 'the first launch must write web storage, got ' + written);
@@ -427,7 +461,7 @@ async function main() {
       runtime: runtime.version, deviceType: phone.name, binary, pid, proofs, relaunch, storage,
     }, null, 2) + '\n');
     buildSignedApps(binary);
-    console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, clipboard bridge, shared assets, dynamic routes, isolation, ' +
+    console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, linked Rust service, clipboard bridge, shared assets, dynamic routes, isolation, ' +
       'LocalState kept after a native method and a page load, and relaunch storage (local=kept, store=kept, cache=' + storage.cache + ')');
   } finally {
     cleanup();

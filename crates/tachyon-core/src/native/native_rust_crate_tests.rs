@@ -23,6 +23,7 @@ impl NativeRustCrateTests {
         match target {
             NativeTarget::Windows => "windows",
             NativeTarget::Macos => "macos",
+            NativeTarget::Ios => "ios",
             _ => "linux",
         }
     }
@@ -349,6 +350,56 @@ async fn the_universal_macos_bundle_holds_both_architectures_and_its_helper_runs
         .status()
         .expect("codesign runs");
     assert!(verified.success());
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+#[ignore = "Builds the full iOS simulator app (swiftc, cargo for the simulator's Rust target); run explicitly on the Mac lane"]
+async fn the_ios_simulator_app_links_vendored_crates_into_its_rust_service() {
+    let root = NativeRustCrateTests::project(NativeTarget::Ios);
+    let manifest_path = root.path().join("client/manifest.json");
+    let text = std::fs::read_to_string(&manifest_path).expect("manifest");
+    let mut manifest: serde_json::Value = serde_json::from_str(&text).expect("manifest JSON");
+    manifest["tac"]["application"]["rust"]
+        .as_object_mut()
+        .expect("rust")
+        .remove("executables");
+    NativeRustCrateTests::write(&manifest_path, &manifest.to_string());
+    let greeting = "tachyon greeting from a vendored crate";
+    let platform = "tachyon platform crate for ios";
+    NativeRustCrateTests::vendor_crate(
+        root.path(),
+        "tiny-greeting",
+        &format!("pub fn hello() -> String {{ String::from(\"{greeting}\") }}\n"),
+    );
+    NativeRustCrateTests::vendor_crate(
+        root.path(),
+        "tiny-platform",
+        &format!("pub fn name() -> &'static str {{ \"{platform}\" }}\n"),
+    );
+    NativeRustCrateTests::write(
+        &root.path().join("client/services/GreetingService.rs"),
+        &NativeRustCrateTests::SERVICE.replace(
+            "fn greet(&mut self) {\n        self.text = tiny_greeting::hello();",
+            "pub fn greet(&mut self) {\n        self.text = format!(\"{} {}\", tiny_greeting::hello(), tiny_platform::name());",
+        ),
+    );
+    let output = NativeRustCrateTests::build(root.path(), NativeTarget::Ios, true).await;
+    let cargo = std::fs::read_to_string(output.join("project/rust-companion/Cargo.toml"))
+        .expect("Cargo.toml");
+    assert!(
+        cargo.contains("[target.'cfg(target_os = \"ios\")'.dependencies]"),
+        "{cargo}"
+    );
+    let linked = std::fs::read(output.join("Greeter.app/Greeter")).expect("app executable");
+    for text in ["_tac_native_invoke", greeting, platform] {
+        assert!(
+            linked
+                .windows(text.len())
+                .any(|bytes| bytes == text.as_bytes()),
+            "the iOS app must hold {text}"
+        );
+    }
 }
 
 #[cfg(target_os = "windows")]

@@ -11,7 +11,7 @@ pub enum NativeCompanion {
 impl NativeCompanion {
     pub const ALL: [Self; 4] = [Self::Rust, Self::Swift, Self::Kotlin, Self::CSharp];
     const TARGETS: [&'static [NativeTarget]; 4] = [
-        &[Macos, Windows, Linux],
+        &[Macos, Windows, Linux, Ios],
         &[Macos, Ios],
         &[Android],
         &[Windows],

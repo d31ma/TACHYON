@@ -1,7 +1,4 @@
-use super::host::run_tool;
 use crate::Failure;
-use crate::failure::diagnostic;
-use std::path::Path;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) struct MacOsSlice {
@@ -38,26 +35,8 @@ impl MacOsSlice {
     }
 
     pub(super) async fn require_rust_target(self) -> Result<(), Failure> {
-        let target = self.rust_target;
-        let directory = run_tool("rustc", &["--print", "target-libdir", "--target", target])
+        let needed_by = format!("The {} part of the macOS app", self.name);
+        super::rust_standard_library::RustStandardLibrary::require(self.rust_target, &needed_by)
             .await
-            .unwrap_or_default();
-        Path::new(directory.trim())
-            .is_dir()
-            .then_some(())
-            .ok_or_else(|| self.missing_rust_target())
-    }
-
-    fn missing_rust_target(self) -> Failure {
-        let target = self.rust_target;
-        Failure::one(diagnostic(
-            1605,
-            format!(
-                "The {} part of the macOS app needs the Rust standard library for {target}, which is not installed.",
-                self.name
-            ),
-            Some(format!("Run rustup target add {target}, then build again.")),
-            None,
-        ))
     }
 }

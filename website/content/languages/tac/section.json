@@ -45,7 +45,7 @@
       "code": {
         "file": "client/services/TallyService.rs"
       },
-      "note": "rustc compiles the service and links it into the macOS, Windows and Linux desktop hosts, where it can call platform APIs. For the web, iOS and Android, it compiles to WebAssembly; a release build tunes rustc for size and runs Binaryen wasm-opt."
+      "note": "rustc compiles the service and links it into the macOS, Windows and Linux desktop hosts and the iOS app, where it can call platform APIs. For the web and Android, it compiles to WebAssembly; a release build tunes rustc for size and runs Binaryen wasm-opt."
     },
     {
       "name": "client/services/TallyService.go",

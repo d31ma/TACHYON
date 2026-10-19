@@ -428,9 +428,7 @@ fn a_rust_service_is_webassembly_on_targets_that_do_not_link_it() {
     let source = "#[Service]\npub struct PhaseFourService {\n    pub count: i32,\n}\n\n\
                   impl PhaseFourService {\n    pub fn new() -> Self {\n        \
                   Self { count: 6 }\n    }\n}\n";
-    for target in ["ios", "android"] {
-        assert_staged_as_webassembly("rs", source, target, "tachyon-rust.js");
-    }
+    assert_staged_as_webassembly("rs", source, "android", "tachyon-rust.js");
 }
 
 #[test]

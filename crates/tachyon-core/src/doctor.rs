@@ -199,7 +199,7 @@ mod tests {
         assert!(entry.requirement.contains("services"), "{entry:?}");
         assert!(entry.install.contains("rustup.rs"), "{entry:?}");
         let text = report.to_text();
-        assert!(text.contains("macos, windows, linux  rustc"), "{text}");
+        assert!(text.contains("macos, windows, linux, ios  rustc"), "{text}");
         match &entry.state {
             ToolchainState::Ready(version) => assert!(!version.is_empty()),
             ToolchainState::Incomplete(reason) => assert!(!reason.is_empty()),

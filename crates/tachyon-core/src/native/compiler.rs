@@ -834,9 +834,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_links_on_the_desktops_and_is_webassembly_on_ios_and_android() {
+    fn rust_links_on_the_desktops_and_ios_and_is_webassembly_on_android() {
         let rust = Reach::Linked(NativeCompanion::Rust);
-        assert_reach(&["rs"], [rust, Reach::WebView, Reach::WebView, rust, rust]);
+        assert_reach(&["rs"], [rust, rust, Reach::WebView, rust, rust]);
     }
 
     #[test]
@@ -857,7 +857,7 @@ mod tests {
     fn rust_with_go_is_webassembly_where_rust_does_not_link() {
         let rust = Reach::Linked(NativeCompanion::Rust);
         let web = Reach::WebView;
-        assert_reach(&["rs", "go"], [rust, web, web, rust, rust]);
+        assert_reach(&["rs", "go"], [rust, rust, web, rust, rust]);
         let csharp = Reach::Linked(NativeCompanion::CSharp);
         assert_reach(&["cs", "go"], [web, web, web, csharp, web]);
     }

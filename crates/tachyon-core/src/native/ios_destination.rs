@@ -12,6 +12,7 @@ pub(super) struct IosDestination {
     triple_suffix: &'static str,
     architecture: Option<&'static str>,
     artifact_architecture: Option<&'static str>,
+    rust_target: Option<&'static str>,
 }
 
 impl IosDestination {
@@ -25,6 +26,7 @@ impl IosDestination {
         triple_suffix: "-simulator",
         architecture: None,
         artifact_architecture: None,
+        rust_target: None,
     };
     pub(super) const DEVICE: Self = Self {
         sdk: "iphoneos",
@@ -38,6 +40,7 @@ impl IosDestination {
         triple_suffix: "",
         architecture: Some("arm64"),
         artifact_architecture: Some("aarch64"),
+        rust_target: Some("aarch64-apple-ios"),
     };
     pub(super) const APP_STORE: Self = Self {
         app_store: true,
@@ -48,6 +51,7 @@ impl IosDestination {
         [Self::APP_STORE, Self::APP_STORE],
     ];
     const SIMULATOR_ARCHITECTURES: [&'static str; 2] = ["x86_64", "arm64"];
+    const SIMULATOR_RUST_TARGETS: [&'static str; 2] = ["x86_64-apple-ios", "aarch64-apple-ios-sim"];
 
     pub(super) fn of(options: &NativeBuildOptions) -> Self {
         Self::BY_CHOICE[usize::from(options.release)][usize::from(options.device)]
@@ -60,6 +64,11 @@ impl IosDestination {
             self.architecture.unwrap_or(simulator),
             self.triple_suffix
         )
+    }
+
+    pub(super) fn rust_target(self) -> &'static str {
+        let simulator = Self::SIMULATOR_RUST_TARGETS[usize::from(cfg!(target_arch = "aarch64"))];
+        self.rust_target.unwrap_or(simulator)
     }
 
     pub(super) fn artifact_architecture(self, build_machine: &'static str) -> &'static str {
@@ -128,6 +137,17 @@ mod tests {
         assert_eq!(
             IosDestination::SIMULATOR.artifact_architecture("x86_64"),
             "x86_64"
+        );
+    }
+
+    #[test]
+    fn rust_services_build_for_the_ios_system_the_app_runs_on() {
+        assert_eq!(IosDestination::DEVICE.rust_target(), "aarch64-apple-ios");
+        assert_eq!(IosDestination::APP_STORE.rust_target(), "aarch64-apple-ios");
+        let simulator = ["x86_64-apple-ios", "aarch64-apple-ios-sim"];
+        assert_eq!(
+            IosDestination::SIMULATOR.rust_target(),
+            simulator[usize::from(cfg!(target_arch = "aarch64"))]
         );
     }
 

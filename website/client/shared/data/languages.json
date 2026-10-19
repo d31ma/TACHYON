@@ -32,7 +32,7 @@
       {
         "name": "client/services/TallyService.rs",
         "code": "#[Service]\npub struct TallyService {\n    pub count: i32,\n    pub runtime: &'static str,\n}\n\nimpl TallyService {\n    pub fn new() -> Self {\n        Self { count: 6, runtime: \"Rust, compiled by rustc\" }\n    }\n\n    pub fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}",
-        "note": "rustc compiles the service and links it into the macOS, Windows and Linux desktop hosts, where it can call platform APIs. For the web, iOS and Android, it compiles to WebAssembly; a release build tunes rustc for size and runs Binaryen wasm-opt."
+        "note": "rustc compiles the service and links it into the macOS, Windows and Linux desktop hosts and the iOS app, where it can call platform APIs. For the web and Android, it compiles to WebAssembly; a release build tunes rustc for size and runs Binaryen wasm-opt."
       },
       {
         "name": "client/services/TallyService.go",

@@ -151,3 +151,30 @@ Executables go beside the host executable, so the companion finds them at
 On macOS each helper is signed ad hoc before the bundle is signed. Helpers
 are ordinary programs: Tachyon does not register, install or start them,
 and creates no service, login item or elevated helper.
+
+## Amendment (2026-10-19): Rust links on iOS (decision D1)
+
+Decision D1 of the platform-gaps plan chose to link Rust on iOS and Android,
+so a Rust service gets the same native reach on mobile as on the desktops.
+This amendment covers iOS; Android follows in its own amendment.
+
+- `tac.rs` now reaches macOS, Windows, Linux and iOS. The selection rule does
+  not change: a service with both a Swift and a Rust variant still links
+  Swift on iOS, and a Rust-only service now links Rust there instead of
+  running as WebAssembly in the web view.
+- The iOS host links the companion as a static library, with the same C ABI
+  and the same Swift shim as the macOS host (`tac_native_invoke`,
+  `tac_native_free`, `tac_native_set_emit`,
+  `tac_native_set_capability_adapter`). Swift and Rust services can share
+  one app, as on macOS.
+- The library is built for `aarch64-apple-ios` in a `--device` or
+  `--release` build, and for `aarch64-apple-ios-sim` (`x86_64-apple-ios` on
+  an Intel Mac) in a simulator build. When that Rust standard library is
+  missing, the build stops with `TY1605` and names the
+  `rustup target add` command.
+- `tac.application.rust.dependencies` now apply to the iOS app too, and
+  `platformDependencies` gains an `ios` table (`cfg(target_os = "ios")`).
+  `executables` stay refused on iOS (`TY1601`), because an iOS app may not
+  start other programs.
+- An application-lifetime Rust service is still desktop-only (ADR 0097);
+  the iOS app does not start one yet.

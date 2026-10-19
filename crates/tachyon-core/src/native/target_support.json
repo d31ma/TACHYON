@@ -216,7 +216,7 @@
     "macos": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
     "windows": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
     "linux": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
-    "ios": {"reach": "adapted", "note": "tac.application.rust crates are not used on iOS: Rust services run as WebAssembly in the page there (D1)."},
+    "ios": {"reach": "honored", "how": "vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here"},
     "android": {"reach": "adapted", "note": "tac.application.rust crates are not used on Android: Rust services run as WebAssembly in the page there (D1)."}
   },
   {
@@ -596,7 +596,7 @@
     "macos": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
     "windows": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
     "linux": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
-    "ios": {"reach": "refused", "code": 1406, "alternative": "Application lifetime services must be Rust, and Rust is not linked on iOS yet. Use a page or singleton service (D1)."},
+    "ios": {"reach": "refused", "code": 1406, "alternative": "Rust services are linked into the iOS app, but none starts with the app yet (LT1). Use a page or singleton service."},
     "android": {"reach": "refused", "code": 1406, "alternative": "Application lifetime services must be Rust, and Rust is not linked on Android yet. Use a page or singleton service (D1)."}
   },
   {
@@ -726,7 +726,7 @@
     "macos": {"reach": "honored", "how": "Rust and Swift services are linked into the app; other languages run in the page"},
     "windows": {"reach": "honored", "how": "Rust and C# services are linked into the app; other languages run in the page"},
     "linux": {"reach": "honored", "how": "Rust services are linked into the app; other languages run in the page"},
-    "ios": {"reach": "honored", "how": "Swift services are linked into the app; other languages run in the page"},
+    "ios": {"reach": "honored", "how": "Rust and Swift services are linked into the app, with Swift chosen when a service has both; other languages run in the page"},
     "android": {"reach": "honored", "how": "Kotlin services are linked into the app; other languages run in the page"}
   },
   {

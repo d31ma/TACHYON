@@ -81,10 +81,11 @@ tac.application.menus                           native desktop
   service. At most 64 items; iOS and Android refuse them (see
   Native menus).
 
-tac.application.rust                            native desktop
+tac.application.rust                            native desktop, iOS
   Rust companion crates and helpers. dependencies lists exact
   versions, or { "version", "features", "defaultFeatures" }.
-  platformDependencies has macos, linux and windows tables.
+  platformDependencies has ios, macos, linux and windows tables.
+  iOS refuses executables.
   executables maps up to 8 names, such as "catalog-event", to
   client class paths, such as "/shared/native/EventEmitterMain.rs".
   Each class has pub fn run() -> i32. Crates come from vendor/rust

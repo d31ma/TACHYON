@@ -6,10 +6,12 @@ use super::host::{
 };
 use super::ios_destination::IosDestination;
 use super::ios_device_build::IosDeviceBuild;
+use super::ios_rust_library::IosRustLibrary;
 use super::ios_window_controls::IosWindowControls;
 use super::macos::MacOsHostGenerator;
 use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
+use super::rust::RustCompanionOutput;
 use super::swift_compile_inputs::SwiftCompileInputs;
 use super::system_version::SystemVersion;
 use crate::Failure;
@@ -46,7 +48,13 @@ impl IosHostGenerator {
             stage,
             application.outgoing.yon_origin(),
         )?;
-        let call = super::macos::companion_call(companion.as_deref(), None);
+        let rust_companion = super::rust::RustCompanion::stage_for_host(
+            companions,
+            stage,
+            application,
+            super::rust::Linkage::Static,
+        )?;
+        let call = super::macos::companion_call(companion.as_deref(), rust_companion.as_deref());
         let swift_path = stage.join("project").join("TachyonHost.swift");
         write_host_source(&swift_path, &swift_source(application, call, index))?;
         let icons = stage_icons(application, web_bundle, &bundle, destination.signed).await?;
@@ -66,9 +74,17 @@ impl IosHostGenerator {
         let device = IosDeviceBuild::prepare(application, destination).await?;
         let executable = bundle.join(&application.executable_name);
         let deployment = application.minimum_system.floor(NativeTarget::Ios);
+        let project = stage.join("project");
+        let library = IosRustLibrary::compile(
+            application,
+            rust_companion.as_deref(),
+            destination,
+            &project,
+        )
+        .await?;
         let swift_version = compile_swift(
             &swift_path,
-            companion.as_deref(),
+            (companion.as_deref(), library.as_ref()),
             destination,
             deployment,
             &executable,
@@ -93,7 +109,7 @@ impl IosHostGenerator {
 
 async fn compile_swift(
     source: &Path,
-    companion: Option<&Path>,
+    (companion, library): (Option<&Path>, Option<&RustCompanionOutput>),
     destination: IosDestination,
     deployment: SystemVersion,
     executable: &Path,
@@ -110,7 +126,8 @@ async fn compile_swift(
     )
     .await?;
     let version = first_line(&version_output, "Swift unknown");
-    let inputs = SwiftCompileInputs::of(source, companion, None, executable)?;
+    let archive = library.map(|compiled| compiled.library.as_path());
+    let inputs = SwiftCompileInputs::of(source, companion, archive, executable)?;
     let triple = destination.triple(deployment);
     let mut arguments = vec![
         "--sdk",
@@ -124,6 +141,11 @@ async fn compile_swift(
     arguments.extend(IosHostGenerator::FRAMEWORK_ARGUMENTS);
     arguments.extend(NativeReproducibility::SWIFT_ARGUMENTS);
     arguments.extend(inputs.arguments());
+    let native_arguments = library
+        .into_iter()
+        .flat_map(|compiled| compiled.native_libraries.arguments.iter())
+        .map(String::as_str);
+    arguments.extend(native_arguments);
     NativeReproducibility::run_tool_in("/usr/bin/xcrun", &arguments, Some(&inputs.folder)).await?;
     Ok(version)
 }
@@ -260,6 +282,24 @@ pub(super) fn swift_source(
             include_str!("AppleApplicationState.swift"),
         );
     MacOsHostGenerator::apple_authored_values(&framed, application, index, &[])
+}
+
+#[cfg(test)]
+pub(super) async fn link_swift(
+    source: &Path,
+    library: &RustCompanionOutput,
+    destination: IosDestination,
+    executable: &Path,
+) -> Result<String, Failure> {
+    let deployment = super::target_floor::TargetFloor::of(NativeTarget::Ios).base;
+    compile_swift(
+        source,
+        (None, Some(library)),
+        destination,
+        deployment,
+        executable,
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -449,7 +489,7 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         replyHandler(handle(capability, canonicalPayload), nil)
     }
 
-    private func handle(_ capability: String, _ payload: String) -> String {
+    fileprivate func handle(_ capability: String, _ payload: String) -> String {
         let data = payload.data(using: .utf8) ?? Data()
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         switch capability {

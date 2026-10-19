@@ -116,3 +116,10 @@ not about the language:
   decoding takes about as long as `atob`.
 - The script budget (ADR 0074) counts this file, so the change also gives a
   route with Rust services about 11 KB more room.
+
+## Amendment (2026-10-19): iOS links Rust
+
+- Decision D1 links Rust on iOS (ADR 0019 amendment of the same date). The
+  iOS web view no longer runs a Rust service as WebAssembly. Android still
+  does until its own amendment, and so does any target where a Rust
+  service is not the selected variant.

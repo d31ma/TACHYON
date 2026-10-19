@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Rust services link into the iOS app (ADR 0019 and ADR 0035 amendments,
+  decision D1). A Rust-only service now runs natively in the iOS app as a
+  static library with the macOS C ABI, instead of as WebAssembly in the
+  web view; a service with a Swift variant still links Swift. The build
+  needs the `aarch64-apple-ios-sim` (simulator) or `aarch64-apple-ios`
+  (`--device`, `--release`) Rust standard library and names the
+  `rustup target add` command when it is missing (`TY1605`).
+  `tac.application.rust` crates now reach the iOS app, and
+  `platformDependencies` accepts an `ios` table. The iOS simulator gate
+  (`scripts/ios/native-test.mjs`) now also runs a linked Rust service
+  beside its Swift services.
 - The Linux app reaches Yon on `tac.yon.origin` (ADR 0103 amendment). A
   linked Rust service's `HTTPClient` now sends its calls through the GTK
   host with libsoup instead of answering `HTTP_MISSING`. The page also opens
