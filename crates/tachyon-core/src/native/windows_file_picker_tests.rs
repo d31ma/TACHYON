@@ -8,6 +8,8 @@ impl WindowsFilePickerTests {
     const CHECK: &str = include_str!("../../tests/fixtures/native/windows_file_picker_check.c");
     #[cfg(unix)]
     const MINGW: &str = "x86_64-w64-mingw32-gcc";
+    #[cfg(windows)]
+    const RUN_LIMIT: std::time::Duration = std::time::Duration::from_mins(2);
 
     fn host(grants: &[&str]) -> String {
         let application = NativeApplication {
@@ -129,11 +131,25 @@ impl WindowsFilePickerTests {
             "{}",
             String::from_utf8_lossy(&compiled.stdout)
         );
-        let ran = std::process::Command::new(&program)
+        let mut child = std::process::Command::new(&program)
             .current_dir(root.path())
             .arg(mode)
-            .output()
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
             .expect("file picker check");
+        let limit = std::time::Instant::now() + Self::RUN_LIMIT;
+        while child.try_wait().expect("file picker check").is_none() {
+            if std::time::Instant::now() >= limit {
+                child.kill().expect("stop the file picker check");
+                panic!(
+                    "the file picker check ran past {:?}; a session without a desktop (SSH) never returns from the file dialog",
+                    Self::RUN_LIMIT
+                );
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        let ran = child.wait_with_output().expect("file picker check");
         let printed = String::from_utf8_lossy(&ran.stdout).into_owned();
         assert!(
             ran.status.success(),
