@@ -51,11 +51,15 @@ builds a `.dmg`, then signs, notarizes, staples and assesses it. Checked in an
 x86_64 Linux cloud container: the signing variables are checked before the
 build (`TY1605`), the certificate is chosen from `security find-identity`
 output, the codesign, hdiutil, notarytool, stapler and spctl arguments, the
-entitlements from the manifest grants, and the notarization answer. Not yet
-run: the macOS tests in `crates/tachyon-cli/tests/it/macos_release_cli.rs` on
-a Mac (an ad hoc release, its hardened runtime flag, entitlements and `.dmg`
-contents), and the ignored Developer ID test, which needs the team's
-certificate, `TAC_APPLE_TEAM_ID` and a notary profile.
+entitlements from the manifest grants, and the notarization answer. On
+2026-10-19 the macOS tests in `crates/tachyon-cli/tests/it/macos_release_cli.rs`
+passed on an Apple silicon Mac: an ad hoc release with the hardened runtime
+flag, the location entitlement and the expected `.dmg` contents. Not yet run:
+signing with the team's Developer ID certificate and notarization (the ignored
+Developer ID test). The team's Developer ID Application certificate is in the
+Mac keychain, but `xcrun notarytool store-credentials` answers HTTP 403 ("a
+required agreement is missing or has expired") for team JAU9V4WH99, so no
+notary profile exists yet.
 
 Linux release packages (2026-10-19, ADR 0104 amendment): `ty bundle --target
 linux --release` was built in an x86_64 Ubuntu 24.04 cloud container (GTK
