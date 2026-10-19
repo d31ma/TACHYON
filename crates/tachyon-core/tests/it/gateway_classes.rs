@@ -681,12 +681,7 @@ fn usable(program: &str) -> bool {
 }
 
 fn kotlin_available() -> bool {
-    let found = StdCommand::new("kotlinc")
-        .arg("-version")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let found = crate::support::program_probe::ProgramProbe::answers("kotlinc", "-version");
     crate::support::toolchain::Toolchain::checked("kotlinc", found)
 }
 

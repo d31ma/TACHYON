@@ -1,7 +1,6 @@
 #![allow(clippy::expect_used)]
 
 use std::fs;
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_contracts::{HandlerRequest, HttpMethod};
 use tachyon_core::{
@@ -50,16 +49,12 @@ fn compiler_available(extension: &str) -> bool {
         "groovy" => "groovyc",
         _ => "kotlinc",
     };
-    let available = Command::new(compiler)
-        .arg(if compiler == "groovyc" {
-            "--version"
-        } else {
-            "-version"
-        })
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let flag = if compiler == "groovyc" {
+        "--version"
+    } else {
+        "-version"
+    };
+    let available = crate::support::program_probe::ProgramProbe::answers(compiler, flag);
     if !available {
         eprintln!(
             "Skipping {extension} behavior runtime: {compiler} unavailable; dedicated JVM gate requires both compilers"
