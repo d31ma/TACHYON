@@ -10,6 +10,19 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Request-source and caching markers now have run proof in every language
+  that accepts them (PR4). `tests/it/request_sources.rs` gives all 15 Yon
+  languages one controller with a `PutRoute` and a `PatchRoute` and checks
+  through the dev server that `FromPath`, `FromHeader` and `FromCookie`
+  arrive. `client_tests/request_parts_tests.rs` sends a Tac `GetRequest`
+  from Dart, Rust, C#, Kotlin, Swift, Go, Ruby and C++ test units through an
+  echo adapter and checks the `PathVariable` path and `RequestParam` query.
+  The behavior fixtures of PHP, Java, Groovy, Kotlin, C#, F#, Rust, Dart, Go,
+  Ruby and Lua call a `Cached` method whose `CacheKey` parameter decides the
+  hit. `scripts/storage-browser-test.mjs` now checks `SessionState` in
+  TypeScript, Rust, C#, Kotlin, Swift, Go, Ruby, Lua and C++. A language
+  whose toolchain is missing is skipped with a message.
+
 - The Windows app answers browser APIs (ADR 0065 amendment). `clipboard`
   reads and writes the Windows clipboard, `share` opens the Windows share
   sheet for the app window, and `notifications` are Windows toasts, which
@@ -1612,6 +1625,8 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Groovy Yon class with `Convert` mappings compiles again. The generated
+  mapping table used Java nested array braces, which Groovy 4 refuses.
 - `TestSettings` no longer stops a test unit before its first case in
   JavaScript, TypeScript, Python, PHP, Dart, Go, Rust, Ruby and Swift
   (ADR 0080 amendment). Those drivers passed each path as written and some
