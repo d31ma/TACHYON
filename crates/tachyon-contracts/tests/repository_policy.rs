@@ -612,11 +612,11 @@ fn github_ci_runs_only_for_develop_into_main() -> Result<(), Box<dyn std::error:
 }
 
 #[test]
-fn self_hosted_runners_serve_only_opted_in_branch_pushes() -> Result<(), Box<dyn std::error::Error>>
-{
+fn self_hosted_runners_serve_only_opted_in_branch_pushes_and_dispatches()
+-> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
-    let guard = "github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true'";
+    let guard = "(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true'";
     let hosted_fallbacks = [
         "|| 'ubuntu-latest' }}",
         "|| 'macos-latest' }}",

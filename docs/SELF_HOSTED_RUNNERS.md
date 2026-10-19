@@ -12,24 +12,26 @@ runner.
 
 > **Note (2026-10-18):** `rust-ci.yml` no longer runs on branch pushes. GitHub
 > Actions runs it only for pull requests from `develop` into `main`, for tagged
-> releases and on demand, so the push-only switch below is dormant. Day-to-day
-> CI runs directly on the maintainer's machines instead of through registered
-> runners.
+> releases and on demand. Since 2026-10-19 an on-demand (`workflow_dispatch`)
+> run on a branch also takes the self-hosted runners when the switch below is
+> on. Day-to-day CI runs directly on the maintainer's machines instead of
+> through registered runners.
 
 ## How the Switch Works
 
 Every job in `rust-ci.yml` chooses its runner with one expression. A job uses
 a self-hosted runner only when **all** of these are true:
 
-1. the event is `push`;
-2. the pushed ref is a branch (`refs/heads/...`): `develop`,
-   `codex/rust-rewrite`, or `work/**`;
+1. the event is `push` or `workflow_dispatch` (a run someone with write
+   access starts by hand; Samuel chose this on 2026-10-19 so manual runs use
+   the local machines too);
+2. the ref is a branch (`refs/heads/...`);
 3. the repository variable `TACHYON_SELF_HOSTED` is exactly `true`.
 
 In every other case the job uses the same GitHub-hosted runner as before:
 
 - every `pull_request` run, from a fork or from this repository;
-- every `workflow_dispatch` run;
+- a `workflow_dispatch` run on a tag;
 - the qualification run that `publish.yml` starts for a release tag (the ref
   is `refs/tags/v*`, so release evidence always comes from GitHub-hosted
   runners).
@@ -42,7 +44,7 @@ hardware virtualization (`/dev/kvm`) inside WSL.
 The expression in a job looks like this:
 
 ```yaml
-runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
 ```
 
 The two matrix jobs keep `matrix.os` as the hosted label. Each matrix entry
@@ -547,7 +549,7 @@ sudo chmod 0440 /etc/sudoers.d/runner
 ```
 
 This is acceptable only because the distribution holds nothing else, cannot
-see Windows files, and runs only trusted branch pushes. Never do this in your
+see Windows files, and runs only trusted branch pushes and manual runs. Never do this in your
 own development distribution.
 
 ### KVM for the Android Emulator

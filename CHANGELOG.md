@@ -25,7 +25,9 @@ machine contracts have their own, independent major versions.
   `--without-docker` mode runs FYLO on macOS and Windows and Redis on macOS.
   The installer also places TeaVM 0.15.0 and the Kotlin/Wasm stdlib for the
   Tac Java and Kotlin tests, and the jobs put the pinned `tsc` on `PATH`.
-  A `jobs` input on `workflow_dispatch` runs only the named jobs. A FYLO
+  A `jobs` input on `workflow_dispatch` runs only the named jobs, and a
+  manual run on a branch now takes the self-hosted runners when
+  `TACHYON_SELF_HOSTED` is `true`, as a branch push does. A FYLO
   datasource on Windows now accepts a drive root such as
   `fylo:///C:/data/catalog`.
 
