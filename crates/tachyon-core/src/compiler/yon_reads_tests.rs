@@ -26,6 +26,7 @@ const network = { online: true, calls: [], count: 0 }
 const answers = {
   '/api/notes': () => ({ 'cache-control': 'public, max-age=60', vary: 'Origin, Accept-Encoding' }),
   '/api/list': () => ({ 'cache-control': 'public, max-age=60' }),
+  '/api/paged': () => ({ 'cache-control': 'public, max-age=60' }),
   '/api/secret': () => ({ 'cache-control': 'no-store' }),
   '/api/varied': () => ({ 'cache-control': 'public', vary: 'Accept' }),
   '/api/local': () => ({ 'cache-control': 'public' }),
@@ -47,6 +48,7 @@ const outcome = async (work) => { try { return await work() } catch (error) { re
 ;(0, eval)(`${await readFile('./client_runtime.js', 'utf8')}\nglobalThis.exchange = __tachyon_client_exchange__`)
 ;(0, eval)(await readFile('./tac-http.js', 'utf8'))
 ;(0, eval)(await readFile('./tac-yon-reads.js', 'utf8'))
+;(0, eval)(`${await readFile('./client-request.js', 'utf8')}\nglobalThis.clientRequest = clientRequest`)
 const read = (path, extra = {}) => outcome(() => exchange({ path, method: 'GET', query: {}, headers: {}, publicRead: true, maxResponseBytes: 1024, ...extra }))
 const http = globalThis[Symbol.for('tachyon.tac.http')]
 const ticket = async (path) => JSON.parse(await http.start(JSON.stringify({ method: 'GET', path, redirect: 'error', credentials: 'omit', deadline: Date.now() + 5000, maxResponseBytes: 1024, publicRead: true })).answer)
@@ -56,6 +58,8 @@ report.networkFirst = [await read('/api/notes'), await offline(() => read('/api/
 report.cacheFirst = [await read('/cached/item'), await read('/cached/item'), await read('/cached/item', { revalidate: true })]
 report.serverNoStore = [await read('/api/secret'), await offline(() => read('/api/secret'))]
 report.uncachedRead = [await read('/api/list', { publicRead: false }), await offline(() => read('/api/list', { publicRead: false }))]
+const paged = () => outcome(() => exchange({ path: '/api/paged', method: 'GET', query: {}, headers: {}, publicRead: true, maxResponseBytes: 1024 }, clientRequest))
+report.pageTransport = [await paged(), await offline(paged)]
 report.services = [await ticket('/api/list'), await offline(() => ticket('/api/list'))]
 report.ruleNoStore = [await read('/fresh'), await offline(() => read('/fresh'))]
 report.varied = [await read('/api/varied'), await offline(() => read('/api/varied'))]
@@ -78,6 +82,7 @@ process.exit(0)
             ),
             ("tac-http.js", include_str!("../template/tac-http.js")),
             ("tac-yon-reads.js", reads.as_str()),
+            ("client-request.js", Self::client_request()),
         ] {
             Self::write(root.path(), name, source);
         }
@@ -96,6 +101,13 @@ process.exit(0)
             String::from_utf8_lossy(&output.stderr)
         );
         serde_json::from_str(stdout.lines().last().unwrap_or_default()).expect("report")
+    }
+
+    fn client_request() -> &'static str {
+        let page = include_str!("../template/tac-client.js");
+        let start = page.find("const clientRequest").expect("clientRequest");
+        let length = page[start..].find("\n}\n").expect("clientRequest end") + 2;
+        &page[start..start + length]
     }
 
     fn write(root: &Path, name: &str, source: &str) {
@@ -147,11 +159,17 @@ fn a_native_page_applies_the_cache_rules_to_yon_reads() {
         report["services"][0]["value"]["text"], report["services"][1]["value"]["text"],
         "{report}"
     );
+    assert!(report["pageTransport"][0]["text"].is_string(), "{report}");
+    assert_eq!(
+        report["pageTransport"][0], report["pageTransport"][1],
+        "a JavaScript Tac Client read through the page transport uses the read cache: {report}"
+    );
     assert_eq!(report["afterWrite"], "refused: offline", "{report}");
     assert_eq!(
         report["kept"],
         serde_json::json!([
             "https://api.example.com/api/list",
+            "https://api.example.com/api/paged",
             "https://api.example.com/cached/item"
         ]),
         "{report}"
