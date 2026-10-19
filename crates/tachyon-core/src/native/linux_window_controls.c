@@ -82,6 +82,7 @@ static unsigned char *tachyon_capability_call(const char *operation, const char 
   JSCContext *context = jsc_context_new();
   JSCValue *request = jsc_value_new_from_json(context, json);
   const char *answer = "{\"error\":\"invalid\"}";
+  gchar *picked = NULL;
   if (request != NULL && jsc_value_is_object(request) && !jsc_value_is_array(request)) {
     if (strcmp(operation, "window.granted") == 0) {
       gchar *control = tachyon_capability_string(request, "control");
@@ -89,15 +90,19 @@ static unsigned char *tachyon_capability_call(const char *operation, const char 
       g_free(control);
     } else if (g_str_has_prefix(operation, "window.")) {
       answer = tachyon_window_action(operation + strlen("window."), request);
-    } else if (g_str_has_prefix(operation, "filePicker.")) answer = "{\"status\":\"unsupported\"}";
-    else answer = "{\"error\":\"unsupported\"}";
+    } else if (g_str_has_prefix(operation, "filePicker.")) {
+      picked = tachyon_file_picker_call(operation + strlen("filePicker."), request);
+      answer = picked;
+    } else answer = "{\"error\":\"unsupported\"}";
   }
+  unsigned char *reply = tachyon_capability_answer(answer, length);
+  g_free(picked);
   if (request != NULL) g_object_unref(request);
   g_object_unref(context);
-  return tachyon_capability_answer(answer, length);
+  return reply;
 }
 
-static gchar *tachyon_window_page_call(const gchar *operation, const gchar *payload) {
+static gchar *tachyon_capability_page_call(const gchar *operation, const gchar *payload) {
   size_t length = 0;
   unsigned char *answer = tachyon_capability_call(operation, payload, &length);
   gchar *text = g_strndup((const gchar *)answer, length);

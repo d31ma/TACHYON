@@ -82,6 +82,9 @@ mod linux_app_image_runtime;
 #[cfg(test)]
 mod linux_browser_api_tests;
 mod linux_browser_apis;
+mod linux_file_picker;
+#[cfg(test)]
+mod linux_file_picker_tests;
 #[cfg(test)]
 mod linux_host_tests;
 mod linux_package_files;

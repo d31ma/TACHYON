@@ -182,6 +182,10 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
     let gtk_app_id = c_string_escape(&gtk_application_id(&application.application_id));
     let template = LinuxHostGenerator::C_HOST
         .replace(
+            "__NATIVE_FILE_PICKER__",
+            &super::linux_file_picker::LinuxFilePicker::source(&application.native_capabilities),
+        )
+        .replace(
             "__NATIVE_WINDOW_CONTROLS__",
             &super::linux_window_controls::LinuxWindowControls::source(&application.window),
         )
@@ -274,6 +278,8 @@ static void tachyon_window_content_size(GtkWindow *window, int width, int height
 static const char *tachyon_title_bar_title(const char *requested);
 
 __WEB_ENGINE_CHECK__
+
+__NATIVE_FILE_PICKER__
 
 __NATIVE_WINDOW_CONTROLS__
 
@@ -597,8 +603,8 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
     tachyon_menus_refresh();
   } else if (g_strcmp0(capability, "window.dragRegions") == 0) {
     answer = tachyon_title_bar_regions(payload);
-  } else if (g_str_has_prefix(capability, "window.")) {
-    answer = tachyon_window_page_call(capability, payload);
+  } else if (g_str_has_prefix(capability, "window.") || g_str_has_prefix(capability, "filePicker.")) {
+    answer = tachyon_capability_page_call(capability, payload);
   } else if (g_strcmp0(capability, "browserApi.share.open") == 0) {
     answer = tachyon_share_open(payload);
   } else if (g_strcmp0(capability, "browserApi.notifications.requestPermission") == 0) {
@@ -608,7 +614,7 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
   } else {
     gchar *safe = tachyon_safe_name(capability);
     answer = g_strdup_printf(
-        "{\"ok\":false,\"error\":\"linux host answers companion.invoke, window controls and bridged browser APIs, not '%s'\"}", safe);
+        "{\"ok\":false,\"error\":\"linux host answers companion.invoke, window controls, the file picker and bridged browser APIs, not '%s'\"}", safe);
     g_free(safe);
   }
 
@@ -626,7 +632,10 @@ __APPLICATION_STATE__
 static void tachyon_on_load(WebKitWebView *view, WebKitLoadEvent event, gpointer data) {
   (void)view;
   (void)data;
-  if (event == WEBKIT_LOAD_STARTED) tachyon_companion_dispose();
+  if (event == WEBKIT_LOAD_STARTED) {
+    tachyon_file_picker_dispose_all();
+    tachyon_companion_dispose();
+  }
   if (event == WEBKIT_LOAD_FINISHED) {
     tachyon_record("controller.mounted");
     tachyon_record("controller.active");
@@ -644,6 +653,7 @@ static WebKitNetworkSession *tachyon_network_session(void) {
 }
 
 static gboolean tachyon_terminate(gpointer data) {
+  tachyon_file_picker_dispose_all();
   g_application_quit(G_APPLICATION(data));
   return G_SOURCE_CONTINUE;
 }
@@ -704,8 +714,8 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   webkit_settings_set_allow_universal_access_from_file_urls(settings, FALSE);
 
   gchar *shim = g_strdup_printf(
-      "if (location.protocol === 'tachyon:' && location.host === 'app' && window === window.top) {\n%s\n}\n",
-      TACHYON_NATIVE_SHIM);
+      "if (location.protocol === 'tachyon:' && location.host === 'app' && window === window.top) {\n%s\n%s\n}\n",
+      TACHYON_NATIVE_SHIM, TACHYON_FILE_PICKER_PAGE);
   WebKitUserScript *script = webkit_user_script_new(
       shim, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START,
       NULL, NULL);
@@ -767,6 +777,7 @@ static void tachyon_shutdown(GApplication *app, gpointer data) {
   (void)data;
   tachyon_settle_web_storage();
   tachyon_tray_remove();
+  tachyon_file_picker_dispose_all();
   tachyon_companion_dispose();
   tachyon_application_stop();
   tachyon_record("controller.destroyed");
