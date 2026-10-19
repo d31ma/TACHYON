@@ -23,6 +23,8 @@ class StorageGate {
   static withKotlin = kotlinWebAvailable();
   static withSwift = swiftWebAvailable();
   static withJava = javaWebAvailable();
+  static withLua = emscriptenAvailable();
+  static withCpp = emscriptenAvailable();
   static mappedNote = JSON.stringify({ kind: 'note', title: 'mapped' });
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' };
 
@@ -144,7 +146,7 @@ type GoNoteEntity struct {
 \ttext string
 }
 `);
-  write(project, 'client/components/storage/go/tac.html', '<p id="go">{goNotes.reads}</p>\n<button id="go-bump" on:click="goNotes.increment()">+</button>\n<p id="go-count">{goNotes.count}</p>\n');
+  write(project, 'client/components/storage/go/tac.html', '<p id="go">{goNotes.reads}</p>\n<button id="go-bump" on:click="goNotes.increment()">+</button>\n<p id="go-count">{goNotes.count}</p>\n<button id="go-keep" on:click="goNotes.keep()">keep</button>\n<p id="go-draft">{goNotes.draft}</p>\n');
   write(project, 'client/stores/GoNoteStore.go', `// @Store(GoNoteEntity, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"GoNotesSetup"})
 type GoNoteStore interface {
 \tFindByText(text BehaviorValue) (BehaviorValue, error)
@@ -167,6 +169,8 @@ type GoNotesService struct {
 \tReads     int
 \t// @LocalState
 \tCount int
+\t// @SessionState
+\tDraft string
 }
 
 func (notes *GoNotesService) Kept() (BehaviorValue, error) {
@@ -180,6 +184,11 @@ func (notes *GoNotesService) Titled() (BehaviorValue, error) {
 func (notes *GoNotesService) Increment() int {
 \tnotes.Count++
 \treturn notes.Count
+}
+
+func (notes *GoNotesService) Keep() string {
+\tnotes.Draft = "typed"
+\treturn notes.Draft
 }
 
 // @OnStart
@@ -220,7 +229,7 @@ func (notes *GoNotesService) useRepository(action func(*BehaviorRepository) (Beh
 function writeRubyFixture(project) {
   write(project, 'client/setups/RubyNotesSetup.rb', '#[Setup]\nclass RubyNotesSetup\n  def self.configure(_execution)\n    {}\n  end\nend\n');
   write(project, 'client/entities/RubyNoteEntity.rb', '#[Entity({"adapter":"indexeddb"})]\n#[Table("rubyNotes")]\nclass RubyNoteEntity\n  # @return [String]\n  #[Id]\n  attr_reader :id\n  # @return [String]\n  attr_reader :text\nend\n');
-  write(project, 'client/components/storage/ruby/tac.html', '<p id="ruby">{rubyNotes.reads}</p>\n<button id="ruby-bump" on:click="rubyNotes.increment()">+</button>\n<p id="ruby-count">{rubyNotes.count}</p>\n');
+  write(project, 'client/components/storage/ruby/tac.html', '<p id="ruby">{rubyNotes.reads}</p>\n<button id="ruby-bump" on:click="rubyNotes.increment()">+</button>\n<p id="ruby-count">{rubyNotes.count}</p>\n<button id="ruby-keep" on:click="rubyNotes.keep()">keep</button>\n<p id="ruby-draft">{rubyNotes.draft}</p>\n');
   write(project, 'client/stores/RubyNoteStore.rb', `#[Store(RubyNoteEntity, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"RubyNotesSetup"})]
 class RubyNoteStore
   def find_by_text(text)
@@ -254,11 +263,14 @@ class RubyNotesService
   end
   #[LocalState]
   attr_accessor :count
+  #[SessionState]
+  attr_accessor :draft
 
   #[OnStart]
   def start
     @reads = 0
     @count = 0
+    @draft = ""
     @behaviors = Behaviors.create(RubyNotesSetup, partition: "ruby-notes", signal: BehaviorSignal.new)
   end
 
@@ -290,12 +302,16 @@ class RubyNotesService
   def increment
     @count += 1
   end
+
+  def keep
+    @draft = "typed"
+  end
 end
 `);
 }
 
 function writeRustFixture(project) {
-  write(project, 'client/components/storage/rs/tac.html', '<button id="rs-bump" on:click="rsCounter.increment()">+</button>\n<p id="rs-count">{rsCounter.count}</p>\n');
+  write(project, 'client/components/storage/rs/tac.html', '<button id="rs-bump" on:click="rsCounter.increment()">+</button>\n<p id="rs-count">{rsCounter.count}</p>\n<button id="rs-keep" on:click="rsCounter.keep()">keep</button>\n<p id="rs-draft">{rsCounter.draft}</p>\n');
   write(project, 'client/setups/RsNotesSetup.rs', `#[Setup]
 struct RsNotesSetup {}
 impl RsNotesSetup {
@@ -328,6 +344,8 @@ trait RsNoteConverter {
 struct RsCounterService {
     #[LocalState]
     count: i64,
+    #[SessionState]
+    draft: String,
     #[Needs]
     note_store: std::sync::Arc<RsNoteStore>,
     #[Needs]
@@ -356,7 +374,67 @@ impl RsCounterService {
         self.count += 1;
         self.count
     }
+
+    pub fn keep(&mut self) -> String {
+        self.draft = String::from("typed");
+        self.draft.clone()
+    }
 }
+`);
+}
+
+function writeTypeScriptFixture(project) {
+  write(project, 'client/components/storage/ts/tac.html', '<button id="ts-keep" on:click="tsDraft.keep()">keep</button>\n<p id="ts-draft">{tsDraft.draft}</p>\n');
+  write(project, 'client/services/TsDraftService.ts', `@Service
+export default class TsDraftService {
+  @SessionState
+  draft: string = '';
+
+  keep(): string {
+    this.draft = 'typed';
+    return this.draft;
+  }
+}
+`);
+}
+
+function emscriptenAvailable() {
+  const probe = spawnSync('emcc', ['--version'], { encoding: 'utf8', timeout: 60_000, maxBuffer: 1024 * 1024 });
+  return !probe.error && probe.status === 0;
+}
+
+function writeLuaFixture(project) {
+  write(project, 'client/components/storage/lua/tac.html', '<button id="lua-keep" on:click="luaDraft.keep()">keep</button>\n<p id="lua-draft">{luaDraft.draft}</p>\n');
+  write(project, 'client/services/LuaDraftService.lua', `-- @Service
+---@class LuaDraftService
+LuaDraftService = {
+  -- @SessionState
+  ---@type string
+  draft = "",
+}
+
+---@return string
+function LuaDraftService:keep()
+  self.draft = "typed"
+  return self.draft
+end
+`);
+}
+
+function writeCppFixture(project) {
+  write(project, 'client/components/storage/cpp/tac.html', '<button id="cpp-keep" on:click="cppDraft.keep()">keep</button>\n<p id="cpp-draft">{cppDraft.draft}</p>\n');
+  write(project, 'client/services/CppDraftService.hpp', `#pragma once
+#include <string>
+
+class [[Service]] CppDraftService {
+public:
+    [[SessionState]] std::string draft;
+
+    std::string keep() {
+        draft = "typed";
+        return draft;
+    }
+};
 `);
 }
 
@@ -381,7 +459,7 @@ final class SwiftNoteEntity {
     var text: String = ""
 }
 `);
-  write(project, 'client/components/storage/swift/tac.html', '<button id="swift-bump" on:click="swiftCounter.increment()">+</button>\n<p id="swift-count">{swiftCounter.count}</p>\n');
+  write(project, 'client/components/storage/swift/tac.html', '<button id="swift-bump" on:click="swiftCounter.increment()">+</button>\n<p id="swift-count">{swiftCounter.count}</p>\n<button id="swift-keep" on:click="swiftCounter.keep()">keep</button>\n<p id="swift-draft">{swiftCounter.draft}</p>\n');
   write(project, 'client/stores/SwiftNoteStore.swift', `@Store(SwiftNoteEntity, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"SwiftNotesSetup"})
 protocol SwiftNoteStore {
     func findByText(_ text: BehaviorJSON) async throws -> BehaviorJSON
@@ -398,6 +476,8 @@ protocol SwiftNoteConverter {
 final class SwiftCounterService {
     @LocalState
     var count: Int = 0
+    @SessionState
+    var draft: String = ""
     private var behaviors: BehaviorContext!
     private var reads: Int = 0
     @Needs
@@ -421,6 +501,11 @@ final class SwiftCounterService {
     func increment() -> Int {
         count += 1
         return count
+    }
+
+    func keep() -> String {
+        draft = "typed"
+        return draft
     }
 
     @Cached
@@ -587,7 +672,7 @@ class KtNoteEntity {
     var text: String = ""
 }
 `);
-  write(project, 'client/components/storage/kt/tac.html', '<p id="kt">{ktNotes.reads}</p>\n<button id="kt-bump" on:click="ktNotes.increment()">+</button>\n<p id="kt-count">{ktNotes.count}</p>\n');
+  write(project, 'client/components/storage/kt/tac.html', '<p id="kt">{ktNotes.reads}</p>\n<button id="kt-bump" on:click="ktNotes.increment()">+</button>\n<p id="kt-count">{ktNotes.count}</p>\n<button id="kt-keep" on:click="ktNotes.keep()">keep</button>\n<p id="kt-draft">{ktNotes.draft}</p>\n');
   write(project, 'client/stores/KtNoteStore.kt', `@Store(KtNoteEntity::class, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"KtNotesSetup"})
 interface KtNoteStore {
     fun findByText(text: String): Any?
@@ -614,10 +699,17 @@ class KtNotesService {
     fun titled(): Any? = noteConverter.toSummary(mapOf("body" to "mapped", "extra" to 1))
     @LocalState
     var count: Long = 0
+    @SessionState
+    var draft: String = ""
 
     fun increment(): Long {
         count += 1
         return count
+    }
+
+    fun keep(): String {
+        draft = "typed"
+        return draft
     }
 
     @OnStart
@@ -671,7 +763,7 @@ public sealed class CsNoteEntity {
     public string text;
 }
 `);
-  write(project, 'client/components/storage/cs/tac.html', '<p id="cs">{csNotes.reads}</p>\n<button id="cs-bump" on:click="csNotes.increment()">+</button>\n<p id="cs-count">{csNotes.count}</p>\n');
+  write(project, 'client/components/storage/cs/tac.html', '<p id="cs">{csNotes.reads}</p>\n<button id="cs-bump" on:click="csNotes.increment()">+</button>\n<p id="cs-count">{csNotes.count}</p>\n<button id="cs-keep" on:click="csNotes.keep()">keep</button>\n<p id="cs-draft">{csNotes.draft}</p>\n');
   write(project, 'client/stores/CsNoteStore.cs', `[Store(typeof(CsNoteEntity), {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"CsNotesSetup"})]
 public interface CsNoteStore {
     System.Threading.Tasks.Task<BehaviorJSON> findByText(BehaviorJSON text);
@@ -703,10 +795,17 @@ public sealed class CsNotesService {
     }
     [LocalState]
     public int count = 0;
+    [SessionState]
+    public string draft = "";
 
     public int increment() {
         count++;
         return count;
+    }
+
+    public string keep() {
+        draft = "typed";
+        return draft;
     }
 
     [OnStart]
@@ -816,7 +915,8 @@ function writeFixture(project) {
   <storage-go />
   <storage-ruby />
   <storage-rs />
-${StorageGate.withCSharp ? '  <storage-cs />\n  <storage-journal />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}${StorageGate.withJava ? '  <storage-java />\n' : ''}</main>
+  <storage-ts />
+${StorageGate.withCSharp ? '  <storage-cs />\n  <storage-journal />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}${StorageGate.withJava ? '  <storage-java />\n' : ''}${StorageGate.withLua ? '  <storage-lua />\n' : ''}${StorageGate.withCpp ? '  <storage-cpp />\n' : ''}</main>
 `);
   write(project, 'client/remotes/FreshClient.js', `@HTTPClient
 class FreshClient {
@@ -938,11 +1038,14 @@ class NoteStore extends Repository {
   writeGoFixture(project);
   writeRubyFixture(project);
   writeRustFixture(project);
+  writeTypeScriptFixture(project);
   if (StorageGate.withCSharp) writeCSharpFixture(project);
   if (StorageGate.withCSharp) writeFsharpFixture(project);
   if (StorageGate.withKotlin) writeKotlinFixture(project);
   if (StorageGate.withSwift) writeSwiftFixture(project);
   if (StorageGate.withJava) writeJavaFixture(project);
+  if (StorageGate.withLua) writeLuaFixture(project);
+  if (StorageGate.withCpp) writeCppFixture(project);
   write(project, 'client/components/storage/notes/tac.html', '<p id="notes">{storageNotes.label}</p>\n');
   write(project, 'client/components/storage/store/tac.html', '<p id="store-notes">{storeNotes.label}</p>\n');
   write(project, 'client/converters/NoteConverter.js', `@Converter
@@ -1336,9 +1439,31 @@ async function checkWebAssemblyStoredFields(browser, origin) {
     const stored = await page.evaluate((key) => localStorage.getItem(key), `tac:service:${instance}:/:count`);
     expect(stored, '3', `a ${language} LocalState field changed by its own method is written to localStorage`);
   }
+  const sessions = [['ts', 'tsDraft', 'TypeScript'], ...services.filter(([id]) => !['journal', 'java'].includes(id))];
+  if (StorageGate.withLua) sessions.push(['lua', 'luaDraft', 'Lua']);
+  if (StorageGate.withCpp) sessions.push(['cpp', 'cppDraft', 'C++']);
+  await checkSessionStates(context, page, origin, sessions);
   if (StorageGate.withJava) await checkJavaSessionState(context, page, origin);
   if (StorageGate.withCSharp) await checkFsharpSessionState(context, page, origin);
   await context.close();
+}
+
+async function checkSessionStates(context, page, origin, services) {
+  for (const [id, , language] of services) {
+    await page.click(`#${id}-keep`);
+    await page.waitForFunction((selector) => document.querySelector(selector)?.textContent === 'typed', `#${id}-draft`);
+    expect(await page.textContent(`#${id}-draft`), 'typed', `a ${language} method changes its SessionState field`);
+  }
+  await StorageGate.reload(page);
+  const second = await context.newPage();
+  await StorageGate.visit(second, origin);
+  for (const [id, instance, language] of services) {
+    expect(await page.textContent(`#${id}-draft`), 'typed', `a ${language} SessionState field changed by its own method survives a reload in the same tab`);
+    const stored = await page.evaluate((key) => [sessionStorage.getItem(key), localStorage.getItem(key)], `tac:service:${instance}:/:draft`);
+    expect(JSON.stringify(stored), JSON.stringify(['"typed"', null]), `a ${language} SessionState field is written to sessionStorage under tac:service:${instance}:/:draft and kept out of localStorage`);
+    expect(await second.textContent(`#${id}-draft`), '', `a ${language} SessionState field is gone in a new tab`);
+  }
+  await second.close();
 }
 
 async function checkJavaSessionState(context, page, origin) {
@@ -1589,6 +1714,8 @@ async function main() {
   if (!StorageGate.withKotlin) console.log('skipping the Kotlin storage check: kotlinc-js or TAC_KOTLIN_WASM_STDLIB is missing');
   if (!StorageGate.withSwift) console.log('skipping the Swift stored-field check: TAC_SWIFT_WASM_SDK is not set');
   if (!StorageGate.withJava) console.log('skipping the Java stored-field check: TAC_TEAVM_HOME is not set');
+  if (!StorageGate.withLua) console.log('skipping the Lua SessionState check: emcc is missing');
+  if (!StorageGate.withCpp) console.log('skipping the C++ SessionState check: emcc is missing');
   let project;
   let server;
   let browser;
