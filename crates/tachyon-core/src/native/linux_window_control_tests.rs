@@ -17,25 +17,25 @@ struct WindowService {
 }
 
 impl WindowService {
-    fn granted(&self, control: String) -> bool {
+    pub fn granted(&self, control: String) -> bool {
         self.window_controls.granted(&control).unwrap_or(false)
     }
 
-    fn rename(&self, title: String) -> String {
+    pub fn rename(&self, title: String) -> String {
         self.window_controls.set_title(&title).err().unwrap_or_default()
     }
 
-    fn resize(&self, width: i64, height: i64) -> String {
+    pub fn resize(&self, width: i64, height: i64) -> String {
         let width = u32::try_from(width).unwrap_or(0);
         let height = u32::try_from(height).unwrap_or(0);
         self.window_controls.resize(width, height).err().unwrap_or_default()
     }
 
-    fn minimize(&self) -> String {
+    pub fn minimize(&self) -> String {
         self.window_controls.minimize().err().unwrap_or_default()
     }
 
-    fn close(&self) -> String {
+    pub fn close(&self) -> String {
         self.window_controls.close().err().unwrap_or_default()
     }
 }

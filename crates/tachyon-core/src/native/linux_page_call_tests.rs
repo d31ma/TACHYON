@@ -18,7 +18,7 @@ struct TransferService {
 }
 
 impl TransferService {
-    fn open(&mut self, request: TransferRequest) -> TransferTicket {
+    pub fn open(&mut self, request: TransferRequest) -> TransferTicket {
         let count = usize::try_from(request.byte_count).unwrap_or(0) / request.label.len().max(1);
         self.content = request.label.repeat(count);
         self.offsets = vec![0];
@@ -33,7 +33,7 @@ impl TransferService {
         TransferTicket { pages: (self.offsets.len() - 1) as i64, bytes: self.content.len() as i64 }
     }
 
-    fn page(&self, index: i64) -> String {
+    pub fn page(&self, index: i64) -> String {
         let index = usize::try_from(index).unwrap_or(usize::MAX);
         match (self.offsets.get(index), self.offsets.get(index.wrapping_add(1))) {
             (Some(start), Some(end)) => self.content[*start..*end].to_owned(),
@@ -41,7 +41,7 @@ impl TransferService {
         }
     }
 
-    fn huge(&self) -> String {
+    pub fn huge(&self) -> String {
         "x".repeat(70_000)
     }
 }
