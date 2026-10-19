@@ -310,3 +310,48 @@ test supplied through WebKit's geolocation manager in place of GeoClue, was
 granted notifications, showed one, and shared a url that landed on the
 clipboard. With nothing granted, the read and the position were refused, the
 permission answer was `"denied"`, and every bridged call was an error.
+
+## Amendment (2026-10-19): the Android host answers clipboard, share and notifications
+
+The Android host lists `clipboard`, `share` and `notifications` in
+`BrowserApiBridge`, and answers their operations on the UI thread, outside
+the companion worker, so a permission question does not hold companion
+calls. The host also refuses an operation of an API that
+`tac.browserApis` does not grant.
+
+- **Clipboard.** `ClipboardManager`: `writeText` puts plain text on the
+  clipboard, and `readText` answers the first item as text, or `""` when
+  the clipboard is empty.
+- **Share.** An `ACTION_SEND` chooser with the text and the url on separate
+  lines and the title as subject. The answer arrives when the share sheet
+  opens: Android does not tell the app whether the user shared, so the
+  support table marks share as adapted.
+- **Notifications.** `requestPermission` asks for `POST_NOTIFICATIONS` on
+  Android 13 and later and answers `granted` or `denied`; before Android 13
+  it answers whether the user allows the app's notifications. Until the
+  user has been asked, the word is `default`. The host sets
+  `__tachyonNotificationPermission` with a document-start script, so
+  `permission()` is right on the first call. `show` posts on the channel
+  `tachyon`, named from `tac.application.permissions.notifications`, and a
+  tap opens the app. The page waits up to 120 seconds for this question
+  instead of the usual 10.
+- **Geolocation** stays on the web view's own `navigator.geolocation`. The
+  host turns it on only when `tac.browserApis` grants it, and its
+  `WebChromeClient` answers the web view's question for the app's own origin
+  after asking Android for `ACCESS_FINE_LOCATION` and
+  `ACCESS_COARSE_LOCATION`; the user may grant the approximate location only.
+- **Reasons.** When Android says the user refused once
+  (`shouldShowRequestPermissionRationale`), the host shows the reason from
+  `tac.application.permissions` before it asks again. `AndroidManifest.xml`
+  lists `POST_NOTIFICATIONS` and the two location permissions only when the
+  app grants those APIs.
+
+Evidence: `native::android_browser_apis` and `native::android` (grants,
+manifest permissions, routing, the geolocation prompt),
+`native::browser_api_bridge` (the host answers every listed operation),
+`scripts/android/bridge-unit-test.mjs` (the longer wait applies only to the
+notification question), and a debug APK of the emulator gate's app compiled
+with Gradle on Linux. The emulator gate `scripts/android/browser-apis-test.mjs`
+(clipboard round trip, share sheet, the notification question and post, and a
+position after the location question) belongs to the Mac run.
+

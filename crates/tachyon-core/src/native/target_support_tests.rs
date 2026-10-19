@@ -151,9 +151,9 @@ fn a_web_build_names_tac_application_once() {
 
 #[test]
 fn a_listed_browser_api_is_declared_by_its_name() {
-    let manifest = json!({"tac": {"browserApis": ["geolocation"]}});
+    let manifest = json!({"tac": {"browserApis": ["share"]}});
     let android = TargetSupportTests::notes(&manifest, AppTarget::Android);
-    assert!(android.iter().any(|note| note.contains("geolocation")));
+    assert!(android.iter().any(|note| note.contains("share sheet")));
     assert!(android.iter().all(|note| !note.contains("clipboard")));
 }
 

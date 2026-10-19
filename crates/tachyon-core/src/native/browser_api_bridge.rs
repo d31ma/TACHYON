@@ -13,7 +13,10 @@ impl BrowserApiBridge {
     const BRIDGED: [(NativeTarget, &'static [&'static str]); 5] = [
         (NativeTarget::Macos, &[]),
         (NativeTarget::Ios, &[]),
-        (NativeTarget::Android, &[]),
+        (
+            NativeTarget::Android,
+            &["clipboard", "share", "notifications"],
+        ),
         (NativeTarget::Windows, &[]),
         (NativeTarget::Linux, &["share", "notifications"]),
     ];

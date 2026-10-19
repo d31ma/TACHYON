@@ -24,6 +24,17 @@ machine contracts have their own, independent major versions.
   method on the first page (`/index.html`) keeps its value after a
   navigation to `/` and after a reload. The test clears the app's data
   after each install, so values from earlier runs cannot hide a lost one.
+- The Android app answers clipboard, share and notification calls itself.
+  `writeText` and `readText` use the Android clipboard, `share.open` opens
+  the system share sheet, and `notifications` asks for `POST_NOTIFICATIONS`
+  on Android 13 and later and posts on a channel named from
+  `tac.application.permissions.notifications`. Geolocation now works in the
+  Android app: the host asks for the location permission when the page asks
+  for a position, instead of turning geolocation off. When the user said no
+  once, Android shows the reason from `tac.application.permissions` before
+  it asks again. The app's manifest lists only the permissions of the
+  granted APIs. `scripts/android/native-test.sh` runs the four APIs on the
+  emulator (ADR 0065 amendment).
 - The Windows app opens its window from `client/manifest.json`, as the macOS
   app does. Its client area starts at `tac.application.window` `width` by
   `height` device-independent pixels, so it keeps its size on a high-DPI

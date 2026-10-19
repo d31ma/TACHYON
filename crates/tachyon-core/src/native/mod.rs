@@ -1,4 +1,5 @@
 mod android;
+mod android_browser_apis;
 mod apple_icons;
 mod browser_api_bridge;
 mod browser_api_grants;

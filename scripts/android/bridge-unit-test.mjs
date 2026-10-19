@@ -27,6 +27,7 @@ assert.ok(HostSource.sharedShim, 'Test must execute the same shared/Android conc
 
 function transport({ available = true, main = true } = {}) {
   const posted = [];
+  const delays = [];
   const timers = new Map();
   const events = new Map();
   const host = { postMessage: value => posted.push(JSON.parse(value)) };
@@ -35,7 +36,7 @@ function transport({ available = true, main = true } = {}) {
     __tachyonAndroidHost: available ? host : undefined,
     TextEncoder,
     setTimeout: (callback, delay) => {
-      assert.equal(delay, 10000);
+      delays.push(delay);
       timers.set(++timerId, callback);
       return timerId;
     },
@@ -44,7 +45,7 @@ function transport({ available = true, main = true } = {}) {
   });
   vm.runInContext(`globalThis.top = ${main ? 'globalThis' : '{}'};`, context);
   vm.runInContext(HostSource.sharedShim + AndroidSource.shim, context);
-  return { call: context.__tachyonHostPost, host, posted, timers, events };
+  return { call: context.__tachyonHostPost, host, posted, delays, timers, events };
 }
 
 async function checkUnavailableTransport() {
@@ -86,6 +87,15 @@ async function checkPendingBounds() {
   const timedOut = assert.rejects(pendingAgain, /timed out/);
   [...bridge.timers.values()][0]();
   await timedOut;
+}
+
+async function checkPatience() {
+  const bridge = transport();
+  const calls = ['companion.invoke', 'browserApi.clipboard.readText', 'browserApi.notifications.requestPermission']
+    .map(capability => bridge.call(capability, '{}'));
+  assert.deepEqual(bridge.delays, [10000, 10000, 120000], 'Only the notification question waits for the user longer than a host call');
+  bridge.events.get('pagehide')();
+  assert.ok((await Promise.allSettled(calls)).every(result => result.status === 'rejected'));
 }
 
 function extractGuards() {
@@ -138,6 +148,7 @@ async function main() {
   await checkUnavailableTransport();
   await checkReplyRouting();
   await checkPendingBounds();
+  await checkPatience();
   const guards = extractGuards();
   checkJsonBudget(guards);
   console.log(`PASS: Android transport failure paths and ${BudgetCases.all.length} actual Java JSON-budget cases`);

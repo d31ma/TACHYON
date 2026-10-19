@@ -3,3 +3,4 @@ set -euo pipefail
 here="$(dirname "${BASH_SOURCE[0]}")"
 node "$here/native-test.mjs" "$@"
 node "$here/window-controls-test.mjs"
+node "$here/browser-apis-test.mjs"

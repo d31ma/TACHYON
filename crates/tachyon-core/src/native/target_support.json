@@ -317,7 +317,7 @@
     "windows": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Windows app: Windows asks without a reason from the app."},
     "linux": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Linux app: it shows no permission prompt of its own, and GeoClue and the desktop settings decide location and notifications."},
     "ios": {"reach": "honored", "how": "NSLocationWhenInUseUsageDescription in Info.plist"},
-    "android": {"reach": "adapted", "note": "tac.application.permissions is written into the Android string resources. The app shows it once it asks for the permission itself (BA2)."}
+    "android": {"reach": "honored", "how": "the rationale Android shows before it asks again for location or notifications, and the name of the notification channel"}
   },
   {
     "member": "tac.browserApis",
@@ -337,7 +337,7 @@
     "windows": {"reach": "adapted", "note": "clipboard in the Windows app uses the web view's navigator.clipboard, and no host test checks it yet (BA3)."},
     "linux": {"reach": "honored", "how": "the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps"},
     "ios": {"reach": "adapted", "note": "clipboard in the iOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1)."},
-    "android": {"reach": "adapted", "note": "clipboard in the Android app uses the web view's navigator.clipboard, and no host test checks it yet (BA2)."}
+    "android": {"reach": "honored", "how": "ClipboardManager, through the host bridge"}
   },
   {
     "member": "tac.browserApis share",
@@ -347,7 +347,7 @@
     "windows": {"reach": "adapted", "note": "share in the Windows app uses the web view's navigator.share, and no host test checks it yet (BA3)."},
     "linux": {"reach": "adapted", "note": "Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard."},
     "ios": {"reach": "adapted", "note": "share in the iOS app uses the web view's navigator.share, and no host test checks it yet (BA1)."},
-    "android": {"reach": "adapted", "note": "share does not work in the Android app yet: its web view has no navigator.share (BA2)."}
+    "android": {"reach": "adapted", "note": "share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared."}
   },
   {
     "member": "tac.browserApis notifications",
@@ -357,7 +357,7 @@
     "windows": {"reach": "adapted", "note": "notifications in the Windows app use the web view's Notification API. The host asks for no permission yet (BA3)."},
     "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown."},
     "ios": {"reach": "adapted", "note": "notifications do not work in the iOS app yet: its web view has no Notification API (BA1)."},
-    "android": {"reach": "adapted", "note": "notifications do not work in the Android app yet: its web view has no Notification API (BA2)."}
+    "android": {"reach": "honored", "how": "NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications"}
   },
   {
     "member": "tac.browserApis geolocation",
@@ -367,7 +367,7 @@
     "windows": {"reach": "adapted", "note": "geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3)."},
     "linux": {"reach": "honored", "how": "the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages"},
     "ios": {"reach": "adapted", "note": "geolocation in the iOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1)."},
-    "android": {"reach": "adapted", "note": "geolocation does not work in the Android app yet: the host turns it off in the web view (BA2)."}
+    "android": {"reach": "honored", "how": "the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient"}
   },
   {
     "member": "tac.browserApis preferenceStrings",

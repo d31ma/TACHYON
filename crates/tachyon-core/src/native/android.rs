@@ -314,7 +314,7 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
         ""
     };
     r#"<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">__INTERNET_PERMISSION__
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">__INTERNET_PERMISSION____BROWSER_API_PERMISSIONS__
   <application
       android:label="@string/app_name"__ICON__
       android:allowBackup="false"
@@ -336,6 +336,12 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
     .replace(
         "__INTERNET_PERMISSION__",
         AndroidHostGenerator::internet_permission(application),
+    )
+    .replace(
+        "__BROWSER_API_PERMISSIONS__",
+        &super::android_browser_apis::AndroidBrowserApis::manifest_permissions(
+            &application.permissions,
+        ),
     )
 }
 
@@ -398,6 +404,10 @@ pub(super) fn java_source(
             "__NATIVE_WINDOW_CONTROLS__",
             &super::native_window_controls::NativeWindowControls::android(&application.window),
         )
+        .replace(
+            "__NATIVE_BROWSER_APIS__",
+            &super::android_browser_apis::AndroidBrowserApis::java(&application.permissions),
+        )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit);
     let entry_document = quoted_string_escape(&index.entry_document);
@@ -425,8 +435,15 @@ pub(super) fn java_source(
 }
 
 #[cfg(test)]
-pub(super) const fn host_source() -> &'static str {
-    AndroidHostGenerator::JAVA_HOST
+pub(super) fn host_source() -> &'static str {
+    static SOURCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    SOURCE.get_or_init(|| {
+        format!(
+            "{}{}",
+            AndroidHostGenerator::JAVA_HOST,
+            super::android_browser_apis::AndroidBrowserApis::template()
+        )
+    })
 }
 
 impl AndroidHostGenerator {
@@ -471,7 +488,7 @@ impl AndroidHostGenerator {
     const id = String(++nextId);
     const timer = setTimeout(() => {
       pending.delete(id); reject(new Error('Android native call timed out.'));
-    }, 10000);
+    }, capability === 'browserApi.notifications.requestPermission' ? 120000 : 10000);
     pending.set(id, { resolve, reject, timer });
     try { host.postMessage(JSON.stringify({ id, capability, payload })); }
     catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
@@ -568,6 +585,8 @@ public final class MainActivity extends Activity {
 
 __NATIVE_WINDOW_CONTROLS__
 
+__NATIVE_BROWSER_APIS__
+
   private boolean currentDocument(WebView web, long generation, String ownerRoute) {
     String url = web.getUrl();
     if (url == null || generation != documentGeneration || ownerRoute.isEmpty()) return false;
@@ -592,6 +611,10 @@ __NATIVE_WINDOW_CONTROLS__
         || message.getType() != WebMessageCompat.TYPE_STRING) return;
     try {
       BridgeRequest request = BridgeRequest.parse(message.getData());
+      if (request.capability.startsWith("browserApi.")) {
+        answerBrowserApi(web, request, replyProxy);
+        return;
+      }
       final long deadline = android.os.SystemClock.uptimeMillis() + 10000;
       bridgeWorker.execute(() -> {
         if (generation != documentGeneration || !ownerRoute.equals(route)
@@ -757,11 +780,11 @@ __NATIVE_WINDOW_CONTROLS__
     settings.setDomStorageEnabled(true);
     settings.setAllowFileAccess(false);
     settings.setAllowContentAccess(false);
-    settings.setGeolocationEnabled(false);
     view.setLayoutParams(
         new ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     installHostBridge();
+    installBrowserApis();
     installCompanionEmit();
     view.setWebViewClient(
         new WebViewClient() {
@@ -817,6 +840,7 @@ __NATIVE_WINDOW_CONTROLS__
   @Override
   protected void onResume() {
     super.onResume();
+    publishNotificationPermission();
     record("controller.active");
   }
 
@@ -1243,6 +1267,30 @@ mod tests {
         );
         assert_eq!(java_package("com.1st.app"), "com._1st.app");
         assert_eq!(java_package("com.class.app"), "com._class.app");
+    }
+
+    #[test]
+    fn android_answers_browser_apis_on_its_own_path_with_the_runtime_permissions() {
+        let mut asking = application();
+        asking.permissions =
+            crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+                &[String::from("clipboard"), String::from("notifications")],
+                &std::collections::BTreeMap::new(),
+            );
+        let source = java_source(&asking, "dev.tachyon.native_catalog", false, &index());
+        assert!(source.contains(
+            "if (request.capability.startsWith(\"browserApi.\")) {\n        answerBrowserApi(web, request, replyProxy);"
+        ));
+        assert!(source.contains("BROWSER_API_GRANTS = {\"clipboard\", \"notifications\"};"));
+        assert!(source.contains("    installBrowserApis();\n"));
+        assert!(!source.contains("setGeolocationEnabled(false)"));
+        assert!(!source.contains("__NATIVE_BROWSER_APIS__"));
+        assert!(android_manifest(&asking, false).contains(
+            "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>\n  <application"
+        ));
+        assert!(AndroidHostGenerator::ANDROID_BRIDGE_SHIM.contains(
+            "capability === 'browserApi.notifications.requestPermission' ? 120000 : 10000"
+        ));
     }
 
     #[test]

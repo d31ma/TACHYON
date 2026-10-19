@@ -94,22 +94,22 @@ tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Android app.
 
 tac.application.permissions
-  adapted: tac.application.permissions is written into the Android string resources. The app shows it once it asks for the permission itself (BA2).
+  honored: the rationale Android shows before it asks again for location or notifications, and the name of the notification channel
 
 tac.browserApis
   honored: the same grant list in the page
 
 tac.browserApis clipboard
-  adapted: clipboard in the Android app uses the web view's navigator.clipboard, and no host test checks it yet (BA2).
+  honored: ClipboardManager, through the host bridge
 
 tac.browserApis share
-  adapted: share does not work in the Android app yet: its web view has no navigator.share (BA2).
+  adapted: share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared.
 
 tac.browserApis notifications
-  adapted: notifications do not work in the Android app yet: its web view has no Notification API (BA2).
+  honored: NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications
 
 tac.browserApis geolocation
-  adapted: geolocation does not work in the Android app yet: the host turns it off in the web view (BA2).
+  honored: the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient
 
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk
