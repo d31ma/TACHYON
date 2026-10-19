@@ -868,7 +868,9 @@ mod tests {
         assert!(source.contains("frame-src 'self'"));
         assert!(source.contains("O_NOFOLLOW"));
         assert!(source.contains("tachyon_payload_route_matches"));
-        assert!(source.contains("if (event == WEBKIT_LOAD_STARTED) tachyon_companion_dispose()"));
+        assert!(source.contains(
+            "if (event == WEBKIT_LOAD_STARTED) {\n    tachyon_file_picker_dispose_all();\n    tachyon_companion_dispose();"
+        ));
         assert!(source.contains("answer = operation && route != NULL"));
         assert!(!source.contains("file://%s"));
         assert!(!source.contains("set_allow_universal_access_from_file_urls(settings, TRUE)"));
