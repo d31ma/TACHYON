@@ -18,6 +18,7 @@ machine contracts have their own, independent major versions.
   adapter echoes each request, and the cases check the method, the
   `PathVariable` path, the `RequestHeader` and the `RequestBody`. A language
   whose toolchain is missing is skipped with a message.
+
 - Links to the hosts in `tac.application.links` can open macOS and Windows
   apps (LK3, ADR 0106 amendment). A Windows `--release` MSIX package declares
   them as app URI handlers, and the web build writes
