@@ -2,6 +2,7 @@ use super::python_browser_apis::PythonBrowserApis;
 use super::python_events::PythonEvents;
 use crate::Failure;
 use crate::behavior::{PythonMembers, ServiceRoles};
+use crate::model_sources::ModelMetadata;
 use crate::route_types::{ModelTable, TypeText};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
@@ -22,7 +23,20 @@ impl PythonProviderSource {
     const CONTRACT_FOLDERS: [&'static str; 3] =
         ["client/stores", "client/remotes", "client/converters"];
 
+    #[cfg(test)]
     pub(super) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
+        Self::read_with_models(
+            path,
+            source,
+            &crate::model_sources::ModelSources::none().metadata(),
+        )
+    }
+
+    pub(super) fn read_with_models(
+        path: &Path,
+        source: &str,
+        models: &ModelMetadata,
+    ) -> Result<Self, Failure> {
         let class = path
             .file_stem()
             .and_then(|name| name.to_str())
@@ -31,7 +45,7 @@ impl PythonProviderSource {
         PythonBrowserApis::refuse(path, source)?;
         let roles = ServiceRoles::read(path, source)?;
         let plain = ServiceRoles::without_roles(path, source)?;
-        let members = Self::members(path, &plain, &class)?;
+        let members = Self::members(path, &plain, &class, models)?;
         let module = crate::events::extract(path, &plain, "tac")?;
         let events = PythonEvents::read(path, module, &class)?;
         let source = events.source().map_or(plain, str::to_owned);
@@ -46,11 +60,16 @@ impl PythonProviderSource {
         })
     }
 
-    fn members(path: &Path, plain: &str, class: &str) -> Result<Value, Failure> {
+    fn members(
+        path: &Path,
+        plain: &str,
+        class: &str,
+        models: &ModelMetadata,
+    ) -> Result<Value, Failure> {
         if Self::contract(path) {
             return Ok(json!({ "fields": [], "methods": [], "constructor": [], "qualifiers": {} }));
         }
-        PythonMembers::read(path, plain, class)
+        PythonMembers::read_with_models(path, plain, class, models)
     }
 
     fn contract(path: &Path) -> bool {

@@ -11,6 +11,8 @@ use std::ops::Range;
 use std::path::Path;
 use wasm_program::WasmProgram;
 
+#[cfg(test)]
+mod dart_behavior_tests;
 mod dart_http_constructor;
 #[cfg(test)]
 mod dart_http_constructor_tests;

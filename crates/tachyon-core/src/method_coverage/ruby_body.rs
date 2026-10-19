@@ -21,25 +21,38 @@ impl RubyBody {
     }
 
     fn edits_after(header: &MethodHeader<'_>, at: usize) -> Vec<SourceEdit> {
-        let rest = header.masked[at..header.line_end().max(at)].trim_start();
+        let signature_line = Self::signature_line(header, at);
+        let line_end = signature_line + Self::line_at(header, signature_line).len();
+        let rest = header.masked[at..line_end.max(at)].trim_start();
         if rest.starts_with(Self::ENDLESS) {
-            return Self::endless(header, at);
+            return Self::endless(header, at, signature_line);
         }
         vec![SourceEdit::insert(
-            Self::written_end(header),
+            Self::written_end(header, signature_line),
             format!("; {}", header.hook),
         )]
     }
 
-    fn endless(header: &MethodHeader<'_>, at: usize) -> Vec<SourceEdit> {
+    fn endless(header: &MethodHeader<'_>, at: usize, signature_line: usize) -> Vec<SourceEdit> {
         let equals = header.first_after(at, &[Self::ENDLESS]).unwrap_or(at);
         vec![
             SourceEdit::insert(equals + 1, format!(" ({};", header.hook)),
-            SourceEdit::insert(Self::written_end(header), String::from(")")),
+            SourceEdit::insert(Self::written_end(header, signature_line), String::from(")")),
         ]
     }
 
-    fn written_end(header: &MethodHeader<'_>) -> usize {
-        header.start + header.line().trim_end().len()
+    fn signature_line(header: &MethodHeader<'_>, at: usize) -> usize {
+        header.masked[..at]
+            .rfind('\n')
+            .map_or(header.start, |newline| newline + 1)
+            .max(header.start)
+    }
+
+    fn line_at<'a>(header: &MethodHeader<'a>, start: usize) -> &'a str {
+        header.masked[start..].lines().next().unwrap_or_default()
+    }
+
+    fn written_end(header: &MethodHeader<'_>, signature_line: usize) -> usize {
+        signature_line + Self::line_at(header, signature_line).trim_end().len()
     }
 }

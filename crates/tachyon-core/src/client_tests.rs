@@ -47,6 +47,8 @@ mod dotnet_helper_unit_tests;
 #[cfg(test)]
 mod go_construct_tests;
 #[cfg(test)]
+mod go_marker_unit_tests;
+#[cfg(test)]
 mod hooked_utilities_tests;
 #[cfg(test)]
 mod java_construct_tests;
@@ -66,6 +68,8 @@ mod java_unit_marker_tests;
 mod module_url_tests;
 #[cfg(test)]
 mod ruby_http_construct_tests;
+#[cfg(test)]
+mod ruby_marker_unit_tests;
 #[cfg(test)]
 mod rust_construct_tests;
 
@@ -274,14 +278,20 @@ fn lower_unit(
     let assembled = events
         .as_ref()
         .map_or(assembled.as_str(), |events| events.source.as_str());
-    let lowered =
-        csharp_test_models::CsharpTestModels::lower(project, relative, assembled, &resources)
-            .map_err(|failure| {
-                if extension == "go" {
-                    return crate::go_source::GoFile::locate(&failure, assembled);
-                }
-                failure
-            })?;
+    let lower = |text: &str| {
+        csharp_test_models::CsharpTestModels::lower(project, relative, text, &resources)
+    };
+    let lowered = if matches!(extension, "rb" | "go") {
+        ModelSources::client_metadata(project, extension)?.lowered(relative, assembled, lower)
+    } else {
+        lower(assembled)
+    };
+    let lowered = lowered.map_err(|failure| {
+        if extension == "go" {
+            return crate::go_source::GoFile::locate(&failure, assembled);
+        }
+        failure
+    })?;
     lowered.ok_or_else(|| {
         fail(
             portable,

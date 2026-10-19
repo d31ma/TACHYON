@@ -67,8 +67,8 @@ impl PythonWebServices {
         let units = Module::captured_units(root, relative)?;
         let authored = Module::with_models(relative, "", units.clone())?;
         let manual = crate::yon::ManualHelpers::read(relative, &authored)?;
-        let providers = Self::providers(&units, &manual)?;
         let models = ModelSources::read(root, "client", "py")?;
+        let providers = Self::providers(&units, &manual, &models)?;
         let hears_state = Self::hears_application_state(&units);
         let table = ModelTable::read_realm(root, "client", "py")
             .map(|table| Self::with_application_state(table, hears_state))
@@ -111,11 +111,13 @@ impl PythonWebServices {
     fn providers(
         units: &[(PathBuf, String)],
         manual: &BTreeSet<String>,
+        models: &ModelSources,
     ) -> Result<Vec<PythonProviderSource>, Failure> {
+        let metadata = models.metadata();
         units
             .iter()
             .filter(|(path, _)| Self::provider_path(path))
-            .map(|(path, source)| PythonProviderSource::read(path, source))
+            .map(|(path, source)| PythonProviderSource::read_with_models(path, source, &metadata))
             .collect::<Result<Vec<_>, _>>()
             .map(|sources| {
                 sources

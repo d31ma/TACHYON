@@ -894,6 +894,8 @@ mod cpp_stop_tests;
 mod rust_stream_tests;
 
 #[cfg(test)]
+mod kotlin_behavior_tests;
+#[cfg(test)]
 mod kotlin_helper_tests;
 
 #[cfg(test)]
@@ -978,6 +980,9 @@ mod go_helper_tests;
 
 #[cfg(test)]
 mod go_pagehide_tests;
+
+#[cfg(test)]
+mod go_topic_tests;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]

@@ -172,6 +172,16 @@ machine contracts have their own, independent major versions.
   This fixed `Named` in Tac Kotlin, C#, Go, Rust and Ruby services (the
   line was read as the field, or ignored and the field left empty), in
   Tac Lua fields and in the Dart bridge, which built the declared type.
+- Run tests for markers that only had website examples (plan item PR6).
+  Tac Dart and Kotlin run validation, Settings, `UpdateCache`,
+  `PageDefaults`, `MaxAtOnce`, `Query`, `Topic` and `RequestBody` in a real
+  WebAssembly page program; Tac Go and Ruby run the same markers in native
+  `ty test` units, and a Go page proves `Topic`; Tac Python validation runs
+  on the Pyodide page. Yon F# runs `Retry`, `MaxAtOnce`, Settings,
+  `PatchRoute`, `DeleteRoute`, error handlers and `ResponseStatus` on a
+  running server, Yon Lua runs its 17 example-only markers, and
+  `Description` runs in Yon Java, Groovy, Kotlin, F#, Dart and Lua. Each
+  test asserts what the marker does, not only that it builds.
 
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
@@ -1622,9 +1632,7 @@ machine contracts have their own, independent major versions.
   amendments that mark their old refusals superseded. The website now shows
   Java and Groovy tabs in "Streaming: Yon" and a Lua tab in "Outgoing HTTP:
   Yon", and the snippet check treats a `StreamRoute` method without `yield`
-  (Java, Groovy, Rust) as a stream. A new test pins the remaining Python Tac
-  refusal: a Python `Check` of a `client/models` model stops the build with
-  `TY1308`.
+  (Java, Groovy, Rust) as a stream.
 - The Linux window keeps the declared page size under Wayland (ADR 0052
   amendment). The compositor's first configure undid the host's growth for
   the header bar, so a 900x640 page opened at 900x566; the host now asks
@@ -1657,6 +1665,22 @@ machine contracts have their own, independent major versions.
   ARM64, which also ran the Windows byte-identical rebuild, the real Win32
   window and window-control tests, and a new test of the WebView2 startup
   check against an old and a missing runtime (ADR 0103 amendment).
+- A Python Tac service can `Check` its argument against a `@checked` model
+  in `client/models`. Before, the build stopped with TY1308 because the
+  provider reader did not see the client models, and the page then turned
+  the argument into a model instance before the check ran. The method now
+  receives the checked value as a dict, like Lua and Ruby. The website
+  validation section gains a Python tab, and a page run test replaces the
+  test that pinned the TY1308 refusal.
+- Ruby and Go `ty test` units read the client models, so `Check(Model)`
+  works in a unit. A Ruby method whose parameter list spans several lines
+  (for example with `Check`, `PageDefaults` or `RequestBody` on a
+  parameter) no longer breaks the unit's coverage hook, and a Go store's
+  generated empty methods no longer get one.
+- A Dart Tac service that `Check`s a `client/models` model builds again.
+  The new `Named` lookup read the service without its models and stopped
+  the build with TY1308.
+
 - A Windows build with a C# companion no longer fails with TY1605 when it
   runs from a Visual Studio developer prompt. Those prompts set `Platform`,
   which moved the `dotnet publish` output to another folder, so `ty` could

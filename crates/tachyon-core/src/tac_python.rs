@@ -20,7 +20,7 @@ mod backend_tests;
 #[cfg(test)]
 mod browser_tests;
 #[cfg(test)]
-mod check_refusal_tests;
+mod check_page_tests;
 #[cfg(test)]
 mod converter_tests;
 #[cfg(test)]

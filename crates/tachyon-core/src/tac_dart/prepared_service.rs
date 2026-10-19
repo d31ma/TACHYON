@@ -8,6 +8,7 @@ pub(super) struct PreparedService {
     pub(super) relative: std::path::PathBuf,
     pub(super) portable: String,
     source: String,
+    named: serde_json::Value,
     pub(super) unit: Unit,
 }
 
@@ -18,11 +19,16 @@ impl PreparedService {
         let source = std::fs::read_to_string(path)
             .map_err(|error| failure(&portable, format!("cannot read the service: {error}")))?;
         let unit = prepare(snapshot_root, relative, &source)?;
+        let plain = crate::behavior::ServiceRoles::without_roles(relative, &source)?;
+        let assembled = crate::model_sources::ModelSources::client_metadata(snapshot_root, "dart")?
+            .assembled(relative, &plain)?;
+        let named = crate::behavior::ProviderQualifiers::read(relative, &assembled, class)?;
         Ok(Self {
             class: class.to_owned(),
             relative: relative.to_path_buf(),
             portable,
             source,
+            named,
             unit,
         })
     }
@@ -47,10 +53,11 @@ impl PreparedService {
         let injections = bridge
             .injections(dart, instances, class)
             .map_err(|message| failure(portable, message))?;
-        let plain = crate::behavior::ServiceRoles::without_roles(&self.relative, &self.source)?;
-        let named = crate::behavior::ProviderQualifiers::read(&self.relative, &plain, class)?;
         let page = Bridge::read(lowered, class, &models.names)
-            .map(|page| page.with_sockets(&unit.clients).with_named(class, &named))
+            .map(|page| {
+                page.with_sockets(&unit.clients)
+                    .with_named(class, &self.named)
+            })
             .map_err(|message| failure(portable, message))?;
         let source = page
             .bridge(lowered, class, &injections, &models.names)

@@ -1,5 +1,6 @@
 use super::{Field, Input, Method, Type};
 use crate::Failure;
+use crate::model_sources::{ModelMetadata, ModelSources};
 use crate::route_types::{Shape, TypeText};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -8,26 +9,77 @@ pub(crate) struct PythonMembers;
 
 impl PythonMembers {
     pub(crate) fn read(path: &Path, source: &str, class: &str) -> Result<Value, Failure> {
+        Self::read_with_models(path, source, class, &ModelSources::none().metadata())
+    }
+
+    pub(crate) fn read_with_models(
+        path: &Path,
+        source: &str,
+        class: &str,
+        models: &ModelMetadata,
+    ) -> Result<Value, Failure> {
         let source = super::super::ServiceRoles::without_roles(path, source)?;
         let plain = Self::plain(path, &source)?;
         let input = Self::input(path, &plain)?;
         let types = super::declarations(&input, "py")?;
         let mut description = Self::named(&input, &types, class)?;
-        let generated = Self::generated(path, &source, class)?;
+        let assembled = models.assembled(path, &source)?;
+        let prepared = super::prepare(path, &assembled, "tac")?;
+        let generated = Self::generated_fields(prepared.as_ref(), class);
         description["inferred"] = json!(generated.is_some());
-        description["qualifiers"] = super::ProviderQualifiers::read(path, &source, class)?;
+        description["qualifiers"] = super::ProviderQualifiers::read(path, &assembled, class)?;
         Self::set_generated(&mut description, generated);
+        Self::receive_checked_arguments_as_json(&mut description, prepared.as_ref(), class);
         Ok(description)
+    }
+
+    fn receive_checked_arguments_as_json(
+        description: &mut Value,
+        prepared: Option<&super::Prepared>,
+        class: &str,
+    ) {
+        Self::checked_arguments(prepared, class).iter().fold(
+            description,
+            |description, (method, index)| {
+                Self::receive_as_json(description, method, *index);
+                description
+            },
+        );
+    }
+
+    fn checked_arguments(prepared: Option<&super::Prepared>, class: &str) -> Vec<(String, usize)> {
+        let Some(super::Prepared::Annotated(module)) = prepared else {
+            return Vec::new();
+        };
+        module
+            .types
+            .iter()
+            .filter(|ty| ty.name == class)
+            .flat_map(|ty| ty.methods.iter())
+            .filter_map(|method| {
+                method
+                    .metadata
+                    .get("valid")
+                    .and_then(|valid| valid["argument"].as_u64())
+                    .and_then(|index| usize::try_from(index).ok())
+                    .map(|index| (method.name.clone(), index))
+            })
+            .collect()
+    }
+
+    fn receive_as_json(description: &mut Value, method: &str, index: usize) {
+        let argument = description["methods"]
+            .as_array_mut()
+            .and_then(|methods| methods.iter_mut().find(|item| item["name"] == method))
+            .and_then(|item| item["arguments"].get_mut(index));
+        if let Some(argument) = argument {
+            *argument = json!(Shape::Any);
+        }
     }
 
     fn plain(path: &Path, source: &str) -> Result<String, Failure> {
         let input = Self::input(path, source)?;
         Ok(super::python_plain(&input, "py").map_or_else(|| source.to_owned(), |(plain, _)| plain))
-    }
-
-    fn generated(path: &Path, source: &str, class: &str) -> Result<Option<Vec<String>>, Failure> {
-        let prepared = super::prepare(path, source, "tac")?;
-        Ok(Self::generated_fields(prepared.as_ref(), class))
     }
 
     fn generated_fields(prepared: Option<&super::Prepared>, class: &str) -> Option<Vec<String>> {

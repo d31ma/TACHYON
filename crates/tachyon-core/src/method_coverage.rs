@@ -108,7 +108,16 @@ impl PublicMethods {
                 found.push(PublicMethod::new(name, line_index));
             }
         }
+        if language == "go" {
+            found.retain(|method| !Self::go_empty_method(masked, method.line));
+        }
         found
+    }
+
+    fn go_empty_method(masked: &str, line: usize) -> bool {
+        let start: usize = masked.split_inclusive('\n').take(line).map(str::len).sum();
+        crate::go_source::method_at(masked, start)
+            .is_some_and(|method| masked[method.body].trim().is_empty())
     }
 
     fn bodyless_signature(line: &str) -> bool {
