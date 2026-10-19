@@ -313,7 +313,10 @@ SQL and Redis:
 - `node scripts/test-managed-storage.mjs --without-docker` runs the SQLite and
   FYLO contracts, and the Redis contract against a local `redis-server` when
   one is on `PATH`. CI runs it on macOS (Redis from Homebrew) and on Windows,
-  where Redis ships no build, so only SQLite and FYLO run there.
+  where Redis ships no build, so only SQLite and FYLO run there. On Windows
+  the FYLO contract runs as storage unit tests and `fylo exec` calls; the Yon
+  route phase needs the shared supervised runner, which verifies process
+  cleanup only on macOS and Linux.
 
 FYLO:
 

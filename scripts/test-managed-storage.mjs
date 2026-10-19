@@ -117,6 +117,10 @@ async function fylo() {
   ]
   const project = join(ManagedStorageTest.scratch, 'fylo-app')
   await writeFyloProject(project, fyloRoot)
+  if (process.platform === 'win32') {
+    console.log('FYLO server phase not run on Windows: the shared supervised runner verifies process cleanup only on macOS and Linux.')
+    return
+  }
   const cli = await buildCli()
   await withServer(cli, ['preview', project, '--host', '127.0.0.1', '--port', '0'], async request => {
     const response = await request('/products')
