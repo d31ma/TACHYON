@@ -350,7 +350,9 @@ function createWebServer(output) {
       const bytes = readFileSync(requested)
       const type = requested.endsWith('.js')
         ? 'text/javascript; charset=utf-8'
-        : 'text/html; charset=utf-8'
+        : requested.endsWith('.css')
+          ? 'text/css; charset=utf-8'
+          : 'text/html; charset=utf-8'
       response.writeHead(200, { 'content-type': type }).end(bytes)
     } catch {
       response.writeHead(404).end()

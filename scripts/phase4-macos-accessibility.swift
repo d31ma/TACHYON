@@ -133,6 +133,7 @@ private func typeText(_ value: String, into element: AXUIElement, processID: pid
     selectAllUp.flags = .maskCommand
     selectAllDown.postToPid(processID)
     selectAllUp.postToPid(processID)
+    RunLoop.current.run(until: Date().addingTimeInterval(0.08))
 
     for character in value {
         var characters = Array(String(character).utf16)
