@@ -284,3 +284,55 @@ honored on Linux. A Swift service
 that the iOS app links in still has no window adapter there, so its
 `granted` answers `false` and its calls throw. The iOS host change is
 checked on the generated source only; the simulator gate runs on a Mac.
+
+## Amendment (2026-10-19): native pages keep Yon reads themselves
+
+A native build unregisters the service worker, because its bundle is local,
+and a native page sends its Yon calls to `tac.yon.origin` (ADR 0103). A
+worker never sees a request to another origin, so the `tac.cache` rules did
+nothing in a native app.
+
+A native build that declares both `tac.yon.origin` and `tac.cache` rules now
+ships `/.tachyon/tac-yon-reads.js`, loaded before the page runtime. It holds
+the same compiled rules as `tachyon-sw.js` and applies them to Yon reads
+with the page's own Cache Storage (`tachyon-yon-reads`). Both page
+transports use it: Tac Client exchanges (`client_runtime.js`) and the
+`TacBrowserHttp` endpoint of the WebAssembly languages. It decides as the
+worker does:
+
+- It looks only at requests to the declared Yon origin. Page-origin
+  requests go to the local bundle as before.
+- A GET is kept only when a rule matches its path, the policy is not
+  `no-store`, the request is a public read (credentials omitted, not
+  `no-store`, no `Authorization` or `Range` header), and the answer is a
+  success that is not `private` or `no-store`.
+- `cache-first` answers from the cache when it can; `network-first` and a
+  revalidating read (`cache: 'no-cache'`, after `ClearCache` or
+  `UpdateCache`) go to the network and fall back to the kept read when the
+  network fails.
+- A successful write removes the kept reads at its path and above it.
+- The limits match the worker: 256 entries, 32 MiB, 256 KiB per read and 24
+  hours per entry.
+
+One difference: the answer may vary by `Origin` as well as
+`Accept-Encoding`. Yon adds `Vary: Origin` to every answer when
+`server.origins` is set, and the page always sends the same app origin.
+
+Yon still answers every route `no-store` unless the handler sets its own
+`Cache-Control`, as a JavaScript handler does by returning
+`Response.json(value, { headers: { 'cache-control': 'public, no-cache' } })`.
+So a rule keeps only the reads that Yon marks public, on the web and in a
+native app alike.
+
+A web build does not ship the file; its worker keeps doing this work. When a
+web build calls a Yon on another origin, the worker still does not see those
+reads.
+
+The per-target support table (ADR 0102) marks `tac.cache` honored on macOS,
+Windows, iOS and Android, and adapted on Linux, where the web view session
+is not kept after the app quits (ST1). `compiler::yon_reads_tests` checks the
+rules, the offline answer and the write eviction in Node, and
+`scripts/yon-reads-browser-test.mjs` checks them in Chromium, Firefox and
+WebKit against a real `ty serve` on another origin that is then stopped.
+The airplane-mode runs on the iOS simulator and the Android emulator run on
+a Mac.

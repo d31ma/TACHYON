@@ -17,6 +17,7 @@ use super::service_worker::ServiceWorker;
 use super::setup_sharing::SetupSharing;
 use super::shared_assets::SharedAssets;
 use super::tool_build::ToolBuild;
+use super::yon_reads::YonReads;
 use super::{BuildOptions, BuildProfile, BuildResult, WebCompiler};
 use crate::failure::diagnostic;
 use crate::tac_web::{BuildJobs, BuiltServices};
@@ -50,6 +51,8 @@ pub(super) struct SiteBuild<'a> {
     reused_routes: usize,
     profile: BuildProfile,
     compress: bool,
+    native: bool,
+    yon_reads_tag: &'static str,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -99,6 +102,8 @@ impl<'a> SiteBuild<'a> {
                 options.profile == BuildProfile::Release,
                 native_target.is_none(),
             ] == [true, true],
+            native: native_target.is_some(),
+            yon_reads_tag: "",
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -122,6 +127,7 @@ impl<'a> SiteBuild<'a> {
         previous: Option<&BuildState>,
         site: &crate::native::SiteSettings,
     ) -> Result<(), Failure> {
+        self.yon_reads_tag = YonReads::tag(self.native, site);
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
         self.add_routes(routes, previous, site, &dependency_digest)
@@ -200,6 +206,7 @@ impl<'a> SiteBuild<'a> {
             .replace("__CACHE_RULES__", cache_rules)
             .replace("__PUBLIC_ASSETS__", &public_assets);
         self.add_file("tachyon-sw.js", service_worker.into_bytes());
+        self.add_yon_reads_file(cache_rules);
         let state = Self::pretty_json(&self.next_state, "incremental build state")?;
         self.add_file(".tachyon/build-state.json", state);
         Ok(())
@@ -554,11 +561,18 @@ impl<'a> SiteBuild<'a> {
             html = PageHead::inject_before(&html, "</head>", WebCompiler::COMPONENT_STYLE_LINK);
         }
         html = PageHead::inject_before(&html, "</head>", &super::SpeculationRules::tag());
+        html = PageHead::inject_before_runtime(&html, self.yon_reads_tag);
         PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
     }
 
     fn add_file(&mut self, path: &str, bytes: Vec<u8>) {
         self.files.push((PathBuf::from(path), bytes));
+    }
+
+    fn add_yon_reads_file(&mut self, cache_rules: &str) {
+        if !self.yon_reads_tag.is_empty() {
+            self.add_file(YonReads::PATH, YonReads::script(cache_rules));
+        }
     }
 
     fn add_component_styles_file(&mut self) {

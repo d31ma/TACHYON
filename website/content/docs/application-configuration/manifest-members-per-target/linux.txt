@@ -88,7 +88,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  adapted: tac.cache is not used in the Linux app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6.
+  adapted: tac.cache rules apply to Yon reads in the Linux app, but the kept reads last only while the app runs: the web view session is not kept yet (ST1).
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Linux app.

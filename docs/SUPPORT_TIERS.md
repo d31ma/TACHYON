@@ -149,6 +149,15 @@ Native calls have a ten-second browser wait limit. This limit does not stop or
 roll back native service code. Services must stay responsive. A hung
 application may need to be relaunched.
 
+### Native apps keep Yon reads offline (2026-10-19)
+
+A native build with `tac.yon.origin` and `tac.cache` applies the rules to
+Yon reads in the page's Cache Storage (ADR 0087 amendment). It is tested in
+Node and by `scripts/yon-reads-browser-test.mjs` in Chromium, Firefox and
+WebKit in the cloud. No native host has run it yet: the airplane-mode runs
+on the iOS simulator and the Android emulator are owed, and on Linux the
+kept reads last only while the app runs (ST1).
+
 ### External links on native hosts (2026-10-18)
 
 ADR 0018's amendment of 2026-10-18 covers links that leave the app. A link to

@@ -78,6 +78,11 @@ class TacBrowserHttp {
     return url.href
   }
 
+  static #fetch(url, init) {
+    const reads = globalThis[Symbol.for('tachyon.tac.yon-reads')]
+    return reads ? reads.fetch(url, init) : fetch(url, init)
+  }
+
   static #yonOrigin() {
     const declared = globalThis.document?.querySelector?.(TacBrowserHttp.yonOriginTag)?.content
     return declared ? new URL(declared).origin : null
@@ -117,7 +122,7 @@ class TacBrowserHttp {
     const timer = setTimeout(() => controller.abort('DEADLINE'), Math.max(0, remaining))
     try {
       if (remaining <= 0) { controller.abort('DEADLINE'); TacBrowserHttp.#fail('HTTP_REQUEST') }
-      const response = await fetch(request.url, { method: request.method, headers: request.headers, body: request.body,
+      const response = await TacBrowserHttp.#fetch(request.url, { method: request.method, headers: request.headers, body: request.body,
         credentials: 'omit', redirect: 'error', mode: request.mode, cache: request.cache, signal: controller.signal })
       if (!response.ok) TacBrowserHttp.#fail('HTTP_STATUS', response.status)
       const text = await TacBrowserHttp.#read(response, request.limit)

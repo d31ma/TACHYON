@@ -81,6 +81,9 @@ pub(crate) mod utility_module;
 #[cfg(test)]
 mod utility_module_tests;
 mod view_transition_guard;
+mod yon_reads;
+#[cfg(test)]
+mod yon_reads_tests;
 
 pub use build_options::BuildOptions;
 pub use build_profile::BuildProfile;

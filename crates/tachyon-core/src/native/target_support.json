@@ -293,11 +293,11 @@
     "member": "tac.cache",
     "paths": ["tac.cache"],
     "web": {"reach": "honored", "how": "offline rules in the service worker"},
-    "macos": {"reach": "adapted", "note": "tac.cache is not used in the macOS app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."},
-    "windows": {"reach": "adapted", "note": "tac.cache is not used in the Windows app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."},
-    "linux": {"reach": "adapted", "note": "tac.cache is not used in the Linux app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."},
-    "ios": {"reach": "adapted", "note": "tac.cache is not used in the iOS app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."},
-    "android": {"reach": "adapted", "note": "tac.cache is not used in the Android app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6."}
+    "macos": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"},
+    "windows": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"},
+    "linux": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the Linux app, but the kept reads last only while the app runs: the web view session is not kept yet (ST1)."},
+    "ios": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"},
+    "android": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"}
   },
   {
     "member": "tac.metadata",

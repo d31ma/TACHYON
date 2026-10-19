@@ -10,6 +10,13 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A native app now applies its `tac.cache` rules to Yon reads. A native
+  build that declares `tac.yon.origin` and `tac.cache` ships
+  `/.tachyon/tac-yon-reads.js`, which keeps public Yon reads in the page's
+  Cache Storage with the service worker's rules, so a `network-first` or
+  `cache-first` read still answers when the app is offline. Yon answers
+  `no-store` unless the handler sets its own `Cache-Control`. On Linux the
+  kept reads last only while the app runs (ADR 0087 amendment).
 - The Linux app opens its window from `client/manifest.json`, as the macOS
   and Windows apps do. The page inside the window starts at
   `tac.application.window` `width` by `height` (the host adds what the title

@@ -21,7 +21,7 @@ impl PageHead {
         Self::insert_at(html, position, value)
     }
 
-    fn inject_before_runtime(html: &str, value: &str) -> String {
+    pub(super) fn inject_before_runtime(html: &str, value: &str) -> String {
         let runtime = html.find(Self::RUNTIME_SCRIPT);
         let position = runtime.or_else(|| html.rfind(Self::HEAD_END));
         Self::insert_at(html, position.unwrap_or(html.len()), value)

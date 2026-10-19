@@ -8,6 +8,10 @@ class __tachyon_ClientConfiguration {
     const declared = globalThis.document?.querySelector?.('meta[name="tachyon-yon-origin"]')?.content
     return declared ? new URL(declared).origin : null
   }
+  static fetch(url, init) {
+    const reads = globalThis[Symbol.for('tachyon.tac.yon-reads')]
+    return reads ? reads.fetch(url, init) : fetch(url, init)
+  }
   static configure() {
     return { http: Object.fromEntries(this.adapters.map(name =>
       [name, {exchange: request => __tachyon_client_exchange__(request, this.transport)}])) }
@@ -31,7 +35,7 @@ async function __tachyon_client_exchange__(request, transport) {
     method: request.method, headers, body, signal: request.signal,
     redirect: 'error', credentials: 'omit', cache: publicRead ? publicCache : 'no-store',
   }
-  const response = transport ? await transport(url, init, {publicRead, revalidate}) : await fetch(url, init)
+  const response = transport ? await transport(url, init, {publicRead, revalidate}) : await __tachyon_ClientConfiguration.fetch(url, init)
   if (!response.ok) { await response.body?.cancel(); throw new Error('Tac Client HTTP request failed.') }
   if (request.method === 'HEAD' || response.status === 204) { await response.body?.cancel(); return null }
   const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()

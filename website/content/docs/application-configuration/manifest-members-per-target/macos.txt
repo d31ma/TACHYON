@@ -88,7 +88,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  adapted: tac.cache is not used in the macOS app: the bundle is local and there is no service worker. The rules will apply to Yon reads after NET6.
+  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the macOS app.
