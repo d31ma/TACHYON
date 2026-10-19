@@ -703,10 +703,10 @@
     "member": "reaching Yon",
     "paths": [],
     "web": {"reach": "honored", "how": "same-origin requests to the Yon server"},
-    "macos": {"reach": "adapted", "note": "The macOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET1)."},
+    "macos": {"reach": "adapted", "note": "The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1)."},
     "windows": {"reach": "adapted", "note": "The Windows app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET3)."},
     "linux": {"reach": "adapted", "note": "The Linux app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET4)."},
-    "ios": {"reach": "adapted", "note": "The iOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET1)."},
+    "ios": {"reach": "adapted", "note": "The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1)."},
     "android": {"reach": "adapted", "note": "The Android app's pages load from a local origin, so same-origin requests reach no Yon. Pages and linked Kotlin HTTP clients reach the Yon at tac.yon.origin; the packaged app has not been run against Yon on the emulator yet (NET2)."}
   },
   {
