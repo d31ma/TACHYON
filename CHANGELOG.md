@@ -138,6 +138,13 @@ machine contracts have their own, independent major versions.
   `swiftc` target now follows its `LSMinimumSystemVersion`. The Windows and
   Linux apps check the installed web view at startup and show a readable
   message instead of a blank window (ADR 0033 amendment).
+- The Linux app answers browser APIs. It allows clipboard reads of text
+  copied in other apps, geolocation through GeoClue and notifications only
+  for its own pages and only when `tac.browserApis` grants them, and denies
+  every other web view permission. Notifications are desktop notifications
+  (`GNotification`); `requestPermission` answers `granted` without a prompt,
+  as Linux desktops do. Linux has no share sheet, so `share` copies the url,
+  or else the text or title, to the clipboard (ADR 0065 amendment).
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain

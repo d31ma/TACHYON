@@ -163,6 +163,17 @@ tier.
 | macOS, iOS WKWebView | yes, `NSWorkspace` and `UIApplication` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on the Mac |
 | Android WebView | yes, `ACTION_VIEW` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on an emulator |
 
+### Browser APIs on native hosts (2026-10-19)
+
+ADR 0065's amendments of 2026-10-18 and 2026-10-19 cover `clipboard`,
+`share`, `notifications` and `geolocation` in native apps. This evidence does
+not promote any tier.
+
+| Host | Implemented | Validated |
+| --- | --- | --- |
+| Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. Not run: WSL, a Linux desktop with a notification server and GeoClue, Wayland |
+| macOS, iOS, Android, Windows | no host bridge yet (BA1, BA2, BA3) | see the per-target support table |
+
 ## Historical Phase 5 Native Target Status
 
 **Reconciliation notice (2026-08-30):**

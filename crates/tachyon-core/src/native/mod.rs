@@ -51,6 +51,9 @@ mod kotlin_document_title_scope_tests;
 mod kotlin_page_graph_tests;
 mod linux;
 #[cfg(test)]
+mod linux_browser_api_tests;
+mod linux_browser_apis;
+#[cfg(test)]
 mod linux_host_tests;
 #[cfg(test)]
 mod linux_page_call_tests;

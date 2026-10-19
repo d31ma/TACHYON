@@ -91,7 +91,7 @@ impl BrowserApiPermissions {
         )
     }
 
-    fn is_granted(&self, api: &str) -> bool {
+    pub(super) fn is_granted(&self, api: &str) -> bool {
         self.granted.iter().any(|grant| grant == api)
     }
 

@@ -15,7 +15,7 @@ impl BrowserApiBridge {
         (NativeTarget::Ios, &[]),
         (NativeTarget::Android, &[]),
         (NativeTarget::Windows, &[]),
-        (NativeTarget::Linux, &[]),
+        (NativeTarget::Linux, &["share", "notifications"]),
     ];
 
     pub(super) fn bridged(target: NativeTarget) -> &'static [&'static str] {
@@ -101,7 +101,19 @@ mod tests {
 
     #[test]
     fn the_page_list_is_a_javascript_array_of_names() {
-        assert_eq!(BrowserApiBridge::page_list(NativeTarget::Linux), "[]");
-        assert!(BrowserApiBridge::operations(NativeTarget::Linux).is_empty());
+        assert_eq!(BrowserApiBridge::page_list(NativeTarget::Windows), "[]");
+        assert!(BrowserApiBridge::operations(NativeTarget::Windows).is_empty());
+        assert_eq!(
+            BrowserApiBridge::page_list(NativeTarget::Linux),
+            "['share', 'notifications']"
+        );
+        assert_eq!(
+            BrowserApiBridge::operations(NativeTarget::Linux),
+            [
+                "browserApi.share.open",
+                "browserApi.notifications.requestPermission",
+                "browserApi.notifications.show"
+            ]
+        );
     }
 }

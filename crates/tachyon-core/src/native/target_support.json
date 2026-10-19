@@ -315,7 +315,7 @@
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist"},
     "windows": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Windows app: Windows asks without a reason from the app."},
-    "linux": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Linux app: Linux asks without a reason from the app."},
+    "linux": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Linux app: it shows no permission prompt of its own, and GeoClue and the desktop settings decide location and notifications."},
     "ios": {"reach": "honored", "how": "NSLocationWhenInUseUsageDescription in Info.plist"},
     "android": {"reach": "adapted", "note": "tac.application.permissions is written into the Android string resources. The app shows it once it asks for the permission itself (BA2)."}
   },
@@ -335,7 +335,7 @@
     "web": {"reach": "honored", "how": "navigator.clipboard"},
     "macos": {"reach": "adapted", "note": "clipboard in the macOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1)."},
     "windows": {"reach": "adapted", "note": "clipboard in the Windows app uses the web view's navigator.clipboard, and no host test checks it yet (BA3)."},
-    "linux": {"reach": "adapted", "note": "clipboard in the Linux app uses the web view's navigator.clipboard, and no host test checks it yet (BA4)."},
+    "linux": {"reach": "honored", "how": "the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps"},
     "ios": {"reach": "adapted", "note": "clipboard in the iOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1)."},
     "android": {"reach": "adapted", "note": "clipboard in the Android app uses the web view's navigator.clipboard, and no host test checks it yet (BA2)."}
   },
@@ -345,7 +345,7 @@
     "web": {"reach": "honored", "how": "navigator.share"},
     "macos": {"reach": "adapted", "note": "share in the macOS app uses the web view's navigator.share, and no host test checks it yet (BA1)."},
     "windows": {"reach": "adapted", "note": "share in the Windows app uses the web view's navigator.share, and no host test checks it yet (BA3)."},
-    "linux": {"reach": "adapted", "note": "share does not work in the Linux app yet: its web view has no navigator.share (BA4)."},
+    "linux": {"reach": "adapted", "note": "Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard."},
     "ios": {"reach": "adapted", "note": "share in the iOS app uses the web view's navigator.share, and no host test checks it yet (BA1)."},
     "android": {"reach": "adapted", "note": "share does not work in the Android app yet: its web view has no navigator.share (BA2)."}
   },
@@ -355,7 +355,7 @@
     "web": {"reach": "honored", "how": "the Notification API"},
     "macos": {"reach": "adapted", "note": "notifications do not work in the macOS app yet: its web view has no Notification API (BA1)."},
     "windows": {"reach": "adapted", "note": "notifications in the Windows app use the web view's Notification API. The host asks for no permission yet (BA3)."},
-    "linux": {"reach": "adapted", "note": "notifications in the Linux app use the web view's Notification API. The host asks for no permission yet (BA4)."},
+    "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown."},
     "ios": {"reach": "adapted", "note": "notifications do not work in the iOS app yet: its web view has no Notification API (BA1)."},
     "android": {"reach": "adapted", "note": "notifications do not work in the Android app yet: its web view has no Notification API (BA2)."}
   },
@@ -365,7 +365,7 @@
     "web": {"reach": "honored", "how": "navigator.geolocation"},
     "macos": {"reach": "adapted", "note": "geolocation in the macOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1)."},
     "windows": {"reach": "adapted", "note": "geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3)."},
-    "linux": {"reach": "adapted", "note": "geolocation in the Linux app uses the web view's navigator.geolocation. The host asks for no permission yet (BA4)."},
+    "linux": {"reach": "honored", "how": "the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages"},
     "ios": {"reach": "adapted", "note": "geolocation in the iOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1)."},
     "android": {"reach": "adapted", "note": "geolocation does not work in the Android app yet: the host turns it off in the web view (BA2)."}
   },

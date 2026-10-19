@@ -184,6 +184,10 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
         .replace(
             "__WEB_ENGINE_CHECK__",
             &super::linux_web_engine_check::LinuxWebEngineCheck::source(application),
+        )
+        .replace(
+            "__NATIVE_BROWSER_APIS__",
+            &super::linux_browser_apis::LinuxBrowserApis::source(&application.permissions),
         );
     LinuxHostGenerator::DESKTOP.render(
         &template,
@@ -256,6 +260,8 @@ static gboolean tachyon_trusted_view(WebKitWebView *view) {
   return view != NULL && tachyon_local_path(webkit_web_view_get_uri(view), path, sizeof(path)) &&
          tachyon_document_route(path) != NULL;
 }
+
+__NATIVE_BROWSER_APIS__
 
 static int tachyon_open_resource(const char *relative) {
   if (g_bundle_fd < 0 || relative[0] == '\0') return -1;
@@ -561,10 +567,16 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
     tachyon_menus_refresh();
   } else if (g_str_has_prefix(capability, "window.")) {
     answer = tachyon_window_page_call(capability, payload);
+  } else if (g_strcmp0(capability, "browserApi.share.open") == 0) {
+    answer = tachyon_share_open(payload);
+  } else if (g_strcmp0(capability, "browserApi.notifications.requestPermission") == 0) {
+    answer = tachyon_notification_permission();
+  } else if (g_strcmp0(capability, "browserApi.notifications.show") == 0) {
+    answer = tachyon_notification_show(payload);
   } else {
     gchar *safe = tachyon_safe_name(capability);
     answer = g_strdup_printf(
-        "{\"ok\":false,\"error\":\"linux host answers companion.invoke and window controls, not '%s'\"}", safe);
+        "{\"ok\":false,\"error\":\"linux host answers companion.invoke, window controls and bridged browser APIs, not '%s'\"}", safe);
     g_free(safe);
   }
 
@@ -661,6 +673,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   g_signal_connect(view, "load-changed", G_CALLBACK(tachyon_on_load), NULL);
   g_signal_connect(view, "decide-policy", G_CALLBACK(tachyon_decide_policy), NULL);
   g_signal_connect(view, "create", G_CALLBACK(tachyon_create_view), NULL);
+  g_signal_connect(view, "permission-request", G_CALLBACK(tachyon_permission_request), NULL);
 
   gtk_window_set_child(GTK_WINDOW(window), GTK_WIDGET(view));
   tachyon_window_appearance(GTK_WINDOW(window), GTK_WIDGET(view));

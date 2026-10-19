@@ -264,3 +264,49 @@ for an API the host does not list), `native::browser_api_bridge` (the table
 and the host-answers-every-operation policy), `native::browser_api_permissions`
 (the refusals per target, the text rules and the escaped host values) and
 `native::host` (the shim carries the list). Host runs belong to BA1 to BA4.
+
+## Amendment (2026-10-19): browser APIs in the Linux app
+
+The Linux host (GTK 4 and WebKitGTK 6.0) answers the four APIs as follows.
+It shows no permission prompt of its own and reads no reason from
+`tac.application.permissions`.
+
+1. **One permission decision.** The host handles WebKit's
+   `permission-request` signal. It allows a clipboard read, a geolocation
+   request or a notification request only when the request comes from one of
+   the app's own documents and `tac.browserApis` grants that API; it denies
+   every other request, including every other kind of permission. The grant
+   list is written into the host at build time.
+2. **Clipboard: the web view's own.** `navigator.clipboard` works in the app
+   because `tachyon:` is a secure scheme. Writing and reading the app's own
+   text need no permission; reading text copied in another app asks the
+   host, which allows it under rule 1. The user-action check stays in the
+   page.
+3. **Geolocation: the web view's own, through GeoClue.** WebKitGTK reads the
+   position from GeoClue once the host allows the request. GeoClue and the
+   desktop's location settings decide whether a position is found.
+4. **Notifications: bridged to `GNotification`.** WebKitGTK refuses
+   notification permission in the app's private web view session without
+   asking, so the host lists `notifications` in the bridge.
+   `browserApi.notifications.requestPermission` answers `"granted"` when the
+   manifest grants notifications and `"denied"` otherwise, because Linux
+   desktops do not ask before an app shows a notification; the desktop's
+   notification settings decide what is shown.
+   `browserApi.notifications.show` sends a `GNotification` with the title and
+   body through the running `GApplication`.
+5. **Share: adapted to the clipboard.** Linux has no system share sheet and
+   WebKitGTK has no `navigator.share`. The host lists `share` in the bridge,
+   and `browserApi.share.open` copies the url, or else the text or the title,
+   to the clipboard and answers `"clipboard"`; the service gets
+   `ShareFinished`. A share with none of the three is an error.
+
+Evidence: `native::linux_browser_api_tests` (the grant list and the generated
+handlers) and its ignored host run
+`linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view`, which
+compiles the generated host twice and clicks the real web view under Xvfb
+through XTest. With every API granted, the page read text that another
+source had put on the clipboard, wrote its own text, got a position that the
+test supplied through WebKit's geolocation manager in place of GeoClue, was
+granted notifications, showed one, and shared a url that landed on the
+clipboard. With nothing granted, the read and the position were refused, the
+permission answer was `"denied"`, and every bridged call was an error.

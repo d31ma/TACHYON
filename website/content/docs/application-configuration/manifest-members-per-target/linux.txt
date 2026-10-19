@@ -94,22 +94,22 @@ tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Linux app.
 
 tac.application.permissions
-  not applicable: tac.application.permissions is not used by the Linux app: Linux asks without a reason from the app.
+  not applicable: tac.application.permissions is not used by the Linux app: it shows no permission prompt of its own, and GeoClue and the desktop settings decide location and notifications.
 
 tac.browserApis
   honored: the same grant list in the page
 
 tac.browserApis clipboard
-  adapted: clipboard in the Linux app uses the web view's navigator.clipboard, and no host test checks it yet (BA4).
+  honored: the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps
 
 tac.browserApis share
-  adapted: share does not work in the Linux app yet: its web view has no navigator.share (BA4).
+  adapted: Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard.
 
 tac.browserApis notifications
-  adapted: notifications in the Linux app use the web view's Notification API. The host asks for no permission yet (BA4).
+  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown.
 
 tac.browserApis geolocation
-  adapted: geolocation in the Linux app uses the web view's navigator.geolocation. The host asks for no permission yet (BA4).
+  honored: the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages
 
 tac.browserApis preferenceStrings
   adapted: preferenceStrings in the Linux app live only while the app runs: the web view does not keep storage yet (ST1).
