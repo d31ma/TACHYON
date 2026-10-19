@@ -28,7 +28,7 @@ other standard manifest members
   adapted: The iOS app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers.
 
 tac.application
-  honored: the app's identity
+  honored: the app's identity and menus
 
 tac.application.id
   honored: CFBundleIdentifier
@@ -61,7 +61,7 @@ tac.application.window.titleBarButtonInset
   not applicable: tac.application.window.titleBarButtonInset has no meaning on iOS: the app has no window buttons.
 
 tac.application.menus
-  refused with TY1601: iOS apps have no menu bar. Put links or buttons in the page instead (D1).
+  adapted: iPad menu bar / iPhone shortcuts: route items join the File, View and Help menus of the iPad menu bar, and on iPhone only items with a shortcut are reachable, from a hardware keyboard. Action items stop the build (TY1601) until iOS has the application lifetime (MN1b).
 
 tac.application.tray
   refused with TY1601: iOS has no status area. Put these controls in the page instead (ADR 0107).
@@ -193,7 +193,7 @@ application lifetime services
   refused with TY1406: Rust services are linked into the iOS app, but none starts with the app yet (LT1). Use a page or singleton service.
 
 standard menu bar without declared items
-  not applicable: An iOS app has no menu bar (MN1 adapts declared items).
+  not applicable: Without declared items, an iOS app keeps the system's own iPad menu bar and adds nothing.
 
 Edit menu
   not applicable: The system edit menu handles text on iOS.
@@ -202,7 +202,7 @@ Window menu
   not applicable: The system owns the iOS window.
 
 menu shortcuts with control
-  refused with TY1601: iOS apps have no menu bar, so menus are refused until MN1.
+  honored: the Control key
 
 page accessibility (roles and names through the system accessibility API)
   run owed: the pages reach VoiceOver through the web view; still to run: an accessibility audit of roles and names on the iOS simulator (AX1)

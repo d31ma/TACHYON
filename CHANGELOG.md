@@ -47,6 +47,16 @@ machine contracts have their own, independent major versions.
   datasource on Windows now accepts a drive root such as
   `fylo:///C:/data/catalog`.
 
+- Menus on iOS and Android (MN1a, ADR 0097 amendment). Route items of
+  `tac.application.menus` no longer stop an iOS or Android build. On iPad
+  they join the File, View and Help menus of the menu bar; on iPhone the
+  items with a shortcut work from a hardware keyboard. On Android an app bar
+  lists them in its overflow menu, and their shortcuts use Ctrl, with the
+  Linux and Windows collision rules. Action items still stop a mobile build
+  with `TY1601` until those apps have the application lifetime. New checks:
+  `scripts/ios/menus-test.mjs` (iPhone and iPad simulators) and
+  `scripts/android/menus-test.mjs` (emulator).
+
 - Request-source and caching markers now have run proof in every language
   that accepts them (PR4). `tests/it/request_sources.rs` gives all 15 Yon
   languages one controller with a `PutRoute` and a `PatchRoute` and checks

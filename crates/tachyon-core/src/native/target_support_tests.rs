@@ -207,7 +207,8 @@ fn explain_marks_the_declared_members_for_each_target() {
     assert!(text.starts_with("iOS\n"));
     assert!(text.contains("\nWeb\n"));
     assert!(text.contains("theme_color (declared)\n  adapted: "));
-    assert!(text.contains("tac.application.menus\n  refused with TY1601: "));
+    assert!(text.contains("tac.application.tray\n  refused with TY1601: "));
+    assert!(text.contains("tac.application.menus\n  adapted: iPad menu bar / iPhone shortcuts"));
 }
 
 #[test]

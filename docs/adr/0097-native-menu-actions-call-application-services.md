@@ -374,3 +374,60 @@ The Linux web view no longer uses an ephemeral network session. It keeps its
 web data in `$XDG_DATA_HOME/<application id>/webkit` and its HTTP cache in
 `$XDG_CACHE_HOME/<application id>/webkit` (ADR 0059 amendment of the same
 date). The event log stays in `$XDG_STATE_HOME/tachyon`.
+
+## Amendment (2026-10-19): Route items on iOS and Android (MN1a)
+
+iOS and Android no longer refuse `tac.application.menus`. A phone has no
+menu bar, so each platform shows the route items in its own place, and the
+build prints the support table's note (`adapted`).
+
+### iOS
+
+The app delegate's `buildMenu(with:)` inserts the items into the File, View
+and Help menus of the main menu, as one inline group per menu, which iPadOS
+shows in its menu bar. An item with a shortcut is a `UIKeyCommand`; one
+without is a `UICommand`. iPhone shows no menu bar, so there the root view
+controller also returns the items that have a shortcut from `keyCommands`.
+They work from a hardware keyboard; an item without a shortcut cannot be
+reached on iPhone. `command` is Command, `control` is Control, `option` is Option,
+and the macOS shortcut rules apply. Both paths call the root view
+controller, which loads the route only when it is a page of the app.
+
+### Android
+
+The activity puts an app bar (`android.widget.Toolbar`, set as the action
+bar) above the web view when the manifest declares items, and lists them in
+its overflow menu, File, View and Help as three groups with dividers. An app
+without items shows no app bar, as before. Shortcuts follow the Linux and
+Windows rules: `command` and `control` are both Ctrl, so shortcuts that then
+collide, or that become a standard one, stop the build with `TY1601`. The
+activity's `dispatchKeyEvent` runs a matching shortcut before the web view
+sees the key, and `onProvideKeyboardShortcuts` lists the shortcuts in the
+system keyboard shortcuts list, grouped as File, View and Help.
+
+### Action items
+
+An item with an `action` still stops an iOS or Android build, now with
+`TY1601` from the menu check, whose message says that menu actions come with
+the application lifetime. Mobile apps get that lifetime in LT1, and MN1b
+then lets action items call the application service as on the desktop.
+
+### Evidence
+
+- Cloud and Mac: `mobile_menu_host_tests` checks the generated Swift and
+  Java, and `native_menu_config_tests` checks the mobile route items, the
+  `TY1601` refusal of action items and the Android Ctrl collisions.
+- iOS: `scripts/ios/menus-test.mjs` builds an app with a File item that has
+  Command-K and a Help item without a shortcut, then presses Command-K with
+  a simulated hardware keyboard (`scripts/ios/simulator-keyboard.m`, which
+  sends HID key events through Xcode's SimulatorKit). A Swift service on each
+  page records `location.pathname`. On an iPhone 17 Pro and an iPad Pro
+  13-inch (M5) simulator with iOS 26.5, Command-K opened `/status` (on iPad
+  only the main menu holds the command, because `keyCommands` is empty
+  there).
+- Android: `scripts/android/menus-test.mjs` (now part of
+  `scripts/android/native-test.sh`) builds the same menus and runs them on the
+  emulator (API 35, arm64). The system keyboard shortcuts list shows the File
+  group with Status and Ctrl+K, Ctrl+K opens `/status`, and More options >
+  Guide in the app bar opens `/guide`. The page address is read through the
+  WebView's DevTools socket.

@@ -305,8 +305,22 @@ pub(super) fn swift_source(
         .replace(
             "__NATIVE_APPLICATION_STATE__",
             include_str!("AppleApplicationState.swift"),
+        )
+        .replace(
+            "__NATIVE_MENUS__",
+            &[
+                include_str!("menus/IosMenuRoute.swift"),
+                include_str!("menus/IosMenus.swift"),
+            ]
+            .join("\n"),
         );
-    MacOsHostGenerator::apple_authored_values(&framed, application, index, &[])
+    let menu_routes = super::mobile_menu_source::MobileMenuSource::swift_routes(&application.menus);
+    MacOsHostGenerator::apple_authored_values(
+        &framed,
+        application,
+        index,
+        &[("__NATIVE_MENU_ROUTES__", &menu_routes)],
+    )
 }
 
 #[cfg(all(test, target_os = "macos"))]
@@ -554,6 +568,8 @@ __NATIVE_APPLICATION_STATE__
 
 __IOS_WINDOW_SETTINGS__
 
+__NATIVE_MENUS__
+
 private func tachyonRelayPublish(_ payload: String) {
     Task { @MainActor in
         NativeBridge.shared.webView?.evaluateJavaScript(
@@ -614,6 +630,16 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
             view.load(URLRequest(url: first))
         }
         Telemetry.shared.record("bridge.ready")
+    }
+
+    override var keyCommands: [UIKeyCommand]? {
+        IosMenus.shortcuts()
+    }
+
+    @objc func openMenuRoute(_ command: UICommand) {
+        guard let url = IosMenus.destination(command) else { return }
+        Telemetry.shared.record("menu.opened")
+        webView?.load(URLRequest(url: url))
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -682,6 +708,11 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
               let target = TacDeepLink.target(url.absoluteString) else { return false }
         (window?.rootViewController as? RootViewController)?.open(target)
         return true
+    }
+
+    override func buildMenu(with builder: UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        IosMenus.build(builder)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

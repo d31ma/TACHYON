@@ -134,6 +134,9 @@ mod managed_native_capabilities;
 mod manifest_setting;
 mod minimum_system;
 #[cfg(test)]
+mod mobile_menu_host_tests;
+mod mobile_menu_source;
+#[cfg(test)]
 mod model_tests;
 mod native_application_capture;
 #[cfg(all(test, target_os = "macos"))]

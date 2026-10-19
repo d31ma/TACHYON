@@ -196,29 +196,42 @@ fn native_menu_declarations_require_exact_compiled_static_documents_and_supporte
         NativeTarget::Macos,
         NativeTarget::Linux,
         NativeTarget::Windows,
+        NativeTarget::Ios,
+        NativeTarget::Android,
     ] {
         application
             .menus
             .validate_for(target, &NativeMenuTests::index())
-            .expect("desktop hosts have a menu bar");
-    }
-    for target in [NativeTarget::Ios, NativeTarget::Android] {
-        assert!(
-            application
-                .menus
-                .validate_for(target, &NativeMenuTests::index())
-                .expect_err("unsupported target")
-                .to_string()
-                .contains("only on macOS, Linux and Windows")
-        );
-        NativeMenuConfig::default()
-            .validate_for(target, &NativeMenuTests::index())
-            .expect("ordinary target unchanged");
+            .expect("every native host opens route items");
     }
 }
 
 #[test]
-fn control_shortcuts_become_ctrl_on_linux_and_windows_and_must_not_collide_there() {
+fn mobile_hosts_refuse_menu_actions_until_they_have_the_application_lifetime() {
+    let actions: NativeMenuConfig = serde_json::from_value(json!({"view":[
+        {"id":"status","label":"Status","route":"/status"},
+        {"id":"refresh","label":"Refresh","action":{"service":"Refresher","method":"refresh"}}
+    ]}))
+    .expect("menu declarations");
+    for target in [NativeTarget::Ios, NativeTarget::Android] {
+        let failure = actions
+            .validate_for(target, &NativeMenuTests::index())
+            .expect_err("mobile menu actions wait for the application lifetime")
+            .to_string();
+        assert!(failure.contains("TY1601"), "{failure}");
+        assert!(
+            failure.contains("Native menu 'refresh' calls a service action")
+                && failure.contains("menu actions come with the application lifetime"),
+            "{failure}"
+        );
+    }
+    actions
+        .validate_for(NativeTarget::Macos, &NativeMenuTests::index())
+        .expect("desktop hosts check actions against the services later");
+}
+
+#[test]
+fn control_shortcuts_become_ctrl_on_linux_windows_and_android_and_must_not_collide_there() {
     let shortcut = |id: &str, key: &str, modifiers: &[&str]| json!({"id":id,"label":id,"route":"/","shortcut":{"key":key,"modifiers":modifiers}});
     let check = |menus: Value, target: NativeTarget| {
         serde_json::from_value::<NativeMenuConfig>(menus)
@@ -230,9 +243,15 @@ fn control_shortcuts_become_ctrl_on_linux_and_windows_and_must_not_collide_there
         shortcut("plain", "k", &["command"]),
         shortcut("control", "k", &["command", "control"])
     ]});
-    check(pair.clone(), NativeTarget::Macos)
-        .expect("Command-K and Control-Command-K differ on macOS");
-    for target in [NativeTarget::Linux, NativeTarget::Windows] {
+    for target in [NativeTarget::Macos, NativeTarget::Ios] {
+        check(pair.clone(), target)
+            .expect("Command-K and Control-Command-K differ on Apple keyboards");
+    }
+    for target in [
+        NativeTarget::Linux,
+        NativeTarget::Windows,
+        NativeTarget::Android,
+    ] {
         let failure = check(pair.clone(), target).expect_err("both become Ctrl+K");
         assert!(
             failure.contains("must stay unique") && failure.contains("TY1601"),

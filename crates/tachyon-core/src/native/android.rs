@@ -489,6 +489,10 @@ pub(super) fn linked_java_source(
             "__NATIVE_DEEP_LINKS__",
             &super::native_deep_link::NativeDeepLink::java_helper(&application.links),
         )
+        .replace(
+            "__NATIVE_MENUS__",
+            include_str!("native_menus_android.java"),
+        )
         .replace("__NATIVE_RUST_SERVICES__", rust_services)
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit);
@@ -502,6 +506,7 @@ pub(super) fn linked_java_source(
     let bootstrap_policy =
         quoted_string_escape(crate::compiler::ContentSecurityPolicy::native_bootstrap());
     let outgoing_hosts = application.outgoing.java_array();
+    let menu_routes = super::mobile_menu_source::MobileMenuSource::java_routes(&application.menus);
     let yon_origin =
         super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin())
             .java_origin();
@@ -516,6 +521,7 @@ pub(super) fn linked_java_source(
             ("__BOOTSTRAP_SECURITY_POLICY__", &bootstrap_policy),
             ("__OUTGOING_HOSTS__", &outgoing_hosts),
             ("__YON_ORIGIN__", &yon_origin),
+            ("__NATIVE_MENU_ROUTES__", &menu_routes),
         ],
     )
 }
@@ -635,6 +641,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.graphics.Insets;
+import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.FrameLayout;
@@ -719,6 +726,8 @@ __APPLICATION_STATE__
 __NATIVE_BROWSER_APIS__
 
 __NATIVE_DEEP_LINKS__
+
+__NATIVE_MENUS__
 
   private volatile String launchTarget = ASSET_ORIGIN + ENTRY_DOCUMENT;
 
@@ -973,7 +982,7 @@ __NATIVE_RUST_SERVICES__
           }
         });
     FrameLayout root = new FrameLayout(this);
-    root.addView(view);
+    root.addView(withMenuBar(view));
     setContentView(root);
     installWindowSettings(root);
     String linked = intentTarget(getIntent());
@@ -1370,7 +1379,7 @@ mod tests {
         assert!(source.contains("Invalid companion operation."));
         assert!(source.contains("setOnApplyWindowInsetsListener"));
         assert!(!source.contains("buildNode"));
-        assert!(!source.contains("LinearLayout"));
+        assert!(source.contains("if (MENU_ROUTES.length == 0) return content;"));
     }
 
     #[test]

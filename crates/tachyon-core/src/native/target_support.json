@@ -96,8 +96,8 @@
     "macos": {"reach": "honored", "how": "the app's identity, window and menus"},
     "windows": {"reach": "honored", "how": "the app's identity, window and menus"},
     "linux": {"reach": "honored", "how": "the app's identity, window and menus"},
-    "ios": {"reach": "honored", "how": "the app's identity"},
-    "android": {"reach": "honored", "how": "the app's identity"}
+    "ios": {"reach": "honored", "how": "the app's identity and menus"},
+    "android": {"reach": "honored", "how": "the app's identity and menus"}
   },
   {
     "member": "tac.application.id",
@@ -206,8 +206,8 @@
     "macos": {"reach": "honored", "how": "items in the File, View and Help menus of the menu bar"},
     "windows": {"reach": "runOwed", "how": "items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar", "run": "a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)"},
     "linux": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar"},
-    "ios": {"reach": "refused", "code": 1601, "alternative": "iOS apps have no menu bar. Put links or buttons in the page instead (D1)."},
-    "android": {"reach": "refused", "code": 1601, "alternative": "Android apps have no menu bar. Put links or buttons in the page instead (D1)."}
+    "ios": {"reach": "adapted", "note": "iPad menu bar / iPhone shortcuts: route items join the File, View and Help menus of the iPad menu bar, and on iPhone only items with a shortcut are reachable, from a hardware keyboard. Action items stop the build (TY1601) until iOS has the application lifetime (MN1b)."},
+    "android": {"reach": "adapted", "note": "app bar overflow menu: route items are listed in the overflow menu of an app bar, and their shortcuts use Ctrl on a hardware keyboard. Action items stop the build (TY1601) until Android has the application lifetime (MN1b)."}
   },
   {
     "member": "tac.application.tray",
@@ -646,8 +646,8 @@
     "macos": {"reach": "honored", "how": "the App, File, Edit and Window menus"},
     "windows": {"reach": "runOwed", "how": "File, Edit and Window menus, shown even when the manifest declares no items", "run": "an app with no declared items inside WebView2 on a signed-in Windows desktop"},
     "linux": {"reach": "honored", "how": "File, Edit and Window menus, shown even when the manifest declares no items"},
-    "ios": {"reach": "notApplicable", "note": "An iOS app has no menu bar (MN1 adapts declared items)."},
-    "android": {"reach": "notApplicable", "note": "An Android app has no menu bar (MN1 adapts declared items)."}
+    "ios": {"reach": "notApplicable", "note": "Without declared items, an iOS app keeps the system's own iPad menu bar and adds nothing."},
+    "android": {"reach": "notApplicable", "note": "Without declared items, an Android app shows no app bar."}
   },
   {
     "member": "Edit menu",
@@ -676,8 +676,8 @@
     "macos": {"reach": "honored", "how": "the Control key"},
     "windows": {"reach": "adapted", "note": "A shortcut with control gets Ctrl on Windows, like command. Shortcuts that then collide stop the build (TY1601)."},
     "linux": {"reach": "adapted", "note": "A shortcut with control gets Ctrl on Linux, like command. Shortcuts that then collide stop the build (TY1601)."},
-    "ios": {"reach": "refused", "code": 1601, "alternative": "iOS apps have no menu bar, so menus are refused until MN1."},
-    "android": {"reach": "refused", "code": 1601, "alternative": "Android apps have no menu bar, so menus are refused until MN1."}
+    "ios": {"reach": "honored", "how": "the Control key"},
+    "android": {"reach": "adapted", "note": "A shortcut with control gets Ctrl on Android, like command. Shortcuts that then collide stop the build (TY1601)."}
   },
   {
     "member": "page accessibility (roles and names through the system accessibility API)",
