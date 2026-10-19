@@ -839,7 +839,7 @@ fn kotlin(
     let support_files = kotlin_unit_files::KotlinUnitFiles::write(directory)
         .map_err(|error| stage_failure(portable, &error))?;
     execute(
-        Command::new("kotlinc")
+        crate::kotlin_home::KotlinHome::command("kotlinc")
             .arg(&path)
             .args(&model_files)
             .args(&support_files)

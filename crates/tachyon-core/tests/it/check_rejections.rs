@@ -1,8 +1,8 @@
 #![allow(clippy::expect_used)]
 
 use crate::support::json_http::JsonHttp;
+use crate::support::program_probe::ProgramProbe;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 struct CheckLanguage {
     extension: &'static str,
@@ -96,12 +96,7 @@ impl CheckLanguage {
             "go" => "version",
             _ => "--version",
         };
-        Command::new(program)
-            .arg(flag)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success())
+        ProgramProbe::answers(program, flag)
     }
 
     fn write_project(&self, root: &Path) {

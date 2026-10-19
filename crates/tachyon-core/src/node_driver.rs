@@ -49,6 +49,11 @@ impl NodeDriver {
                 crate::external_command::run_sync(&mut retry, deadline, Self::OUTPUT_BYTES)
                     .map_err(|error| (error, true))
             }
+            Ok(output) if ExitHang::crashed(&output) => {
+                ExitHang::announce_crash(&description);
+                crate::external_command::run_sync(&mut retry, deadline, Self::OUTPUT_BYTES)
+                    .map_err(|error| (error, true))
+            }
             other => other.map_err(|error| (error, false)),
         };
         Self::settled(result, &description, deadline)
@@ -69,6 +74,12 @@ impl NodeDriver {
         let result = match first {
             Err(error) if ExitHang::seen(&error) => {
                 ExitHang::announce(&description);
+                crate::external_command::run(&mut retry, deadline, Self::OUTPUT_BYTES)
+                    .await
+                    .map_err(|error| (error, true))
+            }
+            Ok(output) if ExitHang::crashed(&output) => {
+                ExitHang::announce_crash(&description);
                 crate::external_command::run(&mut retry, deadline, Self::OUTPUT_BYTES)
                     .await
                     .map_err(|error| (error, true))

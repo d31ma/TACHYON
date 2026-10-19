@@ -7,7 +7,7 @@ impl PythonPage {
     const MANIFEST: &'static str =
         "{\"tac\":{\"python\":{\"runtime\":\"pyodide-314.0.7\",\"profile\":\"offline\"}}}\n";
 
-    const FILE_FETCH: &'static str = "import { readFile, writeFile } from 'node:fs/promises'\nimport { fileURLToPath } from 'node:url'\nglobalThis.fetch = async (url) => new Response(await readFile(fileURLToPath(url)))\nglobalThis.addEventListener = () => {}\nglobalThis.removeEventListener = () => {}\nconst engine = await readFile('./tachyon-python-services.js', 'utf8')\nawait writeFile('./tachyon-python-services.js', engine.replace(/(new URL\\('[^']+', root\\)|root)\\.href/g, 'decodeURIComponent($1.pathname)'))\n";
+    const FILE_FETCH: &'static str = "import { readFile, writeFile } from 'node:fs/promises'\nimport { fileURLToPath } from 'node:url'\nglobalThis.fetch = async (url) => new Response(await readFile(fileURLToPath(url)))\nglobalThis.addEventListener = () => {}\nglobalThis.removeEventListener = () => {}\nconst engine = await readFile('./tachyon-python-services.js', 'utf8')\nawait writeFile('./tachyon-python-services.js', engine.replace(/(new URL\\('(?!pyodide\\.mjs)[^']+', root\\)|root)\\.href/g, `process.getBuiltinModule('node:url').fileURLToPath($1)`))\n";
 
     const STORAGE_FILES: [(&'static str, &'static str); 2] = [
         (

@@ -67,7 +67,7 @@ impl Commands {
         } else {
             "--version"
         };
-        if Self::success(Path::new(program), &[flag], &[], 15).await {
+        if crate::support::program_probe::ProgramProbe::answers(program, flag) {
             return true;
         }
         assert!(std::env::var_os("CI").is_none(), "missing {program} in CI");

@@ -45,10 +45,7 @@ impl Language {
             "lua" => "-v",
             _ => "--version",
         };
-        let found = std::process::Command::new(&program)
-            .arg(flag)
-            .output()
-            .is_ok_and(|output| output.status.success());
+        let found = crate::support::program_probe::ProgramProbe::answers(&program, flag);
         assert!(
             found || std::env::var_os("CI").is_none(),
             "{program} is missing in CI"

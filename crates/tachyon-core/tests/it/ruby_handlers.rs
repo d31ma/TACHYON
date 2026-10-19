@@ -205,7 +205,7 @@ async fn a_ruby_worker_sees_only_allowlisted_environment_variables() {
     if !ruby_available() {
         return;
     }
-    let (name, expected) = ["HOME", "USERPROFILE", "CARGO_HOME", "CI"]
+    let (name, expected) = ["CARGO_MANIFEST_DIR", "HOME", "USERPROFILE", "CI"]
         .iter()
         .find_map(|name| std::env::var(name).ok().map(|value| (*name, value)))
         .expect("test host needs one non-baseline environment variable");

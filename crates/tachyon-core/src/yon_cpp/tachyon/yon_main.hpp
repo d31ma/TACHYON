@@ -9,6 +9,7 @@ public:
     template <typename Routes>
     static int run() {
         std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
+        YonFrames::useBinaryStreams();
         std::string raw;
         if (!readInput(raw)) {
             return PROTOCOL_FAILURE;

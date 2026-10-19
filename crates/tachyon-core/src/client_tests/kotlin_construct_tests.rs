@@ -44,7 +44,7 @@ impl KotlinConstructProject {
 
 #[test]
 fn kotlin_tests_construct_services_with_injected_fake_clients_and_typed_answers() {
-    if std::process::Command::new("kotlinc")
+    if crate::kotlin_home::KotlinHome::command("kotlinc")
         .arg("-version")
         .output()
         .is_err()

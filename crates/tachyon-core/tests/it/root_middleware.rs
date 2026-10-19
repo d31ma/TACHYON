@@ -1,8 +1,8 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::program_probe::ProgramProbe;
 use std::fs;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_contracts::{HandlerRequest, HandlerResponse, HttpMethod};
 use tachyon_core::{
@@ -410,12 +410,7 @@ public:
     ];
 
     fn is_available(&self) -> bool {
-        Command::new(self.program)
-            .arg(self.version_flag)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success())
+        ProgramProbe::answers(self.program, self.version_flag)
     }
 
     fn is_usable(&self) -> bool {

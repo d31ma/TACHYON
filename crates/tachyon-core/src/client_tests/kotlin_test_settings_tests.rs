@@ -84,7 +84,7 @@ class __NAME__ {
     }
 
     fn kotlinc_missing() -> bool {
-        let missing = std::process::Command::new("kotlinc")
+        let missing = crate::kotlin_home::KotlinHome::command("kotlinc")
             .arg("-version")
             .output()
             .is_err();

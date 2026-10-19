@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::program_probe::ProgramProbe;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod};
 use tachyon_core::{
@@ -702,12 +702,7 @@ impl BasketCheck {
             "go" => "version",
             _ => "--version",
         };
-        Command::new(program)
-            .arg(flag)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success())
+        ProgramProbe::answers(program, flag)
     }
 
     fn write(root: &Path, relative: &str, source: &str) {

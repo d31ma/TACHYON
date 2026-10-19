@@ -1,3 +1,8 @@
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 namespace tachyon::yon {
 
 class YonFrames {
@@ -5,6 +10,13 @@ public:
     static constexpr std::size_t MAX_BYTES = 16 * 1024 * 1024;
     static constexpr std::size_t PREFIX_BYTES = 4;
     static constexpr int PROTOCOL_FAILURE = 70;
+
+    static void useBinaryStreams() {
+#ifdef _WIN32
+        _setmode(_fileno(stdin), _O_BINARY);
+        _setmode(_fileno(stdout), _O_BINARY);
+#endif
+    }
 
     static bool enabled() {
         const char* value = std::getenv("YON_RESOURCE_FRAMES");

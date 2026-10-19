@@ -40,9 +40,20 @@ impl GroovyHome {
     fn from_launcher() -> Option<Self> {
         let path = std::env::var_os(Self::PATH_VARIABLE)?;
         let launcher = Self::first_file(Self::launcher_candidates(&path))?;
-        let launcher = std::fs::canonicalize(launcher).ok()?;
+        let launcher = Self::resolved(&launcher).ok()?;
         let home = launcher.parent()?.parent()?;
         Self::at(home)
+    }
+
+    /// A launcher reached through a link resolves to its installed folder. Windows resolves to a
+    /// `\\?\` path, which Java cannot read in a class path, and links are rare there, so on
+    /// Windows the launcher path is only made absolute.
+    fn resolved(launcher: &Path) -> std::io::Result<PathBuf> {
+        let resolve: [fn(&Path) -> std::io::Result<PathBuf>; 2] = [
+            |path| std::fs::canonicalize(path),
+            |path| std::path::absolute(path),
+        ];
+        resolve[usize::from(cfg!(windows))](launcher)
     }
 
     fn at(home: &Path) -> Option<Self> {

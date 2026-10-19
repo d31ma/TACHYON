@@ -41,7 +41,7 @@ impl KotlinHelperUnit {
 
 #[test]
 fn a_kotlin_test_unit_builds_a_service_with_its_helpers() {
-    if std::process::Command::new("kotlinc")
+    if crate::kotlin_home::KotlinHome::command("kotlinc")
         .arg("-version")
         .output()
         .is_err()

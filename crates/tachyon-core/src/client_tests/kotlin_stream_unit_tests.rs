@@ -52,7 +52,7 @@ impl KotlinStreamUnit {
 
 #[test]
 fn a_kotlin_test_unit_builds_stream_clients_and_its_socket_has_no_page() {
-    if std::process::Command::new("kotlinc")
+    if crate::kotlin_home::KotlinHome::command("kotlinc")
         .arg("-version")
         .output()
         .is_err()

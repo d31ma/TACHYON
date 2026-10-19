@@ -1,6 +1,21 @@
 #include <chrono>
 #include <thread>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <cwchar>
+#include <cwctype>
+#include <future>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#undef DELETE
+#undef IN
+#undef OUT
+#undef OPTIONAL
+#else
 #include <cerrno>
 #include <csignal>
 #include <fcntl.h>
@@ -143,9 +158,215 @@ private:
         return text;
     }
 
+    static http::HttpResponseMessage answered(bool exitedCleanly, const Output& stdoutText, const Output& stderrText) {
+        if (stdoutText.overflowed || stderrText.overflowed) {
+            return failure("overflow");
+        }
+        if (!exitedCleanly) {
+            return failure("exit");
+        }
+        if (!YonText::valid(stdoutText.kept)) {
+            return failure("protocol");
+        }
+        std::optional<http::HttpResponseMessage> response = envelope(stdoutText.kept);
+        if (!response.has_value()) {
+            return failure("protocol");
+        }
+        return *response;
+    }
+
 #ifdef _WIN32
-    static http::HttpResponseMessage exchange(const std::vector<std::string>&, const std::string&) {
-        return failure("start");
+    struct Pipe {
+        HANDLE read = nullptr;
+        HANDLE write = nullptr;
+    };
+
+    static std::wstring wide(const std::string& text) {
+        if (text.empty()) {
+            return std::wstring();
+        }
+        int length = MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
+        std::wstring written(static_cast<std::size_t>(std::max(length, 0)), L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), written.data(), length);
+        return written;
+    }
+
+    static std::wstring quoted(const std::wstring& argument) {
+        if (!argument.empty() && argument.find_first_of(L" \t\n\v\"") == std::wstring::npos) {
+            return argument;
+        }
+        std::wstring written = L"\"";
+        std::size_t backslashes = 0;
+        for (wchar_t character : argument) {
+            if (character == L'\\') {
+                backslashes += 1;
+                continue;
+            }
+            written.append(character == L'"' ? backslashes * 2 + 1 : backslashes, L'\\');
+            backslashes = 0;
+            written.push_back(character);
+        }
+        written.append(backslashes * 2, L'\\');
+        written.push_back(L'"');
+        return written;
+    }
+
+    static std::wstring commandLine(const std::vector<std::string>& command) {
+        std::wstring written;
+        for (const std::string& argument : command) {
+            written += (written.empty() ? L"" : L" ") + quoted(wide(argument));
+        }
+        return written;
+    }
+
+    static bool passedOn(const std::wstring& entry) {
+        std::wstring name = entry.substr(0, entry.find(L'=', 1));
+        std::transform(name.begin(), name.end(), name.begin(), [](wchar_t character) {
+            return static_cast<wchar_t>(std::towupper(character));
+        });
+        return name != L"YON_APPLICATION_JSON" && name.rfind(L"YON_RESOURCE_", 0) != 0;
+    }
+
+    static std::wstring environment() {
+        std::wstring block;
+        wchar_t* strings = GetEnvironmentStringsW();
+        for (wchar_t* entry = strings; entry != nullptr && *entry != L'\0'; entry += std::wcslen(entry) + 1) {
+            std::wstring pair(entry);
+            block += passedOn(pair) ? pair + L'\0' : std::wstring();
+        }
+        if (strings != nullptr) {
+            FreeEnvironmentStringsW(strings);
+        }
+        block.push_back(L'\0');
+        return block;
+    }
+
+    static bool openPipe(Pipe& pipe, bool childReads) {
+        SECURITY_ATTRIBUTES inherited{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+        if (!CreatePipe(&pipe.read, &pipe.write, &inherited, 0)) {
+            return false;
+        }
+        return SetHandleInformation(childReads ? pipe.write : pipe.read, HANDLE_FLAG_INHERIT, 0) != 0;
+    }
+
+    static void closeAll(std::initializer_list<HANDLE> handles) {
+        for (HANDLE handle : handles) {
+            if (handle != nullptr && handle != INVALID_HANDLE_VALUE) {
+                CloseHandle(handle);
+            }
+        }
+    }
+
+    static HANDLE killingJob() {
+        HANDLE job = CreateJobObjectW(nullptr, nullptr);
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        bool limited = job != nullptr && SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof limits);
+        if (!limited) {
+            closeAll({job});
+            return nullptr;
+        }
+        return job;
+    }
+
+    static bool spawn(PROCESS_INFORMATION& process, HANDLE job, const std::vector<std::string>& command, const Pipe& input, const Pipe& output, const Pipe& errors) {
+        HANDLE inherited[3] = {input.read, output.write, errors.write};
+        SIZE_T size = 0;
+        InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+        std::vector<unsigned char> storage(size);
+        auto attributes = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(storage.data());
+        if (!InitializeProcThreadAttributeList(attributes, 1, 0, &size)) {
+            return false;
+        }
+        bool listed = UpdateProcThreadAttribute(attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherited, sizeof inherited, nullptr, nullptr) != 0;
+        STARTUPINFOEXW startup{};
+        startup.StartupInfo.cb = sizeof startup;
+        startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+        startup.StartupInfo.hStdInput = input.read;
+        startup.StartupInfo.hStdOutput = output.write;
+        startup.StartupInfo.hStdError = errors.write;
+        startup.lpAttributeList = attributes;
+        std::wstring line = commandLine(command);
+        std::wstring variables = environment();
+        DWORD flags = EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED | CREATE_NO_WINDOW;
+        bool started = listed && CreateProcessW(nullptr, line.data(), nullptr, nullptr, TRUE, flags, variables.data(), nullptr, &startup.StartupInfo, &process) != 0;
+        DeleteProcThreadAttributeList(attributes);
+        if (!started) {
+            return false;
+        }
+        if (!AssignProcessToJobObject(job, process.hProcess)) {
+            TerminateProcess(process.hProcess, 1);
+            closeAll({process.hThread, process.hProcess});
+            return false;
+        }
+        ResumeThread(process.hThread);
+        return true;
+    }
+
+    static void deliverAll(HANDLE end, const std::string& payload) {
+        std::size_t sent = 0;
+        DWORD count = 0;
+        while (sent < payload.size() && WriteFile(end, payload.data() + sent, static_cast<DWORD>(std::min<std::size_t>(payload.size() - sent, 65536)), &count, nullptr)) {
+            sent += count;
+        }
+        CloseHandle(end);
+    }
+
+    static void collectAll(HANDLE end, Output& output) {
+        char chunk[8192];
+        DWORD count = 0;
+        while (ReadFile(end, chunk, sizeof chunk, &count, nullptr) && count > 0) {
+            std::size_t room = output.limit - output.kept.size();
+            std::size_t taken = std::min<std::size_t>(room, count);
+            output.kept.append(chunk, taken);
+            output.overflowed = output.overflowed || count > room;
+        }
+        output.open = false;
+        CloseHandle(end);
+    }
+
+    static bool finishedInTime(HANDLE process, std::initializer_list<std::future<void>*> transfers) {
+        for (std::future<void>* transfer : transfers) {
+            if (transfer->wait_until(current().deadline) != std::future_status::ready) {
+                return false;
+            }
+        }
+        long long left = std::max<long long>(timeLeft(), 0);
+        return WaitForSingleObject(process, static_cast<DWORD>(std::min<long long>(left, INFINITE - 1))) == WAIT_OBJECT_0;
+    }
+
+    static http::HttpResponseMessage exchange(const std::vector<std::string>& command, const std::string& payload) {
+        Pipe input;
+        Pipe output;
+        Pipe errors;
+        HANDLE job = killingJob();
+        PROCESS_INFORMATION process{};
+        bool opened = job != nullptr && openPipe(input, true) && openPipe(output, false) && openPipe(errors, false);
+        bool started = opened && spawn(process, job, command, input, output, errors);
+        closeAll({input.read, output.write, errors.write});
+        if (!started) {
+            closeAll({input.write, output.read, errors.read, job});
+            return failure("start");
+        }
+        Output stdoutText{std::string(), MAX_STDOUT_BYTES};
+        Output stderrText{std::string(), MAX_STDERR_BYTES};
+        std::future<void> writing = std::async(std::launch::async, deliverAll, input.write, std::cref(payload));
+        std::future<void> reading = std::async(std::launch::async, collectAll, output.read, std::ref(stdoutText));
+        std::future<void> readingErrors = std::async(std::launch::async, collectAll, errors.read, std::ref(stderrText));
+        bool finished = finishedInTime(process.hProcess, {&reading, &readingErrors});
+        if (!finished) {
+            TerminateJobObject(job, 1);
+        }
+        writing.wait();
+        reading.wait();
+        readingErrors.wait();
+        DWORD code = 1;
+        bool exitedCleanly = finished && GetExitCodeProcess(process.hProcess, &code) && code == 0;
+        closeAll({process.hThread, process.hProcess, job});
+        if (!finished) {
+            return failure("timeout");
+        }
+        return answered(exitedCleanly, stdoutText, stderrText);
     }
 #else
     static std::vector<std::string> environment() {
@@ -340,24 +561,7 @@ private:
             stop(child);
             return failure("timeout");
         }
-        return answered(*status, stdoutText, stderrText);
-    }
-
-    static http::HttpResponseMessage answered(int status, const Output& stdoutText, const Output& stderrText) {
-        if (stdoutText.overflowed || stderrText.overflowed) {
-            return failure("overflow");
-        }
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-            return failure("exit");
-        }
-        if (!YonText::valid(stdoutText.kept)) {
-            return failure("protocol");
-        }
-        std::optional<http::HttpResponseMessage> response = envelope(stdoutText.kept);
-        if (!response.has_value()) {
-            return failure("protocol");
-        }
-        return *response;
+        return answered(WIFEXITED(*status) && WEXITSTATUS(*status) == 0, stdoutText, stderrText);
     }
 #endif
 };

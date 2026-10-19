@@ -7,22 +7,29 @@ impl ProgramProbe {
     const WINDOWS_SHELL_RUN: [&str; 2] = ["/D", "/C"];
 
     /// Kotlin and Groovy ship only `.bat` launchers on Windows, which a spawn by name cannot
-    /// find, so there the probe asks the shell, which searches `PATHEXT`.
+    /// find, so there a program the spawn misses is asked for through the shell, which searches
+    /// `PATHEXT`.
     pub fn answers(program: &str, flag: &str) -> bool {
-        Self::command(program)
-            .arg(flag)
+        let shell = Self::shell_command(program);
+        [Some(Command::new(program)), shell]
+            .into_iter()
+            .flatten()
+            .any(|mut command| Self::succeeds(command.arg(flag)))
+    }
+
+    fn succeeds(command: &mut Command) -> bool {
+        command
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|status| status.success())
     }
 
-    fn command(program: &str) -> Command {
-        if cfg!(windows) {
+    fn shell_command(program: &str) -> Option<Command> {
+        cfg!(windows).then(|| {
             let mut shell = Command::new(Self::WINDOWS_SHELL);
             shell.args(Self::WINDOWS_SHELL_RUN).arg(program);
-            return shell;
-        }
-        Command::new(program)
+            shell
+        })
     }
 }

@@ -1,23 +1,40 @@
-use crate::external_command::ToolError;
+use crate::external_command::{ToolError, ToolOutput};
 use std::process::{Command, Stdio};
 
-/// Node 24 on Windows ARM64 sometimes deadlocks at process exit: the main
-/// thread waits forever to join a V8 platform worker that missed its wake-up
-/// (seen in a debugger on 2026-10-17). A driver caught there has already
-/// printed its whole JSON report, so it is run once more instead of failing.
+/// Node 24 on Windows sometimes fails at process exit after a driver has printed
+/// its whole JSON report: on ARM64 the main thread can wait forever to join a V8
+/// platform worker that missed its wake-up (seen in a debugger on 2026-10-17),
+/// and a platform worker can wake an event-loop handle that exit is already
+/// closing, which aborts in libuv (seen on windows-latest on 2026-10-19). A
+/// driver caught there is run once more instead of failing.
 pub(super) struct ExitHang;
 
 impl ExitHang {
+    const CLOSING_HANDLE_ABORT: &'static str = "!(handle->flags & UV_HANDLE_CLOSING)";
+
     pub(super) fn seen(error: &ToolError) -> bool {
         let ToolError::TimedOut(partial) = error else {
             return false;
         };
-        let stdout = String::from_utf8_lossy(&partial.stdout);
-        stdout.ends_with('\n')
-            && stdout.lines().last().is_some_and(|line| {
-                serde_json::from_str::<serde_json::Value>(line)
-                    .is_ok_and(|report| report.is_object() || report.is_array())
-            })
+        Self::printed_report(&partial.stdout)
+    }
+
+    pub(super) fn crashed(output: &ToolOutput) -> bool {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        [
+            output.status.success(),
+            stderr.contains(Self::CLOSING_HANDLE_ABORT),
+            Self::printed_report(&output.stdout),
+        ] == [false, true, true]
+    }
+
+    fn printed_report(stdout: &[u8]) -> bool {
+        let stdout = String::from_utf8_lossy(stdout);
+        let last_report = stdout.lines().last().is_some_and(|line| {
+            serde_json::from_str::<serde_json::Value>(line)
+                .is_ok_and(|report| report.is_object() || report.is_array())
+        });
+        [stdout.ends_with('\n'), last_report] == [true, true]
     }
 
     pub(super) fn copy(command: &Command) -> Command {
@@ -40,18 +57,66 @@ impl ExitHang {
             "{description} printed its report but did not exit before its deadline; running it once more"
         );
     }
+
+    pub(super) fn announce_crash(description: &str) {
+        eprintln!(
+            "{description} printed its report but Node aborted while it exited; running it once more"
+        );
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::ExitHang;
-    use crate::external_command::{PartialOutput, ToolError};
+    use crate::external_command::{PartialOutput, ToolError, ToolOutput};
+    use std::process::ExitStatus;
 
     fn timed_out(stdout: &str) -> ToolError {
         ToolError::TimedOut(PartialOutput {
             stdout: stdout.as_bytes().to_vec(),
             stderr: Vec::new(),
         })
+    }
+
+    struct Exits;
+
+    impl Exits {
+        const ABORT: &'static str = "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\\win\\async.c, line 94\n";
+
+        #[cfg(unix)]
+        fn status(code: u8) -> ExitStatus {
+            std::os::unix::process::ExitStatusExt::from_raw(i32::from(code) << 8)
+        }
+
+        #[cfg(windows)]
+        fn status(code: u8) -> ExitStatus {
+            std::os::windows::process::ExitStatusExt::from_raw(u32::from(code))
+        }
+
+        fn output(code: u8, stdout: &str, stderr: &str) -> ToolOutput {
+            ToolOutput {
+                status: Self::status(code),
+                stdout: stdout.as_bytes().to_vec(),
+                stderr: stderr.as_bytes().to_vec(),
+            }
+        }
+    }
+
+    #[test]
+    fn only_a_libuv_abort_after_a_finished_report_is_an_exit_crash() {
+        let report = "{\"ok\":true}\n";
+        assert!(ExitHang::crashed(&Exits::output(3, report, Exits::ABORT)));
+        assert!(!ExitHang::crashed(&Exits::output(0, report, Exits::ABORT)));
+        assert!(!ExitHang::crashed(&Exits::output(
+            3,
+            report,
+            "Error: lost\n"
+        )));
+        assert!(!ExitHang::crashed(&Exits::output(
+            3,
+            "phase one\n",
+            Exits::ABORT
+        )));
     }
 
     #[test]

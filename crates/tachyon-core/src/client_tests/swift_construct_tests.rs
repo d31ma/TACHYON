@@ -49,7 +49,10 @@ fn swift_tests_construct_services_with_injected_fake_clients_and_typed_answers()
         .output()
         .is_err()
     {
-        assert!(std::env::var_os("CI").is_none(), "CI must provide swiftc");
+        assert!(
+            [cfg!(unix), std::env::var_os("CI").is_some()] != [true, true],
+            "CI must provide swiftc on Linux and macOS"
+        );
         eprintln!("skipping: swiftc is unavailable");
         return;
     }
