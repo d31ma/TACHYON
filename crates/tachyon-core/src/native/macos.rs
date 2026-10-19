@@ -238,7 +238,7 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
 <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
 <key>CFBundleName</key><string>{name}</string>{location}
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>{version}</string>
+<key>CFBundleShortVersionString</key><string>{version}</string>{url_types}
 <key>CFBundleVersion</key><string>{build}</string>
 <key>LSMinimumSystemVersion</key><string>{minimum}</string>
 <key>NSHighResolutionCapable</key><true/>
@@ -256,6 +256,9 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
         location = application.permissions.location_plist_entries(
             &super::browser_api_permissions::BrowserApiPermissions::MACOS_LOCATION_KEYS
         ),
+        url_types = application
+            .links
+            .url_types_plist(&application.application_id),
     )
 }
 
@@ -433,6 +436,7 @@ impl MacOsHostGenerator {
         let policy = quoted_string_escape(&application.content_security_policy());
         let browser_api_grants =
             super::apple_browser_apis::AppleBrowserApis::swift_grants(&application.permissions);
+        let deep_links = super::native_deep_link::NativeDeepLink::swift_helper(&application.links);
         let mut values = vec![
             ("__ENTRY_DOCUMENT__", entry_document.as_str()),
             ("__ENTRY_ROUTE__", entry_route.as_str()),
@@ -441,6 +445,7 @@ impl MacOsHostGenerator {
             ("__BUNDLE_ID__", bundle_id.as_str()),
             ("__CONTENT_SECURITY_POLICY__", policy.as_str()),
             ("__NATIVE_BROWSER_API_GRANTS__", browser_api_grants.as_str()),
+            ("__NATIVE_DEEP_LINKS__", deep_links.as_str()),
         ];
         values.extend_from_slice(platform_values);
         super::placeholder_fill::PlaceholderFill::once(host, &values)
@@ -540,6 +545,7 @@ private func tacRustEmit(_ payload: UnsafePointer<CChar>?) {
 }"#;
 
     const SWIFT_HOST: &str = r##"import AppKit
+import CoreServices
 import WebKit
 import Foundation
 import UniformTypeIdentifiers
@@ -557,6 +563,7 @@ __NATIVE_APPLICATION_STATE__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
+__NATIVE_DEEP_LINKS__
 
 private func tachyonRoute(_ path: String) -> String? {
     guard path.utf8.count <= 2048, !path.contains("\\"), !path.split(separator: "/").contains("..") else { return nil }
@@ -794,6 +801,28 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private var menus: MacOsMenus?
     private var titleBar: MacOsTitleBar?
     private var terminated = false
+    private var launchTarget: String?
+    private var launched = false
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        NSAppleEventManager.shared().setEventHandler(
+            self, andSelector: #selector(openLink(_:withReplyEvent:)),
+            forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+    }
+
+    @objc private func openLink(_ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor) {
+        guard let link = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
+              let target = TacDeepLink.target(link), let url = URL(string: target) else { return }
+        Telemetry.shared.record("link.opened")
+        if let view = webView {
+            view.load(URLRequest(url: url))
+        } else {
+            launchTarget = target
+            if launched && !terminated { openWindow() }
+        }
+        window?.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MacOsFilePicker.shared.granted = __NATIVE_FILE_PICKER_GRANTED__
@@ -810,6 +839,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             NSApplication.didUnhideNotification: "foreground",
             NSWindow.didDeminiaturizeNotification: "foreground",
         ])
+        launched = true
         NSApplication.shared.activate(ignoringOtherApps: true)
         Telemetry.shared.record("bridge.ready")
     }
@@ -860,8 +890,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         NativeBridge.shared.window = window
         installMenus(view, window)
 
+        let first = launchTarget.flatMap { URL(string: $0) } ?? URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!
+        launchTarget = nil
         AppleBrowserApis.shared.prepare(view) {
-            view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
+            view.load(URLRequest(url: first))
         }
     }
 
@@ -983,6 +1015,7 @@ mod tests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            links: crate::native::native_links::NativeLinks::default(),
         }
     }
 

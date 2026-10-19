@@ -101,6 +101,14 @@ tac.application.minimumSystem                          native
   below the floor stops the build (TY1601). Windows and Linux
   check the web view at startup and explain an old one.
 
+tac.application.links                            build, native
+  { "schemes": ["myapp"], "hosts": ["example.com"] }: the links that
+  open the app at the route of their path, or at start_url when the
+  route is unknown. Schemes are lowercase and not http, https, mailto
+  or file; hosts are verified web links. With hosts, the web build
+  writes the .well-known association files from TAC_APPLE_TEAM_ID
+  and TAC_ANDROID_CERT_SHA256 (never the manifest), or prints a note.
+
 tac.nativeCapabilities                                 native
   ["filePicker"]: native capabilities a native service may use.
   The only name today; without it the picker answers denied.

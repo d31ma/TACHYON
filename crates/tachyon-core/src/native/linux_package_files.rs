@@ -21,8 +21,8 @@ impl LinuxPackageFiles {
              Type=Application\n\
              Name={name}\n\
              Comment={summary}\n\
-             Exec={package}\n\
-             {icon}\
+             Exec={package}{exec_argument}\n\
+             {icon}{mime_types}\
              Terminal=false\n\
              Categories=Utility;\n\
              X-Tachyon-Version={version}\n\
@@ -30,6 +30,8 @@ impl LinuxPackageFiles {
             name = Self::desktop_value(&application.name),
             summary = Self::desktop_value(&Self::summary(application)),
             package = names.package,
+            exec_argument = application.links.desktop_exec_argument(),
+            mime_types = application.links.desktop_mime_types(),
             version = Self::desktop_value(&application.version),
             build = application.build,
         )
@@ -168,6 +170,17 @@ mod tests {
         plain.icons.clear();
         let entry = LinuxPackageFiles::desktop_entry(&plain, &names(&plain));
         assert!(!entry.contains("Icon="));
+        assert!(!entry.contains("MimeType="));
+    }
+
+    #[test]
+    fn the_installed_desktop_entry_claims_the_declared_link_schemes() {
+        let mut application = application();
+        application.links = crate::native::native_links::NativeLinks::declared(&["gate"], &[]);
+        let entry = LinuxPackageFiles::desktop_entry(&application, &names(&application));
+        assert!(entry.contains(
+            "Exec=linuxgate %u\nIcon=dev.tachyon.linux_gate\nMimeType=x-scheme-handler/gate;\n"
+        ));
     }
 
     #[test]

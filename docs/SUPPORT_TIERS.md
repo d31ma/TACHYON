@@ -270,6 +270,19 @@ tier.
 | macOS, iOS WKWebView | yes, `NSWorkspace` and `UIApplication` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on the Mac |
 | Android WebView | yes, `ACTION_VIEW` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on an emulator |
 
+### Deep links on native hosts (2026-10-19)
+
+ADR 0106 adds `tac.application.links`. A link with a listed scheme, or an
+`https` link to a listed host, opens the app at its route. This evidence does
+not promote any tier.
+
+| Host | Implemented | Validated |
+| --- | --- | --- |
+| Linux WebKitGTK | yes: `.desktop` scheme handlers, `G_APPLICATION_HANDLES_OPEN` forwarding | `native_deep_link_tests::the_linux_app_opens_links_at_their_route_and_forwards_later_links_to_the_running_app` compiled the generated host with GTK 4 and WebKitGTK 6.0 (warnings as errors) and ran it with `dbus-run-session -- xvfb-run -a` in an x86_64 Ubuntu 24.04 cloud container: the launch link opened its route, and two later launches handed their links to the running window. Not run: WSL, a desktop with the `.desktop` file installed |
+| Windows WebView2 | yes: per-user scheme registration (MSIX: `windows.protocol` extensions), single instance, `WM_COPYDATA` forwarding | `native_deep_link_tests::a_second_windows_instance_forwards_its_link_to_the_first` built the registration and forwarding code with MinGW-w64 and ran it under Wine 9.0: the schemes were registered under `HKCU\Software\Classes` and a second process's link reached the first. `windows_package_tests::the_staged_layout_packs_and_signs_with_the_msix_sdk` packed a package that declares two schemes with `makemsix`, which validated its `windows.protocol` extensions against Microsoft's schemas (and refused an unknown extension category). Not run: MSVC, WebView2 on a desktop, an installed MSIX package |
+| macOS, iOS WKWebView | yes: `CFBundleURLTypes`, `kAEGetURL` (macOS), launch URL, `open url` and universal-link activity (iOS); associated domains with `TAC_APPLE_TEAM_ID` | source checks only; the Swift rule test needs `swiftc`. Owed: the Mac build, the simulator gate, and a signed device check of universal links |
+| Android WebView | yes: intent filters, `autoVerify` for hosts, `singleTask` with `onNewIntent` | the link rule ran with OpenJDK in the cloud; owed: the emulator gate |
+
 ### Browser APIs on native hosts (2026-10-19)
 
 ADR 0065's amendments of 2026-10-18 and 2026-10-19 cover `clipboard`,

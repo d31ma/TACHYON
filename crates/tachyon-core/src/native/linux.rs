@@ -138,14 +138,16 @@ fn desktop_entry(application: &NativeApplication) -> String {
         "[Desktop Entry]\n\
          Type=Application\n\
          Name={name}\n\
-         Exec=bin/{executable}\n\
-         {icon}\
+         Exec=bin/{executable}{exec_argument}\n\
+         {icon}{mime_types}\
          Terminal=false\n\
          Categories=Utility;\n\
          X-Tachyon-Version={version}\n\
          X-Tachyon-Build={build}\n",
         name = xml_escape(&application.name),
         executable = application.executable_name,
+        exec_argument = application.links.desktop_exec_argument(),
+        mime_types = application.links.desktop_mime_types(),
         version = application.version,
         build = application.build,
     )
@@ -247,9 +249,12 @@ __EXTERNAL_LINK_HELPER__
 #define TACHYON_BUNDLE_ID "__BUNDLE_ID__"
 #define TACHYON_ENTRY_ROUTE "__ENTRY_ROUTE__"
 
+__DEEP_LINK_HELPER__
+
 static const gchar *TACHYON_NATIVE_SHIM = "__NATIVE_SHIM__";
 
 static gchar *g_route = NULL;
+static gchar *g_launch_target = NULL;
 static WebKitWebView *g_view = NULL;
 static int g_bundle_fd = -1;
 static gint g_pending_publishes = 0;
@@ -711,13 +716,30 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   gtk_accessible_update_property(GTK_ACCESSIBLE(view), GTK_ACCESSIBLE_PROPERTY_LABEL,
                                  TACHYON_APP_NAME, -1);
 
-  gchar *uri = g_strdup_printf("tachyon://app%s%s", TACHYON_ENTRY_ROUTE,
-                              g_str_has_suffix(TACHYON_ENTRY_ROUTE, "/") ? "" : "/");
+  gchar *uri = g_launch_target != NULL ? g_strdup(g_launch_target)
+      : g_strdup_printf("tachyon://app%s%s", TACHYON_ENTRY_ROUTE,
+                        g_str_has_suffix(TACHYON_ENTRY_ROUTE, "/") ? "" : "/");
   webkit_web_view_load_uri(view, uri);
   tachyon_record("bridge.ready");
   g_free(uri);
 
   gtk_window_present(GTK_WINDOW(window));
+}
+
+static void tachyon_open_links(GApplication *app, GFile **files, gint count, const gchar *hint, gpointer data) {
+  (void)hint;
+  (void)data;
+  char target[TACHYON_PATH_LIMIT];
+  for (gint index = 0; index < count; index++) {
+    gchar *link = g_file_get_uri(files[index]);
+    int opens = tachyon_deep_link_target(link, target, sizeof(target));
+    g_free(link);
+    if (!opens) continue;
+    tachyon_record("link.opened");
+    if (g_view != NULL) webkit_web_view_load_uri(g_view, target);
+    else { g_free(g_launch_target); g_launch_target = g_strdup(target); }
+  }
+  tachyon_activate(GTK_APPLICATION(app), NULL);
 }
 
 static void tachyon_shutdown(GApplication *app, gpointer data) {
@@ -732,15 +754,17 @@ static void tachyon_shutdown(GApplication *app, gpointer data) {
 
 int main(int argc, char **argv) {
   g_route = g_strdup(TACHYON_ENTRY_ROUTE);
-  GtkApplication *app = gtk_application_new("__GTK_APP_ID__", G_APPLICATION_DEFAULT_FLAGS);
+  GtkApplication *app = gtk_application_new("__GTK_APP_ID__", G_APPLICATION_HANDLES_OPEN);
   g_signal_connect(app, "startup", G_CALLBACK(tachyon_startup), NULL);
   g_signal_connect(app, "activate", G_CALLBACK(tachyon_activate), NULL);
+  g_signal_connect(app, "open", G_CALLBACK(tachyon_open_links), NULL);
   g_signal_connect(app, "shutdown", G_CALLBACK(tachyon_shutdown), NULL);
   g_unix_signal_add(SIGTERM, tachyon_terminate, app);
   g_unix_signal_add(SIGINT, tachyon_terminate, app);
   int status = g_application_run(G_APPLICATION(app), argc, argv);
   g_object_unref(app);
   g_free(g_route);
+  g_free(g_launch_target);
   return status;
 }
 "#;
@@ -768,6 +792,7 @@ mod tests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            links: crate::native::native_links::NativeLinks::default(),
         }
     }
 

@@ -42,6 +42,9 @@ tac.application.build
 tac.application.minimumSystem
   adapted: On Android, tac.application.minimumSystem.android is the minSdk API level (26 to 35). Dart and Java web services need Android System WebView 119, which Google Play updates apart from Android, so their need does not raise the API level.
 
+tac.application.links
+  adapted: tac.application.links: the Android app claims the listed schemes, and https links to the listed hosts with autoVerify, and opens them at their route, or at start_url when the route is unknown. Android verifies the hosts only when each one serves /.well-known/assetlinks.json with the app's signing certificate (TAC_ANDROID_CERT_SHA256); until then it asks which app opens their links.
+
 tac.application.window.width, height
   not applicable: tac.application.window width and height have no meaning on Android: the system sizes the app.
 
@@ -199,7 +202,7 @@ external links
   honored: http, https and mailto links open in the default browser or mail app (ACTION_VIEW)
 
 deep links
-  adapted: The Android app cannot be opened at a route from a link yet (LK2).
+  honored: with tac.application.links, a link with a listed scheme, or an https link to a listed host, opens the app at its route
 
 background and foreground signal
   honored: ApplicationStateChanged on onStop and onStart

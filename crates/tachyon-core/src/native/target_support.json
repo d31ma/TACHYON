@@ -140,6 +140,16 @@
     "android": {"reach": "adapted", "note": "On Android, tac.application.minimumSystem.android is the minSdk API level (26 to 35). Dart and Java web services need Android System WebView 119, which Google Play updates apart from Android, so their need does not raise the API level."}
   },
   {
+    "member": "tac.application.links",
+    "paths": ["tac.application.links"],
+    "web": {"reach": "honored", "how": "every route already has its own address; with hosts listed, the web build writes /.well-known/apple-app-site-association when TAC_APPLE_TEAM_ID is set and /.well-known/assetlinks.json when tac.origin and TAC_ANDROID_CERT_SHA256 are set, and prints a note for each one it cannot write"},
+    "macos": {"reach": "adapted", "note": "tac.application.links: the macOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Links to the listed hosts stay in the browser, because the unsigned app has no associated domains (PKG1)."},
+    "windows": {"reach": "adapted", "note": "tac.application.links: the Windows app registers the listed schemes for the current user when it starts (a --release MSIX package declares them as windows.protocol extensions instead), and opens their links at their route, or at start_url when the route is unknown. A link that arrives while the app runs goes to the open window. Links to the listed hosts stay in the browser, because the app declares no app URI handlers."},
+    "linux": {"reach": "adapted", "note": "tac.application.links: the Linux .desktop file claims the listed schemes once it is installed, as the release .deb and AppImage do, and the app opens their links at their route, or at start_url when the route is unknown. A link that arrives while the app runs goes to the open window. Linux has no verified web links, so links to the listed hosts stay in the browser."},
+    "ios": {"reach": "adapted", "note": "tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a signed device build (PKG2); until then only the custom schemes open the app."},
+    "android": {"reach": "adapted", "note": "tac.application.links: the Android app claims the listed schemes, and https links to the listed hosts with autoVerify, and opens them at their route, or at start_url when the route is unknown. Android verifies the hosts only when each one serves /.well-known/assetlinks.json with the app's signing certificate (TAC_ANDROID_CERT_SHA256); until then it asks which app opens their links."}
+  },
+  {
     "member": "tac.application.window.width, height",
     "paths": ["tac.application.window.width", "tac.application.window.height"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
@@ -663,11 +673,11 @@
     "member": "deep links",
     "paths": [],
     "web": {"reach": "honored", "how": "every route has its own URL"},
-    "macos": {"reach": "adapted", "note": "The macOS app cannot be opened at a route from a link yet (LK2)."},
-    "windows": {"reach": "adapted", "note": "The Windows app cannot be opened at a route from a link yet (LK2)."},
-    "linux": {"reach": "adapted", "note": "The Linux app cannot be opened at a route from a link yet (LK2)."},
-    "ios": {"reach": "adapted", "note": "The iOS app cannot be opened at a route from a link yet (LK2)."},
-    "android": {"reach": "adapted", "note": "The Android app cannot be opened at a route from a link yet (LK2)."}
+    "macos": {"reach": "honored", "how": "with tac.application.links, a link with a listed scheme opens the app at its route (kAEGetURL)"},
+    "windows": {"reach": "honored", "how": "with tac.application.links, a link with a listed scheme opens the app at its route; the app registers the scheme under HKCU\\Software\\Classes, or its MSIX package declares it, and hands later links to the running window"},
+    "linux": {"reach": "honored", "how": "with tac.application.links, a link with a listed scheme opens the app at its route through the .desktop file and GApplication, which hands later links to the running window"},
+    "ios": {"reach": "honored", "how": "with tac.application.links, a link with a listed scheme, or a universal link to a listed host, opens the app at its route"},
+    "android": {"reach": "honored", "how": "with tac.application.links, a link with a listed scheme, or an https link to a listed host, opens the app at its route"}
   },
   {
     "member": "background and foreground signal",

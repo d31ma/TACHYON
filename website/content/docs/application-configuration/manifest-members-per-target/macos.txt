@@ -42,6 +42,9 @@ tac.application.build
 tac.application.minimumSystem
   honored: LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)
 
+tac.application.links
+  adapted: tac.application.links: the macOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Links to the listed hosts stay in the browser, because the unsigned app has no associated domains (PKG1).
+
 tac.application.window.width, height
   honored: the first size of the window
 
@@ -199,7 +202,7 @@ external links
   honored: http, https and mailto links open in the default browser or mail app (NSWorkspace)
 
 deep links
-  adapted: The macOS app cannot be opened at a route from a link yet (LK2).
+  honored: with tac.application.links, a link with a listed scheme opens the app at its route (kAEGetURL)
 
 background and foreground signal
   honored: ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored

@@ -748,6 +748,10 @@ pub(super) fn c_source(
             ),
             ("__WEB_ENGINE_CHECK__", &web_engine_check),
             ("__PACKAGE_DATA__", WindowsHostGenerator::PACKAGE_DATA),
+            (
+                "__WINDOWS_DEEP_LINKS__",
+                super::native_deep_link::NativeDeepLink::WINDOWS,
+            ),
         ],
     )
 }
@@ -792,6 +796,8 @@ __SERVICE_COMPANIONS__
 #define TACHYON_ENTRY_ROUTE "__ENTRY_ROUTE__"
 #define TACHYON_SEPARATOR L'\x1f'
 #define TACHYON_WM_PUBLISH (WM_APP + 1)
+
+__DEEP_LINK_HELPER__
 
 static const char *TACHYON_NATIVE_SHIM = "__NATIVE_SHIM__";
 
@@ -1263,6 +1269,8 @@ static HRESULT STDMETHODCALLTYPE resource_invoke(ICoreWebView2WebResourceRequest
 static ICoreWebView2WebResourceRequestedEventHandlerVtbl g_resource_vtbl = {resource_query, resource_add_ref, resource_release, resource_invoke};
 static TachyonResourceHandler g_resource_handler = {&g_resource_vtbl};
 
+__WINDOWS_DEEP_LINKS__
+
 typedef struct { ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandlerVtbl *lpVtbl; } TachyonScriptHandler;
 static HRESULT STDMETHODCALLTYPE script_query(ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{b99369f3-9b11-47b5-bc6f-8e7895fcea17}"); }
 static ULONG STDMETHODCALLTYPE script_add_ref(ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler *self) { (void)self; return 1; }
@@ -1273,8 +1281,10 @@ static HRESULT STDMETHODCALLTYPE script_invoke(ICoreWebView2AddScriptToExecuteOn
   wchar_t *entry = tachyon_widen(TACHYON_ENTRY_ROUTE);
   if (entry == NULL) return E_OUTOFMEMORY;
   wchar_t document[TACHYON_PATH_LIMIT];
-  int written = _snwprintf_s(document, TACHYON_PATH_LIMIT, _TRUNCATE, L"https://tachyon.local%s%s",
-                           entry, entry[wcslen(entry)-1] != L'/' ? L"/" : L"");
+  int written = g_launch_target[0] != L'\0'
+      ? _snwprintf_s(document, TACHYON_PATH_LIMIT, _TRUNCATE, L"%s", g_launch_target)
+      : _snwprintf_s(document, TACHYON_PATH_LIMIT, _TRUNCATE, L"https://tachyon.local%s%s",
+                     entry, entry[wcslen(entry)-1] != L'/' ? L"/" : L"");
   free(entry);
   if (written < 0) return E_INVALIDARG;
   HRESULT navigation = ICoreWebView2_Navigate(g_webview, document);
@@ -1505,6 +1515,9 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int show) {
   (void)previous;
   (void)arguments;
+  tachyon_read_launch_link();
+  if (tachyon_forward_link()) return 0;
+  tachyon_register_link_schemes();
   if (FAILED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) return 1;
   if (!tachyon_web_engine_ready()) {
     tachyon_record("engine.unavailable");
@@ -1535,6 +1548,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   free(title);
   if (g_window == NULL) { tachyon_application_stop(); CoUninitialize(); return 1; }
   InterlockedExchangePointer(&g_publish_window, g_window);
+  tachyon_links_listen(instance);
   tachyon_menus_install(g_window);
   ShowWindow(g_window, tachyon_window_open(g_window, show));
 
@@ -1698,6 +1712,7 @@ mod tests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            links: crate::native::native_links::NativeLinks::default(),
         }
     }
 

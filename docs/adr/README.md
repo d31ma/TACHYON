@@ -118,3 +118,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [103. Native Apps Reach Yon Through a Declared Origin](0103-native-apps-reach-yon-through-a-declared-origin.md)
 - [104. Release Packages Are Opt-In and Signed From the Environment](0104-release-packages-are-opt-in-and-signed-from-the-environment.md)
 - [105. Swift and Rust Browser Listeners May Be Async](0105-swift-and-rust-browser-listeners-may-be-async.md)
+- [106. Deep Links Come From the Manifest](0106-deep-links-come-from-the-manifest.md)

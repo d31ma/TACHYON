@@ -222,6 +222,25 @@ impl<'a> SiteBuild<'a> {
         Ok(())
     }
 
+    pub(super) fn add_site_association_files(
+        &mut self,
+        site: &crate::native::SiteSettings,
+    ) -> Result<(), Failure> {
+        let files = (!site.link_hosts.is_empty())
+            .then(|| {
+                crate::native::SiteAssociation::files(
+                    self.snapshot_root,
+                    self.project.root(),
+                    site.origin.as_deref(),
+                    &mut self.service_notes,
+                )
+            })
+            .transpose()?
+            .unwrap_or_default();
+        self.files.extend(files);
+        Ok(())
+    }
+
     pub(super) fn write_output(mut self) -> Result<BuildResult, Failure> {
         let mut files = std::mem::take(&mut self.files);
         files.sort_by_key(|value| PortablePath::of(&value.0));

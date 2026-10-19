@@ -42,6 +42,9 @@ tac.application.build
 tac.application.minimumSystem
   adapted: On Windows, tac.application.minimumSystem.windows is the WebView2 Runtime version (86.0 unless set; 119.0 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains a missing or older runtime instead of opening a blank window.
 
+tac.application.links
+  adapted: tac.application.links: the Windows app registers the listed schemes for the current user when it starts (a --release MSIX package declares them as windows.protocol extensions instead), and opens their links at their route, or at start_url when the route is unknown. A link that arrives while the app runs goes to the open window. Links to the listed hosts stay in the browser, because the app declares no app URI handlers.
+
 tac.application.window.width, height
   honored: the client area, in device-independent pixels
 
@@ -199,7 +202,7 @@ external links
   honored: http, https and mailto links open in the default browser or mail app (ShellExecuteW)
 
 deep links
-  adapted: The Windows app cannot be opened at a route from a link yet (LK2).
+  honored: with tac.application.links, a link with a listed scheme opens the app at its route; the app registers the scheme under HKCU\Software\Classes, or its MSIX package declares it, and hands later links to the running window
 
 background and foreground signal
   honored: ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored

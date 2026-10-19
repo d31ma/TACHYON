@@ -47,6 +47,8 @@ impl IosHostGenerator {
         let swift_path = stage.join("project").join("TachyonHost.swift");
         write_host_source(&swift_path, &swift_source(application, call, index))?;
         let icons = stage_icons(application, web_bundle, &bundle).await?;
+        let entitlements =
+            super::ios_entitlements::IosEntitlements::write(application, &stage.join("project"))?;
         write(
             &bundle.join("Info.plist"),
             info_plist(application, &icons).as_bytes(),
@@ -61,7 +63,7 @@ impl IosHostGenerator {
         let deployment = application.minimum_system.floor(NativeTarget::Ios);
         let swift_version =
             compile_swift(&swift_path, companion.as_deref(), deployment, &executable).await?;
-        super::macos::sign_bundle(&bundle).await?;
+        super::ios_entitlements::IosEntitlements::sign(&bundle, entitlements.as_deref()).await?;
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(bundle_name),
             toolchain_name: String::from("swift"),
@@ -180,7 +182,7 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
 <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
 <key>CFBundleName</key><string>{name}</string>{location}
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>{version}</string>
+<key>CFBundleShortVersionString</key><string>{version}</string>{url_types}
 <key>CFBundleVersion</key><string>{build}</string>
 <key>CFBundleSupportedPlatforms</key><array><string>iPhoneSimulator</string></array>
 <key>DTPlatformName</key><string>iphonesimulator</string>
@@ -200,6 +202,9 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
         location = application.permissions.location_plist_entries(
             &super::browser_api_permissions::BrowserApiPermissions::IOS_LOCATION_KEYS
         ),
+        url_types = application
+            .links
+            .url_types_plist(&application.application_id),
     )
 }
 
@@ -259,6 +264,7 @@ __NATIVE_BROWSER_APIS__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
+__NATIVE_DEEP_LINKS__
 
 private func tachyonRoute(_ path: String) -> String? {
     guard path.utf8.count <= 2048, !path.contains("\\"), !path.split(separator: "/").contains("..") else { return nil }
@@ -476,6 +482,14 @@ private func tachyonRelayPublish(_ payload: String) {
 
 private final class RootViewController: UIViewController, WKNavigationDelegate {
     private var webView: WKWebView?
+    var launchTarget: String?
+
+    func open(_ target: String) {
+        guard let url = URL(string: target) else { return }
+        Telemetry.shared.record("link.opened")
+        guard let view = webView else { launchTarget = target; return }
+        view.load(URLRequest(url: url))
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -503,8 +517,10 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         webView = view
         NativeBridge.shared.webView = view
         __TACHYON_COMPANION_EMIT__
+        let first = launchTarget.flatMap { URL(string: $0) } ?? URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!
+        launchTarget = nil
         AppleBrowserApis.shared.prepare(view) {
-            view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
+            view.load(URLRequest(url: first))
         }
         Telemetry.shared.record("bridge.ready")
     }
@@ -546,13 +562,33 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         AppleBrowserApis.shared.granted = __NATIVE_BROWSER_API_GRANTS__
         let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = RootViewController()
+        let root = RootViewController()
+        if let link = options?[.url] as? URL, let target = TacDeepLink.target(link.absoluteString) {
+            root.open(target)
+        }
+        window.rootViewController = root
         window.makeKeyAndVisible()
         self.window = window
         AppleApplicationState.shared.watch([
             UIApplication.didEnterBackgroundNotification: "background",
             UIApplication.willEnterForegroundNotification: "foreground",
         ])
+        return true
+    }
+
+    func application(_ application: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        guard let target = TacDeepLink.target(url.absoluteString) else { return false }
+        (window?.rootViewController as? RootViewController)?.open(target)
+        return true
+    }
+
+    func application(
+        _ application: UIApplication, continue activity: NSUserActivity,
+        restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+    ) -> Bool {
+        guard activity.activityType == NSUserActivityTypeBrowsingWeb, let url = activity.webpageURL,
+              let target = TacDeepLink.target(url.absoluteString) else { return false }
+        (window?.rootViewController as? RootViewController)?.open(target)
         return true
     }
 
@@ -592,6 +628,7 @@ mod tests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            links: crate::native::native_links::NativeLinks::default(),
         }
     }
 

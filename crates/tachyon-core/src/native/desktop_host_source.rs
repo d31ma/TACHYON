@@ -22,6 +22,7 @@ impl DesktopHostSource {
         let app_name = c_string_escape(&application.name);
         let bundle_id = c_string_escape(&application.application_id);
         let entry_route = c_string_escape(&index.entry_route);
+        let deep_link = super::native_deep_link::NativeDeepLink::c_helper(&application.links);
         let mut values = vec![
             ("__APP_NAME__", app_name.as_str()),
             ("__BUNDLE_ID__", bundle_id.as_str()),
@@ -31,6 +32,7 @@ impl DesktopHostSource {
                 "__EXTERNAL_LINK_HELPER__",
                 super::native_external_link::NativeExternalLink::C_HELPER,
             ),
+            ("__DEEP_LINK_HELPER__", deep_link.as_str()),
         ];
         values.extend_from_slice(platform_values);
         super::placeholder_fill::PlaceholderFill::once(&framed, &values)

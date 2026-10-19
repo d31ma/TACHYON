@@ -42,6 +42,9 @@ tac.application.build
 tac.application.minimumSystem
   not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
 
+tac.application.links
+  honored: every route already has its own address; with hosts listed, the web build writes /.well-known/apple-app-site-association when TAC_APPLE_TEAM_ID is set and /.well-known/assetlinks.json when tac.origin and TAC_ANDROID_CERT_SHA256 are set, and prints a note for each one it cannot write
+
 tac.application.window.width, height
   not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
 

@@ -155,6 +155,8 @@ fn the_package_manifest_names_the_app_publisher_version_and_tiles() {
     assert!(xml.contains(r#"Square44x44Logo="Assets\Square44x44Logo.png""#));
     assert!(xml.contains(r"<Logo>Assets\StoreLogo.png</Logo>"));
     assert!(xml.contains(r#"<rescap:Capability Name="runFullTrust"/>"#));
+    assert!(!xml.contains("<Extensions>"));
+    application.links = super::native_links::NativeLinks::declared(&["notes"], &[]);
     application.window.theme_color = Some(NativeThemeColor {
         red: 15,
         green: 108,
@@ -169,6 +171,9 @@ fn the_package_manifest_names_the_app_publisher_version_and_tiles() {
     .expect("manifest");
     assert!(themed.contains(r##"BackgroundColor="#0f6cbd""##));
     assert!(themed.contains(r#"ProcessorArchitecture="x64""#));
+    assert!(themed.contains(
+        "Square44x44Logo=\"Assets\\Square44x44Logo.png\"/>\n      <Extensions>\n        <uap:Extension Category=\"windows.protocol\"><uap:Protocol Name=\"notes\"/></uap:Extension>\n      </Extensions>\n    </Application>"
+    ));
 }
 
 #[test]
@@ -440,7 +445,8 @@ fn the_staged_layout_packs_and_signs_with_the_msix_sdk() {
     WindowsPackageTests::self_signed_certificate(root.path());
     let web = root.path().join("web");
     std::fs::create_dir_all(&web).expect("web");
-    let application = WindowsPackageTests::application(root.path());
+    let mut application = WindowsPackageTests::application(root.path());
+    application.links = super::native_links::NativeLinks::declared(&["notes", "notes+v2"], &[]);
     let values = BTreeMap::from([
         (WindowsRelease::CERTIFICATE, String::from("signing.pfx")),
         (

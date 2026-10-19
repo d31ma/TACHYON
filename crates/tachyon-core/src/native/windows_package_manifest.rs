@@ -83,7 +83,7 @@ impl WindowsPackageManifest<'_> {
   <Applications>
     <Application Id="{application_id}" Executable="bin\{executable}.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements DisplayName="{name}" Description="{name}" BackgroundColor="{background}"
-        Square150x150Logo="{square_150}" Square44x44Logo="{square_44}"/>
+        Square150x150Logo="{square_150}" Square44x44Logo="{square_44}"/>{protocols}
     </Application>
   </Applications>
   <Capabilities>
@@ -104,6 +104,7 @@ impl WindowsPackageManifest<'_> {
             background = Self::background(application),
             square_150 = WindowsPackageTiles::SQUARE_150.manifest_path(),
             square_44 = WindowsPackageTiles::SQUARE_44.manifest_path(),
+            protocols = application.links.msix_protocols(),
         ))
     }
 

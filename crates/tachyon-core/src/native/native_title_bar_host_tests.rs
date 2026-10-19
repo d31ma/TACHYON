@@ -82,6 +82,7 @@ document.getElementById('action').addEventListener('click', () => { globalThis._
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            links: crate::native::native_links::NativeLinks::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

@@ -2,11 +2,13 @@ mod android;
 mod android_browser_apis;
 mod android_gradle_build;
 mod android_release;
+mod android_signing_certificate;
 #[cfg(test)]
 mod android_yon_http_tests;
 mod android_yon_reach;
 mod apple_browser_apis;
 mod apple_icons;
+mod apple_team;
 #[cfg(test)]
 mod application_state_tests;
 mod browser_api_bridge;
@@ -42,6 +44,7 @@ mod go_web_build;
 mod held_service;
 mod host;
 mod ios;
+mod ios_entitlements;
 mod ios_window_controls;
 mod java_web_services;
 mod kotlin_held_streams;
@@ -123,6 +126,9 @@ mod native_capability_tests;
 mod native_cfg_impl_tests;
 #[cfg(test)]
 mod native_content_security_policy_tests;
+mod native_deep_link;
+#[cfg(test)]
+mod native_deep_link_tests;
 mod native_display;
 mod native_external_link;
 #[cfg(test)]
@@ -133,6 +139,7 @@ mod native_file_picker_limit_tests;
 mod native_file_picker_permission_tests;
 #[cfg(test)]
 mod native_helper_tests;
+mod native_links;
 mod native_menu_action;
 mod native_menu_action_check;
 #[cfg(test)]
@@ -233,6 +240,7 @@ mod rust_service_scopes;
 mod rust_web_module;
 mod service_companions;
 mod site;
+mod site_association;
 mod site_map;
 #[cfg(test)]
 mod site_tests;
@@ -298,6 +306,7 @@ pub use release_packaging::ReleasePackaging;
 pub(crate) use rust::companion_prelude;
 pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
 pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
+pub(crate) use site_association::SiteAssociation;
 pub(crate) use site_map::SiteMap;
 pub(crate) use style_source::StyleSource;
 pub(crate) use swift_web_services::SwiftWebServices;

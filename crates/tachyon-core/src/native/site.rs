@@ -19,6 +19,7 @@ pub(crate) struct SiteSettings {
     pub(crate) browser_apis: Vec<String>,
     pub(crate) elements: Vec<String>,
     pub(crate) yon_origin: Option<String>,
+    pub(crate) link_hosts: Vec<String>,
 }
 
 impl SiteSettings {
@@ -36,6 +37,7 @@ impl SiteSettings {
 
     fn from_manifest(manifest: super::config::WebAppManifest) -> Result<Self, Failure> {
         let manifest_head = manifest_head(&manifest);
+        let link_hosts = manifest.link_hosts();
         let tac = manifest.into_tac();
         Self::validate_origin(tac.origin.as_deref())?;
         validate_document_paths("scripts", &tac.scripts)?;
@@ -62,6 +64,7 @@ impl SiteSettings {
             browser_apis,
             elements: tac.elements,
             yon_origin,
+            link_hosts,
         })
     }
 

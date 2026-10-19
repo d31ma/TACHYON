@@ -416,6 +416,7 @@ impl WebCompiler {
         build.finish_phase(SiteBuild::SERVICES_PHASE);
         build.add_manifest_and_worker_files(&manifest, &cache_rules)?;
         build.add_site_map_files(&site)?;
+        build.add_site_association_files(&site)?;
         build.finish_phase("manifest and service worker");
         build.write_output()
     }

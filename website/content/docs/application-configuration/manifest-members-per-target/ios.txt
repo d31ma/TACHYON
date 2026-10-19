@@ -42,6 +42,9 @@ tac.application.build
 tac.application.minimumSystem
   honored: MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)
 
+tac.application.links
+  adapted: tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a signed device build (PKG2); until then only the custom schemes open the app.
+
 tac.application.window.width, height
   not applicable: tac.application.window width and height have no meaning on iOS: the system sizes the app.
 
@@ -199,7 +202,7 @@ external links
   honored: http, https and mailto links open in the default browser or mail app (UIApplication)
 
 deep links
-  adapted: The iOS app cannot be opened at a route from a link yet (LK2).
+  honored: with tac.application.links, a link with a listed scheme, or a universal link to a listed host, opens the app at its route
 
 background and foreground signal
   honored: ApplicationStateChanged when the app enters the background and when it returns to the foreground

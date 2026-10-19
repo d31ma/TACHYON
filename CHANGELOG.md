@@ -75,6 +75,19 @@ machine contracts have their own, independent major versions.
   a `SignedIn` route, and its page exercises each one.
   `scripts/yon-reach-fixture-test.mjs` runs it in Chromium, and
   `scripts/windows/yon-reach.ps1` runs it in the packaged Windows app.
+- Native apps open from links. `tac.application.links` in
+  `client/manifest.json` lists URL `schemes`, such as `["myapp"]`, and
+  `hosts` for verified web links (ADR 0106). A link opens the app at the
+  route of its path, with its query, or at `start_url` when the route is
+  unknown. macOS (`kAEGetURL`), iOS, Android (intent filters, `autoVerify`
+  for the hosts, `singleTask`), Linux (`.desktop` scheme handlers and
+  `GApplication` forwarding) and Windows (per-user registration at startup
+  and `WM_COPYDATA` forwarding to the running app; the MSIX package
+  declares them) claim the schemes. With `hosts`, the web build writes
+  `/.well-known/apple-app-site-association` when `TAC_APPLE_TEAM_ID` is set
+  and `/.well-known/assetlinks.json` when `tac.origin` and
+  `TAC_ANDROID_CERT_SHA256` are set, and an iOS build signs the app with its
+  associated domains. Android's `route.open` now navigates.
 
 - `ty bundle --target android --release` builds a signed release APK and an
   Android App Bundle (`.aab`) for Google Play, both in

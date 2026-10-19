@@ -42,6 +42,9 @@ tac.application.build
 tac.application.minimumSystem
   adapted: On Linux, tac.application.minimumSystem.linux is the WebKitGTK version (2.40 unless set; 2.46 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains an older WebKitGTK instead of opening a blank window.
 
+tac.application.links
+  adapted: tac.application.links: the Linux .desktop file claims the listed schemes once it is installed, as the release .deb and AppImage do, and the app opens their links at their route, or at start_url when the route is unknown. A link that arrives while the app runs goes to the open window. Linux has no verified web links, so links to the listed hosts stay in the browser.
+
 tac.application.window.width, height
   honored: the first size of the page inside the window
 
@@ -199,7 +202,7 @@ external links
   honored: http, https and mailto links open in the default browser or mail app (GtkUriLauncher)
 
 deep links
-  adapted: The Linux app cannot be opened at a route from a link yet (LK2).
+  honored: with tac.application.links, a link with a listed scheme opens the app at its route through the .desktop file and GApplication, which hands later links to the running window
 
 background and foreground signal
   honored: ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again

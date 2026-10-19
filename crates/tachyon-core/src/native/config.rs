@@ -24,6 +24,7 @@ pub(super) struct NativeApplication {
     pub(super) permissions: super::browser_api_permissions::BrowserApiPermissions,
     pub(super) minimum_system: super::minimum_system::MinimumSystem,
     pub(super) description: String,
+    pub(super) links: super::native_links::NativeLinks,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -278,6 +279,9 @@ fn validate_manifest_application(application: &ManifestApplication) -> Result<()
     if let Some(problem) = application.minimum_system.problem() {
         return Err(config_failure(problem));
     }
+    if let Some(problem) = application.links.problem() {
+        return Err(config_failure(problem));
+    }
     if let Some(id) = &application.id
         && !valid_application_id(id)
     {
@@ -483,6 +487,12 @@ impl WebAppManifest {
         super::browser_api_permissions::BrowserApiPermissions::declared(granted, &usage)
     }
 
+    pub(super) fn link_hosts(&self) -> Vec<String> {
+        self.application()
+            .map(|application| application.links.hosts().to_vec())
+            .unwrap_or_default()
+    }
+
     pub(super) fn into_tac(self) -> TacMember {
         self.tac.unwrap_or_default()
     }
@@ -574,6 +584,8 @@ struct ManifestApplication {
     permissions: BTreeMap<String, String>,
     #[serde(default, rename = "minimumSystem")]
     minimum_system: super::minimum_system::MinimumSystem,
+    #[serde(default)]
+    links: super::native_links::NativeLinks,
 }
 
 impl NativeApplication {
@@ -649,6 +661,7 @@ impl NativeApplication {
     fn apply_manifest_application(&mut self, application: &ManifestApplication) {
         self.menus.clone_from(&application.menus);
         self.minimum_system.clone_from(&application.minimum_system);
+        self.links.clone_from(&application.links);
         if let Some(id) = &application.id {
             self.application_id.clone_from(id);
         }
@@ -697,6 +710,7 @@ impl NativeApplication {
             permissions: super::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: super::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            links: super::native_links::NativeLinks::default(),
         }
     }
 

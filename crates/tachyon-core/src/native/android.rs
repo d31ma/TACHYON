@@ -182,12 +182,12 @@ fn stage_kotlin_models(
     Ok(())
 }
 
-fn java_package(application_id: &str) -> String {
-    let mut segments = Vec::new();
-    for segment in application_id.split('.') {
-        segments.push(java_package_segment(segment));
-    }
-    segments.join(".")
+pub(super) fn java_package(application_id: &str) -> String {
+    application_id
+        .split('.')
+        .map(java_package_segment)
+        .collect::<Vec<_>>()
+        .join(".")
 }
 
 fn java_package_segment(segment: &str) -> String {
@@ -324,11 +324,12 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
     <activity
         android:name=".MainActivity"
         android:exported="true"
+        android:launchMode="singleTask"
         android:label="@string/app_name">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
-      </intent-filter>
+      </intent-filter>__LINK_INTENT_FILTERS__
     </activity>
   </application>
 </manifest>
@@ -338,6 +339,10 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
         "__NETWORK_SECURITY__",
         super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin())
             .manifest_attribute(),
+    )
+    .replace(
+        "__LINK_INTENT_FILTERS__",
+        &application.links.android_intent_filters(),
     )
     .replace(
         "__INTERNET_PERMISSION__",
@@ -417,6 +422,10 @@ pub(super) fn java_source(
         .replace(
             "__APPLICATION_STATE__",
             include_str!("android_application_state.java"),
+        )
+        .replace(
+            "__NATIVE_DEEP_LINKS__",
+            &super::native_deep_link::NativeDeepLink::java_helper(&application.links),
         )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit);
@@ -590,7 +599,11 @@ public final class MainActivity extends Activity {
         return companionInvoke(payload);
       }
       if ("route.open".equals(capability)) {
+        String target;
+        try { target = routeTarget(new org.json.JSONObject(payload).optString("route", "/").replaceAll("^/+|/+$", ""), ""); }
+        catch (org.json.JSONException error) { return "{\"ok\":false,\"error\":\"Malformed route request.\"}"; }
         record("route.opened");
+        view.post(() -> view.loadUrl(target));
         return "{\"ok\":true,\"value\":{}}";
       }
       return "{\"ok\":false,\"error\":\"android host does not implement capability '"
@@ -602,6 +615,25 @@ __NATIVE_WINDOW_CONTROLS__
 __APPLICATION_STATE__
 
 __NATIVE_BROWSER_APIS__
+
+__NATIVE_DEEP_LINKS__
+
+  private volatile String launchTarget = ASSET_ORIGIN + ENTRY_DOCUMENT;
+
+  private String intentTarget(Intent intent) {
+    if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction()) || intent.getData() == null) return null;
+    return linkTarget(intent.getData().toString());
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    String target = intentTarget(intent);
+    if (target == null || view == null) return;
+    record("link.opened");
+    view.loadUrl(target);
+  }
 
   private boolean currentDocument(WebView web, long generation, String ownerRoute) {
     String url = web.getUrl();
@@ -850,6 +882,11 @@ __NATIVE_BROWSER_APIS__
           });
       root.requestApplyInsets();
     }
+    String linked = intentTarget(getIntent());
+    if (linked != null) {
+      launchTarget = linked;
+      record("link.opened");
+    }
     view.loadUrl(ASSET_ORIGIN + "__tachyon_bootstrap__.html?launch=" + System.nanoTime());
     record("bridge.ready");
   }
@@ -903,8 +940,8 @@ __NATIVE_BROWSER_APIS__
         + host.toLowerCase(java.util.Locale.ROOT) + port);
   }
 
-  private static String bootstrapDocument() {
-    String destination = org.json.JSONObject.quote(ASSET_ORIGIN + ENTRY_DOCUMENT);
+  private String bootstrapDocument() {
+    String destination = org.json.JSONObject.quote(launchTarget);
     return "<!doctype html><meta charset=utf-8><title>Starting application</title><body><script>"
         + "(async()=>{try{const retire=async()=>{if(navigator.serviceWorker){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));}"
         + "if(globalThis.caches){const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('tachyon-static-')).map(k=>caches.delete(k)));}};"
@@ -1100,6 +1137,7 @@ mod tests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            links: crate::native::native_links::NativeLinks::default(),
         }
     }
 
