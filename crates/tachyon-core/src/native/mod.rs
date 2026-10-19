@@ -282,6 +282,8 @@ mod windows;
 mod windows_architecture;
 mod windows_compiler_plan;
 #[cfg(test)]
+mod windows_file_picker_tests;
+#[cfg(test)]
 mod windows_host_tests;
 mod windows_package_manifest;
 #[cfg(test)]

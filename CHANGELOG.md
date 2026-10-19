@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Windows app opens the file dialog for `FilePicker` (ADR 0089
+  amendment). With `tac.nativeCapabilities: ["filePicker"]`, JavaScript,
+  TypeScript and linked Rust and C# services choose one file in
+  `IFileOpenDialog` and read it with `readText`, with the same limits as on
+  macOS: 64 KiB of UTF-8 text, 8 handles per service and 128 per app, 300
+  seconds per handle, one dialog at a time that cancels after 30 seconds.
+  Before, every call answered `unsupported` on Windows. The Windows host now
+  answers page calls from its window procedure instead of inside the
+  WebView2 event, and the page waits up to 40 seconds for `filePicker.open`
+  and `companion.invoke`.
+
 - The per-target support table has two more states (ADR 0102 amendment).
   `run owed` means a target supports a member in code, but the run that
   proves it there has not happened; the table names that run, and a build
@@ -27,6 +38,7 @@ machine contracts have their own, independent major versions.
   and iOS answers `HTTP_MISSING`, and that C# and Kotlin FilePicker fields
   answer unsupported on macOS. The docs, ADRs, support tiers and website
   pages that disagreed with the code or with the run records now match them.
+
 - Yon outbound HTTP markers now have run proof in every Yon language but
   C++ (which has its own test). One table-driven test,
   `tests/it/yon_outbound_verbs.rs`, gives JavaScript, TypeScript, Python, PHP,

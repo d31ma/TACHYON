@@ -118,7 +118,7 @@ tac.browserApis preferenceStrings
   run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch inside WebView2 on a signed-in Windows desktop
 
 tac.nativeCapabilities
-  not applied: tac.nativeCapabilities filePicker is not built for Windows yet. FilePicker answers unsupported (FP1).
+  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services; still to run: the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a picker opened from a WebView2 page on a signed-in Windows desktop
 
 tac.elements
   adapted: tac.elements are bundled into the Windows app for its own pages only. Other sites cannot load them from the app.

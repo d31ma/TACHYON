@@ -1,6 +1,6 @@
 # ADR 0089: Native Capabilities Are Activation-Owned Service Providers
 
-- Status: Accepted. The FilePicker works on macOS for JavaScript, TypeScript, Swift and Rust services. C# and Kotlin services receive the injected providers, but their FilePicker answers `unsupported`; Windows and Android have no picker.
+- Status: Accepted. The FilePicker works on macOS for JavaScript, TypeScript, Swift and Rust services, and on Windows for JavaScript, TypeScript and linked Rust and C# services (2026-10-19 amendment). C# and Kotlin services that run as WebAssembly receive the injected providers, but their FilePicker answers `unsupported`; Linux, iOS and Android have no picker.
 - Date: 2026-09-30
 - Relates to ADR 0025 (NeedsAll), ADR 0030 (native services), ADR 0065 (page APIs), ADR 0087 (WindowControls)
 
@@ -91,11 +91,12 @@ read; framework implementation remains subject to the repository unsafe ban.
 | macOS JavaScript/TypeScript | Needs filePicker resource, Promise results | provider and generated app execution, real panel selection/cancel |
 | macOS compiled Swift | Needs/NeedsAll FilePicker and WindowControls | generated companion compile/execution with fake, native host execution |
 | Browser tab | typed unsupported FilePicker result | provider execution |
-| FilePicker on iOS / Android / Linux / Windows | typed unsupported; no platform picker rollout | no OS picker interaction claim |
+| FilePicker on iOS / Android / Linux | typed unsupported; no platform picker rollout | no OS picker interaction claim |
+| Windows JavaScript/TypeScript, linked Rust and C# | `IFileOpenDialog` behind the same adapter (2026-10-19 amendment) | adapter and Wine dialog runs; MSVC and WebView2 page runs owed |
 | macOS compiled Rust | NeedsAll default providers, captured registration and native WindowControls | compiled fake/unsupported/disposal, static-library host link and actual owned-window title/resize/grant test |
 | Rust WebAssembly | existing page WindowControls, unsupported native FilePicker | generated wasm32 compilation |
 | Swift / C# / Kotlin WebAssembly | injected FilePicker that answers unsupported; existing page WindowControls | `ty bundle` web and non-linking native targets |
-| Native C# / Kotlin | Needs/NeedsAll captured providers, typed unsupported FilePicker, Windows/Android WindowControls registration | actual compiled activation/fake/disposal tests, Windows stub-host dispatch execution and complete Android API35 typecheck |
+| Native C# / Kotlin | Needs/NeedsAll captured providers, typed unsupported FilePicker (linked C# on Windows reaches the Windows picker since the 2026-10-19 amendment), Windows/Android WindowControls registration | actual compiled activation/fake/disposal tests, Windows stub-host dispatch execution and complete Android API35 typecheck |
 
 Later C# and Kotlin registration tests and four native example checks passed.
 They replace the earlier pending C# and Kotlin registration status. Windows
@@ -163,3 +164,52 @@ fills all 128 handles (16 owners with 8 each) and checks that the next
 `open` answers `unavailable` without adding a handle, that a ninth handle for
 one owner is refused, and, with a fake clock, that a handle still reads at
 299 seconds and at 300 seconds answers `invalid` and is removed.
+
+## Amendment (2026-10-19): the Windows host opens the file dialog
+
+The Windows host answers `filePicker.` calls itself instead of
+`unsupported`. The page reaches it through the WebView2 message bridge, and
+linked Rust and C# services reach it through
+`tac_native_set_capability_adapter`, which the host already registered. The
+adapter keeps the macOS rules: the owner must be a UUID, the grant comes from
+`tac.nativeCapabilities` and is checked before the dialog opens and again
+when it closes, at most 8 handles per owner and 128 per app, a handle ends
+after 300 seconds, one dialog at a time, and the dialog closes itself as
+cancelled after 30 seconds. `readText` reads at most 65,537 bytes and
+answers `tooLarge` past 65,536, and `invalid` for text that is not UTF-8.
+Answers carry the file name and an opaque handle, never the path. Every
+call must come from the window's thread; another thread gets `unavailable`.
+Navigation, window close and the owner's `dispose` remove the owner's
+handles and close an open dialog. The page also sees
+`__tachyonNativeFilePicker` and the grant list, as on macOS.
+
+The dialog is `IFileOpenDialog` with `FOS_FORCEFILESYSTEM`,
+`FOS_FILEMUSTEXIST`, `FOS_NOCHANGEDIR` and `FOS_DONTADDTORECENT`, and one
+selection. `text/plain` becomes the filter `*.txt;*.text`, and
+`application/json` becomes `*.json`. The contract has no save operation, so
+the host uses no `IFileSaveDialog`.
+
+WebView2 does not allow a modal dialog inside one of its event handlers. So
+`WebMessageReceived` now only queues the page message and posts
+`TACHYON_WM_PAGE_MESSAGE`; the window procedure answers queued messages in
+order. While a dialog is open, the host holds new page messages and
+companion task resumes, and answers them in order after the dialog closes.
+This keeps a linked service from being called again while it waits for its
+own `open`. Navigation drops messages that are still queued. The page waits
+40 seconds instead of 10 for `filePicker.open` and `companion.invoke`,
+because a dialog can stay open for 30 seconds.
+
+`windows_file_picker_tests` holds the evidence. Generated-source tests
+check the routes, the grant, the queue and the disposal. On 2026-10-19 the
+picker, built with MinGW-w64, ran under Wine 9.0 and Xvfb in an x86_64
+cloud container. With a test chooser it checked every status, the escaped
+UTF-8 text, the 65,536-byte limit, the handle limits and the 300-second
+expiry with a fake clock, a call from another thread, and that page messages
+and a task resume wait for the dialog and keep their order. It also drove
+Wine's real `IFileOpenDialog`: a helper typed a file name into the dialog,
+the file was selected and read back, and an unanswered dialog closed as
+`cancelled`. The whole generated host also passed a MinGW-w64 syntax check
+against the WebView2 1.0.3240.44 headers. The MSVC build and a run of the
+Windows dialog are `#[ignore]` tests for Windows. A picker opened from a
+WebView2 page needs a signed-in desktop (SD1).
+

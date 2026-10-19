@@ -394,7 +394,7 @@
     "paths": ["tac.nativeCapabilities"],
     "web": {"reach": "notApplicable", "note": "tac.nativeCapabilities is read only by native builds. In a browser, FilePicker answers unsupported."},
     "macos": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker opens the system file panel on macOS for page, Swift and Rust services. A FilePicker field in a C# or Kotlin service answers unsupported (FP5)."},
-    "windows": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for Windows yet. FilePicker answers unsupported (FP1)."},
+    "windows": {"reach": "runOwed", "how": "filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services", "run": "the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a picker opened from a WebView2 page on a signed-in Windows desktop"},
     "linux": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for Linux yet. FilePicker answers unsupported (FP3)."},
     "ios": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4)."},
     "android": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for Android yet. FilePicker answers unsupported (FP2)."}

@@ -196,6 +196,16 @@ Win32 headers. The MSVC build and the real-window check
 `the_windows_window_frame_drives_a_real_win32_window` still need a run on
 Windows; the caption color also needs a look on an interactive desktop.
 
+On 2026-10-19 the Windows host started to open the file dialog
+(`IFileOpenDialog`) for `FilePicker` (FP1, ADR 0089 amendment). The picker
+code, built with MinGW-w64, ran under Wine 9.0 and Xvfb in an x86_64 cloud
+container: `windows_file_picker_tests` checked the whole contract with a
+test chooser and drove Wine's real dialog to select and read a file and to
+cancel an unanswered one. The generated host passed a MinGW-w64 syntax
+check against the WebView2 headers. The MSVC build and the Windows dialog
+run (`the_windows_file_picker_selects_a_file_in_the_windows_dialog`) and a
+picker opened from a WebView2 page on a signed-in desktop are still owed.
+
 On 2026-10-18 the Linux host started to open its window from the manifest
 too: the page at `tac.application.window` size and minimum size, a hex
 `theme_color` as a GTK header bar color, and `"display": "fullscreen"` as a
