@@ -196,3 +196,17 @@ This is deny by default, like Spring Security.
 - The build check (`TY1326`) is unchanged. The run-time half now holds on
   the web server and in every native host, as `host_check.rs` already told
   developers.
+
+## Amendment (2026-10-19): native pages may frame their own documents
+
+- The native policy said `frame-src 'none'`, while the server's policy lets a
+  page frame documents from its own origin (`default-src 'self'`). Native
+  pages now use `frame-src 'self'` on every host, so an `<iframe>` of a
+  bundle document works as it does on the web. A frame from any other host
+  is still refused, and the native bridges still answer only the main frame
+  (ADR 0018).
+- An `about:srcdoc` frame inherits its parent's policy, so an inline script
+  in it never runs. A `srcdoc` frame that needs a script loads it from the
+  bundle with `<script src>`. The Android host test's opaque frame probe
+  does this, and its foreign frame probe now checks that the policy refuses
+  the frame (`securitypolicyviolation` on `frame-src`).

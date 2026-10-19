@@ -35,7 +35,7 @@ impl ContentSecurityPolicy {
         format!(
             "default-src 'self'; script-src {}{extra_scripts}; style-src 'self' 'unsafe-inline'; \
              img-src 'self' data: https:; font-src 'self' data: https:; connect-src {}; \
-             frame-src 'none'; object-src 'none'; base-uri 'self'",
+             frame-src 'self'; object-src 'none'; base-uri 'self'",
             Self::script_sources(),
             Self::connect_list(connect_sources)
         )
@@ -97,6 +97,13 @@ mod tests {
             listed.contains("connect-src 'self' https://api.example.com;"),
             "{listed}"
         );
+    }
+
+    #[test]
+    fn native_pages_frame_their_own_documents_like_web_pages() {
+        let native = ContentSecurityPolicy::native_host("");
+        assert!(native.contains("frame-src 'self';"), "{native}");
+        assert!(native.contains("object-src 'none';"), "{native}");
     }
 
     #[test]

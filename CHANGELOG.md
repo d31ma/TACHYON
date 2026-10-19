@@ -823,7 +823,9 @@ machine contracts have their own, independent major versions.
   the listed hosts instead of answering them with an empty body, and asks for
   the `INTERNET` permission only when the manifest lists a host. A native
   build refuses a `tac.outgoing.hosts` entry that is not a host name
-  (`TY1601`). See the ADR 0068 amendment.
+  (`TY1601`). Native pages may frame their own bundle documents
+  (`frame-src 'self'`), as web pages may; frames from other hosts stay
+  refused. See the ADR 0068 amendments.
 
 - Build settings in the `tac` member of `client/manifest.json` (`outgoing`,
   `budgets`, `visibility`, `types`, `tests`, `accessibility`, `simplify`,

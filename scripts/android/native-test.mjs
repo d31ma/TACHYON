@@ -56,6 +56,13 @@ export {}
 `);
   write(project, 'client/models/NativeEvent.kt', 'data class NativeEvent(val text: String)\n');
   write(project, 'client/shared/identity.txt', 'root-relative-native-asset');
+  write(project, 'client/shared/opaque-frame-probe.js', `const host = globalThis.__tachyonAndroidHost;
+let result = null;
+if (host && typeof host.call === 'function') {
+  result = host.call('companion.invoke', JSON.stringify({route:'/',service:'androidFirst',op:'call',name:'processId',args:[]}));
+}
+parent.postMessage({probe:'android-frame', exposed:!!host, result}, '*');
+`);
   write(project, 'client/shared/bridge-probe.html', '<!doctype html><title>Native frame boundary probe</title><p>Frame content remains supported.</p>');
   for (const prefix of ['', 'items/_id/']) {
     const name = prefix ? 'Second' : 'First';
@@ -189,20 +196,31 @@ async function checkFrameBoundaries(page) {
       resolve(event.data);
     };
     addEventListener('message', receive);
-    frame.srcdoc = `<script>
-      const host = globalThis.__tachyonAndroidHost;
-      let result = null;
-      if (host && typeof host.call === 'function') {
-        result = host.call('companion.invoke', JSON.stringify({route:'/',service:'androidFirst',op:'call',name:'processId',args:[]}));
-      }
-      parent.postMessage({probe:'android-frame', exposed:!!host, result}, '*');
-    <\/script>`;
+    frame.srcdoc = '<script src="https://appassets.tachyon.local/shared/opaque-frame-probe.js"><\/script>';
     document.body.append(frame);
   }));
   assert.equal(sandboxProbe.exposed, false, `Opaque srcdoc must not receive native transport: ${JSON.stringify(sandboxProbe)}`);
+  const foreignFrame = await page.evaluate(url => new Promise(resolve => {
+    const frame = document.createElement('iframe');
+    const timer = setTimeout(() => {
+      document.removeEventListener('securitypolicyviolation', refused);
+      frame.remove();
+      resolve(null);
+    }, 5000);
+    const refused = event => {
+      if (!event.blockedURI.startsWith('https://foreign.invalid')) return;
+      clearTimeout(timer);
+      document.removeEventListener('securitypolicyviolation', refused);
+      frame.remove();
+      resolve({ directive: event.effectiveDirective, blocked: event.blockedURI });
+    };
+    document.addEventListener('securitypolicyviolation', refused);
+    frame.src = url;
+    document.body.append(frame);
+  }), 'https://foreign.invalid/bridge-probe.html');
+  assert.equal(foreignFrame?.directive, 'frame-src', `The page policy must refuse a foreign frame: ${JSON.stringify(foreignFrame)}`);
   for (const [name, url, exposed] of [
     ['local-frame', 'https://appassets.tachyon.local/shared/bridge-probe.html', true],
-    ['foreign-frame', 'https://foreign.invalid/bridge-probe.html', false],
   ]) {
     await page.evaluate(({ name, url }) => {
       const frame = document.createElement('iframe');

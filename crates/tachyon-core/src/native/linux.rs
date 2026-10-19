@@ -737,7 +737,7 @@ mod tests {
         assert!(!source.contains("tachyon_build_node"));
         assert!(source.contains("webkit_web_context_register_uri_scheme"));
         assert!(source.contains("register_script_message_handler_with_reply"));
-        assert!(source.contains("frame-src 'none'"));
+        assert!(source.contains("frame-src 'self'"));
         assert!(source.contains("O_NOFOLLOW"));
         assert!(source.contains("tachyon_payload_route_matches"));
         assert!(source.contains("if (event == WEBKIT_LOAD_STARTED) tachyon_companion_dispose()"));
