@@ -592,9 +592,12 @@ fn github_ci_runs_only_for_develop_into_main() -> Result<(), Box<dyn std::error:
                 && line.ends_with(':');
             if is_job {
                 let next = lines.get(index + 1).map(|next| next.trim());
-                assert_eq!(
-                    next,
-                    Some(guard),
+                let job = line.trim().trim_end_matches(':');
+                let selected = format!(
+                    "if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{{0}},', inputs.jobs), ',{job},'))"
+                );
+                assert!(
+                    [Some(guard), Some(selected.as_str())].contains(&next),
                     "{name}: job {line} must run only for develop into main"
                 );
             }
