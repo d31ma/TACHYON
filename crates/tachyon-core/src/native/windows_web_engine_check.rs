@@ -68,4 +68,81 @@ mod tests {
         .await
         .unwrap_or_else(|failure| panic!("{failure}"));
     }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "Requires Windows, MSVC cl on PATH (vcvars), TAC_WEBVIEW2_SDK and an installed WebView2 Runtime; runs the startup check against the installed, an old and a missing runtime, not a WebView2 page"]
+    fn the_webview2_check_refuses_an_old_or_missing_runtime_with_the_install_message() {
+        use crate::native::windows::WindowsHostGenerator;
+        use crate::native::windows_architecture::WindowsArchitecture;
+        use crate::native::windows_compiler_plan::WindowsCompilerPlan;
+        use std::process::Command;
+
+        let root = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
+        let sdk = std::path::PathBuf::from(
+            std::env::var_os("TAC_WEBVIEW2_SDK").unwrap_or_else(|| panic!("set TAC_WEBVIEW2_SDK")),
+        );
+        let missing = root.path().join("no-runtime");
+        std::fs::create_dir_all(&missing).unwrap_or_else(|error| panic!("{error}"));
+        let mut application =
+            NativeApplication::discover(root.path()).unwrap_or_else(|failure| panic!("{failure}"));
+        let installed = WindowsWebEngineCheck::source(&application);
+        application.minimum_system = application
+            .minimum_system
+            .with_floor(NativeTarget::Windows, SystemVersion::new(9999, 0));
+        let old = WindowsWebEngineCheck::source(&application);
+        for (name, check, folder, expected) in [
+            ("installed", &installed, None, "ready: yes\n"),
+            (
+                "old",
+                &old,
+                None,
+                "ready: no\nmessage: Windows Host Check needs the Microsoft Edge WebView2 Runtime 9999.0 or newer.",
+            ),
+            (
+                "missing",
+                &installed,
+                Some(&missing),
+                "ready: no\nmessage: Windows Host Check needs the Microsoft Edge WebView2 Runtime 86.0 or newer.",
+            ),
+        ] {
+            let harness = format!(
+                "{}{}{}{}",
+                include_str!("windows_web_engine_check_fixture.c"),
+                "\nstatic int tachyon_capture_message(HWND owner, LPCWSTR text, LPCWSTR caption, UINT type) {\n  (void)owner;\n  (void)caption;\n  (void)type;\n  wprintf(L\"message: %ls\\n\", text);\n  return IDOK;\n}\n#define MessageBoxW tachyon_capture_message\n",
+                check,
+                "\nint main(void) {\n  bool ready = tachyon_web_engine_ready();\n  wprintf(L\"ready: %ls\\n\", ready ? L\"yes\" : L\"no\");\n  if (!ready) tachyon_show_web_engine_message();\n  return 0;\n}\n"
+            );
+            let source = root.path().join(format!("{name}.c"));
+            let program = root.path().join(format!("{name}.exe"));
+            std::fs::write(&source, harness).unwrap_or_else(|error| panic!("{error}"));
+            let plan = WindowsCompilerPlan {
+                sdk: &sdk,
+                source: source.to_str().unwrap_or_default(),
+                executable: program.to_str().unwrap_or_default(),
+                resource: None,
+                architecture: WindowsArchitecture::build_machine(),
+            };
+            let compiled = Command::new("cl")
+                .current_dir(root.path())
+                .args(plan.arguments(&WindowsHostGenerator::LINKER_ARGUMENTS))
+                .output()
+                .unwrap_or_else(|error| panic!("{error}"));
+            assert!(
+                compiled.status.success(),
+                "{}",
+                String::from_utf8_lossy(&compiled.stdout)
+            );
+            let mut run = Command::new(&program);
+            run.env_remove("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER");
+            if let Some(folder) = folder {
+                run.env("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", folder);
+            }
+            let output = run.output().unwrap_or_else(|error| panic!("{error}"));
+            let stdout = String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n");
+            println!("{name}: {stdout}");
+            assert!(output.status.success(), "{name}: {stdout}");
+            assert!(stdout.starts_with(expected), "{name}: {stdout}");
+        }
+    }
 }
