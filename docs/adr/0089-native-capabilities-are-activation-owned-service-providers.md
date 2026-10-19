@@ -254,5 +254,12 @@ handle. On 2026-10-19 it passed under Xvfb in an x86_64 Ubuntu 24.04 cloud
 container (GTK 4.14.5, WebKitGTK 2.52.6): three runs through the desktop
 portal's chooser (xdg-desktop-portal 1.18.4 with xdg-desktop-portal-gtk
 1.15.1, xfwm4), and one run each through GTK's own dialog
-(`GDK_DEBUG=no-portals`) with and without a window manager. Not covered: a
-physical Linux desktop, Wayland, and a person choosing the file.
+(`GDK_DEBUG=no-portals`) with and without a window manager. The same day it
+passed on WSL Ubuntu 24.04 (aarch64, GTK 4.14.5, WebKitGTK 2.52.6, Xvfb with
+xfwm4) once through GTK's own dialog and once through the portal's chooser.
+The portal run needs the session bus started inside `xvfb-run`; started
+outside it, the portal backend has no display and GTK falls back to its own
+dialog. One WSL run in that broken-portal setup, while a gvfs volume monitor
+timed out for about 54 seconds, reached the 30-second limit before a dialog
+showed and answered `cancelled`; the rerun passed. Not covered: a physical
+Linux desktop, Wayland, and a person choosing the file.
