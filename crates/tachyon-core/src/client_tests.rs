@@ -67,6 +67,8 @@ mod java_unit_marker_tests;
 #[cfg(test)]
 mod module_url_tests;
 #[cfg(test)]
+mod request_parts_tests;
+#[cfg(test)]
 mod ruby_http_construct_tests;
 #[cfg(test)]
 mod ruby_marker_unit_tests;

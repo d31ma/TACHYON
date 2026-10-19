@@ -278,7 +278,10 @@ impl SourcesProject {
 
     async fn check(&self) {
         if !self.available() {
-            eprintln!("skipping {}: {} is unavailable", self.extension, self.program);
+            eprintln!(
+                "skipping {}: {} is unavailable",
+                self.extension, self.program
+            );
             return;
         }
         let root = tempfile::tempdir().expect("project");
@@ -349,7 +352,11 @@ impl SourcesServer {
             .expect("read");
         let response = String::from_utf8_lossy(&response).into_owned();
         let (head, body) = response.split_once("\r\n\r\n").expect("HTTP body");
-        assert!(head.starts_with("HTTP/1.1 200"), "{}: {response}", self.extension);
+        assert!(
+            head.starts_with("HTTP/1.1 200"),
+            "{}: {response}",
+            self.extension
+        );
         serde_json::from_str(body).unwrap_or_else(|_| panic!("{}: {response}", self.extension))
     }
 
