@@ -11,13 +11,16 @@ import { withServer } from './release/server-probe.mjs'
 
 class ManagedStorageTest {
   static root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-  static password = 'tachyon_ephemeral_fixture_only'
+  static password = 'Tachyon_ephemeral_fixture_only_1'
   static fixtures = [
     { driver: 'postgresql', image: 'postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2', port: 5432, username: 'postgres', environment: ['POSTGRES_PASSWORD', 'POSTGRES_DB=tachyon'] },
     { driver: 'mysql', image: 'mysql:8.4@sha256:85b9bf2e29cf836ecb8c2a15a935d4ba0c606631dff1dd79531a11983c638f2a', port: 3306, username: 'root', environment: ['MYSQL_ROOT_PASSWORD', 'MYSQL_DATABASE=tachyon'] },
     { driver: 'mariadb', image: 'mariadb:11.8@sha256:2d2f4095530294735a857cfe22bb101e19b0849b416911c796ec4aa81b164a62', port: 3306, username: 'root', environment: ['MARIADB_ROOT_PASSWORD', 'MARIADB_DATABASE=tachyon'] },
+    { driver: 'sqlserver', image: 'mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718', port: 1433, username: 'sa', environment: ['ACCEPT_EULA=Y', 'MSSQL_SA_PASSWORD'] },
     { driver: 'redis', image: 'redis:8-alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576', port: 6379, environment: [] },
   ]
+  static sqlcmd = '/opt/mssql-tools18/bin/sqlcmd'
+  static sqlServerFolder = '/var/opt/mssql/tachyon'
   static owned = []
   static scratchRoot = resolve(process.env.TAC_STORAGE_TEST_ROOT || tmpdir())
   static scratch = null
@@ -137,10 +140,39 @@ async function certificates() {
   command('openssl', ['req', '-new', '-newkey', 'rsa:2048', '-nodes', '-keyout', path('server.key'), '-out', path('server.csr'), '-subj', '/CN=localhost'])
   command('openssl', ['x509', '-req', '-in', path('server.csr'), '-CA', path('ca.crt'), '-CAkey', path('ca.key'), '-CAcreateserial', '-out', path('server.crt'), '-days', '1', '-extfile', path('server.ext')])
   await writeFile(path('mysql.cnf'), '[mysqld]\nssl-ca=/tmp/tachyon-ca.crt\nssl-cert=/tmp/tachyon-server.crt\nssl-key=/tmp/tachyon-server.key\nrequire_secure_transport=ON\n')
+  const folder = ManagedStorageTest.sqlServerFolder
+  await writeFile(path('mssql.conf'), `[network]\ntlscert = ${folder}/server.crt\ntlskey = ${folder}/server.key\ntlsprotocols = 1.2\nforceencryption = 1\n`)
+}
+
+function sqlServerQuery(id, query, tls = false) {
+  return ['exec', '--env', `SQLCMDPASSWORD=${ManagedStorageTest.password}`, id, ManagedStorageTest.sqlcmd, '-S', '127.0.0.1', '-U', 'sa', '-C', '-b', ...(tls ? ['-N', '-d', 'tachyon'] : []), '-Q', query]
+}
+
+function installSqlServerTls(id) {
+  const folder = ManagedStorageTest.sqlServerFolder
+  command('docker', ['exec', '--user', 'root', id, 'mkdir', '-p', folder])
+  for (const name of ['server.crt', 'server.key']) command('docker', ['cp', join(ManagedStorageTest.scratch, name), `${id}:${folder}/${name}`])
+  command('docker', ['cp', join(ManagedStorageTest.scratch, 'mssql.conf'), `${id}:/var/opt/mssql/mssql.conf`])
+  command('docker', ['exec', '--user', 'root', id, 'chown', '-R', 'mssql', folder, '/var/opt/mssql/mssql.conf'])
+  command('docker', ['exec', '--user', 'root', id, 'chmod', '600', `${folder}/server.key`])
+}
+
+function installTls(fixture, id) {
+  for (const name of ['ca.crt', 'server.crt', 'server.key']) command('docker', ['cp', join(ManagedStorageTest.scratch, name), `${id}:/tmp/tachyon-${name}`])
+  const owner = fixture.driver === 'postgresql' ? 'postgres' : 'mysql'
+  command('docker', ['exec', id, 'chown', `${owner}:${owner}`, '/tmp/tachyon-ca.crt', '/tmp/tachyon-server.crt', '/tmp/tachyon-server.key'])
+  command('docker', ['exec', id, 'chmod', '600', '/tmp/tachyon-server.key'])
+  if (fixture.driver === 'postgresql') {
+    for (const setting of ["ssl = on", "ssl_cert_file = '/tmp/tachyon-server.crt'", "ssl_key_file = '/tmp/tachyon-server.key'"]) command('docker', ['exec', '--user', 'postgres', id, 'psql', '-c', `ALTER SYSTEM SET ${setting}`])
+  } else {
+    const location = fixture.driver === 'mysql' ? '/etc/mysql/conf.d/tachyon-tls.cnf' : '/etc/mysql/mariadb.conf.d/99-tachyon-tls.cnf'
+    command('docker', ['cp', join(ManagedStorageTest.scratch, 'mysql.cnf'), `${id}:${location}`])
+  }
 }
 
 function ping(fixture, id, tls) {
   if (fixture.driver === 'redis') return ['exec', id, 'redis-cli', 'ping']
+  if (fixture.driver === 'sqlserver') return sqlServerQuery(id, 'SELECT 1', tls)
   if (fixture.driver === 'postgresql') return ['exec', '--env', `PGPASSWORD=${ManagedStorageTest.password}`, id, 'psql', '--host=127.0.0.1', '--username=postgres', '-d', 'tachyon', '-tAc', 'SELECT 1']
   const client = fixture.driver === 'mysql' ? 'mysql' : 'mariadb'
   const flags = fixture.driver === 'mysql'
@@ -169,17 +201,13 @@ async function start(fixture) {
   if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Docker returned an invalid fixture identifier.')
   ManagedStorageTest.owned.push(id)
   await ready(fixture, id)
+  if (fixture.driver === 'sqlserver') {
+    command('docker', sqlServerQuery(id, 'CREATE DATABASE tachyon'))
+    installSqlServerTls(id)
+  } else if (fixture.driver !== 'redis') {
+    installTls(fixture, id)
+  }
   if (fixture.driver !== 'redis') {
-    for (const name of ['ca.crt', 'server.crt', 'server.key']) command('docker', ['cp', join(ManagedStorageTest.scratch, name), `${id}:/tmp/tachyon-${name}`])
-    const owner = fixture.driver === 'postgresql' ? 'postgres' : 'mysql'
-    command('docker', ['exec', id, 'chown', `${owner}:${owner}`, '/tmp/tachyon-ca.crt', '/tmp/tachyon-server.crt', '/tmp/tachyon-server.key'])
-    command('docker', ['exec', id, 'chmod', '600', '/tmp/tachyon-server.key'])
-    if (fixture.driver === 'postgresql') {
-      for (const setting of ["ssl = on", "ssl_cert_file = '/tmp/tachyon-server.crt'", "ssl_key_file = '/tmp/tachyon-server.key'"]) command('docker', ['exec', '--user', 'postgres', id, 'psql', '-c', `ALTER SYSTEM SET ${setting}`])
-    } else {
-      const location = fixture.driver === 'mysql' ? '/etc/mysql/conf.d/tachyon-tls.cnf' : '/etc/mysql/mariadb.conf.d/99-tachyon-tls.cnf'
-      command('docker', ['cp', join(ManagedStorageTest.scratch, 'mysql.cnf'), `${id}:${location}`])
-    }
     command('docker', ['restart', id])
     await ready(fixture, id, true)
   }
@@ -217,7 +245,7 @@ async function main() {
     await fylo()
     await certificates()
     for (const fixture of ManagedStorageTest.fixtures) await runDriverTest(binary, fixture)
-    console.log('PASS: SQLite, FYLO, PostgreSQL, MySQL, MariaDB and Redis real driver contracts. SQL Server is not qualified by this harness.')
+    console.log('PASS: SQLite, FYLO, PostgreSQL, MySQL, MariaDB, SQL Server and Redis real driver contracts.')
   } catch (error) {
     console.error(error.message)
     process.exitCode = 1
