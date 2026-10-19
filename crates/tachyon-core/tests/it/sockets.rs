@@ -21,6 +21,8 @@ struct ChatProject {
 }
 
 impl ChatProject {
+    const CLOSED: &'static str = "closed.marker";
+
     const TYPESCRIPT: Self = Self {
         program: "node",
         files: &[
@@ -30,7 +32,8 @@ impl ChatProject {
             ),
             (
                 "server/controllers/ChatController.ts",
-                r"import type { ChatMessage } from '/models/ChatMessage.ts'
+                r"import { writeFileSync } from 'node:fs'
+import type { ChatMessage } from '/models/ChatMessage.ts'
 
 @SocketRoute('/chat')
 @Public
@@ -71,6 +74,89 @@ export class ChatController {
   onError(session: any) {
     return session.send({ text: 'sorry' })
   }
+
+  @OnClose
+  onClose(session: any) {
+    writeFileSync('CLOSED_MARKER', `closed ${this.count}`)
+  }
+}
+",
+            ),
+        ],
+    };
+
+    const JAVASCRIPT: Self = Self {
+        program: "node",
+        files: &[
+            (
+                "server/models/ChatMessage.ts",
+                "export interface ChatMessage {\n  text: string\n}\n",
+            ),
+            (
+                "server/controllers/ChatController.js",
+                r"import { writeFileSync } from 'node:fs'
+/** @import { ChatMessage } from '/models/ChatMessage.ts' */
+
+@SocketRoute('/chat')
+@Public
+class ChatController {
+  static #ALL = 'all'
+  #count = 0
+
+  /** @param {SocketSession} session */
+  @OnOpen
+  onOpen(session) {
+    return session.send({ text: 'welcome' })
+  }
+
+  /**
+   * @param {SocketSession} session
+   * @param {ChatMessage} message
+   */
+  @OnMessage
+  async onMessage(session, message) {
+    this.#count += 1
+    await this.#sendHello(await this.#peersFor(session, message))
+    await this.#answer(session, message)
+  }
+
+  /**
+   * @param {SocketSession} session
+   * @param {ChatMessage} message
+   */
+  async #peersFor(session, message) {
+    if (message.text !== ChatController.#ALL) return []
+    return session.openSessions()
+  }
+
+  /** @param {SocketPeer[]} peers */
+  async #sendHello(peers) {
+    for (const peer of peers) await peer.send({ text: 'hello all' })
+  }
+
+  /**
+   * @param {SocketSession} session
+   * @param {ChatMessage} message
+   */
+  async #answer(session, message) {
+    switch (message.text) {
+      case 'fail': throw new Error('secret-canary')
+      case ChatController.#ALL: return
+    }
+    await session.send({ text: `${message.text} ${this.#count}` })
+  }
+
+  /** @param {SocketSession} session */
+  @OnError
+  onError(session) {
+    return session.send({ text: 'sorry' })
+  }
+
+  /** @param {SocketSession} session */
+  @OnClose
+  onClose(session) {
+    writeFileSync('CLOSED_MARKER', `closed ${this.#count}`)
+  }
 }
 ",
             ),
@@ -86,7 +172,8 @@ export class ChatController {
             ),
             (
                 "server/controllers/ChatController.py",
-                r#"from models import ChatMessage
+                r#"from pathlib import Path
+from models import ChatMessage
 
 
 @socket_route("/chat")
@@ -126,6 +213,10 @@ class ChatController:
     @on_error
     def on_error(self, session, error):
         session.send(ChatMessage("sorry"))
+
+    @on_close
+    def on_close(self, session):
+        Path("CLOSED_MARKER").write_text(f"closed {self._count}")
 "#,
             ),
         ],
@@ -172,6 +263,7 @@ func (controller *ChatController) OnMessage(session *SocketSession, message Chat
                 r#"import (
 	"errors"
 	"fmt"
+	"os"
 )
 
 // @SocketRoute("/chat")
@@ -220,6 +312,11 @@ func (ChatController) all() string { return "all" }
 // @OnError
 func (controller *ChatController) OnError(session *SocketSession, failure error) {
 	session.Send(ChatMessage{Text: "sorry"})
+}
+
+// @OnClose
+func (controller *ChatController) OnClose(session *SocketSession) error {
+	return os.WriteFile("CLOSED_MARKER", []byte(fmt.Sprintf("closed %d", controller.count)), 0o644)
 }
 "#,
             ),
@@ -275,6 +372,70 @@ class ChatController {
     @OnError
     void onError(SocketSession session, Throwable error) throws Exception {
         session.send(new ChatMessage("sorry"));
+    }
+
+    @OnClose
+    void onClose(SocketSession session) throws Exception {
+        java.nio.file.Files.writeString(java.nio.file.Path.of("CLOSED_MARKER"), "closed " + count);
+    }
+}
+"#,
+            ),
+        ],
+    };
+
+    const GROOVY: Self = Self {
+        program: "groovyc",
+        files: &[
+            (
+                "server/models/ChatMessage.groovy",
+                "record ChatMessage(String text) {}\n",
+            ),
+            (
+                "server/controllers/ChatController.groovy",
+                r#"import models.ChatMessage
+
+@SocketRoute("/chat")
+@Public
+class ChatController {
+    private static final String ALL = "all"
+    private int count
+
+    @OnOpen
+    void onOpen(SocketSession session) throws Exception {
+        session.send(new ChatMessage("welcome"))
+    }
+
+    @OnMessage
+    void onMessage(SocketSession session, ChatMessage message) throws Exception {
+        count += 1
+        sendHello(peersFor(session, message))
+        answer(session, message)
+    }
+
+    private java.util.List<SocketPeer> peersFor(SocketSession session, ChatMessage message) throws Exception {
+        if (message.text() != ALL) return []
+        return session.getOpenSessions()
+    }
+
+    private void sendHello(java.util.List<SocketPeer> peers) throws Exception {
+        for (SocketPeer peer : peers) peer.send(new ChatMessage("hello all"))
+    }
+
+    private void answer(SocketSession session, ChatMessage message) throws Exception {
+        if (message.text() == "fail") throw new IllegalStateException("secret-canary")
+        if (message.text() == ALL) return
+        session.send(new ChatMessage(message.text() + " " + count))
+    }
+
+    @OnError
+    void onError(SocketSession session, Throwable error) throws Exception {
+        session.send(new ChatMessage("sorry"))
+    }
+
+    @OnClose
+    void onClose(SocketSession session) throws Exception {
+        new File("CLOSED_MARKER").text = "closed " + count
     }
 }
 "#,
@@ -334,6 +495,11 @@ class ChatController {
     @OnError
     fun onError(session: SocketSession, error: Throwable) {
         session.send(ChatMessage("sorry"))
+    }
+
+    @OnClose
+    fun onClose(session: SocketSession) {
+        java.io.File("CLOSED_MARKER").writeText("closed $count")
     }
 }
 "#,
@@ -400,6 +566,12 @@ public class ChatController
     {
         session.Send(new ChatMessage("sorry"));
     }
+
+    [OnClose]
+    public void OnClose(SocketSession session)
+    {
+        System.IO.File.WriteAllText("CLOSED_MARKER", $"closed {count}");
+    }
 }
 "#,
             ),
@@ -436,6 +608,10 @@ type ChatController() =
     [<OnError>]
     member this.OnError(session: SocketSession, error: Exception) : unit =
         session.Send({ Text = "sorry" })
+
+    [<OnClose>]
+    member this.OnClose(session: SocketSession) : unit =
+        System.IO.File.WriteAllText("CLOSED_MARKER", sprintf "closed %d" count)
 
     static member private PeersFor(session: SocketSession, message: ChatMessage) : ResizeArray<SocketPeer> =
         if message.Text = "all" then session.OpenSessions() else ResizeArray<SocketPeer>()
@@ -511,6 +687,11 @@ class ChatController {
     public function onError(SocketSession $session, Throwable $error): void {
         $session->send(new ChatMessage('sorry'));
     }
+
+    #[OnClose]
+    public function onClose(SocketSession $session): void {
+        file_put_contents('CLOSED_MARKER', 'closed ' . $this->count);
+    }
 }
 "#,
             ),
@@ -551,6 +732,11 @@ class ChatController
   #[OnError]
   def on_error(session, error)
     session.send(ChatMessage.new(text: "sorry"))
+  end
+
+  #[OnClose]
+  def on_close(session)
+    File.write("CLOSED_MARKER", "closed #{@count}")
   end
 
   private
@@ -619,6 +805,15 @@ end
 -- @OnError
 function ChatController:on_error(session, failure)
   session:send(setmetatable({ text = "sorry" }, ChatMessage))
+end
+
+---@param session SocketSession
+---@return nil
+-- @OnClose
+function ChatController:on_close(session)
+  local marker = assert(io.open("CLOSED_MARKER", "w"))
+  marker:write("closed " .. self.count)
+  marker:close()
 end
 
 ---@param session SocketSession
@@ -719,6 +914,11 @@ impl ChatController {
     fn on_error(&self, session: &SocketSession, _error: &str) {
         session.send(ChatMessage { text: String::from("sorry") });
     }
+
+    #[OnClose]
+    fn on_close(&self, _session: &SocketSession) {
+        let _written = std::fs::write("CLOSED_MARKER", format!("closed {}", self.count.get()));
+    }
 }
 "#,
             ),
@@ -734,7 +934,8 @@ impl ChatController {
             ),
             (
                 "server/controllers/ChatController.dart",
-                r#"import 'models/ChatMessage.dart';
+                r#"import 'dart:io';
+import 'models/ChatMessage.dart';
 
 @SocketRoute("/chat")
 @Public
@@ -779,6 +980,11 @@ class ChatController {
   void onError(SocketSession session, Object error) {
     session.send(const ChatMessage('sorry'));
   }
+
+  @OnClose
+  void onClose(SocketSession session) {
+    File('CLOSED_MARKER').writeAsStringSync('closed $_count');
+  }
 }
 "#,
             ),
@@ -795,6 +1001,7 @@ class ChatController {
             (
                 "server/controllers/ChatController.hpp",
                 r#"#pragma once
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -827,6 +1034,11 @@ public:
         session.send(ChatMessage{"sorry"});
     }
 
+    [[OnClose]]
+    void onClose(SocketSession& session) {
+        std::ofstream("CLOSED_MARKER") << "closed " << count;
+    }
+
 private:
     int count = 0;
 };
@@ -848,8 +1060,9 @@ private:
             "client/components/test/view1/tac.html",
             "<main aria-label=\"Chat\"><h1>Chat</h1></main>",
         );
+        let marker = root.join(Self::CLOSED).to_string_lossy().replace('\\', "/");
         for (relative, contents) in self.files {
-            Self::write(root, relative, contents);
+            Self::write(root, relative, &contents.replace("CLOSED_MARKER", &marker));
         }
     }
 
@@ -884,7 +1097,7 @@ struct Server {
     port: u16,
     stop: tokio::sync::oneshot::Sender<()>,
     running: tokio::task::JoinHandle<()>,
-    _project: tempfile::TempDir,
+    project: tempfile::TempDir,
 }
 
 impl Server {
@@ -914,8 +1127,19 @@ impl Server {
             port,
             stop,
             running,
-            _project: project,
+            project,
         }
+    }
+
+    async fn closed_answer(&self) -> String {
+        let marker = self.project.path().join(ChatProject::CLOSED);
+        for _ in 0..300 {
+            if let Ok(answer) = fs::read_to_string(&marker) {
+                return answer;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        panic!("the @OnClose method never ran after the socket closed");
     }
 
     async fn stop(self) {
@@ -945,6 +1169,7 @@ impl Server {
         let (code, reason) = Client::close_code(&mut first).await;
         assert_eq!(code, 1007, "{reason}");
         assert!(reason.contains("does not fit"), "{reason}");
+        assert_eq!(self.closed_answer().await, "closed 3");
 
         Client::send(&mut second, r#"{"text":"fail"}"#).await;
         assert_eq!(Client::text(&mut second).await, r#"{"text":"sorry"}"#);
@@ -1088,6 +1313,16 @@ async fn a_socket_closed_by_the_browser_gets_the_close_answer() {
 }
 
 #[tokio::test]
+async fn a_javascript_socket_route_keeps_one_object_for_each_connection() {
+    if !ChatProject::JAVASCRIPT.available() {
+        return;
+    }
+    let server = Server::start(&ChatProject::JAVASCRIPT).await;
+    server.chat().await;
+    server.stop().await;
+}
+
+#[tokio::test]
 async fn a_python_socket_route_keeps_one_object_for_each_connection() {
     if !ChatProject::PYTHON.available() {
         return;
@@ -1132,6 +1367,16 @@ async fn a_java_socket_route_keeps_one_object_for_each_connection() {
         return;
     }
     let server = Server::start(&ChatProject::JAVA).await;
+    server.chat().await;
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn a_groovy_socket_route_keeps_one_object_for_each_connection() {
+    if !ChatProject::GROOVY.available() {
+        return;
+    }
+    let server = Server::start(&ChatProject::GROOVY).await;
     server.chat().await;
     server.stop().await;
 }
