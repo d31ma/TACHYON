@@ -482,8 +482,8 @@ export default class __SERVICE__ {
   result = '__LABEL__ HTTP waiting'
 
   async check() {
-    const message = await this.#ask()
-    this.result = `__LABEL__ HTTP ${this.#label(message)}`
+    const text = this.#text(await this.#ask())
+    this.result = `__LABEL__ HTTP ${this.#label(text)}`
   }
 
   /** @returns {Promise<string | { message: string }>} */
@@ -496,12 +496,19 @@ export default class __SERVICE__ {
   }
 
   /**
+   * @param {string} text
+   * @returns {string}
+   */
+  #label(text) {
+    return text === __SERVICE__.HELLO ? `ok ${text}` : text
+  }
+
+  /**
    * @param {string | { message: string }} message
    * @returns {string}
    */
-  #label(message) {
-    const text = message?.message ?? message
-    return text === __SERVICE__.HELLO ? `ok ${text}` : text
+  #text(message) {
+    return message?.message ?? message
   }
 }
 """
