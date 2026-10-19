@@ -406,3 +406,12 @@ WebKit: the ignored Mac test
 Still owed on real machines: the macOS compile and that host test on a Mac,
 the iOS simulator gate, and a manual check of the share, notification and location prompts, because
 system prompts cannot be automated.
+
+## Amendment (2026-10-18): a ninth built-in event model
+
+`ApplicationStateChanged { state }` (`background` or `foreground`) is the
+ninth built-in event model (ADR 0028 amendment of 2026-10-18). Every
+language that gets the eight others gets it too. Unlike them, it does not
+belong to the page: `TY1317` lets a natively linked Rust, C#, F#, Swift or
+Kotlin service name it, and refuses the other eight as before. To publish
+it, `template/tac-web.js` now holds at most 11,500 bytes (it was 11,000).

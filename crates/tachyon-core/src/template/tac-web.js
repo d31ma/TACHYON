@@ -7,6 +7,7 @@ class TacWebApis {
   static positionTimeout = 10000
   static smallestWindow = 64
   static largestWindow = 16384
+  static applicationStates = ['background', 'foreground']
   static caller = null
   static events = null
   static hostPermission = globalThis.__tachyonNotificationPermission ?? 'default'
@@ -83,16 +84,24 @@ class TacWebApis {
   static watch(events) {
     TacWebApis.events = events
     const connectivity = () => events.publish('ConnectivityChanged', { online: TacWebApis.connectivity.online() })
-    const visibility = () => events.publish('VisibilityChanged', { visible: TacWebApis.pageVisibility.visible() })
+    const hosted = typeof globalThis.__tachyonNativeHostCall === 'function'
+    const application = (state) => { if (TacWebApis.applicationStates.includes(state)) events.publish('ApplicationStateChanged', { state }) }
+    const visibility = () => {
+      const visible = TacWebApis.pageVisibility.visible()
+      events.publish('VisibilityChanged', { visible })
+      if (!hosted) application(TacWebApis.applicationStates[+visible])
+    }
     const preferences = () => events.publish('PreferencesChanged', TacWebApis.currentPreferences())
     addEventListener('online', connectivity)
     addEventListener('offline', connectivity)
     addEventListener('languagechange', preferences)
+    addEventListener('tac.application.state', (event) => application(event.detail?.state))
     document.addEventListener('visibilitychange', visibility)
     TacWebApis.media(TacWebApis.darkScheme)?.addEventListener('change', preferences)
     TacWebApis.media(TacWebApis.reducedMotion)?.addEventListener('change', preferences)
     connectivity()
     visibility()
+    if (hosted) application(globalThis.__tachyonApplicationStateNow ?? 'foreground')
     preferences()
     return true
   }

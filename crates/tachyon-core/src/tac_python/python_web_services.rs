@@ -7,7 +7,7 @@ use super::runtime_assets::RuntimeAssets;
 use crate::Failure;
 use crate::annotation_modules::Module;
 use crate::model_sources::ModelSources;
-use crate::route_types::ModelTable;
+use crate::route_types::{ModelTable, WebEventModels};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -35,6 +35,7 @@ impl PythonWebServices {
         include_str!("../native/browser/tac-task-answers.js"),
         include_str!("python_host.js"),
     );
+    const APPLICATION_STATE_MODEL: &'static str = "import sys as _tac_sys\nimport types as _tac_types\nfrom dataclasses import dataclass as _tac_dataclass\n\n\n@_tac_dataclass\nclass ApplicationStateChanged:\n    state: str\n\n\n_tac_sys.modules.setdefault(\"models\", _tac_types.ModuleType(\"models\")).ApplicationStateChanged = ApplicationStateChanged\n";
 
     pub(crate) fn build(
         root: &Path,
@@ -68,14 +69,16 @@ impl PythonWebServices {
         let manual = crate::yon::ManualHelpers::read(relative, &authored)?;
         let providers = Self::providers(&units, &manual)?;
         let models = ModelSources::read(root, "client", "py")?;
+        let hears_state = Self::hears_application_state(&units);
         let table = ModelTable::read_realm(root, "client", "py")
+            .map(|table| Self::with_application_state(table, hears_state))
             .map_err(|message| PythonProviderSource::failure(relative, &message))?;
         let mut descriptions = Self::descriptions(&providers, &table)?;
         PythonHeldStreams::read(&providers, &table)?.describe(&mut descriptions)?;
         PythonGraphGuard::check(&descriptions)?;
         let metadata = Self::metadata(services, &descriptions, &table);
         let source = Self::prepared(relative, units, &providers)?;
-        let staged = Self::lowered(relative, &source, &models)?;
+        let staged = Self::lowered(relative, &source, &models, hears_state)?;
         Self::configured(&staged, &providers, &metadata)
     }
 
@@ -191,13 +194,41 @@ impl PythonWebServices {
         Ok((path, source))
     }
 
-    fn lowered(entry: &Path, source: &str, models: &ModelSources) -> Result<String, Failure> {
+    fn hears_application_state(units: &[(PathBuf, String)]) -> bool {
+        units
+            .iter()
+            .any(|(_, source)| source.contains(WebEventModels::APPLICATION_STATE))
+    }
+
+    fn with_application_state(mut table: ModelTable, hears_state: bool) -> ModelTable {
+        if hears_state {
+            table.add_web_event(WebEventModels::APPLICATION_STATE);
+        }
+        table
+    }
+
+    fn application_state_model(hears_state: bool) -> &'static str {
+        if hears_state {
+            return Self::APPLICATION_STATE_MODEL;
+        }
+        ""
+    }
+
+    fn lowered(
+        entry: &Path,
+        source: &str,
+        models: &ModelSources,
+        hears_state: bool,
+    ) -> Result<String, Failure> {
         let metadata = models.metadata();
         let assembled = metadata.assembled(entry, source)?;
         let lowered = crate::behavior::lower(entry, &assembled, "tac")?.unwrap_or(assembled);
         let stripped = metadata.without_declarations(entry, &lowered)?;
         let imports = Self::model_imports(models);
-        let bridge = format!("from __future__ import annotations\n{imports}");
+        let bridge = format!(
+            "from __future__ import annotations\n{}{imports}",
+            Self::application_state_model(hears_state)
+        );
         let program = Module::with_models(
             entry,
             &stripped,

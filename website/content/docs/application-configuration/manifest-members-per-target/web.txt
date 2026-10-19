@@ -202,7 +202,7 @@ deep links
   honored: every route has its own URL
 
 background and foreground signal
-  honored: VisibilityChanged
+  adapted: A browser tab has no application state. The page sends ApplicationStateChanged with background when the tab is hidden and foreground when it is shown.
 
 stored data (IndexedDB, Cache API, LocalState)
   honored: kept by the browser

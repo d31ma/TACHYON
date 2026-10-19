@@ -31,6 +31,8 @@ impl WebEventSources {
         number: "double",
         flag: "bool",
     };
+    const NATIVE_DECLARATIONS: [(&'static str, &'static str); 2] =
+        [("swift", "struct"), ("kt", "class")];
     const KOTLIN: LanguageKinds = LanguageKinds {
         text: "String",
         number: "Double",
@@ -86,6 +88,25 @@ impl WebEventSources {
             .into_iter()
             .filter(|(name, _)| source.contains(name.as_str()))
             .map(|(name, model)| Self::swift_model(&name, &Self::fields(model)))
+            .collect()
+    }
+
+    pub(crate) fn native_application_state(extension: &str, source: &str) -> String {
+        let name = WebEventModels::APPLICATION_STATE;
+        let writers = [Self::swift_model, Self::kotlin_model];
+        let found = Self::NATIVE_DECLARATIONS
+            .iter()
+            .position(|(known, _)| *known == extension);
+        let declared = found.is_some_and(|index| {
+            source.contains(&format!("{} {name}", Self::NATIVE_DECLARATIONS[index].1))
+        });
+        WebEventModels::models()
+            .into_iter()
+            .filter(|(model, _)| {
+                [model == name, source.contains(name), declared] == [true, true, false]
+            })
+            .zip(found)
+            .map(|((model, fields), index)| writers[index](&model, &Self::fields(fields)))
             .collect()
     }
 

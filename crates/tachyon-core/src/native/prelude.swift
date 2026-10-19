@@ -198,16 +198,22 @@ private func tacHandle(_ raw: String) throws -> String {
         var methods: [Any?] = []
         var tasks: [Any?] = []
         var listeners: [Any?] = []
+        var applicationListeners: [Any?] = []
         var streams: [Any?] = []
         for (name, member) in tac {
             if case .field = member { fields.append(name) }
             if case .method = member { methods.append(name) }
             if case .task = member { methods.append(name); tasks.append(name) }
             if case .listener(let listener) = member { listeners.append(tacDescribeListener(name, listener)) }
+            if case .listener(let listener) = member, listener.events.contains("ApplicationStateChanged") {
+                applicationListeners.append(tacDescribeListener(name, listener))
+            }
             if case .stream(let stream) = member { streams.append(tacDescribeStream(stream)) }
         }
         let held = streams.isEmpty ? "" : ",\"streams\":" + tacEncode(streams)
-        let described = TacPlatform.pageListeners ? ",\"listeners\":" + tacEncode(listeners) + held : ""
+        let described = TacPlatform.pageListeners
+            ? ",\"listeners\":" + tacEncode(listeners) + held
+            : ",\"listeners\":" + tacEncode(applicationListeners)
         let asynchronous = TacPlatform.taskHost ? ",\"asyncMethods\":" + tacEncode(tasks) : ""
         return "{\"value\":{\"fields\":" + tacEncode(fields) + ",\"methods\":"
             + tacEncode(methods) + asynchronous + described + "}}"

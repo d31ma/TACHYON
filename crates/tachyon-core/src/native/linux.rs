@@ -192,6 +192,10 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
         .replace(
             "__NATIVE_TITLE_BAR__",
             &super::linux_title_bar::LinuxTitleBar::source(&application.window),
+        )
+        .replace(
+            "__APPLICATION_STATE__",
+            LinuxHostGenerator::APPLICATION_STATE,
         );
     LinuxHostGenerator::DESKTOP.render(
         &template,
@@ -210,6 +214,7 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl LinuxHostGenerator {
+    const APPLICATION_STATE: &str = include_str!("linux_application_state.c");
     const C_HOST: &str = r#"#include <gtk/gtk.h>
 #include <gio/gio.h>
 #include <gmodule.h>
@@ -567,6 +572,7 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
       || tachyon_payload_string_matches(payload, "op", "get")
       || tachyon_payload_string_matches(payload, "op", "set")
       || tachyon_payload_string_matches(payload, "op", "call")
+      || tachyon_payload_string_matches(payload, "op", "event")
       || tachyon_payload_string_matches(payload, "op", "dispose");
     const TachyonLocalRoute *route = tachyon_document_route(path);
     answer = operation && route != NULL && tachyon_payload_route_matches(payload, route->route)
@@ -598,6 +604,8 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
   return TRUE;
 }
 
+__APPLICATION_STATE__
+
 static void tachyon_on_load(WebKitWebView *view, WebKitLoadEvent event, gpointer data) {
   (void)view;
   (void)data;
@@ -606,6 +614,7 @@ static void tachyon_on_load(WebKitWebView *view, WebKitLoadEvent event, gpointer
     tachyon_record("controller.mounted");
     tachyon_record("controller.active");
     tachyon_menus_refresh();
+    tachyon_application_state_post();
   }
 }
 
@@ -642,6 +651,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   gtk_window_set_title(GTK_WINDOW(window), TACHYON_APP_NAME);
   gtk_application_window_set_show_menubar(GTK_APPLICATION_WINDOW(window), TRUE);
   g_signal_connect(window, "map", G_CALLBACK(tachyon_menus_mapped), NULL);
+  tachyon_application_state_watch(GTK_WINDOW(window));
 
   gchar *resources = tachyon_resource_root();
   gchar *bundle = g_build_filename(resources, "WebBundle", NULL);

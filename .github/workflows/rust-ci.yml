@@ -45,6 +45,7 @@ jobs:
         run: |
           bash -n scripts/android/native-test.sh
           bash -n scripts/linux/native-test.sh
+          bash -n scripts/linux/application-state-test.sh
 
   native:
     if: github.event_name != 'pull_request' || github.head_ref == 'develop'
@@ -741,6 +742,16 @@ jobs:
           -e CARGO_TARGET_DIR=/tmp/ty-target
           tachyon-linux-gate:${{ env.RUST_TOOLCHAIN }}
           ./scripts/linux/native-test.sh
+
+      - name: Send the Linux app to the background and back
+        run: >-
+          docker run --rm
+          --cap-add SYS_ADMIN --cap-add NET_ADMIN
+          --security-opt seccomp=unconfined --security-opt apparmor=unconfined
+          -v "$PWD":/workspace -w /workspace
+          -e CARGO_TARGET_DIR=/tmp/ty-target
+          tachyon-linux-gate:${{ env.RUST_TOOLCHAIN }}
+          ./scripts/linux/application-state-test.sh
 
   windows-native:
     if: github.event_name != 'pull_request' || github.head_ref == 'develop'

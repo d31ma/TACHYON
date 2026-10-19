@@ -202,7 +202,7 @@ deep links
   adapted: The iOS app cannot be opened at a route from a link yet (LK2).
 
 background and foreground signal
-  adapted: The iOS host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1).
+  honored: ApplicationStateChanged when the app enters the background and when it returns to the foreground
 
 stored data (IndexedDB, Cache API, LocalState)
   honored: kept on disk by the web view

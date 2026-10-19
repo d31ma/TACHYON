@@ -424,6 +424,8 @@ declare global {
   interface TacFilePicker { available(): boolean; open(options?: { multiple?: false; types?: ('text/plain' | 'application/json')[] }): Promise<TacFilePickerResult>; readText(handle: string): Promise<TacFilePickerResult>; release(handle: string): Promise<TacFilePickerResult>; }
   /** WindowControls: the controls of the native app window (ADR 0087). Grant them in tac.application.window.controls. `granted` answers false in a browser tab; a call to a control that is not granted throws. */
   interface TacWindowControls { granted(control: 'close' | 'fullscreen' | 'maximize' | 'minimize' | 'resize' | 'title'): boolean; minimize(): null; maximize(): null; fullscreen(): null; close(): null; resize(width: number, height: number): null; setTitle(text: string): null; }
+  /** ApplicationStateChanged: a built-in event model. The app went to the `background` or came back to the `foreground`. Native hosts send it; a browser tab sends it when the tab is hidden or shown (ADR 0028). */
+  interface ApplicationStateChanged { state: 'background' | 'foreground'; }
   /** ConnectivityChanged: a built-in event model. The page publishes it when the browser goes online or offline (ADR 0065). */
   interface ConnectivityChanged { online: boolean; }
   /** VisibilityChanged: a built-in event model. The page publishes it when the page is shown or hidden (ADR 0065). */

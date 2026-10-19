@@ -202,7 +202,7 @@ deep links
   adapted: The Windows app cannot be opened at a route from a link yet (LK2).
 
 background and foreground signal
-  adapted: The Windows host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1).
+  honored: ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored
 
 stored data (IndexedDB, Cache API, LocalState)
   honored: kept on disk by the web view

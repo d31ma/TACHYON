@@ -653,10 +653,15 @@ pub(super) fn c_source(
     let frame = super::windows_window_frame::WindowsWindowFrame::source(&application.window);
     let web_engine_check =
         super::windows_web_engine_check::WindowsWebEngineCheck::source(application);
-    let template = WindowsHostGenerator::C_HOST.replace(
-        "__WINDOW_CONTROLS__",
-        &super::native_window_controls::NativeWindowControls::windows(&application.window),
-    );
+    let template = WindowsHostGenerator::C_HOST
+        .replace(
+            "__WINDOW_CONTROLS__",
+            &super::native_window_controls::NativeWindowControls::windows(&application.window),
+        )
+        .replace(
+            "__APPLICATION_STATE__",
+            include_str!("windows_application_state.c"),
+        );
     WindowsHostGenerator::DESKTOP.render(
         &template,
         application,
@@ -813,6 +818,8 @@ static void tachyon_record(const char *event) {
   fclose(handle);
 }
 
+__APPLICATION_STATE__
+
 static void tachyon_companion_emit(const char *payload) {
   HWND window = (HWND)InterlockedCompareExchangePointer(&g_publish_window, NULL, NULL);
   if (payload == NULL || window == NULL || strnlen(payload, TACHYON_MESSAGE_LIMIT + 1) > TACHYON_MESSAGE_LIMIT) {
@@ -939,6 +946,7 @@ static char *tachyon_handle(const char *capability, const char *payload) {
       || tachyon_payload_string_matches(payload, "op", "get")
       || tachyon_payload_string_matches(payload, "op", "set")
       || tachyon_payload_string_matches(payload, "op", "call")
+      || tachyon_payload_string_matches(payload, "op", "event")
       || tachyon_payload_string_matches(payload, "op", "dispose");
     const TachyonLocalRoute *route = tachyon_current_route();
     if (!operation || route == NULL || !tachyon_payload_route_matches(payload, route->route)) return _strdup("{\"error\":\"Native route mismatch.\"}");
@@ -1301,7 +1309,7 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   snprintf(script, script_size,
            "if(location.origin==='https://tachyon.local' && window===window.top){\n%s\n"
            "let chain=Promise.resolve(), pending=0, sequence=0;const session=crypto.randomUUID();\n"
-           "window.chrome.webview.addEventListener('message',e=>{if(e.data && typeof e.data==='object')globalThis.__tachyonCompanionPublish(e.data)});\n"
+           "window.chrome.webview.addEventListener('message',e=>{if(typeof e.data?.applicationState==='string')globalThis.__tachyonApplicationState(e.data.applicationState);else if(e.data && typeof e.data==='object')globalThis.__tachyonCompanionPublish(e.data)});\n"
            "globalThis.__tachyonHostPost=(capability,payload)=>{\n"
            " if(pending>=128 || capability.length>64 || payload.length>65536)return Promise.reject(new Error('Native message limit'));\n"
            " pending++;const id=session+'.'+(++sequence);const call=()=>new Promise((resolve,reject)=>{\n"
@@ -1371,6 +1379,10 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
         GetClientRect(window, &bounds);
         ICoreWebView2Controller_put_Bounds(g_controller, bounds);
       }
+      tachyon_application_state_resized(window, wparam);
+      return 0;
+    case WM_ACTIVATEAPP:
+      tachyon_application_state_send(!wparam);
       return 0;
     case TACHYON_WM_PUBLISH: {
       char *payload = (char *)lparam;

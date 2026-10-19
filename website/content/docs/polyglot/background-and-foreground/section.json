@@ -1,0 +1,103 @@
+{
+  "heading": "Background and foreground",
+  "target": "web",
+  "body": "`ApplicationStateChanged` tells a service that the app went to the background or came back to the foreground. It has one field, `state`, and its value is `background` or `foreground`. Use it to pause work that nobody can see, such as a timer or a stream, and to start the work again later.\n\n| Where the page runs | `background` | `foreground` |\n| --- | --- | --- |\n| Browser tab | The tab is hidden. | The tab is shown again. |\n| macOS app | The app stops being the active app, the app is hidden, or its window is minimized. | The app is the active app again and its window is shown. |\n| Windows app | The app is no longer the active app (`WM_ACTIVATEAPP`), or its window is minimized. | The app is the active app again, or its window is restored. |\n| Linux app | No window of the app is active, or the window is suspended. | A window of the app is active again. |\n| iOS app | The app enters the background (`didEnterBackground`). | The app comes back (`willEnterForeground`). |\n| Android app | The activity stops (`onStop`). | The activity starts again (`onStart`). |\n\nIn a browser tab, the page sends the event when the page visibility changes. In a desktop or mobile app, the native host sends it, and the page does not use its visibility for it.\n\nThe event model is built in: do not declare it in `client/models/`. Write a listener with a parameter of type `ApplicationStateChanged`, like any `@OnEvent` listener. The page publishes the current state when it starts and keeps it, so a listener with `replay` hears the current state first and then every change. The event needs no permission and no browser API field, so a Python service can listen to it too, although Python services have no browser APIs.\n\nA service that is linked into a desktop or mobile app (Swift, Kotlin, C# and Rust; see \\\"What a native service reaches\\\") can listen to `ApplicationStateChanged` too. It is the one built-in event model that the build does not refuse in a linked service (`TY1317`).\n\nIn a desktop or mobile app, a page script that is not a service can also listen to the DOM event `tac.application.state` on `window`. The new state is in `event.detail.state`.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/activity/panel/tac.html",
+      "code": {
+        "file": "client/components/activity/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.js",
+      "code": {
+        "file": "client/services/ActivityService.js"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.rs",
+      "code": {
+        "file": "client/services/ActivityService.rs"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.swift",
+      "code": {
+        "file": "client/services/ActivityService.swift"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.java",
+      "code": {
+        "file": "client/services/ActivityService.java"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.fs",
+      "code": {
+        "file": "client/services/ActivityService.fs"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.ts",
+      "code": {
+        "file": "client/services/ActivityService.ts"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.dart",
+      "code": {
+        "file": "client/services/ActivityService.dart"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.go",
+      "code": {
+        "file": "client/services/ActivityService.go"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.rb",
+      "code": {
+        "file": "client/services/ActivityService.rb"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.lua",
+      "code": {
+        "file": "client/services/ActivityService.lua"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.kt",
+      "code": {
+        "file": "client/services/ActivityService.kt"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.cs",
+      "code": {
+        "file": "client/services/ActivityService.cs"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.hpp",
+      "code": {
+        "file": "client/services/ActivityService.hpp"
+      }
+    },
+    {
+      "name": "client/services/ActivityService.py",
+      "code": {
+        "file": "client/services/ActivityService.py"
+      }
+    }
+  ]
+}

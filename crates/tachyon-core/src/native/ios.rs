@@ -231,7 +231,11 @@ pub(super) fn swift_source(
             "__TACHYON_COMPANION_EMIT__",
             super::macos::companion_emit(companion_call),
         )
-        .replace("__TACHYON_RUST_SHIM__", rust_shim);
+        .replace("__TACHYON_RUST_SHIM__", rust_shim)
+        .replace(
+            "__NATIVE_APPLICATION_STATE__",
+            include_str!("AppleApplicationState.swift"),
+        );
     MacOsHostGenerator::apple_authored_values(&framed, application, index, &[])
 }
 
@@ -405,7 +409,7 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         }
         if capability == "companion.invoke" {
             guard let operation = request["op"] as? String,
-                  ["init", "get", "set", "call", "dispose"].contains(operation),
+                  ["init", "get", "set", "call", "event", "dispose"].contains(operation),
                   let path = message.frameInfo.request.url?.path,
                   let route = tachyonRoute(path), request["route"] as? String == route else {
                 replyHandler(nil, "companion route does not belong to this page"); return
@@ -456,6 +460,8 @@ __IOS_WINDOW_CONTROLS__
 private let TACHYON_NATIVE_SHIM = #"""
 __NATIVE_SHIM__
 """#
+
+__NATIVE_APPLICATION_STATE__
 
 private func tachyonRelayPublish(_ payload: String) {
     Task { @MainActor in
@@ -514,6 +520,7 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Telemetry.shared.record("controller.mounted")
         Telemetry.shared.record("controller.active")
+        AppleApplicationState.shared.post()
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -538,6 +545,10 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
         window.rootViewController = RootViewController()
         window.makeKeyAndVisible()
         self.window = window
+        AppleApplicationState.shared.watch([
+            UIApplication.didEnterBackgroundNotification: "background",
+            UIApplication.willEnterForegroundNotification: "foreground",
+        ])
         return true
     }
 
@@ -608,7 +619,9 @@ mod tests {
         assert!(source.contains("didStartProvisionalNavigation"));
         assert!(source.contains("tachyonDisposeCompanions()"));
         assert!(
-            source.contains(r#"["init", "get", "set", "call", "dispose"].contains(operation)"#)
+            source.contains(
+                r#"["init", "get", "set", "call", "event", "dispose"].contains(operation)"#
+            )
         );
         assert!(!source.contains("UIViewRepresentable"));
     }
@@ -667,5 +680,16 @@ mod tests {
         assert!(plist.contains(
             "<key>NSLocationWhenInUseUsageDescription</key><string>Shows stores &amp; more</string>"
         ));
+    }
+
+    #[test]
+    fn the_host_sends_the_application_state_when_the_app_enters_the_background_and_returns() {
+        let source = swift_source(&application(), "tacNativeInvoke(payload)", &index());
+        assert!(source.contains("UIApplication.didEnterBackgroundNotification: \"background\""));
+        assert!(source.contains("UIApplication.willEnterForegroundNotification: \"foreground\""));
+        assert!(source.contains("beginBackgroundTask"));
+        assert!(source.contains("globalThis.__tachyonApplicationState?.('"));
+        assert!(source.contains("AppleApplicationState.shared.post()"));
+        assert!(!source.contains("__NATIVE_APPLICATION_STATE__"));
     }
 }

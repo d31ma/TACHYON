@@ -20,7 +20,10 @@ RUN apt-get update \
       nodejs \
       pkg-config \
       python3-gi \
+      x11-utils \
       xauth \
+      xdotool \
+      xfwm4 \
       xvfb \
  && rm -rf /var/lib/apt/lists/*
 

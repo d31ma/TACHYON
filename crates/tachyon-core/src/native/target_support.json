@@ -672,12 +672,12 @@
   {
     "member": "background and foreground signal",
     "paths": [],
-    "web": {"reach": "honored", "how": "VisibilityChanged"},
-    "macos": {"reach": "adapted", "note": "The macOS host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."},
-    "windows": {"reach": "adapted", "note": "The Windows host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."},
-    "linux": {"reach": "adapted", "note": "The Linux host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."},
-    "ios": {"reach": "adapted", "note": "The iOS host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."},
-    "android": {"reach": "adapted", "note": "The Android host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1)."}
+    "web": {"reach": "adapted", "note": "A browser tab has no application state. The page sends ApplicationStateChanged with background when the tab is hidden and foreground when it is shown."},
+    "macos": {"reach": "honored", "how": "ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored"},
+    "windows": {"reach": "honored", "how": "ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored"},
+    "linux": {"reach": "honored", "how": "ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again"},
+    "ios": {"reach": "honored", "how": "ApplicationStateChanged when the app enters the background and when it returns to the foreground"},
+    "android": {"reach": "honored", "how": "ApplicationStateChanged on onStop and onStart"}
   },
   {
     "member": "stored data (IndexedDB, Cache API, LocalState)",

@@ -3,8 +3,11 @@ use super::{Model, ModelField, Record, Shape};
 pub(crate) struct WebEventModels;
 
 impl WebEventModels {
+    pub(crate) const APPLICATION_STATE: &'static str = "ApplicationStateChanged";
+
     pub(crate) fn models() -> Vec<(String, Model)> {
         vec![
+            Self::record(Self::APPLICATION_STATE, &[("state", Shape::Text)]),
             Self::record("ConnectivityChanged", &[("online", Shape::Boolean)]),
             Self::record("VisibilityChanged", &[("visible", Shape::Boolean)]),
             Self::record(
@@ -43,6 +46,13 @@ impl WebEventModels {
 
     pub(crate) fn names() -> Vec<String> {
         Self::models().into_iter().map(|(name, _)| name).collect()
+    }
+
+    pub(crate) fn page_names() -> Vec<String> {
+        Self::names()
+            .into_iter()
+            .filter(|name| name != Self::APPLICATION_STATE)
+            .collect()
     }
 
     fn record(name: &str, fields: &[(&str, Shape)]) -> (String, Model) {

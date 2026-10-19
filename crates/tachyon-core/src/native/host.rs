@@ -30,6 +30,12 @@ globalThis.__tachyonNativeHostCall = (capability, payload) =>
     : globalThis.__tachyonHostPost?.(capability, payload)
 globalThis.__tachyonWindowControls = Object.freeze(__WINDOW_CONTROLS__)
 globalThis.__tachyonBrowserApiBridge = Object.freeze(__BROWSER_API_BRIDGE__)
+globalThis.__tachyonApplicationStateNow = 'foreground'
+globalThis.__tachyonApplicationState = (state) => {
+  if (!['background', 'foreground'].includes(state) || state === globalThis.__tachyonApplicationStateNow) return
+  globalThis.__tachyonApplicationStateNow = state
+  dispatchEvent(new CustomEvent('tac.application.state', { detail: { state } }))
+}
 addEventListener('DOMContentLoaded', () => {
   if (document.body) document.body.dataset.platform = 'native'
 })

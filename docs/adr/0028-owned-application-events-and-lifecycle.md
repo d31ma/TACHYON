@@ -97,3 +97,67 @@ Migrate the runnable website examples and verify them against the new
 compiler. Record the actual execution evidence and limitations separately
 from this decision. Do not infer release qualification from source staging
 or compilation alone.
+
+## Amendment (2026-10-18): the application goes to the background and comes back
+
+A service can now hear when the whole app goes to the background and when it
+comes back. Document visibility (`VisibilityChanged`, ADR 0065) stays as it
+is: it is about the page, not the app.
+
+1. **One built-in event model.** `ApplicationStateChanged { state }`, where
+   `state` is `background` or `foreground`, joins the built-in event models
+   (`route_types::WebEventModels`). Like the others, it is never declared in
+   `client/models/`, and `WebEventSources` writes its type for each language.
+   A listener is a normal `@OnEvent` listener with a parameter of this type.
+   Python services (ADR 0093) get it too, although they have no browser
+   APIs: when a unit names it, the bridge unit declares it as a dataclass.
+2. **What sends it.**
+   - macOS: `NSApplication` did resign or become active, did hide or unhide,
+     and `NSWindow` did minimize or restore (`AppleApplicationState`).
+   - iOS: `UIApplication` did enter the background and will enter the
+     foreground. The host asks for a short background task, so the page and
+     the services can finish hearing the change.
+   - Windows: `WM_ACTIVATEAPP`, and `WM_SIZE` with `SIZE_MINIMIZED`, or a
+     restored size while the window is in front.
+   - Linux: GTK `notify::is-active` and `notify::suspended` on the window. The
+     app is in the background when no app window is active, or every active
+     window is suspended. The check waits for the next idle moment, so moving
+     the focus to an app dialog does not send `background`.
+   - Android: `onStop` and `onStart`. The plan named `onPause` and
+     `onResume`, but `onPause` also runs when a permission dialog covers the
+     activity, while the app is still in front.
+   - A browser tab has no application state. The page sends `background`
+     when the tab is hidden and `foreground` when it is shown.
+   Each host keeps the last state and sends only changes. It records
+   `application.background` and `application.foreground` in its lifecycle
+   log, and sends the current state again when a page finishes loading
+   (except Windows, which sends only changes).
+3. **How it reaches the page.** The native shim adds
+   `__tachyonApplicationState(state)`. The host calls it (Windows posts
+   `{ applicationState }` to the page, and the injected script calls it). It
+   ignores an unknown or repeated state and dispatches `tac.application.state` on
+   `window` with `detail.state`, so plain page scripts can listen too. The
+   page runtime (`TacWebApis.watch`) publishes the model for each known state
+   and keeps the last one, so a `replay` listener hears the current state
+   first. A native page starts in `foreground`.
+4. **How it reaches natively linked services.** A natively linked Rust,
+   Swift, C# or Kotlin service may name `ApplicationStateChanged`: `TY1317`
+   no longer refuses this one model, because it belongs to the app, not to
+   the page. When the page binds a native owner, it also registers that
+   owner's listeners for this model, and each delivery is an `event` call to
+   the owner (`op: "event"`, which every host now passes on). Swift and
+   Kotlin on native targets describe only these listeners; other page events
+   still do not reach native listeners. Native Swift and Kotlin companions
+   get the model's type when their source names it.
+
+Checks: `application_state_tests` (the shim and the page runtime in Node, and
+an Android host and Kotlin companion compiled against Android platform 35),
+host source tests for all five hosts, a MinGW-w64 compile of the Windows
+state code, and `scripts/linux/application-state-test.sh`, which builds a
+Linux app with a page service and a linked Rust service and, under Xvfb and
+xfwm4, moves the focus to another window and back and minimizes the app. The
+page and the Rust service each heard `foreground`, `background`,
+`foreground` and `background` (2026-10-18, x86_64 Ubuntu 24.04 cloud
+container, GTK 4.14.5, WebKitGTK 2.52.6). Not run yet: the macOS and iOS
+hosts (the Swift is not compiled in this run), the Windows host inside
+WebView2 on a signed-in desktop, and Android on an emulator.

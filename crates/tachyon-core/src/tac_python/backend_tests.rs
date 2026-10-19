@@ -300,12 +300,13 @@ fn python_missing_opt_in_profile_is_reported_by_doctor_without_installing() {
 struct PythonPage;
 
 impl PythonPage {
-    const OWNERS: [(&'static str, &'static str); 5] = [
+    const OWNERS: [(&'static str, &'static str); 6] = [
         ("shelf", "00000000-0000-4000-8000-000000000001"),
         ("checkout", "00000000-0000-4000-8000-000000000002"),
         ("audit", "00000000-0000-4000-8000-000000000003"),
         ("library", "00000000-0000-4000-8000-000000000004"),
         ("tally", "00000000-0000-4000-8000-000000000005"),
+        ("state", "00000000-0000-4000-8000-000000000006"),
     ];
     const SHELF: [(&'static str, &'static str); 3] = [
         (
@@ -381,6 +382,13 @@ impl PythonPage {
          \x20   'added': _ask('tally', {'op': 'call', 'name': 'add', 'args': []}),\n\
          \x20   'title': _ask('tally', {'op': 'set', 'name': 'lastTitle', 'value': 'atlas'}),\n\
          \x20   'read': _ask('tally', {'op': 'get', 'name': 'lastTitle'})}\n";
+    const STATE: [(&'static str, &'static str); 1] = [(
+        "client/services/StateService.py",
+        "@service\nclass StateService:\n    state: str = 'foreground'\n\n    @on_event({\"replay\":true})\n    def changed(self, changed: ApplicationStateChanged) -> None:\n        self.state = changed.state\n",
+    )];
+    const STATE_DRIVER: &'static str = "_report = {'init': _ask('state', {'op': 'init', 'props': {}}),\n\
+         \x20   'heard': _ask('state', {'op': 'event', 'name': 'changed', 'value': {'state': 'background'}}),\n\
+         \x20   'state': _ask('state', {'op': 'get', 'name': 'state'})}\n";
     const DRIVER_HEAD: &'static str = "import json\n_emitted = []\n_finished = []\n_TacPythonRuntime.connect(_emitted.append, lambda task, text: _finished.append([task, json.loads(text)]))\n_owners = {}\n\
          def _ask(service, request):\n    request.update({'route': 'web', 'service': service, 'owner': _owners[service]})\n    return json.loads(_TacPythonRuntime.invoke(json.dumps(request)))\n";
     const DRIVER_TAIL: &'static str = "_report['emitted'] = [json.loads(item) for item in _emitted]\n_report['finished'] = _finished\nprint(json.dumps(_report))\n";
@@ -464,6 +472,23 @@ fn a_python_listener_hears_its_topic_and_publishes_to_the_page() {
     assert_eq!(report["announced"], json!({"value": 3}), "{report}");
     let counted = PythonPage::signal("shelf", "ShelfCounted", &json!({"total": 3}), false);
     assert_eq!(report["emitted"], json!([counted, counted]));
+}
+
+#[test]
+fn a_python_listener_hears_the_built_in_application_state() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(&PythonPage::STATE, &["state"], PythonPage::STATE_DRIVER);
+    let listener = &report["init"]["value"]["listeners"][0];
+    assert_eq!(
+        listener["events"],
+        json!(["ApplicationStateChanged"]),
+        "{report}"
+    );
+    assert_eq!(listener["replay"], true, "{report}");
+    assert_eq!(report["heard"], json!({"value": null}), "{report}");
+    assert_eq!(report["state"], json!({"value": "background"}), "{report}");
 }
 
 #[test]

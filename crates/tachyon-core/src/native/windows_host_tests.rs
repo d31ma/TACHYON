@@ -220,3 +220,51 @@ async fn windows_menu_code_compiles_and_links_against_the_win32_headers() {
         .expect("Win32 menu code compiles and links");
     }
 }
+
+#[test]
+fn windows_host_sends_the_application_state_on_activation_and_minimize() {
+    let source = WindowsHostTests::host(NativeMenuConfig::default());
+    let window = WindowsHostTests::section(&source, "static LRESULT CALLBACK tachyon_window_proc(");
+    assert!(
+        window.contains("case WM_ACTIVATEAPP:\n      tachyon_application_state_send(!wparam);")
+    );
+    assert!(window.contains("tachyon_application_state_resized(window, wparam);"));
+    let resized =
+        WindowsHostTests::section(&source, "static void tachyon_application_state_resized(");
+    assert!(resized.contains("if (kind == SIZE_MINIMIZED) tachyon_application_state_send(TRUE);"));
+    assert!(source.contains("L\"{\\\"applicationState\\\":\\\"background\\\"}\""));
+    assert!(source.contains(
+        "if(typeof e.data?.applicationState==='string')globalThis.__tachyonApplicationState(e.data.applicationState)"
+    ));
+    assert!(!source.contains("__APPLICATION_STATE__"));
+}
+
+#[cfg(unix)]
+#[tokio::test]
+#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler; checks the application state code against the Win32 headers, not WebView2 or MSVC"]
+async fn windows_application_state_code_compiles_against_the_win32_headers() {
+    let root = tempfile::tempdir().expect("fixture");
+    let harness = format!(
+        "#define UNICODE\n#include <windows.h>\n#include <wchar.h>\ntypedef struct ICoreWebView2 ICoreWebView2;\nstatic ICoreWebView2 *g_webview = NULL;\nstatic int g_posted = 0;\nstatic void ICoreWebView2_PostWebMessageAsJson(ICoreWebView2 *view, const wchar_t *message) {{ (void)view; g_posted += message[0] == L'{{'; }}\nstatic const char *tachyon_current_route(void) {{ return \"/\"; }}\nstatic void tachyon_record(const char *event) {{ (void)event; }}\n{}\nint main(void) {{ tachyon_application_state_resized(NULL, SIZE_MINIMIZED); tachyon_application_state_send(FALSE); return g_posted; }}\n",
+        include_str!("windows_application_state.c")
+    );
+    let source = root.path().join("state.c");
+    std::fs::write(&source, harness).expect("harness");
+    let executable = root.path().join("state.exe");
+    super::host::run_tool(
+        WindowsHostTests::MINGW,
+        &[
+            "-std=gnu17",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source.to_str().expect("source"),
+            "-luser32",
+            "-o",
+            executable.to_str().expect("executable"),
+        ],
+    )
+    .await
+    .expect("the application state code compiles and links");
+}

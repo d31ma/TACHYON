@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 11_000;
+    const MOST_RUNTIME_BYTES: usize = 11_500;
     /// A driver whose promises never settle fails its test instead of holding the suite.
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
@@ -1484,9 +1484,11 @@ fn the_page_runtime_answers_and_watches_connectivity_visibility_and_preferences(
         serde_json::json!([
             ["ConnectivityChanged", {"online": false}],
             ["VisibilityChanged", {"visible": false}],
+            ["ApplicationStateChanged", {"state": "background"}],
             ["PreferencesChanged", {"scheme": "dark", "motion": "no-preference", "language": "fr"}],
             ["ConnectivityChanged", {"online": true}],
             ["VisibilityChanged", {"visible": true}],
+            ["ApplicationStateChanged", {"state": "foreground"}],
             ["PreferencesChanged", {"scheme": "light", "motion": "no-preference", "language": "fr"}],
         ])
     );
@@ -1499,6 +1501,7 @@ fn the_page_runtime_answers_and_watches_connectivity_visibility_and_preferences(
             "window:languagechange",
             "window:offline",
             "window:online",
+            "window:tac.application.state",
         ])
     );
 }

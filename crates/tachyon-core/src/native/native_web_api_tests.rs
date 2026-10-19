@@ -168,3 +168,33 @@ fn captured_model_internal_collision_uses_the_real_native_rust_graph() -> Result
     );
     Ok(())
 }
+
+#[test]
+fn a_linked_service_in_every_native_language_may_listen_for_the_application_state() {
+    let services = [
+        (
+            NativeCompanion::Rust,
+            "rs",
+            "#[Service]\n#[derive(Default)]\nstruct PlaceService {\n    state: String,\n}\n\nimpl PlaceService {\n    #[OnEvent]\n    fn hear(&mut self, changed: ApplicationStateChanged) {\n        self.state = changed.state;\n    }\n}\n",
+        ),
+        (
+            NativeCompanion::CSharp,
+            "cs",
+            "[Service]\npublic class PlaceService\n{\n    public string State = \"\";\n\n    [OnEvent]\n    public void Hear(ApplicationStateChanged changed)\n    {\n        State = changed.State;\n    }\n}\n",
+        ),
+        (
+            NativeCompanion::Swift,
+            "swift",
+            "@Service\nfinal class PlaceService {\n    var state: String = \"\"\n\n    @OnEvent\n    func hear(_ changed: ApplicationStateChanged) {\n        state = changed.state\n    }\n}\n",
+        ),
+        (
+            NativeCompanion::Kotlin,
+            "kt",
+            "@Service\nclass PlaceService {\n    var state: String = \"\"\n\n    @OnEvent\n    fun hear(changed: ApplicationStateChanged) {\n        state = changed.state\n    }\n}\n",
+        ),
+    ];
+    for (language, extension, authored) in services {
+        Services::built(language, extension, authored, false)
+            .unwrap_or_else(|error| panic!("{extension}: {error}"));
+    }
+}

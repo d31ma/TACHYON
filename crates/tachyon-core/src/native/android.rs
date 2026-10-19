@@ -135,11 +135,12 @@ pub(super) fn stage_companion(
         return Ok(false);
     };
     let prelude = AndroidHostGenerator::kotlin_companion_prelude();
+    let built_in = crate::route_types::WebEventSources::native_application_state("kt", &authored);
     write(
         &project.join(format!(
             "app/src/main/kotlin/{package_path}/TachyonCompanion.kt"
         )),
-        format!("package {package}\n\n{authored}\n{prelude}").as_bytes(),
+        format!("package {package}\n\n{authored}\n{built_in}{prelude}").as_bytes(),
     )?;
     stage_kotlin_models(companions, project)?;
     Ok(true)
@@ -389,6 +390,10 @@ pub(super) fn java_source(
             "__NATIVE_BROWSER_APIS__",
             &super::android_browser_apis::AndroidBrowserApis::java(&application.permissions),
         )
+        .replace(
+            "__APPLICATION_STATE__",
+            include_str!("android_application_state.java"),
+        )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit);
     let entry_document = quoted_string_escape(&index.entry_document);
@@ -543,7 +548,7 @@ public final class MainActivity extends Activity {
           org.json.JSONObject request = new org.json.JSONObject(payload);
           String operation = request.optString("op");
           if (!("init".equals(operation) || "get".equals(operation) || "set".equals(operation)
-              || "call".equals(operation) || "dispose".equals(operation))) {
+              || "call".equals(operation) || "event".equals(operation) || "dispose".equals(operation))) {
             return "{\"error\":\"Invalid companion operation.\"}";
           }
           if (!ownerRoute.equals(request.optString("route"))) {
@@ -565,6 +570,7 @@ public final class MainActivity extends Activity {
   }
 
 __NATIVE_WINDOW_CONTROLS__
+__APPLICATION_STATE__
 
 __NATIVE_BROWSER_APIS__
 
@@ -784,6 +790,7 @@ __NATIVE_BROWSER_APIS__
             if (!isAssetUrl(target) || canonicalRoute(target.getPath()) == null) return;
             record("controller.mounted");
             record("controller.active");
+            postApplicationState();
           }
 
           @Override
@@ -1305,5 +1312,18 @@ mod tests {
                 "<string name=\"tachyon_permission_notifications\">Order updates</string>"
             )
         );
+    }
+
+    #[test]
+    fn the_host_sends_the_application_state_when_the_activity_stops_and_starts() {
+        let source = catalog_java_source(true);
+        assert!(source.contains("protected void onStop() {\n    super.onStop();\n    sendApplicationState(\"background\");"));
+        assert!(source.contains("protected void onStart() {\n    super.onStart();\n    sendApplicationState(\"foreground\");"));
+        assert!(source.contains("globalThis.__tachyonApplicationState?.('"));
+        assert!(
+            source.contains("record(\"controller.active\");\n            postApplicationState();")
+        );
+        assert!(source.contains("\"event\".equals(operation)"));
+        assert!(!source.contains("__APPLICATION_STATE__"));
     }
 }

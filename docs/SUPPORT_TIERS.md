@@ -66,6 +66,19 @@ Xvfb). Windows: generated-source tests and the MinGW-w64 compile only; the
 Edit commands inside WebView2 (sent through the DevTools protocol) and
 Minimize/Maximize still need the interactive desktop run listed above.
 
+Background and foreground (2026-10-18, ADR 0028 amendment): every host
+sends `ApplicationStateChanged` to the page and to natively linked
+services. Linux: `scripts/linux/application-state-test.sh` passed under
+Xvfb and xfwm4 in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5,
+WebKitGTK 2.52.6): a page service and a linked Rust service each heard the
+app go to the background and come back when the focus moved to another
+window, and go to the background when it was minimized. Android: the host
+code and a Kotlin companion compile against Android platform 35; no
+emulator run yet. Windows: generated-source tests and a MinGW-w64 compile of
+the state code only; the run inside WebView2 waits for the interactive
+desktop run. macOS and iOS: generated-source tests only; the Swift was not
+compiled in that run.
+
 Windows bundles accept `--arch arm64` or `--arch x64`. The default matches
 an ARM64 build host and falls back to x64 on other architectures. This choice
 sets the Rust companion target, WebView2 library folder, C# runtime identifier

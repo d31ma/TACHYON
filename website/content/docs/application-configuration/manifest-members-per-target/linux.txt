@@ -202,7 +202,7 @@ deep links
   adapted: The Linux app cannot be opened at a route from a link yet (LK2).
 
 background and foreground signal
-  adapted: The Linux host sends services no background or foreground signal. Only the web view's own page visibility events can reach them, and no host test checks those (LC1).
+  honored: ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again
 
 stored data (IndexedDB, Cache API, LocalState)
   adapted: Stored data in the Linux app is lost when the app quits: the web view session is not kept yet (ST1).

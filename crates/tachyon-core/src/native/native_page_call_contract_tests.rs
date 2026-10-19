@@ -4,7 +4,7 @@ use super::native_menu_config::NativeMenuConfig;
 struct NativePageCallContractTests;
 
 impl NativePageCallContractTests {
-    const OPERATIONS: [&'static str; 5] = ["init", "get", "set", "call", "dispose"];
+    const OPERATIONS: [&'static str; 6] = ["init", "get", "set", "call", "event", "dispose"];
 
     fn linux() -> String {
         super::linux::c_source(
@@ -53,9 +53,9 @@ fn every_desktop_host_routes_the_same_companion_operations_with_a_64_kib_request
     let macos = NativePageCallContractTests::macos();
     NativePageCallContractTests::accepts_the_companion_operations("linux", &linux);
     NativePageCallContractTests::accepts_the_companion_operations("windows", &windows);
-    assert!(
-        macos.contains("[\"init\", \"get\", \"set\", \"call\", \"dispose\"].contains(operation)")
-    );
+    assert!(macos.contains(
+        "[\"init\", \"get\", \"set\", \"call\", \"event\", \"dispose\"].contains(operation)"
+    ));
     for host in [&linux, &windows] {
         assert!(host.contains("#define TACHYON_MESSAGE_LIMIT 65536"));
         assert!(host.contains("tachyon_payload_route_matches(payload, route->route)"));

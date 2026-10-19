@@ -191,6 +191,14 @@ impl ModelTable {
         self.models.extend(WebEventModels::models());
     }
 
+    pub(crate) fn add_web_event(&mut self, name: &str) {
+        self.models.extend(
+            WebEventModels::models()
+                .into_iter()
+                .filter(|(model, _)| model == name),
+        );
+    }
+
     pub(crate) fn declared_names(extension: &str, source: &str) -> Vec<String> {
         Self::declared_models(extension, source)
             .into_iter()

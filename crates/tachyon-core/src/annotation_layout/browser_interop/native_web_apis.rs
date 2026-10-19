@@ -52,7 +52,7 @@ impl NativeWebApis {
 
     fn uses(path: &Path, source: &str) -> Vec<Range<usize>> {
         let extension = Self::extension(path);
-        let mut names = crate::route_types::WebEventModels::names();
+        let mut names = crate::route_types::WebEventModels::page_names();
         names.extend(Self::clients(extension));
         let words: Vec<&str> = names.iter().map(String::as_str).collect();
         InteropFinder::new(extension, source).all_words(&words)

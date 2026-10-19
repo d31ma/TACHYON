@@ -100,7 +100,12 @@ pub(super) fn stage_swift_companion(
     };
     let staged = stage.join("project").join("TachyonCompanion.swift");
     let prelude = MacOsHostGenerator::SWIFT_COMPANION_PRELUDE;
-    write(&staged, format!("{authored}\n{prelude}").as_bytes())?;
+    let built_in =
+        crate::route_types::WebEventSources::native_application_state("swift", &authored);
+    write(
+        &staged,
+        format!("{authored}\n{built_in}{prelude}").as_bytes(),
+    )?;
     Ok(Some(staged))
 }
 
@@ -340,6 +345,10 @@ pub(super) fn swift_source(
             "__NATIVE_APPLICATION_STOP__",
             MacOsHostGenerator::application_stop(companion_call),
         )
+        .replace(
+            "__NATIVE_APPLICATION_STATE__",
+            include_str!("AppleApplicationState.swift"),
+        )
         .replace("__NATIVE_MENUS__", include_str!("menus/MacOsMenus.swift"))
         .replace(
             "__NATIVE_MENU_MODELS__",
@@ -530,6 +539,7 @@ __NATIVE_MENUS__
 __NATIVE_MENU_MODELS__
 __NATIVE_MENU_CALLS__
 __NATIVE_TITLE_BAR__
+__NATIVE_APPLICATION_STATE__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
@@ -689,7 +699,7 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         }
         if capability == "companion.invoke" {
             guard let operation = request["op"] as? String,
-                  ["init", "get", "set", "call", "dispose"].contains(operation),
+                  ["init", "get", "set", "call", "event", "dispose"].contains(operation),
                   let path = message.frameInfo.request.url?.path,
                   let route = tachyonRoute(path), request["route"] as? String == route else {
                 replyHandler(nil, "companion route does not belong to this page"); return
@@ -778,6 +788,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         __NATIVE_APPLICATION_START__
         Telemetry.shared.record("controller.created")
         openWindow()
+        AppleApplicationState.shared.watch([
+            NSApplication.didResignActiveNotification: "background",
+            NSApplication.didHideNotification: "background",
+            NSWindow.didMiniaturizeNotification: "background",
+            NSApplication.didBecomeActiveNotification: "foreground",
+            NSApplication.didUnhideNotification: "foreground",
+            NSWindow.didDeminiaturizeNotification: "foreground",
+        ])
         NSApplication.shared.activate(ignoringOtherApps: true)
         Telemetry.shared.record("bridge.ready")
     }
@@ -885,6 +903,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Telemetry.shared.record("controller.mounted")
         Telemetry.shared.record("controller.active")
+        AppleApplicationState.shared.post()
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -977,7 +996,9 @@ mod tests {
         assert!(source.contains("didStartProvisionalNavigation"));
         assert!(source.contains("tachyonDisposeCompanions()"));
         assert!(
-            source.contains(r#"["init", "get", "set", "call", "dispose"].contains(operation)"#)
+            source.contains(
+                r#"["init", "get", "set", "call", "event", "dispose"].contains(operation)"#
+            )
         );
         assert!(source.contains("__tachyonNativeHostCall"));
         assert!(!source.contains("case \"control.button\""));
@@ -1087,5 +1108,26 @@ mod tests {
                 "<key>{key}</key><string>Shows stores &amp; more</string>"
             )));
         }
+    }
+
+    #[test]
+    fn the_host_sends_the_application_state_when_the_app_or_its_window_changes() {
+        let source = catalog_swift_source("tacNativeInvoke(payload)");
+        for (notification, state) in [
+            ("NSApplication.didResignActiveNotification", "background"),
+            ("NSApplication.didHideNotification", "background"),
+            ("NSWindow.didMiniaturizeNotification", "background"),
+            ("NSApplication.didBecomeActiveNotification", "foreground"),
+            ("NSApplication.didUnhideNotification", "foreground"),
+            ("NSWindow.didDeminiaturizeNotification", "foreground"),
+        ] {
+            assert!(
+                source.contains(&format!("{notification}: \"{state}\"")),
+                "{notification}"
+            );
+        }
+        assert!(source.contains("#if os(iOS)"));
+        assert!(source.contains("AppleApplicationState.shared.post()"));
+        assert!(!source.contains("__NATIVE_APPLICATION_STATE__"));
     }
 }

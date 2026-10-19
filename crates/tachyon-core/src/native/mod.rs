@@ -4,6 +4,8 @@ mod android_gradle_build;
 mod android_release;
 mod apple_browser_apis;
 mod apple_icons;
+#[cfg(test)]
+mod application_state_tests;
 mod browser_api_bridge;
 mod browser_api_grants;
 #[cfg(test)]

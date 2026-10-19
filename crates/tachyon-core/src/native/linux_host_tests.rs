@@ -222,3 +222,22 @@ async fn linux_generated_host_runs_menu_actions_and_one_application_lifetime() {
         "{output}"
     );
 }
+
+#[test]
+fn linux_host_sends_the_application_state_when_no_window_is_active_or_it_is_suspended() {
+    let source = LinuxHostTests::host(NativeMenuConfig::default());
+    let activate = LinuxHostTests::section(&source, "static void tachyon_activate(");
+    assert!(activate.contains("tachyon_application_state_watch(GTK_WINDOW(window));"));
+    let watch = LinuxHostTests::section(&source, "static void tachyon_application_state_watch(");
+    assert!(watch.contains("\"notify::is-active\""));
+    assert!(watch.contains("\"notify::suspended\""));
+    let check =
+        LinuxHostTests::section(&source, "static gboolean tachyon_application_state_check(");
+    assert!(check.contains("gtk_window_list_toplevels()"));
+    assert!(check.contains("gtk_window_is_active(window) && !gtk_window_is_suspended(window)"));
+    let load = LinuxHostTests::section(&source, "static void tachyon_on_load(");
+    assert!(load.contains("tachyon_application_state_post();"));
+    let host_call = LinuxHostTests::section(&source, "static gboolean tachyon_on_host_call(");
+    assert!(host_call.contains("tachyon_payload_string_matches(payload, \"op\", \"event\")"));
+    assert!(!source.contains("__APPLICATION_STATE__"));
+}

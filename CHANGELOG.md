@@ -78,6 +78,21 @@ machine contracts have their own, independent major versions.
   and iOS for another architecture, Android) prints one `Note:` line; when no
   target being built takes the choice, the build stops with `TY1001`
   (ADR 0097 amendment).
+- Every app hears when it goes to the background and comes back. A new
+  built-in event model, `ApplicationStateChanged { state }`, carries
+  `background` or `foreground` to `@OnEvent` listeners in every service
+  language, also in services linked into a native app (Rust, Swift, C# and
+  Kotlin). Page scripts can listen to the `tac.application.state` event on
+  `window`. macOS sends it when the app stops or starts being the active app,
+  is hidden or its window is minimized; Windows on `WM_ACTIVATEAPP` and
+  minimize; Linux when no app window is active or the window is suspended;
+  iOS on entering the background and the foreground; Android on `onStop` and
+  `onStart`. A browser tab sends it when the tab is hidden or shown. The page
+  keeps the current state, so a `replay` listener hears it first (ADR 0028
+  amendment). The new guide section "Background and foreground" shows a
+  listener in every language, Python included.
+  `scripts/linux/application-state-test.sh` checks the Linux host end to end
+  under Xvfb.
 - `scripts/android/native-test.sh` also runs the Kotlin window-controls
   example on the Android emulator. Granted `minimize`, `resize` and `title`
   act on the app window, and `maximize`, `fullscreen` and `close`, which the
