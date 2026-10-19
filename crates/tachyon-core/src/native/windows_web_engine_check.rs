@@ -111,7 +111,7 @@ mod tests {
                 include_str!("windows_web_engine_check_fixture.c"),
                 "\nstatic int tachyon_capture_message(HWND owner, LPCWSTR text, LPCWSTR caption, UINT type) {\n  (void)owner;\n  (void)caption;\n  (void)type;\n  wprintf(L\"message: %ls\\n\", text);\n  return IDOK;\n}\n#define MessageBoxW tachyon_capture_message\n",
                 check,
-                "\nint main(void) {\n  bool ready = tachyon_web_engine_ready();\n  wprintf(L\"ready: %ls\\n\", ready ? L\"yes\" : L\"no\");\n  if (!ready) tachyon_show_web_engine_message();\n  return 0;\n}\n"
+                "\nint WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR command, int show) {\n  (void)instance;\n  (void)previous;\n  (void)command;\n  (void)show;\n  bool ready = tachyon_web_engine_ready();\n  wprintf(L\"ready: %ls\\n\", ready ? L\"yes\" : L\"no\");\n  if (!ready) tachyon_show_web_engine_message();\n  return 0;\n}\n"
             );
             let source = root.path().join(format!("{name}.c"));
             let program = root.path().join(format!("{name}.exe"));

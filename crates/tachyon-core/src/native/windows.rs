@@ -219,6 +219,16 @@ impl WindowsHostGenerator {
 
 impl WindowsHostGenerator {
     const RESPONSE_HEADER_ROOM: usize = 256;
+    const RUST_LINK_LEFTOVERS: [&str; 2] = [
+        "TachyonRustCompanion.dll.lib",
+        "TachyonRustCompanion.dll.exp",
+    ];
+
+    fn remove_rust_link_leftovers(bin: &Path) -> Result<(), Failure> {
+        Self::RUST_LINK_LEFTOVERS
+            .iter()
+            .try_for_each(|name| NativeBuildFolders::remove_file(&bin.join(name)))
+    }
 
     fn prepare_release(
         application: &NativeApplication,
@@ -348,7 +358,7 @@ async fn compile_rust_companion(
         &bin,
     )
     .await?;
-    Ok(())
+    WindowsHostGenerator::remove_rust_link_leftovers(&bin)
 }
 
 fn stage_companion(
