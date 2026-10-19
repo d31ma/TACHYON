@@ -1,6 +1,6 @@
 # ADR 0106: Deep Links Come From the Manifest
 
-- Status: Accepted; host runs on a Windows desktop are pending
+- Status: Accepted; a signed iOS device check of universal links is pending
 - Date: 2026-10-19
 - Related: [ADR 0018](0018-native-hosts-run-the-platform-javascript-engine.md)
   (native hosts and links that leave the app),
@@ -112,6 +112,7 @@ Android) also need files on the web site and the app's signing identity.
   opened a launch link at its route, and a second instance's links reached the
   running window, under Xvfb with a D-Bus session bus. On the Mac, the Swift
   rule passed, and a built app opened links at launch and while running on
-  macOS, an iOS 26.5 simulator and the Android emulator. Owed: WebView2 on a
-  Windows desktop, an installed MSIX package, a Linux desktop with the `.desktop` file installed, and a
+  macOS, an iOS 26.5 simulator and the Android emulator. On a Windows 11
+  desktop, the WebView2 app and an installed MSIX package opened links at their
+  route. Owed: a Linux desktop with the `.desktop` file installed, and a
   signed iOS device check of universal links once `TAC_APPLE_TEAM_ID` is set.
