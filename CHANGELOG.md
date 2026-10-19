@@ -46,6 +46,22 @@ machine contracts have their own, independent major versions.
   generated GTK host under Xvfb and checks the real page size, the minimum,
   the header bar's rendered color and the fullscreen start (ADR 0052
   amendment).
+- A linked Swift service in a macOS or iOS app reaches Yon. When
+  `client/manifest.json` declares `tac.yon.origin`, a Swift `@HTTPClient`
+  sends its requests to that origin through `URLSession`, with the page's
+  rules: no cookies, redirects refused, a JSON body, the method deadline and
+  the response limit. Before, every such request failed with
+  `HTTP_MISSING`. A Swift service in a native app still cannot hold a
+  `@StreamRequest` or `@SocketRequest` client (`TY1405`); the message now
+  says to hold the client in a JavaScript or TypeScript page service,
+  which reaches Yon on the declared origin (ADR 0103 amendment).
+- `scripts/native/yon-reach-test.mjs` builds one app that calls Yon on
+  another origin over HTTP, a CORS preflight, a stream, a socket, a topic,
+  a `@Check` 422 problem and a `SignedIn` route, and a linked Swift client.
+  `--target=web` runs it in Chromium (`bun run test:yon-reach-browser`);
+  on a Mac it runs the macOS app, the iOS simulator over `http` and the
+  iOS simulator over `https` through a local TLS proxy.
+
 - The Android native test checks that a `@LocalState` field set by a Kotlin
   method on the first page (`/index.html`) keeps its value after a
   navigation to `/` and after a reload. The test clears the app's data

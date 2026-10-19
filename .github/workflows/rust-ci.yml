@@ -330,6 +330,9 @@ jobs:
       - name: Run the real-browser contract for native Yon reads kept offline
         run: bun run test:yon-reads-browser
 
+      - name: Run the Yon reach probe that the native apps also run
+        run: bun run test:yon-reach-browser
+
       - name: Run the real-browser offline cache contract
         run: bun run test:service-worker-browser
 

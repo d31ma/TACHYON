@@ -40,7 +40,8 @@ impl MacOsHostGenerator {
         let resources = contents.join("Resources");
         stage_application(index, web_bundle, stage, &resources)?;
 
-        let companion = stage_swift_companion(companions, stage)?;
+        let companion =
+            stage_swift_companion(companions, stage, application.outgoing.yon_origin())?;
         let rust_companion = super::rust::RustCompanion::stage_for_host(
             companions,
             stage,
@@ -92,6 +93,7 @@ fn executable_path(application: &NativeApplication, contents: &Path) -> Result<P
 pub(super) fn stage_swift_companion(
     companions: &[super::registry::NativeCompanionInput],
     stage: &Path,
+    yon_origin: Option<&str>,
 ) -> Result<Option<PathBuf>, Failure> {
     let Some(authored) =
         super::registry::source(companions, crate::project::NativeCompanion::Swift)?
@@ -100,6 +102,7 @@ pub(super) fn stage_swift_companion(
     };
     let staged = stage.join("project").join("TachyonCompanion.swift");
     let prelude = MacOsHostGenerator::SWIFT_COMPANION_PRELUDE;
+    let authored = super::swift_yon_http::SwiftYonHttp::linked(&authored, yon_origin);
     let built_in =
         crate::route_types::WebEventSources::native_application_state("swift", &authored);
     write(

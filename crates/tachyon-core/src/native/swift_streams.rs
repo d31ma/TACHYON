@@ -21,7 +21,7 @@ impl SwiftStreams {
         "lazy ",
     ];
     const TOO_MANY: &'static str = "A Swift service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.";
-    const NATIVE: &'static str = "A Swift service in a native app cannot hold a @StreamRequest or @SocketRequest client. The browser page holds the stream for a Swift web service only; receive the messages with @OnEvent instead";
+    const NATIVE: &'static str = "A Swift service in a native app cannot hold a @StreamRequest or @SocketRequest client. Hold the client in a JavaScript or TypeScript page service, which reaches Yon on tac.yon.origin (ADR 0103), and receive the messages here with @OnEvent; the page holds the stream itself for a Swift web service";
 
     pub(super) fn held(
         language: NativeCompanion,
@@ -259,5 +259,6 @@ mod tests {
             failure.to_string().contains("cannot hold a @StreamRequest"),
             "{failure}"
         );
+        assert!(failure.to_string().contains("tac.yon.origin"), "{failure}");
     }
 }

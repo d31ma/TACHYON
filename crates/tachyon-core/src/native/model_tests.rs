@@ -132,7 +132,7 @@ fn a_swift_native_companion_compiles_with_its_models() {
         "client/models/Kind.swift",
         Sources::SWIFT_KIND_MODEL,
     );
-    let staged = super::macos::stage_swift_companion(&[input], root.path())
+    let staged = super::macos::stage_swift_companion(&[input], root.path(), None)
         .expect("stage")
         .expect("a Swift companion");
     let json = root.path().join("apple_json.swift");
@@ -159,7 +159,7 @@ fn a_swift_native_companion_awaits_an_async_method_on_the_owner_thread() {
         Sources::SWIFT_MODEL,
         Sources::SWIFT_WAITING_SERVICE,
     );
-    let staged = super::macos::stage_swift_companion(&[input], root.path())
+    let staged = super::macos::stage_swift_companion(&[input], root.path(), None)
         .expect("stage")
         .expect("a Swift companion");
     let json = write(
@@ -279,7 +279,7 @@ fn a_swift_companion_receives_the_required_properties_the_page_sends() {
     }
     let root = tempfile::tempdir().expect("project");
     let inputs = required_companions(root.path(), NativeCompanion::Swift);
-    let staged = super::macos::stage_swift_companion(&inputs, root.path())
+    let staged = super::macos::stage_swift_companion(&inputs, root.path(), None)
         .expect("stage")
         .expect("a Swift companion");
     let json = write(
@@ -369,7 +369,7 @@ fn a_swift_companion_builds_its_let_fields_from_the_page_properties() {
     }
     let root = tempfile::tempdir().expect("project");
     let inputs = constructed_companion(root.path(), NativeCompanion::Swift);
-    let staged = super::macos::stage_swift_companion(&inputs, root.path())
+    let staged = super::macos::stage_swift_companion(&inputs, root.path(), None)
         .expect("stage")
         .expect("a Swift companion");
     let json = write(

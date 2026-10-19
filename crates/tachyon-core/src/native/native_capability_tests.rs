@@ -59,7 +59,7 @@ impl NativeCapabilityCheck {
             web_assembly: false,
             application_provider: false,
         };
-        super::macos::stage_swift_companion(&[input], root)
+        super::macos::stage_swift_companion(&[input], root, None)
             .expect("stage")
             .expect("companion")
     }

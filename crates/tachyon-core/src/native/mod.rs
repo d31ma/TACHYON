@@ -147,6 +147,8 @@ mod native_rust_project;
 mod native_service_roots;
 #[cfg(test)]
 mod native_swift_page_lifetime_tests;
+#[cfg(test)]
+mod native_swift_yon_http_tests;
 mod native_theme_color;
 mod native_title_bar;
 mod native_title_bar_button_inset;
@@ -218,6 +220,7 @@ mod style_source;
 mod swift_compile_inputs;
 mod swift_streams;
 mod swift_web_services;
+mod swift_yon_http;
 mod system_floor;
 mod system_version;
 mod target_floor;

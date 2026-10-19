@@ -60,7 +60,7 @@ impl FilePickerPermissionCheck {
             web_assembly: false,
             application_provider: false,
         };
-        super::macos::stage_swift_companion(&[input], &self.root)
+        super::macos::stage_swift_companion(&[input], &self.root, None)
             .expect("stage normal service")
             .expect("generated companion")
     }

@@ -130,7 +130,7 @@ tac.outgoing
   honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
 tac.yon
-  adapted: tac.yon.origin: the macOS app sends Yon calls to this origin, and its connect-src allows it, but no macOS app has been run against Yon yet (NET1).
+  adapted: tac.yon.origin: the macOS page and its linked Swift HTTP clients send Yon calls to this origin, and connect-src allows it, but scripts/native/yon-reach-test.mjs has not run the macOS app against Yon yet (NET1).
 
 tac.go
   honored: the same Go WebAssembly build in the web view

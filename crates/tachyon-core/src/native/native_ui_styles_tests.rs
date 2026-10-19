@@ -105,7 +105,7 @@ impl NativeUiStylesFixture {
             web_assembly: false,
             application_provider: false,
         };
-        super::macos::stage_swift_companion(&[input], self.root.path())
+        super::macos::stage_swift_companion(&[input], self.root.path(), None)
             .expect("actual staged native Service")
             .expect("companion")
     }

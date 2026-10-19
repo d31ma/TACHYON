@@ -218,7 +218,7 @@ func tachyonProbe(_ event: String) { tachyonProbeTape.append(event) }
             }
         })
         .collect::<Vec<_>>();
-        super::macos::stage_swift_companion(&inputs, root)
+        super::macos::stage_swift_companion(&inputs, root, None)
             .expect("stage")
             .expect("companion")
     }

@@ -38,7 +38,11 @@ impl IosHostGenerator {
         let bundle = stage.join(&bundle_name);
         stage_application(index, web_bundle, stage, &bundle)?;
 
-        let companion = super::macos::stage_swift_companion(companions, stage)?;
+        let companion = super::macos::stage_swift_companion(
+            companions,
+            stage,
+            application.outgoing.yon_origin(),
+        )?;
         let call = super::macos::companion_call(companion.as_deref(), None);
         let swift_path = stage.join("project").join("TachyonHost.swift");
         write_host_source(&swift_path, &swift_source(application, call, index))?;

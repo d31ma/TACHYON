@@ -143,12 +143,13 @@ a physical desktop, a compositing window manager, Wayland.
 ADR 0103 adds `tac.yon.origin` in `client/manifest.json` and `server.origins`
 in `server/application.json`. The contract is unit-tested in the cloud, and
 `scripts/yon-origin-browser-test.mjs` runs a web page on one port against
-Yon on another in Chromium. No native host has run it yet.
+Yon on another in Chromium, and `scripts/native/yon-reach-test.mjs --target=web`
+runs the probe that the native apps run. No native host has run it yet.
 
 | Host | Yon calls from the packaged app | Evidence |
 | --- | --- | --- |
 | Web | implemented | page transports, CORS, preflight, socket origin and `connect-src` unit tests; Chromium cross-port run |
-| macOS, iOS | implemented, not run on the host | proven by NET1; WebKit may send an opaque `Origin` from `tachyon-app://bundle` |
+| macOS, iOS | implemented, not run on the host | `scripts/native/yon-reach-test.mjs` runs the macOS app and the iOS simulator over `http` and `https`; owed on a Mac. Linked Swift `@HTTPClient` requests go to the origin through `URLSession`, unit-tested against a local server and run against `ty serve` with Linux Foundation |
 | Android | implemented, not run on the host; an `https` origin only | proven by NET2; the host lets the Yon host through its request interception and asks for the INTERNET permission |
 | Windows | implemented, not run on the host | proven by NET3 on a signed-in desktop |
 | Linux | implemented, not run on the host | proven by NET4 under Xvfb |

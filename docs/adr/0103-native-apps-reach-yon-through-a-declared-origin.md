@@ -207,3 +207,63 @@ each host:
 WebKit may send an opaque `null` `Origin` from `tachyon-app://bundle`. Then
 `server.origins` cannot match it, and NET1 may need a forwarder in the host.
 That decision will be added to this ADR.
+
+## Amendment (2026-10-19): Apple hosts and linked Swift clients (NET1)
+
+### The page keeps its own transports
+
+The macOS and iOS pages live on `tachyon-app://bundle`, a scheme that a
+`WKURLSchemeHandler` serves. WebKit treats a page on such a scheme as an
+ordinary origin and sends `Origin: tachyon-app://bundle` on its CORS
+requests, EventSources and WebSockets, the same way other WebKit apps with a
+custom scheme send theirs. So `server.origins` matches it, and the hosts get
+no bridge forwarder: the page keeps the transports of this ADR, with the
+same stream and socket behavior as the web.
+
+A local Yon on `http://127.0.0.1:<port>` or `http://localhost:<port>` needs
+no App Transport Security exception, because App Transport Security does
+not cover IP addresses and unqualified host names. Any other Yon origin is
+`https`, as this ADR already requires.
+
+`scripts/native/yon-reach-test.mjs` checks this on the host. It builds one
+app whose page calls Yon on another origin over HTTP, a CORS preflight, a
+stream, a socket, a topic, a `@Check` 422 problem and a `SignedIn` route,
+and it records the `Origin` that Yon received. It runs the macOS app, the
+iOS simulator over `http`, and the iOS simulator over `https` through a
+local TLS proxy whose certificate the simulator trusts. If that run shows an
+opaque `null` origin, the hosts need the forwarder after all, and this
+section changes.
+
+### Linked Swift HTTP clients reach the declared origin
+
+A Swift service linked into the macOS or iOS app had no transport, so every
+`@HTTPClient` request failed with `HTTP_MISSING`. When the manifest declares
+`tac.yon.origin`, the build now links a `URLSession` transport into the
+Swift companion, and a client without a Setup adapter sends its requests
+there:
+
+- the path is resolved against the declared origin, with the same path and
+  query rules as the page transport;
+- the request keeps the descriptor's method, headers and JSON body, and the
+  transport refuses the same headers as the page (`Cookie`, `Origin`,
+  `Referer`, `Sec-*`, `Proxy-*`), with `HTTP_HEADER`;
+- cookies are never sent or stored, and the session has no cache;
+- a redirect fails with `HTTP_NETWORK`, a status outside 200 to 299 with
+  `HTTP_STATUS`, an answer over the response limit with `HTTP_LIMIT`, an
+  answer that is not JSON with `HTTP_RESPONSE`, and the method deadline with
+  `DEADLINE`.
+
+Without `tac.yon.origin`, and in Swift test units, nothing changes: the
+request still fails with `HTTP_MISSING` unless a Setup adapter answers it.
+
+A native request carries no `Origin` header, so Yon treats it like any other
+non-browser client. Identity still travels in the `Authorization` header.
+
+### Streams and sockets in linked Swift services
+
+A Swift service in a native app still cannot hold a `@StreamRequest` or
+`@SocketRequest` client (`TY1405`). The message now tells the author to hold
+the client in a JavaScript or TypeScript page service, which reaches Yon on
+the declared origin, and to receive its messages in the Swift service with
+`@OnEvent`. Lifting the refusal is a later choice.
+

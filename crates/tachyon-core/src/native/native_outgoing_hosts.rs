@@ -42,6 +42,10 @@ impl NativeOutgoingHosts {
         Self { yon_origin, ..self }
     }
 
+    pub(super) fn yon_origin(&self) -> Option<&str> {
+        self.yon_origin.as_deref()
+    }
+
     pub(super) fn is_empty(&self) -> bool {
         [self.hosts.is_empty(), self.yon_origin.is_none()] == [true, true]
     }
