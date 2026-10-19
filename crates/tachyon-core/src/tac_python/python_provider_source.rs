@@ -19,7 +19,8 @@ pub(super) struct PythonProviderSource {
 
 impl PythonProviderSource {
     const PUBLISHER_TYPE: &'static str = "ApplicationEventPublisher";
-    const CONTRACT_FOLDERS: [&'static str; 2] = ["client/stores", "client/remotes"];
+    const CONTRACT_FOLDERS: [&'static str; 3] =
+        ["client/stores", "client/remotes", "client/converters"];
 
     pub(super) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
         let class = path

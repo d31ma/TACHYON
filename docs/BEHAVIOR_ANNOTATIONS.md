@@ -829,9 +829,10 @@ Server tests run these mappings in JavaScript, TypeScript, Python, Ruby, PHP,
 Dart, Go, Java, Groovy, Kotlin, C#, F#, Rust and Lua, with nested models and
 lists. Browser tests run them in JavaScript and TypeScript in Chromium, Firefox
 and WebKit. Dart, Go, Java, Kotlin, C#, F#, Rust, Ruby, Swift and Lua are
-compiled to WebAssembly and run. Ruby rebuilds typed results from the model
-information that Tac records, and F# uses generated record readers and writers.
-These tests cover web builds only, not native apps.
+compiled to WebAssembly and run, and Python runs them on Pyodide. Ruby rebuilds
+typed results from the model information that Tac records, F# uses generated
+record readers and writers, and Python returns dataclasses. These tests cover
+web builds only, not native apps.
 
 In Lua, a Converter is a class table marked `-- @Converter`. Its methods are
 empty and use LuaCATS type comments for the models. A service or controller

@@ -19,9 +19,17 @@ export class PythonWebRuntime {
 
   /** @param {Snippet[]} files @param {string} extension @returns {Snippet[]} */
   static withOptIn(files, extension) {
+    if (extension !== PythonWebRuntime.extension) return files
     const hasManifest = files.some((file) => file.name === PythonWebRuntime.manifestName)
-    if (extension !== PythonWebRuntime.extension || hasManifest) return files
-    return [...files, { name: PythonWebRuntime.manifestName, code: PythonWebRuntime.manifest }]
+    if (!hasManifest) return [...files, { name: PythonWebRuntime.manifestName, code: PythonWebRuntime.manifest }]
+    return files.map((file) => file.name === PythonWebRuntime.manifestName ? { name: file.name, code: PythonWebRuntime.merged(file.code) } : file)
+  }
+
+  /** @param {string} code @returns {string} */
+  static merged(code) {
+    const written = JSON.parse(code)
+    const python = JSON.parse(PythonWebRuntime.manifest).tac.python
+    return JSON.stringify({ ...written, tac: { python, ...written.tac } })
   }
 
   /** @returns {string} */

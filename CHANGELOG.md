@@ -10,6 +10,13 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Python Tac services can ask for a converter (ADR 0093 amendment). A
+  `@converter` `Protocol` class in `client/converters/` is now a provider
+  that a typed `Needs` field reaches, and its `Convert` methods map JSON
+  values with a field plan or copy one `client/models` dataclass into
+  another, nested models and lists included. Before, such a `Needs` field
+  failed with `TY1605`. The website mapping sections have Python tabs.
+
 - Yon Lua models in `server/models/` may carry `Settings`, `Setting`,
   `Checked`, `Required`, `NotEmpty`, `Length`, `Min`, `Max` and
   `Description` (ADR 0092 amendment). Before, the build refused them with

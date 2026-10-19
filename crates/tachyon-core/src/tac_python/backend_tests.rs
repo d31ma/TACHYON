@@ -297,16 +297,17 @@ fn python_missing_opt_in_profile_is_reported_by_doctor_without_installing() {
     );
 }
 
-struct PythonPage;
+pub(super) struct PythonPage;
 
 impl PythonPage {
-    const OWNERS: [(&'static str, &'static str); 6] = [
+    const OWNERS: [(&'static str, &'static str); 7] = [
         ("shelf", "00000000-0000-4000-8000-000000000001"),
         ("checkout", "00000000-0000-4000-8000-000000000002"),
         ("audit", "00000000-0000-4000-8000-000000000003"),
         ("library", "00000000-0000-4000-8000-000000000004"),
         ("tally", "00000000-0000-4000-8000-000000000005"),
         ("state", "00000000-0000-4000-8000-000000000006"),
+        ("catalog", "00000000-0000-4000-8000-000000000007"),
     ];
     const SHELF: [(&'static str, &'static str); 3] = [
         (
@@ -393,7 +394,7 @@ impl PythonPage {
          def _ask(service, request):\n    request.update({'route': 'web', 'service': service, 'owner': _owners[service]})\n    return json.loads(_TacPythonRuntime.invoke(json.dumps(request)))\n";
     const DRIVER_TAIL: &'static str = "_report['emitted'] = [json.loads(item) for item in _emitted]\n_report['finished'] = _finished\nprint(json.dumps(_report))\n";
 
-    fn has_python() -> bool {
+    pub(super) fn has_python() -> bool {
         let found = std::process::Command::new("python3")
             .arg("--version")
             .output()
@@ -404,7 +405,11 @@ impl PythonPage {
         found
     }
 
-    fn run(files: &[(&str, &str)], services: &[&str], driver: &str) -> serde_json::Value {
+    pub(super) fn run(
+        files: &[(&str, &str)],
+        services: &[&str],
+        driver: &str,
+    ) -> serde_json::Value {
         let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
         for (relative, source) in files {
             Project::write(root.path(), relative, source);

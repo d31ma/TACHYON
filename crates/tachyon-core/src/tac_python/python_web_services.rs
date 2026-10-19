@@ -131,6 +131,7 @@ impl PythonWebServices {
             "client/helpers",
             "client/stores",
             "client/remotes",
+            "client/converters",
         ]
         .iter()
         .any(|folder| path.starts_with(folder))

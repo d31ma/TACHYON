@@ -287,14 +287,14 @@ def _behavior_map_value(policy, args, original=None):
         value = args[policy['argument']]
     typed = 'result' in policy
     if typed:
-        value = _behavior_builtins.YonModels.plain(value)
+        value = _BehaviorModels.of().plain(value)
     if not isinstance(value, dict):
         _behavior_invalid('A behavior mapping reads one JSON object argument.')
     output = _behavior_copy(_behavior_map_fields(value, policy['fields']))
     if not typed:
         return output
     result = _behavior_typing.get_type_hints(original).get('return')
-    return _behavior_builtins.YonModels.read(result, output)
+    return _BehaviorModels.of().read(result, output)
 
 def _behavior_map_fields(value, fields):
     output = {}
@@ -1055,6 +1055,19 @@ class _BehaviorHostAdapters:
         if type(answer.get('error')) is str:
             raise BehaviorError('storage', answer['error'])
         return answer.get('value')
+
+class _BehaviorModels:
+    @staticmethod
+    def of():
+        return getattr(_behavior_builtins, 'YonModels', _BehaviorModels)
+    @staticmethod
+    def plain(value):
+        if _behavior_dataclasses.is_dataclass(value) and not isinstance(value, type):
+            return _behavior_dataclasses.asdict(value)
+        return value
+    @staticmethod
+    def read(kind, value):
+        return _BehaviorAnswer._field(kind, value, 0)
 
 class _BehaviorAnswer:
     PLAIN = {'string': (str,), 'integer': (int,), 'number': (int, float), 'boolean': (bool,)}
