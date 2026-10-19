@@ -424,7 +424,11 @@ async function checkReleaseBuild(binary, project) {
       pid = spawnSync(AndroidDevice.adb, ['shell', 'pidof', AndroidDevice.packageName], { encoding: 'utf8' }).stdout.trim();
     }
     assert.match(pid, /^\d+$/, 'The release APK launches');
-    assert.ok(!run(AndroidDevice.adb, ['shell', 'cat', '/proc/net/unix']).includes(`webview_devtools_remote_${pid}`), 'A release build does not open WebView debugging');
+    if (run(AndroidDevice.adb, ['shell', 'getprop', 'ro.debuggable']) === '1') {
+      console.log('SKIP: release WebView debugging check; a debuggable system image opens WebView DevTools for every app');
+    } else {
+      assert.ok(!run(AndroidDevice.adb, ['shell', 'cat', '/proc/net/unix']).includes(`webview_devtools_remote_${pid}`), 'A release build does not open WebView debugging');
+    }
   } finally {
     spawnSync(AndroidDevice.adb, ['uninstall', AndroidDevice.packageName], { encoding: 'utf8' });
   }
