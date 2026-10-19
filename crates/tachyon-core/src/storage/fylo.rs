@@ -46,14 +46,13 @@ impl FyloStore {
     pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
         object_keys(settings, &["driver", "url"])?;
         let raw = text(settings, "url")?;
-        let path = raw
-            .strip_prefix("fylo://")
-            .filter(|rest| rest.starts_with('/'))
+        let path = Self::root_path(raw)
             .ok_or_else(|| failure("FYLO datasource URL is fylo:///absolute/root."))?;
         if path.contains('\0') || path.contains("..") {
             return Err(failure("FYLO root path contains an unsafe segment."));
         }
         let root = std::fs::canonicalize(Path::new(path))
+            .map(Self::without_verbatim_prefix)
             .map_err(|_| failure("FYLO root directory must already exist."))?;
         if !root.is_dir() {
             return Err(failure("FYLO root must be a directory."));
@@ -74,6 +73,23 @@ impl FyloStore {
             closed: AtomicBool::new(false),
             scrolls: Mutex::new(ScrollSnapshots::new()),
         })
+    }
+
+    fn root_path(raw: &str) -> Option<&str> {
+        let path = raw
+            .strip_prefix("fylo://")
+            .filter(|rest| rest.starts_with('/'))?;
+        let windows_drive = [cfg!(windows), path.get(2..3) == Some(":")] == [true, true];
+        path.get(usize::from(windows_drive)..)
+    }
+
+    fn without_verbatim_prefix(root: PathBuf) -> PathBuf {
+        let drive_path = root
+            .to_str()
+            .and_then(|text| text.strip_prefix(r"\\?\"))
+            .filter(|rest| rest.get(1..2) == Some(":"))
+            .map(PathBuf::from);
+        drive_path.unwrap_or(root)
     }
 
     pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {

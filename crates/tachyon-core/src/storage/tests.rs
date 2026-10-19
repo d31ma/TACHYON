@@ -381,6 +381,12 @@ fn storage_command_validation_fails_closed() {
     );
 }
 
+fn fylo_url(root: &std::path::Path) -> String {
+    let path = root.display().to_string().replace('\\', "/");
+    let path = path.strip_prefix("//?/").unwrap_or(&path);
+    format!("fylo:///{}", path.trim_start_matches('/'))
+}
+
 fn fylo_is_available() -> bool {
     std::process::Command::new("fylo")
         .arg("version")
@@ -434,9 +440,11 @@ async fn fylo_repository_round_trip() {
     let root = tempfile::tempdir().expect("root");
     let canonical = std::fs::canonicalize(root.path()).expect("canonical");
     create_fylo_products_collection(&canonical);
-    let store = ManagedStorage::connect(&json!({"yon":{"datasource":{"driver":"fylo","url":format!("fylo://{}", canonical.display())}}}))
-        .await
-        .unwrap_or_else(|error| panic!("{error}"));
+    let store = ManagedStorage::connect(
+        &json!({"yon":{"datasource":{"driver":"fylo","url":fylo_url(&canonical)}}}),
+    )
+    .await
+    .unwrap_or_else(|error| panic!("{error}"));
     let anvil = fylo_save(&store, json!({"name":"anvil","qty":2})).await;
     let id = anvil["id"].as_str().expect("TTID").to_owned();
     fylo_save(&store, json!({"name":"rope","qty":7})).await;

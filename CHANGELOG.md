@@ -23,7 +23,9 @@ machine contracts have their own, independent major versions.
   pinned Pyodide. The storage harness qualifies SQL Server 2022 with forced
   TLS next to PostgreSQL, MySQL, MariaDB and Redis, and its new
   `--without-docker` mode runs FYLO on macOS and Windows and Redis on macOS.
-  A `jobs` input on `workflow_dispatch` runs only the named jobs.
+  A `jobs` input on `workflow_dispatch` runs only the named jobs. A FYLO
+  datasource on Windows now accepts a drive root such as
+  `fylo:///C:/data/catalog`.
 
 - Request-source and caching markers now have run proof in every language
   that accepts them (PR4). `tests/it/request_sources.rs` gives all 15 Yon

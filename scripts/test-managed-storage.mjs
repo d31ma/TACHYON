@@ -69,7 +69,7 @@ async function writeFyloProject(project, fyloRoot) {
     await mkdir(dirname(file), { recursive: true })
     await writeFile(file, contents)
   }
-  await write('server/application.json', JSON.stringify({ datasource: { driver: 'fylo', url: `fylo://${fyloRoot}` } }))
+  await write('server/application.json', JSON.stringify({ datasource: { driver: 'fylo', url: `fylo:///${fyloRoot.replaceAll('\\', '/').replace(/^\/+/, '')}` } }))
   await write('server/controllers/ProductsController.js', `@RequestRoute("/products")
 @Public
 @NeedsAll()

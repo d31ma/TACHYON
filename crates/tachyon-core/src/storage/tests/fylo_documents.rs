@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::{execute, fylo_is_available, is_rejected, sqlite};
+use super::{execute, fylo_is_available, fylo_url, is_rejected, sqlite};
 use crate::storage::ManagedStorage;
 
 fn fylo_runs_here() -> bool {
@@ -22,7 +22,7 @@ fn canonical_root(directory: &tempfile::TempDir) -> PathBuf {
 }
 
 async fn connect(root: &Path) -> ManagedStorage {
-    let url = format!("fylo://{}", root.display());
+    let url = fylo_url(root);
     ManagedStorage::connect(&json!({"yon":{"datasource":{"driver":"fylo","url":url}}}))
         .await
         .unwrap_or_else(|error| panic!("{error}"))

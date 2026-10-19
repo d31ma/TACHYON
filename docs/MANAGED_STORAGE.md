@@ -73,7 +73,8 @@ architecture decision record).
 
 Configuration rules:
 
-- The URL is `fylo:///absolute/root`.
+- The URL is `fylo:///absolute/root`. On Windows, write the drive after the
+  third slash with forward slashes, as in `fylo:///C:/data/catalog`.
 - The root directory must already exist.
 - The path must be spelled canonically. FYLO refuses a path that goes through a
   symlink or that uses different letter case.

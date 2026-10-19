@@ -191,8 +191,10 @@ class EventsController:
         let root = workspace.path().join("fylo-root");
         std::fs::create_dir_all(&root).expect("FYLO root");
         let root = std::fs::canonicalize(&root).expect("canonical FYLO root");
+        let url = root.display().to_string().replace('\\', "/");
+        let url = url.strip_prefix("//?/").unwrap_or(&url);
         let settings = serde_json::json!({
-            "datasource": {"driver": "fylo", "url": format!("fylo://{}", root.display())}
+            "datasource": {"driver": "fylo", "url": format!("fylo:///{}", url.trim_start_matches('/'))}
         });
         let project = workspace.path().join("project");
         Self::write(
