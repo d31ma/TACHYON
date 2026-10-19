@@ -404,6 +404,18 @@ not promote any tier.
 | Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | see the Android WebView row above |
 | Windows WebView2 | no host bridge yet (BA3) | see the per-target support table |
 
+### File picker on native hosts (2026-10-19)
+
+ADR 0089 and its amendments cover `tac.nativeCapabilities: ["filePicker"]`.
+This evidence does not promote any tier.
+
+| Host | Implemented | Validated |
+| --- | --- | --- |
+| Linux WebKitGTK | yes: `GtkFileDialog`, or the desktop portal's chooser where one runs, for JavaScript, TypeScript and linked Rust services; Swift, C# and Kotlin run as WebAssembly and answer `unsupported` (FP5) | `linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and drove the real dialog with XTest key presses under Xvfb in an x86_64 Ubuntu 24.04 cloud container on 2026-10-19 (commit `738f5876`): three runs through the portal's chooser (xdg-desktop-portal-gtk, xfwm4) and one each through GTK's own dialog with and without a window manager. A page and a Rust service chose, read and released files; cancel, the second dialog, the handle and owner limits, the lifetime, another owner, a large and a non-UTF-8 file, the missing grant and a new page were checked. Not run: a Linux desktop, Wayland |
+| macOS WKWebView | yes: `NSOpenPanel` | see ADR 0089 and its amendments |
+| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1) | under Wine in the cloud only; see the Windows paragraph above. Owed: the MSVC build, the Windows dialog run and a picker from a WebView2 page on a signed-in desktop |
+| iOS, Android | no: `unsupported` (FP4, FP2) | see the per-target support table |
+
 ### Web storage across relaunch (2026-10-18)
 
 ADR 0059's amendment of 2026-10-18 covers this. Each host check writes an

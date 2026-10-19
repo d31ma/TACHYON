@@ -213,3 +213,46 @@ against the WebView2 1.0.3240.44 headers. The MSVC build and a run of the
 Windows dialog are `#[ignore]` tests for Windows. A picker opened from a
 WebView2 page needs a signed-in desktop (SD1).
 
+## Amendment (2026-10-19): the Linux host opens the GTK file dialog
+
+The Linux host now answers `filePicker` calls itself instead of answering
+`unsupported` (plan item FP3). JavaScript and TypeScript page services reach
+it through the host bridge, and linked Rust services through the same C
+capability adapter as `WindowControls`. The host follows the macOS rules:
+
+- Without `tac.nativeCapabilities: ["filePicker"]` every call answers
+  `denied` and the caller's handles are released before any dialog opens.
+- `open` shows `GtkFileDialog` for one file. GTK uses the desktop portal's
+  file chooser when one runs (as on GNOME and KDE) and its own dialog
+  otherwise. The types are only `text/plain` and `application/json`, at most
+  two. One dialog is open at a time; a second `open` answers `unavailable`.
+  The dialog is cancelled after 30 seconds, when its owner is disposed, when
+  the window closes, and when the app quits.
+- A selection gives an opaque handle and the file name. There are at most
+  128 handles, 8 for one owner, and each ends after 300 seconds.
+- `readText` reads at most 65,536 bytes; a larger file answers `tooLarge`
+  and text that is not UTF-8 answers `invalid`.
+- `dispose` releases one owner's handles. A new page and shutdown release
+  them all.
+
+The page shim now sets `__tachyonNativeFilePicker` and the manifest grants
+on Linux too, so `available()` is true there when the grant is present.
+Swift, C# and Kotlin services still run as WebAssembly on Linux; their
+`FilePicker` fields keep answering `unsupported` until FP5 routes them
+through the page bridge.
+
+The ignored test
+`linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service`
+compiles the generated host with a JavaScript page provider and a Rust
+service, and drives the real dialog with XTest key presses (Ctrl+L, paste
+the path, Return, or Escape). The page chose, read, released and cancelled;
+the Rust service chose and read a JSON file; a second dialog was refused
+while one was open. The same run checks the limits, the 300-second lifetime
+with a fake clock, another owner's handle, a file over 65,536 bytes, a file
+that is not UTF-8, the missing grant, and that a new page releases every
+handle. On 2026-10-19 it passed under Xvfb in an x86_64 Ubuntu 24.04 cloud
+container (GTK 4.14.5, WebKitGTK 2.52.6): three runs through the desktop
+portal's chooser (xdg-desktop-portal 1.18.4 with xdg-desktop-portal-gtk
+1.15.1, xfwm4), and one run each through GTK's own dialog
+(`GDK_DEBUG=no-portals`) with and without a window manager. Not covered: a
+physical Linux desktop, Wayland, and a person choosing the file.

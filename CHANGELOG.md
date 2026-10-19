@@ -49,6 +49,15 @@ machine contracts have their own, independent major versions.
   WebView2 event, and the page waits up to 40 seconds for `filePicker.open`
   and `companion.invoke`.
 
+- Linux apps open the file picker (ADR 0089 amendment, FP3). A JavaScript,
+  TypeScript or linked Rust service with a `FilePicker` and the
+  `filePicker` grant now gets `GtkFileDialog`, or the desktop portal's
+  chooser where one runs, instead of `unsupported`. The Linux host keeps the
+  macOS rules: the grant, one dialog at a time that closes after 30
+  seconds, 128 handles and 8 per owner, a 300-second lifetime, 64 KiB
+  UTF-8 `readText`, and release with the owner, a new page and shutdown.
+  Swift, C# and Kotlin services still run as WebAssembly on Linux and
+  answer `unsupported` (FP5).
 - The per-target support table has two more states (ADR 0102 amendment).
   `run owed` means a target supports a member in code, but the run that
   proves it there has not happened; the table names that run, and a build
