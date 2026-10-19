@@ -313,12 +313,13 @@ fn available(program: &str) -> bool {
         "go" => "version",
         _ => "--version",
     };
-    Command::new(program)
+    let found = Command::new(program)
         .arg(flag)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .is_ok_and(|status| status.success())
+        .is_ok_and(|status| status.success());
+    crate::support::toolchain::Toolchain::checked(program, found)
 }
 
 #[test]

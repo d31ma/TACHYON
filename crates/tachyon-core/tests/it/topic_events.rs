@@ -710,7 +710,9 @@ end
 
     fn available(program: &str) -> bool {
         let paths = std::env::var_os("PATH").unwrap_or_default();
-        std::env::split_paths(&paths).any(|directory| directory.join(program).is_file())
+        let found =
+            std::env::split_paths(&paths).any(|directory| directory.join(program).is_file());
+        crate::support::toolchain::Toolchain::checked(program, found)
     }
 
     fn write_models(root: &Path, models: &[(&str, &str)]) {

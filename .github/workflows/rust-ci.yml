@@ -222,8 +222,46 @@ jobs:
       - name: Install checksum-pinned FYLO
         run: node scripts/ci/install-fylo.mjs "${{ runner.temp }}/tachyon-fylo"
 
-      - name: Verify SQLite, FYLO, PostgreSQL, MySQL, MariaDB and Redis
+      - name: Verify SQLite, FYLO, PostgreSQL, MySQL, MariaDB, SQL Server and Redis
         run: node scripts/test-managed-storage.mjs
+
+  managed-storage-desktop:
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',managed-storage-desktop,'))
+    name: Real managed document and Redis contracts (${{ matrix.os }})
+    runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON(matrix.self_hosted_labels) || matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - windows-latest
+        include:
+          - os: macos-latest
+            self_hosted_labels: '["self-hosted","tachyon","macos"]'
+          - os: windows-latest
+            self_hosted_labels: '["self-hosted","tachyon","windows"]'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install exact Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.18.0
+
+      - name: Install checksum-pinned FYLO
+        run: node scripts/ci/install-fylo.mjs "${{ runner.temp }}/tachyon-fylo"
+
+      - name: Install Redis on macOS (Redis ships no Windows build)
+        if: runner.os == 'macOS'
+        run: brew list redis >/dev/null 2>&1 || brew install redis
+
+      - name: Verify SQLite, FYLO and Redis without Docker
+        run: node scripts/test-managed-storage.mjs --without-docker
 
   supply-chain:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',supply-chain,'))

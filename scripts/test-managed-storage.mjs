@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import { createServer } from 'node:net'
 import { mkdtemp, mkdir, writeFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -24,6 +25,7 @@ class ManagedStorageTest {
   static owned = []
   static scratchRoot = resolve(process.env.TAC_STORAGE_TEST_ROOT || tmpdir())
   static scratch = null
+  static withoutDocker = process.argv.includes('--without-docker')
 }
 
 await mkdir(ManagedStorageTest.scratchRoot, { recursive: true })
@@ -217,6 +219,41 @@ async function start(fixture) {
   return Number(match[1])
 }
 
+async function freePort() {
+  const server = createServer()
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address()
+  await new Promise(resolve => server.close(resolve))
+  return port
+}
+
+async function localRedis(binary) {
+  if (spawnSync('redis-server', ['--version']).status !== 0) {
+    console.log('Redis: no redis-server on this runner, so the Redis contract does not run here.')
+    return false
+  }
+  const port = await freePort()
+  const server = spawn('redis-server', ['--port', String(port), '--bind', '127.0.0.1', '--save', '', '--appendonly', 'no'], { stdio: 'ignore' })
+  try {
+    const deadline = Date.now() + 30_000
+    while (spawnSync('redis-cli', ['-p', String(port), 'ping'], { encoding: 'utf8' }).stdout?.trim() !== 'PONG') {
+      if (Date.now() > deadline) throw new Error('The local redis-server did not answer PING within 30 seconds.')
+      await delay(250)
+    }
+    const environment = { ...process.env, YON_TEST_REDIS_URL: `redis://127.0.0.1:${port}` }
+    console.log(command(binary, ['storage::tests::redis_real_json_ttl_and_delete', '--exact', '--ignored'], { env: environment, timeout: 60_000 }))
+    return true
+  } finally {
+    server.kill()
+  }
+}
+
+async function withoutDocker(binary) {
+  await fylo()
+  const redis = await localRedis(binary)
+  console.log(`PASS: SQLite, FYLO${redis ? ' and Redis' : ''} real driver contracts without Docker.`)
+}
+
 async function runDriverTest(binary, fixture) {
   const port = await start(fixture)
   const environment = { ...process.env }
@@ -238,10 +275,11 @@ async function runDriverTest(binary, fixture) {
 
 async function main() {
   try {
-    command('docker', ['info', '--format', '{{.ServerVersion}}'])
+    if (!ManagedStorageTest.withoutDocker) command('docker', ['info', '--format', '{{.ServerVersion}}'])
     const binary = await buildTests()
     console.log(command(binary, ['storage::tests', '--skip', 'storage::tests::redis_real_json_ttl_and_delete', '--skip', 'storage::tests::sql_real_repository_nullable_columns'],
       { timeout: 120_000, env: { ...process.env, TAC_STORAGE_REQUIRE_TOOLCHAINS: '1' } }))
+    if (ManagedStorageTest.withoutDocker) return await withoutDocker(binary)
     await fylo()
     await certificates()
     for (const fixture of ManagedStorageTest.fixtures) await runDriverTest(binary, fixture)

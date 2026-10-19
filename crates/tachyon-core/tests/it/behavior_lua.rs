@@ -38,12 +38,13 @@ impl LuaBehaviors {
 }
 
 fn lua_available() -> bool {
-    Command::new("lua")
+    let found = Command::new("lua")
         .arg("-v")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .is_ok_and(|status| status.success())
+        .is_ok_and(|status| status.success());
+    crate::support::toolchain::Toolchain::checked("lua", found)
 }
 
 fn project() -> tempfile::TempDir {

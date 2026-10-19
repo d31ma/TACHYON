@@ -206,7 +206,8 @@ fn available(program: &str) -> bool {
         "lua" => "-v",
         _ => "--version",
     };
-    ProgramProbe::answers(program, flag)
+    let found = ProgramProbe::answers(program, flag);
+    crate::support::toolchain::Toolchain::checked(program, found)
 }
 
 fn write(root: &Path, relative: &str, source: &str) {

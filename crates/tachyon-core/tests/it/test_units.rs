@@ -20,12 +20,13 @@ fn tool_available(program: &str) -> bool {
         "lua" => "-v",
         _ => "--version",
     };
-    std::process::Command::new(program)
+    let found = std::process::Command::new(program)
         .arg(version_flag)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()
-        .is_ok_and(|status| status.success())
+        .is_ok_and(|status| status.success());
+    crate::support::toolchain::Toolchain::checked(program, found)
 }
 
 fn javascript_supervisor(extension: &str) -> HandlerSupervisor {
@@ -145,11 +146,11 @@ async fn a_python_test_unit_runs_its_cases_through_the_supervisor() {
 
 #[tokio::test]
 async fn a_php_test_unit_runs_its_cases_through_the_supervisor() {
-    if std::process::Command::new("php-cgi")
+    let found = std::process::Command::new("php-cgi")
         .arg("--version")
         .output()
-        .is_err()
-    {
+        .is_ok();
+    if !crate::support::toolchain::Toolchain::checked("php-cgi", found) {
         eprintln!("skipping: php-cgi is unavailable");
         return;
     }
@@ -590,11 +591,11 @@ async fn every_javascript_runtime_runs_a_browser_unit() {
 
 #[tokio::test]
 async fn a_dart_unit_reaches_the_services_its_service_injects() {
-    if std::process::Command::new("dart")
+    let found = std::process::Command::new("dart")
         .arg("--version")
         .output()
-        .is_err()
-    {
+        .is_ok();
+    if !crate::support::toolchain::Toolchain::checked("dart", found) {
         eprintln!("skipping: dart is unavailable");
         return;
     }

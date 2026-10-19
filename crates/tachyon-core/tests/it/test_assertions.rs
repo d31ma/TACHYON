@@ -46,12 +46,13 @@ impl AssertedUnit {
     }
 
     fn answers(program: &str, flag: &str) -> bool {
-        std::process::Command::new(program)
+        let found = std::process::Command::new(program)
             .arg(flag)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status()
-            .is_ok_and(|status| status.success())
+            .is_ok_and(|status| status.success());
+        crate::support::toolchain::Toolchain::checked(program, found)
     }
 
     async fn server_cases(extension: &str, setup: &str, unit: &str) -> Vec<(String, bool, String)> {

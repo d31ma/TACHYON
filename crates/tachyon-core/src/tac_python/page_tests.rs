@@ -55,9 +55,12 @@ impl PythonPage {
         if !node {
             return Some(String::from("node is unavailable"));
         }
-        RuntimeAssets::read(&RuntimeAssets::cached_root())
-            .err()
-            .map(|_| String::from("the pinned Pyodide runtime is not in the Tachyon cache"))
+        let missing = RuntimeAssets::read(&RuntimeAssets::cached_root()).is_err();
+        assert!(
+            [missing, std::env::var_os("CI").is_some()] != [true, true],
+            "CI installs the pinned Pyodide with scripts/ci/install-toolchains.mjs, so the Python Tac tests must run there"
+        );
+        missing.then(|| String::from("the pinned Pyodide runtime is not in the Tachyon cache"))
     }
 
     pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {

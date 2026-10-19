@@ -32,13 +32,14 @@ fn runtime(extension: &str) -> &'static str {
 
 fn available(program: &str) -> bool {
     let paths = std::env::var_os("PATH").unwrap_or_default();
-    std::env::split_paths(&paths).any(|directory| {
+    let found = std::env::split_paths(&paths).any(|directory| {
         directory.join(program).is_file()
             || (cfg!(windows)
                 && ["exe", "bat", "cmd"]
                     .iter()
                     .any(|suffix| directory.join(format!("{program}.{suffix}")).is_file()))
-    })
+    });
+    crate::support::toolchain::Toolchain::checked(program, found)
 }
 
 struct ProbeModels;

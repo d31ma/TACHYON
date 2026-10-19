@@ -102,7 +102,7 @@ impl Layout {
 }
 
 fn available(program: &str) -> bool {
-    Command::new(program)
+    let found = Command::new(program)
         .arg(match program {
             "kotlinc" => "-version",
             "go" => "version",
@@ -111,7 +111,8 @@ fn available(program: &str) -> bool {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .is_ok_and(|status| status.success())
+        .is_ok_and(|status| status.success());
+    crate::support::toolchain::Toolchain::checked(program, found)
 }
 
 fn source(root: &tempfile::TempDir, extension: &str, contents: &str) -> HandlerSource {
