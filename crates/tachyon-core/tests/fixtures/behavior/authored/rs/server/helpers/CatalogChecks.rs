@@ -121,6 +121,16 @@ fn check_repository(context: &BehaviorContext) -> BehaviorResult<Vec<(String, Be
     Ok(vec![("saved".into(), saved), ("found".into(), found), ("deleted".into(), deleted)])
 }
 
+fn check_cache_key(context: &BehaviorContext) -> BehaviorResult<()> {
+    let catalog = CatalogService { behaviors: context.clone(), calls: CatalogChecks::new_counter() };
+    let first = catalog.price("sku-1".into(), "first".into())?;
+    assert_eq!(catalog.price("sku-1".into(), "second".into())?, first);
+    assert_eq!(catalog.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    catalog.price("sku-2".into(), "first".into())?;
+    assert_eq!(catalog.calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+    Ok(())
+}
+
 fn check_resilience(context: &BehaviorContext) -> BehaviorResult<()> {
     let attempts = CatalogChecks::new_counter();
     let resilient = Resilient::new(context.clone(), attempts.clone());
@@ -189,6 +199,7 @@ fn exercise() -> BehaviorResult<BehaviorValue> {
     CatalogChecks::check_validation_before_authorization(&catalog)?;
     let mut results = CatalogChecks::check_catalog_cache(&context, &catalog, &client)?;
     results.extend(CatalogChecks::check_repository(&context)?);
+    CatalogChecks::check_cache_key(&context)?;
     CatalogChecks::check_resilience(&context)?;
     CatalogChecks::check_transactions(&context)?;
     CatalogChecks::check_queries(&context)?;

@@ -5,6 +5,7 @@ class CatalogService {
     var calls: Int = 0
     var mutations: Int = 0
     var validCalls: Int = 0
+    var priceCalls: Int = 0
     @Cached
     fun list(@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]}) page: Map<String, Any?>): Any? {
         calls++
@@ -22,6 +23,11 @@ class CatalogService {
     }
     @UpdateCache({"method":"list"})
     fun invalid(page: Map<String, Any?>): Any? { return Any() }
+    @Cached
+    fun price(@CacheKey sku: String, note: String): Any? {
+        priceCalls++
+        return priceCalls
+    }
     @Cached
     fun checked(@Check(Input::class) input: Any?): Any? {
         validCalls++

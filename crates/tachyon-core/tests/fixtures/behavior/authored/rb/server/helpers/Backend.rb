@@ -2,17 +2,19 @@
 class Backend
   @entries = {}
   @calls = 0
+  @prices = 0
   @exchanges = 0
   @authorizations = 0
 
   class << self
-    attr_accessor :entries, :calls, :exchanges, :authorizations
+    attr_accessor :entries, :calls, :prices, :exchanges, :authorizations
   end
 
   def self.authorize(call, execution)
     self.authorizations += 1
     return false unless execution.partition == "catalog"
     return true if call["method"] == "remote"
+    return call["keyArguments"].size == 1 if call["method"] == "price"
     call["keyArguments"][0]["size"] == 5
   end
 

@@ -12,7 +12,7 @@ impl LuaBehaviors {
     const CACHING: [(&str, &str); 6] = [
         (
             "server/models/CacheReport.lua",
-            "---@class CacheReport\n---@field first any\n---@field repeat any\n---@field written any\n---@field refreshed any\n---@field retried integer\nCacheReport = {}\n",
+            "---@class CacheReport\n---@field first any\n---@field repeat any\n---@field written any\n---@field refreshed any\n---@field retried integer\n---@field priced integer\n---@field repriced integer\n---@field missed integer\nCacheReport = {}\n",
         ),
         (
             "server/helpers/MemoryCacheHelper.lua",
@@ -24,11 +24,11 @@ impl LuaBehaviors {
         ),
         (
             "server/services/CatalogService.lua",
-            "-- @Service\n-- @CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":65536,\"maxEntries\":256})\n---@class CatalogService\nCatalogService = {\n  ---@type integer\n  reads = 0,\n  ---@type integer\n  attempts = 0,\n}\n\n---@return nil\n-- @OnStart\nfunction CatalogService:open()\n  self.behaviors = Behaviors.create(CatalogSetup, { partition = \"public-catalog\", signal = BehaviorSignal.new() })\nend\n\n---@param sku string\n---@return table\n-- @Cached\nfunction CatalogService:find(sku)\n  self.reads = self.reads + 1\n  return { sku = sku, reads = self.reads }\nend\n\n---@param sku string\n---@param reads integer\n---@return table\n-- @UpdateCache({\"method\":\"find\"})\nfunction CatalogService:write(sku, reads)\n  return { sku = sku, reads = reads }\nend\n\n---@param sku string\n---@return table\n-- @ClearCache({\"method\":\"find\"})\nfunction CatalogService:invalidate(sku)\n  return { sku = sku, reads = self.reads }\nend\n\n---@return integer\n-- @Retry({\"maxRetries\":3,\"delayMs\":1,\"multiplier\":2,\"maxDelayMs\":5,\"jitterMs\":0})\nfunction CatalogService:steady()\n  self.attempts = self.attempts + 1\n  if self.attempts < 3 then\n    error(\"not yet\")\n  end\n  return self.attempts\nend\n",
+            "-- @Service\n-- @CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":65536,\"maxEntries\":256})\n---@class CatalogService\nCatalogService = {\n  ---@type integer\n  reads = 0,\n  ---@type integer\n  attempts = 0,\n  ---@type integer\n  prices = 0,\n}\n\n---@return nil\n-- @OnStart\nfunction CatalogService:open()\n  self.behaviors = Behaviors.create(CatalogSetup, { partition = \"public-catalog\", signal = BehaviorSignal.new() })\nend\n\n---@param sku string\n---@return table\n-- @Cached\nfunction CatalogService:find(sku)\n  self.reads = self.reads + 1\n  return { sku = sku, reads = self.reads }\nend\n\n---@param sku string\n---@param note string\n---@return integer\n-- @Cached\nfunction CatalogService:price(\n  -- @CacheKey\n  sku,\n  note\n)\n  self.prices = self.prices + 1\n  return self.prices\nend\n\n---@param sku string\n---@param reads integer\n---@return table\n-- @UpdateCache({\"method\":\"find\"})\nfunction CatalogService:write(sku, reads)\n  return { sku = sku, reads = reads }\nend\n\n---@param sku string\n---@return table\n-- @ClearCache({\"method\":\"find\"})\nfunction CatalogService:invalidate(sku)\n  return { sku = sku, reads = self.reads }\nend\n\n---@return integer\n-- @Retry({\"maxRetries\":3,\"delayMs\":1,\"multiplier\":2,\"maxDelayMs\":5,\"jitterMs\":0})\nfunction CatalogService:steady()\n  self.attempts = self.attempts + 1\n  if self.attempts < 3 then\n    error(\"not yet\")\n  end\n  return self.attempts\nend\n",
         ),
         (
             "server/controllers/CatalogController.lua",
-            "-- @RequestRoute(\"/catalog\")\n-- @Public\n---@class CatalogController\nCatalogController = {\n  -- @Needs\n  ---@type CatalogService\n  catalog_service = nil,\n}\n\n---@return CacheReport\n-- @GetRoute\nfunction CatalogController:get_catalog()\n  local sku = \"anvil\"\n  local first = self.catalog_service:find(sku)\n  local again = self.catalog_service:find(sku)\n  self.catalog_service:write(sku, 99)\n  local written = self.catalog_service:find(sku)\n  self.catalog_service:invalidate(sku)\n  local refreshed = self.catalog_service:find(sku)\n  return { first = first, [\"repeat\"] = again, written = written, refreshed = refreshed, retried = self.catalog_service:steady() }\nend\n",
+            "-- @RequestRoute(\"/catalog\")\n-- @Public\n---@class CatalogController\nCatalogController = {\n  -- @Needs\n  ---@type CatalogService\n  catalog_service = nil,\n}\n\n---@return CacheReport\n-- @GetRoute\nfunction CatalogController:get_catalog()\n  local sku = \"anvil\"\n  local first = self.catalog_service:find(sku)\n  local again = self.catalog_service:find(sku)\n  self.catalog_service:write(sku, 99)\n  local written = self.catalog_service:find(sku)\n  self.catalog_service:invalidate(sku)\n  local refreshed = self.catalog_service:find(sku)\n  local priced = self.catalog_service:price(sku, \"first\")\n  local repriced = self.catalog_service:price(sku, \"second\")\n  local missed = self.catalog_service:price(\"bolt\", \"first\")\n  return { first = first, [\"repeat\"] = again, written = written, refreshed = refreshed, retried = self.catalog_service:steady(), priced = priced, repriced = repriced, missed = missed }\nend\n",
         ),
         (
             "server/tests/CatalogServiceTest.lua",
@@ -97,6 +97,9 @@ async fn a_lua_service_caches_updates_clears_and_retries() {
             "written": {"sku": "anvil", "reads": 99},
             "refreshed": {"sku": "anvil", "reads": 2},
             "retried": 3,
+            "priced": 1,
+            "repriced": 1,
+            "missed": 2,
         })
     );
 }

@@ -16,6 +16,15 @@ func (catalog *CatalogService) List(
 	return map[string]any{"page": page, "calls": count}, nil
 }
 
+// @Cached
+func (catalog *CatalogService) Price(
+	// @CacheKey
+	sku BehaviorValue,
+	note BehaviorValue,
+) (BehaviorValue, error) {
+	return catalog.calls.Add(1), nil
+}
+
 // @UpdateCache({"method":"List"})
 func (catalog *CatalogService) Refresh(page BehaviorValue, value BehaviorValue) (BehaviorValue, error) {
 	return value, nil

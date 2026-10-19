@@ -84,6 +84,14 @@ class HandlerChecks {
         return [$first, $cached, $fresh];
     }
 
+    public static function checkCacheKey($catalog): void {
+        $catalog->price('sku-1', 'first');
+        $catalog->price('sku-1', 'second');
+        if (Backend::$prices !== 1) throw new Exception('CacheKey hit ignores the unmarked argument');
+        $catalog->price('sku-2', 'first');
+        if (Backend::$prices !== 2) throw new Exception('CacheKey miss on a different key');
+    }
+
     public static function checkResilience($context): void {
         $resilient = Behaviors::construct(Resilient::class, ['behaviors' => $context]);
         if ($resilient->flaky() !== 3 || Resilient::$attempts !== 3) throw new Exception('retry contract');
@@ -134,6 +142,7 @@ class HandlerChecks {
         $client->behaviors = $context;
         $page = ['page' => 2, 'size' => 5];
         [$first, $cached, $fresh] = self::exerciseCache($catalog, $context, $page);
+        self::checkCacheKey($catalog);
         $remote = $client->remote();
         $repository = $context->repository(ProductEntity::class);
         if ($client->remote() !== $remote || Backend::$exchanges !== 1) throw new Exception('cached exchange');

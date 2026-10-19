@@ -8,12 +8,11 @@ use crate::support::authored_behaviors;
 
 #[tokio::test]
 async fn python_php_and_ruby_execute_all_shared_annotations() {
-    for extension in ["py", "php", "rb"] {
-        let runtime = match extension {
-            "py" => "python3",
-            "php" => "php-cgi",
-            _ => "ruby",
-        };
+    for (extension, runtime, authorizations) in [
+        ("py", "python3", 12),
+        ("php", "php-cgi", 15),
+        ("rb", "ruby", 15),
+    ] {
         if std::process::Command::new(runtime)
             .arg("--version")
             .output()
@@ -24,11 +23,11 @@ async fn python_php_and_ruby_execute_all_shared_annotations() {
             );
             continue;
         }
-        assert_shared_annotations(extension).await;
+        assert_shared_annotations(extension, authorizations).await;
     }
 }
 
-async fn assert_shared_annotations(extension: &str) {
+async fn assert_shared_annotations(extension: &str, authorizations: u64) {
     let project = tempfile::tempdir().expect("project");
     let path = format!("server/controllers/ProductsController.{extension}");
     authored_behaviors::write(project.path(), extension, "server", extension);
@@ -58,5 +57,5 @@ async fn assert_shared_annotations(extension: &str) {
     assert_eq!(result["found"]["table"], "products", "{extension}");
     assert_eq!(result["deleted"]["operation"], "delete", "{extension}");
     assert_eq!(result["cancelled"], true, "{extension}");
-    assert_eq!(result["authorizations"], 12, "{extension}");
+    assert_eq!(result["authorizations"], authorizations, "{extension}");
 }

@@ -17,11 +17,18 @@ class AnnotatedCatalog {
   @Needs
   final BehaviorContext behaviors;
   int calls = 0;
+  int prices = 0;
 
   @Cached
   Future<Object?> list(@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]}) Object? page) async {
     calls += 1;
     return {'calls': calls, 'offset': (page as Map)['offset']};
+  }
+
+  @Cached
+  Future<Object?> price(@CacheKey Object? sku, Object? note) async {
+    prices += 1;
+    return prices;
   }
 
   @WebCall({"client":"catalog","method":"GET","path":"/products"})
@@ -213,6 +220,15 @@ Future<void> checkCatalog(BehaviorContext context, Map<String, Object?> input) a
   check(catalog.calls == 3, 'GENERATED_EVICT');
 }
 
+Future<void> checkCacheKey(BehaviorContext context) async {
+  final catalog = AnnotatedCatalog(context);
+  await catalog.price('sku-1', 'first');
+  await catalog.price('sku-1', 'second');
+  check(catalog.prices == 1, 'GENERATED_CACHE_KEY_HIT');
+  await catalog.price('sku-2', 'first');
+  check(catalog.prices == 2, 'GENERATED_CACHE_KEY_MISS');
+}
+
 Future<void> checkResilience(BehaviorContext context) async {
   final resilient = AnnotatedResilient(context);
   check(await resilient.flaky() == 3 && resilient.attempts == 3, 'GENERATED_RETRY');
@@ -273,6 +289,7 @@ Future<void> main() async {
   try {
     final input = <String, Object?>{'page': 2, 'size': 3};
     await checkCatalog(context, input);
+    await checkCacheKey(context);
     await checkResilience(context);
     await checkQueries(context, input);
     checkSummaries(context);

@@ -24,6 +24,7 @@ class ProductChecksHelper {
     private static final String TITLE = "title"
     private static final String VALIDATION = "validation"
     private static final String ANVIL = "Anvil"
+    private static final String SKU = "sku-1"
     static Object run() {
         try (Behaviors.Context context = Behaviors.create("RuntimeAdaptersSetup", new Behaviors.Options(TENANT, new Behaviors.Signal()))) {
             checkConfiguration()
@@ -38,6 +39,7 @@ class ProductChecksHelper {
             catalog.remove("ignored", page)
             Object fresh = catalog.list(page)
             checkCachePut(catalog, page)
+            checkCacheKey(catalog)
             checkDefaultPage(catalog)
             checkDeclaredExchange(client)
             checkResilience(context)
@@ -104,6 +106,13 @@ class ProductChecksHelper {
         expect(catalog.mutations == EXPECTED_CALLS, "mutation before authorization")
         expectFailure(JSON_VALUE, "expected bounded JSON", () -> catalog.invalid(page))
         expect(updated.equals(catalog.list(page)), "invalid result changed cache")
+    }
+    static void checkCacheKey(CatalogService catalog) {
+        catalog.price(SKU, "first")
+        catalog.price(SKU, "second")
+        expect(catalog.priceCalls == 1, "CacheKey hit ignores the unmarked argument")
+        catalog.price("sku-2", "first")
+        expect(catalog.priceCalls == EXPECTED_CALLS, "CacheKey miss on a different key")
     }
     static void checkDefaultPage(CatalogService catalog) {
         Object defaultUpdated = catalog.update("default", java.util.Map.of())

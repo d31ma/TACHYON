@@ -15,6 +15,7 @@ class ProductChecksHelper {
             catalog.remove("ignored", page)
             val fresh = catalog.list(page)
             checkCachePut(catalog, page)
+            checkCacheKey(catalog)
             checkDefaultPage(catalog)
             checkDeclaredExchange(client)
             checkResilience(context)
@@ -71,6 +72,13 @@ class ProductChecksHelper {
         check(catalog.mutations == EXPECTED_CALLS)
         expectFailure(JSON_VALUE, "expected bounded JSON") { catalog.invalid(page) }
         check(updated == catalog.list(page))
+    }
+    private fun checkCacheKey(catalog: CatalogService) {
+        catalog.price(SKU, "first")
+        catalog.price(SKU, "second")
+        check(catalog.priceCalls == 1)
+        catalog.price("sku-2", "first")
+        check(catalog.priceCalls == EXPECTED_CALLS)
     }
     private fun checkDefaultPage(catalog: CatalogService) {
         val defaultUpdated = catalog.update("default", emptyMap())
@@ -159,5 +167,6 @@ class ProductChecksHelper {
         private const val TITLE = "title"
         private const val VALIDATION = "validation"
         private const val ANVIL = "Anvil"
+        private const val SKU = "sku-1"
     }
 }

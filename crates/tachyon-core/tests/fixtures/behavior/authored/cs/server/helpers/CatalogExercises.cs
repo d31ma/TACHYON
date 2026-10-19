@@ -11,6 +11,7 @@ class CatalogExercises {
         var first = await catalog.list(input); var cached = await catalog.list(input);
         await context.evict("AnnotatedCatalogService", "list", input); var fresh = await catalog.list(input);
         if ((await client.find(BehaviorJSON.From(7))).Get("path").Text != "/products/7") throw new System.Exception("path variable");
+        await CheckCacheKey(catalog);
         await CheckRepositoryStore(context, input);
         var repository = context.repository(typeof(AnnotatedProductEntity));
         return BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> {
@@ -19,6 +20,13 @@ class CatalogExercises {
             ["saved"] = await repository.save(BehaviorJSON.Parse("{\"id\":4}")),
             ["found"] = await repository.find(input), ["deleted"] = await repository.delete(BehaviorJSON.From(4))
         });
+    }
+    private static async System.Threading.Tasks.Task CheckCacheKey(AnnotatedCatalogService catalog) {
+        await catalog.price(BehaviorJSON.From("sku-1"), BehaviorJSON.From("first"));
+        await catalog.price(BehaviorJSON.From("sku-1"), BehaviorJSON.From("second"));
+        if (catalog.priceCalls != 1 || Config.LastArguments.Items.Length != 1) throw new System.Exception("CacheKey hit ignores the unmarked argument");
+        await catalog.price(BehaviorJSON.From("sku-2"), BehaviorJSON.From("first"));
+        if (catalog.priceCalls != 2) throw new System.Exception("CacheKey miss on a different key");
     }
     private static async System.Threading.Tasks.Task CheckRepositoryStore(BehaviorContext context, BehaviorJSON page) {
         var queries = new AnnotatedQueriesStore { behaviors = context };

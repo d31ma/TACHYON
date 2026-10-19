@@ -230,6 +230,25 @@ func (checks CatalogChecks) checkResilience(context *BehaviorContext) error {
 	return nil
 }
 
+func (checks CatalogChecks) checkCacheKey(context *BehaviorContext) error {
+	catalog := &CatalogService{behaviors: context, calls: &atomic.Int64{}}
+	for _, note := range []string{"first", "second"} {
+		if _, err := catalog.Price("sku-1", note); err != nil {
+			return err
+		}
+	}
+	if catalog.calls.Load() != 1 {
+		return checks.fail("CacheKey hit ignores the unmarked argument")
+	}
+	if _, err := catalog.Price("sku-2", "first"); err != nil {
+		return err
+	}
+	if catalog.calls.Load() != 2 {
+		return checks.fail("CacheKey miss on a different key")
+	}
+	return nil
+}
+
 func (checks CatalogChecks) checkTransactions(context *BehaviorContext) error {
 	memory := checks.memory(context)
 	memory.TakeLog()
@@ -346,6 +365,9 @@ func (checks CatalogChecks) Exercise() (BehaviorValue, error) {
 		return nil, err
 	}
 	if err := checks.checkRepository(context, results); err != nil {
+		return nil, err
+	}
+	if err := checks.checkCacheKey(context); err != nil {
 		return nil, err
 	}
 	if err := checks.checkResilience(context); err != nil {

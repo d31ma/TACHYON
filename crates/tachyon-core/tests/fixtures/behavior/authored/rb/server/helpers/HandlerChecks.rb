@@ -94,6 +94,14 @@ class HandlerChecks
     [first, cached, fresh]
   end
 
+  def self.check_cache_key(catalog)
+    catalog.price("sku-1", "first")
+    catalog.price("sku-1", "second")
+    raise "CacheKey hit ignores the unmarked argument" unless Backend.prices == 1
+    catalog.price("sku-2", "first")
+    raise "CacheKey miss on a different key" unless Backend.prices == 2
+  end
+
   def self.check_resilience(context)
     resilient = Behaviors.construct(Resilient, behaviors: context)
     raise "retry contract" unless resilient.flaky == 3 && Resilient.attempts == 3
@@ -141,6 +149,7 @@ class HandlerChecks
     client.instance_variable_set(:@behaviors, context)
     page = { "page" => 2, "size" => 5 }
     first, cached, fresh = exercise_cache(catalog, context, page)
+    check_cache_key(catalog)
     remote = client.remote
     repository = context.repository(ProductEntity)
     raise "cached exchange" unless client.remote == remote && Backend.exchanges == 1

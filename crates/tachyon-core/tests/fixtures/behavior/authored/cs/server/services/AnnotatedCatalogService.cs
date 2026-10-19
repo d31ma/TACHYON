@@ -3,12 +3,19 @@
 public sealed class AnnotatedCatalogService {
     public BehaviorContext behaviors;
     private int calls = 0;
+    public int priceCalls = 0;
     [Cached]
     public async System.Threading.Tasks.Task<BehaviorJSON> list([PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]})] BehaviorJSON page) {
         await System.Threading.Tasks.Task.CompletedTask;
         calls++;
         var offset = "offset";
         return BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["calls"] = BehaviorJSON.From(calls), [offset] = page.Get(offset) });
+    }
+    [Cached]
+    public async System.Threading.Tasks.Task<BehaviorJSON> price([CacheKey] BehaviorJSON sku, BehaviorJSON note) {
+        await System.Threading.Tasks.Task.CompletedTask;
+        priceCalls++;
+        return BehaviorJSON.From(priceCalls);
     }
     public BehaviorJSON page([PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]})] BehaviorJSON input) { return input; }
     [UpdateCache({"method":"list"})]

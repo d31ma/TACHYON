@@ -10,6 +10,11 @@ class CatalogService {
         Backend::$calls++;
         return [self::CALLS => Backend::$calls, self::PAGE => $page];
     }
+    #[Cached]
+    public function price(#[CacheKey] string $sku, string $note): int {
+        Backend::$prices++;
+        return Backend::$prices;
+    }
     #[UpdateCache({"method":"read"})]
     public function replace($value, array $page): array {
         if ($value === 'fail') throw new Exception('failed mutation');

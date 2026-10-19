@@ -15,6 +15,15 @@ class CatalogService
     { CALLS => Backend.calls, PAGE => page }
   end
 
+  #[Cached]
+  def price(
+    #[CacheKey]
+    sku,
+    note
+  )
+    Backend.prices += 1
+  end
+
   #[UpdateCache({"method":"read"})]
   def replace(value, page)
     raise "failed mutation" if value == "fail"

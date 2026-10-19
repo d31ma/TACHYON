@@ -3,6 +3,7 @@
 class Backend {
     public static array $entries = [];
     public static int $calls = 0;
+    public static int $prices = 0;
     public static int $exchanges = 0;
     public static int $authorizations = 0;
 
@@ -10,6 +11,7 @@ class Backend {
         self::$authorizations++;
         if ($execution->partition !== 'catalog') return false;
         if ($call['method'] === 'remote') return true;
+        if ($call['method'] === 'price') return count($call['keyArguments']) === 1;
         return $call['keyArguments'][0]['size'] === 5;
     }
 
