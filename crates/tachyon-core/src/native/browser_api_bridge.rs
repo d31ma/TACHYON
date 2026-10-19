@@ -11,8 +11,14 @@ impl BrowserApiBridge {
         ("geolocation", &["currentPosition"]),
     ];
     const BRIDGED: [(NativeTarget, &'static [&'static str]); 5] = [
-        (NativeTarget::Macos, &[]),
-        (NativeTarget::Ios, &[]),
+        (
+            NativeTarget::Macos,
+            &["clipboard", "share", "notifications", "geolocation"],
+        ),
+        (
+            NativeTarget::Ios,
+            &["clipboard", "share", "notifications", "geolocation"],
+        ),
         (
             NativeTarget::Android,
             &["clipboard", "share", "notifications"],
@@ -86,12 +92,28 @@ mod tests {
 
     #[test]
     fn every_bridged_operation_is_answered_by_its_host() {
+        let apple = super::super::apple_browser_apis::AppleBrowserApis::SWIFT;
         for (target, source) in [
-            (NativeTarget::Macos, super::super::macos::host_source()),
-            (NativeTarget::Ios, super::super::ios::host_source()),
-            (NativeTarget::Android, super::super::android::host_source()),
-            (NativeTarget::Windows, super::super::windows::host_source()),
-            (NativeTarget::Linux, super::super::linux::host_source()),
+            (
+                NativeTarget::Macos,
+                [super::super::macos::host_source(), apple].concat(),
+            ),
+            (
+                NativeTarget::Ios,
+                [super::super::ios::host_source(), apple].concat(),
+            ),
+            (
+                NativeTarget::Android,
+                super::super::android::host_source().to_owned(),
+            ),
+            (
+                NativeTarget::Windows,
+                super::super::windows::host_source().to_owned(),
+            ),
+            (
+                NativeTarget::Linux,
+                super::super::linux::host_source().to_owned(),
+            ),
         ] {
             for operation in BrowserApiBridge::operations(target) {
                 assert!(
@@ -118,5 +140,16 @@ mod tests {
                 "browserApi.notifications.show"
             ]
         );
+    }
+
+    #[test]
+    fn the_apple_hosts_bridge_every_browser_api() {
+        for target in [NativeTarget::Macos, NativeTarget::Ios] {
+            assert_eq!(
+                BrowserApiBridge::page_list(target),
+                "['clipboard', 'share', 'notifications', 'geolocation']"
+            );
+            assert_eq!(BrowserApiBridge::operations(target).len(), 6);
+        }
     }
 }

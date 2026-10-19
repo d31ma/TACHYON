@@ -212,6 +212,10 @@ pub(super) fn swift_source(
             MacOsHostGenerator::APPLE_JSON_REQUEST,
         )
         .replace(
+            "__NATIVE_BROWSER_APIS__",
+            super::apple_browser_apis::AppleBrowserApis::SWIFT,
+        )
+        .replace(
             "__NATIVE_SHIM__",
             &super::host::native_shim(
                 &IosWindowControls::page_window(&application.window),
@@ -243,6 +247,7 @@ import WebKit
 
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
+__NATIVE_BROWSER_APIS__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
@@ -406,6 +411,10 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                 replyHandler(nil, "companion route does not belong to this page"); return
             }
         }
+        if capability.hasPrefix("browserApi.") {
+            AppleBrowserApis.shared.call(capability, request, webView) { replyHandler($0, nil) }
+            return
+        }
         guard let canonicalPayload = tachyonCanonicalJSONRequest(request) else {
             replyHandler(nil, "invalid or oversized host call"); return
         }
@@ -484,7 +493,9 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         webView = view
         NativeBridge.shared.webView = view
         __TACHYON_COMPANION_EMIT__
-        view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
+        AppleBrowserApis.shared.prepare(view) {
+            view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
+        }
         Telemetry.shared.record("bridge.ready")
     }
 
@@ -522,6 +533,7 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        AppleBrowserApis.shared.granted = __NATIVE_BROWSER_API_GRANTS__
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = RootViewController()
         window.makeKeyAndVisible()

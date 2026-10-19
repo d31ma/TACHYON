@@ -46,7 +46,7 @@ process.once('SIGTERM', () => { cleanup(); process.exit(143); });
 
 function writeFixture() {
   mkdirSync(IosGate.deviceSet);
-  write('client/manifest.json', JSON.stringify({ name: 'NativeIOSGate', start_url: '/', tac: { application: { id: 'dev.tachyon.ios-gate', version: '0.0.1', build: 4 }, styles: ['/shared/ios-gate.css'], names: { check: false }, constants: { check: false }, visibility: { check: false }, duplication: { check: false }, cohesion: { check: false } } }));
+  write('client/manifest.json', JSON.stringify({ name: 'NativeIOSGate', start_url: '/', tac: { application: { id: 'dev.tachyon.ios-gate', version: '0.0.1', build: 4 }, browserApis: ['clipboard'], styles: ['/shared/ios-gate.css'], names: { check: false }, constants: { check: false }, visibility: { check: false }, duplication: { check: false }, cohesion: { check: false } } }));
   write('client/models/IosEvent.js', '/**\n * @typedef {Object} IosEvent\n * @property {string} text\n */\nexport {}\n');
   write('client/models/IosEvent.swift', 'struct IosEvent {\n    let text: String\n}\n');
   write('client/shared/ios-gate.js', `export const marker = 'Shared module ready';
@@ -129,13 +129,20 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
       const unicode = JSON.parse(await __tachyonNativeHostCall('companion.invoke',
         JSON.stringify({ '\u0301': '😀', route: ownRoute, service: iosGateService, owner: iosGateOwner, op: 'get', name: 'count' })));
       if (unicode.value !== expected) throw new Error('Unicode JSON failed at native boundary');
+      if (this.pageLabel === 'root' && !returned) {
+        if (globalThis.__tachyonBrowserApiBridge?.join(',') !== 'clipboard,share,notifications,geolocation') throw new Error('Native browser API bridge list');
+        const written = JSON.parse(await __tachyonNativeHostCall('browserApi.clipboard.writeText', JSON.stringify({ text: 'tachyon ios bridge' })));
+        const read = JSON.parse(await __tachyonNativeHostCall('browserApi.clipboard.readText', '{}'));
+        const share = JSON.parse(await __tachyonNativeHostCall('browserApi.share.open', JSON.stringify({ text: 'not granted' })));
+        if (written.value !== null || read.value !== 'tachyon ios bridge' || !String(share.error).includes('not granted')) throw new Error('Native clipboard bridge: ' + JSON.stringify({ written, read, share }));
+      }
       await this.announce();
       await this.until(() => document.querySelector('#signal')?.textContent === 'received');
       this.phase = returned ? 'returned' : 'initial';
       this.proof = JSON.stringify({ route: this.pageLabel, count: this.count,
         doubled: await this.doubled(), nativePid: await this.processId(),
         sharedAssets: true, renderedInteraction: true, focusPreserved: true,
-        routeRejected: true, duplicateRouteRejected: true, unicodeBoundaryPassed: true,
+        routeRejected: true, duplicateRouteRejected: true, unicodeBoundaryPassed: true, clipboardBridge: true,
         publishReceived: true, saved: this.saved });
       await this.record();
       if (!returned) document.querySelector('#next').click();
@@ -263,7 +270,7 @@ function collectProofs(documents, required, pid) {
     assert.equal(proof.count, native.count);
     assert.equal(proof.doubled, native.count * 2);
     for (const key of ['sharedAssets', 'renderedInteraction', 'focusPreserved', 'routeRejected',
-      'duplicateRouteRejected', 'unicodeBoundaryPassed', 'publishReceived']) {
+      'duplicateRouteRejected', 'unicodeBoundaryPassed', 'clipboardBridge', 'publishReceived']) {
       assert.equal(proof[key], true, name + ': ' + key);
     }
     assert.equal(proof.saved, name.startsWith('root') ? 'kept' : '', name + ': LocalState after a native method');
@@ -284,13 +291,14 @@ async function main() {
     const { documents, required } = await waitForProofFiles();
     mkdirSync(IosGate.evidence, { recursive: true });
     const proofs = collectProofs(documents, required, pid);
+    assert.equal(simctl('pbpaste', IosGate.device), 'tachyon ios bridge', 'the page clipboard write must reach UIPasteboard');
     const screenshot = path.join(IosGate.project, 'ios-returned-root.png');
     simctl('io', IosGate.device, 'screenshot', screenshot);
     copyFileSync(screenshot, path.join(IosGate.evidence, 'ios-returned-root.png'));
     writeFileSync(path.join(IosGate.evidence, 'report.json'), JSON.stringify({
       runtime: runtime.version, deviceType: phone.name, binary, pid, proofs,
     }, null, 2) + '\n');
-    console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, shared assets, dynamic routes, isolation, and LocalState kept after a native method and a page load');
+    console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, clipboard bridge, shared assets, dynamic routes, isolation, and LocalState kept after a native method and a page load');
   } finally {
     cleanup();
   }

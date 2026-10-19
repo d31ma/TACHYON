@@ -100,16 +100,16 @@ tac.browserApis
   honored: the same grant list in the page
 
 tac.browserApis clipboard
-  adapted: clipboard in the iOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1).
+  honored: UIPasteboard through the host bridge (browserApi.clipboard)
 
 tac.browserApis share
-  adapted: share in the iOS app uses the web view's navigator.share, and no host test checks it yet (BA1).
+  honored: UIActivityViewController through the host bridge (browserApi.share)
 
 tac.browserApis notifications
-  adapted: notifications do not work in the iOS app yet: its web view has no Notification API (BA1).
+  honored: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front
 
 tac.browserApis geolocation
-  adapted: geolocation in the iOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1).
+  honored: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions
 
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk

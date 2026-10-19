@@ -446,7 +446,7 @@ mod tests {
             "{nothing}"
         );
         assert!(
-            nothing.contains("globalThis.__tachyonBrowserApiBridge = Object.freeze([])"),
+            nothing.contains("globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation'])"),
             "{nothing}"
         );
     }

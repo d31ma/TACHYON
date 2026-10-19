@@ -172,7 +172,10 @@ not promote any tier.
 | Host | Implemented | Validated |
 | --- | --- | --- |
 | Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. Not run: WSL, a Linux desktop with a notification server and GeoClue, Wayland |
-| macOS, iOS, Android, Windows | no host bridge yet (BA1, BA2, BA3) | see the per-target support table |
+| macOS WKWebView | yes, all four: `NSPasteboard`, `NSSharingServicePicker`, `UNUserNotificationCenter`, CoreLocation | code level only, in a Linux cloud container (`native::browser_api_bridge`, `native::apple_browser_apis`). Owed: the compile and host test on a Mac, and a manual check of the share, notification and location prompts |
+| iOS WKWebView | yes, all four: `UIPasteboard`, `UIActivityViewController`, `UNUserNotificationCenter`, CoreLocation | code level only, in a Linux cloud container (same tests). Owed: the simulator gate (`scripts/ios/native-test.mjs`) and a manual check of the system prompts |
+| Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | see the Android WebView row above |
+| Windows WebView2 | no host bridge yet (BA3) | see the per-target support table |
 
 ## Historical Phase 5 Native Target Status
 

@@ -1,5 +1,6 @@
 mod android;
 mod android_browser_apis;
+mod apple_browser_apis;
 mod apple_icons;
 mod browser_api_bridge;
 mod browser_api_grants;
@@ -89,6 +90,8 @@ mod native_application_host_tests;
 mod native_application_inputs;
 #[cfg(test)]
 mod native_application_tests;
+#[cfg(test)]
+mod native_browser_api_host_tests;
 mod native_build_folders;
 mod native_capabilities;
 #[cfg(test)]

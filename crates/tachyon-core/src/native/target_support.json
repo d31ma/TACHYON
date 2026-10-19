@@ -333,40 +333,40 @@
     "member": "tac.browserApis clipboard",
     "paths": ["tac.browserApis[clipboard]"],
     "web": {"reach": "honored", "how": "navigator.clipboard"},
-    "macos": {"reach": "adapted", "note": "clipboard in the macOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1)."},
+    "macos": {"reach": "honored", "how": "NSPasteboard through the host bridge (browserApi.clipboard)"},
     "windows": {"reach": "adapted", "note": "clipboard in the Windows app uses the web view's navigator.clipboard, and no host test checks it yet (BA3)."},
     "linux": {"reach": "honored", "how": "the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps"},
-    "ios": {"reach": "adapted", "note": "clipboard in the iOS app uses the web view's navigator.clipboard, and no host test checks it yet (BA1)."},
+    "ios": {"reach": "honored", "how": "UIPasteboard through the host bridge (browserApi.clipboard)"},
     "android": {"reach": "honored", "how": "ClipboardManager, through the host bridge"}
   },
   {
     "member": "tac.browserApis share",
     "paths": ["tac.browserApis[share]"],
     "web": {"reach": "honored", "how": "navigator.share"},
-    "macos": {"reach": "adapted", "note": "share in the macOS app uses the web view's navigator.share, and no host test checks it yet (BA1)."},
+    "macos": {"reach": "honored", "how": "NSSharingServicePicker through the host bridge (browserApi.share)"},
     "windows": {"reach": "adapted", "note": "share in the Windows app uses the web view's navigator.share, and no host test checks it yet (BA3)."},
     "linux": {"reach": "adapted", "note": "Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard."},
-    "ios": {"reach": "adapted", "note": "share in the iOS app uses the web view's navigator.share, and no host test checks it yet (BA1)."},
+    "ios": {"reach": "honored", "how": "UIActivityViewController through the host bridge (browserApi.share)"},
     "android": {"reach": "adapted", "note": "share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared."}
   },
   {
     "member": "tac.browserApis notifications",
     "paths": ["tac.browserApis[notifications]"],
     "web": {"reach": "honored", "how": "the Notification API"},
-    "macos": {"reach": "adapted", "note": "notifications do not work in the macOS app yet: its web view has no Notification API (BA1)."},
+    "macos": {"reach": "honored", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front"},
     "windows": {"reach": "adapted", "note": "notifications in the Windows app use the web view's Notification API. The host asks for no permission yet (BA3)."},
     "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown."},
-    "ios": {"reach": "adapted", "note": "notifications do not work in the iOS app yet: its web view has no Notification API (BA1)."},
+    "ios": {"reach": "honored", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front"},
     "android": {"reach": "honored", "how": "NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications"}
   },
   {
     "member": "tac.browserApis geolocation",
     "paths": ["tac.browserApis[geolocation]"],
     "web": {"reach": "honored", "how": "navigator.geolocation"},
-    "macos": {"reach": "adapted", "note": "geolocation in the macOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1)."},
+    "macos": {"reach": "honored", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions"},
     "windows": {"reach": "adapted", "note": "geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3)."},
     "linux": {"reach": "honored", "how": "the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages"},
-    "ios": {"reach": "adapted", "note": "geolocation in the iOS app uses the web view's navigator.geolocation, with the reason from tac.application.permissions in Info.plist. No host test checks it yet (BA1)."},
+    "ios": {"reach": "honored", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions"},
     "android": {"reach": "honored", "how": "the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient"}
   },
   {

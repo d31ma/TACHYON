@@ -45,6 +45,10 @@ impl BrowserApiPermissions {
             .try_for_each(|(api, _)| self.require_reason(api, target))
     }
 
+    pub(super) fn granted(&self) -> &[String] {
+        &self.granted
+    }
+
     pub(super) fn usage(&self, api: &str) -> Option<&str> {
         self.usage.get(api).map(String::as_str)
     }

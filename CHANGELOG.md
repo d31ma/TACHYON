@@ -156,6 +156,19 @@ machine contracts have their own, independent major versions.
   (`GNotification`); `requestPermission` answers `granted` without a prompt,
   as Linux desktops do. Linux has no share sheet, so `share` copies the url,
   or else the text or title, to the clipboard (ADR 0065 amendment).
+- The macOS and iOS apps answer `clipboard`, `share`, `notifications` and
+  `geolocation` through the host bridge, with shared Swift code in
+  `native/browser_apis/`: `NSPasteboard` and `UIPasteboard`,
+  `NSSharingServicePicker` and `UIActivityViewController`,
+  `UNUserNotificationCenter` (also shown while the app is in front), and
+  CoreLocation with the reason from `tac.application.permissions`. A
+  cancelled share answers `BrowserCallFailed`, geolocation keeps the page's
+  ten-second limit, and each new page gets the current notification
+  permission. The host also refuses a call whose API is not in
+  `tac.browserApis`. The support table says `honored` for these APIs on
+  `macos` and `ios`; the Mac compile, the iOS simulator gate and a manual
+  check of the system prompts are still owed (ADR 0065 amendment of
+  2026-10-19).
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain

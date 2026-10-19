@@ -355,3 +355,54 @@ with Gradle on Linux. The emulator gate `scripts/android/browser-apis-test.mjs`
 (clipboard round trip, share sheet, the notification question and post, and a
 position after the location question) belongs to the Mac run.
 
+## Amendment (2026-10-19): the macOS and iOS hosts answer the browser API bridge
+
+The macOS and iOS hosts now answer all four bridged APIs. `BrowserApiBridge`
+lists `clipboard`, `share`, `notifications` and `geolocation` for both
+targets, so a page in these apps no longer uses the web view's own API for
+them. Both hosts compile the same Swift code from
+`native/browser_apis/` (`AppleBrowserApis.swift`, `AppleShareSheet.swift` and
+`AppleCurrentPosition.swift`).
+
+1. **Clipboard.** `writeText` and `readText` use `NSPasteboard` on macOS and
+   `UIPasteboard` on iOS. The app's `tachyon-app://` scheme is not a secure
+   context, so the host does not rely on `navigator.clipboard`.
+2. **Share.** `open` shows `NSSharingServicePicker` on macOS and
+   `UIActivityViewController` on iOS. The title and the text are shared as
+   one text item, and `url` must be an absolute address. Only one share sheet
+   is open at a time. When the user cancels, the page gets
+   `BrowserCallFailed` with "Share was cancelled.".
+3. **Notifications.** The host uses `UNUserNotificationCenter`.
+   `requestPermission` answers `granted`, `denied` or `default`. The app also
+   shows a notification while it is in front. The host tells each new page
+   the current permission word in `globalThis.__tachyonNotificationPermission`,
+   so `permission()` is right after the app restarts. The host touches
+   `UNUserNotificationCenter` only when the app grants `notifications` in
+   `tac.browserApis`.
+4. **Geolocation.** WebKit has no public `WKUIDelegate` method for
+   geolocation, so the host asks through CoreLocation and not through the
+   web view. It calls `requestWhenInUseAuthorization` and then
+   `requestLocation`, and the system shows the reason from
+   `tac.application.permissions` that the build wrote into `Info.plist`. The
+   host keeps the page's ten-second limit and answers "Timeout expired" when
+   it runs out. When the user refuses, the answer is "User denied
+   Geolocation", as on the web.
+5. **A second grant check.** The host refuses a `browserApi` call whose API
+   is not in `tac.browserApis`. The page already checks the grant first; the
+   host check is defence in depth.
+
+The per-target support table now says `honored` for these four APIs on
+`macos` and `ios`.
+
+Evidence: `native::browser_api_bridge` (both Apple hosts list the four APIs,
+and their source answers every operation) and `native::apple_browser_apis`
+(both hosts carry the shared Swift code and the granted API list), run in a
+Linux cloud container, where the generated macOS and iOS hosts also pass
+`swiftc -parse`. Two new real-machine checks drive the clipboard through
+WebKit: the ignored Mac test
+`macos_page_calls_reach_the_pasteboard_through_the_browser_api_bridge`
+(`native::native_browser_api_host_tests`) and a step in the iOS simulator gate
+(`scripts/ios/native-test.mjs`) that reads the result with `simctl pbpaste`.
+Still owed on real machines: the macOS compile and that host test on a Mac,
+the iOS simulator gate, and a manual check of the share, notification and location prompts, because
+system prompts cannot be automated.

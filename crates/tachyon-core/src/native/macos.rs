@@ -291,10 +291,15 @@ pub(super) fn swift_source(
     index: &NativeRouteIndex,
 ) -> String {
     let rust_shim = MacOsHostGenerator::rust_shim(companion_call);
-    let host = MacOsHostGenerator::SWIFT_HOST.replace(
-        "__TACHYON_JSON_REQUEST__",
-        MacOsHostGenerator::APPLE_JSON_REQUEST,
-    );
+    let host = MacOsHostGenerator::SWIFT_HOST
+        .replace(
+            "__TACHYON_JSON_REQUEST__",
+            MacOsHostGenerator::APPLE_JSON_REQUEST,
+        )
+        .replace(
+            "__NATIVE_BROWSER_APIS__",
+            super::apple_browser_apis::AppleBrowserApis::SWIFT,
+        );
     let framed = with_window_settings(&host, &application.window)
         .replace(
             "__NATIVE_TITLE_BAR__",
@@ -403,6 +408,8 @@ impl MacOsHostGenerator {
         let app_type = format!("{}App", application.executable_name);
         let bundle_id = quoted_string_escape(&application.application_id);
         let policy = quoted_string_escape(&application.content_security_policy());
+        let browser_api_grants =
+            super::apple_browser_apis::AppleBrowserApis::swift_grants(&application.permissions);
         let mut values = vec![
             ("__ENTRY_DOCUMENT__", entry_document.as_str()),
             ("__ENTRY_ROUTE__", entry_route.as_str()),
@@ -410,6 +417,7 @@ impl MacOsHostGenerator {
             ("__APP_TYPE__", app_type.as_str()),
             ("__BUNDLE_ID__", bundle_id.as_str()),
             ("__CONTENT_SECURITY_POLICY__", policy.as_str()),
+            ("__NATIVE_BROWSER_API_GRANTS__", browser_api_grants.as_str()),
         ];
         values.extend_from_slice(platform_values);
         super::placeholder_fill::PlaceholderFill::once(host, &values)
@@ -517,6 +525,7 @@ __NATIVE_CAPABILITY_MODELS__
 __NATIVE_FILE_PICKER__
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
+__NATIVE_BROWSER_APIS__
 __NATIVE_MENUS__
 __NATIVE_MENU_MODELS__
 __NATIVE_MENU_CALLS__
@@ -686,6 +695,10 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                 replyHandler(nil, "companion route does not belong to this page"); return
             }
         }
+        if capability.hasPrefix("browserApi.") {
+            AppleBrowserApis.shared.call(capability, request, webView) { replyHandler($0, nil) }
+            return
+        }
         guard let canonicalPayload = tachyonCanonicalJSONRequest(request) else {
             replyHandler(nil, "invalid or oversized host call"); return
         }
@@ -760,6 +773,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MacOsFilePicker.shared.granted = __NATIVE_FILE_PICKER_GRANTED__
+        AppleBrowserApis.shared.granted = __NATIVE_BROWSER_API_GRANTS__
         __NATIVE_CAPABILITY_REGISTER__
         __NATIVE_APPLICATION_START__
         Telemetry.shared.record("controller.created")
@@ -814,7 +828,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         NativeBridge.shared.window = window
         installMenus(view, window)
 
-        view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
+        AppleBrowserApis.shared.prepare(view) {
+            view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
+        }
     }
 
     private func installMenus(_ view: WKWebView?, _ window: NSWindow?) {
