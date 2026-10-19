@@ -1,12 +1,18 @@
 #![allow(clippy::expect_used)]
 
+#[cfg(target_os = "linux")]
 use super::native_page_graph_tests::NativePageGraphCheck;
+#[cfg(target_os = "linux")]
 use super::registry::NativeCompanionInput;
+#[cfg(target_os = "linux")]
 use crate::project::NativeCompanion;
+#[cfg(target_os = "linux")]
 use std::path::{Path, PathBuf};
 
+#[cfg(target_os = "linux")]
 struct LinuxHttpCheck;
 
+#[cfg(target_os = "linux")]
 impl LinuxHttpCheck {
     const ORIGIN: &'static str = "https://yon.example.com";
     const FILES: [(&'static str, &'static str); 4] = [
