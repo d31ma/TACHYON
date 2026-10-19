@@ -218,3 +218,9 @@ build architecture (--arch)
 
 release packaging
   honored: a static site in dist/web
+
+incremental route reuse
+  honored: routes whose inputs did not change are reused from dist/web; --no-incremental turns this off
+
+byte-identical rebuilds
+  honored: the same sources give the same dist/web tree digest

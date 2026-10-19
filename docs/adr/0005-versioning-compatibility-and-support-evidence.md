@@ -68,3 +68,42 @@ this version as a preview or stable release.
 - the rewrite documentation clearly separates the legacy baseline, preview and
   stable cutover;
 - no Phase 0 workflow publishes a Tachyon release.
+
+## Amendment (2026-10-18): native builds are incremental and reproducible
+
+- A native build reuses the web stage of the previous build of the same
+  target. Before it compiles the web stage, it copies the published app's
+  `web/` folder (which holds `.tachyon/build-state.json`) into its temporary
+  stage. The web compiler then reuses only routes whose inputs and artifact
+  digests still match, exactly as a web build does. `--no-incremental` skips
+  the copy and compiles every route. A missing, symlinked or unreadable
+  previous folder means a full build, never a failure.
+- Every native tool runs with `SOURCE_DATE_EPOCH` (0 when unset, the same
+  value the Artifact Manifest records) and `ZERO_AR_DATE=1`.
+  - `cc` (Linux) gets `-ffile-prefix-map=<source folder>=.` and `rustc`
+    gets `--remap-path-prefix=<source folder>=.`, so the random staging
+    folder never reaches a binary.
+  - `swiftc` (macOS, iOS) runs in the source folder with relative source
+    paths and `-Xfrontend -disable-incremental-llvm-codegen`. Its
+    prefix-map flags do not remap `#filePath`, and incremental LLVM code
+    generation hashes a random temporary object path into the binary.
+  - MSVC compiles and links with `/Brepro`. The C# companion project sets
+    `Deterministic`, `ContinuousIntegrationBuild` and a `PathMap`.
+  - Gradle archives use `isPreserveFileTimestamps = false` and
+    `isReproducibleFileOrder = true`.
+- Build intermediates are not outputs: the Windows host's `.obj` file, the C#
+  companion's `bin` and `obj` folders and Gradle's `build`, `.gradle` and
+  `.kotlin` folders are removed after the app is copied out of them.
+- `native_reproducible_build_tests.rs` builds the same project twice into two
+  folders and compares the `artifact-manifest.json` bytes, then builds a third
+  time with reuse and compares again. Staged apps for all five targets run
+  everywhere. The packaged Linux test ran in a cloud container with GTK 4 and
+  WebKitGTK 6.0 and matched. The packaged macOS, iOS, Windows and Android
+  tests are `#[ignore]`d lane tests; until they run on those machines, the
+  support table lists those targets as `adapted` with a note. Android debug
+  APKs are signed with the machine's own debug key, so they match only on the
+  same machine.
+- Cargo-built Rust crates (`tac.application.rust` crates) keep cargo's own
+  path handling. Cargo passes the crate's own files as relative paths, and a
+  remap flag in `RUSTFLAGS` would rebuild every vendored dependency on each
+  build.

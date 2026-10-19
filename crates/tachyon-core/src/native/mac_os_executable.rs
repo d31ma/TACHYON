@@ -3,8 +3,10 @@ use super::host::{first_line, native_io, native_tool_failure, run_tool};
 use super::mac_os_architecture::MacOsArchitecture;
 use super::mac_os_built_slice::MacOsBuiltSlice;
 use super::mac_os_slice::MacOsSlice;
-use super::macos::{optional_unicode_path, sign_bundle, unicode_path};
+use super::macos::{sign_bundle, unicode_path};
+use super::native_reproducibility::NativeReproducibility;
 use super::rust::{Linkage, RustCompanion, RustCompanionOutput};
+use super::swift_compile_inputs::SwiftCompileInputs;
 use crate::Failure;
 use futures_util::{StreamExt as _, TryStreamExt as _};
 use std::path::{Path, PathBuf};
@@ -136,35 +138,27 @@ impl MacOsExecutable<'_> {
     ) -> Result<String, Failure> {
         let version_output = run_tool("/usr/bin/xcrun", &["swiftc", "--version"]).await?;
         let version = first_line(&version_output, "Swift unknown");
-        let source = unicode_path(self.source, "Swift source path is not valid Unicode.")?;
         native_io(
             std::fs::create_dir_all(Self::folder_of(executable)?),
             executable,
         )?;
-        let executable = unicode_path(executable, "Application path is not valid Unicode.")?;
-        let companion = optional_unicode_path(
-            self.companion,
-            "Companion source path is not valid Unicode.",
-        )?;
-        let archive = optional_unicode_path(
-            library.map(|compiled| compiled.library.as_path()),
-            "Companion library path is not valid Unicode.",
-        )?;
+        let archive = library.map(|compiled| compiled.library.as_path());
+        let inputs = SwiftCompileInputs::of(self.source, self.companion, archive, executable)?;
         let target = slice.map(|slice| slice.swift_target(Self::MINIMUM_SYSTEM_VERSION));
         let mut arguments = vec!["swiftc", "-parse-as-library", "-O"];
         if let Some(target) = target.as_deref() {
             arguments.extend(["-target", target]);
         }
         arguments.extend(Self::FRAMEWORK_ARGUMENTS);
-        arguments.extend(["-o", executable, source]);
-        arguments.extend(companion);
-        arguments.extend(archive);
+        arguments.extend(NativeReproducibility::SWIFT_ARGUMENTS);
+        arguments.extend(inputs.arguments());
         let native_arguments = library
             .into_iter()
             .flat_map(|compiled| compiled.native_libraries.arguments.iter())
             .map(String::as_str);
         arguments.extend(native_arguments);
-        run_tool("/usr/bin/xcrun", &arguments).await?;
+        let folder = Some(inputs.folder.as_path());
+        NativeReproducibility::run_tool_in("/usr/bin/xcrun", &arguments, folder).await?;
         Ok(version)
     }
 

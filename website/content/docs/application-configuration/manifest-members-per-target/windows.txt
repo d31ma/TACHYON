@@ -218,3 +218,9 @@ build architecture (--arch)
 
 release packaging
   adapted: The Windows build is a folder with the .exe. There is no installer or signature yet (PKG4).
+
+incremental route reuse
+  honored: routes are reused from the previous app's web folder; --no-incremental turns this off
+
+byte-identical rebuilds
+  adapted: The Windows build compiles and links with /Brepro and keeps .obj files out of the output, so two builds should match. A repeat-build run on Windows is still owed (TL2).

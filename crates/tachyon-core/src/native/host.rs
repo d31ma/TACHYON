@@ -71,11 +71,13 @@ impl NativeHost {
         Ok(bounded_text(&output.stdout))
     }
 
-    pub(super) async fn run_tool_output(
+    pub(super) async fn run_tool_output_with(
         program: &str,
         arguments: &[&str],
+        environment: &[(&str, &str)],
     ) -> Result<ToolOutput, Failure> {
-        Self::run_limited_output(program, arguments, None, &[], Self::TOOL_TIME_LIMIT).await
+        let limit = Self::TOOL_TIME_LIMIT;
+        Self::run_limited_output(program, arguments, None, environment, limit).await
     }
 
     async fn run_limited_output(

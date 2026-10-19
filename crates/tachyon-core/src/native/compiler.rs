@@ -29,6 +29,7 @@ pub struct NativeBuildOptions {
     pub package: bool,
     pub windows_architecture: WindowsArchitecture,
     pub macos_architecture: MacOsArchitecture,
+    pub incremental: bool,
 }
 
 impl Default for NativeBuildOptions {
@@ -39,6 +40,7 @@ impl Default for NativeBuildOptions {
             package: true,
             windows_architecture: WindowsArchitecture::default(),
             macos_architecture: MacOsArchitecture::default(),
+            incremental: true,
         }
     }
 }
@@ -83,6 +85,8 @@ pub struct NativeBuildResult {
     output_directory: PathBuf,
     application_bundle: PathBuf,
     route_count: usize,
+    compiled_routes: usize,
+    reused_routes: usize,
     sha256: String,
     notes: Vec<String>,
 }
@@ -101,6 +105,16 @@ impl NativeBuildResult {
     #[must_use]
     pub const fn route_count(&self) -> usize {
         self.route_count
+    }
+
+    #[must_use]
+    pub const fn compiled_routes(&self) -> usize {
+        self.compiled_routes
+    }
+
+    #[must_use]
+    pub const fn reused_routes(&self) -> usize {
+        self.reused_routes
     }
 
     #[must_use]
@@ -127,14 +141,6 @@ impl NativeCompiler {
 
     pub fn ui_generation(build: &NativeBuildResult) -> Result<super::NativeUiGeneration, Failure> {
         super::native_ui_artifact::NativeUiArtifact::generation(build)
-    }
-
-    #[must_use]
-    pub fn no_incremental_note(target: NativeTarget) -> String {
-        format!(
-            "Note: --no-incremental changes nothing for the {} app. Native builds always rebuild the web stage in full.",
-            native_target_directory(target)
-        )
     }
 
     const MAX_NATIVE_SERVICES: usize = 128;
@@ -211,8 +217,9 @@ impl NativeCompiler {
         )?;
         let yon_note = super::yon_reach::YonReach::check(project, options.target)?;
 
-        let (temporary_web, companions) =
-            build_web_bundle(project, options.target, &base_output).await?;
+        let destination = base_output.join(native_target_directory(options.target));
+        let (temporary_web, web, companions) =
+            build_web_bundle(project, options, &base_output, &destination).await?;
         super::native_menu_action_check::NativeMenuActionCheck::validate(
             &application.menus,
             &companions,
@@ -222,7 +229,6 @@ impl NativeCompiler {
             temporary_web.path(),
             options.target,
         )?;
-        let destination = base_output.join(native_target_directory(options.target));
         let stage = create_stage(&destination, project.root())?;
         write_host_descriptor(
             stage.path(),
@@ -248,6 +254,8 @@ impl NativeCompiler {
             output_directory: destination.clone(),
             application_bundle: destination.join(generated.application_bundle),
             route_count: index.routes.len(),
+            compiled_routes: web.compiled_routes(),
+            reused_routes: web.reused_routes(),
             sha256: digest,
             notes: notes
                 .into_iter()
@@ -405,29 +413,32 @@ async fn generate_host(
 
 async fn build_web_bundle(
     project: &crate::Project,
-    target: NativeTarget,
+    options: &NativeBuildOptions,
     output_root: &Path,
+    previous_app: &Path,
 ) -> Result<
     (
         tempfile::TempDir,
+        crate::BuildResult,
         Vec<super::registry::NativeCompanionInput>,
     ),
     Failure,
 > {
     let temporary_web = NativeWebStage::create(output_root)?;
+    NativeWebStage::seed(temporary_web.path(), previous_app, options.incremental);
     let web = WebCompiler::build_project_for_native(
         project,
         &BuildOptions {
             output_directory: temporary_web.path().to_path_buf(),
-            incremental: false,
+            incremental: options.incremental,
             ..BuildOptions::default()
         },
-        target,
+        options.target,
     )
     .await?;
 
-    let companions = native_companions(project, target, web.native_service_roots())?;
-    Ok((temporary_web, companions))
+    let companions = native_companions(project, options.target, web.native_service_roots())?;
+    Ok((temporary_web, web, companions))
 }
 
 fn native_companions(
@@ -497,7 +508,8 @@ fn artifact_manifest(
         contract_version: 1,
         release_version: String::from(tachyon_contracts::PRODUCT_VERSION),
         commit: source_revision(),
-        source_date_epoch: source_date_epoch(),
+        source_date_epoch: super::native_reproducibility::NativeReproducibility::source_date_epoch(
+        ),
         target: artifact_target(
             options.target,
             options.windows_architecture,
@@ -516,13 +528,6 @@ fn artifact_manifest(
         contracts: ArtifactContractVersions::default(),
         outputs,
     }
-}
-
-fn source_date_epoch() -> u64 {
-    let Ok(value) = std::env::var("SOURCE_DATE_EPOCH") else {
-        return 0;
-    };
-    value.parse().unwrap_or(0)
 }
 
 fn is_commit_hash(value: &str) -> bool {

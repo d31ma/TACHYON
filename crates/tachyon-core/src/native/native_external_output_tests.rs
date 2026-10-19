@@ -89,8 +89,14 @@ async fn native_web_bundle_keeps_live_staging_and_generated_types_outside_author
     let fixture = NativeExternalOutputTests::new("<main>External staging</main>")?;
     let before = NativeExternalOutputTests::inventory(&fixture.source_root())?;
     let project = ProjectDiscovery::discover(fixture.source_root())?;
-    let (web, companions) =
-        build_web_bundle(&project, NativeTarget::Macos, &fixture.output_root()).await?;
+    let previous = fixture.output_root().join("macos");
+    let (web, _built, companions) = build_web_bundle(
+        &project,
+        &fixture.options(),
+        &fixture.output_root(),
+        &previous,
+    )
+    .await?;
     let stage = web.path().to_path_buf();
     assert_eq!(stage.parent(), Some(fixture.output_root().as_path()));
     assert!(!stage.starts_with(fixture.source_root()));

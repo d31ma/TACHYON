@@ -218,3 +218,9 @@ build architecture (--arch)
 
 release packaging
   adapted: The macOS build is an unsigned .app bundle. Signing, notarization and a .dmg wait on PKG1.
+
+incremental route reuse
+  honored: routes are reused from the previous app's web folder; --no-incremental turns this off
+
+byte-identical rebuilds
+  adapted: The macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder, so two builds should match. A repeat-build run on a Mac is still owed (TL2).

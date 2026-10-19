@@ -4,8 +4,10 @@ use super::host::{
     write_host_source, xml_escape,
 };
 use super::ios_window_controls::IosWindowControls;
-use super::macos::{MacOsHostGenerator, optional_unicode_path, unicode_path};
+use super::macos::MacOsHostGenerator;
+use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
+use super::swift_compile_inputs::SwiftCompileInputs;
 use crate::Failure;
 use std::path::{Path, PathBuf};
 
@@ -90,12 +92,8 @@ async fn compile_swift(
     )
     .await?;
     let version = first_line(&version_output, "Swift unknown");
-    let source = unicode_path(source, "Swift source path is not valid Unicode.")?;
-    let executable = unicode_path(executable, "Application path is not valid Unicode.")?;
+    let inputs = SwiftCompileInputs::of(source, companion, library, executable)?;
     let triple = simulator_triple();
-    let companion =
-        optional_unicode_path(companion, "Companion source path is not valid Unicode.")?;
-    let library = optional_unicode_path(library, "Companion library path is not valid Unicode.")?;
     let mut arguments = vec![
         "--sdk",
         "iphonesimulator",
@@ -106,10 +104,9 @@ async fn compile_swift(
         &triple,
     ];
     arguments.extend(IosHostGenerator::FRAMEWORK_ARGUMENTS);
-    arguments.extend(["-o", executable, source]);
-    arguments.extend(companion);
-    arguments.extend(library);
-    run_tool("/usr/bin/xcrun", &arguments).await?;
+    arguments.extend(NativeReproducibility::SWIFT_ARGUMENTS);
+    arguments.extend(inputs.arguments());
+    NativeReproducibility::run_tool_in("/usr/bin/xcrun", &arguments, Some(&inputs.folder)).await?;
     Ok(version)
 }
 

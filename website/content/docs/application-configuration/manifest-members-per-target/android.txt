@@ -218,3 +218,9 @@ build architecture (--arch)
 
 release packaging
   adapted: The Android build is a debug APK. Release APK and AAB builds wait on PKG3.
+
+incremental route reuse
+  honored: routes are reused from the previous app's web folder; --no-incremental turns this off
+
+byte-identical rebuilds
+  adapted: The Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output. The debug APK is signed with the build machine's debug key, so it matches only on the same machine. A repeat-build run is still owed (TL2).

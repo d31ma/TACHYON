@@ -3,7 +3,6 @@
 use crate::native::native_page_graph_tests::NativePageGraphCheck;
 use crate::{ProjectDiscovery, native::registry::NativeCompanionInput};
 use std::path::Path;
-use tachyon_contracts::NativeTarget;
 
 struct NativeCompositionCheck;
 
@@ -65,9 +64,12 @@ fn main() {
     async fn inputs(root: &Path) -> (crate::Project, tempfile::TempDir, Vec<NativeCompanionInput>) {
         let project = ProjectDiscovery::discover(root).expect("project");
         let output_root = root.join("native-output");
-        let (web, inputs) = super::build_web_bundle(&project, NativeTarget::Macos, &output_root)
-            .await
-            .expect("ordinary native collection");
+        let options = super::NativeBuildOptions::default();
+        let previous = output_root.join("macos");
+        let (web, _built, inputs) =
+            super::build_web_bundle(&project, &options, &output_root, &previous)
+                .await
+                .expect("ordinary native collection");
         (project, web, inputs)
     }
 

@@ -1673,18 +1673,20 @@ async fn execute_native_build(
             package: plan.package,
             windows_architecture: plan.architectures.windows,
             macos_architecture: plan.architectures.macos,
+            incremental: !no_incremental,
         },
     )
     .await?;
     println!(
-        "Built {} app hosting {} routes to {} ({})",
+        "Built {} app hosting {} routes to {} ({}) compiled={} reused={}",
         native_target_directory(native),
         result.route_count(),
         result.application_bundle().display(),
-        result.sha256()
+        result.sha256(),
+        result.compiled_routes(),
+        result.reused_routes()
     );
-    let ignored = no_incremental.then(|| NativeCompiler::no_incremental_note(native));
-    for note in result.notes().iter().cloned().chain(ignored) {
+    for note in result.notes() {
         println!("{note}");
     }
     Ok(())

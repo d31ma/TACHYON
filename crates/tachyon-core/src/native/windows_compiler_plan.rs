@@ -10,7 +10,9 @@ pub(super) struct WindowsCompilerPlan<'plan> {
 }
 
 impl WindowsCompilerPlan<'_> {
-    const COMPILER_OPTIONS: [&'static str; 5] = ["/nologo", "/std:c17", "/W4", "/WX", "/O2"];
+    const COMPILER_OPTIONS: [&'static str; 6] =
+        ["/nologo", "/std:c17", "/W4", "/WX", "/O2", "/Brepro"];
+    const REPRODUCIBLE_LINK: &'static str = "/Brepro";
     const SDK_HEADERS: &'static str = "build/native/include";
     const NO_RESOURCE: &'static str = "/nologo";
 
@@ -30,6 +32,7 @@ impl WindowsCompilerPlan<'_> {
                     .display()
             ),
             String::from(self.architecture.linker_machine()),
+            String::from(Self::REPRODUCIBLE_LINK),
         ]);
         arguments.extend(linker_arguments.iter().copied().map(String::from));
         arguments

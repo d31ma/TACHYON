@@ -218,3 +218,9 @@ build architecture (--arch)
 
 release packaging
   adapted: The Linux build is a folder with the program. There are no packages yet (PKG5).
+
+incremental route reuse
+  honored: routes are reused from the previous app's web folder; --no-incremental turns this off
+
+byte-identical rebuilds
+  honored: SOURCE_DATE_EPOCH and a path map reach cc and rustc; two packaged builds give the same artifact-manifest.json digests

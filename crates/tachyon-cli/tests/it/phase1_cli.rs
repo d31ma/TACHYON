@@ -237,16 +237,52 @@ fn apple_targets_stage_off_a_mac_without_their_icon_and_say_so() {
             "the {target} web bundle holds the icon"
         );
         assert!(
-            printed.contains(&format!(
-                "--no-incremental changes nothing for the {target} app"
-            )),
-            "{printed}"
-        );
-        assert!(
             printed.contains(&format!("the {target} app was staged without its icon")),
             "{printed}"
         );
     }
+}
+
+#[test]
+fn native_bundles_reuse_the_previous_web_stage_unless_told_not_to() {
+    let workspace = tempfile::tempdir().expect("workspace should be created");
+    let project = workspace.path().join("incremental");
+    for (relative, contents) in [
+        (
+            "client/manifest.json",
+            r#"{"name":"Incremental","start_url":"/","tac":{"application":{"id":"dev.tachyon.incremental","version":"1.0.0"}}}"#,
+        ),
+        ("client/pages/tac.html", "<plain-home />"),
+        (
+            "client/components/plain/home/tac.html",
+            "<main><h1>Home</h1></main>",
+        ),
+    ] {
+        write(&project.join(relative), contents);
+    }
+    let output = workspace.path().join("published");
+    let bundle = |extra: &[&str]| {
+        let bundled = run(ty()
+            .arg("bundle")
+            .arg(&project)
+            .args(["--target", "linux", "--skip-package"])
+            .args(extra)
+            .env("TAC_DIST_PATH", &output));
+        assert!(bundled.status.success(), "{}", stderr(&bundled));
+        let manifest = fs::read(output.join("linux/artifact-manifest.json"))
+            .expect("the native build writes its artifact manifest");
+        (stdout(&bundled), manifest)
+    };
+
+    let (first, first_manifest) = bundle(&[]);
+    assert!(first.contains(" reused=0"), "{first}");
+    let (second, second_manifest) = bundle(&[]);
+    assert!(second.contains(" compiled=0 "), "{second}");
+    assert!(!second.contains(" reused=0"), "{second}");
+    assert_eq!(second_manifest, first_manifest);
+    let (forced, forced_manifest) = bundle(&["--no-incremental"]);
+    assert!(forced.contains(" reused=0"), "{forced}");
+    assert_eq!(forced_manifest, first_manifest);
 }
 
 fn run(command: &mut Command) -> Output {

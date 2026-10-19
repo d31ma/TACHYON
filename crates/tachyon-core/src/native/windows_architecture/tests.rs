@@ -119,3 +119,23 @@ fn the_default_architecture_is_the_build_machine_and_the_artifact_names_it() {
     assert_eq!(target.architecture, "aarch64");
     assert_eq!(target.abi, "webview2");
 }
+
+#[test]
+fn the_build_plan_asks_the_compiler_and_the_linker_for_reproducible_output() {
+    let arguments = WindowsArchitectureTests::arguments(WindowsArchitecture::X64);
+    let link = arguments
+        .iter()
+        .position(|argument| argument == "/link")
+        .unwrap_or_default();
+    let reproducible: Vec<usize> = arguments
+        .iter()
+        .enumerate()
+        .filter(|(_, argument)| *argument == "/Brepro")
+        .map(|(position, _)| position)
+        .collect();
+    assert_eq!(reproducible.len(), 2, "{arguments:?}");
+    assert!(reproducible[0] < link && reproducible[1] > link);
+    let project = WindowsHostGenerator::companion_project(WindowsArchitecture::X64);
+    assert!(project.contains("<Deterministic>true</Deterministic>"));
+    assert!(project.contains("<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>"));
+}

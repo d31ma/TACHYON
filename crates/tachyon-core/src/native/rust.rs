@@ -1,4 +1,5 @@
-use super::host::{NativeHost, native_tool_failure, run_tool, write};
+use super::host::{native_tool_failure, run_tool, write};
+use super::native_reproducibility::NativeReproducibility;
 pub(super) use super::rust_companion_output::RustCompanionOutput;
 use super::rust_native_libraries::RustNativeLibraries;
 use super::rust_web_module::RustWebModule;
@@ -259,16 +260,18 @@ impl RustCompanion {
         Self::make_output_directory(output)?;
         let version_output = run_tool("rustc", &["--version"]).await?;
         let version = super::host::first_line(&version_output, "rustc unknown");
+        let path_maps = NativeReproducibility::rust_path_maps([source]);
         let source = unicode_path(source, "Companion source path is not valid Unicode.")?;
         let output = unicode_path(output, "Companion output path is not valid Unicode.")?;
-        let arguments = Self::compilation_arguments(
+        let mut arguments = Self::compilation_arguments(
             source,
             linkage,
             target_triple,
             output,
             report_native_libraries,
         );
-        let compiled = NativeHost::run_tool_output("rustc", &arguments).await?;
+        arguments.extend(path_maps.iter().map(String::as_str));
+        let compiled = NativeReproducibility::run_tool_output("rustc", &arguments).await?;
         let native_libraries = Self::output_native_libraries(&compiled, report_native_libraries)?;
         Ok((version, native_libraries))
     }

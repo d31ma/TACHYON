@@ -138,16 +138,6 @@ pub(super) fn unicode_path<'a>(path: &'a Path, message: &str) -> Result<&'a str,
         .ok_or_else(|| native_tool_failure(1605, message))
 }
 
-pub(super) fn optional_unicode_path<'a>(
-    path: Option<&'a Path>,
-    message: &str,
-) -> Result<Option<&'a str>, Failure> {
-    match path {
-        Some(path) => Ok(Some(unicode_path(path, message)?)),
-        None => Ok(None),
-    }
-}
-
 pub(super) async fn sign_bundle(bundle: &Path) -> Result<(), Failure> {
     let bundle = unicode_path(bundle, "Application path is not valid Unicode.")?;
     run_tool(

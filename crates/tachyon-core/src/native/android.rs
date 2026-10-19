@@ -4,6 +4,8 @@ use super::host::{
     GeneratedHost, first_line, native_io, native_tool_failure, quoted_string_escape, run_tool_in,
     stage_application, write, write_host_source, xml_escape,
 };
+use super::native_build_folders::NativeBuildFolders;
+use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
 use crate::Failure;
 use std::fs;
@@ -172,7 +174,7 @@ async fn assemble(
         &run_tool_in("gradle", &["--version"], Some(project)).await?,
         "Gradle unknown",
     );
-    run_tool_in(
+    NativeReproducibility::run_tool_in(
         "gradle",
         &["--no-daemon", "--console=plain", "assembleDebug"],
         Some(project),
@@ -182,6 +184,7 @@ async fn assemble(
     let name = format!("{}.apk", application.executable_name);
     let published = bundle.join(&name);
     native_io(fs::copy(&built, &published), &published)?;
+    NativeBuildFolders::remove(project, &NativeBuildFolders::GRADLE)?;
     Ok((version, name))
 }
 
@@ -285,6 +288,11 @@ android {{
 
 dependencies {{
   implementation("androidx.webkit:webkit:{webkit}")
+}}
+
+tasks.withType<AbstractArchiveTask>().configureEach {{
+  isPreserveFileTimestamps = false
+  isReproducibleFileOrder = true
 }}
 "#,
         plugin = AndroidHostGenerator::ANDROID_GRADLE_PLUGIN,

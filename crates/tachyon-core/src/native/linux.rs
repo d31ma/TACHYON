@@ -3,6 +3,7 @@ use super::host::{
     GeneratedHost, c_string_escape, first_line, native_tool_failure, run_tool, stage_application,
     write, write_host_source, xml_escape,
 };
+use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
 use crate::Failure;
 use std::path::{Path, PathBuf};
@@ -106,6 +107,7 @@ pub(super) async fn compile_c(source: &Path, executable: &Path) -> Result<String
         let output = run_tool("pkg-config", &arguments).await?;
         flags.extend(output.split_whitespace().map(String::from));
     }
+    let path_maps = NativeReproducibility::c_path_maps([source]);
     let source = source
         .to_str()
         .ok_or_else(|| native_tool_failure(1605, "Host source path is not valid Unicode."))?;
@@ -113,9 +115,10 @@ pub(super) async fn compile_c(source: &Path, executable: &Path) -> Result<String
         .to_str()
         .ok_or_else(|| native_tool_failure(1605, "Application path is not valid Unicode."))?;
     let mut arguments = vec!["-std=gnu17", "-O2", "-Wall", "-Wextra", "-Werror", source];
+    arguments.extend(path_maps.iter().map(String::as_str));
     arguments.extend(flags.iter().map(String::as_str));
     arguments.extend_from_slice(&["-o", executable]);
-    run_tool("cc", &arguments).await?;
+    NativeReproducibility::run_tool("cc", &arguments).await?;
     Ok(version)
 }
 

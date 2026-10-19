@@ -1197,8 +1197,24 @@ machine contracts have their own, independent major versions.
   that desktop Rust crates build in.
 - Staging a macOS or iOS app off a Mac with a raster icon no longer fails on
   `sips`. The app is staged without its icon, and the build prints a note.
-- A native build with `--no-incremental` prints a note that the flag changes
-  nothing there, because native builds always rebuild the web stage.
+- Native builds reuse the web stage of the previous build of the same
+  target, as web builds do. The build reads the routes from the app's
+  published `web/` folder, checks each one's digest, and compiles again only
+  the routes that changed; it prints `compiled=` and `reused=` like a web
+  build. `--no-incremental` turns the reuse off, so the note that the flag
+  changes nothing for a native build is gone.
+- Native builds are reproducible: two builds of the same sources give the
+  same `artifact-manifest.json` digests. Every native tool gets
+  `SOURCE_DATE_EPOCH` (and `ZERO_AR_DATE=1` for Apple's linker and archiver).
+  `cc` and `rustc` remap the staging folder out of the binaries, `swiftc` runs
+  in the source folder with relative paths and without incremental LLVM
+  code generation, MSVC compiles and links with `/Brepro`, the C# companion
+  project is deterministic, and Gradle archives drop file times and keep a
+  fixed order. Build intermediates no longer reach the output: the Windows
+  host's `.obj` file, the C# companion's `bin` and `obj` folders, and
+  Gradle's `build`, `.gradle` and `.kotlin` folders. A packaged Linux app
+  built twice was byte-identical in the cloud; the macOS, iOS, Windows and
+  Android runs are still owed (ADR 0005 amendment).
 
 - A C++ page program no longer traps with `RuntimeError: unreachable` when
   its code reads a `std::chrono` clock or `std::random_device`. The page's

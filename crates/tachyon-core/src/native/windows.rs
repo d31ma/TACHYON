@@ -7,6 +7,8 @@ use super::host::{
     GeneratedHost, first_line, native_tool_failure, run_tool, stage_application, write,
     write_host_source,
 };
+use super::native_build_folders::NativeBuildFolders;
+use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
 use super::windows_architecture::WindowsArchitecture;
 use super::windows_compiler_plan::WindowsCompilerPlan;
@@ -125,6 +127,9 @@ impl WindowsHostGenerator {
     <NativeLib>Shared</NativeLib>
     <InvariantGlobalization>true</InvariantGlobalization>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <PathMap>$(MSBuildProjectDirectory)=.</PathMap>
   </PropertyGroup>
 </Project>
 "#;
@@ -489,7 +494,7 @@ async fn publish_companion(
     let directory = project
         .to_str()
         .ok_or_else(|| native_tool_failure(1605, "Companion project path is not valid Unicode."))?;
-    super::host::run_tool_in(
+    NativeReproducibility::run_tool_in(
         "dotnet",
         &["publish", "-c", "Release", "--nologo"],
         Some(Path::new(directory)),
@@ -498,7 +503,7 @@ async fn publish_companion(
     let built = WindowsHostGenerator::published_companion(project, architecture);
     let published = bin.join("TachyonCompanion.dll");
     super::host::native_io(std::fs::copy(&built, &published), &published)?;
-    Ok(())
+    NativeBuildFolders::remove(project, &NativeBuildFolders::DOTNET)
 }
 
 const fn windows_compiler() -> &'static str {
@@ -569,8 +574,14 @@ async fn compile_c(
     };
     let arguments = plan.arguments(&WindowsHostGenerator::LINKER_ARGUMENTS);
     let borrowed = arguments.iter().map(String::as_str).collect::<Vec<_>>();
-    run_tool(compiler, &borrowed).await?;
+    NativeReproducibility::run_tool(compiler, &borrowed).await?;
+    remove_object_file(source, executable)?;
     Ok(version)
+}
+
+fn remove_object_file(source: &Path, executable: &Path) -> Result<(), Failure> {
+    let stem = source.file_stem().unwrap_or_default();
+    NativeBuildFolders::remove_file(&executable.with_file_name(stem).with_extension("obj"))
 }
 
 pub(super) fn object_directory(executable: &str) -> String {

@@ -728,5 +728,25 @@
     "linux": {"reach": "adapted", "note": "The Linux build is a folder with the program. There are no packages yet (PKG5)."},
     "ios": {"reach": "adapted", "note": "The iOS build runs only in the simulator. Device builds and an .ipa wait on PKG2."},
     "android": {"reach": "adapted", "note": "The Android build is a debug APK. Release APK and AAB builds wait on PKG3."}
+  },
+  {
+    "member": "incremental route reuse",
+    "paths": [],
+    "web": {"reach": "honored", "how": "routes whose inputs did not change are reused from dist/web; --no-incremental turns this off"},
+    "macos": {"reach": "honored", "how": "routes are reused from the previous app's web folder; --no-incremental turns this off"},
+    "windows": {"reach": "honored", "how": "routes are reused from the previous app's web folder; --no-incremental turns this off"},
+    "linux": {"reach": "honored", "how": "routes are reused from the previous app's web folder; --no-incremental turns this off"},
+    "ios": {"reach": "honored", "how": "routes are reused from the previous app's web folder; --no-incremental turns this off"},
+    "android": {"reach": "honored", "how": "routes are reused from the previous app's web folder; --no-incremental turns this off"}
+  },
+  {
+    "member": "byte-identical rebuilds",
+    "paths": [],
+    "web": {"reach": "honored", "how": "the same sources give the same dist/web tree digest"},
+    "macos": {"reach": "adapted", "note": "The macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder, so two builds should match. A repeat-build run on a Mac is still owed (TL2)."},
+    "windows": {"reach": "adapted", "note": "The Windows build compiles and links with /Brepro and keeps .obj files out of the output, so two builds should match. A repeat-build run on Windows is still owed (TL2)."},
+    "linux": {"reach": "honored", "how": "SOURCE_DATE_EPOCH and a path map reach cc and rustc; two packaged builds give the same artifact-manifest.json digests"},
+    "ios": {"reach": "adapted", "note": "The iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder, so two builds should match. A repeat-build run on a Mac is still owed (TL2)."},
+    "android": {"reach": "adapted", "note": "The Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output. The debug APK is signed with the build machine's debug key, so it matches only on the same machine. A repeat-build run is still owed (TL2)."}
   }
 ]

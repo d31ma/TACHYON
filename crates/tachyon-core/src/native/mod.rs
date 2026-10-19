@@ -82,6 +82,7 @@ mod native_application_host_tests;
 mod native_application_inputs;
 #[cfg(test)]
 mod native_application_tests;
+mod native_build_folders;
 mod native_capabilities;
 #[cfg(test)]
 mod native_capability_tests;
@@ -118,6 +119,9 @@ mod native_page_call_contract_tests;
 #[cfg(test)]
 mod native_page_graph_tests;
 mod native_release_version;
+mod native_reproducibility;
+#[cfg(test)]
+mod native_reproducible_build_tests;
 #[cfg(test)]
 mod native_rust_capability_tests;
 #[cfg(test)]
@@ -193,6 +197,7 @@ mod site_tests;
 #[cfg(test)]
 mod storage_tests;
 mod style_source;
+mod swift_compile_inputs;
 mod swift_streams;
 mod swift_web_services;
 mod target_reach;
