@@ -342,7 +342,7 @@
   {
     "member": "tac.cache",
     "paths": ["tac.cache"],
-    "web": {"reach": "honored", "how": "offline rules in the service worker"},
+    "web": {"reach": "honored", "how": "offline rules in the service worker; the page applies them to Yon reads at tac.yon.origin in its own Cache Storage"},
     "macos": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read in the packaged macOS app"},
     "windows": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read inside WebView2 on a signed-in Windows desktop"},
     "linux": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read in the packaged Linux app"},

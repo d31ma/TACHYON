@@ -103,7 +103,7 @@ tac.scriptSources
   honored: pinned and checked script sources
 
 tac.cache
-  honored: offline rules in the service worker
+  honored: offline rules in the service worker; the page applies them to Yon reads at tac.yon.origin in its own Cache Storage
 
 tac.metadata
   honored: head tags in every page

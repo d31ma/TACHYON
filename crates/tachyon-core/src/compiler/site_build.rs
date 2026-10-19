@@ -128,7 +128,7 @@ impl<'a> SiteBuild<'a> {
         previous: Option<&BuildState>,
         site: &crate::native::SiteSettings,
     ) -> Result<(), Failure> {
-        self.yon_reads_tag = YonReads::tag(self.native, site);
+        self.yon_reads_tag = YonReads::tag(site);
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
         self.add_routes(routes, previous, site, &dependency_digest)

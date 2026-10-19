@@ -234,6 +234,12 @@ machine contracts have their own, independent major versions.
   `scripts/yon-origin-browser-test.mjs` checks the same Yon paths across
   ports in Chromium. Both passed on 2026-10-19, the emulator run on
   Android 15, so the Android `tac.yon` row is now honored.
+- A web build now applies its `tac.cache` rules to Yon reads on another
+  origin. With `tac.yon.origin` and `tac.cache` set, the web page loads
+  `/.tachyon/tac-yon-reads.js` too, because the service worker never sees a
+  request to another origin. A public Yon read then still answers when the
+  browser is offline. `scripts/yon-reads-web-browser-test.mjs` checks it in
+  Chromium, Firefox and WebKit (ADR 0087 amendment).
 - A native app now applies its `tac.cache` rules to Yon reads. A native
   build that declares `tac.yon.origin` and `tac.cache` ships
   `/.tachyon/tac-yon-reads.js`, which keeps public Yon reads in the page's
@@ -1517,6 +1523,9 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A JavaScript or TypeScript service's `HTTPClient` read now goes through the
+  page's Yon read cache. The page transport in `tac-client.js` called `fetch`
+  directly, so in a native app these reads were never kept for offline use.
 - Refusal text and docs no longer promise markers "in a later step" that
   already work. The rule table drops its "Lua gets it in a later step (ADR
   0085)" and "C++ gets it in a later step (ADR 0099)" endings, which no

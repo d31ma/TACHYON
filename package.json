@@ -23,6 +23,7 @@
     "test:yon-origin-browser": "node scripts/yon-origin-browser-test.mjs",
     "test:yon-reach-fixture": "node scripts/yon-reach-fixture-test.mjs",
     "test:yon-reads-browser": "node scripts/yon-reads-browser-test.mjs",
+    "test:yon-reads-web-browser": "node scripts/yon-reads-web-browser-test.mjs",
     "test:yon-reach-browser": "node scripts/native/yon-reach-test.mjs --target=web",
     "test:service-worker-browser": "node scripts/service-worker-browser-test.mjs",
     "test:preview-offline-browser": "node scripts/preview-offline-browser-gate.mjs",

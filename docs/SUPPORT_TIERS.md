@@ -332,6 +332,15 @@ Native calls have a ten-second browser wait limit. This limit does not stop or
 roll back native service code. Services must stay responsive. A hung
 application may need to be relaunched.
 
+### Web pages keep cross-origin Yon reads offline (2026-10-19)
+
+A web build with `tac.yon.origin` and `tac.cache` ships the same page script
+as a native build, because the service worker leaves other origins alone
+(ADR 0087 amendment). `scripts/yon-reads-web-browser-test.mjs` passed in
+Chromium, Firefox and WebKit in the cloud: a bundled web app on one port
+read Yon on another, went offline while Yon still ran, and answered the
+public read from its kept copy.
+
 ### Native apps keep Yon reads offline (2026-10-19)
 
 A native build with `tac.yon.origin` and `tac.cache` applies the rules to

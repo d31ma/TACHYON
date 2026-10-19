@@ -360,3 +360,42 @@ The per-target support table now says this about `tac.cache`:
   the simulator (plan item RM2);
 - adapted on Android: a read kept shortly before the system stops the app
   is not always there after a relaunch.
+
+## Amendment (2026-10-19): web pages keep cross-origin Yon reads too
+
+The earlier amendment left one gap: a web build that sets `tac.yon.origin`
+sends its Yon reads to another origin, and its service worker skips every
+request to another origin. So the `tac.cache` rules did nothing for those
+reads on the web either.
+
+A web build that declares `tac.yon.origin` and `tac.cache` rules now ships
+`/.tachyon/tac-yon-reads.js` as a native build does, with the same rules and
+the same Cache Storage (`tachyon-yon-reads`). The page script does the work,
+not the worker:
+
+- The worker does not control the page on the first visit, and it is not
+  registered on a loopback host or inside a native app. The page script
+  keeps a read from the first one, on every host.
+- One file and one set of rules serve the web and the native targets, so
+  the two cannot drift apart.
+- The worker keeps its rule of leaving other origins alone. The page
+  script's own network request goes past it, so a read is never kept twice.
+
+Same-origin reads, navigations and assets stay with the worker. A web build
+without `tac.yon.origin` ships no page script, as before.
+
+The first real page run found a hole in the earlier amendment. A JavaScript
+or TypeScript service's `HTTPClient` sends its request through the page
+transport in `tac-client.js`, and that transport called `fetch` directly,
+so those reads went around the page script in native apps too. The
+transport now sends through the page script when it is there. The earlier
+browser test called the exchange without that transport, so it did not see
+the hole.
+
+`compiler::yon_reads_tests` checks that a web build ships the file next to
+the worker registration. `scripts/yon-reads-web-browser-test.mjs` bundles a
+web app, serves its pages with `ty preview --static` on one port and Yon
+with `ty serve` on another, makes a `Cached` read, takes the browser
+offline while Yon still runs, and checks in Chromium, Firefox and WebKit
+that the public read answers from the kept copy while a `no-store` read
+fails.

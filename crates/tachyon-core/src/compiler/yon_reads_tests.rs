@@ -178,7 +178,7 @@ fn a_native_page_applies_the_cache_rules_to_yon_reads() {
 }
 
 #[test]
-fn only_a_native_build_with_a_yon_origin_and_rules_ships_the_read_cache() {
+fn a_build_with_a_yon_origin_and_rules_ships_the_read_cache() {
     let root = tempfile::tempdir().expect("project");
     let pages = root.path().join("client/pages");
     std::fs::create_dir_all(&pages).expect("pages");
@@ -237,11 +237,18 @@ fn only_a_native_build_with_a_yon_origin_and_rules_ships_the_read_cache() {
     assert!(!script.contains("__CACHE_RULES__"), "{script}");
     let (page, script) = built(false);
     assert!(
+        page.contains(tag),
+        "a web build keeps reads on another origin, which its worker never sees: {page}"
+    );
+    assert!(page.contains("/.tachyon/register-sw.js"), "{page}");
+    assert!(script.is_some_and(|script| script.contains("network-first")));
+    manifest("");
+    let (page, script) = built(false);
+    assert!(
         !page.contains("tac-yon-reads"),
-        "a web build keeps the service worker: {page}"
+        "a web build without a Yon origin leaves its reads to the worker: {page}"
     );
     assert!(script.is_none());
-    manifest("");
     let (page, script) = built(true);
     assert!(
         !page.contains("tac-yon-reads"),

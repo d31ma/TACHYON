@@ -506,7 +506,8 @@ const responseBody = async (response, limit) => {
 
 const clientRequest = (input, init = {}, options = {}) => {
   const request = new Request(typeof input === 'string' ? new URL(input, location.href) : input, init)
-  return fetch(new Request(request, { cache: options.publicRead !== true ? 'no-store' : options.revalidate === true ? 'no-cache' : 'default' }))
+  const send = globalThis[Symbol.for('tachyon.tac.yon-reads')]?.fetch ?? fetch
+  return send(new Request(request, { cache: options.publicRead !== true ? 'no-store' : options.revalidate === true ? 'no-cache' : 'default' }))
 }
 
 const webStorage = (persistent) => {
