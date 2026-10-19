@@ -16,7 +16,7 @@ background_color
   not applied: background_color is not applied to the Windows app yet (WIN7).
 
 display
-  adapted: display "fullscreen" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window. A run with a real window on a signed-in Windows desktop is still owed.
+  adapted: display "fullscreen" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window.
 
 orientation
   not applicable: orientation has no meaning for a Windows window.
@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   honored: the smallest client area the user can drag to, in device-independent pixels
 
 tac.application.window.controls
-  run owed: close, fullscreen, maximize, minimize, resize and title; still to run: native_windows_controls_drive_a_real_win32_window and a page call inside WebView2 on a signed-in Windows desktop
+  run owed: close, fullscreen, maximize, minimize, resize and title; still to run: a page call inside WebView2 on a signed-in Windows desktop; the controls already ran on a real Win32 window
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Windows page reach the top edge under the system caption buttons, with the same insets as macOS and drag regions that WebView2 handles (ADR 0098). The menu bar moves into the window menu (Alt+Space, or a right-click on a drag region). The page covers the top edge, so the window resizes from its sides and bottom. Not yet run on a signed-in desktop (SD1).
@@ -145,7 +145,7 @@ tac.outgoing
   honored: the build checks request hosts and the resource handler's connect-src allows only them
 
 tac.yon
-  run owed: the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient, tested in the cloud under wine and .NET (ADR 0103); still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)
+  run owed: the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient, tested in the cloud under wine and .NET and built with MSVC and NativeAOT on Windows (ADR 0103); still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -247,7 +247,7 @@ incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  run owed: the Windows build compiles and links with /Brepro and keeps .obj files out of the output; still to run: a_packaged_windows_app_is_byte_identical_when_built_twice in an MSVC developer prompt (TL2)
+  honored: the Windows build compiles and links with /Brepro and keeps .obj files out of the output; two packaged builds give the same artifact-manifest.json digests
 
 running without a signed-in desktop session
   not applicable: The Windows app needs a signed-in desktop session: WebView2 does not start without one (0x80070578), and an MSIX package does not install over SSH (0x80070005).

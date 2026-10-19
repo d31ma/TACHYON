@@ -247,8 +247,10 @@ WIN1).
 - Evidence: unit tests of the generated host, a C test that runs the frame
   code against Win32 stand-ins, and a MinGW compile against the Win32
   headers. The real-window check
-  (`the_windows_window_frame_drives_a_real_win32_window`) still needs a run
-  on Windows with MSVC.
+  (`the_windows_window_frame_drives_a_real_win32_window`) passed with MSVC
+  on Windows 11 ARM64 over SSH on 2026-10-19 (RW1), for both the sized and
+  the fullscreen start. The caption color still needs a look on a signed-in
+  desktop.
 
 ## Amendment (2026-10-18): The Linux window follows the manifest
 

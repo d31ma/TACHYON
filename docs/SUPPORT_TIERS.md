@@ -192,9 +192,28 @@ device-independent pixels, a hex `theme_color` as the Windows 11 caption
 color, and `"display": "fullscreen"` as a borderless fullscreen start (ADR
 0052 amendment). Validated so far: unit tests of the generated host, a C test
 of the frame code against Win32 stand-ins, and a MinGW compile against the
-Win32 headers. The MSVC build and the real-window check
-`the_windows_window_frame_drives_a_real_win32_window` still need a run on
-Windows; the caption color also needs a look on an interactive desktop.
+Win32 headers. On 2026-10-19 (RW1) the real-window check
+`the_windows_window_frame_drives_a_real_win32_window` passed with MSVC on
+Windows 11 ARM64 over SSH: the window opened at the declared size and
+minimum size, and borderless full screen for `"display": "fullscreen"`.
+`native_windows_controls_drive_a_real_win32_window` passed there too. The
+caption color still needs a look on an interactive desktop.
+
+Windows over SSH (2026-10-19, RW1): on Windows 11 ARM64 (build 26200,
+WebView2 Runtime 155.0.4283.62, MSVC 14.44 ARM64 tools, WebView2 SDK
+1.0.3485.44), from an MSVC developer environment over SSH:
+
+- `native_reproducible_build_tests::staged_native_apps_are_byte_identical_when_built_twice`
+  and `a_packaged_windows_app_is_byte_identical_when_built_twice` passed;
+- `windows_window_frame_tests::the_windows_window_frame_drives_a_real_win32_window`
+  and `native_window_control_tests::native_windows_controls_drive_a_real_win32_window`
+  passed, so a Win32 window opens without a signed-in desktop;
+- `windows_web_engine_check::tests::the_webview2_check_refuses_an_old_or_missing_runtime_with_the_install_message`
+  built the startup check with `cl` and `WebView2LoaderStatic.lib` and ran
+  it against the installed runtime, a floor of 9999.0 and a missing runtime
+  (`WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` set to an empty folder). The message
+  box is replaced by a capture, so the run shows the message text but not
+  the box itself.
 
 On 2026-10-19 the Windows host started to open the file dialog
 (`IFileOpenDialog`) for `FilePicker` (FP1, ADR 0089 amendment). The picker
@@ -358,7 +377,7 @@ app has not run it yet.
 | Web | implemented | page transports, CORS, preflight, socket origin and `connect-src` unit tests; Chromium cross-port run |
 | macOS, iOS | run on the host | `scripts/native/yon-reach-test.mjs` passed on 2026-10-19 for the macOS app (macOS 26.6.2, Xcode 27.1) and the iOS 26.5 simulator (iPhone 17 Pro) over `http` and over `https` through a local TLS proxy. In all three runs Yon received `Origin: tachyon-app://bundle`, and the page reached it with HTTP, a CORS preflight, a stream, a socket, a topic, a 422 problem and a signed-in route. The linked Swift `@HTTPClient` read reached the origin through `URLSession` too; it is also unit-tested against a local server |
 | Android | run on the emulator; an `https` origin, or a local `http` origin with cleartext to that one host | `scripts/android/yon-origin-test.mjs` passed on 2026-10-19 on the Android 15 (API 35, arm64) emulator against `ty serve` on the Mac through `adb reverse`. The packaged app reached Yon from `https://appassets.tachyon.local` with an HTTP read, a cross-origin write, a stream, a socket, a topic, a `@Check` 422 and a signed-in route (401 without a token, then with an `Authorization` header). A linked Kotlin `HTTPClient` reached Yon through the native transport in the app's own process. The transport is also tested on the JVM against a real HTTP server (`android_yon_http_tests`). Not run: a physical device |
-| Windows | implemented; linked Rust and C# `HTTPClient` calls reach it too; not run on the host | 2026-10-19 cloud runs (below); `scripts/windows/yon-reach.ps1` on a signed-in desktop is owed (NET3, with N1) |
+| Windows | implemented; linked Rust and C# `HTTPClient` calls reach it too; built on the host, not run there | 2026-10-19 cloud runs and the MSVC and NativeAOT build on Windows 11 ARM64 (below); `scripts/windows/yon-reach.ps1` on a signed-in desktop is owed (NET3, with N1) |
 | Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Not run: WSL, a Wayland desktop |
 
 On 2026-10-19 (NET3, ADR 0103 amendment) linked services started to answer
@@ -374,7 +393,16 @@ started to reach `tac.yon.origin`. The cloud evidence:
   another origin: HTTP, a stream, a socket, a topic, a `@Check` 422 and a
   `SignedIn` route.
 
-Not run: the MSVC and NativeAOT Windows build, and WebView2 itself.
+On 2026-10-19 (RW1) the reach fixture with linked Rust and C# services was
+built for Windows on Windows 11 ARM64 over SSH (MSVC 14.44, .NET 10.0.302):
+`scripts/native/yon-reach-fixture.py` and `ty build --target windows` gave
+an ARM64 `YonReach.exe`, a NativeAOT `TachyonCompanion.dll` (no CLR header;
+it exports the `tac_native_*` entry points) and `TachyonRustCompanion.dll`.
+The app was not launched. The run found two faults, now fixed: the
+fixture's linked services broke the Tac method rule (`TY1314`), and the
+build left the Rust companion's `.dll.lib` and `.dll.exp` in `bin`.
+
+Not run: WebView2 itself.
 `scripts/windows/yon-reach.ps1` runs every path from the packaged app on a
 Windows desktop. It also shows whether WebView2 asks for local network
 access before a page on `https://tachyon.local` may call

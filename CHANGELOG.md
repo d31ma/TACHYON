@@ -1639,6 +1639,15 @@ machine contracts have their own, independent major versions.
   without systemd-resolved. Dart handlers already used the guard.
 - C++ and Rust Yon handlers are compiled to a `.exe` on Windows, so the
   compiled handler can be found and run there.
+- A Windows app with a linked Rust service no longer ships
+  `TachyonRustCompanion.dll.lib` and `TachyonRustCompanion.dll.exp` in
+  `bin`; they were link leftovers that nothing loads. The Yon reach fixture
+  (`scripts/native/yon-reach-fixture.py`) no longer writes linked-service
+  twins that the build refuses with TY1314 on Windows and Linux. Both were
+  found by the first MSVC and NativeAOT build of that fixture on Windows 11
+  ARM64, which also ran the Windows byte-identical rebuild, the real Win32
+  window and window-control tests, and a new test of the WebView2 startup
+  check against an old and a missing runtime (ADR 0103 amendment).
 - A Windows build with a C# companion no longer fails with TY1605 when it
   runs from a Visual Studio developer prompt. Those prompts set `Platform`,
   which moved the `dotnet publish` output to another folder, so `ty` could

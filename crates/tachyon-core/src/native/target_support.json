@@ -54,7 +54,7 @@
     "paths": ["display"],
     "web": {"reach": "honored", "how": "published in manifest.webmanifest"},
     "macos": {"reach": "notApplied", "note": "display is not applied yet. The macOS app opens a standard window (WIN7)."},
-    "windows": {"reach": "adapted", "note": "display \"fullscreen\" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window. A run with a real window on a signed-in Windows desktop is still owed."},
+    "windows": {"reach": "adapted", "note": "display \"fullscreen\" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window."},
     "linux": {"reach": "adapted", "note": "display \"fullscreen\" starts the Linux app full screen. The other values open a standard window."},
     "ios": {"reach": "notApplied", "note": "display is not applied yet. The iOS app keeps the system status bar (WIN5)."},
     "android": {"reach": "notApplied", "note": "display is not applied yet. The Android app keeps the system bars (WIN5)."}
@@ -174,7 +174,7 @@
     "paths": ["tac.application.window.controls"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "runOwed", "how": "close, fullscreen, maximize (zoom), minimize, resize and title", "run": "a granted control from a page or service on a Mac; the GUI checks run only the refused path"},
-    "windows": {"reach": "runOwed", "how": "close, fullscreen, maximize, minimize, resize and title", "run": "native_windows_controls_drive_a_real_win32_window and a page call inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "runOwed", "how": "close, fullscreen, maximize, minimize, resize and title", "run": "a page call inside WebView2 on a signed-in Windows desktop; the controls already ran on a real Win32 window"},
     "linux": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services"},
     "ios": {"reach": "adapted", "note": "tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, and only for calls from the page: linked Swift services get no window controls on iOS. granted() answers false for the other controls."},
     "android": {"reach": "adapted", "note": "tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. Only a refused control has run on the emulator; a granted run is still owed."}
@@ -484,7 +484,7 @@
     "paths": ["tac.yon"],
     "web": {"reach": "honored", "how": "pages send Yon calls to tac.yon.origin over CORS without cookies, and connect-src allows it (ADR 0103)"},
     "macos": {"reach": "adapted", "note": "tac.yon.origin: the macOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on macOS 26.6.2 (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1)."},
-    "windows": {"reach": "runOwed", "how": "the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient, tested in the cloud under wine and .NET (ADR 0103)", "run": "scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)"},
+    "windows": {"reach": "runOwed", "how": "the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient, tested in the cloud under wine and .NET and built with MSVC and NativeAOT on Windows (ADR 0103)", "run": "scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)"},
     "linux": {"reach": "honored", "how": "the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb)"},
     "ios": {"reach": "adapted", "note": "tac.yon.origin: the iOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1)."},
     "android": {"reach": "honored", "how": "the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator (ADR 0103)"}
@@ -824,7 +824,7 @@
     "paths": [],
     "web": {"reach": "honored", "how": "the same sources give the same dist/web tree digest and the same artifact-manifest.json"},
     "macos": {"reach": "runOwed", "how": "the macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a --release .dmg differs between builds, because its secure timestamp and notarization ticket change", "run": "a_packaged_macos_app_is_byte_identical_when_built_twice on a Mac (TL2)"},
-    "windows": {"reach": "runOwed", "how": "the Windows build compiles and links with /Brepro and keeps .obj files out of the output", "run": "a_packaged_windows_app_is_byte_identical_when_built_twice in an MSVC developer prompt (TL2)"},
+    "windows": {"reach": "honored", "how": "the Windows build compiles and links with /Brepro and keeps .obj files out of the output; two packaged builds give the same artifact-manifest.json digests"},
     "linux": {"reach": "honored", "how": "SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests"},
     "ios": {"reach": "runOwed", "how": "the iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a signed --device or --release .ipa is never byte-identical", "run": "a_packaged_ios_app_is_byte_identical_when_built_twice on a Mac (TL2)"},
     "android": {"reach": "runOwed", "how": "the Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output; the debug APK is signed with the build machine's debug key, so it matches only on the same machine", "run": "a_packaged_android_app_is_byte_identical_when_built_twice with ANDROID_HOME (TL2)"}

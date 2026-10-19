@@ -480,3 +480,28 @@ Two changes let a linked service reach Yon:
   a desktop host without a sender.
 
 Not run yet: the Linux app on WSL, and in a desktop Wayland session.
+
+## Amendment (2026-10-19): the Windows app builds with MSVC and NativeAOT (RW1)
+
+The NET3 amendment left the MSVC and NativeAOT build of the Windows app
+unrun. On Windows 11 ARM64, over SSH, `scripts/native/yon-reach-fixture.py`
+wrote the reach fixture with linked Rust and C# services, and
+`ty build --target windows` built it with MSVC 14.44 and .NET 10.0.302. The
+app folder held an ARM64 `YonReach.exe`, a NativeAOT `TachyonCompanion.dll`
+(no CLR header; it exports `tac_native_invoke`, `tac_native_free`,
+`tac_native_set_emit` and `tac_native_set_capability_adapter`) and
+`TachyonRustCompanion.dll` (it also exports `tac_native_set_dispatch` and
+the application start and shutdown entry points).
+
+The run found two faults, both fixed:
+
+- The fixture's generated `RustReachService.js` and `CsharpReachService.js`
+  put two decisions in the private `#label` method, so the build refused
+  them with `TY1314`. `#text` now reads the answer and `#label` only
+  compares it. The Linux app's linked Rust run uses the same file.
+- The Windows build left `TachyonRustCompanion.dll.lib` and
+  `TachyonRustCompanion.dll.exp` in `bin`. Nothing loads them, so the build
+  now deletes them after it links the Rust companion.
+
+The app was not launched: WebView2 from `https://tachyon.local` still needs
+the signed-in desktop, with `scripts/windows/yon-reach.ps1`.
