@@ -99,6 +99,7 @@ impl MacOsReleaseCli {
             ],
         );
         let app = mount.path().join("ReleaseCheck.app");
+        let holds_app = app.is_dir();
         let shortcut = fs::read_link(mount.path().join("Applications"));
         let signed = Self::tool(
             "/usr/bin/codesign",
@@ -110,7 +111,7 @@ impl MacOsReleaseCli {
             ],
         );
         Self::tool("/usr/bin/hdiutil", &["detach", mount_path]);
-        assert!(app.is_dir());
+        assert!(holds_app);
         assert_eq!(
             shortcut.expect("Applications link"),
             Path::new("/Applications")
@@ -164,7 +165,12 @@ fn an_ad_hoc_macos_release_is_a_hardened_dmg_with_the_granted_entitlements() {
     let app = output.join("ReleaseCheck.app");
     let app = app.to_str().expect("app path");
     let details = MacOsReleaseCli::tool("/usr/bin/codesign", &["--display", "--verbose=2", app]);
-    assert!(details.contains("(runtime)"), "{details}");
+    assert!(
+        details
+            .lines()
+            .any(|line| line.starts_with("CodeDirectory") && line.contains("runtime")),
+        "{details}"
+    );
     let entitlements = MacOsReleaseCli::tool(
         "/usr/bin/codesign",
         &["--display", "--entitlements", "-", "--xml", app],

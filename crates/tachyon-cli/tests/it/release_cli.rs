@@ -169,8 +169,8 @@ fn a_release_publishes_the_signed_apk_and_app_bundle() {
     );
     let keystore = fs::read_to_string(tools.path().join("keystore.txt")).expect("keystore");
     assert_eq!(
-        PathBuf::from(keystore.trim()),
-        project.path().join("keys/upload.jks")
+        fs::canonicalize(keystore.trim()).expect("recorded keystore"),
+        fs::canonicalize(project.path().join("keys/upload.jks")).expect("keystore")
     );
     let bundle = project.path().join("dist/android/ReleaseCheck");
     assert_eq!(
