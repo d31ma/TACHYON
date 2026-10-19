@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
 
 struct ReleaseCli;
@@ -21,6 +21,7 @@ impl ReleaseCli {
         "TAC_WINDOWS_CERTIFICATE_PUBLISHER",
         "TAC_WINDOWS_CERTIFICATE_TIMESTAMP_URL",
     ];
+    #[cfg(unix)]
     const FAKE_GRADLE: &'static str = r#"#!/bin/sh
 if [ "$1" = "--version" ]; then echo "Gradle 8.11.1"; exit 0; fi
 printf '%s\n' "$*" > "$GRADLE_RECORD/arguments.txt"
@@ -70,7 +71,7 @@ printf 'aab' > app/build/outputs/bundle/release/app-release.aab
     }
 
     #[cfg(unix)]
-    fn fake_gradle(root: &Path) -> PathBuf {
+    fn fake_gradle(root: &Path) -> std::path::PathBuf {
         use std::os::unix::fs::PermissionsExt as _;
         let tools = root.join("tools");
         let gradle = tools.join("gradle");
