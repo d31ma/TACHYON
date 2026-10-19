@@ -328,3 +328,18 @@ Store) on the developer's own Apple Developer team.
    altool`), installing on a device (`xcrun devicectl device install app`),
    and capabilities that need other entitlements. A signed `.ipa` is not byte-reproducible, because the signature is
    not.
+
+### Evidence (2026-10-19)
+
+- Cloud (Linux): unit tests for the profile checks, the certificate choice,
+  the entitlements, the Xcode build keys and the device `Info.plist`; CLI
+  tests for the `TY1001` and `TY1605` refusals.
+- Mac (macOS 26.6, Xcode 27.1 27A9275, iphoneos SDK 27.1, develop fd0384ad):
+  `scripts/ios/native-test.mjs` passed without signing variables and again
+  with team JAU9V4WH99 and a wildcard development profile. The `--device` app
+  was signed with the Apple Development certificate the profile names and
+  passed `codesign --verify --strict`; the bundle holds `iPhoneOS`,
+  `embedded.mobileprovision` and `PrivacyInfo.xcprivacy`, and the `.ipa` holds
+  `Payload/<Name>.app`.
+- Owed: `--release` with an App Store profile, an install and launch on an
+  iOS 17 or later device, and an App Store Connect upload.

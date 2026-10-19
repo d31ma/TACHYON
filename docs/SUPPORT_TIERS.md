@@ -84,15 +84,20 @@ from an elevated prompt on the signed-in desktop, installed it, launched it
 and found its WebView2 data in the package's LocalState folder. Distribution
 needs a trusted code-signing certificate.
 
-iOS device and App Store packages (2026-10-19, ADR 0104 amendment): code level
-only. In an x86_64 Linux cloud container, unit tests covered the profile
-checks (team, app ID, kind), the certificate choice, the entitlements, the
-Xcode build keys and the device `Info.plist`, and CLI tests covered the
-`TY1001` and `TY1605` refusals. Not yet run: `ty bundle --target ios --device`
-and `--release` on a Mac with Xcode and the team's certificates and profiles,
-which `scripts/ios/native-test.mjs` now does when `TAC_APPLE_TEAM_ID` and
-`TAC_IOS_PROVISIONING_PROFILE` are set; installing and launching on a physical
-device; and an App Store Connect upload.
+iOS device and App Store packages (2026-10-19, ADR 0104 amendment): in an
+x86_64 Linux cloud container, unit tests covered the profile checks (team, app
+ID, kind), the certificate choice, the entitlements, the Xcode build keys and
+the device `Info.plist`, and CLI tests covered the `TY1001` and `TY1605`
+refusals. On the Mac (macOS 26.6, Xcode 27.1 27A9275, iphoneos SDK 27.1, develop
+fd0384ad), `scripts/ios/native-test.mjs` passed without signing variables
+(iPhone SE simulator, iOS 26.5) and again with `TAC_APPLE_TEAM_ID` and a
+wildcard development profile: `ty bundle --target ios --device` chose the
+Apple Development certificate from the profile's SHA-1, and the app passed
+`codesign --verify --strict` with `iPhoneOS`, `embedded.mobileprovision`,
+`PrivacyInfo.xcprivacy` and the `.ipa` `Payload` layout. Not yet run:
+`--release` with an App Store profile, installing and launching on an iOS 17
+or later device (the only registered device is an iPod touch on iOS 15), and
+an App Store Connect upload.
 
 ### Application services and declared menus on desktop hosts (2026-10-04)
 

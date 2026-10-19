@@ -223,7 +223,7 @@ build architecture (--arch)
   adapted: --arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64.
 
 release packaging
-  adapted: ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. No signed iOS build has run on a Mac yet. Other builds run in the simulator.
+  adapted: ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. A --device build was signed and checked on a Mac; --release, an install on a device and an upload have not run yet. Other builds run in the simulator.
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
