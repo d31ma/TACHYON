@@ -240,11 +240,19 @@ export default class ProbeService {
   }
 
   static async checkGeolocation(page) {
-    const { output, waitFor, run, adb, allowPermissionPrompt } = AndroidBrowserApisGate;
-    run(adb, ['emu', 'geo', 'fix', '-122.084', '37.422']);
-    await page.getByRole('button', { name: 'Locate' }).click();
-    await allowPermissionPrompt();
-    await waitFor(async () => await output(page, 'Place') === '37.422, -122.084', async () => `currentPosition answers the emulator's position: ${await output(page, 'Place')} ${await output(page, 'Problem')}`);
+    const { output, waitFor, adbShell, allowPermissionPrompt } = AndroidBrowserApisGate;
+    adbShell('appops', 'set', 'com.android.shell', 'android:mock_location', 'allow');
+    try {
+      adbShell('cmd', 'location', 'providers', 'add-test-provider', 'gps');
+      adbShell('cmd', 'location', 'providers', 'set-test-provider-enabled', 'gps', 'true');
+      adbShell('cmd', 'location', 'providers', 'set-test-provider-location', 'gps', '--location', '37.422,-122.084');
+      await page.getByRole('button', { name: 'Locate' }).click();
+      await allowPermissionPrompt();
+      await waitFor(async () => await output(page, 'Place') === '37.422, -122.084', async () => `currentPosition answers the test provider's position: ${await output(page, 'Place')} ${await output(page, 'Problem')}`);
+    } finally {
+      spawnSync(AndroidBrowserApisGate.adb, ['shell', 'cmd', 'location', 'providers', 'remove-test-provider', 'gps'], { encoding: 'utf8', timeout: 60000 });
+      spawnSync(AndroidBrowserApisGate.adb, ['shell', 'appops', 'set', 'com.android.shell', 'android:mock_location', 'default'], { encoding: 'utf8', timeout: 60000 });
+    }
   }
 
   static async main() {
