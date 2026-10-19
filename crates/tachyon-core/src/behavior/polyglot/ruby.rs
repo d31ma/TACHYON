@@ -178,7 +178,7 @@ impl RubyLowering {
             "\"partition\" => {}, \"signal\" => BehaviorSignal.new, \"profiles\" => JSON.parse({}), \"properties\" => JSON.parse({})",
             serde_json::Value::String(unit.partition.clone()),
             Self::single_quoted(&unit.profiles.to_string()),
-            Self::single_quoted(&unit.properties.to_string()),
+            Self::single_quoted(&unit.flat_properties().to_string()),
         );
         format!(
             "\nclass {name}\n\

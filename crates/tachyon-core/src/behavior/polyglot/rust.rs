@@ -1070,14 +1070,8 @@ fn profile_statements(unit: &super::super::testing::Unit) -> String {
 }
 
 fn property_statements(unit: &super::super::testing::Unit) -> String {
-    let Some(properties) = unit.properties.as_object() else {
-        return String::new();
-    };
-    super::super::testing::joined(properties, |(key, value)| {
-        format!(
-            "options.properties.insert({key:?}.to_owned(), {:?}.to_owned());",
-            value.to_string()
-        )
+    super::super::testing::joined(unit.flat_settings(), |(key, value)| {
+        format!("options.properties.insert({key:?}.to_owned(), {value:?}.to_owned());")
     })
 }
 

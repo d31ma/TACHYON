@@ -166,7 +166,23 @@ pub(super) struct Unit {
 
 impl Unit {
     pub(super) fn flat_settings(&self) -> Vec<(String, String)> {
-        self.properties
+        Self::flat_entries(&self.properties)
+    }
+
+    pub(super) fn flat_properties(&self) -> Value {
+        Self::flat_object(&self.properties)
+    }
+
+    pub(super) fn flat_object(properties: &Value) -> Value {
+        let entries = Self::flat_entries(properties)
+            .into_iter()
+            .map(|(name, text)| (name, Value::String(text)))
+            .collect();
+        Value::Object(entries)
+    }
+
+    fn flat_entries(properties: &Value) -> Vec<(String, String)> {
+        properties
             .as_object()
             .into_iter()
             .flatten()
@@ -261,10 +277,10 @@ pub(super) fn members(registration: &super::Registration) -> Option<String> {
         .data
         .get("activeProfiles")
         .map_or_else(|| String::from("[]"), ToString::to_string);
-    let properties = registration
-        .data
-        .get("testProperties")
-        .map_or_else(|| String::from("{}"), ToString::to_string);
+    let properties = registration.data.get("testProperties").map_or_else(
+        || String::from("{}"),
+        |value| Unit::flat_object(value).to_string(),
+    );
     let mocks = mock_bindings(&registration.data);
     let fakes = registration
         .data

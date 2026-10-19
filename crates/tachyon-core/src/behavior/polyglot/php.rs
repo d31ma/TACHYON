@@ -276,7 +276,7 @@ fn test_members(unit: &Unit) -> String {
     let cases = escape_single_quoted(
         &super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string(),
     );
-    let properties = unit.properties.to_string().replace('\'', "\\'");
+    let properties = unit.flat_properties().to_string().replace('\'', "\\'");
     let clear_fakes = clear_fakes(unit);
     format!(
         "\npublic mixed $behaviors = null;\n\

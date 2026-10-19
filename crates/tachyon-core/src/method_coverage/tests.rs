@@ -417,7 +417,11 @@ fn a_python_method_records_its_call_on_its_first_body_line() {
 fn a_ruby_method_records_its_call_after_its_signature() {
     let output = hooked(
         "server/services/CatalogService.rb",
-        "#[Service]\nclass CatalogService\n  def total(items = [])\n    2\n  end\n\n  def count = 3\n\n  def label name\n    name\n  end\n\n  private\n\n  def hidden\n    3\n  end\nend\n",
+        "#[Service]\nclass CatalogService\n  def total(items = [])\n    2\n  end\n\n  def count = 3\n\n  def label name\n    name\n  end\n\n  #[Cached]\n  def price(\n    #[CacheKey]\n    sku,\n    note\n  )\n    sku\n  end\n\n  private\n\n  def hidden\n    3\n  end\nend\n",
+    );
+    assert!(
+        output.contains("    note\n  ); BehaviorCalls.record(\"CatalogService.price\")\n    sku\n"),
+        "{output}"
     );
     assert!(
         output.contains("def total(items = []); BehaviorCalls.record(\"CatalogService.total\")\n"),

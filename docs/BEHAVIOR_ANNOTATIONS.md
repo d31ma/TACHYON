@@ -493,7 +493,7 @@ makes Rust work, since Rust has no reflection to find cases at run time.
 | `@Test(CatalogTestSetup, {"partition":"tests"})` | Selects a sibling TestSetup class or an existing production Setup class. Java writes `CatalogTestSetup.class`, Kotlin and PHP `CatalogTestSetup::class`, C# `typeof(CatalogTestSetup)`. `partition` defaults to `test`. |
 | `@TestSetup` | A test-only Setup in its own same-language sibling file named after the class. |
 | `@UseProfiles("test")` | Profiles for that context, with the same limits as `@WhenProfile`. |
-| `@TestSettings({"yon.catalog.size":5})` | At most 64 bounded literal properties. Each must be inside the realm's own namespace: a Tac unit cannot reach `yon.*`. A C# or F# unit passes each path as its environment name (`tac.catalog.mode` is `TAC_CATALOG_MODE`) and each value as text (`"fast"` is `fast`), so the TestSetup's `@WhenSetting` and `@Settings` see it. |
+| `@TestSettings({"yon.catalog.size":5})` | At most 64 bounded literal properties. Each must be inside the realm's own namespace: a Tac unit cannot reach `yon.*`. Every unit passes each path as its environment name (`tac.catalog.mode` is `TAC_CATALOG_MODE`) and each value as text (`"fast"` is `fast`, `5` is `5`), so the TestSetup's `@WhenSetting` and `@Settings` see it. |
 | `@Fake` | A field that the test assigns. In JavaScript and TypeScript, `construct(Role)` passes it to any role with a `@Needs` field of that name. At most 32 per unit. Each must be a field without an initial value and not static. |
 | `@FreshStart` | Disposes the context between cases. Accepted, and the driver already does this. |
 

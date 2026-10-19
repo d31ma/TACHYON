@@ -408,16 +408,8 @@ fn profile_list(unit: &Unit) -> String {
 
 fn property_list(unit: &Unit) -> String {
     let mut properties = String::new();
-    let Some(entries) = unit.properties.as_object() else {
-        return properties;
-    };
-    for (key, value) in entries {
-        let _ = write!(
-            properties,
-            "{}: {}, ",
-            quote(key),
-            quote(&value.to_string())
-        );
+    for (key, value) in unit.flat_settings() {
+        let _ = write!(properties, "{}: {}, ", quote(&key), quote(&value));
     }
     properties
 }

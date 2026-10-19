@@ -1611,6 +1611,16 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- `TestSettings` no longer stops a test unit before its first case in
+  JavaScript, TypeScript, Python, PHP, Dart, Go, Rust, Ruby and Swift
+  (ADR 0080 amendment). Those drivers passed each path as written and some
+  passed each value as JSON text, which the context refused or which never
+  matched a `WhenSetting`. Every driver now passes the environment name
+  (`yon.catalog.size` is `YON_CATALOG_SIZE`) and the value as text, as Java,
+  Kotlin, C# and F# already did.
+- New run tests prove `TestSettings`, `UseProfiles`, `FreshStart` and
+  `ValueSource` in every Yon and Tac test language, and `CacheKey` and
+  `Description` in Tac services (`tests/it/test_marker_proofs.rs`).
 - A C# test case declared `async Task` is now awaited. Before, its Task was
   dropped, so a failing assertion after the first `await` still reported
   the case as passed.

@@ -141,3 +141,28 @@ Swift and rewrites their units. The sixth slice turns the rule on by default.
 - There is no automatic rewrite in `ty migrate fix`; the forms differ too
   much between languages. `ty migrate check` lists every case to change.
 - `Assert` is a name that a test unit cannot use for its own class.
+
+## Amendment (2026-10-19): TestSettings reach the context the same way in every language
+
+A run test in every test language (PR3 of the platform plan) found that
+`TestSettings` stopped the unit before its first case in the JavaScript,
+TypeScript, Python, PHP, Dart, Go, Rust, Ruby and Swift drivers. Those
+drivers passed each path as written (`yon.proof.mode`) and Go, Rust, Dart
+and Swift also passed each value as JSON text (`"on"` with its quotes).
+The behavior runtimes only accept environment names and plain text values,
+so the context refused the properties or a `WhenSetting` never matched.
+
+Every driver now passes the same form that Java, Kotlin, C# and F# already
+used: the path as its environment name (`yon.proof.mode` is
+`YON_PROOF_MODE`) and the value as text (`5` is `5`, `true` is `true`).
+Lua and C++ read the properties in their own runtimes and were already
+right.
+
+`tests/it/test_marker_proofs.rs` keeps this true. In each Yon and Tac test
+language, a unit with `UseProfiles`, `TestSettings`, `FreshStart` and a
+`ValueSource` case passes against a TestSetup gated by `WhenProfile` and
+`WhenSetting`, and each case sees a context no earlier case saw. The same
+unit without `UseProfiles`, or without `TestSettings`, stops with an
+inactive configuration. A second test runs a Tac service with
+`Description` and a `Cached` method whose `CacheKey` leaves a parameter
+out of the key.

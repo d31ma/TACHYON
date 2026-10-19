@@ -59,6 +59,7 @@ mod tac_fsharp_http;
 mod tac_http_verbs;
 mod tac_model_binding;
 mod test_assertions;
+mod test_marker_proofs;
 mod test_units;
 mod topic_events;
 mod yon_annotations_discovery;

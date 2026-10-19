@@ -160,7 +160,7 @@ fn test_members(unit: &Unit, indent: &str) -> String {
         unit.configuration,
         serde_json::Value::String(unit.partition.clone()),
         unit.profiles,
-        unit.properties,
+        unit.flat_properties(),
         serde_json::Value::String(unit.name.clone()),
     )
 }

@@ -934,14 +934,11 @@ fn profile_statements(unit: &super::super::testing::Unit) -> String {
 }
 
 fn property_statements(unit: &super::super::testing::Unit) -> String {
-    let Some(properties) = unit.properties.as_object() else {
-        return String::new();
-    };
-    super::super::testing::joined(properties, |(key, value)| {
+    super::super::testing::joined(unit.flat_settings(), |(key, value)| {
         format!(
             "\toptions.Properties[{}] = {}\n",
-            quoted(key),
-            quoted(&value.to_string())
+            quoted(&key),
+            quoted(&value)
         )
     })
 }
