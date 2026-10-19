@@ -129,7 +129,7 @@ fn windows_host_resumes_companion_tasks_on_its_window_thread() {
     assert!(source.contains("  tachyon_task_bind(library, language);\n"));
     assert!(
         source.contains(
-            "    case TACHYON_WM_RESUME:\n      tachyon_task_resume();\n      return 0;\n"
+            "    case TACHYON_WM_RESUME:\n      if (!tachyon_page_resume_waits()) tachyon_task_resume();\n      return 0;\n"
         )
     );
     assert!(source.contains("g_companion_invoke[language](\"{\\\"op\\\":\\\"host-resume\\\"}\")"));

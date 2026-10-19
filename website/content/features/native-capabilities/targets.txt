@@ -1,10 +1,11 @@
 Where the file picker opens a panel
 
-  Service language        macOS app      Other apps and browser tabs
-  JavaScript, TypeScript  panel opens    answers unsupported
-  Rust                    panel opens    answers unsupported
-  Swift                   panel opens    answers unsupported
-  C#, Kotlin              -              answers unsupported
+  Service language        macOS app      Windows app    Other apps and browser tabs
+  JavaScript, TypeScript  panel opens    dialog opens   answers unsupported
+  Rust                    panel opens    dialog opens   answers unsupported
+  Swift                   panel opens    -              answers unsupported
+  C#                      -              dialog opens   answers unsupported
+  Kotlin                  -              -              answers unsupported
 
 Every service uses the same file on every target. A Swift, C# or
 Kotlin service asks for the picker with an uninitialized FilePicker

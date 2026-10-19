@@ -284,7 +284,7 @@ pub(super) fn swift_source(
     MacOsHostGenerator::apple_authored_values(&framed, application, index, &[])
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 pub(super) async fn link_swift(
     source: &Path,
     library: &RustCompanionOutput,

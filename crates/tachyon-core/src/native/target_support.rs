@@ -114,10 +114,23 @@ impl TargetSupport {
     fn printed_notes(&self, manifest: &Value, target: AppTarget) -> Vec<String> {
         let mut printed = BTreeSet::new();
         self.declared(manifest)
-            .filter_map(|entry| entry.reach(target).build_note())
-            .filter(|note| printed.insert(*note))
+            .filter_map(|entry| Self::entry_note(entry, target))
+            .filter(|note| printed.insert(note.clone()))
             .map(|note| format!("Note: {note}"))
             .collect()
+    }
+
+    fn entry_note(entry: &TargetSupportEntry, target: AppTarget) -> Option<String> {
+        let reach = entry.reach(target);
+        reach.build_note().map(String::from).or_else(|| {
+            reach.owed_run().map(|run| {
+                format!(
+                    "{} is supported on {}, but this run is still owed: {run}.",
+                    entry.member(),
+                    Self::platform(target)
+                )
+            })
+        })
     }
 
     fn declared<'a>(

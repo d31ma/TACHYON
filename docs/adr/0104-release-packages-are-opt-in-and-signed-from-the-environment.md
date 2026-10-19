@@ -65,7 +65,13 @@ Each item below is decided by its own ADR amendment when its packaging lands:
 - iOS: decided in the 2026-10-19 amendment below.
 - Linux: AppImage and `.deb` packages (decision D4). Decided in the
   2026-10-19 amendment below.
-- Universal macOS binaries and Android ABI selection.
+- Universal macOS binaries: no longer pending. `ty bundle --target macos
+  --arch universal` builds an arm64 and an x86_64 app and joins the app and
+  each Rust helper with `lipo` (ADR 0097 amendment of 2026-10-18), and a
+  `--release` build signs that app (below). Only the staging and the
+  artifact manifest are tested. Still owed: the Mac test that builds the
+  universal app and checks it with `lipo -archs`, and a run on an Intel Mac.
+- Android ABI selection.
 
 ## Consequences
 
@@ -193,7 +199,9 @@ Samuel chose AppImage and `.deb` for Linux (decision D4); Flatpak comes later.
 Checked on 2026-10-19 in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5,
 WebKitGTK 2.52.6, dpkg 1.22.6, squashfs-tools 4.6.1), recorded in
 `docs/SUPPORT_TIERS.md`. Owed: the same run on WSL Ubuntu 24.04 (aarch64),
-and an install on a Linux desktop.
+and an install on a Linux desktop. (The WSL run of develop `38eaed29` passed
+the eleven Linux host tests, but not these package tests: the three
+`linux_package_tests` came in that same commit and were not part of it.)
 
 ## Amendment (2026-10-19): Windows builds an MSIX package
 

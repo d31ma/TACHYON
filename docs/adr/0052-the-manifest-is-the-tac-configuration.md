@@ -282,5 +282,7 @@ amendment above.
   also under desktops that otherwise draw title bars on the server side.
 - Evidence: `linux_window_appearance_tests` compiled the generated host with
   GTK 4.14.5 and WebKitGTK 2.52.6 and ran it under Xvfb with a window
-  manager in an x86_64 cloud container. A run on WSL (aarch64) is still
-  owed.
+  manager in an x86_64 cloud container. On 2026-10-19 both of its tests
+  also passed on WSL (Ubuntu 24.04.5, aarch64, Xvfb with xfwm4) on develop
+  `38eaed29`, with the other Linux host tests (`docs/SUPPORT_TIERS.md`).
+  Still owed: a physical Linux desktop and Wayland.

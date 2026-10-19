@@ -5,8 +5,8 @@ Choose one native ReportService alternative for the target.
   Kotlin    Android
 
 Rust needs no alternative: client/services/ReportService.rs works in the
-page and when a macOS, Linux or Windows app links it, because Rust fills
-the WindowControls field with Default.
+page and when a macOS, Linux, Windows or Android app links it, because
+Rust fills the WindowControls field with Default.
 
 The native/ folder here separates documentation alternatives. It is not
 an additional application discovery root. Put the chosen file in your
@@ -31,5 +31,11 @@ host's answer. An iOS app has no window controls, because the system owns
 the window: only title applies there, as the scene title, granted()
 answers false for the other controls, and the build prints a note. On
 Windows, a test that needs MSVC drives the host's control code against a
-real Win32 window, without the full app or WebView2. The Android check
-only type-checks the code against the SDK; it does not run on a device.
+real Win32 window, without the full app or WebView2. On Android, close
+finishes the activity, minimize moves the app to the back, maximize makes
+the window fill its area, fullscreen hides or shows the status and
+navigation bars, resize sets the window size in density-independent
+pixels, and title sets the activity title. A test runs the Kotlin file in
+the real app on an Android 15 emulator: the granted minimize, resize and
+title calls act, and maximize, fullscreen and close, which the manifest
+does not grant, are refused. It has not run on a physical device.

@@ -67,3 +67,26 @@ A developer cannot trust a manifest that is ignored without a word.
   member, and only once per build.
 - A new manifest member cannot be added without stating its reach on every
   target.
+
+## Amendment (2026-10-19): run owed and not applied
+
+The platform survey of 2026-10-19 held the table to a stricter rule: a target
+supports a member only when a run on that target proves it. The table used
+`adapted` both for owed runs and for members that a target ignores, and
+`honored` for members checked only in code. Two states join the four above:
+
+- **run owed** (`"reach": "runOwed"`, with `how` and `run`): the target
+  supports the member in code, and `run` names the run on that target that
+  has not happened yet. A declared run-owed member prints one note:
+  `<member> is supported on <target>, but this run is still owed: <run>.`
+  When the run passes, the entry becomes `honored` in the same commit as
+  the run record.
+- **not applied** (`"reach": "notApplied"`, with `note`): the target does
+  not use the member yet, and the note names the plan item that will apply
+  it. A declared not-applied member prints its note, like an adapted one.
+  `adapted` now means only that the target uses the closest thing it has.
+
+A test now rejects an `honored` entry whose text says a run is owed, checked
+only in code, or not run. The table also states two design limits as not
+applicable: native apps register no service worker, and the macOS and
+Windows apps need a signed-in desktop session.

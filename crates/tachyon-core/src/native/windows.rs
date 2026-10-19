@@ -102,9 +102,11 @@ impl WindowsHostGenerator {
         };
     pub(super) const PACKAGE_DATA: &str = include_str!("windows_package_data.c");
     const TASK_RESUME: &str = include_str!("windows_task_resume.c");
+    const FILE_PICKER: &str = include_str!("windows_file_picker.c");
+    const PAGE_MESSAGES: &str = include_str!("windows_page_messages.c");
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
     const DEVELOPER_TARGET: &str = "VSCMD_ARG_TGT_ARCH";
-    pub(super) const LINKER_ARGUMENTS: [&str; 13] = [
+    pub(super) const LINKER_ARGUMENTS: [&str; 14] = [
         "WebView2LoaderStatic.lib",
         "user32.lib",
         "dwmapi.lib",
@@ -114,6 +116,7 @@ impl WindowsHostGenerator {
         "gdi32.lib",
         "ole32.lib",
         "oleaut32.lib",
+        "uuid.lib",
         "version.lib",
         "advapi32.lib",
         "/SUBSYSTEM:WINDOWS",
@@ -738,6 +741,11 @@ pub(super) fn c_source(
     let frame = super::windows_window_frame::WindowsWindowFrame::source(&application.window);
     let web_engine_check =
         super::windows_web_engine_check::WindowsWebEngineCheck::source(application);
+    let file_picker = WindowsHostGenerator::file_picker(application);
+    let grants = super::host::c_string_escape(
+        &serde_json::to_string(&application.native_capabilities)
+            .unwrap_or_else(|_| String::from("[]")),
+    );
     let template = WindowsHostGenerator::C_HOST
         .replace(
             "__WINDOW_CONTROLS__",
@@ -763,6 +771,9 @@ pub(super) fn c_source(
             ),
             ("__WEB_ENGINE_CHECK__", &web_engine_check),
             ("__PACKAGE_DATA__", WindowsHostGenerator::PACKAGE_DATA),
+            ("__FILE_PICKER__", &file_picker),
+            ("__PAGE_MESSAGES__", WindowsHostGenerator::PAGE_MESSAGES),
+            ("__NATIVE_GRANTS__", &grants),
             (
                 "__WINDOWS_DEEP_LINKS__",
                 super::native_deep_link::NativeDeepLink::WINDOWS,
@@ -777,6 +788,17 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl WindowsHostGenerator {
+    fn file_picker(application: &NativeApplication) -> String {
+        let granted = application
+            .native_capabilities
+            .iter()
+            .any(|grant| grant == "filePicker");
+        Self::FILE_PICKER.replace(
+            "__FILE_PICKER_GRANTED__",
+            ["FALSE", "TRUE"][usize::from(granted)],
+        )
+    }
+
     const C_HOST: &str = r#"#ifndef UNICODE
 #define UNICODE
 #endif
@@ -792,6 +814,7 @@ impl WindowsHostGenerator {
 #include <objbase.h>
 #include <shellapi.h>
 #include <shlwapi.h>
+#include <shobjidl.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -843,12 +866,14 @@ __WINDOW_CONTROLS__
 __WINDOW_FRAME__
 
 __PACKAGE_DATA__
+__FILE_PICKER__
 static unsigned char *tachyon_native_capability(const char *capability, const char *payload, size_t *length) {
   if (length == NULL) return NULL;
   *length = 0;
   char *answer;
   if (capability == NULL || payload == NULL || strnlen(capability, 65) > 64 || strnlen(payload, 65537) > 65536) answer = _strdup("{\"status\":\"invalid\"}");
   else if (strncmp(capability, "window.", 7) == 0) answer = tachyon_window_control(capability, payload);
+  else if (strncmp(capability, "filePicker.", 11) == 0) answer = tachyon_file_picker(capability + 11, payload);
   else answer = _strdup("{\"status\":\"unsupported\"}");
   if (answer != NULL) *length = strlen(answer);
   return (unsigned char *)answer;
@@ -1039,6 +1064,7 @@ static char *tachyon_narrow(const wchar_t *value) {
 
 static char *tachyon_handle(const char *capability, const char *payload) {
   if (strncmp(capability, "window.", 7) == 0) return tachyon_window_control(capability, payload);
+  if (strncmp(capability, "filePicker.", 11) == 0) return tachyon_file_picker(capability + 11, payload);
   if (strcmp(capability, "companion.invoke") == 0) {
     int operation = tachyon_payload_string_matches(payload, "op", "init")
       || tachyon_payload_string_matches(payload, "op", "get")
@@ -1103,6 +1129,8 @@ static void tachyon_on_message(const wchar_t *raw) {
   free(message);
 }
 
+__PAGE_MESSAGES__
+
 static HRESULT tachyon_query_interface(void *self, REFIID iid, void **object, const wchar_t *supported) {
   if (object == NULL || iid == NULL) return E_POINTER;
   *object = NULL;
@@ -1147,7 +1175,7 @@ static HRESULT STDMETHODCALLTYPE message_invoke(
   if (SUCCEEDED(ICoreWebView2WebMessageReceivedEventArgs_TryGetWebMessageAsString(
           arguments, &message)) &&
       message != NULL) {
-    tachyon_on_message(message);
+    tachyon_page_message_hold(message);
     CoTaskMemFree(message);
   }
   return S_OK;
@@ -1194,7 +1222,7 @@ static HRESULT STDMETHODCALLTYPE navigation_invoke(ICoreWebView2NavigationStarti
         ICoreWebView2NavigationStartingEventArgs_put_Cancel(arguments, TRUE);
         ICoreWebView2_Navigate(sender, normalized); free(normalized);
       }
-    } else tachyon_companion_dispose();
+    } else { tachyon_page_messages_clear(); tachyon_companion_dispose(); tachyon_file_picker_dispose_all(); }
   }
   free(text); CoTaskMemFree(uri); return S_OK;
 }
@@ -1410,13 +1438,14 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   if (script == NULL) return E_OUTOFMEMORY;
   snprintf(script, script_size,
            "if(location.origin==='https://tachyon.local' && window===window.top){\n%s\n"
+           "globalThis.__tachyonNativeFilePicker=true;globalThis.__tachyonNativeGrants=__NATIVE_GRANTS__;\n"
            "let chain=Promise.resolve(), pending=0, sequence=0;const session=crypto.randomUUID();\n"
            "window.chrome.webview.addEventListener('message',e=>{if(typeof e.data?.applicationState==='string')globalThis.__tachyonApplicationState(e.data.applicationState);else if(e.data && typeof e.data==='object')globalThis.__tachyonCompanionPublish(e.data)});\n"
            "globalThis.__tachyonHostPost=(capability,payload)=>{\n"
            " if(pending>=128 || capability.length>64 || payload.length>65536)return Promise.reject(new Error('Native message limit'));\n"
            " pending++;const id=session+'.'+(++sequence);const call=()=>new Promise((resolve,reject)=>{\n"
            " const once=e=>{if(typeof e.data!=='string'||!e.data.startsWith(id+'\\u001f'))return;clearTimeout(timer);window.chrome.webview.removeEventListener('message',once);resolve(e.data.slice(id.length+1))};\n"
-           " const timer=setTimeout(()=>{window.chrome.webview.removeEventListener('message',once);reject(new Error('Native request timed out'))},10000);\n"
+           " const timer=setTimeout(()=>{window.chrome.webview.removeEventListener('message',once);reject(new Error('Native request timed out'))},capability==='filePicker.open'||capability==='companion.invoke'?40000:10000);\n"
            " window.chrome.webview.addEventListener('message',once);window.chrome.webview.postMessage(capability+'\\u001f'+id+'\\u001f'+payload);});\n"
            " const result=chain.then(call,call).finally(()=>pending--);chain=result.catch(()=>{});return result;};\n"
            "globalThis.__tachyonNativeHostCall=globalThis.__tachyonHostPost;\n}\n",
@@ -1501,7 +1530,10 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
       return 0;
     }
     case TACHYON_WM_RESUME:
-      tachyon_task_resume();
+      if (!tachyon_page_resume_waits()) tachyon_task_resume();
+      return 0;
+    case TACHYON_WM_PAGE_MESSAGE:
+      tachyon_page_messages_run();
       return 0;
     case WM_COMMAND:
       if (tachyon_menus_command(window, LOWORD(wparam))) return 0;
@@ -1517,7 +1549,9 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
       break;
     case WM_DESTROY:
       tachyon_tray_remove();
+      tachyon_page_messages_clear();
       tachyon_companion_dispose();
+      tachyon_file_picker_dispose_all();
       InterlockedExchangePointer(&g_publish_window, NULL);
       tachyon_record("controller.destroyed");
       if (g_controller != NULL) { ICoreWebView2Controller_Close(g_controller); ICoreWebView2Controller_Release(g_controller); g_controller = NULL; }
@@ -1811,7 +1845,9 @@ mod tests {
         assert!(source.contains("ICoreWebView2WebMessageReceivedEventArgs_get_Source"));
         assert!(source.contains("tachyon_payload_route_matches"));
         assert!(source.contains("g_frame_navigation_handler = {&g_navigation_vtbl, 0}"));
-        assert!(source.contains("else tachyon_companion_dispose()"));
+        assert!(source.contains(
+            "else { tachyon_page_messages_clear(); tachyon_companion_dispose(); tachyon_file_picker_dispose_all(); }"
+        ));
         assert!(source.contains("if (!operation || route == NULL"));
         assert!(source.contains("int language = tachyon_service_companion(payload);"));
         assert!(!source.contains("TY_NATIVE_SERVICE\\\"\") != NULL"));

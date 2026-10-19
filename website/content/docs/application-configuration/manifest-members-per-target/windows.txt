@@ -10,13 +10,13 @@ icons
   adapted: icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon. A --release MSIX package copies, without resizing, the smallest PNG icon that covers each tile (44, 50 and 150 pixels), or the largest PNG icon; with no PNG icon its tiles are plain squares in theme_color.
 
 theme_color
-  adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color.
+  adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. A run of the caption color on a signed-in Windows 11 desktop is still owed.
 
 background_color
-  adapted: background_color is not applied to the Windows app yet.
+  not applied: background_color is not applied to the Windows app yet (WIN7).
 
 display
-  adapted: display "fullscreen" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window.
+  adapted: display "fullscreen" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window. A run with a real window on a signed-in Windows desktop is still owed.
 
 orientation
   not applicable: orientation has no meaning for a Windows window.
@@ -52,16 +52,16 @@ tac.application.window.minWidth, minHeight
   honored: the smallest client area the user can drag to, in device-independent pixels
 
 tac.application.window.controls
-  honored: close, fullscreen, maximize, minimize, resize and title
+  run owed: close, fullscreen, maximize, minimize, resize and title; still to run: native_windows_controls_drive_a_real_win32_window and a page call inside WebView2 on a signed-in Windows desktop
 
 tac.application.window.titleBar
-  adapted: tac.application.window.titleBar "integrated" is built only for macOS. The Windows app keeps the standard title bar (ADR 0098, WIN3).
+  not applied: tac.application.window.titleBar "integrated" is built only for macOS. The Windows app keeps the standard title bar (ADR 0098, WIN3).
 
 tac.application.window.titleBarButtonInset
-  adapted: tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Windows app ignores it.
+  not applied: tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Windows app ignores it.
 
 tac.application.menus
-  honored: items in the File, View and Help menus of the window's menu bar
+  run owed: items in the File, View and Help menus of the window's menu bar; still to run: a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)
 
 tac.application.tray
   honored: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107)
@@ -103,7 +103,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage
+  run owed: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; still to run: an offline Yon read inside WebView2 on a signed-in Windows desktop
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Windows app.
@@ -127,16 +127,16 @@ tac.browserApis geolocation
   adapted: geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3).
 
 tac.browserApis preferenceStrings
-  honored: the web view's localStorage, kept on disk
+  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch inside WebView2 on a signed-in Windows desktop
 
 tac.nativeCapabilities
-  adapted: tac.nativeCapabilities filePicker is not built for Windows yet. FilePicker answers unsupported (FP1).
+  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services; still to run: the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a picker opened from a WebView2 page on a signed-in Windows desktop
 
 tac.elements
   adapted: tac.elements are bundled into the Windows app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  honored: Pyodide in the web view, checked in code only (ADR 0093)
+  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service inside WebView2 on a signed-in Windows desktop (ADR 0093)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Windows app loads its bundle from disk, so route sizes are not measured (ADR 0074).
@@ -145,7 +145,7 @@ tac.outgoing
   honored: the build checks request hosts and the resource handler's connect-src allows only them
 
 tac.yon
-  adapted: tac.yon.origin: the Windows app sends page calls to this origin, its connect-src allows it, and linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient. Tested in the cloud under wine and .NET; the WebView2 run on a Windows desktop is still owed (NET3).
+  run owed: the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient, tested in the cloud under wine and .NET (ADR 0103); still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -193,10 +193,10 @@ application lifetime services
   honored: Rust services that start with the app and stop when it quits
 
 standard menu bar without declared items
-  honored: File, Edit and Window menus, shown even when the manifest declares no items
+  run owed: File, Edit and Window menus, shown even when the manifest declares no items; still to run: an app with no declared items inside WebView2 on a signed-in Windows desktop
 
 Edit menu
-  honored: Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Y
+  run owed: Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Y; still to run: the Edit commands inside WebView2 on a signed-in Windows desktop
 
 Window menu
   adapted: The Windows Window menu has Minimize and Maximize, with no shortcuts.
@@ -205,10 +205,10 @@ menu shortcuts with control
   adapted: A shortcut with control gets Ctrl on Windows, like command. Shortcuts that then collide stop the build (TY1601).
 
 page accessibility (roles and names through the system accessibility API)
-  adapted: The Windows app exposes its pages through WebView2 UI Automation, but no host test checks the roles and names yet (AX2).
+  run owed: the pages reach UI Automation through WebView2; still to run: the UI Automation probe of scripts/windows/native-test.ps1 on a signed-in Windows desktop (AX2)
 
 window drag regions (data-tac-drag-region)
-  adapted: data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3).
+  not applied: data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3).
 
 external links
   honored: http, https and mailto links open in the default browser or mail app (ShellExecuteW)
@@ -217,16 +217,19 @@ deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route; the app registers the scheme under HKCU\Software\Classes, or its MSIX package declares it, and hands later links to the running window
 
 background and foreground signal
-  honored: ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored
+  run owed: ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored; still to run: WM_ACTIVATEAPP and minimizing inside WebView2 on a signed-in Windows desktop
 
 stored data (IndexedDB, Cache API, LocalState)
-  honored: kept on disk by the web view
+  run owed: kept on disk by the web view; still to run: data kept across a relaunch inside WebView2 on a signed-in Windows desktop
+
+service worker
+  not applicable: The Windows app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
 
 Content-Security-Policy
   honored: the native host policy
 
 reaching Yon
-  adapted: The Windows app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services. Other absolute URLs go only to the hosts in tac.outgoing.hosts. The WebView2 run on a Windows desktop is still owed (NET3).
+  run owed: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services; other absolute URLs go only to the hosts in tac.outgoing.hosts; still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)
 
 natively linked service languages
   honored: Rust and C# services are linked into the app; other languages run in the page
@@ -241,4 +244,7 @@ incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  adapted: The Windows build compiles and links with /Brepro and keeps .obj files out of the output, so two builds should match. A repeat-build run on Windows is still owed (TL2).
+  run owed: the Windows build compiles and links with /Brepro and keeps .obj files out of the output; still to run: a_packaged_windows_app_is_byte_identical_when_built_twice in an MSVC developer prompt (TL2)
+
+running without a signed-in desktop session
+  not applicable: The Windows app needs a signed-in desktop session: WebView2 does not start without one (0x80070578), and an MSIX package does not install over SSH (0x80070005).

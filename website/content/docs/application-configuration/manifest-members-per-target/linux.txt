@@ -13,7 +13,7 @@ theme_color
   adapted: theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar. With titleBar "integrated" there is no header bar: the page colors the top edge.
 
 background_color
-  adapted: background_color is not applied to the Linux app yet.
+  not applied: background_color is not applied to the Linux app yet (WIN7).
 
 display
   adapted: display "fullscreen" starts the Linux app full screen. The other values open a standard window.
@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   honored: the smallest size of the page inside the window
 
 tac.application.window.controls
-  honored: close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services
+  run owed: close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services; still to run: a granted close, fullscreen and maximize under Xvfb; only the refused path ran for them
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Linux page reach the top edge under GTK's own window buttons, with the same insets and drag regions as macOS (ADR 0098). The menu bar moves into a main menu button beside the window buttons, as in GNOME apps.
@@ -103,7 +103,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage
+  run owed: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; still to run: an offline Yon read in the packaged Linux app
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Linux app.
@@ -121,22 +121,22 @@ tac.browserApis share
   adapted: Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard.
 
 tac.browserApis notifications
-  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown.
+  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A run with a desktop notification server is still owed.
 
 tac.browserApis geolocation
-  honored: the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages
+  run owed: the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages; still to run: GeoClue on WSL or a Linux desktop; the Xvfb run used a WebKit test position
 
 tac.browserApis preferenceStrings
-  honored: the web view's localStorage, kept on disk
+  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch under Xvfb or on WSL
 
 tac.nativeCapabilities
-  adapted: tac.nativeCapabilities filePicker is not built for Linux yet. FilePicker answers unsupported (FP3).
+  not applied: tac.nativeCapabilities filePicker is not built for Linux yet. FilePicker answers unsupported (FP3).
 
 tac.elements
   adapted: tac.elements are bundled into the Linux app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  honored: Pyodide in the web view, checked in code only (ADR 0093)
+  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service in the packaged Linux app under Xvfb or on WSL (ADR 0093)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Linux app loads its bundle from disk, so route sizes are not measured (ADR 0074).
@@ -222,6 +222,9 @@ background and foreground signal
 stored data (IndexedDB, Cache API, LocalState)
   honored: kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit
 
+service worker
+  not applicable: The Linux app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
+
 Content-Security-Policy
   honored: the native host policy
 
@@ -235,10 +238,13 @@ build architecture (--arch)
   adapted: --arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture.
 
 release packaging
-  honored: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder
+  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: a .deb install, the AppImage through FUSE and a link opening the installed .desktop file on a Linux desktop; the packages were built and checked under Xvfb
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
   honored: SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests
+
+running without a signed-in desktop session
+  honored: the app runs under Xvfb with the X11 backend

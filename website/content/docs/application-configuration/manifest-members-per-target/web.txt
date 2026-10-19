@@ -222,6 +222,9 @@ background and foreground signal
 stored data (IndexedDB, Cache API, LocalState)
   honored: kept by the browser
 
+service worker
+  honored: tachyon-sw.js is registered on every host except loopback hosts, and serves tac.cache rules offline
+
 Content-Security-Policy
   honored: sent by the server
 
@@ -242,3 +245,6 @@ incremental route reuse
 
 byte-identical rebuilds
   honored: the same sources give the same dist/web tree digest
+
+running without a signed-in desktop session
+  honored: pages run in a headless browser
