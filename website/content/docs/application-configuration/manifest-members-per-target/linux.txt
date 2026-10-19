@@ -10,7 +10,7 @@ icons
   adapted: icons: the Linux app copies the largest raster icon into share/icon.png without resizing it.
 
 theme_color
-  adapted: theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar.
+  adapted: theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar. With titleBar "integrated" there is no header bar: the page colors the top edge.
 
 background_color
   adapted: background_color is not applied to the Linux app yet.
@@ -52,10 +52,10 @@ tac.application.window.controls
   honored: close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services
 
 tac.application.window.titleBar
-  adapted: tac.application.window.titleBar "integrated" is built only for macOS. The Linux app keeps the standard title bar (ADR 0098, WIN4).
+  adapted: tac.application.window.titleBar "integrated" lets the Linux page reach the top edge under GTK's own window buttons, with the same insets and drag regions as macOS (ADR 0098). The menu bar moves into a main menu button beside the window buttons, as in GNOME apps.
 
 tac.application.window.titleBarButtonInset
-  adapted: tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Linux app ignores it.
+  adapted: tac.application.window.titleBarButtonInset places the Linux window buttons: top is the distance from the top edge, and leading the distance from the window edge where each group of buttons sits, because the desktop's button layout decides which side holds the close button.
 
 tac.application.menus
   honored: items in the File, View and Help menus of the window's menu bar
@@ -193,7 +193,7 @@ page accessibility (roles and names through the system accessibility API)
   honored: the web view's AT-SPI tree; scripts/linux/a11y-probe.py checks the window name, menu bar, page roles and names, and activation
 
 window drag regions (data-tac-drag-region)
-  adapted: data-tac-drag-region does nothing in the Linux app yet, because its title bar is standard (WIN4).
+  honored: with titleBar "integrated", dragging a marked element moves the window and a double-click follows the desktop's title bar setting
 
 external links
   honored: http, https and mailto links open in the default browser or mail app (GtkUriLauncher)

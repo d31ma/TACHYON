@@ -27,6 +27,15 @@ machine contracts have their own, independent major versions.
   `cache-first` read still answers when the app is offline. Yon answers
   `no-store` unless the handler sets its own `Cache-Control`. On Linux the
   kept reads last only while the app runs (ADR 0087 amendment).
+- A Linux app with `"titleBar": "integrated"` in `tac.application.window`
+  now lets the page reach the top edge of the window, as on macOS. GTK's own
+  window buttons sit over the page, the page gets `--tac-titlebar-height`,
+  `--tac-titlebar-leading-inset` and `--tac-titlebar-trailing-inset`, and
+  elements marked `data-tac-drag-region` move the window (a double-click
+  follows the desktop's title bar setting). The menu bar moves into a main
+  menu button beside the window buttons. `titleBarButtonInset` places the
+  buttons. A test drives the generated GTK host under Xvfb with real pointer
+  events (ADR 0098 amendment).
 - The Linux app opens its window from `client/manifest.json`, as the macOS
   and Windows apps do. The page inside the window starts at
   `tac.application.window` `width` by `height` (the host adds what the title

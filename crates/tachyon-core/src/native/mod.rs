@@ -62,6 +62,9 @@ mod linux_browser_apis;
 mod linux_host_tests;
 #[cfg(test)]
 mod linux_page_call_tests;
+mod linux_title_bar;
+#[cfg(test)]
+mod linux_title_bar_tests;
 mod linux_web_engine_check;
 mod linux_window_appearance;
 #[cfg(test)]

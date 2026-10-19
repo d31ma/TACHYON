@@ -65,7 +65,7 @@ static const char *tachyon_window_action(const char *control, JSCValue *request)
   } else if (strcmp(control, "title") == 0) {
     gchar *title = tachyon_capability_string(request, "title");
     gboolean valid = title != NULL && strlen(title) <= 1024 && g_utf8_validate(title, -1, NULL);
-    if (valid) gtk_window_set_title(g_native_window, title);
+    if (valid) gtk_window_set_title(g_native_window, tachyon_title_bar_title(title));
     g_free(title);
     if (!valid) return "{\"error\":\"invalid\"}";
   } else return "{\"error\":\"unsupported\"}";

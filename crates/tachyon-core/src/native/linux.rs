@@ -188,6 +188,10 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
         .replace(
             "__NATIVE_BROWSER_APIS__",
             &super::linux_browser_apis::LinuxBrowserApis::source(&application.permissions),
+        )
+        .replace(
+            "__NATIVE_TITLE_BAR__",
+            &super::linux_title_bar::LinuxTitleBar::source(&application.window),
         );
     LinuxHostGenerator::DESKTOP.render(
         &template,
@@ -248,6 +252,7 @@ typedef void (*TachyonApplicationShutdown)(void);
 static TachyonApplicationStart g_application_start = NULL;
 static TachyonApplicationShutdown g_application_shutdown = NULL;
 static void tachyon_window_content_size(GtkWindow *window, int width, int height);
+static const char *tachyon_title_bar_title(const char *requested);
 
 __WEB_ENGINE_CHECK__
 
@@ -262,6 +267,8 @@ static gboolean tachyon_trusted_view(WebKitWebView *view) {
 }
 
 __NATIVE_BROWSER_APIS__
+
+__NATIVE_TITLE_BAR__
 
 static int tachyon_open_resource(const char *relative) {
   if (g_bundle_fd < 0 || relative[0] == '\0') return -1;
@@ -565,6 +572,8 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
     answer = operation && route != NULL && tachyon_payload_route_matches(payload, route->route)
       ? tachyon_companion_invoke(payload) : g_strdup("{\"error\":\"Native route mismatch.\"}");
     tachyon_menus_refresh();
+  } else if (g_strcmp0(capability, "window.dragRegions") == 0) {
+    answer = tachyon_title_bar_regions(payload);
   } else if (g_str_has_prefix(capability, "window.")) {
     answer = tachyon_window_page_call(capability, payload);
   } else if (g_strcmp0(capability, "browserApi.share.open") == 0) {
@@ -675,7 +684,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   g_signal_connect(view, "create", G_CALLBACK(tachyon_create_view), NULL);
   g_signal_connect(view, "permission-request", G_CALLBACK(tachyon_permission_request), NULL);
 
-  gtk_window_set_child(GTK_WINDOW(window), GTK_WIDGET(view));
+  gtk_window_set_child(GTK_WINDOW(window), tachyon_title_bar_content(GTK_WINDOW(window), view, manager));
   tachyon_window_appearance(GTK_WINDOW(window), GTK_WIDGET(view));
   gtk_widget_set_hexpand(GTK_WIDGET(view), TRUE);
   gtk_widget_set_vexpand(GTK_WIDGET(view), TRUE);

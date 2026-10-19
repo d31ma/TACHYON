@@ -110,12 +110,15 @@ fn an_integrated_title_bar_gets_a_note_everywhere_but_macos() {
     let manifest = json!({"tac": {"application": {"window": {"titleBar": "integrated"}}}});
     let mac = TargetSupportTests::notes(&manifest, AppTarget::Macos);
     assert!(mac.iter().all(|note| !note.contains("titleBar")), "{mac:?}");
-    for target in [
-        AppTarget::Windows,
-        AppTarget::Linux,
-        AppTarget::Ios,
-        AppTarget::Android,
-    ] {
+    let linux = TargetSupportTests::notes(&manifest, AppTarget::Linux);
+    assert!(
+        linux.iter().any(
+            |note| note.starts_with("Note: tac.application.window.titleBar")
+                && note.contains("main menu button")
+        ),
+        "{linux:?}"
+    );
+    for target in [AppTarget::Windows, AppTarget::Ios, AppTarget::Android] {
         let notes = TargetSupportTests::notes(&manifest, target);
         let platform = TargetSupport::platform(target);
         assert!(

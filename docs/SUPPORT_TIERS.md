@@ -111,6 +111,20 @@ the 720x520 minimum stopped at 720x520, the header bar rendered `#1a237e`
 with white text, and `fullscreen` reached the GTK window and the X11
 toplevel. Not run: WSL (aarch64), a physical desktop, Wayland.
 
+On 2026-10-19 the Linux host started to build `"titleBar": "integrated"`
+(ADR 0098 amendment): the page reaches the top edge under GTK's window
+buttons, gets the three inset properties, and moves the window from
+`data-tac-drag-region` elements; the menu bar becomes a main menu button.
+`linux_title_bar_tests` compiled the generated host with GTK 4.14.5 and
+WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with xfwm4 in an
+x86_64 Ubuntu 24.04 cloud container, three of three runs, with real XTest
+pointer events: the insets were 46/46/135 px with a `close:minimize,maximize`
+layout, presses on a button in the drag region and below it reached the page
+while a press in the region did not, a 120x72 px drag moved the window by
+that much, a double-click maximized and a second one restored, full screen
+zeroed the insets, and a new page started with them. Not run: WSL (aarch64),
+a physical desktop, a compositing window manager, Wayland.
+
 ### Native apps reach Yon through a declared origin (2026-10-18)
 
 ADR 0103 adds `tac.yon.origin` in `client/manifest.json` and `server.origins`

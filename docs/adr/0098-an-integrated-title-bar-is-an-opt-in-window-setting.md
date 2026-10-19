@@ -182,4 +182,67 @@ is built only for macOS. The equivalents, for a later decision:
   pointer events needs an Accessibility grant), so the test checks that the
   host starts `performDrag` exactly for clicks in a drag region. The window
   movement itself is AppKit's documented `performDrag(with:)` behavior.
-- Windows and Linux still show the standard title bar.
+- Windows and Linux still show the standard title bar. (Linux: see the
+  2026-10-19 amendment.)
+
+## Amendment (2026-10-19): Linux
+
+The Linux host (GTK 4 and WebKitGTK 6.0) now builds `"titleBar": "integrated"`
+with the same page contract as macOS.
+
+- **Window.** The window uses GTK client-side decorations with a hidden,
+  empty title bar widget (`gtk_window_set_titlebar`), so neither GTK nor the
+  window manager draws a title bar, and the web view fills the window from
+  its top edge. The window title stays set, so the window keeps its name for
+  screen readers, the task switcher and the window manager. As on macOS, an
+  empty title from `WindowControls.setTitle` keeps the app name.
+- **Window buttons.** GTK's own window buttons (`GtkWindowControls`, the
+  widget a `GtkHeaderBar` draws them with) sit in a `GtkOverlay` over the
+  page, one group at the leading edge and one at the trailing edge. They
+  follow the desktop's button layout (`gtk-decoration-layout`), so the
+  desktop decides on which side the close button is. A full `GtkHeaderBar`
+  over the page was rejected: it would take every click in the strip, while
+  the contract gives those clicks to the page.
+- **Menus.** The menu bar would cover the top edge, so it is hidden and its
+  menus move into a main menu button (`open-menu-symbolic`, labeled "Main
+  Menu") before the trailing window buttons, as GNOME apps do. Keyboard
+  shortcuts do not change.
+- **Insets.** `--tac-titlebar-height` is the button groups' height with their
+  top inset above and below. `--tac-titlebar-leading-inset` and
+  `--tac-titlebar-trailing-inset` are each group's width plus its distance
+  from its window edge, twice; a side without buttons is `0px`. On Linux the
+  trailing inset is usually the larger one. In full screen the buttons are
+  hidden and all three are `0px`. The host measures the groups one frame
+  after the window is shown, after a full screen or maximize change, and
+  after the button layout changes, and stores the values in the
+  document-start script, so a new page starts with them.
+- **`titleBarButtonInset`.** `top` is the distance from the top edge to both
+  groups, and `leading` the distance from each group's own window edge,
+  because the close button is not always at the leading edge. Without it,
+  both are 6 pixels.
+- **Drag regions.** The page script is the macOS one and sends the same
+  `window.dragRegions` call with the same limits. A click gesture and a drag
+  gesture in the capture phase of the web view hit-test a primary-button
+  press in page coordinates (divided by the zoom level). A press inside a
+  drag region and outside every excluded rectangle is claimed, so the page
+  never sees it; every other press goes to the page unchanged. Once the
+  pointer moves past the drag threshold, the host calls
+  `gdk_toplevel_begin_move`, so the window manager moves the window as from a
+  title bar. A double-click follows `gtk-titlebar-double-click`: toggle
+  maximize (the default), minimize, lower, the window menu, or nothing.
+- **`theme_color`.** With an integrated title bar there is no header bar to
+  color; the page colors the top edge.
+- **Wayland.** GTK 4 always draws client-side decorations on Wayland, so the
+  same code applies there, but it has only run on X11.
+
+Test: `linux_title_bar_tests::linux_generated_host_integrates_the_title_bar_with_insets_and_drag_regions`
+compiles the generated host and runs it under Xvfb with xfwm4. It sends real
+X11 pointer events through XTest and checks the hidden title bar and menu
+bar, the main menu button and its menus, that the page starts at the top
+edge, that the page gets the host's insets (also after a button layout
+change and after a navigation), that a press on a button inside a drag
+region and a press below it reach the page while a press in the drag region
+does not, that dragging the region moves the window by the pointer's
+distance, that a double-click maximizes and a second one restores, that full
+screen hides the buttons and zeroes the insets, and that an empty page title
+keeps the app name.

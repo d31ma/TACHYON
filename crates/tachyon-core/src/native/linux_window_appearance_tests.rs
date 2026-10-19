@@ -4,7 +4,7 @@ use super::config::WindowConfiguration;
 use super::native_display::NativeDisplay;
 use super::native_theme_color::NativeThemeColor;
 
-struct LinuxWindowAppearanceTests;
+pub(super) struct LinuxWindowAppearanceTests;
 
 impl LinuxWindowAppearanceTests {
     const SERVICE: &'static str = r"
@@ -54,7 +54,7 @@ impl AppearanceService {
     }
 
     #[cfg(target_os = "linux")]
-    fn stage(root: &std::path::Path) -> std::path::PathBuf {
+    pub(super) fn stage(root: &std::path::Path) -> std::path::PathBuf {
         let source = root.join("client/services/AppearanceService.rs");
         std::fs::create_dir_all(source.parent().expect("parent")).expect("directory");
         std::fs::write(&source, Self::SERVICE).expect("service source");

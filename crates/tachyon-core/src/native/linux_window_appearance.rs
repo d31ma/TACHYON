@@ -27,7 +27,10 @@ impl LinuxWindowAppearance {
     }
 
     fn theme_color(window: &WindowConfiguration) -> String {
-        let Some(color) = window.theme_color else {
+        let Some(color) = window
+            .theme_color
+            .filter(|_| !window.title_bar.is_integrated())
+        else {
             return String::new();
         };
         let background = Self::css_hex(color);

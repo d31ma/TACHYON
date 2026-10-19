@@ -35,7 +35,7 @@
     "web": {"reach": "honored", "how": "a theme-color meta tag in every page head"},
     "macos": {"reach": "adapted", "note": "theme_color is written into each page head, but the macOS window does not use it yet."},
     "windows": {"reach": "adapted", "note": "theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color."},
-    "linux": {"reach": "adapted", "note": "theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar."},
+    "linux": {"reach": "adapted", "note": "theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar. With titleBar \"integrated\" there is no header bar: the page colors the top edge."},
     "ios": {"reach": "adapted", "note": "theme_color is written into each page head, but the iOS status bar does not use it yet (WIN5)."},
     "android": {"reach": "adapted", "note": "theme_color is written into each page head, but the Android status bar does not use it yet (WIN5)."}
   },
@@ -175,7 +175,7 @@
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "\"integrated\" draws the page under the title bar"},
     "windows": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Windows app keeps the standard title bar (ADR 0098, WIN3)."},
-    "linux": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Linux app keeps the standard title bar (ADR 0098, WIN4)."},
+    "linux": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" lets the Linux page reach the top edge under GTK's own window buttons, with the same insets and drag regions as macOS (ADR 0098). The menu bar moves into a main menu button beside the window buttons, as in GNOME apps."},
     "ios": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The iOS app keeps the standard status bar (ADR 0098, WIN5)."},
     "android": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Android app keeps the standard status bar (ADR 0098, WIN5)."}
   },
@@ -185,7 +185,7 @@
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "moves the window buttons of an integrated title bar"},
     "windows": {"reach": "adapted", "note": "tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Windows app ignores it."},
-    "linux": {"reach": "adapted", "note": "tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Linux app ignores it."},
+    "linux": {"reach": "adapted", "note": "tac.application.window.titleBarButtonInset places the Linux window buttons: top is the distance from the top edge, and leading the distance from the window edge where each group of buttons sits, because the desktop's button layout decides which side holds the close button."},
     "ios": {"reach": "notApplicable", "note": "tac.application.window.titleBarButtonInset has no meaning on iOS: the app has no window buttons."},
     "android": {"reach": "notApplicable", "note": "tac.application.window.titleBarButtonInset has no meaning on Android: the app has no window buttons."}
   },
@@ -645,7 +645,7 @@
     "web": {"reach": "notApplicable", "note": "A browser page cannot move its window."},
     "macos": {"reach": "honored", "how": "dragging a marked element moves the window"},
     "windows": {"reach": "adapted", "note": "data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3)."},
-    "linux": {"reach": "adapted", "note": "data-tac-drag-region does nothing in the Linux app yet, because its title bar is standard (WIN4)."},
+    "linux": {"reach": "honored", "how": "with titleBar \"integrated\", dragging a marked element moves the window and a double-click follows the desktop's title bar setting"},
     "ios": {"reach": "notApplicable", "note": "An iOS app has no window to move."},
     "android": {"reach": "notApplicable", "note": "An Android app has no window to move."}
   },
