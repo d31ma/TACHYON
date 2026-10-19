@@ -19,6 +19,7 @@ class CachedClientGate {
   static languages = process.env.TAC_CACHED_CLIENT_LANGUAGES?.split(',') ?? ['js', 'ts', 'go', 'kt', 'dart', 'swift', 'fs', 'rs', 'cs', 'rb', ...(CachedClientGate.withJava ? ['java'] : [])]
   static settleTimeout = 10_000
   static settleStep = 50
+  static readyTimeout = 60_000
   static publicAnswer = 'public, max-age=600'
   static publicStamp = 0
   static settings = '{"name":"stamps","ttlMs":60000,"maxBytes":4096,"maxEntries":8}'
@@ -533,11 +534,19 @@ class JavaStampService {
     CachedClientGate.expect(after !== first, true, `${browser} js: after ClearCache the next read skips the browser HTTP cache (${first} then ${after})`)
   }
 
+  static async ready(page, name, errors) {
+    await page.waitForFunction((languages) => languages.every((language) => globalThis.__tachyonTac?.service(`${language}Stamp`)), CachedClientGate.languages, { timeout: CachedClientGate.readyTimeout })
+      .catch((error) => { throw new Error(`${name}: the stamp services did not start; page errors: ${JSON.stringify(errors)}`, { cause: error }) })
+  }
+
   static async run(project, origin, name) {
     const browser = await CachedClientGate.launchers[name].launch({ timeout: 30_000 })
     try {
       const page = await browser.newPage()
+      const errors = []
+      page.on('pageerror', (error) => errors.push(String(error)))
       await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
+      await CachedClientGate.ready(page, name, errors)
       for (const language of CachedClientGate.languages) await CachedClientGate.check(page, name, language)
       if (CachedClientGate.languages.includes('js')) await CachedClientGate.checkClearCache(page, name)
     } finally {
