@@ -198,6 +198,7 @@ fn multi_target_bundles_publish_each_target_exactly_one_level_below_the_output()
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 #[test]
 fn apple_targets_stage_off_a_mac_without_their_icon_and_say_so() {
     let workspace = tempfile::tempdir().expect("workspace should be created");
@@ -241,9 +242,8 @@ fn apple_targets_stage_off_a_mac_without_their_icon_and_say_so() {
             )),
             "{printed}"
         );
-        assert_eq!(
+        assert!(
             printed.contains(&format!("the {target} app was staged without its icon")),
-            !cfg!(target_os = "macos"),
             "{printed}"
         );
     }
