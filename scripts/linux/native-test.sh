@@ -93,6 +93,20 @@ launch_until_mounted() {
     ' launch "$@"
 }
 
+fuse_is_usable() {
+  [[ -c /dev/fuse && -r /dev/fuse && -w /dev/fuse ]] && { command -v fusermount3 >/dev/null || command -v fusermount >/dev/null; }
+}
+
+start_appimage() {
+  local appimage=$1
+  if fuse_is_usable; then
+    launch_until_mounted 'AppImage through FUSE' "$appimage"
+    return
+  fi
+  echo '==> this machine has no usable FUSE, so the AppImage extracts itself instead of mounting'
+  APPIMAGE_EXTRACT_AND_RUN=1 launch_until_mounted 'AppImage' "$appimage"
+}
+
 check_release_packages() {
   local fixture=$1
   echo '==> building the Linux release packages'
@@ -120,7 +134,7 @@ check_release_packages() {
     if grep -q '^E:' <<<"$report"; then exit 1; fi
   fi
   launch_until_mounted 'installed .deb command' "$root/usr/bin/nativegate"
-  APPIMAGE_EXTRACT_AND_RUN=1 launch_until_mounted 'AppImage' "$appimage"
+  start_appimage "$appimage"
 }
 
 reach_yon() {
