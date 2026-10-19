@@ -15,9 +15,15 @@ class WebApiGate {
   static uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
   static withJava = Boolean(process.env.TAC_TEAVM_HOME) && existsSync(process.env.TAC_TEAVM_HOME)
   static withFsharp = spawnSync('dotnet', ['--version'], { encoding: 'utf8' }).status === 0
-  static languages = ['js', 'rust', 'go', 'swift', ...(WebApiGate.withJava ? ['java'] : []), ...(WebApiGate.withFsharp ? ['fs'] : [])]
-  static everyEngineLanguages = WebApiGate.withFsharp ? ['fs'] : []
-  static otherEngines = [firefox, webkit]
+  static withCsharp = WebApiGate.withFsharp && spawnSync('dotnet', ['workload', 'list'], { encoding: 'utf8' }).stdout?.includes('wasm-tools')
+  static withKotlin = Boolean(process.env.TAC_KOTLIN_WASM_STDLIB) && existsSync(process.env.TAC_KOTLIN_WASM_STDLIB) && spawnSync('kotlinc-js', ['-version'], { encoding: 'utf8' }).status === 0
+  static languages = ['js', 'rust', 'go', 'swift', ...(WebApiGate.withJava ? ['java'] : []), ...(WebApiGate.withFsharp ? ['fs'] : []), ...(WebApiGate.withCsharp ? ['cs'] : []), ...(WebApiGate.withKotlin ? ['kt'] : [])]
+  static unitMethodLanguages = ['fs', 'cs', 'kt']
+  static ownRuntimeLanguages = ['fs', 'cs']
+  static engines = { chromium, firefox, webkit }
+  static otherEngines = (process.env.TAC_WEB_APIS_BROWSERS ?? 'firefox,webkit').split(',').filter((name) => name !== 'chromium').map((name) => WebApiGate.engines[name])
+  static aotManifest = '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"dotnet":{"aot":true},"names":{"words":["cs"]},"visibility":{"check":false}}}\n'
+  static aotNote = 'C#: .NET compiled ahead of time to WebAssembly'
   static permissions = ['clipboard-read', 'clipboard-write', 'geolocation', 'notifications']
   static position = { latitude: 48.85, longitude: 2.35 }
   static settleTimeout = 5_000
@@ -26,8 +32,121 @@ class WebApiGate {
   static napMs = 20
   static consoleLines = []
 
+  static csharpStamp = `[Service]
+public class CsStampService
+{
+    private readonly Clock clock = new();
+    private readonly SecureRandom secureRandom = new();
+    private readonly Preferences preferences = new();
+    private readonly Clipboard clipboard = new();
+    private readonly Share share = new();
+    private readonly Notifications notifications = new();
+    private readonly Geolocation geolocation = new();
+    public string Label = "cs";
+    public bool Online = false;
+    public string Scheme = "";
+    public string Pasted = "";
+    public string Permission = "";
+    public double Latitude = 0;
+    public string Failure = "";
+    public bool Shared = false;
+
+    public double Now() => clock.NowMs();
+
+    public string Zone() => clock.TimeZone();
+
+    public string Token() => secureRandom.Uuid();
+
+    public int Count() => secureRandom.Bytes(16).Length;
+
+    public string Motion() => preferences.Motion();
+
+    public string Locale() => preferences.Language();
+
+    public void Copy(string text) => clipboard.WriteText(text);
+
+    public string Attempt() => Refusal(() => clipboard.WriteText("without a click"));
+
+    public void Paste() => clipboard.ReadText();
+
+    public void Ask() => notifications.RequestPermission();
+
+    public void Tell() => share.Open("Tachyon", "Shared from a test", "https://example.com/");
+
+    public void Locate() => geolocation.CurrentPosition();
+
+    public void Forget()
+    {
+        Pasted = "";
+    }
+
+    public int Year() => System.DateTime.UtcNow.Year;
+
+    public int Roll() => new System.Random().Next(1, 7);
+
+    public void Say() => System.Console.WriteLine("cs prints to the console");
+
+    public void Nap() => System.Threading.Thread.Sleep(20);
+
+    [OnEvent({"replay":true})]
+    public void HearConnectivity(ConnectivityChanged changed)
+    {
+        Online = changed.Online;
+    }
+
+    [OnEvent({"replay":true})]
+    public void HearPreferences(PreferencesChanged changed)
+    {
+        Scheme = changed.Scheme;
+    }
+
+    [OnEvent]
+    public void HearClipboard(ClipboardTextRead read)
+    {
+        Pasted = read.Text;
+    }
+
+    [OnEvent]
+    public void HearPermission(NotificationPermissionChanged changed)
+    {
+        Permission = changed.Permission;
+    }
+
+    [OnEvent]
+    public void HearPosition(PositionFound found)
+    {
+        Latitude = found.Latitude;
+    }
+
+    [OnEvent]
+    public void HearShare(ShareFinished finished)
+    {
+        Shared = true;
+    }
+
+    [OnEvent]
+    public void HearFailure(BrowserCallFailed failed)
+    {
+        Failure = failed.Message;
+    }
+
+    private string Refusal(System.Action call)
+    {
+        try
+        {
+            call();
+            return "";
+        }
+        catch (System.InvalidOperationException refused)
+        {
+            return refused.Message;
+        }
+    }
+}
+`
+
   static files = {
-    'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js","fs"]},"visibility":{"check":false}}}\n',
+    'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js","fs","cs","kt"]},"visibility":{"check":false}}}\n',
     'client/pages/tac.html': '<stamp-index />\n',
     'client/components/stamp/index/tac.html': '<main><h1>Browser APIs</h1></main>\n',
     ...Object.fromEntries(WebApiGate.languages.flatMap((language) => [
@@ -699,10 +818,121 @@ class JavaStampService {
     }
 }
 ` } : {}),
+    ...(WebApiGate.withCsharp ? { 'client/services/CsStampService.cs': WebApiGate.csharpStamp } : {}),
+    ...(WebApiGate.withKotlin ? { 'client/services/KtStampService.kt': `@Service
+class KtStampService {
+    private val clock = Clock()
+    private val secureRandom = SecureRandom()
+    private val preferences = Preferences()
+    private val clipboard = Clipboard()
+    private val share = Share()
+    private val notifications = Notifications()
+    private val geolocation = Geolocation()
+    var label: String = "kt"
+    var online: Boolean = false
+    var scheme: String = ""
+    var pasted: String = ""
+    var permission: String = ""
+    var latitude: Double = 0.0
+    var failure: String = ""
+    var shared: Boolean = false
+
+    fun now(): Double = clock.nowMs()
+
+    fun zone(): String = clock.timeZone()
+
+    fun token(): String = secureRandom.uuid()
+
+    fun count(): Int = secureRandom.bytes(16).size
+
+    fun motion(): String = preferences.motion()
+
+    fun locale(): String = preferences.language()
+
+    fun copy(text: String) {
+        clipboard.writeText(text)
+    }
+
+    fun attempt(): String = refusal { clipboard.writeText("without a click") }
+
+    fun paste() {
+        clipboard.readText()
+    }
+
+    fun ask() {
+        notifications.requestPermission()
+    }
+
+    fun tell() {
+        share.open("Tachyon", "Shared from a test", "https://example.com/")
+    }
+
+    fun locate() {
+        geolocation.currentPosition()
+    }
+
+    fun forget() {
+        pasted = ""
+    }
+
+    @OnEvent({"replay":true})
+    fun hearConnectivity(changed: ConnectivityChanged) {
+        online = changed.online
+    }
+
+    @OnEvent({"replay":true})
+    fun hearPreferences(changed: PreferencesChanged) {
+        scheme = changed.scheme
+    }
+
+    @OnEvent
+    fun hearClipboard(read: ClipboardTextRead) {
+        pasted = read.text
+    }
+
+    @OnEvent
+    fun hearPermission(changed: NotificationPermissionChanged) {
+        permission = changed.permission
+    }
+
+    @OnEvent
+    fun hearPosition(found: PositionFound) {
+        latitude = found.latitude
+    }
+
+    @OnEvent
+    fun hearShare(finished: ShareFinished) {
+        shared = true
+    }
+
+    @OnEvent
+    fun hearFailure(failed: BrowserCallFailed) {
+        failure = failed.message
+    }
+
+    private fun refusal(call: () -> Unit): String {
+        try {
+            call()
+            return ""
+        } catch (refused: IllegalStateException) {
+            return refused.message.orEmpty()
+        }
+    }
+}
+` } : {}),
   }
 
-  static write(project) {
-    for (const [relative, contents] of Object.entries(WebApiGate.files)) {
+  static aheadOfTimeFiles = {
+    'client/manifest.json': WebApiGate.aotManifest,
+    'client/pages/tac.html': WebApiGate.files['client/pages/tac.html'],
+    'client/components/stamp/index/tac.html': WebApiGate.files['client/components/stamp/index/tac.html'],
+    'client/pages/cs/tac.html': '<stamp-cs />\n',
+    'client/components/stamp/cs/tac.html': WebApiGate.files['client/components/stamp/cs/tac.html'],
+    'client/services/CsStampService.cs': WebApiGate.csharpStamp,
+  }
+
+  static write(project, files = WebApiGate.files) {
+    for (const [relative, contents] of Object.entries(files)) {
       const file = path.join(project, relative)
       mkdirSync(path.dirname(file), { recursive: true })
       writeFileSync(file, contents)
@@ -714,6 +944,7 @@ class JavaStampService {
       encoding: 'utf8', timeout: 300_000, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
     })
     if (built.status !== 0) throw new Error(`web API fixture build failed: ${built.error?.message || built.stderr || built.stdout}`)
+    return `${built.stdout ?? ''}${built.stderr ?? ''}`
   }
 
   static handler(project) {
@@ -812,17 +1043,14 @@ class JavaStampService {
   }
 
   static async checkUnitMethod(page, language, label = language) {
+    if (!WebApiGate.unitMethodLanguages.includes(language)) return
     const answer = await page.evaluate((name) => __tachyonTac.service(`${name}Stamp`).forget() ?? null, language)
     WebApiGate.expect(answer, null, `${label}: a method that returns nothing answers nothing`)
     WebApiGate.expect(await WebApiGate.settled(page, language, 'pasted', ''), '', `${label}: a method that returns nothing still runs`)
   }
 
-  static async checkOwnLanguage(page, language) {
-    await WebApiGate.checkUnitMethod(page, language)
-    await WebApiGate.checkOwnRuntime(page, language)
-  }
-
   static async checkOwnRuntime(page, language) {
+    if (!WebApiGate.ownRuntimeLanguages.includes(language)) return
     const report = await page.evaluate((name) => {
       const service = __tachyonTac.service(`${name}Stamp`)
       service.say()
@@ -839,13 +1067,13 @@ class JavaStampService {
     WebApiGate.expect(WebApiGate.consoleLines.includes(printed), true, `${language}: console output reaches the browser console`)
   }
 
-  static async checkEngine(browserType, origin) {
+  static async checkEngine(browserType, origin, languages = WebApiGate.languages, build = '') {
     const browser = await browserType.launch({ timeout: 30_000 })
     try {
       const context = await browser.newContext({ locale: 'fr-FR', colorScheme: 'dark', reducedMotion: 'reduce' })
       const page = await context.newPage()
-      for (const language of WebApiGate.everyEngineLanguages) {
-        const label = `${browserType.name()} ${language}`
+      for (const language of languages) {
+        const label = `${browserType.name()} ${language}${build}`
         await WebApiGate.open(page, origin, language)
         await WebApiGate.check(page, language, label)
         WebApiGate.expect(await WebApiGate.read(page, language, 'motion'), 'reduce', `${label}: Preferences gives the motion setting`)
@@ -860,6 +1088,35 @@ class JavaStampService {
       }
     } finally {
       await browser.close()
+    }
+  }
+
+  static async checkAheadOfTime() {
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-web-apis-aot-'))
+    const server = createServer(WebApiGate.handler(project))
+    let browser
+    try {
+      WebApiGate.write(project, WebApiGate.aheadOfTimeFiles)
+      const output = WebApiGate.build(project)
+      WebApiGate.expect(output.includes(WebApiGate.aotNote), true, 'cs ahead of time: the release build compiles C# ahead of time to WebAssembly')
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const origin = `http://127.0.0.1:${server.address().port}`
+      browser = await chromium.launch({ timeout: 30_000 })
+      const context = await browser.newContext({ locale: 'fr-FR', colorScheme: 'dark', reducedMotion: 'reduce', geolocation: WebApiGate.position })
+      await context.grantPermissions(WebApiGate.permissions, { origin })
+      const page = await context.newPage()
+      page.on('console', (message) => WebApiGate.consoleLines.push(message.text()))
+      await WebApiGate.open(page, origin, 'cs')
+      await WebApiGate.check(page, 'cs', 'chromium cs ahead of time')
+      await WebApiGate.checkPreferences(page, context, 'cs')
+      await WebApiGate.checkPrompts(page, 'cs')
+      await WebApiGate.checkUnitMethod(page, 'cs', 'chromium cs ahead of time')
+      await WebApiGate.checkOwnRuntime(page, 'cs')
+      for (const browserType of WebApiGate.otherEngines) await WebApiGate.checkEngine(browserType, origin, ['cs'], ' ahead of time')
+    } finally {
+      await browser?.close()
+      server.close()
+      rmSync(project, { recursive: true, force: true })
     }
   }
 
@@ -885,16 +1142,16 @@ class JavaStampService {
         await WebApiGate.check(page, language)
         await WebApiGate.checkPreferences(page, context, language)
         await WebApiGate.checkPrompts(page, language)
-        if (WebApiGate.everyEngineLanguages.includes(language)) await WebApiGate.checkOwnLanguage(page, language)
+        await WebApiGate.checkUnitMethod(page, language)
+        await WebApiGate.checkOwnRuntime(page, language)
       }
-      for (const browserType of WebApiGate.otherEngines) {
-        if (WebApiGate.everyEngineLanguages.length > 0) await WebApiGate.checkEngine(browserType, origin)
-      }
+      for (const browserType of WebApiGate.otherEngines) await WebApiGate.checkEngine(browserType, origin)
     } finally {
       await browser?.close()
       server.close()
       rmSync(project, { recursive: true, force: true })
     }
+    if (WebApiGate.withCsharp) await WebApiGate.checkAheadOfTime()
   }
 }
 

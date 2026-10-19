@@ -230,3 +230,18 @@ and kept its entry once the check wrote it in Tac's format
 (`docs/SUPPORT_TIERS.md`, "Web storage across relaunch"). The iOS limit waits
 on a rerun of `scripts/ios/native-test.mjs` on the simulator with that check
 (plan item RM2). Until then, treat the iOS Cache API limit as unproven.
+
+## Amendment (2026-10-19): the three-browser storage gate after ST1, with Ruby in WebKit
+
+`scripts/storage-browser-test.mjs` ran again after the persistent-session
+change of ST1 (499a6246), in Chromium 141, Firefox 153 and WebKit 26.5
+(Playwright 1.62.1), in an x86_64 Ubuntu 24.04 cloud container with `ty`
+built from develop `d7110f74`, and again on `162064a0`. Every toolchain was
+present, so no service was
+skipped: the Ruby (mruby built with Emscripten 6.0.10), Go, Rust, C#, F#,
+Kotlin, Swift and Java services all ran in all three engines, including Ruby
+in WebKit, which had no recorded run before. All checks passed. With every
+service on its one route, the fixture page loads 3607 KB of WebAssembly, so
+its manifest now sets `tac.budgets.webassembly` to 6144 KB; the gate's own
+budget check still uses the default limits.
+

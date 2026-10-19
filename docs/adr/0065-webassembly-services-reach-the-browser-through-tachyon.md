@@ -415,3 +415,29 @@ language that gets the eight others gets it too. Unlike them, it does not
 belong to the page: `TY1317` lets a natively linked Rust, C#, F#, Swift or
 Kotlin service name it, and refuses the other eight as before. To publish
 it, `template/tac-web.js` now holds at most 11,500 bytes (it was 11,000).
+
+## Amendment (2026-10-19): C# and Kotlin rows, and every row in three engines
+
+`scripts/web-apis-browser-test.mjs` now has a C# and a Kotlin service beside
+JavaScript, Rust, Go, Swift, Java and F#. In Chromium each service passes
+the whole check: Clock, SecureRandom, Preferences and their replay
+listeners, ConnectivityChanged offline and online, the clipboard refusal
+without a user action, and the clipboard, notification, geolocation and
+share answers to its own calls. The C# service also checks its own .NET
+clock, random numbers, `Thread.Sleep` and console output, and the C# and
+Kotlin services check a method that returns nothing. Every row, not only
+F#, now also runs in Firefox and WebKit (Clock, SecureRandom, Preferences,
+the color scheme and connectivity listeners); `TAC_WEB_APIS_BROWSERS` picks
+the other engines.
+
+The gate also builds the C# service with `"tac": {"dotnet": {"aot": true}}`.
+The build note says the services were compiled ahead of time to
+WebAssembly, and the ahead-of-time page passes the same Chromium check and
+the Firefox and WebKit check.
+
+Evidence: the gate passed (332 checks) in Chromium 141, Firefox 153 and
+WebKit 26.5 (Playwright 1.62.1) in an x86_64 Ubuntu 24.04 cloud container,
+with `ty` built from develop `d7110f74`, .NET 10.0.302 with `wasm-tools`,
+Kotlin 2.1.10, TeaVM 0.15.0, the Swift 6.3.3 WebAssembly SDK and Go 1.27,
+and again on develop `162064a0`.
+

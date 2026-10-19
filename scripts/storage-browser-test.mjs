@@ -802,7 +802,7 @@ type JournalService(entries: JournalStore, converter: JournalConverter) =
 
 function writeFixture(project) {
   write(project, 'client/pages/tac.html', '<storage-page />\n');
-  write(project, 'client/manifest.json', JSON.stringify({ tac: { visibility: { check: false } } }));
+  write(project, 'client/manifest.json', JSON.stringify({ tac: { visibility: { check: false }, budgets: { webassembly: 6144 } } }));
   write(project, 'client/components/storage/page/tac.html', `<main aria-label="Storage">
   <button id="bump" on:click="storagePage.clicks += 1">bump</button>
   <button id="dark" on:click="storagePage.theme = 'dark'">dark</button>

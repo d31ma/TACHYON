@@ -440,7 +440,8 @@ no implementation, and Tachyon generates each query.
   shared in Chromium: C# from 116 KB of script and 1136 KB of WebAssembly
   to 116 KB and 1129 KB, F# from 116 KB and 1278 KB to 116 KB and 1269 KB
   (TY1337, Linux container without Binaryen). Firefox and WebKit runs are
-  owed on a machine that has them.
+  owed on a machine that has them. (Replaced: they ran on 2026-10-19; see
+  the amendment of that date on the page-program gate.)
 - The page-program gate (`scripts/page-program-browser-gate.mjs`,
   `bun run test:page-program-browser`) builds one project for each
   language: two services, `writer` and `reader`, on one page, both needing
@@ -459,7 +460,9 @@ no implementation, and Tachyon generates each query.
   116 KB of script and 1269 KB of WebAssembly). The C++ fixture
   is marked owed and skipped by default: a C++ page HTTP client does not
   call a Setup's `adapters.http` yet and ignores the `HTTPClient` options
-  (CPP3 of the queue plan).
+  (CPP3 of the queue plan). (Replaced: CPP3 landed and the fixture
+  runs by default; see the amendment of 2026-10-19 on the page-program
+  gate.)
 - Every runtime's contract test opens two contexts from one Setup, checks
   that `configure` ran once and that both contexts see the same adapter
   state, disposes one context twice, and checks that `configure` runs again
@@ -483,3 +486,18 @@ Swift. Ruby uses compiler-owned TacValues model metadata; F# uses generated
 record codecs. Native host deployment is outside this qualification. Lua
 converters came later, in both realms, with the 2026-09-30 amendment of
 ADR 0085.
+
+## Amendment (2026-10-19): the page-program gate in Firefox and WebKit
+
+`scripts/page-program-browser-gate.mjs` ran every fixture in Chromium 141,
+Firefox 153 and WebKit 26.5 (Playwright 1.62.1) in an x86_64 Ubuntu 24.04
+cloud container, with `ty` built from develop `d7110f74`. Before, only the
+Rust fixture had a recorded run in all three engines. All ten fixtures (C++,
+C#, Dart, F#, Go, Java, JavaScript, Kotlin, Rust and Swift) are `"shared"` in
+all three: both services see one Setup configuration, the reader sees the
+writer's increment, the reader's Store finds the writer's record, and no page
+threw. The C++ fixture is no longer owed (CPP3 landed), so the gate runs it by
+default. The zero-budget build reported these route sizes (TY1337, without
+Binaryen): C++ 36 KB of script and 48 KB of WebAssembly, C# 117 and 1130,
+Dart 38 and 44, F# 117 and 1271, Go 38 and 987, Java 42 and 82, JavaScript
+49 and 0, Kotlin 38 and 88, Rust 124 and 0, Swift 36 and 1059.

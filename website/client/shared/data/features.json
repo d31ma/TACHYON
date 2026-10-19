@@ -2930,7 +2930,7 @@
         },
         {
           "name": "client/services/StreamService.dart",
-          "code": "@Service\nclass StreamService {\n  @Needs\n  final TicksClient ticksClient;\n  List<Tick> ticks = [];\n\n  @OnEvent\n  void addTick(Tick tick) {\n    ticks = [...ticks.skip(ticks.length > 127 ? ticks.length - 127 : 0), tick];\n  }\n}\n"
+          "code": "@Service\nclass StreamService {\n  static const _tickLimit = 128;\n\n  @Needs\n  final TicksClient ticksClient;\n  List<Tick> ticks = [];\n\n  @OnEvent\n  void addTick(Tick tick) {\n    ticks = _latest([...ticks, tick]);\n  }\n\n  List<Tick> _latest(List<Tick> all) =>\n      all.length > _tickLimit ? all.sublist(all.length - _tickLimit) : all;\n}\n"
         },
         {
           "name": "client/models/Tick.dart",
@@ -2986,7 +2986,7 @@
         },
         {
           "name": "client/services/StreamService.cs",
-          "code": "[Service]\npublic sealed class StreamService\n{\n    private const int TickLimit = 128;\n\n    [Needs]\n    private readonly TicksClient _ticksClient;\n\n    public List<Models.Tick> Ticks = new();\n\n    [OnEvent]\n    public void AddTick(Models.Tick tick)\n    {\n        Ticks.Add(tick);\n        if (Ticks.Count > TickLimit) Ticks.RemoveRange(0, Ticks.Count - TickLimit);\n    }\n}\n"
+          "code": "[Service]\npublic sealed class StreamService\n{\n    private const int TickLimit = 128;\n\n    [Needs]\n    private readonly TicksClient _ticksClient;\n\n    public List<Models.Tick> Ticks = new();\n\n    [OnEvent]\n    public void AddTick(Models.Tick tick)\n    {\n        Ticks.Add(tick);\n        KeepLatest();\n    }\n\n    private void KeepLatest()\n    {\n        if (Ticks.Count > TickLimit) Ticks.RemoveRange(0, Ticks.Count - TickLimit);\n    }\n}\n"
         },
         {
           "name": "client/models/Tick.cs",
@@ -3298,7 +3298,7 @@
         },
         {
           "name": "client/services/ChatService.dart",
-          "code": "@Service\nclass ChatService {\n  @Needs\n  final ChatClient chatClient;\n  List<ChatMessage> messages = [];\n\n  @OnEvent\n  void addMessage(ChatMessage message) {\n    messages = [...messages.skip(messages.length > 49 ? messages.length - 49 : 0), message];\n  }\n\n  Future<void> sayHello() => chatClient.send(const ChatMessage('Hello from a tab'));\n}\n"
+          "code": "@Service\nclass ChatService {\n  static const _messageLimit = 50;\n\n  @Needs\n  final ChatClient chatClient;\n  List<ChatMessage> messages = [];\n\n  @OnEvent\n  void addMessage(ChatMessage message) {\n    messages = _latest([...messages, message]);\n  }\n\n  Future<void> sayHello() => chatClient.send(const ChatMessage('Hello from a tab'));\n\n  List<ChatMessage> _latest(List<ChatMessage> all) =>\n      all.length > _messageLimit ? all.sublist(all.length - _messageLimit) : all;\n}\n"
         },
         {
           "name": "client/models/ChatMessage.dart",
@@ -3322,7 +3322,7 @@
         },
         {
           "name": "client/services/ChatService.cs",
-          "code": "[Service]\npublic sealed class ChatService\n{\n    private const int MessageLimit = 50;\n\n    [Needs]\n    private readonly ChatClient _chatClient;\n\n    public List<Models.ChatMessage> Messages = new();\n\n    [OnEvent]\n    public void AddMessage(Models.ChatMessage message)\n    {\n        Messages.Add(message);\n        if (Messages.Count > MessageLimit) Messages.RemoveRange(0, Messages.Count - MessageLimit);\n    }\n\n    public System.Threading.Tasks.Task SayHello() => _chatClient.Send(new Models.ChatMessage(\"Hello from a tab\"));\n}\n"
+          "code": "[Service]\npublic sealed class ChatService\n{\n    private const int MessageLimit = 50;\n\n    [Needs]\n    private readonly ChatClient _chatClient;\n\n    public List<Models.ChatMessage> Messages = new();\n\n    [OnEvent]\n    public void AddMessage(Models.ChatMessage message)\n    {\n        Messages.Add(message);\n        KeepLatest();\n    }\n\n    public System.Threading.Tasks.Task SayHello() => _chatClient.Send(new Models.ChatMessage(\"Hello from a tab\"));\n\n    private void KeepLatest()\n    {\n        if (Messages.Count > MessageLimit) Messages.RemoveRange(0, Messages.Count - MessageLimit);\n    }\n}\n"
         },
         {
           "name": "client/models/ChatMessage.cs",

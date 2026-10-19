@@ -12,8 +12,13 @@ public sealed class ChatService
     public void AddMessage(Models.ChatMessage message)
     {
         Messages.Add(message);
-        if (Messages.Count > MessageLimit) Messages.RemoveRange(0, Messages.Count - MessageLimit);
+        KeepLatest();
     }
 
     public System.Threading.Tasks.Task SayHello() => _chatClient.Send(new Models.ChatMessage("Hello from a tab"));
+
+    private void KeepLatest()
+    {
+        if (Messages.Count > MessageLimit) Messages.RemoveRange(0, Messages.Count - MessageLimit);
+    }
 }
