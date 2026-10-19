@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { crc32, deflateSync } from 'node:zlib';
+import { RelaunchStorageProbe } from '../native/relaunch-storage-probe.mjs';
 
 assert.equal(process.platform, 'darwin', 'iOS qualification requires macOS and Xcode');
 class IosGate {
@@ -15,6 +16,8 @@ class IosGate {
   static deviceSet = path.join(IosGate.project, 'simulator-devices');
   static appId = 'dev.tachyon.ios-gate';
   static evidence = path.join(IosGate.repo, 'target/phase5-ios-evidence');
+  static storageProof = 'root-initial.json';
+  static cacheLimit = 'known iOS limit: WKWebView on tachyon-app keeps Cache API entries in memory only';
   static device;
 }
 
@@ -58,6 +61,7 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
   if (capability === 'companion.invoke' && request.op === 'init' && request.service && !globalThis.iosGateService) { globalThis.iosGateOwner = request.owner; globalThis.iosGateService = request.service; }
   return hostCall(capability, payload);
 };\n`);
+  write('client/shared/relaunch-storage.js', RelaunchStorageProbe.pageModule());
   write('client/shared/ios-gate.css', 'body { --ios-gate: ready; font-family: sans-serif; }\n');
   for (const [prefix, label, value] of [['', 'root', 7], ['items/_id/', 'second', 9]]) {
     const service = 'Ios' + label[0].toUpperCase() + label.slice(1) + 'Service';
@@ -69,6 +73,7 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
 <input id="name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" aria-label="Name">
 <a id="next" href="${prefix ? '/?returned=1' : '/items/7/'}">Next route</a></main>`);
     write('client/services/' + service + '.js', String.raw`import { marker, bridgedApis } from '/shared/ios-gate.js';
+import { RelaunchStorage } from '/shared/relaunch-storage.js';
 @Service()
 export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) + ';\n' + String.raw`  marker = marker;
   name = '';
@@ -94,7 +99,9 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
       await this.until(() => document.querySelector('#heading')?.textContent === this.pageLabel + ' route');
       const returned = this.pageLabel === 'root' && new URLSearchParams(location.search).has('returned');
       if (this.count !== 0) throw new Error('Native document owner state leaked');
-      if (this.pageLabel === 'root' && this.saved !== (returned ? 'kept' : '')) throw new Error('LocalState after a native method and a page load: ' + JSON.stringify({ returned, saved: this.saved, stored: Object.entries(localStorage), path: location.href }));
+      const storage = this.pageLabel === 'root' && !returned ? await RelaunchStorage.check() : 'not checked';
+      const relaunched = this.pageLabel === 'root' && !returned && !storage.startsWith('${RelaunchStorageProbe.WRITTEN}');
+      if (this.pageLabel === 'root' && this.saved !== (returned || relaunched ? 'kept' : '')) throw new Error('LocalState after a native method and a page load: ' + JSON.stringify({ returned, relaunched, saved: this.saved, stored: Object.entries(localStorage), path: location.href }));
       if (this.pageLabel === 'root' && !returned && await this.remember() !== 'kept') throw new Error('Native LocalState method');
       if (document.querySelector('#marker').textContent !== 'Shared module ready') throw new Error('Shared JS');
       await this.until(() => getComputedStyle(document.body).getPropertyValue('--ios-gate').trim() === 'ready');
@@ -145,7 +152,7 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
         doubled: await this.doubled(), nativePid: await this.processId(),
         sharedAssets: true, renderedInteraction: true, focusPreserved: true,
         routeRejected: true, duplicateRouteRejected: true, unicodeBoundaryPassed: true, clipboardBridge: true,
-        publishReceived: true, saved: this.saved });
+        publishReceived: true, saved: this.saved, storage });
       await this.record();
       if (!returned) document.querySelector('#next').click();
     } catch (error) {
@@ -305,6 +312,10 @@ function bootSimulator() {
 
 function launchApp(bundle) {
   simctl('install', IosGate.device, bundle);
+  return startApp();
+}
+
+function startApp() {
   const launch = simctl('launch', IosGate.device, IosGate.appId);
   const pid = Number(launch.match(/:\s*(\d+)\s*$/)?.[1]);
   assert.ok(Number.isSafeInteger(pid) && pid > 0, 'simctl must report the actual app PID');
@@ -348,6 +359,48 @@ function collectProofs(documents, required, pid) {
   return proofs;
 }
 
+function processRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function quitApp(pid) {
+  simctl('terminate', IosGate.device, IosGate.appId);
+  const deadline = Date.now() + 30000;
+  while (processRunning(pid) && Date.now() < deadline) await pause(100);
+  assert.ok(!processRunning(pid), 'the app process ' + pid + ' must end before it is launched again');
+}
+
+function keptStorage(result) {
+  const parts = {};
+  for (const part of result.split(',')) {
+    const [name, state] = part.split('=');
+    parts[name] = state;
+  }
+  assert.equal(parts.local, 'kept', 'the localStorage value was not kept after the app quit, got ' + result);
+  assert.equal(parts.store, 'kept', 'the IndexedDB row was not kept after the app quit, got ' + result);
+  assert.ok(['kept', 'missing'].includes(parts.cache), 'the Cache API entry is wrong after the app quit, got ' + result);
+  if (parts.cache === 'kept') return { result, cache: 'kept' };
+  return { result, cache: 'missing (' + IosGate.cacheLimit + ')' };
+}
+
+function storageResult(proofs) {
+  return proofs.find(proof => proof.file === IosGate.storageProof).proof.storage;
+}
+
+async function relaunchApp(documents, required, firstPid) {
+  await quitApp(firstPid);
+  for (const name of required) rmSync(path.join(documents, name), { force: true });
+  const pid = startApp();
+  assert.notEqual(pid, firstPid, 'the relaunch must start a new app process');
+  await waitForProofFiles();
+  return { pid, proofs: collectProofs(documents, required, pid) };
+}
+
 async function main() {
   try {
     run(process.execPath, [path.join(IosGate.repo, 'scripts/native/apple-protocol-test.mjs')], 90000);
@@ -361,14 +414,21 @@ async function main() {
     mkdirSync(IosGate.evidence, { recursive: true });
     const proofs = collectProofs(documents, required, pid);
     assert.equal(simctl('pbpaste', IosGate.device), 'tachyon ios bridge', 'the page clipboard write must reach UIPasteboard');
+    const written = storageResult(proofs);
+    assert.equal(written, RelaunchStorageProbe.WRITTEN, 'the first launch must write web storage, got ' + written);
     const screenshot = path.join(IosGate.project, 'ios-returned-root.png');
     simctl('io', IosGate.device, 'screenshot', screenshot);
     copyFileSync(screenshot, path.join(IosGate.evidence, 'ios-returned-root.png'));
+    const relaunch = await relaunchApp(documents, required, pid);
+    const storage = keptStorage(storageResult(relaunch.proofs));
+    console.log('iOS relaunch storage passed: launch ' + pid + ' ' + written + ', relaunch ' + relaunch.pid +
+      ' kept local and store; cache=' + storage.cache);
     writeFileSync(path.join(IosGate.evidence, 'report.json'), JSON.stringify({
-      runtime: runtime.version, deviceType: phone.name, binary, pid, proofs,
+      runtime: runtime.version, deviceType: phone.name, binary, pid, proofs, relaunch, storage,
     }, null, 2) + '\n');
     buildSignedApps(binary);
-    console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, clipboard bridge, shared assets, dynamic routes, isolation, and LocalState kept after a native method and a page load');
+    console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, clipboard bridge, shared assets, dynamic routes, isolation, ' +
+      'LocalState kept after a native method and a page load, and relaunch storage (local=kept, store=kept, cache=' + storage.cache + ')');
   } finally {
     cleanup();
   }

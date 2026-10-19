@@ -6,38 +6,3 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-w-app-bar {
-  display: flex;
-  padding: 18px 24px;
-  background: #dcefe4;
-  font-weight: 700;
-}
-main {
-  display: grid;
-  gap: 16px;
-  max-width: 720px;
-  padding: 24px;
-}
-button, input {
-  min-height: 44px;
-  padding: 10px 14px;
-  font: inherit;
-}
-button {
-  width: fit-content;
-  border: 0;
-  border-radius: 10px;
-  background: #176b45;
-  color: white;
-}
-output { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
-fancy-chart {
-  display: block;
-  min-height: 120px;
-  padding: 18px;
-  border: 1px solid #93b7a1;
-  border-radius: 12px;
-  background: #eef7f1;
-}
-footer { color: #53635a; }
-    

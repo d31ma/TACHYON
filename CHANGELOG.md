@@ -1472,6 +1472,27 @@ machine contracts have their own, independent major versions.
   built twice was byte-identical in the cloud; the macOS, iOS, Windows and
   Android runs are still owed (ADR 0005 amendment).
 
+- A native build with `--no-incremental` prints a note that the flag changes
+  nothing there, because native builds always rebuild the web stage.
+- Linux applications keep their web storage after they quit. The GTK host
+  used an ephemeral WebKit session, so Store rows, `@Cached` values,
+  `@LocalState` fields and `preferenceStrings` were lost on every quit. It
+  now keeps them in `$XDG_DATA_HOME/<application id>/webkit` and its HTTP
+  cache in `$XDG_CACHE_HOME/<application id>/webkit` (ADR 0059 amendment).
+  On quit, the host hides the window and gives WebKit 750 ms to save a
+  localStorage change made just before.
+- `@Cached` values are kept in the Cache API on macOS, iOS and Linux. Those
+  hosts serve the page from a private scheme, which the Cache API refuses as
+  a request URL, so every write failed without a notice and the value lived
+  in memory only. Pages that are not on `http:` or `https:` now key their
+  entries with `https://cache.tachyon.invalid`.
+- The Linux, macOS, iOS and Android host gates quit the application, start it
+  again and check that an IndexedDB row, a localStorage value and a Cache API
+  entry were kept. On iOS, WebKit does not keep Cache API entries for the
+  application's page, so an iOS `@Cached` method runs again after a relaunch;
+  on Android a Cache API entry written shortly before the system stops the
+  app is not always kept. Both gates record these limits (ADR 0059
+  amendment).
 - A C++ page program no longer traps with `RuntimeError: unreachable` when
   its code reads a `std::chrono` clock or `std::random_device`. The page's
   WASI shim now answers `clock_time_get` and `random_get`; before, the call

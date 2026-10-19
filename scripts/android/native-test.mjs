@@ -33,6 +33,12 @@ class AndroidReleaseGate {
   static signer = 'CN=Tachyon Release Gate';
 }
 
+class KeptStorage {
+  static cache = 'tachyon-cache:kept';
+  static storageCommitDelayMs = 6000;
+  static cacheLimit = 'known Android limit: a Cache API entry written shortly before am force-stop is not always kept';
+}
+
 function write(project, name, contents) {
   const file = path.join(project, name);
   mkdirSync(path.dirname(file), { recursive: true });
@@ -73,7 +79,8 @@ parent.postMessage({probe:'android-frame', exposed:!!host, result}, '*');
   for (const prefix of ['', 'items/_id/']) {
     const name = prefix ? 'Second' : 'First';
     const instance = `android${name}`;
-    write(project, `client/pages/${prefix}tac.html`, `<android-${name.toLowerCase()} />`);
+    const keptView = prefix ? '' : '<android-kept />';
+    write(project, `client/pages/${prefix}tac.html`, `<android-${name.toLowerCase()} />${keptView}`);
     write(project, `client/components/android/${name.toLowerCase()}/tac.html`, androidView(name, instance));
     write(project, `client/components/android/${name.toLowerCase()}/tac.css`, 'h1 { color: rgb(12, 34, 56); }');
     write(project, `client/services/Android${name}Service.js`, `@Service()
@@ -89,6 +96,75 @@ export default class Android${name}Service {
 `);
     write(project, `client/services/Android${name}Service.kt`, prefix ? androidSecondService() : androidFirstService());
   }
+  writeKeptStorageFixture(project);
+}
+
+function writeKeptStorageFixture(project) {
+  write(project, 'client/components/android/kept/tac.html', `<section aria-label="Kept storage">
+<p>Kept note: {androidKept.note}</p>
+<p>Kept row: {androidKept.row}</p>
+<p>Kept cache: {androidKept.cached}</p>
+<button on:click="androidKept.keep()">Keep storage</button>
+<button on:click="androidKept.read()">Read kept storage</button>
+</section>`);
+  write(project, 'client/setups/KeptSetup.js', `@Setup
+export default class KeptSetup {
+  static configure() { return {}; }
+}
+`);
+  write(project, 'client/entities/KeptNoteEntity.js', `@Entity({"adapter":"indexeddb"})
+@Table('keptNotes')
+export default class KeptNoteEntity {
+  @Id
+  id;
+  text;
+}
+`);
+  write(project, 'client/stores/KeptNoteStore.js', `@Store(KeptNoteEntity, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"KeptSetup"})
+export default class KeptNoteStore extends Repository {}
+`);
+  write(project, 'client/services/AndroidKeptService.js', androidKeptService());
+}
+
+function androidKeptService() {
+  return `@Service
+@CacheSettings({"name":"kept","ttlMs":3600000,"maxBytes":4096,"maxEntries":8})
+export default class AndroidKeptService {
+  /** @type {KeptNoteStore} */
+  @Needs
+  keptNoteStore;
+  @LocalState
+  note = '';
+  row = '';
+  cached = '';
+  _runs = 0;
+
+  async keep() {
+    this.note = this.#newNote();
+    await this.keptNoteStore.save(this.#rowFor(this.note));
+    this.cached = this.#describe(await this.stamp(this.note));
+  }
+
+  async read() {
+    this.row = this.#textOf(await this.keptNoteStore.findById(this.note));
+    this.cached = this.#describe(await this.stamp(this.note));
+  }
+
+  @Cached
+  async stamp(note) {
+    this._runs += 1;
+    return { note, runs: this._runs };
+  }
+
+  #newNote() { return 'kept-' + crypto.randomUUID(); }
+
+  #rowFor(note) { return { id: note, text: note }; }
+
+  #textOf(row) { return row ? row.text : 'missing'; }
+
+  #describe(stamped) { return \`\${stamped.note} after \${stamped.runs} run, \${this._runs} this launch\`; }
+}
+`;
 }
 
 // The first route drives every native call the gate checks, so its view binds them; the second route only counts.
@@ -161,6 +237,10 @@ async function installAndLaunch(out) {
   assert.match(packageInfo, /versionCode=5\b/, 'versionCode must be tac.application.build');
   assert.match(packageInfo, /versionName=0\.1\.0\b/, 'versionName must be tac.application.version');
   run(AndroidDevice.adb, ['shell', 'pm', 'clear', AndroidDevice.packageName]);
+  return launch();
+}
+
+async function launch() {
   run(AndroidDevice.adb, ['shell', 'am', 'start', '-W', '-n', `${AndroidDevice.packageName}/.MainActivity`]);
   let pid;
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -365,6 +445,100 @@ async function checkStoredFieldAfterReload(page, entry) {
   console.log(`PASS: Android LocalState field set by a native method on ${entry.entry} survives navigation to / and a reload`);
 }
 
+function keptSection(page) {
+  return page.getByRole('region', {name:'Kept storage'});
+}
+
+async function keptText(section, label) {
+  const text = await section.getByText(new RegExp(`^${label}: `)).textContent();
+  return text.slice(label.length + 2);
+}
+
+async function keepStorage(page) {
+  const section = keptSection(page);
+  await section.getByRole('button', {name:'Keep storage'}).click();
+  await section.getByText(/^Kept cache: .+/).waitFor();
+  const note = await keptText(section, 'Kept note');
+  assert.match(note, /^kept-[0-9a-f-]{36}$/);
+  assert.equal(await keptText(section, 'Kept cache'), `${note} after 1 run, 1 this launch`, 'The first launch runs the Cached method');
+  await page.waitForFunction(async ({ cache, note }) => {
+    const entries = await (await caches.open(cache)).keys();
+    return entries.some(entry => decodeURIComponent(entry.url).includes(note));
+  }, { cache: KeptStorage.cache, note });
+  const saved = await page.evaluate(note => Object.values(localStorage).some(value => value.includes(note)), note);
+  assert.equal(saved, true, 'LocalState wrote the note to localStorage');
+  return note;
+}
+
+function processIsRunning() {
+  const result = spawnSync(AndroidDevice.adb, ['shell', 'pidof', AndroidDevice.packageName], { encoding: 'utf8', timeout: 60000 });
+  return result.status === 0 && result.stdout.trim() !== '';
+}
+
+async function quit(pid) {
+  run(AndroidDevice.adb, ['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+  await pause(KeptStorage.storageCommitDelayMs);
+  run(AndroidDevice.adb, ['shell', 'am', 'force-stop', AndroidDevice.packageName]);
+  assert.equal(processIsRunning(), false, `The app process ${pid} must end before the relaunch`);
+}
+
+async function readKeptStorage(page) {
+  const section = keptSection(page);
+  try { await section.getByText(/^Kept note: .+/).waitFor(); }
+  catch (error) {
+    console.error('Android kept storage after relaunch:', await section.innerText(), await page.evaluate(async cache => ({
+      local: Object.fromEntries(Object.entries(localStorage)),
+      cached: (await (await caches.open(cache)).keys()).map(entry => entry.url),
+      databases: (await indexedDB.databases()).map(database => database.name),
+    }), KeptStorage.cache));
+    throw error;
+  }
+  await section.getByRole('button', {name:'Read kept storage'}).click();
+  await section.getByText(/^Kept cache: .+/).waitFor();
+  const note = await keptText(section, 'Kept note');
+  const row = await keptText(section, 'Kept row');
+  const cached = await keptText(section, 'Kept cache');
+  return { note, row, cached };
+}
+
+async function connect(pid) {
+  const port = run(AndroidDevice.adb, ['forward', 'tcp:0', `localabstract:webview_devtools_remote_${pid}`]);
+  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, {noDefaults:true});
+  const page = browser.contexts()[0].pages()[0];
+  assert.ok(page, 'Android WebView exposes a live document');
+  page.on('pageerror', error => console.error('Android page error:', error.message));
+  page.on('console', message => { if (message.type() === 'error') console.error('Android console:', message.text()); });
+  return { port, browser, page };
+}
+
+async function disconnect(connection) {
+  await connection.browser.close();
+  run(AndroidDevice.adb, ['forward', '--remove', `tcp:${connection.port}`]);
+}
+
+async function relaunchAndCheckKeptStorage(connection, pid) {
+  const note = await keepStorage(connection.page);
+  await disconnect(connection);
+  await quit(pid);
+  const relaunchedPid = await launch();
+  assert.notEqual(relaunchedPid, pid, 'The relaunch starts a new app process');
+  const relaunched = await connect(relaunchedPid);
+  try { await relaunched.page.getByRole('button', {name:'Increase count'}).waitFor(); }
+  catch (error) { console.error('Android relaunch document:', relaunched.page.url(), (await relaunched.page.content()).slice(0,4096)); throw error; }
+  const cacheKept = await relaunched.page.evaluate(async ({ cache, note }) => {
+    const entries = await (await caches.open(cache)).keys();
+    return entries.some(entry => decodeURIComponent(entry.url).includes(note));
+  }, { cache: KeptStorage.cache, note });
+  const kept = await readKeptStorage(relaunched.page);
+  assert.deepEqual({ note: kept.note, row: kept.row }, { note, row: note }, 'Relaunch keeps the IndexedDB Store row and the LocalState value');
+  const served = kept.cached === `${note} after 1 run, 0 this launch`;
+  assert.ok(served || kept.cached === `${note} after 1 run, 1 this launch`, `The Cached answer after relaunch is ${kept.cached}`);
+  const cache = !cacheKept ? `missing (${KeptStorage.cacheLimit})` : served ? 'kept and served' : 'kept, but the method ran again';
+  console.log(`Android Cache API entry after relaunch: ${cache}`);
+  console.log(`PASS: Android relaunch kept the Store row and LocalState value; Cache API entry ${cache} (process ${pid} -> ${relaunchedPid})`);
+  return { connection: relaunched, pid: relaunchedPid };
+}
+
 async function checkInputAndWriteReport(page, host, pid) {
   const input = page.getByRole('textbox', {name:'Your name'});
   await input.focus();
@@ -376,7 +550,7 @@ async function checkInputAndWriteReport(page, host, pid) {
   await page.waitForFunction(() => document.querySelector('output')?.textContent === '21');
   assert.equal(await page.evaluate(async () => JSON.parse(await globalThis.__tachyonNativeHostCall(
     'companion.invoke', JSON.stringify({route:'/',service:'androidFirst',owner:globalThis.androidGateOwner,op:'get',name:'name'}))).value), 'Ada Lovelace');
-  writeFileSync(path.join(AndroidDevice.evidence,'report.json'), JSON.stringify({target:'android',host,pid:Number(pid),runtime:await page.evaluate(() => navigator.userAgent),checks:['Kotlin compilation','live WebView','field mutation','native OS API','route isolation','route ownership rejection','opaque sandboxed srcdoc bridge absence','local subframe rejection despite spoofed origin and frame claims','foreign origin bridge absence','raw authorized main-frame call','outer and inner JSON depth64/65 budgets','native UTF8 payload budget','bounded async pending queue and navigation retirement','native publish','accessible controls','per-character input focus and DOM identity','stale service worker retirement','packaged dynamic route','dynamic route stylesheet','root-relative shared asset','LocalState after a native method and a reload']},null,2)+'\n');
+  writeFileSync(path.join(AndroidDevice.evidence,'report.json'), JSON.stringify({target:'android',host,pid:Number(pid),runtime:await page.evaluate(() => navigator.userAgent),checks:['Kotlin compilation','live WebView','field mutation','native OS API','route isolation','route ownership rejection','opaque sandboxed srcdoc bridge absence','local subframe rejection despite spoofed origin and frame claims','foreign origin bridge absence','raw authorized main-frame call','outer and inner JSON depth64/65 budgets','native UTF8 payload budget','bounded async pending queue and navigation retirement','native publish','accessible controls','per-character input focus and DOM identity','stale service worker retirement','packaged dynamic route','dynamic route stylesheet','root-relative shared asset','LocalState after a native method and a reload','relaunch keeps IndexedDB Store row and LocalState']},null,2)+'\n');
   console.log(`PASS: Android WebView and Kotlin native evidence: ${AndroidDevice.evidence}`);
 }
 
@@ -437,20 +611,14 @@ async function checkReleaseBuild(binary, project) {
 
 async function main() {
   const project = mkdtempSync(path.join(tmpdir(), 'tachyon-android-gate-'));
-  let browser;
-  let port;
+  let connection;
   try {
     writeFixture(project);
     const binary = resolveBinary();
     const { out, host } = buildAndCheckBundle(binary, project);
     const pid = await installAndLaunch(out);
-    port = run(AndroidDevice.adb, ['forward', 'tcp:0', `localabstract:webview_devtools_remote_${pid}`]);
-    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, {noDefaults:true});
-    const context = browser.contexts()[0];
-    const page = context.pages()[0];
-    page.on('pageerror', error => console.error('Android page error:', error.message));
-    page.on('console', message => { if (message.type() === 'error') console.error('Android console:', message.text()); });
-    assert.ok(page, 'Android WebView exposes a live document');
+    connection = await connect(pid);
+    const page = connection.page;
     await checkStartup(page, pid);
     const entry = await visitOnEntryPage(page);
     await checkFrameBoundaries(page);
@@ -458,15 +626,16 @@ async function main() {
     await checkNativeEvent(page);
     await checkNavigation(page);
     await checkStoredFieldAfterReload(page, entry);
-    await checkInputAndWriteReport(page, host, pid);
-    await browser.close();
-    browser = undefined;
-    run(AndroidDevice.adb, ['forward', '--remove', `tcp:${port}`]);
-    port = undefined;
+    const opened = connection;
+    connection = undefined;
+    const relaunched = await relaunchAndCheckKeptStorage(opened, pid);
+    connection = relaunched.connection;
+    await checkInputAndWriteReport(connection.page, host, relaunched.pid);
+    await disconnect(connection);
+    connection = undefined;
     await checkReleaseBuild(binary, project);
   } finally {
-    if (browser) await browser.close();
-    if (port) run(AndroidDevice.adb, ['forward', '--remove', `tcp:${port}`]);
+    if (connection) await disconnect(connection);
     spawnSync(AndroidDevice.adb, ['shell', 'am', 'force-stop', AndroidDevice.packageName], { encoding: 'utf8' });
     rmSync(project, {recursive:true,force:true});
   }

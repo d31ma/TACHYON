@@ -305,9 +305,9 @@
     "web": {"reach": "honored", "how": "offline rules in the service worker"},
     "macos": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"},
     "windows": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"},
-    "linux": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the Linux app, but the kept reads last only while the app runs: the web view session is not kept yet (ST1)."},
-    "ios": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"},
-    "android": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"}
+    "linux": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage"},
+    "ios": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the iOS app, but the kept reads last only while the app runs: WebKit does not keep Cache Storage entries of the app's page across a relaunch."},
+    "android": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the Android app, but a read kept shortly before the system stops the app is not always there after a relaunch: the web view does not always keep such Cache Storage entries."}
   },
   {
     "member": "tac.metadata",
@@ -385,7 +385,7 @@
     "web": {"reach": "honored", "how": "localStorage"},
     "macos": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
     "windows": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
-    "linux": {"reach": "adapted", "note": "preferenceStrings in the Linux app live only while the app runs: the web view does not keep storage yet (ST1)."},
+    "linux": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
     "ios": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
     "android": {"reach": "honored", "how": "the web view's localStorage, kept on disk"}
   },
@@ -695,9 +695,9 @@
     "web": {"reach": "honored", "how": "kept by the browser"},
     "macos": {"reach": "honored", "how": "kept on disk by the web view"},
     "windows": {"reach": "honored", "how": "kept on disk by the web view"},
-    "linux": {"reach": "adapted", "note": "Stored data in the Linux app is lost when the app quits: the web view session is not kept yet (ST1)."},
-    "ios": {"reach": "honored", "how": "kept on disk by the web view"},
-    "android": {"reach": "honored", "how": "kept on disk by the web view"}
+    "linux": {"reach": "honored", "how": "kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit"},
+    "ios": {"reach": "adapted", "note": "Store rows and LocalState values in the iOS app are kept on disk, but Cache API entries live only while the app runs, so a Cached method runs again after a relaunch."},
+    "android": {"reach": "adapted", "note": "Store rows and LocalState values in the Android app are kept on disk. A Cache API entry written shortly before the system stops the app is not always kept, so a Cached method may run again after a relaunch."}
   },
   {
     "member": "Content-Security-Policy",

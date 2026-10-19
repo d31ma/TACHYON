@@ -248,6 +248,7 @@ __EXTERNAL_LINK_HELPER__
 #define TACHYON_APP_NAME "__APP_NAME__"
 #define TACHYON_BUNDLE_ID "__BUNDLE_ID__"
 #define TACHYON_ENTRY_ROUTE "__ENTRY_ROUTE__"
+#define TACHYON_STORAGE_SETTLE_MS 750
 
 __DEEP_LINK_HELPER__
 
@@ -632,6 +633,14 @@ static void tachyon_on_load(WebKitWebView *view, WebKitLoadEvent event, gpointer
   }
 }
 
+static WebKitNetworkSession *tachyon_network_session(void) {
+  gchar *data = g_build_filename(g_get_user_data_dir(), TACHYON_BUNDLE_ID, "webkit", NULL);
+  gchar *cache = g_build_filename(g_get_user_cache_dir(), TACHYON_BUNDLE_ID, "webkit", NULL);
+  WebKitNetworkSession *session = webkit_network_session_new(data, cache);
+  g_free(data); g_free(cache);
+  return session;
+}
+
 static gboolean tachyon_terminate(gpointer data) {
   g_application_quit(G_APPLICATION(data));
   return G_SOURCE_CONTINUE;
@@ -677,7 +686,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   WebKitSecurityManager *security = webkit_web_context_get_security_manager(context);
   webkit_security_manager_register_uri_scheme_as_secure(security, "tachyon");
   webkit_security_manager_register_uri_scheme_as_cors_enabled(security, "tachyon");
-  WebKitNetworkSession *session = webkit_network_session_new_ephemeral();
+  WebKitNetworkSession *session = tachyon_network_session();
   WebKitUserContentManager *manager = webkit_user_content_manager_new();
   WebKitWebView *view = WEBKIT_WEB_VIEW(g_object_new(
       WEBKIT_TYPE_WEB_VIEW, "web-context", context, "network-session", session, "user-content-manager", manager, NULL));
@@ -742,9 +751,17 @@ static void tachyon_open_links(GApplication *app, GFile **files, gint count, con
   tachyon_activate(GTK_APPLICATION(app), NULL);
 }
 
+static void tachyon_settle_web_storage(void) {
+  if (g_view == NULL) return;
+  if (g_native_window != NULL) gtk_widget_set_visible(GTK_WIDGET(g_native_window), FALSE);
+  gint64 deadline = g_get_monotonic_time() + TACHYON_STORAGE_SETTLE_MS * G_TIME_SPAN_MILLISECOND;
+  while (g_get_monotonic_time() < deadline) { if (!g_main_context_iteration(NULL, FALSE)) g_usleep(10000); }
+}
+
 static void tachyon_shutdown(GApplication *app, gpointer data) {
   (void)app;
   (void)data;
+  tachyon_settle_web_storage();
   tachyon_companion_dispose();
   tachyon_application_stop();
   tachyon_record("controller.destroyed");

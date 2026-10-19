@@ -91,7 +91,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage
+  adapted: tac.cache rules apply to Yon reads in the iOS app, but the kept reads last only while the app runs: WebKit does not keep Cache Storage entries of the app's page across a relaunch.
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the iOS app.
@@ -208,7 +208,7 @@ background and foreground signal
   honored: ApplicationStateChanged when the app enters the background and when it returns to the foreground
 
 stored data (IndexedDB, Cache API, LocalState)
-  honored: kept on disk by the web view
+  adapted: Store rows and LocalState values in the iOS app are kept on disk, but Cache API entries live only while the app runs, so a Cached method runs again after a relaunch.
 
 Content-Security-Policy
   honored: the native host policy

@@ -84,6 +84,8 @@ mod linux_package_tests;
 mod linux_packages;
 #[cfg(test)]
 mod linux_page_call_tests;
+#[cfg(test)]
+mod linux_storage_tests;
 mod linux_title_bar;
 #[cfg(test)]
 mod linux_title_bar_tests;

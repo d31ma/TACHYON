@@ -91,7 +91,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage
+  adapted: tac.cache rules apply to Yon reads in the Android app, but a read kept shortly before the system stops the app is not always there after a relaunch: the web view does not always keep such Cache Storage entries.
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Android app.
@@ -208,7 +208,7 @@ background and foreground signal
   honored: ApplicationStateChanged on onStop and onStart
 
 stored data (IndexedDB, Cache API, LocalState)
-  honored: kept on disk by the web view
+  adapted: Store rows and LocalState values in the Android app are kept on disk. A Cache API entry written shortly before the system stops the app is not always kept, so a Cached method may run again after a relaunch.
 
 Content-Security-Policy
   honored: the native host policy, which also allows the host's bridge script by its hash

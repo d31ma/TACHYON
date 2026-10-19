@@ -1,4 +1,5 @@
 import { CargoArtifacts } from './cargo-artifacts.mjs'
+import { RelaunchStorageProbe } from './native/relaunch-storage-probe.mjs'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -42,6 +43,13 @@ class Phase4Evidence {
     process.env.HOME,
     `Library/Logs/Tachyon/${Phase4Evidence.bundleIdentifier}.jsonl`,
   )
+  static websiteDataFolders = [
+    join(process.env.HOME, 'Library/WebKit', Phase4Evidence.bundleIdentifier),
+    join(process.env.HOME, 'Library/Caches', Phase4Evidence.bundleIdentifier),
+  ]
+  static relaunchStoragePrefix = 'Relaunch storage: '
+  static relaunchStorageStyle =
+    'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap'
 }
 
 function run(program, commandArguments, options = {}) {
@@ -100,8 +108,89 @@ function prepareProject() {
   manifest.name = Phase4Evidence.processName
   manifest.tac.application.id = Phase4Evidence.bundleIdentifier
   writeFileSync(manifestPath, JSON.stringify(manifest))
+  writeRelaunchStorageFixture()
   mkdirSync(Phase4Evidence.evidenceDirectory, { recursive: true })
   rmSync(Phase4Evidence.lifecyclePath, { force: true })
+}
+
+function writeProjectFile(relativePath, source) {
+  const file = join(Phase4Evidence.project, relativePath)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, source)
+}
+
+function writeRelaunchStorageFixture() {
+  writeProjectFile('client/shared/relaunch-storage.js', RelaunchStorageProbe.pageModule())
+  writeProjectFile('client/services/StorageCheckService.js', `import { RelaunchStorage } from '/shared/relaunch-storage.js';
+@Service()
+export default class StorageCheckService {
+  static _PREFIX = ${JSON.stringify(Phase4Evidence.relaunchStoragePrefix)};
+  report = StorageCheckService._PREFIX + '${RelaunchStorageProbe.CHECKING}';
+  @OnStart()
+  initialize() {
+    void this._check();
+  }
+  async _check() {
+    this.report = StorageCheckService._PREFIX + await RelaunchStorage.check();
+  }
+}
+`)
+  writeProjectFile('client/components/storage/check/tac.html',
+    `<p style="${Phase4Evidence.relaunchStorageStyle}">{storageCheck.report}</p>\n`)
+  const pagePath = join(Phase4Evidence.project, 'client/pages/tac.html')
+  const page = readFileSync(pagePath, 'utf8').trimEnd()
+  writeFileSync(pagePath, `${page}\n<storage-check hydrate="load" />\n`)
+}
+
+function nativeProcessIdentifier() {
+  const identifiers = run('/usr/bin/pgrep', ['-x', Phase4Evidence.processName]).trim().split('\n')
+  assert.equal(identifiers.length, 1, `expected one ${Phase4Evidence.processName} process`)
+  return Number(identifiers[0])
+}
+
+async function readRelaunchStorage(label) {
+  return retry(label, () => {
+    const snapshot = JSON.parse(run(Phase4Evidence.helper, [Phase4Evidence.processName]))
+    const element = snapshot.elements.find(
+      (candidate) => candidate.value?.startsWith(Phase4Evidence.relaunchStoragePrefix),
+    )
+    assert.ok(element, 'the relaunch storage text is not in the Accessibility tree yet')
+    const result = element.value.slice(Phase4Evidence.relaunchStoragePrefix.length)
+    assert.notEqual(result, RelaunchStorageProbe.CHECKING, 'the page is still checking its storage')
+    return result
+  }, 200)
+}
+
+async function checkFirstLaunchStorage() {
+  const result = await readRelaunchStorage('first launch storage write')
+  assert.equal(result, RelaunchStorageProbe.WRITTEN, `the first launch must write web storage, got ${result}`)
+  return { result, processIdentifier: nativeProcessIdentifier() }
+}
+
+async function waitForNativeExit(label) {
+  await retry(label, () => {
+    const result = spawnSync('/usr/bin/pgrep', ['-x', Phase4Evidence.processName])
+    assert.notEqual(result.status, 0)
+    return true
+  }, 200)
+}
+
+async function checkRelaunchStorage(app, firstLaunch) {
+  run('/usr/bin/open', ['-n', app])
+  try {
+    const result = await readRelaunchStorage('relaunched storage read')
+    const processIdentifier = nativeProcessIdentifier()
+    assert.notEqual(processIdentifier, firstLaunch.processIdentifier, 'the relaunch must be a new process')
+    assert.equal(result, RelaunchStorageProbe.KEPT, `web storage was not kept after the app quit, got ${result}`)
+    process.stdout.write(
+      `macOS relaunch storage passed: launch ${firstLaunch.processIdentifier} ${firstLaunch.result}, ` +
+        `relaunch ${processIdentifier} read ${result}\n`,
+    )
+    return { firstLaunch, relaunch: { result, processIdentifier } }
+  } finally {
+    stopApplication()
+    await waitForNativeExit('relaunched native process termination')
+  }
 }
 
 function compileHelpers() {
@@ -357,11 +446,7 @@ function compareVisuals() {
 }
 
 async function checkLifecycle() {
-  await retry('native process termination', () => {
-    const result = spawnSync('/usr/bin/pgrep', ['-x', Phase4Evidence.processName])
-    assert.notEqual(result.status, 0)
-    return true
-  })
+  await waitForNativeExit('native process termination')
   const lifecycle = readFileSync(Phase4Evidence.lifecyclePath, 'utf8')
     .trim()
     .split('\n')
@@ -392,7 +477,9 @@ async function checkLifecycle() {
 }
 
 function writeReport(evidence) {
-  const { buildOutput, elements, nativeIndex, host, webSemantics, lifecycleEvents, accessibility, visual } = evidence
+  const {
+    buildOutput, elements, nativeIndex, host, webSemantics, lifecycleEvents, accessibility, visual, relaunchStorage,
+  } = evidence
   const report = {
     contractVersion: 1,
     target: 'macos',
@@ -404,6 +491,7 @@ function writeReport(evidence) {
     lifecycleEvents,
     interactions: accessibility.interactions,
     visual,
+    relaunchStorage,
     artifacts: {
       accessibility: {
         path: 'accessibility.json',
@@ -429,6 +517,13 @@ function writeReport(evidence) {
   )
 }
 
+function removeTemporaryData() {
+  rmSync(Phase4Evidence.temporary, { force: true, recursive: true })
+  for (const folder of Phase4Evidence.websiteDataFolders) {
+    rmSync(folder, { force: true, recursive: true })
+  }
+}
+
 async function main() {
   let browser
   let server
@@ -441,6 +536,7 @@ async function main() {
     run('/usr/bin/open', ['-n', app])
     applicationStarted = true
     const { accessibility, elements } = await checkNativeAccessibility()
+    const firstLaunch = await checkFirstLaunchStorage()
     const { nativeWidth, nativeHeight } = captureNativeWindow()
 
     server = createWebServer(output)
@@ -456,7 +552,10 @@ async function main() {
     stopApplication()
     applicationStarted = false
     const lifecycleEvents = await checkLifecycle()
-    writeReport({ buildOutput, elements, nativeIndex, host, webSemantics, lifecycleEvents, accessibility, visual })
+    const relaunchStorage = await checkRelaunchStorage(app, firstLaunch)
+    writeReport({
+      buildOutput, elements, nativeIndex, host, webSemantics, lifecycleEvents, accessibility, visual, relaunchStorage,
+    })
   } finally {
     if (browser) await browser.close()
     if (server) {
@@ -464,7 +563,7 @@ async function main() {
     }
     if (applicationStarted) stopApplication()
     if (process.env.TAC_KEEP_NATIVE_FIXTURE === '1') console.error(`Native fixture retained: ${Phase4Evidence.project}`)
-    else rmSync(Phase4Evidence.temporary, { force: true, recursive: true })
+    else removeTemporaryData()
   }
 }
 

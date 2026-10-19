@@ -50,7 +50,7 @@ only for the behavioral compatibility differential.
 | Handler process lifetime and environment | `handler/process.rs` | Spawned as a process group, never through a shell; environment denied by default; deadlines; cancellation; bounded drain settlement; descendant reaping |
 | Environment-selected Firecracker control plane | `handler/isolation.rs` | Complete policy parsing that fails closed; a fixed driver invocation contract for JavaScript/Python; prepared language artifacts rejected before spawn; bounded CPU, memory, and pool values; egress (outgoing traffic) always denied |
 | Generated output path handling | `compiler.rs`, `native/host.rs` | Output contained in the project; symlinks rejected; atomic publication |
-| Web content inside a native host | `native/{macos,ios,linux,windows,android}.rs` | Ephemeral (temporary) data store; navigation policy; no bridge of any kind |
+| Web content inside a native host | `native/{macos,ios,linux,windows,android}.rs` | Per-application web data store kept on disk for the signed-in user (ADR 0059 amendment of 2026-10-18; browser storage is not a secret store); navigation policy; no bridge of any kind |
 | Native capability surface | `CapabilityManifest` | Denied by default; `remote_content_bridge` is false |
 | Dependency supply chain | `deny.toml`, CI | Advisories, bans, licenses, sources; pinned actions; SBOM (software bill of materials); auditable binary |
 

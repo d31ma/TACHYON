@@ -367,3 +367,10 @@ install folder is read-only. The host then gives WebView2 the package's
 `LocalState\WebView2` folder as its user data folder. The event log stays
 in `%LOCALAPPDATA%\Tachyon`, which Windows redirects into the package's own
 data. An unpackaged Windows app is unchanged.
+
+## Amendment (2026-10-18): Linux web data
+
+The Linux web view no longer uses an ephemeral network session. It keeps its
+web data in `$XDG_DATA_HOME/<application id>/webkit` and its HTTP cache in
+`$XDG_CACHE_HOME/<application id>/webkit` (ADR 0059 amendment of the same
+date). The event log stays in `$XDG_STATE_HOME/tachyon`.

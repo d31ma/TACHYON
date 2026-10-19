@@ -315,6 +315,21 @@ not promote any tier.
 | Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | see the Android WebView row above |
 | Windows WebView2 | no host bridge yet (BA3) | see the per-target support table |
 
+### Web storage across relaunch (2026-10-18)
+
+ADR 0059's amendment of 2026-10-18 covers this. Each host check writes an
+IndexedDB row, a localStorage value and a Cache API entry, quits the
+application so its process ends, starts it again and reads all three back.
+This evidence does not promote any tier.
+
+| Host | Kept across relaunch | Validated |
+| --- | --- | --- |
+| Linux WebKitGTK | yes | `linux_storage_tests::linux_web_storage_is_kept_after_the_application_quits_and_starts_again` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 and ran it twice under Xvfb on WSL Ubuntu 24.04 (aarch64). The Cache API entry went through the framework's `tac-storage.js`. The page writes all three about 20 ms before the quit; without the 750 ms settle at quit the localStorage value was lost in 4 of 10 runs, with it 10 of 10 kept it. With the old ephemeral session the same test fails |
+| Android WebView | IndexedDB and localStorage yes; Cache API entries not always | `scripts/android/native-test.mjs` on an API 35 arm64 emulator (WebView Chrome 124), across `am force-stop` and a new process: a `@LocalState` field and a Store row saved and found by id were kept in every run. The `@Cached` entry, written about 6 s before the force-stop, was kept and served in 3 runs and missing from Cache Storage in 2 of the 3 runs that checked it before the read |
+| macOS WKWebView | not run | the step is in `scripts/phase4-macos-test.mjs`; the gate needs Accessibility access for the process that runs it |
+| iOS WKWebView (simulator) | IndexedDB and localStorage yes; Cache API entries no | `scripts/ios/native-test.mjs` on an iPhone SE (3rd generation) simulator with iOS 26.5 (Xcode 27.1): a real terminate, a new process, and the row and value read back. The cache name came back with no entries, and WebKit wrote no record file for it before the quit |
+| Windows WebView2 | not run | WebView2 keeps its data in `<App>.exe.WebView2` (ADR 0097); pages need an interactive desktop session |
+
 ## Historical Phase 5 Native Target Status
 
 **Reconciliation notice (2026-08-30):**

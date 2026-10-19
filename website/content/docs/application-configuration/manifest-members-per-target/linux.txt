@@ -91,7 +91,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  adapted: tac.cache rules apply to Yon reads in the Linux app, but the kept reads last only while the app runs: the web view session is not kept yet (ST1).
+  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Linux app.
@@ -115,7 +115,7 @@ tac.browserApis geolocation
   honored: the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages
 
 tac.browserApis preferenceStrings
-  adapted: preferenceStrings in the Linux app live only while the app runs: the web view does not keep storage yet (ST1).
+  honored: the web view's localStorage, kept on disk
 
 tac.nativeCapabilities
   adapted: tac.nativeCapabilities filePicker is not built for Linux yet. FilePicker answers unsupported (FP3).
@@ -208,7 +208,7 @@ background and foreground signal
   honored: ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again
 
 stored data (IndexedDB, Cache API, LocalState)
-  adapted: Stored data in the Linux app is lost when the app quits: the web view session is not kept yet (ST1).
+  honored: kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit
 
 Content-Security-Policy
   honored: the native host policy

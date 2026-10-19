@@ -176,3 +176,45 @@ Tests: `scripts/runtime-browser-test.mjs` (a native field set by a method
 survives a reload and is read at `/stored/index.html`), and the iOS simulator
 gate `scripts/ios/native-test.mjs` (the root route's field set by a Swift
 method is read again after the app navigates away and back).
+
+## Amendment (2026-10-18): native hosts keep web storage across relaunch
+
+- The Linux host now gives its web view a persistent WebKit network session.
+  WebKit keeps the application's IndexedDB, localStorage and Cache Storage in
+  `$XDG_DATA_HOME/<application id>/webkit` and its HTTP cache in
+  `$XDG_CACHE_HOME/<application id>/webkit` (`~/.local/share` and `~/.cache`
+  when the variables are unset). Before, the session was ephemeral, so Store
+  rows, `@Cached` values, `@LocalState` fields and `preferenceStrings` were
+  lost when the application quit. The application id is the
+  `tac.application.id` from the manifest, so two applications never share
+  data.
+- WebKitGTK saves a localStorage change to disk a moment after the write,
+  and its helper processes end with the application. A value written just
+  before a quit was lost in 4 of 10 runs. So when the Linux application
+  quits, the host hides its window and keeps WebKit running for 750 ms
+  before it stops the services. IndexedDB rows and Cache API entries were
+  already on disk when their writes finished.
+- The Cache API accepts only `http:` and `https:` request URLs. The macOS,
+  iOS and Linux hosts serve the page from a private scheme (`tachyon-app:`
+  and `tachyon:`), so every `cache.put` failed there and a `@Cached` value
+  lived in memory only, without a notice. The runtime now keys a cache entry
+  with `https://cache.tachyon.invalid` when the page is not on `http:` or
+  `https:`. The key is only a name inside the page's own Cache Storage, which
+  WebKit still separates by the page's origin; nothing is fetched from it.
+  Pages on `http:` and `https:` keep their own origin as the key, so entries
+  already written in a browser stay valid.
+- Every host gate now quits the application, starts it again and reads back
+  an IndexedDB row, a localStorage value and a Cache API entry written before
+  the quit.
+- On iOS the default data store does not keep Cache API entries for the
+  `tachyon-app:` page, which corrects the claim above for iOS. On the iOS 26.5
+  simulator the cache's name is kept but its entries are not: WebKit writes
+  no record file for them. So after a relaunch an iOS `@Cached` method runs
+  again, as in a non-persistent WebKit store. Store rows and `@LocalState`
+  fields are kept. The iOS gate records this limit and fails only if a row or
+  a localStorage value is lost.
+- On Android, Store rows and `@LocalState` fields survive `am force-stop`.
+  A Cache API entry written about 6 s before the force-stop was missing
+  after the relaunch in 2 of the 3 runs that checked it, so a `@Cached`
+  method may run again after the system stops the app. The Android gate
+  records this and fails only if a row or a localStorage value is lost.

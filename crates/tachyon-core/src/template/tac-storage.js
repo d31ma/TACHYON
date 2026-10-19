@@ -7,6 +7,7 @@ class TacCacheStorage {
   static pathPrefix = '/.tachyon/cache/'
   static expiresHeader = 'x-tachyon-expires-at'
   static usedHeader = 'x-tachyon-used-at'
+  static nativeKeyOrigin = 'https://cache.tachyon.invalid'
   static maxPreloadEntries = 10000
   static memory = new Map()
   static adapters = new Map()
@@ -127,9 +128,13 @@ class TacCacheStorage {
     } finally { TacCacheStorage.draining = null }
   }
 
+  static keyOrigin() {
+    return ['http:', 'https:'].includes(location.protocol) ? location.origin : TacCacheStorage.nativeKeyOrigin
+  }
+
   static async persist({ name, key, entry }) {
     const cache = await caches.open(`${TacCacheStorage.namePrefix}${name}`)
-    const url = new URL(`${TacCacheStorage.pathPrefix}${encodeURIComponent(name)}/${encodeURIComponent(key)}`, location.origin)
+    const url = new URL(`${TacCacheStorage.pathPrefix}${encodeURIComponent(name)}/${encodeURIComponent(key)}`, TacCacheStorage.keyOrigin())
     if (!entry) { await cache.delete(url); return }
     await cache.put(url, new Response(JSON.stringify(entry.value), {
       headers: {
