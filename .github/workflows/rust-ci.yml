@@ -119,7 +119,10 @@ jobs:
           key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
 
       - name: Install the pinned TypeScript compiler for tac.ts emission
-        run: npm install --no-save typescript@7.0.2 && npx tsc --version
+        shell: bash
+        run: |
+          npm install --no-save typescript@7.0.2 && npx tsc --version
+          echo "${GITHUB_WORKSPACE}/node_modules/.bin" >> "${GITHUB_PATH}"
 
       - name: Install Go for Go Yon handlers and Go web services
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
@@ -154,9 +157,9 @@ jobs:
           coverage: none
           tools: none
 
-      - name: Install checksum-pinned Groovy, Kotlin, Dart, Lua, Pyodide and cargo-nextest
+      - name: Install checksum-pinned Groovy, Kotlin, the Kotlin/Wasm stdlib, Dart, Lua, Pyodide, TeaVM and cargo-nextest
         shell: bash
-        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin dart lua pyodide nextest
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin kotlin-wasm dart lua pyodide teavm nextest
 
       - name: Show tool versions
         shell: bash
@@ -1124,8 +1127,8 @@ jobs:
           coverage: none
           tools: none
 
-      - name: Install checksum-pinned Groovy, Kotlin, Lua and Pyodide
-        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin lua pyodide
+      - name: Install checksum-pinned Groovy, Kotlin, the Kotlin/Wasm stdlib, Lua, Pyodide and TeaVM
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin kotlin-wasm lua pyodide teavm
 
       - name: Run the library suite under AddressSanitizer
         run: >-
@@ -1322,7 +1325,10 @@ jobs:
         run: dotnet workload install wasm-tools wasm-tools-net9
 
       - name: Install the pinned TypeScript compiler for tac.ts emission
-        run: npm install --no-save typescript@7.0.2 && npx tsc --version
+        shell: bash
+        run: |
+          npm install --no-save typescript@7.0.2 && npx tsc --version
+          echo "${GITHUB_WORKSPACE}/node_modules/.bin" >> "${GITHUB_PATH}"
 
       - name: Install PHP and php-cgi for PHP Yon handlers
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -1331,8 +1337,8 @@ jobs:
           coverage: none
           tools: none
 
-      - name: Install checksum-pinned Groovy, Kotlin, Dart, Lua, Pyodide and cargo-nextest
-        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin dart lua pyodide nextest
+      - name: Install checksum-pinned Groovy, Kotlin, the Kotlin/Wasm stdlib, Dart, Lua, Pyodide, TeaVM and cargo-nextest
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin kotlin-wasm dart lua pyodide teavm nextest
 
       - name: Install pinned coverage tool
         run: cargo install cargo-llvm-cov --version 0.8.6 --locked

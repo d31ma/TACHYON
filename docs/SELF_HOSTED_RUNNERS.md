@@ -198,16 +198,16 @@ run" lists what the machine must already have.
 | Ruby | `4.0.6` | `ruby/setup-ruby` | a writable hosted tool-cache path (see each machine) |
 | Go | `1.27` | `actions/setup-go` | nothing |
 | .NET | `10.0.302` with workloads `wasm-tools` and `wasm-tools-net9` | `actions/setup-dotnet`, then `dotnet workload install` | `DOTNET_INSTALL_DIR` set to a folder the runner account owns |
-| TypeScript | `7.0.2` | `npm install --no-save` | nothing |
+| TypeScript | `7.0.2` | `npm install --no-save`, then `node_modules/.bin` on `PATH` for the tests' own projects | nothing |
 | Emscripten | the `emsdk` and `emscripten` lines in `runtimes/ruby-web/sources.txt` | `scripts/ci/install-emscripten.mjs` | Python on `PATH` |
 | CHEX, FYLO | checksum pins in `scripts/ci/` | `scripts/ci/install-chex.mjs`, `scripts/ci/install-fylo.mjs` | nothing |
 | JDK | 21 | preinstalled, read from `JAVA_HOME_21_arm64` (macOS) or `JAVA_HOME_21_X64` (Linux, Windows) | a JDK 21 and the matching variable in `.env` |
-| Kotlin, Kotlin/Wasm stdlib | `2.1.10` | checksum-pinned download (`macos-native`), `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip`, `shasum` |
+| Kotlin, Kotlin/Wasm stdlib | `2.1.10` | checksum-pinned download (`macos-native`), `scripts/ci/install-toolchains.mjs` with `kotlin kotlin-wasm`, which sets `TAC_KOTLIN_WASM_STDLIB` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip`, `shasum` |
 | Groovy | `5.1.3` | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip` |
 | Pyodide | `314.0.7` core files, copied into the Tachyon cache | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `tar` with bzip2 |
 | Dart | `3.13.1` | checksum-pinned download, or `scripts/ci/install-toolchains.mjs` (`native`, `coverage`) | `curl`, `unzip` |
 | Swift | `6.3.3` and the Swift SDK for WebAssembly | signed package installed into the runner account's home (macOS) | nothing |
-| TeaVM | `0.15.0` | checksum-pinned jars (macOS) | nothing |
+| TeaVM | `0.15.0` | checksum-pinned jars (macOS), `scripts/ci/install-toolchains.mjs` sets `TAC_TEAVM_HOME` (`native`, `coverage`, `sanitizers`) | `curl` |
 | PHP | `8.4` | `shivammathur/setup-php` (`macos-native`, `native`, `coverage`, `sanitizers`) | Homebrew that the runner account can use; `runner=self-hosted` in `.env` |
 | Lua | the `lua` line in `runtimes/lua-web/sources.txt` | built from source with `make`; on Windows `scripts/ci/install-toolchains.mjs` compiles it with `gcc` or `clang` | `make` and a C compiler |
 | Playwright browsers | Chromium, Firefox, WebKit from the locked `bun.lock` | `bunx playwright install` (`--with-deps` on Linux uses `sudo apt-get`) | on Linux, passwordless `sudo` (see WSL) |

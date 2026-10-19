@@ -23,6 +23,8 @@ machine contracts have their own, independent major versions.
   pinned Pyodide. The storage harness qualifies SQL Server 2022 with forced
   TLS next to PostgreSQL, MySQL, MariaDB and Redis, and its new
   `--without-docker` mode runs FYLO on macOS and Windows and Redis on macOS.
+  The installer also places TeaVM 0.15.0 and the Kotlin/Wasm stdlib for the
+  Tac Java and Kotlin tests, and the jobs put the pinned `tsc` on `PATH`.
   A `jobs` input on `workflow_dispatch` runs only the named jobs. A FYLO
   datasource on Windows now accepts a drive root such as
   `fylo:///C:/data/catalog`.
@@ -1641,6 +1643,10 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- A Rust Yon handler that fails to compile names the model file at fault
+  again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
+  Tachyon now builds handlers with plain cargo output.
 
 - A Groovy Yon class with `Convert` mappings compiles again. The generated
   mapping table used Java nested array braces, which Groovy 4 refuses.

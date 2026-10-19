@@ -1671,6 +1671,7 @@ impl RustPackages {
         }
         let mut command = compiler_command("cargo", &arguments, Some(workspace));
         command.env("CARGO_TARGET_DIR", target);
+        command.env("CARGO_TERM_COLOR", "never");
         command.env_remove("RUSTFLAGS");
         command.env_remove("CARGO_BUILD_TARGET");
         command

@@ -66,9 +66,26 @@ class LanguageToolchains {
     files: ['pyodide.mjs', 'pyodide.asm.mjs', 'pyodide.asm.wasm', 'python_stdlib.zip', 'pyodide-lock.json'],
   };
 
+  static teaVm = {
+    url: 'https://repo1.maven.org/maven2/org/teavm',
+    version: '0.15.0',
+    jars: [
+      ['cli', 'cli-0.15.0-all.jar', 'c6a1ecb81dd90b66985ac7b0f09db55bec2076fa024428c7fe72b800b6b48cae'],
+      ['teavm-classlib', 'teavm-classlib-0.15.0.jar', '7d805be4670a892a34c89d9d750a8afd65e2f8201b7b3a10343634ea19d1c410'],
+      ['teavm-jso-impl', 'teavm-jso-impl-0.15.0.jar', '9a8d15205807b70d7efdfbd4c1356304954e20146e464aec3830dbc6616ef57c'],
+      ['teavm-metaprogramming-impl', 'teavm-metaprogramming-impl-0.15.0.jar', '616d30aa28f7b0180a61c2289b11c77bf84c715bd79f255e1e42400edb5b6d70'],
+      ['teavm-platform', 'teavm-platform-0.15.0.jar', '999d369ab15aa83c17987d048ba59560759169891de7e13a5a1c2bd93dd060a8'],
+    ],
+  };
+
+  static kotlinWasmStdlib = {
+    url: 'https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-wasm-js/2.1.10/kotlin-stdlib-wasm-js-2.1.10.klib',
+    sha256: 'db9ab6772a2d3af9121d570a058cc64cf36893e1c089726b799b4d1252184ca2',
+  };
+
   static luaSources = 'runtimes/lua-web/sources.txt';
 
-  static usage = 'Usage: node scripts/ci/install-toolchains.mjs <directory> <groovy|kotlin|dart|lua|pyodide|nextest>...';
+  static usage = 'Usage: node scripts/ci/install-toolchains.mjs <directory> <groovy|kotlin|kotlin-wasm|dart|lua|pyodide|nextest|teavm>...';
 
   /** @param {string} url @param {string} file @param {string} sha256 */
   static download(url, file, sha256) {
@@ -106,6 +123,31 @@ class LanguageToolchains {
     const archive = LanguageToolchains.platformArchives[name][LanguageToolchains.platform];
     if (!archive) throw new Error(`No pinned ${name} build for ${LanguageToolchains.platform}`);
     LanguageToolchains.installArchive(directory, name, archive);
+  }
+
+  /** @param {string} name @param {string} value */
+  static setEnvironment(name, value) {
+    if (process.env.GITHUB_ENV) appendFileSync(process.env.GITHUB_ENV, `${name}=${value}\n`);
+    console.log(`${name}=${value}`);
+  }
+
+  /** @param {string} directory */
+  static installTeaVm(directory) {
+    const { url, version, jars } = LanguageToolchains.teaVm;
+    const into = join(directory, 'teavm');
+    mkdirSync(into, { recursive: true });
+    for (const [artifact, jar, sha256] of jars) LanguageToolchains.download(`${url}/${artifact}/${version}/${jar}`, join(into, jar), sha256);
+    LanguageToolchains.setEnvironment('TAC_TEAVM_HOME', into);
+  }
+
+  /** @param {string} directory */
+  static installKotlinWasmStdlib(directory) {
+    const { url, sha256 } = LanguageToolchains.kotlinWasmStdlib;
+    const into = join(directory, 'kotlin-wasm');
+    mkdirSync(into, { recursive: true });
+    const file = join(into, url.split('/').pop() ?? 'kotlin-stdlib-wasm-js.klib');
+    LanguageToolchains.download(url, file, sha256);
+    LanguageToolchains.setEnvironment('TAC_KOTLIN_WASM_STDLIB', file);
   }
 
   static cacheRoot() {
@@ -184,6 +226,8 @@ class LanguageToolchains {
       nextest: () => LanguageToolchains.installPlatformArchive(directory, 'nextest'),
       lua: () => LanguageToolchains.installLua(directory),
       pyodide: () => LanguageToolchains.installPyodide(directory),
+      teavm: () => LanguageToolchains.installTeaVm(directory),
+      'kotlin-wasm': () => LanguageToolchains.installKotlinWasmStdlib(directory),
     };
     for (const tool of tools) {
       const install = installers[tool];
