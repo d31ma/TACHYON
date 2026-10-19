@@ -520,6 +520,34 @@ The Python Tac gate already ran in all three engines (ADR 0093). A container
 run is not a desktop browser install, and Safari itself was not run; WebKit
 stands in for it.
 
+### Yon handlers on Windows (2026-10-19, WY1)
+
+On Windows 11 ARM64 (IYOR-Surface, over SSH, commit 3d264ff3), with clang++
+21.1.8, Temurin 21, Kotlin 2.1.10, Groovy 5.1.3, Dart 3.13.4, PHP 8.4.20,
+Lua 5.4.6 and Go 1.27.1 on PATH:
+
+- `yon_cpp*` (C++ Yon handlers: typed routes, settings, services and stores,
+  sockets, streams, a scheduled worker, answers, errors, the HTTP client): 21
+  of 22 passed, the same as develop d7110f74. C++ and Rust handlers are now
+  compiled to a `.exe`. The one failure is
+  `yon_cpp_outbound::a_cpp_gateway_calls_a_command_and_sees_only_fixed_failures`:
+  its gateway runs `python3`, which on that machine is the Microsoft Store
+  alias (exit 9009), not Tachyon.
+- `controller_languages`: Groovy, Kotlin, PHP, Lua, Dart, Java, C#, F#, Ruby,
+  Rust and Go controllers bound arguments and models and answered. Python
+  skipped for the same `python3` alias.
+- `outgoing_loopback`: Java, Kotlin, Dart, Go and JavaScript handlers got
+  `403` from the outgoing guard for an unlisted loopback port, and the Java,
+  Kotlin and Dart handlers reached a listed `api.localhost` through it (ADR
+  0094 amendment of 2026-10-19). Before that change Java and Kotlin skipped
+  the guard.
+- `handler::source` unit tests: 60 passed.
+
+Kotlin and Groovy ship only `.bat` launchers on Windows; Tachyon's runtime
+already ran them through the JVM, but the tests probed for them by name and
+skipped. The probes now ask `cmd`. Windows CI still installs none of PHP,
+Groovy, Kotlin, Dart or Lua (CI1).
+
 ## Historical Phase 5 Native Target Status
 
 **Reconciliation notice (2026-08-30):**

@@ -136,3 +136,5 @@ reqwest, Dart, Java, Kotlin and Groovy default clients all reach
 operating system resolver. `tests/it/outgoing_loopback.rs` checks Java,
 Kotlin and Dart both ways: an unlisted loopback port gets `403`, and a listed
 `api.localhost` is reached.
+It passed on Linux in the cloud and on Windows 11 ARM64 (2026-10-19, see
+`docs/SUPPORT_TIERS.md`, "Yon handlers on Windows").
