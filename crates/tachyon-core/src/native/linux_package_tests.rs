@@ -9,6 +9,8 @@ struct LinuxPackageTests {
     workspace: tempfile::TempDir,
 }
 
+// The package runs are Linux-only; elsewhere only the version check uses these helpers.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 impl LinuxPackageTests {
     const MANIFEST: &'static str = r#"{"name":"Package Gate","description":"Checks the Linux packages.","start_url":"/","icons":[{"src":"/shared/icon-256.png","sizes":"256x256","type":"image/png"}],"tac":{"application":{"id":"dev.tachyon.package-gate","version":"0.0.1","build":7}}}"#;
     const FILES: [(&'static str, &'static str); 3] = [
