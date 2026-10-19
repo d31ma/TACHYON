@@ -48,6 +48,7 @@ impl WindowService {
     }
 }
 ";
+    #[cfg(target_os = "linux")]
     const ALL_GRANTS: [&'static str; 6] = [
         "title",
         "resize",
@@ -145,6 +146,7 @@ return 'title=' + controls.granted('title') + ',close=' + controls.granted('clos
             .replace("__PAGE_EXPECTED__", Self::PAGE_EXPECTED)
     }
 
+    #[cfg(target_os = "linux")]
     fn granted_window() -> WindowConfiguration {
         WindowConfiguration {
             controls: Self::ALL_GRANTS.map(String::from).to_vec(),

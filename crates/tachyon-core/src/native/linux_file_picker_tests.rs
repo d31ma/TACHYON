@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 struct LinuxFilePickerTests;
 
 impl LinuxFilePickerTests {
+    #[cfg(target_os = "linux")]
     const NOTES: &'static str = "Quarterly notes é漢";
+    #[cfg(target_os = "linux")]
     const DATA: &'static str = "{\"rows\":3}";
     const SERVICE: &'static str = r#"
 #[Service]
@@ -77,6 +79,7 @@ return 'pick=' + (await send('call', 'pick', [])).value;";
             .expect("native Rust source")
     }
 
+    #[cfg(target_os = "linux")]
     fn choices(folder: &Path) {
         Self::write(&folder.join("notes.txt"), Self::NOTES.as_bytes());
         Self::write(&folder.join("data.json"), Self::DATA.as_bytes());
@@ -112,6 +115,7 @@ return 'pick=' + (await send('call', 'pick', [])).value;";
         Self::PAGE_SCRIPT.replace("__PAGE_RUNTIME__", &runtime)
     }
 
+    #[cfg(target_os = "linux")]
     fn folder() -> PathBuf {
         std::env::temp_dir().join(format!("ty-picker-{}", std::process::id()))
     }
