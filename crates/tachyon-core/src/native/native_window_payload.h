@@ -45,8 +45,8 @@ static int tachyon_window_hex(const char *json, size_t *index, uint32_t *value) 
   return 1;
 }
 
-static int tachyon_window_title(const char *json, uint16_t *output, size_t capacity) {
-  size_t index = tachyon_window_field(json, "title"), used = 0;
+static int tachyon_window_text(const char *json, const char *key, uint16_t *output, size_t capacity) {
+  size_t index = tachyon_window_field(json, key), used = 0;
   if (!index || json[index++] != '"') return 0;
   for (; json[index] != '"';) {
     uint32_t code = (unsigned char)json[index++];

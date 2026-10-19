@@ -364,7 +364,7 @@
     "paths": ["tac.application.permissions"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist; a release build also gets the location entitlement"},
-    "windows": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Windows app: Windows asks without a reason from the app."},
+    "windows": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Windows app: the Windows location and notification settings decide, without a reason from the app."},
     "linux": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Linux app: it shows no permission prompt of its own, and GeoClue and the desktop settings decide location and notifications."},
     "ios": {"reach": "honored", "how": "NSLocationWhenInUseUsageDescription in Info.plist"},
     "android": {"reach": "honored", "how": "the rationale Android shows before it asks again for location or notifications, and the name of the notification channel"}
@@ -384,7 +384,7 @@
     "paths": ["tac.browserApis[clipboard]"],
     "web": {"reach": "honored", "how": "navigator.clipboard"},
     "macos": {"reach": "runOwed", "how": "NSPasteboard through the host bridge (browserApi.clipboard)", "run": "native_browser_api_host_tests on a Mac"},
-    "windows": {"reach": "adapted", "note": "clipboard in the Windows app uses the web view's navigator.clipboard, and no host test checks it yet (BA3)."},
+    "windows": {"reach": "runOwed", "how": "the Windows clipboard through the host bridge (browserApi.clipboard), tested under Wine", "run": "a page's clipboard round trip in WebView2 on a signed-in Windows desktop (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps"},
     "ios": {"reach": "honored", "how": "UIPasteboard through the host bridge (browserApi.clipboard)"},
     "android": {"reach": "runOwed", "how": "ClipboardManager, through the host bridge", "run": "the clipboard round trip of scripts/android/browser-apis-test.mjs on the emulator, which timed out at its geolocation step in its only run"}
@@ -394,7 +394,7 @@
     "paths": ["tac.browserApis[share]"],
     "web": {"reach": "honored", "how": "navigator.share"},
     "macos": {"reach": "runOwed", "how": "NSSharingServicePicker through the host bridge (browserApi.share)", "run": "the share picker opened from a page on a Mac, checked by hand"},
-    "windows": {"reach": "adapted", "note": "share in the Windows app uses the web view's navigator.share, and no host test checks it yet (BA3)."},
+    "windows": {"reach": "adapted", "note": "share in the Windows app opens the Windows share sheet for the app window (browserApi.share). ShareFinished arrives when the sheet opens, because Windows does not tell the app whether the user shared. A run of the share sheet on a signed-in Windows desktop is still owed (SD1)."},
     "linux": {"reach": "adapted", "note": "Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard."},
     "ios": {"reach": "runOwed", "how": "UIActivityViewController through the host bridge (browserApi.share)", "run": "the share sheet opened from a page on the iOS simulator, checked by hand"},
     "android": {"reach": "adapted", "note": "share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared. A run of the share sheet on the emulator is still owed."}
@@ -404,7 +404,7 @@
     "paths": ["tac.browserApis[notifications]"],
     "web": {"reach": "honored", "how": "the Notification API"},
     "macos": {"reach": "runOwed", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front", "run": "the permission prompt and a notification on a Mac, checked by hand"},
-    "windows": {"reach": "adapted", "note": "notifications in the Windows app use the web view's Notification API. The host asks for no permission yet (BA3)."},
+    "windows": {"reach": "adapted", "note": "notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package on a signed-in Windows desktop is still owed (SD1)."},
     "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A run with a desktop notification server is still owed."},
     "ios": {"reach": "runOwed", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front", "run": "the permission prompt and a banner on the iOS simulator, checked by hand"},
     "android": {"reach": "runOwed", "how": "NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications", "run": "the POST_NOTIFICATIONS question and a posted notification in scripts/android/browser-apis-test.mjs on the emulator"}
@@ -414,7 +414,7 @@
     "paths": ["tac.browserApis[geolocation]"],
     "web": {"reach": "honored", "how": "navigator.geolocation"},
     "macos": {"reach": "runOwed", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions", "run": "the location prompt with the manifest reason on a Mac, checked by hand"},
-    "windows": {"reach": "adapted", "note": "geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3)."},
+    "windows": {"reach": "runOwed", "how": "the web view's navigator.geolocation and the Windows location service, allowed by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied", "run": "a page's position in WebView2 on a signed-in Windows desktop (SD1)"},
     "linux": {"reach": "runOwed", "how": "the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages", "run": "GeoClue on WSL or a Linux desktop; the Xvfb run used a WebKit test position"},
     "ios": {"reach": "runOwed", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions", "run": "the location prompt with the manifest reason on the iOS simulator, checked by hand"},
     "android": {"reach": "runOwed", "how": "the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient", "run": "the ACCESS_FINE_LOCATION question and a test-provider position in scripts/android/browser-apis-test.mjs on the emulator"}

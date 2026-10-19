@@ -12,6 +12,7 @@ pub(super) struct BrowserApiPermissions {
 
 impl BrowserApiPermissions {
     const ASKING_APIS: [&'static str; 2] = ["geolocation", "notifications"];
+    const HOST_CHECKED: [&'static str; 4] = ["clipboard", "geolocation", "notifications", "share"];
     const MOST_CHARACTERS: usize = 200;
     const REQUIRED: [(&'static str, NativeTarget); 4] = [
         ("geolocation", NativeTarget::Ios),
@@ -64,6 +65,15 @@ impl BrowserApiPermissions {
             .iter()
             .filter_map(|api| self.usage(api).map(|text| Self::android_string(api, text)))
             .collect()
+    }
+
+    pub(super) fn c_grant_checks(&self) -> String {
+        let checks: Vec<String> = Self::HOST_CHECKED
+            .iter()
+            .filter(|api| self.is_granted(api))
+            .map(|api| format!("if (strcmp(api, \"{api}\") == 0) return TRUE;"))
+            .collect();
+        checks.join("\n  ")
     }
 
     fn plist_entries(keys: &[&str], text: &str) -> String {

@@ -23,7 +23,10 @@ impl BrowserApiBridge {
             NativeTarget::Android,
             &["clipboard", "share", "notifications"],
         ),
-        (NativeTarget::Windows, &[]),
+        (
+            NativeTarget::Windows,
+            &["clipboard", "share", "notifications"],
+        ),
         (NativeTarget::Linux, &["share", "notifications"]),
     ];
 
@@ -108,7 +111,11 @@ mod tests {
             ),
             (
                 NativeTarget::Windows,
-                super::super::windows::host_source().to_owned(),
+                [
+                    super::super::windows::host_source(),
+                    super::super::windows_browser_apis::WindowsBrowserApis::SOURCE,
+                ]
+                .concat(),
             ),
             (
                 NativeTarget::Linux,
@@ -126,8 +133,11 @@ mod tests {
 
     #[test]
     fn the_page_list_is_a_javascript_array_of_names() {
-        assert_eq!(BrowserApiBridge::page_list(NativeTarget::Windows), "[]");
-        assert!(BrowserApiBridge::operations(NativeTarget::Windows).is_empty());
+        assert_eq!(
+            BrowserApiBridge::page_list(NativeTarget::Windows),
+            "['clipboard', 'share', 'notifications']"
+        );
+        assert_eq!(BrowserApiBridge::operations(NativeTarget::Windows).len(), 5);
         assert_eq!(
             BrowserApiBridge::page_list(NativeTarget::Linux),
             "['share', 'notifications']"

@@ -17,7 +17,7 @@ impl NativeWindowControls {
         ),
         (
             "title",
-            r#"uint16_t title[513]; if (!tachyon_window_title(payload, title, 513)) return _strdup("{\"ok\":false,\"error\":\"Invalid window title.\"}"); SetWindowTextW(g_window, (const wchar_t *)title);"#,
+            r#"uint16_t title[513]; if (!tachyon_window_text(payload, "title", title, 513)) return _strdup("{\"ok\":false,\"error\":\"Invalid window title.\"}"); SetWindowTextW(g_window, (const wchar_t *)title);"#,
         ),
         (
             "fullscreen",

@@ -407,6 +407,67 @@ Still owed on real machines: the macOS compile and that host test on a Mac,
 the iOS simulator gate, and a manual check of the share, notification and location prompts, because
 system prompts cannot be automated.
 
+## Amendment (2026-10-19): browser APIs in the Windows app
+
+The Windows host (Win32 and WebView2) lists `clipboard`, `share` and
+`notifications` in `BrowserApiBridge` and answers their operations on the
+window's thread from `native/windows_browser_apis.c`. Geolocation stays on
+WebView2's own `navigator.geolocation`. The host reads no reason from
+`tac.application.permissions`: the Windows location and notification
+settings decide.
+
+1. **One permission decision.** The host handles WebView2's
+   `PermissionRequested` event. It allows a geolocation request or a
+   clipboard read only when the request comes from the app's own origin
+   while one of its documents is shown, and `tac.browserApis` grants that
+   API. It denies every other request, including web notifications, the
+   camera and the microphone. The grant list is written into the host at
+   build time, as on Linux.
+2. **Clipboard: bridged to the Windows clipboard.** `writeText` puts the text
+   on the clipboard as `CF_UNICODETEXT`, and `readText` answers the
+   clipboard's text, or `""` when it holds none. Text copied in another app
+   needs no further question. The user-action check stays in the page.
+3. **Share: the Windows share sheet.** `browserApi.share.open` keeps the
+   title, text and url and calls `ShowShareUIForWindow` through
+   `IDataTransferManagerInterop` for the app window. Its `DataRequested`
+   handler sets the title (the app name when the page gives none), the text,
+   and the url as a web link. The answer arrives when the sheet opens,
+   because Windows does not tell the app whether the user shared, so the
+   support table marks share as adapted. A share with none of the three is
+   an error.
+4. **Notifications: Windows toasts.** `show` builds a `ToastGeneric` toast
+   with the title and body (escaped as XML) and shows it through
+   `ToastNotificationManager` for the app's user model id.
+   `requestPermission` answers `"granted"` when the manifest grants
+   notifications, the app runs from its MSIX package (it has an application
+   user model id) and the toast notifier's setting is enabled; otherwise it
+   answers `"denied"`, and `show` explains that Windows shows notifications
+   only for the installed MSIX package. Windows does not ask before an app
+   shows a toast.
+5. **No new link libraries.** The host loads the Windows Runtime functions
+   from `combase.dll` at run time and declares only the interface slots it
+   calls. The ignored Windows test checks each slot against the Windows SDK
+   headers with `_Static_assert`.
+
+Evidence: `native::windows_browser_api_tests` (the grant list, the generated
+handlers and routing, and the share handler's interface id, which is the
+Windows Runtime parameterized id of
+`TypedEventHandler<DataTransferManager, DataRequestedEventArgs>`),
+`native::browser_api_bridge` (the Windows host answers every listed
+operation), and the ignored run
+`the_windows_browser_apis_follow_the_manifest_grants_under_wine`, which
+compiles the bridge with MinGW twice and runs it under Wine 9.0: with every
+API granted, a clipboard round trip through the real clipboard (another
+source's text, the page's own text with quotes, a new line and an accented
+letter, and empty text), the toast XML and the permission answers with a
+fake notifier, the share values with a fake sheet, and the permission
+decision; with nothing granted, every call is refused. The whole generated
+host also compiles with MinGW against the WebView2 SDK headers. Still owed:
+the MSVC build and the ignored Windows test
+`the_windows_browser_apis_match_the_windows_sdk_and_run_on_windows` on the
+Surface, and the four APIs in WebView2, the share sheet and a toast from the
+installed package on a signed-in Windows desktop (SD1).
+
 ## Amendment (2026-10-18): a ninth built-in event model
 
 `ApplicationStateChanged { state }` (`background` or `foreground`) is the

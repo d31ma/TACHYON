@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Windows app answers browser APIs (ADR 0065 amendment). `clipboard`
+  reads and writes the Windows clipboard, `share` opens the Windows share
+  sheet for the app window, and `notifications` are Windows toasts, which
+  Windows shows only for the installed MSIX package: an unpackaged build
+  answers `denied` to `requestPermission`. The host decides WebView2's
+  permission requests itself: it allows geolocation and clipboard reads only
+  for the app's own pages and only when `tac.browserApis` grants them, and
+  denies every other web view permission. Tested under Wine; the WebView2
+  desktop run is owed.
 - A Windows app with `"titleBar": "integrated"` now lets the page reach the
   top edge of the window (ADR 0098 amendment). Before, Windows kept the
   standard title bar and printed a note. The host extends the DWM frame

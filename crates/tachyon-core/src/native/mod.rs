@@ -290,6 +290,9 @@ mod vendor_provenance;
 mod web_program_build;
 mod windows;
 mod windows_architecture;
+#[cfg(test)]
+mod windows_browser_api_tests;
+mod windows_browser_apis;
 mod windows_compiler_plan;
 #[cfg(test)]
 mod windows_file_picker_tests;

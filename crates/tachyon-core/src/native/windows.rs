@@ -765,6 +765,10 @@ pub(super) fn c_source(
         .replace(
             "__APPLICATION_STATE__",
             include_str!("windows_application_state.c"),
+        )
+        .replace(
+            "__NATIVE_BROWSER_APIS__",
+            &super::windows_browser_apis::WindowsBrowserApis::source(&application.permissions),
         );
     WindowsHostGenerator::DESKTOP.render(
         &template,
@@ -911,6 +915,8 @@ static const TachyonLocalRoute *tachyon_current_route(void) {
 static wchar_t *tachyon_widen(const char *value);
 
 __WEB_ENGINE_CHECK__
+
+__NATIVE_BROWSER_APIS__
 
 static BOOL tachyon_menu_window_open(void) {
   return g_window != NULL && g_webview != NULL;
@@ -1081,6 +1087,7 @@ static char *tachyon_handle(const char *capability, const char *payload) {
   if (strcmp(capability, "window.titleBarInsets") == 0) return tachyon_title_bar_insets();
   if (strncmp(capability, "window.", 7) == 0) return tachyon_window_control(capability, payload);
   if (strncmp(capability, "filePicker.", 11) == 0) return tachyon_file_picker(capability + 11, payload);
+  if (strncmp(capability, "browserApi.", 11) == 0) return tachyon_browser_api(capability, payload);
   if (strcmp(capability, "companion.invoke") == 0) {
     int operation = tachyon_payload_string_matches(payload, "op", "init")
       || tachyon_payload_string_matches(payload, "op", "get")
@@ -1108,7 +1115,7 @@ static char *tachyon_handle(const char *capability, const char *payload) {
     return _strdup("{\"ok\":false}");
   }
   snprintf(answer, 256,
-           "{\"ok\":false,\"error\":\"windows host answers companion.invoke, not '%s'\"}", safe);
+           "{\"ok\":false,\"error\":\"windows host answers companion.invoke, window controls, file pickers and bridged browser APIs, not '%s'\"}", safe);
   return answer;
 }
 
@@ -1245,6 +1252,24 @@ static HRESULT STDMETHODCALLTYPE navigation_invoke(ICoreWebView2NavigationStarti
 static ICoreWebView2NavigationStartingEventHandlerVtbl g_navigation_vtbl = {navigation_query, navigation_add_ref, navigation_release, navigation_invoke};
 static TachyonNavigationHandler g_navigation_handler = {&g_navigation_vtbl, 1};
 static TachyonNavigationHandler g_frame_navigation_handler = {&g_navigation_vtbl, 0};
+
+typedef struct { ICoreWebView2PermissionRequestedEventHandlerVtbl *lpVtbl; } TachyonPermissionHandler;
+static HRESULT STDMETHODCALLTYPE permission_query(ICoreWebView2PermissionRequestedEventHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{15e1c6a3-c72a-4df3-91d7-d097fbec6bfd}"); }
+static ULONG STDMETHODCALLTYPE permission_add_ref(ICoreWebView2PermissionRequestedEventHandler *self) { (void)self; return 1; }
+static ULONG STDMETHODCALLTYPE permission_release(ICoreWebView2PermissionRequestedEventHandler *self) { (void)self; return 1; }
+static HRESULT STDMETHODCALLTYPE permission_invoke(ICoreWebView2PermissionRequestedEventHandler *self, ICoreWebView2 *sender, ICoreWebView2PermissionRequestedEventArgs *arguments) {
+  (void)self; (void)sender;
+  LPWSTR uri = NULL;
+  COREWEBVIEW2_PERMISSION_KIND kind = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
+  ICoreWebView2PermissionRequestedEventArgs_get_PermissionKind(arguments, &kind);
+  ICoreWebView2PermissionRequestedEventArgs_get_Uri(arguments, &uri);
+  char *text = uri != NULL ? tachyon_narrow(uri) : NULL, path[TACHYON_PATH_LIMIT];
+  BOOL own_page = text != NULL && tachyon_local_path(text, path, sizeof(path)) && tachyon_current_route() != NULL;
+  ICoreWebView2PermissionRequestedEventArgs_put_State(arguments, tachyon_permission_state(kind, own_page));
+  free(text); CoTaskMemFree(uri); return S_OK;
+}
+static ICoreWebView2PermissionRequestedEventHandlerVtbl g_permission_vtbl = {permission_query, permission_add_ref, permission_release, permission_invoke};
+static TachyonPermissionHandler g_permission_handler = {&g_permission_vtbl};
 
 typedef struct { ICoreWebView2NewWindowRequestedEventHandlerVtbl *lpVtbl; } TachyonNewWindowHandler;
 static HRESULT STDMETHODCALLTYPE new_window_query(ICoreWebView2NewWindowRequestedEventHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{d4c185fe-c81c-4989-97af-2d3fa7ab5651}"); }
@@ -1438,6 +1463,7 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   ICoreWebView2_add_NavigationStarting(g_webview, (ICoreWebView2NavigationStartingEventHandler *)&g_navigation_handler, &token);
   ICoreWebView2_add_FrameNavigationStarting(g_webview, (ICoreWebView2NavigationStartingEventHandler *)&g_frame_navigation_handler, &token);
   ICoreWebView2_add_NewWindowRequested(g_webview, (ICoreWebView2NewWindowRequestedEventHandler *)&g_new_window_handler, &token);
+  ICoreWebView2_add_PermissionRequested(g_webview, (ICoreWebView2PermissionRequestedEventHandler *)&g_permission_handler, &token);
   ICoreWebView2_AddWebResourceRequestedFilter(g_webview, L"https://tachyon.local/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
   ICoreWebView2_add_WebResourceRequested(g_webview, (ICoreWebView2WebResourceRequestedEventHandler *)&g_resource_handler, &token);
 

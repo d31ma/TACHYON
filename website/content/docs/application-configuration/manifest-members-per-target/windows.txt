@@ -109,22 +109,22 @@ tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Windows app.
 
 tac.application.permissions
-  not applicable: tac.application.permissions is not used by the Windows app: Windows asks without a reason from the app.
+  not applicable: tac.application.permissions is not used by the Windows app: the Windows location and notification settings decide, without a reason from the app.
 
 tac.browserApis
   honored: the same grant list in the page
 
 tac.browserApis clipboard
-  adapted: clipboard in the Windows app uses the web view's navigator.clipboard, and no host test checks it yet (BA3).
+  run owed: the Windows clipboard through the host bridge (browserApi.clipboard), tested under Wine; still to run: a page's clipboard round trip in WebView2 on a signed-in Windows desktop (SD1)
 
 tac.browserApis share
-  adapted: share in the Windows app uses the web view's navigator.share, and no host test checks it yet (BA3).
+  adapted: share in the Windows app opens the Windows share sheet for the app window (browserApi.share). ShareFinished arrives when the sheet opens, because Windows does not tell the app whether the user shared. A run of the share sheet on a signed-in Windows desktop is still owed (SD1).
 
 tac.browserApis notifications
-  adapted: notifications in the Windows app use the web view's Notification API. The host asks for no permission yet (BA3).
+  adapted: notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package on a signed-in Windows desktop is still owed (SD1).
 
 tac.browserApis geolocation
-  adapted: geolocation in the Windows app uses the web view's navigator.geolocation. The host asks for no permission yet (BA3).
+  run owed: the web view's navigator.geolocation and the Windows location service, allowed by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied; still to run: a page's position in WebView2 on a signed-in Windows desktop (SD1)
 
 tac.browserApis preferenceStrings
   run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch inside WebView2 on a signed-in Windows desktop
