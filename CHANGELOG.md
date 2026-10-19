@@ -30,7 +30,8 @@ machine contracts have their own, independent major versions.
   StatusNotifierWatcher. iOS and Android refuse the member with `TY1601`.
   The page verbs `tray.set`, `window.show`, `window.hide` and `app.quit`
   stay removed. The Linux host was run against a test watcher and the
-  Windows host under Wine; the macOS and Windows desktop runs are owed.
+  Windows host under Wine, and the macOS host on a signed-in Mac desktop;
+  the Windows desktop run is owed.
 
 - Python Tac services can ask for a converter (ADR 0093 amendment). A
   `@converter` `Protocol` class in `client/converters/` is now a provider

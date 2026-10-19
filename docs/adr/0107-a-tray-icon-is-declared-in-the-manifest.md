@@ -1,6 +1,6 @@
 # ADR 0107: A Tray Icon Is Declared in the Manifest
 
-- Status: Accepted; the macOS and Windows desktop runs are pending
+- Status: Accepted; macOS desktop run passed 2026-10-19; the Windows desktop run is pending
 - Date: 2026-10-19
 - Works with: [ADR 0097](0097-native-menu-actions-call-application-services.md)
   (menu items call application services),
@@ -91,6 +91,11 @@ integrations.
   later decision can add an application-service provider for it, as
   `CurrentPageEvents` does for menus.
 - The Linux tray depends on the desktop. The build says so with a note.
-- The macOS and Windows hosts were checked in the cloud only by source and
-  unit tests; their desktop runs are owed. The Linux host was run against a
-  test StatusNotifierWatcher on a private session bus.
+- The macOS host was run on a signed-in Mac desktop on 2026-10-19: the status
+  item and its menu, no Dock icon with `dock: false`, a route item, an action
+  item, closing to hide and reopening the same window, Quit, the colored icon
+  with `template: false`, and the Dock icon and ordinary close with
+  `dock: true` and `closeHidesWindow: false`. The Windows host was checked in
+  the cloud only by source and unit tests and under Wine; its desktop run is
+  owed. The Linux host was run against a test StatusNotifierWatcher on a
+  private session bus.

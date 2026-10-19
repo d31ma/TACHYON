@@ -306,12 +306,7 @@ fn every_target_states_what_it_does_with_a_tray() {
     }
     let mac =
         super::target_support::TargetSupport::notes(root.path(), AppTarget::Macos).expect("macOS");
-    assert_eq!(mac.len(), 4, "{mac:?}");
-    assert!(
-        mac.iter()
-            .all(|note| note.contains("signed-in Mac desktop")),
-        "{mac:?}"
-    );
+    assert!(mac.is_empty(), "{mac:?}");
     let linux =
         super::target_support::TargetSupport::notes(root.path(), AppTarget::Linux).expect("Linux");
     assert!(
