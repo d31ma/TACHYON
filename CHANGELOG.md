@@ -132,6 +132,16 @@ machine contracts have their own, independent major versions.
   test:held-clients-browser`), runs the socket and stream clients of Rust,
   Go, Dart, Swift, Kotlin, Java, C#, F# and C++ services against `ty serve`
   in the three engines.
+- Run tests now prove the socket, access, transaction, Named and stop
+  markers in every Yon language (PR5). Each chat controller's `OnClose`
+  writes the connection's own count after the socket closes, in all 15
+  languages, and JavaScript and Groovy run the whole chat. The published
+  access, transaction and Named sections are served in every language and
+  must answer 200, 401 and 403 for the documented tokens, show the store
+  commands inside the `AllOrNothing` transaction, and answer through the
+  named provider; a `Named` that names no provider fails the build. Each
+  `OnStop` method writes a marker after its request in ten languages.
+
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
   packages `libtachyoncompanion.so` for each, and the Java host calls them
