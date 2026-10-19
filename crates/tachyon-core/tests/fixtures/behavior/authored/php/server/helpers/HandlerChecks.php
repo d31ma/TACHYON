@@ -84,7 +84,7 @@ class HandlerChecks {
         return [$first, $cached, $fresh];
     }
 
-    public static function checkCacheKey($catalog): void {
+    private static function checkCacheKey($catalog): void {
         $catalog->price('sku-1', 'first');
         $catalog->price('sku-1', 'second');
         if (Backend::$prices !== 1) throw new Exception('CacheKey hit ignores the unmarked argument');
