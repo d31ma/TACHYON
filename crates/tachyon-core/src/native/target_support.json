@@ -433,10 +433,10 @@
     "member": "tac.yon",
     "paths": ["tac.yon"],
     "web": {"reach": "honored", "how": "pages send Yon calls to tac.yon.origin over CORS without cookies, and connect-src allows it (ADR 0103)"},
-    "macos": {"reach": "adapted", "note": "tac.yon.origin: the macOS page and its linked Swift HTTP clients send Yon calls to this origin, and connect-src allows it, but scripts/native/yon-reach-test.mjs has not run the macOS app against Yon yet (NET1)."},
+    "macos": {"reach": "honored", "how": "the page and its linked Swift HTTP clients reach tac.yon.origin from tachyon-app://bundle, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on macOS 26.6.2 (ADR 0103)"},
     "windows": {"reach": "adapted", "note": "tac.yon.origin: the Windows app sends Yon calls to this origin, and its connect-src allows it, but no Windows app has been run against Yon yet (NET3)."},
     "linux": {"reach": "adapted", "note": "tac.yon.origin: the Linux app sends Yon calls to this origin, and its connect-src allows it, but no Linux app has been run against Yon yet (NET4)."},
-    "ios": {"reach": "adapted", "note": "tac.yon.origin: the iOS page and its linked Swift HTTP clients send Yon calls to this origin, and connect-src allows it, but scripts/native/yon-reach-test.mjs has not run the iOS app against Yon yet (NET1)."},
+    "ios": {"reach": "honored", "how": "the page and its linked Swift HTTP clients reach tac.yon.origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103)"},
     "android": {"reach": "adapted", "note": "tac.yon.origin: the Android app and its linked Kotlin HTTP clients send Yon calls to this origin and the app asks for the INTERNET permission; a local http origin may use cleartext to that one host only. The packaged app has not been run against Yon on the emulator yet (NET2)."}
   },
   {

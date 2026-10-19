@@ -234,6 +234,10 @@ local TLS proxy whose certificate the simulator trusts. If that run shows an
 opaque `null` origin, the hosts need the forwarder after all, and this
 section changes.
 
+On 2026-10-19 the script passed on macOS 26.6.2 and the iOS 26.5 simulator,
+over `http` and `https`. Yon received `Origin: tachyon-app://bundle` in every
+run, so the hosts need no forwarder.
+
 ### Linked Swift HTTP clients reach the declared origin
 
 A Swift service linked into the macOS or iOS app had no transport, so every

@@ -130,7 +130,7 @@ tac.outgoing
   honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
 tac.yon
-  adapted: tac.yon.origin: the iOS page and its linked Swift HTTP clients send Yon calls to this origin, and connect-src allows it, but scripts/native/yon-reach-test.mjs has not run the iOS app against Yon yet (NET1).
+  honored: the page and its linked Swift HTTP clients reach tac.yon.origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103)
 
 tac.go
   honored: the same Go WebAssembly build in the web view
