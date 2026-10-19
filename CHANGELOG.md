@@ -179,6 +179,23 @@ machine contracts have their own, independent major versions.
   and iOS answers `HTTP_MISSING`, and that C# and Kotlin FilePicker fields
   answer unsupported on macOS. The docs, ADRs, support tiers and website
   pages that disagreed with the code or with the run records now match them.
+- The per-target support table no longer says `honored` where no run on
+  that target is on record (ADR 0102 amendment, DOC3). External links,
+  `Content-Security-Policy` and `tac.outgoing` on macOS, Windows and iOS
+  (links on Android too), `tac.application.permissions` on macOS, iOS and
+  Android, vendored Rust crates on macOS, iOS and Android, `tac.dotnet` on
+  macOS, Linux, iOS and Android, the macOS and iOS WasmGC floors of
+  `tac.application.minimumSystem`, and the macOS minimum window size now say
+  `run owed` and name the run, so a build that declares one of these members
+  prints that note. Linux "reaching Yon" is `adapted`, like the other native
+  hosts. Notes that lagged the run records now match them: Android window
+  controls (granted minimize, resize and title ran on the emulator), the
+  owed Linux `.deb` install (on WSL and a desktop; `apt-get install` ran in
+  the cloud), the iOS App Store upload (outside `ty`), Windows menus and page
+  accessibility, Swift and Kotlin FilePicker fields on Windows, and native
+  `tac.cache` without `tac.yon.origin`. SUPPORT_TIERS, ADRs 0005, 0093, 0097,
+  0099, 0103 and 0106, and the website pages on byte-identical rebuilds,
+  Python services and Lua models catch up with CI1, CI2, NET8, RL1 and RW1.
 
 - Yon outbound HTTP markers now have run proof in every Yon language but
   C++ (which has its own test). One table-driven test,
@@ -1858,6 +1875,9 @@ machine contracts have their own, independent major versions.
   Gradle's `build`, `.gradle` and `.kotlin` folders. A packaged Linux app
   built twice was byte-identical in the cloud; the macOS, iOS, Windows and
   Android repeat-build runs are still owed (ADR 0005 amendment).
+  (Superseded: the packaged Windows repeat build passed on Windows 11 ARM64
+  in RW1; macOS, iOS and Android are still owed, ADR 0005 amendment of
+  2026-10-19.)
 
 - A native build with `--no-incremental` prints a note that the flag changes
   nothing there, because native builds always rebuild the web stage.

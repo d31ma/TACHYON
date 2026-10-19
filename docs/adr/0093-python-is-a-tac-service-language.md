@@ -450,3 +450,16 @@ On 2026-10-19 the website "Mapping: Tac" and "Typed model mapping: Tac"
 Python tabs were bundled with `ty serve` and clicked in Chromium in a Linux
 container: they showed `product 7: Anvil` and
 `product 7: Anvil, detail, 1`.
+
+## Amendment (2026-10-19): a Python service ran in the Linux app
+
+This amendment supersedes "No host has run a Python service yet" in the
+2026-10-18 amendment above, which stays as the history of this decision.
+
+RL1 ran a Python service on Pyodide inside WebKitGTK, in the packaged Linux
+app under Xvfb in the cloud (`scripts/linux/page-services-native-test.mjs`,
+`docs/SUPPORT_TIERS.md`, Linux runs owed, RL1): the Tally page answered a
+click from the Python service, whose first page took 4.0 seconds. The
+support table marks `tac.python` `honored` on Linux. The macOS, Windows, iOS
+and Android hosts have not run a Python service yet, and the table marks
+them `runOwed`.

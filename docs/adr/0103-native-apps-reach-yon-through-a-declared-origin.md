@@ -505,3 +505,20 @@ The run found two faults, both fixed:
 
 The app was not launched: WebView2 from `https://tachyon.local` still needs
 the signed-in desktop, with `scripts/windows/yon-reach.ps1`.
+
+## Amendment (2026-10-19): WSL and linked Rust on iOS
+
+This amendment supersedes two statements above, which stay as the history
+of this decision.
+
+- "Not run yet: the Linux app on WSL" (the NET4 amendment).
+  `scripts/linux/yon-origin-native-test.mjs` passed on WSL Ubuntu 24.04.5
+  (aarch64) in RL1, with JavaScript page services and with linked Rust
+  services (`docs/SUPPORT_TIERS.md`, the Yon reach table). A Wayland desktop
+  is still not run.
+- "A Rust companion on another desktop host answers `HTTP_MISSING` until that
+  host adds a sender" (the NET3 amendment). Since MR1 (2026-10-19) iOS links
+  Rust too, and a linked Rust service's `HTTPClient` answers `HTTP_MISSING`
+  there as on macOS, because neither Apple host runs Rust tasks yet (LR1).
+  Linux and Windows have a sender; Android's linked Rust `HTTPClient`
+  reaches `tac.yon.origin` (MR2).

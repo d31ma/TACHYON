@@ -431,3 +431,13 @@ then lets action items call the application service as on the desktop.
   group with Status and Ctrl+K, Ctrl+K opens `/status`, and More options >
   Guide in the app bar opens `/guide`. The page address is read through the
   WebView's DevTools socket.
+
+## Amendment (2026-10-19): Android ABIs after MR2
+
+This amendment supersedes the Android row of the `--arch` table in the
+2026-10-18 amendment above ("the APK holds no native code yet ... ABIs follow
+linked Rust on Android (MR2)"), which stays as the history of this decision.
+MR2 linked Rust on Android: an app with Rust services carries its Rust
+library for `arm64-v8a` and `x86_64`, so it installs on 64-bit Arm phones and
+x86_64 emulators only. Without Rust services the APK still holds no native
+code and runs on every ABI. `--arch` still does not choose Android ABIs.

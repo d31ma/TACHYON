@@ -128,3 +128,19 @@ this version as a preview or stable release.
   It names only files that are already public.
 - The commit, `SOURCE_DATE_EPOCH` and Rust version now come from one place
   (`compiler/artifact_provenance.rs`) for web and native builds.
+
+## Amendment (2026-10-19): the Windows repeat build ran
+
+This amendment supersedes one sentence of the 2026-10-18 amendment above,
+which stays as the history of this decision: "The packaged macOS, iOS,
+Windows and Android tests are `#[ignore]`d lane tests; until they run on
+those machines, the support table lists those targets as `adapted` with a
+note."
+
+- `a_packaged_windows_app_is_byte_identical_when_built_twice` passed with
+  MSVC on Windows 11 ARM64 over SSH (RW1, `docs/SUPPORT_TIERS.md`, Windows
+  over SSH), so the support table marks Windows byte-identical rebuilds
+  `honored`.
+- The macOS, iOS and Android tests have not run on their machines yet. The
+  table marks those targets `runOwed` (ADR 0102 amendment), not `adapted`,
+  and names each test as the owed run.

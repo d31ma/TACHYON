@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   not applicable: tac.application.window minWidth and minHeight have no meaning on Android: the system sizes the app.
 
 tac.application.window.controls
-  adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. Only a refused control has run on the emulator; a granted run is still owed.
+  adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. On the emulator, granted minimize, resize and title acted from the page and a linked Kotlin service, title also from a linked Rust service, and ungranted controls were refused. A granted close, maximize or fullscreen has not run yet.
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Android page draw edge to edge, under the status bar. --tac-titlebar-height is the status bar height, and the leading and trailing insets are the side system-bar and display-cutout insets. The navigation bar still pads the page. There are no window buttons and no drag regions (ADR 0098).
@@ -76,7 +76,7 @@ tac.application.tray.dock
   not applicable: tac.application.tray.dock has no meaning on Android, which refuses tac.application.tray.
 
 tac.application.rust
-  honored: vendored crates linked into the app's Rust services, built for arm64-v8a and x86_64; platformDependencies.android applies only here
+  run owed: vendored crates linked into the app's Rust services, built for arm64-v8a and x86_64; platformDependencies.android applies only here; still to run: an Android app whose Rust service uses a vendored crate, on the emulator
 
 tac.application.rust.executables
   refused with TY1601: An Android app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target.
@@ -109,7 +109,7 @@ tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Android app.
 
 tac.application.permissions
-  honored: the rationale Android shows before it asks again for location or notifications, and the name of the notification channel
+  run owed: the rationale Android shows before it asks again for location or notifications, and the name of the notification channel; still to run: the rationale before a second location question and the notification channel name on the emulator
 
 tac.browserApis
   honored: the same grant list in the page
@@ -151,7 +151,7 @@ tac.go
   honored: the same Go WebAssembly build in the web view
 
 tac.dotnet
-  honored: the same WebAssembly build in the web view
+  run owed: the same WebAssembly build in the web view; still to run: an ahead-of-time C# service in the Android emulator gate
 
 tac.accessibility
   honored: the same build check
@@ -211,7 +211,7 @@ window drag regions (data-tac-drag-region)
   not applicable: An Android app has no window to move.
 
 external links
-  honored: http, https and mailto links open in the default browser or mail app (ACTION_VIEW)
+  run owed: http, https and mailto links open in the default browser or mail app (ACTION_VIEW); still to run: an http, https and mailto link from a page on the emulator
 
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route, run on the emulator; https links to listed hosts are described under tac.application.links
@@ -223,7 +223,7 @@ stored data (IndexedDB, Cache API, LocalState)
   adapted: Store rows and LocalState values in the Android app are kept on disk. A Cache API entry written shortly before the system stops the app is not always kept, so a Cached method may run again after a relaunch.
 
 service worker
-  not applicable: The Android app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
+  not applicable: The Android app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
 
 Content-Security-Policy
   honored: the native host policy, which also allows the host's bridge script by its hash

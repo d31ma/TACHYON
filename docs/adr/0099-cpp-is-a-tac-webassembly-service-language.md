@@ -1,7 +1,8 @@
 # ADR 0099: C++ Is a Tac WebAssembly Service Language
 
 - Status: Accepted (Tac slice; Yon route controllers, 2026-10-16 amendment;
-  the rest of the Yon slice is pending)
+  the rest of the Yon slice, 2026-10-18 amendments; complete, 2026-10-19
+  amendment)
 - Date: 2026-10-04
 - Builds on: [ADR 0035](0035-rust-services-reach-the-web-as-webassembly.md)
   (the linear-memory page bridge),
@@ -1213,7 +1214,8 @@ each of their markers. These stay out of the plan for now:
 This amendment supersedes two statements above. They stay as the history of
 this decision.
 
-- The status line says "the rest of the Yon slice is pending". It is not:
+- The status line said "the rest of the Yon slice is pending" until
+  2026-10-19. It is not:
   "Pending" above says that every planned Yon C++ step has landed, and the
   amendments of 2026-10-18 record them.
 - "Every other Yon marker in a C++ file (`SocketRoute`, `StreamRoute`, the

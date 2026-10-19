@@ -90,3 +90,31 @@ A test now rejects an `honored` entry whose text says a run is owed, checked
 only in code, or not run. The table also states two design limits as not
 applicable: native apps register no service worker, and the macOS and
 Windows apps need a signed-in desktop session.
+
+## Amendment (2026-10-19): honored needs a recorded run (DOC3)
+
+The platform survey of develop `50acf161` found 29 cells that the table
+marked `honored` on code alone, with no run on that target on record. A
+member is now `honored` on a native target only when a recorded run on that
+target proves it; otherwise it is `runOwed` and names the run. These moved
+from `honored` to `runOwed`:
+
+- external `http`, `https` and `mailto` links on macOS, Windows, iOS and
+  Android (only Linux ran them);
+- `Content-Security-Policy` and `tac.outgoing` on macOS, Windows and iOS
+  (only Android and Linux ran a refusal);
+- `tac.application.permissions` on macOS, iOS and Android, whose prompt runs
+  were already `runOwed` under the browser API entries;
+- `tac.application.rust` vendored crates on macOS, iOS and Android;
+- `tac.dotnet` on macOS, Linux, iOS and Android (no native host loaded an
+  ahead-of-time C# build);
+- `tac.application.minimumSystem` on macOS and iOS (the 15.2 and 18.2
+  WasmGC floors);
+- `tac.application.window.minWidth` and `minHeight` on macOS.
+
+Web entries stay `honored`: the browser itself follows links, and the web
+gates run in three engines. Linux "reaching Yon" is now `adapted`, like the
+other native hosts: its pages load from `tachyon://app`, so same-origin
+requests reach no Yon, and calls go to `tac.yon.origin` instead. The native
+service worker notes now say that without `tac.yon.origin` a native
+`tac.cache` has no effect.

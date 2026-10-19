@@ -40,7 +40,7 @@ tac.application.build
   honored: CFBundleVersion
 
 tac.application.minimumSystem
-  honored: MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)
+  run owed: MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601); still to run: an iOS app with a Dart, Kotlin or Java web service built at 18.2 and opened on the iOS simulator
 
 tac.application.links
   adapted: tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a --device or --release build, whose profile has the Associated Domains capability; no signed build has opened one on a device yet. A simulator build opens only the custom schemes.
@@ -76,7 +76,7 @@ tac.application.tray.dock
   not applicable: tac.application.tray.dock has no meaning on iOS, which refuses tac.application.tray.
 
 tac.application.rust
-  honored: vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here
+  run owed: vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here; still to run: an iOS app whose Rust service uses a vendored crate, on the iOS simulator
 
 tac.application.rust.executables
   refused with TY1601: An iOS app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target.
@@ -109,7 +109,7 @@ tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the iOS app.
 
 tac.application.permissions
-  honored: NSLocationWhenInUseUsageDescription in Info.plist
+  run owed: NSLocationWhenInUseUsageDescription in Info.plist; still to run: the location prompt showing the manifest reason on the iOS simulator
 
 tac.browserApis
   honored: the same grant list in the page
@@ -142,7 +142,7 @@ tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The iOS app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  honored: the build checks request hosts and the scheme handler's connect-src allows only them
+  run owed: the build checks request hosts and the scheme handler's connect-src allows only them; still to run: a page fetch to an undeclared host refused on the iOS simulator
 
 tac.yon
   adapted: tac.yon.origin: the iOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1).
@@ -151,7 +151,7 @@ tac.go
   honored: the same Go WebAssembly build in the web view
 
 tac.dotnet
-  honored: the same WebAssembly build in the web view
+  run owed: the same WebAssembly build in the web view; still to run: an ahead-of-time C# service in the iOS simulator gate
 
 tac.accessibility
   honored: the same build check
@@ -211,7 +211,7 @@ window drag regions (data-tac-drag-region)
   not applicable: An iOS app has no window to move.
 
 external links
-  honored: http, https and mailto links open in the default browser or mail app (UIApplication)
+  run owed: http, https and mailto links open in the default browser or mail app (UIApplication); still to run: an http, https and mailto link from a page on the iOS simulator
 
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route, run on the iOS simulator; universal links to listed hosts are described under tac.application.links
@@ -223,10 +223,10 @@ stored data (IndexedDB, Cache API, LocalState)
   adapted: Store rows and LocalState values in the iOS app are kept on disk, but Cache API entries live only while the app runs, so a Cached method runs again after a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2).
 
 service worker
-  not applicable: The iOS app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
+  not applicable: The iOS app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
 
 Content-Security-Policy
-  honored: the native host policy
+  run owed: the native host policy; still to run: a policy-violation probe on the iOS simulator
 
 reaching Yon
   adapted: The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1).
@@ -241,7 +241,7 @@ development code signing
   honored: a simulator app is signed ad hoc, and a --device build with the Apple Development certificate that its provisioning profile names
 
 release packaging
-  run owed: ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. Other builds run in the simulator; still to run: a --release build with an App Store profile, an install on an iOS 17 or later device, and an upload; a --device build was signed and checked on a Mac
+  run owed: ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. Other builds run in the simulator; still to run: a --release build with an App Store profile and an install on an iOS 17 or later device; a --device build was signed and checked on a Mac, and the App Store Connect upload is outside ty (ADR 0104)
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off

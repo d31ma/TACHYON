@@ -164,3 +164,13 @@ Links to the listed `hosts` were a note only on macOS and Windows.
    opened browsing-web activities for a listed host at their route and refused
    the others, and an unsigned app opened a scheme link at its route.
 
+## Amendment (2026-10-19): the Linux `.desktop` run (RL1)
+
+This amendment narrows "Owed: a Linux desktop with the `.desktop` file
+installed" in the Consequences above, which stays as the history of this
+decision. RL1's `scripts/linux/desktop-links-test.sh` installed the `.deb`'s
+`.desktop` file under `XDG_DATA_HOME`, and `gio open` and `xdg-open` of
+`linkgate://` links reached the one running app, under headless mutter
+Wayland and Xvfb in the cloud and on WSL (`docs/SUPPORT_TIERS.md`, Linux
+runs owed, RL1). A physical Linux desktop session is still owed. The signed
+iOS device check of universal links is still owed too.

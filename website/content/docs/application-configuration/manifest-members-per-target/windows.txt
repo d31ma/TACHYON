@@ -61,7 +61,7 @@ tac.application.window.titleBarButtonInset
   adapted: tac.application.window.titleBarButtonInset is ignored on Windows: the system caption buttons stay where Windows draws them, at the top trailing corner. The page reads their size from --tac-titlebar-height and --tac-titlebar-trailing-inset.
 
 tac.application.menus
-  run owed: items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; still to run: a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)
+  run owed: items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; over SSH the menus showed their items and shortcuts and a menu action reached the application service; still to run: a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)
 
 tac.application.tray
   run owed: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107); still to run: the notification-area icon and its menu items on a signed-in Windows desktop; the host has run only under Wine (ADR 0107)
@@ -130,7 +130,7 @@ tac.browserApis preferenceStrings
   run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch inside WebView2 on a signed-in Windows desktop
 
 tac.nativeCapabilities
-  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services; still to run: the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a picker opened from a WebView2 page on a signed-in Windows desktop
+  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services; a FilePicker field in a Swift or Kotlin service runs as WebAssembly there and answers unsupported (FP5); still to run: the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a picker opened from a WebView2 page on a signed-in Windows desktop
 
 tac.elements
   adapted: tac.elements are bundled into the Windows app for its own pages only. Other sites cannot load them from the app.
@@ -142,7 +142,7 @@ tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Windows app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  honored: the build checks request hosts and the resource handler's connect-src allows only them
+  run owed: the build checks request hosts and the resource handler's connect-src allows only them; still to run: a page fetch to an undeclared host refused inside WebView2 on a signed-in Windows desktop
 
 tac.yon
   run owed: the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient, tested in the cloud under wine and .NET and built with MSVC and NativeAOT on Windows (ADR 0103); still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)
@@ -205,13 +205,13 @@ menu shortcuts with control
   adapted: A shortcut with control gets Ctrl on Windows, like command. Shortcuts that then collide stop the build (TY1601).
 
 page accessibility (roles and names through the system accessibility API)
-  run owed: the pages reach UI Automation through WebView2; still to run: the UI Automation probe of scripts/windows/native-test.ps1 on a signed-in Windows desktop (AX2)
+  run owed: the pages reach UI Automation through WebView2; still to run: UI Automation roles of page controls on a signed-in Windows desktop (AX2); the MSIX gate of scripts/windows/native-test.ps1 already found page controls by name and invoked one
 
 window drag regions (data-tac-drag-region)
   run owed: with titleBar "integrated", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu; still to run: a drag region moving the window inside WebView2 on a signed-in Windows desktop (SD1)
 
 external links
-  honored: http, https and mailto links open in the default browser or mail app (ShellExecuteW)
+  run owed: http, https and mailto links open in the default browser or mail app (ShellExecuteW); the opener ran under Wine; still to run: an http, https and mailto link from a page inside WebView2 on a signed-in Windows desktop
 
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route; the app registers the scheme under HKCU\Software\Classes, or its MSIX package declares it, and hands later links to the running window
@@ -223,10 +223,10 @@ stored data (IndexedDB, Cache API, LocalState)
   run owed: kept on disk by the web view; still to run: data kept across a relaunch inside WebView2 on a signed-in Windows desktop
 
 service worker
-  not applicable: The Windows app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
+  not applicable: The Windows app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
 
 Content-Security-Policy
-  honored: the native host policy
+  run owed: the native host policy; still to run: a policy-violation probe inside WebView2 on a signed-in Windows desktop
 
 reaching Yon
   run owed: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services; other absolute URLs go only to the hosts in tac.outgoing.hosts; still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)

@@ -151,7 +151,7 @@ tac.go
   honored: the same Go WebAssembly build in the web view
 
 tac.dotnet
-  honored: the same WebAssembly build in the web view
+  run owed: the same WebAssembly build in the web view; still to run: an ahead-of-time C# service in the Linux app under Xvfb or on WSL
 
 tac.accessibility
   honored: the same build check
@@ -223,13 +223,13 @@ stored data (IndexedDB, Cache API, LocalState)
   honored: kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit
 
 service worker
-  not applicable: The Linux app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
+  not applicable: The Linux app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
 
 Content-Security-Policy
   honored: the native host policy
 
 reaching Yon
-  honored: HTTP calls, streams, sockets and topics from pages and linked Rust services go to tac.yon.origin, which lists tachyon://app in server.origins (ADR 0103)
+  adapted: The Linux app's pages load from tachyon://app, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages and linked Rust services reach the Yon at tac.yon.origin, which lists tachyon://app in server.origins, run under Xvfb and on WSL by scripts/linux/yon-origin-native-test.mjs (NET4, RL1).
 
 natively linked service languages
   honored: Rust services are linked into the app; other languages run in the page
@@ -241,7 +241,7 @@ development code signing
   not applicable: Linux apps and their AppImage and .deb packages are not signed; Linux distributions sign the repositories that ship packages.
 
 release packaging
-  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: a .deb install with dpkg or apt, which needs administrator rights; the AppImage ran through FUSE on WSL and the installed .desktop file opened a scheme link under Xvfb (RL1)
+  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: dpkg -i of the .deb on WSL, which needs administrator rights there, and an install on a Linux desktop; apt-get install of the .deb ran in an x86_64 cloud container, the AppImage ran through FUSE on WSL, and the installed .desktop file opened a scheme link under Xvfb (RL1)
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
