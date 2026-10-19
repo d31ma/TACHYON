@@ -408,3 +408,17 @@ This is verified at the code level only. No host has run a Python service
 yet: no native gate loads Pyodide in WKWebView, Android WebView, WebView2 or
 WebKitGTK. Load time, memory and the custom bundle origins of each host are
 not checked.
+
+## Amendment 2026-10-19: the "Still refused" list of 2026-10-16
+
+This amendment supersedes the "Still refused with `TY1605`" list in the
+2026-10-16 `async def` amendment above, which already carries inline
+replacement notes. The list stays as the history of this decision. Today:
+
+- An asynchronous `@on_start` builds (the 2026-10-17 amendment), and Python
+  holds stream and socket clients and has an `HTTPClient` (the 2026-10-18
+  and 2026-10-17 amendments).
+- Still refused with `TY1605`: an asynchronous `@on_stop` or `@on_event`
+  method, and browser API resources such as `Clock()`. The test
+  `backend_tests.rs python_async_methods_and_async_start_build_but_async_stop_is_pending`
+  checks both sides of the first line.

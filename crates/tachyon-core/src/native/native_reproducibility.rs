@@ -16,10 +16,7 @@ impl NativeReproducibility {
         ["-Xfrontend", "-disable-incremental-llvm-codegen"];
 
     pub(super) fn source_date_epoch() -> u64 {
-        std::env::var(Self::SOURCE_DATE_EPOCH)
-            .ok()
-            .and_then(|value| value.parse().ok())
-            .unwrap_or(0)
+        crate::compiler::ArtifactProvenance::source_date_epoch()
     }
 
     pub(super) async fn run_tool(program: &str, arguments: &[&str]) -> Result<String, Failure> {

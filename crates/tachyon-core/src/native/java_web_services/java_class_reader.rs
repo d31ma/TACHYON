@@ -273,8 +273,8 @@ mod tests {
                 "cannot be private or static",
             ),
             (
-                "    @Retry\n    void save() {}\n",
-                "@Retry does not work in a Java web service yet",
+                "    @SafeVarargs\n    final void save(String... names) {}\n",
+                "@SafeVarargs does not work in a Java web service.",
             ),
             ("    char letter = 'a';\n", "letter uses char"),
         ];
@@ -287,11 +287,24 @@ mod tests {
     }
 
     #[test]
+    fn a_behavior_marker_reaches_the_reader_lowered_as_in_a_build() {
+        let source = "class ShelfService {\n    Behaviors.Context behaviors;\n\n    @Retry({\"maxRetries\":3,\"delayMs\":1,\"multiplier\":1,\"maxDelayMs\":5,\"jitterMs\":0})\n    String save(String title) {\n        return title;\n    }\n}\n";
+        let lowered = crate::behavior::lower(std::path::Path::new(PATH), source, "tac")
+            .expect("lowered")
+            .expect("behavior source");
+        let members = read(&lowered).expect("a lowered @Retry is read");
+        assert!(
+            members.iter().any(|(name, ..)| name == "save"),
+            "{members:?}"
+        );
+    }
+
+    #[test]
     fn a_class_annotation_java_web_services_lack_is_refused() {
         let message = read("import java.util.List;\n\n@Topic(\"news\")\nclass ShelfService {\n    int count = 0;\n}\n")
             .expect_err("topic");
         assert!(
-            message.contains("@Topic does not work in a Java web service yet"),
+            message.contains("@Topic does not work in a Java web service."),
             "{message}"
         );
     }

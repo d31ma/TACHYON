@@ -61,6 +61,12 @@ async fn a_ruby_service_that_needs_another_service_stops_the_build_at_the_field(
                 .contains("a Store, a Converter, a Helper, an HTTPClient or a browser API")),
         "{failure}"
     );
+    assert!(
+        diagnostic.help.as_deref().is_some_and(
+            |help| help.contains("JavaScript, TypeScript, Go, Python, Dart, Java, C++ or F#")
+        ),
+        "{failure}"
+    );
     let span = &diagnostic.spans[0];
     assert_eq!(span.file, "client/services/TallyService.rb", "{failure}");
     let start = usize::try_from(span.start).expect("start");

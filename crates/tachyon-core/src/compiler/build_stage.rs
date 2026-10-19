@@ -52,6 +52,10 @@ impl BuildStage {
         Self::hash_files(stage, &files)
     }
 
+    pub(super) fn files(stage: &Path) -> io::Result<Vec<PathBuf>> {
+        Self::collect_files(stage)
+    }
+
     pub(crate) fn publish(stage: tempfile::TempDir, destination: &Path) -> io::Result<()> {
         let persisted = stage.keep();
         Self::move_into_place(&persisted, destination)

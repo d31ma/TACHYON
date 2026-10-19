@@ -237,6 +237,9 @@ natively linked service languages
 build architecture (--arch)
   honored: --arch x64, arm64 or universal; universal joins an arm64 and an x86_64 build with lipo
 
+development code signing
+  honored: a build without --release signs the app and its helper programs ad hoc (codesign --sign -)
+
 release packaging
   run owed: ty bundle --release builds a .dmg whose app is signed with the team's Developer ID certificate and the hardened runtime, then notarizes and staples it; the team and notary profile come from TAC_APPLE_TEAM_ID and TAC_APPLE_NOTARY_PROFILE. Other builds are an ad hoc signed .app; still to run: a notarized Developer ID .dmg; an ad hoc --release run passed on a Mac, and the notarized run waits on the Apple developer agreement (PKG1)
 

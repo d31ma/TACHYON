@@ -1,12 +1,13 @@
 use super::target_support::TargetSupport;
-use crate::Failure;
 use crate::failure::diagnostic;
+use crate::{AppTarget, Failure};
 use tachyon_contracts::NativeTarget;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ReleasePackaging;
 
 impl ReleasePackaging {
+    const DEVELOPMENT_SIGNING: &'static str = "development code signing";
     const PACKAGED: [NativeTarget; 5] = [
         NativeTarget::Android,
         NativeTarget::Macos,
@@ -28,7 +29,8 @@ impl ReleasePackaging {
     }
 
     /// Checks the signing settings of a release before anything is built, and
-    /// returns the note a release with test signing prints.
+    /// returns the note a release with test signing, or an unsigned Windows
+    /// build, prints.
     ///
     /// # Errors
     ///
@@ -36,7 +38,17 @@ impl ReleasePackaging {
     pub fn signing_note(target: NativeTarget, release: bool) -> Result<Option<String>, Failure> {
         let signs_on_a_mac = [release, target == NativeTarget::Macos] == [true, true];
         let signing = super::mac_os_signing::MacOsSigning::for_release(signs_on_a_mac)?;
-        Ok(signing.and_then(|signing| signing.note()))
+        let unsigned = [release, target == NativeTarget::Windows] == [false, true];
+        let unsigned_note = Self::unsigned_note(unsigned)?;
+        Ok(signing.and_then(|signing| signing.note()).or(unsigned_note))
+    }
+
+    fn unsigned_note(unsigned: bool) -> Result<Option<String>, Failure> {
+        let note = unsigned
+            .then(|| TargetSupport::capability_note(Self::DEVELOPMENT_SIGNING, AppTarget::Windows))
+            .transpose()?
+            .flatten();
+        Ok(note.map(|text| format!("Note: {text}")))
     }
 
     fn refusal(target: NativeTarget) -> Failure {
@@ -89,5 +101,19 @@ mod tests {
                 None
             );
         }
+    }
+
+    #[test]
+    fn only_a_windows_build_without_release_says_it_is_unsigned() {
+        let note = ReleasePackaging::signing_note(NativeTarget::Windows, false)
+            .expect("no signing check")
+            .expect("an unsigned note");
+        assert!(
+            note.starts_with(
+                "Note: a Windows build without --release is a folder with an unsigned .exe."
+            ),
+            "{note}"
+        );
+        assert!(note.contains("TAC_WINDOWS_CERTIFICATE"), "{note}");
     }
 }

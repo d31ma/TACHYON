@@ -23,6 +23,14 @@ machine contracts have their own, independent major versions.
   stay removed. The Linux host was run against a test watcher and the
   Windows host under Wine; the macOS and Windows desktop runs are owed.
 
+- Yon Lua models in `server/models/` may carry `Settings`, `Setting`,
+  `Checked`, `Required`, `NotEmpty`, `Length`, `Min`, `Max` and
+  `Description` (ADR 0092 amendment). Before, the build refused them with
+  `TY1310`. `Behaviors.properties` and `Behaviors.values` bind them, and a
+  `@Check` rejection in a Lua handler answers `422` problem details like the
+  other Yon languages (ADR 0101). Lua `Length` now counts UTF-8 bytes, as
+  documented, in both realms.
+
 - The Windows app opens the file dialog for `FilePicker` (ADR 0089
   amendment). With `tac.nativeCapabilities: ["filePicker"]`, JavaScript,
   TypeScript and linked Rust and C# services choose one file in
@@ -62,6 +70,23 @@ machine contracts have their own, independent major versions.
   method, the path with its `PathVariable`, the `RequestParam` query, the
   `RequestHeader` and the `RequestBody` that each language sends. A language
   whose toolchain is missing is skipped with a message.
+- `ty doctor` reports the tools that build and sign a release of each
+  declared native target, as `<target> releases` rows: `xcrun notarytool`
+  and a Developer ID Application certificate for macOS; the iPhoneOS SDK and
+  an Apple Distribution certificate for iOS; `apksigner` and `zipalign` from
+  the SDK's build-tools for Android; `makeappx.exe` and `signtool.exe` for
+  Windows; `dpkg-deb` and `mksquashfs` for Linux. Certificates are only
+  counted, never named. The rows are `info`; `ty doctor --release` makes them
+  and the `<target> apps` rows needed, so a missing tool exits with 1
+  (ADR 0066 amendment).
+- Web builds write `artifact-manifest.json` next to `route-manifest.json`,
+  the same Artifact Manifest v1 that native builds write, with `web` as its
+  target. Two builds of the same sources give the same bytes, so byte-identical
+  checks cover the web too (ADR 0005 amendment).
+- A Windows build without `--release` prints a note that its `.exe` is not
+  code signed and that `--release` builds a signed MSIX package. The support
+  table gains a "development code signing" entry for every target
+  (ADR 0104 amendment).
 
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
@@ -912,6 +937,9 @@ machine contracts have their own, independent major versions.
   exception answers 500 without its text. Other Yon markers in C++ (services,
   `Needs`, error handlers, sockets, streams, test units, ...) stop the build
   and say that C++ gets them in a later step (ADR 0099 amendment).
+  (Superseded: every one of them reached C++ in the 2026-10-18 amendments,
+  and the "later step" text is gone; see the ADR 0099 amendment of
+  2026-10-19.)
 - The standard `theme_color` member of `client/manifest.json` now becomes
   `<meta name="theme-color" content="...">` in every web and native page
   head, HTML-escaped, when it is text that is not blank. A missing or
@@ -1482,6 +1510,19 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Refusal text and docs no longer promise markers "in a later step" that
+  already work. The rule table drops its "Lua gets it in a later step (ADR
+  0085)" and "C++ gets it in a later step (ADR 0099)" endings, which no
+  marker reached any more. A Java web service now says "@SafeVarargs does
+  not work in a Java web service." without "yet", and the `TY2015` help for
+  a Ruby or Lua service that needs another service names Java among the
+  languages that can. ADRs 0017, 0054, 0083, 0085, 0093 and 0099 get dated
+  amendments that mark their old refusals superseded. The website now shows
+  Java and Groovy tabs in "Streaming: Yon" and a Lua tab in "Outgoing HTTP:
+  Yon", and the snippet check treats a `StreamRoute` method without `yield`
+  (Java, Groovy, Rust) as a stream. A new test pins the remaining Python Tac
+  refusal: a Python `Check` of a `client/models` model stops the build with
+  `TY1308`.
 - A Windows build with a C# companion no longer fails with TY1605 when it
   runs from a Visual Studio developer prompt. Those prompts set `Platform`,
   which moved the `dotnet publish` output to another folder, so `ty` could
@@ -3127,7 +3168,10 @@ machine contracts have their own, independent major versions.
   it in a later step (ADR 0085)"), and the lowering names ADR 0085
   (`TY2015`). Resources
   (`DataSource`, `RedisTemplate`, gateway clients, Tac stores and `relay`)
-  are not available in Lua.
+  are not available in Lua. (Superseded: the rule table accepts every Lua
+  marker now and the "later step" text is gone; gateway clients and Tac
+  stores came later, and `DataSource`, `RedisTemplate` and `relay` still
+  fail with `TY2015`. See the ADR 0085 amendment of 2026-10-19.)
 - Lua is a Tac language (ADR 0085 amendment). A service
   `client/services/<Name>Service.lua` is a Lua class table with `-- @Service`
   and runs on Tachyon's own Lua 5.4 WebAssembly runtime. `runtimes/lua-web`

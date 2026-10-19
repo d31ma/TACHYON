@@ -92,3 +92,27 @@ writes only what was chosen.
   table (`doctor/target_toolchains.rs`), so all three name the same tools and
   offer the same recipes. MSVC and the WebView2 SDK get plain steps, like
   Xcode and the Android SDK.
+
+## Amendment (2026-10-19): `ty doctor` reports the release tools, and `--release` needs them
+
+- For each declared native target, `ty doctor` also reports the tools that
+  build and sign its release (`ty bundle --release`), as rows named
+  `<target> releases`. macOS: `xcrun notarytool` and a Developer ID
+  Application certificate in the keychain. iOS: the iPhoneOS SDK
+  (`xcrun --sdk iphoneos`) and an Apple Distribution (or iPhone
+  Distribution) certificate in the keychain. Android: `apksigner` and
+  `zipalign` in a `build-tools` folder of the SDK in `ANDROID_HOME` or
+  `ANDROID_SDK_ROOT`. Windows: `makeappx.exe` and `signtool.exe` on PATH.
+  Linux: `dpkg-deb` and `mksquashfs`.
+- Certificates are counted from `security find-identity -v -p
+  codesigning`. The report shows only how many valid ones there are, never
+  their names, teams or hashes.
+- Like the `<target> apps` rows, these rows are `info` and never change the
+  exit status. `ty doctor --release` makes every `<target> apps` and
+  `<target> releases` row a needed one, so a missing tool exits with 1.
+- The rows live in `doctor/release_toolchains.rs`. `ty init`, `ty add target`
+  and `ty doctor --install` do not install them: signing certificates and
+  the platform SDKs are installed by hand, and the install text says how.
+- `TAC_MAKEMSIX` and `osslsigncode` are not probed. Only the Windows package
+  tests use them; `ty bundle --target windows --release` runs `makeappx.exe`
+  and `signtool.exe`.

@@ -8,6 +8,7 @@ YonLimits = {
   DELIVERY = "event.deliver",
   MISSING_LISTENERS = 404,
   PASSED = { 204, {}, {} },
+  CHECK_REJECTED = 422,
   UNREADABLE_MESSAGE = "The socket message is not valid JSON, or it is nested more than %d levels deep: %s",
 }
 
@@ -562,9 +563,17 @@ function YonRunner.run(program, request)
   end
   local ok, answer = xpcall(YonInvocation.answer, debug.traceback, handler, request)
   if not ok then
-    YonFailures.stop(answer)
+    return YonRunner.rejected(answer)
   end
   return answer
+end
+
+function YonRunner.rejected(failure)
+  local violations = type(failure) == "table" and failure.behavior_code == "validation" and failure.violations
+  if type(violations) ~= "table" then
+    YonFailures.stop(failure)
+  end
+  return { status = YonLimits.CHECK_REJECTED, violations = violations }
 end
 
 YonRunner.main(arg[1])

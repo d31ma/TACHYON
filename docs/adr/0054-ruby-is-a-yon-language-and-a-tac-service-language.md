@@ -213,3 +213,21 @@ checked by the shared rule table (ADR 0056); Ruby has no checks of its own.
   and this ADR.
 - The `@return` comment may come before or after the marker for every field
   that the page fills, as it already could for the check above.
+
+## Amendment (2026-10-19): NeedsAll in Yon Ruby and the service list
+
+This amendment supersedes two statements above. They stay as the history of
+this decision.
+
+- A Yon Ruby class marked `#[NeedsAll]` gets a provider in each of its
+  `attr_reader` fields, found by the `@return` type or by the field name, as
+  Tac Ruby already did. The test that runs it is
+  `ruby_handlers.rs a_ruby_needs_all_class_receives_every_attr_field`.
+  This supersedes "`NeedsAll` is not available in Ruby" in the Yon part of
+  "Decision".
+- The 2026-10-16 amendment lists the Tac languages whose services can need
+  another service as JavaScript, TypeScript, Go, Python, Dart, C++ and F#.
+  Java services can too, since the ADR 0083 amendment of 2026-10-18. The
+  `TY2015` help text that Ruby and Lua share now names Java as well
+  (`tac_ruby/needed_services.rs`). The test that runs it is
+  `java_needs_tests.rs a_java_web_service_shares_the_java_service_it_needs_with_the_page`.

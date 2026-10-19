@@ -188,20 +188,25 @@ fn javascript_metadata_removes_only_injected_schema_declarations() {
 }
 
 #[test]
-fn lua_client_schema_models_are_read_and_server_ones_stay_refused() {
+fn lua_schema_models_are_read_in_both_realms_and_role_markers_stay_refused() {
     let root = tempfile::tempdir().expect("project");
     let source = "-- @Checked\n---@class OrderInput\nOrderInput = {\n  -- @Required\n  ---@type string\n  name = nil,\n}\n";
     for realm in ["client", "server"] {
         let path = root.path().join(format!("{realm}/models/OrderInput.lua"));
         std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
         std::fs::write(&path, source).expect("schema model");
+        let models = super::ModelSources::read(root.path(), realm, "lua")
+            .unwrap_or_else(|failure| panic!("{realm}: {failure}"));
+        assert!(
+            models.joined_sources().contains("OrderInput = {"),
+            "{realm}"
+        );
     }
-    let client = super::ModelSources::read(root.path(), "client", "lua")
-        .unwrap_or_else(|failure| panic!("{failure}"));
-    assert!(client.joined_sources().contains("OrderInput = {"));
+    let path = root.path().join("server/models/OrderInput.lua");
+    std::fs::write(&path, source.replace("-- @Checked", "-- @Service")).expect("role model");
     let failure = super::ModelSources::read(root.path(), "server", "lua")
         .err()
-        .expect("Yon Lua schema models stay refused");
+        .expect("a role marker on a Lua model stays refused");
     assert_eq!(failure.diagnostics()[0].code.number(), 1310);
     assert_eq!(
         failure.diagnostics()[0].spans[0].file,

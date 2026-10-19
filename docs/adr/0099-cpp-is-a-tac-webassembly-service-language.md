@@ -1207,3 +1207,21 @@ each of their markers. These stay out of the plan for now:
   generator for C++.
 - Pages that use a C++ service download one more WebAssembly module, about
   the size of a Swift or Go one without their runtimes.
+
+## Amendment (2026-10-19): the Yon slice is complete
+
+This amendment supersedes two statements above. They stay as the history of
+this decision.
+
+- The status line says "the rest of the Yon slice is pending". It is not:
+  "Pending" above says that every planned Yon C++ step has landed, and the
+  amendments of 2026-10-18 record them.
+- "Every other Yon marker in a C++ file (`SocketRoute`, `StreamRoute`, the
+  behavior markers, ...) fails with its rule's code, and the message says
+  that C++ gets it in a later step" (the 2026-10-16 Yon route controller
+  amendment). The rule table lists `hpp` for every Yon marker, so none of
+  them fails by name, and the "later step" text was removed from
+  `annotation_rules/scan.rs`. `[[StreamRoute]]` and `[[SocketRoute]]` run in
+  `yon_cpp.rs a_cpp_stream_route_sends_each_item_and_then_the_end_event` and
+  `sockets.rs a_cpp_socket_route_keeps_one_object_for_each_connection`.
+- What C++ still refuses is in "Pending": Lifetime `"application"`.

@@ -17,6 +17,7 @@ use super::service_worker::ServiceWorker;
 use super::setup_sharing::SetupSharing;
 use super::shared_assets::SharedAssets;
 use super::tool_build::ToolBuild;
+use super::web_artifact_manifest::WebArtifactManifest;
 use super::yon_reads::YonReads;
 use super::{BuildOptions, BuildProfile, BuildResult, WebCompiler};
 use crate::failure::diagnostic;
@@ -259,6 +260,10 @@ impl<'a> SiteBuild<'a> {
         BuildStage::output_io(BuildStage::write(stage.path(), &files), &output_directory)?;
         let digest = BuildStage::output_io(BuildStage::digest(stage.path()), &output_directory)?;
         BuildStage::output_io(compressed.write(stage.path()), &output_directory)?;
+        BuildStage::output_io(
+            WebArtifactManifest::write(stage.path(), self.native),
+            &output_directory,
+        )?;
         BuildStage::output_io(
             BuildStage::publish(stage, &output_directory),
             &output_directory,

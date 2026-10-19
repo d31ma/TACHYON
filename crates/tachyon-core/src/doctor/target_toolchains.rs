@@ -1,4 +1,5 @@
 use super::Toolchain;
+use super::release_toolchains::ReleaseToolchains;
 use super::target_probe::TargetProbe;
 use super::target_toolchain::TargetToolchain;
 use crate::AppTarget;
@@ -7,6 +8,8 @@ use std::path::Path;
 pub(crate) struct TargetToolchains;
 
 impl TargetToolchains {
+    const APPS: &'static str = "apps";
+    const RELEASES: &'static str = "releases";
     const ROWS: [TargetToolchain; 12] = [
         TargetToolchain {
             target: AppTarget::Macos,
@@ -92,14 +95,31 @@ impl TargetToolchains {
     ];
 
     pub(crate) fn for_targets(targets: &[AppTarget]) -> Vec<Toolchain> {
-        targets
-            .iter()
-            .flat_map(|target| Self::ROWS.iter().filter(|row| row.is_for(*target)))
-            .map(TargetToolchain::toolchain)
-            .collect()
+        Self::listed(&Self::ROWS, targets, Self::APPS, false)
     }
 
-    pub(super) fn for_project(root: &Path) -> Vec<Toolchain> {
-        Self::for_targets(&crate::scaffold::ProjectState::bundle_targets(root))
+    pub(super) fn for_project(root: &Path, release: bool) -> Vec<Toolchain> {
+        let targets = crate::scaffold::ProjectState::bundle_targets(root);
+        let mut toolchains = Self::listed(&Self::ROWS, &targets, Self::APPS, release);
+        toolchains.extend(Self::listed(
+            &ReleaseToolchains::ROWS,
+            &targets,
+            Self::RELEASES,
+            release,
+        ));
+        toolchains
+    }
+
+    fn listed(
+        rows: &[TargetToolchain],
+        targets: &[AppTarget],
+        purpose: &str,
+        required: bool,
+    ) -> Vec<Toolchain> {
+        targets
+            .iter()
+            .flat_map(|target| rows.iter().filter(|row| row.is_for(*target)))
+            .map(|row| row.toolchain(purpose, required))
+            .collect()
     }
 }

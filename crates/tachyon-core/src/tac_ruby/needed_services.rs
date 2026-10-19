@@ -24,7 +24,7 @@ impl NeededServices {
     };
     const CODE: u16 = 2015;
     const SERVICES: &'static str = "client/services";
-    const SUPPORTING: &'static str = "JavaScript, TypeScript, Go, Python, Dart, C++ or F#";
+    const SUPPORTING: &'static str = "JavaScript, TypeScript, Go, Python, Dart, Java, C++ or F#";
 
     pub(crate) fn refuse(
         &self,

@@ -237,6 +237,9 @@ natively linked service languages
 build architecture (--arch)
   adapted: --arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture.
 
+development code signing
+  not applicable: Linux apps and their AppImage and .deb packages are not signed; Linux distributions sign the repositories that ship packages.
+
 release packaging
   run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: a .deb install, the AppImage through FUSE and a link opening the installed .desktop file on a Linux desktop; the packages were built and checked under Xvfb
 

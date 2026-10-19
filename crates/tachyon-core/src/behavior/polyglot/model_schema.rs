@@ -14,7 +14,7 @@ impl ModelSchema {
     pub(crate) fn plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
         crate::lua_source::LuaView::of(path, source).map_or_else(
             || Self::other_plain(path, source),
-            |view| Self::lua_plain(&view, path, source),
+            |view| Self::lua_plain(&view, source),
         )
     }
 
@@ -71,24 +71,11 @@ impl ModelSchema {
 
     fn lua_plain(
         view: &crate::lua_source::LuaView,
-        path: &Path,
         source: &str,
     ) -> Result<Option<String>, Failure> {
         let plain =
             Self::native_plain(view.path(), view.text()).map_err(|error| view.failure(&error))?;
-        match plain {
-            None => Ok(None),
-            Some(_) if path.starts_with(Self::CLIENT_MODELS) => Ok(Some(source.to_owned())),
-            Some(_) => Err(Self::lua_failure(path, source)),
-        }
-    }
-
-    fn lua_failure(path: &Path, source: &str) -> Failure {
-        let at = Self::marker_offset(path, source).unwrap_or(0);
-        Failure::one(crate::failure::diagnostic(1310,
-            "Lua model schemas need the model metadata adapter",
-            Some("Plain Lua models and Converter roles remain supported. Lua schema models work in client/models; Yon Lua schema models are outside the affected Yon adapter qualification in ADR0092.".to_owned()),
-            crate::failure::source_span(&path.to_string_lossy(), at, at + 1)))
+        Ok(plain.map(|_| source.to_owned()))
     }
 
     fn fsharp_plain(

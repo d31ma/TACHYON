@@ -30,6 +30,7 @@ mod host_names;
 mod implicit_mapping;
 mod java_checked_models;
 mod local_events;
+mod lua_schema_models;
 mod managed_resources;
 mod migrate_fix;
 mod migrate_rename;

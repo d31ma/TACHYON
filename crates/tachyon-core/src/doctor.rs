@@ -1,5 +1,8 @@
 mod command_probe;
+mod keychain_identities;
 mod known_toolchains;
+mod release_toolchains;
+mod sdk_build_tools;
 mod service_toolchains;
 mod target_probe;
 mod target_toolchain;
@@ -32,9 +35,19 @@ pub struct DoctorReport {
 
 impl DoctorReport {
     pub fn check(project_root: impl AsRef<Path>) -> Result<Self, Failure> {
+        Self::check_for_release(project_root, false)
+    }
+
+    /// Checks the project; with `release`, the tools that build and sign a
+    /// release of each declared native target are needed too.
+    pub fn check_for_release(
+        project_root: impl AsRef<Path>,
+        release: bool,
+    ) -> Result<Self, Failure> {
         Self::check_with_options(
             project_root.as_ref(),
             &HandlerSupervisorOptions::from_environment()?,
+            release,
         )
     }
 
@@ -77,6 +90,7 @@ impl DoctorReport {
     fn check_with_options(
         root: &Path,
         options: &HandlerSupervisorOptions,
+        release: bool,
     ) -> Result<Self, Failure> {
         Self::check_project_exists(root)?;
         let services = ServiceRegistry::discover(root)?;
@@ -88,7 +102,7 @@ impl DoctorReport {
         let resolved = requirements.resolve(&options.runtimes, &options.isolation)?;
         let probes = RuntimeProbe::all_sync(resolved, &options.environment)?;
         toolchains.extend(probes.iter().map(KnownToolchains::runtime));
-        toolchains.extend(TargetToolchains::for_project(root));
+        toolchains.extend(TargetToolchains::for_project(root, release));
         Ok(Self {
             contract_version: 1,
             toolchains,
@@ -157,7 +171,7 @@ mod tests {
             runtimes: InstalledPrograms::runtimes(installed, configured),
             ..HandlerSupervisorOptions::default()
         };
-        DoctorReport::check_with_options(root, &options).expect("report")
+        DoctorReport::check_with_options(root, &options, false).expect("report")
     }
 
     fn python_command() -> &'static str {
@@ -281,7 +295,8 @@ mod tests {
             },
             ..HandlerSupervisorOptions::default()
         };
-        let report = DoctorReport::check_with_options(root.path(), &options).expect("report");
+        let report =
+            DoctorReport::check_with_options(root.path(), &options, false).expect("report");
         let javascript = report.toolchains.first().expect("javascript");
         assert_eq!(javascript.command, "YON_JAVASCRIPT_RUNTIME");
         assert_eq!(javascript.state, ToolchainState::Missing);
@@ -631,12 +646,46 @@ mod tests {
                 ("linux apps", "cc"),
                 ("linux apps", "pkg-config gtk4"),
                 ("linux apps", "pkg-config webkitgtk-6.0"),
+                ("windows releases", "makeappx.exe"),
+                ("windows releases", "signtool.exe"),
+                ("linux releases", "dpkg-deb"),
+                ("linux releases", "mksquashfs"),
             ]
         );
         assert!(
             report.is_ready(),
             "target tools never change the exit status"
         );
+    }
+
+    #[test]
+    fn a_release_check_needs_the_tools_of_every_declared_target() {
+        let root = project_with(&[
+            ("client/pages/tac.html", "<main>x</main>"),
+            (
+                "package.json",
+                "{\"scripts\": {\"bundle:windows\": \"ty bundle --target windows\"}}",
+            ),
+        ]);
+        let report = DoctorReport::check_for_release(root.path(), true).expect("report");
+        let mut rows = Vec::new();
+        for entry in &report.toolchains {
+            rows.push((entry.requirement.as_str(), entry.required));
+        }
+        assert_eq!(
+            rows,
+            [
+                ("windows apps", true),
+                ("windows apps", true),
+                ("windows apps", true),
+                ("windows releases", true),
+                ("windows releases", true),
+            ]
+        );
+        let ready = report.toolchains.iter().all(Toolchain::is_ready);
+        assert_eq!(report.is_ready(), ready, "{:?}", report.toolchains);
+        let informational = check(root.path()).expect("report");
+        assert!(informational.is_ready(), "{:?}", informational.toolchains);
     }
 
     #[test]
@@ -658,7 +707,13 @@ mod tests {
                 "xcrun --sdk iphonesimulator",
                 "ANDROID_HOME",
                 "gradle",
-                "javac"
+                "javac",
+                "xcrun notarytool",
+                "Developer ID Application",
+                "xcrun --sdk iphoneos",
+                "Apple Distribution",
+                "apksigner",
+                "zipalign"
             ]
         );
     }

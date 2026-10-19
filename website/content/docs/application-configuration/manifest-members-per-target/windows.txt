@@ -237,6 +237,9 @@ natively linked service languages
 build architecture (--arch)
   honored: --arch x64 or arm64
 
+development code signing
+  adapted: a Windows build without --release is a folder with an unsigned .exe. It runs on this machine, but SmartScreen may warn when it is copied to another one. Build with --release for an MSIX package signed with the certificate that TAC_WINDOWS_CERTIFICATE or TAC_WINDOWS_CERTIFICATE_THUMBPRINT names.
+
 release packaging
   honored: ty bundle --target windows --release builds an MSIX package, <Name>.msix, with makeappx and signs it with signtool and the certificate that TAC_WINDOWS_CERTIFICATE (a .pfx file) or TAC_WINDOWS_CERTIFICATE_THUMBPRINT (a certificate in the store) names; TAC_WINDOWS_CERTIFICATE_PUBLISHER is the package publisher. Other builds are a folder with the .exe
 
