@@ -1,5 +1,7 @@
 use super::ToolchainState;
 use super::command_probe::CommandProbe;
+use super::keychain_identities::KeychainIdentities;
+use super::sdk_build_tools::SdkBuildTools;
 use crate::handler::RuntimeProbe;
 use std::path::{Path, PathBuf};
 
@@ -10,6 +12,11 @@ pub(super) enum TargetProbe {
     Folder {
         variables: &'static [&'static str],
         marker: &'static str,
+    },
+    Identity(&'static [&'static str]),
+    BuildTool {
+        variables: &'static [&'static str],
+        files: &'static [&'static str],
     },
 }
 
@@ -26,6 +33,8 @@ impl TargetProbe {
             Self::Version(program, arguments) => Self::version(program, arguments),
             Self::OnPath(program) => Self::on_path(program),
             Self::Folder { variables, marker } => Self::folder(variables, marker),
+            Self::Identity(kinds) => KeychainIdentities::state(kinds),
+            Self::BuildTool { variables, files } => Self::build_tool(variables, files),
         }
     }
 
@@ -56,14 +65,24 @@ impl TargetProbe {
     }
 
     fn folder(variables: &[&str], marker: &str) -> ToolchainState {
+        Self::named_folder(variables).map_or_else(
+            || Self::not_set(variables),
+            |folder| Self::folder_state(&folder, marker),
+        )
+    }
+
+    fn build_tool(variables: &[&str], files: &[&str]) -> ToolchainState {
+        Self::named_folder(variables).map_or_else(
+            || Self::not_set(variables),
+            |sdk| SdkBuildTools::state(&sdk, files),
+        )
+    }
+
+    fn named_folder(variables: &[&str]) -> Option<PathBuf> {
         variables
             .iter()
             .find_map(std::env::var_os)
             .map(PathBuf::from)
-            .map_or_else(
-                || Self::not_set(variables),
-                |folder| Self::folder_state(&folder, marker),
-            )
     }
 
     fn not_set(variables: &[&str]) -> ToolchainState {

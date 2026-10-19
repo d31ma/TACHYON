@@ -351,3 +351,18 @@ Store) on the developer's own Apple Developer team.
   `Payload/<Name>.app`.
 - Owed: `--release` with an App Store profile, an install and launch on an
   iOS 17 or later device, and an App Store Connect upload.
+
+## Amendment (2026-10-19): a Windows build without `--release` says it is unsigned
+
+- A Windows build without `--release` is a folder with an unsigned `.exe`.
+  It now prints one note that says so, and that `--release` builds a signed
+  MSIX package. The note is the Windows text of the "development code
+  signing" entry of the support table, which states the reach of
+  development signing on every target: macOS and iOS simulator apps are
+  signed ad hoc, `--device` iOS builds with the profile's Apple Development
+  certificate, Android debug APKs with the machine's debug keystore; web
+  builds and Linux apps are not code signed.
+- Signing the debug `.exe` with the development certificate was not chosen:
+  a debug build would then need `signtool.exe` and a timestamp server on
+  every run, and the release certificate variables would sign builds that
+  were never meant to leave the machine.

@@ -15,13 +15,13 @@ impl TargetToolchain {
         self.target == target
     }
 
-    pub(super) fn toolchain(&self) -> Toolchain {
+    pub(super) fn toolchain(&self, purpose: &str, required: bool) -> Toolchain {
         Toolchain {
-            requirement: format!("{} apps", self.target.flag_name()),
+            requirement: format!("{} {purpose}", self.target.flag_name()),
             command: String::from(self.command),
             state: self.probe.state(),
             install: String::from(self.install),
-            required: false,
+            required,
         }
     }
 }

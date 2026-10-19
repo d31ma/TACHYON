@@ -49,6 +49,23 @@ machine contracts have their own, independent major versions.
   method, the path with its `PathVariable`, the `RequestParam` query, the
   `RequestHeader` and the `RequestBody` that each language sends. A language
   whose toolchain is missing is skipped with a message.
+- `ty doctor` reports the tools that build and sign a release of each
+  declared native target, as `<target> releases` rows: `xcrun notarytool`
+  and a Developer ID Application certificate for macOS; the iPhoneOS SDK and
+  an Apple Distribution certificate for iOS; `apksigner` and `zipalign` from
+  the SDK's build-tools for Android; `makeappx.exe` and `signtool.exe` for
+  Windows; `dpkg-deb` and `mksquashfs` for Linux. Certificates are only
+  counted, never named. The rows are `info`; `ty doctor --release` makes them
+  and the `<target> apps` rows needed, so a missing tool exits with 1
+  (ADR 0066 amendment).
+- Web builds write `artifact-manifest.json` next to `route-manifest.json`,
+  the same Artifact Manifest v1 that native builds write, with `web` as its
+  target. Two builds of the same sources give the same bytes, so byte-identical
+  checks cover the web too (ADR 0005 amendment).
+- A Windows build without `--release` prints a note that its `.exe` is not
+  code signed and that `--release` builds a signed MSIX package. The support
+  table gains a "development code signing" entry for every target
+  (ADR 0104 amendment).
 
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and

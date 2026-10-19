@@ -1,4 +1,5 @@
 mod api_baseline;
+mod artifact_provenance;
 mod build_options;
 mod build_profile;
 mod build_result;
@@ -81,6 +82,7 @@ pub(crate) mod utility_module;
 #[cfg(test)]
 mod utility_module_tests;
 mod view_transition_guard;
+mod web_artifact_manifest;
 mod yon_reads;
 #[cfg(test)]
 mod yon_reads_tests;
@@ -95,6 +97,7 @@ pub(crate) use tool_build::ToolBuild;
 use crate::failure::diagnostic;
 use crate::{Failure, Project, ProjectDiscovery};
 pub use api_baseline::ApiBaselineCheck;
+pub(crate) use artifact_provenance::ArtifactProvenance;
 pub(crate) use build_stage::BuildStage;
 use build_state::BuildState;
 pub(crate) use content_digest::ContentDigest;

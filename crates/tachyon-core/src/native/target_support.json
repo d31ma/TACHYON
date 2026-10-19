@@ -750,6 +750,16 @@
     "android": {"reach": "adapted", "note": "--arch does not choose Android ABIs. An app with Rust services carries its Rust library for arm64-v8a and x86_64, so it installs on 64-bit Arm phones and x86_64 emulators only; without Rust services the APK holds no native code and runs on every ABI."}
   },
   {
+    "member": "development code signing",
+    "paths": [],
+    "web": {"reach": "notApplicable", "note": "a web build is not code signed; the server's HTTPS certificate vouches for it."},
+    "macos": {"reach": "honored", "how": "a build without --release signs the app and its helper programs ad hoc (codesign --sign -)"},
+    "windows": {"reach": "adapted", "note": "a Windows build without --release is a folder with an unsigned .exe. It runs on this machine, but SmartScreen may warn when it is copied to another one. Build with --release for an MSIX package signed with the certificate that TAC_WINDOWS_CERTIFICATE or TAC_WINDOWS_CERTIFICATE_THUMBPRINT names."},
+    "linux": {"reach": "notApplicable", "note": "Linux apps and their AppImage and .deb packages are not signed; Linux distributions sign the repositories that ship packages."},
+    "ios": {"reach": "honored", "how": "a simulator app is signed ad hoc, and a --device build with the Apple Development certificate that its provisioning profile names"},
+    "android": {"reach": "honored", "how": "a debug APK is signed with the build machine's Android debug keystore"}
+  },
+  {
     "member": "release packaging",
     "paths": [],
     "web": {"reach": "honored", "how": "a static site in dist/web"},
@@ -772,7 +782,7 @@
   {
     "member": "byte-identical rebuilds",
     "paths": [],
-    "web": {"reach": "honored", "how": "the same sources give the same dist/web tree digest"},
+    "web": {"reach": "honored", "how": "the same sources give the same dist/web tree digest and the same artifact-manifest.json"},
     "macos": {"reach": "runOwed", "how": "the macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a --release .dmg differs between builds, because its secure timestamp and notarization ticket change", "run": "a_packaged_macos_app_is_byte_identical_when_built_twice on a Mac (TL2)"},
     "windows": {"reach": "runOwed", "how": "the Windows build compiles and links with /Brepro and keeps .obj files out of the output", "run": "a_packaged_windows_app_is_byte_identical_when_built_twice in an MSVC developer prompt (TL2)"},
     "linux": {"reach": "honored", "how": "SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests"},

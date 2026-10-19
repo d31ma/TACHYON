@@ -365,7 +365,7 @@ enum Command {
     },
     #[command(
         about = "Report whether this machine has the toolchains a project needs",
-        after_help = "Exit status:\n  0  every toolchain the project needs to build and serve is ready\n  1  a needed toolchain is missing or too old, or the project cannot be read\n\nToolchains needed only to bundle a native target are reported as info and do not change the exit status.",
+        after_help = "Exit status:\n  0  every toolchain the project needs to build and serve is ready\n  1  a needed toolchain is missing or too old, or the project cannot be read\n\nToolchains needed only to bundle or release a native target are reported as info and do not change the exit status. With --release, they are needed too.",
         hide = true
     )]
     Doctor {
@@ -388,6 +388,11 @@ enum Command {
             requires = "install"
         )]
         yes: bool,
+        #[arg(
+            help = "Also need the tools that build and sign a release of each declared native target",
+            long
+        )]
+        release: bool,
     },
     #[command(about = "Inspect or clear the installation cache", display_order = 6)]
     Cache {
@@ -637,11 +642,12 @@ async fn execute(command: &Command) -> Result<(), Failure> {
             json,
             install,
             yes,
+            release,
         } => {
             if *install {
                 tool_step::ToolStep::install_for_project(project, *yes)?;
             }
-            execute_doctor(project, *json)
+            execute_doctor(project, *json, *release)
         }
         Command::Cache { command } => execute_cache(command.as_ref()),
         Command::Test { project, coverage } => execute_test(project, *coverage).await,
@@ -1717,8 +1723,8 @@ async fn execute_native_build(
     Ok(())
 }
 
-fn execute_doctor(project: &PathBuf, json: bool) -> Result<(), Failure> {
-    let report = tachyon_core::doctor::check(project)?;
+fn execute_doctor(project: &PathBuf, json: bool, release: bool) -> Result<(), Failure> {
+    let report = tachyon_core::doctor::DoctorReport::check_for_release(project, release)?;
     if json {
         println!(
             "{}",

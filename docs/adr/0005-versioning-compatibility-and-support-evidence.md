@@ -107,3 +107,24 @@ this version as a preview or stable release.
   path handling. Cargo passes the crate's own files as relative paths, and a
   remap flag in `RUSTFLAGS` would rebuild every vendored dependency on each
   build.
+
+## Amendment (2026-10-19): web builds write an Artifact Manifest too
+
+- A web build (`ty build`, `ty bundle --target web`) writes
+  `artifact-manifest.json` at the root of its output, after the precompressed
+  files. It lists every other output file with its SHA-256 and size, sorted by
+  path, with the same product version, commit (`GITHUB_SHA`) and
+  `SOURCE_DATE_EPOCH` as a native build. Its target is `os` `web`,
+  `architecture` `universal` and `abi` `browser`; its toolchain is `rust`, and
+  it names no `native_host` contract. Artifact Manifest v1 accepts `web` as an
+  `os` value; nothing else in the contract changes.
+- The web stage of a native build writes none: the native build's own
+  manifest already lists every file under `web/`, and a nested manifest would
+  turn a style-only change into a restart for native UI updates.
+- Two web builds of the same sources write the same `artifact-manifest.json`
+  bytes, so byte-identical checks cover the web the way they cover native
+  builds (`web_artifact_manifest.rs`).
+- The file is served with the rest of the site, like `route-manifest.json`.
+  It names only files that are already public.
+- The commit, `SOURCE_DATE_EPOCH` and Rust version now come from one place
+  (`compiler/artifact_provenance.rs`) for web and native builds.

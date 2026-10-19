@@ -35,7 +35,7 @@
       "required": ["os", "architecture", "abi"],
       "properties": {
         "os": {
-          "enum": ["linux", "macos", "windows", "android", "ios"]
+          "enum": ["linux", "macos", "windows", "android", "ios", "web"]
         },
         "architecture": {
           "enum": ["x86_64", "aarch64", "universal"]

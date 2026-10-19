@@ -225,6 +225,9 @@ natively linked service languages
 build architecture (--arch)
   adapted: --arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64.
 
+development code signing
+  honored: a simulator app is signed ad hoc, and a --device build with the Apple Development certificate that its provisioning profile names
+
 release packaging
   run owed: ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. Other builds run in the simulator; still to run: a --release build with an App Store profile, an install on an iOS 17 or later device, and an upload; a --device build was signed and checked on a Mac
 

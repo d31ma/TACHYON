@@ -10,7 +10,7 @@ use super::native_web_stage::NativeWebStage;
 use super::routes::NativeRouteIndex;
 use super::windows::WindowsHostGenerator;
 use super::windows_architecture::WindowsArchitecture;
-use crate::compiler::{publish, resolve_output_path};
+use crate::compiler::{ArtifactProvenance, publish, resolve_output_path};
 use crate::failure::diagnostic;
 use crate::{BuildOptions, Failure, Project, ProjectDiscovery, WebCompiler};
 use sha2::{Digest, Sha256};
@@ -524,9 +524,8 @@ fn artifact_manifest(
     ArtifactManifest {
         contract_version: 1,
         release_version: String::from(tachyon_contracts::PRODUCT_VERSION),
-        commit: source_revision(),
-        source_date_epoch: super::native_reproducibility::NativeReproducibility::source_date_epoch(
-        ),
+        commit: ArtifactProvenance::commit(),
+        source_date_epoch: ArtifactProvenance::source_date_epoch(),
         target: artifact_target(
             options.target,
             options.windows_architecture,
@@ -536,7 +535,7 @@ fn artifact_manifest(
         toolchains: vec![
             ArtifactToolchain {
                 name: String::from("rust"),
-                version: String::from("1.97.1"),
+                version: String::from(ArtifactProvenance::RUST_VERSION),
             },
             ArtifactToolchain {
                 name: generated.toolchain_name.clone(),
@@ -545,17 +544,6 @@ fn artifact_manifest(
         ],
         contracts: ArtifactContractVersions::default(),
         outputs,
-    }
-}
-
-fn is_commit_hash(value: &str) -> bool {
-    matches!(value.len(), 40 | 64) && value.bytes().all(|byte| byte.is_ascii_hexdigit())
-}
-
-fn source_revision() -> String {
-    match std::env::var("GITHUB_SHA") {
-        Ok(value) if is_commit_hash(&value) => value,
-        _ => "0".repeat(40),
     }
 }
 
@@ -658,7 +646,7 @@ mod tests {
 
     use super::super::host::NativeHost;
     use super::super::{android, ios, linux, macos, rust, windows};
-    use super::{NativeBuildOptions, NativeCompiler, chosen_companion, source_revision};
+    use super::{NativeBuildOptions, NativeCompiler, chosen_companion};
     use crate::project::NativeCompanion;
     use crate::template::ServiceRegistry;
     use std::fs;
@@ -914,16 +902,6 @@ mod tests {
                 "{platform} host policy blocks WebAssembly"
             );
         }
-    }
-
-    #[test]
-    fn fallback_revision_always_satisfies_the_manifest_shape() {
-        assert!(matches!(source_revision().len(), 40 | 64));
-        assert!(
-            source_revision()
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit())
-        );
     }
 
     #[cfg(target_os = "macos")]

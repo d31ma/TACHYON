@@ -225,6 +225,9 @@ natively linked service languages
 build architecture (--arch)
   adapted: --arch does not choose Android ABIs. An app with Rust services carries its Rust library for arm64-v8a and x86_64, so it installs on 64-bit Arm phones and x86_64 emulators only; without Rust services the APK holds no native code and runs on every ABI.
 
+development code signing
+  honored: a debug APK is signed with the build machine's Android debug keystore
+
 release packaging
   honored: ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK
 
