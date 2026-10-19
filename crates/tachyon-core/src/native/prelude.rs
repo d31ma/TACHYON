@@ -17,6 +17,10 @@ fn tac_local_values() -> &'static std::thread::LocalKey<TacStore> {
 }
 
 fn tac_store_base() -> std::path::PathBuf {
+    #[cfg(target_os = "android")]
+    if let Some(base) = TacAndroidBridge::store_base() {
+        return base;
+    }
     if let Ok(base) = std::env::var("XDG_CONFIG_HOME") {
         return std::path::PathBuf::from(base);
     }

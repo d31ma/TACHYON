@@ -10,6 +10,18 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Rust services are linked into Android apps (D1, ADR 0019 amendment). The
+  build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
+  packages `libtachyoncompanion.so` for each, and the Java host calls them
+  through JNI. Before, Rust services ran as WebAssembly in the page on
+  Android. Calls, events, awaited methods, window controls, `HTTPClient`
+  calls to `tac.yon.origin` and `tac_set_local` work, also next to Kotlin
+  services in the same app; `scripts/android/rust-services-test.mjs` runs
+  them on the Android 15 emulator. Building such an app needs the Android
+  NDK and `rustup target add aarch64-linux-android x86_64-linux-android`.
+  An app with Rust services now installs only on 64-bit Arm and x86_64
+  devices.
+
 - Rust services link into the iOS app (ADR 0019 and ADR 0035 amendments,
   decision D1). A Rust-only service now runs natively in the iOS app as a
   static library with the macOS C ABI, instead of as WebAssembly in the

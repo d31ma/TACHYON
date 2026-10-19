@@ -45,7 +45,8 @@ impl RustCompanion {
             include_str!("tac_tasks.rs"),
             include_str!("tac_http_ticket.rs"),
             include_str!("tac_stream.rs"),
-            include_str!("tac_page_socket.rs")
+            include_str!("tac_page_socket.rs"),
+            include_str!("tac_android_bridge.rs")
         ),
         concat!(
             include_str!("tac_native_http/tac_native_http_request.rs"),
@@ -201,6 +202,20 @@ impl RustCompanion {
         Self::compile_chosen(&build, linkage, target_triple, library, helpers).await
     }
 
+    pub(super) async fn compile_for_android(
+        application: &super::config::NativeApplication,
+        source: &Path,
+        (triple, linker): (&str, &Path),
+        library: &Path,
+    ) -> Result<RustCompanionOutput, Failure> {
+        let mut build = application
+            .rust
+            .crate_build(source, &application.application_id);
+        build.linker = Some(linker.to_path_buf());
+        let helpers = library.parent().unwrap_or_else(|| Path::new("."));
+        Self::compile_chosen(&build, Linkage::Shared, Some(triple), library, helpers).await
+    }
+
     async fn compile_chosen(
         build: &super::rust_crate_build::RustCrateBuild<'_>,
         linkage: Linkage,
@@ -213,7 +228,7 @@ impl RustCompanion {
         }
         let (_, native_libraries) = Self::compile_output(
             build.source,
-            linkage,
+            (linkage, build.linker.as_deref()),
             target_triple,
             library,
             linkage == Linkage::Static,
@@ -279,7 +294,7 @@ pub(super) async fn compile(
     target_triple: Option<&str>,
     output: &Path,
 ) -> Result<String, Failure> {
-    RustCompanion::compile_output(source, linkage, target_triple, output, false)
+    RustCompanion::compile_output(source, (linkage, None), target_triple, output, false)
         .await
         .map(|(version, _)| version)
 }
@@ -287,7 +302,7 @@ pub(super) async fn compile(
 impl RustCompanion {
     async fn compile_output(
         source: &Path,
-        linkage: Linkage,
+        (linkage, linker): (Linkage, Option<&Path>),
         target_triple: Option<&str>,
         output: &Path,
         report_native_libraries: bool,
@@ -306,9 +321,20 @@ impl RustCompanion {
             report_native_libraries,
         );
         arguments.extend(path_maps.iter().map(String::as_str));
+        let linker = Self::linker_argument(linker)?;
+        arguments.extend(linker.iter().flat_map(|linker| ["-C", linker.as_str()]));
         let compiled = NativeReproducibility::run_tool_output("rustc", &arguments).await?;
         let native_libraries = Self::output_native_libraries(&compiled, report_native_libraries)?;
         Ok((version, native_libraries))
+    }
+
+    fn linker_argument(linker: Option<&Path>) -> Result<Option<String>, Failure> {
+        linker
+            .map(|linker| {
+                unicode_path(linker, "The Android linker path is not valid Unicode.")
+                    .map(|linker| format!("linker={linker}"))
+            })
+            .transpose()
     }
 
     fn make_output_directory(output: &Path) -> Result<(), Failure> {

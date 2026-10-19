@@ -37,6 +37,7 @@ impl NativeRustProject {
             target: crate::cache::root()
                 .join(RustCrateBuild::CACHE_FOLDER)
                 .join(cache_key),
+            linker: None,
         }
     }
 }

@@ -114,6 +114,7 @@ impl ProbeMain {
             client_root: &paths.1,
             vendor: &paths.2,
             target,
+            linker: None,
         }
     }
 }
@@ -307,4 +308,27 @@ fn static_native_link_cargo_query_preserves_offline_target_and_vendor_arguments(
             .iter()
             .any(|argument| argument.starts_with("source.tachyon-vendored.directory="))
     );
+}
+
+#[test]
+fn an_android_build_names_the_ndk_linker_for_its_target_only() {
+    let declaration = RustCrateBuildTests::declaration("/shared/native/ProbeMain.rs");
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
+    let paths = RustCrateBuildTests::project(root.path());
+    let mut build = RustCrateBuildTests::build(&declaration, &paths, root.path().join("target"));
+    build.linker = Some(PathBuf::from("/ndk/bin/aarch64-linux-android26-clang"));
+    let android = build
+        .cargo_arguments(
+            Path::new("Cargo.toml"),
+            &build.target,
+            Some("aarch64-linux-android"),
+        )
+        .unwrap_or_else(|error| panic!("{error}"));
+    let linker = "\"/ndk/bin/aarch64-linux-android26-clang\"";
+    assert!(android.contains(&format!("target.aarch64-linux-android.linker={linker}")));
+    assert!(android.contains(&format!("env.CC_aarch64_linux_android={linker}")));
+    let host = build
+        .cargo_arguments(Path::new("Cargo.toml"), &build.target, None)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert!(!host.iter().any(|argument| argument.contains("linker")));
 }

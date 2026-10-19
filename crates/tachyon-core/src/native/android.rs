@@ -1,5 +1,6 @@
 use super::android_gradle_build::AndroidGradleBuild;
 use super::android_release::AndroidRelease;
+use super::android_rust_libraries::AndroidRustLibraries;
 use super::compiler::NativeBuildOptions;
 use super::config::NativeApplication;
 use super::file_picker_sources::FilePickerSources;
@@ -9,6 +10,7 @@ use super::host::{
 };
 use super::routes::NativeRouteIndex;
 use crate::Failure;
+use futures_util::future::OptionFuture;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -37,6 +39,15 @@ impl AndroidHostGenerator {
         include_str!("capabilities/TacNativeCapabilityRegistration.kt")
     );
 
+    fn rust_services(companions: &[super::registry::NativeCompanionInput]) -> Vec<String> {
+        companions
+            .iter()
+            .filter(|item| item.language == crate::project::NativeCompanion::Rust)
+            .filter(|item| !item.web_assembly)
+            .map(|item| item.service.clone())
+            .collect()
+    }
+
     fn kotlin_companion_prelude() -> String {
         format!(
             "{}{}{}",
@@ -58,7 +69,20 @@ impl AndroidHostGenerator {
         let project = bundle.join("project");
         let assets = project.join("app/src/main/assets");
         stage_application(index, web_bundle, stage, &assets)?;
-        write_project(application, index, companions, web_bundle, &project)?;
+        let rust_companion = super::rust::RustCompanion::stage_for_host(
+            companions,
+            stage,
+            application,
+            super::rust::Linkage::Shared,
+        )?;
+        let rust_services = Self::rust_services(companions);
+        write_project(
+            application,
+            index,
+            companions,
+            web_bundle,
+            (&project, &rust_services),
+        )?;
 
         if !options.package {
             return Ok(GeneratedHost::not_packaged(
@@ -66,6 +90,13 @@ impl AndroidHostGenerator {
             ));
         }
 
+        OptionFuture::from(
+            rust_companion
+                .as_deref()
+                .map(|source| AndroidRustLibraries::build(application, source, &project)),
+        )
+        .await
+        .transpose()?;
         let (gradle_version, apk) = if options.release {
             AndroidGradleBuild::release(&project, &bundle, application).await?
         } else {
@@ -84,7 +115,7 @@ fn write_project(
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
     web_bundle: &Path,
-    project: &Path,
+    (project, rust_services): (&Path, &[String]),
 ) -> Result<(), Failure> {
     let package = java_package(&application.application_id);
     let package_path = package.replace('.', "/");
@@ -114,11 +145,12 @@ fn write_project(
         &project.join("app/src/main/res/values/strings.xml"),
         strings_xml(application).as_bytes(),
     )?;
+    AndroidHostGenerator::write_rust_library_source(project, rust_services)?;
     write_host_source(
         &project.join(format!(
             "app/src/main/java/{package_path}/MainActivity.java"
         )),
-        &java_source(application, &package, has_companion, index),
+        &linked_java_source(application, &package, (has_companion, rust_services), index),
     )
 }
 
@@ -384,10 +416,20 @@ fn strings_xml(application: &NativeApplication) -> String {
     )
 }
 
+#[cfg(test)]
 pub(super) fn java_source(
     application: &NativeApplication,
     package: &str,
     has_companion: bool,
+    index: &NativeRouteIndex,
+) -> String {
+    linked_java_source(application, package, (has_companion, &[]), index)
+}
+
+pub(super) fn linked_java_source(
+    application: &NativeApplication,
+    package: &str,
+    (has_companion, rust_services): (bool, &[String]),
     index: &NativeRouteIndex,
 ) -> String {
     let native_shim = super::host::native_shim(
@@ -405,6 +447,11 @@ pub(super) fn java_source(
     } else {
         "// No companion, so nothing publishes."
     };
+    let rust = AndroidHostGenerator::rust_routing(rust_services, companion_call, companion_emit);
+    let (companion_call, companion_emit, rust_services) = rust.as_ref().map_or(
+        (companion_call, companion_emit, ""),
+        |(call, emit, services)| (call.as_str(), emit.as_str(), services.as_str()),
+    );
     let framed = AndroidHostGenerator::JAVA_HOST
         .replace("__NATIVE_SHIM__", &quoted_string_escape(&native_shim))
         .replace(
@@ -427,6 +474,7 @@ pub(super) fn java_source(
             "__NATIVE_DEEP_LINKS__",
             &super::native_deep_link::NativeDeepLink::java_helper(&application.links),
         )
+        .replace("__NATIVE_RUST_SERVICES__", rust_services)
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit);
     let entry_document = quoted_string_escape(&index.entry_document);
@@ -470,6 +518,44 @@ pub(super) fn host_source() -> &'static str {
 }
 
 impl AndroidHostGenerator {
+    pub(super) const RUST_LIBRARY_SOURCE: &str = include_str!("TachyonRust.java");
+    const RUST_SERVICES_SOURCE: &str = include_str!("android_rust_services.java");
+
+    fn write_rust_library_source(project: &Path, rust_services: &[String]) -> Result<(), Failure> {
+        if rust_services.is_empty() {
+            return Ok(());
+        }
+        let source =
+            Self::RUST_LIBRARY_SOURCE.replace("__LIBRARY__", AndroidRustLibraries::LIBRARY);
+        write(
+            &project.join("app/src/main/java/dev/tachyon/host/TachyonRust.java"),
+            source.as_bytes(),
+        )
+    }
+
+    fn rust_routing(
+        rust_services: &[String],
+        other_call: &str,
+        other_emit: &str,
+    ) -> Option<(String, String, String)> {
+        if rust_services.is_empty() {
+            return None;
+        }
+        let names = rust_services
+            .iter()
+            .map(|service| format!("\"{}\"", quoted_string_escape(service)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let services = Self::RUST_SERVICES_SOURCE
+            .replace("__RUST_SERVICES__", &names)
+            .replace("__OTHER_COMPANION_CALL__", other_call);
+        Some((
+            String::from("rustOrCompanion(request)"),
+            format!("{other_emit} installRustCompanion();"),
+            services,
+        ))
+    }
+
     const INTERNET_PERMISSION: &str =
         "\n  <uses-permission android:name=\"android.permission.INTERNET\"/>";
 
@@ -769,6 +855,7 @@ __NATIVE_DEEP_LINKS__
   private static synchronized String companionInvoke(String request) {
     return __TACHYON_COMPANION_CALL__;
   }
+__NATIVE_RUST_SERVICES__
 
   private void disposeCompanions() {
     bridgeWorker.getQueue().clear();

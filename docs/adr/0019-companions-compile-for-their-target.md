@@ -178,3 +178,41 @@ This amendment covers iOS; Android follows in its own amendment.
   start other programs.
 - An application-lifetime Rust service is still desktop-only (ADR 0097);
   the iOS app does not start one yet.
+
+## Amendment (2026-10-19): Rust links on Android (D1, MR2)
+
+- `tac.rs` and Rust services now reach Android too, so Rust links on every
+  native target. When a service has both a Kotlin and a Rust file, Kotlin
+  still wins on Android.
+- The Android build compiles the app's Rust services once per ABI, as a
+  `cdylib` named `libtachyoncompanion.so`, for `arm64-v8a`
+  (`aarch64-linux-android`) and `x86_64` (`x86_64-linux-android`). It
+  places each library in `app/src/main/jniLibs/<abi>/`, and Gradle packages
+  them. An app without Rust services still holds no native code.
+- The build links with the clang of the Android NDK. It finds the NDK in
+  `ANDROID_NDK_HOME`, `ANDROID_NDK_ROOT`, or the newest version folder in
+  `$ANDROID_HOME/ndk`, and it uses the clang for the newest API level that
+  is at or below the app's Android floor. Tachyon does this itself, so no
+  `cargo-ndk` is needed. With `tac.application.rust` crates, Cargo gets the
+  same linker and the same clang as `CC_<target>` for build scripts. A
+  missing NDK or Rust standard library stops the build with TY1605, which
+  names `sdkmanager` or `rustup target add`.
+- `tac.application.rust.platformDependencies` accepts `android`
+  (`cfg(target_os = "android")`). Helper executables stay refused on
+  Android.
+- The Java host loads the library through `dev.tachyon.host.TachyonRust`
+  with JNI. The library exports `Java_dev_tachyon_host_TachyonRust_install`
+  and `Java_dev_tachyon_host_TachyonRust_call`, and calls back the static
+  Java methods `publish`, `dispatch`, `capability` and `http`. Text crosses
+  as UTF-8 byte arrays, not Java strings.
+- The host sends a page call to Rust when its `service` is a linked Rust
+  service, and to the Kotlin companion otherwise. `host-dispose` goes to
+  both, and `host-resume` goes to Rust. All Rust calls run on the host's one
+  bridge thread, as Kotlin calls do.
+- Events, awaited methods, window controls and `HTTPClient` calls work as on
+  the desktop hosts. A linked Rust `HTTPClient` reaches `tac.yon.origin`
+  through `HttpURLConnection` in the app, so the app's network security
+  configuration applies. `tac_local` and `tac_set_local` keep their values
+  in the app's files folder.
+- Evidence: `scripts/android/rust-services-test.mjs` on the Android 15
+  (API 35, arm64) emulator, next to a Kotlin service in the same app.

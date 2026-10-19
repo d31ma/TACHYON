@@ -217,7 +217,7 @@
     "windows": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
     "linux": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
     "ios": {"reach": "honored", "how": "vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here"},
-    "android": {"reach": "adapted", "note": "tac.application.rust crates are not used on Android: Rust services run as WebAssembly in the page there (D1)."}
+    "android": {"reach": "honored", "how": "vendored crates linked into the app's Rust services, built for arm64-v8a and x86_64; platformDependencies.android applies only here"}
   },
   {
     "member": "tac.application.rust.executables",
@@ -447,7 +447,7 @@
     "windows": {"reach": "adapted", "note": "tac.yon.origin: the Windows app sends page calls to this origin, its connect-src allows it, and linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient. Tested in the cloud under wine and .NET; the WebView2 run on a Windows desktop is still owed (NET3)."},
     "linux": {"reach": "honored", "how": "the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb)"},
     "ios": {"reach": "honored", "how": "the page and its linked Swift HTTP clients reach tac.yon.origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103)"},
-    "android": {"reach": "honored", "how": "the page and its linked Kotlin HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs on the Android 15 emulator (ADR 0103)"}
+    "android": {"reach": "honored", "how": "the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator (ADR 0103)"}
   },
   {
     "member": "tac.go",
@@ -597,7 +597,7 @@
     "windows": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
     "linux": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
     "ios": {"reach": "refused", "code": 1406, "alternative": "Rust services are linked into the iOS app, but none starts with the app yet (LT1). Use a page or singleton service."},
-    "android": {"reach": "refused", "code": 1406, "alternative": "Application lifetime services must be Rust, and Rust is not linked on Android yet. Use a page or singleton service (D1)."}
+    "android": {"reach": "refused", "code": 1406, "alternative": "Rust services are linked into the Android app, but none starts with the app yet (LT1). Use a page or singleton service."}
   },
   {
     "member": "standard menu bar without declared items",
@@ -717,7 +717,7 @@
     "windows": {"reach": "adapted", "note": "The Windows app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services. Other absolute URLs go only to the hosts in tac.outgoing.hosts. The WebView2 run on a Windows desktop is still owed (NET3)."},
     "linux": {"reach": "honored", "how": "HTTP calls, streams, sockets and topics from pages and linked Rust services go to tac.yon.origin, which lists tachyon://app in server.origins (ADR 0103)"},
     "ios": {"reach": "adapted", "note": "The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1)."},
-    "android": {"reach": "adapted", "note": "The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs (NET2)."}
+    "android": {"reach": "adapted", "note": "The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2)."}
   },
   {
     "member": "natively linked service languages",
@@ -727,7 +727,7 @@
     "windows": {"reach": "honored", "how": "Rust and C# services are linked into the app; other languages run in the page"},
     "linux": {"reach": "honored", "how": "Rust services are linked into the app; other languages run in the page"},
     "ios": {"reach": "honored", "how": "Rust and Swift services are linked into the app, with Swift chosen when a service has both; other languages run in the page"},
-    "android": {"reach": "honored", "how": "Kotlin services are linked into the app; other languages run in the page"}
+    "android": {"reach": "honored", "how": "Kotlin and Rust services are linked into the app, with Kotlin chosen when a service has both; other languages run in the page"}
   },
   {
     "member": "build architecture (--arch)",
@@ -737,7 +737,7 @@
     "windows": {"reach": "honored", "how": "--arch x64 or arm64"},
     "linux": {"reach": "adapted", "note": "--arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture."},
     "ios": {"reach": "adapted", "note": "--arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64."},
-    "android": {"reach": "adapted", "note": "--arch does not choose Android ABIs: the APK holds no native code yet, so it runs on every ABI. Builds per ABI come with linked Rust on Android (MR2)."}
+    "android": {"reach": "adapted", "note": "--arch does not choose Android ABIs. An app with Rust services carries its Rust library for arm64-v8a and x86_64, so it installs on 64-bit Arm phones and x86_64 emulators only; without Rust services the APK holds no native code and runs on every ABI."}
   },
   {
     "member": "release packaging",

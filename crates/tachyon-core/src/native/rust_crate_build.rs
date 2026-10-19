@@ -14,6 +14,7 @@ pub(super) struct RustCrateBuild<'build> {
     pub(super) client_root: &'build Path,
     pub(super) vendor: &'build Path,
     pub(super) target: PathBuf,
+    pub(super) linker: Option<PathBuf>,
 }
 
 impl RustCrateBuild<'_> {
@@ -232,7 +233,22 @@ impl RustCrateBuild<'_> {
                 .flat_map(|triple| [String::from("--target"), String::from(triple)]),
         );
         arguments.extend(self.vendor_arguments());
+        arguments.extend(self.linker_arguments(target_triple));
         Ok(arguments)
+    }
+
+    fn linker_arguments(&self, target_triple: Option<&str>) -> Vec<String> {
+        let Some((triple, linker)) = target_triple.zip(self.linker.as_deref()) else {
+            return Vec::new();
+        };
+        let linker = RustCompanionCrate::toml_path(linker);
+        let compiler = format!("CC_{}", triple.replace('-', "_"));
+        vec![
+            String::from("--config"),
+            format!("target.{triple}.linker={linker}"),
+            String::from("--config"),
+            format!("env.{compiler}={linker}"),
+        ]
     }
 
     fn vendor_arguments(&self) -> Vec<String> {

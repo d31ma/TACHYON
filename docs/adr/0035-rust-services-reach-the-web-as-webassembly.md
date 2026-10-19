@@ -123,3 +123,10 @@ not about the language:
   iOS web view no longer runs a Rust service as WebAssembly. Android still
   does until its own amendment, and so does any target where a Rust
   service is not the selected variant.
+
+## Amendment (2026-10-19): Android links Rust (D1, MR2)
+
+- On Android, Rust services are no longer WebAssembly in the page either:
+  they are linked into the app (ADR 0019 amendment of the same day).
+- The web build, and the web view of every target that does not link Rust,
+  keep the WebAssembly module described here.

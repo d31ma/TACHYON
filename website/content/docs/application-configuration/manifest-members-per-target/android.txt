@@ -64,7 +64,7 @@ tac.application.menus
   refused with TY1601: Android apps have no menu bar. Put links or buttons in the page instead (D1).
 
 tac.application.rust
-  adapted: tac.application.rust crates are not used on Android: Rust services run as WebAssembly in the page there (D1).
+  honored: vendored crates linked into the app's Rust services, built for arm64-v8a and x86_64; platformDependencies.android applies only here
 
 tac.application.rust.executables
   refused with TY1601: An Android app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target.
@@ -133,7 +133,7 @@ tac.outgoing
   adapted: The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host.
 
 tac.yon
-  honored: the page and its linked Kotlin HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs on the Android 15 emulator (ADR 0103)
+  honored: the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator (ADR 0103)
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -178,7 +178,7 @@ tac.simplify
   honored: the same build check
 
 application lifetime services
-  refused with TY1406: Application lifetime services must be Rust, and Rust is not linked on Android yet. Use a page or singleton service (D1).
+  refused with TY1406: Rust services are linked into the Android app, but none starts with the app yet (LT1). Use a page or singleton service.
 
 standard menu bar without declared items
   not applicable: An Android app has no menu bar (MN1 adapts declared items).
@@ -214,13 +214,13 @@ Content-Security-Policy
   honored: the native host policy, which also allows the host's bridge script by its hash
 
 reaching Yon
-  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs (NET2).
+  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2).
 
 natively linked service languages
-  honored: Kotlin services are linked into the app; other languages run in the page
+  honored: Kotlin and Rust services are linked into the app, with Kotlin chosen when a service has both; other languages run in the page
 
 build architecture (--arch)
-  adapted: --arch does not choose Android ABIs: the APK holds no native code yet, so it runs on every ABI. Builds per ABI come with linked Rust on Android (MR2).
+  adapted: --arch does not choose Android ABIs. An app with Rust services carries its Rust library for arm64-v8a and x86_64, so it installs on 64-bit Arm phones and x86_64 emulators only; without Rust services the APK holds no native code and runs on every ABI.
 
 release packaging
   honored: ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK

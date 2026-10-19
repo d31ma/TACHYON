@@ -193,13 +193,18 @@ mod tests {
             .find(|entry| entry.command == "rustc")
             .expect("rust toolchain reported");
         assert!(
-            entry.requirement.contains("macos, windows, linux"),
+            entry
+                .requirement
+                .contains("macos, windows, linux, ios, android"),
             "{entry:?}"
         );
         assert!(entry.requirement.contains("services"), "{entry:?}");
         assert!(entry.install.contains("rustup.rs"), "{entry:?}");
         let text = report.to_text();
-        assert!(text.contains("macos, windows, linux, ios  rustc"), "{text}");
+        assert!(
+            text.contains("macos, windows, linux, ios, android  rustc"),
+            "{text}"
+        );
         match &entry.state {
             ToolchainState::Ready(version) => assert!(!version.is_empty()),
             ToolchainState::Incomplete(reason) => assert!(!reason.is_empty()),

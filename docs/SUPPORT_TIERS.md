@@ -153,8 +153,23 @@ macOS bundles accept `--arch arm64`, `--arch x64` or `--arch universal`
 architecture. `universal` builds both architectures and joins them with
 `lipo`. Only the staging and the artifact manifest are tested so far; the
 universal build, its `lipo -archs` check and a run on an Intel Mac are not
-yet verified. Linux and iOS builds use the build machine's architecture, and
-Android has no `--arch` until MR2.
+yet verified. Linux and iOS builds use the build machine's architecture.
+Android takes no `--arch`: an app with Rust services carries its Rust library
+for `arm64-v8a` and `x86_64` (MR2), and an app without them holds no native
+code.
+
+Rust on Android (2026-10-19, ADR 0019 amendment): Rust services are linked
+into the Android app through JNI. `scripts/android/rust-services-test.mjs`
+passed on the Mac's Android 15 (API 35, arm64) emulator with NDK r30: the APK
+held `libtachyoncompanion.so` for `arm64-v8a` and `x86_64` and no WebAssembly,
+and a Rust service ran in the app's own process next to a Kotlin service.
+Calls, an awaited method, an event, the granted and refused window controls
+and the window title, an `HTTPClient` call to `tac.yon.origin` (and its
+`HTTP_LIMIT` refusal), a `@LocalState` field across a reload and
+`tac_set_local` across a relaunch all passed. A signed `--release` build of
+the same app packaged both libraries in the APK and in the App Bundle; it was
+not installed. Not run: the `x86_64` library on an x86_64 emulator, and a
+physical device.
 
 On 2026-10-04, commit `2be294ba` built the Observer fixture through
 `ty bundle --target windows` for both architectures on Windows 11 ARM64.

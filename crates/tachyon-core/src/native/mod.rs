@@ -1,7 +1,11 @@
 mod android;
 mod android_browser_apis;
 mod android_gradle_build;
+mod android_ndk;
 mod android_release;
+mod android_rust_libraries;
+#[cfg(test)]
+mod android_rust_library_tests;
 mod android_signing_certificate;
 #[cfg(test)]
 mod android_yon_http_tests;

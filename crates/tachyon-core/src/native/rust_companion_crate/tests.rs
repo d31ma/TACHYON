@@ -101,7 +101,7 @@ fn platform_crates_name_a_platform_that_links_rust() {
         json!({"platformDependencies": {"freebsd": {"libc": "=0.2.189"}}}),
     );
     assert!(
-        problem.contains("use ios, linux, macos or windows"),
+        problem.contains("use android, ios, linux, macos or windows"),
         "{problem}"
     );
     let ios = RustCompanionCrateTests::declaration(

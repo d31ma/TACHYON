@@ -353,21 +353,6 @@ fn browser_services_keep_constants_inside_their_class() {
     );
 }
 
-fn rust_web_target_installed() -> bool {
-    let Ok(output) = Command::new("rustc")
-        .args([
-            "--print",
-            "target-libdir",
-            "--target",
-            "wasm32-unknown-unknown",
-        ])
-        .output()
-    else {
-        return false;
-    };
-    output.status.success() && Path::new(String::from_utf8_lossy(&output.stdout).trim()).is_dir()
-}
-
 fn dotnet_web_workload_installed() -> bool {
     let Ok(output) = Command::new("dotnet").args(["workload", "list"]).output() else {
         return false;
@@ -418,17 +403,44 @@ fn assert_staged_as_webassembly(language: &str, source: &str, target: &str, engi
 }
 
 #[test]
-fn a_rust_service_is_webassembly_on_targets_that_do_not_link_it() {
-    if skip_without(
-        rust_web_target_installed(),
-        "the wasm32-unknown-unknown Rust target",
-    ) {
-        return;
-    }
-    let source = "#[Service]\npub struct PhaseFourService {\n    pub count: i32,\n}\n\n\
-                  impl PhaseFourService {\n    pub fn new() -> Self {\n        \
-                  Self { count: 6 }\n    }\n}\n";
-    assert_staged_as_webassembly("rs", source, "android", "tachyon-rust.js");
+fn a_rust_service_links_on_android_instead_of_running_as_webassembly() {
+    let project = tempfile::tempdir().expect("project");
+    write_phase4_project(project.path());
+    write(
+        &project.path().join("client/services/PhaseFourService.rs"),
+        "#[Service]\npub struct PhaseFourService {\n    pub count: i32,\n}\n\n\
+         impl PhaseFourService {\n    pub fn new() -> Self {\n        \
+         Self { count: 6 }\n    }\n}\n",
+    );
+    write(
+        &project
+            .path()
+            .join("client/components/phase/count/tac.html"),
+        "<output aria-label=\"Rust count\">{phaseFour.count}</output>",
+    );
+    write(
+        &project.path().join("client/pages/tac.html"),
+        "<phase-four />\n<phase-count />",
+    );
+    let output = run(ty()
+        .arg("bundle")
+        .arg(project.path())
+        .args(["--target", "android", "--native"]));
+    assert!(output.status.success(), "{}", stderr(&output));
+    let staged = project.path().join("dist/android");
+    assert!(
+        !staged
+            .join("web/.tachyon/services/tachyon-rust.js")
+            .exists(),
+        "a linked Rust service is not also staged as WebAssembly"
+    );
+    assert!(staged.join("project/companion.rs").is_file());
+    let host = fs::read_to_string(staged.join("tachyon.host.json")).expect("host descriptor");
+    let host: serde_json::Value = serde_json::from_str(&host).expect("host json");
+    assert_eq!(
+        host["companions"],
+        serde_json::json!([{"service": "phaseFour", "language": "Rust"}])
+    );
 }
 
 #[test]

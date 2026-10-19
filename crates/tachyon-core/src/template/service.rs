@@ -993,7 +993,7 @@ mod tests {
         for (target, linked) in [
             (None, false),
             (Some(NativeTarget::Ios), true),
-            (Some(NativeTarget::Android), false),
+            (Some(NativeTarget::Android), true),
             (Some(NativeTarget::Macos), true),
             (Some(NativeTarget::Linux), true),
         ] {
