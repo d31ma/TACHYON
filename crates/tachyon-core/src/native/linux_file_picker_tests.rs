@@ -80,7 +80,7 @@ return 'pick=' + (await send('call', 'pick', [])).value;";
     fn choices(folder: &Path) {
         Self::write(&folder.join("notes.txt"), Self::NOTES.as_bytes());
         Self::write(&folder.join("data.json"), Self::DATA.as_bytes());
-        Self::write(&folder.join("large.txt"), &[b'a'; 65_537]);
+        Self::write(&folder.join("large.txt"), &vec![b'a'; 65_537]);
         Self::write(&folder.join("binary.txt"), &[0xff, 0xfe, 0x00, 0x41]);
     }
 
