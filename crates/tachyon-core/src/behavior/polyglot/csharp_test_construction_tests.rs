@@ -90,9 +90,10 @@ async fn csharp_test_http_client_fakes_compile_and_execute_per_construction() {
         .expect("authored HTTPClient and Test lowering")
         .expect("emitted C#");
     assert!(emitted.contains("public GreetingService(GreetingClient greetingClient)"));
-    assert!(emitted.contains("new GreetingService(this.__tachyonAssignedFake(this.greetingClient"));
+    assert!(emitted.contains(
+        "new GreetingService((this.greetingClient ?? new GreetingClient(this.behaviors)))"
+    ));
     assert!(emitted.contains("Test.construct needs an active test setup."));
-    assert!(emitted.contains("Test.construct needs an assigned Fake named greetingClient."));
     assert!(emitted.contains("matching typed Fake named greetingClient for GreetingService"));
     let mut probe = tokio::process::Command::new("dotnet");
     probe.arg("--version");

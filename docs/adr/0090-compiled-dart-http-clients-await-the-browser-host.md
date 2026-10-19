@@ -1018,3 +1018,24 @@ WebAssembly and checks the results through a real Yon controller. On
 `dotnet_task_model_browser_fixture` and
 `dotnet_task_collection_browser_fixture` gates; Firefox and WebKit were not
 run for this amendment.
+
+## Amendment (2026-10-19): an empty client Fake in C# and Dart
+
+In a C# or Dart Tac test unit, `construct` now gives an empty `[Fake]` or
+`@Fake` field whose type is an `HTTPClient` a client bound to the test's
+BehaviorContext, so the TestSetup adapter answers it: C# passes
+`this.name ?? new Client(this.behaviors)` and Dart passes
+`this.name ?? Client(behaviors!)`. This is the rule Rust, Go, Kotlin, Swift,
+Java and F# already follow. Before, `construct` refused the empty Fake with
+"needs an assigned Fake". A Fake of any other type is still refused while it
+is empty.
+
+A C# test case declared `async Task` is now awaited. Before, the case runner
+dropped its Task, so an assertion after the first `await` could fail without
+failing the case.
+
+Evidence: `tests/it/tac_http_verbs.rs` runs the same `PutRequest`,
+`PatchRequest` and `DeleteRequest` test unit in the 12 Tac languages without
+a native web client test (C# with `async Task` cases), and
+`csharp_test_construction_tests` runs the empty-Fake case on .NET. They
+passed in a cloud container on 2026-10-19.

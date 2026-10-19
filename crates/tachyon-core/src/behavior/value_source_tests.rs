@@ -210,7 +210,7 @@ fn a_csharp_value_source_calls_the_case_once_for_each_literal() {
         .expect("lowered")
         .expect("a test unit");
     for call in [
-        "case \"testKeepsAnInput[1]\": testKeepsAnInput(1); return;",
+        "case \"testKeepsAnInput[1]\": RunCaseBody(() => testKeepsAnInput(1)); return;",
         "testKeepsAnInput(\"a\\\"b\")",
         "testKeepsAnInput(true)",
         "testKeepsAnInput(3000000000)",
