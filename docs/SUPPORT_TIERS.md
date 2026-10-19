@@ -72,10 +72,12 @@ Windows release packages (2026-10-19, ADR 0104): `ty bundle --target windows
 packed with Microsoft's MSIX SDK (`makemsix`, which validates
 `AppxManifest.xml` against the Windows schemas), signed with a self-signed
 certificate by `osslsigncode`, verified and unpacked again; the packaged-host
-data-folder helper ran under Wine. Not yet run: `makeappx` and `signtool`
-themselves, installing the package and launching it on Windows, which
-`scripts/windows/native-test.ps1 -Msix` does from an elevated prompt.
-Distribution needs a trusted code-signing certificate.
+data-folder helper ran under Wine. On Windows 11 ARM64 (2026-10-19),
+`scripts/windows/native-test.ps1 -Msix` built an arm64 package with
+`makeappx`, signed it with `signtool` and a self-signed certificate, and,
+from an elevated prompt on the signed-in desktop, installed it, launched it
+and found its WebView2 data in the package's LocalState folder. Distribution
+needs a trusted code-signing certificate.
 
 ### Application services and declared menus on desktop hosts (2026-10-04)
 

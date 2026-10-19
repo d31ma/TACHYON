@@ -260,9 +260,11 @@ app an identity, which toast notifications and protocol activation need.
   `--release` and a self-signed certificate. `makeappx` packed an arm64
   `NativeGate.msix`, `signtool` signed it, and the script found the gate
   certificate's thumbprint on it. The AppX deployment service also accepted
-  the signature. Installing and launching it is not run yet: over SSH,
-  `Add-AppxPackage` stops with 0x80070005 because a network logon has no
-  desktop session. The script now skips that step without a signed-in
-  desktop session. From an elevated prompt on the desktop it trusts the
-  certificate, installs the package, checks the rendered pages and the
-  WebView2 folder in LocalState, and removes the package again.
+  the signature. Over SSH, `Add-AppxPackage` stops with 0x80070005 because
+  a network logon has no desktop session, so the script skips the install
+  there. From an elevated prompt on the signed-in desktop (same commit, with
+  the developer prompt's `Platform` variable cleared), the script trusted the
+  certificate, installed the package, launched it from its package identity,
+  checked the rendered pages and the native Rust, OS and publish calls,
+  found the WebView2 data in the package's LocalState folder, and removed
+  the package again. It passed.
