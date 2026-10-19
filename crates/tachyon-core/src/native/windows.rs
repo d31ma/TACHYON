@@ -1548,10 +1548,10 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
       if (tachyon_tray_hides_window(window)) return 0;
       break;
     case WM_DESTROY:
-      tachyon_tray_remove();
       tachyon_page_messages_clear();
       tachyon_companion_dispose();
       tachyon_file_picker_dispose_all();
+      tachyon_tray_remove();
       InterlockedExchangePointer(&g_publish_window, NULL);
       tachyon_record("controller.destroyed");
       if (g_controller != NULL) { ICoreWebView2Controller_Close(g_controller); ICoreWebView2Controller_Release(g_controller); g_controller = NULL; }

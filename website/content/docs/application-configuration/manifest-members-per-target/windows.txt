@@ -64,13 +64,13 @@ tac.application.menus
   run owed: items in the File, View and Help menus of the window's menu bar; still to run: a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)
 
 tac.application.tray
-  honored: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107)
+  run owed: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107); still to run: the notification-area icon and its menu items on a signed-in Windows desktop; the host has run only under Wine (ADR 0107)
 
 tac.application.tray.template
   adapted: tac.application.tray.template applies only to the macOS menu bar. The Windows notification area shows the icon in its own colors.
 
 tac.application.tray.closeHidesWindow
-  honored: closing the window hides it, and its page keeps running until Exit
+  run owed: closing the window hides it, and its page keeps running until Exit; still to run: closing, reopening and exiting the window inside WebView2 on a signed-in Windows desktop (ADR 0107)
 
 tac.application.tray.dock
   adapted: tac.application.tray.dock applies only to the macOS Dock. The Windows taskbar shows the app only while its window is open.

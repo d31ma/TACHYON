@@ -306,7 +306,12 @@ fn every_target_states_what_it_does_with_a_tray() {
     }
     let mac =
         super::target_support::TargetSupport::notes(root.path(), AppTarget::Macos).expect("macOS");
-    assert!(mac.is_empty(), "{mac:?}");
+    assert_eq!(mac.len(), 4, "{mac:?}");
+    assert!(
+        mac.iter()
+            .all(|note| note.contains("signed-in Mac desktop")),
+        "{mac:?}"
+    );
     let linux =
         super::target_support::TargetSupport::notes(root.path(), AppTarget::Linux).expect("Linux");
     assert!(
@@ -326,13 +331,17 @@ fn every_target_states_what_it_does_with_a_tray() {
         "{windows:?}"
     );
     assert!(
+        windows.iter().any(|note| note.contains("only under Wine")),
+        "{windows:?}"
+    );
+    assert!(
         windows.iter().any(|note| note.contains("own colors")),
         "{windows:?}"
     );
     assert!(
         windows
             .iter()
-            .all(|note| !note.contains("closeHidesWindow")),
+            .any(|note| note.contains("closing, reopening and exiting")),
         "{windows:?}"
     );
 }

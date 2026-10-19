@@ -64,16 +64,16 @@ tac.application.menus
   honored: items in the File, View and Help menus of the menu bar
 
 tac.application.tray
-  honored: a status item in the menu bar with Open, the declared items and Quit (ADR 0107)
+  run owed: a status item in the menu bar with Open, the declared items and Quit (ADR 0107); still to run: the status item and its menu items on a signed-in Mac desktop (ADR 0107)
 
 tac.application.tray.template
-  honored: a template image that the menu bar tints for light and dark mode
+  run owed: a template image that the menu bar tints for light and dark mode; still to run: the tinted icon in light and dark mode on a signed-in Mac desktop (ADR 0107)
 
 tac.application.tray.closeHidesWindow
-  honored: closing the window hides it, and its page keeps running until Quit
+  run owed: closing the window hides it, and its page keeps running until Quit; still to run: closing, reopening and quitting the window on a signed-in Mac desktop (ADR 0107)
 
 tac.application.tray.dock
-  honored: false runs the app from the menu bar only, with no Dock icon (LSUIElement)
+  run owed: false runs the app from the menu bar only, with no Dock icon (LSUIElement); still to run: an app with no Dock icon on a signed-in Mac desktop (ADR 0107)
 
 tac.application.rust
   honored: vendored crates linked into the app's Rust services
