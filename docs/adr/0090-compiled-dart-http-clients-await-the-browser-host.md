@@ -1035,7 +1035,7 @@ dropped its Task, so an assertion after the first `await` could fail without
 failing the case.
 
 Evidence: `tests/it/tac_http_verbs.rs` runs the same `PutRequest`,
-`PatchRequest` and `DeleteRequest` test unit in the 12 Tac languages without
-a native web client test (C# with `async Task` cases), and
+`PatchRequest` and `DeleteRequest` test unit in 12 Tac languages (C# with
+`async Task` cases), and
 `csharp_test_construction_tests` runs the empty-Fake case on .NET. They
 passed in a cloud container on 2026-10-19.
