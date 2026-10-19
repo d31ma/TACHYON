@@ -65,7 +65,7 @@ fn compiler_available(extension: &str) -> bool {
             "Skipping {extension} behavior runtime: {compiler} unavailable; dedicated JVM gate requires both compilers"
         );
     }
-    available
+    crate::support::toolchain::Toolchain::checked(compiler, available)
 }
 
 fn assert_behavior_results(value: &serde_json::Value) {

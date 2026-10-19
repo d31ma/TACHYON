@@ -13,6 +13,11 @@ filter = 'test(/reads_the_clock_and_secure_random_from_the_page$/) | test(simult
 test-group = 'serial'
 retries = 2
 
+# Twelve FYLO patches queue for one FYLO process under the 5 second storage deadline.
+[[profile.default.overrides]]
+filter = 'test(concurrent_fylo_patches_never_lose_an_update)'
+test-group = 'serial'
+
 # Relay boundary tests measure deadlines against wall-clock time, so a loaded machine can push them over.
 [[profile.default.overrides]]
 filter = 'binary(it) & test(/^relay_boundaries::/)'

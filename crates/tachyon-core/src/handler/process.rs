@@ -1462,10 +1462,22 @@ mod tests {
         ];
 
         fn available(&self) -> bool {
-            std::process::Command::new(self.program)
+            let found = std::process::Command::new(self.program)
                 .arg(self.version_flag)
                 .output()
-                .is_ok_and(|output| output.status.success())
+                .is_ok_and(|output| output.status.success());
+            let installed_in_ci = ["kotlinc", "php-cgi", "dart"].contains(&self.program);
+            let required = [
+                cfg!(unix),
+                std::env::var_os("CI").is_some(),
+                installed_in_ci,
+            ];
+            assert!(
+                [required == [true, true, true], found] != [true, false],
+                "{} is installed in CI, so this test must run there instead of skipping",
+                self.program
+            );
+            found
         }
 
         async fn protocol_output(&self) -> String {

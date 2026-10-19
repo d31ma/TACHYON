@@ -20,6 +20,7 @@ class ManagedStorageTest {
     { driver: 'sqlserver', image: 'mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718', port: 1433, username: 'sa', environment: ['ACCEPT_EULA=Y', 'MSSQL_SA_PASSWORD'] },
     { driver: 'redis', image: 'redis:8-alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576', port: 6379, environment: [] },
   ]
+  static concurrentFyloPatches = 'storage::tests::fylo_documents::concurrent_fylo_patches_never_lose_an_update'
   static sqlcmd = '/opt/mssql-tools18/bin/sqlcmd'
   static sqlServerFolder = '/var/opt/mssql/tachyon'
   static owned = []
@@ -277,8 +278,10 @@ async function main() {
   try {
     if (!ManagedStorageTest.withoutDocker) command('docker', ['info', '--format', '{{.ServerVersion}}'])
     const binary = await buildTests()
-    console.log(command(binary, ['storage::tests', '--skip', 'storage::tests::redis_real_json_ttl_and_delete', '--skip', 'storage::tests::sql_real_repository_nullable_columns'],
-      { timeout: 120_000, env: { ...process.env, TAC_STORAGE_REQUIRE_TOOLCHAINS: '1' } }))
+    const environment = { ...process.env, TAC_STORAGE_REQUIRE_TOOLCHAINS: '1' }
+    console.log(command(binary, ['storage::tests', '--skip', 'storage::tests::redis_real_json_ttl_and_delete', '--skip', 'storage::tests::sql_real_repository_nullable_columns', '--skip', ManagedStorageTest.concurrentFyloPatches],
+      { timeout: 120_000, env: environment }))
+    console.log(command(binary, [ManagedStorageTest.concurrentFyloPatches, '--exact'], { timeout: 60_000, env: environment }))
     if (ManagedStorageTest.withoutDocker) return await withoutDocker(binary)
     await fylo()
     await certificates()

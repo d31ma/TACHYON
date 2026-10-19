@@ -371,12 +371,13 @@ fn usable(program: &str) -> bool {
 }
 
 fn kotlin_available() -> bool {
-    StdCommand::new("kotlinc")
+    let found = StdCommand::new("kotlinc")
         .arg("-version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()
-        .is_ok_and(|status| status.success())
+        .is_ok_and(|status| status.success());
+    crate::support::toolchain::Toolchain::checked("kotlinc", found)
 }
 
 fn write(root: &Path, relative: &str, contents: &str) {
