@@ -38,6 +38,7 @@ mod models_client;
 mod models_yon;
 mod needs_fsharp;
 mod outgoing_loopback;
+mod published_sections;
 mod relay_boundaries;
 mod requestless_methods;
 mod root_middleware;
