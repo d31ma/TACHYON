@@ -308,6 +308,9 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/debug/ty
 
+      - name: Verify native companion task answers reach the page
+        run: bun run test:native-task-answers
+
       - name: Verify injected-publisher application events and lifecycle resources
         run: |
           bun run test:application-events
@@ -326,6 +329,9 @@ jobs:
 
       - name: Run the real-browser contract for a page calling Yon on another origin
         run: bun run test:yon-origin-browser
+
+      - name: Run the Yon reach fixture the native hosts use, in a browser
+        run: bun run test:yon-reach-fixture
 
       - name: Run the real-browser contract for native Yon reads kept offline
         run: bun run test:yon-reads-browser

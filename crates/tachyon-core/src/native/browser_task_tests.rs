@@ -63,7 +63,8 @@ impl TaskOwnerFixture {
                 include_str!("browser/TacTaskAnswer.cs"),
                 include_str!("browser/TacTaskInvocation.cs"),
                 include_str!("browser/TacHttpTransport.cs"),
-                include_str!("browser/TacHttpInvocation.cs")
+                include_str!("browser/TacHttpInvocation.cs"),
+                include_str!("browser/TacSocketTransport.cs")
             ),
             super::csharp_web_apis::CsharpWebApis::with_events(),
             include_str!("../../tests/fixtures/behavior/TaskSignals.cs"),
@@ -88,14 +89,14 @@ impl TaskOwnerFixture {
 }
 
 #[test]
-fn browser_task_registry_is_selected_without_changing_native_task_dispatch() {
+fn browser_and_native_task_registries_both_dispatch_tasks() {
     let root = tempfile::tempdir().expect("Task project");
     let browser = TaskOwnerFixture::registry(root.path(), true);
     let native = TaskOwnerFixture::registry(root.path(), false);
-    assert!(browser.contains("TacMember.TaskMethod("));
-    assert!(!browser.contains("GetAwaiter().GetResult()"));
-    assert!(native.contains("GetAwaiter().GetResult()"));
-    assert!(!native.contains("TacMember.TaskMethod("));
+    for registry in [browser, native] {
+        assert!(registry.contains("TacMember.TaskMethod("));
+        assert!(!registry.contains("GetAwaiter().GetResult()"));
+    }
 }
 
 #[test]

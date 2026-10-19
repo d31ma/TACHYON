@@ -189,8 +189,27 @@ and the iOS simulator on a Mac; the other native hosts have not run it yet.
 | Web | implemented | page transports, CORS, preflight, socket origin and `connect-src` unit tests; Chromium cross-port run |
 | macOS, iOS | run on the host | `scripts/native/yon-reach-test.mjs` passed on 2026-10-19 for the macOS app (macOS 26.6.2, Xcode 27.1) and the iOS 26.5 simulator (iPhone 17 Pro) over `http` and over `https` through a local TLS proxy. In all three runs Yon received `Origin: tachyon-app://bundle`, and the page reached it with HTTP, a CORS preflight, a stream, a socket, a topic, a 422 problem and a signed-in route. The linked Swift `@HTTPClient` read reached the origin through `URLSession` too; it is also unit-tested against a local server |
 | Android | implemented, not run on the emulator yet; an `https` origin, or a local `http` origin with cleartext to that one host | NET2: the host passes the declared origin through its request interception and asks for the INTERNET permission; linked Kotlin `HTTPClient`s use a native transport, tested on the JVM against a real HTTP server (`android_yon_http_tests`); a packaged APK builds in the cloud; `scripts/android/yon-origin-test.mjs` is the emulator run |
-| Windows | implemented, not run on the host | proven by NET3 on a signed-in desktop |
+| Windows | implemented; linked Rust and C# `HTTPClient` calls reach it too; not run on the host | 2026-10-19 cloud runs (below); `scripts/windows/yon-reach.ps1` on a signed-in desktop is owed (NET3, with N1) |
 | Linux | implemented, not run on the host | proven by NET4 under Xvfb |
+
+On 2026-10-19 (NET3, ADR 0103 amendment) linked services started to answer
+the page later through a task, and linked Rust and C# `HTTPClient` calls
+started to reach `tac.yon.origin`. The cloud evidence:
+
+- a Rust companion built for `x86_64-pc-windows-gnu` reached a local server
+  through WinHTTP under wine 9.0 (`200` and `422`, no cookies);
+- the Windows resume message code was built with MinGW and run under wine;
+- a C# companion was built with .NET 10 and reached a local server
+  (statuses, limits, deadline, cancel and the refusals);
+- `scripts/yon-reach-fixture-test.mjs` passed in Chromium against Yon on
+  another origin: HTTP, a stream, a socket, a topic, a `@Check` 422 and a
+  `SignedIn` route.
+
+Not run: the MSVC and NativeAOT Windows build, and WebView2 itself.
+`scripts/windows/yon-reach.ps1` runs every path from the packaged app on a
+Windows desktop. It also shows whether WebView2 asks for local network
+access before a page on `https://tachyon.local` may call
+`http://localhost`.
 
 Use `scripts/phase4-macos-test.mjs`, `scripts/ios/native-test.mjs`,
 `scripts/android/native-test.sh`, `scripts/linux/native-test.sh` and

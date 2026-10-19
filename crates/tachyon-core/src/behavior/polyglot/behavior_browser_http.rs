@@ -68,11 +68,7 @@ impl BehaviorBrowserHttp {
 
     #[cfg(not(target_arch = "wasm32"))]
     async fn host(text: String) -> BehaviorResult<String> {
-        drop(text);
-        Err(behavior_error(
-            "HTTP_MISSING",
-            "The default HTTP transport runs only in the browser. Give this client an HTTP adapter in its Setup.",
-        ))
+        BehaviorNativeHttp::send(text).await
     }
 
     fn value(answer: &str) -> BehaviorResult<BehaviorValue> {

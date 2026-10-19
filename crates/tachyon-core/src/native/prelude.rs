@@ -844,6 +844,10 @@ fn tac_handle(raw: &str) -> String {
         tac_dispose_all();
         return String::from("{\"value\":null}");
     }
+    if operation == "host-resume" {
+        TacTasks::run_ready();
+        return String::from("{\"value\":null}");
+    }
     let Some(route) = tac_entry_text(&request, "route") else {
         return String::from(
             "{\"error\":\"Missing companion route.\",\"code\":\"TY_NATIVE_ROUTE\"}",

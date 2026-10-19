@@ -187,7 +187,9 @@ With the origin declared, the native page sends its Yon calls there.
   token in the `Authorization` header.
 - Linked native services (Swift, Kotlin, C# or Rust `HTTPClient` code that
   runs natively, not as WebAssembly) still have no native transport and fail
-  with `HTTP_MISSING` until threads NET1 to NET4 add one.
+  with `HTTP_MISSING` until threads NET1 to NET4 add one. The 2026-10-19
+  amendments add one for Swift on macOS and iOS, for Kotlin on Android, and
+  for C# and Rust on Windows.
 - A desktop Yon sidecar (D5 option (b)) is not part of this decision.
   Nothing here stops it from being added later.
 
@@ -334,3 +336,101 @@ declared Yon origin.
   Android emulator against a Yon on the build machine. It covers an HTTP
   route, a stream, a socket, a topic, a `@Check` 422, a `SignedIn` route and
   a linked Kotlin client.
+## Amendment (2026-10-19): Windows and linked native services (NET3)
+
+### Linked services answer later through a task
+
+Before this amendment no native host could wait for a linked service. A Rust
+`async fn` that did not finish in its first poll answered `HTTP_MISSING`, and
+native C# ran `Task` methods to the end on the UI thread. A linked service
+that calls Yon must wait for the network, so the Rust and C# companions now
+use one task protocol. A Swift companion on macOS and iOS still waits inside
+the call: it runs the main run loop until its task ends (NET1). A Kotlin
+companion on Android runs a `suspend fun` to its end inside the call (NET2).
+
+1. A `call` to an async member answers `{"task":N}` at once.
+2. When the task settles, the companion sends one signal through the same
+   emit callback that carries `publish`:
+   `{"route","service","owner","task":N,"answer":"<envelope>"}`. The
+   envelope is the usual `{"value":...}` or `{"error":...,"code":...}`
+   answer, written as a JSON string.
+3. A signal larger than 64 KiB is replaced with
+   `{"error":"The task result is larger than 64 KiB.","code":"HTTP_LIMIT"}`.
+4. The page keeps each waiting call by owner and task number. A signal for
+   another owner, or for an owner the page already disposed, changes
+   nothing. Disposing an owner rejects its waiting calls, and the companion
+   finishes that owner's running tasks with `CANCELLED`.
+5. The ten-second limit on a native call covers only the first answer. A
+   task then waits until the service code ends or the page disposes the
+   owner. Each Yon request inside it still ends by its own deadline.
+
+The Rust companion runs its tasks on the host's UI thread. It exports
+`tac_native_set_dispatch(fn)`. A waker on any thread queues the task and calls
+the hook. The host then sends `{"op":"host-resume"}` on its UI thread, and
+the companion polls the ready tasks with the owner's activation set. A host
+that does not install the hook keeps the old `HTTP_MISSING` answer. The
+Windows host posts one `WM_APP + 2` message for each burst of wakes.
+
+The C# companion runs each task continuation on the thread pool, one at a
+time per companion, under the lock that `Invoke` already takes. Its emit
+callback is thread-safe, so it needs no resume hook. Native C# `Task`,
+`Task<BehaviorJSON>` and `Task<Model>` methods now become task members, as
+they do in the browser. Synchronous methods answer as before.
+
+### Linked `HTTPClient` code gets a native transport
+
+Linked Rust and C# `HTTPClient` calls go to `tac.yon.origin`. They follow the
+same rules and codes as the page transport (`tac-http.js`):
+
+- the method list, path and query rules, the header rules and limits;
+- no cookies, no redirects (a `3xx` answer is `HTTP_NETWORK`), and no
+  credentials;
+- a deadline of at most 60 seconds (`DEADLINE`), and at most 64 requests in
+  flight (`HTTP_CAPACITY`);
+- a JSON body of at most 1 MiB, nested at most 32 deep, with safe numbers;
+- a non-`2xx` answer is `HTTP_STATUS`.
+
+Rust uses WinHTTP on Windows: a thread per request, with automatic proxy and
+the system certificate store, and cookies, redirects and automatic sign-in
+turned off. C# uses one `HttpClient` with redirects, cookies and
+decompression turned off. Without `tac.yon.origin` both answer
+`HTTP_MISSING`. A Rust companion on another desktop host answers
+`HTTP_MISSING` until that host adds a sender.
+
+### Held stream and socket clients stay with the page
+
+A natively linked C# or F# service still may not hold a `@StreamRequest` or
+`@SocketRequest` client (`TY1405`). The message now says to hold the client
+in a service the page runs, because the page reaches the Yon that
+`tac.yon.origin` names. Lifting this rule is a later choice.
+
+### Evidence and what is not yet proven
+
+In the cloud on 2026-10-19:
+
+- The page side of the task protocol passed in Node: task signals, early
+  signals, failed tasks, disposed and foreign owners.
+- A staged Rust companion passed with `rustc` on Linux: park, dispatch,
+  resume, signal and cancel.
+- The same companion was cross-compiled for `x86_64-pc-windows-gnu` and run
+  under wine 9.0. Through WinHTTP it reached a local HTTP server: `200` gave
+  the value and `422` gave `HTTP_STATUS`, with no `Cookie` header sent.
+- The Windows resume code was compiled with MinGW and run under wine.
+- A staged C# companion was built with .NET 10 and run against a local
+  server. It covered task answers, status, limit, deadline, cancel and the
+  refusals.
+- `scripts/yon-reach-fixture-test.mjs` passed in Chromium. It covers an HTTP
+  route, a stream, a socket, a topic, a `@Check` 422 and a `SignedIn` route,
+  with the page on one origin and Yon on another.
+
+Not yet run:
+
+- the MSVC and NativeAOT build of the Windows app;
+- WebView2 from `https://tachyon.local`.
+
+`scripts/windows/yon-reach.ps1` builds the fixture for Windows, starts Yon
+on `http://localhost`, and clicks every path, including the linked Rust and
+C# ones, through UI Automation. It is owed on the Surface desktop, run with
+N1. One open question is whether WebView2 asks for local network access
+before a page on `https://tachyon.local` may call `http://localhost`. If it
+does, the run shows it, and that run decides the answer.

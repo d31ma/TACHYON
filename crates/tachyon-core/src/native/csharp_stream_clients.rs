@@ -11,7 +11,7 @@ pub(super) struct CsharpStreamClients;
 impl CsharpStreamClients {
     pub(super) const CSHARP: &'static str = "C#";
     pub(super) const FSHARP: &'static str = "F#";
-    const NATIVE: &'static str = "A natively linked {language} service has no page to hold its @StreamRequest or @SocketRequest client. Hold the client in a {language} service that runs in the browser, or in a JavaScript or TypeScript service.";
+    const NATIVE: &'static str = "A natively linked {language} service cannot hold a @StreamRequest or @SocketRequest client. Hold the client in a service the page runs, such as a {language} service built for the browser or a JavaScript or TypeScript service; the page reaches the Yon that tac.yon.origin names.";
     const TOO_MANY: &'static str = "A {language} service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.";
 
     pub(super) fn page_streams(
@@ -220,7 +220,9 @@ mod tests {
         )
         .expect_err("native refusal");
         assert!(
-            refused.to_string().contains("has no page to hold"),
+            refused
+                .to_string()
+                .contains("Hold the client in a service the page runs"),
             "{refused}"
         );
     }
@@ -250,7 +252,7 @@ mod tests {
         assert!(
             refused
                 .to_string()
-                .contains("A natively linked F# service has no page to hold"),
+                .contains("A natively linked F# service cannot hold a @StreamRequest"),
             "{refused}"
         );
         let browser = super::super::held_service::HeldService {

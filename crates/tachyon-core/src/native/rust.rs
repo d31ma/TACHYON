@@ -41,9 +41,17 @@ impl RustCompanion {
         concat!(
             include_str!("tac_task_error.rs"),
             include_str!("tac_task_waker.rs"),
+            include_str!("tac_task_dispatch.rs"),
             include_str!("tac_tasks.rs"),
             include_str!("tac_http_ticket.rs"),
             include_str!("tac_stream.rs")
+        ),
+        concat!(
+            include_str!("tac_native_http/tac_native_http_request.rs"),
+            include_str!("tac_native_http/tac_native_http_response.rs"),
+            include_str!("tac_native_http/tac_native_http.rs"),
+            include_str!("tac_native_http/tac_win_http.rs"),
+            include_str!("tac_native_http/tac_win_http_handle.rs")
         ),
         include_str!("web_apis/clock.rs"),
         include_str!("web_apis/secure_random.rs"),
@@ -55,6 +63,11 @@ impl RustCompanion {
         include_str!("web_apis/notifications.rs"),
         include_str!("web_apis/geolocation.rs"),
         include_str!("web_apis/window_controls.rs")
+    );
+    const BEHAVIOR_HTTP_STUB: &str = include_str!("../behavior/polyglot/behavior_native_http.rs");
+    const BEHAVIOR_HTTP: &str = concat!(
+        include_str!("tac_native_http/behavior_native_http.rs"),
+        include_str!("tac_native_http/behavior_native_http_request.rs")
     );
     const VALUE_TYPES_START: &str = "#[derive(Clone, Default)]\npub enum TacValue";
     const LISTENER_TYPE_START: &str = "pub struct TacListener";
@@ -113,22 +126,34 @@ pub(super) fn stage(
     stage: &Path,
     application_id: &str,
 ) -> Result<Option<PathBuf>, Failure> {
-    let Some(authored) =
-        super::registry::source(companions, crate::project::NativeCompanion::Rust)?
-    else {
-        return Ok(None);
-    };
-    let staged = stage.join("project").join("companion.rs");
-    write(
-        &staged,
-        format!(
-            "{authored}\nconst TAC_APPLICATION_ID: &str = {application_id:?};\n{}{}",
-            RustCompanion::PRELUDE,
-            crate::route_types::WebEventSources::rust()
-        )
-        .as_bytes(),
-    )?;
-    Ok(Some(staged))
+    RustCompanion::stage_reaching(companions, stage, (application_id, ""))
+}
+
+impl RustCompanion {
+    pub(super) fn stage_reaching(
+        companions: &[super::registry::NativeCompanionInput],
+        stage: &Path,
+        (application_id, yon_origin): (&str, &str),
+    ) -> Result<Option<PathBuf>, Failure> {
+        let Some(authored) =
+            super::registry::source(companions, crate::project::NativeCompanion::Rust)?
+        else {
+            return Ok(None);
+        };
+        let authored = authored.replace(Self::BEHAVIOR_HTTP_STUB, Self::BEHAVIOR_HTTP);
+        let staged = stage.join("project").join("companion.rs");
+        write(
+            &staged,
+            format!(
+                "{authored}\nconst TAC_APPLICATION_ID: &str = {application_id:?};\n\
+                 const TAC_YON_ORIGIN: &str = {yon_origin:?};\n{}{}",
+                Self::PRELUDE,
+                crate::route_types::WebEventSources::rust()
+            )
+            .as_bytes(),
+        )?;
+        Ok(Some(staged))
+    }
 }
 
 impl RustCompanion {
@@ -138,7 +163,11 @@ impl RustCompanion {
         application: &super::config::NativeApplication,
         linkage: Linkage,
     ) -> Result<Option<PathBuf>, Failure> {
-        let source = stage(companions, stage_folder, &application.application_id)?;
+        let reach = (
+            application.application_id.as_str(),
+            application.outgoing.yon_origin().unwrap_or_default(),
+        );
+        let source = Self::stage_reaching(companions, stage_folder, reach)?;
         super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
             source.as_deref(),
             &application.menus,

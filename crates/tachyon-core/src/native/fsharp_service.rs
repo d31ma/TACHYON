@@ -280,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn fsharp_browser_tasks_use_existing_continuations_while_native_keeps_sync_calls() {
+    fn fsharp_tasks_use_existing_continuations_in_the_browser_and_natively() {
         let source = "[<Service>]\ntype WaitingService() =\n    member this.Read() : Task<BehaviorJSON> =\n        Task.FromResult(BehaviorJSON.Parse(\"null\"))\n\n    member this.Pause() : Task =\n        Task.CompletedTask\n\n    member val Seen : int = 0 with get, set\n";
         let browser = body_of("WaitingService", source);
         assert!(browser.contains("TacMember.TaskMethod(async arguments =>"));
@@ -288,8 +288,8 @@ mod tests {
         assert!(browser.contains("await Instance.Pause(); return null;"));
         assert!(!browser.contains("Instance.Read().GetAwaiter().GetResult()"));
         let native = table_for("WaitingService", source, false).expect("native table");
-        assert!(native.contains("Instance.Read().GetAwaiter().GetResult()"));
-        assert!(!native.contains("TacMember.TaskMethod("));
+        assert!(native.contains("return Tac.PlainJson(await Instance.Read())"));
+        assert!(!native.contains("GetAwaiter().GetResult()"));
     }
 
     #[test]
@@ -389,7 +389,7 @@ mod tests {
         assert!(
             native
                 .to_string()
-                .contains("A natively linked F# service has no page to hold"),
+                .contains("A natively linked F# service cannot hold a @StreamRequest"),
             "{native}"
         );
     }

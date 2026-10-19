@@ -41,11 +41,15 @@ fn csharp_browser_tasks_yield_once_and_keep_synchronous_members() {
 }
 
 #[test]
-fn csharp_native_task_tables_retain_the_existing_synchronous_contract() {
+fn csharp_native_task_tables_use_the_same_task_members_as_the_browser() {
     let native = TaskMembersFixture::table(false);
-    assert!(native.contains("Tac.PlainJson(Instance.Find(BehaviorJSON.Parse(Tac.EncodeValue((arguments.Length > 0 ? arguments[0] : null)))).GetAwaiter().GetResult())"));
-    assert!(native.contains("Instance.Forget(BehaviorJSON.Parse(Tac.EncodeValue((arguments.Length > 0 ? arguments[0] : null)))).GetAwaiter().GetResult(); return null;"));
-    assert!(!native.contains("TaskMethod("));
+    let browser = TaskMembersFixture::table(true);
+    assert!(native.contains(
+        "TacMember.TaskMethod(async arguments => { return Tac.PlainJson(await Instance.Find("
+    ));
+    assert!(native.contains("TacMember.TaskMethod(async arguments => { await Instance.Forget("));
+    assert!(!native.contains("GetAwaiter().GetResult()"));
+    assert_eq!(native, browser);
     assert_eq!(
         CompanionLanguage::Kotlin.for_web(true),
         CompanionLanguage::Kotlin

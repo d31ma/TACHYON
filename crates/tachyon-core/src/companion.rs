@@ -1261,8 +1261,9 @@ fn entry(language: CompanionLanguage, member: &Member) -> String {
     match language {
         CompanionLanguage::Swift => swift_entry(member),
         CompanionLanguage::Kotlin => kotlin_entry(member),
-        CompanionLanguage::CSharp => csharp_entry(member),
-        CompanionLanguage::CSharpBrowser => CsharpBrowserMembers::entry(member),
+        CompanionLanguage::CSharp | CompanionLanguage::CSharpBrowser => {
+            CsharpBrowserMembers::entry(member)
+        }
         CompanionLanguage::Rust => String::new(),
     }
 }
@@ -1351,12 +1352,6 @@ fn csharp_entry(member: &Member) -> String {
     match (member.method, &member.declared_type, member.mutable) {
         (true, Some(kind), _) if kind == "void" => format!(
             "        [\"{key}\"] = TacMember.Method(arguments => {{ Instance.{name}({passed}); return null; }}),\n"
-        ),
-        (true, Some(kind), _) if kind == "Task" => format!(
-            "        [\"{key}\"] = TacMember.Method(arguments => {{ Instance.{name}({passed}).GetAwaiter().GetResult(); return null; }}),\n"
-        ),
-        (true, Some(kind), _) if kind == "Task<BehaviorJSON>" => format!(
-            "        [\"{key}\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.{name}({passed}).GetAwaiter().GetResult())),\n"
         ),
         (true, Some(kind), _) if kind == "BehaviorJSON" => format!(
             "        [\"{key}\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.{name}({passed}))),\n"
@@ -1812,7 +1807,7 @@ mod tests {
     }
 
     #[test]
-    fn csharp_behavior_methods_wait_for_their_task_and_pass_json() {
+    fn csharp_behavior_methods_run_as_tasks_and_pass_json() {
         let generated = member_table(
             CompanionLanguage::CSharp,
             Sources::CSHARP_BEHAVIOR_SERVICE,
@@ -1820,8 +1815,8 @@ mod tests {
         )
         .expect("a table");
         for expected in [
-            "[\"find\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.find(BehaviorJSON.Parse(Tac.EncodeValue((arguments.Length > 0 ? arguments[0] : null)))).GetAwaiter().GetResult()))",
-            "[\"forget\"] = TacMember.Method(arguments => { Instance.forget(BehaviorJSON.Parse(Tac.EncodeValue((arguments.Length > 0 ? arguments[0] : null)))).GetAwaiter().GetResult(); return null; })",
+            "[\"find\"] = TacMember.TaskMethod(async arguments => { return Tac.PlainJson(await Instance.find(BehaviorJSON.Parse(Tac.EncodeValue((arguments.Length > 0 ? arguments[0] : null))))); })",
+            "[\"forget\"] = TacMember.TaskMethod(async arguments => { await Instance.forget(BehaviorJSON.Parse(Tac.EncodeValue((arguments.Length > 0 ? arguments[0] : null)))); return null; })",
             "[\"label\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.label()))",
             "[\"reads\"] = TacMember.Field(",
         ] {

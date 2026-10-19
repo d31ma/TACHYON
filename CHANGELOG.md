@@ -50,6 +50,23 @@ machine contracts have their own, independent major versions.
   build with `TY1605` before the host is compiled. Inside a package, the
   Windows host keeps WebView2's data in the package's `LocalState` folder,
   because the install folder is read-only.
+- Linked native services can wait. A call to a linked Rust or C# async
+  method answers the page with a task number. The page gets the result
+  later, through the signal path that `publish` uses. Disposing the owner
+  cancels its tasks. The Windows host resumes Rust tasks on its window thread
+  (ADR 0103 amendment).
+- Linked Rust and C# `HTTPClient` calls in the Windows app go to
+  `tac.yon.origin`, with the page transport's rules and error codes. Rust
+  uses WinHTTP and C# uses `HttpClient`. Without the origin, they answer
+  `HTTP_MISSING` as before. Native C# `Task`, `Task<BehaviorJSON>` and
+  `Task<Model>` methods are now task members. Before, they ran to the end on
+  the UI thread.
+- `scripts/native/yon-reach-fixture.py` writes one project for the desktop
+  hosts, with linked Rust and C# services that call Yon. Its Yon has an HTTP route, a stream, a socket, a topic, a `@Check` 422 and
+  a `SignedIn` route, and its page exercises each one.
+  `scripts/yon-reach-fixture-test.mjs` runs it in Chromium, and
+  `scripts/windows/yon-reach.ps1` runs it in the packaged Windows app.
+
 - `ty bundle --target android --release` builds a signed release APK and an
   Android App Bundle (`.aab`) for Google Play, both in
   `dist/android/<Name>/` (ADR 0104). The upload key comes only from the
@@ -1053,6 +1070,11 @@ machine contracts have their own, independent major versions.
   or a localhost name (ADR 0094).
 
 ### Changed
+
+- `TY1405` for a natively linked C# or F# service that holds a
+  `@StreamRequest` or `@SocketRequest` client now says to hold the client in
+  a service the page runs. The page reaches the Yon that `tac.yon.origin`
+  names.
 
 - Dart browser services share one Setup, client and store. Every Dart
   browser service of the site is built into one Dart library with one

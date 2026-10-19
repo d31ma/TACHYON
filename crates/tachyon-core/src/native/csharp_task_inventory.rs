@@ -25,7 +25,7 @@ impl CsharpTaskInventory {
     }
 
     fn selected(item: &NativeCompanionInput) -> bool {
-        item.web_assembly && item.language == NativeCompanion::CSharp
+        item.language == NativeCompanion::CSharp
     }
 
     fn selected_lower(

@@ -33,8 +33,15 @@ impl WindowsHostGenerator {
         let resources = bundle.join("resources");
         stage_application(index, web_bundle, stage, &resources)?;
 
-        let companion =
-            stage_companion(companions, stage, &application.application_id, architecture)?;
+        let companion = stage_companion(
+            companions,
+            stage,
+            (
+                &application.application_id,
+                application.outgoing.yon_origin(),
+            ),
+            architecture,
+        )?;
         let rust_companion = super::rust::RustCompanion::stage_for_host(
             companions,
             stage,
@@ -87,6 +94,7 @@ impl WindowsHostGenerator {
             target: tachyon_contracts::NativeTarget::Windows,
         };
     pub(super) const PACKAGE_DATA: &str = include_str!("windows_package_data.c");
+    const TASK_RESUME: &str = include_str!("windows_task_resume.c");
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
     const DEVELOPER_TARGET: &str = "VSCMD_ARG_TGT_ARCH";
     pub(super) const LINKER_ARGUMENTS: [&str; 13] = [
@@ -116,6 +124,18 @@ impl WindowsHostGenerator {
         include_str!("browser/TacHttpInvocation.cs"),
         include_str!("browser/TacSocketTransport.cs")
     );
+    const CSHARP_NATIVE_TASKS: &str = concat!(
+        include_str!("csharp_native/TacNative.cs"),
+        include_str!("csharp_native/Tac.cs"),
+        include_str!("csharp_native/TacOwnerContext.cs"),
+        include_str!("csharp_native/TacNativeHttp.cs"),
+        include_str!("csharp_native/TacNativeHttpRequest.cs"),
+        include_str!("csharp_native/TacNativeHttpExchange.cs"),
+        include_str!("csharp_native/TacNativeHttpFailure.cs"),
+        include_str!("csharp_native/TacNativeJson.cs")
+    );
+    const CSHARP_NATIVE_START: &str = include_str!("csharp_native/TacNativeStart.cs");
+    const CSHARP_NATIVE_BINDINGS: &str = "// __TACHYON_NATIVE_BINDINGS__";
     const CSHARP_COMPANION_USING: &str = "using System;\nusing System.Collections;\n\
                                       using System.Collections.Generic;\n\
                                       using System.Globalization;\nusing System.Linq;\n\
@@ -257,6 +277,21 @@ pub(super) const fn companion_prelude() -> &'static str {
     WindowsHostGenerator::CSHARP_COMPANION_PRELUDE
 }
 
+#[cfg(test)]
+impl WindowsHostGenerator {
+    pub(super) const fn native_tasks() -> &'static str {
+        Self::CSHARP_NATIVE_TASKS
+    }
+
+    pub(super) fn staged_companion(
+        companions: &[super::registry::NativeCompanionInput],
+        stage: &Path,
+        application: (&str, Option<&str>),
+    ) -> Result<Option<PathBuf>, Failure> {
+        stage_companion(companions, stage, application, WindowsArchitecture::X64)
+    }
+}
+
 async fn application_resource(
     application: &NativeApplication,
     web_bundle: &Path,
@@ -309,7 +344,7 @@ async fn compile_rust_companion(
 fn stage_companion(
     companions: &[super::registry::NativeCompanionInput],
     stage: &Path,
-    application_id: &str,
+    (application_id, yon_origin): (&str, Option<&str>),
     architecture: WindowsArchitecture,
 ) -> Result<Option<PathBuf>, Failure> {
     let Some(authored) =
@@ -321,15 +356,27 @@ fn stage_companion(
     let identifier = serde_json::to_string(application_id).map_err(|_| {
         native_tool_failure(1605, "Cannot encode the companion application identifier.")
     })?;
+    let origin = serde_json::to_string(yon_origin.unwrap_or_default())
+        .map_err(|_| native_tool_failure(1605, "Cannot encode the companion Yon origin."))?;
     let application = format!(
-        "internal static class TacApplication {{ internal const string Id = {identifier}; }}\n"
+        "internal static class TacApplication {{ internal const string Id = {identifier}; \
+         internal const string YonOrigin = {origin}; }}\n"
     );
     let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
     let prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
+    let tasks = WindowsHostGenerator::CSHARP_BROWSER_TASKS;
+    let native_tasks = WindowsHostGenerator::CSHARP_NATIVE_TASKS;
+    let start = WindowsHostGenerator::CSHARP_NATIVE_START.replace(
+        WindowsHostGenerator::CSHARP_NATIVE_BINDINGS,
+        &CsharpBrowserBindings::read_with_runtime(&authored, ""),
+    );
     let web_apis = CsharpWebApis::native();
     write(
         &project.join("TachyonCompanion.cs"),
-        format!("{using}\n{application}\n{authored}\n{prelude}{web_apis}").as_bytes(),
+        format!(
+            "{using}\n{application}\n{authored}\n{prelude}{tasks}{native_tasks}{start}{web_apis}"
+        )
+        .as_bytes(),
     )?;
     write(
         &project.join("TachyonCompanion.csproj"),
@@ -400,11 +447,7 @@ fn web_companion_inputs(
 
 fn web_source(authored: &str, fsharp: &str, runtime: &str) -> String {
     use std::fmt::Write as _;
-    let full_prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
-    let prelude = full_prelude
-        .split("// __TACHYON_NATIVE_ABI__")
-        .next()
-        .unwrap_or(full_prelude);
+    let prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
     let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
     let mut storage_hosts = String::new();
     for suffix in CsharpBrowserBindings::storage_namespaces(authored) {
@@ -698,6 +741,7 @@ pub(super) fn c_source(
             ("__SERVICE_COMPANIONS__", &service_companions),
             ("__RESPONSE_HEADER_CAPACITY__", &header_capacity),
             ("__WINDOW_FRAME__", &frame),
+            ("__TASK_RESUME__", WindowsHostGenerator::TASK_RESUME),
             (
                 "__WINDOW_FRAME_MESSAGES__",
                 super::windows_window_frame::WindowsWindowFrame::messages(&application.window),
@@ -867,6 +911,8 @@ static void tachyon_companion_emit(const char *payload) {
   }
 }
 
+__TASK_RESUME__
+
 static HMODULE tachyon_companion_load_one(const wchar_t *filename, int language) {
   wchar_t path[MAX_PATH];
   DWORD length = GetModuleFileNameW(NULL, path, MAX_PATH);
@@ -896,6 +942,7 @@ static HMODULE tachyon_companion_load_one(const wchar_t *filename, int language)
   TachyonCompanionSetCapabilityAdapter set_adapter =
       (TachyonCompanionSetCapabilityAdapter)GetProcAddress(library, "tac_native_set_capability_adapter");
   if (set_adapter != NULL) set_adapter(tachyon_native_capability, tachyon_native_capability_free);
+  tachyon_task_bind(library, language);
   if (g_companion_invoke[language] != NULL) {
     tachyon_record("companion.loaded");
   }
@@ -1427,6 +1474,9 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
       InterlockedDecrement(&g_pending_publishes);
       return 0;
     }
+    case TACHYON_WM_RESUME:
+      tachyon_task_resume();
+      return 0;
     case WM_COMMAND:
       if (tachyon_menus_command(window, LOWORD(wparam))) return 0;
       break;
@@ -1517,11 +1567,21 @@ mod tests {
     use crate::native::config::NativeApplication;
     use std::path::Path;
 
+    fn native_companion_source() -> String {
+        let temporary_directory = tempfile::tempdir().expect("temporary");
+        let companions = [write_owned_card_service(temporary_directory.path())];
+        staged_companion_source(
+            &companions,
+            temporary_directory.path(),
+            "dev.tachyon.native",
+        )
+    }
+
     #[test]
     fn csharp_task_model_browser_source_retains_codec_without_native_host_tail() {
         let browser = super::web_source("", "", "");
-        let native = super::companion_prelude();
-        for source in [browser.as_str(), native] {
+        let native = native_companion_source();
+        for source in [browser.as_str(), native.as_str()] {
             assert!(source.contains("public static T ReadResult<T>"));
             assert!(source.contains("public static bool Fits("));
             assert!(source.contains("TacModelContext.Default.GetTypeInfo(typeof(T))"));
@@ -1530,8 +1590,9 @@ mod tests {
         }
         assert!(!browser.contains("public static class TacNative"));
         assert!(!browser.contains("[UnmanagedCallersOnly"));
-        assert_eq!(native.matches("// __TACHYON_NATIVE_ABI__").count(), 1);
+        assert_eq!(native.matches("public static class TacNative\n").count(), 1);
         assert!(native.contains("EntryPoint = \"tac_native_invoke\""));
+        assert!(!super::companion_prelude().contains("public static class TacNative"));
     }
 
     #[test]
@@ -1558,10 +1619,14 @@ mod tests {
         ));
         assert!(source.contains("await Work.WaitAsync(Cancellation)"));
         assert!(source.contains("active != owner"));
-        assert!(
-            !super::companion_prelude()
-                .contains("public static System.Threading.Tasks.Task<string> InvokeAsync(")
+        let native = native_companion_source();
+        assert_eq!(
+            native
+                .matches("public static System.Threading.Tasks.Task<string> InvokeAsync(")
+                .count(),
+            1
         );
+        assert!(!native.contains("[JSExport]"));
     }
 
     #[test]
@@ -1687,7 +1752,7 @@ mod tests {
         let project = stage_companion(
             companions,
             output,
-            identifier,
+            (identifier, None),
             super::WindowsArchitecture::X64,
         )
         .expect("stage")
@@ -1809,7 +1874,7 @@ mod tests {
         let project = stage_companion(
             &companions,
             temporary_directory.path(),
-            "dev.tachyon.leaky",
+            ("dev.tachyon.leaky", None),
             super::WindowsArchitecture::X64,
         )
         .expect("stage")

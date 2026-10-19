@@ -160,6 +160,8 @@ mod native_rust_capability_tests;
 #[cfg(test)]
 mod native_rust_crate_tests;
 mod native_rust_project;
+#[cfg(test)]
+mod native_rust_task_tests;
 mod native_service_roots;
 #[cfg(test)]
 mod native_swift_page_lifetime_tests;
@@ -257,6 +259,8 @@ mod windows_package_manifest;
 mod windows_package_tests;
 mod windows_package_tiles;
 mod windows_release;
+#[cfg(test)]
+mod windows_task_resume_tests;
 mod windows_version_resource;
 mod windows_web_engine_check;
 mod windows_window_frame;
@@ -315,6 +319,8 @@ mod csharp_browser_bindings;
 #[cfg(test)]
 mod csharp_browser_client_tests;
 mod csharp_browser_factory;
+#[cfg(test)]
+mod csharp_native_task_tests;
 #[cfg(test)]
 mod csharp_page_lifetime_tests;
 mod csharp_stream_clients;

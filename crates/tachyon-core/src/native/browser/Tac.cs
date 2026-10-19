@@ -90,9 +90,13 @@ public partial class Tac
     {
         var owner = TaskOwner.Value;
         if (owner == null || owner.Disposed || !Activations.TryGetValue(owner.Owner, out var current) || current != owner
-            || lifetime.IsCancellationRequested || owner.Cancellation.Token != lifetime)
+            || lifetime.IsCancellationRequested || !OwnsHttpLifetime(owner, lifetime))
             throw new System.OperationCanceledException("HTTP requires its live asynchronous service activation.");
     }
+
+    private static bool OwnsHttpLifetime(Activation owner, System.Threading.CancellationToken lifetime) =>
+        owner.Cancellation.Token == lifetime
+        || PageNodes.Exists(node => node.Route == owner.Route && node.Lifetime != null && node.Lifetime.Token == lifetime);
 
     private static string FinishTask(Activation owner, object value)
     {

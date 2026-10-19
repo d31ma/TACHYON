@@ -207,6 +207,48 @@ class NativeState {
   }
 }
 
+class NativeTasks {
+  static waiting = new Map()
+  static early = new Map()
+  static mostWaiting = 256
+
+  static key(owner, task) { return `${owner}:${task}` }
+
+  static async settle(owner, answer) {
+    if (!Number.isSafeInteger(answer?.task)) return answer
+    return JSON.parse(await NativeTasks.wait(owner, answer.task))
+  }
+
+  static wait(owner, task) {
+    const key = NativeTasks.key(owner, task)
+    const early = NativeTasks.early.get(key)
+    NativeTasks.early.delete(key)
+    if (early !== undefined) return Promise.resolve(early)
+    if (NativeTasks.waiting.size >= NativeTasks.mostWaiting) return Promise.reject(new RangeError('Tac native tasks exceed 256 at once.'))
+    return new Promise((resolve, reject) => { NativeTasks.waiting.set(key, { owner, resolve, reject }) })
+  }
+
+  static done(signal) {
+    if (!Number.isSafeInteger(signal.task) || typeof signal.answer !== 'string') return
+    const key = NativeTasks.key(signal.owner, signal.task)
+    const waiting = NativeTasks.waiting.get(key)
+    NativeTasks.waiting.delete(key)
+    if (waiting) waiting.resolve(signal.answer)
+    else if (NativeTasks.early.size < NativeTasks.mostWaiting) NativeTasks.early.set(key, signal.answer)
+  }
+
+  static cancel(owner) {
+    for (const [key, waiting] of NativeTasks.waiting) {
+      if (waiting.owner !== owner) continue
+      NativeTasks.waiting.delete(key)
+      waiting.reject(new Error('Tac native owner disposed.'))
+    }
+    for (const key of NativeTasks.early.keys()) {
+      if (key.startsWith(`${owner}:`)) NativeTasks.early.delete(key)
+    }
+  }
+}
+
 class SharedData {
   static root = Object.freeze(Object.create(null))
   static modules = new Map()
@@ -1539,16 +1581,17 @@ const nativeCall = async (request, ownerId, service) => {
   const limit = request.op === 'init' ? NativeState.startUpRequestLimit : NativeState.memberRequestLimit
   if (payload.length > limit || new TextEncoder().encode(payload).byteLength > limit) throw new RangeError(NativeState.tooLarge(request, service, payload, limit))
   let timer
+  let raw
   try {
-    const raw = await Promise.race([
+    raw = await Promise.race([
       Promise.resolve(globalThis.__tachyonNativeHostCall('companion.invoke', payload)),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tac native call timed out.')), 10000) }),
     ])
-    if (typeof raw === 'string' && (raw.length > 65536 || new TextEncoder().encode(raw).byteLength > 65536)) throw new RangeError('Tac native response exceeds 64 KiB.')
-    const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
-    if (!answer || answer.error || answer.ok === false) throw new Error('Tac native call failed.')
-    return answer.value
   } finally { clearTimeout(timer) }
+  if (typeof raw === 'string' && (raw.length > 65536 || new TextEncoder().encode(raw).byteLength > 65536)) throw new RangeError('Tac native response exceeds 64 KiB.')
+  const answer = await NativeTasks.settle(ownerId, typeof raw === 'string' ? JSON.parse(raw) : raw)
+  if (!answer || answer.error || answer.ok === false) throw new Error('Tac native call failed.')
+  return answer.value
 }
 const nativeMember = (name) => typeof name === 'string'
   && /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(name)
@@ -1641,6 +1684,7 @@ const disposeNativeInstance = (owner) => {
   if (!record || record.disposed) return
   record.disposed = true
   NativeState.owners.delete(owner)
+  NativeTasks.cancel(record.ownerId)
   void nativeCall({ op: 'dispose' }, record.ownerId, record.service).catch(signalFailure)
 }
 if (nativeHost()) {
@@ -1648,6 +1692,7 @@ if (nativeHost()) {
     if (signal?.route !== ClientView.plan.route) return
     const live = [...NativeState.owners.values()].some((record) => !record.disposed && record.ownerId === signal?.owner && record.service === signal?.service)
     if (!live) return
+    if (signal.task !== undefined) return NativeTasks.done(signal)
     try { Runtime.events.publish(signal.name, signal.value, { retain: signal.retain === true }) } catch { signalFailure() }
   }
   drainCompanionQueue()

@@ -167,24 +167,20 @@ fn csharp_browser_clients_preserve_table_initializer_and_refuse_boundary_drift()
 }
 
 #[test]
-fn csharp_browser_clients_leave_native_factory_unchanged() {
+fn csharp_native_clients_use_the_same_typed_factory_as_the_browser() {
     let path = Path::new("client/services/ProbeService.cs");
-    let item = NativeCompanionInput {
-        snapshot_root: Path::new(".").to_path_buf(),
-        language: NativeCompanion::CSharp,
-        source: path.to_path_buf(),
-        service: String::from("probe"),
-        class: String::from("ProbeService"),
-        web_assembly: false,
-        application_provider: false,
+    let factory = |web_assembly| {
+        let item = NativeCompanionInput {
+            snapshot_root: Path::new(".").to_path_buf(),
+            language: NativeCompanion::CSharp,
+            source: path.to_path_buf(),
+            service: String::from("probe"),
+            class: String::from("ProbeService"),
+            web_assembly,
+            application_provider: false,
+        };
+        CsharpBrowserFactory::prepare(&item, CsharpClientFixture::SERVICE, path)
+            .map_err(|error| error.to_string())
     };
-    let factory = CsharpBrowserFactory::prepare(&item, CsharpClientFixture::SERVICE, path)
-        .unwrap_or_else(|error| panic!("native selection: {error}"));
-    assert!(factory.is_none());
-    let table = "var Instance = NativeConstruction();";
-    assert_eq!(
-        CsharpBrowserFactory::table(table, factory.as_deref(), "ProbeService", path)
-            .unwrap_or_else(|error| panic!("native table: {error}")),
-        table
-    );
+    assert_eq!(factory(false), factory(true));
 }

@@ -32,7 +32,7 @@ impl CsharpBrowserFactory {
         source: &str,
         path: &Path,
     ) -> Result<Option<String>, Failure> {
-        if item.web_assembly && item.language == NativeCompanion::CSharp {
+        if item.language == NativeCompanion::CSharp {
             crate::behavior::CsharpBrowserConstruction::factory(path, source, &item.class)
         } else {
             Ok(None)

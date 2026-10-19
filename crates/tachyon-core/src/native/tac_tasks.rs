@@ -20,6 +20,8 @@ impl TacTasks {
         "{\"error\":\"The service was removed before its task finished.\",\"code\":\"CANCELLED\"}";
     const TOO_MANY: &'static str =
         "{\"error\":\"The page runs too many service tasks at once.\",\"code\":\"CAPACITY\"}";
+    #[cfg(not(target_arch = "wasm32"))]
+    const NO_HOST: &'static str = "{\"error\":\"This method waits for the browser, and this service runs without one.\",\"code\":\"HTTP_MISSING\"}";
 
     fn table() -> &'static std::thread::LocalKey<core::cell::RefCell<TacTasks>> {
         thread_local! {
@@ -66,10 +68,13 @@ impl TacTasks {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn park(_id: u32, _owner: &str, task: TacTask) -> String {
-        drop(task);
-        String::from(
-            "{\"error\":\"This method waits for the browser, and this service runs without one.\",\"code\":\"HTTP_MISSING\"}",
+    fn park(id: u32, owner: &str, task: TacTask) -> String {
+        TacTaskDispatch::installed().map_or_else(
+            || String::from(Self::NO_HOST),
+            |_| {
+                Self::put(id, owner.to_owned(), task);
+                format!("{{\"task\":{id}}}")
+            },
         )
     }
 
@@ -77,8 +82,24 @@ impl TacTasks {
         Self::table().with(|table| table.borrow_mut().running.insert(id, (owner, task)));
     }
 
+    #[cfg(target_arch = "wasm32")]
     fn wake(id: u32) {
         Self::table().with(|table| table.borrow_mut().ready.push_back(id));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn wake(id: u32) {
+        TacTaskDispatch::wake(id);
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn next_ready() -> Option<u32> {
+        Self::table().with(|table| table.borrow_mut().ready.pop_front())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn next_ready() -> Option<u32> {
+        TacTaskDispatch::next()
     }
 
     fn run_ready() {
@@ -88,7 +109,7 @@ impl TacTasks {
     }
 
     fn drain_ready() {
-        while let Some(id) = Self::table().with(|table| table.borrow_mut().ready.pop_front()) {
+        while let Some(id) = Self::next_ready() {
             Self::resume(id);
         }
     }
@@ -108,7 +129,7 @@ impl TacTasks {
 
     fn poll_again(id: u32, owner: String, mut task: TacTask) {
         match Self::poll(id, &mut task) {
-            core::task::Poll::Ready(result) => Self::finish(id, &Self::answer(result)),
+            core::task::Poll::Ready(result) => Self::finish(id, &owner, &Self::answer(result)),
             core::task::Poll::Pending => Self::put(id, owner, task),
         }
     }
@@ -123,7 +144,7 @@ impl TacTasks {
                 .map(|(id, _)| *id)
                 .collect();
             ids.into_iter()
-                .filter_map(|id| table.running.remove(&id).map(|(_, task)| (id, task)))
+                .filter_map(|id| table.running.remove(&id).map(|entry| (id, entry)))
                 .collect::<Vec<_>>()
         });
         Self::cancel(removed);
@@ -132,18 +153,15 @@ impl TacTasks {
     fn cancel_all() {
         let removed = Self::table().with(|table| {
             let running = core::mem::take(&mut table.borrow_mut().running);
-            running
-                .into_iter()
-                .map(|(id, (_, task))| (id, task))
-                .collect::<Vec<_>>()
+            running.into_iter().collect::<Vec<_>>()
         });
         Self::cancel(removed);
     }
 
-    fn cancel(removed: Vec<(u32, TacTask)>) {
-        for (id, task) in removed {
+    fn cancel(removed: Vec<(u32, (String, TacTask))>) {
+        for (id, (owner, task)) in removed {
             drop(task);
-            Self::finish(id, Self::CANCELLED);
+            Self::finish(id, &owner, Self::CANCELLED);
         }
     }
 
@@ -161,10 +179,12 @@ impl TacTasks {
     }
 
     #[cfg(target_arch = "wasm32")]
-    fn finish(id: u32, answer: &str) {
+    fn finish(id: u32, _owner: &str, answer: &str) {
         unsafe { tac_host_task_done(id, answer.as_ptr(), answer.len()) };
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn finish(_id: u32, _answer: &str) {}
+    fn finish(id: u32, owner: &str, answer: &str) {
+        TacTaskDispatch::finish(id, owner, answer);
+    }
 }

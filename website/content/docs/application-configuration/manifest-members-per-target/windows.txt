@@ -130,7 +130,7 @@ tac.outgoing
   honored: the build checks request hosts and the resource handler's connect-src allows only them
 
 tac.yon
-  adapted: tac.yon.origin: the Windows app sends Yon calls to this origin, and its connect-src allows it, but no Windows app has been run against Yon yet (NET3).
+  adapted: tac.yon.origin: the Windows app sends page calls to this origin, its connect-src allows it, and linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient. Tested in the cloud under wine and .NET; the WebView2 run on a Windows desktop is still owed (NET3).
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -211,7 +211,7 @@ Content-Security-Policy
   honored: the native host policy
 
 reaching Yon
-  adapted: The Windows app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET3).
+  adapted: The Windows app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services. Other absolute URLs go only to the hosts in tac.outgoing.hosts. The WebView2 run on a Windows desktop is still owed (NET3).
 
 natively linked service languages
   honored: Rust and C# services are linked into the app; other languages run in the page

@@ -34,6 +34,7 @@ impl From<BehaviorValue> for Json {
     const TAC_ASYNC_RUNTIME: &str = concat!(
         include_str!("behavior_exchange.rs"),
         include_str!("behavior_browser_http.rs"),
+        include_str!("behavior_native_http.rs"),
         include_str!("behavior_tasks.rs")
     );
     const SOCKET_SENDER: &str = "BehaviorBrowserSocket::send(";

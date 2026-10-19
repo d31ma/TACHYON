@@ -738,7 +738,7 @@ mod tests {
             );
         }
         for (language, prelude) in [
-            ("csharp", windows::companion_prelude()),
+            ("csharp", windows::WindowsHostGenerator::native_tasks()),
             ("rust", rust::companion_prelude()),
         ] {
             assert!(
