@@ -31,5 +31,11 @@ signature, then the .dmg is notarized and stapled. Set
 TAC_APPLE_TEAM_ID to your team ID and TAC_APPLE_NOTARY_PROFILE to a
 notarytool keychain profile, and keep the Developer ID Application
 certificate in the keychain. TAC_MACOS_SIGNING_IDENTITY=- signs ad
-hoc for a test on the build Mac. iOS, Windows and Linux refuse
---release with TY1601 until their release packaging lands.
+hoc for a test on the build Mac.
+
+ty bundle --target linux --release builds an AppImage and a .deb in
+dist/linux/. Both install the app, its command, a desktop file,
+AppStream metainfo and the manifest icons, and use the system's
+GTK 4 and WebKitGTK 6. The build needs dpkg-deb and mksquashfs
+(squashfs-tools). iOS and Windows refuse --release with TY1601 until
+their release packaging lands.

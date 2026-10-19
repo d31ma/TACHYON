@@ -132,8 +132,8 @@ Never put a secret in it, including in `tac.application`.
 | `background_color`, … | Standard members for browser install. Tachyon publishes them as written. | browser |
 | `tac` | Tac's public configuration (ADR 0034). It binds with `TAC_` names and `tac.` paths. Keys are lowercase. Names that look like secrets are not allowed. The Tachyon members below are read by the build and are not service configuration. | Tac services |
 | `tac.application.id` | Bundle identifier in reverse-DNS form, such as `com.example.catalog`. Without it, the id is derived from the project folder. | native |
-| `tac.application.version` | The version people see, such as `1.4.0` (1.0.0 unless set): up to 64 letters, digits, `.`, `-` or `+`. It is `CFBundleShortVersionString` on macOS and iOS, `versionName` on Android, the file and product version of the Windows executable and its manifest, and `X-Tachyon-Version` in the Linux desktop entry (the desktop entry format has no version key). macOS, iOS and Windows need one to three numbers separated by dots, such as `1.4.0`, and Windows needs each number to be at most 65535; another version stops a build for those targets (`TY1601`). | native |
-| `tac.application.build` | The build number, a whole number from 1 (1 unless set). Raise it for every build you hand out. It is `CFBundleVersion` on macOS and iOS, `versionCode` on Android (at most 2100000000), the fourth number of the Windows file version (at most 65535, so `1.4.0` with build 12 is `1.4.0.12`), and `X-Tachyon-Build` on Linux. | native |
+| `tac.application.version` | The version people see, such as `1.4.0` (1.0.0 unless set): up to 64 letters, digits, `.`, `-` or `+`. It is `CFBundleShortVersionString` on macOS and iOS, `versionName` on Android, the file and product version of the Windows executable and its manifest, and `X-Tachyon-Version` in the Linux desktop entry (the desktop entry format has no version key) and the AppStream release and `.deb` version of a Linux release, which needs a version that starts with a digit. macOS, iOS and Windows need one to three numbers separated by dots, such as `1.4.0`, and Windows needs each number to be at most 65535; another version stops a build for those targets (`TY1601`). | native |
+| `tac.application.build` | The build number, a whole number from 1 (1 unless set). Raise it for every build you hand out. It is `CFBundleVersion` on macOS and iOS, `versionCode` on Android (at most 2100000000), the fourth number of the Windows file version (at most 65535, so `1.4.0` with build 12 is `1.4.0.12`), and `X-Tachyon-Build` on Linux, where a release also uses it as the `.deb` revision (`1.4.0-12`). | native |
 | `tac.application.window` | `width`/`height`: 1024 by 768 unless set, each from 64 to 16384. macOS, Windows and Linux open the window's content (the page, without the title bar or header bar) at this size; Windows counts device-independent pixels, so the window keeps its size on a high-DPI screen. `minWidth`/`minHeight`: the smallest content size the user can drag the window to on macOS, Windows and Linux. `controls`: the window controls that a page may use (`close`, `fullscreen`, `maximize`, `minimize`, `resize`, `title`). A page may use none unless they are listed. On iOS only `title` applies (the scene title); the other controls answer `granted` false there and the build prints a note. `titleBar`: `standard` (default) or `integrated`; on macOS an integrated title bar lets the page reach the top edge under the real window buttons, sets `--tac-titlebar-height`, `--tac-titlebar-leading-inset` and `--tac-titlebar-trailing-inset`, and moves the window from elements marked `data-tac-drag-region` (ADR 0098). On Linux the page also reaches the top edge, under GTK's own window buttons, with the same three properties and drag regions; the menu bar moves into a main menu button beside the window buttons, and `theme_color` colors no header bar. Windows, iOS and Android keep the standard title bar and print a note. `titleBarButtonInset`: `{ "leading", "top" }` in points (0 to 200), only with `integrated`; on Linux `leading` is measured from the window edge where each group of buttons sits. | native |
 | `tac.application.permissions` | The reason the app gives when it asks the user for a browser API, such as `{"geolocation": "Shows stores near you", "notifications": "Order updates"}`. Only `geolocation` and `notifications` take a reason, each must also be in `tac.browserApis`, and each reason is 1 to 200 characters of plain text. A native build for iOS, macOS or Android that grants `geolocation` without a reason, or an Android build that grants `notifications` without one, stops with `TY1601`. iOS and macOS show it from `Info.plist`; Android uses it for its permission rationale (ADR 0065 amendment). | build, native |
 | `tac.application.minimumSystem` | The oldest system each native app runs on: `ios` and `macos` as versions such as `"18.2"`, `android` as an API level such as `28`, `windows` as the WebView2 Runtime version such as `"119.0"`, and `linux` as the WebKitGTK version such as `"2.46"`. Without it, each app uses the host's own floor (iOS 17.0, macOS 13.0, API level 26, WebView2 86.0, WebKitGTK 2.40), raised to what the bundled services need: Dart, Kotlin and Java services that run as WebAssembly with garbage collection need iOS 18.2, macOS 15.2, WebView2 119.0 or WebKitGTK 2.46, and the build prints one note. A value below either floor stops the build (`TY1601`) and names the languages. Android keeps its API level, because Google Play updates the web view apart from Android, and the note names Android System WebView 119. The Windows and Linux apps check the installed web view at startup and show a readable message instead of a blank window (ADR 0033 amendment). | native |
@@ -182,7 +182,11 @@ website shows it as one tab per target.
 `ty bundle --target android --release` builds a signed APK and Android App
 Bundle (`.aab`) next to each other in `dist/android/<Name>/`, and
 `ty bundle --target macos --release` builds a signed, notarized
-`dist/macos/<Name>.dmg` (ADR 0104). Other targets refuse `--release` with
+`dist/macos/<Name>.dmg` (ADR 0104).
+`ty bundle --target linux --release` builds an AppImage and a `.deb` in
+`dist/linux/`; they use the system's GTK 4 and WebKitGTK 6, and their version
+is `tac.application.version`, which must then start with a digit.
+Other targets refuse `--release` with
 `TY1601` until their release packaging lands. Signing material is never part
 of `client/manifest.json`. `ty` reads it from environment variables of the
 build machine and from its keychain.
@@ -215,6 +219,13 @@ The `.dmg` is signed, notarized, stapled and checked with `spctl`. A release
 build stops with `TY1605` before anything is built when a variable is missing
 or the team ID is malformed, and before signing when the keychain holds no
 certificate for the team, or several.
+
+Linux packages are not signed by `ty`. Two optional variables shape them:
+
+| Variable | Value |
+| --- | --- |
+| `TAC_LINUX_MAINTAINER` | The `.deb` `Maintainer` field, such as `Ada Lovelace <ada@example.com>`. The app's name when not set. |
+| `TAC_APPIMAGE_RUNTIME` | A local AppImage type 2 runtime file. Without it, `ty` downloads the runtime it pins once into its runtime cache and checks its SHA-256. |
 
 ### `server/application.json`
 

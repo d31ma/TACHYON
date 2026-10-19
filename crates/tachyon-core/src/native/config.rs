@@ -23,6 +23,7 @@ pub(super) struct NativeApplication {
     pub(super) outgoing: super::native_outgoing_hosts::NativeOutgoingHosts,
     pub(super) permissions: super::browser_api_permissions::BrowserApiPermissions,
     pub(super) minimum_system: super::minimum_system::MinimumSystem,
+    pub(super) description: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -373,6 +374,8 @@ pub(crate) struct WebAppManifest {
     short_name: Option<String>,
     start_url: Option<String>,
     #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
     icons: Vec<ManifestIcon>,
     #[serde(default)]
     theme_color: Option<serde_json::Value>,
@@ -638,6 +641,7 @@ impl NativeApplication {
             .as_ref()
             .map_or_else(Vec::new, |tac| tac.native_capabilities.clone());
         self.icons = manifest.raster_icons();
+        self.description = manifest.description.clone().unwrap_or_default();
         self.permissions = manifest.browser_api_permissions();
         self
     }
@@ -692,6 +696,7 @@ impl NativeApplication {
             outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: super::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: super::minimum_system::MinimumSystem::default(),
+            description: String::new(),
         }
     }
 

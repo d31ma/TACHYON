@@ -52,6 +52,20 @@ a Mac (an ad hoc release, its hardened runtime flag, entitlements and `.dmg`
 contents), and the ignored Developer ID test, which needs the team's
 certificate, `TAC_APPLE_TEAM_ID` and a notary profile.
 
+Linux release packages (2026-10-19, ADR 0104 amendment): `ty bundle --target
+linux --release` was built in an x86_64 Ubuntu 24.04 cloud container (GTK
+4.14.5, WebKitGTK 2.52.6, dpkg 1.22.6, squashfs-tools 4.6.1, AppImage runtime
+20251108). `scripts/linux/native-test.sh` extracted the `.deb`, checked its
+command link and desktop file (`desktop-file-validate`) and its AppStream
+metainfo (`appstreamcli validate`, no errors), then under Xvfb started both the
+installed command and the AppImage (`APPIMAGE_EXTRACT_AND_RUN=1`, since the
+container has no FUSE) until each showed its first page and loaded its Rust
+library. `apt-get install` of the `.deb` resolved its GTK 4 and WebKitGTK
+dependencies and installed `/usr/bin/nativegate`. `linux_package_tests` built
+two releases that gave the same `.deb` and AppImage bytes. Not yet run: WSL
+Ubuntu 24.04 (aarch64), an AppImage started through FUSE, and an install on a
+Linux desktop.
+
 ### Application services and declared menus on desktop hosts (2026-10-04)
 
 ADR 0097 and its amendment cover an application-lifetime Rust service and

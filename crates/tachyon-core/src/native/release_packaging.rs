@@ -7,8 +7,11 @@ use tachyon_contracts::NativeTarget;
 pub struct ReleasePackaging;
 
 impl ReleasePackaging {
-    const PACKAGED: [NativeTarget; 2] = [NativeTarget::Android, NativeTarget::Macos];
-    const PACKAGED_TARGETS: &'static str = "--target android and --target macos";
+    const PACKAGED: [NativeTarget; 3] = [
+        NativeTarget::Android,
+        NativeTarget::Macos,
+        NativeTarget::Linux,
+    ];
 
     /// Checks that the target can build a signed release package.
     ///
@@ -36,14 +39,16 @@ impl ReleasePackaging {
 
     fn refusal(target: NativeTarget) -> Failure {
         let platform = TargetSupport::native_platform(target);
+        let packaged = Self::PACKAGED
+            .map(TargetSupport::native_platform)
+            .join(", ");
         Failure::one(diagnostic(
             1601,
             format!(
                 "The {platform} target has no release packaging yet, so --release cannot build it."
             ),
             Some(format!(
-                "Build {platform} without --release. Signed release builds are available for {}.",
-                Self::PACKAGED_TARGETS
+                "Build {platform} without --release. Release packages are built for: {packaged}."
             )),
             None,
         ))
@@ -58,20 +63,17 @@ mod tests {
     use tachyon_contracts::NativeTarget;
 
     #[test]
-    fn android_and_macos_build_a_release_package() {
+    fn android_macos_and_linux_build_a_release_package() {
         assert!(ReleasePackaging::check(NativeTarget::Android, true).is_ok());
         assert!(ReleasePackaging::check(NativeTarget::Macos, true).is_ok());
-        for target in [
-            NativeTarget::Windows,
-            NativeTarget::Linux,
-            NativeTarget::Ios,
-        ] {
+        assert!(ReleasePackaging::check(NativeTarget::Linux, true).is_ok());
+        for target in [NativeTarget::Windows, NativeTarget::Ios] {
             assert!(ReleasePackaging::check(target, false).is_ok());
             let text = ReleasePackaging::check(target, true)
                 .expect_err("no release packaging")
                 .to_string();
             assert!(text.contains("TY1601"));
-            assert!(text.contains("--target android and --target macos"));
+            assert!(text.contains("Release packages are built for: Android, macOS, Linux."));
         }
         let ios = ReleasePackaging::check(NativeTarget::Ios, true).expect_err("ios");
         assert!(

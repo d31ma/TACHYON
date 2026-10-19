@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `ty bundle --target linux --release` builds an AppImage and a `.deb` in
+  `dist/linux/` (ADR 0104 amendment). Both install the app in
+  `/usr/lib/<package>/`, the command `/usr/bin/<package>`, a desktop file and
+  AppStream metainfo named by the GTK application id, and each manifest icon
+  in the hicolor theme. The `.deb` version is
+  `tac.application.version`-`tac.application.build` and it depends on GTK 4
+  and on WebKitGTK 6 at the app's `minimumSystem.linux`; the manifest's
+  `description` becomes the summary. The AppImage joins the pinned AppImage
+  type 2 runtime (downloaded once and checked by SHA-256, or named by
+  `TAC_APPIMAGE_RUNTIME`) to a zstd squashfs image. Both use the system's
+  GTK 4 and WebKitGTK 6, and two release builds give the same bytes. A
+  version that does not start with a digit stops a Linux release with
+  `TY1601`. `TAC_LINUX_MAINTAINER` fills the `.deb` `Maintainer` field
+  (the app's name when not set).
 - `ty bundle --target macos --release` builds `dist/macos/<Name>.dmg` for
   distribution outside the Mac App Store (ADR 0104 amendment). The app and
   each Rust helper are signed with the team's Developer ID Application

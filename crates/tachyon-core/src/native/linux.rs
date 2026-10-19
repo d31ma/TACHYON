@@ -1,8 +1,10 @@
+use super::compiler::NativeBuildOptions;
 use super::config::NativeApplication;
 use super::host::{
     GeneratedHost, c_string_escape, first_line, native_tool_failure, run_tool, stage_application,
     write, write_host_source, xml_escape,
 };
+use super::linux_packages::LinuxPackages;
 use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
 use crate::Failure;
@@ -32,7 +34,7 @@ impl LinuxHostGenerator {
         companions: &[super::registry::NativeCompanionInput],
         web_bundle: &Path,
         stage: &Path,
-        package: bool,
+        options: &NativeBuildOptions,
     ) -> Result<GeneratedHost, Failure> {
         let bundle = stage.join(&application.executable_name);
         let resources = bundle.join("resources");
@@ -51,7 +53,7 @@ impl LinuxHostGenerator {
             desktop_entry(application).as_bytes(),
         )?;
         stage_icon(application, web_bundle, &bundle)?;
-        if !package {
+        if !options.package {
             return Ok(GeneratedHost::not_packaged(PathBuf::from(
                 "project/tachyon_host.c",
             )));
@@ -60,8 +62,10 @@ impl LinuxHostGenerator {
         let executable = bundle.join("bin").join(&application.executable_name);
         let compiler_version = compile_c(&source_path, &executable).await?;
         compile_rust_companion(application, rust_companion.as_deref(), &bundle).await?;
+        let application_bundle =
+            LinuxPackages::published(application, options.release, web_bundle, stage).await?;
         Ok(GeneratedHost {
-            application_bundle: PathBuf::from(&application.executable_name),
+            application_bundle,
             toolchain_name: String::from("cc"),
             toolchain_version: compiler_version,
         })
@@ -758,6 +762,7 @@ mod tests {
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
+            description: String::new(),
         }
     }
 

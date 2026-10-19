@@ -48,7 +48,7 @@ impl SystemRecipes {
     ];
     const LINUX_DESKTOP: [&'static str; 3] = [
         Self::LINUX_ONLY,
-        "sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev\nThese are the Debian and Ubuntu commands. The app links GTK 4 and WebKitGTK 6.0.\nOn Fedora run: sudo dnf install gcc pkgconf-pkg-config gtk4-devel webkitgtk6.0-devel\nOn Arch run: sudo pacman -S base-devel pkgconf gtk4 webkitgtk-6.0",
+        "sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev squashfs-tools\nThese are the Debian and Ubuntu commands. The app links GTK 4 and WebKitGTK 6.0. Release packages (ty bundle --release) also need dpkg-deb and mksquashfs from squashfs-tools.\nOn Fedora run: sudo dnf install gcc pkgconf-pkg-config gtk4-devel webkitgtk6.0-devel squashfs-tools dpkg\nOn Arch run: sudo pacman -S base-devel pkgconf gtk4 webkitgtk-6.0 squashfs-tools dpkg",
         Self::LINUX_ONLY,
     ];
     const MSVC: [&'static str; 3] = [

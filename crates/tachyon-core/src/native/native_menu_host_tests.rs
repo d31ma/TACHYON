@@ -34,6 +34,7 @@ impl MenuHostTests {
             outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
+            description: String::new(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

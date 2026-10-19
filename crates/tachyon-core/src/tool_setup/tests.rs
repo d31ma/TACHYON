@@ -397,6 +397,7 @@ fn native_targets_install_the_tools_their_hosts_link() {
     );
     let text = linux.lines.join("\n");
     assert!(text.contains("libgtk-4-dev libwebkitgtk-6.0-dev"), "{text}");
+    assert!(text.contains("squashfs-tools"), "{text}");
     assert!(!text.contains("gtk-3") && !text.contains("4.1"), "{text}");
     let windows = context(home.path(), HostPlatform::WINDOWS);
     let msvc = InstallRecipes::plan(NeededTool::Msvc, &windows);

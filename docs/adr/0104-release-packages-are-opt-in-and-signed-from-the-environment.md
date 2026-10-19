@@ -1,6 +1,6 @@
 # ADR 0104: Release Packages Are Opt-In and Signed From the Environment
 
-- Status: Accepted for Android and macOS (amended 2026-10-19); iOS, Windows and Linux are pending
+- Status: Accepted for Android, macOS and Linux (amended 2026-10-19); iOS and Windows are pending
 - Date: 2026-10-18
 - Related: [ADR 0052](0052-the-manifest-is-the-tac-configuration.md)
   (the version and build number of a native app),
@@ -64,7 +64,8 @@ Each item below is decided by its own ADR amendment when its packaging lands:
 - macOS: decided in the 2026-10-19 amendment below.
 - iOS: device builds and an `.ipa` for App Store Connect (decision D2).
 - Windows: an MSIX package signed with a code-signing certificate (decision D3).
-- Linux: AppImage and `.deb` packages (decision D4).
+- Linux: AppImage and `.deb` packages (decision D4). Decided in the
+  2026-10-19 amendment below.
 - Universal macOS binaries and Android ABI selection.
 
 ## Consequences
@@ -129,3 +130,66 @@ entry says `adapted` until a Developer ID release has been notarized on a
 Mac; `crates/tachyon-cli/tests/it/macos_release_cli.rs` holds the Mac tests,
 the Developer ID one ignored unless the team's certificate and profile are
 present.
+
+## Amendment (2026-10-19): Linux AppImage and `.deb`
+
+Samuel chose AppImage and `.deb` for Linux (decision D4); Flatpak comes later.
+
+1. `ty bundle --target linux --release` builds the app folder as before, then
+   writes two packages next to it in `dist/linux/`:
+   - `<Name>-<version>-<build>-<machine>.AppImage`, for example
+     `Catalog-1.4.0-12-x86_64.AppImage`;
+   - `<package>_<version>-<build>_<architecture>.deb`, for example
+     `catalog_1.4.0-12_amd64.deb`.
+
+   The package name is the app's executable name in lowercase. The build
+   prints the AppImage path; the `.deb` sits beside it.
+2. Both packages install the same tree:
+   - the app folder in `/usr/lib/<package>/`, so the host still finds
+     `resources/` and its Rust library next to its own `bin/`;
+   - the command `/usr/bin/<package>`, a link to the app;
+   - `/usr/share/applications/<id>.desktop`, with `Exec=<package>` and the
+     themed icon;
+   - AppStream metainfo in `/usr/share/metainfo/<id>.metainfo.xml`, with
+     the manifest's `description` as the summary and
+     `tac.application.version` as the release;
+   - each raster icon in the hicolor theme at its declared size.
+
+   `<id>` is the GTK application id: `tac.application.id` with each hyphen
+   turned into an underscore, so the desktop file matches the window.
+3. The `.deb` version is `<version>-<build>`. A release stops with `TY1601`
+   before anything is built when `tac.application.version` does not start
+   with a digit, when the lowercase executable name is shorter than two
+   characters, or when the build machine is not x86_64 or aarch64. The
+   package depends on `libc6`, `libgtk-4-1` and on `libwebkitgtk-6.0-4` at
+   `tac.application.minimumSystem.linux` or newer. `dpkg-deb` builds it with
+   root as the owner of every file.
+4. The AppImage is the same tree in an AppDir, with `AppRun` linked to the
+   command, compressed by `mksquashfs` (zstd) and joined to the AppImage
+   type 2 runtime. Tachyon pins the runtime of release `20251108` by SHA-256
+   for x86_64 and aarch64, downloads it once into the runtime cache
+   (`ty cache clean` removes it), and checks the pin each time.
+   `TAC_APPIMAGE_RUNTIME` names a local runtime file instead, for offline
+   build machines.
+5. Both packages use the system's GTK 4 and WebKitGTK 6. The AppImage does
+   not bundle the web engine: WebKitGTK starts helper processes from paths
+   fixed when it was built, so a bundled copy needs a patched build. A
+   self-contained Linux package comes with Flatpak, whose GNOME runtime
+   holds WebKitGTK.
+6. Signing: `ty` does not sign Linux packages. A `.deb` is trusted through
+   the signed `Release` file of the apt repository that serves it, and an
+   AppImage signature is optional in its format.
+   `TAC_LINUX_MAINTAINER` (for example `Ada Lovelace <ada@example.com>`)
+   fills the `.deb` `Maintainer` field; without it the field is the app's
+   name, because dpkg warns about a package with no maintainer each time it
+   reads its database.
+7. `SOURCE_DATE_EPOCH` reaches `dpkg-deb` and `mksquashfs`, and the AppStream
+   release timestamp is the same value, so two release builds give the same
+   packages byte for byte.
+8. The deep-link scheme handler that LK2 adds to the desktop file goes into
+   both packages without a change here.
+
+Checked on 2026-10-19 in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5,
+WebKitGTK 2.52.6, dpkg 1.22.6, squashfs-tools 4.6.1), recorded in
+`docs/SUPPORT_TIERS.md`. Owed: the same run on WSL Ubuntu 24.04 (aarch64),
+and an install on a Linux desktop.

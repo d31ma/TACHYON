@@ -70,6 +70,59 @@ check_lifecycle_log() {
   done
 }
 
+launch_until_mounted() {
+  local label=$1
+  shift
+  echo "==> launching the $label and waiting for its first page and Rust library"
+  local log="$XDG_STATE_HOME/tachyon/dev.tachyon.desktop-gate.jsonl"
+  rm -f "$log"
+  export LOG="$log"
+  timeout 150s xvfb-run --auto-servernum --server-args='-screen 0 1024x1400x24' \
+    dbus-run-session -- bash -c '
+      set -euo pipefail
+      "$@" &
+      host=$!
+      trap '\''kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true'\'' EXIT
+      for _ in $(seq 120); do
+        if grep -q "\"event\":\"controller.mounted\"" "$LOG" 2>/dev/null && grep -q "\"event\":\"companion.loaded\"" "$LOG"; then exit 0; fi
+        kill -0 "$host" 2>/dev/null || { echo "the app quit before its first page" >&2; exit 1; }
+        sleep 1
+      done
+      echo "the app showed no page in 120 seconds" >&2
+      exit 1
+    ' launch "$@"
+}
+
+check_release_packages() {
+  local fixture=$1
+  echo '==> building the Linux release packages'
+  timeout 300s "$TAC_BIN" bundle "$fixture" --target linux --release --out-dir release
+  local out="$fixture/release/linux"
+  local deb
+  deb=$(find "$out" -maxdepth 1 -name 'nativegate_0.0.1-7_*.deb' -print -quit)
+  local appimage
+  appimage=$(find "$out" -maxdepth 1 -name 'NativeGate-0.0.1-7-*.AppImage' -print -quit)
+  test -f "$deb"
+  test -x "$appimage"
+  test "$(dpkg-deb --field "$deb" Package Version)" = $'Package: nativegate\nVersion: 0.0.1-7'
+  local root="$fixture/installed"
+  dpkg-deb -x "$deb" "$root"
+  test "$(readlink "$root/usr/bin/nativegate")" = '../lib/nativegate/bin/NativeGate'
+  test -f "$root/usr/lib/nativegate/bin/libtachyoncompanion.so"
+  local desktop="$root/usr/share/applications/dev.tachyon.desktop_gate.desktop"
+  local metainfo="$root/usr/share/metainfo/dev.tachyon.desktop_gate.metainfo.xml"
+  grep -qx 'Exec=nativegate' "$desktop"
+  if command -v desktop-file-validate >/dev/null; then desktop-file-validate "$desktop"; fi
+  if command -v appstreamcli >/dev/null; then
+    local report
+    report=$(appstreamcli validate --no-net "$metainfo" || true)
+    echo "$report"
+    if grep -q '^E:' <<<"$report"; then exit 1; fi
+  fi
+  launch_until_mounted 'installed .deb command' "$root/usr/bin/nativegate"
+  APPIMAGE_EXTRACT_AND_RUN=1 launch_until_mounted 'AppImage' "$appimage"
+}
+
 main() {
   FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/ty-linux-native.XXXXXX")
   trap 'rm -rf "$FIXTURE"' EXIT
@@ -79,7 +132,8 @@ main() {
   check_host_descriptor "$out"
   drive_accessibility_probe "$FIXTURE" "${out}/NativeGate"
   check_lifecycle_log
-  echo 'PASS: Linux WebView, shared JS/CSS, native ABI, publish, dynamic routes, and route isolation'
+  check_release_packages "$FIXTURE"
+  echo 'PASS: Linux WebView, shared JS/CSS, native ABI, publish, dynamic routes, route isolation, and the AppImage and .deb release packages'
 }
 
 main "$@"

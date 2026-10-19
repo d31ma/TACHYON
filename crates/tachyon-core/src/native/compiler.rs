@@ -221,6 +221,7 @@ impl NativeCompiler {
         super::native_release_version::NativeReleaseVersion::of(&application)
             .validate_for(options.target)?;
         application.permissions.validate_for(options.target)?;
+        super::linux_packages::LinuxPackages::check(&application, options.target, options.release)?;
         let notes = super::target_support::TargetSupport::native_notes(
             project.snapshot_root(),
             options.target,
@@ -395,7 +396,7 @@ async fn generate_host(
                 .await
         }
         NativeTarget::Linux => {
-            LinuxHostGenerator::generate(application, index, companions, web_bundle, stage, package)
+            LinuxHostGenerator::generate(application, index, companions, web_bundle, stage, options)
                 .await
         }
         NativeTarget::Windows => {

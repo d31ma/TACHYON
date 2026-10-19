@@ -36,6 +36,7 @@ impl BrowserApiHostTests {
                 &std::collections::BTreeMap::new(),
             ),
             minimum_system: super::minimum_system::MinimumSystem::default(),
+            description: String::new(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

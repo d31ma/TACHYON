@@ -7,7 +7,7 @@ start_url
   honored: the page the app opens first
 
 icons
-  adapted: icons: the Linux app copies the largest raster icon into share/icon.png without resizing it.
+  adapted: icons: the Linux app copies the largest raster icon into share/icon.png without resizing it. Release packages install each raster icon in the hicolor icon theme at its declared size.
 
 theme_color
   adapted: theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar. With titleBar "integrated" there is no header bar: the page colors the top edge.
@@ -25,19 +25,19 @@ tachyon (top-level)
   refused with TY1601: The top-level tachyon member is gone. Move its values into tac (ADR 0052).
 
 other standard manifest members
-  adapted: The Linux app does not use the standard members scope, id, description, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers.
+  adapted: The Linux app does not use the standard members scope, id, lang, shortcuts, share_target, file_handlers, protocol_handlers or display_override. They are published only for browsers. description is used only by release packages, as the AppStream summary and the .deb description.
 
 tac.application
   honored: the app's identity, window and menus
 
 tac.application.id
-  adapted: tac.application.id names the .desktop file as written. The GTK application id changes each hyphen to an underscore.
+  adapted: tac.application.id names the .desktop file as written. The GTK application id changes each hyphen to an underscore, and release packages use that id for their desktop file, AppStream metainfo and icon.
 
 tac.application.version
-  adapted: A Linux .desktop file has no application version key, so tac.application.version is written as X-Tachyon-Version.
+  adapted: A Linux .desktop file has no application version key, so tac.application.version is written as X-Tachyon-Version. Release packages also use it as the AppStream release and the .deb version, so a release needs a version that starts with a digit (TY1601).
 
 tac.application.build
-  adapted: A Linux .desktop file has no build number key, so tac.application.build is written as X-Tachyon-Build.
+  adapted: A Linux .desktop file has no build number key, so tac.application.build is written as X-Tachyon-Build. Release packages use it as the .deb revision, after the version.
 
 tac.application.minimumSystem
   adapted: On Linux, tac.application.minimumSystem.linux is the WebKitGTK version (2.40 unless set; 2.46 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains an older WebKitGTK instead of opening a blank window.
@@ -220,10 +220,10 @@ build architecture (--arch)
   adapted: --arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture.
 
 release packaging
-  adapted: The Linux build is a folder with the program. There are no packages yet (PKG5).
+  honored: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  honored: SOURCE_DATE_EPOCH and a path map reach cc and rustc; two packaged builds give the same artifact-manifest.json digests
+  honored: SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests
