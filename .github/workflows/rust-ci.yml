@@ -6,6 +6,12 @@ name: Rust Rewrite
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      jobs:
+        description: Comma-separated job ids to run, such as native,managed-storage. Leave empty to run every job.
+        required: false
+        default: ''
+        type: string
   pull_request:
     branches: [main]
     types: [opened, reopened, ready_for_review, synchronize]
@@ -24,7 +30,7 @@ env:
 
 jobs:
   rewrite-policy:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',rewrite-policy,'))
     name: Rewrite-only repository policy
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 10
@@ -48,10 +54,10 @@ jobs:
           bash -n scripts/linux/application-state-test.sh
 
   native:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',native,'))
     name: Native Rust gate (${{ matrix.os }})
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON(matrix.self_hosted_labels) || matrix.os }}
-    timeout-minutes: 40
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -141,8 +147,25 @@ jobs:
           echo "JAVA_HOME=${jdk}" >> "${GITHUB_ENV}"
           echo "${jdk}/bin" >> "${GITHUB_PATH}"
 
+      - name: Install PHP and php-cgi for PHP Yon handlers
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: none
+
+      - name: Install checksum-pinned Groovy, Kotlin, Dart, Lua, Pyodide and cargo-nextest
+        shell: bash
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin dart lua pyodide nextest
+
       - name: Show tool versions
-        run: rustc --version --verbose && cargo --version --verbose && node --version && python --version && ruby --version && go version && javac -version
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose && cargo --version --verbose && cargo nextest --version
+          node --version && python --version && ruby --version && go version && javac -version
+          php --version && php-cgi --version && dart --version && lua -v
+          groovyc --version && kotlinc -version
 
       - name: Install checksum-pinned CHEX for real schema contracts
         run: node scripts/ci/install-chex.mjs "${{ runner.temp }}/tachyon-chex"
@@ -156,8 +179,8 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
-      - name: Run unit and Phase 4 real-process acceptance tests
-        run: cargo test --workspace --all-targets --all-features --locked
+      - name: Run unit and Phase 4 real-process acceptance tests in the nextest groups
+        run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 
       - name: Execute target-native companion behavior through the built CLI
         run: node scripts/native/companion-test.mjs
@@ -173,7 +196,7 @@ jobs:
           RUSTDOCFLAGS: -D warnings
 
   managed-storage:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',managed-storage,'))
     name: Real managed SQL, document and Redis contracts
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 40
@@ -203,7 +226,7 @@ jobs:
         run: node scripts/test-managed-storage.mjs
 
   supply-chain:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',supply-chain,'))
     name: Dependency, license, and source policy
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 25
@@ -224,7 +247,7 @@ jobs:
         run: cargo deny check advisories bans licenses sources
 
   browser:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',browser,'))
     name: Phase 3 Chromium component and service behavior
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 55
@@ -444,7 +467,7 @@ jobs:
         run: bash scripts/compat/verify-ledger.sh
 
   macos-native:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',macos-native,'))
     name: Phase 4 macOS native and mobile-web parity
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","macos"]') || 'macos-latest' }}
     timeout-minutes: 100
@@ -733,7 +756,7 @@ jobs:
         run: node scripts/ios/native-test.mjs
 
   linux-native:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',linux-native,'))
     name: Phase 5 Linux GTK4 native gate
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 40
@@ -766,7 +789,7 @@ jobs:
           ./scripts/linux/application-state-test.sh
 
   windows-native:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',windows-native,'))
     name: Windows WebView2 native gate
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","windows"]') || 'windows-latest' }}
     timeout-minutes: 30
@@ -788,7 +811,7 @@ jobs:
         run: ./scripts/windows/native-test.ps1
 
   android-native:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',android-native,'))
     name: Phase 5 Android native gate
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true' && vars.TACHYON_SELF_HOSTED_ANDROID == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 60
@@ -893,7 +916,7 @@ jobs:
         run: ./scripts/android/native-test.sh
 
   compatibility:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',compatibility,'))
     name: Phase 6 legacy compatibility differential
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 30
@@ -951,7 +974,7 @@ jobs:
           --allow-unsupported
 
   fuzz:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',fuzz,'))
     name: Phase 7 fuzzing
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 50
@@ -985,7 +1008,7 @@ jobs:
           path: fuzz/artifacts
 
   sanitizers:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',sanitizers,'))
     name: Phase 7 sanitizers
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 90
@@ -1078,7 +1101,7 @@ jobs:
           --config 'target.x86_64-unknown-linux-gnu.rustflags=["-Zsanitizer=thread"]'
 
   soak:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',soak,'))
     name: Phase 7 soak and recovery drills
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 40
@@ -1099,7 +1122,7 @@ jobs:
           TAC_SOAK_ITERATIONS: "200"
 
   provenance:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',provenance,'))
     name: Phase 7 supply-chain evidence
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 30
@@ -1131,7 +1154,7 @@ jobs:
           path: "**/*.cdx.json"
 
   release-lifecycle:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',release-lifecycle,'))
     name: Cutover release lifecycle drill
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON(matrix.self_hosted_labels) || matrix.os }}
     timeout-minutes: 40
@@ -1178,7 +1201,7 @@ jobs:
           path: target/release-artifact/*.tar.gz
 
   coverage:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',coverage,'))
     name: Rust coverage ratchet
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 60
