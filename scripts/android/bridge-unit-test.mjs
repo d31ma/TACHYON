@@ -20,7 +20,7 @@ assert.ok(AndroidSource.shim, 'Test must execute the production transport');
 
 class HostSource {
   static text = readFileSync(path.join(BridgeTest.repo, 'crates/tachyon-core/src/native/host.rs'), 'utf8');
-  static sharedShim = HostSource.text.match(/\bconst SHIM: &str = r"([\s\S]*?)";/)?.[1].replace('__WINDOW_CONTROLS__', '[]');
+  static sharedShim = HostSource.text.match(/\bconst SHIM: &str = r"([\s\S]*?)";/)?.[1].replace('__WINDOW_CONTROLS__', '[]').replace('__BROWSER_API_BRIDGE__', '[]');
 }
 
 assert.ok(HostSource.sharedShim, 'Test must execute the same shared/Android concatenation as the host');
