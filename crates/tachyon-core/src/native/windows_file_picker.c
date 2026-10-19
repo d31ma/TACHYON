@@ -19,13 +19,15 @@ static char *tachyon_narrow(const wchar_t *value);
 static void tachyon_page_messages_resume(void);
 static HRESULT tachyon_file_picker_dialog(HWND window, int types, wchar_t **path);
 
+static ULONGLONG WINAPI tachyon_file_picker_tick(void) { return GetTickCount64(); }
+
 static TachyonPickedFile g_picked_files[TACHYON_FILE_PICKER_HANDLES];
 static BOOL g_file_picker_granted = __FILE_PICKER_GRANTED__;
 static BOOL g_file_picker_open = FALSE;
 static BOOL g_file_picker_cancelled = FALSE;
 static char g_file_picker_owner[37];
 static IFileDialog *g_file_dialog = NULL;
-static ULONGLONG (WINAPI *g_file_picker_clock)(void) = GetTickCount64;
+static ULONGLONG (WINAPI *g_file_picker_clock)(void) = tachyon_file_picker_tick;
 static TachyonFileChooser g_file_picker_choose = tachyon_file_picker_dialog;
 static UINT g_file_picker_patience = TACHYON_FILE_PICKER_PATIENCE;
 
