@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Yon outbound HTTP markers now have run proof in every Yon language but
+  C++ (which has its own test). One table-driven test,
+  `tests/it/yon_outbound_verbs.rs`, gives JavaScript, TypeScript, Python, PHP,
+  Java, Groovy, Kotlin, C#, F#, Rust, Dart, Go, Ruby and Lua the same
+  `HTTPClient("/api")` with `GetRequest`, `PostRequest`, `PutRequest`,
+  `PatchRequest` and `DeleteRequest` methods. A controller calls each one
+  through a Setup adapter that echoes the request, and the test checks the
+  method, the path with its `PathVariable`, the `RequestParam` query, the
+  `RequestHeader` and the `RequestBody` that each language sends. A language
+  whose toolchain is missing is skipped with a message.
+
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
   packages `libtachyoncompanion.so` for each, and the Java host calls them
