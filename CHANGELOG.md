@@ -1357,8 +1357,10 @@ machine contracts have their own, independent major versions.
 - FYLO patches that wait for the same document are combined into one FYLO
   write, applied in arrival order, and every caller gets the document after
   that write. Each FYLO write is a crash-safe transaction that costs about
-  0.5 s on Windows, so 12 concurrent patches to one document used to pass
-  the 5 s storage deadline there; they now take about two writes.
+  0.5 s on a hosted Windows runner and about 1.3 s on an arm64 Surface, so
+  12 concurrent patches to one document used to pass the 5 s storage
+  deadline there; they now take about two writes (3.6 to 3.9 s for the whole
+  test on the Surface).
 
 - `TY1405` for a natively linked C# or F# service that holds a
   `@StreamRequest` or `@SocketRequest` client now says to hold the client in
