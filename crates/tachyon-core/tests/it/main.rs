@@ -48,6 +48,7 @@ mod rust_check_rejections;
 mod rust_streams;
 mod single_class_layout;
 mod sockets;
+mod stop_hooks;
 mod structure_validation;
 mod support;
 mod tac_fsharp_behaviors;
