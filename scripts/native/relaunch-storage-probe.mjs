@@ -16,6 +16,8 @@ export class RelaunchStorageProbe {
   static CACHE = 'tachyon-cache:relaunch';
   static CACHE_PATH = '/.tachyon/cache/relaunch/row';
   static CACHE_BASE = 'https://cache.tachyon.invalid';
+  static CACHE_EXPIRES_HEADER = 'x-tachyon-expires-at';
+  static CACHE_LIFETIME = 3600000;
 
   static async check() {
     try {
@@ -42,7 +44,7 @@ export class RelaunchStorageProbe {
     await RelaunchStorage.writeRow(database);
     if (!RelaunchStorage.cacheAvailable()) return '${RelaunchStorageProbe.WRITTEN},cache=unavailable';
     const cache = await caches.open(RelaunchStorage.CACHE);
-    await cache.put(RelaunchStorage.cacheAddress(), new Response(RelaunchStorage.VALUE));
+    await cache.put(RelaunchStorage.cacheAddress(), RelaunchStorage.cacheResponse());
     return '${RelaunchStorageProbe.WRITTEN}';
   }
 
@@ -69,7 +71,13 @@ export class RelaunchStorageProbe {
     const cache = await caches.open(RelaunchStorage.CACHE);
     const response = await cache.match(RelaunchStorage.cacheAddress());
     if (!response) return 'missing';
-    return RelaunchStorage.state(await response.text());
+    return RelaunchStorage.state(JSON.parse(await response.text()));
+  }
+
+  static cacheResponse() {
+    const expiresAt = String(Date.now() + RelaunchStorage.CACHE_LIFETIME);
+    const headers = { [RelaunchStorage.CACHE_EXPIRES_HEADER]: expiresAt };
+    return new Response(JSON.stringify(RelaunchStorage.VALUE), { headers });
   }
 
   static state(value) {

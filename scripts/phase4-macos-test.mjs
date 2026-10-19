@@ -125,6 +125,8 @@ function writeRelaunchStorageFixture() {
 @Service()
 export default class StorageCheckService {
   static _PREFIX = ${JSON.stringify(Phase4Evidence.relaunchStoragePrefix)};
+  @Needs
+  taskScheduler;
   report = StorageCheckService._PREFIX + '${RelaunchStorageProbe.CHECKING}';
   @OnStart()
   initialize() {
@@ -132,6 +134,7 @@ export default class StorageCheckService {
   }
   async _check() {
     this.report = StorageCheckService._PREFIX + await RelaunchStorage.check();
+    await this.taskScheduler.render();
   }
 }
 `)
