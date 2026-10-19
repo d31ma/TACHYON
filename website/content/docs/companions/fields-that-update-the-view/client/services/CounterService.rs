@@ -12,7 +12,7 @@ impl CounterService {
         Self { count: 0, visits: 0, theme: String::from("light") }
     }
 
-    fn increment(&mut self) {
+    pub fn increment(&mut self) {
         self.count += 1;
     }
 }

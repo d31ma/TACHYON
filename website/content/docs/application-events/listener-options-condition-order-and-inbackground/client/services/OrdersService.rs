@@ -10,7 +10,7 @@ struct OrdersService {
 }
 
 impl OrdersService {
-    fn place(&mut self, total: i64) {
+    pub fn place(&mut self, total: i64) {
         let order = PlacedOrder { status: String::from("paid"), total };
         self.application_event_publisher.publish_event(order, false);
     }

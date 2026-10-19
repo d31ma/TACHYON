@@ -53,7 +53,7 @@
         },
         {
           "name": "client/services/ItemService.rs",
-          "code": "#[Service]\n#[derive(Default)]\nstruct ItemService {}\n\nimpl ItemService {\n    fn id_from(&self, path: &str) -> String {\n        path.rsplit('/').next().unwrap_or_default().to_string()\n    }\n}\n"
+          "code": "#[Service]\n#[derive(Default)]\nstruct ItemService {}\n\nimpl ItemService {\n    pub fn id_from(&self, path: &str) -> String {\n        path.rsplit('/').next().unwrap_or_default().to_string()\n    }\n}\n"
         },
         {
           "name": "client/services/ItemService.go",
@@ -1199,7 +1199,7 @@
         },
         {
           "name": "client/services/BasketService.rs",
-          "code": "#[Service]\n#[derive(Default)]\nstruct BasketService {\n    count: i64,\n}\n\nimpl BasketService {\n    fn doubled(&self) -> i64 {\n        self.count * 2\n    }\n\n    #[OnStart]\n    fn initialize(&mut self) { self.count = 6; }\n}\n"
+          "code": "#[Service]\n#[derive(Default)]\nstruct BasketService {\n    count: i64,\n}\n\nimpl BasketService {\n    pub fn doubled(&self) -> i64 {\n        self.count * 2\n    }\n\n    #[OnStart]\n    fn initialize(&mut self) { self.count = 6; }\n}\n"
         },
         {
           "name": "client/services/BasketService.go",
@@ -1251,7 +1251,7 @@
         },
         {
           "name": "client/services/CartService.rs",
-          "code": "use crate::models::CartTotal;\n\n#[Service]\n#[derive(Default)]\nstruct CartService {\n    total: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\n\nimpl CartService {\n    fn add(&mut self) {\n        self.total += 1;\n        self.application_event_publisher.publish_event(CartTotal { total: self.total }, true);\n    }\n}\n"
+          "code": "use crate::models::CartTotal;\n\n#[Service]\n#[derive(Default)]\nstruct CartService {\n    total: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\n\nimpl CartService {\n    pub fn add(&mut self) {\n        self.total += 1;\n        self.application_event_publisher.publish_event(CartTotal { total: self.total }, true);\n    }\n}\n"
         },
         {
           "name": "client/services/CartService.go",
@@ -1745,7 +1745,7 @@
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "#[Service]\nstruct CatalogService {\n    #[Needs]\n    products_client: std::sync::Arc<ProductsClient>,\n    count: usize,\n}\n\nimpl CatalogService {\n    fn load(&mut self) {\n        self.count = Self::count_items(self.products_client.list());\n    }\n\n    fn add(&self) -> BehaviorResult<BehaviorValue> {\n        self.products_client.save(BehaviorValue::object([(\"name\", \"anvil\".into())]))\n    }\n\n    fn count_items(answer: BehaviorResult<BehaviorValue>) -> usize {\n        match answer.ok().as_ref().and_then(|value| value.get(\"items\")) {\n            Some(BehaviorValue::Array(items)) => items.len(),\n            _ => 0,\n        }\n    }\n}\n"
+          "code": "#[Service]\nstruct CatalogService {\n    #[Needs]\n    products_client: std::sync::Arc<ProductsClient>,\n    count: usize,\n}\n\nimpl CatalogService {\n    pub fn load(&mut self) {\n        self.count = Self::count_items(self.products_client.list());\n    }\n\n    pub fn add(&self) -> BehaviorResult<BehaviorValue> {\n        self.products_client.save(BehaviorValue::object([(\"name\", \"anvil\".into())]))\n    }\n\n    fn count_items(answer: BehaviorResult<BehaviorValue>) -> usize {\n        match answer.ok().as_ref().and_then(|value| value.get(\"items\")) {\n            Some(BehaviorValue::Array(items)) => items.len(),\n            _ => 0,\n        }\n    }\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.go",
@@ -1918,7 +1918,7 @@
         },
         {
           "name": "client/services/BasketService.rs",
-          "code": "#[Service]\npub struct BasketService {\n    count: i32,\n    label: String,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self { count: 6, label: String::from(\"Rust\") }\n    }\n\n    fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}"
+          "code": "#[Service]\npub struct BasketService {\n    count: i32,\n    label: String,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self { count: 6, label: String::from(\"Rust\") }\n    }\n\n    pub fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}"
         },
         {
           "name": "client/services/BasketService.swift",
@@ -1987,7 +1987,7 @@
         },
         {
           "name": "client/services/TallyService.rs",
-          "code": "#[Service]\n#[derive(Default)]\nstruct TallyService {\n    count: i64,\n}\n\nimpl TallyService {\n    fn add(&mut self, amount: i64) {\n        self.count += amount;\n    }\n\n    fn summary(&self, unit: &str) -> String {\n        format!(\"{} {unit}\", self.count)\n    }\n}\n"
+          "code": "#[Service]\n#[derive(Default)]\nstruct TallyService {\n    count: i64,\n}\n\nimpl TallyService {\n    pub fn add(&mut self, amount: i64) {\n        self.count += amount;\n    }\n\n    pub fn summary(&self, unit: &str) -> String {\n        format!(\"{} {unit}\", self.count)\n    }\n}\n"
         },
         {
           "name": "client/services/TallyService.go",
@@ -3511,7 +3511,7 @@
         },
         {
           "name": "client/services/PickerService.rs",
-          "code": "#[Service]\n#[derive(Default)]\nstruct PickerService {\n    file_picker: FilePicker,\n    status: String,\n}\n\nimpl PickerService {\n    fn choose(&mut self) {\n        let options = FilePickerOptions { multiple: false, types: vec![String::from(\"text/plain\")] };\n        let chosen = self.file_picker.open(&options);\n        self.status = chosen.status.as_str().to_owned();\n        if let Some(handle) = chosen.handle {\n            self.status = self.file_picker.read_text(&handle).status.as_str().to_owned();\n            self.file_picker.release(&handle);\n        }\n    }\n}\n"
+          "code": "#[Service]\n#[derive(Default)]\nstruct PickerService {\n    file_picker: FilePicker,\n    status: String,\n}\n\nimpl PickerService {\n    pub fn choose(&mut self) {\n        let options = FilePickerOptions { multiple: false, types: vec![String::from(\"text/plain\")] };\n        let chosen = self.file_picker.open(&options);\n        self.status = chosen.status.as_str().to_owned();\n        self.read(chosen.handle);\n    }\n\n    fn read(&mut self, handle: Option<String>) {\n        if let Some(handle) = handle {\n            self.status = self.file_picker.read_text(&handle).status.as_str().to_owned();\n            self.file_picker.release(&handle);\n        }\n    }\n}\n"
         },
         {
           "name": "client/services/PickerService.swift",
@@ -3782,7 +3782,7 @@
         },
         {
           "name": "client/services/CounterService.rs",
-          "code": "#[Service]\n#[derive(Default)]\nstruct CounterService {\n    count: i64,\n}\n\nimpl CounterService {\n    fn increment(&mut self) {\n        self.count += 1;\n    }\n}\n"
+          "code": "#[Service]\n#[derive(Default)]\nstruct CounterService {\n    count: i64,\n}\n\nimpl CounterService {\n    pub fn increment(&mut self) {\n        self.count += 1;\n    }\n}\n"
         },
         {
           "name": "client/services/CounterService.go",
@@ -4047,7 +4047,7 @@
         },
         {
           "name": "client/services/RuntimeNoteService.rs",
-          "code": "#[Service]\nstruct RuntimeNoteService {\n    runtime: String,\n}\n\nimpl RuntimeNoteService {\n    fn new() -> Self {\n        Self { runtime: String::from(\"Rust, compiled by rustc\") }\n    }\n\n    fn shows_notes(&self, development: bool) -> bool {\n        development\n    }\n}\n"
+          "code": "#[Service]\nstruct RuntimeNoteService {\n    runtime: String,\n}\n\nimpl RuntimeNoteService {\n    fn new() -> Self {\n        Self { runtime: String::from(\"Rust, compiled by rustc\") }\n    }\n\n    pub fn shows_notes(&self, development: bool) -> bool {\n        development\n    }\n}\n"
         },
         {
           "name": "client/services/RuntimeNoteService.go",
@@ -4176,7 +4176,7 @@
         },
         {
           "name": "client/services/ReportService.rs",
-          "code": "#[Service]\n#[derive(Default)]\nstruct ReportService {\n    window_controls: WindowControls,\n    problem: String,\n}\n\nimpl ReportService {\n    fn minimize(&mut self) {\n        self.problem = self.window_controls.minimize().err().unwrap_or_default();\n    }\n\n    fn resize(&mut self) {\n        self.problem = self.window_controls.resize(1280, 800).err().unwrap_or_default();\n    }\n\n    fn rename(&mut self) {\n        self.problem = self.window_controls.set_title(\"Quarterly report\").err().unwrap_or_default();\n    }\n}\n"
+          "code": "#[Service]\n#[derive(Default)]\nstruct ReportService {\n    window_controls: WindowControls,\n    problem: String,\n}\n\nimpl ReportService {\n    pub fn minimize(&mut self) {\n        self.problem = self.window_controls.minimize().err().unwrap_or_default();\n    }\n\n    pub fn resize(&mut self) {\n        self.problem = self.window_controls.resize(1280, 800).err().unwrap_or_default();\n    }\n\n    pub fn rename(&mut self) {\n        self.problem = self.window_controls.set_title(\"Quarterly report\").err().unwrap_or_default();\n    }\n}\n"
         },
         {
           "name": "client/services/ReportService.cs",

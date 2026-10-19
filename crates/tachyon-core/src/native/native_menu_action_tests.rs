@@ -26,16 +26,16 @@ impl SectionMenuService {
     }
 
     #[OnStop]
-    fn stopped(&self) {
+    pub fn stopped(&self) {
         Probe::record("stopped");
     }
 
-    fn show_running(&self) {
+    pub fn show_running(&self) {
         let delivered = self.page_events.publish_event(SectionChosen { section: String::from("running") });
         Probe::record(if delivered { "forwarded" } else { "refused" });
     }
 
-    fn refresh(&self) {
+    pub fn refresh(&self) {
         Probe::record("refreshed");
     }
 }
@@ -51,12 +51,12 @@ struct SectionService {
 }
 
 impl SectionService {
-    fn visit(&mut self) {
+    pub fn visit(&mut self) {
         self.visits += 1;
     }
 
     #[OnEvent]
-    fn chosen(&mut self, chosen: SectionChosen) {
+    pub fn chosen(&mut self, chosen: SectionChosen) {
         self.section = chosen.section;
         Probe::record("chosen");
         if !CurrentPageEvents::default().publish_event(SectionChosen { section: String::from("again") }) {
@@ -77,7 +77,7 @@ struct TallyService {
 
 impl TallyService {
     #[OnEvent]
-    fn chosen(&mut self, _chosen: SectionChosen) {
+    pub fn chosen(&mut self, _chosen: SectionChosen) {
         self.seen += 1;
         Probe::record("tallied");
     }

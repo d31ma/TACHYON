@@ -32,7 +32,7 @@ impl OrdersService {
         BehaviorValue::object([("id", id), ("attempts", BehaviorValue::Number(self.tries.get()))])
     }
 
-    fn submit(&mut self, id: String) {
+    pub fn submit(&mut self, id: String) {
         let _ = self.send(BehaviorValue::from(id));
         self.attempts = self.tries.get();
     }

@@ -9,7 +9,7 @@ impl BasketService {
         Self { count: 6, label: String::from("Rust") }
     }
 
-    fn doubled(&self) -> i32 {
+    pub fn doubled(&self) -> i32 {
         self.count * 2
     }
 }

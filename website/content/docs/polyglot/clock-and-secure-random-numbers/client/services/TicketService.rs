@@ -8,7 +8,7 @@ struct TicketService {
 }
 
 impl TicketService {
-    fn issue(&mut self) {
+    pub fn issue(&mut self) {
         self.ticket = self.secure_random.uuid().unwrap_or_default();
         self.issued_at = self.clock.now_ms();
     }

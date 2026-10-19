@@ -270,7 +270,7 @@ fn a_page_field_requiring_an_internal_map_model_is_located_before_table_emission
 
 #[test]
 fn a_page_argument_requiring_an_internal_map_model_is_located_before_table_emission() {
-    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n}\nimpl ProbeService {\n    fn new() -> Self { Self { count: 0 } }\n    fn accept(&self, value: Claims) -> String { String::new() }\n}\n";
+    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n}\nimpl ProbeService {\n    fn new() -> Self { Self { count: 0 } }\n    pub fn accept(&self, value: Claims) -> String { String::new() }\n}\n";
     let failure = RustTacModelsTests::refusal(RustTacModelsTests::owner(source, &[]));
     RustTacModelsTests::located(
         &failure,
@@ -282,7 +282,7 @@ fn a_page_argument_requiring_an_internal_map_model_is_located_before_table_emiss
 
 #[test]
 fn a_page_result_requiring_an_internal_map_model_is_located_before_table_emission() {
-    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n}\nimpl ProbeService {\n    fn new() -> Self { Self { count: 0 } }\n    fn read(&self) -> Claims { unimplemented!() }\n}\n";
+    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n}\nimpl ProbeService {\n    fn new() -> Self { Self { count: 0 } }\n    pub fn read(&self) -> Claims { unimplemented!() }\n}\n";
     let failure = RustTacModelsTests::refusal(RustTacModelsTests::owner(source, &[]));
     RustTacModelsTests::located(
         &failure,
@@ -294,14 +294,14 @@ fn a_page_result_requiring_an_internal_map_model_is_located_before_table_emissio
 
 #[test]
 fn an_excluded_rust_event_member_does_not_become_a_page_codec_root() {
-    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n}\nimpl ProbeService {\n    fn new() -> Self { Self { count: 0 } }\n    fn read(&self) -> Claims { unimplemented!() }\n}\n";
+    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n}\nimpl ProbeService {\n    fn new() -> Self { Self { count: 0 } }\n    pub fn read(&self) -> Claims { unimplemented!() }\n}\n";
     RustTacModelsTests::owner(source, &["read".to_owned()])
         .unwrap_or_else(|failure| panic!("excluded member: {failure}"));
 }
 
 #[test]
 fn direct_internal_collection_fields_keep_the_existing_rust_page_selection() {
-    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n    claims: std::collections::BTreeMap<i32, String>,\n}\nimpl ProbeService {\n    fn new() -> Self { unimplemented!() }\n    fn read(&self) -> String { String::new() }\n}\n";
+    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n    claims: std::collections::BTreeMap<i32, String>,\n}\nimpl ProbeService {\n    fn new() -> Self { unimplemented!() }\n    pub fn read(&self) -> String { String::new() }\n}\n";
     RustTacModelsTests::owner(source, &[])
         .unwrap_or_else(|failure| panic!("internal selected owner: {failure}"));
 }
@@ -309,7 +309,7 @@ fn direct_internal_collection_fields_keep_the_existing_rust_page_selection() {
 #[test]
 fn a_declared_rust_event_payload_with_internal_maps_is_located_before_generation() {
     let root = RustTacModelsTests::project();
-    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n}\nimpl ProbeService {\n    #[OnEvent]\n    fn receive(&mut self, claims: Claims) {}\n}\n";
+    let source = "#[Service]\nstruct ProbeService {\n    count: i64,\n}\nimpl ProbeService {\n    #[OnEvent]\n    pub fn receive(&mut self, claims: Claims) {}\n}\n";
     let module = RustTacModelsTests::event_module(source);
     let failure = RustTacModelsTests::refusal(Converters::require_rust_events(
         root.path(),

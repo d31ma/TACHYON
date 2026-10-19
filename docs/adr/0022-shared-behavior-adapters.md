@@ -397,6 +397,10 @@ no implementation, and Tachyon generates each query.
   method that returns `BehaviorResult<()>` or `BehaviorResult` of a model is now a task member
   (a promise in the page that rejects with the error) instead of being left
   off the service; the fixture's `remember` and `recall` are synchronous.
+  Only a `pub` method of a Rust service reaches the page (2026-10-19), the
+  way a C# service shows only its public and internal members, so a helper
+  such as the fixture's `fn show` stays inside the service. A view
+  that reads a private Rust method stops the build with TY1311.
 - Swift builds one page program. `native/page_program/shared_page_program.rs`
   lowers every Swift browser service of a page together: each service's
   source and its role files are split into top-level declarations, a

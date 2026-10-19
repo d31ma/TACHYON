@@ -5,7 +5,7 @@ struct CounterService {
 }
 
 impl CounterService {
-    fn increment(&mut self) {
+    pub fn increment(&mut self) {
         self.count += 1;
     }
 }

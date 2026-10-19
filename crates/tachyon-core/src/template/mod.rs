@@ -16,6 +16,7 @@ mod html_names;
 mod model;
 mod owner_method_binding;
 pub(crate) mod required_fields;
+mod rust_private_read;
 mod script_service_references;
 mod service;
 mod service_reach;

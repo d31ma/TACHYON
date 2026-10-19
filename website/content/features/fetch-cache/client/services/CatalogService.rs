@@ -6,11 +6,11 @@ struct CatalogService {
 }
 
 impl CatalogService {
-    fn load(&mut self) {
+    pub fn load(&mut self) {
         self.count = Self::count_items(self.products_client.list());
     }
 
-    fn add(&self) -> BehaviorResult<BehaviorValue> {
+    pub fn add(&self) -> BehaviorResult<BehaviorValue> {
         self.products_client.save(BehaviorValue::object([("name", "anvil".into())]))
     }
 

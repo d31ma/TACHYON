@@ -5,7 +5,7 @@ struct TocService {
 }
 
 impl TocService {
-    fn worth_showing(&self) -> bool {
+    pub fn worth_showing(&self) -> bool {
         Self::has_several(&self.entries)
     }
 

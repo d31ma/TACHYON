@@ -6,8 +6,13 @@ struct CatalogService {
     error: String,
 }
 impl CatalogService {
-    fn load(&mut self) {
-        match self.catalog_client.all() {
+    pub fn load(&mut self) {
+        let answer = self.catalog_client.all();
+        self.answer(answer);
+    }
+
+    fn answer(&mut self, answer: BehaviorResult<BehaviorValue>) {
+        match answer {
             Ok(BehaviorValue::Array(items)) => self.show(&items),
             _ => self.show_failure(),
         }

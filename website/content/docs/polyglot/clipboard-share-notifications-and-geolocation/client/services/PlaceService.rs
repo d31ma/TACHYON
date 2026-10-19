@@ -8,14 +8,18 @@ struct PlaceService {
 }
 
 impl PlaceService {
-    fn locate(&mut self) {
-        if let Err(message) = self.geolocation.current_position() {
-            self.problem = message;
-        }
+    pub fn locate(&mut self) {
+        let answer = self.geolocation.current_position();
+        self.report(answer);
     }
 
-    fn copy(&mut self) {
-        if let Err(message) = self.clipboard.write_text(&self.place) {
+    pub fn copy(&mut self) {
+        let answer = self.clipboard.write_text(&self.place);
+        self.report(answer);
+    }
+
+    fn report(&mut self, answer: Result<(), String>) {
+        if let Err(message) = answer {
             self.problem = message;
         }
     }

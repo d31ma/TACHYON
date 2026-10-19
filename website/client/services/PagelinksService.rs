@@ -8,11 +8,11 @@ struct PagelinksService {
 impl PagelinksService {
     const REPOSITORY: &'static str = "https://github.com/d31ma/Tachyon";
 
-    fn edit_href(&self) -> String {
+    pub fn edit_href(&self) -> String {
         format!("{}/edit/main/{}", Self::REPOSITORY, Self::source_or_index(&self.source))
     }
 
-    fn report_href(&self) -> String {
+    pub fn report_href(&self) -> String {
         let title = Self::encode_component(&format!("Docs: {}", self.path));
         format!("{}/issues/new?title={title}", Self::REPOSITORY)
     }

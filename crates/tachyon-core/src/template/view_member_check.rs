@@ -29,6 +29,11 @@ impl ViewMemberCheck {
         let found: Vec<Diagnostic> = reads
             .iter()
             .filter_map(|read| Self::near_miss(&members, read, source_path))
+            .chain(super::rust_private_read::RustPrivateRead::found(
+                services,
+                &reads,
+                source_path,
+            ))
             .collect();
         (!found.is_empty())
             .then(|| Failure::new(found))

@@ -7,7 +7,7 @@ use std::path::Path;
 struct NativeHelperCheck;
 
 impl NativeHelperCheck {
-    const HELPER: &'static str = "#[Helper]\nstruct StepHelper {\n    count: i64,\n}\nimpl StepHelper {\n    fn new() -> Self { Self { count: 0 } }\n    fn increment(&mut self) { self.count += 2; }\n    fn count(&self) -> i64 { self.count }\n}\n";
+    const HELPER: &'static str = "#[Helper]\nstruct StepHelper {\n    count: i64,\n}\nimpl StepHelper {\n    fn new() -> Self { Self { count: 0 } }\n    pub fn increment(&mut self) { self.count += 2; }\n    pub fn count(&self) -> i64 { self.count }\n}\n";
     const CALLER: &'static str = r###"
 fn main() {
     let one = "00000000-0000-4000-8000-000000000001";
@@ -56,7 +56,7 @@ fn main() {
             _ => ("#[Service]\n#[NeedsAll]", "step_helper: StepHelper,"),
         };
         let source = format!(
-            "{role}\nstruct CounterService {{\n    {field}\n}}\nimpl CounterService {{\n    fn increment(&mut self) {{ self.step_helper.increment(); }}\n    fn count(&self) -> i64 {{ self.step_helper.count() }}\n}}\n"
+            "{role}\nstruct CounterService {{\n    {field}\n}}\nimpl CounterService {{\n    pub fn increment(&mut self) {{ self.step_helper.increment(); }}\n    pub fn count(&self) -> i64 {{ self.step_helper.count() }}\n}}\n"
         );
         let source = if dependency == "Service" {
             source.replace("StepHelper", "StepService")
@@ -150,9 +150,9 @@ async fn a_compiled_rust_arc_service_dependency_matches_the_monitor_repro() {
     let root = tempfile::tempdir().expect("fixture");
     let services = root.path().join("client/services");
     std::fs::create_dir_all(&services).expect("services");
-    std::fs::write(services.join("CounterService.rs"), "#[Service]\n#[derive(Default)]\nstruct CounterService {}\nimpl CounterService {\n    fn read(&self) -> i64 { 1 }\n}\n").expect("provider");
+    std::fs::write(services.join("CounterService.rs"), "#[Service]\n#[derive(Default)]\nstruct CounterService {}\nimpl CounterService {\n    pub fn read(&self) -> i64 { 1 }\n}\n").expect("provider");
     let source = services.join("SnapshotReaderService.rs");
-    std::fs::write(&source, "#[Service]\n#[NeedsAll]\nstruct SnapshotReaderService {\n    counter: std::sync::Arc<CounterService>,\n}\nimpl SnapshotReaderService {\n    fn read(&self) -> i64 { self.counter.read() }\n}\n").expect("consumer");
+    std::fs::write(&source, "#[Service]\n#[NeedsAll]\nstruct SnapshotReaderService {\n    counter: std::sync::Arc<CounterService>,\n}\nimpl SnapshotReaderService {\n    pub fn read(&self) -> i64 { self.counter.read() }\n}\n").expect("consumer");
     let input = NativeCompanionInput {
         snapshot_root: root.path().to_path_buf(),
         language: NativeCompanion::Rust,
@@ -212,7 +212,7 @@ async fn a_compiled_rust_arc_service_dependency_is_shared_within_its_owner() {
     std::fs::create_dir_all(&services).expect("services");
     std::fs::write(services.join("CounterService.rs"), "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]\n#[derive(Default)]\nstruct CounterService { count: std::sync::atomic::AtomicI64 }\n").expect("counter");
     let reader = services.join("ReaderService.rs");
-    std::fs::write(&reader, "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]\nstruct ReaderService {\n    #[Needs]\n    first: std::sync::Arc<CounterService>,\n    #[Needs]\n    second: std::sync::Arc<CounterService>,\n}\nimpl ReaderService {\n    fn same(&self) -> bool { std::sync::Arc::ptr_eq(&self.first, &self.second) }\n    fn increment(&self) { self.first.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }\n    fn count(&self) -> i64 { self.second.count.load(std::sync::atomic::Ordering::SeqCst) }\n}\n").expect("reader");
+    std::fs::write(&reader, "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]\nstruct ReaderService {\n    #[Needs]\n    first: std::sync::Arc<CounterService>,\n    #[Needs]\n    second: std::sync::Arc<CounterService>,\n}\nimpl ReaderService {\n    pub fn same(&self) -> bool { std::sync::Arc::ptr_eq(&self.first, &self.second) }\n    pub fn increment(&self) { self.first.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }\n    pub fn count(&self) -> i64 { self.second.count.load(std::sync::atomic::Ordering::SeqCst) }\n}\n").expect("reader");
     let input = NativeCompanionInput {
         snapshot_root: root.path().to_path_buf(),
         language: NativeCompanion::Rust,

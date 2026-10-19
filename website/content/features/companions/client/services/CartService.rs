@@ -8,7 +8,7 @@ struct CartService {
 }
 
 impl CartService {
-    fn add(&mut self) {
+    pub fn add(&mut self) {
         self.total += 1;
         self.application_event_publisher.publish_event(CartTotal { total: self.total }, true);
     }

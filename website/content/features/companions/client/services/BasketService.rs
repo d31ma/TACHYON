@@ -5,7 +5,7 @@ struct BasketService {
 }
 
 impl BasketService {
-    fn doubled(&self) -> i64 {
+    pub fn doubled(&self) -> i64 {
         self.count * 2
     }
 

@@ -8,7 +8,7 @@ use std::path::Path;
 struct Services;
 
 impl Services {
-    const RUST_CLIPBOARD: &str = "#[Service]\n#[derive(Default)]\nstruct PlaceService {\n    clipboard: Clipboard,\n}\n\nimpl PlaceService {\n    fn copy(&self) {\n        let _ = self.clipboard.write_text(\"place\");\n    }\n}\n";
+    const RUST_CLIPBOARD: &str = "#[Service]\n#[derive(Default)]\nstruct PlaceService {\n    clipboard: Clipboard,\n}\n\nimpl PlaceService {\n    pub fn copy(&self) {\n        let _ = self.clipboard.write_text(\"place\");\n    }\n}\n";
 
     const FSHARP_CLIPBOARD: &str = "[<Service>]\ntype PlaceService() =\n    let clipboard = Clipboard()\n    member this.Copy() : unit = clipboard.WriteText(\"place\")\n";
 
@@ -93,7 +93,7 @@ fn swift_and_kotlin_keep_their_own_clock_but_not_page_events() {
 
 #[test]
 fn preference_strings_linked_source_fails_before_native_provider_generation() {
-    let rust = "#[Service]\n#[derive(Default)]\nstruct PlaceService { preferences: PreferenceStrings }\nimpl PlaceService { fn read(&self) -> String { String::new() } }\n";
+    let rust = "#[Service]\n#[derive(Default)]\nstruct PlaceService { preferences: PreferenceStrings }\nimpl PlaceService { pub fn read(&self) -> String { String::new() } }\n";
     let swift = "@Service\nclass PlaceService {\n var preferences: PreferenceStrings\n func read() -> String { return \"\" }\n}\n";
     for (language, extension, authored) in [
         (NativeCompanion::Rust, "rs", rust),
@@ -147,7 +147,7 @@ fn captured_model_internal_collision_uses_the_real_native_rust_graph() -> Result
     let path = root.path().join("client/services/PlaceService.rs");
     std::fs::create_dir_all(path.parent().unwrap_or(root.path()))
         .map_err(|error| error.to_string())?;
-    std::fs::write(&path, "#[Service]\n#[derive(Default)]\nstruct PlaceService {}\nimpl PlaceService {\n fn read(&self) -> i64 {\n  crate::models::ConnectivityChanged::default().cache.len() as i64\n }\n}\n")
+    std::fs::write(&path, "#[Service]\n#[derive(Default)]\nstruct PlaceService {}\nimpl PlaceService {\n pub fn read(&self) -> i64 {\n  crate::models::ConnectivityChanged::default().cache.len() as i64\n }\n}\n")
         .map_err(|error| error.to_string())?;
     let input = NativeCompanionInput {
         snapshot_root: root.path().to_path_buf(),

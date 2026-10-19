@@ -7,7 +7,7 @@ struct CatalogService {
     result: String,
 }
 impl CatalogService {
-    fn load(&mut self) {
+    pub fn load(&mut self) {
         let detail = Detail {
             name: "detail".into(),
             secret: "detail-private".into(),

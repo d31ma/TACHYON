@@ -1984,6 +1984,12 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- A Rust Tac service now shows the page only its `pub` methods. Before, every
+  method that took `&self` or `&mut self` reached the page, so a helper
+  method was public too. Write `pub fn` on each method a view calls. A view
+  that reads a private Rust method, such as `drawer.closeDrawer()` for
+  `fn close_drawer(&mut self)`, now stops the build with TY1311 and says to
+  write `pub`. The website examples mark these methods `pub`.
 - An input that breaks a `@Checked` rule on a `@Check` parameter now answers
   `422 Unprocessable Content` with an RFC 9457 `application/problem+json`
   body, in JavaScript, TypeScript, Python, Ruby, PHP, Java, Groovy, Kotlin,

@@ -7,7 +7,7 @@ use std::path::Path;
 struct NativeCompositionCheck;
 
 impl NativeCompositionCheck {
-    const ROOT: &str = "#[Service]\nstruct SnapshotReaderService { reader: EndpointService }\nimpl Default for SnapshotReaderService { fn default() -> Self { Self { reader: EndpointService::new(String::from(\"authored endpoint\")) } } }\nimpl SnapshotReaderService { fn read(&self) -> i64 { self.reader.read() } }\n";
+    const ROOT: &str = "#[Service]\nstruct SnapshotReaderService { reader: EndpointService }\nimpl Default for SnapshotReaderService { fn default() -> Self { Self { reader: EndpointService::new(String::from(\"authored endpoint\")) } } }\nimpl SnapshotReaderService { pub fn read(&self) -> i64 { self.reader.read() } }\n";
     const ENDPOINT: &str = "#[Service]\nstruct EndpointService { endpoint: String }\nimpl EndpointService { fn new(endpoint: String) -> Self { Self { endpoint } } fn read(&self) -> i64 { self.endpoint.len() as i64 } }\n";
     const CALLER: &str = r###"
 fn main() {
@@ -57,8 +57,14 @@ fn main() {
         Self::write(
             root,
             "client/services/SnapshotReaderService.rs",
-            "use std::io::Result;\n#[Service]\nstruct SnapshotReaderService { reader: ClockReaderService }\nimpl Default for SnapshotReaderService { fn default() -> Self { Self { reader: ClockReaderService::new(std::sync::Arc::new(SystemClockService::default())) } } }\nimpl SnapshotReaderService { fn read(&self) -> i64 { self.reader.read() } }\n",
+            "use std::io::Result;\n#[Service]\nstruct SnapshotReaderService { reader: ClockReaderService }\nimpl Default for SnapshotReaderService { fn default() -> Self { Self { reader: ClockReaderService::new(std::sync::Arc::new(SystemClockService::default())) } } }\nimpl SnapshotReaderService { pub fn read(&self) -> i64 { self.reader.read() } }\n",
         );
+    }
+
+    fn unread_root(root: &Path) {
+        let path = root.join("client/services/SnapshotReaderService.rs");
+        let source = std::fs::read_to_string(&path).expect("root service");
+        std::fs::write(path, source.replace("pub fn read", "fn read")).expect("private root");
     }
 
     async fn inputs(root: &Path) -> (crate::Project, tempfile::TempDir, Vec<NativeCompanionInput>) {
@@ -104,6 +110,7 @@ async fn native_cli_collection_preserves_explicit_scalar_composition() {
 async fn native_cli_collection_still_refuses_view_bound_automatic_scalar_injection() {
     let root = tempfile::tempdir().expect("fixture");
     NativeCompositionCheck::project(root.path(), "<p>{endpoint.read()}</p>");
+    NativeCompositionCheck::unread_root(root.path());
     let (_project, web, inputs) = NativeCompositionCheck::inputs(root.path()).await;
     assert_eq!(
         inputs
@@ -172,7 +179,7 @@ async fn native_cli_collection_preserves_rust_utility_boundary_imports() {
         NativeCompositionCheck::write(
             root.path(),
             "client/services/SnapshotReaderService.rs",
-            "use crate::utils::{TitleUtils, TitleUtils as Label};\n#[Service]\n#[derive(Default)]\nstruct SnapshotReaderService;\nimpl SnapshotReaderService { fn read(&self) -> String { mod nested { pub fn value() -> String { crate::utils::TitleUtils::text() } } format!(\"{}:{}:{}\", TitleUtils::text(), Label::text(), nested::value()) } }\n",
+            "use crate::utils::{TitleUtils, TitleUtils as Label};\n#[Service]\n#[derive(Default)]\nstruct SnapshotReaderService;\nimpl SnapshotReaderService { pub fn read(&self) -> String { mod nested { pub fn value() -> String { crate::utils::TitleUtils::text() } } format!(\"{}:{}:{}\", TitleUtils::text(), Label::text(), nested::value()) } }\n",
         );
         NativeCompositionCheck::execute(root.path(), "{\\\"value\\\":\\\"Ready:Ready:Ready\\\"}")
             .await;
@@ -183,6 +190,7 @@ async fn native_cli_collection_preserves_rust_utility_boundary_imports() {
 async fn native_cli_collection_still_refuses_view_bound_automatic_trait_injection() {
     let root = tempfile::tempdir().expect("fixture");
     NativeCompositionCheck::trait_project(root.path(), "<p>{clockReader.read()}</p>");
+    NativeCompositionCheck::unread_root(root.path());
     let (_project, web, inputs) = NativeCompositionCheck::inputs(root.path()).await;
     let failure = crate::native::rust::stage(&inputs, web.path(), "org.tachyon.required-trait")
         .expect_err("no automatic trait binding");
@@ -204,7 +212,7 @@ async fn tac_utility_canonical_nested_rust_module_executes_in_native_composition
     NativeCompositionCheck::write(
         root.path(),
         "client/services/SnapshotReaderService.rs",
-        "use crate::utils::{TitleUtils, TitleUtils as Label};\n#[Service]\n#[derive(Default)]\nstruct SnapshotReaderService;\nimpl SnapshotReaderService { fn read(&self) -> String { mod nested { pub fn value() -> String { crate::utils::TitleUtils::text() } } format!(\"{}:{}:{}\", TitleUtils::text(), Label::text(), nested::value()) } }\n",
+        "use crate::utils::{TitleUtils, TitleUtils as Label};\n#[Service]\n#[derive(Default)]\nstruct SnapshotReaderService;\nimpl SnapshotReaderService { pub fn read(&self) -> String { mod nested { pub fn value() -> String { crate::utils::TitleUtils::text() } } format!(\"{}:{}:{}\", TitleUtils::text(), Label::text(), nested::value()) } }\n",
     );
     NativeCompositionCheck::execute(root.path(), "{\\\"value\\\":\\\"Ready:Ready:Ready\\\"}").await;
 }

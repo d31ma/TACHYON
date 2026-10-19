@@ -8,7 +8,7 @@ impl RuntimeNoteService {
         Self { runtime: String::from("Rust, compiled by rustc") }
     }
 
-    fn shows_notes(&self, development: bool) -> bool {
+    pub fn shows_notes(&self, development: bool) -> bool {
         development
     }
 }

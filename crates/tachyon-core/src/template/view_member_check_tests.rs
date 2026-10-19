@@ -23,6 +23,10 @@ impl MemberViews {
                 "// @Service\ntype SettingsService struct {\n\tOAuthNotice string\n\tTitle string\n}\n\nfunc (service *SettingsService) SaveOAuth() {}\n",
             ),
             (
+                "client/services/DrawerService.rs",
+                "#[Service]\n#[derive(Default)]\nstruct DrawerService {}\n\nimpl DrawerService {\n    pub fn open_drawer(&mut self) {}\n\n    fn close_drawer(&mut self) {}\n}\n",
+            ),
+            (
                 "client/services/ShellService.js",
                 "@Service\nexport default class ShellService { oAuthNotice = 'shell'; }",
             ),
@@ -97,4 +101,25 @@ fn a_nested_component_is_reported_once_at_its_own_view() {
     let text = failure.to_string();
     assert!(text.contains(MemberViews::PANEL), "{text}");
     assert!(!text.contains("settings/frame"), "{text}");
+}
+
+#[test]
+fn a_view_that_reads_a_private_rust_method_is_told_to_make_it_pub() {
+    let text = MemberViews::refused("<button on:click=\"drawer.closeDrawer()\">Close</button>");
+    assert!(text.contains("TY1311"), "{text}");
+    assert!(
+        text.contains(
+            "The view reads drawer.closeDrawer, but close_drawer is a private method of DrawerService."
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains("Write `pub fn close_drawer` in DrawerService."),
+        "{text}"
+    );
+    let rendered = MemberViews::render(
+        "<button on:click=\"drawer.openDrawer()\">Open</button>",
+        "<settings-panel />",
+    );
+    assert!(rendered.is_ok(), "{rendered:?}");
 }

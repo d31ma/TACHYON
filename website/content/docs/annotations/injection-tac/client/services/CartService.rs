@@ -7,7 +7,7 @@ struct CartService {
     cart_helper: CartHelper,
 }
 impl CartService {
-    fn total(&self) -> i64 {
+    pub fn total(&self) -> i64 {
         let subtotal = self.cart_prices_helper.subtotal();
         self.cart_helper.settle(subtotal)
     }

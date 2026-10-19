@@ -26,11 +26,11 @@ impl Reach {
 
     const RUST: &str = "#[Service()]\n#[derive(Default)]\nstruct ReachService {}\n\n\
          impl ReachService {\n    \
-         fn stamp(&self) -> f64 {\n        \
+         pub fn stamp(&self) -> f64 {\n        \
          let elapsed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();\n        \
          elapsed.as_secs_f64() * 1000.0\n    }\n\n    \
-         fn say(&self) -> bool {\n        println!(\"reach-log\");\n        eprintln!(\"reach-error\");\n        true\n    }\n\n    \
-         fn pause(&self) -> bool {\n        std::thread::sleep(std::time::Duration::from_millis(5));\n        true\n    }\n}\n";
+         pub fn say(&self) -> bool {\n        println!(\"reach-log\");\n        eprintln!(\"reach-error\");\n        true\n    }\n\n    \
+         pub fn pause(&self) -> bool {\n        std::thread::sleep(std::time::Duration::from_millis(5));\n        true\n    }\n}\n";
 
     const GO: &str = "import (\n\tcryptorand \"crypto/rand\"\n\t\"fmt\"\n\t\"math/rand/v2\"\n\t\"time\"\n)\n\n\
          // @Service()\ntype ReachService struct{}\n\n\
@@ -64,7 +64,7 @@ impl Reach {
          pub fn shout(text: &str) -> String {\n        format!(\"{}!\", text.to_uppercase())\n    }\n}\n";
 
     const RUST_SHOUT: &str = "#[Service()]\n#[derive(Default)]\nstruct ReachService {}\n\n\
-         impl ReachService {\n    fn shout(&self) -> String {\n        TextUtils::shout(\"reach\")\n    }\n}\n";
+         impl ReachService {\n    pub fn shout(&self) -> String {\n        TextUtils::shout(\"reach\")\n    }\n}\n";
 
     const GO_UTILITY: &str = "import \"strings\"\n\ntype TextUtils struct{}\n\n\
          func (TextUtils) Shout(text string) string {\n\treturn strings.ToUpper(text) + \"!\"\n}\n";

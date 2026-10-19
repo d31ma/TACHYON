@@ -213,7 +213,7 @@ struct Sources;
 
 impl Sources {
     const RUST_MODEL: &str = "#[derive(Clone, Debug)]\npub struct Guide {\n    pub title: String,\n    pub pages: i64,\n}\n";
-    const RUST_SERVICE: &str = "use crate::models::Guide;\n\n#[Service()]\n#[derive(Default)]\nstruct GuideService {\n    pages: i64,\n}\n\nimpl GuideService {\n    fn read(&mut self) -> String {\n        let guide = Guide { title: String::from(\"Guide\"), pages: 3 };\n        self.pages = guide.pages;\n        format!(\"{} {}\", guide.title, guide.pages)\n    }\n}\n";
+    const RUST_SERVICE: &str = "use crate::models::Guide;\n\n#[Service()]\n#[derive(Default)]\nstruct GuideService {\n    pages: i64,\n}\n\nimpl GuideService {\n    pub fn read(&mut self) -> String {\n        let guide = Guide { title: String::from(\"Guide\"), pages: 3 };\n        self.pages = guide.pages;\n        format!(\"{} {}\", guide.title, guide.pages)\n    }\n}\n";
     const CSHARP_MODEL: &str = "public record Guide(string Title, int Pages);\n";
     const CSHARP_SHELF_MODEL: &str = "using System.Collections.Generic;\n\npublic class Shelf\n{\n    public List<Guide> Guides { get; init; } = new();\n}\n";
     const CSHARP_SERVICE: &str = "using Models;\n\n[Service()]\npublic class GuideService\n{\n    public int Pages = 0;\n\n    public string Read()\n    {\n        var shelf = new Shelf { Guides = { new Guide(\"Guide\", 3) } };\n        Pages = shelf.Guides[0].Pages;\n        return shelf.Guides[0].Title + \" \" + Pages;\n    }\n}\n";

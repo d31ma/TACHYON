@@ -35,11 +35,11 @@ impl WebApis {
     const RUST_SERVICE: &str = "#[Service]\n#[derive(Default)]\nstruct StampService {\n    \
          clock: Clock,\n    secure_random: SecureRandom,\n}\n\n\
          impl StampService {\n    \
-         fn now(&self) -> f64 {\n        self.clock.now_ms()\n    }\n\n    \
-         fn zone(&self) -> String {\n        self.clock.time_zone().unwrap_or_default()\n    }\n\n    \
-         fn token(&self) -> String {\n        self.secure_random.uuid().unwrap_or_default()\n    }\n\n    \
-         fn count(&self) -> i64 {\n        self.secure_random.bytes(16).map_or(-1, |bytes| bytes.len() as i64)\n    }\n\n    \
-         fn refused(&self) -> String {\n        self.secure_random.bytes(65537).err().unwrap_or_default()\n    }\n}\n";
+         pub fn now(&self) -> f64 {\n        self.clock.now_ms()\n    }\n\n    \
+         pub fn zone(&self) -> String {\n        self.clock.time_zone().unwrap_or_default()\n    }\n\n    \
+         pub fn token(&self) -> String {\n        self.secure_random.uuid().unwrap_or_default()\n    }\n\n    \
+         pub fn count(&self) -> i64 {\n        self.secure_random.bytes(16).map_or(-1, |bytes| bytes.len() as i64)\n    }\n\n    \
+         pub fn refused(&self) -> String {\n        self.secure_random.bytes(65537).err().unwrap_or_default()\n    }\n}\n";
 
     const GO_SERVICE: &str = "// @Service\ntype StampService struct {\n\t// @Needs\n\tclock Clock\n\t// @Needs\n\tsecureRandom SecureRandom\n}\n\n\
          func (stamp *StampService) Now() float64 {\n\tvalue, _ := stamp.clock.NowMs()\n\treturn value\n}\n\n\
@@ -108,38 +108,38 @@ struct StampService {
 }
 
 impl StampService {
-    fn reachable(&self) -> bool {
+    pub fn reachable(&self) -> bool {
         self.connectivity.online().unwrap_or(true)
     }
 
-    fn shown(&self) -> bool {
+    pub fn shown(&self) -> bool {
         self.page_visibility.visible().unwrap_or(true)
     }
 
-    fn theme(&self) -> String {
+    pub fn theme(&self) -> String {
         self.preferences.scheme().unwrap_or_default()
     }
 
-    fn motion(&self) -> String {
+    pub fn motion(&self) -> String {
         self.preferences.motion().unwrap_or_default()
     }
 
-    fn locale(&self) -> String {
+    pub fn locale(&self) -> String {
         self.preferences.language().unwrap_or_default()
     }
 
     #[OnEvent]
-    fn connectivity_changed(&mut self, changed: ConnectivityChanged) {
+    pub fn connectivity_changed(&mut self, changed: ConnectivityChanged) {
         self.online = changed.online;
     }
 
     #[OnEvent]
-    fn visibility_changed(&mut self, changed: VisibilityChanged) {
+    pub fn visibility_changed(&mut self, changed: VisibilityChanged) {
         self.visible = changed.visible;
     }
 
     #[OnEvent]
-    fn preferences_changed(&mut self, changed: PreferencesChanged) {
+    pub fn preferences_changed(&mut self, changed: PreferencesChanged) {
         self.scheme = changed.scheme;
         self.language = changed.language;
     }
@@ -569,56 +569,56 @@ struct StampService {
 }
 
 impl StampService {
-    fn copy(&self, text: &str) {
+    pub fn copy(&self, text: &str) {
         let _ = self.clipboard.write_text(text);
     }
 
-    fn paste(&self) {
+    pub fn paste(&self) {
         let _ = self.clipboard.read_text();
     }
 
-    fn tell(&self) {
+    pub fn tell(&self) {
         let _ = self.share.open("Title", "Text", "https://example.com/");
     }
 
-    fn ask(&self) {
+    pub fn ask(&self) {
         let _ = self.notifications.request_permission();
     }
 
-    fn notify(&self) {
+    pub fn notify(&self) {
         let _ = self.notifications.show("Hello", "Body");
     }
 
-    fn locate(&self) {
+    pub fn locate(&self) {
         let _ = self.geolocation.current_position();
     }
 
-    fn denied(&self) -> String {
+    pub fn denied(&self) -> String {
         self.notifications.show("Hello", "Body").err().unwrap_or_default()
     }
 
     #[OnEvent]
-    fn hear_clipboard(&mut self, read: ClipboardTextRead) {
+    pub fn hear_clipboard(&mut self, read: ClipboardTextRead) {
         self.pasted = read.text;
     }
 
     #[OnEvent]
-    fn hear_share(&mut self, finished: ShareFinished) {
+    pub fn hear_share(&mut self, finished: ShareFinished) {
         self.shared = finished == ShareFinished {};
     }
 
     #[OnEvent]
-    fn hear_permission(&mut self, changed: NotificationPermissionChanged) {
+    pub fn hear_permission(&mut self, changed: NotificationPermissionChanged) {
         self.permission = changed.permission;
     }
 
     #[OnEvent]
-    fn hear_position(&mut self, found: PositionFound) {
+    pub fn hear_position(&mut self, found: PositionFound) {
         self.latitude = found.latitude;
     }
 
     #[OnEvent]
-    fn hear_failure(&mut self, failed: BrowserCallFailed) {
+    pub fn hear_failure(&mut self, failed: BrowserCallFailed) {
         self.failure = format!("{}.{}: {}", failed.api, failed.call, failed.message);
     }
 }

@@ -5,7 +5,7 @@ struct CatalogService {
     count: i64,
 }
 impl CatalogService {
-    fn load(&mut self) {
+    pub fn load(&mut self) {
         let answer = self.catalog_client.all().unwrap_or(BehaviorValue::Null);
         self.count = Self::count_items(&answer);
     }

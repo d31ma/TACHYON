@@ -5,11 +5,11 @@ struct TallyService {
 }
 
 impl TallyService {
-    fn add(&mut self, amount: i64) {
+    pub fn add(&mut self, amount: i64) {
         self.count += amount;
     }
 
-    fn summary(&self, unit: &str) -> String {
+    pub fn summary(&self, unit: &str) -> String {
         format!("{} {unit}", self.count)
     }
 }

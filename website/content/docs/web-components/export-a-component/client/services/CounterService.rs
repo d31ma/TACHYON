@@ -8,7 +8,7 @@ struct CounterService {
 }
 
 impl CounterService {
-    fn add(&mut self) {
+    pub fn add(&mut self) {
         self.count += 1;
         self.application_event_publisher.publish_event(CountChanged { count: self.count }, false);
     }

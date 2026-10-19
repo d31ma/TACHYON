@@ -10,7 +10,7 @@ impl Default for BasketService {
 }
 
 impl BasketService {
-    fn total_label(&self) -> String {
+    pub fn total_label(&self) -> String {
         PriceUtils::label(self.total)
     }
 }

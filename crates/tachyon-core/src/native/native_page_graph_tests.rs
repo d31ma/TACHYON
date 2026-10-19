@@ -44,11 +44,11 @@ impl CounterService {
             completed: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
-    fn increment(&self) { self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
-    fn read(&self) -> i64 { self.count.load(std::sync::atomic::Ordering::SeqCst) }
-    fn available(&self) -> bool { self.picker.available() }
+    pub fn increment(&self) { self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
+    pub fn read(&self) -> i64 { self.count.load(std::sync::atomic::Ordering::SeqCst) }
+    pub fn available(&self) -> bool { self.picker.available() }
     #[OnStart]
-    fn started(&self) -> std::result::Result<(), String> {
+    pub fn started(&self) -> std::result::Result<(), String> {
         let (stop, receiver) = std::sync::mpsc::channel();
         let (ready, started) = std::sync::mpsc::channel();
         let completed = self.completed.clone();
@@ -64,7 +64,7 @@ impl CounterService {
         Ok(())
     }
     #[OnStop]
-    fn stopped(&self) -> std::result::Result<(), String> {
+    pub fn stopped(&self) -> std::result::Result<(), String> {
         let stop = self.stop.lock().unwrap_or_else(|error| error.into_inner()).take();
         if let Some(stop) = stop { stop.send(()).map_err(|_| String::from("worker signal failed"))?; }
         let worker = self.worker.lock().unwrap_or_else(|error| error.into_inner()).take();
@@ -126,9 +126,9 @@ impl CounterService {
     fn new() -> Self {
         Self { count: std::sync::atomic::AtomicI64::new(0), picker: FilePicker::default() }
     }
-    fn increment(&self) { self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
-    fn read(&self) -> i64 { self.count.load(std::sync::atomic::Ordering::SeqCst) }
-    fn available(&self) -> bool { self.picker.available() }
+    pub fn increment(&self) { self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
+    pub fn read(&self) -> i64 { self.count.load(std::sync::atomic::Ordering::SeqCst) }
+    pub fn available(&self) -> bool { self.picker.available() }
 }
 ";
     const WRITER: &str = r"
@@ -136,9 +136,9 @@ impl CounterService {
 #[NeedsAll]
 struct WriterService { counter: std::sync::Arc<CounterService> }
 impl WriterService {
-    fn increment(&self) { self.counter.increment(); }
-    fn identity(&self) -> i64 { std::sync::Arc::as_ptr(&self.counter) as usize as i64 }
-    fn available(&self) -> bool { self.counter.available() }
+    pub fn increment(&self) { self.counter.increment(); }
+    pub fn identity(&self) -> i64 { std::sync::Arc::as_ptr(&self.counter) as usize as i64 }
+    pub fn available(&self) -> bool { self.counter.available() }
 }
 ";
     const READER: &str = r"
@@ -146,9 +146,9 @@ impl WriterService {
 #[NeedsAll]
 struct ReaderService { counter: std::sync::Arc<CounterService> }
 impl ReaderService {
-    fn read(&self) -> i64 { self.counter.read() }
-    fn identity(&self) -> i64 { std::sync::Arc::as_ptr(&self.counter) as usize as i64 }
-    fn available(&self) -> bool { self.counter.available() }
+    pub fn read(&self) -> i64 { self.counter.read() }
+    pub fn identity(&self) -> i64 { std::sync::Arc::as_ptr(&self.counter) as usize as i64 }
+    pub fn available(&self) -> bool { self.counter.available() }
 }
 ";
     const CALLER: &str = r###"
@@ -265,18 +265,18 @@ async fn native_rust_page_graph_starts_once_and_stops_in_reverse_dependency_orde
         + r#"
 impl CounterService {
     #[OnStart]
-    fn started(&self) { let _ = self.picker.scope.call("probe.counter.start", Vec::new()); }
+    pub fn started(&self) { let _ = self.picker.scope.call("probe.counter.start", Vec::new()); }
     #[OnStop]
-    fn stopped(&self) { let _ = self.picker.scope.call("probe.counter.stop", Vec::new()); }
+    pub fn stopped(&self) { let _ = self.picker.scope.call("probe.counter.stop", Vec::new()); }
 }
 "#;
     let writer = NativePageGraphCheck::WRITER.to_owned()
         + r#"
 impl WriterService {
     #[OnStart]
-    fn started(&self) { let _ = self.counter.picker.scope.call("probe.writer.start", Vec::new()); }
+    pub fn started(&self) { let _ = self.counter.picker.scope.call("probe.writer.start", Vec::new()); }
     #[OnStop]
-    fn stopped(&self) { let _ = self.counter.picker.scope.call("probe.writer.stop", Vec::new()); }
+    pub fn stopped(&self) { let _ = self.counter.picker.scope.call("probe.writer.stop", Vec::new()); }
 }
 "#;
     let source = NativePageGraphCheck::stage_roots(
@@ -332,7 +332,7 @@ async fn native_rust_page_graph_isolates_explicit_prototype_dependencies() {
     );
     let writer = NativePageGraphCheck::WRITER
         .replace("struct WriterService { counter: std::sync::Arc<CounterService> }", "struct WriterService { counter: std::sync::Arc<CounterService>, other: std::sync::Arc<CounterService> }")
-        + "\nimpl WriterService { fn same(&self) -> bool { std::sync::Arc::ptr_eq(&self.counter, &self.other) } }\n";
+        + "\nimpl WriterService { pub fn same(&self) -> bool { std::sync::Arc::ptr_eq(&self.counter, &self.other) } }\n";
     let source = NativePageGraphCheck::stage_roots(
         root.path(),
         &provider,
@@ -349,7 +349,7 @@ async fn native_rust_page_graph_isolates_explicit_prototype_dependencies() {
 #[test]
 fn native_rust_page_graph_rejects_arc_aliases_that_would_lose_wire_setters() {
     let root = tempfile::tempdir().expect("fixture");
-    let provider = "#[Service]\n#[derive(Default)]\nstruct CounterService { count: i64 }\nimpl CounterService { fn increment(&self) {} fn read(&self) -> i64 { self.count } fn available(&self) -> bool { false } }\n";
+    let provider = "#[Service]\n#[derive(Default)]\nstruct CounterService { count: i64 }\nimpl CounterService { pub fn increment(&self) {} pub fn read(&self) -> i64 { self.count } pub fn available(&self) -> bool { false } }\n";
     let _ = NativePageGraphCheck::stage(root.path(), provider)
         .expect("private non-wire state is allowed");
     let inputs = [
@@ -379,7 +379,7 @@ fn native_rust_page_graph_rejects_arc_aliases_that_would_lose_wire_setters() {
 #[test]
 fn native_rust_page_graph_reports_cycles_before_runtime_construction() {
     let root = tempfile::tempdir().expect("fixture");
-    let provider = "#[Service]\n#[NeedsAll]\nstruct CounterService { next: std::sync::Arc<CounterService> }\nimpl CounterService { fn read(&self) -> i64 { 0 } fn increment(&self) {} fn available(&self) -> bool { false } }\n";
+    let provider = "#[Service]\n#[NeedsAll]\nstruct CounterService { next: std::sync::Arc<CounterService> }\nimpl CounterService { pub fn read(&self) -> i64 { 0 } pub fn increment(&self) {} pub fn available(&self) -> bool { false } }\n";
     let failure = NativePageGraphCheck::stage(root.path(), provider)
         .expect_err("cycle must fail before execution");
     assert!(
@@ -433,21 +433,21 @@ async fn native_rust_page_graph_rolls_back_qualified_result_startup_failures() {
         + r#"
 impl CounterService {
     #[OnStart]
-    fn started(&self) { let _ = self.picker.scope.call("probe.counter.start", Vec::new()); }
+    pub fn started(&self) { let _ = self.picker.scope.call("probe.counter.start", Vec::new()); }
     #[OnStop]
-    fn stopped(&self) { let _ = self.picker.scope.call("probe.counter.stop", Vec::new()); }
+    pub fn stopped(&self) { let _ = self.picker.scope.call("probe.counter.stop", Vec::new()); }
 }
 "#;
     let writer = NativePageGraphCheck::WRITER.to_owned()
         + r#"
 impl WriterService {
     #[OnStart]
-    fn started(&self) -> ::std::result::Result<(), String> {
+    pub fn started(&self) -> ::std::result::Result<(), String> {
         let _ = self.counter.picker.scope.call("probe.writer.start", Vec::new());
         Err(String::from("private startup detail"))
     }
     #[OnStop]
-    fn stopped(&self) -> ::core::result::Result<(), String> {
+    pub fn stopped(&self) -> ::core::result::Result<(), String> {
         let _ = self.counter.picker.scope.call("probe.writer.stop", Vec::new());
         Ok(())
     }
@@ -653,8 +653,8 @@ async fn native_rust_page_graph_scopes_imports_to_each_service_file() {
             .replace("std::sync::atomic::Ordering::SeqCst", "Ordering::SeqCst");
     let writer = "use std::cmp::Ordering;\n".to_owned()
         + &NativePageGraphCheck::WRITER.replace(
-            "fn increment(&self) { self.counter.increment(); }",
-            "fn increment(&self) { if 1_i64.cmp(&2) == Ordering::Less { self.counter.increment(); } }",
+            "pub fn increment(&self) { self.counter.increment(); }",
+            "pub fn increment(&self) { if 1_i64.cmp(&2) == Ordering::Less { self.counter.increment(); } }",
         );
     let source = NativePageGraphCheck::stage_roots(
         root.path(),

@@ -8,7 +8,7 @@ struct SectionService {
 }
 
 impl SectionService {
-    fn search(&mut self, query: String) {
+    pub fn search(&mut self, query: String) {
         self.query = query;
     }
 

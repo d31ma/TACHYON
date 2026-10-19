@@ -5,7 +5,7 @@ struct AuditService {
     ledger: CartHelper,
 }
 impl AuditService {
-    fn lines(&self) -> i64 {
+    pub fn lines(&self) -> i64 {
         self.ledger.count()
     }
 }

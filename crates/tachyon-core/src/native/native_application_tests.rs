@@ -20,10 +20,10 @@ impl CollectorService {
         Probe::record("created");
         Self { count: std::sync::atomic::AtomicI64::new(0), stop: std::sync::Mutex::new(None), worker: std::sync::Mutex::new(None) }
     }
-    fn read(&self) -> i64 { self.count.load(std::sync::atomic::Ordering::SeqCst) }
-    fn increment(&self) { self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
+    pub fn read(&self) -> i64 { self.count.load(std::sync::atomic::Ordering::SeqCst) }
+    pub fn increment(&self) { self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
     #[OnStart]
-    fn started(&self) -> Result<(), String> {
+    pub fn started(&self) -> Result<(), String> {
         let (stop, receiver) = std::sync::mpsc::channel();
         let (ready, started) = std::sync::mpsc::channel();
         let worker = std::thread::spawn(move || { ready.send(()).unwrap(); receiver.recv().unwrap(); });
@@ -34,7 +34,7 @@ impl CollectorService {
         Ok(())
     }
     #[OnStop]
-    fn stopped(&self) {
+    pub fn stopped(&self) {
         if let Some(stop) = self.stop.lock().unwrap().take() { stop.send(()).unwrap(); }
         if let Some(worker) = self.worker.lock().unwrap().take() { worker.join().unwrap(); Probe::record("joined"); }
         Probe::record("stopped");
@@ -46,9 +46,9 @@ impl CollectorService {
 #[NeedsAll]
 struct ReaderService { collector: std::sync::Arc<CollectorService>, picker: FilePicker }
 impl ReaderService {
-    fn read(&self) -> i64 { self.collector.read() }
-    fn increment(&self) { self.collector.increment(); }
-    fn available(&self) -> bool { self.picker.available() }
+    pub fn read(&self) -> i64 { self.collector.read() }
+    pub fn increment(&self) { self.collector.increment(); }
+    pub fn available(&self) -> bool { self.picker.available() }
 }
 ";
     pub(super) const PROBE: &str = r###"
@@ -72,13 +72,13 @@ fn request(owner: &str, operation: &str, method: &str) -> String {
         std::fs::create_dir_all(&services).expect("provider directory");
         std::fs::create_dir_all(&helpers).expect("helper directory");
         let provider = format!(
-            "#[Service]\n#[Lifetime({{\"value\":\"{lifetime}\"}})]\n#[derive(Default)]\nstruct SharedService {{}}\nimpl SharedService {{ fn read(&self) -> i64 {{ 42 }} }}"
+            "#[Service]\n#[Lifetime({{\"value\":\"{lifetime}\"}})]\n#[derive(Default)]\nstruct SharedService {{}}\nimpl SharedService {{ pub fn read(&self) -> i64 {{ 42 }} }}"
         );
         std::fs::write(services.join("SharedService.rs"), provider).expect("provider");
-        std::fs::write(helpers.join("BridgeHelper.rs"), "#[Helper]\nstruct BridgeHelper { shared: std::sync::Arc<SharedService> }\nimpl BridgeHelper { fn new(shared: std::sync::Arc<SharedService>) -> Self { Self { shared } } fn read(&self) -> i64 { self.shared.read() } }").expect("owned helper");
+        std::fs::write(helpers.join("BridgeHelper.rs"), "#[Helper]\nstruct BridgeHelper { shared: std::sync::Arc<SharedService> }\nimpl BridgeHelper { fn new(shared: std::sync::Arc<SharedService>) -> Self { Self { shared } } pub fn read(&self) -> i64 { self.shared.read() } }").expect("owned helper");
     }
 
-    const INDIRECT_COLLECTOR: &str = "#[Service]\n#[Lifetime({\"value\":\"application\"})]\nstruct CollectorService { bridge: BridgeHelper }\nimpl CollectorService { fn new(bridge: BridgeHelper) -> Self { Self { bridge } } fn read(&self) -> i64 { self.bridge.read() } }";
+    const INDIRECT_COLLECTOR: &str = "#[Service]\n#[Lifetime({\"value\":\"application\"})]\nstruct CollectorService { bridge: BridgeHelper }\nimpl CollectorService { fn new(bridge: BridgeHelper) -> Self { Self { bridge } } pub fn read(&self) -> i64 { self.bridge.read() } }";
 
     pub(super) fn stage(
         root: &Path,
@@ -296,7 +296,7 @@ fn native_application_lifetime_refuses_indirect_helper_capture_of_shorter_servic
 async fn native_application_lifetime_preserves_indirect_application_helper_composition() {
     let root = tempfile::tempdir().expect("fixture");
     ApplicationLifetimeTests::bridge(root.path(), "application");
-    let reader = "#[Service]\n#[NeedsAll]\nstruct ReaderService { collector: std::sync::Arc<CollectorService> }\nimpl ReaderService { fn read(&self) -> i64 { self.collector.read() } }";
+    let reader = "#[Service]\n#[NeedsAll]\nstruct ReaderService { collector: std::sync::Arc<CollectorService> }\nimpl ReaderService { pub fn read(&self) -> i64 { self.collector.read() } }";
     let source = ApplicationLifetimeTests::stage(
         root.path(),
         ApplicationLifetimeTests::INDIRECT_COLLECTOR,
@@ -396,9 +396,9 @@ struct FailureService {{}}
 impl FailureService {{
     fn new() -> Self {{ {constructor} }}
     #[OnStart]
-    fn start(&self) -> Result<(), String> {{ Err(String::from("authored startup failure")) }}
+    pub fn start(&self) -> Result<(), String> {{ Err(String::from("authored startup failure")) }}
     #[OnStop]
-    fn stop(&self) {{ Probe::record("failure.stopped"); panic!("authored stop panic"); }}
+    pub fn stop(&self) {{ Probe::record("failure.stopped"); panic!("authored stop panic"); }}
 }}
 "#
         );

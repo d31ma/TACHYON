@@ -819,7 +819,7 @@ fn rust_methods(body: &str) -> Vec<(Member, Vec<String>)> {
 }
 
 fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
-    let line = line.trim().trim_start_matches("pub ");
+    let line = line.trim().strip_prefix("pub ")?;
     let asynchronous = line.starts_with("async ");
     let line = line.trim_start_matches("async ").trim_start();
     let rest = line.strip_prefix("fn").and_then(after_keyword)?;
@@ -1514,9 +1514,10 @@ mod tests {
              func doubled() -> Int { count * 2 }\n}\n";
 
         const RUST_ARGUMENTS: &str = "#[derive(Default)]\nstruct DrawerService {\n    open: bool,\n}\n\n\
-             impl DrawerService {\n    fn dismiss(&mut self, key: &str, times: u8) {}\n    \
-             fn keep(&self, value: TacValue) -> TacValue { value }\n    \
-             fn hidden(&self, inner: std::path::PathBuf) {}\n}\n";
+             impl DrawerService {\n    pub fn dismiss(&mut self, key: &str, times: u8) {}\n    \
+             pub fn keep(&self, value: TacValue) -> TacValue { value }\n    \
+             pub fn hidden(&self, inner: std::path::PathBuf) {}\n    \
+             fn private_note(&self) {}\n}\n";
 
         const RUST_FALLIBLE: &str = "#[derive(Default)]\nstruct NotesService {\n    text: String,\n}\n\n\
              impl NotesService {\n    pub fn remember(&mut self, text: String) -> BehaviorResult<()> { self.text = text; Ok(()) }\n    \
@@ -1538,8 +1539,8 @@ mod tests {
              last: BehaviorValue,\n    product: Product,\n}\n\n\
              impl NotesService {\n    fn new() -> Self { todo!() }\n\n    \
              #[Cached]\n    fn find(&self, key: BehaviorValue) -> BehaviorResult<BehaviorValue> { Ok(key) }\n\n    \
-             fn look(&self, key: String) -> String { key }\n\n    \
-             fn choose(&mut self, product: Product) {}\n}\n";
+             pub fn look(&self, key: String) -> String { key }\n\n    \
+             pub fn choose(&mut self, product: Product) {}\n}\n";
 
         const CSHARP_BEHAVIOR_AND_MODEL_SERVICE: &str = "public sealed class NotesService {\n    \
              public BehaviorSignal signal = new BehaviorSignal();\n    \
@@ -1552,7 +1553,7 @@ mod tests {
         const RUST_STRUCT_WITH_DEFAULT: &str = "pub struct CompanionService {\n    count: i32,\n    label: String,\n}\n\n\
              impl Default for CompanionService {\n    fn default() -> Self {\n        \
              Self { count: 6, label: String::from(\"Rust\") }\n    }\n}\n\n\
-             impl CompanionService {\n    fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}\n";
+             impl CompanionService {\n    pub fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}\n";
 
         const RUST_BORROWED_STRING: &str = "pub struct CompanionService {\n    pub runtime: &'static str,\n}\n\n\
              impl Default for CompanionService {\n    fn default() -> Self {\n        \
@@ -1569,7 +1570,7 @@ mod tests {
              impl CatalogService {\n    fn new() -> Self {\n        \
              Self { catalog: CatalogClient::new(), count: 0 }\n    }\n\n    \
              fn all(&self) -> BehaviorResult<BehaviorValue> {\n        self.catalog.all()\n    }\n\n    \
-             fn load(&mut self) {\n        self.count = 1;\n    }\n}\n\
+             pub fn load(&mut self) {\n        self.count = 1;\n    }\n}\n\
              struct CatalogClient { behaviors: BehaviorContext }\n";
 
         const CSHARP_HTTP_CLIENT_SERVICE: &str = "public class CatalogService {\n    \
@@ -1793,6 +1794,7 @@ mod tests {
             "{generated}"
         );
         assert!(!generated.contains("\"hidden\""), "{generated}");
+        assert!(!generated.contains("privateNote"), "{generated}");
     }
 
     #[test]

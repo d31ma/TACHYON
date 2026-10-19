@@ -996,10 +996,10 @@ mod tests {
         const COUNTER_SERVICE: &str = "use crate::models::{CounterAdded, CounterStarted};\n\n#[Service()]\n#[Lifetime({\"value\":\"prototype\"})]\n#[NeedsAll]\n#[derive(Default)]\nstruct CounterService {\n    count: i64,\n    label: String,\n    application_event_publisher: ApplicationEventPublisher,\n}\n\n\
              impl CounterService {\n    #[OnStart()]\n    fn start(&mut self) {\n        self.label.push_str(\" clicks\");\n        \
              self.application_event_publisher.publish_event(CounterStarted {}, false);\n    }\n\n    \
-             fn increment(&mut self) -> i64 {\n        self.count += 1;\n        \
+             pub fn increment(&mut self) -> i64 {\n        self.count += 1;\n        \
              self.application_event_publisher.publish_event(CounterAdded { count: self.count }, false);\n        self.count\n    }\n\n    \
-             fn doubled(&self) -> i64 {\n        self.count * 2\n    }\n\n    \
-             fn add(&mut self, by: i64, why: &str) -> String {\n        self.count += by;\n        format!(\"{why} {}\", self.count)\n    }\n}\n";
+             pub fn doubled(&self) -> i64 {\n        self.count * 2\n    }\n\n    \
+             pub fn add(&mut self, by: i64, why: &str) -> String {\n        self.count += by;\n        format!(\"{why} {}\", self.count)\n    }\n}\n";
 
         const COUNTER_DRIVER: &str = "import CounterService, { __tachyon_event_plan__ as plan } from './CounterService.js'\n\
              const events = []\n\
@@ -1104,12 +1104,12 @@ mod tests {
                  fn answer(result: BehaviorResult<BehaviorValue>) -> String {\n        \
                  match result {\n            Ok(value) => value.to_json(65536).unwrap_or_default(),\n            \
                  Err(error) => format!(\"{{\\\"error\\\":\\\"{error}\\\"}}\"),\n        }\n    }\n\n    \
-                 fn look(&self, key: String) -> String {\n        Self::answer(self.find(BehaviorValue::from(key)))\n    }\n\n    \
-                 fn drop_key(&self, key: String) -> String {\n        Self::answer(self.forget(BehaviorValue::from(key)))\n    }\n\n    \
-                 fn save(&self, id: String, text: String) -> String {\n        \
+                 pub fn look(&self, key: String) -> String {\n        Self::answer(self.find(BehaviorValue::from(key)))\n    }\n\n    \
+                 pub fn drop_key(&self, key: String) -> String {\n        Self::answer(self.forget(BehaviorValue::from(key)))\n    }\n\n    \
+                 pub fn save(&self, id: String, text: String) -> String {\n        \
                  Self::answer(self.keep(BehaviorValue::from(id), BehaviorValue::from(text)))\n    }\n\n    \
-                 fn refuse(&self, id: String) -> String {\n        Self::answer(self.keep_then_refuse(BehaviorValue::from(id)))\n    }\n\n    \
-                 fn list(&self, size: f64) -> String {\n        \
+                 pub fn refuse(&self, id: String) -> String {\n        Self::answer(self.keep_then_refuse(BehaviorValue::from(id)))\n    }\n\n    \
+                 pub fn list(&self, size: f64) -> String {\n        \
                  let page = BehaviorValue::object([(\"size\", BehaviorValue::Number(size))]);\n        \
                  Self::answer(self.behaviors.repository::<NoteEntity>().and_then(|notes| notes.find(page)))\n    }\n}\n",
             ),

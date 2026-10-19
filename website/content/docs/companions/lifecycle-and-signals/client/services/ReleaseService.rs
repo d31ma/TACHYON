@@ -8,7 +8,7 @@ struct ReleaseService {
 }
 
 impl ReleaseService {
-    fn announce(&mut self) {
+    pub fn announce(&mut self) {
         let changed = ReleaseChanged { release: String::from("TACHYON") };
         self.application_event_publisher.publish_event(changed, true);
     }
