@@ -1552,10 +1552,11 @@ machine contracts have their own, independent major versions.
   amendment). The compositor's first configure undid the host's growth for
   the header bar, so a 900x640 page opened at 900x566; the host now asks
   again until the page has its size.
-- `scripts/supervised-command.mjs` accepts a one-second difference in a
-  process's start time. On WSL `ps` reports the start second of the same
-  process one apart from time to time, so supervised probes there refused
-  to clean up and failed. `scripts/linux/native-test.sh` also unmounts the
+- `scripts/supervised-command.mjs` identifies a process on Linux by its
+  start time in clock ticks from `/proc/<pid>/stat`, not by the `ps` start
+  date. On WSL the guest clock drifts against the time since boot, so the
+  date `ps` prints for the same process moved by up to two seconds, and
+  supervised probes there refused to clean up and failed. `scripts/linux/native-test.sh` also unmounts the
   document portal from its private runtime folder before removing it.
 - A Windows build with a C# companion no longer fails with TY1605 when it
   runs from a Visual Studio developer prompt. Those prompts set `Platform`,

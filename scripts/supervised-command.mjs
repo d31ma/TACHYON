@@ -1,4 +1,5 @@
 import { execFile, spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 
 /** @typedef {{pid:number,parent:number,group:number,started:string,state:string}} ProcessIdentity */
 /** @typedef {{cwd?:string,env?:NodeJS.ProcessEnv,timeoutMilliseconds?:number,terminationMilliseconds?:number,cleanupMilliseconds?:number,maxBuffer?:number,failOnOutputLimit?:boolean,onStdout?:(chunk:Buffer)=>void,onStderr?:(chunk:Buffer)=>void}} CommandOptions */
@@ -12,7 +13,6 @@ export class SupervisedCommand {
   static pollMilliseconds = 50
   static inspectionMilliseconds = 1000
   static processTableBytes = 4 * 1024 * 1024
-  static startToleranceMilliseconds = 1000
 
   /** @param {CommandOptions} options */
   constructor(options) {
@@ -131,7 +131,29 @@ export class SupervisedCommand {
         else resolve(stdout)
       })
     }))
-    return this.#parseSnapshot(text)
+    return this.#withKernelStartTimes(this.#parseSnapshot(text))
+  }
+
+  /** @param {Map<number, ProcessIdentity>} table */
+  #withKernelStartTimes(table) {
+    if (process.platform !== 'linux') return table
+    for (const identity of [...table.values()]) {
+      const started = this.#kernelStartTime(identity.pid)
+      if (started === null) table.delete(identity.pid)
+      else identity.started = started
+    }
+    return table
+  }
+
+  /** @param {number} pid */
+  #kernelStartTime(pid) {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+      const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
+      return `boot+${fields[19]}`
+    } catch {
+      return null
+    }
   }
 
   /** @param {string} text */
@@ -149,8 +171,7 @@ export class SupervisedCommand {
 
   /** @param {ProcessIdentity|undefined} left @param {ProcessIdentity|undefined} right */
   #sameProcess(left, right) {
-    const startGap = Math.abs(Date.parse(left?.started ?? '') - Date.parse(right?.started ?? ''))
-    return left?.pid === right?.pid && startGap <= SupervisedCommand.startToleranceMilliseconds
+    return left?.pid === right?.pid && left?.started === right?.started
   }
 
   /** @param {Map<number, ProcessIdentity>} table */
