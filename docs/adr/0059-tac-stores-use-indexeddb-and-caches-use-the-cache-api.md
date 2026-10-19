@@ -218,3 +218,15 @@ method is read again after the app navigates away and back).
   after the relaunch in 2 of the 3 runs that checked it, so a `@Cached`
   method may run again after the system stops the app. The Android gate
   records this and fails only if a row or a localStorage value is lost.
+
+## Amendment (2026-10-19): the iOS Cache API limit is not proven yet
+
+The amendment above states as fact that iOS does not keep Cache API entries
+across a relaunch. That is not proven yet. The iOS run wrote the check's old
+raw cache entry, which has no `x-tachyon-expires-at` header. Tac's start-up
+cache sweep deletes such an entry, so the empty cache after the relaunch may
+come from the sweep and not from WebKit. The macOS gate had the same problem
+and kept its entry once the check wrote it in Tac's format
+(`docs/SUPPORT_TIERS.md`, "Web storage across relaunch"). The iOS limit waits
+on a rerun of `scripts/ios/native-test.mjs` on the simulator with that check
+(plan item RM2). Until then, treat the iOS Cache API limit as unproven.

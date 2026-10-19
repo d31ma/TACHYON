@@ -23,6 +23,7 @@ impl TargetSupportTests {
     const TAB_FOLDER: &'static str =
         "../../website/content/docs/application-configuration/manifest-members-per-target";
     const WRITE_TABS: &'static str = "TACHYON_WRITE_TARGET_SUPPORT";
+    const UNPROVEN_WORDS: [&'static str; 4] = ["owed", "code only", "no host test", "not run"];
 
     fn project(manifest: &Value) -> tempfile::TempDir {
         let root = tempfile::tempdir().expect("support project");
@@ -196,7 +197,7 @@ fn explain_marks_the_declared_members_for_each_target() {
         TargetSupport::explain(root.path(), &[AppTarget::Ios, AppTarget::Web]).expect("explain");
     assert!(text.starts_with("iOS\n"));
     assert!(text.contains("\nWeb\n"));
-    assert!(text.contains("theme_color (declared)\n  adapted: "));
+    assert!(text.contains("theme_color (declared)\n  not applied: "));
     assert!(text.contains("tac.application.menus\n  refused with TY1601: "));
 }
 
@@ -219,4 +220,69 @@ fn the_website_platform_tabs_match_the_table() {
             TargetSupportTests::WRITE_TABS
         );
     }
+}
+
+#[test]
+fn an_honored_entry_never_hides_a_run_that_is_still_owed() {
+    let table = TargetSupport::load().expect("table");
+    for entry in table.entries() {
+        for target in TargetSupportTests::TARGETS {
+            let reach = entry.reach(target);
+            if let Some(run) = reach.owed_run() {
+                assert!(
+                    !run.trim().is_empty() && !run.ends_with('.'),
+                    "{} names its owed run as a phrase: {run}",
+                    entry.member()
+                );
+            }
+            if reach.is_honored() {
+                let text = reach.text();
+                assert!(
+                    TargetSupportTests::UNPROVEN_WORDS
+                        .iter()
+                        .all(|word| !text.contains(word)),
+                    "{} on {} is honored but says a run is missing; use runOwed: {text}",
+                    entry.member(),
+                    TargetSupport::platform(target)
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_declared_member_with_an_owed_run_names_that_run_once() {
+    let manifest = json!({"tac": {"python": {"packages": ["numpy"]}, "yon": {"origin": "https://api.example.com"}}});
+    let windows = TargetSupportTests::notes(&manifest, AppTarget::Windows);
+    assert!(
+        windows.contains(&String::from(
+            "Note: tac.python is supported on Windows, but this run is still owed: a Python service inside WebView2 on a signed-in Windows desktop (ADR 0093)."
+        )),
+        "{windows:?}"
+    );
+    assert!(
+        windows.iter().any(
+            |note| note.starts_with("Note: tac.yon is supported on Windows")
+                && note.contains("yon-reach.ps1")
+        ),
+        "{windows:?}"
+    );
+    let web = TargetSupportTests::notes(&manifest, AppTarget::Web);
+    assert!(
+        web.iter().all(|note| !note.contains("still owed")),
+        "{web:?}"
+    );
+}
+
+#[test]
+fn explain_names_each_reach_state_in_plain_words() {
+    let root = TargetSupportTests::project(&json!({}));
+    let text = TargetSupport::explain(root.path(), &[AppTarget::Macos]).expect("explain");
+    assert!(text.contains("background_color\n  not applied: "), "{text}");
+    assert!(text.contains("tac.python\n  run owed: "), "{text}");
+    assert!(text.contains("; still to run: "), "{text}");
+    assert!(
+        text.contains("service worker\n  not applicable: "),
+        "{text}"
+    );
 }

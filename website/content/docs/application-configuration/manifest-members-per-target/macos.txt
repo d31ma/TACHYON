@@ -10,13 +10,13 @@ icons
   honored: the largest raster icon becomes the .icns file; staging the app on another system skips the icon and prints a note
 
 theme_color
-  adapted: theme_color is written into each page head, but the macOS window does not use it yet.
+  not applied: theme_color is written into each page head, but the macOS window does not use it yet (WIN7).
 
 background_color
-  adapted: background_color is not applied to the macOS app yet.
+  not applied: background_color is not applied to the macOS app yet (WIN7).
 
 display
-  adapted: display is not applied yet. The macOS app opens a standard window.
+  not applied: display is not applied yet. The macOS app opens a standard window (WIN7).
 
 orientation
   not applicable: orientation has no meaning for a macOS window.
@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   honored: the smallest size of the window
 
 tac.application.window.controls
-  honored: close, fullscreen, maximize (zoom), minimize, resize and title
+  run owed: close, fullscreen, maximize (zoom), minimize, resize and title; still to run: a granted control from a page or service on a Mac; the GUI checks run only the refused path
 
 tac.application.window.titleBar
   honored: "integrated" draws the page under the title bar
@@ -91,7 +91,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage
+  run owed: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; still to run: an offline Yon read in the packaged macOS app
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the macOS app.
@@ -103,28 +103,28 @@ tac.browserApis
   honored: the same grant list in the page
 
 tac.browserApis clipboard
-  honored: NSPasteboard through the host bridge (browserApi.clipboard)
+  run owed: NSPasteboard through the host bridge (browserApi.clipboard); still to run: native_browser_api_host_tests on a Mac
 
 tac.browserApis share
-  honored: NSSharingServicePicker through the host bridge (browserApi.share)
+  run owed: NSSharingServicePicker through the host bridge (browserApi.share); still to run: the share picker opened from a page on a Mac, checked by hand
 
 tac.browserApis notifications
-  honored: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front
+  run owed: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; still to run: the permission prompt and a notification on a Mac, checked by hand
 
 tac.browserApis geolocation
-  honored: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions
+  run owed: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; still to run: the location prompt with the manifest reason on a Mac, checked by hand
 
 tac.browserApis preferenceStrings
-  honored: the web view's localStorage, kept on disk
+  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch on a Mac
 
 tac.nativeCapabilities
-  honored: filePicker opens the system file panel
+  adapted: tac.nativeCapabilities filePicker opens the system file panel on macOS for page, Swift and Rust services. A FilePicker field in a C# or Kotlin service answers unsupported (FP5).
 
 tac.elements
   adapted: tac.elements are bundled into the macOS app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  honored: Pyodide in the web view, checked in code only (ADR 0093)
+  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service in the packaged macOS app on a Mac (ADR 0093)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The macOS app loads its bundle from disk, so route sizes are not measured (ADR 0074).
@@ -133,7 +133,7 @@ tac.outgoing
   honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
 tac.yon
-  honored: the page and its linked Swift HTTP clients reach tac.yon.origin from tachyon-app://bundle, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on macOS 26.6.2 (ADR 0103)
+  adapted: tac.yon.origin: the macOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on macOS 26.6.2 (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1).
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -205,16 +205,19 @@ deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route (kAEGetURL)
 
 background and foreground signal
-  honored: ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored
+  run owed: ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored; still to run: resigning and becoming the active app, hiding and minimizing on a Mac
 
 stored data (IndexedDB, Cache API, LocalState)
   honored: kept on disk by the web view
+
+service worker
+  not applicable: The macOS app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
 
 Content-Security-Policy
   honored: the native host policy
 
 reaching Yon
-  adapted: The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1).
+  adapted: The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1).
 
 natively linked service languages
   honored: Rust and Swift services are linked into the app; other languages run in the page
@@ -223,10 +226,13 @@ build architecture (--arch)
   honored: --arch x64, arm64 or universal; universal joins an arm64 and an x86_64 build with lipo
 
 release packaging
-  adapted: ty bundle --release builds a .dmg whose app is signed with the team's Developer ID certificate and the hardened runtime, then notarizes and staples it; the team and notary profile come from TAC_APPLE_TEAM_ID and TAC_APPLE_NOTARY_PROFILE. No release has been notarized on a Mac yet. Other builds are an ad hoc signed .app.
+  run owed: ty bundle --release builds a .dmg whose app is signed with the team's Developer ID certificate and the hardened runtime, then notarizes and staples it; the team and notary profile come from TAC_APPLE_TEAM_ID and TAC_APPLE_NOTARY_PROFILE. Other builds are an ad hoc signed .app; still to run: a notarized Developer ID .dmg; an ad hoc --release run passed on a Mac, and the notarized run waits on the Apple developer agreement (PKG1)
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  adapted: The macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder, so two builds should match. A repeat-build run on a Mac is still owed (TL2). A --release .dmg differs between builds: its secure timestamp and notarization ticket change.
+  run owed: the macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a --release .dmg differs between builds, because its secure timestamp and notarization ticket change; still to run: a_packaged_macos_app_is_byte_identical_when_built_twice on a Mac (TL2)
+
+running without a signed-in desktop session
+  not applicable: The macOS app needs a signed-in graphical session: its window and web view do not start without one, so its gates run on a signed-in Mac.

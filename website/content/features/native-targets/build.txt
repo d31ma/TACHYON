@@ -15,9 +15,12 @@ Microsoft.Web.WebView2 package and set TAC_WEBVIEW2_SDK to the
 extracted folder (it holds build/native/include/WebView2.h).
 Without it the Windows build stops with TY1605.
 
-Run the Windows build from a Visual Studio developer prompt (x64
-target; on Windows on Arm use the arm64_amd64 prompt). The host
-compiles with warnings as errors (/W4 /WX).
+--arch x64 or --arch arm64 chooses the Windows architecture. Without
+it, an ARM64 build machine builds for ARM64 and other machines build
+for x64. Run the Windows build from the Visual Studio developer
+prompt for that architecture (on Windows on Arm: arm64 for ARM64,
+arm64_amd64 for x64). The host compiles with warnings as errors
+(/W4 /WX).
 
 ty bundle --target android --release builds a signed APK and an
 Android App Bundle (.aab) for Google Play. Set TAC_ANDROID_KEYSTORE

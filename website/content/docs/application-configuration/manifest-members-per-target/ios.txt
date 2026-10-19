@@ -10,16 +10,16 @@ icons
   honored: the largest raster icon is resized to the app icon set; staging the app on another system skips the icon and prints a note
 
 theme_color
-  adapted: theme_color is written into each page head, but the iOS status bar does not use it yet (WIN5).
+  not applied: theme_color is written into each page head, but the iOS status bar does not use it yet (WIN5).
 
 background_color
-  adapted: background_color is not applied to the iOS app yet.
+  not applied: background_color is not applied to the iOS app yet.
 
 display
-  adapted: display is not applied yet. The iOS app keeps the system status bar (WIN5).
+  not applied: display is not applied yet. The iOS app keeps the system status bar (WIN5).
 
 orientation
-  adapted: orientation is not applied yet. The iOS app is locked to portrait (WIN5).
+  not applied: orientation is not applied yet. The iOS app is locked to portrait (WIN5).
 
 tachyon (top-level)
   refused with TY1601: The top-level tachyon member is gone. Move its values into tac (ADR 0052).
@@ -52,10 +52,10 @@ tac.application.window.minWidth, minHeight
   not applicable: tac.application.window minWidth and minHeight have no meaning on iOS: the system sizes the app.
 
 tac.application.window.controls
-  adapted: tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title. granted() answers false for the other controls.
+  adapted: tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, and only for calls from the page: linked Swift services get no window controls on iOS. granted() answers false for the other controls.
 
 tac.application.window.titleBar
-  adapted: tac.application.window.titleBar "integrated" is built only for macOS. The iOS app keeps the standard status bar (ADR 0098, WIN5).
+  not applied: tac.application.window.titleBar "integrated" is built only for macOS. The iOS app keeps the standard status bar (ADR 0098, WIN5).
 
 tac.application.window.titleBarButtonInset
   not applicable: tac.application.window.titleBarButtonInset has no meaning on iOS: the app has no window buttons.
@@ -91,7 +91,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  adapted: tac.cache rules apply to Yon reads in the iOS app, but the kept reads last only while the app runs: WebKit does not keep Cache Storage entries of the app's page across a relaunch.
+  adapted: tac.cache rules apply to Yon reads in the iOS app, but the kept reads last only while the app runs: WebKit does not keep Cache Storage entries of the app's page across a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2).
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the iOS app.
@@ -106,25 +106,25 @@ tac.browserApis clipboard
   honored: UIPasteboard through the host bridge (browserApi.clipboard)
 
 tac.browserApis share
-  honored: UIActivityViewController through the host bridge (browserApi.share)
+  run owed: UIActivityViewController through the host bridge (browserApi.share); still to run: the share sheet opened from a page on the iOS simulator, checked by hand
 
 tac.browserApis notifications
-  honored: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front
+  run owed: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; still to run: the permission prompt and a banner on the iOS simulator, checked by hand
 
 tac.browserApis geolocation
-  honored: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions
+  run owed: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; still to run: the location prompt with the manifest reason on the iOS simulator, checked by hand
 
 tac.browserApis preferenceStrings
-  honored: the web view's localStorage, kept on disk
+  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch on the iOS simulator
 
 tac.nativeCapabilities
-  adapted: tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4).
+  not applied: tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4).
 
 tac.elements
   adapted: tac.elements are bundled into the iOS app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  honored: Pyodide in the web view, checked in code only (ADR 0093)
+  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service in the iOS simulator gate (ADR 0093)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The iOS app loads its bundle from disk, so route sizes are not measured (ADR 0074).
@@ -133,7 +133,7 @@ tac.outgoing
   honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
 tac.yon
-  honored: the page and its linked Swift HTTP clients reach tac.yon.origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103)
+  adapted: tac.yon.origin: the iOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1).
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -193,7 +193,7 @@ menu shortcuts with control
   refused with TY1601: iOS apps have no menu bar, so menus are refused until MN1.
 
 page accessibility (roles and names through the system accessibility API)
-  adapted: The iOS app exposes its pages through the web view to VoiceOver, but no host test checks the roles and names yet (AX1).
+  run owed: the pages reach VoiceOver through the web view; still to run: an accessibility audit of roles and names on the iOS simulator (AX1)
 
 window drag regions (data-tac-drag-region)
   not applicable: An iOS app has no window to move.
@@ -202,19 +202,22 @@ external links
   honored: http, https and mailto links open in the default browser or mail app (UIApplication)
 
 deep links
-  honored: with tac.application.links, a link with a listed scheme, or a universal link to a listed host, opens the app at its route
+  honored: with tac.application.links, a link with a listed scheme opens the app at its route, run on the iOS simulator; universal links to listed hosts are described under tac.application.links
 
 background and foreground signal
-  honored: ApplicationStateChanged when the app enters the background and when it returns to the foreground
+  run owed: ApplicationStateChanged when the app enters the background and when it returns to the foreground; still to run: background and foreground on the iOS simulator
 
 stored data (IndexedDB, Cache API, LocalState)
-  adapted: Store rows and LocalState values in the iOS app are kept on disk, but Cache API entries live only while the app runs, so a Cached method runs again after a relaunch.
+  adapted: Store rows and LocalState values in the iOS app are kept on disk, but Cache API entries live only while the app runs, so a Cached method runs again after a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2).
+
+service worker
+  not applicable: The iOS app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
 
 Content-Security-Policy
   honored: the native host policy
 
 reaching Yon
-  adapted: The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1).
+  adapted: The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1).
 
 natively linked service languages
   honored: Rust and Swift services are linked into the app, with Swift chosen when a service has both; other languages run in the page
@@ -223,10 +226,13 @@ build architecture (--arch)
   adapted: --arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64.
 
 release packaging
-  adapted: ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. A --device build was signed and checked on a Mac; --release, an install on a device and an upload have not run yet. Other builds run in the simulator.
+  run owed: ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. Other builds run in the simulator; still to run: a --release build with an App Store profile, an install on an iOS 17 or later device, and an upload; a --device build was signed and checked on a Mac
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  adapted: The iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder, so two builds should match. A repeat-build run on a Mac is still owed (TL2).
+  run owed: the iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a signed --device or --release .ipa is never byte-identical; still to run: a_packaged_ios_app_is_byte_identical_when_built_twice on a Mac (TL2)
+
+running without a signed-in desktop session
+  honored: the app runs in the iOS simulator without a screen

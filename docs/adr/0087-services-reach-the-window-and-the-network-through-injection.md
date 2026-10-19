@@ -336,3 +336,27 @@ rules, the offline answer and the write eviction in Node, and
 WebKit against a real `ty serve` on another origin that is then stopped.
 The airplane-mode runs on the iOS simulator and the Android emulator run on
 a Mac.
+
+## Amendment (2026-10-19): kept Yon reads on Linux, iOS and Android
+
+The amendment above says that the per-target support table marks
+`tac.cache` honored on iOS and Android and adapted on Linux. The table said
+that before ST1; it is wrong now. ST1 (`499a6246`) gives the Linux web view a
+persistent WebKit session that keeps web storage on disk, in
+`$XDG_DATA_HOME/<application id>/webkit` (ADR 0059 amendment of
+2026-10-18). So on Linux the kept Yon reads stay after a relaunch, as on
+macOS. (Windows keeps its WebView2 data in a folder too, but its relaunch
+check has not run.)
+
+The per-target support table now says this about `tac.cache`:
+
+- macOS, Windows and Linux: no relaunch limit, because the web view keeps
+  its storage on disk. An offline Yon read in each packaged app is still
+  owed;
+- adapted on iOS: the kept reads last only while the app runs, because
+  WebKit does not keep the Cache Storage entries of the app's page across a
+  relaunch. This limit is not proven yet. The iOS relaunch run used a cache
+  entry that Tac's start-up sweep deletes, so the limit waits on a rerun on
+  the simulator (plan item RM2);
+- adapted on Android: a read kept shortly before the system stops the app
+  is not always there after a relaunch.

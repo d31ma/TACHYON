@@ -10,16 +10,16 @@ icons
   adapted: icons: the Android app copies the largest raster icon into mipmap-xxxhdpi without resizing it.
 
 theme_color
-  adapted: theme_color is written into each page head, but the Android status bar does not use it yet (WIN5).
+  not applied: theme_color is written into each page head, but the Android status bar does not use it yet (WIN5).
 
 background_color
-  adapted: background_color is not applied to the Android app yet.
+  not applied: background_color is not applied to the Android app yet.
 
 display
-  adapted: display is not applied yet. The Android app keeps the system bars (WIN5).
+  not applied: display is not applied yet. The Android app keeps the system bars (WIN5).
 
 orientation
-  adapted: orientation is not applied yet. The Android app turns with the device (WIN5).
+  not applied: orientation is not applied yet. The Android app turns with the device (WIN5).
 
 tachyon (top-level)
   refused with TY1601: The top-level tachyon member is gone. Move its values into tac (ADR 0052).
@@ -52,10 +52,10 @@ tac.application.window.minWidth, minHeight
   not applicable: tac.application.window minWidth and minHeight have no meaning on Android: the system sizes the app.
 
 tac.application.window.controls
-  adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, and fullscreen hides the system bars.
+  adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. Only a refused control has run on the emulator; a granted run is still owed.
 
 tac.application.window.titleBar
-  adapted: tac.application.window.titleBar "integrated" is built only for macOS. The Android app keeps the standard status bar (ADR 0098, WIN5).
+  not applied: tac.application.window.titleBar "integrated" is built only for macOS. The Android app keeps the standard status bar (ADR 0098, WIN5).
 
 tac.application.window.titleBarButtonInset
   not applicable: tac.application.window.titleBarButtonInset has no meaning on Android: the app has no window buttons.
@@ -103,28 +103,28 @@ tac.browserApis
   honored: the same grant list in the page
 
 tac.browserApis clipboard
-  honored: ClipboardManager, through the host bridge
+  run owed: ClipboardManager, through the host bridge; still to run: the clipboard round trip of scripts/android/browser-apis-test.mjs on the emulator, which timed out at its geolocation step in its only run
 
 tac.browserApis share
-  adapted: share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared.
+  adapted: share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared. A run of the share sheet on the emulator is still owed.
 
 tac.browserApis notifications
-  honored: NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications
+  run owed: NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications; still to run: the POST_NOTIFICATIONS question and a posted notification in scripts/android/browser-apis-test.mjs on the emulator
 
 tac.browserApis geolocation
-  honored: the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient
+  run owed: the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient; still to run: the ACCESS_FINE_LOCATION question and a test-provider position in scripts/android/browser-apis-test.mjs on the emulator
 
 tac.browserApis preferenceStrings
-  honored: the web view's localStorage, kept on disk
+  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch on the emulator
 
 tac.nativeCapabilities
-  adapted: tac.nativeCapabilities filePicker is not built for Android yet. FilePicker answers unsupported (FP2).
+  not applied: tac.nativeCapabilities filePicker is not built for Android yet. FilePicker answers unsupported (FP2).
 
 tac.elements
   adapted: tac.elements are bundled into the Android app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  honored: Pyodide in the web view, checked in code only (ADR 0093)
+  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service in the Android emulator gate (ADR 0093)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Android app loads its bundle from disk, so route sizes are not measured (ADR 0074).
@@ -193,7 +193,7 @@ menu shortcuts with control
   refused with TY1601: Android apps have no menu bar, so menus are refused until MN1.
 
 page accessibility (roles and names through the system accessibility API)
-  adapted: The Android app exposes its pages through the web view to TalkBack, but no host test checks the roles and names yet (AX1).
+  run owed: the pages reach TalkBack through the web view; still to run: an accessibility check of roles and names on the emulator (AX1)
 
 window drag regions (data-tac-drag-region)
   not applicable: An Android app has no window to move.
@@ -202,13 +202,16 @@ external links
   honored: http, https and mailto links open in the default browser or mail app (ACTION_VIEW)
 
 deep links
-  honored: with tac.application.links, a link with a listed scheme, or an https link to a listed host, opens the app at its route
+  honored: with tac.application.links, a link with a listed scheme opens the app at its route, run on the emulator; https links to listed hosts are described under tac.application.links
 
 background and foreground signal
-  honored: ApplicationStateChanged on onStop and onStart
+  run owed: ApplicationStateChanged on onStop and onStart; still to run: onStop and onStart on the emulator
 
 stored data (IndexedDB, Cache API, LocalState)
   adapted: Store rows and LocalState values in the Android app are kept on disk. A Cache API entry written shortly before the system stops the app is not always kept, so a Cached method may run again after a relaunch.
+
+service worker
+  not applicable: The Android app registers no service worker: its pages load from the app bundle, and the page applies tac.cache rules to Yon reads itself.
 
 Content-Security-Policy
   honored: the native host policy, which also allows the host's bridge script by its hash
@@ -229,4 +232,7 @@ incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  adapted: The Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output. The debug APK is signed with the build machine's debug key, so it matches only on the same machine. A repeat-build run is still owed (TL2).
+  run owed: the Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output; the debug APK is signed with the build machine's debug key, so it matches only on the same machine; still to run: a_packaged_android_app_is_byte_identical_when_built_twice with ANDROID_HOME (TL2)
+
+running without a signed-in desktop session
+  honored: the app runs in a headless Android emulator

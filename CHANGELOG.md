@@ -10,6 +10,23 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The per-target support table has two more states (ADR 0102 amendment).
+  `run owed` means a target supports a member in code, but the run that
+  proves it there has not happened; the table names that run, and a build
+  that declares the member prints it in one note. `not applied` means the
+  target does not use the member yet. Owed runs that the table called
+  `adapted` or `honored` now say `run owed`: Windows `tac.yon`, reaching Yon,
+  window controls, menus and stored data; the browser APIs on macOS, iOS
+  and Android; `preferenceStrings` and `tac.python` on every native target;
+  `tac.cache` on the desktops; release packages on macOS, iOS and Linux; and
+  byte-identical rebuilds. `theme_color`, `background_color`, `display`,
+  `orientation`, the integrated title bar, drag regions and the file picker
+  say `not applied` where a target ignores them. The table also says that
+  native apps register no service worker and that the macOS and Windows apps
+  need a signed-in desktop session, that a linked Rust `HTTPClient` on macOS
+  and iOS answers `HTTP_MISSING`, and that C# and Kotlin FilePicker fields
+  answer unsupported on macOS. The docs, ADRs, support tiers and website
+  pages that disagreed with the code or with the run records now match them.
 - Yon outbound HTTP markers now have run proof in every Yon language but
   C++ (which has its own test). One table-driven test,
   `tests/it/yon_outbound_verbs.rs`, gives JavaScript, TypeScript, Python, PHP,
@@ -166,7 +183,9 @@ machine contracts have their own, independent major versions.
   Cache Storage with the service worker's rules, so a `network-first` or
   `cache-first` read still answers when the app is offline. Yon answers
   `no-store` unless the handler sets its own `Cache-Control`. On Linux the
-  kept reads last only while the app runs (ADR 0087 amendment).
+  kept reads last only while the app runs (ADR 0087 amendment). (Corrected:
+  since ST1 the Linux app keeps its web storage on disk, so on Linux the
+  kept reads also last across a relaunch.)
 - A Linux app with `"titleBar": "integrated"` in `tac.application.window`
   now lets the page reach the top edge of the window, as on macOS. GTK's own
   window buttons sit over the page, the page gets `--tac-titlebar-height`,
@@ -306,14 +325,18 @@ machine contracts have their own, independent major versions.
   Android; `cl`, `rc.exe` and `TAC_WEBVIEW2_SDK` for Windows; `cc`, GTK 4 and
   WebKitGTK 6.0 for Linux. `ty init`, `ty add target` and
   `ty doctor --install` use the same rows and recipes (ADR 0066 amendment).
-- Releases publish `ty-windows-arm64.exe`, built and verified on a Windows
-  ARM64 runner, and `install.ps1` picks it on ARM64 Windows.
+- The release workflow has a job that builds and checks
+  `ty-windows-arm64.exe` on a Windows ARM64 runner, and `install.ps1` picks
+  it on ARM64 Windows. No tagged release has built it yet: the first asset
+  comes with the next tagged release.
 - Native apps can answer browser APIs themselves. The page runtime sends
   `clipboard`, `share`, `notifications` and `geolocation` calls to the host
   as `browserApi.<api>.<call>` operations when the host lists the API in
   `__tachyonBrowserApiBridge`, with the same events, permission words and
   refusals as the web; an API the host does not list keeps using the web
-  view's own browser API. No host lists an API yet. The new
+  view's own browser API. No host lists an API yet. (Superseded: later
+  entries in this section, above and below, list the hosts that bridge
+  these APIs: macOS and iOS, Android, and Linux.) The new
   `tac.application.permissions` member gives the reason the app shows when
   it asks: iOS and macOS write it into `Info.plist`, Android into its string
   resources, and an iOS, macOS or Android build that grants `geolocation`
@@ -1493,8 +1516,9 @@ machine contracts have their own, independent major versions.
   the routes that changed; it prints `compiled=` and `reused=` like a web
   build. `--no-incremental` turns the reuse off, so the note that the flag
   changes nothing for a native build is gone.
-- Native builds are reproducible: two builds of the same sources give the
-  same `artifact-manifest.json` digests. Every native tool gets
+- Native builds are made to be reproducible: two builds of the same sources
+  should give the same `artifact-manifest.json` digests. So far only Linux
+  has a repeat-build run. Every native tool gets
   `SOURCE_DATE_EPOCH` (and `ZERO_AR_DATE=1` for Apple's linker and archiver).
   `cc` and `rustc` remap the staging folder out of the binaries, `swiftc` runs
   in the source folder with relative paths and without incremental LLVM
@@ -1504,10 +1528,13 @@ machine contracts have their own, independent major versions.
   host's `.obj` file, the C# companion's `bin` and `obj` folders, and
   Gradle's `build`, `.gradle` and `.kotlin` folders. A packaged Linux app
   built twice was byte-identical in the cloud; the macOS, iOS, Windows and
-  Android runs are still owed (ADR 0005 amendment).
+  Android repeat-build runs are still owed (ADR 0005 amendment).
 
 - A native build with `--no-incremental` prints a note that the flag changes
   nothing there, because native builds always rebuild the web stage.
+  (Superseded: native builds now reuse unchanged routes, and
+  `--no-incremental` turns that reuse off without a note; see the entry on
+  native route reuse above.)
 - Linux applications keep their web storage after they quit. The GTK host
   used an ephemeral WebKit session, so Store rows, `@Cached` values,
   `@LocalState` fields and `preferenceStrings` were lost on every quit. It
