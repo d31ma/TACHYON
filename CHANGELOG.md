@@ -916,6 +916,9 @@ machine contracts have their own, independent major versions.
   exception answers 500 without its text. Other Yon markers in C++ (services,
   `Needs`, error handlers, sockets, streams, test units, ...) stop the build
   and say that C++ gets them in a later step (ADR 0099 amendment).
+  (Superseded: every one of them reached C++ in the 2026-10-18 amendments,
+  and the "later step" text is gone; see the ADR 0099 amendment of
+  2026-10-19.)
 - The standard `theme_color` member of `client/manifest.json` now becomes
   `<meta name="theme-color" content="...">` in every web and native page
   head, HTML-escaped, when it is text that is not blank. A missing or
@@ -1486,6 +1489,19 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Refusal text and docs no longer promise markers "in a later step" that
+  already work. The rule table drops its "Lua gets it in a later step (ADR
+  0085)" and "C++ gets it in a later step (ADR 0099)" endings, which no
+  marker reached any more. A Java web service now says "@SafeVarargs does
+  not work in a Java web service." without "yet", and the `TY2015` help for
+  a Ruby or Lua service that needs another service names Java among the
+  languages that can. ADRs 0017, 0054, 0083, 0085, 0093 and 0099 get dated
+  amendments that mark their old refusals superseded. The website now shows
+  Java and Groovy tabs in "Streaming: Yon" and a Lua tab in "Outgoing HTTP:
+  Yon", and the snippet check treats a `StreamRoute` method without `yield`
+  (Java, Groovy, Rust) as a stream. A new test pins the remaining Python Tac
+  refusal: a Python `Check` of a `client/models` model stops the build with
+  `TY1308`.
 - A Windows build with a C# companion no longer fails with TY1605 when it
   runs from a Visual Studio developer prompt. Those prompts set `Platform`,
   which moved the `dotnet publish` output to another folder, so `ty` could
@@ -3131,7 +3147,10 @@ machine contracts have their own, independent major versions.
   it in a later step (ADR 0085)"), and the lowering names ADR 0085
   (`TY2015`). Resources
   (`DataSource`, `RedisTemplate`, gateway clients, Tac stores and `relay`)
-  are not available in Lua.
+  are not available in Lua. (Superseded: the rule table accepts every Lua
+  marker now and the "later step" text is gone; gateway clients and Tac
+  stores came later, and `DataSource`, `RedisTemplate` and `relay` still
+  fail with `TY2015`. See the ADR 0085 amendment of 2026-10-19.)
 - Lua is a Tac language (ADR 0085 amendment). A service
   `client/services/<Name>Service.lua` is a Lua class table with `-- @Service`
   and runs on Tachyon's own Lua 5.4 WebAssembly runtime. `runtimes/lua-web`

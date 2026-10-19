@@ -907,7 +907,7 @@ function controllerRoutes(code) {
 
 /** @param {string} code */
 function isStreamingHandler(code) {
-  return /\b(?:co_)?yield(?:\s+return)?\b/.test(code)
+  return /\b(?:co_)?yield(?:\s+return)?\b|\b(?:StreamRoute|stream_route)\b/.test(code)
 }
 
 /** @param {string} code */

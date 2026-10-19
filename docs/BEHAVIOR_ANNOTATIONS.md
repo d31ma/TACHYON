@@ -1828,8 +1828,9 @@ Its HTTP clients, gateways and topics come from the
 [outbound amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-c-http-clients-gateways-and-topics),
 and test units in `server/tests/<Name>Test.hpp` since the
 [test-unit amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-c-test-units).
-Its sockets come in a later step (see
-[Yon controllers](YON_ANNOTATIONS.md#language-spellings)). A Yon C++
+Its `[[StreamRoute]]` and `[[SocketRoute]]` routes come from the
+[stream and socket amendment](adr/0099-cpp-is-a-tac-webassembly-service-language.md#amendment-2026-10-18-yon-stream-and-socket-routes)
+(see also [Yon controllers](YON_ANNOTATIONS.md#language-spellings)). A Yon C++
 `[[HTTPClient]]` method returns its answer instead of a `Task`, and sends
 through `adapters.http` of the client's Setup. In Tac and in Yon,
 behavior markers go on methods with a body; a Tac C++ method may also return

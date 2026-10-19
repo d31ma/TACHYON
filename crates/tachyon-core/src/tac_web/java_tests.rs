@@ -253,7 +253,7 @@ async fn a_java_release_build_is_made_smaller_by_binaryen() {
 }
 
 #[tokio::test]
-async fn a_java_service_names_the_annotation_it_cannot_use_yet() {
+async fn a_java_service_names_the_annotation_it_cannot_use() {
     let root = tempfile::tempdir().expect("project");
     let source = root.path().join("client/services/NoteService.java");
     std::fs::create_dir_all(source.parent().expect("parent")).expect("folder");
@@ -281,7 +281,7 @@ async fn a_java_service_names_the_annotation_it_cannot_use_yet() {
     let text = failure.to_string();
     assert!(text.contains("TY1405"), "{text}");
     assert!(
-        text.contains("@SafeVarargs does not work in a Java web service yet"),
+        text.contains("@SafeVarargs does not work in a Java web service."),
         "{text}"
     );
 }

@@ -595,3 +595,30 @@ while the server waits, cookies left out, the cached read and its
 revalidation after `-- @ClearCache`, a Setup adapter that answers instead of
 the network, and cancellation when one owner is disposed while another stays
 live. The first-app tutorial has Lua tabs for step 4 and step 5.
+
+## Amendment 2026-10-19: what the early Lua refusals mean today
+
+This amendment supersedes the statements below. They stay as the history of
+this decision.
+
+- "Not yet" in "Decision". Topics work in both realms (the 2026-10-04
+  amendment "Lua topics"). The rule table no longer ends a Lua refusal with
+  "Lua gets it in a later step (ADR 0085)": every Lua cell of the table is
+  accepted, so the text was removed from `annotation_rules/scan.rs`. What
+  still stops the build is outside the rule table: a Yon Lua class that needs
+  DataSource or RedisTemplate, or calls `relay(...)`, fails with `TY2015`,
+  and a Lua schema marker on a `server/models` file fails with `TY1310`
+  (ADR 0092).
+- "`@InBackground` stays refused (`TY1308`)" in the 2026-09-30 events
+  amendment. Yon Lua accepts it since the 2026-10-17 amendment "Yon Lua HTTP
+  clients, Gateway and InBackground"; the test that runs it is
+  `local_events.rs a_lua_in_background_listener_runs_after_the_others_and_publishes_nothing`.
+  In the same paragraph, "A Lua class does not publish or listen to topics
+  yet" is replaced by "Lua topics".
+- "Topic stops the build in Lua" (2026-10-03). "Lua topics" (2026-10-04)
+  already replaces it; the test that runs a Lua topic is
+  `topic_events.rs lua_topic_events_cross_to_python_and_back`.
+- "Still refused in Tac Lua" in the 2026-10-17 behavior annotation
+  amendment and the 2026-10-18 HTTP client amendment (Helper, StreamRequest
+  and SocketRequest) is replaced by "Tac Lua helpers" and "Tac Lua streams
+  and sockets" (2026-10-18).

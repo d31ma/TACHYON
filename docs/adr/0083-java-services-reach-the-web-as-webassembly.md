@@ -598,3 +598,27 @@ WasmGC. The build raises the app's minimum system for it, or refuses a
 the Windows and Linux startup checks are in the
 [ADR 0033 amendment of 2026-10-18](0033-dart-browser-services.md#amendment-2026-10-18-native-apps-raise-their-minimum-system-for-wasmgc-services).
 
+
+## Amendment (2026-10-19): the earlier Java Tac refusals are gone
+
+This amendment supersedes three statements above. They stay as the history
+of this decision.
+
+- "Java Tac code still refuses Helper, Named, StreamRequest and
+  SocketRequest" and "A `@Needs` field of another service still stops with
+  `TY1405`" (the rule table amendment of 2026-10-18). Java Tac code accepts
+  all four markers and a `@Needs` field of another service: see "Java streams
+  and sockets", "Java services need services and Named providers" and "Java
+  Tac Helpers" above.
+- "Helper and Named are still refused" (the streams and sockets amendment).
+  Both work; see the same amendments.
+- "`@Helper` is still refused in Java Tac code" (the Named providers
+  amendment, "Not changed"). It works; see "Java Tac Helpers".
+
+The Java web service reader also stops calling an annotation it does not read
+a feature that comes "yet". `@SafeVarargs` on a service method, for example,
+fails with `TY1405` and "@SafeVarargs does not work in a Java web service."
+followed by the list of what does. A behavior marker such as `@Retry` never
+reaches that check, because the build lowers it first; the reader test
+`a_behavior_marker_reaches_the_reader_lowered_as_in_a_build` reads a lowered
+`@Retry` method, as a build does.

@@ -243,7 +243,7 @@ impl JavaDeclaration {
             .find(|name| !Self::KNOWN.contains(&name.as_str()));
         unknown.map_or(Ok(()), |name| {
             Err(format!(
-                "@{name} does not work in a Java web service yet. {}",
+                "@{name} does not work in a Java web service. {}",
                 Self::SUPPORTED
             ))
         })

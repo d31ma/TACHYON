@@ -82,3 +82,18 @@ The removed `TACHYON_*` spellings are not aliases.
 - Compiled relay shims remain protocol preludes that each language owns. The
   Tachyon supervisor keeps final authority over deadlines and process-group
   cleanup.
+
+## Amendment (2026-10-19): every Yon language streams
+
+This amendment supersedes "Java and Rust remain single-response" in
+"Streaming" above. The line stays as the history of this decision.
+
+- Every Yon language now streams with `@StreamRoute` (ADR 0058). Rust
+  returns `impl Iterator<Item = T>`. Java returns `java.util.stream.Stream<T>`
+  or `java.util.Iterator<T>`, and Groovy returns `Iterator<T>`, since commit
+  45a56993. No build refuses `@StreamRoute` in Java, Groovy or Rust.
+- The tests that run it are
+  `yon_compiled_annotations.rs annotated_generators_keep_stream_discovery_and_delivery`
+  (Java and Groovy) and
+  `handler/process.rs stream_failures_send_a_fixed_error_without_the_exception_text`
+  (Rust).
