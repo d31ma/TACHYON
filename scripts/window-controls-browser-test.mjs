@@ -503,6 +503,7 @@ final class JavaWindowService {
   }
 
   static async main() {
+    if (process.env.TAC_BROWSER_REQUIRE_TOOLCHAINS && !WindowControlsGate.withJava) throw new Error('TAC_BROWSER_REQUIRE_TOOLCHAINS is set, but TAC_TEAVM_HOME does not name the TeaVM jars for Java')
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-window-controls-'))
     const server = createServer(WindowControlsGate.handler(project))
     try {

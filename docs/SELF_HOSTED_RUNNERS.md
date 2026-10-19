@@ -68,6 +68,7 @@ other workflow names a self-hosted runner.
 | `managed-storage` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL (Docker) |
 | `supply-chain` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
 | `browser` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
+| `browser-languages` (one entry per browser gate) | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
 | `macos-native` | `macos-latest` | `self-hosted, tachyon, macos` | Mac |
 | `linux-native` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL (Docker) |
 | `windows-native` | `windows-latest` | `self-hosted, tachyon, windows` | Windows (interactive desktop) |
@@ -204,12 +205,12 @@ run" lists what the machine must already have.
 | Emscripten | the `emsdk` and `emscripten` lines in `runtimes/ruby-web/sources.txt` | `scripts/ci/install-emscripten.mjs` | Python on `PATH` |
 | CHEX, FYLO | checksum pins in `scripts/ci/` | `scripts/ci/install-chex.mjs`, `scripts/ci/install-fylo.mjs` | nothing |
 | JDK | 21 | preinstalled, read from `JAVA_HOME_21_arm64` (macOS) or `JAVA_HOME_21_X64` (Linux, Windows) | a JDK 21 and the matching variable in `.env` |
-| Kotlin, Kotlin/Wasm stdlib | `2.1.10` | checksum-pinned download (`macos-native`), `scripts/ci/install-toolchains.mjs` with `kotlin kotlin-wasm`, which sets `TAC_KOTLIN_WASM_STDLIB` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip`, `shasum` |
+| Kotlin, Kotlin/Wasm stdlib | `2.1.10` | checksum-pinned download (`macos-native`), `scripts/ci/install-toolchains.mjs` with `kotlin kotlin-wasm`, which sets `TAC_KOTLIN_WASM_STDLIB` (`native`, `coverage`, `sanitizers`, `browser-languages`) | `curl`, `unzip`, `shasum` |
 | Groovy | `5.1.3` | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip` |
 | Pyodide | `314.0.7` core files, copied into the Tachyon cache | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `tar` with bzip2 |
-| Dart | `3.13.1` | checksum-pinned download, or `scripts/ci/install-toolchains.mjs` (`native`, `coverage`) | `curl`, `unzip` |
-| Swift | `6.3.3` and the Swift SDK for WebAssembly | signed package installed into the runner account's home (macOS) | nothing |
-| TeaVM | `0.15.0` | checksum-pinned jars (macOS), `scripts/ci/install-toolchains.mjs` sets `TAC_TEAVM_HOME` (`native`, `coverage`, `sanitizers`) | `curl` |
+| Dart | `3.13.1` | checksum-pinned download, or `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `browser-languages`) | `curl`, `unzip` |
+| Swift | `6.3.3` and the Swift SDK for WebAssembly | signed package installed into the runner account's home (macOS); checksum-pinned Ubuntu 24.04 archive unpacked into the job's temporary folder (`browser-languages`) | on Linux, the Swift system packages that the Ubuntu runner image has (`libcurl4`, `libxml2`, `libstdc++-13-dev`, `zlib1g-dev`) |
+| TeaVM | `0.15.0` | checksum-pinned jars (`browser`, `macos-native`), `scripts/ci/install-toolchains.mjs` sets `TAC_TEAVM_HOME` (`native`, `coverage`, `sanitizers`, `browser-languages`) | `curl` |
 | PHP | `8.4` | `shivammathur/setup-php` (`macos-native`, `native`, `coverage`, `sanitizers`) | Homebrew that the runner account can use; `runner=self-hosted` in `.env` |
 | Lua | the `lua` line in `runtimes/lua-web/sources.txt` | built from source with `make`; on Windows `scripts/ci/install-toolchains.mjs` compiles it with `gcc` or `clang` | `make` and a C compiler |
 | Playwright browsers | Chromium, Firefox, WebKit from the locked `bun.lock` | `bunx playwright install` (`--with-deps` on Linux uses `sudo apt-get`) | on Linux, passwordless `sudo` (see WSL) |
@@ -535,7 +536,7 @@ sudo chown runner:runner /opt/hostedtoolcache
 These steps call `sudo` and cannot ask for a password:
 
 - `sudo apt-get` in `native` and `managed-storage`;
-- `bunx playwright install --with-deps` in `browser` and `compatibility`
+- `bunx playwright install --with-deps` in `browser`, `browser-languages` and `compatibility`
   (Playwright runs its install script through `sudo`);
 - the KVM `udev` rule in `android-native`.
 

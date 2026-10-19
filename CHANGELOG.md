@@ -1670,6 +1670,21 @@ machine contracts have their own, independent major versions.
   Swift, Java and Rust already did, so the TestSetup's adapter answers it.
   Before, `construct` refused the empty Fake.
 
+- CI runs every Tac service-language browser gate in Chromium, Firefox and
+  WebKit (CI2). A new `browser-languages` job in `rust-ci.yml` runs one entry
+  each for the page-program, browser-API, held stream and socket client,
+  storage, cached client, async listener and window-controls gates on Ubuntu,
+  with every language toolchain installed: Go, .NET with the wasm workloads,
+  Emscripten and Ruby, Kotlin 2.1.10 with its Kotlin/Wasm standard library,
+  Dart 3.13.1, the checksum-pinned Swift 6.3.3 Ubuntu 24.04 toolchain with its
+  Swift SDK for WebAssembly, and TeaVM 0.15. Before, the browser-API, held
+  client, async listener and window-controls gates never ran in CI, the
+  storage gate skipped Kotlin, Swift and Java, and the page-program and
+  cached client steps in `macos-native` installed only Chromium, so they
+  could not pass. With `TAC_BROWSER_REQUIRE_TOOLCHAINS` set, those gates fail
+  instead of leaving out a language whose toolchain is missing, and the
+  repository policy fails when a `test:*-browser` script has no CI step.
+
 - A JavaScript or TypeScript service's `HTTPClient` read now goes through the
   page's Yon read cache. The page transport in `tac-client.js` called `fetch`
   directly, so in a native app these reads were never kept for offline use.

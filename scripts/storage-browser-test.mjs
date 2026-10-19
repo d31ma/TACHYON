@@ -1716,6 +1716,8 @@ async function main() {
   if (!StorageGate.withJava) console.log('skipping the Java stored-field check: TAC_TEAVM_HOME is not set');
   if (!StorageGate.withLua) console.log('skipping the Lua SessionState check: emcc is missing');
   if (!StorageGate.withCpp) console.log('skipping the C++ SessionState check: emcc is missing');
+  const missing = [['Kotlin', StorageGate.withKotlin], ['Swift', StorageGate.withSwift], ['Java', StorageGate.withJava], ['Lua', StorageGate.withLua], ['C++', StorageGate.withCpp]].filter(([, present]) => !present).map(([name]) => name);
+  if (process.env.TAC_BROWSER_REQUIRE_TOOLCHAINS && missing.length) fail(`TAC_BROWSER_REQUIRE_TOOLCHAINS is set, but the toolchains for ${missing.join(', ')} are missing`);
   let project;
   let server;
   let browser;

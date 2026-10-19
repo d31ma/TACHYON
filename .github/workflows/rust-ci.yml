@@ -437,9 +437,8 @@ jobs:
           echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "${GITHUB_ENV}"
           echo "${JAVA_HOME_21_X64}/bin" >> "${GITHUB_PATH}"
 
-      - name: Run restored browser persistence and runtime contracts
+      - name: Run restored browser runtime contracts
         run: |
-          bun run test:storage-browser
           bun run test:runtime-browser
           bun run test:safe-html-browser
 
@@ -506,6 +505,154 @@ jobs:
 
       - name: Verify every claim in the parity ledger
         run: bash scripts/compat/verify-ledger.sh
+
+  browser-languages:
+    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',browser-languages,'))
+    name: Tac service languages in Chromium, Firefox and WebKit (${{ matrix.gate }})
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        gate:
+          - page-program-browser
+          - web-apis-browser
+          - held-clients-browser
+          - storage-browser
+          - cached-client-browser
+          - async-listener-browser
+          - window-controls-browser
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install exact Rust toolchain
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
+
+      - name: Install the WebAssembly target for Rust web services
+        run: rustup target add wasm32-unknown-unknown --toolchain 1.97.1
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.18.0
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
+
+      - name: Install locked browser dependencies
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium firefox webkit
+
+      - name: Install Go for Go web services
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27'
+          cache: false
+
+      - name: Install .NET for C# and F# web services
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Install the C# WebAssembly workload
+        run: dotnet workload install wasm-tools wasm-tools-net9
+
+      - name: Install Ruby for the Tac Ruby runtime build
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "4.0.6"
+
+      - name: Install the pinned Emscripten for C++ and the Tac Ruby runtime
+        run: node scripts/ci/install-emscripten.mjs "${{ runner.temp }}/tachyon-emscripten"
+
+      - name: Restore the Tac Ruby runtime built from runtimes/ruby-web
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cache/tachyon/ruby-web
+            ~/Library/Caches/Tachyon/ruby-web
+            ~/AppData/Local/Tachyon/Cache/ruby-web
+          key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
+
+      - name: Install checksum-pinned Kotlin and Dart
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" kotlin dart
+
+      - name: Install the checksum-pinned Kotlin/Wasm standard library for Kotlin web services
+        run: |
+          set -euo pipefail
+          library="${RUNNER_TEMP}/kotlin-stdlib-wasm-js-2.1.10.klib"
+          expected_checksum=db9ab6772a2d3af9121d570a058cc64cf36893e1c089726b799b4d1252184ca2
+          curl --fail --location --silent --show-error --max-time 120 --retry 3 \
+            --output "${library}" \
+            https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-wasm-js/2.1.10/kotlin-stdlib-wasm-js-2.1.10.klib
+          echo "${expected_checksum}  ${library}" | sha256sum --check
+          echo "TAC_KOTLIN_WASM_STDLIB=${library}" >> "${GITHUB_ENV}"
+
+      - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
+        run: |
+          set -euo pipefail
+          release=https://download.swift.org/swift-6.3.3-release
+          archive="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz"
+          expected_checksum=da8272a5fddccd65b1529ed0e52e04526e2eadd4237d58d6220efeb973c6cd19
+          curl --fail --location --silent --show-error --max-time 900 --retry 3 \
+            --output "${archive}" \
+            "${release}/ubuntu2404/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz"
+          echo "${expected_checksum}  ${archive}" | sha256sum --check
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}"
+          toolchain="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04/usr"
+          sdks="${RUNNER_TEMP}/swift-sdks"
+          "${toolchain}/bin/swift" sdk install --swift-sdks-path "${sdks}" \
+            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
+            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
+          test -d "${sdk}/WASI.sdk"
+          echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/bin/swiftc" >> "${GITHUB_ENV}"
+          echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
+      - name: Install the checksum-pinned TeaVM 0.15 jars and select JDK 21 for Java web services
+        run: |
+          set -euo pipefail
+          teavm="${RUNNER_TEMP}/teavm"
+          mkdir -p "${teavm}"
+          maven=https://repo1.maven.org/maven2/org/teavm
+          while read -r artifact jar checksum; do
+            curl --fail --location --silent --show-error --max-time 180 --retry 3 \
+              --output "${teavm}/${jar}" "${maven}/${artifact}/0.15.0/${jar}"
+            echo "${checksum}  ${teavm}/${jar}" | sha256sum --check
+          done <<'JARS'
+          cli cli-0.15.0-all.jar c6a1ecb81dd90b66985ac7b0f09db55bec2076fa024428c7fe72b800b6b48cae
+          teavm-classlib teavm-classlib-0.15.0.jar 7d805be4670a892a34c89d9d750a8afd65e2f8201b7b3a10343634ea19d1c410
+          teavm-jso-impl teavm-jso-impl-0.15.0.jar 9a8d15205807b70d7efdfbd4c1356304954e20146e464aec3830dbc6616ef57c
+          teavm-metaprogramming-impl teavm-metaprogramming-impl-0.15.0.jar 616d30aa28f7b0180a61c2289b11c77bf84c715bd79f255e1e42400edb5b6d70
+          teavm-platform teavm-platform-0.15.0.jar 999d369ab15aa83c17987d048ba59560759169891de7e13a5a1c2bd93dd060a8
+          JARS
+          echo "TAC_TEAVM_HOME=${teavm}" >> "${GITHUB_ENV}"
+          test -x "${JAVA_HOME_21_X64}/bin/javac"
+          echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "${GITHUB_ENV}"
+          echo "${JAVA_HOME_21_X64}/bin" >> "${GITHUB_PATH}"
+
+      - name: Show tool versions
+        run: |
+          set -euo pipefail
+          node --version && bun --version && go version && dotnet --version && ruby --version && em++ --version
+          kotlinc-js -version && dart --version && javac -version
+          "${TAC_SWIFT_WASM_COMPILER}" --version
+
+      - name: Build the release CLI
+        run: cargo build --release --locked --bin ty
+
+      - name: Run the ${{ matrix.gate }} gate in Chromium, Firefox and WebKit
+        run: bun run test:${{ matrix.gate }}
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+          TAC_BROWSER_REQUIRE_TOOLCHAINS: "1"
 
   macos-native:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',macos-native,'))
@@ -775,20 +922,6 @@ jobs:
 
       - name: Verify website typing through custom elements on desktop and mobile
         run: bun run test:website-browser
-
-      - name: Verify cached HTTP clients in every Tac language and browser
-        run: |
-          export PATH="${JAVA_HOME_21_arm64}/bin:${PATH}"
-          bun run test:cached-client-browser
-        env:
-          TAC_BIN: ${{ github.workspace }}/target/debug/ty
-
-      - name: Verify one Setup and one client for two services on a page in every Tac language and browser
-        run: |
-          export PATH="${JAVA_HOME_21_arm64}/bin:${PATH}"
-          bun run test:page-program-browser
-        env:
-          TAC_BIN: ${{ github.workspace }}/target/debug/ty
 
       - name: Run native launch, accessibility, lifecycle, and visual parity gate
         run: bun run test:phase4-macos

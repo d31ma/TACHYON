@@ -678,7 +678,6 @@ fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Erro
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
 
     for step in [
-        "bun run test:cached-client-browser",
         "bun run test:authored-node-browser",
         "bun run test:svg-namespace-browser",
         "bun run test:component-scope-browser",
@@ -689,9 +688,27 @@ fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Erro
         "node website/scripts/check-responsive.mjs",
         "node scripts/ignored-browser-gates.mjs --groups=dotnet,kotlin,java",
         "TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS: \"1\"",
+        "TAC_BROWSER_REQUIRE_TOOLCHAINS: \"1\"",
+        "run: bun run test:${{ matrix.gate }}",
     ] {
         assert!(workflow.contains(step), "CI does not run `{step}`");
     }
+    let package: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(root.join("package.json"))?)?;
+    let scripts = package["scripts"].as_object().cloned().unwrap_or_default();
+    let unrun = scripts
+        .keys()
+        .filter(|name| name.ends_with("-browser"))
+        .filter(|name| {
+            let step = format!("bun run {name}");
+            let gate = format!("          - {}\n", name.trim_start_matches("test:"));
+            [workflow.contains(&step), workflow.contains(&gate)] == [false, false]
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        unrun.is_empty(),
+        "CI runs no step or browser-languages gate for {unrun:?}"
+    );
     Ok(())
 }
 

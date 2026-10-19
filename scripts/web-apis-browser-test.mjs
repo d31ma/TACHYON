@@ -19,6 +19,7 @@ class WebApiGate {
   static withKotlin = Boolean(process.env.TAC_KOTLIN_WASM_STDLIB) && existsSync(process.env.TAC_KOTLIN_WASM_STDLIB) && spawnSync('kotlinc-js', ['-version'], { encoding: 'utf8' }).status === 0
   static languages = ['js', 'rust', 'go', 'swift', ...(WebApiGate.withJava ? ['java'] : []), ...(WebApiGate.withFsharp ? ['fs'] : []), ...(WebApiGate.withCsharp ? ['cs'] : []), ...(WebApiGate.withKotlin ? ['kt'] : [])]
   static unitMethodLanguages = ['fs', 'cs', 'kt']
+  static optionalLanguages = ['java', 'fs', 'cs', 'kt']
   static ownRuntimeLanguages = ['fs', 'cs']
   static engines = { chromium, firefox, webkit }
   static otherEngines = (process.env.TAC_WEB_APIS_BROWSERS ?? 'firefox,webkit').split(',').filter((name) => name !== 'chromium').map((name) => WebApiGate.engines[name])
@@ -1120,7 +1121,13 @@ class KtStampService {
     }
   }
 
+  static requireEveryLanguage() {
+    const missing = WebApiGate.optionalLanguages.filter((language) => !WebApiGate.languages.includes(language))
+    if (process.env.TAC_BROWSER_REQUIRE_TOOLCHAINS && missing.length) throw new Error(`TAC_BROWSER_REQUIRE_TOOLCHAINS is set, but the toolchains for ${missing.join(', ')} are missing`)
+  }
+
   static async main() {
+    WebApiGate.requireEveryLanguage()
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-web-apis-'))
     const server = createServer(WebApiGate.handler(project))
     let browser

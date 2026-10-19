@@ -546,6 +546,7 @@ class JavaStampService {
   }
 
   static async main() {
+    if (process.env.TAC_BROWSER_REQUIRE_TOOLCHAINS && !CachedClientGate.withJava) throw new Error('TAC_BROWSER_REQUIRE_TOOLCHAINS is set, but TAC_TEAVM_HOME does not name the TeaVM jars for Java')
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-cached-client-'))
     const server = createServer(CachedClientGate.handler(project))
     try {
