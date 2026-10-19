@@ -38,6 +38,18 @@ machine contracts have their own, independent major versions.
   `TAC_MACOS_SIGNING_IDENTITY=-` signs ad hoc and skips notarization, for a
   test on the build Mac. `--arch universal` works with `--release`. No run
   with a Developer ID certificate has been made yet.
+- `ty bundle --target windows --release` builds an MSIX package,
+  `dist/windows/<Name>/<Name>.msix`, with `makeappx` and signs it with
+  `signtool` (ADR 0104). The certificate comes only from the environment:
+  `TAC_WINDOWS_CERTIFICATE` (a `.pfx` file, with
+  `TAC_WINDOWS_CERTIFICATE_PASSWORD`) or `TAC_WINDOWS_CERTIFICATE_THUMBPRINT`
+  (a certificate in the store), `TAC_WINDOWS_CERTIFICATE_PUBLISHER` (the
+  certificate's subject) and the optional
+  `TAC_WINDOWS_CERTIFICATE_TIMESTAMP_URL`. The package name, version and
+  tiles come from the manifest. A missing or conflicting variable stops the
+  build with `TY1605` before the host is compiled. Inside a package, the
+  Windows host keeps WebView2's data in the package's `LocalState` folder,
+  because the install folder is read-only.
 - `ty bundle --target android --release` builds a signed release APK and an
   Android App Bundle (`.aab`) for Google Play, both in
   `dist/android/<Name>/` (ADR 0104). The upload key comes only from the

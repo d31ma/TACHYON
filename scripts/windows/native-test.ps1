@@ -1,3 +1,5 @@
+param([switch] $Msix)
+
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
@@ -144,7 +146,8 @@ function Build-NativeApp([string] $fixture) {
         $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { 'target' }
         $ty = Join-Path $target 'debug\ty.exe'
     }
-    & $ty build $fixture --target windows
+    if ($Msix) { & $ty bundle $fixture --target windows --release }
+    else { & $ty build $fixture --target windows }
     if ($LASTEXITCODE -ne 0) { throw 'Windows WebView2/native companion packaging failed' }
 }
 
@@ -279,4 +282,94 @@ function Invoke-NativeGate {
     Write-Host 'PASS: Windows WebView2, Rust/C# native ABI, publish, shared assets, dynamic routes, and isolation'
 }
 
-Invoke-NativeGate
+function New-MsixSigningCertificate([string] $subject, [string] $pfx, [string] $password) {
+    $certificate = New-SelfSignedCertificate -Type CodeSigningCert -Subject $subject `
+        -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(2)
+    $secret = ConvertTo-SecureString $password -AsPlainText -Force
+    Export-PfxCertificate -Cert $certificate -FilePath $pfx -Password $secret | Out-Null
+    $env:TAC_WINDOWS_CERTIFICATE = $pfx
+    $env:TAC_WINDOWS_CERTIFICATE_PASSWORD = $password
+    $env:TAC_WINDOWS_CERTIFICATE_PUBLISHER = $subject
+    return $certificate
+}
+
+function Assert-MsixPackage([string] $package, $certificate) {
+    if (-not (Test-Path $package)) { throw 'missing artifact NativeGate\NativeGate.msix' }
+    $signature = Get-AuthenticodeSignature -FilePath $package
+    if ($null -eq $signature.SignerCertificate -or
+        $signature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint) {
+        throw "the package is not signed with the gate certificate: $($signature.Status)"
+    }
+    Write-Host 'OK: NativeGate.msix is signed with the gate certificate'
+}
+
+function Test-InstalledMsix([string] $package, $certificate, [string] $log) {
+    $principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Host 'SKIP: installing the package needs an elevated prompt to trust the gate certificate'
+        return
+    }
+    $public = Join-Path $env:TEMP ("tachyon-msix-" + [guid]::NewGuid().ToString('N') + '.cer')
+    Export-Certificate -Cert $certificate -FilePath $public | Out-Null
+    Import-Certificate -FilePath $public -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
+    Remove-Item $public
+    $script:trustedThumbprint = $certificate.Thumbprint
+    Add-AppxPackage -Path $package
+    $script:installed = Get-AppxPackage -Name 'dev.tachyon.desktop-gate'
+    if ($null -eq $script:installed) { throw 'the MSIX package did not install' }
+    if (Test-Path $log) { Remove-Item $log }
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $script:desktop = [System.Windows.Automation.AutomationElement]::RootElement
+    $script:deadline = [DateTime]::UtcNow.AddSeconds(120)
+    Start-Process "shell:AppsFolder\$($script:installed.PackageFamilyName)!App"
+    do {
+        $script:process = Get-Process -Name NativeGate -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -eq $script:process) { Start-Sleep -Milliseconds 200 }
+    } while ($null -eq $script:process -and [DateTime]::UtcNow -lt $script:deadline)
+    if ($null -eq $script:process) { throw 'the packaged app did not start' }
+    Expect-Controls @('Root route', 'Root count 0', 'Shared module ready', 'Verify native Root')
+    Invoke-Control 'Verify native Root'
+    Expect-Controls @('Root count 7', 'Native Rust 14', 'OS ready', 'Publish received')
+    $data = Join-Path $env:LOCALAPPDATA "Packages\$($script:installed.PackageFamilyName)\LocalState\WebView2"
+    if (-not (Test-Path $data)) { throw "WebView2 data is not in the package folder: $data" }
+    Write-Host 'OK: the installed package runs and keeps WebView2 data in its LocalState folder'
+}
+
+function Remove-MsixGate($certificate, [string] $pfx) {
+    Stop-NativeProcesses $script:process
+    if ($null -ne $script:installed) { Remove-AppxPackage -Package $script:installed.PackageFullName }
+    if ($script:trustedThumbprint) {
+        Remove-Item -LiteralPath "Cert:\LocalMachine\TrustedPeople\$($script:trustedThumbprint)"
+    }
+    if ($null -ne $certificate) { Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($certificate.Thumbprint)" }
+    if (Test-Path $pfx) { Remove-Item $pfx }
+    foreach ($name in @('TAC_WINDOWS_CERTIFICATE', 'TAC_WINDOWS_CERTIFICATE_PASSWORD',
+        'TAC_WINDOWS_CERTIFICATE_PUBLISHER')) {
+        [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+    }
+}
+
+function Invoke-MsixGate {
+    Enable-Msvc
+    Enable-WebViewSdk
+    $fixture = Join-Path $env:TEMP ("ty-windows-msix-" + [guid]::NewGuid().ToString('N'))
+    $package = Join-Path $fixture 'dist\windows\NativeGate\NativeGate.msix'
+    $pfx = Join-Path $env:TEMP ("tachyon-msix-" + [guid]::NewGuid().ToString('N') + '.pfx')
+    $log = Join-Path $env:LOCALAPPDATA 'Tachyon\dev.tachyon.desktop-gate.jsonl'
+    $script:installed = $null
+    $script:trustedThumbprint = $null
+    $certificate = $null
+    try {
+        $certificate = New-MsixSigningCertificate 'CN=Tachyon MSIX Gate' $pfx ([guid]::NewGuid().ToString('N'))
+        Build-NativeApp $fixture
+        Assert-MsixPackage $package $certificate
+        Test-InstalledMsix $package $certificate $log
+    }
+    finally {
+        Remove-MsixGate $certificate $pfx
+        Remove-NativeFixture $fixture
+    }
+    Write-Host 'PASS: Windows MSIX package build, signature and packaged run'
+}
+
+if ($Msix) { Invoke-MsixGate } else { Invoke-NativeGate }

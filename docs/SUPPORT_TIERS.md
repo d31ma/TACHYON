@@ -66,6 +66,17 @@ two releases that gave the same `.deb` and AppImage bytes. Not yet run: WSL
 Ubuntu 24.04 (aarch64), an AppImage started through FUSE, and an install on a
 Linux desktop.
 
+Windows release packages (2026-10-19, ADR 0104): `ty bundle --target windows
+--release` builds an MSIX package with `makeappx` and signs it with
+`signtool`. In an x86_64 Linux cloud container, a staged package layout was
+packed with Microsoft's MSIX SDK (`makemsix`, which validates
+`AppxManifest.xml` against the Windows schemas), signed with a self-signed
+certificate by `osslsigncode`, verified and unpacked again; the packaged-host
+data-folder helper ran under Wine. Not yet run: `makeappx` and `signtool`
+themselves, installing the package and launching it on Windows, which
+`scripts/windows/native-test.ps1 -Msix` does from an elevated prompt.
+Distribution needs a trusted code-signing certificate.
+
 ### Application services and declared menus on desktop hosts (2026-10-04)
 
 ADR 0097 and its amendment cover an application-lifetime Rust service and

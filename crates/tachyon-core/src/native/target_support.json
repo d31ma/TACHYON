@@ -24,7 +24,7 @@
     "paths": ["icons"],
     "web": {"reach": "honored", "how": "icon links and apple-touch-icon in every page head"},
     "macos": {"reach": "honored", "how": "the largest raster icon becomes the .icns file; staging the app on another system skips the icon and prints a note"},
-    "windows": {"reach": "adapted", "note": "icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon."},
+    "windows": {"reach": "adapted", "note": "icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon. A --release MSIX package copies, without resizing, the smallest PNG icon that covers each tile (44, 50 and 150 pixels), or the largest PNG icon; with no PNG icon its tiles are plain squares in theme_color."},
     "linux": {"reach": "adapted", "note": "icons: the Linux app copies the largest raster icon into share/icon.png without resizing it. Release packages install each raster icon in the hicolor icon theme at its declared size."},
     "ios": {"reach": "honored", "how": "the largest raster icon is resized to the app icon set; staging the app on another system skips the icon and prints a note"},
     "android": {"reach": "adapted", "note": "icons: the Android app copies the largest raster icon into mipmap-xxxhdpi without resizing it."}
@@ -104,7 +104,7 @@
     "paths": ["tac.application.id"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "CFBundleIdentifier"},
-    "windows": {"reach": "adapted", "note": "tac.application.id becomes the Windows assembly identity name with each dot changed to a hyphen. C# service storage and the telemetry file use it as written."},
+    "windows": {"reach": "adapted", "note": "tac.application.id becomes the Windows assembly identity name with each dot changed to a hyphen. A --release build also makes it the MSIX package name, with every character other than a letter, digit, dot or hyphen changed to a hyphen; an id that is then shorter than 3 or longer than 50 characters stops the release build (TY1601). C# service storage and the telemetry file use it as written."},
     "linux": {"reach": "adapted", "note": "tac.application.id names the .desktop file as written. The GTK application id changes each hyphen to an underscore, and release packages use that id for their desktop file, AppStream metainfo and icon."},
     "ios": {"reach": "honored", "how": "CFBundleIdentifier"},
     "android": {"reach": "adapted", "note": "tac.application.id becomes the Android applicationId after characters that Android refuses are replaced."}
@@ -114,7 +114,7 @@
     "paths": ["tac.application.version"],
     "web": {"reach": "honored", "how": "the version in api.json, which the API baseline check compares by major version"},
     "macos": {"reach": "honored", "how": "CFBundleShortVersionString; a version that is not one to three numbers stops the build (TY1601)"},
-    "windows": {"reach": "honored", "how": "the executable's file and product version and the manifest assemblyIdentity; a version that is not one to three numbers up to 65535 stops the build (TY1601)"},
+    "windows": {"reach": "honored", "how": "the executable's file and product version, the manifest assemblyIdentity and, with --release, the MSIX package version; a version that is not one to three numbers up to 65535 stops the build (TY1601)"},
     "linux": {"reach": "adapted", "note": "A Linux .desktop file has no application version key, so tac.application.version is written as X-Tachyon-Version. Release packages also use it as the AppStream release and the .deb version, so a release needs a version that starts with a digit (TY1601)."},
     "ios": {"reach": "honored", "how": "CFBundleShortVersionString; a version that is not one to three numbers stops the build (TY1601)"},
     "android": {"reach": "honored", "how": "versionName"}
@@ -124,7 +124,7 @@
     "paths": ["tac.application.build"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "CFBundleVersion"},
-    "windows": {"reach": "honored", "how": "the fourth number of the executable's file version; a build above 65535 stops the build (TY1601)"},
+    "windows": {"reach": "honored", "how": "the fourth number of the executable's file version and, with --release, of the MSIX package version; a build above 65535 stops the build (TY1601)"},
     "linux": {"reach": "adapted", "note": "A Linux .desktop file has no build number key, so tac.application.build is written as X-Tachyon-Build. Release packages use it as the .deb revision, after the version."},
     "ios": {"reach": "honored", "how": "CFBundleVersion"},
     "android": {"reach": "honored", "how": "versionCode; a build above 2100000000 stops the build (TY1601)"}
@@ -734,7 +734,7 @@
     "paths": [],
     "web": {"reach": "honored", "how": "a static site in dist/web"},
     "macos": {"reach": "adapted", "note": "ty bundle --release builds a .dmg whose app is signed with the team's Developer ID certificate and the hardened runtime, then notarizes and staples it; the team and notary profile come from TAC_APPLE_TEAM_ID and TAC_APPLE_NOTARY_PROFILE. No release has been notarized on a Mac yet. Other builds are an ad hoc signed .app."},
-    "windows": {"reach": "adapted", "note": "The Windows build is a folder with the .exe. There is no installer or signature yet (PKG4)."},
+    "windows": {"reach": "adapted", "note": "ty bundle --target windows --release builds an MSIX package, <Name>.msix, with makeappx and signs it with signtool and the certificate that TAC_WINDOWS_CERTIFICATE (a .pfx file) or TAC_WINDOWS_CERTIFICATE_THUMBPRINT (a certificate in the store) names; TAC_WINDOWS_CERTIFICATE_PUBLISHER is the package publisher. Other builds are a folder with the .exe. No MSIX package has been installed and run on Windows yet (PKG4)."},
     "linux": {"reach": "honored", "how": "ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder"},
     "ios": {"reach": "adapted", "note": "The iOS build runs only in the simulator. Device builds and an .ipa wait on PKG2."},
     "android": {"reach": "honored", "how": "ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK"}

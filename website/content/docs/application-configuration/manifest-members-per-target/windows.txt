@@ -7,7 +7,7 @@ start_url
   honored: the page the app opens first
 
 icons
-  adapted: icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon.
+  adapted: icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon. A --release MSIX package copies, without resizing, the smallest PNG icon that covers each tile (44, 50 and 150 pixels), or the largest PNG icon; with no PNG icon its tiles are plain squares in theme_color.
 
 theme_color
   adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color.
@@ -31,13 +31,13 @@ tac.application
   honored: the app's identity, window and menus
 
 tac.application.id
-  adapted: tac.application.id becomes the Windows assembly identity name with each dot changed to a hyphen. C# service storage and the telemetry file use it as written.
+  adapted: tac.application.id becomes the Windows assembly identity name with each dot changed to a hyphen. A --release build also makes it the MSIX package name, with every character other than a letter, digit, dot or hyphen changed to a hyphen; an id that is then shorter than 3 or longer than 50 characters stops the release build (TY1601). C# service storage and the telemetry file use it as written.
 
 tac.application.version
-  honored: the executable's file and product version and the manifest assemblyIdentity; a version that is not one to three numbers up to 65535 stops the build (TY1601)
+  honored: the executable's file and product version, the manifest assemblyIdentity and, with --release, the MSIX package version; a version that is not one to three numbers up to 65535 stops the build (TY1601)
 
 tac.application.build
-  honored: the fourth number of the executable's file version; a build above 65535 stops the build (TY1601)
+  honored: the fourth number of the executable's file version and, with --release, of the MSIX package version; a build above 65535 stops the build (TY1601)
 
 tac.application.minimumSystem
   adapted: On Windows, tac.application.minimumSystem.windows is the WebView2 Runtime version (86.0 unless set; 119.0 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains a missing or older runtime instead of opening a blank window.
@@ -220,7 +220,7 @@ build architecture (--arch)
   honored: --arch x64 or arm64
 
 release packaging
-  adapted: The Windows build is a folder with the .exe. There is no installer or signature yet (PKG4).
+  adapted: ty bundle --target windows --release builds an MSIX package, <Name>.msix, with makeappx and signs it with signtool and the certificate that TAC_WINDOWS_CERTIFICATE (a .pfx file) or TAC_WINDOWS_CERTIFICATE_THUMBPRINT (a certificate in the store) names; TAC_WINDOWS_CERTIFICATE_PUBLISHER is the package publisher. Other builds are a folder with the .exe. No MSIX package has been installed and run on Windows yet (PKG4).
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off

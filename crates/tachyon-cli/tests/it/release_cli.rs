@@ -4,17 +4,22 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-struct AndroidReleaseCli;
+struct ReleaseCli;
 
-impl AndroidReleaseCli {
+impl ReleaseCli {
     const MANIFEST: &'static str = r#"{"name":"Release Check","start_url":"/","tac":{"application":{"id":"dev.tachyon.release-check","version":"1.2.0","build":3},"visibility":{"check":false}}}"#;
     const PAGE: &'static str = "<release-panel />\n";
     const COMPONENT: &'static str = "<main aria-label=\"Home\"><h1>Home</h1></main>\n";
-    const SIGNING: [&'static str; 4] = [
+    const SIGNING: [&'static str; 9] = [
         "TAC_ANDROID_KEYSTORE",
         "TAC_ANDROID_KEYSTORE_PASSWORD",
         "TAC_ANDROID_KEYSTORE_ALIAS",
         "TAC_ANDROID_KEYSTORE_KEY_PASSWORD",
+        "TAC_WINDOWS_CERTIFICATE",
+        "TAC_WINDOWS_CERTIFICATE_PASSWORD",
+        "TAC_WINDOWS_CERTIFICATE_THUMBPRINT",
+        "TAC_WINDOWS_CERTIFICATE_PUBLISHER",
+        "TAC_WINDOWS_CERTIFICATE_TIMESTAMP_URL",
     ];
     const FAKE_GRADLE: &'static str = r#"#!/bin/sh
 if [ "$1" = "--version" ]; then echo "Gradle 8.11.1"; exit 0; fi
@@ -89,17 +94,17 @@ printf 'aab' > app/build/outputs/bundle/release/app-release.aab
 
 #[test]
 fn release_is_refused_for_targets_without_release_packaging() {
-    let project = AndroidReleaseCli::project();
-    let ios = AndroidReleaseCli::refusal(project.path(), &["--target", "ios", "--release"]);
+    let project = ReleaseCli::project();
+    let ios = ReleaseCli::refusal(project.path(), &["--target", "ios", "--release"]);
     assert!(
         ios.contains("The iOS target has no release packaging yet"),
         "{ios}"
     );
-    let every = AndroidReleaseCli::refusal(project.path(), &["--target", "all", "--release"]);
+    let every = ReleaseCli::refusal(project.path(), &["--target", "all", "--release"]);
     assert!(every.contains("no release packaging yet"), "{every}");
-    let web = AndroidReleaseCli::refusal(project.path(), &["--target", "web", "--release"]);
+    let web = ReleaseCli::refusal(project.path(), &["--target", "web", "--release"]);
     assert!(web.contains("no native target is being built"), "{web}");
-    let staged = AndroidReleaseCli::refusal(
+    let staged = ReleaseCli::refusal(
         project.path(),
         &["--target", "android", "--native", "--release"],
     );
@@ -109,8 +114,8 @@ fn release_is_refused_for_targets_without_release_packaging() {
 
 #[test]
 fn the_staged_android_project_signs_release_builds_from_the_environment() {
-    let project = AndroidReleaseCli::project();
-    let output = AndroidReleaseCli::bundle(project.path(), &["--target", "android", "--native"]);
+    let project = ReleaseCli::project();
+    let output = ReleaseCli::bundle(project.path(), &["--target", "android", "--native"]);
     assert!(
         output.status.success(),
         "{}",
@@ -130,11 +135,10 @@ fn the_staged_android_project_signs_release_builds_from_the_environment() {
 #[cfg(unix)]
 #[test]
 fn a_release_without_a_keystore_stops_before_gradle_builds() {
-    let project = AndroidReleaseCli::project();
+    let project = ReleaseCli::project();
     let tools = tempfile::tempdir().expect("tools");
-    let mut command =
-        AndroidReleaseCli::command(project.path(), &["--target", "android", "--release"]);
-    AndroidReleaseCli::with_fake_gradle(&mut command, tools.path());
+    let mut command = ReleaseCli::command(project.path(), &["--target", "android", "--release"]);
+    ReleaseCli::with_fake_gradle(&mut command, tools.path());
     let output = command.output().expect("ty starts");
     assert!(!output.status.success());
     let message = String::from_utf8_lossy(&output.stderr);
@@ -149,12 +153,11 @@ fn a_release_without_a_keystore_stops_before_gradle_builds() {
 #[cfg(unix)]
 #[test]
 fn a_release_publishes_the_signed_apk_and_app_bundle() {
-    let project = AndroidReleaseCli::project();
+    let project = ReleaseCli::project();
     let tools = tempfile::tempdir().expect("tools");
-    AndroidReleaseCli::write(&project.path().join("keys/upload.jks"), "keystore");
-    let mut command =
-        AndroidReleaseCli::command(project.path(), &["--target", "android", "--release"]);
-    AndroidReleaseCli::with_fake_gradle(&mut command, tools.path());
+    ReleaseCli::write(&project.path().join("keys/upload.jks"), "keystore");
+    let mut command = ReleaseCli::command(project.path(), &["--target", "android", "--release"]);
+    ReleaseCli::with_fake_gradle(&mut command, tools.path());
     command
         .current_dir(project.path())
         .env("TAC_ANDROID_KEYSTORE", "keys/upload.jks")
@@ -191,4 +194,36 @@ fn a_release_publishes_the_signed_apk_and_app_bundle() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ReleaseCheck.apk"), "{stdout}");
     assert!(!stdout.contains("store-secret"));
+}
+
+#[test]
+fn a_windows_release_without_a_certificate_stops_before_the_host_is_compiled() {
+    let project = ReleaseCli::project();
+    let message = ReleaseCli::refusal(project.path(), &["--target", "windows", "--release"]);
+    assert!(message.contains("TY1605"), "{message}");
+    assert!(
+        message.contains("TAC_WINDOWS_CERTIFICATE_PUBLISHER is missing or has no CN= part"),
+        "{message}"
+    );
+    assert!(!message.contains("MSVC"), "{message}");
+    assert!(!project.path().join("dist/windows").exists());
+}
+
+#[cfg(not(windows))]
+#[test]
+fn a_signed_windows_release_passes_the_signing_check_and_reaches_the_windows_tools() {
+    let project = ReleaseCli::project();
+    ReleaseCli::write(&project.path().join("signing.pfx"), "certificate");
+    let output = ReleaseCli::command(project.path(), &["--target", "windows", "--release"])
+        .current_dir(project.path())
+        .env("TAC_WINDOWS_CERTIFICATE", "signing.pfx")
+        .env("TAC_WINDOWS_CERTIFICATE_PASSWORD", "secret-value")
+        .env("TAC_WINDOWS_CERTIFICATE_PUBLISHER", "CN=Release Check")
+        .output()
+        .expect("ty starts");
+    assert!(!output.status.success());
+    let message = String::from_utf8_lossy(&output.stderr);
+    assert!(message.contains("TY1605"), "{message}");
+    assert!(!message.contains("TAC_WINDOWS_CERTIFICATE"), "{message}");
+    assert!(!message.contains("secret-value"), "{message}");
 }

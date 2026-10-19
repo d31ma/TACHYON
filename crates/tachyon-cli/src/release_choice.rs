@@ -45,7 +45,7 @@ impl ReleaseChoice {
             crate::cli_failure(
                 1001,
                 "--release builds a signed native package, but no native target is being built. The web bundle is always a release build.",
-                "Add --target android, --target macos or --target linux, or remove --release.",
+                "Add --target android, --target macos, --target linux or --target windows, or remove --release.",
             )
         })
     }

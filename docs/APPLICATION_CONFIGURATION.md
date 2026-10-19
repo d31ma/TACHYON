@@ -186,6 +186,8 @@ Bundle (`.aab`) next to each other in `dist/android/<Name>/`, and
 `ty bundle --target linux --release` builds an AppImage and a `.deb` in
 `dist/linux/`; they use the system's GTK 4 and WebKitGTK 6, and their version
 is `tac.application.version`, which must then start with a digit.
+`ty bundle --target windows --release` builds a signed MSIX package,
+`dist/windows/<Name>/<Name>.msix`, next to the app folder it was packed from.
 Other targets refuse `--release` with
 `TY1601` until their release packaging lands. Signing material is never part
 of `client/manifest.json`. `ty` reads it from environment variables of the
@@ -226,6 +228,29 @@ Linux packages are not signed by `ty`. Two optional variables shape them:
 | --- | --- |
 | `TAC_LINUX_MAINTAINER` | The `.deb` `Maintainer` field, such as `Ada Lovelace <ada@example.com>`. The app's name when not set. |
 | `TAC_APPIMAGE_RUNTIME` | A local AppImage type 2 runtime file. Without it, `ty` downloads the runtime it pins once into its runtime cache and checks its SHA-256. |
+
+Windows:
+
+The package is signed with one certificate, from a file or from the
+certificate store.
+
+| Variable | Value |
+| --- | --- |
+| `TAC_WINDOWS_CERTIFICATE` | The code-signing certificate as a `.pfx` file. A relative path is read from the directory where `ty` runs. |
+| `TAC_WINDOWS_CERTIFICATE_PASSWORD` | Optional. The `.pfx` file's password. |
+| `TAC_WINDOWS_CERTIFICATE_THUMBPRINT` | Instead of a file: the SHA-1 thumbprint of a certificate in the current user's certificate store, such as one on a hardware token. |
+| `TAC_WINDOWS_CERTIFICATE_PUBLISHER` | The certificate's subject, exactly as the certificate states it, such as `CN=Contoso Ltd, O=Contoso Ltd, C=US`. It becomes the package publisher, which Windows requires to match the certificate. |
+| `TAC_WINDOWS_CERTIFICATE_TIMESTAMP_URL` | Optional. An `http://` or `https://` timestamp server, so the signature stays valid after the certificate expires. |
+
+A Windows release build stops with `TY1605` before the host is compiled when
+the publisher is missing, when neither or both of the certificate file and
+thumbprint are set, or when the file does not exist. The package name is
+`tac.application.id`, the version is `tac.application.version` with
+`tac.application.build` as its fourth number, and the tiles come from the PNG
+`icons`. Build it from a Visual Studio developer prompt, which puts the
+Windows SDK's `makeappx.exe` and `signtool.exe` on `PATH`. To install a package
+signed with a self-signed test certificate, the certificate must first be
+trusted on that machine (for example in `Cert:\LocalMachine\TrustedPeople`).
 
 ### `server/application.json`
 

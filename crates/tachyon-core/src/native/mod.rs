@@ -252,6 +252,11 @@ mod windows_architecture;
 mod windows_compiler_plan;
 #[cfg(test)]
 mod windows_host_tests;
+mod windows_package_manifest;
+#[cfg(test)]
+mod windows_package_tests;
+mod windows_package_tiles;
+mod windows_release;
 mod windows_version_resource;
 mod windows_web_engine_check;
 mod windows_window_frame;

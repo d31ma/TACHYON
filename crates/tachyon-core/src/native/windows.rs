@@ -12,6 +12,7 @@ use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
 use super::windows_architecture::WindowsArchitecture;
 use super::windows_compiler_plan::WindowsCompilerPlan;
+use super::windows_release::WindowsRelease;
 use crate::Failure;
 use std::path::{Path, PathBuf};
 
@@ -40,6 +41,7 @@ impl WindowsHostGenerator {
             application,
             super::rust::Linkage::Shared,
         )?;
+        let release = Self::prepare_release(application, web_bundle, &bundle, options)?;
         let source_path = stage.join("project").join("tachyon_host.c");
         write_host_source(&source_path, &c_source(application, index, companions))?;
         write(
@@ -69,7 +71,8 @@ impl WindowsHostGenerator {
         )
         .await?;
         Ok(GeneratedHost {
-            application_bundle: PathBuf::from(&application.executable_name),
+            application_bundle: WindowsRelease::published(release, application, &bundle, stage)
+                .await?,
             toolchain_name: String::from("msvc"),
             toolchain_version: compiler_version,
         })
@@ -83,6 +86,7 @@ impl WindowsHostGenerator {
             mnemonic: '&',
             target: tachyon_contracts::NativeTarget::Windows,
         };
+    pub(super) const PACKAGE_DATA: &str = include_str!("windows_package_data.c");
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
     const DEVELOPER_TARGET: &str = "VSCMD_ARG_TGT_ARCH";
     pub(super) const LINKER_ARGUMENTS: [&str; 13] = [
@@ -185,6 +189,29 @@ impl WindowsHostGenerator {
 
 impl WindowsHostGenerator {
     const RESPONSE_HEADER_ROOM: usize = 256;
+
+    fn prepare_release(
+        application: &NativeApplication,
+        web_bundle: &Path,
+        bundle: &Path,
+        options: &super::compiler::NativeBuildOptions,
+    ) -> Result<Option<WindowsRelease>, Failure> {
+        if !options.release {
+            return Ok(None);
+        }
+        let working_directory = std::env::current_dir().map_err(|error| {
+            native_tool_failure(1605, &format!("Cannot read the working directory: {error}"))
+        })?;
+        let release =
+            WindowsRelease::from_environment(|name| std::env::var_os(name), &working_directory)?;
+        release.stage_layout(
+            application,
+            web_bundle,
+            bundle,
+            options.windows_architecture,
+        )?;
+        Ok(Some(release))
+    }
 
     fn response_header_capacity(application: &NativeApplication) -> String {
         (application.content_security_policy().len() + Self::RESPONSE_HEADER_ROOM).to_string()
@@ -676,6 +703,7 @@ pub(super) fn c_source(
                 super::windows_window_frame::WindowsWindowFrame::messages(&application.window),
             ),
             ("__WEB_ENGINE_CHECK__", &web_engine_check),
+            ("__PACKAGE_DATA__", WindowsHostGenerator::PACKAGE_DATA),
         ],
     )
 }
@@ -748,6 +776,8 @@ static TachyonApplicationShutdown g_application_shutdown = NULL;
 
 __WINDOW_CONTROLS__
 __WINDOW_FRAME__
+
+__PACKAGE_DATA__
 static unsigned char *tachyon_native_capability(const char *capability, const char *payload, size_t *length) {
   if (length == NULL) return NULL;
   *length = 0;
@@ -1458,9 +1488,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   tachyon_menus_install(g_window);
   ShowWindow(g_window, tachyon_window_open(g_window, show));
 
+  wchar_t *data_folder = tachyon_package_data_folder();
   CreateCoreWebView2EnvironmentWithOptions(
-      NULL, NULL, NULL,
+      NULL, data_folder, NULL,
       (ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *)&g_environment_handler);
+  free(data_folder);
 
   MSG message;
   BOOL message_result;

@@ -358,3 +358,12 @@ with `TY1605` and that command. The notes come from the
   (ignored; run on the Mac lane) builds, joins and signs the app and its Rust
   helper, checks `lipo -archs` for both architectures, runs the helper and
   verifies the signature. It has not run yet.
+
+## Amendment (2026-10-19): Windows paths inside an MSIX package
+
+ADR 0104 adds an MSIX package for Windows release builds, so the "Paths"
+section's "plans no MSIX" no longer holds for Windows. Inside the package the
+install folder is read-only. The host then gives WebView2 the package's
+`LocalState\WebView2` folder as its user data folder. The event log stays
+in `%LOCALAPPDATA%\Tachyon`, which Windows redirects into the package's own
+data. An unpackaged Windows app is unchanged.

@@ -1,6 +1,6 @@
 # ADR 0104: Release Packages Are Opt-In and Signed From the Environment
 
-- Status: Accepted for Android, macOS and Linux (amended 2026-10-19); iOS and Windows are pending
+- Status: Accepted for Android, macOS, Linux and Windows (amended 2026-10-19); iOS is pending
 - Date: 2026-10-18
 - Related: [ADR 0052](0052-the-manifest-is-the-tac-configuration.md)
   (the version and build number of a native app),
@@ -63,7 +63,6 @@ Each item below is decided by its own ADR amendment when its packaging lands:
 
 - macOS: decided in the 2026-10-19 amendment below.
 - iOS: device builds and an `.ipa` for App Store Connect (decision D2).
-- Windows: an MSIX package signed with a code-signing certificate (decision D3).
 - Linux: AppImage and `.deb` packages (decision D4). Decided in the
   2026-10-19 amendment below.
 - Universal macOS binaries and Android ABI selection.
@@ -193,3 +192,70 @@ Checked on 2026-10-19 in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5,
 WebKitGTK 2.52.6, dpkg 1.22.6, squashfs-tools 4.6.1), recorded in
 `docs/SUPPORT_TIERS.md`. Owed: the same run on WSL Ubuntu 24.04 (aarch64),
 and an install on a Linux desktop.
+
+## Amendment (2026-10-19): Windows builds an MSIX package
+
+Decision D3 chose MSIX over a classic installer, because a package gives the
+app an identity, which toast notifications and protocol activation need.
+
+1. `ty bundle --target windows --release` builds the app folder as before,
+   adds `AppxManifest.xml` and `Assets\` to it, packs it with
+   `makeappx pack /h SHA256` and signs the package with
+   `signtool sign /fd SHA256`. It publishes `<Name>/<Name>.msix` inside the app
+   folder. `makeappx.exe` and `signtool.exe` come from the Windows SDK, which
+   the Visual Studio developer prompt already puts on `PATH` for `rc.exe`.
+2. Signing material comes from these variables, never the manifest:
+
+   | Variable | Value |
+   | --- | --- |
+   | `TAC_WINDOWS_CERTIFICATE` | A `.pfx` file. A relative path is read from the directory where `ty` runs. |
+   | `TAC_WINDOWS_CERTIFICATE_PASSWORD` | Optional. The `.pfx` password. |
+   | `TAC_WINDOWS_CERTIFICATE_THUMBPRINT` | Instead of a file: the SHA-1 thumbprint of a certificate in the user's store (`signtool /sha1`), which is how hardware-token certificates are used. |
+   | `TAC_WINDOWS_CERTIFICATE_PUBLISHER` | The certificate's subject. MSIX requires the package publisher to equal it. |
+   | `TAC_WINDOWS_CERTIFICATE_TIMESTAMP_URL` | Optional. A timestamp server (`signtool /tr ... /td SHA256`). |
+
+   `ty` checks them before the host is compiled and stops with `TY1605` when
+   the publisher has no `CN=` part, when neither or both of the file and the
+   thumbprint are set, when the file is missing, when the thumbprint is not 40
+   hexadecimal digits, or when the timestamp URL is not `http(s)`. The
+   password reaches `signtool` as an argument and is never printed.
+3. The package identity comes from the manifest. The name is
+   `tac.application.id` with every character other than a letter, digit, dot
+   or hyphen changed to a hyphen, and must be 3 to 50 characters (`TY1601`).
+   The version is the executable's four-part version (ADR 0052), so the
+   fourth number is `tac.application.build`; the Microsoft Store needs that
+   number to be 0, so a Store submission sets `build` to 0. The architecture
+   is `--arch`. The publisher display name is the certificate subject's `CN`.
+4. The package declares one full-trust desktop application (`runFullTrust`)
+   on Windows 10 1809 (10.0.17763.0) or later. Its tile and store images are
+   copies of the smallest PNG manifest icon that covers each size (44, 50 and
+   150 pixels) or of the largest PNG icon. `ty` does not resize images; with
+   no PNG icon the tiles are plain squares in `theme_color`, or gray.
+5. A packaged app's install folder is read-only, so WebView2 cannot keep its
+   data beside the executable there. When the host has package identity
+   (`GetCurrentPackageFamilyName` succeeds), it passes
+   `%LOCALAPPDATA%\Packages\<family>\LocalState\WebView2` as WebView2's
+   user data folder; Windows removes it with the package. The unpackaged app
+   keeps the default folder.
+6. Not part of this amendment: toast activation (BA3) and protocol
+   activation (LK2) add their package extensions to the same manifest, and a
+   Microsoft Store upload stays out of scope. Distribution needs a trusted
+   code-signing certificate; tests use a self-signed one.
+
+### Evidence (2026-10-19)
+
+- Cloud (Linux): the unit tests check the package manifest, tiles, the
+  signing checks and the `makeappx` and `signtool` arguments.
+  `windows_package_tests::the_staged_layout_packs_and_signs_with_the_msix_sdk`
+  (ignored; needs Microsoft's MSIX SDK `makemsix`, `osslsigncode` and
+  `openssl`) packed a staged layout with `makemsix pack`, which validates
+  `AppxManifest.xml` against Microsoft's schemas, signed it with a
+  self-signed `CN=Tachyon Test` certificate, verified the signature and
+  unpacked it again. It passed.
+  `windows_package_tests::the_package_folder_helper_runs_unpackaged_under_wine`
+  (ignored; MinGW and Wine) passed: the helper builds the package folder path
+  and returns no folder when the process has no package identity.
+- Windows: not run yet. `scripts/windows/native-test.ps1 -Msix` builds the
+  gate app with `--release` and a self-signed certificate, checks the
+  signature and, from an elevated prompt, trusts the certificate, installs
+  the package, checks the rendered pages and removes the package again.

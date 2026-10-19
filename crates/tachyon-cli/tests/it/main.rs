@@ -1,4 +1,3 @@
-mod android_release_cli;
 mod application_config;
 mod composed_types_cli;
 mod executed_coverage;
@@ -20,6 +19,7 @@ mod phase6_cli;
 mod phase7_cli;
 mod preview_resilience;
 mod reconciled_templates;
+mod release_cli;
 #[cfg(unix)]
 mod structure_validation_cli;
 mod test_preflight;

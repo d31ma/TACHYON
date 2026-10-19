@@ -37,5 +37,11 @@ ty bundle --target linux --release builds an AppImage and a .deb in
 dist/linux/. Both install the app, its command, a desktop file,
 AppStream metainfo and the manifest icons, and use the system's
 GTK 4 and WebKitGTK 6. The build needs dpkg-deb and mksquashfs
-(squashfs-tools). iOS and Windows refuse --release with TY1601 until
-their release packaging lands.
+(squashfs-tools).
+
+ty bundle --target windows --release builds an MSIX package signed
+with signtool. Set TAC_WINDOWS_CERTIFICATE to a .pfx file (and
+TAC_WINDOWS_CERTIFICATE_PASSWORD), or TAC_WINDOWS_CERTIFICATE_THUMBPRINT
+to a certificate in your store, and TAC_WINDOWS_CERTIFICATE_PUBLISHER
+to the certificate's subject. iOS refuses --release with TY1601
+until its release packaging lands.

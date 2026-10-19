@@ -174,7 +174,7 @@ enum Command {
         )]
         arch: Option<ArchitectureChoice>,
         #[arg(
-            help = "Build release packages. Android builds an APK and an AAB signed with the keystore in TAC_ANDROID_KEYSTORE; macOS builds a Developer ID-signed, notarized .dmg for the team in TAC_APPLE_TEAM_ID; Linux builds an AppImage and a .deb",
+            help = "Build release packages. Android builds an APK and an AAB signed with the keystore in TAC_ANDROID_KEYSTORE; macOS builds a Developer ID-signed, notarized .dmg for the team in TAC_APPLE_TEAM_ID; Linux builds an AppImage and a .deb; Windows builds an MSIX package signed with the certificate in TAC_WINDOWS_CERTIFICATE or TAC_WINDOWS_CERTIFICATE_THUMBPRINT",
             long
         )]
         release: bool,
