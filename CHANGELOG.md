@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `ty bundle --target macos --release` builds `dist/macos/<Name>.dmg` for
+  distribution outside the Mac App Store (ADR 0104 amendment). The app and
+  each Rust helper are signed with the team's Developer ID Application
+  certificate, with the hardened runtime and a secure timestamp, and with
+  entitlements from the manifest grants (the location entitlement when
+  `tac.browserApis` grants `geolocation`). The `.dmg` holds the app and an
+  `Applications` shortcut; it is signed, notarized with `notarytool`,
+  stapled and checked by Gatekeeper. The team and notary profile come only
+  from the environment (`TAC_APPLE_TEAM_ID`, `TAC_APPLE_NOTARY_PROFILE`) and
+  the certificate from the keychain, or `TAC_MACOS_SIGNING_IDENTITY`; a
+  missing variable stops the build with `TY1605` before anything is built.
+  `TAC_MACOS_SIGNING_IDENTITY=-` signs ad hoc and skips notarization, for a
+  test on the build Mac. `--arch universal` works with `--release`. No run
+  with a Developer ID certificate has been made yet.
 - `ty bundle --target android --release` builds a signed release APK and an
   Android App Bundle (`.aab`) for Google Play, both in
   `dist/android/<Name>/` (ADR 0104). The upload key comes only from the

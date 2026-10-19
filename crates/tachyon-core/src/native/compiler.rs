@@ -214,6 +214,10 @@ impl NativeCompiler {
             NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
         application.menus.validate_for(options.target, &index)?;
         super::release_packaging::ReleasePackaging::check(options.target, options.release)?;
+        let release_note = super::release_packaging::ReleasePackaging::signing_note(
+            options.target,
+            options.release,
+        )?;
         super::native_release_version::NativeReleaseVersion::of(&application)
             .validate_for(options.target)?;
         application.permissions.validate_for(options.target)?;
@@ -267,6 +271,7 @@ impl NativeCompiler {
                 .into_iter()
                 .chain(AppleIcons::skipped_note(&application, options.target))
                 .chain(yon_note)
+                .chain(release_note)
                 .chain(floor.note)
                 .collect(),
         })

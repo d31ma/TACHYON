@@ -40,6 +40,18 @@ and name and no `debuggable` flag, and no generated file held the password.
 Not yet run: installing and launching the release APK on the emulator, which
 `scripts/android/native-test.mjs` now does after its debug checks.
 
+macOS release packages (2026-10-19, ADR 0104 amendment): `ty bundle --target
+macos --release` signs the app and its helpers with the hardened runtime,
+builds a `.dmg`, then signs, notarizes, staples and assesses it. Checked in an
+x86_64 Linux cloud container: the signing variables are checked before the
+build (`TY1605`), the certificate is chosen from `security find-identity`
+output, the codesign, hdiutil, notarytool, stapler and spctl arguments, the
+entitlements from the manifest grants, and the notarization answer. Not yet
+run: the macOS tests in `crates/tachyon-cli/tests/it/macos_release_cli.rs` on
+a Mac (an ad hoc release, its hardened runtime flag, entitlements and `.dmg`
+contents), and the ignored Developer ID test, which needs the team's
+certificate, `TAC_APPLE_TEAM_ID` and a notary profile.
+
 ### Application services and declared menus on desktop hosts (2026-10-04)
 
 ADR 0097 and its amendment cover an application-lifetime Rust service and

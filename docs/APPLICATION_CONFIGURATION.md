@@ -180,10 +180,14 @@ website shows it as one tab per target.
 ### Signing a release package
 
 `ty bundle --target android --release` builds a signed APK and Android App
-Bundle (`.aab`) next to each other in `dist/android/<Name>/` (ADR 0104).
-Other targets refuse `--release` with `TY1601` until their release packaging
-lands. Signing material is never part of `client/manifest.json`. `ty` reads it
-from these environment variables of the build machine:
+Bundle (`.aab`) next to each other in `dist/android/<Name>/`, and
+`ty bundle --target macos --release` builds a signed, notarized
+`dist/macos/<Name>.dmg` (ADR 0104). Other targets refuse `--release` with
+`TY1601` until their release packaging lands. Signing material is never part
+of `client/manifest.json`. `ty` reads it from environment variables of the
+build machine and from its keychain.
+
+Android:
 
 | Variable | Value |
 | --- | --- |
@@ -195,6 +199,22 @@ from these environment variables of the build machine:
 A release build stops with `TY1605` before Gradle runs when one of the first
 three is missing or the keystore is not a file. The staged Gradle project reads
 the same variables, so it also signs a release built outside `ty`.
+
+macOS:
+
+| Variable | Value |
+| --- | --- |
+| `TAC_APPLE_TEAM_ID` | The Apple Developer team ID, 10 capital letters and digits. `ty` signs with the keychain's Developer ID Application certificate for this team. |
+| `TAC_APPLE_NOTARY_PROFILE` | The name of a `notarytool` keychain profile, made once with `xcrun notarytool store-credentials`. |
+| `TAC_MACOS_SIGNING_IDENTITY` | Optional. The certificate to sign with, by name or SHA-1 hash, when the keychain holds more than one for the team. `-` signs ad hoc and skips notarization: the `.dmg` then opens only on the build Mac. |
+
+The app and its helpers are signed with the hardened runtime. Their
+entitlements come from the manifest: a `geolocation` grant in
+`tac.browserApis` adds `com.apple.security.personal-information.location`.
+The `.dmg` is signed, notarized, stapled and checked with `spctl`. A release
+build stops with `TY1605` before anything is built when a variable is missing
+or the team ID is malformed, and before signing when the keychain holds no
+certificate for the team, or several.
 
 ### `server/application.json`
 

@@ -1,6 +1,6 @@
 # ADR 0104: Release Packages Are Opt-In and Signed From the Environment
 
-- Status: Accepted for Android; macOS, iOS, Windows and Linux are pending
+- Status: Accepted for Android and macOS (amended 2026-10-19); iOS, Windows and Linux are pending
 - Date: 2026-10-18
 - Related: [ADR 0052](0052-the-manifest-is-the-tac-configuration.md)
   (the version and build number of a native app),
@@ -61,7 +61,7 @@ configuration, so the key can never be named there.
 
 Each item below is decided by its own ADR amendment when its packaging lands:
 
-- macOS: a Developer ID–signed, notarized `.dmg` (decision D2).
+- macOS: decided in the 2026-10-19 amendment below.
 - iOS: device builds and an `.ipa` for App Store Connect (decision D2).
 - Windows: an MSIX package signed with a code-signing certificate (decision D3).
 - Linux: AppImage and `.deb` packages (decision D4).
@@ -75,3 +75,57 @@ Each item below is decided by its own ADR amendment when its packaging lands:
   variables. `ty` inherits them like any other build tool.
 - The emulator gate (`scripts/android/native-test.mjs`) builds a release with
   a throwaway keystore, checks both signatures and runs the release APK.
+
+## Amendment (2026-10-19): macOS ships a Developer ID–signed, notarized `.dmg`
+
+Decision D2 (Samuel, 2026-10-19): macOS apps are distributed outside the Mac
+App Store as a Developer ID–signed, notarized disk image, on the project's
+Apple Developer team. A Mac App Store variant comes later and is not built.
+
+1. `ty bundle --target macos --release` builds the app as before, for the
+   `--arch` choice (a universal app included), then:
+   - signs each Rust helper in `Contents/MacOS`, then the app, with
+     `codesign --force --options runtime --timestamp`, so every binary has
+     the hardened runtime and a secure timestamp;
+   - gives the app entitlements derived from the manifest grants, written to
+     `project/TachyonHost.entitlements`: a `geolocation` grant in
+     `tac.browserApis` adds `com.apple.security.personal-information.location`,
+     which CoreLocation needs under the hardened runtime. The app is not
+     sandboxed, so `filePicker`, `tac.yon.origin` and `tac.outgoing.hosts`
+     need no entitlement. The sandbox entitlements (user-selected read-only
+     files, network client) belong to the later Mac App Store variant;
+   - verifies the app with `codesign --verify --strict --deep`;
+   - writes `dist/macos/<Name>.dmg` with `hdiutil` (UDZO), holding the app and
+     an `Applications` shortcut;
+   - signs the `.dmg`, submits it with `xcrun notarytool submit --wait`,
+     staples the ticket with `xcrun stapler staple`, then checks it with
+     `xcrun stapler validate` and `spctl --assess --type open`.
+   The build prints the `.dmg` as its result; the `.app` stays next to it.
+2. Signing material never comes from `client/manifest.json`:
+
+   | Variable | Value |
+   | --- | --- |
+   | `TAC_APPLE_TEAM_ID` | The team ID (10 capital letters and digits). `ty` picks the keychain's one valid "Developer ID Application: … (team ID)" certificate from `security find-identity -v -p codesigning`. |
+   | `TAC_APPLE_NOTARY_PROFILE` | A `notarytool` keychain profile (`xcrun notarytool store-credentials`), so no Apple ID password or API key reaches `ty`. |
+   | `TAC_MACOS_SIGNING_IDENTITY` | Optional. A certificate name or SHA-1 hash, for a keychain with several certificates for the team. `-` signs ad hoc. |
+
+   `TAC_APPLE_TEAM_ID` and `TAC_APPLE_NOTARY_PROFILE` are shared with the iOS
+   release (PKG2); the identity variable names the platform because macOS and
+   iOS sign with different certificates.
+3. A missing variable or a malformed team ID stops the build with `TY1605`
+   before the web build starts. No certificate for the team, or several,
+   stops it with `TY1605` before signing. A notarization answer other than
+   `Accepted` stops it with `TY1605`, naming the submission and the
+   `xcrun notarytool log` command that shows Apple's reasons.
+4. `TAC_MACOS_SIGNING_IDENTITY=-` is the test path for a Mac without the
+   team's certificate: the same hardened runtime and entitlements, an ad hoc
+   signature without a timestamp, no notarization, and a build note saying
+   the `.dmg` opens only on that Mac.
+5. A release `.dmg` is not byte-identical between builds: the secure
+   timestamp, `hdiutil` and the stapled ticket differ each time (ADR 0005).
+
+Consequences: the macOS row of the support table's "release packaging"
+entry says `adapted` until a Developer ID release has been notarized on a
+Mac; `crates/tachyon-cli/tests/it/macos_release_cli.rs` holds the Mac tests,
+the Developer ID one ignored unless the team's certificate and profile are
+present.

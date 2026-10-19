@@ -90,10 +90,10 @@ printf 'aab' > app/build/outputs/bundle/release/app-release.aab
 #[test]
 fn release_is_refused_for_targets_without_release_packaging() {
     let project = AndroidReleaseCli::project();
-    let macos = AndroidReleaseCli::refusal(project.path(), &["--target", "macos", "--release"]);
+    let ios = AndroidReleaseCli::refusal(project.path(), &["--target", "ios", "--release"]);
     assert!(
-        macos.contains("The macOS target has no release packaging yet"),
-        "{macos}"
+        ios.contains("The iOS target has no release packaging yet"),
+        "{ios}"
     );
     let every = AndroidReleaseCli::refusal(project.path(), &["--target", "all", "--release"]);
     assert!(every.contains("no release packaging yet"), "{every}");

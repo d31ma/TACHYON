@@ -94,7 +94,7 @@ tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the macOS app.
 
 tac.application.permissions
-  honored: NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist
+  honored: NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist; a release build also gets the location entitlement
 
 tac.browserApis
   honored: the same grant list in the page
@@ -220,10 +220,10 @@ build architecture (--arch)
   honored: --arch x64, arm64 or universal; universal joins an arm64 and an x86_64 build with lipo
 
 release packaging
-  adapted: The macOS build is an unsigned .app bundle. Signing, notarization and a .dmg wait on PKG1.
+  adapted: ty bundle --release builds a .dmg whose app is signed with the team's Developer ID certificate and the hardened runtime, then notarizes and staples it; the team and notary profile come from TAC_APPLE_TEAM_ID and TAC_APPLE_NOTARY_PROFILE. No release has been notarized on a Mac yet. Other builds are an ad hoc signed .app.
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  adapted: The macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder, so two builds should match. A repeat-build run on a Mac is still owed (TL2).
+  adapted: The macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder, so two builds should match. A repeat-build run on a Mac is still owed (TL2). A --release .dmg differs between builds: its secure timestamp and notarization ticket change.

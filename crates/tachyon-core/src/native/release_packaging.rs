@@ -7,7 +7,8 @@ use tachyon_contracts::NativeTarget;
 pub struct ReleasePackaging;
 
 impl ReleasePackaging {
-    const PACKAGED: [NativeTarget; 1] = [NativeTarget::Android];
+    const PACKAGED: [NativeTarget; 2] = [NativeTarget::Android, NativeTarget::Macos];
+    const PACKAGED_TARGETS: &'static str = "--target android and --target macos";
 
     /// Checks that the target can build a signed release package.
     ///
@@ -21,6 +22,18 @@ impl ReleasePackaging {
             .ok_or_else(|| Self::refusal(target))
     }
 
+    /// Checks the signing settings of a release before anything is built, and
+    /// returns the note a release with test signing prints.
+    ///
+    /// # Errors
+    ///
+    /// Returns TY1605 when the environment lacks what the target's signing needs.
+    pub fn signing_note(target: NativeTarget, release: bool) -> Result<Option<String>, Failure> {
+        let signs_on_a_mac = [release, target == NativeTarget::Macos] == [true, true];
+        let signing = super::mac_os_signing::MacOsSigning::for_release(signs_on_a_mac)?;
+        Ok(signing.and_then(|signing| signing.note()))
+    }
+
     fn refusal(target: NativeTarget) -> Failure {
         let platform = TargetSupport::native_platform(target);
         Failure::one(diagnostic(
@@ -29,7 +42,8 @@ impl ReleasePackaging {
                 "The {platform} target has no release packaging yet, so --release cannot build it."
             ),
             Some(format!(
-                "Build {platform} without --release. Signed release builds are available for --target android."
+                "Build {platform} without --release. Signed release builds are available for {}.",
+                Self::PACKAGED_TARGETS
             )),
             None,
         ))
@@ -44,10 +58,10 @@ mod tests {
     use tachyon_contracts::NativeTarget;
 
     #[test]
-    fn only_android_builds_a_release_package() {
+    fn android_and_macos_build_a_release_package() {
         assert!(ReleasePackaging::check(NativeTarget::Android, true).is_ok());
+        assert!(ReleasePackaging::check(NativeTarget::Macos, true).is_ok());
         for target in [
-            NativeTarget::Macos,
             NativeTarget::Windows,
             NativeTarget::Linux,
             NativeTarget::Ios,
@@ -57,12 +71,26 @@ mod tests {
                 .expect_err("no release packaging")
                 .to_string();
             assert!(text.contains("TY1601"));
-            assert!(text.contains("--target android"));
+            assert!(text.contains("--target android and --target macos"));
         }
         let ios = ReleasePackaging::check(NativeTarget::Ios, true).expect_err("ios");
         assert!(
             ios.to_string()
                 .contains("The iOS target has no release packaging yet")
         );
+    }
+
+    #[test]
+    fn only_a_macos_release_reads_the_apple_signing_settings() {
+        for (target, release) in [
+            (NativeTarget::Android, true),
+            (NativeTarget::Macos, false),
+            (NativeTarget::Linux, true),
+        ] {
+            assert_eq!(
+                ReleasePackaging::signing_note(target, release).expect("no signing check"),
+                None
+            );
+        }
     }
 }

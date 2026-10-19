@@ -35,6 +35,7 @@ impl MacOsHostGenerator {
         stage: &Path,
         options: &super::compiler::NativeBuildOptions,
     ) -> Result<GeneratedHost, Failure> {
+        let signing = super::mac_os_signing::MacOsSigning::for_release(options.release)?;
         let bundle = stage.join(format!("{}.app", application.executable_name));
         let contents = bundle.join("Contents");
         let resources = contents.join("Resources");
@@ -73,8 +74,18 @@ impl MacOsHostGenerator {
         .build(options.macos_architecture, &executable)
         .await?;
         sign_bundle(&bundle).await?;
+        let mut application_bundle = PathBuf::from(format!("{}.app", application.executable_name));
+        if let Some(signing) = &signing {
+            let release = super::mac_os_release::MacOsRelease {
+                signing,
+                application,
+                stage,
+                bundle: &bundle,
+            };
+            application_bundle = release.package().await?;
+        }
         Ok(GeneratedHost {
-            application_bundle: PathBuf::from(format!("{}.app", application.executable_name)),
+            application_bundle,
             toolchain_name: String::from("swift"),
             toolchain_version: swift_version,
         })

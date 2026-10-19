@@ -23,5 +23,13 @@ ty bundle --target android --release builds a signed APK and an
 Android App Bundle (.aab) for Google Play. Set TAC_ANDROID_KEYSTORE
 to the keystore file, TAC_ANDROID_KEYSTORE_PASSWORD to its password
 and TAC_ANDROID_KEYSTORE_ALIAS to the upload key's alias. A missing
-one stops the build with TY1605 before Gradle runs. Other targets
-refuse --release with TY1601 until their release packaging lands.
+one stops the build with TY1605 before Gradle runs.
+
+ty bundle --target macos --release builds a .dmg for Macs outside
+the App Store. The app gets the hardened runtime and a Developer ID
+signature, then the .dmg is notarized and stapled. Set
+TAC_APPLE_TEAM_ID to your team ID and TAC_APPLE_NOTARY_PROFILE to a
+notarytool keychain profile, and keep the Developer ID Application
+certificate in the keychain. TAC_MACOS_SIGNING_IDENTITY=- signs ad
+hoc for a test on the build Mac. iOS, Windows and Linux refuse
+--release with TY1601 until their release packaging lands.
