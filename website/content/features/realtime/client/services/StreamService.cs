@@ -12,6 +12,11 @@ public sealed class StreamService
     public void AddTick(Models.Tick tick)
     {
         Ticks.Add(tick);
+        KeepLatest();
+    }
+
+    private void KeepLatest()
+    {
         if (Ticks.Count > TickLimit) Ticks.RemoveRange(0, Ticks.Count - TickLimit);
     }
 }

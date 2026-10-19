@@ -282,3 +282,24 @@ On the page side, when `client/manifest.json` declares `tac.yon.origin`, the
 event bus opens a `@SocketRequest` WebSocket on that origin: `wss://` for an
 `https` origin, or `ws://` for a local `http` origin. Without
 `tac.yon.origin`, the socket opens on the page's own origin as before.
+
+## Amendment (2026-10-19): held clients run in three browsers
+
+`scripts/held-clients-browser-gate.mjs` (`bun run test:held-clients-browser`)
+builds the published `sockets` and `realtime` features for one Tac language,
+with the JavaScript Yon controllers, serves them with `ty serve`, and opens
+the page in Chromium, Firefox and WebKit. In two tabs the service's
+`SocketRequest` client opens with its component and hears the welcome; a
+click in one tab sends through the client and both tabs hear the message;
+and the service's `StreamRequest` client hears every tick of the stream.
+`TAC_HELD_CLIENT_LANGUAGES` and `TAC_HELD_CLIENT_BROWSERS` narrow a run.
+
+On 2026-10-19 it passed for Rust, Go, Dart, Swift, Kotlin, Java, C#, F# and
+C++ in Chromium 141, Firefox 153 and WebKit 26.5, in an x86_64 Ubuntu 24.04
+cloud container with `ty` built from develop `d7110f74` (Rust, Dart and C#
+again on `162064a0`). Before, a
+compiled-language held client had only unit tests. The first run found that
+the published Dart and C# services of both features no longer built
+(`TY1314` and `TY1330`); they now keep their message and tick limits in a
+named constant and a private method.
+

@@ -8,14 +8,10 @@ impl KeychainIdentities {
     const ARGUMENTS: [&'static str; 4] = ["find-identity", "-v", "-p", "codesigning"];
 
     pub(super) fn state(kinds: &[&str]) -> ToolchainState {
-        CommandProbe::output(Self::PROGRAM, &Self::ARGUMENTS).map_or_else(
-            || {
-                ToolchainState::Incomplete(String::from(
-                    "cannot list the keychain: `security` is not on PATH",
-                ))
-            },
-            |listing| Self::listing_state(&listing, kinds),
-        )
+        CommandProbe::output(Self::PROGRAM, &Self::ARGUMENTS)
+            .map_or(ToolchainState::Missing, |listing| {
+                Self::listing_state(&listing, kinds)
+            })
     }
 
     fn listing_state(listing: &str, kinds: &[&str]) -> ToolchainState {

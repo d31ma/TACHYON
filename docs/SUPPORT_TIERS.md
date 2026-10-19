@@ -497,6 +497,29 @@ This evidence does not promote any tier.
 | iOS WKWebView (simulator) | IndexedDB and localStorage yes; Cache API entries no | `scripts/ios/native-test.mjs` on an iPhone SE (3rd generation) simulator with iOS 26.5 (Xcode 27.1): a real terminate, a new process, and the row and value read back. The cache name came back with no entries, and WebKit wrote no record file for it before the quit. That run used the check's old raw cache entry, which Tac's start-up cache sweep deletes, so the iOS cache result is owed a rerun |
 | Windows WebView2 | not run | WebView2 keeps its data in `<App>.exe.WebView2` (ADR 0097); pages need an interactive desktop session |
 
+### Browser engines for the web target (2026-10-19)
+
+On 2026-10-19 (BR1) these browser gates ran in Chromium 141, Firefox 153 and
+WebKit 26.5 (Playwright 1.62.1) in an x86_64 Ubuntu 24.04 cloud container,
+with `ty` built from develop `d7110f74`, and all passed (the browser-API,
+held-client and storage gates passed again on `162064a0`):
+
+- `scripts/page-program-browser-gate.mjs`: one page program for C++, C#,
+  Dart, F#, Go, Java, JavaScript, Kotlin, Rust and Swift (ADR 0022
+  amendment).
+- `scripts/web-apis-browser-test.mjs`: browser APIs for JavaScript, Rust, Go,
+  Swift, Java, F#, C# and Kotlin services, and a `tac.dotnet.aot` release
+  build (ADR 0065 amendment).
+- `scripts/held-clients-browser-gate.mjs`: socket and stream clients held by
+  Rust, Go, Dart, Swift, Kotlin, Java, C#, F# and C++ services against
+  `ty serve` (ADR 0060 amendment).
+- `scripts/storage-browser-test.mjs`: Stores, caches and stored fields with
+  every service language, Ruby in WebKit included (ADR 0059 amendment).
+
+The Python Tac gate already ran in all three engines (ADR 0093). A container
+run is not a desktop browser install, and Safari itself was not run; WebKit
+stands in for it.
+
 ## Historical Phase 5 Native Target Status
 
 **Reconciliation notice (2026-08-30):**

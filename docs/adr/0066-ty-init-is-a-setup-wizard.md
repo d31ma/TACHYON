@@ -108,8 +108,21 @@ writes only what was chosen.
   codesigning`. The report shows only how many valid ones there are, never
   their names, teams or hashes.
 - Like the `<target> apps` rows, these rows are `info` and never change the
-  exit status. `ty doctor --release` makes every `<target> apps` and
-  `<target> releases` row a needed one, so a missing tool exits with 1.
+  exit status. `ty doctor --release` makes the `<target> apps` and
+  `<target> releases` rows needed for each declared target that this
+  machine can build (macOS and iOS on a Mac, Windows on Windows, Linux on
+  Linux, Android anywhere), so a missing tool exits with 1. Rows of targets
+  that build elsewhere stay `info`, so one machine can pass for a project
+  that declares every target.
+- Evidence (develop 6d74c93f, 2026-10-19). Mac (macOS 26, Xcode 27.1):
+  notarytool 1.1.3, one Developer ID Application certificate, the iPhoneOS
+  27.1 SDK and, with the Android SDK set, build-tools 35.0.0 were ready; no
+  Apple Distribution certificate is installed. Surface (Windows 11 ARM64,
+  over SSH from an arm64 developer prompt): `makeappx.exe` and
+  `signtool.exe` were ready. Linux cloud container: `dpkg-deb` 1.22.6 and
+  `mksquashfs` 4.6.1 were ready. Those runs made every declared target's
+  rows needed, so `--release` exited with 1 on every machine for a project
+  that declares all five targets; that led to the per-machine rule above.
 - The rows live in `doctor/release_toolchains.rs`. `ty init`, `ty add target`
   and `ty doctor --install` do not install them: signing certificates and
   the platform SDKs are installed by hand, and the install text says how.

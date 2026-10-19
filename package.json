@@ -45,6 +45,7 @@
     "test:behavior-native-runtime": "node scripts/behavior-native-runtime-test.mjs cs swift",
     "test:storage-browser": "node scripts/storage-browser-test.mjs",
     "test:web-apis-browser": "node scripts/web-apis-browser-test.mjs",
+    "test:held-clients-browser": "node scripts/held-clients-browser-gate.mjs",
     "test:web-components-browser": "node scripts/web-components-browser-test.mjs",
     "test:authored-node-browser": "node scripts/authored-node-browser-gate.mjs",
     "test:svg-namespace-browser": "node scripts/svg-namespace-browser-gate.mjs",

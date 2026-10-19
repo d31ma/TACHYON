@@ -276,7 +276,7 @@ static void dialog(const wchar_t *folder) {
   swprintf(path, MAX_PATH, L"%ls\\chosen.txt", folder);
   write_file(path, "chosen in the dialog", 20);
   g_file_picker_choose = tachyon_file_picker_dialog;
-  g_file_picker_clock = GetTickCount64;
+  g_file_picker_clock = tachyon_file_picker_tick;
   HANDLE helper = CreateThread(NULL, 0, choose_in_dialog, path, 0, NULL);
   char *answer = call("open", OWNER, ",\"types\":[\"text/plain\"]");
   WaitForSingleObject(helper, INFINITE);

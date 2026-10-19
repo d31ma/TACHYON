@@ -1,5 +1,6 @@
 use super::super::testing::Unit;
 use super::string_literal::StringLiteral;
+use super::test_clients::TestClients;
 use super::typed_test_fakes::TypedTestFakes;
 use super::{Module, Type};
 
@@ -60,9 +61,29 @@ impl<'a> DartTestConstruction<'a> {
         Ok(fakes
             .names(target, fields)?
             .into_iter()
-            .map(Self::assigned)
+            .map(|name| self.fake(target, name))
             .collect::<Vec<_>>()
             .join(", "))
+    }
+
+    fn fake(&self, target: &Type, name: &str) -> String {
+        self.client_of(target, name).map_or_else(
+            || Self::assigned(name),
+            |client| Self::defaulted(name, &client),
+        )
+    }
+
+    fn client_of(&self, target: &Type, name: &str) -> Option<String> {
+        target
+            .fields
+            .iter()
+            .find(|field| field.name == name)
+            .map(|field| Self::kind(&field.type_source).to_owned())
+            .filter(|client| TestClients::is_client(self.module, client))
+    }
+
+    fn defaulted(name: &str, client: &str) -> String {
+        format!("this.{name} ?? {client}(behaviors!)")
     }
 
     fn assigned(name: &str) -> String {

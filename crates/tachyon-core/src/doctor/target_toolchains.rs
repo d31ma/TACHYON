@@ -10,6 +10,14 @@ pub(crate) struct TargetToolchains;
 impl TargetToolchains {
     const APPS: &'static str = "apps";
     const RELEASES: &'static str = "releases";
+    const BUILDS_HERE: [bool; 6] = [
+        true,
+        cfg!(target_os = "macos"),
+        cfg!(windows),
+        cfg!(target_os = "linux"),
+        cfg!(target_os = "macos"),
+        true,
+    ];
     const ROWS: [TargetToolchain; 12] = [
         TargetToolchain {
             target: AppTarget::Macos,
@@ -119,7 +127,11 @@ impl TargetToolchains {
         targets
             .iter()
             .flat_map(|target| rows.iter().filter(|row| row.is_for(*target)))
-            .map(|row| row.toolchain(purpose, required))
+            .map(|row| row.toolchain(purpose, Self::needed_here(row.target, required)))
             .collect()
+    }
+
+    fn needed_here(target: AppTarget, required: bool) -> bool {
+        [required, Self::BUILDS_HERE[target as usize]] == [true, true]
     }
 }

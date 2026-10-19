@@ -25,12 +25,9 @@ public sealed class GreetingServiceTest {
         if (second.read().GetAwaiter().GetResult().Integer != 2) throw new System.Exception("One client disposal retired another client.");
     }
 
-    void testUnassignedFakeIsRefused() {
+    void testUnassignedFakeGetsAClientOnTheTestContext() {
         greetingClient = null;
-        var refused = false;
-        try { construct<GreetingService>(); }
-        catch (System.InvalidOperationException error) { refused = error.Message.Contains("assigned Fake named greetingClient"); }
-        if (!refused) throw new System.Exception("Unassigned Fake was not refused.");
+        if (construct<GreetingService>() == null) throw new System.Exception("Unassigned Fake did not get a client.");
     }
 }
 

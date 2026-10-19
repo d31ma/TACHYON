@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Tac outbound HTTP markers now have run proof in the 12 Tac languages that
+  lacked it (PR1). One table-driven test, `tests/it/tac_http_verbs.rs`, runs
+  a test unit in JavaScript, TypeScript, Dart, Rust, C#, Kotlin, Swift, Go,
+  Ruby, Python, Lua and C++ whose service calls an `HTTPClient("/api")`
+  with `PutRequest`, `PatchRequest` and `DeleteRequest` methods. A TestSetup
+  adapter echoes each request, and the cases check the method, the
+  `PathVariable` path, the `RequestHeader` and the `RequestBody`. A language
+  whose toolchain is missing is skipped with a message.
+
 - Links to the hosts in `tac.application.links` can open macOS and Windows
   apps (LK3, ADR 0106 amendment). A Windows `--release` MSIX package declares
   them as app URI handlers, and the web build writes
@@ -103,8 +112,8 @@ machine contracts have their own, independent major versions.
   the SDK's build-tools for Android; `makeappx.exe` and `signtool.exe` for
   Windows; `dpkg-deb` and `mksquashfs` for Linux. Certificates are only
   counted, never named. The rows are `info`; `ty doctor --release` makes them
-  and the `<target> apps` rows needed, so a missing tool exits with 1
-  (ADR 0066 amendment).
+  and the `<target> apps` rows needed for the targets this machine can build,
+  so a missing tool exits with 1 (ADR 0066 amendment).
 - Web builds write `artifact-manifest.json` next to `route-manifest.json`,
   the same Artifact Manifest v1 that native builds write, with `web` as its
   target. Two builds of the same sources give the same bytes, so byte-identical
@@ -113,7 +122,16 @@ machine contracts have their own, independent major versions.
   code signed and that `--release` builds a signed MSIX package. The support
   table gains a "development code signing" entry for every target
   (ADR 0104 amendment).
-
+- Browser gates now run in Chromium, Firefox and WebKit for every
+  service language (BR1). The page-program gate passed for all ten
+  fixtures in the three engines; the browser-API gate gained C# and Kotlin
+  services, runs every language in Firefox and WebKit, and checks a
+  `tac.dotnet.aot` release build; and the storage gate passed in the three
+  engines with every service, Ruby in WebKit included. A new gate,
+  `scripts/held-clients-browser-gate.mjs` (`bun run
+  test:held-clients-browser`), runs the socket and stream clients of Rust,
+  Go, Dart, Swift, Kotlin, Java, C#, F# and C++ services against `ty serve`
+  in the three engines.
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
   packages `libtachyoncompanion.so` for each, and the Java host calls them
@@ -1542,6 +1560,14 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A C# test case declared `async Task` is now awaited. Before, its Task was
+  dropped, so a failing assertion after the first `await` still reported
+  the case as passed.
+- In C# and Dart test units, `construct` now gives an empty `@Fake`
+  `HTTPClient` field a client built on the unit's test context, as Kotlin,
+  Swift, Java and Rust already did, so the TestSetup's adapter answers it.
+  Before, `construct` refused the empty Fake.
+
 - A JavaScript or TypeScript service's `HTTPClient` read now goes through the
   page's Yon read cache. The page transport in `tac-client.js` called `fetch`
   directly, so in a native app these reads were never kept for offline use.
@@ -1568,6 +1594,13 @@ machine contracts have their own, independent major versions.
   date `ps` prints for the same process moved by up to two seconds, and
   supervised probes there refused to clean up and failed. `scripts/linux/native-test.sh` also unmounts the
   document portal from its private runtime folder before removing it.
+
+- The published Dart and C# services of the sockets and realtime features
+  build again. They held their message and tick limits in a public method
+  (`TY1314`) and, in Dart, in unnamed numbers (`TY1330`); the limits are now
+  a named constant and a private method. The new held-clients browser gate
+  found it.
+
 - A Windows build with a C# companion no longer fails with TY1605 when it
   runs from a Visual Studio developer prompt. Those prompts set `Platform`,
   which moved the `dotnet publish` output to another folder, so `ty` could
