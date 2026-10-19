@@ -24,7 +24,7 @@ class CachedClientGate {
   static settings = '{"name":"stamps","ttlMs":60000,"maxBytes":4096,"maxEntries":8}'
 
   static files = {
-    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs","rs","cs","rb"]},"visibility":{"check":false}}}\n',
+    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs","rs","cs","rb"]},"visibility":{"check":false},"budgets":{"webassembly":6144}}}\n',
     'client/pages/tac.html': '<stamp-page />\n',
     'client/components/stamp/page/tac.html': `<main>${CachedClientGate.languages.map((language) => `<p id="${language}">{${language}Stamp.stamp}</p>`).join('\n')}</main>\n`,
     'client/remotes/JsStampClient.js': `@HTTPClient
