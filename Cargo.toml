@@ -3,6 +3,7 @@ resolver = "3"
 exclude = ["fuzz"]
 members = [
   "crates/tachyon-cli",
+  "crates/tachyon-compression",
   "crates/tachyon-contracts",
   "crates/tachyon-core",
   "crates/tachyon-diagnostics",
@@ -26,6 +27,7 @@ notify = "8.2.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sha2 = "0.11.0"
+tachyon-compression = { path = "crates/tachyon-compression", version = "=0.0.0-phase4" }
 tachyon-contracts = { path = "crates/tachyon-contracts", version = "=0.0.0-phase4" }
 tachyon-core = { path = "crates/tachyon-core", version = "=0.0.0-phase4" }
 tachyon-diagnostics = { path = "crates/tachyon-diagnostics", version = "=0.0.0-phase4" }
@@ -62,6 +64,9 @@ debug = "line-tables-only"
 debug = false
 
 [profile.dev.package.brotli]
+opt-level = 3
+
+[profile.dev.package.tachyon-compression]
 opt-level = 3
 
 [profile.dev.package.brotli-decompressor]

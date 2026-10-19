@@ -1,8 +1,8 @@
-use brotli::enc::BrotliEncoderParams;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use tachyon_compression::BrotliEncoder;
 
 #[derive(Clone, Copy)]
 pub(super) struct ContentEncoding {
@@ -56,15 +56,7 @@ impl ContentEncoding {
     }
 
     fn brotli(bytes: &[u8]) -> io::Result<Vec<u8>> {
-        let params = BrotliEncoderParams {
-            quality: Self::BROTLI_QUALITY,
-            lgwin: Self::BROTLI_WINDOW_BITS,
-            size_hint: bytes.len(),
-            ..BrotliEncoderParams::default()
-        };
-        let mut encoded = Vec::new();
-        brotli::BrotliCompress(&mut &bytes[..], &mut encoded, &params)?;
-        Ok(encoded)
+        BrotliEncoder::new(Self::BROTLI_QUALITY, Self::BROTLI_WINDOW_BITS).compress(bytes)
     }
 
     fn gzip(bytes: &[u8]) -> io::Result<Vec<u8>> {

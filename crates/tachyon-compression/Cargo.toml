@@ -1,0 +1,16 @@
+[package]
+name = "tachyon-compression"
+description = "Brotli compression built with full optimization even in debug builds of ty"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+brotli = { version = "9.0.0", default-features = false, features = ["std"] }
+
+[lints]
+workspace = true

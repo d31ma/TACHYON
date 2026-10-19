@@ -2590,6 +2590,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tachyon-compression"
+version = "0.0.0-phase4"
+dependencies = [
+ "brotli",
+]
+
+[[package]]
 name = "tachyon-contracts"
 version = "0.0.0-phase4"
 dependencies = [
@@ -2622,6 +2629,7 @@ dependencies = [
  "sha1 0.11.0",
  "sha2 0.11.0",
  "sqlx",
+ "tachyon-compression",
  "tachyon-contracts",
  "tachyon-diagnostics",
  "tachyon-duplication",
