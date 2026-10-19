@@ -50,6 +50,7 @@ function writeFixture() {
   write('client/models/IosEvent.js', '/**\n * @typedef {Object} IosEvent\n * @property {string} text\n */\nexport {}\n');
   write('client/models/IosEvent.swift', 'struct IosEvent {\n    let text: String\n}\n');
   write('client/shared/ios-gate.js', `export const marker = 'Shared module ready';
+export const bridgedApis = () => globalThis.__tachyonBrowserApiBridge?.join(',');
 const hostCall = globalThis.__tachyonNativeHostCall;
 globalThis.__tachyonNativeHostCall = (capability, payload) => {
   const request = JSON.parse(payload);
@@ -66,7 +67,7 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
 <button id="update" on:click="${instance}.count = ${value}">Update native</button>
 <input id="name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" aria-label="Name">
 <a id="next" href="${prefix ? '/?returned=1' : '/items/7/'}">Next route</a></main>`);
-    write('client/services/' + service + '.js', String.raw`import { marker } from '/shared/ios-gate.js';
+    write('client/services/' + service + '.js', String.raw`import { marker, bridgedApis } from '/shared/ios-gate.js';
 @Service()
 export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) + ';\n' + String.raw`  marker = marker;
   name = '';
@@ -130,7 +131,7 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
         JSON.stringify({ '\u0301': '😀', route: ownRoute, service: iosGateService, owner: iosGateOwner, op: 'get', name: 'count' })));
       if (unicode.value !== expected) throw new Error('Unicode JSON failed at native boundary');
       if (this.pageLabel === 'root' && !returned) {
-        if (globalThis.__tachyonBrowserApiBridge?.join(',') !== 'clipboard,share,notifications,geolocation') throw new Error('Native browser API bridge list');
+        if (bridgedApis() !== 'clipboard,share,notifications,geolocation') throw new Error('Native browser API bridge list');
         const written = JSON.parse(await __tachyonNativeHostCall('browserApi.clipboard.writeText', JSON.stringify({ text: 'tachyon ios bridge' })));
         const read = JSON.parse(await __tachyonNativeHostCall('browserApi.clipboard.readText', '{}'));
         const share = JSON.parse(await __tachyonNativeHostCall('browserApi.share.open', JSON.stringify({ text: 'not granted' })));

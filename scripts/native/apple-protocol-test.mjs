@@ -53,6 +53,12 @@ func tacServiceMembers(_ service: String, _ tacProps: [String: Any]) -> [String:
     ]
 }
 struct WKUserContentController {}
+final class AppleBrowserApis {
+    static let shared = AppleBrowserApis()
+    func call(_ capability: String, _ request: [String: Any], _ view: WKWebView?, _ reply: @escaping (String) -> Void) {
+        reply("{\"value\":\"" + capability + "\"}")
+    }
+}
 final class WKWebView {}
 struct TestRequest { let url: URL? }
 struct TestFrame { let isMainFrame: Bool; let request: TestRequest }
@@ -106,6 +112,19 @@ func bridgeProbe(_ view: WKWebView, _ receive: (WKUserContentController, WKScrip
     check(#"{"route":"/other","service":"probe","owner":"00000000-0000-4000-8000-000000000001","op":"get","name":"count"}"#, denied: true)
     check(#"{"route":"/","service":"probe","owner":"00000000-0000-4000-8000-000000000001","route":"/other","op":"get","name":"count"}"#, denied: true)
     check(#"{"route":"/","service":"probe","owner":"00000000-0000-4000-8000-000000000001","\u0072oute":"/other","op":"get","name":"count"}"#, denied: true)
+    let browserCalls: [(String, String?)] = [
+        ("tachyon-app://bundle/index.html", "{\"value\":\"browserApi.clipboard.readText\"}"), ("https://foreign.example/", nil),
+    ]
+    for (url, expected) in browserCalls {
+        var answered: Any?
+        var refused: String?
+        let message = WKScriptMessage(webView: view,
+            frameInfo: TestFrame(isMainFrame: true, request: TestRequest(url: URL(string: url))),
+            body: ["capability": "browserApi.clipboard.readText", "payload": "{}"])
+        receive(WKUserContentController(), message) { answer, error in answered = answer; refused = error }
+        if let expected { require(answered as? String == expected, "A browser API call did not reach AppleBrowserApis") }
+        else { require(refused != nil && answered == nil, "A foreign frame reached AppleBrowserApis") }
+    }
 }
 `;
 }
