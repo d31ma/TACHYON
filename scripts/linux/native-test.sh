@@ -132,9 +132,18 @@ reach_yon() {
   done
 }
 
+use_a_writable_runtime_folder() {
+  if [[ -d "${XDG_RUNTIME_DIR:-}" && -w "${XDG_RUNTIME_DIR:-}" ]]; then return; fi
+  echo '==> using a private XDG_RUNTIME_DIR, because this shell has no writable one'
+  PRIVATE_RUNTIME=$(mktemp -d "${TMPDIR:-/tmp}/ty-linux-runtime.XXXXXX")
+  export XDG_RUNTIME_DIR="$PRIVATE_RUNTIME"
+}
+
 main() {
   FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/ty-linux-native.XXXXXX")
-  trap 'rm -rf "$FIXTURE"' EXIT
+  PRIVATE_RUNTIME=
+  trap 'rm -rf "$FIXTURE" ${PRIVATE_RUNTIME:+"$PRIVATE_RUNTIME"}' EXIT
+  use_a_writable_runtime_folder
   local out="${FIXTURE}/dist/linux"
   build_native_app "$FIXTURE"
   check_artifacts "$out"
