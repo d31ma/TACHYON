@@ -1694,6 +1694,11 @@ machine contracts have their own, independent major versions.
   Swift, Java and Rust already did, so the TestSetup's adapter answers it.
   Before, `construct` refused the empty Fake.
 
+- The release workflow's staged-release check on Linux installs what the
+  storage browser gate builds: the Rust WebAssembly target, .NET 10 with the
+  wasm workloads, Ruby and the pinned Emscripten. Before, the gate failed
+  there under `CI` because the C# service had no wasm-tools, and the Ruby
+  service had no Emscripten to build its runtime.
 - CI runs every Tac service-language browser gate in Chromium, Firefox and
   WebKit (CI2). A new `browser-languages` job in `rust-ci.yml` runs one entry
   each for the page-program, browser-API, held stream and socket client,
