@@ -50,6 +50,10 @@ pub(super) struct WindowConfiguration {
     pub(super) theme_color: Option<super::native_theme_color::NativeThemeColor>,
     #[serde(skip)]
     pub(super) display: super::native_display::NativeDisplay,
+    #[serde(skip)]
+    pub(super) background_color: Option<super::native_theme_color::NativeThemeColor>,
+    #[serde(skip)]
+    pub(super) orientation: super::native_orientation::NativeOrientation,
 }
 
 const fn default_width() -> u32 {
@@ -72,6 +76,8 @@ impl Default for WindowConfiguration {
             title_bar_button_inset: None,
             theme_color: None,
             display: super::native_display::NativeDisplay::default(),
+            background_color: None,
+            orientation: super::native_orientation::NativeOrientation::default(),
         }
     }
 }
@@ -391,6 +397,10 @@ pub(crate) struct WebAppManifest {
     #[serde(default)]
     display: Option<super::native_display::NativeDisplay>,
     #[serde(default)]
+    background_color: Option<serde_json::Value>,
+    #[serde(default)]
+    orientation: Option<super::native_orientation::NativeOrientation>,
+    #[serde(default)]
     tac: Option<TacMember>,
     #[serde(default)]
     tachyon: Option<serde_json::Value>,
@@ -655,6 +665,10 @@ impl NativeApplication {
             manifest.theme_color.as_ref(),
         );
         self.window.display = manifest.display.unwrap_or_default();
+        self.window.background_color = super::native_theme_color::NativeThemeColor::from_manifest(
+            manifest.background_color.as_ref(),
+        );
+        self.window.orientation = manifest.orientation.unwrap_or_default();
         self.native_capabilities = manifest
             .tac
             .as_ref()
@@ -1021,6 +1035,39 @@ mod tests {
         );
         assert!(configured.window.display.starts_fullscreen());
         assert_eq!(configured.window.width, 800);
+    }
+
+    #[test]
+    fn the_background_color_and_orientation_reach_the_native_window() {
+        let root = tempfile::tempdir().expect("root");
+        write_manifest_document(
+            root.path(),
+            &serde_json::json!({ "background_color": "#fa0", "orientation": "landscape" }),
+        );
+        let configured = NativeApplication::discover(root.path()).expect("configured");
+        assert_eq!(
+            configured.window.background_color,
+            Some(super::super::native_theme_color::NativeThemeColor {
+                red: 0xff,
+                green: 0xaa,
+                blue: 0x00,
+            })
+        );
+        assert_eq!(
+            configured.window.orientation,
+            super::super::native_orientation::NativeOrientation::Landscape
+        );
+    }
+
+    #[test]
+    fn an_orientation_outside_the_web_manifest_list_is_refused() {
+        let root = tempfile::tempdir().expect("root");
+        write_manifest_document(
+            root.path(),
+            &serde_json::json!({ "orientation": "sideways" }),
+        );
+        let text = discovery_error(root.path());
+        assert!(text.contains("TY1601"), "{text}");
     }
 
     #[test]

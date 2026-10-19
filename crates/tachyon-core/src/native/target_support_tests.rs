@@ -134,7 +134,7 @@ fn an_integrated_title_bar_gets_a_note_everywhere_but_macos() {
         assert!(
             notes.iter().any(
                 |note| note.starts_with("Note: tac.application.window.titleBar")
-                    && note.contains(&format!("The {platform} app keeps the standard"))
+                    && note.contains(&format!("lets the {platform} page draw edge to edge"))
             ),
             "{notes:?}"
         );
@@ -206,7 +206,7 @@ fn explain_marks_the_declared_members_for_each_target() {
         TargetSupport::explain(root.path(), &[AppTarget::Ios, AppTarget::Web]).expect("explain");
     assert!(text.starts_with("iOS\n"));
     assert!(text.contains("\nWeb\n"));
-    assert!(text.contains("theme_color (declared)\n  not applied: "));
+    assert!(text.contains("theme_color (declared)\n  adapted: "));
     assert!(text.contains("tac.application.menus\n  refused with TY1601: "));
 }
 

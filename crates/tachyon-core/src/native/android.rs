@@ -1,6 +1,7 @@
 use super::android_gradle_build::AndroidGradleBuild;
 use super::android_release::AndroidRelease;
 use super::android_rust_libraries::AndroidRustLibraries;
+use super::android_window_settings::AndroidWindowSettings;
 use super::compiler::NativeBuildOptions;
 use super::config::NativeApplication;
 use super::file_picker_sources::FilePickerSources;
@@ -145,6 +146,7 @@ fn write_project(
         &project.join("app/src/main/res/values/strings.xml"),
         strings_xml(application).as_bytes(),
     )?;
+    AndroidWindowSettings::write_themes(project, &application.window)?;
     AndroidHostGenerator::write_rust_library_source(project, rust_services)?;
     write_host_source(
         &project.join(format!(
@@ -352,12 +354,12 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
       android:label="@string/app_name"__ICON__
       android:allowBackup="false"
       android:usesCleartextTraffic="false"__NETWORK_SECURITY__
-      android:theme="@android:style/Theme.Material.Light.NoActionBar">
+      android:theme="__THEME__">
     <activity
         android:name=".MainActivity"
         android:exported="true"
         android:launchMode="singleTask"
-        android:label="@string/app_name">
+        android:label="@string/app_name"__ACTIVITY_ATTRIBUTES__>
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
@@ -367,6 +369,11 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
 </manifest>
 "#
     .replace("__ICON__", icon)
+    .replace("__THEME__", AndroidWindowSettings::THEME)
+    .replace(
+        "__ACTIVITY_ATTRIBUTES__",
+        &AndroidWindowSettings::activity_attributes(&application.window),
+    )
     .replace(
         "__NETWORK_SECURITY__",
         super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin())
@@ -432,9 +439,13 @@ pub(super) fn linked_java_source(
     (has_companion, rust_services): (bool, &[String]),
     index: &NativeRouteIndex,
 ) -> String {
-    let native_shim = super::host::native_shim(
-        &application.window,
-        tachyon_contracts::NativeTarget::Android,
+    let native_shim = format!(
+        "{}{}",
+        super::host::native_shim(
+            &application.window,
+            tachyon_contracts::NativeTarget::Android,
+        ),
+        application.window.title_bar.mobile_page_script()
     );
     let route_documents = super::routes::route_documents_json(index);
     let companion_call = if has_companion {
@@ -460,7 +471,11 @@ pub(super) fn linked_java_source(
         )
         .replace(
             "__NATIVE_WINDOW_CONTROLS__",
-            &super::native_window_controls::NativeWindowControls::android(&application.window),
+            &format!(
+                "{}\n{}",
+                super::native_window_controls::NativeWindowControls::android(&application.window),
+                AndroidWindowSettings::java(&application.window)
+            ),
         )
         .replace(
             "__NATIVE_BROWSER_APIS__",
@@ -666,6 +681,7 @@ public final class MainActivity extends Activity {
 
   private final class HostBridge {
     public String call(String capability, String payload, String ownerRoute) {
+      if ("window.titleBarInsets".equals(capability)) return titleBarInsets;
       if (capability.startsWith("window.")) return nativeCapability(capability, payload);
       if ("companion.invoke".equals(capability)) {
         try {
@@ -959,16 +975,7 @@ __NATIVE_RUST_SERVICES__
     FrameLayout root = new FrameLayout(this);
     root.addView(view);
     setContentView(root);
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-      root.setOnApplyWindowInsetsListener(
-          (padded, insets) -> {
-            Insets bars =
-                insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            padded.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return insets;
-          });
-      root.requestApplyInsets();
-    }
+    installWindowSettings(root);
     String linked = intentTarget(getIntent());
     if (linked != null) {
       launchTarget = linked;
@@ -1364,6 +1371,33 @@ mod tests {
         assert!(source.contains("setOnApplyWindowInsetsListener"));
         assert!(!source.contains("buildNode"));
         assert!(!source.contains("LinearLayout"));
+    }
+
+    #[test]
+    fn the_manifest_window_members_reach_the_activity_and_the_page() {
+        let mut turned = application();
+        turned.window.orientation = crate::native::native_orientation::NativeOrientation::Landscape;
+        turned.window.title_bar = crate::native::native_title_bar::NativeTitleBar::Integrated;
+        let manifest = android_manifest(&turned, false);
+        assert!(manifest.contains("android:theme=\"@style/TachyonTheme\""));
+        assert!(manifest.contains("android:screenOrientation=\"userLandscape\""));
+        let source = java_source(&turned, "dev.tachyon.native_catalog", false, &index());
+        assert!(source.contains("installWindowSettings(root);"));
+        assert!(source.contains("WINDOW_INTEGRATED = true;"));
+        assert!(
+            source.contains(
+                "if (\"window.titleBarInsets\".equals(capability)) return titleBarInsets;"
+            )
+        );
+        assert!(source.contains("__tachyonTitleBar ??= new (class TacMobileTitleBar"));
+        let standard = java_source(
+            &application(),
+            "dev.tachyon.native_catalog",
+            false,
+            &index(),
+        );
+        assert!(!standard.contains("TacMobileTitleBar"));
+        assert!(!android_manifest(&application(), false).contains("screenOrientation"));
     }
 
     #[test]

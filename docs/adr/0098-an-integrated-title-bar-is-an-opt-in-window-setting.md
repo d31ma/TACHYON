@@ -309,3 +309,38 @@ runs the frame, hit test, menu move, insets, button region, maximize and
 full screen code on a real Win32 window under Wine (which has no DWM, so it
 uses the fallback caption button size). The look, Snap Layouts and a drag
 in WebView2 need the signed-in Surface desktop (SD1).
+
+## Amendment (2026-10-19): iOS and Android
+
+`titleBar: "integrated"` now has a meaning on phones and tablets: the page
+draws edge to edge, under the status bar. A mobile app has no title bar,
+window buttons or window to drag, so only the three CSS properties carry
+over.
+
+- **iOS.** The web view covers the whole screen and its scroll view stops
+  adjusting its insets (`contentInsetAdjustmentBehavior = .never`). With the
+  standard title bar the web view starts at the top safe-area edge, and the
+  area behind the status bar shows `theme_color`, or else
+  `background_color`, or else the system background.
+- **Android.** From API 30 the activity draws behind the system bars
+  (`setDecorFitsSystemWindows(false)`, which API 35 enforces anyway); before
+  API 30 it does so only under an integrated title bar
+  (`SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN`). The root view pads the page by the
+  system-bar and display-cutout insets, except at the top when the title bar
+  is integrated. The navigation bar keeps its padding, so the page needs no
+  bottom inset.
+- **Properties.** `--tac-titlebar-height` is the top inset in CSS pixels,
+  and `--tac-titlebar-leading-inset` and `--tac-titlebar-trailing-inset` are
+  the side insets, such as the camera cutout in landscape, in the page's
+  reading direction. A small page script (`tac-mobile-title-bar.js`) asks
+  the host for them with `window.titleBarInsets` as the page starts, and the
+  host sends new values when the safe area or the insets change. A standard
+  title bar sets none of the three.
+- **Drag regions.** `data-tac-drag-region` does nothing on mobile.
+
+Tests: `ios_window_settings` and `android_window_settings` check the
+generated sources. `scripts/ios/window-settings-test.mjs` (run by
+`scripts/ios/native-test.mjs`) and `scripts/android/window-settings-test.mjs`
+(run by `scripts/android/native-test.sh`) build apps with each title bar,
+read the properties from the running page and compare a screenshot of the
+status bar with the page's own bar.

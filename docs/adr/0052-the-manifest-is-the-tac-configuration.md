@@ -163,6 +163,25 @@ Android status bars keep their system colors. A native build that declares
 `theme_color` now prints a note that says so (ADR 0102). The plan items WIN1,
 WIN2 and WIN5 apply the color on Windows, Linux and mobile.
 
+## Amendment (2026-10-19): Mobile apps read the window members
+
+The iOS and Android apps now read four standard members (WIN5):
+
+- `theme_color` (`#rgb` or `#rrggbb`) fills the area behind the iOS status
+  bar and the Android status and navigation bars, and picks dark or light
+  bar text by contrast.
+- `background_color` (same forms) colors the iOS launch screen, the Android
+  window and splash screen, and the web view behind the page.
+- `display: "fullscreen"` hides the status bar (and the Android navigation
+  bar).
+- `orientation` limits how the app turns. The member is now read, so a value
+  outside the eight web manifest values stops every build with `TY1601`, as
+  `display` already did.
+
+Other color forms keep the system colors, and the build prints a note. The
+macOS window still does not read `theme_color`, `background_color` or
+`display` (WIN7).
+
 ## Amendment (2026-10-18): Versions and build numbers reach every target
 
 `tac.application.version` reached only part of each native app. Windows wrote

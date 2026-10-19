@@ -10,6 +10,22 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- iOS and Android apps now read the window members of `client/manifest.json`
+  (WIN5). A hex `theme_color` fills the area behind the iOS status bar and
+  the Android status and navigation bars, with readable bar text. A hex
+  `background_color` colors the launch screen (an asset catalog color on
+  iOS, the window and Android 12 splash screen on Android) and the web view.
+  `display: "fullscreen"` hides the status bar. `orientation` sets the iOS
+  supported interface orientations and the Android `screenOrientation`; the
+  iOS app is no longer locked to portrait, and a value outside the eight web
+  manifest values now stops the build (`TY1601`). `titleBar: "integrated"`
+  lets the page draw edge to edge under the status bar, with the three
+  `--tac-titlebar-*` properties taken from the safe-area insets (ADR 0098
+  amendment). A linked Swift service on iOS now reaches `WindowControls`, so
+  `setTitle` sets the scene title. `scripts/ios/window-settings-test.mjs`
+  (iPhone 17 Pro and iPad Pro simulators) and
+  `scripts/android/window-settings-test.mjs` (API 35 emulator) check them
+  with page reads, native reads and screenshots.
 - CI installs the language toolchains its tests need (CI1). A new
   `scripts/ci/install-toolchains.mjs` downloads checksum-pinned Groovy 5.1.3,
   Kotlin 2.1.10, Dart 3.13.1, Lua from `runtimes/lua-web/sources.txt`, the

@@ -156,7 +156,7 @@ impl IosDeviceBuild {
         let icon = IosAppIcon::source(application, web_bundle);
         IosAppIcon::require_for_store(icon.as_deref(), self.destination.app_store)?;
         let icon_keys = IosAppIcon::plist_keys(
-            icon.as_deref(),
+            (icon.as_deref(), &application.window),
             bundle,
             self.scratch.path(),
             deployment,

@@ -8,6 +8,7 @@ use super::ios_destination::IosDestination;
 use super::ios_device_build::IosDeviceBuild;
 use super::ios_rust_library::IosRustLibrary;
 use super::ios_window_controls::IosWindowControls;
+use super::ios_window_settings::IosWindowSettings;
 use super::macos::MacOsHostGenerator;
 use super::native_reproducibility::NativeReproducibility;
 use super::routes::NativeRouteIndex;
@@ -88,6 +89,13 @@ impl IosHostGenerator {
             destination,
             deployment,
             &executable,
+        )
+        .await?;
+        super::ios_launch_screen::IosLaunchScreen::compile(
+            &application.window,
+            &project,
+            &bundle,
+            (destination.sdk, deployment),
         )
         .await?;
         let application_bundle = IosDeviceBuild::finish(
@@ -224,8 +232,7 @@ pub(super) fn info_plist(
 <key>CFBundleVersion</key><string>{build}</string>{platform}
 <key>MinimumOSVersion</key><string>{deployment}</string>
 <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
-<key>UILaunchScreen</key><dict/>
-<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
+{launch_screen}{window}
 </dict></plist>
 "#,
         name = xml_escape(&application.name),
@@ -241,6 +248,8 @@ pub(super) fn info_plist(
         url_types = application
             .links
             .url_types_plist(&application.application_id),
+        launch_screen = super::ios_launch_screen::IosLaunchScreen::plist_entry(&application.window),
+        window = IosWindowSettings::plist_entries(&application.window),
     )
 }
 
@@ -262,14 +271,30 @@ pub(super) fn swift_source(
         )
         .replace(
             "__NATIVE_SHIM__",
-            &super::host::native_shim(
-                &IosWindowControls::page_window(&application.window),
-                tachyon_contracts::NativeTarget::Ios,
+            &format!(
+                "{}{}",
+                super::host::native_shim(
+                    &IosWindowControls::page_window(&application.window),
+                    tachyon_contracts::NativeTarget::Ios,
+                ),
+                application.window.title_bar.mobile_page_script()
             ),
         )
         .replace(
             "__IOS_WINDOW_CONTROLS__",
-            &IosWindowControls::bridge_cases(&application.window),
+            &format!(
+                "{}{}",
+                IosWindowControls::bridge_cases(&application.window),
+                IosWindowSettings::bridge_case(&application.window)
+            ),
+        )
+        .replace(
+            "__IOS_WINDOW_SETTINGS__",
+            &IosWindowSettings::swift(&application.window),
+        )
+        .replace(
+            "__NATIVE_CAPABILITY_REGISTER__",
+            MacOsHostGenerator::capability_registration(companion_call),
         )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace(
@@ -527,6 +552,8 @@ __NATIVE_SHIM__
 
 __NATIVE_APPLICATION_STATE__
 
+__IOS_WINDOW_SETTINGS__
+
 private func tachyonRelayPublish(_ payload: String) {
     Task { @MainActor in
         NativeBridge.shared.webView?.evaluateJavaScript(
@@ -537,6 +564,15 @@ private func tachyonRelayPublish(_ payload: String) {
 private final class RootViewController: UIViewController, WKNavigationDelegate {
     private var webView: WKWebView?
     var launchTarget: String?
+
+    override var prefersStatusBarHidden: Bool { IosWindowSettings.fullscreen }
+    override var prefersHomeIndicatorAutoHidden: Bool { IosWindowSettings.fullscreen }
+    override var preferredStatusBarStyle: UIStatusBarStyle { IosWindowSettings.statusBarStyle }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        IosWindowSettings.publish(view, webView)
+    }
 
     func open(_ target: String) {
         guard let url = URL(string: target) else { return }
@@ -561,9 +597,10 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         view.navigationDelegate = self
         view.accessibilityIdentifier = "tachyon-application"
         view.translatesAutoresizingMaskIntoConstraints = false
+        IosWindowSettings.prepare(self.view, view)
         self.view.addSubview(view)
         NSLayoutConstraint.activate([
-            view.topAnchor.constraint(equalTo: self.view.topAnchor),
+            view.topAnchor.constraint(equalTo: IosWindowSettings.topAnchor(self.view)),
             view.bottomAnchor.constraint(equalTo: self.view.bottomAnchor),
             view.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
             view.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
@@ -615,6 +652,7 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         AppleBrowserApis.shared.granted = __NATIVE_BROWSER_API_GRANTS__
+        __NATIVE_CAPABILITY_REGISTER__
         let window = UIWindow(frame: UIScreen.main.bounds)
         let root = RootViewController()
         if let link = options?[.url] as? URL, let target = TacDeepLink.target(link.absoluteString) {
@@ -797,6 +835,47 @@ mod tests {
         assert!(plist.contains(
             "<key>NSLocationWhenInUseUsageDescription</key><string>Shows stores &amp; more</string>"
         ));
+    }
+
+    #[test]
+    fn a_linked_swift_service_reaches_the_window_controls_and_the_window_settings_are_built_in() {
+        let linked = swift_source(&application(), "tacNativeInvoke(payload)", &index());
+        assert!(linked.contains("NativeCapabilities.call = { capability, payload in"));
+        assert!(linked.contains("private enum IosWindowSettings"));
+        assert!(linked.contains("IosWindowSettings.prepare(self.view, view)"));
+        assert!(linked.contains("override var prefersStatusBarHidden: Bool"));
+        assert!(!linked.contains("__IOS_WINDOW_SETTINGS__"));
+        assert!(!linked.contains("__NATIVE_CAPABILITY_REGISTER__"));
+        assert!(!linked.contains("__tachyonTitleBar ??="));
+        let alone = swift_source(&application(), "\"{}\"", &index());
+        assert!(!alone.contains("NativeCapabilities.call ="));
+        let mut integrated = application();
+        integrated.window.title_bar = crate::native::native_title_bar::NativeTitleBar::Integrated;
+        let source = swift_source(&integrated, "tacNativeInvoke(payload)", &index());
+        assert!(source.contains("globalThis.__tachyonTitleBar ??= new (class TacMobileTitleBar"));
+        assert!(source.contains("case \"window.titleBarInsets\":"));
+    }
+
+    #[test]
+    fn the_plist_follows_the_manifest_orientation_and_background_color() {
+        let mut turned = application();
+        turned.window.orientation = crate::native::native_orientation::NativeOrientation::Landscape;
+        turned.window.background_color =
+            Some(crate::native::native_theme_color::NativeThemeColor {
+                red: 1,
+                green: 2,
+                blue: 3,
+            });
+        let plist = info_plist(&turned, &[], &IosDestination::SIMULATOR.plist_keys(""));
+        assert!(plist.contains("<string>UIInterfaceOrientationLandscapeLeft</string>"));
+        assert!(!plist.contains("UIInterfaceOrientationPortrait"));
+        assert!(plist.contains("<key>UIColorName</key><string>TachyonLaunchBackground</string>"));
+        let default = info_plist(
+            &application(),
+            &[],
+            &IosDestination::SIMULATOR.plist_keys(""),
+        );
+        assert!(default.contains("<string>UIInterfaceOrientationPortraitUpsideDown</string>"));
     }
 
     #[test]

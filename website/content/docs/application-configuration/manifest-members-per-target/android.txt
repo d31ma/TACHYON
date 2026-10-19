@@ -10,16 +10,16 @@ icons
   adapted: icons: the Android app copies the largest raster icon into mipmap-xxxhdpi without resizing it.
 
 theme_color
-  not applied: theme_color is written into each page head, but the Android status bar does not use it yet (WIN5).
+  adapted: theme_color fills the Android status and navigation bars and picks dark or light bar icons by contrast, when it is written as #rgb or #rrggbb. With titleBar "integrated" the page draws under the status bar instead. Other color forms keep the system bars.
 
 background_color
-  not applied: background_color is not applied to the Android app yet.
+  adapted: background_color colors the Android window, the splash screen (Android 12 and later) and the web view behind the page, when it is written as #rgb or #rrggbb. Other color forms keep the system background.
 
 display
-  not applied: display is not applied yet. The Android app keeps the system bars (WIN5).
+  adapted: display "fullscreen" hides the Android status and navigation bars; a swipe from the edge shows them for a moment. The other values keep the system bars.
 
 orientation
-  not applied: orientation is not applied yet. The Android app turns with the device (WIN5).
+  adapted: orientation sets the Android activity's screenOrientation: portrait and landscape follow the user's rotation lock between both turns, the -primary and -secondary values fix one turn, natural ignores the sensor, and any (or no value) turns with the device.
 
 tachyon (top-level)
   refused with TY1601: The top-level tachyon member is gone. Move its values into tac (ADR 0052).
@@ -55,7 +55,7 @@ tac.application.window.controls
   adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. Only a refused control has run on the emulator; a granted run is still owed.
 
 tac.application.window.titleBar
-  not applied: tac.application.window.titleBar "integrated" is built only for macOS. The Android app keeps the standard status bar (ADR 0098, WIN5).
+  adapted: tac.application.window.titleBar "integrated" lets the Android page draw edge to edge, under the status bar. --tac-titlebar-height is the status bar height, and the leading and trailing insets are the side system-bar and display-cutout insets. The navigation bar still pads the page. There are no window buttons and no drag regions (ADR 0098).
 
 tac.application.window.titleBarButtonInset
   not applicable: tac.application.window.titleBarButtonInset has no meaning on Android: the app has no window buttons.

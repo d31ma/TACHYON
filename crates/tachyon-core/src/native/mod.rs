@@ -7,6 +7,7 @@ mod android_rust_libraries;
 #[cfg(test)]
 mod android_rust_library_tests;
 mod android_signing_certificate;
+mod android_window_settings;
 #[cfg(test)]
 mod android_yon_http_tests;
 mod android_yon_reach;
@@ -53,6 +54,7 @@ mod ios_app_icon;
 mod ios_destination;
 mod ios_device_build;
 mod ios_entitlements;
+mod ios_launch_screen;
 mod ios_provisioning_profile;
 mod ios_rust_library;
 #[cfg(test)]
@@ -61,6 +63,7 @@ mod ios_signing;
 mod ios_signing_identity;
 mod ios_toolchain_facts;
 mod ios_window_controls;
+mod ios_window_settings;
 mod java_web_services;
 mod kotlin_held_streams;
 #[cfg(test)]
@@ -173,6 +176,7 @@ mod native_menu_entry;
 #[cfg(test)]
 mod native_menu_host_tests;
 mod native_menu_shortcut;
+mod native_orientation;
 mod native_outgoing_hosts;
 #[cfg(test)]
 mod native_packaged_utility_tests;

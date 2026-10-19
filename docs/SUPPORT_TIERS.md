@@ -558,6 +558,17 @@ This evidence does not promote any tier.
 | Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1) | under Wine in the cloud only; see the Windows paragraph above. Owed: the MSVC build, the Windows dialog run and a picker from a WebView2 page on a signed-in desktop |
 | iOS, Android | no: `unsupported` (FP4, FP2) | see the per-target support table |
 
+### Window settings on iOS and Android (2026-10-19, WIN5)
+
+`theme_color`, `background_color`, `display`, `orientation` and
+`tac.application.window.titleBar: "integrated"` now reach the mobile apps
+(ADR 0052 and ADR 0098 amendments). This evidence does not promote any tier.
+
+| Host | Implemented | Validated |
+| --- | --- | --- |
+| iOS WKWebView | yes: the status bar strip and its text color, the web view and launch screen color (an asset catalog color), the hidden status bar, the supported interface orientations, edge to edge with the three `--tac-titlebar-*` properties from the safe-area insets, and `WindowControls` for linked Swift services | `scripts/ios/window-settings-test.mjs` on the Mac (macOS 26.6.2, Xcode 27.1 27A9275, iOS 26.5 simulators, WIN5 branch on develop eefb70b0) built three apps and read the running page, a linked Swift service and a screenshot. iPhone 17 Pro: a standard window with a dark `theme_color` showed it across the 62-point status bar with light text (`statusBarStyle` 1), started the page at the safe-area top and showed `background_color` through the transparent page; the bundle's `Assets.car` held the launch color. An integrated window with a light `theme_color` put the page at the top edge with dark text (3), set `--tac-titlebar-height` to `62px`, and the page's own bar filled the status bar in the screenshot. `display: "fullscreen"` with `landscape` hid the status bar and opened in landscape (750 by 382). The linked Swift service saw the `title` grant and no `minimize` grant and set the scene title to `Quarterly report` on the iPhone and on an iPad Pro 13-inch (M5). Not checked: the launch screen on screen, a device turned by hand, and a physical device |
+| Android WebView | yes: the status and navigation bar colors and icon colors, the window, splash screen and web view color, hidden system bars, `screenOrientation`, and edge to edge with the three properties from the system-bar and cutout insets | `scripts/android/window-settings-test.mjs` on the Mac's API 35 arm64 emulator (`tachyon-gate`, 1080 by 2400 at 420 dpi) built three APKs and read the page over DevTools, `aapt2` for the manifest and `screencap` pixels. A standard window filled the status and navigation bars with `theme_color` and showed `background_color` through the page (412 by 842). An integrated window drew the page under the status bar, set `--tac-titlebar-height` to `49px`, and the page's bar reached the bottom of the status bar. `display: "fullscreen"` with `landscape` opened in landscape with no system bars (866 by 412, the 49 dp cutout still pads the leading side). Not checked by the run: the bar icon colors, the splash screen, Android below API 35, and a physical device |
+
 ### Web storage across relaunch (2026-10-18)
 
 ADR 0059's amendment of 2026-10-18 covers this. Each host check writes an

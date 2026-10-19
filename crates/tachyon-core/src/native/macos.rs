@@ -495,7 +495,7 @@ impl MacOsHostGenerator {
         )
     }
 
-    fn capability_registration(call: &str) -> &'static str {
+    pub(super) fn capability_registration(call: &str) -> &'static str {
         if call.contains("tacNativeInvoke") {
             return "NativeCapabilities.call = { capability, payload in MainActor.assumeIsolated { NativeBridge.shared.handle(capability, payload) } }";
         }

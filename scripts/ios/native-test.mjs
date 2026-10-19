@@ -466,6 +466,8 @@ async function main() {
   } finally {
     cleanup();
   }
+  run(process.execPath, [path.join(IosGate.repo, 'scripts/ios/window-settings-test.mjs')], 1800000);
+  console.log('PASS: iOS window settings on an iPhone and an iPad simulator');
 }
 
 await main();

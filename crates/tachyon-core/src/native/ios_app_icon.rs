@@ -1,5 +1,6 @@
-use super::config::NativeApplication;
+use super::config::{NativeApplication, WindowConfiguration};
 use super::host::{native_io, run_tool, write};
+use super::ios_launch_screen::IosLaunchScreen;
 use super::system_version::SystemVersion;
 use crate::Failure;
 use crate::failure::diagnostic;
@@ -33,17 +34,17 @@ impl IosAppIcon {
     }
 
     pub(super) async fn plist_keys(
-        source: Option<&Path>,
+        (source, window): (Option<&Path>, &WindowConfiguration),
         bundle: &Path,
         scratch: &Path,
         deployment: SystemVersion,
         app_store: bool,
     ) -> Result<String, Failure> {
-        Self::compiled(source, bundle, scratch, deployment, app_store).await
+        Self::compiled((source, window), bundle, scratch, deployment, app_store).await
     }
 
     async fn compiled(
-        source: Option<&Path>,
+        (source, window): (Option<&Path>, &WindowConfiguration),
         bundle: &Path,
         scratch: &Path,
         deployment: SystemVersion,
@@ -54,6 +55,7 @@ impl IosAppIcon {
         };
         let catalog = scratch.join(Self::CATALOG[0]);
         let icon = Self::stage_catalog(&catalog, source).await?;
+        IosLaunchScreen::stage_color(&catalog, window)?;
         Self::require_opaque(&icon, app_store).await?;
         Self::compile_catalog(&catalog, bundle, scratch, deployment).await
     }

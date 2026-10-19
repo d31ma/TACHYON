@@ -36,8 +36,8 @@
     "macos": {"reach": "notApplied", "note": "theme_color is written into each page head, but the macOS window does not use it yet (WIN7)."},
     "windows": {"reach": "adapted", "note": "theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. A run of the caption color on a signed-in Windows 11 desktop is still owed."},
     "linux": {"reach": "adapted", "note": "theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar. With titleBar \"integrated\" there is no header bar: the page colors the top edge."},
-    "ios": {"reach": "notApplied", "note": "theme_color is written into each page head, but the iOS status bar does not use it yet (WIN5)."},
-    "android": {"reach": "notApplied", "note": "theme_color is written into each page head, but the Android status bar does not use it yet (WIN5)."}
+    "ios": {"reach": "adapted", "note": "theme_color fills the area behind the iOS status bar and picks dark or light status bar text by contrast, when it is written as #rgb or #rrggbb. With titleBar \"integrated\" the page draws there instead and theme_color only picks the text color. Other color forms keep the system background."},
+    "android": {"reach": "adapted", "note": "theme_color fills the Android status and navigation bars and picks dark or light bar icons by contrast, when it is written as #rgb or #rrggbb. With titleBar \"integrated\" the page draws under the status bar instead. Other color forms keep the system bars."}
   },
   {
     "member": "background_color",
@@ -46,8 +46,8 @@
     "macos": {"reach": "notApplied", "note": "background_color is not applied to the macOS app yet (WIN7)."},
     "windows": {"reach": "notApplied", "note": "background_color is not applied to the Windows app yet (WIN7)."},
     "linux": {"reach": "notApplied", "note": "background_color is not applied to the Linux app yet (WIN7)."},
-    "ios": {"reach": "notApplied", "note": "background_color is not applied to the iOS app yet."},
-    "android": {"reach": "notApplied", "note": "background_color is not applied to the Android app yet."}
+    "ios": {"reach": "adapted", "note": "background_color colors the iOS launch screen and the web view behind the page, when it is written as #rgb or #rrggbb. Other color forms keep the system background."},
+    "android": {"reach": "adapted", "note": "background_color colors the Android window, the splash screen (Android 12 and later) and the web view behind the page, when it is written as #rgb or #rrggbb. Other color forms keep the system background."}
   },
   {
     "member": "display",
@@ -56,8 +56,8 @@
     "macos": {"reach": "notApplied", "note": "display is not applied yet. The macOS app opens a standard window (WIN7)."},
     "windows": {"reach": "adapted", "note": "display \"fullscreen\" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window."},
     "linux": {"reach": "adapted", "note": "display \"fullscreen\" starts the Linux app full screen. The other values open a standard window."},
-    "ios": {"reach": "notApplied", "note": "display is not applied yet. The iOS app keeps the system status bar (WIN5)."},
-    "android": {"reach": "notApplied", "note": "display is not applied yet. The Android app keeps the system bars (WIN5)."}
+    "ios": {"reach": "adapted", "note": "display \"fullscreen\" hides the iOS status bar from launch and lets the home indicator fade. The other values keep the status bar."},
+    "android": {"reach": "adapted", "note": "display \"fullscreen\" hides the Android status and navigation bars; a swipe from the edge shows them for a moment. The other values keep the system bars."}
   },
   {
     "member": "orientation",
@@ -66,8 +66,8 @@
     "macos": {"reach": "notApplicable", "note": "orientation has no meaning for a macOS window."},
     "windows": {"reach": "notApplicable", "note": "orientation has no meaning for a Windows window."},
     "linux": {"reach": "notApplicable", "note": "orientation has no meaning for a Linux window."},
-    "ios": {"reach": "notApplied", "note": "orientation is not applied yet. The iOS app is locked to portrait (WIN5)."},
-    "android": {"reach": "notApplied", "note": "orientation is not applied yet. The Android app turns with the device (WIN5)."}
+    "ios": {"reach": "adapted", "note": "orientation sets the iOS supported interface orientations: portrait and landscape allow both turns of the device, the -primary and -secondary values one, natural means portrait, and any (or no value) allows all four. iPhones without a Home button never turn upside down. A locked orientation also asks iPadOS for full screen, because iPad windows that share the screen turn freely."},
+    "android": {"reach": "adapted", "note": "orientation sets the Android activity's screenOrientation: portrait and landscape follow the user's rotation lock between both turns, the -primary and -secondary values fix one turn, natural ignores the sensor, and any (or no value) turns with the device."}
   },
   {
     "member": "tachyon (top-level)",
@@ -176,7 +176,7 @@
     "macos": {"reach": "runOwed", "how": "close, fullscreen, maximize (zoom), minimize, resize and title", "run": "a granted control from a page or service on a Mac; the GUI checks run only the refused path"},
     "windows": {"reach": "runOwed", "how": "close, fullscreen, maximize, minimize, resize and title", "run": "a page call inside WebView2 on a signed-in Windows desktop; the controls already ran on a real Win32 window"},
     "linux": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services"},
-    "ios": {"reach": "adapted", "note": "tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, and only for calls from the page: linked Swift services get no window controls on iOS. granted() answers false for the other controls."},
+    "ios": {"reach": "adapted", "note": "tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, for calls from the page and from linked Swift services. granted() answers false for the other controls."},
     "android": {"reach": "adapted", "note": "tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. Only a refused control has run on the emulator; a granted run is still owed."}
   },
   {
@@ -186,8 +186,8 @@
     "macos": {"reach": "honored", "how": "\"integrated\" draws the page under the title bar"},
     "windows": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" lets the Windows page reach the top edge under the system caption buttons, with the same insets as macOS and drag regions that WebView2 handles (ADR 0098). The menu bar moves into the window menu (Alt+Space, or a right-click on a drag region). The page covers the top edge, so the window resizes from its sides and bottom. Not yet run on a signed-in desktop (SD1)."},
     "linux": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" lets the Linux page reach the top edge under GTK's own window buttons, with the same insets and drag regions as macOS (ADR 0098). The menu bar moves into a main menu button beside the window buttons, as in GNOME apps."},
-    "ios": {"reach": "notApplied", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The iOS app keeps the standard status bar (ADR 0098, WIN5)."},
-    "android": {"reach": "notApplied", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Android app keeps the standard status bar (ADR 0098, WIN5)."}
+    "ios": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" lets the iOS page draw edge to edge, under the status bar. --tac-titlebar-height is the top safe-area inset, and the leading and trailing insets are the side safe-area insets. There are no window buttons and no drag regions (ADR 0098)."},
+    "android": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" lets the Android page draw edge to edge, under the status bar. --tac-titlebar-height is the status bar height, and the leading and trailing insets are the side system-bar and display-cutout insets. The navigation bar still pads the page. There are no window buttons and no drag regions (ADR 0098)."}
   },
   {
     "member": "tac.application.window.titleBarButtonInset",
