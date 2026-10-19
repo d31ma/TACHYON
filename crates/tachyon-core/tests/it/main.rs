@@ -53,6 +53,7 @@ mod tac_fsharp_behaviors;
 mod tac_fsharp_checks;
 mod tac_fsharp_context;
 mod tac_fsharp_http;
+mod tac_http_verbs;
 mod tac_model_binding;
 mod test_assertions;
 mod test_units;

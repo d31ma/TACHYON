@@ -430,7 +430,7 @@ fn test_members(unit: &Unit, environment: &str) -> String {
     let calls = super::super::ValueSource::csharp_calls(&unit.cases, &unit.inputs);
     let names = case_names(&calls);
     let dispatch = joined(&calls, |(name, call)| {
-        format!("case {}: {call}; return;", quote(name))
+        format!("case {}: RunCaseBody(() => {call}); return;", quote(name))
     });
     let context = test_context(unit);
     let cleared_fakes = joined(&unit.mocks, |name| format!("this.{name} = default;\n"));
@@ -438,6 +438,8 @@ fn test_members(unit: &Unit, environment: &str) -> String {
         "\npublic BehaviorContext behaviors;\n\
          public void startBehaviors() {{ stopBehaviors(); this.behaviors = {context}; }}\n\
          public void stopBehaviors() {{ if (this.behaviors != null) {{ this.behaviors.Dispose(); this.behaviors = null; }} }}\n\
+         static void RunCaseBody(System.Action body) => body();\n\
+         static void RunCaseBody(System.Func<System.Threading.Tasks.Task> body) => body().GetAwaiter().GetResult();\n\
          void runCase(string name) {{ switch (name) {{ {dispatch} default: return; }} }}\n\
          public {report} POST() {{\n\
          var cases = new System.Collections.Generic.List<BehaviorJSON>();\n\

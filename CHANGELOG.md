@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Tac outbound HTTP markers now have run proof in the 12 Tac languages that
+  lacked it (PR1). One table-driven test, `tests/it/tac_http_verbs.rs`, runs
+  a test unit in JavaScript, TypeScript, Dart, Rust, C#, Kotlin, Swift, Go,
+  Ruby, Python, Lua and C++ whose service calls an `HTTPClient("/api")`
+  with `PutRequest`, `PatchRequest` and `DeleteRequest` methods. A TestSetup
+  adapter echoes each request, and the cases check the method, the
+  `PathVariable` path, the `RequestHeader` and the `RequestBody`. A language
+  whose toolchain is missing is skipped with a message.
 - Links to the hosts in `tac.application.links` can open macOS and Windows
   apps (LK3, ADR 0106 amendment). A Windows `--release` MSIX package declares
   them as app URI handlers, and the web build writes
@@ -1549,6 +1557,14 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- A C# test case declared `async Task` is now awaited. Before, its Task was
+  dropped, so a failing assertion after the first `await` still reported
+  the case as passed.
+- In C# and Dart test units, `construct` now gives an empty `@Fake`
+  `HTTPClient` field a client built on the unit's test context, as Kotlin,
+  Swift, Java and Rust already did, so the TestSetup's adapter answers it.
+  Before, `construct` refused the empty Fake.
 
 - A JavaScript or TypeScript service's `HTTPClient` read now goes through the
   page's Yon read cache. The page transport in `tac-client.js` called `fetch`

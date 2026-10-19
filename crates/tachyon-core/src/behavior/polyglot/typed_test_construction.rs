@@ -7,7 +7,7 @@ pub(super) struct TypedTestConstruction;
 
 impl TypedTestConstruction {
     const NO_SETUP: &'static str = "Test.construct needs an active test setup.";
-    const CLIENT_LANGUAGES: [&'static str; 2] = ["kt", "swift"];
+    const CLIENT_LANGUAGES: [&'static str; 3] = ["kt", "swift", "cs"];
 
     pub(super) fn members(module: &Module, owner: &Type, unit: &Unit, language: &str) -> String {
         Self::compose(module, owner, unit, language)
@@ -152,6 +152,7 @@ impl TypedTestConstruction {
     fn client_source(name: &str, kind: &str, message: &str, language: &str) -> String {
         match language {
             "swift" => format!("self.{name} ?? {kind}(behaviors!)"),
+            "cs" => format!("(this.{name} ?? new {kind}(this.behaviors))"),
             _ => format!("(this.{name} ?: {kind}(checkNotNull(this.behaviors) {{ {message} }}))"),
         }
     }
