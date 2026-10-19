@@ -1,6 +1,6 @@
 # ADR 0106: Deep Links Come From the Manifest
 
-- Status: Accepted; host runs on macOS, iOS, Android and a Windows desktop are pending
+- Status: Accepted; host runs on a Windows desktop are pending
 - Date: 2026-10-19
 - Related: [ADR 0018](0018-native-hosts-run-the-platform-javascript-engine.md)
   (native hosts and links that leave the app),
@@ -37,7 +37,9 @@ Android) also need files on the web site and the app's signing identity.
      leading slashes: `myapp://settings`, `myapp:///settings` and
      `myapp:settings` all open `/settings`.
    - For a host link, the route is the link's path.
-   - The query and fragment are kept. A trailing slash is ignored.
+   - The query and fragment are kept. A trailing slash is ignored. On macOS,
+     a fragment needs the `scheme://` form: the system rewrites `#` to `%23`
+     in a link such as `myapp:settings#top`, which then opens `start_url`.
    - A route the app does not have, or one that is not a canonical local
      route, opens `start_url` instead.
    - The rule is written once per host language: `native_deep_link.h` (C, for
@@ -107,7 +109,8 @@ Android) also need files on the web site and the app's signing identity.
   forwarding code with MinGW-w64 under Wine 9.0, and `makemsix` validated an
   MSIX manifest that declares two schemes. The generated Linux host
   opened a launch link at its route, and a second instance's links reached the
-  running window, under Xvfb with a D-Bus session bus. Owed: the Swift rule
-  and the macOS and iOS hosts on a Mac, the Android emulator, WebView2 on a
-  Windows desktop, a Linux desktop with the `.desktop` file installed, and a
+  running window, under Xvfb with a D-Bus session bus. On the Mac, the Swift
+  rule passed, and a built app opened links at launch and while running on
+  macOS, an iOS 26.5 simulator and the Android emulator. Owed: WebView2 on a
+  Windows desktop, an installed MSIX package, a Linux desktop with the `.desktop` file installed, and a
   signed iOS device check of universal links once `TAC_APPLE_TEAM_ID` is set.
