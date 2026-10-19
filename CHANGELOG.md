@@ -243,8 +243,9 @@ machine contracts have their own, independent major versions.
   the certificate from the keychain, or `TAC_MACOS_SIGNING_IDENTITY`; a
   missing variable stops the build with `TY1605` before anything is built.
   `TAC_MACOS_SIGNING_IDENTITY=-` signs ad hoc and skips notarization, for a
-  test on the build Mac. `--arch universal` works with `--release`. No run
-  with a Developer ID certificate has been made yet.
+  test on the build Mac. `--arch universal` works with `--release`. A
+  Developer ID release was notarized, stapled and accepted by Gatekeeper on
+  a Mac.
 - `ty bundle --target windows --release` builds an MSIX package,
   `dist/windows/<Name>/<Name>.msix`, with `makeappx` and signs it with
   `signtool` (ADR 0104). The certificate comes only from the environment:

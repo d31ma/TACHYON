@@ -131,9 +131,10 @@ Apple Developer team. A Mac App Store variant comes later and is not built.
    timestamp, `hdiutil` and the stapled ticket differ each time (ADR 0005).
 
 Consequences: the macOS row of the support table's "release packaging"
-entry says `adapted` until a Developer ID release has been notarized on a
-Mac; `crates/tachyon-cli/tests/it/macos_release_cli.rs` holds the Mac tests,
-the Developer ID one ignored unless the team's certificate and profile are
+entry says `honored`, since a Developer ID release was notarized, stapled and
+accepted by Gatekeeper on a Mac on 2026-10-19;
+`crates/tachyon-cli/tests/it/macos_release_cli.rs` holds the Mac tests, the
+Developer ID one ignored unless the team's certificate and profile are
 present.
 
 ## Amendment (2026-10-19): Linux AppImage and `.deb`

@@ -58,12 +58,14 @@ output, the codesign, hdiutil, notarytool, stapler and spctl arguments, the
 entitlements from the manifest grants, and the notarization answer. On
 2026-10-19 the macOS tests in `crates/tachyon-cli/tests/it/macos_release_cli.rs`
 passed on an Apple silicon Mac: an ad hoc release with the hardened runtime
-flag, the location entitlement and the expected `.dmg` contents. Not yet run:
-signing with the team's Developer ID certificate and notarization (the ignored
-Developer ID test). The team's Developer ID Application certificate is in the
-Mac keychain, but `xcrun notarytool store-credentials` answers HTTP 403 ("a
-required agreement is missing or has expired") for team JAU9V4WH99, so no
-notary profile exists yet.
+flag, the location entitlement and the expected `.dmg` contents. On the same
+day the ignored Developer ID test passed on that Mac (develop `fe191f12`),
+with team JAU9V4WH99's Developer ID Application certificate and a notarytool
+keychain profile: Apple answered `Accepted`, `xcrun stapler validate`
+accepted the stapled ticket, `spctl --assess --type open` answered
+`source=Notarized Developer ID`, and the app carries `TeamIdentifier=JAU9V4WH99`
+and the hardened runtime flag. The location prompt that the entitlement
+allows is still checked by hand (the `geolocation` row).
 
 Linux release packages (2026-10-19, ADR 0104 amendment): `ty bundle --target
 linux --release` was built in an x86_64 Ubuntu 24.04 cloud container (GTK
