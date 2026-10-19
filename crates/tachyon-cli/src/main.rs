@@ -365,7 +365,7 @@ enum Command {
     },
     #[command(
         about = "Report whether this machine has the toolchains a project needs",
-        after_help = "Exit status:\n  0  every toolchain the project needs to build and serve is ready\n  1  a needed toolchain is missing or too old, or the project cannot be read\n\nToolchains needed only to bundle or release a native target are reported as info and do not change the exit status. With --release, they are needed too.",
+        after_help = "Exit status:\n  0  every toolchain the project needs to build and serve is ready\n  1  a needed toolchain is missing or too old, or the project cannot be read\n\nToolchains needed only to bundle or release a native target are reported as info and do not change the exit status. With --release, those of the targets this machine can build are needed too.",
         hide = true
     )]
     Doctor {
@@ -389,7 +389,7 @@ enum Command {
         )]
         yes: bool,
         #[arg(
-            help = "Also need the tools that build and sign a release of each declared native target",
+            help = "Also need the tools that build and sign a release of each declared native target that this machine can build",
             long
         )]
         release: bool,

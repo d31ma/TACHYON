@@ -659,30 +659,35 @@ mod tests {
     }
 
     #[test]
-    fn a_release_check_needs_the_tools_of_every_declared_target() {
+    fn a_release_check_needs_only_the_tools_of_targets_this_machine_builds() {
         let root = project_with(&[
             ("client/pages/tac.html", "<main>x</main>"),
             (
                 "package.json",
-                "{\"scripts\": {\"bundle:windows\": \"ty bundle --target windows\"}}",
+                "{\"scripts\": {\"bundle:windows\": \"\", \"bundle:linux\": \"\", \"bundle:android\": \"\"}}",
             ),
         ]);
         let report = DoctorReport::check_for_release(root.path(), true).expect("report");
-        let mut rows = Vec::new();
         for entry in &report.toolchains {
-            rows.push((entry.requirement.as_str(), entry.required));
-        }
-        assert_eq!(
-            rows,
-            [
-                ("windows apps", true),
-                ("windows apps", true),
-                ("windows apps", true),
-                ("windows releases", true),
-                ("windows releases", true),
+            let needed = [
+                entry.requirement.starts_with("windows") && cfg!(windows),
+                entry.requirement.starts_with("linux") && cfg!(target_os = "linux"),
+                entry.requirement.starts_with("android"),
             ]
-        );
-        let ready = report.toolchains.iter().all(Toolchain::is_ready);
+            .contains(&true);
+            assert_eq!(entry.required, needed, "{entry:?}");
+        }
+        let releases = report
+            .toolchains
+            .iter()
+            .filter(|entry| entry.requirement.ends_with(" releases"))
+            .count();
+        assert_eq!(releases, 6, "{:?}", report.toolchains);
+        let ready = report
+            .toolchains
+            .iter()
+            .filter(|entry| entry.required)
+            .all(Toolchain::is_ready);
         assert_eq!(report.is_ready(), ready, "{:?}", report.toolchains);
         let informational = check(root.path()).expect("report");
         assert!(informational.is_ready(), "{:?}", informational.toolchains);

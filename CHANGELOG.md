@@ -102,8 +102,8 @@ machine contracts have their own, independent major versions.
   the SDK's build-tools for Android; `makeappx.exe` and `signtool.exe` for
   Windows; `dpkg-deb` and `mksquashfs` for Linux. Certificates are only
   counted, never named. The rows are `info`; `ty doctor --release` makes them
-  and the `<target> apps` rows needed, so a missing tool exits with 1
-  (ADR 0066 amendment).
+  and the `<target> apps` rows needed for the targets this machine can build,
+  so a missing tool exits with 1 (ADR 0066 amendment).
 - Web builds write `artifact-manifest.json` next to `route-manifest.json`,
   the same Artifact Manifest v1 that native builds write, with `web` as its
   target. Two builds of the same sources give the same bytes, so byte-identical
