@@ -1,61 +1,28 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
+import { PageServicesFixture } from '../native/page-services-fixture.mjs'
 
 class LinuxPageServicesTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'linux-page-services-'))
-  static features = path.join(LinuxPageServicesTest.repository, 'website/content/features')
-  static serviceLanguages = LinuxPageServicesTest.list('TAC_LINUX_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
-  static windowCallers = LinuxPageServicesTest.list('TAC_LINUX_WINDOW_CALLERS', 'swift,cs,kt')
-  static tallySteps = [
-    ['wait', ['0 in the basket', 'Add two']],
-    ['click', 'Add two'],
-    ['wait', ['2 in the basket', '2 items']],
-  ]
-  static reportSteps = [
-    ['wait', ['Report', 'Rename']],
-    ['click', 'Rename'],
-    ['wait', ['Quarterly report']],
-    ['click', 'Resize'],
-    ['size', [1280, 800]],
-  ]
+  static serviceLanguages = PageServicesFixture.list('TAC_LINUX_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
+  static windowCallers = PageServicesFixture.list('TAC_LINUX_WINDOW_CALLERS', 'swift,cs,kt')
+  static tallySteps = PageServicesFixture.tallySteps
+  static reportSteps = PageServicesFixture.reportSteps
   static screen = '1600x1200x24'
-
-  /** @param {string} name @param {string} fallback */
-  static list(name, fallback) {
-    return (process.env[name] ?? fallback).split(',').map(item => item.trim()).filter(Boolean)
-  }
 
   /** @param {string} command @param {string[]} args @param {import('../supervised-command.mjs').CommandOptions} options */
   static async run(command, args, options) {
     const result = await SupervisedCommand.run(command, args, { cwd: this.repository, ...options })
     assert.ok(result.status === 0 && result.cleanupConfirmed, `${command} ${args.join(' ')}\n${result.error?.message ?? ''}\n${result.stdout}${result.stderr}`)
     return result.stdout
-  }
-
-  /** @param {string} project @param {string} feature @param {string} name @param {string} id */
-  static stage(project, feature, name, id) {
-    const source = path.join(this.features, feature, 'client')
-    for (const entry of ['pages', 'components']) cpSync(path.join(source, entry), path.join(project, 'client', entry), { recursive: true })
-    const manifest = JSON.parse(readFileSync(path.join(source, 'manifest.json'), 'utf8'))
-    manifest.tac = { ...manifest.tac, application: { ...manifest.tac?.application, id } }
-    manifest.name ??= name
-    writeFileSync(path.join(project, 'client/manifest.json'), JSON.stringify(manifest, null, 2))
-    return manifest.name.replace(/[^A-Za-z0-9]/g, '')
-  }
-
-  /** @param {string} project @param {string} feature @param {string} file */
-  static copyService(project, feature, file) {
-    const target = path.join(project, 'client/services', path.basename(file))
-    mkdirSync(path.dirname(target), { recursive: true })
-    cpSync(path.join(this.features, feature, file), target)
   }
 
   /** @param {string} project @param {string} application @param {Array<[string, unknown]>} steps */
@@ -99,8 +66,7 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
   /** @param {string} language */
   static async checkService(language) {
     const project = path.join(this.root, `tally-${language}`)
-    const application = this.stage(project, 'web-assembly-services', 'Tally', `dev.tachyon.tally-${language}`)
-    this.copyService(project, 'web-assembly-services', `client/services/TallyService.${language}`)
+    const application = PageServicesFixture.stageTally(project, language)
     const started = Date.now()
     await this.build(project)
     const built = ((Date.now() - started) / 1000).toFixed(0)
@@ -111,8 +77,7 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
   /** @param {string} language */
   static async checkWindowCaller(language) {
     const project = path.join(this.root, `window-${language}`)
-    const application = this.stage(project, 'window-controls', 'Catalog', `dev.tachyon.window-${language}`)
-    this.copyService(project, 'window-controls', `client/services/ReportService.${language}`)
+    const application = PageServicesFixture.stageWindowCaller(project, language)
     await this.build(project)
     const output = await this.drive(project, application, this.reportSteps)
     console.log(`==> ${language} WebAssembly WindowControls caller\n${output}`)
