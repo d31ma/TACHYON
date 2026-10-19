@@ -1134,7 +1134,8 @@ impl Server {
     async fn closed_answer(&self) -> String {
         let marker = self.project.path().join(ChatProject::CLOSED);
         for _ in 0..300 {
-            if let Ok(answer) = fs::read_to_string(&marker) {
+            let written = fs::read_to_string(&marker).ok();
+            if let Some(answer) = written.filter(|answer| !answer.is_empty()) {
                 return answer;
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
