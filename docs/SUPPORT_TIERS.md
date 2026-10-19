@@ -172,8 +172,11 @@ pointer events: the insets were 46/46/135 px with a `close:minimize,maximize`
 layout, presses on a button in the drag region and below it reached the page
 while a press in the region did not, a 120x72 px drag moved the window by
 that much, a double-click maximized and a second one restored, full screen
-zeroed the insets, and a new page started with them. Not run: WSL (aarch64),
-a physical desktop, a compositing window manager, Wayland.
+zeroed the insets, and a new page started with them. The same run on WSL
+(Ubuntu 24.04.5, aarch64, GTK 4.14.5, WebKitGTK 2.52.6, Xvfb with xfwm4) on
+develop `38eaed29` passed all eleven ignored Linux host tests, and the title
+bar test three of three times. Not run: a physical desktop, a compositing
+window manager, Wayland.
 
 ### Native apps reach Yon through a declared origin (2026-10-18)
 
