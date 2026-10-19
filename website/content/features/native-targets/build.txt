@@ -43,5 +43,11 @@ ty bundle --target windows --release builds an MSIX package signed
 with signtool. Set TAC_WINDOWS_CERTIFICATE to a .pfx file (and
 TAC_WINDOWS_CERTIFICATE_PASSWORD), or TAC_WINDOWS_CERTIFICATE_THUMBPRINT
 to a certificate in your store, and TAC_WINDOWS_CERTIFICATE_PUBLISHER
-to the certificate's subject. iOS refuses --release with TY1601
-until its release packaging lands.
+to the certificate's subject.
+
+ty bundle --target ios --release builds an .ipa for App Store
+Connect and TestFlight, and --device builds one for a registered
+iPhone or iPad. Both run on a Mac with Xcode: set TAC_APPLE_TEAM_ID
+to your team ID and TAC_IOS_PROVISIONING_PROFILE to the profile (an
+App Store profile for --release, a development or ad hoc one for
+--device). The certificate comes from the keychain.

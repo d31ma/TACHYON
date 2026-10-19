@@ -4,5 +4,6 @@ use crate::package_architectures::PackageArchitectures;
 pub struct PackagePlan {
     pub package: bool,
     pub release: bool,
+    pub device: bool,
     pub architectures: PackageArchitectures,
 }

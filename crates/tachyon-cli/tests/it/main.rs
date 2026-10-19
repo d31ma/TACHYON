@@ -6,6 +6,7 @@ mod handler_environment;
 mod handler_invoke_arguments;
 mod init_features;
 mod init_wizard;
+mod ios_device_cli;
 mod lua_yon_cli;
 mod macos_release_cli;
 mod native_architecture_cli;

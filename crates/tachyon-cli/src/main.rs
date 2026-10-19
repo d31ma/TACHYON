@@ -4,6 +4,7 @@ mod add_what;
 mod advice_report;
 mod architecture_choice;
 mod coverage_gate;
+mod device_choice;
 mod init_choices;
 mod init_command;
 mod package_architectures;
@@ -42,6 +43,7 @@ use add_what::AddWhat;
 use advice_report::AdviceReport;
 use architecture_choice::ArchitectureChoice;
 use coverage_gate::CoverageGate;
+use device_choice::DeviceChoice;
 use init_choices::InitChoices;
 use init_command::InitCommand;
 use package_architectures::PackageArchitectures;
@@ -174,10 +176,15 @@ enum Command {
         )]
         arch: Option<ArchitectureChoice>,
         #[arg(
-            help = "Build release packages. Android builds an APK and an AAB signed with the keystore in TAC_ANDROID_KEYSTORE; macOS builds a Developer ID-signed, notarized .dmg for the team in TAC_APPLE_TEAM_ID; Linux builds an AppImage and a .deb; Windows builds an MSIX package signed with the certificate in TAC_WINDOWS_CERTIFICATE or TAC_WINDOWS_CERTIFICATE_THUMBPRINT",
+            help = "Build release packages. Android builds an APK and an AAB signed with the keystore in TAC_ANDROID_KEYSTORE; macOS builds a Developer ID-signed, notarized .dmg for the team in TAC_APPLE_TEAM_ID; Linux builds an AppImage and a .deb; Windows builds an MSIX package signed with the certificate in TAC_WINDOWS_CERTIFICATE or TAC_WINDOWS_CERTIFICATE_THUMBPRINT; iOS builds an .ipa for App Store Connect signed with the App Store profile in TAC_IOS_PROVISIONING_PROFILE",
             long
         )]
         release: bool,
+        #[arg(
+            help = "Build the iOS app for a physical iPhone or iPad instead of the simulator, signed with the development or ad hoc profile in TAC_IOS_PROVISIONING_PROFILE",
+            long
+        )]
+        device: bool,
         #[arg(
             help = "Compatibility switch; native hosts are always generated now",
             long,
@@ -689,6 +696,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         native,
         arch,
         release,
+        device,
         skip_initial_build,
         render_mode,
         skip_package,
@@ -723,6 +731,8 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
     let architectures = ArchitectureChoice::for_targets(*arch, &targets)?;
     print_architecture_notes(*arch, &targets)?;
     let release = ReleaseChoice::for_targets(*release, *native || *skip_package, &targets)?;
+    let device = DeviceChoice::for_targets(*device, *native || *skip_package, &targets)?;
+    DeviceChoice::print_note(device, &targets);
     let output = bundle_output(out_dir.as_deref(), &targets);
     let options = BundleExecution {
         no_incremental: *no_incremental,
@@ -735,6 +745,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         plan: PackagePlan {
             package: !*skip_package && !*native,
             release,
+            device,
             architectures,
         },
     };
@@ -775,6 +786,7 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
     let plan = PackagePlan {
         package: false,
         release: false,
+        device: false,
         architectures,
     };
     execute_build_with_package(project, &output, *no_incremental, target, plan).await
@@ -1597,6 +1609,7 @@ async fn execute_build(
     let plan = PackagePlan {
         package: true,
         release: false,
+        device: false,
         architectures: PackageArchitectures::default(),
     };
     execute_build_with_package(project, out_dir, no_incremental, target, plan).await
@@ -1682,6 +1695,7 @@ async fn execute_native_build(
             target: native,
             package: plan.package,
             release: plan.release,
+            device: plan.device,
             windows_architecture: plan.architectures.windows,
             macos_architecture: plan.architectures.macos,
             incremental: !no_incremental,

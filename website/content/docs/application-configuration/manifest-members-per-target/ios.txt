@@ -43,7 +43,7 @@ tac.application.minimumSystem
   honored: MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)
 
 tac.application.links
-  adapted: tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a signed device build (PKG2); until then only the custom schemes open the app.
+  adapted: tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a --device or --release build, whose profile has the Associated Domains capability; no signed build has opened one on a device yet. A simulator build opens only the custom schemes.
 
 tac.application.window.width, height
   not applicable: tac.application.window width and height have no meaning on iOS: the system sizes the app.
@@ -220,10 +220,10 @@ natively linked service languages
   honored: Swift services are linked into the app; other languages run in the page
 
 build architecture (--arch)
-  adapted: --arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture. Device builds wait on PKG2.
+  adapted: --arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64.
 
 release packaging
-  adapted: The iOS build runs only in the simulator. Device builds and an .ipa wait on PKG2.
+  adapted: ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. No signed iOS build has run on a Mac yet. Other builds run in the simulator.
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off

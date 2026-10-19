@@ -6,3 +6,5 @@ ty cache status
 ty bundle --target windows --arch arm64
 ty bundle --target windows --arch x64
 ty bundle --target macos --arch universal
+ty bundle --target ios --device
+ty bundle --target ios --release

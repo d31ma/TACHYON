@@ -334,7 +334,7 @@ says in one `Note:` line that it does not, or the build refuses it:
 | Windows | `x64` or `arm64`, as above. `universal` gets a note and builds for the build machine. |
 | macOS | `x64`, `arm64` or `universal`. `universal` builds an `arm64` and an `x86_64` app (Swift `-target <arch>-apple-macosx<floor>`, where the floor is `tac.application.minimumSystem.macos` or the one ADR 0033 chooses, Rust `aarch64-apple-darwin` and `x86_64-apple-darwin`) and joins the app and each Rust helper executable with `lipo`. The artifact manifest names `universal`. |
 | Linux | Built for the build machine. A matching `--arch` (or `native`) is honored; any other gets a note. |
-| iOS | The simulator app is built for the build machine, as Linux. Device builds wait on PKG2. |
+| iOS | The simulator app is built for the build machine, as Linux. `--device` and `--release` builds are always `arm64` (ADR 0104 amendment). |
 | Android | No `--arch`: the APK holds no native code yet, so it runs on every ABI. ABIs follow linked Rust on Android (MR2). |
 | Web | No `--arch`: the web build holds no native code. |
 

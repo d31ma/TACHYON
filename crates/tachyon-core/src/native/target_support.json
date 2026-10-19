@@ -146,7 +146,7 @@
     "macos": {"reach": "adapted", "note": "tac.application.links: the macOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Links to the listed hosts stay in the browser, because the unsigned app has no associated domains (PKG1)."},
     "windows": {"reach": "adapted", "note": "tac.application.links: the Windows app registers the listed schemes for the current user when it starts (a --release MSIX package declares them as windows.protocol extensions instead), and opens their links at their route, or at start_url when the route is unknown. A link that arrives while the app runs goes to the open window. Links to the listed hosts stay in the browser, because the app declares no app URI handlers."},
     "linux": {"reach": "adapted", "note": "tac.application.links: the Linux .desktop file claims the listed schemes once it is installed, as the release .deb and AppImage do, and the app opens their links at their route, or at start_url when the route is unknown. A link that arrives while the app runs goes to the open window. Linux has no verified web links, so links to the listed hosts stay in the browser."},
-    "ios": {"reach": "adapted", "note": "tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a signed device build (PKG2); until then only the custom schemes open the app."},
+    "ios": {"reach": "adapted", "note": "tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a --device or --release build, whose profile has the Associated Domains capability; no signed build has opened one on a device yet. A simulator build opens only the custom schemes."},
     "android": {"reach": "adapted", "note": "tac.application.links: the Android app claims the listed schemes, and https links to the listed hosts with autoVerify, and opens them at their route, or at start_url when the route is unknown. Android verifies the hosts only when each one serves /.well-known/assetlinks.json with the app's signing certificate (TAC_ANDROID_CERT_SHA256); until then it asks which app opens their links."}
   },
   {
@@ -736,7 +736,7 @@
     "macos": {"reach": "honored", "how": "--arch x64, arm64 or universal; universal joins an arm64 and an x86_64 build with lipo"},
     "windows": {"reach": "honored", "how": "--arch x64 or arm64"},
     "linux": {"reach": "adapted", "note": "--arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture."},
-    "ios": {"reach": "adapted", "note": "--arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture. Device builds wait on PKG2."},
+    "ios": {"reach": "adapted", "note": "--arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64."},
     "android": {"reach": "adapted", "note": "--arch does not choose Android ABIs: the APK holds no native code yet, so it runs on every ABI. Builds per ABI come with linked Rust on Android (MR2)."}
   },
   {
@@ -746,7 +746,7 @@
     "macos": {"reach": "adapted", "note": "ty bundle --release builds a .dmg whose app is signed with the team's Developer ID certificate and the hardened runtime, then notarizes and staples it; the team and notary profile come from TAC_APPLE_TEAM_ID and TAC_APPLE_NOTARY_PROFILE. No release has been notarized on a Mac yet. Other builds are an ad hoc signed .app."},
     "windows": {"reach": "honored", "how": "ty bundle --target windows --release builds an MSIX package, <Name>.msix, with makeappx and signs it with signtool and the certificate that TAC_WINDOWS_CERTIFICATE (a .pfx file) or TAC_WINDOWS_CERTIFICATE_THUMBPRINT (a certificate in the store) names; TAC_WINDOWS_CERTIFICATE_PUBLISHER is the package publisher. Other builds are a folder with the .exe"},
     "linux": {"reach": "honored", "how": "ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder"},
-    "ios": {"reach": "adapted", "note": "The iOS build runs only in the simulator. Device builds and an .ipa wait on PKG2."},
+    "ios": {"reach": "adapted", "note": "ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. No signed iOS build has run on a Mac yet. Other builds run in the simulator."},
     "android": {"reach": "honored", "how": "ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK"}
   },
   {

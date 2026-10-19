@@ -1,8 +1,11 @@
+use super::compiler::NativeBuildOptions;
 use super::config::NativeApplication;
 use super::host::{
     GeneratedHost, first_line, native_tool_failure, run_tool, stage_application, write,
     write_host_source, xml_escape,
 };
+use super::ios_destination::IosDestination;
+use super::ios_device_build::IosDeviceBuild;
 use super::ios_window_controls::IosWindowControls;
 use super::macos::MacOsHostGenerator;
 use super::native_reproducibility::NativeReproducibility;
@@ -32,10 +35,10 @@ impl IosHostGenerator {
         companions: &[super::registry::NativeCompanionInput],
         web_bundle: &Path,
         stage: &Path,
-        package: bool,
+        options: &NativeBuildOptions,
     ) -> Result<GeneratedHost, Failure> {
-        let bundle_name = format!("{}.app", application.executable_name);
-        let bundle = stage.join(&bundle_name);
+        let destination = IosDestination::of(options);
+        let bundle = stage.join(format!("{}.app", application.executable_name));
         stage_application(index, web_bundle, stage, &bundle)?;
 
         let companion = super::macos::stage_swift_companion(
@@ -46,44 +49,52 @@ impl IosHostGenerator {
         let call = super::macos::companion_call(companion.as_deref(), None);
         let swift_path = stage.join("project").join("TachyonHost.swift");
         write_host_source(&swift_path, &swift_source(application, call, index))?;
-        let icons = stage_icons(application, web_bundle, &bundle).await?;
+        let icons = stage_icons(application, web_bundle, &bundle, destination.signed).await?;
+        let platform = destination.plist_keys("");
         let entitlements =
             super::ios_entitlements::IosEntitlements::write(application, &stage.join("project"))?;
         write(
             &bundle.join("Info.plist"),
-            info_plist(application, &icons).as_bytes(),
+            info_plist(application, &icons, &platform).as_bytes(),
         )?;
-        if !package {
+        if !options.package {
             return Ok(GeneratedHost::not_packaged(PathBuf::from(
                 "project/TachyonHost.swift",
             )));
         }
 
+        let device = IosDeviceBuild::prepare(application, destination).await?;
         let executable = bundle.join(&application.executable_name);
         let deployment = application.minimum_system.floor(NativeTarget::Ios);
-        let swift_version =
-            compile_swift(&swift_path, companion.as_deref(), deployment, &executable).await?;
-        super::ios_entitlements::IosEntitlements::sign(&bundle, entitlements.as_deref()).await?;
+        let swift_version = compile_swift(
+            &swift_path,
+            companion.as_deref(),
+            destination,
+            deployment,
+            &executable,
+        )
+        .await?;
+        let application_bundle = IosDeviceBuild::finish(
+            device,
+            application,
+            web_bundle,
+            stage,
+            &bundle,
+            entitlements.as_deref(),
+        )
+        .await?;
         Ok(GeneratedHost {
-            application_bundle: PathBuf::from(bundle_name),
+            application_bundle,
             toolchain_name: String::from("swift"),
             toolchain_version: swift_version,
         })
     }
 }
 
-fn simulator_triple(deployment: SystemVersion) -> String {
-    let architecture = if cfg!(target_arch = "aarch64") {
-        "arm64"
-    } else {
-        "x86_64"
-    };
-    format!("{architecture}-apple-ios{deployment}-simulator")
-}
-
 async fn compile_swift(
     source: &Path,
     companion: Option<&Path>,
+    destination: IosDestination,
     deployment: SystemVersion,
     executable: &Path,
 ) -> Result<String, Failure> {
@@ -95,15 +106,15 @@ async fn compile_swift(
     }
     let version_output = run_tool(
         "/usr/bin/xcrun",
-        &["--sdk", "iphonesimulator", "swiftc", "--version"],
+        &["--sdk", destination.sdk, "swiftc", "--version"],
     )
     .await?;
     let version = first_line(&version_output, "Swift unknown");
     let inputs = SwiftCompileInputs::of(source, companion, None, executable)?;
-    let triple = simulator_triple(deployment);
+    let triple = destination.triple(deployment);
     let mut arguments = vec![
         "--sdk",
-        "iphonesimulator",
+        destination.sdk,
         "swiftc",
         "-parse-as-library",
         "-O",
@@ -121,10 +132,11 @@ async fn stage_icons(
     application: &NativeApplication,
     web_bundle: &Path,
     bundle: &Path,
+    signed: bool,
 ) -> Result<Vec<String>, Failure> {
     let Some(source) = application
         .largest_icon()
-        .filter(|_| super::apple_icons::AppleIcons::can_convert())
+        .filter(|_| [super::apple_icons::AppleIcons::can_convert(), signed] == [true, false])
     else {
         return Ok(Vec::new());
     };
@@ -170,7 +182,11 @@ fn icon_block(icons: &[String]) -> String {
     )
 }
 
-fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
+pub(super) fn info_plist(
+    application: &NativeApplication,
+    icons: &[String],
+    platform: &str,
+) -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -183,9 +199,7 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
 <key>CFBundleName</key><string>{name}</string>{location}
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>{version}</string>{url_types}
-<key>CFBundleVersion</key><string>{build}</string>
-<key>CFBundleSupportedPlatforms</key><array><string>iPhoneSimulator</string></array>
-<key>DTPlatformName</key><string>iphonesimulator</string>
+<key>CFBundleVersion</key><string>{build}</string>{platform}
 <key>MinimumOSVersion</key><string>{deployment}</string>
 <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
 <key>UILaunchScreen</key><dict/>
@@ -607,8 +621,9 @@ private func tachyonDisposeCompanions() {
 
 #[cfg(test)]
 mod tests {
-    use super::{SystemVersion, info_plist, simulator_triple, swift_source};
+    use super::{SystemVersion, info_plist, swift_source};
     use crate::native::config::NativeApplication;
+    use crate::native::ios_destination::IosDestination;
     use tachyon_contracts::NativeTarget;
 
     fn application() -> NativeApplication {
@@ -670,7 +685,11 @@ mod tests {
 
     #[test]
     fn plist_declares_a_launchable_simulator_bundle() {
-        let plist = info_plist(&application(), &[String::from("AppIcon60x60@2x.png")]);
+        let plist = info_plist(
+            &application(),
+            &[String::from("AppIcon60x60@2x.png")],
+            &IosDestination::SIMULATOR.plist_keys(""),
+        );
         assert!(plist.contains("dev.tachyon.native-catalog"));
         assert!(plist.contains("<string>iPhoneSimulator</string>"));
         assert!(plist.contains("<key>UILaunchScreen</key>"));
@@ -683,7 +702,7 @@ mod tests {
         raised.minimum_system = raised
             .minimum_system
             .with_floor(NativeTarget::Ios, SystemVersion::new(18, 2));
-        let plist = info_plist(&raised, &[]);
+        let plist = info_plist(&raised, &[], &IosDestination::SIMULATOR.plist_keys(""));
         assert!(plist.contains("<key>MinimumOSVersion</key><string>18.2</string>"));
     }
 
@@ -692,20 +711,35 @@ mod tests {
         let mut application = application();
         application.version = String::from("2.1.0");
         application.build = 7;
-        let plist = info_plist(&application, &[]);
+        let plist = info_plist(&application, &[], &IosDestination::SIMULATOR.plist_keys(""));
         assert!(plist.contains("<key>CFBundleShortVersionString</key><string>2.1.0</string>"));
         assert!(plist.contains("<key>CFBundleVersion</key><string>7</string>"));
     }
 
     #[test]
-    fn simulator_triple_matches_the_build_machine() {
-        let triple = simulator_triple(SystemVersion::new(18, 2));
-        assert!(triple.ends_with("-apple-ios18.2-simulator"));
+    fn a_device_plist_runs_on_iphoneos() {
+        let keys = IosDestination::DEVICE
+            .plist_keys("\n<key>DTSDKName</key><string>iphoneos18.2</string>");
+        let plist = info_plist(&application(), &[], &keys);
+        assert!(plist.contains(
+            "<key>CFBundleSupportedPlatforms</key><array><string>iPhoneOS</string></array>"
+        ));
+        assert!(plist.contains("<key>LSRequiresIPhoneOS</key><true/>"));
+        assert!(plist.contains("<key>DTSDKName</key><string>iphoneos18.2</string>"));
+        assert!(!plist.contains("iPhoneSimulator"));
+        assert!(plist.contains("<key>MinimumOSVersion</key>"));
     }
 
     #[test]
     fn plist_carries_the_manifest_reason_for_location() {
-        assert!(!info_plist(&application(), &[]).contains("NSLocation"));
+        assert!(
+            !info_plist(
+                &application(),
+                &[],
+                &IosDestination::SIMULATOR.plist_keys("")
+            )
+            .contains("NSLocation")
+        );
         let mut located = application();
         located.permissions =
             crate::native::browser_api_permissions::BrowserApiPermissions::declared(
@@ -718,7 +752,7 @@ mod tests {
                     (String::from("notifications"), String::from("Order updates")),
                 ]),
             );
-        let plist = info_plist(&located, &[]);
+        let plist = info_plist(&located, &[], &IosDestination::SIMULATOR.plist_keys(""));
         assert!(plist.contains(
             "<key>NSLocationWhenInUseUsageDescription</key><string>Shows stores &amp; more</string>"
         ));

@@ -84,6 +84,16 @@ from an elevated prompt on the signed-in desktop, installed it, launched it
 and found its WebView2 data in the package's LocalState folder. Distribution
 needs a trusted code-signing certificate.
 
+iOS device and App Store packages (2026-10-19, ADR 0104 amendment): code level
+only. In an x86_64 Linux cloud container, unit tests covered the profile
+checks (team, app ID, kind), the certificate choice, the entitlements, the
+Xcode build keys and the device `Info.plist`, and CLI tests covered the
+`TY1001` and `TY1605` refusals. Not yet run: `ty bundle --target ios --device`
+and `--release` on a Mac with Xcode and the team's certificates and profiles,
+which `scripts/ios/native-test.mjs` now does when `TAC_APPLE_TEAM_ID` and
+`TAC_IOS_PROVISIONING_PROFILE` are set; installing and launching on a physical
+device; and an App Store Connect upload.
+
 ### Application services and declared menus on desktop hosts (2026-10-04)
 
 ADR 0097 and its amendment cover an application-lifetime Rust service and

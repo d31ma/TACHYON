@@ -7,11 +7,12 @@ use tachyon_contracts::NativeTarget;
 pub struct ReleasePackaging;
 
 impl ReleasePackaging {
-    const PACKAGED: [NativeTarget; 4] = [
+    const PACKAGED: [NativeTarget; 5] = [
         NativeTarget::Android,
         NativeTarget::Macos,
         NativeTarget::Linux,
         NativeTarget::Windows,
+        NativeTarget::Ios,
     ];
 
     /// Checks that the target can build a signed release package.
@@ -64,22 +65,16 @@ mod tests {
     use tachyon_contracts::NativeTarget;
 
     #[test]
-    fn android_macos_linux_and_windows_build_a_release_package() {
+    fn every_native_target_builds_a_release_package() {
         for target in [
             NativeTarget::Android,
             NativeTarget::Macos,
             NativeTarget::Linux,
             NativeTarget::Windows,
+            NativeTarget::Ios,
         ] {
             assert!(ReleasePackaging::check(target, true).is_ok());
         }
-        assert!(ReleasePackaging::check(NativeTarget::Ios, false).is_ok());
-        let ios = ReleasePackaging::check(NativeTarget::Ios, true)
-            .expect_err("no release packaging")
-            .to_string();
-        assert!(ios.contains("TY1601"));
-        assert!(ios.contains("The iOS target has no release packaging yet"));
-        assert!(ios.contains("Release packages are built for: Android, macOS, Linux, Windows."));
     }
 
     #[test]

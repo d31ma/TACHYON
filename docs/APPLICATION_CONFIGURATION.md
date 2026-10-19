@@ -183,14 +183,14 @@ website shows it as one tab per target.
 `ty bundle --target android --release` builds a signed APK and Android App
 Bundle (`.aab`) next to each other in `dist/android/<Name>/`, and
 `ty bundle --target macos --release` builds a signed, notarized
-`dist/macos/<Name>.dmg` (ADR 0104).
+`dist/macos/<Name>.dmg`, and `ty bundle --target ios --release` builds
+`dist/ios/<Name>.ipa` for App Store Connect (ADR 0104).
 `ty bundle --target linux --release` builds an AppImage and a `.deb` in
 `dist/linux/`; they use the system's GTK 4 and WebKitGTK 6, and their version
 is `tac.application.version`, which must then start with a digit.
 `ty bundle --target windows --release` builds a signed MSIX package,
 `dist/windows/<Name>/<Name>.msix`, next to the app folder it was packed from.
-Other targets refuse `--release` with
-`TY1601` until their release packaging lands. Signing material is never part
+Signing material is never part
 of `client/manifest.json`. `ty` reads it from environment variables of the
 build machine and from its keychain.
 
@@ -229,6 +229,26 @@ Linux packages are not signed by `ty`. Two optional variables shape them:
 | --- | --- |
 | `TAC_LINUX_MAINTAINER` | The `.deb` `Maintainer` field, such as `Ada Lovelace <ada@example.com>`. The app's name when not set. |
 | `TAC_APPIMAGE_RUNTIME` | A local AppImage type 2 runtime file. Without it, `ty` downloads the runtime it pins once into its runtime cache and checks its SHA-256. |
+
+iOS builds for a physical iPhone or iPad with `--device` (a development or ad
+hoc profile; `dist/ios/<Name>.app` and `<Name>.ipa`) or for App Store Connect
+and TestFlight with `--release` (an App Store profile; `<Name>.ipa`). Both run
+on a Mac with Xcode and read `TAC_APPLE_TEAM_ID`, shared with macOS, and:
+
+| Variable | Value |
+| --- | --- |
+| `TAC_IOS_PROVISIONING_PROFILE` | The `.mobileprovision` file for `tac.application.id`. A relative path is read from the directory where `ty` runs. |
+| `TAC_IOS_SIGNING_IDENTITY` | Optional. A certificate name or SHA-1 from the keychain. Without it, `ty` signs with the one keychain certificate that the profile names. |
+
+Both builds stop with `TY1605` before anything is built when a variable is
+missing or the profile is not a file, and before compiling when the profile
+belongs to another team, does not cover the app ID, or is the wrong kind for
+the build. A `--release` build also needs an opaque PNG or JPEG icon in
+`icons`, which `ty` scales to 1024x1024 for the asset catalog (`TY1601`
+otherwise). When `tac.application.links` lists `hosts`, both builds sign them
+as associated domains, so the profile's app ID needs the Associated Domains
+capability (`TY1605` otherwise). Uploading the `.ipa` (with Transporter or
+`xcrun altool`) is up to you.
 
 Windows:
 

@@ -1,6 +1,6 @@
 # ADR 0104: Release Packages Are Opt-In and Signed From the Environment
 
-- Status: Accepted for Android, macOS, Linux and Windows (amended 2026-10-19); iOS is pending
+- Status: Accepted for Android, macOS, Linux, Windows and iOS (amended 2026-10-19)
 - Date: 2026-10-18
 - Related: [ADR 0052](0052-the-manifest-is-the-tac-configuration.md)
   (the version and build number of a native app),
@@ -62,7 +62,7 @@ configuration, so the key can never be named there.
 Each item below is decided by its own ADR amendment when its packaging lands:
 
 - macOS: decided in the 2026-10-19 amendment below.
-- iOS: device builds and an `.ipa` for App Store Connect (decision D2).
+- iOS: decided in the 2026-10-19 amendment below.
 - Linux: AppImage and `.deb` packages (decision D4). Decided in the
   2026-10-19 amendment below.
 - Universal macOS binaries and Android ABI selection.
@@ -270,3 +270,61 @@ app an identity, which toast notifications and protocol activation need.
   checked the rendered pages and the native Rust, OS and publish calls,
   found the WebView2 data in the package's LocalState folder, and removed
   the package again. It passed.
+
+## Amendment (2026-10-19): iOS device and App Store Connect builds
+
+Decision D2 ships iOS through App Store Connect (TestFlight, then the App
+Store) on the developer's own Apple Developer team.
+
+1. **Where the app runs.** `ty bundle --target ios` still builds a simulator
+   app. `--device` builds an arm64 `iphoneos` app for a registered iPhone or
+   iPad, and `--release` builds one for App Store Connect. Both publish
+   `<Name>.app` and `<Name>.ipa` in `dist/ios/`, and the artifact manifest
+   names the `.ipa` (`ios`, `aarch64`, `wkwebview`). `--device` without an iOS
+   target, and `--device` with `--native`, stop with `TY1001`.
+2. **Signing material** comes only from the build machine:
+
+   | Variable | Value |
+   | --- | --- |
+   | `TAC_APPLE_TEAM_ID` | The Apple Developer team ID. |
+   | `TAC_IOS_PROVISIONING_PROFILE` | The `.mobileprovision` file. A relative path is read from the directory where `ty` runs. |
+   | `TAC_IOS_SIGNING_IDENTITY` | Optional. A keychain certificate name or SHA-1. |
+
+   - Before the web build, `ty` stops with `TY1605` when a variable is missing,
+     the team ID is not 10 capital letters and digits, or the profile is not a
+     file.
+   - Before compiling, it decodes the profile (`security cms -D`) and stops
+     with `TY1605` when the profile's team is not `TAC_APPLE_TEAM_ID`, its app
+     ID does not cover `<team>.<tac.application.id>`, or its kind does not fit
+     the build: `--release` needs an App Store profile (no device list, not
+     debuggable) and `--device` a development, ad hoc or enterprise one.
+   - The certificate is the keychain identity (`security find-identity -v -p
+     codesigning`) whose SHA-1 is one of the profile's certificates. None, or
+     more than one, stops the build with `TY1605`, unless
+     `TAC_IOS_SIGNING_IDENTITY` names it.
+3. **The bundle.**
+   - `Info.plist` names `iPhoneOS`, `LSRequiresIPhoneOS`, `arm64` and
+     `UIRequiresFullScreen` (the app is portrait only, so iPad multitasking is
+     off), plus the Xcode and SDK build keys (`DTXcode`, `DTSDKName` and
+     others) that App Store Connect checks, read from `xcodebuild -version`,
+     `xcrun --show-sdk-version` and `sw_vers`.
+   - The largest raster icon in `icons` becomes a 1024x1024 asset catalog icon
+     compiled by `actool`. `--release` stops with `TY1601` when there is no
+     icon or it has an alpha channel, which App Store Connect refuses.
+   - `PrivacyInfo.xcprivacy` declares no tracking and the two required-reason
+     APIs the host and its Swift prelude use: file attributes (`C617.1`, sizes
+     of bundled files) and `UserDefaults` (`CA92.1`, the app's own values).
+     APIs that the app's own Swift services use are the developer's to add.
+   - The profile is embedded as `embedded.mobileprovision`. Entitlements name
+     `<team>.<id>`, the team, `get-task-allow` from the profile and, for App
+     Store builds, `beta-reports-active`. When `tac.application.links` lists
+     `hosts` (ADR 0106), they are added as `applinks:` associated domains, and
+     a profile without the Associated Domains capability stops the build with
+     `TY1605` before compiling.
+   - `codesign --force --generate-entitlement-der --timestamp=none` signs the
+     app, `codesign --verify --strict` checks it, and `ditto` zips
+     `Payload/<Name>.app` into the `.ipa`.
+4. **Out of scope.** Uploading to App Store Connect (Transporter or `xcrun
+   altool`), installing on a device (`xcrun devicectl device install app`),
+   and capabilities that need other entitlements. A signed `.ipa` is not byte-reproducible, because the signature is
+   not.

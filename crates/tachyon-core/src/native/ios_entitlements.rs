@@ -11,6 +11,7 @@ impl IosEntitlements {
     const CODESIGN: &'static str = "/usr/bin/codesign";
     const SIGN_ARGUMENTS: [&'static str; 4] = ["--force", "--sign", "-", "--timestamp=none"];
     const ENTITLEMENTS_ARGUMENT: &'static str = "--entitlements";
+    const DOMAINS_KEY: &'static str = "<key>com.apple.developer.associated-domains</key>";
 
     pub(super) fn write(
         application: &NativeApplication,
@@ -42,26 +43,43 @@ impl IosEntitlements {
         run_tool(Self::CODESIGN, &arguments).await.map(|_| ())
     }
 
+    pub(super) fn associated_domains(application: &NativeApplication) -> String {
+        Self::domains_entry(&Self::domains(application))
+    }
+
     fn document(application: &NativeApplication, team: Option<&AppleTeam>) -> Option<String> {
-        let hosts = application.links.hosts();
-        let team = team.filter(|_| !hosts.is_empty())?;
-        let domains = hosts
-            .iter()
-            .map(|host| format!("<string>applinks:{}</string>", xml_escape(host)))
-            .collect::<Vec<_>>()
-            .concat();
+        let team = team.filter(|_| !application.links.hosts().is_empty())?;
         Some(format!(
             r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>application-identifier</key><string>{application_id}</string>
-<key>com.apple.developer.associated-domains</key><array>{domains}</array>
+{key}<array>{domains}</array>
 <key>com.apple.developer.team-identifier</key><string>{team_id}</string>
 </dict></plist>
 "#,
             application_id = xml_escape(&team.app_id(&application.application_id)),
+            key = Self::DOMAINS_KEY,
+            domains = Self::domains(application),
             team_id = team.id(),
         ))
+    }
+
+    fn domains(application: &NativeApplication) -> String {
+        application
+            .links
+            .hosts()
+            .iter()
+            .map(|host| format!("<string>applinks:{}</string>", xml_escape(host)))
+            .collect::<Vec<_>>()
+            .concat()
+    }
+
+    fn domains_entry(domains: &str) -> String {
+        if domains.is_empty() {
+            return String::new();
+        }
+        format!("\n{}<array>{domains}</array>", Self::DOMAINS_KEY)
     }
 }
 
@@ -99,6 +117,15 @@ mod tests {
                 "<key>com.apple.developer.team-identifier</key><string>A1B2C3D4E5</string>"
             )
         );
+    }
+
+    #[test]
+    fn a_device_build_adds_the_listed_hosts_to_its_profile_entitlements() {
+        assert_eq!(
+            IosEntitlements::associated_domains(&application(&["example.com"])),
+            "\n<key>com.apple.developer.associated-domains</key><array><string>applinks:example.com</string></array>"
+        );
+        assert_eq!(IosEntitlements::associated_domains(&application(&[])), "");
     }
 
     #[test]

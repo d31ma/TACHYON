@@ -115,6 +115,7 @@ fn the_default_architecture_is_the_build_machine_and_the_artifact_names_it() {
         tachyon_contracts::NativeTarget::Windows,
         WindowsArchitecture::ARM64,
         crate::native::MacOsArchitecture::default(),
+        crate::native::ios_destination::IosDestination::SIMULATOR,
     );
     assert_eq!(target.architecture, "aarch64");
     assert_eq!(target.abi, "webview2");

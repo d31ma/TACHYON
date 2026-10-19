@@ -93,15 +93,8 @@ printf 'aab' > app/build/outputs/bundle/release/app-release.aab
 }
 
 #[test]
-fn release_is_refused_for_targets_without_release_packaging() {
+fn release_is_refused_without_a_native_target_or_when_only_staging() {
     let project = ReleaseCli::project();
-    let ios = ReleaseCli::refusal(project.path(), &["--target", "ios", "--release"]);
-    assert!(
-        ios.contains("The iOS target has no release packaging yet"),
-        "{ios}"
-    );
-    let every = ReleaseCli::refusal(project.path(), &["--target", "all", "--release"]);
-    assert!(every.contains("no release packaging yet"), "{every}");
     let web = ReleaseCli::refusal(project.path(), &["--target", "web", "--release"]);
     assert!(web.contains("no native target is being built"), "{web}");
     let staged = ReleaseCli::refusal(

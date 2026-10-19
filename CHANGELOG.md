@@ -90,6 +90,18 @@ machine contracts have their own, independent major versions.
   and `/.well-known/assetlinks.json` when `tac.origin` and
   `TAC_ANDROID_CERT_SHA256` are set, and an iOS build signs the app with its
   associated domains. Android's `route.open` now navigates.
+- `ty bundle --target ios --device` builds the iOS app for a registered iPhone
+  or iPad, and `ty bundle --target ios --release` builds an `.ipa` for App
+  Store Connect and TestFlight, both arm64 `iphoneos` builds in `dist/ios/`
+  (ADR 0104 amendment). The team, the provisioning profile and an optional
+  certificate come only from `TAC_APPLE_TEAM_ID`,
+  `TAC_IOS_PROVISIONING_PROFILE` and `TAC_IOS_SIGNING_IDENTITY`; otherwise the
+  certificate is the keychain identity the profile names. A missing variable,
+  a profile for another team or app ID, or the wrong kind of profile stops the
+  build with `TY1605`. The app gets an asset-catalog icon, a privacy manifest,
+  the Xcode build keys App Store Connect checks, the embedded profile and
+  entitlements. `--release` needs an opaque icon (`TY1601`). `--device`
+  without an iOS target or with `--native` stops with `TY1001`.
 
 - `ty bundle --target android --release` builds a signed release APK and an
   Android App Bundle (`.aab`) for Google Play, both in

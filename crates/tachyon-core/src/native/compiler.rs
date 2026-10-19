@@ -22,12 +22,14 @@ use tachyon_contracts::{
     NativeTarget,
 };
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeBuildOptions {
     pub output_directory: PathBuf,
     pub target: NativeTarget,
     pub package: bool,
     pub release: bool,
+    pub device: bool,
     pub windows_architecture: WindowsArchitecture,
     pub macos_architecture: MacOsArchitecture,
     pub incremental: bool,
@@ -40,6 +42,7 @@ impl Default for NativeBuildOptions {
             target: NativeTarget::Macos,
             package: true,
             release: false,
+            device: false,
             windows_architecture: WindowsArchitecture::default(),
             macos_architecture: MacOsArchitecture::default(),
             incremental: true,
@@ -62,6 +65,7 @@ pub(super) fn artifact_target(
     target: NativeTarget,
     windows: WindowsArchitecture,
     macos: MacOsArchitecture,
+    ios: super::ios_destination::IosDestination,
 ) -> ArtifactTarget {
     let host_architecture = if cfg!(target_arch = "aarch64") {
         "aarch64"
@@ -73,7 +77,7 @@ pub(super) fn artifact_target(
         NativeTarget::Macos => ("macos", macos.artifact_architecture(), "wkwebview"),
         NativeTarget::Windows => ("windows", windows.artifact_architecture(), "webview2"),
         NativeTarget::Android => ("android", "universal", "android-webview"),
-        NativeTarget::Ios => ("ios", host_architecture, "wkwebview-simulator"),
+        NativeTarget::Ios => ("ios", ios.artifact_architecture(host_architecture), ios.abi),
     };
     ArtifactTarget {
         os: String::from(os),
@@ -218,6 +222,7 @@ impl NativeCompiler {
             options.target,
             options.release,
         )?;
+        super::ios_device_build::IosDeviceBuild::preflight(options)?;
         super::native_release_version::NativeReleaseVersion::of(&application)
             .validate_for(options.target)?;
         application.permissions.validate_for(options.target)?;
@@ -385,14 +390,13 @@ async fn generate_host(
     web_bundle: &Path,
     stage: &Path,
 ) -> Result<GeneratedHost, Failure> {
-    let package = options.package;
     match options.target {
         NativeTarget::Macos => {
             MacOsHostGenerator::generate(application, index, companions, web_bundle, stage, options)
                 .await
         }
         NativeTarget::Ios => {
-            IosHostGenerator::generate(application, index, companions, web_bundle, stage, package)
+            IosHostGenerator::generate(application, index, companions, web_bundle, stage, options)
                 .await
         }
         NativeTarget::Linux => {
@@ -527,6 +531,7 @@ fn artifact_manifest(
             options.target,
             options.windows_architecture,
             options.macos_architecture,
+            super::ios_destination::IosDestination::of(options),
         ),
         toolchains: vec![
             ArtifactToolchain {

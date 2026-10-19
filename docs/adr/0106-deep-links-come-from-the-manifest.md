@@ -84,7 +84,8 @@ Android) also need files on the web site and the app's signing identity.
    - An iOS build with `hosts` and `TAC_APPLE_TEAM_ID` writes
      `project/TachyonHost.entitlements` with
      `com.apple.developer.associated-domains` (`applinks:<host>`) and signs the
-     app with it. Universal links still need a signed device build (PKG2).
+     app with it. A `--device` or `--release` build adds the same domains to the
+     entitlements it signs with its provisioning profile (ADR 0104 amendment).
    - The team ID and the fingerprints are environment variables, never
      manifest members (ADR 0104). A malformed value stops the build with
      `TY1601`.

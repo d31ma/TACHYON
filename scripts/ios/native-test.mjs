@@ -6,6 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { crc32, deflateSync } from 'node:zlib';
 
 assert.equal(process.platform, 'darwin', 'iOS qualification requires macOS and Xcode');
 class IosGate {
@@ -217,6 +218,73 @@ function buildIosApp(binary) {
   return bundle;
 }
 
+function opaqueIcon(edge) {
+  const chunk = (type, data) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const framed = Buffer.alloc(body.length + 8);
+    framed.writeUInt32BE(data.length, 0);
+    body.copy(framed, 4);
+    framed.writeUInt32BE(crc32(body), body.length + 4);
+    return framed;
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(edge, 0);
+  header.writeUInt32BE(edge, 4);
+  header[8] = 8;
+  header[9] = 2;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(edge * 3, 0x33)]);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header),
+    chunk('IDAT', deflateSync(Buffer.concat(Array(edge).fill(row)))), chunk('IEND', Buffer.alloc(0))]);
+}
+
+function checkSignedApp(output, platform) {
+  const bundle = path.join(output, 'NativeIOSGate.app');
+  run('/usr/bin/codesign', ['--verify', '--strict', bundle]);
+  const plist = path.join(bundle, 'Info.plist');
+  assert.equal(run('/usr/bin/plutil', ['-extract', 'CFBundleSupportedPlatforms.0', 'raw', plist]), platform);
+  for (const file of ['embedded.mobileprovision', 'PrivacyInfo.xcprivacy']) {
+    assert.ok(existsSync(path.join(bundle, file)), file + ' must be in the signed app');
+  }
+  const listing = run('/usr/bin/unzip', ['-l', path.join(output, 'NativeIOSGate.ipa')]);
+  assert.match(listing, /Payload\/NativeIOSGate\.app\/Info\.plist/);
+  return bundle;
+}
+
+function buildSignedApps(binary) {
+  const output = path.join(IosGate.project, 'dist/ios');
+  if (!process.env.TAC_APPLE_TEAM_ID || !process.env.TAC_IOS_PROVISIONING_PROFILE) {
+    console.log('SKIP: device build; set TAC_APPLE_TEAM_ID and TAC_IOS_PROVISIONING_PROFILE (a development or ad hoc profile for ' + IosGate.appId + ')');
+  } else {
+    console.log('Building and signing the iOS app for a device...');
+    run(binary, ['bundle', IosGate.project, '--target', 'ios', '--device'], 300000);
+    const bundle = checkSignedApp(output, 'iPhoneOS');
+    if (process.env.TAC_IOS_DEVICE) {
+      run('/usr/bin/xcrun', ['devicectl', 'device', 'install', 'app', '--device', process.env.TAC_IOS_DEVICE, bundle], 300000);
+      run('/usr/bin/xcrun', ['devicectl', 'device', 'process', 'launch', '--device', process.env.TAC_IOS_DEVICE, IosGate.appId], 120000);
+    } else {
+      console.log('SKIP: device install; set TAC_IOS_DEVICE to a paired device identifier');
+    }
+  }
+  const storeProfile = process.env.TAC_IOS_GATE_APP_STORE_PROFILE;
+  if (!process.env.TAC_APPLE_TEAM_ID || !storeProfile) {
+    console.log('SKIP: App Store build; set TAC_APPLE_TEAM_ID and TAC_IOS_GATE_APP_STORE_PROFILE (an App Store profile for ' + IosGate.appId + ')');
+    return;
+  }
+  console.log('Building the App Store .ipa...');
+  write('client/shared/ios-gate-icon.png', opaqueIcon(64));
+  const manifestPath = path.join(IosGate.project, 'client/manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  manifest.icons = [{ src: '/shared/ios-gate-icon.png', sizes: '64x64', type: 'image/png' }];
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  const result = spawnSync(binary, ['bundle', IosGate.project, '--target', 'ios', '--release'], {
+    cwd: IosGate.repo, encoding: 'utf8', timeout: 300000, maxBuffer: 2 * 1024 * 1024,
+    env: { ...process.env, TAC_IOS_PROVISIONING_PROFILE: storeProfile },
+  });
+  assert.equal(result.status, 0, 'ty bundle --release: ' + (result.error || result.stderr || result.stdout));
+  checkSignedApp(output, 'iPhoneOS');
+  assert.ok(existsSync(path.join(output, 'NativeIOSGate.app/Assets.car')), 'the App Store app must carry its asset catalog');
+}
+
 function bootSimulator() {
   const runtimes = JSON.parse(simctl('list', 'runtimes', '--json')).runtimes;
   const runtime = runtimes.filter(item => item.isAvailable && item.identifier.includes('.iOS-'))
@@ -299,6 +367,7 @@ async function main() {
     writeFileSync(path.join(IosGate.evidence, 'report.json'), JSON.stringify({
       runtime: runtime.version, deviceType: phone.name, binary, pid, proofs,
     }, null, 2) + '\n');
+    buildSignedApps(binary);
     console.log('PASS: real iOS WKWebView render/input/focus, Swift ABI/OS/publish, clipboard bridge, shared assets, dynamic routes, isolation, and LocalState kept after a native method and a page load');
   } finally {
     cleanup();
