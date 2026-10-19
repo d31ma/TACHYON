@@ -501,3 +501,34 @@ default. The zero-budget build reported these route sizes (TY1337, without
 Binaryen): C++ 36 KB of script and 48 KB of WebAssembly, C# 117 and 1130,
 Dart 38 and 44, F# 117 and 1271, Go 38 and 987, Java 42 and 82, JavaScript
 49 and 0, Kotlin 38 and 88, Rust 124 and 0, Swift 36 and 1059.
+
+## Amendment (2026-10-19): CI runs the browser gates in three engines
+
+The `browser-languages` job in `.github/workflows/rust-ci.yml` (CI2) runs one
+matrix entry for each Tac service-language browser gate: page-program,
+browser-API (`web-apis`), held stream and socket clients, storage, cached
+client, async listener and window controls. Each entry builds the release
+`ty` on Ubuntu with every language toolchain the gate builds (Go, .NET with
+the wasm workloads, Emscripten and Ruby, Kotlin 2.1.10 with its Kotlin/Wasm
+standard library, Dart 3.13.1, Swift 6.3.3 with its Swift SDK for
+WebAssembly, TeaVM 0.15 on JDK 21) and runs the gate in Chromium, Firefox and
+WebKit. `TAC_BROWSER_REQUIRE_TOOLCHAINS` makes a gate fail instead of leaving
+out a language. Before, four of these gates never ran in CI, the storage gate
+left out Kotlin, Swift and Java, and the `macos-native` job ran the
+page-program and cached client gates after installing only Chromium. The
+repository policy now fails when a `test:*-browser` script in `package.json`
+has no CI step.
+
+On the first run (GitHub Actions run 39224955422) six gates passed in the
+three engines: the page-program gate for all ten fixtures, the browser-API
+gate (332 checks), the held clients for nine languages, storage with every
+service (392 checks), async listeners and window controls. The cached client
+gate, which had never run outside Chromium, failed twice. Its fixture loads
+every service language on one route and went over the default WebAssembly
+budget (3656 KB against 3584 KB, TY1337), so, like the storage fixture, it
+now sets its own 6 MB budget. Then Firefox reached `networkidle` before the
+page had registered the stamp services, so the gate now waits for every
+service and names the page errors if one never starts. Run 39229993683 passed
+all seven entries, the cached client gate for eleven languages in each
+engine, and run 39262682902 passed them again with TeaVM and the Kotlin/Wasm
+standard library installed through `scripts/ci/install-toolchains.mjs`.
