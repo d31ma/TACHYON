@@ -5,8 +5,11 @@ use super::native_menu_config::NativeMenuConfig;
 struct NativeExternalLinkTests;
 
 impl NativeExternalLinkTests {
+    #[cfg(unix)]
     const WINDOWS_ORIGIN: &'static str = "https://tachyon.local";
+    #[cfg(unix)]
     const LINUX_ORIGIN: &'static str = "tachyon://app";
+    #[cfg(unix)]
     const RULE_HARNESS: &'static str = r#"
 typedef struct { const char *uri; int opens; } TachyonLinkCase;
 static const TachyonLinkCase TACHYON_LINK_CASES[] = {
@@ -59,12 +62,14 @@ int main(void) {
   return failures == 0 ? 0 : 1;
 }
 "#;
+    #[cfg(unix)]
     const WINDOWS_LOCAL_CASES: &'static str = r#"  {"https://tachyon.local/", 0},
   {"https://tachyon.local", 0},
   {"https://TACHYON.LOCAL/help/", 0},
   {"https://tachyon.local:443/help/", 0},
   {"https://tachyon.local?x", 0},
   {"https://tachyon.local#x", 0},"#;
+    #[cfg(unix)]
     const LINUX_LOCAL_CASES: &'static str = r#"  {"tachyon://app/help/", 0},
   {"TACHYON://APP/", 0},
   {"https://tachyon.local/", 1},"#;
@@ -131,6 +136,7 @@ await pause();
 return location.href;";
     const LINUX_EXPECTED: &'static str = "https://example.com/a?b=1 http://example.org/ mailto:someone@example.com https://example.com/new https://example.com/anchor";
 
+    #[cfg(unix)]
     fn index() -> super::routes::NativeRouteIndex {
         super::routes::NativeRouteIndex {
             contract_version: 2,
@@ -143,6 +149,7 @@ return location.href;";
         }
     }
 
+    #[cfg(unix)]
     fn rule_harness(origin: &str, local_cases: &str) -> String {
         let local_bundle = super::routes::c_local_bundle(&Self::index(), &[], origin);
         format!(
