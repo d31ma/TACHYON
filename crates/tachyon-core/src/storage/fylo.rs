@@ -1,5 +1,6 @@
 mod collection_name;
 mod document_commands;
+mod patch_queue;
 mod queue_commands;
 mod queue_name;
 mod scroll_page;
@@ -24,12 +25,14 @@ use super::{ManagedStorage, failure, object_keys, scalar, text};
 use crate::Failure;
 pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
+use patch_queue::{PatchAnswer, PatchQueue};
 use queue_commands::QueueCommands;
 use scroll_snapshots::ScrollSnapshots;
 
 pub(super) struct FyloStore {
     root: PathBuf,
     process: Mutex<Option<FyloProcess>>,
+    patches: PatchQueue,
     closed: AtomicBool,
     scrolls: Mutex<ScrollSnapshots>,
 }
@@ -70,6 +73,7 @@ impl FyloStore {
         Ok(Self {
             root,
             process: Mutex::new(Some(process)),
+            patches: PatchQueue::new(),
             closed: AtomicBool::new(false),
             scrolls: Mutex::new(ScrollSnapshots::new()),
         })
@@ -366,8 +370,31 @@ impl FyloStore {
         Ok(answers.pop().unwrap_or(Value::Null))
     }
 
+    async fn patch(&self, collection: &str, id: &str, fields: Map<String, Value>) -> PatchAnswer {
+        let answer = self.patches.add(collection, id, fields);
+        let mut guard = self.process.lock().await;
+        self.write_waiting_patches(&mut guard).await;
+        drop(guard);
+        PatchQueue::received(answer)
+    }
+
+    async fn write_waiting_patches(&self, guard: &mut Option<FyloProcess>) {
+        for combined in self.patches.take_combined() {
+            let answer = self.call_holding(guard, combined.requests()).await;
+            combined.answer(&answer);
+        }
+    }
+
     async fn call_together(&self, requests: Vec<(&str, Value)>) -> Result<Vec<Value>, FyloError> {
         let mut guard = self.process.lock().await;
+        self.call_holding(&mut guard, requests).await
+    }
+
+    async fn call_holding(
+        &self,
+        guard: &mut Option<FyloProcess>,
+        requests: Vec<(&str, Value)>,
+    ) -> Result<Vec<Value>, FyloError> {
         if self.closed.load(Ordering::Acquire) {
             return Err(FyloError::protocol("FYLO datasource is closed."));
         }
@@ -646,6 +673,7 @@ impl FyloProcess {
     }
 }
 
+#[derive(Clone)]
 struct FyloError {
     code: String,
 }

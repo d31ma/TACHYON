@@ -69,10 +69,7 @@ impl<'store> DocumentCommands<'store> {
         let collection = Self::collection(command)?;
         let id = Self::id(command)?;
         let fields = Self::changes(command, id)?;
-        let change = json!({ "collection": collection, "id": id, "newDoc": Value::Object(fields) });
-        let reading = json!({ "collection": collection, "id": id });
-        let requests = vec![("patchDoc", change), ("getDoc", reading)];
-        let answers = self.store.call_together(requests).await;
+        let answers = self.store.patch(collection, id, fields).await;
         answers.map_or_else(
             |error| Self::answer_when_absent(error.missing(), error, Value::Null),
             Self::last_document,
