@@ -442,6 +442,13 @@ A model marked `@Topic` works like a Spring Cloud Bus remote event
 - Native event annotations on helper owners are rejected.
 - Native event and lifecycle methods stay synchronous. `async` declarations
   fail before the toolchain runs.
+- The one exception is an `@OnEvent` method of a Swift or Rust service that
+  runs in the browser, which may be `async`. The page runs it as a task of its
+  service. The listener tasks of one service run one after another, in the
+  order their events arrive. Removing the service cancels the running task and
+  the waiting ones. Such a listener cannot return an event; it publishes
+  through `applicationEventPublisher`. A native app's listener stays
+  synchronous.
 - Native client HTTP adapters are still configured by hand.
 - Browser resources reach only Tac JS/TS services.
 

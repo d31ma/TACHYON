@@ -63,6 +63,14 @@ struct ListenerParts {
     asynchronous: bool,
 }
 
+#[derive(Clone, Copy)]
+struct SwiftCall<'a> {
+    name: &'a str,
+    arguments: &'a str,
+    throwing: bool,
+    task: bool,
+}
+
 enum Member<'a> {
     Listener(&'a EventListener),
     Hook { destroy: bool },
@@ -86,6 +94,15 @@ pub(super) fn prepare(
     source: &str,
     module: Option<&EventModule>,
     path: &Path,
+) -> Result<Prepared, Failure> {
+    prepare_for(language, source, (module, path), false)
+}
+
+pub(super) fn prepare_for(
+    language: NativeCompanion,
+    source: &str,
+    (module, path): (Option<&EventModule>, &Path),
+    in_page: bool,
 ) -> Result<Prepared, Failure> {
     let Some(module) = module else {
         return Ok(Prepared {
@@ -112,7 +129,7 @@ pub(super) fn prepare(
         .iter()
         .find(|event_type| Some(event_type.name.as_str()) == owner.as_deref());
     if let Some(metadata) = metadata {
-        add_members(language, module, metadata, path, &mut output)?;
+        add_members((language, in_page), module, metadata, path, &mut output)?;
     }
     let (rewritten, publishers) = publisher_members(language, &output.source);
     output.source = rewritten;
@@ -121,7 +138,7 @@ pub(super) fn prepare(
 }
 
 fn add_members(
-    language: NativeCompanion,
+    (language, in_page): (NativeCompanion, bool),
     module: &EventModule,
     metadata: &EventType,
     path: &Path,
@@ -133,20 +150,57 @@ fn add_members(
         if of_another_type || !seen.insert((method.owner.as_str(), method.name.as_str())) {
             continue;
         }
-        if is_asynchronous(method) {
-            return Err(failure(
-                path,
-                "Native event and lifecycle methods must be synchronous; async native owner scheduling is not supported.",
-            ));
+        let member = member_for(metadata, method);
+        let task = is_asynchronous(method);
+        if task {
+            refuse_asynchronous((language, in_page), &member, path)?;
         }
         output.excluded.push(method.name.clone());
-        let member = member_for(metadata, method);
         let signature = &module.source[method.signature.clone()];
         output
             .entries
-            .push_str(&entry(language, method, &member, path, signature)?);
+            .push_str(&entry((language, task), method, &member, path, signature)?);
     }
     Ok(())
+}
+
+fn refuse_asynchronous(
+    (language, in_page): (NativeCompanion, bool),
+    member: &Member<'_>,
+    path: &Path,
+) -> Result<(), Failure> {
+    let page_language = is_page_task_language(language);
+    asynchronous_refusal((page_language, in_page), listener_returns(member))
+        .map_err(|message| failure(path, message))
+}
+
+fn is_page_task_language(language: NativeCompanion) -> bool {
+    matches!(language, NativeCompanion::Swift | NativeCompanion::Rust)
+}
+
+fn listener_returns(member: &Member<'_>) -> Option<bool> {
+    match member {
+        Member::Listener(listener) => Some(listener.returns.is_some()),
+        Member::Hook { .. } => None,
+    }
+}
+
+fn asynchronous_refusal(
+    (page_language, in_page): (bool, bool),
+    returns: Option<bool>,
+) -> Result<(), &'static str> {
+    match (returns, page_language, in_page) {
+        (Some(false), true, true) => Ok(()),
+        (Some(true), true, true) => Err(
+            "An async OnEvent method cannot return an event; publish it with applicationEventPublisher instead.",
+        ),
+        (Some(_), true, false) => Err(
+            "An async OnEvent method runs only in a browser service; a native app's event methods must be synchronous.",
+        ),
+        _ => Err(
+            "Native event and lifecycle methods must be synchronous; async native owner scheduling is not supported.",
+        ),
+    }
 }
 
 fn is_asynchronous(method: &EventMethod) -> bool {
@@ -406,7 +460,7 @@ fn listener_parts(
 }
 
 fn entry(
-    language: NativeCompanion,
+    (language, task): (NativeCompanion, bool),
     method: &EventMethod,
     member: &Member<'_>,
     path: &Path,
@@ -422,11 +476,17 @@ fn entry(
     let result = match language {
         NativeCompanion::Swift => {
             let throwing = signature.contains("throws");
-            swift_entry(&method.name, &arguments, &key, listener, destroy, throwing)
+            let call = SwiftCall {
+                name: &method.name,
+                arguments: &arguments,
+                throwing,
+                task,
+            };
+            swift_entry(&call, &key, listener, destroy)
         }
         NativeCompanion::Kotlin => kotlin_entry(&method.name, &arguments, &key, listener, destroy),
         NativeCompanion::CSharp => csharp_entry(method, &arguments, &key, listener, destroy),
-        NativeCompanion::Rust => rust_entry(method, &arguments, &key, listener, destroy),
+        NativeCompanion::Rust => rust_entry((method, task), &arguments, &key, listener, destroy),
     };
     Ok(result)
 }
@@ -466,16 +526,32 @@ fn swift_argument_label(signature: &str, index: usize) -> Option<&str> {
 }
 
 fn swift_entry(
-    name: &str,
-    arguments: &str,
+    call: &SwiftCall<'_>,
     key: &str,
     listener: Option<ListenerParts>,
     destroy: bool,
-    throwing: bool,
 ) -> String {
+    let SwiftCall {
+        name,
+        arguments,
+        throwing,
+        task,
+    } = *call;
     let attempt = if throwing { "try " } else { "" };
-    let call = format!("{attempt}tacInstance.{name}({arguments})");
+    let awaited = if task { "await " } else { "" };
+    let call = format!("{attempt}{awaited}tacInstance.{name}({arguments})");
     match listener {
+        Some(ListenerParts {
+            events,
+            replay,
+            order,
+            condition,
+            models,
+            returns,
+            asynchronous,
+        }) if task => format!(
+            "\"{key}\": .listener(TacListener({events}, {replay}, {order}, {condition}, {models}, {returns}, {asynchronous}, task: {{ value in {call}; return nil }})),\n"
+        ),
         Some(ListenerParts {
             events,
             replay,
@@ -549,12 +625,18 @@ fn csharp_entry(
 }
 
 fn rust_entry(
-    method: &EventMethod,
+    (method, task): (&EventMethod, bool),
     arguments: &str,
     key: &str,
     listener: Option<ListenerParts>,
     destroy: bool,
 ) -> String {
+    if let (true, Some(listener)) = (task, listener.as_ref()) {
+        return format!(
+            "(\"{key}\", {}),\n",
+            rust_task_listener(method, arguments, listener)
+        );
+    }
     let call = format!("it.borrow_mut().{}({arguments})", method.name);
     let success_type = method
         .return_type
@@ -585,7 +667,32 @@ fn rust_listener_member(
     } = listener;
     let answer = rust_listener_answer(method, call, success_type, returns != "None");
     format!(
-        "TacMember::Listener(TacListener {{ events: {events}, replay: {replay}, order: {order}, condition: {condition}, models: {models}, returns: {returns}, asynchronous: {asynchronous}, invoke: {{let it = instance.clone(); Box::new(move |value| {answer})}} }})"
+        "TacMember::Listener(TacListener {{ events: {events}, replay: {replay}, order: {order}, condition: {condition}, models: {models}, returns: {returns}, asynchronous: {asynchronous}, invoke: {{let it = instance.clone(); Box::new(move |value| {answer})}}, task: None }})"
+    )
+}
+
+fn rust_task_finished(return_type: &str) -> &'static str {
+    if return_type.starts_with("Result<") | return_type.starts_with("BehaviorResult") {
+        "match answer { Ok(_) => Ok(TacValue::Null), Err(_) => Err(TacTaskError { code: \"LISTENER\", message: \"Native event listener failed.\" }) }"
+    } else {
+        "{ let _ = answer; Ok(TacValue::Null) }"
+    }
+}
+
+fn rust_task_listener(method: &EventMethod, arguments: &str, listener: &ListenerParts) -> String {
+    let ListenerParts {
+        events,
+        replay,
+        order,
+        condition,
+        models,
+        returns,
+        asynchronous,
+    } = listener;
+    let finished = rust_task_finished(&method.return_type);
+    format!(
+        "TacMember::Listener(TacListener {{ events: {events}, replay: {replay}, order: {order}, condition: {condition}, models: {models}, returns: {returns}, asynchronous: {asynchronous}, invoke: Box::new(|_| Ok(TacValue::Null)), task: Some({{let it = instance.clone(); Box::new(move |value: &TacValue| {{ let value = value.clone(); let owner = it.clone(); Box::pin(async move {{ let value = &value; #[allow(unused_mut)] let mut service = owner.try_borrow_mut().map_err(|_| TacTaskError::busy())?; let answer = service.{}({arguments}).await; {finished} }}) }})}}) }})",
+        method.name
     )
 }
 
@@ -844,6 +951,52 @@ mod tests {
         }
     }
 
+    fn page_prepared(
+        extension: &str,
+        language: NativeCompanion,
+        authored: &str,
+    ) -> Result<Prepared, Failure> {
+        let path = probe_path(extension);
+        let metadata = crate::events::extract(&path, authored, "tac").expect("parse event");
+        prepare_for(language, authored, (metadata.as_ref(), &path), true)
+    }
+
+    #[test]
+    fn asynchronous_page_listeners_in_swift_and_rust_run_as_tasks() {
+        let [swift, _, _, rust] = asynchronous_listener_sources();
+        let swift = page_prepared(swift.0, swift.1, swift.2).expect("Swift async listener");
+        assert_contains(
+            &swift.entries,
+            "nil, nil, nil, false, task: { value in await tacInstance.receive(try tacModel(Probe.self, value)); return nil })",
+        );
+        let rust = page_prepared(rust.0, rust.1, rust.2).expect("Rust async listener");
+        assert_contains(&rust.entries, "task: Some({let it = instance.clone();");
+        assert_contains(
+            &rust.entries,
+            "let answer = service.receive(<Probe as TacModel>::read(value)).await; { let _ = answer; Ok(TacValue::Null) }",
+        );
+    }
+
+    #[test]
+    fn asynchronous_page_listeners_stay_refused_in_kotlin_and_csharp() {
+        let [_, kotlin, csharp, _] = asynchronous_listener_sources();
+        for (extension, language, authored) in [kotlin, csharp] {
+            let error = page_prepared(extension, language, authored)
+                .err()
+                .expect("asynchronous listener rejected");
+            assert!(format!("{error:?}").contains("must be synchronous"));
+        }
+    }
+
+    #[test]
+    fn an_asynchronous_page_listener_cannot_return_an_event() {
+        let authored = "class ProbeService {\n @OnEvent\n func receive(_ value: Probe) async -> Echo { Echo() }\n}\n";
+        let error = page_prepared("swift", NativeCompanion::Swift, authored)
+            .err()
+            .expect("returning async listener rejected");
+        assert!(format!("{error:?}").contains("cannot return an event"));
+    }
+
     fn event_publisher_source(extension: &str) -> &'static str {
         match extension {
             "cs" => {
@@ -1045,11 +1198,11 @@ mod tests {
         assert_contains(entries, condition_matcher());
         assert_contains(
             entries,
-            "models: None, returns: Some(\"Echo\"), asynchronous: false, invoke: {let it = instance.clone(); Box::new(move |value| Ok(TacModel::write(it.borrow_mut().first(<Probe as TacModel>::read(value)))))} }",
+            "models: None, returns: Some(\"Echo\"), asynchronous: false, invoke: {let it = instance.clone(); Box::new(move |value| Ok(TacModel::write(it.borrow_mut().first(<Probe as TacModel>::read(value)))))}, task: None }",
         );
         assert_contains(
             entries,
-            "TacListener { events: &[\"Probe\"], replay: true, order: 0, condition: None, models: None, returns: None, asynchronous: true, invoke: {let it = instance.clone(); Box::new(move |value| Ok({ it.borrow_mut().later(<Probe as TacModel>::read(value)); TacValue::Null }))} }",
+            "TacListener { events: &[\"Probe\"], replay: true, order: 0, condition: None, models: None, returns: None, asynchronous: true, invoke: {let it = instance.clone(); Box::new(move |value| Ok({ it.borrow_mut().later(<Probe as TacModel>::read(value)); TacValue::Null }))}, task: None }",
         );
     }
 

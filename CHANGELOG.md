@@ -50,6 +50,16 @@ machine contracts have their own, independent major versions.
   menu button beside the window buttons. `titleBarButtonInset` places the
   buttons. A test drives the generated GTK host under Xvfb with real pointer
   events (ADR 0098 amendment).
+- An `@OnEvent` method of a Swift or Rust service in the browser may be
+  `async` (ADR 0105). The page runs it as a task of the service: the listener
+  tasks of one service run one after another in the order their events
+  arrive, and removing the service cancels them. Such a listener reads
+  through its clients and stores, and publishes with
+  `applicationEventPublisher` instead of returning an event. The Swift and
+  Rust cookbook lists in Signal-driven UI now reload every saved user through
+  their own `UsersClient`, as the Dart list does, and
+  `scripts/async-listener-browser-gate.mjs` checks both in a browser. Native
+  app listeners, and Kotlin, C# and F# browser listeners, stay synchronous.
 - The Linux app opens its window from `client/manifest.json`, as the macOS
   and Windows apps do. The page inside the window starts at
   `tac.application.window` `width` by `height` (the host adds what the title

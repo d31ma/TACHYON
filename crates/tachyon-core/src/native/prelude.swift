@@ -18,6 +18,7 @@ final class TacListener {
     let returns: String?
     let asynchronous: Bool
     let invoke: (Any?) throws -> Any?
+    let task: ((Any?) async throws -> Any?)?
 
     init(
         _ events: [String], _ replay: Bool, _ order: Int, _ condition: String?,
@@ -32,6 +33,23 @@ final class TacListener {
         self.returns = returns
         self.asynchronous = asynchronous
         self.invoke = invoke
+        self.task = nil
+    }
+
+    init(
+        _ events: [String], _ replay: Bool, _ order: Int, _ condition: String?,
+        _ models: String?, _ returns: String?,
+        _ asynchronous: Bool, task: @escaping (Any?) async throws -> Any?
+    ) {
+        self.events = events
+        self.replay = replay
+        self.order = order
+        self.condition = condition.flatMap(tacParse)
+        self.models = models.flatMap(tacParse)
+        self.returns = returns
+        self.asynchronous = asynchronous
+        self.invoke = { _ in nil }
+        self.task = task
     }
 }
 
@@ -231,7 +249,7 @@ private func tacHandle(_ raw: String) throws -> String {
         write(tachyonSwiftJSONValue(request["value"]))
         return "{\"value\":null}"
     case ("event", .listener(let listener)):
-        return tacReceive(listener, tachyonSwiftJSONValue(request["value"]))
+        return try tacReceive(owner, listener, tachyonSwiftJSONValue(request["value"]))
     case ("call", .method(let invoke)):
         return "{\"value\":" + tacEncode(try invoke(tacCallArguments(request))) + "}"
     case ("call", .task(let invoke)):
@@ -472,6 +490,7 @@ private func tacDescribeListener(_ key: String, _ listener: TacListener) -> [Str
     [
         "key": key, "events": listener.events.map { $0 as Any? }, "replay": listener.replay,
         "order": listener.order, "asynchronous": listener.asynchronous,
+        "task": listener.task != nil,
         "condition": listener.condition, "models": listener.models,
     ]
 }
@@ -483,7 +502,10 @@ private func tacDescribeStream(_ stream: TacStream) -> [String: Any?] {
     ]
 }
 
-private func tacReceive(_ listener: TacListener, _ value: Any?) -> String {
+private func tacReceive(_ owner: String, _ listener: TacListener, _ value: Any?) throws -> String {
+    if let task = listener.task {
+        return try tacBeginTask(owner, { arguments in try await task(arguments.first ?? nil) }, [value])
+    }
     do {
         let result = try listener.invoke(value)
         if !listener.asynchronous { tacRepublish(result, listener.returns) }

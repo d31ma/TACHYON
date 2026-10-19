@@ -761,14 +761,17 @@ const heldStreams = (streams) => streams.slice(0, 16)
   .filter((stream) => typeof stream?.path === 'string' && stream.path.startsWith('/') && !stream.path.startsWith('//'))
   .map(({ client, path, event, socket, models }) => ({ method: '__tachyonStream', path, event, socket: socket === true, models, topic: false, ...(socket === true ? { sender: `__tachyonSend:${client}` } : {}) }))
 
-const listen = (target, call, plan, listeners, streams) => {
+const listen = (target, hear, plan, listeners, streams) => {
   if (!plan.listeners.length) {
     plan.listeners = listeners.map((listener) => ({ ...listener, method: `__tachyonListen:${listener.key}` }))
     plan.streams = [...heldStreams(streams), ...topicStreams(plan, listeners)]
   }
   hidden(target, '__tachyonStream', () => {})
   for (const listener of listeners) {
-    hidden(target, `__tachyonListen:${listener.key}`, (value) => { call({ op: 'event', name: listener.key, value }) })
+    const name = listener.key
+    hidden(target, `__tachyonListen:${name}`, listener.task === true
+      ? (value) => hear({ op: 'event', name, value }, true)
+      : (value) => { hear({ op: 'event', name, value }, false) })
   }
 }
 
@@ -821,7 +824,8 @@ export const activate = (target, service, properties, plan) => {
     if (!asynchronous.has(request.name)) return changeGated(request)
     return exclusive ? queue(() => startTask(request)) : changeAsync(request)
   }
-  listen(target, changeGated, plan, declared?.listeners ?? [], Array.isArray(declared?.streams) ? declared.streams : [])
+  const hear = (request, task) => task ? queue(() => exclusive ? startTask(request) : changeAsync(request)) : changeGated(request)
+  listen(target, hear, plan, declared?.listeners ?? [], Array.isArray(declared?.streams) ? declared.streams : [])
   const dispose = { op: 'dispose', route: 'web', service, owner }
   released?.register(target, dispose, target)
   hidden(target, '__tachyonStarted', () => {

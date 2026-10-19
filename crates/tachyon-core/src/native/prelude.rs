@@ -158,6 +158,7 @@ pub struct TacListener {
     pub returns: Option<&'static str>,
     pub asynchronous: bool,
     pub invoke: Box<dyn Fn(&TacValue) -> Result<TacValue, &'static str>>,
+    pub task: Option<Box<dyn Fn(&TacValue) -> TacTask>>,
 }
 
 pub trait TacModel: Sized {
@@ -684,6 +685,7 @@ fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
     let mut tasks = Vec::new();
     let mut listeners = Vec::new();
     let mut streams = Vec::new();
+    let mut listener_tasks = false;
     for (name, member) in members {
         match member {
             TacMember::Field { .. } => fields.push(TacValue::Text(String::from(*name))),
@@ -694,12 +696,15 @@ fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
                 methods.push(TacValue::Text(String::from(*name)));
                 tasks.push(TacValue::Text(String::from(*name)));
             }
-            TacMember::Listener(listener) => listeners.push(tac_describe_listener(name, listener)),
+            TacMember::Listener(listener) => {
+                listener_tasks |= listener.task.is_some();
+                listeners.push(tac_describe_listener(name, listener))
+            }
             TacMember::Stream(stream) => streams.push(stream.describe()),
             TacMember::Hook(..) => {}
         }
     }
-    let exclusive = !tasks.is_empty();
+    let exclusive = !tasks.is_empty() || listener_tasks;
     format!(
         "{{\"value\":{{\"fields\":{},\"methods\":{},\"asyncMethods\":{},\"exclusive\":{exclusive},\"listeners\":{},\"streams\":{}}}}}",
         tac_write(&TacValue::List(fields)),
@@ -732,6 +737,7 @@ fn tac_describe_listener(key: &str, listener: &TacListener) -> TacValue {
             String::from("asynchronous"),
             TacValue::Flag(listener.asynchronous),
         ),
+        (String::from("task"), TacValue::Flag(listener.task.is_some())),
         (String::from("condition"), condition),
     ])
 }
@@ -750,6 +756,9 @@ fn tac_receive(owner: &TacActivation, key: &str, request: &[(String, TacValue)])
     let value = tac_entry(request, "value")
         .cloned()
         .unwrap_or(TacValue::Null);
+    if let Some(task) = &listener.task {
+        return TacTasks::begin(&owner.owner, task(&value));
+    }
     let Ok(result) = (listener.invoke)(&value) else {
         return tac_error("Native event listener failed.");
     };
