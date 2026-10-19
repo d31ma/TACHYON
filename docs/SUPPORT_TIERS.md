@@ -37,8 +37,13 @@ Android release packages (2026-10-18, ADR 0104): `ty bundle --target android
 PKCS12 keystore. `apksigner verify` and `jarsigner -verify` showed both the APK
 and the `.aab` signed with that key, `aapt2` showed the declared version code
 and name and no `debuggable` flag, and no generated file held the password.
-Not yet run: installing and launching the release APK on the emulator, which
-`scripts/android/native-test.mjs` now does after its debug checks.
+On 2026-10-19 `scripts/android/native-test.mjs` passed on the Mac's Android
+35 emulator (develop `26d76ebf`): after the debug checks it built a release
+with a throwaway keystore, verified both signatures, and installed and
+launched the release APK, which kept the declared version code and was not
+debuggable. The emulator image itself is debuggable (`ro.debuggable=1`), and
+there WebView opens DevTools for every app, so the check that a release keeps
+WebView debugging off still needs a production image or a physical device.
 
 macOS release packages (2026-10-19, ADR 0104 amendment): `ty bundle --target
 macos --release` signs the app and its helpers with the hardened runtime,
