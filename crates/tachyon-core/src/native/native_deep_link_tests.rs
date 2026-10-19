@@ -326,6 +326,8 @@ fn apple_hosts_register_the_schemes_and_open_links_at_their_route() {
         "forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))"
     ));
     assert!(mac.contains("let target = TacDeepLink.target(link)"));
+    assert!(mac.contains("activity.activityType == NSUserActivityTypeBrowsingWeb"));
+    assert!(mac.contains("return open(link: link)"));
     assert!(!mac.contains("__NATIVE_DEEP_LINKS__"));
     let ios = super::ios::swift_source(&application, "tacNativeInvoke(payload)", &index);
     assert!(ios.contains("static let hosts: Set<String> = [\"example.com\"]"));
@@ -503,4 +505,66 @@ async fn the_linux_app_opens_links_at_their_route_and_forwards_later_links_to_th
         .await
         .expect("actual generated Linux host deep links");
     assert!(output.contains("linux deep links passed"), "{output}");
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+#[ignore = "Requires Xcode's swiftc, AppKit and WebKit; hands universal-link activities to the generated macOS AppDelegate, not a signed app opened from a hosted domain"]
+async fn the_macos_app_delegate_opens_universal_links_to_listed_hosts_at_their_route() {
+    let root = tempfile::tempdir().expect("fixture");
+    let bundle = root.path().join("HostLinkCheck.app/Contents");
+    for (document, title) in [("index.html", "Home"), ("settings/index.html", "Settings")] {
+        let path = bundle.join("Resources/WebBundle").join(document);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("web folder");
+        std::fs::write(
+            &path,
+            format!("<!doctype html><html><head><title>{title}</title></head><body>{title}</body></html>"),
+        )
+        .expect("page");
+    }
+    std::fs::write(
+        bundle.join("Info.plist"),
+        "<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>HostLinkCheck</string><key>CFBundleIdentifier</key><string>org.tachyon.host-link-check</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>",
+    )
+    .expect("Info.plist");
+    let host = super::macos::swift_source(
+        &NativeDeepLinkTests::linked_application(),
+        super::macos::companion_call(None, None),
+        &NativeDeepLinkTests::index(),
+    );
+    let body = host.rsplit_once("\n@main\n").expect("generated main").0;
+    let source = root.path().join("HostLinkCheck.swift");
+    std::fs::write(
+        &source,
+        format!(
+            "{body}\n{}",
+            include_str!("NativeHostLinkCheck.fixture.swift")
+        ),
+    )
+    .expect("host source");
+    let executable = bundle.join("MacOS/HostLinkCheck");
+    std::fs::create_dir_all(executable.parent().expect("binary folder")).expect("binary folder");
+    super::host::run_tool(
+        "/usr/bin/xcrun",
+        &[
+            "swiftc",
+            "-parse-as-library",
+            "-framework",
+            "AppKit",
+            "-framework",
+            "WebKit",
+            source.to_str().expect("source"),
+            "-o",
+            executable.to_str().expect("binary"),
+        ],
+    )
+    .await
+    .expect("generated macOS host compiles");
+    let output = super::host::run_tool(executable.to_str().expect("binary"), &[])
+        .await
+        .expect("generated macOS host opens universal links");
+    assert!(
+        output.contains("macOS universal link delegate passed"),
+        "{output}"
+    );
 }

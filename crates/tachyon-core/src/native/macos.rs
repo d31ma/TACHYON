@@ -826,8 +826,19 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     }
 
     @objc private func openLink(_ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor) {
-        guard let link = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
-              let target = TacDeepLink.target(link), let url = URL(string: target) else { return }
+        guard let link = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue else { return }
+        _ = open(link: link)
+    }
+
+    func application(_ application: NSApplication, continue activity: NSUserActivity,
+                     restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
+        guard activity.activityType == NSUserActivityTypeBrowsingWeb,
+              let link = activity.webpageURL?.absoluteString else { return false }
+        return open(link: link)
+    }
+
+    private func open(link: String) -> Bool {
+        guard let target = TacDeepLink.target(link), let url = URL(string: target) else { return false }
         Telemetry.shared.record("link.opened")
         if let view = webView {
             view.load(URLRequest(url: url))
@@ -837,6 +848,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         }
         window?.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        return true
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

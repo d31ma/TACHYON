@@ -1,5 +1,6 @@
 use super::config::NativeApplication;
 use super::host::{NativeHost, native_io, run_tool, write};
+use super::mac_os_associated_domains::MacOsAssociatedDomains;
 use super::mac_os_disk_image::MacOsDiskImage;
 use super::mac_os_entitlements::MacOsEntitlements;
 use super::mac_os_keychain_identity::MacOsKeychainIdentity;
@@ -26,7 +27,11 @@ impl MacOsRelease<'_> {
 
     pub(super) async fn package(&self) -> Result<PathBuf, Failure> {
         let identity = self.signing_identity().await?;
-        let entitlements = self.write_entitlements()?;
+        let domains =
+            MacOsAssociatedDomains::prepare(self.signing, self.application, self.stage).await?;
+        let entitlements =
+            self.write_entitlements(MacOsAssociatedDomains::entries(domains.as_ref()))?;
+        MacOsAssociatedDomains::embed(domains.as_ref(), self.bundle)?;
         self.sign_helpers(&identity).await?;
         self.sign_app(&identity, &entitlements).await?;
         self.verify_app().await?;
@@ -68,12 +73,12 @@ impl MacOsRelease<'_> {
         MacOsKeychainIdentity::developer_id(&listing, self.signing.team())
     }
 
-    fn write_entitlements(&self) -> Result<PathBuf, Failure> {
+    fn write_entitlements(&self, signed_entries: &str) -> Result<PathBuf, Failure> {
         let path = self
             .stage
             .join("project")
             .join(MacOsEntitlements::FILE_NAME);
-        let plist = MacOsEntitlements::plist(&self.application.permissions);
+        let plist = MacOsEntitlements::plist(&self.application.permissions, signed_entries);
         write(&path, plist.as_bytes())?;
         Ok(path)
     }

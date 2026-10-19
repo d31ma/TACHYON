@@ -66,8 +66,9 @@ impl WindowsPackageManifest<'_> {
             r#"<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  IgnorableNamespaces="uap uap3 rescap">
   <Identity Name="{identity}" Publisher="{publisher}" Version="{version}" ProcessorArchitecture="{architecture}"/>
   <Properties>
     <DisplayName>{name}</DisplayName>
@@ -83,7 +84,7 @@ impl WindowsPackageManifest<'_> {
   <Applications>
     <Application Id="{application_id}" Executable="bin\{executable}.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements DisplayName="{name}" Description="{name}" BackgroundColor="{background}"
-        Square150x150Logo="{square_150}" Square44x44Logo="{square_44}"/>{protocols}
+        Square150x150Logo="{square_150}" Square44x44Logo="{square_44}"/>{extensions}
     </Application>
   </Applications>
   <Capabilities>
@@ -104,7 +105,7 @@ impl WindowsPackageManifest<'_> {
             background = Self::background(application),
             square_150 = WindowsPackageTiles::SQUARE_150.manifest_path(),
             square_44 = WindowsPackageTiles::SQUARE_44.manifest_path(),
-            protocols = application.links.msix_protocols(),
+            extensions = application.links.msix_extensions(),
         ))
     }
 

@@ -116,3 +116,51 @@ Android) also need files on the web site and the app's signing identity.
   desktop, the WebView2 app and an installed MSIX package opened links at their
   route. Owed: a Linux desktop with the `.desktop` file installed, and a
   signed iOS device check of universal links once `TAC_APPLE_TEAM_ID` is set.
+
+## Amendment (2026-10-19): host links on macOS and Windows (LK3)
+
+Links to the listed `hosts` were a note only on macOS and Windows.
+
+1. **Windows.** A `--release` MSIX package declares the hosts as a
+   `windows.appUriHandler` extension (`uap3:AppUriHandler`, one `uap3:Host`
+   per host) in the same `<Extensions>` as the scheme protocols. With `hosts`
+   listed and `TAC_WINDOWS_CERTIFICATE_PUBLISHER` set, the web build writes
+   `/.well-known/windows-app-web-link`: one entry with the package family name
+   and the path `*`. The family name is the package name from
+   `tac.application.id`, `_`, and the 13-character publisher ID that Windows
+   derives from the publisher: the first 8 bytes of the SHA-256 of its UTF-16LE
+   text, as base32 with the alphabet `0-9a-z` without `i`, `l`, `o` and `u`.
+   A publisher without `CN=` stops the web build with `TY1601`; without the
+   variable the web build prints a note and writes nothing for Windows.
+   Windows launches a packaged desktop app for such a link only when the shell
+   opens it (another app, Run, `start`); a link clicked in Edge or another
+   browser stays in the browser. The unpackaged app has no package identity,
+   so it cannot claim hosts. An app that lists hosts and no scheme is now single
+   instance too, so a later host link reaches the open window.
+2. **macOS.** `TAC_MACOS_PROVISIONING_PROFILE` names a Developer ID
+   `.provisionprofile`. When `hosts` are listed, a `--release` build decodes it
+   with `security cms -D`, checks that it belongs to `TAC_APPLE_TEAM_ID`, covers
+   `<team>.<tac.application.id>` and has the Associated Domains capability
+   (`TY1605` otherwise), copies it to `Contents/embedded.provisionprofile`, and
+   signs the app with `com.apple.application-identifier`,
+   `com.apple.developer.team-identifier` and
+   `com.apple.developer.associated-domains` (`applinks:<host>`). An ad hoc
+   release (`TAC_MACOS_SIGNING_IDENTITY=-`) with the variable stops with
+   `TY1605`, because an ad hoc signature cannot carry a restricted entitlement.
+   Without the profile, and in builds without `--release`, the app keeps
+   leaving host links in the browser. The `AppDelegate` now answers
+   `application(_:continue:restorationHandler:)` for
+   `NSUserActivityTypeBrowsingWeb` with the shared link rule.
+3. The support table keeps `tac.application.links` adapted on macOS and
+   Windows, with notes that name the build each needs.
+4. Verifying a link from a hosted domain needs a public host serving the files
+   and, for macOS, an Apple Developer profile with the capability. Both are
+   outside what the build machines can do, so those runs stay owed.
+5. Evidence (2026-10-19). In an x86_64 Ubuntu 24.04 cloud container,
+   `makemsix` from the MSIX SDK packed and signed a package that declares two
+   schemes and a host, and refused a misspelled `uap3` element against
+   Microsoft's schemas; the Windows forwarding code still passed under Wine
+   9.0. On the Mac (macOS 26.6.2, Xcode 27.1), the generated `AppDelegate`
+   opened browsing-web activities for a listed host at their route and refused
+   the others, and an unsigned app opened a scheme link at its route.
+

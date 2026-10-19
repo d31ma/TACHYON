@@ -124,26 +124,37 @@ impl NativeLinks {
         Self::unless_empty(&self.schemes, format!("MimeType={handlers}\n"))
     }
 
-    pub(super) fn msix_protocols(&self) -> String {
-        let protocols = self
-            .schemes
-            .iter()
-            .map(|scheme| {
-                format!(
-                    "\n        <uap:Extension Category=\"windows.protocol\"><uap:Protocol Name=\"{}\"/></uap:Extension>",
-                    xml_escape(scheme)
-                )
-            })
-            .collect::<Vec<_>>()
-            .concat();
+    pub(super) fn msix_extensions(&self) -> String {
+        let protocols = Self::each(&self.schemes, |scheme| {
+            format!(
+                "\n        <uap:Extension Category=\"windows.protocol\"><uap:Protocol Name=\"{scheme}\"/></uap:Extension>"
+            )
+        });
+        let hosts = Self::each(&self.hosts, |host| {
+            format!("\n            <uap3:Host Name=\"{host}\"/>")
+        });
+        let handlers = Self::unless_empty(
+            &self.hosts,
+            format!(
+                "\n        <uap3:Extension Category=\"windows.appUriHandler\">\n          <uap3:AppUriHandler>{hosts}\n          </uap3:AppUriHandler>\n        </uap3:Extension>"
+            ),
+        );
         Self::unless_empty(
-            &self.schemes,
-            format!("\n      <Extensions>{protocols}\n      </Extensions>"),
+            &[self.schemes.as_slice(), self.hosts.as_slice()].concat(),
+            format!("\n      <Extensions>{protocols}{handlers}\n      </Extensions>"),
         )
     }
 
     pub(super) fn desktop_exec_argument(&self) -> &'static str {
         [" %u", ""][usize::from(self.schemes.is_empty())]
+    }
+
+    fn each(names: &[String], entry: impl Fn(&str) -> String) -> String {
+        names
+            .iter()
+            .map(|name| entry(&xml_escape(name)))
+            .collect::<Vec<_>>()
+            .concat()
     }
 
     fn unless_empty(names: &[String], text: String) -> String {
@@ -285,8 +296,12 @@ mod tests {
             "MimeType=x-scheme-handler/myapp;x-scheme-handler/other;\n"
         );
         assert_eq!(links.desktop_exec_argument(), " %u");
-        assert!(links.msix_protocols().contains(
+        let extensions = links.msix_extensions();
+        assert!(extensions.contains(
             "<uap:Extension Category=\"windows.protocol\"><uap:Protocol Name=\"other\"/></uap:Extension>"
+        ));
+        assert!(extensions.contains(
+            "<uap3:Extension Category=\"windows.appUriHandler\">\n          <uap3:AppUriHandler>\n            <uap3:Host Name=\"example.com\"/>\n          </uap3:AppUriHandler>"
         ));
         assert_eq!(links.quoted_schemes("[", "]"), r#"["myapp", "other"]"#);
         assert_eq!(links.quoted_hosts("{", "}"), r#"{"example.com"}"#);
@@ -299,10 +314,15 @@ mod tests {
         assert_eq!(links.android_intent_filters(), "");
         assert_eq!(links.desktop_mime_types(), "");
         assert_eq!(links.desktop_exec_argument(), "");
-        assert_eq!(links.msix_protocols(), "");
+        assert_eq!(links.msix_extensions(), "");
         assert_eq!(links.quoted_schemes("[", "]"), "[]");
         let hosts_only = NativeLinks::declared(&[], &["example.com"]);
         assert!(hosts_only.android_intent_filters().contains("autoVerify"));
         assert_eq!(hosts_only.url_types_plist("com.example.app"), "");
+        let handlers = hosts_only.msix_extensions();
+        assert!(handlers.starts_with(
+            "\n      <Extensions>\n        <uap3:Extension Category=\"windows.appUriHandler\">"
+        ));
+        assert!(!handlers.contains("windows.protocol"));
     }
 }

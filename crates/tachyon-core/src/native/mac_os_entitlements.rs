@@ -11,14 +11,14 @@ impl MacOsEntitlements {
 <plist version=\"1.0\">\n<dict>\n";
     const FOOTER: &'static str = "</dict>\n</plist>\n";
 
-    pub(super) fn plist(permissions: &BrowserApiPermissions) -> String {
+    pub(super) fn plist(permissions: &BrowserApiPermissions, signed_entries: &str) -> String {
         let granted = [("geolocation", Self::LOCATION)];
         let entries: String = granted
             .iter()
             .filter(|(api, _)| permissions.is_granted(api))
             .map(|(_, entitlement)| ["<key>", entitlement, "</key><true/>\n"].concat())
             .collect();
-        [Self::HEADER, &entries, Self::FOOTER].concat()
+        [Self::HEADER, &entries, signed_entries, Self::FOOTER].concat()
     }
 }
 
@@ -30,7 +30,7 @@ mod tests {
 
     #[test]
     fn an_app_without_grants_asks_for_no_entitlement() {
-        let plist = MacOsEntitlements::plist(&BrowserApiPermissions::default());
+        let plist = MacOsEntitlements::plist(&BrowserApiPermissions::default(), "");
         assert!(plist.contains("<dict>\n</dict>"), "{plist}");
     }
 
@@ -45,7 +45,7 @@ mod tests {
             &[String::from("geolocation"), String::from("clipboard")],
             &usage,
         );
-        let plist = MacOsEntitlements::plist(&permissions);
+        let plist = MacOsEntitlements::plist(&permissions, "");
         assert!(
             plist.contains("<key>com.apple.security.personal-information.location</key><true/>"),
             "{plist}"

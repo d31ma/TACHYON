@@ -108,8 +108,12 @@ impl IosProvisioningProfile {
         )
     }
 
+    pub(super) fn has_associated_domains(&self) -> bool {
+        self.text.contains(Self::ASSOCIATED_DOMAINS)
+    }
+
     pub(super) fn require_associated_domains(&self, wanted: bool) -> Result<(), Failure> {
-        let missing = [wanted, !self.text.contains(Self::ASSOCIATED_DOMAINS)] == [true, true];
+        let missing = [wanted, !self.has_associated_domains()] == [true, true];
         Self::require(
             !missing,
             &format!(
@@ -141,7 +145,7 @@ impl IosProvisioningProfile {
         )
     }
 
-    fn string_after(&self, key: &str) -> Option<String> {
+    pub(super) fn string_after(&self, key: &str) -> Option<String> {
         let (_, rest) = self.text.split_once(key)?;
         let (_, value) = rest.split_once(Self::STRING_TAGS[0])?;
         let (value, _) = value.split_once(Self::STRING_TAGS[1])?;

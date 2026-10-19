@@ -107,8 +107,9 @@ tac.application.links                            build, native
   open the app at the route of their path, or at start_url when the
   route is unknown. Schemes are lowercase and not http, https, mailto
   or file; hosts are verified web links. With hosts, the web build
-  writes the .well-known association files from TAC_APPLE_TEAM_ID
-  and TAC_ANDROID_CERT_SHA256 (never the manifest), or prints a note.
+  writes the .well-known association files from TAC_APPLE_TEAM_ID,
+  TAC_ANDROID_CERT_SHA256 and TAC_WINDOWS_CERTIFICATE_PUBLISHER
+  (never the manifest), or prints a note.
 
 tac.nativeCapabilities                                 native
   ["filePicker"]: native capabilities a native service may use.

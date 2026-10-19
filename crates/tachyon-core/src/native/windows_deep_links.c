@@ -63,7 +63,8 @@ static void tachyon_register_link_schemes(void) {
 }
 
 static BOOL tachyon_forward_link(void) {
-  wchar_t *bundle = TACHYON_LINK_SCHEMES[0] != NULL ? tachyon_widen(TACHYON_BUNDLE_ID) : NULL;
+  BOOL linked = TACHYON_LINK_SCHEMES[0] != NULL || TACHYON_LINK_HOSTS[0] != NULL;
+  wchar_t *bundle = linked ? tachyon_widen(TACHYON_BUNDLE_ID) : NULL;
   if (bundle == NULL) return FALSE;
   wchar_t name[320];
   _snwprintf_s(name, 320, _TRUNCATE, L"Local\\Tachyon.%s", bundle);

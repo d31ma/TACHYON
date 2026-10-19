@@ -174,6 +174,23 @@ fn the_package_manifest_names_the_app_publisher_version_and_tiles() {
     assert!(themed.contains(
         "Square44x44Logo=\"Assets\\Square44x44Logo.png\"/>\n      <Extensions>\n        <uap:Extension Category=\"windows.protocol\"><uap:Protocol Name=\"notes\"/></uap:Extension>\n      </Extensions>\n    </Application>"
     ));
+    application.links =
+        super::native_links::NativeLinks::declared(&["notes"], &["notes.example.com"]);
+    let linked = WindowsPackageManifest {
+        application: &application,
+        publisher: WindowsPackageTests::PUBLISHER,
+        architecture: WindowsArchitecture::X64,
+    }
+    .xml()
+    .expect("manifest");
+    assert!(
+        linked
+            .contains(r#"xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3""#)
+    );
+    assert!(linked.contains(r#"IgnorableNamespaces="uap uap3 rescap""#));
+    assert!(linked.contains(
+        "<uap:Protocol Name=\"notes\"/></uap:Extension>\n        <uap3:Extension Category=\"windows.appUriHandler\">\n          <uap3:AppUriHandler>\n            <uap3:Host Name=\"notes.example.com\"/>\n          </uap3:AppUriHandler>\n        </uap3:Extension>\n      </Extensions>"
+    ));
 }
 
 #[test]
@@ -446,7 +463,8 @@ fn the_staged_layout_packs_and_signs_with_the_msix_sdk() {
     let web = root.path().join("web");
     std::fs::create_dir_all(&web).expect("web");
     let mut application = WindowsPackageTests::application(root.path());
-    application.links = super::native_links::NativeLinks::declared(&["notes", "notes+v2"], &[]);
+    application.links =
+        super::native_links::NativeLinks::declared(&["notes", "notes+v2"], &["notes.example.com"]);
     let values = BTreeMap::from([
         (WindowsRelease::CERTIFICATE, String::from("signing.pfx")),
         (
@@ -507,4 +525,5 @@ fn the_staged_layout_packs_and_signs_with_the_msix_sdk() {
     let unpacked =
         std::fs::read_to_string(root.path().join("unpacked/AppxManifest.xml")).expect("manifest");
     assert!(unpacked.contains(r#"Name="ma.del.notes-app""#));
+    assert!(unpacked.contains(r#"<uap3:Host Name="notes.example.com"/>"#));
 }

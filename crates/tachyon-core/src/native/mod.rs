@@ -108,6 +108,7 @@ mod linux_window_appearance_tests;
 mod linux_window_control_tests;
 mod linux_window_controls;
 mod mac_os_architecture;
+mod mac_os_associated_domains;
 mod mac_os_built_slice;
 mod mac_os_disk_image;
 mod mac_os_entitlements;
@@ -294,6 +295,7 @@ mod windows_compiler_plan;
 mod windows_file_picker_tests;
 #[cfg(test)]
 mod windows_host_tests;
+mod windows_package_family;
 mod windows_package_manifest;
 #[cfg(test)]
 mod windows_package_tests;

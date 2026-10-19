@@ -7,12 +7,14 @@ pub(super) struct MacOsSigning {
     identity: String,
     team: String,
     notary_profile: String,
+    provisioning_profile: String,
 }
 
 impl MacOsSigning {
     pub(super) const TEAM_ID: &'static str = "TAC_APPLE_TEAM_ID";
     pub(super) const NOTARY_PROFILE: &'static str = "TAC_APPLE_NOTARY_PROFILE";
     pub(super) const SIGNING_IDENTITY: &'static str = "TAC_MACOS_SIGNING_IDENTITY";
+    pub(super) const PROVISIONING_PROFILE: &'static str = "TAC_MACOS_PROVISIONING_PROFILE";
     pub(super) const AD_HOC: &'static str = "-";
     const TEAM_ID_LENGTH: usize = 10;
     const TEAM_ID_BYTES: &'static [u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -31,9 +33,11 @@ impl MacOsSigning {
             identity: Self::value(&lookup, Self::SIGNING_IDENTITY),
             team: Self::value(&lookup, Self::TEAM_ID),
             notary_profile: Self::value(&lookup, Self::NOTARY_PROFILE),
+            provisioning_profile: Self::value(&lookup, Self::PROVISIONING_PROFILE),
         };
         signing.require_variables()?;
         signing.require_team_id()?;
+        signing.require_developer_id_for_profile()?;
         Ok(signing)
     }
 
@@ -57,6 +61,10 @@ impl MacOsSigning {
 
     pub(super) fn notary_profile(&self) -> &str {
         &self.notary_profile
+    }
+
+    pub(super) fn provisioning_profile(&self) -> Option<&str> {
+        Some(self.provisioning_profile.as_str()).filter(|profile| !profile.is_empty())
     }
 
     pub(super) fn note(&self) -> Option<String> {
@@ -102,6 +110,17 @@ impl MacOsSigning {
                  but these variables are missing: {}.",
                 missing.join(", ")
             ))
+        })
+    }
+
+    fn require_developer_id_for_profile(&self) -> Result<(), Failure> {
+        let refused = [self.is_ad_hoc(), self.provisioning_profile().is_some()] == [true, true];
+        (!refused).then_some(()).ok_or_else(|| {
+            Self::failure(
+                "TAC_MACOS_PROVISIONING_PROFILE gives the app associated domains, which only a \
+                 Developer ID signature can carry, but TAC_MACOS_SIGNING_IDENTITY=- signs it ad \
+                 hoc.",
+            )
         })
     }
 
@@ -191,6 +210,33 @@ mod tests {
             named.named_identity(),
             Some("Developer ID Application: Example (A1B2C3D4E5)")
         );
+    }
+
+    #[test]
+    fn a_provisioning_profile_needs_a_developer_id_signature() {
+        let release = signing(&[
+            (MacOsSigning::TEAM_ID, "A1B2C3D4E5"),
+            (MacOsSigning::NOTARY_PROFILE, "tachyon-notary"),
+            (
+                MacOsSigning::PROVISIONING_PROFILE,
+                " Shop.provisionprofile ",
+            ),
+        ])
+        .expect("signing");
+        assert_eq!(
+            release.provisioning_profile(),
+            Some("Shop.provisionprofile")
+        );
+        let text = signing(&[
+            (MacOsSigning::SIGNING_IDENTITY, "-"),
+            (MacOsSigning::PROVISIONING_PROFILE, "Shop.provisionprofile"),
+        ])
+        .expect_err("ad hoc")
+        .to_string();
+        assert!(text.contains("TY1605"), "{text}");
+        assert!(text.contains("signs it ad hoc"), "{text}");
+        let plain = signing(&[(MacOsSigning::SIGNING_IDENTITY, "-")]).expect("ad hoc");
+        assert_eq!(plain.provisioning_profile(), None);
     }
 
     #[test]

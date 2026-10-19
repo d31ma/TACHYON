@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Links to the hosts in `tac.application.links` can open macOS and Windows
+  apps (LK3, ADR 0106 amendment). A Windows `--release` MSIX package declares
+  them as app URI handlers, and the web build writes
+  `/.well-known/windows-app-web-link` for the package family name when
+  `TAC_WINDOWS_CERTIFICATE_PUBLISHER` is set. A signed macOS `--release` build
+  with `TAC_MACOS_PROVISIONING_PROFILE` embeds that Developer ID profile and
+  signs the app with an `applinks:` associated domain per host, and the macOS
+  app opens universal links at their route. Before, both targets left links to
+  the hosts in the browser.
 - A tray icon is declared in the manifest (ADR 0107). `tac.application.tray`
   names a PNG icon in the client bundle, a tooltip, and tray menu items that
   open a page or call an application service, like the File, View and Help

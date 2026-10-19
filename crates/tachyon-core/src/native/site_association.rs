@@ -1,6 +1,7 @@
 use super::android_signing_certificate::AndroidSigningCertificate;
 use super::apple_team::AppleTeam;
 use super::config::NativeApplication;
+use super::windows_package_family::WindowsPackageFamily;
 use crate::Failure;
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -10,16 +11,19 @@ pub(crate) struct SiteAssociation;
 impl SiteAssociation {
     const APPLE_PATH: &'static str = ".well-known/apple-app-site-association";
     const ANDROID_PATH: &'static str = ".well-known/assetlinks.json";
+    const WINDOWS_PATH: &'static str = ".well-known/windows-app-web-link";
     const APPLE_NOTE: &'static str = "Note: tac.application.links lists hosts, but TAC_APPLE_TEAM_ID is not set, so the build writes no /.well-known/apple-app-site-association. Until it is set, iOS opens the app only from its custom schemes.";
     const ANDROID_NOTE: &'static str = "Note: tac.application.links lists hosts, but the build writes /.well-known/assetlinks.json only when tac.origin and TAC_ANDROID_CERT_SHA256 are both set. Until then, Android does not verify the hosts and asks which app opens their links.";
+    const WINDOWS_NOTE: &'static str = "Note: tac.application.links lists hosts, but TAC_WINDOWS_CERTIFICATE_PUBLISHER is not set, so the build writes no /.well-known/windows-app-web-link. Until it is set, Windows opens links to the hosts in the browser.";
 
     /// Returns the files that let a site hand its links to the native apps,
     /// and adds a note for each file it cannot write.
     ///
     /// # Errors
     ///
-    /// Returns a failure when the manifest, `TAC_APPLE_TEAM_ID` or
-    /// `TAC_ANDROID_CERT_SHA256` cannot be read.
+    /// Returns a failure when the manifest, `TAC_APPLE_TEAM_ID`,
+    /// `TAC_ANDROID_CERT_SHA256` or `TAC_WINDOWS_CERTIFICATE_PUBLISHER` cannot
+    /// be read.
     pub(crate) fn files(
         snapshot_root: &Path,
         authored_root: &Path,
@@ -31,8 +35,18 @@ impl SiteAssociation {
         let certificate = AndroidSigningCertificate::from_environment()?;
         let apple = Self::apple(&application, team.as_ref());
         let android = Self::android(&application, origin, &certificate);
-        notes.extend([apple.1, android.1].into_iter().flatten().map(String::from));
-        Ok([apple.0, android.0].into_iter().flatten().collect())
+        let family = WindowsPackageFamily::from_environment(&application.application_id)?;
+        let windows = Self::windows(&application, family.as_ref());
+        notes.extend(
+            [apple.1, android.1, windows.1]
+                .into_iter()
+                .flatten()
+                .map(String::from),
+        );
+        Ok([apple.0, android.0, windows.0]
+            .into_iter()
+            .flatten()
+            .collect())
     }
 
     fn apple(
@@ -57,6 +71,16 @@ impl SiteAssociation {
             (false, false) => (None, Some(Self::ANDROID_NOTE)),
             (false, true) => (Some(Self::android_file(application, certificate)), None),
         }
+    }
+
+    fn windows(
+        application: &NativeApplication,
+        family: Option<&WindowsPackageFamily>,
+    ) -> (Option<(PathBuf, Vec<u8>)>, Option<&'static str>) {
+        let listed = !application.links.hosts().is_empty();
+        let file = family.filter(|_| listed).map(Self::windows_file);
+        let unsigned = [listed, family.is_none()] == [true, true];
+        (file, unsigned.then_some(Self::WINDOWS_NOTE))
     }
 
     fn apple_file(application: &NativeApplication, team: &AppleTeam) -> (PathBuf, Vec<u8>) {
@@ -86,6 +110,14 @@ impl SiteAssociation {
         (PathBuf::from(Self::ANDROID_PATH), Self::pretty(&statements))
     }
 
+    fn windows_file(family: &WindowsPackageFamily) -> (PathBuf, Vec<u8>) {
+        let link = json!([{
+            "packageFamilyName": family.name(),
+            "paths": ["*"]
+        }]);
+        (PathBuf::from(Self::WINDOWS_PATH), Self::pretty(&link))
+    }
+
     fn pretty(value: &serde_json::Value) -> Vec<u8> {
         let mut bytes = serde_json::to_vec_pretty(value).unwrap_or_default();
         bytes.push(b'\n');
@@ -102,6 +134,7 @@ mod tests {
     use crate::native::apple_team::AppleTeam;
     use crate::native::config::NativeApplication;
     use crate::native::native_links::NativeLinks;
+    use crate::native::windows_package_family::WindowsPackageFamily;
 
     fn application(hosts: &[&str]) -> NativeApplication {
         let root = tempfile::tempdir().expect("project");
@@ -145,6 +178,21 @@ mod tests {
             vec!["AB"; 32].join(":")
         );
         assert_eq!(android_note, None);
+        let family = WindowsPackageFamily::parse(
+            &application.application_id,
+            Some("CN=Contoso Ltd, O=Contoso Ltd, C=US"),
+        )
+        .expect("publisher");
+        let (windows, windows_note) = SiteAssociation::windows(&application, family.as_ref());
+        let (path, bytes) = windows.expect("windows file");
+        assert_eq!(path.to_str(), Some(".well-known/windows-app-web-link"));
+        let link: serde_json::Value = serde_json::from_slice(&bytes).expect("json");
+        assert_eq!(
+            link[0]["packageFamilyName"],
+            "com.example.shop-app_t247dhg0dta00"
+        );
+        assert_eq!(link[0]["paths"][0], "*");
+        assert_eq!(windows_note, None);
     }
 
     #[test]
@@ -156,6 +204,11 @@ mod tests {
         let (android, android_note) = SiteAssociation::android(&application, None, &certificate());
         assert!(android.is_none());
         assert!(android_note.is_some_and(|note| note.contains("TAC_ANDROID_CERT_SHA256")));
+        let (windows, windows_note) = SiteAssociation::windows(&application, None);
+        assert!(windows.is_none());
+        assert!(
+            windows_note.is_some_and(|note| note.contains("TAC_WINDOWS_CERTIFICATE_PUBLISHER"))
+        );
     }
 
     #[test]
@@ -168,6 +221,12 @@ mod tests {
         );
         assert_eq!(
             SiteAssociation::android(&application, Some("https://example.com"), &certificate()),
+            (None, None)
+        );
+        let family =
+            WindowsPackageFamily::parse("com.example.shop", Some("CN=Shop")).expect("publisher");
+        assert_eq!(
+            SiteAssociation::windows(&application, family.as_ref()),
             (None, None)
         );
     }
