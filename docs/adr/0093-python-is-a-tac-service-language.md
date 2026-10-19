@@ -422,3 +422,31 @@ replacement notes. The list stays as the history of this decision. Today:
   method, and browser API resources such as `Clock()`. The test
   `backend_tests.rs python_async_methods_and_async_start_build_but_async_stop_is_pending`
   checks both sides of the first line.
+
+## Amendment (2026-10-19): converters
+
+- A `@converter` `Protocol` class in `client/converters/` is a Python Tac
+  provider, like a `Store` or an `HTTPClient`. A service or Helper reaches
+  it with a typed `Needs` field, such as
+  `product_converter: Annotated[ProductConverter, needs]`. Before this
+  amendment Python Tac found providers only in `client/services`,
+  `client/helpers`, `client/stores` and `client/remotes`, so that field
+  failed with `TY1605` ("Python Tac Needs must name a declared
+  same-language provider").
+- `Convert` works as in Yon: a JSON-value method maps with its literal field
+  plan, and a method between two `client/models` dataclasses copies the
+  same-named fields, maps nested models and lists, and returns a dataclass
+  of the declared type. `def` and `async def` methods both work. The
+  mapping reads and writes models with the behavior runtime's own reader
+  when the page has no Yon model reader, so the result is the same under
+  Pyodide and under CPython.
+- A converter method with a body still fails with `TY1308` ("Convert writes
+  the whole method; declare its signature with an empty body").
+
+Evidence: `tac_python::converter_tests` runs one service with a typed
+converter (with and without `Convert`) and a JSON-value converter on
+Pyodide 314.0.7 through Node and under CPython, and checks the refusal.
+On 2026-10-19 the website "Mapping: Tac" and "Typed model mapping: Tac"
+Python tabs were bundled with `ty serve` and clicked in Chromium in a Linux
+container: they showed `product 7: Anvil` and
+`product 7: Anvil, detail, 1`.

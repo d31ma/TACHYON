@@ -22,6 +22,8 @@ mod browser_tests;
 #[cfg(test)]
 mod check_refusal_tests;
 #[cfg(test)]
+mod converter_tests;
+#[cfg(test)]
 mod host_tests;
 #[cfg(test)]
 mod notices_tests;
