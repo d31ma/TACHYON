@@ -29,7 +29,9 @@ machine contracts have their own, independent major versions.
   `description` becomes the summary. The AppImage joins the pinned AppImage
   type 2 runtime (downloaded once and checked by SHA-256, or named by
   `TAC_APPIMAGE_RUNTIME`) to a zstd squashfs image. Both use the system's
-  GTK 4 and WebKitGTK 6, and two release builds give the same bytes. A
+  GTK 4 and WebKitGTK 6, and two release builds give the same bytes. The
+  AppStream release date is the UTC day of `SOURCE_DATE_EPOCH` (1970-01-01
+  when unset), which `appstreamcli validate` accepts. A
   version that does not start with a digit stops a Linux release with
   `TY1601`. `TAC_LINUX_MAINTAINER` fills the `.deb` `Maintainer` field
   (the app's name when not set).

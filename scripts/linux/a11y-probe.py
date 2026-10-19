@@ -15,6 +15,7 @@ class ProbeLimits:
     MAX_CHILDREN = 128
     MAX_TEXT_LENGTH = 512
     WAIT_SECONDS = 20
+    LAUNCH_WAIT_SECONDS = 90
     APPLICATION = os.environ.get("TAC_PROBE_APPLICATION", "NativeGate")
     POLL_SECONDS = 0.2
 
@@ -60,6 +61,15 @@ def find_application():
         if candidate is not None and candidate.get_name() == ProbeLimits.APPLICATION:
             return candidate
     return None
+
+
+def wait_for_application(seconds=ProbeLimits.LAUNCH_WAIT_SECONDS):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if find_application() is not None:
+            return
+        time.sleep(ProbeLimits.POLL_SECONDS)
+    raise AssertionError(f"{ProbeLimits.APPLICATION} did not join the accessibility bus in {seconds} seconds")
 
 
 def exposed_texts(root):
@@ -135,6 +145,7 @@ def activate_control(name):
 
 def main():
     Atspi.init()
+    wait_for_application()
     wait_for_controls(["Root route", "Root count 0", "Shared module ready", "Verify native Root"])
     wait_for_roles(ExpectedRoles.WINDOW + ExpectedRoles.ROOT_PAGE)
     open_file_menu()

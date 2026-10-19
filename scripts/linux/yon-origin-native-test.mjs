@@ -441,7 +441,7 @@ export default class ProductInput {
 "$APP" &
 host=$!
 trap 'kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true' EXIT
-timeout 150s python3 "$PROBE" "$STEPS"`
+timeout 240s python3 "$PROBE" "$STEPS"`
     const env = {
       ...process.env,
       APP: app,
@@ -455,7 +455,7 @@ timeout 150s python3 "$PROBE" "$STEPS"`
       LIBGL_ALWAYS_SOFTWARE: '1',
       WEBKIT_DMABUF_RENDERER_FORCE_SHM: '1',
     }
-    const output = await this.run('xvfb-run', ['--auto-servernum', '--server-args=-screen 0 1024x1400x24', 'dbus-run-session', '--', 'bash', '-c', script], { env, timeoutMilliseconds: 180000 })
+    const output = await this.run('xvfb-run', ['--auto-servernum', '--server-args=-screen 0 1024x1400x24', 'dbus-run-session', '--', 'bash', '-c', script], { env, timeoutMilliseconds: 270000 })
     process.stdout.write(output)
   }
 

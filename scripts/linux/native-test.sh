@@ -51,13 +51,13 @@ drive_accessibility_probe() {
   export LIBGL_ALWAYS_SOFTWARE=1
   export WEBKIT_DMABUF_RENDERER_FORCE_SHM=1
   export APP="$app"
-  timeout 150s xvfb-run --auto-servernum --server-args='-screen 0 1024x1400x24' \
+  timeout 240s xvfb-run --auto-servernum --server-args='-screen 0 1024x1400x24' \
     dbus-run-session -- bash -c '
       set -euo pipefail
       "$APP/bin/NativeGate" &
       host=$!
       trap '\''kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true'\'' EXIT
-      timeout 120s python3 scripts/linux/a11y-probe.py
+      timeout 210s python3 scripts/linux/a11y-probe.py
     '
 }
 

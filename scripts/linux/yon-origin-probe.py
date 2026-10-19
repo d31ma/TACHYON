@@ -21,6 +21,7 @@ class YonOriginProbe:
     def main(steps):
         probe = YonOriginProbe.load_accessibility_probe()
         probe.Atspi.init()
+        probe.wait_for_application()
         actions = {
             "wait": lambda texts: probe.wait_for_controls(texts, YonOriginProbe.WAIT_SECONDS),
             "click": probe.activate_control,

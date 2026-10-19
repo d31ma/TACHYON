@@ -8,6 +8,9 @@ pub(super) struct LinuxPackageFiles;
 impl LinuxPackageFiles {
     pub(super) const MAINTAINER: &'static str = "TAC_LINUX_MAINTAINER";
     const SUMMARY_END: &'static [char] = &['.', ' '];
+    const SECONDS_PER_DAY: u64 = 86_400;
+    const DAYS_FROM_MARCH_OF_YEAR_ZERO_TO_1970: u64 = 719_468;
+    const DAYS_PER_400_YEARS: u64 = 146_097;
 
     pub(super) fn desktop_entry(
         application: &NativeApplication,
@@ -57,7 +60,7 @@ impl LinuxPackageFiles {
     <binary>{package}</binary>
   </provides>
   <releases>
-    <release version="{version}" timestamp="{epoch}"/>
+    <release version="{version}" date="{date}"/>
   </releases>
 </component>
 "#,
@@ -67,6 +70,7 @@ impl LinuxPackageFiles {
             description = xml_escape(&Self::description(application)),
             package = names.package,
             version = xml_escape(&application.version),
+            date = Self::release_date(epoch),
         )
     }
 
@@ -121,6 +125,20 @@ impl LinuxPackageFiles {
             .into_iter()
             .find(|text| !text.is_empty())
             .unwrap_or_default()
+    }
+
+    fn release_date(epoch: u64) -> String {
+        let days = epoch / Self::SECONDS_PER_DAY + Self::DAYS_FROM_MARCH_OF_YEAR_ZERO_TO_1970;
+        let era = days / Self::DAYS_PER_400_YEARS;
+        let day_of_era = days - era * Self::DAYS_PER_400_YEARS;
+        let year_of_era =
+            (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+        let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+        let month_from_march = (5 * day_of_year + 2) / 153;
+        let day = day_of_year - (153 * month_from_march + 2) / 5 + 1;
+        let month = (month_from_march + 2) % 12 + 1;
+        let year = year_of_era + era * 400 + u64::from(month <= 2);
+        format!("{year:04}-{month:02}-{day:02}")
     }
 
     fn desktop_value(value: &str) -> String {
@@ -196,7 +214,21 @@ mod tests {
             r#"<launchable type="desktop-id">dev.tachyon.linux_gate.desktop</launchable>"#
         ));
         assert!(metainfo.contains("<binary>linuxgate</binary>"));
-        assert!(metainfo.contains(r#"<release version="0.0.1" timestamp="1700000000"/>"#));
+        assert!(metainfo.contains(r#"<release version="0.0.1" date="2023-11-14"/>"#));
+    }
+
+    #[test]
+    fn the_release_date_is_the_utc_day_of_the_epoch() {
+        for (epoch, date) in [
+            (0, "1970-01-01"),
+            (86_399, "1970-01-01"),
+            (951_782_400, "2000-02-29"),
+            (951_868_800, "2000-03-01"),
+            (1_700_000_000, "2023-11-14"),
+            (4_107_542_399, "2100-02-28"),
+        ] {
+            assert_eq!(LinuxPackageFiles::release_date(epoch), date, "{epoch}");
+        }
     }
 
     #[test]

@@ -183,8 +183,10 @@ Samuel chose AppImage and `.deb` for Linux (decision D4); Flatpak comes later.
    name, because dpkg warns about a package with no maintainer each time it
    reads its database.
 7. `SOURCE_DATE_EPOCH` reaches `dpkg-deb` and `mksquashfs`, and the AppStream
-   release timestamp is the same value, so two release builds give the same
-   packages byte for byte.
+   release date is the UTC day of that value, so two release builds give the
+   same packages byte for byte. The release is a `date`, not a `timestamp`,
+   because `appstreamcli` refuses a timestamp of 0, which is the value when
+   `SOURCE_DATE_EPOCH` is unset; the date is then 1970-01-01.
 8. The deep-link scheme handler that LK2 adds to the desktop file goes into
    both packages without a change here.
 
