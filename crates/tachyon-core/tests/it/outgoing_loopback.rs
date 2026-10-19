@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::program_probe::ProgramProbe;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -118,12 +119,9 @@ class ProbeController {
     }
 
     fn available(program: &str) -> bool {
-        Self::VERSION_FLAGS.iter().any(|flag| {
-            std::process::Command::new(program)
-                .arg(flag)
-                .output()
-                .is_ok_and(|output| output.status.success())
-        })
+        Self::VERSION_FLAGS
+            .iter()
+            .any(|flag| ProgramProbe::answers(program, flag))
     }
 
     async fn private_service() -> (u16, Arc<AtomicUsize>) {

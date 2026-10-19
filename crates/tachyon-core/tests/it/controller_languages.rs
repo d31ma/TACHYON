@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::program_probe::ProgramProbe;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod};
 use tachyon_core::{
     HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
@@ -206,12 +206,7 @@ fn available(program: &str) -> bool {
         "lua" => "-v",
         _ => "--version",
     };
-    Command::new(program)
-        .arg(flag)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
+    ProgramProbe::answers(program, flag)
 }
 
 fn write(root: &Path, relative: &str, source: &str) {

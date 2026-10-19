@@ -3922,7 +3922,7 @@ mod tests {
     }
 
     fn command_succeeds(program: &str, argument: &str) -> bool {
-        std::process::Command::new(program)
+        crate::kotlin_home::KotlinHome::command(program)
             .arg(argument)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
