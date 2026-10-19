@@ -197,7 +197,7 @@ impl<'p> LuaBehaviorEdits<'p> {
     fn validation(method: &LuaBehaviorMethod, index: usize, schema: &str) -> String {
         let name = method.parameters.get(index).cloned().unwrap_or_default();
         format!(
-            " {name} = BehaviorValidation.apply(YonJson.decode({}), {name}); do",
+            " {name} = BehaviorValidation.guard(YonJson.decode({}), {name}); do",
             LuaSource::long_string(schema)
         )
     }

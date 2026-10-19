@@ -168,3 +168,12 @@ The change is additive: a frame without it means what it meant before.
   but thirteen JSON writers would differ in member order, escaping and
   limits, and a runtime bug could echo values. Rejected in favour of one
   writer in the server.
+
+## Amendment 2026-10-19: Lua
+
+Lua joins the languages that support `@Check` in Yon (ADR 0092 amendment of
+2026-10-19). The Lua guard collects every broken rule and raises a
+`validation` error whose path is the first broken rule, so an
+`@ErrorHandler` still catches it. The Lua runner writes a direct response,
+`{"status":422,"violations":[...]}`, and the server turns it into the same
+`TY2205` answer. The cross-language test sends the same inputs to Lua.

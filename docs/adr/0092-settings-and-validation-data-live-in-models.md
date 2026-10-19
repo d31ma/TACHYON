@@ -123,3 +123,30 @@ A Lua schema model in `client/models/` is now read like the other Tac
 languages. Its markers are `--` comments, so the model table runs unchanged,
 and the service program reads the schema from the Ruby shadow. Yon Lua schema
 models stay refused with `TY1310`. See ADR 0085.
+
+## Amendment 2026-10-19: Yon Lua schema models
+
+A Lua schema model in `server/models/` is now read like the other Yon
+languages, so `Settings`, `Setting`, `Checked`, `Required`, `NotEmpty`,
+`Length`, `Min`, `Max` and `Description` no longer stop the build with
+`TY1310`. The model metadata adapter is the same one Tac Lua uses: the
+markers are `--` comments, so the model table runs unchanged, and lowering
+reads the schema from the joined Ruby shadow of the handler. The handler
+program carries the model once, prepended like every plain Lua model.
+
+This supersedes the Lua refusal in "Yon" above and the last sentence of
+the 2026-10-17 amendment.
+
+- `Behaviors.properties(CatalogSettings, application)` and
+  `Behaviors.values(Endpoint, application)` bind the decoded
+  `YON_APPLICATION_JSON` snapshot. `Min` and `Max` on a Settings field fail
+  the binding.
+- `@Check(OrderInput)` on a Lua service parameter checks every rule of every
+  field. An unhandled rejection answers `422` with the problem details of
+  ADR 0101. The Lua runner writes the direct answer
+  `{"status":422,"violations":[...]}`, and the server builds the body.
+- `Length` now counts UTF-8 bytes in Lua, as documented, instead of
+  characters. This also applies to Tac Lua.
+
+A role or behavior marker on a Lua model is still refused with `TY1310`, as
+in every language.

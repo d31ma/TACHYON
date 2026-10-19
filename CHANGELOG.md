@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Yon Lua models in `server/models/` may carry `Settings`, `Setting`,
+  `Checked`, `Required`, `NotEmpty`, `Length`, `Min`, `Max` and
+  `Description` (ADR 0092 amendment). Before, the build refused them with
+  `TY1310`. `Behaviors.properties` and `Behaviors.values` bind them, and a
+  `@Check` rejection in a Lua handler answers `422` problem details like the
+  other Yon languages (ADR 0101). Lua `Length` now counts UTF-8 bytes, as
+  documented, in both realms.
+
 - The Windows app opens the file dialog for `FilePicker` (ADR 0089
   amendment). With `tac.nativeCapabilities: ["filePicker"]`, JavaScript,
   TypeScript and linked Rust and C# services choose one file in

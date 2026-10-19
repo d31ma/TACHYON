@@ -699,7 +699,7 @@ function BehaviorContext:checked_arguments(arguments, metadata)
   local checked = table.move(arguments, 1, count, 1, { n = count })
   if metadata.valid ~= nil then
     local index = metadata.valid.argument + 1
-    checked[index] = BehaviorValidation.apply(metadata.valid.schema, checked[index])
+    checked[index] = BehaviorValidation.guard(metadata.valid.schema, checked[index])
   end
   if count > 32 then
     BehaviorBoundary.invalid("Too many behavior arguments.")
@@ -1250,13 +1250,41 @@ end
 BehaviorValidation = {
   BLANKS = { "\u{0085}", "\u{00A0}", "\u{1680}", "\u{2000}", "\u{2001}", "\u{2002}", "\u{2003}", "\u{2004}", "\u{2005}",
     "\u{2006}", "\u{2007}", "\u{2008}", "\u{2009}", "\u{200A}", "\u{2028}", "\u{2029}", "\u{202F}", "\u{205F}", "\u{3000}" },
+  RULES = { notNull = "Required", notBlank = "NotEmpty", size = "Length", min = "Min", max = "Max" },
 }
 
 function BehaviorValidation.error(path)
   BehaviorError.raise("validation", "Behavior validation failed.", path)
 end
 
+function BehaviorValidation.reject(violations, path)
+  local failure = { behavior_code = "validation", message = "Behavior validation failed.", path = path, violations = violations }
+  error(setmetatable(failure, BehaviorError), 0)
+end
+
 function BehaviorValidation.apply(schema, input)
+  local value = BehaviorValidation.object(input)
+  local _, paths = BehaviorValidation.violations(BehaviorValidation.fields(schema), value)
+  if paths[1] ~= nil then
+    BehaviorValidation.error(paths[1])
+  end
+  return value
+end
+
+function BehaviorValidation.guard(schema, input)
+  local fields = BehaviorValidation.fields(schema)
+  local ok, value = pcall(BehaviorValidation.object, input)
+  if not ok then
+    BehaviorValidation.reject({ { field = "", rule = "Checked" } }, value.path)
+  end
+  local violations, paths = BehaviorValidation.violations(fields, value)
+  if paths[1] ~= nil then
+    BehaviorValidation.reject(violations, paths[1])
+  end
+  return value
+end
+
+function BehaviorValidation.object(input)
   local ok, value = pcall(BehaviorBoundary.copy, input)
   if not ok then
     BehaviorValidation.error("$.json")
@@ -1265,13 +1293,30 @@ function BehaviorValidation.apply(schema, input)
   if type(value) ~= "table" or listed then
     BehaviorValidation.error("$.object")
   end
+  return value
+end
+
+function BehaviorValidation.fields(schema)
   if type(schema) ~= "table" or schema.fields == nil then
     BehaviorValidation.error("$.schema")
   end
-  for field, rules in pairs(schema.fields) do
-    BehaviorValidation.check(field, rules, value[field])
+  return schema.fields
+end
+
+function BehaviorValidation.violations(fields, value)
+  local names = {}
+  for name in pairs(fields) do
+    names[#names + 1] = name
   end
-  return value
+  table.sort(names)
+  local violations, paths = {}, {}
+  for _, field in ipairs(names) do
+    for _, key in ipairs(BehaviorValidation.broken(fields[field], value[field])) do
+      violations[#violations + 1] = { field = field, rule = BehaviorValidation.RULES[key] }
+      paths[#paths + 1] = field .. "." .. key
+    end
+  end
+  return violations, paths
 end
 
 function BehaviorValidation.blank(text)
@@ -1281,42 +1326,44 @@ function BehaviorValidation.blank(text)
   return text:find("%S") == nil
 end
 
-function BehaviorValidation.check(field, rules, data)
+function BehaviorValidation.broken(rules, data)
+  local keys = {}
+  if data == YonNull then
+    data = nil
+  end
   if rules.notNull and data == nil then
-    BehaviorValidation.error(field .. ".notNull")
+    keys[#keys + 1] = "notNull"
   end
   if rules.notBlank and (type(data) ~= "string" or BehaviorValidation.blank(data)) then
-    BehaviorValidation.error(field .. ".notBlank")
+    keys[#keys + 1] = "notBlank"
   end
   if data == nil then
-    return
+    return keys
   end
-  BehaviorValidation.check_size(field, rules, data)
+  if rules.size ~= nil and not BehaviorValidation.size_fits(rules.size, data) then
+    keys[#keys + 1] = "size"
+  end
   local number = type(data) == "number"
   if rules.min ~= nil and (not number or data < rules.min) then
-    BehaviorValidation.error(field .. ".min")
+    keys[#keys + 1] = "min"
   end
   if rules.max ~= nil and (not number or data > rules.max) then
-    BehaviorValidation.error(field .. ".max")
+    keys[#keys + 1] = "max"
   end
+  return keys
 end
 
-function BehaviorValidation.check_size(field, rules, data)
-  if rules.size == nil then
-    return
-  end
+function BehaviorValidation.size_fits(limits, data)
   local size = -1
   if type(data) == "string" then
-    size = utf8.len(data) or #data
+    size = #data
   elseif type(data) == "table" then
     size = 0
     for _ in pairs(data) do
       size = size + 1
     end
   end
-  if size < rules.size.min or size > rules.size.max then
-    BehaviorValidation.error(field .. ".size")
-  end
+  return size >= limits.min and size <= limits.max
 end
 
 BehaviorProperties = {

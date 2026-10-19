@@ -622,3 +622,11 @@ this decision.
   amendment and the 2026-10-18 HTTP client amendment (Helper, StreamRequest
   and SocketRequest) is replaced by "Tac Lua helpers" and "Tac Lua streams
   and sockets" (2026-10-18).
+
+## Amendment 2026-10-19: Yon Lua schema models
+
+Yon Lua schema models in `server/models/` are accepted. `Settings`,
+`Setting`, `Checked`, `Required`, `NotEmpty`, `Length`, `Min`, `Max` and
+`Description` work on a Lua model in both realms. A `@Check` rejection in a
+Yon Lua handler answers `422` problem details. See the 2026-10-19 amendment
+of ADR 0092. This replaces the `TY1310` sentence in the amendment above.

@@ -1343,7 +1343,7 @@ application `@ErrorHandler` handles the error, Yon answers
 `422 Unprocessable Content` with an RFC 9457 `application/problem+json` body
 ([ADR 0101](adr/0101-check-rejections-answer-422-problem-details.md)). Every
 Yon language that supports Check sends the same body (JavaScript, TypeScript,
-Python, Ruby, PHP, Java, Groovy, Kotlin, C#, F#, Dart, Go, Rust and C++):
+Python, Ruby, PHP, Java, Groovy, Kotlin, C#, F#, Dart, Go, Rust, C++ and Lua):
 
 ```json
 {"type":"about:blank","title":"Invalid input","status":422,"errors":[{"field":"level","rule":"Required"},{"field":"name","rule":"NotEmpty"}],"truncated":false,"reference":"4WHBW1MLRC6"}
@@ -1558,6 +1558,7 @@ The pure factories are synchronous in every language:
 | C# | `Behaviors.properties(typeof(CatalogSettings), values)` | `Behaviors.validate(typeof(Input), value)` |
 | Swift | `try Behaviors.properties(CatalogSettings.self, values)` | `try Behaviors.validate(Input.self, value)` |
 | Rust | `Behaviors::properties::<CatalogSettings>(&values)?` | `Behaviors::validate::<Input>(value)?` |
+| Lua | `Behaviors.properties(CatalogSettings, values)` | `Behaviors.validate(Input, value)` |
 
 `Behaviors.values` takes the parsed application in the language's own JSON
 shape. It is spelled like the properties column:
@@ -1570,6 +1571,7 @@ shape. It is spelled like the properties column:
 | C# | `BehaviorJSON` | `Behaviors.values(typeof(CatalogSettings), application)` |
 | Swift | `BehaviorJSON` | `try Behaviors.values(CatalogSettings.self, application)` |
 | Rust | `BehaviorValue`; the Yon prelude's `Json` converts with `.into()` | `Behaviors::values::<CatalogSettings>(&application)?` |
+| Lua | a table from `YonJson.decode` | `Behaviors.values(CatalogSettings, application)` |
 
 To pass profiles and properties at creation:
 
