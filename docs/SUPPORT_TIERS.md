@@ -367,12 +367,18 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   the display. WSLg's own Weston crashed (signal 11) as the first GTK window
   opened, in a session started over SSH; a ten-line GTK 4 window crashed it
   the same way. WSLg is not counted as a Wayland run.
+- WSL, round 4 on `fe191f12`, after Samuel installed mutter 46.2, xdg-utils
+  1.1.3 and gcc-mingw-w64-x86-64 13.2.0: `compositor-test.sh` passed both
+  halves (xfwm4 compositing two and two; headless mutter Wayland ten host
+  tests and three link tests), and `desktop-links-test.sh` passed through GIO
+  and through the OpenURI portal, with the installed `.desktop` file opening
+  `linkgate://` links in one running app. The two Windows link tests now
+  compile with mingw but need Wine to run the x86_64 `.exe`, which arm64 WSL
+  cannot run without an x86 emulator; they belong on Windows or x86_64 Linux.
 - Not run: `dpkg -i` or `apt install` of the `.deb` on WSL, because both need
-  administrator rights; on WSL, the headless mutter half of
-  `compositor-test.sh` and `desktop-links-test.sh`, because mutter and
-  xdg-utils are not installed there; the two Windows link tests on WSL, which
-  need mingw; WSLg from a signed-in desktop session; GeoClue and a
-  notification server; a physical Linux desktop.
+  administrator rights (`native-test.sh` unpacks and starts it without them);
+  WSLg from a signed-in desktop session; GeoClue and a notification server; a
+  physical Linux desktop.
 
 ### Native apps reach Yon through a declared origin (2026-10-18)
 
