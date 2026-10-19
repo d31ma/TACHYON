@@ -12,16 +12,20 @@ function Enable-Msvc {
     if (Get-Command cl.exe -ErrorAction SilentlyContinue) { return }
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     if (-not (Test-Path $vswhere)) { throw 'MSVC requires Visual Studio Build Tools' }
-    $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-    if ($LASTEXITCODE -ne 0 -or -not $installation) { throw 'MSVC x64 tools are not installed' }
+    $hostArchitecture = @($env:PROCESSOR_ARCHITEW6432, $env:PROCESSOR_ARCHITECTURE) | Where-Object { $_ } | Select-Object -First 1
+    $architecture = if ($hostArchitecture -eq 'ARM64') { 'arm64' } else { 'x64' }
+    $component = if ($architecture -eq 'arm64') { 'Microsoft.VisualStudio.Component.VC.Tools.ARM64' } else { 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64' }
+    $installation = & $vswhere -latest -products '*' -requires $component -property installationPath
+    if ($LASTEXITCODE -ne 0 -or -not $installation) { throw "MSVC $architecture tools are not installed" }
     $developer = Join-Path $installation 'Common7\Tools\VsDevCmd.bat'
-    $environment = & $env:ComSpec /d /s /c "`"$developer`" -no_logo -arch=x64 -host_arch=x64 >nul && set"
+    $environment = & $env:ComSpec /d /s /c "`"$developer`" -no_logo -arch=$architecture -host_arch=$architecture >nul && set"
     if ($LASTEXITCODE -ne 0) { throw 'could not initialize the MSVC developer environment' }
     foreach ($line in $environment) {
         if ($line -match '^([^=]+)=(.*)$') {
             [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
         }
     }
+    Remove-Item Env:Platform -ErrorAction SilentlyContinue
 }
 
 function Install-WebViewSdk([string] $version, [string] $directory) {
