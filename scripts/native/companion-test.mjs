@@ -60,10 +60,11 @@ impl NativeSecondService {
 function writeServices(project) {
   write(project, 'client/manifest.json', JSON.stringify({ name: 'CompanionGate', start_url: '/', tac: { application: { id: 'dev.tachyon.companion-gate', version: '0.0.1' } } }));
   write(project, 'client/models/NativeEvent.rs', 'pub struct NativeEvent {\n    pub text: String,\n}\n');
-  for (const [route, name, source] of [['', 'First', NativeServices.first], ['second/', 'Second', NativeServices.second]]) {
+  for (const [route, name, source, methods] of [['', 'First', NativeServices.first, ['doubled', 'processId', 'announce']], ['second/', 'Second', NativeServices.second, ['doubled']]]) {
     const instance = `native${name}`;
+    const buttons = methods.map((method) => `<button on:click="${instance}.${method}()">${method}</button>`).join('');
     write(project, `client/pages/${route}tac.html`, `<native-${name.toLowerCase()} />`);
-    write(project, `client/components/native/${name.toLowerCase()}/tac.html`, `<main><p>{${instance}.count}</p></main>`);
+    write(project, `client/components/native/${name.toLowerCase()}/tac.html`, `<main><p>{${instance}.count}</p>${buttons}</main>`);
     write(project, `client/services/Native${name}Service.rs`, source);
   }
 }

@@ -6,6 +6,26 @@ impl BridgeCases {
     const CSHARP: &'static str = "[Service]\npublic class BridgeService\n{\n    public int Count = 0;\n\n    public int Doubled() => Count * 2;\n\n    public int Spare() => 3;\n}\n";
     const SCRIPT: &'static str = "@Service\nexport default class BridgeService {\n  verify() {\n    this.count = 2;\n    return this.doubled();\n  }\n\n  _inspect(other) {\n    return other.spare();\n  }\n}\n";
     const VIEW: &'static str = "<button on:click=\"bridge.verify()\">Verify</button>\n";
+    const RUST: &'static str = "#[Service]\n#[derive(Default)]\nstruct BridgeService {\n    count: i64,\n}\n\nimpl BridgeService {\n    pub fn page_heard(&self) -> i64 {\n        self.count\n    }\n\n    pub fn spare(&self) -> i64 {\n        3\n    }\n}\n";
+    const RUST_SCRIPT: &'static str = "@Service\nexport default class BridgeService {\n  verify() {\n    return this.pageHeard();\n  }\n}\n";
+}
+
+#[test]
+fn ty1333_a_script_sibling_keeps_the_rust_methods_it_calls_public() {
+    for extension in ["js", "ts"] {
+        let native = "client/services/BridgeService.rs";
+        let script = format!("client/services/BridgeService.{extension}");
+        let files = [
+            (native, BridgeCases::RUST),
+            (script.as_str(), BridgeCases::RUST_SCRIPT),
+            ("client/components/bridge/tac.html", BridgeCases::VIEW),
+        ];
+        assert_eq!(
+            VisibilityProject::names_in(&files, native),
+            ["spare"],
+            "{extension}"
+        );
+    }
 }
 
 #[test]

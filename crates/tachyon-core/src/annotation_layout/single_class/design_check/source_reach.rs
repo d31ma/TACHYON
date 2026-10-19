@@ -26,7 +26,7 @@ impl<'a> SourceReach<'a> {
     const GENERATED_MARK: &'static str = ".d.ts";
     const CLIENT_REALM: &'static str = "client";
     const CLIENT_SERVICES: &'static str = "client/services/";
-    const CSHARP_EXTENSION: &'static str = "cs";
+    const BRIDGED_EXTENSIONS: [&'static str; 2] = ["cs", "rs"];
     const SCRIPT_SUFFIXES: [&'static str; 2] = [".js", ".ts"];
     const SCRIPT_SELF: &'static str = "this";
 
@@ -50,13 +50,13 @@ impl<'a> SourceReach<'a> {
         authored_extension: &str,
     ) -> Vec<&'a str> {
         let service = (realm == Self::CLIENT_REALM) & path.starts_with(Self::CLIENT_SERVICES);
-        let csharp = authored_extension == Self::CSHARP_EXTENSION;
+        let bridged = Self::BRIDGED_EXTENSIONS.contains(&authored_extension);
         let script = Self::SCRIPT_SUFFIXES
             .iter()
             .any(|suffix| self.path.ends_with(suffix));
         let sibling = Self::without_extension(self.path) == Self::without_extension(path);
         let same_realm = self.realm == realm;
-        if !(service & csharp & script & sibling & same_realm) {
+        if !(service & bridged & script & sibling & same_realm) {
             return Vec::new();
         }
         self.accesses

@@ -2011,7 +2011,9 @@ machine contracts have their own, independent major versions.
   method was public too. Write `pub fn` on each method a view calls. A view
   that reads a private Rust method, such as `drawer.closeDrawer()` for
   `fn close_drawer(&mut self)`, now stops the build with TY1311 and says to
-  write `pub`. The website examples mark these methods `pub`.
+  write `pub`. The website examples mark these methods `pub`. A `pub`
+  method that the JavaScript or TypeScript page service beside it calls,
+  such as `this.pageHeard()`, counts as used, so TY1333 no longer refuses it.
 - An input that breaks a `@Checked` rule on a `@Check` parameter now answers
   `422 Unprocessable Content` with an RFC 9457 `application/problem+json`
   body, in JavaScript, TypeScript, Python, Ruby, PHP, Java, Groovy, Kotlin,

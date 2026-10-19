@@ -141,7 +141,7 @@ export default class SignalPanelService {
 function writeNativeFixtures(project) {
   write(project, 'client/pages/native/tac.html', '<runtime-native />');
   write(project, 'client/components/runtime/native/tac.html', '<main><p id="native-value">{runtimeNative.value}</p><input aria-label="Native name" :value="runtimeNative.value" on:input="runtimeNative.value = $event.target.value"><button id="native-append" on:click="runtimeNative.value += &quot;!&quot;">Append</button><button id="native-argument" on:click="runtimeNative.act(7)">Call</button><input id="native-explicit-event" aria-label="Explicit event" on:input="runtimeNative.act($event.target.value)"></main>');
-  write(project, 'client/services/RuntimeNativeService.rs', '#[Service]\n#[derive(Default)]\nstruct RuntimeNativeService { value: String, early: String }\nimpl RuntimeNativeService {\n    fn act(&self, value: String) -> String { value }\n}\n');
+  write(project, 'client/services/RuntimeNativeService.rs', '#[Service]\n#[derive(Default)]\nstruct RuntimeNativeService { value: String, early: String }\nimpl RuntimeNativeService {\n    pub fn act(&self, value: String) -> String { value }\n}\n');
   writeJavaScriptModels(project, RuntimeModels.native);
   write(project, 'client/services/RuntimeNativeService.js', `@Service()
 export default class RuntimeNativeService {
@@ -154,7 +154,7 @@ export default class RuntimeNativeService {
 }`);
   write(project, 'client/pages/stored/tac.html', '<runtime-stored />');
   write(project, 'client/components/runtime/stored/tac.html', '<main><p id="stored-value">{runtimeStored.saved}</p><button id="stored-remember" on:click="runtimeStored.remember(&quot;kept&quot;)">Remember</button></main>');
-  write(project, 'client/services/RuntimeStoredService.rs', '#[Service]\n#[derive(Default)]\nstruct RuntimeStoredService { saved: String }\nimpl RuntimeStoredService {\n    fn remember(&mut self, value: String) -> String { self.saved = value.clone(); value }\n}\n');
+  write(project, 'client/services/RuntimeStoredService.rs', '#[Service]\n#[derive(Default)]\nstruct RuntimeStoredService { saved: String }\nimpl RuntimeStoredService {\n    pub fn remember(&mut self, value: String) -> String { self.saved = value.clone(); value }\n}\n');
   write(project, 'client/services/RuntimeStoredService.js', `@Service()
 export default class RuntimeStoredService {
   @LocalState
@@ -618,7 +618,7 @@ impl RustAuditService {
     #[OnEvent]
     fn save_settled(&mut self, value: OrderSettled) { self.settled = value.total; }
 
-    fn emitOrdered(&self) {
+    pub fn emitOrdered(&self) {
         self.application_event_publisher.publish_event(NativeOrdered { language: String::from(Self::LANGUAGE) }, false);
     }
 
