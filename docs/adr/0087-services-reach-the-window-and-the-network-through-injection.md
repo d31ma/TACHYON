@@ -408,4 +408,6 @@ app: a network-first `@Cached` read answered while Yon ran, the
 With the transport fix above, `scripts/linux/page-checks-native-test.mjs`
 reads a Yon note in the packaged Linux app, stops Yon, and reads the same note
 from the cache. `compiler::yon_reads_tests` also drives the real
-`clientRequest` source as the transport, online and then offline.
+`clientRequest` source as the transport, online and then offline. With that
+run, the support table marks `tac.cache` honored on Linux; the offline read in
+the packaged macOS and Windows apps is still owed.

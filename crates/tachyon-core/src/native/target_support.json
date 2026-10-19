@@ -175,7 +175,7 @@
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "runOwed", "how": "close, fullscreen, maximize (zoom), minimize, resize and title", "run": "a granted control from a page or service on a Mac; the GUI checks run only the refused path"},
     "windows": {"reach": "runOwed", "how": "close, fullscreen, maximize, minimize, resize and title", "run": "native_windows_controls_drive_a_real_win32_window and a page call inside WebView2 on a signed-in Windows desktop"},
-    "linux": {"reach": "runOwed", "how": "close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services", "run": "a granted close, fullscreen and maximize under Xvfb; only the refused path ran for them"},
+    "linux": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services"},
     "ios": {"reach": "adapted", "note": "tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, and only for calls from the page: linked Swift services get no window controls on iOS. granted() answers false for the other controls."},
     "android": {"reach": "adapted", "note": "tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. Only a refused control has run on the emulator; a granted run is still owed."}
   },
@@ -345,7 +345,7 @@
     "web": {"reach": "honored", "how": "offline rules in the service worker; the page applies them to Yon reads at tac.yon.origin in its own Cache Storage"},
     "macos": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read in the packaged macOS app"},
     "windows": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read inside WebView2 on a signed-in Windows desktop"},
-    "linux": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read in the packaged Linux app"},
+    "linux": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk"},
     "ios": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the iOS app, but the kept reads last only while the app runs: WebKit does not keep Cache Storage entries of the app's page across a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2)."},
     "android": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the Android app, but a read kept shortly before the system stops the app is not always there after a relaunch: the web view does not always keep such Cache Storage entries."}
   },
@@ -425,7 +425,7 @@
     "web": {"reach": "honored", "how": "localStorage"},
     "macos": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on a Mac"},
     "windows": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch inside WebView2 on a signed-in Windows desktop"},
-    "linux": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch under Xvfb or on WSL"},
+    "linux": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
     "ios": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on the iOS simulator"},
     "android": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on the emulator"}
   },
@@ -455,7 +455,7 @@
     "web": {"reach": "honored", "how": "Python services on Pyodide (WebAssembly)"},
     "macos": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the packaged macOS app on a Mac (ADR 0093)"},
     "windows": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service inside WebView2 on a signed-in Windows desktop (ADR 0093)"},
-    "linux": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the packaged Linux app under Xvfb or on WSL (ADR 0093)"},
+    "linux": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093)"},
     "ios": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the iOS simulator gate (ADR 0093)"},
     "android": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the Android emulator gate (ADR 0093)"}
   },
