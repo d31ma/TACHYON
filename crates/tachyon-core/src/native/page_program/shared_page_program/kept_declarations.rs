@@ -4,13 +4,13 @@ use std::collections::btree_map::Entry;
 use std::path::Path;
 
 #[derive(Default)]
-pub(super) struct SwiftKeptDeclarations {
+pub(super) struct KeptDeclarations {
     kept: BTreeMap<(Option<String>, Vec<String>), String>,
     source: String,
     conflicting: bool,
 }
 
-impl SwiftKeptDeclarations {
+impl KeptDeclarations {
     pub(super) fn with(self, identity: &Path, declaration: &str) -> Result<Self, Failure> {
         let declared = crate::annotation_layout::declaration_names(identity, declaration)?;
         Ok(self.keep(declared, declaration))

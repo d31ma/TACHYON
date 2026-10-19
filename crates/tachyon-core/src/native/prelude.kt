@@ -4,7 +4,7 @@ class TacMethod(val invoke: (List<Any?>) -> Any?)
 
 class TacTask(val code: (Throwable) -> String?, val invoke: suspend (List<Any?>) -> Any?)
 
-private fun tacThrownCode(error: Throwable): String? = null
+private fun tacThrownCode(error: Any): String? = null
 
 class TacListener(
     val events: List<String>,

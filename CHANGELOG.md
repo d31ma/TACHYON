@@ -261,6 +261,15 @@ machine contracts have their own, independent major versions.
   service together and keeps each shared Setup, client, store and entity
   once (35 KB of script and 1513 KB of WebAssembly for the page-program
   fixture, from 1519 KB; ADR 0022).
+- Kotlin browser services on one page share one program. Two Kotlin
+  services that need the same Setup, HTTP client or Store now get one Setup
+  configuration and one `Behaviors` runtime, so an increment through one
+  service's client is seen by the other's. The page keeps each shared
+  Setup, client, store and entity once, with the same code as Swift (36 KB
+  of script and 190 KB of WebAssembly without Binaryen for the page-program
+  fixture, from 195 KB; ADR 0022). In the signal-driven UI recipe, the Kotlin
+  list reloads the saved users through its own UsersClient from the Setup's
+  in-page adapter.
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with
@@ -1162,6 +1171,13 @@ machine contracts have their own, independent major versions.
   not visible to screen readers. The items inside each menu now also have
   their visible text as their accessible name; before, AT-SPI reported them
   with an empty name (ADR 0097 amendment).
+- A Kotlin Store written without braces
+  (`interface NoteStore : Repository<NoteEntity, String>`) now builds like
+  one with an empty body. Before, it lowered to Kotlin that did not compile.
+  A Store with an empty `{}` body also declares its `behaviors` field before
+  the `init` block that sets it. A blocking Kotlin HTTP client method that
+  returns a model now names the method in its TY1308 refusal and says to
+  mark it `suspend`.
 - Window controls tell the truth. A window control that the native host
   refuses after the call started now reaches the calling service as a
   `BrowserCallFailed` event (`api` `windowControls`, the call's name and the

@@ -2,14 +2,14 @@ use crate::Failure;
 use std::path::Path;
 
 #[derive(Default)]
-pub(super) struct SwiftDeclarations {
+pub(super) struct PageDeclarations {
     finished: Vec<String>,
     current: String,
     depth: usize,
     opened: bool,
 }
 
-impl SwiftDeclarations {
+impl PageDeclarations {
     pub(super) fn of(identity: &Path, source: &str) -> Result<Vec<String>, Failure> {
         let masked = crate::annotation_layout::masked_source(identity, source)?;
         let declarations = source

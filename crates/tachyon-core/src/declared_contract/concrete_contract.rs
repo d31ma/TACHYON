@@ -106,7 +106,25 @@ impl<'a> ConcreteContract<'a> {
     }
 
     fn lowered(&self) -> Option<String> {
+        if let Some(braced) = self.with_kotlin_bodies() {
+            let lowered = ConcreteContract::new(self.form, &braced, self.tac).lowered();
+            return Some(lowered.unwrap_or(braced));
+        }
         let edits = self.contract_edits();
+        (!edits.is_empty()).then(|| Self::apply(self.source, edits))
+    }
+
+    fn with_kotlin_bodies(&self) -> Option<String> {
+        (self.form.language == Self::KOTLIN).then_some(())?;
+        let edits: Vec<SourceEdit> = ContractDeclaration::find(self.form, self.source, &self.code)
+            .iter()
+            .filter(|declaration| self.is_lowered(declaration))
+            .filter(|declaration| self.code.as_bytes().get(declaration.close) != Some(&b'}'))
+            .map(|declaration| {
+                let end = declaration.header.end;
+                (end..end, Self::EMPTY_BODY.to_owned())
+            })
+            .collect();
         (!edits.is_empty()).then(|| Self::apply(self.source, edits))
     }
 
@@ -333,7 +351,7 @@ impl<'a> ConcreteContract<'a> {
         let member_edit = Some((declaration.close..declaration.close, text + &crud));
         let send_edit = Some((declaration.close..declaration.close, send))
             .filter(|(_, send)| [wanted, send.is_empty()] == [false, false]);
-        [field_edit, member_edit]
+        [member_edit, field_edit]
             .into_iter()
             .flatten()
             .filter(|_| wanted)

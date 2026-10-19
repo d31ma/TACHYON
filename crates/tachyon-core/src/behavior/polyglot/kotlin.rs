@@ -923,7 +923,10 @@ fn validate_managed(
     resilient: bool,
 ) -> Result<(), String> {
     if managed && !returns_any(method) {
-        return Err("Kotlin cache/WebCall methods must return Any? bounded JSON".to_owned());
+        return Err(format!(
+            "Kotlin cache/WebCall method {}.{} must return Any? bounded JSON; mark an HTTP client method suspend to return a model",
+            type_declaration.name, method.name
+        ));
     }
     if (managed || resilient) && !has_behaviors_context(type_declaration) {
         return Err(
@@ -1208,5 +1211,18 @@ mod tests {
         let message = failure.to_string();
         assert!(message.contains("TY1312"), "{message}");
         assert!(message.contains("must take Any? parameters"), "{message}");
+    }
+
+    #[test]
+    fn a_blocking_client_method_that_returns_a_model_is_named_in_the_refusal() {
+        let failure = crate::behavior::lower(
+            std::path::Path::new("client/remotes/NoteClient.kt"),
+            "@HTTPClient({\"path\":\"/notes\"})\ninterface NoteClient {\n    @GetRequest(\"/read\")\n    fun read(): NoteState\n}\n",
+            "tac",
+        )
+        .expect_err("a blocking method cannot return a model");
+        let message = failure.to_string();
+        assert!(message.contains("NoteClient.read"), "{message}");
+        assert!(message.contains("suspend"), "{message}");
     }
 }

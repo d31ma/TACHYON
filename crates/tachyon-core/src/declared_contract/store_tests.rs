@@ -533,3 +533,19 @@ fn a_lua_yon_store_becomes_a_provider_that_opens_its_own_context() {
         None
     );
 }
+
+#[test]
+fn a_kotlin_store_written_without_braces_lowers_like_one_with_an_empty_body() {
+    let path = Path::new("client/stores/ProductStore.kt");
+    let header = "@Store(ProductEntity::class, OPTIONS)\ninterface ProductStore : Repository<ProductEntity, String>";
+    let without = StoreSamples::filled(&format!("{header}\n"));
+    let with = StoreSamples::filled(&format!("{header} {{}}\n"));
+    let lowered = DeclaredContract::concrete(path, &without, "tac").expect("lowered");
+    let expected = DeclaredContract::concrete(path, &with, "tac").expect("lowered");
+    assert_eq!(lowered, expected);
+    assert!(lowered.contains("class ProductStore"), "{lowered}");
+    assert!(lowered.trim_end().ends_with('}'), "{lowered}");
+    let field = lowered.find("lateinit var behaviors").expect("field");
+    let start = lowered.find("init {").expect("start");
+    assert!(field < start, "{lowered}");
+}

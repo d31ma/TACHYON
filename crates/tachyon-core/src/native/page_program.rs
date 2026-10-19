@@ -12,6 +12,7 @@ use swift_page_program::SwiftPageProgram;
 mod dotnet_page_program;
 mod kotlin_page_program;
 mod rust_page_program;
+mod shared_page_program;
 mod swift_page_program;
 
 pub(super) type PageServices<'page, 'imports> = (
