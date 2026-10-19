@@ -133,7 +133,7 @@ tac.outgoing
   adapted: The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host.
 
 tac.yon
-  adapted: tac.yon.origin: the Android app and its linked Kotlin HTTP clients send Yon calls to this origin and the app asks for the INTERNET permission; a local http origin may use cleartext to that one host only. The packaged app has not been run against Yon on the emulator yet (NET2).
+  honored: the page and its linked Kotlin HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs on the Android 15 emulator (ADR 0103)
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -214,7 +214,7 @@ Content-Security-Policy
   honored: the native host policy, which also allows the host's bridge script by its hash
 
 reaching Yon
-  adapted: The Android app's pages load from a local origin, so same-origin requests reach no Yon. Pages and linked Kotlin HTTP clients reach the Yon at tac.yon.origin; the packaged app has not been run against Yon on the emulator yet (NET2).
+  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs (NET2).
 
 natively linked service languages
   honored: Kotlin services are linked into the app; other languages run in the page

@@ -110,7 +110,8 @@ machine contracts have their own, independent major versions.
   checks an HTTP route, a stream, a socket, a topic, a `@Check` 422, a
   `SignedIn` route and a linked Kotlin client on the emulator, and
   `scripts/yon-origin-browser-test.mjs` checks the same Yon paths across
-  ports in Chromium.
+  ports in Chromium. Both passed on 2026-10-19, the emulator run on
+  Android 15, so the Android `tac.yon` row is now honored.
 - A native app now applies its `tac.cache` rules to Yon reads. A native
   build that declares `tac.yon.origin` and `tac.cache` ships
   `/.tachyon/tac-yon-reads.js`, which keeps public Yon reads in the page's

@@ -192,14 +192,15 @@ in `server/application.json`. The contract is unit-tested in the cloud, and
 `scripts/yon-origin-browser-test.mjs` runs a web page on one port against
 Yon on another in Chromium, and `scripts/native/yon-reach-test.mjs --target=web`
 runs the probe that the native apps run. On 2026-10-19 it ran the macOS app
-and the iOS simulator on a Mac, and the packaged Linux app reached Yon under
-Xvfb (NET4); the other native hosts have not run it yet.
+and the iOS simulator on a Mac, the packaged Android app on the Android 15
+emulator (NET2), and the packaged Linux app under Xvfb (NET4); the Windows
+app has not run it yet.
 
 | Host | Yon calls from the packaged app | Evidence |
 | --- | --- | --- |
 | Web | implemented | page transports, CORS, preflight, socket origin and `connect-src` unit tests; Chromium cross-port run |
 | macOS, iOS | run on the host | `scripts/native/yon-reach-test.mjs` passed on 2026-10-19 for the macOS app (macOS 26.6.2, Xcode 27.1) and the iOS 26.5 simulator (iPhone 17 Pro) over `http` and over `https` through a local TLS proxy. In all three runs Yon received `Origin: tachyon-app://bundle`, and the page reached it with HTTP, a CORS preflight, a stream, a socket, a topic, a 422 problem and a signed-in route. The linked Swift `@HTTPClient` read reached the origin through `URLSession` too; it is also unit-tested against a local server |
-| Android | implemented, not run on the emulator yet; an `https` origin, or a local `http` origin with cleartext to that one host | NET2: the host passes the declared origin through its request interception and asks for the INTERNET permission; linked Kotlin `HTTPClient`s use a native transport, tested on the JVM against a real HTTP server (`android_yon_http_tests`); a packaged APK builds in the cloud; `scripts/android/yon-origin-test.mjs` is the emulator run |
+| Android | run on the emulator; an `https` origin, or a local `http` origin with cleartext to that one host | `scripts/android/yon-origin-test.mjs` passed on 2026-10-19 on the Android 15 (API 35, arm64) emulator against `ty serve` on the Mac through `adb reverse`. The packaged app reached Yon from `https://appassets.tachyon.local` with an HTTP read, a cross-origin write, a stream, a socket, a topic, a `@Check` 422 and a signed-in route (401 without a token, then with an `Authorization` header). A linked Kotlin `HTTPClient` reached Yon through the native transport in the app's own process. The transport is also tested on the JVM against a real HTTP server (`android_yon_http_tests`). Not run: a physical device |
 | Windows | implemented; linked Rust and C# `HTTPClient` calls reach it too; not run on the host | 2026-10-19 cloud runs (below); `scripts/windows/yon-reach.ps1` on a signed-in desktop is owed (NET3, with N1) |
 | Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Not run: WSL, a Wayland desktop |
 

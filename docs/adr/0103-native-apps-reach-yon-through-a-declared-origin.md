@@ -335,7 +335,9 @@ declared Yon origin.
 - `scripts/android/yon-origin-test.mjs` runs the packaged app on the
   Android emulator against a Yon on the build machine. It covers an HTTP
   route, a stream, a socket, a topic, a `@Check` 422, a `SignedIn` route and
-  a linked Kotlin client.
+  a linked Kotlin client. It passed on 2026-10-19 on the Android 15 (API 35,
+  arm64) emulator, with Yon on the Mac reached through `adb reverse`. The
+  linked Kotlin client's request came from the app's own process.
 
 ## Amendment (2026-10-19): Windows and linked native services (NET3)
 
