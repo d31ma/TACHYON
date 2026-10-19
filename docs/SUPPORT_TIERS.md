@@ -32,7 +32,7 @@ only after the same gate passes on its download. No target is `preview` or
 | macOS WKWebView | native-tested (candidate) | full arm64 application gate passed: controls, accessibility, typing, lifecycle and visual parity at 420x752 | exact release artifact and current-head CI |
 | iOS WKWebView | simulator-tested | isolated iPhone SE (3rd generation), iOS 26.5. Passed: Swift calls, publish, input/focus, assets and route state `7 -> 9 -> 7`. On 2026-10-19 the same gate also linked a Rust service (`aarch64-apple-ios-sim` static library, beside the two Swift services): its start hook wrote a file from the app's own process and its rendered count doubled after a page click (MR1) | exact release artifact; support on physical devices is still not claimed |
 | Android WebView | simulator-tested (emulator) | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18), and a `@LocalState` field set by a Kotlin method kept across navigation and reload. Browser APIs (clipboard, share, notifications through the host; geolocation through the web view with the host's location question, 2026-10-19): the debug APK compiles with Gradle on Linux. The emulator gate `scripts/android/browser-apis-test.mjs` ran on the emulator, but it timed out at the geolocation step every time: the web view's location request never turned on GPS, so `adb emu geo fix` never reached it. `36ea6ac5` feeds the check from a mock gps provider instead; no run has passed since that change | exact release artifact; a passing browser-API emulator run; support on physical devices is still not claimed |
-| Linux WebKitGTK | buildable, with VM, container and WSL runs (none of them is a Linux desktop) | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log | exact release artifact; Linux native GUI CI on the current head; a run on a Linux desktop, because a container or VM does not prove desktop behavior |
+| Linux WebKitGTK | buildable, with VM, container and WSL runs (none of them is a Linux desktop) | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs | exact release artifact; Linux native GUI CI on the current head; a run on a Linux desktop, because a container or VM does not prove desktop behavior |
 | Windows WebView2 | buildable, with a signed-in arm64 desktop run (`native-tested` waits on semantic UI Automation roles, as the Phase 5 rule in `PROJECT_PLAN.md` requires) | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. On 2026-10-19, on the signed-in desktop of a Windows 11 ARM64 Surface, `scripts/windows/native-test.ps1 -Msix` built a release MSIX package, installed it and launched it (PKG4). WebView2 rendered the page, UI Automation found the page controls by name and invoked one, the native Rust, OS and publish calls answered, and the WebView2 data was in the package's LocalState folder. On the same desktop, links opened the built app and the installed package at their routes (LK2) | exact release artifact; Windows native GUI CI; on the signed-in desktop: `scripts/windows/native-test.ps1` without `-Msix` (the second route and the C# call), `scripts/windows/yon-reach.ps1` (NET3), the menus, Edit commands and Minimize/Maximize inside WebView2, the real-window frame test and the caption color, background and foreground, web storage across relaunch, and external links; semantic UI Automation roles (the gate finds controls by name only); x64 on an x64 machine |
 
 Android release packages (2026-10-18, ADR 0104): `ty bundle --target android
@@ -75,10 +75,10 @@ installed command and the AppImage (`APPIMAGE_EXTRACT_AND_RUN=1`, since the
 container has no FUSE) until each showed its first page and loaded its Rust
 library. `apt-get install` of the `.deb` resolved its GTK 4 and WebKitGTK
 dependencies and installed `/usr/bin/nativegate`. `linux_package_tests` built
-two releases that gave the same `.deb` and AppImage bytes. Not yet run: these
-package checks on WSL Ubuntu 24.04 (aarch64), an AppImage started through
-FUSE, and an install on a Linux desktop. The WSL run of `38eaed29` (below)
-covered the eleven Linux host tests, not the three `linux_package_tests`.
+two releases that gave the same `.deb` and AppImage bytes. RL1 (below) ran
+these package checks on WSL Ubuntu 24.04 (aarch64) and started the AppImage
+through FUSE there. Not yet run: `dpkg -i` or `apt install` of the `.deb` on
+WSL, which needs administrator rights, and an install on a Linux desktop.
 
 Windows release packages (2026-10-19, ADR 0104): `ty bundle --target windows
 --release` builds an MSIX package with `makeappx` and signs it with
@@ -216,7 +216,8 @@ container, three of three runs: the page opened at 900x640, a resize below
 the 720x520 minimum stopped at 720x520, the header bar rendered `#1a237e`
 with white text, and `fullscreen` reached the GTK window and the X11
 toplevel. Both tests also passed in the WSL (aarch64) run of `38eaed29`
-(below). Not run: a physical desktop, Wayland.
+(below), and under headless Wayland in RL1 (below). Not run: a physical
+desktop.
 
 On 2026-10-19 the Linux host started to build `"titleBar": "integrated"`
 (ADR 0098 amendment): the page reaches the top edge under GTK's window
@@ -232,8 +233,8 @@ that much, a double-click maximized and a second one restored, full screen
 zeroed the insets, and a new page started with them. The same run on WSL
 (Ubuntu 24.04.5, aarch64, GTK 4.14.5, WebKitGTK 2.52.6, Xvfb with xfwm4) on
 develop `38eaed29` passed all eleven ignored Linux host tests, and the title
-bar test three of three times. Not run: a physical desktop, a compositing
-window manager, Wayland. The eleven tests are the ignored Linux tests that
+bar test three of three times. RL1 (below) ran it under a compositing window
+manager and under headless Wayland. Not run: a physical desktop. The eleven tests are the ignored Linux tests that
 existed before `38eaed29`; the three `linux_package_tests` that `38eaed29`
 added were not part of the run:
 
@@ -248,6 +249,71 @@ added were not part of the run:
 - `native_external_link_tests::the_linux_host_hands_external_links_to_the_launcher_and_keeps_the_page`
 - `native_reproducible_build_tests::a_packaged_linux_app_is_byte_identical_when_built_twice`
 - `native_rust_crate_tests::the_linux_bundle_places_the_helper_beside_the_host_and_it_runs`
+
+#### Linux runs owed, RL1 (2026-10-19)
+
+RL1 ran the Linux rows of the runs-owed list that need no physical desktop.
+Cloud: an x86_64 Ubuntu 24.04 container with GTK 4.14.5, WebKitGTK 2.52.6,
+Xvfb 21.1.12, xfwm4 4.18.0 and mutter 46.2. WSL: Ubuntu 24.04.5 aarch64 on
+WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
+1.4.3, libfuse2t64 2.9.9, with no administrator rights.
+
+- Wayland (D10): `scripts/linux/compositor-test.sh` starts headless mutter
+  (`--headless --wayland --virtual-monitor 1280x900`) and drives the pointer
+  through mutter's RemoteDesktop D-Bus interface. With `GDK_BACKEND=wayland`
+  ten `native::linux_` host tests passed, and the three `the_linux_` link
+  tests. It skips the package tests and `linux_browser_api_tests`, whose
+  fixture clicks through X11's XTest. The title bar test maximizes first,
+  because a Wayland client only knows its position at (0, 0): the insets,
+  presses in and below the drag region, a double-click unmaximize, and a drag
+  that unmaximizes through the compositor all passed. xdg-shell has no
+  minimized state, so the window control test skips the minimized wait under
+  Wayland and says so. Weston was not used; mutter answered every check.
+- Compositing: the same script runs xfwm4 `--compositor=on` under Xvfb with
+  the Composite extension and checks that xfwm4 owns `_NET_WM_CM_S0`. The
+  title bar and window control tests passed, two and two. The new test
+  `linux_generated_host_places_the_window_buttons_at_the_declared_inset`
+  passed under X11 and Wayland: with `titleBarButtonInset` 20/14 the start
+  and end button groups sat at the declared top and side.
+- Granted window controls: the new test
+  `linux_generated_host_maximizes_fills_the_screen_and_closes_when_granted`
+  maximized, entered and left full screen, and closed the window.
+- WebAssembly page services in WebKitGTK, under Xvfb in the cloud
+  (`scripts/linux/page-services-native-test.mjs`): the Tally page answered a
+  click with Go, C#, F#, Swift, Kotlin, Java, Dart, Lua, C++ and Python
+  (Pyodide in the web view) services (first page in 1.2 to 1.9 s, Python 4.0 s; 636 to 765 MiB
+  resident for the app and its web processes). Swift, C# and Kotlin
+  WindowControls callers renamed the window and resized it to 1280x800 page
+  pixels. Ruby did not run: its mruby/prism source download was refused in
+  the cloud.
+- Page checks (`scripts/linux/page-checks-native-test.mjs`): typing kept the
+  focus and caret; `connect-src` refused an undeclared host, which saw no
+  request, while the Yon origin answered; a network-first Yon read came from
+  the cache with Yon stopped (NET6); a `@SessionState` field survived
+  navigation; a preference string survived quit and restart. The offline
+  read found a bug: a JavaScript
+  `@HTTPClient` read skipped the read cache (fixed, ADR 0087 amendment).
+- External and scheme links (`scripts/linux/desktop-links-test.sh`): the
+  real `GtkUriLauncher` handed `https` and `mailto` links to a recorder set
+  as their default handler, through the OpenURI portal and through GIO with
+  the portal off. With the `.deb`'s `.desktop` file installed under
+  `XDG_DATA_HOME`, `gio open` and `xdg-open` of `linkgate://` links reached
+  the one running app.
+- WSL, round 1 on `d7110f74`: `linux_browser_api_tests`,
+  `linux_window_appearance_tests` (xfwm4), the Linux external link and deep
+  link tests and `an_old_webkitgtk_shows_a_message_instead_of_a_blank_window`
+  passed. `scripts/linux/native-test.sh` passed its build, AT-SPI probe,
+  release packages, the extracted `.deb` and the AppImage. The two Windows
+  tests in those files need `x86_64-w64-mingw32-gcc`, which WSL does not
+  have.
+- WSL, round 2 on `da32d264`: `native-test.sh` started the AppImage through
+  a real FUSE mount and left no document portal mount behind. Its Yon reach
+  step failed only in cleanup: WSL's clock drift moved `ps` start times by up
+  to two seconds, so `scripts/supervised-command.mjs` saw a changed process.
+  It now reads the kernel start time from `/proc/<pid>/stat` on Linux.
+- Not run: `dpkg -i` or `apt install` of the `.deb` on WSL, because both need
+  administrator rights; the Ruby page service; GeoClue and a notification
+  server; WSLg; a physical Linux desktop.
 
 ### Native apps reach Yon through a declared origin (2026-10-18)
 
@@ -372,7 +438,7 @@ tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes, `GtkUriLauncher` | `native_external_link_tests::the_linux_host_hands_external_links_to_the_launcher_and_keeps_the_page` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb in an x86_64 Ubuntu 24.04 cloud container, four of four runs: a page script's `location` changes, `window.open` calls and a `target="_blank"` link reached a fake launcher only for the `http`, `https` and `mailto` links, and the page stayed on `tachyon://app/`. The test also passed in the WSL (aarch64) run of `38eaed29`. Not run: the real launcher on a desktop, Wayland |
+| Linux WebKitGTK | yes, `GtkUriLauncher` | `native_external_link_tests::the_linux_host_hands_external_links_to_the_launcher_and_keeps_the_page` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb in an x86_64 Ubuntu 24.04 cloud container, four of four runs: a page script's `location` changes, `window.open` calls and a `target="_blank"` link reached a fake launcher only for the `http`, `https` and `mailto` links, and the page stayed on `tachyon://app/`. The test also passed in the WSL (aarch64) run of `38eaed29` and under headless Wayland in RL1, and RL1's `scripts/linux/desktop-links-test.sh` handed `https` and `mailto` links from the real `GtkUriLauncher` to a default handler, with and without the OpenURI portal. Not run: a desktop |
 | Windows WebView2 | yes, `ShellExecuteW` | the opener and the shared check, built with MinGW-w64 and run under Wine 9.0, open only the external links. Not run: WebView2 on an interactive desktop |
 | macOS, iOS WKWebView | yes, `NSWorkspace` and `UIApplication` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on the Mac |
 | Android WebView | yes, `ACTION_VIEW` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on an emulator |
@@ -385,7 +451,7 @@ not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: `.desktop` scheme handlers, `G_APPLICATION_HANDLES_OPEN` forwarding | `native_deep_link_tests::the_linux_app_opens_links_at_their_route_and_forwards_later_links_to_the_running_app` compiled the generated host with GTK 4 and WebKitGTK 6.0 (warnings as errors) and ran it with `dbus-run-session -- xvfb-run -a` in an x86_64 Ubuntu 24.04 cloud container: the launch link opened its route, and two later launches handed their links to the running window. Not run: WSL, a desktop with the `.desktop` file installed |
+| Linux WebKitGTK | yes: `.desktop` scheme handlers, `G_APPLICATION_HANDLES_OPEN` forwarding | `native_deep_link_tests::the_linux_app_opens_links_at_their_route_and_forwards_later_links_to_the_running_app` compiled the generated host with GTK 4 and WebKitGTK 6.0 (warnings as errors) and ran it with `dbus-run-session -- xvfb-run -a` in an x86_64 Ubuntu 24.04 cloud container: the launch link opened its route, and two later launches handed their links to the running window. In RL1 it passed on WSL (aarch64) and under headless Wayland, and `scripts/linux/desktop-links-test.sh` installed the `.deb`'s `.desktop` file and opened `linkgate://` links with `gio open` and `xdg-open` in the one running app. Not run: a desktop |
 | Windows WebView2 | yes: per-user scheme registration (MSIX: `windows.protocol` extensions), single instance, `WM_COPYDATA` forwarding | `native_deep_link_tests::a_second_windows_instance_forwards_its_link_to_the_first` built the registration and forwarding code with MinGW-w64 and ran it under Wine 9.0: the schemes were registered under `HKCU\Software\Classes` and a second process's link reached the first. `windows_package_tests::the_staged_layout_packs_and_signs_with_the_msix_sdk` packed a package that declares two schemes with `makemsix`, which validated its `windows.protocol` extensions against Microsoft's schemas (and refused an unknown extension category). On the Surface desktop (Windows 11 arm64, 2026-10-19), a built app opened `lk2check://alpha?x=1` at `/alpha/?x=1` on launch; later links reached the running window and their second instance exited, and an unknown route opened `start_url`. An installed test-signed MSIX package opened `lk2check://beta?x=5` at its route, and Windows, not the app, registered the scheme. Not run: later links into the installed package |
 | macOS, iOS WKWebView | yes: `CFBundleURLTypes`, `kAEGetURL` (macOS), launch URL, `open url` and universal-link activity (iOS); associated domains with `TAC_APPLE_TEAM_ID` | on the Mac (2026-10-19, Swift 6.4.1): `the_apple_link_rule_opens_declared_schemes_and_hosts_at_their_route` passed and the iOS host tests passed. A built macOS app opened `lk2check://alpha?x=1` at `/alpha?x=1` on launch; while it ran, later links moved the same window, and an unknown route opened `start_url`. The same app on an iOS 26.5 simulator (iPhone 17 Pro) did the same on a cold start and while running. macOS rewrites `#` to `%23` in a link without `//` (`lk2check:alpha#frag`), so such a link opens `start_url`. Owed: a signed device check of universal links |
 | Android WebView | yes: intent filters, `autoVerify` for hosts, `singleTask` with `onNewIntent` | the link rule ran with OpenJDK in the cloud. On emulator-5554 (2026-10-19), a launch link opened its route, later links reached the running activity through `onNewIntent`, and an unknown route opened `start_url`. Owed: verified app links for hosts on a device |
@@ -398,7 +464,7 @@ not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29`. Not run: a Linux desktop with a notification server and GeoClue, Wayland |
+| Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29` and again in RL1 on `d7110f74`. Not run: a Linux desktop with a notification server and GeoClue; Wayland, because the test clicks through X11's XTest |
 | macOS WKWebView | yes, all four: `NSPasteboard`, `NSSharingServicePicker`, `UNUserNotificationCenter`, CoreLocation | code level only, in a Linux cloud container (`native::browser_api_bridge`, `native::apple_browser_apis`). Owed: the compile and host test on a Mac, and a manual check of the share, notification and location prompts |
 | iOS WKWebView | yes, all four: `UIPasteboard`, `UIActivityViewController`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (same tests). The simulator gate `scripts/ios/native-test.mjs` passed with its clipboard step on develop `fd0384ad` (iPhone SE (3rd generation) simulator, iOS 26.5): the bridge listed all four APIs, the page wrote text that `simctl pbpaste` read from `UIPasteboard`, the page read it back, and a share without a grant was refused. Owed: share, notifications and geolocation with a grant on the simulator, and a manual check of the system prompts |
 | Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | see the Android WebView row above |

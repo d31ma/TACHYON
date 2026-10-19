@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   honored: the smallest size of the page inside the window
 
 tac.application.window.controls
-  run owed: close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services; still to run: a granted close, fullscreen and maximize under Xvfb; only the refused path ran for them
+  honored: close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Linux page reach the top edge under GTK's own window buttons, with the same insets and drag regions as macOS (ADR 0098). The menu bar moves into a main menu button beside the window buttons, as in GNOME apps.
@@ -103,7 +103,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  run owed: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; still to run: an offline Yon read in the packaged Linux app
+  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Linux app.
@@ -127,7 +127,7 @@ tac.browserApis geolocation
   run owed: the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages; still to run: GeoClue on WSL or a Linux desktop; the Xvfb run used a WebKit test position
 
 tac.browserApis preferenceStrings
-  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch under Xvfb or on WSL
+  honored: the web view's localStorage, kept on disk
 
 tac.nativeCapabilities
   adapted: tac.nativeCapabilities filePicker opens the GTK file dialog, or the desktop portal's chooser where one runs, on Linux for page and Rust services. A FilePicker field in a Swift, C# or Kotlin service runs as WebAssembly there and answers unsupported (FP5).
@@ -136,7 +136,7 @@ tac.elements
   adapted: tac.elements are bundled into the Linux app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service in the packaged Linux app under Xvfb or on WSL (ADR 0093)
+  honored: Pyodide in the web view (ADR 0093)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Linux app loads its bundle from disk, so route sizes are not measured (ADR 0074).
@@ -241,7 +241,7 @@ development code signing
   not applicable: Linux apps and their AppImage and .deb packages are not signed; Linux distributions sign the repositories that ship packages.
 
 release packaging
-  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: a .deb install, the AppImage through FUSE and a link opening the installed .desktop file on a Linux desktop; the packages were built and checked under Xvfb
+  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: a .deb install with dpkg or apt, which needs administrator rights; the AppImage ran through FUSE on WSL and the installed .desktop file opened a scheme link under Xvfb (RL1)
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off

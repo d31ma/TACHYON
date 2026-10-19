@@ -366,3 +366,16 @@ Store) on the developer's own Apple Developer team.
   a debug build would then need `signtool.exe` and a timestamp server on
   every run, and the release certificate variables would sign builds that
   were never meant to leave the machine.
+
+## Amendment (2026-10-19): the Linux packages on WSL and through FUSE
+
+RL1 ran `scripts/linux/native-test.sh` on WSL Ubuntu 24.04.5 (aarch64, GTK
+4.14.5, WebKitGTK 2.52.6, libfuse2t64 2.9.9). The release packages built, the
+extracted `.deb` started its command, and the AppImage started through a real
+FUSE mount. The script now starts the AppImage through FUSE when `/dev/fuse`
+can be opened and `fusermount` exists, and falls back to
+`APPIMAGE_EXTRACT_AND_RUN=1` with a message otherwise. RL1 also installed the
+`.deb`'s desktop file in a private `XDG_DATA_HOME` and opened scheme links
+through it with `gio open` and `xdg-open`. Still owed: `dpkg -i` or
+`apt install` on WSL, which needs administrator rights, and an install on a
+Linux desktop.
