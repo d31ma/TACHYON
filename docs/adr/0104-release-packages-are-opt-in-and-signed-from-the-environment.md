@@ -255,7 +255,14 @@ app an identity, which toast notifications and protocol activation need.
   `windows_package_tests::the_package_folder_helper_runs_unpackaged_under_wine`
   (ignored; MinGW and Wine) passed: the helper builds the package folder path
   and returns no folder when the process has no package identity.
-- Windows: not run yet. `scripts/windows/native-test.ps1 -Msix` builds the
-  gate app with `--release` and a self-signed certificate, checks the
-  signature and, from an elevated prompt, trusts the certificate, installs
-  the package, checks the rendered pages and removes the package again.
+- Windows (Surface, ARM64, Windows SDK 10.0.26100, MSVC 14.44, develop
+  51abbc50): `scripts/windows/native-test.ps1 -Msix` built the gate app with
+  `--release` and a self-signed certificate. `makeappx` packed an arm64
+  `NativeGate.msix`, `signtool` signed it, and the script found the gate
+  certificate's thumbprint on it. The AppX deployment service also accepted
+  the signature. Installing and launching it is not run yet: over SSH,
+  `Add-AppxPackage` stops with 0x80070005 because a network logon has no
+  desktop session. The script now skips that step without a signed-in
+  desktop session. From an elevated prompt on the desktop it trusts the
+  certificate, installs the package, checks the rendered pages and the
+  WebView2 folder in LocalState, and removes the package again.

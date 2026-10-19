@@ -223,7 +223,7 @@ build architecture (--arch)
   honored: --arch x64 or arm64
 
 release packaging
-  adapted: ty bundle --target windows --release builds an MSIX package, <Name>.msix, with makeappx and signs it with signtool and the certificate that TAC_WINDOWS_CERTIFICATE (a .pfx file) or TAC_WINDOWS_CERTIFICATE_THUMBPRINT (a certificate in the store) names; TAC_WINDOWS_CERTIFICATE_PUBLISHER is the package publisher. Other builds are a folder with the .exe. No MSIX package has been installed and run on Windows yet (PKG4).
+  adapted: ty bundle --target windows --release builds an MSIX package, <Name>.msix, with makeappx and signs it with signtool and the certificate that TAC_WINDOWS_CERTIFICATE (a .pfx file) or TAC_WINDOWS_CERTIFICATE_THUMBPRINT (a certificate in the store) names; TAC_WINDOWS_CERTIFICATE_PUBLISHER is the package publisher. Other builds are a folder with the .exe. On a Windows ARM64 machine the package was packed and signed; installing and running it on Windows is not done yet (PKG4).
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
