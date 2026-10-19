@@ -38,8 +38,35 @@ impl WindowService {
     pub fn close(&self) -> String {
         self.window_controls.close().err().unwrap_or_default()
     }
+
+    pub fn maximize(&self) -> String {
+        self.window_controls.maximize().err().unwrap_or_default()
+    }
+
+    pub fn fullscreen(&self) -> String {
+        self.window_controls.fullscreen().err().unwrap_or_default()
+    }
 }
 ";
+    const ALL_GRANTS: [&'static str; 6] = [
+        "title",
+        "resize",
+        "minimize",
+        "maximize",
+        "fullscreen",
+        "close",
+    ];
+    const GRANT_SCRIPT: &'static str = r"const owner = '00000000-0000-4000-8000-000000000052';
+const post = (payload) => window.webkit.messageHandlers.tachyon.postMessage({capability: 'companion.invoke', payload});
+const send = async (op, name, args) => JSON.parse(await post(JSON.stringify({route: '/', service: 'window', owner, op, name, args})));
+if (globalThis.__grantCalls === undefined) globalThis.__grantCalls = ['maximize', 'fullscreen', 'fullscreen', 'close'];
+if (globalThis.__grantReady === undefined) {
+  const init = await send('init', '', []);
+  if (init.error) return 'init ' + init.error;
+  globalThis.__grantReady = true;
+}
+const control = globalThis.__grantCalls.shift();
+return control + '=' + (await send('call', control, [])).value;";
     const SCRIPT: &'static str = r"const owner = '00000000-0000-4000-8000-000000000051';
 const post = (payload) => window.webkit.messageHandlers.tachyon.postMessage({capability: 'companion.invoke', payload});
 const send = async (op, name, args) => JSON.parse(await post(JSON.stringify({route: '/', service: 'window', owner, op, name, args})));
@@ -118,6 +145,20 @@ return 'title=' + controls.granted('title') + ',close=' + controls.granted('clos
             .replace("__PAGE_EXPECTED__", Self::PAGE_EXPECTED)
     }
 
+    fn granted_window() -> WindowConfiguration {
+        WindowConfiguration {
+            controls: Self::ALL_GRANTS.map(String::from).to_vec(),
+            ..WindowConfiguration::default()
+        }
+    }
+
+    fn grant_fixture() -> String {
+        include_str!("linux_window_grant_fixture.c").replace(
+            "__GRANT_SCRIPT__",
+            &super::host::c_string_escape(Self::GRANT_SCRIPT),
+        )
+    }
+
     fn page_script() -> String {
         Self::PAGE_SCRIPT.replace("__PAGE_RUNTIME__", include_str!("../template/tac-web.js"))
     }
@@ -139,6 +180,9 @@ fn the_window_control_fixture_stages_a_granted_service_and_a_real_bridge_script(
     assert!(fixture.contains("static installed = TacWebApis.install()"));
     assert!(!fixture.contains("__WINDOW_"));
     assert!(!fixture.contains("__PAGE_"));
+    let granted = LinuxWindowControlTests::grant_fixture();
+    assert!(granted.contains("__grantCalls"));
+    assert!(!granted.contains("__GRANT_"));
 }
 
 #[cfg(target_os = "linux")]
@@ -162,4 +206,27 @@ async fn linux_generated_host_drives_granted_window_controls_and_refuses_a_denie
         .await
         .expect("actual generated Linux host window controls");
     assert!(output.contains("linux window controls passed"), "{output}");
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files and a display with a window manager (xfwm4 under Xvfb, or headless mutter); run explicitly on the Linux lane"]
+async fn linux_generated_host_maximizes_fills_the_screen_and_closes_when_granted() {
+    let root = tempfile::tempdir().expect("fixture");
+    let source = LinuxWindowControlTests::stage(root.path());
+    let mut application = super::linux_host_tests::LinuxHostTests::application(
+        super::native_menu_config::NativeMenuConfig::default(),
+    );
+    application.window = LinuxWindowControlTests::granted_window();
+    let executable = super::linux_host_tests::LinuxHostTests::compile_application(
+        root.path(),
+        &source,
+        &application,
+        &LinuxWindowControlTests::grant_fixture(),
+    )
+    .await;
+    let output = super::host::run_tool(executable.to_str().expect("binary"), &[])
+        .await
+        .expect("actual generated Linux host window grants");
+    assert!(output.contains("linux window grants passed"), "{output}");
 }

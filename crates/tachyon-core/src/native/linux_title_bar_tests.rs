@@ -2,6 +2,7 @@
 
 use super::config::WindowConfiguration;
 use super::native_title_bar::NativeTitleBar;
+use super::native_title_bar_button_inset::NativeTitleBarButtonInset;
 
 struct LinuxTitleBarTests;
 
@@ -14,12 +15,51 @@ impl LinuxTitleBarTests {
         }
     }
 
+    const DECLARED_INSET: NativeTitleBarButtonInset = NativeTitleBarButtonInset {
+        leading: 20,
+        top: 14,
+    };
+
     fn application() -> super::config::NativeApplication {
         let mut application = super::linux_host_tests::LinuxHostTests::application(
             super::native_menu_config::NativeMenuConfig::default(),
         );
         application.window = Self::integrated_window();
         application
+    }
+
+    fn declared_inset_fixture() -> String {
+        format!(
+            "#define TACHYON_BAR_DECLARED_TOP {}\n#define TACHYON_BAR_DECLARED_SIDE {}\n{}",
+            Self::DECLARED_INSET.top,
+            Self::DECLARED_INSET.leading,
+            include_str!("linux_title_bar_fixture.c")
+        )
+    }
+
+    #[cfg(target_os = "linux")]
+    async fn run(application: &super::config::NativeApplication, fixture: &str) -> String {
+        let root = tempfile::tempdir().expect("fixture");
+        let source =
+            super::linux_window_appearance_tests::LinuxWindowAppearanceTests::stage(root.path());
+        let executable = super::linux_host_tests::LinuxHostTests::compile_application(
+            root.path(),
+            &source,
+            application,
+            fixture,
+        )
+        .await;
+        super::host::run_tool(executable.to_str().expect("binary"), &[])
+            .await
+            .expect("actual generated Linux host title bar")
+    }
+
+    #[cfg(target_os = "linux")]
+    fn passed() -> &'static str {
+        if std::env::var("GDK_BACKEND").is_ok_and(|backend| backend == "wayland") {
+            return "linux title bar passed on Wayland";
+        }
+        "linux title bar passed on X11"
     }
 }
 
@@ -57,22 +97,34 @@ fn an_integrated_title_bar_leaves_no_room_for_the_theme_color_header_bar() {
     assert!(!source.contains("gtk_header_bar_new"));
 }
 
+#[test]
+fn a_declared_inset_reaches_the_title_bar_fixture() {
+    let fixture = LinuxTitleBarTests::declared_inset_fixture();
+    assert!(fixture.starts_with(
+        "#define TACHYON_BAR_DECLARED_TOP 14\n#define TACHYON_BAR_DECLARED_SIDE 20\n"
+    ));
+    assert!(fixture.contains("NotifyPointerMotionRelative"));
+}
+
 #[cfg(target_os = "linux")]
 #[tokio::test]
-#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, libXtst and an X11 display with a window manager (xfwm4 under Xvfb); run explicitly on the Linux lane"]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, and either libXtst and an X11 display with a window manager (xfwm4 under Xvfb) or a headless mutter Wayland session (scripts/linux/wayland-test.sh); run explicitly on the Linux lane"]
 async fn linux_generated_host_integrates_the_title_bar_with_insets_and_drag_regions() {
-    let root = tempfile::tempdir().expect("fixture");
-    let source =
-        super::linux_window_appearance_tests::LinuxWindowAppearanceTests::stage(root.path());
-    let executable = super::linux_host_tests::LinuxHostTests::compile_application(
-        root.path(),
-        &source,
+    let output = LinuxTitleBarTests::run(
         &LinuxTitleBarTests::application(),
         include_str!("linux_title_bar_fixture.c"),
     )
     .await;
-    let output = super::host::run_tool(executable.to_str().expect("binary"), &[])
-        .await
-        .expect("actual generated Linux host title bar");
-    assert!(output.contains("linux title bar passed"), "{output}");
+    assert!(output.contains(LinuxTitleBarTests::passed()), "{output}");
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, and either libXtst and an X11 display with a window manager (xfwm4 under Xvfb) or a headless mutter Wayland session (scripts/linux/wayland-test.sh); run explicitly on the Linux lane"]
+async fn linux_generated_host_places_the_window_buttons_at_the_declared_inset() {
+    let mut application = LinuxTitleBarTests::application();
+    application.window.title_bar_button_inset = Some(LinuxTitleBarTests::DECLARED_INSET);
+    let output =
+        LinuxTitleBarTests::run(&application, &LinuxTitleBarTests::declared_inset_fixture()).await;
+    assert!(output.contains(LinuxTitleBarTests::passed()), "{output}");
 }

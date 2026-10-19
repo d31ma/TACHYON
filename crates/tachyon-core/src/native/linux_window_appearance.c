@@ -2,6 +2,8 @@ static int g_window_content_width = __WINDOW_WIDTH__;
 static int g_window_content_height = __WINDOW_HEIGHT__;
 static int g_window_frame_width = 0;
 static int g_window_frame_height = 0;
+static int g_window_frame_checks = 0;
+static const int TACHYON_WINDOW_FRAME_CHECKS = 120;
 
 static void tachyon_window_content_size(GtkWindow *window, int width, int height) {
   g_window_content_width = width;
@@ -20,13 +22,17 @@ static gboolean tachyon_window_measure_frame(GtkWidget *content, GdkFrameClock *
   int width = gtk_widget_get_width(content);
   int height = gtk_widget_get_height(content);
   if (width <= 0 || height <= 0) return G_SOURCE_CONTINUE;
-  int frame_width = g_window_content_width - width;
-  int frame_height = g_window_content_height - height;
-  if (!tachyon_window_frame_is_plausible(frame_width, frame_height)) return G_SOURCE_REMOVE;
-  g_window_frame_width = frame_width;
-  g_window_frame_height = frame_height;
-  if (frame_width != 0 || frame_height != 0) tachyon_window_content_size(window, g_window_content_width, g_window_content_height);
-  return G_SOURCE_REMOVE;
+  if (width == g_window_content_width && height == g_window_content_height) return G_SOURCE_REMOVE;
+  if (g_window_frame_checks == 0) {
+    int frame_width = g_window_content_width - width;
+    int frame_height = g_window_content_height - height;
+    if (!tachyon_window_frame_is_plausible(frame_width, frame_height)) return G_SOURCE_REMOVE;
+    g_window_frame_width = frame_width;
+    g_window_frame_height = frame_height;
+  }
+  tachyon_window_content_size(window, g_window_content_width, g_window_content_height);
+  g_window_frame_checks += 1;
+  return g_window_frame_checks < TACHYON_WINDOW_FRAME_CHECKS ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
 }
 
 static void tachyon_window_appearance(GtkWindow *window, GtkWidget *content) {

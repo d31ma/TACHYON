@@ -145,10 +145,21 @@ use_the_x11_display_only() {
   unset WAYLAND_DISPLAY
 }
 
+release_document_portal() {
+  if [[ -n "$PRIVATE_RUNTIME" ]] && mountpoint -q "$PRIVATE_RUNTIME/doc" 2>/dev/null; then
+    fusermount3 -u "$PRIVATE_RUNTIME/doc" 2>/dev/null || fusermount -u "$PRIVATE_RUNTIME/doc" 2>/dev/null || true
+  fi
+}
+
+remove_folders() {
+  release_document_portal
+  rm -rf "$FIXTURE" ${PRIVATE_RUNTIME:+"$PRIVATE_RUNTIME"}
+}
+
 main() {
   FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/ty-linux-native.XXXXXX")
   PRIVATE_RUNTIME=
-  trap 'rm -rf "$FIXTURE" ${PRIVATE_RUNTIME:+"$PRIVATE_RUNTIME"}' EXIT
+  trap 'remove_folders' EXIT
   use_a_writable_runtime_folder
   use_the_x11_display_only
   local out="${FIXTURE}/dist/linux"

@@ -1,9 +1,11 @@
 #include <stdlib.h>
+#include <gdk/x11/gdkx.h>
 
 static int g_window_step = 0;
 static gboolean g_window_waiting = FALSE;
 static gchar *g_window_reply = NULL;
 static gint64 g_window_started = 0;
+static gboolean g_window_minimize_checked = FALSE;
 
 static void tachyon_window_fail(const char *message) {
   int width = g_native_window != NULL ? gtk_widget_get_width(GTK_WIDGET(g_native_window)) : -1;
@@ -74,6 +76,10 @@ static gboolean tachyon_window_minimized(void) {
          (gdk_toplevel_get_state(GDK_TOPLEVEL(surface)) & GDK_TOPLEVEL_STATE_MINIMIZED) != 0;
 }
 
+static gboolean tachyon_window_minimize_is_visible(void) {
+  return GDK_IS_X11_DISPLAY(gtk_widget_get_display(GTK_WIDGET(g_native_window)));
+}
+
 static gboolean tachyon_window_tick(gpointer data) {
   (void)data;
   if (g_window_waiting) return G_SOURCE_CONTINUE;
@@ -90,7 +96,11 @@ static gboolean tachyon_window_tick(gpointer data) {
     case 3: tachyon_window_check_calls(); break;
     case 4: if (!tachyon_window_has_size(800, 600)) return G_SOURCE_CONTINUE; tachyon_window_script(); break;
     case 5: tachyon_window_require(g_strcmp0(g_window_reply, "minimize=") == 0, "the granted minimize failed"); break;
-    case 6: if (!tachyon_window_minimized()) return G_SOURCE_CONTINUE; g_application_quit(g_application_get_default()); break;
+    case 6:
+      g_window_minimize_checked = tachyon_window_minimize_is_visible();
+      if (g_window_minimize_checked && !tachyon_window_minimized()) return G_SOURCE_CONTINUE;
+      g_application_quit(g_application_get_default());
+      break;
     default: return G_SOURCE_REMOVE;
   }
   g_window_step += 1;
@@ -110,6 +120,7 @@ int main(int argc, char **argv) {
   g_timeout_add_seconds(110, tachyon_window_deadline, NULL);
   int status = tachyon_host_main(argc, argv);
   tachyon_window_require(status == 0 && g_window_step == 7, "the host did not finish its run");
-  printf("linux window controls passed: a JavaScript page caller set the title and resized to 700x500 and heard the host refuse close; a Rust service set the title, resized to 800x600 and minimized; close and fullscreen were refused\n");
+  printf("linux window controls passed: a JavaScript page caller set the title and resized to 700x500 and heard the host refuse close; a Rust service set the title, resized to 800x600 and minimized; close and fullscreen were refused (%s)\n",
+         g_window_minimize_checked ? "X11: the window was minimized" : "Wayland: xdg-shell shows no minimized state to the app, so only the granted call was checked");
   return 0;
 }

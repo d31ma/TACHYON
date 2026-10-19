@@ -1,6 +1,13 @@
 #include <stdlib.h>
 #include <gdk/x11/gdkx.h>
 
+#ifndef TACHYON_BAR_DECLARED_TOP
+#define TACHYON_BAR_DECLARED_TOP 6
+#define TACHYON_BAR_DECLARED_SIDE 6
+#endif
+
+static const int TACHYON_BAR_LEFT_BUTTON = 0x110;
+
 typedef int (*TachyonFakeMotion)(Display *, int, int, int, unsigned long);
 typedef int (*TachyonFakeButton)(Display *, unsigned int, int, unsigned long);
 typedef int (*TachyonFlush)(Display *);
@@ -35,6 +42,10 @@ static TachyonFlush g_bar_flush = NULL;
 static TachyonTranslate g_bar_translate = NULL;
 static int g_bar_origin_x = 0, g_bar_origin_y = 0;
 static int g_bar_drag_x = 0, g_bar_drag_y = 0;
+static gboolean g_bar_wayland = FALSE;
+static GDBusConnection *g_bar_bus = NULL;
+static gchar *g_bar_session = NULL;
+static int g_bar_pointer_x = 0, g_bar_pointer_y = 0;
 
 static void tachyon_bar_fail(const char *message) {
   fprintf(stderr, "linux title bar fixture failed at step %d tick %d after %.1f s: %s (insets %s, answer %s)\n", g_bar_step, g_bar_tick,
@@ -58,6 +69,34 @@ static void tachyon_bar_load_x11(void) {
                       "the X11 test functions are missing");
 }
 
+static GVariant *tachyon_bar_remote(const char *path, const char *interface, const char *method, GVariant *arguments) {
+  GError *error = NULL;
+  GVariant *answer = g_dbus_connection_call_sync(g_bar_bus, "org.gnome.Mutter.RemoteDesktop", path, interface, method, arguments, NULL,
+                                                 G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
+  if (answer == NULL) tachyon_bar_fail(error != NULL ? error->message : method);
+  return answer;
+}
+
+static void tachyon_bar_session(const char *method, GVariant *arguments) {
+  g_variant_unref(tachyon_bar_remote(g_bar_session, "org.gnome.Mutter.RemoteDesktop.Session", method, arguments));
+}
+
+static void tachyon_bar_load_wayland(void) {
+  g_bar_bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+  tachyon_bar_require(g_bar_bus != NULL, "the fixture needs the session bus of a headless mutter compositor");
+  GVariant *created = tachyon_bar_remote("/org/gnome/Mutter/RemoteDesktop", "org.gnome.Mutter.RemoteDesktop", "CreateSession", NULL);
+  g_variant_get(created, "(o)", &g_bar_session);
+  g_variant_unref(created);
+  tachyon_bar_session("Start", NULL);
+  tachyon_bar_session("NotifyPointerMotionRelative", g_variant_new("(dd)", -10000.0, -10000.0));
+}
+
+static void tachyon_bar_load_input(void) {
+  g_bar_wayland = !GDK_IS_X11_DISPLAY(gtk_widget_get_display(GTK_WIDGET(g_native_window)));
+  if (g_bar_wayland) tachyon_bar_load_wayland();
+  else tachyon_bar_load_x11();
+}
+
 static Display *tachyon_bar_display(void) {
   GdkDisplay *display = gtk_widget_get_display(GTK_WIDGET(g_native_window));
   tachyon_bar_require(GDK_IS_X11_DISPLAY(display), "the fixture needs an X11 display (GDK_BACKEND=x11)");
@@ -77,16 +116,32 @@ static void tachyon_bar_page_root(double x, double y, int *root_x, int *root_y) 
                       "the page is not inside the window");
   double surface_x = 0, surface_y = 0;
   gtk_native_get_surface_transform(GTK_NATIVE(g_native_window), &surface_x, &surface_y);
-  tachyon_bar_root((int)(point.x + surface_x), (int)(point.y + surface_y), root_x, root_y);
+  if (!g_bar_wayland) {
+    tachyon_bar_root((int)(point.x + surface_x), (int)(point.y + surface_y), root_x, root_y);
+    return;
+  }
+  tachyon_bar_require(gtk_window_is_maximized(g_native_window), "a Wayland client knows where its window is only when it fills the monitor");
+  *root_x = (int)(point.x + surface_x);
+  *root_y = (int)(point.y + surface_y);
 }
 
 static void tachyon_bar_pointer(int root_x, int root_y) {
+  if (g_bar_wayland) {
+    tachyon_bar_session("NotifyPointerMotionRelative", g_variant_new("(dd)", (double)(root_x - g_bar_pointer_x), (double)(root_y - g_bar_pointer_y)));
+    g_bar_pointer_x = root_x;
+    g_bar_pointer_y = root_y;
+    return;
+  }
   Display *display = tachyon_bar_display();
   g_bar_motion(display, -1, root_x, root_y, 0);
   g_bar_flush(display);
 }
 
 static void tachyon_bar_press(gboolean down) {
+  if (g_bar_wayland) {
+    tachyon_bar_session("NotifyPointerButton", g_variant_new("(ib)", TACHYON_BAR_LEFT_BUTTON, down));
+    return;
+  }
   Display *display = tachyon_bar_display();
   g_bar_button(display, 1, down, 0);
   g_bar_flush(display);
@@ -142,6 +197,14 @@ static void tachyon_bar_check_widgets(void) {
                       "the page does not reach the top edge of the window");
   tachyon_bar_require(tachyon_bar_inset("leading") > 12 && tachyon_bar_inset("trailing") > 12 && tachyon_bar_inset("height") > 12,
                       "the insets do not hold the window buttons");
+  GtkWidget *content = gtk_widget_get_parent(GTK_WIDGET(g_view));
+  graphene_rect_t start, end;
+  tachyon_bar_require(gtk_widget_compute_bounds(g_title_bar_start, content, &start) && gtk_widget_compute_bounds(g_title_bar_end, content, &end),
+                      "the window buttons are not laid out");
+  tachyon_bar_require((int)start.origin.y == TACHYON_BAR_DECLARED_TOP && (int)end.origin.y == TACHYON_BAR_DECLARED_TOP &&
+                      (int)start.origin.x == TACHYON_BAR_DECLARED_SIDE &&
+                      (int)(gtk_widget_get_width(content) - end.origin.x - end.size.width) == TACHYON_BAR_DECLARED_SIDE,
+                      "the window buttons are not at the declared titleBarButtonInset");
 }
 
 static gboolean tachyon_bar_clicks(void) {
@@ -155,14 +218,18 @@ static gboolean tachyon_bar_clicks(void) {
   return FALSE;
 }
 
-static gboolean tachyon_bar_drag(void) {
+static void tachyon_bar_drag_pointer(void) {
   if (g_bar_tick == 0) {
-    tachyon_bar_root(0, 0, &g_bar_origin_x, &g_bar_origin_y);
     tachyon_bar_page_root(600, 40, &g_bar_drag_x, &g_bar_drag_y);
     tachyon_bar_pointer(g_bar_drag_x, g_bar_drag_y);
   } else if (g_bar_tick == 1) tachyon_bar_press(TRUE);
   else if (g_bar_tick <= 13) tachyon_bar_pointer(g_bar_drag_x + (g_bar_tick - 1) * 10, g_bar_drag_y + (g_bar_tick - 1) * 6);
   else if (g_bar_tick == 14) tachyon_bar_press(FALSE);
+}
+
+static gboolean tachyon_bar_drag(void) {
+  if (g_bar_tick == 0) tachyon_bar_root(0, 0, &g_bar_origin_x, &g_bar_origin_y);
+  tachyon_bar_drag_pointer();
   return g_bar_tick >= 24;
 }
 
@@ -187,6 +254,26 @@ static gboolean tachyon_bar_double_click(gboolean maximized) {
   return press > 4 && gtk_window_is_maximized(g_native_window) == maximized;
 }
 
+static gboolean tachyon_bar_unmaximized_by_drag(void) {
+  if (g_bar_tick <= 14) {
+    tachyon_bar_drag_pointer();
+    return FALSE;
+  }
+  if (g_bar_tick > 100) tachyon_bar_fail("dragging the drag region of a maximized window did not start a compositor move");
+  return !gtk_window_is_maximized(g_native_window);
+}
+
+static gboolean tachyon_bar_wayland_window_step(void) {
+  switch (g_bar_step) {
+    case 5: return tachyon_bar_double_click(FALSE);
+    case 6:
+      if (g_bar_tick == 0) gtk_window_maximize(g_native_window);
+      return gtk_window_is_maximized(g_native_window);
+    case 7: return tachyon_bar_unmaximized_by_drag();
+    default: return TRUE;
+  }
+}
+
 static gboolean tachyon_bar_fullscreen_insets(void) {
   return tachyon_bar_inset("height") == 0 && tachyon_bar_inset("leading") == 0 && tachyon_bar_inset("trailing") == 0 &&
          !gtk_widget_get_visible(g_title_bar_start) && !gtk_widget_get_visible(g_title_bar_end);
@@ -200,13 +287,17 @@ static void tachyon_bar_check_title(void) {
 }
 
 static gboolean tachyon_bar_step(void) {
+  if (g_bar_wayland && g_bar_step >= 5 && g_bar_step <= 8) return tachyon_bar_wayland_window_step();
   switch (g_bar_step) {
     case 0:
       if (!tachyon_bar_page_loaded("tachyon://app/")) return FALSE;
+      tachyon_bar_load_input();
+      if (g_bar_wayland) gtk_window_maximize(g_native_window);
       g_object_set(gtk_settings_get_default(), "gtk-decoration-layout", "close:minimize,maximize", NULL);
       tachyon_bar_evaluate(TACHYON_BAR_PAGE);
       return TRUE;
     case 1:
+      if (g_bar_wayland && !gtk_window_is_maximized(g_native_window)) return FALSE;
       if (g_title_bar_drag == NULL || g_title_bar_drag->len != 1 || g_title_bar_exclude->len != 1 || tachyon_bar_inset("leading") <= 0) return FALSE;
       tachyon_bar_check_widgets();
       tachyon_bar_evaluate(TACHYON_BAR_INSETS);
@@ -252,11 +343,10 @@ static gboolean tachyon_bar_deadline(gpointer data) {
 
 int main(int argc, char **argv) {
   g_bar_started = g_get_monotonic_time();
-  tachyon_bar_load_x11();
   g_timeout_add(20, tachyon_bar_tick, NULL);
   g_timeout_add_seconds(110, tachyon_bar_deadline, NULL);
   int status = tachyon_host_main(argc, argv);
   tachyon_bar_require(status == 0 && g_bar_step == 15, "the host did not finish its run");
-  printf("linux title bar passed: the page reached the top edge under GTK window buttons, got the insets, and its drag region moved, maximized and restored the window\n");
+  printf("linux title bar passed on %s: the page reached the top edge under GTK window buttons, got the insets, and its drag region moved, maximized and restored the window\n", g_bar_wayland ? "Wayland" : "X11");
   return 0;
 }

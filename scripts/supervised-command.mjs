@@ -12,6 +12,7 @@ export class SupervisedCommand {
   static pollMilliseconds = 50
   static inspectionMilliseconds = 1000
   static processTableBytes = 4 * 1024 * 1024
+  static startToleranceMilliseconds = 1000
 
   /** @param {CommandOptions} options */
   constructor(options) {
@@ -148,7 +149,8 @@ export class SupervisedCommand {
 
   /** @param {ProcessIdentity|undefined} left @param {ProcessIdentity|undefined} right */
   #sameProcess(left, right) {
-    return left?.pid === right?.pid && left?.started === right?.started
+    const startGap = Math.abs(Date.parse(left?.started ?? '') - Date.parse(right?.started ?? ''))
+    return left?.pid === right?.pid && startGap <= SupervisedCommand.startToleranceMilliseconds
   }
 
   /** @param {Map<number, ProcessIdentity>} table */
