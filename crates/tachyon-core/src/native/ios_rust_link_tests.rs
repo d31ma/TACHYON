@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+#[cfg(target_os = "macos")]
 use super::ios_destination::IosDestination;
 use crate::project::NativeCompanion;
 use std::path::{Path, PathBuf};
