@@ -308,8 +308,8 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   (`--headless --wayland --virtual-monitor 1280x900`) and drives the pointer
   through mutter's RemoteDesktop D-Bus interface. With `GDK_BACKEND=wayland`
   ten `native::linux_` host tests passed, and the three `the_linux_` link
-  tests. It skips the package tests and `linux_browser_api_tests`, whose
-  fixture clicks through X11's XTest. The title bar test maximizes first,
+  tests. It skips the package tests, and `linux_browser_api_tests` and
+  `linux_file_picker_tests`, whose fixtures drive input through X11's XTest. The title bar test maximizes first,
   because a Wayland client only knows its position at (0, 0): the insets,
   presses in and below the drag region, a double-click unmaximize, and a drag
   that unmaximizes through the compositor all passed. xdg-shell has no
@@ -330,8 +330,8 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   (Pyodide in the web view) services (first page in 1.2 to 1.9 s, Python 4.0 s; 636 to 765 MiB
   resident for the app and its web processes). Swift, C# and Kotlin
   WindowControls callers renamed the window and resized it to 1280x800 page
-  pixels. Ruby did not run: its mruby/prism source download was refused in
-  the cloud.
+  pixels. The Ruby service could not build in the cloud, whose proxy refused
+  its mruby/prism source download; it answered on WSL (below).
 - Page checks (`scripts/linux/page-checks-native-test.mjs`): typing kept the
   focus and caret; `connect-src` refused an undeclared host, which saw no
   request, while the Yon origin answered; a network-first Yon read came from
@@ -357,9 +357,22 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   step failed only in cleanup: WSL's clock drift moved `ps` start times by up
   to two seconds, so `scripts/supervised-command.mjs` saw a changed process.
   It now reads the kernel start time from `/proc/<pid>/stat` on Linux.
+- WSL, round 3 on `19a95a65`: `native-test.sh` passed in full, including the
+  AppImage through FUSE and Yon reach with JavaScript and with linked Rust
+  services. `page-checks-native-test.mjs` passed, and so did the Ruby
+  WebAssembly page service. Under xfwm4 with its compositor on, the title bar
+  and window control tests passed two of two each; one earlier title bar run
+  timed out reaching the accessibility bus under load and passed on rerun.
+- WSLg: all eight host tests run under `GDK_BACKEND=wayland` failed to open
+  the display. WSLg's own Weston crashed (signal 11) as the first GTK window
+  opened, in a session started over SSH; a ten-line GTK 4 window crashed it
+  the same way. WSLg is not counted as a Wayland run.
 - Not run: `dpkg -i` or `apt install` of the `.deb` on WSL, because both need
-  administrator rights; the Ruby page service; GeoClue and a notification
-  server; WSLg; a physical Linux desktop.
+  administrator rights; on WSL, the headless mutter half of
+  `compositor-test.sh` and `desktop-links-test.sh`, because mutter and
+  xdg-utils are not installed there; the two Windows link tests on WSL, which
+  need mingw; WSLg from a signed-in desktop session; GeoClue and a
+  notification server; a physical Linux desktop.
 
 ### Native apps reach Yon through a declared origin (2026-10-18)
 
@@ -378,7 +391,7 @@ app has not run it yet.
 | macOS, iOS | run on the host | `scripts/native/yon-reach-test.mjs` passed on 2026-10-19 for the macOS app (macOS 26.6.2, Xcode 27.1) and the iOS 26.5 simulator (iPhone 17 Pro) over `http` and over `https` through a local TLS proxy. In all three runs Yon received `Origin: tachyon-app://bundle`, and the page reached it with HTTP, a CORS preflight, a stream, a socket, a topic, a 422 problem and a signed-in route. The linked Swift `@HTTPClient` read reached the origin through `URLSession` too; it is also unit-tested against a local server |
 | Android | run on the emulator; an `https` origin, or a local `http` origin with cleartext to that one host | `scripts/android/yon-origin-test.mjs` passed on 2026-10-19 on the Android 15 (API 35, arm64) emulator against `ty serve` on the Mac through `adb reverse`. The packaged app reached Yon from `https://appassets.tachyon.local` with an HTTP read, a cross-origin write, a stream, a socket, a topic, a `@Check` 422 and a signed-in route (401 without a token, then with an `Authorization` header). A linked Kotlin `HTTPClient` reached Yon through the native transport in the app's own process. The transport is also tested on the JVM against a real HTTP server (`android_yon_http_tests`). Not run: a physical device |
 | Windows | implemented; linked Rust and C# `HTTPClient` calls reach it too; built on the host, not run there | 2026-10-19 cloud runs and the MSVC and NativeAOT build on Windows 11 ARM64 (below); `scripts/windows/yon-reach.ps1` on a signed-in desktop is owed (NET3, with N1) |
-| Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Not run: WSL, a Wayland desktop |
+| Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Both also passed on WSL Ubuntu 24.04.5 (aarch64) in RL1, on `19a95a65`. Not run: a Wayland desktop |
 
 On 2026-10-19 (NET3, ADR 0103 amendment) linked services started to answer
 the page later through a task, and linked Rust and C# `HTTPClient` calls

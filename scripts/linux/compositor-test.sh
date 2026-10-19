@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+release_document_portal() {
+  if mountpoint -q "$STATE/runtime/doc" 2>/dev/null; then
+    fusermount3 -u "$STATE/runtime/doc" 2>/dev/null || fusermount -u "$STATE/runtime/doc" 2>/dev/null || true
+  fi
+}
+
+remove_private_folders() {
+  release_document_portal
+  rm -rf "$STATE"
+}
+
 use_private_folders() {
   STATE=$(mktemp -d "${TMPDIR:-/tmp}/ty-linux-wayland.XXXXXX")
   export STATE
-  trap 'rm -rf "$STATE"' EXIT
+  trap remove_private_folders EXIT
   mkdir -m 700 "$STATE/runtime"
   export XDG_RUNTIME_DIR="$STATE/runtime"
   export XDG_DATA_HOME="$STATE/data"
@@ -36,7 +47,7 @@ run_in_mutter() {
     export LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals
     mutter --version
     cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 \
-      --skip linux_browser_api_tests --skip linux_package_tests
+      --skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_package_tests
     cargo test --locked -p tachyon-core --lib the_linux_ -- --ignored --test-threads=1
   '
 }
