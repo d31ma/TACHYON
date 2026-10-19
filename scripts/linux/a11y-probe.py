@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import time
 
 import gi
@@ -14,6 +15,7 @@ class ProbeLimits:
     MAX_CHILDREN = 128
     MAX_TEXT_LENGTH = 512
     WAIT_SECONDS = 20
+    APPLICATION = os.environ.get("TAC_PROBE_APPLICATION", "NativeGate")
     POLL_SECONDS = 0.2
 
 
@@ -55,7 +57,7 @@ def find_application():
     desktop = Atspi.get_desktop(0)
     for index in range(min(desktop.get_child_count(), ProbeLimits.MAX_CHILDREN)):
         candidate = desktop.get_child_at_index(index)
-        if candidate is not None and candidate.get_name() == "NativeGate":
+        if candidate is not None and candidate.get_name() == ProbeLimits.APPLICATION:
             return candidate
     return None
 

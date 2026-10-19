@@ -4,14 +4,14 @@ use crate::route_types::ModelTable;
 use serde_json::Value;
 use std::path::Path;
 
-pub(super) struct TopicStreams;
+pub(crate) struct TopicStreams;
 
 impl TopicStreams {
     const REALM: &'static str = "client";
     const UNREADABLE_MODELS: u16 = 1605;
     const TOPIC_PATH: &'static str = "/.tachyon/topics/";
 
-    pub(super) fn read(snapshot_root: &Path, extension: &str) -> Result<Value, Failure> {
+    pub(crate) fn read(snapshot_root: &Path, extension: &str) -> Result<Value, Failure> {
         let readers = [Self::topic_names, Self::cpp_topic_names];
         let cpp = extension == crate::tac_cpp::CppSource::EXTENSION;
         let names = readers[usize::from(cpp)](snapshot_root, extension)?;

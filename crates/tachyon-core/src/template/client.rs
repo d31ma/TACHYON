@@ -51,6 +51,8 @@ impl<'a> ClientViewRenderer<'a> {
         "\n",
         include_str!("tac-native.js"),
         "\n",
+        include_str!("tac-native-events.js"),
+        "\n",
         include_str!("authored-root-update.js"),
         "\n",
         include_str!("tac-client.js")
@@ -135,6 +137,7 @@ impl<'a> ClientViewRenderer<'a> {
                 "native": service.linked(),
             });
             add_required(&mut entry, service);
+            self.services.add_linked_topics(&mut entry, service);
             catalog.insert(instance.clone(), entry);
         }
         catalog
@@ -645,6 +648,7 @@ impl<'a> Encoder<'a> {
                 "native": service.linked(),
             });
             add_required(&mut entry, service);
+            self.services.add_linked_topics(&mut entry, service);
             entries.push(entry);
         }
         entries

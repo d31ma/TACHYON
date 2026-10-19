@@ -11,6 +11,7 @@ pub(super) struct RustPageGraph {
     imports: super::rust_imports::RustImports,
     service_scopes: super::rust_service_scopes::RustServiceScopes,
     utilities: BTreeSet<String>,
+    remotes: Vec<crate::events::EventModule>,
 }
 
 impl RustPageGraph {
@@ -44,6 +45,7 @@ impl RustPageGraph {
             imports: super::rust_imports::RustImports::default(),
             service_scopes: super::rust_service_scopes::RustServiceScopes::default(),
             utilities: BTreeSet::new(),
+            remotes: Vec::new(),
         };
         for (path, source) in units {
             graph.add_unit(&path, &source, &input.snapshot_root)?;
@@ -149,8 +151,23 @@ impl RustPageGraph {
             self.services.insert(service.name.clone(), service);
             Ok(cleaned)
         } else {
+            self.remotes
+                .extend(Self::remote_events(path, source, root)?);
             crate::behavior::ServiceRoles::without_roles(path, source)
         }
+    }
+
+    fn remote_events(
+        path: &std::path::Path,
+        source: &str,
+        root: &std::path::Path,
+    ) -> Result<Option<crate::events::EventModule>, Failure> {
+        let mut events = crate::events::extract(path, source, "tac")?;
+        events
+            .as_mut()
+            .map(|module| crate::events::describe(module, path, root, "client"))
+            .transpose()?;
+        Ok(events)
     }
 
     fn unit_imports(&mut self, path: &std::path::Path, source: &str) -> Result<String, Failure> {
@@ -321,6 +338,7 @@ impl RustPageGraph {
             service.events.as_ref(),
         )?;
         let mut events = service.prepared_events()?;
+        events.entries.push_str(&self.held_streams(service)?);
         let _ = writeln!(
             events.entries,
             "(\"__graph_start\", TacMember::Hook(false, {{ let scope = scope.clone(); Box::new(move || scope.start_root({:?}, {}).map_err(|_| \"Native service startup failed\")) }})),",
@@ -340,6 +358,20 @@ impl RustPageGraph {
             &instance,
             (&events.excluded, &events.entries),
         )
+    }
+
+    fn held_streams(&self, service: &RustServicePlan) -> Result<String, Failure> {
+        super::rust_held_streams::RustHeldStreams::of_remotes(
+            &self.remotes,
+            &service.source,
+            &service.name,
+        )
+        .map_err(|message| {
+            super::host::native_tool_failure(
+                1405,
+                &format!("{}: {message}", service.path.display()),
+            )
+        })
     }
 
     fn root_instance(obtained: &str, arc: bool) -> String {

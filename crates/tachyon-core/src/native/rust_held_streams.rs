@@ -16,9 +16,29 @@ impl RustHeldStreams {
         rust_owner.map_or(Ok(String::new()), |owner| Self::entries(module, owner))
     }
 
+    pub(super) fn of_remotes(
+        remotes: &[EventModule],
+        service_source: &str,
+        owner: &str,
+    ) -> Result<String, &'static str> {
+        let clients = remotes
+            .iter()
+            .flat_map(|module| HeldStreams::clients(module, owner))
+            .collect::<Vec<_>>();
+        Self::listed(&clients, service_source, owner)
+    }
+
     fn entries(module: &EventModule, owner: &str) -> Result<String, &'static str> {
-        let field_types = Self::field_types(&module.source, owner);
-        let streams = HeldStreams::held(&HeldStreams::clients(module, owner), &field_types);
+        Self::listed(&HeldStreams::clients(module, owner), &module.source, owner)
+    }
+
+    fn listed(
+        clients: &[&crate::events::EventType],
+        service_source: &str,
+        owner: &str,
+    ) -> Result<String, &'static str> {
+        let field_types = Self::field_types(service_source, owner);
+        let streams = HeldStreams::held(clients, &field_types);
         Self::bounded(streams).map(|streams| {
             streams
                 .into_iter()

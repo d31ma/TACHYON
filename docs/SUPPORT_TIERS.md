@@ -185,7 +185,8 @@ in `server/application.json`. The contract is unit-tested in the cloud, and
 `scripts/yon-origin-browser-test.mjs` runs a web page on one port against
 Yon on another in Chromium, and `scripts/native/yon-reach-test.mjs --target=web`
 runs the probe that the native apps run. On 2026-10-19 it ran the macOS app
-and the iOS simulator on a Mac; the other native hosts have not run it yet.
+and the iOS simulator on a Mac, and the packaged Linux app reached Yon under
+Xvfb (NET4); the other native hosts have not run it yet.
 
 | Host | Yon calls from the packaged app | Evidence |
 | --- | --- | --- |
@@ -193,7 +194,7 @@ and the iOS simulator on a Mac; the other native hosts have not run it yet.
 | macOS, iOS | run on the host | `scripts/native/yon-reach-test.mjs` passed on 2026-10-19 for the macOS app (macOS 26.6.2, Xcode 27.1) and the iOS 26.5 simulator (iPhone 17 Pro) over `http` and over `https` through a local TLS proxy. In all three runs Yon received `Origin: tachyon-app://bundle`, and the page reached it with HTTP, a CORS preflight, a stream, a socket, a topic, a 422 problem and a signed-in route. The linked Swift `@HTTPClient` read reached the origin through `URLSession` too; it is also unit-tested against a local server |
 | Android | implemented, not run on the emulator yet; an `https` origin, or a local `http` origin with cleartext to that one host | NET2: the host passes the declared origin through its request interception and asks for the INTERNET permission; linked Kotlin `HTTPClient`s use a native transport, tested on the JVM against a real HTTP server (`android_yon_http_tests`); a packaged APK builds in the cloud; `scripts/android/yon-origin-test.mjs` is the emulator run |
 | Windows | implemented; linked Rust and C# `HTTPClient` calls reach it too; not run on the host | 2026-10-19 cloud runs (below); `scripts/windows/yon-reach.ps1` on a signed-in desktop is owed (NET3, with N1) |
-| Linux | implemented, not run on the host | proven by NET4 under Xvfb |
+| Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Not run: WSL, a Wayland desktop |
 
 On 2026-10-19 (NET3, ADR 0103 amendment) linked services started to answer
 the page later through a task, and linked Rust and C# `HTTPClient` calls

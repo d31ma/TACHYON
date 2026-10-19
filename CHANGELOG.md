@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Linux app reaches Yon on `tac.yon.origin` (ADR 0103 amendment). A
+  linked Rust service's `HTTPClient` now sends its calls through the GTK
+  host with libsoup instead of answering `HTTP_MISSING`. The page also opens
+  a linked service's `#[StreamRequest]` and `#[SocketRequest]` clients and
+  its topic listeners, so a linked Rust service receives stream, socket and
+  topic messages and can send on a socket. This has run on Linux only; the
+  macOS and Windows apps have not been run yet. The Linux gate
+  runs `scripts/linux/yon-origin-native-test.mjs`, which reaches a local Yon
+  from the packaged app with JavaScript and with linked Rust services.
 - `ty bundle --target linux --release` builds an AppImage and a `.deb` in
   `dist/linux/` (ADR 0104 amendment). Both install the app in
   `/usr/lib/<package>/`, the command `/usr/bin/<package>`, a desktop file and

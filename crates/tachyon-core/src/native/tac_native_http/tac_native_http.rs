@@ -59,7 +59,12 @@ impl TacNativeHttp {
         TacWinHttp::exchange(request)
     }
 
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    fn platform(request: &TacNativeHttpRequest) -> Result<TacNativeHttpResponse, &'static str> {
+        TacLinuxHttp::exchange(request)
+    }
+
+    #[cfg(not(any(windows, target_os = "linux")))]
     fn platform(_request: &TacNativeHttpRequest) -> Result<TacNativeHttpResponse, &'static str> {
         Err(Self::MISSING)
     }

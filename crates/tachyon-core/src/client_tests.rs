@@ -319,8 +319,10 @@ fn rust_typed_answers(project: &Path, lowered: &str, portable: &str) -> Result<S
     };
     let models = crate::route_types::Converters::tac_text("rs", project)
         .map_err(|message| fail(portable, message))?;
+    let socket = ["", crate::native::RustCompanion::pageless_socket_source()]
+        [usize::from(lowered.contains("BehaviorBrowserSocket::"))];
     Ok(format!(
-        "{lowered}\n{values}\n{}\n{models}",
+        "{lowered}\n{values}\n{}\n{models}\n{socket}",
         crate::native::RustCompanion::model_source()
     ))
 }

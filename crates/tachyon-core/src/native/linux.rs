@@ -200,7 +200,8 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
         .replace(
             "__APPLICATION_STATE__",
             LinuxHostGenerator::APPLICATION_STATE,
-        );
+        )
+        .replace("__NATIVE_TASKS__", LinuxHostGenerator::TASK_HTTP);
     LinuxHostGenerator::DESKTOP.render(
         &template,
         application,
@@ -219,6 +220,7 @@ pub(super) const fn host_source() -> &'static str {
 
 impl LinuxHostGenerator {
     const APPLICATION_STATE: &str = include_str!("linux_application_state.c");
+    const TASK_HTTP: &str = include_str!("linux_task_http.c");
     const C_HOST: &str = r#"#include <gtk/gtk.h>
 #include <gio/gio.h>
 #include <gmodule.h>
@@ -461,6 +463,8 @@ static void tachyon_companion_emit(const gchar *payload) {
   g_idle_add(tachyon_deliver_publish, g_strdup(payload));
 }
 
+__NATIVE_TASKS__
+
 static void tachyon_companion_load(void) {
   gchar *root = tachyon_resource_root();
   gchar *bundle = g_path_get_dirname(root);
@@ -480,6 +484,7 @@ static void tachyon_companion_load(void) {
     g_module_symbol(module, "tac_native_application_start", (gpointer *)&g_application_start);
     g_module_symbol(module, "tac_native_application_shutdown", (gpointer *)&g_application_shutdown);
     tachyon_menus_bind(module);
+    tachyon_tasks_bind(module);
     if (g_companion_invoke != NULL && g_companion_free != NULL) {
       tachyon_record("companion.loaded");
     }

@@ -1,7 +1,7 @@
 use crate::Failure;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use topic_streams::TopicStreams;
+pub(crate) use topic_streams::TopicStreams;
 
 mod topic_streams;
 

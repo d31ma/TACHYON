@@ -44,14 +44,16 @@ impl RustCompanion {
             include_str!("tac_task_dispatch.rs"),
             include_str!("tac_tasks.rs"),
             include_str!("tac_http_ticket.rs"),
-            include_str!("tac_stream.rs")
+            include_str!("tac_stream.rs"),
+            include_str!("tac_page_socket.rs")
         ),
         concat!(
             include_str!("tac_native_http/tac_native_http_request.rs"),
             include_str!("tac_native_http/tac_native_http_response.rs"),
             include_str!("tac_native_http/tac_native_http.rs"),
             include_str!("tac_native_http/tac_win_http.rs"),
-            include_str!("tac_native_http/tac_win_http_handle.rs")
+            include_str!("tac_native_http/tac_win_http_handle.rs"),
+            include_str!("tac_native_http/tac_linux_http.rs")
         ),
         include_str!("web_apis/clock.rs"),
         include_str!("web_apis/secure_random.rs"),
@@ -80,6 +82,10 @@ impl RustCompanion {
         let compiler = Linkage::Web(profile).profile_arguments().join(" ");
         let optimizer = RustWebModule::OPTIMIZER_FLAGS.join(" ");
         format!(" {compiler} {optimizer}")
+    }
+
+    pub(crate) const fn pageless_socket_source() -> &'static str {
+        include_str!("pageless_socket/tac_page_socket.rs")
     }
 
     pub(crate) fn model_source() -> &'static str {

@@ -20,6 +20,7 @@ RUN apt-get update \
       nodejs \
       pkg-config \
       python3-gi \
+      unzip \
       x11-utils \
       xauth \
       xdotool \
@@ -30,6 +31,16 @@ RUN apt-get update \
 ARG RUST_TOOLCHAIN=1.97.1
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --profile minimal --default-toolchain "${RUST_TOOLCHAIN}" \
+ && rustup target add wasm32-unknown-unknown \
  && rustc --version
+
+ARG BUN_VERSION=1.4.3
+RUN case "$(dpkg --print-architecture)" in arm64) bun_arch=aarch64 ;; *) bun_arch=x64 ;; esac \
+ && curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/bun.zip \
+      "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${bun_arch}.zip" \
+ && unzip -q /tmp/bun.zip -d /tmp \
+ && install -m 0755 "/tmp/bun-linux-${bun_arch}/bun" /usr/local/bin/bun \
+ && rm -rf /tmp/bun.zip "/tmp/bun-linux-${bun_arch}" \
+ && bun --version
 
 WORKDIR /workspace

@@ -1,6 +1,6 @@
 use tachyon_contracts::NativeTarget::{self, Android, Ios, Linux, Macos, Windows};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum NativeCompanion {
     Rust,
     Swift,
@@ -18,6 +18,7 @@ impl NativeCompanion {
     ];
     const SOURCE_NAMES: [&'static str; 4] = ["tac.rs", "tac.swift", "tac.kt", "tac.cs"];
     const LABELS: [&'static str; 4] = ["Rust", "Swift", "Kotlin", "C#"];
+    const MODEL_EXTENSIONS: [&'static str; 4] = ["rs", "swift", "kt", "cs"];
 
     #[must_use]
     pub const fn targets(self) -> &'static [NativeTarget] {
@@ -47,6 +48,11 @@ impl NativeCompanion {
     #[must_use]
     pub const fn source_name(self) -> &'static str {
         Self::SOURCE_NAMES[self as usize]
+    }
+
+    #[must_use]
+    pub const fn model_extension(self) -> &'static str {
+        Self::MODEL_EXTENSIONS[self as usize]
     }
 
     #[must_use]

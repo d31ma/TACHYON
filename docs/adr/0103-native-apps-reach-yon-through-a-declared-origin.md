@@ -336,6 +336,7 @@ declared Yon origin.
   Android emulator against a Yon on the build machine. It covers an HTTP
   route, a stream, a socket, a topic, a `@Check` 422, a `SignedIn` route and
   a linked Kotlin client.
+
 ## Amendment (2026-10-19): Windows and linked native services (NET3)
 
 ### Linked services answer later through a task
@@ -434,3 +435,46 @@ C# ones, through UI Automation. It is owed on the Surface desktop, run with
 N1. One open question is whether WebView2 asks for local network access
 before a page on `https://tachyon.local` may call `http://localhost`. If it
 does, the run shows it, and that run decides the answer.
+
+## Amendment (2026-10-19): the Linux app reaches Yon (NET4)
+
+The packaged Linux app now reaches Yon on `tac.yon.origin`. WebKitGTK sends
+`Origin: tachyon://app` from the registered, CORS-enabled scheme, so Yon
+matches it against `server.origins` and no forwarder is needed in the host.
+
+`scripts/linux/yon-origin-native-test.mjs` proves each path. It builds one
+example with an HTTP route (read and write), a `@SignedIn` route that needs an
+`Authorization` header and a preflight, a topic, a `@Check` 422, a stream and
+a socket. Then it opens the app under Xvfb and reads each answer through the
+accessibility bus. It runs against Yon on `http://127.0.0.1:<port>`, and over
+`https://localhost:<port>` when `TAC_YON_TLS_CERT` and `TAC_YON_TLS_KEY` name
+a certificate that the system trusts. It runs once with JavaScript page
+services and once with linked Rust services (`TAC_YON_SERVICES=rust`).
+`scripts/linux/native-test.sh` runs both, so the Linux gate in CI runs them
+too.
+
+Two changes let a linked service reach Yon:
+
+- **The page holds a linked service's streams, sockets and topics.** The page
+  opens the `#[StreamRequest]` and `#[SocketRequest]` clients of a linked
+  service, and the topics of its `#[OnEvent]` listeners, with the same code it
+  uses for page services. When a message arrives, the page calls the service
+  with the companion operation `event`. Every host now accepts that
+  operation. A linked Rust service that sends on a socket hands the message
+  to the page, and the page sends it on its open socket. Before this change,
+  a linked Rust service with stream or socket clients built without a
+  refusal but could not reach anything. Swift, Kotlin and C# services keep
+  `TY1405` for now.
+- **A linked Rust `HTTPClient` has a native transport on Linux.** It uses the
+  native task protocol from NET3: a parked task resumes when the host calls
+  the companion with `host-resume`. The GTK host resumes tasks on its main
+  loop. The companion hands each request to the host, and the host sends it
+  to `tac.yon.origin` with libsoup. libsoup follows no redirects, sends no
+  cookies and uses the request deadline and `maxResponseBytes`. It reads the
+  system trust store and proxy settings, as the web view does. The answer
+  goes through the same code as the Windows transport, so both hosts give
+  the same results and error codes. A linked Rust service on Linux no longer
+  answers `HTTP_MISSING`, as the NET3 amendment says a Rust companion does on
+  a desktop host without a sender.
+
+Not run yet: the Linux app on WSL, and in a desktop Wayland session.

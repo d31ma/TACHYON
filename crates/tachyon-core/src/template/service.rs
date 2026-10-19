@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct ServiceRegistry {
     services: BTreeMap<String, ServiceDefinition>,
     digest: String,
+    topics: BTreeMap<NativeCompanion, serde_json::Value>,
 }
 
 #[derive(Clone, Debug)]
@@ -172,15 +173,17 @@ impl ServiceDefinition {
     }
 
     pub(crate) fn linked(&self) -> bool {
+        self.linked_companion().is_some()
+    }
+
+    pub(crate) fn linked_companion(&self) -> Option<NativeCompanion> {
         let languages = self
             .native
             .iter()
             .map(|(language, _)| *language)
             .collect::<Vec<_>>();
-        let Some(target) = self.target else {
-            return false;
-        };
-        NativeCompanion::most_specific(&languages, target).is_some()
+        self.target
+            .and_then(|target| NativeCompanion::most_specific(&languages, target))
     }
 
     pub(crate) fn web_assembly(&self) -> Option<(WebLanguage, &Path)> {
@@ -280,9 +283,44 @@ impl ServiceRegistry {
             return Err(Failure::new(diagnostics));
         }
         Ok(Self {
+            topics: Self::native_topics(project_root, &services)?,
             services,
             digest: hex_digest(hasher.finalize()),
         })
+    }
+
+    fn native_topics(
+        project_root: &Path,
+        services: &BTreeMap<String, ServiceDefinition>,
+    ) -> Result<BTreeMap<NativeCompanion, serde_json::Value>, Failure> {
+        let languages = services
+            .values()
+            .flat_map(|service| service.native.iter().map(|(language, _)| *language))
+            .collect::<BTreeSet<_>>();
+        languages
+            .into_iter()
+            .map(|language| {
+                crate::tac_web::TopicStreams::read(project_root, language.model_extension())
+                    .map(|topics| (language, topics))
+            })
+            .collect()
+    }
+
+    pub(crate) fn add_linked_topics(
+        &self,
+        entry: &mut serde_json::Value,
+        service: &ServiceDefinition,
+    ) {
+        service
+            .linked_companion()
+            .and_then(|language| self.topics.get(&language))
+            .filter(|topics| Self::has_topics(topics))
+            .into_iter()
+            .for_each(|topics| entry["topics"] = topics.clone());
+    }
+
+    fn has_topics(topics: &serde_json::Value) -> bool {
+        topics.as_object().is_some_and(|map| !map.is_empty())
     }
 
     fn hash_utilities(project_root: &Path, hasher: &mut Sha256) -> Result<(), Failure> {
@@ -971,6 +1009,34 @@ mod tests {
             let basket = registry.get("basket").expect("basket");
             assert!(basket.web_assembly().is_none());
             assert!(basket.module_url().is_some());
+        }
+    }
+
+    #[test]
+    fn a_linked_service_entry_names_the_topic_streams_the_page_holds_for_it() {
+        use tachyon_contracts::NativeTarget;
+        let root = project(&[
+            (
+                "client/services/OrderFeedService.rs",
+                "#[derive(Default)]\n#[Service]\nstruct OrderFeedService {}\n",
+            ),
+            (
+                "client/models/OrderPlaced.rs",
+                "#[Topic]\n#[derive(Clone, Debug, Default)]\npub struct OrderPlaced {\n    pub item: String,\n}\n",
+            ),
+        ]);
+        let registry = ServiceRegistry::discover(root.path()).expect("registry");
+        for (target, held) in [(None, false), (Some(NativeTarget::Linux), true)] {
+            let registry = registry.clone().for_target(target);
+            let feed = registry.get("orderFeed").expect("order feed");
+            let mut entry = serde_json::json!({});
+            registry.add_linked_topics(&mut entry, feed);
+            let path = entry["topics"]["OrderPlaced"].as_str();
+            assert_eq!(path.is_some(), held, "{target:?} {entry}");
+            assert!(
+                path.is_none_or(|path| path.starts_with("/.tachyon/topics/")),
+                "{entry}"
+            );
         }
     }
 

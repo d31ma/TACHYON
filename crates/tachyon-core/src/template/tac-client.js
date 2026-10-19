@@ -190,15 +190,8 @@ class NativeState {
   static writeCount = 0
   static methods = new WeakSet()
   static owners = new Map()
-  static plans = new WeakMap()
-  static applicationState = 'ApplicationStateChanged'
   static startUpRequestLimit = 1048576
   static memberRequestLimit = 65536
-
-  static planned(owner, metadata) {
-    const native = NativeState.plans.get(owner)
-    return native ? { ...metadata, listeners: [...(metadata.listeners || []), ...native.listeners] } : metadata
-  }
 
   static tooLarge(request, service, payload, limit) {
     const subject = request.op === 'init' ? 'start-up request' : `request to ${request.name ?? request.op}`
@@ -1556,7 +1549,7 @@ const attachRuntime = (owner, scope, element) => {
   Runtime.graphs.set(owner, graph)
   const resources = ownerResources(element, Owners.managed.get(owner)?.signal)
   for (const instance of graph) {
-    const metadata = NativeState.planned(instance, module?.__tachyon_event_plan__?.types?.find((type) => type.name === instance.constructor?.name) || {})
+    const metadata = TacNativeEvents.planned(instance, module?.__tachyon_event_plan__?.types?.find((type) => type.name === instance.constructor?.name) || {})
     Runtime.events.attach(instance, metadata, resources)
   }
   return bindPersistentFields(owner, scope)
@@ -1654,6 +1647,7 @@ const bindNativeInstance = async (owner, service, properties) => {
   const fields = (Array.isArray(declared?.fields) ? declared.fields : []).slice(0, 128).filter(nativeMember)
   const refreshNativeFields = bindNativeFields(owner, fields, call)
   await refreshNativeFields()
+  TacNativeEvents.bind(owner, declared, call, refreshNativeFields, Services.catalog[service]?.topics)
   for (const name of (Array.isArray(declared?.methods) ? declared.methods : []).slice(0, 128)) {
     if (!nativeMember(name)) continue
     const method = async (...args) => {
@@ -1666,18 +1660,7 @@ const bindNativeInstance = async (owner, service, properties) => {
     NativeState.methods.add(method)
     owner[name] = method
   }
-  bindNativeListeners(owner, declared?.listeners, call)
   NativeState.owners.set(owner, record)
-}
-const bindNativeListeners = (owner, declared, call) => {
-  const event = NativeState.applicationState
-  const listeners = (Array.isArray(declared) ? declared : []).slice(0, 128)
-    .filter((listener) => nativeMember(listener?.key) && Array.isArray(listener.events) && listener.events.includes(event))
-  for (const { key } of listeners) {
-    Object.defineProperty(owner, `__tachyonListen:${key}`, { configurable: true, value: (value) => call({ op: 'event', name: key, value }) })
-  }
-  const plan = listeners.map((listener) => ({ ...listener, events: [event], method: `__tachyonListen:${listener.key}` }))
-  NativeState.plans.set(owner, { listeners: plan })
 }
 const disposeNativeInstance = (owner) => {
   const record = NativeState.owners.get(owner)
@@ -1690,10 +1673,11 @@ const disposeNativeInstance = (owner) => {
 if (nativeHost()) {
   globalThis.__tachyonCompanionPublish = (signal) => {
     if (signal?.route !== ClientView.plan.route) return
-    const live = [...NativeState.owners.values()].some((record) => !record.disposed && record.ownerId === signal?.owner && record.service === signal?.service)
+    const live = [...NativeState.owners].find(([, record]) => !record.disposed && record.ownerId === signal?.owner && record.service === signal?.service)
     if (!live) return
     if (signal.task !== undefined) return NativeTasks.done(signal)
-    try { Runtime.events.publish(signal.name, signal.value, { retain: signal.retain === true }) } catch { signalFailure() }
+    if (typeof signal.send === 'string') { Promise.resolve().then(() => TacNativeEvents.send(live[0], signal)).catch(signalFailure); return }
+    try { TacNativeEvents.publish(live[0], () => Runtime.events.publish(signal.name, signal.value, { retain: signal.retain === true })) } catch { signalFailure() }
   }
   drainCompanionQueue()
 }

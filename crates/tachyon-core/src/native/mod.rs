@@ -159,6 +159,8 @@ mod native_reproducible_build_tests;
 mod native_rust_capability_tests;
 #[cfg(test)]
 mod native_rust_crate_tests;
+#[cfg(test)]
+mod native_rust_linux_http_tests;
 mod native_rust_project;
 #[cfg(test)]
 mod native_rust_task_tests;
@@ -219,6 +221,8 @@ mod rust_crate_build;
 mod rust_dependency;
 #[cfg(test)]
 mod rust_filename_tests;
+#[cfg(test)]
+mod rust_held_stream_tests;
 mod rust_held_streams;
 mod rust_imports;
 mod rust_local_paths;

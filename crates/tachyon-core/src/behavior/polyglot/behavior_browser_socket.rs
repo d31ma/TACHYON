@@ -54,10 +54,8 @@ impl BehaviorBrowserSocket {
 
     #[cfg(not(target_arch = "wasm32"))]
     async fn host<T: TacModel>(client: &str, message: T) -> BehaviorResult<String> {
-        drop((client, message));
-        Err(behavior_error(
-            "HTTP_MISSING",
-            "A socket client sends only in the browser. A test has no page, so the message was not sent.",
-        ))
+        TacPageSocket::send(client, message.write())
+            .map(|()| String::from("{\"value\":null}"))
+            .map_err(|code| behavior_error(code, Self::NOT_SENT))
     }
 }

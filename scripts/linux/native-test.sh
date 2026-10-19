@@ -123,6 +123,15 @@ check_release_packages() {
   APPIMAGE_EXTRACT_AND_RUN=1 launch_until_mounted 'AppImage' "$appimage"
 }
 
+reach_yon() {
+  local services
+  for services in javascript rust; do
+    echo "==> reaching Yon on its declared origin from the packaged Linux app (${services} services)"
+    TAC_BIN="$TAC_BIN" TAC_YON_SERVICES="$services" YON_JAVASCRIPT_RUNTIME="${YON_JAVASCRIPT_RUNTIME:-bun}" \
+      timeout 600s node scripts/linux/yon-origin-native-test.mjs
+  done
+}
+
 main() {
   FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/ty-linux-native.XXXXXX")
   trap 'rm -rf "$FIXTURE"' EXIT
@@ -133,7 +142,8 @@ main() {
   drive_accessibility_probe "$FIXTURE" "${out}/NativeGate"
   check_lifecycle_log
   check_release_packages "$FIXTURE"
-  echo 'PASS: Linux WebView, shared JS/CSS, native ABI, publish, dynamic routes, route isolation, and the AppImage and .deb release packages'
+  reach_yon
+  echo 'PASS: Linux WebView, shared JS/CSS, native ABI, publish, dynamic routes, route isolation, the AppImage and .deb release packages, and Yon reach'
 }
 
 main "$@"
