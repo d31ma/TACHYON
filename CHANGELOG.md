@@ -288,6 +288,21 @@ machine contracts have their own, independent major versions.
   fixture, from 195 KB; ADR 0022). In the signal-driven UI recipe, the Kotlin
   list reloads the saved users through its own UsersClient from the Setup's
   in-page adapter.
+- C# and F# browser services on one page share one program. The C#
+  services of a page build into one `TachyonServiceCsharp` namespace and
+  the F# services into one `TachyonServiceFsharp` namespace, with each
+  Setup, HTTP client, Store, entity, model and Helper they need once and
+  behavior lowering run once, so two services of one language get one Setup
+  configuration and one behavior runtime: an increment through one
+  service's client is seen by the other's. Each service keeps only its
+  member table in `TachyonService<N>`. The page-program fixtures for C# and
+  F# are now `"shared"` (C# 1129 KB of WebAssembly, from 1136 KB; F# 1269
+  KB, from 1278 KB; 116 KB of script each; ADR 0022).
+- A C# or F# Helper in `client/helpers` that a service build does not name
+  no longer stops that build with `TY1308`, so one service can need a
+  Helper that another service on the page does not (ADR 0091 amendment).
+- An F# Store whose type only inherits `Repository<Entity, Id>`, with no
+  members of its own, now builds; it was refused before.
 - C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
   one class marked `[[Test(<Name>TestSetup)]]` and a
   `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with

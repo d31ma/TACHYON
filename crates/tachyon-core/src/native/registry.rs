@@ -2,6 +2,7 @@ use super::csharp_browser_factory::CsharpBrowserFactory;
 use super::csharp_stream_clients::CsharpStreamClients;
 use crate::Failure;
 use crate::annotation_layout::NativeWebApis;
+use crate::annotation_modules::PageParts;
 use crate::project::NativeCompanion;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -230,7 +231,8 @@ fn lowered_service(
     let assembled = if native_rust {
         crate::annotation_modules::Module::native_source(&item.snapshot_root, relative, authored)?
     } else {
-        crate::annotation_modules::assemble(&item.snapshot_root, relative, authored, "tac")?
+        let parts = language == NativeCompanion::CSharp;
+        PageParts::assemble(&item.snapshot_root, relative, authored, parts)?
     };
     let authored = assembled.as_deref().unwrap_or(authored);
     let roles_consumed = native_rust

@@ -162,3 +162,32 @@ async fn an_fsharp_web_service_needs_a_helper_that_needs_another_helper() {
         DotnetHelpers::check(&report);
     }
 }
+
+#[tokio::test]
+async fn a_dotnet_helper_one_service_needs_does_not_stop_another_service() {
+    for (files, quote) in [
+        (
+            DotnetHelpers::CSHARP,
+            "[Service]\npublic sealed class QuoteService {\n    [Needs]\n    private readonly TaxHelper _tax;\n\n    \
+             public int Quote(int subtotal) {\n        return _tax.AddTax(subtotal);\n    }\n\n    \
+             public int Asked() {\n        return _tax.Asked();\n    }\n}\n",
+        ),
+        (
+            DotnetHelpers::FSHARP,
+            "[<Service>]\ntype QuoteService(tax: TaxHelper) =\n    \
+             member this.Quote(subtotal: int) : int = tax.AddTax(subtotal)\n\n    \
+             member this.Asked() : int = tax.Asked()\n",
+        ),
+    ] {
+        let mut files = files.to_vec();
+        if let Some(last) = files.last_mut() {
+            last.1 = quote;
+        }
+        let Some(report) = DotnetHelpers::report(&files).await else {
+            return;
+        };
+        assert_eq!(report["quoted"], serde_json::json!([102, 9]), "{report}");
+        assert_eq!(report["rounded"], serde_json::json!(40), "{report}");
+        assert_eq!(report["asked"], serde_json::json!([1, 2]), "{report}");
+    }
+}

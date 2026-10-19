@@ -9,9 +9,12 @@ use rust_page_program::RustPageProgram;
 use std::collections::BTreeSet;
 use swift_page_program::SwiftPageProgram;
 
+mod csharp_page;
 mod dotnet_page_program;
+mod fsharp_page;
 mod kotlin_page_program;
 mod rust_page_program;
+mod shared_page;
 mod shared_page_program;
 mod swift_page_program;
 

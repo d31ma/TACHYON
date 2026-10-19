@@ -357,24 +357,14 @@ no implementation, and Tachyon generates each query.
   with its own copies, as before. Route size of the page-program fixture
   (TY1337, the same Linux container): 40 KB of script before and after,
   86 KB of WebAssembly before and 82 KB after.
-- Current limit: in the languages below, each browser service is lowered on
-  its own, with its own copy of the runtime glue and of each Setup, client
-  and store type. Two such services on one page therefore get two Setup
-  configurations and separate adapters; the clients inside one service share
-  them. Go and Rust services already build into one page program (ADR 0045
-  and the Rust bullet below), Java services do as described above,
-  JavaScript and TypeScript services share one Setup class as described
-  above, and the Dart services of a site build into one Dart library (see
-  the next bullet). The thread that lowers a language's page as one
-  program deletes that language's bullet, flips `scripts/page-program/<language>/expected.json`
-  to `"shared"`, and reports the route size before and after (TY1337, ADR
-  0100). The baseline sizes were measured on 2026-10-18 in a Linux container
-  without Binaryen or TinyGo, so compare a language only with itself on the
-  same machine.
-  - C#: one `namespace TachyonService<N>` for each service; the hook is
-    `native/page_program/dotnet_page_program.rs`. Baseline 115 KB of script, 1136 KB of WebAssembly.
-  - F#: one `namespace rec TachyonService<N>` for each service in the F#
-    project; the same hook as C#. Baseline 115 KB of script, 1278 KB of WebAssembly.
+- The former limit, where each browser service of some languages was lowered
+  on its own with its own copy of each Setup, client and store, is gone
+  (2026-10-18). Go services build into one page program (ADR 0045); Java
+  services as described above; Dart, Rust, Swift, Kotlin, C# and F# as
+  described in the bullets below; and JavaScript and TypeScript services
+  share one Setup class. The route sizes below were measured in a Linux
+  container without Binaryen or TinyGo, so compare a language only with
+  itself on the same machine.
 - Dart builds every browser service of the site into one library,
   `services.dart`, inside its one Dart program. Each service is still
   prepared and lowered alone first, so its diagnostics name its own file;
@@ -427,6 +417,26 @@ no implementation, and Tachyon generates each query.
   member table, required fields and lifetime. The Kotlin fixture went from
   36 KB of script and 195 KB of WebAssembly to 36 KB and 190 KB (TY1337,
   same container, without Binaryen).
+- C# and F# (2026-10-18): `native/page_program/dotnet_page_program.rs`
+  builds the C# browser services of a page into one
+  `namespace TachyonServiceCsharp` (`csharp_page.rs`) and its F# browser
+  services into one `namespace TachyonServiceFsharp` (`fsharp_page.rs`).
+  Each service file, and each Setup, HTTP client, Store, entity, model and
+  Helper that any of them needs, comes in once, by its authored path; the
+  C# parts carry a `//tachyon:part <path>` line for this and the F# parts
+  their `# 1 "<path>"` line. Behavior lowering runs once for each language,
+  so the page has one C# behavior runtime and one C# Setup registry, and
+  one F# runtime and registry. Each service keeps only its member table, in
+  `namespace TachyonService<N>`, which opens the page namespace; the browser
+  bindings look for that namespace prefix, so `TachyonServiceCsharp` and
+  `TachyonServiceFsharp` get the Store, HTTP and socket hosts too. One path
+  that brings different text for two services stops the build with
+  `TY1605`. A C# service and an F# service on one page still have two
+  registries, one for each language. The fixtures went from separate to
+  shared in Chromium: C# from 116 KB of script and 1136 KB of WebAssembly
+  to 116 KB and 1129 KB, F# from 116 KB and 1278 KB to 116 KB and 1269 KB
+  (TY1337, Linux container without Binaryen). Firefox and WebKit runs are
+  owed on a machine that has them.
 - The page-program gate (`scripts/page-program-browser-gate.mjs`,
   `bun run test:page-program-browser`) builds one project for each
   language: two services, `writer` and `reader`, on one page, both needing
@@ -437,10 +447,12 @@ no implementation, and Tachyon generates each query.
   see two (`"separate"`), and that the Store record one service saves is
   found by the other. `TAC_PAGE_PROGRAM_LANGUAGES` and
   `TAC_PAGE_PROGRAM_BROWSERS` narrow a run. The JavaScript, Go, Dart,
-  Rust, Swift, Java and Kotlin fixtures are `"shared"` (47 KB of script; 37 KB of
-  script and 990 KB of WebAssembly; 37 KB of script and 44 KB of WebAssembly;
-  125 KB of script; 35 KB of script and 1513 KB of WebAssembly; 40 KB of
-  script and 82 KB of WebAssembly; 36 KB of script and 190 KB of WebAssembly). The C++ fixture
+  Rust, Swift, Java, Kotlin, C# and F# fixtures are `"shared"` (47 KB of
+  script; 37 KB of script and 990 KB of WebAssembly; 37 KB of script and
+  44 KB of WebAssembly; 125 KB of script; 35 KB of script and 1513 KB of
+  WebAssembly; 40 KB of script and 82 KB of WebAssembly; 36 KB of script
+  and 190 KB of WebAssembly; 116 KB of script and 1129 KB of WebAssembly;
+  116 KB of script and 1269 KB of WebAssembly). The C++ fixture
   is marked owed and skipped by default: a C++ page HTTP client does not
   call a Setup's `adapters.http` yet and ignores the `HTTPClient` options
   (CPP3 of the queue plan).

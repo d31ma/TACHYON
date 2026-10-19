@@ -70,6 +70,7 @@ impl CsharpTestHelpers {
         modules: &mut Vec<Module>,
         total: usize,
     ) -> Result<(), Failure> {
+        Self::without_unneeded(input, modules)?;
         let graph = HelperCallers::graph(input.entry, input.source, modules)?;
         let production = Self::production_names(input, modules, graph.helpers())?;
         let owned = graph.owned(&production);
@@ -77,6 +78,14 @@ impl CsharpTestHelpers {
             return HelperCallers::check(input.entry, input.source, modules, Self::ENVIRONMENT);
         }
         Self::with_tests(root, input, modules, total)
+    }
+
+    fn without_unneeded(input: ModuleInput<'_>, modules: &mut Vec<Module>) -> Result<(), Failure> {
+        let graph = HelperCallers::graph(input.entry, input.source, modules)?;
+        let production = Self::production_names(input, modules, graph.helpers())?;
+        let referenced = graph.referenced(&production);
+        modules.retain(|module| Self::keep(module, graph.helpers(), &referenced));
+        Ok(())
     }
 
     fn with_tests(

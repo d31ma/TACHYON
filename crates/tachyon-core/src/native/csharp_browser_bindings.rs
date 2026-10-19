@@ -5,6 +5,7 @@ pub(super) struct CsharpBrowserBindings;
 impl CsharpBrowserBindings {
     const HTTP: &'static str = "internal static class BehaviorBrowserHttp";
     const SOCKET: &'static str = "internal static class BehaviorBrowserSocket";
+    const STORAGE: &'static str = "public static class BehaviorStorage";
 
     #[cfg(test)]
     pub(super) fn read(authored: &str) -> String {
@@ -17,7 +18,11 @@ impl CsharpBrowserBindings {
         Self::render(&http, &socket)
     }
 
-    fn declaring(authored: &str, runtime: &str, class: &str) -> Vec<usize> {
+    pub(super) fn storage_namespaces(authored: &str) -> Vec<String> {
+        Self::namespaces(authored, Self::STORAGE)
+    }
+
+    fn declaring(authored: &str, runtime: &str, class: &str) -> Vec<String> {
         let mut namespaces = Self::namespaces(authored, class);
         namespaces.extend(Self::namespaces(runtime, class));
         namespaces.sort_unstable();
@@ -25,25 +30,24 @@ impl CsharpBrowserBindings {
         namespaces
     }
 
-    fn namespaces(authored: &str, class: &str) -> Vec<usize> {
+    fn namespaces(authored: &str, class: &str) -> Vec<String> {
         authored
             .split("namespace TachyonService")
             .skip(1)
             .filter(|source| source.contains(class))
-            .filter_map(Self::namespace_index)
+            .filter_map(Self::namespace_suffix)
             .collect()
     }
 
-    fn namespace_index(source: &str) -> Option<usize> {
-        let end = source.find(|character: char| !character.is_ascii_digit())?;
+    fn namespace_suffix(source: &str) -> Option<String> {
+        let end = source.find(|character: char| !character.is_ascii_alphanumeric())?;
         source[end..]
             .trim_start()
             .starts_with('{')
-            .then(|| source[..end].parse().ok())
-            .flatten()
+            .then(|| source[..end].to_owned())
     }
 
-    fn socket_bindings(sockets: &[usize]) -> String {
+    fn socket_bindings(sockets: &[String]) -> String {
         sockets
             .iter()
             .map(|index| {
@@ -55,7 +59,7 @@ impl CsharpBrowserBindings {
             .concat()
     }
 
-    fn render(namespaces: &[usize], sockets: &[usize]) -> String {
+    fn render(namespaces: &[String], sockets: &[String]) -> String {
         let mut bindings = Self::socket_bindings(sockets);
         let mut patterns = String::new();
         for index in namespaces {

@@ -380,17 +380,11 @@ fn web_source(authored: &str, fsharp: &str, runtime: &str) -> String {
         .unwrap_or(full_prelude);
     let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
     let mut storage_hosts = String::new();
-    for (index, namespace) in authored
-        .split("namespace TachyonService")
-        .skip(1)
-        .enumerate()
-    {
-        if namespace.contains("public static class BehaviorStorage") {
-            let _ = write!(
-                storage_hosts,
-                "\n        TachyonService{index}.BehaviorStorage.Host ??= Storage;"
-            );
-        }
+    for suffix in CsharpBrowserBindings::storage_namespaces(authored) {
+        let _ = write!(
+            storage_hosts,
+            "\n        TachyonService{suffix}.BehaviorStorage.Host ??= Storage;"
+        );
     }
     let entry = WindowsHostGenerator::CSHARP_WEB_ENTRY.replace(
         "Tac.WebEmit ??= Emit;",

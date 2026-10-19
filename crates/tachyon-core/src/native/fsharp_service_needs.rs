@@ -18,6 +18,7 @@ pub(super) struct FsharpServiceNeeds {
 impl FsharpServiceNeeds {
     const CODE: u16 = 1406;
     const NAMESPACE: &'static str = "TachyonService";
+    pub(super) const PAGE_NAMESPACE: &'static str = "TachyonServiceFsharp";
 
     pub(super) fn ordered<'a>(
         selected: &[&'a NativeCompanionInput],
@@ -205,8 +206,17 @@ impl FsharpServiceNeeds {
     fn place(&mut self, ordered: &[&NativeCompanionInput]) {
         for (index, item) in ordered.iter().enumerate() {
             self.namespaces
-                .insert(item.class.clone(), format!("{}{index}", Self::NAMESPACE));
+                .insert(item.class.clone(), Self::namespace(index, item));
         }
+    }
+
+    fn namespace(index: usize, item: &NativeCompanionInput) -> String {
+        let own = format!("{}{index}", Self::NAMESPACE);
+        let shared = Self::PAGE_NAMESPACE.to_owned();
+        [own, shared]
+            .into_iter()
+            .nth(usize::from(item.web_assembly))
+            .unwrap_or_default()
     }
 
     fn refused(&self, class: &str, needed: &str, message: &str) -> Failure {
@@ -290,13 +300,13 @@ mod tests {
         assert_eq!(classes, ["ZetaService", "AlphaService"]);
         assert_eq!(
             needs.argument("ZetaService").as_deref(),
-            Some("(global::TachyonService0.ZetaService)Tac.Need(\"zeta\")")
+            Some("(global::TachyonServiceFsharp.ZetaService)Tac.Need(\"zeta\")")
         );
         assert!(needs.is_needed("ZetaService"));
         assert!(!needs.is_needed("AlphaService"));
         assert_eq!(
             needs.aliases("AlphaService"),
-            "\ntype ZetaService = TachyonService0.ZetaService\n"
+            "\ntype ZetaService = TachyonServiceFsharp.ZetaService\n"
         );
         assert_eq!(needs.aliases("ZetaService"), "");
     }
@@ -324,7 +334,7 @@ mod tests {
             .expect("needing service");
         assert!(
             alpha.contains(
-                "new AlphaService() { Zeta = (global::TachyonService0.ZetaService)Tac.Need(\"zeta\") }"
+                "new AlphaService() { Zeta = (global::TachyonServiceFsharp.ZetaService)Tac.Need(\"zeta\") }"
             ),
             "{alpha}"
         );
@@ -333,12 +343,15 @@ mod tests {
             alpha.contains("internal const bool Prototype = true;"),
             "{alpha}"
         );
-        assert!(
-            registry.contains("namespace rec TachyonService1\n"),
+        assert_eq!(
+            registry
+                .matches("namespace rec TachyonServiceFsharp\n")
+                .count(),
+            1,
             "{registry}"
         );
         assert!(
-            registry.contains("type ZetaService = TachyonService0.ZetaService"),
+            !registry.contains("namespace rec TachyonService1\n"),
             "{registry}"
         );
     }

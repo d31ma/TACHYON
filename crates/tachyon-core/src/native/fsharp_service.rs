@@ -1,3 +1,4 @@
+use super::fsharp_part::FsharpPart;
 use super::fsharp_service_events::FsharpServiceEvents;
 use super::fsharp_service_needs::FsharpServiceNeeds;
 use super::fsharp_task_results::FsharpTaskResults;
@@ -35,23 +36,36 @@ impl FsharpService {
         (item, needs): (&NativeCompanionInput, &FsharpServiceNeeds),
         authored: &str,
     ) -> Result<String, Failure> {
-        let relative = item
-            .source
-            .strip_prefix(&item.snapshot_root)
-            .unwrap_or(&item.source);
+        let part = Self::part((item, needs), authored)?;
+        let (setups, fsharp, runtime) = Self::program(
+            item,
+            &part.assembled,
+            (part.runtime, &needs.aliases(&item.class)),
+        )?;
+        Ok(FsharpSource::web_body(
+            &format!("{}{setups}", part.table),
+            &FsharpSource::with_runtime(&fsharp, &runtime),
+        ))
+    }
+
+    pub(super) fn part(
+        (item, needs): (&NativeCompanionInput, &FsharpServiceNeeds),
+        authored: &str,
+    ) -> Result<FsharpPart, Failure> {
+        let relative = Self::relative(item);
         let assembled = crate::annotation_modules::assemble(
             &item.snapshot_root,
             relative,
             authored,
             Self::TAC,
         )?;
-        let authored = assembled.as_deref().unwrap_or(authored);
+        let assembled = assembled.unwrap_or_else(|| authored.to_owned());
         let models = ModelSources::client_metadata(&item.snapshot_root, FsharpSource::EXTENSION)?;
-        let with_models = models.assembled(relative, authored)?;
+        let with_models = models.assembled(relative, &assembled)?;
         let authored = with_models.as_str();
-        if !item.web_assembly {
-            crate::annotation_layout::NativeWebApis::refuse(relative, authored)?;
-        }
+        (!item.web_assembly)
+            .then(|| crate::annotation_layout::NativeWebApis::refuse(relative, authored))
+            .transpose()?;
         let view = FsharpView::tac(relative, authored);
         FsharpSource::refuse_unsupported(&view, relative, authored)?;
         let tasks = FsharpTaskResults::read(
@@ -84,30 +98,61 @@ impl FsharpService {
             Self::KEPT,
             usize::from(needed),
         );
-        let table = format!("{table}{}{}", Self::NO_REQUIRED, Self::lifetime(needed));
+        Ok(FsharpPart {
+            table: format!("{table}{}{}", Self::NO_REQUIRED, Self::lifetime(needed)),
+            assembled,
+            runtime: events.runtime(),
+        })
+    }
+
+    pub(super) fn program(
+        item: &NativeCompanionInput,
+        assembled: &str,
+        (events_runtime, aliases): (&str, &str),
+    ) -> Result<(String, String, String), Failure> {
+        let relative = Self::relative(item);
+        let models = ModelSources::client_metadata(&item.snapshot_root, FsharpSource::EXTENSION)?;
+        let with_models = models.assembled(relative, assembled)?;
+        let authored = with_models.as_str();
+        let view = FsharpView::tac(relative, authored);
         let detached = Self::detached(&view)?;
         let stripped = models.without_declarations(relative, &FsharpMarkers::strip(authored))?;
-        let stripped = format!("{stripped}{}", needs.aliases(&item.class));
-        let Some(detached) = detached else {
-            let runtime = format!("{}{}", Self::socket_runtime(&view, ""), events.runtime());
-            return Ok(FsharpSource::web_body(
-                &table,
-                &FsharpSource::with_runtime(&stripped, &runtime),
-            ));
-        };
-        let fsharp = FsharpBehaviors::program(&view, &stripped, &detached)
-            .map_err(|message| Self::failure(relative, &message))?;
-        let csharp = format!("{table}{}", detached.setups);
+        let stripped = format!("{stripped}{aliases}");
+        detached.map_or_else(
+            || Ok(Self::undetached(&view, &stripped, events_runtime)),
+            |detached| Self::lowered(&view, &stripped, detached, events_runtime),
+        )
+    }
+
+    fn undetached(
+        view: &FsharpView,
+        stripped: &str,
+        events_runtime: &str,
+    ) -> (String, String, String) {
+        let runtime = format!("{}{events_runtime}", Self::socket_runtime(view, ""));
+        (String::new(), stripped.to_owned(), runtime)
+    }
+
+    fn lowered(
+        view: &FsharpView,
+        stripped: &str,
+        detached: DetachedCsharp,
+        events_runtime: &str,
+    ) -> Result<(String, String, String), Failure> {
+        let fsharp = FsharpBehaviors::program(view, stripped, &detached)
+            .map_err(|message| Self::failure(view.path(), &message))?;
         let runtime = format!(
-            "{}{}{}",
+            "{}{}{events_runtime}",
             detached.runtime,
-            Self::socket_runtime(&view, &detached.runtime),
-            events.runtime()
+            Self::socket_runtime(view, &detached.runtime),
         );
-        Ok(FsharpSource::web_body(
-            &csharp,
-            &FsharpSource::with_runtime(&fsharp, &runtime),
-        ))
+        Ok((detached.setups, fsharp, runtime))
+    }
+
+    fn relative(item: &NativeCompanionInput) -> &Path {
+        item.source
+            .strip_prefix(&item.snapshot_root)
+            .unwrap_or(&item.source)
     }
 
     fn socket_runtime(view: &FsharpView, runtime: &str) -> String {

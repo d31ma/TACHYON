@@ -10,6 +10,7 @@ impl CsharpOwnershipProject {
         "[Service]\npublic class TallyService { public string Read() { return \"ready\"; } }\n";
     const HELPER: &'static str =
         "[Helper]\npublic class StepHelper { public string Read() { return \"owned\"; } }\n";
+    const NAMING_SERVICE: &'static str = "[Service]\npublic class TallyService { private readonly StepHelper step; public string Read() { return \"ready\"; } }\n";
     const TEST: &'static str = "[Test(typeof(OwnerTestSetup), {\"partition\":\"tests\"})]\npublic class TallyServiceTest {\nvoid testReady() { Assert.equals(\"ready\", new TallyService().Read()); }\n}\n";
     const SETUP: &'static str = "[TestSetup]\npublic class OwnerTestSetup { public static BehaviorAdapters configure(BehaviorExecution execution) { var owned = new StepHelper(); return new BehaviorAdapters(); } }\n";
 
@@ -32,13 +33,19 @@ impl CsharpOwnershipProject {
         root
     }
 
+    fn named() -> tempfile::TempDir {
+        let root = Self::project();
+        Self::write(root.path(), Self::ENTRY, Self::NAMING_SERVICE);
+        root
+    }
+
     fn setup(root: &Path, source: &str) {
         Self::write(root, "client/tests/TallyServiceTest.cs", Self::TEST);
         Self::write(root, "client/tests/OwnerTestSetup.cs", source);
     }
 
     fn selected_body(body: &str) -> tempfile::TempDir {
-        let root = Self::project();
+        let root = Self::named();
         let source = format!(
             "[TestSetup]\npublic class OwnerTestSetup {{ public static BehaviorAdapters configure(BehaviorExecution execution) {{ {body} }} }}\n"
         );
@@ -254,8 +261,17 @@ fn csharp_distinct_selected_setup_types_keep_each_helper_witness() {
 }
 
 #[test]
-fn csharp_unselected_setups_cannot_establish_helper_ownership() {
+fn csharp_helper_no_production_class_names_is_left_out_without_an_owner() {
     let root = CsharpOwnershipProject::project();
+    let output = CsharpOwnershipProject::assembled(root.path())
+        .unwrap_or_else(|failure| panic!("an unnamed Helper needs no owner: {failure}"));
+    assert!(!output.contains("class StepHelper"));
+    assert!(output.contains("class TallyService"));
+}
+
+#[test]
+fn csharp_unselected_setups_cannot_establish_helper_ownership() {
+    let root = CsharpOwnershipProject::named();
     CsharpOwnershipProject::write(
         root.path(),
         "client/tests/OwnerTestSetup.cs",
@@ -266,7 +282,7 @@ fn csharp_unselected_setups_cannot_establish_helper_ownership() {
 
 #[test]
 fn csharp_unmarked_selected_setups_cannot_establish_helper_ownership() {
-    let root = CsharpOwnershipProject::project();
+    let root = CsharpOwnershipProject::named();
     CsharpOwnershipProject::setup(
         root.path(),
         &CsharpOwnershipProject::SETUP.replace("[TestSetup]", ""),
@@ -292,7 +308,7 @@ fn csharp_string_constructor_text_is_not_test_ownership() {
 
 #[test]
 fn csharp_helper_self_construction_is_not_test_ownership() {
-    let root = CsharpOwnershipProject::project();
+    let root = CsharpOwnershipProject::named();
     CsharpOwnershipProject::write(
         root.path(),
         "client/helpers/deep/StepHelper.cs",
@@ -303,7 +319,7 @@ fn csharp_helper_self_construction_is_not_test_ownership() {
 
 #[test]
 fn csharp_unrooted_helper_cycles_are_not_test_ownership() {
-    let root = CsharpOwnershipProject::project();
+    let root = CsharpOwnershipProject::named();
     CsharpOwnershipProject::write(
         root.path(),
         "client/helpers/deep/StepHelper.cs",
@@ -450,7 +466,7 @@ fn csharp_test_helper_inheritance_failure_retains_its_authored_path() {
 
 #[test]
 fn csharp_missing_caller_diagnostic_points_to_authored_helper_marker() {
-    let root = CsharpOwnershipProject::project();
+    let root = CsharpOwnershipProject::named();
     CsharpOwnershipProject::refused_helper(
         root.path(),
         1308,

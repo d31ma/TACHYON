@@ -206,3 +206,20 @@ not view properties. `client_tests::dotnet_helper_unit_tests` runs a C# and
 an F# test unit with two services that each own their Helper, and
 `annotation_modules::helper_callers_tests` checks the written fields and the
 remaining refusals.
+
+## Amendment (2026-10-18): a C# or F# Helper only joins the builds that name it
+
+This removes the "Still standing" bullet of the C# and F# amendment above.
+A C# or F# service build now keeps only the Helpers from `client/helpers`
+that its own classes name: the service, the Setups, clients and Stores it
+composes, and the Helpers those name in turn. A Helper that no class of the
+build names is left out of that build, so a Helper that one service needs
+no longer stops the build of a service on the same page that does not need
+it. A Helper that the build does name still needs an owner, through a Needs
+or a `new` call, and stops the build with `TY1308` without one.
+
+Evidence: `tac_web::dotnet_helper_tests` builds a C# and an F# page where
+one service needs a Helper and the other does not, and runs both under
+Node; `annotation_modules::helper_callers_tests` and
+`annotation_modules::csharp_test_helpers_tests` check that an unnamed Helper
+stays out of a build and that a named Helper without an owner is refused.

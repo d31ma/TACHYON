@@ -13,6 +13,7 @@ impl TypeForm {
     const ATTRIBUTE: &'static str = "[<";
     const INHERIT: &'static str = "inherit ";
     const CONSTRUCTOR_CALL: char = '(';
+    const INTERFACE: &'static str = "interface";
 
     pub(crate) fn of(after_equals: &str, body: &[&str]) -> Self {
         let first = body
@@ -25,6 +26,11 @@ impl TypeForm {
                 ] == [false, false]
             })
             .unwrap_or("");
+        let inherited_only = [
+            first.is_empty(),
+            body.iter().copied().any(Self::inherits_interface),
+        ] == [true, true];
+        let first = [first, Self::INTERFACE][usize::from(inherited_only)];
         let written = after_equals.trim();
         let shown = Some(written)
             .filter(|text| !text.is_empty())
@@ -108,6 +114,10 @@ mod tests {
                     "abstract findByName: BehaviorJSON -> Task<BehaviorJSON>"
                 ]
             ),
+            TypeForm::Interface
+        );
+        assert_eq!(
+            TypeForm::of("", &["inherit Repository<Product, int>"]),
             TypeForm::Interface
         );
         assert_eq!(

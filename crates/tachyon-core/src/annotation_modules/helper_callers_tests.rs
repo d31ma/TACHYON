@@ -29,7 +29,7 @@ impl HelperCallerFiles {
 
 #[test]
 fn csharp_helper_caller_failure_retains_nested_authored_marker_location() {
-    let source = "using System;\n[Service]\nclass TallyService {\n private readonly string sample = \"new StepHelper()\";\n // new StepHelper(\"comment\");\n}\n";
+    let source = "using System;\n[Service]\nclass TallyService {\n private readonly StepHelper helper;\n private readonly string sample = \"new StepHelper()\";\n // new StepHelper(\"comment\");\n}\n";
     let failure =
         HelperCallerFiles::assemble(source).expect_err("strings/comments cannot provide ownership");
     let diagnostic = &failure.diagnostics()[0];
@@ -45,6 +45,15 @@ fn csharp_helper_caller_failure_retains_nested_authored_marker_location() {
     );
     assert_eq!(diagnostic.spans[0].start, 14);
     assert_eq!(diagnostic.spans[0].end, 15);
+}
+
+#[test]
+fn csharp_helper_a_service_does_not_name_stays_out_of_its_build() {
+    let source = "using System;\n[Service]\nclass TallyService {\n private readonly string sample = \"new StepHelper()\";\n // new StepHelper(\"comment\");\n public string Read() { return sample; }\n}\n";
+    let source = HelperCallerFiles::assemble(source)
+        .expect("a Helper another service needs does not stop this one")
+        .unwrap_or_default();
+    assert!(!source.contains("class StepHelper"), "{source}");
 }
 
 #[test]

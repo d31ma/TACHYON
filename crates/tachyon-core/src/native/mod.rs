@@ -45,6 +45,7 @@ mod kotlin_web_services;
 #[cfg(test)]
 mod kotlin_document_title_tests;
 
+mod fsharp_part;
 #[cfg(test)]
 mod kotlin_document_title_scope_tests;
 #[cfg(test)]

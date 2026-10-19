@@ -17,6 +17,8 @@ mod server_test_closure;
 use helper_callers::HelperCallers;
 use server_test_closure::ServerTestClosure;
 mod module_input;
+mod page_parts;
+pub(crate) use page_parts::PageParts;
 mod shared_imports;
 mod test_configuration;
 use module_input::ModuleInput;
@@ -46,7 +48,7 @@ pub(crate) fn assemble(
     source: &str,
     environment: &str,
 ) -> Result<Option<String>, Failure> {
-    Module::assembled(snapshot_root, entry, source, environment, false)
+    Module::assembled(snapshot_root, entry, source, (environment, false, false))
 }
 
 fn injected_contracts(
@@ -426,7 +428,7 @@ impl Module {
         entry: &Path,
         source: &str,
     ) -> Result<Option<String>, Failure> {
-        Self::assembled(snapshot_root, entry, source, "tac", true)
+        Self::assembled(snapshot_root, entry, source, ("tac", true, false))
     }
 
     pub(crate) fn page_units(
@@ -450,12 +452,17 @@ impl Module {
         snapshot_root: &Path,
         entry: &Path,
         source: &str,
-        environment: &str,
-        native_services: bool,
+        (environment, native_services, parts): (&str, bool, bool),
     ) -> Result<Option<String>, Failure> {
         let entry = entry.strip_prefix(snapshot_root).unwrap_or(entry);
         Self::assembled_parts(snapshot_root, entry, source, environment, native_services)?
-            .map(|parts| Self::composed(entry, environment, parts))
+            .map(|(source, modules)| {
+                Self::composed(
+                    entry,
+                    environment,
+                    (source, PageParts::marked(modules, parts)),
+                )
+            })
             .transpose()
     }
 

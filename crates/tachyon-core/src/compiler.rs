@@ -596,7 +596,7 @@ mod tests {
     #[test]
     fn a_csharp_helper_failure_names_the_helper_file() {
         let failure = helper_failure(
-            "using System;\n[Service]\nclass TallyService {}\n",
+            "using System;\n[Service]\nclass TallyService {\n    private readonly StepHelper step;\n}\n",
             "using System;\n[Helper]\nclass StepHelper {}\n",
             "cs",
         );
