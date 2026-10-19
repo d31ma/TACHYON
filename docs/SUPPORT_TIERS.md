@@ -206,6 +206,33 @@ check against the WebView2 headers. The MSVC build and the Windows dialog
 run (`the_windows_file_picker_selects_a_file_in_the_windows_dialog`) and a
 picker opened from a WebView2 page on a signed-in desktop are still owed.
 
+On 2026-10-19 the Windows host started to build `"titleBar": "integrated"`
+(ADR 0098 amendment): the page reaches the top edge under the system caption
+buttons, gets the three inset properties, and WebView2 moves the window from
+`data-tac-drag-region` elements through CSS `app-region`; the menu bar moves
+into the window menu. Validated in an x86_64 Ubuntu 24.04 cloud container:
+generated-host unit tests, a MinGW-w64 13 compile of the whole generated
+host (standard and integrated) against the Win32 headers and the WebView2
+SDK 1.0.4258.31 headers with warnings as errors, and
+`the_windows_title_bar_drives_a_win32_window_under_wine` on Wine 9.0 under
+Xvfb: the client area started at the window's top edge at the manifest size,
+the top border answered `HTTOP` and `HTTOPLEFT`, the menus moved into the
+window menu, the insets held the caption height and button width and were
+`0px` in full screen, and the web view's region left out only the caption
+buttons. Wine has no DWM, so this used the fallback button size. The page
+script, run in Chromium with Playwright, turned a drag region into
+`app-region: drag` and its button into `no-drag`, and sent no
+`window.dragRegions`. On the Surface (Windows 11 ARM64, over SSH, cl
+19.44.35229 for ARM64, WebView2 SDK 1.0.3485.44) the same fixture compiled
+with `cl /W4 /WX` and passed on a real HWND
+(`the_windows_title_bar_drives_a_real_win32_window`), and `ty build --target
+windows` built the integrated-title-bar docs example and a Yon Reach app
+with C# and Rust companions with integrated and standard title bars,
+printing the two Windows notes only when they applied. Launched from SSH,
+the integrated app started and recorded `bridge.unavailable`, as every
+WebView2 app does outside a signed-in desktop. Not run yet: the look, Snap
+Layouts and a drag in WebView2 on the signed-in desktop (SD1).
+
 On 2026-10-18 the Linux host started to open its window from the manifest
 too: the page at `tac.application.window` size and minimum size, a hex
 `theme_color` as a GTK header bar color, and `"display": "fullscreen"` as a

@@ -184,7 +184,7 @@
     "paths": ["tac.application.window.titleBar"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "\"integrated\" draws the page under the title bar"},
-    "windows": {"reach": "notApplied", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Windows app keeps the standard title bar (ADR 0098, WIN3)."},
+    "windows": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" lets the Windows page reach the top edge under the system caption buttons, with the same insets as macOS and drag regions that WebView2 handles (ADR 0098). The menu bar moves into the window menu (Alt+Space, or a right-click on a drag region). The page covers the top edge, so the window resizes from its sides and bottom. Not yet run on a signed-in desktop (SD1)."},
     "linux": {"reach": "adapted", "note": "tac.application.window.titleBar \"integrated\" lets the Linux page reach the top edge under GTK's own window buttons, with the same insets and drag regions as macOS (ADR 0098). The menu bar moves into a main menu button beside the window buttons, as in GNOME apps."},
     "ios": {"reach": "notApplied", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The iOS app keeps the standard status bar (ADR 0098, WIN5)."},
     "android": {"reach": "notApplied", "note": "tac.application.window.titleBar \"integrated\" is built only for macOS. The Android app keeps the standard status bar (ADR 0098, WIN5)."}
@@ -194,7 +194,7 @@
     "paths": ["tac.application.window.titleBarButtonInset"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "moves the window buttons of an integrated title bar"},
-    "windows": {"reach": "notApplied", "note": "tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Windows app ignores it."},
+    "windows": {"reach": "adapted", "note": "tac.application.window.titleBarButtonInset is ignored on Windows: the system caption buttons stay where Windows draws them, at the top trailing corner. The page reads their size from --tac-titlebar-height and --tac-titlebar-trailing-inset."},
     "linux": {"reach": "adapted", "note": "tac.application.window.titleBarButtonInset places the Linux window buttons: top is the distance from the top edge, and leading the distance from the window edge where each group of buttons sits, because the desktop's button layout decides which side holds the close button."},
     "ios": {"reach": "notApplicable", "note": "tac.application.window.titleBarButtonInset has no meaning on iOS: the app has no window buttons."},
     "android": {"reach": "notApplicable", "note": "tac.application.window.titleBarButtonInset has no meaning on Android: the app has no window buttons."}
@@ -204,7 +204,7 @@
     "paths": ["tac.application.menus"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "items in the File, View and Help menus of the menu bar"},
-    "windows": {"reach": "runOwed", "how": "items in the File, View and Help menus of the window's menu bar", "run": "a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)"},
+    "windows": {"reach": "runOwed", "how": "items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar", "run": "a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)"},
     "linux": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar"},
     "ios": {"reach": "refused", "code": 1601, "alternative": "iOS apps have no menu bar. Put links or buttons in the page instead (D1)."},
     "android": {"reach": "refused", "code": 1601, "alternative": "Android apps have no menu bar. Put links or buttons in the page instead (D1)."}
@@ -694,7 +694,7 @@
     "paths": [],
     "web": {"reach": "notApplicable", "note": "A browser page cannot move its window."},
     "macos": {"reach": "honored", "how": "dragging a marked element moves the window"},
-    "windows": {"reach": "notApplied", "note": "data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3)."},
+    "windows": {"reach": "runOwed", "how": "with titleBar \"integrated\", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu", "run": "a drag region moving the window inside WebView2 on a signed-in Windows desktop (SD1)"},
     "linux": {"reach": "honored", "how": "with titleBar \"integrated\", dragging a marked element moves the window and a double-click follows the desktop's title bar setting"},
     "ios": {"reach": "notApplicable", "note": "An iOS app has no window to move."},
     "android": {"reach": "notApplicable", "note": "An Android app has no window to move."}

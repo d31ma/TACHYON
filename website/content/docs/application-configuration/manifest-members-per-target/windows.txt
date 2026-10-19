@@ -55,13 +55,13 @@ tac.application.window.controls
   run owed: close, fullscreen, maximize, minimize, resize and title; still to run: native_windows_controls_drive_a_real_win32_window and a page call inside WebView2 on a signed-in Windows desktop
 
 tac.application.window.titleBar
-  not applied: tac.application.window.titleBar "integrated" is built only for macOS. The Windows app keeps the standard title bar (ADR 0098, WIN3).
+  adapted: tac.application.window.titleBar "integrated" lets the Windows page reach the top edge under the system caption buttons, with the same insets as macOS and drag regions that WebView2 handles (ADR 0098). The menu bar moves into the window menu (Alt+Space, or a right-click on a drag region). The page covers the top edge, so the window resizes from its sides and bottom. Not yet run on a signed-in desktop (SD1).
 
 tac.application.window.titleBarButtonInset
-  not applied: tac.application.window.titleBarButtonInset is used only with the integrated macOS title bar. The Windows app ignores it.
+  adapted: tac.application.window.titleBarButtonInset is ignored on Windows: the system caption buttons stay where Windows draws them, at the top trailing corner. The page reads their size from --tac-titlebar-height and --tac-titlebar-trailing-inset.
 
 tac.application.menus
-  run owed: items in the File, View and Help menus of the window's menu bar; still to run: a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)
+  run owed: items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; still to run: a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)
 
 tac.application.tray
   run owed: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107); still to run: the notification-area icon and its menu items on a signed-in Windows desktop; the host has run only under Wine (ADR 0107)
@@ -208,7 +208,7 @@ page accessibility (roles and names through the system accessibility API)
   run owed: the pages reach UI Automation through WebView2; still to run: the UI Automation probe of scripts/windows/native-test.ps1 on a signed-in Windows desktop (AX2)
 
 window drag regions (data-tac-drag-region)
-  not applied: data-tac-drag-region does nothing in the Windows app yet, because its title bar is standard (WIN3).
+  run owed: with titleBar "integrated", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu; still to run: a drag region moving the window inside WebView2 on a signed-in Windows desktop (SD1)
 
 external links
   honored: http, https and mailto links open in the default browser or mail app (ShellExecuteW)

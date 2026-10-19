@@ -83,6 +83,7 @@ impl NativeWindowControls {
         let actions = Self::granted_actions(window);
         let mut output = String::new();
         for (control, body) in actions {
+            let body = super::windows_title_bar::WindowsTitleBar::action(window, body);
             let _ = writeln!(
                 output,
                 "  if (strcmp(capability, \"window.{control}\") == 0) {{ {body} return _strdup(\"{{\\\"ok\\\":true}}\"); }}"

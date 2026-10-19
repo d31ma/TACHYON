@@ -30,6 +30,7 @@ globalThis.__tachyonTitleBar ??= new (class TacTitleBar {
     this._sheet = new CSSStyleSheet()
     this._sent = ''
     this._scheduled = false
+    this._hostRegions = true
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this._sheet]
     addEventListener('DOMContentLoaded', () => this.watch(), { once: true })
   }
@@ -41,6 +42,17 @@ globalThis.__tachyonTitleBar ??= new (class TacTitleBar {
     const trailing = `--tac-titlebar-trailing-inset: ${insets.trailing}px;`
     this._sheet.replaceSync(`:root { ${height} ${leading} ${trailing} }`)
     this.schedule()
+  }
+
+  useAppRegions() {
+    const drag = '-webkit-app-region: drag; app-region: drag;'
+    const noDrag = '-webkit-app-region: no-drag; app-region: no-drag;'
+    const regions = new CSSStyleSheet()
+    regions.replaceSync(
+      `[data-tac-drag-region] { ${drag} } [data-tac-drag-region] :is(${TacTitleBar.CONTROLS}) { ${noDrag} }`,
+    )
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, regions]
+    this._hostRegions = false
   }
 
   watch() {
@@ -63,6 +75,7 @@ globalThis.__tachyonTitleBar ??= new (class TacTitleBar {
   }
 
   report() {
+    if (!this._hostRegions) return
     /** @type {{ drag: number[][], exclude: number[][] }} */
     const regions = { drag: [], exclude: [] }
     for (const region of document.querySelectorAll('[data-tac-drag-region]')) {

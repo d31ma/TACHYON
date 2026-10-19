@@ -303,6 +303,9 @@ mod windows_package_tiles;
 mod windows_release;
 #[cfg(test)]
 mod windows_task_resume_tests;
+mod windows_title_bar;
+#[cfg(test)]
+mod windows_title_bar_tests;
 mod windows_version_resource;
 mod windows_web_engine_check;
 mod windows_window_frame;

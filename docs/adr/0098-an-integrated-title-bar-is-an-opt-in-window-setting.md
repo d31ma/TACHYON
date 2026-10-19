@@ -182,8 +182,8 @@ is built only for macOS. The equivalents, for a later decision:
   pointer events needs an Accessibility grant), so the test checks that the
   host starts `performDrag` exactly for clicks in a drag region. The window
   movement itself is AppKit's documented `performDrag(with:)` behavior.
-- Windows and Linux still show the standard title bar. (Linux: see the
-  2026-10-19 amendment.)
+- Windows and Linux still show the standard title bar. (Linux and Windows:
+  see the 2026-10-19 amendments.)
 
 ## Amendment (2026-10-19): Linux
 
@@ -246,3 +246,66 @@ does not, that dragging the region moves the window by the pointer's
 distance, that a double-click maximizes and a second one restores, that full
 screen hides the buttons and zeroes the insets, and that an empty page title
 keeps the app name.
+
+## Amendment (2026-10-19): Windows
+
+The Windows host (Win32 and WebView2) now builds `"titleBar": "integrated"`
+with the same page contract as macOS and Linux.
+
+- **Window.** The window keeps `WS_OVERLAPPEDWINDOW`, so it stays a normal
+  window for Snap, the taskbar and the keyboard. The host answers
+  `WM_NCCALCSIZE` with the default frame on the sides and the bottom and no
+  caption at the top, so the client area starts at the top edge of the
+  window, and extends the DWM frame into the client area by the caption
+  height (`DwmExtendFrameIntoClientArea`). A maximized window keeps the
+  frame thickness at the top, so the page stays on the screen. The window
+  opens with the manifest size as its client area, without a caption. The
+  window title stays set, so the taskbar, Alt+Tab and screen readers keep
+  the window's name; an empty title from `WindowControls.setTitle` keeps the
+  app name, as on macOS and Linux.
+- **Caption buttons.** The minimize, maximize and close buttons are the
+  system's, drawn by DWM in the extended frame and hit-tested with
+  `DwmDefWindowProc`, which answers `HTMAXBUTTON` for the maximize button,
+  the answer Windows 11 needs to offer Snap Layouts. The web view lives in its own child window whose region leaves out
+  the caption button rectangle (`DWMWA_CAPTION_BUTTON_BOUNDS`), so the
+  buttons are never covered and their clicks reach the frame. Windows
+  cannot move them, so `titleBarButtonInset` is ignored, and the build says
+  so in a note.
+- **Menus.** The menu bar would sit under a caption that no longer exists,
+  so its menus move into the window menu (Alt+Space, or a right-click on a
+  drag region), after a separator. Their keyboard shortcuts and enabled
+  states do not change.
+- **Insets.** `--tac-titlebar-height` is the bottom of the caption buttons
+  and `--tac-titlebar-trailing-inset` their width from the trailing edge,
+  in CSS pixels at the window's DPI. `--tac-titlebar-leading-inset` is
+  `0px`, because Windows has no buttons at the leading edge. In full screen
+  the window has no frame and all three are `0px`. A new page asks the host
+  for the values with the `window.titleBarInsets` host call as it starts,
+  and the host sends new values after a resize, a DPI or theme change,
+  activation, and entering or leaving full screen.
+- **Drag regions.** The page script is the macOS one. On Windows it does
+  not send `window.dragRegions`: it turns `data-tac-drag-region` into the
+  CSS `app-region: drag` and every control inside it (the same list as on
+  macOS) into `app-region: no-drag`, and the host turns on WebView2's
+  non-client region support (`ICoreWebView2Settings9`,
+  `IsNonClientRegionSupportEnabled`). WebView2 then moves the window from a
+  drag region, maximizes or restores it on a double-click, and opens the
+  window menu on a right-click. A WebView2 Runtime older than 123 lacks the
+  setting; the host then records `window.dragRegions.unavailable` and the
+  regions do nothing.
+- **Resizing.** The page covers the top edge, so the window resizes from its
+  sides, its bottom and their corners. The host answers `HTTOP` for the
+  resize border at the top only where no web view covers it.
+- **`theme_color`.** It still sets the DWM caption color. With an integrated
+  title bar the page colors the top edge; the caption color can show only
+  where DWM draws the frame, which may include the area behind the caption
+  buttons.
+
+Tests: `windows_title_bar_tests` checks the generated host for both title
+bars; `the_windows_host_with_each_title_bar_compiles_against_the_win32_and_webview2_headers`
+compiles the whole generated host with MinGW-w64 against the Win32 and
+WebView2 SDK headers; and `the_windows_title_bar_drives_a_win32_window_under_wine`
+runs the frame, hit test, menu move, insets, button region, maximize and
+full screen code on a real Win32 window under Wine (which has no DWM, so it
+uses the fallback caption button size). The look, Snap Layouts and a drag
+in WebView2 need the signed-in Surface desktop (SD1).

@@ -10,6 +10,22 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A Windows app with `"titleBar": "integrated"` now lets the page reach the
+  top edge of the window (ADR 0098 amendment). Before, Windows kept the
+  standard title bar and printed a note. The host extends the DWM frame
+  into the client area and keeps the system minimize, maximize and close
+  buttons, which it never covers. The page gets the same
+  `--tac-titlebar-height`, `--tac-titlebar-leading-inset` (`0px`) and
+  `--tac-titlebar-trailing-inset` properties as on macOS and Linux, and
+  `data-tac-drag-region` becomes CSS `app-region: drag`, which WebView2
+  uses to move, maximize and restore the window. The menu bar moves into
+  the window menu (Alt+Space). `titleBarButtonInset` is ignored on Windows,
+  with a note. The generated host compiles with MinGW-w64 against the
+  WebView2 headers, its frame code runs on a Win32 window under Wine and,
+  built with MSVC, on Windows 11 ARM64, where `ty build` builds integrated
+  and standard apps; the look and a drag in WebView2 wait for a signed-in
+  desktop run.
+
 - Tac outbound HTTP markers now have run proof in the 12 Tac languages that
   lacked it (PR1). One table-driven test, `tests/it/tac_http_verbs.rs`, runs
   a test unit in JavaScript, TypeScript, Dart, Rust, C#, Kotlin, Swift, Go,

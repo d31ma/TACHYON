@@ -10,7 +10,7 @@ static SIZE tachyon_window_outer(HWND window, int width, int height) {
   AdjustWindowRectExForDpi(&bounds, (DWORD)GetWindowLongPtrW(window, GWL_STYLE), GetMenu(window) != NULL, (DWORD)GetWindowLongPtrW(window, GWL_EXSTYLE), dpi);
   SIZE outer;
   outer.cx = bounds.right - bounds.left;
-  outer.cy = bounds.bottom - bounds.top;
+  outer.cy = bounds.bottom - __WINDOW_TOP__;
   return outer;
 }
 __WINDOW_LIMITS__

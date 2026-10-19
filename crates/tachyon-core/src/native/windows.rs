@@ -739,6 +739,7 @@ pub(super) fn c_source(
     let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
     let header_capacity = WindowsHostGenerator::response_header_capacity(application);
     let frame = super::windows_window_frame::WindowsWindowFrame::source(&application.window);
+    let title_bar = super::windows_title_bar::WindowsTitleBar::source(&application.window);
     let web_engine_check =
         super::windows_web_engine_check::WindowsWebEngineCheck::source(application);
     let file_picker = WindowsHostGenerator::file_picker(application);
@@ -764,6 +765,7 @@ pub(super) fn c_source(
             ("__SERVICE_COMPANIONS__", &service_companions),
             ("__RESPONSE_HEADER_CAPACITY__", &header_capacity),
             ("__WINDOW_FRAME__", &frame),
+            ("__WINDOW_TITLE_BAR__", &title_bar),
             ("__TASK_RESUME__", WindowsHostGenerator::TASK_RESUME),
             (
                 "__WINDOW_FRAME_MESSAGES__",
@@ -861,6 +863,7 @@ typedef void (*TachyonApplicationShutdown)(void);
 
 static TachyonApplicationStart g_application_start = NULL;
 static TachyonApplicationShutdown g_application_shutdown = NULL;
+static wchar_t *tachyon_widen(const char *value);
 
 __WINDOW_CONTROLS__
 __WINDOW_FRAME__
@@ -939,6 +942,8 @@ static void tachyon_record(const char *event) {
 }
 
 __APPLICATION_STATE__
+
+__WINDOW_TITLE_BAR__
 
 static void tachyon_companion_emit(const char *payload) {
   HWND window = (HWND)InterlockedCompareExchangePointer(&g_publish_window, NULL, NULL);
@@ -1063,6 +1068,7 @@ static char *tachyon_narrow(const wchar_t *value) {
 }
 
 static char *tachyon_handle(const char *capability, const char *payload) {
+  if (strcmp(capability, "window.titleBarInsets") == 0) return tachyon_title_bar_insets();
   if (strncmp(capability, "window.", 7) == 0) return tachyon_window_control(capability, payload);
   if (strncmp(capability, "filePicker.", 11) == 0) return tachyon_file_picker(capability + 11, payload);
   if (strcmp(capability, "companion.invoke") == 0) {
@@ -1407,6 +1413,7 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   g_controller = controller;
   ICoreWebView2Controller_AddRef(controller);
   ICoreWebView2Controller_get_CoreWebView2(controller, &g_webview);
+  tachyon_title_bar_settings(g_webview);
   ICoreWebView2Controller_put_IsVisible(controller, TRUE);
 
   RECT bounds;
@@ -1433,7 +1440,7 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   if (separator == NULL) return E_FAIL;
   *separator = L'\0';
   if (wcscat_s(g_resource_root, MAX_PATH, L"\\resources\\WebBundle") != 0) return E_FAIL;
-  size_t script_size = strlen(TACHYON_NATIVE_SHIM) + 2048;
+  size_t script_size = strlen(TACHYON_NATIVE_SHIM) + strlen(TACHYON_TITLE_BAR_PAGE_SCRIPT) + 2048;
   char *script = calloc(script_size, 1);
   if (script == NULL) return E_OUTOFMEMORY;
   snprintf(script, script_size,
@@ -1448,8 +1455,8 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
            " const timer=setTimeout(()=>{window.chrome.webview.removeEventListener('message',once);reject(new Error('Native request timed out'))},capability==='filePicker.open'||capability==='companion.invoke'?40000:10000);\n"
            " window.chrome.webview.addEventListener('message',once);window.chrome.webview.postMessage(capability+'\\u001f'+id+'\\u001f'+payload);});\n"
            " const result=chain.then(call,call).finally(()=>pending--);chain=result.catch(()=>{});return result;};\n"
-           "globalThis.__tachyonNativeHostCall=globalThis.__tachyonHostPost;\n}\n",
-           TACHYON_NATIVE_SHIM);
+           "globalThis.__tachyonNativeHostCall=globalThis.__tachyonHostPost;\n%s\n}\n",
+           TACHYON_NATIVE_SHIM, TACHYON_TITLE_BAR_PAGE_SCRIPT);
   wchar_t *wide_script = tachyon_widen(script);
   free(script);
   if (wide_script == NULL) return E_OUTOFMEMORY;
@@ -1492,7 +1499,7 @@ static HRESULT STDMETHODCALLTYPE environment_invoke(
   g_environment = environment;
   ICoreWebView2Environment_AddRef(environment);
   ICoreWebView2Environment_CreateCoreWebView2Controller(
-      environment, g_window,
+      environment, tachyon_title_bar_web_parent(g_window),
       (ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *)&g_controller_handler);
   return S_OK;
 }
@@ -1506,6 +1513,7 @@ static LRESULT CALLBACK tachyon_window_proc(HWND window, UINT message, WPARAM wp
   if (tachyon_tray_message(window, message, wparam, lparam)) return 0;
   switch (message) {
 __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
+      tachyon_title_bar_layout(window);
       if (g_controller != NULL) {
         RECT bounds;
         GetClientRect(window, &bounds);
@@ -1513,6 +1521,26 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
       }
       tachyon_application_state_resized(window, wparam);
       return 0;
+    case WM_NCCALCSIZE:
+      if (tachyon_title_bar_calculate(window, wparam, lparam)) return 0;
+      break;
+    case WM_NCHITTEST: {
+      BOOL handled = FALSE;
+      LRESULT hit = tachyon_title_bar_hit(window, wparam, lparam, &handled);
+      if (handled) return hit;
+      break;
+    }
+    case WM_ACTIVATE:
+      tachyon_title_bar_layout(window);
+      break;
+    case WM_PAINT:
+      if (tachyon_title_bar_paint(window)) return 0;
+      break;
+    case WM_DPICHANGED:
+    case WM_SETTINGCHANGE:
+    case WM_THEMECHANGED:
+      tachyon_title_bar_layout(window);
+      break;
     case WM_ACTIVATEAPP:
       tachyon_application_state_send(!wparam);
       return 0;
@@ -1538,8 +1566,12 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
     case WM_COMMAND:
       if (tachyon_menus_command(window, LOWORD(wparam))) return 0;
       break;
+    case WM_SYSCOMMAND:
+      if (wparam < SC_SIZE && tachyon_menus_command(window, (UINT)wparam)) return 0;
+      break;
     case WM_INITMENUPOPUP:
       tachyon_menus_refresh((HMENU)wparam);
+      if (HIWORD(lparam)) break;
       return 0;
     case WM_ENDSESSION:
       if (wparam) { tachyon_companion_dispose(); tachyon_application_stop(); }
@@ -1605,6 +1637,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   tachyon_links_listen(instance);
   tachyon_menus_install(g_window);
   tachyon_tray_install(g_window);
+  if (!tachyon_title_bar_install(g_window, instance)) { tachyon_application_stop(); CoUninitialize(); return 1; }
   ShowWindow(g_window, tachyon_window_open(g_window, show));
 
   wchar_t *data_folder = tachyon_package_data_folder();

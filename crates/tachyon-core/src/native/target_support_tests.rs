@@ -119,7 +119,16 @@ fn an_integrated_title_bar_gets_a_note_everywhere_but_macos() {
         ),
         "{linux:?}"
     );
-    for target in [AppTarget::Windows, AppTarget::Ios, AppTarget::Android] {
+    let windows = TargetSupportTests::notes(&manifest, AppTarget::Windows);
+    assert!(
+        windows.iter().any(
+            |note| note.starts_with("Note: tac.application.window.titleBar")
+                && note.contains("system caption buttons")
+                && note.contains("window menu")
+        ),
+        "{windows:?}"
+    );
+    for target in [AppTarget::Ios, AppTarget::Android] {
         let notes = TargetSupportTests::notes(&manifest, target);
         let platform = TargetSupport::platform(target);
         assert!(

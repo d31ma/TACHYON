@@ -23,6 +23,10 @@ impl WindowsWindowFrame {
             .replace("__WINDOW_LIMITS__", &Self::limits(window))
             .replace("__WINDOW_WIDTH__", &window.width.to_string())
             .replace("__WINDOW_HEIGHT__", &window.height.to_string())
+            .replace(
+                "__WINDOW_TOP__",
+                super::windows_title_bar::WindowsTitleBar::window_top(window),
+            )
             .replace("__WINDOW_OPENING__", &Self::opening(window))
     }
 
