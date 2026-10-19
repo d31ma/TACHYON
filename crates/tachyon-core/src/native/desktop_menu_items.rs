@@ -8,10 +8,11 @@ impl DesktopMenuItems {
     const ITEM_TYPE: &'static str = "#define TACHYON_MENU_FILE 0
 #define TACHYON_MENU_VIEW 1
 #define TACHYON_MENU_HELP 2
+#define TACHYON_MENU_TRAY 3
 #define TACHYON_MENU_PRIMARY 1
 #define TACHYON_MENU_ALT 2
 #define TACHYON_MENU_SHIFT 4
-#define TACHYON_MENU_LIMIT 64
+#define TACHYON_MENU_LIMIT 96
 
 typedef struct {
   const char *id;
@@ -30,7 +31,7 @@ typedef struct {
 
     pub(super) fn c_table(config: &NativeMenuConfig, mnemonic: char) -> String {
         let rows = config
-            .groups()
+            .table_groups()
             .into_iter()
             .flat_map(|(group, entries)| entries.iter().map(move |entry| (group, entry)))
             .map(|(group, entry)| Self::row(group, entry, mnemonic))
@@ -89,7 +90,7 @@ typedef struct {
         }
     }
 
-    fn quoted(value: &str) -> String {
+    pub(super) fn quoted(value: &str) -> String {
         let text = super::host::c_string_escape(value)
             .bytes()
             .map(Self::portable_byte)

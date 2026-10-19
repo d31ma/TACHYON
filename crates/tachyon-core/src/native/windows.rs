@@ -49,6 +49,11 @@ impl WindowsHostGenerator {
             super::rust::Linkage::Shared,
         )?;
         let release = Self::prepare_release(application, web_bundle, &bundle, options)?;
+        super::native_tray_icon::NativeTrayIcon::stage_for_windows(
+            application.tray.as_ref(),
+            web_bundle,
+            &resources,
+        )?;
         let source_path = stage.join("project").join("tachyon_host.c");
         write_host_source(&source_path, &c_source(application, index, companions))?;
         write(
@@ -90,6 +95,8 @@ impl WindowsHostGenerator {
     const DESKTOP: super::desktop_host_source::DesktopHostSource =
         super::desktop_host_source::DesktopHostSource {
             menus: include_str!("windows_menus.c"),
+            tray: include_str!("windows_tray.c"),
+            quit: "Exit",
             mnemonic: '&',
             target: tachyon_contracts::NativeTarget::Windows,
         };
@@ -601,7 +608,7 @@ fn stage_icon(
     Ok(true)
 }
 
-fn ico_bytes(png: &[u8], length: u32) -> Vec<u8> {
+pub(super) fn ico_bytes(png: &[u8], length: u32) -> Vec<u8> {
     let mut ico = Vec::with_capacity(png.len() + 22);
     ico.extend_from_slice(&0u16.to_le_bytes());
     ico.extend_from_slice(&1u16.to_le_bytes());
@@ -1467,6 +1474,7 @@ static TachyonEnvironmentHandler g_environment_handler = {&g_environment_vtbl};
 
 static LRESULT CALLBACK tachyon_window_proc(HWND window, UINT message, WPARAM wparam,
                                             LPARAM lparam) {
+  if (tachyon_tray_message(window, message, wparam, lparam)) return 0;
   switch (message) {
 __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
       if (g_controller != NULL) {
@@ -1504,7 +1512,11 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
     case WM_ENDSESSION:
       if (wparam) { tachyon_companion_dispose(); tachyon_application_stop(); }
       return 0;
+    case WM_CLOSE:
+      if (tachyon_tray_hides_window(window)) return 0;
+      break;
     case WM_DESTROY:
+      tachyon_tray_remove();
       tachyon_companion_dispose();
       InterlockedExchangePointer(&g_publish_window, NULL);
       tachyon_record("controller.destroyed");
@@ -1558,6 +1570,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   InterlockedExchangePointer(&g_publish_window, g_window);
   tachyon_links_listen(instance);
   tachyon_menus_install(g_window);
+  tachyon_tray_install(g_window);
   ShowWindow(g_window, tachyon_window_open(g_window, show));
 
   wchar_t *data_folder = tachyon_package_data_folder();
@@ -1720,6 +1733,7 @@ mod tests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            tray: None,
             links: crate::native::native_links::NativeLinks::default(),
         }
     }

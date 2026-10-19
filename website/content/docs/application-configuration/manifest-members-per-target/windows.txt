@@ -63,6 +63,18 @@ tac.application.window.titleBarButtonInset
 tac.application.menus
   honored: items in the File, View and Help menus of the window's menu bar
 
+tac.application.tray
+  honored: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107)
+
+tac.application.tray.template
+  adapted: tac.application.tray.template applies only to the macOS menu bar. The Windows notification area shows the icon in its own colors.
+
+tac.application.tray.closeHidesWindow
+  honored: closing the window hides it, and its page keeps running until Exit
+
+tac.application.tray.dock
+  adapted: tac.application.tray.dock applies only to the macOS Dock. The Windows taskbar shows the app only while its window is open.
+
 tac.application.rust
   honored: vendored crates linked into the app's Rust services
 

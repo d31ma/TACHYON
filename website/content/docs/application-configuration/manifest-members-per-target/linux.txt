@@ -63,6 +63,18 @@ tac.application.window.titleBarButtonInset
 tac.application.menus
   honored: items in the File, View and Help menus of the window's menu bar
 
+tac.application.tray
+  adapted: tac.application.tray is shown as a StatusNotifierItem with a D-Bus menu. Desktops without a tray host, such as GNOME without the AppIndicator extension, show nothing, and the app keeps its window (ADR 0107).
+
+tac.application.tray.template
+  adapted: tac.application.tray.template applies only to the macOS menu bar. The Linux tray shows the icon in its own colors.
+
+tac.application.tray.closeHidesWindow
+  adapted: tac.application.tray.closeHidesWindow hides the Linux window only while a tray host shows the icon. Without one, closing the window quits the app as before.
+
+tac.application.tray.dock
+  adapted: tac.application.tray.dock applies only to the macOS Dock. The Linux desktop shows the app only while its window is open.
+
 tac.application.rust
   honored: vendored crates linked into the app's Rust services
 

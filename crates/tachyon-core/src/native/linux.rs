@@ -24,6 +24,8 @@ impl LinuxHostGenerator {
     const DESKTOP: super::desktop_host_source::DesktopHostSource =
         super::desktop_host_source::DesktopHostSource {
             menus: include_str!("linux_menus.c"),
+            tray: include_str!("linux_tray.c"),
+            quit: "Quit",
             mnemonic: '_',
             target: tachyon_contracts::NativeTarget::Linux,
         };
@@ -660,6 +662,7 @@ static void tachyon_startup(GApplication *app, gpointer data) {
     return;
   }
   tachyon_menus_install(GTK_APPLICATION(app));
+  tachyon_tray_install();
 }
 
 static void tachyon_activate(GtkApplication *app, gpointer data) {
@@ -674,6 +677,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   gtk_window_set_title(GTK_WINDOW(window), TACHYON_APP_NAME);
   gtk_application_window_set_show_menubar(GTK_APPLICATION_WINDOW(window), TRUE);
   g_signal_connect(window, "map", G_CALLBACK(tachyon_menus_mapped), NULL);
+  g_signal_connect(window, "close-request", G_CALLBACK(tachyon_tray_close_request), NULL);
   tachyon_application_state_watch(GTK_WINDOW(window));
 
   gchar *resources = tachyon_resource_root();
@@ -762,6 +766,7 @@ static void tachyon_shutdown(GApplication *app, gpointer data) {
   (void)app;
   (void)data;
   tachyon_settle_web_storage();
+  tachyon_tray_remove();
   tachyon_companion_dispose();
   tachyon_application_stop();
   tachyon_record("controller.destroyed");
@@ -809,6 +814,7 @@ mod tests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            tray: None,
             links: crate::native::native_links::NativeLinks::default(),
         }
     }

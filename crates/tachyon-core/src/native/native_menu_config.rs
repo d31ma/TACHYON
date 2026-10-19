@@ -12,6 +12,8 @@ pub(super) struct NativeMenuConfig {
     pub(super) view: Vec<NativeMenuEntry>,
     #[serde(default)]
     pub(super) help: Vec<NativeMenuEntry>,
+    #[serde(skip)]
+    pub(super) tray: Vec<NativeMenuEntry>,
 }
 
 impl NativeMenuConfig {
@@ -47,7 +49,7 @@ impl NativeMenuConfig {
     }
 
     pub(super) fn is_empty(&self) -> bool {
-        self.items().next().is_none()
+        self.groups().iter().all(|(_, entries)| entries.is_empty())
     }
 
     pub(super) fn groups(&self) -> [(&'static str, &[NativeMenuEntry]); 3] {
@@ -58,8 +60,17 @@ impl NativeMenuConfig {
         ]
     }
 
+    pub(super) fn table_groups(&self) -> [(&'static str, &[NativeMenuEntry]); 4] {
+        let [file, view, help] = self.groups();
+        [file, view, help, ("tray", &self.tray)]
+    }
+
     pub(super) fn items(&self) -> impl Iterator<Item = &NativeMenuEntry> {
-        self.file.iter().chain(&self.view).chain(&self.help)
+        self.file
+            .iter()
+            .chain(&self.view)
+            .chain(&self.help)
+            .chain(&self.tray)
     }
 
     fn require_count(&self) -> Result<(), Failure> {
@@ -79,7 +90,7 @@ impl NativeMenuConfig {
             .then_some(())
             .ok_or_else(|| {
                 super::config::config_failure(
-                    "Native menu ids must be unique across File, View and Help.",
+                    "Native menu ids must be unique across File, View, Help and the tray.",
                 )
             })
     }

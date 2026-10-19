@@ -210,6 +210,46 @@
     "android": {"reach": "refused", "code": 1601, "alternative": "Android apps have no menu bar. Put links or buttons in the page instead (D1)."}
   },
   {
+    "member": "tac.application.tray",
+    "paths": ["tac.application.tray"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "a status item in the menu bar with Open, the declared items and Quit (ADR 0107)"},
+    "windows": {"reach": "honored", "how": "a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107)"},
+    "linux": {"reach": "adapted", "note": "tac.application.tray is shown as a StatusNotifierItem with a D-Bus menu. Desktops without a tray host, such as GNOME without the AppIndicator extension, show nothing, and the app keeps its window (ADR 0107)."},
+    "ios": {"reach": "refused", "code": 1601, "alternative": "iOS has no status area. Put these controls in the page instead (ADR 0107)."},
+    "android": {"reach": "refused", "code": 1601, "alternative": "Android has no tray. Put these controls in the page instead (ADR 0107)."}
+  },
+  {
+    "member": "tac.application.tray.template",
+    "paths": ["tac.application.tray.template"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "a template image that the menu bar tints for light and dark mode"},
+    "windows": {"reach": "adapted", "note": "tac.application.tray.template applies only to the macOS menu bar. The Windows notification area shows the icon in its own colors."},
+    "linux": {"reach": "adapted", "note": "tac.application.tray.template applies only to the macOS menu bar. The Linux tray shows the icon in its own colors."},
+    "ios": {"reach": "notApplicable", "note": "tac.application.tray.template has no meaning on iOS, which refuses tac.application.tray."},
+    "android": {"reach": "notApplicable", "note": "tac.application.tray.template has no meaning on Android, which refuses tac.application.tray."}
+  },
+  {
+    "member": "tac.application.tray.closeHidesWindow",
+    "paths": ["tac.application.tray.closeHidesWindow"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "closing the window hides it, and its page keeps running until Quit"},
+    "windows": {"reach": "honored", "how": "closing the window hides it, and its page keeps running until Exit"},
+    "linux": {"reach": "adapted", "note": "tac.application.tray.closeHidesWindow hides the Linux window only while a tray host shows the icon. Without one, closing the window quits the app as before."},
+    "ios": {"reach": "notApplicable", "note": "tac.application.tray.closeHidesWindow has no meaning on iOS, which refuses tac.application.tray."},
+    "android": {"reach": "notApplicable", "note": "tac.application.tray.closeHidesWindow has no meaning on Android, which refuses tac.application.tray."}
+  },
+  {
+    "member": "tac.application.tray.dock",
+    "paths": ["tac.application.tray.dock"],
+    "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
+    "macos": {"reach": "honored", "how": "false runs the app from the menu bar only, with no Dock icon (LSUIElement)"},
+    "windows": {"reach": "adapted", "note": "tac.application.tray.dock applies only to the macOS Dock. The Windows taskbar shows the app only while its window is open."},
+    "linux": {"reach": "adapted", "note": "tac.application.tray.dock applies only to the macOS Dock. The Linux desktop shows the app only while its window is open."},
+    "ios": {"reach": "notApplicable", "note": "tac.application.tray.dock has no meaning on iOS, which refuses tac.application.tray."},
+    "android": {"reach": "notApplicable", "note": "tac.application.tray.dock has no meaning on Android, which refuses tac.application.tray."}
+  },
+  {
     "member": "tac.application.rust",
     "paths": ["tac.application.rust.dependencies", "tac.application.rust.platformDependencies"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},

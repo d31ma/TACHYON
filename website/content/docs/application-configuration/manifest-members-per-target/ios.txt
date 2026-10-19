@@ -63,6 +63,18 @@ tac.application.window.titleBarButtonInset
 tac.application.menus
   refused with TY1601: iOS apps have no menu bar. Put links or buttons in the page instead (D1).
 
+tac.application.tray
+  refused with TY1601: iOS has no status area. Put these controls in the page instead (ADR 0107).
+
+tac.application.tray.template
+  not applicable: tac.application.tray.template has no meaning on iOS, which refuses tac.application.tray.
+
+tac.application.tray.closeHidesWindow
+  not applicable: tac.application.tray.closeHidesWindow has no meaning on iOS, which refuses tac.application.tray.
+
+tac.application.tray.dock
+  not applicable: tac.application.tray.dock has no meaning on iOS, which refuses tac.application.tray.
+
 tac.application.rust
   honored: vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here
 

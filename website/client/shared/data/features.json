@@ -3568,7 +3568,7 @@
       "id": "native-language-reach",
       "title": "What a service reaches",
       "group": "Native",
-      "summary": "A service linked into the host process can use the platform's software development kit (SDK), such as AppKit, the Android SDK or the .NET base class library. It can create a tray, window or notification through those APIs. Tachyon does not limit it to a fixed list of framework commands.",
+      "summary": "A service linked into the host process can use the platform's software development kit (SDK), such as AppKit, the Android SDK or the .NET base class library. It can create a window or notification through those APIs. A tray icon is declared in the manifest instead. Tachyon does not limit it to a fixed list of framework commands.",
       "files": [
         {
           "name": "reach",

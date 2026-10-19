@@ -63,6 +63,18 @@ tac.application.window.titleBarButtonInset
 tac.application.menus
   honored: items in the File, View and Help menus of the menu bar
 
+tac.application.tray
+  honored: a status item in the menu bar with Open, the declared items and Quit (ADR 0107)
+
+tac.application.tray.template
+  honored: a template image that the menu bar tints for light and dark mode
+
+tac.application.tray.closeHidesWindow
+  honored: closing the window hides it, and its page keeps running until Quit
+
+tac.application.tray.dock
+  honored: false runs the app from the menu bar only, with no Dock icon (LSUIElement)
+
 tac.application.rust
   honored: vendored crates linked into the app's Rust services
 

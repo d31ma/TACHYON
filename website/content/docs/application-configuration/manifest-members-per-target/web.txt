@@ -63,6 +63,18 @@ tac.application.window.titleBarButtonInset
 tac.application.menus
   not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
 
+tac.application.tray
+  not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
+
+tac.application.tray.template
+  not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
+
+tac.application.tray.closeHidesWindow
+  not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
+
+tac.application.tray.dock
+  not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
+
 tac.application.rust
   not applicable: tac.application is read only by native builds. A web build checks its shape and then ignores it.
 

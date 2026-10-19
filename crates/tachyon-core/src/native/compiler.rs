@@ -240,6 +240,10 @@ impl NativeCompiler {
             &application.menus,
             &companions,
         )?;
+        super::native_tray_icon::NativeTrayIcon::check(
+            application.tray.as_ref(),
+            temporary_web.path(),
+        )?;
         super::native_ui_profile::NativeUiProfile::prepare(
             ui_candidate,
             temporary_web.path(),

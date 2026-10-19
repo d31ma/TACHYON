@@ -19,6 +19,7 @@ pub(super) struct NativeApplication {
     pub(super) window: WindowConfiguration,
     pub(super) native_capabilities: Vec<String>,
     pub(super) menus: super::native_menu_config::NativeMenuConfig,
+    pub(super) tray: Option<super::native_tray::NativeTray>,
     pub(super) rust: super::native_rust_project::NativeRustProject,
     pub(super) outgoing: super::native_outgoing_hosts::NativeOutgoingHosts,
     pub(super) permissions: super::browser_api_permissions::BrowserApiPermissions,
@@ -198,7 +199,7 @@ fn valid_manifest_name(name: &str) -> bool {
         && !executable_name(name).is_empty()
 }
 
-fn valid_icon_source(source: &str) -> bool {
+pub(super) fn valid_icon_source(source: &str) -> bool {
     let relative = source.trim_start_matches('/');
     if relative.is_empty() || source.starts_with("//") {
         return false;
@@ -273,6 +274,10 @@ fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
 
 fn validate_manifest_application(application: &ManifestApplication) -> Result<(), Failure> {
     application.menus.validate()?;
+    application
+        .tray
+        .as_ref()
+        .map_or(Ok(()), |tray| tray.validate(&application.menus))?;
     if let Some(problem) = application.rust.problem() {
         return Err(config_failure(&problem));
     }
@@ -579,6 +584,8 @@ struct ManifestApplication {
     #[serde(default)]
     menus: super::native_menu_config::NativeMenuConfig,
     #[serde(default)]
+    tray: Option<super::native_tray::NativeTray>,
+    #[serde(default)]
     rust: super::rust_companion_crate::RustCompanionCrate,
     #[serde(default)]
     permissions: BTreeMap<String, String>,
@@ -660,6 +667,11 @@ impl NativeApplication {
 
     fn apply_manifest_application(&mut self, application: &ManifestApplication) {
         self.menus.clone_from(&application.menus);
+        self.tray.clone_from(&application.tray);
+        self.menus.tray = application
+            .tray
+            .as_ref()
+            .map_or_else(Vec::new, |tray| tray.items.clone());
         self.minimum_system.clone_from(&application.minimum_system);
         self.links.clone_from(&application.links);
         if let Some(id) = &application.id {
@@ -705,6 +717,7 @@ impl NativeApplication {
             window: WindowConfiguration::default(),
             native_capabilities: Vec::new(),
             menus: super::native_menu_config::NativeMenuConfig::default(),
+            tray: None,
             rust: super::native_rust_project::NativeRustProject::default(),
             outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: super::browser_api_permissions::BrowserApiPermissions::default(),

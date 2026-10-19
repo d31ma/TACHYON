@@ -44,6 +44,7 @@ impl WindowsWindowFrameTests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: super::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            tray: None,
             links: super::native_links::NativeLinks::default(),
         };
         let index = super::routes::NativeRouteIndex {

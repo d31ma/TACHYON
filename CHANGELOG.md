@@ -10,6 +10,19 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- A tray icon is declared in the manifest (ADR 0107). `tac.application.tray`
+  names a PNG icon in the client bundle, a tooltip, and tray menu items that
+  open a page or call an application service, like the File, View and Help
+  items of ADR 0097. The host adds "Open" and "Quit" items. With
+  `closeHidesWindow` closing the window hides it and the app keeps running;
+  `dock: false` runs a macOS app from the menu bar only. macOS uses an
+  `NSStatusItem`, Windows uses `Shell_NotifyIconW`, and Linux exports a
+  StatusNotifierItem over D-Bus, which shows only on a desktop with a
+  StatusNotifierWatcher. iOS and Android refuse the member with `TY1601`.
+  The page verbs `tray.set`, `window.show`, `window.hide` and `app.quit`
+  stay removed. The Linux host was run against a test watcher and the
+  Windows host under Wine; the macOS and Windows desktop runs are owed.
+
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
   packages `libtachyoncompanion.so` for each, and the Java host calls them

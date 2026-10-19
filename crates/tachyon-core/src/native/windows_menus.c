@@ -12,6 +12,7 @@ typedef bool (*TachyonMenuCall)(const char *);
 static TachyonMenuCall g_menu_perform = NULL;
 static TachyonMenuCall g_menu_ready = NULL;
 static HACCEL g_menu_accelerators = NULL;
+static BOOL tachyon_tray_command(HWND window, UINT command);
 
 __NATIVE_MENU_ITEMS__
 
@@ -122,6 +123,7 @@ static void tachyon_menus_refresh(HMENU popup) {
 }
 
 static BOOL tachyon_menus_command(HWND window, UINT command) {
+  if (tachyon_tray_command(window, command)) return TRUE;
   if (command == TACHYON_MENU_CLOSE_COMMAND || command == TACHYON_MENU_EXIT_COMMAND) {
     PostMessageW(window, WM_CLOSE, 0, 0);
     return TRUE;

@@ -442,6 +442,7 @@ fn native_application_lifetime_host_startup_and_shutdown_are_not_page_operations
         permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
         minimum_system: crate::native::minimum_system::MinimumSystem::default(),
         description: String::new(),
+        tray: None,
         links: crate::native::native_links::NativeLinks::default(),
     };
     let index = super::routes::NativeRouteIndex {

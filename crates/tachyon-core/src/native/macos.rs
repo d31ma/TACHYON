@@ -241,7 +241,7 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
 <key>CFBundleShortVersionString</key><string>{version}</string>{url_types}
 <key>CFBundleVersion</key><string>{build}</string>
 <key>LSMinimumSystemVersion</key><string>{minimum}</string>
-<key>NSHighResolutionCapable</key><true/>
+<key>NSHighResolutionCapable</key><true/>{agent}
 </dict></plist>
 "#,
         name = xml_escape(&application.name),
@@ -259,6 +259,7 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
         url_types = application
             .links
             .url_types_plist(&application.application_id),
+        agent = super::mac_os_tray_source::MacOsTraySource::plist_entry(application),
     )
 }
 
@@ -378,6 +379,8 @@ pub(super) fn swift_source(
                 include_str!("menus/MacOsMenuWindow.swift"),
                 include_str!("menus/MacOsMenuAction.swift"),
                 include_str!("menus/MacOsMenuActions.swift"),
+                include_str!("menus/MacOsTrayItem.swift"),
+                include_str!("menus/MacOsTray.swift"),
             ),
         )
         .replace(
@@ -409,6 +412,7 @@ impl MacOsHostGenerator {
         let menu_routes =
             super::mac_os_menu_source::MacOsMenuSource::declarations(&application.menus);
         let menu_actions = super::mac_os_menu_source::MacOsMenuSource::actions(&application.menus);
+        let tray = super::mac_os_tray_source::MacOsTraySource::install(application);
         Self::apple_authored_values(
             host,
             application,
@@ -418,6 +422,15 @@ impl MacOsHostGenerator {
                 ("__NATIVE_GRANTS__", &grants),
                 ("__NATIVE_MENU_ROUTES__", &menu_routes),
                 ("__NATIVE_MENU_ACTIONS__", &menu_actions),
+                ("__NATIVE_TRAY_INSTALL__", &tray),
+                (
+                    "__NATIVE_TRAY_HIDES__",
+                    super::mac_os_tray_source::MacOsTraySource::hides_window(application),
+                ),
+                (
+                    "__NATIVE_ACTIVATION_POLICY__",
+                    super::mac_os_tray_source::MacOsTraySource::activation_policy(application),
+                ),
             ],
         )
     }
@@ -562,6 +575,7 @@ __NATIVE_TITLE_BAR__
 __NATIVE_APPLICATION_STATE__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
+private let tachyonTrayHidesWindow = __NATIVE_TRAY_HIDES__
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
 __NATIVE_DEEP_LINKS__
 
@@ -799,6 +813,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private var window: NSWindow?
     private var webView: WKWebView?
     private var menus: MacOsMenus?
+    private var tray: MacOsTray?
     private var titleBar: MacOsTitleBar?
     private var terminated = false
     private var launchTarget: String?
@@ -829,6 +844,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         AppleBrowserApis.shared.granted = __NATIVE_BROWSER_API_GRANTS__
         __NATIVE_CAPABILITY_REGISTER__
         __NATIVE_APPLICATION_START__
+        __NATIVE_TRAY_INSTALL__
         Telemetry.shared.record("controller.created")
         openWindow()
         AppleApplicationState.shared.watch([
@@ -903,6 +919,25 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let menuActions = MacOsMenuActions(view, window, __NATIVE_MENU_ACTIONS__, tachyonMenuReady, tachyonMenuPerform)
         menus.install(NSApplication.shared, window, "__APP_NAME__", menuNavigation, menuActions)
         self.menus = menus
+    }
+
+    private func showWindow(_ route: String?) {
+        let target = route.map { (path: String) -> String in "tachyon-app://bundle" + path }
+        if let window, let webView {
+            if let target, let url = URL(string: target) { webView.load(URLRequest(url: url)) }
+            window.makeKeyAndOrderFront(nil)
+        } else if !terminated {
+            launchTarget = target
+            openWindow()
+        }
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard tachyonTrayHidesWindow, tray != nil, sender === window, !terminated else { return true }
+        sender.orderOut(nil)
+        Telemetry.shared.record("window.hidden")
+        return false
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -986,7 +1021,7 @@ private struct __APP_TYPE__ {
         let application = NSApplication.shared
         let delegate = AppDelegate()
         application.delegate = delegate
-        application.setActivationPolicy(.regular)
+        application.setActivationPolicy(__NATIVE_ACTIVATION_POLICY__)
         withExtendedLifetime(delegate) { application.run() }
     }
 }
@@ -1015,6 +1050,7 @@ mod tests {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            tray: None,
             links: crate::native::native_links::NativeLinks::default(),
         }
     }

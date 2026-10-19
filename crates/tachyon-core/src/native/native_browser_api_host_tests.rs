@@ -37,6 +37,7 @@ impl BrowserApiHostTests {
             ),
             minimum_system: super::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            tray: None,
             links: crate::native::native_links::NativeLinks::default(),
         };
         let index = super::routes::NativeRouteIndex {

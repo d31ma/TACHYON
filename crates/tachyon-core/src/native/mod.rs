@@ -28,6 +28,7 @@ mod cpp_web_services;
 mod csharp_web_apis;
 mod desktop_host_source;
 mod desktop_menu_items;
+mod desktop_tray_source;
 mod dotnet_web_environment;
 mod dotnet_web_release;
 mod events;
@@ -116,6 +117,7 @@ mod mac_os_release;
 mod mac_os_signing;
 mod mac_os_slice;
 mod mac_os_title_bar_source;
+mod mac_os_tray_source;
 mod macos;
 #[cfg(test)]
 mod macos_menu_tests;
@@ -197,6 +199,10 @@ mod native_title_bar;
 mod native_title_bar_button_inset;
 #[cfg(all(test, target_os = "macos"))]
 mod native_title_bar_host_tests;
+mod native_tray;
+mod native_tray_icon;
+#[cfg(test)]
+mod native_tray_tests;
 mod native_type_program;
 mod native_ui_artifact;
 #[cfg(test)]

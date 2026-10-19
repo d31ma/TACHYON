@@ -1,6 +1,6 @@
 {
   "title": "Native menus",
-  "summary": "A macOS, Linux or Windows app that Tachyon builds has a menu bar. `tac.application.menus` in `client/manifest.json` adds your own items to the File, View and Help menus. An item opens a page of the app, or it runs a menu action: a method of a service that lives as long as the app.",
+  "summary": "A macOS, Linux or Windows app that Tachyon builds has a menu bar. `tac.application.menus` in `client/manifest.json` adds your own items to the File, View and Help menus, and `tac.application.tray` adds an icon with its own menu to the system tray. An item opens a page of the app, or it runs a menu action: a method of a service that lives as long as the app.",
   "before": [
     "window-controls"
   ],
@@ -19,6 +19,9 @@
     },
     {
       "include": "close-window-and-reopen/section.json"
+    },
+    {
+      "include": "tray-icon/section.json"
     }
   ]
 }

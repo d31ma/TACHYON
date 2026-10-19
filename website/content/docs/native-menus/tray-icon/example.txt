@@ -1,0 +1,31 @@
+client/manifest.json
+
+{
+  "name": "Monitor",
+  "start_url": "/",
+  "tac": {
+    "application": {
+      "id": "com.example.monitor",
+      "tray": {
+        "icon": "/shared/assets/tray.png",
+        "tooltip": "Monitor",
+        "template": true,
+        "items": [
+          { "id": "tray-help", "label": "Monitor Help", "route": "/help" },
+          { "id": "tray-refresh", "label": "Refresh Now", "action": { "service": "SectionMenuService", "method": "refresh" } }
+        ],
+        "closeHidesWindow": true,
+        "dock": false
+      }
+    }
+  }
+}
+
+The tray menu:
+
+Open Monitor
+-----------------
+Monitor Help
+Refresh Now
+-----------------
+Quit Monitor        (Exit Monitor on Windows)

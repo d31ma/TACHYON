@@ -10,6 +10,7 @@ typedef struct {
 static TachyonMenuCall g_menu_perform = NULL;
 static TachyonMenuCall g_menu_ready = NULL;
 static GtkApplication *g_menu_application = NULL;
+static void tachyon_tray_refresh(void);
 
 __NATIVE_MENU_ITEMS__
 
@@ -33,6 +34,7 @@ static void tachyon_menus_refresh(void) {
     if (action != NULL) g_simple_action_set_enabled(G_SIMPLE_ACTION(action), tachyon_menu_enabled(&TACHYON_MENU_ITEMS[index]));
     g_free(name);
   }
+  tachyon_tray_refresh();
 }
 
 static void tachyon_menu_refuse(void) {
@@ -206,7 +208,7 @@ static void tachyon_menus_install(GtkApplication *application) {
   g_menu_application = application;
   GMenu *groups[] = {g_menu_new(), g_menu_new(), g_menu_new()};
   for (int index = 0; index < TACHYON_MENU_ITEM_COUNT && index < TACHYON_MENU_LIMIT; index += 1) {
-    tachyon_menu_item(groups[TACHYON_MENU_ITEMS[index].group], index);
+    if (TACHYON_MENU_ITEMS[index].group != TACHYON_MENU_TRAY) tachyon_menu_item(groups[TACHYON_MENU_ITEMS[index].group], index);
   }
   tachyon_menu_action("close-window", "<Primary>w", G_CALLBACK(tachyon_menu_close_window), NULL);
   tachyon_menu_action("quit", "<Primary>q", G_CALLBACK(tachyon_menu_quit), NULL);

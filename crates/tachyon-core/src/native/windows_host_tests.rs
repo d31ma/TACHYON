@@ -3,15 +3,16 @@
 use super::native_menu_config::NativeMenuConfig;
 use serde_json::json;
 
-struct WindowsHostTests;
+pub(super) struct WindowsHostTests;
 
 impl WindowsHostTests {
     #[cfg(unix)]
-    const MINGW: &str = "x86_64-w64-mingw32-gcc";
+    pub(super) const MINGW: &str = "x86_64-w64-mingw32-gcc";
     #[cfg(unix)]
     const HARNESS_HEAD: &str = r"#define UNICODE
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <shellapi.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -32,6 +33,9 @@ int main(void) {
   tachyon_menus_refresh(NULL);
   BOOL handled = tachyon_menus_command(g_window, 0) || tachyon_menus_translate(g_window, &message) || tachyon_menus_key(g_window, 'W');
   tachyon_menus_destroy();
+  tachyon_tray_install(g_window);
+  handled = handled || tachyon_tray_message(g_window, 0, 0, 0) || tachyon_tray_hides_window(g_window);
+  tachyon_tray_remove();
   return handled ? 1 : 0;
 }
 "#;
@@ -68,6 +72,7 @@ int main(void) {
             permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
             minimum_system: crate::native::minimum_system::MinimumSystem::default(),
             description: String::new(),
+            tray: None,
             links: crate::native::native_links::NativeLinks::default(),
         };
         let index = super::routes::NativeRouteIndex {
@@ -92,11 +97,17 @@ int main(void) {
 
     #[cfg(unix)]
     fn harness(menus: &NativeMenuConfig) -> String {
+        Self::harness_with(menus, "#define TACHYON_TRAY 0\n", Self::HARNESS_MAIN)
+    }
+
+    #[cfg(unix)]
+    pub(super) fn harness_with(menus: &NativeMenuConfig, tray: &str, main: &str) -> String {
         let block = include_str!("windows_menus.c").replace(
             "__NATIVE_MENU_ITEMS__",
             &super::desktop_menu_items::DesktopMenuItems::c_table(menus, '&'),
         );
-        format!("{}\n{block}\n{}", Self::HARNESS_HEAD, Self::HARNESS_MAIN)
+        let tray = include_str!("windows_tray.c").replace("__NATIVE_TRAY_SETTINGS__", tray);
+        format!("{}\n{block}\n{tray}\n{main}", Self::HARNESS_HEAD)
     }
 }
 
