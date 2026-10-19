@@ -139,11 +139,18 @@ use_a_writable_runtime_folder() {
   export XDG_RUNTIME_DIR="$PRIVATE_RUNTIME"
 }
 
+use_the_x11_display_only() {
+  if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then return; fi
+  echo '==> unsetting WAYLAND_DISPLAY, because AT-SPI sends keys to the X11 display only without it'
+  unset WAYLAND_DISPLAY
+}
+
 main() {
   FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/ty-linux-native.XXXXXX")
   PRIVATE_RUNTIME=
   trap 'rm -rf "$FIXTURE" ${PRIVATE_RUNTIME:+"$PRIVATE_RUNTIME"}' EXIT
   use_a_writable_runtime_folder
+  use_the_x11_display_only
   local out="${FIXTURE}/dist/linux"
   build_native_app "$FIXTURE"
   check_artifacts "$out"
