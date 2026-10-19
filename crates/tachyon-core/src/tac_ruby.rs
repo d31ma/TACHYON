@@ -275,6 +275,7 @@ mod tests {
 
     mod browser_http_tests;
     mod browser_stream_tests;
+    mod named_stop_tests;
     mod needed_service_tests;
 
     fn write(root: &Path, relative: &str, text: &str) -> PathBuf {

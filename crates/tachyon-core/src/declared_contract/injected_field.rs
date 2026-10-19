@@ -4,6 +4,7 @@ pub(super) struct InjectedField {
     indent: String,
     name: String,
     pub(super) type_name: String,
+    pub(super) provider: String,
 }
 
 impl InjectedField {
@@ -27,14 +28,13 @@ impl InjectedField {
             .split_once(':')
             .map(|(name, type_name)| (name.trim(), type_name.trim()))
             .or_else(|| Self::two_words(&words, name_first))?;
+        let declared = type_name.trim_end_matches(Self::TYPED_PUNCTUATION);
+        let type_name = Self::unshared(declared.trim_start_matches(Self::POINTER));
         Some(Self {
             indent: indent.to_owned(),
             name: name.trim_end_matches(Self::TYPED_PUNCTUATION).to_owned(),
-            type_name: Self::unshared(
-                type_name
-                    .trim_start_matches(Self::POINTER)
-                    .trim_end_matches(Self::TYPED_PUNCTUATION),
-            ),
+            provider: type_name.clone(),
+            type_name,
         })
     }
 
@@ -49,7 +49,13 @@ impl InjectedField {
             indent: indent.to_owned(),
             name: name.to_owned(),
             type_name: type_name.to_owned(),
+            provider: type_name.to_owned(),
         })
+    }
+
+    pub(super) fn named(self, provider: Option<String>) -> Self {
+        let provider = provider.unwrap_or_else(|| self.provider.clone());
+        Self { provider, ..self }
     }
 
     fn unshared(type_name: &str) -> String {
@@ -72,5 +78,6 @@ impl InjectedField {
         form.replace("{indent}", &self.indent)
             .replace("{name}", &self.name)
             .replace("{type}", &self.type_name)
+            .replace("{provider}", &self.provider)
     }
 }

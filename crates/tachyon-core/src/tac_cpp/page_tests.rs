@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-struct PageProject;
+pub(super) struct PageProject;
 
 impl PageProject {
     const OWNER: &'static str = "00000000-0000-4000-8000-00000000000";
@@ -81,6 +81,10 @@ int main() {
             tac_http_settle(static_cast<std::uint32_t>(std::stoul(line.substr(7, space - 7))), answer.c_str(), static_cast<int>(answer.size()));
             continue;
         }
+        if (line.rfind("describe ", 0) == 0) {
+            std::printf("%s\n", tachyon::TacProgram::services()[line.substr(9)].metadata.toJsonString().c_str());
+            continue;
+        }
         if (line == "notes") {
             std::printf("%s\n", tachyonPageNotes().toJsonString().c_str());
             tachyonPageNotes() = tachyon::json::JsonArray();
@@ -94,7 +98,7 @@ int main() {
 }
 "#;
 
-    fn has_compiler() -> bool {
+    pub(super) fn has_compiler() -> bool {
         let found = Command::new(super::CppTools::test_compiler())
             .arg("--version")
             .output()
@@ -105,7 +109,7 @@ int main() {
         found
     }
 
-    fn write(root: &Path, files: &[(&str, &str)]) {
+    pub(super) fn write(root: &Path, files: &[(&str, &str)]) {
         for (relative, source) in files {
             let path = root.join(relative);
             std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
@@ -117,7 +121,7 @@ int main() {
         format!("{}{number}", Self::OWNER)
     }
 
-    fn init(service: &str, owner: usize, props: &Value) -> Value {
+    pub(super) fn init(service: &str, owner: usize, props: &Value) -> Value {
         json!({"op": "init", "route": "web", "service": service, "owner": Self::owner(owner), "props": props})
     }
 
@@ -125,7 +129,7 @@ int main() {
         json!({"op": "get", "route": "web", "service": service, "owner": Self::owner(owner), "name": name})
     }
 
-    fn call(service: &str, owner: usize, name: &str, args: &Value) -> Value {
+    pub(super) fn call(service: &str, owner: usize, name: &str, args: &Value) -> Value {
         json!({"op": "call", "route": "web", "service": service, "owner": Self::owner(owner), "name": name, "args": args})
     }
 
@@ -150,7 +154,11 @@ int main() {
         Self::answered_lines(root, services, &lines)
     }
 
-    fn answered_lines(root: &Path, services: &[(&str, &str)], lines: &[String]) -> Vec<Value> {
+    pub(super) fn answered_lines(
+        root: &Path,
+        services: &[(&str, &str)],
+        lines: &[String],
+    ) -> Vec<Value> {
         let source = format!(
             "#include <iostream>\nstatic double tachyonPageClock = 0;\n{}{}{}",
             Self::program(root, services),

@@ -4,6 +4,7 @@ use std::path::Path;
 pub(crate) struct InjectedContract<'a> {
     language: &'static str,
     marker: &'static str,
+    named_marker: &'static str,
     filled: &'static str,
     contracts: &'a [String],
     remotes: &'a [String],
@@ -11,33 +12,43 @@ pub(crate) struct InjectedContract<'a> {
 
 impl<'a> InjectedContract<'a> {
     pub(crate) const GO_START: &'static str = "tachyonInject";
-    const FORMS: [(&'static str, &'static str, &'static str); 7] = [
+    const FORMS: [(&'static str, &'static str, &'static str, &'static str); 7] = [
         (
             "kt",
             "@Needs",
-            "{indent}private val {name}: {type} = {type}()",
+            "@Named(",
+            "{indent}private val {name}: {type} = {provider}()",
         ),
         (
             "swift",
             "@Needs",
-            "{indent}private let {name}: {type} = {type}()",
+            "@Named(",
+            "{indent}private let {name}: {type} = {provider}()",
         ),
         (
             "java",
             "@Needs",
-            "{indent}private final {type} {name} = new {type}();",
+            "@Named(",
+            "{indent}private final {type} {name} = new {provider}();",
         ),
         (
             "cs",
             "[Needs]",
-            "{indent}private readonly {type} {name} = new {type}();",
+            "[Named(",
+            "{indent}private readonly {type} {name} = new {provider}();",
         ),
-        ("rs", "#[Needs]", "{indent}{name}: std::sync::Arc<{type}>,"),
-        ("go", "// @Needs", "{indent}{name} *{type}"),
+        (
+            "rs",
+            "#[Needs]",
+            "#[Named(",
+            "{indent}{name}: std::sync::Arc<{type}>,",
+        ),
+        ("go", "// @Needs", "// @Named(", "{indent}{name} *{type}"),
         (
             "rb",
             "#[Needs]",
-            "{indent}private def {name}\n{indent}  @{name} ||= {type}.new\n{indent}end",
+            "#[Named(",
+            "{indent}private def {name}\n{indent}  @{name} ||= {provider}.new\n{indent}end",
         ),
     ];
     pub(super) const MODIFIERS: [&'static str; 9] = [
@@ -71,13 +82,14 @@ impl<'a> InjectedContract<'a> {
     const GO: &'static str = "go";
     const REMOTE_LANGUAGES: [&'static str; 5] = [Self::GO, "kt", "swift", "java", Self::RUBY];
     const RUBY: &'static str = "rb";
-    const RUBY_REMOTE: &'static str = "{indent}private def {name}\n{indent}  @{name} ||= {type}.new(@tachyon_test_context)\n{indent}end";
+    const RUBY_REMOTE: &'static str = "{indent}private def {name}\n{indent}  @{name} ||= {provider}.new(@tachyon_test_context)\n{indent}end";
+    const NAMED_QUOTE: char = '"';
     const RUBY_COMMENT: &'static str = "# ";
     const RUBY_COMMENT_START: char = '#';
     const GO_METHOD: &'static str =
         "\nfunc (service *{owner}) {start}() error {\n{assignments}\treturn nil\n}\n";
-    const GO_ASSIGNMENT: &'static str = "\t{name}, err := New{type}()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.{name} = {name}\n";
-    const GO_HELPER_ASSIGNMENT: &'static str = "\tservice.{name} = &{type}{}\n";
+    const GO_ASSIGNMENT: &'static str = "\t{name}, err := New{provider}()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.{name} = {name}\n";
+    const GO_HELPER_ASSIGNMENT: &'static str = "\tservice.{name} = &{provider}{}\n";
 
     pub(crate) fn injected_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
         paths
@@ -108,10 +120,13 @@ impl<'a> InjectedContract<'a> {
     ) -> Option<String> {
         let language = path.extension()?.to_str()?;
         let owner = path.file_stem()?.to_str()?;
-        let (form, marker, filled) = Self::FORMS.iter().find(|(form, _, _)| *form == language)?;
+        let (form, marker, named_marker, filled) = Self::FORMS
+            .iter()
+            .find(|(form, _, _, _)| *form == language)?;
         let injected = Self {
             language: form,
             marker,
+            named_marker,
             filled,
             contracts,
             remotes,
@@ -182,7 +197,7 @@ impl<'a> InjectedContract<'a> {
     ) -> String {
         let marker = edits
             .iter()
-            .any(|(marker_at, _, _)| *marker_at == at)
+            .any(|(marker_at, field_at, _)| self.is_marker_line(at, line, *marker_at, *field_at))
             .then(String::new);
         let field = edits
             .iter()
@@ -191,10 +206,16 @@ impl<'a> InjectedContract<'a> {
         field.or(marker).unwrap_or_else(|| line.to_owned())
     }
 
+    fn is_marker_line(&self, at: usize, line: &str, marker_at: usize, field_at: usize) -> bool {
+        let between = [at > marker_at, at < field_at] == [true, true];
+        let named = [between, self.is_named(line)] == [true, true];
+        [at == marker_at, named].contains(&true)
+    }
+
     fn form_of(&self, field: &InjectedField) -> &'static str {
         let ruby_remote = [
             self.language == Self::RUBY,
-            self.remotes.contains(&field.type_name),
+            self.remotes.contains(&field.provider),
         ] == [true, true];
         [self.filled, Self::RUBY_REMOTE][usize::from(ruby_remote)]
     }
@@ -213,9 +234,21 @@ impl<'a> InjectedContract<'a> {
         } else {
             InjectedField::read(lines[field_at], self.language == Self::GO)?
         };
+        let field = field.named(self.provider(&lines[marker_at + 1..field_at]));
         self.contracts
-            .contains(&field.type_name)
+            .contains(&field.provider)
             .then_some((marker_at, field_at, field))
+    }
+
+    fn provider(&self, lines: &[&str]) -> Option<String> {
+        let line = lines.iter().find(|line| self.is_named(line))?;
+        let arguments = line.trim().strip_prefix(self.named_marker)?;
+        let quoted = arguments.split(Self::NAMED_QUOTE).nth(1)?;
+        Some(quoted.trim().to_owned())
+    }
+
+    fn is_named(&self, line: &str) -> bool {
+        line.trim().starts_with(self.named_marker)
     }
 
     fn ruby_documentation<'l>(
@@ -237,11 +270,11 @@ impl<'a> InjectedContract<'a> {
             self.language == Self::RUBY,
             trimmed.starts_with(Self::RUBY_COMMENT),
         ] == [true, true];
-        [trimmed.is_empty(), documentation] == [false, false]
+        [trimmed.is_empty(), documentation, self.is_named(line)] == [false, false, false]
     }
 
     fn go_assignment(field: &InjectedField) -> &'static str {
-        let helper = field.type_name.ends_with(Self::HELPER_SUFFIX);
+        let helper = field.provider.ends_with(Self::HELPER_SUFFIX);
         [Self::GO_ASSIGNMENT, Self::GO_HELPER_ASSIGNMENT][usize::from(helper)]
     }
 

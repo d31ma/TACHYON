@@ -887,6 +887,9 @@ mod go_stream_tests;
 
 #[cfg(test)]
 mod cpp_stream_tests;
+
+#[cfg(test)]
+mod cpp_stop_tests;
 #[cfg(test)]
 mod rust_stream_tests;
 
@@ -957,6 +960,9 @@ mod java_needs_tests;
 
 #[cfg(test)]
 mod fsharp_needs_tests;
+
+#[cfg(test)]
+mod named_needs_tests;
 
 #[cfg(test)]
 mod model_binding_tests;

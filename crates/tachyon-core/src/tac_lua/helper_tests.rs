@@ -3,7 +3,7 @@
 use super::{LuaRuntimeBuild, LuaWebServices};
 use std::path::{Path, PathBuf};
 
-struct HelperPage;
+pub(super) struct HelperPage;
 
 impl HelperPage {
     const FILE_FETCH: &str = "import { readFile } from 'node:fs/promises'\nglobalThis.fetch = async (url) => new Response(await readFile(url))\n;(0, eval)(await readFile('./tac-web.js', 'utf8'))\n";
@@ -87,14 +87,14 @@ impl HelperPage {
         found
     }
 
-    fn skip_reason() -> Option<String> {
+    pub(super) fn skip_reason() -> Option<String> {
         if !Self::node_available() {
             return Some(String::from("node is unavailable"));
         }
         LuaRuntimeBuild::unavailable_reason()
     }
 
-    fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
+    pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
         let path = root.join(relative);
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         std::fs::write(&path, text).expect("source");
@@ -107,7 +107,7 @@ impl HelperPage {
             .unwrap_or_else(|failure| panic!("{failure}"))
     }
 
-    async fn publish(root: &Path, instance: &str, class: &str, source: &str) {
+    pub(super) async fn publish(root: &Path, instance: &str, class: &str, source: &str) {
         let path = Self::write(root, &format!("client/services/{class}.lua"), source);
         let chosen = [(
             String::from(instance),
@@ -127,7 +127,7 @@ impl HelperPage {
         }
     }
 
-    fn run(root: &Path, driver: &str) -> serde_json::Value {
+    pub(super) fn run(root: &Path, driver: &str) -> serde_json::Value {
         Self::write(root, "tac-web.js", include_str!("../template/tac-web.js"));
         std::fs::write(
             root.join("drive.mjs"),

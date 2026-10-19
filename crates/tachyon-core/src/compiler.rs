@@ -49,6 +49,8 @@ mod script_assets;
 mod script_assets_tests;
 pub(crate) mod script_import;
 pub(crate) mod script_imports;
+#[cfg(test)]
+mod script_named_needs_tests;
 mod service_checks;
 mod service_script;
 mod service_worker;

@@ -4,7 +4,7 @@ use crate::node_driver::NodeDriver;
 use std::path::Path;
 use std::process::Command;
 
-struct DartStreams;
+pub(super) struct DartStreams;
 
 impl DartStreams {
     const FILES: [(&str, &str); 6] = [
@@ -140,7 +140,7 @@ impl DartStreams {
          console.log(JSON.stringify({ urls: opened.map((source) => source.url).sort(), count: stream.ticks.length, last: stream.ticks.at(-1), messages: chat.messages, sent: socket.sent }))\n\
          process.exit(0)\n";
 
-    fn tools_available() -> bool {
+    pub(super) fn tools_available() -> bool {
         ["dart", "node"].iter().all(|tool| {
             Command::new(tool)
                 .arg("--version")
@@ -155,7 +155,7 @@ impl DartStreams {
         std::fs::write(&path, bytes).expect("file");
     }
 
-    async fn publish(
+    pub(super) async fn publish(
         root: &Path,
         files: &[(&str, &str)],
         classes: &[(&str, &str)],
@@ -196,7 +196,7 @@ impl DartStreams {
         );
     }
 
-    fn drive(root: &Path, driver: &str) -> serde_json::Value {
+    pub(super) fn drive(root: &Path, driver: &str) -> serde_json::Value {
         Self::write(root, "drive.js", driver.as_bytes());
         let output = NodeDriver::output(
             NodeDriver::command()

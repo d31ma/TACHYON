@@ -1,5 +1,6 @@
 pub(crate) struct LuaFields {
     type_name: String,
+    named: Option<String>,
     marked: bool,
     found: Vec<(String, String, bool)>,
 }
@@ -7,6 +8,8 @@ pub(crate) struct LuaFields {
 impl LuaFields {
     const TYPE: &'static str = "---@type";
     const NEEDS: &'static str = "-- @Needs";
+    const NAMED: &'static str = "-- @Named(";
+    const QUOTE: char = '"';
     const EMPTY: &'static str = "nil";
     const TABLE_END: &'static str = "\n}";
 
@@ -14,6 +17,7 @@ impl LuaFields {
         let body = Self::table_body(source, class).unwrap_or_default();
         let mut fields = Self {
             type_name: String::new(),
+            named: None,
             marked: false,
             found: Vec::new(),
         };
@@ -32,7 +36,8 @@ impl LuaFields {
     }
 
     fn read(&mut self, line: &str) {
-        let steps: [fn(&mut Self, &str) -> bool; 3] = [Self::typed, Self::needs, Self::field];
+        let steps: [fn(&mut Self, &str) -> bool; 4] =
+            [Self::typed, Self::needs, Self::named, Self::field];
         let _ = steps.iter().any(|step| step(self, line));
     }
 
@@ -48,17 +53,25 @@ impl LuaFields {
         marked
     }
 
+    fn named(&mut self, line: &str) -> bool {
+        let Some(arguments) = line.strip_prefix(Self::NAMED) else {
+            return false;
+        };
+        self.named = arguments
+            .split(Self::QUOTE)
+            .nth(1)
+            .map(|provider| provider.trim().to_owned());
+        true
+    }
+
     fn field(&mut self, line: &str) -> bool {
         let pair = line.trim_end_matches(',').split_once('=');
         let empty = pair.filter(|(_, value)| value.trim() == Self::EMPTY);
-        self.found.extend(empty.map(|(name, _)| {
-            (
-                name.trim().to_owned(),
-                std::mem::take(&mut self.type_name),
-                self.marked,
-            )
-        }));
-        self.type_name.clear();
+        let provider = self.named.take();
+        let written = std::mem::take(&mut self.type_name);
+        let type_name = provider.unwrap_or(written);
+        self.found
+            .extend(empty.map(|(name, _)| (name.trim().to_owned(), type_name, self.marked)));
         self.marked = false;
         pair.is_some()
     }

@@ -141,6 +141,12 @@ machine contracts have their own, independent major versions.
   commands inside the `AllOrNothing` transaction, and answer through the
   named provider; a `Named` that names no provider fails the build. Each
   `OnStop` method writes a marker after its request in ten languages.
+  On the Tac side, `Named` runs in Kotlin, C#, Go, Rust, Ruby, Lua,
+  TypeScript, Dart and Python, `OnStop` runs in Dart, Ruby and C++, and a
+  C++ `Description` reaches the service registration of the page program.
+  This fixed `Named` in Tac Kotlin, C#, Go, Rust and Ruby services (the
+  line was read as the field, or ignored and the field left empty), in
+  Tac Lua fields and in the Dart bridge, which built the declared type.
 
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and

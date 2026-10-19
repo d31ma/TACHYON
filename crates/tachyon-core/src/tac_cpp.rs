@@ -51,6 +51,8 @@ mod cpp_type_text;
 mod cpp_value_source;
 
 #[cfg(test)]
+mod description_tests;
+#[cfg(test)]
 mod page_tests;
 #[cfg(test)]
 mod tests;

@@ -47,8 +47,10 @@ impl PreparedService {
         let injections = bridge
             .injections(dart, instances, class)
             .map_err(|message| failure(portable, message))?;
+        let plain = crate::behavior::ServiceRoles::without_roles(&self.relative, &self.source)?;
+        let named = crate::behavior::ProviderQualifiers::read(&self.relative, &plain, class)?;
         let page = Bridge::read(lowered, class, &models.names)
-            .map(|page| page.with_sockets(&unit.clients))
+            .map(|page| page.with_sockets(&unit.clients).with_named(class, &named))
             .map_err(|message| failure(portable, message))?;
         let source = page
             .bridge(lowered, class, &injections, &models.names)

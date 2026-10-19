@@ -26,6 +26,8 @@ mod converter_tests;
 #[cfg(test)]
 mod host_tests;
 #[cfg(test)]
+mod named_tests;
+#[cfg(test)]
 mod notices_tests;
 #[cfg(test)]
 mod page_tests;

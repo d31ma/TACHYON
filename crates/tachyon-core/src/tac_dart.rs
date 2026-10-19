@@ -16,6 +16,8 @@ mod dart_http_constructor;
 mod dart_http_constructor_tests;
 mod dart_http_scope;
 mod dart_model_shape;
+#[cfg(test)]
+mod dart_named_stop_tests;
 mod dart_page;
 #[cfg(test)]
 mod dart_stream_tests;
@@ -410,6 +412,7 @@ struct Class {
     name: String,
     fields: Vec<Field>,
     declared: Vec<(String, Option<String>)>,
+    named: Vec<(String, String)>,
     methods: Vec<Method>,
     constructor: Option<Vec<String>>,
     socket: bool,
@@ -599,6 +602,19 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
             "models": stream.models,
             "sender": format!("__tachyonSend:{client}"),
         })
+    }
+
+    fn with_named(mut self, class: &str, named: &serde_json::Value) -> Self {
+        let providers: Vec<(String, String)> = named
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter_map(|(field, provider)| Some((field.clone(), provider.as_str()?.to_owned())))
+            .collect();
+        for owner in self.classes.iter_mut().filter(|owner| owner.name == class) {
+            owner.named.clone_from(&providers);
+        }
+        self
     }
 
     fn with_sockets(mut self, clients: &[(String, EventStream)]) -> Self {
@@ -1139,7 +1155,12 @@ fn constructor_argument(
         .find(|(declared, _)| declared == field)
         .and_then(|(_, type_name)| type_name.clone())
         .ok_or_else(|| format!("{name}.{field} is injected but has no declared type"))?;
-    let type_name = declared.trim_end_matches('?');
+    let named = class
+        .named
+        .iter()
+        .find(|(named, _)| named == field)
+        .map(|(_, provider)| provider.as_str());
+    let type_name = named.unwrap_or(declared.trim_end_matches('?'));
     if type_name == Bridge::PUBLISHER {
         return Ok(format!(
             "{}.bridge(publish, __tac_event_name, __yon_json)",
