@@ -25,6 +25,7 @@ function Enable-Msvc {
             [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
         }
     }
+    Remove-Item Env:Platform -ErrorAction SilentlyContinue
 }
 
 function Install-WebViewSdk([string] $version, [string] $directory) {

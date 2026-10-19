@@ -555,16 +555,24 @@ async fn publish_companion(
              or later, which is what publishes the companion ahead of time.",
         ));
     }
-    let directory = project
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Companion project path is not valid Unicode."))?;
+    let unicode = || native_tool_failure(1605, "Companion project path is not valid Unicode.");
+    let directory = project.to_str().ok_or_else(unicode)?;
+    let built = WindowsHostGenerator::published_companion(project, architecture);
+    let output = built.parent().and_then(Path::to_str).ok_or_else(unicode)?;
     NativeReproducibility::run_tool_in(
         "dotnet",
-        &["publish", "-c", "Release", "--nologo"],
+        &[
+            "publish",
+            "-c",
+            "Release",
+            "--nologo",
+            "-p:Platform=AnyCPU",
+            "-o",
+            output,
+        ],
         Some(Path::new(directory)),
     )
     .await?;
-    let built = WindowsHostGenerator::published_companion(project, architecture);
     let published = bin.join("TachyonCompanion.dll");
     super::host::native_io(std::fs::copy(&built, &published), &published)?;
     NativeBuildFolders::remove(project, &NativeBuildFolders::DOTNET)

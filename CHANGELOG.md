@@ -1385,6 +1385,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Windows build with a C# companion no longer fails with TY1605 when it
+  runs from a Visual Studio developer prompt. Those prompts set `Platform`,
+  which moved the `dotnet publish` output to another folder, so `ty` could
+  not copy `TachyonCompanion.dll`. `ty` now gives `dotnet publish` its
+  output folder and `Platform=AnyCPU`.
 - The Linux app window now shows its menu bar. GTK 4 hides the menu bar of
   an application window by default, so the File, Edit, Window, View and Help
   menus existed but were not drawn, could not be opened with F10 and were
