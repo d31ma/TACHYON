@@ -38,9 +38,9 @@ struct NativeFirstService {
 impl NativeFirstService {
     const RECEIVED: &'static str = "received";
 
-    fn doubled(&self) -> i64 { self.count * 2 }
-    fn process_id(&self) -> i64 { std::process::id() as i64 }
-    fn announce(&self) -> String {
+    pub fn doubled(&self) -> i64 { self.count * 2 }
+    pub fn process_id(&self) -> i64 { std::process::id() as i64 }
+    pub fn announce(&self) -> String {
         self.application_event_publisher.publish_event(crate::models::NativeEvent { text: Self::RECEIVED.to_owned() }, false);
         Self::RECEIVED.to_owned()
     }
@@ -52,7 +52,7 @@ struct NativeSecondService {
     count: i64,
 }
 impl NativeSecondService {
-    fn doubled(&self) -> i64 { self.count * 2 }
+    pub fn doubled(&self) -> i64 { self.count * 2 }
 }
 `
 }

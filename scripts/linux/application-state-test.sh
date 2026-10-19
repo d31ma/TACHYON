@@ -34,7 +34,7 @@ struct StateWatchService {
 }
 
 impl StateWatchService {
-    fn page_heard(&self, state: String) -> i64 {
+    pub fn page_heard(&self, state: String) -> i64 {
         Self::write(format!("page:{state}"));
         self.count
     }

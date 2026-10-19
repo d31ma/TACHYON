@@ -182,15 +182,15 @@ struct __SERVICE__ {
 }
 
 impl __SERVICE__ {
-    fn doubled(&self) -> i64 {
+    pub fn doubled(&self) -> i64 {
         NativeServiceUtils::doubled(self.count)
     }
 
-    fn process_id(&self) -> i64 {
+    pub fn process_id(&self) -> i64 {
         NativeServiceUtils::process_id()
     }
 
-    fn announce(&self) -> String {
+    pub fn announce(&self) -> String {
         NativeServiceUtils::announce(&self.application_event_publisher)
     }
 }

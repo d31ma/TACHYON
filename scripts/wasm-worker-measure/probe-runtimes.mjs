@@ -52,12 +52,12 @@ struct RustProbeService {
 }
 
 impl RustProbeService {
-    fn increment(&mut self) -> i64 {
+    pub fn increment(&mut self) -> i64 {
         self.count += 1;
         self.count
     }
 
-    fn spin(&self, rounds: i64) -> i64 {
+    pub fn spin(&self, rounds: i64) -> i64 {
         Self::mix(rounds)
     }
 

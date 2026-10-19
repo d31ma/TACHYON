@@ -96,7 +96,7 @@ struct TallyService {
     application_event_publisher: ApplicationEventPublisher,
 }
 impl TallyService {
-    fn add(&mut self) {
+    pub fn add(&mut self) {
         self.count += 1;
         self.application_event_publisher.publish_event(TallyChanged { count: self.count }, false);
     }

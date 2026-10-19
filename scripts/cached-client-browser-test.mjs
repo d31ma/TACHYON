@@ -308,7 +308,7 @@ impl RsStampService {
         Self { stamps: RsStampClient::new(), stamp: String::new(), loads: 0 }
     }
 
-    fn load(&mut self) {
+    pub fn load(&mut self) {
         let answer = self.stamps.read().unwrap_or(BehaviorValue::Null);
         self.stamp = format!("{answer:?}");
         self.loads += 1;

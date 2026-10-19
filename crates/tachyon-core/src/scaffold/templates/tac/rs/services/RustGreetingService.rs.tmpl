@@ -8,7 +8,7 @@ impl RustGreetingService {
         Self { message: String::from("Hello from Rust") }
     }
 
-    fn greet(&mut self) {
+    pub fn greet(&mut self) {
         self.message = String::from("Rust says hello again.");
     }
 }

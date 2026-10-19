@@ -335,19 +335,24 @@ struct RsCounterService {
 }
 
 impl RsCounterService {
-    fn kept_count(&self) -> f64 {
-        match self.note_store.count_by_text(BehaviorValue::String(String::from("kept"))) {
+    pub fn kept_count(&self) -> f64 {
+        let answer = self.note_store.count_by_text(BehaviorValue::String(String::from("kept")));
+        Self::counted(answer)
+    }
+
+    fn counted(answer: BehaviorResult<BehaviorValue>) -> f64 {
+        match answer {
             Ok(BehaviorValue::Number(count)) => count,
             _ => -1.0,
         }
     }
 
-    fn titled(&self) -> String {
+    pub fn titled(&self) -> String {
         let note = BehaviorValue::object([("body", BehaviorValue::String(String::from("mapped"))), ("extra", BehaviorValue::Number(1.0))]);
         self.note_converter.to_summary(note).ok().and_then(|summary| summary.to_json(1024).ok()).unwrap_or_default()
     }
 
-    fn increment(&mut self) -> i64 {
+    pub fn increment(&mut self) -> i64 {
         self.count += 1;
         self.count
     }

@@ -111,23 +111,23 @@ struct RustWindowService {
 }
 
 impl RustWindowService {
-    fn allowed(&self) -> bool {
+    pub fn allowed(&self) -> bool {
         self.window_controls.granted("minimize").unwrap_or(false)
     }
 
-    fn shrink(&self) -> String {
+    pub fn shrink(&self) -> String {
         self.window_controls.minimize().err().unwrap_or_default()
     }
 
-    fn shut(&self) -> String {
+    pub fn shut(&self) -> String {
         self.window_controls.close().err().unwrap_or_default()
     }
 
-    fn grow(&self) -> String {
+    pub fn grow(&self) -> String {
         self.window_controls.resize(1280, 800).err().unwrap_or_default()
     }
 
-    fn rename(&self) -> String {
+    pub fn rename(&self) -> String {
         self.window_controls.set_title("Report").err().unwrap_or_default()
     }
 }

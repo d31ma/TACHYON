@@ -184,51 +184,51 @@ struct RustStampService {
 }
 
 impl RustStampService {
-    fn now(&self) -> f64 {
+    pub fn now(&self) -> f64 {
         self.clock.now_ms()
     }
 
-    fn zone(&self) -> String {
+    pub fn zone(&self) -> String {
         self.clock.time_zone().unwrap_or_default()
     }
 
-    fn token(&self) -> String {
+    pub fn token(&self) -> String {
         self.secure_random.uuid().unwrap_or_default()
     }
 
-    fn count(&self) -> i64 {
+    pub fn count(&self) -> i64 {
         self.secure_random.bytes(16).map_or(-1, |bytes| bytes.len() as i64)
     }
 
-    fn motion(&self) -> String {
+    pub fn motion(&self) -> String {
         self.preferences.motion().unwrap_or_default()
     }
 
-    fn locale(&self) -> String {
+    pub fn locale(&self) -> String {
         self.preferences.language().unwrap_or_default()
     }
 
-    fn copy(&self, text: &str) {
+    pub fn copy(&self, text: &str) {
         let _ = self.clipboard.write_text(text);
     }
 
-    fn attempt(&self) -> String {
+    pub fn attempt(&self) -> String {
         self.clipboard.write_text("without a click").err().unwrap_or_default()
     }
 
-    fn paste(&self) {
+    pub fn paste(&self) {
         let _ = self.clipboard.read_text();
     }
 
-    fn ask(&self) {
+    pub fn ask(&self) {
         let _ = self.notifications.request_permission();
     }
 
-    fn tell(&self) {
+    pub fn tell(&self) {
         let _ = self.share.open("Tachyon", "Shared from a test", "https://example.com/");
     }
 
-    fn locate(&self) {
+    pub fn locate(&self) {
         let _ = self.geolocation.current_position();
     }
 
