@@ -763,7 +763,7 @@ fn mapping_entry(field: &Plan) -> Result<String, String> {
     };
     let nested = mapping_nested(field)?;
     Ok(format!(
-        "{{{}, {read}, {}, {nested}}}",
+        "new Object[]{{{}, {read}, {}, {nested}}}",
         quote(&field.target),
         literal(Some(&field.constant))?
     ))
