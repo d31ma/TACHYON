@@ -462,10 +462,12 @@ source's text, the page's own text with quotes, a new line and an accented
 letter, and empty text), the toast XML and the permission answers with a
 fake notifier, the share values with a fake sheet, and the permission
 decision; with nothing granted, every call is refused. The whole generated
-host also compiles with MinGW against the WebView2 SDK headers. Still owed:
-the MSVC build and the ignored Windows test
-`the_windows_browser_apis_match_the_windows_sdk_and_run_on_windows` on the
-Surface, and the four APIs in WebView2, the share sheet and a toast from the
+host also compiles with MinGW against the WebView2 SDK headers. The ignored Windows test
+`the_windows_browser_apis_match_the_windows_sdk_and_run_on_windows` passed on
+the Surface (Windows 11 ARM64, MSVC 19.44 ARM64, Windows SDK 10.0.26100.0):
+every declared slot matched the SDK headers, the program ran with and
+without grants, and `ty build --target windows` compiled and linked an app
+that grants all four APIs. Still owed: the four APIs in WebView2, the share sheet and a toast from the
 installed package on a signed-in Windows desktop (SD1).
 
 ## Amendment (2026-10-18): a ninth built-in event model
