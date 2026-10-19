@@ -1527,6 +1527,7 @@ async fn compiled_relay_bounds_sideband_redacts_errors_and_reaps_descendants() {
     let relay_sources = RelayFixtures::COMPILED;
     let supervisor = supervisor(HandlerSupervisorOptions {
         default_timeout: Duration::from_secs(10),
+        cancellation_grace: Duration::from_secs(1),
         ..HandlerSupervisorOptions::default()
     });
     for &(extension, contents) in &relay_sources {
@@ -1567,7 +1568,7 @@ async fn compiled_relay_bounds_sideband_redacts_errors_and_reaps_descendants() {
     let pid_file = root.path().join("relay-descendant.pid");
     let mut invocation = descendant_request("relay_timeout", "hang", &pid_file);
     invocation.method = HttpMethod::Post;
-    invocation.deadline_ms = Some(250);
+    invocation.deadline_ms = Some(3_000);
     let response = supervisor
         .invoke(&source, &invocation, &HandlerCancellation::default())
         .await

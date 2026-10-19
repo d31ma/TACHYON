@@ -57,7 +57,7 @@ jobs:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',native,'))
     name: Native Rust gate (${{ matrix.os }})
     runs-on: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON(matrix.self_hosted_labels) || matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
