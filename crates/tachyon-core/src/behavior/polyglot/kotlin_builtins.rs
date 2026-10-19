@@ -6,4 +6,8 @@ impl KotlinBuiltins {
     pub(crate) fn in_browser(lowered: &str, browser: &str) -> String {
         lowered.replace(Self::NONE, &format!("\n{browser}"))
     }
+
+    pub(crate) fn natively(lowered: &str, linked: &str) -> String {
+        lowered.replace(Self::NONE, &format!("\n{linked}"))
+    }
 }

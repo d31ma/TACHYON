@@ -2,6 +2,9 @@ mod android;
 mod android_browser_apis;
 mod android_gradle_build;
 mod android_release;
+#[cfg(test)]
+mod android_yon_http_tests;
+mod android_yon_reach;
 mod apple_browser_apis;
 mod apple_icons;
 #[cfg(test)]

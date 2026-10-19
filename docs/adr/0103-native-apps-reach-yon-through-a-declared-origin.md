@@ -267,3 +267,66 @@ the client in a JavaScript or TypeScript page service, which reaches Yon on
 the declared origin, and to receive its messages in the Swift service with
 `@OnEvent`. Lifting the refusal is a later choice.
 
+## Amendment (2026-10-19): the Android app reaches Yon (NET2)
+
+The Android host now lets the page and linked Kotlin services reach the
+declared Yon origin.
+
+### The page
+
+- The host's request interception passes the declared origin to the
+  network. An `https` origin passes by its host, as before. A local `http`
+  origin (`localhost`, a name under `.localhost`, or a loopback address)
+  passes only when the scheme, host and port all match.
+- Android refuses cleartext traffic by default. For a local `http` origin,
+  the build writes `res/xml/tachyon_network_security.xml` and names it in
+  the manifest. It allows cleartext to that one host and keeps every other
+  host on `https`. An `https` origin writes no such file.
+- On the emulator, `adb reverse tcp:<port> tcp:<port>` makes
+  `http://localhost:<port>` inside the app reach a Yon on the build machine.
+
+### Linked Kotlin services
+
+- A Kotlin `HTTPClient` used by a natively linked Kotlin service now has a
+  native transport. Before this, it failed with `HTTP_MISSING`.
+- The transport sends the request from the app process with
+  `HttpURLConnection` to `tac.yon.origin`. It follows the same rules as the
+  page's `TacBrowserHttp`:
+  - the path, query and header checks are the same, and `Cookie`, `Origin`
+    and the other refused headers stay refused;
+  - a JSON body is sent with `content-type: application/json`;
+  - redirects fail with `HTTP_NETWORK`, and a status outside 200-299 fails
+    with `HTTP_STATUS`;
+  - the client's deadline gives `DEADLINE`, and `maxResponseBytes` gives
+    `HTTP_LIMIT`;
+  - the answer must be UTF-8 JSON, or the call fails with `HTTP_RESPONSE`.
+- The transport sends no cookies and keeps no HTTP cache, so a `@Cached`
+  read is read again from Yon (NET6 covers offline reads).
+- The request comes from the app, not from a web page, so it carries no
+  `Origin` header. Yon answers it like any other client, without CORS.
+- Without `tac.yon.origin`, the call fails with `HTTP_MISSING`, and the
+  message says to set the member or give the client an adapter in its
+  Setup.
+- A `suspend fun` of a linked Kotlin service now runs until it finishes,
+  like a linked C# method that returns a `Task`. It runs on the service's
+  owner thread, so the app's other native service calls wait until it is
+  done. The page still gives up on a native call after 10 seconds, so keep
+  the client deadline below that.
+- A linked Kotlin service that holds `@StreamRequest` or `@SocketRequest`
+  clients is still refused with `TY1405`. The message now says that the
+  page's JavaScript or TypeScript client reaches Yon through
+  `tac.yon.origin`.
+
+### Evidence
+
+- `android_yon_http_tests` compiles a linked Kotlin service with a Kotlin
+  `HTTPClient` for the JVM. It runs it against a real HTTP server: a query
+  and an `Authorization` header, a JSON body, a 404, a redirect and an
+  answer over the size limit. It also checks that no `Cookie` or `Origin`
+  header is sent.
+- Unit tests cover the request interception, the network security file and
+  the manifest attribute.
+- `scripts/android/yon-origin-test.mjs` runs the packaged app on the
+  Android emulator against a Yon on the build machine. It covers an HTTP
+  route, a stream, a socket, a topic, a `@Check` 422, a `SignedIn` route and
+  a linked Kotlin client.

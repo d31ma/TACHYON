@@ -101,7 +101,7 @@ async function buildKotlin(scratch, unit, prelude) {
   await writeFile(join(scratch,'json.jar'),jar);
   await writeFile(join(scratch,'SharedPreferences.kt'),`package android.content\ninterface SharedPreferences { val all: Map<String, *>; fun edit(): Editor; interface Editor { fun putInt(key:String,value:Int):Editor; fun putLong(key:String,value:Long):Editor; fun putBoolean(key:String,value:Boolean):Editor; fun putFloat(key:String,value:Float):Editor; fun putString(key:String,value:String?):Editor; fun apply() } }\n`);
   const main = `\nfun main() { TacBridge.emit = TacEmit { payload -> check(tacNativeInvoke("{\\"op\\":\\"host-dispose\\"}").contains("busy")); println("E" + payload) }; generateSequence(::readLine).forEach { println("R" + tacNativeInvoke(it)) } }\n`;
-  await writeFile(join(scratch,'Owner.kt'),unit+prelude+main);
+  await writeFile(join(scratch,'Owner.kt'),'import kotlin.coroutines.startCoroutine\n'+unit+prelude+main);
   await writeFile(join(scratch,'Models.kt'),await readFile(join(NativeEventsTest.emitted,'owner-models.kt'),'utf8'));
   run(scratch, 'kotlinc',['-classpath',join(scratch,'json.jar'),join(scratch,'Owner.kt'),join(scratch,'Models.kt'),join(scratch,'SharedPreferences.kt'),'-include-runtime','-d',join(scratch,'owner.jar')]);
   return { program: 'java', args: ['-cp',join(scratch,'owner.jar')+':'+join(scratch,'json.jar'),'OwnerKt'] };

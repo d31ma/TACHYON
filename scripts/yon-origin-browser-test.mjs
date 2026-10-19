@@ -1,94 +1,19 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { CargoArtifacts } from './cargo-artifacts.mjs'
 import { withServer } from './release/server-probe.mjs'
+import { YonReachFixture } from './yon-reach-fixture.mjs'
 
 class YonOriginTest {
-  static repository = fileURLToPath(new URL('..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static fixture = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'yon-origin-'))
-  static features = ['sockets', 'realtime']
   static timeout = 15000
-  static files = {
-    'client/pages/tac.html': '<chat-room hydrate="load" />\n<ticks-stream hydrate="load" />\n<note-panel hydrate="load" />\n',
-    'client/models/Note.ts': 'export type Note = { text: string }\n',
-    'client/components/note/panel/tac.html': '<button on:click="note.load()">Load note</button>\n<button on:click="note.save()">Save note</button>\n<p id="note">{note.text}</p>\n',
-    'client/remotes/NoteClient.js': `/** @import { Note } from '/models/Note.ts' */
-@HTTPClient('/api/notes')
-export default class NoteClient {
-  /** @returns {Promise<Note>} */
-  @GetRequest
-  async read() {}
-
-  /**
-   * @param {Note} note
-   * @returns {Promise<Note>}
-   */
-  @PostRequest
-  async write(@RequestBody note) {}
-}
-`,
-    'client/services/NoteService.js': `/** @import { Note } from '/models/Note.ts' */
-@Service
-export default class NoteService {
-  /** @type {NoteClient} */
-  @Needs
-  noteClient;
-  text = '';
-
-  async load() {
-    this.text = (await this.noteClient.read()).text;
-  }
-
-  async save() {
-    this.text = (await this.noteClient.write({ text: 'from another origin' })).text;
-  }
-}
-`,
-    'server/controllers/NoteController.js': `/** @import { Note } from '/models/Note.ts' */
-@RequestRoute("/api/notes")
-@Public
-class NoteController {
-  /** @returns {Note} */
-  @GetRoute
-  getNote() {
-    return { text: 'Note from Yon' }
-  }
-
-  /**
-   * @param {Note} note
-   * @returns {Note}
-   */
-  @PostRoute
-  postNote(@FromBody note) {
-    return { text: \`Saved \${note.text}\` }
-  }
-}
-`,
-    'server/models/Note.ts': 'export type Note = { text: string }\n',
-  }
-
-  static write(name, text) {
-    const target = path.join(this.fixture, name)
-    mkdirSync(path.dirname(target), { recursive: true })
-    writeFileSync(target, text)
-  }
-
-  static copyFeature(name) {
-    const source = path.join(this.repository, 'website/content/features', name)
-    const feature = JSON.parse(readFileSync(path.join(source, 'feature.json'), 'utf8'))
-    for (const file of feature.files) {
-      const selected = file.name.endsWith('.js') || file.name.endsWith('.html') || file.name.includes('/models/') && file.name.endsWith('.ts')
-      if (selected && file.name !== 'client/pages/tac.html') this.write(file.name, readFileSync(path.join(source, file.name), 'utf8'))
-    }
-  }
 
   static freePort() {
     return new Promise((resolve, reject) => {
@@ -102,10 +27,7 @@ class NoteController {
   }
 
   static prepare(pagePort, yonPort) {
-    for (const feature of this.features) this.copyFeature(feature)
-    for (const [name, text] of Object.entries(this.files)) this.write(name, text)
-    this.write('client/manifest.json', JSON.stringify({ tac: { visibility: { check: false }, yon: { origin: `http://127.0.0.1:${yonPort}` } } }))
-    this.write('server/application.json', JSON.stringify({ server: { origins: [`http://127.0.0.1:${pagePort}`] } }))
+    new YonReachFixture({ directory: this.fixture, yonOrigin: `http://127.0.0.1:${yonPort}`, appOrigins: [`http://127.0.0.1:${pagePort}`] }).write()
     const built = spawnSync(this.binary, ['bundle', this.fixture], { encoding: 'utf8' })
     assert.equal(built.status, 0, `${built.stdout}${built.stderr}`)
   }
@@ -118,6 +40,25 @@ class NoteController {
     const preflight = await yon('/api/notes', { method: 'OPTIONS', headers: { origin: pageOrigin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' } })
     assert.equal(preflight.status, 204)
     assert.equal(preflight.headers.get('access-control-allow-headers'), 'content-type')
+    const tokenPreflight = await yon('/api/account', { method: 'OPTIONS', headers: { origin: pageOrigin, 'access-control-request-method': 'GET', 'access-control-request-headers': 'authorization' } })
+    assert.equal(tokenPreflight.status, 204)
+    assert.equal(tokenPreflight.headers.get('access-control-allow-headers'), 'authorization')
+    const refusedEntry = await yon('/api/entries', { method: 'POST', headers: { origin: pageOrigin, 'content-type': 'application/json' }, body: JSON.stringify({ name: '' }) })
+    assert.equal(refusedEntry.status, 422)
+    assert.equal(refusedEntry.headers.get('access-control-allow-origin'), pageOrigin)
+    assert.match(refusedEntry.headers.get('content-type') ?? '', /^application\/problem\+json/)
+    const problem = await refusedEntry.json()
+    assert.equal(problem.status, 422)
+    assert.deepEqual(problem.errors, [{ field: 'name', rule: 'NotEmpty' }])
+    const anonymous = await yon('/api/account', { headers: { origin: pageOrigin } })
+    assert.equal(anonymous.status, 401)
+    assert.equal(anonymous.headers.get('access-control-allow-origin'), pageOrigin)
+  }
+
+  static async answer(page, method, route, click) {
+    const answered = page.waitForResponse((response) => response.request().method() === method && new URL(response.url()).pathname === route, { timeout: this.timeout })
+    const [response] = await Promise.all([answered, click()])
+    return response
   }
 
   static async checkPage(url) {
@@ -136,6 +77,17 @@ class NoteController {
       await shows('Note from Yon')
       await page.getByRole('button', { name: 'Save note' }).click()
       await shows('Saved from another origin')
+      await page.getByRole('button', { name: 'Send topic' }).click()
+      await shows('Topic from Yon')
+      const refusedEntry = await this.answer(page, 'POST', '/api/entries', () => page.getByRole('button', { name: 'Send invalid entry' }).click())
+      assert.equal(refusedEntry.status(), 422)
+      await shows('Entry refused by Yon')
+      const anonymous = await this.answer(page, 'GET', '/api/account', () => page.getByRole('button', { name: 'Call without token' }).click())
+      assert.equal(anonymous.status(), 401)
+      await shows('Refused without a token')
+      const signedIn = await this.answer(page, 'GET', '/api/account', () => page.getByRole('button', { name: 'Call with token' }).click())
+      assert.equal(signedIn.status(), 200)
+      await shows('Signed in as ada')
       assert.deepEqual(errors, [])
     } finally {
       await browser.close()
@@ -156,7 +108,7 @@ class NoteController {
         await this.checkPage(response.url)
       })
     })
-    console.log('Yon origin passed: a page on one port reached Yon on another over HTTP, a CORS preflight, a stream and a socket in Chromium.')
+    console.log('Yon origin passed: a page on one port reached Yon on another over HTTP, a CORS preflight, a stream, a socket, a topic, a 422 check, and a signed-in route refused without a token and answered with one in Chromium.')
   }
 }
 

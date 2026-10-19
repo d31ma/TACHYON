@@ -437,7 +437,7 @@
     "windows": {"reach": "adapted", "note": "tac.yon.origin: the Windows app sends Yon calls to this origin, and its connect-src allows it, but no Windows app has been run against Yon yet (NET3)."},
     "linux": {"reach": "adapted", "note": "tac.yon.origin: the Linux app sends Yon calls to this origin, and its connect-src allows it, but no Linux app has been run against Yon yet (NET4)."},
     "ios": {"reach": "adapted", "note": "tac.yon.origin: the iOS page and its linked Swift HTTP clients send Yon calls to this origin, and connect-src allows it, but scripts/native/yon-reach-test.mjs has not run the iOS app against Yon yet (NET1)."},
-    "android": {"reach": "adapted", "note": "tac.yon.origin: the Android app sends Yon calls to this origin over https only and asks for the INTERNET permission, but no Android app has been run against Yon yet (NET2)."}
+    "android": {"reach": "adapted", "note": "tac.yon.origin: the Android app and its linked Kotlin HTTP clients send Yon calls to this origin and the app asks for the INTERNET permission; a local http origin may use cleartext to that one host only. The packaged app has not been run against Yon on the emulator yet (NET2)."}
   },
   {
     "member": "tac.go",
@@ -707,7 +707,7 @@
     "windows": {"reach": "adapted", "note": "The Windows app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET3)."},
     "linux": {"reach": "adapted", "note": "The Linux app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET4)."},
     "ios": {"reach": "adapted", "note": "The iOS app cannot reach a Yon server with same-origin requests: its pages load from a local origin. Requests to an absolute URL go only to the hosts in tac.outgoing.hosts (NET0, NET1)."},
-    "android": {"reach": "adapted", "note": "The Android app cannot reach a Yon server: its pages load from a local origin, and only the hosts in tac.outgoing.hosts are reachable (NET0, NET2)."}
+    "android": {"reach": "adapted", "note": "The Android app's pages load from a local origin, so same-origin requests reach no Yon. Pages and linked Kotlin HTTP clients reach the Yon at tac.yon.origin; the packaged app has not been run against Yon on the emulator yet (NET2)."}
   },
   {
     "member": "natively linked service languages",

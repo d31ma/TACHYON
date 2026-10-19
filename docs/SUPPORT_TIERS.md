@@ -176,7 +176,7 @@ runs the probe that the native apps run. No native host has run it yet.
 | --- | --- | --- |
 | Web | implemented | page transports, CORS, preflight, socket origin and `connect-src` unit tests; Chromium cross-port run |
 | macOS, iOS | implemented, not run on the host | `scripts/native/yon-reach-test.mjs` runs the macOS app and the iOS simulator over `http` and `https`; owed on a Mac. Linked Swift `@HTTPClient` requests go to the origin through `URLSession`, unit-tested against a local server and run against `ty serve` with Linux Foundation |
-| Android | implemented, not run on the host; an `https` origin only | proven by NET2; the host lets the Yon host through its request interception and asks for the INTERNET permission |
+| Android | implemented, not run on the emulator yet; an `https` origin, or a local `http` origin with cleartext to that one host | NET2: the host passes the declared origin through its request interception and asks for the INTERNET permission; linked Kotlin `HTTPClient`s use a native transport, tested on the JVM against a real HTTP server (`android_yon_http_tests`); a packaged APK builds in the cloud; `scripts/android/yon-origin-test.mjs` is the emulator run |
 | Windows | implemented, not run on the host | proven by NET3 on a signed-in desktop |
 | Linux | implemented, not run on the host | proven by NET4 under Xvfb |
 

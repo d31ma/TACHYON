@@ -214,7 +214,7 @@ impl ManagedCapabilityCheck {
             include_str!("prelude_native_tasks.kt")
         );
         let program = format!(
-            "{registry}\n{}{}\n{platform}\n{models}\n{}\n{}\n{}\n{}\n{}",
+            "import kotlin.coroutines.startCoroutine\n{registry}\n{}{}\n{platform}\n{models}\n{}\n{}\n{}\n{}\n{}",
             include_str!("prelude.kt"),
             include_str!("prelude_reads.kt"),
             ManagedNativeCapabilities::KOTLIN,
@@ -223,12 +223,13 @@ impl ManagedCapabilityCheck {
             include_str!("capabilities/TacNativeCapabilityRegistration.kt"),
             caller
         );
-        let source = root.join("Capabilities.kt");
-        std::fs::write(&source, program).expect("program");
+        let sources = root.join("jvm");
+        std::fs::create_dir_all(&sources).expect("sources");
+        std::fs::write(sources.join("Capabilities.kt"), program).expect("program");
         let jar = root.join("capabilities.jar");
         Self::succeeds(
             Command::new("kotlinc")
-                .arg(&source)
+                .arg(&sources)
                 .arg("-include-runtime")
                 .arg("-d")
                 .arg(&jar),

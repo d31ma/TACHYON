@@ -96,7 +96,10 @@ fn write_project(
         &project.join("gradle.properties"),
         b"org.gradle.jvmargs=-Xmx2g\nandroid.useAndroidX=true\nandroid.nonTransitiveRClass=true\n",
     )?;
-    let has_companion = stage_companion(companions, project, &package, &package_path)?;
+    let reach =
+        super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin());
+    let has_companion =
+        stage_reaching_companion(companions, project, (&package, &package_path), &reach)?;
     write(
         &project.join("app/build.gradle.kts"),
         app_gradle(application, &package, has_companion).as_bytes(),
@@ -106,6 +109,7 @@ fn write_project(
         &project.join("app/src/main/AndroidManifest.xml"),
         android_manifest(application, has_icon).as_bytes(),
     )?;
+    reach.write_network_security(project)?;
     write(
         &project.join("app/src/main/res/values/strings.xml"),
         strings_xml(application).as_bytes(),
@@ -123,11 +127,22 @@ pub(super) fn companion_prelude() -> String {
     AndroidHostGenerator::kotlin_companion_prelude()
 }
 
+#[cfg(test)]
 pub(super) fn stage_companion(
     companions: &[super::registry::NativeCompanionInput],
     project: &Path,
     package: &str,
     package_path: &str,
+) -> Result<bool, Failure> {
+    let reach = super::android_yon_reach::AndroidYonReach::declared(None);
+    stage_reaching_companion(companions, project, (package, package_path), &reach)
+}
+
+fn stage_reaching_companion(
+    companions: &[super::registry::NativeCompanionInput],
+    project: &Path,
+    (package, package_path): (&str, &str),
+    reach: &super::android_yon_reach::AndroidYonReach,
 ) -> Result<bool, Failure> {
     let Some(authored) =
         super::registry::source(companions, crate::project::NativeCompanion::Kotlin)?
@@ -140,7 +155,11 @@ pub(super) fn stage_companion(
         &project.join(format!(
             "app/src/main/kotlin/{package_path}/TachyonCompanion.kt"
         )),
-        format!("package {package}\n\n{authored}\n{built_in}{prelude}").as_bytes(),
+        format!(
+            "{}\n{built_in}{prelude}",
+            reach.kotlin_companion(package, &authored)
+        )
+        .as_bytes(),
     )?;
     stage_kotlin_models(companions, project)?;
     Ok(true)
@@ -300,7 +319,7 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
   <application
       android:label="@string/app_name"__ICON__
       android:allowBackup="false"
-      android:usesCleartextTraffic="false"
+      android:usesCleartextTraffic="false"__NETWORK_SECURITY__
       android:theme="@android:style/Theme.Material.Light.NoActionBar">
     <activity
         android:name=".MainActivity"
@@ -315,6 +334,11 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
 </manifest>
 "#
     .replace("__ICON__", icon)
+    .replace(
+        "__NETWORK_SECURITY__",
+        super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin())
+            .manifest_attribute(),
+    )
     .replace(
         "__INTERNET_PERMISSION__",
         AndroidHostGenerator::internet_permission(application),
@@ -406,6 +430,9 @@ pub(super) fn java_source(
     let bootstrap_policy =
         quoted_string_escape(crate::compiler::ContentSecurityPolicy::native_bootstrap());
     let outgoing_hosts = application.outgoing.java_array();
+    let yon_origin =
+        super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin())
+            .java_origin();
     super::placeholder_fill::PlaceholderFill::once(
         &framed,
         &[
@@ -416,6 +443,7 @@ pub(super) fn java_source(
             ("__CONTENT_SECURITY_POLICY__", &policy),
             ("__BOOTSTRAP_SECURITY_POLICY__", &bootstrap_policy),
             ("__OUTGOING_HOSTS__", &outgoing_hosts),
+            ("__YON_ORIGIN__", &yon_origin),
         ],
     )
 }
@@ -526,6 +554,7 @@ public final class MainActivity extends Activity {
   private static final String CONTENT_SECURITY_POLICY = "__CONTENT_SECURITY_POLICY__";
   private static final String BOOTSTRAP_SECURITY_POLICY = "__BOOTSTRAP_SECURITY_POLICY__";
   private static final String[] OUTGOING_HOSTS = __OUTGOING_HOSTS__;
+  private static final String YON_ORIGIN = "__YON_ORIGIN__";
 
   private WebView view;
   private volatile String route = "";
@@ -804,7 +833,7 @@ __NATIVE_BROWSER_APIS__
           @Override
           public WebResourceResponse shouldInterceptRequest(
               WebView web, WebResourceRequest request) {
-            if (isOutgoingHost(request.getUrl())) return null;
+            if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;
             return assetResponse(request.getUrl());
           }
         });
@@ -863,6 +892,15 @@ __NATIVE_BROWSER_APIS__
       if (matches) return true;
     }
     return false;
+  }
+
+  private static boolean isYonOrigin(Uri target) {
+    String scheme = target.getScheme();
+    String host = target.getHost();
+    if (YON_ORIGIN.isEmpty() || scheme == null || host == null || target.getUserInfo() != null) return false;
+    String port = target.getPort() == -1 ? "" : ":" + target.getPort();
+    return YON_ORIGIN.equals(scheme.toLowerCase(java.util.Locale.ROOT) + "://"
+        + host.toLowerCase(java.util.Locale.ROOT) + port);
   }
 
   private static String bootstrapDocument() {
@@ -1095,7 +1133,7 @@ mod tests {
             r#"private static final String[] OUTGOING_HOSTS = {"api.example.com", "*.cdn.example.com"};"#
         ));
         assert!(source.contains(
-            "if (isOutgoingHost(request.getUrl())) return null;\n            return assetResponse(request.getUrl());"
+            "if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;\n            return assetResponse(request.getUrl());"
         ));
         assert!(catalog_java_source(false).contains("OUTGOING_HOSTS = {};"));
     }
@@ -1113,6 +1151,45 @@ mod tests {
         yon.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::default()
             .with_yon_origin(Some(String::from("https://yon.example.com")));
         assert!(android_manifest(&yon, false).contains("android.permission.INTERNET"));
+        assert!(!android_manifest(&yon, false).contains("networkSecurityConfig"));
+        let mut local = application();
+        local.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::default()
+            .with_yon_origin(Some(String::from("http://localhost:8080")));
+        assert!(android_manifest(&local, false).contains(
+            "android:usesCleartextTraffic=\"false\"\n      android:networkSecurityConfig=\"@xml/tachyon_network_security\""
+        ));
+    }
+
+    #[test]
+    fn the_host_passes_only_the_declared_yon_origin_to_the_network() {
+        let mut local = application();
+        local.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::default()
+            .with_yon_origin(Some(String::from("http://localhost:8080")));
+        let source = java_source(&local, "dev.tachyon.native_catalog", false, &index());
+        assert!(
+            source.contains("private static final String YON_ORIGIN = \"http://localhost:8080\";")
+        );
+        assert!(source.contains(
+            "if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;"
+        ));
+        let reach = crate::native::android_yon_reach::AndroidYonReach::declared(Some(
+            "http://localhost:8080",
+        ));
+        let policy = reach.network_security().unwrap_or_default();
+        assert!(policy.contains("<base-config cleartextTrafficPermitted=\"false\"/>"));
+        assert!(policy.contains("<domain includeSubdomains=\"false\">localhost</domain>"));
+        let secure = crate::native::android_yon_reach::AndroidYonReach::declared(Some(
+            "https://api.example.com",
+        ));
+        assert_eq!(secure.network_security(), None);
+        assert_eq!(secure.java_origin(), "https://api.example.com");
+        let quiet = java_source(
+            &application(),
+            "dev.tachyon.native_catalog",
+            false,
+            &index(),
+        );
+        assert!(quiet.contains("private static final String YON_ORIGIN = \"\";"));
     }
 
     #[test]

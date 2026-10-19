@@ -18,7 +18,7 @@ impl KotlinHeldStreams {
         "open",
         "final",
     ];
-    const OFF_THE_PAGE: &'static str = "The page's JavaScript holds @StreamRequest and @SocketRequest connections, so a Kotlin service holds those clients only in its browser build. In a native build, write the client in JavaScript or TypeScript and receive its messages with @OnEvent";
+    const OFF_THE_PAGE: &'static str = "The page's JavaScript holds @StreamRequest and @SocketRequest connections, so a Kotlin service holds those clients only in its browser build. In a native build, write the client in JavaScript or TypeScript, which reaches Yon through tac.yon.origin (ADR 0103), and receive its messages with @OnEvent";
     const TOO_MANY: &'static str = "A Kotlin service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.";
 
     pub(super) fn of_owner(

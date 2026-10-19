@@ -48,6 +48,18 @@ machine contracts have their own, independent major versions.
   project reads the same variables. Builds without `--release` are
   unchanged. Other targets, `--native` and web-only builds refuse
   `--release` (`TY1601`, `TY1001`).
+- The Android app reaches the Yon at `tac.yon.origin` (ADR 0103 amendment,
+  NET2). Its request interception passes the declared origin to the network.
+  A local `http` origin, such as `http://localhost:8080` behind
+  `adb reverse`, gets a network security file that allows cleartext to that
+  one host only. A Kotlin `HTTPClient` in a natively linked Kotlin service
+  now sends its requests from the app with the same rules as the page's
+  HTTP bridge, instead of failing with `HTTP_MISSING`, and a linked Kotlin
+  `suspend fun` runs until it finishes. `scripts/android/yon-origin-test.mjs`
+  checks an HTTP route, a stream, a socket, a topic, a `@Check` 422, a
+  `SignedIn` route and a linked Kotlin client on the emulator, and
+  `scripts/yon-origin-browser-test.mjs` checks the same Yon paths across
+  ports in Chromium.
 - A native app now applies its `tac.cache` rules to Yon reads. A native
   build that declares `tac.yon.origin` and `tac.cache` ships
   `/.tachyon/tac-yon-reads.js`, which keeps public Yon reads in the page's
