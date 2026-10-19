@@ -399,3 +399,13 @@ with `ty serve` on another, makes a `Cached` read, takes the browser
 offline while Yon still runs, and checks in Chromium, Firefox and WebKit
 that the public read answers from the kept copy while a `no-store` read
 fails.
+
+## Amendment (2026-10-19): the packaged Linux app keeps a JavaScript Tac Client read
+
+RL1 found the `tac-client.js` transport hole on its own, in the packaged Linux
+app: a network-first `@Cached` read answered while Yon ran, the
+`tachyon-yon-reads` cache stayed empty, and the read failed once Yon stopped.
+With the transport fix above, `scripts/linux/page-checks-native-test.mjs`
+reads a Yon note in the packaged Linux app, stops Yon, and reads the same note
+from the cache. `compiler::yon_reads_tests` also drives the real
+`clientRequest` source as the transport, online and then offline.

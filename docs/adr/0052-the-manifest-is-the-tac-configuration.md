@@ -286,3 +286,29 @@ amendment above.
   also passed on WSL (Ubuntu 24.04.5, aarch64, Xvfb with xfwm4) on develop
   `38eaed29`, with the other Linux host tests (`docs/SUPPORT_TIERS.md`).
   Still owed: a physical Linux desktop and Wayland.
+
+## Amendment (2026-10-19): The Linux page size holds under Wayland
+
+Under a Wayland compositor the declared page size was lost: the window
+opened at the declared size, the host grew it on the first frame by the
+height of the header bar, and the compositor's first configure then set the
+window back, so a 900x640 page showed at 900x566. On X11 the window manager
+does not resize a client, so the X11 runs passed.
+
+### Decision
+
+- The host still measures the title bar or header bar on the first frame.
+  It then asks for the grown size again on later frames until the page has
+  the declared size, for at most 120 frames, and stops at once when the
+  window is maximized or full screen.
+
+### Consequences
+
+- Evidence (RL1, 2026-10-19): `linux_window_appearance_tests` passed in a
+  headless mutter 46.2 Wayland session (`scripts/linux/compositor-test.sh`)
+  and under Xvfb with xfwm4, in an x86_64 Ubuntu 24.04 cloud container
+  (GTK 4.14.5, WebKitGTK 2.52.6). On WSL Ubuntu 24.04 (aarch64) the same
+  tests passed under Xvfb with xfwm4. `docs/SUPPORT_TIERS.md` has the runs.
+- A Wayland app cannot see that it is minimized (xdg-shell has no such
+  state), so the Wayland run checks that a granted `minimize` call succeeds,
+  not that the window went away.

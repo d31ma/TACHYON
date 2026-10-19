@@ -108,7 +108,7 @@ fn a_declared_inset_reaches_the_title_bar_fixture() {
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
-#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, and either libXtst and an X11 display with a window manager (xfwm4 under Xvfb) or a headless mutter Wayland session (scripts/linux/wayland-test.sh); run explicitly on the Linux lane"]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, and either libXtst and an X11 display with a window manager (xfwm4 under Xvfb) or a headless mutter Wayland session (scripts/linux/compositor-test.sh); run explicitly on the Linux lane"]
 async fn linux_generated_host_integrates_the_title_bar_with_insets_and_drag_regions() {
     let output = LinuxTitleBarTests::run(
         &LinuxTitleBarTests::application(),
@@ -120,7 +120,7 @@ async fn linux_generated_host_integrates_the_title_bar_with_insets_and_drag_regi
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
-#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, and either libXtst and an X11 display with a window manager (xfwm4 under Xvfb) or a headless mutter Wayland session (scripts/linux/wayland-test.sh); run explicitly on the Linux lane"]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, and either libXtst and an X11 display with a window manager (xfwm4 under Xvfb) or a headless mutter Wayland session (scripts/linux/compositor-test.sh); run explicitly on the Linux lane"]
 async fn linux_generated_host_places_the_window_buttons_at_the_declared_inset() {
     let mut application = LinuxTitleBarTests::application();
     application.window.title_bar_button_inset = Some(LinuxTitleBarTests::DECLARED_INSET);
