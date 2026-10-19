@@ -109,3 +109,30 @@ that.
 `tac.yon.origin` allows `http://` only for a local Yon. Local means a
 localhost name as defined in decision 1 of this ADR (`localhost` or a name
 under `.localhost`), or a loopback IP address.
+
+## Amendment (2026-10-19): Java and Kotlin handlers use the guard
+
+The consequence above about Java, Kotlin and Dart was wrong on two counts.
+Dart's `HttpClient` reads `HTTP_PROXY` and `HTTPS_PROXY` by default, so a
+Dart handler already sent its requests through the guard and reached names
+under `.localhost` on every operating system. Java and Kotlin did not: the
+JDK reads its proxy from system properties, not from the environment, so a
+Java or Kotlin handler skipped the guard altogether. It reached an unlisted
+loopback port, and a name under `.localhost` failed wherever the operating
+system does not resolve it (Windows, musl, glibc without systemd-resolved).
+
+The Java and Kotlin preludes now read `YON_OUTGOING_PROXY` before the
+handler runs and set `http.proxyHost`, `http.proxyPort`, `https.proxyHost`
+and `https.proxyPort` to the guard, and `http.nonProxyHosts` to the empty
+string. An empty list keeps the JDK from adding its own default exceptions
+(`localhost`, `127.*`, `[::1]`), so loopback stays deny-by-default as decision
+6 says. `java.net.http.HttpClient` and `HttpURLConnection` both use these
+settings; Groovy handlers share the Java prelude. The resource endpoint is
+reached over a plain `java.net.Socket`, which these properties do not touch.
+
+So JavaScript and TypeScript, Python, Ruby, PHP with cURL, Go, C#, Rust with
+reqwest, Dart, Java, Kotlin and Groovy default clients all reach
+`api.localhost` on every operating system. Raw sockets still use the
+operating system resolver. `tests/it/outgoing_loopback.rs` checks Java,
+Kotlin and Dart both ways: an unlisted loopback port gets `403`, and a listed
+`api.localhost` is reached.

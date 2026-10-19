@@ -14,7 +14,9 @@ struct LoopbackProbe;
 impl LoopbackProbe {
     const DATA_SOURCE: &str =
         r#"{"datasource":{"driver":"sqlite","url":"sqlite::memory:"},"cohesion":{"check":false}}"#;
+    const LOCAL_NAME_SOURCE: &str = r#"{"datasource":{"driver":"sqlite","url":"sqlite::memory:"},"cohesion":{"check":false},"outgoing":{"hosts":["api.localhost"]}}"#;
     const REACHED: &str = "reached-the-private-loopback-service";
+    const VERSION_FLAGS: [&str; 3] = ["version", "--version", "-version"];
     const JAVASCRIPT: &str = r"
 @RequestRoute('/probe')
 @Public
@@ -55,20 +57,73 @@ func (controller *ProbeController) GetProbe(
 }
 "#;
 
+    const JAVA: &str = r#"@RequestRoute("/probe")
+@Public
+class ProbeController {
+    @GetRoute
+    String get(@FromQuery("target") String target) {
+        try {
+            var client = java.net.http.HttpClient.newHttpClient();
+            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create(target)).build();
+            var answer = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            return answer.statusCode() + " " + answer.body();
+        } catch (Exception error) {
+            return "failed " + error;
+        }
+    }
+}
+"#;
+    const KOTLIN: &str = r#"@RequestRoute("/probe")
+@Public
+class ProbeController {
+    @GetRoute
+    fun get(@FromQuery("target") target: String): String {
+        return try {
+            val connection = java.net.URI(target).toURL().openConnection() as java.net.HttpURLConnection
+            val status = connection.responseCode
+            val stream = connection.errorStream ?: connection.inputStream
+            "$status ${stream.bufferedReader().readText()}"
+        } catch (error: Exception) {
+            "failed $error"
+        }
+    }
+}
+"#;
+    const DART: &str = r#"import 'dart:convert';
+import 'dart:io';
+
+@RequestRoute("/probe")
+@Public
+class ProbeController {
+  @GetRoute
+  Future<String> get(@FromQuery("target") String target) async {
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(Uri.parse(target));
+      final answer = await request.close();
+      final body = await answer.transform(utf8.decoder).join();
+      return '${answer.statusCode} $body';
+    } catch (error) {
+      return 'failed $error';
+    } finally {
+      client.close(force: true);
+    }
+  }
+}
+"#;
+
     fn write(path: &Path, contents: &str) {
         fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         fs::write(path, contents).expect("file");
     }
 
     fn available(program: &str) -> bool {
-        std::process::Command::new(program)
-            .arg("version")
-            .output()
-            .is_ok_and(|output| output.status.success())
-            || std::process::Command::new(program)
-                .arg("--version")
+        Self::VERSION_FLAGS.iter().any(|flag| {
+            std::process::Command::new(program)
+                .arg(flag)
                 .output()
                 .is_ok_and(|output| output.status.success())
+        })
     }
 
     async fn private_service() -> (u16, Arc<AtomicUsize>) {
@@ -107,11 +162,28 @@ func (controller *ProbeController) GetProbe(
     }
 
     async fn answer(file: &str, source: &str, service: u16) -> String {
-        let project = tempfile::tempdir().expect("project");
-        Self::write(
-            &project.path().join("server/application.json"),
+        Self::answer_from(
+            file,
+            source,
             Self::DATA_SOURCE,
-        );
+            &format!("http://127.0.0.1:{service}/"),
+        )
+        .await
+    }
+
+    async fn answer_by_local_name(file: &str, source: &str, service: u16) -> String {
+        Self::answer_from(
+            file,
+            source,
+            Self::LOCAL_NAME_SOURCE,
+            &format!("http://api.localhost:{service}/"),
+        )
+        .await
+    }
+
+    async fn answer_from(file: &str, source: &str, application: &str, target: &str) -> String {
+        let project = tempfile::tempdir().expect("project");
+        Self::write(&project.path().join("server/application.json"), application);
         Self::write(
             &project.path().join("server/controllers").join(file),
             source,
@@ -129,7 +201,6 @@ func (controller *ProbeController) GetProbe(
         tokio::spawn(server.run_until(async {
             let _stopped = wait.await;
         }));
-        let target = format!("http://127.0.0.1:{service}/");
         let answer = Self::ask(port, &format!("/probe?target={target}")).await;
         let _stopped = stop.send(());
         answer
@@ -146,6 +217,35 @@ func (controller *ProbeController) GetProbe(
             "{language}: {answer}"
         );
         assert!(answer.contains("200 OK"), "{language}: {answer}");
+    }
+
+    fn assert_reached(language: &str, answer: &str, connections: &AtomicUsize) {
+        assert!(
+            answer.contains(&format!("200 {}", Self::REACHED)),
+            "{language} did not reach a listed .localhost name through the outgoing guard: {answer}"
+        );
+        assert_eq!(
+            connections.load(Ordering::SeqCst),
+            1,
+            "{language}: {answer}"
+        );
+    }
+
+    async fn check_language(language: &str, program: &str, file: &str, source: &str) {
+        if !Self::available(program) {
+            eprintln!("skipping {language}: {program} is unavailable");
+            return;
+        }
+        let (unlisted, refused) = Self::private_service().await;
+        let answer = Self::answer(file, source, unlisted).await;
+        Self::assert_guarded(language, &answer, &refused);
+        assert!(
+            answer.contains("403 Tachyon refused"),
+            "{language}: {answer}"
+        );
+        let (listed, reached) = Self::private_service().await;
+        let answer = Self::answer_by_local_name(file, source, listed).await;
+        Self::assert_reached(language, &answer, &reached);
     }
 }
 
@@ -166,4 +266,27 @@ async fn a_go_handler_cannot_skip_the_guard_to_reach_loopback() {
     let answer = LoopbackProbe::answer("ProbeController.go", LoopbackProbe::GO, service).await;
     LoopbackProbe::assert_guarded("Go", &answer, &connections);
     assert!(answer.contains("403 Tachyon refused"), "Go: {answer}");
+}
+
+#[tokio::test]
+async fn a_java_handler_goes_through_the_guard_and_reaches_localhost_names() {
+    LoopbackProbe::check_language("Java", "java", "ProbeController.java", LoopbackProbe::JAVA)
+        .await;
+}
+
+#[tokio::test]
+async fn a_kotlin_handler_goes_through_the_guard_and_reaches_localhost_names() {
+    LoopbackProbe::check_language(
+        "Kotlin",
+        "kotlinc",
+        "ProbeController.kt",
+        LoopbackProbe::KOTLIN,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn a_dart_handler_goes_through_the_guard_and_reaches_localhost_names() {
+    LoopbackProbe::check_language("Dart", "dart", "ProbeController.dart", LoopbackProbe::DART)
+        .await;
 }

@@ -550,6 +550,18 @@ object Yon {
         child.destroyForcibly()
     }
 
+    internal fun sendOutgoingThroughGuard() {
+        val guard = System.getenv("YON_OUTGOING_PROXY")?.takeIf { it.isNotEmpty() } ?: return
+        val address = runCatching { java.net.URI.create(guard) }.getOrNull() ?: return
+        val host = address.host ?: return
+        if (address.port < 0) return
+        for (scheme in listOf("http", "https")) {
+            System.setProperty("$scheme.proxyHost", host)
+            System.setProperty("$scheme.proxyPort", address.port.toString())
+        }
+        System.setProperty("http.nonProxyHosts", "")
+    }
+
     internal fun captureStart() {
         if (relayEnvironment != null) return
         val uptimeMilliseconds = java.lang.management.ManagementFactory.getRuntimeMXBean().uptime
@@ -919,6 +931,7 @@ object YonSocket {
 }
 
 fun main() {
+    Yon.sendOutgoingThroughGuard()
     Yon.captureStart()
     val raw = if (YonSocket.framed()) YonSocket.readFrame() ?: return else generateSequence(::readLine).joinToString("\n")
     val request = __YonFrame(Json.parse(raw))

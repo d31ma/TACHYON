@@ -1250,7 +1250,7 @@ impl Compiler {
                     "{src}",
                 ],
                 run: &[],
-                suffix: "",
+                suffix: std::env::consts::EXE_SUFFIX,
                 lists_model_files: false,
             },
         ),
@@ -1259,7 +1259,7 @@ impl Compiler {
             Compiler {
                 compile: &["rustc", "--edition", "2024", "-O", "-o", "{out}", "{src}"],
                 run: &[],
-                suffix: "",
+                suffix: std::env::consts::EXE_SUFFIX,
                 lists_model_files: false,
             },
         ),

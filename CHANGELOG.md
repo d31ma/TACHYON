@@ -1616,7 +1616,13 @@ machine contracts have their own, independent major versions.
   (`TY1314`) and, in Dart, in unnamed numbers (`TY1330`); the limits are now
   a named constant and a private method. The new held-clients browser gate
   found it.
-
+- Java, Kotlin and Groovy Yon handlers now send their outgoing HTTP requests
+  through the outgoing guard (ADR 0094 amendment). The JDK ignores
+  `HTTP_PROXY`, so these handlers skipped the guard, reached unlisted loopback
+  ports, and could not reach a listed `api.localhost` on Windows or on Linux
+  without systemd-resolved. Dart handlers already used the guard.
+- C++ and Rust Yon handlers are compiled to a `.exe` on Windows, so the
+  compiled handler can be found and run there.
 - A Windows build with a C# companion no longer fails with TY1605 when it
   runs from a Visual Studio developer prompt. Those prompts set `Platform`,
   which moved the `dotnet publish` output to another folder, so `ty` could

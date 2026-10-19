@@ -929,6 +929,19 @@ final class Yon {
         child.destroyForcibly();
     }
 
+    private static void sendOutgoingThroughGuard() {
+        String guard = System.getenv("YON_OUTGOING_PROXY");
+        if (guard == null || guard.isEmpty()) return;
+        java.net.URI address;
+        try { address = java.net.URI.create(guard); } catch (IllegalArgumentException invalid) { return; }
+        if (address.getHost() == null || address.getPort() < 0) return;
+        for (String scheme : new String[] {"http", "https"}) {
+            System.setProperty(scheme + ".proxyHost", address.getHost());
+            System.setProperty(scheme + ".proxyPort", String.valueOf(address.getPort()));
+        }
+        System.setProperty("http.nonProxyHosts", "");
+    }
+
     private static void captureStart() {
         if (relayEnvironment != null) return;
         long uptimeMilliseconds = java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime();
@@ -1105,6 +1118,7 @@ final class Yon {
     }
 
     public static void main(String[] args) throws java.io.IOException {
+        sendOutgoingThroughGuard();
         captureStart();
         String raw = YonSocket.framed() ? YonSocket.readFrame() : read(System.in);
         if (raw == null) return;
