@@ -118,3 +118,53 @@ impl CombinedPatch {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::{Map, Value, json};
+
+    use super::{CombinedPatch, PatchQueue};
+
+    fn fields(value: &Value) -> Map<String, Value> {
+        value.as_object().cloned().unwrap_or_default()
+    }
+
+    #[test]
+    fn waiting_patches_to_one_document_become_one_write_in_arrival_order() {
+        let queue = PatchQueue::new();
+        let first = queue.add("counters", "A", fields(&json!({"x": 1, "y": 1})));
+        let other = queue.add("counters", "B", fields(&json!({"z": 3})));
+        let second = queue.add("counters", "A", fields(&json!({"y": 2})));
+        let abandoned = queue.add("counters", "A", fields(&json!({"gone": true})));
+        drop(abandoned);
+        let combined = queue.take_combined();
+        assert_eq!(combined.len(), 2);
+        let requests = combined
+            .iter()
+            .map(CombinedPatch::requests)
+            .collect::<Vec<_>>();
+        assert_eq!(requests[0][0].1["newDoc"], json!({"x": 1, "y": 2}));
+        assert_eq!(requests[0][1].0, "getDoc");
+        assert_eq!(requests[1][0].1["id"], json!("B"));
+        assert!(queue.take_combined().is_empty());
+        for patch in combined {
+            patch.answer(&Ok(vec![json!("saved")]));
+        }
+        for receiver in [first, other, second] {
+            let answer = PatchQueue::received(receiver).ok();
+            assert_eq!(answer, Some(vec![json!("saved")]));
+        }
+    }
+
+    #[test]
+    fn a_patch_whose_writer_stopped_reports_an_interrupted_write() {
+        let queue = PatchQueue::new();
+        let receiver = queue.add("counters", "A", fields(&json!({"x": 1})));
+        drop(queue.take_combined());
+        let answer = PatchQueue::received(receiver);
+        assert_eq!(
+            answer.err().map(|error| error.code),
+            Some("EPROTOCOL".to_owned())
+        );
+    }
+}

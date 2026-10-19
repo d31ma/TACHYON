@@ -1354,6 +1354,12 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- FYLO patches that wait for the same document are combined into one FYLO
+  write, applied in arrival order, and every caller gets the document after
+  that write. Each FYLO write is a crash-safe transaction that costs about
+  0.5 s on Windows, so 12 concurrent patches to one document used to pass
+  the 5 s storage deadline there; they now take about two writes.
+
 - `TY1405` for a natively linked C# or F# service that holds a
   `@StreamRequest` or `@SocketRequest` client now says to hold the client in
   a service the page runs. The page reaches the Yon that `tac.yon.origin`
