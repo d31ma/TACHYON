@@ -3,6 +3,7 @@ pub(super) struct LinuxFilePicker;
 impl LinuxFilePicker {
     const SOURCE: &'static str = include_str!("linux_file_picker.c");
     const GRANT: &'static str = "filePicker";
+    const GRANTED: [&'static str; 2] = ["FALSE", "TRUE"];
 
     pub(super) fn source(grants: &[String]) -> String {
         let granted = grants.iter().any(|grant| grant == Self::GRANT);
@@ -10,7 +11,7 @@ impl LinuxFilePicker {
         Self::SOURCE
             .replace(
                 "__FILE_PICKER_GRANTED__",
-                if granted { "TRUE" } else { "FALSE" },
+                Self::GRANTED[usize::from(granted)],
             )
             .replace(
                 "__NATIVE_GRANTS__",
