@@ -41,6 +41,7 @@ mod needs_fsharp;
 mod outgoing_loopback;
 mod published_sections;
 mod relay_boundaries;
+mod request_sources;
 mod requestless_methods;
 mod root_middleware;
 mod route_access;
