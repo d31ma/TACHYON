@@ -1117,6 +1117,16 @@ jobs:
           echo "JAVA_HOME=${jdk}" >> "${GITHUB_ENV}"
           echo "${jdk}/bin" >> "${GITHUB_PATH}"
 
+      - name: Install PHP and php-cgi for PHP Yon handlers
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: none
+
+      - name: Install checksum-pinned Groovy, Kotlin, Lua and Pyodide
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin lua pyodide
+
       - name: Run the library suite under AddressSanitizer
         run: >-
           cargo +nightly-2026-07-20 test -p tachyon-core --lib
@@ -1297,48 +1307,39 @@ jobs:
         with:
           python-version: 3.14.6
 
-      - name: Install Lua from the checksum-pinned source in runtimes/lua-web/sources.txt
-        run: |
-          set -euo pipefail
-          read -r _ version expected_checksum url < <(grep '^lua ' runtimes/lua-web/sources.txt)
-          archive="${RUNNER_TEMP}/lua-${version}.tar.gz"
-          curl --fail --location --silent --show-error --max-time 120 \
-            --output "${archive}" "${url}"
-          echo "${expected_checksum}  ${archive}" | shasum -a 256 --check
-          tar -xzf "${archive}" -C "${RUNNER_TEMP}"
-          platform=linux
-          if [ "${RUNNER_OS}" = "macOS" ]; then
-            platform=macosx
-          fi
-          make -C "${RUNNER_TEMP}/lua-${version}" "${platform}"
-          make -C "${RUNNER_TEMP}/lua-${version}" install INSTALL_TOP="${RUNNER_TEMP}/lua"
-          "${RUNNER_TEMP}/lua/bin/lua" -v
-          echo "${RUNNER_TEMP}/lua/bin" >> "${GITHUB_PATH}"
-
       - name: Install Go for the Go rows of the workspace tests
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: '1.27'
           cache: false
 
-      - name: Install checksum-pinned Dart SDK for Dart services and handlers
-        run: |
-          set -euo pipefail
-          sdk="${RUNNER_TEMP}/dartsdk.zip"
-          expected_checksum=9251c4606ebb31480c45f430be69fce2697e3b888a0a828b9e16e7d23403d72a
-          curl --fail --location --silent --show-error --max-time 180 \
-            --output "${sdk}" \
-            https://storage.googleapis.com/dart-archive/channels/stable/release/3.13.1/sdk/dartsdk-linux-x64-release.zip
-          echo "${expected_checksum}  ${sdk}" | sha256sum --check
-          unzip -q "${sdk}" -d "${RUNNER_TEMP}/dart"
-          echo "${RUNNER_TEMP}/dart/dart-sdk/bin" >> "${GITHUB_PATH}"
+      - name: Install .NET for C# services and handlers
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Install the C# WebAssembly workload
+        run: dotnet workload install wasm-tools wasm-tools-net9
+
+      - name: Install the pinned TypeScript compiler for tac.ts emission
+        run: npm install --no-save typescript@7.0.2 && npx tsc --version
+
+      - name: Install PHP and php-cgi for PHP Yon handlers
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: none
+
+      - name: Install checksum-pinned Groovy, Kotlin, Dart, Lua, Pyodide and cargo-nextest
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin dart lua pyodide nextest
 
       - name: Install pinned coverage tool
         run: cargo install cargo-llvm-cov --version 0.8.6 --locked
 
       - name: Enforce the whole-workspace coverage floor
         run: >-
-          cargo llvm-cov
+          cargo llvm-cov nextest
           --workspace
           --all-features
           --locked

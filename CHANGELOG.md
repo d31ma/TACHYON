@@ -10,6 +10,21 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- CI installs the language toolchains its tests need (CI1). A new
+  `scripts/ci/install-toolchains.mjs` downloads checksum-pinned Groovy 5.1.3,
+  Kotlin 2.1.10, Dart 3.13.1, Lua from `runtimes/lua-web/sources.txt`, the
+  Pyodide 314.0.7 core (into the Tachyon cache) and cargo-nextest 0.9.146, and
+  the Native Rust gate on Linux, macOS and Windows, the coverage job and the
+  sanitizer job use it next to PHP 8.4 from setup-php. The gate and the
+  coverage job run their tests through `cargo nextest`, so the `serial` and
+  `heavy` groups in `.config/nextest.toml` apply in CI. Tests that skipped
+  quietly when php, php-cgi, groovyc, kotlinc, dart or lua was missing now
+  fail on a Unix CI runner, and the Python Tac tests fail in CI without the
+  pinned Pyodide. The storage harness qualifies SQL Server 2022 with forced
+  TLS next to PostgreSQL, MySQL, MariaDB and Redis, and its new
+  `--without-docker` mode runs FYLO on macOS and Windows and Redis on macOS.
+  A `jobs` input on `workflow_dispatch` runs only the named jobs.
+
 - Request-source and caching markers now have run proof in every language
   that accepts them (PR4). `tests/it/request_sources.rs` gives all 15 Yon
   languages one controller with a `PutRoute` and a `PatchRoute` and checks

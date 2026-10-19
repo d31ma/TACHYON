@@ -108,12 +108,13 @@ impl OutboundVerbs {
     }
 
     fn available(&self) -> bool {
-        Command::new(self.program)
+        let found = Command::new(self.program)
             .arg(self.probe)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
-            .is_ok_and(|status| status.success())
+            .is_ok_and(|status| status.success());
+        crate::support::toolchain::Toolchain::checked(self.program, found)
     }
 
     fn copy(from: &Path, to: &Path) {

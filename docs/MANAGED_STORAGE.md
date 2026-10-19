@@ -309,6 +309,10 @@ SQL and Redis:
 - Run `node scripts/test-managed-storage.mjs` to repeat the isolated Docker
   matrix. CI runs this same fixture harness. It does not change application
   databases.
+- `node scripts/test-managed-storage.mjs --without-docker` runs the SQLite and
+  FYLO contracts, and the Redis contract against a local `redis-server` when
+  one is on `PATH`. CI runs it on macOS (Redis from Homebrew) and on Windows,
+  where Redis ships no build, so only SQLite and FYLO run there.
 
 FYLO:
 
@@ -325,13 +329,15 @@ FYLO:
 
 SQL Server:
 
-- SQL Server has an implemented TDS adapter. This work did not qualify it by
-  running it.
-- Tachyon does not accept its vendor license automatically. The Docker matrix
-  does not claim SQL Server coverage.
-- Before you raise its support level, run the ignored
-  `storage::tests::sql_real_repository_nullable_columns` contract against a
-  SQL Server instance that you provision separately.
+- On 2026-10-19, the ignored
+  `storage::tests::sql_real_repository_nullable_columns` contract passed
+  through the TDS adapter against SQL Server 2022 (the digest-pinned
+  `mcr.microsoft.com/mssql/server:2022-latest` image) with forced TLS and the
+  generated fixture CA. `scripts/test-managed-storage.mjs` starts it with the
+  other Docker fixtures, so CI's Linux storage job runs it too.
+- The harness sets `ACCEPT_EULA=Y` for that throwaway container only, which
+  accepts the Developer edition license for the test. Tachyon never accepts a
+  vendor license for an application database.
 
 Qualification of the whole workspace and of native targets is separate from
 these driver checks.

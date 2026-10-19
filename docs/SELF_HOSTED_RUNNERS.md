@@ -191,6 +191,7 @@ run" lists what the machine must already have.
 | Rust | `1.97.1` with `clippy`, `rustfmt`, `llvm-tools-preview`, target `wasm32-unknown-unknown` | `rustup` | `rustup` for the runner account; install the toolchain (step 7) |
 | Rust nightly | `nightly-2026-07-20` with `rust-src` | `rustup` (fuzz, sanitizers) | install it in WSL (step 7) |
 | Cargo tools | cargo-deny 0.19.7, cargo-fuzz 0.13.1, cargo-cyclonedx 0.5.7, cargo-auditable 0.7.0, cargo-llvm-cov 0.8.6 | `cargo install --locked` | a C compiler and linker |
+| cargo-nextest | `0.9.146` | checksum-pinned release binary from `scripts/ci/install-toolchains.mjs` (`native`, `coverage`) | `curl`, and `tar` or `unzip` |
 | Node.js | `24.18.0` | `actions/setup-node` in some jobs | Node.js 24.18.0 on `PATH`, because the `browser`, `macos-native`, and `android-native` jobs call `node` without a setup step |
 | Bun | `1.4.3` | `oven-sh/setup-bun` | nothing |
 | Python | `3.14.6` | `actions/setup-python` in `native` | `python3` on macOS and WSL; `python` on Windows (used by `windows-native`) |
@@ -201,15 +202,18 @@ run" lists what the machine must already have.
 | Emscripten | the `emsdk` and `emscripten` lines in `runtimes/ruby-web/sources.txt` | `scripts/ci/install-emscripten.mjs` | Python on `PATH` |
 | CHEX, FYLO | checksum pins in `scripts/ci/` | `scripts/ci/install-chex.mjs`, `scripts/ci/install-fylo.mjs` | nothing |
 | JDK | 21 | preinstalled, read from `JAVA_HOME_21_arm64` (macOS) or `JAVA_HOME_21_X64` (Linux, Windows) | a JDK 21 and the matching variable in `.env` |
-| Kotlin, Kotlin/Wasm stdlib | `2.1.10` | checksum-pinned download (macOS) | `curl`, `unzip`, `shasum` |
-| Dart | `3.13.1` | checksum-pinned download | `curl`, `unzip` |
+| Kotlin, Kotlin/Wasm stdlib | `2.1.10` | checksum-pinned download (`macos-native`), `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip`, `shasum` |
+| Groovy | `5.1.3` | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip` |
+| Pyodide | `314.0.7` core files, copied into the Tachyon cache | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `tar` with bzip2 |
+| Dart | `3.13.1` | checksum-pinned download, or `scripts/ci/install-toolchains.mjs` (`native`, `coverage`) | `curl`, `unzip` |
 | Swift | `6.3.3` and the Swift SDK for WebAssembly | signed package installed into the runner account's home (macOS) | nothing |
 | TeaVM | `0.15.0` | checksum-pinned jars (macOS) | nothing |
-| PHP | `8.4` | `shivammathur/setup-php` (macOS) | Homebrew that the runner account can use; `runner=self-hosted` in `.env` |
-| Lua | the `lua` line in `runtimes/lua-web/sources.txt`, when the workflow pins it | built from source with `make` | `make` and a C compiler |
+| PHP | `8.4` | `shivammathur/setup-php` (`macos-native`, `native`, `coverage`, `sanitizers`) | Homebrew that the runner account can use; `runner=self-hosted` in `.env` |
+| Lua | the `lua` line in `runtimes/lua-web/sources.txt` | built from source with `make`; on Windows `scripts/ci/install-toolchains.mjs` compiles it with `gcc` or `clang` | `make` and a C compiler |
 | Playwright browsers | Chromium, Firefox, WebKit from the locked `bun.lock` | `bunx playwright install` (`--with-deps` on Linux uses `sudo apt-get`) | on Linux, passwordless `sudo` (see WSL) |
 | Android SDK | `platform-tools`, `platforms;android-35`, `build-tools;35.0.0`, `emulator`, `system-images;android-35;google_apis;x86_64` | `sdkmanager --install` | `ANDROID_HOME` with `cmdline-tools/latest`, and `gradle` on `PATH` (a Gradle version that supports Android Gradle Plugin 8.7.3) |
 | Docker | — | `docker build`, `docker run` | Docker Engine in WSL; the runner account in the `docker` group |
+| Storage fixtures | PostgreSQL 18, MySQL 8.4, MariaDB 11.8, SQL Server 2022 and Redis 8 images, each pinned by digest in `scripts/test-managed-storage.mjs` | `docker run` (`managed-storage`) | Docker; about 2.5 GB free for the SQL Server image |
 | Xvfb | — | inside the `scripts/linux/Dockerfile` image | nothing on the host |
 | Xcode | the version that `macos-latest` uses | preinstalled | Xcode, an iOS simulator runtime, accepted license |
 | Redis | — | `brew install redis` if missing (macOS) | install it once from the administrator account |
