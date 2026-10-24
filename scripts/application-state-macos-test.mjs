@@ -4,7 +4,7 @@ import { CargoArtifacts } from './cargo-artifacts.mjs'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -147,6 +147,11 @@ final class SwiftStateService {
     await ApplicationStateCheck.waitFor(state, label)
   }
 
+  static forgetWebsiteData() {
+    const library = join(homedir(), 'Library')
+    for (const folder of ['WebKit', 'Caches', 'HTTPStorages']) rmSync(join(library, folder, ApplicationStateCheck.identifier), { recursive: true, force: true })
+  }
+
   static quit() {
     spawnSync('/usr/bin/osascript', ['-e', `tell application id "${ApplicationStateCheck.identifier}" to quit`])
   }
@@ -167,6 +172,7 @@ final class SwiftStateService {
         await ApplicationStateCheck.step('restore', 'foreground', 'the window was restored')
       } finally {
         ApplicationStateCheck.quit()
+        ApplicationStateCheck.forgetWebsiteData()
       }
       console.log('PASS: the macOS host sends background and foreground to the page and to linked Rust and Swift services')
     } finally {

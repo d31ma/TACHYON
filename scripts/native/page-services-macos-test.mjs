@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { execFile, spawnSync } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -64,6 +64,12 @@ class MacOsPageServicesTest {
     }
   }
 
+  /** @param {string} id */
+  static forgetWebsiteData(id) {
+    const library = path.join(homedir(), 'Library')
+    for (const folder of ['WebKit', 'Caches', 'HTTPStorages']) rmSync(path.join(library, folder, id), { recursive: true, force: true })
+  }
+
   /** @param {string} language */
   static async checkService(language) {
     const project = path.join(this.root, `tally-${language}`)
@@ -83,6 +89,7 @@ class MacOsPageServicesTest {
       await this.drive(id, this.tallySteps)
     } finally {
       spawnSync('/usr/bin/pkill', ['-f', path.join(app, 'Contents/MacOS')])
+      this.forgetWebsiteData(id)
     }
     const answered = ((Date.now() - opened) / 1000).toFixed(1)
     console.log(`ok - ${language} page service answered a click in the macOS app (built in ${built} s, LSMinimumSystemVersion ${floor}, opened and answered in ${answered} s)`)
