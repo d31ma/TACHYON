@@ -131,9 +131,13 @@ export class SupervisedCommand {
       return this.#parseWindowsSnapshot(await this.#inspect('powershell.exe', query, SupervisedCommand.windowsInspectionMilliseconds))
     }
     let text = ''
+    let failure = null
     for (let attempt = 0; attempt < SupervisedCommand.inspectionAttempts && !text.trim(); attempt++) {
+      failure = null
       text = await this.#inspect('ps', ['-axo', 'pid=,ppid=,pgid=,lstart=,stat='], SupervisedCommand.inspectionMilliseconds)
+        .catch(error => { failure = error; return '' })
     }
+    if (failure) throw failure
     return this.#withKernelStartTimes(this.#parseSnapshot(text))
   }
 
