@@ -79,7 +79,7 @@ class WindowsPageChecksTest {
       await new Promise((resolve) => undeclared.server.close(resolve))
     }
     const seconds = Math.round((Date.now() - started) / 1000)
-    console.log(`PASS: in the built Windows app (WebView2), typing kept focus and caret through reactive writes; connect-src refused ${undeclared.origin} (it saw no request) while the Yon origin answered; a network-first Yon read answered from the cache with Yon stopped; a @SessionState field survived a navigation; a preference string survived File > Exit and a relaunch; UI Automation exposed Edit, Button, Hyperlink, Text and Heading roles (${seconds} s).`)
+    console.log(`PASS: in the built Windows app (WebView2), typing kept focus and caret through reactive writes; connect-src refused ${undeclared.origin} (it saw no request) while the Yon origin answered; a network-first Yon read answered from the cache with Yon stopped; a @SessionState field survived a navigation; a preference string survived a quit and a relaunch; UI Automation exposed Edit, Button, Hyperlink, Text and Heading roles (${seconds} s).`)
   }
 }
 
