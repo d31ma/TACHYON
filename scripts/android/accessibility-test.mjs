@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,7 +16,9 @@ class AndroidAccessibilityTest {
   static fixture = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'android-accessibility-'))
   static evidence = process.env.TAC_ANDROID_ACCESSIBILITY_EVIDENCE ?? path.join(AndroidAccessibilityTest.repository, 'target/android-accessibility-evidence')
   static applicationId = 'dev.tachyon.accessibility_audit'
-  static dumpFile = '/sdcard/tachyon-accessibility.xml'
+  static probeClass = 'AccessibilityProbe'
+  static probeDevicePath = '/data/local/tmp/tachyon-accessibility-probe.dex'
+  static probeClassPath = `/system/framework/uiautomator.jar:${AndroidAccessibilityTest.probeDevicePath}`
   static webViewClass = 'android.webkit.WebView'
   static editableClass = 'android.widget.EditText'
   static buttonClass = 'android.widget.Button'
@@ -65,10 +67,26 @@ class AndroidAccessibilityTest {
     return [node, ...node.children.flatMap((child) => this.flatten(child))]
   }
 
+  static newest(directory) {
+    const versions = readdirSync(directory).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    assert.ok(versions.length, `${directory} is empty`)
+    return path.join(directory, versions.at(-1))
+  }
+
+  static installProbe() {
+    const classes = path.join(this.fixture, 'probe-classes')
+    const platform = path.join(this.newest(path.join(this.sdk, 'platforms')), 'android.jar')
+    const javac = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, 'bin', 'javac') : 'javac'
+    mkdirSync(classes, { recursive: true })
+    this.run(javac, ['--release', '17', '-cp', platform, '-d', classes, path.join(this.repository, 'scripts/android', `${this.probeClass}.java`)])
+    this.run(path.join(this.newest(path.join(this.sdk, 'build-tools')), 'd8'), ['--lib', platform, '--output', this.fixture, path.join(classes, `${this.probeClass}.class`)])
+    this.run(this.adb, ['push', path.join(this.fixture, 'classes.dex'), this.probeDevicePath])
+  }
+
   static screen() {
-    const dump = spawnSync(this.adb, ['shell', 'uiautomator', 'dump', this.dumpFile], { encoding: 'utf8', timeout: 60000 })
-    if (!`${dump.stdout}${dump.stderr}`.includes('dumped to')) return { xml: '', nodes: [] }
-    const xml = this.adbShell('cat', this.dumpFile)
+    const probe = spawnSync(this.adb, ['shell', `CLASSPATH=${this.probeClassPath}`, 'app_process', '/system/bin', this.probeClass], { encoding: 'utf8', timeout: 60000, maxBuffer: 64 * 1024 * 1024 })
+    const xml = probe.status === 0 && probe.stdout.includes('<hierarchy') ? probe.stdout.trim() : ''
+    if (!xml) return { xml, nodes: [] }
     const tree = this.parse(xml)
     const web = this.flatten(tree).find((node) => node.class === this.webViewClass && node.package === this.applicationId)
     return { xml, web, nodes: web ? this.flatten(web).slice(1) : [] }
@@ -193,6 +211,7 @@ class AndroidAccessibilityTest {
     assert.ok(this.sdk, 'ANDROID_HOME or ANDROID_SDK_ROOT is required')
     mkdirSync(this.evidence, { recursive: true })
     try {
+      this.installProbe()
       this.launch(this.build())
       const report = await this.check()
       const device = this.adbShell('getprop', 'ro.build.version.release')
@@ -203,6 +222,7 @@ class AndroidAccessibilityTest {
       console.log(`PASS: on the Android ${device} emulator, the page's heading, image, text field, button and link reached the platform accessibility tree by name, typing, a press and a link worked from their accessibility bounds, and the ATF-style checks found no issue. Report: ${path.join(this.evidence, 'report.json')}`)
     } finally {
       spawnSync(this.adb, ['shell', 'am', 'force-stop', this.applicationId], { stdio: 'ignore' })
+      spawnSync(this.adb, ['shell', 'rm', '-f', this.probeDevicePath], { stdio: 'ignore' })
       rmSync(this.fixture, { recursive: true, force: true })
     }
   }

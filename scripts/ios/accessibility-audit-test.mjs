@@ -18,6 +18,7 @@ class IosAccessibilityAuditTest {
   static auditTarget = 'AccessibilityAudit'
   static auditBundleId = 'dev.tachyon.accessibility-audit-tests'
   static marker = 'TACHYON_ACCESSIBILITY_REPORT '
+  static reportFile = path.join(tmpdir(), `ios-accessibility-report-${randomUUID()}.json`)
   static excused = []
   static device = ''
 
@@ -118,7 +119,7 @@ class IosAccessibilityAuditTest {
 
   static audit(project) {
     const fixture = MobileAccessibilityFixture
-    const file = path.join(this.fixture, 'audit-report.json')
+    const file = this.reportFile
     const names = { heading: fixture.HEADING, image: fixture.IMAGE, field: fixture.FIELD, button: fixture.BUTTON, link: fixture.LINK, idle: fixture.IDLE, typed: fixture.TYPED, saved: fixture.SAVED, about: fixture.ABOUT_HEADING }
     console.log('==> running the XCUITest accessibility audit')
     const result = spawnSync('/usr/bin/xcrun', ['xcodebuild', 'test', '-project', project, '-scheme', this.auditTarget,
@@ -151,6 +152,7 @@ class IosAccessibilityAuditTest {
       this.device = ''
     }
     rmSync(this.fixture, { recursive: true, force: true })
+    rmSync(this.reportFile, { force: true })
   }
 
   static main() {
