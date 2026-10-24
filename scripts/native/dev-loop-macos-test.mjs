@@ -88,6 +88,15 @@ class MacOsDevLoopTest {
       await this.sleep(this.pollMilliseconds)
     }
     console.log(`OK: ty preview opened the app ${count} time(s)`)
+    await this.appeared()
+  }
+
+  static async appeared() {
+    const deadline = Date.now() + this.openSeconds * 1000
+    while (await this.probeOnce('wait', []) !== '') {
+      assert.ok(Date.now() < deadline, `macOS lists no running ${DevLoopFixture.identifier}\n${this.output}`)
+      await this.sleep(this.pollMilliseconds)
+    }
   }
 
   static application() {
@@ -128,6 +137,7 @@ class MacOsDevLoopTest {
   }
 
   static async stopPreview(preview, executables) {
+    assert.ok(this.running(executables), `no process runs ${executables} before ty preview stops`)
     process.kill(preview.child.pid, 'SIGINT')
     const deadline = Date.now() + 10_000
     while (this.running(executables) && Date.now() < deadline) await this.sleep(this.pollMilliseconds)
