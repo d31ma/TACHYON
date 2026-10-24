@@ -406,6 +406,15 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   the display. WSLg's own Weston crashed (signal 11) as the first GTK window
   opened, in a session started over SSH; a ten-line GTK 4 window crashed it
   the same way. WSLg is not counted as a Wayland run.
+- WSLg from the signed-in desktop session (2026-10-24, SD1, WSLg 1.0.79 with
+  Weston 9.0.0, on `172164f8`): `compositor-test.sh --wslg`, started on the
+  Windows desktop through `scripts/windows/desktop-run.ps1`, passed eight
+  host tests (the host lifetime, page calls, storage across relaunch, the
+  WebKitGTK startup check, appearance, fullscreen and both window control
+  tests) and the three link tests, and Weston did not crash. The two title
+  bar tests are left out there: they press the pointer through Mutter's
+  RemoteDesktop D-Bus API, which WSLg does not have, and they pass under
+  mutter and xfwm4.
 - WSL, round 4 on `fe191f12`, after Samuel installed mutter 46.2, xdg-utils
   1.1.3 and gcc-mingw-w64-x86-64 13.2.0: `compositor-test.sh` passed both
   halves (xfwm4 compositing two and two; headless mutter Wayland ten host
@@ -414,7 +423,7 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   `linkgate://` links in one running app. The two Windows link tests now
   compile with mingw but need Wine to run the x86_64 `.exe`, which arm64 WSL
   cannot run without an x86 emulator; they belong on Windows or x86_64 Linux.
-- Not run: WSLg from a signed-in desktop session; a physical Linux desktop.
+- Not run: a physical Linux desktop.
   GeoClue, a notification server and an apt install of the `.deb` as root
   ran in LX1 (below), in the cloud and on WSL.
 
@@ -502,10 +511,9 @@ an event with `CurrentPageEvents` now tells the page to read its fields
 again (see the CHANGELOG).
 
 Not run in SD1: a picker opened from a WebView2 page, a host link opening
-the installed package (no verified domain), x64 on an x64 machine, and the
-Wayland tests from the signed-in session under WSLg
-(`scripts/linux/compositor-test.sh --wslg`), because the WSL distribution's
-disk was read-only with I/O errors.
+the installed package (no verified domain) and x64 on an x64 machine. After a
+restart of the WSL distribution, whose disk had gone read-only, the WSLg
+Wayland tests ran from the same signed-in session (see the WSL list above).
 
 ### Linux desktop stand-ins (2026-10-24, LX1)
 
