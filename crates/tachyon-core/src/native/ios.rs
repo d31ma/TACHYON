@@ -260,7 +260,7 @@ pub(super) fn swift_source(
 ) -> String {
     let rust = usize::from(companion_call.contains("tacRustInvoke"));
     let rust_shim = ["", MacOsHostGenerator::RUST_SHIM][rust];
-    let framed = IosHostGenerator::SWIFT_HOST
+    let framed = IosHostGenerator::with_file_picker(application, companion_call)
         .replace(
             "__TACHYON_JSON_REQUEST__",
             MacOsHostGenerator::APPLE_JSON_REQUEST,
@@ -295,27 +295,6 @@ pub(super) fn swift_source(
         .replace(
             "__NATIVE_CAPABILITY_REGISTER__",
             MacOsHostGenerator::capability_registration(companion_call),
-        )
-        .replace(
-            "__NATIVE_CAPABILITY_MODELS__",
-            [MacOsHostGenerator::CAPABILITY_MODELS, ""]
-                [usize::from(companion_call.contains("tacNativeInvoke"))],
-        )
-        .replace(
-            "__NATIVE_FILE_PICKER__",
-            include_str!("capabilities/IosFilePicker.swift"),
-        )
-        .replace(
-            "__NATIVE_CAPABILITY_ROUTE__",
-            include_str!("capabilities/IosCapabilityRoute.swift"),
-        )
-        .replace(
-            "__NATIVE_FILE_PICKER_GRANTED__",
-            &application
-                .native_capabilities
-                .iter()
-                .any(|grant| grant == "filePicker")
-                .to_string(),
         )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace(
@@ -390,6 +369,31 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl IosHostGenerator {
+    fn with_file_picker(application: &NativeApplication, companion_call: &str) -> String {
+        IosHostGenerator::SWIFT_HOST
+            .replace(
+                "__NATIVE_CAPABILITY_MODELS__",
+                [MacOsHostGenerator::CAPABILITY_MODELS, ""]
+                    [usize::from(companion_call.contains("tacNativeInvoke"))],
+            )
+            .replace(
+                "__NATIVE_FILE_PICKER__",
+                include_str!("capabilities/IosFilePicker.swift"),
+            )
+            .replace(
+                "__NATIVE_CAPABILITY_ROUTE__",
+                include_str!("capabilities/IosCapabilityRoute.swift"),
+            )
+            .replace(
+                "__NATIVE_FILE_PICKER_GRANTED__",
+                &application
+                    .native_capabilities
+                    .iter()
+                    .any(|grant| grant == "filePicker")
+                    .to_string(),
+            )
+    }
+
     const APPLICATION_START: &str = "guard tacRustNativeApplicationStart() else { Telemetry.shared.record(\"application.start.failed\"); exit(EXIT_FAILURE) }";
     const APPLICATION_STOP: &str = "tacRustNativeApplicationShutdown()";
     const SWIFT_HOST: &str = r##"import Foundation
