@@ -7,6 +7,8 @@ mod coverage_gate;
 mod device_choice;
 mod init_choices;
 mod init_command;
+mod native_app_keeper;
+mod native_build_report;
 mod native_preview;
 mod package_architectures;
 mod package_plan;
@@ -35,7 +37,6 @@ use tachyon_core::{
     HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, MigrationAnalysis, MigrationFix,
     NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, RouteInvocation,
     ServerHost, TargetSupport, WebCompiler, method_coverage::RecordedCalls,
-    native_target_directory,
 };
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, Severity};
 
@@ -1726,23 +1727,8 @@ async fn execute_native_build(
         },
     )
     .await?;
-    print_native_build(native, &result);
+    native_build_report::NativeBuildReport::print(native, &result);
     Ok(())
-}
-
-fn print_native_build(native: NativeTarget, result: &tachyon_core::NativeBuildResult) {
-    println!(
-        "Built {} app hosting {} routes to {} ({}) compiled={} reused={}",
-        native_target_directory(native),
-        result.route_count(),
-        result.application_bundle().display(),
-        result.sha256(),
-        result.compiled_routes(),
-        result.reused_routes()
-    );
-    for note in result.notes() {
-        println!("{note}");
-    }
 }
 
 fn execute_doctor(project: &PathBuf, json: bool, release: bool) -> Result<(), Failure> {

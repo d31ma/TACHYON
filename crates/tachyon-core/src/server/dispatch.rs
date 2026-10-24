@@ -689,6 +689,10 @@ impl Dispatch {
         if !self.watch || !html {
             return response;
         }
+        self.inject(response).await
+    }
+
+    async fn inject(&self, response: Response<Body>) -> Response<Body> {
         let (parts, body) = response.into_parts();
         let bytes = axum::body::to_bytes(body, Self::MAX_DOCUMENT_BYTES).await;
         self.injected(parts, bytes)

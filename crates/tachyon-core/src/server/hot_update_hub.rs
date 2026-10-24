@@ -56,18 +56,18 @@ impl HotUpdateHub {
     }
 
     pub(in crate::server) fn reached_from(self, origin: Option<&str>) -> Self {
-        let Some(origin) = origin else {
-            return self;
-        };
+        let script_tag =
+            origin.map_or_else(|| Arc::clone(&self.script_tag), Self::named_script_tag);
+        Self { script_tag, ..self }
+    }
+
+    fn named_script_tag(origin: &str) -> Arc<str> {
         let meta = format!(
             "<meta name=\"{}\" content=\"{}\">",
             Self::ORIGIN_META_NAME,
             crate::compiler::html_attribute_escape(origin)
         );
-        Self {
-            script_tag: Arc::from([meta.as_str(), Self::LIVE_RELOAD_SCRIPT_TAG].concat()),
-            ..self
-        }
+        Arc::from([meta.as_str(), Self::LIVE_RELOAD_SCRIPT_TAG].concat())
     }
 
     pub(in crate::server) fn script_tag(&self) -> &str {

@@ -206,6 +206,7 @@ mod native_release_version;
 mod native_reproducibility;
 #[cfg(test)]
 mod native_reproducible_build_tests;
+mod native_running_app;
 #[cfg(test)]
 mod native_rust_apple_host_tests;
 #[cfg(test)]

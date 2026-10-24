@@ -17,11 +17,9 @@ impl AppOrigins {
 
     pub(crate) fn with_origin(&self, origin: &str) -> Self {
         let mut origins = self.origins.clone();
-        if let Some(listed) = Self::written_as_origin(origin)
-            && !origins.contains(&listed)
-        {
-            origins.push(listed);
-        }
+        origins.extend(
+            Self::written_as_origin(origin).filter(|listed| !self.origins.contains(listed)),
+        );
         Self { origins }
     }
 

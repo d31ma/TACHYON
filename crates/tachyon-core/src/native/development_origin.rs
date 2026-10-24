@@ -22,17 +22,20 @@ impl DevelopmentOrigin {
 
     #[must_use]
     pub fn new(target: NativeTarget, port: u16) -> Self {
-        let host = match target {
+        Self {
+            target,
+            port,
+            origin: format!("http://{}:{port}", Self::loopback(target)),
+        }
+    }
+
+    const fn loopback(target: NativeTarget) -> &'static str {
+        match target {
             NativeTarget::Android => Self::EMULATOR_LOOPBACK,
             NativeTarget::Macos
             | NativeTarget::Ios
             | NativeTarget::Linux
             | NativeTarget::Windows => Self::LOOPBACK,
-        };
-        Self {
-            target,
-            port,
-            origin: format!("http://{host}:{port}"),
         }
     }
 
@@ -53,7 +56,11 @@ impl DevelopmentOrigin {
 
     #[must_use]
     pub const fn app_origin(&self) -> &'static str {
-        match self.target {
+        Self::app_origin_of(self.target)
+    }
+
+    const fn app_origin_of(target: NativeTarget) -> &'static str {
+        match target {
             NativeTarget::Macos | NativeTarget::Ios => "tachyon-app://bundle",
             NativeTarget::Android => "https://appassets.tachyon.local",
             NativeTarget::Windows => "https://tachyon.local",

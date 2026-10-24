@@ -305,7 +305,7 @@ impl NativeCompiler {
             compiled_routes: web.compiled_routes(),
             reused_routes: web.reused_routes(),
             sha256: digest,
-            launch_identifier: launch_identifier(options.target, &application.application_id),
+            launch_identifier: Self::launch_identifier(options.target, &application.application_id),
             executable_name: application.executable_name.clone(),
             notes: notes
                 .into_iter()
@@ -324,10 +324,20 @@ impl NativeCompiler {
         project: &Project,
         options: &NativeBuildOptions,
     ) -> Result<Option<String>, Failure> {
-        let Some(development) = &options.development_origin else {
-            return Ok(None);
-        };
-        if options.release {
+        options
+            .development_origin
+            .as_ref()
+            .map(|development| Self::declare_unless_release(project, development, options.release))
+            .transpose()
+            .map(Option::flatten)
+    }
+
+    fn declare_unless_release(
+        project: &Project,
+        development: &super::DevelopmentOrigin,
+        release: bool,
+    ) -> Result<Option<String>, Failure> {
+        if release {
             return Err(Failure::one(diagnostic(
                 1601,
                 "A release build cannot point the app at the development server.",
@@ -339,13 +349,14 @@ impl NativeCompiler {
         }
         development.declare_in(project.snapshot_root())
     }
-}
 
-fn launch_identifier(target: NativeTarget, application_id: &str) -> String {
-    match target {
-        NativeTarget::Android => super::android::java_package(application_id),
-        NativeTarget::Macos | NativeTarget::Ios | NativeTarget::Linux | NativeTarget::Windows => {
-            String::from(application_id)
+    fn launch_identifier(target: NativeTarget, application_id: &str) -> String {
+        match target {
+            NativeTarget::Android => super::android::java_package(application_id),
+            NativeTarget::Macos
+            | NativeTarget::Ios
+            | NativeTarget::Linux
+            | NativeTarget::Windows => String::from(application_id),
         }
     }
 }

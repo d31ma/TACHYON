@@ -1,6 +1,6 @@
 use crate::NativeCompanion;
 use std::hash::{DefaultHasher, Hash as _, Hasher as _};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tachyon_contracts::NativeTarget;
 
 pub struct NativeAppSources;
@@ -18,35 +18,38 @@ impl NativeAppSources {
             .map(|language| language.model_extension())
             .collect();
         let mut hasher = DefaultHasher::new();
-        let mut pending = vec![project_root.join(Self::CLIENT)];
-        let mut seen = 0;
-        while let Some(current) = pending.pop() {
-            let Ok(metadata) = std::fs::symlink_metadata(&current) else {
-                continue;
-            };
-            if metadata.is_dir() {
-                pending.extend(Self::children(&current));
-                continue;
-            }
-            seen += 1;
-            if seen > Self::MAX_FILES {
-                break;
-            }
-            if Self::builds_the_app(&current, &extensions) {
-                current.hash(&mut hasher);
-                metadata.len().hash(&mut hasher);
-                metadata.modified().ok().hash(&mut hasher);
-            }
-        }
+        Self::files(&project_root.join(Self::CLIENT))
+            .into_iter()
+            .take(Self::MAX_FILES)
+            .filter(|file| Self::builds_the_app(file, &extensions))
+            .for_each(|file| Self::hash_file(&file, &mut hasher));
         hasher.finish()
     }
 
-    fn children(folder: &Path) -> Vec<std::path::PathBuf> {
+    fn files(folder: &Path) -> Vec<PathBuf> {
         let mut children: Vec<_> = std::fs::read_dir(folder)
             .map(|entries| entries.flatten().map(|entry| entry.path()).collect())
             .unwrap_or_default();
         children.sort();
-        children
+        children.into_iter().flat_map(Self::files_under).collect()
+    }
+
+    fn files_under(path: PathBuf) -> Vec<PathBuf> {
+        let folder = std::fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.is_dir());
+        if folder {
+            Self::files(&path)
+        } else {
+            vec![path]
+        }
+    }
+
+    fn hash_file(file: &Path, hasher: &mut DefaultHasher) {
+        let metadata = std::fs::symlink_metadata(file).ok();
+        file.hash(hasher);
+        metadata.as_ref().map(std::fs::Metadata::len).hash(hasher);
+        metadata
+            .and_then(|metadata| metadata.modified().ok())
+            .hash(hasher);
     }
 
     fn builds_the_app(file: &Path, extensions: &[&str]) -> bool {
