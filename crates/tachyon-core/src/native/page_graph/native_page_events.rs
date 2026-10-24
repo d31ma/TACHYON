@@ -9,7 +9,7 @@ impl NativePageEvents {
     }
 
     fn listens(name: &str) -> bool {
-        !Self::recipients(name).is_empty()
+        !Self::listeners(name).is_empty()
     }
 
     fn publish(name: &str, value: &TacValue) -> bool {
@@ -38,7 +38,8 @@ impl NativePageEvents {
     }
 
     fn deliver_all(name: &str, value: &TacValue) -> bool {
-        let recipients = Self::recipients(name);
+        let listeners = Self::listeners(name);
+        let recipients = Self::distinct(&listeners);
         let previous = tac_executing().with(|slot| slot.borrow().clone());
         let delivered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             recipients
@@ -47,6 +48,7 @@ impl NativePageEvents {
         }));
         tac_executing().with(|slot| *slot.borrow_mut() = previous);
         Self::delivering().with(|delivering| delivering.set(false));
+        listeners.iter().for_each(|owner| Self::announce(owner));
         [delivered.is_ok(), !recipients.is_empty()] == [true; 2]
     }
 
@@ -56,14 +58,38 @@ impl NativePageEvents {
         tac_drain(owner);
     }
 
-    fn recipients(name: &str) -> Vec<std::rc::Rc<TacActivation>> {
+    fn announce(owner: &TacActivation) {
+        let emit = tac_emit_slot().lock().ok().and_then(|installed| *installed);
+        let payload = std::ffi::CString::new(Self::changed(owner)).ok();
+        if let (Some(emit), Some(payload)) = (emit, payload) {
+            emit(payload.as_ptr());
+        }
+    }
+
+    fn changed(owner: &TacActivation) -> String {
+        format!(
+            "{{\"route\":{},\"service\":{},\"owner\":{},\"changed\":true}}",
+            tac_quote(&owner.route),
+            tac_quote(&owner.service),
+            tac_quote(&owner.owner)
+        )
+    }
+
+    fn listeners(name: &str) -> Vec<std::rc::Rc<TacActivation>> {
         let owners =
             tac_active_owners().with(|slot| slot.borrow().values().cloned().collect::<Vec<_>>());
-        let mut seen = std::collections::BTreeSet::new();
         owners
             .into_iter()
             .filter(|owner| Self::live_listener(owner, name))
+            .collect()
+    }
+
+    fn distinct(listeners: &[std::rc::Rc<TacActivation>]) -> Vec<std::rc::Rc<TacActivation>> {
+        let mut seen = std::collections::BTreeSet::new();
+        listeners
+            .iter()
             .filter(|owner| seen.insert(Self::identity(owner)))
+            .cloned()
             .collect()
     }
 

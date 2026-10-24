@@ -1677,6 +1677,7 @@ if (nativeHost()) {
     const live = [...NativeState.owners].find(([, record]) => !record.disposed && record.ownerId === signal?.owner && record.service === signal?.service)
     if (!live) return
     if (signal.task !== undefined) return NativeTasks.done(signal)
+    if (signal.changed === true) { TacNativeEvents.changed(live[0]).then(() => render()).catch(signalFailure); return }
     if (typeof signal.send === 'string') { Promise.resolve().then(() => TacNativeEvents.send(live[0], signal)).catch(signalFailure); return }
     try { TacNativeEvents.publish(live[0], () => Runtime.events.publish(signal.name, signal.value, { retain: signal.retain === true })) } catch { signalFailure() }
   }

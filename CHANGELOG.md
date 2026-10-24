@@ -1742,6 +1742,15 @@ machine contracts have their own, independent major versions.
   `TY2015 Unresolved dependency Integer`. Only fields written `name = nil,`
   are filled, as in every other Yon language.
 
+- A native menu or tray action that forwards an event with
+  `CurrentPageEvents` now shows on the page (SD1). The Rust page service
+  received the event, but nothing told the page that the service had
+  changed, so the page kept showing its old fields until the next page call.
+  The Rust companion now sends a `changed` signal to every page owner that
+  listens for the event, and the page reads the fields again and renders.
+  The Windows desktop gate found it (View > Show Running and Ctrl+2 left
+  "Section" unchanged); macOS, Linux and Windows hosts share the fix.
+
 - A Rust Yon handler that fails to compile names the model file at fault
   again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
   Tachyon now builds handlers with plain cargo output.

@@ -58,6 +58,11 @@ publish to the page again while it receives the event (the nested call answers
 Recipients are Rust page Services, because only they can inject an application
 service; a JavaScript service can listen to an event that a Rust listener
 returns. No page owner, publisher lease or disposed handler is retained.
+After the delivery, the companion sends each page owner that listens for the
+event a `{"route", "service", "owner", "changed": true}` signal through the
+host's publish path, and the page reads that owner's fields again and
+renders. Without it the page kept its old field values, because the change
+did not start from a page call.
 
 ### Enablement
 

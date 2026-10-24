@@ -111,7 +111,20 @@ fn ready(event: &str) -> bool {
     let event = std::ffi::CString::new(event).unwrap();
     tac_native_menu_ready(event.as_ptr())
 }
+fn signals() -> &'static std::sync::Mutex<Vec<String>> {
+    static SIGNALS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    &SIGNALS
+}
+extern "C" fn emit(payload: *const core::ffi::c_char) {
+    let text = unsafe { core::ffi::CStr::from_ptr(payload) }.to_string_lossy().into_owned();
+    signals().lock().unwrap().push(text);
+}
+fn changed(service: &str, owner: &str) -> usize {
+    let signal = format!(r#"{{"route":"/","service":"{service}","owner":"{owner}","changed":true}}"#);
+    signals().lock().unwrap().iter().filter(|sent| **sent == signal).count()
+}
 fn main() {
+    unsafe { tac_native_set_emit(Some(emit)) };
     assert!(tac_native_application_start());
     assert!(!ready("SectionChosen"), "no page means no recipient");
     assert!(menu("show-running"));
@@ -129,6 +142,7 @@ fn main() {
     assert_eq!(Probe::count("nested.refused"), 1, "a listener cannot publish to the page again during delivery");
     assert_eq!(request("section", first, "get", "section"), "{\"value\":\"running\"}");
     assert_eq!(request("section", first, "get", "visits"), "{\"value\":1}", "page state stays");
+    assert_eq!(changed("section", first), 1, "the page learns that its service changed, so it reads the new section");
     let second = "00000000-0000-4000-8000-000000000002";
     assert!(!request("section", second, "init", "").contains("error"));
     let tallies = ["00000000-0000-4000-8000-000000000003", "00000000-0000-4000-8000-000000000004"];
@@ -136,10 +150,15 @@ fn main() {
     assert!(menu("show-running"));
     assert_eq!(Probe::count("chosen"), 2, "a page singleton bound twice receives one delivery");
     assert_eq!(Probe::count("tallied"), 2, "each prototype receives one delivery");
+    assert_eq!(changed("section", second), 1, "every page owner of the shared singleton refreshes");
+    assert_eq!(changed("section", first), 2);
+    for tally in tallies { assert_eq!(changed("tally", tally), 1); }
     let _ = tac_handle("{\"op\":\"host-dispose\"}");
     assert!(!ready("SectionChosen"), "navigation retires every recipient");
+    let announced = signals().lock().unwrap().len();
     assert!(menu("show-running"));
     assert_eq!(Probe::count("refused"), 2);
+    assert_eq!(signals().lock().unwrap().len(), announced, "a refused event changes no page");
     assert!(!menu("unknown"));
     assert_eq!(Probe::count("created"), 1);
     tac_native_application_shutdown();
@@ -367,4 +386,78 @@ async fn native_menu_actions_reach_live_page_listeners_once_and_refuse_without_a
         MenuActionFixture::CALLER,
     )
     .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler, the x86_64-pc-windows-gnu Rust standard library, Wine and xvfb-run; runs the Win32 menu code with a real Rust companion DLL, not WebView2 or MSVC"]
+async fn windows_menu_actions_enable_with_a_live_listener_and_tell_the_page_under_wine() {
+    let root = tempfile::tempdir().expect("project");
+    let source = MenuActionFixture::stage(root.path());
+    let bin = root.path().join("bin");
+    std::fs::create_dir_all(&bin).expect("bin");
+    let mut rustc = tokio::process::Command::new("rustc");
+    rustc
+        .args(["--edition", "2024", "--crate-type", "cdylib"])
+        .args(["--target", "x86_64-pc-windows-gnu"])
+        .args(["-C", "linker=x86_64-w64-mingw32-gcc"])
+        .arg(&source)
+        .arg("-o")
+        .arg(bin.join("TachyonRustCompanion.dll"));
+    let compiled =
+        crate::external_command::run(&mut rustc, std::time::Duration::from_mins(3), 65536)
+            .await
+            .expect("Rust compile");
+    assert!(
+        compiled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+    let harness = super::windows_host_tests::WindowsHostTests::harness_with(
+        &MenuActionFixture::menus(),
+        "#define TACHYON_TRAY 0\n",
+        include_str!("windows_menu_action_fixture.c"),
+    );
+    let harness_source = root.path().join("menus.c");
+    std::fs::write(&harness_source, harness).expect("harness");
+    let executable = bin.join("menus.exe");
+    super::host::run_tool(
+        super::windows_host_tests::WindowsHostTests::MINGW,
+        &[
+            "-std=gnu17",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            harness_source.to_str().expect("source"),
+            "-luser32",
+            "-o",
+            executable.to_str().expect("executable"),
+        ],
+    )
+    .await
+    .expect("Win32 menu code compiles and links");
+    let prefix = root.path().join("wine");
+    let mut wine = tokio::process::Command::new("xvfb-run");
+    wine.args(["-a", "wine64"])
+        .arg(&executable)
+        .current_dir(&bin)
+        .env("LANG", "C.UTF-8")
+        .env("WINEDEBUG", "-all")
+        .env("WINEPREFIX", &prefix)
+        .env("WINEDLLOVERRIDES", "mscoree,mshtml=");
+    let executed =
+        crate::external_command::run(&mut wine, std::time::Duration::from_mins(5), 65536)
+            .await
+            .expect("wine execute");
+    let mut stop = tokio::process::Command::new("wineserver");
+    stop.arg("-k").env("WINEPREFIX", &prefix);
+    let _ =
+        crate::external_command::run(&mut stop, std::time::Duration::from_secs(30), 65536).await;
+    let stdout = String::from_utf8_lossy(&executed.stdout);
+    assert!(
+        stdout.contains("windows menu actions passed"),
+        "{stdout}\n{}",
+        String::from_utf8_lossy(&executed.stderr)
+    );
 }

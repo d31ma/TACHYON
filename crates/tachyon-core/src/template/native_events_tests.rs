@@ -39,7 +39,12 @@ await TacNativeEvents.send(owner, { send: 'chat', value: { text: 'Hello' } })
 let unknown = 'sent'
 try { TacNativeEvents.send(owner, { send: 'missing', value: 1 }) } catch (error) { unknown = error.constructor.name }
 await new Promise((resolve) => setTimeout(resolve, 20))
+const before = { refreshed, changed, calls: calls.length }
+await TacNativeEvents.changed(owner)
+await TacNativeEvents.changed({})
+const announced = { refreshed: refreshed - before.refreshed, changed: changed - before.changed, calls: calls.length - before.calls }
 console.log(JSON.stringify({
+  announced,
   listeners: plan.listeners.map(({ key, method }) => ({ key, method })),
   streams: plan.streams.map(({ method, path, socket, topic, sender }) => ({ method, path, socket, topic, sender: sender ?? null })),
   opened: opened.map((source) => source.url),
@@ -76,6 +81,18 @@ process.exit(0)
     fn write(root: &Path, name: &str, source: &str) {
         std::fs::write(root.join(name), source).expect("write");
     }
+}
+
+#[test]
+fn the_page_reads_a_linked_service_again_and_renders_when_the_host_says_it_changed() {
+    let client = include_str!("tac-client.js");
+    let publish = client
+        .split("globalThis.__tachyonCompanionPublish = (signal) => {")
+        .nth(1)
+        .expect("companion publish");
+    assert!(publish.contains(
+        "if (signal.changed === true) { TacNativeEvents.changed(live[0]).then(() => render()).catch(signalFailure); return }"
+    ));
 }
 
 #[test]
@@ -126,8 +143,13 @@ fn the_page_holds_a_linked_service_streams_sockets_and_topics() {
         ]),
         "{report}"
     );
-    assert_eq!(report["refreshed"], 2, "{report}");
-    assert_eq!(report["changed"], 2, "{report}");
+    assert_eq!(report["refreshed"], 3, "{report}");
+    assert_eq!(report["changed"], 3, "{report}");
+    assert_eq!(
+        report["announced"],
+        serde_json::json!({ "refreshed": 1, "changed": 1, "calls": 0 }),
+        "a native change signal reads the fields again and sends no event back"
+    );
     assert_eq!(report["failed"], 0, "{report}");
     assert_eq!(report["unknown"], "TypeError", "{report}");
 }
