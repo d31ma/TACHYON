@@ -55,6 +55,19 @@ machine contracts have their own, independent major versions.
   desktop. A host may now start a cleanly stopped application again, with new
   instances. New gates: `scripts/ios/application-lifetime-test.mjs` and
   `scripts/android/application-lifetime-test.mjs`.
+
+- The iOS and Android apps open the system document picker for
+  `FilePicker` (FP4, FP2; ADR 0089 amendment). iOS presents
+  `UIDocumentPickerViewController` for page, linked Swift and Rust
+  services, and for C# and Kotlin services running as WebAssembly; Android
+  starts `ACTION_OPEN_DOCUMENT` for page, linked Kotlin and Rust services,
+  and for Swift and C# services running as WebAssembly. Both keep the
+  desktop limits. Before, every call answered `unsupported`. The page
+  runtime also sends each synchronous picker request in a header, because
+  Android's request hook cannot read a body. The simulator and emulator
+  gates are `scripts/ios/file-picker-test.mjs` and
+  `scripts/android/file-picker-test.mjs`.
+
 - macOS runs on a Mac (RM1, 2026-10-24): three new scripts check the
   packaged macOS app. `scripts/application-state-macos-test.mjs` checks that
   a page service and linked Rust and Swift services hear `background` and

@@ -1,6 +1,7 @@
 mod android;
 mod android_architecture;
 mod android_browser_apis;
+mod android_file_picker;
 mod android_gradle_build;
 mod android_gradle_cache;
 mod android_ndk;
