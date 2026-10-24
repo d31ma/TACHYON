@@ -1,11 +1,14 @@
 mod android;
+mod android_architecture;
 mod android_browser_apis;
 mod android_gradle_build;
+mod android_gradle_cache;
 mod android_ndk;
 mod android_release;
 mod android_rust_libraries;
 #[cfg(test)]
 mod android_rust_library_tests;
+mod android_shrinking;
 mod android_signing_certificate;
 mod android_window_settings;
 #[cfg(test)]
@@ -333,6 +336,8 @@ mod yon_reach;
 #[allow(clippy::expect_used)]
 mod yon_reach_tests;
 
+pub use android_architecture::AndroidArchitecture;
+pub(crate) use android_ndk::AndroidNdk;
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,

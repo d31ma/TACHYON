@@ -49,6 +49,24 @@ debuggable. The emulator image itself is debuggable (`ro.debuggable=1`), and
 there WebView opens DevTools for every app, so the check that a release keeps
 WebView debugging off still needs a production image or a physical device.
 
+R8, ABIs and offline Gradle (PKG7, 2026-10-24, ADR 0104 amendment): in an
+x86_64 Linux cloud container (Android SDK platform 35, build-tools 35.0.0, NDK
+r30 30.0.16248370, Gradle 8.14.3, AGP 8.7.3, OpenJDK 21), the Rust and Kotlin
+probe of `scripts/android/rust-services-test.mjs` was built with `ty bundle
+--target android`. `--arch arm64` gave an APK with only
+`lib/arm64-v8a/libtachyoncompanion.so` and `aarch64` in the artifact manifest.
+`--release` with a throwaway keystore gave an R8-shrunk APK and AAB: `apksigner
+verify` showed the signature, the APK held both libraries in one
+`classes.dex`, `dexdump` found `TachyonRust` with its native and JNI callback
+methods, `MainActivity`, the Kotlin service with its methods and the Kotlin
+prelude under their own names, and 11 AndroidX classes were left. With the
+network cut (Java's proxy set to a closed port), `--release --arch x64` built
+from the filled Gradle cache with `--offline`, gave only the `x86_64` library,
+and a reused route kept its native services. A first build with an empty
+Gradle cache printed the note naming the modules it downloads. Not run: the
+shrunk APK on an emulator (RM3), and the release DevTools check on a Google
+Play image (RM3).
+
 macOS release packages (2026-10-19, ADR 0104 amendment): `ty bundle --target
 macos --release` signs the app and its helpers with the hardened runtime,
 builds a `.dmg`, then signs, notarizes, staples and assesses it. Checked in an
@@ -164,9 +182,10 @@ architecture. `universal` builds both architectures and joins them with
 `lipo`. Only the staging and the artifact manifest are tested so far; the
 universal build, its `lipo -archs` check and a run on an Intel Mac are not
 yet verified. Linux and iOS builds use the build machine's architecture.
-Android takes no `--arch`: an app with Rust services carries its Rust library
-for `arm64-v8a` and `x86_64` (MR2), and an app without them holds no native
-code.
+Android takes `--arch arm64`, `x64` or `universal` (PKG7, 2026-10-24, ADR 0104
+amendment): the Rust library is built for `arm64-v8a`, `x86_64` or both (MR2),
+and Gradle's `abiFilters` name the same ABIs. `universal` is the default. An
+app without Rust services holds no native code.
 
 Rust on Android (2026-10-19, ADR 0019 amendment): Rust services are linked
 into the Android app through JNI. `scripts/android/rust-services-test.mjs`

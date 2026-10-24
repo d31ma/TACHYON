@@ -26,7 +26,12 @@ ty bundle --target android --release builds a signed APK and an
 Android App Bundle (.aab) for Google Play. Set TAC_ANDROID_KEYSTORE
 to the keystore file, TAC_ANDROID_KEYSTORE_PASSWORD to its password
 and TAC_ANDROID_KEYSTORE_ALIAS to the upload key's alias. A missing
-one stops the build with TY1605 before Gradle runs.
+one stops the build with TY1605 before Gradle runs. R8 shrinks the
+release; its keep rules keep the host, bridge and service classes.
+--arch arm64 or --arch x64 builds an Android app for one ABI
+(arm64-v8a or x86_64); without --arch it holds both. Once Gradle's
+cache holds the pinned Android Gradle plugin and libraries, Gradle
+runs with --offline; until then a note says what it downloads.
 
 ty bundle --target macos --release builds a .dmg for Macs outside
 the App Store. The app gets the hardened runtime and a Developer ID

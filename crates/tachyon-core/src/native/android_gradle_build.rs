@@ -1,3 +1,4 @@
+use super::android_gradle_cache::AndroidGradleCache;
 use super::android_release::AndroidRelease;
 use super::config::NativeApplication;
 use super::host::{first_line, native_io, native_tool_failure, run_tool_in};
@@ -11,6 +12,47 @@ use std::path::Path;
 pub(super) struct AndroidGradleBuild;
 
 impl AndroidGradleBuild {
+    const GRADLE_ARGUMENTS: [&'static str; 2] = ["--no-daemon", "--console=plain"];
+
+    async fn run_gradle(
+        project: &Path,
+        tasks: &[&str],
+        environment: &[(&str, &str)],
+    ) -> Result<(), Failure> {
+        let cache = AndroidGradleCache::from_environment(|name| std::env::var_os(name));
+        let offline = cache.arguments(AndroidGradleCache::has_kotlin(project));
+        let outcome = Self::gradle(project, [&offline[..], tasks], environment).await;
+        let retry = outcome
+            .as_ref()
+            .err()
+            .is_some_and(|failure| AndroidGradleCache::retry_online(failure, &offline));
+        if !retry {
+            return outcome;
+        }
+        Self::gradle(project, [&[], tasks], environment).await
+    }
+
+    async fn gradle(
+        project: &Path,
+        [offline, tasks]: [&[&str]; 2],
+        environment: &[(&str, &str)],
+    ) -> Result<(), Failure> {
+        let arguments: Vec<&str> = Self::GRADLE_ARGUMENTS
+            .iter()
+            .chain(offline)
+            .chain(tasks)
+            .copied()
+            .collect();
+        NativeReproducibility::run_long_tool_in_with(
+            "gradle",
+            &arguments,
+            Some(project),
+            environment,
+        )
+        .await
+        .map(|_| ())
+    }
+
     async fn prepared_gradle(project: &Path) -> Result<String, Failure> {
         if std::env::var_os("ANDROID_HOME").is_none()
             && std::env::var_os("ANDROID_SDK_ROOT").is_none()
@@ -32,12 +74,7 @@ impl AndroidGradleBuild {
         application: &NativeApplication,
     ) -> Result<(String, String), Failure> {
         let version = Self::prepared_gradle(project).await?;
-        NativeReproducibility::run_tool_in(
-            "gradle",
-            &["--no-daemon", "--console=plain", "assembleDebug"],
-            Some(project),
-        )
-        .await?;
+        Self::run_gradle(project, &["assembleDebug"], &[]).await?;
         let built = project.join("app/build/outputs/apk/debug/app-debug.apk");
         let name = format!("{}.apk", application.executable_name);
         let published = bundle.join(&name);
@@ -62,14 +99,7 @@ impl AndroidGradleBuild {
             .iter()
             .map(|(name, value)| (*name, value.as_str()))
             .collect();
-        let [assemble, package] = AndroidRelease::GRADLE_TASKS;
-        NativeReproducibility::run_tool_in_with(
-            "gradle",
-            &["--no-daemon", "--console=plain", assemble, package],
-            Some(project),
-            &environment,
-        )
-        .await?;
+        Self::run_gradle(project, &AndroidRelease::GRADLE_TASKS, &environment).await?;
         let name = format!("{}.apk", application.executable_name);
         let published_apk = bundle.join(&name);
         let built_apk = project.join(AndroidRelease::BUILT_APK);

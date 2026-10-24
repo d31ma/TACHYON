@@ -149,3 +149,46 @@ async fn a_packaged_windows_app_is_byte_identical_when_built_twice() {
 async fn a_packaged_android_app_is_byte_identical_when_built_twice() {
     NativeReproducibleBuildTests::assert_repeatable(NativeTarget::Android, true).await;
 }
+
+#[tokio::test]
+async fn a_reused_route_keeps_the_native_services_its_page_uses() {
+    let fixture = NativeReproducibleBuildTests::new();
+    for (relative, contents) in [
+        (
+            "client/services/TallyService.kt",
+            "@Service\nclass TallyService {\n  var count: Int = 0\n  fun increase(): Int { count += 1; return count }\n}\n",
+        ),
+        (
+            "client/components/repeat/home/tac.html",
+            "<main><button on:click=\"tally.increase()\">Add</button><output>{tally.count}</output></main>",
+        ),
+    ] {
+        let path = fixture.project().join(relative);
+        fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+        fs::write(path, contents).expect("source");
+    }
+    let descriptor = |output: &str| {
+        let path = fixture
+            .workspace
+            .path()
+            .join(output)
+            .join("android/tachyon.host.json");
+        let text = fs::read_to_string(path).expect("host descriptor");
+        let value: serde_json::Value = serde_json::from_str(&text).expect("json");
+        value["companions"].clone()
+    };
+    let (first, _) = fixture
+        .build("dist", NativeTarget::Android, false, true)
+        .await;
+    assert_eq!(first.reused_routes(), 0);
+    let companions = descriptor("dist");
+    assert_eq!(
+        companions,
+        serde_json::json!([{ "service": "tally", "language": "Kotlin" }])
+    );
+    let (reused, _) = fixture
+        .build("dist", NativeTarget::Android, false, true)
+        .await;
+    assert_eq!(reused.reused_routes(), reused.route_count());
+    assert_eq!(descriptor("dist"), companions);
+}

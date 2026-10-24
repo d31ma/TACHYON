@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 mod tests;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct AndroidNdk {
+pub(crate) struct AndroidNdk {
     root: PathBuf,
 }
 
@@ -19,7 +19,7 @@ impl AndroidNdk {
     const PREBUILT: &'static str = "toolchains/llvm/prebuilt";
     const LOWEST_API_LEVEL: u32 = 21;
 
-    pub(super) fn from_environment(
+    pub(crate) fn from_environment(
         variable: impl Fn(&str) -> Option<OsString>,
     ) -> Result<Self, Failure> {
         let declared = Self::NDK_VARIABLES
@@ -35,6 +35,10 @@ impl AndroidNdk {
             .find(|root| root.join(Self::PREBUILT).is_dir())
             .map(|root| Self { root })
             .ok_or_else(Self::missing)
+    }
+
+    pub(crate) fn root(&self) -> &Path {
+        &self.root
     }
 
     pub(super) fn linker(&self, triple: &str, api_level: u32) -> Result<PathBuf, Failure> {

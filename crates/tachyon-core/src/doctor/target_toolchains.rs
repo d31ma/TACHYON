@@ -10,6 +10,28 @@ pub(crate) struct TargetToolchains;
 impl TargetToolchains {
     const APPS: &'static str = "apps";
     const RELEASES: &'static str = "releases";
+    const LINKED_RUST: &'static str = "Rust services";
+    const PACKAGE_CHECKS: &'static str = "package checks";
+    const LINKED_RUST_ROWS: [TargetToolchain; 1] = [TargetToolchain {
+        target: AppTarget::Android,
+        command: "Android NDK",
+        probe: TargetProbe::AndroidNdk,
+        install: "Rust services in an Android app are linked with the Android NDK. Install it with `sdkmanager \"ndk;30.0.14904198\"` (or Android Studio > SDK Manager > SDK Tools > NDK), or set ANDROID_NDK_HOME to the NDK folder. Add the Rust targets with `rustup target add aarch64-linux-android x86_64-linux-android`.",
+    }];
+    const PACKAGE_CHECK_ROWS: [TargetToolchain; 2] = [
+        TargetToolchain {
+            target: AppTarget::Windows,
+            command: "TAC_MAKEMSIX",
+            probe: TargetProbe::NamedFile("TAC_MAKEMSIX"),
+            install: "Optional away from Windows: ty does not run it. Tachyon's MSIX package test packs and validates a Windows package on Linux or macOS with makemsix from Microsoft's MSIX SDK (https://github.com/microsoft/msix-packaging). Build it, then set TAC_MAKEMSIX to the makemsix file.",
+        },
+        TargetToolchain {
+            target: AppTarget::Windows,
+            command: "osslsigncode",
+            probe: TargetProbe::Version("osslsigncode", &["--version"]),
+            install: "Optional away from Windows: ty does not run it. Tachyon's MSIX package test signs and verifies a Windows package on Linux or macOS with osslsigncode, for example: sudo apt-get install -y osslsigncode (brew install osslsigncode on macOS).",
+        },
+    ];
     const BUILDS_HERE: [bool; 6] = [
         true,
         cfg!(target_os = "macos"),
@@ -106,15 +128,41 @@ impl TargetToolchains {
         Self::listed(&Self::ROWS, targets, Self::APPS, false)
     }
 
-    pub(super) fn for_project(root: &Path, release: bool) -> Vec<Toolchain> {
+    pub(super) fn for_project(root: &Path, release: bool, links_rust: bool) -> Vec<Toolchain> {
         let targets = crate::scaffold::ProjectState::bundle_targets(root);
         let mut toolchains = Self::listed(&Self::ROWS, &targets, Self::APPS, release);
+        toolchains.extend(
+            links_rust
+                .then(|| {
+                    Self::listed(
+                        &Self::LINKED_RUST_ROWS,
+                        &targets,
+                        Self::LINKED_RUST,
+                        release,
+                    )
+                })
+                .into_iter()
+                .flatten(),
+        );
         toolchains.extend(Self::listed(
             &ReleaseToolchains::ROWS,
             &targets,
             Self::RELEASES,
             release,
         ));
+        toolchains.extend(
+            (!cfg!(windows))
+                .then(|| {
+                    Self::listed(
+                        &Self::PACKAGE_CHECK_ROWS,
+                        &targets,
+                        Self::PACKAGE_CHECKS,
+                        false,
+                    )
+                })
+                .into_iter()
+                .flatten(),
+        );
         toolchains
     }
 

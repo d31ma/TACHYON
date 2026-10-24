@@ -787,7 +787,7 @@
     "windows": {"reach": "honored", "how": "--arch x64 or arm64"},
     "linux": {"reach": "adapted", "note": "--arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture."},
     "ios": {"reach": "adapted", "note": "--arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64."},
-    "android": {"reach": "adapted", "note": "--arch does not choose Android ABIs. An app with Rust services carries its Rust library for arm64-v8a and x86_64, so it installs on 64-bit Arm phones and x86_64 emulators only; without Rust services the APK holds no native code and runs on every ABI."}
+    "android": {"reach": "honored", "how": "--arch arm64, x64 or universal, the default; the Rust library is built for arm64-v8a, x86_64 or both, and Gradle's abiFilters name the same ABIs. An app without Rust services holds no native code and runs on every ABI"}
   },
   {
     "member": "development code signing",
@@ -807,7 +807,7 @@
     "windows": {"reach": "honored", "how": "ty bundle --target windows --release builds an MSIX package, <Name>.msix, with makeappx and signs it with signtool and the certificate that TAC_WINDOWS_CERTIFICATE (a .pfx file) or TAC_WINDOWS_CERTIFICATE_THUMBPRINT (a certificate in the store) names; TAC_WINDOWS_CERTIFICATE_PUBLISHER is the package publisher. Other builds are a folder with the .exe"},
     "linux": {"reach": "runOwed", "how": "ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder", "run": "dpkg -i of the .deb on WSL, which needs administrator rights there, and an install on a Linux desktop; apt-get install of the .deb ran in an x86_64 cloud container, the AppImage ran through FUSE on WSL, and the installed .desktop file opened a scheme link under Xvfb (RL1)"},
     "ios": {"reach": "runOwed", "how": "ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. Other builds run in the simulator", "run": "a --release build with an App Store profile and an install on an iOS 17 or later device; a --device build was signed and checked on a Mac, and the App Store Connect upload is outside ty (ADR 0104)"},
-    "android": {"reach": "honored", "how": "ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK"}
+    "android": {"reach": "runOwed", "how": "ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names, shrunk by R8 with keep rules for the host, bridge and service classes; other builds are a debug APK", "run": "the R8-shrunk release APK installed and run on the emulator (RM3); the signed release before R8 ran there on 2026-10-19"}
   },
   {
     "member": "incremental route reuse",

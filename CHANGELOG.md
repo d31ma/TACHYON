@@ -50,6 +50,16 @@ machine contracts have their own, independent major versions.
   `Description` services run and refuse a malformed text. `Lifetime` is now
   asserted in Dart, Go and F#: a transient service gives each Needs field its
   own object, and the same project without the marker shares one.
+- Android `--release` builds are shrunk by R8, with resource shrinking and
+  keep rules for the host, bridge, Rust callback and service classes (PKG7,
+  ADR 0104 amendment). `--arch arm64`, `x64` or `universal` now choose the
+  Android ABIs: the Rust library and Gradle's `abiFilters` follow the choice,
+  and the artifact manifest names it. Gradle runs with `--offline` once its
+  cache holds the pinned Android Gradle plugin and libraries, and runs again
+  online if an offline run misses a module; until then a note names what it
+  downloads. `ty doctor` reports the Android NDK for an Android app with Rust
+  services, and, away from Windows, `TAC_MAKEMSIX` and `osslsigncode` as
+  information (ADR 0066 amendment).
 - iOS and Android apps now read the window members of `client/manifest.json`
   (WIN5). A hex `theme_color` fills the area behind the iOS status bar and
   the Android status and navigation bars, with readable bar text. A hex
@@ -1741,6 +1751,17 @@ machine contracts have their own, independent major versions.
   a starting value, such as `extra = 2,`. Before, the build stopped with
   `TY2015 Unresolved dependency Integer`. Only fields written `name = nil,`
   are filled, as in every other Yon language.
+
+- A native rebuild that reused a route dropped the native services that the
+  route's page uses, so the second `ty bundle` of a native target packaged
+  no Kotlin, Swift, C# or Rust companion. Each route's build state now keeps
+  its services (build state version 5; older state rebuilds every route
+  once).
+- Gradle ran under the 2-minute native tool limit, so a first Android build
+  that downloads the Android Gradle plugin, or an R8 release, could stop
+  with `TY1605`. It now has the 15-minute limit of other long tools.
+- `ty doctor .` stopped with `TY2101` in a project with services; the
+  project folder is now read by its canonical path.
 
 - A Rust Yon handler that fails to compile names the model file at fault
   again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
