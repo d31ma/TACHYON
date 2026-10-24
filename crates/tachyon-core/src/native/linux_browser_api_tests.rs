@@ -19,7 +19,7 @@ results.push(await clicked(() => navigator.clipboard.writeText('copied by the pa
 results.push(await new Promise((done) => navigator.geolocation.getCurrentPosition(
   (position) => done('position:' + position.coords.latitude + ',' + position.coords.longitude),
   (error) => done('position-refused:' + error.code),
-  {timeout: 5000})));
+  {timeout: 5000, enableHighAccuracy: true})));
 results.push(await answer('browserApi.notifications.requestPermission', {}));
 results.push(await answer('browserApi.notifications.show', {title: 'Order', body: 'Shipped'}));
 results.push(await answer('browserApi.notifications.show', {body: 'No title'}));
@@ -54,9 +54,13 @@ return results.join(',');";
         )
     }
 
-    fn fixture(expected: [&str; 3]) -> String {
+    fn fixture(expected: [&str; 3], test_position: bool) -> String {
         let [summary, notified, clipboard] = expected;
         include_str!("linux_browser_api_fixture.c")
+            .replace(
+                "__BROWSER_TEST_POSITION__",
+                ["FALSE", "TRUE"][usize::from(test_position)],
+            )
             .replace(
                 "__BROWSER_SCRIPT__",
                 &super::host::c_string_escape(Self::SCRIPT),
@@ -76,7 +80,7 @@ return results.join(',');";
     }
 
     #[cfg(target_os = "linux")]
-    async fn run(granted: &[&str], expected: [&str; 3]) {
+    async fn run(granted: &[&str], expected: [&str; 3], test_position: bool) {
         let root = tempfile::tempdir().expect("fixture");
         let source = super::native_menu_action_tests::MenuActionFixture::stage(root.path());
         let mut application = super::linux_host_tests::LinuxHostTests::application(
@@ -87,7 +91,7 @@ return results.join(',');";
             root.path(),
             &source,
             &application,
-            &Self::fixture(expected),
+            &Self::fixture(expected, test_position),
         )
         .await;
         let output = super::host::run_tool(executable.to_str().expect("binary"), &[])
@@ -153,17 +157,37 @@ fn the_linux_host_decides_web_view_permissions_and_answers_bridged_calls() {
 
 #[test]
 fn the_browser_api_fixture_fills_every_placeholder() {
-    let fixture = LinuxBrowserApiTests::fixture(LinuxBrowserApiTests::GRANTED);
+    let fixture = LinuxBrowserApiTests::fixture(LinuxBrowserApiTests::GRANTED, true);
     assert!(!fixture.contains("__BROWSER_"));
     assert!(fixture.contains("browserApi.share.open"));
-    let refused = LinuxBrowserApiTests::fixture(LinuxBrowserApiTests::REFUSED);
+    assert!(fixture.contains("if (TRUE) g_signal_connect(geolocation, \"start\""));
+    let refused = LinuxBrowserApiTests::fixture(LinuxBrowserApiTests::REFUSED, true);
     assert!(refused.contains("read-refused:NotAllowedError"));
+    let geoclue = LinuxBrowserApiTests::fixture(LinuxBrowserApiTests::GRANTED, false);
+    assert!(geoclue.contains("if (FALSE) g_signal_connect(geolocation, \"start\""));
 }
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
 #[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, an X11 display (Xvfb) with libXtst, and a session bus; run explicitly on the Linux lane"]
 async fn linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view() {
-    LinuxBrowserApiTests::run(&LinuxBrowserApiTests::ALL, LinuxBrowserApiTests::GRANTED).await;
-    LinuxBrowserApiTests::run(&[], LinuxBrowserApiTests::REFUSED).await;
+    LinuxBrowserApiTests::run(
+        &LinuxBrowserApiTests::ALL,
+        LinuxBrowserApiTests::GRANTED,
+        true,
+    )
+    .await;
+    LinuxBrowserApiTests::run(&[], LinuxBrowserApiTests::REFUSED, true).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "Requires what the real web view test needs plus GeoClue on the system bus and a notification server on the session bus; run through scripts/linux/desktop-services-test.sh"]
+async fn linux_browser_apis_reach_geoclue_and_the_notification_server() {
+    LinuxBrowserApiTests::run(
+        &LinuxBrowserApiTests::ALL,
+        LinuxBrowserApiTests::GRANTED,
+        false,
+    )
+    .await;
 }

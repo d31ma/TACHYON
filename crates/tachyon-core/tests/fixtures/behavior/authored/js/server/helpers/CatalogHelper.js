@@ -3,11 +3,17 @@
 class CatalogHelper {
   static _FIRST_WORKING_CALL = 3;
   calls = 0;
+  prices = 0;
 
   @Cached
   async find(id) {
     this.calls++;
     return { id, calls: this.calls };
+  }
+  @Cached
+  async price(@CacheKey sku, note) {
+    this.prices++;
+    return this.prices;
   }
   @UpdateCache({"method":"find"})
   async replace(id, calls) { return { id, calls }; }

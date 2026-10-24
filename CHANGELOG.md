@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Swift, Kotlin and C# services a native app links in now build into
+  one program (LS2). Before, each linked service carried its own copy of
+  the behavior runtime and of every Setup, client and model it used, so two
+  services needing one Setup saw two configurations. Now they share one
+  Setup registry, as browser services do, and the generated companion of a
+  two-service fixture roughly halves (Swift 136 to 69 KB, Kotlin 105 to
+  54 KB, C# 170 to 87 KB). The Kotlin required-props constructor is now
+  `internal` (ADR 0022 amendment).
 - Natively linked Swift, Kotlin and C# services hold `@StreamRequest` and
   `@SocketRequest` clients (LS1). The page holds the connection on
   `tac.yon.origin`, delivers each message to the service's `@OnEvent`
@@ -20,6 +28,28 @@ machine contracts have their own, independent major versions.
   services. Companion runs in the cloud cover all three languages; the app
   runs on macOS, iOS, Android and Windows are owed (ADR 0058 and 0060
   amendments).
+- Linux desktop stand-in runs (LX1). `scripts/linux/desktop-services-test.sh`
+  runs the browser API host test against GeoClue (a GPS fix from an NMEA
+  socket, on a private system bus) and the dunst notification server, so the
+  Linux `geolocation` cell is now honored. `TAC_LINUX_DISPLAY=wayland` runs
+  the Linux Yon reach test in a headless mutter Wayland session, and
+  `scripts/linux/deb-install-test.sh` installs the release `.deb` as root,
+  starts it and purges it (ADR 0065, 0103 and 0104 amendments).
+- Run tests for the last 24 Yon marker cells that only built or only had a
+  website example (MP2). `Converter` and `Convert` run the website mapping
+  sections in Java, Groovy, Kotlin and Ruby and check the dropped field, the
+  null for a missing source and the constant. `Topic` crosses processes from
+  and to TypeScript, F#, Groovy and Ruby. `InBackground` runs after the other
+  listeners and never republishes in JavaScript, TypeScript and Python.
+  `CacheKey` hits and misses by key in JavaScript, TypeScript and Python.
+  TypeScript `FromQuery` reads the named query value through the dev server.
+  `Schedule` workers in Groovy, F# and Lua tick on their declared cadence and
+  refuse a zero delay. `Gateway` reaches a command from Groovy and F#, a
+  Groovy test unit clears its `Fake` fields before each case, a Lua
+  `NeedsAll` class gets its empty fields filled, and JavaScript and TypeScript
+  `Description` services run and refuse a malformed text. `Lifetime` is now
+  asserted in Dart, Go and F#: a transient service gives each Needs field its
+  own object, and the same project without the marker shares one.
 - iOS and Android apps now read the window members of `client/manifest.json`
   (WIN5). A hex `theme_color` fills the area behind the iOS status bar and
   the Android status and navigation bars, with readable bar text. A hex
@@ -1706,6 +1736,11 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- A Lua Yon `NeedsAll` class no longer asks the container for a field that has
+  a starting value, such as `extra = 2,`. Before, the build stopped with
+  `TY2015 Unresolved dependency Integer`. Only fields written `name = nil,`
+  are filled, as in every other Yon language.
 
 - A Rust Yon handler that fails to compile names the model file at fault
   again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).

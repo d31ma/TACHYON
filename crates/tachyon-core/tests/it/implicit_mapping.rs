@@ -256,6 +256,9 @@ async fn implicit_mapping_lua_models_execute_with_overrides_and_nested_lists() {
 }
 
 #[cfg(test)]
+mod published_converters;
+
+#[cfg(test)]
 mod tac_mapping;
 
 struct LuaMappingDiagnostics;

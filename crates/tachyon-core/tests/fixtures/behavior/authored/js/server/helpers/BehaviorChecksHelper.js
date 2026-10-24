@@ -131,6 +131,14 @@ static async _exerciseCache(catalog, context) {
   return { first, cached, fresh };
 }
 
+static async _checkCacheKey(catalog) {
+  await catalog.price('sku-1', 'first');
+  await catalog.price('sku-1', 'second');
+  if (catalog.prices !== 1) throw new Error('CacheKey hit ignores the unmarked argument');
+  await catalog.price('sku-2', 'first');
+  if (catalog.prices !== 2) throw new Error('CacheKey miss on a different key');
+}
+
 static async _checkQueries(context) {
   const queries = new ProductQueriesStore();
   queries.behaviors = context;
@@ -163,6 +171,7 @@ static async exerciseBehaviors(signal) {
     const catalog = Object.assign(new CatalogHelper(), { behaviors: context });
     const client = Object.assign(new CatalogClient(), { behaviors: context });
     const { first, cached, fresh } = await BehaviorChecksHelper._exerciseCache(catalog, context);
+    await BehaviorChecksHelper._checkCacheKey(catalog);
     await BehaviorChecksHelper._checkQueries(context);
     const page = catalog.page({ page: BehaviorChecksHelper._PAGE, size: BehaviorChecksHelper._PAGE_SIZE, sort: ['id'] });
     const repository = context.repository(ProductEntity);

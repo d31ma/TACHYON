@@ -380,3 +380,14 @@ can be opened and `fusermount` exists, and falls back to
 through it with `gio open` and `xdg-open`. Still owed: `dpkg -i` or
 `apt install` on WSL, which needs administrator rights, and an install on a
 Linux desktop.
+
+## Amendment (2026-10-24): the `.deb` installed as root (LX1)
+
+`scripts/linux/deb-install-test.sh` builds the release packages, installs the
+`.deb` with `apt-get install` as root, checks the installed command, Rust
+library and desktop file, starts the app from `PATH` and from its desktop file
+with `gio launch` until it shows its first page, and removes it with
+`apt-get purge`. It passed in an x86_64 Ubuntu 24.04 cloud container. apt
+showed 0 B installed, because the control file has no `Installed-Size` field.
+Still owed: `dpkg -i` or `apt install` on WSL, and an install on a Linux
+desktop.

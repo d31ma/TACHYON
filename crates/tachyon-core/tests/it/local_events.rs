@@ -466,6 +466,158 @@ class ProbeController {
 }
 
 #[tokio::test]
+async fn javascript_background_listeners_run_after_each_event_and_never_publish() {
+    execute_expected(
+        "js",
+        r#"
+/**
+ * @typedef {Object} ProbeReady
+ * @property {string} status
+ * @property {integer} total
+ */
+/**
+ * @typedef {Object} ProbeDerived
+ * @property {string} tag
+ */
+@Service()
+class ProbeService {
+  log = [];
+  /**
+   * @param {ProbeReady} value
+   * @returns {ProbeDerived}
+   */
+  @OnEvent
+  @Order(-5)
+  @InBackground
+  async later(value) { this.log.push('later:' + value.status); return {tag:'never'}; }
+  /** @param {ProbeReady} value */
+  @OnEvent
+  first(value) { this.log.push('first:' + value.status); }
+  /** @param {ProbeDerived} value */
+  @OnEvent
+  derived(value) { this.log.push('derived:' + value.tag); }
+}
+@Service()
+@NeedsAll()
+class PublishService {
+  applicationEventPublisher;
+  @OnStart()
+  initialize() {
+    /** @type {ProbeReady} */
+    const paid = {status:'paid', total:10};
+    /** @type {ProbeReady} */
+    const free = {status:'free', total:0};
+    this.applicationEventPublisher.publishEvent(paid);
+    this.applicationEventPublisher.publishEvent(free);
+  }
+}
+@RequestRoute("/probe")
+@Public
+@NeedsAll()
+class ProbeController {
+  probeService;
+  publishService;
+  @GetRoute
+  getProbe() { return {log: this.probeService.log}; }
+}
+"#,
+        serde_json::json!({"log": ["first:paid", "later:paid", "first:free", "later:free"]}),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn typescript_background_listeners_run_after_each_event_and_never_publish() {
+    execute_expected(
+        "ts",
+        r#"
+@Service()
+class ProbeService {
+  log: string[] = [];
+  @OnEvent
+  @Order(-5)
+  @InBackground
+  async later(value: ProbeReady): Promise<ProbeDerived> { this.log.push('later:' + value.status); return {tag:'never'}; }
+  @OnEvent
+  first(value: ProbeReady) { this.log.push('first:' + value.status); }
+  @OnEvent
+  derived(value: ProbeDerived) { this.log.push('derived:' + value.tag); }
+}
+@Service()
+@NeedsAll()
+class PublishService {
+  applicationEventPublisher!: ApplicationEventPublisher;
+  @OnStart()
+  initialize() {
+    const paid: ProbeReady = {status:'paid', total:10};
+    const free: ProbeReady = {status:'free', total:0};
+    this.applicationEventPublisher.publishEvent(paid);
+    this.applicationEventPublisher.publishEvent(free);
+  }
+}
+@RequestRoute("/probe")
+@Public
+@NeedsAll()
+class ProbeController {
+  probeService!: ProbeService;
+  publishService!: PublishService;
+  @GetRoute
+  getProbe() { return {log: this.probeService.log}; }
+}
+"#,
+        serde_json::json!({"log": ["first:paid", "later:paid", "first:free", "later:free"]}),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn python_background_listeners_run_after_each_event_and_never_publish() {
+    execute_expected(
+        "py",
+        r#"
+from models import ProbeReady, ProbeDerived
+@service()
+class ProbeService:
+    @on_start()
+    def initialize(self):
+        self.log = []
+    @on_event
+    @order(-5)
+    @in_background
+    async def later(self, value: ProbeReady) -> ProbeDerived:
+        self.log.append('later:' + value.status)
+        return ProbeDerived("never")
+    @on_event
+    def first(self, value: ProbeReady):
+        self.log.append('first:' + value.status)
+    @on_event
+    def derived(self, value: ProbeDerived):
+        self.log.append('derived:' + value.tag)
+from models import ProbeReady
+@service()
+@needs_all()
+class PublishService:
+    application_event_publisher: ApplicationEventPublisher
+    @on_start()
+    def initialize(self):
+        self.application_event_publisher.publish_event(ProbeReady("paid", 10))
+        self.application_event_publisher.publish_event(ProbeReady("free", 0))
+@request_route("/probe")
+@public
+@needs_all()
+class ProbeController:
+    probe_service: ProbeService
+    publish_service: PublishService
+    @get_route
+    def get_probe(self):
+        return {"log": self.probe_service.log}
+"#,
+        serde_json::json!({"log": ["first:paid", "later:paid", "first:free", "later:free"]}),
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn python_events_and_lifecycle() {
     execute(
         "py",

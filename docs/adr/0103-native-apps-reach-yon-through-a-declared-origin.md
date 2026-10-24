@@ -481,6 +481,12 @@ Two changes let a linked service reach Yon:
 
 Not run yet: the Linux app on WSL, and in a desktop Wayland session.
 
+Later run (2026-10-24, LX1): `TAC_LINUX_DISPLAY=wayland` runs the reach test
+in a headless mutter 46.2 Wayland session. In an x86_64 cloud container it
+passed with JavaScript and with linked Rust services. GTK did not embed
+WebKit's accessibility socket in the window under Wayland, so the probe reads
+and clicks the page in the web process's own accessibility tree there.
+
 ## Amendment (2026-10-19): the Windows app builds with MSVC and NativeAOT (RW1)
 
 The NET3 amendment left the MSVC and NativeAOT build of the Windows app

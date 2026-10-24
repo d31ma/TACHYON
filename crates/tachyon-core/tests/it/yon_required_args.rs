@@ -12,8 +12,10 @@ use tachyon_core::{
 struct Layout;
 
 impl Layout {
-    const ROLES: [(&'static str, &'static str); 14] = [
+    const ROLES: [(&'static str, &'static str); 16] = [
         ("@RequestRoute", "controllers"),
+        ("[<RequestRoute", "controllers"),
+        ("[<Service", "services"),
         ("@request_route", "controllers"),
         ("#[RequestRoute", "controllers"),
         ("[RequestRoute", "controllers"),
@@ -170,10 +172,28 @@ async fn assert_field_selection(extension: &str, fixture: &str, explicit: bool) 
     } else {
         fixture.to_owned()
     };
+    assert_scope_answers(extension, &contents, &format!("explicit={explicit}"), true).await;
+}
+
+async fn assert_lifetime_effect(extension: &str, program: &str, fixture: &str, marker: &str) {
+    if !available(program) {
+        eprintln!("Skipping .{extension} Lifetime: {program} unavailable");
+        return;
+    }
+    assert!(
+        fixture.contains(marker),
+        "{extension}: the fixture marks {marker}"
+    );
+    assert_scope_answers(extension, fixture, "transient", true).await;
+    let shared = fixture.replace(marker, "");
+    assert_scope_answers(extension, &shared, "without Lifetime", false).await;
+}
+
+async fn assert_scope_answers(extension: &str, contents: &str, label: &str, fresh: bool) {
     let root = tempfile::tempdir().expect("project");
-    let relative = Layout::write(root.path(), extension, &contents);
+    let relative = Layout::write(root.path(), extension, contents);
     let source = HandlerSource::discover(root.path(), &relative)
-        .expect("inferred constructor graph discovery");
+        .unwrap_or_else(|failure| panic!("{extension}, {label}: discovery: {failure}"));
     let mut options = HandlerSupervisorOptions {
         default_timeout: Duration::from_mins(2),
         ..HandlerSupervisorOptions::default()
@@ -182,18 +202,19 @@ async fn assert_field_selection(extension: &str, fixture: &str, explicit: bool) 
         options.runtimes.javascript = "bun".into();
     }
     let supervisor = HandlerSupervisor::new(options).expect("bounded supervisor");
-    assert_repeated_invocations(extension, explicit, &source, &supervisor).await;
+    assert_repeated_invocations(extension, label, fresh, &source, &supervisor).await;
 }
 
 async fn assert_repeated_invocations(
     extension: &str,
-    explicit: bool,
+    label: &str,
+    fresh: bool,
     source: &HandlerSource,
     supervisor: &HandlerSupervisor,
 ) {
     for invocation in 0..2 {
         let request = HandlerRequest::route(
-            format!("inferred_{extension}_{explicit}_{invocation}"),
+            format!("inferred_{extension}_{fresh}_{invocation}"),
             "/money",
             HttpMethod::Get,
         );
@@ -203,17 +224,17 @@ async fn assert_repeated_invocations(
             .expect("inferred controller response");
         assert!(
             response.error.is_none(),
-            "{extension}, explicit={explicit}: {:?}",
+            "{extension}, {label}: {:?}",
             response.error
         );
-        assert_eq!(response.status, 200, "{extension}, explicit={explicit}");
+        assert_eq!(response.status, 200, "{extension}, {label}");
         let body: serde_json::Value =
             serde_json::from_str(&response.body.expect("JSON response").data)
                 .expect("response JSON");
         assert_eq!(
             body,
-            serde_json::json!({"shared":true,"fresh":true,"order":"left:right","amount":42}),
-            "{extension}, explicit={explicit}, invocation={invocation}"
+            serde_json::json!({"shared":true,"fresh":fresh,"order":"left:right","amount":42}),
+            "{extension}, {label}, invocation={invocation}"
         );
     }
 }
@@ -630,6 +651,92 @@ func (controller *MoneyController) GetMoney() any {
 	}
 }
 "#;
+    const DART: &str = r#"
+@Service
+class SharedService {
+  int amount() => 42;
+}
+@Service
+@Lifetime("transient")
+class FreshService {}
+@Service
+class LeftService {
+  @Needs
+  final SharedService shared;
+  @Needs
+  final FreshService fresh;
+  String side() => 'left';
+}
+@Service
+class RightService {
+  @Needs
+  final SharedService shared;
+  @Needs
+  final FreshService fresh;
+  String side() => 'right';
+}
+@RequestRoute("/money")
+@Public
+class MoneyController {
+  @Needs
+  final LeftService left;
+  @Needs
+  final RightService right;
+
+  @GetRoute
+  Map<String, Object?> getMoney() => {
+        'shared': identical(left.shared, right.shared),
+        'fresh': !identical(left.fresh, right.fresh),
+        'order': '${left.side()}:${right.side()}',
+        'amount': left.shared.amount(),
+      };
+}
+"#;
+
+    const FSHARP: &str = r#"
+[<Service>]
+type SharedService() =
+    member this.Amount() : int = 42
+
+[<Service>]
+[<Lifetime("transient")>]
+type FreshService() =
+    member this.Serial : int = 0
+
+[<Service>]
+type LeftService() =
+    [<Needs>]
+    member val Shared : SharedService = Unchecked.defaultof<SharedService> with get, set
+    [<Needs>]
+    member val Fresh : FreshService = Unchecked.defaultof<FreshService> with get, set
+    member this.Side() : string = "left"
+
+[<Service>]
+type RightService() =
+    [<Needs>]
+    member val Shared : SharedService = Unchecked.defaultof<SharedService> with get, set
+    [<Needs>]
+    member val Fresh : FreshService = Unchecked.defaultof<FreshService> with get, set
+    member this.Side() : string = "right"
+
+[<RequestRoute("/money")>]
+[<Public>]
+type MoneyController() =
+    [<Needs>]
+    member val Left : LeftService = Unchecked.defaultof<LeftService> with get, set
+    [<Needs>]
+    member val Right : RightService = Unchecked.defaultof<RightService> with get, set
+
+    [<GetRoute>]
+    member this.GetMoney() : obj =
+        dict [
+            "shared", box (obj.ReferenceEquals(this.Left.Shared, this.Right.Shared))
+            "fresh", box (not (obj.ReferenceEquals(this.Left.Fresh, this.Right.Fresh)))
+            "order", box (this.Left.Side() + ":" + this.Right.Side())
+            "amount", box (this.Left.Shared.Amount())
+        ]
+        |> box
+"#;
 }
 
 #[tokio::test]
@@ -680,4 +787,26 @@ async fn rust_infers_constructor_dependencies_and_preserves_scope_identity() {
 #[tokio::test]
 async fn go_infers_constructor_dependencies_and_preserves_scope_identity() {
     assert_inferred_graph("go", "go", Fixtures::GO).await;
+}
+
+#[tokio::test]
+async fn dart_transient_lifetime_gives_each_needs_field_its_own_service() {
+    assert_lifetime_effect("dart", "dart", Fixtures::DART, "@Lifetime(\"transient\")\n").await;
+}
+
+#[tokio::test]
+async fn go_transient_lifetime_gives_each_needs_field_its_own_service() {
+    let documented = Fixtures::GO.replace("// @yon::", "// @");
+    assert_lifetime_effect("go", "go", &documented, "// @Lifetime(\"transient\")\n").await;
+}
+
+#[tokio::test]
+async fn fsharp_transient_lifetime_gives_each_needs_field_its_own_service() {
+    assert_lifetime_effect(
+        "fs",
+        "dotnet",
+        Fixtures::FSHARP,
+        "[<Lifetime(\"transient\")>]\n",
+    )
+    .await;
 }
