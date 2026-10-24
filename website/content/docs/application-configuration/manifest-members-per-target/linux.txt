@@ -250,7 +250,7 @@ incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 development preview (ty preview)
-  honored: ty preview --target linux builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run under Xvfb by scripts/linux/dev-loop-native-test.mjs, NET5)
+  honored: ty preview --target linux builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run under Xvfb in the cloud and on WSL by scripts/linux/dev-loop-native-test.mjs, NET5)
 
 byte-identical rebuilds
   honored: SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests

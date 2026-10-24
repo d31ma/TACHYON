@@ -19,9 +19,12 @@ machine contracts have their own, independent major versions.
   hot updates. `tac.yon.origin` points at the development server in that
   build only, and a release build with a development origin stops with
   TY1601. A manifest or linked companion source edit rebuilds and reopens
-  the app. `--static` keeps the old static preview. The Linux run passed
-  under Xvfb (`scripts/linux/dev-loop-native-test.mjs`); the Mac, emulator,
-  WSL and Windows runs are owed.
+  the app. `--static` keeps the old static preview. Dev loop gates passed
+  for Linux under Xvfb and on WSL (`scripts/linux/dev-loop-native-test.mjs`),
+  macOS (`scripts/native/dev-loop-macos-test.mjs`), the iOS simulator
+  (`scripts/ios/dev-loop-test.mjs`) and the Android emulator
+  (`scripts/android/dev-loop-test.mjs`); the Windows run is owed.
+
 - System Back on native hosts (SB1, 2026-10-24, ADR 0109): Android Back and
   the back gesture go back one route and leave the app from the first route;
   iOS turns on the web view's edge swipes; the macOS View menu has Back

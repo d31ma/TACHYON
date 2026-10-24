@@ -1,7 +1,7 @@
 # ADR 0108: A Native Preview App Loads Its Pages From the Development Server
 
-- Status: Accepted; Linux run under Xvfb passed 2026-10-24; macOS, iOS
-  simulator, Android emulator, WSL and Windows runs owed
+- Status: Accepted; Linux (Xvfb and WSL), macOS, iOS simulator and Android
+  emulator runs passed 2026-10-24; the Windows run is owed
 - Date: 2026-10-24
 - Works with: [ADR 0013](0013-semantic-hot-updates.md) (semantic hot
   updates), [ADR 0103](0103-native-apps-reach-yon-through-a-declared-origin.md)
@@ -105,5 +105,12 @@ stays a separate decision.
   with MinGW against the Win32, WinHTTP and WebView2 headers, and the
   preview Android host compiled with `javac` against `android.jar` and
   AndroidX.
-- Owed: the macOS app, the iOS simulator and the Android emulator on the
-  Mac; the Linux gate on WSL; the Windows app on a signed-in desktop (SD1).
+- 2026-10-24, on the Mac (Apple M4, macOS 26.6.2, Xcode 27.1): the same
+  steps passed for the macOS app (`scripts/native/dev-loop-macos-test.mjs`,
+  read through the Accessibility API), the iOS 26.5 simulator
+  (`scripts/ios/dev-loop-test.mjs`, read by OCR of simulator screenshots)
+  and an API 35 Android emulator (`scripts/android/dev-loop-test.mjs`, read
+  by OCR of screen captures, because UI Automator shows none of the web
+  view's text). The Linux gate also passed on WSL Ubuntu 24.04.5 (aarch64).
+  The Swift host compiled without a change.
+- Owed: the Windows app on a signed-in desktop (SD1).

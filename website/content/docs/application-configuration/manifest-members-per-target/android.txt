@@ -250,7 +250,7 @@ incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 development preview (ty preview)
-  run owed: ty preview --target android installs the app on the emulator through adb, forwards the port with adb reverse and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app; still to run: ty preview --target android on the emulator
+  honored: ty preview --target android installs the app on the emulator through adb, forwards the port with adb reverse and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app (run on an API 35 emulator by scripts/android/dev-loop-test.mjs, NET5)
 
 byte-identical rebuilds
   honored: the Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output; the debug APK is signed with the build machine's debug key, so it matches only on the same machine; a_packaged_android_app_is_byte_identical_when_built_twice passed on a Mac (RM3)

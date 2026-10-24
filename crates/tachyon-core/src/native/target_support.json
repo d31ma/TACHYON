@@ -833,11 +833,11 @@
     "member": "development preview (ty preview)",
     "paths": [],
     "web": {"reach": "honored", "how": "ty preview builds and serves the site, and open pages receive semantic hot updates"},
-    "macos": {"reach": "runOwed", "how": "ty preview --target macos builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app", "run": "ty preview --target macos with the macOS app open on a Mac"},
+    "macos": {"reach": "honored", "how": "ty preview --target macos builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run on macOS 26.6.2 by scripts/native/dev-loop-macos-test.mjs, NET5)"},
     "windows": {"reach": "runOwed", "how": "ty preview --target windows builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app", "run": "ty preview --target windows with the app open on a signed-in Windows desktop"},
-    "linux": {"reach": "honored", "how": "ty preview --target linux builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run under Xvfb by scripts/linux/dev-loop-native-test.mjs, NET5)"},
-    "ios": {"reach": "runOwed", "how": "ty preview --target ios installs the app in the booted simulator and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app", "run": "ty preview --target ios on the iOS simulator"},
-    "android": {"reach": "runOwed", "how": "ty preview --target android installs the app on the emulator through adb, forwards the port with adb reverse and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app", "run": "ty preview --target android on the emulator"}
+    "linux": {"reach": "honored", "how": "ty preview --target linux builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run under Xvfb in the cloud and on WSL by scripts/linux/dev-loop-native-test.mjs, NET5)"},
+    "ios": {"reach": "honored", "how": "ty preview --target ios installs the app in the booted simulator and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app (run on the iOS 26.5 simulator by scripts/ios/dev-loop-test.mjs, NET5)"},
+    "android": {"reach": "honored", "how": "ty preview --target android installs the app on the emulator through adb, forwards the port with adb reverse and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app (run on an API 35 emulator by scripts/android/dev-loop-test.mjs, NET5)"}
   },
   {
     "member": "byte-identical rebuilds",
