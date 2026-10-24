@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,7 +15,6 @@ class LinuxPageServicesTest {
   static serviceLanguages = PageServicesFixture.list('TAC_LINUX_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
   static windowCallers = PageServicesFixture.list('TAC_LINUX_WINDOW_CALLERS', 'swift,cs,kt')
   static pickerCallers = PageServicesFixture.list('TAC_LINUX_PICKER_CALLERS', 'swift,cs,kt')
-  static pickerStatuses = { swift: ['read', 'cancelled'], kt: ['read', 'cancelled'], cs: ['Read', 'Cancelled'] }
   static tallySteps = PageServicesFixture.tallySteps
   static reportSteps = PageServicesFixture.reportSteps
   static screen = '1600x1200x24'
@@ -90,12 +89,9 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
   /** @param {string} language */
   static async checkPickerCaller(language) {
     const project = path.join(this.root, `picker-${language}`)
-    const application = PageServicesFixture.stage(project, 'native-capabilities', 'Picker', `dev.tachyon.picker-${language}`)
-    PageServicesFixture.copyService(project, 'native-capabilities', `client/services/PickerService.${language}`)
-    const notes = path.join(project, 'notes.txt')
-    writeFileSync(notes, 'Quarterly notes\n')
+    const { application, notes } = PageServicesFixture.stagePicker(project, language)
     await this.build(project)
-    const [read, cancelled] = this.pickerStatuses[language]
+    const [read, cancelled] = PageServicesFixture.pickerStatuses[language]
     const steps = [
       ['wait', ['Choose a text file', 'Ready']],
       ['pick', { control: 'Choose file', keys: ['ctrl+l', { type: notes }, 'Return'] }],

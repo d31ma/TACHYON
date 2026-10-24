@@ -494,6 +494,71 @@ function Invoke-Control([string] $name) {
     throw "Rendered control '$name' has no UI Automation activation and no point to click"
 }
 
+function Find-FileDialog {
+    $owned = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $script:process.Id)
+    $dialogClass = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ClassNameProperty, '#32770')
+    $found = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
+        [System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.AndCondition]::new($owned, $dialogClass))
+    $window = Find-AppWindow
+    if ($null -eq $found -and $null -ne $window) {
+        $found = $window.FindFirst([System.Windows.Automation.TreeScope]::Children, $dialogClass)
+    }
+    return $found
+}
+
+function Wait-FileDialog([bool] $open) {
+    $deadline = [DateTime]::UtcNow.AddSeconds($WaitSeconds)
+    do {
+        Assert-AppRunning
+        $found = Find-FileDialog
+        if ($open -and $null -ne $found) { return $found }
+        if (-not $open -and $null -eq $found) { return $null }
+        Wait-Briefly 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if ($open) { throw "No file dialog opened in $WaitSeconds seconds" }
+    throw "The file dialog was still open after $WaitSeconds seconds"
+}
+
+function Set-FileName($dialog, [string] $file) {
+    $nameBox = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, '1148'),
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Edit))
+    $entry = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameBox)
+    if ($null -eq $entry) { throw 'The file dialog has no file name box' }
+    $pattern = $null
+    if (-not $entry.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
+        throw 'The file name box takes no value'
+    }
+    $entry.SetFocus()
+    ([System.Windows.Automation.ValuePattern]$pattern).SetValue($file)
+}
+
+function Invoke-Pick($step) {
+    $name = [string]$step.control
+    Wait-Texts @($name) $WaitSeconds
+    $center = $null
+    foreach ($element in (Find-Named $name '')) {
+        $center = Get-Center $element
+        if ($null -ne $center) { break }
+    }
+    if ($null -eq $center) { throw "Rendered control '$name' has no point to click" }
+    Show-AppWindow
+    [TachyonProbeNative]::Click($center[0], $center[1])
+    $dialog = Wait-FileDialog $true
+    Wait-ForegroundWindow ([IntPtr]$dialog.Current.NativeWindowHandle) 'the file dialog'
+    $key = 'Escape'
+    if ($step.PSObject.Properties.Name -contains 'file') {
+        Set-FileName $dialog ([string]$step.file)
+        $key = 'Enter'
+    }
+    [TachyonProbeNative]::PressKey((Get-KeyCode $key), $false)
+    Wait-FileDialog $false | Out-Null
+    Write-Line "OK: the file dialog closed with $key"
+}
+
 function Show-AppWindow {
     Wait-ForegroundWindow $script:handle 'the app window'
 }
@@ -868,6 +933,7 @@ function Invoke-Step([string] $kind, $value) {
         'gone' { Wait-Gone @($value) }
         'read' { Read-Text $value }
         'click' { Invoke-Control ([string]$value) }
+        'pick' { Invoke-Pick $value }
         'focus' { Set-EntryFocus ([string]$value) }
         'type' { Send-Text $value }
         'move' { Move-Caret $value }

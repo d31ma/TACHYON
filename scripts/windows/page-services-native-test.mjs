@@ -7,11 +7,14 @@ class WindowsPageServicesTest {
   static root = WindowsGate.fixture('windows-page-services-')
   static serviceLanguages = PageServicesFixture.list('TAC_WINDOWS_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
   static windowCallers = PageServicesFixture.list('TAC_WINDOWS_WINDOW_CALLERS', 'swift,cs,kt')
+  static pickerCallers = PageServicesFixture.list('TAC_WINDOWS_PICKER_CALLERS', process.env.TAC_SWIFT_WASM_SDK ? 'js,kt,cs,swift' : 'js,kt,cs')
   static nativeLanguages = ['rs', 'cs']
+  static pageLanguages = ['js', 'ts']
   static callerFolders = { cs: 'native' }
 
   /** @param {string} language */
   static kind(language) {
+    if (this.pageLanguages.includes(language)) return 'page'
     return this.nativeLanguages.includes(language) ? 'natively linked' : 'WebAssembly'
   }
 
@@ -48,12 +51,30 @@ class WindowsPageServicesTest {
     console.log(`==> ${language} ${this.kind(language)} WindowControls caller\n${output}`)
   }
 
+  /** @param {string} ty @param {string} language */
+  static async checkPickerCaller(ty, language) {
+    const project = path.join(this.root, `picker-${language}`)
+    const { application, notes } = PageServicesFixture.stagePicker(project, language)
+    await WindowsGate.build(ty, project, 900_000)
+    const [read, cancelled] = PageServicesFixture.pickerStatuses[language]
+    const steps = [
+      ['wait', ['Choose a text file', 'Ready']],
+      ['pick', { control: 'Choose file', file: notes }],
+      ['wait', [read]],
+      ['pick', { control: 'Choose file', cancel: true }],
+      ['wait', [cancelled]],
+    ]
+    const output = await this.drive(project, application, steps)
+    console.log(`==> ${language} ${this.kind(language)} FilePicker caller\n${output}`)
+  }
+
   static async main() {
     WindowsGate.requireDesktop()
     const ty = await WindowsGate.ty()
     for (const language of this.serviceLanguages) await this.checkService(ty, language)
     for (const language of this.windowCallers) await this.checkWindowCaller(ty, language)
-    console.log(`PASS: page services (${this.serviceLanguages.join(', ')}) answered in the built Windows app (WebView2; C# is linked natively, the others run as WebAssembly), and WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window.`)
+    for (const language of this.pickerCallers) await this.checkPickerCaller(ty, language)
+    console.log(`PASS: page services (${this.serviceLanguages.join(', ')}) answered in the built Windows app (WebView2; C# is linked natively, the others run as WebAssembly), WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, and FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog.`)
   }
 }
 

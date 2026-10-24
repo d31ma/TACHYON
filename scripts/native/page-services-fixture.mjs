@@ -16,6 +16,7 @@ export class PageServicesFixture {
     ['click', 'Resize'],
     ['size', [1280, 800]],
   ]
+  static pickerStatuses = { js: ['read', 'cancelled'], swift: ['read', 'cancelled'], kt: ['read', 'cancelled'], cs: ['Read', 'Cancelled'] }
 
   /** @param {string} name @param {string} fallback */
   static list(name, fallback) {
@@ -45,6 +46,15 @@ export class PageServicesFixture {
     const application = this.stage(project, 'web-assembly-services', 'Tally', `dev.tachyon.tally-${language}`)
     this.copyService(project, 'web-assembly-services', `client/services/TallyService.${language}`)
     return application
+  }
+
+  /** @param {string} project @param {string} language */
+  static stagePicker(project, language) {
+    const application = this.stage(project, 'native-capabilities', 'Picker', `dev.tachyon.picker-${language}`)
+    this.copyService(project, 'native-capabilities', `client/services/PickerService.${language}`)
+    const notes = path.join(project, 'notes.txt')
+    writeFileSync(notes, 'Quarterly notes\n')
+    return { application, notes }
   }
 
   /** @param {string} project @param {string} language @param {string} [folder] */
