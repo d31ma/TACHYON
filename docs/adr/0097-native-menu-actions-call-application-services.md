@@ -518,5 +518,22 @@ the alternative, because a browser page has no application lifetime.
   `start`, `stop`, `runMenuAction` and `menuEventReady`.
 - Simulator and emulator: `scripts/ios/application-lifetime-test.mjs` (iPhone
   and iPad simulators) and `scripts/android/application-lifetime-test.mjs`
-  (emulator, now part of `scripts/android/native-test.sh`). The runs are
-  recorded below when they pass.
+  (emulator, now part of `scripts/android/native-test.sh`) passed on
+  2026-10-24 on a Mac (commit `566c24e9`). iOS 26.5 simulators, iPhone 17 Pro
+  and iPad Pro 13-inch (M5), Xcode 27.1: one application service started at
+  launch and served two pages; Command-1 forwarded `SectionChosen` and
+  Command-2 ran an action without an event, through the iPhone key commands
+  and the iPad menu bar; Command-1 did nothing on a page without a listener.
+  A SIGTERM ended the simulator app without `applicationWillTerminate`, so the
+  iOS stop was not observed, and the support table says so. Android emulator,
+  API 35 arm64: the service started once, served two pages and a rotation,
+  stopped once on Back and started again on the next launch in the same
+  process; Ctrl+1 and Ctrl+2 called it, the page showed the forwarded section
+  without a reload, and the overflow item was disabled on a page without a
+  listener.
+- The first Mac run found that an Android app with only Rust services never
+  loaded its Rust library: the generated `installRustCompanion();` call sat
+  behind a `//` comment of the empty-companion branch. It now has its own line.
+- iPadOS keeps some Command shortcuts for its own menus. Command-G is Find
+  Next, so a declared item with that shortcut never fires from the keyboard on
+  iPad, and the build does not warn about it yet.

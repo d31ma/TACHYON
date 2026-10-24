@@ -61,7 +61,7 @@ tac.application.window.titleBarButtonInset
   not applicable: tac.application.window.titleBarButtonInset has no meaning on Android: the app has no window buttons.
 
 tac.application.menus
-  adapted: app bar overflow menu: route items are listed in the overflow menu of an app bar, and their shortcuts use Ctrl on a hardware keyboard. Action items call a method of an application service and are enabled only while the page listens for their event; that run is still owed on the emulator (MN1b).
+  adapted: app bar overflow menu: route items are listed in the overflow menu of an app bar, and their shortcuts use Ctrl on a hardware keyboard. Action items call a method of an application service and are enabled only while the page listens for their event (MN1b).
 
 tac.application.tray
   refused with TY1601: Android has no tray. Put these controls in the page instead (ADR 0107).
@@ -190,7 +190,7 @@ tac.simplify
   honored: the same build check
 
 application lifetime services
-  run owed: Rust services that start with the first activity and stop when the activity finishes; a recreated activity (rotation) keeps them, and a later launch in the same process starts new ones; still to run: an Android app whose application service starts once, serves two pages and a rotation, and stops on Back, on the emulator (LT1)
+  honored: Rust services that start with the first activity and stop once when the activity finishes; a rotation keeps them, and a later launch in the same process starts new ones (LT1, emulator)
 
 standard menu bar without declared items
   not applicable: Without declared items, an Android app shows no app bar.
