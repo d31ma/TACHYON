@@ -60,7 +60,8 @@ run_in_wslg() {
     LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals bash -c '
     set -euo pipefail
     cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 \
-      --skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_package_tests
+      --skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_package_tests \
+      --skip linux_title_bar_tests
     cargo test --locked -p tachyon-core --lib the_linux_ -- --ignored --test-threads=1
   '
 }
@@ -102,7 +103,7 @@ main() {
   build_tests
   if [[ "${1:-}" == --wslg ]]; then
     run_in_wslg
-    echo 'PASS: the Linux host, window controls, appearance, storage, page calls, links and the integrated title bar under the WSLg Wayland compositor'
+    echo 'PASS: the Linux host, window controls, appearance, storage, page calls and links under the WSLg Wayland compositor (the title bar tests press the pointer through Mutter RemoteDesktop, which WSLg does not have; they run under mutter and xfwm4)'
     return
   fi
   export -f compositor_owner
