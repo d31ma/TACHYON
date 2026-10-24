@@ -95,5 +95,27 @@ Runs on 2026-10-24 (develop `e0bbb86a` plus LS3):
   staged C# companion under .NET 10 on Linux.
 - `kotlin_native_suspend_listeners_run_in_source_order` runs an Android-style
   Kotlin companion on the JVM.
-- Still owed: the Swift, Kotlin and C# host runs on macOS, the iOS simulator,
-  the Android emulator and Windows.
+- Host runs, each with a 400 ms async listener and a plain one, two presses,
+  and the page showing `a1s1` and then `a1s1a2s2`:
+  - macOS 26.6.2 on the Mac (Xcode 27.1, Swift 6.4, Rust 1.97.1, develop
+    `cb18afdb8`): `swift_listener_tests` and `native_rust_task_tests`
+    passed, and `scripts/native/async-listener-app-test.mjs` passed with a
+    linked Swift listener in the macOS app.
+  - iOS 26.5 simulator (iPhone 17 Pro, same Mac and commit): the same script
+    passed in the simulator app.
+  - Android 15 emulator (API 35, arm64): the script passed with a linked
+    Kotlin `suspend` listener in the packaged app, after a fix. A Kotlin
+    suspend method or listener that really suspends now holds the call until
+    it resumes, as Swift's does. Before, it answered `HTTP_MISSING` at once,
+    and the listener finished later with no render.
+  - Windows 11 ARM64 on the Surface (MSVC 19.44 ARM64, .NET 10.0.302,
+    develop `ddf568e8`): `csharp_native_task_tests` and
+    `native_rust_task_tests` passed, and
+    `scripts/windows/async-listener-native-test.mjs` passed with a linked C#
+    `Task` listener in the WebView2 app on the signed-in desktop. This
+    needed a fix: a finished C# listener task now sends the owner's
+    `changed` signal, so the page reads the fields again. Before, the page
+    kept the old values. It also needed a local one-line change to FP5's
+    `windows_capability_route.c`, which MSVC rejected on that commit.
+- Still owed: a linked Rust async listener inside an app. Its finished
+  listener task sends no `changed` signal yet.

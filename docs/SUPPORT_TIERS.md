@@ -772,8 +772,40 @@ passed for Swift, Rust, Kotlin, C# and F# in Chromium, Firefox and WebKit,
 and linked companions ran their listeners in source order: Swift 6.3.3,
 Kotlin on the JVM (Android-style companion), C# under .NET 10, and Rust
 through the host's task dispatch, where calls answer `BUSY` while a
-listener holds the service. Not run: a linked async listener inside the
-macOS, iOS, Android or Windows app.
+listener holds the service.
+
+The LS3 host runs followed on 2026-10-24. Each app check builds an app whose
+linked service has an async listener that waits 400 ms and a plain listener
+of the same event, presses "Send one" and then "Send two", and needs the page
+to show `a1s1` and then `a1s1a2s2`, with the async listener running in the
+app's own process:
+
+- macOS 26.6.2 (Mac, Xcode 27.1, Swift 6.4, Rust 1.97.1, develop
+  `cb18afdb8`): `swift_listener_tests` and `native_rust_task_tests` passed
+  natively, and `scripts/native/async-listener-app-test.mjs --target=macos`
+  passed with a linked Swift listener in the macOS app. Each press waited
+  about 430 ms.
+- iOS 26.5 simulator (iPhone 17 Pro, same Mac and commit): the same check
+  with `--target=ios` passed in the simulator app. Each press waited about
+  460 ms.
+- Android 15 emulator (API 35, arm64, WebView 124, Gradle 8.14.3, JDK 21):
+  `--target=android` passed with a linked Kotlin `suspend` listener in the
+  packaged app on `cb18afdb8` plus the fix below. Before the fix, a
+  coroutine that really suspended answered `HTTP_MISSING` at once and its
+  work finished later without a render, so the page showed `s1`. Now the call
+  waits until the coroutine resumes, as Swift does.
+- Windows 11 Home ARM64 (build 26200, MSVC 19.44 ARM64, .NET 10.0.302,
+  develop `ddf568e8`): `csharp_native_task_tests` and
+  `native_rust_task_tests` passed over SSH, and
+  `scripts/windows/async-listener-native-test.mjs` passed with a linked C#
+  `Task` listener in the WebView2 app on the signed-in desktop. This needed
+  two changes. First, a fix: a finished C# listener task now sends the page
+  the owner's `changed` signal; before it, the page kept showing `[]`.
+  Second, a local one-line change to FP5's `windows_capability_route.c`,
+  which does not compile with MSVC on that commit (`IStream_Read`, C2197).
+
+Not run: a linked Rust async listener inside an app. Its finished listener
+task does not signal the page either.
 
 On 2026-10-19 (NET3, ADR 0103 amendment) linked services started to answer
 the page later through a task, and linked Rust and C# `HTTPClient` calls
