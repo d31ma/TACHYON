@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
@@ -14,7 +14,7 @@ class IosFilePickerTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'ios-file-picker-'))
-  static deviceSet = path.join(IosFilePickerTest.root, 'simulator-devices')
+  static deviceSet = process.env.TAC_IOS_SIMULATOR_SET ?? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices')
   static evidence = process.env.TAC_IOS_FILE_PICKER_EVIDENCE ?? path.join(IosFilePickerTest.repository, 'target/ios-file-picker-evidence')
   static tapper = path.join(IosFilePickerTest.root, 'simulator-tap')
   static reader = path.join(IosFilePickerTest.root, 'screenshot-text')
@@ -23,6 +23,7 @@ class IosFilePickerTest {
   static fileName = 'tachyon-fp4-notes'
   static localStorage = 'group.com.apple.FileProvider.LocalStorage'
   static waitMilliseconds = 60000
+  static thumbnailAbove = 0.07
   static pollMilliseconds = 500
   static device = ''
 
@@ -45,7 +46,7 @@ class IosFilePickerTest {
   }
 
   static bootSimulator() {
-    mkdirSync(this.deviceSet)
+    mkdirSync(this.deviceSet, { recursive: true })
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
     const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-'))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
@@ -121,22 +122,34 @@ class IosFilePickerTest {
 
   /** @param {string[]} texts */
   static pickerShown(texts) {
-    return texts.includes('Cancel') && !texts.includes('Choose file')
+    return (texts.includes('Cancel') || texts.includes('Browse')) && !texts.includes('Choose file')
   }
 
-  static async choose() {
+  static cancelPicker() {
+    const shot = this.read('before-cancel')
+    const target = shot.lines.find(({ text }) => text.trim() === 'Cancel') ?? shot.lines.find(({ text }) => ['X', '×', '✕'].includes(text.trim()))
+    assert.ok(target, `no Cancel or close button on screen: ${shot.lines.map(({ text }) => text).join(' | ')}`)
+    return this.tapLine(target)
+  }
+
+  /** @param {string} language */
+  static async choose(language) {
     const taps = []
     const deadline = Date.now() + this.waitMilliseconds
+    let shot = this.read('picker')
     while (Date.now() < deadline) {
-      const shot = this.read('picker')
       const find = (check) => shot.lines.find(({ text }) => check(text.trim()))
-      const file = find((text) => text.startsWith(this.fileName))
-      const next = file ?? find((text) => text === 'On My iPhone') ?? find((text) => text === 'Browse')
+      const fresh = (label) => !taps.includes(label) && find((text) => text === label)
+      const file = find((text) => text.length > 8 && (text.startsWith(this.fileName) || this.fileName.startsWith(text)))
+      const next = file ? { ...file, y: file.y - this.thumbnailAbove } : fresh('On My iPhone') || fresh('Browse')
+      copyFileSync(shot.file, path.join(this.evidence, `${language}-picker-${taps.length}.png`))
       if (next) taps.push(this.tapLine(next))
       if (file) return taps
       await sleep(next ? 1500 : this.pollMilliseconds)
+      shot = this.read('picker')
     }
-    assert.fail(`the picker never listed ${this.fileName}: ${taps.join(' > ')}`)
+    copyFileSync(shot.file, path.join(this.evidence, `${language}-picker-stuck.png`))
+    assert.fail(`the picker never listed ${this.fileName}: ${taps.join(' > ')}; on screen: ${shot.lines.map(({ text }) => text).join(' | ')}`)
   }
 
   /** @param {string} folder */
@@ -163,13 +176,13 @@ class IosFilePickerTest {
       this.tap('Choose file')
       const picker = await this.screenWith(`${language}-picker`, (texts) => this.pickerShown(texts))
       assert.ok(picker.found, `${language}: the document picker did not open: ${picker.text.join(' | ')}`)
-      const taps = await this.choose()
+      const taps = await this.choose(language)
       const chosen = await this.screenWith(`${language}-read`, (texts) => texts.includes(read))
       assert.ok(chosen.found, `${language}: the page did not show "${read}": ${chosen.text.join(' | ')}`)
       this.tap('Choose file')
       const again = await this.screenWith(`${language}-picker-again`, (texts) => this.pickerShown(texts))
       assert.ok(again.found, `${language}: the document picker did not open again: ${again.text.join(' | ')}`)
-      this.tap('Cancel')
+      this.cancelPicker()
       const closed = await this.screenWith(`${language}-cancelled`, (texts) => texts.includes(cancelled))
       assert.ok(closed.found, `${language}: the page did not show "${cancelled}": ${closed.text.join(' | ')}`)
       const result = { language, linked: this.linked.includes(language), webAssembly: modules, taps, read, cancelled, screenshots: [picker.screenshot, chosen.screenshot, closed.screenshot] }
