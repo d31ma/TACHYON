@@ -66,7 +66,9 @@ machine contracts have their own, independent major versions.
   runtime also sends each synchronous picker request in a header, because
   Android's request hook cannot read a body. The simulator and emulator
   gates are `scripts/ios/file-picker-test.mjs` and
-  `scripts/android/file-picker-test.mjs`.
+  `scripts/android/file-picker-test.mjs`; on 2026-10-24 every caller chose,
+  read and cancelled on the iOS 26.5 simulator and the API 35 Android
+  emulator.
 
 - macOS runs on a Mac (RM1, 2026-10-24): three new scripts check the
   packaged macOS app. `scripts/application-state-macos-test.mjs` checks that

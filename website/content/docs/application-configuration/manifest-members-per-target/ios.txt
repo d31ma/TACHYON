@@ -130,7 +130,7 @@ tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk; a value was read back after a terminate and relaunch on the iOS 26.5 simulator (RM2)
 
 tac.nativeCapabilities
-  run owed: filePicker opens the document picker (UIDocumentPickerViewController) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on iOS and reach the picker through the page; still to run: page, linked Swift and Rust, and WebAssembly C# and Kotlin FilePicker fields choosing, reading and cancelling in the document picker on the iOS simulator (FP4)
+  honored: filePicker opens the document picker (UIDocumentPickerViewController) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on iOS and reach the picker through the page; each chose, read and cancelled on the iOS 26.5 simulator (FP4)
 
 tac.elements
   adapted: tac.elements are bundled into the iOS app for its own pages only. Other sites cannot load them from the app.

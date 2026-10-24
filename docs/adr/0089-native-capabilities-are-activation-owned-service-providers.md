@@ -416,5 +416,21 @@ and `android_file_picker::tests` check the generated hosts, and
 simulator and emulator gates are `scripts/ios/file-picker-test.mjs` (OCR
 and simulated taps, a file seeded into the simulator's On My iPhone
 storage) and `scripts/android/file-picker-test.mjs` (DevTools for the page,
-`uiautomator` for the picker, a file pushed to Downloads). Until they run,
-the iOS and Android cells of `tac.nativeCapabilities` are `runOwed`.
+`uiautomator` for the picker, a file pushed to Downloads).
+
+Runs on 2026-10-24, on a Mac with macOS 26.6.2 and Xcode 27.1, from the
+FPM branch on develop `7bd24271`. Each gate built the `native-capabilities`
+feature once per service language. On the iOS 26.5 simulator (iPhone 17
+Pro), the JavaScript page service, the linked Swift and Rust services and
+the C# and Kotlin services running as WebAssembly each opened the document
+picker, chose the seeded file, read it, and answered `cancelled` when the
+next picker was closed. On the Android 15 (API 35) arm64 emulator with
+Android System WebView 124, the JavaScript page service, the linked Kotlin
+and Rust services and the Swift and C# services running as WebAssembly did
+the same in DocumentsUI, with Back closing the second picker. The runs
+found two faults that are fixed above: the 10-second waits for linked
+callers, and the iOS gate's simulator device set, which must be the default
+one because the On My iPhone file provider cannot resolve files in a device
+set under `$TMPDIR`. The iOS 26 picker has no Cancel button; the gate taps
+its close button. The iOS and Android cells of `tac.nativeCapabilities`
+are now `honored`.
