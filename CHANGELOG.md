@@ -1760,6 +1760,11 @@ machine contracts have their own, independent major versions.
   `TY2015 Unresolved dependency Integer`. Only fields written `name = nil,`
   are filled, as in every other Yon language.
 
+- An unanswered Windows file dialog now closes as `cancelled` when its
+  patience runs out while the dialog is still starting (SD1). The host
+  called `IFileDialog::Close` once, and a dialog that had not finished
+  opening ignored it, so the page never got its answer. The host now keeps
+  closing the dialog, and also sends it Cancel, until it returns.
 - A native menu or tray action that forwards an event with
   `CurrentPageEvents` now shows on the page (SD1). The Rust page service
   received the event, but nothing told the page that the service had
