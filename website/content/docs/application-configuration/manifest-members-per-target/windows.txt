@@ -61,10 +61,10 @@ tac.application.window.titleBarButtonInset
   adapted: tac.application.window.titleBarButtonInset is ignored on Windows: the system caption buttons stay where Windows draws them, at the top trailing corner. The page reads their size from --tac-titlebar-height and --tac-titlebar-trailing-inset.
 
 tac.application.menus
-  run owed: items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; over SSH the menus showed their items and shortcuts and a menu action reached the application service; still to run: a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)
+  honored: items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; a route item opened its page, and a menu action and its shortcut reached the page inside WebView2 on a signed-in Windows desktop (N1, SD1)
 
 tac.application.tray
-  run owed: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107); still to run: the notification-area icon and its menu items on a signed-in Windows desktop; the host has run only under Wine (ADR 0107)
+  honored: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit, and a declared item's event reaches the page (ADR 0107, SD1)
 
 tac.application.tray.template
   adapted: tac.application.tray.template applies only to the macOS menu bar. The Windows notification area shows the icon in its own colors.
@@ -208,7 +208,7 @@ page accessibility (roles and names through the system accessibility API)
   honored: the pages reach UI Automation through WebView2, with Edit, Button, Hyperlink, Text and Heading roles (AX2, SD1)
 
 window drag regions (data-tac-drag-region)
-  run owed: with titleBar "integrated", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu; still to run: a drag region moving the window inside WebView2 on a signed-in Windows desktop (SD1)
+  honored: with titleBar "integrated", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu (SD1)
 
 external links
   honored: http, https and mailto links open in the default browser or mail app (ShellExecuteW), from a WebView2 page (SD1)

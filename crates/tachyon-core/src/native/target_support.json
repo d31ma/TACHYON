@@ -204,7 +204,7 @@
     "paths": ["tac.application.menus"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "items in the File, View and Help menus of the menu bar"},
-    "windows": {"reach": "runOwed", "how": "items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; over SSH the menus showed their items and shortcuts and a menu action reached the application service", "run": "a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)"},
+    "windows": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; a route item opened its page, and a menu action and its shortcut reached the page inside WebView2 on a signed-in Windows desktop (N1, SD1)"},
     "linux": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar"},
     "ios": {"reach": "adapted", "note": "iPad menu bar / iPhone shortcuts: route items join the File, View and Help menus of the iPad menu bar, and on iPhone only items with a shortcut are reachable, from a hardware keyboard. Action items stop the build (TY1601) until iOS has the application lifetime (MN1b)."},
     "android": {"reach": "adapted", "note": "app bar overflow menu: route items are listed in the overflow menu of an app bar, and their shortcuts use Ctrl on a hardware keyboard. Action items stop the build (TY1601) until Android has the application lifetime (MN1b)."}
@@ -214,7 +214,7 @@
     "paths": ["tac.application.tray"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "a status item in the menu bar with Open, the declared items and Quit (ADR 0107)"},
-    "windows": {"reach": "runOwed", "how": "a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107)", "run": "the notification-area icon and its menu items on a signed-in Windows desktop; the host has run only under Wine (ADR 0107)"},
+    "windows": {"reach": "honored", "how": "a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit, and a declared item's event reaches the page (ADR 0107, SD1)"},
     "linux": {"reach": "adapted", "note": "tac.application.tray is shown as a StatusNotifierItem with a D-Bus menu. Desktops without a tray host, such as GNOME without the AppIndicator extension, show nothing, and the app keeps its window (ADR 0107)."},
     "ios": {"reach": "refused", "code": 1601, "alternative": "iOS has no status area. Put these controls in the page instead (ADR 0107)."},
     "android": {"reach": "refused", "code": 1601, "alternative": "Android has no tray. Put these controls in the page instead (ADR 0107)."}
@@ -694,7 +694,7 @@
     "paths": [],
     "web": {"reach": "notApplicable", "note": "A browser page cannot move its window."},
     "macos": {"reach": "honored", "how": "dragging a marked element moves the window"},
-    "windows": {"reach": "runOwed", "how": "with titleBar \"integrated\", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu", "run": "a drag region moving the window inside WebView2 on a signed-in Windows desktop (SD1)"},
+    "windows": {"reach": "honored", "how": "with titleBar \"integrated\", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu (SD1)"},
     "linux": {"reach": "honored", "how": "with titleBar \"integrated\", dragging a marked element moves the window and a double-click follows the desktop's title bar setting"},
     "ios": {"reach": "notApplicable", "note": "An iOS app has no window to move."},
     "android": {"reach": "notApplicable", "note": "An Android app has no window to move."}

@@ -141,7 +141,7 @@ entry. This evidence does not promote any tier.
 | --- | --- | --- |
 | macOS WKWebView | yes | the generated AppDelegate is compiled and run with a real Rust library (ignored SDK-lane tests in `native_application_host_tests` and `native_menu_host_tests`) |
 | Linux WebKitGTK | yes | `linux_host_tests::linux_generated_host_runs_menu_actions_and_one_application_lifetime` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and a real Rust library, and ran it under Xvfb on WSL Ubuntu 24.04 (aarch64), passing three of three runs: the service started once at launch, a menu action reached the page service without a reload, the item was disabled with no recipient, Help and Home kept the service, and Close Window stopped it once. Not covered: a physical Linux desktop, Wayland, x86_64, and clicks or keys by a person. WSLg's display did not accept connections from the remote test lane, and with WebKit's sandbox on, the first page load took up to about 80 seconds on that machine. This run predates `594a5833` (2026-10-18). Before that fix, GTK 4 did not draw the menu bar, and the popover menu items had no accessible name. The test activates the menu actions through the application's action group, so it passed without a visible menu bar. Since the fix the test also checks that the window shows its menu bar, the AT-SPI probe of `scripts/linux/native-test.sh` reads the drawn menu items by name, and the test passed again in the WSL run of `38eaed29` |
-| Windows WebView2 (x64) | yes | built and run on Windows 11 ARM64 on 2026-10-04 with Visual Studio Build Tools 2022 17.14 (MSVC 14.44, ARM64-hosted x64 tools), Windows SDK 10.0.26100.0 and WebView2 SDK 1.0.3485.44. `ty`, built natively for `aarch64-pc-windows-msvc`, ran `ty bundle --target windows` for the `menu-actions` and `menu-items-that-open-a-page` examples: the whole host compiled with `cl /W4 /WX`, linked `WebView2LoaderStatic.lib`, and `TachyonRustCompanion.dll` was built (after the C4100 fix of 2026-10-04). The WebView2 handler interface IDs match `WebView2.h`. The apps ran from an SSH session and were driven with Win32 messages: the application service started once before the window, the File, View and Help menus showed the declared items and shortcuts, a menu action ran, an item whose event had no recipient stayed disabled and did not run, and Close Window ended the process with exit code 0 after exactly one stop (also after `WM_ENDSESSION`). This SSH run did not reach WebView2: outside a signed-in desktop session `CreateCoreWebView2Controller` fails with `0x80070578` (invalid window handle). WebView2 pages ran later on the signed-in desktop (2026-10-19): the MSIX gate rendered pages and made native calls (PKG4), and links opened the app at their routes (LK2); see the Windows row and the Windows release packages above. On 2026-10-24 route items, the `AcceleratorKeyPressed` handler (Ctrl+K) and `scripts/windows/native-test.ps1` without `-Msix` passed there (SD1). Still owed on that desktop: page events from a menu action |
+| Windows WebView2 (x64) | yes | built and run on Windows 11 ARM64 on 2026-10-04 with Visual Studio Build Tools 2022 17.14 (MSVC 14.44, ARM64-hosted x64 tools), Windows SDK 10.0.26100.0 and WebView2 SDK 1.0.3485.44. `ty`, built natively for `aarch64-pc-windows-msvc`, ran `ty bundle --target windows` for the `menu-actions` and `menu-items-that-open-a-page` examples: the whole host compiled with `cl /W4 /WX`, linked `WebView2LoaderStatic.lib`, and `TachyonRustCompanion.dll` was built (after the C4100 fix of 2026-10-04). The WebView2 handler interface IDs match `WebView2.h`. The apps ran from an SSH session and were driven with Win32 messages: the application service started once before the window, the File, View and Help menus showed the declared items and shortcuts, a menu action ran, an item whose event had no recipient stayed disabled and did not run, and Close Window ended the process with exit code 0 after exactly one stop (also after `WM_ENDSESSION`). This SSH run did not reach WebView2: outside a signed-in desktop session `CreateCoreWebView2Controller` fails with `0x80070578` (invalid window handle). WebView2 pages ran later on the signed-in desktop (2026-10-19): the MSIX gate rendered pages and made native calls (PKG4), and links opened the app at their routes (LK2); see the Windows row and the Windows release packages above. On 2026-10-24 route items, the `AcceleratorKeyPressed` handler (Ctrl+K) and `scripts/windows/native-test.ps1` without `-Msix` passed there (SD1). On the same day View > Show Running and Ctrl+2 sent their events to the page, which now shows them (SD1) |
 | iOS WKWebView | route items yes (MN1a); action items refused (`TY1601`), and the application lifetime refused (`TY1406`) until LT1 and MN1b | `scripts/ios/menus-test.mjs` on this Mac (2026-10-19, MN1a, Xcode with iOS 26.5): on an iPhone 17 Pro simulator Command-K from a simulated hardware keyboard reached the route item through `keyCommands`, and on an iPad Pro 13-inch (M5) simulator through the main menu that `buildMenu(with:)` fills; a Swift service on the opened page recorded `/status` both times. Not covered: the iPad menu bar opened by a pointer or touch, and a person's keyboard |
 | Android WebView | route items yes (MN1a); action items refused (`TY1601`), and the application lifetime refused (`TY1406`) until LT1 and MN1b | `scripts/android/menus-test.mjs` on this Mac's emulator-5554 (API 35 arm64, 2026-10-19, MN1a): the system keyboard shortcuts list (Meta+/) showed File > Status Ctrl+K, `input keycombination` Ctrl+K opened `/status`, and a tap on the app bar's More options and then Guide opened `/guide`, read through the WebView's DevTools socket |
 
@@ -273,8 +273,8 @@ windows` built the integrated-title-bar docs example and a Yon Reach app
 with C# and Rust companions with integrated and standard title bars,
 printing the two Windows notes only when they applied. Launched from SSH,
 the integrated app started and recorded `bridge.unavailable`, as every
-WebView2 app does outside a signed-in desktop. Not run yet: the look, Snap
-Layouts and a drag in WebView2 on the signed-in desktop (SD1).
+WebView2 app does outside a signed-in desktop. The look and a drag ran in
+WebView2 on the signed-in desktop on 2026-10-24 (SD1, below).
 
 On 2026-10-18 the Linux host started to open its window from the manifest
 too: the page at `tac.application.window` size and minimum size, a hex
@@ -421,14 +421,22 @@ MSVC 14.44 ARM64 tools, Windows SDK 10.0.26100.0, WebView2 SDK
   `HTTPClient` reads, and a linked C# service's stream (three ticks) and
   socket (an echo) clients held by the page. No local network prompt
   appeared;
-- `scripts/windows/window-shell-test.ps1`: the caption took the
+- `scripts/windows/window-shell-test.ps1`: the integrated title bar
+  started the client area at the window's top edge, left the caption
+  buttons to `WM_NCHITTEST` with no web view over them, and gave the page
+  30px, 0px and 145px insets; a real click in the drag region reached the
+  page, a `SendInput` drag moved the window, a double-click maximized and
+  restored it, and a right-click opened the window menu. The caption took the
   `theme_color` (all 760 sampled caption pixels matched `#b03a2e`), the
   standard File, Edit and Window menus with the Edit commands, page window
   controls (a resize to 640 device-independent pixels, maximize, minimize,
   fullscreen, `setTitle` and close with exit code 0) and a fullscreen start;
-- `scripts/windows/menu-tray-test.ps1`: route menu items, the Ctrl+K
-  accelerator, the Edit menu, Window Minimize and Maximize, and the tray
-  icon, whose menu held Open, the declared items and Exit; closing the
+- `scripts/windows/menu-tray-test.ps1`: route menu items, menu actions
+  and their Ctrl+2 shortcut, sent while WebView2 had the focus, whose events
+  reached the page, the Ctrl+K accelerator, the Edit menu, Window Minimize
+  and Maximize, and the tray
+  icon, whose menu held Open, the declared items and Exit, and whose
+  declared item's event reached the page; closing the
   window hid it, a click on the icon showed it again, Exit ended the app
   and removed the icon;
 - `scripts/windows/page-checks-native-test.mjs`: typing kept focus and caret

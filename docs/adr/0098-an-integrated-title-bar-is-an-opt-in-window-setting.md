@@ -308,7 +308,15 @@ WebView2 SDK headers; and `the_windows_title_bar_drives_a_win32_window_under_win
 runs the frame, hit test, menu move, insets, button region, maximize and
 full screen code on a real Win32 window under Wine (which has no DWM, so it
 uses the fallback caption button size). The look, Snap Layouts and a drag
-in WebView2 need the signed-in Surface desktop (SD1).
+in WebView2 need the signed-in Surface desktop (SD1). On 2026-10-24
+`scripts/windows/window-shell-test.ps1` ran them there: the client area
+started at the window's top edge, `WM_NCHITTEST` answered the three caption
+buttons and no web view covered them, the page read a 30px title bar height
+and 0px and 145px insets at 96 DPI, a real click in the drag region reached
+the page, a `SendInput` drag moved the window by (120, 60), a double-click
+maximized and restored it, and a right-click opened the window menu with the
+File, Edit and Window menus. UI Automation shows no TitleBar element for the
+integrated window.
 
 ## Amendment (2026-10-19): iOS and Android
 
