@@ -121,7 +121,7 @@ tac.browserApis share
   adapted: Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard.
 
 tac.browserApis notifications
-  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container (LX1).
+  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container and on WSL aarch64 (LX1).
 
 tac.browserApis geolocation
   honored: the web view's navigator.geolocation through GeoClue, which the host permits for the app's own pages (LX1 ran GeoClue 2.7 with a GPS fix and its agent)
@@ -241,7 +241,7 @@ development code signing
   not applicable: Linux apps and their AppImage and .deb packages are not signed; Linux distributions sign the repositories that ship packages.
 
 release packaging
-  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: dpkg -i of the .deb on WSL, which needs administrator rights there, and an install on a Linux desktop; apt-get install of the .deb ran in an x86_64 cloud container, the AppImage ran through FUSE on WSL, and the installed .desktop file opened a scheme link under Xvfb (RL1)
+  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: an install on a physical Linux desktop; apt-get install of the .deb as root, a start from PATH and from its desktop file, and apt-get purge ran in an x86_64 cloud container and on WSL aarch64 (LX1), and the AppImage ran through FUSE on WSL (RL1)
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off

@@ -389,8 +389,9 @@ library and desktop file, starts the app from `PATH` and from its desktop file
 with `gio launch` until it shows its first page, and removes it with
 `apt-get purge`. It passed in an x86_64 Ubuntu 24.04 cloud container. apt
 showed 0 B installed, because the control file has no `Installed-Size` field.
-Still owed: `dpkg -i` or `apt install` on WSL, and an install on a Linux
-desktop.
+It passed on WSL Ubuntu 24.04.5 (aarch64) too, run as root through
+`wsl -u root`, with `nativegate_0.0.1-7_arm64.deb`. Still owed: an install on
+a physical Linux desktop.
 
 ## Amendment (2026-10-24): Android releases are shrunk by R8, take `--arch`, and build offline
 
