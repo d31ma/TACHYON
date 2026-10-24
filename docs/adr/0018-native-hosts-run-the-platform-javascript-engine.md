@@ -116,3 +116,11 @@ for both origins, builds the Windows opener with MinGW and runs it under Wine,
 and (on the Linux lane) runs the generated GTK host under Xvfb, where a page
 script follows links and opens windows and a fake launcher records what the
 host handed out.
+
+## Amendment (2026-10-24): external links ran on the Android emulator
+
+`scripts/android/page-checks-test.mjs` ran on the Android 15 (API 35, arm64) emulator on 2026-10-24, on develop `4c052177` and again after a rebase onto `259818ee` (RM3, `docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"). Taps on an
+`https`, an `http` and a `mailto` link in a page started `ACTION_VIEW` from
+the app, which Chrome and Gmail answered, and the page stayed where it was. A
+link with a user name started nothing. The support table marks Android
+external links `honored`. A physical device is not run.

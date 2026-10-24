@@ -177,7 +177,7 @@
     "windows": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title, called from a page inside WebView2 on a signed-in Windows desktop (SD1)"},
     "linux": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services"},
     "ios": {"reach": "adapted", "note": "tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, for calls from the page and from linked Swift services. granted() answers false for the other controls."},
-    "android": {"reach": "adapted", "note": "tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. On the emulator, granted minimize, resize and title acted from the page and a linked Kotlin service, title also from a linked Rust service, and ungranted controls were refused. A granted close, maximize or fullscreen has not run yet."}
+    "android": {"reach": "adapted", "note": "tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. On the emulator, granted minimize, resize and title acted from the page and a linked Kotlin service, title also from a linked Rust service,, granted maximize and fullscreen acted from a linked Kotlin service, fullscreen from the page hid and showed the system bars, close from the page finished the activity and refused a control that reached it after close started, and ungranted controls were refused (RM3)."}
   },
   {
     "member": "tac.application.window.titleBar",
@@ -347,7 +347,7 @@
     "windows": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; a network-first read answered from the cache with Yon stopped (SD1)"},
     "linux": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk"},
     "ios": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; with Yon stopped, network-first and cache-first reads answered from the kept copy on the iOS 26.5 simulator, also after a relaunch (RM2)"},
-    "android": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the Android app, but a read kept shortly before the system stops the app is not always there after a relaunch: the web view does not always keep such Cache Storage entries."}
+    "android": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the Android app, but a read kept shortly before the system stops the app is not always there after a relaunch: the web view does not always keep such Cache Storage entries. In airplane mode on the Android 15 emulator, a network-first and a cache-first Yon read answered from Cache Storage (RM3)."}
   },
   {
     "member": "tac.metadata",
@@ -367,7 +367,7 @@
     "windows": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Windows app: the Windows location and notification settings decide, without a reason from the app."},
     "linux": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Linux app: it shows no permission prompt of its own, and GeoClue and the desktop settings decide location and notifications."},
     "ios": {"reach": "honored", "how": "NSLocationWhenInUseUsageDescription in Info.plist; the iOS 26.5 simulator's location prompt displayed the manifest reason (RM2)"},
-    "android": {"reach": "runOwed", "how": "the rationale Android shows before it asks again for location or notifications, and the name of the notification channel", "run": "the rationale before a second location question and the notification channel name on the emulator"}
+    "android": {"reach": "honored", "how": "the rationale Android shows before it asks again for location or notifications, and the name of the notification channel; the location rationale and the channel name ran on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)"}
   },
   {
     "member": "tac.browserApis",
@@ -387,7 +387,7 @@
     "windows": {"reach": "honored", "how": "the Windows clipboard through the host bridge (browserApi.clipboard), both ways from a WebView2 page (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps"},
     "ios": {"reach": "honored", "how": "UIPasteboard through the host bridge (browserApi.clipboard)"},
-    "android": {"reach": "runOwed", "how": "ClipboardManager, through the host bridge", "run": "the clipboard round trip of scripts/android/browser-apis-test.mjs on the emulator, which timed out at its geolocation step in its only run"}
+    "android": {"reach": "honored", "how": "ClipboardManager, through the host bridge; the clipboard round trip ran on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)"}
   },
   {
     "member": "tac.browserApis share",
@@ -397,7 +397,7 @@
     "windows": {"reach": "adapted", "note": "share in the Windows app opens the Windows share sheet for the app window (browserApi.share). ShareFinished arrives when the sheet opens, because Windows does not tell the app whether the user shared. The sheet opened from a WebView2 page on a signed-in Windows desktop (SD1)."},
     "linux": {"reach": "adapted", "note": "Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard."},
     "ios": {"reach": "honored", "how": "UIActivityViewController through the host bridge (browserApi.share); a tap on the iOS 26.5 simulator opened the share sheet, and closing it reported a cancelled share (RM2)"},
-    "android": {"reach": "adapted", "note": "share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared. A run of the share sheet on the emulator is still owed."}
+    "android": {"reach": "adapted", "note": "share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared. The share sheet opened on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)."}
   },
   {
     "member": "tac.browserApis notifications",
@@ -407,7 +407,7 @@
     "windows": {"reach": "adapted", "note": "notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package reached the notification history on a signed-in Windows desktop (SD1)."},
     "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container (LX1)."},
     "ios": {"reach": "honored", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; the iOS 26.5 simulator displayed the permission prompt and a banner (RM2)"},
-    "android": {"reach": "runOwed", "how": "NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications", "run": "the POST_NOTIFICATIONS question and a posted notification in scripts/android/browser-apis-test.mjs on the emulator"}
+    "android": {"reach": "honored", "how": "NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications; the question and a posted notification ran on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)"}
   },
   {
     "member": "tac.browserApis geolocation",
@@ -417,7 +417,7 @@
     "windows": {"reach": "honored", "how": "the web view's navigator.geolocation and the Windows location service, granted by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's navigator.geolocation through GeoClue, which the host permits for the app's own pages (LX1 ran GeoClue 2.7 with a GPS fix and its agent)"},
     "ios": {"reach": "honored", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; the page got the simulated position on the iOS 26.5 simulator (RM2)"},
-    "android": {"reach": "runOwed", "how": "the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient", "run": "the ACCESS_FINE_LOCATION question and a test-provider position in scripts/android/browser-apis-test.mjs on the emulator"}
+    "android": {"reach": "honored", "how": "the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient; the question and a test-provider position ran on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)"}
   },
   {
     "member": "tac.browserApis preferenceStrings",
@@ -427,7 +427,7 @@
     "windows": {"reach": "honored", "how": "the web view's localStorage, kept on disk across a relaunch (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
     "ios": {"reach": "honored", "how": "the web view's localStorage, kept on disk; a value was read back after a terminate and relaunch on the iOS 26.5 simulator (RM2)"},
-    "android": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on the emulator"}
+    "android": {"reach": "honored", "how": "the web view's localStorage, kept on disk; a write was read back after a relaunch on the Android 15 emulator in scripts/android/page-checks-test.mjs (RM3)"}
   },
   {
     "member": "tac.nativeCapabilities",
@@ -457,7 +457,7 @@
     "windows": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093); a Python service answered inside WebView2 on a signed-in Windows desktop (SD1)"},
     "linux": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093)"},
     "ios": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093); a Python service answered the page on the iOS 26.5 simulator (RM2)"},
-    "android": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the Android emulator gate (ADR 0093)"}
+    "android": {"reach": "honored", "how": "Pyodide in the web view, loaded from https://appassets.tachyon.local; a Python service answered on the Android 15 emulator in scripts/android/python-service-test.mjs (ADR 0093)"}
   },
   {
     "member": "tac.budgets",
@@ -487,7 +487,7 @@
     "windows": {"reach": "honored", "how": "the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient; scripts/windows/yon-reach.ps1 passed inside WebView2 on a signed-in Windows desktop (NET3, ADR 0103)"},
     "linux": {"reach": "honored", "how": "the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb and headless Wayland)"},
     "ios": {"reach": "adapted", "note": "tac.yon.origin: the iOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1)."},
-    "android": {"reach": "honored", "how": "the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator (ADR 0103)"}
+    "android": {"reach": "honored", "how": "the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator, also on its Google Play production image (ADR 0103)"}
   },
   {
     "member": "tac.go",
@@ -707,7 +707,7 @@
     "windows": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (ShellExecuteW), from a WebView2 page (SD1)"},
     "linux": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (GtkUriLauncher)"},
     "ios": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (UIApplication); on the iOS 26.5 simulator http and https opened Safari, mailto went to the system, and links with a user name opened nothing (RM2)"},
-    "android": {"reach": "runOwed", "how": "http, https and mailto links open in the default browser or mail app (ACTION_VIEW)", "run": "an http, https and mailto link from a page on the emulator"}
+    "android": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (ACTION_VIEW), and a link with a user name opens nothing; run on the Android 15 emulator by scripts/android/page-checks-test.mjs (RM3)"}
   },
   {
     "member": "deep links",
@@ -727,7 +727,7 @@
     "windows": {"reach": "honored", "how": "ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored, heard by the page and linked Rust services (SD1)"},
     "linux": {"reach": "honored", "how": "ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again"},
     "ios": {"reach": "honored", "how": "ApplicationStateChanged when the app enters the background and when it returns to the foreground; the page and a linked Swift service heard both on the iOS 26.5 simulator (RM2)"},
-    "android": {"reach": "runOwed", "how": "ApplicationStateChanged on onStop and onStart", "run": "onStop and onStart on the emulator"}
+    "android": {"reach": "honored", "how": "ApplicationStateChanged on onStop and onStart, heard by page services and linked Kotlin services; run on the Android 15 emulator by scripts/android/page-checks-test.mjs (RM3)"}
   },
   {
     "member": "stored data (IndexedDB, Cache API, LocalState)",
@@ -827,7 +827,7 @@
     "windows": {"reach": "honored", "how": "the Windows build compiles and links with /Brepro and keeps .obj files out of the output; two packaged builds give the same artifact-manifest.json digests"},
     "linux": {"reach": "honored", "how": "SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests"},
     "ios": {"reach": "honored", "how": "the iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a signed --device or --release .ipa is never byte-identical. a_packaged_ios_app_is_byte_identical_when_built_twice passed on a Mac (RM2)"},
-    "android": {"reach": "runOwed", "how": "the Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output; the debug APK is signed with the build machine's debug key, so it matches only on the same machine", "run": "a_packaged_android_app_is_byte_identical_when_built_twice with ANDROID_HOME (TL2)"}
+    "android": {"reach": "honored", "how": "the Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output; the debug APK is signed with the build machine's debug key, so it matches only on the same machine; a_packaged_android_app_is_byte_identical_when_built_twice passed on a Mac (RM3)"}
   },
   {
     "member": "running without a signed-in desktop session",

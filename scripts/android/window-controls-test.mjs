@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,27 @@ class AndroidWindowControlsGate {
   static adb = path.join(AndroidWindowControlsGate.sdk ?? '', 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
   static packageName = 'com.example.catalog';
   static refusedControls = ['maximize', 'fullscreen', 'close'];
+  static allControls = ['minimize', 'resize', 'title', 'maximize', 'fullscreen', 'close'];
+  static grantService = `@Service
+@NeedsAll
+class WindowGrantService {
+    private val windowControls: WindowControls
+    var problem: String = ""
+
+    fun maximize() {
+        keepProblem { windowControls.maximize() }
+    }
+
+    fun fullscreen() {
+        keepProblem { windowControls.fullscreen() }
+    }
+
+    private fun keepProblem(call: () -> Unit) {
+        try { call(); problem = "acted" }
+        catch (refusal: IllegalStateException) { problem = refusal.message.orEmpty() }
+    }
+}
+`;
   static probeService = `@Service
 @NeedsAll
 class WindowProbeService {
@@ -60,6 +81,18 @@ class WindowProbeService {
     writeFileSync(path.join(project, 'client/components/window/probe/tac.html'), '<section aria-label="Window probe"><button type="button" on:click="windowProbe.probe()">Probe</button><output aria-label="Grants">{windowProbe.grants.join(",")}</output><output aria-label="Refusals">{windowProbe.refusals.join("|")}</output></section>');
     mkdirSync(path.join(project, 'client/pages'), { recursive: true });
     writeFileSync(path.join(project, 'client/pages/tac.html'), '<report-window hydrate="load" />\n<window-probe />\n');
+  }
+
+  static stageGranted(project) {
+    const { feature, allControls, grantService } = AndroidWindowControlsGate;
+    AndroidWindowControlsGate.stage(project);
+    const manifest = JSON.parse(readFileSync(path.join(feature, 'client/manifest.json'), 'utf8'));
+    manifest.tac.application.window.controls = allControls;
+    writeFileSync(path.join(project, 'client/manifest.json'), JSON.stringify(manifest));
+    writeFileSync(path.join(project, 'client/services/WindowGrantService.kt'), grantService);
+    mkdirSync(path.join(project, 'client/components/window/grant'), { recursive: true });
+    writeFileSync(path.join(project, 'client/components/window/grant/tac.html'), '<section aria-label="Window grant"><button type="button" on:click="windowGrant.maximize()">Maximize</button><button type="button" on:click="windowGrant.fullscreen()">Fullscreen</button><output aria-label="Grant problem">{windowGrant.problem}</output></section>');
+    writeFileSync(path.join(project, 'client/pages/tac.html'), '<report-window hydrate="load" />\n<window-grant />\n');
   }
 
   static binary() {
@@ -137,6 +170,44 @@ class WindowProbeService {
     await waitFor(() => !resumedActivity().includes(packageName), `Minimise moves the app behind the launcher: ${resumedActivity()}`);
   }
 
+  static systemBarsShown() {
+    const source = AndroidWindowControlsGate.adbShell('dumpsys', 'window').match(/InsetsSource id=\S+ type=statusBars [^\n]*visible=(true|false)/);
+    return source ? { true: 'shown', false: 'hidden' }[source[1]] : 'unknown';
+  }
+
+  static hostCall(page, control) {
+    return page.evaluate(async control => JSON.parse(await globalThis.__tachyonNativeHostCall(`window.${control}`, '{}')), control);
+  }
+
+  static activityRecords() {
+    const { adbShell, packageName } = AndroidWindowControlsGate;
+    return adbShell('dumpsys', 'activity', 'activities').split('\n').filter(line => line.includes(`${packageName}/.MainActivity`) && /ActivityRecord\{/.test(line));
+  }
+
+  static async checkGrantedOnActivity(page) {
+    const { pageSize, waitFor, hostCall, systemBarsShown, resumedActivity, activityRecords, packageName } = AndroidWindowControlsGate;
+    const problem = () => page.getByRole('status', { name: 'Grant problem' }).textContent();
+    const full = await pageSize(page);
+    await page.getByRole('button', { name: 'Resize' }).click();
+    await waitFor(async () => JSON.stringify(await pageSize(page)) === '[1280,800]', `Resize makes the window 1280 by 800 before maximize: ${await pageSize(page)}`);
+    await page.getByRole('button', { name: 'Maximize' }).click();
+    await waitFor(async () => JSON.stringify(await pageSize(page)) === JSON.stringify(full), `A granted maximize from the Kotlin service fills the screen again (${full}): ${await pageSize(page)}`);
+    await waitFor(async () => await problem() === 'acted', async () => `The granted maximize reports no problem: ${await problem()}`);
+    const before = { bars: systemBarsShown(), size: await pageSize(page) };
+    assert.equal(before.bars, 'shown', 'The system bars show before fullscreen');
+    await page.getByRole('button', { name: 'Fullscreen' }).click();
+    await waitFor(async () => systemBarsShown() === 'hidden', `A granted fullscreen from the Kotlin service hides the system bars: ${systemBarsShown()} ${await pageSize(page)} (before ${JSON.stringify(before)})`);
+    const fullscreen = await pageSize(page);
+    assert.ok(fullscreen[1] >= before.size[1], `Fullscreen does not shrink the page: ${before.size} -> ${fullscreen}`);
+    assert.deepEqual(await hostCall(page, 'fullscreen'), { ok: true }, 'A granted fullscreen from the page answers ok');
+    await waitFor(async () => systemBarsShown() === 'shown', `A second fullscreen from the page shows the system bars again: ${systemBarsShown()}`);
+    const [closed, afterClose] = await page.evaluate(async () => Promise.all(['window.close', 'window.maximize'].map(async capability => JSON.parse(await globalThis.__tachyonNativeHostCall(capability, '{}')))));
+    assert.deepEqual(closed, { ok: true }, 'A granted close from the page answers ok');
+    assert.deepEqual(afterClose, { ok: false, error: 'Native window is unavailable.' }, 'A granted control that reaches the host after close started is refused by the closing activity');
+    await waitFor(() => !resumedActivity().includes(packageName) && activityRecords().length === 0, `A granted close finishes the activity: ${resumedActivity()} ${activityRecords().join(' ')}`);
+    return { fullscreen, before };
+  }
+
   static async main() {
     assert.ok(AndroidWindowControlsGate.sdk, 'ANDROID_HOME or ANDROID_SDK_ROOT is required');
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-android-window-'));
@@ -158,6 +229,31 @@ class WindowProbeService {
       if (browser) await browser.close();
       if (port) AndroidWindowControlsGate.run(AndroidWindowControlsGate.adb, ['forward', '--remove', `tcp:${port}`]);
       AndroidWindowControlsGate.adbShell('am', 'force-stop', AndroidWindowControlsGate.packageName);
+      rmSync(project, { recursive: true, force: true });
+    }
+    await AndroidWindowControlsGate.mainGranted();
+  }
+
+  static async mainGranted() {
+    const gate = AndroidWindowControlsGate;
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-android-window-granted-'));
+    let browser;
+    let port;
+    try {
+      gate.stageGranted(project);
+      gate.run(gate.binary(), ['build', project, '--target', 'android']);
+      const pid = await gate.launch(path.join(project, 'dist/android/Catalog/Catalog.apk'));
+      port = gate.run(gate.adb, ['forward', 'tcp:0', `localabstract:webview_devtools_remote_${pid}`]);
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true });
+      const page = browser.contexts()[0].pages()[0];
+      assert.ok(page, 'Android WebView exposes a live document');
+      await page.getByRole('button', { name: 'Maximize' }).waitFor();
+      const { before, fullscreen } = await gate.checkGrantedOnActivity(page);
+      console.log(`PASS: Android window controls: granted maximize and fullscreen act from a Kotlin service, fullscreen from the page hides and shows the system bars (page ${before.size} -> ${fullscreen}), close from the page finishes the activity, and a control that arrives after close started is refused`);
+    } finally {
+      if (browser) await browser.close().catch(() => {});
+      if (port) gate.run(gate.adb, ['forward', '--remove', `tcp:${port}`]);
+      gate.adbShell('am', 'force-stop', gate.packageName);
       rmSync(project, { recursive: true, force: true });
     }
   }

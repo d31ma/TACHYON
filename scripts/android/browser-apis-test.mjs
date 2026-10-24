@@ -12,6 +12,12 @@ class AndroidBrowserApisGate {
   static sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;
   static adb = path.join(AndroidBrowserApisGate.sdk ?? '', 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
   static packageName = 'dev.tachyon.browser_apis';
+  static denyButtons = [
+    'com.android.permissioncontroller:id/permission_deny_button',
+    'com.android.permissioncontroller:id/permission_deny_and_dont_ask_again_button',
+  ];
+  static locationProviders = ['fused', 'network', 'gps'];
+  static position = '37.422,-122.084';
   static allowButtons = [
     'com.android.permissioncontroller:id/permission_allow_foreground_only_button',
     'com.android.permissioncontroller:id/permission_allow_button',
@@ -194,19 +200,39 @@ export default class ProbeService {
     return page.getByRole('status', { name }).textContent();
   }
 
-  static async allowPermissionPrompt() {
-    const { adbShell, allowButtons, waitFor } = AndroidBrowserApisGate;
+  static screen() {
+    const { adbShell } = AndroidBrowserApisGate;
+    adbShell('uiautomator', 'dump', '/sdcard/tachyon-permission.xml');
+    return adbShell('cat', '/sdcard/tachyon-permission.xml');
+  }
+
+  static async tapScreenButton(ids, message) {
+    const { adbShell, screen, waitFor } = AndroidBrowserApisGate;
     let bounds;
+    let shown = '';
     await waitFor(() => {
-      adbShell('uiautomator', 'dump', '/sdcard/tachyon-permission.xml');
-      const screen = adbShell('cat', '/sdcard/tachyon-permission.xml');
-      bounds = allowButtons
-        .map(id => screen.match(new RegExp(`resource-id="${id.replaceAll('.', '\\.')}"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`)))
+      shown = screen();
+      bounds = ids
+        .map(id => shown.match(new RegExp(`resource-id="${id.replaceAll('.', '\\.')}"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`)))
         .find(Boolean);
       return Boolean(bounds);
-    }, 'Android shows its permission question');
+    }, message);
     const [, left, top, right, bottom] = bounds.map(Number);
     adbShell('input', 'tap', String(Math.round((left + right) / 2)), String(Math.round((top + bottom) / 2)));
+    return shown;
+  }
+
+  static allowPermissionPrompt() {
+    return AndroidBrowserApisGate.tapScreenButton(AndroidBrowserApisGate.allowButtons, 'Android shows its permission question');
+  }
+
+  static denyPermissionPrompt() {
+    return AndroidBrowserApisGate.tapScreenButton(AndroidBrowserApisGate.denyButtons, 'Android shows its permission question with a deny button');
+  }
+
+  static async acceptRationale() {
+    const shown = await AndroidBrowserApisGate.tapScreenButton(['android:id/button1'], 'The app shows its reason before it asks again');
+    return shown.match(/<node [^>]*resource-id="android:id\/message"[^>]*>/)?.[0] ?? '';
   }
 
   static async checkClipboard(page) {
@@ -239,18 +265,36 @@ export default class ProbeService {
     assert.match(adbShell('dumpsys', 'notification', '--noredact'), /mName='?Order updates/, 'The channel takes its name from tac.application.permissions.notifications');
   }
 
+  static setTestPosition() {
+    const { adbShell, locationProviders, position } = AndroidBrowserApisGate;
+    for (const provider of locationProviders) adbShell('cmd', 'location', 'providers', 'set-test-provider-location', provider, '--location', position);
+  }
+
   static async checkGeolocation(page) {
-    const { output, waitFor, adbShell, allowPermissionPrompt } = AndroidBrowserApisGate;
+    const { output, waitFor, adbShell, allowPermissionPrompt, denyPermissionPrompt, acceptRationale, locationProviders, setTestPosition } = AndroidBrowserApisGate;
     adbShell('appops', 'set', 'com.android.shell', 'android:mock_location', 'allow');
     try {
-      adbShell('cmd', 'location', 'providers', 'add-test-provider', 'gps');
-      adbShell('cmd', 'location', 'providers', 'set-test-provider-enabled', 'gps', 'true');
-      adbShell('cmd', 'location', 'providers', 'set-test-provider-location', 'gps', '--location', '37.422,-122.084');
+      for (const provider of locationProviders) {
+        adbShell('cmd', 'location', 'providers', 'add-test-provider', provider);
+        adbShell('cmd', 'location', 'providers', 'set-test-provider-enabled', provider, 'true');
+      }
+      setTestPosition();
+      const earlier = await output(page, 'Problem');
       await page.getByRole('button', { name: 'Locate' }).click();
+      await denyPermissionPrompt();
+      await waitFor(async () => await output(page, 'Problem') !== earlier, 'currentPosition reports the refused location question');
+      const refused = await output(page, 'Problem');
+      await page.getByRole('button', { name: 'Locate' }).click();
+      const reason = await acceptRationale();
+      assert.match(reason, /text="Shows stores near you"/, `Before the second location question the app shows tac.application.permissions.geolocation: ${reason}`);
       await allowPermissionPrompt();
-      await waitFor(async () => await output(page, 'Place') === '37.422, -122.084', async () => `currentPosition answers the test provider's position: ${await output(page, 'Place')} ${await output(page, 'Problem')}`);
+      await waitFor(async () => {
+        setTestPosition();
+        return await output(page, 'Place') === '37.422, -122.084';
+      }, async () => `currentPosition answers the test providers' position: ${await output(page, 'Place')} ${await output(page, 'Problem')}`);
+      return refused;
     } finally {
-      spawnSync(AndroidBrowserApisGate.adb, ['shell', 'cmd', 'location', 'providers', 'remove-test-provider', 'gps'], { encoding: 'utf8', timeout: 60000 });
+      for (const provider of locationProviders) spawnSync(AndroidBrowserApisGate.adb, ['shell', 'cmd', 'location', 'providers', 'remove-test-provider', provider], { encoding: 'utf8', timeout: 60000 });
       spawnSync(AndroidBrowserApisGate.adb, ['shell', 'appops', 'set', 'com.android.shell', 'android:mock_location', 'default'], { encoding: 'utf8', timeout: 60000 });
     }
   }
@@ -274,8 +318,8 @@ export default class ProbeService {
       await gate.checkClipboard(page);
       await gate.checkShare(page);
       await gate.checkNotifications(page);
-      await gate.checkGeolocation(page);
-      console.log('PASS: Android browser APIs: clipboard round trip, share sheet, notification question and post, and geolocation after the location question');
+      const refused = await gate.checkGeolocation(page);
+      console.log(`PASS: Android browser APIs: clipboard round trip, share sheet, notification question, post and channel name, a refused location question ("${refused}"), the manifest reason before the second question, and the test providers' position after Allow`);
     } finally {
       if (browser) await browser.close();
       if (port) gate.run(gate.adb, ['forward', '--remove', `tcp:${port}`]);

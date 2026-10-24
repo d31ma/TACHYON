@@ -171,3 +171,15 @@ service both heard `background` and then `foreground`, and the host telemetry
 recorded each switch. Disposal on termination was not seen: `simctl
 terminate` kills the app, so neither `applicationWillTerminate` nor a Swift
 `@OnStop` runs.
+
+## Amendment (2026-10-24): background and foreground ran on Android
+
+This amendment supersedes "and Android on an emulator" in the "Not run yet"
+list of the 2026-10-18 amendment above, which stays as the history of this
+decision.
+
+`scripts/android/page-checks-test.mjs` ran on the Android 15 (API 35, arm64) emulator on 2026-10-24, on develop `4c052177` and again after a rebase onto `259818ee` (RM3, `docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"). A JavaScript
+page service and a linked Kotlin service each heard `foreground` (replayed),
+then `background` when Home stopped the activity (`onStop`), then
+`foreground` when it started again (`onStart`). The support table marks the
+Android background and foreground signal `honored`.

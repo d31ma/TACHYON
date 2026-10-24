@@ -484,3 +484,20 @@ seconds after the page started. The support table marks `tac.python` honored
 on iOS. The bundle holds every WebAssembly file twice, under
 `.tachyon/services` and `tachyon-runtime/services`, so the Pyodide files count
 twice in the app size.
+
+## Amendment (2026-10-24): a Python service ran in the Android app
+
+This amendment supersedes "Android" in "The macOS, Windows, iOS and Android
+hosts have not run a Python service yet" in the 2026-10-19 amendment above,
+and "Android" in "macOS, iOS and Android stay `runOwed`" in the Windows
+amendment above; both stay as the history of this decision.
+
+`scripts/android/python-service-test.mjs` ran the Tally page with
+`TallyService.py` on Pyodide 314.0.7 in Android System WebView 124 on the Android 15 (API 35, arm64) emulator on 2026-10-24, on develop `4c052177` and again after a rebase onto `259818ee`
+(RM3, `docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"). The page loaded the five runtime files from
+`https://appassets.tachyon.local/.tachyon/services/python/314.0.7/`, its first
+answer to a click came 2.9 to 3.7 seconds after `am start` in two runs, and
+`dumpsys meminfo` showed 84 to 87 MiB PSS in the app process and 112 to 117
+MiB in its web view renderer.
+The support table marks `tac.python` `honored` on Android. Only the macOS
+host is still owed.

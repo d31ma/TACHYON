@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -15,6 +15,7 @@ class AndroidRustGate {
   static packageName = 'dev.tachyon.rust_probe';
   static apk = 'dist/android/RustProbe/RustProbe.apk';
   static abis = ['arm64-v8a', 'x86_64'];
+  static release = { password: 'tachyon-gate-only', alias: 'upload', signer: 'CN=Tachyon Release Gate', bundle: 'dist-release/android/RustProbe' };
   static rustService = `use crate::models::RustNote;
 
 #[Service]
@@ -175,6 +176,7 @@ class KotlinTallyService {
     write('client/components/rust/probe/tac.html', `<main aria-label="Rust probe">
 <button on:click="rustCounter.increase()" aria-label="Increase count">Increase</button>
 <output aria-label="Count">{rustCounter.count}</output>
+<p>Rust counted {rustCounter.count}</p>
 <p>Received {rustCounter.received}</p>
 <button on:click="rustCounter.visit()">Visit</button>
 <output aria-label="Visits">{rustCounter.visits}</output>
@@ -302,6 +304,93 @@ class KotlinTallyService {
     assert.deepEqual(yon.requests, ['GET /api/greeting', 'GET /api/large']);
   }
 
+  static apksigner() {
+    const tools = path.join(AndroidRustGate.sdk, 'build-tools');
+    const latest = readdirSync(tools).sort((left, right) => left.localeCompare(right, undefined, { numeric: true })).at(-1);
+    return path.join(tools, latest, process.platform === 'win32' ? 'apksigner.bat' : 'apksigner');
+  }
+
+  static buildRelease(binary, project) {
+    const { run, release, abis, apksigner } = AndroidRustGate;
+    const keys = mkdtempSync(path.join(tmpdir(), 'tachyon-android-rust-keys-'));
+    const keystore = path.join(keys, 'upload.p12');
+    run('keytool', ['-genkeypair', '-keystore', keystore, '-storetype', 'PKCS12', '-storepass', release.password, '-keypass', release.password, '-alias', release.alias, '-keyalg', 'RSA', '-keysize', '2048', '-validity', '2', '-dname', release.signer]);
+    const env = { ...process.env, TAC_ANDROID_KEYSTORE: keystore, TAC_ANDROID_KEYSTORE_PASSWORD: release.password, TAC_ANDROID_KEYSTORE_ALIAS: release.alias };
+    try {
+      const built = run(binary, ['bundle', project, '--target', 'android', '--release', '--out-dir', 'dist-release'], { env });
+      assert.ok(!built.includes(release.password), 'A release build never prints the keystore password');
+    } finally {
+      rmSync(keys, { recursive: true, force: true });
+    }
+    const apk = path.join(project, release.bundle, 'RustProbe.apk');
+    const aab = path.join(project, release.bundle, 'RustProbe.aab');
+    assert.match(run(apksigner(), ['verify', '--print-certs', apk]), /CN=Tachyon Release Gate/, 'The release APK is signed with the upload key');
+    assert.match(run('jarsigner', ['-verify', '-verbose', '-certs', aab]), /CN="?Tachyon Release Gate/, 'The App Bundle is signed with the upload key');
+    const apkEntries = run('unzip', ['-Z1', apk]).split('\n');
+    const aabEntries = run('unzip', ['-Z1', aab]).split('\n');
+    for (const abi of abis) {
+      assert.ok(apkEntries.includes(`lib/${abi}/libtachyoncompanion.so`), `The release APK carries the Rust library for ${abi}`);
+      assert.ok(aabEntries.includes(`base/lib/${abi}/libtachyoncompanion.so`), `The App Bundle carries the Rust library for ${abi}`);
+    }
+    return apk;
+  }
+
+  static screen() {
+    AndroidRustGate.adbShell('uiautomator', 'dump', '/sdcard/tachyon-rust-release.xml');
+    return AndroidRustGate.adbShell('cat', '/sdcard/tachyon-rust-release.xml');
+  }
+
+  static async tapOnScreen(label) {
+    const { screen, adbShell, pause } = AndroidRustGate;
+    let bounds;
+    for (let attempt = 0; attempt < 120 && !bounds; attempt++) {
+      bounds = screen().match(new RegExp(`<node [^>]*(?:text|content-desc)="${label}"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`));
+      if (!bounds) await pause(500);
+    }
+    assert.ok(bounds, `The release app shows ${label}`);
+    const [, left, top, right, bottom] = bounds.map(Number);
+    adbShell('input', 'tap', String(Math.round((left + right) / 2)), String(Math.round((top + bottom) / 2)));
+  }
+
+  static async describeRelease(pid) {
+    const connection = await AndroidRustGate.connect(pid).catch(error => ({ error }));
+    if (connection.error) { console.error('Android release page:', connection.error.message); return; }
+    console.error('Android release page:', await connection.page.locator('body').innerText());
+    await AndroidRustGate.disconnect(connection);
+  }
+
+  static async checkRelease(binary, project) {
+    const { run, adb, adbShell, packageName, buildRelease, tapOnScreen, screen, pause } = AndroidRustGate;
+    const apk = buildRelease(binary, project);
+    spawnSync(adb, ['uninstall', packageName], { encoding: 'utf8', timeout: 60000 });
+    try {
+      run(adb, ['install', apk]);
+      assert.doesNotMatch(adbShell('dumpsys', 'package', packageName).match(/pkgFlags=\[[^\]]*\]/)?.[0] ?? '', /DEBUGGABLE/, 'The release APK is not debuggable');
+      adbShell('am', 'start', '-W', '-n', `${packageName}/.MainActivity`);
+      let pid = '';
+      for (let attempt = 0; attempt < 40 && !/^\d+$/.test(pid); attempt++) {
+        await pause(500);
+        pid = spawnSync(adb, ['shell', 'pidof', packageName], { encoding: 'utf8' }).stdout.trim();
+      }
+      assert.match(pid, /^\d+$/, 'The release APK launches');
+      await tapOnScreen('Increase count');
+      let counted = false;
+      for (let attempt = 0; attempt < 40 && !counted; attempt++) {
+        counted = /<node [^>]*text="Rust counted 21"/.test(screen());
+        if (!counted) await pause(500);
+      }
+      const debuggable = adbShell('getprop', 'ro.debuggable') === '1';
+      if (!counted && debuggable) await AndroidRustGate.describeRelease(pid);
+      assert.ok(counted, `A tap in the release app reaches the linked Rust service, which counts 21: ${screen().match(/<node [^>]*(?:text|content-desc)="[^"]+"/g)?.join(' ')}`);
+      if (!debuggable) assert.ok(!adbShell('cat', '/proc/net/unix').includes(`webview_devtools_remote_${pid}`), 'A release build does not open WebView debugging');
+      const abi = adbShell('getprop', 'ro.product.cpu.abi');
+      console.log(`PASS: Android signed release: the APK and App Bundle carry the Rust library for ${AndroidRustGate.abis.join(' and ')}; the release APK installed on ${abi} (ro.debuggable=${debuggable ? 1 : 0}) and a tap reached the linked Rust service in process ${pid}`);
+    } finally {
+      spawnSync(adb, ['shell', 'am', 'force-stop', packageName], { encoding: 'utf8', timeout: 60000 });
+      spawnSync(adb, ['uninstall', packageName], { encoding: 'utf8', timeout: 60000 });
+    }
+  }
+
   static async main() {
     assert.ok(AndroidRustGate.sdk, 'ANDROID_HOME or ANDROID_SDK_ROOT is required');
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-android-rust-'));
@@ -310,7 +399,8 @@ class KotlinTallyService {
     let reversed = false;
     try {
       AndroidRustGate.stage(project, yon.port);
-      AndroidRustGate.run(AndroidRustGate.binary(), ['build', project, '--target', 'android']);
+      const binary = AndroidRustGate.binary();
+      AndroidRustGate.run(binary, ['build', project, '--target', 'android']);
       AndroidRustGate.checkBundle(project);
       AndroidRustGate.run(AndroidRustGate.adb, ['wait-for-device']);
       AndroidRustGate.run(AndroidRustGate.adb, ['reverse', `tcp:${yon.port}`, `tcp:${yon.port}`]);
@@ -331,6 +421,9 @@ class KotlinTallyService {
       connection = await AndroidRustGate.connect(pid);
       assert.equal(await connection.page.evaluate(`__tachyonTac.service('rustCounter').recall()`), 'kept', 'tac_set_local keeps a value in the app files across a relaunch');
       console.log(`PASS: Android linked Rust: ${AndroidRustGate.abis.join(' and ')} libraries, calls, an awaited method, an event, window controls, a Yon HTTP client, @LocalState and tac_set_local in process ${pid}, next to a Kotlin service`);
+      await AndroidRustGate.disconnect(connection);
+      connection = undefined;
+      await AndroidRustGate.checkRelease(binary, project);
     } finally {
       await AndroidRustGate.disconnect(connection);
       AndroidRustGate.adbShell('am', 'force-stop', AndroidRustGate.packageName);

@@ -540,3 +540,11 @@ of this decision.
   there as on macOS, because neither Apple host runs Rust tasks yet (LR1).
   Linux and Windows have a sender; Android's linked Rust `HTTPClient`
   reaches `tac.yon.origin` (MR2).
+
+## Amendment (2026-10-24): Yon reach on a Google Play production image
+
+`scripts/android/yon-origin-test.mjs` and `rust-services-test.mjs` passed on
+the Google Play image of the Android 15 emulator (`user` build,
+`ro.debuggable=0`) on 2026-10-24 (RM3, `docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"): the page, a linked Kotlin
+client and a linked Rust client reached `tac.yon.origin`. This is a
+production-image stand-in for a physical device, not a device run.

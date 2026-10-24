@@ -602,6 +602,7 @@ async function checkReleaseBuild(binary, project) {
       console.log('SKIP: release WebView debugging check; a debuggable system image opens WebView DevTools for every app');
     } else {
       assert.ok(!run(AndroidDevice.adb, ['shell', 'cat', '/proc/net/unix']).includes(`webview_devtools_remote_${pid}`), 'A release build does not open WebView debugging');
+      console.log(`PASS: Android release WebView debugging stays off on a non-debuggable image (${run(AndroidDevice.adb, ['shell', 'getprop', 'ro.build.fingerprint'])})`);
     }
   } finally {
     spawnSync(AndroidDevice.adb, ['uninstall', AndroidDevice.packageName], { encoding: 'utf8' });

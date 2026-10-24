@@ -12,6 +12,7 @@ export class SupervisedCommand {
   static defaultMaxBuffer = 4 * 1024 * 1024
   static pollMilliseconds = 50
   static inspectionMilliseconds = 1000
+  static inspectionAttempts = 3
   static processTableBytes = 4 * 1024 * 1024
   static windows = process.platform === 'win32'
   static windowsInspectionMilliseconds = 30_000
@@ -129,7 +130,10 @@ export class SupervisedCommand {
       const query = ['-NoProfile', '-NonInteractive', '-Command', SupervisedCommand.windowsProcessQuery]
       return this.#parseWindowsSnapshot(await this.#inspect('powershell.exe', query, SupervisedCommand.windowsInspectionMilliseconds))
     }
-    const text = await this.#inspect('ps', ['-axo', 'pid=,ppid=,pgid=,lstart=,stat='], SupervisedCommand.inspectionMilliseconds)
+    let text = ''
+    for (let attempt = 0; attempt < SupervisedCommand.inspectionAttempts && !text.trim(); attempt++) {
+      text = await this.#inspect('ps', ['-axo', 'pid=,ppid=,pgid=,lstart=,stat='], SupervisedCommand.inspectionMilliseconds)
+    }
     return this.#withKernelStartTimes(this.#parseSnapshot(text))
   }
 

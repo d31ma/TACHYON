@@ -216,3 +216,13 @@ This amendment covers iOS; Android follows in its own amendment.
   in the app's files folder.
 - Evidence: `scripts/android/rust-services-test.mjs` on the Android 15
   (API 35, arm64) emulator, next to a Kotlin service in the same app.
+
+## Amendment (2026-10-24): the signed Android release with Rust ran
+
+`scripts/android/rust-services-test.mjs` now also builds the signed
+`--release` APK and App Bundle of its fixture, checks that both carry the
+Rust library for `arm64-v8a` and `x86_64`, installs the release APK and taps
+through to the Rust service without DevTools. It passed on the Android 15 (API 35, arm64) emulator on 2026-10-24, on develop `4c052177` and again after a rebase onto `259818ee`, and on the
+Google Play production image (`ro.debuggable=0`), which stands in for a
+device (RM3, `docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"). Still owed: the `x86_64` library on an x86_64 emulator
+or device, and a physical device.

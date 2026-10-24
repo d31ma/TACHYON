@@ -520,3 +520,23 @@ with `ty` built from develop `d7110f74`, .NET 10.0.302 with `wasm-tools`,
 Kotlin 2.1.10, TeaVM 0.15.0, the Swift 6.3.3 WebAssembly SDK and Go 1.27,
 and again on develop `162064a0`.
 
+## Amendment (2026-10-24): the Android browser-API gate passed
+
+This amendment supersedes the sentence about the emulator gate at the end of
+the 2026-10-19 amendment "the Android host answers clipboard, share and
+notifications", which stays as the history of this decision.
+
+`scripts/android/browser-apis-test.mjs` passed end to end on the Android 15 (API 35, arm64) emulator on 2026-10-24, on develop `4c052177` and again after a rebase onto `259818ee` (RM3,
+`docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"). The geolocation step had timed out because the web view asks the
+platform `fused` location provider at balanced power, which does not use a
+`gps` test provider; the gate now adds `fused`, `network` and `gps` test
+providers and refreshes their position while it waits. The gate also denies
+the first location question and checks that the app shows the reason from
+`tac.application.permissions.geolocation` before it asks again. The clipboard
+round trip, the share sheet, the `POST_NOTIFICATIONS` question, a posted
+notification and its channel name passed too.
+`scripts/android/page-checks-test.mjs` read a `preferenceStrings` write back
+after the app was stopped and started again. The support table marks Android
+clipboard, notifications, geolocation, `preferenceStrings` and
+`tac.application.permissions` `honored`, and its share note no longer waits
+on a run.

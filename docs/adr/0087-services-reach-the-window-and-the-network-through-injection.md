@@ -421,3 +421,20 @@ and again after a terminate and a relaunch; a read with no rule failed. The
 "adapted on iOS" entry of the 2026-10-19 amendment is withdrawn: the support
 table marks `tac.cache` honored on iOS. The offline read in the packaged
 macOS and Windows apps and on the Android emulator is still owed.
+
+## Amendment (2026-10-24): granted Android window controls and offline Yon reads
+
+`scripts/android/window-controls-test.mjs` now builds a second app that
+grants all six controls, and it passed on the Android 15 (API 35, arm64) emulator on 2026-10-24, on develop `4c052177` and again after a rebase onto `259818ee` (RM3, `docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"). A linked Kotlin
+service's `maximize()` gave a resized window the full screen again and its
+`fullscreen()` hid the system bars; `fullscreen` from the page showed them
+again; `close` from the page finished the activity; and a control that
+reached the host after `close` started was refused with "Native window is
+unavailable."
+
+`scripts/android/page-checks-test.mjs` checks `tac.cache` with
+`tac.yon.origin` in airplane mode. The adb reverse route to the local Yon is
+removed too, because loopback through adb does not use the device network. A
+network-first and a cache-first Yon read answered their kept copies, a read
+with no rule failed, and Yon saw no request. The relaunch limit in the
+Android `tac.cache` note stays.

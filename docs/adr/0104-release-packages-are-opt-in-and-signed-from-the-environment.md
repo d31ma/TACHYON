@@ -436,3 +436,17 @@ answered 429 to Gradle's bursts from the cloud, so the container's own Gradle
 init script used Google's Maven Central mirror; Tachyon's generated build
 files are unchanged. Owed (RM3): the shrunk APK installed and run on the
 emulator, and WebView debugging off in a release on a Google Play image.
+
+## Amendment (2026-10-24): an Android release keeps WebView debugging off
+
+This amendment answers the "Owed (RM3)" sentence of the PKG7 amendment above,
+which stays as the history of this decision.
+
+`scripts/android/native-test.mjs` ran on the Google Play image of the
+Android 15 emulator (`user` build, `ro.debuggable=0`) on 2026-10-24 (RM3,
+`docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"), on develop `259818ee`, so
+its release was shrunk by R8. There the check that a release opens no WebView
+DevTools socket asserted instead of skipping, and passed. The shrunk release
+APK of the Rust and Kotlin probe was installed and run on the `userdebug`
+emulator and on the Google Play image, and a tap reached its Rust service
+(ADR 0019 amendment).

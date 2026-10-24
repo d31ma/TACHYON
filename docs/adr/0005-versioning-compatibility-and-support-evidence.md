@@ -144,3 +144,15 @@ note."
 - The macOS, iOS and Android tests have not run on their machines yet. The
   table marks those targets `runOwed` (ADR 0102 amendment), not `adapted`,
   and names each test as the owed run.
+
+## Amendment (2026-10-24): the Android repeat build ran
+
+This amendment supersedes "The macOS, iOS and Android tests have not run on
+their machines yet" in the 2026-10-19 amendment above, for Android only; that
+sentence stays as the history of this decision.
+
+`a_packaged_android_app_is_byte_identical_when_built_twice` passed on this
+Mac with `ANDROID_HOME`, Gradle 8.14.3 and JDK 21 (RM3, `docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"): two fresh
+packaged builds and an incremental one gave the same
+`artifact-manifest.json`. The support table marks Android byte-identical
+rebuilds `honored`. The macOS and iOS tests are still owed.

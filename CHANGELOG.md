@@ -10,6 +10,23 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Android emulator runs of the owed rows (RM3). `window-controls-test.mjs`
+  now also builds an app that grants all six controls and checks maximize and
+  fullscreen from a Kotlin service, fullscreen and close from the page, and a
+  control refused after close started. New `page-checks-test.mjs` checks
+  `ApplicationStateChanged` on `onStop` and `onStart` in a page service and a
+  linked Kotlin service, `http`, `https` and `mailto` links and the
+  no-user-name rule, `tac.cache` Yon reads in airplane mode, and
+  `preferenceStrings` after a relaunch. New `python-service-test.mjs` runs a
+  Python service on Pyodide in the web view and reports its load time,
+  memory and bundle origin. `browser-apis-test.mjs` passes again: geolocation
+  is fed by `fused`, `network` and `gps` test providers, and the gate checks
+  the reason shown before a second location question.
+  `rust-services-test.mjs` builds, installs and runs the signed release with
+  both Rust libraries. On a Google Play production image the Yon reach, Rust
+  and release checks passed, and `native-test.mjs` asserted that a release
+  keeps WebView debugging off. The support table marks these Android rows,
+  and byte-identical Android rebuilds, `honored`.
 - iOS simulator checks for RM2. `scripts/ios/page-checks-test.mjs` checks
   `connect-src`, offline Yon reads with Yon stopped, `preferenceStrings` and
   Cache Storage across a relaunch, `ApplicationStateChanged` to the page and
@@ -1780,6 +1797,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- `scripts/supervised-command.mjs` asks `ps` again, up to three times, when
+  it answers with an empty process table and exit 0, which happened on a
+  busy Mac and stopped the Android Yon reach gate with "Process identity
+  inspection returned an unsupported record" (RM3). A failing `ps` still
+  leaves cleanup unconfirmed.
 - A Lua Yon `NeedsAll` class no longer asks the container for a field that has
   a starting value, such as `extra = 2,`. Before, the build stopped with
   `TY2015 Unresolved dependency Integer`. Only fields written `name = nil,`

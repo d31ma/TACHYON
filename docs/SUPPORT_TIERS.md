@@ -31,7 +31,7 @@ only after the same gate passes on its download. No target is `preview` or
 | Web (static site in `dist/web`) | native-tested (candidate) | `rust-ci.yml` runs the browser gates on every push, on Linux x64, in Playwright's browser builds: all of them in Chromium, and some (storage, the offline preview, Yon reads kept offline, web APIs and others) also in Firefox and WebKit. Since CI2 (2026-10-19, ADR 0022 amendment) its `browser-languages` job runs all seven Tac service-language browser gates (page programs, browser APIs, held clients, storage, cached clients, async listeners and window controls) in Chromium, Firefox and WebKit, with every language toolchain installed. `publish.yml` builds pages with the downloaded `ty` and runs the storage, runtime and website gates in Chromium, Firefox and WebKit. The v26.36.01 release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) ran that step in Chromium only, because the step installed only Chromium then | a release run of the three-browser step; branded browsers on their own systems (Safari on macOS and iOS, Chrome and Edge on Windows, Chrome on Android) |
 | macOS WKWebView | native-tested (candidate) | full arm64 application gate passed: controls, accessibility, typing, lifecycle and visual parity at 420x752 | exact release artifact and current-head CI |
 | iOS WKWebView | simulator-tested | isolated iPhone SE (3rd generation), iOS 26.5. Passed: Swift calls, publish, input/focus, assets and route state `7 -> 9 -> 7`. On 2026-10-19 the same gate also linked a Rust service (`aarch64-apple-ios-sim` static library, beside the two Swift services): its start hook wrote a file from the app's own process and its rendered count doubled after a page click (MR1) | exact release artifact; support on physical devices is still not claimed |
-| Android WebView | simulator-tested (emulator) | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18), and a `@LocalState` field set by a Kotlin method kept across navigation and reload. Browser APIs (clipboard, share, notifications through the host; geolocation through the web view with the host's location question, 2026-10-19): the debug APK compiles with Gradle on Linux. The emulator gate `scripts/android/browser-apis-test.mjs` ran on the emulator, but it timed out at the geolocation step every time: the web view's location request never turned on GPS, so `adb emu geo fix` never reached it. `36ea6ac5` feeds the check from a mock gps provider instead; no run has passed since that change | exact release artifact; a passing browser-API emulator run; support on physical devices is still not claimed |
+| Android WebView | simulator-tested (emulator) | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18), and a `@LocalState` field set by a Kotlin method kept across navigation and reload. Browser APIs (clipboard, share, notifications through the host; geolocation through the web view with the host's location question, 2026-10-19): `scripts/android/browser-apis-test.mjs` passed end to end on 2026-10-24 (RM3), with geolocation fed by `fused`, `network` and `gps` test providers. RM3 also ran granted maximize, fullscreen and close, background and foreground, external links, offline Yon reads, preference strings after a relaunch and a Python service, and the Yon reach, linked Rust and release checks on a Google Play production image ("Android runs owed, RM3" below) | exact release artifact; support on physical devices is still not claimed |
 | Linux WebKitGTK | buildable, with VM, container and WSL runs (none of them is a Linux desktop) | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs | exact release artifact; Linux native GUI CI on the current head; a run on a Linux desktop, because a container or VM does not prove desktop behavior |
 | Windows WebView2 | native-tested (candidate), from signed-in arm64 desktop runs: UI Automation exposed semantic roles of page controls (SD1), as the Phase 5 rule in `PROJECT_PLAN.md` requires | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. On 2026-10-19, on the signed-in desktop of a Windows 11 ARM64 Surface, `scripts/windows/native-test.ps1 -Msix` built a release MSIX package, installed it and launched it (PKG4). WebView2 rendered the page, UI Automation found the page controls by name and invoked one, the native Rust, OS and publish calls answered, and the WebView2 data was in the package's LocalState folder. On the same desktop, links opened the built app and the installed package at their routes (LK2). On 2026-10-24 the SD1 gates ran there from SSH through `scripts/windows/desktop-run.ps1`: both routes of `scripts/windows/native-test.ps1`, `scripts/windows/yon-reach.ps1` (NET3, LS1), the menus, Edit commands and Minimize/Maximize, the tray, the caption color, page window controls, background and foreground, web storage across relaunch, external links, the browser APIs, page services and an x64 build under emulation (see Windows on the signed-in desktop below) | exact release artifact; Windows native GUI CI; x64 on an x64 machine |
 
@@ -47,7 +47,9 @@ with a throwaway keystore, verified both signatures, and installed and
 launched the release APK, which kept the declared version code and was not
 debuggable. The emulator image itself is debuggable (`ro.debuggable=1`), and
 there WebView opens DevTools for every app, so the check that a release keeps
-WebView debugging off still needs a production image or a physical device.
+WebView debugging off skipped there. On 2026-10-24 (RM3) the same gate ran on
+the Google Play production image (`ro.debuggable=0`), where the check
+asserted and passed: the release APK opened no WebView DevTools socket.
 
 R8, ABIs and offline Gradle (PKG7, 2026-10-24, ADR 0104 amendment): in an
 x86_64 Linux cloud container (Android SDK platform 35, build-tools 35.0.0, NDK
@@ -65,7 +67,9 @@ from the filled Gradle cache with `--offline`, gave only the `x86_64` library,
 and a reused route kept its native services. A first build with an empty
 Gradle cache printed the note naming the modules it downloads. Not run: the
 shrunk APK on an emulator (RM3), and the release DevTools check on a Google
-Play image (RM3).
+Play image (RM3). RM3 ran both later the same day: the R8-shrunk release APK
+installed and ran on the emulator and on a Google Play image, where the
+release DevTools check passed ("Android runs owed, RM3" below).
 
 macOS release packages (2026-10-19, ADR 0104 amendment): `ty bundle --target
 macos --release` signs the app and its helpers with the hardened runtime,
@@ -198,9 +202,11 @@ Calls, an awaited method, an event, the granted and refused window controls
 and the window title, an `HTTPClient` call to `tac.yon.origin` (and its
 `HTTP_LIMIT` refusal), a `@LocalState` field across a reload and
 `tac_set_local` across a relaunch all passed. A signed `--release` build of
-the same app packaged both libraries in the APK and in the App Bundle; it was
-not installed. Not run: the `x86_64` library on an x86_64 emulator, and a
-physical device.
+the same app packaged both libraries in the APK and in the App Bundle. On
+2026-10-24 (RM3) the gate builds that signed release itself, installs it and
+taps through to the Rust service, on the `userdebug` emulator and on the
+Google Play production image ("Android runs owed, RM3" below). Still owed: the
+`x86_64` library on an x86_64 emulator or device, and a physical device.
 
 On 2026-10-04, commit `2be294ba` built the Observer fixture through
 `ty bundle --target windows` for both architectures on Windows 11 ARM64.
@@ -527,6 +533,103 @@ install in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5, WebKitGTK
   and the desktop file. apt reported 0 B installed, because the control file
   has no `Installed-Size`.
 
+#### Android runs owed, RM3 (2026-10-24)
+
+RM3 ran the Android rows of the runs-owed list on this Mac (Apple silicon,
+macOS 26.6.2) on 2026-10-24, from branch `claude/rm3-android-20261024`: first
+on develop `4c052177`, then all nine Android scripts and the byte-identical
+test again after a rebase onto develop `259818ee`, which adds R8 shrinking to
+`--release` (PKG7), so the release runs below are of shrunk APKs. The nine
+scripts passed once more on develop `5c8e46ca`, the commit this branch
+landed on, on both AVDs. `ty` was
+built from that branch (debug), with Node 24.19.0,
+Playwright over the WebView DevTools socket, Gradle 8.14.3, JDK 21 and NDK
+r30. The emulator was emulator-5554 with the `tachyon-gate` AVD: Android 15
+(API 35), `google_apis` arm64-v8a, `userdebug` (`AE3A.240806.043`), WebView
+124.0.6367.219. Each script was run alone with `ANDROID_SERIAL=emulator-5554`
+and `TAC_BIN` set, as `node scripts/android/<script>.mjs`.
+
+- Window controls (`window-controls-test.mjs`): after the refusal checks, a
+  second app grants all six controls. A linked Kotlin service's `maximize()`
+  brought a 1280 by 800 window back to the full page size (412 by 842), and
+  its `fullscreen()` hid the system bars (the status bar's `InsetsSource` in
+  `dumpsys window` turned `visible=false`). `window.fullscreen` from the page
+  showed them again. `window.close` from the page answered `ok` and finished
+  the activity, and a `window.maximize` sent in the same moment, which reached
+  the host after close started, was refused with "Native window is
+  unavailable."
+- Background and foreground (`page-checks-test.mjs`, new): a JavaScript page
+  service and a linked Kotlin service both heard `ApplicationStateChanged`:
+  `foreground` (replayed), then `background` after Home (`onStop`) and
+  `foreground` after the app came back (`onStart`).
+- External links (`page-checks-test.mjs`): taps on `https`, `http` and
+  `mailto` links (through `uiautomator` bounds and `input tap`) started
+  `ACTION_VIEW` from the app's own uid, which `ActivityTaskManager` logged.
+  Chrome opened the web links and Gmail the mail link, and the page stayed
+  where it was. A link with a user name (`https://ada@example.net/...`)
+  started nothing.
+- Offline Yon reads (`page-checks-test.mjs`): with `tac.yon.origin` set to a
+  local Yon stand-in (reached through `adb reverse`) and `tac.cache` rules for
+  a network-first and a cache-first path, both reads were kept online. Then
+  airplane mode went on (`cmd connectivity airplane-mode enable`) and the
+  reverse route was removed, because loopback through adb does not go through
+  the device network. A read with no rule failed, the network-first read and
+  the cache-first read answered their kept copies from Cache Storage, and the
+  Yon stand-in saw no request. Airplane mode was turned off after the check.
+- `preferenceStrings` (`page-checks-test.mjs`): a write was read back after
+  Home, `am force-stop` and a relaunch in a new process.
+- Browser APIs (`browser-apis-test.mjs`): the whole gate passed for the first
+  time. The geolocation step timed out before because the web view asks the
+  platform `fused` provider at balanced power, which ignores a `gps` test
+  provider. The gate now adds `fused`, `network` and `gps` test providers and
+  refreshes their position while it waits. It also denies the first location
+  question, and before the second question the app showed the manifest reason
+  ("Shows stores near you") from `tac.application.permissions.geolocation`.
+  The clipboard round trip, the share sheet, the `POST_NOTIFICATIONS` question,
+  a posted notification and its channel name ("Order updates") passed too.
+- Python (`python-service-test.mjs`, new): the website's Tally page with
+  `TallyService.py` on Pyodide 314.0.7. The APK (14.4 MiB) carried the five
+  runtime files in its web bundle, and the page loaded all of them from
+  `https://appassets.tachyon.local/.tachyon/services/python/314.0.7/`
+  (`pyodide.asm.wasm` by 454 to 631 ms after the page started). The first
+  answer to a click came 2.9 to 3.7 s after `am start` in two runs.
+  `dumpsys meminfo` showed 84 to 87 MiB PSS in the app process and 112 to
+  117 MiB in its web view renderer.
+- Byte-identical rebuild: `cargo nextest run -p tachyon-core --lib
+  --run-ignored only -E
+  'test(a_packaged_android_app_is_byte_identical_when_built_twice)'` passed
+  with `ANDROID_HOME` set (31 s, and 83 s after the rebase): two fresh
+  packaged Android builds and an incremental one gave the same
+  `artifact-manifest.json`.
+- The Yon reach gate needed a fix in `scripts/supervised-command.mjs`. After
+  the rebase it failed three runs in a row with "Process identity inspection
+  returned an unsupported record": the runner reads `ps` every 50 ms while
+  `ty serve` runs, and on this busy Mac one `ps` answered with no output, no
+  error and exit 0. A process table always holds at least `ps` and node, so
+  the runner now asks `ps` again, up to three times, when its answer is
+  empty. `scripts/supervised-command-test.mjs` still passes, including its
+  check that a failing `ps` leaves cleanup unconfirmed.
+- Signed release with linked Rust (`rust-services-test.mjs`): after the debug
+  checks, the gate builds `ty bundle --target android --release` with a
+  throwaway keystore. `apksigner` and `jarsigner` verified the APK and the App
+  Bundle, and both carried `libtachyoncompanion.so` for `arm64-v8a` and
+  `x86_64`. The release APK installed, was not debuggable, and a tap (through
+  `uiautomator`, without DevTools) reached the linked Rust service, whose count
+  the page showed.
+
+Production-image stand-ins for a physical device: the Mac has no Android
+device, so a second AVD, `tachyon-play`, runs the Google Play image
+(`system-images;android-35;google_apis_playstore;arm64-v8a`, `user` build
+`AE3A.240806.036`, `release-keys`, `ro.debuggable=0`), on the same port in
+turn. On it `yon-origin-test.mjs` (Yon reach from the page and a linked Kotlin
+client) and `rust-services-test.mjs` (linked Rust, and the signed release APK
+installed and run) passed, and `native-test.mjs` passed with its release check
+asserting, not skipping: the release APK opened no
+`webview_devtools_remote_<pid>` socket. These are emulator runs on a
+production image, not device runs. Still owed: the `x86_64` Rust library on
+an x86_64 emulator or device (this Mac's emulator runs arm64 only), and runs
+on a physical device.
+
 ### Native apps reach Yon through a declared origin (2026-10-18)
 
 ADR 0103 adds `tac.yon.origin` in `client/manifest.json` and `server.origins`
@@ -655,9 +758,10 @@ WebKit in the cloud. The packaged Linux app ran it under Xvfb in RL1: a
 network-first Yon read came from the cache with Yon stopped ("Linux runs
 owed, RL1" above; ADR 0087 amendment). On the iOS 26.5 simulator in RM2
 (below), with Yon stopped, a network-first and a cache-first read answered
-from the kept copy, and again after a terminate and relaunch. The
-airplane-mode run on the Android emulator, and offline reads in the macOS
-and Windows apps, are owed.
+from the kept copy, and again after a terminate and relaunch. On the
+Android emulator, in airplane mode, a network-first and a cache-first Yon
+read answered from Cache Storage ("Android runs owed, RM3" above). Offline
+reads in the macOS and Windows apps are owed.
 
 How long the kept reads last follows the web storage of each host (below).
 The per-target support table gives `tac.cache` no relaunch limit on macOS,
@@ -686,7 +790,7 @@ tier.
 | Windows WebView2 | yes, `ShellExecuteW` | the opener and the shared check, built with MinGW-w64 and run under Wine 9.0, open only the external links. On 2026-10-24 `scripts/windows/external-links-test.mjs` opened http, https and mailto links from a WebView2 page on the signed-in Windows 11 ARM64 desktop (SD1) |
 | macOS WKWebView | yes, `NSWorkspace` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on the Mac |
 | iOS WKWebView | yes, `UIApplication` (before 2026-10-18 for `http` and `https`) | `scripts/ios/page-checks-test.mjs` on the iOS 26.5 simulator (RM2, 2026-10-24): `http`, `https` and a tapped `target="_blank"` link opened Safari; `mailto` reached the system, which has no Mail app on the simulator; links with a user name or a password, `ftp:` and an empty `mailto:` opened nothing and the app stayed in front |
-| Android WebView | yes, `ACTION_VIEW` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on an emulator |
+| Android WebView | yes, `ACTION_VIEW` (before 2026-10-18 for `http` and `https`) | `scripts/android/page-checks-test.mjs` on the API 35 emulator (2026-10-24, RM3): taps on `https`, `http` and `mailto` links started `ACTION_VIEW` from the app, Chrome and Gmail opened them and the page stayed; a link with a user name started nothing. Not run: a physical device |
 
 ### Deep links on native hosts (2026-10-19)
 
@@ -712,7 +816,7 @@ not promote any tier.
 | Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29` and again in RL1 on `d7110f74`. LX1 ran `linux_browser_apis_reach_geoclue_and_the_notification_server` through `scripts/linux/desktop-services-test.sh`: the page's position came from GeoClue 2.7.0 on a private system bus (a GPS fix from an NMEA socket, allowed by the GeoClue demo agent) and its notification was shown by dunst 1.9.2. Not run: a physical Linux desktop; Wayland, because the test clicks through X11's XTest |
 | macOS WKWebView | yes, all four: `NSPasteboard`, `NSSharingServicePicker`, `UNUserNotificationCenter`, CoreLocation | code level only, in a Linux cloud container (`native::browser_api_bridge`, `native::apple_browser_apis`). Owed: the compile and host test on a Mac, and a manual check of the share, notification and location prompts |
 | iOS WKWebView | yes, all four: `UIPasteboard`, `UIActivityViewController`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (same tests). The simulator gate `scripts/ios/native-test.mjs` passed with its clipboard step on develop `fd0384ad` (iPhone SE (3rd generation) simulator, iOS 26.5): the bridge listed all four APIs, the page wrote text that `simctl pbpaste` read from `UIPasteboard`, the page read it back, and a share without a grant was refused. On 2026-10-24 (RM2) `scripts/ios/browser-prompts-test.mjs` tapped real buttons on the iOS 26.5 simulator and read each prompt from a `simctl io` screenshot: the location prompt carried the manifest reason and the page got the simulated position; the notification prompt was allowed and a foreground banner appeared; the share sheet opened, and closing it reported a cancelled share |
-| Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | see the Android WebView row above |
+| Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | `scripts/android/browser-apis-test.mjs` passed on the API 35 emulator on 2026-10-24 (RM3): the clipboard round trip, the share sheet, the notification question, a posted notification and its channel name, a denied location question, the manifest reason before the second question, and a test-provider position after Allow. Not run: a physical device |
 | Windows WebView2 | yes: clipboard bridged to the Windows clipboard; share through the Windows share sheet (`IDataTransferManagerInterop`); notifications as toasts for the installed MSIX package (an unpackaged build answers `denied`); geolocation through WebView2 behind one `PermissionRequested` decision from the manifest grants (BA3) | `windows_browser_api_tests::the_windows_browser_apis_follow_the_manifest_grants_under_wine` compiled the bridge with MinGW (warnings as errors) and ran it under Wine 9.0 in an x86_64 Ubuntu 24.04 cloud container (BA3 branch on develop d7110f74): granted, a real clipboard round trip, the toast XML, the permission answers and the share values with a fake notifier and share sheet, and the permission decision; with nothing granted, each was refused. The whole generated host compiled with MinGW against the WebView2 1.0.3485.44 headers. `the_windows_browser_apis_match_the_windows_sdk_and_run_on_windows` passed on the Surface (Windows 11 ARM64 over SSH, MSVC 19.44.35229 ARM64, Windows SDK 10.0.26100.0, BA3 commit 971c6559): every declared Windows Runtime slot matched the SDK headers under `cl /W4 /WX`, and the program ran granted and refused with the runtime loaded and the share sheet opening for a message-only window. On the same machine `ty build --target windows` compiled and linked the desktop fixture app with all four APIs granted (`/W4 /WX`, WebView2 SDK 1.0.3485.44). On 2026-10-24 `scripts/windows/browser-apis-test.ps1` passed inside WebView2 on the signed-in desktop (SD1): the clipboard both ways, the share sheet opened, geolocation granted with no prompt, every API refused when none is granted, and, from the MSIX package installed by Developer Mode registration, a toast in the notification history. Not checked: whether the user shared from the sheet, which Windows does not report |
 
 ### File picker on native hosts (2026-10-19)
@@ -748,7 +852,7 @@ This evidence does not promote any tier.
 | Host | Kept across relaunch | Validated |
 | --- | --- | --- |
 | Linux WebKitGTK | yes | `linux_storage_tests::linux_web_storage_is_kept_after_the_application_quits_and_starts_again` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 and ran it twice under Xvfb on WSL Ubuntu 24.04 (aarch64). The Cache API entry went through the framework's `tac-storage.js`. The page writes all three about 20 ms before the quit; without the 750 ms settle at quit the localStorage value was lost in 4 of 10 runs, with it 10 of 10 kept it. With the old ephemeral session the same test fails |
-| Android WebView | IndexedDB and localStorage yes; Cache API entries not always | `scripts/android/native-test.mjs` on an API 35 arm64 emulator (WebView Chrome 124), across `am force-stop` and a new process: a `@LocalState` field and a Store row saved and found by id were kept in every run. The `@Cached` entry, written about 6 s before the force-stop, was kept and served in 3 runs and missing from Cache Storage in 2 of the 3 runs that checked it before the read |
+| Android WebView | IndexedDB and localStorage yes; Cache API entries not always | `scripts/android/native-test.mjs` on an API 35 arm64 emulator (WebView Chrome 124), across `am force-stop` and a new process: a `@LocalState` field and a Store row saved and found by id were kept in every run. The `@Cached` entry, written about 6 s before the force-stop, was kept and served in 3 runs and missing from Cache Storage in 2 of the 3 runs that checked it before the read. A `preferenceStrings` write (localStorage) was read back after a relaunch in `scripts/android/page-checks-test.mjs` (2026-10-24, RM3) |
 | macOS WKWebView | yes | `scripts/phase4-macos-test.mjs` on 2026-10-19 (macOS 26.6.2, Xcode 27.1) with Accessibility access: the first launch wrote all three, the app quit, and a new process read `local=kept,store=kept,cache=kept`. An earlier run looked like a frozen page after relaunch. The page was running, but the gate's check set its text after OnStart without asking for a render, and its raw Cache API entry had no `x-tachyon-expires-at` header, so Tac's start-up cache sweep deleted it. The check now calls `taskScheduler.render()` and writes the entry in Tac's format |
 | iOS WKWebView (simulator) | yes | `scripts/ios/native-test.mjs` on an iPhone SE (3rd generation) simulator with iOS 26.5 (Xcode 27.1), RM2 on develop `4c052177`: a real terminate, a new process, and `local=kept,store=kept,cache=kept` in 2 of 2 runs. WebKit wrote the Tac-format entry as a Cache Storage record on the first launch, and the same file was read after the relaunch. An earlier run reported the entry missing because its raw entry had no `x-tachyon-expires-at` header and Tac's start-up sweep deleted it; the gate now requires `cache=kept` |
 | Windows WebView2 | yes | WebView2 keeps its data in `<App>.exe.WebView2` (ADR 0097). On 2026-10-24 `scripts/windows/relaunch-storage-test.mjs` kept localStorage, IndexedDB and the Cache API across a relaunch on the signed-in Windows 11 ARM64 desktop (SD1) |
