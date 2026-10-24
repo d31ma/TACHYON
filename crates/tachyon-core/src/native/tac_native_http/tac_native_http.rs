@@ -59,9 +59,9 @@ impl TacNativeHttp {
         TacWinHttp::exchange(request)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
     fn platform(request: &TacNativeHttpRequest) -> Result<TacNativeHttpResponse, &'static str> {
-        TacLinuxHttp::exchange(request)
+        TacHostHttp::exchange(request)
     }
 
     #[cfg(target_os = "android")]
@@ -69,7 +69,13 @@ impl TacNativeHttp {
         TacAndroidBridge::exchange(request)
     }
 
-    #[cfg(not(any(windows, target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(
+        windows,
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "ios"
+    )))]
     fn platform(_request: &TacNativeHttpRequest) -> Result<TacNativeHttpResponse, &'static str> {
         Err(Self::MISSING)
     }

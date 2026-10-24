@@ -1,5 +1,5 @@
-#[cfg(target_os = "linux")]
-type TacLinuxHttpSender = extern "C" fn(
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
+type TacHostHttpSender = extern "C" fn(
     u64,
     *const core::ffi::c_char,
     *const core::ffi::c_char,
@@ -10,14 +10,14 @@ type TacLinuxHttpSender = extern "C" fn(
     usize,
 );
 
-#[cfg(target_os = "linux")]
-type TacLinuxHttpOutcome = Result<TacNativeHttpResponse, &'static str>;
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
+type TacHostHttpOutcome = Result<TacNativeHttpResponse, &'static str>;
 
-#[cfg(target_os = "linux")]
-pub struct TacLinuxHttp;
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
+pub struct TacHostHttp;
 
-#[cfg(target_os = "linux")]
-impl TacLinuxHttp {
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
+impl TacHostHttp {
     const MISSING: &'static str = "HTTP_MISSING";
     const NETWORK: &'static str = "HTTP_NETWORK";
     const DEADLINE: &'static str = "DEADLINE";
@@ -25,16 +25,16 @@ impl TacLinuxHttp {
     const HOST_CODES: [&'static str; 4] = ["DEADLINE", "HTTP_LIMIT", "HTTP_REQUEST", "HTTP_NETWORK"];
     const GRACE_MS: u64 = 1_000;
 
-    fn sender() -> &'static std::sync::Mutex<Option<TacLinuxHttpSender>> {
-        static SENDER: std::sync::Mutex<Option<TacLinuxHttpSender>> = std::sync::Mutex::new(None);
+    fn sender() -> &'static std::sync::Mutex<Option<TacHostHttpSender>> {
+        static SENDER: std::sync::Mutex<Option<TacHostHttpSender>> = std::sync::Mutex::new(None);
         &SENDER
     }
 
     fn waiting(
-    ) -> &'static std::sync::Mutex<std::collections::BTreeMap<u64, std::sync::mpsc::SyncSender<TacLinuxHttpOutcome>>>
+    ) -> &'static std::sync::Mutex<std::collections::BTreeMap<u64, std::sync::mpsc::SyncSender<TacHostHttpOutcome>>>
     {
         static WAITING: std::sync::Mutex<
-            std::collections::BTreeMap<u64, std::sync::mpsc::SyncSender<TacLinuxHttpOutcome>>,
+            std::collections::BTreeMap<u64, std::sync::mpsc::SyncSender<TacHostHttpOutcome>>,
         > = std::sync::Mutex::new(std::collections::BTreeMap::new());
         &WAITING
     }
@@ -45,7 +45,7 @@ impl TacLinuxHttp {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn tac_native_set_http_sender(sender: Option<TacLinuxHttpSender>) {
+    pub unsafe extern "C" fn tac_native_set_http_sender(sender: Option<TacHostHttpSender>) {
         let _ = Self::sender().lock().map(|mut installed| *installed = sender);
     }
 
@@ -64,11 +64,11 @@ impl TacLinuxHttp {
         let _ = waiter.map(|waiter| waiter.send(outcome));
     }
 
-    fn outcome(status: u32, body: &[u8], error: Option<&std::ffi::CStr>) -> TacLinuxHttpOutcome {
+    fn outcome(status: u32, body: &[u8], error: Option<&std::ffi::CStr>) -> TacHostHttpOutcome {
         error.map_or_else(|| Self::response(status, body), |named| Err(Self::code(named)))
     }
 
-    fn response(status: u32, body: &[u8]) -> TacLinuxHttpOutcome {
+    fn response(status: u32, body: &[u8]) -> TacHostHttpOutcome {
         u16::try_from(status)
             .map(|status| TacNativeHttpResponse { status, body: body.to_vec() })
             .map_err(|_| Self::NETWORK)
@@ -82,7 +82,7 @@ impl TacLinuxHttp {
             .unwrap_or(Self::NETWORK)
     }
 
-    pub fn exchange(request: &TacNativeHttpRequest) -> TacLinuxHttpOutcome {
+    pub fn exchange(request: &TacNativeHttpRequest) -> TacHostHttpOutcome {
         let sender = Self::sender().lock().ok().and_then(|installed| *installed).ok_or(Self::MISSING)?;
         let method = std::ffi::CString::new(request.method).map_err(|_| Self::REQUEST)?;
         let url = std::ffi::CString::new(format!("{}{}", request.origin, request.target)).map_err(|_| Self::REQUEST)?;

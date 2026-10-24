@@ -767,6 +767,15 @@ mod tests {
     }
 
     #[test]
+    fn a_rust_companion_host_resumes_rust_tasks_and_sends_their_http() {
+        let source = swift_source(&application(), "tacRustInvoke(payload)", &index());
+        assert!(source.contains("tacRustNativeSetDispatch(dispatch)"));
+        assert!(source.contains("TacRustTasks.install()"));
+        let swift = swift_source(&application(), "tacNativeInvoke(payload)", &index());
+        assert!(!swift.contains("TacRustTasks"));
+    }
+
+    #[test]
     fn an_entry_route_that_looks_like_a_placeholder_stays_text() {
         let mut routed = index();
         routed.entry_route = String::from("/__BUNDLE_ID__/__TACHYON_COMPANION_CALL__");

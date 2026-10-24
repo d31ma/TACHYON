@@ -87,7 +87,7 @@ impl FakeGtkHost {
                 _ => (0, b"", b"HTTP_LIMIT\0"),
             };
             let error = if error.len() > 1 { error.as_ptr().cast() } else { core::ptr::null() };
-            unsafe { TacLinuxHttp::tac_native_http_answer(ticket, status, answer.as_ptr(), answer.len(), error) };
+            unsafe { TacHostHttp::tac_native_http_answer(ticket, status, answer.as_ptr(), answer.len(), error) };
         });
     }
 
@@ -122,7 +122,7 @@ fn main() {
     unsafe { TacTaskDispatch::tac_native_set_dispatch(Some(FakeGtkHost::dispatch)) };
     let missing = FakeGtkHost::ask("askServer");
     assert!(missing.contains("HTTP_MISSING"), "a host without an HTTP sender keeps refusing: {missing}");
-    unsafe { TacLinuxHttp::tac_native_set_http_sender(Some(FakeGtkHost::send)) };
+    unsafe { TacHostHttp::tac_native_set_http_sender(Some(FakeGtkHost::send)) };
     let answered = FakeGtkHost::ask("askServer");
     assert!(answered.ends_with(r#""answer":"{\"value\":\"hello from Yon\"}"}"#), "{answered}");
     let refused = FakeGtkHost::ask("askRefused");

@@ -199,6 +199,8 @@ mod native_reproducibility;
 #[cfg(test)]
 mod native_reproducible_build_tests;
 #[cfg(test)]
+mod native_rust_apple_host_tests;
+#[cfg(test)]
 mod native_rust_capability_tests;
 #[cfg(test)]
 mod native_rust_crate_tests;

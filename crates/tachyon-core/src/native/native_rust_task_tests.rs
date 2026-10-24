@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-struct NativeRustTaskCheck;
+pub(super) struct NativeRustTaskCheck;
 
 impl NativeRustTaskCheck {
     const ORIGIN: &'static str = "https://yon.example.com";
@@ -331,7 +331,7 @@ fn main() {
         Self::asking_from(root, Self::ORIGIN)
     }
 
-    fn asking_from(root: &Path, origin: &str) -> PathBuf {
+    pub(super) fn asking_from(root: &Path, origin: &str) -> PathBuf {
         for (relative, source) in [
             ("client/models/Greeting.rs", Self::GREETING),
             ("client/remotes/GreetingClient.rs", Self::CLIENT),
@@ -369,7 +369,7 @@ fn main() {
             .is_ok_and(|output| output.status.success())
     }
 
-    async fn serve(listener: tokio::net::TcpListener, heads: Arc<Mutex<Vec<String>>>) {
+    pub(super) async fn serve(listener: tokio::net::TcpListener, heads: Arc<Mutex<Vec<String>>>) {
         while let Ok((stream, _)) = listener.accept().await {
             Self::answer(stream, &heads).await;
         }

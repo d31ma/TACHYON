@@ -144,9 +144,9 @@ pub(super) fn companion_call(swift: Option<&Path>, rust: Option<&Path>) -> &'sta
 
 pub(super) fn companion_emit(companion_call: &str) -> &'static str {
     if companion_call.contains("tacRustInvoke") && companion_call.contains("tacNativeInvoke") {
-        "TacBridge.emit = tachyonRelayPublish; tacRustNativeSetEmit(tacRustEmit); tacRustNativeSetCapabilityAdapter(tacRustCapabilityCall, tacRustCapabilityFree)"
+        "TacBridge.emit = tachyonRelayPublish; tacRustNativeSetEmit(tacRustEmit); tacRustNativeSetCapabilityAdapter(tacRustCapabilityCall, tacRustCapabilityFree); TacRustTasks.install()"
     } else if companion_call.contains("tacRustInvoke") {
-        "tacRustNativeSetEmit(tacRustEmit); tacRustNativeSetCapabilityAdapter(tacRustCapabilityCall, tacRustCapabilityFree)"
+        "tacRustNativeSetEmit(tacRustEmit); tacRustNativeSetCapabilityAdapter(tacRustCapabilityCall, tacRustCapabilityFree); TacRustTasks.install()"
     } else if companion_call.contains("tacNativeInvoke") {
         "TacBridge.emit = tachyonRelayPublish"
     } else {
@@ -508,7 +508,8 @@ impl MacOsHostGenerator {
         ""
     }
 
-    pub(super) const RUST_SHIM: &str = r#"@_silgen_name("tac_native_invoke")
+    pub(super) const RUST_SHIM: &str = concat!(
+        r#"@_silgen_name("tac_native_invoke")
 private func tacRustNativeInvoke(_ request: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
 
 @_silgen_name("tac_native_application_start")
@@ -561,7 +562,25 @@ private func tacRustInvoke(_ request: String) -> String {
 private func tacRustEmit(_ payload: UnsafePointer<CChar>?) {
     guard let payload else { return }
     tachyonRelayPublish(String(cString: payload))
-}"#;
+}
+
+@_silgen_name("tac_native_set_dispatch")
+private func tacRustNativeSetDispatch(_ dispatch: (@convention(c) () -> Void)?)
+
+@_silgen_name("tac_native_set_http_sender")
+private func tacRustNativeSetHttpSender(
+    _ sender: (@convention(c) (UInt64, UnsafePointer<CChar>?, UnsafePointer<CChar>?, UnsafePointer<CChar>?, UnsafePointer<UInt8>?, Int, UInt64, Int) -> Void)?
+)
+
+@_silgen_name("tac_native_http_answer")
+private func tacRustNativeHttpAnswer(
+    _ ticket: UInt64, _ status: UInt32, _ body: UnsafePointer<UInt8>?, _ length: Int, _ error: UnsafePointer<CChar>?
+)
+
+"#,
+        include_str!("TacRustTasks.swift"),
+        include_str!("TacRustHttp.swift")
+    );
 
     const SWIFT_HOST: &str = r##"import AppKit
 import CoreServices
@@ -1125,6 +1144,23 @@ mod tests {
         assert!(call.contains("tacServiceKnown"));
         assert!(!call.contains("tacServiceMembers"));
         assert!(call.contains(r#"if request["op"] as? String == "host-dispose" { _ = tacNativeInvoke(payload); return tacRustInvoke(payload) }"#));
+    }
+
+    #[test]
+    fn a_rust_companion_host_resumes_rust_tasks_and_sends_their_http() {
+        let path = std::path::Path::new("companion");
+        let source = catalog_swift_source(companion_call(None, Some(path)));
+        for expected in [
+            "TacRustTasks.install()",
+            "@_silgen_name(\"tac_native_set_dispatch\")",
+            "@_silgen_name(\"tac_native_set_http_sender\")",
+            "@_silgen_name(\"tac_native_http_answer\")",
+            "DispatchQueue.main.async { self.run() }",
+        ] {
+            assert!(source.contains(expected), "{expected}");
+        }
+        let swift = catalog_swift_source(companion_call(Some(path), None));
+        assert!(!swift.contains("TacRustTasks"));
     }
 
     #[test]

@@ -15,6 +15,8 @@ import { YonReachFixture } from './yon-reach-fixture.mjs'
 class YonReachTest {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static targets = YonReachTest.chosenTargets()
+  static services = process.env.TAC_YON_SERVICES ?? 'swift'
+  static serviceNames = { swift: 'Swift', rust: 'Rust' }
   static appOrigin = 'tachyon-app://bundle'
   static proofTimeout = 90000
   static pause = 250
@@ -51,7 +53,7 @@ class YonReachTest {
     try {
       const yonPort = await this.freePort()
       const origin = yonOrigin ?? `http://127.0.0.1:${yonPort}`
-      YonReachFixture.prepare(fixture, { yonOrigin: typeof origin === 'function' ? origin(yonPort) : origin, appOrigins, native })
+      YonReachFixture.prepare(fixture, { yonOrigin: typeof origin === 'function' ? origin(yonPort) : origin, appOrigins, native, services: this.services })
       const build = target === 'web' ? ['bundle', fixture] : ['build', fixture, '--target', target]
       this.run(this.binary, build)
       await withServer(this.binary, ['serve', fixture, '--no-watch', '--port', String(yonPort)], async () => {
@@ -110,7 +112,7 @@ class YonReachTest {
         spawnSync('/usr/bin/pkill', ['-f', path.join(application, 'Contents/MacOS')])
       }
     }, { appOrigins: [this.appOrigin], native: true, target: 'macos' })
-    console.log('Yon reach passed on macOS: the WKWebView page and the linked Swift client reached Yon from tachyon-app://bundle.')
+    console.log(`Yon reach passed on macOS: the WKWebView page and the linked ${this.serviceNames[this.services]} services reached Yon from tachyon-app://bundle.`)
   }
 
   /** @param {string[]} args */
@@ -156,7 +158,7 @@ class YonReachTest {
     } finally {
       this.shutdownSimulator()
     }
-    console.log(`Yon reach passed on the iOS simulator over ${secure ? 'https' : 'http'}: the WKWebView page and the linked Swift client reached Yon from tachyon-app://bundle.`)
+    console.log(`Yon reach passed on the iOS simulator over ${secure ? 'https' : 'http'}: the WKWebView page and the linked ${this.serviceNames[this.services]} services reached Yon from tachyon-app://bundle.`)
   }
 
   /** @param {(origin: (yonPort: number) => string, body: Function) => Promise<void>} withYon @param {Function} body */
@@ -205,6 +207,7 @@ class YonReachTest {
   }
 
   static async main() {
+    assert.ok(this.serviceNames[this.services], `unknown TAC_YON_SERVICES ${this.services}; use swift or rust`)
     const checks = { web: () => this.web(), macos: () => this.macos(), ios: () => this.ios(false), 'ios-tls': () => this.ios(true) }
     for (const target of this.targets) {
       assert.ok(checks[target], `unknown target ${target}; use web, macos, ios or ios-tls`)

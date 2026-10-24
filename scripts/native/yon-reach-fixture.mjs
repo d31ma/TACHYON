@@ -98,11 +98,46 @@ class PrivateController {
 `,
   }
 
+  static featureExtensions = { swift: '.js', rust: '.rs' }
   static nativeFiles = {
-    'client/models/Note.swift': 'import Foundation\n\nstruct Note: Codable {\n    let text: String\n}\n',
-    'client/remotes/YonNoteClient.swift': '@HTTPClient("/api")\nprotocol YonNoteClient {\n    @GetRequest("/notes")\n    func read() async throws -> Note\n}\n',
-    'client/setups/YonNoteSetup.swift': '@Setup\nfinal class YonNoteSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        BehaviorAdapters()\n    }\n}\n',
-    'client/services/YonReachService.swift': `import Foundation
+    rust: {
+      'client/models/Note.rs': '#[derive(Clone, Debug, Default)]\npub struct Note {\n    pub text: String,\n}\n',
+      'client/remotes/YonNoteClient.rs': 'use crate::models::Note;\n\n#[HTTPClient("/api")]\ntrait YonNoteClient {\n    #[GetRequest("/notes")]\n    async fn read(&self) -> BehaviorResult<Note>;\n}\n',
+      'client/setups/YonNoteSetup.rs': '#[Setup]\nstruct YonNoteSetup {}\nimpl YonNoteSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n',
+      'client/services/YonReachService.rs': `#[Service]
+pub struct YonReachService {
+    #[Needs]
+    yon_note_client: std::sync::Arc<YonNoteClient>,
+    pub phase: String,
+    pub proof: String,
+}
+
+impl YonReachService {
+    const PROOF_FILE: &'static str = "${YonReachFixture.proofFile}";
+
+    pub async fn ask_yon(&mut self) -> String {
+        let answer = self.yon_note_client.read().await;
+        answer.map_or_else(|error| String::from(error.code), |note| note.text)
+    }
+
+    pub fn record(&mut self) -> i64 {
+        let pid = std::process::id();
+        let record = format!("{{\\"phase\\":{},\\"pid\\":{pid},\\"proof\\":{}}}", Self::quoted(&self.phase), Self::quoted(&self.proof));
+        let _ = std::fs::write(std::env::temp_dir().join(Self::PROOF_FILE), record);
+        i64::from(pid)
+    }
+
+    fn quoted(text: &str) -> String {
+        format!("\\"{}\\"", text.replace('\\\\', "\\\\\\\\").replace('"', "\\\\\\""))
+    }
+}
+`,
+    },
+    swift: {
+      'client/models/Note.swift': 'import Foundation\n\nstruct Note: Codable {\n    let text: String\n}\n',
+      'client/remotes/YonNoteClient.swift': '@HTTPClient("/api")\nprotocol YonNoteClient {\n    @GetRequest("/notes")\n    func read() async throws -> Note\n}\n',
+      'client/setups/YonNoteSetup.swift': '@Setup\nfinal class YonNoteSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        BehaviorAdapters()\n    }\n}\n',
+      'client/services/YonReachService.swift': `import Foundation
 
 @Service
 final class YonReachService {
@@ -131,6 +166,7 @@ final class YonReachService {
     }
 }
 `,
+    },
   }
 
   /** @param {boolean} native */
@@ -226,12 +262,13 @@ export default class YonReachService {
     writeFileSync(target, text)
   }
 
-  /** @param {string} root @param {string} name */
-  static copyFeature(root, name) {
+  /** @param {string} root @param {string} name @param {string} services */
+  static copyFeature(root, name, services) {
     const source = path.join(this.repository, 'website/content/features', name)
     const feature = JSON.parse(readFileSync(path.join(source, 'feature.json'), 'utf8'))
     for (const file of feature.files) {
-      const selected = file.name.endsWith('.js') || file.name.endsWith('.html') || file.name.includes('/models/') && file.name.endsWith('.ts')
+      const extension = file.name.startsWith('client/') ? this.featureExtensions[services] : '.js'
+      const selected = file.name.endsWith(extension) || file.name.endsWith('.html') || file.name.includes('/models/') && file.name.endsWith('.ts')
       if (selected && file.name !== 'client/pages/tac.html') this.write(root, file.name, readFileSync(path.join(source, file.name), 'utf8'))
     }
   }
@@ -245,12 +282,12 @@ export default class YonReachService {
 
   /**
    * @param {string} root
-   * @param {{yonOrigin: string, appOrigins: string[], native: boolean}} options
+   * @param {{yonOrigin: string, appOrigins: string[], native: boolean, services?: string}} options
    */
-  static prepare(root, { yonOrigin, appOrigins, native }) {
-    for (const feature of this.features) this.copyFeature(root, feature)
+  static prepare(root, { yonOrigin, appOrigins, native, services = 'swift' }) {
+    for (const feature of this.features) this.copyFeature(root, feature, native ? services : 'swift')
     this.copyDocs(root)
-    const files = { ...this.pageFiles, ...this.serverFiles, ...(native ? this.nativeFiles : {}) }
+    const files = { ...this.pageFiles, ...this.serverFiles, ...(native ? this.nativeFiles[services] : {}) }
     for (const [name, text] of Object.entries(files)) this.write(root, name, text)
     this.write(root, 'client/services/YonReachService.js', this.service(native))
     const checks = Object.fromEntries(['names', 'constants', 'visibility', 'duplication', 'cohesion'].map((name) => [name, { check: false }]))

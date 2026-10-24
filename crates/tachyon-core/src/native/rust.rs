@@ -54,7 +54,7 @@ impl RustCompanion {
             include_str!("tac_native_http/tac_native_http.rs"),
             include_str!("tac_native_http/tac_win_http.rs"),
             include_str!("tac_native_http/tac_win_http_handle.rs"),
-            include_str!("tac_native_http/tac_linux_http.rs")
+            include_str!("tac_native_http/tac_host_http.rs")
         ),
         include_str!("web_apis/clock.rs"),
         include_str!("web_apis/secure_random.rs"),
