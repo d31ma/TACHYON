@@ -94,7 +94,13 @@ private final class WindowAppearanceCheck {
 
     private func sample(_ image: NSBitmapImageRep, _ window: NSWindow, _ top: NSPoint) throws -> NSColor {
         let scale = CGFloat(image.pixelsWide) / window.frame.width
-        let color = image.colorAt(x: Int(top.x * scale), y: Int(top.y * scale))?.usingColorSpace(.sRGB)
+        let (x, y) = (Int(top.x * scale), Int(top.y * scale))
+        try require(x < image.pixelsWide && y < image.pixelsHigh && image.samplesPerPixel >= 3, "Screenshot has no pixel")
+        var pixel = [Int](repeating: 0, count: image.samplesPerPixel)
+        image.getPixel(&pixel, atX: x, y: y)
+        let maximum = CGFloat((1 << image.bitsPerSample) - 1)
+        var components = pixel.prefix(3).map { (value: Int) -> CGFloat in CGFloat(value) / maximum } + [1]
+        let color = NSColor(colorSpace: image.colorSpace, components: &components, count: 4).usingColorSpace(.sRGB)
         guard let color else { throw failure("Screenshot has no pixel") }
         return color
     }
