@@ -128,6 +128,110 @@ fn main() {
     println!("native Rust tasks wait for the host dispatch hook");
 }
 "##;
+    const PING: &'static str = "pub struct Ping {\n    pub step: i64,\n}\n";
+    const LISTENING: &'static str = r#"
+use crate::models::Ping;
+
+#[derive(Default)]
+#[Service]
+struct ListenService {
+    heard: String,
+    application_event_publisher: ApplicationEventPublisher,
+}
+
+impl ListenService {
+    pub fn send(&mut self, step: i64) {
+        self.application_event_publisher.publish_event(Ping { step }, false);
+    }
+
+    #[OnEvent]
+    async fn later(&mut self, value: Ping) {
+        let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut started = false;
+        std::future::poll_fn(|context| {
+            if done.load(std::sync::atomic::Ordering::SeqCst) {
+                return std::task::Poll::Ready(());
+            }
+            if !started {
+                started = true;
+                let waker = context.waker().clone();
+                let flag = done.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                    flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                    waker.wake();
+                });
+            }
+            std::task::Poll::Pending
+        })
+        .await;
+        self.heard.push_str(&format!("a{}", value.step));
+    }
+
+    #[OnEvent]
+    fn now(&mut self, value: Ping) {
+        self.heard.push_str(&format!("s{}", value.step));
+    }
+}
+"#;
+    const LISTENING_CALLER: &'static str = r##"
+struct ListenProbe;
+
+impl ListenProbe {
+    const OWNER: &'static str = "00000000-0000-4000-8000-000000000083";
+
+    fn signals() -> &'static std::sync::Mutex<Vec<String>> {
+        static SIGNALS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+        &SIGNALS
+    }
+
+    extern "C" fn emit(payload: *const core::ffi::c_char) {
+        let text = unsafe { std::ffi::CStr::from_ptr(payload) }.to_string_lossy().into_owned();
+        Self::signals().lock().expect("signals").push(text);
+    }
+
+    extern "C" fn dispatch() {}
+
+    fn request(operation: &str, name: &str, arguments: &str) -> String {
+        tac_invoke_owned(&format!(
+            r#"{{"route":"/","service":"root","owner":"{}","op":"{operation}","name":"{name}","args":[{arguments}]}}"#,
+            Self::OWNER
+        ))
+    }
+
+    fn resume_until_heard(wanted: &str) {
+        for _ in 0..300 {
+            assert_eq!(tac_handle(r#"{"op":"host-resume"}"#), r#"{"value":null}"#);
+            if Self::request("get", "heard", "") == format!(r#"{{"value":"{wanted}"}}"#) {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("the listeners never heard {wanted}: {}", Self::request("get", "heard", ""));
+    }
+}
+
+fn main() {
+    unsafe { tac_native_set_emit(Some(ListenProbe::emit)) };
+    unsafe { TacTaskDispatch::tac_native_set_dispatch(Some(ListenProbe::dispatch)) };
+    let init = ListenProbe::request("init", "", "");
+    assert!(!init.contains("error"), "{init}");
+    assert_eq!(ListenProbe::request("call", "send", "1"), r#"{"value":null}"#);
+    assert!(ListenProbe::request("call", "send", "2").contains(r#""code":"BUSY""#), "a call waits while the listener task holds the service");
+    assert!(ListenProbe::request("get", "heard", "").contains(r#""code":"BUSY""#), "a field read waits while the listener task holds the service");
+    ListenProbe::resume_until_heard("a1s1");
+    assert_eq!(ListenProbe::request("call", "send", "2"), r#"{"value":null}"#);
+    ListenProbe::resume_until_heard("a1s1a2s2");
+    let signals = ListenProbe::signals().lock().expect("signals").clone();
+    assert_eq!(signals.len(), 2, "{signals:?}");
+    assert!(signals.iter().all(|signal| signal.contains(r#""name":"Ping""#) && !signal.contains(r#""task":"#)), "{signals:?}");
+    assert_eq!(ListenProbe::request("call", "send", "3"), r#"{"value":null}"#);
+    assert!(ListenProbe::request("dispose", "", "").contains("null"));
+    let after = ListenProbe::signals().lock().expect("signals").clone();
+    assert!(after.iter().all(|signal| !signal.contains(r#""task":"#)), "a cancelled listener task sends no task answer: {after:?}");
+    println!("native Rust async listeners run one after another through the host dispatch hook");
+}
+"##;
     const GREETING: &'static str = "pub struct Greeting {\n    pub message: String,\n}\n";
     const CLIENT: &'static str = "use crate::models::Greeting;\n\n#[HTTPClient(\"/api\")]\ntrait GreetingClient {\n    #[GetRequest(\"/greeting\")]\n    async fn get_greeting(&self) -> BehaviorResult<Greeting>;\n    #[GetRequest(\"/refused\")]\n    async fn get_refused(&self) -> BehaviorResult<Greeting>;\n}\n";
     const SETUP: &'static str = "#[Setup]\nstruct GreetingSetup {}\nimpl GreetingSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n";
@@ -371,6 +475,20 @@ async fn native_rust_tasks_park_until_the_host_resumes_them() {
         .expect("staged")
         .expect("native source");
     NativePageGraphCheck::execute(&source, NativeRustTaskCheck::WAITING_CALLER).await;
+}
+
+#[tokio::test]
+async fn native_rust_async_listeners_run_in_order_through_the_host_dispatch() {
+    let root = tempfile::tempdir().expect("fixture");
+    let models = root.path().join("client/models");
+    std::fs::create_dir_all(&models).expect("models");
+    std::fs::write(models.join("Ping.rs"), NativeRustTaskCheck::PING).expect("model");
+    let input =
+        NativeRustTaskCheck::input(root.path(), "ListenService", NativeRustTaskCheck::LISTENING);
+    let source = super::rust::stage(&[input], root.path(), "org.tachyon.listeners")
+        .expect("staged")
+        .expect("native source");
+    NativePageGraphCheck::execute(&source, NativeRustTaskCheck::LISTENING_CALLER).await;
 }
 
 #[tokio::test]

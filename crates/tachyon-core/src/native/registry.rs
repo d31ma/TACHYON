@@ -252,8 +252,7 @@ fn lowered_service(
     )?;
     let streams = CsharpStreamClients::page_streams(item, language, &mut events, &identity)?;
     let held = streams.module.as_ref().or(events.as_ref());
-    let mut prepared =
-        super::events::prepare_for(language, authored, (held, &identity), item.web_assembly)?;
+    let mut prepared = super::events::prepare(language, authored, held, &identity)?;
     prepared.entries.push_str(&streams.entries);
     let (native_source, native_fields) =
         native_service(language, item, &prepared.source, &identity);

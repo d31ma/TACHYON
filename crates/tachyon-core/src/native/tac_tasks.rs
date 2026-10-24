@@ -12,6 +12,7 @@ struct TacTasks {
     last: u32,
     running: std::collections::BTreeMap<u32, (String, TacTask)>,
     ready: std::collections::VecDeque<u32>,
+    listeners: std::collections::BTreeSet<u32>,
 }
 
 impl TacTasks {
@@ -20,6 +21,7 @@ impl TacTasks {
         "{\"error\":\"The service was removed before its task finished.\",\"code\":\"CANCELLED\"}";
     const TOO_MANY: &'static str =
         "{\"error\":\"The page runs too many service tasks at once.\",\"code\":\"CAPACITY\"}";
+    const LISTENER_DONE: &'static str = "{\"value\":null}";
     #[cfg(not(target_arch = "wasm32"))]
     const NO_HOST: &'static str = "{\"error\":\"This method waits for the browser, and this service runs without one.\",\"code\":\"HTTP_MISSING\"}";
 
@@ -35,6 +37,28 @@ impl TacTasks {
             || String::from(Self::TOO_MANY),
             |id| Self::first_poll(id, owner, task),
         )
+    }
+
+    fn begin_listener(owner: &str, task: TacTask) {
+        let finished_owner = owner.to_owned();
+        let listener: TacTask = Box::pin(async move {
+            let finished = task.await.is_ok();
+            TacActivation::listener_task_finished(&finished_owner, finished);
+            Ok(TacValue::Null)
+        });
+        Self::reserve().map_or_else(
+            || TacActivation::listener_task_finished(owner, false),
+            |id| Self::poll_listener(id, owner, listener),
+        );
+    }
+
+    fn poll_listener(id: u32, owner: &str, listener: TacTask) {
+        Self::table().with(|table| table.borrow_mut().listeners.insert(id));
+        let answer = Self::first_poll(id, owner, listener);
+        let parked = answer.starts_with("{\"task\":");
+        let lost = [parked, answer == Self::LISTENER_DONE] == [false, false];
+        let _ = (!parked).then(|| Self::table().with(|table| table.borrow_mut().listeners.remove(&id)));
+        let _ = lost.then(|| TacActivation::listener_task_finished(owner, false));
     }
 
     fn first_poll(id: u32, owner: &str, mut task: TacTask) -> String {
@@ -129,7 +153,7 @@ impl TacTasks {
 
     fn poll_again(id: u32, owner: String, mut task: TacTask) {
         match Self::poll(id, &mut task) {
-            core::task::Poll::Ready(result) => Self::finish(id, &owner, &Self::answer(result)),
+            core::task::Poll::Ready(result) => Self::settle(id, &owner, &Self::answer(result)),
             core::task::Poll::Pending => Self::put(id, owner, task),
         }
     }
@@ -161,7 +185,7 @@ impl TacTasks {
     fn cancel(removed: Vec<(u32, (String, TacTask))>) {
         for (id, (owner, task)) in removed {
             drop(task);
-            Self::finish(id, &owner, Self::CANCELLED);
+            Self::settle(id, &owner, Self::CANCELLED);
         }
     }
 
@@ -176,6 +200,11 @@ impl TacTasks {
             },
             |value| format!("{{\"value\":{}}}", tac_write(&value)),
         )
+    }
+
+    fn settle(id: u32, owner: &str, answer: &str) {
+        let listener = Self::table().with(|table| table.borrow_mut().listeners.remove(&id));
+        let _ = (!listener).then(|| Self::finish(id, owner, answer));
     }
 
     #[cfg(target_arch = "wasm32")]

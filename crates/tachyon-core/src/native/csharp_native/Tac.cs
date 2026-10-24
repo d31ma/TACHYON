@@ -35,6 +35,41 @@ public partial class Tac
         return sameRoute && sameService && found && member.InvokeAsync != null;
     }
 
+    static partial void DeliverTask(Activation owner, TacMember listener, string json, bool republish)
+    {
+        if (owner == null || owner.PendingTasks >= PendingTaskLimit) { EventFailure(); return; }
+        object value;
+        try { value = Value(JsonNode.Parse(json)); }
+        catch (Exception) { EventFailure(); return; }
+        owner.PendingTasks++;
+        var previous = owner.ListenerTail;
+        owner.ListenerTail = TacOwnerContext.Run(OwnerLock, () => RunListenerTask(owner, listener, (value, republish), previous));
+    }
+
+    private static System.Threading.Tasks.Task ListenerWork(TacMember listener, object value, bool republish)
+    {
+        if (listener.ListenAsync != null) return listener.ListenAsync(value);
+        var result = listener.Listen(value);
+        if (republish) Republish(result, listener.Returns);
+        return System.Threading.Tasks.Task.CompletedTask;
+    }
+
+    private static async System.Threading.Tasks.Task RunListenerTask(Activation owner, TacMember listener, (object Value, bool Republish) delivery, System.Threading.Tasks.Task previous)
+    {
+        try
+        {
+            await previous;
+            RequireTaskOwner(owner);
+            TaskOwner.Value = owner;
+            await ListenerWork(listener, delivery.Value, delivery.Republish).WaitAsync(owner.Cancellation.Token);
+            RequireTaskOwner(owner);
+            if (!Handling) Drain(owner);
+        }
+        catch (System.OperationCanceledException) {}
+        catch (Exception) { EventFailure(); }
+        finally { owner.PendingTasks--; }
+    }
+
     private static string StartNativeTask(string request, JsonObject parsed)
     {
         var task = System.Threading.Interlocked.Increment(ref NativeTaskCount);

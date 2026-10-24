@@ -181,12 +181,7 @@ impl ManagedCapabilityCheck {
         Self::kotlin_jvm(root.path(), &registry, Self::KOTLIN_CALLER, false)
     }
 
-    pub(super) fn kotlin_jvm(
-        root: &Path,
-        registry: &str,
-        caller: &str,
-        page_singletons: bool,
-    ) -> String {
+    pub(super) fn kotlin_jvm(root: &Path, registry: &str, caller: &str, android: bool) -> String {
         let platform = include_str!("prelude_web.kt")
             .split("private const val tacPageListeners")
             .nth(1)
@@ -199,7 +194,11 @@ impl ManagedCapabilityCheck {
         )
         .replace(
             "private const val tacPageSingletons = false",
-            &format!("private const val tacPageSingletons = {page_singletons}"),
+            &format!("private const val tacPageSingletons = {android}"),
+        )
+        .replace(
+            "private const val tacPageListeners = true",
+            &format!("private const val tacPageListeners = {}", !android),
         );
         let models = include_str!("prelude_android.kt")
             .split("private fun tacPlainModel")

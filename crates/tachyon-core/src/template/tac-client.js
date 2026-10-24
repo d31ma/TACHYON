@@ -192,6 +192,8 @@ class NativeState {
   static owners = new Map()
   static startUpRequestLimit = 1048576
   static memberRequestLimit = 65536
+  static busyWait = 10
+  static busyDeadline = 10000
 
   static tooLarge(request, service, payload, limit) {
     const subject = request.op === 'init' ? 'start-up request' : `request to ${request.name ?? request.op}`
@@ -1571,6 +1573,16 @@ const disposeOwner = (owner) => {
 
 const nativeHost = () => typeof globalThis.__tachyonNativeHostCall === 'function'
 const nativeCall = async (request, ownerId, service) => {
+  const deadline = Date.now() + NativeState.busyDeadline
+  let answer = await nativeAnswer(request, ownerId, service)
+  while (answer?.code === 'BUSY' && Date.now() < deadline) {
+    await new Promise((resolve) => { setTimeout(resolve, NativeState.busyWait) })
+    answer = await nativeAnswer(request, ownerId, service)
+  }
+  if (!answer || answer.error || answer.ok === false) throw new Error('Tac native call failed.')
+  return answer.value
+}
+const nativeAnswer = async (request, ownerId, service) => {
   const payload = JSON.stringify({ ...request, route: ClientView.plan.route, service, owner: ownerId })
   const limit = request.op === 'init' ? NativeState.startUpRequestLimit : NativeState.memberRequestLimit
   if (payload.length > limit || new TextEncoder().encode(payload).byteLength > limit) throw new RangeError(NativeState.tooLarge(request, service, payload, limit))
@@ -1583,9 +1595,7 @@ const nativeCall = async (request, ownerId, service) => {
     ])
   } finally { clearTimeout(timer) }
   if (typeof raw === 'string' && (raw.length > 65536 || new TextEncoder().encode(raw).byteLength > 65536)) throw new RangeError('Tac native response exceeds 64 KiB.')
-  const answer = await NativeTasks.settle(ownerId, typeof raw === 'string' ? JSON.parse(raw) : raw)
-  if (!answer || answer.error || answer.ok === false) throw new Error('Tac native call failed.')
-  return answer.value
+  return NativeTasks.settle(ownerId, typeof raw === 'string' ? JSON.parse(raw) : raw)
 }
 const nativeMember = (name) => typeof name === 'string'
   && /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(name)

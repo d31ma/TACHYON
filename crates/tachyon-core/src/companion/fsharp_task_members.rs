@@ -18,6 +18,11 @@ impl FsharpTaskMembers {
             .then(|| (member.name.clone(), Self::written(&member, kind)))
     }
 
+    pub(crate) fn name(line: &str) -> Option<String> {
+        let member = CsharpTaskMembers::member(line).or_else(|| Self::value_task(line))?;
+        Some(member.name)
+    }
+
     fn value_task(line: &str) -> Option<Member> {
         let line = line.trim().strip_prefix("public ")?;
         let (signature, _) = without_type_first_modifiers(line);

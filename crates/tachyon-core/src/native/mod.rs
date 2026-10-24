@@ -291,6 +291,8 @@ mod style_source;
 mod swift_compile_inputs;
 #[cfg(test)]
 mod swift_held_client_tests;
+#[cfg(test)]
+mod swift_listener_tests;
 mod swift_streams;
 mod swift_web_services;
 mod swift_yon_http;
