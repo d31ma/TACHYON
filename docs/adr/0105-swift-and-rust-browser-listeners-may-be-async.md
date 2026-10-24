@@ -108,15 +108,14 @@ Runs on 2026-10-24 (develop `e0bbb86a` plus LS3):
     suspend method or listener that really suspends now holds the call until
     it resumes, as Swift's does. Before, it answered `HTTP_MISSING` at once,
     and the listener finished later with no render.
-  - Windows 11 ARM64 on the Surface (MSVC 19.44 ARM64, .NET 10.0.302,
-    develop `ddf568e8`): `csharp_native_task_tests` and
-    `native_rust_task_tests` passed, and
-    `scripts/windows/async-listener-native-test.mjs` passed with a linked C#
-    `Task` listener in the WebView2 app on the signed-in desktop. This
-    needed a fix: a finished C# listener task now sends the owner's
-    `changed` signal, so the page reads the fields again. Before, the page
-    kept the old values. It also needed a local one-line change to FP5's
-    `windows_capability_route.c`, which MSVC rejected on that commit.
+  - Windows 11 Home ARM64 on the Surface (build 26200, MSVC 19.44.35229
+    ARM64, Rust 1.97.1, .NET 10.0.302, develop `519f3bee`, no local
+    changes): `csharp_native_task_tests` and `native_rust_task_tests`
+    passed over SSH, and `scripts/windows/async-listener-native-test.mjs`
+    passed with a linked C# `Task` listener in the WebView2 app on the
+    signed-in desktop. The first run, on `ddf568e8`, needed a fix: a
+    finished C# listener task now sends the owner's `changed` signal, so
+    the page reads the fields again. Before, the page kept the old values.
 - Linux (x86_64 Ubuntu 24.04 cloud container, GTK 4.14.5, WebKitGTK
   2.52.6, Xvfb): `scripts/linux/async-listener-native-test.mjs` passed with
   a linked Rust `async fn` listener in the Linux app (`[a1s1]`, then

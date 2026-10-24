@@ -794,15 +794,15 @@ app's own process:
   coroutine that really suspended answered `HTTP_MISSING` at once and its
   work finished later without a render, so the page showed `s1`. Now the call
   waits until the coroutine resumes, as Swift does.
-- Windows 11 Home ARM64 (build 26200, MSVC 19.44 ARM64, .NET 10.0.302,
-  develop `ddf568e8`): `csharp_native_task_tests` and
-  `native_rust_task_tests` passed over SSH, and
-  `scripts/windows/async-listener-native-test.mjs` passed with a linked C#
-  `Task` listener in the WebView2 app on the signed-in desktop. This needed
-  two changes. First, a fix: a finished C# listener task now sends the page
-  the owner's `changed` signal; before it, the page kept showing `[]`.
-  Second, a local one-line change to FP5's `windows_capability_route.c`,
-  which does not compile with MSVC on that commit (`IStream_Read`, C2197).
+- Windows 11 Home ARM64 (build 26200, MSVC 19.44.35229 ARM64, Rust 1.97.1,
+  .NET 10.0.302, Node 24.21.0, develop `519f3bee`, no local changes):
+  `csharp_native_task_tests` and `native_rust_task_tests` passed over SSH
+  (9 tests), and `scripts/windows/async-listener-native-test.mjs` passed
+  with a linked C# `Task` listener in the WebView2 app on the signed-in
+  desktop. The page showed `[a1s1]` with the app's process ID, then
+  `[a1s1a2s2]`. The first run, on `ddf568e8`, found that a finished C#
+  listener task did not signal the page, which kept showing `[]`. It now
+  sends the owner's `changed` signal.
 
 - Linux (x86_64 Ubuntu 24.04 cloud container, GTK 4.14.5, WebKitGTK
   2.52.6, Xvfb, develop `dbcaf6d9` plus the fix below):
