@@ -272,6 +272,23 @@ pub enum TacMember {
     Listener(TacListener),
     Stream(TacStream),
     Hook(bool, Box<dyn Fn() -> Result<(), &'static str>>),
+    Busy(Box<dyn Fn() -> bool>),
+}
+
+impl TacMember {
+    fn busy_probe(&self) -> Option<&dyn Fn() -> bool> {
+        match self {
+            TacMember::Busy(probe) => Some(probe.as_ref()),
+            _ => None,
+        }
+    }
+
+    fn listener(&self) -> Option<&TacListener> {
+        match self {
+            TacMember::Listener(listener) => Some(listener),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -705,7 +722,7 @@ fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
                 listeners.push(tac_describe_listener(name, listener))
             }
             TacMember::Stream(stream) => streams.push(stream.describe()),
-            TacMember::Hook(..) => {}
+            TacMember::Hook(..) | TacMember::Busy(_) => {}
         }
     }
     let exclusive = !tasks.is_empty() || listener_tasks;
@@ -761,7 +778,14 @@ fn tac_receive(owner: &TacActivation, key: &str, request: &[(String, TacValue)])
         .cloned()
         .unwrap_or(TacValue::Null);
     if let Some(task) = &listener.task {
-        return TacTasks::begin(&owner.owner, task(&value));
+        if cfg!(target_arch = "wasm32") {
+            return TacTasks::begin(&owner.owner, task(&value));
+        }
+    }
+    if tac_listener_waits(owner, listener) {
+        let index = owner.members.iter().position(|(name, _)| *name == key);
+        let _ = index.map(|index| owner.wait_for_listener(index, &value, !listener.asynchronous));
+        return String::from("{\"value\":null}");
     }
     let Ok(result) = (listener.invoke)(&value) else {
         return tac_error("Native event listener failed.");
@@ -770,6 +794,10 @@ fn tac_receive(owner: &TacActivation, key: &str, request: &[(String, TacValue)])
         tac_republish(&result, listener.returns);
     }
     String::from("{\"value\":null}")
+}
+
+fn tac_listener_waits(owner: &TacActivation, listener: &TacListener) -> bool {
+    [listener.task.is_some(), owner.holds_listeners()].contains(&true)
 }
 
 fn tac_error(message: &str) -> String {
@@ -901,6 +929,9 @@ fn tac_handle_owned(
     if operation == "event" {
         return tac_receive(&activation, name, request);
     }
+    if activation.busy() {
+        return String::from(TacActivation::BUSY);
+    }
     let Some((_, member)) = activation.members.iter().find(|(key, _)| key == name) else {
         return tac_error(&format!("Unknown companion member: {name}"));
     };
@@ -1023,9 +1054,15 @@ struct TacActivation {
     queue: core::cell::RefCell<std::collections::VecDeque<(String, TacValue, bool)>>,
     retained: core::cell::RefCell<TacMap<String, TacValue>>,
     deferred: core::cell::RefCell<Vec<(usize, TacValue)>>,
+    waiting_listeners: core::cell::RefCell<std::collections::VecDeque<(usize, TacValue, bool)>>,
+    listener_running: core::cell::Cell<bool>,
 }
 
 impl TacActivation {
+    const MOST_WAITING_LISTENERS: usize = 128;
+    const BUSY: &'static str =
+        "{\"error\":\"The service is still running a task.\",\"code\":\"BUSY\"}";
+
     fn new(
         route: &str,
         service: &str,
@@ -1054,7 +1091,43 @@ impl TacActivation {
             queue: core::cell::RefCell::new(std::collections::VecDeque::new()),
             retained: core::cell::RefCell::new(TacMap::new()),
             deferred: core::cell::RefCell::new(Vec::new()),
+            waiting_listeners: core::cell::RefCell::new(std::collections::VecDeque::new()),
+            listener_running: core::cell::Cell::new(false),
         }
+    }
+
+    fn holds_listeners(&self) -> bool {
+        let waiting = !self.waiting_listeners.borrow().is_empty();
+        [self.listener_running.get(), waiting, self.busy()].contains(&true)
+    }
+
+    fn busy(&self) -> bool {
+        self.members
+            .iter()
+            .filter_map(|(_, member)| member.busy_probe())
+            .any(|probe| probe())
+    }
+
+    fn wait_for_listener(&self, index: usize, value: &TacValue, republish: bool) {
+        let mut waiting = self.waiting_listeners.borrow_mut();
+        if waiting.len() >= Self::MOST_WAITING_LISTENERS {
+            tac_event_failure();
+        } else {
+            waiting.push_back((index, value.clone(), republish));
+        }
+    }
+
+    fn next_waiting_listener(&self) -> Option<(usize, TacValue, bool)> {
+        let held = [self.listener_running.get(), self.busy()].contains(&true);
+        let next = (!held).then(|| self.waiting_listeners.borrow_mut().pop_front());
+        next.flatten()
+    }
+
+    fn listener_task_finished(owner: &str, finished: bool) {
+        if !finished {
+            tac_event_failure();
+        }
+        let _ = tac_active_owner(owner).map(|activation| activation.listener_running.set(false));
     }
 }
 
@@ -1400,14 +1473,18 @@ fn tac_deliver(owner: &TacActivation, index: usize, value: &TacValue, republish:
     let Some((_, TacMember::Listener(listener))) = owner.members.get(index) else {
         return;
     };
-    match (listener.invoke)(value) {
-        Ok(result) => {
-            if republish {
-                tac_republish(&result, listener.returns);
-            }
-        }
-        Err(_) => tac_event_failure(),
+    if [listener.task.is_some(), owner.holds_listeners()].contains(&true) {
+        owner.wait_for_listener(index, value, republish);
+        return;
     }
+    tac_deliver_now(listener, value, republish);
+}
+
+fn tac_deliver_now(listener: &TacListener, value: &TacValue, republish: bool) {
+    let delivered = (listener.invoke)(value);
+    let _ = delivered.as_ref().map_err(|_| tac_event_failure());
+    let republished = delivered.ok().filter(|_| republish);
+    let _ = republished.map(|result| tac_republish(&result, listener.returns));
 }
 
 fn tac_retain(owner: &TacActivation, name: &str, value: &TacValue) -> bool {
@@ -1468,6 +1545,10 @@ fn tac_drain(owner: &TacActivation) {
             }
             continue;
         }
+        if let Some((index, value, republish)) = owner.next_waiting_listener() {
+            tac_run_waiting_listener(owner, index, &value, republish);
+            continue;
+        }
         let next = owner.queue.borrow_mut().pop_front();
         let Some((name, value, retain)) = next else {
             return;
@@ -1505,12 +1586,27 @@ fn tac_drain(owner: &TacActivation) {
     }
 }
 
+fn tac_run_waiting_listener(owner: &TacActivation, index: usize, value: &TacValue, republish: bool) {
+    let listener = owner.members.get(index).and_then(|(_, member)| member.listener());
+    let _ = listener.map(|listener| tac_run_listener(owner, listener, (value, republish)));
+}
+
+fn tac_run_listener(owner: &TacActivation, listener: &TacListener, (value, republish): (&TacValue, bool)) {
+    let Some(task) = &listener.task else {
+        tac_deliver_now(listener, value, republish);
+        return;
+    };
+    owner.listener_running.set(true);
+    TacTasks::begin_listener(&owner.owner, task(value));
+}
+
 fn tac_dispose_activation(owner: std::rc::Rc<TacActivation>) {
     owner.disposed.set(true);
     owner.capabilities.dispose();
     owner.queue.borrow_mut().clear();
     owner.retained.borrow_mut().clear();
     owner.deferred.borrow_mut().clear();
+    owner.waiting_listeners.borrow_mut().clear();
     for (_, member) in &owner.members {
         if let TacMember::Hook(true, invoke) = member {
             if invoke().is_err() {

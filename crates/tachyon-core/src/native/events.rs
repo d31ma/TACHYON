@@ -71,6 +71,43 @@ struct SwiftCall<'a> {
     task: bool,
 }
 
+struct ListenerCalls;
+
+impl ListenerCalls {
+    const KOTLIN: [&str; 2] = [") { value -> {call} }", ", { value -> {call} }) { null }"];
+    const CSHARP_NOTHING: [&str; 5] = ["", "Void", "()", "Unit", "void"];
+    const FSHARP_ASYNC: [&str; 2] = ["FSharpAsync<", "Async<"];
+    const FSHARP_START: &str = "Microsoft.FSharp.Control.FSharpAsync.StartAsTask(";
+    const FSHARP_START_OPTIONS: &str = ", null, null)";
+    const CSHARP_VOID: &str =
+        "An async C# OnEvent method returns Task or ValueTask; async void cannot be awaited.";
+
+    fn is_fsharp_async(return_type: &str) -> bool {
+        Self::FSHARP_ASYNC
+            .iter()
+            .any(|prefix| return_type.starts_with(prefix))
+    }
+
+    fn csharp_awaitable(return_type: &str, call: &str) -> String {
+        let fsharp_async = Self::is_fsharp_async(return_type);
+        [
+            call.to_owned(),
+            format!("{}{call}{}", Self::FSHARP_START, Self::FSHARP_START_OPTIONS),
+        ][usize::from(fsharp_async)]
+        .clone()
+    }
+
+    fn void_refusal(language: NativeCompanion, return_type: &str) -> Result<(), &'static str> {
+        let void = [
+            language == NativeCompanion::CSharp,
+            return_type.trim() == "void",
+        ];
+        (void != [true, true])
+            .then_some(())
+            .ok_or(Self::CSHARP_VOID)
+    }
+}
+
 enum Member<'a> {
     Listener(&'a EventListener),
     Hook { destroy: bool },
@@ -94,15 +131,6 @@ pub(super) fn prepare(
     source: &str,
     module: Option<&EventModule>,
     path: &Path,
-) -> Result<Prepared, Failure> {
-    prepare_for(language, source, (module, path), false)
-}
-
-pub(super) fn prepare_for(
-    language: NativeCompanion,
-    source: &str,
-    (module, path): (Option<&EventModule>, &Path),
-    in_page: bool,
 ) -> Result<Prepared, Failure> {
     let Some(module) = module else {
         return Ok(Prepared {
@@ -129,7 +157,7 @@ pub(super) fn prepare_for(
         .iter()
         .find(|event_type| Some(event_type.name.as_str()) == owner.as_deref());
     if let Some(metadata) = metadata {
-        add_members((language, in_page), module, metadata, path, &mut output)?;
+        add_members(language, module, metadata, path, &mut output)?;
     }
     let (rewritten, publishers) = publisher_members(language, &output.source);
     output.source = rewritten;
@@ -138,7 +166,7 @@ pub(super) fn prepare_for(
 }
 
 fn add_members(
-    (language, in_page): (NativeCompanion, bool),
+    language: NativeCompanion,
     module: &EventModule,
     metadata: &EventType,
     path: &Path,
@@ -153,7 +181,7 @@ fn add_members(
         let member = member_for(metadata, method);
         let task = is_asynchronous(method);
         if task {
-            refuse_asynchronous((language, in_page), &member, path)?;
+            refuse_asynchronous((language, method), &member, path)?;
         }
         output.excluded.push(method.name.clone());
         let signature = &module.source[method.signature.clone()];
@@ -165,17 +193,13 @@ fn add_members(
 }
 
 fn refuse_asynchronous(
-    (language, in_page): (NativeCompanion, bool),
+    (language, method): (NativeCompanion, &EventMethod),
     member: &Member<'_>,
     path: &Path,
 ) -> Result<(), Failure> {
-    let page_language = is_page_task_language(language);
-    asynchronous_refusal((page_language, in_page), listener_returns(member))
+    asynchronous_refusal(listener_returns(member))
+        .and_then(|()| ListenerCalls::void_refusal(language, &method.return_type))
         .map_err(|message| failure(path, message))
-}
-
-fn is_page_task_language(language: NativeCompanion) -> bool {
-    matches!(language, NativeCompanion::Swift | NativeCompanion::Rust)
 }
 
 fn listener_returns(member: &Member<'_>) -> Option<bool> {
@@ -185,28 +209,25 @@ fn listener_returns(member: &Member<'_>) -> Option<bool> {
     }
 }
 
-fn asynchronous_refusal(
-    (page_language, in_page): (bool, bool),
-    returns: Option<bool>,
-) -> Result<(), &'static str> {
-    match (returns, page_language, in_page) {
-        (Some(false), true, true) => Ok(()),
-        (Some(true), true, true) => Err(
+fn asynchronous_refusal(returns: Option<bool>) -> Result<(), &'static str> {
+    match returns {
+        Some(false) => Ok(()),
+        Some(true) => Err(
             "An async OnEvent method cannot return an event; publish it with applicationEventPublisher instead.",
         ),
-        (Some(_), true, false) => Err(
-            "An async OnEvent method runs only in a browser service; a native app's event methods must be synchronous.",
-        ),
-        _ => Err(
-            "Native event and lifecycle methods must be synchronous; async native owner scheduling is not supported.",
-        ),
+        None => Err("Lifecycle methods must be synchronous; only an OnEvent method may be async."),
     }
 }
 
 fn is_asynchronous(method: &EventMethod) -> bool {
-    method.asynchronous
-        || method.return_type.contains("Task")
-        || method.return_type.contains("Future")
+    let returned = method.return_type.trim();
+    [
+        method.asynchronous,
+        returned.contains("Task"),
+        returned.contains("Future"),
+        ListenerCalls::is_fsharp_async(returned),
+    ]
+    .contains(&true)
 }
 
 fn member_for<'a>(metadata: &'a EventType, method: &EventMethod) -> Member<'a> {
@@ -484,8 +505,12 @@ fn entry(
             };
             swift_entry(&call, &key, listener, destroy)
         }
-        NativeCompanion::Kotlin => kotlin_entry(&method.name, &arguments, &key, listener, destroy),
-        NativeCompanion::CSharp => csharp_entry(method, &arguments, &key, listener, destroy),
+        NativeCompanion::Kotlin => {
+            kotlin_entry((&method.name, task), &arguments, &key, listener, destroy)
+        }
+        NativeCompanion::CSharp => {
+            csharp_entry((method, task), &arguments, &key, listener, destroy)
+        }
         NativeCompanion::Rust => rust_entry((method, task), &arguments, &key, listener, destroy),
     };
     Ok(result)
@@ -568,30 +593,33 @@ fn swift_entry(
 }
 
 fn kotlin_entry(
-    name: &str,
+    (name, task): (&str, bool),
     arguments: &str,
     key: &str,
     listener: Option<ListenerParts>,
     destroy: bool,
 ) -> String {
-    match listener {
-        Some(ListenerParts {
-            events,
-            replay,
-            order,
-            condition,
-            models,
-            returns,
-            asynchronous,
-        }) => format!(
-            "\"{key}\" to TacListener({events}, {replay}, {order}, {condition}, {models}, {returns}, {asynchronous}) {{ value -> tacInstance.{name}({arguments}) }},\n"
-        ),
-        None => format!("\"{key}\" to TacHook({destroy}) {{ tacInstance.{name}(); Unit }},\n"),
-    }
+    let Some(ListenerParts {
+        events,
+        replay,
+        order,
+        condition,
+        models,
+        returns,
+        asynchronous,
+    }) = listener
+    else {
+        return format!("\"{key}\" to TacHook({destroy}) {{ tacInstance.{name}(); Unit }},\n");
+    };
+    let call = format!("tacInstance.{name}({arguments})");
+    let invoke = ListenerCalls::KOTLIN[usize::from(task)].replace("{call}", &call);
+    format!(
+        "\"{key}\" to TacListener({events}, {replay}, {order}, {condition}, {models}, {returns}, {asynchronous}{invoke},\n"
+    )
 }
 
 fn csharp_entry(
-    method: &EventMethod,
+    (method, task): (&EventMethod, bool),
     arguments: &str,
     key: &str,
     listener: Option<ListenerParts>,
@@ -610,18 +638,28 @@ fn csharp_entry(
     else {
         return format!("[\"{key}\"] = TacMember.Hook({destroy}, () => {{ {call}; }}),\n");
     };
-    let returns_nothing = matches!(
-        method.return_type.trim(),
-        "" | "Void" | "()" | "Unit" | "void"
-    );
-    let invoke = if returns_nothing {
-        format!("value => {{ {call}; return null; }}")
-    } else {
-        format!("value => {call}")
-    };
+    let (factory, invoke) = csharp_listener_call(&method.return_type, &call, task);
     format!(
-        "[\"{key}\"] = TacMember.Listener({events}, {replay}, {order}, {condition}, {models}, {returns}, {asynchronous}, {invoke}),\n"
+        "[\"{key}\"] = TacMember.{factory}({events}, {replay}, {order}, {condition}, {models}, {returns}, {asynchronous}, {invoke}),\n"
     )
+}
+
+fn csharp_listener_call(return_type: &str, call: &str, task: bool) -> (&'static str, String) {
+    let returned = return_type.trim();
+    if task {
+        let awaited = ListenerCalls::csharp_awaitable(returned, call);
+        return (
+            "TaskListener",
+            format!("async value => {{ await {awaited}; return (object)null; }}"),
+        );
+    }
+    let returns_nothing = ListenerCalls::CSHARP_NOTHING.contains(&returned);
+    let invoke = [
+        format!("value => {call}"),
+        format!("value => {{ {call}; return null; }}"),
+    ][usize::from(returns_nothing)]
+    .clone();
+    ("Listener", invoke)
 }
 
 fn rust_entry(
@@ -939,37 +977,36 @@ mod tests {
         ]
     }
 
-    #[test]
-    fn asynchronous_native_listeners_fail_before_the_toolchain() {
-        for (extension, language, authored) in asynchronous_listener_sources() {
-            let path = probe_path(extension);
-            let metadata = crate::events::extract(&path, authored, "tac").expect("parse event");
-            let error = prepare(language, authored, metadata.as_ref(), &path)
-                .err()
-                .expect("asynchronous listener rejected");
-            assert!(format!("{error:?}").contains("must be synchronous"));
-        }
-    }
-
-    fn page_prepared(
+    fn async_prepared(
         extension: &str,
         language: NativeCompanion,
         authored: &str,
     ) -> Result<Prepared, Failure> {
         let path = probe_path(extension);
         let metadata = crate::events::extract(&path, authored, "tac").expect("parse event");
-        prepare_for(language, authored, (metadata.as_ref(), &path), true)
+        prepare(language, authored, metadata.as_ref(), &path)
     }
 
     #[test]
-    fn asynchronous_page_listeners_in_swift_and_rust_run_as_tasks() {
-        let [swift, _, _, rust] = asynchronous_listener_sources();
-        let swift = page_prepared(swift.0, swift.1, swift.2).expect("Swift async listener");
+    fn asynchronous_listeners_run_as_tasks_in_every_companion_language() {
+        let [swift, kotlin, csharp, rust] = asynchronous_listener_sources();
+        let swift = async_prepared(swift.0, swift.1, swift.2).expect("Swift async listener");
         assert_contains(
             &swift.entries,
             "nil, nil, nil, false, task: { value in await tacInstance.receive(try tacModel(Probe.self, value)); return nil })",
         );
-        let rust = page_prepared(rust.0, rust.1, rust.2).expect("Rust async listener");
+        let kotlin = async_prepared(kotlin.0, kotlin.1, kotlin.2).expect("Kotlin async listener");
+        assert_contains(
+            &kotlin.entries,
+            "null, null, null, false, { value -> tacInstance.receive(",
+        );
+        let csharp = async_prepared(csharp.0, csharp.1, csharp.2).expect("C# async listener");
+        assert_contains(
+            &csharp.entries,
+            "= TacMember.TaskListener(new[] { \"Probe\" }",
+        );
+        assert_contains(&csharp.entries, "async value => { await Instance.Receive(");
+        let rust = async_prepared(rust.0, rust.1, rust.2).expect("Rust async listener");
         assert_contains(&rust.entries, "task: Some({let it = instance.clone();");
         assert_contains(
             &rust.entries,
@@ -978,23 +1015,73 @@ mod tests {
     }
 
     #[test]
-    fn asynchronous_page_listeners_stay_refused_in_kotlin_and_csharp() {
-        let [_, kotlin, csharp, _] = asynchronous_listener_sources();
-        for (extension, language, authored) in [kotlin, csharp] {
-            let error = page_prepared(extension, language, authored)
+    fn asynchronous_lifecycle_methods_stay_refused() {
+        let sources = [
+            (
+                "swift",
+                NativeCompanion::Swift,
+                "class ProbeService {\n @OnStart\n func start() async {}\n}\n",
+            ),
+            (
+                "kt",
+                NativeCompanion::Kotlin,
+                "class ProbeService {\n @OnStart\n suspend fun start() {}\n}\n",
+            ),
+            (
+                "cs",
+                NativeCompanion::CSharp,
+                "public class ProbeService {\n [OnStart]\n public async Task Start() {}\n}\n",
+            ),
+        ];
+        for (extension, language, authored) in sources {
+            let error = async_prepared(extension, language, authored)
                 .err()
-                .expect("asynchronous listener rejected");
-            assert!(format!("{error:?}").contains("must be synchronous"));
+                .unwrap_or_else(|| panic!("asynchronous lifecycle method rejected: {extension}"));
+            assert!(
+                format!("{error:?}").contains("must be synchronous"),
+                "{error:?}"
+            );
         }
     }
 
     #[test]
-    fn an_asynchronous_page_listener_cannot_return_an_event() {
+    fn an_asynchronous_listener_cannot_return_an_event() {
         let authored = "class ProbeService {\n @OnEvent\n func receive(_ value: Probe) async -> Echo { Echo() }\n}\n";
-        let error = page_prepared("swift", NativeCompanion::Swift, authored)
+        let error = async_prepared("swift", NativeCompanion::Swift, authored)
             .err()
             .expect("returning async listener rejected");
         assert!(format!("{error:?}").contains("cannot return an event"));
+    }
+
+    #[test]
+    fn an_async_void_csharp_listener_is_refused() {
+        let authored = "public class ProbeService {\n [OnEvent]\n public async void Receive(Probe value) {}\n}\n";
+        let error = async_prepared("cs", NativeCompanion::CSharp, authored)
+            .err()
+            .expect("async void listener rejected");
+        assert!(format!("{error:?}").contains("async void"), "{error:?}");
+    }
+
+    #[test]
+    fn an_fsharp_async_listener_starts_as_a_task() {
+        assert_eq!(
+            ListenerCalls::csharp_awaitable("FSharpAsync<void>", "Instance.Receive(a)"),
+            "Microsoft.FSharp.Control.FSharpAsync.StartAsTask(Instance.Receive(a), null, null)"
+        );
+        assert_eq!(
+            ListenerCalls::csharp_awaitable("Task<void>", "Instance.Receive(a)"),
+            "Instance.Receive(a)"
+        );
+        let method = EventMethod {
+            owner: String::from("ProbeService"),
+            name: String::from("Receive"),
+            parameters: Vec::new(),
+            signature: 0..0,
+            body: 0..0,
+            return_type: String::from("FSharpAsync<void>"),
+            asynchronous: false,
+        };
+        assert!(is_asynchronous(&method));
     }
 
     fn event_publisher_source(extension: &str) -> &'static str {

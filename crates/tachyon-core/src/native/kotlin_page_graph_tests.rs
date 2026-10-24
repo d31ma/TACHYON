@@ -342,3 +342,70 @@ fn kotlin_native_page_node_guard_handles_synthetic_retained_capacity() {
     println!("{output}");
     assert!(output.contains("PASS kotlin synthetic page-entry guard unit 4096"));
 }
+
+struct KotlinListenerCheck;
+
+impl KotlinListenerCheck {
+    const MODEL: &'static str = "data class Ping(val step: Int)\n";
+    const SERVICE: &'static str = "@Service\nclass HeardService {\n    val applicationEventPublisher: ApplicationEventPublisher\n    var heard: String = \"\"\n    fun send(step: Int) { applicationEventPublisher.publishEvent(Ping(step)) }\n    @OnEvent\n    suspend fun later(ping: Ping) { heard += \"a\" + Steps.of(ping) }\n    @OnEvent\n    fun now(ping: Ping) { heard += \"s\" + ping.step }\n}\n";
+    const CALLER: &'static str = r#"
+data class Ping(val step: Int)
+
+object Steps {
+    suspend fun of(ping: Ping): Int = ping.step
+}
+
+fun heardAsk(op: String, extra: String = ""): String =
+    tacInvokeOwned("{\"route\":\"/\",\"service\":\"heard\",\"owner\":\"00000000-0000-4000-8000-000000000091\",\"op\":\"$op\"$extra}")
+
+fun main() {
+    val init = heardAsk("init")
+    check(!init.contains("error")) { init }
+    check(heardAsk("call", ",\"name\":\"send\",\"args\":[1]") == "{\"value\":null}") { "the first send failed" }
+    val first = heardAsk("get", ",\"name\":\"heard\"")
+    check(first == "{\"value\":\"a1s1\"}") { "the suspend listener did not finish before the plain one: $first" }
+    check(heardAsk("call", ",\"name\":\"send\",\"args\":[2]") == "{\"value\":null}") { "the second send failed" }
+    val second = heardAsk("get", ",\"name\":\"heard\"")
+    check(second == "{\"value\":\"a1s1a2s2\"}") { "the listeners lost their order: $second" }
+    check(tacInvokeOwned("{\"op\":\"host-dispose\"}") == "{\"value\":null}")
+    println("PASS kotlin native suspend listeners run in order")
+}
+"#;
+
+    fn run() -> String {
+        let root = tempfile::tempdir().expect("project");
+        let models = root.path().join("client/models");
+        let services = root.path().join("client/services");
+        std::fs::create_dir_all(&models).expect("models");
+        std::fs::create_dir_all(&services).expect("services");
+        std::fs::write(models.join("Ping.kt"), Self::MODEL).expect("model");
+        let path = services.join("HeardService.kt");
+        std::fs::write(&path, Self::SERVICE).expect("service source");
+        let input = NativeCompanionInput {
+            snapshot_root: root.path().to_path_buf(),
+            language: NativeCompanion::Kotlin,
+            source: path,
+            service: String::from("heard"),
+            class: String::from("HeardService"),
+            web_assembly: false,
+            application_provider: false,
+        };
+        let registry = super::registry::source(&[input], NativeCompanion::Kotlin)
+            .expect("registry")
+            .expect("source");
+        ManagedCapabilityCheck::kotlin_jvm(root.path(), &registry, Self::CALLER, true)
+    }
+}
+
+#[test]
+fn kotlin_native_suspend_listeners_run_in_source_order() {
+    if !ManagedCapabilityCheck::available("kotlinc", "-version")
+        || !ManagedCapabilityCheck::available("java", "-version")
+    {
+        eprintln!("skipping: Kotlin JVM tools are unavailable");
+        return;
+    }
+    let output = KotlinListenerCheck::run();
+    println!("{output}");
+    assert!(output.contains("PASS kotlin native suspend listeners run in order"));
+}

@@ -68,14 +68,14 @@ impl FsharpService {
             .transpose()?;
         let view = FsharpView::tac(relative, authored);
         FsharpSource::refuse_unsupported(&view, relative, authored)?;
-        let tasks = FsharpTaskResults::read(
-            &view,
-            item.web_assembly,
-            (&item.class, &Self::models(item)?),
-        )?;
         let needs_all = crate::fsharp_source::FsharpConstructorProps::needs_all(authored);
         let events =
             FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class, (needs_all, needs))?;
+        let tasks = FsharpTaskResults::read(
+            &view,
+            (item.web_assembly, &events.prepared.excluded),
+            (&item.class, &Self::models(item)?),
+        )?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
         let mut excluded = events.prepared.excluded.clone();
         excluded.extend(tasks.names);

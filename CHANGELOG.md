@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `@OnEvent` listeners may be async in Kotlin (`suspend`), C# (`Task` or
+  `ValueTask`) and F# (`Task<unit>`, `ValueTask` or `Async<unit>`), in the
+  browser and in native apps, and Swift and Rust listeners may now be async
+  in native apps too (LS3, ADR 0105 amendment). Before, these builds stopped
+  with `TY1405`. The listeners of one service run one after another in a
+  native app as in the browser. A linked Rust service that a task holds now
+  answers calls and field reads with `BUSY`, which the native page bridge
+  retries, instead of panicking. A C# `async void` listener and an async
+  lifecycle method are still refused. The C# and F# cookbook lists reload
+  every saved user through their client, and the async listener browser
+  gate passes for all five languages in Chromium, Firefox and WebKit.
 - The Swift, Kotlin and C# services a native app links in now build into
   one program (LS2). Before, each linked service carried its own copy of
   the behavior runtime and of every Setup, client and model it used, so two

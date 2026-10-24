@@ -14,6 +14,7 @@ class TacListener(
     models: String?,
     val returns: String?,
     val asynchronous: Boolean,
+    val task: (suspend (Any?) -> Unit)? = null,
     val invoke: (Any?) -> Any?,
 ) {
     val condition: Any? = tacParse(condition)
@@ -274,8 +275,17 @@ private fun tacRepublish(result: Any?, returns: String?) {
     }
 }
 
-private fun tacDeliver(listener: TacListener, json: String, republish: Boolean) {
+private fun tacListenerTask(task: suspend (Any?) -> Unit): TacTask =
+    TacTask({ tacThrownCode(it) }) { arguments -> task(arguments.firstOrNull()); null }
+
+private fun tacDeliver(owner: TacActivation, listener: TacListener, json: String, republish: Boolean) {
     try {
+        val task = listener.task
+        if (task != null) {
+            val answer = tacBeginTask(owner, tacListenerTask(task), listOf(tacParseJson(json)))
+            if (!answer.startsWith("{\"value\"")) tacEventFailure()
+            return
+        }
         val result = listener.invoke(tacParseJson(json))
         if (republish) tacRepublish(result, listener.returns)
     } catch (_: Exception) { tacEventFailure() }
@@ -296,7 +306,7 @@ private fun tacNotifyListeners(owner: TacActivation, name: String, json: String)
             if (listener.condition == null || tacMatches(listener.condition, value, name)) {
                 if (listener.asynchronous) {
                     if (owner.deferred.size >= 128) tacEventFailure() else owner.deferred.add(listener to json)
-                } else tacDeliver(listener, json, true)
+                } else tacDeliver(owner, listener, json, true)
             }
         }
     }
@@ -308,7 +318,7 @@ private fun tacDrain(owner: TacActivation) {
         if (owner.deferred.isNotEmpty()) {
             val pending = owner.deferred.toList()
             owner.deferred.clear()
-            pending.forEach { (listener, json) -> tacDeliver(listener, json, false) }
+            pending.forEach { (listener, json) -> tacDeliver(owner, listener, json, false) }
             continue
         }
         if (owner.queue.isEmpty()) return
@@ -401,6 +411,7 @@ private fun tacDescribeListener(key: String, listener: TacListener): Map<String,
         "replay" to listener.replay,
         "order" to listener.order,
         "asynchronous" to listener.asynchronous,
+        "task" to (listener.task != null),
         "condition" to listener.condition,
     )
 
@@ -425,6 +436,8 @@ private fun tacDescribe(members: Map<String, Any>): String {
 private fun tacReceive(activation: TacActivation, key: String, value: Any?): String {
     val listener = activation.members[key] as? TacListener
         ?: return "{\"error\":${tacQuote("Unknown companion listener: $key")}}"
+    val task = listener.task
+    if (task != null) return tacBeginTask(activation, tacListenerTask(task), listOf(value))
     val result = try { listener.invoke(value) } catch (_: Exception) { return "{\"error\":\"Native event listener failed.\"}" }
     if (!listener.asynchronous) tacRepublish(result, listener.returns)
     return "{\"value\":null}"

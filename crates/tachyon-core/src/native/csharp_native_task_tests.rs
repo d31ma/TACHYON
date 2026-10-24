@@ -259,3 +259,67 @@ fn native_csharp_tasks_answer_a_task_number_and_signal_their_yon_answer_once() {
         "{output}"
     );
 }
+
+struct NativeListenerFixture;
+
+impl NativeListenerFixture {
+    const SERVICE: &'static str =
+        include_str!("../../tests/fixtures/native-csharp-listeners/HeardService.cs");
+    const MODEL: &'static str =
+        include_str!("../../tests/fixtures/native-csharp-listeners/Ping.cs");
+    const DRIVER: &'static str =
+        include_str!("../../tests/fixtures/native-csharp-listeners/NativeListenerDriver.cs");
+
+    fn run() -> String {
+        let root = tempfile::tempdir().expect("project");
+        NativeTaskFixture::write(root.path(), "client/models/Ping.cs", Self::MODEL);
+        let source = NativeTaskFixture::write(
+            root.path(),
+            "client/services/HeardService.cs",
+            Self::SERVICE,
+        );
+        let companions = vec![NativeCompanionInput {
+            snapshot_root: root.path().to_path_buf(),
+            language: NativeCompanion::CSharp,
+            source,
+            service: String::from("heard"),
+            class: String::from("HeardService"),
+            web_assembly: false,
+            application_provider: false,
+        }];
+        let project = WindowsHostGenerator::staged_companion(
+            &companions,
+            root.path(),
+            ("dev.tachyon.heard", None),
+        )
+        .expect("stage")
+        .expect("C# project");
+        let file =
+            NativeTaskFixture::PROJECT.replace("NativeTaskDriver.cs", "NativeListenerDriver.cs");
+        std::fs::write(project.join("TachyonCompanion.csproj"), file).expect("project file");
+        std::fs::write(project.join("NativeListenerDriver.cs"), Self::DRIVER).expect("driver");
+        let mut command = std::process::Command::new("dotnet");
+        command.arg("run").arg("--project").arg(&project);
+        let output =
+            crate::external_command::run_sync(&mut command, Duration::from_mins(4), 65_536)
+                .expect("supervised .NET native listener fixture");
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        )
+    }
+}
+
+#[test]
+fn native_csharp_async_listeners_wait_for_each_other_in_source_order() {
+    if !NativeTaskFixture::available() {
+        eprintln!("skipping: dotnet is unavailable");
+        return;
+    }
+    let output = NativeListenerFixture::run();
+    assert!(
+        output.contains("PASS native C# async listeners run in order"),
+        "{output}"
+    );
+}

@@ -2,6 +2,7 @@ public partial class Tac
 {
     private const int PendingTaskLimit = 64;
     private const int TaskResultLimit = 1048576;
+    private static readonly HashSet<string> TaskOperations = new(StringComparer.Ordinal) { "call", "event" };
 
     public static System.Threading.Tasks.Task<string> InvokeAsync(string request) =>
         TacTaskAnswer.Run(() => CreateTask(request).Run());
@@ -14,7 +15,7 @@ public partial class Tac
             var owner = FindTaskOwner(parsed);
             var member = FindTaskMember(owner, parsed);
             var cancellation = owner.Cancellation.Token;
-            var work = StartTask(owner, member, TaskArguments(parsed));
+            var work = StartTask(owner, TaskWork(member, parsed));
             return new TacTaskInvocation(work, cancellation, value => FinishTask(owner, value), () => ReleaseTask(owner));
         }
     }
@@ -31,7 +32,7 @@ public partial class Tac
         var owner = request["owner"]?.GetValue<string>();
         var route = request["route"]?.GetValue<string>();
         var service = request["service"]?.GetValue<string>();
-        if (Handling || request["op"]?.GetValue<string>() != "call" || !Guid.TryParseExact(owner, "D", out _)
+        if (Handling || !TaskOperations.Contains(request["op"]?.GetValue<string>()) || !Guid.TryParseExact(owner, "D", out _)
             || !Activations.TryGetValue(owner, out var active) || active.Route != route || active.Service != service
             || active.Disposed || active.PendingTasks >= PendingTaskLimit)
             throw new ArgumentException("Invalid task owner.");
@@ -41,9 +42,17 @@ public partial class Tac
     private static TacMember FindTaskMember(Activation owner, JsonObject request)
     {
         var name = request["name"]?.GetValue<string>();
-        if (name == null || !owner.Members.TryGetValue(name, out var member) || member.InvokeAsync == null)
+        var listening = request["op"]?.GetValue<string>() == "event";
+        if (name == null || !owner.Members.TryGetValue(name, out var member) || (listening ? member.ListenAsync : member.InvokeAsync) == null)
             throw new ArgumentException("Unknown task member.");
         return member;
+    }
+
+    private static Func<System.Threading.Tasks.Task<object>> TaskWork(TacMember member, JsonObject request)
+    {
+        if (request["op"]?.GetValue<string>() == "event") return () => member.ListenAsync(Value(request["value"]));
+        var arguments = TaskArguments(request);
+        return () => member.InvokeAsync(arguments);
     }
 
     private static object[] TaskArguments(JsonObject request)
@@ -52,12 +61,12 @@ public partial class Tac
         return arguments.Select(Value).ToArray();
     }
 
-    private static System.Threading.Tasks.Task<object> StartTask(Activation owner, TacMember member, object[] arguments)
+    private static System.Threading.Tasks.Task<object> StartTask(Activation owner, Func<System.Threading.Tasks.Task<object>> work)
     {
         var previous = TaskOwner.Value;
         TaskOwner.Value = owner;
         owner.PendingTasks++;
-        try { return member.InvokeAsync(arguments); }
+        try { return work(); }
         catch (Exception) { owner.PendingTasks--; throw; }
         finally { TaskOwner.Value = previous; }
     }

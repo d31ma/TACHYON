@@ -552,6 +552,16 @@ described the `realtime` and `sockets` clients, heard a tick and a chat
 message through `event`, and sent through the page. Not run: a linked
 stream or socket inside the macOS, iOS, Android or Windows app.
 
+On 2026-10-24 (LS3, ADR 0105 amendment) `@OnEvent` listeners became allowed
+to be async in Kotlin, C# and F#, and in linked services of every language.
+In an x86_64 Ubuntu 24.04 cloud container the async listener browser gate
+passed for Swift, Rust, Kotlin, C# and F# in Chromium, Firefox and WebKit,
+and linked companions ran their listeners in source order: Swift 6.3.3,
+Kotlin on the JVM (Android-style companion), C# under .NET 10, and Rust
+through the host's task dispatch, where calls answer `BUSY` while a
+listener holds the service. Not run: a linked async listener inside the
+macOS, iOS, Android or Windows app.
+
 On 2026-10-19 (NET3, ADR 0103 amendment) linked services started to answer
 the page later through a task, and linked Rust and C# `HTTPClient` calls
 started to reach `tac.yon.origin`. The cloud evidence:

@@ -440,15 +440,28 @@ A model marked `@Topic` works like a Spring Cloud Bus remote event
 - They queue local events until the current callback returns.
 - Event payloads carry the service's instance name.
 - Native event annotations on helper owners are rejected.
-- Native event and lifecycle methods stay synchronous. `async` declarations
-  fail before the toolchain runs.
-- The one exception is an `@OnEvent` method of a Swift or Rust service that
-  runs in the browser, which may be `async`. The page runs it as a task of its
-  service. The listener tasks of one service run one after another, in the
-  order their events arrive. Removing the service cancels the running task and
-  the waiting ones. Such a listener cannot return an event; it publishes
-  through `applicationEventPublisher`. A native app's listener stays
-  synchronous.
+- Native lifecycle methods stay synchronous. An `async` lifecycle method
+  fails before the toolchain runs.
+- An `@OnEvent` method may be async in every Tac service language that has
+  async methods: Swift `async`, Rust `async fn`, Kotlin `suspend`, C# `Task`
+  or `ValueTask`, and F# `Task<unit>`, `ValueTask` or `Async<unit>`. An F#
+  listener needs that return type written out; without it the listener stays
+  synchronous. A C# `async void` listener is a compile error.
+- An async listener cannot return an event; it publishes through
+  `applicationEventPublisher`.
+- In the browser the page runs an async listener as a task of its service.
+  The listener tasks of one service run one after another, in the order their
+  events arrive. Removing the service cancels the running task and the
+  waiting ones.
+- In a native app the listeners of one service also run one after another.
+  A later listener waits until an async one ends, so listeners run in source
+  order for each event and events run in the order they arrive. Swift and
+  Kotlin wait for the listener inside the call. A C# listener finishes on the
+  thread pool under the owner lock. A Rust listener finishes through the
+  host's task dispatch; while it holds the service, calls and field reads
+  answer `BUSY` and the page retries them. On macOS and iOS a linked Rust
+  listener that waits for HTTP answers `HTTP_MISSING` until LR1 lands, as a
+  linked Rust async method does.
 - Native client HTTP adapters are still configured by hand.
 - Browser resources reach only Tac JS/TS services.
 

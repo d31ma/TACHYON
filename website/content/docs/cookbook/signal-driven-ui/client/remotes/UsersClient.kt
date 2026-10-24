@@ -6,5 +6,5 @@ interface UsersClient {
     suspend fun save(@RequestBody name: String): UserSaved
 
     @GetRequest("/users")
-    fun all(): Any?
+    suspend fun all(): Any?
 }

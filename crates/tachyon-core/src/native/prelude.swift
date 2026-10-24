@@ -515,6 +515,11 @@ private func tacSendEvent(_ owner: TacActivation, _ name: String, _ json: String
 
 private func tacDeliver(_ listener: TacListener, _ json: String, _ republish: Bool) {
     do {
+        if let task = listener.task {
+            let value = tacParseJSON(json)
+            _ = try tacAwait { try await task(value) }
+            return
+        }
         let result = try listener.invoke(tacParseJSON(json))
         if republish { tacRepublish(result, listener.returns) }
     } catch { tacEventFailure() }
