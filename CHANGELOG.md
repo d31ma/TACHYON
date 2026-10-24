@@ -1898,6 +1898,13 @@ machine contracts have their own, independent major versions.
   Rust library. The host put `installRustCompanion();` on the same line as
   the "No companion" comment, so the call was commented out and every Rust
   service call failed (LT1 emulator run).
+- A linked service that opens the FilePicker now gets its answer to the
+  page. When the app grants `filePicker`, the page runtime waits 40 seconds
+  instead of 10 for native member calls, and the Android bridge waits 60
+  seconds for `companion.invoke`, because the picker stays open for up to 30
+  seconds (FPM; ADR 0089).
+- The Rust `PickerService` of the native-capabilities feature starts with
+  the status `Ready`, like the other languages.
 - A linked Rust service now tells the page to read its fields again when an
   async `@OnEvent` listener task finishes, as a linked C# service does (LS3
   host runs). `scripts/linux/async-listener-native-test.mjs` runs such a

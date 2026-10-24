@@ -637,6 +637,8 @@ impl AndroidHostGenerator {
   const pending = new Map();
   let nextId = 0;
   let closed = false;
+  const pickerWait = capability => capability === 'filePicker.open'
+    || (capability === 'companion.invoke' && globalThis.__tachyonNativeGrants?.includes('filePicker') === true);
   if (host) host.onmessage = event => {
     let reply;
     try { reply = JSON.parse(event.data); } catch { return; }
@@ -658,7 +660,7 @@ impl AndroidHostGenerator {
     const id = String(++nextId);
     const timer = setTimeout(() => {
       pending.delete(id); reject(new Error('Android native call timed out.'));
-    }, capability === 'browserApi.notifications.requestPermission' ? 120000 : capability === 'filePicker.open' ? 60000 : 10000);
+    }, capability === 'browserApi.notifications.requestPermission' ? 120000 : pickerWait(capability) ? 60000 : 10000);
     pending.set(id, { resolve, reject, timer });
     try { host.postMessage(JSON.stringify({ id, capability, payload })); }
     catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
@@ -815,7 +817,7 @@ __NATIVE_MENUS__
         return;
       }
       final long deadline = android.os.SystemClock.uptimeMillis()
-          + ("filePicker.open".equals(request.capability) ? 60000 : 10000);
+          + (pickerWait(request.capability) ? 60000 : 10000);
       bridgeWorker.execute(() -> {
         if (generation != documentGeneration || !ownerRoute.equals(route)
             || android.os.SystemClock.uptimeMillis() > deadline) return;
@@ -829,6 +831,10 @@ __NATIVE_MENUS__
       });
     } catch (org.json.JSONException | java.util.concurrent.RejectedExecutionException ignored) {
     }
+  }
+
+  private static boolean pickerWait(String capability) {
+    return "filePicker.open".equals(capability) || (FILE_PICKER_GRANTED && "companion.invoke".equals(capability));
   }
 
   private String invokeBounded(BridgeRequest request, String ownerRoute) {
@@ -1600,7 +1606,7 @@ mod tests {
             "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>\n  <application"
         ));
         assert!(AndroidHostGenerator::ANDROID_BRIDGE_SHIM.contains(
-            "capability === 'browserApi.notifications.requestPermission' ? 120000 : capability === 'filePicker.open' ? 60000 : 10000"
+            "capability === 'browserApi.notifications.requestPermission' ? 120000 : pickerWait(capability) ? 60000 : 10000"
         ));
     }
 
@@ -1618,7 +1624,8 @@ mod tests {
             "disposeCompanions();\n            disposeFilePickers();",
             "route = \"\";\n    disposeFilePickers();",
             "protected void onActivityResult(int requestCode, int resultCode, Intent data)",
-            "+ (\"filePicker.open\".equals(request.capability) ? 60000 : 10000);",
+            "+ (pickerWait(request.capability) ? 60000 : 10000);",
+            "return \"filePicker.open\".equals(capability) || (FILE_PICKER_GRANTED && \"companion.invoke\".equals(capability));",
             "request.capability.startsWith(\"filePicker.\") ? 786432 : 65536",
             "globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = [\\\"filePicker\\\"];",
             "TacNativeCapabilityRegistration.register(this::nativeCapability);",
