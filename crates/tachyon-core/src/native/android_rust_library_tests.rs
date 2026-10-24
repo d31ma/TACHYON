@@ -8,18 +8,22 @@ struct AndroidRustLibraryCheck;
 
 impl AndroidRustLibraryCheck {
     const PACKAGE: &'static str = "dev.tachyon.rust_probe";
-    const JAVA_DECLARATIONS: [&'static str; 7] = [
+    const JAVA_DECLARATIONS: [&'static str; 9] = [
         "package dev.tachyon.host;",
         "private static native void install(byte[] storeFolder);",
         "private static native byte[] call(byte[] request);",
+        "private static native boolean start();",
+        "private static native void stop();",
         "private static void publish(byte[] payload)",
         "private static void dispatch()",
         "private static byte[] capability(byte[] capability, byte[] payload)",
         "private static byte[] http(byte[] method, byte[] url, byte[] headers, byte[] body, long timeoutMs, long limit)",
     ];
-    const RUST_BINDINGS: [&'static str; 6] = [
+    const RUST_BINDINGS: [&'static str; 8] = [
         "Java_dev_tachyon_host_TachyonRust_install",
         "Java_dev_tachyon_host_TachyonRust_call",
+        "Java_dev_tachyon_host_TachyonRust_start",
+        "Java_dev_tachyon_host_TachyonRust_stop",
         "c\"publish\", c\"([B)V\"",
         "c\"dispatch\", c\"()V\"",
         "c\"capability\", c\"([B[B)[B\"",

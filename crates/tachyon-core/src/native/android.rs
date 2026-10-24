@@ -507,6 +507,14 @@ pub(super) fn linked_java_source(
             include_str!("native_menus_android.java"),
         )
         .replace("__NATIVE_RUST_SERVICES__", rust_services)
+        .replace(
+            "__NATIVE_APPLICATION_STOP__",
+            AndroidHostGenerator::application_stop(rust.is_some()),
+        )
+        .replace(
+            "__NATIVE_MENU_CALLS__",
+            AndroidHostGenerator::menu_calls(&application.menus, rust.is_some()),
+        )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit);
     let entry_document = quoted_string_escape(&index.entry_document);
@@ -588,6 +596,22 @@ impl AndroidHostGenerator {
             format!("{other_emit} installRustCompanion();"),
             services,
         ))
+    }
+
+    const APPLICATION_STOP: &str = "if (isFinishing() && !isChangingConfigurations()) dev.tachyon.host.TachyonRust.applicationStop();";
+    const MENU_CALLS: &str = include_str!("android_menu_calls.java");
+    const MENU_REFUSALS: &str = "  private boolean menuReady(String event) {\n    return false;\n  }\n\n  private void menuPerform(MenuRoute entry) {\n    record(\"menu.refused\");\n  }\n";
+
+    fn application_stop(rust: bool) -> &'static str {
+        ["", Self::APPLICATION_STOP][usize::from(rust)]
+    }
+
+    fn menu_calls(menus: &super::native_menu_config::NativeMenuConfig, rust: bool) -> &'static str {
+        let calls = [
+            rust,
+            super::mac_os_menu_action_source::MacOsMenuActionSource::has_actions(menus),
+        ] == [true; 2];
+        [Self::MENU_REFUSALS, Self::MENU_CALLS][usize::from(calls)]
     }
 
     const INTERNET_PERMISSION: &str =
@@ -694,7 +718,7 @@ public final class MainActivity extends Activity {
           new java.util.concurrent.ArrayBlockingQueue<Runnable>(128)) {
         @Override
         protected void terminated() {
-          try { companionInvoke("{\"op\":\"host-dispose\"}"); }
+          try { companionInvoke("{\"op\":\"host-dispose\",\"retiring\":true}"); }
           finally { super.terminated(); }
         }
       };
@@ -1025,6 +1049,7 @@ __NATIVE_RUST_SERVICES__
     documentGeneration++;
     route = "";
     bridgeWorker.shutdownNow();
+    __NATIVE_APPLICATION_STOP__
     super.onDestroy();
     record("controller.destroyed");
   }

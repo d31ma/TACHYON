@@ -207,27 +207,23 @@ fn native_menu_declarations_require_exact_compiled_static_documents_and_supporte
 }
 
 #[test]
-fn mobile_hosts_refuse_menu_actions_until_they_have_the_application_lifetime() {
+fn every_native_host_accepts_menu_actions_and_checks_them_against_the_services_later() {
     let actions: NativeMenuConfig = serde_json::from_value(json!({"view":[
         {"id":"status","label":"Status","route":"/status"},
         {"id":"refresh","label":"Refresh","action":{"service":"Refresher","method":"refresh"}}
     ]}))
     .expect("menu declarations");
-    for target in [NativeTarget::Ios, NativeTarget::Android] {
-        let failure = actions
+    for target in [
+        NativeTarget::Macos,
+        NativeTarget::Linux,
+        NativeTarget::Windows,
+        NativeTarget::Ios,
+        NativeTarget::Android,
+    ] {
+        actions
             .validate_for(target, &NativeMenuTests::index())
-            .expect_err("mobile menu actions wait for the application lifetime")
-            .to_string();
-        assert!(failure.contains("TY1601"), "{failure}");
-        assert!(
-            failure.contains("Native menu 'refresh' calls a service action")
-                && failure.contains("menu actions come with the application lifetime"),
-            "{failure}"
-        );
+            .expect("action items wait for the TY1370 service check");
     }
-    actions
-        .validate_for(NativeTarget::Macos, &NativeMenuTests::index())
-        .expect("desktop hosts check actions against the services later");
 }
 
 #[test]

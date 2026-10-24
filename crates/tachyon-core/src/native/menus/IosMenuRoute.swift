@@ -5,4 +5,6 @@ struct IosMenuRoute {
     let route: String
     let key: String
     let modifiers: UIKeyModifierFlags
+    var event: String = ""
+    var action: Bool = false
 }

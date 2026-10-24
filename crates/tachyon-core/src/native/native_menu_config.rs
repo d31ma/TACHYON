@@ -26,11 +26,6 @@ impl NativeMenuConfig {
         self.require_shortcuts()
     }
 
-    const MOBILE_TARGETS: [tachyon_contracts::NativeTarget; 2] = [
-        tachyon_contracts::NativeTarget::Ios,
-        tachyon_contracts::NativeTarget::Android,
-    ];
-
     const CTRL_TARGETS: [tachyon_contracts::NativeTarget; 3] = [
         tachyon_contracts::NativeTarget::Linux,
         tachyon_contracts::NativeTarget::Windows,
@@ -42,7 +37,6 @@ impl NativeMenuConfig {
         target: tachyon_contracts::NativeTarget,
         index: &NativeRouteIndex,
     ) -> Result<(), Failure> {
-        self.require_mobile_routes(target)?;
         self.require_desktop_shortcuts(target)?;
         self.items()
             .try_for_each(|item| Self::require_document(item, index))
@@ -137,23 +131,6 @@ impl NativeMenuConfig {
                     "Native menu shortcuts must stay unique on {target:?}, where control is Ctrl like command; two shortcuts that differ only by control and command get the same key, so change one of them.",
                 ))
             })
-    }
-
-    fn require_mobile_routes(
-        &self,
-        target: tachyon_contracts::NativeTarget,
-    ) -> Result<(), Failure> {
-        let mobile = Self::MOBILE_TARGETS.contains(&target);
-        let first_action = self.items().find(|item| item.action.is_some());
-        first_action.filter(|_| mobile).map_or(Ok(()), |item| {
-            Err(Self::mobile_action_failure(&item.id, target))
-        })
-    }
-
-    fn mobile_action_failure(id: &str, target: tachyon_contracts::NativeTarget) -> Failure {
-        super::config::config_failure(&format!(
-            "Native menu '{id}' calls a service action, which {target:?} does not support yet: menu actions come with the application lifetime, which {target:?} does not have yet (LT1). Use a route item, or a link or button in the page.",
-        ))
     }
 
     fn require_document(item: &NativeMenuEntry, index: &NativeRouteIndex) -> Result<(), Failure> {

@@ -5,10 +5,12 @@ use tachyon_contracts::NativeTarget;
 pub(crate) struct NativeApplicationLifetime;
 
 impl NativeApplicationLifetime {
-    const DESKTOP_TARGETS: [NativeTarget; 3] = [
+    const NATIVE_TARGETS: [NativeTarget; 5] = [
         NativeTarget::Macos,
         NativeTarget::Linux,
         NativeTarget::Windows,
+        NativeTarget::Ios,
+        NativeTarget::Android,
     ];
 
     pub(crate) fn supported(path: &Path, value: &str) -> bool {
@@ -60,7 +62,7 @@ impl NativeApplicationLifetime {
     fn message(value: &str) -> &'static str {
         match value {
             "application" => {
-                "Application lifetime requires a client Rust Service and a native macOS, Linux or Windows build; other languages, roles and realms are unsupported."
+                "Application lifetime requires a client Rust Service and a native macOS, Linux, Windows, iOS or Android build; other languages, roles and realms are unsupported."
             }
             _ => "Lifetime.value must be singleton or prototype",
         }
@@ -68,12 +70,12 @@ impl NativeApplicationLifetime {
 
     fn target_at(path: &Path, at: usize, target: Option<NativeTarget>) -> Result<(), Failure> {
         target
-            .filter(|target| Self::DESKTOP_TARGETS.contains(target))
+            .filter(|target| Self::NATIVE_TARGETS.contains(target))
             .map(|_| ())
             .ok_or_else(|| {
                 Failure::one(crate::failure::diagnostic(
                     1406,
-                    "Application lifetime is supported only by native macOS, Linux and Windows builds with Rust; browser, iOS and Android targets cannot own this provider.",
+                    "Application lifetime is supported only by native builds with Rust; a browser page has no application lifetime, so use a page or singleton Service there.",
                     None,
                     crate::failure::source_span(&path.to_string_lossy(), at, at + "Lifetime".len()),
                 ))

@@ -128,22 +128,27 @@ fn native_application_lifetime_is_located_and_target_scoped() {
         NativeTarget::Macos,
         NativeTarget::Linux,
         NativeTarget::Windows,
+        NativeTarget::Ios,
+        NativeTarget::Android,
     ] {
         crate::behavior::NativeApplicationLifetime::target(path, roles.application, Some(target))
-            .expect("desktop host owns the application lifetime");
+            .expect("every native host owns the application lifetime");
     }
-    for target in [None, Some(NativeTarget::Ios), Some(NativeTarget::Android)] {
-        let failure =
-            crate::behavior::NativeApplicationLifetime::target(path, roles.application, target)
-                .expect_err("target refusal");
-        let diagnostic = &failure.diagnostics()[0];
-        assert_eq!(diagnostic.code.number(), 1406, "{failure}");
-        assert_eq!(diagnostic.spans[0].file, path.to_string_lossy());
-        assert_eq!(
-            diagnostic.spans[0].start,
-            u64::try_from(roles.application.expect("authored marker")).expect("marker offset")
-        );
-    }
+    let failure = crate::behavior::NativeApplicationLifetime::target(path, roles.application, None)
+        .expect_err("a browser page has no application lifetime");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1406, "{failure}");
+    assert!(
+        diagnostic
+            .message
+            .contains("use a page or singleton Service"),
+        "{failure}"
+    );
+    assert_eq!(diagnostic.spans[0].file, path.to_string_lossy());
+    assert_eq!(
+        diagnostic.spans[0].start,
+        u64::try_from(roles.application.expect("authored marker")).expect("marker offset")
+    );
     for path in [
         "server/services/CollectorService.rs",
         "client/helpers/CollectorService.rs",
@@ -315,7 +320,9 @@ fn main() {
     assert_eq!(page.borrow().order.len(), 2, "ready application providers retain their identity");
     tac_native_application_shutdown();
     assert!(page.borrow().order.is_empty());
-    assert!(!tac_native_application_start());
+    assert!(tac_native_application_start(), "a cleanly stopped application starts again");
+    assert!(page.borrow().order.is_empty(), "the new start does not reuse the stopped page");
+    tac_native_application_shutdown();
 }
 "#;
     super::native_page_graph_tests::NativePageGraphCheck::execute(
@@ -366,7 +373,13 @@ fn main() {
     assert_eq!(Probe::count("joined"), 1);
     assert_eq!(Probe::count("stopped"), 1);
     assert!(request(fresh, "call", "read").contains("error"));
-    assert!(!tac_native_application_start(), "a retired application cannot revive");
+    assert!(tac_native_application_start(), "a host may start a cleanly stopped application again (a new Android activity)");
+    assert_eq!(Probe::count("created"), 2, "the new start creates new application services");
+    let again = "00000000-0000-4000-8000-000000000003";
+    assert!(!request(again, "init", "").contains("error"));
+    assert_eq!(request(again, "call", "read"), "{\"value\":0}", "nothing carries over from the stopped instance");
+    tac_native_application_shutdown();
+    assert_eq!(Probe::count("stopped"), 2);
     println!("application worker continuity and exactly-once joined shutdown passed");
 }
 "#;

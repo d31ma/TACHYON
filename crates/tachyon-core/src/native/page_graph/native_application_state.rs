@@ -17,9 +17,18 @@ impl NativeApplicationState {
                 self.phase = NativeApplicationPhase::Starting;
                 Ok(true)
             }
+            NativeApplicationPhase::Stopped => {
+                self.page = std::rc::Rc::new(core::cell::RefCell::new(NativeServicePage::default()));
+                self.phase = NativeApplicationPhase::Starting;
+                Ok(true)
+            }
             NativeApplicationPhase::Ready => Ok(false),
             _ => Err(String::from("Native application scope is not available.")),
         }
+    }
+
+    fn settle(&mut self, clean: bool) {
+        self.phase = [NativeApplicationPhase::Retired, NativeApplicationPhase::Stopped][usize::from(clean)];
     }
 
     fn scope(&self) -> Result<NativeServiceScope, String> {

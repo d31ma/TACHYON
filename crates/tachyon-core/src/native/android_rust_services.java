@@ -19,11 +19,19 @@
       return null;
     }
     if ("host-dispose".equals(operation)) {
-      dev.tachyon.host.TachyonRust.invoke(request);
+      if (!retiring(request)) dev.tachyon.host.TachyonRust.invoke(request);
       return null;
     }
     boolean owned = "host-resume".equals(operation) || RUST_SERVICES.contains(service);
     return owned ? dev.tachyon.host.TachyonRust.invoke(request) : null;
+  }
+
+  private static boolean retiring(String request) {
+    try {
+      return new org.json.JSONObject(request).optBoolean("retiring");
+    } catch (org.json.JSONException error) {
+      return false;
+    }
   }
 
   private void installRustCompanion() {
@@ -41,6 +49,15 @@
       }
     }, folder);
     record(loaded ? "companion.loaded" : "companion.unavailable");
+    if (loaded) dev.tachyon.host.TachyonRust.applicationStart(this::applicationStarted);
+  }
+
+  private void applicationStarted(boolean started) {
+    if (started) return;
+    runOnUiThread(() -> {
+      record("application.start.failed");
+      finishAndRemoveTask();
+    });
   }
 
   private void postRustResume() {

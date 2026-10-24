@@ -461,3 +461,15 @@ async fn windows_menu_actions_enable_with_a_live_listener_and_tell_the_page_unde
         String::from_utf8_lossy(&executed.stderr)
     );
 }
+
+#[test]
+fn staged_menu_actions_also_export_the_android_jni_entry_points() {
+    let root = tempfile::tempdir().expect("menu project");
+    let source = std::fs::read_to_string(MenuActionFixture::stage(root.path())).expect("staged");
+    assert!(source.contains("pub extern \"system\" fn Java_dev_tachyon_host_TachyonRust_runMenuAction(environment: TacJniTable, _class: TacJniObject, id: TacJniObject) -> u8 { u8::from(tac_native_menu_action(TacAndroidBridge::text(environment, id).as_ptr())) }"));
+    assert!(
+        source
+            .contains("pub extern \"system\" fn Java_dev_tachyon_host_TachyonRust_menuEventReady(")
+    );
+    assert_eq!(source.matches("#[cfg(target_os = \"android\")]\n#[allow(non_snake_case)]\n#[unsafe(no_mangle)]\npub extern \"system\" fn Java_dev_tachyon_host_TachyonRust_").count(), 2);
+}

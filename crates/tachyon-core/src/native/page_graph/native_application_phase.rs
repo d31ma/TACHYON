@@ -4,4 +4,5 @@ enum NativeApplicationPhase {
     Starting,
     Ready,
     Retired,
+    Stopped,
 }

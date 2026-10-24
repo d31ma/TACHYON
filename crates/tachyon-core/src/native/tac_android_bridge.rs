@@ -87,6 +87,28 @@ impl TacAndroidBridge {
         Self::array(environment, answer.as_bytes())
     }
 
+    #[allow(non_snake_case)]
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_dev_tachyon_host_TachyonRust_start(
+        _environment: TacJniTable,
+        _class: TacJniObject,
+    ) -> u8 {
+        u8::from(tac_native_application_start())
+    }
+
+    #[allow(non_snake_case)]
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_dev_tachyon_host_TachyonRust_stop(
+        _environment: TacJniTable,
+        _class: TacJniObject,
+    ) {
+        tac_native_application_shutdown();
+    }
+
+    pub fn text(environment: TacJniTable, array: TacJniObject) -> std::ffi::CString {
+        std::ffi::CString::new(Self::bytes(environment, array)).unwrap_or_default()
+    }
+
     fn bind(environment: TacJniTable, class: TacJniObject) -> Option<Self> {
         let new_global: extern "system" fn(TacJniTable, TacJniObject) -> TacJniObject =
             unsafe { core::mem::transmute(Self::function(environment, Self::NEW_GLOBAL_REF)) };

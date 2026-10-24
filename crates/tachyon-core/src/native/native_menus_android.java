@@ -5,14 +5,27 @@
     final String route;
     final String key;
     final int modifiers;
+    final String event;
+    final boolean action;
 
     MenuRoute(String id, String label, String group, String route, String key, int modifiers) {
+      this(id, label, group, route, key, modifiers, "", false);
+    }
+
+    private MenuRoute(String id, String label, String group, String route, String key, int modifiers,
+        String event, boolean action) {
       this.id = id;
       this.label = label;
       this.group = group;
       this.route = route;
       this.key = key;
       this.modifiers = modifiers;
+      this.event = event;
+      this.action = action;
+    }
+
+    static MenuRoute action(String id, String label, String group, String event, String key, int modifiers) {
+      return new MenuRoute(id, label, group, "", key, modifiers, event, true);
     }
 
     boolean matches(KeyEvent event) {
@@ -59,10 +72,19 @@
   }
 
   @Override
+  public boolean onPrepareOptionsMenu(android.view.Menu menu) {
+    for (int index = 0; index < MENU_ROUTES.length; index++) {
+      android.view.MenuItem item = menu.findItem(index + 1);
+      if (item != null && MENU_ROUTES[index].action) item.setEnabled(menuActionEnabled(MENU_ROUTES[index]));
+    }
+    return MENU_ROUTES.length > 0;
+  }
+
+  @Override
   public boolean onOptionsItemSelected(android.view.MenuItem item) {
     int index = item.getItemId() - 1;
     if (index < 0 || index >= MENU_ROUTES.length) return super.onOptionsItemSelected(item);
-    openMenuRoute(MENU_ROUTES[index]);
+    chooseMenuItem(MENU_ROUTES[index]);
     return true;
   }
 
@@ -70,9 +92,27 @@
   public boolean dispatchKeyEvent(KeyEvent event) {
     MenuRoute shortcut = menuShortcut(event);
     if (shortcut == null) return super.dispatchKeyEvent(event);
-    if (event.getAction() == KeyEvent.ACTION_DOWN) openMenuRoute(shortcut);
+    if (event.getAction() == KeyEvent.ACTION_DOWN) chooseMenuItem(shortcut);
     return true;
   }
+
+  private void chooseMenuItem(MenuRoute entry) {
+    if (!entry.action) {
+      openMenuRoute(entry);
+      return;
+    }
+    if (!menuActionEnabled(entry)) {
+      record("menu.refused");
+      return;
+    }
+    menuPerform(entry);
+  }
+
+  private boolean menuActionEnabled(MenuRoute entry) {
+    return MENU_ROUTES.length <= 64 && view != null && (entry.event.isEmpty() || menuReady(entry.event));
+  }
+
+__NATIVE_MENU_CALLS__
 
   @Override
   public void onProvideKeyboardShortcuts(java.util.List<android.view.KeyboardShortcutGroup> data,

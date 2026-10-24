@@ -206,8 +206,8 @@
     "macos": {"reach": "honored", "how": "items in the File, View and Help menus of the menu bar"},
     "windows": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; a route item opened its page, and a menu action and its shortcut reached the page inside WebView2 on a signed-in Windows desktop (N1, SD1)"},
     "linux": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar"},
-    "ios": {"reach": "adapted", "note": "iPad menu bar / iPhone shortcuts: route items join the File, View and Help menus of the iPad menu bar, and on iPhone only items with a shortcut are reachable, from a hardware keyboard. Action items stop the build (TY1601) until iOS has the application lifetime (MN1b)."},
-    "android": {"reach": "adapted", "note": "app bar overflow menu: route items are listed in the overflow menu of an app bar, and their shortcuts use Ctrl on a hardware keyboard. Action items stop the build (TY1601) until Android has the application lifetime (MN1b)."}
+    "ios": {"reach": "adapted", "note": "iPad menu bar / iPhone shortcuts: route items join the File, View and Help menus of the iPad menu bar, and on iPhone only items with a shortcut are reachable, from a hardware keyboard. Action items call a method of an application service and are enabled only while the page listens for their event; that run is still owed on the simulator (MN1b)."},
+    "android": {"reach": "adapted", "note": "app bar overflow menu: route items are listed in the overflow menu of an app bar, and their shortcuts use Ctrl on a hardware keyboard. Action items call a method of an application service and are enabled only while the page listens for their event; that run is still owed on the emulator (MN1b)."}
   },
   {
     "member": "tac.application.tray",
@@ -636,8 +636,8 @@
     "macos": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
     "windows": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
     "linux": {"reach": "honored", "how": "Rust services that start with the app and stop when it quits"},
-    "ios": {"reach": "refused", "code": 1406, "alternative": "Rust services are linked into the iOS app, but none starts with the app yet (LT1). Use a page or singleton service."},
-    "android": {"reach": "refused", "code": 1406, "alternative": "Rust services are linked into the Android app, but none starts with the app yet (LT1). Use a page or singleton service."}
+    "ios": {"reach": "runOwed", "how": "Rust services that start when the app launches and stop when it terminates; iOS ends a suspended app without telling it, so only a running app stops them", "run": "an iOS app whose application service starts once and serves two pages, on the simulator (LT1)"},
+    "android": {"reach": "runOwed", "how": "Rust services that start with the first activity and stop when the activity finishes; a recreated activity (rotation) keeps them, and a later launch in the same process starts new ones", "run": "an Android app whose application service starts once, serves two pages and a rotation, and stops on Back, on the emulator (LT1)"}
   },
   {
     "member": "standard menu bar without declared items",

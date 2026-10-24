@@ -21,6 +21,18 @@ machine contracts have their own, independent major versions.
   on the iOS 26.5 simulator over `http` and `https`. The support table marks
   `tac.yon` `honored` on both (ADR 0103 amendment).
 
+- Application lifetime and menu actions on iOS and Android (LT1, MN1b,
+  ADR 0097 amendment). A client Rust Service marked
+  `#[Lifetime({"value":"application"})]` no longer stops an iOS or Android
+  build with `TY1406`, and a menu item with an `action` no longer stops it
+  with `TY1601`. iOS starts the application services at launch and stops them
+  when the app terminates; Android starts them with the first activity, keeps
+  them across a rotation, and stops them when the activity finishes. Every
+  Rust call of an Android app now runs on one thread for the process. Action
+  items are enabled only while the page listens for their event, as on the
+  desktop. A host may now start a cleanly stopped application again, with new
+  instances. New gates: `scripts/ios/application-lifetime-test.mjs` and
+  `scripts/android/application-lifetime-test.mjs`.
 - macOS runs on a Mac (RM1, 2026-10-24): three new scripts check the
   packaged macOS app. `scripts/application-state-macos-test.mjs` checks that
   a page service and linked Rust and Swift services hear `background` and

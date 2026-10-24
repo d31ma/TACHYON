@@ -76,8 +76,13 @@ impl NativeApplicationServices {
 
     fn host_shutdown() {
         let _ = Self::require_thread().map(|()| {
+            let clean = Self::state().with(|state| {
+                [NativeApplicationPhase::Ready, NativeApplicationPhase::Stopped]
+                    .contains(&state.borrow().phase)
+            });
             tac_dispose_all();
             Self::retire();
+            Self::state().with(|state| state.borrow_mut().settle(clean));
         });
     }
 

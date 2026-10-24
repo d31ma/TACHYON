@@ -447,3 +447,76 @@ MR2 linked Rust on Android: an app with Rust services carries its Rust
 library for `arm64-v8a` and `x86_64`, so it installs on 64-bit Arm phones and
 x86_64 emulators only. Without Rust services the APK still holds no native
 code and runs on every ABI. `--arch` still does not choose Android ABIs.
+
+## Amendment (2026-10-24): Application lifetime and menu actions on iOS and Android (LT1, MN1b)
+
+iOS and Android builds no longer refuse a client Rust Service marked
+`#[Lifetime({"value":"application"})]` (`TY1406`), or a menu item with an
+`action` (`TY1601`). Both work as on the desktop: an application service is a
+client Rust Service, and it lives only inside the app. The browser still
+refuses it with `TY1406`; the message names a page or singleton Service as
+the alternative, because a browser page has no application lifetime.
+
+### When the services start and stop
+
+- **iOS.** The app delegate starts the application services in
+  `application(_:didFinishLaunchingWithOptions:)`, before the window, and stops
+  them in `applicationWillTerminate`, after the page services. If the start
+  fails, the host records `application.start.failed` and exits. iOS ends a
+  suspended app without telling it, so a stop runs only when the app is
+  terminated while it still runs (for example in the background task that the
+  host begins when the app leaves the screen). An `OnStop` method must not be
+  the only place where an app saves its data.
+- **Android.** The activity starts the application services in `onCreate`,
+  once the Rust library is loaded, and stops them in `onDestroy` when the
+  activity finishes (Back, or `finish()`). A recreated activity (a rotation or
+  another configuration change) keeps them: `onCreate` finds them running.
+  Android keeps the process after the activity finishes, so a later launch in
+  the same process starts new application services. This is the one change to
+  the shared runtime: after a clean stop, the host may start the application
+  again, and it gets new instances. A start that failed stays refused. If the
+  start fails, the activity records `application.start.failed` and finishes.
+- Every Rust call of an Android app now runs on one thread for the whole
+  process (`tachyon-rust` in `TachyonRust.java`): page calls, the application
+  start and stop, and menu actions. The application services belong to the
+  thread that started them, so a new activity, with its own bridge worker,
+  must reach them on that same thread. A page call waits for its answer as
+  before. The old activity's last dispose no longer reaches Rust, so it
+  cannot dispose the pages of the new activity; the new activity's first page
+  load disposes what is left. `TachyonRust.attach` now hands later signals to
+  the newest activity; before, a recreated activity's page never heard them.
+
+### Menu actions
+
+- **iOS.** An action item is a `UICommand` (or a `UIKeyCommand` when it has a
+  shortcut) in the iPad menu bar, and the iPhone `keyCommands` list items with
+  a shortcut, as for route items. The root view controller runs the action
+  through `tac_native_menu_action`. It enables the item with the desktop rule:
+  `validate(_:)` marks an item disabled, and `canPerformAction` refuses its
+  shortcut, while the item has an `event` that no live Rust page listener
+  hears. An item without an `event` is always enabled.
+- **Android.** Action items join the app bar overflow menu with the route
+  items. `onPrepareOptionsMenu` enables each item with the same rule, and a
+  shortcut that is not enabled does nothing and records `menu.refused`. The
+  readiness check waits at most 250 ms for the Rust thread and answers
+  disabled after that, so a slow page call cannot hold the window. The action
+  itself runs on the Rust thread without blocking the window.
+- The Rust library exports two more JNI entry points for this,
+  `TachyonRust.runMenuAction` and `TachyonRust.menuEventReady`, only when the
+  manifest declares an action, beside `start` and `stop`, which every Android
+  Rust library exports.
+
+### Evidence
+
+- Cloud: `mobile_menu_host_tests` checks the generated Swift and Java,
+  `native_menu_config_tests` checks that every native target accepts action
+  items, `native_application_tests` checks that a cleanly stopped application
+  starts again with new instances, and `android_rust_library_tests` checks the
+  JNI names. A real `ty build --target android` of the gate app in
+  `scripts/native/application-lifetime-fixture.mjs` compiled the Java host and
+  the Rust library for `arm64-v8a` and `x86_64`, and both libraries export
+  `start`, `stop`, `runMenuAction` and `menuEventReady`.
+- Simulator and emulator: `scripts/ios/application-lifetime-test.mjs` (iPhone
+  and iPad simulators) and `scripts/android/application-lifetime-test.mjs`
+  (emulator, now part of `scripts/android/native-test.sh`). The runs are
+  recorded below when they pass.

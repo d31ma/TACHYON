@@ -20,18 +20,28 @@ final class IosMenus {
 
     static func destination(_ command: UICommand) -> URL? {
         guard let id = command.propertyList as? String,
-              let entry = routes.first(where: { (route: IosMenuRoute) -> Bool in route.id == id }),
+              let entry = routes.first(where: { (route: IosMenuRoute) -> Bool in route.id == id && !route.action }),
               tachyonRouteDocuments[entry.route] != nil else { return nil }
         return URL(string: "tachyon-app://bundle" + entry.route)
     }
 
+    static func action(_ command: UICommand, _ view: WKWebView?) -> IosMenuRoute? {
+        guard routes.count <= 64, let id = command.propertyList as? String,
+              let entry = routes.first(where: { (route: IosMenuRoute) -> Bool in route.id == id && route.action }) else { return nil }
+        return entry.event.isEmpty || (view != nil && tachyonMenuReady(entry.event)) ? entry : nil
+    }
+
+    private static func selector(_ route: IosMenuRoute) -> Selector {
+        route.action ? #selector(RootViewController.runMenuAction(_:)) : #selector(RootViewController.openMenuRoute(_:))
+    }
+
     private static func command(_ route: IosMenuRoute) -> UIMenuElement {
         if !route.key.isEmpty { return keyCommand(route) }
-        return UICommand(title: route.label, action: #selector(RootViewController.openMenuRoute(_:)), propertyList: route.id)
+        return UICommand(title: route.label, action: selector(route), propertyList: route.id)
     }
 
     private static func keyCommand(_ route: IosMenuRoute) -> UIKeyCommand {
-        let command = UIKeyCommand(title: route.label, action: #selector(RootViewController.openMenuRoute(_:)),
+        let command = UIKeyCommand(title: route.label, action: selector(route),
                                    input: route.key, modifierFlags: route.modifiers, propertyList: route.id)
         command.discoverabilityTitle = route.label
         command.wantsPriorityOverSystemBehavior = true

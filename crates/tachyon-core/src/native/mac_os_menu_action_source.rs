@@ -28,7 +28,7 @@ private func tachyonMenuReady(_ event: String) -> Bool { false }
 @MainActor
 private func tachyonMenuPerform(_ id: String) -> Bool { false }";
 
-    const RUST_EXPORTS: &'static str = "\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_menu_action(id: *const core::ffi::c_char) -> bool { NativeMenuActions::run(id, TachyonRustServices::tac_menu_action) }\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_menu_ready(event: *const core::ffi::c_char) -> bool { NativeMenuActions::ready(event) }\n";
+    const RUST_EXPORTS: &'static str = "\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_menu_action(id: *const core::ffi::c_char) -> bool { NativeMenuActions::run(id, TachyonRustServices::tac_menu_action) }\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_menu_ready(event: *const core::ffi::c_char) -> bool { NativeMenuActions::ready(event) }\n#[cfg(target_os = \"android\")]\n#[allow(non_snake_case)]\n#[unsafe(no_mangle)]\npub extern \"system\" fn Java_dev_tachyon_host_TachyonRust_runMenuAction(environment: TacJniTable, _class: TacJniObject, id: TacJniObject) -> u8 { u8::from(tac_native_menu_action(TacAndroidBridge::text(environment, id).as_ptr())) }\n#[cfg(target_os = \"android\")]\n#[allow(non_snake_case)]\n#[unsafe(no_mangle)]\npub extern \"system\" fn Java_dev_tachyon_host_TachyonRust_menuEventReady(environment: TacJniTable, _class: TacJniObject, event: TacJniObject) -> u8 { u8::from(tac_native_menu_ready(TacAndroidBridge::text(environment, event).as_ptr())) }\n";
 
     pub(super) fn has_actions(config: &NativeMenuConfig) -> bool {
         config.items().any(|item| item.action.is_some())

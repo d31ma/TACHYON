@@ -258,8 +258,8 @@ pub(super) fn swift_source(
     companion_call: &str,
     index: &NativeRouteIndex,
 ) -> String {
-    let rust_shim =
-        ["", MacOsHostGenerator::RUST_SHIM][usize::from(companion_call.contains("tacRustInvoke"))];
+    let rust = usize::from(companion_call.contains("tacRustInvoke"));
+    let rust_shim = ["", MacOsHostGenerator::RUST_SHIM][rust];
     let framed = IosHostGenerator::SWIFT_HOST
         .replace(
             "__TACHYON_JSON_REQUEST__",
@@ -302,6 +302,21 @@ pub(super) fn swift_source(
             super::macos::companion_emit(companion_call),
         )
         .replace("__TACHYON_RUST_SHIM__", rust_shim)
+        .replace(
+            "__NATIVE_APPLICATION_START__",
+            ["", IosHostGenerator::APPLICATION_START][rust],
+        )
+        .replace(
+            "__NATIVE_APPLICATION_STOP__",
+            ["", IosHostGenerator::APPLICATION_STOP][rust],
+        )
+        .replace(
+            "__NATIVE_MENU_CALLS__",
+            super::mac_os_menu_action_source::MacOsMenuActionSource::swift_calls(
+                &application.menus,
+                rust == 1,
+            ),
+        )
         .replace(
             "__NATIVE_APPLICATION_STATE__",
             include_str!("AppleApplicationState.swift"),
@@ -347,6 +362,8 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl IosHostGenerator {
+    const APPLICATION_START: &str = "guard tacRustNativeApplicationStart() else { Telemetry.shared.record(\"application.start.failed\"); exit(EXIT_FAILURE) }";
+    const APPLICATION_STOP: &str = "tacRustNativeApplicationShutdown()";
     const SWIFT_HOST: &str = r##"import Foundation
 import UIKit
 import WebKit
@@ -570,6 +587,8 @@ __IOS_WINDOW_SETTINGS__
 
 __NATIVE_MENUS__
 
+__NATIVE_MENU_CALLS__
+
 private func tachyonRelayPublish(_ payload: String) {
     Task { @MainActor in
         NativeBridge.shared.webView?.evaluateJavaScript(
@@ -642,6 +661,25 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         webView?.load(URLRequest(url: url))
     }
 
+    @objc func runMenuAction(_ command: UICommand) {
+        guard let action = IosMenus.action(command, webView), tachyonMenuPerform(action.id) else {
+            Telemetry.shared.record("menu.refused")
+            return
+        }
+        Telemetry.shared.record("menu.action")
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        guard action == #selector(runMenuAction(_:)) else { return super.canPerformAction(action, withSender: sender) }
+        return (sender as? UICommand).flatMap { (command: UICommand) -> IosMenuRoute? in IosMenus.action(command, webView) } != nil
+    }
+
+    override func validate(_ command: UICommand) {
+        super.validate(command)
+        guard command.action == #selector(runMenuAction(_:)), IosMenus.action(command, webView) == nil else { return }
+        command.attributes.insert(.disabled)
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url else { decisionHandler(.cancel); return }
         if url.scheme == "tachyon-app" && url.host == "bundle" && url.port == nil && url.user == nil && url.password == nil { decisionHandler(.allow); return }
@@ -679,6 +717,7 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         AppleBrowserApis.shared.granted = __NATIVE_BROWSER_API_GRANTS__
         __NATIVE_CAPABILITY_REGISTER__
+        __NATIVE_APPLICATION_START__
         let window = UIWindow(frame: UIScreen.main.bounds)
         let root = RootViewController()
         if let link = options?[.url] as? URL, let target = TacDeepLink.target(link.absoluteString) {
@@ -717,6 +756,7 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillTerminate(_ application: UIApplication) {
         tachyonDisposeCompanions()
+        __NATIVE_APPLICATION_STOP__
         Telemetry.shared.record("controller.destroyed")
     }
 }
