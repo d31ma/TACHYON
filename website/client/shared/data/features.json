@@ -3535,7 +3535,7 @@
         },
         {
           "name": "client/services/PickerService.rs",
-          "code": "#[Service]\n#[derive(Default)]\nstruct PickerService {\n    file_picker: FilePicker,\n    status: String,\n}\n\nimpl PickerService {\n    pub fn choose(&mut self) {\n        let options = FilePickerOptions { multiple: false, types: vec![String::from(\"text/plain\")] };\n        let chosen = self.file_picker.open(&options);\n        self.status = chosen.status.as_str().to_owned();\n        self.read(chosen.handle);\n    }\n\n    fn read(&mut self, handle: Option<String>) {\n        if let Some(handle) = handle {\n            self.status = self.file_picker.read_text(&handle).status.as_str().to_owned();\n            self.file_picker.release(&handle);\n        }\n    }\n}\n"
+          "code": "#[Service]\nstruct PickerService {\n    file_picker: FilePicker,\n    status: String,\n}\n\nimpl Default for PickerService {\n    fn default() -> Self {\n        Self { file_picker: FilePicker::default(), status: String::from(\"Ready\") }\n    }\n}\n\nimpl PickerService {\n    pub fn choose(&mut self) {\n        let options = FilePickerOptions { multiple: false, types: vec![String::from(\"text/plain\")] };\n        let chosen = self.file_picker.open(&options);\n        self.status = chosen.status.as_str().to_owned();\n        self.read(chosen.handle);\n    }\n\n    fn read(&mut self, handle: Option<String>) {\n        if let Some(handle) = handle {\n            self.status = self.file_picker.read_text(&handle).status.as_str().to_owned();\n            self.file_picker.release(&handle);\n        }\n    }\n}\n"
         },
         {
           "name": "client/services/PickerService.swift",

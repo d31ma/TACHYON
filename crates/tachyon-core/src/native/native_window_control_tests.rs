@@ -126,7 +126,7 @@ impl NativeWindowCheck {
         assert!(!body.contains("case \"close\": return true;"));
         assert!(body.contains("ready.await(2,"));
         let program = format!(
-            "class WindowHost extends android.app.Activity {{ private long documentGeneration; private static boolean withinByteLimit(String text, int limit) {{ return text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= limit; }}\n{body}\n}}"
+            "class WindowHost extends android.app.Activity {{ private long documentGeneration; private static boolean withinByteLimit(String text, int limit) {{ return text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= limit; }} private String filePickerCall(String operation, String payload) {{ return payload; }}\n{body}\n}}"
         );
         std::fs::write(&source, program).expect("source");
         let platform = std::env::var_os("ANDROID_HOME")

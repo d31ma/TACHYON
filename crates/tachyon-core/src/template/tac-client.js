@@ -194,6 +194,13 @@ class NativeState {
   static memberRequestLimit = 65536
   static busyWait = 10
   static busyDeadline = 10000
+  static callTimeout = 10000
+  static filePickerCallTimeout = 40000
+
+  static timeout(request) {
+    const picking = request.op !== 'init' && globalThis.__tachyonNativeGrants?.includes('filePicker') === true
+    return picking ? NativeState.filePickerCallTimeout : NativeState.callTimeout
+  }
 
   static tooLarge(request, service, payload, limit) {
     const subject = request.op === 'init' ? 'start-up request' : `request to ${request.name ?? request.op}`
@@ -1591,7 +1598,7 @@ const nativeAnswer = async (request, ownerId, service) => {
   try {
     raw = await Promise.race([
       Promise.resolve(globalThis.__tachyonNativeHostCall('companion.invoke', payload)),
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tac native call timed out.')), 10000) }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tac native call timed out.')), NativeState.timeout(request)) }),
     ])
   } finally { clearTimeout(timer) }
   if (typeof raw === 'string' && (raw.length > 65536 || new TextEncoder().encode(raw).byteLength > 65536)) throw new RangeError('Tac native response exceeds 64 KiB.')

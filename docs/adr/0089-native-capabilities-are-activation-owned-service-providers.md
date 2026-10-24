@@ -395,10 +395,19 @@ path separators replaced. `shouldInterceptRequest` cannot read a request
 body, so the page runtime now sends each route request a second time,
 URI-encoded, in an `X-Tachyon-Capability-Request` header, which the Android
 route reads; the other hosts still read the body. The page bridge waits 60
-seconds for `filePicker.open` (10 for other calls), and a FilePicker answer
+seconds for `filePicker.open`, and for `companion.invoke` when the app grants
+`filePicker`, because a linked Kotlin or Rust service may be waiting for the
+picker (10 for other calls); a FilePicker answer
 may be up to 786,432 bytes, the limit the service decoders already use, so
 a full 64 KiB read fits. Swift and C# services run as WebAssembly on
 Android and reach the picker through the page route.
+
+The page runtime waits 40 seconds instead of 10 for a native service
+member call when the app grants `filePicker`, because a linked service's
+call stays open while its picker is shown (up to 30 seconds). With the
+10-second wait, a linked Swift or Rust service on iOS and a linked Kotlin
+or Rust service on Android lost the answer and the page kept its old
+state.
 
 Tests: `ios::tests::the_ios_host_opens_the_document_picker_for_the_page_linked_services_and_webassembly_services`,
 `android::tests::android_opens_the_storage_access_framework_for_the_page_linked_services_and_webassembly_services`

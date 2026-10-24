@@ -1,8 +1,13 @@
 #[Service]
-#[derive(Default)]
 struct PickerService {
     file_picker: FilePicker,
     status: String,
+}
+
+impl Default for PickerService {
+    fn default() -> Self {
+        Self { file_picker: FilePicker::default(), status: String::from("Ready") }
+    }
 }
 
 impl PickerService {
