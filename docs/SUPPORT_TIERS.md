@@ -713,6 +713,11 @@ handler. Each item below names its command.
   which answered from its vendored crates (`hello from macos vendored`).
   The helper printed the same under both architectures.
 
+After a rebase onto develop `c6ce557c`, the window-grant, application-state,
+page-check and page-service scripts, the pasteboard host test, the
+byte-identical rebuild test and the universal build test passed again on the
+same Mac.
+
 Not run in RM1: a notification shown after the prompt is allowed, an
 ahead-of-time C# service (it needs a `--release` build, which is
 Developer ID signed and notarized), and an Intel Mac.
