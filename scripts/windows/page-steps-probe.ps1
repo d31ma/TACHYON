@@ -352,8 +352,8 @@ function Get-Elements {
     foreach ($element in $found) {
         $list.Add([pscustomobject]@{
             Element = $element
-            Name = ConvertTo-Shown $element.Cached.Name
-            Type = $element.Cached.ControlType.ProgrammaticName -replace '^ControlType\.', ''
+            Name = (ConvertTo-Shown $element.Cached.Name)
+            Type = ($element.Cached.ControlType.ProgrammaticName -replace '^ControlType\.', '')
             Localized = [string]$element.Cached.LocalizedControlType
         })
     }
