@@ -245,3 +245,16 @@ service on its one route, the fixture page loads 3607 KB of WebAssembly, so
 its manifest now sets `tac.budgets.webassembly` to 6144 KB; the gate's own
 budget check still uses the default limits.
 
+
+## Amendment (2026-10-24): iOS keeps Cache API entries across a relaunch (RM2)
+
+The rerun owed by the amendment of 2026-10-19 passed. `scripts/ios/native-test.mjs`
+wrote the check's Tac-format entry (cache `tachyon-cache:relaunch`, an
+`x-tachyon-expires-at` one hour ahead) on the iOS 26.5 simulator, terminated
+the app, and a new process read `local=kept,store=kept,cache=kept` in 2 of 2
+runs (Xcode 27.1, develop `4c052177`). WebKit wrote the entry as a Cache
+Storage record under the app's `WebsiteData`, and the same file was read after
+the relaunch. The iOS limit described in the 2026-10-18 amendment does not
+exist: the earlier result came from Tac's start-up sweep deleting the raw
+entry. iOS keeps IndexedDB rows, LocalState values and Cache API entries on
+disk, like macOS and Linux, and the iOS gate now requires `cache=kept`.

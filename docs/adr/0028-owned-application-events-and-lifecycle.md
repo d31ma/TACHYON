@@ -161,3 +161,13 @@ page and the Rust service each heard `foreground`, `background`,
 container, GTK 4.14.5, WebKitGTK 2.52.6). Not run yet: the macOS and iOS
 hosts (the Swift is not compiled in this run), the Windows host inside
 WebView2 on a signed-in desktop, and Android on an emulator.
+
+## Amendment (2026-10-24): background and foreground on the iOS simulator (RM2)
+
+`scripts/ios/page-checks-test.mjs` sent the app to the background on the iOS
+26.5 simulator by launching another app, and brought it back by launching it
+again. A linked Swift service's `ApplicationStateChanged` listener and a page
+service both heard `background` and then `foreground`, and the host telemetry
+recorded each switch. Disposal on termination was not seen: `simctl
+terminate` kills the app, so neither `applicationWillTerminate` nor a Swift
+`@OnStop` runs.

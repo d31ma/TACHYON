@@ -40,7 +40,7 @@ tac.application.build
   honored: CFBundleVersion
 
 tac.application.minimumSystem
-  run owed: MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601); still to run: an iOS app with a Dart, Kotlin or Java web service built at 18.2 and opened on the iOS simulator
+  honored: MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601). Kotlin, Dart and Java apps built at 18.2 opened on the iOS 26.5 simulator (RM2)
 
 tac.application.links
   adapted: tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a --device or --release build, whose profile has the Associated Domains capability; no signed build has opened one on a device yet. A simulator build opens only the custom schemes.
@@ -76,7 +76,7 @@ tac.application.tray.dock
   not applicable: tac.application.tray.dock has no meaning on iOS, which refuses tac.application.tray.
 
 tac.application.rust
-  run owed: vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here; still to run: an iOS app whose Rust service uses a vendored crate, on the iOS simulator
+  honored: vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here. A Rust service using a vendored crate answered the page on the iOS 26.5 simulator (RM2)
 
 tac.application.rust.executables
   refused with TY1601: An iOS app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target.
@@ -103,13 +103,13 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  adapted: tac.cache rules apply to Yon reads in the iOS app, but the kept reads last only while the app runs: WebKit does not keep Cache Storage entries of the app's page across a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2).
+  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; with Yon stopped, network-first and cache-first reads answered from the kept copy on the iOS 26.5 simulator, also after a relaunch (RM2)
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the iOS app.
 
 tac.application.permissions
-  run owed: NSLocationWhenInUseUsageDescription in Info.plist; still to run: the location prompt showing the manifest reason on the iOS simulator
+  honored: NSLocationWhenInUseUsageDescription in Info.plist; the iOS 26.5 simulator's location prompt displayed the manifest reason (RM2)
 
 tac.browserApis
   honored: the same grant list in the page
@@ -118,16 +118,16 @@ tac.browserApis clipboard
   honored: UIPasteboard through the host bridge (browserApi.clipboard)
 
 tac.browserApis share
-  run owed: UIActivityViewController through the host bridge (browserApi.share); still to run: the share sheet opened from a page on the iOS simulator, checked by hand
+  honored: UIActivityViewController through the host bridge (browserApi.share); a tap on the iOS 26.5 simulator opened the share sheet, and closing it reported a cancelled share (RM2)
 
 tac.browserApis notifications
-  run owed: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; still to run: the permission prompt and a banner on the iOS simulator, checked by hand
+  honored: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; the iOS 26.5 simulator displayed the permission prompt and a banner (RM2)
 
 tac.browserApis geolocation
-  run owed: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; still to run: the location prompt with the manifest reason on the iOS simulator, checked by hand
+  honored: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; the page got the simulated position on the iOS 26.5 simulator (RM2)
 
 tac.browserApis preferenceStrings
-  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch on the iOS simulator
+  honored: the web view's localStorage, kept on disk; a value was read back after a terminate and relaunch on the iOS 26.5 simulator (RM2)
 
 tac.nativeCapabilities
   not applied: tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4).
@@ -136,13 +136,13 @@ tac.elements
   adapted: tac.elements are bundled into the iOS app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service in the iOS simulator gate (ADR 0093)
+  honored: Pyodide in the web view (ADR 0093); a Python service answered the page on the iOS 26.5 simulator (RM2)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The iOS app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  run owed: the build checks request hosts and the scheme handler's connect-src allows only them; still to run: a page fetch to an undeclared host refused on the iOS simulator
+  honored: the build checks request hosts and the scheme handler's connect-src allows only them; a page fetch to an undeclared host was refused on the iOS 26.5 simulator (RM2)
 
 tac.yon
   adapted: tac.yon.origin: the iOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1).
@@ -151,7 +151,7 @@ tac.go
   honored: the same Go WebAssembly build in the web view
 
 tac.dotnet
-  run owed: the same WebAssembly build in the web view; still to run: an ahead-of-time C# service in the iOS simulator gate
+  honored: the same WebAssembly build in the web view; an ahead-of-time C# service answered the page on the iOS 26.5 simulator (RM2)
 
 tac.accessibility
   honored: the same build check
@@ -211,22 +211,22 @@ window drag regions (data-tac-drag-region)
   not applicable: An iOS app has no window to move.
 
 external links
-  run owed: http, https and mailto links open in the default browser or mail app (UIApplication); still to run: an http, https and mailto link from a page on the iOS simulator
+  honored: http, https and mailto links open in the default browser or mail app (UIApplication); on the iOS 26.5 simulator http and https opened Safari, mailto went to the system, and links with a user name opened nothing (RM2)
 
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route, run on the iOS simulator; universal links to listed hosts are described under tac.application.links
 
 background and foreground signal
-  run owed: ApplicationStateChanged when the app enters the background and when it returns to the foreground; still to run: background and foreground on the iOS simulator
+  honored: ApplicationStateChanged when the app enters the background and when it returns to the foreground; the page and a linked Swift service heard both on the iOS 26.5 simulator (RM2)
 
 stored data (IndexedDB, Cache API, LocalState)
-  adapted: Store rows and LocalState values in the iOS app are kept on disk, but Cache API entries live only while the app runs, so a Cached method runs again after a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2).
+  honored: kept on disk by the web view; Store rows, LocalState values and Cache API entries were read back after a terminate and relaunch on the iOS 26.5 simulator (RM2)
 
 service worker
   not applicable: The iOS app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
 
 Content-Security-Policy
-  run owed: the native host policy; still to run: a policy-violation probe on the iOS simulator
+  honored: the native host policy; connect-src refused an undeclared host on the iOS 26.5 simulator (RM2)
 
 reaching Yon
   adapted: The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); an iOS simulator run of that is still owed (yon-reach-test.mjs with a linked Swift stream and socket).
@@ -247,7 +247,7 @@ incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  run owed: the iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a signed --device or --release .ipa is never byte-identical; still to run: a_packaged_ios_app_is_byte_identical_when_built_twice on a Mac (TL2)
+  honored: the iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a signed --device or --release .ipa is never byte-identical. a_packaged_ios_app_is_byte_identical_when_built_twice passed on a Mac (RM2)
 
 running without a signed-in desktop session
   honored: the app runs in the iOS simulator without a screen

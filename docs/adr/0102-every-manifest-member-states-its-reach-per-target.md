@@ -118,3 +118,15 @@ other native hosts: its pages load from `tachyon://app`, so same-origin
 requests reach no Yon, and calls go to `tac.yon.origin` instead. The native
 service worker notes now say that without `tac.yon.origin` a native
 `tac.cache` has no effect.
+
+## Amendment (2026-10-24): iOS simulator runs (RM2)
+
+RM2's runs on the iOS 26.5 simulator move these iOS cells to `honored`:
+`tac.application.minimumSystem` (Kotlin, Dart and Java apps built at 18.2),
+`tac.application.rust` (a vendored crate), `tac.cache` and stored data (kept
+across a relaunch), `tac.application.permissions` and the `share`,
+`notifications`, `geolocation` and `preferenceStrings` browser APIs,
+`tac.python`, `tac.dotnet` (ahead of time), `tac.outgoing` and
+Content-Security-Policy, external links, background and foreground, and
+byte-identical rebuilds. `docs/SUPPORT_TIERS.md` ("iOS simulator runs") lists
+each run. iOS release packaging and page accessibility stay `runOwed`.

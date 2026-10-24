@@ -17,7 +17,6 @@ class IosGate {
   static appId = 'dev.tachyon.ios-gate';
   static evidence = path.join(IosGate.repo, 'target/phase5-ios-evidence');
   static storageProof = 'root-initial.json';
-  static cacheLimit = 'known iOS limit: WKWebView on tachyon-app keeps Cache API entries in memory only';
   static device;
 }
 
@@ -415,9 +414,8 @@ function keptStorage(result) {
   }
   assert.equal(parts.local, 'kept', 'the localStorage value was not kept after the app quit, got ' + result);
   assert.equal(parts.store, 'kept', 'the IndexedDB row was not kept after the app quit, got ' + result);
-  assert.ok(['kept', 'missing'].includes(parts.cache), 'the Cache API entry is wrong after the app quit, got ' + result);
-  if (parts.cache === 'kept') return { result, cache: 'kept' };
-  return { result, cache: 'missing (' + IosGate.cacheLimit + ')' };
+  assert.equal(parts.cache, 'kept', 'the Cache API entry was not kept after the app quit, got ' + result);
+  return { result, cache: parts.cache };
 }
 
 function storageResult(proofs) {

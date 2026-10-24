@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- iOS simulator checks for RM2. `scripts/ios/page-checks-test.mjs` checks
+  `connect-src`, offline Yon reads with Yon stopped, `preferenceStrings` and
+  Cache Storage across a relaunch, `ApplicationStateChanged` to the page and
+  a linked Swift service, and external links.
+  `scripts/ios/page-services-test.mjs` runs one WebAssembly page service per
+  language (Python, C# ahead of time, Kotlin, Dart, Java, Go, Ruby, Lua, C++,
+  F#) and a linked Rust service, with a dynamic route and a scoped style.
+  `scripts/ios/rust-crate-test.mjs` links a vendored crate, and
+  `scripts/ios/browser-prompts-test.mjs` taps real buttons and reads the
+  location, notification and share prompts from screenshots. All passed on
+  the iOS 26.5 simulator, and the support table marks those iOS cells
+  honored. iOS keeps Cache API entries across a relaunch, so `tac.cache` and
+  stored data on iOS are no longer adapted, and `scripts/ios/native-test.mjs`
+  now requires `cache=kept` (ADR 0059 and 0087 amendments).
 - `@OnEvent` listeners may be async in Kotlin (`suspend`), C# (`Task` or
   `ValueTask`) and F# (`Task<unit>`, `ValueTask` or `Async<unit>`), in the
   browser and in native apps, and Swift and Rust listeners may now be async

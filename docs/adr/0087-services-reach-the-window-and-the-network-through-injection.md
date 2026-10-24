@@ -411,3 +411,13 @@ from the cache. `compiler::yon_reads_tests` also drives the real
 `clientRequest` source as the transport, online and then offline. With that
 run, the support table marks `tac.cache` honored on Linux; the offline read in
 the packaged macOS and Windows apps is still owed.
+
+## Amendment (2026-10-24): kept Yon reads on the iOS simulator (RM2)
+
+`scripts/ios/page-checks-test.mjs` ran a network-first and a cache-first Yon
+read at `tac.yon.origin` on the iOS 26.5 simulator, stopped Yon, and read
+both again from the page's Cache Storage. Both answered from the kept copy,
+and again after a terminate and a relaunch; a read with no rule failed. The
+"adapted on iOS" entry of the 2026-10-19 amendment is withdrawn: the support
+table marks `tac.cache` honored on iOS. The offline read in the packaged
+macOS and Windows apps and on the Android emulator is still owed.

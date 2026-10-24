@@ -167,8 +167,10 @@ window, and go to the background when it was minimized. Android: the host
 code and a Kotlin companion compile against Android platform 35; no
 emulator run yet. Windows: generated-source tests and a MinGW-w64 compile of
 the state code only; the run inside WebView2 waits for the interactive
-desktop run. macOS and iOS: generated-source tests only; the Swift was not
-compiled in that run.
+desktop run. macOS: generated-source tests only; the Swift was not
+compiled in that run. iOS: on 2026-10-24 (RM2, below) the page and a linked
+Swift service each heard background and foreground on the iOS 26.5
+simulator.
 
 Windows bundles accept `--arch arm64` or `--arch x64`. The default matches
 an ARM64 build host and falls back to x64 on other architectures. This choice
@@ -651,20 +653,23 @@ Yon reads in the page's Cache Storage (ADR 0087 amendment). It is tested in
 Node and by `scripts/yon-reads-browser-test.mjs` in Chromium, Firefox and
 WebKit in the cloud. The packaged Linux app ran it under Xvfb in RL1: a
 network-first Yon read came from the cache with Yon stopped ("Linux runs
-owed, RL1" above; ADR 0087 amendment). The airplane-mode runs on the iOS simulator and the
-Android emulator, and offline reads in the macOS and Windows apps, are owed.
+owed, RL1" above; ADR 0087 amendment). On the iOS 26.5 simulator in RM2
+(below), with Yon stopped, a network-first and a cache-first read answered
+from the kept copy, and again after a terminate and relaunch. The
+airplane-mode run on the Android emulator, and offline reads in the macOS
+and Windows apps, are owed.
 
 How long the kept reads last follows the web storage of each host (below).
 The per-target support table gives `tac.cache` no relaunch limit on macOS,
-Windows and Linux, where the web view keeps its storage on disk, and marks it
-adapted on iOS and Android:
+Windows, Linux and iOS, where the web view keeps its storage on disk, and
+marks it adapted on Android:
 
 - Linux: since ST1 (`499a6246`) the host keeps web storage on disk, in
   `$XDG_DATA_HOME/<application id>/webkit`, so kept reads stay after a
   relaunch, as on macOS. Before ST1 they lasted only while the app ran.
-- iOS: kept reads last only while the app runs. This is not proven yet: the
-  iOS relaunch run used a cache entry that Tac's start-up sweep deletes, so
-  the limit waits on a rerun on the simulator (plan item RM2).
+- iOS: kept reads stay after a relaunch (RM2, 2026-10-24). The earlier
+  "only while the app runs" result came from Tac's start-up sweep deleting
+  the check's raw cache entry, not from WebKit.
 - Android: a read kept shortly before the system stops the app is not always
   there after a relaunch.
 
@@ -679,7 +684,8 @@ tier.
 | --- | --- | --- |
 | Linux WebKitGTK | yes, `GtkUriLauncher` | `native_external_link_tests::the_linux_host_hands_external_links_to_the_launcher_and_keeps_the_page` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb in an x86_64 Ubuntu 24.04 cloud container, four of four runs: a page script's `location` changes, `window.open` calls and a `target="_blank"` link reached a fake launcher only for the `http`, `https` and `mailto` links, and the page stayed on `tachyon://app/`. The test also passed in the WSL (aarch64) run of `38eaed29` and under headless Wayland in RL1, and RL1's `scripts/linux/desktop-links-test.sh` handed `https` and `mailto` links from the real `GtkUriLauncher` to a default handler, with and without the OpenURI portal. Not run: a desktop |
 | Windows WebView2 | yes, `ShellExecuteW` | the opener and the shared check, built with MinGW-w64 and run under Wine 9.0, open only the external links. On 2026-10-24 `scripts/windows/external-links-test.mjs` opened http, https and mailto links from a WebView2 page on the signed-in Windows 11 ARM64 desktop (SD1) |
-| macOS, iOS WKWebView | yes, `NSWorkspace` and `UIApplication` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on the Mac |
+| macOS WKWebView | yes, `NSWorkspace` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on the Mac |
+| iOS WKWebView | yes, `UIApplication` (before 2026-10-18 for `http` and `https`) | `scripts/ios/page-checks-test.mjs` on the iOS 26.5 simulator (RM2, 2026-10-24): `http`, `https` and a tapped `target="_blank"` link opened Safari; `mailto` reached the system, which has no Mail app on the simulator; links with a user name or a password, `ftp:` and an empty `mailto:` opened nothing and the app stayed in front |
 | Android WebView | yes, `ACTION_VIEW` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on an emulator |
 
 ### Deep links on native hosts (2026-10-19)
@@ -705,7 +711,7 @@ not promote any tier.
 | --- | --- | --- |
 | Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29` and again in RL1 on `d7110f74`. LX1 ran `linux_browser_apis_reach_geoclue_and_the_notification_server` through `scripts/linux/desktop-services-test.sh`: the page's position came from GeoClue 2.7.0 on a private system bus (a GPS fix from an NMEA socket, allowed by the GeoClue demo agent) and its notification was shown by dunst 1.9.2. Not run: a physical Linux desktop; Wayland, because the test clicks through X11's XTest |
 | macOS WKWebView | yes, all four: `NSPasteboard`, `NSSharingServicePicker`, `UNUserNotificationCenter`, CoreLocation | code level only, in a Linux cloud container (`native::browser_api_bridge`, `native::apple_browser_apis`). Owed: the compile and host test on a Mac, and a manual check of the share, notification and location prompts |
-| iOS WKWebView | yes, all four: `UIPasteboard`, `UIActivityViewController`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (same tests). The simulator gate `scripts/ios/native-test.mjs` passed with its clipboard step on develop `fd0384ad` (iPhone SE (3rd generation) simulator, iOS 26.5): the bridge listed all four APIs, the page wrote text that `simctl pbpaste` read from `UIPasteboard`, the page read it back, and a share without a grant was refused. Owed: share, notifications and geolocation with a grant on the simulator, and a manual check of the system prompts |
+| iOS WKWebView | yes, all four: `UIPasteboard`, `UIActivityViewController`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (same tests). The simulator gate `scripts/ios/native-test.mjs` passed with its clipboard step on develop `fd0384ad` (iPhone SE (3rd generation) simulator, iOS 26.5): the bridge listed all four APIs, the page wrote text that `simctl pbpaste` read from `UIPasteboard`, the page read it back, and a share without a grant was refused. On 2026-10-24 (RM2) `scripts/ios/browser-prompts-test.mjs` tapped real buttons on the iOS 26.5 simulator and read each prompt from a `simctl io` screenshot: the location prompt carried the manifest reason and the page got the simulated position; the notification prompt was allowed and a foreground banner appeared; the share sheet opened, and closing it reported a cancelled share |
 | Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | see the Android WebView row above |
 | Windows WebView2 | yes: clipboard bridged to the Windows clipboard; share through the Windows share sheet (`IDataTransferManagerInterop`); notifications as toasts for the installed MSIX package (an unpackaged build answers `denied`); geolocation through WebView2 behind one `PermissionRequested` decision from the manifest grants (BA3) | `windows_browser_api_tests::the_windows_browser_apis_follow_the_manifest_grants_under_wine` compiled the bridge with MinGW (warnings as errors) and ran it under Wine 9.0 in an x86_64 Ubuntu 24.04 cloud container (BA3 branch on develop d7110f74): granted, a real clipboard round trip, the toast XML, the permission answers and the share values with a fake notifier and share sheet, and the permission decision; with nothing granted, each was refused. The whole generated host compiled with MinGW against the WebView2 1.0.3485.44 headers. `the_windows_browser_apis_match_the_windows_sdk_and_run_on_windows` passed on the Surface (Windows 11 ARM64 over SSH, MSVC 19.44.35229 ARM64, Windows SDK 10.0.26100.0, BA3 commit 971c6559): every declared Windows Runtime slot matched the SDK headers under `cl /W4 /WX`, and the program ran granted and refused with the runtime loaded and the share sheet opening for a message-only window. On the same machine `ty build --target windows` compiled and linked the desktop fixture app with all four APIs granted (`/W4 /WX`, WebView2 SDK 1.0.3485.44). On 2026-10-24 `scripts/windows/browser-apis-test.ps1` passed inside WebView2 on the signed-in desktop (SD1): the clipboard both ways, the share sheet opened, geolocation granted with no prompt, every API refused when none is granted, and, from the MSIX package installed by Developer Mode registration, a toast in the notification history. Not checked: whether the user shared from the sheet, which Windows does not report |
 
@@ -744,8 +750,41 @@ This evidence does not promote any tier.
 | Linux WebKitGTK | yes | `linux_storage_tests::linux_web_storage_is_kept_after_the_application_quits_and_starts_again` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 and ran it twice under Xvfb on WSL Ubuntu 24.04 (aarch64). The Cache API entry went through the framework's `tac-storage.js`. The page writes all three about 20 ms before the quit; without the 750 ms settle at quit the localStorage value was lost in 4 of 10 runs, with it 10 of 10 kept it. With the old ephemeral session the same test fails |
 | Android WebView | IndexedDB and localStorage yes; Cache API entries not always | `scripts/android/native-test.mjs` on an API 35 arm64 emulator (WebView Chrome 124), across `am force-stop` and a new process: a `@LocalState` field and a Store row saved and found by id were kept in every run. The `@Cached` entry, written about 6 s before the force-stop, was kept and served in 3 runs and missing from Cache Storage in 2 of the 3 runs that checked it before the read |
 | macOS WKWebView | yes | `scripts/phase4-macos-test.mjs` on 2026-10-19 (macOS 26.6.2, Xcode 27.1) with Accessibility access: the first launch wrote all three, the app quit, and a new process read `local=kept,store=kept,cache=kept`. An earlier run looked like a frozen page after relaunch. The page was running, but the gate's check set its text after OnStart without asking for a render, and its raw Cache API entry had no `x-tachyon-expires-at` header, so Tac's start-up cache sweep deleted it. The check now calls `taskScheduler.render()` and writes the entry in Tac's format |
-| iOS WKWebView (simulator) | IndexedDB and localStorage yes; Cache API entries no | `scripts/ios/native-test.mjs` on an iPhone SE (3rd generation) simulator with iOS 26.5 (Xcode 27.1): a real terminate, a new process, and the row and value read back. The cache name came back with no entries, and WebKit wrote no record file for it before the quit. That run used the check's old raw cache entry, which Tac's start-up cache sweep deletes, so the iOS cache result is owed a rerun |
+| iOS WKWebView (simulator) | yes | `scripts/ios/native-test.mjs` on an iPhone SE (3rd generation) simulator with iOS 26.5 (Xcode 27.1), RM2 on develop `4c052177`: a real terminate, a new process, and `local=kept,store=kept,cache=kept` in 2 of 2 runs. WebKit wrote the Tac-format entry as a Cache Storage record on the first launch, and the same file was read after the relaunch. An earlier run reported the entry missing because its raw entry had no `x-tachyon-expires-at` header and Tac's start-up sweep deleted it; the gate now requires `cache=kept` |
 | Windows WebView2 | yes | WebView2 keeps its data in `<App>.exe.WebView2` (ADR 0097). On 2026-10-24 `scripts/windows/relaunch-storage-test.mjs` kept localStorage, IndexedDB and the Cache API across a relaunch on the signed-in Windows 11 ARM64 desktop (SD1) |
+
+### iOS simulator runs (2026-10-24, RM2)
+
+Run on the Mac (macOS 26.6.2, Xcode 27.1 27A9275) on the iOS 26.5 (23F77)
+simulator, from develop `4c052177` with a debug `ty` of the RM2 branch. No
+host code changed. Each script builds its own app, uses its own simulator
+device set under `$TMPDIR` and deletes it after the run. This evidence does
+not promote any tier.
+
+| Run | Result | Evidence |
+| --- | --- | --- |
+| Cache API across a relaunch | passed | `scripts/ios/native-test.mjs`, 2 of 2 runs; see "Web storage across relaunch" above |
+| Offline Yon reads (`tac.cache`) | passed | `scripts/ios/page-checks-test.mjs`: with Yon stopped, network-first and cache-first reads answered from the kept copy, and again after a terminate and relaunch; a read with no rule failed |
+| `preferenceStrings` across a relaunch | passed | same script: `dark` written, read back by a new process |
+| `ApplicationStateChanged` | passed | same script: the page and a linked Swift service heard background (another app launched) and foreground |
+| External links | passed | same script; see "External links on native hosts" above |
+| `connect-src` (`tac.outgoing`, Content-Security-Policy) | passed | same script: a fetch to an undeclared host raised a `connect-src` violation, and that host received no request |
+| WebAssembly page services | passed | `scripts/ios/page-services-test.mjs`: one app each for Python (Pyodide), C# (`tac.dotnet.aot`, `dotnet.native.wasm` 5.78 MB against 2.98 MB without AOT), Kotlin, Dart, Java, Go, Ruby, Lua, C++, F# and a linked Rust service. Each answered a click, kept its scoped style inside the component and opened the dynamic route `/items/7/`. The Kotlin, Dart and Java apps were built at `MinimumOSVersion` 18.2 |
+| Vendored Rust crate | passed | `scripts/ios/rust-crate-test.mjs`: a vendored dependency and a `platformDependencies.ios` crate were linked, and the page got `hello from ios` |
+| Byte-identical rebuild | passed | `native_reproducible_build_tests::a_packaged_ios_app_is_byte_identical_when_built_twice` |
+| Browser API prompts | passed | `scripts/ios/browser-prompts-test.mjs`, read from screenshots; see "Browser APIs on native hosts" above |
+
+Not covered by these runs:
+
+- Disposal on termination: `simctl terminate` kills the app, so neither
+  `applicationWillTerminate` nor a Swift `@OnStop` runs.
+- The oldest iOS 17.x and 18.x runtimes: Xcode 27.1 offers neither for
+  download. The iOS 17.0 runtime needs a developer.apple.com sign-in, and
+  18.0 needs an older Xcode. The 17.0 and 18.2 floors were built and run on
+  iOS 26.5 only.
+- iOS shows no app reason in the notification prompt, so a manifest reason
+  for notifications is not displayed there.
+- A physical device, a signed install and universal links stay owed.
 
 ### Browser engines for the web target (2026-10-19)
 

@@ -473,3 +473,14 @@ Windows on the signed-in desktop). The build used the pinned Pyodide 314.0.7
 cache, copied from another machine with matching SHA-256 digests. The
 support table marks `tac.python` `honored` on Windows; macOS, iOS and Android
 stay `runOwed`.
+
+## Amendment (2026-10-24): a Python service on the iOS simulator (RM2)
+
+`scripts/ios/page-services-test.mjs` built an iOS app with one Python
+(Pyodide) page service and ran it on the iOS 26.5 simulator (Xcode 27.1). The
+service answered a click with an argument, its component style stayed inside
+the component, and the dynamic route `/items/7/` opened. It was ready 3.6
+seconds after the page started. The support table marks `tac.python` honored
+on iOS. The bundle holds every WebAssembly file twice, under
+`.tachyon/services` and `tachyon-runtime/services`, so the Pyodide files count
+twice in the app size.

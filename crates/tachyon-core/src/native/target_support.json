@@ -136,7 +136,7 @@
     "macos": {"reach": "runOwed", "how": "LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)", "run": "a macOS app with a Dart, Kotlin or Java web service built at 15.2 and opened on a Mac"},
     "windows": {"reach": "adapted", "note": "On Windows, tac.application.minimumSystem.windows is the WebView2 Runtime version (86.0 unless set; 119.0 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains a missing or older runtime instead of opening a blank window."},
     "linux": {"reach": "adapted", "note": "On Linux, tac.application.minimumSystem.linux is the WebKitGTK version (2.40 unless set; 2.46 with a Dart, Kotlin or Java web service). The app checks it when it starts and explains an older WebKitGTK instead of opening a blank window."},
-    "ios": {"reach": "runOwed", "how": "MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)", "run": "an iOS app with a Dart, Kotlin or Java web service built at 18.2 and opened on the iOS simulator"},
+    "ios": {"reach": "honored", "how": "MinimumOSVersion and the swiftc target (17.0 unless set; 18.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601). Kotlin, Dart and Java apps built at 18.2 opened on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "adapted", "note": "On Android, tac.application.minimumSystem.android is the minSdk API level (26 to 35). Dart and Java web services need Android System WebView 119, which Google Play updates apart from Android, so their need does not raise the API level."}
   },
   {
@@ -256,7 +256,7 @@
     "macos": {"reach": "runOwed", "how": "vendored crates linked into the app's Rust services", "run": "a macOS app whose Rust service uses a vendored crate, on a Mac"},
     "windows": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
     "linux": {"reach": "honored", "how": "vendored crates linked into the app's Rust services"},
-    "ios": {"reach": "runOwed", "how": "vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here", "run": "an iOS app whose Rust service uses a vendored crate, on the iOS simulator"},
+    "ios": {"reach": "honored", "how": "vendored crates linked into the app's Rust services, built for aarch64-apple-ios or the simulator; platformDependencies.ios applies only here. A Rust service using a vendored crate answered the page on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "runOwed", "how": "vendored crates linked into the app's Rust services, built for arm64-v8a and x86_64; platformDependencies.android applies only here", "run": "an Android app whose Rust service uses a vendored crate, on the emulator"}
   },
   {
@@ -346,7 +346,7 @@
     "macos": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read in the packaged macOS app"},
     "windows": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; a network-first read answered from the cache with Yon stopped (SD1)"},
     "linux": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk"},
-    "ios": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the iOS app, but the kept reads last only while the app runs: WebKit does not keep Cache Storage entries of the app's page across a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2)."},
+    "ios": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; with Yon stopped, network-first and cache-first reads answered from the kept copy on the iOS 26.5 simulator, also after a relaunch (RM2)"},
     "android": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the Android app, but a read kept shortly before the system stops the app is not always there after a relaunch: the web view does not always keep such Cache Storage entries."}
   },
   {
@@ -366,7 +366,7 @@
     "macos": {"reach": "runOwed", "how": "NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist; a release build also gets the location entitlement", "run": "the location prompt showing the manifest reason on a Mac"},
     "windows": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Windows app: the Windows location and notification settings decide, without a reason from the app."},
     "linux": {"reach": "notApplicable", "note": "tac.application.permissions is not used by the Linux app: it shows no permission prompt of its own, and GeoClue and the desktop settings decide location and notifications."},
-    "ios": {"reach": "runOwed", "how": "NSLocationWhenInUseUsageDescription in Info.plist", "run": "the location prompt showing the manifest reason on the iOS simulator"},
+    "ios": {"reach": "honored", "how": "NSLocationWhenInUseUsageDescription in Info.plist; the iOS 26.5 simulator's location prompt displayed the manifest reason (RM2)"},
     "android": {"reach": "runOwed", "how": "the rationale Android shows before it asks again for location or notifications, and the name of the notification channel", "run": "the rationale before a second location question and the notification channel name on the emulator"}
   },
   {
@@ -396,7 +396,7 @@
     "macos": {"reach": "runOwed", "how": "NSSharingServicePicker through the host bridge (browserApi.share)", "run": "the share picker opened from a page on a Mac, checked by hand"},
     "windows": {"reach": "adapted", "note": "share in the Windows app opens the Windows share sheet for the app window (browserApi.share). ShareFinished arrives when the sheet opens, because Windows does not tell the app whether the user shared. The sheet opened from a WebView2 page on a signed-in Windows desktop (SD1)."},
     "linux": {"reach": "adapted", "note": "Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard."},
-    "ios": {"reach": "runOwed", "how": "UIActivityViewController through the host bridge (browserApi.share)", "run": "the share sheet opened from a page on the iOS simulator, checked by hand"},
+    "ios": {"reach": "honored", "how": "UIActivityViewController through the host bridge (browserApi.share); a tap on the iOS 26.5 simulator opened the share sheet, and closing it reported a cancelled share (RM2)"},
     "android": {"reach": "adapted", "note": "share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared. A run of the share sheet on the emulator is still owed."}
   },
   {
@@ -406,7 +406,7 @@
     "macos": {"reach": "runOwed", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front", "run": "the permission prompt and a notification on a Mac, checked by hand"},
     "windows": {"reach": "adapted", "note": "notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package reached the notification history on a signed-in Windows desktop (SD1)."},
     "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container (LX1)."},
-    "ios": {"reach": "runOwed", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front", "run": "the permission prompt and a banner on the iOS simulator, checked by hand"},
+    "ios": {"reach": "honored", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; the iOS 26.5 simulator displayed the permission prompt and a banner (RM2)"},
     "android": {"reach": "runOwed", "how": "NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications", "run": "the POST_NOTIFICATIONS question and a posted notification in scripts/android/browser-apis-test.mjs on the emulator"}
   },
   {
@@ -416,7 +416,7 @@
     "macos": {"reach": "runOwed", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions", "run": "the location prompt with the manifest reason on a Mac, checked by hand"},
     "windows": {"reach": "honored", "how": "the web view's navigator.geolocation and the Windows location service, granted by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's navigator.geolocation through GeoClue, which the host permits for the app's own pages (LX1 ran GeoClue 2.7 with a GPS fix and its agent)"},
-    "ios": {"reach": "runOwed", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions", "run": "the location prompt with the manifest reason on the iOS simulator, checked by hand"},
+    "ios": {"reach": "honored", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; the page got the simulated position on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "runOwed", "how": "the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient", "run": "the ACCESS_FINE_LOCATION question and a test-provider position in scripts/android/browser-apis-test.mjs on the emulator"}
   },
   {
@@ -426,7 +426,7 @@
     "macos": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on a Mac"},
     "windows": {"reach": "honored", "how": "the web view's localStorage, kept on disk across a relaunch (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
-    "ios": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on the iOS simulator"},
+    "ios": {"reach": "honored", "how": "the web view's localStorage, kept on disk; a value was read back after a terminate and relaunch on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on the emulator"}
   },
   {
@@ -456,7 +456,7 @@
     "macos": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the packaged macOS app on a Mac (ADR 0093)"},
     "windows": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093); a Python service answered inside WebView2 on a signed-in Windows desktop (SD1)"},
     "linux": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093)"},
-    "ios": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the iOS simulator gate (ADR 0093)"},
+    "ios": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093); a Python service answered the page on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the Android emulator gate (ADR 0093)"}
   },
   {
@@ -476,7 +476,7 @@
     "macos": {"reach": "runOwed", "how": "the build checks request hosts and the scheme handler's connect-src allows only them", "run": "a page fetch to an undeclared host refused in the macOS app"},
     "windows": {"reach": "honored", "how": "the build checks request hosts and the resource handler's connect-src allows only them; a page fetch to an undeclared host was refused and the host saw no request (SD1)"},
     "linux": {"reach": "honored", "how": "the build checks request hosts and the scheme handler's connect-src allows only them"},
-    "ios": {"reach": "runOwed", "how": "the build checks request hosts and the scheme handler's connect-src allows only them", "run": "a page fetch to an undeclared host refused on the iOS simulator"},
+    "ios": {"reach": "honored", "how": "the build checks request hosts and the scheme handler's connect-src allows only them; a page fetch to an undeclared host was refused on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "adapted", "note": "The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host."}
   },
   {
@@ -506,7 +506,7 @@
     "macos": {"reach": "runOwed", "how": "the same WebAssembly build in the web view", "run": "an ahead-of-time C# service in the macOS app on a Mac"},
     "windows": {"reach": "adapted", "note": "tac.dotnet.aot does not change C# services in the Windows app, because they are linked into the app as native code. F# services still compile ahead of time."},
     "linux": {"reach": "runOwed", "how": "the same WebAssembly build in the web view", "run": "an ahead-of-time C# service in the Linux app under Xvfb or on WSL"},
-    "ios": {"reach": "runOwed", "how": "the same WebAssembly build in the web view", "run": "an ahead-of-time C# service in the iOS simulator gate"},
+    "ios": {"reach": "honored", "how": "the same WebAssembly build in the web view; an ahead-of-time C# service answered the page on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "runOwed", "how": "the same WebAssembly build in the web view", "run": "an ahead-of-time C# service in the Android emulator gate"}
   },
   {
@@ -706,7 +706,7 @@
     "macos": {"reach": "runOwed", "how": "http, https and mailto links open in the default browser or mail app (NSWorkspace)", "run": "an http, https and mailto link from a page on a Mac"},
     "windows": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (ShellExecuteW), from a WebView2 page (SD1)"},
     "linux": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (GtkUriLauncher)"},
-    "ios": {"reach": "runOwed", "how": "http, https and mailto links open in the default browser or mail app (UIApplication)", "run": "an http, https and mailto link from a page on the iOS simulator"},
+    "ios": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (UIApplication); on the iOS 26.5 simulator http and https opened Safari, mailto went to the system, and links with a user name opened nothing (RM2)"},
     "android": {"reach": "runOwed", "how": "http, https and mailto links open in the default browser or mail app (ACTION_VIEW)", "run": "an http, https and mailto link from a page on the emulator"}
   },
   {
@@ -726,7 +726,7 @@
     "macos": {"reach": "runOwed", "how": "ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored", "run": "resigning and becoming the active app, hiding and minimizing on a Mac"},
     "windows": {"reach": "honored", "how": "ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored, heard by the page and linked Rust services (SD1)"},
     "linux": {"reach": "honored", "how": "ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again"},
-    "ios": {"reach": "runOwed", "how": "ApplicationStateChanged when the app enters the background and when it returns to the foreground", "run": "background and foreground on the iOS simulator"},
+    "ios": {"reach": "honored", "how": "ApplicationStateChanged when the app enters the background and when it returns to the foreground; the page and a linked Swift service heard both on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "runOwed", "how": "ApplicationStateChanged on onStop and onStart", "run": "onStop and onStart on the emulator"}
   },
   {
@@ -736,7 +736,7 @@
     "macos": {"reach": "honored", "how": "kept on disk by the web view"},
     "windows": {"reach": "honored", "how": "kept on disk by the web view: localStorage, IndexedDB and the Cache API survive a relaunch (SD1)"},
     "linux": {"reach": "honored", "how": "kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit"},
-    "ios": {"reach": "adapted", "note": "Store rows and LocalState values in the iOS app are kept on disk, but Cache API entries live only while the app runs, so a Cached method runs again after a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2)."},
+    "ios": {"reach": "honored", "how": "kept on disk by the web view; Store rows, LocalState values and Cache API entries were read back after a terminate and relaunch on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "adapted", "note": "Store rows and LocalState values in the Android app are kept on disk. A Cache API entry written shortly before the system stops the app is not always kept, so a Cached method may run again after a relaunch."}
   },
   {
@@ -756,7 +756,7 @@
     "macos": {"reach": "runOwed", "how": "the native host policy", "run": "a policy-violation probe in the macOS app"},
     "windows": {"reach": "honored", "how": "the native host policy; connect-src refused an undeclared host from a WebView2 page (SD1)"},
     "linux": {"reach": "honored", "how": "the native host policy"},
-    "ios": {"reach": "runOwed", "how": "the native host policy", "run": "a policy-violation probe on the iOS simulator"},
+    "ios": {"reach": "honored", "how": "the native host policy; connect-src refused an undeclared host on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "honored", "how": "the native host policy, which also allows the host's bridge script by its hash"}
   },
   {
@@ -826,7 +826,7 @@
     "macos": {"reach": "runOwed", "how": "the macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a --release .dmg differs between builds, because its secure timestamp and notarization ticket change", "run": "a_packaged_macos_app_is_byte_identical_when_built_twice on a Mac (TL2)"},
     "windows": {"reach": "honored", "how": "the Windows build compiles and links with /Brepro and keeps .obj files out of the output; two packaged builds give the same artifact-manifest.json digests"},
     "linux": {"reach": "honored", "how": "SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests"},
-    "ios": {"reach": "runOwed", "how": "the iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a signed --device or --release .ipa is never byte-identical", "run": "a_packaged_ios_app_is_byte_identical_when_built_twice on a Mac (TL2)"},
+    "ios": {"reach": "honored", "how": "the iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a signed --device or --release .ipa is never byte-identical. a_packaged_ios_app_is_byte_identical_when_built_twice passed on a Mac (RM2)"},
     "android": {"reach": "runOwed", "how": "the Android build turns on Gradle's reproducible archives and drops Gradle's build folders from the output; the debug APK is signed with the build machine's debug key, so it matches only on the same machine", "run": "a_packaged_android_app_is_byte_identical_when_built_twice with ANDROID_HOME (TL2)"}
   },
   {
