@@ -130,7 +130,7 @@ tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk across a relaunch (SD1)
 
 tac.nativeCapabilities
-  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services, and for Swift and Kotlin services, which run as WebAssembly on Windows and reach the dialog through the page; still to run: the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a page and a Swift and a Kotlin FilePicker field choosing a file from a WebView2 page on a signed-in Windows desktop
+  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services, and for Swift and Kotlin services, which run as WebAssembly on Windows and reach the dialog through the page; the MSVC build selected a file in the Windows dialog and closed an unanswered one (SD1); still to run: a page and a Swift and a Kotlin FilePicker field choosing a file from a WebView2 page on a signed-in Windows desktop
 
 tac.elements
   adapted: tac.elements are bundled into the Windows app for its own pages only. Other sites cannot load them from the app.

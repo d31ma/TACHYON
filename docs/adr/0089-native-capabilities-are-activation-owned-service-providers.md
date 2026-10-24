@@ -211,7 +211,12 @@ the file was selected and read back, and an unanswered dialog closed as
 `cancelled`. The whole generated host also passed a MinGW-w64 syntax check
 against the WebView2 1.0.3240.44 headers. The MSVC build and a run of the
 Windows dialog are `#[ignore]` tests for Windows. A picker opened from a
-WebView2 page needs a signed-in desktop (SD1).
+WebView2 page needs a signed-in desktop (SD1). On 2026-10-24 (SD1) the MSVC
+dialog run passed on the signed-in Windows 11 ARM64 desktop: the typed file
+was selected and read, and an unanswered dialog closed after its patience.
+That run found that a patience close landing while the dialog was still
+starting was ignored, so the host now repeats `IFileDialog::Close` every
+250 ms and posts Cancel to the dialog window until `Show` returns.
 
 ## Amendment (2026-10-19): the Linux host opens the GTK file dialog
 

@@ -245,9 +245,11 @@ code, built with MinGW-w64, ran under Wine 9.0 and Xvfb in an x86_64 cloud
 container: `windows_file_picker_tests` checked the whole contract with a
 test chooser and drove Wine's real dialog to select and read a file and to
 cancel an unanswered one. The generated host passed a MinGW-w64 syntax
-check against the WebView2 headers. The MSVC build and the Windows dialog
-run (`the_windows_file_picker_selects_a_file_in_the_windows_dialog`) and a
-picker opened from a WebView2 page on a signed-in desktop are still owed.
+check against the WebView2 headers. On 2026-10-24 (SD1) the MSVC build
+passed `the_windows_file_picker_selects_a_file_in_the_windows_dialog` on
+the signed-in Windows 11 ARM64 desktop: the typed file was selected and
+read, and an unanswered dialog closed after its patience. A picker opened
+from a WebView2 page on a signed-in desktop is still owed.
 
 On 2026-10-19 the Windows host started to build `"titleBar": "integrated"`
 (ADR 0098 amendment): the page reaches the top edge under the system caption
@@ -273,8 +275,8 @@ windows` built the integrated-title-bar docs example and a Yon Reach app
 with C# and Rust companions with integrated and standard title bars,
 printing the two Windows notes only when they applied. Launched from SSH,
 the integrated app started and recorded `bridge.unavailable`, as every
-WebView2 app does outside a signed-in desktop. The look and a drag ran in
-WebView2 on the signed-in desktop on 2026-10-24 (SD1, below).
+WebView2 app does outside a signed-in desktop. The look, Snap Layouts and a
+drag ran in WebView2 on the signed-in desktop on 2026-10-24 (SD1, below).
 
 On 2026-10-18 the Linux host started to open its window from the manifest
 too: the page at `tac.application.window` size and minimum size, a hex
@@ -426,7 +428,8 @@ MSVC 14.44 ARM64 tools, Windows SDK 10.0.26100.0, WebView2 SDK
   buttons to `WM_NCHITTEST` with no web view over them, and gave the page
   30px, 0px and 145px insets; a real click in the drag region reached the
   page, a `SendInput` drag moved the window, a double-click maximized and
-  restored it, and a right-click opened the window menu. The caption took the
+  restored it, a right-click opened the window menu, and hovering the
+  maximize button showed the Snap Layouts flyout. The caption took the
   `theme_color` (all 760 sampled caption pixels matched `#b03a2e`), the
   standard File, Edit and Window menus with the Edit commands, page window
   controls (a resize to 640 device-independent pixels, maximize, minimize,
@@ -463,6 +466,9 @@ MSVC 14.44 ARM64 tools, Windows SDK 10.0.26100.0, WebView2 SDK
   opened in the default browser and mail app;
 - an x64 build run under emulation on ARM64 (PE machine `0x8664`) rendered
   its page, and its `setTitle` reached the window;
+- `the_windows_file_picker_selects_a_file_in_the_windows_dialog` (FP1),
+  built with MSVC: the typed file was selected and read, and an unanswered
+  dialog closed after its patience;
 - the real-window title bar test, the WebView2 startup check with the
   current, an old and a missing runtime, the window frame and native
   controls tests, and
@@ -471,7 +477,10 @@ MSVC 14.44 ARM64 tools, Windows SDK 10.0.26100.0, WebView2 SDK
   (LS2) for `win-arm64`: both NativeAOT-published services read the same
   identity, and the shared setup ran once.
 
-The runs fixed four things. The title bar test now allows the DWM caption
+The runs fixed five things. An unanswered Windows file dialog whose
+patience ended while it was still starting ignored `IFileDialog::Close` and
+stayed open; the host now repeats the close and sends Cancel until the
+dialog returns. The title bar test now allows the DWM caption
 bounds to reach the window border (801 against a client edge of 800). The
 WebView2 startup check fixture no longer names its program `installed.exe`,
 which Windows treats as an installer that needs elevation (error 740). The
@@ -479,6 +488,12 @@ tray gate reads popup menu items through `MN_GETHMENU`, because UI
 Automation shows the tray menu empty. A menu or tray action that forwards
 an event with `CurrentPageEvents` now tells the page to read its fields
 again (see the CHANGELOG).
+
+Not run in SD1: a picker opened from a WebView2 page, a host link opening
+the installed package (no verified domain), x64 on an x64 machine, and the
+Wayland tests from the signed-in session under WSLg
+(`scripts/linux/compositor-test.sh --wslg`), because the WSL distribution's
+disk was read-only with I/O errors.
 
 ### Linux desktop stand-ins (2026-10-24, LX1)
 
@@ -693,7 +708,7 @@ This evidence does not promote any tier.
 | --- | --- | --- |
 | Linux WebKitGTK | yes: `GtkFileDialog`, or the desktop portal's chooser where one runs, for JavaScript, TypeScript and linked Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly and reach the dialog through the page (FP5) | `linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and drove the real dialog with XTest key presses under Xvfb in an x86_64 Ubuntu 24.04 cloud container on 2026-10-19: three runs through the portal's chooser (xdg-desktop-portal-gtk, xfwm4) and one each through GTK's own dialog with and without a window manager. It also passed on WSL Ubuntu 24.04 (aarch64, same GTK and WebKitGTK, Xvfb with xfwm4), once through each dialog; one earlier WSL run with a broken portal backend hit the 30-second dialog limit and answered `cancelled`, and its rerun passed. A page and a Rust service chose, read and released files; cancel, the second dialog, the handle and owner limits, the lifetime, another owner, a large and a non-UTF-8 file, the missing grant and a new page were checked. On 2026-10-24 (FP5) `scripts/linux/page-services-native-test.mjs` ran the packaged `native-capabilities` app with a Swift (6.3.3), a C# (.NET 10.0.302) and a Kotlin (2.1.10) WebAssembly service under Xvfb with xfwm4 in the same kind of container: each chose a file in GTK's dialog, read it, and answered `cancelled` after Escape. Not run: a Linux desktop, Wayland |
 | macOS WKWebView | yes: `NSOpenPanel`, also for C# and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | see ADR 0089 and its amendments. Owed: a C# and a Kotlin field choosing a file in the panel on a Mac |
-| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1), and for Swift and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | under Wine in the cloud only; see the Windows paragraph above. On 2026-10-24 the whole generated host, with the page route, compiled with MinGW against the WebView2 1.0.3240.44 headers and the Wine picker checks passed. Owed: the MSVC build, the Windows dialog run and a page, a Swift and a Kotlin picker from a WebView2 page on a signed-in desktop |
+| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1), and for Swift and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | under Wine in the cloud only; see the Windows paragraph above. On 2026-10-24 the whole generated host, with the page route, compiled with MinGW against the WebView2 1.0.3240.44 headers and the Wine picker checks passed. On 2026-10-24 the MSVC build selected a file in the Windows dialog and closed an unanswered one on the signed-in desktop (SD1). Owed: a page, a Swift and a Kotlin picker from a WebView2 page on a signed-in desktop |
 | iOS, Android | no: `unsupported` (FP4, FP2) | see the per-target support table |
 
 ### Window settings on iOS and Android (2026-10-19, WIN5)

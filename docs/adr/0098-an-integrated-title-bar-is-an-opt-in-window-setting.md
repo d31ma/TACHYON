@@ -315,7 +315,8 @@ buttons and no web view covered them, the page read a 30px title bar height
 and 0px and 145px insets at 96 DPI, a real click in the drag region reached
 the page, a `SendInput` drag moved the window by (120, 60), a double-click
 maximized and restored it, and a right-click opened the window menu with the
-File, Edit and Window menus. UI Automation shows no TitleBar element for the
+File, Edit and Window menus. Hovering the maximize button showed the Windows
+11 Snap Layouts flyout. UI Automation shows no TitleBar element for the
 integrated window.
 
 ## Amendment (2026-10-19): iOS and Android
