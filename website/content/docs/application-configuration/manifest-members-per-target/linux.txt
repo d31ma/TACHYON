@@ -121,10 +121,10 @@ tac.browserApis share
   adapted: Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard.
 
 tac.browserApis notifications
-  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A run with a desktop notification server is still owed.
+  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container (LX1).
 
 tac.browserApis geolocation
-  run owed: the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages; still to run: GeoClue on WSL or a Linux desktop; the Xvfb run used a WebKit test position
+  honored: the web view's navigator.geolocation through GeoClue, which the host permits for the app's own pages (LX1 ran GeoClue 2.7 with a GPS fix and its agent)
 
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk
@@ -145,7 +145,7 @@ tac.outgoing
   honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
 tac.yon
-  honored: the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb)
+  honored: the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb and headless Wayland)
 
 tac.go
   honored: the same Go WebAssembly build in the web view

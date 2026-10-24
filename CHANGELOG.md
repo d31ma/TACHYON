@@ -20,6 +20,13 @@ machine contracts have their own, independent major versions.
   services. Companion runs in the cloud cover all three languages; the app
   runs on macOS, iOS, Android and Windows are owed (ADR 0058 and 0060
   amendments).
+- Linux desktop stand-in runs (LX1). `scripts/linux/desktop-services-test.sh`
+  runs the browser API host test against GeoClue (a GPS fix from an NMEA
+  socket, on a private system bus) and the dunst notification server, so the
+  Linux `geolocation` cell is now honored. `TAC_LINUX_DISPLAY=wayland` runs
+  the Linux Yon reach test in a headless mutter Wayland session, and
+  `scripts/linux/deb-install-test.sh` installs the release `.deb` as root,
+  starts it and purges it (ADR 0065, 0103 and 0104 amendments).
 - iOS and Android apps now read the window members of `client/manifest.json`
   (WIN5). A hex `theme_color` fills the area behind the iOS status bar and
   the Android status and navigation bars, with readable bar text. A hex
