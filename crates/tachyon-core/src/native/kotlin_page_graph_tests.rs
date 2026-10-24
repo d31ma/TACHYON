@@ -352,7 +352,9 @@ impl KotlinListenerCheck {
 data class Ping(val step: Int)
 
 object Steps {
-    suspend fun of(ping: Ping): Int = ping.step
+    suspend fun of(ping: Ping): Int = kotlin.coroutines.suspendCoroutine { continuation ->
+        Thread { Thread.sleep(50); continuation.resumeWith(Result.success(ping.step)) }.start()
+    }
 }
 
 fun heardAsk(op: String, extra: String = ""): String =

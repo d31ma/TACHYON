@@ -6,7 +6,7 @@ private fun tacBeginTask(activation: TacActivation, task: TacTask, arguments: Li
     val finished = TacFinishedTask()
     val work: suspend () -> Any? = { task.invoke(arguments) }
     work.startCoroutine(finished)
-    return finished.answer ?: TacFinishedTask.WAITING
+    return finished.awaited()
 }
 
 @Suppress("UNUSED_PARAMETER")
@@ -14,15 +14,18 @@ private fun tacCancelTasks(owner: String?) {}
 
 private class TacFinishedTask : kotlin.coroutines.Continuation<Any?> {
     override val context: kotlin.coroutines.CoroutineContext = kotlin.coroutines.EmptyCoroutineContext
-    var answer: String? = null
+    private val finished = java.util.concurrent.CountDownLatch(1)
+    @Volatile
+    private var answer: String = ""
 
     override fun resumeWith(result: Result<Any?>) {
         answer = result.fold({ "{\"value\":${tacEncode(tacPlain(it))}}" }, { tacFailureAnswer(it) })
+        finished.countDown()
     }
 
-    companion object {
-        const val WAITING =
-            "{\"error\":\"This suspend method waits for the browser, and this native service runs without one.\",\"code\":\"HTTP_MISSING\"}"
+    fun awaited(): String {
+        finished.await()
+        return answer
     }
 }
 

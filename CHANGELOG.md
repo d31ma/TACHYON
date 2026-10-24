@@ -53,6 +53,13 @@ machine contracts have their own, independent major versions.
   honored. iOS keeps Cache API entries across a relaunch, so `tac.cache` and
   stored data on iOS are no longer adapted, and `scripts/ios/native-test.mjs`
   now requires `cache=kept` (ADR 0059 and 0087 amendments).
+- `scripts/native/async-listener-app-test.mjs` builds an app whose linked
+  service has an async `@OnEvent` listener and a plain one, clicks twice and
+  checks that the page shows the async listener's change first, that each
+  click waited for it and that it ran in the app's process: Swift on macOS
+  and the iOS simulator, Kotlin on the Android emulator (LS3 host runs).
+  `scripts/windows/async-listener-native-test.mjs` does the same with a C#
+  listener in the Windows app, on the signed-in desktop.
 - `@OnEvent` listeners may be async in Kotlin (`suspend`), C# (`Task` or
   `ValueTask`) and F# (`Task<unit>`, `ValueTask` or `Async<unit>`), in the
   browser and in native apps, and Swift and Rust listeners may now be async
@@ -1822,6 +1829,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A linked Kotlin `suspend` method or `@OnEvent` listener on Android that
+  really suspends, for example one resumed from another thread, now holds
+  the call until it resumes, as Swift does (LS3 host runs). Before, the call
+  answered `HTTP_MISSING` at once, a listener counted as a failed event
+  delivery, and its work finished later with no render, so the page showed
+  the next listener's change first.
 - `scripts/supervised-command.mjs` asks `ps` again, up to three times, when
   it answers with an empty process table and exit 0, which happened on a
   busy Mac and stopped the Android Yon reach gate with "Process identity
