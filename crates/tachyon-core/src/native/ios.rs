@@ -994,7 +994,7 @@ mod tests {
         let start = source
             .split("func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {")
             .nth(1)
-            .expect("scheme handler");
+            .unwrap_or_default();
         assert!(
             start.starts_with("\n        if IosCapabilityRoute.start(webView, task) { return }")
         );
