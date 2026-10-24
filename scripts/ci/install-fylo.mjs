@@ -11,6 +11,7 @@ class FyloRelease {
     'darwin-arm64': ['fylo-macos-arm64', '2c78f91130863ad797cf7a6062aa1245fa638857fee63b8671fa9e2748974fa3'],
     'darwin-x64': ['fylo-macos-x64', '551e72291a7085536f5de360807dbe93a149826f2c0e6bbd7fe56b2e34abc545'],
     'win32-x64': ['fylo-windows-x64.exe', 'd57a612d5abb770bc3e228a08b6a628341364b19fe8c62a6418bbb178ef41f34'],
+    'win32-arm64': ['fylo-windows-x64.exe', 'd57a612d5abb770bc3e228a08b6a628341364b19fe8c62a6418bbb178ef41f34'],
   };
 }
 

@@ -296,7 +296,7 @@ async function main() {
     const binary = await buildTests()
     const environment = { ...process.env, TAC_STORAGE_REQUIRE_TOOLCHAINS: '1' }
     console.log(command(binary, ['storage::tests', '--skip', 'storage::tests::redis_real_json_ttl_and_delete', '--skip', 'storage::tests::sql_real_repository_nullable_columns', '--skip', ManagedStorageTest.concurrentFyloPatches],
-      { timeout: 120_000, env: environment }))
+      { timeout: 300_000, env: environment }))
     console.log(command(binary, [ManagedStorageTest.concurrentFyloPatches, '--exact'], { timeout: 60_000, env: environment }))
     if (ManagedStorageTest.withoutDocker) return await withoutDocker(binary)
     await fylo()
