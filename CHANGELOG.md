@@ -18,6 +18,14 @@ machine contracts have their own, independent major versions.
   two-service fixture roughly halves (Swift 136 to 69 KB, Kotlin 105 to
   54 KB, C# 170 to 87 KB). The Kotlin required-props constructor is now
   `internal` (ADR 0022 amendment).
+- Swift, C# and Kotlin `FilePicker` fields now open the desktop app's
+  picker where the service runs as WebAssembly (FP5): C# and Kotlin on
+  macOS, Swift and Kotlin on Windows, and all three on Linux. Before, they
+  answered `unsupported`. The page sends each call to the host as a
+  synchronous request on the app's own origin, and the host answers once
+  the dialog closes. Linux runs in the cloud chose, read and cancelled for
+  all three languages; the macOS panel and the WebView2 runs are owed
+  (ADR 0089 amendment).
 - Natively linked Swift, Kotlin and C# services hold `@StreamRequest` and
   `@SocketRequest` clients (LS1). The page holds the connection on
   `tac.yon.origin`, delivers each message to the service's `@OnEvent`
@@ -210,8 +218,8 @@ machine contracts have their own, independent major versions.
   macOS rules: the grant, one dialog at a time that closes after 30
   seconds, 128 handles and 8 per owner, a 300-second lifetime, 64 KiB
   UTF-8 `readText`, and release with the owner, a new page and shutdown.
-  Swift, C# and Kotlin services still run as WebAssembly on Linux and
-  answer `unsupported` (FP5).
+  Swift, C# and Kotlin services run as WebAssembly on Linux and reach the
+  same dialog through the page (FP5).
 - The per-target support table has two more states (ADR 0102 amendment).
   `run owed` means a target supports a member in code, but the run that
   proves it there has not happened; the table names that run, and a build
@@ -1763,6 +1771,9 @@ machine contracts have their own, independent major versions.
 - `ty doctor .` stopped with `TY2101` in a project with services; the
   project folder is now read by its canonical path.
 
+- A C# `FilePicker.Open` with type filters no longer fails with "Native
+  companion operation failed". Adding a string to a `JsonArray` needed
+  reflection that trimmed .NET removes; it now adds a `JsonValue` (FP5).
 - A Rust Yon handler that fails to compile names the model file at fault
   again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
   Tachyon now builds handlers with plain cargo output.

@@ -227,5 +227,8 @@ fn the_page_runtime_answers_file_picker_calls_from_the_page_and_from_webassembly
         "{printed}{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(printed.contains("native FilePicker page route:"), "{printed}");
+    assert!(
+        printed.contains("native FilePicker page route:"),
+        "{printed}"
+    );
 }

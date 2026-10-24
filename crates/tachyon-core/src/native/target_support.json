@@ -433,9 +433,9 @@
     "member": "tac.nativeCapabilities",
     "paths": ["tac.nativeCapabilities"],
     "web": {"reach": "notApplicable", "note": "tac.nativeCapabilities is read only by native builds. In a browser, FilePicker answers unsupported."},
-    "macos": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker opens the system file panel on macOS for page, Swift and Rust services. A FilePicker field in a C# or Kotlin service answers unsupported (FP5)."},
-    "windows": {"reach": "runOwed", "how": "filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services; a FilePicker field in a Swift or Kotlin service runs as WebAssembly there and answers unsupported (FP5)", "run": "the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a picker opened from a WebView2 page on a signed-in Windows desktop"},
-    "linux": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker opens the GTK file dialog, or the desktop portal's chooser where one runs, on Linux for page and Rust services. A FilePicker field in a Swift, C# or Kotlin service runs as WebAssembly there and answers unsupported (FP5)."},
+    "macos": {"reach": "runOwed", "how": "filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page", "run": "a C# and a Kotlin FilePicker field choosing a file in the macOS panel on a Mac"},
+    "windows": {"reach": "runOwed", "how": "filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services, and for Swift and Kotlin services, which run as WebAssembly on Windows and reach the dialog through the page", "run": "the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a page and a Swift and a Kotlin FilePicker field choosing a file from a WebView2 page on a signed-in Windows desktop"},
+    "linux": {"reach": "honored", "how": "filePicker opens the GTK file dialog, or the desktop portal's chooser where one runs, for page and Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly on Linux and reach the dialog through the page"},
     "ios": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4)."},
     "android": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for Android yet. FilePicker answers unsupported (FP2)."}
   },

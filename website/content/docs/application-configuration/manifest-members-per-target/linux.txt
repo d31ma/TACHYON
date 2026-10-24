@@ -130,7 +130,7 @@ tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk
 
 tac.nativeCapabilities
-  adapted: tac.nativeCapabilities filePicker opens the GTK file dialog, or the desktop portal's chooser where one runs, on Linux for page and Rust services. A FilePicker field in a Swift, C# or Kotlin service runs as WebAssembly there and answers unsupported (FP5).
+  honored: filePicker opens the GTK file dialog, or the desktop portal's chooser where one runs, for page and Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly on Linux and reach the dialog through the page
 
 tac.elements
   adapted: tac.elements are bundled into the Linux app for its own pages only. Other sites cannot load them from the app.

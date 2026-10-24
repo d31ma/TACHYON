@@ -791,7 +791,10 @@ pub(super) fn c_source(
             ("__PACKAGE_DATA__", WindowsHostGenerator::PACKAGE_DATA),
             ("__FILE_PICKER__", &file_picker),
             ("__PAGE_MESSAGES__", WindowsHostGenerator::PAGE_MESSAGES),
-            ("__CAPABILITY_ROUTE__", WindowsHostGenerator::CAPABILITY_ROUTE),
+            (
+                "__CAPABILITY_ROUTE__",
+                WindowsHostGenerator::CAPABILITY_ROUTE,
+            ),
             ("__NATIVE_GRANTS__", &grants),
             (
                 "__WINDOWS_DEEP_LINKS__",

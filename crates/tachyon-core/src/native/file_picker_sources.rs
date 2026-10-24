@@ -4,7 +4,8 @@ impl FilePickerSources {
     const CSHARP_UNSUPPORTED: &'static str = r#"Call = (_, _) => "{\"status\":\"unsupported\"}";"#;
     const CSHARP_PAGE: &'static str = "Call = PageCapabilityTransport.Send;";
     const KOTLIN_UNSUPPORTED: &'static str = r#"= { _, _ -> "{\"status\":\"unsupported\"}" }"#;
-    const KOTLIN_PAGE: &'static str = "= { capability, request -> PageCapabilityTransport.send(capability, request) }";
+    const KOTLIN_PAGE: &'static str =
+        "= { capability, request -> PageCapabilityTransport.send(capability, request) }";
 
     pub(super) fn csharp() -> &'static str {
         concat!(
@@ -65,7 +66,9 @@ mod tests {
     #[test]
     fn page_services_send_file_picker_calls_to_the_page_and_linked_services_keep_their_transport() {
         let csharp = FilePickerSources::csharp_page();
-        assert!(csharp.contains("Func<string, string, string> Call = PageCapabilityTransport.Send;"));
+        assert!(
+            csharp.contains("Func<string, string, string> Call = PageCapabilityTransport.Send;")
+        );
         assert!(csharp.contains("internal static class PageCapabilityTransport"));
         assert!(FilePickerSources::csharp().contains(FilePickerSources::CSHARP_UNSUPPORTED));
         assert!(!FilePickerSources::csharp_native().contains("PageCapabilityTransport"));

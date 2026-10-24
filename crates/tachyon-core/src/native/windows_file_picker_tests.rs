@@ -194,7 +194,11 @@ fn the_windows_host_answers_webassembly_pickers_through_the_page_route() {
     );
     assert!(resource.contains("BOOL routed = tachyon_capability_route(request, arguments, text);"));
     let route = WindowsFilePickerTests::section(&source, "static BOOL tachyon_capability_route(");
-    assert!(route.contains("ICoreWebView2WebResourceRequestedEventArgs_GetDeferral(arguments, &deferral)"));
+    assert!(
+        route.contains(
+            "ICoreWebView2WebResourceRequestedEventArgs_GetDeferral(arguments, &deferral)"
+        )
+    );
     assert!(route.contains("PostMessageW(g_window, TACHYON_WM_CAPABILITY, 0, 0);"));
     assert!(!route.contains("tachyon_native_capability("));
     let allowed =
@@ -215,7 +219,9 @@ fn the_windows_host_answers_webassembly_pickers_through_the_page_route() {
     assert!(procedure.contains(
         "    case TACHYON_WM_CAPABILITY:\n      tachyon_capability_route_run();\n      return 0;"
     ));
-    assert!(source.contains("#define TACHYON_CAPABILITY_ROUTE \"https://tachyon.local/__tachyon/capability/\""));
+    assert!(source.contains(
+        "#define TACHYON_CAPABILITY_ROUTE \"https://tachyon.local/__tachyon/capability/\""
+    ));
     assert!(!source.contains("__CAPABILITY_ROUTE__"));
 }
 
