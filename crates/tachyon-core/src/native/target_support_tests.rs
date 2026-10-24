@@ -275,12 +275,16 @@ fn a_declared_member_with_an_owed_run_names_that_run_once() {
             let platform = TargetSupport::platform(target);
             let owed: Vec<&String> = notes
                 .iter()
-                .filter(|note| note.starts_with(&format!("Note: {member} is supported on {platform}, but")))
+                .filter(|note| {
+                    note.starts_with(&format!("Note: {member} is supported on {platform}, but"))
+                })
                 .collect();
             match entry.reach(target).owed_run() {
                 Some(run) => assert_eq!(
                     owed,
-                    [&format!("Note: {member} is supported on {platform}, but this run is still owed: {run}.")],
+                    [&format!(
+                        "Note: {member} is supported on {platform}, but this run is still owed: {run}."
+                    )],
                     "{notes:?}"
                 ),
                 None => assert!(owed.is_empty(), "{notes:?}"),
