@@ -263,20 +263,30 @@ fn an_honored_entry_never_hides_a_run_that_is_still_owed() {
 #[test]
 fn a_declared_member_with_an_owed_run_names_that_run_once() {
     let manifest = json!({"tac": {"python": {"packages": ["numpy"]}, "yon": {"origin": "https://api.example.com"}}});
-    let windows = TargetSupportTests::notes(&manifest, AppTarget::Windows);
-    assert!(
-        windows.contains(&String::from(
-            "Note: tac.python is supported on Windows, but this run is still owed: a Python service inside WebView2 on a signed-in Windows desktop (ADR 0093)."
-        )),
-        "{windows:?}"
-    );
-    assert!(
-        windows.iter().any(
-            |note| note.starts_with("Note: tac.yon is supported on Windows")
-                && note.contains("yon-reach.ps1")
-        ),
-        "{windows:?}"
-    );
+    let table = TargetSupport::load().expect("table");
+    for target in TargetSupportTests::TARGETS {
+        let notes = TargetSupportTests::notes(&manifest, target);
+        for member in ["tac.python", "tac.yon"] {
+            let entry = table
+                .entries()
+                .iter()
+                .find(|entry| entry.member() == member)
+                .expect("declared member");
+            let platform = TargetSupport::platform(target);
+            let owed: Vec<&String> = notes
+                .iter()
+                .filter(|note| note.starts_with(&format!("Note: {member} is supported on {platform}, but")))
+                .collect();
+            match entry.reach(target).owed_run() {
+                Some(run) => assert_eq!(
+                    owed,
+                    [&format!("Note: {member} is supported on {platform}, but this run is still owed: {run}.")],
+                    "{notes:?}"
+                ),
+                None => assert!(owed.is_empty(), "{notes:?}"),
+            }
+        }
+    }
     let web = TargetSupportTests::notes(&manifest, AppTarget::Web);
     assert!(
         web.iter().all(|note| !note.contains("still owed")),
