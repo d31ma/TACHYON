@@ -238,7 +238,7 @@ static void queue(void) {
 
 static BOOL CALLBACK dialog_window(HWND window, LPARAM found) {
   wchar_t name[16];
-  if (GetWindow(window, GW_OWNER) == g_window && GetClassNameW(window, name, 16) && wcscmp(name, L"#32770") == 0) {
+  if (GetWindow(window, GW_OWNER) == g_window && IsWindowVisible(window) && GetClassNameW(window, name, 16) && wcscmp(name, L"#32770") == 0) {
     *(HWND *)found = window;
     return FALSE;
   }
@@ -255,23 +255,22 @@ static BOOL CALLBACK file_name_box(HWND window, LPARAM found) {
   return TRUE;
 }
 
+static volatile LONG g_dialog_answered = 0;
+
 static DWORD WINAPI choose_in_dialog(void *path) {
-  BOOL typed = FALSE;
-  for (int attempt = 0; attempt < 600; attempt++) {
+  for (int attempt = 0; attempt < 900 && !g_dialog_answered; attempt++) {
     HWND dialog = NULL, box = NULL;
     EnumWindows(dialog_window, (LPARAM)&dialog);
-    if (dialog == NULL && typed) return 0;
     if (dialog != NULL) EnumChildWindows(dialog, file_name_box, (LPARAM)&box);
     if (box != NULL) {
       SendMessageW(box, WM_SETTEXT, 0, (LPARAM)path);
       PostMessageW(dialog, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED), (LPARAM)GetDlgItem(dialog, IDOK));
-      typed = TRUE;
       Sleep(1000);
       continue;
     }
     Sleep(100);
   }
-  return 1;
+  return g_dialog_answered ? 0 : 1;
 }
 
 static void dialog(const wchar_t *folder) {
@@ -282,6 +281,7 @@ static void dialog(const wchar_t *folder) {
   g_file_picker_clock = tachyon_file_picker_tick;
   HANDLE helper = CreateThread(NULL, 0, choose_in_dialog, path, 0, NULL);
   char *answer = call("open", OWNER, ",\"types\":[\"text/plain\"]");
+  InterlockedExchange(&g_dialog_answered, 1);
   WaitForSingleObject(helper, INFINITE);
   CloseHandle(helper);
   const char *at = answer != NULL ? strstr(answer, "\"handle\":\"") : NULL;
