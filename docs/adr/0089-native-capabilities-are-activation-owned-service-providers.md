@@ -354,3 +354,11 @@ C# service each opened the dialog, read the chosen file and answered
 `WebResourceRequested` handler receives the synchronous request with its
 body. Swift on Windows was not built there, because that machine has no
 Swift toolchain.
+
+On develop `0727eb7e`, `scripts/linux/page-services-native-test.mjs` also
+passed on WSL Ubuntu 24.04.5 (aarch64, GTK 4.14.5, WebKitGTK 2.52.6, Xvfb
+with xfwm4): the Swift (6.3.3), C# (.NET 9.0.317) and Kotlin (2.1.10)
+WebAssembly services each chose, read and cancelled through GTK's dialog.
+It ran with `GIO_USE_VFS=local` and `GIO_USE_VOLUME_MONITOR=unix`, because
+GVfs there waited 25 seconds for UDisks2 and the first run's dialog reached
+the 30-second limit and answered `cancelled`.
