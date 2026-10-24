@@ -1045,9 +1045,13 @@ fixture's `yon.cpp` and builds a migrated handler with `clang++`.
   exits with a failure or writes something else than one JSON object
   answers 502 with `{"error":"Component invocation failed."}` and writes a
   `handler.relay_failed` line with the category to standard error.
-- Windows has no `posix_spawn`, so there a C++ relay answers that fixed 502
-  with the category `start`. A project that relays on Windows writes the
-  relaying controller in another Yon language.
+- On Windows the program starts with `CreateProcessW`, suspended, inside a
+  job object that kills it and its children on a timeout, and an explicit
+  handle list passes it only its three standard pipes. Its arguments are
+  quoted by the `CommandLineToArgvW` rules, so an argument keeps its spaces
+  and quotes. The program reads and writes binary standard streams there
+  too. (Amended in WG1: Windows relays used to answer the fixed 502 with
+  the category `start`.)
 
 ### Answers
 

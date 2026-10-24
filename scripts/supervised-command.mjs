@@ -13,6 +13,9 @@ export class SupervisedCommand {
   static pollMilliseconds = 50
   static inspectionMilliseconds = 1000
   static processTableBytes = 4 * 1024 * 1024
+  static windows = process.platform === 'win32'
+  static windowsInspectionMilliseconds = 30_000
+  static windowsProcessQuery = "Get-CimInstance Win32_Process | Where-Object CreationDate | ForEach-Object { '{0} {1} {2}' -f $_.ProcessId, $_.ParentProcessId, $_.CreationDate.ToFileTimeUtc() }"
 
   /** @param {CommandOptions} options */
   constructor(options) {
@@ -69,7 +72,7 @@ export class SupervisedCommand {
   }
 
   #validate() {
-    if (!['darwin', 'linux'].includes(process.platform)) throw new Error(`Verified process cleanup is unsupported on ${process.platform}; command was not started`)
+    if (!['darwin', 'linux', 'win32'].includes(process.platform)) throw new Error(`Verified process cleanup is unsupported on ${process.platform}; command was not started`)
     for (const value of [this.timeoutMilliseconds, this.terminationMilliseconds, this.cleanupMilliseconds, this.maxBuffer]) {
       if (!Number.isSafeInteger(value) || value < 1) throw new Error('Command limits must be positive safe integers')
     }
@@ -80,7 +83,7 @@ export class SupervisedCommand {
     this.#validate()
     this.baseline = await this.#snapshot()
     if (Date.now() - this.started >= this.timeoutMilliseconds) throw new Error('Command family deadline exceeded before launch; command was not started')
-    this.child = spawn(binary, args, { cwd: this.options.cwd, env: this.options.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
+    this.child = spawn(binary, args, { cwd: this.options.cwd, env: this.options.env, detached: !SupervisedCommand.windows, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     this.child.stdout.on('data', chunk => this.#output('stdout', chunk))
     this.child.stderr.on('data', chunk => this.#output('stderr', chunk))
     this.child.once('error', error => this.#fail(error))
@@ -122,16 +125,50 @@ export class SupervisedCommand {
 
   /** @returns {Promise<Map<number, ProcessIdentity>>} */
   async #snapshot() {
-    const text = await /** @type {Promise<string>} */ (new Promise((resolve, reject) => {
-      execFile('ps', ['-axo', 'pid=,ppid=,pgid=,lstart=,stat='], {
-        encoding: 'utf8', timeout: SupervisedCommand.inspectionMilliseconds, maxBuffer: SupervisedCommand.processTableBytes,
+    if (SupervisedCommand.windows) {
+      const query = ['-NoProfile', '-NonInteractive', '-Command', SupervisedCommand.windowsProcessQuery]
+      return this.#parseWindowsSnapshot(await this.#inspect('powershell.exe', query, SupervisedCommand.windowsInspectionMilliseconds))
+    }
+    const text = await this.#inspect('ps', ['-axo', 'pid=,ppid=,pgid=,lstart=,stat='], SupervisedCommand.inspectionMilliseconds)
+    return this.#withKernelStartTimes(this.#parseSnapshot(text))
+  }
+
+  /** @param {string} program @param {string[]} args @param {number} timeout @returns {Promise<string>} */
+  #inspect(program, args, timeout) {
+    return new Promise((resolve, reject) => {
+      execFile(program, args, {
+        encoding: 'utf8', timeout, maxBuffer: SupervisedCommand.processTableBytes, windowsHide: true,
         env: { ...process.env, LC_ALL: 'C' },
       }, (error, stdout) => {
         if (error) reject(new Error(`Process identity inspection failed: ${error.message}`))
         else resolve(stdout)
       })
-    }))
-    return this.#withKernelStartTimes(this.#parseSnapshot(text))
+    })
+  }
+
+  /**
+   * Windows has no process groups or zombies, so each process is its own group, always running,
+   * and its creation time (a FILETIME) tells a reused process ID apart.
+   * @param {string} text
+   */
+  #parseWindowsSnapshot(text) {
+    /** @type {Map<number, ProcessIdentity>} */
+    const table = new Map()
+    for (const line of text.trim().split(/\r?\n/)) {
+      const match = line.trim().match(/^(\d+) (\d+) (\d+)$/)
+      if (!match) throw new Error('Process identity inspection returned an unsupported record')
+      table.set(Number(match[1]), { pid: Number(match[1]), parent: Number(match[2]), group: Number(match[1]), started: match[3], state: 'R' })
+    }
+    return table
+  }
+
+  /**
+   * A Windows process keeps its parent's ID after the parent exits, so a child must also be
+   * younger than the parent it names.
+   * @param {ProcessIdentity} identity @param {ProcessIdentity} parent
+   */
+  #youngerThan(identity, parent) {
+    return !SupervisedCommand.windows || BigInt(identity.started) >= BigInt(parent.started)
   }
 
   /** @param {Map<number, ProcessIdentity>} table */
@@ -199,7 +236,7 @@ export class SupervisedCommand {
       for (const identity of table.values()) {
         if (this.owned.has(identity.pid)) continue
         const parent = this.owned.get(identity.parent)
-        if (!parent || !this.#sameProcess(parent, table.get(parent.pid))) continue
+        if (!parent || !this.#sameProcess(parent, table.get(parent.pid)) || !this.#youngerThan(identity, parent)) continue
         if (this.#sameProcess(identity, this.baseline.get(identity.pid))) throw new Error('Descendant is a pre-existing process; cleanup refused')
         this.#remember(identity)
         added = true
@@ -241,10 +278,10 @@ export class SupervisedCommand {
     this.#rememberGroup(table)
     this.#rememberDescendants(table)
     const live = this.#live(table)
-    const group = live.filter(identity => table.get(identity.pid)?.group === this.child?.pid)
-    if (group.length > 0 && this.child?.pid) this.#send(-this.child.pid, signal)
+    const grouped = live.filter(identity => !SupervisedCommand.windows && table.get(identity.pid)?.group === this.child?.pid)
+    if (grouped.length > 0 && this.child?.pid) this.#send(-this.child.pid, signal)
     for (const identity of live) {
-      if (table.get(identity.pid)?.group === this.child?.pid) continue
+      if (grouped.includes(identity)) continue
       const current = await this.#snapshot()
       if (this.#sameProcess(identity, current.get(identity.pid))) this.#send(identity.pid, signal)
     }

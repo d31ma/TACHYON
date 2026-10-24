@@ -27,7 +27,10 @@ process directly.
 
 Handler Protocol v1 uses:
 
-- a four-byte unsigned big-endian frame length;
+- a four-byte unsigned big-endian frame length. A Lua handler's frames carry
+  the length as eight lowercase hex digits instead, because Lua cannot put
+  its standard streams in binary mode, and Windows text mode would rewrite a
+  binary length's 0x0A, 0x0D and 0x1A bytes. Amended in WG1.
 - one UTF-8 JSON envelope per frame;
 - a maximum frame of 16 MiB, unless a future protocol version negotiates
   another limit;

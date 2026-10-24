@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process'
-import { createServer } from 'node:net'
+import { connect, createServer } from 'node:net'
 import { mkdtemp, mkdir, writeFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -27,6 +27,11 @@ class ManagedStorageTest {
   static scratchRoot = resolve(process.env.TAC_STORAGE_TEST_ROOT || tmpdir())
   static scratch = null
   static withoutDocker = process.argv.includes('--without-docker')
+  // Redis ships no Windows build, so Windows runners prove the Redis contract against Garnet.
+  static redisServers = [
+    { name: 'redis-server', program: 'redis-server', args: port => ['--port', String(port), '--bind', '127.0.0.1', '--save', '', '--appendonly', 'no'] },
+    { name: 'Garnet', program: process.env.TAC_GARNET_SERVER || 'garnet-server', args: port => ['--port', String(port), '--bind', '127.0.0.1'] },
+  ]
 }
 
 await mkdir(ManagedStorageTest.scratchRoot, { recursive: true })
@@ -117,10 +122,6 @@ async function fylo() {
   ]
   const project = join(ManagedStorageTest.scratch, 'fylo-app')
   await writeFyloProject(project, fyloRoot)
-  if (process.platform === 'win32') {
-    console.log('FYLO server phase not run on Windows: the shared supervised runner verifies process cleanup only on macOS and Linux.')
-    return
-  }
   const cli = await buildCli()
   await withServer(cli, ['preview', project, '--host', '127.0.0.1', '--port', '0'], async request => {
     const response = await request('/products')
@@ -232,21 +233,33 @@ async function freePort() {
   return port
 }
 
+function pong(port) {
+  return new Promise(resolve => {
+    const socket = connect({ host: '127.0.0.1', port }, () => socket.write('PING\r\n'))
+    socket.setTimeout(1000, () => socket.destroy())
+    socket.once('data', data => { socket.destroy(); resolve(data.toString().startsWith('+PONG')) })
+    socket.once('error', () => resolve(false))
+    socket.once('close', () => resolve(false))
+  })
+}
+
 async function localRedis(binary) {
-  if (spawnSync('redis-server', ['--version']).status !== 0) {
-    console.log('Redis: no redis-server on this runner, so the Redis contract does not run here.')
+  const local = ManagedStorageTest.redisServers.find(server => spawnSync(server.program, ['--version'], { timeout: 30_000 }).status === 0)
+  if (!local) {
+    console.log('Redis: no redis-server or garnet-server on this runner, so the Redis contract does not run here.')
     return false
   }
   const port = await freePort()
-  const server = spawn('redis-server', ['--port', String(port), '--bind', '127.0.0.1', '--save', '', '--appendonly', 'no'], { stdio: 'ignore' })
+  const server = spawn(local.program, local.args(port), { stdio: 'ignore', windowsHide: true })
   try {
     const deadline = Date.now() + 30_000
-    while (spawnSync('redis-cli', ['-p', String(port), 'ping'], { encoding: 'utf8' }).stdout?.trim() !== 'PONG') {
-      if (Date.now() > deadline) throw new Error('The local redis-server did not answer PING within 30 seconds.')
+    while (!(await pong(port))) {
+      if (Date.now() > deadline) throw new Error(`The local ${local.name} did not answer PING within 30 seconds.`)
       await delay(250)
     }
     const environment = { ...process.env, YON_TEST_REDIS_URL: `redis://127.0.0.1:${port}` }
     console.log(command(binary, ['storage::tests::redis_real_json_ttl_and_delete', '--exact', '--ignored'], { env: environment, timeout: 60_000 }))
+    console.log(`Redis contract passed against ${local.name}.`)
     return true
   } finally {
     server.kill()

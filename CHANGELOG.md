@@ -1813,6 +1813,23 @@ machine contracts have their own, independent major versions.
 - A C# `FilePicker.Open` with type filters no longer fails with "Native
   companion operation failed". Adding a string to a `JsonArray` needed
   reflection that trimmed .NET removes; it now adds a `JsonValue` (FP5).
+
+- Windows (WG1):
+  - A Lua handler no longer breaks on a frame whose length holds a 0x0A, 0x0D or
+    0x1A byte. Windows text mode rewrote those bytes in the binary length, so
+    Lua frames now carry an eight-hex-digit length on every platform (ADR 0003
+    amendment).
+  - A C++ relay now starts its program on Windows instead of answering 502
+    `start`. It runs in a kill-on-timeout job object and passes on only its
+    three standard pipes (ADR 0099 amendment).
+  - C++ handlers use binary standard streams.
+  - `ty test` compiles Kotlin units through the Kotlin launcher on Windows.
+  - A Groovy found through a launcher script resolves its home without a
+    `\\?\` path prefix.
+  - The FYLO route phase of `scripts/test-managed-storage.mjs` now runs on
+    Windows. The shared supervised runner reads Windows processes through CIM
+    (process ID, parent and creation time).
+  - The Redis contract runs against Garnet where Redis has no build.
 - A Rust Yon handler that fails to compile names the model file at fault
   again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
   Tachyon now builds handlers with plain cargo output.
