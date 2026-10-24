@@ -259,9 +259,21 @@ jobs:
       - name: Install checksum-pinned FYLO
         run: node scripts/ci/install-fylo.mjs "${{ runner.temp }}/tachyon-fylo"
 
-      - name: Install Redis on macOS (Redis ships no Windows build)
+      - name: Install Redis on macOS
         if: runner.os == 'macOS'
         run: brew list redis >/dev/null 2>&1 || brew install redis
+
+      - name: Install .NET for Garnet on Windows
+        if: runner.os == 'Windows'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Install Garnet on Windows (Redis ships no Windows build)
+        if: runner.os == 'Windows'
+        run: |
+          dotnet tool install --tool-path "${{ runner.temp }}/garnet" garnet-server --version 2.2.4
+          Add-Content -Path $env:GITHUB_PATH -Value "${{ runner.temp }}/garnet"
 
       - name: Verify SQLite, FYLO and Redis without Docker
         run: node scripts/test-managed-storage.mjs --without-docker

@@ -268,8 +268,6 @@ function YonFrames.read()
   return io.stdin:read(length)
 end
 
--- Frame lengths are eight hex digits: Windows reads and writes Lua's standard streams in text
--- mode, which would rewrite the 0x0A, 0x0D and 0x1A bytes of a binary length.
 function YonFrames.prefix(length)
   return string.format("%08x", length)
 end

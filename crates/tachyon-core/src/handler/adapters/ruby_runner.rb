@@ -723,17 +723,28 @@ class YonRunnerFrames
   def self.read_all(incoming)
     STDIN.binmode
     loop do
-      prefix = STDIN.read(4)
-      break if prefix.nil? || prefix.bytesize < 4
+      prefix = read_exactly(4)
+      break if prefix.bytesize < 4
       incoming.push(read_payload(prefix.unpack1("N")))
     end
     incoming.push(:closed)
   end
 
+  def self.read_exactly(length)
+    data = "".b
+    while data.bytesize < length
+      IO.select([STDIN])
+      data << STDIN.readpartial(length - data.bytesize)
+    end
+    data
+  rescue EOFError
+    data
+  end
+
   def self.read_payload(length)
     protocol_error if length > YonRunnerLimits::MAX_FRAME_BYTES
-    payload = STDIN.read(length)
-    protocol_error if payload.nil? || payload.bytesize < length
+    payload = read_exactly(length)
+    protocol_error if payload.bytesize < length
     envelope = YonRunnerJson.parse(payload)
     protocol_error if envelope.nil?
     envelope

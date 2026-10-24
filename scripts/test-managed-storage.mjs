@@ -27,7 +27,6 @@ class ManagedStorageTest {
   static scratchRoot = resolve(process.env.TAC_STORAGE_TEST_ROOT || tmpdir())
   static scratch = null
   static withoutDocker = process.argv.includes('--without-docker')
-  // Redis ships no Windows build, so Windows runners prove the Redis contract against Garnet.
   static redisServers = [
     { name: 'redis-server', program: 'redis-server', args: port => ['--port', String(port), '--bind', '127.0.0.1', '--save', '', '--appendonly', 'no'] },
     { name: 'Garnet', program: process.env.TAC_GARNET_SERVER || 'garnet-server', args: port => ['--port', String(port), '--bind', '127.0.0.1'] },

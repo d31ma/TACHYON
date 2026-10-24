@@ -146,11 +146,7 @@ export class SupervisedCommand {
     })
   }
 
-  /**
-   * Windows has no process groups or zombies, so each process is its own group, always running,
-   * and its creation time (a FILETIME) tells a reused process ID apart.
-   * @param {string} text
-   */
+  /** @param {string} text */
   #parseWindowsSnapshot(text) {
     /** @type {Map<number, ProcessIdentity>} */
     const table = new Map()
@@ -162,11 +158,7 @@ export class SupervisedCommand {
     return table
   }
 
-  /**
-   * A Windows process keeps its parent's ID after the parent exits, so a child must also be
-   * younger than the parent it names.
-   * @param {ProcessIdentity} identity @param {ProcessIdentity} parent
-   */
+  /** @param {ProcessIdentity} identity @param {ProcessIdentity} parent */
   #youngerThan(identity, parent) {
     return !SupervisedCommand.windows || BigInt(identity.started) >= BigInt(parent.started)
   }

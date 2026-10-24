@@ -268,7 +268,7 @@ impl RequestPartsProject {
     };
 
     fn available(&self) -> bool {
-        std::process::Command::new(self.program)
+        crate::kotlin_home::KotlinHome::command(self.program)
             .arg(self.version_flag)
             .output()
             .is_ok_and(|output| output.status.success())
