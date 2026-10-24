@@ -177,7 +177,7 @@ class OrdersErrorHandler {
     }
 
     async fn responses(paths: &[&str]) -> Option<Vec<String>> {
-        if !Commands::available("node", "js").await {
+        if !Commands::available("node", "js") {
             return None;
         }
         let root = tempfile::tempdir().expect("project");

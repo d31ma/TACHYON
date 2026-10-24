@@ -9,6 +9,7 @@ pub(crate) use socket_channels::SocketChannels;
 pub(crate) use socket_input::SocketInput;
 pub(crate) use socket_output::SocketOutput;
 
+use super::super::frame::FramePrefix;
 use super::super::{HandlerCancellation, HandlerSource};
 use super::{Drained, HandlerSupervisor, ProcessFailure, ProcessReaper, StartedProcess};
 use crate::Failure;
@@ -26,6 +27,7 @@ pub(super) struct SocketProcess {
     stdin: ChildStdin,
     stdout: ChildStdout,
     stderr: ChildStderr,
+    style: FramePrefix,
 }
 
 impl SocketProcess {
@@ -66,6 +68,7 @@ impl SocketProcess {
             stdin,
             stdout,
             stderr,
+            style: FramePrefix::of(source),
         };
         let stderr_limit = supervisor.options.stderr_limit;
         let result = process
@@ -88,13 +91,14 @@ impl SocketProcess {
             mut stdin,
             stdout,
             stderr,
+            style,
         } = self;
         let request_id = request.request_id.clone();
         let stderr_task = tokio::spawn(Drained::read_all(stderr, stderr_limit));
-        let written = Self::write_first_request(&mut stdin, request).await;
+        let written = Self::write_first_request(&mut stdin, request, style).await;
         Self::stop_when_unwritten(written, &mut child, &request_id, &stderr_task).await?;
-        let mut writer = SocketWriter::spawn(stdin, channels.input, request_id.clone());
-        let reader = SocketReader::spawn(stdout, channels.output, request_id.clone());
+        let mut writer = SocketWriter::spawn(stdin, channels.input, (request_id.clone(), style));
+        let reader = SocketReader::spawn(stdout, channels.output, (request_id.clone(), style));
         let read = Self::first_finish(reader, cancellation, deadline).await;
         let read = Self::reading_result(read, cancellation);
         let result = Self::exit_after_reading(read, &mut child, deadline).await;
@@ -108,11 +112,12 @@ impl SocketProcess {
     async fn write_first_request(
         stdin: &mut ChildStdin,
         request: &HandlerRequest,
+        style: FramePrefix,
     ) -> Result<(), Failure> {
         let mut timed = request.clone();
         timed.deadline_ms = Some(Self::SOCKET_CALL_MILLISECONDS);
         let bytes = HandlerSupervisor::encode_request(false, &timed)?;
-        HandlerSupervisor::write_request(stdin, &bytes).await
+        HandlerSupervisor::write_request(stdin, &style.reframed(&bytes)).await
     }
 
     async fn stop_when_unwritten(
@@ -208,7 +213,7 @@ impl SocketProcess {
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{SocketChannels, SocketProcess};
+    use super::{FramePrefix, SocketChannels, SocketProcess};
     use crate::handler::HandlerCancellation;
     use command_group::AsyncCommandGroup as _;
     use std::process::Stdio;
@@ -303,6 +308,7 @@ mod tests {
             stdout: child.inner().stdout.take().expect("stdout"),
             stderr: child.inner().stderr.take().expect("stderr"),
             child,
+            style: FramePrefix::Binary,
         };
         let (input, inputs) = mpsc::channel(1);
         let (output, _outputs) = mpsc::channel(1);

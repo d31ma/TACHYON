@@ -38,7 +38,7 @@ pub use handler_supervisor_options::HandlerSupervisorOptions;
 pub(in crate::handler) use process_reaper::ProcessReaper;
 pub(crate) use socket::{SocketChannels, SocketInput, SocketOutput};
 
-use super::frame::{FrameLimits, HandlerFrame};
+use super::frame::{FrameLimits, FramePrefix, HandlerFrame};
 use super::gateway::{GatewayCallSetup, GatewayCalls, GatewayTable};
 use super::readiness::{RuntimeProbe, RuntimeProbeResult, RuntimeRequirement, RuntimeRequirements};
 use super::resources::{PipedResources, ResourceAccess};
@@ -648,6 +648,7 @@ impl HandlerSupervisor {
                 .as_ref()
                 .map(ResourceAccess::piped)
                 .filter(|_| shares_resources),
+            style: FramePrefix::of(source),
         };
         let topics = resource_access.as_ref().and_then(ResourceAccess::topics);
         let result = self
@@ -679,6 +680,7 @@ impl HandlerSupervisor {
             stdout,
             stderr,
             resource_pipe,
+            style,
         } = pipes;
         let request_id = &request.request_id;
         let raw_request = [direct_protocol, resource_pipe.is_none()] == [true, true];
@@ -686,7 +688,7 @@ impl HandlerSupervisor {
         let request_bytes =
             Self::terminate_on_failure(request_bytes, &mut child, request_id).await?;
         let (mut stdin, stdout_task) =
-            Self::read_stdout((stdin, stdout), resource_pipe, &request_bytes);
+            Self::read_stdout((stdin, stdout), (resource_pipe, style), &request_bytes);
         let stderr_task = tokio::spawn(Drained::read_all(stderr, self.options.stderr_limit));
         let write_failure =
             OptionFuture::from(stdin.as_mut().map(|stdin| {
@@ -718,7 +720,7 @@ impl HandlerSupervisor {
 
     fn read_stdout(
         (stdin, stdout): (ChildStdin, ChildStdout),
-        resource_pipe: Option<PipedResources>,
+        (resource_pipe, style): (Option<PipedResources>, FramePrefix),
         request_bytes: &[u8],
     ) -> (Option<ChildStdin>, JoinHandle<Drained>) {
         let Some(resources) = resource_pipe else {
@@ -732,6 +734,7 @@ impl HandlerSupervisor {
             resources,
             stdin,
             limit: FrameLimits::MAX_BYTES,
+            style,
         };
         (
             None,
@@ -969,6 +972,7 @@ impl HandlerSupervisor {
             stdout,
             stderr,
             resource_pipe: None,
+            style: FramePrefix::of(process.source),
         };
         let result = self.drive_streaming_process(pipes, process).await;
         Self::close_resource_access(resource_access).await;
@@ -995,6 +999,7 @@ impl HandlerSupervisor {
             stdout,
             stderr,
             resource_pipe: _,
+            style,
         } = pipes;
         let request_bytes = self.request_with_time_left(request, direct_protocol, deadline);
         let request_bytes =
@@ -1014,7 +1019,7 @@ impl HandlerSupervisor {
             Self::settle_after_stream_write_failure(write_failure, stderr_task, deadline).await?;
         let stdin = Self::stdin_kept_open(stdin, direct_protocol);
         let subscriber = events.clone();
-        let mut events_task = EventReader::spawn(stdout, events, request_id.clone());
+        let mut events_task = EventReader::spawn(stdout, events, (request_id.clone(), style));
         let outcome = Self::first_stream_outcome(
             &mut events_task,
             &mut child,

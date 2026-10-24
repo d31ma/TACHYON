@@ -1,3 +1,4 @@
+use crate::handler::frame::FramePrefix;
 use serde_json::{Value, json};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -8,12 +9,9 @@ pub(crate) enum SocketInput {
 }
 
 impl SocketInput {
-    pub(super) fn frame(&self, request_id: &str) -> Vec<u8> {
+    pub(super) fn frame(&self, request_id: &str, style: FramePrefix) -> Vec<u8> {
         let payload = self.frame_value(request_id).to_string().into_bytes();
-        let length = u32::try_from(payload.len()).unwrap_or(u32::MAX);
-        let mut frame = length.to_be_bytes().to_vec();
-        frame.extend(payload);
-        frame
+        [style.encode(payload.len()), payload].concat()
     }
 
     fn frame_value(&self, request_id: &str) -> Value {

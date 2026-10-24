@@ -1,6 +1,7 @@
 use super::super::StreamFrame;
 use super::SocketOutput;
 use crate::Failure;
+use crate::handler::frame::FramePrefix;
 use serde_json::Value;
 use tokio::process::ChildStdout;
 use tokio::sync::mpsc;
@@ -10,24 +11,26 @@ pub(super) struct SocketReader {
     stdout: ChildStdout,
     output: mpsc::Sender<SocketOutput>,
     request_id: String,
+    style: FramePrefix,
 }
 
 impl SocketReader {
     pub(super) fn spawn(
         stdout: ChildStdout,
         output: mpsc::Sender<SocketOutput>,
-        request_id: String,
+        (request_id, style): (String, FramePrefix),
     ) -> JoinHandle<Result<(), Failure>> {
         let reader = Self {
             stdout,
             output,
             request_id,
+            style,
         };
         tokio::spawn(reader.forward_all_outputs())
     }
 
     async fn forward_all_outputs(mut self) -> Result<(), Failure> {
-        while let Some(payload) = StreamFrame::read(&mut self.stdout).await? {
+        while let Some(payload) = StreamFrame::read(&mut self.stdout, self.style).await? {
             self.forward_output(&payload).await?;
         }
         Ok(())

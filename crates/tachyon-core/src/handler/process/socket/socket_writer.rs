@@ -1,5 +1,6 @@
 use super::SocketInput;
 use super::input_step::InputStep;
+use crate::handler::frame::FramePrefix;
 use tokio::io::AsyncWriteExt as _;
 use tokio::process::ChildStdin;
 use tokio::sync::mpsc;
@@ -9,18 +10,20 @@ pub(super) struct SocketWriter {
     stdin: ChildStdin,
     input: mpsc::Receiver<SocketInput>,
     request_id: String,
+    style: FramePrefix,
 }
 
 impl SocketWriter {
     pub(super) fn spawn(
         stdin: ChildStdin,
         input: mpsc::Receiver<SocketInput>,
-        request_id: String,
+        (request_id, style): (String, FramePrefix),
     ) -> JoinHandle<()> {
         let writer = Self {
             stdin,
             input,
             request_id,
+            style,
         };
         tokio::spawn(writer.write_all_inputs())
     }
@@ -47,7 +50,7 @@ impl SocketWriter {
     async fn send_input(&mut self, message: Option<&SocketInput>) -> bool {
         match message {
             Some(message) => self
-                .send_frame(&message.frame(&self.request_id))
+                .send_frame(&message.frame(&self.request_id, self.style))
                 .await
                 .is_ok(),
             None => false,
@@ -69,7 +72,7 @@ impl SocketWriter {
 
     async fn close_when_input_ended(&mut self, step: InputStep) {
         if step == InputStep::Ended {
-            let frame = SocketInput::Close.frame(&self.request_id);
+            let frame = SocketInput::Close.frame(&self.request_id, self.style);
             let _written = self.stdin.write_all(&frame).await;
             let _flushed = self.stdin.flush().await;
         }

@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command as StdCommand;
 use std::time::{Duration, Instant};
 use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod};
 use tachyon_core::{
@@ -387,7 +386,7 @@ fn body(response: &tachyon_contracts::HandlerResponse) -> serde_json::Value {
 
 #[cfg(unix)]
 fn process_exists(pid: u32) -> bool {
-    StdCommand::new("kill")
+    std::process::Command::new("kill")
         .args(["-0", &pid.to_string()])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())

@@ -1,6 +1,8 @@
 mod frame_limits;
+mod frame_prefix;
 
 pub(super) use frame_limits::FrameLimits;
+pub(super) use frame_prefix::FramePrefix;
 
 use crate::Failure;
 use crate::failure::diagnostic;

@@ -68,8 +68,7 @@ impl LuaProgram {
 
     pub(crate) fn frame(value: &serde_json::Value) -> Vec<u8> {
         let body = value.to_string().into_bytes();
-        let length = u32::try_from(body.len()).unwrap_or_else(|error| panic!("{error}"));
-        [length.to_be_bytes().to_vec(), body].concat()
+        [format!("{:08x}", body.len()).into_bytes(), body].concat()
     }
 
     pub(crate) fn text(output: &Output) -> String {

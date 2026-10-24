@@ -1,5 +1,5 @@
 use super::Drained;
-use crate::handler::frame::FrameLimits;
+use crate::handler::frame::FramePrefix;
 use crate::handler::resources::PipedResources;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::{ChildStdin, ChildStdout};
@@ -8,6 +8,7 @@ pub(super) struct ResourcePipe {
     pub(super) resources: PipedResources,
     pub(super) stdin: ChildStdin,
     pub(super) limit: usize,
+    pub(super) style: FramePrefix,
 }
 
 impl ResourcePipe {
@@ -17,7 +18,7 @@ impl ResourcePipe {
             overflow: false,
             read_error: false,
         };
-        self.send(&request).await;
+        self.send(&self.style.reframed(&request)).await;
         drained.bytes = self.relay(&mut stdout, &mut drained).await;
         Self::refuse_trailing_output(&mut stdout, &mut drained).await;
         drained
@@ -27,8 +28,7 @@ impl ResourcePipe {
         let mut frame = self.next_frame(stdout, drained).await.unwrap_or_default();
         while let Some(command) = PipedResources::command(&frame) {
             let answer = self.resources.answer(&command).await;
-            let length = u32::try_from(answer.len()).unwrap_or(u32::MAX);
-            self.send(&[length.to_be_bytes().as_slice(), &answer].concat())
+            self.send(&[self.style.encode(answer.len()), answer].concat())
                 .await;
             frame = self.next_frame(stdout, drained).await.unwrap_or_default();
         }
@@ -41,9 +41,9 @@ impl ResourcePipe {
     }
 
     async fn next_frame(&self, stdout: &mut ChildStdout, drained: &mut Drained) -> Option<Vec<u8>> {
-        let mut prefix = [0_u8; FrameLimits::PREFIX_BYTES];
+        let mut prefix = vec![0_u8; self.style.width()];
         stdout.read_exact(&mut prefix).await.ok()?;
-        let length = usize::try_from(u32::from_be_bytes(prefix)).unwrap_or(usize::MAX);
+        let length = self.style.decode(&prefix).unwrap_or(usize::MAX);
         drained.overflow = length > self.limit;
         let mut frame = vec![0_u8; length.min(self.limit)];
         let read = stdout.read_exact(&mut frame).await;

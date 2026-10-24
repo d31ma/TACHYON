@@ -254,12 +254,12 @@ end
 YonFrames = { output = io.stdout }
 
 function YonFrames.read()
-  local prefix = io.stdin:read(4)
-  if prefix == nil or #prefix < 4 then
+  local prefix = io.stdin:read(#YonFrames.prefix(0))
+  if prefix == nil or #prefix < #YonFrames.prefix(0) then
     return nil
   end
-  local length = string.unpack(">I4", prefix)
-  if length > YonLimits.MAX_FRAME_BYTES then
+  local length = prefix:match("^%x+$") and tonumber(prefix, 16)
+  if not length or length > YonLimits.MAX_FRAME_BYTES then
     os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
   end
   if length == 0 then
@@ -268,8 +268,14 @@ function YonFrames.read()
   return io.stdin:read(length)
 end
 
+-- Frame lengths are eight hex digits: Windows reads and writes Lua's standard streams in text
+-- mode, which would rewrite the 0x0A, 0x0D and 0x1A bytes of a binary length.
+function YonFrames.prefix(length)
+  return string.format("%08x", length)
+end
+
 function YonFrames.write(payload)
-  YonFrames.output:write(string.pack(">I4", #payload), payload)
+  YonFrames.output:write(YonFrames.prefix(#payload), payload)
   YonFrames.output:flush()
 end
 
@@ -508,7 +514,7 @@ function YonStream.failure(output, request_id, code, message)
 end
 
 function YonStream.frame(output, payload)
-  output:write(string.pack(">I4", #payload), payload)
+  output:write(YonFrames.prefix(#payload), payload)
   output:flush()
 end
 

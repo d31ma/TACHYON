@@ -152,7 +152,7 @@ async fn asynchronous_controllers_services_and_handlers_answer_every_scenario() 
 
 #[tokio::test]
 async fn a_handler_for_a_type_that_is_not_an_exception_fails_closed() {
-    if !Commands::available("python3", "py").await {
+    if !Commands::available("python3", "py") {
         return;
     }
     let root = tempfile::tempdir().expect("project");

@@ -1,5 +1,6 @@
 use super::{HandlerEvent, ProcessFailure, StreamFrame, StreamReadOutcome};
 use crate::Failure;
+use crate::handler::frame::FramePrefix;
 use serde_json::Value;
 use tokio::process::ChildStdout;
 use tokio::sync::mpsc;
@@ -9,6 +10,7 @@ pub(super) struct EventReader {
     stdout: ChildStdout,
     events: mpsc::Sender<HandlerEvent>,
     request_id: String,
+    style: FramePrefix,
     sent: usize,
     sent_bytes: usize,
 }
@@ -17,12 +19,13 @@ impl EventReader {
     pub(super) fn spawn(
         stdout: ChildStdout,
         events: mpsc::Sender<HandlerEvent>,
-        request_id: String,
+        (request_id, style): (String, FramePrefix),
     ) -> JoinHandle<Result<StreamReadOutcome, Failure>> {
         let reader = Self {
             stdout,
             events,
             request_id,
+            style,
             sent: 0,
             sent_bytes: 0,
         };
@@ -38,7 +41,7 @@ impl EventReader {
     }
 
     async fn read_next(&mut self) -> Result<Option<StreamReadOutcome>, Failure> {
-        let payload = StreamFrame::read(&mut self.stdout).await?;
+        let payload = StreamFrame::read(&mut self.stdout, self.style).await?;
         self.handle_payload(payload).await
     }
 

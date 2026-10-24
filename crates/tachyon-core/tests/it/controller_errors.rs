@@ -61,7 +61,7 @@ impl Commands {
         false
     }
 
-    async fn available(program: &str, extension: &str) -> bool {
+    fn available(program: &str, extension: &str) -> bool {
         let flag = if program == "kotlinc" {
             "-version"
         } else {
@@ -176,7 +176,7 @@ impl Project {
     }
 
     async fn verify(&self) {
-        if !Commands::available(self.program, self.extension).await {
+        if !Commands::available(self.program, self.extension) {
             return;
         }
         let root = tempfile::tempdir().expect("project");
