@@ -209,8 +209,9 @@ fn swift_constructor(fields: &[(String, String)]) -> String {
 }
 
 fn kotlin_constructor(fields: &[(String, String)]) -> String {
-    let mut constructor =
-        String::from("\nconstructor(tacProps: Map<String, Any?>?, tacPage: TacPageScope) {\n");
+    let mut constructor = String::from(
+        "\ninternal constructor(tacProps: Map<String, Any?>?, tacPage: TacPageScope) {\n",
+    );
     for (name, kind) in fields {
         let value = format!("tacRequiredValue(tacProps, \"{name}\")");
         let converted = match kind.as_str() {

@@ -82,6 +82,8 @@ mod fsharp_part;
 mod kotlin_document_title_scope_tests;
 #[cfg(test)]
 mod kotlin_page_graph_tests;
+#[cfg(test)]
+mod linked_page_program_tests;
 mod linux;
 mod linux_app_image_runtime;
 #[cfg(test)]

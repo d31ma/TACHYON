@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Swift, Kotlin and C# services a native app links in now build into
+  one program (LS2). Before, each linked service carried its own copy of
+  the behavior runtime and of every Setup, client and model it used, so two
+  services needing one Setup saw two configurations. Now they share one
+  Setup registry, as browser services do, and the generated companion of a
+  two-service fixture roughly halves (Swift 136 to 69 KB, Kotlin 105 to
+  54 KB, C# 170 to 87 KB). The Kotlin required-props constructor is now
+  `internal` (ADR 0022 amendment).
 - Natively linked Swift, Kotlin and C# services hold `@StreamRequest` and
   `@SocketRequest` clients (LS1). The page holds the connection on
   `tac.yon.origin`, delivers each message to the service's `@OnEvent`

@@ -650,6 +650,16 @@ The Python Tac gate already ran in all three engines (ADR 0093). A container
 run is not a desktop browser install, and Safari itself was not run; WebKit
 stands in for it.
 
+### Linked services share one program (2026-10-24, LS2)
+
+`native/linked_page_program_tests.rs` ran in an x86_64 Ubuntu 24.04 cloud
+container: two linked services share one Setup configuration in Swift
+(Swift 6.2 on Linux), Kotlin (Kotlin 2.1.10 on the JVM) and C# (.NET
+10.0.302, net9.0), and the C# native task fixture's two services both reach
+Yon. These run the generated companion outside its app; the macOS, iOS
+simulator and Android emulator hosts and the Windows NativeAOT build are not
+run yet (ADR 0022 amendment of 2026-10-24).
+
 ### Yon handlers on Windows (2026-10-19, WY1)
 
 On Windows 11 ARM64 (IYOR-Surface, over SSH, commit 3d264ff3), with clang++

@@ -13,6 +13,8 @@ struct NativeTaskFixture;
 impl NativeTaskFixture {
     const SERVICE: &'static str =
         include_str!("../../tests/fixtures/native-csharp-tasks/NotesService.cs");
+    const SECOND_SERVICE: &'static str =
+        include_str!("../../tests/fixtures/native-csharp-tasks/ArchiveService.cs");
     const CLIENT: &'static str =
         include_str!("../../tests/fixtures/native-csharp-tasks/NotesClient.cs");
     const SETUP: &'static str =
@@ -31,16 +33,21 @@ impl NativeTaskFixture {
     fn companions(root: &Path) -> Vec<NativeCompanionInput> {
         Self::write(root, "client/remotes/NotesClient.cs", Self::CLIENT);
         Self::write(root, "client/setups/NotesSetup.cs", Self::SETUP);
-        let source = Self::write(root, "client/services/NotesService.cs", Self::SERVICE);
-        vec![NativeCompanionInput {
+        [
+            ("notes", "NotesService", Self::SERVICE),
+            ("archive", "ArchiveService", Self::SECOND_SERVICE),
+        ]
+        .into_iter()
+        .map(|(service, class, text)| NativeCompanionInput {
             snapshot_root: root.to_path_buf(),
             language: NativeCompanion::CSharp,
-            source,
-            service: String::from("notes"),
-            class: String::from("NotesService"),
+            source: Self::write(root, &format!("client/services/{class}.cs"), text),
+            service: service.to_owned(),
+            class: class.to_owned(),
             web_assembly: false,
             application_provider: false,
-        }]
+        })
+        .collect()
     }
 
     fn staged(root: &Path, origin: Option<&str>) -> PathBuf {
@@ -196,13 +203,14 @@ fn the_staged_csharp_companion_starts_tasks_and_reaches_the_declared_yon_origin(
         "TacHttpTransport.Start ??= TacNativeHttp.Start;",
         "TacHttpTransport.Answer ??= TacNativeHttp.Answer;",
         "TacHttpTransport.Cancel ??= TacNativeHttp.Cancel;",
-        "TachyonService0.BehaviorBrowserHttp.Capture ??= Tac.CaptureHttpTransport;",
-        "TachyonService0.BehaviorError failure0 => failure0.Code",
+        "TachyonServiceCsharp.BehaviorBrowserHttp.Capture ??= Tac.CaptureHttpTransport;",
+        "TachyonServiceCsharp.BehaviorError failureCsharp => failureCsharp.Code",
         "Marshal.StringToCoTaskMemUTF8(Tac.NativeInvoke(text ?? \"{}\"))",
         "TacOwnerContext.Run(OwnerLock, () => InvokeAsync(request))",
         "[\"load\"] = TacMember.TaskMethod(async arguments =>",
         "[\"total\"] = TacMember.Method(",
         "var Instance = new NotesService(__tacClient0)",
+        "var Instance = new ArchiveService(__tacClient0)",
         "AllowAutoRedirect = false",
         "UseCookies = false",
         "AutomaticDecompression = System.Net.DecompressionMethods.None",
@@ -212,6 +220,14 @@ fn the_staged_csharp_companion_starts_tasks_and_reaches_the_declared_yon_origin(
     assert!(!source.contains("__TACHYON_NATIVE_BINDINGS__"));
     assert!(!source.contains("GetAwaiter().GetResult()"));
     assert_eq!(source.matches("public static class TacNative\n").count(), 1);
+    for once in [
+        "public sealed class NotesSetup",
+        "namespace TachyonServiceCsharp {",
+        "namespace TachyonService0 {",
+        "namespace TachyonService1 {",
+    ] {
+        assert_eq!(source.matches(once).count(), 1, "{once}");
+    }
     assert_eq!(
         source
             .matches("internal static class TacHttpTransport")

@@ -6,12 +6,15 @@ public static class NativeTaskDriver
 {
     private const string Owner = "00000000-0000-4000-8000-000000000001";
     private const string Route = "/notes";
+    private const string Notes = "notes";
+    private const string Archive = "archive";
     private static readonly System.Collections.Concurrent.BlockingCollection<string> Signals = new();
 
     public static async System.Threading.Tasks.Task Main()
     {
         Connect();
         await CheckTransport();
+        CheckSecondService();
         CheckTasks();
         Console.WriteLine("PASS native C# tasks reach Yon");
     }
@@ -22,30 +25,40 @@ public static class NativeTaskDriver
     [UnmanagedCallersOnly]
     private static void Receive(IntPtr payload) => Signals.Add(Marshal.PtrToStringUTF8(payload));
 
+    private static void CheckSecondService()
+    {
+        var described = Ask(Request(Archive, "init", ""));
+        Check(described.Contains("\"asyncMethods\":[\"load\"]"), "the second service was not described: " + described);
+        var task = StartTask(Archive, "load");
+        var loaded = NextAnswer(Archive, task);
+        Check(loaded["value"]?["title"]?.GetValue<string>() == "first", "the second service did not reach Yon: " + loaded.ToJsonString());
+        Check(Ask(Request(Archive, "get", ",\"name\":\"count\"")) == "{\"value\":1}", "the second service lost its own state");
+    }
+
     private static void CheckTasks()
     {
-        var described = Ask(Request("init", ""));
+        var described = Ask(Request(Notes, "init", ""));
         Check(described.Contains("\"asyncMethods\":[\"large\",\"load\",\"missing\",\"slow\"]"), "async members were not described: " + described);
-        Check(Ask(Request("call", ",\"name\":\"total\",\"args\":[]")) == "{\"value\":0}", "a synchronous method changed its answer");
-        Check(Ask(Request("get", ",\"name\":\"count\"")) == "{\"value\":0}", "a field read changed its answer");
+        Check(Ask(Request(Notes, "call", ",\"name\":\"total\",\"args\":[]")) == "{\"value\":0}", "a synchronous method changed its answer");
+        Check(Ask(Request(Notes, "get", ",\"name\":\"count\"")) == "{\"value\":0}", "a field read changed its answer");
 
-        var first = StartTask("load");
-        var loaded = NextAnswer(first);
+        var first = StartTask(Notes, "load");
+        var loaded = NextAnswer(Notes, first);
         Check(loaded["value"]?["title"]?.GetValue<string>() == "first", "the task did not answer the Yon value: " + loaded.ToJsonString());
-        Check(Ask(Request("call", ",\"name\":\"total\",\"args\":[]")) == "{\"value\":2}", "the continuation after await did not run once");
+        Check(Ask(Request(Notes, "call", ",\"name\":\"total\",\"args\":[]")) == "{\"value\":2}", "the continuation after await did not run once");
 
-        var second = StartTask("missing");
+        var second = StartTask(Notes, "missing");
         Check(second > first, "task numbers must increase");
-        Check(NextAnswer(second)["code"]?.GetValue<string>() == "HTTP_STATUS", "a 404 did not answer HTTP_STATUS");
+        Check(NextAnswer(Notes, second)["code"]?.GetValue<string>() == "HTTP_STATUS", "a 404 did not answer HTTP_STATUS");
 
-        var large = StartTask("large");
-        var tooLarge = NextAnswer(large);
+        var large = StartTask(Notes, "large");
+        var tooLarge = NextAnswer(Notes, large);
         Check(tooLarge["code"]?.GetValue<string>() == "HTTP_LIMIT", "a signal over 64 KiB was not replaced: " + tooLarge.ToJsonString());
 
-        var slow = StartTask("slow");
-        Check(Ask(Request("dispose", "")) == "{\"value\":null}", "dispose failed");
-        Check(NextAnswer(slow)["code"]?.GetValue<string>() == "CANCELLED", "a disposed owner's task did not finish as CANCELLED");
-        Check(Ask(Request("call", ",\"name\":\"load\",\"args\":[]")).Contains("error"), "a disposed owner accepted a task");
+        var slow = StartTask(Notes, "slow");
+        Check(Ask(Request(Notes, "dispose", "")) == "{\"value\":null}", "dispose failed");
+        Check(NextAnswer(Notes, slow)["code"]?.GetValue<string>() == "CANCELLED", "a disposed owner's task did not finish as CANCELLED");
+        Check(Ask(Request(Notes, "call", ",\"name\":\"load\",\"args\":[]")).Contains("error"), "a disposed owner accepted a task");
         Ask("{\"op\":\"host-dispose\"}");
     }
 
@@ -80,26 +93,26 @@ public static class NativeTaskDriver
         Check(await waiting == "{\"error\":{\"code\":\"CANCELLED\"}}", "cancel did not answer CANCELLED");
     }
 
-    private static long StartTask(string name)
+    private static long StartTask(string service, string name)
     {
-        var answer = Ask(Request("call", ",\"name\":\"" + name + "\",\"args\":[]"));
+        var answer = Ask(Request(service, "call", ",\"name\":\"" + name + "\",\"args\":[]"));
         var task = JsonNode.Parse(answer)?["task"];
         Check(task != null && task.GetValue<long>() > 0, "a task member did not answer a task number: " + answer);
         return task.GetValue<long>();
     }
 
-    private static JsonNode NextAnswer(long task)
+    private static JsonNode NextAnswer(string service, long task)
     {
         Check(Signals.TryTake(out var text, TimeSpan.FromSeconds(30)), "no done signal arrived for task " + task);
         var signal = JsonNode.Parse(text);
-        Check(signal["route"]?.GetValue<string>() == Route && signal["service"]?.GetValue<string>() == "notes", "the done signal lost its route: " + text);
+        Check(signal["route"]?.GetValue<string>() == Route && signal["service"]?.GetValue<string>() == service, "the done signal lost its route: " + text);
         Check(signal["owner"]?.GetValue<string>() == Owner && signal["task"]?.GetValue<long>() == task, "the done signal lost its task: " + text);
         Check(Signals.Count == 0, "a task sent more than one done signal");
         return JsonNode.Parse(signal["answer"].GetValue<string>());
     }
 
-    private static string Request(string operation, string rest) =>
-        "{\"route\":\"" + Route + "\",\"service\":\"notes\",\"owner\":\"" + Owner + "\",\"op\":\"" + operation + "\"" + rest + "}";
+    private static string Request(string service, string operation, string rest) =>
+        "{\"route\":\"" + Route + "\",\"service\":\"" + service + "\",\"owner\":\"" + Owner + "\",\"op\":\"" + operation + "\"" + rest + "}";
 
     private static string Http(string members, int limit = 1048576, int wait = 10000)
     {
