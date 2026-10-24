@@ -208,7 +208,7 @@ final class ServicesProbeService {
     const built = Math.round((Date.now() - started) / 1000)
     const bundle = path.join(project, 'dist/ios', `${application}.app`)
     const minimum = this.run('/usr/bin/plutil', ['-extract', 'MinimumOSVersion', 'raw', path.join(bundle, 'Info.plist')])
-    assert.equal(minimum, this.laterFloor.includes(language) ? '18.2' : '17.0', `${language}: MinimumOSVersion`)
+    assert.equal(minimum, this.laterFloor.includes(language) ? '18.2' : '17.4', `${language}: MinimumOSVersion`)
     const webAssembly = this.webAssembly(path.join(bundle, 'WebBundle'))
     const modules = Object.keys(webAssembly).length
     if (this.linked.includes(language)) assert.equal(modules, 0, `${language} is linked into the app, not WebAssembly`)

@@ -3,7 +3,7 @@ use super::minimum_system::MinimumSystem;
 use super::target_floor::TargetFloor;
 use crate::Failure;
 use crate::tac_web::WebLanguage;
-use crate::template::{ServiceDefinition, ServiceRegistry};
+use crate::template::{ComponentDefinition, ComponentRegistry, ServiceDefinition, ServiceRegistry};
 use std::collections::BTreeSet;
 use tachyon_contracts::NativeTarget;
 
@@ -11,6 +11,7 @@ use tachyon_contracts::NativeTarget;
 pub(super) struct SystemFloor {
     pub(super) minimum: MinimumSystem,
     pub(super) note: Option<String>,
+    pub(super) style_note: Option<String>,
 }
 
 impl SystemFloor {
@@ -23,7 +24,22 @@ impl SystemFloor {
         target: NativeTarget,
     ) -> Result<Self, Failure> {
         let registry = ServiceRegistry::discover(project.snapshot_root())?.for_target(Some(target));
-        Self::resolve(&application.minimum_system, target, &registry)
+        let styled =
+            Self::has_component_styles(&ComponentRegistry::discover(project.snapshot_root())?);
+        let floor = Self::resolve(&application.minimum_system, target, &registry)?;
+        Ok(Self {
+            style_note: TargetFloor::of(target).style_note(styled),
+            ..floor
+        })
+    }
+
+    fn has_component_styles(components: &ComponentRegistry) -> bool {
+        components.names().iter().any(|name| {
+            components
+                .get(name)
+                .and_then(ComponentDefinition::style_path)
+                .is_some()
+        })
     }
 
     fn resolve(
@@ -50,6 +66,7 @@ impl SystemFloor {
         Ok(Self {
             minimum: minimum.clone().with_floor(target, needed),
             note: floor.note(declared.is_some(), needed, languages),
+            style_note: None,
         })
     }
 
@@ -138,6 +155,19 @@ mod tests {
             std::fs::write(path, contents).expect("write");
         }
         crate::template::ServiceRegistry::discover(root.path()).expect("registry")
+    }
+
+    #[test]
+    fn a_component_stylesheet_is_what_makes_a_project_styled() {
+        let root = tempfile::tempdir().expect("project");
+        let component = root.path().join("client/components/product/card");
+        std::fs::create_dir_all(&component).expect("component");
+        std::fs::write(component.join("tac.html"), "<p>card</p>").expect("template");
+        let plain = crate::template::ComponentRegistry::discover(root.path()).expect("plain");
+        assert!(!SystemFloor::has_component_styles(&plain));
+        std::fs::write(component.join("tac.css"), "p { color: red; }").expect("style");
+        let styled = crate::template::ComponentRegistry::discover(root.path()).expect("styled");
+        assert!(SystemFloor::has_component_styles(&styled));
     }
 
     #[test]
@@ -244,7 +274,7 @@ mod tests {
             (
                 r#"{"ios":"16.4"}"#,
                 NativeTarget::Ios,
-                "below iOS 17.0, the oldest system the Tachyon iOS app supports",
+                "below iOS 17.4, the oldest system the Tachyon iOS app supports",
             ),
             (
                 r#"{"android":24}"#,

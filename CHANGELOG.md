@@ -1596,6 +1596,13 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The iOS app now starts at iOS 17.4 and the Windows app at the WebView2
+  Runtime 118.0, the first versions that run CSS `@scope`, which component
+  styles compile to. On the iOS 17.0.1 simulator no component style applied.
+  A lower `tac.application.minimumSystem` stops the build (`TY1601`). macOS
+  and Android builds of an app with component stylesheets print a note that
+  they need Safari 17.4 or Android System WebView 118 (ADR 0108).
+
 - FYLO patches that wait for the same document are combined into one FYLO
   write, applied in arrival order, and every caller gets the document after
   that write. Each FYLO write is a crash-safe transaction that costs about

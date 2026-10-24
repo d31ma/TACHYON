@@ -905,7 +905,7 @@ mod tests {
         assert!(plist.contains("dev.tachyon.native-catalog"));
         assert!(plist.contains("<string>iPhoneSimulator</string>"));
         assert!(plist.contains("<key>UILaunchScreen</key>"));
-        assert!(plist.contains("<key>MinimumOSVersion</key><string>17.0</string>"));
+        assert!(plist.contains("<key>MinimumOSVersion</key><string>17.4</string>"));
     }
 
     #[test]

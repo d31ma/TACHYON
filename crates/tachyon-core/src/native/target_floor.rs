@@ -14,13 +14,14 @@ pub(super) struct TargetFloor {
     newest_major: u32,
     startup_check: &'static str,
     web_view_note: Option<&'static str>,
+    style_note: Option<&'static str>,
 }
 
 impl TargetFloor {
     const VERSION: &'static str = "\"{version}\"";
     const IOS: Self = Self {
         target: NativeTarget::Ios,
-        base: SystemVersion::new(17, 0),
+        base: SystemVersion::new(17, 4),
         garbage_collection: Some(SystemVersion::new(18, 2)),
         platform: "iOS",
         system: "iOS {version}",
@@ -28,6 +29,7 @@ impl TargetFloor {
         newest_major: u32::MAX,
         startup_check: "",
         web_view_note: None,
+        style_note: None,
     };
     const MACOS: Self = Self {
         target: NativeTarget::Macos,
@@ -35,6 +37,9 @@ impl TargetFloor {
         garbage_collection: Some(SystemVersion::new(15, 2)),
         platform: "macOS",
         system: "macOS {version}",
+        style_note: Some(
+            "Note: component styles use CSS @scope, which the macOS web view runs from Safari 17.4. Safari updates apart from macOS, so the macOS app keeps its floor; a Mac with an older Safari shows the components without their styles (ADR 0108).",
+        ),
         ..Self::IOS
     };
     const ANDROID: Self = Self {
@@ -49,10 +54,13 @@ impl TargetFloor {
         web_view_note: Some(
             "Note: {names} services need WebAssembly garbage collection, which Android System WebView 119 or newer runs. Google Play updates the web view apart from Android, so the Android app keeps its API level; an older web view shows the service's own error (ADR 0033).",
         ),
+        style_note: Some(
+            "Note: component styles use CSS @scope, which Android System WebView 118 or newer runs. Google Play updates the web view apart from Android, so the Android app keeps its API level; an older web view shows the components without their styles (ADR 0108).",
+        ),
     };
     const WINDOWS: Self = Self {
         target: NativeTarget::Windows,
-        base: SystemVersion::new(86, 0),
+        base: SystemVersion::new(118, 0),
         garbage_collection: Some(SystemVersion::new(119, 0)),
         platform: "Windows",
         system: "the WebView2 Runtime {version}",
@@ -123,6 +131,10 @@ impl TargetFloor {
             .map_or(Ok(()), |(_, message)| {
                 Err(super::config::config_failure(&message))
             })
+    }
+
+    pub(super) fn style_note(self, styled: bool) -> Option<String> {
+        self.style_note.filter(|_| styled).map(str::to_owned)
     }
 
     fn raised_note(self, needed: SystemVersion, languages: &BTreeSet<&'static str>) -> String {
@@ -218,6 +230,34 @@ mod tests {
         ] {
             assert_eq!(TargetFloor::of(target).target, target);
         }
+    }
+
+    #[test]
+    fn only_hosts_whose_web_view_updates_apart_note_component_styles() {
+        for target in [NativeTarget::Macos, NativeTarget::Android] {
+            let note = TargetFloor::of(target).style_note(true).unwrap_or_default();
+            assert!(note.contains("CSS @scope"), "{target:?}: {note}");
+            assert_eq!(TargetFloor::of(target).style_note(false), None);
+        }
+        for target in [
+            NativeTarget::Ios,
+            NativeTarget::Windows,
+            NativeTarget::Linux,
+        ] {
+            assert_eq!(TargetFloor::of(target).style_note(true), None, "{target:?}");
+        }
+    }
+
+    #[test]
+    fn the_floors_reach_engines_that_scope_component_styles() {
+        assert_eq!(
+            TargetFloor::of(NativeTarget::Ios).base,
+            super::SystemVersion::new(17, 4)
+        );
+        assert_eq!(
+            TargetFloor::of(NativeTarget::Windows).base,
+            super::SystemVersion::new(118, 0)
+        );
     }
 
     #[test]

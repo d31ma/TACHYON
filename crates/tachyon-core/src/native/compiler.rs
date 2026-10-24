@@ -297,6 +297,7 @@ impl NativeCompiler {
                 .chain(release_note)
                 .chain(gradle_note)
                 .chain(floor.note)
+                .chain(floor.style_note)
                 .collect(),
         })
     }

@@ -25,7 +25,7 @@ mod tests {
         let mut application =
             NativeApplication::discover(root.path()).unwrap_or_else(|failure| panic!("{failure}"));
         let source = WindowsWebEngineCheck::source(&application);
-        assert!(source.contains(r#"#define TACHYON_WEBVIEW2_FLOOR L"86.0""#));
+        assert!(source.contains(r#"#define TACHYON_WEBVIEW2_FLOOR L"118.0""#));
         application.minimum_system = application
             .minimum_system
             .with_floor(NativeTarget::Windows, SystemVersion::new(119, 0));
@@ -103,7 +103,7 @@ mod tests {
                 "missing",
                 &installed,
                 Some(&missing),
-                "ready: no\nmessage: Windows Host Check needs the Microsoft Edge WebView2 Runtime 86.0 or newer.",
+                "ready: no\nmessage: Windows Host Check needs the Microsoft Edge WebView2 Runtime 118.0 or newer.",
             ),
         ] {
             let harness = format!(
