@@ -40,7 +40,7 @@ tac.application.build
   honored: CFBundleVersion
 
 tac.application.minimumSystem
-  run owed: LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601); still to run: a macOS app with a Dart, Kotlin or Java web service built at 15.2 and opened on a Mac
+  honored: LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601)
 
 tac.application.links
   adapted: tac.application.links: the macOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. A signed --release build whose TAC_MACOS_PROVISIONING_PROFILE has the Associated Domains capability embeds the profile and claims the listed hosts with applinks: entries, and the app opens their universal links at their route; other builds leave links to the hosts in the browser. No signed build has opened a link from a hosted domain yet.
@@ -49,10 +49,10 @@ tac.application.window.width, height
   honored: the first size of the window
 
 tac.application.window.minWidth, minHeight
-  run owed: the smallest size of the window; still to run: dragging the window below its minimum size on a Mac
+  honored: the smallest size of the window
 
 tac.application.window.controls
-  run owed: close, fullscreen, maximize (zoom), minimize, resize and title; still to run: a granted control from a page on a Mac, and scripts/window-grant-macos-test.mjs, which checks a granted resize from a service but has no recorded run
+  honored: close, fullscreen, maximize (zoom), minimize, resize and title
 
 tac.application.window.titleBar
   honored: "integrated" draws the page under the title bar
@@ -76,7 +76,7 @@ tac.application.tray.dock
   honored: false runs the app from the menu bar only, with no Dock icon (LSUIElement)
 
 tac.application.rust
-  run owed: vendored crates linked into the app's Rust services; still to run: a macOS app whose Rust service uses a vendored crate, on a Mac
+  honored: vendored crates linked into the app's Rust services
 
 tac.application.rust.executables
   honored: signed helper programs in Contents/MacOS
@@ -103,31 +103,31 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  run owed: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; still to run: an offline Yon read in the packaged macOS app
+  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the macOS app.
 
 tac.application.permissions
-  run owed: NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist; a release build also gets the location entitlement; still to run: the location prompt showing the manifest reason on a Mac
+  honored: NSLocationUsageDescription and NSLocationWhenInUseUsageDescription in Info.plist; a release build also gets the location entitlement
 
 tac.browserApis
   honored: the same grant list in the page
 
 tac.browserApis clipboard
-  run owed: NSPasteboard through the host bridge (browserApi.clipboard); still to run: native_browser_api_host_tests on a Mac
+  honored: NSPasteboard through the host bridge (browserApi.clipboard)
 
 tac.browserApis share
-  run owed: NSSharingServicePicker through the host bridge (browserApi.share); still to run: the share picker opened from a page on a Mac, checked by hand
+  honored: NSSharingServicePicker through the host bridge (browserApi.share)
 
 tac.browserApis notifications
-  run owed: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; still to run: the permission prompt and a notification on a Mac, checked by hand
+  run owed: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; still to run: a notification shown on a Mac once its prompt is allowed (RM1 opened the prompt from a page on 2026-10-24 and left Allow to the person at the Mac)
 
 tac.browserApis geolocation
-  run owed: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; still to run: the location prompt with the manifest reason on a Mac, checked by hand
+  honored: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions
 
 tac.browserApis preferenceStrings
-  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch on a Mac
+  honored: the web view's localStorage, kept on disk
 
 tac.nativeCapabilities
   run owed: filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page; still to run: a C# and a Kotlin FilePicker field choosing a file in the macOS panel on a Mac
@@ -136,13 +136,13 @@ tac.elements
   adapted: tac.elements are bundled into the macOS app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service in the packaged macOS app on a Mac (ADR 0093)
+  honored: Pyodide in the web view (ADR 0093)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The macOS app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  run owed: the build checks request hosts and the scheme handler's connect-src allows only them; still to run: a page fetch to an undeclared host refused in the macOS app
+  honored: the build checks request hosts and the scheme handler's connect-src allows only them
 
 tac.yon
   adapted: tac.yon.origin: the macOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on macOS 26.6.2 (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1).
@@ -211,13 +211,13 @@ window drag regions (data-tac-drag-region)
   honored: dragging a marked element moves the window
 
 external links
-  run owed: http, https and mailto links open in the default browser or mail app (NSWorkspace); still to run: an http, https and mailto link from a page on a Mac
+  honored: http, https and mailto links open in the default browser or mail app (NSWorkspace)
 
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route (kAEGetURL)
 
 background and foreground signal
-  run owed: ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored; still to run: resigning and becoming the active app, hiding and minimizing on a Mac
+  honored: ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored
 
 stored data (IndexedDB, Cache API, LocalState)
   honored: kept on disk by the web view
@@ -226,7 +226,7 @@ service worker
   not applicable: The macOS app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
 
 Content-Security-Policy
-  run owed: the native host policy; still to run: a policy-violation probe in the macOS app
+  honored: the native host policy
 
 reaching Yon
   adapted: The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); a macOS run of that is still owed (yon-reach-test.mjs with a linked Swift stream and socket).
@@ -247,7 +247,7 @@ incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 byte-identical rebuilds
-  run owed: the macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a --release .dmg differs between builds, because its secure timestamp and notarization ticket change; still to run: a_packaged_macos_app_is_byte_identical_when_built_twice on a Mac (TL2)
+  honored: the macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a --release .dmg differs between builds, because its secure timestamp and notarization ticket change
 
 running without a signed-in desktop session
   not applicable: The macOS app needs a signed-in graphical session: its window and web view do not start without one, so its gates run on a signed-in Mac.

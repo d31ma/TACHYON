@@ -171,10 +171,12 @@ window, and go to the background when it was minimized. Android: the host
 code and a Kotlin companion compile against Android platform 35; no
 emulator run yet. Windows: generated-source tests and a MinGW-w64 compile of
 the state code only; the run inside WebView2 waits for the interactive
-desktop run. macOS: generated-source tests only; the Swift was not
-compiled in that run. iOS: on 2026-10-24 (RM2, below) the page and a linked
-Swift service each heard background and foreground on the iOS 26.5
-simulator.
+desktop run. macOS (2026-10-24, RM1): `scripts/application-state-macos-test.mjs`
+passed on a Mac. A page service and linked Rust and Swift services heard each
+change when the app stopped and started being active, was hidden and shown,
+and its window was minimized and restored. iOS: on 2026-10-24 (RM2, below)
+the page and a linked Swift service each heard background and foreground on
+the iOS 26.5 simulator.
 
 Windows bundles accept `--arch arm64` or `--arch x64`. The default matches
 an ARM64 build host and falls back to x64 on other architectures. This choice
@@ -185,9 +187,12 @@ and linker architecture together. The build refuses a developer prompt whose
 macOS bundles accept `--arch arm64`, `--arch x64` or `--arch universal`
 (ADR 0097 amendment of 2026-10-18). The default is the build machine's
 architecture. `universal` builds both architectures and joins them with
-`lipo`. Only the staging and the artifact manifest are tested so far; the
-universal build, its `lipo -archs` check and a run on an Intel Mac are not
-yet verified. Linux and iOS builds use the build machine's architecture.
+`lipo`. On 2026-10-24 (RM1) a universal build ran on an Apple silicon Mac:
+`lipo -archs` gave `x86_64 arm64` for the app and its helper, and the x86_64
+slice ran under Rosetta and answered from its linked Rust service ("macOS
+runs owed, RM1" below). It needs the `x86_64-apple-darwin` Rust target. No
+run on an Intel Mac yet. Linux and iOS builds use the build machine's
+architecture.
 Android takes `--arch arm64`, `x64` or `universal` (PKG7, 2026-10-24, ADR 0104
 amendment): the Rust library is built for `arm64-v8a`, `x86_64` or both (MR2),
 and Gradle's `abiFilters` name the same ABIs. `universal` is the default. An
@@ -630,6 +635,88 @@ production image, not device runs. Still owed: the `x86_64` Rust library on
 an x86_64 emulator or device (this Mac's emulator runs arm64 only), and runs
 on a physical device.
 
+#### macOS runs owed, RM1 (2026-10-24)
+
+RM1 ran the macOS rows of the runs-owed list on a signed-in Mac: an Apple
+M4 Mac (Mac16,10) with macOS 26.6.2 (25G83), Xcode 27.1 (27A9275), Swift
+6.4, Rust 1.97.1 and Node 24.19.0, on develop `4c052177`, with debug `ty`
+builds. Microsoft Edge 156 was the default browser and the default `mailto`
+handler. Each item below names its command.
+
+- Window controls: `scripts/window-grant-macos-test.mjs` passed (a granted
+  resize from a service widened the window to 480; without the grant it
+  stayed 420). A page granted `close`, `fullscreen`, `maximize` and
+  `minimize` drove each from a click: minimize miniaturized the window,
+  maximize zoomed it to 1920x960 and back to 640x512, fullscreen entered
+  and left full screen (1920x1080), and close removed the window. A
+  `title` grant renamed the window to `Quarterly report`. Without the
+  `maximize` grant the click showed the readable refusal and the window kept
+  its size.
+- Minimum size: a window with `minWidth` 520 and `minHeight` 400, dragged
+  400 points smaller from its corner, stopped at 520 by 432 (400 plus the
+  32-point title bar).
+- Background and foreground: the new
+  `scripts/application-state-macos-test.mjs` builds an app with a page
+  service, a linked Rust service and a linked Swift service. All three heard
+  `background` and `foreground` when another app became active and the app
+  came back, when the app was hidden and shown, and when its window was
+  minimized and restored. The script drives the app through Accessibility.
+- External links: a page's `http`, `https` and `mailto` links and a
+  `location.assign` to an `http` address each went to Edge through
+  `NSWorkspace`, and the app stayed on its page. A local server logged the
+  `http` link and the `location.assign` with Edge's user agent, and Edge's
+  address bar showed the `https` link. The unified log showed the `mailto`
+  hand-off: "Opening URL ... with application", with Edge brought to the
+  front. An `http://rm1user@127.0.0.1/...` link opened nothing: there was no
+  launch request and the server logged no request.
+- Browser APIs:
+  `native_browser_api_host_tests::macos_page_calls_reach_the_pasteboard_through_the_browser_api_bridge`
+  passed. A page opened the share picker
+  (`NSSharingServicePicker`). Its Copy service put the shared URL on the
+  pasteboard, and the page heard `ShareFinished`. A page request opened the
+  notification permission prompt (“RmApis” Notifications). Nobody allowed
+  it, so no notification was shown. A page location request opened the
+  CoreLocation prompt, “"RmApis" would like to use your current location.”,
+  with the manifest reason underneath: "RM1 checks that the location prompt
+  shows this reason". The prompt was answered "Don’t Allow". macOS refuses
+  notification permission to an app started from the temporary folder
+  (`UNErrorDomain` 1, "Notifications are not allowed for this
+  application"). A small ad hoc signed app gets the same error there, and
+  the prompt appears once the app is copied elsewhere.
+- Page checks: the new `scripts/native/page-checks-macos-test.mjs` passed in
+  16 s with a packaged app. `connect-src` refused an undeclared host: the
+  page's `securitypolicyviolation` event named `connect-src`, and the host
+  saw no request. The Yon origin answered. With Yon running, a counting
+  front in front of Yon saw both network-first reads and only the first
+  cache-first read. With Yon and the front stopped, the network-first read
+  answered its kept copy, the cache-first read answered from the cache, and
+  a `no-store` read failed. A preference string survived a quit and
+  restart.
+- WebAssembly page services: the new
+  `scripts/native/page-services-macos-test.mjs` passed. A packaged app's
+  Tally page answered a click from Python (Pyodide in the web view, opened
+  and answered in 2.1 s), Dart, Kotlin and Java services. The Dart, Kotlin
+  and Java apps had `LSMinimumSystemVersion` 15.2, and the Python app 13.0.
+- Byte-identical rebuild:
+  `native_reproducible_build_tests::a_packaged_macos_app_is_byte_identical_when_built_twice`
+  passed (64 s).
+- Universal build:
+  `native_rust_crate_tests::the_universal_macos_bundle_holds_both_architectures_and_its_helper_runs`
+  passed once `rustup target add x86_64-apple-darwin` had installed the
+  x86_64 standard library. Without it the build stops with `TY1605` and
+  names that command. `ty bundle --target macos --arch universal` of the
+  same Greeter project gave `lipo -archs` `x86_64 arm64` for the app and
+  its `probe-helper`, and `codesign --verify --strict` passed. Started with
+  `open`, the arm64 slice ran. Started with `arch -x86_64`, the x86_64 slice
+  ran under Rosetta (`NSRunningApplication.executableArchitecture`
+  x86_64). In both, the page's Greet button called the linked Rust service,
+  which answered from its vendored crates (`hello from macos vendored`).
+  The helper printed the same under both architectures.
+
+Not run in RM1: a notification shown after the prompt is allowed, an
+ahead-of-time C# service (it needs a `--release` build, which is
+Developer ID signed and notarized), and an Intel Mac.
+
 ### Native apps reach Yon through a declared origin (2026-10-18)
 
 ADR 0103 adds `tac.yon.origin` in `client/manifest.json` and `server.origins`
@@ -760,8 +847,10 @@ owed, RL1" above; ADR 0087 amendment). On the iOS 26.5 simulator in RM2
 (below), with Yon stopped, a network-first and a cache-first read answered
 from the kept copy, and again after a terminate and relaunch. On the
 Android emulator, in airplane mode, a network-first and a cache-first Yon
-read answered from Cache Storage ("Android runs owed, RM3" above). Offline
-reads in the macOS and Windows apps are owed.
+read answered from Cache Storage ("Android runs owed, RM3" above). The packaged
+macOS app ran it in RM1 (`scripts/native/page-checks-macos-test.mjs`):
+with Yon stopped, a network-first read answered its kept copy and a
+cache-first read answered from the cache ("macOS runs owed, RM1" above).
 
 How long the kept reads last follows the web storage of each host (below).
 The per-target support table gives `tac.cache` no relaunch limit on macOS,
@@ -788,7 +877,7 @@ tier.
 | --- | --- | --- |
 | Linux WebKitGTK | yes, `GtkUriLauncher` | `native_external_link_tests::the_linux_host_hands_external_links_to_the_launcher_and_keeps_the_page` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb in an x86_64 Ubuntu 24.04 cloud container, four of four runs: a page script's `location` changes, `window.open` calls and a `target="_blank"` link reached a fake launcher only for the `http`, `https` and `mailto` links, and the page stayed on `tachyon://app/`. The test also passed in the WSL (aarch64) run of `38eaed29` and under headless Wayland in RL1, and RL1's `scripts/linux/desktop-links-test.sh` handed `https` and `mailto` links from the real `GtkUriLauncher` to a default handler, with and without the OpenURI portal. Not run: a desktop |
 | Windows WebView2 | yes, `ShellExecuteW` | the opener and the shared check, built with MinGW-w64 and run under Wine 9.0, open only the external links. On 2026-10-24 `scripts/windows/external-links-test.mjs` opened http, https and mailto links from a WebView2 page on the signed-in Windows 11 ARM64 desktop (SD1) |
-| macOS WKWebView | yes, `NSWorkspace` (before 2026-10-18 for `http` and `https`) | source checks only for the `mailto` and no-user-name rule; not run on the Mac |
+| macOS WKWebView | yes, `NSWorkspace` (before 2026-10-18 for `http` and `https`) | On 2026-10-24 (RM1, macOS 26.6.2) a page's `http`, `https` and `mailto` links and a `location.assign` reached the default browser and mail handler (Edge), and the page stayed in the app; a link with a user name opened nothing ("macOS runs owed, RM1" above) |
 | iOS WKWebView | yes, `UIApplication` (before 2026-10-18 for `http` and `https`) | `scripts/ios/page-checks-test.mjs` on the iOS 26.5 simulator (RM2, 2026-10-24): `http`, `https` and a tapped `target="_blank"` link opened Safari; `mailto` reached the system, which has no Mail app on the simulator; links with a user name or a password, `ftp:` and an empty `mailto:` opened nothing and the app stayed in front |
 | Android WebView | yes, `ACTION_VIEW` (before 2026-10-18 for `http` and `https`) | `scripts/android/page-checks-test.mjs` on the API 35 emulator (2026-10-24, RM3): taps on `https`, `http` and `mailto` links started `ACTION_VIEW` from the app, Chrome and Gmail opened them and the page stayed; a link with a user name started nothing. Not run: a physical device |
 
@@ -814,7 +903,7 @@ not promote any tier.
 | Host | Implemented | Validated |
 | --- | --- | --- |
 | Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29` and again in RL1 on `d7110f74`. LX1 ran `linux_browser_apis_reach_geoclue_and_the_notification_server` through `scripts/linux/desktop-services-test.sh`: the page's position came from GeoClue 2.7.0 on a private system bus (a GPS fix from an NMEA socket, allowed by the GeoClue demo agent) and its notification was shown by dunst 1.9.2. Not run: a physical Linux desktop; Wayland, because the test clicks through X11's XTest |
-| macOS WKWebView | yes, all four: `NSPasteboard`, `NSSharingServicePicker`, `UNUserNotificationCenter`, CoreLocation | code level only, in a Linux cloud container (`native::browser_api_bridge`, `native::apple_browser_apis`). Owed: the compile and host test on a Mac, and a manual check of the share, notification and location prompts |
+| macOS WKWebView | yes, all four: `NSPasteboard`, `NSSharingServicePicker`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (`native::browser_api_bridge`, `native::apple_browser_apis`). On a Mac (2026-10-24, RM1, macOS 26.6.2): `native_browser_api_host_tests::macos_page_calls_reach_the_pasteboard_through_the_browser_api_bridge` passed; a page opened the share picker and its Copy service finished the share (`ShareFinished`); a page opened the notification prompt; a page opened the location prompt, which showed the manifest reason ("macOS runs owed, RM1" above). Owed: a notification shown once the prompt is allowed |
 | iOS WKWebView | yes, all four: `UIPasteboard`, `UIActivityViewController`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (same tests). The simulator gate `scripts/ios/native-test.mjs` passed with its clipboard step on develop `fd0384ad` (iPhone SE (3rd generation) simulator, iOS 26.5): the bridge listed all four APIs, the page wrote text that `simctl pbpaste` read from `UIPasteboard`, the page read it back, and a share without a grant was refused. On 2026-10-24 (RM2) `scripts/ios/browser-prompts-test.mjs` tapped real buttons on the iOS 26.5 simulator and read each prompt from a `simctl io` screenshot: the location prompt carried the manifest reason and the page got the simulated position; the notification prompt was allowed and a foreground banner appeared; the share sheet opened, and closing it reported a cancelled share |
 | Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | `scripts/android/browser-apis-test.mjs` passed on the API 35 emulator on 2026-10-24 (RM3): the clipboard round trip, the share sheet, the notification question, a posted notification and its channel name, a denied location question, the manifest reason before the second question, and a test-provider position after Allow. Not run: a physical device |
 | Windows WebView2 | yes: clipboard bridged to the Windows clipboard; share through the Windows share sheet (`IDataTransferManagerInterop`); notifications as toasts for the installed MSIX package (an unpackaged build answers `denied`); geolocation through WebView2 behind one `PermissionRequested` decision from the manifest grants (BA3) | `windows_browser_api_tests::the_windows_browser_apis_follow_the_manifest_grants_under_wine` compiled the bridge with MinGW (warnings as errors) and ran it under Wine 9.0 in an x86_64 Ubuntu 24.04 cloud container (BA3 branch on develop d7110f74): granted, a real clipboard round trip, the toast XML, the permission answers and the share values with a fake notifier and share sheet, and the permission decision; with nothing granted, each was refused. The whole generated host compiled with MinGW against the WebView2 1.0.3485.44 headers. `the_windows_browser_apis_match_the_windows_sdk_and_run_on_windows` passed on the Surface (Windows 11 ARM64 over SSH, MSVC 19.44.35229 ARM64, Windows SDK 10.0.26100.0, BA3 commit 971c6559): every declared Windows Runtime slot matched the SDK headers under `cl /W4 /WX`, and the program ran granted and refused with the runtime loaded and the share sheet opening for a message-only window. On the same machine `ty build --target windows` compiled and linked the desktop fixture app with all four APIs granted (`/W4 /WX`, WebView2 SDK 1.0.3485.44). On 2026-10-24 `scripts/windows/browser-apis-test.ps1` passed inside WebView2 on the signed-in desktop (SD1): the clipboard both ways, the share sheet opened, geolocation granted with no prompt, every API refused when none is granted, and, from the MSIX package installed by Developer Mode registration, a toast in the notification history. Not checked: whether the user shared from the sheet, which Windows does not report |

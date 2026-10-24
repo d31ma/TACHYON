@@ -303,7 +303,7 @@ fn explain_names_each_reach_state_in_plain_words() {
     let root = TargetSupportTests::project(&json!({}));
     let text = TargetSupport::explain(root.path(), &[AppTarget::Macos]).expect("explain");
     assert!(text.contains("background_color\n  not applied: "), "{text}");
-    assert!(text.contains("tac.python\n  run owed: "), "{text}");
+    assert!(text.contains("tac.dotnet\n  run owed: "), "{text}");
     assert!(text.contains("; still to run: "), "{text}");
     assert!(
         text.contains("service worker\n  not applicable: "),

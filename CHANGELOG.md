@@ -10,6 +10,18 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- macOS runs on a Mac (RM1, 2026-10-24): three new scripts check the
+  packaged macOS app. `scripts/application-state-macos-test.mjs` checks that
+  a page service and linked Rust and Swift services hear `background` and
+  `foreground`. `scripts/native/page-checks-macos-test.mjs` checks the
+  `connect-src` refusal, Yon reads kept offline under network-first and
+  cache-first rules, and a preference string across a relaunch.
+  `scripts/native/page-services-macos-test.mjs` checks Python, Dart, Kotlin
+  and Java page services. With those runs, the window-grant, pasteboard,
+  share, location-prompt, link, reproducible-build and universal-build runs,
+  the support table marks 16 macOS cells `honored`
+  (`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). Notifications and an
+  ahead-of-time C# service stay `runOwed`.
 - Android emulator runs of the owed rows (RM3). `window-controls-test.mjs`
   now also builds an app that grants all six controls and checks maximize and
   fullscreen from a Kotlin service, fullscreen and close from the page, and a

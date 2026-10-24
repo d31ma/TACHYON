@@ -183,3 +183,14 @@ page service and a linked Kotlin service each heard `foreground` (replayed),
 then `background` when Home stopped the activity (`onStop`), then
 `foreground` when it started again (`onStart`). The support table marks the
 Android background and foreground signal `honored`.
+
+## Amendment (2026-10-24): the macOS host on a Mac (RM1)
+
+This amendment narrows "Not run yet: the macOS and iOS hosts" above, which
+stays as the history of this decision. `scripts/application-state-macos-test.mjs`
+builds a macOS app with a page service, a linked Rust service and a linked
+Swift service, and drives it through Accessibility with
+`scripts/application-state-macos-control.swift`. On a Mac (macOS 26.6.2,
+Xcode 27.1, develop `4c052177`) all three heard `background` and
+`foreground` when another app became active and the app came back, when the
+app was hidden and shown, and when its window was minimized and restored.

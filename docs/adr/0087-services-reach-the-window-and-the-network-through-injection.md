@@ -438,3 +438,14 @@ removed too, because loopback through adb does not use the device network. A
 network-first and a cache-first Yon read answered their kept copies, a read
 with no rule failed, and Yon saw no request. The relaunch limit in the
 Android `tac.cache` note stays.
+
+## Amendment (2026-10-24): the packaged macOS app keeps Yon reads offline (RM1)
+
+`scripts/native/page-checks-macos-test.mjs` reads Yon from the packaged
+macOS app through a small counting front, so the run shows which reads
+reached Yon. On a Mac (macOS 26.6.2, develop `4c052177`), with Yon running,
+both network-first reads of `/api/notes` reached Yon, and only the first of
+two cache-first reads of `/api/first` did. With Yon and the front stopped,
+the network-first read answered its kept copy, the cache-first read answered
+from the cache, and a `no-store` read failed (`docs/SUPPORT_TIERS.md`, macOS
+runs owed, RM1). The support table marks `tac.cache` honored on macOS.

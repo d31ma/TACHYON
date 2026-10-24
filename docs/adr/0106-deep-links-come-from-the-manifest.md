@@ -174,3 +174,16 @@ decision. RL1's `scripts/linux/desktop-links-test.sh` installed the `.deb`'s
 Wayland and Xvfb in the cloud and on WSL (`docs/SUPPORT_TIERS.md`, Linux
 runs owed, RL1). A physical Linux desktop session is still owed. The signed
 iOS device check of universal links is still owed too.
+
+## Amendment (2026-10-24): external links on macOS (RM1)
+
+On a Mac (macOS 26.6.2, develop `4c052177`), a page's `http`, `https` and
+`mailto` links and a page's `location.assign` to an `http` address went
+through `NSWorkspace` to the default browser and mail handler (Microsoft
+Edge), and the app kept its page. A local server logged the `http` requests
+with Edge's user agent, Edge showed the `https` address, and the unified log
+showed the `mailto` hand-off. A link with a user name
+(`http://rm1user@127.0.0.1/...`) made no launch request
+(`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). The support table marks
+external links `honored` on macOS. The signed iOS device check of universal
+links is still owed.

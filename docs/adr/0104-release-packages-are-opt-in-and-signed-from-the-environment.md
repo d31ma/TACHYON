@@ -68,9 +68,9 @@ Each item below is decided by its own ADR amendment when its packaging lands:
 - Universal macOS binaries: no longer pending. `ty bundle --target macos
   --arch universal` builds an arm64 and an x86_64 app and joins the app and
   each Rust helper with `lipo` (ADR 0097 amendment of 2026-10-18), and a
-  `--release` build signs that app (below). Only the staging and the
-  artifact manifest are tested. Still owed: the Mac test that builds the
-  universal app and checks it with `lipo -archs`, and a run on an Intel Mac.
+  `--release` build signs that app (below). The 2026-10-24 amendment below
+  records the Mac run of the universal build. Still owed: a run on an
+  Intel Mac.
 - Android ABI selection.
 
 ## Consequences
@@ -450,3 +450,20 @@ DevTools socket asserted instead of skipping, and passed. The shrunk release
 APK of the Rust and Kotlin probe was installed and run on the `userdebug`
 emulator and on the Google Play image, and a tap reached its Rust service
 (ADR 0019 amendment).
+
+## Amendment (2026-10-24): the universal macOS build ran on a Mac (RM1)
+
+This amendment narrows "Only the staging and the artifact manifest are
+tested" in the Decision above, which stays as the history of this decision.
+On an Apple M4 Mac with macOS 26.6.2 and Xcode 27.1 (develop `4c052177`),
+`native_rust_crate_tests::the_universal_macos_bundle_holds_both_architectures_and_its_helper_runs`
+passed. It first failed with `TY1605` because the `x86_64-apple-darwin`
+standard library was missing; the message named
+`rustup target add x86_64-apple-darwin`, and the test passed after that
+command. `ty bundle --target macos --arch universal` of the same project
+gave `lipo -archs` `x86_64 arm64` for the app and its helper, and
+`codesign --verify --strict` passed. The x86_64 slice, started with
+`arch -x86_64`, ran under Rosetta: its page called the linked Rust service,
+which answered from its vendored crates, and the helper printed the same as
+the arm64 one (`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). Still owed: a
+run on an Intel Mac, and a universal `--release` build.

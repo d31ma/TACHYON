@@ -130,3 +130,33 @@ across a relaunch), `tac.application.permissions` and the `share`,
 Content-Security-Policy, external links, background and foreground, and
 byte-identical rebuilds. `docs/SUPPORT_TIERS.md` ("iOS simulator runs") lists
 each run. iOS release packaging and page accessibility stay `runOwed`.
+
+## Amendment (2026-10-24): the macOS runs (RM1)
+
+RM1 ran the macOS `runOwed` cells on a signed-in Mac (Apple M4, macOS 26.6.2,
+Xcode 27.1, develop `4c052177`; `docs/SUPPORT_TIERS.md`, macOS runs owed,
+RM1). These macOS cells moved to `honored`, each with its recorded run:
+
+- `tac.application.window.controls` and `minWidth`/`minHeight`: granted
+  close, fullscreen, maximize, minimize and title from a page,
+  `scripts/window-grant-macos-test.mjs`, and a drag that stopped at the
+  minimum size;
+- background and foreground: `scripts/application-state-macos-test.mjs`
+  (a page service and linked Rust and Swift services);
+- external links: `http`, `https`, `mailto` and an off-bundle navigation
+  handed to the default apps; a link with a user name opened nothing;
+- `tac.browserApis` clipboard, share and geolocation, and
+  `tac.application.permissions`: the pasteboard host test, the share picker
+  from a page, and the location prompt showing the manifest reason;
+- `tac.cache`, `tac.browserApis` preferenceStrings, `tac.outgoing` and
+  `Content-Security-Policy`: `scripts/native/page-checks-macos-test.mjs`;
+- `tac.python` and `tac.application.minimumSystem`:
+  `scripts/native/page-services-macos-test.mjs` (Python, and Dart, Kotlin
+  and Java built at 15.2);
+- `tac.application.rust`: a universal app whose Rust service answered the
+  page from vendored crates in both slices;
+- byte-identical rebuilds: `a_packaged_macos_app_is_byte_identical_when_built_twice`.
+
+Still `runOwed` on macOS: `tac.browserApis` notifications (the prompt opened
+from a page; a notification needs someone to allow it) and `tac.dotnet` (an
+ahead-of-time C# build needs a signed `--release` build).

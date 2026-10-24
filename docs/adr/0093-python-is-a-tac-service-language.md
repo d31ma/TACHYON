@@ -501,3 +501,14 @@ answer to a click came 2.9 to 3.7 seconds after `am start` in two runs, and
 MiB in its web view renderer.
 The support table marks `tac.python` `honored` on Android. Only the macOS
 host is still owed.
+
+## Amendment (2026-10-24): a Python service ran in the macOS app
+
+On a Mac (Apple M4, macOS 26.6.2, develop `4c052177`),
+`scripts/native/page-services-macos-test.mjs` bundled the Tally feature with
+its Python service for macOS. The app held Pyodide 314.0.7 under
+`.tachyon/services/python/314.0.7/`, and its page answered a click from the
+Python service in WKWebView, 2.1 s after the app opened
+(`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). The support table marks
+`tac.python` `honored` on macOS. With the Windows, iOS and Android runs
+above, every native host has now run a Python service.
