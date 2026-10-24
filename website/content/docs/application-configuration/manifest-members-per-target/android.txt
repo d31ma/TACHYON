@@ -241,7 +241,7 @@ development code signing
   honored: a debug APK is signed with the build machine's Android debug keystore
 
 release packaging
-  run owed: ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names, shrunk by R8 with keep rules for the host, bridge and service classes; other builds are a debug APK; still to run: the R8-shrunk release APK installed and run on the emulator (RM3); the signed release before R8 ran there on 2026-10-19
+  honored: ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names, shrunk by R8 with keep rules for the host, bridge and service classes; other builds are a debug APK
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
