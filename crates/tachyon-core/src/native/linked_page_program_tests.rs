@@ -74,6 +74,10 @@ fun main() {
     const CSHARP_DRIVER: &'static str =
         include_str!("../../tests/fixtures/native-csharp-page-program/PageProgramDriver.cs");
     const CSHARP_PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net9.0</TargetFramework><OutputType>Exe</OutputType><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks><InvariantGlobalization>true</InvariantGlobalization><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include=\"TachyonCompanion.cs\" /><Compile Include=\"PageProgramDriver.cs\" /></ItemGroup></Project>";
+    #[cfg(windows)]
+    const CSHARP_NATIVE_PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net9.0</TargetFramework><OutputType>Exe</OutputType><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks><InvariantGlobalization>true</InvariantGlobalization><PublishAot>true</PublishAot><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include=\"TachyonCompanion.cs\" /><Compile Include=\"PageProgramDriver.cs\" /></ItemGroup></Project>";
+    #[cfg(windows)]
+    const NATIVE_RUNTIMES: [&'static str; 2] = ["win-x64", "win-arm64"];
     const SERVICES: [(&'static str, &'static str); 2] =
         [("writer", "WriterService"), ("reader", "ReaderService")];
 
@@ -135,7 +139,7 @@ fun main() {
         )
     }
 
-    fn csharp_run(root: &Path) -> String {
+    fn csharp_project(root: &Path, project_file: &str) -> PathBuf {
         let inputs = Self::csharp_inputs(root);
         let project = super::windows::WindowsHostGenerator::staged_companion(
             &inputs,
@@ -144,16 +148,39 @@ fun main() {
         )
         .expect("stage")
         .expect("a C# companion");
-        Self::write(&project, "TachyonCompanion.csproj", Self::CSHARP_PROJECT);
+        Self::write(&project, "TachyonCompanion.csproj", project_file);
         Self::write(&project, "PageProgramDriver.cs", Self::CSHARP_DRIVER);
+        project
+    }
+
+    fn csharp_run(root: &Path) -> String {
+        let project = Self::csharp_project(root, Self::CSHARP_PROJECT);
         let mut command = Command::new("dotnet");
         command.arg("run").arg("--project").arg(&project);
-        let output = crate::external_command::run_sync(
-            &mut command,
-            std::time::Duration::from_mins(4),
-            65_536,
+        Self::printed(&mut command, std::time::Duration::from_mins(4))
+    }
+
+    #[cfg(windows)]
+    fn csharp_native_run(root: &Path) -> String {
+        let project = Self::csharp_project(root, Self::CSHARP_NATIVE_PROJECT);
+        let published = root.join("published");
+        let runtime = Self::NATIVE_RUNTIMES[usize::from(cfg!(target_arch = "aarch64"))];
+        let mut publish = Command::new("dotnet");
+        publish
+            .arg("publish")
+            .arg(&project)
+            .args(["-c", "Release", "-r", runtime, "-o"])
+            .arg(&published);
+        Self::printed(&mut publish, std::time::Duration::from_mins(15));
+        Self::printed(
+            &mut Command::new(published.join("TachyonCompanion.exe")),
+            std::time::Duration::from_mins(2),
         )
-        .expect("supervised .NET page program");
+    }
+
+    fn printed(command: &mut Command, limit: std::time::Duration) -> String {
+        let output = crate::external_command::run_sync(command, limit, 65_536)
+            .expect("supervised .NET page program");
         let printed = format!(
             "{}{}",
             String::from_utf8_lossy(&output.stdout),
@@ -329,6 +356,16 @@ fn two_linked_csharp_services_share_one_setup_configuration() {
     }
     let root = tempfile::tempdir().expect("project");
     let output = LinkedPageCheck::csharp_run(root.path());
+    println!("{output}");
+    LinkedPageCheck::assert_shared(&output);
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "Requires Windows, the .NET SDK and MSVC link on PATH (vcvars); publishes the shared-Setup C# companion with NativeAOT and runs it, not inside WebView2"]
+fn two_linked_csharp_services_share_one_setup_configuration_when_published_with_native_aot() {
+    let root = tempfile::tempdir().expect("project");
+    let output = LinkedPageCheck::csharp_native_run(root.path());
     println!("{output}");
     LinkedPageCheck::assert_shared(&output);
 }
