@@ -47,10 +47,10 @@ export class PageServicesFixture {
     return application
   }
 
-  /** @param {string} project @param {string} language */
-  static stageWindowCaller(project, language) {
+  /** @param {string} project @param {string} language @param {string} [folder] */
+  static stageWindowCaller(project, language, folder = 'client') {
     const application = this.stage(project, 'window-controls', 'Catalog', `dev.tachyon.window-${language}`)
-    this.copyService(project, 'window-controls', `client/services/ReportService.${language}`)
+    this.copyService(project, 'window-controls', `${folder}/services/ReportService.${language}`)
     return application
   }
 }

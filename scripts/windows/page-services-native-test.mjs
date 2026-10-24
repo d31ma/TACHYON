@@ -8,6 +8,7 @@ class WindowsPageServicesTest {
   static serviceLanguages = PageServicesFixture.list('TAC_WINDOWS_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
   static windowCallers = PageServicesFixture.list('TAC_WINDOWS_WINDOW_CALLERS', 'swift,cs,kt')
   static nativeLanguages = ['rs', 'cs']
+  static callerFolders = { cs: 'native' }
 
   /** @param {string} language */
   static kind(language) {
@@ -41,7 +42,7 @@ class WindowsPageServicesTest {
   /** @param {string} ty @param {string} language */
   static async checkWindowCaller(ty, language) {
     const project = path.join(this.root, `window-${language}`)
-    const application = PageServicesFixture.stageWindowCaller(project, language)
+    const application = PageServicesFixture.stageWindowCaller(project, language, this.callerFolders[language] ?? 'client')
     await WindowsGate.build(ty, project, 900_000)
     const output = await this.drive(project, application, PageServicesFixture.reportSteps)
     console.log(`==> ${language} ${this.kind(language)} WindowControls caller\n${output}`)
