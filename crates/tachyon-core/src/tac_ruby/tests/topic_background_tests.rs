@@ -118,12 +118,12 @@ async fn a_ruby_in_background_listener_runs_after_the_publisher_returns() {
     let report = Page::run(root.path(), TopicBackgroundPage::BACKGROUND_DRIVER);
     assert_eq!(
         report["before"],
-        serde_json::json!(["record 3", "placed"]),
+        serde_json::json!(["placed", "record 3"]),
         "{report}"
     );
     assert_eq!(
         report["after"],
-        serde_json::json!(["record 3", "placed", "audit 3"]),
+        serde_json::json!(["placed", "record 3", "audit 3"]),
         "{report}"
     );
     assert_eq!(
@@ -133,7 +133,11 @@ async fn a_ruby_in_background_listener_runs_after_the_publisher_returns() {
     );
     assert_eq!(
         report["listeners"],
-        serde_json::json!([["record", false], ["audit", true], ["settled", false]]),
+        serde_json::json!([
+            ["__tachyonListen:record", false],
+            ["__tachyonListen:audit", true],
+            ["__tachyonListen:settled", false]
+        ]),
         "{report}"
     );
 }
