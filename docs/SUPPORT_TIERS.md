@@ -490,6 +490,13 @@ MSVC 14.44 ARM64 tools, Windows SDK 10.0.26100.0, WebView2 SDK
 - `the_windows_file_picker_selects_a_file_in_the_windows_dialog` (FP1),
   built with MSVC: the typed file was selected and read, and an unanswered
   dialog closed after its patience;
+- `scripts/windows/page-services-native-test.mjs` with
+  `TAC_WINDOWS_PICKER_CALLERS=js,kt,cs` (FP5, Windows 11 25H2 build
+  26200.9711, .NET 10.0.302, Kotlin 2.1.10): `FilePicker` fields in a
+  JavaScript page service, a WebAssembly Kotlin service and a linked C#
+  service each opened the file dialog from the page, took a path typed into
+  its file name box, read the file back, and answered `cancelled` (C#
+  `Cancelled`) when the next dialog was closed with Escape;
 - the real-window title bar test, the WebView2 startup check with the
   current, an old and a missing runtime, the window frame and native
   controls tests, and
@@ -975,7 +982,7 @@ This evidence does not promote any tier.
 | --- | --- | --- |
 | Linux WebKitGTK | yes: `GtkFileDialog`, or the desktop portal's chooser where one runs, for JavaScript, TypeScript and linked Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly and reach the dialog through the page (FP5) | `linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and drove the real dialog with XTest key presses under Xvfb in an x86_64 Ubuntu 24.04 cloud container on 2026-10-19: three runs through the portal's chooser (xdg-desktop-portal-gtk, xfwm4) and one each through GTK's own dialog with and without a window manager. It also passed on WSL Ubuntu 24.04 (aarch64, same GTK and WebKitGTK, Xvfb with xfwm4), once through each dialog; one earlier WSL run with a broken portal backend hit the 30-second dialog limit and answered `cancelled`, and its rerun passed. A page and a Rust service chose, read and released files; cancel, the second dialog, the handle and owner limits, the lifetime, another owner, a large and a non-UTF-8 file, the missing grant and a new page were checked. On 2026-10-24 (FP5) `scripts/linux/page-services-native-test.mjs` ran the packaged `native-capabilities` app with a Swift (6.3.3), a C# (.NET 10.0.302) and a Kotlin (2.1.10) WebAssembly service under Xvfb with xfwm4 in the same kind of container: each chose a file in GTK's dialog, read it, and answered `cancelled` after Escape. Not run: a Linux desktop, Wayland |
 | macOS WKWebView | yes: `NSOpenPanel`, also for C# and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | see ADR 0089 and its amendments. On 2026-10-24 C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5) |
-| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1), and for Swift and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | under Wine in the cloud only; see the Windows paragraph above. On 2026-10-24 the whole generated host, with the page route, compiled with MinGW against the WebView2 1.0.3240.44 headers and the Wine picker checks passed. On 2026-10-24 the MSVC build selected a file in the Windows dialog and closed an unanswered one on the signed-in desktop (SD1). Owed: a page, a Swift and a Kotlin picker from a WebView2 page on a signed-in desktop |
+| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1), and for Swift and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | under Wine in the cloud and on the signed-in desktop; see the Windows paragraph above. On 2026-10-24 the whole generated host, with the page route, compiled with MinGW against the WebView2 1.0.3240.44 headers and the Wine picker checks passed. On 2026-10-24 the MSVC build selected a file in the Windows dialog and closed an unanswered one on the signed-in desktop (SD1). The same day (FP5) `scripts/windows/page-services-native-test.mjs` ran a JavaScript page service, a linked C# service and a WebAssembly Kotlin service from a WebView2 page on that desktop: each chose a typed file in the dialog, read it, and answered `cancelled` after Escape. Swift is not built on this machine, which has no Swift toolchain; a Swift field reached a dialog through the same page route on Linux |
 | iOS, Android | no: `unsupported` (FP4, FP2) | see the per-target support table |
 
 ### Window settings on iOS and Android (2026-10-19, WIN5)

@@ -85,8 +85,11 @@ machine contracts have their own, independent major versions.
   answered `unsupported`. The page sends each call to the host as a
   synchronous request on the app's own origin, and the host answers once
   the dialog closes. Linux runs in the cloud chose, read and cancelled for
-  all three languages, and C# and Kotlin did the same in the macOS panel
-  on a Mac; the WebView2 runs are owed (ADR 0089 amendment). The Windows
+  all three languages, C# and Kotlin did the same in the macOS panel on a
+  Mac, and a page, a Kotlin and a linked C# service did the same from a
+  WebView2 page on a signed-in Windows desktop (ADR 0089 amendment). The
+  Windows gate `scripts/windows/page-services-native-test.mjs` runs these
+  FilePicker callers (`TAC_WINDOWS_PICKER_CALLERS`). The Windows
   host reads the request body through the stream's own `Read`, because
   MSVC's `shlwapi.h` turns `IStream_Read` into a three-argument function
   and the host stopped compiling there.

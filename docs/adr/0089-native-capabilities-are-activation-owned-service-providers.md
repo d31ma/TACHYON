@@ -336,3 +336,21 @@ WKWebView. The same day, on the Surface (MSVC 19.44 ARM64), `ty build
 three-argument function, so the page route now calls `Read` through the
 stream's vtable. MinGW keeps the macro, which is why the cloud build
 passed.
+
+Later on 2026-10-24, `scripts/windows/page-services-native-test.mjs` gained
+FilePicker callers (`TAC_WINDOWS_PICKER_CALLERS`, default JavaScript,
+Kotlin and C#, with Swift added when `TAC_SWIFT_WASM_SDK` is set) and
+`scripts/windows/page-steps-probe.ps1` a `pick` step: it clicks the control,
+waits for the app's `IFileOpenDialog` window, types the path into its file
+name box and presses Enter, or presses Escape. Started through
+`scripts/windows/desktop-run.ps1` in the signed-in desktop session of the
+Windows 11 ARM64 Surface (build 26200.9711, WebView2 Runtime
+155.0.4283.62, MSVC 14.44 ARM64, WebView2 SDK 1.0.3485.44) on develop
+`e6d26623`, it built the `native-capabilities` feature for Windows with each
+service. The JavaScript page service, the Kotlin service running as
+WebAssembly (which sends through the page route) and the natively linked
+C# service each opened the dialog, read the chosen file and answered
+`cancelled` when the next dialog was closed with Escape. WebView2's
+`WebResourceRequested` handler receives the synchronous request with its
+body. Swift on Windows was not built there, because that machine has no
+Swift toolchain.
