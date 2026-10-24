@@ -19,6 +19,8 @@ class LinuxYonOriginTest {
   static features = ['sockets', 'realtime']
   static language = process.env.TAC_YON_SERVICES ?? 'javascript'
   static extensions = { javascript: '.js', rust: '.rs' }
+  static display = process.env.TAC_LINUX_DISPLAY ?? 'x11'
+  static waylandDisplay = 'tachyon-yon-reach'
   static probeSteps = [
     ['wait', ['Welcome to the room', 'ANVIL-1 · 3']],
     ['click', 'Say hello'],
@@ -433,15 +435,51 @@ export default class ProductInput {
     assert.match(source, new RegExp(`connect-src [^;]*${yonOrigin.replaceAll('.', '\\.')} ${socketOrigin.replaceAll('.', '\\.')}`))
   }
 
+  static hostScript = `"$APP" &
+host=$!
+trap 'kill "$host" \${compositor:-} 2>/dev/null || true; wait 2>/dev/null || true' EXIT
+timeout 240s python3 "$PROBE" "$STEPS"`
+
+  static x11Session(script) {
+    return {
+      command: 'xvfb-run',
+      args: ['--auto-servernum', '--server-args=-screen 0 1024x1400x24', 'dbus-run-session', '--', 'bash', '-c', `set -euo pipefail\n${script}`],
+      env: { GDK_BACKEND: 'x11' },
+    }
+  }
+
+  static waylandSession(script) {
+    const runtime = path.join(this.fixture, 'runtime')
+    mkdirSync(runtime, { mode: 0o700 })
+    const compositor = `set -euo pipefail
+unset DISPLAY
+mutter --headless --wayland --no-x11 --wayland-display="$WAYLAND_DISPLAY" --virtual-monitor 1024x1400 >"$XDG_RUNTIME_DIR/mutter.log" 2>&1 &
+compositor=$!
+for _ in $(seq 60); do
+  if [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]]; then break; fi
+  kill -0 "$compositor" 2>/dev/null || { cat "$XDG_RUNTIME_DIR/mutter.log" >&2; exit 1; }
+  sleep 0.5
+done
+echo "$(mutter --version | head -n 1) is the Wayland compositor on $WAYLAND_DISPLAY"
+`
+    return {
+      command: 'dbus-run-session',
+      args: ['--', 'bash', '-c', `${compositor}${script}`],
+      env: { GDK_BACKEND: 'wayland', WAYLAND_DISPLAY: this.waylandDisplay, XDG_RUNTIME_DIR: runtime },
+    }
+  }
+
+  static session() {
+    const sessions = { x11: () => this.x11Session(this.hostScript), wayland: () => this.waylandSession(this.hostScript) }
+    assert.ok(sessions[this.display], `TAC_LINUX_DISPLAY must be x11 or wayland, not ${this.display}`)
+    return sessions[this.display]()
+  }
+
   static async drive() {
     const state = path.join(this.fixture, 'state')
     const app = path.join(this.fixture, 'dist/linux', this.application, 'bin', this.application)
     const probe = path.join(this.repository, 'scripts/linux/yon-origin-probe.py')
-    const script = `set -euo pipefail
-"$APP" &
-host=$!
-trap 'kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true' EXIT
-timeout 240s python3 "$PROBE" "$STEPS"`
+    const session = this.session()
     const env = {
       ...process.env,
       APP: app,
@@ -450,12 +488,12 @@ timeout 240s python3 "$PROBE" "$STEPS"`
       TAC_PROBE_APPLICATION: this.application,
       XDG_STATE_HOME: state,
       XDG_DATA_HOME: path.join(this.fixture, 'data'),
-      GDK_BACKEND: 'x11',
       GTK_A11Y: 'atspi',
       LIBGL_ALWAYS_SOFTWARE: '1',
       WEBKIT_DMABUF_RENDERER_FORCE_SHM: '1',
+      ...session.env,
     }
-    const output = await this.run('xvfb-run', ['--auto-servernum', '--server-args=-screen 0 1024x1400x24', 'dbus-run-session', '--', 'bash', '-c', script], { env, timeoutMilliseconds: 270000 })
+    const output = await this.run(session.command, session.args, { env, timeoutMilliseconds: 270000 })
     process.stdout.write(output)
   }
 
@@ -483,7 +521,7 @@ timeout 240s python3 "$PROBE" "$STEPS"`
     } finally {
       front?.close()
     }
-    console.log(`PASS: the packaged Linux app reached Yon on ${yonOrigin}: HTTP, a preflighted signed-in request, a topic, a @Check 422, a stream and a socket.`)
+    console.log(`PASS: the packaged Linux app (${this.display}) reached Yon on ${yonOrigin}: HTTP, a preflighted signed-in request, a topic, a @Check 422, a stream and a socket.`)
   }
 }
 

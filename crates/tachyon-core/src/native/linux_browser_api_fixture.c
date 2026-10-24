@@ -100,7 +100,7 @@ static gboolean tachyon_browser_tick(gpointer data) {
   g_browser_waiting = TRUE;
   g_notification_send = tachyon_browser_notified;
   WebKitGeolocationManager *geolocation = webkit_web_context_get_geolocation_manager(webkit_web_view_get_context(g_view));
-  g_signal_connect(geolocation, "start", G_CALLBACK(tachyon_browser_position), NULL);
+  if (__BROWSER_TEST_POSITION__) g_signal_connect(geolocation, "start", G_CALLBACK(tachyon_browser_position), NULL);
   gdk_clipboard_set_text(gdk_display_get_clipboard(gdk_display_get_default()), "from another app");
   webkit_web_view_call_async_javascript_function(g_view, "__BROWSER_SCRIPT__", -1, NULL, NULL, NULL, NULL, tachyon_browser_replied, NULL);
   g_timeout_add(400, tachyon_browser_click, NULL);
