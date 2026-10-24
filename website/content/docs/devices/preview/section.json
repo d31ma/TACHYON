@@ -1,6 +1,6 @@
 {
   "heading": "Preview on a device",
-  "body": "Preview accepts exactly one target. If you do not pass --target, Tachyon previews web. A native preview serves the web bundle inside a target that you already built with `ty bundle --target <target>`, so it checks no toolchain. With `--watch` it builds that target first and rebuilds it when a source changes; that build checks the platform SDK, compiler and WebView and reports any missing dependency.",
+  "body": "Preview accepts exactly one target. If you do not pass --target, Tachyon previews web. A native preview builds the app into `dist/preview/<target>`, opens it, and keeps the development server running: the macOS, Linux or Windows app starts on this machine, the iOS app in the booted simulator (`TAC_IOS_SIMULATOR` picks another), and the Android app on the running emulator through `adb`. The app loads its pages from the development server, so an edit reaches it as a hot update. A change to `client/manifest.json` or to a linked native service rebuilds and reopens the app. In this build only, `tac.yon.origin` is the development server, so a native preview needs a fixed port on this machine's loopback address. `--static` serves an existing `ty bundle --target <target>` build without building it.",
   "code": {
     "file": "example.sh"
   }

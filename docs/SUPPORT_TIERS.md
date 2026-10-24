@@ -1015,6 +1015,21 @@ amendment). This evidence does not promote any tier.
 | Windows WebView2 | yes: the window class brush, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR` and the controller's `DefaultBackgroundColor` (only the last two with an integrated title bar) | on 2026-10-24 the whole generated host with a `background_color` compiled with MinGW against the WebView2 headers, standard and integrated, and `windows_window_background_tests::the_windows_window_background_paints_a_win32_window_under_wine` read the class brush, the painted client pixel and the WebView2 start color in an x86_64 Ubuntu 24.04 cloud container (Wine 9.0 under Xvfb). The same day `the_windows_window_background_paints_a_real_win32_window` passed with MSVC 14.44 (ARM64) on Windows 11 25H2 (build 26200, ARM64) in the signed-in desktop session, painting `RGB(26, 35, 126)` in the client area; over SSH (session 0) the brush and start color checks passed but `GetPixel` cannot see painted pixels. Owed: the page backdrop in WebView2 on a signed-in desktop |
 | Linux WebKitGTK | yes: the web view background color and the GTK window background | on 2026-10-24 `linux_window_appearance_tests::linux_generated_host_opens_the_declared_size_minimum_and_theme_color` read `background_color` back from the WebKitGTK view and sampled it in the rendered page area, with GTK 4.14.5 and WebKitGTK 2.52.6 under Xvfb with xfwm4 in an x86_64 Ubuntu 24.04 cloud container. Not run: WSL, Wayland, a Linux desktop |
 
+### Native preview against the development server (2026-10-24, NET5)
+
+`ty preview --target <native>` builds the app, opens it, and has its scheme
+handler load each page from the development server, so edits reach the
+running app as hot updates (ADR 0108). Release builds refuse the development
+origin (TY1601). This evidence does not promote any tier.
+
+| Host | Implemented | Validated |
+| --- | --- | --- |
+| Linux WebKitGTK | yes: libsoup fetch in the `tachyon://app` scheme handler; the app starts as a child process | on 2026-10-24 `scripts/linux/dev-loop-native-test.mjs` passed with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 under Xvfb in an x86_64 Ubuntu 24.04 cloud container, driven through AT-SPI: a Yon call reached the development server, a component CSS edit arrived while the page kept its state, a component HTML edit appeared, a manifest edit rebuilt and reopened the app, and stopping `ty preview` closed it. Not run: WSL, Wayland, a Linux desktop |
+| macOS WKWebView | yes: `URLSession` fetch in the `tachyon-app://bundle` scheme handler; the app starts as a child process | not run: the macOS app on a Mac |
+| iOS WKWebView | yes: the same Swift fetch; the app is installed and launched with `xcrun simctl` | not run: the iOS simulator |
+| Android WebView | yes: `HttpURLConnection` fetch in `shouldInterceptRequest`, `adb reverse` for the port, `adb install -r` and `am start` | on 2026-10-24 the generated preview `MainActivity.java` compiled with `javac` against `android.jar` (API 35), AndroidX WebKit 1.14.0 and AndroidX Core in the cloud. Not run: the emulator |
+| Windows WebView2 | yes: WinHTTP fetch in the WebResourceRequested handler; the app starts as a child process | on 2026-10-24 `native_development_preview_tests::the_preview_windows_host_compiles_against_the_win32_and_webview2_headers` compiled the preview host with MinGW against the Win32, WinHTTP and WebView2 headers in the cloud. Not run: the app on a signed-in Windows desktop (SD1) |
+
 ### Web storage across relaunch (2026-10-18)
 
 ADR 0059's amendment of 2026-10-18 covers this. Each host check writes an

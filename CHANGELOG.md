@@ -10,6 +10,18 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Native preview against the development server (NET5, ADR 0108):
+  `ty preview --target <native>` now builds the real app into
+  `dist/preview/<target>` and opens it: the macOS, Linux or Windows app as a
+  child process, the iOS app in the booted simulator, and the Android app on
+  the emulator through `adb`. The app keeps its own origin, and its scheme
+  handler loads each page from the development server, so edits arrive as
+  hot updates. `tac.yon.origin` points at the development server in that
+  build only, and a release build with a development origin stops with
+  TY1601. A manifest or linked companion source edit rebuilds and reopens
+  the app. `--static` keeps the old static preview. The Linux run passed
+  under Xvfb (`scripts/linux/dev-loop-native-test.mjs`); the Mac, emulator,
+  WSL and Windows runs are owed.
 - System Back on native hosts (SB1, 2026-10-24, ADR 0109): Android Back and
   the back gesture go back one route and leave the app from the first route;
   iOS turns on the web view's edge swipes; the macOS View menu has Back

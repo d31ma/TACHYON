@@ -2,7 +2,7 @@ private enum TacDevelopmentPages {
     static let origin = "__DEVELOPMENT_ORIGIN__"
     static let limit = 16 * 1024 * 1024
     nonisolated(unsafe) private static var pending: [ObjectIdentifier: URLSessionDataTask] = [:]
-    private static let session = URLSession(configuration: .ephemeral)
+    private static let session = URLSession(configuration: .ephemeral, delegate: TacDevelopmentRedirects(), delegateQueue: nil)
 
     static func start(_ task: WKURLSchemeTask, _ path: String, _ policy: String) -> Bool {
         guard let url = task.request.url, var target = URLComponents(string: origin) else { return false }
@@ -27,7 +27,7 @@ private enum TacDevelopmentPages {
     }
 
     private static func answer(_ task: WKURLSchemeTask, _ url: URL, _ policy: String, _ data: Data?, _ response: HTTPURLResponse?) {
-        guard let data, data.count <= limit, let response, let reply = HTTPURLResponse(
+        guard let data, data.count <= limit, let response, !(300..<400).contains(response.statusCode), let reply = HTTPURLResponse(
             url: url,
             statusCode: response.statusCode,
             httpVersion: "HTTP/1.1",
@@ -45,5 +45,12 @@ private enum TacDevelopmentPages {
         task.didReceive(reply)
         task.didReceive(data)
         task.didFinish()
+    }
+}
+
+private final class TacDevelopmentRedirects: NSObject, URLSessionTaskDelegate, Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 }

@@ -249,6 +249,9 @@ release packaging
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
+development preview (ty preview)
+  run owed: ty preview --target macos builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app; still to run: ty preview --target macos with the macOS app open on a Mac
+
 byte-identical rebuilds
   honored: the macOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a --release .dmg differs between builds, because its secure timestamp and notarization ticket change
 

@@ -249,6 +249,9 @@ release packaging
 incremental route reuse
   honored: routes whose inputs did not change are reused from dist/web; --no-incremental turns this off
 
+development preview (ty preview)
+  honored: ty preview builds and serves the site, and open pages receive semantic hot updates
+
 byte-identical rebuilds
   honored: the same sources give the same dist/web tree digest and the same artifact-manifest.json
 

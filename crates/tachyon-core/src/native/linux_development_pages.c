@@ -14,8 +14,9 @@ static void tachyon_development_answered(GObject *source, GAsyncResult *result, 
   SoupMessage *message = soup_session_get_async_result_message(SOUP_SESSION(source), result);
   GError *error = NULL;
   GBytes *body = soup_session_send_and_read_finish(SOUP_SESSION(source), result, &error);
-  if (body == NULL || message == NULL || g_bytes_get_size(body) > TACHYON_DEVELOPMENT_LIMIT) {
-    tachyon_development_failed(request, error != NULL ? error->message : "the answer is larger than 16 MiB");
+  guint status = message != NULL ? soup_message_get_status(message) : 0;
+  if (body == NULL || message == NULL || g_bytes_get_size(body) > TACHYON_DEVELOPMENT_LIMIT || (status >= 300 && status < 400)) {
+    tachyon_development_failed(request, error != NULL ? error->message : "the answer is a redirect or larger than 16 MiB");
     g_clear_error(&error);
     if (body != NULL) g_bytes_unref(body);
     g_object_unref(request);
@@ -25,7 +26,7 @@ static void tachyon_development_answered(GObject *source, GAsyncResult *result, 
   if (type == NULL) type = "application/octet-stream";
   GInputStream *stream = g_memory_input_stream_new_from_bytes(body);
   WebKitURISchemeResponse *response = webkit_uri_scheme_response_new(stream, (gint64)g_bytes_get_size(body));
-  webkit_uri_scheme_response_set_status(response, soup_message_get_status(message), soup_message_get_reason_phrase(message));
+  webkit_uri_scheme_response_set_status(response, status, soup_message_get_reason_phrase(message));
   webkit_uri_scheme_response_set_content_type(response, type);
   SoupMessageHeaders *headers = soup_message_headers_new(SOUP_MESSAGE_HEADERS_RESPONSE);
   soup_message_headers_append(headers, "Content-Type", type);
@@ -48,6 +49,7 @@ static gboolean tachyon_development_request(WebKitURISchemeRequest *request, con
   SoupMessage *message = soup_message_new(SOUP_METHOD_GET, target);
   g_free(target);
   if (message == NULL) return FALSE;
+  soup_message_add_flags(message, SOUP_MESSAGE_NO_REDIRECT);
   if (g_development_session == NULL) g_development_session = soup_session_new_with_options("timeout", 30, NULL);
   soup_session_send_and_read_async(g_development_session, message, G_PRIORITY_DEFAULT, NULL,
                                    tachyon_development_answered, g_object_ref(request));

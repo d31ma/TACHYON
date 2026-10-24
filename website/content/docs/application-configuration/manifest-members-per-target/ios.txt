@@ -249,6 +249,9 @@ release packaging
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
+development preview (ty preview)
+  run owed: ty preview --target ios installs the app in the booted simulator and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app; still to run: ty preview --target ios on the iOS simulator
+
 byte-identical rebuilds
   honored: the iOS build passes SOURCE_DATE_EPOCH and ZERO_AR_DATE to swiftc and compiles from the source folder; a signed --device or --release .ipa is never byte-identical. a_packaged_ios_app_is_byte_identical_when_built_twice passed on a Mac (RM2)
 

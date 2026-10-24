@@ -830,6 +830,16 @@
     "android": {"reach": "honored", "how": "routes are reused from the previous app's web folder; --no-incremental turns this off"}
   },
   {
+    "member": "development preview (ty preview)",
+    "paths": [],
+    "web": {"reach": "honored", "how": "ty preview builds and serves the site, and open pages receive semantic hot updates"},
+    "macos": {"reach": "runOwed", "how": "ty preview --target macos builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app", "run": "ty preview --target macos with the macOS app open on a Mac"},
+    "windows": {"reach": "runOwed", "how": "ty preview --target windows builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app", "run": "ty preview --target windows with the app open on a signed-in Windows desktop"},
+    "linux": {"reach": "honored", "how": "ty preview --target linux builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run under Xvfb by scripts/linux/dev-loop-native-test.mjs, NET5)"},
+    "ios": {"reach": "runOwed", "how": "ty preview --target ios installs the app in the booted simulator and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app", "run": "ty preview --target ios on the iOS simulator"},
+    "android": {"reach": "runOwed", "how": "ty preview --target android installs the app on the emulator through adb, forwards the port with adb reverse and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reinstalls the app", "run": "ty preview --target android on the emulator"}
+  },
+  {
     "member": "byte-identical rebuilds",
     "paths": [],
     "web": {"reach": "honored", "how": "the same sources give the same dist/web tree digest and the same artifact-manifest.json"},

@@ -249,6 +249,9 @@ release packaging
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
+development preview (ty preview)
+  run owed: ty preview --target windows builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app; still to run: ty preview --target windows with the app open on a signed-in Windows desktop
+
 byte-identical rebuilds
   honored: the Windows build compiles and links with /Brepro and keeps .obj files out of the output; two packaged builds give the same artifact-manifest.json digests
 
