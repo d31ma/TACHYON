@@ -1829,7 +1829,13 @@ machine contracts have their own, independent major versions.
   - The FYLO route phase of `scripts/test-managed-storage.mjs` now runs on
     Windows. The shared supervised runner reads Windows processes through CIM
     (process ID, parent and creation time).
+  - A Ruby relay no longer hangs until the handler deadline. The runner's
+    frame reader left a read pending on stdin, which blocks `Process.spawn`
+    with redirected pipes on Windows. It now waits with `IO.select` first.
   - The Redis contract runs against Garnet where Redis has no build.
+    CI installs Garnet 2.2.4 on the Windows storage job.
+  - On ARM64 Windows, `scripts/ci/install-fylo.mjs` installs the x64 FYLO,
+    which runs under emulation.
 - A Rust Yon handler that fails to compile names the model file at fault
   again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
   Tachyon now builds handlers with plain cargo output.
