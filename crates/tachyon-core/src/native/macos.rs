@@ -491,14 +491,16 @@ impl MacOsHostGenerator {
         ""
     }
 
-    pub(super) fn capability_models(call: &str) -> &'static str {
+    pub(super) const CAPABILITY_MODELS: &str = concat!(
+        include_str!("capabilities/FilePickerStatus.swift"),
+        include_str!("capabilities/FilePickerResult.swift")
+    );
+
+    fn capability_models(call: &str) -> &'static str {
         if call.contains("tacNativeInvoke") {
             return "";
         }
-        concat!(
-            include_str!("capabilities/FilePickerStatus.swift"),
-            include_str!("capabilities/FilePickerResult.swift")
-        )
+        Self::CAPABILITY_MODELS
     }
 
     pub(super) fn capability_registration(call: &str) -> &'static str {
