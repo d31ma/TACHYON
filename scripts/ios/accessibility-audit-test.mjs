@@ -166,7 +166,7 @@ class IosAccessibilityAuditTest {
       const report = this.audit(project)
       const open = this.unexcused(report.findings)
       assert.deepEqual(open, [], `the accessibility audit found issues: ${JSON.stringify(open, null, 2)}`)
-      console.log(`PASS: on the iOS ${target.runtime} simulator (${target.device}), XCUITest read the page's heading, image, text field, button and link by name, typed, pressed and followed the link through the accessibility API, and performAccessibilityAudit found ${report.findings.length} issue(s), none open. Report: ${path.join(this.evidence, 'report.json')}`)
+      console.log(`PASS: on the iOS ${target.runtime} simulator (${target.device}), XCUITest read the page's heading, image, text field, button and link by name, typed, pressed and followed the link through the accessibility API, and performAccessibilityAudit found ${report.findings.length} issue(s), none open (the audit checks the host's own elements: it does not look inside WKWebView content). Report: ${path.join(this.evidence, 'report.json')}`)
     } finally {
       this.cleanup()
     }

@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Mobile accessibility gates (AX1, 2026-10-24):
+  `scripts/ios/accessibility-audit-test.mjs` runs an XCUITest bundle with
+  `performAccessibilityAudit` against a Tachyon page on the iOS simulator.
+  `scripts/android/accessibility-test.mjs` reads the page through a
+  UiAutomation probe on the emulator and applies ATF-style checks. Both read
+  roles and names through the platform accessibility API, then type, press
+  and open a link through it. Both passed on the Mac (iOS 26.5, Android 15),
+  and the support table marks page accessibility `honored` on iOS and
+  Android (ADR 0102 amendment). The iOS audit does not look inside web view
+  content (`docs/SUPPORT_TIERS.md`).
+
 - Linked Rust on macOS and iOS (LR1, 2026-10-24): the Apple hosts now run
   linked Rust tasks. A wake resumes them on the main queue, and a linked
   Rust `HTTPClient` sends its requests to `tac.yon.origin` through

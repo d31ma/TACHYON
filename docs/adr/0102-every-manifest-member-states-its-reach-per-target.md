@@ -171,3 +171,15 @@ prompt. The page heard `granted`, and its notification was delivered and
 presented as a banner while the app was in front (`docs/SUPPORT_TIERS.md`,
 macOS runs owed, RM1). The support table marks `tac.browserApis`
 notifications `honored` on macOS. `tac.dotnet` stays `runOwed`.
+
+## Amendment (2026-10-24): page accessibility on iOS and Android (AX1)
+
+The `page accessibility (roles and names through the system accessibility
+API)` cells for iOS and Android move from `runOwed` to `honored`.
+`scripts/ios/accessibility-audit-test.mjs` (XCUITest on the iOS 26.5
+simulator) and `scripts/android/accessibility-test.mjs` (UiAutomation on the
+Android 15 emulator) read a page's heading, image, text field, button and link
+by role and name, and drive them through the accessibility API.
+`docs/SUPPORT_TIERS.md` ("Page accessibility on iOS and Android") records the
+runs. It also records their limits: the iOS audit API does not look inside web
+view content, and Chromium's Android heading is not marked as a heading.

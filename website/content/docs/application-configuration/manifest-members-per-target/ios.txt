@@ -205,7 +205,7 @@ menu shortcuts with control
   honored: the Control key
 
 page accessibility (roles and names through the system accessibility API)
-  run owed: the pages reach VoiceOver through the web view; still to run: an accessibility audit of roles and names on the iOS simulator (AX1)
+  honored: the web view's accessibility tree, which VoiceOver reads; on the iOS 26.5 simulator scripts/ios/accessibility-audit-test.mjs read the heading, image, text field, button and link by role and name through XCUITest, and typed into the field, pressed the button and opened the link through it (AX1)
 
 window drag regions (data-tac-drag-region)
   not applicable: An iOS app has no window to move.

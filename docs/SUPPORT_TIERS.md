@@ -1050,6 +1050,37 @@ Not covered by these runs:
   for notifications is not displayed there.
 - A physical device, a signed install and universal links stay owed.
 
+### Page accessibility on iOS and Android (2026-10-24, AX1)
+
+Run on the Mac (macOS 26.6.2, Xcode 27.1) from branch
+`claude/project-thread-muo2f6` (`b5d609c9`, on develop `b51b6b91`). No host
+code changed. Both gates build the page in
+`scripts/native/mobile-accessibility-fixture.mjs`: a heading, an `svg` with
+`role="img"`, a labelled text field, a button, a `role="status"` paragraph
+and a link to a second page. They read it through the platform
+accessibility API, not the DOM. This evidence does not promote any tier.
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| `scripts/ios/accessibility-audit-test.mjs` on an iPhone 17 Pro simulator, iOS 26.5 (23F77) | passed, 2 of 2 runs | An XCUITest bundle (`scripts/ios/AccessibilityAudit.swift`, in a project the gate writes) found the web view `tachyon-application`, the heading as static text, the image, the text field named by its label, the button and the link by name. It typed into the field and pressed the button, the status text it read changed to `Saved hello`, and the link opened the second page. `performAccessibilityAudit` reported 0 issues |
+| `scripts/android/accessibility-test.mjs` on emulator-5554, Android 15 (API 35, `tachyon-gate`) | passed | `scripts/android/AccessibilityProbe.java`, run through `app_process` with UiAutomation, read the WebView's nodes: an `android.widget.EditText` named `Note` (the label is its hint text), an `android.widget.Button`, an `android.widget.Image`, a clickable link and the heading. ATF-style checks (speakable text, 48 dp touch targets, duplicate clickable bounds, content descriptions on editable fields, redundant role words) found nothing. Typing, the button and the link worked from their accessibility bounds |
+
+Limits these runs found:
+
+- On Xcode 27.1 and iOS 26.5, `performAccessibilityAudit` does not look
+  inside `WKWebView` content. A throwaway run with text planted at about
+  1.9:1 contrast returned 0 issues, and the audit did not flag the link's
+  111x23 pt accessibility frame. The audit covers the host's own elements
+  only, so page contrast and touch targets on iOS are the page's to check.
+- `uiautomator dump` drops the hint text where Chromium puts a labelled
+  field's name, which is why the Android gate reads the tree with its own
+  UiAutomation probe.
+- Chromium gives the Android heading the role description `heading`, but
+  `isHeading()` is false, so TalkBack's heading navigation may skip it.
+- No VoiceOver or TalkBack session ran: the Google APIs emulator image has no
+  TalkBack, and the gates stop at what the accessibility APIs show. Android
+  text contrast is not checked.
+
 ### Browser engines for the web target (2026-10-19)
 
 On 2026-10-19 (BR1) these browser gates ran in Chromium 141, Firefox 153 and
