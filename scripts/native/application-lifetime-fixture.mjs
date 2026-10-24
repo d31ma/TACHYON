@@ -13,7 +13,7 @@ export class ApplicationLifetimeFixture {
     view: [
       { id: 'show-running', label: "What's Running", action: { service: 'LifetimeService', method: 'show_running', event: 'SectionChosen' }, shortcut: { key: '1', modifiers: ['command'] } },
     ],
-    help: [{ id: 'guide', label: 'Guide', route: '/guide', shortcut: { key: 'g', modifiers: ['command'] } }],
+    help: [{ id: 'guide', label: 'Guide', route: '/guide', shortcut: { key: '3', modifiers: ['command'] } }],
   };
 
   static application = `use crate::models::SectionChosen;

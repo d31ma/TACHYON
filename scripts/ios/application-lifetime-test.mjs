@@ -16,7 +16,7 @@ class IosLifetimeGate {
   static deviceSet = path.join(IosLifetimeGate.project, 'simulator-devices');
   static keyboard = path.join(IosLifetimeGate.project, 'simulator-keyboard');
   static appId = ApplicationLifetimeFixture.applicationId;
-  static keys = { k: '0xE3,0x0E', one: '0xE3,0x1E', two: '0xE3,0x1F', g: '0xE3,0x0A' };
+  static keys = { k: '0xE3,0x0E', one: '0xE3,0x1E', two: '0xE3,0x1F', guide: '0xE3,0x20' };
   static devices = [];
   static notes = [];
 
@@ -94,6 +94,10 @@ class IosLifetimeGate {
     return existsSync(file) ? readFileSync(file, 'utf8') : '';
   }
 
+  static mounted(device) {
+    return IosLifetimeGate.telemetry(device).split('"event":"controller.mounted"').length - 1;
+  }
+
   static async waitFor(device, check, message, attempts = 120) {
     for (let attempt = 0; attempt < attempts; attempt++) {
       const journal = IosLifetimeGate.journal(device);
@@ -128,12 +132,16 @@ class IosLifetimeGate {
     await waitFor(device, journal => journal.lines.includes('heard running') && journal.lines.includes('forwarded'), name + ': Command-1 forwards SectionChosen to the page');
     press(device, 'two');
     await waitFor(device, journal => journal.lines.includes('refreshed ' + instance), name + ': Command-2 runs the action without an event');
-    press(device, 'g');
+    const mounted = IosLifetimeGate.mounted(device);
+    press(device, 'guide');
+    for (let attempt = 0; attempt < 120 && IosLifetimeGate.mounted(device) === mounted; attempt++) await pause(250);
+    assert.ok(IosLifetimeGate.mounted(device) > mounted, name + ': Command-3 opens the guide page');
     await pause(2000);
     const heard = IosLifetimeGate.journal(device).lines.filter(line => line === 'forwarded' || line === 'unheard').length;
     press(device, 'one');
     await pause(1500);
-    assert.equal(IosLifetimeGate.journal(device).lines.filter(line => line === 'forwarded' || line === 'unheard').length, heard, name + ': Command-1 does nothing on a page without a listener');
+    const after = IosLifetimeGate.journal(device).lines;
+    assert.equal(after.filter(line => line === 'forwarded' || line === 'unheard').length, heard, name + ': Command-1 does nothing on a page without a listener: ' + JSON.stringify(after.slice(-4)));
     assert.match(telemetry(device), /"event":"menu.action"/, name + ' records the performed actions');
     return instance;
   }
@@ -145,10 +153,10 @@ class IosLifetimeGate {
     } catch (error) {
       IosLifetimeGate.notes.push(name + ': could not signal the app (' + error.message + ')');
     }
-    const stopped = await waitFor(device, current => current.lines.includes('stopped ' + instance), 'stop', 12).catch(() => null);
+    const stopped = await waitFor(device, current => current.lines.includes('stopped ' + instance), 'stop', 40).catch(() => null);
     IosLifetimeGate.notes.push(name + ': ' + (stopped ? 'SIGTERM ran applicationWillTerminate and stopped the service once' : 'SIGTERM ended the app without applicationWillTerminate, so the stop was not observed'));
     if (stopped) assert.equal(stopped.lines.filter(line => line.startsWith('stopped ')).length, 1, name + ': the service stops once');
-    IosLifetimeGate.simctl('terminate', device, IosLifetimeGate.appId);
+    spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosLifetimeGate.deviceSet, 'terminate', device, IosLifetimeGate.appId], { timeout: 60000, stdio: 'ignore' });
     launch(device);
     const again = await waitFor(device, current => current.created.length >= 2, name + ': a new launch starts the application service again');
     assert.notEqual(again.created[1], instance, name + ': the new launch gets a new instance');

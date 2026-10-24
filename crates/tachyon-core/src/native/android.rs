@@ -593,7 +593,7 @@ impl AndroidHostGenerator {
             .replace("__OTHER_COMPANION_CALL__", other_call);
         Some((
             String::from("rustOrCompanion(request)"),
-            format!("{other_emit} installRustCompanion();"),
+            format!("{other_emit}\n    installRustCompanion();"),
             services,
         ))
     }

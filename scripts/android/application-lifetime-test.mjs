@@ -15,6 +15,7 @@ class AndroidLifetimeGate {
   static packageName = ApplicationLifetimeFixture.androidPackage;
   static browser = undefined;
   static port = undefined;
+  static autoRotate = '1';
 
   static run(command, args, options = {}) {
     const result = spawnSync(command, args, { cwd: AndroidLifetimeGate.repo, encoding: 'utf8', timeout: 300000, maxBuffer: 8 * 1024 * 1024, ...options });
@@ -121,7 +122,16 @@ class AndroidLifetimeGate {
   }
 
   static menuItem(screen, label) {
-    return screen.split('<node ').find(line => line.includes(`text="${label}"`)) ?? '';
+    const ancestors = [];
+    for (const tag of screen.match(/<node [^>]*?\/?>|<\/node>/g) ?? []) {
+      if (tag === '</node>') {
+        ancestors.pop();
+        continue;
+      }
+      if (tag.includes(`text="${label}"`)) return `enabled="${[...ancestors, tag].every(node => node.includes('enabled="true"'))}"`;
+      if (!tag.endsWith('/>')) ancestors.push(tag);
+    }
+    return '';
   }
 
   static async overflow() {
@@ -179,7 +189,7 @@ class AndroidLifetimeGate {
     await text(status, 'visits', '2', 'the page kept its state');
     press('KEYCODE_2');
     await waitFor(journal => journal.lines.includes(`refreshed ${instance}`), 'Ctrl+2 runs the action without an event');
-    press('KEYCODE_G');
+    press('KEYCODE_3');
     await page('Guide');
     const disabled = await overflow();
     assert.match(menuItem(disabled, "What's Running"), /enabled="false"/, 'the action is disabled on a page without a listener');
@@ -205,6 +215,9 @@ class AndroidLifetimeGate {
       assert.equal(rotated.created.length, 1, 'a rotation keeps the application service');
       assert.equal(rotated.visits.at(-1)[1], instance, 'the new activity talks to the same instance');
       assert.equal(pid(), processId, 'the rotation stayed in the same process');
+      adbShell('settings', 'put', 'system', 'user_rotation', '0');
+      const restored = await waitFor(journal => journal.visits.length > rotated.visits.length, 'rotating back recreates the activity again');
+      assert.equal(restored.created.length, 1, 'rotating back keeps the application service');
       await pause(500);
       await attach();
     } finally {
@@ -232,6 +245,7 @@ class AndroidLifetimeGate {
     try {
       const apk = gate.build(project);
       gate.run(gate.adb, ['wait-for-device']);
+      gate.autoRotate = gate.adbShell('settings', 'get', 'system', 'accelerometer_rotation');
       gate.run(gate.adb, ['install', '-r', apk]);
       gate.adbShell('am', 'force-stop', gate.packageName);
       gate.adbShell('pm', 'clear', gate.packageName);
@@ -246,6 +260,7 @@ class AndroidLifetimeGate {
     } finally {
       await gate.detach().catch(() => {});
       spawnSync(gate.adb, ['shell', 'settings', 'put', 'system', 'user_rotation', '0'], { timeout: 60000 });
+      spawnSync(gate.adb, ['shell', 'settings', 'put', 'system', 'accelerometer_rotation', gate.autoRotate], { timeout: 60000 });
       spawnSync(gate.adb, ['shell', 'am', 'force-stop', gate.packageName], { timeout: 60000 });
       rmSync(project, { recursive: true, force: true });
     }

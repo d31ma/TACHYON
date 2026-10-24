@@ -1859,6 +1859,10 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- An Android app whose only native services are Rust services now loads the
+  Rust library. The host put `installRustCompanion();` on the same line as
+  the "No companion" comment, so the call was commented out and every Rust
+  service call failed (LT1 emulator run).
 - A linked Rust service now tells the page to read its fields again when an
   async `@OnEvent` listener task finishes, as a linked C# service does (LS3
   host runs). `scripts/linux/async-listener-native-test.mjs` runs such a

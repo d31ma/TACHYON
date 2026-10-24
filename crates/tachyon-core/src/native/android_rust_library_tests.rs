@@ -100,6 +100,12 @@ fn rust_without_kotlin_answers_other_services_with_the_empty_companion() {
     let source = AndroidRustLibraryCheck::source(false, &[String::from("rustCounter")]);
     assert!(source.contains("return rust != null ? rust : emptyCompanion(request);"));
     assert!(!source.contains("TachyonCompanionKt"));
+    assert!(
+        source
+            .lines()
+            .any(|line| line.trim() == "installRustCompanion();"),
+        "the Rust library is installed outside the no-companion comment"
+    );
 }
 
 #[test]
