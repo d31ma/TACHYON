@@ -5,7 +5,8 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod};
 use tachyon_core::{
-    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
+    DevServer, DevServerOptions, HandlerCancellation, HandlerSource, HandlerSupervisor,
+    HandlerSupervisorOptions, ProjectDiscovery,
 };
 
 struct Worker {
@@ -83,6 +84,24 @@ impl Worker {
         source: "// @Schedule(__SCHEDULE__)\ntype Handler struct{}\n\nfunc (Handler) POST() {\n}\n",
     };
 
+    const GROOVY: Self = Self {
+        extension: "groovy",
+        program: "groovyc",
+        source: "@Schedule(__SCHEDULE__)\nclass Handler {\n    static void POST() {\n    }\n}\n",
+    };
+
+    const FSHARP: Self = Self {
+        extension: "fs",
+        program: "dotnet",
+        source: "[<Schedule(__SCHEDULE__)>]\ntype Handler() =\n    static member POST() : unit = ()\n",
+    };
+
+    const LUA: Self = Self {
+        extension: "lua",
+        program: "lua",
+        source: "-- @Schedule(__SCHEDULE__)\n---@class Handler\nHandler = {}\n\n---@return nil\nfunction Handler.POST()\nend\n",
+    };
+
     async fn assert_runs(&self) {
         if Tools::skipped(self.program, self.extension) {
             return;
@@ -104,6 +123,119 @@ impl Worker {
     }
 }
 
+struct ScheduledWorker {
+    extension: &'static str,
+    program: &'static str,
+    source: &'static str,
+}
+
+impl ScheduledWorker {
+    const EVERY_SECOND: &'static str = r#"{"fixedDelaySeconds":1,"initialDelaySeconds":0}"#;
+    const NEVER: &'static str = r#"{"fixedDelaySeconds":0}"#;
+    const TICKS: usize = 2;
+
+    const GROOVY: Self = Self {
+        extension: "groovy",
+        program: "groovyc",
+        source: "@Schedule(__SCHEDULE__)\nclass Handler {\n    static void POST() {\n        new File('__TICKS__') << 'tick\\n'\n    }\n}\n",
+    };
+
+    const FSHARP: Self = Self {
+        extension: "fs",
+        program: "dotnet",
+        source: "[<Schedule(__SCHEDULE__)>]\ntype Handler() =\n    static member POST() : unit =\n        System.IO.File.AppendAllText(\"__TICKS__\", \"tick\\n\")\n",
+    };
+
+    const LUA: Self = Self {
+        extension: "lua",
+        program: "lua",
+        source: "-- @Schedule(__SCHEDULE__)\n---@class Handler\nHandler = {}\n\n---@return nil\nfunction Handler.POST()\n  local file = assert(io.open(\"__TICKS__\", \"a\"))\n  file:write(\"tick\\n\")\n  file:close()\nend\n",
+    };
+
+    fn write(&self, root: &Path, schedule: &str, ticks: &Path) -> String {
+        let entry = format!("server/workers/reconcile.{}", self.extension);
+        let source = self
+            .source
+            .replace("__SCHEDULE__", schedule)
+            .replace("__TICKS__", &ticks.to_string_lossy());
+        Tools::write(root, &entry, &source);
+        Tools::write(root, "client/pages/tac.html", "<worker-view />");
+        Tools::write(
+            root,
+            "client/components/worker/view/tac.html",
+            "<main aria-label=\"Workers\"><h1>Workers</h1></main>",
+        );
+        entry
+    }
+
+    fn refuses_a_cadence_out_of_range(&self) {
+        let root = tempfile::tempdir().expect("project");
+        let ticks = root.path().join("ticks");
+        let entry = self.write(root.path(), Self::NEVER, &ticks);
+        let failure = ProjectDiscovery::discover(root.path())
+            .map(|_| ())
+            .expect_err("a zero-second cadence is refused")
+            .to_string();
+        assert!(
+            failure.contains("Schedule.fixedDelaySeconds must be an integer from 1 to 86400"),
+            "{}: {failure}",
+            self.extension
+        );
+        assert!(failure.contains(&entry), "{}: {failure}", self.extension);
+    }
+
+    async fn ticks(path: &Path) -> String {
+        tokio::time::timeout(Duration::from_mins(3), async {
+            loop {
+                if let Ok(contents) = std::fs::read_to_string(path)
+                    && contents.lines().count() >= Self::TICKS
+                    && contents.ends_with('\n')
+                {
+                    break contents;
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        })
+        .await
+        .expect("the worker ran on the cadence its Schedule marker declares")
+    }
+
+    async fn assert_scheduled(&self) {
+        if Tools::skipped(self.program, self.extension) {
+            return;
+        }
+        self.refuses_a_cadence_out_of_range();
+        let root = tempfile::tempdir().expect("project");
+        let ticks_folder = tempfile::tempdir().expect("ticks folder");
+        let ticks = ticks_folder.path().join("ticks");
+        self.write(root.path(), Self::EVERY_SECOND, &ticks);
+        let project = ProjectDiscovery::discover(root.path())
+            .unwrap_or_else(|failure| panic!("{}: {failure}", self.extension));
+        let server = DevServer::bind_project(
+            &project,
+            &DevServerOptions {
+                port: 0,
+                watch: false,
+                ..DevServerOptions::default()
+            },
+        )
+        .await
+        .unwrap_or_else(|failure| panic!("{}: {failure}", self.extension));
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let running = tokio::spawn(server.run_until(async {
+            let _ = stopped.await;
+        }));
+        let written = Self::ticks(&ticks).await;
+        stop.send(()).expect("stop");
+        running.await.expect("task").expect("shutdown");
+        assert!(
+            written.lines().all(|line| line == "tick"),
+            "{}: {written}",
+            self.extension
+        );
+    }
+}
+
 struct Tools;
 
 impl Tools {
@@ -111,6 +243,7 @@ impl Tools {
         let flag = match program {
             "kotlinc" => "-version",
             "go" => "version",
+            "lua" => "-v",
             _ => "--version",
         };
         Command::new(program)
@@ -222,6 +355,36 @@ async fn a_dart_worker_needs_no_request_parameter() {
 #[tokio::test]
 async fn a_go_worker_needs_no_request_parameter() {
     Worker::GO.assert_runs().await;
+}
+
+#[tokio::test]
+async fn a_groovy_worker_needs_no_request_parameter() {
+    Worker::GROOVY.assert_runs().await;
+}
+
+#[tokio::test]
+async fn an_fsharp_worker_needs_no_request_parameter() {
+    Worker::FSHARP.assert_runs().await;
+}
+
+#[tokio::test]
+async fn a_lua_worker_needs_no_request_parameter() {
+    Worker::LUA.assert_runs().await;
+}
+
+#[tokio::test]
+async fn a_groovy_worker_runs_on_the_cadence_of_its_schedule_marker() {
+    ScheduledWorker::GROOVY.assert_scheduled().await;
+}
+
+#[tokio::test]
+async fn an_fsharp_worker_runs_on_the_cadence_of_its_schedule_marker() {
+    ScheduledWorker::FSHARP.assert_scheduled().await;
+}
+
+#[tokio::test]
+async fn a_lua_worker_runs_on_the_cadence_of_its_schedule_marker() {
+    ScheduledWorker::LUA.assert_scheduled().await;
 }
 
 #[tokio::test]

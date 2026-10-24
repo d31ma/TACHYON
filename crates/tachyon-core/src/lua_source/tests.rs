@@ -130,6 +130,28 @@ fn a_joined_program_holds_every_class() {
 }
 
 #[test]
+fn a_yon_needs_all_table_keeps_the_fields_that_have_a_starting_value() {
+    let source = "-- @Service\n-- @NeedsAll\nLedgerService = {\n  ---@type LedgerHelper\n  amounts = nil,\n  ---@type integer\n  extra = 2,\n  -- @Needs\n  ---@type TaxService\n  tax = nil,\n}\n";
+    let yon = LuaShadow::yon(source);
+    assert!(
+        yon.text().contains("  attr_reader :amounts\n"),
+        "{}",
+        yon.text()
+    );
+    assert!(yon.text().contains("  # extra = 2\n"), "{}", yon.text());
+    assert!(
+        yon.text().contains("  attr_reader :tax\n"),
+        "{}",
+        yon.text()
+    );
+    assert!(
+        LuaShadow::joined(source)
+            .text()
+            .contains("  attr_reader :extra\n")
+    );
+}
+
+#[test]
 fn the_lua_behavior_runtime_passes_its_boundary_contract() {
     let Some(printed) = super::LuaProgram::printed(&[
         include_str!("lua_json.lua"),

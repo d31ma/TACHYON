@@ -526,6 +526,86 @@ end
     ];
 }
 
+struct LuaNeedsAll;
+
+impl LuaNeedsAll {
+    const FILES: [(&str, &str); 4] = [
+        (
+            "server/helpers/LedgerAmountsHelper.lua",
+            r"-- @Helper
+---@class LedgerAmountsHelper
+LedgerAmountsHelper = {}
+
+---@return integer
+function LedgerAmountsHelper:subtotal()
+  return 40
+end
+",
+        ),
+        (
+            "server/services/StandardTaxService.lua",
+            r#"-- @Service
+---@class StandardTaxService
+StandardTaxService = {}
+
+---@return string
+function StandardTaxService:label()
+  return "standard"
+end
+"#,
+        ),
+        (
+            "server/services/LedgerService.lua",
+            r"-- @Service
+-- @NeedsAll
+---@class LedgerService
+LedgerService = {
+  ---@type LedgerAmountsHelper
+  amounts = nil,
+  ---@type integer
+  extra = 2,
+}
+
+---@return integer
+function LedgerService:subtotal()
+  return self.amounts:subtotal() + self.extra
+end
+",
+        ),
+        (
+            "server/controllers/LedgerController.lua",
+            r#"-- @RequestRoute("/ledger")
+-- @Public
+-- @NeedsAll
+---@class LedgerController
+LedgerController = {
+  -- @Needs
+  -- @Named("LedgerService")
+  ---@type LedgerService
+  service = nil,
+  ---@type LedgerAmountsHelper
+  ledger_amounts_helper = nil,
+  ---@type StandardTaxService
+  tax = nil,
+  ---@type string
+  label = "kept",
+}
+
+---@return table
+-- @GetRoute
+function LedgerController:get_ledger()
+  return {
+    total = self.service:subtotal(),
+    store = self.ledger_amounts_helper:subtotal(),
+    tax = self.tax:label(),
+    label = self.label,
+  }
+end
+"#,
+        ),
+    ];
+}
+
 fn lua_available() -> bool {
     Command::new("lua")
         .arg("-v")
@@ -648,6 +728,25 @@ async fn lua_settings_bind_bounded_fields_and_select_the_setup_by_profile_and_se
             "setting_off": inactive,
             "setting_missing": inactive,
         })
+    );
+}
+
+#[tokio::test]
+async fn a_lua_needs_all_controller_and_service_get_every_empty_field_filled() {
+    if !lua_available() {
+        eprintln!("skipping: lua is unavailable");
+        return;
+    }
+    let root = write_project(&LuaNeedsAll::FILES);
+    let answer = call(
+        root.path(),
+        "server/controllers/LedgerController.lua",
+        "/ledger",
+    )
+    .await;
+    assert_eq!(
+        answer,
+        serde_json::json!({"total": 42, "store": 40, "tax": "standard", "label": "kept"})
     );
 }
 

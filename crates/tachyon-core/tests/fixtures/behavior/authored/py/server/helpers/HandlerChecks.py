@@ -81,6 +81,14 @@ class HandlerChecks:
         return first, cached, fresh
 
     @staticmethod
+    async def check_cache_key(catalog):
+        await catalog.price('sku-1', 'first')
+        await catalog.price('sku-1', 'second')
+        assert Backend.prices == 1, 'CacheKey hit ignores the unmarked argument'
+        await catalog.price('sku-2', 'first')
+        assert Backend.prices == 2, 'CacheKey miss on a different key'
+
+    @staticmethod
     async def check_resilience(context):
         resilient = Behaviors.construct(Resilient, {'behaviors': context})
         assert await resilient.flaky() == 3 and Resilient.attempts == 3
@@ -128,6 +136,7 @@ class HandlerChecks:
         client.behaviors = context
         page = {'page': 2, 'size': 5}
         first, cached, fresh = await HandlerChecks.exercise_cache(catalog, context, page)
+        await HandlerChecks.check_cache_key(catalog)
         remote = await client.remote()
         assert await client.remote() == remote and Backend.exchanges == 1
         assert await client.find(7) == {'path': '/products/7'}

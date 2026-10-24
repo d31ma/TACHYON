@@ -70,6 +70,7 @@ mod yon_cpp_answers;
 mod yon_cpp_errors;
 mod yon_cpp_outbound;
 mod yon_dart;
+mod yon_description_script_tests;
 mod yon_description_tests;
 mod yon_dynamic_annotations;
 mod yon_fsharp_markers_tests;

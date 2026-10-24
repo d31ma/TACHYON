@@ -9,7 +9,7 @@ use crate::support::authored_behaviors;
 #[tokio::test]
 async fn python_php_and_ruby_execute_all_shared_annotations() {
     for (extension, runtime, authorizations) in [
-        ("py", "python3", 12),
+        ("py", "python3", 15),
         ("php", "php-cgi", 15),
         ("rb", "ruby", 15),
     ] {

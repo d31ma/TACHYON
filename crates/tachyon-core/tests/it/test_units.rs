@@ -251,6 +251,49 @@ async fn a_java_test_unit_runs_its_cases_through_the_supervisor() {
 }
 
 #[tokio::test]
+async fn a_groovy_test_unit_runs_its_cases_through_the_supervisor() {
+    if !tool_available("groovyc") {
+        eprintln!("skipping: groovyc is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "server/tests/CatalogTestSetup.groovy",
+        "@TestSetup\nclass CatalogTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration([:], [:], [:], null, null)\n    }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/tests/CatalogServiceTest.groovy",
+        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    @Fake\n    CatalogCounterHelper catalogCounterHelper\n    @Fake\n    long count\n    @Fake\n    boolean seen\n\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, 'the case has a context')\n        Assert.isTrue(catalogCounterHelper == null, 'a fake starts empty')\n        count = 3\n        seen = true\n        catalogCounterHelper = new CatalogCounterHelper() {\n            int count() { return 4 }\n        }\n        Assert.equals(8, construct(CatalogService.class).total(), 'the total')\n    }\n\n    void testReportsAFailure() {\n        Assert.isTrue(catalogCounterHelper == null, 'the fake is empty again')\n        Assert.equals(0L, count, 'a primitive fake is zero again')\n        Assert.isTrue(!seen, 'a boolean fake is false again')\n        Assert.isTrue(false, 'this case is meant to fail')\n    }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/helpers/CatalogCounterHelper.groovy",
+        "@Helper\nclass CatalogCounterHelper {\n    int count() { return 21 }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/services/CatalogService.groovy",
+        "@Service\nclass CatalogService {\n    @Needs\n    private final CatalogCounterHelper catalogCounterHelper\n\n    int total() { return catalogCounterHelper.count() * 2 }\n}\n",
+    );
+
+    let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.groovy")
+        .expect("test unit discovery");
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    let response = supervisor
+        .invoke(
+            &source,
+            &HandlerRequest::route("test_unit", "/", HttpMethod::Post),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("invocation");
+    assert_java_report(response);
+}
+
+#[tokio::test]
 async fn every_compiled_language_runs_its_test_unit() {
     for (extension, probe, configuration, unit) in [
         (

@@ -20,16 +20,20 @@ impl LuaShadow {
         "Each field of a class table sits on its own line as `name = value,`";
 
     pub(crate) fn of(source: &str) -> Self {
-        Self::written(source, false)
+        Self::written(source, false, false)
     }
 
     pub(crate) fn joined(source: &str) -> Self {
-        Self::written(source, true)
+        Self::written(source, true, false)
     }
 
-    fn written(source: &str, joined: bool) -> Self {
+    pub(crate) fn yon(source: &str) -> Self {
+        Self::written(source, true, true)
+    }
+
+    fn written(source: &str, joined: bool, yon: bool) -> Self {
         let sanitized = LuaBody::sanitized(source);
-        let (lines, problems) = ShadowWriter::write(source, &sanitized, joined);
+        let (lines, problems) = ShadowWriter::write(source, &sanitized, joined, yon);
         Self {
             text: lines.text(),
             lines,
