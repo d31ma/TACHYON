@@ -298,7 +298,8 @@ pub(super) fn swift_source(
         )
         .replace(
             "__NATIVE_CAPABILITY_MODELS__",
-            MacOsHostGenerator::capability_models(companion_call),
+            [MacOsHostGenerator::CAPABILITY_MODELS, ""]
+                [usize::from(companion_call.contains("tacNativeInvoke"))],
         )
         .replace(
             "__NATIVE_FILE_PICKER__",
