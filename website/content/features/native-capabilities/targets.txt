@@ -12,8 +12,7 @@ Kotlin service asks for the picker with an uninitialized FilePicker
 field and NeedsAll. In an app that does not link the language, the
 service runs as WebAssembly in the page and its field still opens the
 app's picker through the page. The iOS app opens the document picker
-and the Android app opens the system document picker; on both, the
-iOS simulator and Android emulator runs are still owed. In a browser
+and the Android app opens the system document picker. In a browser
 tab, available() is false and every call answers unsupported.
 
 Limits on every host that opens a panel

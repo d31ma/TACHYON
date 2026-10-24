@@ -130,7 +130,7 @@ tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk; a write was read back after a relaunch on the Android 15 emulator in scripts/android/page-checks-test.mjs (RM3)
 
 tac.nativeCapabilities
-  run owed: filePicker opens the system document picker (ACTION_OPEN_DOCUMENT) for page, Kotlin and Rust services, and for Swift and C# services, which run as WebAssembly on Android and reach the picker through the page; still to run: page, linked Kotlin and Rust, and WebAssembly Swift and C# FilePicker fields choosing, reading and cancelling in the document picker on the Android emulator (FP2)
+  honored: filePicker opens the system document picker (ACTION_OPEN_DOCUMENT) for page, Kotlin and Rust services, and for Swift and C# services, which run as WebAssembly on Android and reach the picker through the page; each chose, read and cancelled on the API 35 emulator (FP2)
 
 tac.elements
   adapted: tac.elements are bundled into the Android app for its own pages only. Other sites cannot load them from the app.
