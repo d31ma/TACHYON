@@ -164,7 +164,7 @@ final class GreeterProbeService {
     assert.ok(phone, 'the iOS runtime needs an iPhone device type')
     this.device = this.simctl('create', `RustCrate-${randomUUID()}`, phone.identifier, runtime.identifier)
     this.simctl('boot', this.device)
-    this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'bootstatus', this.device, '-b'])
+    this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'bootstatus', this.device, '-b'], 600000)
     return { runtime: runtime.version, device: phone.name }
   }
 

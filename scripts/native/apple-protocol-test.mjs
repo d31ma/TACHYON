@@ -59,6 +59,12 @@ final class AppleBrowserApis {
         reply("{\"value\":\"" + capability + "\"}")
     }
 }
+final class IosFilePicker {
+    static let shared = IosFilePicker()
+    func call(_ operation: String, _ request: [String: Any], _ reply: @escaping (String) -> Void) {
+        reply("{\"value\":\"" + operation + "\"}")
+    }
+}
 final class WKWebView {}
 struct TestRequest { let url: URL? }
 struct TestFrame { let isMainFrame: Bool; let request: TestRequest }

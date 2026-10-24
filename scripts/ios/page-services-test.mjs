@@ -166,7 +166,7 @@ final class ServicesProbeService {
     this.device = this.simctl('create', `PageServices-${randomUUID()}`, phone.identifier, runtime.identifier)
     console.log(`==> booting ${phone.name} with iOS ${runtime.version}`)
     this.simctl('boot', this.device)
-    this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'bootstatus', this.device, '-b'])
+    this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'bootstatus', this.device, '-b'], 600000)
     return { runtime: runtime.version, device: phone.name }
   }
 

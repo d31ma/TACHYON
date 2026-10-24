@@ -342,7 +342,7 @@ function bootSimulator() {
   assert.match(IosGate.device, /^[A-Fa-f0-9-]{36}$/);
   console.log('Booting isolated ' + phone.name + ' with iOS ' + runtime.version + '...');
   simctl('boot', IosGate.device);
-  run('/usr/bin/xcrun', ['simctl', '--set', IosGate.deviceSet, 'bootstatus', IosGate.device, '-b'], 240000);
+  run('/usr/bin/xcrun', ['simctl', '--set', IosGate.deviceSet, 'bootstatus', IosGate.device, '-b'], 600000);
   return { runtime, phone };
 }
 
