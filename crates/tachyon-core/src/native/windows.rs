@@ -55,7 +55,17 @@ impl WindowsHostGenerator {
             &resources,
         )?;
         let source_path = stage.join("project").join("tachyon_host.c");
-        write_host_source(&source_path, &c_source(application, index, companions))?;
+        write_host_source(
+            &source_path,
+            &c_source_serving(
+                application,
+                index,
+                companions,
+                super::development_pages::DevelopmentPages::serving(
+                    options.development_origin.as_ref(),
+                ),
+            ),
+        )?;
         write(
             &bundle.join("application.manifest"),
             application_manifest(application).as_bytes(),
@@ -742,10 +752,25 @@ fn application_manifest(application: &NativeApplication) -> String {
     )
 }
 
+#[cfg(test)]
 pub(super) fn c_source(
     application: &NativeApplication,
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
+) -> String {
+    c_source_serving(
+        application,
+        index,
+        companions,
+        super::development_pages::DevelopmentPages::none(),
+    )
+}
+
+pub(super) fn c_source_serving(
+    application: &NativeApplication,
+    index: &NativeRouteIndex,
+    companions: &[super::registry::NativeCompanionInput],
+    pages: super::development_pages::DevelopmentPages<'_>,
 ) -> String {
     let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
     let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
@@ -775,6 +800,7 @@ pub(super) fn c_source(
             "__APPLICATION_STATE__",
             include_str!("windows_application_state.c"),
         )
+        .replace("__DEVELOPMENT_PAGES__", &pages.windows())
         .replace(
             "__NATIVE_BROWSER_APIS__",
             &super::windows_browser_apis::WindowsBrowserApis::source(&application.permissions),
@@ -1339,6 +1365,8 @@ static const wchar_t *tachyon_content_type(const char *path) {
   return L"application/octet-stream";
 }
 
+__DEVELOPMENT_PAGES__
+
 __CAPABILITY_ROUTE__
 
 typedef struct { ICoreWebView2WebResourceRequestedEventHandlerVtbl *lpVtbl; } TachyonResourceHandler;
@@ -1360,6 +1388,10 @@ static HRESULT STDMETHODCALLTYPE resource_invoke(ICoreWebView2WebResourceRequest
     strcpy_s(relative, sizeof(relative), path + 1);
     stream = tachyon_resource_stream(relative);
     if (stream == NULL && tachyon_bundle_path(path, relative, sizeof(relative))) stream = tachyon_resource_stream(relative);
+    if (tachyon_development_response(arguments, text, stream != NULL ? relative : path + 1)) {
+      if (stream != NULL) IStream_Release(stream);
+      free(text); CoTaskMemFree(uri); return S_OK;
+    }
   }
   wchar_t headers[__RESPONSE_HEADER_CAPACITY__];
   _snwprintf_s(headers, sizeof(headers) / sizeof(headers[0]), _TRUNCATE,

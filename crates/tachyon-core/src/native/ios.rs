@@ -57,7 +57,13 @@ impl IosHostGenerator {
         )?;
         let call = super::macos::companion_call(companion.as_deref(), rust_companion.as_deref());
         let swift_path = stage.join("project").join("TachyonHost.swift");
-        write_host_source(&swift_path, &swift_source(application, call, index))?;
+        let pages = super::development_pages::DevelopmentPages::serving(
+            options.development_origin.as_ref(),
+        );
+        write_host_source(
+            &swift_path,
+            &swift_source_serving(application, call, index, pages),
+        )?;
         let icons = stage_icons(application, web_bundle, &bundle, destination.signed).await?;
         let platform = destination.plist_keys("");
         let entitlements =
@@ -253,10 +259,25 @@ pub(super) fn info_plist(
     )
 }
 
+#[cfg(test)]
 pub(super) fn swift_source(
     application: &NativeApplication,
     companion_call: &str,
     index: &NativeRouteIndex,
+) -> String {
+    swift_source_serving(
+        application,
+        companion_call,
+        index,
+        super::development_pages::DevelopmentPages::none(),
+    )
+}
+
+pub(super) fn swift_source_serving(
+    application: &NativeApplication,
+    companion_call: &str,
+    index: &NativeRouteIndex,
+    pages: super::development_pages::DevelopmentPages<'_>,
 ) -> String {
     let rust = usize::from(companion_call.contains("tacRustInvoke"));
     let rust_shim = ["", MacOsHostGenerator::RUST_SHIM][rust];
@@ -265,6 +286,7 @@ pub(super) fn swift_source(
             "__TACHYON_JSON_REQUEST__",
             MacOsHostGenerator::APPLE_JSON_REQUEST,
         )
+        .replace("__DEVELOPMENT_PAGES__", &pages.swift())
         .replace(
             "__NATIVE_BROWSER_APIS__",
             super::apple_browser_apis::AppleBrowserApis::SWIFT,
@@ -466,6 +488,8 @@ private final class Telemetry {
     }
 }
 
+__DEVELOPMENT_PAGES__
+
 private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
     static let shared = TachyonAssetSchemeHandler()
 
@@ -482,6 +506,7 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
         let root = resources.appendingPathComponent("WebBundle").standardizedFileURL
         var path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         if let document = tachyonDocument(url.path) { path = document }
+        if TacDevelopmentPages.start(task, path, "__CONTENT_SECURITY_POLICY__") { return }
         var file = root.appendingPathComponent(path).standardizedFileURL
         var isDirectory: ObjCBool = false
         if !FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory)
@@ -520,6 +545,7 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
 
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {
         IosCapabilityRoute.stop(task)
+        TacDevelopmentPages.stop(task)
     }
 
     private static func mimeType(_ extensionName: String) -> String {

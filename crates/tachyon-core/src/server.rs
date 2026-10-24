@@ -604,10 +604,32 @@ mod tests {
             .expect("hot update script");
         let source = std::str::from_utf8(&body).expect("JavaScript source");
         assert_eq!(source, HotUpdateHub::LIVE_RELOAD_CLIENT);
-        assert_eq!(body.len(), 5481);
+        assert_eq!(body.len(), 5628);
         assert_eq!(
             hex_digest(Sha256::digest(&body)),
-            "0965a5f3c6698b86d59a2c93e50000d54d13f3f50b7fa3770d5c159763c765f9"
+            "5833d294b96e59814990dcf49c7672f95770af281c97e25adb120dbdf7e389ec"
+        );
+    }
+
+    #[test]
+    fn a_native_preview_page_names_the_development_server_before_the_hot_update_script() {
+        let root = TempDir::new().expect("project root");
+        let plain = HotUpdateHub::new(None, root.path());
+        assert_eq!(plain.script_tag(), HotUpdateHub::LIVE_RELOAD_SCRIPT_TAG);
+        let native =
+            HotUpdateHub::new(None, root.path()).reached_from(Some("http://127.0.0.1:3000"));
+        let page = StaticFiles::inject_live_reload(
+            "<html><body><main>Page</main></body></html>",
+            native.script_tag(),
+        );
+        assert!(
+            page.contains(
+                r#"<meta name="tachyon-development-origin" content="http://127.0.0.1:3000"><script type="module" src="/.tachyon/live-reload.js"></script>"#
+            ),
+            "{page}"
+        );
+        assert!(
+            HotUpdateHub::LIVE_RELOAD_CLIENT.contains(r#"meta[name="tachyon-development-origin"]"#)
         );
     }
 

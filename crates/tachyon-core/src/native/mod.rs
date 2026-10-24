@@ -170,6 +170,8 @@ mod native_content_security_policy_tests;
 mod native_deep_link;
 #[cfg(test)]
 mod native_deep_link_tests;
+#[cfg(test)]
+mod native_development_preview_tests;
 mod native_display;
 mod native_external_link;
 #[cfg(test)]

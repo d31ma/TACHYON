@@ -64,7 +64,7 @@ impl ErrorPage {
              <pre>{problems}</pre>\n</main>\n{script}\n</body>\n</html>\n",
             title = Self::TITLE,
             problems = PageHead::escape(&problems),
-            script = HotUpdateHub::LIVE_RELOAD_SCRIPT_TAG,
+            script = self.hot_updates.script_tag(),
         )
     }
 }

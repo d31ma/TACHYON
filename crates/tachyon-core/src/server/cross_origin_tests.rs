@@ -138,3 +138,23 @@ async fn without_listed_origins_the_server_adds_no_cross_origin_headers() {
     assert_eq!(header(&response, &ACCESS_CONTROL_ALLOW_ORIGIN), None);
     assert_eq!(header(&response, &VARY), None);
 }
+
+#[tokio::test]
+async fn the_native_preview_app_may_read_the_development_server() {
+    let origins = AppOrigins::parse(&[] as &[&str])
+        .expect("origins")
+        .with_origin("tachyon://app");
+    let routes = Router::new().fallback(axum::routing::any(|| async { "route answer" }));
+    let response = send(
+        CrossOrigin::new(&origins).protect(routes),
+        request(Method::GET, Some("tachyon://app"))
+            .body(Body::empty())
+            .expect("request"),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        header(&response, &ACCESS_CONTROL_ALLOW_ORIGIN),
+        Some("tachyon://app")
+    );
+}

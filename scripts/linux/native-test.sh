@@ -146,6 +146,12 @@ reach_yon() {
   done
 }
 
+preview_against_the_dev_server() {
+  echo '==> opening the Linux app with ty preview --target linux and editing it while it runs'
+  TAC_BIN="$TAC_BIN" YON_JAVASCRIPT_RUNTIME="${YON_JAVASCRIPT_RUNTIME:-bun}" \
+    timeout 900s node scripts/linux/dev-loop-native-test.mjs
+}
+
 use_a_writable_runtime_folder() {
   if [[ -d "${XDG_RUNTIME_DIR:-}" && -w "${XDG_RUNTIME_DIR:-}" ]]; then return; fi
   echo '==> using a private XDG_RUNTIME_DIR, because this shell has no writable one'
@@ -184,7 +190,8 @@ main() {
   check_lifecycle_log
   check_release_packages "$FIXTURE"
   reach_yon
-  echo 'PASS: Linux WebView, shared JS/CSS, native ABI, publish, dynamic routes, route isolation, the AppImage and .deb release packages, and Yon reach'
+  preview_against_the_dev_server
+  echo 'PASS: Linux WebView, shared JS/CSS, native ABI, publish, dynamic routes, route isolation, the AppImage and .deb release packages, Yon reach, and ty preview against the dev server'
 }
 
 main "$@"

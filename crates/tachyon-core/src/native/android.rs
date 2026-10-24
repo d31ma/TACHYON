@@ -86,6 +86,9 @@ impl AndroidHostGenerator {
             companions,
             web_bundle,
             (&project, &rust_services, options.android_architecture),
+            super::development_pages::DevelopmentPages::serving(
+                options.development_origin.as_ref(),
+            ),
         )?;
 
         if !options.package {
@@ -122,6 +125,7 @@ fn write_project(
     companions: &[super::registry::NativeCompanionInput],
     web_bundle: &Path,
     (project, rust_services, architecture): (&Path, &[String], AndroidArchitecture),
+    pages: super::development_pages::DevelopmentPages<'_>,
 ) -> Result<(), Failure> {
     let package = java_package(&application.application_id);
     let package_path = package.replace('.', "/");
@@ -158,7 +162,13 @@ fn write_project(
         &project.join(format!(
             "app/src/main/java/{package_path}/MainActivity.java"
         )),
-        &linked_java_source(application, &package, (has_companion, rust_services), index),
+        &serving_java_source(
+            application,
+            &package,
+            (has_companion, rust_services),
+            index,
+            pages,
+        ),
     )
 }
 
@@ -448,11 +458,28 @@ pub(super) fn java_source(
     linked_java_source(application, package, (has_companion, &[]), index)
 }
 
+#[cfg(test)]
 pub(super) fn linked_java_source(
+    application: &NativeApplication,
+    package: &str,
+    linked: (bool, &[String]),
+    index: &NativeRouteIndex,
+) -> String {
+    serving_java_source(
+        application,
+        package,
+        linked,
+        index,
+        super::development_pages::DevelopmentPages::serving(None),
+    )
+}
+
+pub(super) fn serving_java_source(
     application: &NativeApplication,
     package: &str,
     (has_companion, rust_services): (bool, &[String]),
     index: &NativeRouteIndex,
+    pages: super::development_pages::DevelopmentPages<'_>,
 ) -> String {
     let native_shim = format!(
         "{}{}{}",
@@ -480,6 +507,7 @@ pub(super) fn linked_java_source(
         |(call, emit, services)| (call.as_str(), emit.as_str(), services.as_str()),
     );
     let framed = AndroidHostGenerator::JAVA_HOST
+        .replace("__DEVELOPMENT_PAGES__", &pages.java())
         .replace("__NATIVE_SHIM__", &quoted_string_escape(&native_shim))
         .replace(
             "__ANDROID_BRIDGE_SHIM__",
@@ -1132,6 +1160,8 @@ __NATIVE_RUST_SERVICES__
     }
     String document = routeDocument(path);
     String name = document != null ? document : path.substring(1);
+    WebResourceResponse development = developmentResponse(name, target);
+    if (development != null) return development;
     if (name.startsWith(".tachyon/")) {
       name = "tachyon-runtime/" + name.substring(".tachyon/".length());
     }
@@ -1202,18 +1232,28 @@ __NATIVE_RUST_SERVICES__
     if (!name.endsWith(".html")) {
       return stream;
     }
+    return new ByteArrayInputStream(withShim(readLimited(stream)));
+  }
+
+  private static byte[] readLimited(InputStream stream) throws java.io.IOException {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     byte[] chunk = new byte[8192];
     int read;
-    while ((read = stream.read(chunk)) != -1) {
-      if (buffer.size() + read > 16777216) {
-        stream.close();
-        throw new java.io.IOException("Native document exceeds the 16 MiB limit.");
+    try {
+      while ((read = stream.read(chunk)) != -1) {
+        if (buffer.size() + read > 16777216) {
+          throw new java.io.IOException("Native document exceeds the 16 MiB limit.");
+        }
+        buffer.write(chunk, 0, read);
       }
-      buffer.write(chunk, 0, read);
+    } finally {
+      stream.close();
     }
-    stream.close();
-    String document = new String(buffer.toByteArray(), StandardCharsets.UTF_8);
+    return buffer.toByteArray();
+  }
+
+  private static byte[] withShim(byte[] page) {
+    String document = new String(page, StandardCharsets.UTF_8);
     String script =
         "<script>"
             + NATIVE_SHIM
@@ -1224,8 +1264,10 @@ __NATIVE_RUST_SERVICES__
         head >= 0
             ? document.substring(0, head + 6) + script + document.substring(head + 6)
             : script + document;
-    return new ByteArrayInputStream(document.getBytes(StandardCharsets.UTF_8));
+    return document.getBytes(StandardCharsets.UTF_8);
   }
+
+__DEVELOPMENT_PAGES__
 
   private void openExternal(Uri target) {
     String scheme = target.getScheme();

@@ -26,7 +26,7 @@ impl NativePreview {
     const APP_OUTPUT: &'static str = "dist/preview";
     const PAGE_OUTPUT: &'static str = "dist/preview/pages";
     const POLL: Duration = Duration::from_millis(500);
-    const SERVER_WAIT: Duration = Duration::from_secs(300);
+    const SERVER_WAIT: Duration = Duration::from_mins(5);
 
     pub(crate) async fn run(self) -> Result<(), Failure> {
         let development = self.development_origin()?;
