@@ -26,7 +26,6 @@ function Write-BarFixture([string] $root) {
 '@
     Write-FixtureFile $root 'client/shared/shell.css' @'
 body { margin: 0; font-family: sans-serif; background: #ffffff; color: #111111; }
-main { padding: 16px; }
 '@
     Write-FixtureFile $root 'client/components/shell/bar/tac.css' @'
 .top-bar {
@@ -36,6 +35,7 @@ main { padding: 16px; }
   padding-inline-end: max(16px, var(--tac-titlebar-trailing-inset, 0px));
   background: #2e7d32; color: #ffffff;
 }
+.shell-main { padding: 16px; }
 '@
     Write-FixtureFile $root 'client/pages/tac.html' "<shell-bar hydrate=`"load`" />`n"
     Write-FixtureFile $root 'client/components/shell/bar/tac.html' @'
@@ -43,7 +43,7 @@ main { padding: 16px; }
   <strong>Drag area</strong>
   <button on:click="titleBar.press()">Header button</button>
 </header>
-<main aria-label="Shell bar">
+<main class="shell-main" aria-label="Shell bar">
   <p>Header presses {titleBar.presses}</p>
   <p>Insets {titleBar.insets}</p>
   <button on:click="titleBar.read()">Read insets</button>
