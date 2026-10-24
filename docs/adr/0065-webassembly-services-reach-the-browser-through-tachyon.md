@@ -480,8 +480,11 @@ host also compiles with MinGW against the WebView2 SDK headers. The ignored Wind
 the Surface (Windows 11 ARM64, MSVC 19.44 ARM64, Windows SDK 10.0.26100.0):
 every declared slot matched the SDK headers, the program ran with and
 without grants, and `ty build --target windows` compiled and linked an app
-that grants all four APIs. Still owed: the four APIs in WebView2, the share sheet and a toast from the
-installed package on a signed-in Windows desktop (SD1).
+that grants all four APIs. On 2026-10-24 (SD1) `scripts/windows/browser-apis-test.ps1` ran the four APIs
+from a WebView2 page on the signed-in desktop of the same machine: the
+clipboard both ways, the share sheet opened, geolocation granted with no
+prompt, every API refused with nothing granted, and a toast from the MSIX
+package registered in Developer Mode in the notification history.
 
 ## Amendment (2026-10-18): a ninth built-in event model
 

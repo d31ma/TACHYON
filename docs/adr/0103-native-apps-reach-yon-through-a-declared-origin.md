@@ -509,8 +509,20 @@ The run found two faults, both fixed:
   `TachyonRustCompanion.dll.exp` in `bin`. Nothing loads them, so the build
   now deletes them after it links the Rust companion.
 
-The app was not launched: WebView2 from `https://tachyon.local` still needs
-the signed-in desktop, with `scripts/windows/yon-reach.ps1`.
+The app was not launched here: WebView2 from `https://tachyon.local` needs the
+signed-in desktop, with `scripts/windows/yon-reach.ps1`.
+
+## Amendment (2026-10-24): the Windows app reaches Yon on the desktop (SD1)
+
+`scripts/windows/desktop-run.ps1` ran `scripts/windows/yon-reach.ps1` from SSH
+in the signed-in desktop session of the same Windows 11 ARM64 machine. The
+page reached Yon from `https://tachyon.local` with HTTP, a stream, a socket,
+a topic, a `@Check` 422 and a signed-in route; the linked Rust and C#
+`HTTPClient` reads answered; and the page held a linked C# service's stream
+(three ticks) and socket (an echo) clients (LS1). The fixture's C# held
+clients are `CsharpTicksClient` and `CsharpEchoClient`, with JavaScript twins
+that make no decisions, so `TY1314` does not apply. No local network prompt
+appeared.
 
 ## Amendment (2026-10-19): WSL and linked Rust on iOS
 

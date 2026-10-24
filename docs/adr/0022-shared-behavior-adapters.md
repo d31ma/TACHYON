@@ -567,4 +567,8 @@ through the same client and keeps its own fields. Generated companion source
 for the two-service fixture, before and after: Swift 136 KB to 69 KB, Kotlin
 105 KB to 54 KB, C# 170 KB to 87 KB; the Linux Swift test executable (debug)
 went from 1459 KB to 934 KB. The macOS, iOS simulator and Android emulator
-host runs, and the Windows NativeAOT build, are owed.
+host runs are owed. On 2026-10-24 the C# test also passed on Windows 11 ARM64
+with `dotnet run`, and
+`two_linked_csharp_services_share_one_setup_configuration_when_published_with_native_aot`
+published both services with NativeAOT for `win-arm64` and ran them: one
+identity, count 1 (SD1).

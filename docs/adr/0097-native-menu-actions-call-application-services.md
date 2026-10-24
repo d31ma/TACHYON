@@ -286,9 +286,10 @@ that becomes Ctrl+Y (Redo). macOS builds keep the rules they had.
   Edit and Window items are enabled, and that Edit > Select All selects the
   page text through the real WebKitGTK web view.
 - Windows: generated-source tests and the MinGW-w64 compile of the menu code.
-  The Edit commands inside WebView2 and Minimize/Maximize on a desktop still
-  need the interactive Windows run (with the other WebView2 checks in
-  `docs/SUPPORT_TIERS.md`).
+  On 2026-10-24 (SD1) `scripts/windows/window-shell-test.ps1` and
+  `scripts/windows/menu-tray-test.ps1` ran the Edit commands inside WebView2
+  and Window Minimize and Maximize on the signed-in desktop of a Windows 11
+  ARM64 machine.
 
 ## Amendment (2026-10-18): The 64 KiB reply limit applies on macOS too
 
