@@ -274,3 +274,37 @@ origin instead of the page's origin. The EventSource opens over CORS without
 credentials. Yon answers it with `Access-Control-Allow-Origin` when the
 page's origin is listed in `server.origins` in `server/application.json`.
 Without `tac.yon.origin`, a stream opens on the page's own origin as before.
+
+## Amendment (2026-10-24): The page holds a linked service's stream clients
+
+A natively linked Swift (macOS, iOS), Kotlin (Android) or C# (Windows)
+service may now hold a `@StreamRequest` client, as a linked Rust service
+could since NET4. Before, the build stopped with TY1405 and told the author
+to move the client into a JavaScript page service. The page holds the
+`EventSource`, as it does for a web service:
+
+- The build lists the client's streams in the service's member table
+  (`TacStream` in Swift and Kotlin, `TacMember.ClientStream` in C#), and the
+  companion describes them, with every `@OnEvent` listener, in its answer to
+  `init`.
+- The page opens each stream on `tac.yon.origin` and publishes each message
+  on its event bus. `template/tac-native-events.js` delivers it to the
+  linked listener with the companion op `event`; the companion runs the
+  listener on its owner thread and publishes what the listener returns, as
+  for its own events. The companion still delivers the events it publishes
+  to its own listeners first, and the page does not send them back.
+- Because the companion now describes every listener, page events from
+  other services and topic streams also reach a linked Swift or Kotlin
+  listener, as they already reached C# and Rust ones.
+
+An F# service runs in the page on every target, so it already held its
+clients; the unused native refusal is gone too. Linked listeners stay
+synchronous (ADR 0105).
+
+Evidence: companion runs in an x86_64 Ubuntu 24.04 cloud container. The
+staged Swift companion built with Swift 6.3.3, the Android Kotlin companion
+on the JVM with Kotlin 2.2.20 and org.json, and the Windows C# companion
+with .NET 9 each describe the `realtime` and `sockets` feature clients, take
+a tick and a chat message through `event`, and send through the page
+(`native/{swift,kotlin,csharp}_held_client_tests.rs`). Runs inside the
+macOS, iOS, Android and Windows apps are still owed.

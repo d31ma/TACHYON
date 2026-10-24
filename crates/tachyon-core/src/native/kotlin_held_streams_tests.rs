@@ -80,11 +80,20 @@ fn a_kotlin_browser_service_declares_the_streams_of_the_clients_it_holds() {
 }
 
 #[test]
-fn a_native_kotlin_build_refuses_stream_clients_with_the_browser_reason() {
-    let Err(error) = StreamClientProject::registry(false) else {
-        panic!("a native Kotlin build has no page to hold the stream");
-    };
-    let message = error.to_string();
-    assert!(message.contains("only in its browser build"), "{message}");
-    assert!(message.contains("TicksService"), "{message}");
+fn a_native_kotlin_build_hands_its_stream_clients_to_the_page() {
+    let registry = StreamClientProject::registry(false).expect("native build");
+    for expected in [
+        "\"__stream_TicksClient_receive\" to TacStream(\"TicksClient\", \"/ticks\", \"Tick\", false,",
+        "\"__stream_ChatClient_receive\" to TacStream(\"ChatClient\", \"/chat/room\", \"ChatMessage\", true,",
+        "behaviorSocketSend(\"ChatClient\", message)",
+    ] {
+        assert!(
+            registry.contains(expected),
+            "missing {expected}\n{registry}"
+        );
+    }
+    assert!(
+        !registry.contains("tacInstance.receive("),
+        "a client's stream method is not a listener of the service\n{registry}"
+    );
 }

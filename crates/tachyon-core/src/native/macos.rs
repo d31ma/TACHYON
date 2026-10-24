@@ -17,6 +17,8 @@ impl MacOsHostGenerator {
         include_str!("prelude_apple.swift"),
         include_str!("TacAwaited.swift"),
         include_str!("TacOwnerThread.swift"),
+        include_str!("TacSocketError.swift"),
+        include_str!("TacPageSocket.swift"),
         include_str!("capabilities/FilePickerResult.swift"),
         include_str!("capabilities/FilePickerStatus.swift"),
         include_str!("capabilities/FilePickerOptions.swift"),

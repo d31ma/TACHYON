@@ -402,6 +402,14 @@ app has not run it yet.
 | Windows | implemented; linked Rust and C# `HTTPClient` calls reach it too; built on the host, not run there | 2026-10-19 cloud runs and the MSVC and NativeAOT build on Windows 11 ARM64 (below); `scripts/windows/yon-reach.ps1` on a signed-in desktop is owed (NET3, with N1) |
 | Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Both also passed on WSL Ubuntu 24.04.5 (aarch64) in RL1, on `19a95a65`. Not run: a Wayland desktop |
 
+On 2026-10-24 (LS1, ADR 0058 and 0060 amendments) linked Swift, Kotlin and
+C# services started to hold stream and socket clients through the page, as
+linked Rust services do. Their companions ran in an x86_64 Ubuntu 24.04
+cloud container (Swift 6.3.3, Kotlin 2.2.20 on the JVM, .NET 9): each
+described the `realtime` and `sockets` clients, heard a tick and a chat
+message through `event`, and sent through the page. Not run: a linked
+stream or socket inside the macOS, iOS, Android or Windows app.
+
 On 2026-10-19 (NET3, ADR 0103 amendment) linked services started to answer
 the page later through a task, and linked Rust and C# `HTTPClient` calls
 started to reach `tac.yon.origin`. The cloud evidence:

@@ -3,21 +3,6 @@ func tacHostSocketStart(
     _ ticket: Int32, _ owner: UnsafePointer<UInt8>?, _ ownerLength: Int32, _ pointer: UnsafePointer<UInt8>?, _ length: Int32
 )
 
-struct TacSocketError: Error, CustomStringConvertible {
-    static let known: Set<String> = ["HTTP_BODY", "HTTP_MISSING", "HTTP_REQUEST", "CANCELLED"]
-    let code: String
-
-    init(_ code: String?) {
-        if let code, TacSocketError.known.contains(code) {
-            self.code = code
-        } else {
-            self.code = "HTTP_NETWORK"
-        }
-    }
-
-    var description: String { code + ": The socket message was not sent." }
-}
-
 func tacSocketSend<Message: Encodable>(_ client: String, _ message: Message) async throws {
     let text = tacEncode(tacModelValue(message))
     guard text.utf8.count <= 65536 else { throw TacSocketError("HTTP_BODY") }

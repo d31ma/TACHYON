@@ -25,3 +25,20 @@ private class TacFinishedTask : kotlin.coroutines.Continuation<Any?> {
             "{\"error\":\"This suspend method waits for the browser, and this native service runs without one.\",\"code\":\"HTTP_MISSING\"}"
     }
 }
+
+private object TacPageSocket {
+    private const val MOST_BYTES = 65536
+
+    fun send(client: String, message: Any) {
+        val text = try { tacEncode(tacPlain(message)) } catch (_: RuntimeException) { null }
+        if (text == null || text.encodeToByteArray().size > MOST_BYTES) {
+            throw TacSocketFailure("HTTP_BODY", "A socket message is JSON of at most 64 KiB.")
+        }
+        val owner = TacNativeState.executing
+        if (owner == null || owner.disposed) throw TacSocketFailure("HTTP_REQUEST", "The socket message was not sent.")
+        tacSend("{\"route\":${tacEncode(owner.route)},\"service\":${tacEncode(owner.service)},\"owner\":${tacEncode(owner.owner)},\"send\":${tacEncode(client)},\"value\":$text}")
+    }
+}
+
+@Suppress("RedundantSuspendModifier")
+private suspend fun behaviorSocketSend(client: String, message: Any) { TacPageSocket.send(client, message) }

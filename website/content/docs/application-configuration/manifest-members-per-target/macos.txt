@@ -229,7 +229,7 @@ Content-Security-Policy
   run owed: the native host policy; still to run: a policy-violation probe in the macOS app
 
 reaching Yon
-  adapted: The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1).
+  adapted: The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); a macOS run of that is still owed (yon-reach-test.mjs with a linked Swift stream and socket).
 
 natively linked service languages
   honored: Rust and Swift services are linked into the app; other languages run in the page

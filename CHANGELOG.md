@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Natively linked Swift, Kotlin and C# services hold `@StreamRequest` and
+  `@SocketRequest` clients (LS1). The page holds the connection on
+  `tac.yon.origin`, delivers each message to the service's `@OnEvent`
+  listener with the companion op `event`, and sends what the service's
+  socket client sends; before, these builds stopped with `TY1405`. Linked
+  Swift and Kotlin companions now describe every listener to the page, so
+  page events and topic streams reach them as they reach C# and Rust
+  services. Companion runs in the cloud cover all three languages; the app
+  runs on macOS, iOS, Android and Windows are owed (ADR 0058 and 0060
+  amendments).
 - iOS and Android apps now read the window members of `client/manifest.json`
   (WIN5). A hex `theme_color` fills the area behind the iOS status bar and
   the Android status and navigation bars, with readable bar text. A hex

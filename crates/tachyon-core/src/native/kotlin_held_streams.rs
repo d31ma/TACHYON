@@ -1,4 +1,3 @@
-use crate::Failure;
 use crate::events::{EventModule, EventStream, HeldStreams};
 use crate::project::NativeCompanion;
 use crate::template::RequiredFields;
@@ -18,7 +17,6 @@ impl KotlinHeldStreams {
         "open",
         "final",
     ];
-    const OFF_THE_PAGE: &'static str = "The page's JavaScript holds @StreamRequest and @SocketRequest connections, so a Kotlin service holds those clients only in its browser build. In a native build, write the client in JavaScript or TypeScript, which reaches Yon through tac.yon.origin (ADR 0103), and receive its messages with @OnEvent";
     const TOO_MANY: &'static str = "A Kotlin service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.";
 
     pub(super) fn of_owner(
@@ -31,32 +29,6 @@ impl KotlinHeldStreams {
         kotlin_owner.map_or(Ok(String::new()), |owner| {
             Self::entries(module, owner, path)
         })
-    }
-
-    pub(super) fn refuse_off_the_page(
-        language: NativeCompanion,
-        web_assembly: bool,
-        module: Option<&EventModule>,
-        identity: &Path,
-    ) -> Result<(), Failure> {
-        let held_off_the_page = [
-            language == NativeCompanion::Kotlin,
-            web_assembly,
-            module.is_some_and(Self::has_streams),
-        ] == [true, false, true];
-        (!held_off_the_page).then_some(()).ok_or_else(|| {
-            super::host::native_tool_failure(
-                1405,
-                &format!("{}: {}", identity.display(), Self::OFF_THE_PAGE),
-            )
-        })
-    }
-
-    fn has_streams(module: &EventModule) -> bool {
-        module
-            .types
-            .iter()
-            .any(|event_type| !event_type.streams.is_empty())
     }
 
     fn entries(module: &EventModule, owner: &str, path: &Path) -> Result<String, &'static str> {
