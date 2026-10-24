@@ -1127,7 +1127,21 @@ impl TacActivation {
         if !finished {
             tac_event_failure();
         }
-        let _ = tac_active_owner(owner).map(|activation| activation.listener_running.set(false));
+        let activation = tac_active_owner(owner);
+        let _ = activation.as_ref().map(|activation| activation.listener_running.set(false));
+        let _ = activation.as_ref().map(|activation| activation.announce_changed());
+    }
+
+    fn announce_changed(&self) {
+        let emit = tac_emit_slot().lock().ok().and_then(|installed| *installed);
+        let changed = format!(
+            "{{\"route\":{},\"service\":{},\"owner\":{},\"changed\":true}}",
+            tac_quote(&self.route),
+            tac_quote(&self.service),
+            tac_quote(&self.owner)
+        );
+        let payload = std::ffi::CString::new(changed).ok();
+        let _ = emit.zip(payload).map(|(emit, payload)| emit(payload.as_ptr()));
     }
 }
 

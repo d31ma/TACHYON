@@ -804,8 +804,13 @@ app's own process:
   Second, a local one-line change to FP5's `windows_capability_route.c`,
   which does not compile with MSVC on that commit (`IStream_Read`, C2197).
 
-Not run: a linked Rust async listener inside an app. Its finished listener
-task does not signal the page either.
+- Linux (x86_64 Ubuntu 24.04 cloud container, GTK 4.14.5, WebKitGTK
+  2.52.6, Xvfb, develop `dbcaf6d9` plus the fix below):
+  `scripts/linux/async-listener-native-test.mjs` built the Linux app with a
+  linked Rust service whose `async fn` listener waits 400 ms on another
+  thread, pressed "Send one" and "Send two" through AT-SPI, and the page
+  showed `[a1s1]` and then `[a1s1a2s2]`. With it, a finished Rust listener
+  task sends the owner's `changed` signal too, as the C# one does.
 
 On 2026-10-19 (NET3, ADR 0103 amendment) linked services started to answer
 the page later through a task, and linked Rust and C# `HTTPClient` calls

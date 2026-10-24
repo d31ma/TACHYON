@@ -223,8 +223,10 @@ fn main() {
     assert_eq!(ListenProbe::request("call", "send", "2"), r#"{"value":null}"#);
     ListenProbe::resume_until_heard("a1s1a2s2");
     let signals = ListenProbe::signals().lock().expect("signals").clone();
-    assert_eq!(signals.len(), 2, "{signals:?}");
-    assert!(signals.iter().all(|signal| signal.contains(r#""name":"Ping""#) && !signal.contains(r#""task":"#)), "{signals:?}");
+    let pings = signals.iter().filter(|signal| signal.contains(r#""name":"Ping""#)).count();
+    let changed = signals.iter().filter(|signal| signal.contains(r#""changed":true"#)).count();
+    assert_eq!([pings, changed, signals.len()], [2, 2, 4], "each finished listener task tells the page to read the service again: {signals:?}");
+    assert!(signals.iter().all(|signal| !signal.contains(r#""task":"#)), "{signals:?}");
     assert_eq!(ListenProbe::request("call", "send", "3"), r#"{"value":null}"#);
     assert!(ListenProbe::request("dispose", "", "").contains("null"));
     let after = ListenProbe::signals().lock().expect("signals").clone();

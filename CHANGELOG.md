@@ -1832,6 +1832,10 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A linked Rust service now tells the page to read its fields again when an
+  async `@OnEvent` listener task finishes, as a linked C# service does (LS3
+  host runs). `scripts/linux/async-listener-native-test.mjs` runs such a
+  listener in the Linux app.
 - A linked C# service in the Windows app now tells the page to read its
   fields again when an async `@OnEvent` listener, or a listener queued
   behind one, finishes (LS3 host runs). Before, the call that published the

@@ -117,5 +117,8 @@ Runs on 2026-10-24 (develop `e0bbb86a` plus LS3):
     `changed` signal, so the page reads the fields again. Before, the page
     kept the old values. It also needed a local one-line change to FP5's
     `windows_capability_route.c`, which MSVC rejected on that commit.
-- Still owed: a linked Rust async listener inside an app. Its finished
-  listener task sends no `changed` signal yet.
+- Linux (x86_64 Ubuntu 24.04 cloud container, GTK 4.14.5, WebKitGTK
+  2.52.6, Xvfb): `scripts/linux/async-listener-native-test.mjs` passed with
+  a linked Rust `async fn` listener in the Linux app (`[a1s1]`, then
+  `[a1s1a2s2]`). A finished Rust listener task now sends the owner's
+  `changed` signal too.
