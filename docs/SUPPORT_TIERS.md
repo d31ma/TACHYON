@@ -1055,13 +1055,27 @@ Not covered by these runs:
 
 - Disposal on termination: `simctl terminate` kills the app, so neither
   `applicationWillTerminate` nor a Swift `@OnStop` runs.
-- The oldest iOS 17.x and 18.x runtimes: Xcode 27.1 offers neither for
-  download. The iOS 17.0 runtime needs a developer.apple.com sign-in, and
-  18.0 needs an older Xcode. The 17.0 and 18.2 floors were built and run on
-  iOS 26.5 only.
+- iOS 18.2 or a 17.4 runtime: the 18.2 floor (Kotlin, Dart and Java) and
+  the new 17.4 floor ran on iOS 26.5 and 18.0 only.
 - iOS shows no app reason in the notification prompt, so a manifest reason
   for notifications is not displayed there.
 - A physical device, a signed install and universal links stay owed.
+
+Older runtimes (2026-10-24, RM2). Xcode 27.1 offers no iOS 17.x or 18.x
+runtime, so the iOS 17.0.1 (21A342) and 18.0 (22A3351) images came from
+developer.apple.com. Each image stayed on an external volume: mounted
+read-only with `hdiutil`, linked into
+`~/Library/Developer/CoreSimulator/Profiles/Runtimes`, with devices in an
+APFS sparse bundle (`TAC_IOS_RUNTIME` picks the runtime in the scripts).
+CoreSimulator still builds each runtime's dyld cache on the internal disk
+(2.6 GB for 17.0.1, 3.4 GB for 18.0).
+
+| Runtime | Result | Evidence |
+| --- | --- | --- |
+| iOS 17.0.1 | install, launch and page passed; component styles did not apply | `scripts/ios/native-test.mjs` (render, input, Swift calls, clipboard, a linked Rust sync member, `local=kept,store=kept,cache=kept` after a relaunch) and `scripts/ios/rust-crate-test.mjs` passed on develop `4eac45df`. In `scripts/ios/page-services-test.mjs` the Go and linked Rust apps answered clicks and opened `/items/7/`, but no component style applied: WebKit runs CSS `@scope` only from 17.4. The iOS floor is now 17.4 (ADR 0108), so 17.0.1 is below it |
+| iOS 18.0 | passed | the same three scripts on develop `4889d1a5` (floor 17.4): the main gate, the vendored crate, and Go and linked Rust apps whose component style applied inside the component only. A Kotlin app (floor 18.2) was refused at install (`Have 18.0; need 18.2`), as the floor intends |
+
+Async linked Rust members (LR1) were not exercised on either runtime.
 
 ### Page accessibility on iOS and Android (2026-10-24, AX1)
 
