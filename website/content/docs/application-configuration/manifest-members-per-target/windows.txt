@@ -229,7 +229,7 @@ Content-Security-Policy
   run owed: the native host policy; still to run: a policy-violation probe inside WebView2 on a signed-in Windows desktop
 
 reaching Yon
-  run owed: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services; other absolute URLs go only to the hosts in tac.outgoing.hosts; still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)
+  run owed: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services, and the page holds a linked C# or Rust service's stream and socket clients (LS1); other absolute URLs go only to the hosts in tac.outgoing.hosts; still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop, with linked C# streams and sockets (NET3, LS1)
 
 natively linked service languages
   honored: Rust and C# services are linked into the app; other languages run in the page

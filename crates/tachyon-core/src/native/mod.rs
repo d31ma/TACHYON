@@ -65,6 +65,8 @@ mod ios_toolchain_facts;
 mod ios_window_controls;
 mod ios_window_settings;
 mod java_web_services;
+#[cfg(test)]
+mod kotlin_held_client_tests;
 mod kotlin_held_streams;
 #[cfg(test)]
 mod kotlin_held_streams_tests;
@@ -282,6 +284,8 @@ mod site_tests;
 mod storage_tests;
 mod style_source;
 mod swift_compile_inputs;
+#[cfg(test)]
+mod swift_held_client_tests;
 mod swift_streams;
 mod swift_web_services;
 mod swift_yon_http;
@@ -375,6 +379,8 @@ mod csharp_browser_bindings;
 #[cfg(test)]
 mod csharp_browser_client_tests;
 mod csharp_browser_factory;
+#[cfg(test)]
+mod csharp_held_client_tests;
 #[cfg(test)]
 mod csharp_native_task_tests;
 #[cfg(test)]

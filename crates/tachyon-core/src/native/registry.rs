@@ -244,12 +244,6 @@ fn lowered_service(
     if let Some(module) = events.as_mut() {
         crate::events::describe(module, &identity, &item.snapshot_root, "client")?;
     }
-    super::kotlin_held_streams::KotlinHeldStreams::refuse_off_the_page(
-        language,
-        item.web_assembly,
-        events.as_ref(),
-        &identity,
-    )?;
     crate::route_types::Converters::require_rust_program(
         language,
         &item.snapshot_root,

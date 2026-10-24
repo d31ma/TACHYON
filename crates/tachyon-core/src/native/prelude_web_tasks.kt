@@ -114,8 +114,6 @@ private object TacHttpTickets {
 @JsExport
 fun tacHttpSettle(ticket: Int, answer: String) { TacHttpTickets.settle(ticket, answer) }
 
-private class TacSocketFailure(val code: String, message: String) : RuntimeException("$code: $message")
-
 private object TacSockets {
     private const val MOST_BYTES = 65536
     private val CODES = setOf("HTTP_MISSING", "HTTP_REQUEST", "CANCELLED")

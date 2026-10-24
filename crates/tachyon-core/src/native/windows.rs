@@ -137,6 +137,7 @@ impl WindowsHostGenerator {
     const CSHARP_NATIVE_TASKS: &str = concat!(
         include_str!("csharp_native/TacNative.cs"),
         include_str!("csharp_native/Tac.cs"),
+        include_str!("csharp_native/TacNativeSocket.cs"),
         include_str!("csharp_native/TacOwnerContext.cs"),
         include_str!("csharp_native/TacNativeHttp.cs"),
         include_str!("csharp_native/TacNativeHttpRequest.cs"),

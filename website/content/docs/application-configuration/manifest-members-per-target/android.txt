@@ -229,7 +229,7 @@ Content-Security-Policy
   honored: the native host policy, which also allows the host's bridge script by its hash
 
 reaching Yon
-  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2).
+  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2). The page also holds a linked Kotlin service's stream and socket clients and delivers their messages to it (LS1); an emulator run of that is still owed.
 
 natively linked service languages
   honored: Kotlin and Rust services are linked into the app, with Kotlin chosen when a service has both; other languages run in the page

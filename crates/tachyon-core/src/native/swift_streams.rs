@@ -21,11 +21,9 @@ impl SwiftStreams {
         "lazy ",
     ];
     const TOO_MANY: &'static str = "A Swift service holds at most 16 @StreamRequest and @SocketRequest methods through its clients.";
-    const NATIVE: &'static str = "A Swift service in a native app cannot hold a @StreamRequest or @SocketRequest client. Hold the client in a JavaScript or TypeScript page service, which reaches Yon on tac.yon.origin (ADR 0103), and receive the messages here with @OnEvent; the page holds the stream itself for a Swift web service";
 
     pub(super) fn held(
         language: NativeCompanion,
-        web_assembly: bool,
         module: Option<&EventModule>,
         owner: (&str, &Path),
     ) -> Result<Self, Failure> {
@@ -33,7 +31,7 @@ impl SwiftStreams {
             .filter(|_| language == NativeCompanion::Swift)
             .map_or_else(
                 || Ok(Self::unchanged()),
-                |module| Self::of_module(module, web_assembly, owner),
+                |module| Self::of_module(module, owner),
             )
     }
 
@@ -44,11 +42,7 @@ impl SwiftStreams {
         }
     }
 
-    fn of_module(
-        module: &EventModule,
-        web_assembly: bool,
-        (class, path): (&str, &Path),
-    ) -> Result<Self, Failure> {
+    fn of_module(module: &EventModule, (class, path): (&str, &Path)) -> Result<Self, Failure> {
         let clients: Vec<&EventType> = module
             .types
             .iter()
@@ -56,7 +50,7 @@ impl SwiftStreams {
             .collect();
         let held = Self::held_types(&module.source, class);
         let streams = Self::streams(&clients, &held);
-        Self::checked(&streams, web_assembly, path)?;
+        Self::checked(&streams, path)?;
         Ok(Self {
             module: (!clients.is_empty()).then(|| Self::without_clients(module, &clients)),
             entries: streams
@@ -80,22 +74,10 @@ impl SwiftStreams {
             .collect()
     }
 
-    fn checked(
-        streams: &[(&str, &EventStream)],
-        web_assembly: bool,
-        path: &Path,
-    ) -> Result<(), Failure> {
-        let refusals = [
-            (
-                [streams.is_empty(), web_assembly] == [false, false],
-                Self::NATIVE,
-            ),
-            (streams.len() > Self::MOST_STREAMS, Self::TOO_MANY),
-        ];
-        refusals
-            .iter()
-            .find(|(refused, _)| *refused)
-            .map_or(Ok(()), |(_, message)| Err(Self::failure(path, message)))
+    fn checked(streams: &[(&str, &EventStream)], path: &Path) -> Result<(), Failure> {
+        (streams.len() <= Self::MOST_STREAMS)
+            .then_some(())
+            .ok_or_else(|| Self::failure(path, Self::TOO_MANY))
     }
 
     fn is_stream_client(event_type: &EventType, class: &str) -> bool {
@@ -197,6 +179,7 @@ impl SwiftStreams {
 mod tests {
     use super::SwiftStreams;
     use crate::project::NativeCompanion;
+    use std::fmt::Write as _;
     use std::path::Path;
 
     struct Fixtures;
@@ -205,7 +188,7 @@ mod tests {
         const PATH: &'static str = "client/services/TicksService.swift";
         const CLIENT: &'static str = "@HTTPClient(\"/ticks\")\nfinal class TicksClient {\n    @StreamRequest\n    func receive(_ tick: Tick) {}\n}\n\n";
 
-        fn held(service: &str, web_assembly: bool) -> Result<SwiftStreams, crate::Failure> {
+        fn held(service: &str) -> Result<SwiftStreams, crate::Failure> {
             let source = format!("{}{service}", Self::CLIENT);
             let path = Path::new(Self::PATH);
             let module = crate::events::extract(path, &source, "tac").expect("events");
@@ -214,19 +197,14 @@ mod tests {
             } else {
                 "TicksService"
             };
-            SwiftStreams::held(
-                NativeCompanion::Swift,
-                web_assembly,
-                module.as_ref(),
-                (class, path),
-            )
+            SwiftStreams::held(NativeCompanion::Swift, module.as_ref(), (class, path))
         }
     }
 
     #[test]
     fn a_held_stream_client_becomes_a_stream_entry_and_leaves_the_module() {
         let service = "@Service\nfinal class TicksService {\n    private let ticks: TicksClient = TicksClient()\n    var level: Int = 0\n\n    @OnEvent\n    func heard(_ tick: Tick) {\n        level = tick.level\n    }\n}\n";
-        let held = Fixtures::held(service, true).expect("held");
+        let held = Fixtures::held(service).expect("held");
         assert_eq!(
             held.entries,
             "\"__stream_TicksClient_receive\": .stream(TacStream(\"TicksClient\", \"/ticks\", \"Tick\", false, nil)),\n"
@@ -245,20 +223,31 @@ mod tests {
     #[test]
     fn an_unheld_stream_client_opens_nothing() {
         let service = "@Service\nfinal class QuietService {\n    var count: Int = 0\n}\n";
-        let held = Fixtures::held(service, false).expect("unheld");
+        let held = Fixtures::held(service).expect("unheld");
         assert!(held.entries.is_empty(), "{}", held.entries);
     }
 
     #[test]
-    fn a_native_swift_service_cannot_hold_a_stream_client() {
-        let service = "@Service\nfinal class TicksService {\n    private let ticks: TicksClient = TicksClient()\n    var level: Int = 0\n}\n";
-        let Err(failure) = Fixtures::held(service, false) else {
-            panic!("a native service holds no browser stream");
+    fn a_linked_swift_service_hands_more_than_sixteen_streams_back_with_a_reason() {
+        let mut methods = String::new();
+        for index in 0..17 {
+            let _ = writeln!(
+                methods,
+                "    @StreamRequest(\"/{index}\")\n    func receive{index}(_ tick: Tick) {{}}"
+            );
+        }
+        let client = format!("@HTTPClient(\"/many\")\nfinal class ManyClient {{\n{methods}}}\n\n");
+        let service = "@Service\nfinal class TicksService {\n    private let many: ManyClient = ManyClient()\n}\n";
+        let source = format!("{client}{service}");
+        let path = Path::new(Fixtures::PATH);
+        let module = crate::events::extract(path, &source, "tac").expect("events");
+        let Err(failure) = SwiftStreams::held(
+            NativeCompanion::Swift,
+            module.as_ref(),
+            ("TicksService", path),
+        ) else {
+            panic!("a service holds at most sixteen streams");
         };
-        assert!(
-            failure.to_string().contains("cannot hold a @StreamRequest"),
-            "{failure}"
-        );
-        assert!(failure.to_string().contains("tac.yon.origin"), "{failure}");
+        assert!(failure.to_string().contains("at most 16"), "{failure}");
     }
 }

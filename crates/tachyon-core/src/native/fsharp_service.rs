@@ -74,12 +74,8 @@ impl FsharpService {
             (&item.class, &Self::models(item)?),
         )?;
         let needs_all = crate::fsharp_source::FsharpConstructorProps::needs_all(authored);
-        let events = FsharpServiceEvents::read(
-            &view,
-            &item.snapshot_root,
-            (&item.class, item.web_assembly),
-            (needs_all, needs),
-        )?;
+        let events =
+            FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class, (needs_all, needs))?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
         let mut excluded = events.prepared.excluded.clone();
         excluded.extend(tasks.names);
@@ -385,11 +381,10 @@ mod tests {
             "{body}"
         );
         assert!(body.contains("type ChatClient() =\n"), "{body}");
-        let native = table_with("ChatService", service, false, &others).expect_err("native");
+        let native = table_with("ChatService", service, false, &others)
+            .unwrap_or_else(|failure| panic!("{failure}"));
         assert!(
-            native
-                .to_string()
-                .contains("A natively linked F# service cannot hold a @StreamRequest"),
+            native.contains("[\"__stream_ChatClient_Receive\"] = TacMember.ClientStream("),
             "{native}"
         );
     }
