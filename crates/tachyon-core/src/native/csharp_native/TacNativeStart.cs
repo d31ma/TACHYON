@@ -6,6 +6,7 @@ internal static class TacNativeStart
         TacHttpTransport.Start ??= TacNativeHttp.Start;
         TacHttpTransport.Answer ??= TacNativeHttp.Answer;
         TacHttpTransport.Cancel ??= TacNativeHttp.Cancel;
+        TacSocketTransport.Send ??= Tac.SendNativeSocket;
         // __TACHYON_NATIVE_BINDINGS__
     }
 }

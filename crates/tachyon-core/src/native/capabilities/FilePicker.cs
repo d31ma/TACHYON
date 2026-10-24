@@ -12,7 +12,7 @@ public sealed class FilePicker
         if (options.Multiple || types.Any(type => type != "text/plain" && type != "application/json"))
             return new(FilePickerStatus.Invalid);
         var values = new System.Text.Json.Nodes.JsonArray();
-        foreach (var type in types) values.Add(type);
+        foreach (var type in types) values.Add(System.Text.Json.Nodes.JsonValue.Create(type));
         return Answer("open", new() { ["types"] = values });
     }
 

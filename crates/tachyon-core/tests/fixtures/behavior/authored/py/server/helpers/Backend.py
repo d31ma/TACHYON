@@ -2,6 +2,7 @@
 class Backend:
     entries = {}
     calls = 0
+    prices = 0
     exchanges = 0
     authorizations = 0
     @staticmethod
@@ -11,6 +12,8 @@ class Backend:
             return False
         if call['method'] == 'remote':
             return True
+        if call['method'] == 'price':
+            return len(call['keyArguments']) == 1
         return call['keyArguments'][0]['size'] == 5
     @staticmethod
     async def get(key, execution):

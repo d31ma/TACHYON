@@ -129,3 +129,28 @@ writes only what was chosen.
 - `TAC_MAKEMSIX` and `osslsigncode` are not probed. Only the Windows package
   tests use them; `ty bundle --target windows --release` runs `makeappx.exe`
   and `signtool.exe`.
+
+## Amendment (2026-10-24): the Android NDK, `TAC_MAKEMSIX` and `osslsigncode`
+
+PKG7 adds three rows to `ty doctor`.
+
+- A project that declares android and has a native Rust service gets an
+  `android Rust services` row for the Android NDK, found the way the build
+  finds it: `ANDROID_NDK_HOME`, `ANDROID_NDK_ROOT`, or the newest folder
+  under the SDK's `ndk` folder that holds the LLVM toolchain. It is needed
+  under `--release`, like the `apps` rows. A project without a native Rust
+  service does not get the row.
+- Away from Windows, a project that declares windows gets two
+  `windows package checks` rows, `TAC_MAKEMSIX` (a file) and `osslsigncode`.
+  They are never needed: `ty bundle --target windows --release` runs only on
+  Windows, with `makeappx.exe` and `signtool.exe`, and these two tools serve
+  Tachyon's MSIX package test on Linux and macOS. On Windows the rows are
+  not listed.
+- `ty doctor` now reads the project folder by its canonical path, so
+  `ty doctor .` (or a path ending in `..`) no longer stops with `TY2101` in a
+  project with services.
+- Evidence (2026-10-24, x86_64 Linux cloud container): on the PKG7 probe app
+  with android and windows declared, the NDK row was ready from the SDK's
+  `ndk/30.0.16248370` (also with `ANDROID_NDK_HOME` set to a missing folder),
+  and both package check rows were `info`. Unit tests cover the rows and the
+  file probe.

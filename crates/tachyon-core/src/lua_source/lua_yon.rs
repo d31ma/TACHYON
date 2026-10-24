@@ -25,7 +25,7 @@ impl LuaYon {
         contents: &str,
         models_root: Option<&Path>,
     ) -> Result<Option<Lowered>, Failure> {
-        let view = LuaView::joined(source, contents);
+        let view = LuaView::yon(source, contents);
         let is_test =
             crate::behavior::test_configuration_name(view.path(), view.text(), Self::REALM)
                 .map_err(|failure| view.failure(&failure))?

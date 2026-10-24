@@ -14,6 +14,7 @@ pub(crate) struct LuaView {
 
 impl LuaView {
     const ANALYSIS_EXTENSION: &'static str = "rb";
+    const YON_REALM: &'static str = "server";
     const SHADOW_FILE: (&'static str, &'static str) = (".rb'", ".lua'");
     const WORDS: [(&'static str, &'static str); 11] = [
         ("`#[", "`-- @"),
@@ -34,12 +35,22 @@ impl LuaView {
     }
 
     pub(crate) fn joined(path: &Path, source: &str) -> Self {
+        let shadows: [fn(&str) -> LuaShadow; 2] = [LuaShadow::joined, LuaShadow::yon];
+        let shadow = shadows[usize::from(path.starts_with(Self::YON_REALM))](source);
+        Self::with_shadow(path, source, shadow)
+    }
+
+    pub(crate) fn yon(path: &Path, source: &str) -> Self {
+        Self::with_shadow(path, source, LuaShadow::yon(source))
+    }
+
+    fn with_shadow(path: &Path, source: &str, shadow: LuaShadow) -> Self {
         let shadow_path = path.with_extension(Self::ANALYSIS_EXTENSION);
         Self {
             shadow_name: Self::portable(&shadow_path),
             source_name: Self::portable(path),
             shadow_path,
-            shadow: LuaShadow::joined(source),
+            shadow,
             line_starts: Self::line_starts(source),
             source_length: source.len(),
         }

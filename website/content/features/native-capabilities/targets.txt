@@ -1,17 +1,18 @@
 Where the file picker opens a panel
 
-  Service language        macOS app      Windows app    Other apps and browser tabs
-  JavaScript, TypeScript  panel opens    dialog opens   answers unsupported
-  Rust                    panel opens    dialog opens   answers unsupported
-  Swift                   panel opens    -              answers unsupported
-  C#                      -              dialog opens   answers unsupported
-  Kotlin                  -              -              answers unsupported
+  Service language        macOS app      Windows app    Linux app      Other apps and browser tabs
+  JavaScript, TypeScript  panel opens    dialog opens   dialog opens   answers unsupported
+  Rust                    panel opens    dialog opens   dialog opens   answers unsupported
+  Swift                   panel opens    dialog opens   dialog opens   answers unsupported
+  C#                      panel opens    dialog opens   dialog opens   answers unsupported
+  Kotlin                  panel opens    dialog opens   dialog opens   answers unsupported
 
 Every service uses the same file on every target. A Swift, C# or
 Kotlin service asks for the picker with an uninitialized FilePicker
-field and NeedsAll. Where the service runs as WebAssembly in the page
-(the web, and targets that do not link the language), the field is
-still filled, available() is false and every call answers unsupported.
+field and NeedsAll. In a desktop app that does not link the language,
+the service runs as WebAssembly in the page and its field still opens
+the app's panel through the page. In a browser tab and in the iOS and
+Android apps, available() is false and every call answers unsupported.
 
 Limits on every host that opens a panel
 

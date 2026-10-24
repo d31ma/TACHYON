@@ -179,3 +179,56 @@ fn a_javascript_test_setup_can_replace_the_file_picker_provider() {
 fn a_typescript_test_setup_can_replace_the_file_picker_provider() {
     assert!(NativeCapabilityCheck::fake_unit("ts"));
 }
+
+#[test]
+fn the_macos_host_answers_webassembly_pickers_through_the_page_route() {
+    let mut application = super::linux_host_tests::LinuxHostTests::application(
+        super::native_menu_config::NativeMenuConfig::default(),
+    );
+    application.native_capabilities = vec![String::from("filePicker")];
+    let host = super::macos::swift_source(
+        &application,
+        "tacRustInvoke(payload)",
+        &super::linux_host_tests::LinuxHostTests::index(),
+    );
+    let start = host
+        .split("func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {")
+        .nth(1)
+        .expect("scheme handler");
+    assert!(start.starts_with("\n        if MacOsCapabilityRoute.start(webView, task) { return }"));
+    for check in [
+        "MacOsCapabilityRoute.stop(task)",
+        "static let path = \"/__tachyon/capability/\"",
+        "task.request.httpMethod == \"POST\", capability.hasPrefix(\"filePicker.\")",
+        "task.request.value(forHTTPHeaderField: \"X-Tachyon-Capability\") == capability",
+        "NativeBridge.shared.webView === webView ? NativeBridge.shared.handle(capability, payload)",
+        "guard pending.remove(key) != nil else { return }",
+        "globalThis.__tachyonNativeFilePickerRoute = true;",
+    ] {
+        assert!(host.contains(check), "{check}");
+    }
+    assert!(!host.contains("__NATIVE_CAPABILITY_ROUTE__"));
+}
+
+#[test]
+fn the_page_runtime_answers_file_picker_calls_from_the_page_and_from_webassembly_services() {
+    if !crate::node_driver::NodeDriver::available() {
+        return;
+    }
+    let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/native/file-picker-runtime-test.mjs");
+    let output = crate::node_driver::NodeDriver::output(
+        crate::node_driver::NodeDriver::command().arg(script),
+    )
+    .expect("node runs the file picker runtime check");
+    let printed = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "{printed}{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        printed.contains("native FilePicker page route:"),
+        "{printed}"
+    );
+}

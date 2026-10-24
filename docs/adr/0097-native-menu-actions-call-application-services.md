@@ -58,6 +58,11 @@ publish to the page again while it receives the event (the nested call answers
 Recipients are Rust page Services, because only they can inject an application
 service; a JavaScript service can listen to an event that a Rust listener
 returns. No page owner, publisher lease or disposed handler is retained.
+After the delivery, the companion sends each page owner that listens for the
+event a `{"route", "service", "owner", "changed": true}` signal through the
+host's publish path, and the page reads that owner's fields again and
+renders. Without it the page kept its old field values, because the change
+did not start from a page call.
 
 ### Enablement
 
@@ -281,9 +286,10 @@ that becomes Ctrl+Y (Redo). macOS builds keep the rules they had.
   Edit and Window items are enabled, and that Edit > Select All selects the
   page text through the real WebKitGTK web view.
 - Windows: generated-source tests and the MinGW-w64 compile of the menu code.
-  The Edit commands inside WebView2 and Minimize/Maximize on a desktop still
-  need the interactive Windows run (with the other WebView2 checks in
-  `docs/SUPPORT_TIERS.md`).
+  On 2026-10-24 (SD1) `scripts/windows/window-shell-test.ps1` and
+  `scripts/windows/menu-tray-test.ps1` ran the Edit commands inside WebView2
+  and Window Minimize and Maximize on the signed-in desktop of a Windows 11
+  ARM64 machine.
 
 ## Amendment (2026-10-18): The 64 KiB reply limit applies on macOS too
 

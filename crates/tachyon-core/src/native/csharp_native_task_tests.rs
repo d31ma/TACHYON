@@ -13,6 +13,8 @@ struct NativeTaskFixture;
 impl NativeTaskFixture {
     const SERVICE: &'static str =
         include_str!("../../tests/fixtures/native-csharp-tasks/NotesService.cs");
+    const SECOND_SERVICE: &'static str =
+        include_str!("../../tests/fixtures/native-csharp-tasks/ArchiveService.cs");
     const CLIENT: &'static str =
         include_str!("../../tests/fixtures/native-csharp-tasks/NotesClient.cs");
     const SETUP: &'static str =
@@ -31,16 +33,21 @@ impl NativeTaskFixture {
     fn companions(root: &Path) -> Vec<NativeCompanionInput> {
         Self::write(root, "client/remotes/NotesClient.cs", Self::CLIENT);
         Self::write(root, "client/setups/NotesSetup.cs", Self::SETUP);
-        let source = Self::write(root, "client/services/NotesService.cs", Self::SERVICE);
-        vec![NativeCompanionInput {
+        [
+            ("notes", "NotesService", Self::SERVICE),
+            ("archive", "ArchiveService", Self::SECOND_SERVICE),
+        ]
+        .into_iter()
+        .map(|(service, class, text)| NativeCompanionInput {
             snapshot_root: root.to_path_buf(),
             language: NativeCompanion::CSharp,
-            source,
-            service: String::from("notes"),
-            class: String::from("NotesService"),
+            source: Self::write(root, &format!("client/services/{class}.cs"), text),
+            service: service.to_owned(),
+            class: class.to_owned(),
             web_assembly: false,
             application_provider: false,
-        }]
+        })
+        .collect()
     }
 
     fn staged(root: &Path, origin: Option<&str>) -> PathBuf {
@@ -196,13 +203,14 @@ fn the_staged_csharp_companion_starts_tasks_and_reaches_the_declared_yon_origin(
         "TacHttpTransport.Start ??= TacNativeHttp.Start;",
         "TacHttpTransport.Answer ??= TacNativeHttp.Answer;",
         "TacHttpTransport.Cancel ??= TacNativeHttp.Cancel;",
-        "TachyonService0.BehaviorBrowserHttp.Capture ??= Tac.CaptureHttpTransport;",
-        "TachyonService0.BehaviorError failure0 => failure0.Code",
+        "TachyonServiceCsharp.BehaviorBrowserHttp.Capture ??= Tac.CaptureHttpTransport;",
+        "TachyonServiceCsharp.BehaviorError failureCsharp => failureCsharp.Code",
         "Marshal.StringToCoTaskMemUTF8(Tac.NativeInvoke(text ?? \"{}\"))",
         "TacOwnerContext.Run(OwnerLock, () => InvokeAsync(request))",
         "[\"load\"] = TacMember.TaskMethod(async arguments =>",
         "[\"total\"] = TacMember.Method(",
         "var Instance = new NotesService(__tacClient0)",
+        "var Instance = new ArchiveService(__tacClient0)",
         "AllowAutoRedirect = false",
         "UseCookies = false",
         "AutomaticDecompression = System.Net.DecompressionMethods.None",
@@ -212,6 +220,14 @@ fn the_staged_csharp_companion_starts_tasks_and_reaches_the_declared_yon_origin(
     assert!(!source.contains("__TACHYON_NATIVE_BINDINGS__"));
     assert!(!source.contains("GetAwaiter().GetResult()"));
     assert_eq!(source.matches("public static class TacNative\n").count(), 1);
+    for once in [
+        "public sealed class NotesSetup",
+        "namespace TachyonServiceCsharp {",
+        "namespace TachyonService0 {",
+        "namespace TachyonService1 {",
+    ] {
+        assert_eq!(source.matches(once).count(), 1, "{once}");
+    }
     assert_eq!(
         source
             .matches("internal static class TacHttpTransport")
@@ -240,6 +256,70 @@ fn native_csharp_tasks_answer_a_task_number_and_signal_their_yon_answer_once() {
     println!("{output}");
     assert!(
         output.contains("PASS native C# tasks reach Yon"),
+        "{output}"
+    );
+}
+
+struct NativeListenerFixture;
+
+impl NativeListenerFixture {
+    const SERVICE: &'static str =
+        include_str!("../../tests/fixtures/native-csharp-listeners/HeardService.cs");
+    const MODEL: &'static str =
+        include_str!("../../tests/fixtures/native-csharp-listeners/Ping.cs");
+    const DRIVER: &'static str =
+        include_str!("../../tests/fixtures/native-csharp-listeners/NativeListenerDriver.cs");
+
+    fn run() -> String {
+        let root = tempfile::tempdir().expect("project");
+        NativeTaskFixture::write(root.path(), "client/models/Ping.cs", Self::MODEL);
+        let source = NativeTaskFixture::write(
+            root.path(),
+            "client/services/HeardService.cs",
+            Self::SERVICE,
+        );
+        let companions = vec![NativeCompanionInput {
+            snapshot_root: root.path().to_path_buf(),
+            language: NativeCompanion::CSharp,
+            source,
+            service: String::from("heard"),
+            class: String::from("HeardService"),
+            web_assembly: false,
+            application_provider: false,
+        }];
+        let project = WindowsHostGenerator::staged_companion(
+            &companions,
+            root.path(),
+            ("dev.tachyon.heard", None),
+        )
+        .expect("stage")
+        .expect("C# project");
+        let file =
+            NativeTaskFixture::PROJECT.replace("NativeTaskDriver.cs", "NativeListenerDriver.cs");
+        std::fs::write(project.join("TachyonCompanion.csproj"), file).expect("project file");
+        std::fs::write(project.join("NativeListenerDriver.cs"), Self::DRIVER).expect("driver");
+        let mut command = std::process::Command::new("dotnet");
+        command.arg("run").arg("--project").arg(&project);
+        let output =
+            crate::external_command::run_sync(&mut command, Duration::from_mins(4), 65_536)
+                .expect("supervised .NET native listener fixture");
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        )
+    }
+}
+
+#[test]
+fn native_csharp_async_listeners_wait_for_each_other_in_source_order() {
+    if !NativeTaskFixture::available() {
+        eprintln!("skipping: dotnet is unavailable");
+        return;
+    }
+    let output = NativeListenerFixture::run();
+    assert!(
+        output.contains("PASS native C# async listeners run in order"),
         "{output}"
     );
 }

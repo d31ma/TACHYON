@@ -347,7 +347,7 @@ fn swift_and_kotlin_generate_the_constructor_for_required_immutable_fields() {
         ),
         (
             NativeCompanion::Kotlin,
-            "constructor(tacProps: Map<String, Any?>?, tacPage: TacPageScope) {\nthis.path = tacRequiredValue(tacProps, \"path\").let { tacString(it) }\nthis.size = tacRequiredValue(tacProps, \"size\").let { tacInt(it) }\nthis.label = tacRequiredValue(tacProps, \"label\").let { tacString(it) }\n}\n",
+            "internal constructor(tacProps: Map<String, Any?>?, tacPage: TacPageScope) {\nthis.path = tacRequiredValue(tacProps, \"path\").let { tacString(it) }\nthis.size = tacRequiredValue(tacProps, \"size\").let { tacInt(it) }\nthis.label = tacRequiredValue(tacProps, \"label\").let { tacString(it) }\n}\n",
             "val tacInstance = BadgeService(tacProps, tacPage)",
         ),
     ] {

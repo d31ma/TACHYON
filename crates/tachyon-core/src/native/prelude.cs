@@ -55,6 +55,7 @@ public sealed class TacMember
     public string Returns;
     public bool Asynchronous;
     public Func<object, object> Listen;
+    public Func<object, System.Threading.Tasks.Task<object>> ListenAsync;
     public bool Destroy;
     public Action Lifecycle;
     public JsonNode Stream;
@@ -77,6 +78,11 @@ public sealed class TacMember
     }
     public static TacMember Listener(string[] events, bool replay, int order, string condition, string models, string returns, bool asynchronous, Func<object, object> invoke) =>
         new() { Events = events, Replay = replay, Order = order, Condition = Parse(condition), Models = Parse(models), Returns = returns, Asynchronous = asynchronous, Listen = invoke };
+
+    public static TacMember TaskListener(string[] events, bool replay, int order, string condition, string models, string returns, bool asynchronous, Func<object, System.Threading.Tasks.Task<object>> invoke) =>
+        new() { Events = events, Replay = replay, Order = order, Condition = Parse(condition), Models = Parse(models), Returns = returns, Asynchronous = asynchronous, ListenAsync = invoke };
+
+    public bool Hears => Listen != null || ListenAsync != null;
 
     private static JsonNode Parse(string text)
     {
@@ -220,10 +226,11 @@ public partial class Tac
         internal readonly Queue<(string Name, string Json, bool Retain)> Queue = new();
         internal readonly Dictionary<string, string> Retained = new();
         internal readonly Queue<(TacMember Listener, string Json)> Deferred = new();
+        internal System.Threading.Tasks.Task ListenerTail = System.Threading.Tasks.Task.CompletedTask;
         internal readonly List<TacMember> Listeners = members
             .OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => pair.Value)
-            .Where(member => member.Listen != null)
+            .Where(member => member.Hears)
             .OrderBy(member => member.Order)
             .ToList();
     }
@@ -407,19 +414,27 @@ public partial class Tac
         + ",\"replay\":" + Encode(listener.Replay)
         + ",\"order\":" + Encode(listener.Order)
         + ",\"asynchronous\":" + Encode(listener.Asynchronous)
+        + ",\"task\":" + Encode(listener.ListenAsync != null)
         + ",\"models\":" + (listener.Models?.ToJsonString() ?? "null")
         + ",\"condition\":" + (listener.Condition?.ToJsonString() ?? "null") + "}";
 
-    private static void Deliver(TacMember listener, string json, bool republish)
+    static partial void DeliverTask(Activation owner, TacMember listener, string json, bool republish);
+
+    private static bool WaitsForListener(Activation owner, TacMember listener) =>
+        listener.ListenAsync != null || !owner.ListenerTail.IsCompleted;
+
+    private static void Deliver(Activation owner, TacMember listener, string json, bool republish)
     {
+        if (WaitsForListener(owner, listener)) { DeliverTask(owner, listener, json, republish); return; }
         try {
             var result = listener.Listen(Value(JsonNode.Parse(json)));
             if (republish) Republish(result, listener.Returns);
         } catch (Exception) { EventFailure(); }
     }
 
-    private static string ReceiveEvent(TacMember listener, JsonNode value)
+    private static string ReceiveEvent(Activation owner, TacMember listener, JsonNode value)
     {
+        if (WaitsForListener(owner, listener)) { DeliverTask(owner, listener, value?.ToJsonString() ?? "null", !listener.Asynchronous); return "{\"value\":null}"; }
         try {
             var result = listener.Listen(Value(value));
             if (!listener.Asynchronous) Republish(result, listener.Returns);
@@ -436,7 +451,7 @@ public partial class Tac
             if (owner.Deferred.Count > 0) {
                 var pending = owner.Deferred.ToArray();
                 owner.Deferred.Clear();
-                foreach (var item in pending) Deliver(item.Listener, item.Json, false);
+                foreach (var item in pending) Deliver(owner, item.Listener, item.Json, false);
                 continue;
             }
             if (owner.Queue.Count == 0) return;
@@ -458,7 +473,7 @@ public partial class Tac
                     else owner.Deferred.Enqueue((listener, next.Json));
                     continue;
                 }
-                Deliver(listener, next.Json, true);
+                Deliver(owner, listener, next.Json, true);
             }
             SendEvent(owner.Route, owner.Service, owner.Owner, next.Name, next.Json, next.Retain);
         }
@@ -655,8 +670,8 @@ public partial class Tac
                 {
                     if (member.Value.Read != null) fields.Add(member.Key);
                     else if (member.Value.Invoke != null) methods.Add(member.Key);
+                    else if (member.Value.Hears) listeners.Add(DescribeListener(member.Key, member.Value));
                     else if (member.Value.InvokeAsync != null) { methods.Add(member.Key); asynchronous.Add(member.Key); }
-                    else if (member.Value.Listen != null) listeners.Add(DescribeListener(member.Key, member.Value));
                     else if (member.Value.Stream != null) streams.Add(member.Value.Stream.ToJsonString());
                 }
                 return "{\"value\":{\"fields\":" + Encode(fields) + ",\"methods\":"
@@ -668,8 +683,8 @@ public partial class Tac
                 return "{\"error\":\"Unknown companion member.\"}";
             switch (operation)
             {
-                case "event" when found.Listen != null:
-                    return ReceiveEvent(found, parsed["value"]);
+                case "event" when found.Hears:
+                    return ReceiveEvent(active, found, parsed["value"]);
                 case "get" when found.Read != null:
                     return "{\"value\":" + Encode(found.Read()) + "}";
                 case "set" when found.Write != null:

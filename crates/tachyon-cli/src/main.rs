@@ -170,7 +170,7 @@ enum Command {
         )]
         native: bool,
         #[arg(
-            help = "Native app architecture: x64 or arm64 for Windows and macOS, or universal for macOS. Defaults to the build machine's architecture",
+            help = "Native app architecture: x64 or arm64 for Windows, macOS and Android, or universal for macOS and Android. Defaults to the build machine's architecture, and to universal (arm64-v8a and x86_64) for Android",
             long,
             value_enum
         )]
@@ -253,7 +253,7 @@ enum Command {
         #[arg(help = "Native packaging target", long, visible_alias = "targets", value_enum, value_delimiter = ',', num_args = 1..)]
         target: Vec<BuildTarget>,
         #[arg(
-            help = "Native app architecture: x64 or arm64 for Windows and macOS, or universal for macOS. Defaults to the build machine's architecture",
+            help = "Native app architecture: x64 or arm64 for Windows, macOS and Android, or universal for macOS and Android. Defaults to the build machine's architecture, and to universal (arm64-v8a and x86_64) for Android",
             long,
             value_enum
         )]
@@ -1704,6 +1704,7 @@ async fn execute_native_build(
             device: plan.device,
             windows_architecture: plan.architectures.windows,
             macos_architecture: plan.architectures.macos,
+            android_architecture: plan.architectures.android,
             incremental: !no_incremental,
         },
     )

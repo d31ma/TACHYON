@@ -1,11 +1,14 @@
 mod android;
+mod android_architecture;
 mod android_browser_apis;
 mod android_gradle_build;
+mod android_gradle_cache;
 mod android_ndk;
 mod android_release;
 mod android_rust_libraries;
 #[cfg(test)]
 mod android_rust_library_tests;
+mod android_shrinking;
 mod android_signing_certificate;
 mod android_window_settings;
 #[cfg(test)]
@@ -65,6 +68,8 @@ mod ios_toolchain_facts;
 mod ios_window_controls;
 mod ios_window_settings;
 mod java_web_services;
+#[cfg(test)]
+mod kotlin_held_client_tests;
 mod kotlin_held_streams;
 #[cfg(test)]
 mod kotlin_held_streams_tests;
@@ -80,6 +85,8 @@ mod fsharp_part;
 mod kotlin_document_title_scope_tests;
 #[cfg(test)]
 mod kotlin_page_graph_tests;
+#[cfg(test)]
+mod linked_page_program_tests;
 mod linux;
 mod linux_app_image_runtime;
 #[cfg(test)]
@@ -282,6 +289,10 @@ mod site_tests;
 mod storage_tests;
 mod style_source;
 mod swift_compile_inputs;
+#[cfg(test)]
+mod swift_held_client_tests;
+#[cfg(test)]
+mod swift_listener_tests;
 mod swift_streams;
 mod swift_web_services;
 mod swift_yon_http;
@@ -327,6 +338,8 @@ mod yon_reach;
 #[allow(clippy::expect_used)]
 mod yon_reach_tests;
 
+pub use android_architecture::AndroidArchitecture;
+pub(crate) use android_ndk::AndroidNdk;
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,
@@ -375,6 +388,8 @@ mod csharp_browser_bindings;
 #[cfg(test)]
 mod csharp_browser_client_tests;
 mod csharp_browser_factory;
+#[cfg(test)]
+mod csharp_held_client_tests;
 #[cfg(test)]
 mod csharp_native_task_tests;
 #[cfg(test)]

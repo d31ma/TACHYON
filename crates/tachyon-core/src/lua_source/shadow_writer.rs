@@ -11,6 +11,8 @@ pub(super) struct ShadowWriter {
     class: Option<String>,
     mode: WriterMode,
     joined: bool,
+    yon: bool,
+    needs_all: bool,
 }
 
 impl ShadowWriter {
@@ -23,9 +25,15 @@ impl ShadowWriter {
     const RECEIVERS: [&'static str; 2] = ["", "self."];
     const END: &'static str = "end";
 
-    pub(super) fn write(source: &str, sanitized: &str, joined: bool) -> (ShadowLines, Problems) {
+    pub(super) fn write(
+        source: &str,
+        sanitized: &str,
+        joined: bool,
+        yon: bool,
+    ) -> (ShadowLines, Problems) {
         let mut writer = Self {
             joined,
+            yon,
             lines: ShadowLines::default(),
             problems: Vec::new(),
             fields: Vec::new(),
@@ -33,6 +41,7 @@ impl ShadowWriter {
             pending: Vec::new(),
             class: None,
             mode: WriterMode::Top,
+            needs_all: false,
         };
         let last = writer.each_line(source, sanitized);
         writer.flush_pending();
@@ -113,6 +122,10 @@ impl ShadowWriter {
     fn open_class(&mut self, index: usize, name: String, base: Option<&str>, open: bool) {
         self.note_second_class(index);
         self.close_class(index);
+        self.needs_all = self
+            .pending
+            .iter()
+            .any(|(text, _)| text.starts_with("#[NeedsAll"));
         self.flush_pending();
         let header = base.map_or_else(
             || format!("class {name}"),
@@ -177,27 +190,32 @@ impl ShadowWriter {
     }
 
     fn table_field(&mut self, index: usize, text: &str) {
+        let unmarked_in_needs_all =
+            [self.field_markers.is_empty(), self.needs_all, self.yon] == [true, true, true];
         self.flush_field_markers();
         let field = text.strip_suffix(',').unwrap_or(text);
-        let written = field
-            .split_once('=')
-            .and_then(|(name, value)| Self::field_text(name.trim(), value.trim()));
+        let written = field.split_once('=').and_then(|(name, value)| {
+            Self::field_text(name.trim(), value.trim(), unmarked_in_needs_all)
+        });
         self.push_or_refuse(index, written);
     }
 
-    fn field_text(name: &str, value: &str) -> Option<String> {
-        LuaLine::is_name(name).then(|| Self::member_line(name, value))
+    fn field_text(name: &str, value: &str, unmarked_in_needs_all: bool) -> Option<String> {
+        LuaLine::is_name(name).then(|| Self::member_line(name, value, unmarked_in_needs_all))
     }
 
-    fn member_line(name: &str, value: &str) -> String {
+    fn member_line(name: &str, value: &str, unmarked_in_needs_all: bool) -> String {
         let constant = name.bytes().all(|byte| !byte.is_ascii_lowercase());
-        Self::chosen(
-            [
-                format!("{}attr_reader :{name}", Self::MEMBER),
-                format!("{}{name} = {value}", Self::MEMBER),
-            ],
-            constant,
-        )
+        let kept = [value != "nil", unmarked_in_needs_all] == [true, true];
+        [
+            format!("{}attr_reader :{name}", Self::MEMBER),
+            format!("{}# {name} = {value}", Self::MEMBER),
+            format!("{}{name} = {value}", Self::MEMBER),
+            format!("{}{name} = {value}", Self::MEMBER),
+        ]
+        .into_iter()
+        .nth(usize::from(kept) + 2 * usize::from(constant))
+        .unwrap_or_default()
     }
 
     fn push_or_refuse(&mut self, index: usize, written: Option<String>) {

@@ -1,4 +1,4 @@
-private class TacPageScope(send: (String) -> Unit) {
+internal class TacPageScope(send: (String) -> Unit) {
     private var disposed = false
     val documentTitle: DocumentTitle = BrowserDocumentTitle(this, send)
 

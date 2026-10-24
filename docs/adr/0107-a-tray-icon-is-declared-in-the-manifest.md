@@ -1,6 +1,6 @@
 # ADR 0107: A Tray Icon Is Declared in the Manifest
 
-- Status: Accepted; macOS desktop run passed 2026-10-19; the Windows desktop run is pending
+- Status: Accepted; macOS desktop run passed 2026-10-19; Windows desktop run passed 2026-10-24
 - Date: 2026-10-19
 - Works with: [ADR 0097](0097-native-menu-actions-call-application-services.md)
   (menu items call application services),
@@ -99,3 +99,17 @@ integrations.
   the cloud only by source and unit tests and under Wine; its desktop run is
   owed. The Linux host was run against a test StatusNotifierWatcher on a
   private session bus.
+
+## Amendment (2026-10-24): the Windows desktop run (SD1)
+
+`scripts/windows/menu-tray-test.ps1` ran in the signed-in desktop session of a
+Windows 11 ARM64 machine, started from SSH by `scripts/windows/desktop-run.ps1`.
+The tray icon appeared; its menu held Open, the declared items and Exit; a
+declared item ran the application service and its event reached the page;
+closing the window hid it, `NIN_SELECT` showed it again, and Exit ended the
+app with code 0 and removed the icon. UI Automation shows the tray menu
+empty, so the gate reads the popup menu through `MN_GETHMENU`,
+`GetMenuItemRect` and `GetMenuState` and clicks the item rectangle. The run
+also found that the page did not show a tray or menu action's event until
+its next call; the Rust companion now signals the listening page owners
+(ADR 0097).

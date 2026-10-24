@@ -11,6 +11,7 @@ impl MacOsArchitectureTests {
             NativeTarget::Macos,
             WindowsArchitecture::default(),
             architecture,
+            crate::native::android_architecture::AndroidArchitecture::default(),
             crate::native::ios_destination::IosDestination::SIMULATOR,
         )
         .architecture

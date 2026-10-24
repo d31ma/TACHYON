@@ -303,3 +303,21 @@ the published Dart and C# services of both features no longer built
 (`TY1314` and `TY1330`); they now keep their message and tick limits in a
 named constant and a private method.
 
+
+## Amendment (2026-10-24): A linked service sends through the page
+
+A natively linked Swift, Kotlin or C# service may now hold a
+`@SocketRequest` client (see the same-day amendment to ADR 0058). The page
+holds the `WebSocket`. The client's `send` in the companion checks the
+64 KiB limit and the running owner and emits
+`{"route","service","owner","send":"<client>","value":<message>}` through
+the host bridge, the signal a linked Rust service sends since NET4; the
+page sends the message on that owner's socket. Swift uses
+`TacPageSocket.swift` (`tacSocketSend`, with `TacSocketError` now shared
+with the WebAssembly build), Kotlin `TacPageSocket` in
+`prelude_native_tasks.kt` (`TacSocketFailure` moved to `prelude.kt`), and
+C# `Tac.SendNativeSocket` behind `TacSocketTransport.Send`. A send with no
+live owner fails with `HTTP_REQUEST`, a message over 64 KiB with
+`HTTP_BODY`, and a C# companion with no host emitter with `HTTP_MISSING`.
+The send does not wait for the socket to open: the page queues up to 16
+messages, as for a web service.

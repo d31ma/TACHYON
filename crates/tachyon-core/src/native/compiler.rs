@@ -1,4 +1,5 @@
 use super::android::AndroidHostGenerator;
+use super::android_architecture::AndroidArchitecture;
 use super::apple_icons::AppleIcons;
 use super::config::NativeApplication;
 use super::host::GeneratedHost;
@@ -32,6 +33,7 @@ pub struct NativeBuildOptions {
     pub device: bool,
     pub windows_architecture: WindowsArchitecture,
     pub macos_architecture: MacOsArchitecture,
+    pub android_architecture: AndroidArchitecture,
     pub incremental: bool,
 }
 
@@ -45,6 +47,7 @@ impl Default for NativeBuildOptions {
             device: false,
             windows_architecture: WindowsArchitecture::default(),
             macos_architecture: MacOsArchitecture::default(),
+            android_architecture: AndroidArchitecture::default(),
             incremental: true,
         }
     }
@@ -65,6 +68,7 @@ pub(super) fn artifact_target(
     target: NativeTarget,
     windows: WindowsArchitecture,
     macos: MacOsArchitecture,
+    android: AndroidArchitecture,
     ios: super::ios_destination::IosDestination,
 ) -> ArtifactTarget {
     let host_architecture = if cfg!(target_arch = "aarch64") {
@@ -76,7 +80,11 @@ pub(super) fn artifact_target(
         NativeTarget::Linux => ("linux", host_architecture, "webkitgtk"),
         NativeTarget::Macos => ("macos", macos.artifact_architecture(), "wkwebview"),
         NativeTarget::Windows => ("windows", windows.artifact_architecture(), "webview2"),
-        NativeTarget::Android => ("android", "universal", "android-webview"),
+        NativeTarget::Android => (
+            "android",
+            android.artifact_architecture(),
+            "android-webview",
+        ),
         NativeTarget::Ios => ("ios", ios.artifact_architecture(host_architecture), ios.abi),
     };
     ArtifactTarget {
@@ -257,6 +265,11 @@ impl NativeCompiler {
             &index,
             &companions,
         )?;
+        let gradle_note = super::android_gradle_cache::AndroidGradleCache::build_note(
+            options.target,
+            options.package,
+            &companions,
+        );
         let generated = generate_host(
             options,
             &application,
@@ -282,6 +295,7 @@ impl NativeCompiler {
                 .chain(AppleIcons::skipped_note(&application, options.target))
                 .chain(yon_note)
                 .chain(release_note)
+                .chain(gradle_note)
                 .chain(floor.note)
                 .collect(),
         })
@@ -534,6 +548,7 @@ fn artifact_manifest(
             options.target,
             options.windows_architecture,
             options.macos_architecture,
+            options.android_architecture,
             super::ios_destination::IosDestination::of(options),
         ),
         toolchains: vec![

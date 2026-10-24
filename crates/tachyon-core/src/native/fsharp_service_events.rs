@@ -33,10 +33,9 @@ impl FsharpServiceEvents {
     pub(super) fn read(
         view: &FsharpView,
         root: &Path,
-        service: (&str, bool),
+        class: &str,
         (needs_all, needs): (bool, &FsharpServiceNeeds),
     ) -> Result<Self, Failure> {
-        let class = service.0;
         let parameters = FsharpConstructorProps::from_shadow(view.text(), class);
         let clients = Self::clients(view, &parameters)?;
         let arguments = Self::arguments(&parameters, class, (needs_all, &clients, needs))
@@ -48,7 +47,6 @@ impl FsharpServiceEvents {
         let held = HeldService {
             class,
             language: CsharpStreamClients::FSHARP,
-            web_assembly: service.1,
             path: view.path(),
         };
         let streams = module

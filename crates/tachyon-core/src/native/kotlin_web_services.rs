@@ -135,7 +135,7 @@ impl KotlinWebServices {
             KotlinModelReaders::text(&texts),
             Self::PRELUDE,
             Self::WEB_APIS,
-            FilePickerSources::kotlin()
+            FilePickerSources::kotlin_page()
         );
         let mut sources = vec![(PathBuf::from(Self::PROGRAM_SOURCE), program)];
         sources.extend(model_files);

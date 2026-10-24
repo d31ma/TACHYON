@@ -89,7 +89,21 @@ printf 'aab' > app/build/outputs/bundle/release/app-release.aab
         command
             .env("PATH", std::env::join_paths(paths).expect("PATH"))
             .env("ANDROID_HOME", root)
+            .env("GRADLE_USER_HOME", root.join("gradle-home"))
             .env("GRADLE_RECORD", root);
+    }
+
+    fn fill_gradle_cache(root: &Path) {
+        for module in [
+            "com.android.tools.build/gradle/8.7.3",
+            "com.android.application/com.android.application.gradle.plugin/8.7.3",
+            "androidx.webkit/webkit/1.14.0",
+        ] {
+            let folder = root
+                .join("gradle-home/caches/modules-2/files-2.1")
+                .join(module);
+            fs::create_dir_all(folder).expect("cached module");
+        }
     }
 }
 
@@ -187,6 +201,7 @@ fn a_release_publishes_the_signed_apk_and_app_bundle() {
     assert!(manifest.contains("ReleaseCheck/ReleaseCheck.aab"));
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ReleaseCheck.apk"), "{stdout}");
+    assert!(stdout.contains("Note: Gradle downloads"), "{stdout}");
     assert!(!stdout.contains("store-secret"));
 }
 
@@ -220,4 +235,32 @@ fn a_signed_windows_release_passes_the_signing_check_and_reaches_the_windows_too
     assert!(message.contains("TY1605"), "{message}");
     assert!(!message.contains("TAC_WINDOWS_CERTIFICATE"), "{message}");
     assert!(!message.contains("secret-value"), "{message}");
+}
+
+#[test]
+fn a_release_runs_gradle_offline_when_its_cache_holds_the_pinned_modules() {
+    let project = ReleaseCli::project();
+    let tools = tempfile::tempdir().expect("tools");
+    ReleaseCli::write(&project.path().join("keys/upload.jks"), "keystore");
+    ReleaseCli::fill_gradle_cache(tools.path());
+    let mut command = ReleaseCli::command(project.path(), &["--target", "android", "--release"]);
+    ReleaseCli::with_fake_gradle(&mut command, tools.path());
+    command
+        .current_dir(project.path())
+        .env("TAC_ANDROID_KEYSTORE", "keys/upload.jks")
+        .env("TAC_ANDROID_KEYSTORE_PASSWORD", "store-secret")
+        .env("TAC_ANDROID_KEYSTORE_ALIAS", "upload");
+    let output = command.output().expect("ty starts");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let arguments = fs::read_to_string(tools.path().join("arguments.txt")).expect("arguments");
+    assert_eq!(
+        arguments.trim(),
+        "--no-daemon --console=plain --offline assembleRelease bundleRelease"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.contains("Note: Gradle downloads"), "{stdout}");
 }

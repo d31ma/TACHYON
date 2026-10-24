@@ -150,6 +150,38 @@ fn the_file_picker_fixture_stages_a_granted_service_and_the_page_provider() {
     assert!(!host.contains("__NATIVE_FILE_PICKER__"));
 }
 
+#[test]
+fn the_linux_host_answers_webassembly_pickers_through_the_page_route() {
+    let mut application = super::linux_host_tests::LinuxHostTests::application(
+        super::native_menu_config::NativeMenuConfig::default(),
+    );
+    application.native_capabilities = vec![String::from("filePicker")];
+    let host = super::linux::c_source(
+        &application,
+        &super::linux_host_tests::LinuxHostTests::index(),
+    );
+    let scheme = host
+        .split("static void tachyon_scheme_request(")
+        .nth(1)
+        .expect("scheme handler");
+    assert!(scheme.starts_with(
+        "WebKitURISchemeRequest *request, gpointer data) {\n  (void)data;\n  if (tachyon_capability_route(request)) return;"
+    ));
+    for check in [
+        "#define TACHYON_CAPABILITY_ROUTE \"/__tachyon/capability/\"",
+        "g_strcmp0(webkit_uri_scheme_request_get_http_method(request), \"POST\") == 0",
+        "g_str_has_prefix(capability, \"filePicker.\")",
+        "soup_message_headers_get_one(headers, \"X-Tachyon-Capability\")",
+        "webkit_uri_scheme_request_get_web_view(request) == g_view && tachyon_trusted_view(g_view)",
+        "g_idle_add(tachyon_capability_route_run, call);",
+        "tachyon_capability_page_call(call->capability, call->payload)",
+        "globalThis.__tachyonNativeFilePickerRoute = true;",
+    ] {
+        assert!(host.contains(check), "{check}");
+    }
+    assert!(!host.contains("__NATIVE_CAPABILITY_ROUTE__"));
+}
+
 #[cfg(target_os = "linux")]
 #[tokio::test]
 #[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, libXtst and an X11 display (Xvfb); run explicitly on the Linux lane"]

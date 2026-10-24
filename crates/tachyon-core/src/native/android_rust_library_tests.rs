@@ -1,4 +1,5 @@
 use super::android::{AndroidHostGenerator, java_source, linked_java_source};
+use super::android_architecture::AndroidArchitecture;
 use super::android_rust_libraries::AndroidRustLibraries;
 use super::config::NativeApplication;
 use std::path::Path;
@@ -129,7 +130,8 @@ fn the_java_library_and_the_rust_bridge_agree_on_every_jni_name() {
 #[test]
 fn every_abi_library_goes_where_gradle_packages_it() {
     let project = Path::new("project");
-    let placed: Vec<_> = AndroidRustLibraries::ABIS
+    let placed: Vec<_> = AndroidArchitecture::UNIVERSAL
+        .abis()
         .iter()
         .map(|(abi, _)| AndroidRustLibraries::library_path(project, abi))
         .collect();
@@ -140,8 +142,10 @@ fn every_abi_library_goes_where_gradle_packages_it() {
             Path::new("project/app/src/main/jniLibs/x86_64/libtachyoncompanion.so"),
         ]
     );
-    assert_eq!(
-        AndroidRustLibraries::ABIS.map(|(_, triple)| triple),
-        ["aarch64-linux-android", "x86_64-linux-android"]
-    );
+    let triples: Vec<&str> = AndroidArchitecture::UNIVERSAL
+        .abis()
+        .iter()
+        .map(|(_, triple)| *triple)
+        .collect();
+    assert_eq!(triples, ["aarch64-linux-android", "x86_64-linux-android"]);
 }

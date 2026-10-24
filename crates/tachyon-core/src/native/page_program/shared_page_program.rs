@@ -38,14 +38,16 @@ impl SharedPageProgram {
     }
 
     fn page(&self, selected: &[&NativeCompanionInput]) -> Result<Option<SharedPage>, Failure> {
-        let in_browser = selected.iter().all(|item| item.web_assembly);
-        in_browser
-            .then(|| self.browser_page(selected))
+        let one_kind = selected
+            .windows(2)
+            .all(|pair| pair[0].web_assembly == pair[1].web_assembly);
+        one_kind
+            .then(|| self.shared_page(selected))
             .transpose()
             .map(Option::flatten)
     }
 
-    fn browser_page(
+    fn shared_page(
         &self,
         selected: &[&NativeCompanionInput],
     ) -> Result<Option<SharedPage>, Failure> {

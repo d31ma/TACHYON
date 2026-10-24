@@ -211,7 +211,12 @@ the file was selected and read back, and an unanswered dialog closed as
 `cancelled`. The whole generated host also passed a MinGW-w64 syntax check
 against the WebView2 1.0.3240.44 headers. The MSVC build and a run of the
 Windows dialog are `#[ignore]` tests for Windows. A picker opened from a
-WebView2 page needs a signed-in desktop (SD1).
+WebView2 page needs a signed-in desktop (SD1). On 2026-10-24 (SD1) the MSVC
+dialog run passed on the signed-in Windows 11 ARM64 desktop: the typed file
+was selected and read, and an unanswered dialog closed after its patience.
+That run found that a patience close landing while the dialog was still
+starting was ignored, so the host now repeats `IFileDialog::Close` every
+250 ms and posts Cancel to the dialog window until `Show` returns.
 
 ## Amendment (2026-10-19): the Linux host opens the GTK file dialog
 
@@ -263,3 +268,58 @@ dialog. One WSL run in that broken-portal setup, while a gvfs volume monitor
 timed out for about 54 seconds, reached the 30-second limit before a dialog
 showed and answered `cancelled`; the rerun passed. Not covered: a physical
 Linux desktop, Wayland, and a person choosing the file.
+
+## Amendment (2026-10-24): WebAssembly services reach the desktop picker through the page
+
+Swift, C# and Kotlin services run as WebAssembly in the page wherever the
+desktop app does not link the language: C# and Kotlin on macOS, Swift and
+Kotlin on Windows, and all three on Linux. Their `FilePicker` fields used to
+answer `unsupported` there (FP5). They now reach the same host picker as a
+page service.
+
+The `FilePicker` API in these languages is synchronous, and the page bridge
+is not. So the page runtime (`tac-native.js`) sends each call as a
+synchronous `POST` to the app's own origin, at
+`/__tachyon/capability/filePicker.<operation>`, with the header
+`X-Tachyon-Capability` naming the same capability. The host shows the
+dialog, then answers the request with the call's JSON answer. Each host
+accepts only a `POST` from its own trusted page, with a matching header, an
+operation of 64 bytes or less, and a body of 65,536 bytes or less:
+
+- macOS: the `tachyon-app` scheme handler answers on the main thread and
+  drops the answer for a request WebKit has stopped.
+- Linux: the WebKitGTK `tachyon` scheme handler answers from an idle
+  callback.
+- Windows: `WebResourceRequested` takes a deferral and posts
+  `TACHYON_WM_CAPABILITY`, and the window procedure answers it, because
+  WebView2 forbids modal UI inside its events. One call runs at a time; a
+  call while page messages are busy answers `unavailable`, and the window
+  closing completes a waiting call with `unavailable`.
+
+Each host's page script sets `__tachyonNativeFilePickerRoute`; without it,
+the page answers `unsupported` as before, so a browser tab and the iOS and
+Android apps are unchanged. Without the grant the page answers `denied`
+before any request. `available` answers in the page. The page gives each
+(language, owner) pair its own owner id, so two languages never share
+handles, and `dispose` sends nothing for an owner that never called.
+
+C# and Kotlin keep their `NativeCapabilities.Call` hook; in the WebAssembly
+build it sends through `TacWebHost` `nativeCapability.call`. Swift's
+WebAssembly prelude keeps the owners (`TacPageCapabilities`) and sends the
+same way. The same work fixed C# type filters: `JsonArray.Add` of a string
+needed reflection that trimmed .NET removes, so `open` with types failed
+with "Native companion operation failed", linked or not. It now adds a
+`JsonValue`.
+
+On 2026-10-24, `scripts/linux/page-services-native-test.mjs` built the
+`native-capabilities` feature with `ty` for each of Swift (6.3.3, WebAssembly
+SDK), C# (.NET 10.0.302) and Kotlin (2.1.10) and ran the packaged Linux app
+under Xvfb with xfwm4 in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5,
+WebKitGTK 2.52.6). In each, the service opened GTK's dialog, which took a
+typed path, and read the file; a second `open` was cancelled with Escape and
+answered `cancelled`. The generated Windows host compiled with MinGW
+against the WebView2 1.0.3240.44 headers, and the Wine picker checks
+passed. Owed: a C# and a Kotlin field in the macOS panel on a Mac, and a
+Swift and a Kotlin field from a WebView2 page on a signed-in Windows
+desktop. A synchronous request to a custom scheme is proven on WebKitGTK
+only so far.

@@ -244,12 +244,6 @@ fn lowered_service(
     if let Some(module) = events.as_mut() {
         crate::events::describe(module, &identity, &item.snapshot_root, "client")?;
     }
-    super::kotlin_held_streams::KotlinHeldStreams::refuse_off_the_page(
-        language,
-        item.web_assembly,
-        events.as_ref(),
-        &identity,
-    )?;
     crate::route_types::Converters::require_rust_program(
         language,
         &item.snapshot_root,
@@ -258,8 +252,7 @@ fn lowered_service(
     )?;
     let streams = CsharpStreamClients::page_streams(item, language, &mut events, &identity)?;
     let held = streams.module.as_ref().or(events.as_ref());
-    let mut prepared =
-        super::events::prepare_for(language, authored, (held, &identity), item.web_assembly)?;
+    let mut prepared = super::events::prepare(language, authored, held, &identity)?;
     prepared.entries.push_str(&streams.entries);
     let (native_source, native_fields) =
         native_service(language, item, &prepared.source, &identity);

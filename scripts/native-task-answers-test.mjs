@@ -15,7 +15,8 @@ class NativeTaskAnswersCheck {
     await NativeTaskAnswersCheck.disposedOwnerRejects(environment)
     await NativeTaskAnswersCheck.otherOwnersAreIgnored(environment)
     await NativeTaskAnswersCheck.synchronousAnswersStayTheSame(environment)
-    console.log('Native task answers pass: task signal, early signal, failed task, disposed owner, foreign owner, synchronous answers.')
+    await NativeTaskAnswersCheck.busyAnswersAreRetried(environment)
+    console.log('Native task answers pass: task signal, early signal, failed task, disposed owner, foreign owner, synchronous answers, busy retries.')
   }
 
   static async environment() {
@@ -26,7 +27,7 @@ class NativeTaskAnswersCheck {
     const callEnd = source.indexOf('const nativeMember = ', callStart)
     assert.ok(stateStart > 0 && stateEnd > stateStart && callStart > 0 && callEnd > callStart)
     const environment = { ClientView: { plan: { route: '/' } }, TextEncoder, setTimeout, clearTimeout, JSON }
-    runInNewContext(`${source.slice(stateStart, stateEnd)}\n${source.slice(callStart, callEnd)}\nglobalThis.call = nativeCall;\nglobalThis.tasks = NativeTasks;`, environment)
+    runInNewContext(`${source.slice(stateStart, stateEnd)}\n${source.slice(callStart, callEnd)}\nglobalThis.call = nativeCall;\nglobalThis.tasks = NativeTasks;\nglobalThis.NativeState = NativeState;`, environment)
     return environment
   }
 
@@ -87,6 +88,17 @@ class NativeTaskAnswersCheck {
     environment.__tachyonNativeHostCall = () => JSON.stringify({ value: 7 })
     assert.equal(await NativeTaskAnswersCheck.call(environment), 7)
     environment.__tachyonNativeHostCall = () => JSON.stringify({ error: 'Native companion operation failed.' })
+    await assert.rejects(NativeTaskAnswersCheck.call(environment), /Tac native call failed/)
+  }
+
+  static async busyAnswersAreRetried(environment) {
+    const busy = JSON.stringify({ error: 'The service is still running a task.', code: 'BUSY' })
+    let calls = 0
+    environment.__tachyonNativeHostCall = () => { calls += 1; return calls < 3 ? busy : JSON.stringify({ value: 'free' }) }
+    assert.equal(await NativeTaskAnswersCheck.call(environment), 'free')
+    assert.equal(calls, 3)
+    environment.NativeState.busyDeadline = 30
+    environment.__tachyonNativeHostCall = () => busy
     await assert.rejects(NativeTaskAnswersCheck.call(environment), /Tac native call failed/)
   }
 }

@@ -209,7 +209,11 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
             "__APPLICATION_STATE__",
             LinuxHostGenerator::APPLICATION_STATE,
         )
-        .replace("__NATIVE_TASKS__", LinuxHostGenerator::TASK_HTTP);
+        .replace("__NATIVE_TASKS__", LinuxHostGenerator::TASK_HTTP)
+        .replace(
+            "__NATIVE_CAPABILITY_ROUTE__",
+            LinuxHostGenerator::CAPABILITY_ROUTE,
+        );
     LinuxHostGenerator::DESKTOP.render(
         &template,
         application,
@@ -229,6 +233,7 @@ pub(super) const fn host_source() -> &'static str {
 impl LinuxHostGenerator {
     const APPLICATION_STATE: &str = include_str!("linux_application_state.c");
     const TASK_HTTP: &str = include_str!("linux_task_http.c");
+    const CAPABILITY_ROUTE: &str = include_str!("linux_capability_route.c");
     const C_HOST: &str = r#"#include <gtk/gtk.h>
 #include <gio/gio.h>
 #include <gmodule.h>
@@ -326,8 +331,11 @@ static const char *tachyon_content_type(const char *path) {
   return "application/octet-stream";
 }
 
+__NATIVE_CAPABILITY_ROUTE__
+
 static void tachyon_scheme_request(WebKitURISchemeRequest *request, gpointer data) {
   (void)data;
+  if (tachyon_capability_route(request)) return;
   char path[TACHYON_PATH_LIMIT], relative[TACHYON_PATH_LIMIT];
   int descriptor = -1;
   if (tachyon_local_path(webkit_uri_scheme_request_get_uri(request), path, sizeof(path))) {

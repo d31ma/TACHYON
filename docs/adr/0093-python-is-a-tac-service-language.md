@@ -463,3 +463,13 @@ click from the Python service, whose first page took 4.0 seconds. The
 support table marks `tac.python` `honored` on Linux. The macOS, Windows, iOS
 and Android hosts have not run a Python service yet, and the table marks
 them `runOwed`.
+
+## Amendment (2026-10-24): a Python service ran in the Windows app
+
+SD1 ran the same Tally page with its Python service inside WebView2, in the
+built Windows app on the signed-in desktop of a Windows 11 ARM64 machine
+(`scripts/windows/page-services-native-test.mjs`, `docs/SUPPORT_TIERS.md`,
+Windows on the signed-in desktop). The build used the pinned Pyodide 314.0.7
+cache, copied from another machine with matching SHA-256 digests. The
+support table marks `tac.python` `honored` on Windows; macOS, iOS and Android
+stay `runOwed`.

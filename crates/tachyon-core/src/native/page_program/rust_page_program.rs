@@ -55,11 +55,11 @@ impl RustPageProgram {
             (&relative, &models.assembled(&relative, &marked)?),
             events.as_ref(),
         )?;
-        let prepared = crate::native::events::prepare_for(
+        let prepared = crate::native::events::prepare(
             NativeCompanion::Rust,
             &marked,
-            (events.as_ref(), &identity),
-            item.web_assembly,
+            events.as_ref(),
+            &identity,
         )?;
         self.split(&prepared.source);
         self.owners.push(RustPageOwner {

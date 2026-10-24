@@ -18,11 +18,15 @@ pub(super) enum TargetProbe {
         variables: &'static [&'static str],
         files: &'static [&'static str],
     },
+    NamedFile(&'static str),
+    AndroidNdk,
 }
 
 impl TargetProbe {
     const PATH: &'static str = "PATH";
     const FOUND_ON_PATH: &'static str = "found on PATH";
+    const NO_ANDROID_NDK: &'static str =
+        "no NDK in ANDROID_NDK_HOME, ANDROID_NDK_ROOT or the SDK's ndk folder";
 
     pub(super) fn state(self) -> ToolchainState {
         self.probe()
@@ -35,6 +39,8 @@ impl TargetProbe {
             Self::Folder { variables, marker } => Self::folder(variables, marker),
             Self::Identity(kinds) => KeychainIdentities::state(kinds),
             Self::BuildTool { variables, files } => Self::build_tool(variables, files),
+            Self::NamedFile(variable) => Self::named_file(variable),
+            Self::AndroidNdk => Self::android_ndk(),
         }
     }
 
@@ -75,6 +81,27 @@ impl TargetProbe {
         Self::named_folder(variables).map_or_else(
             || Self::not_set(variables),
             |sdk| SdkBuildTools::state(&sdk, files),
+        )
+    }
+
+    fn named_file(variable: &'static str) -> ToolchainState {
+        Self::named_folder(&[variable]).map_or_else(
+            || Self::not_set(&[variable]),
+            |file| Self::file_state(&file),
+        )
+    }
+
+    fn file_state(file: &Path) -> ToolchainState {
+        if file.is_file() {
+            return ToolchainState::Ready(file.display().to_string());
+        }
+        ToolchainState::Incomplete(format!("{} is not a file", file.display()))
+    }
+
+    fn android_ndk() -> ToolchainState {
+        crate::native::AndroidNdk::from_environment(|name| std::env::var_os(name)).map_or_else(
+            |_| ToolchainState::Incomplete(String::from(Self::NO_ANDROID_NDK)),
+            |ndk| ToolchainState::Ready(ndk.root().display().to_string()),
         )
     }
 
@@ -138,6 +165,21 @@ mod tests {
         assert_eq!(
             TargetProbe::not_set(&["ANDROID_HOME", "ANDROID_SDK_ROOT"]),
             ToolchainState::Incomplete(String::from("ANDROID_HOME or ANDROID_SDK_ROOT is not set"))
+        );
+    }
+
+    #[test]
+    fn a_named_file_is_ready_only_when_it_exists() {
+        let folder = tempfile::tempdir().expect("folder");
+        let file = folder.path().join("makemsix");
+        assert_eq!(
+            TargetProbe::file_state(&file),
+            ToolchainState::Incomplete(format!("{} is not a file", file.display()))
+        );
+        fs::write(&file, "").expect("file");
+        assert_eq!(
+            TargetProbe::file_state(&file),
+            ToolchainState::Ready(file.display().to_string())
         );
     }
 

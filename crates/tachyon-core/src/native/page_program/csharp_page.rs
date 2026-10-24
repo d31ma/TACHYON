@@ -17,10 +17,9 @@ impl<'page> CsharpPage<'page> {
 
     pub(super) fn shares(item: &NativeCompanionInput) -> bool {
         [
-            item.web_assembly,
             item.language == Self::LANGUAGE,
             !crate::fsharp_source::FsharpSource::is_fsharp(&item.source),
-        ] == [true, true, true]
+        ] == [true, true]
     }
 
     pub(super) fn add(

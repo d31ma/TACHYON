@@ -268,8 +268,10 @@ WIN1).
   headers. The real-window check
   (`the_windows_window_frame_drives_a_real_win32_window`) passed with MSVC
   on Windows 11 ARM64 over SSH on 2026-10-19 (RW1), for both the sized and
-  the fullscreen start. The caption color still needs a look on a signed-in
-  desktop.
+  the fullscreen start. On 2026-10-24 (SD1), on the signed-in desktop of
+  the same machine, every caption pixel that
+  `scripts/windows/window-shell-test.ps1` sampled (760) matched the
+  manifest's `#b03a2e`.
 
 ## Amendment (2026-10-18): The Linux window follows the manifest
 

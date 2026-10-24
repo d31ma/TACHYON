@@ -25,7 +25,7 @@ impl CsharpWebApis {
         format!(
             "{}{}{}",
             Self::BROWSER,
-            FilePickerSources::csharp(),
+            FilePickerSources::csharp_page(),
             WebEventSources::csharp()
         )
     }

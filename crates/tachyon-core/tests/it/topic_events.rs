@@ -477,6 +477,191 @@ public:
 "#,
     };
 
+    const TYPESCRIPT: Self = Self {
+        extension: "ts",
+        program: "bun",
+        tag: "ts",
+        models: [
+            (
+                "server/models/OrderPlaced.ts",
+                "/** @Topic */\nexport interface OrderPlaced {\n  id: string\n}\n",
+            ),
+            (
+                "server/models/OrderSeen.ts",
+                "/** @Topic */\nexport interface OrderSeen {\n  by: string\n}\n",
+            ),
+        ],
+        publisher: r#"
+@Service()
+@NeedsAll()
+class OrderService {
+  applicationEventPublisher!: ApplicationEventPublisher;
+  place() {
+    const placed: OrderPlaced = {id: 'A-1'};
+    this.applicationEventPublisher.publishEvent(placed);
+  }
+  @OnEvent
+  seen(order: OrderPlaced): OrderSeen { return {by: 'local'}; }
+}
+@RequestRoute("/orders")
+@Public
+@NeedsAll()
+class OrdersController {
+  orderService!: OrderService;
+  @GetRoute
+  getOrder() { this.orderService.place(); return {placed: true}; }
+}
+"#,
+        listener_path: "server/controllers/TsAuditController.ts",
+        listener: r#"
+@Service()
+class TsAuditService {
+  @OnEvent
+  seen(order: OrderPlaced): OrderSeen { return {by: 'ts:' + order.id}; }
+}
+@RequestRoute("/ts-audit")
+@Public
+@NeedsAll()
+class TsAuditController {
+  tsAuditService!: TsAuditService;
+  @GetRoute
+  getAudit() { return 'ok'; }
+}
+"#,
+    };
+
+    const FSHARP: Self = Self {
+        extension: "fs",
+        program: "dotnet",
+        tag: "fs",
+        models: [
+            (
+                "server/models/OrderPlaced.fs",
+                "[<Topic>]\ntype OrderPlaced = { Id: string }\n",
+            ),
+            (
+                "server/models/OrderSeen.fs",
+                "[<Topic>]\ntype OrderSeen = { By: string }\n",
+            ),
+        ],
+        publisher: r#"open Models
+
+[<RequestRoute("/orders")>]
+[<Public>]
+type OrdersController(applicationEventPublisher: ApplicationEventPublisher) =
+    [<GetRoute>]
+    member this.GetOrder() : bool =
+        applicationEventPublisher.PublishEvent({ OrderPlaced.Id = "A-1" }) |> ignore
+        true
+
+    [<OnEvent>]
+    member this.Seen(order: OrderPlaced) : OrderSeen =
+        { OrderSeen.By = "local" }
+"#,
+        listener_path: "server/controllers/FsAuditController.fs",
+        listener: r#"open Models
+
+[<RequestRoute("/fs-audit")>]
+[<Public>]
+type FsAuditController() =
+    [<OnEvent>]
+    member this.Seen(order: OrderPlaced) : OrderSeen =
+        { OrderSeen.By = "fs:" + order.Id }
+
+    [<GetRoute>]
+    member this.GetAudit() : string = "ok"
+"#,
+    };
+
+    const GROOVY: Self = Self {
+        extension: "groovy",
+        program: "groovyc",
+        tag: "groovy",
+        models: [
+            (
+                "server/models/OrderPlaced.groovy",
+                "@Topic\nrecord OrderPlaced(String id) {}\n",
+            ),
+            (
+                "server/models/OrderSeen.groovy",
+                "@Topic\nrecord OrderSeen(String by) {}\n",
+            ),
+        ],
+        publisher: r"
+import models.OrderPlaced
+import models.OrderSeen
+@Service()
+@NeedsAll()
+class OrderService {
+  ApplicationEventPublisher applicationEventPublisher
+  void place() { applicationEventPublisher.publishEvent(new OrderPlaced('A-1')) }
+  @OnEvent
+  OrderSeen seen(OrderPlaced order) { return new OrderSeen('local') }
+}
+@RequestRoute('/orders')
+@Public
+@NeedsAll()
+class OrdersController {
+  OrderService orderService
+  @GetRoute
+  Object getOrder() { orderService.place(); return [placed: true] }
+}
+",
+        listener_path: "server/controllers/GroovyAuditController.groovy",
+        listener: r"
+import models.OrderPlaced
+import models.OrderSeen
+@Service()
+class GroovyAuditService {
+  @OnEvent
+  OrderSeen seen(OrderPlaced order) { return new OrderSeen('groovy:' + order.id()) }
+}
+@RequestRoute('/groovy-audit')
+@Public
+@NeedsAll()
+class GroovyAuditController {
+  GroovyAuditService groovyAuditService
+  @GetRoute
+  String getAudit() { return 'ok' }
+}
+",
+    };
+
+    const RUBY: Self = Self {
+        extension: "rb",
+        program: "ruby",
+        tag: "rb",
+        models: TopicFixture::RUBY_MODELS,
+        publisher: r#"#[Service]
+class OrderService
+  def place
+    ApplicationEventPublisher.new.publish_event(OrderPlaced.new(id: "A-1"))
+  end
+
+  # @param order [OrderPlaced]
+  # @return [OrderSeen]
+  #[OnEvent]
+  def seen(order)
+    OrderSeen.new(by: "local")
+  end
+end
+#[RequestRoute("/orders")]
+#[Public]
+class OrdersController
+  #[Needs]
+  attr_reader :order_service
+
+  #[GetRoute]
+  def get_order
+    order_service.place
+    { "placed" => true }
+  end
+end
+"#,
+        listener_path: "server/controllers/RbAuditController.rb",
+        listener: TopicFixture::RUBY_LISTENER,
+    };
+
     async fn crosses_both_ways(&self) {
         if !TopicFixture::available(self.program) {
             eprintln!(
@@ -724,9 +909,9 @@ end
     }
 
     fn write(root: &Path, relative: &str, source: &str) -> HandlerSource {
-        let written_as_is = Path::new(relative)
-            .extension()
-            .is_some_and(|extension| ["lua", "hpp"].contains(&extension.to_str().unwrap_or("")));
+        let written_as_is = Path::new(relative).extension().is_some_and(|extension| {
+            ["lua", "hpp", "fs"].contains(&extension.to_str().unwrap_or(""))
+        });
         let entry = if written_as_is {
             Self::write_models(root, &[(relative, source)]);
             relative.to_owned()
@@ -857,31 +1042,6 @@ async fn a_python_topic_event_reaches_a_go_listener() {
 }
 
 #[tokio::test]
-async fn a_python_topic_event_reaches_a_ruby_listener() {
-    if !TopicFixture::available("ruby") {
-        eprintln!("Skipping the Ruby topic listener: ruby is unavailable");
-        return;
-    }
-    let root = tempfile::tempdir().expect("fixture");
-    TopicFixture::write_models(root.path(), &TopicFixture::PYTHON_MODELS);
-    TopicFixture::write_models(root.path(), &TopicFixture::RUBY_MODELS);
-    let publisher = TopicFixture::write(
-        root.path(),
-        "server/controllers/OrdersController.py",
-        TopicFixture::PYTHON_PUBLISHER,
-    );
-    let listener = TopicFixture::write(
-        root.path(),
-        "server/controllers/RbAuditController.rb",
-        TopicFixture::RUBY_LISTENER,
-    );
-    let expected = ["local", "rb:A-1"];
-    let seen =
-        TopicFixture::publish_and_wait(root.path(), publisher, vec![listener], &expected).await;
-    assert_eq!(seen, expected);
-}
-
-#[tokio::test]
 async fn java_topic_events_cross_to_python_and_back() {
     TypedTopic::JAVA.crosses_both_ways().await;
 }
@@ -919,4 +1079,24 @@ async fn lua_topic_events_cross_to_python_and_back() {
 #[tokio::test]
 async fn cpp_topic_events_cross_to_python_and_back() {
     TypedTopic::CPP.crosses_both_ways().await;
+}
+
+#[tokio::test]
+async fn typescript_topic_events_cross_to_python_and_back() {
+    TypedTopic::TYPESCRIPT.crosses_both_ways().await;
+}
+
+#[tokio::test]
+async fn fsharp_topic_events_cross_to_python_and_back() {
+    TypedTopic::FSHARP.crosses_both_ways().await;
+}
+
+#[tokio::test]
+async fn groovy_topic_events_cross_to_python_and_back() {
+    TypedTopic::GROOVY.crosses_both_ways().await;
+}
+
+#[tokio::test]
+async fn ruby_topic_events_cross_to_python_and_back() {
+    TypedTopic::RUBY.crosses_both_ways().await;
 }

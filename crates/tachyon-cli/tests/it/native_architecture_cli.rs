@@ -118,7 +118,7 @@ fn bundle_stages_the_macos_host_for_the_chosen_architecture() {
 #[test]
 fn an_architecture_that_no_built_target_honors_is_refused() {
     let project = NativeArchitectureCli::project();
-    for target in ["linux", "windows", "android"] {
+    for target in ["linux", "windows"] {
         let output = NativeArchitectureCli::bundle(
             project.path(),
             &["--target", target, "--native", "--arch", "universal"],
@@ -156,16 +156,46 @@ fn targets_that_do_not_take_the_architecture_say_so_in_a_note() {
         String::from_utf8_lossy(&output.stderr)
     );
     let printed = String::from_utf8_lossy(&output.stdout);
+    assert!(!printed.contains("Android ABIs"), "{printed}");
     assert!(
-        printed.contains("Note: --arch does not choose Android ABIs"),
+        printed.contains("Note: --arch universal is for macOS and Android only"),
         "{printed}"
     );
-    assert!(
-        printed.contains("Note: --arch universal is for macOS only"),
-        "{printed}"
-    );
-    assert_eq!(
-        NativeArchitectureCli::target_architecture(project.path(), "macos"),
-        "universal"
-    );
+    for target in ["macos", "android"] {
+        assert_eq!(
+            NativeArchitectureCli::target_architecture(project.path(), target),
+            "universal"
+        );
+    }
+}
+
+#[test]
+fn an_android_build_takes_one_abi_or_both() {
+    let project = NativeArchitectureCli::project();
+    for (choice, expected) in [
+        ("arm64", "aarch64"),
+        ("x64", "x86_64"),
+        ("universal", "universal"),
+    ] {
+        let output = NativeArchitectureCli::bundle(
+            project.path(),
+            &["--target", "android", "--native", "--arch", choice],
+        );
+        assert!(
+            output.status.success(),
+            "{choice}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            NativeArchitectureCli::target_architecture(project.path(), "android"),
+            expected
+        );
+        let gradle = fs::read_to_string(
+            project
+                .path()
+                .join("dist/android/ArchCheck/project/app/build.gradle.kts"),
+        )
+        .expect("generated Gradle file");
+        assert!(gradle.contains("abiFilters += listOf("), "{gradle}");
+    }
 }

@@ -380,3 +380,59 @@ can be opened and `fusermount` exists, and falls back to
 through it with `gio open` and `xdg-open`. Still owed: `dpkg -i` or
 `apt install` on WSL, which needs administrator rights, and an install on a
 Linux desktop.
+
+## Amendment (2026-10-24): the `.deb` installed as root (LX1)
+
+`scripts/linux/deb-install-test.sh` builds the release packages, installs the
+`.deb` with `apt-get install` as root, checks the installed command, Rust
+library and desktop file, starts the app from `PATH` and from its desktop file
+with `gio launch` until it shows its first page, and removes it with
+`apt-get purge`. It passed in an x86_64 Ubuntu 24.04 cloud container. apt
+showed 0 B installed, because the control file has no `Installed-Size` field.
+Still owed: `dpkg -i` or `apt install` on WSL, and an install on a Linux
+desktop.
+
+## Amendment (2026-10-24): Android releases are shrunk by R8, take `--arch`, and build offline
+
+PKG7 (decision D11 of the iteration 2 plan).
+
+1. `--release` turns on R8 and resource shrinking
+   (`proguard-android-optimize.txt` plus a generated `proguard-rules.pro`).
+   The rules keep every class outside the AndroidX, Kotlin, JetBrains and
+   Google libraries under its own name, with all its members: the activity,
+   `TachyonRust` (whose `publish`, `dispatch`, `capability` and `http`
+   methods Rust finds by name through JNI), the Kotlin services and models
+   (which the prelude reads by reflection) and the prelude itself. Native
+   methods and `@JavascriptInterface` methods are kept anywhere. Debug builds
+   are not shrunk.
+2. `--arch arm64`, `x64` or `universal` choose the Android ABIs: the Rust
+   library is built for `arm64-v8a`, `x86_64` or both, and Gradle's
+   `abiFilters` name the same ABIs. `universal` is the default, so a build
+   without `--arch` is unchanged; `native` is the build machine's ABI. The
+   artifact manifest names `aarch64`, `x86_64` or `universal`. Gradle's
+   per-ABI APK splits were not chosen: Google Play splits an App Bundle by
+   ABI itself, and a single-ABI APK is what a test device or emulator needs.
+3. When Gradle's cache (`GRADLE_USER_HOME`, or `.gradle` in the home folder)
+   holds the pinned Android Gradle plugin, its plugin marker, AndroidX WebKit
+   and, for a Kotlin service, the Kotlin Gradle plugin and its marker, Gradle
+   runs with `--offline`. If an offline run still misses a module (a
+   dependency of those, such as `aapt2` or the lint jars of a first
+   `--release`), the build runs Gradle once more online. Before that cache is
+   filled, the build prints a note naming the modules Gradle downloads.
+4. Gradle runs under the 15-minute limit of other long native tools instead
+   of the 2-minute one: a first build that downloads the plugin, and an R8
+   release, took longer than 2 minutes in the cloud.
+
+### Evidence (2026-10-24)
+
+In an x86_64 Linux cloud container (SDK platform 35, build-tools 35.0.0, NDK
+r30 30.0.16248370, Gradle 8.14.3, AGP 8.7.3, OpenJDK 21) the Rust and Kotlin
+probe app of `scripts/android/rust-services-test.mjs` was built with `ty`
+(SUPPORT_TIERS.md, "R8, ABIs and offline Gradle"). `--arch arm64` packaged
+one library; a signed `--release` was verified with `apksigner` and its
+`classes.dex` kept the bridge, Rust and Kotlin classes with their names; a
+`--release --arch x64` built offline with the network cut. Maven Central
+answered 429 to Gradle's bursts from the cloud, so the container's own Gradle
+init script used Google's Maven Central mirror; Tachyon's generated build
+files are unchanged. Owed (RM3): the shrunk APK installed and run on the
+emulator, and WebView debugging off in a release on a Google Play image.

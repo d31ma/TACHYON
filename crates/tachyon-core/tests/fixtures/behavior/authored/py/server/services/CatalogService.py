@@ -10,6 +10,10 @@ class CatalogService:
     async def read(self, page: Annotated[object, page_defaults({"defaultSize":20,"maxSize":100,"sort":["id"]})]):
         Backend.calls += 1
         return {self.CALLS: Backend.calls, self.PAGE: page}
+    @cached
+    async def price(self, sku: Annotated[str, cache_key], note: str):
+        Backend.prices += 1
+        return Backend.prices
     @update_cache({"method":"read"})
     async def replace(self, value, page):
         if value == 'fail':

@@ -36,22 +36,27 @@ impl FsharpTaskResults {
 
     pub(super) fn read(
         view: &FsharpView,
-        browser: bool,
+        (browser, listeners): (bool, &[String]),
         (class, models): (&str, &ModelTable),
     ) -> Result<Self, Failure> {
-        let selected = browser.then(|| Self::declared(view, class, models));
+        let selected = browser.then(|| Self::declared(view, (class, listeners), models));
         selected
             .transpose()
             .map(Option::unwrap_or_default)
             .map_err(|failure| view.failure(&failure))
     }
 
-    fn declared(view: &FsharpView, class: &str, models: &ModelTable) -> Result<Self, Failure> {
+    fn declared(
+        view: &FsharpView,
+        (class, listeners): (&str, &[String]),
+        models: &ModelTable,
+    ) -> Result<Self, Failure> {
         let source = crate::annotation_layout::masked_source(view.path(), view.text())?;
         let mut results = Self::default();
         Self::class_lines(&source, class)
             .into_iter()
             .filter(|line| Self::task_kind(line).is_some())
+            .filter(|line| !Self::listens(line, listeners))
             .try_for_each(|line| {
                 Self::check(view, &source, line, models)?;
                 results.remember(line);
@@ -85,6 +90,10 @@ impl FsharpTaskResults {
         supported
             .then_some(())
             .ok_or_else(|| Self::failure(view, source, line))
+    }
+
+    fn listens(line: &str, listeners: &[String]) -> bool {
+        FsharpTaskMembers::name(line).is_some_and(|name| listeners.contains(&name))
     }
 
     fn remember(&mut self, line: &str) {

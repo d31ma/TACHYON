@@ -201,6 +201,32 @@ class ReportController(val reportClient: ReportClient) {
 }
 "#;
 
+    const GROOVY_CLIENT: &str = r#"@HTTPClient
+interface ReportClient {
+    @Gateway({"command":["python3","server/helpers/report.py"]})
+    Object summarize(Object mode, Object detail)
+}
+"#;
+
+    const GROOVY_CONTROLLER: &str = r#"@RequestRoute("/report")
+@Public
+class ReportController {
+    @Needs
+    final ReportClient reportClient
+
+    @PostRoute
+    Object postReport(com.sun.net.httpserver.HttpExchange exchange) throws java.io.IOException {
+        String text = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+        List input = (List) Json.parse(text)
+        try {
+            return reportClient.summarize(input[0], input[1])
+        } catch (Behaviors.Failure error) {
+            return [code: error.code, message: error.getMessage()]
+        }
+    }
+}
+"#;
+
     const CSHARP_CLIENT: &str = r#"[HTTPClient]
 public interface ReportClient {
     [Gateway({"command":["python3","server/helpers/report.py"]})]
@@ -224,6 +250,27 @@ class ReportController {
         }
     }
 }
+"#;
+
+    const FSHARP_CLIENT: &str = r#"[<HTTPClient>]
+type ReportClient =
+    [<Gateway({"command":["python3","server/helpers/report.py"]})>]
+    abstract summarize: mode: BehaviorJSON * detail: BehaviorJSON -> BehaviorJSON
+"#;
+
+    const FSHARP_CONTROLLER: &str = r#"open System.Net.Http
+open System.Text.Json.Nodes
+
+[<RequestRoute("/report")>]
+[<Public>]
+type ReportController(reportClient: ReportClient) =
+    [<PostRoute>]
+    member this.PostReport(request: HttpRequestMessage) : JsonNode =
+        let input = BehaviorJSON.Parse(request.Content.ReadAsStringAsync().Result).Items
+        try
+            JsonNode.Parse(reportClient.summarize(input[0], input[1]).ToString())
+        with :? BehaviorError as error ->
+            JsonObject(dict [ "code", JsonValue.Create(error.Code) :> JsonNode; "message", JsonValue.Create(error.Message) :> JsonNode ]) :> JsonNode
 "#;
 
     const RUST_CLIENT: &str = r#"#[HTTPClient]
@@ -375,6 +422,10 @@ fn kotlin_available() -> bool {
     crate::support::toolchain::Toolchain::checked("kotlinc", found)
 }
 
+fn groovy_available() -> bool {
+    crate::support::toolchain::Toolchain::checked("groovyc", available("groovyc"))
+}
+
 fn write(root: &Path, relative: &str, contents: &str) {
     let path = root.join(relative);
     fs::create_dir_all(path.parent().expect("parent")).expect("directory");
@@ -500,6 +551,10 @@ fn jvm_callers() -> Vec<(&'static str, Project)> {
         let kotlin = project("kt", Callers::KOTLIN_CLIENT, Callers::KOTLIN_CONTROLLER);
         callers.push(("kt", kotlin));
     }
+    if groovy_available() {
+        let groovy = project("groovy", Callers::GROOVY_CLIENT, Callers::GROOVY_CONTROLLER);
+        callers.push(("groovy", groovy));
+    }
     callers
 }
 
@@ -534,6 +589,8 @@ fn native_callers() -> Vec<(&'static str, Project)> {
     if available("dotnet") {
         let csharp = project("cs", Callers::CSHARP_CLIENT, Callers::CSHARP_CONTROLLER);
         callers.push(("cs", csharp));
+        let fsharp = project("fs", Callers::FSHARP_CLIENT, Callers::FSHARP_CONTROLLER);
+        callers.push(("fs", fsharp));
     }
     if available("rustc") {
         let rust = project("rs", Callers::RUST_CLIENT, Callers::RUST_CONTROLLER);

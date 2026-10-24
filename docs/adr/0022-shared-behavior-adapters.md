@@ -411,7 +411,8 @@ no implementation, and Tachyon generates each query.
   member table, required fields and lifetime. If two services bring
   different declarations with the same name, the page falls back to one
   namespace for each service, and the Swift services that a native app
-  links in are still lowered one by one. The Swift fixture went from 35 KB
+  links in are still lowered one by one. (Replaced: linked Swift, Kotlin
+  and C# services share one program too; see the amendment of 2026-10-24.) The Swift fixture went from 35 KB
   of script and 1519 KB of WebAssembly to 35 KB and 1513 KB (TY1337, same
   container).
 - Kotlin builds one page program the same way, with the same code. The
@@ -532,3 +533,42 @@ service and names the page errors if one never starts. Run 39229993683 passed
 all seven entries, the cached client gate for eleven languages in each
 engine, and run 39262682902 passed them again with TeaVM and the Kotlin/Wasm
 standard library installed through `scripts/ci/install-toolchains.mjs`.
+
+## Amendment (2026-10-24): linked services share one program
+
+The Swift, Kotlin and C# services that a native app links in (Swift on macOS
+and iOS, Kotlin on Android, C# on Windows) now build into one program the way
+their browser services do (LS2). Before, `shared_page_program.rs` shared only
+when every service ran in the browser, and `csharp_page.rs` only took browser
+services, so each linked service carried its own copy of the behavior
+runtime, every Setup, client and model it assembled, with no build note. Now
+the page shares when its services are all of one kind, browser or linked: one
+behavior runtime, one Setup registry and one copy of each declaration, and
+each `TachyonService<N>` keeps only its member table. Linked Rust services
+already built as one crate (`RustPageGraph`). Two services that bring
+different declarations under one name still fall back to one namespace each
+for Swift and Kotlin, and stop the C# build with `TY1605`, as in the browser.
+
+The shared Kotlin program puts the service classes at the top of the file,
+so the generated constructor that receives required props is now `internal`
+and `TacPageScope` is an `internal` class; a `public` constructor would expose
+the file-private page scope and fail to compile.
+
+`native/linked_page_program_tests.rs` builds two linked services, `writer`
+and `reader`, that need one HTTP client bound to the Setup's `pageprogram`
+adapter. The writer increments and the reader inspects; the reader sees the
+writer's identity and count 1, so both see one Setup configuration. On
+2026-10-24 in an x86_64 Ubuntu 24.04 cloud container it compiled and ran the
+Swift companion with Swift 6.2 (`swiftc`, Foundation on Linux), the Kotlin
+companion on the JVM with Kotlin 2.1.10, and the C# companion with .NET
+10.0.302 (net9.0); on develop `4c052177` all six of its checks fail. The C#
+native task fixture now links a second service, `archive`, which reaches Yon
+through the same client and keeps its own fields. Generated companion source
+for the two-service fixture, before and after: Swift 136 KB to 69 KB, Kotlin
+105 KB to 54 KB, C# 170 KB to 87 KB; the Linux Swift test executable (debug)
+went from 1459 KB to 934 KB. The macOS, iOS simulator and Android emulator
+host runs are owed. On 2026-10-24 the C# test also passed on Windows 11 ARM64
+with `dotnet run`, and
+`two_linked_csharp_services_share_one_setup_configuration_when_published_with_native_aot`
+published both services with NativeAOT for `win-arm64` and ran them: one
+identity, count 1 (SD1).

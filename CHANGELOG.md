@@ -10,6 +10,75 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `@OnEvent` listeners may be async in Kotlin (`suspend`), C# (`Task` or
+  `ValueTask`) and F# (`Task<unit>`, `ValueTask` or `Async<unit>`), in the
+  browser and in native apps, and Swift and Rust listeners may now be async
+  in native apps too (LS3, ADR 0105 amendment). Before, these builds stopped
+  with `TY1405`. The listeners of one service run one after another in a
+  native app as in the browser. A linked Rust service that a task holds now
+  answers calls and field reads with `BUSY`, which the native page bridge
+  retries, instead of panicking. A C# `async void` listener and an async
+  lifecycle method are still refused. The C# and F# cookbook lists reload
+  every saved user through their client, and the async listener browser
+  gate passes for all five languages in Chromium, Firefox and WebKit.
+- The Swift, Kotlin and C# services a native app links in now build into
+  one program (LS2). Before, each linked service carried its own copy of
+  the behavior runtime and of every Setup, client and model it used, so two
+  services needing one Setup saw two configurations. Now they share one
+  Setup registry, as browser services do, and the generated companion of a
+  two-service fixture roughly halves (Swift 136 to 69 KB, Kotlin 105 to
+  54 KB, C# 170 to 87 KB). The Kotlin required-props constructor is now
+  `internal` (ADR 0022 amendment).
+- Swift, C# and Kotlin `FilePicker` fields now open the desktop app's
+  picker where the service runs as WebAssembly (FP5): C# and Kotlin on
+  macOS, Swift and Kotlin on Windows, and all three on Linux. Before, they
+  answered `unsupported`. The page sends each call to the host as a
+  synchronous request on the app's own origin, and the host answers once
+  the dialog closes. Linux runs in the cloud chose, read and cancelled for
+  all three languages; the macOS panel and the WebView2 runs are owed
+  (ADR 0089 amendment).
+- Natively linked Swift, Kotlin and C# services hold `@StreamRequest` and
+  `@SocketRequest` clients (LS1). The page holds the connection on
+  `tac.yon.origin`, delivers each message to the service's `@OnEvent`
+  listener with the companion op `event`, and sends what the service's
+  socket client sends; before, these builds stopped with `TY1405`. Linked
+  Swift and Kotlin companions now describe every listener to the page, so
+  page events and topic streams reach them as they reach C# and Rust
+  services. Companion runs in the cloud cover all three languages; the app
+  runs on macOS, iOS, Android and Windows are owed (ADR 0058 and 0060
+  amendments).
+- Linux desktop stand-in runs (LX1). `scripts/linux/desktop-services-test.sh`
+  runs the browser API host test against GeoClue (a GPS fix from an NMEA
+  socket, on a private system bus) and the dunst notification server, so the
+  Linux `geolocation` cell is now honored. `TAC_LINUX_DISPLAY=wayland` runs
+  the Linux Yon reach test in a headless mutter Wayland session, and
+  `scripts/linux/deb-install-test.sh` installs the release `.deb` as root,
+  starts it and purges it (ADR 0065, 0103 and 0104 amendments).
+- Run tests for the last 24 Yon marker cells that only built or only had a
+  website example (MP2). `Converter` and `Convert` run the website mapping
+  sections in Java, Groovy, Kotlin and Ruby and check the dropped field, the
+  null for a missing source and the constant. `Topic` crosses processes from
+  and to TypeScript, F#, Groovy and Ruby. `InBackground` runs after the other
+  listeners and never republishes in JavaScript, TypeScript and Python.
+  `CacheKey` hits and misses by key in JavaScript, TypeScript and Python.
+  TypeScript `FromQuery` reads the named query value through the dev server.
+  `Schedule` workers in Groovy, F# and Lua tick on their declared cadence and
+  refuse a zero delay. `Gateway` reaches a command from Groovy and F#, a
+  Groovy test unit clears its `Fake` fields before each case, a Lua
+  `NeedsAll` class gets its empty fields filled, and JavaScript and TypeScript
+  `Description` services run and refuse a malformed text. `Lifetime` is now
+  asserted in Dart, Go and F#: a transient service gives each Needs field its
+  own object, and the same project without the marker shares one.
+- Android `--release` builds are shrunk by R8, with resource shrinking and
+  keep rules for the host, bridge, Rust callback and service classes (PKG7,
+  ADR 0104 amendment). `--arch arm64`, `x64` or `universal` now choose the
+  Android ABIs: the Rust library and Gradle's `abiFilters` follow the choice,
+  and the artifact manifest names it. Gradle runs with `--offline` once its
+  cache holds the pinned Android Gradle plugin and libraries, and runs again
+  online if an offline run misses a module; until then a note names what it
+  downloads. `ty doctor` reports the Android NDK for an Android app with Rust
+  services, and, away from Windows, `TAC_MAKEMSIX` and `osslsigncode` as
+  information (ADR 0066 amendment).
 - iOS and Android apps now read the window members of `client/manifest.json`
   (WIN5). A hex `theme_color` fills the area behind the iOS status bar and
   the Android status and navigation bars, with readable bar text. A hex
@@ -160,8 +229,8 @@ machine contracts have their own, independent major versions.
   macOS rules: the grant, one dialog at a time that closes after 30
   seconds, 128 handles and 8 per owner, a 300-second lifetime, 64 KiB
   UTF-8 `readText`, and release with the owner, a new page and shutdown.
-  Swift, C# and Kotlin services still run as WebAssembly on Linux and
-  answer `unsupported` (FP5).
+  Swift, C# and Kotlin services run as WebAssembly on Linux and reach the
+  same dialog through the page (FP5).
 - The per-target support table has two more states (ADR 0102 amendment).
   `run owed` means a target supports a member in code, but the run that
   proves it there has not happened; the table names that run, and a build
@@ -1697,6 +1766,39 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Lua Yon `NeedsAll` class no longer asks the container for a field that has
+  a starting value, such as `extra = 2,`. Before, the build stopped with
+  `TY2015 Unresolved dependency Integer`. Only fields written `name = nil,`
+  are filled, as in every other Yon language.
+
+- An unanswered Windows file dialog now closes as `cancelled` when its
+  patience runs out while the dialog is still starting (SD1). The host
+  called `IFileDialog::Close` once, and a dialog that had not finished
+  opening ignored it, so the page never got its answer. The host now keeps
+  closing the dialog, and also sends it Cancel, until it returns.
+- A native menu or tray action that forwards an event with
+  `CurrentPageEvents` now shows on the page (SD1). The Rust page service
+  received the event, but nothing told the page that the service had
+  changed, so the page kept showing its old fields until the next page call.
+  The Rust companion now sends a `changed` signal to every page owner that
+  listens for the event, and the page reads the fields again and renders.
+  The Windows desktop gate found it (View > Show Running and Ctrl+2 left
+  "Section" unchanged); macOS, Linux and Windows hosts share the fix.
+
+- A native rebuild that reused a route dropped the native services that the
+  route's page uses, so the second `ty bundle` of a native target packaged
+  no Kotlin, Swift, C# or Rust companion. Each route's build state now keeps
+  its services (build state version 5; older state rebuilds every route
+  once).
+- Gradle ran under the 2-minute native tool limit, so a first Android build
+  that downloads the Android Gradle plugin, or an R8 release, could stop
+  with `TY1605`. It now has the 15-minute limit of other long tools.
+- `ty doctor .` stopped with `TY2101` in a project with services; the
+  project folder is now read by its canonical path.
+
+- A C# `FilePicker.Open` with type filters no longer fails with "Native
+  companion operation failed". Adding a string to a `JsonArray` needed
+  reflection that trimmed .NET removes; it now adds a `JsonValue` (FP5).
 - A Rust Yon handler that fails to compile names the model file at fault
   again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
   Tachyon now builds handlers with plain cargo output.

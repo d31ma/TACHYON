@@ -474,6 +474,86 @@ public sealed class CsharpReachService
 """,
     }
 
+    CSHARP_HELD_FILES = {
+        "client/models/CsharpTick.cs": "public record CsharpTick(string Sku, int Level);\n",
+        "client/models/CsharpChatMessage.cs": "public record CsharpChatMessage(string Text);\n",
+        "client/remotes/CsharpTicksClient.cs": """[HTTPClient("/api/ticks")]
+public interface CsharpTicksClient
+{
+    [StreamRequest]
+    void Receive(Models.CsharpTick tick);
+}
+""",
+        "client/remotes/CsharpEchoClient.cs": """[HTTPClient("/api/echo")]
+public interface CsharpEchoClient
+{
+    [SocketRequest]
+    void Receive(Models.CsharpChatMessage message);
+}
+""",
+        "client/services/CsharpStreamService.cs": """[Service]
+public sealed class CsharpStreamService
+{
+    [Needs]
+    private readonly CsharpTicksClient _csharpTicksClient;
+
+    private int _count;
+
+    [OnEvent]
+    public void AddTick(Models.CsharpTick tick)
+    {
+        _count += 1;
+    }
+
+    public string Report() => "CSharp stream ok " + _count;
+}
+""",
+        "client/services/CsharpSocketService.cs": """[Service]
+public sealed class CsharpSocketService
+{
+    private const string Echo = "csharp-echo";
+
+    [Needs]
+    private readonly CsharpEchoClient _csharpEchoClient;
+
+    private string _last = "none";
+
+    [OnEvent]
+    public void Receive(Models.CsharpChatMessage message)
+    {
+        _last = message.Text;
+    }
+
+    public System.Threading.Tasks.Task SendEcho() => _csharpEchoClient.Send(new Models.CsharpChatMessage(Echo));
+
+    public string Report() => "CSharp socket " + _last;
+}
+""",
+        "client/services/CsharpStreamService.js": """@Service
+export default class CsharpStreamService {
+  result = 'CSharp stream waiting'
+
+  async check() {
+    this.result = await this.report()
+  }
+}
+""",
+        "client/services/CsharpSocketService.js": """@Service
+export default class CsharpSocketService {
+  result = 'CSharp socket waiting'
+
+  async send() {
+    await this.sendEcho()
+    this.result = 'CSharp socket sent'
+  }
+
+  async check() {
+    this.result = await this.report()
+  }
+}
+""",
+    }
+
     @staticmethod
     def linked_twin(service, label):
         source = """@Service
@@ -537,6 +617,12 @@ export default class __SERVICE__ {
         for instance, label in linked:
             lines.append(f'<button on:click="{instance}.check()">Check {label} HTTP</button>')
             lines.append(f"<p>{{{instance}.result}}</p>")
+        if ("csharpReach", "CSharp") in linked:
+            lines.append('<button on:click="csharpStream.check()">Check CSharp stream</button>')
+            lines.append("<p>{csharpStream.result}</p>")
+            lines.append('<button on:click="csharpSocket.send()">Send CSharp echo</button>')
+            lines.append('<button on:click="csharpSocket.check()">Check CSharp socket</button>')
+            lines.append("<p>{csharpSocket.result}</p>")
         lines.append("</main>")
         return "\n".join(lines) + "\n"
 
@@ -583,6 +669,7 @@ export default class __SERVICE__ {
             self.write_all(self.CSHARP_FILES)
             services.append(("csharpReach", "CSharp"))
             self.write("client/services/CsharpReachService.js", self.linked_twin("CsharpReachService", "CSharp"))
+            self.write_all(self.CSHARP_HELD_FILES)
         return services
 
     def create(self):

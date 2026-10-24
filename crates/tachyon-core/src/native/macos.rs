@@ -17,6 +17,8 @@ impl MacOsHostGenerator {
         include_str!("prelude_apple.swift"),
         include_str!("TacAwaited.swift"),
         include_str!("TacOwnerThread.swift"),
+        include_str!("TacSocketError.swift"),
+        include_str!("TacPageSocket.swift"),
         include_str!("capabilities/FilePickerResult.swift"),
         include_str!("capabilities/FilePickerStatus.swift"),
         include_str!("capabilities/FilePickerOptions.swift"),
@@ -343,6 +345,10 @@ pub(super) fn swift_source(
             include_str!("capabilities/MacOsFilePicker.swift"),
         )
         .replace(
+            "__NATIVE_CAPABILITY_ROUTE__",
+            include_str!("capabilities/MacOsCapabilityRoute.swift"),
+        )
+        .replace(
             "__NATIVE_FILE_PICKER_GRANTED__",
             &application
                 .native_capabilities
@@ -565,6 +571,7 @@ import UniformTypeIdentifiers
 
 __NATIVE_CAPABILITY_MODELS__
 __NATIVE_FILE_PICKER__
+__NATIVE_CAPABILITY_ROUTE__
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
 __NATIVE_BROWSER_APIS__
@@ -637,6 +644,7 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
     static let shared = TachyonAssetSchemeHandler()
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+        if MacOsCapabilityRoute.start(webView, task) { return }
         guard let url = task.request.url,
               url.scheme == "tachyon-app",
               url.host == "bundle", url.port == nil, url.user == nil, url.password == nil,
@@ -684,7 +692,9 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
         task.didFinish()
     }
 
-    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
+    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {
+        MacOsCapabilityRoute.stop(task)
+    }
 
     private static func mimeType(_ extensionName: String) -> String {
         switch extensionName.lowercased() {
@@ -877,7 +887,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: "tachyon-app")
         configuration.websiteDataStore = .default()
         let shim = WKUserScript(
-            source: TACHYON_NATIVE_SHIM + "\nglobalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;",
+            source: TACHYON_NATIVE_SHIM + "\nglobalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;",
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )

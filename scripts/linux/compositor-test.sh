@@ -52,6 +52,19 @@ run_in_mutter() {
   '
 }
 
+run_in_wslg() {
+  local socket="${TAC_WSLG_WAYLAND_SOCKET:-/mnt/wslg/runtime-dir/wayland-0}"
+  echo "==> running the Linux host tests in the WSLg Wayland session ($socket)"
+  test -S "$socket" || { echo "WSLg has no Wayland socket at $socket" >&2; exit 1; }
+  dbus-run-session -- env -u DISPLAY WAYLAND_DISPLAY="$socket" GDK_BACKEND=wayland \
+    LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals bash -c '
+    set -euo pipefail
+    cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 \
+      --skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_package_tests
+    cargo test --locked -p tachyon-core --lib the_linux_ -- --ignored --test-threads=1
+  '
+}
+
 run_under_compositing_x11() {
   echo '==> running the title bar and window control tests under xfwm4 with its compositor on'
   GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals \
@@ -87,6 +100,11 @@ PY
 main() {
   use_private_folders
   build_tests
+  if [[ "${1:-}" == --wslg ]]; then
+    run_in_wslg
+    echo 'PASS: the Linux host, window controls, appearance, storage, page calls, links and the integrated title bar under the WSLg Wayland compositor'
+    return
+  fi
   export -f compositor_owner
   run_under_compositing_x11
   run_in_mutter

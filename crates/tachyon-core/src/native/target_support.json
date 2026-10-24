@@ -34,7 +34,7 @@
     "paths": ["theme_color"],
     "web": {"reach": "honored", "how": "a theme-color meta tag in every page head"},
     "macos": {"reach": "notApplied", "note": "theme_color is written into each page head, but the macOS window does not use it yet (WIN7)."},
-    "windows": {"reach": "adapted", "note": "theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. A run of the caption color on a signed-in Windows 11 desktop is still owed."},
+    "windows": {"reach": "adapted", "note": "theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. On a signed-in Windows 11 desktop every caption pixel the gate sampled took the color (SD1)."},
     "linux": {"reach": "adapted", "note": "theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar. With titleBar \"integrated\" there is no header bar: the page colors the top edge."},
     "ios": {"reach": "adapted", "note": "theme_color fills the area behind the iOS status bar and picks dark or light status bar text by contrast, when it is written as #rgb or #rrggbb. With titleBar \"integrated\" the page draws there instead and theme_color only picks the text color. Other color forms keep the system background."},
     "android": {"reach": "adapted", "note": "theme_color fills the Android status and navigation bars and picks dark or light bar icons by contrast, when it is written as #rgb or #rrggbb. With titleBar \"integrated\" the page draws under the status bar instead. Other color forms keep the system bars."}
@@ -174,7 +174,7 @@
     "paths": ["tac.application.window.controls"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "runOwed", "how": "close, fullscreen, maximize (zoom), minimize, resize and title", "run": "a granted control from a page on a Mac, and scripts/window-grant-macos-test.mjs, which checks a granted resize from a service but has no recorded run"},
-    "windows": {"reach": "runOwed", "how": "close, fullscreen, maximize, minimize, resize and title", "run": "a page call inside WebView2 on a signed-in Windows desktop; the controls already ran on a real Win32 window"},
+    "windows": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title, called from a page inside WebView2 on a signed-in Windows desktop (SD1)"},
     "linux": {"reach": "honored", "how": "close, fullscreen, maximize, minimize, resize and title, from page services and linked Rust services"},
     "ios": {"reach": "adapted", "note": "tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, for calls from the page and from linked Swift services. granted() answers false for the other controls."},
     "android": {"reach": "adapted", "note": "tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. On the emulator, granted minimize, resize and title acted from the page and a linked Kotlin service, title also from a linked Rust service, and ungranted controls were refused. A granted close, maximize or fullscreen has not run yet."}
@@ -204,7 +204,7 @@
     "paths": ["tac.application.menus"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "items in the File, View and Help menus of the menu bar"},
-    "windows": {"reach": "runOwed", "how": "items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; over SSH the menus showed their items and shortcuts and a menu action reached the application service", "run": "a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)"},
+    "windows": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; a route item opened its page, and a menu action and its shortcut reached the page inside WebView2 on a signed-in Windows desktop (N1, SD1)"},
     "linux": {"reach": "honored", "how": "items in the File, View and Help menus of the window's menu bar"},
     "ios": {"reach": "adapted", "note": "iPad menu bar / iPhone shortcuts: route items join the File, View and Help menus of the iPad menu bar, and on iPhone only items with a shortcut are reachable, from a hardware keyboard. Action items stop the build (TY1601) until iOS has the application lifetime (MN1b)."},
     "android": {"reach": "adapted", "note": "app bar overflow menu: route items are listed in the overflow menu of an app bar, and their shortcuts use Ctrl on a hardware keyboard. Action items stop the build (TY1601) until Android has the application lifetime (MN1b)."}
@@ -214,7 +214,7 @@
     "paths": ["tac.application.tray"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "a status item in the menu bar with Open, the declared items and Quit (ADR 0107)"},
-    "windows": {"reach": "runOwed", "how": "a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107)", "run": "the notification-area icon and its menu items on a signed-in Windows desktop; the host has run only under Wine (ADR 0107)"},
+    "windows": {"reach": "honored", "how": "a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit, and a declared item's event reaches the page (ADR 0107, SD1)"},
     "linux": {"reach": "adapted", "note": "tac.application.tray is shown as a StatusNotifierItem with a D-Bus menu. Desktops without a tray host, such as GNOME without the AppIndicator extension, show nothing, and the app keeps its window (ADR 0107)."},
     "ios": {"reach": "refused", "code": 1601, "alternative": "iOS has no status area. Put these controls in the page instead (ADR 0107)."},
     "android": {"reach": "refused", "code": 1601, "alternative": "Android has no tray. Put these controls in the page instead (ADR 0107)."}
@@ -234,7 +234,7 @@
     "paths": ["tac.application.tray.closeHidesWindow"],
     "web": {"reach": "notApplicable", "note": "tac.application is read only by native builds. A web build checks its shape and then ignores it."},
     "macos": {"reach": "honored", "how": "closing the window hides it, and its page keeps running until Quit"},
-    "windows": {"reach": "runOwed", "how": "closing the window hides it, and its page keeps running until Exit", "run": "closing, reopening and exiting the window inside WebView2 on a signed-in Windows desktop (ADR 0107)"},
+    "windows": {"reach": "honored", "how": "closing the window hides it, and its page keeps running until Exit; a click on the icon shows it again (SD1)"},
     "linux": {"reach": "adapted", "note": "tac.application.tray.closeHidesWindow hides the Linux window only while a tray host shows the icon. Without one, closing the window quits the app as before."},
     "ios": {"reach": "notApplicable", "note": "tac.application.tray.closeHidesWindow has no meaning on iOS, which refuses tac.application.tray."},
     "android": {"reach": "notApplicable", "note": "tac.application.tray.closeHidesWindow has no meaning on Android, which refuses tac.application.tray."}
@@ -344,7 +344,7 @@
     "paths": ["tac.cache"],
     "web": {"reach": "honored", "how": "offline rules in the service worker; the page applies them to Yon reads at tac.yon.origin in its own Cache Storage"},
     "macos": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read in the packaged macOS app"},
-    "windows": {"reach": "runOwed", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk", "run": "an offline Yon read inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; a network-first read answered from the cache with Yon stopped (SD1)"},
     "linux": {"reach": "honored", "how": "the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk"},
     "ios": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the iOS app, but the kept reads last only while the app runs: WebKit does not keep Cache Storage entries of the app's page across a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2)."},
     "android": {"reach": "adapted", "note": "tac.cache rules apply to Yon reads in the Android app, but a read kept shortly before the system stops the app is not always there after a relaunch: the web view does not always keep such Cache Storage entries."}
@@ -384,7 +384,7 @@
     "paths": ["tac.browserApis[clipboard]"],
     "web": {"reach": "honored", "how": "navigator.clipboard"},
     "macos": {"reach": "runOwed", "how": "NSPasteboard through the host bridge (browserApi.clipboard)", "run": "native_browser_api_host_tests on a Mac"},
-    "windows": {"reach": "runOwed", "how": "the Windows clipboard through the host bridge (browserApi.clipboard), tested under Wine", "run": "a page's clipboard round trip in WebView2 on a signed-in Windows desktop (SD1)"},
+    "windows": {"reach": "honored", "how": "the Windows clipboard through the host bridge (browserApi.clipboard), both ways from a WebView2 page (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps"},
     "ios": {"reach": "honored", "how": "UIPasteboard through the host bridge (browserApi.clipboard)"},
     "android": {"reach": "runOwed", "how": "ClipboardManager, through the host bridge", "run": "the clipboard round trip of scripts/android/browser-apis-test.mjs on the emulator, which timed out at its geolocation step in its only run"}
@@ -394,7 +394,7 @@
     "paths": ["tac.browserApis[share]"],
     "web": {"reach": "honored", "how": "navigator.share"},
     "macos": {"reach": "runOwed", "how": "NSSharingServicePicker through the host bridge (browserApi.share)", "run": "the share picker opened from a page on a Mac, checked by hand"},
-    "windows": {"reach": "adapted", "note": "share in the Windows app opens the Windows share sheet for the app window (browserApi.share). ShareFinished arrives when the sheet opens, because Windows does not tell the app whether the user shared. A run of the share sheet on a signed-in Windows desktop is still owed (SD1)."},
+    "windows": {"reach": "adapted", "note": "share in the Windows app opens the Windows share sheet for the app window (browserApi.share). ShareFinished arrives when the sheet opens, because Windows does not tell the app whether the user shared. The sheet opened from a WebView2 page on a signed-in Windows desktop (SD1)."},
     "linux": {"reach": "adapted", "note": "Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard."},
     "ios": {"reach": "runOwed", "how": "UIActivityViewController through the host bridge (browserApi.share)", "run": "the share sheet opened from a page on the iOS simulator, checked by hand"},
     "android": {"reach": "adapted", "note": "share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared. A run of the share sheet on the emulator is still owed."}
@@ -404,8 +404,8 @@
     "paths": ["tac.browserApis[notifications]"],
     "web": {"reach": "honored", "how": "the Notification API"},
     "macos": {"reach": "runOwed", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front", "run": "the permission prompt and a notification on a Mac, checked by hand"},
-    "windows": {"reach": "adapted", "note": "notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package on a signed-in Windows desktop is still owed (SD1)."},
-    "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A run with a desktop notification server is still owed."},
+    "windows": {"reach": "adapted", "note": "notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package reached the notification history on a signed-in Windows desktop (SD1)."},
+    "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container (LX1)."},
     "ios": {"reach": "runOwed", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front", "run": "the permission prompt and a banner on the iOS simulator, checked by hand"},
     "android": {"reach": "runOwed", "how": "NotificationManagerCompat through the host bridge, with the POST_NOTIFICATIONS question on Android 13 and later and a channel named from tac.application.permissions.notifications", "run": "the POST_NOTIFICATIONS question and a posted notification in scripts/android/browser-apis-test.mjs on the emulator"}
   },
@@ -414,8 +414,8 @@
     "paths": ["tac.browserApis[geolocation]"],
     "web": {"reach": "honored", "how": "navigator.geolocation"},
     "macos": {"reach": "runOwed", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions", "run": "the location prompt with the manifest reason on a Mac, checked by hand"},
-    "windows": {"reach": "runOwed", "how": "the web view's navigator.geolocation and the Windows location service, allowed by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied", "run": "a page's position in WebView2 on a signed-in Windows desktop (SD1)"},
-    "linux": {"reach": "runOwed", "how": "the web view's navigator.geolocation through GeoClue, allowed by the host for the app's own pages", "run": "GeoClue on WSL or a Linux desktop; the Xvfb run used a WebKit test position"},
+    "windows": {"reach": "honored", "how": "the web view's navigator.geolocation and the Windows location service, granted by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied (SD1)"},
+    "linux": {"reach": "honored", "how": "the web view's navigator.geolocation through GeoClue, which the host permits for the app's own pages (LX1 ran GeoClue 2.7 with a GPS fix and its agent)"},
     "ios": {"reach": "runOwed", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions", "run": "the location prompt with the manifest reason on the iOS simulator, checked by hand"},
     "android": {"reach": "runOwed", "how": "the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient", "run": "the ACCESS_FINE_LOCATION question and a test-provider position in scripts/android/browser-apis-test.mjs on the emulator"}
   },
@@ -424,7 +424,7 @@
     "paths": ["tac.browserApis[preferenceStrings]"],
     "web": {"reach": "honored", "how": "localStorage"},
     "macos": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on a Mac"},
-    "windows": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "the web view's localStorage, kept on disk across a relaunch (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's localStorage, kept on disk"},
     "ios": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on the iOS simulator"},
     "android": {"reach": "runOwed", "how": "the web view's localStorage, kept on disk", "run": "a preferenceStrings write read back after a relaunch on the emulator"}
@@ -433,9 +433,9 @@
     "member": "tac.nativeCapabilities",
     "paths": ["tac.nativeCapabilities"],
     "web": {"reach": "notApplicable", "note": "tac.nativeCapabilities is read only by native builds. In a browser, FilePicker answers unsupported."},
-    "macos": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker opens the system file panel on macOS for page, Swift and Rust services. A FilePicker field in a C# or Kotlin service answers unsupported (FP5)."},
-    "windows": {"reach": "runOwed", "how": "filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services; a FilePicker field in a Swift or Kotlin service runs as WebAssembly there and answers unsupported (FP5)", "run": "the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a picker opened from a WebView2 page on a signed-in Windows desktop"},
-    "linux": {"reach": "adapted", "note": "tac.nativeCapabilities filePicker opens the GTK file dialog, or the desktop portal's chooser where one runs, on Linux for page and Rust services. A FilePicker field in a Swift, C# or Kotlin service runs as WebAssembly there and answers unsupported (FP5)."},
+    "macos": {"reach": "runOwed", "how": "filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page", "run": "a C# and a Kotlin FilePicker field choosing a file in the macOS panel on a Mac"},
+    "windows": {"reach": "runOwed", "how": "filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services, and for Swift and Kotlin services, which run as WebAssembly on Windows and reach the dialog through the page; the MSVC build selected a file in the Windows dialog and closed an unanswered one (SD1)", "run": "a page and a Swift and a Kotlin FilePicker field choosing a file from a WebView2 page on a signed-in Windows desktop"},
+    "linux": {"reach": "honored", "how": "filePicker opens the GTK file dialog, or the desktop portal's chooser where one runs, for page and Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly on Linux and reach the dialog through the page"},
     "ios": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4)."},
     "android": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for Android yet. FilePicker answers unsupported (FP2)."}
   },
@@ -454,7 +454,7 @@
     "paths": ["tac.python"],
     "web": {"reach": "honored", "how": "Python services on Pyodide (WebAssembly)"},
     "macos": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the packaged macOS app on a Mac (ADR 0093)"},
-    "windows": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service inside WebView2 on a signed-in Windows desktop (ADR 0093)"},
+    "windows": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093); a Python service answered inside WebView2 on a signed-in Windows desktop (SD1)"},
     "linux": {"reach": "honored", "how": "Pyodide in the web view (ADR 0093)"},
     "ios": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the iOS simulator gate (ADR 0093)"},
     "android": {"reach": "runOwed", "how": "Pyodide in the web view (ADR 0093)", "run": "a Python service in the Android emulator gate (ADR 0093)"}
@@ -474,7 +474,7 @@
     "paths": ["tac.outgoing"],
     "web": {"reach": "honored", "how": "the build checks request hosts and the page's connect-src allows only them"},
     "macos": {"reach": "runOwed", "how": "the build checks request hosts and the scheme handler's connect-src allows only them", "run": "a page fetch to an undeclared host refused in the macOS app"},
-    "windows": {"reach": "runOwed", "how": "the build checks request hosts and the resource handler's connect-src allows only them", "run": "a page fetch to an undeclared host refused inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "the build checks request hosts and the resource handler's connect-src allows only them; a page fetch to an undeclared host was refused and the host saw no request (SD1)"},
     "linux": {"reach": "honored", "how": "the build checks request hosts and the scheme handler's connect-src allows only them"},
     "ios": {"reach": "runOwed", "how": "the build checks request hosts and the scheme handler's connect-src allows only them", "run": "a page fetch to an undeclared host refused on the iOS simulator"},
     "android": {"reach": "adapted", "note": "The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host."}
@@ -484,8 +484,8 @@
     "paths": ["tac.yon"],
     "web": {"reach": "honored", "how": "pages send Yon calls to tac.yon.origin over CORS without cookies, and connect-src allows it (ADR 0103)"},
     "macos": {"reach": "adapted", "note": "tac.yon.origin: the macOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on macOS 26.6.2 (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1)."},
-    "windows": {"reach": "runOwed", "how": "the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient, tested in the cloud under wine and .NET and built with MSVC and NativeAOT on Windows (ADR 0103)", "run": "scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)"},
-    "linux": {"reach": "honored", "how": "the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb)"},
+    "windows": {"reach": "honored", "how": "the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient; scripts/windows/yon-reach.ps1 passed inside WebView2 on a signed-in Windows desktop (NET3, ADR 0103)"},
+    "linux": {"reach": "honored", "how": "the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb and headless Wayland)"},
     "ios": {"reach": "adapted", "note": "tac.yon.origin: the iOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1)."},
     "android": {"reach": "honored", "how": "the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator (ADR 0103)"}
   },
@@ -644,7 +644,7 @@
     "paths": [],
     "web": {"reach": "notApplicable", "note": "A browser tab has no native menu bar."},
     "macos": {"reach": "honored", "how": "the App, File, Edit and Window menus"},
-    "windows": {"reach": "runOwed", "how": "File, Edit and Window menus, shown even when the manifest declares no items", "run": "an app with no declared items inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "File, Edit and Window menus, shown even when the manifest declares no items (SD1)"},
     "linux": {"reach": "honored", "how": "File, Edit and Window menus, shown even when the manifest declares no items"},
     "ios": {"reach": "notApplicable", "note": "Without declared items, an iOS app keeps the system's own iPad menu bar and adds nothing."},
     "android": {"reach": "notApplicable", "note": "Without declared items, an Android app shows no app bar."}
@@ -654,7 +654,7 @@
     "paths": [],
     "web": {"reach": "notApplicable", "note": "The browser owns editing."},
     "macos": {"reach": "honored", "how": "Undo, Redo, Cut, Copy, Paste and Select All"},
-    "windows": {"reach": "runOwed", "how": "Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Y", "run": "the Edit commands inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Y (SD1)"},
     "linux": {"reach": "honored", "how": "Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Shift+Z"},
     "ios": {"reach": "notApplicable", "note": "The system edit menu handles text on iOS."},
     "android": {"reach": "notApplicable", "note": "The system text toolbar handles text on Android."}
@@ -684,7 +684,7 @@
     "paths": [],
     "web": {"reach": "honored", "how": "the browser's accessibility tree"},
     "macos": {"reach": "honored", "how": "the web view's accessibility tree, checked by the macOS gate"},
-    "windows": {"reach": "runOwed", "how": "the pages reach UI Automation through WebView2", "run": "UI Automation roles of page controls on a signed-in Windows desktop (AX2); the MSIX gate of scripts/windows/native-test.ps1 already found page controls by name and invoked one"},
+    "windows": {"reach": "honored", "how": "the pages reach UI Automation through WebView2, with Edit, Button, Hyperlink, Text and Heading roles (AX2, SD1)"},
     "linux": {"reach": "honored", "how": "the web view's AT-SPI tree; scripts/linux/a11y-probe.py checks the window name, menu bar, page roles and names, and activation"},
     "ios": {"reach": "runOwed", "how": "the pages reach VoiceOver through the web view", "run": "an accessibility audit of roles and names on the iOS simulator (AX1)"},
     "android": {"reach": "runOwed", "how": "the pages reach TalkBack through the web view", "run": "an accessibility check of roles and names on the emulator (AX1)"}
@@ -694,7 +694,7 @@
     "paths": [],
     "web": {"reach": "notApplicable", "note": "A browser page cannot move its window."},
     "macos": {"reach": "honored", "how": "dragging a marked element moves the window"},
-    "windows": {"reach": "runOwed", "how": "with titleBar \"integrated\", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu", "run": "a drag region moving the window inside WebView2 on a signed-in Windows desktop (SD1)"},
+    "windows": {"reach": "honored", "how": "with titleBar \"integrated\", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu (SD1)"},
     "linux": {"reach": "honored", "how": "with titleBar \"integrated\", dragging a marked element moves the window and a double-click follows the desktop's title bar setting"},
     "ios": {"reach": "notApplicable", "note": "An iOS app has no window to move."},
     "android": {"reach": "notApplicable", "note": "An Android app has no window to move."}
@@ -704,7 +704,7 @@
     "paths": [],
     "web": {"reach": "honored", "how": "the browser follows the link"},
     "macos": {"reach": "runOwed", "how": "http, https and mailto links open in the default browser or mail app (NSWorkspace)", "run": "an http, https and mailto link from a page on a Mac"},
-    "windows": {"reach": "runOwed", "how": "http, https and mailto links open in the default browser or mail app (ShellExecuteW); the opener ran under Wine", "run": "an http, https and mailto link from a page inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (ShellExecuteW), from a WebView2 page (SD1)"},
     "linux": {"reach": "honored", "how": "http, https and mailto links open in the default browser or mail app (GtkUriLauncher)"},
     "ios": {"reach": "runOwed", "how": "http, https and mailto links open in the default browser or mail app (UIApplication)", "run": "an http, https and mailto link from a page on the iOS simulator"},
     "android": {"reach": "runOwed", "how": "http, https and mailto links open in the default browser or mail app (ACTION_VIEW)", "run": "an http, https and mailto link from a page on the emulator"}
@@ -724,7 +724,7 @@
     "paths": [],
     "web": {"reach": "adapted", "note": "A browser tab has no application state. The page sends ApplicationStateChanged with background when the tab is hidden and foreground when it is shown."},
     "macos": {"reach": "runOwed", "how": "ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored", "run": "resigning and becoming the active app, hiding and minimizing on a Mac"},
-    "windows": {"reach": "runOwed", "how": "ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored", "run": "WM_ACTIVATEAPP and minimizing inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored, heard by the page and linked Rust services (SD1)"},
     "linux": {"reach": "honored", "how": "ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again"},
     "ios": {"reach": "runOwed", "how": "ApplicationStateChanged when the app enters the background and when it returns to the foreground", "run": "background and foreground on the iOS simulator"},
     "android": {"reach": "runOwed", "how": "ApplicationStateChanged on onStop and onStart", "run": "onStop and onStart on the emulator"}
@@ -734,7 +734,7 @@
     "paths": [],
     "web": {"reach": "honored", "how": "kept by the browser"},
     "macos": {"reach": "honored", "how": "kept on disk by the web view"},
-    "windows": {"reach": "runOwed", "how": "kept on disk by the web view", "run": "data kept across a relaunch inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "kept on disk by the web view: localStorage, IndexedDB and the Cache API survive a relaunch (SD1)"},
     "linux": {"reach": "honored", "how": "kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit"},
     "ios": {"reach": "adapted", "note": "Store rows and LocalState values in the iOS app are kept on disk, but Cache API entries live only while the app runs, so a Cached method runs again after a relaunch. This limit is not proven yet: the run that found it used a probe that the start-up sweep deletes, and a rerun on the simulator is owed (RM2)."},
     "android": {"reach": "adapted", "note": "Store rows and LocalState values in the Android app are kept on disk. A Cache API entry written shortly before the system stops the app is not always kept, so a Cached method may run again after a relaunch."}
@@ -754,7 +754,7 @@
     "paths": [],
     "web": {"reach": "honored", "how": "sent by the server"},
     "macos": {"reach": "runOwed", "how": "the native host policy", "run": "a policy-violation probe in the macOS app"},
-    "windows": {"reach": "runOwed", "how": "the native host policy", "run": "a policy-violation probe inside WebView2 on a signed-in Windows desktop"},
+    "windows": {"reach": "honored", "how": "the native host policy; connect-src refused an undeclared host from a WebView2 page (SD1)"},
     "linux": {"reach": "honored", "how": "the native host policy"},
     "ios": {"reach": "runOwed", "how": "the native host policy", "run": "a policy-violation probe on the iOS simulator"},
     "android": {"reach": "honored", "how": "the native host policy, which also allows the host's bridge script by its hash"}
@@ -763,11 +763,11 @@
     "member": "reaching Yon",
     "paths": [],
     "web": {"reach": "honored", "how": "same-origin requests to the Yon server"},
-    "macos": {"reach": "adapted", "note": "The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1)."},
-    "windows": {"reach": "runOwed", "how": "the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services; other absolute URLs go only to the hosts in tac.outgoing.hosts", "run": "scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)"},
+    "macos": {"reach": "adapted", "note": "The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the macOS host does not run Rust tasks yet (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); a macOS run of that is still owed (yon-reach-test.mjs with a linked Swift stream and socket)."},
+    "windows": {"reach": "honored", "how": "the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services, and the page holds a linked C# or Rust service's stream and socket clients (NET3, LS1); other absolute URLs go only to the hosts in tac.outgoing.hosts"},
     "linux": {"reach": "adapted", "note": "The Linux app's pages load from tachyon://app, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages and linked Rust services reach the Yon at tac.yon.origin, which lists tachyon://app in server.origins, run under Xvfb and on WSL by scripts/linux/yon-origin-native-test.mjs (NET4, RL1)."},
-    "ios": {"reach": "adapted", "note": "The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1)."},
-    "android": {"reach": "adapted", "note": "The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2)."}
+    "ios": {"reach": "adapted", "note": "The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); an iOS simulator run of that is still owed (yon-reach-test.mjs with a linked Swift stream and socket)."},
+    "android": {"reach": "adapted", "note": "The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2). The page also holds a linked Kotlin service's stream and socket clients and delivers their messages to it (LS1); an emulator run of that is still owed."}
   },
   {
     "member": "natively linked service languages",
@@ -787,7 +787,7 @@
     "windows": {"reach": "honored", "how": "--arch x64 or arm64"},
     "linux": {"reach": "adapted", "note": "--arch does not choose the Linux architecture: the Linux app is built for the build machine's architecture."},
     "ios": {"reach": "adapted", "note": "--arch does not choose the iOS architecture: the simulator app is built for the build machine's architecture, and --device and --release builds are always arm64."},
-    "android": {"reach": "adapted", "note": "--arch does not choose Android ABIs. An app with Rust services carries its Rust library for arm64-v8a and x86_64, so it installs on 64-bit Arm phones and x86_64 emulators only; without Rust services the APK holds no native code and runs on every ABI."}
+    "android": {"reach": "honored", "how": "--arch arm64, x64 or universal, the default; the Rust library is built for arm64-v8a, x86_64 or both, and Gradle's abiFilters name the same ABIs. An app without Rust services holds no native code and runs on every ABI"}
   },
   {
     "member": "development code signing",
@@ -807,7 +807,7 @@
     "windows": {"reach": "honored", "how": "ty bundle --target windows --release builds an MSIX package, <Name>.msix, with makeappx and signs it with signtool and the certificate that TAC_WINDOWS_CERTIFICATE (a .pfx file) or TAC_WINDOWS_CERTIFICATE_THUMBPRINT (a certificate in the store) names; TAC_WINDOWS_CERTIFICATE_PUBLISHER is the package publisher. Other builds are a folder with the .exe"},
     "linux": {"reach": "runOwed", "how": "ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder", "run": "dpkg -i of the .deb on WSL, which needs administrator rights there, and an install on a Linux desktop; apt-get install of the .deb ran in an x86_64 cloud container, the AppImage ran through FUSE on WSL, and the installed .desktop file opened a scheme link under Xvfb (RL1)"},
     "ios": {"reach": "runOwed", "how": "ty bundle --release builds an .ipa for App Store Connect, signed with the App Store profile that TAC_IOS_PROVISIONING_PROFILE names and its keychain certificate, and --device builds one for a registered iPhone or iPad; the team comes from TAC_APPLE_TEAM_ID. Other builds run in the simulator", "run": "a --release build with an App Store profile and an install on an iOS 17 or later device; a --device build was signed and checked on a Mac, and the App Store Connect upload is outside ty (ADR 0104)"},
-    "android": {"reach": "honored", "how": "ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK"}
+    "android": {"reach": "runOwed", "how": "ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names, shrunk by R8 with keep rules for the host, bridge and service classes; other builds are a debug APK", "run": "the R8-shrunk release APK installed and run on the emulator (RM3); the signed release before R8 ran there on 2026-10-19"}
   },
   {
     "member": "incremental route reuse",
@@ -834,7 +834,7 @@
     "paths": [],
     "web": {"reach": "honored", "how": "pages run in a headless browser"},
     "macos": {"reach": "notApplicable", "note": "The macOS app needs a signed-in graphical session: its window and web view do not start without one, so its gates run on a signed-in Mac."},
-    "windows": {"reach": "notApplicable", "note": "The Windows app needs a signed-in desktop session: WebView2 does not start without one (0x80070578), and an MSIX package does not install over SSH (0x80070005)."},
+    "windows": {"reach": "notApplicable", "note": "The Windows app needs a signed-in desktop session: WebView2 does not start without one (0x80070578), and an MSIX package does not install over SSH (0x80070005). scripts/windows/desktop-run.ps1 runs a command from SSH in the desktop session of the same signed-in user, through a one-time interactive scheduled task."},
     "linux": {"reach": "honored", "how": "the app runs under Xvfb with the X11 backend"},
     "ios": {"reach": "honored", "how": "the app runs in the iOS simulator without a screen"},
     "android": {"reach": "honored", "how": "the app runs in a headless Android emulator"}

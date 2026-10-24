@@ -209,8 +209,9 @@ fn swift_constructor(fields: &[(String, String)]) -> String {
 }
 
 fn kotlin_constructor(fields: &[(String, String)]) -> String {
-    let mut constructor =
-        String::from("\nconstructor(tacProps: Map<String, Any?>?, tacPage: TacPageScope) {\n");
+    let mut constructor = String::from(
+        "\ninternal constructor(tacProps: Map<String, Any?>?, tacPage: TacPageScope) {\n",
+    );
     for (name, kind) in fields {
         let value = format!("tacRequiredValue(tacProps, \"{name}\")");
         let converted = match kind.as_str() {
@@ -345,7 +346,7 @@ fn rust_owner_table(
     }
     let instance = RustConstruction::instance(source, source_path, &name, needs_all)?;
     let mut output = format!(
-        "pub fn tac_create() -> Vec<(&'static str, TacMember)> {{\nlet instance = std::rc::Rc::new(core::cell::RefCell::new({instance}));\nvec![\n"
+        "pub fn tac_create() -> Vec<(&'static str, TacMember)> {{\nlet instance = std::rc::Rc::new(core::cell::RefCell::new({instance}));\nvec![\n(\"__tachyon_busy\", TacMember::Busy({{let it = instance.clone(); Box::new(move || it.try_borrow_mut().is_err())}})),\n"
     );
     members.sort_by(|left, right| left.name.cmp(&right.name));
     members.dedup_by(|left, right| left.name == right.name);

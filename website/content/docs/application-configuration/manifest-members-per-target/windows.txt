@@ -10,7 +10,7 @@ icons
   adapted: icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon. A --release MSIX package copies, without resizing, the smallest PNG icon that covers each tile (44, 50 and 150 pixels), or the largest PNG icon; with no PNG icon its tiles are plain squares in theme_color.
 
 theme_color
-  adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. A run of the caption color on a signed-in Windows 11 desktop is still owed.
+  adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. On a signed-in Windows 11 desktop every caption pixel the gate sampled took the color (SD1).
 
 background_color
   not applied: background_color is not applied to the Windows app yet (WIN7).
@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   honored: the smallest client area the user can drag to, in device-independent pixels
 
 tac.application.window.controls
-  run owed: close, fullscreen, maximize, minimize, resize and title; still to run: a page call inside WebView2 on a signed-in Windows desktop; the controls already ran on a real Win32 window
+  honored: close, fullscreen, maximize, minimize, resize and title, called from a page inside WebView2 on a signed-in Windows desktop (SD1)
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Windows page reach the top edge under the system caption buttons, with the same insets as macOS and drag regions that WebView2 handles (ADR 0098). The menu bar moves into the window menu (Alt+Space, or a right-click on a drag region). The page covers the top edge, so the window resizes from its sides and bottom. Not yet run on a signed-in desktop (SD1).
@@ -61,16 +61,16 @@ tac.application.window.titleBarButtonInset
   adapted: tac.application.window.titleBarButtonInset is ignored on Windows: the system caption buttons stay where Windows draws them, at the top trailing corner. The page reads their size from --tac-titlebar-height and --tac-titlebar-trailing-inset.
 
 tac.application.menus
-  run owed: items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; over SSH the menus showed their items and shortcuts and a menu action reached the application service; still to run: a route item opening its page and a menu action reaching the page inside WebView2 on a signed-in Windows desktop (N1)
+  honored: items in the File, View and Help menus of the window's menu bar, or of the window menu under an integrated title bar; a route item opened its page, and a menu action and its shortcut reached the page inside WebView2 on a signed-in Windows desktop (N1, SD1)
 
 tac.application.tray
-  run owed: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit (ADR 0107); still to run: the notification-area icon and its menu items on a signed-in Windows desktop; the host has run only under Wine (ADR 0107)
+  honored: a notification-area icon: a click opens the window, the context menu holds Open, the declared items and Exit, and a declared item's event reaches the page (ADR 0107, SD1)
 
 tac.application.tray.template
   adapted: tac.application.tray.template applies only to the macOS menu bar. The Windows notification area shows the icon in its own colors.
 
 tac.application.tray.closeHidesWindow
-  run owed: closing the window hides it, and its page keeps running until Exit; still to run: closing, reopening and exiting the window inside WebView2 on a signed-in Windows desktop (ADR 0107)
+  honored: closing the window hides it, and its page keeps running until Exit; a click on the icon shows it again (SD1)
 
 tac.application.tray.dock
   adapted: tac.application.tray.dock applies only to the macOS Dock. The Windows taskbar shows the app only while its window is open.
@@ -103,7 +103,7 @@ tac.scriptSources
   honored: the same checked files, bundled into the app
 
 tac.cache
-  run owed: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; still to run: an offline Yon read inside WebView2 on a signed-in Windows desktop
+  honored: the page applies the rules to Yon reads at tac.yon.origin in its own Cache Storage, which the web view keeps on disk; a network-first read answered from the cache with Yon stopped (SD1)
 
 tac.metadata
   adapted: tac.metadata tags are written into each page, but search-engine and sharing tags do nothing inside the Windows app.
@@ -115,37 +115,37 @@ tac.browserApis
   honored: the same grant list in the page
 
 tac.browserApis clipboard
-  run owed: the Windows clipboard through the host bridge (browserApi.clipboard), tested under Wine; still to run: a page's clipboard round trip in WebView2 on a signed-in Windows desktop (SD1)
+  honored: the Windows clipboard through the host bridge (browserApi.clipboard), both ways from a WebView2 page (SD1)
 
 tac.browserApis share
-  adapted: share in the Windows app opens the Windows share sheet for the app window (browserApi.share). ShareFinished arrives when the sheet opens, because Windows does not tell the app whether the user shared. A run of the share sheet on a signed-in Windows desktop is still owed (SD1).
+  adapted: share in the Windows app opens the Windows share sheet for the app window (browserApi.share). ShareFinished arrives when the sheet opens, because Windows does not tell the app whether the user shared. The sheet opened from a WebView2 page on a signed-in Windows desktop (SD1).
 
 tac.browserApis notifications
-  adapted: notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package on a signed-in Windows desktop is still owed (SD1).
+  adapted: notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package reached the notification history on a signed-in Windows desktop (SD1).
 
 tac.browserApis geolocation
-  run owed: the web view's navigator.geolocation and the Windows location service, allowed by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied; still to run: a page's position in WebView2 on a signed-in Windows desktop (SD1)
+  honored: the web view's navigator.geolocation and the Windows location service, granted by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied (SD1)
 
 tac.browserApis preferenceStrings
-  run owed: the web view's localStorage, kept on disk; still to run: a preferenceStrings write read back after a relaunch inside WebView2 on a signed-in Windows desktop
+  honored: the web view's localStorage, kept on disk across a relaunch (SD1)
 
 tac.nativeCapabilities
-  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services; a FilePicker field in a Swift or Kotlin service runs as WebAssembly there and answers unsupported (FP5); still to run: the_windows_file_picker_selects_a_file_in_the_windows_dialog with MSVC, and a picker opened from a WebView2 page on a signed-in Windows desktop
+  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services, and for Swift and Kotlin services, which run as WebAssembly on Windows and reach the dialog through the page; the MSVC build selected a file in the Windows dialog and closed an unanswered one (SD1); still to run: a page and a Swift and a Kotlin FilePicker field choosing a file from a WebView2 page on a signed-in Windows desktop
 
 tac.elements
   adapted: tac.elements are bundled into the Windows app for its own pages only. Other sites cannot load them from the app.
 
 tac.python
-  run owed: Pyodide in the web view (ADR 0093); still to run: a Python service inside WebView2 on a signed-in Windows desktop (ADR 0093)
+  honored: Pyodide in the web view (ADR 0093); a Python service answered inside WebView2 on a signed-in Windows desktop (SD1)
 
 tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Windows app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  run owed: the build checks request hosts and the resource handler's connect-src allows only them; still to run: a page fetch to an undeclared host refused inside WebView2 on a signed-in Windows desktop
+  honored: the build checks request hosts and the resource handler's connect-src allows only them; a page fetch to an undeclared host was refused and the host saw no request (SD1)
 
 tac.yon
-  run owed: the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient, tested in the cloud under wine and .NET and built with MSVC and NativeAOT on Windows (ADR 0103); still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)
+  honored: the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient; scripts/windows/yon-reach.ps1 passed inside WebView2 on a signed-in Windows desktop (NET3, ADR 0103)
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -193,10 +193,10 @@ application lifetime services
   honored: Rust services that start with the app and stop when it quits
 
 standard menu bar without declared items
-  run owed: File, Edit and Window menus, shown even when the manifest declares no items; still to run: an app with no declared items inside WebView2 on a signed-in Windows desktop
+  honored: File, Edit and Window menus, shown even when the manifest declares no items (SD1)
 
 Edit menu
-  run owed: Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Y; still to run: the Edit commands inside WebView2 on a signed-in Windows desktop
+  honored: Undo, Redo, Cut, Copy, Paste and Select All; Redo is Ctrl+Y (SD1)
 
 Window menu
   adapted: The Windows Window menu has Minimize and Maximize, with no shortcuts.
@@ -205,31 +205,31 @@ menu shortcuts with control
   adapted: A shortcut with control gets Ctrl on Windows, like command. Shortcuts that then collide stop the build (TY1601).
 
 page accessibility (roles and names through the system accessibility API)
-  run owed: the pages reach UI Automation through WebView2; still to run: UI Automation roles of page controls on a signed-in Windows desktop (AX2); the MSIX gate of scripts/windows/native-test.ps1 already found page controls by name and invoked one
+  honored: the pages reach UI Automation through WebView2, with Edit, Button, Hyperlink, Text and Heading roles (AX2, SD1)
 
 window drag regions (data-tac-drag-region)
-  run owed: with titleBar "integrated", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu; still to run: a drag region moving the window inside WebView2 on a signed-in Windows desktop (SD1)
+  honored: with titleBar "integrated", data-tac-drag-region becomes CSS app-region: drag, so WebView2 moves the window, a double-click maximizes or restores it, and a right-click opens the window menu (SD1)
 
 external links
-  run owed: http, https and mailto links open in the default browser or mail app (ShellExecuteW); the opener ran under Wine; still to run: an http, https and mailto link from a page inside WebView2 on a signed-in Windows desktop
+  honored: http, https and mailto links open in the default browser or mail app (ShellExecuteW), from a WebView2 page (SD1)
 
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route; the app registers the scheme under HKCU\Software\Classes, or its MSIX package declares it, and hands later links to the running window
 
 background and foreground signal
-  run owed: ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored; still to run: WM_ACTIVATEAPP and minimizing inside WebView2 on a signed-in Windows desktop
+  honored: ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored, heard by the page and linked Rust services (SD1)
 
 stored data (IndexedDB, Cache API, LocalState)
-  run owed: kept on disk by the web view; still to run: data kept across a relaunch inside WebView2 on a signed-in Windows desktop
+  honored: kept on disk by the web view: localStorage, IndexedDB and the Cache API survive a relaunch (SD1)
 
 service worker
   not applicable: The Windows app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
 
 Content-Security-Policy
-  run owed: the native host policy; still to run: a policy-violation probe inside WebView2 on a signed-in Windows desktop
+  honored: the native host policy; connect-src refused an undeclared host from a WebView2 page (SD1)
 
 reaching Yon
-  run owed: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services; other absolute URLs go only to the hosts in tac.outgoing.hosts; still to run: scripts/windows/yon-reach.ps1 inside WebView2 on a signed-in Windows desktop (NET3)
+  honored: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services, and the page holds a linked C# or Rust service's stream and socket clients (NET3, LS1); other absolute URLs go only to the hosts in tac.outgoing.hosts
 
 natively linked service languages
   honored: Rust and C# services are linked into the app; other languages run in the page
@@ -250,4 +250,4 @@ byte-identical rebuilds
   honored: the Windows build compiles and links with /Brepro and keeps .obj files out of the output; two packaged builds give the same artifact-manifest.json digests
 
 running without a signed-in desktop session
-  not applicable: The Windows app needs a signed-in desktop session: WebView2 does not start without one (0x80070578), and an MSIX package does not install over SSH (0x80070005).
+  not applicable: The Windows app needs a signed-in desktop session: WebView2 does not start without one (0x80070578), and an MSIX package does not install over SSH (0x80070005). scripts/windows/desktop-run.ps1 runs a command from SSH in the desktop session of the same signed-in user, through a one-time interactive scheduled task.

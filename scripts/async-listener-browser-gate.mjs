@@ -14,7 +14,7 @@ class AsyncListenerGate {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static engines = ['chromium', 'firefox', 'webkit']
   static browsers = (process.env.TAC_ASYNC_LISTENER_BROWSERS ?? AsyncListenerGate.engines.join(',')).split(',')
-  static extensions = { swift: '.swift', rust: '.rs' }
+  static extensions = { swift: '.swift', rust: '.rs', kotlin: '.kt', csharp: '.cs', fsharp: '.fs' }
   static languages = (process.env.TAC_ASYNC_LISTENER_LANGUAGES ?? Object.keys(AsyncListenerGate.extensions).join(',')).split(',')
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
   static manifest = { tac: { duplication: { check: false } } }

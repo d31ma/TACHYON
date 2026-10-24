@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::json_http::JsonHttp;
 use crate::support::program_probe::ProgramProbe;
 use std::path::Path;
 use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod};
@@ -197,6 +198,21 @@ impl OrderProject {
             ),
         ],
     };
+
+    const TYPESCRIPT: Self = Self {
+        extension: "ts",
+        program: "node",
+        files: &[
+            (
+                "server/models/Order.ts",
+                "export interface Order {\n  name: string\n  count: number\n}\n",
+            ),
+            (
+                "server/controllers/OrdersController.ts",
+                "import type { Order } from '/models/Order.ts'\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @PostRoute(\"/{id}\")\n  postOrder(@FromPath id: number, @FromQuery(\"note\") note: string, @FromBody order: Order): Order {\n    return { name: `${order.name}:${note}`, count: order.count + id }\n  }\n\n  @GetRoute\n  getOrders(): Order[] {\n    return [{ name: \"a\", count: 1 }]\n  }\n}\n",
+            ),
+        ],
+    };
 }
 
 fn available(program: &str) -> bool {
@@ -338,6 +354,35 @@ async fn a_dart_controller_binds_arguments_and_models() {
 #[tokio::test]
 async fn a_go_controller_binds_arguments_and_models() {
     assert_orders(&OrderProject::GO).await;
+}
+
+#[tokio::test]
+async fn a_typescript_controller_binds_arguments_and_models() {
+    assert_orders(&OrderProject::TYPESCRIPT).await;
+}
+
+#[tokio::test]
+async fn a_typescript_controller_reads_its_from_query_value_from_the_query_string() {
+    if !available(OrderProject::TYPESCRIPT.program) {
+        eprintln!("skipping ts: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, source) in OrderProject::TYPESCRIPT.files {
+        write(root.path(), relative, source);
+    }
+    let order = r#"{"name":"lamp","count":2}"#;
+    let answers =
+        JsonHttp::post_all(root.path(), "/orders/7?other=x&note=gift%20wrap", &[order]).await;
+    let answer = &answers[0];
+    assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
+    let (_, body) = answer.split_once("\r\n\r\n").expect("HTTP body");
+    let body: serde_json::Value = serde_json::from_str(body).expect("JSON answer");
+    assert_eq!(
+        body,
+        serde_json::json!({"name": "lamp:gift wrap", "count": 9}),
+        "{answer}"
+    );
 }
 
 #[test]

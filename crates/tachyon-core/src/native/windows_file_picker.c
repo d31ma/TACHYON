@@ -234,8 +234,15 @@ static char *tachyon_file_picker(const char *operation, const char *payload) {
 
 static void CALLBACK tachyon_file_picker_timeout(HWND window, UINT message, UINT_PTR timer, DWORD time) {
   (void)window; (void)message; (void)time;
-  KillTimer(NULL, timer);
-  if (g_file_dialog != NULL) IFileDialog_Close(g_file_dialog, HRESULT_FROM_WIN32(ERROR_CANCELLED));
+  IOleWindow *shown = NULL;
+  HWND dialog = NULL;
+  if (g_file_dialog == NULL) { KillTimer(NULL, timer); return; }
+  SetTimer(NULL, timer, 250, tachyon_file_picker_timeout);
+  IFileDialog_Close(g_file_dialog, HRESULT_FROM_WIN32(ERROR_CANCELLED));
+  if (SUCCEEDED(IFileDialog_QueryInterface(g_file_dialog, &IID_IOleWindow, (void **)&shown))) {
+    if (SUCCEEDED(IOleWindow_GetWindow(shown, &dialog)) && dialog != NULL) PostMessageW(dialog, WM_COMMAND, IDCANCEL, 0);
+    IOleWindow_Release(shown);
+  }
 }
 
 static HRESULT tachyon_file_picker_dialog(HWND window, int types, wchar_t **path) {

@@ -229,19 +229,19 @@ Content-Security-Policy
   honored: the native host policy, which also allows the host's bridge script by its hash
 
 reaching Yon
-  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2).
+  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2). The page also holds a linked Kotlin service's stream and socket clients and delivers their messages to it (LS1); an emulator run of that is still owed.
 
 natively linked service languages
   honored: Kotlin and Rust services are linked into the app, with Kotlin chosen when a service has both; other languages run in the page
 
 build architecture (--arch)
-  adapted: --arch does not choose Android ABIs. An app with Rust services carries its Rust library for arm64-v8a and x86_64, so it installs on 64-bit Arm phones and x86_64 emulators only; without Rust services the APK holds no native code and runs on every ABI.
+  honored: --arch arm64, x64 or universal, the default; the Rust library is built for arm64-v8a, x86_64 or both, and Gradle's abiFilters name the same ABIs. An app without Rust services holds no native code and runs on every ABI
 
 development code signing
   honored: a debug APK is signed with the build machine's Android debug keystore
 
 release packaging
-  honored: ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names; other builds are a debug APK
+  run owed: ty bundle --release builds an APK and an AAB signed with the keystore that TAC_ANDROID_KEYSTORE names, shrunk by R8 with keep rules for the host, bridge and service classes; other builds are a debug APK; still to run: the R8-shrunk release APK installed and run on the emulator (RM3); the signed release before R8 ran there on 2026-10-19
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off

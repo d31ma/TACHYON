@@ -1,5 +1,6 @@
 class TacNativeEvents {
   static plans = new WeakMap()
+  static refreshers = new WeakMap()
   static listenerLimit = 128
   static streamLimit = 16
   static publishing = null
@@ -23,6 +24,7 @@ class TacNativeEvents {
         owner.__tachyonStoredChanged?.()
       } })
     }
+    TacNativeEvents.refreshers.set(owner, refresh)
     Object.defineProperty(owner, '__tachyonStream', { configurable: true, value: () => {} })
     TacNativeEvents.plans.set(owner, {
       listeners: listeners.map((listener) => ({ ...listener, asynchronous: false, method: TacNativeEvents.listenerMethod(listener.key) })),
@@ -52,6 +54,11 @@ class TacNativeEvents {
   static planned(owner, metadata) {
     const native = TacNativeEvents.plans.get(owner)
     return native ? { ...metadata, listeners: [...(metadata.listeners || []), ...native.listeners], streams: [...(metadata.streams || []), ...native.streams] } : metadata
+  }
+
+  static async changed(owner) {
+    await TacNativeEvents.refreshers.get(owner)?.()
+    owner.__tachyonStoredChanged?.()
   }
 
   static publish(owner, publish) {
