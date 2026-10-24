@@ -8,6 +8,14 @@ export default class OrderServiceTest {
     return this.construct(OrderService);
   }
 
+  async testPostSendsThePathTheHeaderAndTheBody(): Promise<void> {
+    const sent = await this.service().create();
+    Assert.equals('POST', sent.method);
+    Assert.equals('/api/orders', sent.path);
+    Assert.equals('west', sent.header);
+    Assert.equals('anvil', sent.item);
+  }
+
   async testPutSendsThePathTheHeaderAndTheBody(): Promise<void> {
     const sent = await this.service().replace();
     Assert.equals('PUT', sent.method);

@@ -60,6 +60,8 @@ pub(crate) use model_schema::ModelSchema;
 mod native_storage;
 pub(crate) use native_storage::NativeStorage;
 #[cfg(test)]
+mod description_tests;
+#[cfg(test)]
 mod parser_tests;
 mod php;
 mod python;

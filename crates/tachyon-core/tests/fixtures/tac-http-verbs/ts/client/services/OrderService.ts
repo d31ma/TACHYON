@@ -5,6 +5,10 @@ export default class OrderService {
   @Needs
   readonly ordersClient!: OrdersClient;
 
+  async create(): Promise<SentRequest> {
+    return this.ordersClient.create({ item: 'anvil' }, 'west');
+  }
+
   async replace(): Promise<SentRequest> {
     return this.ordersClient.replace('a-7', { item: 'hammer' }, 'north');
   }

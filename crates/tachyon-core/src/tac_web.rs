@@ -889,6 +889,8 @@ mod go_stream_tests;
 mod cpp_stream_tests;
 
 #[cfg(test)]
+mod cpp_marker_tests;
+#[cfg(test)]
 mod cpp_stop_tests;
 #[cfg(test)]
 mod rust_stream_tests;
@@ -897,6 +899,8 @@ mod rust_stream_tests;
 mod kotlin_behavior_tests;
 #[cfg(test)]
 mod kotlin_helper_tests;
+#[cfg(test)]
+mod kotlin_retry_tests;
 
 #[cfg(test)]
 mod kotlin_stream_tests;
@@ -933,6 +937,8 @@ pub(crate) mod swift_tests;
 
 #[cfg(test)]
 mod swift_helper_tests;
+#[cfg(test)]
+mod swift_named_tests;
 
 #[cfg(test)]
 mod swift_stream_tests;
@@ -958,8 +964,12 @@ mod fsharp_tests;
 #[cfg(test)]
 mod java_helper_tests;
 #[cfg(test)]
+mod java_lifetime_tests;
+#[cfg(test)]
 mod java_needs_tests;
 
+#[cfg(test)]
+mod fsharp_lifetime_tests;
 #[cfg(test)]
 mod fsharp_needs_tests;
 
@@ -981,6 +991,8 @@ mod go_helper_tests;
 #[cfg(test)]
 mod go_pagehide_tests;
 
+#[cfg(test)]
+mod csharp_topic_tests;
 #[cfg(test)]
 mod go_topic_tests;
 

@@ -384,15 +384,22 @@ impl RsCounterService {
 }
 
 function writeTypeScriptFixture(project) {
-  write(project, 'client/components/storage/ts/tac.html', '<button id="ts-keep" on:click="tsDraft.keep()">keep</button>\n<p id="ts-draft">{tsDraft.draft}</p>\n');
+  write(project, 'client/components/storage/ts/tac.html', '<button id="ts-keep" on:click="tsDraft.keep()">keep</button>\n<p id="ts-draft">{tsDraft.draft}</p>\n<button id="ts-bump" on:click="tsDraft.bump()">bump</button>\n<p id="ts-count">{tsDraft.count}</p>\n');
   write(project, 'client/services/TsDraftService.ts', `@Service
 export default class TsDraftService {
   @SessionState
   draft: string = '';
+  @LocalState
+  count: number = 0;
 
   keep(): string {
     this.draft = 'typed';
     return this.draft;
+  }
+
+  bump(): number {
+    this.count += 1;
+    return this.count;
   }
 }
 `);
@@ -1423,7 +1430,7 @@ async function checkWebAssemblyStoredFields(browser, origin) {
   const context = await browser.newContext();
   const page = await context.newPage();
   await StorageGate.visit(page, origin);
-  const services = [['rs', 'rsCounter', 'Rust'], ['go', 'goNotes', 'Go'], ['ruby', 'rubyNotes', 'Ruby']];
+  const services = [['ts', 'tsDraft', 'TypeScript'], ['rs', 'rsCounter', 'Rust'], ['go', 'goNotes', 'Go'], ['ruby', 'rubyNotes', 'Ruby']];
   if (StorageGate.withCSharp) services.push(['cs', 'csNotes', 'C#'], ['journal', 'journal', 'F#']);
   if (StorageGate.withKotlin) services.push(['kt', 'ktNotes', 'Kotlin']);
   if (StorageGate.withSwift) services.push(['swift', 'swiftCounter', 'Swift']);
@@ -1439,7 +1446,7 @@ async function checkWebAssemblyStoredFields(browser, origin) {
     const stored = await page.evaluate((key) => localStorage.getItem(key), `tac:service:${instance}:/:count`);
     expect(stored, '3', `a ${language} LocalState field changed by its own method is written to localStorage`);
   }
-  const sessions = [['ts', 'tsDraft', 'TypeScript'], ...services.filter(([id]) => !['journal', 'java'].includes(id))];
+  const sessions = services.filter(([id]) => !['journal', 'java'].includes(id));
   if (StorageGate.withLua) sessions.push(['lua', 'luaDraft', 'Lua']);
   if (StorageGate.withCpp) sessions.push(['cpp', 'cppDraft', 'C++']);
   await checkSessionStates(context, page, origin, sessions);

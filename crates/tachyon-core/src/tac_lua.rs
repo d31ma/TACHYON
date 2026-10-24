@@ -14,6 +14,8 @@ mod helper_tests;
 #[cfg(test)]
 mod named_tests;
 #[cfg(test)]
+mod page_marker_tests;
+#[cfg(test)]
 mod task_tests;
 #[cfg(test)]
 mod tests;

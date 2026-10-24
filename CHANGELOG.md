@@ -359,6 +359,19 @@ machine contracts have their own, independent major versions.
   running server, Yon Lua runs its 17 example-only markers, and
   `Description` runs in Yon Java, Groovy, Kotlin, F#, Dart and Lua. Each
   test asserts what the marker does, not only that it builds.
+- Run tests for the last 38 Tac marker cells below a plain run (plan item
+  MP1). Dart, Lua, C++, TypeScript, Python, Kotlin, Java, F#, Swift, C#
+  and Ruby services now run `Converter`, `Convert`, `NeedsAll`,
+  `LocalState`, `SessionState`, `Retry`, `InBackground`, `Order`, `Topic`,
+  `Lifetime`, `Setting`, `OnStop`, `Named` and `PostRequest` in page
+  programs or `ty test` units in the Native Rust gate, and the TypeScript
+  `LocalState` and `Lifetime` checks join `scripts/storage-browser-test.mjs`
+  and `scripts/tac-client-test.mjs`. The macOS job now also runs the Swift
+  `Helper` and `Named` tests, which need the Swift WebAssembly SDK. A Tac
+  `Description` is checked to reach the service registration in JavaScript,
+  TypeScript, Dart, Rust, C#, Kotlin, Swift, Go, Ruby and Python; in Rust,
+  Kotlin and Go it stays in the compiler's registration and is not written
+  into the program.
 
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and

@@ -26,11 +26,15 @@ mod converter_tests;
 #[cfg(test)]
 mod host_tests;
 #[cfg(test)]
+mod lifecycle_tests;
+#[cfg(test)]
 mod named_tests;
 #[cfg(test)]
 mod notices_tests;
 #[cfg(test)]
 mod page_tests;
+#[cfg(test)]
+mod saved_values_tests;
 #[cfg(test)]
 mod stream_tests;
 #[cfg(all(test, unix))]

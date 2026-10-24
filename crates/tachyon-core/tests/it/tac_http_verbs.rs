@@ -20,6 +20,7 @@ impl HttpVerbProject {
         ("hpp", "clang++"),
     ];
     const VERBS: [&'static str; 3] = ["put", "patch", "delete"];
+    const POSTED: [&'static str; 1] = ["ts"];
 
     const VERSION_FLAGS: [(&'static str, &'static str); 3] =
         [("kotlinc", "-version"), ("go", "version"), ("lua", "-v")];
@@ -56,13 +57,17 @@ impl HttpVerbProject {
         let unit = format!("client/tests/OrderServiceTest.{extension}");
         let report = tachyon_core::client_tests::run(root.path(), Path::new(&unit))
             .unwrap_or_else(|error| panic!("{extension}: {error:?}"));
+        let expected: Vec<&str> = Self::VERBS
+            .into_iter()
+            .chain(Self::POSTED.contains(&extension).then_some("post"))
+            .collect();
         let verbs: Vec<String> = report
             .cases
             .iter()
             .map(|case| case.name.to_lowercase().replace('_', ""))
             .collect();
-        assert_eq!(verbs.len(), Self::VERBS.len(), "{extension}: {report:?}");
-        for verb in Self::VERBS {
+        assert_eq!(verbs.len(), expected.len(), "{extension}: {report:?}");
+        for verb in expected {
             assert!(
                 verbs
                     .iter()

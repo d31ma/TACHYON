@@ -109,6 +109,22 @@ export default class PendingRequestService {
 }`)
 }
 
+function writeLifetimeFixtures(root) {
+  write(root, 'client/pages/tallies/tac.html', '<tally-box /><tally-box />')
+  write(root, 'client/components/tally/box/tac.html', '<p><button class="tally-add" on:click="tally.add()">Add</button><button class="ledger-add" on:click="ledger.add()">Note</button><span class="tally">{tally.count}</span><span class="ledger">{ledger.count}</span></p>')
+  write(root, 'client/services/TallyService.ts', `@Service
+@Lifetime({"value":"prototype"})
+export default class TallyService {
+  count: number = 0;
+  add(): void { this.count += 1; }
+}`)
+  write(root, 'client/services/LedgerService.ts', `@Service
+export default class LedgerService {
+  count: number = 0;
+  add(): void { this.count += 1; }
+}`)
+}
+
 function writeRequiredFixtures(root) {
   write(root, 'client/pages/drawer/tac.html', '<drawer-panel :open="true" />')
   write(root, 'client/pages/drawer/missing/tac.html', '<drawer-panel :open="null" />')
@@ -203,6 +219,14 @@ async function checkPages(browser, origin) {
     assert.deepEqual(JSON.parse(await page.locator('#result').textContent()), [{id:1,name:'Products'}])
     assert.equal(ApiTraffic.clientSentCookie, false, 'Managed clients do not implicitly forward browser cookies')
   }
+  await page.goto(`${origin}/tallies`)
+  await page.waitForFunction(() => document.querySelectorAll('.tally').length === 2)
+  await page.locator('.tally-add').nth(0).click()
+  await page.locator('.tally-add').nth(0).click()
+  await page.locator('.ledger-add').nth(0).click()
+  await page.waitForFunction(() => [...document.querySelectorAll('.ledger')].every((count) => count.textContent === '1'))
+  assert.deepEqual(await page.locator('.tally').allTextContents(), ['2', '0'], 'a prototype TypeScript service gives each component its own object')
+  assert.deepEqual(await page.locator('.ledger').allTextContents(), ['1', '1'], 'a TypeScript service without a Lifetime is one object that every component shares')
   await page.goto(`${origin}/drawer`)
   await page.waitForFunction(() => document.querySelector('#drawer')?.textContent.includes('Menu'))
   assert.equal(await page.locator('#drawer').textContent(), 'true Menu', 'a NeedsAll service receives its required prop and keeps its initialized state')
@@ -254,6 +278,7 @@ async function main() {
   writeProductFixtures(root)
   writeProviderFixtures(root)
   writePendingFixtures(root)
+  writeLifetimeFixtures(root)
   writeRequiredFixtures(root)
   writeBooleanFixtures(root)
   writeSetupFixtures(root)
@@ -269,7 +294,7 @@ async function main() {
     browser = await chromium.launch({headless:true})
     const origin = `http://127.0.0.1:${server.address().port}`
     await checkPages(browser, origin)
-    console.log('Tac Client browser contract passed: JS, TS, annotation discovery, NeedsAll required props, boolean attributes, Inject-bound component and repository providers, one Setup for two services on a page, prototype service disposal.')
+    console.log('Tac Client browser contract passed: JS, TS, annotation discovery, NeedsAll required props, boolean attributes, Inject-bound component and repository providers, one Setup for two services on a page, a TypeScript prototype service per component, prototype service disposal.')
   } finally {
     await browser?.close()
     server?.closeAllConnections()

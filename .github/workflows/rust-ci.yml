@@ -837,7 +837,8 @@ jobs:
         run: |
           cargo test --locked -p tachyon-core --lib -- \
             tac_web::swift_tests:: a_swift_web_service_ web_fake_tests::a_swift \
-            a_swift_native_companion --test-threads=1
+            a_swift_native_companion tac_web::swift_helper_tests:: tac_web::swift_named_tests:: \
+            --test-threads=1
 
       - name: Execute Java web services on TeaVM with a JDK 21
         run: |

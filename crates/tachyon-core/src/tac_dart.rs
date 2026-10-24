@@ -17,6 +17,8 @@ mod dart_http_constructor;
 #[cfg(test)]
 mod dart_http_constructor_tests;
 mod dart_http_scope;
+#[cfg(test)]
+mod dart_marker_proof_tests;
 mod dart_model_shape;
 #[cfg(test)]
 mod dart_named_stop_tests;
