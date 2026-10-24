@@ -723,11 +723,11 @@
     "member": "system back navigation",
     "paths": [],
     "web": {"reach": "honored", "how": "the browser's own Back and Forward"},
-    "macos": {"reach": "runOwed", "how": "View > Back (Command-[) and View > Forward (Command-]), and the trackpad swipes, go back and forward through the web view's history; the items are disabled when there is nowhere to go", "run": "macos_view_menu_goes_back_and_forward_through_the_web_view_history on a Mac"},
-    "windows": {"reach": "runOwed", "how": "WebView2's own Alt+Left and Alt+Right and the mouse back and forward buttons go back and forward through the page history, with no host binding", "run": "scripts/windows/system-back-test.mjs on a signed-in Windows desktop"},
+    "macos": {"reach": "honored", "how": "View > Back (Command-[) and View > Forward (Command-]), and the trackpad swipes, go back and forward through the web view's history; the items are disabled when there is nowhere to go; macos_view_menu_goes_back_and_forward_through_the_web_view_history ran Command-[, Command-] and View > Back on macOS 26.6.2 with Xcode 27.1 (SB1)"},
+    "windows": {"reach": "honored", "how": "WebView2's own Alt+Left and Alt+Right and the mouse back and forward buttons go back and forward through the page history, with no host binding; scripts/windows/system-back-test.mjs ran them in the signed-in desktop of Windows 11 25H2 arm64 with WebView2 155.0.4283.62 (SB1)"},
     "linux": {"reach": "honored", "how": "Alt+Left and Alt+Right, the Back and Forward keys and mouse buttons 8 and 9 go back and forward through the web view's history (WebKitGTK alone does nothing on them); linux_generated_host_goes_back_and_forward_through_page_history ran them under Xvfb"},
-    "ios": {"reach": "runOwed", "how": "a swipe from the left edge goes back and a swipe from the right edge goes forward through the web view's history", "run": "scripts/ios/system-back-test.mjs on the iOS simulator"},
-    "android": {"reach": "runOwed", "how": "Back and the back gesture go back in the web view's history (OnBackInvokedCallback from Android 13, onBackPressed before); on the first route Back leaves the app the system way", "run": "scripts/android/system-back-test.mjs on the emulator"}
+    "ios": {"reach": "honored", "how": "a swipe from the left edge goes back and a swipe from the right edge goes forward through the web view's history; scripts/ios/system-back-test.mjs swiped both ways with XCUITest on the iOS 18.0 simulator (SB1); on the iOS 26.5 simulator an XCUITest edge drag moves neither this web view nor Safari back"},
+    "android": {"reach": "honored", "how": "Back and the back gesture go back in the web view's history (OnBackInvokedCallback from Android 13, onBackPressed before); on the first route Back leaves the app the system way; scripts/android/system-back-test.mjs ran the Back key and the edge gesture on the Android 15 (API 35) emulator with WebView 124 (SB1)"}
   },
   {
     "member": "background and foreground signal",

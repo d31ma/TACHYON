@@ -217,7 +217,7 @@ deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route, run on the iOS simulator; universal links to listed hosts are described under tac.application.links
 
 system back navigation
-  run owed: a swipe from the left edge goes back and a swipe from the right edge goes forward through the web view's history; still to run: scripts/ios/system-back-test.mjs on the iOS simulator
+  honored: a swipe from the left edge goes back and a swipe from the right edge goes forward through the web view's history; scripts/ios/system-back-test.mjs swiped both ways with XCUITest on the iOS 18.0 simulator (SB1); on the iOS 26.5 simulator an XCUITest edge drag moves neither this web view nor Safari back
 
 background and foreground signal
   honored: ApplicationStateChanged when the app enters the background and when it returns to the foreground; the page and a linked Swift service heard both on the iOS 26.5 simulator (RM2)

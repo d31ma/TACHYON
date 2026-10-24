@@ -25,8 +25,12 @@ class AndroidSystemBackTest extends AndroidAccessibilityTest {
     assert.fail(message)
   }
 
+  static backRecords() {
+    return this.telemetry().split('\n').filter((line) => line.includes('"navigation.back"')).length
+  }
+
   static telemetry() {
-    const read = spawnSync(this.adb, ['shell', 'run-as', this.applicationId, 'sh', '-c', 'cat files/tachyon/*.jsonl'], { encoding: 'utf8', timeout: 60000 })
+    const read = spawnSync(this.adb, ['shell', 'run-as', this.applicationId, 'sh', '-c', "'cat files/tachyon/*.jsonl'"], { encoding: 'utf8', timeout: 60000 })
     return read.status === 0 ? read.stdout : ''
   }
 
@@ -45,6 +49,7 @@ class AndroidSystemBackTest extends AndroidAccessibilityTest {
   static async check() {
     const fixture = MobileAccessibilityFixture
     const checks = []
+    const earlier = this.backRecords()
     const atHome = (nodes) => this.named(nodes, fixture.HEADING) && this.named(nodes, fixture.LINK)
     const home = await this.waitFor(atHome, 'the first route reaches the screen')
     await this.openAbout(home)
@@ -61,7 +66,7 @@ class AndroidSystemBackTest extends AndroidAccessibilityTest {
     } else {
       checks.push(`the emulator uses navigation mode ${navigationMode}, not gestures, so the back gesture was not swiped (the Back key reaches the same OnBackInvokedCallback)`)
     }
-    const recorded = this.telemetry().split('\n').filter((line) => line.includes('"navigation.back"')).length
+    const recorded = this.backRecords() - earlier
     assert.ok(recorded >= 1, 'the host recorded navigation.back')
     checks.push(`the host recorded navigation.back ${recorded} time(s)`)
     this.adbShell('input', 'keyevent', 'KEYCODE_BACK')

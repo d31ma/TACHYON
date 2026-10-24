@@ -33,10 +33,12 @@ private struct MacOsSystemBackCheck {
         }
         watchdog.resume()
         defer { watchdog.cancel() }
-        DispatchQueue.main.async { @MainActor () -> Void in
-            result = Result { try exercise(application) }
-            application.stop(nil)
-            application.postEvent(wake, atStart: true)
+        Timer.scheduledTimer(withTimeInterval: 0, repeats: false) { (_: Timer) -> Void in
+            MainActor.assumeIsolated { () -> Void in
+                result = Result { try exercise(application) }
+                application.stop(nil)
+                application.postEvent(wake, atStart: true)
+            }
         }
         application.run()
         guard let result else { throw failure("The application stopped before the checks ran") }
@@ -70,6 +72,7 @@ private struct MacOsSystemBackCheck {
         try require(enabled(menu, forward), "Forward is disabled after going back")
         try require(press(application, window, "]", 30), "Command-] was not a menu key equivalent")
         try settle(view, "/second/")
+        try require(enabled(menu, back) && !enabled(menu, forward), "Back is not the only enabled item after going forward")
         menu.performActionForItem(at: 0)
         try settle(view, "/")
         window.close()

@@ -17,10 +17,15 @@ machine contracts have their own, independent major versions.
   Linux window goes back and forward on Alt+Left, Alt+Right, the Back and
   Forward keys and mouse buttons 8 and 9, which WebKitGTK ignores by itself.
   Windows keeps WebView2's own Alt+Left and mouse buttons. The Linux run
-  passed under Xvfb; the macOS, iOS, Android and Windows runs are owed and
-  their gates are `macos_view_menu_goes_back_and_forward_through_the_web_view_history`,
-  `scripts/ios/system-back-test.mjs`, `scripts/android/system-back-test.mjs`
-  and `scripts/windows/system-back-test.mjs`.
+  passed under Xvfb. The macOS run passed on macOS 26.6.2 with Xcode 27.1
+  (`macos_view_menu_goes_back_and_forward_through_the_web_view_history`),
+  the iOS run on the iOS 18.0 simulator
+  (`TAC_IOS_RUNTIME=.iOS-18-0 scripts/ios/system-back-test.mjs`), the
+  Android run on the Android 15 (API 35) emulator
+  (`scripts/android/system-back-test.mjs`), and the Windows run on
+  Windows 11 25H2 arm64 with WebView2 155.0.4283.62
+  (`scripts/windows/system-back-test.mjs`). On the iOS 26.5 simulator the
+  XCUITest edge drag takes neither the app nor Safari back.
 
 - Mobile accessibility gates (AX1, 2026-10-24):
   `scripts/ios/accessibility-audit-test.mjs` runs an XCUITest bundle with

@@ -1,6 +1,6 @@
 # ADR 0109: System Back Goes Through the Page History
 
-- Status: Accepted; Linux run passed 2026-10-24; macOS, iOS, Android and Windows runs owed
+- Status: Accepted; Linux, macOS, iOS 18.0 simulator, Android and Windows runs passed 2026-10-24; the XCUITest edge drag fails on the iOS 26.5 simulator
 - Date: 2026-10-24
 - Works with: [ADR 0009](0009-platform-navigation-over-a-client-renderer.md)
   (every route is its own document),
@@ -80,7 +80,29 @@ navigation" row.
   mouse button 8 and the Back key each returned to `/`; Alt+Right and mouse
   button 9 returned to `/help/`; Alt+Left on the first route stayed there.
   The host's route followed each step.
-- Owed: `macos_view_menu_goes_back_and_forward_through_the_web_view_history`
-  on a Mac, `scripts/ios/system-back-test.mjs` (XCUITest edge swipes) on the
-  iOS simulator, `scripts/android/system-back-test.mjs` on the emulator, and
-  `scripts/windows/system-back-test.mjs` on a signed-in Windows desktop.
+- macOS, 2026-10-24: `macos_view_menu_goes_back_and_forward_through_the_web_view_history`
+  (ignored) passed on macOS 26.6.2 with Xcode 27.1 (arm64). Back and
+  Forward were disabled on the first page; Command-[ went back, Command-]
+  went forward, View > Back went back again, and both items were disabled
+  after the window closed. `macos_menus_compile_and_execute_native_roles_and_responder_actions`
+  still passes, and `ty build --target macos` builds the full host. The
+  trackpad swipes are not driven.
+- iOS, 2026-10-24: `scripts/ios/system-back-test.mjs` passed on the iOS 18.0
+  simulator (iPhone 16 Pro, Xcode 27.1, `TAC_IOS_RUNTIME=.iOS-18-0`). A
+  swipe from the left edge went back to the first route, and a swipe from
+  the right edge went forward again. On the iOS 26.5 simulator the same
+  XCUITest drag, from the web view or from the screen edge, slow or fast,
+  did not go back. On the same 26.5 simulator the drag popped Settings >
+  General but did not take Safari back a page either, so a real touch on
+  iOS 26 is not checked here.
+- Android, 2026-10-24: `scripts/android/system-back-test.mjs` passed on the
+  Android 15 (API 35) emulator in gesture navigation with WebView
+  124.0.6367.219. The Back key and the left-edge back gesture each returned
+  to the first route, the host recorded `navigation.back` twice, and Back on
+  the first route left the app. `scripts/android/accessibility-test.mjs` and
+  `scripts/android/application-lifetime-test.mjs` (Back stops the app) still
+  pass.
+- Windows, 2026-10-24: `scripts/windows/system-back-test.mjs` passed in the
+  signed-in desktop of Windows 11 25H2 (26200.9711, arm64) with WebView2
+  155.0.4283.62. With no host binding, Alt+Left and XBUTTON1 went back and
+  Alt+Right and XBUTTON2 went forward.

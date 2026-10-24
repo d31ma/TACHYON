@@ -104,7 +104,7 @@ export class IosAccessibilityAuditTest {
 
   static boot() {
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
-    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-'))
+    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes(process.env.TAC_IOS_RUNTIME ?? '.iOS-'))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
     assert.ok(runtime, 'an installed iOS simulator runtime is required')
     const phone = (runtime.supportedDeviceTypes ?? []).find((item) => item.name === 'iPhone 17 Pro')

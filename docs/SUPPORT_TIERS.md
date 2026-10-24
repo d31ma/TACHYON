@@ -1117,10 +1117,16 @@ promote any tier.
 | Host | What goes back | Result | Gate |
 | --- | --- | --- | --- |
 | Linux (GTK 4.14.5, WebKitGTK 2.52.6, x86_64 cloud, Xvfb + xfwm4) | Alt+Left, Alt+Right, the Back and Forward keys, mouse buttons 8 and 9 (host binding; WebKitGTK alone ignores them) | passed | `linux_generated_host_goes_back_and_forward_through_page_history` |
-| macOS | View > Back (Command-[), View > Forward (Command-]), trackpad swipes | owed | `macos_view_menu_goes_back_and_forward_through_the_web_view_history` |
-| iOS simulator | edge swipes | owed | `scripts/ios/system-back-test.mjs` |
-| Android emulator | Back key and the back gesture; Back on the first route leaves the app | owed | `scripts/android/system-back-test.mjs` |
-| Windows (WebView2, signed-in desktop) | WebView2's own Alt+Left, Alt+Right and mouse back and forward buttons | owed | `scripts/windows/system-back-test.mjs` |
+| macOS 26.6.2, Xcode 27.1, arm64 | View > Back (Command-[), View > Forward (Command-]), trackpad swipes | passed (menu keys and items; trackpad swipes are not driven) | `macos_view_menu_goes_back_and_forward_through_the_web_view_history` |
+| iOS 18.0 simulator (iPhone 16 Pro), Xcode 27.1 | edge swipes | passed | `TAC_IOS_RUNTIME=.iOS-18-0 scripts/ios/system-back-test.mjs` |
+| iOS 26.5 simulator (iPhone 17 Pro), Xcode 27.1 | edge swipes | failed: the XCUITest edge drag does not move the web view back, and does not move Safari back either | `scripts/ios/system-back-test.mjs` |
+| Android 15 (API 35) emulator, gesture navigation, WebView 124.0.6367.219 | Back key and the back gesture; Back on the first route leaves the app | passed | `scripts/android/system-back-test.mjs` |
+| Windows 11 25H2 (26200.9711) arm64, WebView2 155.0.4283.62, signed-in desktop | WebView2's own Alt+Left, Alt+Right and mouse back and forward buttons | passed | `scripts/windows/system-back-test.mjs` |
+
+On the iOS 26.5 simulator the same XCUITest edge drag pops a UIKit
+navigation stack (Settings > General) but moves neither the Tachyon web view
+nor Safari back a page. On iOS 18.0 the same app and drag go back and
+forward. A real touch on iOS 26 is not checked by these runs.
 
 ### Browser engines for the web target (2026-10-19)
 
