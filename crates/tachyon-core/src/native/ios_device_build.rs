@@ -121,10 +121,8 @@ impl IosDeviceBuild {
         web_bundle: &Path,
         stage: &Path,
         bundle: &Path,
-        entitlements: Option<&Path>,
     ) -> Result<PathBuf, Failure> {
-        Self::finish_for_destination(build, application, web_bundle, stage, bundle, entitlements)
-            .await
+        Self::finish_for_destination(build, application, web_bundle, stage, bundle).await
     }
 
     async fn finish_for_destination(
@@ -133,10 +131,9 @@ impl IosDeviceBuild {
         web_bundle: &Path,
         stage: &Path,
         bundle: &Path,
-        entitlements: Option<&Path>,
     ) -> Result<PathBuf, Failure> {
         let Some(build) = build else {
-            IosEntitlements::sign(bundle, entitlements).await?;
+            IosEntitlements::sign(bundle).await?;
             return Ok(PathBuf::from(format!(
                 "{}.app",
                 application.executable_name

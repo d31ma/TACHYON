@@ -89,12 +89,16 @@ impl IosHostGenerator {
             &project,
         )
         .await?;
+        let simulator_entitlements = entitlements.as_deref().filter(|_| !destination.signed);
+        let entitlement_sections =
+            super::ios_entitlements::IosEntitlements::simulator_sections(simulator_entitlements)
+                .await?;
         let swift_version = compile_swift(
             &swift_path,
             (companion.as_deref(), library.as_ref()),
             destination,
             deployment,
-            &executable,
+            (&executable, &entitlement_sections),
         )
         .await?;
         super::ios_launch_screen::IosLaunchScreen::compile(
@@ -104,15 +108,8 @@ impl IosHostGenerator {
             (destination.sdk, deployment),
         )
         .await?;
-        let application_bundle = IosDeviceBuild::finish(
-            device,
-            application,
-            web_bundle,
-            stage,
-            &bundle,
-            entitlements.as_deref(),
-        )
-        .await?;
+        let application_bundle =
+            IosDeviceBuild::finish(device, application, web_bundle, stage, &bundle).await?;
         Ok(GeneratedHost {
             application_bundle,
             toolchain_name: String::from("swift"),
@@ -126,7 +123,7 @@ async fn compile_swift(
     (companion, library): (Option<&Path>, Option<&RustCompanionOutput>),
     destination: IosDestination,
     deployment: SystemVersion,
-    executable: &Path,
+    (executable, linker_arguments): (&Path, &[String]),
 ) -> Result<String, Failure> {
     if !cfg!(target_os = "macos") {
         return Err(native_tool_failure(
@@ -160,6 +157,7 @@ async fn compile_swift(
         .flat_map(|compiled| compiled.native_libraries.arguments.iter())
         .map(String::as_str);
     arguments.extend(native_arguments);
+    arguments.extend(linker_arguments.iter().map(String::as_str));
     NativeReproducibility::run_tool_in("/usr/bin/xcrun", &arguments, Some(&inputs.folder)).await?;
     Ok(version)
 }
@@ -380,7 +378,7 @@ pub(super) async fn link_swift(
         (None, Some(library)),
         destination,
         deployment,
-        executable,
+        (executable, &[]),
     )
     .await
 }

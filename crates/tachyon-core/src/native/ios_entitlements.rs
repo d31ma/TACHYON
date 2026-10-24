@@ -10,7 +10,10 @@ impl IosEntitlements {
     const FILE: &'static str = "TachyonHost.entitlements";
     const CODESIGN: &'static str = "/usr/bin/codesign";
     const SIGN_ARGUMENTS: [&'static str; 4] = ["--force", "--sign", "-", "--timestamp=none"];
-    const ENTITLEMENTS_ARGUMENT: &'static str = "--entitlements";
+    const DERQ: &'static str = "/usr/bin/derq";
+    const DER_EXTENSION: &'static str = "der";
+    const XML_SECTION: &'static str = "__entitlements";
+    const DER_SECTION: &'static str = "__ents_der";
     const DOMAINS_KEY: &'static str = "<key>com.apple.developer.associated-domains</key>";
 
     pub(super) fn write(
@@ -27,20 +30,50 @@ impl IosEntitlements {
             .transpose()
     }
 
-    pub(super) async fn sign(bundle: &Path, entitlements: Option<&Path>) -> Result<(), Failure> {
-        let message = "Application path is not valid Unicode.";
-        let bundle = super::macos::unicode_path(bundle, message)?;
-        let entitlements = entitlements
-            .map(|path| super::macos::unicode_path(path, message))
-            .transpose()?;
+    pub(super) async fn sign(bundle: &Path) -> Result<(), Failure> {
+        let bundle = super::macos::unicode_path(bundle, "Application path is not valid Unicode.")?;
         let mut arguments = Self::SIGN_ARGUMENTS.to_vec();
-        arguments.extend(
-            entitlements
-                .into_iter()
-                .flat_map(|path| [Self::ENTITLEMENTS_ARGUMENT, path]),
-        );
         arguments.push(bundle);
         run_tool(Self::CODESIGN, &arguments).await.map(|_| ())
+    }
+
+    /// Returns the linker arguments that put a simulator app's entitlements
+    /// in its executable, as Xcode does: the simulator refuses an ad hoc
+    /// signature that carries restricted entitlements.
+    ///
+    /// # Errors
+    ///
+    /// Returns a failure when `derq` cannot encode the entitlements.
+    pub(super) async fn simulator_sections(
+        entitlements: Option<&Path>,
+    ) -> Result<Vec<String>, Failure> {
+        let Some(xml) = entitlements else {
+            return Ok(Vec::new());
+        };
+        let message = "Entitlements path is not valid Unicode.";
+        let der = xml.with_extension(Self::DER_EXTENSION);
+        let xml_text = super::macos::unicode_path(xml, message)?;
+        let der_text = super::macos::unicode_path(&der, message)?;
+        run_tool(
+            Self::DERQ,
+            &[
+                "query", "-f", "xml", "-i", xml_text, "-o", der_text, "--raw",
+            ],
+        )
+        .await?;
+        Ok(Self::section_arguments(xml_text, der_text))
+    }
+
+    fn section_arguments(xml: &str, der: &str) -> Vec<String> {
+        [(Self::XML_SECTION, xml), (Self::DER_SECTION, der)]
+            .into_iter()
+            .flat_map(|(section, file)| {
+                ["-sectcreate", "__TEXT", section, file]
+                    .into_iter()
+                    .flat_map(|argument| ["-Xlinker", argument])
+            })
+            .map(String::from)
+            .collect()
     }
 
     pub(super) fn associated_domains(application: &NativeApplication) -> String {
@@ -126,6 +159,31 @@ mod tests {
             "\n<key>com.apple.developer.associated-domains</key><array><string>applinks:example.com</string></array>"
         );
         assert_eq!(IosEntitlements::associated_domains(&application(&[])), "");
+    }
+
+    #[test]
+    fn a_simulator_app_links_its_entitlements_into_text_sections() {
+        assert_eq!(
+            IosEntitlements::section_arguments("app.entitlements", "app.der"),
+            [
+                "-Xlinker",
+                "-sectcreate",
+                "-Xlinker",
+                "__TEXT",
+                "-Xlinker",
+                "__entitlements",
+                "-Xlinker",
+                "app.entitlements",
+                "-Xlinker",
+                "-sectcreate",
+                "-Xlinker",
+                "__TEXT",
+                "-Xlinker",
+                "__ents_der",
+                "-Xlinker",
+                "app.der"
+            ]
+        );
     }
 
     #[test]

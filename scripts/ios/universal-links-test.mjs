@@ -92,10 +92,13 @@ final class LinkProbeService {
     });
     assert.equal(result.status, 0, 'ty build --target ios: ' + (result.error || result.stderr || result.stdout));
     const bundle = path.join(project, 'dist/ios/LinkGate.app');
+    const executable = readFileSync(path.join(bundle, 'LinkGate'));
+    for (const text of [`<string>applinks:${host}</string>`, `<string>${team}.${appId}</string>`]) {
+      assert.ok(executable.includes(text), `the app's __TEXT,__entitlements section holds ${text}`);
+    }
     const signed = run('/usr/bin/codesign', ['-d', '--entitlements', ':-', bundle]);
-    assert.ok(signed.includes(`<string>applinks:${host}</string>`), 'the app is signed with the associated domain: ' + signed);
-    assert.ok(signed.includes(`<string>${team}.${appId}</string>`), 'the app is signed with its application identifier: ' + signed);
-    console.log(`OK: the simulator app is signed with applinks:${host} and ${team}.${appId}`);
+    assert.ok(!signed.includes('applinks:'), 'the ad hoc signature carries no restricted entitlements: ' + signed);
+    console.log(`OK: the simulator app holds applinks:${host} and ${team}.${appId} in its executable, and its ad hoc signature has no restricted entitlements`);
     return bundle;
   }
 
