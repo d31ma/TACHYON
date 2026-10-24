@@ -167,3 +167,44 @@ async fn a_release_build_refuses_the_development_server() {
         );
     }
 }
+
+#[cfg(unix)]
+#[tokio::test]
+#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler and TAC_WEBVIEW2_SDK; compiles the preview Windows host against the Win32, WinHTTP and WebView2 headers, not MSVC"]
+async fn the_preview_windows_host_compiles_against_the_win32_and_webview2_headers() {
+    use super::windows_title_bar_tests::WindowsTitleBarTests;
+    let root = DevelopmentPreviewProject::project();
+    let previewed = NativeCompiler::build_async(
+        root.path(),
+        &NativeBuildOptions {
+            development_origin: Some(DevelopmentOrigin::new(
+                NativeTarget::Windows,
+                DevelopmentPreviewProject::PORT,
+            )),
+            ..DevelopmentPreviewProject::options(root.path(), NativeTarget::Windows)
+        },
+    )
+    .await
+    .expect("preview build");
+    let source = root.path().join("preview-host.c");
+    std::fs::write(
+        &source,
+        DevelopmentPreviewProject::host_source(previewed.output_directory()),
+    )
+    .expect("source");
+    WindowsTitleBarTests::success(
+        std::process::Command::new(WindowsTitleBarTests::MINGW)
+            .args(WindowsTitleBarTests::WARNINGS)
+            .args([
+                "-Wno-unused-parameter",
+                "-Wno-unused-function",
+                "-Wno-cast-function-type",
+                "-Wno-unknown-pragmas",
+            ])
+            .args(WindowsTitleBarTests::headers(root.path()))
+            .arg("-c")
+            .arg(&source)
+            .arg("-o")
+            .arg(root.path().join("preview-host.o")),
+    );
+}

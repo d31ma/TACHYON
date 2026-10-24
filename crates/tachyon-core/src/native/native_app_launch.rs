@@ -8,7 +8,7 @@ use tachyon_contracts::NativeTarget;
 
 #[derive(Debug)]
 enum RunningApp {
-    Desktop(AsyncGroupChild),
+    Desktop(Box<AsyncGroupChild>),
     Simulator { device: String, identifier: String },
     Emulator { adb: PathBuf, package: String },
 }
@@ -83,7 +83,7 @@ impl NativeAppLaunch {
         tokio::process::Command::new(executable)
             .kill_on_drop(true)
             .group_spawn()
-            .map(RunningApp::Desktop)
+            .map(|child| RunningApp::Desktop(Box::new(child)))
             .map_err(|error| {
                 native_tool_failure(
                     1605,
