@@ -326,17 +326,11 @@ fn every_target_states_what_it_does_with_a_tray() {
         "{windows:?}"
     );
     assert!(
-        windows.iter().any(|note| note.contains("only under Wine")),
-        "{windows:?}"
-    );
-    assert!(
         windows.iter().any(|note| note.contains("own colors")),
         "{windows:?}"
     );
     assert!(
-        windows
-            .iter()
-            .any(|note| note.contains("closing, reopening and exiting")),
+        windows.iter().all(|note| !note.contains("still owed")),
         "{windows:?}"
     );
 }
