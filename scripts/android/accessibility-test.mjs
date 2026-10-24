@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { MobileAccessibilityFixture } from '../native/mobile-accessibility-fixture.mjs'
 
-class AndroidAccessibilityTest {
+export class AndroidAccessibilityTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT
@@ -228,4 +228,4 @@ class AndroidAccessibilityTest {
   }
 }
 
-await AndroidAccessibilityTest.main()
+if (process.argv[1] === fileURLToPath(import.meta.url)) await AndroidAccessibilityTest.main()

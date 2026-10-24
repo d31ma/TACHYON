@@ -680,6 +680,7 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         )
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
+        view.allowsBackForwardNavigationGestures = true
         view.accessibilityIdentifier = "tachyon-application"
         view.translatesAutoresizingMaskIntoConstraints = false
         IosWindowSettings.prepare(self.view, view)

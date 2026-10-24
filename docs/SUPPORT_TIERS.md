@@ -1108,6 +1108,20 @@ Limits these runs found:
   TalkBack, and the gates stop at what the accessibility APIs show. Android
   text contrast is not checked.
 
+### System Back on native hosts (2026-10-24, SB1)
+
+ADR 0109. Each host sends System Back to the web view's history, so Back
+lands on the previous route as a normal page load. This evidence does not
+promote any tier.
+
+| Host | What goes back | Result | Gate |
+| --- | --- | --- | --- |
+| Linux (GTK 4.14.5, WebKitGTK 2.52.6, x86_64 cloud, Xvfb + xfwm4) | Alt+Left, Alt+Right, the Back and Forward keys, mouse buttons 8 and 9 (host binding; WebKitGTK alone ignores them) | passed | `linux_generated_host_goes_back_and_forward_through_page_history` |
+| macOS | View > Back (Command-[), View > Forward (Command-]), trackpad swipes | owed | `macos_view_menu_goes_back_and_forward_through_the_web_view_history` |
+| iOS simulator | edge swipes | owed | `scripts/ios/system-back-test.mjs` |
+| Android emulator | Back key and the back gesture; Back on the first route leaves the app | owed | `scripts/android/system-back-test.mjs` |
+| Windows (WebView2, signed-in desktop) | WebView2's own Alt+Left, Alt+Right and mouse back and forward buttons | owed | `scripts/windows/system-back-test.mjs` |
+
 ### Browser engines for the web target (2026-10-19)
 
 On 2026-10-19 (BR1) these browser gates ran in Chromium 141, Firefox 153 and

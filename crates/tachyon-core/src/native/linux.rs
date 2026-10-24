@@ -209,6 +209,7 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
             "__APPLICATION_STATE__",
             LinuxHostGenerator::APPLICATION_STATE,
         )
+        .replace("__NATIVE_SYSTEM_BACK__", LinuxHostGenerator::SYSTEM_BACK)
         .replace("__NATIVE_TASKS__", LinuxHostGenerator::TASK_HTTP)
         .replace(
             "__NATIVE_CAPABILITY_ROUTE__",
@@ -233,6 +234,7 @@ pub(super) const fn host_source() -> &'static str {
 impl LinuxHostGenerator {
     const APPLICATION_STATE: &str = include_str!("linux_application_state.c");
     const TASK_HTTP: &str = include_str!("linux_task_http.c");
+    const SYSTEM_BACK: &str = include_str!("linux_system_back.c");
     const CAPABILITY_ROUTE: &str = include_str!("linux_capability_route.c");
     const C_HOST: &str = r#"#include <gtk/gtk.h>
 #include <gio/gio.h>
@@ -295,6 +297,8 @@ static gboolean tachyon_trusted_view(WebKitWebView *view) {
   return view != NULL && tachyon_local_path(webkit_web_view_get_uri(view), path, sizeof(path)) &&
          tachyon_document_route(path) != NULL;
 }
+
+__NATIVE_SYSTEM_BACK__
 
 __NATIVE_BROWSER_APIS__
 
@@ -697,6 +701,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   g_signal_connect(window, "map", G_CALLBACK(tachyon_menus_mapped), NULL);
   g_signal_connect(window, "close-request", G_CALLBACK(tachyon_tray_close_request), NULL);
   tachyon_application_state_watch(GTK_WINDOW(window));
+  tachyon_system_back_install(GTK_WINDOW(window));
 
   gchar *resources = tachyon_resource_root();
   gchar *bundle = g_build_filename(resources, "WebBundle", NULL);

@@ -367,6 +367,7 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
   <application
       android:label="@string/app_name"__ICON__
       android:allowBackup="false"
+      android:enableOnBackInvokedCallback="true"
       android:usesCleartextTraffic="false"__NETWORK_SECURITY__
       android:theme="__THEME__">
     <activity
@@ -500,6 +501,10 @@ pub(super) fn linked_java_source(
         .replace(
             "__APPLICATION_STATE__",
             include_str!("android_application_state.java"),
+        )
+        .replace(
+            "__NATIVE_SYSTEM_BACK__",
+            include_str!("android_system_back.java"),
         )
         .replace(
             "__NATIVE_DEEP_LINKS__",
@@ -765,6 +770,8 @@ public final class MainActivity extends Activity {
 __NATIVE_WINDOW_CONTROLS__
 __APPLICATION_STATE__
 
+__NATIVE_SYSTEM_BACK__
+
 __NATIVE_BROWSER_APIS__
 
 __NATIVE_DEEP_LINKS__
@@ -1012,6 +1019,11 @@ __NATIVE_RUST_SERVICES__
             record("controller.mounted");
             record("controller.active");
             postApplicationState();
+          }
+
+          @Override
+          public void doUpdateVisitedHistory(WebView web, String url, boolean reload) {
+            holdSystemBack();
           }
 
           @Override
@@ -1551,6 +1563,7 @@ mod tests {
 
         let manifest = android_manifest(&application(), false);
         assert!(manifest.contains("android:usesCleartextTraffic=\"false\""));
+        assert!(manifest.contains("android:enableOnBackInvokedCallback=\"true\""));
         assert!(manifest.contains("android.intent.category.LAUNCHER"));
         assert!(!manifest.contains("android:icon"));
         assert!(

@@ -216,6 +216,9 @@ external links
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route (kAEGetURL)
 
+system back navigation
+  run owed: View > Back (Command-[) and View > Forward (Command-]), and the trackpad swipes, go back and forward through the web view's history; the items are disabled when there is nowhere to go; still to run: macos_view_menu_goes_back_and_forward_through_the_web_view_history on a Mac
+
 background and foreground signal
   honored: ApplicationStateChanged when the app stops or starts being the active app, is hidden or shown, or its window is minimized or restored
 

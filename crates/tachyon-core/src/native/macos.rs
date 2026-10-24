@@ -386,6 +386,7 @@ pub(super) fn swift_source(
                 include_str!("menus/MacOsMenuShortcut.swift"),
                 include_str!("menus/MacOsMenuRoute.swift"),
                 include_str!("menus/MacOsMenuNavigation.swift"),
+                include_str!("menus/MacOsMenuHistory.swift"),
                 include_str!("menus/MacOsMenuWindow.swift"),
                 include_str!("menus/MacOsMenuAction.swift"),
                 include_str!("menus/MacOsMenuActions.swift"),
@@ -926,6 +927,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
         let view = MacOsTitleBarWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
+        view.allowsBackForwardNavigationGestures = true
         view.setValue(false, forKey: "drawsBackground")
         view.setAccessibilityIdentifier("tachyon-application")
         webView = view
@@ -967,7 +969,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let menus = MacOsMenus()
         let menuNavigation = MacOsMenuNavigation(view, window, tachyonRouteDocuments, __NATIVE_MENU_ROUTES__)
         let menuActions = MacOsMenuActions(view, window, __NATIVE_MENU_ACTIONS__, tachyonMenuReady, tachyonMenuPerform)
-        menus.install(NSApplication.shared, window, "__APP_NAME__", menuNavigation, menuActions)
+        menus.install(NSApplication.shared, window, "__APP_NAME__", menuNavigation, menuActions,
+                      MacOsMenuHistory(view, window))
         self.menus = menus
     }
 

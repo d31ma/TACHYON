@@ -216,6 +216,9 @@ external links
 deep links
   honored: every route has its own URL
 
+system back navigation
+  honored: the browser's own Back and Forward
+
 background and foreground signal
   adapted: A browser tab has no application state. The page sends ApplicationStateChanged with background when the tab is hidden and foreground when it is shown.
 

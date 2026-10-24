@@ -13,6 +13,8 @@ impl MacOsMenuFixture {
     #[cfg(target_os = "macos")]
     const PASTEBOARD_TEXT: &str =
         include_str!("../../../../scripts/native/MacOsMenuPasteboardText.swift");
+    #[cfg(target_os = "macos")]
+    const SYSTEM_BACK: &str = include_str!("../../../../scripts/native/MacOsSystemBackCheck.swift");
 
     #[cfg(target_os = "macos")]
     fn retained_root() -> std::path::PathBuf {
@@ -69,7 +71,7 @@ fn macos_menus_are_installed_after_the_owned_window_without_changing_bridge_life
         .expect("host-owned menu installation");
     assert!(ownership < install);
     assert!(source.contains(
-        "menus.install(NSApplication.shared, window, \"Menu Check\", menuNavigation, menuActions)"
+        "menus.install(NSApplication.shared, window, \"Menu Check\", menuNavigation, menuActions,\n                      MacOsMenuHistory(view, window))"
     ));
     assert!(source.contains("private var menus: MacOsMenus?"));
     assert!(source.contains("applicationWillTerminate"));
@@ -126,6 +128,47 @@ async fn macos_menus_compile_and_execute_native_roles_and_responder_actions() {
         output.contains(
             "PASS native macOS menu roles, actions, ownership, private clipboard and text responder"
         ),
+        "{output}"
+    );
+}
+
+#[tokio::test]
+#[cfg(target_os = "macos")]
+#[ignore = "Requires an AppKit window and TAC_NATIVE_MENU_OUT evidence path"]
+async fn macos_view_menu_goes_back_and_forward_through_the_web_view_history() {
+    let root = MacOsMenuFixture::retained_root();
+    let original = MacOsMenuFixture::host(&root);
+    let (body, _) = original
+        .rsplit_once("\n@main\n")
+        .expect("generated host entry point");
+    let source = root.join("SystemBackCheck.swift");
+    std::fs::write(
+        &source,
+        format!("{body}\n{}", MacOsMenuFixture::SYSTEM_BACK),
+    )
+    .expect("generated host with the system back entry");
+    let executable = root.join("system-back-check");
+    super::host::run_tool(
+        "/usr/bin/xcrun",
+        &[
+            "swiftc",
+            "-parse-as-library",
+            "-framework",
+            "AppKit",
+            "-framework",
+            "WebKit",
+            source.to_str().expect("Swift source path"),
+            "-o",
+            executable.to_str().expect("executable path"),
+        ],
+    )
+    .await
+    .expect("real generated host Swift compile");
+    let output = super::host::run_tool(executable.to_str().expect("executable path"), &[])
+        .await
+        .expect("real AppKit Back and Forward");
+    assert!(
+        output.contains("PASS native macOS View menu Back and Forward"),
         "{output}"
     );
 }

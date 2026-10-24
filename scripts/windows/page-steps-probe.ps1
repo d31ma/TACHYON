@@ -63,6 +63,8 @@ public static class TachyonProbeNative
     const uint MouseLeftDown = 0x2;
     const uint MouseLeftUp = 0x4;
     const byte AltKey = 0x12;
+    const uint MouseExtraDown = 0x80;
+    const uint MouseExtraUp = 0x100;
     const int Restore = 9;
     const int Minimize = 6;
     const uint CloseMessage = 0x0010;
@@ -138,6 +140,25 @@ public static class TachyonProbeNative
         ushort scan = (ushort)MapVirtualKeyW(key, 0);
         uint flags = extended ? KeyExtended : 0;
         Send(new Input[] { Key(key, scan, flags), Key(key, scan, flags | KeyUp) });
+    }
+
+    public static void PressWithAlt(ushort key, bool extended)
+    {
+        ushort scan = (ushort)MapVirtualKeyW(key, 0);
+        ushort altScan = (ushort)MapVirtualKeyW(AltKey, 0);
+        uint flags = extended ? KeyExtended : 0;
+        Send(new Input[] { Key(AltKey, altScan, 0), Key(key, scan, flags), Key(key, scan, flags | KeyUp), Key(AltKey, altScan, KeyUp) });
+    }
+
+    public static void ExtraButton(int x, int y, uint button)
+    {
+        UsePhysicalPixels();
+        if (!SetCursorPos(x, y)) throw new InvalidOperationException("SetCursorPos refused " + x + "," + y);
+        Input down = Mouse(MouseExtraDown);
+        down.Data.Mouse.Data = button;
+        Input up = Mouse(MouseExtraUp);
+        up.Data.Mouse.Data = button;
+        Send(new Input[] { down, up });
     }
 
     public static void Click(int x, int y)
@@ -721,6 +742,27 @@ function Move-Caret($step) {
     Wait-Entry $name @{ caret = [int]$step.caret; focused = $true } ''
 }
 
+function Get-HistoryDirection([string] $direction) {
+    $directions = @{ back = 'Left'; forward = 'Right' }
+    if (-not $directions.ContainsKey($direction)) { throw "Unknown history direction '$direction'" }
+    return $directions[$direction]
+}
+
+function Invoke-HistoryKeys([string] $direction) {
+    Show-AppWindow
+    [TachyonProbeNative]::PressWithAlt((Get-KeyCode (Get-HistoryDirection $direction)), $true)
+    Write-Line "OK: sent Alt+$(Get-HistoryDirection $direction) to the app window"
+}
+
+function Invoke-HistoryButton([string] $direction) {
+    Show-AppWindow
+    $center = Get-Center (Find-AppWindow)
+    if ($null -eq $center) { throw 'the app window has no bounds for a mouse button' }
+    $button = [uint32](@{ Left = 1; Right = 2 }[(Get-HistoryDirection $direction)])
+    [TachyonProbeNative]::ExtraButton($center[0], $center[1], $button)
+    Write-Line "OK: pressed mouse button XBUTTON$button over the page"
+}
+
 function Request-Answer([string] $name) {
     $folder = $env:TAC_PROBE_HANDSHAKE
     if (-not $folder) { throw 'Set TAC_PROBE_HANDSHAKE to the handshake folder' }
@@ -944,6 +986,8 @@ function Invoke-Step([string] $kind, $value) {
         'activate' { Show-App }
         'deactivate' { Show-OtherWindow ([string]$value) }
         'minimize' { Hide-App }
+        'historyKeys' { Invoke-HistoryKeys ([string]$value) }
+        'historyButton' { Invoke-HistoryButton ([string]$value) }
         default { throw "Unknown probe step '$kind'" }
     }
 }

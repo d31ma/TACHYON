@@ -720,6 +720,16 @@
     "android": {"reach": "honored", "how": "with tac.application.links, a link with a listed scheme opens the app at its route, run on the emulator; https links to listed hosts are described under tac.application.links"}
   },
   {
+    "member": "system back navigation",
+    "paths": [],
+    "web": {"reach": "honored", "how": "the browser's own Back and Forward"},
+    "macos": {"reach": "runOwed", "how": "View > Back (Command-[) and View > Forward (Command-]), and the trackpad swipes, go back and forward through the web view's history; the items are disabled when there is nowhere to go", "run": "macos_view_menu_goes_back_and_forward_through_the_web_view_history on a Mac"},
+    "windows": {"reach": "runOwed", "how": "WebView2's own Alt+Left and Alt+Right and the mouse back and forward buttons go back and forward through the page history, with no host binding", "run": "scripts/windows/system-back-test.mjs on a signed-in Windows desktop"},
+    "linux": {"reach": "honored", "how": "Alt+Left and Alt+Right, the Back and Forward keys and mouse buttons 8 and 9 go back and forward through the web view's history (WebKitGTK alone does nothing on them); linux_generated_host_goes_back_and_forward_through_page_history ran them under Xvfb"},
+    "ios": {"reach": "runOwed", "how": "a swipe from the left edge goes back and a swipe from the right edge goes forward through the web view's history", "run": "scripts/ios/system-back-test.mjs on the iOS simulator"},
+    "android": {"reach": "runOwed", "how": "Back and the back gesture go back in the web view's history (OnBackInvokedCallback from Android 13, onBackPressed before); on the first route Back leaves the app the system way", "run": "scripts/android/system-back-test.mjs on the emulator"}
+  },
+  {
     "member": "background and foreground signal",
     "paths": [],
     "web": {"reach": "adapted", "note": "A browser tab has no application state. The page sends ApplicationStateChanged with background when the tab is hidden and foreground when it is shown."},

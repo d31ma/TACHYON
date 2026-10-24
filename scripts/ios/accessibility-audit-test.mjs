@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { MobileAccessibilityFixture } from '../native/mobile-accessibility-fixture.mjs'
 
-class IosAccessibilityAuditTest {
+export class IosAccessibilityAuditTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static fixture = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'ios-accessibility-'))
@@ -173,6 +173,8 @@ class IosAccessibilityAuditTest {
   }
 }
 
-process.once('SIGINT', () => { IosAccessibilityAuditTest.cleanup(); process.exit(130) })
-process.once('SIGTERM', () => { IosAccessibilityAuditTest.cleanup(); process.exit(143) })
-IosAccessibilityAuditTest.main()
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  process.once('SIGINT', () => { IosAccessibilityAuditTest.cleanup(); process.exit(130) })
+  process.once('SIGTERM', () => { IosAccessibilityAuditTest.cleanup(); process.exit(143) })
+  IosAccessibilityAuditTest.main()
+}

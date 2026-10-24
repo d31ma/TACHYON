@@ -10,6 +10,18 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- System Back on native hosts (SB1, 2026-10-24, ADR 0109): Android Back and
+  the back gesture go back one route and leave the app from the first route;
+  iOS turns on the web view's edge swipes; the macOS View menu has Back
+  (Command-[) and Forward (Command-]) and the trackpad swipes are on; the
+  Linux window goes back and forward on Alt+Left, Alt+Right, the Back and
+  Forward keys and mouse buttons 8 and 9, which WebKitGTK ignores by itself.
+  Windows keeps WebView2's own Alt+Left and mouse buttons. The Linux run
+  passed under Xvfb; the macOS, iOS, Android and Windows runs are owed and
+  their gates are `macos_view_menu_goes_back_and_forward_through_the_web_view_history`,
+  `scripts/ios/system-back-test.mjs`, `scripts/android/system-back-test.mjs`
+  and `scripts/windows/system-back-test.mjs`.
+
 - Mobile accessibility gates (AX1, 2026-10-24):
   `scripts/ios/accessibility-audit-test.mjs` runs an XCUITest bundle with
   `performAccessibilityAudit` against a Tachyon page on the iOS simulator.

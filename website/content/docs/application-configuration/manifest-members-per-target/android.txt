@@ -216,6 +216,9 @@ external links
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route, run on the emulator; https links to listed hosts are described under tac.application.links
 
+system back navigation
+  run owed: Back and the back gesture go back in the web view's history (OnBackInvokedCallback from Android 13, onBackPressed before); on the first route Back leaves the app the system way; still to run: scripts/android/system-back-test.mjs on the emulator
+
 background and foreground signal
   honored: ApplicationStateChanged on onStop and onStart, heard by page services and linked Kotlin services; run on the Android 15 emulator by scripts/android/page-checks-test.mjs (RM3)
 

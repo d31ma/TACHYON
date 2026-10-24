@@ -216,6 +216,9 @@ external links
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route; the app registers the scheme under HKCU\Software\Classes, or its MSIX package declares it, and hands later links to the running window
 
+system back navigation
+  run owed: WebView2's own Alt+Left and Alt+Right and the mouse back and forward buttons go back and forward through the page history, with no host binding; still to run: scripts/windows/system-back-test.mjs on a signed-in Windows desktop
+
 background and foreground signal
   honored: ApplicationStateChanged on WM_ACTIVATEAPP and when the window is minimized or restored, heard by the page and linked Rust services (SD1)
 

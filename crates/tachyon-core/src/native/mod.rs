@@ -216,6 +216,8 @@ mod native_service_roots;
 mod native_swift_page_lifetime_tests;
 #[cfg(test)]
 mod native_swift_yon_http_tests;
+#[cfg(test)]
+mod native_system_back_tests;
 mod native_theme_color;
 mod native_title_bar;
 mod native_title_bar_button_inset;

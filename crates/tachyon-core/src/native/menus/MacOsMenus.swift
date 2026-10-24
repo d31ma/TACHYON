@@ -2,12 +2,14 @@
 final class MacOsMenus {
     private var navigation: MacOsMenuNavigation?
     private var actions: MacOsMenuActions?
+    private var history: MacOsMenuHistory?
 
     func install(_ application: NSApplication, _ window: NSWindow?, _ name: String,
-                 _ navigation: MacOsMenuNavigation? = nil, _ actions: MacOsMenuActions? = nil) {
+                 _ navigation: MacOsMenuNavigation? = nil, _ actions: MacOsMenuActions? = nil,
+                 _ history: MacOsMenuHistory? = nil) {
         let root = NSMenu()
         let file = group(NSMenu(title: "File"))
-        let view = viewMenu(window)
+        let view = viewMenu(window, history)
         let help = helpMenu(application)
         root.addItem(applicationMenu(application, name))
         root.addItem(file)
@@ -17,6 +19,7 @@ final class MacOsMenus {
         root.addItem(help)
         self.navigation = navigation
         self.actions = actions
+        self.history = history
         navigation?.install(file.submenu!, view.submenu!, help.submenu!)
         actions?.install(file.submenu!, view.submenu!, help.submenu!)
         closeMenu(file.submenu!, window)
@@ -60,8 +63,9 @@ final class MacOsMenus {
         return group(menu)
     }
 
-    private func viewMenu(_ window: NSWindow?) -> NSMenuItem {
+    private func viewMenu(_ window: NSWindow?, _ history: MacOsMenuHistory?) -> NSMenuItem {
         let menu = NSMenu(title: "View")
+        history?.install(menu)
         let fullscreen = windowItem("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", window)
         fullscreen.keyEquivalentModifierMask = [.command, .control]
         menu.addItem(fullscreen)

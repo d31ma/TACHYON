@@ -216,6 +216,9 @@ external links
 deep links
   honored: with tac.application.links, a link with a listed scheme opens the app at its route through the .desktop file and GApplication, which hands later links to the running window
 
+system back navigation
+  honored: Alt+Left and Alt+Right, the Back and Forward keys and mouse buttons 8 and 9 go back and forward through the web view's history (WebKitGTK alone does nothing on them); linux_generated_host_goes_back_and_forward_through_page_history ran them under Xvfb
+
 background and foreground signal
   honored: ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again
 
