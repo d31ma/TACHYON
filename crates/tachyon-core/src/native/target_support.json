@@ -403,7 +403,7 @@
     "member": "tac.browserApis notifications",
     "paths": ["tac.browserApis[notifications]"],
     "web": {"reach": "honored", "how": "the Notification API"},
-    "macos": {"reach": "runOwed", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front", "run": "a notification shown on a Mac once its prompt is allowed (RM1 opened the prompt from a page on 2026-10-24 and left Allow to the person at the Mac)"},
+    "macos": {"reach": "honored", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front"},
     "windows": {"reach": "adapted", "note": "notifications in the Windows app are Windows toasts (browserApi.notifications). Windows shows them only for the installed MSIX package with notifications turned on for the app, so an unpackaged build answers denied to requestPermission. A toast from the installed package reached the notification history on a signed-in Windows desktop (SD1)."},
     "linux": {"reach": "adapted", "note": "notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container and on WSL aarch64 (LX1)."},
     "ios": {"reach": "honored", "how": "UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; the iOS 26.5 simulator displayed the permission prompt and a banner (RM2)"},

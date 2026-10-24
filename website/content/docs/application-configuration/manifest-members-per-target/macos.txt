@@ -121,7 +121,7 @@ tac.browserApis share
   honored: NSSharingServicePicker through the host bridge (browserApi.share)
 
 tac.browserApis notifications
-  run owed: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front; still to run: a notification shown on a Mac once its prompt is allowed (RM1 opened the prompt from a page on 2026-10-24 and left Allow to the person at the Mac)
+  honored: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front
 
 tac.browserApis geolocation
   honored: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions

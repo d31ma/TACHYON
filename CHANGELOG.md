@@ -31,8 +31,9 @@ machine contracts have their own, independent major versions.
   and Java page services. With those runs, the window-grant, pasteboard,
   share, location-prompt, link, reproducible-build and universal-build runs,
   the support table marks 16 macOS cells `honored`
-  (`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). Notifications and an
-  ahead-of-time C# service stay `runOwed`.
+  (`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). A retry, with the prompt
+  allowed by hand, showed a notification from a page, so macOS notifications
+  are `honored` too. An ahead-of-time C# service stays `runOwed`.
 - Android emulator runs of the owed rows (RM3). `window-controls-test.mjs`
   now also builds an app that grants all six controls and checks maximize and
   fullscreen from a Kotlin service, fullscreen and close from the page, and a
