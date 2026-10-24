@@ -102,9 +102,9 @@ dependencies and installed `/usr/bin/nativegate`. `linux_package_tests` built
 two releases that gave the same `.deb` and AppImage bytes. RL1 (below) ran
 these package checks on WSL Ubuntu 24.04 (aarch64) and started the AppImage
 through FUSE there. LX1 (below) installed the `.deb` as root with apt in the
-cloud container, started it from `PATH` and from its desktop file, and purged
-it. Not yet run: `dpkg -i` or `apt install` of the `.deb` on WSL, which needs
-administrator rights, and an install on a Linux desktop.
+cloud container and on WSL (aarch64), started it from `PATH` and from its
+desktop file, and purged it. Not yet run: an install on a physical Linux
+desktop.
 
 Windows release packages (2026-10-19, ADR 0104): `ty bundle --target windows
 --release` builds an MSIX package with `makeappx` and signs it with
@@ -414,10 +414,9 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   `linkgate://` links in one running app. The two Windows link tests now
   compile with mingw but need Wine to run the x86_64 `.exe`, which arm64 WSL
   cannot run without an x86 emulator; they belong on Windows or x86_64 Linux.
-- Not run: `dpkg -i` or `apt install` of the `.deb` on WSL, because both need
-  administrator rights (`native-test.sh` unpacks and starts it without them);
-  WSLg from a signed-in desktop session; a physical Linux desktop. GeoClue
-  and a notification server ran in LX1 (below).
+- Not run: WSLg from a signed-in desktop session; a physical Linux desktop.
+  GeoClue, a notification server and an apt install of the `.deb` as root
+  ran in LX1 (below), in the cloud and on WSL.
 
 ### Windows on the signed-in desktop (2026-10-24, SD1)
 
@@ -537,6 +536,15 @@ install in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5, WebKitGTK
   `gio launch`, and `apt-get purge` removed the command, the library folder
   and the desktop file. apt reported 0 B installed, because the control file
   has no `Installed-Size`.
+- WSL Ubuntu 24.04.5 (aarch64) on `e847d3a1`, after `geoclue-2.0` 2.7.0 and
+  `dunst` 1.9.2 were installed as root: `desktop-services-test.sh` passed
+  (GPS fix from GeoClue at accuracy level 8, "Order / Shipped" shown by
+  dunst); the Yon reach test passed under headless mutter Wayland with
+  JavaScript and with linked Rust services, and under X11 as a control; and
+  `deb-install-test.sh` as root installed `nativegate_0.0.1-7_arm64.deb`,
+  started it both ways and purged it. Two earlier Wayland rounds timed out
+  while the USB drive that holds the WSL disk was resetting; the round with no
+  resets passed both.
 
 #### Android runs owed, RM3 (2026-10-24)
 
@@ -739,7 +747,7 @@ app has not run it yet.
 | macOS, iOS | run on the host | `scripts/native/yon-reach-test.mjs` passed on 2026-10-19 for the macOS app (macOS 26.6.2, Xcode 27.1) and the iOS 26.5 simulator (iPhone 17 Pro) over `http` and over `https` through a local TLS proxy. In all three runs Yon received `Origin: tachyon-app://bundle`, and the page reached it with HTTP, a CORS preflight, a stream, a socket, a topic, a 422 problem and a signed-in route. The linked Swift `@HTTPClient` read reached the origin through `URLSession` too; it is also unit-tested against a local server |
 | Android | run on the emulator; an `https` origin, or a local `http` origin with cleartext to that one host | `scripts/android/yon-origin-test.mjs` passed on 2026-10-19 on the Android 15 (API 35, arm64) emulator against `ty serve` on the Mac through `adb reverse`. The packaged app reached Yon from `https://appassets.tachyon.local` with an HTTP read, a cross-origin write, a stream, a socket, a topic, a `@Check` 422 and a signed-in route (401 without a token, then with an `Authorization` header). A linked Kotlin `HTTPClient` reached Yon through the native transport in the app's own process. The transport is also tested on the JVM against a real HTTP server (`android_yon_http_tests`). Not run: a physical device |
 | Windows | run on the signed-in desktop; linked Rust and C# `HTTPClient` calls reach it too | 2026-10-19 cloud runs and the MSVC and NativeAOT build on Windows 11 ARM64 (below); on 2026-10-24 `scripts/windows/yon-reach.ps1` passed inside WebView2 on the signed-in desktop of that machine: HTTP, a stream, a socket, a topic, a `@Check` 422 and a signed-in route from the page, Rust and C# `HTTPClient` reads, and a linked C# service's stream and socket clients held by the page (NET3, LS1) |
-| Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Both also passed on WSL Ubuntu 24.04.5 (aarch64) in RL1, on `19a95a65`. LX1 ran both again in a headless mutter 46.2 Wayland session (`TAC_LINUX_DISPLAY=wayland`), reading the page from the web process's own accessibility tree because GTK did not embed it in the window there. Not run: a Wayland desktop session |
+| Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Both also passed on WSL Ubuntu 24.04.5 (aarch64) in RL1, on `19a95a65`. LX1 ran both again in a headless mutter 46.2 Wayland session (`TAC_LINUX_DISPLAY=wayland`), in the cloud and on WSL (aarch64), reading the page from the web process's own accessibility tree because GTK did not embed it in the window there. Not run: a Wayland desktop session |
 
 On 2026-10-24 (LS1, ADR 0058 and 0060 amendments) linked Swift, Kotlin and
 C# services started to hold stream and socket clients through the page, as
@@ -907,7 +915,7 @@ not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29` and again in RL1 on `d7110f74`. LX1 ran `linux_browser_apis_reach_geoclue_and_the_notification_server` through `scripts/linux/desktop-services-test.sh`: the page's position came from GeoClue 2.7.0 on a private system bus (a GPS fix from an NMEA socket, allowed by the GeoClue demo agent) and its notification was shown by dunst 1.9.2. Not run: a physical Linux desktop; Wayland, because the test clicks through X11's XTest |
+| Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29` and again in RL1 on `d7110f74`. LX1 ran `linux_browser_apis_reach_geoclue_and_the_notification_server` through `scripts/linux/desktop-services-test.sh`: the page's position came from GeoClue 2.7.0 on a private system bus (a GPS fix from an NMEA socket, allowed by the GeoClue demo agent) and its notification was shown by dunst 1.9.2, in the cloud and on WSL (aarch64). Not run: a physical Linux desktop; Wayland, because the test clicks through X11's XTest |
 | macOS WKWebView | yes, all four: `NSPasteboard`, `NSSharingServicePicker`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (`native::browser_api_bridge`, `native::apple_browser_apis`). On a Mac (2026-10-24, RM1, macOS 26.6.2): `native_browser_api_host_tests::macos_page_calls_reach_the_pasteboard_through_the_browser_api_bridge` passed; a page opened the share picker and its Copy service finished the share (`ShareFinished`); a page opened the notification prompt; a page opened the location prompt, which showed the manifest reason ("macOS runs owed, RM1" above). Owed: a notification shown once the prompt is allowed |
 | iOS WKWebView | yes, all four: `UIPasteboard`, `UIActivityViewController`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (same tests). The simulator gate `scripts/ios/native-test.mjs` passed with its clipboard step on develop `fd0384ad` (iPhone SE (3rd generation) simulator, iOS 26.5): the bridge listed all four APIs, the page wrote text that `simctl pbpaste` read from `UIPasteboard`, the page read it back, and a share without a grant was refused. On 2026-10-24 (RM2) `scripts/ios/browser-prompts-test.mjs` tapped real buttons on the iOS 26.5 simulator and read each prompt from a `simctl io` screenshot: the location prompt carried the manifest reason and the page got the simulated position; the notification prompt was allowed and a foreground banner appeared; the share sheet opened, and closing it reported a cancelled share |
 | Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | `scripts/android/browser-apis-test.mjs` passed on the API 35 emulator on 2026-10-24 (RM3): the clipboard round trip, the share sheet, the notification question, a posted notification and its channel name, a denied location question, the manifest reason before the second question, and a test-provider position after Allow. Not run: a physical device |

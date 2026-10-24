@@ -321,8 +321,9 @@ GeoClue 2.7.0 on a private system bus with a GPS fix from an NMEA socket and
 the GeoClue demo agent, and dunst as the session's notification server. In an
 x86_64 cloud container the page got the GPS position, GeoClue logged the
 host's desktop id as allowed by the agent, and dunst showed the page's
-notification. The page's request now asks for high accuracy, because GeoClue
-starts a GPS source only for that level.
+notification. It passed the same way on WSL Ubuntu 24.04.5 (aarch64). The
+page's request now asks for high accuracy, because GeoClue starts a GPS source
+only for that level.
 
 ## Amendment (2026-10-19): the Android host answers clipboard, share and notifications
 
