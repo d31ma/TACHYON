@@ -1,6 +1,8 @@
 param(
     [ValidateSet('Auto', 'Machine', 'UserCertificate', 'Register')] [string] $InstallRoute = 'Auto',
     [switch] $OpenHostLink,
+    [string] $LinkHost = 'sd1-links.example.com',
+    [switch] $RequireHostLink,
     [switch] $SkipUnpackaged,
     [switch] $SkipPackage
 )
@@ -1107,6 +1109,9 @@ function Test-PackagedHostLink([string] $hostName) {
     try { $handlers = Get-HostLinkHandlers $link }
     catch { Write-Note "FindAppUriHandlersAsync failed: $($_.Exception.Message)" }
     Write-Note "Windows answers '$support' for $link in $family, and lists these app URI handlers for it: $handlers"
+    if ($RequireHostLink -and $support -ne 'Available') {
+        throw "Windows has not verified $hostName for $family ($support): https://$hostName/.well-known/windows-app-web-link must name the package"
+    }
     if ($support -ne 'Available' -and -not $OpenHostLink) {
         Write-Skip ("opening $link in the installed package: Windows has not verified $hostName for it ($support), " +
             "because no https://$hostName/.well-known/windows-app-web-link names the package; an unverified host link opens in the browser. Pass -OpenHostLink to open it anyway")
@@ -1120,6 +1125,7 @@ function Test-PackagedHostLink([string] $hostName) {
         Write-Ok "the shell opened $link in the running package at $route"
         return
     }
+    if ($RequireHostLink) { throw "the shell did not open $link in the running package ($support)" }
     if ($support -eq 'Available') {
         Write-Skip ("the shell sent $link to the browser although Windows lists the package as its handler: $hostName serves no " +
             "windows-app-web-link, so Windows never verified it; opening a host link needs a verified domain")
@@ -1197,7 +1203,7 @@ function Invoke-BrowserApisGate {
             Test-RefusedApp $ty (Join-Path $root 'refused')
         }
         if ($SkipPackage) { Write-Skip 'the MSIX package (-SkipPackage)' }
-        else { Test-PackagedApp $ty (Join-Path $root 'package') 'sd1check' 'sd1-links.example.com' }
+        else { Test-PackagedApp $ty (Join-Path $root 'package') 'sd1check' $LinkHost }
     }
     catch { Add-Failure "the gate stopped: $($_.Exception.Message)" }
     finally {
