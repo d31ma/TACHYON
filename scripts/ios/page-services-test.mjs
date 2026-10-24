@@ -24,6 +24,7 @@ class IosPageServicesTest {
   static waitMilliseconds = 300000
   static pollMilliseconds = 250
   static device = ''
+  static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? ''
 
   static probeFiles = {
     'client/components/services/probe/tac.html': '<p id="probe">Probe {servicesProbe.phase}</p>\n<a id="to-item" href="/items/7/">Open item seven</a>\n',
@@ -148,10 +149,15 @@ final class ServicesProbeService {
     return { project, application, applicationId: manifest.tac.application.id }
   }
 
+  /** @param {string} version */
+  static chosenVersion(version) {
+    return !this.runtimeVersion || version === this.runtimeVersion || version.startsWith(`${this.runtimeVersion}.`)
+  }
+
   static bootSimulator() {
     mkdirSync(this.deviceSet)
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
-    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-'))
+    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-') && this.chosenVersion(item.version))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
     assert.ok(runtime, 'an installed iOS simulator runtime is required')
     const phone = (runtime.supportedDeviceTypes ?? []).find((item) => item.name === 'iPhone 17 Pro')
