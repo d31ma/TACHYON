@@ -1,4 +1,3 @@
-use super::HotUpdateHub;
 use crate::routing::{RouteMatch, match_route};
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
@@ -45,10 +44,9 @@ impl StaticFiles {
             .is_some_and(|value| value.starts_with("text/html"))
     }
 
-    pub(in crate::server) fn inject_live_reload(document: &str) -> String {
+    pub(in crate::server) fn inject_live_reload(document: &str, script_tag: &str) -> String {
         let document =
             document.replacen("<body", "<body data-tachyon-environment=\"development\"", 1);
-        let script_tag = HotUpdateHub::LIVE_RELOAD_SCRIPT_TAG;
         document.rfind("</body>").map_or_else(
             || format!("{document}{script_tag}"),
             |position| {

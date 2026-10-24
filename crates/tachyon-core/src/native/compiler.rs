@@ -35,6 +35,7 @@ pub struct NativeBuildOptions {
     pub macos_architecture: MacOsArchitecture,
     pub android_architecture: AndroidArchitecture,
     pub incremental: bool,
+    pub development_origin: Option<super::DevelopmentOrigin>,
 }
 
 impl Default for NativeBuildOptions {
@@ -49,6 +50,7 @@ impl Default for NativeBuildOptions {
             macos_architecture: MacOsArchitecture::default(),
             android_architecture: AndroidArchitecture::default(),
             incremental: true,
+            development_origin: None,
         }
     }
 }
@@ -103,6 +105,8 @@ pub struct NativeBuildResult {
     reused_routes: usize,
     sha256: String,
     notes: Vec<String>,
+    launch_identifier: String,
+    executable_name: String,
 }
 
 impl NativeBuildResult {
@@ -139,6 +143,16 @@ impl NativeBuildResult {
     #[must_use]
     pub fn notes(&self) -> &[String] {
         &self.notes
+    }
+
+    #[must_use]
+    pub fn launch_identifier(&self) -> &str {
+        &self.launch_identifier
+    }
+
+    #[must_use]
+    pub fn executable_name(&self) -> &str {
+        &self.executable_name
     }
 }
 
@@ -215,6 +229,7 @@ impl NativeCompiler {
         options: &NativeBuildOptions,
         ui_candidate: bool,
     ) -> Result<NativeBuildResult, Failure> {
+        let development_note = Self::declare_development_origin(project, options)?;
         let mut application =
             NativeApplication::discover_from_snapshot(project.snapshot_root(), project.root())?;
         let floor =
@@ -290,6 +305,8 @@ impl NativeCompiler {
             compiled_routes: web.compiled_routes(),
             reused_routes: web.reused_routes(),
             sha256: digest,
+            launch_identifier: launch_identifier(options.target, &application.application_id),
+            executable_name: application.executable_name.clone(),
             notes: notes
                 .into_iter()
                 .chain(AppleIcons::skipped_note(&application, options.target))
@@ -298,8 +315,38 @@ impl NativeCompiler {
                 .chain(gradle_note)
                 .chain(floor.note)
                 .chain(floor.style_note)
+                .chain(development_note)
                 .collect(),
         })
+    }
+
+    fn declare_development_origin(
+        project: &Project,
+        options: &NativeBuildOptions,
+    ) -> Result<Option<String>, Failure> {
+        let Some(development) = &options.development_origin else {
+            return Ok(None);
+        };
+        if options.release {
+            return Err(Failure::one(diagnostic(
+                1601,
+                "A release build cannot point the app at the development server.",
+                Some(String::from(
+                    "Build the release with `ty bundle --release`, without `ty preview`.",
+                )),
+                None,
+            )));
+        }
+        development.declare_in(project.snapshot_root())
+    }
+}
+
+fn launch_identifier(target: NativeTarget, application_id: &str) -> String {
+    match target {
+        NativeTarget::Android => super::android::java_package(application_id),
+        NativeTarget::Macos | NativeTarget::Ios | NativeTarget::Linux | NativeTarget::Windows => {
+            String::from(application_id)
+        }
     }
 }
 

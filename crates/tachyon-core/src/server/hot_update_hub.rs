@@ -21,6 +21,7 @@ pub(in crate::server) struct HotUpdateHub {
     project_root: Arc<PathBuf>,
     current_diagnostics: Arc<RwLock<Vec<DiagnosticEntry>>>,
     start_diagnostics: Arc<RwLock<Vec<DiagnosticEntry>>>,
+    script_tag: Arc<str>,
 }
 
 impl HotUpdateHub {
@@ -31,6 +32,7 @@ impl HotUpdateHub {
         r#"<script type="module" src="/.tachyon/live-reload.js"></script>"#;
     pub(in crate::server) const LIVE_RELOAD_CLIENT: &str = include_str!("live-reload.js");
     pub(in crate::server) const DIAGNOSTICS_ENDPOINT: &str = "/.tachyon/diagnostics";
+    const ORIGIN_META_NAME: &'static str = "tachyon-development-origin";
 
     const ENDPOINTS: [&'static str; 4] = [
         Self::LIVE_ENDPOINT,
@@ -49,7 +51,27 @@ impl HotUpdateHub {
             project_root: Arc::new(project_root.to_path_buf()),
             current_diagnostics: Arc::new(RwLock::new(Vec::new())),
             start_diagnostics: Arc::new(RwLock::new(Vec::new())),
+            script_tag: Arc::from(Self::LIVE_RELOAD_SCRIPT_TAG),
         }
+    }
+
+    pub(in crate::server) fn reached_from(self, origin: Option<&str>) -> Self {
+        let Some(origin) = origin else {
+            return self;
+        };
+        let meta = format!(
+            "<meta name=\"{}\" content=\"{}\">",
+            Self::ORIGIN_META_NAME,
+            crate::compiler::html_attribute_escape(origin)
+        );
+        Self {
+            script_tag: Arc::from([meta.as_str(), Self::LIVE_RELOAD_SCRIPT_TAG].concat()),
+            ..self
+        }
+    }
+
+    pub(in crate::server) fn script_tag(&self) -> &str {
+        &self.script_tag
     }
 
     pub(in crate::server) fn is_endpoint(path: &str) -> bool {

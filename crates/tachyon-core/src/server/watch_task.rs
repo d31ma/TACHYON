@@ -1,7 +1,8 @@
+use super::SiteBuilder;
 use super::{DevServerOptions, HotUpdateHub, WatchWait};
 use crate::hot_update::{SourceAction, SourceChanges, SourceWatcher};
 use crate::tool_restart::{ToolRestart, ToolUpdate};
-use crate::{BuildOptions, BuildResult, Failure, Project, ProjectDiscovery, WebCompiler};
+use crate::{BuildResult, Failure, Project, ProjectDiscovery};
 use futures_util::future::OptionFuture;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -11,7 +12,7 @@ type WatchEvent = Result<notify::Event, notify::Error>;
 
 pub(in crate::server) struct WatchTask {
     project_root: PathBuf,
-    options: BuildOptions,
+    builder: SiteBuilder,
     hot_updates: HotUpdateHub,
     watcher: SourceWatcher,
     rebuild_first: bool,
@@ -52,7 +53,7 @@ impl WatchTask {
         let watcher = SourceWatcher::start(&project_root)?;
         Ok(Self {
             project_root,
-            options: options.build_options(),
+            builder: options.site_builder(),
             hot_updates: hot_updates.clone(),
             watcher,
             rebuild_first,
@@ -338,19 +339,19 @@ impl WatchTask {
         paths: Vec<String>,
         cancellation: &CancellationToken,
     ) -> bool {
-        let rebuilt = Self::build_unless_cancelled(project, &self.options, cancellation).await;
+        let rebuilt = Self::build_unless_cancelled(project, &self.builder, cancellation).await;
         self.publish_build(rebuilt, action, paths)
     }
 
     async fn build_unless_cancelled(
         project: &Project,
-        options: &BuildOptions,
+        builder: &SiteBuilder,
         cancellation: &CancellationToken,
     ) -> Option<Result<BuildResult, Failure>> {
         tokio::select! {
             biased;
             () = cancellation.cancelled() => None,
-            rebuilt = WebCompiler::build_project_async(project, options) => Some(rebuilt),
+            rebuilt = builder.build(project) => Some(rebuilt),
         }
     }
 

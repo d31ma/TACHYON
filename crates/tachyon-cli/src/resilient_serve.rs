@@ -5,7 +5,7 @@ use crate::{ServingPolicy, restart};
 use std::io::Write as _;
 use std::net::IpAddr;
 use std::path::PathBuf;
-use tachyon_core::{DevServer, ErrorPageServer, ErrorPageWait, Failure};
+use tachyon_core::{DevServer, DevServerOptions, ErrorPageServer, ErrorPageWait, Failure};
 use tokio::sync::watch;
 
 pub(crate) struct ResilientServe {
@@ -17,6 +17,7 @@ pub(crate) struct ResilientServe {
     pub(crate) policy: ServingPolicy,
     pub(crate) default_port: u16,
     pub(crate) advice: AdviceReport,
+    pub(crate) native: Option<tachyon_core::DevelopmentOrigin>,
 }
 
 impl ResilientServe {
@@ -97,13 +98,16 @@ impl ResilientServe {
             .err();
         Self::stop_page(error_page.take()).await;
         tachyon_core::cache::ensure_runtime()?;
-        let options = crate::dev_server_options(
-            host,
-            port,
-            self.allow_non_loopback,
-            &self.output,
-            self.policy,
-        );
+        let options = DevServerOptions {
+            native: self.native.clone(),
+            ..crate::dev_server_options(
+                host,
+                port,
+                self.allow_non_loopback,
+                &self.output,
+                self.policy,
+            )
+        };
         let server =
             DevServer::bind_project_with_application(&project, &options, application).await?;
         Self::show_untested(&server, untested);
@@ -262,6 +266,7 @@ mod tests {
                 std::thread::sleep(Duration::from_mins(1));
                 finished.store(true, Ordering::Release);
             })),
+            native: None,
         };
         let running = tokio::spawn(async move { serve.run().await });
         let address = format!("127.0.0.1:{port}");

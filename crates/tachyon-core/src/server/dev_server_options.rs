@@ -1,4 +1,4 @@
-use crate::BuildOptions;
+use crate::{BuildOptions, DevelopmentOrigin};
 use std::ffi::OsString;
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
@@ -13,6 +13,7 @@ pub struct DevServerOptions {
     pub build: bool,
     pub restart_executable: Option<PathBuf>,
     pub restart_check_arguments: Vec<OsString>,
+    pub native: Option<DevelopmentOrigin>,
 }
 
 impl Default for DevServerOptions {
@@ -26,6 +27,7 @@ impl Default for DevServerOptions {
             build: true,
             restart_executable: None,
             restart_check_arguments: vec![OsString::from("--version")],
+            native: None,
         }
     }
 }
@@ -37,5 +39,9 @@ impl DevServerOptions {
             profile: crate::BuildProfile::Development,
             ..BuildOptions::default()
         }
+    }
+
+    pub(in crate::server) fn site_builder(&self) -> super::SiteBuilder {
+        super::SiteBuilder::new(self.build_options(), self.native.clone())
     }
 }

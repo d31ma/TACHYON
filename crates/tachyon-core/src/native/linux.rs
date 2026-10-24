@@ -49,7 +49,10 @@ impl LinuxHostGenerator {
             super::rust::Linkage::Shared,
         )?;
         let source_path = stage.join("project").join("tachyon_host.c");
-        write_host_source(&source_path, &c_source(application, index))?;
+        let pages = super::development_pages::DevelopmentPages::serving(
+            options.development_origin.as_ref(),
+        );
+        write_host_source(&source_path, &c_source_serving(application, index, pages))?;
         write(
             &bundle.join(format!("{}.desktop", application.application_id)),
             desktop_entry(application).as_bytes(),
@@ -177,7 +180,20 @@ fn stage_icon(
     )
 }
 
+#[cfg(test)]
 pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
+    c_source_serving(
+        application,
+        index,
+        super::development_pages::DevelopmentPages::none(),
+    )
+}
+
+pub(super) fn c_source_serving(
+    application: &NativeApplication,
+    index: &NativeRouteIndex,
+    pages: super::development_pages::DevelopmentPages<'_>,
+) -> String {
     let local_bundle = super::routes::c_local_bundle(index, &[], "tachyon://app");
     let gtk_app_id = c_string_escape(&gtk_application_id(&application.application_id));
     let template = LinuxHostGenerator::C_HOST
@@ -214,7 +230,8 @@ pub(super) fn c_source(application: &NativeApplication, index: &NativeRouteIndex
         .replace(
             "__NATIVE_CAPABILITY_ROUTE__",
             LinuxHostGenerator::CAPABILITY_ROUTE,
-        );
+        )
+        .replace("__DEVELOPMENT_PAGES__", &pages.linux());
     LinuxHostGenerator::DESKTOP.render(
         &template,
         application,
@@ -337,6 +354,8 @@ static const char *tachyon_content_type(const char *path) {
 
 __NATIVE_CAPABILITY_ROUTE__
 
+__DEVELOPMENT_PAGES__
+
 static void tachyon_scheme_request(WebKitURISchemeRequest *request, gpointer data) {
   (void)data;
   if (tachyon_capability_route(request)) return;
@@ -347,6 +366,10 @@ static void tachyon_scheme_request(WebKitURISchemeRequest *request, gpointer dat
     if (descriptor >= 0) { struct stat info; if (fstat(descriptor, &info) != 0 || !S_ISREG(info.st_mode)) { close(descriptor); descriptor = -1; } }
     if (descriptor >= 0) g_strlcpy(relative, path + 1, sizeof(relative));
     else if (tachyon_bundle_path(path, relative, sizeof(relative))) descriptor = tachyon_open_resource(relative);
+    if (tachyon_development_request(request, descriptor >= 0 ? relative : path + 1)) {
+      if (descriptor >= 0) close(descriptor);
+      return;
+    }
   }
   struct stat info;
   if (descriptor < 0 || fstat(descriptor, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size < 0 || info.st_size > 16 * 1024 * 1024) {

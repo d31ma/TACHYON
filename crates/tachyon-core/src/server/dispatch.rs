@@ -689,29 +689,25 @@ impl Dispatch {
         if !self.watch || !html {
             return response;
         }
-        Self::inject(response).await
-    }
-
-    async fn inject(response: Response<Body>) -> Response<Body> {
         let (parts, body) = response.into_parts();
         let bytes = axum::body::to_bytes(body, Self::MAX_DOCUMENT_BYTES).await;
-        Self::injected(parts, bytes)
+        self.injected(parts, bytes)
     }
 
-    fn injected(parts: ResponseParts, bytes: Result<Bytes, axum::Error>) -> Response<Body> {
+    fn injected(&self, parts: ResponseParts, bytes: Result<Bytes, axum::Error>) -> Response<Body> {
         match bytes {
             Err(_) => ServerResponse::text(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Generated document is too large to serve.",
             ),
-            Ok(bytes) => Self::injected_document(parts, bytes),
+            Ok(bytes) => self.injected_document(parts, bytes),
         }
     }
 
-    fn injected_document(parts: ResponseParts, bytes: Bytes) -> Response<Body> {
-        let injected = std::str::from_utf8(&bytes)
-            .ok()
-            .map(StaticFiles::inject_live_reload);
+    fn injected_document(&self, parts: ResponseParts, bytes: Bytes) -> Response<Body> {
+        let injected = std::str::from_utf8(&bytes).ok().map(|document| {
+            StaticFiles::inject_live_reload(document, self.hot_updates.script_tag())
+        });
         Self::document_response(parts, bytes, injected)
     }
 

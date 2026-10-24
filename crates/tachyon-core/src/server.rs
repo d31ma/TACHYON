@@ -39,6 +39,7 @@ mod route_invocation;
 mod server_listener;
 mod server_response;
 mod server_runtime;
+mod site_builder;
 mod socket_dispatch;
 mod source_location;
 mod static_files;
@@ -95,6 +96,7 @@ use route_guard::RouteGuard;
 use server_listener::ServerListener;
 use server_response::ServerResponse;
 use server_runtime::{BackgroundPlan, ProducerTasks, ServerRuntime};
+use site_builder::SiteBuilder;
 use source_location::SourceLocation;
 use static_files::StaticFiles;
 use std::future::{Future, IntoFuture};
@@ -231,7 +233,12 @@ impl DevServer {
         let middleware = project.middleware().cloned().map(Arc::new);
         let identity = project.identity_provider().cloned().map(Arc::new);
         let build_id = build.as_ref().map(|result| String::from(result.sha256()));
-        let hot_updates = HotUpdateHub::new(build_id, project.root());
+        let hot_updates = HotUpdateHub::new(build_id, project.root()).reached_from(
+            options
+                .native
+                .as_ref()
+                .map(crate::DevelopmentOrigin::origin),
+        );
         let rebuild_first = Self::rebuilds_first(options, build.as_ref());
         let tool_restart = options
             .restart_executable
@@ -284,7 +291,7 @@ impl DevServer {
             supervisor.application().hosts(),
         );
         let edge = ForwardedHeaders::new(supervisor.application().trusted_proxies().clone());
-        let cross = CrossOrigin::new(supervisor.application().app_origins());
+        let cross = CrossOrigin::new(&Self::app_origins(options, supervisor.application()));
         let application = dispatch_state.into_router(&page_hosts, guard, edge, cross);
         let public_host = Self::public_host(options, supervisor.application());
         Ok(Self {
@@ -297,6 +304,16 @@ impl DevServer {
             tool_restart,
             hot_updates,
         })
+    }
+
+    fn app_origins(
+        options: &DevServerOptions,
+        application: &crate::ApplicationConfig,
+    ) -> crate::safety::AppOrigins {
+        options.native.as_ref().map_or_else(
+            || application.app_origins().clone(),
+            |native| application.app_origins().with_origin(native.app_origin()),
+        )
     }
 
     fn public_host(
@@ -329,12 +346,10 @@ impl DevServer {
         let last_build = project.root().join(&options.output_directory);
         let serve_last_build = Self::serves_last_build(options, &last_build);
         let builds = Self::builds_before_serving(options, serve_last_build);
-        let build_options = options.build_options();
-        let build = OptionFuture::from(
-            builds.then(|| WebCompiler::build_project_async(project, &build_options)),
-        )
-        .await
-        .transpose()?;
+        let builder = options.site_builder();
+        let build = OptionFuture::from(builds.then(|| builder.build(project)))
+            .await
+            .transpose()?;
         let output_directory = build.as_ref().map_or_else(
             || project.root().join(&options.output_directory),
             |result| result.output_directory().to_path_buf(),

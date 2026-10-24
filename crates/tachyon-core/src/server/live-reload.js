@@ -1,5 +1,6 @@
-const endpoint = '/.tachyon/hot'
-const diagnosticsEndpoint = '/.tachyon/diagnostics'
+const developmentOrigin = document.querySelector('meta[name="tachyon-development-origin"]')?.content || ''
+const endpoint = `${developmentOrigin}/.tachyon/hot`
+const diagnosticsEndpoint = `${developmentOrigin}/.tachyon/diagnostics`
 const overlayId = 'tachyon-hot-diagnostics'
 const errorPage = document.body.hasAttribute('data-tachyon-error-page')
 let applying = Promise.resolve()

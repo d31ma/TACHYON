@@ -15,6 +15,16 @@ impl AppOrigins {
         Some(Self { origins })
     }
 
+    pub(crate) fn with_origin(&self, origin: &str) -> Self {
+        let mut origins = self.origins.clone();
+        if let Some(listed) = Self::written_as_origin(origin)
+            && !origins.contains(&listed)
+        {
+            origins.push(listed);
+        }
+        Self { origins }
+    }
+
     pub(crate) const fn is_empty(&self) -> bool {
         self.origins.is_empty()
     }
@@ -74,6 +84,14 @@ mod tests {
             assert!(origins.allows(origin), "{origin}");
         }
         assert!(origins.allows("https://APP.example.com"));
+        let added = AppOrigins::default().with_origin("tachyon://app");
+        assert!(added.allows("tachyon://app"));
+        assert_eq!(added.with_origin("tachyon://app"), added);
+        assert!(
+            !AppOrigins::default()
+                .with_origin("tachyon://app/page")
+                .allows("tachyon://app")
+        );
         assert!(origins.allows("https://app.example.com:443"));
         assert!(!origins.is_empty());
     }

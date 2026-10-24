@@ -82,9 +82,10 @@ pub use migrate::{
     MigrationStatus,
 };
 pub use native::{
-    AndroidArchitecture, MacOsArchitecture, NativeBuildOptions, NativeBuildResult, NativeCompiler,
-    NativeUiChange, NativeUiContract, NativeUiGeneration, ReleasePackaging, TargetSupport,
-    WindowsArchitecture, native_target_directory,
+    AndroidArchitecture, DevelopmentOrigin, MacOsArchitecture, NativeAppLaunch, NativeAppSources,
+    NativeBuildOptions, NativeBuildResult, NativeCompiler, NativeUiChange, NativeUiContract,
+    NativeUiGeneration, ReleasePackaging, TargetSupport, WindowsArchitecture,
+    native_target_directory,
 };
 pub use project::{
     CompanionKind, HandlerNode, NativeCompanion, Project, ProjectDiscovery, RouteGraph, RouteNode,

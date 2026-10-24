@@ -34,6 +34,8 @@ mod csharp_web_apis;
 mod desktop_host_source;
 mod desktop_menu_items;
 mod desktop_tray_source;
+mod development_origin;
+mod development_pages;
 mod dotnet_web_environment;
 mod dotnet_web_release;
 mod events;
@@ -147,6 +149,8 @@ mod mobile_menu_host_tests;
 mod mobile_menu_source;
 #[cfg(test)]
 mod model_tests;
+mod native_app_launch;
+mod native_app_sources;
 mod native_application_capture;
 #[cfg(all(test, target_os = "macos"))]
 mod native_application_host_tests;
@@ -358,6 +362,7 @@ pub use compiler::{
 pub(crate) use config::{TacMember, WebAppManifest};
 pub(crate) use cpp_web_services::CppWebServices;
 pub(crate) use csharp_web_apis::CsharpWebApis;
+pub use development_origin::DevelopmentOrigin;
 pub(crate) use go::{
     in_package as go_in_package, module_file as go_module_file,
     publisher_alias as go_publisher_alias, runtime_files as go_runtime_files, web_go,
@@ -365,6 +370,8 @@ pub(crate) use go::{
 pub(crate) use java_web_services::JavaWebServices;
 pub(crate) use kotlin_web_services::KotlinWebServices;
 pub use mac_os_architecture::MacOsArchitecture;
+pub use native_app_launch::NativeAppLaunch;
+pub use native_app_sources::NativeAppSources;
 pub use native_ui_change::NativeUiChange;
 pub use native_ui_contract::NativeUiContract;
 pub use native_ui_generation::NativeUiGeneration;

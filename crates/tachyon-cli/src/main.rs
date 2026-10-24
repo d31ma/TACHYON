@@ -7,6 +7,7 @@ mod coverage_gate;
 mod device_choice;
 mod init_choices;
 mod init_command;
+mod native_preview;
 mod package_architectures;
 mod package_plan;
 mod release_choice;
@@ -351,7 +352,7 @@ enum Command {
         #[arg(long, hide = true)]
         check_project: bool,
         #[arg(
-            help = "Built target whose embedded web bundle should be served",
+            help = "Target to preview. A native target builds the app, opens it against the development server and sends it hot updates; with --static, serves the built app's web bundle instead",
             long,
             value_enum
         )]
@@ -839,6 +840,7 @@ async fn execute_dev_command(command: &Command) -> Result<(), Failure> {
             policy,
             default_port: 8080,
             advice: AdviceReport::none(),
+            native: None,
         }
         .run()
         .await;
@@ -924,6 +926,18 @@ async fn execute_preview_command(command: &Command) -> Result<(), Failure> {
     )?;
     let target = require_one_target(&targets, "preview")?;
     let advice = AdviceReport::simpler_forms(project);
+    if let Some(native) = target.native().filter(|_| !*static_only) {
+        return native_preview::NativePreview {
+            project: project.clone(),
+            host: host.clone(),
+            port: *port,
+            allow_non_loopback: *allow_non_loopback,
+            target: native,
+            advice,
+        }
+        .run()
+        .await;
+    }
     if target == BuildTarget::Web && !static_only {
         let output = if out_dir == Path::new("dist") {
             environment_path("TAC_DIST_PATH").unwrap_or_else(|| PathBuf::from("dist/web"))
@@ -944,6 +958,7 @@ async fn execute_preview_command(command: &Command) -> Result<(), Failure> {
             },
             default_port: 3000,
             advice,
+            native: None,
         }
         .run()
         .await;
@@ -1070,6 +1085,7 @@ fn dev_server_options(
             .self_restart
             .then(std::env::current_exe)
             .and_then(Result::ok),
+        native: None,
         restart_check_arguments: std::env::args_os()
             .skip(1)
             .chain([std::ffi::OsString::from("--check-project")])
@@ -1706,9 +1722,15 @@ async fn execute_native_build(
             macos_architecture: plan.architectures.macos,
             android_architecture: plan.architectures.android,
             incremental: !no_incremental,
+            development_origin: None,
         },
     )
     .await?;
+    print_native_build(native, &result);
+    Ok(())
+}
+
+fn print_native_build(native: NativeTarget, result: &tachyon_core::NativeBuildResult) {
     println!(
         "Built {} app hosting {} routes to {} ({}) compiled={} reused={}",
         native_target_directory(native),
@@ -1721,7 +1743,6 @@ async fn execute_native_build(
     for note in result.notes() {
         println!("{note}");
     }
-    Ok(())
 }
 
 fn execute_doctor(project: &PathBuf, json: bool, release: bool) -> Result<(), Failure> {
