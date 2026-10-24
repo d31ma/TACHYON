@@ -471,6 +471,7 @@ impl<'a> SiteBuild<'a> {
 
     fn reuse_route(&mut self, prior: &RouteBuildState) -> Result<RouteBuildState, Failure> {
         self.add_reused_route_files(prior)?;
+        self.view_services.extend(prior.services.iter().cloned());
         Ok(prior.clone())
     }
 
@@ -482,12 +483,7 @@ impl<'a> SiteBuild<'a> {
         site: &crate::native::SiteSettings,
         input_sha: String,
     ) -> Result<RouteBuildState, Failure> {
-        let (artifacts, islands) = self.add_rendered_route_files(route, program, output, site)?;
-        Ok(RouteBuildState {
-            input_sha,
-            artifacts,
-            islands,
-        })
+        self.add_rendered_route_files(route, program, (output, input_sha), site)
     }
 
     fn route_dependency_digest(&self) -> String {
@@ -525,9 +521,9 @@ impl<'a> SiteBuild<'a> {
         &mut self,
         route: &RouteNode,
         program: &TemplateProgram,
-        output: PathBuf,
+        (output, input_sha): (PathBuf, String),
         site: &crate::native::SiteSettings,
-    ) -> Result<(BTreeMap<String, String>, BTreeSet<String>), Failure> {
+    ) -> Result<RouteBuildState, Failure> {
         let output_portable = PortablePath::of(&output);
         let rendered = ClientViewRenderer::new(&self.components, &self.services, &self.shared_data)
             .render(
@@ -537,7 +533,7 @@ impl<'a> SiteBuild<'a> {
                 route.route(),
             )?;
         Self::check_page_bindings(route.route(), rendered.page_bindings)?;
-        self.view_services.extend(rendered.services);
+        self.view_services.extend(rendered.services.iter().cloned());
         let html = PageHead::apply(site, rendered.html, route.route());
         let html = self.add_runtime_links(&html);
         let key = PortablePath::route_key(route.route());
@@ -561,7 +557,12 @@ impl<'a> SiteBuild<'a> {
         self.files.push((ir_path, ir_bytes));
         self.files.push((map_path, map_bytes));
         self.compiled_routes += 1;
-        Ok((artifacts, rendered.components))
+        Ok(RouteBuildState {
+            input_sha,
+            artifacts,
+            islands: rendered.components,
+            services: rendered.services,
+        })
     }
 
     fn check_page_bindings(route: &str, page_bindings: bool) -> Result<(), Failure> {

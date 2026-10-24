@@ -176,13 +176,53 @@ fn the_windows_host_routes_file_picker_calls_from_the_page_and_linked_services()
     ));
     assert!(source.contains("static BOOL g_file_picker_granted = TRUE;"));
     assert!(source.contains(
-        "globalThis.__tachyonNativeFilePicker=true;globalThis.__tachyonNativeGrants=[\\\"filePicker\\\"];"
+        "globalThis.__tachyonNativeFilePicker=true;globalThis.__tachyonNativeFilePickerRoute=true;globalThis.__tachyonNativeGrants=[\\\"filePicker\\\"];"
     ));
     assert!(source.contains("#include <shobjidl.h>"));
     assert!(super::windows::WindowsHostGenerator::LINKER_ARGUMENTS.contains(&"uuid.lib"));
     assert!(!source.contains("__FILE_PICKER"));
     assert!(!source.contains("__PAGE_MESSAGES__"));
     assert!(!source.contains("__NATIVE_GRANTS__"));
+}
+
+#[test]
+fn the_windows_host_answers_webassembly_pickers_through_the_page_route() {
+    let source = WindowsFilePickerTests::host(&["filePicker"]);
+    let resource = WindowsFilePickerTests::section(
+        &source,
+        "static HRESULT STDMETHODCALLTYPE resource_invoke(",
+    );
+    assert!(resource.contains("BOOL routed = tachyon_capability_route(request, arguments, text);"));
+    let route = WindowsFilePickerTests::section(&source, "static BOOL tachyon_capability_route(");
+    assert!(
+        route.contains(
+            "ICoreWebView2WebResourceRequestedEventArgs_GetDeferral(arguments, &deferral)"
+        )
+    );
+    assert!(route.contains("PostMessageW(g_window, TACHYON_WM_CAPABILITY, 0, 0);"));
+    assert!(!route.contains("tachyon_native_capability("));
+    let allowed =
+        WindowsFilePickerTests::section(&source, "static BOOL tachyon_capability_route_allowed(");
+    for check in [
+        "wcscmp(method, L\"POST\") == 0",
+        "strncmp(capability, \"filePicker.\", 11) == 0",
+        "tachyon_current_route() != NULL",
+        "tachyon_capability_route_header(request, capability)",
+    ] {
+        assert!(allowed.contains(check), "{check}");
+    }
+    let run = WindowsFilePickerTests::section(&source, "static void tachyon_capability_route_run(");
+    assert!(run.contains("if (tachyon_page_busy()) { tachyon_capability_route_finish("));
+    assert!(run.contains("tachyon_native_capability(g_capability_call.capability, g_capability_call.payload, &length);"));
+    let procedure =
+        WindowsFilePickerTests::section(&source, "static LRESULT CALLBACK tachyon_window_proc(");
+    assert!(procedure.contains(
+        "    case TACHYON_WM_CAPABILITY:\n      tachyon_capability_route_run();\n      return 0;"
+    ));
+    assert!(source.contains(
+        "#define TACHYON_CAPABILITY_ROUTE \"https://tachyon.local/__tachyon/capability/\""
+    ));
+    assert!(!source.contains("__CAPABILITY_ROUTE__"));
 }
 
 #[test]
@@ -211,7 +251,7 @@ fn the_windows_host_answers_page_calls_outside_webview2_events_and_disposes_pick
         "    case TACHYON_WM_PAGE_MESSAGE:\n      tachyon_page_messages_run();\n      return 0;"
     ));
     assert!(procedure.contains(
-        "    case WM_DESTROY:\n      tachyon_page_messages_clear();\n      tachyon_companion_dispose();\n      tachyon_file_picker_dispose_all();"
+        "    case WM_DESTROY:\n      tachyon_capability_route_finish(\"{\\\"status\\\":\\\"unavailable\\\"}\");\n      tachyon_page_messages_clear();\n      tachyon_companion_dispose();\n      tachyon_file_picker_dispose_all();"
     ));
     let navigation = WindowsFilePickerTests::section(
         &source,

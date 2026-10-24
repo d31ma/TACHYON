@@ -1,6 +1,8 @@
+use super::android_architecture::AndroidArchitecture;
 use super::android_gradle_build::AndroidGradleBuild;
 use super::android_release::AndroidRelease;
 use super::android_rust_libraries::AndroidRustLibraries;
+use super::android_shrinking::AndroidShrinking;
 use super::android_window_settings::AndroidWindowSettings;
 use super::compiler::NativeBuildOptions;
 use super::config::NativeApplication;
@@ -19,9 +21,9 @@ use std::path::{Path, PathBuf};
 pub(super) struct AndroidHostGenerator;
 
 impl AndroidHostGenerator {
-    const ANDROID_GRADLE_PLUGIN: &str = "8.7.3";
-    const ANDROIDX_WEBKIT: &str = "1.14.0";
-    const KOTLIN_PLUGIN: &str = "2.0.21";
+    pub(super) const ANDROID_GRADLE_PLUGIN: &str = "8.7.3";
+    pub(super) const ANDROIDX_WEBKIT: &str = "1.14.0";
+    pub(super) const KOTLIN_PLUGIN: &str = "2.0.21";
     pub(super) const COMPILE_SDK: u32 = 35;
     const JAVA_KEYWORDS: [&str; 16] = [
         "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
@@ -82,7 +84,7 @@ impl AndroidHostGenerator {
             index,
             companions,
             web_bundle,
-            (&project, &rust_services),
+            (&project, &rust_services, options.android_architecture),
         )?;
 
         if !options.package {
@@ -91,11 +93,13 @@ impl AndroidHostGenerator {
             ));
         }
 
-        OptionFuture::from(
-            rust_companion
-                .as_deref()
-                .map(|source| AndroidRustLibraries::build(application, source, &project)),
-        )
+        OptionFuture::from(rust_companion.as_deref().map(|source| {
+            AndroidRustLibraries::build(
+                application,
+                source,
+                (&project, options.android_architecture),
+            )
+        }))
         .await
         .transpose()?;
         let (gradle_version, apk) = if options.release {
@@ -116,7 +120,7 @@ fn write_project(
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
     web_bundle: &Path,
-    (project, rust_services): (&Path, &[String]),
+    (project, rust_services, architecture): (&Path, &[String], AndroidArchitecture),
 ) -> Result<(), Failure> {
     let package = java_package(&application.application_id);
     let package_path = package.replace('.', "/");
@@ -134,8 +138,9 @@ fn write_project(
         stage_reaching_companion(companions, project, (&package, &package_path), &reach)?;
     write(
         &project.join("app/build.gradle.kts"),
-        app_gradle(application, &package, has_companion).as_bytes(),
+        app_gradle(application, &package, has_companion, architecture).as_bytes(),
     )?;
+    AndroidShrinking::write_rules(project)?;
     let has_icon = stage_icon(application, web_bundle, project)?;
     write(
         &project.join("app/src/main/AndroidManifest.xml"),
@@ -264,7 +269,12 @@ include(":app")
     )
 }
 
-fn app_gradle(application: &NativeApplication, package: &str, has_companion: bool) -> String {
+fn app_gradle(
+    application: &NativeApplication,
+    package: &str,
+    has_companion: bool,
+    architecture: AndroidArchitecture,
+) -> String {
     let kotlin_plugin = if has_companion {
         let version = AndroidHostGenerator::KOTLIN_PLUGIN;
         format!("\n  id(\"org.jetbrains.kotlin.android\") version \"{version}\"")
@@ -292,6 +302,9 @@ android {{
     targetSdk = {compile_sdk}
     versionCode = {build}
     versionName = "{version}"
+    ndk {{
+      abiFilters += listOf({abis})
+    }}
   }}
 
 {signing}
@@ -299,9 +312,7 @@ android {{
     getByName("debug") {{
       isMinifyEnabled = false
     }}
-    getByName("release") {{
-      isMinifyEnabled = false
-      signingConfig = signingConfigs.getByName("release")
+{release}      signingConfig = signingConfigs.getByName("release")
     }}
   }}
 
@@ -339,6 +350,8 @@ tasks.withType<AbstractArchiveTask>().configureEach {{
         version = application.version,
         build = application.build,
         signing = AndroidRelease::gradle_signing_config(),
+        abis = architecture.gradle_abi_filters(),
+        release = AndroidShrinking::RELEASE_BUILD_TYPE,
     )
 }
 
@@ -1220,7 +1233,10 @@ __NATIVE_RUST_SERVICES__
 
 #[cfg(test)]
 mod tests {
-    use super::{AndroidHostGenerator, android_manifest, app_gradle, java_package, java_source};
+    use super::{
+        AndroidArchitecture, AndroidHostGenerator, AndroidShrinking, android_manifest, app_gradle,
+        java_package, java_source,
+    };
     use crate::native::config::NativeApplication;
 
     fn application() -> NativeApplication {
@@ -1441,29 +1457,41 @@ mod tests {
 
     #[test]
     fn gradle_and_manifest_pin_the_supported_android_surface() {
-        let gradle = app_gradle(&application(), "dev.tachyon.native_catalog", false);
+        let gradle = app_gradle(
+            &application(),
+            "dev.tachyon.native_catalog",
+            false,
+            AndroidArchitecture::UNIVERSAL,
+        );
         let webkit = AndroidHostGenerator::ANDROIDX_WEBKIT;
         assert!(gradle.contains(AndroidHostGenerator::ANDROID_GRADLE_PLUGIN));
         assert!(gradle.contains(&format!("androidx.webkit:webkit:{webkit}")));
         assert!(gradle.contains("minSdk = 26\n"));
         assert!(gradle.contains("VERSION_17"));
         assert!(gradle.contains("ignoreAssetsPattern ="));
-        assert!(app_gradle(&application(), "x.y", true).contains("org.jetbrains.kotlin.android"));
+        assert!(
+            app_gradle(&application(), "x.y", true, AndroidArchitecture::UNIVERSAL)
+                .contains("org.jetbrains.kotlin.android")
+        );
         assert!(!gradle.contains("kotlin"));
         assert!(gradle.contains("versionCode = 1\n"));
         assert!(gradle.contains("versionName = \"1.0.0\"\n"));
         let mut released = application();
         released.version = String::from("2.1.0-beta");
         released.build = 7;
-        let released_gradle = app_gradle(&released, "x.y", false);
+        let released_gradle = app_gradle(&released, "x.y", false, AndroidArchitecture::ARM64);
         assert!(released_gradle.contains("versionCode = 7\n"));
         assert!(released_gradle.contains("versionName = \"2.1.0-beta\"\n"));
         let signing = gradle.find("signingConfigs {");
         let build_types = gradle.find("buildTypes {");
         assert!(signing.is_some() && signing < build_types);
-        assert!(gradle.contains(
-            "getByName(\"release\") {\n      isMinifyEnabled = false\n      signingConfig = signingConfigs.getByName(\"release\")"
-        ));
+        assert!(gradle.contains("getByName(\"debug\") {\n      isMinifyEnabled = false\n    }"));
+        assert!(gradle.contains(&format!(
+            "{}      signingConfig = signingConfigs.getByName(\"release\")",
+            AndroidShrinking::RELEASE_BUILD_TYPE
+        )));
+        assert!(gradle.contains("abiFilters += listOf(\"arm64-v8a\", \"x86_64\")\n"));
+        assert!(released_gradle.contains("abiFilters += listOf(\"arm64-v8a\")\n"));
         assert!(!gradle.contains("storePassword = \""));
 
         let mut raised = application();
@@ -1471,7 +1499,12 @@ mod tests {
             tachyon_contracts::NativeTarget::Android,
             crate::native::system_version::SystemVersion::new(30, 0),
         );
-        let raised_gradle = app_gradle(&raised, "dev.tachyon.native_catalog", false);
+        let raised_gradle = app_gradle(
+            &raised,
+            "dev.tachyon.native_catalog",
+            false,
+            AndroidArchitecture::UNIVERSAL,
+        );
         assert!(raised_gradle.contains("minSdk = 30\n"));
 
         let manifest = android_manifest(&application(), false);

@@ -12,7 +12,7 @@ pub(super) struct BuildState {
 }
 
 impl BuildState {
-    const VERSION: u8 = 4;
+    const VERSION: u8 = 5;
     const FILE: &'static str = ".tachyon/build-state.json";
 
     pub(super) fn load(output: &Path) -> Option<Self> {

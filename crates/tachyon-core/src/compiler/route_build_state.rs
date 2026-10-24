@@ -10,6 +10,7 @@ pub(super) struct RouteBuildState {
     pub(super) input_sha: String,
     pub(super) artifacts: BTreeMap<String, String>,
     pub(super) islands: BTreeSet<String>,
+    pub(super) services: BTreeSet<String>,
 }
 
 impl RouteBuildState {

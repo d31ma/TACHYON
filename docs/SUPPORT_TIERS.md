@@ -49,6 +49,24 @@ debuggable. The emulator image itself is debuggable (`ro.debuggable=1`), and
 there WebView opens DevTools for every app, so the check that a release keeps
 WebView debugging off still needs a production image or a physical device.
 
+R8, ABIs and offline Gradle (PKG7, 2026-10-24, ADR 0104 amendment): in an
+x86_64 Linux cloud container (Android SDK platform 35, build-tools 35.0.0, NDK
+r30 30.0.16248370, Gradle 8.14.3, AGP 8.7.3, OpenJDK 21), the Rust and Kotlin
+probe of `scripts/android/rust-services-test.mjs` was built with `ty bundle
+--target android`. `--arch arm64` gave an APK with only
+`lib/arm64-v8a/libtachyoncompanion.so` and `aarch64` in the artifact manifest.
+`--release` with a throwaway keystore gave an R8-shrunk APK and AAB: `apksigner
+verify` showed the signature, the APK held both libraries in one
+`classes.dex`, `dexdump` found `TachyonRust` with its native and JNI callback
+methods, `MainActivity`, the Kotlin service with its methods and the Kotlin
+prelude under their own names, and 11 AndroidX classes were left. With the
+network cut (Java's proxy set to a closed port), `--release --arch x64` built
+from the filled Gradle cache with `--offline`, gave only the `x86_64` library,
+and a reused route kept its native services. A first build with an empty
+Gradle cache printed the note naming the modules it downloads. Not run: the
+shrunk APK on an emulator (RM3), and the release DevTools check on a Google
+Play image (RM3).
+
 macOS release packages (2026-10-19, ADR 0104 amendment): `ty bundle --target
 macos --release` signs the app and its helpers with the hardened runtime,
 builds a `.dmg`, then signs, notarizes, staples and assesses it. Checked in an
@@ -164,9 +182,10 @@ architecture. `universal` builds both architectures and joins them with
 `lipo`. Only the staging and the artifact manifest are tested so far; the
 universal build, its `lipo -archs` check and a run on an Intel Mac are not
 yet verified. Linux and iOS builds use the build machine's architecture.
-Android takes no `--arch`: an app with Rust services carries its Rust library
-for `arm64-v8a` and `x86_64` (MR2), and an app without them holds no native
-code.
+Android takes `--arch arm64`, `x64` or `universal` (PKG7, 2026-10-24, ADR 0104
+amendment): the Rust library is built for `arm64-v8a`, `x86_64` or both (MR2),
+and Gradle's `abiFilters` name the same ABIs. `universal` is the default. An
+app without Rust services holds no native code.
 
 Rust on Android (2026-10-19, ADR 0019 amendment): Rust services are linked
 into the Android app through JNI. `scripts/android/rust-services-test.mjs`
@@ -596,9 +615,9 @@ This evidence does not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: `GtkFileDialog`, or the desktop portal's chooser where one runs, for JavaScript, TypeScript and linked Rust services; Swift, C# and Kotlin run as WebAssembly and answer `unsupported` (FP5) | `linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and drove the real dialog with XTest key presses under Xvfb in an x86_64 Ubuntu 24.04 cloud container on 2026-10-19: three runs through the portal's chooser (xdg-desktop-portal-gtk, xfwm4) and one each through GTK's own dialog with and without a window manager. It also passed on WSL Ubuntu 24.04 (aarch64, same GTK and WebKitGTK, Xvfb with xfwm4), once through each dialog; one earlier WSL run with a broken portal backend hit the 30-second dialog limit and answered `cancelled`, and its rerun passed. A page and a Rust service chose, read and released files; cancel, the second dialog, the handle and owner limits, the lifetime, another owner, a large and a non-UTF-8 file, the missing grant and a new page were checked. Not run: a Linux desktop, Wayland |
-| macOS WKWebView | yes: `NSOpenPanel` | see ADR 0089 and its amendments |
-| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1) | under Wine in the cloud only; see the Windows paragraph above. Owed: the MSVC build, the Windows dialog run and a picker from a WebView2 page on a signed-in desktop |
+| Linux WebKitGTK | yes: `GtkFileDialog`, or the desktop portal's chooser where one runs, for JavaScript, TypeScript and linked Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly and reach the dialog through the page (FP5) | `linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and drove the real dialog with XTest key presses under Xvfb in an x86_64 Ubuntu 24.04 cloud container on 2026-10-19: three runs through the portal's chooser (xdg-desktop-portal-gtk, xfwm4) and one each through GTK's own dialog with and without a window manager. It also passed on WSL Ubuntu 24.04 (aarch64, same GTK and WebKitGTK, Xvfb with xfwm4), once through each dialog; one earlier WSL run with a broken portal backend hit the 30-second dialog limit and answered `cancelled`, and its rerun passed. A page and a Rust service chose, read and released files; cancel, the second dialog, the handle and owner limits, the lifetime, another owner, a large and a non-UTF-8 file, the missing grant and a new page were checked. On 2026-10-24 (FP5) `scripts/linux/page-services-native-test.mjs` ran the packaged `native-capabilities` app with a Swift (6.3.3), a C# (.NET 10.0.302) and a Kotlin (2.1.10) WebAssembly service under Xvfb with xfwm4 in the same kind of container: each chose a file in GTK's dialog, read it, and answered `cancelled` after Escape. Not run: a Linux desktop, Wayland |
+| macOS WKWebView | yes: `NSOpenPanel`, also for C# and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | see ADR 0089 and its amendments. Owed: a C# and a Kotlin field choosing a file in the panel on a Mac |
+| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1), and for Swift and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | under Wine in the cloud only; see the Windows paragraph above. On 2026-10-24 the whole generated host, with the page route, compiled with MinGW against the WebView2 1.0.3240.44 headers and the Wine picker checks passed. Owed: the MSVC build, the Windows dialog run and a page, a Swift and a Kotlin picker from a WebView2 page on a signed-in desktop |
 | iOS, Android | no: `unsupported` (FP4, FP2) | see the per-target support table |
 
 ### Window settings on iOS and Android (2026-10-19, WIN5)

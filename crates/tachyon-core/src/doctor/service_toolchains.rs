@@ -94,6 +94,10 @@ impl ServiceToolchains {
         service.script_path()?.extension()?.to_str()
     }
 
+    pub(super) fn links_native_rust(services: &ServiceRegistry) -> bool {
+        Self::uses_native_service(services, NativeCompanion::Rust)
+    }
+
     fn uses_native_service(services: &ServiceRegistry, language: NativeCompanion) -> bool {
         services.iter().any(|(_, service)| {
             service

@@ -1,7 +1,9 @@
 use crate::BuildTarget;
 use crate::package_architectures::PackageArchitectures;
 use clap::ValueEnum;
-use tachyon_core::{AppTarget, Failure, MacOsArchitecture, TargetSupport, WindowsArchitecture};
+use tachyon_core::{
+    AndroidArchitecture, AppTarget, Failure, MacOsArchitecture, TargetSupport, WindowsArchitecture,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum ArchitectureChoice {
@@ -44,7 +46,7 @@ impl ArchitectureChoice {
                 "--arch {} cannot be honored by any target being built.",
                 self.name()
             ),
-            "Windows takes x64 or arm64, and macOS takes x64, arm64 or universal. Linux and iOS apps are built for the build machine's architecture, and web and Android builds take no --arch. Add --target windows or --target macos, or remove --arch.",
+            "Windows takes x64 or arm64; macOS and Android take x64, arm64 or universal. Linux and iOS apps are built for the build machine's architecture, and web builds take no --arch. Add --target windows, macos or android, or remove --arch.",
         )
     }
 
@@ -59,10 +61,10 @@ impl ArchitectureChoice {
 
     fn honors(self, target: BuildTarget) -> bool {
         match target {
-            BuildTarget::Macos => true,
+            BuildTarget::Macos | BuildTarget::Android => true,
             BuildTarget::Windows => self != Self::Universal,
             BuildTarget::Linux | BuildTarget::Ios => self.is_build_machine(),
-            BuildTarget::Web | BuildTarget::Android | BuildTarget::All => false,
+            BuildTarget::Web | BuildTarget::All => false,
         }
     }
 
@@ -84,7 +86,7 @@ impl ArchitectureChoice {
 
     fn windows_note() -> String {
         format!(
-            "Note: --arch universal is for macOS only, so the Windows app is built for {}.",
+            "Note: --arch universal is for macOS and Android only, so the Windows app is built for {}.",
             WindowsArchitecture::build_machine().name()
         )
     }
@@ -104,6 +106,7 @@ impl ArchitectureChoice {
         PackageArchitectures {
             windows: self.windows(),
             macos: self.macos(),
+            android: self.android(),
         }
     }
 
@@ -121,6 +124,15 @@ impl ArchitectureChoice {
             Self::Arm64 => MacOsArchitecture::ARM64,
             Self::Native => MacOsArchitecture::build_machine(),
             Self::Universal => MacOsArchitecture::UNIVERSAL,
+        }
+    }
+
+    fn android(self) -> AndroidArchitecture {
+        match self {
+            Self::X64 => AndroidArchitecture::X64,
+            Self::Arm64 => AndroidArchitecture::ARM64,
+            Self::Native => AndroidArchitecture::build_machine(),
+            Self::Universal => AndroidArchitecture::UNIVERSAL,
         }
     }
 }

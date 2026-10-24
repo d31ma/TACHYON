@@ -2,7 +2,9 @@
 
 import importlib.util
 import json
+import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -11,6 +13,8 @@ class PageStepsProbe:
     WAIT_SECONDS = 120
     SIZE_TOLERANCE = 2
     MENU_BAR_ROOM = 64
+    DIALOG_SECONDS = 4
+    CLICK_SECONDS = 45
 
     @staticmethod
     def load_accessibility_probe():
@@ -43,6 +47,32 @@ class PageStepsProbe:
         raise AssertionError(f"the window is {extents.width}x{extents.height}, not {size[0]}x{size[1]} plus its menu bar")
 
     @staticmethod
+    def click_in_background(probe, control):
+        def click():
+            try:
+                probe.activate_control(control)
+            except Exception as problem:
+                print(f"NOTE: the click on {control!r} answered late: {problem}", flush=True)
+        worker = threading.Thread(target=click, daemon=True)
+        worker.start()
+        return worker
+
+    @staticmethod
+    def press(keys):
+        for key in keys:
+            command = ["xdotool", "type", "--delay", "20", key["type"]] if isinstance(key, dict) else ["xdotool", "key", key]
+            subprocess.run(command, check=True)
+            time.sleep(0.3)
+
+    @staticmethod
+    def pick(probe, choice):
+        worker = PageStepsProbe.click_in_background(probe, choice["control"])
+        time.sleep(PageStepsProbe.DIALOG_SECONDS)
+        PageStepsProbe.press(choice["keys"])
+        worker.join(PageStepsProbe.CLICK_SECONDS)
+        print(f"OK: the file dialog took {choice['keys']}", flush=True)
+
+    @staticmethod
     def main(steps):
         probe = PageStepsProbe.load_accessibility_probe()
         probe.Atspi.init()
@@ -52,6 +82,7 @@ class PageStepsProbe:
             "wait": lambda texts: probe.wait_for_controls(texts, PageStepsProbe.WAIT_SECONDS),
             "click": probe.activate_control,
             "size": lambda size: PageStepsProbe.wait_for_size(probe, size),
+            "pick": lambda choice: PageStepsProbe.pick(probe, choice),
         }
         for index, (kind, value) in enumerate(steps):
             actions[kind](value)

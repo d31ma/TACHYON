@@ -66,6 +66,7 @@ class TacWebApis {
     notifications: TacWebApis.notifications,
     geolocation: TacWebApis.geolocation,
     windowControls: TacWebApis.windowControls,
+    nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
   })
   static installed = TacWebApis.install()
 

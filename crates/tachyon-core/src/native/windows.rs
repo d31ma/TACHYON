@@ -104,6 +104,7 @@ impl WindowsHostGenerator {
     const TASK_RESUME: &str = include_str!("windows_task_resume.c");
     const FILE_PICKER: &str = include_str!("windows_file_picker.c");
     const PAGE_MESSAGES: &str = include_str!("windows_page_messages.c");
+    const CAPABILITY_ROUTE: &str = include_str!("windows_capability_route.c");
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
     const DEVELOPER_TARGET: &str = "VSCMD_ARG_TGT_ARCH";
     pub(super) const LINKER_ARGUMENTS: [&str; 14] = [
@@ -790,6 +791,10 @@ pub(super) fn c_source(
             ("__PACKAGE_DATA__", WindowsHostGenerator::PACKAGE_DATA),
             ("__FILE_PICKER__", &file_picker),
             ("__PAGE_MESSAGES__", WindowsHostGenerator::PAGE_MESSAGES),
+            (
+                "__CAPABILITY_ROUTE__",
+                WindowsHostGenerator::CAPABILITY_ROUTE,
+            ),
             ("__NATIVE_GRANTS__", &grants),
             (
                 "__WINDOWS_DEEP_LINKS__",
@@ -1323,6 +1328,8 @@ static const wchar_t *tachyon_content_type(const char *path) {
   return L"application/octet-stream";
 }
 
+__CAPABILITY_ROUTE__
+
 typedef struct { ICoreWebView2WebResourceRequestedEventHandlerVtbl *lpVtbl; } TachyonResourceHandler;
 static HRESULT STDMETHODCALLTYPE resource_query(ICoreWebView2WebResourceRequestedEventHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{ab00b74c-15f1-4646-80e8-e76341d25d71}"); }
 static ULONG STDMETHODCALLTYPE resource_add_ref(ICoreWebView2WebResourceRequestedEventHandler *self) { (void)self; return 1; }
@@ -1332,8 +1339,11 @@ static HRESULT STDMETHODCALLTYPE resource_invoke(ICoreWebView2WebResourceRequest
   ICoreWebView2WebResourceRequest *request = NULL;
   LPWSTR uri = NULL;
   if (FAILED(ICoreWebView2WebResourceRequestedEventArgs_get_Request(arguments, &request)) || request == NULL) return E_FAIL;
-  ICoreWebView2WebResourceRequest_get_Uri(request, &uri); ICoreWebView2WebResourceRequest_Release(request);
+  ICoreWebView2WebResourceRequest_get_Uri(request, &uri);
   char *text = uri == NULL ? NULL : tachyon_narrow(uri), path[TACHYON_PATH_LIMIT], relative[TACHYON_PATH_LIMIT];
+  BOOL routed = tachyon_capability_route(request, arguments, text);
+  ICoreWebView2WebResourceRequest_Release(request);
+  if (routed) { free(text); CoTaskMemFree(uri); return S_OK; }
   IStream *stream = NULL;
   if (text != NULL && tachyon_local_path(text, path, sizeof(path))) {
     strcpy_s(relative, sizeof(relative), path + 1);
@@ -1482,7 +1492,7 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   if (script == NULL) return E_OUTOFMEMORY;
   snprintf(script, script_size,
            "if(location.origin==='https://tachyon.local' && window===window.top){\n%s\n"
-           "globalThis.__tachyonNativeFilePicker=true;globalThis.__tachyonNativeGrants=__NATIVE_GRANTS__;\n"
+           "globalThis.__tachyonNativeFilePicker=true;globalThis.__tachyonNativeFilePickerRoute=true;globalThis.__tachyonNativeGrants=__NATIVE_GRANTS__;\n"
            "let chain=Promise.resolve(), pending=0, sequence=0;const session=crypto.randomUUID();\n"
            "window.chrome.webview.addEventListener('message',e=>{if(typeof e.data?.applicationState==='string')globalThis.__tachyonApplicationState(e.data.applicationState);else if(e.data && typeof e.data==='object')globalThis.__tachyonCompanionPublish(e.data)});\n"
            "globalThis.__tachyonHostPost=(capability,payload)=>{\n"
@@ -1600,6 +1610,9 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
     case TACHYON_WM_PAGE_MESSAGE:
       tachyon_page_messages_run();
       return 0;
+    case TACHYON_WM_CAPABILITY:
+      tachyon_capability_route_run();
+      return 0;
     case WM_COMMAND:
       if (tachyon_menus_command(window, LOWORD(wparam))) return 0;
       break;
@@ -1617,6 +1630,7 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
       if (tachyon_tray_hides_window(window)) return 0;
       break;
     case WM_DESTROY:
+      tachyon_capability_route_finish("{\"status\":\"unavailable\"}");
       tachyon_page_messages_clear();
       tachyon_companion_dispose();
       tachyon_file_picker_dispose_all();

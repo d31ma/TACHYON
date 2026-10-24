@@ -18,6 +18,14 @@ machine contracts have their own, independent major versions.
   two-service fixture roughly halves (Swift 136 to 69 KB, Kotlin 105 to
   54 KB, C# 170 to 87 KB). The Kotlin required-props constructor is now
   `internal` (ADR 0022 amendment).
+- Swift, C# and Kotlin `FilePicker` fields now open the desktop app's
+  picker where the service runs as WebAssembly (FP5): C# and Kotlin on
+  macOS, Swift and Kotlin on Windows, and all three on Linux. Before, they
+  answered `unsupported`. The page sends each call to the host as a
+  synchronous request on the app's own origin, and the host answers once
+  the dialog closes. Linux runs in the cloud chose, read and cancelled for
+  all three languages; the macOS panel and the WebView2 runs are owed
+  (ADR 0089 amendment).
 - Natively linked Swift, Kotlin and C# services hold `@StreamRequest` and
   `@SocketRequest` clients (LS1). The page holds the connection on
   `tac.yon.origin`, delivers each message to the service's `@OnEvent`
@@ -50,6 +58,16 @@ machine contracts have their own, independent major versions.
   `Description` services run and refuse a malformed text. `Lifetime` is now
   asserted in Dart, Go and F#: a transient service gives each Needs field its
   own object, and the same project without the marker shares one.
+- Android `--release` builds are shrunk by R8, with resource shrinking and
+  keep rules for the host, bridge, Rust callback and service classes (PKG7,
+  ADR 0104 amendment). `--arch arm64`, `x64` or `universal` now choose the
+  Android ABIs: the Rust library and Gradle's `abiFilters` follow the choice,
+  and the artifact manifest names it. Gradle runs with `--offline` once its
+  cache holds the pinned Android Gradle plugin and libraries, and runs again
+  online if an offline run misses a module; until then a note names what it
+  downloads. `ty doctor` reports the Android NDK for an Android app with Rust
+  services, and, away from Windows, `TAC_MAKEMSIX` and `osslsigncode` as
+  information (ADR 0066 amendment).
 - iOS and Android apps now read the window members of `client/manifest.json`
   (WIN5). A hex `theme_color` fills the area behind the iOS status bar and
   the Android status and navigation bars, with readable bar text. A hex
@@ -200,8 +218,8 @@ machine contracts have their own, independent major versions.
   macOS rules: the grant, one dialog at a time that closes after 30
   seconds, 128 handles and 8 per owner, a 300-second lifetime, 64 KiB
   UTF-8 `readText`, and release with the owner, a new page and shutdown.
-  Swift, C# and Kotlin services still run as WebAssembly on Linux and
-  answer `unsupported` (FP5).
+  Swift, C# and Kotlin services run as WebAssembly on Linux and reach the
+  same dialog through the page (FP5).
 - The per-target support table has two more states (ADR 0102 amendment).
   `run owed` means a target supports a member in code, but the run that
   proves it there has not happened; the table names that run, and a build
@@ -1751,6 +1769,20 @@ machine contracts have their own, independent major versions.
   The Windows desktop gate found it (View > Show Running and Ctrl+2 left
   "Section" unchanged); macOS, Linux and Windows hosts share the fix.
 
+- A native rebuild that reused a route dropped the native services that the
+  route's page uses, so the second `ty bundle` of a native target packaged
+  no Kotlin, Swift, C# or Rust companion. Each route's build state now keeps
+  its services (build state version 5; older state rebuilds every route
+  once).
+- Gradle ran under the 2-minute native tool limit, so a first Android build
+  that downloads the Android Gradle plugin, or an R8 release, could stop
+  with `TY1605`. It now has the 15-minute limit of other long tools.
+- `ty doctor .` stopped with `TY2101` in a project with services; the
+  project folder is now read by its canonical path.
+
+- A C# `FilePicker.Open` with type filters no longer fails with "Native
+  companion operation failed". Adding a string to a `JsonArray` needed
+  reflection that trimmed .NET removes; it now adds a `JsonValue` (FP5).
 - A Rust Yon handler that fails to compile names the model file at fault
   again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
   Tachyon now builds handlers with plain cargo output.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +14,8 @@ class LinuxPageServicesTest {
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'linux-page-services-'))
   static serviceLanguages = PageServicesFixture.list('TAC_LINUX_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
   static windowCallers = PageServicesFixture.list('TAC_LINUX_WINDOW_CALLERS', 'swift,cs,kt')
+  static pickerCallers = PageServicesFixture.list('TAC_LINUX_PICKER_CALLERS', 'swift,cs,kt')
+  static pickerStatuses = { swift: ['read', 'cancelled'], kt: ['read', 'cancelled'], cs: ['Read', 'Cancelled'] }
   static tallySteps = PageServicesFixture.tallySteps
   static reportSteps = PageServicesFixture.reportSteps
   static screen = '1600x1200x24'
@@ -25,10 +27,11 @@ class LinuxPageServicesTest {
     return result.stdout
   }
 
-  /** @param {string} project @param {string} application @param {Array<[string, unknown]>} steps */
-  static async drive(project, application, steps) {
+  /** @param {string} project @param {string} application @param {Array<[string, unknown]>} steps @param {Record<string, string>} settings */
+  static async drive(project, application, steps, settings = {}) {
     const app = path.join(project, 'dist/linux', application, 'bin', application)
     const script = `set -euo pipefail
+if [[ -n "\${WINDOW_MANAGER:-}" ]]; then xfwm4 --compositor=off --sm-client-disable >/dev/null 2>&1 & sleep 1; fi
 "$APP" &
 host=$!
 trap 'kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true' EXIT
@@ -53,6 +56,7 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
       GTK_A11Y: 'atspi',
       LIBGL_ALWAYS_SOFTWARE: '1',
       WEBKIT_DMABUF_RENDERER_FORCE_SHM: '1',
+      ...settings,
     }
     const output = await this.run('xvfb-run', ['--auto-servernum', `--server-args=-screen 0 ${this.screen}`, 'dbus-run-session', '--', 'bash', '-c', script], { env, timeoutMilliseconds: 360000 })
     return output.split('\n').filter(line => /^(OK|LOADED|MEMORY|PASS)/.test(line)).join('\n')
@@ -83,10 +87,31 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
     console.log(`==> ${language} WebAssembly WindowControls caller\n${output}`)
   }
 
+  /** @param {string} language */
+  static async checkPickerCaller(language) {
+    const project = path.join(this.root, `picker-${language}`)
+    const application = PageServicesFixture.stage(project, 'native-capabilities', 'Picker', `dev.tachyon.picker-${language}`)
+    PageServicesFixture.copyService(project, 'native-capabilities', `client/services/PickerService.${language}`)
+    const notes = path.join(project, 'notes.txt')
+    writeFileSync(notes, 'Quarterly notes\n')
+    await this.build(project)
+    const [read, cancelled] = this.pickerStatuses[language]
+    const steps = [
+      ['wait', ['Choose a text file', 'Ready']],
+      ['pick', { control: 'Choose file', keys: ['ctrl+l', { type: notes }, 'Return'] }],
+      ['wait', [read]],
+      ['pick', { control: 'Choose file', keys: ['Escape'] }],
+      ['wait', [cancelled]],
+    ]
+    const output = await this.drive(project, application, steps, { WINDOW_MANAGER: '1' })
+    console.log(`==> ${language} WebAssembly FilePicker caller\n${output}`)
+  }
+
   static async main() {
     for (const language of this.serviceLanguages) await this.checkService(language)
     for (const language of this.windowCallers) await this.checkWindowCaller(language)
-    console.log(`PASS: WebAssembly page services (${this.serviceLanguages.join(', ')}) answered in the packaged Linux app, and WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window.`)
+    for (const language of this.pickerCallers) await this.checkPickerCaller(language)
+    console.log(`PASS: WebAssembly page services (${this.serviceLanguages.join(', ')}) answered in the packaged Linux app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, and FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog.`)
   }
 }
 

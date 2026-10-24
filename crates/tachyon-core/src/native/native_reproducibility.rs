@@ -33,6 +33,19 @@ impl NativeReproducibility {
         NativeHost::run_limited(program, arguments, None, &environment, limit).await
     }
 
+    pub(super) async fn run_long_tool_in_with(
+        program: &str,
+        arguments: &[&str],
+        working_directory: Option<&Path>,
+        variables: &[(&str, &str)],
+    ) -> Result<String, Failure> {
+        let epoch = Self::source_date_epoch().to_string();
+        let mut environment = Self::environment(&epoch).to_vec();
+        environment.extend_from_slice(variables);
+        let limit = NativeHost::LONG_TOOL_TIME_LIMIT;
+        NativeHost::run_limited(program, arguments, working_directory, &environment, limit).await
+    }
+
     pub(super) async fn run_tool_in(
         program: &str,
         arguments: &[&str],

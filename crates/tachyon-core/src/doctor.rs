@@ -92,7 +92,7 @@ impl DoctorReport {
         options: &HandlerSupervisorOptions,
         release: bool,
     ) -> Result<Self, Failure> {
-        Self::check_project_exists(root)?;
+        let root = &Self::existing_project(root)?;
         let services = ServiceRegistry::discover(root)?;
         let workers = crate::Workers::discover(root)?;
         let yon = YonDiscovery::extensions(root, &workers);
@@ -102,18 +102,19 @@ impl DoctorReport {
         let resolved = requirements.resolve(&options.runtimes, &options.isolation)?;
         let probes = RuntimeProbe::all_sync(resolved, &options.environment)?;
         toolchains.extend(probes.iter().map(KnownToolchains::runtime));
-        toolchains.extend(TargetToolchains::for_project(root, release));
+        let links_rust = ServiceToolchains::links_native_rust(&services);
+        toolchains.extend(TargetToolchains::for_project(root, release, links_rust));
         Ok(Self {
             contract_version: 1,
             toolchains,
         })
     }
 
-    fn check_project_exists(root: &Path) -> Result<(), Failure> {
-        if !root.is_dir() {
-            return Err(Self::project_missing(root));
-        }
-        Ok(())
+    fn existing_project(root: &Path) -> Result<std::path::PathBuf, Failure> {
+        std::fs::canonicalize(root)
+            .ok()
+            .filter(|folder| folder.is_dir())
+            .ok_or_else(|| Self::project_missing(root))
     }
 
     fn project_missing(root: &Path) -> Failure {
@@ -637,6 +638,15 @@ mod tests {
             assert!(!entry.required, "{entry:?}");
             assert!(!entry.install.is_empty(), "{entry:?}");
         }
+        let package_checks = [
+            ("windows package checks", "TAC_MAKEMSIX"),
+            ("windows package checks", "osslsigncode"),
+        ];
+        let away_from_windows = if cfg!(windows) {
+            &package_checks[..0]
+        } else {
+            &package_checks[..]
+        };
         assert_eq!(
             rows,
             [
@@ -651,6 +661,10 @@ mod tests {
                 ("linux releases", "dpkg-deb"),
                 ("linux releases", "mksquashfs"),
             ]
+            .iter()
+            .chain(away_from_windows)
+            .copied()
+            .collect::<Vec<_>>()
         );
         assert!(
             report.is_ready(),
@@ -721,6 +735,44 @@ mod tests {
                 "zipalign"
             ]
         );
+    }
+
+    #[test]
+    fn an_android_app_with_rust_services_reports_the_android_ndk() {
+        let android = ("package.json", "{\"scripts\": {\"bundle:android\": \"\"}}");
+        let rust = (
+            "client/services/CatalogService.rs",
+            "#[Service]\npub struct CatalogService {}\n",
+        );
+        let ndk_rows = |files: &[(&str, &str)], release: bool| {
+            let root = project_with(files);
+            let report = DoctorReport::check_for_release(root.path(), release).expect("report");
+            report
+                .toolchains
+                .into_iter()
+                .filter(|entry| entry.command == "Android NDK")
+                .map(|entry| (entry.requirement, entry.required))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            ndk_rows(&[android, rust], false),
+            [(String::from("android Rust services"), false)]
+        );
+        assert_eq!(
+            ndk_rows(&[android, rust], true),
+            [(String::from("android Rust services"), true)]
+        );
+        assert!(ndk_rows(&[android], true).is_empty());
+    }
+
+    #[test]
+    fn a_project_named_through_dot_dot_reports_its_services() {
+        let root = project_with(&[(
+            "client/services/CatalogService.kt",
+            "@Service\nclass CatalogService\n",
+        )]);
+        let report = check(root.path().join("client").join("..")).expect("report");
+        assert!(command_names(&report).contains(&"kotlinc"), "{report:?}");
     }
 
     #[test]

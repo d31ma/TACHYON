@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 11_500;
+    const MOST_RUNTIME_BYTES: usize = 11_600;
     /// A driver whose promises never settle fails its test instead of holding the suite.
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
