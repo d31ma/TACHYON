@@ -378,6 +378,9 @@ the build's note says so).
   xfwm4 in an x86_64 Ubuntu 24.04 cloud container. The whole Windows host
   with a `background_color` compiled with MinGW against the WebView2
   headers, and `windows_window_background_tests` painted the color in a
-  Win32 window under Wine. Owed: the macOS host test
-  (`native_window_appearance_host_tests`) on a Mac desktop, and the WebView2
-  page backdrop on a signed-in Windows desktop.
+  Win32 window under Wine, and with MSVC in the signed-in desktop session
+  of a Windows 11 ARM64 machine. `native_window_appearance_host_tests`
+  passed on macOS 26.6.2: the screenshot showed `theme_color` in the title
+  bar and `background_color` in the page area, and the full-screen window
+  started full screen. Owed: the WebView2 page backdrop on a signed-in
+  Windows desktop.

@@ -28,9 +28,9 @@ machine contracts have their own, independent major versions.
   The Windows and Linux apps color the window and the web view with
   `background_color`, so a dark page no longer flashes white while it loads.
   Other color forms keep the system colors and the build prints a note. The
-  Linux run passed under Xvfb and the Windows code passed a MinGW compile
-  and a Wine paint check; the macOS run and the WebView2 backdrop on a
-  signed-in desktop are still owed.
+  macOS host test passed on macOS 26.6.2, the Linux run under Xvfb, and the
+  Windows window paint check with MSVC on Windows 11 ARM64 and under Wine;
+  the WebView2 backdrop on a signed-in desktop is still owed.
 
 - Linked Rust on macOS and iOS (LR1, 2026-10-24): the Apple hosts now run
   linked Rust tasks. A wake resumes them on the main queue, and a linked
