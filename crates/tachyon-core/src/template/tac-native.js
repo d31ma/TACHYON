@@ -30,8 +30,10 @@ class TacNativeCapabilities {
     try {
       const request = new XMLHttpRequest()
       request.open('POST', TacNativeCapabilities.route + capability, false)
+      const body = JSON.stringify(values)
       request.setRequestHeader('X-Tachyon-Capability', capability)
-      request.send(JSON.stringify(values))
+      request.setRequestHeader('X-Tachyon-Capability-Request', encodeURIComponent(body))
+      request.send(body)
       const result = request.status === 200 ? JSON.parse(request.responseText) : null
       return TacNativeCapabilities.statuses.has(result?.status) ? request.responseText : '{"status":"unavailable"}'
     } catch {

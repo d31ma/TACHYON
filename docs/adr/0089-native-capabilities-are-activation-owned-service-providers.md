@@ -362,3 +362,50 @@ WebAssembly services each chose, read and cancelled through GTK's dialog.
 It ran with `GIO_USE_VFS=local` and `GIO_USE_VOLUME_MONITOR=unix`, because
 GVfs there waited 25 seconds for UDisks2 and the first run's dialog reached
 the 30-second limit and answered `cancelled`.
+
+## Amendment (2026-10-24): the iOS and Android apps open the document picker
+
+FP4 and FP2 give the mobile hosts the desktop picker contract: UUID owners,
+the manifest grant, 8 handles per owner and 128 per app, 300-second handles,
+a 64 KiB UTF-8 `readText`, `text/plain` and `application/json` filters (an
+empty list allows any file), one picker at a time that is cancelled after
+30 seconds, and disposal when the owner goes away, the page navigates or the
+app closes.
+
+**iOS.** `capabilities/IosFilePicker.swift` presents
+`UIDocumentPickerViewController(forOpeningContentTypes:asCopy: false)` over
+the root view controller and keeps the picked URL with its security-scoped
+access until the handle is released or expires. The picker answers through a
+completion, so the page bridge (`WKScriptMessageHandlerWithReply`) and the
+page route (`capabilities/IosCapabilityRoute.swift`, the iOS copy of the
+macOS `/__tachyon/capability/` route) reply once it closes, without
+blocking the main thread. Linked Swift and Rust services call the host
+synchronously, as on macOS, so `callNow` runs the main run loop until the
+picker answers; the 30-second timer runs in that loop, so the call always
+returns. C# and Kotlin services run as WebAssembly on iOS and reach the
+picker through the page route.
+
+**Android.** `native_file_picker_android.java` starts
+`ACTION_OPEN_DOCUMENT` (`CATEGORY_OPENABLE`) with `startActivityForResult`
+on the UI thread and waits for `onActivityResult` on the calling thread:
+the bridge worker for the page, linked Kotlin and linked Rust services, or
+the web view's request thread for the page route. A call on the UI thread
+answers `unavailable`. The display name comes from `OpenableColumns` with
+path separators replaced. `shouldInterceptRequest` cannot read a request
+body, so the page runtime now sends each route request a second time,
+URI-encoded, in an `X-Tachyon-Capability-Request` header, which the Android
+route reads; the other hosts still read the body. The page bridge waits 60
+seconds for `filePicker.open` (10 for other calls), and a FilePicker answer
+may be up to 786,432 bytes, the limit the service decoders already use, so
+a full 64 KiB read fits. Swift and C# services run as WebAssembly on
+Android and reach the picker through the page route.
+
+Tests: `ios::tests::the_ios_host_opens_the_document_picker_for_the_page_linked_services_and_webassembly_services`,
+`android::tests::android_opens_the_storage_access_framework_for_the_page_linked_services_and_webassembly_services`
+and `android_file_picker::tests` check the generated hosts, and
+`scripts/native/file-picker-runtime-test.mjs` the route header. The
+simulator and emulator gates are `scripts/ios/file-picker-test.mjs` (OCR
+and simulated taps, a file seeded into the simulator's On My iPhone
+storage) and `scripts/android/file-picker-test.mjs` (DevTools for the page,
+`uiautomator` for the picker, a file pushed to Downloads). Until they run,
+the iOS and Android cells of `tac.nativeCapabilities` are `runOwed`.

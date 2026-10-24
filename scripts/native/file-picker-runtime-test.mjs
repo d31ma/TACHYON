@@ -52,7 +52,7 @@ class FilePickerRuntimeCheck {
     assert.equal(context.now('swift', 'filePicker.available', owner).status, 'available')
     assert.equal(sent.length, 0)
     assert.deepEqual(context.now('swift', 'filePicker.open', owner), { status: 'selected', handle: 'h1', name: 'notes.txt' })
-    assert.deepEqual(sent[0], { method: 'POST', url: '/__tachyon/capability/filePicker.open', asynchronous: false, headers: { 'X-Tachyon-Capability': 'filePicker.open' }, body: { owner: '00000000-0000-4000-8000-000000000001', types: ['text/plain'] } })
+    assert.deepEqual(sent[0], { method: 'POST', url: '/__tachyon/capability/filePicker.open', asynchronous: false, headers: { 'X-Tachyon-Capability': 'filePicker.open', 'X-Tachyon-Capability-Request': encodeURIComponent(JSON.stringify({ owner: '00000000-0000-4000-8000-000000000001', types: ['text/plain'] })) }, body: { owner: '00000000-0000-4000-8000-000000000001', types: ['text/plain'] } })
     context.now('kotlin', 'filePicker.open', owner)
     assert.equal(sent[1].body.owner, '00000000-0000-4000-8000-000000000002')
     context.now('swift', 'filePicker.readText', JSON.stringify({ owner: 'shared-1', handle: 'h1' }))

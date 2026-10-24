@@ -296,6 +296,26 @@ pub(super) fn swift_source(
             "__NATIVE_CAPABILITY_REGISTER__",
             MacOsHostGenerator::capability_registration(companion_call),
         )
+        .replace(
+            "__NATIVE_CAPABILITY_MODELS__",
+            MacOsHostGenerator::capability_models(companion_call),
+        )
+        .replace(
+            "__NATIVE_FILE_PICKER__",
+            include_str!("capabilities/IosFilePicker.swift"),
+        )
+        .replace(
+            "__NATIVE_CAPABILITY_ROUTE__",
+            include_str!("capabilities/IosCapabilityRoute.swift"),
+        )
+        .replace(
+            "__NATIVE_FILE_PICKER_GRANTED__",
+            &application
+                .native_capabilities
+                .iter()
+                .any(|grant| grant == "filePicker")
+                .to_string(),
+        )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace(
             "__TACHYON_COMPANION_EMIT__",
@@ -330,11 +350,18 @@ pub(super) fn swift_source(
             .join("\n"),
         );
     let menu_routes = super::mobile_menu_source::MobileMenuSource::swift_routes(&application.menus);
+    let grants = super::host::quoted_string_escape(
+        &serde_json::to_string(&application.native_capabilities)
+            .unwrap_or_else(|_| String::from("[]")),
+    );
     MacOsHostGenerator::apple_authored_values(
         &framed,
         application,
         index,
-        &[("__NATIVE_MENU_ROUTES__", &menu_routes)],
+        &[
+            ("__NATIVE_MENU_ROUTES__", &menu_routes),
+            ("__NATIVE_GRANTS__", &grants),
+        ],
     )
 }
 
@@ -366,8 +393,12 @@ impl IosHostGenerator {
     const APPLICATION_STOP: &str = "tacRustNativeApplicationShutdown()";
     const SWIFT_HOST: &str = r##"import Foundation
 import UIKit
+import UniformTypeIdentifiers
 import WebKit
 
+__NATIVE_CAPABILITY_MODELS__
+__NATIVE_FILE_PICKER__
+__NATIVE_CAPABILITY_ROUTE__
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
 __NATIVE_BROWSER_APIS__
@@ -434,6 +465,7 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
     static let shared = TachyonAssetSchemeHandler()
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+        if IosCapabilityRoute.start(webView, task) { return }
         guard let url = task.request.url,
               url.scheme == "tachyon-app",
               url.host == "bundle", url.port == nil, url.user == nil, url.password == nil,
@@ -481,7 +513,9 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
         task.didFinish()
     }
 
-    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
+    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {
+        IosCapabilityRoute.stop(task)
+    }
 
     private static func mimeType(_ extensionName: String) -> String {
         switch extensionName.lowercased() {
@@ -542,10 +576,17 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         guard let canonicalPayload = tachyonCanonicalJSONRequest(request) else {
             replyHandler(nil, "invalid or oversized host call"); return
         }
+        if capability.hasPrefix("filePicker.") {
+            IosFilePicker.shared.call(String(capability.dropFirst(11)), request) { replyHandler($0, nil) }
+            return
+        }
         replyHandler(handle(capability, canonicalPayload), nil)
     }
 
     fileprivate func handle(_ capability: String, _ payload: String) -> String {
+        if capability.hasPrefix("filePicker."), let request = tachyonParseJSONRequest(payload) {
+            return IosFilePicker.shared.callNow(String(capability.dropFirst(11)), request)
+        }
         let data = payload.data(using: .utf8) ?? Data()
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         switch capability {
@@ -623,7 +664,11 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: "tachyon-app")
         configuration.websiteDataStore = .default()
         configuration.userContentController.addUserScript(
-            WKUserScript(source: TACHYON_NATIVE_SHIM, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+            WKUserScript(
+                source: TACHYON_NATIVE_SHIM + "\nglobalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;",
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
         )
         configuration.userContentController.addScriptMessageHandler(
             NativeBridge.shared, contentWorld: .page, name: "tachyon"
@@ -642,6 +687,7 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         ])
         webView = view
         NativeBridge.shared.webView = view
+        IosFilePicker.shared.presenter = self
         __TACHYON_COMPANION_EMIT__
         let first = launchTarget.flatMap { URL(string: $0) } ?? URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!
         launchTarget = nil
@@ -700,6 +746,7 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         tachyonDisposeCompanions()
+        IosFilePicker.shared.disposeAll()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -716,6 +763,7 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         AppleBrowserApis.shared.granted = __NATIVE_BROWSER_API_GRANTS__
+        IosFilePicker.shared.granted = __NATIVE_FILE_PICKER_GRANTED__
         __NATIVE_CAPABILITY_REGISTER__
         __NATIVE_APPLICATION_START__
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -934,6 +982,49 @@ mod tests {
         let source = swift_source(&integrated, "tacNativeInvoke(payload)", &index());
         assert!(source.contains("globalThis.__tachyonTitleBar ??= new (class TacMobileTitleBar"));
         assert!(source.contains("case \"window.titleBarInsets\":"));
+    }
+
+    #[test]
+    fn the_ios_host_opens_the_document_picker_for_the_page_linked_services_and_webassembly_services()
+     {
+        let mut granted = application();
+        granted.native_capabilities = vec![String::from("filePicker")];
+        let source = swift_source(&granted, "tacRustInvoke(payload)", &index());
+        let start = source
+            .split("func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {")
+            .nth(1)
+            .expect("scheme handler");
+        assert!(
+            start.starts_with("\n        if IosCapabilityRoute.start(webView, task) { return }")
+        );
+        for check in [
+            "import UniformTypeIdentifiers",
+            "final class IosFilePicker: NSObject, UIDocumentPickerDelegate",
+            "UIDocumentPickerViewController(forOpeningContentTypes: contentTypes, asCopy: false)",
+            "IosCapabilityRoute.stop(task)",
+            "IosFilePicker.shared.call(String(capability.dropFirst(11)), request) { replyHandler($0, nil) }",
+            "return IosFilePicker.shared.callNow(String(capability.dropFirst(11)), request)",
+            "IosFilePicker.shared.call(String(capability.dropFirst(11)), request, answered)",
+            "IosFilePicker.shared.granted = true",
+            "IosFilePicker.shared.presenter = self",
+            "tachyonDisposeCompanions()\n        IosFilePicker.shared.disposeAll()",
+            "globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = [\\\"filePicker\\\"];",
+            "struct FilePickerResult: Codable",
+        ] {
+            assert!(source.contains(check), "{check}");
+        }
+        for placeholder in [
+            "__NATIVE_FILE_PICKER__",
+            "__NATIVE_CAPABILITY_ROUTE__",
+            "__NATIVE_CAPABILITY_MODELS__",
+            "__NATIVE_FILE_PICKER_GRANTED__",
+            "__NATIVE_GRANTS__",
+        ] {
+            assert!(!source.contains(placeholder), "{placeholder}");
+        }
+        let linked = swift_source(&application(), "tacNativeInvoke(payload)", &index());
+        assert!(linked.contains("IosFilePicker.shared.granted = false"));
+        assert!(!linked.contains("struct FilePickerResult: Codable"));
     }
 
     #[test]

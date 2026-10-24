@@ -1,4 +1,5 @@
 use super::android_architecture::AndroidArchitecture;
+use super::android_file_picker::AndroidFilePicker;
 use super::android_gradle_build::AndroidGradleBuild;
 use super::android_release::AndroidRelease;
 use super::android_rust_libraries::AndroidRustLibraries;
@@ -453,12 +454,13 @@ pub(super) fn linked_java_source(
     index: &NativeRouteIndex,
 ) -> String {
     let native_shim = format!(
-        "{}{}",
+        "{}{}{}",
         super::host::native_shim(
             &application.window,
             tachyon_contracts::NativeTarget::Android,
         ),
-        application.window.title_bar.mobile_page_script()
+        application.window.title_bar.mobile_page_script(),
+        AndroidFilePicker::page_script(&application.native_capabilities)
     );
     let route_documents = super::routes::route_documents_json(index);
     let companion_call = if has_companion {
@@ -485,9 +487,10 @@ pub(super) fn linked_java_source(
         .replace(
             "__NATIVE_WINDOW_CONTROLS__",
             &format!(
-                "{}\n{}",
+                "{}\n{}\n{}",
                 super::native_window_controls::NativeWindowControls::android(&application.window),
-                AndroidWindowSettings::java(&application.window)
+                AndroidWindowSettings::java(&application.window),
+                AndroidFilePicker::java(&application.native_capabilities)
             ),
         )
         .replace(
@@ -655,7 +658,7 @@ impl AndroidHostGenerator {
     const id = String(++nextId);
     const timer = setTimeout(() => {
       pending.delete(id); reject(new Error('Android native call timed out.'));
-    }, capability === 'browserApi.notifications.requestPermission' ? 120000 : 10000);
+    }, capability === 'browserApi.notifications.requestPermission' ? 120000 : capability === 'filePicker.open' ? 60000 : 10000);
     pending.set(id, { resolve, reject, timer });
     try { host.postMessage(JSON.stringify({ id, capability, payload })); }
     catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
@@ -726,7 +729,7 @@ public final class MainActivity extends Activity {
   private final class HostBridge {
     public String call(String capability, String payload, String ownerRoute) {
       if ("window.titleBarInsets".equals(capability)) return titleBarInsets;
-      if (capability.startsWith("window.")) return nativeCapability(capability, payload);
+      if (capability.startsWith("window.") || capability.startsWith("filePicker.")) return nativeCapability(capability, payload);
       if ("companion.invoke".equals(capability)) {
         try {
           org.json.JSONObject request = new org.json.JSONObject(payload);
@@ -811,7 +814,8 @@ __NATIVE_MENUS__
         answerBrowserApi(web, request, replyProxy);
         return;
       }
-      final long deadline = android.os.SystemClock.uptimeMillis() + 10000;
+      final long deadline = android.os.SystemClock.uptimeMillis()
+          + ("filePicker.open".equals(request.capability) ? 60000 : 10000);
       bridgeWorker.execute(() -> {
         if (generation != documentGeneration || !ownerRoute.equals(route)
             || android.os.SystemClock.uptimeMillis() > deadline) return;
@@ -830,7 +834,7 @@ __NATIVE_MENUS__
   private String invokeBounded(BridgeRequest request, String ownerRoute) {
     try {
       String result = new HostBridge().call(request.capability, request.payload, ownerRoute);
-      return withinByteLimit(result, 65536) ? result
+      return withinByteLimit(result, request.capability.startsWith("filePicker.") ? 786432 : 65536) ? result
           : "{\"error\":\"Native result exceeds the size limit.\"}";
     } catch (RuntimeException error) {
       return "{\"error\":\"Native host call failed.\"}";
@@ -989,6 +993,7 @@ __NATIVE_RUST_SERVICES__
           public void onPageStarted(WebView web, String url, android.graphics.Bitmap favicon) {
             documentGeneration++;
             disposeCompanions();
+            disposeFilePickers();
             Uri target = Uri.parse(url);
             String canonical = isAssetUrl(target) ? canonicalRoute(target.getPath()) : null;
             route = canonical == null ? "" : canonical;
@@ -1015,7 +1020,8 @@ __NATIVE_RUST_SERVICES__
           public WebResourceResponse shouldInterceptRequest(
               WebView web, WebResourceRequest request) {
             if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;
-            return assetResponse(request.getUrl());
+            WebResourceResponse capability = capabilityResponse(request);
+            return capability != null ? capability : assetResponse(request.getUrl());
           }
         });
     FrameLayout root = new FrameLayout(this);
@@ -1048,6 +1054,7 @@ __NATIVE_RUST_SERVICES__
   protected void onDestroy() {
     documentGeneration++;
     route = "";
+    disposeFilePickers();
     bridgeWorker.shutdownNow();
     __NATIVE_APPLICATION_STOP__
     super.onDestroy();
@@ -1259,8 +1266,8 @@ __NATIVE_RUST_SERVICES__
 #[cfg(test)]
 mod tests {
     use super::{
-        AndroidArchitecture, AndroidHostGenerator, AndroidShrinking, android_manifest, app_gradle,
-        java_package, java_source,
+        AndroidArchitecture, AndroidFilePicker, AndroidHostGenerator, AndroidShrinking,
+        android_manifest, app_gradle, java_package, java_source,
     };
     use crate::native::config::NativeApplication;
 
@@ -1316,7 +1323,7 @@ mod tests {
             r#"private static final String[] OUTGOING_HOSTS = {"api.example.com", "*.cdn.example.com"};"#
         ));
         assert!(source.contains(
-            "if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;\n            return assetResponse(request.getUrl());"
+            "if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;\n            WebResourceResponse capability = capabilityResponse(request);\n            return capability != null ? capability : assetResponse(request.getUrl());"
         ));
         assert!(catalog_java_source(false).contains("OUTGOING_HOSTS = {};"));
     }
@@ -1382,7 +1389,11 @@ mod tests {
             &application().window,
             tachyon_contracts::NativeTarget::Android,
         );
-        let written = format!("{shim}{}", AndroidHostGenerator::ANDROID_BRIDGE_SHIM);
+        let written = format!(
+            "{shim}{}{}",
+            AndroidFilePicker::page_script(&[]),
+            AndroidHostGenerator::ANDROID_BRIDGE_SHIM
+        );
         let hash = crate::compiler::ContentSecurityPolicy::inline_script_hash(&written);
         let policy_line = source
             .lines()
@@ -1589,8 +1600,39 @@ mod tests {
             "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>\n  <application"
         ));
         assert!(AndroidHostGenerator::ANDROID_BRIDGE_SHIM.contains(
-            "capability === 'browserApi.notifications.requestPermission' ? 120000 : 10000"
+            "capability === 'browserApi.notifications.requestPermission' ? 120000 : capability === 'filePicker.open' ? 60000 : 10000"
         ));
+    }
+
+    #[test]
+    fn android_opens_the_storage_access_framework_for_the_page_linked_services_and_webassembly_services()
+     {
+        let mut granted = application();
+        granted.native_capabilities = vec![String::from("filePicker")];
+        let source = java_source(&granted, "dev.tachyon.native_catalog", true, &index());
+        for check in [
+            "if (capability.startsWith(\"window.\") || capability.startsWith(\"filePicker.\")) return nativeCapability(capability, payload);",
+            "if (capability.startsWith(\"filePicker.\")) return filePickerCall(capability.substring(11), payload);",
+            "private static final boolean FILE_PICKER_GRANTED = true;",
+            "WebResourceResponse capability = capabilityResponse(request);",
+            "disposeCompanions();\n            disposeFilePickers();",
+            "route = \"\";\n    disposeFilePickers();",
+            "protected void onActivityResult(int requestCode, int resultCode, Intent data)",
+            "+ (\"filePicker.open\".equals(request.capability) ? 60000 : 10000);",
+            "request.capability.startsWith(\"filePicker.\") ? 786432 : 65536",
+            "globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = [\\\"filePicker\\\"];",
+            "TacNativeCapabilityRegistration.register(this::nativeCapability);",
+        ] {
+            assert!(source.contains(check), "{check}");
+        }
+        assert!(!source.contains("__FILE_PICKER_GRANTED__"));
+        let alone = java_source(
+            &application(),
+            "dev.tachyon.native_catalog",
+            false,
+            &index(),
+        );
+        assert!(alone.contains("private static final boolean FILE_PICKER_GRANTED = false;"));
     }
 
     #[test]

@@ -491,7 +491,7 @@ impl MacOsHostGenerator {
         ""
     }
 
-    fn capability_models(call: &str) -> &'static str {
+    pub(super) fn capability_models(call: &str) -> &'static str {
         if call.contains("tacNativeInvoke") {
             return "";
         }

@@ -7,7 +7,7 @@ __WINDOW_GRANTS__
 
   private String nativeCapability(String capability, String payload) {
     if (capability == null || payload == null || !withinByteLimit(payload, 65536)) return "{\"status\":\"invalid\"}";
-    if (capability.startsWith("filePicker.")) return "{\"status\":\"unsupported\"}";
+    if (capability.startsWith("filePicker.")) return filePickerCall(capability.substring(11), payload);
     if (!capability.startsWith("window.")) return "{\"status\":\"unsupported\"}";
     try {
       org.json.JSONObject request = new org.json.JSONObject(payload);
