@@ -201,6 +201,13 @@ fn the_windows_host_answers_webassembly_pickers_through_the_page_route() {
     );
     assert!(route.contains("PostMessageW(g_window, TACHYON_WM_CAPABILITY, 0, 0);"));
     assert!(!route.contains("tachyon_native_capability("));
+    let body =
+        WindowsFilePickerTests::section(&source, "static char *tachyon_capability_route_body(");
+    assert!(body.contains("content->lpVtbl->Read(content, buffer + total,"));
+    assert!(
+        !source.contains("IStream_Read("),
+        "MSVC's shlwapi.h turns IStream_Read into a three-argument function"
+    );
     let allowed =
         WindowsFilePickerTests::section(&source, "static BOOL tachyon_capability_route_allowed(");
     for check in [

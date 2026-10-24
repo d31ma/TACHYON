@@ -75,7 +75,7 @@ static char *tachyon_capability_route_body(ICoreWebView2WebResourceRequest *requ
   char *buffer = calloc(TACHYON_CAPABILITY_BODY_LIMIT + 2, 1);
   ULONG total = 0, count = 0;
   while (buffer != NULL && total <= TACHYON_CAPABILITY_BODY_LIMIT &&
-         SUCCEEDED(IStream_Read(content, buffer + total, TACHYON_CAPABILITY_BODY_LIMIT + 1 - total, &count)) && count > 0) {
+         SUCCEEDED(content->lpVtbl->Read(content, buffer + total, TACHYON_CAPABILITY_BODY_LIMIT + 1 - total, &count)) && count > 0) {
     total += count;
   }
   IStream_Release(content);
