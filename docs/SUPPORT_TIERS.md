@@ -1019,7 +1019,7 @@ amendment). This evidence does not promote any tier.
 
 `ty preview --target <native>` builds the app, opens it, and has its scheme
 handler load each page from the development server, so edits reach the
-running app as hot updates (ADR 0108). Release builds refuse the development
+running app as hot updates (ADR 0110). Release builds refuse the development
 origin (TY1601). This evidence does not promote any tier.
 
 | Host | Implemented | Validated |

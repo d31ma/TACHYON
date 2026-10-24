@@ -10,7 +10,7 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
-- Native preview against the development server (NET5, ADR 0108):
+- Native preview against the development server (NET5, ADR 0110):
   `ty preview --target <native>` now builds the real app into
   `dist/preview/<target>` and opens it: the macOS, Linux or Windows app as a
   child process, the iOS app in the booted simulator, and the Android app on
