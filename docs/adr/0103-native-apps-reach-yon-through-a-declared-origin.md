@@ -541,6 +541,32 @@ of this decision.
   Linux and Windows have a sender; Android's linked Rust `HTTPClient`
   reaches `tac.yon.origin` (MR2).
 
+## Amendment (2026-10-24): linked Rust on macOS and iOS (LR1)
+
+This amendment supersedes the statement in the 2026-10-19 WSL amendment that
+"a linked Rust service's `HTTPClient` answers `HTTP_MISSING`" on iOS and
+macOS, which stays as the history of this decision.
+
+- The Apple Rust shim, shared by the macOS and iOS hosts, now installs the
+  task dispatch (`tac_native_set_dispatch`). A wake posts one `host-resume`
+  to the main queue, where the companion keeps its task table, as the Linux
+  host does on its GLib main loop.
+- It also installs an HTTP sender (`tac_native_set_http_sender`). The
+  companion hands each request to the host, which sends it with
+  `URLSession` (an ephemeral session, no cookies, redirects not followed,
+  the request's deadline and response limit) and answers through
+  `tac_native_http_answer`. The Rust side is the Linux ticket transport,
+  now `TacHostHttp` for Linux, macOS and iOS.
+- So a linked Rust `HTTPClient`, an async linked Rust method or listener,
+  and a linked Rust service's page-held stream and socket clients work on
+  both Apple hosts.
+- Runs: `scripts/native/yon-reach-test.mjs` with `TAC_YON_SERVICES=rust`
+  passed on macOS 26.6.2 and on the iOS 26.5 simulator over `http` and
+  `https` (Xcode 27.1, Swift 6.4.1, branch `0ba1079e`), with the Swift
+  services passing again. `native_rust_apple_host_tests` builds the shim
+  with a Rust companion and checks a 200 and a 422 answered on the main
+  thread; it passed on that Mac and on Linux with Swift 6.2.
+
 ## Amendment (2026-10-24): Yon reach on a Google Play production image
 
 `scripts/android/yon-origin-test.mjs` and `rust-services-test.mjs` passed on

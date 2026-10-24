@@ -145,7 +145,7 @@ tac.outgoing
   honored: the build checks request hosts and the scheme handler's connect-src allows only them; a page fetch to an undeclared host was refused on the iOS 26.5 simulator (RM2)
 
 tac.yon
-  adapted: tac.yon.origin: the iOS app's pages and linked Swift HTTP clients reach this origin from tachyon-app://bundle over http and https, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator (ADR 0103). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1).
+  honored: the iOS app's pages and its linked Swift and Rust HTTP clients reach tac.yon.origin from tachyon-app://bundle over http and https through URLSession, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator with Swift services and with linked Rust services, whose page-held stream and socket also reached Yon (ADR 0103, LR1)
 
 tac.go
   honored: the same Go WebAssembly build in the web view
@@ -229,7 +229,7 @@ Content-Security-Policy
   honored: the native host policy; connect-src refused an undeclared host on the iOS 26.5 simulator (RM2)
 
 reaching Yon
-  adapted: The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator by scripts/native/yon-reach-test.mjs (NET1). A linked Rust service's HTTPClient, and any other async linked Rust member, answers HTTP_MISSING there, because the iOS host does not run Rust tasks yet (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); an iOS simulator run of that is still owed (yon-reach-test.mjs with a linked Swift stream and socket).
+  adapted: The iOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift and Rust HTTP clients reach the Yon at tac.yon.origin, run on the iOS simulator over http and https by scripts/native/yon-reach-test.mjs (NET1, LR1). The page holds a linked Rust service's stream and socket clients, and that run reached Yon through them too (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); an iOS simulator run of that is still owed (yon-reach-test.mjs with a linked Swift stream and socket).
 
 natively linked service languages
   honored: Rust and Swift services are linked into the app, with Swift chosen when a service has both; other languages run in the page

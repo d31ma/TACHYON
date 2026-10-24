@@ -76,8 +76,10 @@ replaced.
     page. While a Rust task holds the service, a call or field read answers
     `{"code":"BUSY"}` instead of failing, and the native page bridge retries
     it for up to ten seconds. This also covers a Rust async method.
-  - On macOS and iOS, a linked Rust listener that waits for HTTP answers
-    `HTTP_MISSING` until LR1 gives Rust an HTTP sender there.
+  - On macOS and iOS, a linked Rust listener that waits for HTTP reaches
+    `tac.yon.origin` through the hosts' task dispatch and `URLSession` sender
+    since LR1 (2026-10-24, ADR 0103 amendment); before that it answered
+    `HTTP_MISSING` there.
   - Disposing the owner cancels the running listener and drops the waiting
     ones.
 

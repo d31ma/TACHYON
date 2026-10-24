@@ -459,9 +459,9 @@ A model marked `@Topic` works like a Spring Cloud Bus remote event
   Kotlin wait for the listener inside the call. A C# listener finishes on the
   thread pool under the owner lock. A Rust listener finishes through the
   host's task dispatch; while it holds the service, calls and field reads
-  answer `BUSY` and the page retries them. On macOS and iOS a linked Rust
-  listener that waits for HTTP answers `HTTP_MISSING` until LR1 lands, as a
-  linked Rust async method does.
+  answer `BUSY` and the page retries them. On macOS and iOS the host also
+  sends a linked Rust listener's HTTP to `tac.yon.origin` (LR1), as it does
+  for a linked Rust async method.
 - Native client HTTP adapters are still configured by hand.
 - Browser resources reach only Tac JS/TS services.
 

@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Linked Rust on macOS and iOS (LR1, 2026-10-24): the Apple hosts now run
+  linked Rust tasks. A wake resumes them on the main queue, and a linked
+  Rust `HTTPClient` sends its requests to `tac.yon.origin` through
+  `URLSession`, with no cookies or redirects and with the request's deadline
+  and response limit. Async Rust methods and listeners, and a linked Rust
+  service's page-held stream and socket clients, no longer answer
+  `HTTP_MISSING` there. `scripts/native/yon-reach-test.mjs` runs with linked
+  Rust services when `TAC_YON_SERVICES=rust`; it passed on macOS 26.6.2 and
+  on the iOS 26.5 simulator over `http` and `https`. The support table marks
+  `tac.yon` `honored` on both (ADR 0103 amendment).
+
 - macOS runs on a Mac (RM1, 2026-10-24): three new scripts check the
   packaged macOS app. `scripts/application-state-macos-test.mjs` checks that
   a page service and linked Rust and Swift services hear `background` and
