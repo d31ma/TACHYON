@@ -256,15 +256,18 @@ static BOOL CALLBACK file_name_box(HWND window, LPARAM found) {
 }
 
 static DWORD WINAPI choose_in_dialog(void *path) {
-  for (int attempt = 0; attempt < 200; attempt++) {
+  BOOL typed = FALSE;
+  for (int attempt = 0; attempt < 600; attempt++) {
     HWND dialog = NULL, box = NULL;
     EnumWindows(dialog_window, (LPARAM)&dialog);
+    if (dialog == NULL && typed) return 0;
     if (dialog != NULL) EnumChildWindows(dialog, file_name_box, (LPARAM)&box);
     if (box != NULL) {
-      Sleep(500);
       SendMessageW(box, WM_SETTEXT, 0, (LPARAM)path);
       PostMessageW(dialog, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED), (LPARAM)GetDlgItem(dialog, IDOK));
-      return 0;
+      typed = TRUE;
+      Sleep(1000);
+      continue;
     }
     Sleep(100);
   }

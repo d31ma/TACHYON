@@ -203,6 +203,20 @@ function Test-Step([string] $button, [string[]] $labels) {
     }
 }
 
+function Test-RepeatedStep([string] $button, [string] $label) {
+    $until = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        try {
+            Invoke-Control $button
+            Start-Sleep -Milliseconds 500
+            if ($null -ne (Find-Control $label)) { Write-Host "OK: $button -> $label"; return }
+        }
+        catch { if ($script:process.HasExited) { throw } }
+    } while ([DateTime]::UtcNow -lt $until)
+    $script:failures.Add("$button -> '$label' never appeared")
+    Write-Host "FAIL: $button -> '$label' never appeared"
+}
+
 function Test-ReachControls([string] $app) {
     Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     $script:desktop = [System.Windows.Automation.AutomationElement]::RootElement
@@ -220,6 +234,9 @@ function Test-ReachControls([string] $app) {
     Test-Step 'Check signed in' @('SignedIn anonymous refused', 'SignedIn ok reach')
     Test-Step 'Check Rust HTTP' @('Rust HTTP ok hello')
     Test-Step 'Check CSharp HTTP' @('CSharp HTTP ok hello')
+    Test-RepeatedStep 'Check CSharp stream' 'CSharp stream ok 3'
+    Test-Step 'Send CSharp echo' @('CSharp socket sent')
+    Test-RepeatedStep 'Check CSharp socket' 'CSharp socket csharp-echo'
 }
 
 function Write-UiaFailureDiagnostics($window) {
@@ -299,7 +316,7 @@ function Invoke-YonReach {
     }
 
     Remove-Item -LiteralPath $logs -Recurse -Force
-    Write-Host "PASS: the Windows app on https://tachyon.local reached Yon on $origin over HTTP, a stream, a socket, a topic, a Check refusal, a SignedIn route and the linked Rust and C# HTTP clients"
+    Write-Host "PASS: the Windows app on https://tachyon.local reached Yon on $origin over HTTP, a stream, a socket, a topic, a Check refusal, a SignedIn route, the linked Rust and C# HTTP clients, and a linked C# service's stream and socket clients held by the page"
 }
 
 Invoke-YonReach

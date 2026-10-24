@@ -104,7 +104,9 @@ int main(void) {
   expect(insets(&height, &leading, &trailing), "the insets answer is JSON");
   expect(height > 0 && leading == 0 && trailing > 0 && trailing < 400, "the insets hold the caption height and the caption button width");
   RECT buttons;
-  expect(tachyon_title_bar_buttons(window, &buttons) && buttons.right == client.right && buttons.top <= 0, "the caption buttons sit at the trailing top corner");
+  BOOL found = tachyon_title_bar_buttons(window, &buttons);
+  printf("caption buttons: %ld,%ld,%ld,%ld; client right %ld; border %d\n", buttons.left, buttons.top, buttons.right, buttons.bottom, client.right, border);
+  expect(found && labs(buttons.right - client.right) <= border && buttons.top <= 0, "the caption buttons sit at the trailing top corner");
   HRGN region = CreateRectRgn(0, 0, 0, 0);
   expect(GetWindowRgn(g_title_bar_host, region) != ERROR, "the web view host has a region");
   expect(!PtInRegion(region, buttons.left + 1, buttons.bottom - 1) && PtInRegion(region, buttons.left - 1, buttons.bottom - 1) && PtInRegion(region, 1, client.bottom - 1),

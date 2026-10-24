@@ -92,7 +92,7 @@ mod tests {
             .with_floor(NativeTarget::Windows, SystemVersion::new(9999, 0));
         let old = WindowsWebEngineCheck::source(&application);
         for (name, check, folder, expected) in [
-            ("installed", &installed, None, "ready: yes\n"),
+            ("current", &installed, None, "ready: yes\n"),
             (
                 "old",
                 &old,

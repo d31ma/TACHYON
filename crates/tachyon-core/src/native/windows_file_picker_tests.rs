@@ -143,7 +143,7 @@ impl WindowsFilePickerTests {
             if std::time::Instant::now() >= limit {
                 child.kill().expect("stop the file picker check");
                 panic!(
-                    "the file picker check ran past {:?}; a session without a desktop (SSH) never returns from the file dialog",
+                    "the file picker check ran past {:?}; a session without a desktop (SSH) never returns from the file dialog, and on a desktop the dialog never took the typed file",
                     Self::RUN_LIMIT
                 );
             }
