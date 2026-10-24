@@ -301,8 +301,12 @@ fn a_declared_member_with_an_owed_run_names_that_run_once() {
 #[test]
 fn explain_names_each_reach_state_in_plain_words() {
     let root = TargetSupportTests::project(&json!({}));
-    let text = TargetSupport::explain(root.path(), &[AppTarget::Macos]).expect("explain");
-    assert!(text.contains("background_color\n  not applied: "), "{text}");
+    let text =
+        TargetSupport::explain(root.path(), &[AppTarget::Macos, AppTarget::Ios]).expect("explain");
+    assert!(
+        text.contains("tac.nativeCapabilities\n  not applied: "),
+        "{text}"
+    );
     assert!(text.contains("tac.dotnet\n  run owed: "), "{text}");
     assert!(text.contains("; still to run: "), "{text}");
     assert!(

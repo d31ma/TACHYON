@@ -13,7 +13,7 @@ theme_color
   adapted: theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar. With titleBar "integrated" there is no header bar: the page colors the top edge.
 
 background_color
-  not applied: background_color is not applied to the Linux app yet (WIN7).
+  adapted: background_color colors the Linux window and the web view behind the page before it paints, when it is written as #rgb or #rrggbb. Other color forms keep the system background.
 
 display
   adapted: display "fullscreen" starts the Linux app full screen. The other values open a standard window.

@@ -26,12 +26,11 @@ static gboolean tachyon_appearance_content_size(int width, int height) {
   return gtk_widget_get_width(content) == width && gtk_widget_get_height(content) == height;
 }
 
-static gboolean tachyon_appearance_header_pixel(guint red, guint green, guint blue) {
-  GtkWidget *header = gtk_window_get_titlebar(g_native_window);
-  int width = gtk_widget_get_width(header);
-  int height = gtk_widget_get_height(header);
+static gboolean tachyon_appearance_widget_pixel(GtkWidget *widget, guint red, guint green, guint blue) {
+  int width = gtk_widget_get_width(widget);
+  int height = gtk_widget_get_height(widget);
   if (width < 8 || height < 8) return FALSE;
-  GdkPaintable *paintable = gtk_widget_paintable_new(header);
+  GdkPaintable *paintable = gtk_widget_paintable_new(widget);
   GtkSnapshot *snapshot = gtk_snapshot_new();
   gdk_paintable_snapshot(paintable, GDK_SNAPSHOT(snapshot), width, height);
   GskRenderNode *node = gtk_snapshot_free_to_node(snapshot);
@@ -46,9 +45,24 @@ static gboolean tachyon_appearance_header_pixel(guint red, guint green, guint bl
   g_object_unref(texture);
   const guchar *pixel = pixels + (gsize)(height / 2) * stride + (gsize)(width / 4) * 4;
   gboolean matches = abs((int)pixel[2] - (int)red) <= 2 && abs((int)pixel[1] - (int)green) <= 2 && abs((int)pixel[0] - (int)blue) <= 2;
-  if (!matches) printf("header pixel is %02x%02x%02x\n", pixel[2], pixel[1], pixel[0]);
+  if (!matches) printf("%s pixel is %02x%02x%02x\n", G_OBJECT_TYPE_NAME(widget), pixel[2], pixel[1], pixel[0]);
   g_free(pixels);
   return matches;
+}
+
+static gboolean tachyon_appearance_header_pixel(guint red, guint green, guint blue) {
+  return tachyon_appearance_widget_pixel(gtk_window_get_titlebar(g_native_window), red, green, blue);
+}
+
+static gboolean tachyon_appearance_page_background(void) {
+  GdkRGBA color;
+  webkit_web_view_get_background_color(g_view, &color);
+  gboolean declared = abs((int)(color.red * 255 + 0.5) - 0xfd) <= 1 && abs((int)(color.green * 255 + 0.5) - 0xf6) <= 1 &&
+                      abs((int)(color.blue * 255 + 0.5) - 0xe3) <= 1 && color.alpha > 0.99;
+  tachyon_appearance_require(declared, "background_color is not the web view background");
+  tachyon_appearance_require(gtk_widget_has_css_class(GTK_WIDGET(g_native_window), "tachyon-background"),
+                             "background_color did not reach the window");
+  return tachyon_appearance_widget_pixel(GTK_WIDGET(g_view), 0xfd, 0xf6, 0xe3);
 }
 
 static gboolean tachyon_appearance_header_text_is_white(void) {
@@ -89,6 +103,7 @@ static gboolean tachyon_appearance_themed_tick(void) {
     case 2: return tachyon_appearance_header_pixel(0x1a, 0x23, 0x7e);
     case 3: tachyon_appearance_resize_below_minimum(); return TRUE;
     case 4: return tachyon_appearance_content_size(720, 520);
+    case 5: return tachyon_appearance_page_background();
     default: return FALSE;
   }
 }
@@ -98,6 +113,8 @@ static gboolean tachyon_appearance_fullscreen_tick(void) {
     case 0:
       if (!tachyon_appearance_page_loaded()) return FALSE;
       tachyon_appearance_require(gtk_window_get_titlebar(g_native_window) == NULL, "a window without theme_color got a header bar");
+      tachyon_appearance_require(!gtk_widget_has_css_class(GTK_WIDGET(g_native_window), "tachyon-background"),
+                                 "a window without background_color got a background");
       return TRUE;
     case 1: return tachyon_appearance_fullscreen();
     default: return FALSE;
@@ -131,6 +148,6 @@ int main(int argc, char **argv) {
   tachyon_appearance_require(status == 0 && g_appearance_step == TACHYON_APPEARANCE_STEPS, "the host did not finish its run");
   printf("linux window appearance passed: %s\n", TACHYON_APPEARANCE_FULLSCREEN
       ? "display fullscreen started the GTK window fullscreen without a header bar"
-      : "the 900x640 size, the 720x520 minimum and the theme_color header bar reached the GTK window");
+      : "the 900x640 size, the 720x520 minimum, the theme_color header bar and the background_color page backdrop reached the GTK window");
   return 0;
 }

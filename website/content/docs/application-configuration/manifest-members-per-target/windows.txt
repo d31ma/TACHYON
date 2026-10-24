@@ -13,7 +13,7 @@ theme_color
   adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. On a signed-in Windows 11 desktop every caption pixel the gate sampled took the color (SD1).
 
 background_color
-  not applied: background_color is not applied to the Windows app yet (WIN7).
+  run owed: background_color paints the Windows window and is WebView2's default background before the page paints, when it is written as #rgb or #rrggbb; with titleBar "integrated" only WebView2 takes it, and other color forms keep the system background; still to run: the WebView2 page backdrop on a signed-in Windows desktop
 
 display
   adapted: display "fullscreen" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window.

@@ -132,6 +132,7 @@ mod mac_os_signing;
 mod mac_os_slice;
 mod mac_os_title_bar_source;
 mod mac_os_tray_source;
+mod mac_os_window_appearance;
 mod macos;
 #[cfg(test)]
 mod macos_menu_tests;
@@ -253,6 +254,8 @@ mod native_ui_styles_tests;
 #[cfg(test)]
 mod native_web_api_tests;
 mod native_web_stage;
+#[cfg(all(test, target_os = "macos"))]
+mod native_window_appearance_host_tests;
 #[cfg(test)]
 mod native_window_control_tests;
 mod native_window_controls;
@@ -331,6 +334,9 @@ mod windows_title_bar;
 mod windows_title_bar_tests;
 mod windows_version_resource;
 mod windows_web_engine_check;
+mod windows_window_background;
+#[cfg(test)]
+mod windows_window_background_tests;
 mod windows_window_frame;
 #[cfg(test)]
 mod windows_window_frame_tests;

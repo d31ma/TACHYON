@@ -33,6 +33,11 @@ impl AppearanceService {
                 green: 0x23,
                 blue: 0x7e,
             }),
+            background_color: Some(NativeThemeColor {
+                red: 0xfd,
+                green: 0xf6,
+                blue: 0xe3,
+            }),
             display: NativeDisplay::Standalone,
             ..WindowConfiguration::default()
         }
@@ -46,7 +51,7 @@ impl AppearanceService {
     }
 
     fn fixture(fullscreen: bool) -> String {
-        let (flag, steps) = if fullscreen { (1, 2) } else { (0, 5) };
+        let (flag, steps) = if fullscreen { (1, 2) } else { (0, 6) };
         format!(
             "#define TACHYON_APPEARANCE_FULLSCREEN {flag}\n#define TACHYON_APPEARANCE_STEPS {steps}\n{}",
             include_str!("linux_window_appearance_fixture.c")
@@ -108,12 +113,14 @@ fn the_appearance_fixture_checks_each_declared_member_of_both_windows() {
     assert!(source.contains("gtk_window_set_default_size(window, 900, 640);"));
     assert!(source.contains("gtk_widget_set_size_request(content, 720, 520);"));
     assert!(source.contains("background: #1a237e; color: #ffffff;"));
+    assert!(source.contains("gdk_rgba_parse(&background, \"#fdf6e3\");"));
     assert!(!source.contains("gtk_window_fullscreen"));
     let fullscreen = super::linux_window_appearance::LinuxWindowAppearance::source(
         &LinuxWindowAppearanceTests::fullscreen_window(),
     );
     assert!(fullscreen.contains("gtk_window_fullscreen(window);"));
     assert!(!fullscreen.contains("gtk_header_bar_new"));
+    assert!(!fullscreen.contains("webkit_web_view_set_background_color"));
     for fullscreen in [false, true] {
         let fixture = LinuxWindowAppearanceTests::fixture(fullscreen);
         assert!(fixture.contains("tachyon_capability_call(\"window.resize\""));

@@ -5,13 +5,13 @@ use super::native_title_bar::NativeTitleBar;
 use super::native_title_bar_button_inset::NativeTitleBarButtonInset;
 use std::process::Command;
 
-struct WindowsTitleBarTests;
+pub(super) struct WindowsTitleBarTests;
 
 impl WindowsTitleBarTests {
     #[cfg(unix)]
-    const MINGW: &str = "x86_64-w64-mingw32-gcc";
+    pub(super) const MINGW: &str = "x86_64-w64-mingw32-gcc";
     #[cfg(unix)]
-    const WARNINGS: [&str; 5] = [
+    pub(super) const WARNINGS: [&str; 5] = [
         "-std=gnu17",
         "-Wall",
         "-Wextra",
@@ -29,7 +29,7 @@ impl WindowsTitleBarTests {
         }
     }
 
-    fn application(window: WindowConfiguration) -> NativeApplication {
+    pub(super) fn application(window: WindowConfiguration) -> NativeApplication {
         NativeApplication {
             name: String::from("Title Bar Check"),
             executable_name: String::from("TitleBarCheck"),
@@ -79,7 +79,7 @@ impl WindowsTitleBarTests {
     }
 
     #[cfg(unix)]
-    fn headers(root: &std::path::Path) -> Vec<std::ffi::OsString> {
+    pub(super) fn headers(root: &std::path::Path) -> Vec<std::ffi::OsString> {
         let include = Self::webview2_include().expect("TAC_WEBVIEW2_SDK");
         let shims = root.join("shims");
         std::fs::create_dir_all(&shims).expect("shims");
@@ -106,7 +106,7 @@ impl WindowsTitleBarTests {
     }
 
     #[cfg(unix)]
-    fn display() -> Command {
+    pub(super) fn display() -> Command {
         if std::env::var_os("DISPLAY").is_some() {
             return Command::new("env");
         }
@@ -115,7 +115,7 @@ impl WindowsTitleBarTests {
         command
     }
 
-    fn success(command: &mut Command) -> String {
+    pub(super) fn success(command: &mut Command) -> String {
         let output = command.output().expect("program");
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         assert!(
