@@ -80,6 +80,8 @@ public static class TachyonDesktop
     [DllImport("user32.dll")] static extern IntPtr GetSubMenu(IntPtr menu, int position);
     [DllImport("user32.dll")] static extern uint GetMenuItemID(IntPtr menu, int position);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetMenuStringW(IntPtr menu, uint item, StringBuilder text, int size, uint flags);
+    [DllImport("user32.dll")] static extern bool GetMenuItemRect(IntPtr window, IntPtr menu, uint item, out Box box);
+    [DllImport("user32.dll")] static extern uint GetMenuState(IntPtr menu, uint item, uint flags);
     [DllImport("user32.dll")] static extern bool GetGUIThreadInfo(uint thread, ref ThreadInfo info);
     [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
@@ -362,6 +364,45 @@ public static class TachyonDesktop
             if (MenuText(bar, position) == title) return GetSubMenu(bar, position);
         }
         return IntPtr.Zero;
+    }
+
+    public static IntPtr PopupMenu(IntPtr popupWindow)
+    {
+        IntPtr menu;
+        if (SendMessageTimeoutW(popupWindow, 0x01E1, IntPtr.Zero, IntPtr.Zero, 2, 3000, out menu) == IntPtr.Zero) return IntPtr.Zero;
+        return menu;
+    }
+
+    public static string[] PopupLabels(IntPtr popupWindow)
+    {
+        IntPtr menu = PopupMenu(popupWindow);
+        List<string> labels = new List<string>();
+        if (menu == IntPtr.Zero) return labels.ToArray();
+        for (int position = 0; position < GetMenuItemCount(menu); position++)
+        {
+            string text = MenuText(menu, position);
+            int tab = text.IndexOf('\t');
+            if (text.Length > 0) labels.Add((tab < 0 ? text : text.Substring(0, tab)).Replace("&", ""));
+        }
+        return labels.ToArray();
+    }
+
+    public static int PopupItemBox(IntPtr popupWindow, string label, out Box box, out bool enabled)
+    {
+        box = new Box();
+        enabled = false;
+        IntPtr menu = PopupMenu(popupWindow);
+        if (menu == IntPtr.Zero) return -1;
+        for (int position = 0; position < GetMenuItemCount(menu); position++)
+        {
+            string text = MenuText(menu, position);
+            int tab = text.IndexOf('\t');
+            if ((tab < 0 ? text : text.Substring(0, tab)).Replace("&", "") != label) continue;
+            enabled = (GetMenuState(menu, (uint)position, 0x400) & 0x3) == 0;
+            if (!GetMenuItemRect(IntPtr.Zero, menu, (uint)position, out box)) return -2;
+            return position;
+        }
+        return -1;
     }
 
     public static string[] MenuLabels(IntPtr window, string title)
@@ -778,30 +819,18 @@ function Wait-Popup([int] $seconds = 5) {
     throw "timed out after $seconds s waiting for a popup menu of the app"
 }
 
-function Get-PopupItems([IntPtr] $popup) {
-    $condition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::MenuItem)
-    return @([System.Windows.Automation.AutomationElement]::FromHandle($popup).FindAll(
-        [System.Windows.Automation.TreeScope]::Descendants, $condition))
-}
-
 function Get-PopupNames([IntPtr] $popup) {
-    return @(Get-PopupItems $popup | ForEach-Object { ($_.Current.Name -split "`t")[0].Trim() })
+    return @([TachyonDesktop]::PopupLabels($popup))
 }
 
 function Invoke-PopupItem([IntPtr] $popup, [string] $label) {
-    $item = Get-PopupItems $popup | Where-Object { ($_.Current.Name -split "`t")[0].Trim() -eq $label } | Select-Object -First 1
-    if ($null -eq $item) { throw "the popup menu has no '$label' item; it holds: $((Get-PopupNames $popup) -join ', ')" }
-    if (-not $item.Current.IsEnabled) { throw "the popup menu item '$label' is disabled" }
-    $pattern = $null
-    if ($item.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
-        ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
-    }
-    else {
-        $center = Get-Center $item
-        [TachyonDesktop]::Click($center[0], $center[1])
-    }
+    $box = New-Object TachyonDesktop+Box
+    $enabled = $false
+    $position = [TachyonDesktop]::PopupItemBox($popup, $label, [ref]$box, [ref]$enabled)
+    if ($position -eq -1) { throw "the popup menu has no '$label' item; it holds: $((Get-PopupNames $popup) -join ', ')" }
+    if ($position -eq -2) { throw "the popup menu item '$label' has no screen rectangle" }
+    if (-not $enabled) { throw "the popup menu item '$label' is disabled" }
+    [TachyonDesktop]::Click([int](($box.Left + $box.Right) / 2), [int](($box.Top + $box.Bottom) / 2))
     Start-Sleep -Milliseconds 400
 }
 
@@ -870,7 +899,7 @@ function Stop-GateApp {
     $grace = [DateTime]::UtcNow.AddSeconds(5)
     foreach ($ownedProcess in $owned) {
         $wait = [Math]::Max(0, [int]($grace - [DateTime]::UtcNow).TotalMilliseconds)
-        if (-not $ownedProcess.WaitForExit($wait)) { & taskkill /PID $ownedProcess.Id /T /F | Out-Null }
+        if (-not $ownedProcess.WaitForExit($wait)) { & $env:ComSpec /d /c "taskkill /PID $($ownedProcess.Id) /T /F >nul 2>&1" }
     }
     foreach ($ownedProcess in $owned) {
         if (-not $ownedProcess.WaitForExit(5000)) { Write-Warning "process $($ownedProcess.Id) did not stop" }

@@ -26,6 +26,9 @@ function Write-BarFixture([string] $root) {
 '@
     Write-FixtureFile $root 'client/shared/shell.css' @'
 body { margin: 0; font-family: sans-serif; background: #ffffff; color: #111111; }
+main { padding: 16px; }
+'@
+    Write-FixtureFile $root 'client/components/shell/bar/tac.css' @'
 .top-bar {
   display: flex; align-items: center; gap: 16px; box-sizing: border-box;
   min-height: max(48px, var(--tac-titlebar-height, 0px));
@@ -33,7 +36,6 @@ body { margin: 0; font-family: sans-serif; background: #ffffff; color: #111111; 
   padding-inline-end: max(16px, var(--tac-titlebar-trailing-inset, 0px));
   background: #2e7d32; color: #ffffff;
 }
-main { padding: 16px; }
 '@
     Write-FixtureFile $root 'client/pages/tac.html' "<shell-bar hydrate=`"load`" />`n"
     Write-FixtureFile $root 'client/components/shell/bar/tac.html' @'
