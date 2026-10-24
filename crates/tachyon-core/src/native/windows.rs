@@ -1704,8 +1704,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   if (!tachyon_title_bar_install(g_window, instance)) { tachyon_application_stop(); CoUninitialize(); return 1; }
   ShowWindow(g_window, tachyon_window_open(g_window, show));
 
-  wchar_t *data_folder = tachyon_package_data_folder();
   tachyon_window_background_environment();
+  wchar_t *data_folder = tachyon_package_data_folder();
   CreateCoreWebView2EnvironmentWithOptions(
       NULL, data_folder, NULL,
       (ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *)&g_environment_handler);
