@@ -308,6 +308,10 @@ fn with_window_settings(host: &str, window: &super::config::WindowConfiguration)
             "__NATIVE_TITLE_BAR_SETTINGS__",
             &super::mac_os_title_bar_source::MacOsTitleBarSource::settings(window),
         )
+        .replace(
+            "__NATIVE_WINDOW_APPEARANCE__",
+            &super::mac_os_window_appearance::MacOsWindowAppearance::swift(window),
+        )
 }
 
 pub(super) fn swift_source(
@@ -599,6 +603,7 @@ __NATIVE_MENU_MODELS__
 __NATIVE_MENU_CALLS__
 __NATIVE_TITLE_BAR__
 __NATIVE_APPLICATION_STATE__
+__NATIVE_WINDOW_APPEARANCE__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonTrayHidesWindow = __NATIVE_TRAY_HIDES__
@@ -940,9 +945,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window.isReleasedWhenClosed = false
         window.delegate = self
         titleBar.install(window, view)
+        MacOsWindowAppearance.prepare(window, view)
         self.titleBar = titleBar
         NativeBridge.shared.titleBar = titleBar
         window.makeKeyAndOrderFront(nil)
+        MacOsWindowAppearance.open(window)
         self.window = window
         NativeBridge.shared.window = window
         installMenus(view, window)

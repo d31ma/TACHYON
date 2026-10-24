@@ -14,6 +14,10 @@ impl LinuxWindowAppearance {
             .replace("__WINDOW_HEIGHT__", &window.height.to_string())
             .replace("__WINDOW_MINIMUM_SIZE__", &Self::minimum_size(window))
             .replace("__WINDOW_THEME_COLOR__", &Self::theme_color(window))
+            .replace(
+                "__WINDOW_BACKGROUND_COLOR__",
+                &Self::background_color(window),
+            )
             .replace("__WINDOW_DISPLAY__", Self::display(window))
     }
 
@@ -46,6 +50,23 @@ impl LinuxWindowAppearance {
         )
     }
 
+    fn background_color(window: &WindowConfiguration) -> String {
+        let Some(color) = window.background_color else {
+            return String::new();
+        };
+        let background = Self::css_hex(color);
+        format!(
+            "GdkRGBA background;\n  \
+             gdk_rgba_parse(&background, \"{background}\");\n  \
+             webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(content), &background);\n  \
+             gtk_widget_add_css_class(GTK_WIDGET(window), \"tachyon-background\");\n  \
+             GtkCssProvider *backdrop = gtk_css_provider_new();\n  \
+             gtk_css_provider_load_from_string(backdrop, \"window.tachyon-background, window.tachyon-background:backdrop {{ background: {background}; }}\");\n  \
+             gtk_style_context_add_provider_for_display(gtk_widget_get_display(GTK_WIDGET(window)), GTK_STYLE_PROVIDER(backdrop), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);\n  \
+             g_object_unref(backdrop);"
+        )
+    }
+
     fn css_hex(color: NativeThemeColor) -> String {
         format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue)
     }
@@ -72,6 +93,7 @@ mod tests {
         assert!(!source.contains("gtk_widget_set_size_request"));
         assert!(!source.contains("gtk_header_bar_new"));
         assert!(!source.contains("gtk_window_fullscreen"));
+        assert!(!source.contains("webkit_web_view_set_background_color"));
         assert!(!source.contains("__WINDOW_"));
     }
 
@@ -109,5 +131,26 @@ mod tests {
         };
         let source = LinuxWindowAppearance::source(&window);
         assert!(source.contains("{ background: #ffd700; color: #000000; }"));
+    }
+
+    #[test]
+    fn background_color_reaches_the_web_view_and_the_window_before_the_first_paint() {
+        let window = WindowConfiguration {
+            background_color: Some(NativeThemeColor {
+                red: 0xfd,
+                green: 0xf6,
+                blue: 0xe3,
+            }),
+            ..WindowConfiguration::default()
+        };
+        let source = LinuxWindowAppearance::source(&window);
+        assert!(source.contains("gdk_rgba_parse(&background, \"#fdf6e3\");"));
+        assert!(source.contains(
+            "webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(content), &background);"
+        ));
+        assert!(source.contains(
+            "window.tachyon-background, window.tachyon-background:backdrop { background: #fdf6e3; }"
+        ));
+        assert!(!source.contains("gtk_header_bar_new"));
     }
 }

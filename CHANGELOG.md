@@ -21,6 +21,17 @@ machine contracts have their own, independent major versions.
   Android (ADR 0102 amendment). The iOS audit does not look inside web view
   content (`docs/SUPPORT_TIERS.md`).
 
+- Desktop window colors and display (WIN7, ADR 0052 amendment): the macOS
+  app colors its title bar with `theme_color` and picks dark or light title
+  text by contrast, colors the window and the page backdrop with
+  `background_color`, and starts full screen with `display: "fullscreen"`.
+  The Windows and Linux apps color the window and the web view with
+  `background_color`, so a dark page no longer flashes white while it loads.
+  Other color forms keep the system colors and the build prints a note. The
+  Linux run passed under Xvfb and the Windows code passed a MinGW compile
+  and a Wine paint check; the macOS run and the WebView2 backdrop on a
+  signed-in desktop are still owed.
+
 - Linked Rust on macOS and iOS (LR1, 2026-10-24): the Apple hosts now run
   linked Rust tasks. A wake resumes them on the main queue, and a linked
   Rust `HTTPClient` sends its requests to `tac.yon.origin` through

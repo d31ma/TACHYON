@@ -10,13 +10,13 @@ icons
   honored: the largest raster icon becomes the .icns file; staging the app on another system skips the icon and prints a note
 
 theme_color
-  not applied: theme_color is written into each page head, but the macOS window does not use it yet (WIN7).
+  run owed: theme_color colors the macOS title bar, with black or white title text by contrast, when it is written as #rgb or #rrggbb and the title bar is standard; with titleBar "integrated" the page colors the top edge, and other color forms keep the system title bar; still to run: the macOS window appearance host test on a Mac desktop
 
 background_color
-  not applied: background_color is not applied to the macOS app yet (WIN7).
+  run owed: background_color colors the macOS window and the web view behind the page before it paints, when it is written as #rgb or #rrggbb; other color forms keep the system background; still to run: the macOS window appearance host test on a Mac desktop
 
 display
-  not applied: display is not applied yet. The macOS app opens a standard window (WIN7).
+  run owed: display "fullscreen" starts the macOS app full screen in its own space; the other values open a standard window; still to run: the macOS window appearance host test on a Mac desktop
 
 orientation
   not applicable: orientation has no meaning for a macOS window.

@@ -335,3 +335,49 @@ does not resize a client, so the X11 runs passed.
 - A Wayland app cannot see that it is minimized (xdg-shell has no such
   state), so the Wayland run checks that a granted `minimize` call succeeds,
   not that the window went away.
+
+## Amendment (2026-10-24): Desktop windows read the colors and display
+
+The macOS window still ignored `theme_color`, `background_color` and
+`display`, and the Windows and Linux windows ignored `background_color`, so
+a desktop app showed a white page area until its first paint (plan item
+WIN7). This amendment applies them, with the color rules of the Windows
+amendment above (`#rgb` or `#rrggbb`; other forms keep the system color and
+the build's note says so).
+
+### Decision
+
+- macOS, standard title bar: a `theme_color` makes the title bar transparent
+  over a window of that color, and the window takes the dark or light
+  appearance whose title text has more contrast. The web view keeps
+  following the application's appearance, so the page's
+  `prefers-color-scheme` does not change with the title bar. With
+  `titleBar: "integrated"` the page draws the top edge and `theme_color`
+  colors nothing natively.
+- macOS: a `background_color` colors the window and the web view's own layer
+  behind the page, so the page area shows that color before the first paint
+  and wherever the page is transparent. With only a `theme_color`, the page
+  area keeps the system window background.
+- macOS: `display: "fullscreen"` starts the window full screen in its own
+  space, as the green window button does. The other values open a standard
+  window.
+- Windows: a `background_color` is the window class brush, the
+  `WEBVIEW2_DEFAULT_BACKGROUND_COLOR` that WebView2 starts with, and the
+  controller's `DefaultBackgroundColor`. With `titleBar: "integrated"` the
+  window keeps the black brush its extended frame needs, and only WebView2
+  takes the color.
+- Linux: a `background_color` is the WebKitGTK view's background color and
+  the GTK window's background.
+
+### Consequences
+
+- A desktop app with a dark page no longer flashes white while it loads.
+- Evidence (2026-10-24): `linux_window_appearance_tests` read the color back
+  from the web view and sampled it in the rendered page area of the
+  generated host, with GTK 4.14.5 and WebKitGTK 2.52.6 under Xvfb with
+  xfwm4 in an x86_64 Ubuntu 24.04 cloud container. The whole Windows host
+  with a `background_color` compiled with MinGW against the WebView2
+  headers, and `windows_window_background_tests` painted the color in a
+  Win32 window under Wine. Owed: the macOS host test
+  (`native_window_appearance_host_tests`) on a Mac desktop, and the WebView2
+  page backdrop on a signed-in Windows desktop.

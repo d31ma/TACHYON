@@ -40,5 +40,6 @@ static void tachyon_window_appearance(GtkWindow *window, GtkWidget *content) {
   gtk_widget_add_tick_callback(content, tachyon_window_measure_frame, window, NULL);
   __WINDOW_MINIMUM_SIZE__
   __WINDOW_THEME_COLOR__
+  __WINDOW_BACKGROUND_COLOR__
   __WINDOW_DISPLAY__
 }

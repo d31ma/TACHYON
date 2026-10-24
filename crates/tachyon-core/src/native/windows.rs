@@ -751,6 +751,13 @@ pub(super) fn c_source(
     let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
     let header_capacity = WindowsHostGenerator::response_header_capacity(application);
     let frame = super::windows_window_frame::WindowsWindowFrame::source(&application.window);
+    let background = super::windows_window_background::WindowsWindowBackground::window_source(
+        &application.window,
+    );
+    let web_view_background =
+        super::windows_window_background::WindowsWindowBackground::web_view_source(
+            &application.window,
+        );
     let title_bar = super::windows_title_bar::WindowsTitleBar::source(&application.window);
     let web_engine_check =
         super::windows_web_engine_check::WindowsWebEngineCheck::source(application);
@@ -781,6 +788,8 @@ pub(super) fn c_source(
             ("__SERVICE_COMPANIONS__", &service_companions),
             ("__RESPONSE_HEADER_CAPACITY__", &header_capacity),
             ("__WINDOW_FRAME__", &frame),
+            ("__WINDOW_BACKGROUND__", &background),
+            ("__WEB_VIEW_BACKGROUND__", &web_view_background),
             ("__WINDOW_TITLE_BAR__", &title_bar),
             ("__TASK_RESUME__", WindowsHostGenerator::TASK_RESUME),
             (
@@ -887,6 +896,8 @@ static wchar_t *tachyon_widen(const char *value);
 
 __WINDOW_CONTROLS__
 __WINDOW_FRAME__
+__WINDOW_BACKGROUND__
+__WEB_VIEW_BACKGROUND__
 
 __PACKAGE_DATA__
 __FILE_PICKER__
@@ -1460,6 +1471,7 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   ICoreWebView2Controller_AddRef(controller);
   ICoreWebView2Controller_get_CoreWebView2(controller, &g_webview);
   tachyon_title_bar_settings(g_webview);
+  tachyon_web_view_background(controller);
   ICoreWebView2Controller_put_IsVisible(controller, TRUE);
 
   RECT bounds;
@@ -1676,6 +1688,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   window_class.hInstance = instance;
   window_class.lpszClassName = L"TachyonNativeHost";
   window_class.hCursor = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW);
+  window_class.hbrBackground = tachyon_window_background_brush();
   RegisterClassExW(&window_class);
 
   wchar_t *title = tachyon_widen(TACHYON_APP_NAME);
@@ -1692,6 +1705,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   ShowWindow(g_window, tachyon_window_open(g_window, show));
 
   wchar_t *data_folder = tachyon_package_data_folder();
+  tachyon_window_background_environment();
   CreateCoreWebView2EnvironmentWithOptions(
       NULL, data_folder, NULL,
       (ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *)&g_environment_handler);
