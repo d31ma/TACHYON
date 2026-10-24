@@ -319,7 +319,20 @@ WebKitGTK 2.52.6). In each, the service opened GTK's dialog, which took a
 typed path, and read the file; a second `open` was cancelled with Escape and
 answered `cancelled`. The generated Windows host compiled with MinGW
 against the WebView2 1.0.3240.44 headers, and the Wine picker checks
-passed. Owed: a C# and a Kotlin field in the macOS panel on a Mac, and a
-Swift and a Kotlin field from a WebView2 page on a signed-in Windows
-desktop. A synchronous request to a custom scheme is proven on WebKitGTK
-only so far.
+passed. Owed: a Swift and a Kotlin field from a WebView2 page on a
+signed-in Windows desktop.
+
+Also on 2026-10-24, on a Mac (macOS 26.6.2), `ty` built the same feature
+for macOS with the C# and with the Kotlin service, both running as
+WebAssembly. In each app the service opened `NSOpenPanel`, which took a
+typed path, and read a UTF-8 text file back with its non-ASCII characters
+intact; a second `open` was cancelled with Escape and answered `cancelled`
+(`Cancelled` in C#). WKWebView's `WKURLSchemeHandler` receives the
+synchronous request with its body, so the page route needs no change on
+macOS. A synchronous request to a custom scheme is proven on WebKitGTK and
+WKWebView. The same day, on the Surface (MSVC 19.44 ARM64), `ty build
+--target windows` with the Kotlin service stopped with C2197: MSVC's
+`shlwapi.h` replaces the `COBJMACROS` `IStream_Read` macro with its own
+three-argument function, so the page route now calls `Read` through the
+stream's vtable. MinGW keeps the macro, which is why the cloud build
+passed.

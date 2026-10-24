@@ -130,7 +130,7 @@ tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk
 
 tac.nativeCapabilities
-  run owed: filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page; still to run: a C# and a Kotlin FilePicker field choosing a file in the macOS panel on a Mac
+  honored: filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page; C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5)
 
 tac.elements
   adapted: tac.elements are bundled into the macOS app for its own pages only. Other sites cannot load them from the app.

@@ -433,7 +433,7 @@
     "member": "tac.nativeCapabilities",
     "paths": ["tac.nativeCapabilities"],
     "web": {"reach": "notApplicable", "note": "tac.nativeCapabilities is read only by native builds. In a browser, FilePicker answers unsupported."},
-    "macos": {"reach": "runOwed", "how": "filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page", "run": "a C# and a Kotlin FilePicker field choosing a file in the macOS panel on a Mac"},
+    "macos": {"reach": "honored", "how": "filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page; C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5)"},
     "windows": {"reach": "runOwed", "how": "filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services, and for Swift and Kotlin services, which run as WebAssembly on Windows and reach the dialog through the page; the MSVC build selected a file in the Windows dialog and closed an unanswered one (SD1)", "run": "a page and a Swift and a Kotlin FilePicker field choosing a file from a WebView2 page on a signed-in Windows desktop"},
     "linux": {"reach": "honored", "how": "filePicker opens the GTK file dialog, or the desktop portal's chooser where one runs, for page and Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly on Linux and reach the dialog through the page"},
     "ios": {"reach": "notApplied", "note": "tac.nativeCapabilities filePicker is not built for iOS yet. FilePicker answers unsupported (FP4)."},
