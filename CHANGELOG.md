@@ -1829,6 +1829,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A linked C# service in the Windows app now tells the page to read its
+  fields again when an async `@OnEvent` listener, or a listener queued
+  behind one, finishes (LS3 host runs). Before, the call that published the
+  event answered first, the listeners finished on the thread pool, and the
+  page kept showing the old values until something else rendered it.
 - A linked Kotlin `suspend` method or `@OnEvent` listener on Android that
   really suspends, for example one resumed from another thread, now holds
   the call until it resumes, as Swift does (LS3 host runs). Before, the call

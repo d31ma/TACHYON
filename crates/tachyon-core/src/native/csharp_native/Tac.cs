@@ -64,11 +64,16 @@ public partial class Tac
             await ListenerWork(listener, delivery.Value, delivery.Republish).WaitAsync(owner.Cancellation.Token);
             RequireTaskOwner(owner);
             if (!Handling) Drain(owner);
+            SendNativeSignal(ChangedSignal(owner));
         }
         catch (System.OperationCanceledException) {}
         catch (Exception) { EventFailure(); }
         finally { owner.PendingTasks--; }
     }
+
+    private static string ChangedSignal(Activation owner) =>
+        "{\"route\":" + Encode(owner.Route) + ",\"service\":" + Encode(owner.Service)
+        + ",\"owner\":" + Encode(owner.Owner) + ",\"changed\":true}";
 
     private static string StartNativeTask(string request, JsonObject parsed)
     {
