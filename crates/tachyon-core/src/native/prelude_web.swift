@@ -114,7 +114,44 @@ func tacCancelTasks(_ owner: String?) {
 }
 
 func tacCreateNativeOwner<T>(_ owner: String, _ work: () -> T) -> T {
-    work()
+    TacPageCapabilities.create(owner, work)
 }
 
-func tacDisposeNativeOwner(_ owner: String) {}
+func tacDisposeNativeOwner(_ owner: String) {
+    TacPageCapabilities.dispose(owner)
+}
+
+enum TacPageCapabilities {
+    static let unsupported = "{\"status\":\"unsupported\"}"
+    nonisolated(unsafe) static var constructing = ""
+    nonisolated(unsafe) static var active: Set<String> = []
+    nonisolated(unsafe) static var used: Set<String> = []
+
+    static func create<T>(_ owner: String, _ work: () -> T) -> T {
+        let previous = constructing
+        active.insert(owner)
+        constructing = owner
+        defer { constructing = previous }
+        return work()
+    }
+
+    static func dispose(_ owner: String) {
+        guard active.remove(owner) != nil, used.remove(owner) != nil else { return }
+        _ = send("filePicker.dispose", tacEncode(["owner": owner]))
+    }
+
+    static func answer(_ owner: String, _ capability: String, _ fields: [String: Any]) -> String {
+        guard !owner.isEmpty else { return unsupported }
+        guard active.contains(owner) else { return "{\"status\":\"disposed\"}" }
+        var request = fields
+        request["owner"] = owner
+        let text = tacEncode(request)
+        guard capability.utf8.count <= 64, text.utf8.count <= 65536 else { return "{\"status\":\"invalid\"}" }
+        used.insert(owner)
+        return send(capability, text)
+    }
+
+    private static func send(_ capability: String, _ request: String) -> String {
+        (try? TacWebHost.call("nativeCapability", "call", ["swift", capability, request])) as? String ?? unsupported
+    }
+}

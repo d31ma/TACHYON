@@ -16,7 +16,8 @@ typedef struct {
 } TachyonFilePickerChoice;
 
 static const gchar *TACHYON_FILE_PICKER_PAGE =
-    "globalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;";
+    "globalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeFilePickerRoute = true; "
+    "globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;";
 static gboolean g_file_picker_granted = __FILE_PICKER_GRANTED__;
 static GHashTable *g_picked_files = NULL;
 static GCancellable *g_file_picker_dialog = NULL;
