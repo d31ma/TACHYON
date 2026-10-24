@@ -16,7 +16,7 @@ export class PageServicesFixture {
     ['click', 'Resize'],
     ['size', [1280, 800]],
   ]
-  static pickerStatuses = { js: ['read', 'cancelled'], swift: ['read', 'cancelled'], kt: ['read', 'cancelled'], cs: ['Read', 'Cancelled'] }
+  static pickerStatuses = { js: ['read', 'cancelled'], rs: ['read', 'cancelled'], swift: ['read', 'cancelled'], kt: ['read', 'cancelled'], cs: ['Read', 'Cancelled'] }
 
   /** @param {string} name @param {string} fallback */
   static list(name, fallback) {

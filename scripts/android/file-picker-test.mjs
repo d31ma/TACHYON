@@ -76,11 +76,13 @@ class AndroidFilePickerGate {
     assert.fail('The system document picker did not open');
   }
 
-  static async choose() {
+  static async choose(language) {
     const gate = AndroidFilePickerGate;
     const taps = [];
+    let shown = '';
     for (let attempt = 0; attempt < gate.waitAttempts; attempt++) {
-      const nodes = gate.nodes(gate.screen());
+      shown = gate.screen();
+      const nodes = gate.nodes(shown);
       const file = nodes.find(node => node.text === gate.fileName);
       const downloads = nodes.find(node => ['Downloads', 'Download'].includes(node.text) && gate.pickerShown([node]));
       const roots = nodes.find(node => node.description === 'Show roots');
@@ -89,6 +91,8 @@ class AndroidFilePickerGate {
       if (file) return taps;
       await gate.pause(next ? 1000 : 250);
     }
+    writeFileSync(path.join(gate.evidence, `${language}-picker-stuck.xml`), shown);
+    gate.screenshot(`${language}-picker-stuck`);
     assert.fail(`The picker never listed ${gate.fileName}: ${taps.join(' > ')}`);
   }
 
@@ -112,6 +116,10 @@ class AndroidFilePickerGate {
     }
     assert.match(pid, /^\d+$/, `${packageName} must start`);
     return pid;
+  }
+
+  static async press(page) {
+    await page.evaluate(() => { setTimeout(() => document.querySelector('button')?.click(), 0); });
   }
 
   static async status(page, expected) {
@@ -141,13 +149,13 @@ class AndroidFilePickerGate {
       assert.equal(await gate.status(page, 'Ready'), 'Ready');
       const wasm = await page.evaluate(() => performance.getEntriesByType('resource').some(entry => entry.name.endsWith('.wasm')));
       assert.equal(wasm, !gate.linked.includes(language) && language !== 'js', `${language}: ${gate.linked.includes(language) ? 'linked into the app' : 'runs in the page'}`);
-      await choose.click();
+      await gate.press(page);
       await gate.waitForPicker();
       gate.screenshot(`${language}-picker`);
-      const taps = await gate.choose();
+      const taps = await gate.choose(language);
       const chosen = await gate.status(page, read);
       gate.screenshot(`${language}-read`);
-      await choose.click();
+      await gate.press(page);
       await gate.waitForPicker();
       gate.adbShell('input', 'keyevent', 'KEYCODE_BACK');
       const closed = await gate.status(page, cancelled);
@@ -171,6 +179,7 @@ class AndroidFilePickerGate {
     const notes = path.join(mkdtempSync(path.join(tmpdir(), 'tachyon-android-picker-file-')), gate.fileName);
     writeFileSync(notes, 'Quarterly notes\n');
     gate.run(gate.adb, ['push', notes, gate.device], { timeout: 120000 });
+    gate.adbShell('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', `file://${gate.device}`);
     const binary = gate.binary();
     const report = { device: gate.adbShell('getprop', 'ro.product.model'), release: gate.adbShell('getprop', 'ro.build.version.release'), results: [], failures: [] };
     for (const language of gate.languages) {
