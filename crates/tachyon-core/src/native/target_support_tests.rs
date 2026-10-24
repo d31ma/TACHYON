@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::config::TacMember;
+use super::target_reach::TargetReach;
 use super::target_support::TargetSupport;
 use crate::AppTarget;
 use serde_json::{Value, json};
@@ -304,8 +305,15 @@ fn explain_names_each_reach_state_in_plain_words() {
     let text =
         TargetSupport::explain(root.path(), &[AppTarget::Macos, AppTarget::Ios]).expect("explain");
     assert!(
-        text.contains("tac.nativeCapabilities\n  not applied: "),
+        text.contains("tac.nativeCapabilities\n  honored: "),
         "{text}"
+    );
+    let not_applied = TargetReach::NotApplied {
+        note: "the build skips this member".to_owned(),
+    };
+    assert_eq!(
+        not_applied.summary(),
+        "not applied: the build skips this member"
     );
     assert!(text.contains("tac.dotnet\n  run owed: "), "{text}");
     assert!(text.contains("; still to run: "), "{text}");
