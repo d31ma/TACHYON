@@ -17,6 +17,7 @@ class IosGate {
   static appId = 'dev.tachyon.ios-gate';
   static evidence = path.join(IosGate.repo, 'target/phase5-ios-evidence');
   static storageProof = 'root-initial.json';
+  static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? '';
   static device;
 }
 
@@ -322,9 +323,14 @@ function buildSignedApps(binary) {
   assert.ok(existsSync(path.join(output, 'NativeIOSGate.app/Assets.car')), 'the App Store app must carry its asset catalog');
 }
 
+function chosenVersion(version) {
+  const wanted = IosGate.runtimeVersion;
+  return !wanted || version === wanted || version.startsWith(wanted + '.');
+}
+
 function bootSimulator() {
   const runtimes = JSON.parse(simctl('list', 'runtimes', '--json')).runtimes;
-  const runtime = runtimes.filter(item => item.isAvailable && item.identifier.includes('.iOS-'))
+  const runtime = runtimes.filter(item => item.isAvailable && item.identifier.includes('.iOS-') && chosenVersion(item.version))
     .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0];
   assert.ok(runtime, 'an installed iOS simulator runtime is required');
   const types = runtime.supportedDeviceTypes ??

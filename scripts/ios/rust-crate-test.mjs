@@ -21,6 +21,7 @@ class IosRustCrateTest {
   static waitMilliseconds = 120000
   static pollMilliseconds = 250
   static device = ''
+  static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? ''
 
   static files = {
     'client/services/GreetingService.rs': `#[Service]
@@ -148,10 +149,15 @@ final class GreeterProbeService {
     return crate
   }
 
+  /** @param {string} version */
+  static chosenVersion(version) {
+    return !this.runtimeVersion || version === this.runtimeVersion || version.startsWith(`${this.runtimeVersion}.`)
+  }
+
   static bootSimulator() {
     mkdirSync(this.deviceSet)
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
-    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-'))
+    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-') && this.chosenVersion(item.version))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
     assert.ok(runtime, 'an installed iOS simulator runtime is required')
     const phone = (runtime.supportedDeviceTypes ?? []).find((item) => item.productFamily === 'iPhone')
