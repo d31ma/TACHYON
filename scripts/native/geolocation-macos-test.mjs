@@ -35,6 +35,10 @@ class MacOsGeolocationTest {
 `,
     'client/services/PlaceCheckService.js': `@Service
 export default class PlaceCheckService {
+  static LATITUDE_LIMIT = 90;
+  static LONGITUDE_LIMIT = 180;
+  static VERDICTS = ['Place out of range', 'Place found'];
+
   /** @type {TacGeolocation} */
   @Needs
   geolocation;
@@ -49,9 +53,13 @@ export default class PlaceCheckService {
   /** @param {PositionFound} found */
   @OnEvent
   found(found) {
-    const inRange = [Math.abs(found.latitude) <= 90, Math.abs(found.longitude) <= 180, found.latitude !== 0 || found.longitude !== 0].every(Boolean);
-    this.place = inRange ? 'Place found' : 'Place out of range';
+    this.place = PlaceCheckService.VERDICTS[Number(this.#inRange(found))];
     this.accuracy = \`\${Math.round(found.accuracy)} m\`;
+  }
+
+  /** @param {PositionFound} found */
+  #inRange(found) {
+    return [Math.abs(found.latitude) <= PlaceCheckService.LATITUDE_LIMIT, Math.abs(found.longitude) <= PlaceCheckService.LONGITUDE_LIMIT, found.latitude !== 0 || found.longitude !== 0].every(Boolean);
   }
 
   /** @param {BrowserCallFailed} failed */

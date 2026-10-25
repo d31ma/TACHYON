@@ -7,6 +7,7 @@ enum PageChecksProbe {
     static let attempts = 120
     static let pause: TimeInterval = 0.25
     static let depth = 64
+    static let promptDepth = 3
 
     static func application(_ bundle: String) -> NSRunningApplication? {
         NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first
@@ -71,7 +72,7 @@ enum PageChecksProbe {
     static func windowButton(_ titles: [String], in application: NSRunningApplication) -> AXUIElement? {
         let root = AXUIElementCreateApplication(application.processIdentifier)
         let windows = attribute(root, kAXWindowsAttribute) as? [AXUIElement] ?? []
-        return windows.flatMap { elements(under: $0, depth: depth) }.first { element in
+        return windows.flatMap { elements(under: $0, depth: promptDepth) }.first { element in
             text(element, kAXRoleAttribute) == kAXButtonRole && titles.contains(text(element, kAXTitleAttribute))
         }
     }
