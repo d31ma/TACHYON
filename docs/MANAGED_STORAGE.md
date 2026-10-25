@@ -312,11 +312,19 @@ SQL and Redis:
   databases.
 - `node scripts/test-managed-storage.mjs --without-docker` runs the SQLite and
   FYLO contracts, and the Redis contract against a local `redis-server` when
-  one is on `PATH`. CI runs it on macOS (Redis from Homebrew) and on Windows,
-  where Redis ships no build, so only SQLite and FYLO run there. On Windows
-  the FYLO contract runs as storage unit tests and `fylo exec` calls; the Yon
-  route phase needs the shared supervised runner, which verifies process
-  cleanup only on macOS and Linux.
+  one is on `PATH`, or else against `garnet-server`. CI runs it on macOS
+  (Redis from Homebrew) and on Windows, where Redis ships no build, so the
+  Windows job installs Garnet 2.2.4 and runs the Redis contract against it.
+  On Windows the FYLO contract also runs the Yon route phase: the shared
+  supervised runner reads Windows processes through CIM (WG1).
+- On 2026-10-24 that Windows job passed on `windows-latest` (x64, develop
+  `34409d70`, [run 40098937901](https://github.com/d31ma/TACHYON/actions/runs/40098937901)):
+  25 storage unit tests, the FYLO route phase ("Yon autowired resources and
+  raw SQL") against FYLO v26.33.02, and
+  `storage::tests::redis_real_json_ttl_and_delete` against Garnet 2.2.4.
+- On 2026-10-25 the same harness passed on Windows 11 ARM64 (the Surface,
+  commit `661753db`, WG2), with the x64 FYLO running under emulation and
+  Garnet 2.2.4 on .NET 10.
 
 FYLO:
 

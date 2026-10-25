@@ -1285,9 +1285,37 @@ Lua 5.4.6 and Go 1.27.1 on PATH:
 Kotlin and Groovy ship only `.bat` launchers on Windows; Tachyon's runtime
 already ran them through the JVM, but the tests probed for them by name and
 skipped. The probes now ask `cmd`. Since CI1 (2026-10-19) the windows-latest
-native gate installs PHP, Groovy, Kotlin, Dart and Lua, but its first run
-with them (39253757046) failed 44 tests, so the Windows handler evidence is
-still the Surface run above (WG1).
+native gate installs PHP, Groovy, Kotlin, Dart and Lua. Its first run with
+them (39253757046) failed 44 tests; WG1 fixed their causes.
+
+### Windows native gate (2026-10-25, WG2)
+
+On Windows 11 ARM64 (IYOR-Surface, over SSH, commit `a798b43f`) the whole
+native gate passed: `cargo nextest run --workspace --all-targets
+--all-features --locked --no-tests=fail` ran 4580 tests, all passed (one
+`relay_boundaries` deadline test on its retry), 77 skipped, in 946 s. The
+tools were Rust 1.97.1, cargo-nextest 0.9.146, MSVC 14.44 (`vcvarsall
+arm64`), clang++ 21.1.8, Node 24.21.0, bun 1.4.3, Python 3.14.7, Ruby 4.0.6,
+Go 1.27.1, JDK 21.0.12, PHP 8.4.20, Dart 3.13.4, Lua 5.4.6, Groovy 5.1.3,
+Kotlin 2.1.10 and .NET SDK 10.0.302, with `CI=1`. The runs before it found
+and fixed:
+
+- C++ pages and Yon programs with a `Behaviors::create` context or a Store
+  crashed at exit under the MSVC library: their setup and store registries
+  were destroyed before the services that release into them. The registries
+  now live until the process ends.
+- The Yon Topic tests and the test unit marker proofs looked for runtimes by
+  bare name, so every `.exe` runtime (and `groovyc.bat`, `kotlinc.bat`)
+  skipped. All 15 Topic tests now run on Windows.
+- The scheduled-worker tests wrote the temp path with backslashes into
+  Groovy, Lua and F# strings.
+- The tachyon-cli tests did not compile on Windows (a Unix-only Gradle test).
+
+`scripts/test-managed-storage.mjs --without-docker` passed on the same
+machine (commit `661753db`): the storage contracts, the FYLO route phase with
+the x64 FYLO under emulation, and the Redis contract against Garnet 2.2.4.
+This is an ARM64 run over SSH; WebView2 runs are recorded with the desktop
+gates above.
 
 ### Support table narrowed to its runs (2026-10-25, JS1)
 
@@ -1410,7 +1438,7 @@ routes. The differential corpus still decides browser semantic parity.
 | --- | --- | --- |
 | Rust workspace and Phase 4 CLI on macOS arm64 | native-tested development milestone | real binary, HTTP, Node.js, CPython, Chromium, SwiftUI application, Accessibility, lifecycle, and screenshot evidence executed locally |
 | Rust workspace and Phase 4 CLI on Linux x86_64 | native-tested development milestone | updated 2026-10-18. `rust-ci.yml` runs the locked workspace suite on `ubuntu-latest`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked the released `ty-linux-x64` on an `ubuntu-24.04` runner. Before, this row said the suite ran only in a pinned Linux container. macOS packaging still requires a macOS host |
-| Rust workspace and Phase 4 CLI on Windows x86_64 | native-tested development milestone | updated 2026-10-18. The release builds `ty-windows-x64.exe` for `x86_64-pc-windows-msvc` on `windows-2025`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked that executable on `windows-2025`, and `rust-ci.yml` runs the locked workspace suite on `windows-latest` (its run 39253757046 of 2026-10-19, the first with every Yon language installed, failed 44 tests; see Yon handlers on Windows). Before, this row said `buildable` (only the GNU target compiled locally). No Windows ARM64 `ty` is released. This row is about the CLI only; for the WebView2 host see the tables above |
+| Rust workspace and Phase 4 CLI on Windows x86_64 | native-tested development milestone | updated 2026-10-18. The release builds `ty-windows-x64.exe` for `x86_64-pc-windows-msvc` on `windows-2025`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked that executable on `windows-2025`, and `rust-ci.yml` runs the locked workspace suite on `windows-latest` (its run 39253757046 of 2026-10-19, the first with every Yon language installed, failed 44 tests; WG1 fixed their causes, and on 2026-10-25 the whole suite passed on Windows 11 ARM64, see Windows native gate). Before, this row said `buildable` (only the GNU target compiled locally). No Windows ARM64 `ty` is released. This row is about the CLI only; for the WebView2 host see the tables above |
 | Static web compiler and development server | implemented milestone | evidence recorded in `docs/PHASE_1_EVIDENCE.md`; not published |
 | Eight-language Yon handler boundary | implemented milestone | plain `Handler` convention; explicit `relay(...)`; native generator streaming in JavaScript, TypeScript, Python, PHP, Kotlin, and C#; Java and Rust return one response |
 | Tac client rendering, components, mount schedules, and incremental builds | implemented milestone | evidence recorded in `docs/PHASE_3_EVIDENCE.md`; Yon remains a separate REST boundary |
