@@ -157,7 +157,7 @@ impl ScheduledWorker {
         let source = self
             .source
             .replace("__SCHEDULE__", schedule)
-            .replace("__TICKS__", &ticks.to_string_lossy());
+            .replace("__TICKS__", &ticks.to_string_lossy().replace('\\', "/"));
         Tools::write(root, &entry, &source);
         Tools::write(root, "client/pages/tac.html", "<worker-view />");
         Tools::write(

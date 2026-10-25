@@ -743,12 +743,8 @@ public:
     ];
 
     fn available(&self) -> bool {
-        let available = std::process::Command::new(self.program)
-            .arg(self.flag)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
+        let available =
+            crate::support::program_probe::ProgramProbe::answers(self.program, self.flag);
         if !available {
             assert_ne!(
                 std::env::var("TAC_TEST_UNITS_REQUIRE_TOOLCHAINS").as_deref(),
