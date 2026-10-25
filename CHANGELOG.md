@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Verified link runs (LINKS, ADR 0106 amendment, 2026-10-24):
+  `https://d31ma.github.io` serves the link verification files, and
+  `scripts/native/verified-links-files.mjs` writes and checks them.
+  `scripts/ios/universal-links-test.mjs` opens universal links from that host
+  in a simulator app; it passed on iOS 26.5. `scripts/android/verified-links-test.mjs`
+  and the Windows browser gate's `-LinkHost` and `-RequireHostLink` check
+  Android app links and Windows app URI handlers against it.
+
 - Native preview against the development server (NET5, ADR 0110):
   `ty preview --target <native>` now builds the real app into
   `dist/preview/<target>` and opens it: the macOS, Linux or Windows app as a
@@ -1934,6 +1942,11 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- An iOS simulator build with `tac.application.links` hosts and
+  `TAC_APPLE_TEAM_ID` no longer fails to launch: the simulator refused its ad
+  hoc signature with restricted entitlements. The simulator link now puts the
+  entitlements in the executable, as Xcode does (LINKS, ADR 0106 amendment).
 
 - An Android app whose only native services are Rust services now loads the
   Rust library. The host put `installRustCompanion();` on the same line as

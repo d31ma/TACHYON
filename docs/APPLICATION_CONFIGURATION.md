@@ -291,7 +291,7 @@ of `client/manifest.json`. `ty` reads it from these environment variables:
 
 | Variable | Value |
 | --- | --- |
-| `TAC_APPLE_TEAM_ID` | Your Apple Developer team ID: 10 uppercase letters and digits. With `hosts` listed, the web build writes `/.well-known/apple-app-site-association` for the app ID `<team>.<tac.application.id>`, and an iOS build writes `TachyonHost.entitlements` with an `applinks:` entry per host and signs the app with it. Universal links open the app only from a signed device build. |
+| `TAC_APPLE_TEAM_ID` | Your Apple Developer team ID: 10 uppercase letters and digits. With `hosts` listed, the web build writes `/.well-known/apple-app-site-association` for the app ID `<team>.<tac.application.id>`, and an iOS build writes `TachyonHost.entitlements` with an `applinks:` entry per host. A simulator build links these entitlements into the app's executable (`__TEXT,__entitlements`), as Xcode does, because the simulator refuses an ad hoc signature that carries them; a `--device` or `--release` build signs with them. |
 | `TAC_ANDROID_CERT_SHA256` | The SHA-256 fingerprints of your Android signing certificates, separated by commas, each 32 hexadecimal pairs joined by `:` (`keytool -list -v` prints them). With `hosts` and `tac.origin` set, the web build writes `/.well-known/assetlinks.json` for the app's package name. |
 | `TAC_WINDOWS_CERTIFICATE_PUBLISHER` | The subject of the certificate that signs the MSIX package (see "Windows" above). With `hosts` listed, the web build writes `/.well-known/windows-app-web-link` for the package family name: the package name from `tac.application.id`, `_`, and the publisher ID Windows derives from this subject. A `--release` package declares each host as an app URI handler. |
 

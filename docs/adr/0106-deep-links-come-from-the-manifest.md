@@ -187,3 +187,41 @@ showed the `mailto` hand-off. A link with a user name
 (`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). The support table marks
 external links `honored` on macOS. The signed iOS device check of universal
 links is still owed.
+
+## Amendment (2026-10-24): verified links from a hosted domain (LINKS)
+
+The verified-link runs owed above needed a public host. The organization
+site `https://d31ma.github.io` (repository `d31ma/d31ma.github.io`, GitHub
+Pages) now serves only the three files at its root. A GitHub Pages site for
+the Tachyon repository would sit under `/Tachyon/`, and Apple, Android and
+Windows read the files only from the root of a host.
+
+1. `scripts/native/verified-links-files.mjs` builds the link fixtures with
+   `ty build` and writes the files the host serves, from the environment of
+   ADR 0104: `apple-app-site-association` for
+   `<TAC_APPLE_TEAM_ID>.dev.tachyon.link-gate`, `assetlinks.json` for
+   `dev.tachyon.link_gate` with the build machine's debug certificates, and
+   `windows-app-web-link` for the Windows browser gate's package family. With
+   `--compare`, it checks what the host serves.
+2. **iOS simulator.** An iOS simulator build with `hosts` and
+   `TAC_APPLE_TEAM_ID` signed the app ad hoc with `application-identifier`
+   and `com.apple.developer.associated-domains`. The simulator refused to
+   launch it ("The file is adhoc signed but contains restricted
+   entitlements"). As Xcode does, a simulator build now links the
+   entitlements into the executable (`__TEXT,__entitlements` as XML and
+   `__TEXT,__ents_der` from `derq`) and signs ad hoc without them. A
+   `--device` or `--release` build still signs with them through its
+   profile.
+3. **macOS.** No Developer ID profile with Associated Domains exists for the
+   team, so a signed macOS host link run stays owed.
+4. Evidence (2026-10-24). On the Mac (macOS 26.6.2, Xcode 27.1, iOS 26.5
+   simulator, iPhone 17 Pro), `scripts/ios/universal-links-test.mjs` found
+   the app ID in the served file and in Apple's CDN, found the entitlements
+   in the executable and none in the signature, and
+   `https://d31ma.github.io/orders?x=1` opened the app at `/orders?x=1` on a
+   cold start; `https://d31ma.github.io/orders?x=2` reached the running app.
+   `scripts/android/verified-links-test.mjs` (Android verifies the host and
+   opens its links without a chooser) and the Windows browser gate with
+   `-LinkHost d31ma.github.io -RequireHostLink` (Windows verifies the
+   package's app URI handler) are written; their runs are owed. A signed
+   iOS device check stays owed.

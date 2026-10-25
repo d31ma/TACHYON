@@ -43,7 +43,7 @@ tac.application.minimumSystem
   honored: MinimumOSVersion and the swiftc target (17.4 unless set, the first with CSS @scope for component styles; 18.2 with a Dart, Kotlin or Java web service; ADR 0108); a value below that floor stops the build (TY1601). Kotlin, Dart and Java apps built at 18.2 opened on the iOS 26.5 simulator (RM2)
 
 tac.application.links
-  adapted: tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. Universal links to the listed hosts need TAC_APPLE_TEAM_ID and a --device or --release build, whose profile has the Associated Domains capability; no signed build has opened one on a device yet. A simulator build opens only the custom schemes.
+  adapted: tac.application.links: the iOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. With TAC_APPLE_TEAM_ID set, the app claims the listed hosts with applinks: entries and opens their universal links at their route: a simulator build opened links from a hosted domain on a cold start and while running (LINKS). A --device or --release build needs a profile with the Associated Domains capability; no signed build has opened one on a device yet.
 
 tac.application.window.width, height
   not applicable: tac.application.window width and height have no meaning on iOS: the system sizes the app.
