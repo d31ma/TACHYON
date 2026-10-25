@@ -98,7 +98,8 @@ tac.application.minimumSystem                          native
   "15.2", "android": 28, "windows": "119.0", "linux": "2.46" }.
   windows is the WebView2 Runtime and linux is WebKitGTK. Unset
   targets use the host floor, raised for Dart, Kotlin and Java
-  services (WebAssembly garbage collection; Java also needs
+  services (WebAssembly garbage collection; Dart also imports
+  WebAssembly.JSTag, so 18.4, 15.4 and 2.48; Java also needs
   exception references, so 18.4, 15.4, 137.0 and 2.48) with one
   note. A value below the floor stops the build (TY1601).
   Windows and Linux check the web view at startup and explain an

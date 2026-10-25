@@ -26,10 +26,10 @@ class MacOsPageServicesTest {
   static resizedWidth = 1280
   static attempts = 60
   static pause = 250
-  static garbageCollectedLanguages = ['dart', 'kt']
+  static garbageCollectedLanguages = ['kt']
   static garbageCollectedFloor = '15.2'
-  static exceptionReferenceLanguages = ['java']
-  static exceptionReferenceFloor = '15.4'
+  static exceptionLanguages = ['java', 'dart']
+  static exceptionFloor = '15.4'
   static defaultFloor = '13.0'
   static pyodideWasm = '.tachyon/services/python/314.0.7/pyodide.asm.wasm'
   static tallySteps = [
@@ -91,8 +91,8 @@ class MacOsPageServicesTest {
     this.run(this.binary, ['bundle', project, '--target', 'macos'])
     const built = ((Date.now() - started) / 1000).toFixed(0)
     const app = path.join(project, 'dist/macos', `${application}.app`)
-    const floor = this.exceptionReferenceLanguages.includes(language)
-      ? this.exceptionReferenceFloor
+    const floor = this.exceptionLanguages.includes(language)
+      ? this.exceptionFloor
       : this.garbageCollectedLanguages.includes(language) ? this.garbageCollectedFloor : this.defaultFloor
     assert.equal(this.minimumSystem(app), floor, `${language}: LSMinimumSystemVersion`)
     if (language === 'py') assert.ok(this.run('/usr/bin/find', [app, '-path', `*/${this.pyodideWasm}`]).trim(), 'the app holds no Pyodide runtime')

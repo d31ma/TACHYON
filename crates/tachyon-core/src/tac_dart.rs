@@ -2048,15 +2048,25 @@ class CounterService {
                 "refused": "Bad state: no refunds",
             })
         );
-        let old_browser = node(root.path(), old_browser_driver());
-        assert_eq!(
-            old_browser["refused"],
-            "Dart services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer."
-        );
+        for driver in [old_browser_driver(), browser_without_js_tag_driver()] {
+            let old_browser = node(root.path(), driver);
+            assert_eq!(
+                old_browser["refused"],
+                "Dart services need a browser with WebAssembly garbage collection and the JavaScript exception tag (WebAssembly.JSTag): Chrome or Edge 119, Firefox 131 or Safari 18.4 and newer.",
+                "{driver}"
+            );
+        }
     }
 
     fn old_browser_driver() -> &'static str {
         "WebAssembly.validate = () => false\n\
+             let refused = ''\n\
+             try { await import('./EchoService.js') } catch (error) { refused = error.message }\n\
+             console.log(JSON.stringify({ refused }))\n"
+    }
+
+    fn browser_without_js_tag_driver() -> &'static str {
+        "delete WebAssembly.JSTag\n\
              let refused = ''\n\
              try { await import('./EchoService.js') } catch (error) { refused = error.message }\n\
              console.log(JSON.stringify({ refused }))\n"

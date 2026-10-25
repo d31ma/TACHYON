@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn garbage_collected_services_raise_the_floor_with_one_note() {
-        let languages = BTreeSet::from(["Dart", "Kotlin"]);
+        let languages = BTreeSet::from(["Kotlin"]);
         for (target, wanted) in [
             (NativeTarget::Ios, SystemVersion::new(18, 2)),
             (NativeTarget::Macos, SystemVersion::new(15, 2)),
@@ -142,11 +142,41 @@ mod tests {
                 .expect("floor");
             assert_eq!(floor.minimum.floor(target), wanted, "{target:?}");
             let note = floor.note.expect("note");
-            assert!(note.starts_with(
-                "Note: Dart and Kotlin services need WebAssembly garbage collection, so"
-            ));
+            assert!(
+                note.starts_with("Note: Kotlin services need WebAssembly garbage collection, so")
+            );
             assert!(note.contains(&wanted.to_string()), "{note}");
             assert!(note.contains("(ADR 0033)"), "{note}");
+        }
+    }
+
+    #[test]
+    fn dart_services_raise_the_floor_to_engines_with_the_javascript_exception_tag() {
+        for (languages, start) in [
+            (
+                BTreeSet::from(["Dart"]),
+                "Note: Dart services need WebAssembly garbage collection and the JavaScript exception tag (WebAssembly.JSTag), so",
+            ),
+            (
+                BTreeSet::from(["Dart", "Kotlin"]),
+                "Note: Dart and Kotlin services need WebAssembly garbage collection and, for Dart, the JavaScript exception tag (WebAssembly.JSTag), so",
+            ),
+        ] {
+            for (target, wanted) in [
+                (NativeTarget::Ios, SystemVersion::new(18, 4)),
+                (NativeTarget::Macos, SystemVersion::new(15, 4)),
+                (NativeTarget::Windows, SystemVersion::new(119, 0)),
+                (NativeTarget::Linux, SystemVersion::new(2, 48)),
+            ] {
+                let floor =
+                    SystemFloor::for_languages(&MinimumSystem::default(), target, &languages)
+                        .expect("floor");
+                assert_eq!(floor.minimum.floor(target), wanted, "{target:?}");
+                let note = floor.note.expect("note");
+                assert!(note.starts_with(start), "{note}");
+                assert!(note.contains(&wanted.to_string()), "{note}");
+                assert!(note.contains("(ADR 0033)"), "{note}");
+            }
         }
     }
 
@@ -159,7 +189,7 @@ mod tests {
             ),
             (
                 BTreeSet::from(["Dart", "Java", "Kotlin"]),
-                "Note: Dart, Java and Kotlin services need WebAssembly garbage collection and, for Java, exception references (exnref), so",
+                "Note: Dart, Java and Kotlin services need WebAssembly garbage collection, for Dart, the JavaScript exception tag (WebAssembly.JSTag) and, for Java, exception references (exnref), so",
             ),
         ] {
             for (target, wanted) in [
@@ -196,6 +226,28 @@ mod tests {
             (
                 NativeTarget::Linux,
                 "is \"2.46\", but Java services need WebKitGTK 2.48 or newer",
+            ),
+        ] {
+            let failure =
+                SystemFloor::for_languages(&minimum, target, &languages).expect_err("refused");
+            let text = message(&failure);
+            assert!(text.contains(wanted), "{text}");
+            assert_eq!(failure.diagnostics()[0].code.number(), 1601);
+        }
+    }
+
+    #[test]
+    fn a_declared_floor_below_the_dart_need_names_the_javascript_exception_tag() {
+        let minimum = declared(r#"{"ios":"18.2","linux":"2.46"}"#);
+        let languages = BTreeSet::from(["Dart"]);
+        for (target, wanted) in [
+            (
+                NativeTarget::Ios,
+                "is \"18.2\", but Dart services need iOS 18.4 or newer for WebAssembly garbage collection and the JavaScript exception tag (WebAssembly.JSTag) (ADR 0033). Raise it to \"18.4\"",
+            ),
+            (
+                NativeTarget::Linux,
+                "is \"2.46\", but Dart services need WebKitGTK 2.48 or newer",
             ),
         ] {
             let failure =
@@ -253,7 +305,7 @@ mod tests {
         .expect("ios");
         assert_eq!(
             ios.minimum.floor(NativeTarget::Ios),
-            SystemVersion::new(18, 2)
+            SystemVersion::new(18, 4)
         );
         assert!(
             ios.note
@@ -312,6 +364,7 @@ mod tests {
         .note
         .expect("note");
         assert!(dart.contains("Android System WebView 119"), "{dart}");
+        assert!(dart.contains("WebAssembly.JSTag"), "{dart}");
         assert!(!dart.contains("exnref"), "{dart}");
     }
 
@@ -334,7 +387,7 @@ mod tests {
             .expect_err("refused");
         let text = message(&failure);
         assert!(text.contains("tac.application.minimumSystem.macos is \"14.0\""));
-        assert!(text.contains("Dart and Kotlin services need macOS 15.2 or newer"));
+        assert!(text.contains("Dart and Kotlin services need macOS 15.4 or newer"));
         assert_eq!(failure.diagnostics()[0].code.number(), 1601);
     }
 

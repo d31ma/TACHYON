@@ -9,6 +9,7 @@ pub(super) struct TargetFloor {
     pub(super) base: SystemVersion,
     garbage_collection: Option<SystemVersion>,
     exception_references: Option<SystemVersion>,
+    tag_with_exceptions: bool,
     platform: &'static str,
     system: &'static str,
     shown: &'static str,
@@ -22,11 +23,17 @@ pub(super) struct TargetFloor {
 impl TargetFloor {
     const VERSION: &'static str = "\"{version}\"";
     const EXCEPTION_LANGUAGE: &'static str = "Java";
+    const TAG_LANGUAGE: &'static str = "Dart";
+    const GARBAGE_COLLECTION: &'static str = "WebAssembly garbage collection";
+    const EXCEPTION_REFERENCES: &'static str = "exception references (exnref)";
+    const JAVASCRIPT_TAG: &'static str = "the JavaScript exception tag (WebAssembly.JSTag)";
+    const JOINERS: [&'static str; 2] = [" and, ", " and "];
     const IOS: Self = Self {
         target: NativeTarget::Ios,
         base: SystemVersion::new(17, 4),
         garbage_collection: Some(SystemVersion::new(18, 2)),
         exception_references: Some(SystemVersion::new(18, 4)),
+        tag_with_exceptions: true,
         platform: "iOS",
         system: "iOS {version}",
         shown: Self::VERSION,
@@ -53,6 +60,7 @@ impl TargetFloor {
         base: SystemVersion::new(26, 0),
         garbage_collection: None,
         exception_references: None,
+        tag_with_exceptions: false,
         platform: "Android",
         system: "Android API level {major}",
         shown: "{major}",
@@ -71,6 +79,7 @@ impl TargetFloor {
         base: SystemVersion::new(118, 0),
         garbage_collection: Some(SystemVersion::new(119, 0)),
         exception_references: Some(SystemVersion::new(137, 0)),
+        tag_with_exceptions: false,
         platform: "Windows",
         system: "the WebView2 Runtime {version}",
         startup_check: ", and it checks that at startup",
@@ -81,6 +90,7 @@ impl TargetFloor {
         base: SystemVersion::new(2, 40),
         garbage_collection: Some(SystemVersion::new(2, 46)),
         exception_references: Some(SystemVersion::new(2, 48)),
+        tag_with_exceptions: true,
         platform: "Linux",
         system: "WebKitGTK {version}",
         style_note: Some(
@@ -107,10 +117,14 @@ impl TargetFloor {
         let exceptions = self
             .exception_references
             .filter(|_| Self::needs_exception_references(languages));
+        let tag = [self.garbage_collection, self.exception_references]
+            [usize::from(self.tag_with_exceptions)]
+        .filter(|_| languages.contains(Self::TAG_LANGUAGE));
         self.garbage_collection
             .filter(|_| !languages.is_empty())
             .into_iter()
             .chain(exceptions)
+            .chain(tag)
             .fold(self.base, SystemVersion::max)
     }
 
@@ -180,7 +194,7 @@ impl TargetFloor {
             .filter(|_| !languages.is_empty())
             .map(|note| {
                 note.replace("{names}", &names)
-                    .replace("{features}", Self::features(languages))
+                    .replace("{features}", &Self::features(languages))
                     .replace("{web_view}", &web_view.to_string())
                     .replace("{decisions}", Self::decisions(languages))
             })
@@ -239,14 +253,29 @@ impl TargetFloor {
         languages.contains(Self::EXCEPTION_LANGUAGE)
     }
 
-    fn features(languages: &BTreeSet<&'static str>) -> &'static str {
-        match (Self::needs_exception_references(languages), languages.len()) {
-            (false, _) => "WebAssembly garbage collection",
-            (true, 1) => "WebAssembly garbage collection and exception references (exnref)",
-            (true, _) => {
-                "WebAssembly garbage collection and, for Java, exception references (exnref)"
-            }
-        }
+    fn features(languages: &BTreeSet<&'static str>) -> String {
+        let alone = languages.len() == 1;
+        let extras: Vec<String> = [
+            (Self::TAG_LANGUAGE, Self::JAVASCRIPT_TAG),
+            (Self::EXCEPTION_LANGUAGE, Self::EXCEPTION_REFERENCES),
+        ]
+        .into_iter()
+        .filter(|(language, _)| languages.contains(language))
+        .map(|(language, feature)| {
+            [format!("for {language}, {feature}"), feature.to_owned()][usize::from(alone)].clone()
+        })
+        .collect();
+        extras.split_last().map_or_else(
+            || Self::GARBAGE_COLLECTION.to_owned(),
+            |(last, rest)| {
+                let start = std::iter::once(Self::GARBAGE_COLLECTION.to_owned())
+                    .chain(rest.iter().cloned())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                let joiner = Self::JOINERS[usize::from(alone)];
+                format!("{start}{joiner}{last}")
+            },
+        )
     }
 
     fn decisions(languages: &BTreeSet<&'static str>) -> &'static str {

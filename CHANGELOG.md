@@ -1777,6 +1777,21 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Dart web services need the JavaScript exception tag (MA5, ADR 0033
+  amendment, 2026-10-25). The loader that `dart compile wasm` writes always
+  imports `WebAssembly.JSTag`, so a Dart page service needs Chrome or Edge
+  119, Firefox 131 or Safari 18.4, not Firefox 120 and Safari 18.2. On the
+  iOS 18.2 simulator a Dart app installed and showed a blank page. The
+  `tachyon-dart` module now checks for `JSTag` before it loads the program
+  and names those versions. A native app with a Dart web service now needs
+  iOS 18.4, macOS 15.4 or WebKitGTK 2.48 (`TY1601` below that); WebView2
+  119.0 and the Android note's WebView 119 stay. Chrome 119/120/136/137,
+  Firefox 120/128/130/131 and WebKitGTK 2.46/2.48 were run against a Dart
+  module (`docs/SUPPORT_TIERS.md`). The iOS 17.4 and 18.2 floor runtimes ran
+  the main gate and page services; the iOS gates can reuse a booted
+  simulator (`TAC_IOS_DEVICE`) and expect a below-floor app to be refused at
+  install.
+
 - The service worker keeps files the build writes under `.tachyon/services/`
   up to 16 MiB (other files keep 4 MiB; the pinned Python runtime keeps its
   own rule). Go's page-program `services.wasm` is 4,968 KiB, so a Go page did

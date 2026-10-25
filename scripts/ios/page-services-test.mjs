@@ -19,7 +19,7 @@ class IosPageServicesTest {
   static evidence = process.env.TAC_IOS_PAGE_SERVICES_EVIDENCE ?? path.join(IosPageServicesTest.repository, 'target/ios-page-services-evidence')
   static feature = path.join(IosPageServicesTest.repository, 'website/content/features/web-assembly-services')
   static languages = (process.env.TAC_IOS_SERVICE_LANGUAGES ?? 'py,cs,kt,dart,java,go,rb,lua,hpp,fs,rs').split(',').map((item) => item.trim()).filter(Boolean)
-  static laterFloors = { dart: '18.2', kt: '18.2', java: '18.4' }
+  static laterFloors = { dart: '18.4', kt: '18.2', java: '18.4' }
   static aheadOfTime = process.env.TAC_IOS_DOTNET_AOT !== 'false'
   static linked = ['rs', 'swift']
   static scopedColor = 'rgb(10, 20, 30)'

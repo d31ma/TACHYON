@@ -299,3 +299,38 @@ Dart and Kotlin keep the column above.
 | Android | API level 26 (a note names Android System WebView 137) |
 | Windows | WebView2 137.0 |
 | Linux | WebKitGTK 2.48 |
+
+## Amendment (2026-10-25): Dart needs the JavaScript exception tag
+
+This amendment supersedes the Dart part of the "Floor with a WasmGC service"
+column and the browser floor at the top of this record ("Chrome and Edge 119,
+Firefox 120 and Safari 18.2"). Kotlin keeps that column.
+
+The loader that `dart compile wasm` writes (Dart SDK 3.13) always imports
+`WebAssembly.JSTag`, the tag for exceptions thrown by JavaScript, and
+`dart compile wasm` has no option to leave it out. An engine without
+`JSTag` compiles the module but cannot link it. The MA5 run found it: on the
+iOS 18.2 simulator (22C150) a Dart app built at 18.2 installed and showed a
+blank page, with `LinkError: Tag import WebAssembly:JSTag is not an instance
+of WebAssembly.Tag`. Kotlin and Go apps on the same runtime passed.
+
+Measured in an x86_64 cloud container with a Dart module that throws and
+catches (`docs/SUPPORT_TIERS.md`, "Dart web services need the JavaScript
+exception tag"): Chrome 119, 120, 136 and 137 have `JSTag` and ran it;
+Firefox 120, 128 and 130 have none and refused it at link, Firefox 131 ran
+it; WebKitGTK JavaScriptCore 2.46.6 has none, 2.48.1 has it. Safari follows
+WebKit's exception references work in 18.4, as the iOS 18.2 run shows.
+
+The generated `tachyon-dart` module checks for `JSTag` as well as WasmGC
+before it loads the program, and names the versions below in its message.
+
+| Where | Floor with a Dart web service |
+| --- | --- |
+| Browsers | Chrome or Edge 119, Firefox 131, Safari 18.4 |
+| iOS | 18.4 |
+| macOS | 15.4 |
+| Android | API level 26 (a note names Android System WebView 119) |
+| Windows | WebView2 119.0 |
+| Linux | WebKitGTK 2.48 |
+
+A declared floor below these stops the build with `TY1601`, as before.

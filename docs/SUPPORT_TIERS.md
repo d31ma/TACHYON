@@ -1189,9 +1189,8 @@ Not covered by these runs:
 - Disposal on termination by `simctl terminate`: it kills the app, so neither
   `applicationWillTerminate` nor a Swift `@OnStop` runs. Ending the app from
   the app switcher does run them (MA4, below).
-- iOS 18.2 or a 17.4 runtime: the 18.2 floor (Kotlin, Dart and, until
-  2026-10-25, Java) and the new 17.4 floor ran on iOS 26.5 and 18.0 only.
-  The 18.4 Java floor (JF1) has not run.
+- An iOS 18.4 runtime: the 18.4 floor of Java (JF1) and Dart (MA5) has not
+  run. The 17.4 and 18.2 floors ran in MA5 (below).
 - iOS shows no app reason in the notification prompt, so a manifest reason
   for notifications is not displayed there.
 - A physical device and a signed install stay owed. Universal links ran on the
@@ -1213,6 +1212,24 @@ CoreSimulator still builds each runtime's dyld cache on the internal disk
 | iOS 18.0 | passed | the same three scripts on develop `4889d1a5` (floor 17.4): the main gate, the vendored crate, and Go and linked Rust apps whose component style applied inside the component only. A Kotlin app (floor 18.2) was refused at install (`Have 18.0; need 18.2`), as the floor intends |
 
 Async linked Rust members (LR1) were not exercised on either runtime.
+
+Floor runtimes (2026-10-25, MA5). The iOS 17.4 (21E213) and 18.2 (22C150)
+images came from developer.apple.com and were attached from the external
+volume as above, on the Mac (macOS 26.6.2, Xcode 27.1), from branch
+`claude/project-thread-43besn` (`2c6a706a`, on develop `2aeb2de6`). Each
+runtime's first boot built its dyld cache on the internal disk (2.9 GB for
+17.4, 3.5 GB for 18.2, about 23 minutes each). Fresh devices timed out in
+`simctl install` while the runtime image paged in from the external volume,
+so the scripts now take an already booted device (`TAC_IOS_DEVICE`,
+`TAC_IOS_DEVICE_SET`, `TAC_IOS_TABLET_DEVICE`) and wait up to 15 minutes for
+an install. `scripts/ios/page-services-test.mjs` now expects an app whose
+`MinimumOSVersion` is above the runtime to be refused at install, naming
+that floor.
+
+| Runtime | Result | Evidence |
+| --- | --- | --- |
+| iOS 17.4 | passed | `scripts/ios/native-test.mjs`, the main gate, with the window settings check on an iPhone 15 Pro and an iPad Pro 11-inch (M4) of the same runtime (`window-settings-test.mjs` now follows `TAC_IOS_RUNTIME`). `scripts/ios/page-services-test.mjs`: the Go and linked Rust apps answered a click and opened `/items/7/`, and their component style applied inside the component only (`rgb(10, 20, 30)` inside, `rgb(0, 0, 0)` outside). A Kotlin app (floor 18.2) was refused at install (`Have 17.4; need 18.2`) |
+| iOS 18.2 | passed, except Dart | the main gate on an iPhone 16 Pro and an iPad Pro 11-inch (M4). In `scripts/ios/page-services-test.mjs` the Kotlin app built at `MinimumOSVersion` 18.2 and the Go app answered a click, kept the component style inside the component and opened `/items/7/`. A Java app (floor 18.4) was refused at install (`Have 18.2; need 18.4`). A Dart app built at 18.2 installed but its page stayed blank in three runs: iOS 18.2 has no `WebAssembly.JSTag`, which Dart's loader imports, so the module failed to link. Dart's floor moved to 18.4 (see "Dart web services need the JavaScript exception tag") |
 
 ### Page accessibility on iOS and Android (2026-10-24, AX1)
 
@@ -1318,6 +1335,33 @@ All runs were in an x86_64 Ubuntu 24.04 cloud container. A browser without
 `WebAssembly.validate` that refuses the probe, because Node 22 runs
 `exnref`. A packaged app built at the new floors has not been run: the iOS
 and macOS page-service gates now expect 18.4 and 15.4 for Java.
+
+### Dart web services need the JavaScript exception tag (2026-10-25, MA5)
+
+ADR 0033 amendment. The loader that `dart compile wasm` (Dart SDK 3.13.5)
+writes always imports `WebAssembly.JSTag`, and the compiler has no option to
+leave it out. An engine without `JSTag` compiles the Dart module but cannot
+link it, so the page stays blank. The MA5 run on the iOS 18.2 simulator found
+it. Kotlin keeps its floors. This evidence does not promote any tier.
+
+| Where | Dart floor before | Dart floor now | How it was checked |
+| --- | --- | --- | --- |
+| Chrome and Edge | 119 | 119 | Chrome for Testing 119.0 and headless shell 120.0.6099.109, 136.0.7103.113 and 137.0.7151.119 linked and ran a Dart module that throws and catches |
+| Firefox | 120 | 131 | SpiderMonkey shell: 120.0, 128.0 and 130.0 have no `JSTag` and refused the module at link; 131.0 ran it |
+| Safari | 18.2 | 18.4 | the iOS 18.2 simulator has no `JSTag`; 18.4 is where WebKit's exception references work (Java's floor) shipped; an 18.4 runtime has not run |
+| WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Debian archive through its C API: 2.46.6 has no `JSTag`, 2.48.1 has it and compiles the module |
+| iOS app | 18.2 | 18.4 | the 18.2 run above; `system_floor` unit tests |
+| macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests only |
+| Windows app (WebView2) | 119.0 | 119.0 | follows Chrome |
+| Android app | API level 26, note names WebView 119 | unchanged | follows Chrome |
+
+The browser probes ran in an x86_64 Ubuntu 24.04 cloud container; the probe
+files are kept with the project's platform notes. The generated
+`tachyon-dart` module now checks for `JSTag` as well as WasmGC and names
+Chrome or Edge 119, Firefox 131 and Safari 18.4 in its message;
+`a_dart_service_runs_as_webassembly_with_whole_numbers_and_readable_errors`
+checks it with `JSTag` deleted. The iOS and macOS page-service gates now
+expect 18.4 and 15.4 for Dart.
 
 ### Browser engines for the web target (2026-10-19)
 
