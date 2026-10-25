@@ -1784,6 +1784,13 @@ machine contracts have their own, independent major versions.
   `Offline:` note for any file the worker cannot keep, instead of leaving it
   out silently.
 
+- The service worker no longer drops a cache write for a file in its asset
+  table when 16 writes are already running; the write waits for a free slot.
+  .NET loads dozens of `_framework` assemblies at once, so C# and F# pages
+  were not all kept on the first visit. The offline gate then passed all ten
+  page-program languages in Chromium, Firefox and WebKit on the Mac
+  (2026-10-25).
+
 - Java web services need WebAssembly exception references (JF1, ADR 0083
   amendment, 2026-10-25). TeaVM writes a Java `catch` as `try_table`, and
   TeaVM 0.15.0 has no legacy exception mode, so a Java page service needs
