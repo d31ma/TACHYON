@@ -1431,8 +1431,10 @@ Its Chrome is also 124.0.6367.219, because the Play Store has not updated
 the system image's Chrome, so Java was not run there either. The preload's
 first-run bypass (`am set-debug-app --persistent` and the flags file
 `/data/local/tmp/chrome-command-line`) worked on this `user` build: Chrome
-opened straight to the page, and its DevTools socket answered with no
-first-run screen to step through. The adapter check, `page-program`,
+skipped its first-run screens and its DevTools socket answered. Chrome's
+"Chrome notifications make things easier" prompt stayed over the page, but
+it did not block the socket or any gate, so no taps were needed. The
+adapter check, `page-program`,
 `async-listener`, `held-clients`, `cached-client`, `window-controls`,
 `logic-controls`, `svg-namespace`, `scaffold`, `authored-node`, `yon-reads`
 and `runtime` passed. `web-apis` (the share sheet) and `component-scope`
