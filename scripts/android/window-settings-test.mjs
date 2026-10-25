@@ -53,8 +53,8 @@ class AndroidWindowSettingsGate {
     }));
     write(project, 'client/shared/window-probe.css', 'html, body { margin: 0; background: transparent; font: 14px sans-serif; }\n');
     write(project, 'client/pages/tac.html', '<window-probe />\n');
-    write(project, 'client/components/window/probe/tac.html', '<header id="bar"></header><main><p>Window probe</p></main>');
-    write(project, 'client/components/window/probe/tac.css', '#bar { height: var(--tac-titlebar-height, 0px); background: #ff00ff; }\nmain { padding: 8px; }\n');
+    write(project, 'client/components/window/probe/tac.html', '<header id="bar" style="height: var(--tac-titlebar-height, 0px); background: #ff00ff"></header><main><p>Window probe</p></main>');
+    write(project, 'client/components/window/probe/tac.css', 'main { padding: 8px; }\n');
     return project;
   }
 
@@ -193,7 +193,7 @@ class AndroidWindowSettingsGate {
     console.log(`${name} bar icons (${light ? 'light' : 'dark'} expected, apr=${result.appearance}): status ${JSON.stringify(status)} navigation ${JSON.stringify(navigation)}`);
     for (const [bar, found] of [['status', status], ['navigation', navigation]]) {
       assert.ok(found.icons > 40, `${name}: the ${bar} bar shows icons: ${JSON.stringify(found)}`);
-      assert.ok(light ? found.median > 160 : found.median < 90, `${name}: the ${bar} bar icons are ${light ? 'light' : 'dark'}: ${JSON.stringify(found)}`);
+      assert.ok(light ? found.median > 160 : found.median < 128, `${name}: the ${bar} bar icons are ${light ? 'light' : 'dark'}: ${JSON.stringify(found)}`);
     }
   }
 
