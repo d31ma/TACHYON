@@ -28,7 +28,7 @@ only after the same gate passes on its download. No target is `preview` or
 
 | Target host | Tier | Observed execution | Remaining qualification |
 | --- | --- | --- | --- |
-| Web (static site in `dist/web`) | native-tested (candidate) | `rust-ci.yml` runs the browser gates on every push, on Linux x64, in Playwright's browser builds: all of them in Chromium, and some (storage, the offline preview, Yon reads kept offline, web APIs and others) also in Firefox and WebKit. Installability (the web app manifest, its icons and the worker, `scripts/pwa-install-browser-gate.mjs`, 2026-10-25) is checked in Chromium only, through the DevTools Protocol; Firefox and Safari have no installability check to ask, and opening the installed app in its own window is not run. Since CI2 (2026-10-19, ADR 0022 amendment) its `browser-languages` job runs all seven Tac service-language browser gates (page programs, browser APIs, held clients, storage, cached clients, async listeners and window controls) in Chromium, Firefox and WebKit, with every language toolchain installed. `publish.yml` builds pages with the downloaded `ty` and runs the storage, runtime and website gates in Chromium, Firefox and WebKit. The v26.36.01 release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) ran that step in Chromium only, because the step installed only Chromium then | a release run of the three-browser step. Branded Safari on macOS and the iOS simulator, Chrome on Android, and Chrome and Edge on the Windows desktop ran the web gates on 2026-10-25 (BR2, "Branded browsers" below); the gates WebDriver or one shared Android context cannot drive stay unrun there, and the failures recorded there stay open |
+| Web (static site in `dist/web`) | native-tested (candidate) | `rust-ci.yml` runs the browser gates on every push, on Linux x64, in Playwright's browser builds: all of them in Chromium, and some (storage, the offline preview, Yon reads kept offline, web APIs and others) also in Firefox and WebKit. Installability (the web app manifest, its icons and the worker, `scripts/pwa-install-browser-gate.mjs`, 2026-10-25) is checked in Chromium only, through the DevTools Protocol; Firefox and Safari have no installability check to ask, and opening the installed app in its own window is not run. Since CI2 (2026-10-19, ADR 0022 amendment) its `browser-languages` job runs all seven Tac service-language browser gates (page programs, browser APIs, held clients, storage, cached clients, async listeners and window controls) in Chromium, Firefox and WebKit, with every language toolchain installed. `publish.yml` builds pages with the downloaded `ty` and runs the storage, runtime and website gates in Chromium, Firefox and WebKit. The v26.36.01 release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) ran that step in Chromium only, because the step installed only Chromium then | a release run of the three-browser step. Branded Safari on macOS and the iOS simulator, Chrome on Android, and Chrome and Edge on the Windows desktop ran the web gates on 2026-10-25 (BR2, "Branded browsers" below); the gates WebDriver or one shared Android context cannot drive stay unrun there. Two failures recorded there stay open: `component-scope` at Android's fractional pixel ratio and `wasm-offline` for C++ on Windows |
 | macOS WKWebView | native-tested (candidate) | full arm64 application gate passed: controls, accessibility, typing, lifecycle and visual parity at 420x752 | exact release artifact and current-head CI |
 | iOS WKWebView | simulator-tested | isolated iPhone SE (3rd generation), iOS 26.5. Passed: Swift calls, publish, input/focus, assets and route state `7 -> 9 -> 7`. On 2026-10-19 the same gate also linked a Rust service (`aarch64-apple-ios-sim` static library, beside the two Swift services): its start hook wrote a file from the app's own process and its rendered count doubled after a page click (MR1) | exact release artifact; support on physical devices is still not claimed |
 | Android WebView | simulator-tested (emulator) | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18), and a `@LocalState` field set by a Kotlin method kept across navigation and reload. Browser APIs (clipboard, share, notifications through the host; geolocation through the web view with the host's location question, 2026-10-19): `scripts/android/browser-apis-test.mjs` passed end to end on 2026-10-24 (RM3), with geolocation fed by `fused`, `network` and `gps` test providers. RM3 also ran granted maximize, fullscreen and close, background and foreground, external links, offline Yon reads, preference strings after a relaunch and a Python service, and the Yon reach, linked Rust and release checks on a Google Play production image ("Android runs owed, RM3" below) | exact release artifact; support on physical devices is still not claimed |
@@ -1419,9 +1419,10 @@ every language but Java (the `*_LANGUAGES` lists of `page-program`,
 - Java services: Chrome 124 has no Wasm `exnref`, which the TeaVM Java
   build uses ("Invalid opcode 0x1f"), so a page with a Java service never
   renders.
-- `web-apis` fails: `navigator.share()` opens Android's share sheet and
-  answers only after the user picks a target or dismisses it, so the gate's
-  5-second wait for `ShareFinished` or `BrowserCallFailed` runs out.
+- `web-apis` failed in this run: `navigator.share()` opens Android's share
+  sheet and answers only after the user picks a target or dismisses it, so
+  the gate's 5-second wait for `ShareFinished` or `BrowserCallFailed` ran
+  out. Fixed later the same day ("Fixes after the first runs" below).
 - `component-scope` fails: a `3px` border computes as `2.66667px` at the
   emulator's fractional device pixel ratio.
 - `website` is unsupported: at 1440 px it asks for `hasTouch: false`, and a
@@ -1469,17 +1470,15 @@ ran (none is left out for Chromium browsers), with every language:
   `held-clients`, `cached-client`, `storage`, `component-scope`,
   `logic-controls`, `svg-namespace`, `authored-node`, `yon-reads`,
   `preview-offline`, `website` and `runtime`.
-- `web-apis` fails: Edge on Windows has `navigator.share()`, which opens the
-  Windows share dialog and answers only after the user picks a target or
-  closes it, so the gate's 5-second wait runs out (as on Android).
-- `scaffold` fails: Edge asks for `/favicon.ico` itself and logs the 404 as a
-  console error, as Chrome does.
-- `window-controls` fails to build its fixture on this machine: with
-  every language its route loads 4070 KB of WebAssembly against the
-  3584 KB budget (TY1337). Without the Swift service it builds and passes
-  in Edge, and on the Mac (Swift 6.4.1) the same route with every language
-  stays under the budget. So the Windows Swift 6.3.3 build is larger; this
-  is a toolchain cause, not Edge.
+- `web-apis` failed: headless Edge on Windows has `navigator.share()`, but
+  it shows no share dialog and its promise never settles, so the gate's
+  5-second wait ran out.
+- `scaffold` failed: Edge asks for `/favicon.ico` itself and logs the 404 as
+  a console error, as Chrome does.
+- `window-controls` failed to build its fixture: with every language its
+  route loaded 4070 KB of WebAssembly against the 3584 KB budget (TY1337),
+  because `ty` did not find Binaryen and shipped the WebAssembly
+  unoptimized.
 
 The first run found three runner and gate problems, all fixed: the preload
 must be passed to `node --import` as a `file:` URL on Windows; the
@@ -1492,9 +1491,41 @@ also hit its 120-second build limit once under load and passed alone.
 Google Chrome 156.0.8078.48 (installed with `winget install --id
 Google.Chrome` on Samuel's say-so, the arm64 enterprise MSI) then ran the
 same default list on the same machine and runner: the same 14 gates
-passed, and `web-apis` (the Windows share dialog), `scaffold` (Chrome's own
-favicon 404) and `window-controls` (the 4070 KB Swift-on-Windows route)
-failed for the same causes.
+passed, and `web-apis` (the share that never settles), `scaffold` (Chrome's
+own favicon 404) and `window-controls` (the 4070 KB route) failed for the
+same causes.
+
+Fixes after the first runs (2026-10-25, develop after `7df815a4`), each
+rerun on the machine that failed:
+
+- `window-controls`: on Windows emsdk's launcher is `emcc.exe` (or
+  `emcc.bat`), and `ty` looked only for an `emcc` file next to Binaryen's
+  `wasm-opt`, so release builds there never found `wasm-opt`. With the
+  lookup fixed and nothing added to PATH, `ty doctor` reports `wasm-opt`
+  ready, the Swift, Kotlin, Java, Rust and Go builds say "optimized by
+  Binaryen", and the route fits the budget. The Surface's emsdk carries
+  Binaryen version 132.
+- `scaffold`: `ty init` now writes `client/shared/assets/icon.svg` and names
+  it in `client/manifest.json`, so each page links its icon and browsers no
+  longer ask for `/favicon.ico`. It passed in Google Chrome 156 in the
+  cloud and in Chrome 156 and Edge 155 on the Surface.
+- `web-apis`: `scripts/branded/share-sheet.mjs` closes the share sheet for
+  the person. The page's `navigator.share()` still calls the browser's own
+  share; after 2 seconds, Chrome on Android presses Back on the real sheet
+  (only while the sheet has the focus) and Chrome answers with an
+  `AbortError`. Headless Chrome and Edge on Windows show no sheet, so the
+  page answers that same `AbortError` itself, and the runner logs it. It
+  passed in Chrome 156 and Edge 155 on the Surface, and on `tachyon-play`
+  (Chrome 124, without Java), where Back closed eight real sheets.
+
+After the fixes, the default list (now 19 gates, with `wasm-offline` and
+`pwa-install`) passed 18 of 19 in both Chrome 156 and Edge 155 on the
+Surface, with nothing unsupported or left out. `wasm-offline` failed in
+both: its C++ reader service did not find the record saved before the
+network went away. It fails the same way in Playwright's own Chromium on
+the Surface and with Binaryen skipped, and passes on the Mac, so it is a
+Windows C++ offline-storage problem, not a branded-browser one, and it is
+not fixed here.
 
 ### Linked services share one program (2026-10-24, LS2)
 
