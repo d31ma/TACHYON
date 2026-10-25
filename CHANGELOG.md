@@ -14,9 +14,10 @@ machine contracts have their own, independent major versions.
   `https://d31ma.github.io` serves the link verification files, and
   `scripts/native/verified-links-files.mjs` writes and checks them.
   `scripts/ios/universal-links-test.mjs` opens universal links from that host
-  in a simulator app; it passed on iOS 26.5. `scripts/android/verified-links-test.mjs`
-  and the Windows browser gate's `-LinkHost` and `-RequireHostLink` check
-  Android app links and Windows app URI handlers against it.
+  in a simulator app; it passed on iOS 26.5.
+  `scripts/android/verified-links-test.mjs` checks Android app links against
+  it and passed on an API 35 emulator. The Windows browser gate's `-LinkHost`
+  and `-RequireHostLink` check Windows app URI handlers against it.
 
 - Native preview against the development server (NET5, ADR 0110):
   `ty preview --target <native>` now builds the real app into

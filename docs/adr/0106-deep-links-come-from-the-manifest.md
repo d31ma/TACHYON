@@ -220,8 +220,13 @@ Windows read the files only from the root of a host.
    in the executable and none in the signature, and
    `https://d31ma.github.io/orders?x=1` opened the app at `/orders?x=1` on a
    cold start; `https://d31ma.github.io/orders?x=2` reached the running app.
-   `scripts/android/verified-links-test.mjs` (Android verifies the host and
-   opens its links without a chooser) and the Windows browser gate with
-   `-LinkHost d31ma.github.io -RequireHostLink` (Windows verifies the
-   package's app URI handler) are written; their runs are owed. A signed
-   iOS device check stays owed.
+   On 2026-10-25 (develop `1f06e1f8`), `scripts/android/verified-links-test.mjs`
+   passed on the Mac's API 35 `google_apis` arm64 emulator: the served
+   `assetlinks.json` listed the certificate Gradle signed the APK with,
+   Android verified `d31ma.github.io`, and its `https` links opened the app
+   at their route without a chooser, on a cold start and while it ran. The
+   Mac's Gradle signs debug APKs with the keystore under
+   `ANDROID_USER_HOME`, not `~/.android`, so the served file lists both
+   certificates. The Windows browser gate with
+   `-LinkHost d31ma.github.io -RequireHostLink` is written; its run is
+   owed. A signed iOS device check stays owed.
