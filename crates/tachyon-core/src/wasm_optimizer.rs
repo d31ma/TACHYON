@@ -91,6 +91,7 @@ impl WasmOptimizer {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::WasmOptimizer;
     use std::path::Path;
