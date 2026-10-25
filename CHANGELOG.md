@@ -19,6 +19,17 @@ machine contracts have their own, independent major versions.
   in the x86_64 slice under Rosetta. It passed on macOS 26.6.2, so the macOS
   `tac.dotnet` cell is `honored`.
 
+- Android emulator runs for services (MA2, 2026-10-25):
+  `scripts/native/yon-reach-test.mjs --target=android` with
+  `TAC_YON_SERVICES=kotlin` links the `realtime` and `sockets` services as
+  Kotlin; `scripts/native/async-listener-app-test.mjs` takes
+  `TAC_ANDROID_LISTENER_LANGUAGE=rs` and runs `--check=shared-setup` on
+  Android; `scripts/android/rust-crate-test.mjs` runs a Rust service with
+  vendored crates; `scripts/android/page-services-test.mjs` runs Go and
+  ahead-of-time C# page services and Swift and C# WindowControls callers.
+  All passed on the Android 15 emulator; the Android `tac.application.rust`,
+  `tac.dotnet` and `tac.go` cells are `honored`.
+
 - Linux runs under Wayland and on WSL (LX2, 2026-10-25): the Linux browser
   API and file dialog tests click and press keys through Mutter's
   RemoteDesktop session when GDK runs on Wayland
@@ -2024,6 +2035,13 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- A linked Kotlin service on Android read event and client models with
+  their values swapped when the model's fields were not in alphabetical
+  order (MA2, 2026-10-25). The companion filled the constructor in the
+  order `getDeclaredFields` lists the fields, which on ART is alphabetical.
+  The Android companion now carries each model's constructor order
+  (`tacModelOrder`).
 
 - A Rust, Kotlin or Swift browser service with a field whose type is another
   Tac service now stops with `TY1406` at the field (ADR 0065 amendment,

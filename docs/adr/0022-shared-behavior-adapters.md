@@ -570,7 +570,10 @@ went from 1459 KB to 934 KB. The macOS, iOS simulator and Android emulator
 host runs are owed. (Amended 2026-10-25: on macOS 26.6.2 and the iOS 26.5
 simulator, `scripts/native/async-listener-app-test.mjs --check=shared-setup`
 built the two Swift services into the app, and the reader saw the writer's
-identity and count 1 (MA1). The Android emulator run is still owed.) On 2026-10-24 the C# test also passed on Windows 11 ARM64
+identity and count 1 (MA1). On the Android 15 emulator the same check passed
+with two linked Kotlin services after a fix: the Android companion now fills
+Kotlin models in constructor order, because ART lists fields alphabetically
+(MA2).) On 2026-10-24 the C# test also passed on Windows 11 ARM64
 with `dotnet run`, and
 `two_linked_csharp_services_share_one_setup_configuration_when_published_with_native_aot`
 published both services with NativeAOT for `win-arm64` and ran them: one

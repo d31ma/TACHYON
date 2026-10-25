@@ -128,3 +128,8 @@ Runs on 2026-10-24 (develop `e0bbb86a` plus LS3):
   scripts/native/async-listener-app-test.mjs` passed with a linked Rust
   `async fn` listener in the macOS app and in the simulator app. Each press
   waited about 430 ms, and the listener ran in the app's process.
+- Android 15 emulator, 2026-10-25 (MA2, API 35 arm64, WebView 124):
+  `TAC_ANDROID_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
+  --target=android` passed with a linked Rust `async fn` listener in the
+  packaged app. Each press waited about 430 ms, and the listener ran in the
+  app's process.

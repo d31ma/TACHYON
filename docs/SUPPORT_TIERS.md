@@ -860,8 +860,10 @@ iOS 26.5 simulator) `TAC_YON_SERVICES=swift scripts/native/yon-reach-test.mjs`
 passed in the macOS app and on the simulator over `http` and `https` with
 the `realtime` and `sockets` services linked as Swift (the script checks
 `tachyon.host.json`): the page held their stream and socket and the
-services showed the ticks and the chat echo. Not run: a linked Kotlin
-stream or socket in the Android app (MA2).
+services showed the ticks and the chat echo. On 2026-10-25 (MA2, Android
+15 emulator) `TAC_YON_SERVICES=kotlin scripts/native/yon-reach-test.mjs
+--target=android` passed with the same services linked as Kotlin, after the
+model order fix below ("Android service runs, MA2").
 
 On 2026-10-24 (LS3, ADR 0105 amendment) `@OnEvent` listeners became allowed
 to be async in Kotlin, C# and F#, and in linked services of every language.
@@ -907,6 +909,11 @@ app's own process:
   passed in the macOS app and in the simulator app. The Rust `async fn`
   listener waits 400 ms on another thread; each press waited about 430 ms,
   and the listener ran in the app's process.
+- Android 15 emulator with a linked Rust listener (MA2, 2026-10-25, API 35
+  arm64, WebView 124):
+  `TAC_ANDROID_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
+  --target=android` passed in the packaged app. Each press waited about 430
+  ms (430 and 415), and the listener ran in the app's process.
 
 - Linux (x86_64 Ubuntu 24.04 cloud container, GTK 4.14.5, WebKitGTK
   2.52.6, Xvfb, develop `dbcaf6d9` plus the fix below):
@@ -1311,8 +1318,10 @@ Yon. These run the generated companion outside its app (ADR 0022 amendment of
 27.1, Swift 6.4) `scripts/native/async-listener-app-test.mjs
 --check=shared-setup` built the same two linked Swift services into the
 macOS app and the iOS 26.5 simulator app: the writer incremented, and the
-reader read the writer's Setup identity and count 1 in both apps. The
-Android emulator run is owed. On 2026-10-24 the C# test passed on Windows 11 ARM64 too, with
+reader read the writer's Setup identity and count 1 in both apps. On the
+Android 15 emulator (MA2, 2026-10-25) the same check with
+`--target=android` passed with two linked Kotlin services after the model
+order fix ("Android service runs, MA2"). On 2026-10-24 the C# test passed on Windows 11 ARM64 too, with
 `dotnet run` and published with NativeAOT for `win-arm64`
 (`two_linked_csharp_services_share_one_setup_configuration_when_published_with_native_aot`):
 both services read the same identity, and the shared setup ran once.
@@ -1389,13 +1398,14 @@ naming the run that would move it back:
 | `tac.application.window.controls`, Windows | a page, a linked C# service and a WebAssembly Kotlin service in WebView2 (SD1); a real Win32 window over SSH (RW1) | linked Rust and WebAssembly Swift callers in WebView2 (SW1, SW3) |
 | `tac.nativeCapabilities` filePicker, macOS | C# and Kotlin fields in `NSOpenPanel` (FP5) | none: a linked Rust field ran in `NSOpenPanel` (MA1, below), so the cell is `honored` again |
 | `tac.nativeCapabilities` filePicker, Windows | the MSVC dialog test (SD1); page, linked C# and WebAssembly Kotlin fields from a WebView2 page (FP5) | linked Rust (it ran only under Wine) and WebAssembly Swift fields from a WebView2 page (SW1, SW3) |
-| `tac.go`, macOS and Android | a Go service in the macOS app (MA1, below), so macOS is `honored` again | a Go service on the emulator (MA2) |
+| `tac.go`, macOS and Android | a Go service in the macOS app (MA1) and on the emulator (MA2, below), so both are `honored` again | none |
 | `tac.browserApis` geolocation, macOS | the location prompt with the manifest reason, answered Don't Allow (RM1) | a position reaching the page after Allow (MA3) |
 | background and foreground signal, Windows | the page and a linked Rust service (SD1) | a linked C# listener (SW1) |
 | reaching Yon, Windows | HTTP from the page and linked Rust and C# services, and a linked C# service's held stream and socket clients (NET3, LS1) | a linked Rust service's held stream and socket clients in `scripts/windows/yon-reach.ps1` (SW1) |
 
 The Android window controls stay `adapted`; their note now says that Swift
-and C# WebAssembly callers have not run on the emulator (MA2). Text fixes
+and C# WebAssembly callers have not run on the emulator; MA2 (below) ran
+them. Text fixes
 with no change of state: iOS release packaging names an iOS 17.4 device (the
 floor since ADR 0108); the Windows integrated title bar note names the SD1
 desktop run instead of saying it has not run; macOS System Back no longer
@@ -1423,6 +1433,51 @@ passed in 2 minutes 11 seconds:
 
 No permission prompt appeared. The macOS window controls, file picker and
 `tac.go` cells are `honored` again.
+
+### Android service runs (2026-10-25, MA2)
+
+On the Mac's emulator-5554 (`tachyon-gate` AVD: Android 15, API 35,
+`google_apis` arm64-v8a, `userdebug`, WebView 124.0.6367.219), with a debug
+`ty` from branch `claude/project-thread-03rpod`, Node 24.19.0, Go 1.27.2,
+.NET SDK 10.0.402 with `wasm-tools` and `wasm-tools-net9`, and Swift 6.4.1
+with its WebAssembly SDK:
+
+- `scripts/android/rust-crate-test.mjs`: a Rust service using a vendored
+  crate, and a second one listed only under
+  `tac.application.rust.platformDependencies.android`, answered
+  `hello from android` in the app's process. The APK carries the Rust
+  library for arm64-v8a and x86_64.
+- `scripts/android/page-services-test.mjs`: a Go page service and a C#
+  page service with `tac.dotnet.aot` answered a click and a method with an
+  argument (`2 in the basket`, `2 items`), each loading its WebAssembly from
+  `https://appassets.tachyon.local`. The ahead-of-time `dotnet.native.wasm`
+  was 5,784,383 bytes against 1,454,619 bytes for the same service built
+  with the trimmed interpreter. Swift and C# `ReportService` callers of the
+  `window-controls` feature, running as WebAssembly, set the window title to
+  `Quarterly report`, resized the window to 1280 by 800 and minimized the
+  app.
+- `TAC_ANDROID_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
+  --target=android`: the linked Rust async listener (above).
+- `TAC_YON_SERVICES=kotlin scripts/native/yon-reach-test.mjs
+  --target=android` and `scripts/native/async-listener-app-test.mjs
+  --check=shared-setup --target=android` failed on the first run. The
+  linked Kotlin companion filled a model's constructor in the order
+  `getDeclaredFields` lists the fields, and ART lists them alphabetically:
+  `Tick(sku, level)` got `sku = "3"` and `level = 0`, and
+  `ProgramState(identity, count)` got its values swapped. The JVM lists
+  fields in declaration order, so the off-device tests did not see it. The
+  Android companion now carries `tacModelOrder`, generated from the client's
+  Kotlin models and the built-in event models, and both gates passed three
+  times in a row: the page held the linked Kotlin `realtime` and `sockets`
+  services' stream and socket clients and delivered their messages, a linked
+  Kotlin HTTP client reached Yon, and two linked Kotlin services read one
+  Setup identity and count 1. The Kotlin `suspend` listener passed again.
+
+The Android `tac.application.rust`, `tac.dotnet` and `tac.go` cells are
+`honored`, and the window controls and reaching Yon notes name these runs.
+An app whose only HTTP client uses a page adapter still needs a
+`tac.yon.origin` to build (TY1601), so the shared Setup fixture declares one
+it never calls.
 
 ## Historical Phase 5 Native Target Status
 

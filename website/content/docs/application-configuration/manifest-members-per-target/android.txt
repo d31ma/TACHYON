@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   not applicable: tac.application.window minWidth and minHeight have no meaning on Android: the system sizes the app.
 
 tac.application.window.controls
-  adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. On the emulator, granted minimize, resize and title acted from the page and a linked Kotlin service, and title also from a linked Rust service; granted maximize and fullscreen acted from a linked Kotlin service; fullscreen from the page hid and showed the system bars; close from the page finished the activity and refused a control that reached it after close started; and ungranted controls were refused (RM3). Swift and C# services, which run as WebAssembly on Android and reach the controls through the page, have not called them on the emulator; that run is still owed.
+  adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. On the emulator, granted minimize, resize and title acted from the page and a linked Kotlin service, and title also from a linked Rust service; granted maximize and fullscreen acted from a linked Kotlin service; fullscreen from the page hid and showed the system bars; close from the page finished the activity and refused a control that reached it after close started; and ungranted controls were refused (RM3). Swift and C# services, which run as WebAssembly on Android and reach the controls through the page, set the title, resized the window to 1280 by 800 and minimized the app on the emulator (MA2).
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Android page draw edge to edge, under the status bar. --tac-titlebar-height is the status bar height, and the leading and trailing insets are the side system-bar and display-cutout insets. The navigation bar still pads the page. There are no window buttons and no drag regions (ADR 0098).
@@ -76,7 +76,7 @@ tac.application.tray.dock
   not applicable: tac.application.tray.dock has no meaning on Android, which refuses tac.application.tray.
 
 tac.application.rust
-  run owed: vendored crates linked into the app's Rust services, built for arm64-v8a and x86_64; platformDependencies.android applies only here; still to run: an Android app whose Rust service uses a vendored crate, on the emulator
+  honored: vendored crates linked into the app's Rust services, built for arm64-v8a and x86_64; platformDependencies.android applies only here. A Rust service using a vendored crate, and one only for Android, answered the page on the Android 15 emulator (MA2)
 
 tac.application.rust.executables
   refused with TY1601: An Android app may not start other programs. Do the work in a service, or remove tac.application.rust.executables for this target.
@@ -148,10 +148,10 @@ tac.yon
   honored: the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator, also on its Google Play production image (ADR 0103)
 
 tac.go
-  run owed: the same Go WebAssembly build in the web view; still to run: a Go service in the Android emulator gate
+  honored: the same Go WebAssembly build in the web view; a Go page service answered a click on the Android 15 emulator (MA2)
 
 tac.dotnet
-  run owed: the same WebAssembly build in the web view; still to run: an ahead-of-time C# service in the Android emulator gate
+  honored: the same WebAssembly build in the web view; an ahead-of-time C# service answered the page on the Android 15 emulator (MA2)
 
 tac.accessibility
   honored: the same build check
@@ -232,7 +232,7 @@ Content-Security-Policy
   honored: the native host policy, which also allows the host's bridge script by its hash
 
 reaching Yon
-  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2). The page also holds a linked Kotlin service's stream and socket clients and delivers their messages to it (LS1); an emulator run of that is still owed.
+  adapted: The Android app's pages load from https://appassets.tachyon.local, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages, and linked Kotlin and Rust HTTP clients, reach the Yon at tac.yon.origin, run on the Android 15 emulator by scripts/android/yon-origin-test.mjs and rust-services-test.mjs (NET2, MR2). The page also holds a linked Kotlin service's stream and socket clients and delivers their messages to it (LS1); TAC_YON_SERVICES=kotlin yon-reach-test.mjs ran that on the Android 15 emulator (MA2).
 
 natively linked service languages
   honored: Kotlin and Rust services are linked into the app, with Kotlin chosen when a service has both; other languages run in the page

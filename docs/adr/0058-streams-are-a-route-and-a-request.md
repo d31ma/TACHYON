@@ -329,7 +329,11 @@ and socket clients, in the macOS app and on the iOS 26.5 simulator over
 `http` and `https`, and a linked Rust async `@OnEvent` listener ran in the
 macOS app and on the simulator (ADR 0105).
 
-Still owed, each in the app (`docs/SUPPORT_TIERS.md`): a linked Kotlin service's held stream and socket clients and a linked Rust async
-listener on the Android emulator (MA2); and a linked Rust service's held
+On 2026-10-25 (MA2) `TAC_YON_SERVICES=kotlin scripts/native/yon-reach-test.mjs
+--target=android` ran linked Kotlin `realtime` and `sockets` services, which
+hold their stream and socket clients, on the Android 15 emulator, and a linked
+Rust async `@OnEvent` listener ran in the Android app (ADR 0105).
+
+Still owed, in the app (`docs/SUPPORT_TIERS.md`): a linked Rust service's held
 stream, socket and topic clients and a linked Rust async listener inside
 WebView2 (SW1).
