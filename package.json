@@ -35,6 +35,7 @@
     "test:application-state-macos": "node scripts/application-state-macos-test.mjs",
     "test:page-checks-macos": "node scripts/native/page-checks-macos-test.mjs",
     "test:page-services-macos": "node scripts/native/page-services-macos-test.mjs",
+    "test:macos-release": "node scripts/native/macos-release-test.mjs",
     "test:island-expression": "node scripts/island-expression-test.mjs",
     "test:runtime-browser": "node scripts/runtime-browser-test.mjs",
     "test:safe-html-browser": "node scripts/safe-html-browser-test.mjs",
