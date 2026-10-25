@@ -477,3 +477,16 @@ A WebAssembly Swift caller renamed and resized the window inside WebView2 on
 "Swift on the Windows desktop"), and a linked Rust caller did the same that
 day (SW1, `docs/SUPPORT_TIERS.md` "Linked services in WebView2"), so the
 Windows window controls are `honored` again (ADR 0102, JS1 amendment).
+
+## Amendment (2026-10-25): host refusals heard on iOS and macOS (MA4)
+
+The 2026-10-18 rule (a window control the host refuses after the call
+started reaches the calling service as `BrowserCallFailed`) ran on Apple
+hosts on 2026-10-25 (Xcode 27.1, commit `e6c017f1`). A JavaScript caller set
+titles of 16, 2,000 and 70,000 characters. On an iOS 26.5 simulator it heard
+`windowControls setTitle invalid` (the iOS host refuses a title over 1,024
+bytes) and `windowControls setTitle invalid or oversized host call` (both
+Apple hosts refuse a request over 64 KiB). On macOS 26.6.2 it heard only the
+second one, because the macOS host keeps the first 256 characters of a long
+title. The valid title raised no event on either host. The Windows leg is
+SW2's.

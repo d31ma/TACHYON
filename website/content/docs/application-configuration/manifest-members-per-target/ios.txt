@@ -190,7 +190,7 @@ tac.simplify
   honored: the same build check
 
 application lifetime services
-  adapted: Rust services start once when the app launches and serve every page (LT1, iPhone and iPad simulators). Their OnStop runs only from applicationWillTerminate: iOS ends a suspended app without telling it, and on the simulator a SIGTERM ended the app without that call, so do not keep unsaved data only until OnStop.
+  adapted: Rust services start once when the app launches and serve every page (LT1, iPhone and iPad simulators). Their OnStop runs only from applicationWillTerminate, which ran when the app was ended from the app switcher (MA4); iOS ends a suspended app without telling it, so do not keep unsaved data only until OnStop.
 
 standard menu bar without declared items
   not applicable: Without declared items, an iOS app keeps the system's own iPad menu bar and adds nothing.

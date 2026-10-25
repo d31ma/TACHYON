@@ -554,3 +554,16 @@ command. `ty bundle --target macos --arch universal` gave `lipo -archs`
 (`NSRunningApplication.executableArchitecture` x86_64), and in both the
 page's linked Rust service answered (`docs/SUPPORT_TIERS.md`, "macOS runs
 owed, RM1"). An Intel Mac has not run it.
+
+## Amendment (2026-10-25): the iOS stop and the iPad menu bar by touch ran (MA4)
+
+`scripts/ios/application-lifetime-test.mjs` now ends the app the way a
+person does: a double press of Home opens the app switcher and a swipe on
+the app's card ends it. On 2026-10-25 it passed on iOS 26.5 iPhone 17 Pro and
+iPad Pro 13-inch (M5) simulators (Xcode 27.1, commit `e6c017f1`):
+`applicationWillTerminate` ran, the open page's Rust service ran its `OnStop`,
+and then the application service ran its `OnStop` once. On iPad a touch swipe
+down from the top edge opened the menu bar, and touches on View and What's
+Running forwarded `SectionChosen` to the page. iOS still ends a suspended app
+without telling it, so the iOS cell stays `adapted` and its note now names
+this run. A pointer-opened menu bar has not run.

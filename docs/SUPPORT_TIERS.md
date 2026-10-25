@@ -146,7 +146,7 @@ entry. This evidence does not promote any tier.
 | macOS WKWebView | yes | the generated AppDelegate is compiled and run with a real Rust library (ignored SDK-lane tests in `native_application_host_tests` and `native_menu_host_tests`) |
 | Linux WebKitGTK | yes | `linux_host_tests::linux_generated_host_runs_menu_actions_and_one_application_lifetime` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and a real Rust library, and ran it under Xvfb on WSL Ubuntu 24.04 (aarch64), passing three of three runs: the service started once at launch, a menu action reached the page service without a reload, the item was disabled with no recipient, Help and Home kept the service, and Close Window stopped it once. Not covered: a physical Linux desktop, Wayland, x86_64, and clicks or keys by a person. WSLg's display did not accept connections from the remote test lane, and with WebKit's sandbox on, the first page load took up to about 80 seconds on that machine. This run predates `594a5833` (2026-10-18). Before that fix, GTK 4 did not draw the menu bar, and the popover menu items had no accessible name. The test activates the menu actions through the application's action group, so it passed without a visible menu bar. Since the fix the test also checks that the window shows its menu bar, the AT-SPI probe of `scripts/linux/native-test.sh` reads the drawn menu items by name, and the test passed again in the WSL run of `38eaed29` |
 | Windows WebView2 (x64) | yes | built and run on Windows 11 ARM64 on 2026-10-04 with Visual Studio Build Tools 2022 17.14 (MSVC 14.44, ARM64-hosted x64 tools), Windows SDK 10.0.26100.0 and WebView2 SDK 1.0.3485.44. `ty`, built natively for `aarch64-pc-windows-msvc`, ran `ty bundle --target windows` for the `menu-actions` and `menu-items-that-open-a-page` examples: the whole host compiled with `cl /W4 /WX`, linked `WebView2LoaderStatic.lib`, and `TachyonRustCompanion.dll` was built (after the C4100 fix of 2026-10-04). The WebView2 handler interface IDs match `WebView2.h`. The apps ran from an SSH session and were driven with Win32 messages: the application service started once before the window, the File, View and Help menus showed the declared items and shortcuts, a menu action ran, an item whose event had no recipient stayed disabled and did not run, and Close Window ended the process with exit code 0 after exactly one stop (also after `WM_ENDSESSION`). This SSH run did not reach WebView2: outside a signed-in desktop session `CreateCoreWebView2Controller` fails with `0x80070578` (invalid window handle). WebView2 pages ran later on the signed-in desktop (2026-10-19): the MSIX gate rendered pages and made native calls (PKG4), and links opened the app at their routes (LK2); see the Windows row and the Windows release packages above. On 2026-10-24 route items, the `AcceleratorKeyPressed` handler (Ctrl+K) and `scripts/windows/native-test.ps1` without `-Msix` passed there (SD1). On the same day View > Show Running and Ctrl+2 sent their events to the page, which now shows them (SD1) |
-| iOS WKWebView | route items yes (MN1a); action items and the application lifetime yes (LT1, MN1b), except that the application `OnStop` was not observed (SIGTERM ends a simulator app without `applicationWillTerminate`) | `scripts/ios/menus-test.mjs` on this Mac (2026-10-19, MN1a, Xcode with iOS 26.5): on an iPhone 17 Pro simulator Command-K from a simulated hardware keyboard reached the route item through `keyCommands`, and on an iPad Pro 13-inch (M5) simulator through the main menu that `buildMenu(with:)` fills; a Swift service on the opened page recorded `/status` both times. On 2026-10-24 (LT1, MN1b) `scripts/ios/application-lifetime-test.mjs` passed on the same simulators (iOS 26.5, Xcode 27.1, commit `566c24e9`): one Rust application service started at launch and served two pages, Command-1 and Command-2 called it through the iPhone key commands and the iPad menu bar, and Command-1 did nothing on a page without a listener. iPadOS keeps Command-G for Find Next, so an item with that shortcut never fires on iPad. Not covered: the iPad menu bar opened by a pointer or touch, a person's keyboard, and the application stop on termination |
+| iOS WKWebView | route items yes (MN1a); action items and the application lifetime yes (LT1, MN1b); the application `OnStop` runs when a person ends the app from the app switcher (MA4), not when iOS ends a suspended app | `scripts/ios/menus-test.mjs` on this Mac (2026-10-19, MN1a, Xcode with iOS 26.5): on an iPhone 17 Pro simulator Command-K from a simulated hardware keyboard reached the route item through `keyCommands`, and on an iPad Pro 13-inch (M5) simulator through the main menu that `buildMenu(with:)` fills; a Swift service on the opened page recorded `/status` both times. On 2026-10-24 (LT1, MN1b) `scripts/ios/application-lifetime-test.mjs` passed on the same simulators (iOS 26.5, Xcode 27.1, commit `566c24e9`): one Rust application service started at launch and served two pages, Command-1 and Command-2 called it through the iPhone key commands and the iPad menu bar, and Command-1 did nothing on a page without a listener. iPadOS keeps Command-G for Find Next, so an item with that shortcut never fires on iPad. On 2026-10-25 (MA4, commit `e6c017f1`) the same script opened the iPad menu bar by touch, a swipe down from the top edge, and touches on View and What's Running called the application service. On iPhone and iPad, ending the app from the app switcher ran `applicationWillTerminate`: the open page's Rust service stopped first, then the application service, once. Not covered: the iPad menu bar opened by a pointer, a person's keyboard, and a stop when iOS ends a suspended app (iOS does not tell the app) |
 | Android WebView | route items, action items and the application lifetime yes (MN1a, LT1, MN1b) | `scripts/android/menus-test.mjs` on this Mac's emulator-5554 (API 35 arm64, 2026-10-19, MN1a): the system keyboard shortcuts list (Meta+/) showed File > Status Ctrl+K, `input keycombination` Ctrl+K opened `/status`, and a tap on the app bar's More options and then Guide opened `/guide`, read through the WebView's DevTools socket. On 2026-10-24 (LT1, MN1b) `scripts/android/application-lifetime-test.mjs` passed there (commit `566c24e9`): one Rust application service started at launch, served two pages and a rotation, stopped once on Back, and started again on the next launch in the same process; Ctrl+1 and Ctrl+2 called it, the page showed the forwarded section without a reload, and the overflow item was disabled on a page without a listener |
 
 Standard menus on Linux and Windows (2026-10-18, ADR 0097 amendment): both
@@ -1118,7 +1118,7 @@ This evidence does not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| iOS WKWebView | yes: the status bar strip and its text color, the web view and launch screen color (an asset catalog color), the hidden status bar, the supported interface orientations, edge to edge with the three `--tac-titlebar-*` properties from the safe-area insets, and `WindowControls` for linked Swift services | `scripts/ios/window-settings-test.mjs` on the Mac (macOS 26.6.2, Xcode 27.1 27A9275, iOS 26.5 simulators, WIN5 branch on develop eefb70b0) built three apps and read the running page, a linked Swift service and a screenshot. iPhone 17 Pro: a standard window with a dark `theme_color` showed it across the 62-point status bar with light text (`statusBarStyle` 1), started the page at the safe-area top and showed `background_color` through the transparent page; the bundle's `Assets.car` held the launch color. An integrated window with a light `theme_color` put the page at the top edge with dark text (3), set `--tac-titlebar-height` to `62px`, and the page's own bar filled the status bar in the screenshot. `display: "fullscreen"` with `landscape` hid the status bar and opened in landscape (750 by 382). The linked Swift service saw the `title` grant and no `minimize` grant and set the scene title to `Quarterly report` on the iPhone and on an iPad Pro 13-inch (M5). Not checked: the launch screen on screen, a device turned by hand, and a physical device |
+| iOS WKWebView | yes: the status bar strip and its text color, the web view and launch screen color (an asset catalog color), the hidden status bar, the supported interface orientations, edge to edge with the three `--tac-titlebar-*` properties from the safe-area insets, and `WindowControls` for linked Swift services | `scripts/ios/window-settings-test.mjs` on the Mac (macOS 26.6.2, Xcode 27.1 27A9275, iOS 26.5 simulators, WIN5 branch on develop eefb70b0) built three apps and read the running page, a linked Swift service and a screenshot. iPhone 17 Pro: a standard window with a dark `theme_color` showed it across the 62-point status bar with light text (`statusBarStyle` 1), started the page at the safe-area top and showed `background_color` through the transparent page; the bundle's `Assets.car` held the launch color. An integrated window with a light `theme_color` put the page at the top edge with dark text (3), set `--tac-titlebar-height` to `62px`, and the page's own bar filled the status bar in the screenshot. `display: "fullscreen"` with `landscape` hid the status bar and opened in landscape (750 by 382). The linked Swift service saw the `title` grant and no `minimize` grant and set the scene title to `Quarterly report` on the iPhone and on an iPad Pro 13-inch (M5). On 2026-10-25 (MA4, commit `e6c017f1`) the same script held the standard app before `main` with `simctl launch --wait-for-debugger`, and the screenshot showed the launch screen: `#ffaa00` behind the status bar and across the whole screen, before the page ran. Not checked: a device turned by hand, and a physical device |
 | Android WebView | yes: the status and navigation bar colors and icon colors, the window, splash screen and web view color, hidden system bars, `screenOrientation`, and edge to edge with the three properties from the system-bar and cutout insets | `scripts/android/window-settings-test.mjs` on the Mac's API 35 arm64 emulator (`tachyon-gate`, 1080 by 2400 at 420 dpi) built three APKs and read the page over DevTools, `aapt2` for the manifest and `screencap` pixels. A standard window filled the status and navigation bars with `theme_color` and showed `background_color` through the page (412 by 842). An integrated window drew the page under the status bar, set `--tac-titlebar-height` to `49px`, and the page's bar reached the bottom of the status bar. `display: "fullscreen"` with `landscape` opened in landscape with no system bars (866 by 412, the 49 dp cutout still pads the leading side). Not checked by the run: the bar icon colors, the splash screen, Android below API 35, and a physical device |
 
 ### Desktop window colors and display (2026-10-24, WIN7)
@@ -1186,8 +1186,9 @@ not promote any tier.
 
 Not covered by these runs:
 
-- Disposal on termination: `simctl terminate` kills the app, so neither
-  `applicationWillTerminate` nor a Swift `@OnStop` runs.
+- Disposal on termination by `simctl terminate`: it kills the app, so neither
+  `applicationWillTerminate` nor a Swift `@OnStop` runs. Ending the app from
+  the app switcher does run them (MA4, below).
 - iOS 18.2 or a 17.4 runtime: the 18.2 floor (Kotlin, Dart and, until
   2026-10-25, Java) and the new 17.4 floor ran on iOS 26.5 and 18.0 only.
   The 18.4 Java floor (JF1) has not run.
@@ -1734,6 +1735,40 @@ session, each started through `scripts/windows/desktop-run.ps1` and
 
 The Windows window controls, file picker, background and foreground, and
 reaching Yon cells are `honored` again.
+
+### Native shell runs (2026-10-25, MA4)
+
+On the Mac (macOS 26.6.2, Apple M4, Xcode 27.1, iOS 26.5 simulators), with a
+debug `ty` from branch `claude/project-thread-t2wmoo` (commit `e6c017f1`):
+
+- `scripts/ios/window-settings-test.mjs` (iPhone 17 Pro and iPad Pro 13-inch
+  (M5)): the WIN5 checks passed again. The standard app, held before `main`
+  with `simctl launch --wait-for-debugger`, showed its launch screen:
+  `background_color` `#ffaa00` filled the status bar row and rows at 30, 60
+  and 90 percent of the screen, and the page had not run. A JavaScript
+  `WindowControls` caller set titles of 16, 2,000 and 70,000 characters and
+  heard two `BrowserCallFailed` events: `windowControls setTitle invalid`
+  (the host refuses a title over 1,024 bytes) and `windowControls setTitle
+  invalid or oversized host call` (the host refuses a request over 64 KiB).
+  The valid title raised no event.
+- `scripts/native/page-services-macos-test.mjs` with only the refusal check:
+  the same caller in the packaged macOS app heard one `BrowserCallFailed`,
+  `windowControls setTitle invalid or oversized host call`. The macOS host
+  accepts a 2,000-character title and keeps its first 256 characters. A call
+  after the window closed is also refused (`Native window unavailable.`), but
+  no page is left to hear it.
+- `scripts/ios/application-lifetime-test.mjs`: on iPhone and iPad, a
+  double press of Home opened the app switcher and a swipe on the app's card
+  ended the app. `applicationWillTerminate` ran: the open page's Rust
+  `SectionService` ran its `OnStop` before the application service's
+  `OnStop`, which ran once. On iPad a touch swipe down from the top edge
+  opened the menu bar, and touches on View and What's Running forwarded
+  `SectionChosen`. The touches come from `scripts/ios/simulator-tap.m`
+  (`home` and `drag` modes).
+
+Evidence on the Mac: `/Volumes/FORGE/Logs/TACHYON/ma4-20261025/`. The
+Android legs of MA4 (bar icon colors, the splash screen, an API 34 image and
+page disposal in `onDestroy`) have not run yet.
 
 ## Historical Phase 5 Native Target Status
 

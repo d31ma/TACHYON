@@ -391,3 +391,13 @@ the build's note says so).
 session of `scripts/linux/compositor-test.sh` in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64), so the Linux
 `background_color` backdrop and the `theme_color` header bar are read back
 under Wayland and on WSL too. A Linux desktop is still not run.
+
+## Amendment (2026-10-25): the iOS launch screen ran on screen (MA4)
+
+`scripts/ios/window-settings-test.mjs` now holds the app before `main` with
+`simctl launch --wait-for-debugger` and reads a screenshot. On an iOS 26.5
+iPhone 17 Pro simulator (Xcode 27.1, commit `e6c017f1`) the launch screen
+filled the status bar and the whole screen with `background_color` before
+the page ran. The Android splash screen and bar icon colors, and an Android
+image below API 35, are checked by `scripts/android/window-settings-test.mjs`
+and have not run yet.
