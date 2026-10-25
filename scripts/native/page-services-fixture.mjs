@@ -67,6 +67,8 @@ export default class WindowRefusalService {
   /** @type {TacWindowControls} */
   @Needs
   windowControls;
+  @Needs
+  taskScheduler;
   count = 0;
   first = WindowRefusalService._NOTHING;
   second = WindowRefusalService._NOTHING;
@@ -86,6 +88,7 @@ export default class WindowRefusalService {
     }
     await new Promise((resolve) => setTimeout(resolve, WindowRefusalService._SETTLE));
     this.done = 'finished';
+    await this.taskScheduler.render();
   }
 
   /** @param {BrowserCallFailed} failed */
