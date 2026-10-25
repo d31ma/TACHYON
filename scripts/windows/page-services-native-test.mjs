@@ -6,8 +6,8 @@ import { WindowsGate } from './windows-gate.mjs'
 class WindowsPageServicesTest {
   static root = WindowsGate.fixture('windows-page-services-')
   static serviceLanguages = PageServicesFixture.list('TAC_WINDOWS_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
-  static windowCallers = PageServicesFixture.list('TAC_WINDOWS_WINDOW_CALLERS', 'swift,cs,kt')
-  static pickerCallers = PageServicesFixture.list('TAC_WINDOWS_PICKER_CALLERS', process.env.TAC_SWIFT_WASM_SDK ? 'js,kt,cs,swift' : 'js,kt,cs')
+  static windowCallers = PageServicesFixture.list('TAC_WINDOWS_WINDOW_CALLERS', 'swift,cs,kt,rs')
+  static pickerCallers = PageServicesFixture.list('TAC_WINDOWS_PICKER_CALLERS', process.env.TAC_SWIFT_WASM_SDK ? 'js,kt,cs,rs,swift' : 'js,kt,cs,rs')
   static nativeLanguages = ['rs', 'cs']
   static pageLanguages = ['js', 'ts']
   static callerFolders = { cs: 'native' }

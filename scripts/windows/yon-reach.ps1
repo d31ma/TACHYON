@@ -233,6 +233,12 @@ function Test-ReachControls([string] $app) {
     Test-Step 'Check validation' @('Check valid accepted', 'Check invalid refused')
     Test-Step 'Check signed in' @('SignedIn anonymous refused', 'SignedIn ok reach')
     Test-Step 'Check Rust HTTP' @('Rust HTTP ok hello')
+    Test-RepeatedStep 'Check Rust stream' 'Rust stream ok 3'
+    Test-Step 'Send Rust echo' @('Rust socket sent')
+    Test-RepeatedStep 'Check Rust socket' 'Rust socket rust-echo'
+    Test-Step 'Check Rust topic' @()
+    Test-Step 'Check topic' @('Topic sent accepted', 'Topic ok')
+    Test-RepeatedStep 'Check Rust topic' 'Rust topic heard 1'
     Test-Step 'Check CSharp HTTP' @('CSharp HTTP ok hello')
     Test-RepeatedStep 'Check CSharp stream' 'CSharp stream ok 3'
     Test-Step 'Send CSharp echo' @('CSharp socket sent')
@@ -316,7 +322,7 @@ function Invoke-YonReach {
     }
 
     Remove-Item -LiteralPath $logs -Recurse -Force
-    Write-Host "PASS: the Windows app on https://tachyon.local reached Yon on $origin over HTTP, a stream, a socket, a topic, a Check refusal, a SignedIn route, the linked Rust and C# HTTP clients, and a linked C# service's stream and socket clients held by the page"
+    Write-Host "PASS: the Windows app on https://tachyon.local reached Yon on $origin over HTTP, a stream, a socket, a topic, a Check refusal, a SignedIn route, the linked Rust and C# HTTP clients, linked Rust and C# services' stream and socket clients held by the page, and a topic heard by a linked Rust service"
 }
 
 Invoke-YonReach

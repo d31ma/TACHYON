@@ -554,6 +554,126 @@ export default class CsharpSocketService {
 """,
     }
 
+    RUST_HELD_FILES = {
+        "client/models/RustTick.rs": "#[derive(Clone, Debug, Default)]\npub struct RustTick {\n    pub sku: String,\n    pub level: i64,\n}\n",
+        "client/models/RustChatMessage.rs": "#[derive(Clone, Debug, Default)]\npub struct RustChatMessage {\n    pub text: String,\n}\n",
+        "client/models/ReachNews.rs": "#[Topic]\n#[derive(Clone, Debug, Default)]\npub struct ReachNews {\n    pub text: String,\n}\n",
+        "client/remotes/RustTicksClient.rs": """use crate::models::RustTick;
+
+#[HTTPClient("/api/ticks")]
+trait RustTicksClient {
+    #[StreamRequest]
+    fn receive(&self, tick: RustTick);
+}
+""",
+        "client/remotes/RustEchoClient.rs": """use crate::models::RustChatMessage;
+
+#[HTTPClient("/api/echo")]
+trait RustEchoClient {
+    #[SocketRequest]
+    fn receive(&self, message: RustChatMessage);
+}
+""",
+        "client/services/RustStreamService.rs": """use crate::models::RustTick;
+
+#[Service]
+pub struct RustStreamService {
+    #[Needs]
+    rust_ticks_client: std::sync::Arc<RustTicksClient>,
+    count: i64,
+}
+
+impl RustStreamService {
+    #[OnEvent]
+    fn add_tick(&mut self, _tick: RustTick) {
+        self.count += 1;
+    }
+
+    pub fn report(&self) -> String {
+        format!("Rust stream ok {}", self.count)
+    }
+}
+""",
+        "client/services/RustSocketService.rs": """use crate::models::RustChatMessage;
+
+#[Service]
+pub struct RustSocketService {
+    #[Needs]
+    rust_echo_client: std::sync::Arc<RustEchoClient>,
+    last: String,
+}
+
+impl RustSocketService {
+    const ECHO: &'static str = "rust-echo";
+
+    #[OnEvent]
+    fn receive(&mut self, message: RustChatMessage) {
+        self.last = message.text;
+    }
+
+    pub async fn send_echo(&mut self) -> BehaviorResult<()> {
+        let echo = RustChatMessage { text: String::from(Self::ECHO) };
+        self.rust_echo_client.send(echo).await
+    }
+
+    pub fn report(&self) -> String {
+        format!("Rust socket {}", self.last)
+    }
+}
+""",
+        "client/services/RustTopicService.rs": """use crate::models::ReachNews;
+
+#[Service]
+#[derive(Default)]
+pub struct RustTopicService {
+    heard: i64,
+}
+
+impl RustTopicService {
+    #[OnEvent]
+    fn heard_news(&mut self, _news: ReachNews) {
+        self.heard += 1;
+    }
+
+    pub fn report(&self) -> String {
+        format!("Rust topic heard {}", self.heard.min(1))
+    }
+}
+""",
+        "client/services/RustStreamService.js": """@Service
+export default class RustStreamService {
+  result = 'Rust stream waiting'
+
+  async check() {
+    this.result = await this.report()
+  }
+}
+""",
+        "client/services/RustSocketService.js": """@Service
+export default class RustSocketService {
+  result = 'Rust socket waiting'
+
+  async send() {
+    await this.sendEcho()
+    this.result = 'Rust socket sent'
+  }
+
+  async check() {
+    this.result = await this.report()
+  }
+}
+""",
+        "client/services/RustTopicService.js": """@Service
+export default class RustTopicService {
+  result = 'Rust topic waiting'
+
+  async check() {
+    this.result = await this.report()
+  }
+}
+""",
+    }
+
     @staticmethod
     def linked_twin(service, label):
         source = """@Service
@@ -617,6 +737,14 @@ export default class __SERVICE__ {
         for instance, label in linked:
             lines.append(f'<button on:click="{instance}.check()">Check {label} HTTP</button>')
             lines.append(f"<p>{{{instance}.result}}</p>")
+        if ("rustReach", "Rust") in linked:
+            lines.append('<button on:click="rustStream.check()">Check Rust stream</button>')
+            lines.append("<p>{rustStream.result}</p>")
+            lines.append('<button on:click="rustSocket.send()">Send Rust echo</button>')
+            lines.append('<button on:click="rustSocket.check()">Check Rust socket</button>')
+            lines.append("<p>{rustSocket.result}</p>")
+            lines.append('<button on:click="rustTopic.check()">Check Rust topic</button>')
+            lines.append("<p>{rustTopic.result}</p>")
         if ("csharpReach", "CSharp") in linked:
             lines.append('<button on:click="csharpStream.check()">Check CSharp stream</button>')
             lines.append("<p>{csharpStream.result}</p>")
@@ -665,6 +793,7 @@ export default class __SERVICE__ {
             self.write_all(self.RUST_FILES)
             services.append(("rustReach", "Rust"))
             self.write("client/services/RustReachService.js", self.linked_twin("RustReachService", "Rust"))
+            self.write_all(self.RUST_HELD_FILES)
         if self.target in self.CSHARP_TARGETS:
             self.write_all(self.CSHARP_FILES)
             services.append(("csharpReach", "CSharp"))
