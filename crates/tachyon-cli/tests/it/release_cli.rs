@@ -93,6 +93,7 @@ printf 'aab' > app/build/outputs/bundle/release/app-release.aab
             .env("GRADLE_RECORD", root);
     }
 
+    #[cfg(unix)]
     fn fill_gradle_cache(root: &Path) {
         for module in [
             "com.android.tools.build/gradle/8.7.3",
@@ -237,6 +238,7 @@ fn a_signed_windows_release_passes_the_signing_check_and_reaches_the_windows_too
     assert!(!message.contains("secret-value"), "{message}");
 }
 
+#[cfg(unix)]
 #[test]
 fn a_release_runs_gradle_offline_when_its_cache_holds_the_pinned_modules() {
     let project = ReleaseCli::project();
