@@ -31,11 +31,14 @@ host's answer. An iOS app has no window controls, because the system owns
 the window: only title applies there, as the scene title, granted()
 answers false for the other controls, and the build prints a note. On
 Windows, a test that needs MSVC drives the host's control code against a
-real Win32 window, without the full app or WebView2. On Android, close
+real Win32 window, and on a signed-in desktop the full app ran page window
+controls, and C# and Kotlin callers, inside WebView2. On Android, close
 finishes the activity, minimize moves the app to the back, maximize makes
 the window fill its area, fullscreen hides or shows the status and
 navigation bars, resize sets the window size in density-independent
 pixels, and title sets the activity title. A test runs the Kotlin file in
 the real app on an Android 15 emulator: the granted minimize, resize and
 title calls act, and maximize, fullscreen and close, which the manifest
-does not grant, are refused. It has not run on a physical device.
+does not grant, are refused. A second app grants all six: a linked Kotlin
+service's maximize and fullscreen act, and close from the page finishes the
+activity. It has not run on a physical device.

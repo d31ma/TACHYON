@@ -369,7 +369,8 @@ services, helpers, injection, lifecycle hooks and workers.
   `HandlesError`, `ResponseStatus` and `IdentityProvider`, and the test
   markers. Every other Yon marker in a C++ file (`SocketRoute`,
   `StreamRoute`, the behavior markers, ...) fails with its rule's code, and the message says that
-  C++ gets it in a later step. A C++ file in `server/controllers` without
+  C++ gets it in a later step. (Superseded: every Yon marker reaches C++;
+  see the 2026-10-19 amendment "the Yon slice is complete".) A C++ file in `server/controllers` without
   `[[RequestRoute]]` fails with `TY1363` or `TY2015`.
 
 ### Routes

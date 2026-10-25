@@ -258,3 +258,15 @@ the relaunch. The iOS limit described in the 2026-10-18 amendment does not
 exist: the earlier result came from Tac's start-up sweep deleting the raw
 entry. iOS keeps IndexedDB rows, LocalState values and Cache API entries on
 disk, like macOS and Linux, and the iOS gate now requires `cache=kept`.
+
+## Amendment (2026-10-24): Windows keeps web storage across a relaunch (SD1)
+
+`scripts/windows/desktop-run.ps1` ran `scripts/windows/relaunch-storage-test.mjs`
+from SSH in the signed-in desktop session of a Windows 11 ARM64 machine
+(WebView2 Runtime 155.0.4283.62). The first launch wrote an IndexedDB row, a
+localStorage value and a Cache API entry, the app quit, and a new process read
+all three back. WebView2 keeps the data in `<App>.exe.WebView2` (ADR 0097).
+With the Linux, macOS and iOS runs above, every desktop and Apple host keeps
+the three across a relaunch; Android keeps rows and localStorage values, and a
+Cache API entry written just before the system stops the app is not always
+kept.

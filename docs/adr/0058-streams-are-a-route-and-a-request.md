@@ -308,3 +308,25 @@ with .NET 9 each describe the `realtime` and `sockets` feature clients, take
 a tick and a chat message through `event`, and send through the page
 (`native/{swift,kotlin,csharp}_held_client_tests.rs`). Runs inside the
 macOS, iOS, Android and Windows apps are still owed.
+
+## Amendment (2026-10-25): linked listeners are async, and the app runs so far
+
+This amendment supersedes two statements of the 2026-10-24 amendment above,
+which stays as the history of this decision.
+
+- "Linked listeners stay synchronous (ADR 0105)." Since LS3 (ADR 0105
+  amendment of 2026-10-24) an `@OnEvent` listener in a linked service of any
+  language may be async, so a message from a held stream or socket can reach
+  an async listener too.
+- "Runs inside the macOS, iOS, Android and Windows apps are still owed." On
+  2026-10-24 (SD1) `scripts/windows/yon-reach.ps1` passed inside WebView2 on a
+  signed-in Windows 11 ARM64 desktop: the page held a linked C# service's
+  stream (three ticks) and socket (an echo) clients (ADR 0103 amendment).
+
+Still owed, each in the app (`docs/SUPPORT_TIERS.md`): a linked Swift
+service's held stream and socket clients on macOS and the iOS simulator, a
+linked Rust async `@OnEvent` listener on macOS and the iOS simulator (MA1); a
+linked Kotlin service's held stream and socket clients and a linked Rust async
+listener on the Android emulator (MA2); and a linked Rust service's held
+stream, socket and topic clients and a linked Rust async listener inside
+WebView2 (SW1).

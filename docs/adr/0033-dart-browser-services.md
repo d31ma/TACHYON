@@ -263,3 +263,22 @@ The macOS and iOS systems refuse to open an app below its declared minimum,
 and Android refuses to install one below its `minSdk`, so those hosts need no
 check of their own.
 
+## Amendment (2026-10-25): host floors after ADR 0108
+
+This amendment supersedes two "Host floor" cells of the floor table in the
+2026-10-18 amendment above, which stays as the history of this decision.
+ADR 0108 raised the iOS host floor from 17.0 to 17.4 and the Windows host
+floor from the WebView2 Runtime 86.0 to 118.0, the first versions that run
+CSS `@scope`, which component styles compile to. The table now reads:
+
+| Target | Host floor | Floor with a WasmGC service |
+| --- | --- | --- |
+| iOS | 17.4 | 18.2 |
+| macOS | 13.0 (a note names Safari 17.4 for component styles) | 15.2 |
+| Android | API level 26 (a note names Android System WebView 118 for component styles) | API level 26 |
+| Windows | WebView2 118.0 | WebView2 119.0 |
+| Linux | WebKitGTK 2.40 | WebKitGTK 2.46 |
+
+A declared `tac.application.minimumSystem.ios` below 17.4, or
+`tac.application.minimumSystem.windows` below 118.0, stops the build with
+`TY1601`.

@@ -537,3 +537,20 @@ the alternative, because a browser page has no application lifetime.
 - iPadOS keeps some Command shortcuts for its own menus. Command-G is Find
   Next, so a declared item with that shortcut never fires from the keyboard on
   iPad, and the build does not warn about it yet.
+
+## Amendment (2026-10-24): the universal macOS bundle ran (RM1)
+
+This amendment supersedes "It has not run yet" in the evidence of the
+`--arch` amendment above, which stays as the history of this decision.
+
+On a Mac (Apple silicon, macOS 26.6.2, Xcode 27.1),
+`native_rust_crate_tests::the_universal_macos_bundle_holds_both_architectures_and_its_helper_runs`
+passed once `rustup target add x86_64-apple-darwin` had installed the x86_64
+standard library; without it the build stops with `TY1605` and names that
+command. `ty bundle --target macos --arch universal` gave `lipo -archs`
+`x86_64 arm64` for the app and its Rust helper, and `codesign --verify
+--strict` passed. Started with `open`, the arm64 slice ran; started with
+`arch -x86_64`, the x86_64 slice ran under Rosetta
+(`NSRunningApplication.executableArchitecture` x86_64), and in both the
+page's linked Rust service answered (`docs/SUPPORT_TIERS.md`, "macOS runs
+owed, RM1"). An Intel Mac has not run it.

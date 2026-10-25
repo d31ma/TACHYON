@@ -156,3 +156,17 @@ Mac with `ANDROID_HOME`, Gradle 8.14.3 and JDK 21 (RM3, `docs/SUPPORT_TIERS.md`,
 packaged builds and an incremental one gave the same
 `artifact-manifest.json`. The support table marks Android byte-identical
 rebuilds `honored`. The macOS and iOS tests are still owed.
+
+## Amendment (2026-10-25): the macOS and iOS repeat builds ran
+
+This amendment supersedes "The macOS and iOS tests are still owed" in the
+2026-10-24 amendment above, which stays as the history of this decision.
+
+On 2026-10-24, on a Mac (macOS 26.6.2, Xcode 27.1),
+`native_reproducible_build_tests::a_packaged_macos_app_is_byte_identical_when_built_twice`
+passed in RM1, and `a_packaged_ios_app_is_byte_identical_when_built_twice`
+passed in RM2 (`docs/SUPPORT_TIERS.md`, "macOS runs owed, RM1" and "iOS
+simulator runs"). With the Linux, Windows and Android runs above, every
+native target has a repeat-build run, and the support table marks
+byte-identical rebuilds `honored` on each. A signed `--device` or `--release`
+iOS `.ipa` is still never byte-identical, because its signature differs.

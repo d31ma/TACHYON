@@ -160,7 +160,8 @@ page and the Rust service each heard `foreground`, `background`,
 `foreground` and `background` (2026-10-18, x86_64 Ubuntu 24.04 cloud
 container, GTK 4.14.5, WebKitGTK 2.52.6). Not run yet: the macOS and iOS
 hosts (the Swift is not compiled in this run), the Windows host inside
-WebView2 on a signed-in desktop, and Android on an emulator.
+WebView2 on a signed-in desktop, and Android on an emulator. (Each of these
+ran later; see the amendments of 2026-10-24 below.)
 
 ## Amendment (2026-10-24): background and foreground on the iOS simulator (RM2)
 
@@ -194,3 +195,17 @@ Swift service, and drives it through Accessibility with
 Xcode 27.1, develop `4c052177`) all three heard `background` and
 `foreground` when another app became active and the app came back, when the
 app was hidden and shown, and when its window was minimized and restored.
+
+## Amendment (2026-10-24): background and foreground inside WebView2 (SD1)
+
+This amendment supersedes "the Windows host inside WebView2 on a signed-in
+desktop" in the "Not run yet" list of the 2026-10-18 amendment above, which
+stays as the history of this decision.
+
+`scripts/windows/desktop-run.ps1` ran `scripts/windows/application-state-test.mjs`
+from SSH in the signed-in desktop session of a Windows 11 ARM64 machine
+(WebView2 Runtime 155.0.4283.62, `docs/SUPPORT_TIERS.md`, "Windows on the
+signed-in desktop, SD1"). The page and a linked Rust service each heard
+`background` and `foreground`. A linked C# listener has not run there yet,
+so the support table keeps the Windows signal `runOwed` and names that run
+(ADR 0102, JS1 amendment).

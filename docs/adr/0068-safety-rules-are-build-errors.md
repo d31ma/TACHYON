@@ -210,3 +210,23 @@ This is deny by default, like Spring Security.
   bundle with `<script src>`. The Android host test's opaque frame probe
   does this, and its foreign frame probe now checks that the policy refuses
   the frame (`securitypolicyviolation` on `frame-src`).
+
+## Amendment (2026-10-25): `connect-src` refusal runs in the apps
+
+The 2026-10-18 amendment above made every native host send the policy. These
+runs checked that a page fetch to a host outside `tac.outgoing.hosts` is
+refused in the app and that the host receives no request
+(`docs/SUPPORT_TIERS.md`):
+
+- Linux (RL1, 2026-10-19, `scripts/linux/page-checks-native-test.mjs`, under
+  Xvfb in an x86_64 Ubuntu 24.04 cloud container): refused while the Yon
+  origin answered.
+- macOS (RM1, 2026-10-24, `scripts/native/page-checks-macos-test.mjs`, macOS
+  26.6.2): the page's `securitypolicyviolation` event named `connect-src`.
+- iOS (RM2, 2026-10-24, `scripts/ios/page-checks-test.mjs`, iOS 26.5
+  simulator): a `connect-src` violation was raised.
+- Windows (SD1, 2026-10-24, `scripts/windows/page-checks-native-test.mjs`,
+  inside WebView2 on a signed-in Windows 11 ARM64 desktop).
+
+The Android refusal of an undeclared host has not run on the emulator yet
+(MA3).

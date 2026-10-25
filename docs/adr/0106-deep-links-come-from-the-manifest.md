@@ -94,7 +94,10 @@ Android) also need files on the web site and the app's signing identity.
    target does not do yet: links to hosts on macOS (PKG1), Windows (no app URI
    handlers) and
    Linux (no verified web links), universal links on iOS until a signed
-   device build, and unverified hosts on Android.
+   device build, and unverified hosts on Android. (Superseded for Windows:
+   a `--release` MSIX package declares app URI handlers since the LK3
+   amendment, and the LINKS amendment opened a verified host link in the
+   installed package. Both are below.)
 
 ## Consequences
 

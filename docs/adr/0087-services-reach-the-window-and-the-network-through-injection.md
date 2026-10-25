@@ -449,3 +449,29 @@ two cache-first reads of `/api/first` did. With Yon and the front stopped,
 the network-first read answered its kept copy, the cache-first read answered
 from the cache, and a `no-store` read failed (`docs/SUPPORT_TIERS.md`, macOS
 runs owed, RM1). The support table marks `tac.cache` honored on macOS.
+
+## Amendment (2026-10-24): kept Yon reads and window controls inside WebView2 (SD1)
+
+This amendment supersedes "the offline read in the packaged macOS and Windows
+apps is still owed" (the Linux amendment above) and the Windows part of the
+same sentence in the RM2 amendment above; both stay as the history of this
+decision. The macOS and Android parts were superseded by the RM1 and RM3
+amendments.
+
+`scripts/windows/desktop-run.ps1` ran these gates from SSH in the signed-in
+desktop session of a Windows 11 ARM64 machine (WebView2 Runtime
+155.0.4283.62, `docs/SUPPORT_TIERS.md`, "Windows on the signed-in desktop,
+SD1"):
+
+- `scripts/windows/page-checks-native-test.mjs`: with Yon stopped, a
+  network-first Yon read at `tac.yon.origin` answered from the page's Cache
+  Storage. The support table marks `tac.cache` honored on Windows.
+- `scripts/windows/window-shell-test.ps1`: page window controls resized the
+  window to 640 device-independent pixels, maximized, minimized, went
+  fullscreen, set the title and closed the app with exit code 0.
+- `scripts/windows/page-services-native-test.mjs`: C# and Kotlin
+  `WindowControls` callers reached the window.
+
+Linked Rust and WebAssembly Swift `WindowControls` callers have not run inside
+WebView2 (SW1, SW3), so the Windows window controls stay `runOwed` (ADR 0102,
+JS1 amendment).

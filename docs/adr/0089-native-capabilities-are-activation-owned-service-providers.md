@@ -1,6 +1,6 @@
 # ADR 0089: Native Capabilities Are Activation-Owned Service Providers
 
-- Status: Accepted. The FilePicker works on macOS for JavaScript, TypeScript, Swift and Rust services, and on Windows for JavaScript, TypeScript and linked Rust and C# services (2026-10-19 amendment). C# and Kotlin services that run as WebAssembly receive the injected providers, but their FilePicker answers `unsupported`; Linux, iOS and Android have no picker.
+- Status: Accepted. The FilePicker opens the platform picker on every native target: `NSOpenPanel` on macOS, `IFileOpenDialog` on Windows and GTK's file dialog on Linux (2026-10-19 amendments), and the document picker on iOS and Android (2026-10-24 amendment). WebAssembly services reach it through the page (2026-10-24 amendment). A browser tab answers `unsupported`. Runs still owed: a linked Rust field on macOS, and linked Rust and WebAssembly Swift fields from a WebView2 page (2026-10-25 amendment).
 - Date: 2026-09-30
 - Relates to ADR 0025 (NeedsAll), ADR 0030 (native services), ADR 0065 (page APIs), ADR 0087 (WindowControls)
 
@@ -97,6 +97,9 @@ read; framework implementation remains subject to the repository unsafe ban.
 | Rust WebAssembly | existing page WindowControls, unsupported native FilePicker | generated wasm32 compilation |
 | Swift / C# / Kotlin WebAssembly | injected FilePicker that answers unsupported; existing page WindowControls | `ty bundle` web and non-linking native targets |
 | Native C# / Kotlin | Needs/NeedsAll captured providers, typed unsupported FilePicker (linked C# on Windows reaches the Windows picker since the 2026-10-19 amendment), Windows/Android WindowControls registration | actual compiled activation/fake/disposal tests, Windows stub-host dispatch execution and complete Android API35 typecheck |
+
+The FilePicker rows of this table are the history of this decision. The
+2026-10-25 amendment gives the current picker on each target.
 
 Later C# and Kotlin registration tests and four native example checks passed.
 They replace the earlier pending C# and Kotlin registration status. Windows
@@ -320,7 +323,8 @@ typed path, and read the file; a second `open` was cancelled with Escape and
 answered `cancelled`. The generated Windows host compiled with MinGW
 against the WebView2 1.0.3240.44 headers, and the Wine picker checks
 passed. Owed: a Swift and a Kotlin field from a WebView2 page on a
-signed-in Windows desktop.
+signed-in Windows desktop. (The Kotlin field ran later the same day; see the
+2026-10-25 amendment.)
 
 Also on 2026-10-24, on a Mac (macOS 26.6.2), `ty` built the same feature
 for macOS with the C# and with the Kotlin service, both running as
@@ -434,3 +438,23 @@ one because the On My iPhone file provider cannot resolve files in a device
 set under `$TMPDIR`. The iOS 26 picker has no Cancel button; the gate taps
 its close button. The iOS and Android cells of `tac.nativeCapabilities`
 are now `honored`.
+
+## Amendment (2026-10-25): FilePicker status on each target
+
+This amendment supersedes the status line as it read until 2026-10-25, the
+FilePicker rows of "Support and remaining slices", and "Owed: a Swift and a
+Kotlin field from a WebView2 page" in the 2026-10-24 amendment above. They
+stay as the history of this decision.
+
+| Target | Picker | Callers that ran in the app |
+| --- | --- | --- |
+| Browser tab | none: `open` answers `unsupported` | provider execution |
+| macOS | `NSOpenPanel` | WebAssembly C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5); the JavaScript and linked Swift fields rest on the provider and generated-app tests above; a linked Rust field is owed (MA1) |
+| Windows | `IFileOpenDialog` | a JavaScript page service, a linked C# service and a WebAssembly Kotlin service from a WebView2 page on a signed-in desktop (FP5, 2026-10-24); linked Rust ran under Wine only, and a WebAssembly Swift field is owed (SW1, SW3) |
+| Linux | `GtkFileDialog` or the portal's chooser | JavaScript, linked Rust, and WebAssembly Swift, C# and Kotlin (FP5) |
+| iOS | `UIDocumentPickerViewController` | JavaScript, linked Swift and Rust, and WebAssembly C# and Kotlin on the iOS 26.5 simulator (FP4) |
+| Android | `ACTION_OPEN_DOCUMENT` | JavaScript, linked Kotlin and Rust, and WebAssembly Swift and C# on the API 35 emulator (FP2) |
+
+`docs/SUPPORT_TIERS.md` ("File picker on native hosts") holds the runs, and
+the support table marks `tac.nativeCapabilities` `runOwed` on macOS and
+Windows until the owed callers run (ADR 0102, JS1 amendment).

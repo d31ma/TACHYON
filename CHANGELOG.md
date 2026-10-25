@@ -215,7 +215,10 @@ machine contracts have their own, independent major versions.
   page events and topic streams reach them as they reach C# and Rust
   services. Companion runs in the cloud cover all three languages; the app
   runs on macOS, iOS, Android and Windows are owed (ADR 0058 and 0060
-  amendments).
+  amendments). (Superseded: the Windows app held a linked C# service's
+  stream and socket from the page on the signed-in desktop in SD1; the Swift
+  runs in the macOS and iOS apps and the Kotlin run in the Android app are
+  still owed.)
 - Linux desktop stand-in runs (LX1). `scripts/linux/desktop-services-test.sh`
   runs the browser API host test against GeoClue (a GPS fix from an NMEA
   socket, on a private system bus) and the dunst notification server, so the
@@ -509,7 +512,8 @@ machine contracts have their own, independent major versions.
   `Description` is checked to reach the service registration in JavaScript,
   TypeScript, Dart, Rust, C#, Kotlin, Swift, Go, Ruby and Python; in Rust,
   Kotlin and Go it stays in the compiler's registration and is not written
-  into the program.
+  into the program. (Corrected: MP1 added tests for 36 of the 38 cells. The
+  C++ `Required` and `Length` cells rest on a test that was already there.)
 
 - Rust services are linked into Android apps (D1, ADR 0019 amendment). The
   build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
@@ -543,6 +547,8 @@ machine contracts have their own, independent major versions.
   macOS and Windows apps have not been run yet. The Linux gate
   runs `scripts/linux/yon-origin-native-test.mjs`, which reaches a local Yon
   from the packaged app with JavaScript and with linked Rust services.
+  (Superseded: linked Rust services held their stream and socket in the
+  macOS app and the iOS simulator in LR1; the Windows app is still owed.)
 - `ty bundle --target linux --release` builds an AppImage and a `.deb` in
   `dist/linux/` (ADR 0104 amendment). Both install the app in
   `/usr/lib/<package>/`, the command `/usr/bin/<package>`, a desktop file and
@@ -1648,6 +1654,17 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Stale "not run" text fixed (DOC4, 2026-10-25). `docs/SUPPORT_TIERS.md`
+  now records the runs that happened since its sentences were written: the
+  Windows Edit menu, Minimize and Maximize, background and foreground, the
+  Yon reach probe, the held C# clients and the offline Yon read inside
+  WebView2 (SD1), the WebView2 page picker (FP5), the Windows host link
+  (LINKS) and Android background and foreground (RM3). It also names the
+  40-second wait for native calls in apps that grant `filePicker`. ADRs
+  0005, 0028, 0033, 0058, 0059, 0068, 0087, 0089, 0097, 0099 and 0106 get
+  dated amendments for the same runs, and the website's build-and-deploy,
+  WebAssembly services and window controls pages match them.
+
 - Support table narrowed to its runs (JS1, ADR 0102 amendment, 2026-10-25):
   cells whose text named callers that never ran on that target are now
   `runOwed`: window controls on macOS and Windows, the file picker on macOS
@@ -2236,7 +2253,9 @@ machine contracts have their own, independent major versions.
   Android repeat-build runs are still owed (ADR 0005 amendment).
   (Superseded: the packaged Windows repeat build passed on Windows 11 ARM64
   in RW1; macOS, iOS and Android are still owed, ADR 0005 amendment of
-  2026-10-19.)
+  2026-10-19. Later superseded again: the Android, macOS and iOS repeat
+  builds passed in RM3, RM1 and RM2 on 2026-10-24, so every native target
+  has run one, ADR 0005 amendments of 2026-10-24 and 2026-10-25.)
 
 - A native build with `--no-incremental` prints a note that the flag changes
   nothing there, because native builds always rebuild the web stage.

@@ -157,9 +157,10 @@ check the five menus, the Copy and Redo accelerators and Edit > Select All
 in the real web view, passed three of three runs under Xvfb in an x86_64
 Ubuntu 24.04 cloud container (GTK 4.14.5, WebKitGTK 2.52.6), and the Linux
 window-control run still passed with the always-on menu bar (xfwm4 under
-Xvfb). Windows: generated-source tests and the MinGW-w64 compile only; the
-Edit commands inside WebView2 (sent through the DevTools protocol) and
-Minimize/Maximize still need the interactive desktop run listed above.
+Xvfb). Windows: generated-source tests and the MinGW-w64 compile, and on
+2026-10-24 (SD1, below) `scripts/windows/menu-tray-test.ps1` ran the Edit
+menu and Window Minimize and Maximize inside WebView2 on the signed-in
+desktop.
 
 Background and foreground (2026-10-18, ADR 0028 amendment): every host
 sends `ApplicationStateChanged` to the page and to natively linked
@@ -167,11 +168,14 @@ services. Linux: `scripts/linux/application-state-test.sh` passed under
 Xvfb and xfwm4 in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5,
 WebKitGTK 2.52.6): a page service and a linked Rust service each heard the
 app go to the background and come back when the focus moved to another
-window, and go to the background when it was minimized. Android: the host
-code and a Kotlin companion compile against Android platform 35; no
-emulator run yet. Windows: generated-source tests and a MinGW-w64 compile of
-the state code only; the run inside WebView2 waits for the interactive
-desktop run. macOS (2026-10-24, RM1): `scripts/application-state-macos-test.mjs`
+window, and go to the background when it was minimized. Android: on
+2026-10-24 (RM3, below) a JavaScript page service and a linked Kotlin
+service heard background after Home and foreground after the app came back
+on the API 35 emulator. Windows: on 2026-10-24 (SD1, below)
+`scripts/windows/application-state-test.mjs` passed inside WebView2 on the
+signed-in desktop, where the page and a linked Rust service heard
+background and foreground; a linked C# listener has not run there (SW1).
+macOS (2026-10-24, RM1): `scripts/application-state-macos-test.mjs`
 passed on a Mac. A page service and linked Rust and Swift services heard each
 change when the app stopped and started being active, was hidden and shown,
 and its window was minimized and restored. iOS: on 2026-10-24 (RM2, below)
@@ -261,8 +265,11 @@ cancel an unanswered one. The generated host passed a MinGW-w64 syntax
 check against the WebView2 headers. On 2026-10-24 (SD1) the MSVC build
 passed `the_windows_file_picker_selects_a_file_in_the_windows_dialog` on
 the signed-in Windows 11 ARM64 desktop: the typed file was selected and
-read, and an unanswered dialog closed after its patience. A picker opened
-from a WebView2 page on a signed-in desktop is still owed.
+read, and an unanswered dialog closed after its patience. The same day
+(FP5, below) a JavaScript page service, a linked C# service and a
+WebAssembly Kotlin service opened the picker from a WebView2 page on that
+desktop. Linked Rust and WebAssembly Swift fields have not run from a
+WebView2 page (SW1, SW3).
 
 On 2026-10-19 the Windows host started to build `"titleBar": "integrated"`
 (ADR 0098 amendment): the page reaches the top edge under the system caption
@@ -518,7 +525,11 @@ an event with `CurrentPageEvents` now tells the page to read its fields
 again (see the CHANGELOG).
 
 Not run in SD1: a picker opened from a WebView2 page, a host link opening
-the installed package (no verified domain) and x64 on an x64 machine. After a
+the installed package (no verified domain) and x64 on an x64 machine. The
+first two ran later: FP5 opened the picker from a WebView2 page the same day
+(above), and LINKS opened a `d31ma.github.io` host link in the installed
+signed package on 2026-10-25 ("Deep links on native hosts", below). x64 on
+an x64 machine is still owed. After a
 restart of the WSL distribution, whose disk had gone read-only, the WSLg
 Wayland tests ran from the same signed-in session (see the WSL list above).
 
@@ -759,8 +770,9 @@ in `server/application.json`. The contract is unit-tested in the cloud, and
 Yon on another in Chromium, and `scripts/native/yon-reach-test.mjs --target=web`
 runs the probe that the native apps run. On 2026-10-19 it ran the macOS app
 and the iOS simulator on a Mac, the packaged Android app on the Android 15
-emulator (NET2), and the packaged Linux app under Xvfb (NET4); the Windows
-app has not run it yet.
+emulator (NET2), and the packaged Linux app under Xvfb (NET4). The Windows
+app ran `scripts/windows/yon-reach.ps1` inside WebView2 on the signed-in
+desktop on 2026-10-24 (SD1, the Windows row below).
 
 | Host | Yon calls from the packaged app | Evidence |
 | --- | --- | --- |
@@ -775,8 +787,11 @@ C# services started to hold stream and socket clients through the page, as
 linked Rust services do. Their companions ran in an x86_64 Ubuntu 24.04
 cloud container (Swift 6.3.3, Kotlin 2.2.20 on the JVM, .NET 9): each
 described the `realtime` and `sockets` clients, heard a tick and a chat
-message through `event`, and sent through the page. Not run: a linked
-stream or socket inside the macOS, iOS, Android or Windows app.
+message through `event`, and sent through the page. On 2026-10-24 (SD1)
+the Windows app held a linked C# service's stream and socket clients from
+the page in `scripts/windows/yon-reach.ps1` (the Windows row above). Not
+run: a linked Swift stream or socket in the macOS or iOS app (MA1), or a
+linked Kotlin one in the Android app (MA2).
 
 On 2026-10-24 (LS3, ADR 0105 amendment) `@OnEvent` listeners became allowed
 to be async in Kotlin, C# and F#, and in linked services of every language.
@@ -847,11 +862,12 @@ The app was not launched. The run found two faults, now fixed: the
 fixture's linked services broke the Tac method rule (`TY1314`), and the
 build left the Rust companion's `.dll.lib` and `.dll.exp` in `bin`.
 
-Not run: WebView2 itself.
 `scripts/windows/yon-reach.ps1` runs every path from the packaged app on a
-Windows desktop. It also shows whether WebView2 asks for local network
-access before a page on `https://tachyon.local` may call
-`http://localhost`.
+Windows desktop. It passed inside WebView2 on the signed-in desktop on
+2026-10-24 (SD1, the Windows row above), and WebView2 showed no local
+network access prompt before the page on `https://tachyon.local` called
+`http://localhost`. A linked Rust service's held stream and socket clients
+have not run there (SW1).
 
 Use `scripts/phase4-macos-test.mjs`, `scripts/ios/native-test.mjs`,
 `scripts/android/native-test.sh`, `scripts/linux/native-test.sh` and
@@ -898,7 +914,10 @@ Desktop test host limits:
   handle), and `Add-AppxPackage` fails with `0x80070005`, so the WebView2
   and MSIX gates run from a prompt on the signed-in desktop.
 
-Native calls have a ten-second browser wait limit. This limit does not stop or
+Native calls have a ten-second browser wait limit. An app that grants
+`filePicker` waits 40 seconds instead for every native call except the
+start-up request, because a picker can stay open for 30 seconds (ADR 0089).
+This limit does not stop or
 roll back native service code. Services must stay responsive. A hung
 application may need to be relaunched.
 
@@ -926,6 +945,10 @@ read answered from Cache Storage ("Android runs owed, RM3" above). The packaged
 macOS app ran it in RM1 (`scripts/native/page-checks-macos-test.mjs`):
 with Yon stopped, a network-first read answered its kept copy and a
 cache-first read answered from the cache ("macOS runs owed, RM1" above).
+On the signed-in Windows desktop in SD1,
+`scripts/windows/page-checks-native-test.mjs` stopped Yon and a
+network-first Yon read answered from the cache inside WebView2 ("Windows on
+the signed-in desktop, SD1" above).
 
 How long the kept reads last follows the web storage of each host (below).
 The per-target support table gives `tac.cache` no relaunch limit on macOS,
