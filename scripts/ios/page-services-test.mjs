@@ -25,6 +25,7 @@ class IosPageServicesTest {
   static pollMilliseconds = 250
   static device = ''
   static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? ''
+  static bootedVersion = ''
 
   static probeFiles = {
     'client/components/services/probe/tac.html': '<p id="probe">Probe {servicesProbe.phase}</p>\n<a id="to-item" href="/items/7/">Open item seven</a>\n',
@@ -164,6 +165,7 @@ final class ServicesProbeService {
       ?? (runtime.supportedDeviceTypes ?? []).find((item) => item.productFamily === 'iPhone')
     assert.ok(phone, 'the iOS runtime needs an iPhone device type')
     this.device = this.simctl('create', `PageServices-${randomUUID()}`, phone.identifier, runtime.identifier)
+    this.bootedVersion = runtime.version
     console.log(`==> booting ${phone.name} with iOS ${runtime.version}`)
     this.simctl('boot', this.device)
     this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'bootstatus', this.device, '-b'], 600000)
@@ -220,6 +222,7 @@ final class ServicesProbeService {
     if (this.linked.includes(language)) assert.equal(modules, 0, `${language} is linked into the app, not WebAssembly`)
     else assert.ok(modules > 0, `${language}: the bundle has no WebAssembly`)
     const notes = output.split('\n').filter((line) => line.startsWith('Note:'))
+    if (this.bootedVersion.localeCompare(minimum, undefined, { numeric: true }) < 0) return this.refusal(language, bundle, minimum)
     this.simctl('install', this.device, bundle)
     const launched = this.simctl('launch', this.device, applicationId)
     const pid = Number(launched.match(/:\s*(\d+)\s*$/)?.[1])
@@ -243,6 +246,20 @@ final class ServicesProbeService {
     }
   }
 
+  /**
+   * A runtime below the app's floor must refuse the install and name the floor.
+   * @param {string} language @param {string} bundle @param {string} minimum
+   */
+  static refusal(language, bundle, minimum) {
+    const result = spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'install', this.device, bundle], { encoding: 'utf8', timeout: 240000 })
+    const message = `${result.stdout}${result.stderr}`.trim()
+    assert.notEqual(result.status, 0, `${language}: iOS ${this.bootedVersion} installed an app whose MinimumOSVersion is ${minimum}`)
+    assert.match(message, new RegExp(`need ${minimum.replace('.', '\\.')}`), `${language}: the refusal must name the ${minimum} floor`)
+    const refused = message.split('\n').find((line) => line.includes(`need ${minimum}`)).trim()
+    console.log(`==> ${language}: MinimumOSVersion ${minimum}, refused at install on iOS ${this.bootedVersion} (${refused})`)
+    return { language, minimum, refused }
+  }
+
   static async main() {
     mkdirSync(this.evidence, { recursive: true })
     const report = { languages: this.languages, results: [], failures: [] }
@@ -262,7 +279,10 @@ final class ServicesProbeService {
       if (process.env.TAC_KEEP_NATIVE_FIXTURE !== '1') rmSync(this.root, { recursive: true, force: true })
     }
     assert.deepEqual(report.failures.map(({ language }) => language), [], 'some page services failed; see the report')
-    console.log(`PASS: page services (${this.languages.join(', ')}) answered a click and a method with an argument in the iOS ${report.runtime} simulator app (${report.device}), with a scoped component style and a dynamic route. Report: ${path.join(this.evidence, 'report.json')}`)
+    const refused = report.results.filter((result) => result.refused).map(({ language }) => language)
+    const answered = this.languages.filter((language) => !refused.includes(language))
+    assert.ok(answered.length > 0, `no page service ran: iOS ${report.runtime} is below every chosen language's floor`)
+    console.log(`PASS: page services (${answered.join(', ')}) answered a click and a method with an argument in the iOS ${report.runtime} simulator app (${report.device}), with a scoped component style and a dynamic route.${refused.length ? ` Refused at install below their floor, as intended: ${refused.join(', ')}.` : ''} Report: ${path.join(this.evidence, 'report.json')}`)
   }
 }
 
