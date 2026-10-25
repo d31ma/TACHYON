@@ -23,7 +23,6 @@ class MacOsReleaseTest {
   static feature = path.join(MacOsReleaseTest.repository, 'website/content/features/web-assembly-services/client')
   static probe = path.join(MacOsReleaseTest.root, 'page-checks-macos-probe')
   static architecture = path.join(MacOsReleaseTest.root, 'macos-running-architecture')
-  // hdiutil refuses a mount point on an external volume, where a worktree's target folder may live.
   static mount = path.join(tmpdir(), `macos-release-mount-${process.pid}`)
   static name = 'Tally Release'
   static application = 'TallyRelease'
