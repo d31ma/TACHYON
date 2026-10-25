@@ -792,8 +792,40 @@ page-check and page-service scripts, the pasteboard host test, the
 byte-identical rebuild test and the universal build test passed again on the
 same Mac.
 
-Not run in RM1: an ahead-of-time C# service (it needs a `--release` build, which is
-Developer ID signed and notarized), and an Intel Mac.
+Not run in RM1: an ahead-of-time C# service and an Intel Mac. MA6 ran the
+first one on 2026-10-25 (below). `tac.dotnet.aot` does not need `--release`:
+every `ty bundle` compiles services with the release profile, so the setting
+applies to an unsigned bundle too (the iOS simulator run used one).
+
+### macOS universal release with an ahead-of-time C# service (2026-10-25, MA6)
+
+On the Mac (Apple M4, macOS 26.6.2, Xcode 27.1, .NET SDK 10.0.402 with
+`wasm-tools`, Node 26.12, branch `0f082432`),
+`TAC_APPLE_TEAM_ID=JAU9V4WH99 TAC_APPLE_NOTARY_PROFILE=tachyon-notary
+scripts/native/macos-release-test.mjs` passed:
+
+- `ty bundle --target macos --arch universal --release` built the C# Tally
+  app with `tac.dotnet.aot: true`, signed it with the Developer ID
+  Application identity and notarized `TallyRelease.dmg` in 54 s (157 s with
+  a cold ahead-of-time build). Apple accepted the submission in about 25 s.
+- `dotnet.native.wasm` was 5.52 MB ahead of time against 1.39 MB for an
+  interpreter build of the same service.
+- `lipo -archs` gave `x86_64 arm64` for the app. `codesign --display` showed
+  `Authority=Developer ID Application`, the team identifier, the hardened
+  runtime and a secure timestamp, and `codesign --verify --strict --deep`
+  passed.
+- `xcrun stapler validate` passed on the 6.55 MB `.dmg`, and `spctl` read
+  both the `.dmg` and the app inside the mounted image as `Notarized
+  Developer ID`.
+- Opened from the mounted image, the arm64 slice answered a click from its
+  C# service in 3.7 s. Started with `arch -x86_64`, the x86_64 slice ran
+  under Rosetta (`NSRunningApplication.executableArchitecture` x86_64) and
+  answered in 3.9 s.
+
+`cargo test -p tachyon-cli --test it macos_release -- --ignored` (the
+notarized and stapled release of the Release Check fixture) and the two
+other `macos_release` tests passed on the same Mac. The macOS `tac.dotnet`
+cell is `honored`. Still owed: an Intel Mac.
 
 ### Native apps reach Yon through a declared origin (2026-10-18)
 

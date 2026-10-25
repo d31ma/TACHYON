@@ -151,7 +151,7 @@ tac.go
   honored: the same Go WebAssembly build in the web view; a Go page service answered a click in the macOS app on macOS 26 (MA1)
 
 tac.dotnet
-  run owed: the same WebAssembly build in the web view; still to run: an ahead-of-time C# service in the macOS app on a Mac
+  honored: the same WebAssembly build in the web view; an ahead-of-time C# service answered a click in the arm64 and x86_64 slices of a notarized universal release of the macOS app on macOS 26 (MA6)
 
 tac.accessibility
   honored: the same build check

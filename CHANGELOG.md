@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- macOS release gate (MA6, ADR 0104 amendment, 2026-10-25):
+  `scripts/native/macos-release-test.mjs` (`npm run test:macos-release`)
+  builds a C# page service with `tac.dotnet.aot` through
+  `ty bundle --target macos --arch universal --release`, checks both slices,
+  the Developer ID signature, the stapled ticket and Gatekeeper on the
+  `.dmg` and on the mounted app, and clicks the page in the arm64 slice and
+  in the x86_64 slice under Rosetta. It passed on macOS 26.6.2, so the macOS
+  `tac.dotnet` cell is `honored`.
+
 - Linux runs under Wayland and on WSL (LX2, 2026-10-25): the Linux browser
   API and file dialog tests click and press keys through Mutter's
   RemoteDesktop session when GDK runs on Wayland

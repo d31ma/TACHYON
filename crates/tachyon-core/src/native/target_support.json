@@ -503,7 +503,7 @@
     "member": "tac.dotnet",
     "paths": ["tac.dotnet"],
     "web": {"reach": "honored", "how": "ahead-of-time WebAssembly for C# and F# services in a release build"},
-    "macos": {"reach": "runOwed", "how": "the same WebAssembly build in the web view", "run": "an ahead-of-time C# service in the macOS app on a Mac"},
+    "macos": {"reach": "honored", "how": "the same WebAssembly build in the web view; an ahead-of-time C# service answered a click in the arm64 and x86_64 slices of a notarized universal release of the macOS app on macOS 26 (MA6)"},
     "windows": {"reach": "adapted", "note": "tac.dotnet.aot does not change C# services in the Windows app, because they are linked into the app as native code. F# services still compile ahead of time."},
     "linux": {"reach": "honored", "how": "the same WebAssembly build in the web view; an ahead-of-time C# service answered the page in the Linux app under Xvfb in the cloud and on WSL (LX2)"},
     "ios": {"reach": "honored", "how": "the same WebAssembly build in the web view; an ahead-of-time C# service answered the page on the iOS 26.5 simulator (RM2)"},

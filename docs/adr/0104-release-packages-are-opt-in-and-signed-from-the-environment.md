@@ -468,3 +468,18 @@ gave `lipo -archs` `x86_64 arm64` for the app and its helper, and
 which answered from its vendored crates, and the helper printed the same as
 the arm64 one (`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). Still owed: a
 run on an Intel Mac, and a universal `--release` build.
+
+## Amendment (2026-10-25): a universal macOS release was notarized (MA6)
+
+This amendment answers the "universal `--release` build" in the RM1
+amendment above, which stays as the history of this decision.
+`scripts/native/macos-release-test.mjs` ran on the same Mac (macOS 26.6.2,
+Xcode 27.1, branch `0f082432`). `ty bundle --target macos --arch universal
+--release` of a C# page service with `tac.dotnet.aot` signed both slices
+with the Developer ID Application identity of team `JAU9V4WH99`, with the
+hardened runtime and a secure timestamp. The `.dmg` was notarized through the
+`tachyon-notary` keychain profile, stapled, and assessed by `spctl` as
+`Notarized Developer ID`, and so was the app inside the mounted image. The
+arm64 slice and the x86_64 slice under Rosetta each answered a click from
+the mounted image (`docs/SUPPORT_TIERS.md`, MA6). Still owed: a run on an
+Intel Mac.

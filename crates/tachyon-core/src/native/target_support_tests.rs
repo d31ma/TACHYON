@@ -315,7 +315,7 @@ fn explain_names_each_reach_state_in_plain_words() {
         not_applied.summary(),
         "not applied: the build skips this member"
     );
-    assert!(text.contains("tac.dotnet\n  run owed: "), "{text}");
+    assert!(text.contains("release packaging\n  run owed: "), "{text}");
     assert!(text.contains("; still to run: "), "{text}");
     assert!(
         text.contains("service worker\n  not applicable: "),
