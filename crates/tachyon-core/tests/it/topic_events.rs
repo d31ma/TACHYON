@@ -711,6 +711,10 @@ end
 }
 
 impl TopicFixture {
+    /// Most runtimes are an `.exe` on Windows and some are `.bat` or `.cmd` launchers, so the
+    /// probe looks for each of these names; elsewhere only the bare name exists.
+    const PROGRAM_SUFFIXES: [&'static str; 4] = ["", ".exe", ".bat", ".cmd"];
+
     const JAVASCRIPT_PUBLISHER: &'static str = r#"
 /**
  * @Topic
@@ -895,8 +899,9 @@ end
 
     fn available(program: &str) -> bool {
         let paths = std::env::var_os("PATH").unwrap_or_default();
-        let found =
-            std::env::split_paths(&paths).any(|directory| directory.join(program).is_file());
+        let names = Self::PROGRAM_SUFFIXES.map(|suffix| format!("{program}{suffix}"));
+        let found = std::env::split_paths(&paths)
+            .any(|directory| names.iter().any(|name| directory.join(name).is_file()));
         crate::support::toolchain::Toolchain::checked(program, found)
     }
 
