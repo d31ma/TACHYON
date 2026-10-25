@@ -19,6 +19,7 @@ class IosWindowSettingsGate {
   static refusalId = 'dev.tachyon.window-refusal';
   static reader = path.join(IosWindowSettingsGate.root, 'screenshot-text');
   static evidence = process.env.TAC_IOS_WINDOW_EVIDENCE ?? path.join(IosWindowSettingsGate.repo, 'target/ios-window-settings-evidence');
+  static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? '';
   static devices = [];
   static styles = { default: 0, lightContent: 1, darkContent: 3 };
   static apps = {
@@ -183,10 +184,15 @@ final class WindowProbeService {
     return path.join(project, 'dist/ios/WindowSettings.app');
   }
 
+  static chosenVersion(version) {
+    const wanted = IosWindowSettingsGate.runtimeVersion;
+    return !wanted || version === wanted || version.startsWith(wanted + '.');
+  }
+
   static boot(deviceName, family) {
     const { simctl, run, deviceSet } = IosWindowSettingsGate;
     const runtime = JSON.parse(simctl('list', 'runtimes', '--json')).runtimes
-      .filter(item => item.isAvailable && item.identifier.includes('.iOS-'))
+      .filter(item => item.isAvailable && item.identifier.includes('.iOS-') && IosWindowSettingsGate.chosenVersion(item.version))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0];
     assert.ok(runtime, 'an installed iOS simulator runtime is required');
     const types = runtime.supportedDeviceTypes;
