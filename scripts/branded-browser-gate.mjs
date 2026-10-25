@@ -3,7 +3,7 @@ import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFi
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { finished } from 'node:stream/promises'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { CargoArtifacts } from './cargo-artifacts.mjs'
 import { SupervisedCommand } from './supervised-command.mjs'
 import { BrandedUnsupported } from './branded/webdriver-browser.mjs'
@@ -98,7 +98,7 @@ class BrandedBrowserGate {
     const started = Date.now()
     const timeoutMilliseconds = Number(BrandedBrowserGate.option('--timeout-ms=') ?? SupervisedCommand.defaultTimeoutMilliseconds)
     const env = BrandedBrowserGate.environment(browser, BrandedBrowserGate.browsers[browser], receipt)
-    const command = await SupervisedCommand.start(process.execPath, [`--import=${BrandedBrowserGate.preload}`, gate.file], { cwd: BrandedBrowserGate.repository, env, timeoutMilliseconds })
+    const command = await SupervisedCommand.start(process.execPath, [`--import=${pathToFileURL(BrandedBrowserGate.preload).href}`, gate.file], { cwd: BrandedBrowserGate.repository, env, timeoutMilliseconds })
     command.child.stdout.pipe(output, { end: false })
     command.child.stderr.pipe(output, { end: false })
     const result = await command.completion
