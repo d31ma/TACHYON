@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Linux runs under Wayland and on WSL (LX2, 2026-10-25): the Linux browser
+  API and file dialog tests click and press keys through Mutter's
+  RemoteDesktop session when GDK runs on Wayland
+  (`crates/tachyon-core/src/native/linux_wayland_input.c`), so
+  `scripts/linux/compositor-test.sh` runs them in its headless mutter
+  session. `scripts/linux/page-services-native-test.mjs` adds a
+  `tac.dotnet.aot` C# service (`TAC_LINUX_AOT_LANGUAGES`) and a linked Rust
+  service whose `@LocalState` field is read after a page reload
+  (`TAC_LINUX_STORED_FIELD`). All passed in an x86_64 cloud container and on
+  WSL aarch64; the Linux `tac.dotnet` cell is `honored`.
+
 - Apple app runs for linked services (MA1, 2026-10-25):
   `scripts/native/yon-reach-test.mjs` with `TAC_YON_SERVICES=swift` now
   links the `realtime` and `sockets` services as Swift and checks they are

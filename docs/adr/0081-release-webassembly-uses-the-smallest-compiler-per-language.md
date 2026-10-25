@@ -165,3 +165,12 @@ failed. Tachyon sets none of them. Ruby and Kotlin did not change here.
   packages are limited). The fallback handles compile errors; runtime
   differences are covered by the Go web test suite running under TinyGo.
 - `ty doctor` shows TinyGo and wasm-opt as optional tools.
+
+## Amendment (2026-10-25): an ahead-of-time C# service in the Linux app (LX2)
+
+A C# service built with `tac.dotnet.aot: true` answered the page in the
+packaged Linux app under Xvfb in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64). Its `dotnet.native.wasm` was 5.79 MB,
+the same as on the iOS simulator, against 2.98 MB (cloud) and 1.46 MB (WSL)
+for the interpreter build. The Linux cell of `tac.dotnet` is `honored`. The
+Linux build does not print the release note that names the compiler choice;
+only the runtime size shows it.

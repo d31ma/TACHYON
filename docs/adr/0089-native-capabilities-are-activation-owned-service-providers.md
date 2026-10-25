@@ -459,3 +459,14 @@ stay as the history of this decision.
 the support table marks `tac.nativeCapabilities` `runOwed` on macOS and
 Windows until the owed callers run (ADR 0102, JS1 amendment). macOS is
 `honored` again since the MA1 run of 2026-10-25.
+
+## Amendment (2026-10-25): the Linux file dialog under Wayland (LX2)
+
+When GDK runs on Wayland, the Linux file picker fixture presses its keys
+through Mutter's RemoteDesktop session (`NotifyKeyboardKeysym`). Mutter
+gives that session a keyboard only after its first key, so the session
+presses Shift once at start; before that no window is active and the dialog
+reaches its 30-second limit. `linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service`
+then passed through GTK's own dialog in the headless mutter 46.2 session of
+`scripts/linux/compositor-test.sh` in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64). The portal's chooser under
+Wayland and a Linux desktop are not run.

@@ -270,3 +270,12 @@ With the Linux, macOS and iOS runs above, every desktop and Apple host keeps
 the three across a relaunch; Android keeps rows and localStorage values, and a
 Cache API entry written just before the system stops the app is not always
 kept.
+
+## Amendment (2026-10-25): a Rust-set stored field survives a reload on Linux (LX2)
+
+`scripts/linux/page-services-native-test.mjs` builds a linked Rust service
+whose `#[LocalState]` field is set by its own method. In the packaged Linux
+app under Xvfb, in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64), the page showed the new value, a page reload
+cleared a plain page field and kept the stored one, and the next call
+counted on from it. The fixture is `PageServicesFixture.stageStoredField`,
+so the macOS and Windows gates can run the same check.

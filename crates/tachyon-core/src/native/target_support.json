@@ -505,7 +505,7 @@
     "web": {"reach": "honored", "how": "ahead-of-time WebAssembly for C# and F# services in a release build"},
     "macos": {"reach": "runOwed", "how": "the same WebAssembly build in the web view", "run": "an ahead-of-time C# service in the macOS app on a Mac"},
     "windows": {"reach": "adapted", "note": "tac.dotnet.aot does not change C# services in the Windows app, because they are linked into the app as native code. F# services still compile ahead of time."},
-    "linux": {"reach": "runOwed", "how": "the same WebAssembly build in the web view", "run": "an ahead-of-time C# service in the Linux app under Xvfb or on WSL"},
+    "linux": {"reach": "honored", "how": "the same WebAssembly build in the web view; an ahead-of-time C# service answered the page in the Linux app under Xvfb in the cloud and on WSL (LX2)"},
     "ios": {"reach": "honored", "how": "the same WebAssembly build in the web view; an ahead-of-time C# service answered the page on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "runOwed", "how": "the same WebAssembly build in the web view", "run": "an ahead-of-time C# service in the Android emulator gate"}
   },
@@ -745,7 +745,7 @@
     "web": {"reach": "honored", "how": "kept by the browser"},
     "macos": {"reach": "honored", "how": "kept on disk by the web view"},
     "windows": {"reach": "honored", "how": "kept on disk by the web view: localStorage, IndexedDB and the Cache API survive a relaunch (SD1)"},
-    "linux": {"reach": "honored", "how": "kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit"},
+    "linux": {"reach": "honored", "how": "kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit; a LocalState field set by a linked Rust method was read back after a page reload (LX2)"},
     "ios": {"reach": "honored", "how": "kept on disk by the web view; Store rows, LocalState values and Cache API entries were read back after a terminate and relaunch on the iOS 26.5 simulator (RM2)"},
     "android": {"reach": "adapted", "note": "Store rows and LocalState values in the Android app are kept on disk. A Cache API entry written shortly before the system stops the app is not always kept, so a Cached method may run again after a relaunch."}
   },
@@ -855,7 +855,7 @@
     "web": {"reach": "honored", "how": "pages run in a headless browser"},
     "macos": {"reach": "notApplicable", "note": "The macOS app needs a signed-in graphical session: its window and web view do not start without one, so its gates run on a signed-in Mac."},
     "windows": {"reach": "notApplicable", "note": "The Windows app needs a signed-in desktop session: WebView2 does not start without one (0x80070578), and an MSIX package does not install over SSH (0x80070005). scripts/windows/desktop-run.ps1 runs a command from SSH in the desktop session of the same signed-in user, through a one-time interactive scheduled task."},
-    "linux": {"reach": "honored", "how": "the app runs under Xvfb with the X11 backend"},
+    "linux": {"reach": "honored", "how": "the app runs under Xvfb with the X11 backend, and in a headless mutter Wayland session with input through Mutter RemoteDesktop (LX2)"},
     "ios": {"reach": "honored", "how": "the app runs in the iOS simulator without a screen"},
     "android": {"reach": "honored", "how": "the app runs in a headless Android emulator"}
   }

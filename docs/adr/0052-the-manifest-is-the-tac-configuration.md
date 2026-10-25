@@ -384,3 +384,10 @@ the build's note says so).
   bar and `background_color` in the page area, and the full-screen window
   started full screen. Owed: the WebView2 page backdrop on a signed-in
   Windows desktop.
+
+## Amendment (2026-10-25): the Linux window colors under Wayland (LX2)
+
+`linux_window_appearance_tests` passed in the headless mutter 46.2 Wayland
+session of `scripts/linux/compositor-test.sh` in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64), so the Linux
+`background_color` backdrop and the `theme_color` header bar are read back
+under Wayland and on WSL too. A Linux desktop is still not run.

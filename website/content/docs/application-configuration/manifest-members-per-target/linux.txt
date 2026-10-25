@@ -151,7 +151,7 @@ tac.go
   honored: the same Go WebAssembly build in the web view
 
 tac.dotnet
-  run owed: the same WebAssembly build in the web view; still to run: an ahead-of-time C# service in the Linux app under Xvfb or on WSL
+  honored: the same WebAssembly build in the web view; an ahead-of-time C# service answered the page in the Linux app under Xvfb in the cloud and on WSL (LX2)
 
 tac.accessibility
   honored: the same build check
@@ -223,7 +223,7 @@ background and foreground signal
   honored: ApplicationStateChanged when no app window is active or the window is suspended, and when it is active again
 
 stored data (IndexedDB, Cache API, LocalState)
-  honored: kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit
+  honored: kept on disk by the web view in $XDG_DATA_HOME/<application id>/webkit; a LocalState field set by a linked Rust method was read back after a page reload (LX2)
 
 service worker
   not applicable: The Linux app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
@@ -256,4 +256,4 @@ byte-identical rebuilds
   honored: SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests
 
 running without a signed-in desktop session
-  honored: the app runs under Xvfb with the X11 backend
+  honored: the app runs under Xvfb with the X11 backend, and in a headless mutter Wayland session with input through Mutter RemoteDesktop (LX2)

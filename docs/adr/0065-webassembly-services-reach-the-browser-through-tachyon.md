@@ -560,3 +560,13 @@ on a run.
   native Rust `Arc<Service>` field holds the page's instance there.
 - JavaScript, TypeScript, Go, Python, Dart, Java, C++ and F# services can
   still need another service of their own language in the browser.
+
+## Amendment (2026-10-25): the Linux browser APIs under Wayland (LX2)
+
+When GDK runs on Wayland, the Linux browser API fixture clicks through
+Mutter's RemoteDesktop session (`linux_wayland_input.c`) instead of XTest,
+with the window maximized so that its position is known. The granted and
+refused runs of `linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view`
+passed in the headless mutter 46.2 session of
+`scripts/linux/compositor-test.sh` in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64). The X11 run still passes. A
+Wayland desktop session with a person's clicks is not run.
