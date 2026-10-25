@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Installable web app gate (2026-10-25): `bun run test:pwa-install-browser`
+  (`scripts/pwa-install-browser-gate.mjs`, new) builds a page with a full web
+  app manifest and PNG icons, serves it with `ty preview --static` on a
+  trusted HTTPS test host, and checks in Chromium that the page links the
+  published manifest with the right media type, icons and theme color, that
+  the service worker controls it, that the DevTools Protocol reports no
+  installability errors and the manifest's app id, that the start URL opens
+  offline, and that a manifest without icons or an app `display` is refused.
+  It runs in the `browser` job of `rust-ci.yml` and as `pwa-install` in the
+  branded Chrome and Edge runs.
+
 - Page and shell runs in WebView2 (SW2, 2026-10-25): on a signed-in
   Windows 11 ARM64 desktop with WebView2 155, `ty preview --target windows`
   passed the dev loop (`scripts/windows/dev-loop-test.mjs`, new; it stops

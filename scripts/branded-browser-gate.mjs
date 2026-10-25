@@ -47,6 +47,7 @@ class BrandedBrowserGate {
     { name: 'authored-node', file: 'scripts/authored-node-browser-gate.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'page.addInitScript() and page.route()' },
     { name: 'yon-reads', file: 'scripts/yon-reads-browser-test.mjs', engines: ['chromium', 'webkit'] },
     { name: 'preview-offline', file: 'scripts/preview-offline-browser-gate.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'launchPersistentContext() and context.setOffline()' },
+    { name: 'pwa-install', file: 'scripts/pwa-install-browser-gate.mjs', engines: ['chromium'], androidNeeds: 'a persistent context and a DevTools Protocol session' },
     { name: 'website', file: 'scripts/website-browser-test.mjs', engines: ['chromium'] },
     { name: 'runtime', file: 'scripts/runtime-browser-test.mjs', engines: ['chromium'] },
   ]

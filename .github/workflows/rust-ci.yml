@@ -424,6 +424,9 @@ jobs:
       - name: Run the ty preview offline contract in Chromium, Firefox and WebKit
         run: bun run test:preview-offline-browser
 
+      - name: Run the installable web app contract in Chromium
+        run: bun run test:pwa-install-browser
+
       - name: Run the real-browser Tac expression contract
         run: bun run test:island-expression
 
