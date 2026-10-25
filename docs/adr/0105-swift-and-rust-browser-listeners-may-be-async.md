@@ -123,3 +123,8 @@ Runs on 2026-10-24 (develop `e0bbb86a` plus LS3):
   a linked Rust `async fn` listener in the Linux app (`[a1s1]`, then
   `[a1s1a2s2]`). A finished Rust listener task now sends the owner's
   `changed` signal too.
+- macOS 26.6.2 and the iOS 26.5 simulator, 2026-10-25 (MA1, branch
+  `100f335e`, Xcode 27.1): `TAC_LISTENER_LANGUAGE=rs
+  scripts/native/async-listener-app-test.mjs` passed with a linked Rust
+  `async fn` listener in the macOS app and in the simulator app. Each press
+  waited about 430 ms, and the listener ran in the app's process.

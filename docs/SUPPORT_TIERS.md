@@ -789,9 +789,14 @@ cloud container (Swift 6.3.3, Kotlin 2.2.20 on the JVM, .NET 9): each
 described the `realtime` and `sockets` clients, heard a tick and a chat
 message through `event`, and sent through the page. On 2026-10-24 (SD1)
 the Windows app held a linked C# service's stream and socket clients from
-the page in `scripts/windows/yon-reach.ps1` (the Windows row above). Not
-run: a linked Swift stream or socket in the macOS or iOS app (MA1), or a
-linked Kotlin one in the Android app (MA2).
+the page in `scripts/windows/yon-reach.ps1` (the Windows row above). On
+2026-10-25 (MA1, branch `100f335e`, macOS 26.6.2, Xcode 27.1, Swift 6.4,
+iOS 26.5 simulator) `TAC_YON_SERVICES=swift scripts/native/yon-reach-test.mjs`
+passed in the macOS app and on the simulator over `http` and `https` with
+the `realtime` and `sockets` services linked as Swift (the script checks
+`tachyon.host.json`): the page held their stream and socket and the
+services showed the ticks and the chat echo. Not run: a linked Kotlin
+stream or socket in the Android app (MA2).
 
 On 2026-10-24 (LS3, ADR 0105 amendment) `@OnEvent` listeners became allowed
 to be async in Kotlin, C# and F#, and in linked services of every language.
@@ -831,6 +836,12 @@ app's own process:
   `[a1s1a2s2]`. The first run, on `ddf568e8`, found that a finished C#
   listener task did not signal the page, which kept showing `[]`. It now
   sends the owner's `changed` signal.
+- macOS and the iOS 26.5 simulator with a linked Rust listener (MA1,
+  2026-10-25, branch `100f335e`, same Mac and Xcode):
+  `TAC_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs`
+  passed in the macOS app and in the simulator app. The Rust `async fn`
+  listener waits 400 ms on another thread; each press waited about 430 ms,
+  and the listener ran in the app's process.
 
 - Linux (x86_64 Ubuntu 24.04 cloud container, GTK 4.14.5, WebKitGTK
   2.52.6, Xvfb, develop `dbcaf6d9` plus the fix below):
@@ -1204,9 +1215,13 @@ stands in for it.
 container: two linked services share one Setup configuration in Swift
 (Swift 6.2 on Linux), Kotlin (Kotlin 2.1.10 on the JVM) and C# (.NET
 10.0.302, net9.0), and the C# native task fixture's two services both reach
-Yon. These run the generated companion outside its app; the macOS, iOS
-simulator and Android emulator hosts are not run yet (ADR 0022 amendment of
-2026-10-24). On 2026-10-24 the C# test passed on Windows 11 ARM64 too, with
+Yon. These run the generated companion outside its app (ADR 0022 amendment of
+2026-10-24). On 2026-10-25 (MA1, branch `100f335e`, macOS 26.6.2, Xcode
+27.1, Swift 6.4) `scripts/native/async-listener-app-test.mjs
+--check=shared-setup` built the same two linked Swift services into the
+macOS app and the iOS 26.5 simulator app: the writer incremented, and the
+reader read the writer's Setup identity and count 1 in both apps. The
+Android emulator run is owed. On 2026-10-24 the C# test passed on Windows 11 ARM64 too, with
 `dotnet run` and published with NativeAOT for `win-arm64`
 (`two_linked_csharp_services_share_one_setup_configuration_when_published_with_native_aot`):
 both services read the same identity, and the shared setup ran once.
@@ -1251,11 +1266,11 @@ naming the run that would move it back:
 
 | Cell | What ran | Still to run (thread) |
 | --- | --- | --- |
-| `tac.application.window.controls`, macOS | a page and a page service (RM1) | C# and Kotlin WebAssembly callers in the app (MA1) |
+| `tac.application.window.controls`, macOS | a page and a page service (RM1) | none: C# and Kotlin WebAssembly callers ran in the app (MA1, below), so the cell is `honored` again |
 | `tac.application.window.controls`, Windows | a page, a linked C# service and a WebAssembly Kotlin service in WebView2 (SD1); a real Win32 window over SSH (RW1) | linked Rust and WebAssembly Swift callers in WebView2 (SW1, SW3) |
-| `tac.nativeCapabilities` filePicker, macOS | C# and Kotlin fields in `NSOpenPanel` (FP5) | a linked Rust field in `NSOpenPanel` (MA1) |
+| `tac.nativeCapabilities` filePicker, macOS | C# and Kotlin fields in `NSOpenPanel` (FP5) | none: a linked Rust field ran in `NSOpenPanel` (MA1, below), so the cell is `honored` again |
 | `tac.nativeCapabilities` filePicker, Windows | the MSVC dialog test (SD1); page, linked C# and WebAssembly Kotlin fields from a WebView2 page (FP5) | linked Rust (it ran only under Wine) and WebAssembly Swift fields from a WebView2 page (SW1, SW3) |
-| `tac.go`, macOS and Android | none in the app | a Go service in the macOS app (MA1) and on the emulator (MA2) |
+| `tac.go`, macOS and Android | a Go service in the macOS app (MA1, below), so macOS is `honored` again | a Go service on the emulator (MA2) |
 | `tac.browserApis` geolocation, macOS | the location prompt with the manifest reason, answered Don't Allow (RM1) | a position reaching the page after Allow (MA3) |
 | background and foreground signal, Windows | the page and a linked Rust service (SD1) | a linked C# listener (SW1) |
 | reaching Yon, Windows | HTTP from the page and linked Rust and C# services, and a linked C# service's held stream and socket clients (NET3, LS1) | a linked Rust service's held stream and socket clients in `scripts/windows/yon-reach.ps1` (SW1) |
@@ -1267,6 +1282,28 @@ floor since ADR 0108); the Windows integrated title bar note names the SD1
 desktop run instead of saying it has not run; macOS System Back no longer
 names the trackpad swipes, which no run drives. The three `tac.outgoing`
 cells on macOS, iOS and Windows already agreed with their runs.
+
+### macOS callers that moved cells back (2026-10-25, MA1)
+
+On the Mac (macOS 26.6.2, Xcode 27.1, Swift 6.4, Node 26.12.0, a 1920 by
+1080 screen, release `ty` from branch `100f335e`),
+`TAC_MACOS_SERVICE_LANGUAGES=go TAC_MACOS_WINDOW_CALLERS=cs,kt
+TAC_MACOS_PICKER_CALLERS=rs scripts/native/page-services-macos-test.mjs`
+passed in 2 minutes 11 seconds:
+
+- A Go page service in the packaged Tally app answered a click
+  (`LSMinimumSystemVersion` 13.0, built in 13 s, opened and answered in
+  3.4 s).
+- C# and Kotlin `ReportService` callers of the `window-controls` feature,
+  running as WebAssembly, renamed the window to `Quarterly report` and
+  resized it to 1280 wide (read from the window server).
+- The `native-capabilities` feature with its linked Rust `PickerService`
+  opened `NSOpenPanel`, took a typed path through
+  `scripts/native/MacOsOpenPanelKeys.applescript`, read the file
+  (`read`), and answered `cancelled` for an Escaped panel.
+
+No permission prompt appeared. The macOS window controls, file picker and
+`tac.go` cells are `honored` again.
 
 ## Historical Phase 5 Native Target Status
 

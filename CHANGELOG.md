@@ -10,6 +10,21 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Apple app runs for linked services (MA1, 2026-10-25):
+  `scripts/native/yon-reach-test.mjs` with `TAC_YON_SERVICES=swift` now
+  links the `realtime` and `sockets` services as Swift and checks they are
+  linked. `scripts/native/async-listener-app-test.mjs` takes
+  `TAC_LISTENER_LANGUAGE=rs` for a linked Rust listener on macOS and iOS,
+  and `--check=shared-setup` for two linked services reading one Setup.
+  `scripts/native/page-services-macos-test.mjs` adds a Go service,
+  WindowControls callers (`TAC_MACOS_WINDOW_CALLERS`) and FilePicker
+  callers (`TAC_MACOS_PICKER_CALLERS`, answered through `NSOpenPanel`). On
+  macOS 26.6.2 and the iOS 26.5 simulator: linked Swift stream and socket
+  clients reached Yon over `http` and `https`, two linked Swift services saw
+  one Setup, and a linked Rust async listener finished before the next one.
+  On macOS a Go service, C# and Kotlin window callers and a linked Rust file
+  picker ran, so those macOS cells are `honored` again.
+
 - Android web view check at startup (GP2, ADR 0108 amendment, 2026-10-25):
   the Android app checks that Android System WebView has the web message
   listener (`WEB_MESSAGE_LISTENER`) before it creates the web view. Without

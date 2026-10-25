@@ -208,3 +208,7 @@ macOS; that amendment stays as the history of the decision. The host threads
 that run these callers move each cell back to `honored` with its run.
 `docs/SUPPORT_TIERS.md` ("Support table narrowed to its runs") lists what
 ran and what is still owed for each.
+
+On 2026-10-25 (MA1) C# and Kotlin WebAssembly window-control callers, a
+linked Rust file picker field and a Go service ran in the macOS app, so the
+macOS window controls, file picker and `tac.go` cells are `honored` again.

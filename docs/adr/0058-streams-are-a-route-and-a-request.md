@@ -323,10 +323,13 @@ which stays as the history of this decision.
   signed-in Windows 11 ARM64 desktop: the page held a linked C# service's
   stream (three ticks) and socket (an echo) clients (ADR 0103 amendment).
 
-Still owed, each in the app (`docs/SUPPORT_TIERS.md`): a linked Swift
-service's held stream and socket clients on macOS and the iOS simulator, a
-linked Rust async `@OnEvent` listener on macOS and the iOS simulator (MA1); a
-linked Kotlin service's held stream and socket clients and a linked Rust async
+On 2026-10-25 (MA1) `TAC_YON_SERVICES=swift scripts/native/yon-reach-test.mjs`
+ran linked Swift `realtime` and `sockets` services, which hold their stream
+and socket clients, in the macOS app and on the iOS 26.5 simulator over
+`http` and `https`, and a linked Rust async `@OnEvent` listener ran in the
+macOS app and on the simulator (ADR 0105).
+
+Still owed, each in the app (`docs/SUPPORT_TIERS.md`): a linked Kotlin service's held stream and socket clients and a linked Rust async
 listener on the Android emulator (MA2); and a linked Rust service's held
 stream, socket and topic clients and a linked Rust async listener inside
 WebView2 (SW1).

@@ -449,7 +449,7 @@ stay as the history of this decision.
 | Target | Picker | Callers that ran in the app |
 | --- | --- | --- |
 | Browser tab | none: `open` answers `unsupported` | provider execution |
-| macOS | `NSOpenPanel` | WebAssembly C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5); the JavaScript and linked Swift fields rest on the provider and generated-app tests above; a linked Rust field is owed (MA1) |
+| macOS | `NSOpenPanel` | WebAssembly C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5); a linked Rust field did the same on 2026-10-25 (MA1); the JavaScript and linked Swift fields rest on the provider and generated-app tests above |
 | Windows | `IFileOpenDialog` | a JavaScript page service, a linked C# service and a WebAssembly Kotlin service from a WebView2 page on a signed-in desktop (FP5, 2026-10-24); linked Rust ran under Wine only, and a WebAssembly Swift field is owed (SW1, SW3) |
 | Linux | `GtkFileDialog` or the portal's chooser | JavaScript, linked Rust, and WebAssembly Swift, C# and Kotlin (FP5) |
 | iOS | `UIDocumentPickerViewController` | JavaScript, linked Swift and Rust, and WebAssembly C# and Kotlin on the iOS 26.5 simulator (FP4) |
@@ -457,4 +457,5 @@ stay as the history of this decision.
 
 `docs/SUPPORT_TIERS.md` ("File picker on native hosts") holds the runs, and
 the support table marks `tac.nativeCapabilities` `runOwed` on macOS and
-Windows until the owed callers run (ADR 0102, JS1 amendment).
+Windows until the owed callers run (ADR 0102, JS1 amendment). macOS is
+`honored` again since the MA1 run of 2026-10-25.
