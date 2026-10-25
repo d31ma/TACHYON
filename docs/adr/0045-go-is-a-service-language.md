@@ -406,3 +406,26 @@ meant to omit.
   lower-case first letter, ADR 0045 Web Service Notes).
 - The Go contract test compares the runtime's output with `encoding/json` for
   each of these cases, and through `behaviorHttpRequest` for a request body.
+
+## Amendment (2026-10-25): service files may reach 16 MiB offline
+
+`scripts/wasm-offline-browser-gate.mjs` builds the page-program fixture of
+every Tac service language with `ty bundle`, serves it with
+`ty preview --static` on a trusted HTTPS test host and reloads it offline.
+For Go, `.tachyon/services/go/services.wasm` was 4,968 KiB,
+over the service worker's 4 MiB limit for one file. The worker left it out of
+its asset table, so a Go page did not open offline.
+
+- Files the build writes under `.tachyon/services/` may now be up to 16 MiB
+  in the worker's asset table (`bodyLimit`). Every other file keeps the 4 MiB
+  limit. The pinned Python runtime under `.tachyon/services/python/` keeps the
+  rule of ADR 0093: 10 MiB for the verified `pyodide.asm.wasm` with the
+  `offline` profile, 4 MiB otherwise. The cache as a whole keeps its 32 MiB
+  and 256-entry limits, and every kept file is still checked against its
+  SHA-256 fingerprint.
+- A file the worker cannot keep is no longer left out silently. The build
+  prints `Offline: /<file> is <n> KiB, over the service worker's <limit> KiB
+  limit for one file, ...` with the other build notes, and the offline gate
+  fails on that note.
+- After the change the Go fixture reloaded offline in Chromium, and its
+  services ran from the cache.

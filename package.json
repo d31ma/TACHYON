@@ -28,6 +28,7 @@
     "test:service-worker-browser": "node scripts/service-worker-browser-test.mjs",
     "test:preview-offline-browser": "node scripts/preview-offline-browser-gate.mjs",
     "test:pwa-install-browser": "node scripts/pwa-install-browser-gate.mjs",
+    "test:wasm-offline-browser": "node scripts/wasm-offline-browser-gate.mjs",
     "test:cached-client-browser": "node scripts/cached-client-browser-test.mjs",
     "test:page-program-browser": "node scripts/page-program-browser-gate.mjs",
     "test:async-listener-browser": "node scripts/async-listener-browser-gate.mjs",

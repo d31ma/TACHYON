@@ -12,6 +12,10 @@ pub(super) struct ServiceWorker;
 
 impl ServiceWorker {
     const MAX_ASSET_BYTES: usize = 4 * 1_048_576;
+    const MAX_SERVICE_ASSET_BYTES: usize = 16 * 1_048_576;
+    const CEILINGS: [usize; 2] = [Self::MAX_ASSET_BYTES, Self::MAX_SERVICE_ASSET_BYTES];
+    const SERVICE_FILES: &'static str = ".tachyon/services/";
+    const PYTHON_RUNTIME: &'static str = ".tachyon/services/python/";
 
     pub(super) fn cache_rules_literal(
         cache_rules: &[crate::native::CacheRule],
@@ -55,6 +59,48 @@ impl ServiceWorker {
         })
     }
 
+    pub(super) fn offline_notes(
+        files: &[(PathBuf, Vec<u8>)],
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<Vec<String>, Failure> {
+        let notes = files
+            .iter()
+            .map(|(path, bytes)| Self::offline_note(path, bytes, profile))
+            .collect::<Result<Vec<Option<String>>, Failure>>()?;
+        Ok(notes.into_iter().flatten().collect())
+    }
+
+    fn offline_note(
+        path: &Path,
+        bytes: &[u8],
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<Option<String>, Failure> {
+        let portable = PortablePath::of(path);
+        let ceiling = Self::ceiling(&portable, bytes, profile)?;
+        Ok((bytes.len() > ceiling).then(|| {
+            format!(
+                "Offline: /{portable} is {} KiB, over the service worker's {} KiB limit for one file, so the worker does not keep it and a page that loads it needs the network. Make the file smaller, or split the service that produces it.",
+                bytes.len() / 1024,
+                ceiling / 1024
+            )
+        }))
+    }
+
+    fn ceiling(
+        portable: &str,
+        bytes: &[u8],
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<usize, Failure> {
+        let python = profile
+            .map(|_| crate::tac_python::RuntimeProfile::asset_limit(portable, bytes))
+            .transpose()?;
+        let service = portable.starts_with(Self::SERVICE_FILES)
+            && !portable.starts_with(Self::PYTHON_RUNTIME);
+        Ok(python
+            .filter(|limit| *limit > Self::MAX_ASSET_BYTES)
+            .unwrap_or(Self::CEILINGS[usize::from(service)]))
+    }
+
     fn hash_config(hasher: &mut Sha256, build_config_digest: Option<&str>) {
         if let Some(digest) = build_config_digest {
             hasher.update(b"client/manifest.json\0");
@@ -94,12 +140,9 @@ impl ServiceWorker {
         profile: Option<crate::tac_python::RuntimeProfile>,
     ) -> Result<(), Failure> {
         let portable = PortablePath::of(path);
-        let ceiling = profile
-            .map(|_| crate::tac_python::RuntimeProfile::asset_limit(&portable, bytes))
-            .transpose()?
-            .unwrap_or(Self::MAX_ASSET_BYTES);
+        let ceiling = Self::ceiling(&portable, bytes, profile)?;
         Self::add_bounded_asset(&portable, bytes, ceiling, assets);
-        Self::add_ceiling(&portable, ceiling, assets);
+        Self::add_ceiling(&portable, bytes.len(), ceiling, assets);
         Ok(())
     }
 
@@ -114,8 +157,13 @@ impl ServiceWorker {
         }
     }
 
-    fn add_ceiling(portable: &str, ceiling: usize, assets: &mut BTreeMap<String, Value>) {
-        if ceiling > Self::MAX_ASSET_BYTES {
+    fn add_ceiling(
+        portable: &str,
+        length: usize,
+        ceiling: usize,
+        assets: &mut BTreeMap<String, Value>,
+    ) {
+        if length > Self::MAX_ASSET_BYTES {
             assets.entry(format!("/{portable}")).and_modify(|asset| {
                 asset["bodyLimit"] = serde_json::json!(ceiling);
             });
@@ -170,6 +218,66 @@ mod tests {
             2
         );
         assert!(metadata["/big.wasm"].is_null());
+    }
+
+    #[test]
+    fn a_file_the_worker_cannot_keep_is_named_in_a_build_note() {
+        let files = vec![
+            (PathBuf::from("ordinary.js"), vec![1]),
+            (PathBuf::from("at-limit.wasm"), vec![0; 4 * 1024 * 1024]),
+            (PathBuf::from("shared/video.webm"), vec![0; 5 * 1024 * 1024]),
+            (
+                PathBuf::from(".tachyon/services/go/services.wasm"),
+                vec![0; 5 * 1024 * 1024],
+            ),
+        ];
+        let notes = ServiceWorker::offline_notes(&files, None)
+            .unwrap_or_else(|error| panic!("notes: {error:?}"));
+        assert_eq!(
+            notes,
+            vec![String::from(
+                "Offline: /shared/video.webm is 5120 KiB, over the service worker's 4096 KiB limit for one file, so the worker does not keep it and a page that loads it needs the network. Make the file smaller, or split the service that produces it."
+            )]
+        );
+    }
+
+    #[test]
+    fn service_files_may_reach_sixteen_mib_except_the_python_runtime() {
+        let go = vec![0; 5 * 1024 * 1024];
+        let files = vec![
+            (PathBuf::from(".tachyon/services/go/services.wasm"), go),
+            (PathBuf::from(".tachyon/services/Small.js"), vec![1]),
+            (
+                PathBuf::from(".tachyon/services/Huge.wasm"),
+                vec![0; 16 * 1024 * 1024 + 1],
+            ),
+            (
+                PathBuf::from(".tachyon/services/python/314.0.7/pyodide.asm.wasm"),
+                vec![0; 5 * 1024 * 1024],
+            ),
+        ];
+        let metadata: serde_json::Value = serde_json::from_str(
+            &ServiceWorker::assets_with_profile(&files, None)
+                .unwrap_or_else(|error| panic!("service assets: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("JSON: {error:?}"));
+        assert_eq!(
+            metadata["/.tachyon/services/go/services.wasm"]["bodyLimit"],
+            16 * 1024 * 1024
+        );
+        assert!(metadata["/.tachyon/services/Small.js"]["bodyLimit"].is_null());
+        assert!(metadata["/.tachyon/services/Huge.wasm"].is_null());
+        assert!(metadata["/.tachyon/services/python/314.0.7/pyodide.asm.wasm"].is_null());
+        let notes = ServiceWorker::offline_notes(&files, None)
+            .unwrap_or_else(|error| panic!("notes: {error:?}"));
+        assert_eq!(notes.len(), 2, "{notes:?}");
+        assert!(
+            notes[0].contains("Huge.wasm is 16384 KiB, over the service worker's 16384 KiB limit")
+        );
+        assert!(
+            notes[1]
+                .contains("pyodide.asm.wasm is 5120 KiB, over the service worker's 4096 KiB limit")
+        );
     }
 
     #[test]

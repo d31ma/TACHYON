@@ -27,7 +27,7 @@ class BrandedBrowserGate {
   static engineVariables = [
     'TAC_PAGE_PROGRAM_BROWSERS', 'TAC_ASYNC_LISTENER_BROWSERS', 'TAC_HELD_CLIENT_BROWSERS', 'TAC_WINDOW_BROWSERS', 'TAC_CACHED_CLIENT_BROWSERS',
     'TAC_WEB_APIS_BROWSERS', 'TAC_STORAGE_BROWSERS', 'TAC_COMPONENT_SCOPE_BROWSERS', 'TAC_LOGIC_CONTROLS_BROWSERS', 'TAC_SVG_NAMESPACE_BROWSERS',
-    'TAC_SCAFFOLD_BROWSERS', 'TAC_ADAPTER_BROWSERS', 'TAC_AUTHORED_NODE_BROWSERS', 'TAC_OFFLINE_BROWSERS', 'TAC_YON_READS_BROWSERS', 'TAC_BROWSER_HTTP_BROWSERS', 'TAC_PYTHON_BROWSERS',
+    'TAC_SCAFFOLD_BROWSERS', 'TAC_WASM_OFFLINE_BROWSERS', 'TAC_ADAPTER_BROWSERS', 'TAC_AUTHORED_NODE_BROWSERS', 'TAC_OFFLINE_BROWSERS', 'TAC_YON_READS_BROWSERS', 'TAC_BROWSER_HTTP_BROWSERS', 'TAC_PYTHON_BROWSERS',
   ]
 
   /** @type {BrandedGate[]} */
@@ -47,6 +47,7 @@ class BrandedBrowserGate {
     { name: 'authored-node', file: 'scripts/authored-node-browser-gate.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'page.addInitScript() and page.route()' },
     { name: 'yon-reads', file: 'scripts/yon-reads-browser-test.mjs', engines: ['chromium', 'webkit'] },
     { name: 'preview-offline', file: 'scripts/preview-offline-browser-gate.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'launchPersistentContext() and context.setOffline()' },
+    { name: 'wasm-offline', file: 'scripts/wasm-offline-browser-gate.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'launchPersistentContext() and context.setOffline()', androidNeeds: 'a persistent context' },
     { name: 'pwa-install', file: 'scripts/pwa-install-browser-gate.mjs', engines: ['chromium'], androidNeeds: 'a persistent context and a DevTools Protocol session' },
     { name: 'website', file: 'scripts/website-browser-test.mjs', engines: ['chromium'] },
     { name: 'runtime', file: 'scripts/runtime-browser-test.mjs', engines: ['chromium'] },

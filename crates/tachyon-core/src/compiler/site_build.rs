@@ -202,6 +202,8 @@ impl<'a> SiteBuild<'a> {
         let python_profile =
             crate::tac_python::RuntimeProfile::for_files(self.snapshot_root, &self.files)?;
         let public_assets = ServiceWorker::assets_with_profile(&self.files, python_profile)?;
+        self.service_notes
+            .extend(ServiceWorker::offline_notes(&self.files, python_profile)?);
         let service_worker = WebCompiler::SERVICE_WORKER
             .replace("__VERSION__", &version)
             .replace("__CACHE_RULES__", cache_rules)

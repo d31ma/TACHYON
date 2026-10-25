@@ -537,6 +537,7 @@ jobs:
           - cached-client-browser
           - async-listener-browser
           - window-controls-browser
+          - wasm-offline-browser
 
     steps:
       - name: Check out source

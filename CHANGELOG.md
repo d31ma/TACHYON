@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Offline runs for every Tac service language (2026-10-25):
+  `bun run test:wasm-offline-browser` (`scripts/wasm-offline-browser-gate.mjs`,
+  new) bundles the page-program fixture of each language, serves it with
+  `ty preview --static` on a trusted HTTPS test host, reloads it offline and
+  checks that the services still answer, that a record saved online is read
+  back offline, and that every file came from the service worker. It is a
+  new entry in the `browser-languages` job and a `wasm-offline` entry in the
+  branded runs. The shared test host is `scripts/secure-test-origin.mjs`,
+  which the installable web app gate now uses too.
+
 - Installable web app gate (2026-10-25): `bun run test:pwa-install-browser`
   (`scripts/pwa-install-browser-gate.mjs`, new) builds a page with a full web
   app manifest and PNG icons, serves it with `ty preview --static` on a
@@ -1766,6 +1776,13 @@ machine contracts have their own, independent major versions.
   or a localhost name (ADR 0094).
 
 ### Changed
+
+- The service worker keeps files the build writes under `.tachyon/services/`
+  up to 16 MiB (other files keep 4 MiB; the pinned Python runtime keeps its
+  own rule). Go's page-program `services.wasm` is 4,968 KiB, so a Go page did
+  not open offline before (ADR 0045 amendment). A build now prints an
+  `Offline:` note for any file the worker cannot keep, instead of leaving it
+  out silently.
 
 - Java web services need WebAssembly exception references (JF1, ADR 0083
   amendment, 2026-10-25). TeaVM writes a Java `catch` as `try_table`, and
