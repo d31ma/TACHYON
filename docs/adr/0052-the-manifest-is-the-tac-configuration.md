@@ -398,6 +398,8 @@ under Wayland and on WSL too. A Linux desktop is still not run.
 `simctl launch --wait-for-debugger` and reads a screenshot. On an iOS 26.5
 iPhone 17 Pro simulator (Xcode 27.1, commit `e6c017f1`) the launch screen
 filled the status bar and the whole screen with `background_color` before
-the page ran. The Android splash screen and bar icon colors, and an Android
-image below API 35, are checked by `scripts/android/window-settings-test.mjs`
-and have not run yet.
+the page ran. On Android, `scripts/android/window-settings-test.mjs` passed on
+API 35 (WebView 124) and API 34 (WebView 113) emulators (commit `df1e8c26`):
+a dark `theme_color` gave light bar icons and a light one dark icons, and the
+splash screen showed `background_color` while the app was held before its
+first frame.

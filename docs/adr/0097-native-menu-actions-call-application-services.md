@@ -566,4 +566,6 @@ and then the application service ran its `OnStop` once. On iPad a touch swipe
 down from the top edge opened the menu bar, and touches on View and What's
 Running forwarded `SectionChosen` to the page. iOS still ends a suspended app
 without telling it, so the iOS cell stays `adapted` and its note now names
-this run. A pointer-opened menu bar has not run.
+this run. A pointer-opened menu bar has not run. On the Android API 35
+emulator, Back now also shows the open page's Rust service running its
+`OnStop` in `onDestroy` before the application service stops.

@@ -1119,7 +1119,7 @@ This evidence does not promote any tier.
 | Host | Implemented | Validated |
 | --- | --- | --- |
 | iOS WKWebView | yes: the status bar strip and its text color, the web view and launch screen color (an asset catalog color), the hidden status bar, the supported interface orientations, edge to edge with the three `--tac-titlebar-*` properties from the safe-area insets, and `WindowControls` for linked Swift services | `scripts/ios/window-settings-test.mjs` on the Mac (macOS 26.6.2, Xcode 27.1 27A9275, iOS 26.5 simulators, WIN5 branch on develop eefb70b0) built three apps and read the running page, a linked Swift service and a screenshot. iPhone 17 Pro: a standard window with a dark `theme_color` showed it across the 62-point status bar with light text (`statusBarStyle` 1), started the page at the safe-area top and showed `background_color` through the transparent page; the bundle's `Assets.car` held the launch color. An integrated window with a light `theme_color` put the page at the top edge with dark text (3), set `--tac-titlebar-height` to `62px`, and the page's own bar filled the status bar in the screenshot. `display: "fullscreen"` with `landscape` hid the status bar and opened in landscape (750 by 382). The linked Swift service saw the `title` grant and no `minimize` grant and set the scene title to `Quarterly report` on the iPhone and on an iPad Pro 13-inch (M5). On 2026-10-25 (MA4, commit `e6c017f1`) the same script held the standard app before `main` with `simctl launch --wait-for-debugger`, and the screenshot showed the launch screen: `#ffaa00` behind the status bar and across the whole screen, before the page ran. Not checked: a device turned by hand, and a physical device |
-| Android WebView | yes: the status and navigation bar colors and icon colors, the window, splash screen and web view color, hidden system bars, `screenOrientation`, and edge to edge with the three properties from the system-bar and cutout insets | `scripts/android/window-settings-test.mjs` on the Mac's API 35 arm64 emulator (`tachyon-gate`, 1080 by 2400 at 420 dpi) built three APKs and read the page over DevTools, `aapt2` for the manifest and `screencap` pixels. A standard window filled the status and navigation bars with `theme_color` and showed `background_color` through the page (412 by 842). An integrated window drew the page under the status bar, set `--tac-titlebar-height` to `49px`, and the page's bar reached the bottom of the status bar. `display: "fullscreen"` with `landscape` opened in landscape with no system bars (866 by 412, the 49 dp cutout still pads the leading side). Not checked by the run: the bar icon colors, the splash screen, Android below API 35, and a physical device |
+| Android WebView | yes: the status and navigation bar colors and icon colors, the window, splash screen and web view color, hidden system bars, `screenOrientation`, and edge to edge with the three properties from the system-bar and cutout insets | `scripts/android/window-settings-test.mjs` on the Mac's API 35 arm64 emulator (`tachyon-gate`, 1080 by 2400 at 420 dpi) built three APKs and read the page over DevTools, `aapt2` for the manifest and `screencap` pixels. A standard window filled the status and navigation bars with `theme_color` and showed `background_color` through the page (412 by 842). An integrated window drew the page under the status bar, set `--tac-titlebar-height` to `49px`, and the page's bar reached the bottom of the status bar. `display: "fullscreen"` with `landscape` opened in landscape with no system bars (866 by 412, the 49 dp cutout still pads the leading side). On 2026-10-25 (MA4, commit `df1e8c26`) the same script also read the bar icons and the splash screen, on `tachyon-gate` (API 35, WebView 124.0.6367.219) and on `tachyon-api34` (API 34, WebView 113.0.5672.136). The dark `theme_color` gave light status and navigation icons (median luminance 215 to 255) and the light one dark icons (29 to 120, window flags `LIGHT_STATUS_BARS LIGHT_NAVIGATION_BARS`). With the app held before its first frame (`run-as` `kill -STOP`), `dumpsys` listed its splash window and the screen showed `background_color` `#ffaa00`. The integrated, standard and fullscreen checks passed on API 34 too. Not checked: Android below API 34, and a physical device |
 
 ### Desktop window colors and display (2026-10-24, WIN7)
 
@@ -1766,9 +1766,28 @@ debug `ty` from branch `claude/project-thread-t2wmoo` (commit `e6c017f1`):
   `SectionChosen`. The touches come from `scripts/ios/simulator-tap.m`
   (`home` and `drag` modes).
 
-Evidence on the Mac: `/Volumes/FORGE/Logs/TACHYON/ma4-20261025/`. The
-Android legs of MA4 (bar icon colors, the splash screen, an API 34 image and
-page disposal in `onDestroy`) have not run yet.
+On the Mac's emulator-5554, with the same branch at commit `df1e8c26`:
+
+- `scripts/android/window-settings-test.mjs` passed on `tachyon-gate`
+  (Android 15, API 35, WebView 124.0.6367.219) and on a new `tachyon-api34`
+  AVD (Android 14, API 34, `google_apis` arm64-v8a, WebView
+  113.0.5672.136). The standard app's dark `theme_color` gave light status
+  and navigation icons (median luminance 215 to 255 in the bar frames that
+  `dumpsys window` lists), and the integrated app's light `theme_color` gave
+  dark icons (29 to 120; the gesture handle is translucent black). The
+  standard app, stopped with `run-as` `kill -STOP` right after `am start`,
+  kept its splash window on screen: `dumpsys` listed `Splash Screen` for the
+  package and the screen showed `#ffaa00`. On WebView 113 a component's
+  `tac.css` does not apply (it needs `@scope`, WebView 118, ADR 0108), so the
+  gate now sizes the probe's bar with an inline style.
+- `scripts/android/application-lifetime-test.mjs` passed on `tachyon-gate`:
+  on Back, `onDestroy` disposed the open page's Rust `SectionService` (its
+  `OnStop` ran) before the application service stopped once.
+
+The first API 34 boot needed several tries: Android killed the app while
+Play Services restarted, and a "System UI isn't responding" dialog dimmed the
+screen. Gradle 8.14 does not run on the Mac's default JDK 25, so the runs
+used JDK 21. Evidence on the Mac: `/Volumes/FORGE/Logs/TACHYON/ma4-20261025/`.
 
 ## Historical Phase 5 Native Target Status
 
