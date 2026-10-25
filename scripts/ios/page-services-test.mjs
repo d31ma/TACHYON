@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
@@ -13,7 +13,9 @@ class IosPageServicesTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'ios-page-services-'))
-  static deviceSet = path.join(IosPageServicesTest.root, 'simulator-devices')
+  static chosenDevice = process.env.TAC_IOS_DEVICE ?? ''
+  static deviceSet = process.env.TAC_IOS_DEVICE_SET
+    ?? (IosPageServicesTest.chosenDevice ? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices') : path.join(IosPageServicesTest.root, 'simulator-devices'))
   static evidence = process.env.TAC_IOS_PAGE_SERVICES_EVIDENCE ?? path.join(IosPageServicesTest.repository, 'target/ios-page-services-evidence')
   static feature = path.join(IosPageServicesTest.repository, 'website/content/features/web-assembly-services')
   static languages = (process.env.TAC_IOS_SERVICE_LANGUAGES ?? 'py,cs,kt,dart,java,go,rb,lua,hpp,fs,rs').split(',').map((item) => item.trim()).filter(Boolean)
@@ -22,6 +24,7 @@ class IosPageServicesTest {
   static linked = ['rs', 'swift']
   static scopedColor = 'rgb(10, 20, 30)'
   static waitMilliseconds = 300000
+  static installMilliseconds = 900000
   static pollMilliseconds = 250
   static device = ''
   static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? ''
@@ -128,6 +131,11 @@ final class ServicesProbeService {
     return this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args])
   }
 
+  /** @param {string[]} args */
+  static slowSimctl(...args) {
+    return this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], this.installMilliseconds)
+  }
+
   /** @param {string} language */
   static stage(language) {
     const project = path.join(this.root, `tally-${language}`)
@@ -155,7 +163,22 @@ final class ServicesProbeService {
     return !this.runtimeVersion || version === this.runtimeVersion || version.startsWith(`${this.runtimeVersion}.`)
   }
 
+  static useBootedSimulator() {
+    const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
+    const devices = JSON.parse(this.simctl('list', 'devices', '--json')).devices
+    const [identifier, found] = Object.entries(devices).map(([key, list]) => [key, list.find((item) => item.udid === this.chosenDevice)]).find(([, item]) => item) ?? []
+    assert.ok(found, `TAC_IOS_DEVICE ${this.chosenDevice} is not in the device set ${this.deviceSet}`)
+    assert.equal(found.state, 'Booted', `TAC_IOS_DEVICE ${this.chosenDevice} must already be booted`)
+    const runtime = runtimes.find((item) => item.identifier === identifier)
+    assert.ok(runtime && this.chosenVersion(runtime.version), `TAC_IOS_DEVICE ${this.chosenDevice} runs ${identifier}, not iOS ${this.runtimeVersion}`)
+    this.device = this.chosenDevice
+    this.bootedVersion = runtime.version
+    console.log(`==> using booted ${found.name} with iOS ${runtime.version}`)
+    return { runtime: runtime.version, device: found.name }
+  }
+
   static bootSimulator() {
+    if (this.chosenDevice) return this.useBootedSimulator()
     mkdirSync(this.deviceSet)
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
     const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-') && this.chosenVersion(item.version))
@@ -173,7 +196,7 @@ final class ServicesProbeService {
   }
 
   static shutdownSimulator() {
-    if (!this.device) return
+    if (!this.device || this.chosenDevice) return
     for (const args of [['shutdown', this.device], ['delete', this.device]]) {
       spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' })
     }
@@ -223,8 +246,8 @@ final class ServicesProbeService {
     else assert.ok(modules > 0, `${language}: the bundle has no WebAssembly`)
     const notes = output.split('\n').filter((line) => line.startsWith('Note:'))
     if (this.bootedVersion.localeCompare(minimum, undefined, { numeric: true }) < 0) return this.refusal(language, bundle, minimum)
-    this.simctl('install', this.device, bundle)
-    const launched = this.simctl('launch', this.device, applicationId)
+    this.slowSimctl('install', this.device, bundle)
+    const launched = this.slowSimctl('launch', this.device, applicationId)
     const pid = Number(launched.match(/:\s*(\d+)\s*$/)?.[1])
     const documents = path.join(this.simctl('get_app_container', this.device, applicationId, 'data'), 'Documents')
     try {
@@ -251,7 +274,7 @@ final class ServicesProbeService {
    * @param {string} language @param {string} bundle @param {string} minimum
    */
   static refusal(language, bundle, minimum) {
-    const result = spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'install', this.device, bundle], { encoding: 'utf8', timeout: 240000 })
+    const result = spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'install', this.device, bundle], { encoding: 'utf8', timeout: this.installMilliseconds })
     const message = `${result.stdout}${result.stderr}`.trim()
     assert.notEqual(result.status, 0, `${language}: iOS ${this.bootedVersion} installed an app whose MinimumOSVersion is ${minimum}`)
     assert.match(message, new RegExp(`need ${minimum.replace('.', '\\.')}`), `${language}: the refusal must name the ${minimum} floor`)
