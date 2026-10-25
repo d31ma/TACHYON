@@ -1638,6 +1638,15 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Support table narrowed to its runs (JS1, ADR 0102 amendment, 2026-10-25):
+  cells whose text named callers that never ran on that target are now
+  `runOwed`: window controls on macOS and Windows, the file picker on macOS
+  and Windows, `tac.go` on macOS and Android, macOS geolocation, Windows
+  background and foreground, and Windows reaching Yon. Each names its owed
+  run. The iOS release packaging run names an iOS 17.4 device, the Windows
+  integrated title bar note names its SD1 desktop run, and macOS System Back
+  no longer claims the trackpad swipes.
+
 - The iOS app now starts at iOS 17.4 and the Windows app at the WebView2
   Runtime 118.0, the first versions that run CSS `@scope`, which component
   styles compile to. On the iOS 17.0.1 simulator no component style applied.

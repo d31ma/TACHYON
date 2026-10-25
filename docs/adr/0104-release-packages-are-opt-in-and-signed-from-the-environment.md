@@ -351,7 +351,7 @@ Store) on the developer's own Apple Developer team.
   `embedded.mobileprovision` and `PrivacyInfo.xcprivacy`, and the `.ipa` holds
   `Payload/<Name>.app`.
 - Owed: `--release` with an App Store profile, an install and launch on an
-  iOS 17 or later device, and an App Store Connect upload.
+  iOS 17.4 or later device (the floor since ADR 0108), and an App Store Connect upload.
 
 ## Amendment (2026-10-19): a Windows build without `--release` says it is unsigned
 

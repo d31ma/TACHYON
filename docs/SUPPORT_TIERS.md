@@ -130,9 +130,9 @@ wildcard development profile: `ty bundle --target ios --device` chose the
 Apple Development certificate from the profile's SHA-1, and the app passed
 `codesign --verify --strict` with `iPhoneOS`, `embedded.mobileprovision`,
 `PrivacyInfo.xcprivacy` and the `.ipa` `Payload` layout. Not yet run:
-`--release` with an App Store profile, installing and launching on an iOS 17
-or later device (the only registered device is an iPod touch on iOS 15), and
-an App Store Connect upload.
+`--release` with an App Store profile, installing and launching on an iOS 17.4
+or later device (the iOS floor since ADR 0108; the only registered device is an
+iPod touch on iOS 15), and an App Store Connect upload.
 
 ### Application services and declared menus on desktop hosts (2026-10-04)
 
@@ -1143,7 +1143,10 @@ promote any tier.
 On the iOS 26.5 simulator the same XCUITest edge drag pops a UIKit
 navigation stack (Settings > General) but moves neither the Tachyon web view
 nor Safari back a page. On iOS 18.0 the same app and drag go back and
-forward. A real touch on iOS 26 is not checked by these runs.
+forward. A real touch on iOS 26 is not checked by these runs. Two System Back
+runs need Samuel: a real touch on an iOS 26 device, and a person at a Mac
+trackpad for the swipes. The support table claims the iOS 18.0 run and the
+macOS menu keys and items only.
 
 ### Browser engines for the web target (2026-10-19)
 
@@ -1210,6 +1213,33 @@ skipped. The probes now ask `cmd`. Since CI1 (2026-10-19) the windows-latest
 native gate installs PHP, Groovy, Kotlin, Dart and Lua, but its first run
 with them (39253757046) failed 44 tests, so the Windows handler evidence is
 still the Surface run above (WG1).
+
+### Support table narrowed to its runs (2026-10-25, JS1)
+
+The platform survey of develop `4243f2b6` compared 26 cells of
+`target_support.json` with the runs on record. Following the ADR 0102 rule
+(a native cell is `honored` only with a recorded run there), the cells whose
+text named callers that never ran on that target are now `runOwed`, each
+naming the run that would move it back:
+
+| Cell | What ran | Still to run (thread) |
+| --- | --- | --- |
+| `tac.application.window.controls`, macOS | a page and a page service (RM1) | C# and Kotlin WebAssembly callers in the app (MA1) |
+| `tac.application.window.controls`, Windows | a page, a linked C# service and a WebAssembly Kotlin service in WebView2 (SD1); a real Win32 window over SSH (RW1) | linked Rust and WebAssembly Swift callers in WebView2 (SW1, SW3) |
+| `tac.nativeCapabilities` filePicker, macOS | C# and Kotlin fields in `NSOpenPanel` (FP5) | a linked Rust field in `NSOpenPanel` (MA1) |
+| `tac.nativeCapabilities` filePicker, Windows | the MSVC dialog test (SD1); page, linked C# and WebAssembly Kotlin fields from a WebView2 page (FP5) | linked Rust (it ran only under Wine) and WebAssembly Swift fields from a WebView2 page (SW1, SW3) |
+| `tac.go`, macOS and Android | none in the app | a Go service in the macOS app (MA1) and on the emulator (MA2) |
+| `tac.browserApis` geolocation, macOS | the location prompt with the manifest reason, answered Don't Allow (RM1) | a position reaching the page after Allow (MA3) |
+| background and foreground signal, Windows | the page and a linked Rust service (SD1) | a linked C# listener (SW1) |
+| reaching Yon, Windows | HTTP from the page and linked Rust and C# services, and a linked C# service's held stream and socket clients (NET3, LS1) | a linked Rust service's held stream and socket clients in `scripts/windows/yon-reach.ps1` (SW1) |
+
+The Android window controls stay `adapted`; their note now says that Swift
+and C# WebAssembly callers have not run on the emulator (MA2). Text fixes
+with no change of state: iOS release packaging names an iOS 17.4 device (the
+floor since ADR 0108); the Windows integrated title bar note names the SD1
+desktop run instead of saying it has not run; macOS System Back no longer
+names the trackpad swipes, which no run drives. The three `tac.outgoing`
+cells on macOS, iOS and Windows already agreed with their runs.
 
 ## Historical Phase 5 Native Target Status
 

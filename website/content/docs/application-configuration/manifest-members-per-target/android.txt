@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   not applicable: tac.application.window minWidth and minHeight have no meaning on Android: the system sizes the app.
 
 tac.application.window.controls
-  adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. On the emulator, granted minimize, resize and title acted from the page and a linked Kotlin service, title also from a linked Rust service,, granted maximize and fullscreen acted from a linked Kotlin service, fullscreen from the page hid and showed the system bars, close from the page finished the activity and refused a control that reached it after close started, and ungranted controls were refused (RM3).
+  adapted: tac.application.window.controls on Android act on the activity: close finishes it, minimize moves it to the back, maximize makes its window fill the screen, fullscreen hides the system bars, resize sets its window size in density-independent pixels, and title sets the activity title. On the emulator, granted minimize, resize and title acted from the page and a linked Kotlin service, and title also from a linked Rust service; granted maximize and fullscreen acted from a linked Kotlin service; fullscreen from the page hid and showed the system bars; close from the page finished the activity and refused a control that reached it after close started; and ungranted controls were refused (RM3). Swift and C# services, which run as WebAssembly on Android and reach the controls through the page, have not called them on the emulator; that run is still owed.
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Android page draw edge to edge, under the status bar. --tac-titlebar-height is the status bar height, and the leading and trailing insets are the side system-bar and display-cutout insets. The navigation bar still pads the page. There are no window buttons and no drag regions (ADR 0098).
@@ -148,7 +148,7 @@ tac.yon
   honored: the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator, also on its Google Play production image (ADR 0103)
 
 tac.go
-  honored: the same Go WebAssembly build in the web view
+  run owed: the same Go WebAssembly build in the web view; still to run: a Go service in the Android emulator gate
 
 tac.dotnet
   run owed: the same WebAssembly build in the web view; still to run: an ahead-of-time C# service in the Android emulator gate

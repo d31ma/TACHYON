@@ -183,3 +183,28 @@ by role and name, and drive them through the accessibility API.
 `docs/SUPPORT_TIERS.md` ("Page accessibility on iOS and Android") records the
 runs. It also records their limits: the iOS audit API does not look inside web
 view content, and Chromium's Android heading is not marked as a heading.
+
+## Amendment (2026-10-25): cells narrowed to their runs (JS1)
+
+The platform survey of develop `4243f2b6` found cells whose `how` text named
+callers that never ran on that target. Under the DOC3 rule above, a cell
+whose claim is wider than its run is `runOwed`, and its `run` names the
+callers still to run. These cells moved from `honored` to `runOwed`:
+
+- `tac.application.window.controls` on macOS (C# and Kotlin WebAssembly
+  callers; RM1 ran a page and a page service) and on Windows (linked Rust
+  and WebAssembly Swift callers inside WebView2);
+- `tac.nativeCapabilities` filePicker on macOS (a linked Rust field) and on
+  Windows (linked Rust, which ran only under Wine, and WebAssembly Swift);
+- `tac.go` on macOS and Android (no Go service ran in either app);
+- `tac.browserApis` geolocation on macOS (the prompt was answered Don't
+  Allow, so no position reached a page);
+- background and foreground on Windows (a linked C# listener);
+- reaching Yon on Windows (a linked Rust service's held stream and socket
+  clients; only the C# ones ran).
+
+This narrows the RM1 amendment above for window controls and geolocation on
+macOS; that amendment stays as the history of the decision. The host threads
+that run these callers move each cell back to `honored` with its run.
+`docs/SUPPORT_TIERS.md` ("Support table narrowed to its runs") lists what
+ran and what is still owed for each.
