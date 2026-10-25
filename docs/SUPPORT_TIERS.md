@@ -1489,7 +1489,12 @@ before the exit (on Windows a snapshot takes seconds), and so reported
 own background connections through the `preview-offline` CONNECT proxy
 were refused, then reset, with no error listener on the socket. `website`
 also hit its 120-second build limit once under load and passed alone.
-Google Chrome on the Windows desktop is still owed (row "Web" above).
+Google Chrome 156.0.8078.48 (installed with `winget install --id
+Google.Chrome` on Samuel's say-so, the arm64 enterprise MSI) then ran the
+same default list on the same machine and runner: the same 14 gates
+passed, and `web-apis` (the Windows share dialog), `scaffold` (Chrome's own
+favicon 404) and `window-controls` (the 4070 KB Swift-on-Windows route)
+failed for the same causes.
 
 ### Linked services share one program (2026-10-24, LS2)
 
