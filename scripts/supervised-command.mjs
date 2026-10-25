@@ -317,11 +317,13 @@ export class SupervisedCommand {
 
   async #watchUntilFinished() {
     while (true) {
+      const exitedBeforeSnapshot = this.exited
       const table = await this.#snapshot()
       this.#rememberGroup(table)
       this.#rememberDescendants(table)
       const live = this.#live(table)
       this.#checkDeadline()
+      if (!exitedBeforeSnapshot && this.exited) continue
       this.#checkExit(live)
       if (this.cleanupStarted !== undefined) {
         if (this.#remaining(table).length === 0 && this.closed) return this.#finish(true)
