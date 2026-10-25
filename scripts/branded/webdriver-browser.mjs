@@ -24,6 +24,7 @@ export class BrandedUnsupported extends Error {
 export class WebDriverSession {
   static element = 'element-6066-11e4-a52e-4f735466cecf'
   static startMilliseconds = 60_000
+  static stopMilliseconds = 5_000
   static pollMilliseconds = 100
 
   /** @param {DriverPlan} plan */
@@ -103,7 +104,14 @@ export class WebDriverSession {
 
   async stop() {
     await this.command('DELETE', '').catch(() => {})
+    if (this.child.exitCode !== null || this.child.signalCode !== null) return
+    const exited = new Promise((resolve) => this.child.once('exit', resolve))
     this.child.kill()
+    const stopped = await Promise.race([exited.then(() => true), sleep(WebDriverSession.stopMilliseconds).then(() => false)])
+    if (!stopped) {
+      this.child.kill('SIGKILL')
+      await exited
+    }
   }
 }
 
@@ -266,6 +274,8 @@ class BrandedObject {
 }
 
 export class BrandedLocator {
+  static clickMilliseconds = 1_000
+
   /** @param {BrandedPage} page @param {LocatorStep[]} steps */
   constructor(page, steps) {
     this.page = page
@@ -360,11 +370,32 @@ export class BrandedLocator {
   async click() {
     const element = await this.one('locator.click')
     await this.page.evaluateRaw('arguments[0].scrollIntoView({ block: "center", inline: "center" })', [element])
-    await this.page.session.command('POST', `/element/${element[WebDriverSession.element]}/click`, {}).catch(async (error) => {
-      console.error(`branded: the WebDriver click on ${JSON.stringify(this.steps)} failed (${error.message}); clicking through element.click()`)
+    const failure = await this.tap(element)
+    if (failure) {
+      console.error(`branded: the WebDriver click on ${JSON.stringify(this.steps)} did not click (${failure}); clicking through element.click()`)
       await this.page.evaluateRaw('arguments[0].click()', [element])
-    })
+    }
     await this.page.drain()
+  }
+
+  /** @param {unknown} element @returns {Promise<string>} */
+  async tap(element) {
+    if (this.page.session.plan.capabilities['safari:useSimulator']) return 'a safaridriver tap on the iOS simulator holds its touch-up until the next tap, so it never clicks its target and can click the previous one'
+    await this.page.evaluateRaw('const element = arguments[0]; const tap = window.tachyonBrandedTap = { clicked: false }; const listen = (event) => { if (!event.composedPath().includes(element)) return; tap.clicked = true; removeEventListener("click", listen, true) }; addEventListener("click", listen, true)', [element])
+    return this.page.session.command('POST', `/element/${element[WebDriverSession.element]}/click`, {}).then(
+      async () => (await this.clicked() ? '' : `no click event reached it within ${BrandedLocator.clickMilliseconds} ms`),
+      (error) => `it failed: ${error.message}`,
+    )
+  }
+
+  /** @returns {Promise<boolean>} */
+  async clicked() {
+    const deadline = Date.now() + BrandedLocator.clickMilliseconds
+    for (;;) {
+      const clicked = await this.page.evaluateRaw('return window.tachyonBrandedTap === undefined || window.tachyonBrandedTap.clicked', []).catch(() => true)
+      if (clicked || Date.now() > deadline) return clicked
+      await sleep(WebDriverSession.pollMilliseconds)
+    }
   }
 
   /** @param {string} value */
@@ -374,6 +405,8 @@ export class BrandedLocator {
     try {
       await this.page.session.command('POST', `/element/${id}/clear`, {})
       if (value !== '') await this.page.session.command('POST', `/element/${id}/value`, { text: value })
+      const typed = await this.page.evaluateRaw('return !("value" in arguments[0]) || arguments[0].value === arguments[1]', [element, value])
+      if (!typed) throw new Error('the keys did not change its value')
     } catch (error) {
       console.error(`branded: WebDriver typing into ${JSON.stringify(this.steps)} failed (${error.message}); filling it the way Playwright's fill does (focus, set the value, dispatch input)`)
       await this.page.evaluateRaw('const [element, value] = arguments; element.focus(); element.value = value; element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value })); element.dispatchEvent(new Event("change", { bubbles: true }))', [element, value])

@@ -72,8 +72,7 @@ class BrandedBrowserGate {
   /** @param {string} browser @param {string} engine @param {string} receipt */
   static environment(browser, engine, receipt) {
     const engines = Object.fromEntries(BrandedBrowserGate.engineVariables.map((name) => [name, engine]))
-    const preload = `--import=${BrandedBrowserGate.preload}`
-    return { TAC_BIN: CargoArtifacts.path('release/ty'), ...process.env, ...engines, TAC_BRANDED_BROWSER: browser, TAC_BRANDED_RECEIPT: receipt, NODE_OPTIONS: [process.env.NODE_OPTIONS, preload].filter(Boolean).join(' ') }
+    return { TAC_BIN: CargoArtifacts.path('release/ty'), ...process.env, ...engines, TAC_BRANDED_BROWSER: browser, TAC_BRANDED_RECEIPT: receipt }
   }
 
   /** @param {string} receipt @returns {string[]} */
@@ -92,7 +91,7 @@ class BrandedBrowserGate {
     const started = Date.now()
     const timeoutMilliseconds = Number(BrandedBrowserGate.option('--timeout-ms=') ?? SupervisedCommand.defaultTimeoutMilliseconds)
     const env = BrandedBrowserGate.environment(browser, BrandedBrowserGate.browsers[browser], receipt)
-    const command = await SupervisedCommand.start(process.execPath, [gate.file], { cwd: BrandedBrowserGate.repository, env, timeoutMilliseconds })
+    const command = await SupervisedCommand.start(process.execPath, [`--import=${BrandedBrowserGate.preload}`, gate.file], { cwd: BrandedBrowserGate.repository, env, timeoutMilliseconds })
     command.child.stdout.pipe(output, { end: false })
     command.child.stderr.pipe(output, { end: false })
     const result = await command.completion
