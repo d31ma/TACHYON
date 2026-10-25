@@ -1700,6 +1700,14 @@ machine contracts have their own, independent major versions.
   integrated title bar note names its SD1 desktop run, and macOS System Back
   no longer claims the trackpad swipes.
 
+- A Linux build of an app with component stylesheets now prints a note that
+  component styles need WebKitGTK 2.44 or newer, the first release that runs
+  CSS `@scope` (GP1, ADR 0108 amendment). WebKitGTK 2.40.0, 2.42.1, 2.42.4
+  and 2.42.5 dropped the `@scope` block; 2.44.0 and 2.52.6 kept a component
+  rule inside its component. The Linux floor stays WebKitGTK 2.40, and the
+  Linux app now starts there: it no longer links the 2.42 clipboard
+  permission symbol.
+
 - The iOS app now starts at iOS 17.4 and the Windows app at the WebView2
   Runtime 118.0, the first versions that run CSS `@scope`, which component
   styles compile to. On the iOS 17.0.1 simulator no component style applied.

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -76,6 +77,25 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
     return runtime ? statSync(path.join(framework, runtime)).size : 0
   }
 
+  static webKitVersion() {
+    const script = "import gi; gi.require_version('WebKit', '6.0'); from gi.repository import WebKit; print(f'{WebKit.get_major_version()}.{WebKit.get_minor_version()}.{WebKit.get_micro_version()}')"
+    const found = spawnSync('python3', ['-c', script], { encoding: 'utf8' })
+    assert.equal(found.status, 0, `python3 could not read the WebKitGTK version: ${found.stderr}`)
+    return found.stdout.trim()
+  }
+
+  static async checkScopedStyle() {
+    const project = path.join(this.root, 'scoped-style')
+    const application = PageServicesFixture.stageScopedStyle(project)
+    const built = await this.build(project)
+    assert.match(built, /component styles use CSS @scope, which WebKitGTK 2\.44 or newer runs/, 'the Linux build notes the WebKitGTK that runs @scope')
+    const version = this.webKitVersion()
+    const [major, minor] = version.split('.').map(Number)
+    const verdict = major * 1000 + minor >= 2044 ? 'Style stays inside its component' : 'Style dropped'
+    const output = await this.drive(project, application, [['wait', [verdict]]])
+    console.log(`==> WebKitGTK ${version}: ${verdict} (a component tac.css rule against its own paragraph, a nested component's and a sibling component's)\n${output}`)
+  }
+
   /** @param {string} language */
   static async checkService(language) {
     const project = path.join(this.root, `tally-${language}`)
@@ -139,6 +159,7 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
   }
 
   static async main() {
+    if (process.env.TAC_LINUX_SCOPED_STYLE !== 'false') await this.checkScopedStyle()
     for (const language of this.serviceLanguages) await this.checkService(language)
     for (const language of this.windowCallers) await this.checkWindowCaller(language)
     for (const language of this.pickerCallers) await this.checkPickerCaller(language)

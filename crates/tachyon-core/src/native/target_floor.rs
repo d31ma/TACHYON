@@ -73,6 +73,9 @@ impl TargetFloor {
         garbage_collection: Some(SystemVersion::new(2, 46)),
         platform: "Linux",
         system: "WebKitGTK {version}",
+        style_note: Some(
+            "Note: component styles use CSS @scope, which WebKitGTK 2.44 or newer runs. WebKitGTK comes with the Linux distribution, apart from the app, so the Linux app keeps its 2.40 floor; an older WebKitGTK shows the components without their styles (ADR 0108).",
+        ),
         ..Self::WINDOWS
     };
     const ALL: [Self; 5] = [
@@ -234,18 +237,27 @@ mod tests {
 
     #[test]
     fn only_hosts_whose_web_view_updates_apart_note_component_styles() {
-        for target in [NativeTarget::Macos, NativeTarget::Android] {
+        for target in [
+            NativeTarget::Macos,
+            NativeTarget::Android,
+            NativeTarget::Linux,
+        ] {
             let note = TargetFloor::of(target).style_note(true).unwrap_or_default();
             assert!(note.contains("CSS @scope"), "{target:?}: {note}");
             assert_eq!(TargetFloor::of(target).style_note(false), None);
         }
-        for target in [
-            NativeTarget::Ios,
-            NativeTarget::Windows,
-            NativeTarget::Linux,
-        ] {
+        for target in [NativeTarget::Ios, NativeTarget::Windows] {
             assert_eq!(TargetFloor::of(target).style_note(true), None, "{target:?}");
         }
+    }
+
+    #[test]
+    fn the_linux_note_names_the_first_webkitgtk_that_scopes_styles() {
+        let linux = TargetFloor::of(NativeTarget::Linux);
+        let note = linux.style_note(true).unwrap_or_default();
+        assert!(note.contains("WebKitGTK 2.44 or newer"), "{note}");
+        assert!(note.contains("keeps its 2.40 floor"), "{note}");
+        assert_eq!(linux.base, super::SystemVersion::new(2, 40));
     }
 
     #[test]

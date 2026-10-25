@@ -36,7 +36,8 @@ error.
    component stylesheet prints that the app needs Safari 17.4, or Android
    System WebView 118, for its component styles.
 4. **Linux is unchanged for now.** No run has shown which WebKitGTK release
-   first runs `@scope`, so the 2.40 floor stays until one does.
+   first runs `@scope`, so the 2.40 floor stays until one does. (Amended
+   2026-10-25: 2.44 is the first, and the build notes it; see below.)
 
 ## Consequences
 
@@ -68,3 +69,31 @@ and every native call failed on the page with no explanation.
   from Android.
 - The generated activity is covered by a unit test. The run on an emulator
   image whose web view lacks the listener is still owed (GP2).
+
+## Amendment (2026-10-25): the first WebKitGTK that runs `@scope` (GP1)
+
+`scripts/linux/webkit-scope-probe.py` loaded a page with the `@scope` block
+that Tac writes for a component, with a nested component and a sibling
+paragraph, in each WebKitGTK release below (x86_64 Ubuntu 24.04 container,
+Xvfb):
+
+| WebKitGTK | Result |
+| --- | --- |
+| 2.40.0, 2.42.1, 2.42.4, 2.42.5 | the block is dropped (no rule in the stylesheet) |
+| 2.44.0, 2.52.6 | the rule applies inside the component only |
+
+2.42.5 is the last 2.42 release, so 2.44 is the first release that runs
+`@scope`. Decision 4 changes: **Linux keeps the WebKitGTK 2.40 floor and
+prints a note.** WebKitGTK comes with the Linux distribution, apart from the
+app, as Safari does on macOS. A Linux build of an app with at least one
+component stylesheet prints that component styles need WebKitGTK 2.44 or
+newer. The packaged Linux app showed the same split: on 2.44.0 and 2.52.6 a
+component `tac.css` rule colored its own paragraph and neither a nested
+component's nor a sibling component's; on 2.40.0, 2.42.1 and 2.42.5 the page
+ran with the component unstyled.
+
+The same runs found that the Linux app did not start on WebKitGTK 2.40: it
+linked `webkit_clipboard_permission_request_get_type`, which arrived in
+2.42. The host now looks the clipboard permission type up by name at run
+time, so the app starts on 2.40 and still grants the clipboard on 2.42 and
+newer.

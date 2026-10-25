@@ -129,8 +129,10 @@ fn the_linux_host_decides_web_view_permissions_and_answers_bridged_calls() {
     ));
     assert!(source.contains("if (api != NULL && tachyon_trusted_view(view) && tachyon_browser_api_granted(api)) webkit_permission_request_allow(request);"));
     assert!(source.contains("else webkit_permission_request_deny(request);"));
+    assert!(source.contains("if (G_TYPE_CHECK_INSTANCE_TYPE(request, g_type_from_name(\"WebKitClipboardPermissionRequest\"))) return \"clipboard\";"));
+    assert!(!source.contains("webkit_clipboard_permission_request_get_type"));
+    assert!(!source.contains("WEBKIT_IS_CLIPBOARD_PERMISSION_REQUEST"));
     for (request, api) in [
-        ("WEBKIT_IS_CLIPBOARD_PERMISSION_REQUEST", "clipboard"),
         ("WEBKIT_IS_GEOLOCATION_PERMISSION_REQUEST", "geolocation"),
         ("WEBKIT_IS_NOTIFICATION_PERMISSION_REQUEST", "notifications"),
     ] {

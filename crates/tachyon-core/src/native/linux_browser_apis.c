@@ -7,7 +7,7 @@ static gboolean tachyon_browser_api_granted(const char *api) {
 }
 
 static const char *tachyon_permission_api(WebKitPermissionRequest *request) {
-  if (WEBKIT_IS_CLIPBOARD_PERMISSION_REQUEST(request)) return "clipboard";
+  if (G_TYPE_CHECK_INSTANCE_TYPE(request, g_type_from_name("WebKitClipboardPermissionRequest"))) return "clipboard";
   if (WEBKIT_IS_GEOLOCATION_PERMISSION_REQUEST(request)) return "geolocation";
   if (WEBKIT_IS_NOTIFICATION_PERMISSION_REQUEST(request)) return "notifications";
   return NULL;

@@ -1219,6 +1219,28 @@ runs need Samuel: a real touch on an iOS 26 device, and a person at a Mac
 trackpad for the swipes. The support table claims the iOS 18.0 run and the
 macOS menu keys and items only.
 
+### Component styles on WebKitGTK (2026-10-25, GP1)
+
+ADR 0108 amendment. Component styles compile to CSS `@scope`. The Linux floor
+stays WebKitGTK 2.40, and a Linux build of an app with a component
+stylesheet notes that component styles need WebKitGTK 2.44 or newer. This
+evidence does not promote any tier. All runs: x86_64 Ubuntu 24.04 cloud
+container, GTK 4.14.5, Xvfb; the older releases were installed from the
+Ubuntu and Debian archives in place of 2.52.6.
+
+| WebKitGTK | `scripts/linux/webkit-scope-probe.py` | Packaged app (`scripts/linux/page-services-native-test.mjs`, scoped style step) |
+| --- | --- | --- |
+| 2.52.6 | the rule applies inside the component only | passed: the build printed the 2.44 note, and the probe read "Style stays inside its component" through AT-SPI |
+| 2.44.0 | the rule applies inside the component only | the page showed "Style stays inside its component", `rgb(10, 20, 30)` on its own paragraph and `rgb(0, 0, 0)` on the nested and sibling paragraphs (read from a screenshot) |
+| 2.42.5, 2.42.4, 2.42.1 | the `@scope` block is dropped | 2.42.5 and 2.42.1: the page ran with "Style dropped", every paragraph `rgb(0, 0, 0)` (screenshot) |
+| 2.40.0 | the `@scope` block is dropped | before the fix the app stopped at start with `undefined symbol: webkit_clipboard_permission_request_get_type`; after it the page ran with "Style dropped" (screenshot) |
+
+WebKitGTK 2.40.0 to 2.44.0 exposed no page content to AT-SPI under GTK 4.14,
+so the probe saw only the window and its menus there; those rows were read
+from screenshots of the same app. With the host fix,
+`linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` still
+read the clipboard with the grant and was refused without it on 2.52.6.
+
 ### Browser engines for the web target (2026-10-19)
 
 On 2026-10-19 (BR1) these browser gates ran in Chromium 141, Firefox 153 and

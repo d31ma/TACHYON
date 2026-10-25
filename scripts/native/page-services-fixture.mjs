@@ -16,6 +16,46 @@ export class PageServicesFixture {
     ['click', 'Resize'],
     ['size', [1280, 800]],
   ]
+  static scopedColor = 'rgb(10, 20, 30)'
+  static scopedFiles = {
+    'client/manifest.json': JSON.stringify({ name: 'Scoped Style', tac: { application: { id: 'dev.tachyon.scoped-style' }, ...Object.fromEntries(['names', 'constants', 'visibility', 'duplication', 'cohesion'].map((name) => [name, { check: false }])) } }, null, 2),
+    'client/pages/tac.html': '<style-plain />\n<style-card hydrate="load" />\n',
+    'client/components/style/plain/tac.html': '<p id="outside">Sibling paragraph</p>\n',
+    'client/components/style/card/tac.html': '<section>\n  <p id="inside">Card paragraph</p>\n  <style-inner />\n  <p>{styleProbe.verdict}</p>\n  <p>Colors {styleProbe.colors}</p>\n</section>\n',
+    'client/components/style/card/tac.css': `p { color: ${PageServicesFixture.scopedColor}; }\n`,
+    'client/components/style/inner/tac.html': '<p id="nested">Inner paragraph</p>\n',
+    'client/services/StyleProbeService.js': `@Service
+export default class StyleProbeService {
+  static WAIT = 60000;
+  static PAUSE = 100;
+  static COLOR = '${PageServicesFixture.scopedColor}';
+  @Needs
+  taskScheduler;
+  verdict = 'Style waiting';
+  colors = '';
+
+  @OnStart
+  initialize() {
+    setTimeout(() => { void this.read(); }, 50);
+  }
+
+  async read() {
+    const deadline = Date.now() + StyleProbeService.WAIT;
+    while (Date.now() < deadline && !['#inside', '#nested', '#outside'].every((id) => document.querySelector(id))) {
+      await new Promise((resolve) => setTimeout(resolve, StyleProbeService.PAUSE));
+    }
+    const [inside, nested, outside] = ['#inside', '#nested', '#outside'].map((id) => getComputedStyle(document.querySelector(id)).color);
+    const verdicts = {
+      'true,false,false': 'Style stays inside its component',
+      'false,false,false': 'Style dropped',
+    };
+    this.colors = [inside, nested, outside].join(' / ');
+    this.verdict = verdicts[[inside, nested, outside].map((color) => color === StyleProbeService.COLOR).join(',')] ?? 'Style leaked';
+    await this.taskScheduler.render();
+  }
+}
+`,
+  }
   static pickerStatuses = { js: ['read', 'cancelled'], rs: ['read', 'cancelled'], swift: ['read', 'cancelled'], kt: ['read', 'cancelled'], cs: ['Read', 'Cancelled'] }
 
   static storedFieldSteps = [
@@ -89,6 +129,15 @@ export default class ReloadService {
     const application = this.stage(project, 'web-assembly-services', 'Tally', `dev.tachyon.tally-${language}`, settings)
     this.copyService(project, 'web-assembly-services', `client/services/TallyService.${language}`)
     return application
+  }
+
+  /** @param {string} project */
+  static stageScopedStyle(project) {
+    for (const [name, text] of Object.entries(this.scopedFiles)) {
+      mkdirSync(path.dirname(path.join(project, name)), { recursive: true })
+      writeFileSync(path.join(project, name), text)
+    }
+    return 'ScopedStyle'
   }
 
   /** @param {string} project @param {string} language */
