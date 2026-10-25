@@ -1,11 +1,4 @@
 class TacApplicationEvents {
-  static yonOriginTag = 'meta[name="tachyon-yon-origin"]'
-
-  static yonPath(path) {
-    const declared = globalThis.document?.querySelector?.(TacApplicationEvents.yonOriginTag)?.content
-    return declared ? new URL(path, new URL(declared).origin).href : path
-  }
-
   constructor({ changed, failed, calling = (owner, work) => work(), announced = () => {} }) {
     this.changed = changed
     this.failed = failed
@@ -22,20 +15,22 @@ class TacApplicationEvents {
     this.resetTimer = null
   }
 
+  yonPath(path) {
+    const declared = globalThis.document?.querySelector?.('meta[name="tachyon-yon-origin"]')?.content
+    return declared ? new URL(path, new URL(declared).origin).href : path
+  }
+
   snapshot(value) {
     const active = new Set()
-    let nodes = 0
-    let characters = 0
+    let nodes = 0, characters = 0
     const text = (value) => this.fitsSize(characters += value.length)
     const visit = (item, depth) => {
       this.fitsStructure(++nodes > 8192 || depth > 32)
       if (typeof item === 'string') { text(item); return }
-      if (item === null || typeof item === 'boolean') return
-      if (typeof item === 'number' && Number.isFinite(item)) return
+      if (item === null || typeof item === 'boolean' || Number.isFinite(item)) return
       if (typeof item !== 'object' || active.has(item)) throw new TypeError('Application events require finite JSON values.')
-      const prototype = Object.getPrototypeOf(item)
-      if (!Array.isArray(item) && prototype !== Object.prototype && prototype !== null) throw new TypeError('Application events require plain JSON values.')
-      const array = Array.isArray(item)
+      const prototype = Object.getPrototypeOf(item), array = Array.isArray(item)
+      if (!array && prototype !== Object.prototype && prototype !== null) throw new TypeError('Application events require plain JSON values.')
       this.fitsStructure(array && item.length > 8192)
       active.add(item)
       let properties = 0
@@ -57,13 +52,9 @@ class TacApplicationEvents {
     return JSON.parse(encoded)
   }
 
-  fitsSize(size) {
-    if (size > 65536) throw new RangeError('Application event exceeds 64 KiB.')
-  }
+  fitsSize(size) { if (size > 65536) throw new RangeError('Application event exceeds 64 KiB.') }
 
-  fitsStructure(exceeded) {
-    if (exceeded) throw new RangeError('Application event structure exceeds its limit.')
-  }
+  fitsStructure(exceeded) { if (exceeded) throw new RangeError('Application event structure exceeds its limit.') }
 
   name(value) {
     if (typeof value !== 'string' || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) throw new TypeError('Invalid application event name.')
@@ -75,7 +66,7 @@ class TacApplicationEvents {
     if (this.depth >= 32 || this.publications >= 1024) throw new RangeError('Application event delivery cycle exceeds its limit.')
     const snapshot = this.snapshot(value)
     this.publications += 1
-    if (this.resetTimer === null) this.resetTimer = setTimeout(() => { this.publications = 0; this.resetTimer = null }, 0)
+    this.resetTimer ??= setTimeout(() => { this.publications = 0; this.resetTimer = null }, 0)
     if (retain) {
       if (!this.retained.has(name) && this.retained.size >= 128) throw new RangeError('Application event retention limit reached.')
       this.retained.set(name, snapshot)
@@ -101,8 +92,7 @@ class TacApplicationEvents {
       throw new RangeError('Application event async admission limit reached.')
     }
     this.pending += 1
-    let timer
-    let cancel
+    let timer, cancel
     try {
       await Promise.race([
         value,
@@ -134,7 +124,7 @@ class TacApplicationEvents {
       if (state.disposed) return
       try {
         const result = owner[method](this.snapshot(value))
-        if (!result || typeof result.then !== 'function') { complete(result); return }
+        if (typeof result?.then !== 'function') { complete(result); return }
         void this.settle(result, state).then(complete, () => { if (!state.disposed) this.failed() })
       } catch { this.failed() }
     }
@@ -183,9 +173,7 @@ class TacApplicationEvents {
       this.name(name)
       if (this.listenerCount >= 1024 || (!this.listeners.has(name) && this.listeners.size >= 128)) throw new RangeError('Application listener limit reached.')
       const entry = { order: 0, ...listener, owner, state, event: name, sequence: this.listenerCount }
-      const listeners = this.listeners.get(name) || new Set()
-      listeners.add(entry)
-      this.listeners.set(name, new Set([...listeners].sort((left, right) => left.order - right.order || left.sequence - right.sequence)))
+      this.listeners.set(name, new Set([...(this.listeners.get(name) || []), entry].sort((left, right) => left.order - right.order || left.sequence - right.sequence)))
       this.listenerCount += 1
       state.listeners.push(entry)
     }
@@ -197,7 +185,7 @@ class TacApplicationEvents {
       if (node.k === 'event') return event
       let current = value
       for (const segment of node.path || []) {
-        if (current === null || typeof current !== 'object') return undefined
+        if (current === null || typeof current !== 'object') return
         current = current[segment]
       }
       return current
@@ -292,13 +280,13 @@ class TacApplicationEvents {
     const open = () => {
       if (state.disposed) return
       if (socket) {
-        const url = new URL(TacApplicationEvents.yonPath(stream.path), location.href)
+        const url = new URL(this.yonPath(stream.path), location.href)
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
         source = new Kind(url)
         source.onopen = () => { for (const text of waiting.splice(0)) source.send(text) }
         source.onclose = ({ code }) => { source = null; if (![1000, 1003, 1007, 1009].includes(code)) retry() }
       } else {
-        source = new Kind(TacApplicationEvents.yonPath(stream.topic && last !== null ? `${stream.path}?position=${last + 1}` : stream.path))
+        source = new Kind(this.yonPath(stream.topic && last !== null ? `${stream.path}?position=${last + 1}` : stream.path))
         source.onerror = retry
         source.addEventListener('end', close)
       }
@@ -332,9 +320,7 @@ class TacApplicationEvents {
     if (method && state.initialized) {
       try {
         const result = owner[method]()
-        if (result && typeof result.then === 'function') {
-          void this.settle(result, { controller: new AbortController() }).catch(() => this.failed())
-        }
+        if (typeof result?.then === 'function') void this.settle(result, { controller: new AbortController() }).catch(() => this.failed())
       } catch { this.failed() }
     }
   }
