@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict'
 import { execFile, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -23,11 +23,13 @@ class MacOsReleaseTest {
   static feature = path.join(MacOsReleaseTest.repository, 'website/content/features/web-assembly-services/client')
   static probe = path.join(MacOsReleaseTest.root, 'page-checks-macos-probe')
   static architecture = path.join(MacOsReleaseTest.root, 'macos-running-architecture')
-  static mount = path.join(MacOsReleaseTest.root, 'mounted')
+  // hdiutil refuses a mount point on an external volume, where a worktree's target folder may live.
+  static mount = path.join(tmpdir(), `macos-release-mount-${process.pid}`)
   static name = 'Tally Release'
   static application = 'TallyRelease'
   static id = 'dev.tachyon.tally-macos-release'
   static dotnetWasm = 'dotnet.native.wasm'
+  static dotnetWasmFile = /^dotnet\.native(\.[a-z0-9]+)?\.wasm$/
   static architectures = ['arm64', 'x86_64']
   static notarized = 'Notarized Developer ID'
   static releaseTimeout = 2_400_000
@@ -71,7 +73,7 @@ class MacOsReleaseTest {
 
   /** @param {Record<string, number>} modules */
   static dotnetSize(modules) {
-    const found = Object.entries(modules).find(([name]) => path.basename(name) === this.dotnetWasm)
+    const found = Object.entries(modules).find(([name]) => this.dotnetWasmFile.test(path.basename(name)))
     assert.ok(found, `the app holds no ${this.dotnetWasm}: ${Object.keys(modules).join(', ')}`)
     return found[1]
   }
@@ -145,6 +147,7 @@ class MacOsReleaseTest {
 
   static detach() {
     spawnSync('/usr/bin/hdiutil', ['detach', this.mount, '-force'], { stdio: 'ignore', timeout: 60_000 })
+    if (existsSync(this.mount)) rmdirSync(this.mount)
   }
 
   static forgetWebsiteData() {
