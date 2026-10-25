@@ -16,7 +16,9 @@ class YonReachTest {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static targets = YonReachTest.chosenTargets()
   static services = process.env.TAC_YON_SERVICES ?? 'swift'
-  static serviceNames = { swift: 'Swift', rust: 'Rust' }
+  static serviceNames = { swift: 'Swift', rust: 'Rust', kotlin: 'Kotlin' }
+  static androidOrigin = 'https://appassets.tachyon.local'
+  static androidPackage = YonReachFixture.applicationId.replaceAll('-', '_')
   static appOrigin = 'tachyon-app://bundle'
   static proofTimeout = 90000
   static pause = 250
@@ -162,6 +164,64 @@ class YonReachTest {
     console.log(`Yon reach passed on the iOS simulator over ${secure ? 'https' : 'http'}: the WKWebView page and the linked ${this.serviceNames[this.services]} services reached Yon from tachyon-app://bundle.`)
   }
 
+  static adb() {
+    const sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT
+    assert.ok(sdk, 'set ANDROID_HOME for the Android run')
+    return path.join(sdk, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb')
+  }
+
+  /** @param {string} fixture */
+  static androidApk(fixture) {
+    const output = path.join(fixture, 'dist/android')
+    YonReachFixture.assertLinked(output, this.serviceNames[this.services])
+    return path.join(output, YonReachFixture.applicationName, `${YonReachFixture.applicationName}.apk`)
+  }
+
+  /** @param {string} apk */
+  static async launchAndroid(apk) {
+    const adb = this.adb()
+    this.run(adb, ['install', '-r', apk])
+    this.run(adb, ['shell', 'pm', 'clear', this.androidPackage])
+    this.run(adb, ['shell', 'am', 'start', '-W', '-n', `${this.androidPackage}/.MainActivity`])
+    let pid = ''
+    for (let attempt = 0; attempt < 120 && !(pid && this.run(adb, ['shell', 'cat', '/proc/net/unix']).includes(`webview_devtools_remote_${pid}`)); attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, this.pause * 2))
+      pid = spawnSync(adb, ['shell', 'pidof', this.androidPackage], { encoding: 'utf8', timeout: 30000 }).stdout.trim()
+    }
+    assert.match(pid, /^\d+$/, 'the Android app must start')
+    return pid
+  }
+
+  static async android() {
+    assert.notEqual(this.services, 'swift', 'the Android app links Kotlin or Rust services; set TAC_YON_SERVICES=kotlin or rust')
+    const { chromium } = await import('playwright')
+    const adb = this.adb()
+    this.run(adb, ['wait-for-device'])
+    await this.withYon(async ({ fixture, yonPort }) => {
+      const apk = this.androidApk(fixture)
+      this.run(adb, ['reverse', `tcp:${yonPort}`, `tcp:${yonPort}`])
+      let browser
+      let forwarded
+      try {
+        const pid = await this.launchAndroid(apk)
+        forwarded = this.run(adb, ['forward', 'tcp:0', `localabstract:webview_devtools_remote_${pid}`])
+        browser = await chromium.connectOverCDP(`http://127.0.0.1:${forwarded}`, { noDefaults: true })
+        const page = browser.contexts()[0].pages()[0]
+        assert.ok(page, 'the Android WebView exposes a live document')
+        await page.waitForFunction(() => ['done', 'error'].includes(document.querySelector('#yon-phase')?.textContent), null, { timeout: this.proofTimeout })
+        YonReachFixture.assertProof(JSON.parse(await page.textContent('#yon-proof')), { pageOrigin: this.androidOrigin, native: true })
+        const linkedPid = await page.evaluate(() => __tachyonTac.service('yonReach').record())
+        assert.equal(Number(linkedPid), Number(pid), 'the linked service ran inside the Android app process')
+      } finally {
+        if (browser) await browser.close()
+        if (forwarded) this.run(adb, ['forward', '--remove', `tcp:${forwarded}`])
+        this.run(adb, ['reverse', '--remove', `tcp:${yonPort}`])
+        spawnSync(adb, ['shell', 'am', 'force-stop', this.androidPackage], { timeout: 30000 })
+      }
+    }, { appOrigins: [this.androidOrigin], native: true, target: 'android' }, (port) => `http://localhost:${port}`)
+    console.log(`Yon reach passed on the Android emulator: the page held the linked ${this.serviceNames[this.services]} services' stream and socket clients and delivered their messages, and the page and a linked ${this.serviceNames[this.services]} HTTP client reached Yon from ${this.androidOrigin}.`)
+  }
+
   /** @param {(origin: (yonPort: number) => string, body: Function) => Promise<void>} withYon @param {Function} body */
   static async withTls(withYon, body) {
     const directory = mkdtempSync(path.join(tmpdir(), 'yon-reach-tls-'))
@@ -208,11 +268,11 @@ class YonReachTest {
   }
 
   static async main() {
-    assert.ok(this.serviceNames[this.services], `unknown TAC_YON_SERVICES ${this.services}; use swift or rust`)
-    const checks = { web: () => this.web(), macos: () => this.macos(), ios: () => this.ios(false), 'ios-tls': () => this.ios(true) }
+    assert.ok(this.serviceNames[this.services], `unknown TAC_YON_SERVICES ${this.services}; use swift, rust or kotlin`)
+    const checks = { web: () => this.web(), macos: () => this.macos(), ios: () => this.ios(false), 'ios-tls': () => this.ios(true), android: () => this.android() }
     for (const target of this.targets) {
-      assert.ok(checks[target], `unknown target ${target}; use web, macos, ios or ios-tls`)
-      if (target !== 'web') assert.equal(process.platform, 'darwin', `${target} needs macOS and Xcode`)
+      assert.ok(checks[target], `unknown target ${target}; use web, macos, ios, ios-tls or android`)
+      if (!['web', 'android'].includes(target)) assert.equal(process.platform, 'darwin', `${target} needs macOS and Xcode`)
       await checks[target]()
     }
   }

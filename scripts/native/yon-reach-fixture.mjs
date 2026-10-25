@@ -99,7 +99,7 @@ class PrivateController {
 `,
   }
 
-  static featureExtensions = { swift: '.swift', rust: '.rs' }
+  static featureExtensions = { swift: '.swift', rust: '.rs', kotlin: '.kt' }
   static heldServices = ['stream', 'chat']
   static nativeFiles = {
     rust: {
@@ -132,6 +132,25 @@ impl YonReachService {
     fn quoted(text: &str) -> String {
         format!("\\"{}\\"", text.replace('\\\\', "\\\\\\\\").replace('"', "\\\\\\""))
     }
+}
+`,
+    },
+    kotlin: {
+      'client/models/Note.kt': 'data class Note(val text: String)\n',
+      'client/remotes/YonNoteClient.kt': 'import models.Note\n\n@HTTPClient("/api")\ninterface YonNoteClient {\n    @GetRequest("/notes")\n    suspend fun read(): Note\n}\n',
+      'client/setups/YonNoteSetup.kt': '@Setup\nclass YonNoteSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n',
+      'client/services/YonReachService.kt': `@Service
+class YonReachService {
+    @Needs
+    private val yonNoteClient: YonNoteClient
+    var phase: String = "waiting"
+    var proof: String = ""
+
+    suspend fun askYon(): String =
+        try { yonNoteClient.read().text }
+        catch (failure: RuntimeException) { failure.message.orEmpty() }
+
+    fun record(): Int = android.os.Process.myPid()
 }
 `,
     },

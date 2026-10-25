@@ -491,6 +491,7 @@ class AsyncListenerAppTest {
   static check = process.argv.find((argument) => argument.startsWith('--check='))?.slice('--check='.length) ?? 'listener'
   static fixture = AsyncListenerAppTest.checks[AsyncListenerAppTest.check]
   static appleLanguage = process.env.TAC_LISTENER_LANGUAGE ?? 'swift'
+  static androidLanguage = process.env.TAC_ANDROID_LISTENER_LANGUAGE ?? 'kt'
   static targets = (process.argv.find((argument) => argument.startsWith('--target='))?.slice('--target='.length) ?? 'macos,ios').split(',')
   static proofTimeout = 180000
   static pause = 250
@@ -600,9 +601,10 @@ class AsyncListenerAppTest {
   static async android() {
     const { chromium } = await import('playwright')
     const project = path.join(this.root, 'android')
-    const { name, applicationId } = this.fixture.stage(project, 'kt')
+    const language = AsyncListenerApp.names[this.androidLanguage]
+    const { name, applicationId } = this.fixture.stage(project, this.androidLanguage)
     this.run(this.binary, ['bundle', project, '--target', 'android'])
-    this.fixture.assertLinked(path.join(project, 'dist/android'), 'Kotlin')
+    this.fixture.assertLinked(path.join(project, 'dist/android'), language)
     const apk = path.join(project, 'dist/android', name, `${name}.apk`)
     assert.ok(existsSync(apk), `no APK at ${apk}`)
     const packageName = applicationId.replaceAll('-', '_')
@@ -630,12 +632,13 @@ class AsyncListenerAppTest {
       this.adbShell('am', 'force-stop', packageName)
       spawnSync(this.adb(), ['uninstall', packageName], { stdio: 'ignore', timeout: 120000 })
     }
-    console.log(`PASS Android emulator: ${this.fixture.passed('Kotlin')}`)
+    console.log(`PASS Android emulator: ${this.fixture.passed(language)}`)
   }
 
   static async main() {
     assert.ok(this.fixture, `unknown --check=${this.check}; use ${Object.keys(this.checks).join(' or ')}`)
     assert.ok(['swift', 'rs'].includes(this.appleLanguage), `unknown TAC_LISTENER_LANGUAGE ${this.appleLanguage}; use swift or rs`)
+    assert.ok(['kt', 'rs'].includes(this.androidLanguage), `unknown TAC_ANDROID_LISTENER_LANGUAGE ${this.androidLanguage}; use kt or rs`)
     try {
       for (const target of this.targets) {
         assert.ok(['macos', 'ios', 'android'].includes(target), `unknown target ${target}; use macos, ios or android`)
