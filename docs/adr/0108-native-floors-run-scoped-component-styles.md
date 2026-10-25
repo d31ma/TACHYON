@@ -108,3 +108,10 @@ On the Android 15 emulator with System WebView 124.0.6367.219,
 rule applies inside its component and not to the same element in another
 component, and that `ty build --target android` prints the WebView 118 style
 note for an app with component styles.
+
+## Amendment (2026-10-25): the Windows style run (SW2)
+
+On a signed-in Windows 11 ARM64 desktop with the WebView2 Runtime
+155.0.4283.62, `scripts/windows/window-shell-test.ps1` checked that a
+component `tac.css` rule applies inside its component and not to the same
+element in another component, by computed style and by screen pixels.

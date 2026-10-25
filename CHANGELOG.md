@@ -10,6 +10,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Page and shell runs in WebView2 (SW2, 2026-10-25): on a signed-in
+  Windows 11 ARM64 desktop with WebView2 155, `ty preview --target windows`
+  passed the dev loop (`scripts/windows/dev-loop-test.mjs`, new; it stops
+  `ty preview` with `CTRL_BREAK` through `scripts/windows/process-group.py`),
+  and `scripts/windows/window-shell-test.ps1` gained a page that checks the
+  `background_color` backdrop, a component-scoped style, and a title the
+  host refuses after the call started, heard as `BrowserCallFailed`. The
+  Windows page services gate now also reads a linked Rust `@LocalState`
+  field after a reload. The Windows development preview and
+  `background_color` cells are honored.
+
 - Branded-browser runs (BR2, 2026-10-25): `scripts/branded-browser-gate.mjs
   --browser=safari|ios-safari|chrome|msedge|android-chrome` runs the web
   gates unchanged in Safari (over `safaridriver`), Safari on the iOS
@@ -133,7 +144,8 @@ machine contracts have their own, independent major versions.
   for Linux under Xvfb and on WSL (`scripts/linux/dev-loop-native-test.mjs`),
   macOS (`scripts/native/dev-loop-macos-test.mjs`), the iOS simulator
   (`scripts/ios/dev-loop-test.mjs`) and the Android emulator
-  (`scripts/android/dev-loop-test.mjs`); the Windows run is owed.
+  (`scripts/android/dev-loop-test.mjs`), and on a signed-in Windows desktop
+  (`scripts/windows/dev-loop-test.mjs`, SW2).
 
 - System Back on native hosts (SB1, 2026-10-24, ADR 0109): Android Back and
   the back gesture go back one route and leave the app from the first route;

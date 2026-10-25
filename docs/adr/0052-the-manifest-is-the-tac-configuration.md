@@ -382,8 +382,11 @@ the build's note says so).
   of a Windows 11 ARM64 machine. `native_window_appearance_host_tests`
   passed on macOS 26.6.2: the screenshot showed `theme_color` in the title
   bar and `background_color` in the page area, and the full-screen window
-  started full screen. Owed: the WebView2 page backdrop on a signed-in
-  Windows desktop.
+  started full screen. On 2026-10-25 (SW2)
+  `scripts/windows/window-shell-test.ps1` sampled the WebView2 page
+  backdrop on a signed-in Windows desktop: below
+  the content of a page without its own background, every sampled pixel
+  had the declared `background_color`.
 
 ## Amendment (2026-10-25): the Linux window colors under Wayland (LX2)
 

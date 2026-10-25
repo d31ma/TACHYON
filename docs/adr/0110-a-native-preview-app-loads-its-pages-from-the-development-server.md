@@ -1,7 +1,7 @@
 # ADR 0110: A Native Preview App Loads Its Pages From the Development Server
 
 - Status: Accepted; Linux (Xvfb and WSL), macOS, iOS simulator and Android
-  emulator runs passed 2026-10-24; the Windows run is owed
+  emulator runs passed 2026-10-24; the Windows run passed 2026-10-25
 - Date: 2026-10-24
 - Works with: [ADR 0013](0013-semantic-hot-updates.md) (semantic hot
   updates), [ADR 0103](0103-native-apps-reach-yon-through-a-declared-origin.md)
@@ -113,4 +113,9 @@ stays a separate decision.
   by OCR of screen captures, because UI Automator shows none of the web
   view's text). The Linux gate also passed on WSL Ubuntu 24.04.5 (aarch64).
   The Swift host compiled without a change.
-- Owed: the Windows app on a signed-in desktop (SD1).
+- 2026-10-25, on a signed-in Windows 11 ARM64 desktop (WebView2
+  155.0.4283.62): `scripts/windows/dev-loop-test.mjs` passed the same
+  steps, read through UI Automation (SW2). Node cannot send a console
+  control event to one child process on Windows, so the script starts
+  `ty preview` in its own process group through
+  `scripts/windows/process-group.py` and stops it with `CTRL_BREAK`.

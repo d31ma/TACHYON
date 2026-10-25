@@ -1130,7 +1130,7 @@ amendment). This evidence does not promote any tier.
 | Host | Implemented | Validated |
 | --- | --- | --- |
 | macOS WKWebView | yes: the title bar in `theme_color` with dark or light title text (standard title bar only), the window and the web view's layer in `background_color` before the first paint, and a full-screen start | on 2026-10-24 `native_window_appearance_host_tests::macos_window_takes_theme_color_background_color_and_fullscreen_display` passed on macOS 26.6.2 (Apple M4, Xcode 27.1 27A9275) on the WIN7 branch `55f114a4` (develop `4eac45df`): a standard window took `#1a237e` in the sampled title bar pixel with the dark appearance (white title text), `#fdf6e3` in the page area and on the web view's layer, and the page kept following the application's light and dark appearance; a `display: "fullscreen"` window started full screen over its `background_color`. Screenshot pixels are compared in the screenshot's own color space. Not run: an Intel Mac |
-| Windows WebView2 | yes: the window class brush, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR` and the controller's `DefaultBackgroundColor` (only the last two with an integrated title bar) | on 2026-10-24 the whole generated host with a `background_color` compiled with MinGW against the WebView2 headers, standard and integrated, and `windows_window_background_tests::the_windows_window_background_paints_a_win32_window_under_wine` read the class brush, the painted client pixel and the WebView2 start color in an x86_64 Ubuntu 24.04 cloud container (Wine 9.0 under Xvfb). The same day `the_windows_window_background_paints_a_real_win32_window` passed with MSVC 14.44 (ARM64) on Windows 11 25H2 (build 26200, ARM64) in the signed-in desktop session, painting `RGB(26, 35, 126)` in the client area; over SSH (session 0) the brush and start color checks passed but `GetPixel` cannot see painted pixels. Owed: the page backdrop in WebView2 on a signed-in desktop |
+| Windows WebView2 | yes: the window class brush, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR` and the controller's `DefaultBackgroundColor` (only the last two with an integrated title bar) | on 2026-10-24 the whole generated host with a `background_color` compiled with MinGW against the WebView2 headers, standard and integrated, and `windows_window_background_tests::the_windows_window_background_paints_a_win32_window_under_wine` read the class brush, the painted client pixel and the WebView2 start color in an x86_64 Ubuntu 24.04 cloud container (Wine 9.0 under Xvfb). The same day `the_windows_window_background_paints_a_real_win32_window` passed with MSVC 14.44 (ARM64) on Windows 11 25H2 (build 26200, ARM64) in the signed-in desktop session, painting `RGB(26, 35, 126)` in the client area; over SSH (session 0) the brush and start color checks passed but `GetPixel` cannot see painted pixels. On 2026-10-25 (SW2, below) every sampled pixel below the content of a WebView2 page without its own background had the declared `#1565c0` on that desktop |
 | Linux WebKitGTK | yes: the web view background color and the GTK window background | on 2026-10-24 `linux_window_appearance_tests::linux_generated_host_opens_the_declared_size_minimum_and_theme_color` read `background_color` back from the WebKitGTK view and sampled it in the rendered page area, with GTK 4.14.5 and WebKitGTK 2.52.6 under Xvfb with xfwm4 in an x86_64 Ubuntu 24.04 cloud container. On 2026-10-25 (LX2) the same test passed in a headless mutter 46.2 Wayland session (`scripts/linux/compositor-test.sh`), in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Surface. Not run: a Linux desktop |
 
 ### Native preview against the development server (2026-10-24, NET5)
@@ -1146,7 +1146,7 @@ origin (TY1601). This evidence does not promote any tier.
 | macOS WKWebView | yes: `URLSession` fetch in the `tachyon-app://bundle` scheme handler; the app starts as a child process | on 2026-10-24 `scripts/native/dev-loop-macos-test.mjs` passed on macOS 26.6.2 (Apple M4, Xcode 27.1), reading the page through the Accessibility API: the same steps as Linux, with the app reopened after the manifest edit and closed when `ty preview` stopped. Not run: an Intel Mac |
 | iOS WKWebView | yes: the same Swift fetch; the app is installed and launched with `xcrun simctl` | on 2026-10-24 `scripts/ios/dev-loop-test.mjs` passed twice on an iOS 26.5 simulator (Xcode 27.1), reading the page by OCR of simulator screenshots: the same steps, with the app reinstalled after the manifest edit and ended when `ty preview` stopped. Not run: a device |
 | Android WebView | yes: `HttpURLConnection` fetch in `shouldInterceptRequest`, `adb reverse` for the port, `adb install -r` and `am start` | on 2026-10-24 the generated preview `MainActivity.java` compiled with `javac` against `android.jar` (API 35), AndroidX WebKit 1.14.0 and AndroidX Core in the cloud. The same day `scripts/android/dev-loop-test.mjs` passed on an API 35 emulator on the Mac, reading the page by OCR of screen captures: the same steps over `adb reverse`, with the app reinstalled after the manifest edit, and force-stopped with the port forward removed when `ty preview` stopped. Not run: a device |
-| Windows WebView2 | yes: WinHTTP fetch in the WebResourceRequested handler; the app starts as a child process | on 2026-10-24 `native_development_preview_tests::the_preview_windows_host_compiles_against_the_win32_and_webview2_headers` compiled the preview host with MinGW against the Win32, WinHTTP and WebView2 headers in the cloud. Not run: the app on a signed-in Windows desktop (SD1) |
+| Windows WebView2 | yes: WinHTTP fetch in the WebResourceRequested handler; the app starts as a child process | on 2026-10-24 `native_development_preview_tests::the_preview_windows_host_compiles_against_the_win32_and_webview2_headers` compiled the preview host with MinGW against the Win32, WinHTTP and WebView2 headers in the cloud. On 2026-10-25 (SW2, below) `scripts/windows/dev-loop-test.mjs` passed with the app open on the signed-in Windows 11 ARM64 desktop |
 
 ### Web storage across relaunch (2026-10-18)
 
@@ -1788,6 +1788,42 @@ The first API 34 boot needed several tries: Android killed the app while
 Play Services restarted, and a "System UI isn't responding" dialog dimmed the
 screen. Gradle 8.14 does not run on the Mac's default JDK 25, so the runs
 used JDK 21. Evidence on the Mac: `/Volumes/FORGE/Logs/TACHYON/ma4-20261025/`.
+
+### Page and shell runs in WebView2 (2026-10-25, SW2)
+
+On the same Surface (Windows 11 ARM64, WebView2 Runtime 155.0.4283.62,
+WebView2 SDK 1.0.3485.44, MSVC ARM64, Python 3.14.7) a debug `ty` from
+branch `97f3fc29` ran three gates in the signed-in desktop session, each
+started through `scripts/windows/desktop-run.ps1` and
+`scripts/windows/developer-run.ps1`:
+
+- `scripts/windows/dev-loop-test.mjs` passed in 39 s. `ty preview --target
+  windows` opened the app against the development server. Through UI
+  Automation, a Yon call answered from the development server, a component
+  CSS edit arrived while the page kept its count (no reload), a component
+  HTML edit appeared, and a manifest edit rebuilt and reopened the app.
+  `ty preview` runs in its own console process group
+  (`scripts/windows/process-group.py`), and a `CTRL_BREAK` to it closed the
+  app; `ty preview` exited with code 0.
+- `scripts/windows/window-shell-test.ps1` passed in 53 s, with a new Shell
+  Page app beside the earlier ones. Its `background_color` is `#1565c0` and
+  its page has no background of its own: all 43,078 sampled pixels below
+  the page content had `#1565c0`. A component `tac.css` rule gave its own
+  `.mark` the background `rgb(200, 30, 120)` (computed style, and 74% of
+  the element's pixels), while a `.mark` in another component kept
+  `rgba(0, 0, 0, 0)` (none of its pixels), on WebView2 155. A page service
+  called the granted `setTitle` with a 600-character title. The page check
+  let it through, the host refused it (a title holds at most 512 UTF-16
+  units), and the service heard `BrowserCallFailed` with `api`
+  `windowControls`, `call` `setTitle` and the message `Invalid window
+  title.`; the title did not change.
+- `scripts/windows/page-services-native-test.mjs` with the three
+  `TAC_WINDOWS_*` lists set to `,` passed in 19 s. A linked Rust service's
+  `#[LocalState]` field, set by its own method, still read `Visits 1` after
+  a page reload, while a JavaScript field went back to `fresh`.
+
+The Windows development preview and `background_color` cells are
+`honored`.
 
 ## Historical Phase 5 Native Target Status
 

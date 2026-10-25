@@ -13,7 +13,7 @@ theme_color
   adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. On a signed-in Windows 11 desktop every caption pixel the gate sampled took the color (SD1).
 
 background_color
-  run owed: background_color paints the Windows window and is WebView2's default background before the page paints, when it is written as #rgb or #rrggbb; with titleBar "integrated" only WebView2 takes it, and other color forms keep the system background; still to run: the WebView2 page backdrop on a signed-in Windows desktop
+  honored: background_color paints the Windows window and is WebView2's default background behind a page without its own background, when it is written as #rgb or #rrggbb; with titleBar "integrated" only WebView2 takes it, and other color forms keep the system background (the WebView2 page backdrop was sampled on a signed-in Windows desktop by scripts/windows/window-shell-test.ps1, SW2)
 
 display
   adapted: display "fullscreen" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window.
@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   honored: the smallest client area the user can drag to, in device-independent pixels
 
 tac.application.window.controls
-  honored: close, fullscreen, maximize, minimize, resize and title; a page, a linked C# service and a WebAssembly Kotlin service called them inside WebView2 on a signed-in Windows desktop (SD1), a WebAssembly Swift service renamed and resized the window there (SW3), a linked Rust service renamed and resized it there (SW1), and the controls drove a real Win32 window over SSH (RW1)
+  honored: close, fullscreen, maximize, minimize, resize and title; a page, a linked C# service and a WebAssembly Kotlin service called them inside WebView2 on a signed-in Windows desktop (SD1), a WebAssembly Swift service renamed and resized the window there (SW3), a linked Rust service renamed and resized it there (SW1), a title the host refused after the call started reached the calling page service as BrowserCallFailed there (SW2), and the controls drove a real Win32 window over SSH (RW1)
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Windows page reach the top edge under the system caption buttons, with the same insets as macOS and drag regions that WebView2 handles (ADR 0098). The menu bar moves into the window menu (Alt+Space, or a right-click on a drag region). The page covers the top edge, so the window resizes from its sides and bottom. On a signed-in Windows 11 desktop the page started at the top edge, the caption buttons kept their own hit testing, a drag in a drag region moved the window, a right-click opened the window menu and hovering maximize showed Snap Layouts (SD1).
@@ -250,7 +250,7 @@ incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 development preview (ty preview)
-  run owed: ty preview --target windows builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app; still to run: ty preview --target windows with the app open on a signed-in Windows desktop
+  honored: ty preview --target windows builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run in WebView2 on a signed-in Windows 11 ARM64 desktop by scripts/windows/dev-loop-test.mjs, SW2)
 
 byte-identical rebuilds
   honored: the Windows build compiles and links with /Brepro and keeps .obj files out of the output; two packaged builds give the same artifact-manifest.json digests
