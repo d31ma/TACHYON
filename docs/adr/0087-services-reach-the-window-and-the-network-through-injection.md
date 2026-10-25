@@ -472,6 +472,8 @@ SD1"):
 - `scripts/windows/page-services-native-test.mjs`: C# and Kotlin
   `WindowControls` callers reached the window.
 
-Linked Rust and WebAssembly Swift `WindowControls` callers have not run inside
-WebView2 (SW1, SW3), so the Windows window controls stay `runOwed` (ADR 0102,
-JS1 amendment).
+A linked Rust `WindowControls` caller has not run inside WebView2 (SW1), so
+the Windows window controls stay `runOwed` (ADR 0102, JS1 amendment). A
+WebAssembly Swift caller renamed and resized the window inside WebView2 on
+2026-10-25 with Swift 6.3.3 for Windows ARM64 (SW3, `docs/SUPPORT_TIERS.md`
+"Swift on the Windows desktop").

@@ -51,6 +51,15 @@ machine contracts have their own, independent major versions.
   (`TAC_LINUX_STORED_FIELD`). All passed in an x86_64 cloud container and on
   WSL aarch64; the Linux `tac.dotnet` cell is `honored`.
 
+- Swift on the Windows desktop (SW3, 2026-10-25): the Surface (Windows 11
+  ARM64) has Swift 6.3.3 for Windows ARM64 and its Swift SDK for
+  WebAssembly, and `scripts/windows/page-services-native-test.mjs` passed
+  there inside WebView2 with a Swift page service, a Swift `WindowControls`
+  caller that renamed and resized the window, and a Swift FilePicker field
+  that chose, read and cancelled through `IFileOpenDialog`. The Windows
+  window controls and file picker cells now owe only their linked Rust
+  callers (SW1).
+
 - Page checks on macOS, iOS and Android (MA3, 2026-10-25): the page-check
   gates now keep a `@SessionState` field across a navigation (the shared
   step in `scripts/native/page-checks-fixture.mjs`). The macOS gate also

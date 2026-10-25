@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   honored: the smallest client area the user can drag to, in device-independent pixels
 
 tac.application.window.controls
-  run owed: close, fullscreen, maximize, minimize, resize and title; a page, a linked C# service and a WebAssembly Kotlin service called them inside WebView2 on a signed-in Windows desktop (SD1), and the controls drove a real Win32 window over SSH (RW1); still to run: a linked Rust service and a WebAssembly Swift service calling the controls inside WebView2 on a signed-in Windows desktop
+  run owed: close, fullscreen, maximize, minimize, resize and title; a page, a linked C# service and a WebAssembly Kotlin service called them inside WebView2 on a signed-in Windows desktop (SD1), a WebAssembly Swift service renamed and resized the window there (SW3), and the controls drove a real Win32 window over SSH (RW1); still to run: a linked Rust service calling the controls inside WebView2 on a signed-in Windows desktop
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the Windows page reach the top edge under the system caption buttons, with the same insets as macOS and drag regions that WebView2 handles (ADR 0098). The menu bar moves into the window menu (Alt+Space, or a right-click on a drag region). The page covers the top edge, so the window resizes from its sides and bottom. On a signed-in Windows 11 desktop the page started at the top edge, the caption buttons kept their own hit testing, a drag in a drag region moved the window, a right-click opened the window menu and hovering maximize showed Snap Layouts (SD1).
@@ -130,7 +130,7 @@ tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk across a relaunch (SD1)
 
 tac.nativeCapabilities
-  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services, and for Swift and Kotlin services, which run as WebAssembly on Windows and reach the dialog through the page; the MSVC build selected a file in the Windows dialog and closed an unanswered one (SD1), and a page, a linked C# and a WebAssembly Kotlin FilePicker field chose, read and cancelled from a WebView2 page on a signed-in Windows 11 desktop (FP5); still to run: a linked Rust and a WebAssembly Swift FilePicker field choosing, reading and cancelling from a WebView2 page on a signed-in Windows desktop; the linked Rust picker ran only under Wine (FP1)
+  run owed: filePicker opens the Windows file dialog (IFileOpenDialog) for page, linked Rust and linked C# services, and for Swift and Kotlin services, which run as WebAssembly on Windows and reach the dialog through the page; the MSVC build selected a file in the Windows dialog and closed an unanswered one (SD1), a page, a linked C# and a WebAssembly Kotlin FilePicker field chose, read and cancelled from a WebView2 page on a signed-in Windows 11 desktop (FP5), and a WebAssembly Swift field did the same (SW3); still to run: a linked Rust FilePicker field choosing, reading and cancelling from a WebView2 page on a signed-in Windows desktop; the linked Rust picker ran only under Wine (FP1)
 
 tac.elements
   adapted: tac.elements are bundled into the Windows app for its own pages only. Other sites cannot load them from the app.
