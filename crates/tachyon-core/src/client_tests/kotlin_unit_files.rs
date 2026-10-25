@@ -15,7 +15,8 @@ impl KotlinUnitFiles {
             "TacReads.kt",
             concat!(
                 include_str!("../native/prelude_reads.kt"),
-                include_str!("../native/prelude_jvm_models.kt")
+                include_str!("../native/prelude_jvm_models.kt"),
+                "\nfun tacModelOrder(model: String): List<String>? = null\n"
             ),
         ),
     ];

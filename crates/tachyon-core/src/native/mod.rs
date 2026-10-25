@@ -78,6 +78,7 @@ mod kotlin_held_streams;
 mod kotlin_held_streams_tests;
 #[cfg(test)]
 mod kotlin_helper_tests;
+mod kotlin_model_order;
 mod kotlin_web_services;
 
 #[cfg(test)]

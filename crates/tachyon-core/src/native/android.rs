@@ -201,12 +201,17 @@ fn stage_reaching_companion(
     };
     let prelude = AndroidHostGenerator::kotlin_companion_prelude();
     let built_in = crate::route_types::WebEventSources::native_application_state("kt", &authored);
+    let model_order = companions
+        .first()
+        .map(|first| super::kotlin_model_order::KotlinModelOrder::text(&first.snapshot_root))
+        .transpose()?
+        .unwrap_or_default();
     write(
         &project.join(format!(
             "app/src/main/kotlin/{package_path}/TachyonCompanion.kt"
         )),
         format!(
-            "{}\n{built_in}{prelude}",
+            "{}\n{built_in}{prelude}{model_order}",
             reach.kotlin_companion(package, &authored)
         )
         .as_bytes(),

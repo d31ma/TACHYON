@@ -1,6 +1,9 @@
 
-private fun tacModelFields(kind: Class<*>): List<java.lang.reflect.Field> =
-    kind.declaredFields.filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) && !it.isSynthetic }
+private fun tacModelFields(kind: Class<*>): List<java.lang.reflect.Field> {
+    val fields = kind.declaredFields.filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) && !it.isSynthetic }
+    val order = tacModelOrder(kind.simpleName) ?: return fields
+    return fields.sortedBy { order.indexOf(it.name) }
+}
 
 fun tacModel(kind: kotlin.reflect.KClass<*>, value: Any?): Any? = tacModelRead(kind.java, value)
 

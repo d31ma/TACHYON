@@ -208,7 +208,7 @@ impl ManagedCapabilityCheck {
             .next()
             .expect("model helpers");
         let models = format!(
-            "{}{}private fun tacPlainModel{models}",
+            "{}\nfun tacModelOrder(model: String): List<String>? = null\n{}private fun tacPlainModel{models}",
             include_str!("prelude_jvm_models.kt"),
             include_str!("prelude_native_tasks.kt")
         );

@@ -110,6 +110,7 @@ fn a_linked_kotlin_service_describes_its_clients_for_the_page_to_hold() {
         "\"__stream_TicksClient_streamTicks\" to TacStream(\"TicksClient\", \"/ticks\", \"Tick\", false,",
         "behaviorSocketSend(\"ChatClient\", message)",
         "private suspend fun behaviorSocketSend(client: String, message: Any) { TacPageSocket.send(client, message) }",
+        "        \"Tick\" -> listOf(\"sku\", \"level\")\n",
     ] {
         assert!(source.contains(wanted), "missing {wanted}");
     }
