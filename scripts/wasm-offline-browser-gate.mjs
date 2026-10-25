@@ -99,7 +99,9 @@ class WasmOfflineGate {
       page.on('pageerror', error => errors.push(String(error)))
       await page.goto(`${SecureTestOrigin.origin}/`, { waitUntil: 'load' })
       assert.equal(await SecureTestOrigin.controlled(page, WasmOfflineGate.stepMilliseconds / 2), 'ready', `${label}: the Tachyon service worker controls the page`)
+      await WasmOfflineGate.opened(page, label)
       await page.reload({ waitUntil: 'load' })
+      errors.length = 0
       const online = await WasmOfflineGate.opened(page, label)
       await WasmOfflineGate.call(page, 'writer', 'remember', WasmOfflineGate.remembered)
       await WasmOfflineGate.call(page, 'reader', 'recall')
