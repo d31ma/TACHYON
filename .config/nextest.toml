@@ -9,7 +9,7 @@ heavy = { max-threads = 2 }
 dotnet-web = { max-threads = 2 }
 
 [[profile.default.overrides]]
-filter = 'test(/reads_the_clock_and_secure_random_from_the_page$/) | test(simultaneous_gateway_and_endpoint_deadlines_reap_processes) | test(go_handler_code_cannot_reach_its_relay_deadline) | test(inheriting_descendants_are_bounded_and_reaped_for_every_outcome) | test(compiled_relay_bounds_sideband_redacts_errors_and_reaps_descendants)'
+filter = 'test(/reads_the_clock_and_secure_random_from_the_page$/) | test(simultaneous_gateway_and_endpoint_deadlines_reap_processes) | test(go_handler_code_cannot_reach_its_relay_deadline) | test(inheriting_descendants_are_bounded_and_reaped_for_every_outcome) | test(compiled_relay_bounds_sideband_redacts_errors_and_reaps_descendants) | test(a_go_log_follow_ends_cleanly_at_the_request_time_limit)'
 test-group = 'serial'
 retries = 2
 
@@ -38,6 +38,8 @@ slow-timeout = { period = "60s", terminate-after = 15 }
 [[profile.default.overrides]]
 filter = 'test(/tac_web::.*(csharp|fsharp|dotnet)|tac_web::fsharp_tests::|model_sources::tests::a_csharp_web|tac_implicit_mapping_(cs|fs)_|tac_model_binding::(a_csharp|an_fsharp)/)'
 test-group = 'dotnet-web'
+# Each .NET WebAssembly build takes about 95 s alone; on a loaded Windows ARM64 machine two of them passed 300 s.
+slow-timeout = { period = "60s", terminate-after = 15 }
 
 # The Python Tac browser test starts Pyodide four times in each of Chromium, Firefox and WebKit.
 [[profile.default.overrides]]
