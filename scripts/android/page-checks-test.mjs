@@ -467,10 +467,10 @@ export default class ThemeService {
       await connection.page.getByRole('button', { name: 'Save the dark theme' }).click();
       await gate.waitFor(async () => await gate.output(connection.page, 'Saved theme') === 'dark', 'preferenceStrings.write keeps the theme');
       await gate.checkOfflineReads(connection.page, yon, yonOrigin);
-      await gate.checkExternalLinks(connection.page);
       await gate.checkReach(connection.page, undeclared);
       await gate.checkScopedStyle(connection.page);
       await gate.checkSessionState(connection.page);
+      await gate.checkExternalLinks(connection.page);
       await gate.disconnect(connection);
       connection = undefined;
       await gate.quit();
