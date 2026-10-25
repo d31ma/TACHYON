@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Branded-browser runs (BR2, 2026-10-25): `scripts/branded-browser-gate.mjs
+  --browser=safari|ios-safari|chrome|msedge|android-chrome` runs the web
+  gates unchanged in Safari (over `safaridriver`), Safari on the iOS
+  simulator, Google Chrome, Microsoft Edge, or Chrome on an Android device
+  (over adb and the DevTools protocol), and reports a gate that needs a call
+  the browser's driver cannot make as unsupported rather than passed
+  (ADR 0005 amendment). In a cloud container 12 of 13 gates passed in Google
+  Chrome 156; `scaffold` failed because Chrome logs the 404 for the
+  `/favicon.ico` a fresh app does not serve.
+
 - macOS release gate (MA6, ADR 0104 amendment, 2026-10-25):
   `scripts/native/macos-release-test.mjs` (`npm run test:macos-release`)
   builds a C# page service with `tac.dotnet.aot` through

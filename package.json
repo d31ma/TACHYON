@@ -31,6 +31,7 @@
     "test:page-program-browser": "node scripts/page-program-browser-gate.mjs",
     "test:async-listener-browser": "node scripts/async-listener-browser-gate.mjs",
     "test:window-controls-browser": "node scripts/window-controls-browser-test.mjs",
+    "test:branded-browsers": "node scripts/branded-browser-gate.mjs",
     "test:window-grant-macos": "node scripts/window-grant-macos-test.mjs",
     "test:application-state-macos": "node scripts/application-state-macos-test.mjs",
     "test:page-checks-macos": "node scripts/native/page-checks-macos-test.mjs",

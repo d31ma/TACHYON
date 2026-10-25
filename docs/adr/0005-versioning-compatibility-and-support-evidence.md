@@ -170,3 +170,19 @@ simulator runs"). With the Linux, Windows and Android runs above, every
 native target has a repeat-build run, and the support table marks
 byte-identical rebuilds `honored` on each. A signed `--device` or `--release`
 iOS `.ipa` is still never byte-identical, because its signature differs.
+
+## Amendment (2026-10-25): branded browsers run the same gates
+
+A web target qualification names branded browsers on their own systems
+(Safari on macOS and iOS, Chrome and Edge on Windows, Chrome on Android), and
+CI runs only Playwright's browser builds. Branded runs reuse the existing web
+gates instead of growing a second set: `scripts/branded-browser-gate.mjs`
+loads `scripts/branded/preload.mjs` into each gate, which sends the gate's
+Playwright launch to the branded browser and makes every other engine refuse.
+Safari has no Playwright driver, so it is reached over W3C WebDriver
+(`safaridriver`) through a Playwright-shaped adapter. A call the adapter
+cannot make the way Playwright does throws `branded browser cannot ...`, and
+the gate counts as unsupported in that browser, not as passed. A gate counts
+as run in a branded browser only when it passes and its launch receipt names
+that browser. `docs/SUPPORT_TIERS.md` ("Branded browsers") lists the runs.
+

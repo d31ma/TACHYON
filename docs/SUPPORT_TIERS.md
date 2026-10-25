@@ -1337,6 +1337,50 @@ The Python Tac gate already ran in all three engines (ADR 0093). A container
 run is not a desktop browser install, and Safari itself was not run; WebKit
 stands in for it.
 
+### Branded browsers (BR2, runner 2026-10-25)
+
+`scripts/branded-browser-gate.mjs --browser=<name>` runs the web gates
+unchanged in a branded browser on its own system. It starts each gate with
+`node --import scripts/branded/preload.mjs`, which points the gate's
+Playwright launcher at the branded browser and makes the other engines
+refuse, so a gate passes only in that browser. Each gate's log, a
+`<gate>.launches.jsonl` receipt naming the browser version and user agent
+that ran, and a `summary.json` go to `--logs=`.
+
+| `--browser=` | Browser | How the gate reaches it |
+| --- | --- | --- |
+| `safari` | Safari on macOS | `safaridriver` (W3C WebDriver) through `scripts/branded/webdriver-browser.mjs` |
+| `ios-safari` | Safari on the iOS simulator | `safaridriver` with `safari:useSimulator` (`TAC_BRANDED_SIMULATOR_UDID` picks the device) |
+| `chrome`, `msedge` | Google Chrome, Microsoft Edge | Playwright's `channel` launch of the installed browser |
+| `android-chrome` | Chrome on an Android emulator or device | `adb forward` to `chrome_devtools_remote`, Playwright `connectOverCDP`, and `adb reverse` for each loopback port a gate serves |
+| `webkitgtk-webdriver` | WebKitGTK MiniBrowser | `WebKitWebDriver`; a stand-in that checks the Safari path off a Mac, not a branded run |
+
+The WebDriver path covers the calls the gates make (navigation, `evaluate`,
+`waitForFunction`, role, label, text and CSS locators through open shadow
+roots, typing, clicks, element handles, several tabs, page errors heard after
+the load). A call WebDriver has no equivalent for (`page.route`,
+`addInitScript`, `setOffline`, a second open context, a persistent context)
+throws `branded browser cannot ...`, and the runner reports that gate as
+unsupported, never as passed. So Safari runs leave out `window-controls`,
+`storage`, `svg-namespace`, `authored-node` and `preview-offline`, and list
+them in the summary. Page errors thrown before the load event and console
+messages logged before it are not heard over WebDriver.
+
+Cloud check (2026-10-25, x86_64 Ubuntu 24.04 container, `ty` from develop
+`2f86e866`, JavaScript, TypeScript, Rust, Go and Dart services): in Google
+Chrome 156.0.8078.47 the adapter check, `page-program`, `async-listener`,
+`held-clients`, `cached-client`, `window-controls`, `component-scope`,
+`logic-controls`, `svg-namespace`, `authored-node`, `yon-reads` and
+`preview-offline` passed. `scaffold` failed: Chrome itself asks for
+`/favicon.ico`, a fresh `ty init` app serves none, and Chrome logs the 404
+as a console error, which Playwright's Chromium build never does. Through
+the WebKitGTK stand-in (MiniBrowser 2.52.6) the adapter check,
+`page-program`, `async-listener`, `held-clients`, `cached-client`,
+`component-scope`, `logic-controls`, `scaffold` and `yon-reads` passed.
+These container runs check the runner. Safari on macOS and the iOS
+simulator, Chrome on the Android emulator, and Edge and Chrome on the
+Windows desktop are still owed (row "Web" above).
+
 ### Linked services share one program (2026-10-24, LS2)
 
 `native/linked_page_program_tests.rs` ran in an x86_64 Ubuntu 24.04 cloud
