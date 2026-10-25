@@ -831,8 +831,36 @@ __NATIVE_MENUS__
         && ownerRoute.equals(canonicalRoute(current.getPath()));
   }
 
+  private static boolean hostBridgeSupported() {
+    try {
+      return WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER);
+    } catch (RuntimeException missingWebView) {
+      return false;
+    }
+  }
+
+  private void showBridgeRefusal() {
+    record("bridge.refused");
+    String name = String.valueOf(getApplicationInfo().loadLabel(getPackageManager()));
+    android.content.pm.PackageInfo web = null;
+    try { web = WebViewCompat.getCurrentWebViewPackage(this); } catch (RuntimeException ignored) { }
+    String installed = web == null ? "This device has no Android System WebView."
+        : "This device has " + web.packageName + " " + web.versionName + ", which does not.";
+    android.widget.TextView message = new android.widget.TextView(this);
+    message.setText(name + " needs an Android System WebView that supports the web message listener"
+        + " (WEB_MESSAGE_LISTENER).\n\n" + installed + "\n\nUpdate Android System WebView from Google Play,"
+        + " then open " + name + " again.");
+    message.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18);
+    message.setTextIsSelectable(true);
+    int padding = Math.round(24 * getResources().getDisplayMetrics().density);
+    message.setPadding(padding, padding, padding, padding);
+    android.widget.ScrollView page = new android.widget.ScrollView(this);
+    page.setFitsSystemWindows(true);
+    page.addView(message);
+    setContentView(page);
+  }
+
   private void installHostBridge() {
-    if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return;
     WebViewCompat.addWebMessageListener(view, "__tachyonAndroidHost",
         java.util.Collections.singleton("https://appassets.tachyon.local"),
         this::receiveHostMessage);
@@ -1012,6 +1040,10 @@ __NATIVE_RUST_SERVICES__
   protected void onCreate(Bundle state) {
     super.onCreate(state);
     record("controller.created");
+    if (!hostBridgeSupported()) {
+      showBridgeRefusal();
+      return;
+    }
     view = new WebView(this);
     if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
       WebView.setWebContentsDebuggingEnabled(true);
@@ -1549,6 +1581,35 @@ mod tests {
         assert!(
             source.contains("java.util.Collections.singleton(\"https://appassets.tachyon.local\")")
         );
+    }
+
+    #[test]
+    fn a_web_view_without_the_message_listener_gets_a_refusal_page_before_any_page_loads() {
+        let source = catalog_java_source(true);
+        let check = source
+            .find("if (!hostBridgeSupported()) {\n      showBridgeRefusal();\n      return;\n    }")
+            .unwrap_or_else(|| panic!("the activity has no startup bridge check"));
+        let web_view = source
+            .find("view = new WebView(this);")
+            .unwrap_or_else(|| panic!("the activity creates no web view"));
+        assert!(check < web_view);
+        assert!(source.contains(
+            "return WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER);"
+        ));
+        assert!(
+            source.contains("} catch (RuntimeException missingWebView) {\n      return false;")
+        );
+        assert!(source.contains("record(\"bridge.refused\");"));
+        assert!(source.contains("WebViewCompat.getCurrentWebViewPackage(this)"));
+        assert!(
+            source
+                .contains("needs an Android System WebView that supports the web message listener")
+        );
+        assert!(source.contains("Update Android System WebView from Google Play,"));
+        assert!(!source.contains(
+            "if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return;"
+        ));
+        assert!(!source.contains("addJavascriptInterface"));
     }
 
     #[test]

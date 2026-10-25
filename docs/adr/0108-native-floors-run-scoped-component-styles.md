@@ -47,3 +47,24 @@ error.
 - A browser without `@scope` drops the whole block, so web visitors on such
   a browser see components without their styles; the web target has no
   floor of its own.
+
+## Amendment (2026-10-25): an Android web view without the message listener is refused at startup
+
+The Android host bridge runs on the AndroidX WebKit web message listener
+(`WEB_MESSAGE_LISTENER`), which answers only the app's own main frame. Before
+this amendment, a System WebView without it loaded the pages with no bridge,
+and every native call failed on the page with no explanation.
+
+- The activity checks for the listener before it creates the web view. A
+  missing listener, or a device with no System WebView, gets a native refusal
+  page that names the installed web view package and version and asks for an
+  update from Google Play. The app loads no page. This matches the Windows
+  startup check for the WebView2 Runtime.
+- There is still no `addJavascriptInterface` fallback. That interface answers
+  every frame of the page, including embedded ones, so it would widen who can
+  reach native services.
+- Like the `@scope` and WebAssembly garbage collection needs, the check does
+  not raise the API level, because Google Play updates the web view apart
+  from Android.
+- The generated activity is covered by a unit test. The run on an emulator
+  image whose web view lacks the listener is still owed (GP2).

@@ -174,8 +174,10 @@ separate cybersecurity review for this reconciliation.
   compiled application code safe.
 - **Android.** Android pins AndroidX WebKit `1.14.0`. It uses that library's
   frame-aware asynchronous message listener and its reply proxy that is bound
-  to the document. There is no fallback to the legacy JavaScript interface. A
-  WebView runtime without support reports that the bridge is unavailable.
+  to the document. There is no fallback to the legacy JavaScript interface,
+  because that interface answers every frame. A WebView runtime without the
+  listener gets a refusal page at startup that names the installed WebView,
+  and the app loads no page.
   Limits: at most 128 calls per document, each with a ten-second deadline. One
   worker accepts at most 128 queued requests. Navigation drops pending replies
   and stale queued work. Destruction shuts down the worker.

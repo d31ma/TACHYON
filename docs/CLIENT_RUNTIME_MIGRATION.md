@@ -417,9 +417,9 @@ Limits and timeouts:
 - Android pins AndroidX WebKit `1.14.0`. It uses the frame-aware asynchronous
   message bridge of that library. There is no fallback to the legacy
   JavaScript interface.
-- If the runtime has no `WEB_MESSAGE_LISTENER`, Tachyon reports that the
-  Android native bridge is unavailable. Update Android System WebView or use a
-  compatible runtime.
+- If the runtime has no `WEB_MESSAGE_LISTENER`, the app shows a refusal page
+  at startup and loads no page. The page names the installed System WebView.
+  Update Android System WebView from Google Play, then open the app again.
 - The bridge allows 128 pending document calls, each with a ten-second
   deadline.
 - It uses one worker with a queue of 128 requests.

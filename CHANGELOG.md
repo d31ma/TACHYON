@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Android web view check at startup (GP2, ADR 0108 amendment, 2026-10-25):
+  the Android app checks that Android System WebView has the web message
+  listener (`WEB_MESSAGE_LISTENER`) before it creates the web view. Without
+  it, or with no System WebView at all, the app shows a refusal page that
+  names the installed web view and asks for an update from Google Play, and
+  it loads no page. Before, the pages loaded with no host bridge and every
+  native call failed silently. There is still no `addJavascriptInterface`
+  fallback. The run on an emulator image whose web view lacks the listener is
+  owed.
+
 - Verified link runs (LINKS, ADR 0106 amendment, 2026-10-24):
   `https://d31ma.github.io` serves the link verification files, and
   `scripts/native/verified-links-files.mjs` writes and checks them.

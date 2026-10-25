@@ -878,8 +878,12 @@ Android runtime limits:
 
 - Android requires a System WebView that supports `WEB_MESSAGE_LISTENER`.
 - The AndroidX WebKit `1.14.0` bridge has no legacy fallback.
-- An unsupported runtime reports that the bridge is unavailable. It needs a
-  compatible WebView.
+- The app checks for the listener when it starts. Without it, the app shows a
+  refusal page instead of loading a page. The page names the installed System
+  WebView and asks for an update from Google Play, the way the Windows app
+  explains an old WebView2 Runtime. The unit test reads the check in the
+  generated activity. A run on an emulator image whose WebView lacks the
+  listener is still owed (GP2).
 
 Desktop test host limits:
 
