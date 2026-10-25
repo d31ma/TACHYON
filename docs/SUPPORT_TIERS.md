@@ -1394,8 +1394,32 @@ held touch can later click the previous target. WebDriver typing fires
 through `element.click()` and fills the way Playwright's `fill` does, and
 logs each one. These runs check the pages in Safari, not touch input. An
 iOS 18.0 simulator refused the session ("Could not find any session
-hosts"). Safari on macOS, Chrome on the Android emulator, and Edge and
-Chrome on the Windows desktop are still owed (row "Web" above).
+hosts").
+
+Chrome on the Android emulator (2026-10-25, `tachyon-gate`, the google_apis
+userdebug arm64 image of Android 15, not the Google Play image; Chrome
+124.0.6367.219, user agent `Android 10; K ... Chrome/124.0.0.0 Mobile`,
+branch `f3a408e5`): the adapter check, `async-listener`, `logic-controls`,
+`svg-namespace`, `authored-node` and `runtime` passed. `preview-offline` is
+unsupported (a persistent context). Chrome on Android gives no new browser
+context over CDP, so every gate ran in its default context. The failures:
+
+- Java services: Chrome 124 has no Wasm `exnref`, which the TeaVM Java
+  build uses ("Invalid opcode 0x1f"). `page-program`, `held-clients` and
+  `window-controls` stopped at Java and passed without it; `cached-client`
+  failed on the same compile error.
+- `component-scope`: a `3px` border computes as `2.66667px` at the
+  emulator's fractional device pixel ratio.
+- `scaffold`: Chrome's own `/favicon.ico` 404, as in the cloud Chrome run.
+- `web-apis`: the gate's `newContext({ reducedMotion: 'reduce', ... })`
+  options are lost in the default context (runner).
+- `yon-reads`: the page reads Yon on a second loopback port, and the runner
+  sets up `adb reverse` only for the ports the gate navigates to (runner).
+- `storage` and `website` timed out waiting for the page; not yet
+  diagnosed.
+
+Safari on macOS, Chrome on the Google Play image, and Edge and Chrome on the
+Windows desktop are still owed (row "Web" above).
 
 ### Linked services share one program (2026-10-24, LS2)
 
