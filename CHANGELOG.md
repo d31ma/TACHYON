@@ -43,8 +43,9 @@ machine contracts have their own, independent major versions.
   names the installed web view and asks for an update from Google Play, and
   it loads no page. Before, the pages loaded with no host bridge and every
   native call failed silently. There is still no `addJavascriptInterface`
-  fallback. The run on an emulator image whose web view lacks the listener is
-  owed.
+  fallback. `scripts/android/web-view-refusal-test.mjs` saw the refusal on an
+  API 26 emulator with WebView 58 and a normal start on an API 35 emulator
+  with WebView 124.
 
 - Verified link runs (LINKS, ADR 0106 amendment, 2026-10-24):
   `https://d31ma.github.io` serves the link verification files, and

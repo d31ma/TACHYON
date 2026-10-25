@@ -67,8 +67,11 @@ and every native call failed on the page with no explanation.
 - Like the `@scope` and WebAssembly garbage collection needs, the check does
   not raise the API level, because Google Play updates the web view apart
   from Android.
-- The generated activity is covered by a unit test. The run on an emulator
-  image whose web view lacks the listener is still owed (GP2).
+- The generated activity is covered by a unit test, and
+  `scripts/android/web-view-refusal-test.mjs` ran it on 2026-10-25. An
+  Android 8.0 (API 26) emulator with WebView 58.0.3029.125 showed the refusal
+  page, recorded `bridge.refused` and mounted no page. An API 35 emulator with
+  WebView 124 opened the page as before (GP2).
 
 ## Amendment (2026-10-25): the first WebKitGTK that runs `@scope` (GP1)
 

@@ -941,9 +941,13 @@ Android runtime limits:
 - The app checks for the listener when it starts. Without it, the app shows a
   refusal page instead of loading a page. The page names the installed System
   WebView and asks for an update from Google Play, the way the Windows app
-  explains an old WebView2 Runtime. The unit test reads the check in the
-  generated activity. A run on an emulator image whose WebView lacks the
-  listener is still owed (GP2).
+  explains an old WebView2 Runtime. On 2026-10-25 (GP2, develop `750551be`)
+  `scripts/android/web-view-refusal-test.mjs` ran on the Mac emulators. On an
+  Android 8.0 (API 26) google_apis arm64 image with
+  `com.google.android.webview` 58.0.3029.125, the app showed the refusal
+  page with that package and version, held no web view, recorded
+  `bridge.refused` and no `controller.mounted`, and did not crash. On the
+  API 35 image with WebView 124.0.6367.219, the same app opened its page.
 
 Desktop test host limits:
 
