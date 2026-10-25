@@ -1377,9 +1377,25 @@ as a console error, which Playwright's Chromium build never does. Through
 the WebKitGTK stand-in (MiniBrowser 2.52.6) the adapter check,
 `page-program`, `async-listener`, `held-clients`, `cached-client`,
 `component-scope`, `logic-controls`, `scaffold` and `yon-reads` passed.
-These container runs check the runner. Safari on macOS and the iOS
-simulator, Chrome on the Android emulator, and Edge and Chrome on the
-Windows desktop are still owed (row "Web" above).
+These container runs check the runner.
+
+Safari on the iOS simulator (2026-10-25, macOS 26.6.2, Xcode 27.1, iPhone 17
+on iOS 26.5, Safari 26.5, user agent `iPhone OS 18_7 ... Version/26.5`,
+branch `f1f46a00`, release `ty`): the adapter check, `page-program` (C++,
+C#, Dart, F#, Go, Java, JavaScript, Kotlin, Rust and Swift services),
+`async-listener`, `held-clients`, `cached-client`, `component-scope`,
+`logic-controls`, `scaffold` and `yon-reads` passed. `held-clients` failed
+once in the full list (WebDriver "no such window" right after a new tab
+opened) and passed in both runs alone. On that simulator a safaridriver tap
+reports success, but WebKit gets only `pointerdown` and `touchstart`. The
+touch-up waits for the next tap, so the target never gets a click, and the
+held touch can later click the previous target. WebDriver typing fires
+`keydown` without changing the value. So on the simulator the adapter clicks
+through `element.click()` and fills the way Playwright's `fill` does, and
+logs each one. These runs check the pages in Safari, not touch input. An
+iOS 18.0 simulator refused the session ("Could not find any session
+hosts"). Safari on macOS, Chrome on the Android emulator, and Edge and
+Chrome on the Windows desktop are still owed (row "Web" above).
 
 ### Linked services share one program (2026-10-24, LS2)
 
