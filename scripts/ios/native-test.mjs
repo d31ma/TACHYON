@@ -344,9 +344,10 @@ function useBootedSimulator(runtimes) {
   assert.equal(found.state, 'Booted', 'TAC_IOS_DEVICE ' + IosGate.chosenDevice + ' must already be booted');
   const runtime = runtimes.find(item => item.identifier === identifier);
   assert.ok(runtime && chosenVersion(runtime.version), 'TAC_IOS_DEVICE ' + IosGate.chosenDevice + ' runs ' + identifier + ', not iOS ' + IosGate.runtimeVersion);
+  const phone = (runtime.supportedDeviceTypes ?? []).find(item => item.identifier === found.deviceTypeIdentifier) ?? found;
   IosGate.device = IosGate.chosenDevice;
-  console.log('Using booted ' + found.name + ' with iOS ' + runtime.version + '...');
-  return { runtime, phone: found };
+  console.log('Using booted ' + phone.name + ' with iOS ' + runtime.version + '...');
+  return { runtime, phone };
 }
 
 function bootSimulator() {

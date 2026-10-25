@@ -171,10 +171,11 @@ final class ServicesProbeService {
     assert.equal(found.state, 'Booted', `TAC_IOS_DEVICE ${this.chosenDevice} must already be booted`)
     const runtime = runtimes.find((item) => item.identifier === identifier)
     assert.ok(runtime && this.chosenVersion(runtime.version), `TAC_IOS_DEVICE ${this.chosenDevice} runs ${identifier}, not iOS ${this.runtimeVersion}`)
+    const type = (runtime.supportedDeviceTypes ?? []).find((item) => item.identifier === found.deviceTypeIdentifier)
     this.device = this.chosenDevice
     this.bootedVersion = runtime.version
-    console.log(`==> using booted ${found.name} with iOS ${runtime.version}`)
-    return { runtime: runtime.version, device: found.name }
+    console.log(`==> using booted ${type?.name ?? found.name} with iOS ${runtime.version}`)
+    return { runtime: runtime.version, device: type?.name ?? found.name }
   }
 
   static bootSimulator() {
