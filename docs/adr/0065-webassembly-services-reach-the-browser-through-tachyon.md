@@ -541,3 +541,22 @@ after the app was stopped and started again. The support table marks Android
 clipboard, notifications, geolocation, `preferenceStrings` and
 `tac.application.permissions` `honored`, and its share note no longer waits
 on a run.
+
+## Amendment (2026-10-25): a browser service that needs another service is refused at the field
+
+- A Rust, Kotlin or Swift browser service whose field has the type of
+  another Tac service of the page now stops the build with `TY1406`, at the
+  field, before the language's compiler runs. Before, a Rust web build
+  accepted `#[Needs] counter: Arc<CounterService>` and `#[Needs] counter:
+  CounterService`, and each field held its own copy of the service instead of
+  the page's instance; Kotlin and Swift stopped inside their compilers with
+  `TY1605` ("no value passed for parameter", "missing argument for
+  parameter"). The check reads `Needs` fields (including the Swift form `var
+  counter: CounterService!`), fields that Tachyon fills because they have no
+  value, and the parameters of a Rust `fn new`.
+- A C# browser service is still refused with `TY1308`, because its `Needs`
+  takes only an assembled canonical HTTPClient.
+- Linked native builds are unchanged: they share one Rust page graph, so a
+  native Rust `Arc<Service>` field holds the page's instance there.
+- JavaScript, TypeScript, Go, Python, Dart, Java, C++ and F# services can
+  still need another service of their own language in the browser.

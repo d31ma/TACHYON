@@ -1996,6 +1996,13 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Rust, Kotlin or Swift browser service with a field whose type is another
+  Tac service now stops with `TY1406` at the field (ADR 0065 amendment,
+  2026-10-25). Before, the Rust web build accepted `#[Needs]` of another
+  service and gave the field its own copy instead of the page's instance,
+  and Kotlin and Swift failed inside their compilers with `TY1605`. C# is
+  still refused with `TY1308`, and tests now assert all four.
+
 - An iOS simulator build with `tac.application.links` hosts and
   `TAC_APPLE_TEAM_ID` no longer fails to launch: the simulator refused its ad
   hoc signature with restricted entitlements. The simulator link now puts the

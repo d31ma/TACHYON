@@ -24,7 +24,8 @@ impl NeededServices {
     };
     const CODE: u16 = 2015;
     const SERVICES: &'static str = "client/services";
-    const SUPPORTING: &'static str = "JavaScript, TypeScript, Go, Python, Dart, Java, C++ or F#";
+    pub(crate) const SUPPORTING: &'static str =
+        "JavaScript, TypeScript, Go, Python, Dart, Java, C++ or F#";
 
     pub(crate) fn refuse(
         &self,
@@ -58,7 +59,7 @@ impl NeededServices {
         })
     }
 
-    fn service_names(snapshot_root: &Path) -> BTreeSet<String> {
+    pub(crate) fn service_names(snapshot_root: &Path) -> BTreeSet<String> {
         std::fs::read_dir(snapshot_root.join(Self::SERVICES))
             .into_iter()
             .flatten()

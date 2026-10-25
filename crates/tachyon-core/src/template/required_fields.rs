@@ -187,6 +187,40 @@ impl RequiredFields {
             .collect()
     }
 
+    pub(crate) fn filled_types(path: &Path, source: &str, class: &str) -> Vec<String> {
+        let mut types = Self::marked_types(path, source, class);
+        types.extend(
+            Self::fields(path, source, class)
+                .into_iter()
+                .map(|field| field.type_name),
+        );
+        types
+    }
+
+    fn marked_types(path: &Path, source: &str, class: &str) -> Vec<String> {
+        let code = crate::annotation_layout::masked_source(path, source).unwrap_or_default();
+        let rust = path.extension().is_some_and(|extension| extension == "rs");
+        let body = Self::class_body(&code, class).map_or("", |(_, body)| body);
+        Self::pieces(body, rust)
+            .into_iter()
+            .scan(false, |pending, piece| {
+                Some(Self::marked_type(pending, piece))
+            })
+            .flatten()
+            .collect()
+    }
+
+    fn marked_type(pending: &mut bool, piece: &str) -> Option<String> {
+        let (declaration, marked) = Self::strip_markers(piece);
+        let held = [marked, *pending].contains(&true);
+        *pending = [declaration.is_empty(), held] == [true, true];
+        let declared = &declaration[..Self::assignment(declaration).unwrap_or(declaration.len())];
+        let typed = declared
+            .split_once(':')
+            .map(|(_, type_name)| type_name.trim().to_owned());
+        held.then_some(typed).flatten()
+    }
+
     fn injected(
         field: &DeclaredField,
         injectable: &BTreeSet<String>,
