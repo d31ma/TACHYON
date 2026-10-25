@@ -195,6 +195,12 @@ int main() {
         std::io::Write::write_all(&mut child.stdin.take().expect("stdin"), input.as_bytes())
             .expect("requests");
         let output = child.wait_with_output().expect("answers");
+        assert!(
+            output.status.success(),
+            "the page program stopped with {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
         String::from_utf8_lossy(&output.stdout)
             .lines()
             .map(|line| serde_json::from_str(line).expect("answer"))

@@ -90,8 +90,8 @@ private:
     };
 
     static std::map<std::string, TacSharedSetup>& open() {
-        static std::map<std::string, TacSharedSetup> setups;
-        return setups;
+        static auto* setups = new std::map<std::string, TacSharedSetup>();
+        return *setups;
     }
 
     template <typename Setup>

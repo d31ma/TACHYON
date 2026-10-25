@@ -98,8 +98,8 @@ private:
     }
 
     static std::map<std::string, BehaviorContext>& opened() {
-        static std::map<std::string, BehaviorContext> contexts;
-        return contexts;
+        static auto* contexts = new std::map<std::string, BehaviorContext>();
+        return *contexts;
     }
 };
 

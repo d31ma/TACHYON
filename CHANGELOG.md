@@ -2014,6 +2014,18 @@ machine contracts have their own, independent major versions.
   and Kotlin and Swift failed inside their compilers with `TY1605`. C# is
   still refused with `TY1308`, and tests now assert all four.
 
+- A C++ page or Yon program that opened a `Behaviors::create` context or a
+  Store no longer crashes at exit on Windows (WG2). The setup and store
+  registries were function-local statics, destroyed before the services
+  that release into them; the MSVC library then read freed memory. The
+  registries now live until the process ends.
+
+- Windows test fixes (WG2): the scheduled-worker tests wrote the temp path
+  with backslashes into Groovy, Lua and F# strings; the Yon Topic tests and
+  the test unit marker proofs looked for runtimes by bare name and skipped
+  `.exe` and `.bat` runtimes; the offline Gradle release test, which needs a
+  Unix fake Gradle, is now Unix only.
+
 - An iOS simulator build with `tac.application.links` hosts and
   `TAC_APPLE_TEAM_ID` no longer fails to launch: the simulator refused its ad
   hoc signature with restricted entitlements. The simulator link now puts the

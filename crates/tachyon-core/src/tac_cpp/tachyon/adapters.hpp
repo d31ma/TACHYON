@@ -198,8 +198,8 @@ private:
     }
 
     static std::map<std::string, std::vector<const TacLazyContext*>>& opened() {
-        static std::map<std::string, std::vector<const TacLazyContext*>> contexts;
-        return contexts;
+        static auto* contexts = new std::map<std::string, std::vector<const TacLazyContext*>>();
+        return *contexts;
     }
 
     static const BehaviorContext* keeping(const std::string& entity) {
