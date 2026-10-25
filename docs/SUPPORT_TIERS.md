@@ -1424,8 +1424,23 @@ every language but Java (the `*_LANGUAGES` lists of `page-program`,
 - `storage` is left out: it keeps several contexts open, each with its own
   storage. `preview-offline` is unsupported (a persistent context).
 
-Safari on macOS, Chrome on the Google Play image, and Edge and Chrome on the
-Windows desktop are still owed (row "Web" above).
+On the Google Play image (2026-10-25, `tachyon-play`: Android 15, API 35,
+`user` build, release keys, `ro.debuggable=0`), with release `ty` from
+develop `86680eaa` and the same language lists, the result was the same.
+Its Chrome is also 124.0.6367.219, because the Play Store has not updated
+the system image's Chrome, so Java was not run there either. The preload's
+first-run bypass (`am set-debug-app --persistent` and the flags file
+`/data/local/tmp/chrome-command-line`) worked on this `user` build: Chrome
+opened straight to the page, and its DevTools socket answered with no
+first-run screen to step through. The adapter check, `page-program`,
+`async-listener`, `held-clients`, `cached-client`, `window-controls`,
+`logic-controls`, `svg-namespace`, `scaffold`, `authored-node`, `yon-reads`
+and `runtime` passed. `web-apis` (the share sheet) and `component-scope`
+(`2.66667px`) failed for the same causes, `website` and `preview-offline`
+were unsupported, and `storage` was left out.
+
+Safari on macOS, and Edge and Chrome on the Windows desktop, are still owed
+(row "Web" above).
 
 ### Linked services share one program (2026-10-24, LS2)
 
