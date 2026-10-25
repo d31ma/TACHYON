@@ -450,7 +450,7 @@ stay as the history of this decision.
 | --- | --- | --- |
 | Browser tab | none: `open` answers `unsupported` | provider execution |
 | macOS | `NSOpenPanel` | WebAssembly C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5); a linked Rust field did the same on 2026-10-25 (MA1); the JavaScript and linked Swift fields rest on the provider and generated-app tests above |
-| Windows | `IFileOpenDialog` | a JavaScript page service, a linked C# service and a WebAssembly Kotlin service from a WebView2 page on a signed-in desktop (FP5, 2026-10-24); a WebAssembly Swift field on 2026-10-25 (SW3); linked Rust ran under Wine only (SW1) |
+| Windows | `IFileOpenDialog` | a JavaScript page service, a linked C# service and a WebAssembly Kotlin service from a WebView2 page on a signed-in desktop (FP5, 2026-10-24); a WebAssembly Swift field (SW3) and a linked Rust field (SW1) on 2026-10-25 |
 | Linux | `GtkFileDialog` or the portal's chooser | JavaScript, linked Rust, and WebAssembly Swift, C# and Kotlin (FP5) |
 | iOS | `UIDocumentPickerViewController` | JavaScript, linked Swift and Rust, and WebAssembly C# and Kotlin on the iOS 26.5 simulator (FP4) |
 | Android | `ACTION_OPEN_DOCUMENT` | JavaScript, linked Kotlin and Rust, and WebAssembly Swift and C# on the API 35 emulator (FP2) |

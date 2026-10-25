@@ -174,7 +174,8 @@ service heard background after Home and foreground after the app came back
 on the API 35 emulator. Windows: on 2026-10-24 (SD1, below)
 `scripts/windows/application-state-test.mjs` passed inside WebView2 on the
 signed-in desktop, where the page and a linked Rust service heard
-background and foreground; a linked C# listener has not run there (SW1).
+background and foreground. On 2026-10-25 (SW1, below) a linked C# listener
+heard them there too.
 macOS (2026-10-24, RM1): `scripts/application-state-macos-test.mjs`
 passed on a Mac. A page service and linked Rust and Swift services heard each
 change when the app stopped and started being active, was hidden and shown,
@@ -269,7 +270,7 @@ read, and an unanswered dialog closed after its patience. The same day
 (FP5, below) a JavaScript page service, a linked C# service and a
 WebAssembly Kotlin service opened the picker from a WebView2 page on that
 desktop. A WebAssembly Swift field did the same on 2026-10-25 (SW3, below).
-A linked Rust field has not run from a WebView2 page (SW1).
+A linked Rust field did the same on 2026-10-25 (SW1, below).
 
 On 2026-10-19 the Windows host started to build `"titleBar": "integrated"`
 (ADR 0098 amendment): the page reaches the top edge under the system caption
@@ -845,7 +846,7 @@ desktop on 2026-10-24 (SD1, the Windows row below).
 | Web | implemented | page transports, CORS, preflight, socket origin and `connect-src` unit tests; Chromium cross-port run, and cross-port offline reads in Chromium, Firefox and WebKit (NET8, below) |
 | macOS, iOS | run on the host | `scripts/native/yon-reach-test.mjs` passed on 2026-10-19 for the macOS app (macOS 26.6.2, Xcode 27.1) and the iOS 26.5 simulator (iPhone 17 Pro) over `http` and over `https` through a local TLS proxy. In all three runs Yon received `Origin: tachyon-app://bundle`, and the page reached it with HTTP, a CORS preflight, a stream, a socket, a topic, a 422 problem and a signed-in route. The linked Swift `@HTTPClient` read reached the origin through `URLSession` too; it is also unit-tested against a local server. On 2026-10-24 (LR1, branch `0ba1079e`, macOS 26.6.2, Xcode 27.1, Swift 6.4.1, iOS 26.5 simulator) the same script passed with `TAC_YON_SERVICES=rust` on macOS and on the simulator over `http` and `https`: a linked Rust `HTTPClient` read reached Yon through the host's `URLSession` sender, and linked Rust chat and stream services held their socket and stream through the page. The Swift services passed again on macOS and the simulator. `native_rust_apple_host_tests` links the Apple Rust shim with a Rust companion and passed on that Mac and in an x86_64 Linux container (Swift 6.2) |
 | Android | run on the emulator; an `https` origin, or a local `http` origin with cleartext to that one host | `scripts/android/yon-origin-test.mjs` passed on 2026-10-19 on the Android 15 (API 35, arm64) emulator against `ty serve` on the Mac through `adb reverse`. The packaged app reached Yon from `https://appassets.tachyon.local` with an HTTP read, a cross-origin write, a stream, a socket, a topic, a `@Check` 422 and a signed-in route (401 without a token, then with an `Authorization` header). A linked Kotlin `HTTPClient` reached Yon through the native transport in the app's own process. The transport is also tested on the JVM against a real HTTP server (`android_yon_http_tests`). Not run: a physical device |
-| Windows | run on the signed-in desktop; linked Rust and C# `HTTPClient` calls reach it too | 2026-10-19 cloud runs and the MSVC and NativeAOT build on Windows 11 ARM64 (below); on 2026-10-24 `scripts/windows/yon-reach.ps1` passed inside WebView2 on the signed-in desktop of that machine: HTTP, a stream, a socket, a topic, a `@Check` 422 and a signed-in route from the page, Rust and C# `HTTPClient` reads, and a linked C# service's stream and socket clients held by the page (NET3, LS1) |
+| Windows | run on the signed-in desktop; linked Rust and C# `HTTPClient` calls reach it too | 2026-10-19 cloud runs and the MSVC and NativeAOT build on Windows 11 ARM64 (below); on 2026-10-24 `scripts/windows/yon-reach.ps1` passed inside WebView2 on the signed-in desktop of that machine: HTTP, a stream, a socket, a topic, a `@Check` 422 and a signed-in route from the page, Rust and C# `HTTPClient` reads, and a linked C# service's stream and socket clients held by the page (NET3, LS1); on 2026-10-25 a linked Rust service's stream and socket clients held by the page and a topic heard by a linked Rust service (SW1) |
 | Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Both also passed on WSL Ubuntu 24.04.5 (aarch64) in RL1, on `19a95a65`. LX1 ran both again in a headless mutter 46.2 Wayland session (`TAC_LINUX_DISPLAY=wayland`), in the cloud and on WSL (aarch64), reading the page from the web process's own accessibility tree because GTK did not embed it in the window there. Not run: a Wayland desktop session |
 
 On 2026-10-24 (LS1, ADR 0058 and 0060 amendments) linked Swift, Kotlin and
@@ -903,7 +904,8 @@ app's own process:
   desktop. The page showed `[a1s1]` with the app's process ID, then
   `[a1s1a2s2]`. The first run, on `ddf568e8`, found that a finished C#
   listener task did not signal the page, which kept showing `[]`. It now
-  sends the owner's `changed` signal.
+  sends the owner's `changed` signal. On 2026-10-25 (SW1) the script ran a
+  linked Rust `async fn` listener there as well, with the same result.
 - macOS and the iOS 26.5 simulator with a linked Rust listener (MA1,
   2026-10-25, branch `100f335e`, same Mac and Xcode):
   `TAC_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs`
@@ -950,8 +952,9 @@ build left the Rust companion's `.dll.lib` and `.dll.exp` in `bin`.
 Windows desktop. It passed inside WebView2 on the signed-in desktop on
 2026-10-24 (SD1, the Windows row above), and WebView2 showed no local
 network access prompt before the page on `https://tachyon.local` called
-`http://localhost`. A linked Rust service's held stream and socket clients
-have not run there (SW1).
+`http://localhost`. On 2026-10-25 (SW1, below) it also held a linked Rust
+service's stream and socket clients from the page, and a linked Rust
+service heard a topic.
 
 Use `scripts/phase4-macos-test.mjs`, `scripts/ios/native-test.mjs`,
 `scripts/android/native-test.sh`, `scripts/linux/native-test.sh` and
@@ -1103,7 +1106,7 @@ This evidence does not promote any tier.
 | --- | --- | --- |
 | Linux WebKitGTK | yes: `GtkFileDialog`, or the desktop portal's chooser where one runs, for JavaScript, TypeScript and linked Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly and reach the dialog through the page (FP5) | `linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and drove the real dialog with XTest key presses under Xvfb in an x86_64 Ubuntu 24.04 cloud container on 2026-10-19: three runs through the portal's chooser (xdg-desktop-portal-gtk, xfwm4) and one each through GTK's own dialog with and without a window manager. It also passed on WSL Ubuntu 24.04 (aarch64, same GTK and WebKitGTK, Xvfb with xfwm4), once through each dialog; one earlier WSL run with a broken portal backend hit the 30-second dialog limit and answered `cancelled`, and its rerun passed. A page and a Rust service chose, read and released files; cancel, the second dialog, the handle and owner limits, the lifetime, another owner, a large and a non-UTF-8 file, the missing grant and a new page were checked. On 2026-10-24 (FP5) `scripts/linux/page-services-native-test.mjs` ran the packaged `native-capabilities` app with a Swift (6.3.3), a C# (.NET 10.0.302) and a Kotlin (2.1.10) WebAssembly service under Xvfb with xfwm4 in the same kind of container: each chose a file in GTK's dialog, read it, and answered `cancelled` after Escape. The same script passed on develop `0727eb7e` on WSL Ubuntu 24.04.5 (aarch64, GTK 4.14.5, WebKitGTK 2.52.6, Xvfb with xfwm4) with Swift 6.3.3, C# (.NET 9.0.317) and Kotlin 2.1.10, with `GIO_USE_VFS=local` and `GIO_USE_VOLUME_MONITOR=unix`: without them GVfs waited 25 seconds for UDisks2 there and the dialog reached its 30-second limit and answered `cancelled`. On 2026-10-25 (LX2) the test drove GTK's own dialog with key presses through Mutter's RemoteDesktop interface in a headless mutter 46.2 Wayland session (`scripts/linux/compositor-test.sh`), in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Surface: the page and the Rust service chose, read and released files and every check above passed. Not run: a Linux desktop, and the portal's chooser under Wayland |
 | macOS WKWebView | yes: `NSOpenPanel`, also for C# and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | see ADR 0089 and its amendments. On 2026-10-24 C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5) |
-| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1), and for Swift and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | under Wine in the cloud and on the signed-in desktop; see the Windows paragraph above. On 2026-10-24 the whole generated host, with the page route, compiled with MinGW against the WebView2 1.0.3240.44 headers and the Wine picker checks passed. On 2026-10-24 the MSVC build selected a file in the Windows dialog and closed an unanswered one on the signed-in desktop (SD1). The same day (FP5) `scripts/windows/page-services-native-test.mjs` ran a JavaScript page service, a linked C# service and a WebAssembly Kotlin service from a WebView2 page on that desktop: each chose a typed file in the dialog, read it, and answered `cancelled` after Escape. On 2026-10-25 (SW3) a WebAssembly Swift field (Swift 6.3.3 for Windows ARM64) did the same from a WebView2 page on that desktop. A linked Rust field has run only under Wine (SW1) |
+| Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1), and for Swift and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | under Wine in the cloud and on the signed-in desktop; see the Windows paragraph above. On 2026-10-24 the whole generated host, with the page route, compiled with MinGW against the WebView2 1.0.3240.44 headers and the Wine picker checks passed. On 2026-10-24 the MSVC build selected a file in the Windows dialog and closed an unanswered one on the signed-in desktop (SD1). The same day (FP5) `scripts/windows/page-services-native-test.mjs` ran a JavaScript page service, a linked C# service and a WebAssembly Kotlin service from a WebView2 page on that desktop: each chose a typed file in the dialog, read it, and answered `cancelled` after Escape. On 2026-10-25 (SW3) a WebAssembly Swift field (Swift 6.3.3 for Windows ARM64) did the same from a WebView2 page on that desktop. On 2026-10-25 (SW1) a linked Rust field did the same; before that it had run only under Wine |
 | iOS WKWebView | yes: `UIDocumentPickerViewController` for JavaScript, TypeScript and linked Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly and reach it through the page (FP4) | code level in a Linux cloud container (`ios::tests`, `scripts/native/file-picker-runtime-test.mjs`). On 2026-10-24 (FP4) `scripts/ios/file-picker-test.mjs` passed on the Mac (macOS 26.6.2, Xcode 27.1) on the iOS 26.5 simulator (iPhone 17 Pro): a JavaScript page service, linked Swift and Rust services, and C# and Kotlin WebAssembly services each chose a file seeded into On My iPhone, read it, and answered `cancelled` when the next picker was closed. Not run: a physical device |
 | Android WebView | yes: `ACTION_OPEN_DOCUMENT` for JavaScript, TypeScript and linked Kotlin and Rust services, and for Swift and C# services, which run as WebAssembly and reach it through the page (FP2) | code level in a Linux cloud container (`android::tests`, `android_file_picker::tests`); the generated host compiled with `javac` against the API 35 `android.jar`. On 2026-10-24 (FP2) `scripts/android/file-picker-test.mjs` passed on the Mac's API 35 arm64 emulator (`tachyon-gate`, Android System WebView 124): a JavaScript page service, linked Kotlin and Rust services, and Swift and C# WebAssembly services each chose a file in DocumentsUI's Downloads, read it, and answered `cancelled` after Back. Not run: a physical device |
 
@@ -1543,13 +1546,13 @@ naming the run that would move it back:
 | Cell | What ran | Still to run (thread) |
 | --- | --- | --- |
 | `tac.application.window.controls`, macOS | a page and a page service (RM1) | none: C# and Kotlin WebAssembly callers ran in the app (MA1, below), so the cell is `honored` again |
-| `tac.application.window.controls`, Windows | a page, a linked C# service and a WebAssembly Kotlin service in WebView2 (SD1); a real Win32 window over SSH (RW1) | a linked Rust caller in WebView2 (SW1); the WebAssembly Swift caller ran (SW3, below) |
+| `tac.application.window.controls`, Windows | a page, a linked C# service and a WebAssembly Kotlin service in WebView2 (SD1); a real Win32 window over SSH (RW1) | none: the WebAssembly Swift caller (SW3) and a linked Rust caller (SW1) ran in WebView2 (below), so the cell is `honored` again |
 | `tac.nativeCapabilities` filePicker, macOS | C# and Kotlin fields in `NSOpenPanel` (FP5) | none: a linked Rust field ran in `NSOpenPanel` (MA1, below), so the cell is `honored` again |
-| `tac.nativeCapabilities` filePicker, Windows | the MSVC dialog test (SD1); page, linked C# and WebAssembly Kotlin fields from a WebView2 page (FP5) | a linked Rust field from a WebView2 page (it ran only under Wine) (SW1); the WebAssembly Swift field ran (SW3, below) |
+| `tac.nativeCapabilities` filePicker, Windows | the MSVC dialog test (SD1); page, linked C# and WebAssembly Kotlin fields from a WebView2 page (FP5) | none: the WebAssembly Swift field (SW3) and a linked Rust field (SW1) ran from a WebView2 page (below), so the cell is `honored` again |
 | `tac.go`, macOS and Android | a Go service in the macOS app (MA1) and on the emulator (MA2, below), so both are `honored` again | none |
 | `tac.browserApis` geolocation, macOS | the location prompt with the manifest reason, answered Don't Allow (RM1) | none: the prompt was allowed and a position reached the page (MA3, below), so the cell is `honored` again |
-| background and foreground signal, Windows | the page and a linked Rust service (SD1) | a linked C# listener (SW1) |
-| reaching Yon, Windows | HTTP from the page and linked Rust and C# services, and a linked C# service's held stream and socket clients (NET3, LS1) | a linked Rust service's held stream and socket clients in `scripts/windows/yon-reach.ps1` (SW1) |
+| background and foreground signal, Windows | the page and a linked Rust service (SD1) | none: a linked C# listener heard it (SW1, below), so the cell is `honored` again |
+| reaching Yon, Windows | HTTP from the page and linked Rust and C# services, and a linked C# service's held stream and socket clients (NET3, LS1) | none: a linked Rust service's held stream and socket clients ran in `scripts/windows/yon-reach.ps1` (SW1, below), so the cell is `honored` again |
 
 The Android window controls stay `adapted`; their note now says that Swift
 and C# WebAssembly callers have not run on the emulator; MA2 (below) ran
@@ -1693,8 +1696,44 @@ the signed-in desktop session, started through
   `IFileOpenDialog`, read the typed file (`read`), and answered
   `cancelled` when the next dialog was closed with Escape.
 
-The Windows window controls and file picker cells stay `runOwed` only for
-their linked Rust callers (SW1).
+The Windows window controls and file picker cells then owed only their
+linked Rust callers, which ran in SW1 (below).
+
+### Linked services in WebView2 (2026-10-25, SW1)
+
+On the Surface (Windows 11 25H2 build 26200 ARM64, WebView2 Runtime
+155.0.4283.62, MSVC 14.44 ARM64, Rust 1.97.1, .NET 10.0.302, Node 24.21.0)
+a debug `ty` from branch `f1f39fa8` ran four gates in the signed-in desktop
+session, each started through `scripts/windows/desktop-run.ps1` and
+`scripts/windows/developer-run.ps1`:
+
+- `scripts/windows/page-services-native-test.mjs` with
+  `TAC_WINDOWS_SERVICE_LANGUAGES=,` (Windows drops a variable set to an
+  empty string, and the list reads `,` as empty) and
+  `TAC_WINDOWS_WINDOW_CALLERS` and `TAC_WINDOWS_PICKER_CALLERS` set to `rs`
+  passed in 32 s. The linked Rust `ReportService` of the `window-controls`
+  feature renamed the window to `Quarterly report` and resized it to 1280
+  by 800, and the linked Rust FilePicker field of the `native-capabilities`
+  feature opened `IFileOpenDialog`, read the typed file (`read`) and
+  answered `cancelled` after Escape. Each app's `tachyon.host.json` listed
+  the Rust companion.
+- `scripts/windows/application-state-test.mjs` passed in 47 s. A linked C#
+  service heard `foreground` (replayed), `background` after the focus moved
+  away, `foreground` again and `background` after a minimize, beside the
+  page and the linked Rust service.
+- `scripts/windows/yon-reach.ps1` passed in 61 s. Besides the earlier page,
+  HTTP and C# paths, the page held a linked Rust service's stream (`Rust
+  stream ok 3`) and socket (`Rust socket rust-echo`) clients, and a linked
+  Rust service heard the `ReachNews` topic (`Rust topic heard 1`). The same
+  Rust services passed on the Linux app under Xvfb in an x86_64 cloud
+  container first.
+- `scripts/windows/async-listener-native-test.mjs` passed in 41 s with a
+  linked C# `Task` listener and then a linked Rust `async fn` listener of
+  400 ms: each showed `[a1s1]` with the app's process ID, then
+  `[a1s1a2s2]`.
+
+The Windows window controls, file picker, background and foreground, and
+reaching Yon cells are `honored` again.
 
 ## Historical Phase 5 Native Target Status
 

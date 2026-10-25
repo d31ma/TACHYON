@@ -51,6 +51,18 @@ machine contracts have their own, independent major versions.
   (`TAC_LINUX_STORED_FIELD`). All passed in an x86_64 cloud container and on
   WSL aarch64; the Linux `tac.dotnet` cell is `honored`.
 
+- Linked services in WebView2 (SW1, 2026-10-25): the Windows gates now run
+  linked Rust `WindowControls` and FilePicker callers
+  (`scripts/windows/page-services-native-test.mjs`), a linked C#
+  `ApplicationStateChanged` listener
+  (`scripts/windows/application-state-test.mjs`), linked Rust stream, socket
+  and topic services in `scripts/windows/yon-reach.ps1` (fixture
+  `scripts/native/yon-reach-fixture.py`), and a linked Rust async `@OnEvent`
+  listener (`scripts/windows/async-listener-native-test.mjs`). All four
+  passed inside WebView2 on the signed-in Windows 11 ARM64 desktop, and the
+  Windows window controls, file picker, background and foreground, and
+  reaching Yon cells are `honored` again.
+
 - Swift on the Windows desktop (SW3, 2026-10-25): the Surface (Windows 11
   ARM64) has Swift 6.3.3 for Windows ARM64 and its Swift SDK for
   WebAssembly, and `scripts/windows/page-services-native-test.mjs` passed

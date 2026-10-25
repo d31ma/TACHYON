@@ -118,6 +118,10 @@ Runs on 2026-10-24 (develop `e0bbb86a` plus LS3):
     signed-in desktop. The first run, on `ddf568e8`, needed a fix: a
     finished C# listener task now sends the owner's `changed` signal, so
     the page reads the fields again. Before, the page kept the old values.
+    On 2026-10-25 (SW1, Windows 11 25H2 build 26200, WebView2 Runtime
+    155.0.4283.62) the same script passed with a linked Rust `async fn`
+    listener as well: the page showed `[a1s1]` with the app's process ID,
+    then `[a1s1a2s2]`.
 - Linux (x86_64 Ubuntu 24.04 cloud container, GTK 4.14.5, WebKitGTK
   2.52.6, Xvfb): `scripts/linux/async-listener-native-test.mjs` passed with
   a linked Rust `async fn` listener in the Linux app (`[a1s1]`, then

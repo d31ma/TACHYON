@@ -206,6 +206,7 @@ stays as the history of this decision.
 from SSH in the signed-in desktop session of a Windows 11 ARM64 machine
 (WebView2 Runtime 155.0.4283.62, `docs/SUPPORT_TIERS.md`, "Windows on the
 signed-in desktop, SD1"). The page and a linked Rust service each heard
-`background` and `foreground`. A linked C# listener has not run there yet,
-so the support table keeps the Windows signal `runOwed` and names that run
-(ADR 0102, JS1 amendment).
+`background` and `foreground`. On 2026-10-25 (SW1) a linked C# listener
+heard them there too, so the support table's Windows signal is `honored`
+again (ADR 0102, JS1 amendment; `docs/SUPPORT_TIERS.md`, "Linked services
+in WebView2").

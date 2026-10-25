@@ -334,6 +334,9 @@ On 2026-10-25 (MA2) `TAC_YON_SERVICES=kotlin scripts/native/yon-reach-test.mjs
 hold their stream and socket clients, on the Android 15 emulator, and a linked
 Rust async `@OnEvent` listener ran in the Android app (ADR 0105).
 
-Still owed, in the app (`docs/SUPPORT_TIERS.md`): a linked Rust service's held
-stream, socket and topic clients and a linked Rust async listener inside
-WebView2 (SW1).
+On 2026-10-25 (SW1) `scripts/windows/yon-reach.ps1` held a linked Rust
+service's stream and socket clients from the page inside WebView2 on the
+signed-in Windows desktop, and a linked Rust service heard a topic there;
+`scripts/windows/async-listener-native-test.mjs` ran a linked Rust async
+`@OnEvent` listener in the same app (`docs/SUPPORT_TIERS.md` "Linked
+services in WebView2").
