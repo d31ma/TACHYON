@@ -9,7 +9,7 @@ pub(crate) struct WasmOptimizer {
 
 impl WasmOptimizer {
     const PROGRAM: &'static str = "wasm-opt";
-    const EMSCRIPTEN: &'static str = "emcc";
+    const EMSCRIPTEN_LAUNCHERS: [&'static str; 3] = ["emcc", "emcc.exe", "emcc.bat"];
     const EMSCRIPTEN_BINARYEN: &'static str = "../bin";
     const DEADLINE: Duration = Duration::from_mins(2);
     const OUTPUT_BYTES: usize = 64 * 1024;
@@ -60,6 +60,10 @@ impl WasmOptimizer {
         let folders: Vec<PathBuf> = std::env::var_os("PATH")
             .map(|path| std::env::split_paths(&path).collect())
             .unwrap_or_default();
+        Self::location_in(&folders)
+    }
+
+    fn location_in(folders: &[PathBuf]) -> Option<PathBuf> {
         let on_path = folders
             .iter()
             .map(|folder| Self::program_in(folder))
@@ -67,15 +71,59 @@ impl WasmOptimizer {
         on_path.or_else(|| {
             folders
                 .iter()
-                .filter(|folder| folder.join(Self::EMSCRIPTEN).is_file())
+                .filter(|folder| Self::has_emscripten(folder))
                 .map(|folder| Self::program_in(&folder.join(Self::EMSCRIPTEN_BINARYEN)))
                 .find(|candidate| candidate.is_file())
         })
+    }
+
+    fn has_emscripten(folder: &Path) -> bool {
+        Self::EMSCRIPTEN_LAUNCHERS
+            .iter()
+            .any(|launcher| folder.join(launcher).is_file())
     }
 
     fn program_in(folder: &Path) -> PathBuf {
         folder
             .join(Self::PROGRAM)
             .with_extension(std::env::consts::EXE_EXTENSION)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WasmOptimizer;
+    use std::path::Path;
+
+    fn emsdk_with(launcher: &str) -> tempfile::TempDir {
+        let emsdk = tempfile::tempdir().expect("emsdk");
+        let emscripten = emsdk.path().join("upstream/emscripten");
+        let binaryen = emsdk.path().join("upstream/bin");
+        std::fs::create_dir_all(&emscripten).expect("emscripten folder");
+        std::fs::create_dir_all(&binaryen).expect("binaryen folder");
+        std::fs::write(emscripten.join(launcher), "").expect("launcher");
+        std::fs::write(WasmOptimizer::program_in(&binaryen), "").expect("wasm-opt");
+        emsdk
+    }
+
+    fn found_beside(launcher: &str) -> bool {
+        let emsdk = emsdk_with(launcher);
+        let emscripten = emsdk.path().join("upstream/emscripten");
+        let found = WasmOptimizer::location_in(&[emscripten]);
+        found.is_some_and(|program| program.starts_with(emsdk.path()))
+    }
+
+    #[test]
+    fn binaryen_is_found_beside_each_emscripten_launcher() {
+        for launcher in WasmOptimizer::EMSCRIPTEN_LAUNCHERS {
+            assert!(found_beside(launcher), "{launcher}");
+        }
+    }
+
+    #[test]
+    fn a_folder_without_emscripten_or_binaryen_finds_nothing() {
+        let empty = tempfile::tempdir().expect("empty");
+        assert!(WasmOptimizer::location_in(&[empty.path().to_path_buf()]).is_none());
+        assert!(!WasmOptimizer::has_emscripten(Path::new("/no/such/folder")));
     }
 }

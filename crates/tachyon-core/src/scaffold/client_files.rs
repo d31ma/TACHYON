@@ -7,6 +7,8 @@ impl ClientFiles {
     const SHELL_VIEW: &'static str = "client/components/app/shell/tac.html";
     const SHELL_BRAND: &'static str = "{shell.brand}";
     const PLAIN_BRAND: &'static str = "Tachyon";
+    const ICON_PATH: &'static str = "client/shared/assets/icon.svg";
+    const ICON: &'static str = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\">\n  <rect width=\"64\" height=\"64\" rx=\"14\" fill=\"#1d4ed8\"/>\n  <path d=\"M18 18h28v8H36v22h-8V26H18z\" fill=\"#e2e8f0\"/>\n</svg>\n";
 
     pub(crate) fn for_choices(app_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         let javascript_name = AppName::javascript_literal(app_name);
@@ -122,7 +124,7 @@ impl ClientFiles {
                     ":root {\n  color-scheme: dark;\n}\nbody { margin: 0; font-family: \"IBM Plex Sans\", ui-sans-serif, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }\n",
                 ),
             ),
-            ("client/shared/assets/.gitkeep", String::new()),
+            (Self::ICON_PATH, String::from(Self::ICON)),
             ("client/shared/data/.gitkeep", String::new()),
             (
                 "client/components/app/shell/tac.css",
@@ -156,7 +158,7 @@ impl ClientFiles {
             String::new()
         };
         format!(
-            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {{\n    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}{python}\n  }}\n}}\n"
+            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"icons\": [{{\"src\": \"/shared/assets/icon.svg\", \"sizes\": \"any\", \"type\": \"image/svg+xml\"}}],\n  \"tac\": {{\n    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}{python}\n  }}\n}}\n"
         )
     }
 

@@ -101,6 +101,24 @@ fn generated_shell_document_title_builds_without_a_browser_permission_grant() {
 }
 
 #[test]
+fn generated_page_links_its_own_icon_so_browsers_do_not_ask_for_a_favicon() {
+    let (_root, app) = generated(&ProjectChoices::defaults());
+    let built = crate::WebCompiler::build(&app, &crate::BuildOptions::default())
+        .expect("generated scaffold builds");
+    let html =
+        fs::read_to_string(built.output_directory().join("index.html")).expect("generated page");
+    assert!(
+        html.contains(
+            r#"<link rel="icon" href="/shared/assets/icon.svg" type="image/svg+xml" sizes="any">"#
+        ),
+        "{html}"
+    );
+    let icon = fs::read_to_string(built.output_directory().join("shared/assets/icon.svg"))
+        .expect("published icon");
+    assert!(icon.starts_with("<svg "), "{icon}");
+}
+
+#[test]
 fn each_realm_has_a_jsconfig_that_reads_its_composed_types() {
     let root = tempfile::tempdir().expect("workspace");
     let target = root.path().join("app");

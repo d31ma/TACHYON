@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { BrandedUnsupported } from './webdriver-browser.mjs'
+import { ShareSheet } from './share-sheet.mjs'
 
 /**
  * Chrome on an Android emulator or device, reached over adb and the Chrome DevTools protocol
@@ -21,6 +22,7 @@ export class AndroidChrome {
   static pageOptions = [...AndroidChrome.mediaOptions, 'locale', 'timezoneId', 'viewport', 'extraHTTPHeaders', 'userAgent']
   static contextOptions = ['permissions', 'geolocation', 'offline']
   static deviceOptions = { hasTouch: true, isMobile: true }
+  static shareSheetWindows = ['ChooserActivity', 'ResolverActivity']
 
   /** @param {string[]} args */
   static async adb(args) {
@@ -120,8 +122,23 @@ export class AndroidChrome {
     if (options.userAgent || options.locale) await session.send('Emulation.setUserAgentOverride', { userAgent, acceptLanguage: options.locale })
   }
 
+  /**
+   * The system share sheet waits for a person; pressing Back closes it, as a person would, and
+   * Chrome then rejects navigator.share() with an AbortError. Back is pressed only while the sheet
+   * has the focus, so it never moves the page back.
+   */
+  static async closeShareSheet() {
+    const focus = await AndroidChrome.adb(['shell', 'dumpsys', 'window', 'windows'])
+    const focused = focus.split('\n').find((line) => line.includes('mCurrentFocus')) ?? ''
+    const sheet = AndroidChrome.shareSheetWindows.some((name) => focused.includes(name))
+    console.error(`branded: navigator.share() was still waiting after ${ShareSheet.closeMilliseconds} ms; ${sheet ? 'pressing Back on the Android share sheet' : `no share sheet has the focus (${focused.trim()}), so it was closed for the person with an AbortError`}`)
+    if (sheet) await AndroidChrome.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK'])
+    return sheet
+  }
+
   /** @param {import('playwright').Page} page */
-  page(page) {
+  async page(page) {
+    await ShareSheet.install(page, AndroidChrome.closeShareSheet)
     this.opened.add(page)
     const goto = page.goto.bind(page)
     page.goto = async (url, options) => {
@@ -150,7 +167,7 @@ export class AndroidChrome {
   async own(context) {
     await this.route(context)
     const newPage = context.newPage.bind(context)
-    context.newPage = async () => this.page(await newPage())
+    context.newPage = async () => await this.page(await newPage())
     return context
   }
 
@@ -169,7 +186,7 @@ export class AndroidChrome {
     /** @type {Set<import('playwright').Page>} */
     const pages = new Set()
     const newPage = async () => {
-      const page = this.page(await context.newPage())
+      const page = await this.page(await context.newPage())
       pages.add(page)
       page.once('close', () => pages.delete(page))
       await AndroidChrome.applyPageOptions(page, options)

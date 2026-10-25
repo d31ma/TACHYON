@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AndroidChrome } from './android-chrome.mjs'
+import { ShareSheet } from './share-sheet.mjs'
 import { BrandedBrowser, BrandedUnsupported } from './webdriver-browser.mjs'
 
 /**
@@ -16,8 +17,8 @@ class BrandedLaunch {
   static webkitDriver = process.env.TAC_BRANDED_WEBKIT_BROWSER ?? '/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/MiniBrowser'
 
   static plans = {
-    chrome: { engine: 'chromium', label: 'Google Chrome', channel: 'chrome', launch: (type, options) => type.launch({ ...options, channel: 'chrome' }) },
-    msedge: { engine: 'chromium', label: 'Microsoft Edge', channel: 'msedge', launch: (type, options) => type.launch({ ...options, channel: 'msedge' }) },
+    chrome: { engine: 'chromium', label: 'Google Chrome', channel: 'chrome', closeShareSheet: ShareSheet.withoutSheet('Google Chrome'), launch: (type, options) => type.launch({ ...options, channel: 'chrome' }) },
+    msedge: { engine: 'chromium', label: 'Microsoft Edge', channel: 'msedge', closeShareSheet: ShareSheet.withoutSheet('Microsoft Edge'), launch: (type, options) => type.launch({ ...options, channel: 'msedge' }) },
     'android-chrome': { engine: 'chromium', label: 'Chrome on Android', launch: (type, options) => AndroidChrome.launch(type, options) },
     safari: {
       engine: 'webkit',
@@ -71,6 +72,17 @@ class BrandedLaunch {
     return browser
   }
 
+  /** @param {import('playwright').Browser} browser @param {() => Promise<boolean>} close */
+  static closeShareSheets(browser, close) {
+    const newContext = browser.newContext.bind(browser)
+    browser.newContext = async (options) => {
+      const context = await newContext(options)
+      await ShareSheet.install(context, close)
+      return context
+    }
+    return browser
+  }
+
   static install() {
     const name = process.env.TAC_BRANDED_BROWSER ?? ''
     const plan = BrandedLaunch.plans[name]
@@ -101,6 +113,7 @@ class BrandedLaunch {
         const browser = await plan.launch({ launch, connectOverCDP: type.connectOverCDP.bind(type) }, options)
         BrandedLaunch.record(name, browser)
         if (plan.engine === 'chromium') BrandedLaunch.traceFailures(browser)
+        if (plan.closeShareSheet) BrandedLaunch.closeShareSheets(browser, plan.closeShareSheet)
         return browser
       }
     }

@@ -2139,6 +2139,22 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Release builds on Windows now find Binaryen's `wasm-opt` beside
+  Emscripten (BR2, 2026-10-25). emsdk's launcher there is `emcc.exe` (or
+  `emcc.bat`), and `ty` looked only for `emcc`, so Swift, Kotlin, Java,
+  Rust and Go WebAssembly shipped unoptimized and `ty doctor` said
+  `wasm-opt` was missing. With every language, the window-controls route
+  was 4070 KB against the 3584 KB WebAssembly budget (TY1337).
+- `ty init` gives the web app an icon (BR2, 2026-10-25):
+  `client/shared/assets/icon.svg`, named in `client/manifest.json`, so each
+  page links it. Branded Chrome and Edge no longer ask for `/favicon.ico`
+  and log its 404 as a console error on a new app.
+- Branded browser runs close the system share sheet for the person (BR2,
+  2026-10-25, `scripts/branded/share-sheet.mjs`). `navigator.share()`
+  settles only when a person answers the sheet: Chrome on Android now
+  presses Back on the real sheet, and headless Chrome and Edge, which show
+  no sheet, answer with the same `AbortError` after 2 seconds.
+
 - A linked Kotlin service on Android read event and client models with
   their values swapped when the model's fields were not in alphabetical
   order (MA2, 2026-10-25). The companion filled the constructor in the
