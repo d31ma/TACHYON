@@ -1441,8 +1441,18 @@ and `runtime` passed. `web-apis` (the share sheet) and `component-scope`
 (`2.66667px`) failed for the same causes, `website` and `preview-offline`
 were unsupported, and `storage` was left out.
 
-Safari on macOS, and Edge and Chrome on the Windows desktop, are still owed
-(row "Web" above).
+Safari on macOS (2026-10-25, macOS 26.6.2, Safari 27.0 (21625.1.29.18.28)
+through `safaridriver`, user agent `Macintosh; Intel Mac OS X 10_15_7 ...
+Version/27.0`, release `ty` from develop `86680eaa`, every language
+toolchain on PATH, Java included): the adapter check, `page-program` (C++,
+C#, Dart, F#, Go, Java, JavaScript, Kotlin, Rust and Swift services),
+`async-listener`, `held-clients`, `cached-client`, `component-scope`,
+`logic-controls`, `scaffold` and `yon-reads` passed, 9 of 9. WebDriver
+clicks and typing reached the pages directly; the adapter never fell back
+to `element.click()` or a scripted fill. `window-controls`, `storage`,
+`svg-namespace`, `authored-node` and `preview-offline` were left out (calls
+WebDriver cannot make, above). Edge and Chrome on the Windows desktop are
+still owed (row "Web" above).
 
 ### Linked services share one program (2026-10-24, LS2)
 
