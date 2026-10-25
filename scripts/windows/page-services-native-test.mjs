@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { PageServicesFixture } from '../native/page-services-fixture.mjs'
 import { WindowsGate } from './windows-gate.mjs'
@@ -8,6 +10,7 @@ class WindowsPageServicesTest {
   static serviceLanguages = PageServicesFixture.list('TAC_WINDOWS_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
   static windowCallers = PageServicesFixture.list('TAC_WINDOWS_WINDOW_CALLERS', 'swift,cs,kt,rs')
   static pickerCallers = PageServicesFixture.list('TAC_WINDOWS_PICKER_CALLERS', process.env.TAC_SWIFT_WASM_SDK ? 'js,kt,cs,rs,swift' : 'js,kt,cs,rs')
+  static storedField = process.env.TAC_WINDOWS_STORED_FIELD !== 'false'
   static nativeLanguages = ['rs', 'cs']
   static pageLanguages = ['js', 'ts']
   static callerFolders = { cs: 'native' }
@@ -42,6 +45,17 @@ class WindowsPageServicesTest {
     console.log(`==> ${language} ${this.kind(language)} page service (built in ${built} s)\n${output}`)
   }
 
+  /** @param {string} ty */
+  static async checkStoredField(ty) {
+    const project = path.join(this.root, 'stored-field')
+    const application = PageServicesFixture.stageStoredField(project)
+    await WindowsGate.build(ty, project, 900_000)
+    const companion = path.join(path.dirname(WindowsGate.executable(project, application)), 'TachyonRustCompanion.dll')
+    assert.ok(existsSync(companion), `the Rust service is not linked into the Windows app: no ${companion}`)
+    const output = await this.drive(project, application, PageServicesFixture.storedFieldSteps)
+    console.log(`==> a linked Rust service's @LocalState field, set by its own method, after a page reload\n${output}`)
+  }
+
   /** @param {string} ty @param {string} language */
   static async checkWindowCaller(ty, language) {
     const project = path.join(this.root, `window-${language}`)
@@ -74,7 +88,8 @@ class WindowsPageServicesTest {
     for (const language of this.serviceLanguages) await this.checkService(ty, language)
     for (const language of this.windowCallers) await this.checkWindowCaller(ty, language)
     for (const language of this.pickerCallers) await this.checkPickerCaller(ty, language)
-    console.log(`PASS: page services (${this.serviceLanguages.join(', ')}) answered in the built Windows app (WebView2; C# is linked natively, the others run as WebAssembly), WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, and FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog.`)
+    if (this.storedField) await this.checkStoredField(ty)
+    console.log(`PASS: page services (${this.serviceLanguages.join(', ')}) answered in the built Windows app (WebView2; C# is linked natively, the others run as WebAssembly), WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog, and ${this.storedField ? 'a linked Rust service\'s @LocalState field survived a page reload' : 'the stored field check was skipped'}.`)
   }
 }
 

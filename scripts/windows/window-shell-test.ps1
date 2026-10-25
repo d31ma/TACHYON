@@ -190,6 +190,84 @@ export default class FullWindowService {
 '@
 }
 
+function Write-PageFixture([string] $root) {
+    Write-FixtureFile $root 'client/manifest.json' @'
+{
+  "name": "Shell Page",
+  "start_url": "/",
+  "background_color": "#1565c0",
+  "tac": {
+    "application": {
+      "id": "dev.tachyon.shell-page",
+      "version": "0.0.1",
+      "window": { "width": 760, "height": 720, "controls": ["title"] }
+    },
+    __CHECKS__
+  }
+}
+'@
+    Write-FixtureFile $root 'client/pages/tac.html' "<scope-inside hydrate=`"load`" />`n<scope-outside />`n<late-window hydrate=`"load`" />`n"
+    Write-FixtureFile $root 'client/components/scope/inside/tac.css' @'
+.mark { margin: 8px 16px; padding: 12px 24px; background: rgb(200, 30, 120); color: rgb(255, 255, 255); }
+'@
+    Write-FixtureFile $root 'client/components/scope/inside/tac.html' @'
+<p class="mark" data-side="inside">Inside mark</p>
+<button on:click="scopeReport.read()">Read styles</button>
+<p>Inside style {scopeReport.inside}</p>
+<p>Outside style {scopeReport.outside}</p>
+<p>Engine {scopeReport.engine}</p>
+'@
+    Write-FixtureFile $root 'client/components/scope/outside/tac.html' @'
+<p class="mark" data-side="outside">Outside mark</p>
+'@
+    Write-FixtureFile $root 'client/components/late/window/tac.html' @'
+<button on:click="lateWindow.renamePastTheLimit()">Rename past the host limit</button>
+<p>Late problem {lateWindow.problem}</p>
+<p>Late heard {lateWindow.heard}</p>
+'@
+    Write-FixtureFile $root 'client/services/ScopeReportService.js' @'
+@Service
+export default class ScopeReportService {
+  inside = 'unread';
+  outside = 'unread';
+  engine = 'unread';
+
+  read() {
+    const background = (side) => getComputedStyle(document.querySelector(`[data-side="${side}"]`)).backgroundColor;
+    this.inside = background('inside');
+    this.outside = background('outside');
+    this.engine = navigator.userAgent.match(/Edg\/(\d+)/)?.[1] ?? 'unknown';
+  }
+}
+'@
+    Write-FixtureFile $root 'client/services/LateWindowService.js' @'
+@Service
+export default class LateWindowService {
+  /** @type {TacWindowControls} */
+  @Needs
+  windowControls;
+  problem = 'none';
+  heard = 'nothing';
+
+  static LONG_TITLE = 'x'.repeat(600);
+
+  renamePastTheLimit() {
+    try {
+      this.windowControls.setTitle(LateWindowService.LONG_TITLE);
+    } catch (refusal) {
+      this.problem = /** @type {Error} */ (refusal).message;
+    }
+  }
+
+  /** @param {BrowserCallFailed} failed */
+  @OnEvent
+  hearFailure(failed) {
+    this.heard = `${failed.api}.${failed.call}: ${failed.message}`;
+  }
+}
+'@
+}
+
 function Get-DragPoint {
     return (Get-Center (Wait-Named @('Drag area')))
 }
@@ -486,6 +564,76 @@ function Test-FullscreenStart([string] $fixture) {
     }
 }
 
+function Get-ElementBox([string] $name) {
+    $box = (Wait-Named @($name)).Current.BoundingRectangle
+    Assert-That (-not $box.IsEmpty -and $box.Width -gt 0) "the element '$name' has no place on the screen"
+    return [pscustomobject]@{ Left = [int]$box.Left; Top = [int]$box.Top; Right = [int]$box.Right; Bottom = [int]$box.Bottom }
+}
+
+function Test-PageBackdrop {
+    [TachyonDesktop]::Place($script:window, 120, 140)
+    Show-AppWindow
+    Start-Sleep -Milliseconds 800
+    $shot = Save-WindowShot 'page-backdrop'
+    try {
+        $client = [TachyonDesktop]::ClientBox($script:window)
+        $top = (Get-ElementBox 'Late heard nothing').Bottom + 24
+        Assert-That (($client.Bottom - 16) - $top -ge 40) "the page content reaches the bottom of the window ($top of $($client.Bottom)), leaving no empty page to sample"
+        $sample = Measure-Color $shot ($client.Left + 24) $top ($client.Right - 24) ($client.Bottom - 16) @(21, 101, 192) 20
+        Assert-That ($sample.Share -ge 0.9) ("only {0:P0} of the empty page pixels match background_color #1565c0; their average is {1}" -f $sample.Share, $sample.Average)
+        Write-Host ("OK: {0:P0} of {1} sampled pixels below the page content match background_color #1565c0 (average {2}): WebView2 paints the declared backdrop behind a page without its own background" -f $sample.Share, $sample.Total, $sample.Average)
+    }
+    finally { $shot.Bitmap.Dispose() }
+}
+
+function Test-ScopedStyle {
+    Invoke-Named 'Read styles'
+    $inside = Wait-Matching '^Inside style rgb' 10
+    $outside = Wait-Matching '^Outside style rgb' 10
+    $engine = Wait-Matching '^Engine \d+$' 10
+    Assert-That ($inside -eq 'Inside style rgb(200, 30, 120)') "the component tac.css rule does not apply inside its component: '$inside'"
+    Assert-That ($outside -ne 'Outside style rgb(200, 30, 120)') "the component tac.css rule leaks into another component: '$outside'"
+    $version = [int]($engine -replace '^Engine ', '')
+    Assert-That ($version -ge 118) "the WebView2 Runtime is $version, below the 118 floor for component styles (ADR 0108)"
+    Show-AppWindow
+    $shot = Save-WindowShot 'scoped-style'
+    try {
+        $mark = Get-ElementBox 'Inside mark'
+        $other = Get-ElementBox 'Outside mark'
+        $styled = Measure-Color $shot $mark.Left $mark.Top $mark.Right $mark.Bottom @(200, 30, 120) 24
+        $plain = Measure-Color $shot $other.Left $other.Top $other.Right $other.Bottom @(200, 30, 120) 24
+        Assert-That ($styled.Share -ge 0.5) ("only {0:P0} of the inside mark's pixels have the component colour rgb(200, 30, 120); their average is {1}" -f $styled.Share, $styled.Average)
+        Assert-That ($plain.Share -le 0.02) ("{0:P0} of the outside mark's pixels have the component colour; their average is {1}" -f $plain.Share, $plain.Average)
+        Write-Host ("OK: on WebView2 {0}, a component tac.css rule gave its own .mark the background rgb(200, 30, 120) ({1:P0} of its pixels) and a .mark in another component kept '{2}' ({3:P0} of its pixels, average {4})" -f
+            $version, $styled.Share, ($outside -replace '^Outside style ', ''), $plain.Share, $plain.Average)
+    }
+    finally { $shot.Bitmap.Dispose() }
+}
+
+function Test-LateRefusal {
+    $before = [TachyonDesktop]::TitleOf($script:window)
+    Invoke-Named 'Rename past the host limit'
+    $heard = Wait-Matching '^Late heard windowControls\.' 10
+    Assert-That ($heard -eq 'Late heard windowControls.setTitle: Invalid window title.') "the service heard '$heard'"
+    $problem = Wait-Matching '^Late problem ' 5
+    Assert-That ($problem -eq 'Late problem none') "the call failed at once instead of after it started: '$problem'"
+    Assert-Running
+    $after = [TachyonDesktop]::TitleOf($script:window)
+    Assert-That ($after -eq $before) "the refused title changed the window title from '$before' to '$after'"
+    Write-Host "OK: a granted setTitle with a 600-character title passed the page check, the host refused it (titles hold at most 512 UTF-16 units), and the service heard BrowserCallFailed windowControls.setTitle 'Invalid window title.'; the title stayed '$before'"
+}
+
+function Test-PageWindow([string] $fixture) {
+    Start-GateApp (Get-AppExecutable $fixture 'ShellPage') 'dev.tachyon.shell-page'
+    Test-Check 'the page renders' {
+        Wait-Named @('Inside mark', 'Outside mark', 'Read styles', 'Late heard nothing') | Out-Null
+        Write-Host 'OK: the page rendered in WebView2'
+    }
+    Test-Check 'background_color is the page backdrop' { Test-PageBackdrop }
+    Test-Check 'a component style stays inside its component' { Test-ScopedStyle }
+    Test-Check 'a window control refused after the call started is heard as BrowserCallFailed' { Test-LateRefusal }
+}
+
 function Test-ArchitectureBuild([string] $fixture, [string] $wanted) {
     $executable = Get-AppExecutable $fixture 'ShellCaption'
     $machines = @{ 'x64' = 0x8664; 'arm64' = 0xAA64 }
@@ -527,7 +675,8 @@ function Invoke-WindowShellGate {
     Invoke-GateApp 'Shell Bar' ${function:Write-BarFixture} $ty 'native' ${function:Test-IntegratedTitleBar}
     Invoke-GateApp 'Shell Caption' ${function:Write-CaptionFixture} $ty 'native' ${function:Test-CaptionWindow}
     Invoke-GateApp 'Shell Full' ${function:Write-FullFixture} $ty 'native' ${function:Test-FullscreenStart}
-    Complete-Gate 'integrated title bar, caption colour, fullscreen start, default menus and page window controls in WebView2'
+    Invoke-GateApp 'Shell Page' ${function:Write-PageFixture} $ty 'native' ${function:Test-PageWindow}
+    Complete-Gate 'integrated title bar, caption colour, fullscreen start, default menus, page window controls, the background_color backdrop, a component-scoped style and a late window-control refusal in WebView2'
 }
 
 Invoke-WindowShellGate
