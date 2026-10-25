@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
@@ -14,13 +14,19 @@ assert.equal(process.platform, 'darwin', 'The iOS window settings check needs ma
 class IosWindowSettingsGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   static root = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-window-'));
-  static deviceSet = path.join(IosWindowSettingsGate.root, 'simulator-devices');
+  static chosenDevices = { iPhone: process.env.TAC_IOS_DEVICE ?? '', iPad: process.env.TAC_IOS_TABLET_DEVICE ?? '' };
+  static deviceSet = process.env.TAC_IOS_DEVICE_SET ??
+    (IosWindowSettingsGate.chosenDevices.iPhone || IosWindowSettingsGate.chosenDevices.iPad
+      ? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices')
+      : path.join(IosWindowSettingsGate.root, 'simulator-devices'));
+  static installMilliseconds = 900000;
   static appId = 'dev.tachyon.window-settings';
   static refusalId = 'dev.tachyon.window-refusal';
   static reader = path.join(IosWindowSettingsGate.root, 'screenshot-text');
   static evidence = process.env.TAC_IOS_WINDOW_EVIDENCE ?? path.join(IosWindowSettingsGate.repo, 'target/ios-window-settings-evidence');
   static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? '';
   static devices = [];
+  static usedDevices = [];
   static styles = { default: 0, lightContent: 1, darkContent: 3 };
   static apps = {
     standard: {
@@ -42,6 +48,10 @@ class IosWindowSettingsGate {
 
   static simctl(...args) {
     return IosWindowSettingsGate.run('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, ...args]);
+  }
+
+  static slowSimctl(...args) {
+    return IosWindowSettingsGate.run('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, ...args], IosWindowSettingsGate.installMilliseconds);
   }
 
   static pause(milliseconds) {
@@ -189,8 +199,28 @@ final class WindowProbeService {
     return !wanted || version === wanted || version.startsWith(wanted + '.');
   }
 
+  static useBooted(device, family, runtimes) {
+    const { simctl, deviceSet } = IosWindowSettingsGate;
+    const devices = JSON.parse(simctl('list', 'devices', '--json')).devices;
+    const [identifier, found] = Object.entries(devices)
+      .map(([key, list]) => [key, list.find(item => item.udid === device)])
+      .find(([, item]) => item) ?? [];
+    assert.ok(found, `${family} device ${device} is not in the device set ${deviceSet}`);
+    assert.equal(found.state, 'Booted', `${family} device ${device} must already be booted`);
+    const runtime = runtimes.find(item => item.identifier === identifier);
+    assert.ok(runtime && IosWindowSettingsGate.chosenVersion(runtime.version), `${family} device ${device} runs ${identifier}, not iOS ${IosWindowSettingsGate.runtimeVersion}`);
+    const types = JSON.parse(simctl('list', 'devicetypes', '--json')).devicetypes;
+    assert.equal(types.find(item => item.identifier === found.deviceTypeIdentifier)?.productFamily, family, `device ${device} must be an ${family}`);
+    IosWindowSettingsGate.usedDevices.push(device);
+    console.log(`Using booted ${found.name} with iOS ${runtime.version}...`);
+    return device;
+  }
+
   static boot(deviceName, family) {
     const { simctl, run, deviceSet } = IosWindowSettingsGate;
+    if (IosWindowSettingsGate.chosenDevices[family]) {
+      return IosWindowSettingsGate.useBooted(IosWindowSettingsGate.chosenDevices[family], family, JSON.parse(simctl('list', 'runtimes', '--json')).runtimes);
+    }
     const runtime = JSON.parse(simctl('list', 'runtimes', '--json')).runtimes
       .filter(item => item.isAvailable && item.identifier.includes('.iOS-') && IosWindowSettingsGate.chosenVersion(item.version))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0];
@@ -210,8 +240,8 @@ final class WindowProbeService {
   static async launch(device, bundle, name) {
     const { simctl, appId, pause } = IosWindowSettingsGate;
     spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, 'uninstall', device, appId], { stdio: 'ignore', timeout: 60000 });
-    simctl('install', device, bundle);
-    simctl('launch', device, appId);
+    IosWindowSettingsGate.slowSimctl('install', device, bundle);
+    IosWindowSettingsGate.slowSimctl('launch', device, appId);
     const proof = path.join(simctl('get_app_container', device, appId, 'data'), 'Documents/window-probe.json');
     for (let attempt = 0; attempt < 120 && !existsSync(proof); attempt++) await pause(250);
     assert.ok(existsSync(proof), `the ${name} app must record its window probe`);
@@ -341,8 +371,8 @@ final class WindowProbeService {
   static async checkLaunchScreen(device, bundle, native) {
     const { simctl, appId, pause, rowShare, readPng, root, keep } = IosWindowSettingsGate;
     spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, 'uninstall', device, appId], { stdio: 'ignore', timeout: 60000 });
-    simctl('install', device, bundle);
-    const launched = simctl('launch', '--wait-for-debugger', device, appId);
+    IosWindowSettingsGate.slowSimctl('install', device, bundle);
+    const launched = IosWindowSettingsGate.slowSimctl('launch', '--wait-for-debugger', device, appId);
     const pid = Number(launched.match(/:\s*(\d+)\s*$/)?.[1]);
     const proof = path.join(simctl('get_app_container', device, appId, 'data'), 'Documents/window-probe.json');
     const statusRow = (native.safeTop - 3) * native.scale;
@@ -384,8 +414,8 @@ final class WindowProbeService {
   static async checkRefusal(device, bundle) {
     const { simctl, refusalId, pause, root, run, reader, squeeze, keep } = IosWindowSettingsGate;
     const { invalid, oversized } = PageServicesFixture.refusedTitles;
-    simctl('install', device, bundle);
-    simctl('launch', device, refusalId);
+    IosWindowSettingsGate.slowSimctl('install', device, bundle);
+    IosWindowSettingsGate.slowSimctl('launch', device, refusalId);
     let shown = '';
     try {
       for (let attempt = 0; attempt < 90 && !squeeze(shown).includes('finished'); attempt++) {
@@ -408,12 +438,15 @@ final class WindowProbeService {
         spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' });
       }
     }
+    for (const device of IosWindowSettingsGate.usedDevices) {
+      spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, 'uninstall', device, IosWindowSettingsGate.appId], { timeout: 60000, stdio: 'ignore' });
+    }
     rmSync(IosWindowSettingsGate.root, { recursive: true, force: true });
   }
 
   static async main() {
     try {
-      mkdirSync(IosWindowSettingsGate.deviceSet);
+      mkdirSync(IosWindowSettingsGate.deviceSet, { recursive: true });
       const binary = IosWindowSettingsGate.binary();
       const bundles = Object.fromEntries(Object.keys(IosWindowSettingsGate.apps).map(name => [name, IosWindowSettingsGate.build(binary, name)]));
       const refusal = IosWindowSettingsGate.buildRefusal(binary);
