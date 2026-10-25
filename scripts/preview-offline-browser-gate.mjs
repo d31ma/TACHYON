@@ -142,6 +142,7 @@ class PreviewOfflineGate {
     const server = createServer((_incoming, outgoing) => outgoing.writeHead(405).end())
     server.on('connect', (incoming, socket, head) => {
       if (!incoming.url?.startsWith(`${PreviewOfflineGate.host}:`)) {
+        socket.on('error', () => socket.destroy())
         socket.end('HTTP/1.1 403 Forbidden\r\n\r\n')
         return
       }
