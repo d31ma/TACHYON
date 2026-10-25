@@ -1536,7 +1536,7 @@ naming the run that would move it back:
 | `tac.nativeCapabilities` filePicker, macOS | C# and Kotlin fields in `NSOpenPanel` (FP5) | none: a linked Rust field ran in `NSOpenPanel` (MA1, below), so the cell is `honored` again |
 | `tac.nativeCapabilities` filePicker, Windows | the MSVC dialog test (SD1); page, linked C# and WebAssembly Kotlin fields from a WebView2 page (FP5) | linked Rust (it ran only under Wine) and WebAssembly Swift fields from a WebView2 page (SW1, SW3) |
 | `tac.go`, macOS and Android | a Go service in the macOS app (MA1) and on the emulator (MA2, below), so both are `honored` again | none |
-| `tac.browserApis` geolocation, macOS | the location prompt with the manifest reason, answered Don't Allow (RM1) | a position reaching the page after Allow (MA3) |
+| `tac.browserApis` geolocation, macOS | the location prompt with the manifest reason, answered Don't Allow (RM1) | none: the prompt was allowed and a position reached the page (MA3, below), so the cell is `honored` again |
 | background and foreground signal, Windows | the page and a linked Rust service (SD1) | a linked C# listener (SW1) |
 | reaching Yon, Windows | HTTP from the page and linked Rust and C# services, and a linked C# service's held stream and socket clients (NET3, LS1) | a linked Rust service's held stream and socket clients in `scripts/windows/yon-reach.ps1` (SW1) |
 
@@ -1615,6 +1615,50 @@ The Android `tac.application.rust`, `tac.dotnet` and `tac.go` cells are
 An app whose only HTTP client uses a page adapter still needs a
 `tac.yon.origin` to build (TY1601), so the shared Setup fixture declares one
 it never calls.
+
+### Page checks on macOS, iOS and Android (2026-10-25, MA3)
+
+The page-check gates gained the steps the survey of `4243f2b6` found
+missing. They ran on the Mac (macOS 26.6.2 25G83, Xcode 27.1 27A9275, iOS
+26.5 simulator runtime 23F77 on an iPhone 17 Pro, the `tachyon-gate`
+emulator image `sdk_gphone64_arm64` Android 15 API 35 AE3A.240806.043 with
+Android System WebView 124.0.6367.219), on branch `b70dcc31`:
+
+- `scripts/native/page-checks-macos-test.mjs` passed in 17 s. A
+  `@SessionState` field was kept across a navigation to another page and
+  back, and was gone after a quit and restart. The `_param` route
+  `/items/7/` opened in the packaged app with its own linked Swift service:
+  the root count was set to 7 (doubled 14 by Swift), the item route started
+  at 0 and was set to 9 (doubled 18), and back on the root a fresh owner
+  started at 0 and was set to 7 again. A `@LocalState` field set by a Swift
+  method was read after `location.reload()` and after a quit and restart.
+- `scripts/native/geolocation-macos-test.mjs` (new) passed in 8 s. The app's
+  `Info.plist` carried the manifest location reason, the CoreLocation prompt
+  (shown by CoreLocationAgent) was allowed by the gate through the
+  Accessibility API, and a position with latitude and longitude in range
+  reached the page through `PositionFound`. The gate does not print the
+  position. Each run uses a new bundle id, so System Settings keeps one
+  Location Services entry per run.
+- `scripts/ios/page-checks-test.mjs` passed in 149 s. A `@SessionState`
+  field was kept across a navigation to `/other/` and back, and was gone
+  after a terminate and relaunch. With the simulator device set inside an
+  APFS disk image on an external volume, the gate failed at its first
+  external link ("Tac native call timed out" after Safari opened), the same
+  way the script from before this change did; with the device set on the
+  internal disk, as in RM2, it passed.
+- `scripts/android/page-checks-test.mjs` passed in 46 s. `connect-src`
+  refused a page fetch to `http://localhost:<port>`, a host outside
+  `tac.outgoing.hosts` that `adb reverse` would have reached, with a
+  `securitypolicyviolation`, and that host saw no request while the Yon
+  origin answered. A component `tac.css` rule coloured an output inside its
+  component and not an output in another component, and the build printed
+  the WebView 118 style note (ADR 0108). A `@SessionState` field was kept
+  across a navigation and was gone after a relaunch. External links must
+  stay the last page step: the host cancels a tapped external link's
+  navigation, and Playwright then waits on it before every later click.
+
+The macOS geolocation cell is `honored` again, and the Android
+`tac.outgoing` note records the refusal run.
 
 ## Historical Phase 5 Native Target Status
 

@@ -142,7 +142,7 @@ tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Android app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  adapted: The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host.
+  adapted: The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host. On the Android 15 emulator, connect-src refused a page fetch to a host outside the list, and that host saw no request (MA3, scripts/android/page-checks-test.mjs).
 
 tac.yon
   honored: the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator, also on its Google Play production image (ADR 0103)

@@ -413,7 +413,7 @@
     "member": "tac.browserApis geolocation",
     "paths": ["tac.browserApis[geolocation]"],
     "web": {"reach": "honored", "how": "navigator.geolocation"},
-    "macos": {"reach": "runOwed", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; a page request opened the location prompt with that reason on macOS 26, and it was answered Don't Allow (RM1)", "run": "a position reaching the page after the macOS location prompt is allowed"},
+    "macos": {"reach": "honored", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; on macOS 26.6 the location prompt was answered Allow and a position reached the page through PositionFound (MA3, scripts/native/geolocation-macos-test.mjs)"},
     "windows": {"reach": "honored", "how": "the web view's navigator.geolocation and the Windows location service, granted by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied (SD1)"},
     "linux": {"reach": "honored", "how": "the web view's navigator.geolocation through GeoClue, which the host permits for the app's own pages (LX1 ran GeoClue 2.7 with a GPS fix and its agent)"},
     "ios": {"reach": "honored", "how": "CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; the page got the simulated position on the iOS 26.5 simulator (RM2)"},
@@ -477,7 +477,7 @@
     "windows": {"reach": "honored", "how": "the build checks request hosts and the resource handler's connect-src allows only them; a page fetch to an undeclared host was refused and the host saw no request (SD1)"},
     "linux": {"reach": "honored", "how": "the build checks request hosts and the scheme handler's connect-src allows only them"},
     "ios": {"reach": "honored", "how": "the build checks request hosts and the scheme handler's connect-src allows only them; a page fetch to an undeclared host was refused on the iOS 26.5 simulator (RM2)"},
-    "android": {"reach": "adapted", "note": "The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host."}
+    "android": {"reach": "adapted", "note": "The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host. On the Android 15 emulator, connect-src refused a page fetch to a host outside the list, and that host saw no request (MA3, scripts/android/page-checks-test.mjs)."}
   },
   {
     "member": "tac.yon",

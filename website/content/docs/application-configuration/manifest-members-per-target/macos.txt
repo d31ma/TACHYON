@@ -124,7 +124,7 @@ tac.browserApis notifications
   honored: UNUserNotificationCenter through the host bridge (browserApi.notifications), also shown while the app is in front
 
 tac.browserApis geolocation
-  run owed: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; a page request opened the location prompt with that reason on macOS 26, and it was answered Don't Allow (RM1); still to run: a position reaching the page after the macOS location prompt is allowed
+  honored: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; on macOS 26.6 the location prompt was answered Allow and a position reached the page through PositionFound (MA3, scripts/native/geolocation-macos-test.mjs)
 
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk

@@ -212,3 +212,8 @@ ran and what is still owed for each.
 On 2026-10-25 (MA1) C# and Kotlin WebAssembly window-control callers, a
 linked Rust file picker field and a Go service ran in the macOS app, so the
 macOS window controls, file picker and `tac.go` cells are `honored` again.
+
+On 2026-10-25 (MA3) the macOS location prompt was allowed and a position
+reached the page through `PositionFound`
+(`scripts/native/geolocation-macos-test.mjs`), so the macOS geolocation
+cell is `honored` again.

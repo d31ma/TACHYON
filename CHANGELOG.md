@@ -51,6 +51,18 @@ machine contracts have their own, independent major versions.
   (`TAC_LINUX_STORED_FIELD`). All passed in an x86_64 cloud container and on
   WSL aarch64; the Linux `tac.dotnet` cell is `honored`.
 
+- Page checks on macOS, iOS and Android (MA3, 2026-10-25): the page-check
+  gates now keep a `@SessionState` field across a navigation (the shared
+  step in `scripts/native/page-checks-fixture.mjs`). The macOS gate also
+  opens the `_param` route `/items/7/` with per-route Swift state and reads
+  a Swift-set `@LocalState` field after a reload. The Android gate checks
+  the `connect-src` refusal of an undeclared host and a component style that
+  stays inside its component. The new
+  `scripts/native/geolocation-macos-test.mjs` allows the CoreLocation prompt
+  and checks that a position reaches the page. All passed on macOS 26.6.2,
+  the iOS 26.5 simulator and the Android 15 emulator (System WebView 124),
+  so macOS geolocation is `honored` again.
+
 - Apple app runs for linked services (MA1, 2026-10-25):
   `scripts/native/yon-reach-test.mjs` with `TAC_YON_SERVICES=swift` now
   links the `realtime` and `sockets` services as Swift and checks they are

@@ -100,3 +100,11 @@ linked `webkit_clipboard_permission_request_get_type`, which arrived in
 2.42. The host now looks the clipboard permission type up by name at run
 time, so the app starts on 2.40 and still grants the clipboard on 2.42 and
 newer.
+
+## Amendment (2026-10-25): the Android style run (MA3)
+
+On the Android 15 emulator with System WebView 124.0.6367.219,
+`scripts/android/page-checks-test.mjs` checked that a component `tac.css`
+rule applies inside its component and not to the same element in another
+component, and that `ty build --target android` prints the WebView 118 style
+note for an app with component styles.

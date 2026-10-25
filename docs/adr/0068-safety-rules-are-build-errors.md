@@ -228,5 +228,7 @@ refused in the app and that the host receives no request
 - Windows (SD1, 2026-10-24, `scripts/windows/page-checks-native-test.mjs`,
   inside WebView2 on a signed-in Windows 11 ARM64 desktop).
 
-The Android refusal of an undeclared host has not run on the emulator yet
-(MA3).
+- Android (MA3, 2026-10-25, `scripts/android/page-checks-test.mjs`, the
+  Android 15 emulator with System WebView 124): a fetch to a loopback host
+  that `adb reverse` would have reached raised a `connect-src` violation,
+  and the host saw no request.
