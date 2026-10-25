@@ -56,6 +56,10 @@ impl LifetimeService {
         Self::note(&format!("heard {section}"));
     }
 
+    pub fn left(&self, visit: i64) {
+        Self::note(&format!("left {} {visit}", self.instance));
+    }
+
     pub fn show_running(&self) {
         let delivered = self.page_events.publish_event(SectionChosen { section: String::from("running") });
         Self::note(if delivered { "forwarded" } else { "unheard" });
@@ -101,6 +105,11 @@ impl SectionService {
         self.visits = self.lifetime.visit();
     }
 
+    #[OnStop]
+    fn stopped(&mut self) {
+        self.lifetime.left(self.visits);
+    }
+
     #[OnEvent]
     fn chosen(&mut self, chosen: SectionChosen) {
         self.section = chosen.section;
@@ -139,6 +148,7 @@ impl SectionService {
     const lines = text.split('\n').filter(Boolean);
     const created = lines.filter(line => line.startsWith('created ')).map(line => line.slice('created '.length));
     const visits = lines.filter(line => line.startsWith('visit ')).map(line => line.split(' '));
-    return { lines, created, visits };
+    const left = lines.filter(line => line.startsWith('left ')).map(line => line.split(' '));
+    return { lines, created, visits, left };
   }
 }

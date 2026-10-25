@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,10 @@ class IosLifetimeGate {
   static project = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-lifetime-'));
   static deviceSet = path.join(IosLifetimeGate.project, 'simulator-devices');
   static keyboard = path.join(IosLifetimeGate.project, 'simulator-keyboard');
+  static tapper = path.join(IosLifetimeGate.project, 'simulator-tap');
+  static reader = path.join(IosLifetimeGate.project, 'screenshot-text');
+  static evidence = process.env.TAC_IOS_LIFETIME_EVIDENCE ?? path.join(IosLifetimeGate.repo, 'target/ios-lifetime-evidence');
+  static topEdge = process.env.TAC_IOS_TOP_EDGE ?? '0';
   static appId = ApplicationLifetimeFixture.applicationId;
   static keys = { k: '0xE3,0x0E', one: '0xE3,0x1E', two: '0xE3,0x1F', guide: '0xE3,0x20' };
   static devices = [];
@@ -57,6 +61,10 @@ class IosLifetimeGate {
     assert.ok(source.includes('guard tacRustNativeApplicationStart() else'));
     run('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-framework', 'Foundation',
       path.join(IosLifetimeGate.repo, 'scripts/ios/simulator-keyboard.m'), '-o', IosLifetimeGate.keyboard]);
+    run('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-framework', 'Foundation', '-framework', 'AppKit',
+      path.join(IosLifetimeGate.repo, 'scripts/ios/simulator-tap.m'), '-o', IosLifetimeGate.tapper]);
+    run('/usr/bin/xcrun', ['swiftc', '-parse-as-library', '-O',
+      path.join(IosLifetimeGate.repo, 'scripts/ios/screenshot-text.swift'), '-o', IosLifetimeGate.reader], 600000);
     return path.join(project, 'dist/ios', ApplicationLifetimeFixture.name + '.app');
   }
 
@@ -146,16 +154,70 @@ class IosLifetimeGate {
     return instance;
   }
 
-  static async checkTermination(device, name, pid, instance) {
-    const { waitFor, launch, journal } = IosLifetimeGate;
-    try {
-      process.kill(pid, 'SIGTERM');
-    } catch (error) {
-      IosLifetimeGate.notes.push(name + ': could not signal the app (' + error.message + ')');
+  static gesture(device, ...args) {
+    IosLifetimeGate.run(IosLifetimeGate.tapper, [IosLifetimeGate.deviceSet, device, ...args]);
+  }
+
+  static read(device, name) {
+    const { simctl, run, reader } = IosLifetimeGate;
+    const file = path.join(IosLifetimeGate.project, name + '.png');
+    simctl('io', device, 'screenshot', file);
+    mkdirSync(IosLifetimeGate.evidence, { recursive: true });
+    copyFileSync(file, path.join(IosLifetimeGate.evidence, name + '.png'));
+    return JSON.parse(run(reader, [file]));
+  }
+
+  static letters(text) {
+    return text.toLowerCase().replace(/[^a-z]/g, '');
+  }
+
+  static async tapText(device, name, label, within) {
+    const { read, letters, gesture, pause } = IosLifetimeGate;
+    let lines = [];
+    for (let attempt = 0; attempt < 8; attempt++) {
+      lines = read(device, name + '-' + letters(label));
+      const target = lines.find(line => letters(line.text) === letters(label) && within(line));
+      if (target) {
+        gesture(device, String(target.x), String(target.y));
+        return target;
+      }
+      await pause(500);
     }
-    const stopped = await waitFor(device, current => current.lines.includes('stopped ' + instance), 'stop', 40).catch(() => null);
-    IosLifetimeGate.notes.push(name + ': ' + (stopped ? 'SIGTERM ran applicationWillTerminate and stopped the service once' : 'SIGTERM ended the app without applicationWillTerminate, so the stop was not observed'));
-    if (stopped) assert.equal(stopped.lines.filter(line => line.startsWith('stopped ')).length, 1, name + ': the service stops once');
+    return assert.fail(name + ': no "' + label + '" on screen: ' + lines.map(line => line.text).join(' | '));
+  }
+
+  static async openStatus(device, name) {
+    const { waitFor, press, pause, journal } = IosLifetimeGate;
+    const before = journal(device).visits.length;
+    press(device, 'k');
+    const opened = await waitFor(device, current => current.visits.length > before, name + ': Command-K opens the status page');
+    await pause(1500);
+    return opened.visits.at(-1)[2];
+  }
+
+  static async checkMenuBarByTouch(device, name, instance) {
+    const { waitFor, gesture, pause, tapText, topEdge, journal } = IosLifetimeGate;
+    const forwarded = journal(device).lines.filter(line => line === 'forwarded').length;
+    gesture(device, 'drag', '0.5', '0.0', '0.5', '0.14', '14', topEdge);
+    await pause(1200);
+    const view = await tapText(device, name + '-menu-bar', 'View', line => line.y < 0.12);
+    await pause(800);
+    const item = await tapText(device, name + '-view-menu', "What's Running", line => line.y > view.y);
+    await waitFor(device, current => current.lines.filter(line => line === 'forwarded').length > forwarded, name + ': choosing What\'s Running from the menu bar by touch forwards SectionChosen');
+    IosLifetimeGate.notes.push(name + ': a touch swipe from the top edge opened the menu bar, and touches on View (' + view.x.toFixed(2) + ', ' + view.y.toFixed(2) + ') and What\'s Running (' + item.x.toFixed(2) + ', ' + item.y.toFixed(2) + ') called LifetimeService ' + instance);
+  }
+
+  static async checkTermination(device, name, instance, open) {
+    const { waitFor, launch, journal, gesture, pause, read } = IosLifetimeGate;
+    gesture(device, 'home', '2');
+    await pause(1200);
+    read(device, name.replace(/\W+/g, '-') + '-app-switcher');
+    gesture(device, 'drag', '0.5', '0.55', '0.5', '0.02', '6');
+    const stopped = await waitFor(device, current => current.lines.includes('stopped ' + instance), name + ': ending the app from the app switcher runs applicationWillTerminate and the application OnStop', 80);
+    assert.equal(stopped.lines.filter(line => line.startsWith('stopped ')).length, 1, name + ': the service stops once');
+    const left = stopped.lines.lastIndexOf('left ' + instance + ' ' + open);
+    assert.ok(left >= 0 && left < stopped.lines.indexOf('stopped ' + instance), name + ': applicationWillTerminate disposes the open page\'s SectionService (visit ' + open + ') before the application service stops: ' + JSON.stringify(stopped.lines.slice(-6)));
+    IosLifetimeGate.notes.push(name + ': swiping the app away in the app switcher ran applicationWillTerminate, disposed the open page companion and stopped the service once');
     spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosLifetimeGate.deviceSet, 'terminate', device, IosLifetimeGate.appId], { timeout: 60000, stdio: 'ignore' });
     launch(device);
     const again = await waitFor(device, current => current.created.length >= 2, name + ': a new launch starts the application service again');
@@ -170,7 +232,9 @@ class IosLifetimeGate {
     const pid = launch(device);
     const instance = await IosLifetimeGate.checkPagesAndActions(device, name);
     assert.ok(instance.startsWith(pid + '-'), name + ': the instance belongs to the launched app');
-    await IosLifetimeGate.checkTermination(device, name, pid, instance);
+    const open = await IosLifetimeGate.openStatus(device, name);
+    if (family === 'iPad') await IosLifetimeGate.checkMenuBarByTouch(device, name, instance);
+    await IosLifetimeGate.checkTermination(device, name, instance, open);
     simctl('shutdown', device);
     console.log('PASS: ' + name + ': one LifetimeService served two pages, and Command-1 and Command-2 called it through the ' + (family === 'iPad' ? 'iPad menu bar' : 'iPhone key commands'));
   }
@@ -193,7 +257,7 @@ class IosLifetimeGate {
         await IosLifetimeGate.check(runtime, family, bundle);
       }
       for (const note of IosLifetimeGate.notes) console.log('NOTE: ' + note);
-      console.log('PASS: iOS application lifetime and menu actions');
+      console.log('PASS: iOS application lifetime and menu actions, the iPad menu bar by touch, and disposal when the app is ended from the app switcher');
     } finally {
       IosLifetimeGate.cleanup();
     }

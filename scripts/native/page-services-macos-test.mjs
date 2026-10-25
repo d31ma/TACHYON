@@ -22,6 +22,7 @@ class MacOsPageServicesTest {
   static serviceLanguages = PageServicesFixture.list('TAC_MACOS_SERVICE_LANGUAGES', 'py,dart,kt,java,go')
   static windowCallers = PageServicesFixture.list('TAC_MACOS_WINDOW_CALLERS', 'cs,kt')
   static pickerCallers = PageServicesFixture.list('TAC_MACOS_PICKER_CALLERS', 'rs')
+  static windowRefusal = process.env.TAC_MACOS_WINDOW_REFUSAL !== '0'
   static resizedWidth = 1280
   static attempts = 60
   static pause = 250
@@ -147,6 +148,19 @@ class MacOsPageServicesTest {
     console.log(`ok - ${language} WindowControls caller renamed the macOS window to Quarterly report and resized it to ${this.resizedWidth} wide`)
   }
 
+  static async checkWindowRefusal() {
+    const project = path.join(this.root, 'window-refusal')
+    const id = 'dev.tachyon.window-refusal'
+    const application = PageServicesFixture.stageWindowRefusal(project, id)
+    const app = this.open(project, application)
+    try {
+      await this.drive(id, [['wait', 'finished', 'Heard 1', PageServicesFixture.refusedTitles.oversized, 'nothing']])
+    } finally {
+      this.close(app, id)
+    }
+    console.log('ok - a JavaScript WindowControls caller heard BrowserCallFailed windowControls setTitle "invalid or oversized host call" after the macOS host refused an oversized title, and nothing for the accepted titles')
+  }
+
   /** @param {string} app @param {string} id @param {string} chosen */
   static async answerPanel(app, id, chosen) {
     const pid = this.run('/usr/bin/pgrep', ['-n', '-f', path.join(app, 'Contents/MacOS')]).trim()
@@ -183,10 +197,11 @@ class MacOsPageServicesTest {
       for (const language of this.serviceLanguages) await this.checkService(language)
       for (const language of this.windowCallers) await this.checkWindowCaller(language)
       for (const language of this.pickerCallers) await this.checkPickerCaller(language)
+      if (this.windowRefusal) await this.checkWindowRefusal()
     } finally {
       rmSync(this.root, { recursive: true, force: true })
     }
-    console.log(`PASS: page services (${this.serviceLanguages.join(', ')}) answered in the packaged macOS app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, and FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through NSOpenPanel.`)
+    console.log(`PASS: page services (${this.serviceLanguages.join(', ')}) answered in the packaged macOS app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through NSOpenPanel${this.windowRefusal ? ', and a host refusal reached a JavaScript WindowControls caller as BrowserCallFailed' : ''}.`)
   }
 }
 

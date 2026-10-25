@@ -57,6 +57,46 @@ export default class StyleProbeService {
 `,
   }
   static pickerStatuses = { js: ['read', 'cancelled'], rs: ['read', 'cancelled'], swift: ['read', 'cancelled'], kt: ['read', 'cancelled'], cs: ['Read', 'Cancelled'] }
+  static refusedTitles = { invalid: 'windowControls setTitle invalid', oversized: 'windowControls setTitle invalid or oversized host call' }
+  static refusalService = `@Service
+export default class WindowRefusalService {
+  static _PAUSE = 600;
+  static _SETTLE = 2000;
+  static _LENGTHS = [16, 2000, 70000];
+  static _NOTHING = 'nothing';
+  /** @type {TacWindowControls} */
+  @Needs
+  windowControls;
+  count = 0;
+  first = WindowRefusalService._NOTHING;
+  second = WindowRefusalService._NOTHING;
+  done = 'running';
+  /** @type {string[]} */
+  _heard = [];
+
+  @OnStart
+  initialize() {
+    setTimeout(() => { void this._refuse(); }, WindowRefusalService._PAUSE);
+  }
+
+  async _refuse() {
+    for (const length of WindowRefusalService._LENGTHS) {
+      this.windowControls.setTitle('Quarterly report'.padEnd(length, '.'));
+      await new Promise((resolve) => setTimeout(resolve, WindowRefusalService._PAUSE));
+    }
+    await new Promise((resolve) => setTimeout(resolve, WindowRefusalService._SETTLE));
+    this.done = 'finished';
+  }
+
+  /** @param {BrowserCallFailed} failed */
+  @OnEvent
+  failed(failed) {
+    this._heard.push(\`\${failed.api} \${failed.call} \${failed.message}\`);
+    this.count = this._heard.length;
+    [this.first, this.second] = [...this._heard, WindowRefusalService._NOTHING, WindowRefusalService._NOTHING];
+  }
+}
+`
 
   static storedFieldSteps = [
     ['wait', ['Visits 0', 'Page fresh']],
@@ -158,6 +198,21 @@ export default class ReloadService {
     const visibility = Object.fromEntries(['visibility', 'constants', 'cohesion'].map((name) => [name, { check: false }]))
     writeFileSync(path.join(project, 'client/manifest.json'), JSON.stringify({ name: 'Stored Field', start_url: '/', tac: { ...visibility, application: { id: 'dev.tachyon.stored-field' } } }, null, 2))
     return 'StoredField'
+  }
+
+  /** @param {string} project @param {string} id */
+  static stageWindowRefusal(project, id) {
+    const application = this.stage(project, 'window-controls', 'Catalog', id)
+    const files = {
+      'client/pages/tac.html': '<window-refusal hydrate="load" />\n',
+      'client/components/window/refusal/tac.html': '<main><h1>Window refusal</h1><p>Heard {windowRefusal.count}</p><p>{windowRefusal.first}</p><p>{windowRefusal.second}</p><p>{windowRefusal.done}</p></main>\n',
+      'client/services/WindowRefusalService.js': this.refusalService,
+    }
+    for (const [relative, source] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(project, relative)), { recursive: true })
+      writeFileSync(path.join(project, relative), source)
+    }
+    return application
   }
 
   /** @param {string} project @param {string} language @param {string} [folder] */

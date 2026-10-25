@@ -113,7 +113,12 @@ class AndroidWindowSettingsGate {
       });
       const image = AndroidWindowSettingsGate.screenshot();
       console.log(`${name}: ${JSON.stringify(facts)} screen ${image.width}x${image.height}`);
-      return { ...facts, image };
+      const bars = name === 'fullscreen' ? {} : {
+        statusFrame: AndroidWindowSettingsGate.barFrame('status'),
+        navigationFrame: AndroidWindowSettingsGate.barFrame('navigation'),
+        appearance: AndroidWindowSettingsGate.appearance(),
+      };
+      return { ...facts, ...bars, image };
     } finally {
       await browser.close();
       spawnSync(adb, ['forward', '--remove', `tcp:${port}`], { stdio: 'ignore', timeout: 30000 });
@@ -141,6 +146,83 @@ class AndroidWindowSettingsGate {
     let matches = 0;
     for (let x = 0; x < image.width; x++) if (AndroidWindowSettingsGate.near(image.pixel(x, y), hex)) matches++;
     return matches / image.width;
+  }
+
+  static barFrame(type) {
+    const names = { status: 'statusBars|ITYPE_STATUS_BAR', navigation: 'navigationBars|ITYPE_NAVIGATION_BAR' }[type];
+    const pattern = new RegExp(`InsetsSource[^\\n]*type=(?:${names})[^\\n]*?frame=\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]`, 'g');
+    const frames = [...AndroidWindowSettingsGate.adbShell('dumpsys', 'window').matchAll(pattern)].map(found => found.slice(1).map(Number));
+    const frame = frames.find(([left, top, right, bottom]) => right > left && bottom > top);
+    assert.ok(frame, `dumpsys window names the ${type} bar frame: ${JSON.stringify(frames)}`);
+    const [left, top, right, bottom] = frame;
+    return { left, top, right, bottom };
+  }
+
+  static appearance() {
+    const { adbShell, packageName } = AndroidWindowSettingsGate;
+    const block = adbShell('dumpsys', 'window', 'windows').split(/\n(?=\s*Window #)/).find(part => part.includes(`${packageName}/`)) ?? '';
+    return block.match(/apr=([A-Z_ |]+)/)?.[1]?.trim() ?? 'none';
+  }
+
+  static luminance([red, green, blue]) {
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+
+  static barIcons(image, frame, spans) {
+    const { luminance } = AndroidWindowSettingsGate;
+    const counts = new Map();
+    const pixels = [];
+    for (const [start, end] of spans) {
+      for (let y = frame.top + Math.round((frame.bottom - frame.top) * 0.2); y < frame.top + Math.round((frame.bottom - frame.top) * 0.8); y++) {
+        for (let x = Math.round(image.width * start); x < Math.round(image.width * end); x++) {
+          const pixel = image.pixel(x, y);
+          pixels.push(pixel);
+          counts.set(pixel.join(','), (counts.get(pixel.join(',')) ?? 0) + 1);
+        }
+      }
+    }
+    const bar = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0].split(',').map(Number);
+    const icons = pixels.filter(pixel => pixel.some((channel, index) => Math.abs(channel - bar[index]) > 64)).map(luminance).sort((a, b) => a - b);
+    return { bar, icons: icons.length, median: icons.length ? Math.round(icons[Math.floor(icons.length / 2)]) : -1 };
+  }
+
+  static checkBarIcons(result, name, light) {
+    const { barIcons } = AndroidWindowSettingsGate;
+    const status = barIcons(result.image, result.statusFrame, [[0.03, 0.35], [0.65, 0.97]]);
+    const navigation = barIcons(result.image, result.navigationFrame, [[0.3, 0.7]]);
+    console.log(`${name} bar icons (${light ? 'light' : 'dark'} expected, apr=${result.appearance}): status ${JSON.stringify(status)} navigation ${JSON.stringify(navigation)}`);
+    for (const [bar, found] of [['status', status], ['navigation', navigation]]) {
+      assert.ok(found.icons > 40, `${name}: the ${bar} bar shows icons: ${JSON.stringify(found)}`);
+      assert.ok(light ? found.median > 160 : found.median < 90, `${name}: the ${bar} bar icons are ${light ? 'light' : 'dark'}: ${JSON.stringify(found)}`);
+    }
+  }
+
+  static async checkSplash(apk) {
+    const { text, adb, adbShell, packageName, pause, screenshot, near } = AndroidWindowSettingsGate;
+    spawnSync(adb, ['uninstall', packageName], { stdio: 'ignore', timeout: 60000 });
+    text(adb, ['install', '-r', apk]);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      adbShell('am', 'force-stop', packageName);
+      await pause(1000);
+      const pid = text(adb, ['shell', `am start -n ${packageName}/.MainActivity >/dev/null; i=0; until p=$(pidof ${packageName}) || [ $i -gt 50000 ]; do i=$((i+1)); done; run-as ${packageName} kill -STOP $p; echo $p`]);
+      await pause(1500);
+      const shown = adbShell('dumpsys', 'window', 'windows').includes(`Splash Screen ${packageName}`);
+      const image = screenshot();
+      spawnSync(adb, ['shell', 'run-as', packageName, 'kill', '-CONT', pid], { stdio: 'ignore', timeout: 30000 });
+      adbShell('am', 'force-stop', packageName);
+      const samples = [0.2, 0.35, 0.65, 0.8].map(share => image.pixel(image.width / 2, image.height * share));
+      console.log(`splash attempt ${attempt}: process ${pid} held before its first frame, splash window ${shown ? 'shown' : 'absent'}, samples ${JSON.stringify(samples)}`);
+      if (!shown) continue;
+      assert.ok(samples.every(pixel => near(pixel, '#ffaa00')), `the splash screen shows background_color: ${JSON.stringify(samples)}`);
+      return;
+    }
+    assert.fail('the splash window was never on screen while the app process was held before its first frame');
+  }
+
+  static environment() {
+    const { adbShell } = AndroidWindowSettingsGate;
+    const webView = adbShell('dumpsys', 'webviewupdate').match(/Current WebView package \(name, version\): \(([^)]*)\)/)?.[1] ?? 'unknown';
+    return `API ${adbShell('getprop', 'ro.build.version.sdk')}, ${adbShell('getprop', 'ro.product.model')}, WebView ${webView}`;
   }
 
   static checkStandard(result, apk) {
@@ -179,10 +261,17 @@ class AndroidWindowSettingsGate {
     try {
       const binary = AndroidWindowSettingsGate.binary();
       const apks = Object.fromEntries(Object.keys(AndroidWindowSettingsGate.apps).map(name => [name, AndroidWindowSettingsGate.build(binary, name)]));
-      AndroidWindowSettingsGate.checkStandard(await AndroidWindowSettingsGate.launch(apks.standard, 'standard'), apks.standard);
-      AndroidWindowSettingsGate.checkIntegrated(await AndroidWindowSettingsGate.launch(apks.integrated, 'integrated'), apks.integrated);
+      const device = AndroidWindowSettingsGate.environment();
+      console.log(`Device: ${device}`);
+      const standard = await AndroidWindowSettingsGate.launch(apks.standard, 'standard');
+      AndroidWindowSettingsGate.checkStandard(standard, apks.standard);
+      AndroidWindowSettingsGate.checkBarIcons(standard, 'standard', true);
+      await AndroidWindowSettingsGate.checkSplash(apks.standard);
+      const integrated = await AndroidWindowSettingsGate.launch(apks.integrated, 'integrated');
+      AndroidWindowSettingsGate.checkIntegrated(integrated, apks.integrated);
+      AndroidWindowSettingsGate.checkBarIcons(integrated, 'integrated', false);
       AndroidWindowSettingsGate.checkFullscreen(await AndroidWindowSettingsGate.launch(apks.fullscreen, 'fullscreen'), apks.fullscreen);
-      console.log('PASS: Android window settings: theme_color system bars, background_color web view, integrated title bar insets, fullscreen and orientation');
+      console.log(`PASS: Android window settings on ${device}: theme_color system bars with light icons on a dark theme and dark icons on a light one, the background_color splash screen, background_color web view, integrated title bar insets, fullscreen and orientation`);
     } finally {
       spawnSync(AndroidWindowSettingsGate.adb, ['uninstall', AndroidWindowSettingsGate.packageName], { stdio: 'ignore', timeout: 60000 });
       rmSync(AndroidWindowSettingsGate.root, { recursive: true, force: true });

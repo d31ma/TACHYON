@@ -228,9 +228,12 @@ class AndroidLifetimeGate {
   static async checkBackStopsAndRelaunchStartsAgain(instance, processId) {
     const { adbShell, waitFor, packageName, pid, detach } = AndroidLifetimeGate;
     await detach();
+    const open = AndroidLifetimeGate.journal().visits.at(-1)[2];
     adbShell('input', 'keyevent', 'KEYCODE_BACK');
     const stopped = await waitFor(journal => journal.lines.includes(`stopped ${instance}`), 'Back finishes the activity and stops the application service');
     assert.equal(stopped.lines.filter(line => line.startsWith('stopped ')).length, 1, 'the service stops once');
+    const left = stopped.lines.lastIndexOf(`left ${instance} ${open}`);
+    assert.ok(left >= 0 && left < stopped.lines.indexOf(`stopped ${instance}`), `onDestroy disposes the open page's SectionService (visit ${open}) before the application service stops: ${JSON.stringify(stopped.lines.slice(-6))}`);
     const kept = pid();
     adbShell('am', 'start', '-W', '-n', `${packageName}/.MainActivity`);
     const again = await waitFor(journal => journal.created.length >= 2, 'a new launch starts the application service again');
@@ -255,7 +258,7 @@ class AndroidLifetimeGate {
       await gate.checkActions(instance, status);
       await gate.checkRotationKeepsTheInstance(instance, processId);
       const { sameProcess } = await gate.checkBackStopsAndRelaunchStartsAgain(instance, processId);
-      console.log(`PASS: Android application lifetime: one LifetimeService started at launch, served two pages and a rotation, stopped once on Back, and started again on the next launch${sameProcess ? ' in the same process' : ''}`);
+      console.log(`PASS: Android application lifetime: one LifetimeService started at launch, served two pages and a rotation, stopped once on Back after onDestroy disposed the open page's companion, and started again on the next launch${sameProcess ? ' in the same process' : ''}`);
       console.log('PASS: Android menu actions: Ctrl+1 and Ctrl+2 called the application service, the page showed the forwarded section without a reload, and the overflow item was disabled on a page without a listener');
     } finally {
       await gate.detach().catch(() => {});

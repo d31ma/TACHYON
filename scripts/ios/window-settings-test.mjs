@@ -2,11 +2,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
+import { PageServicesFixture } from '../native/page-services-fixture.mjs';
 
 assert.equal(process.platform, 'darwin', 'The iOS window settings check needs macOS and Xcode');
 
@@ -15,6 +16,9 @@ class IosWindowSettingsGate {
   static root = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-window-'));
   static deviceSet = path.join(IosWindowSettingsGate.root, 'simulator-devices');
   static appId = 'dev.tachyon.window-settings';
+  static refusalId = 'dev.tachyon.window-refusal';
+  static reader = path.join(IosWindowSettingsGate.root, 'screenshot-text');
+  static evidence = process.env.TAC_IOS_WINDOW_EVIDENCE ?? path.join(IosWindowSettingsGate.repo, 'target/ios-window-settings-evidence');
   static devices = [];
   static styles = { default: 0, lightContent: 1, darkContent: 3 };
   static apps = {
@@ -323,6 +327,75 @@ final class WindowProbeService {
     assert.match(page.insetsAnswer, /refused|not implement/, 'a standard window answers no title bar insets');
   }
 
+  static keep(file, name) {
+    mkdirSync(IosWindowSettingsGate.evidence, { recursive: true });
+    copyFileSync(file, path.join(IosWindowSettingsGate.evidence, name));
+  }
+
+  static async checkLaunchScreen(device, bundle, native) {
+    const { simctl, appId, pause, rowShare, readPng, root, keep } = IosWindowSettingsGate;
+    spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, 'uninstall', device, appId], { stdio: 'ignore', timeout: 60000 });
+    simctl('install', device, bundle);
+    const launched = simctl('launch', '--wait-for-debugger', device, appId);
+    const pid = Number(launched.match(/:\s*(\d+)\s*$/)?.[1]);
+    const proof = path.join(simctl('get_app_container', device, appId, 'data'), 'Documents/window-probe.json');
+    const statusRow = (native.safeTop - 3) * native.scale;
+    let shares = [];
+    try {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        await pause(500);
+        const file = path.join(root, `launch-screen-${attempt}.png`);
+        simctl('io', device, 'screenshot', file);
+        const image = readPng(file);
+        shares = [statusRow, image.height * 0.3, image.height * 0.6, image.height * 0.9].map(y => rowShare(image, y, '#ffaa00'));
+        if (shares[0] > 0.5 && shares.slice(1).every(share => share > 0.9)) {
+          keep(file, 'launch-screen.png');
+          break;
+        }
+      }
+      assert.ok(shares[0] > 0.5 && shares.slice(1).every(share => share > 0.9), `the launch screen shows background_color behind the status bar and across the screen before the app runs: ${shares}`);
+      assert.ok(!existsSync(proof), 'the app had not run its page while the launch screen showed');
+    } finally {
+      try { process.kill(pid, 'SIGKILL'); } catch { /* already ended */ }
+      spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, 'terminate', device, appId], { stdio: 'ignore', timeout: 30000 });
+    }
+    console.log(`launch screen: background_color #ffaa00 filled the screen (row shares ${shares.map(share => share.toFixed(2)).join(', ')}) while the process ${pid} waited before main`);
+  }
+
+  static buildRefusal(binary) {
+    const project = path.join(IosWindowSettingsGate.root, 'refusal');
+    const application = PageServicesFixture.stageWindowRefusal(project, IosWindowSettingsGate.refusalId);
+    console.log('Building the window refusal iOS app...');
+    IosWindowSettingsGate.run(binary, ['build', project, '--target', 'ios'], 600000);
+    IosWindowSettingsGate.run('/usr/bin/xcrun', ['swiftc', '-parse-as-library', '-O', path.join(IosWindowSettingsGate.repo, 'scripts/ios/screenshot-text.swift'), '-o', IosWindowSettingsGate.reader], 600000);
+    return path.join(project, 'dist/ios', `${application}.app`);
+  }
+
+  static squeeze(text) {
+    return text.toLowerCase().replace(/\s+/g, '');
+  }
+
+  static async checkRefusal(device, bundle) {
+    const { simctl, refusalId, pause, root, run, reader, squeeze, keep } = IosWindowSettingsGate;
+    const { invalid, oversized } = PageServicesFixture.refusedTitles;
+    simctl('install', device, bundle);
+    simctl('launch', device, refusalId);
+    let shown = '';
+    try {
+      for (let attempt = 0; attempt < 90 && !squeeze(shown).includes('finished'); attempt++) {
+        await pause(1000);
+        const file = path.join(root, 'refusal.png');
+        simctl('io', device, 'screenshot', file);
+        shown = JSON.parse(run(reader, [file])).sort((a, b) => a.y - b.y).map(({ text }) => text).join(' ');
+        keep(file, 'window-refusal.png');
+      }
+    } finally {
+      spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, 'terminate', device, refusalId], { stdio: 'ignore', timeout: 30000 });
+    }
+    assert.ok(squeeze(shown).includes(squeeze(`Heard 2 ${invalid} ${oversized} finished`)), `a JavaScript caller hears the iOS host refuse a 2000-byte title and an oversized title, and nothing for a valid title: ${shown}`);
+    console.log(`window refusal: ${shown}`);
+  }
+
   static cleanup() {
     for (const device of IosWindowSettingsGate.devices) {
       for (const args of [['shutdown', device], ['delete', device]]) {
@@ -337,13 +410,17 @@ final class WindowProbeService {
       mkdirSync(IosWindowSettingsGate.deviceSet);
       const binary = IosWindowSettingsGate.binary();
       const bundles = Object.fromEntries(Object.keys(IosWindowSettingsGate.apps).map(name => [name, IosWindowSettingsGate.build(binary, name)]));
+      const refusal = IosWindowSettingsGate.buildRefusal(binary);
       const phone = IosWindowSettingsGate.boot('iPhone 17 Pro', 'iPhone');
-      IosWindowSettingsGate.checkStandard(await IosWindowSettingsGate.launch(phone, bundles.standard, 'standard'), bundles.standard);
+      const standard = await IosWindowSettingsGate.launch(phone, bundles.standard, 'standard');
+      IosWindowSettingsGate.checkStandard(standard, bundles.standard);
+      await IosWindowSettingsGate.checkLaunchScreen(phone, bundles.standard, standard.native);
+      await IosWindowSettingsGate.checkRefusal(phone, refusal);
       IosWindowSettingsGate.checkIntegrated(await IosWindowSettingsGate.launch(phone, bundles.integrated, 'integrated'));
       IosWindowSettingsGate.checkFullscreen(await IosWindowSettingsGate.launch(phone, bundles.fullscreen, 'fullscreen'));
       const tablet = IosWindowSettingsGate.boot('iPad Pro 13-inch (M5) (16GB)', 'iPad');
       IosWindowSettingsGate.checkTitle((await IosWindowSettingsGate.launch(tablet, bundles.standard, 'standard')).native, 'iPad');
-      console.log('PASS: iOS window settings: theme_color status bar and icons, background_color web view and launch screen, integrated title bar insets, fullscreen, orientation, and the linked Swift scene title on iPhone and iPad');
+      console.log('PASS: iOS window settings: theme_color status bar and icons, background_color web view and launch screen (asset catalog and on screen before main), integrated title bar insets, fullscreen, orientation, the linked Swift scene title on iPhone and iPad, and host title refusals heard as BrowserCallFailed');
     } finally {
       IosWindowSettingsGate.cleanup();
     }
