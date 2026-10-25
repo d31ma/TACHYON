@@ -26,7 +26,8 @@ class WasmOfflineGate {
   static selected = (process.env.TAC_WASM_OFFLINE_BROWSERS ?? WasmOfflineGate.engines.join(',')).split(',')
   static emulatedOffline = ['chromium', 'firefox']
   static offlineNote = /^Offline: .*$/gm
-  static document = '/'
+  static browserRequests = ['/favicon.ico']
+  static revalidated = ['/', '/tachyon-sw.js']
   static services = '/.tachyon/services/'
   static remembered = 'kept offline'
   static stepMilliseconds = 20_000
@@ -104,6 +105,7 @@ class WasmOfflineGate {
       await WasmOfflineGate.call(page, 'reader', 'recall')
       const recalled = await WasmOfflineGate.settled(page, state => state.recalled === WasmOfflineGate.remembered, 'reader')
       assert.equal(recalled.recalled, WasmOfflineGate.remembered, `${label}: the reader service finds the writer's record online`)
+      await page.evaluate(() => globalThis[Symbol.for('tachyon.tac.storage')].settled())
       const kept = await WasmOfflineGate.kept(page, label)
       const offlineAttempts = await WasmOfflineGate.offline(context, page, label, origin, online)
       assert.equal(errors.join('\n'), '', `${label}: the page threw no error`)
@@ -120,7 +122,7 @@ class WasmOfflineGate {
     let kept = { loaded: [], cached: [] }
     const deadline = Date.now() + WasmOfflineGate.stepMilliseconds
     while (Date.now() < deadline) {
-      kept = await page.evaluate(WasmOfflineGate.readCache)
+      kept = await page.evaluate(WasmOfflineGate.readCache, WasmOfflineGate.browserRequests)
       if (kept.loaded.every(file => kept.cached.includes(file))) break
       await page.waitForTimeout(WasmOfflineGate.settleStep)
     }
@@ -129,11 +131,11 @@ class WasmOfflineGate {
     return kept
   }
 
-  /** @returns {Promise<KeptFiles>} */
-  static async readCache() {
+  /** @param {string[]} ignored @returns {Promise<KeptFiles>} */
+  static async readCache(ignored) {
     const loaded = performance.getEntriesByType('resource')
       .map(entry => new URL(entry.name))
-      .filter(url => url.origin === location.origin && url.search === '' && !url.pathname.startsWith('/tachyon-sw.js'))
+      .filter(url => url.origin === location.origin && url.search === '' && !url.pathname.startsWith('/tachyon-sw.js') && !ignored.includes(url.pathname))
       .map(url => url.pathname)
     const name = (await caches.keys()).find(value => value.startsWith('tachyon-static-'))
     const cached = name ? (await (await caches.open(name)).keys()).map(entry => new URL(entry.url).pathname) : []
@@ -157,7 +159,7 @@ class WasmOfflineGate {
       const recalled = await WasmOfflineGate.settled(page, state => state.recalled === WasmOfflineGate.remembered, 'reader')
       assert.equal(recalled.recalled, WasmOfflineGate.remembered, `${label}: the reader service finds the record saved before the network went away`)
       const attempts = [...new Set(origin.offlineAttempts)]
-      const reached = attempts.filter(file => file !== WasmOfflineGate.document)
+      const reached = attempts.filter(file => ![...WasmOfflineGate.revalidated, ...WasmOfflineGate.browserRequests].includes(file))
       assert.deepEqual(reached, [], `${label}: every file came from the worker cache, not the network`)
       console.log(`ok - ${label}: the page and its services ran offline`)
       return attempts
@@ -178,17 +180,23 @@ class WasmOfflineGate {
   /** @param {Page} page @param {string} role @param {string} method @param {...string} values @returns {Promise<void>} */
   static async call(page, role, method, ...values) {
     const deadline = Date.now() + WasmOfflineGate.stepMilliseconds
+    let failure = `the ${role} service never offered ${method}`
     while (Date.now() < deadline) {
       const called = await page.evaluate(async ([name, member, given]) => {
         const service = globalThis.__tachyonTac?.service(name)
-        if (!service || typeof service[member] !== 'function') return false
-        await service[member](...given)
-        return true
+        if (!service || typeof service[member] !== 'function') return 'not started'
+        try {
+          await service[member](...given)
+          return ''
+        } catch (error) {
+          return String(error)
+        }
       }, /** @type {[string, string, string[]]} */ ([role, method, values]))
-      if (called) return
+      if (called === '') return
+      failure = `the ${role} service could not run ${method}: ${called}`
       await page.waitForTimeout(WasmOfflineGate.settleStep)
     }
-    throw new Error(`the ${role} service never offered ${method}`)
+    throw new Error(failure)
   }
 
   /** @param {Page} page @param {(state: ServiceState) => boolean} done @param {string} role @returns {Promise<ServiceState>} */

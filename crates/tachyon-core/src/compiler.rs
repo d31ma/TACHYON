@@ -144,6 +144,7 @@ const MAX_BYTES = 32 * 1024 * 1024
 const MAX_AGE = 24 * 60 * 60 * 1000
 let writes = Promise.resolve()
 let pendingWrites = 0
+const waitingWrites = []
 
 const bounded = async (work) => {
   let timer
@@ -255,12 +256,23 @@ async function cacheRead(request, asset) {
   } catch { return null }
 }
 
+// A listed build file waits for a free write instead of being dropped, so a
+// runtime that loads many files at once is still kept on the first visit.
+async function writeSlot(asset) {
+  while (pendingWrites >= 16) {
+    if (!asset || waitingWrites.length >= 4096) return false
+    await new Promise((resolve) => waitingWrites.push(resolve))
+  }
+  pendingWrites += 1
+  return true
+}
+
 async function cacheWrite(request, response, asset) {
   if (!publicResponse(response)) { await evict(request); return }
-  if (pendingWrites >= 16) return
-  pendingWrites += 1
+  const copy = response.clone()
+  if (!await writeSlot(asset)) { void copy.body?.cancel().catch(() => {}); return }
   try {
-    const bytes = await bodyBytes(response.clone(), asset ? (asset.bodyLimit ?? 4 * 1024 * 1024) : 256 * 1024)
+    const bytes = await bodyBytes(copy, asset ? (asset.bodyLimit ?? 4 * 1024 * 1024) : 256 * 1024)
     if (asset && !await matchesAsset(bytes, asset)) { await evict(request); return }
     const headers = new Headers(response.headers)
     headers.delete('content-encoding')
@@ -284,7 +296,7 @@ async function cacheWrite(request, response, asset) {
     })
     await writes
   } catch { await evict(request) }
-  finally { pendingWrites -= 1 }
+  finally { pendingWrites -= 1; waitingWrites.shift()?.() }
 }
 
 async function fromCache(request, asset) {
