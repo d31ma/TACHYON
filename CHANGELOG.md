@@ -17,7 +17,8 @@ machine contracts have their own, independent major versions.
   in a simulator app; it passed on iOS 26.5.
   `scripts/android/verified-links-test.mjs` checks Android app links against
   it and passed on an API 35 emulator. The Windows browser gate's `-LinkHost`
-  and `-RequireHostLink` check Windows app URI handlers against it.
+  and `-RequireHostLink` check Windows app URI handlers against it; an
+  installed signed package opened the host's link on Windows 11 ARM64.
 
 - Native preview against the development server (NET5, ADR 0110):
   `ty preview --target <native>` now builds the real app into

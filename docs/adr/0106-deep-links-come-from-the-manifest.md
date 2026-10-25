@@ -227,6 +227,13 @@ Windows read the files only from the root of a host.
    at their route without a chooser, on a cold start and while it ran. The
    Mac's Gradle signs debug APKs with the keystore under
    `ANDROID_USER_HOME`, not `~/.android`, so the served file lists both
-   certificates. The Windows browser gate with
-   `-LinkHost d31ma.github.io -RequireHostLink` is written; its run is
-   owed. A signed iOS device check stays owed.
+   certificates. On the Surface (Windows 11 Home 25H2, build 26200.9711,
+   ARM64), the Windows browser gate with `-InstallRoute Machine
+   -LinkHost d31ma.github.io -RequireHostLink`, run in an elevated
+   PowerShell on the signed-in desktop, installed the signed `.msix` with its
+   throwaway certificate trusted machine-wide. Windows named the family that
+   `windows-app-web-link` lists, and the shell opened
+   `https://d31ma.github.io/alpha?x=3` in the running package at its route.
+   A package registered from a folder in Developer Mode is listed as the
+   host's handler as well, but Windows does not verify its hosts, and the
+   same link opened in Edge. A signed iOS device check stays owed.
