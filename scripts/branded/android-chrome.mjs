@@ -23,6 +23,7 @@ export class AndroidChrome {
   static contextOptions = ['permissions', 'geolocation', 'offline']
   static deviceOptions = { hasTouch: true, isMobile: true }
   static shareSheetWindows = ['ChooserActivity', 'ResolverActivity']
+  static shareSheetMilliseconds = 5_000
 
   /** @param {string[]} args */
   static async adb(args) {
@@ -128,12 +129,23 @@ export class AndroidChrome {
    * has the focus, so it never moves the page back.
    */
   static async closeShareSheet() {
-    const focus = await AndroidChrome.adb(['shell', 'dumpsys', 'window', 'windows'])
-    const focused = focus.split('\n').find((line) => line.includes('mCurrentFocus')) ?? ''
-    const sheet = AndroidChrome.shareSheetWindows.some((name) => focused.includes(name))
-    console.error(`branded: navigator.share() was still waiting after ${ShareSheet.closeMilliseconds} ms; ${sheet ? 'pressing Back on the Android share sheet' : `no share sheet has the focus (${focused.trim()}), so it was closed for the person with an AbortError`}`)
+    const deadline = Date.now() + AndroidChrome.shareSheetMilliseconds
+    let focused = await AndroidChrome.focusedWindow()
+    let sheet = AndroidChrome.shareSheetWindows.some((name) => focused.includes(name))
+    while (!sheet && Date.now() < deadline) {
+      await sleep(AndroidChrome.pollMilliseconds)
+      focused = await AndroidChrome.focusedWindow()
+      sheet = AndroidChrome.shareSheetWindows.some((name) => focused.includes(name))
+    }
+    console.error(`branded: navigator.share() was still waiting after ${ShareSheet.closeMilliseconds} ms; ${sheet ? 'pressing Back on the Android share sheet' : `no share sheet has the focus (${focused}), so it was closed for the person with an AbortError`}`)
     if (sheet) await AndroidChrome.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK'])
     return sheet
+  }
+
+  /** @returns {Promise<string>} */
+  static async focusedWindow() {
+    const windows = await AndroidChrome.adb(['shell', 'dumpsys', 'window'])
+    return windows.split('\n').find((line) => line.includes('mCurrentFocus'))?.trim() ?? ''
   }
 
   /** @param {import('playwright').Page} page */
