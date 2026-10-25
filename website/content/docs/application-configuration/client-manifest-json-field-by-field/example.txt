@@ -98,9 +98,11 @@ tac.application.minimumSystem                          native
   "15.2", "android": 28, "windows": "119.0", "linux": "2.46" }.
   windows is the WebView2 Runtime and linux is WebKitGTK. Unset
   targets use the host floor, raised for Dart, Kotlin and Java
-  services (WebAssembly garbage collection) with one note. A value
-  below the floor stops the build (TY1601). Windows and Linux
-  check the web view at startup and explain an old one.
+  services (WebAssembly garbage collection; Java also needs
+  exception references, so 18.4, 15.4, 137.0 and 2.48) with one
+  note. A value below the floor stops the build (TY1601).
+  Windows and Linux check the web view at startup and explain an
+  old one.
 
 tac.application.links                            build, native
   { "schemes": ["myapp"], "hosts": ["example.com"] }: the links that

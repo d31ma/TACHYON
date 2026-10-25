@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn garbage_collected_services_raise_the_floor_with_one_note() {
-        let languages = BTreeSet::from(["Dart", "Java", "Kotlin"]);
+        let languages = BTreeSet::from(["Dart", "Kotlin"]);
         for (target, wanted) in [
             (NativeTarget::Ios, SystemVersion::new(18, 2)),
             (NativeTarget::Macos, SystemVersion::new(15, 2)),
@@ -142,8 +142,67 @@ mod tests {
                 .expect("floor");
             assert_eq!(floor.minimum.floor(target), wanted, "{target:?}");
             let note = floor.note.expect("note");
-            assert!(note.starts_with("Note: Dart, Java and Kotlin services need"));
+            assert!(note.starts_with(
+                "Note: Dart and Kotlin services need WebAssembly garbage collection, so"
+            ));
             assert!(note.contains(&wanted.to_string()), "{note}");
+            assert!(note.contains("(ADR 0033)"), "{note}");
+        }
+    }
+
+    #[test]
+    fn java_services_raise_the_floor_to_engines_with_exception_references() {
+        for (languages, start) in [
+            (
+                BTreeSet::from(["Java"]),
+                "Note: Java services need WebAssembly garbage collection and exception references (exnref), so",
+            ),
+            (
+                BTreeSet::from(["Dart", "Java", "Kotlin"]),
+                "Note: Dart, Java and Kotlin services need WebAssembly garbage collection and, for Java, exception references (exnref), so",
+            ),
+        ] {
+            for (target, wanted) in [
+                (NativeTarget::Ios, SystemVersion::new(18, 4)),
+                (NativeTarget::Macos, SystemVersion::new(15, 4)),
+                (NativeTarget::Windows, SystemVersion::new(137, 0)),
+                (NativeTarget::Linux, SystemVersion::new(2, 48)),
+            ] {
+                let floor =
+                    SystemFloor::for_languages(&MinimumSystem::default(), target, &languages)
+                        .expect("floor");
+                assert_eq!(floor.minimum.floor(target), wanted, "{target:?}");
+                let note = floor.note.expect("note");
+                assert!(note.starts_with(start), "{note}");
+                assert!(note.contains(&wanted.to_string()), "{note}");
+                assert!(note.contains("(ADR 0033, ADR 0083)"), "{note}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_declared_floor_below_the_java_need_names_exception_references() {
+        let minimum = declared(r#"{"ios":"18.2","windows":"119.0","linux":"2.46"}"#);
+        let languages = BTreeSet::from(["Java"]);
+        for (target, wanted) in [
+            (
+                NativeTarget::Ios,
+                "is \"18.2\", but Java services need iOS 18.4 or newer for WebAssembly garbage collection and exception references (exnref) (ADR 0033, ADR 0083). Raise it to \"18.4\"",
+            ),
+            (
+                NativeTarget::Windows,
+                "is \"119.0\", but Java services need the WebView2 Runtime 137.0 or newer",
+            ),
+            (
+                NativeTarget::Linux,
+                "is \"2.46\", but Java services need WebKitGTK 2.48 or newer",
+            ),
+        ] {
+            let failure =
+                SystemFloor::for_languages(&minimum, target, &languages).expect_err("refused");
+            let text = message(&failure);
+            assert!(text.contains(wanted), "{text}");
+            assert_eq!(failure.diagnostics()[0].code.number(), 1601);
         }
     }
 
@@ -242,7 +301,18 @@ mod tests {
         );
         let note = floor.note.expect("note");
         assert!(note.contains("Note: Java services need"));
-        assert!(note.contains("Android System WebView 119"));
+        assert!(note.contains("exception references (exnref)"), "{note}");
+        assert!(note.contains("Android System WebView 137"), "{note}");
+        let dart = SystemFloor::for_languages(
+            &MinimumSystem::default(),
+            NativeTarget::Android,
+            &BTreeSet::from(["Dart"]),
+        )
+        .expect("floor")
+        .note
+        .expect("note");
+        assert!(dart.contains("Android System WebView 119"), "{dart}");
+        assert!(!dart.contains("exnref"), "{dart}");
     }
 
     #[test]

@@ -1184,8 +1184,9 @@ Not covered by these runs:
 
 - Disposal on termination: `simctl terminate` kills the app, so neither
   `applicationWillTerminate` nor a Swift `@OnStop` runs.
-- iOS 18.2 or a 17.4 runtime: the 18.2 floor (Kotlin, Dart and Java) and
-  the new 17.4 floor ran on iOS 26.5 and 18.0 only.
+- iOS 18.2 or a 17.4 runtime: the 18.2 floor (Kotlin, Dart and, until
+  2026-10-25, Java) and the new 17.4 floor ran on iOS 26.5 and 18.0 only.
+  The 18.4 Java floor (JF1) has not run.
 - iOS shows no app reason in the notification prompt, so a manifest reason
   for notifications is not displayed there.
 - A physical device and a signed install stay owed. Universal links ran on the
@@ -1283,6 +1284,35 @@ so the probe saw only the window and its menus there; those rows were read
 from screenshots of the same app. With the host fix,
 `linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` still
 read the clipboard with the grant and was refused without it on 2.52.6.
+
+### Java web services need exception references (2026-10-25, JF1)
+
+ADR 0083 amendment. TeaVM writes a Java `catch` as the WebAssembly
+`try_table` instruction, and every Java service has one (the prelude
+catches), so a Java service needs exception references (`exnref`) as well as
+WasmGC. BR2 found it: Chrome 124 on an Android emulator refused the module
+with `Invalid opcode 0x1f`. TeaVM 0.15.0 has no legacy exception mode, and
+Binaryen 133 cannot translate `exnref` back, so Java's floors moved. Dart
+and Kotlin keep theirs. This evidence does not promote any tier.
+
+| Where | Java floor before | Java floor now | How it was checked |
+| --- | --- | --- | --- |
+| Chrome and Edge | 119 | 137 | Chrome for Testing headless shell: 136.0.7103.113 refused a TeaVM module with one `catch`, 137.0.7151.119 loaded it |
+| Firefox | 120 | 131 | SpiderMonkey shell: 130.0 refused it, 131.0 loaded it |
+| Safari | 18.2 | 18.4 | MDN browser-compat-data (`webassembly.exceptionsFinal`); not run |
+| WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Ubuntu and Debian archives: 2.46.0 and 2.46.6 refused it, 2.48.1, 2.48.6, 2.50.4 and 2.52.6 loaded it |
+| iOS app | 18.2 | 18.4 | follows Safari; `system_floor` unit tests only |
+| macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests only |
+| Windows app (WebView2) | 119.0 | 137.0 | follows Chrome; `system_floor` unit tests only |
+| Android app | API level 26, note names WebView 119 | API level 26, note names WebView 137 | follows Chrome; `system_floor` unit tests only |
+
+All runs were in an x86_64 Ubuntu 24.04 cloud container. A browser without
+`try_table` now gets the Java loader's own message, naming Chrome or Edge
+137, Firefox 131 and Safari 18.4, instead of a compile error;
+`a_java_service_runs_in_the_page_as_webassembly` checks it with a
+`WebAssembly.validate` that refuses the probe, because Node 22 runs
+`exnref`. A packaged app built at the new floors has not been run: the iOS
+and macOS page-service gates now expect 18.4 and 15.4 for Java.
 
 ### Browser engines for the web target (2026-10-19)
 

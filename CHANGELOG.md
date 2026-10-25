@@ -1701,6 +1701,19 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Java web services need WebAssembly exception references (JF1, ADR 0083
+  amendment, 2026-10-25). TeaVM writes a Java `catch` as `try_table`, and
+  TeaVM 0.15.0 has no legacy exception mode, so a Java page service needs
+  Chrome or Edge 137, Firefox 131 or Safari 18.4, not the WasmGC floor of
+  119, 120 and 18.2 (BR2 saw Chrome 124 refuse it with
+  `Invalid opcode 0x1f`). `tachyon-java.js` checks for `try_table` before it
+  loads the program and names those versions. A native app with a Java web
+  service now needs iOS 18.4, macOS 15.4, the WebView2 Runtime 137.0 or
+  WebKitGTK 2.48 (`TY1601` below that), and the Android note names System
+  WebView 137. Dart and Kotlin keep their floors. Chrome 136/137, Firefox
+  130/131 and WebKitGTK 2.46/2.48 were run against a TeaVM module
+  (`docs/SUPPORT_TIERS.md`).
+
 - Stale "not run" text fixed (DOC4, 2026-10-25). `docs/SUPPORT_TIERS.md`
   now records the runs that happened since its sentences were written: the
   Windows Edit menu, Minimize and Maximize, background and foreground, the

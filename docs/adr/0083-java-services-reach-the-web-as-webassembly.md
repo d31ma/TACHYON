@@ -622,3 +622,68 @@ followed by the list of what does. A behavior marker such as `@Retry` never
 reaches that check, because the build lowers it first; the reader test
 `a_behavior_marker_reaches_the_reader_lowered_as_in_a_build` reads a lowered
 `@Retry` method, as a build does.
+
+## Amendment (2026-10-25): Java services also need WebAssembly exception references
+
+This amendment supersedes "WasmGC needs Chrome or Edge 119, Firefox 120 or
+Safari 18.2 and newer" above and the Java rows of the native floors in the
+[ADR 0033 amendment of 2026-10-18](0033-dart-browser-services.md#amendment-2026-10-18-native-apps-raise-their-minimum-system-for-wasmgc-services).
+
+### Context
+
+The branded browser runs (BR2) opened a Java page in Chrome 124 on an Android
+emulator. The module did not compile: `Invalid opcode 0x1f`. That opcode is
+`try_table`, from the final WebAssembly exception handling proposal, which
+also adds the `exnref` type. TeaVM's WasmGC backend writes a Java `catch` as
+`try_table`. The Java prelude catches in `TacBridge`, `TacCall`, `TacNeeds`
+and `TacSocket`, so every Java service has it.
+
+Two ways out were checked:
+
+- TeaVM 0.15.0 has no legacy exception mode. `TeaVMRunner` has no option for
+  it, and its binary writer always writes `try_table` for a `WasmTry`.
+- Binaryen 133 `wasm-opt` can translate the legacy instructions to `exnref`
+  (`--translate-to-exnref`), but not back. `--strip-eh` drops the catches,
+  which changes what the program does.
+
+So the old floor cannot hold for Java.
+
+### Decision
+
+Java's floor is the first engine that runs both WasmGC and `try_table`. A
+module with one Java `catch`, built by TeaVM 0.15.0 at `-O 2`, was loaded in
+each engine on 2026-10-25 in a Linux cloud container:
+
+| Engine | Refuses | Loads |
+| --- | --- | --- |
+| Chrome headless shell (Chrome for Testing) | 136.0.7103.113: `Invalid opcode 0x1f (enable with --experimental-wasm-exnref)` | 137.0.7151.119 |
+| Firefox SpiderMonkey shell (jsshell) | 130.0: `unrecognized opcode: 1f 0` | 131.0 |
+| WebKitGTK JavaScriptCore | 2.46.0 and 2.46.6: `invalid opcode 31` | 2.48.1, 2.48.6, 2.50.4, 2.52.6 |
+
+Safari's version, 18.4, comes from MDN browser-compat-data
+(`webassembly.exceptionsFinal`), which agrees with the three rows above for
+Chrome, Edge, Firefox and the Android WebView.
+
+- In a browser, `tachyon-java.js` validates a small `try_table` module next to
+  the WasmGC one before it fetches the program. A browser without either one
+  gets "Java services need a browser with WebAssembly garbage collection and
+  exception references (exnref): Chrome or Edge 137, Firefox 131 or Safari
+  18.4 and newer." instead of a compile error.
+- A native app with a Java web service raises its minimum system to iOS 18.4,
+  macOS 15.4, the WebView2 Runtime 137.0 or WebKitGTK 2.48, and refuses a
+  lower `tac.application.minimumSystem` with `TY1601`. The Windows and Linux
+  apps check that version when they start, as before.
+- Android keeps its API level. The build note names Android System WebView
+  137 for Java, and 119 for Dart alone.
+- Dart and Kotlin keep the WasmGC floors (Chrome or Edge 119, Firefox 120,
+  Safari 18.2; iOS 18.2, macOS 15.2, WebView2 119.0, WebKitGTK 2.46).
+
+### Consequences
+
+- Node 22 enables `exnref` by default, so Node tests cannot see an engine
+  without it. `a_java_service_runs_in_the_page_as_webassembly` makes
+  `WebAssembly.validate` refuse the `try_table` probe and checks the message.
+- A newer TeaVM with a legacy exception mode, or a Binaryen pass that
+  translates `exnref` back, would let Java return to the WasmGC floors.
+- The evidence and the probe scripts are in the project notes
+  (`platform-matrix/thread-notes/JF1/`).

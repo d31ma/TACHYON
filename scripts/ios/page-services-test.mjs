@@ -17,7 +17,7 @@ class IosPageServicesTest {
   static evidence = process.env.TAC_IOS_PAGE_SERVICES_EVIDENCE ?? path.join(IosPageServicesTest.repository, 'target/ios-page-services-evidence')
   static feature = path.join(IosPageServicesTest.repository, 'website/content/features/web-assembly-services')
   static languages = (process.env.TAC_IOS_SERVICE_LANGUAGES ?? 'py,cs,kt,dart,java,go,rb,lua,hpp,fs,rs').split(',').map((item) => item.trim()).filter(Boolean)
-  static laterFloor = ['dart', 'kt', 'java']
+  static laterFloors = { dart: '18.2', kt: '18.2', java: '18.4' }
   static aheadOfTime = process.env.TAC_IOS_DOTNET_AOT !== 'false'
   static linked = ['rs', 'swift']
   static scopedColor = 'rgb(10, 20, 30)'
@@ -214,7 +214,7 @@ final class ServicesProbeService {
     const built = Math.round((Date.now() - started) / 1000)
     const bundle = path.join(project, 'dist/ios', `${application}.app`)
     const minimum = this.run('/usr/bin/plutil', ['-extract', 'MinimumOSVersion', 'raw', path.join(bundle, 'Info.plist')])
-    assert.equal(minimum, this.laterFloor.includes(language) ? '18.2' : '17.4', `${language}: MinimumOSVersion`)
+    assert.equal(minimum, this.laterFloors[language] ?? '17.4', `${language}: MinimumOSVersion`)
     const webAssembly = this.webAssembly(path.join(bundle, 'WebBundle'))
     const modules = Object.keys(webAssembly).length
     if (this.linked.includes(language)) assert.equal(modules, 0, `${language} is linked into the app, not WebAssembly`)

@@ -42,6 +42,12 @@ impl JavaFixtures {
          try { one.count } catch { stale = true }\n\
          console.log(JSON.stringify({ doubled, after, other: two.count, label: two.label, added, scaled, total, runtime: two.runtime, failed, readOnly, stale, keys: Object.keys(two).sort(), bigStart, bigCall, largeStart }))\n\
          process.exit(0)\n";
+    const OLD_BROWSER_DRIVER: &str = "const validate = WebAssembly.validate\n\
+         WebAssembly.validate = (bytes) => !bytes.includes(31) && validate(bytes)\n\
+         let refused = ''\n\
+         try { await import('./CounterService.js') } catch (error) { refused = error.message }\n\
+         console.log(JSON.stringify({ refused }))\n\
+         process.exit(0)\n";
     const LIBRARY_FILES: [(&str, &str); 7] = [
         (
             "client/models/Author.java",
@@ -224,6 +230,13 @@ async fn a_java_service_runs_in_the_page_as_webassembly() {
             "bigCall": "Web service counter: The request to add is 70121 bytes. The limit is 65536 bytes. Pass less data to the service.",
             "largeStart": "",
         })
+    );
+
+    let old = run_driver(root.path(), JavaFixtures::OLD_BROWSER_DRIVER);
+    assert_eq!(
+        old["refused"],
+        "Java services need a browser with WebAssembly garbage collection and exception references (exnref): Chrome or Edge 137, Firefox 131 or Safari 18.4 and newer.",
+        "a browser with WasmGC but without try_table refuses before it loads the module"
     );
 }
 

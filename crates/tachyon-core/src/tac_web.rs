@@ -579,8 +579,9 @@ const transportAsync = (text) => taskAnswers.answer(transport(text))
         include_str!("native/browser/tac-task-answers.js"),
         include_str!("native/browser/tac-ticket-http.js"),
         r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
-if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
-  throw new Error('Java services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.')
+const exceptionReferences = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 8, 1, 6, 0, 31, 64, 0, 11, 11])
+if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected) || !WebAssembly.validate(exceptionReferences)) {
+  throw new Error('Java services need a browser with WebAssembly garbage collection and exception references (exnref): Chrome or Edge 137, Firefox 131 or Safari 18.4 and newer.')
 }
 const taskAnswers = new TacTaskAnswers()
 const javaHttp = new TacTicketHttp()

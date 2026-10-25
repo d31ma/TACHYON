@@ -282,3 +282,20 @@ CSS `@scope`, which component styles compile to. The table now reads:
 A declared `tac.application.minimumSystem.ios` below 17.4, or
 `tac.application.minimumSystem.windows` below 118.0, stops the build with
 `TY1601`.
+
+## Amendment (2026-10-25): Java needs a later floor
+
+This amendment supersedes the Java part of the "Floor with a WasmGC service"
+column above. TeaVM writes a Java `catch` as the WebAssembly `try_table`
+instruction, which needs exception references (`exnref`) as well as WasmGC.
+The reasons and the measurements are in the
+[ADR 0083 amendment of 2026-10-25](0083-java-services-reach-the-web-as-webassembly.md#amendment-2026-10-25-java-services-also-need-webassembly-exception-references).
+Dart and Kotlin keep the column above.
+
+| Target | Floor with a Java web service |
+| --- | --- |
+| iOS | 18.4 |
+| macOS | 15.4 |
+| Android | API level 26 (a note names Android System WebView 137) |
+| Windows | WebView2 137.0 |
+| Linux | WebKitGTK 2.48 |

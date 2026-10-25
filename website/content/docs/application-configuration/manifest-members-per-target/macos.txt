@@ -40,7 +40,7 @@ tac.application.build
   honored: CFBundleVersion
 
 tac.application.minimumSystem
-  honored: LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Dart, Kotlin or Java web service); a value below that floor stops the build (TY1601). Component styles need Safari 17.4 or newer for CSS @scope, and the build notes it (ADR 0108)
+  honored: LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Dart or Kotlin web service; 15.4 with a Java web service, whose TeaVM WebAssembly also needs exception references, ADR 0083); a value below that floor stops the build (TY1601). Component styles need Safari 17.4 or newer for CSS @scope, and the build notes it (ADR 0108)
 
 tac.application.links
   adapted: tac.application.links: the macOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. A signed --release build whose TAC_MACOS_PROVISIONING_PROFILE has the Associated Domains capability embeds the profile and claims the listed hosts with applinks: entries, and the app opens their universal links at their route; other builds leave links to the hosts in the browser. No signed build has opened a link from a hosted domain yet.
