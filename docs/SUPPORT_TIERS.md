@@ -1456,8 +1456,40 @@ C#, Dart, F#, Go, Java, JavaScript, Kotlin, Rust and Swift services),
 clicks and typing reached the pages directly; the adapter never fell back
 to `element.click()` or a scripted fill. `window-controls`, `storage`,
 `svg-namespace`, `authored-node` and `preview-offline` were left out (calls
-WebDriver cannot make, above). Edge and Chrome on the Windows desktop are
-still owed (row "Web" above).
+WebDriver cannot make, above).
+
+Windows desktop (2026-10-25, IYOR-Surface, Windows 11 ARM64, in Samuel's
+signed-in session through `scripts/windows/desktop-run.ps1`; release `ty`
+from develop `ad27e53b`, runner `f58b814b`; Node 24.21.0, JDK 21 with TeaVM
+0.15.0, Swift 6.3.3, .NET SDK 10.0.302, Go 1.27.1, Dart, Kotlin 2.1.10 and
+Ruby 4.0.6). In Microsoft Edge 155.0.4283.62 every gate of the default list
+ran (none is left out for Chromium browsers), with every language:
+
+- Passed (14): the adapter check, `page-program`, `async-listener`,
+  `held-clients`, `cached-client`, `storage`, `component-scope`,
+  `logic-controls`, `svg-namespace`, `authored-node`, `yon-reads`,
+  `preview-offline`, `website` and `runtime`.
+- `web-apis` fails: Edge on Windows has `navigator.share()`, which opens the
+  Windows share dialog and answers only after the user picks a target or
+  closes it, so the gate's 5-second wait runs out (as on Android).
+- `scaffold` fails: Edge asks for `/favicon.ico` itself and logs the 404 as a
+  console error, as Chrome does.
+- `window-controls` fails to build its fixture on this machine: with
+  every language its route loads 4070 KB of WebAssembly against the
+  3584 KB budget (TY1337). Without the Swift service it builds and passes
+  in Edge, and on the Mac (Swift 6.4.1) the same route with every language
+  stays under the budget. So the Windows Swift 6.3.3 build is larger; this
+  is a toolchain cause, not Edge.
+
+The first run found three runner and gate problems, all fixed: the preload
+must be passed to `node --import` as a `file:` URL on Windows; the
+supervisor could judge a gate's exit against a process snapshot from
+before the exit (on Windows a snapshot takes seconds), and so reported
+"live owned descendants" for five gates whose checks had passed; and Edge's
+own background connections through the `preview-offline` CONNECT proxy
+were refused, then reset, with no error listener on the socket. `website`
+also hit its 120-second build limit once under load and passed alone.
+Google Chrome on the Windows desktop is still owed (row "Web" above).
 
 ### Linked services share one program (2026-10-24, LS2)
 
