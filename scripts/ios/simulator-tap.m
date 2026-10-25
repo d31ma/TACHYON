@@ -4,7 +4,7 @@
 #import <objc/message.h>
 typedef void *(*MouseMessage)(CGPoint *, CGPoint *, uint32_t, NSEventType, CGSize, uint32_t);
 typedef void *(*ButtonMessage)(int, int, int);
-static int send(id client, void *message) {
+static int deliver(id client, void *message) {
   if (!message) { fprintf(stderr, "no message\n"); return 1; }
   dispatch_semaphore_t done = dispatch_semaphore_create(0);
   __block NSError *sendError = nil;
@@ -37,7 +37,7 @@ int main(int argc, const char **argv) {
       if (!button) { fprintf(stderr, "no button message\n"); return 1; }
       int presses = argc > 4 ? atoi(argv[4]) : 1;
       for (int press = 0; press < presses; press++) {
-        if (send(client, button(0x0, 1, 0x33)) || send(client, button(0x0, 2, 0x33))) return 1;
+        if (deliver(client, button(0x0, 1, 0x33)) || deliver(client, button(0x0, 2, 0x33))) return 1;
         usleep(150000);
       }
       printf("pressed home %d\n", presses);
@@ -51,11 +51,11 @@ int main(int argc, const char **argv) {
       int hold = argc > 10 ? atoi(argv[10]) : 0;
       for (int step = 0; step <= steps; step++) {
         CGPoint point = CGPointMake(start.x + (end.x - start.x) * step / steps, start.y + (end.y - start.y) * step / steps);
-        if (send(client, mouse(&point, NULL, 0x32, NSEventTypeLeftMouseDown, CGSizeMake(1.0, 1.0), edge))) return 1;
+        if (deliver(client, mouse(&point, NULL, 0x32, NSEventTypeLeftMouseDown, CGSizeMake(1.0, 1.0), edge))) return 1;
         usleep(16000);
       }
       if (hold > 0) usleep(hold * 1000);
-      if (send(client, mouse(&end, NULL, 0x32, NSEventTypeLeftMouseUp, CGSizeMake(1.0, 1.0), edge))) return 1;
+      if (deliver(client, mouse(&end, NULL, 0x32, NSEventTypeLeftMouseUp, CGSizeMake(1.0, 1.0), edge))) return 1;
       printf("dragged %s %s to %s %s\n", argv[4], argv[5], argv[6], argv[7]);
       return 0;
     }
@@ -63,7 +63,7 @@ int main(int argc, const char **argv) {
     CGPoint point = CGPointMake(atof(argv[3]), atof(argv[4]));
     NSEventType presses[2] = { NSEventTypeLeftMouseDown, NSEventTypeLeftMouseUp };
     for (int index = 0; index < 2; index++) {
-      if (send(client, mouse(&point, NULL, 0x32, presses[index], CGSizeMake(1.0, 1.0), 0))) return 1;
+      if (deliver(client, mouse(&point, NULL, 0x32, presses[index], CGSizeMake(1.0, 1.0), 0))) return 1;
       usleep(100000);
     }
     printf("tapped %s %s\n", argv[3], argv[4]);

@@ -207,12 +207,20 @@ class IosLifetimeGate {
     IosLifetimeGate.notes.push(name + ': a touch swipe from the top edge opened the menu bar, and touches on View (' + view.x.toFixed(2) + ', ' + view.y.toFixed(2) + ') and What\'s Running (' + item.x.toFixed(2) + ', ' + item.y.toFixed(2) + ') called LifetimeService ' + instance);
   }
 
+  static findCard(lines, name) {
+    const { letters } = IosLifetimeGate;
+    const label = lines.find(line => letters(line.text) === letters(ApplicationLifetimeFixture.name));
+    const heading = lines.find(line => letters(line.text) === 'status');
+    assert.ok(label && heading, name + ': the app switcher shows the ' + ApplicationLifetimeFixture.name + ' card with its Status page: ' + lines.map(line => line.text).join(' | '));
+    return { x: label.x, y: heading.y + 0.1 };
+  }
+
   static async checkTermination(device, name, instance, open) {
     const { waitFor, launch, journal, gesture, pause, read } = IosLifetimeGate;
     gesture(device, 'home', '2');
     await pause(1200);
-    read(device, name.replace(/\W+/g, '-') + '-app-switcher');
-    gesture(device, 'drag', '0.5', '0.55', '0.5', '0.02', '6');
+    const card = IosLifetimeGate.findCard(read(device, name.replace(/\W+/g, '-') + '-app-switcher'), name);
+    gesture(device, 'drag', card.x.toFixed(3), card.y.toFixed(3), card.x.toFixed(3), '0.02', '6');
     const stopped = await waitFor(device, current => current.lines.includes('stopped ' + instance), name + ': ending the app from the app switcher runs applicationWillTerminate and the application OnStop', 80);
     assert.equal(stopped.lines.filter(line => line.startsWith('stopped ')).length, 1, name + ': the service stops once');
     const left = stopped.lines.lastIndexOf('left ' + instance + ' ' + open);
