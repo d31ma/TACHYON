@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { withServer } from '../release/server-probe.mjs'
+import { PageChecksFixture } from './page-checks-fixture.mjs'
 
 assert.equal(process.platform, 'darwin', 'The macOS page checks need macOS.')
 
@@ -22,7 +23,7 @@ class MacOsPageChecksTest {
   static identifier = 'dev.tachyon.page-checks-macos'
   static pageOrigin = 'tachyon-app://bundle'
   static onlineSteps = [
-    ['wait', 'Saved theme none', 'No read yet', 'No first read yet'],
+    ['wait', 'Saved theme none', 'No read yet', 'No first read yet', 'Visit note none', 'Kept note none', 'Root count 0'],
     ['press', 'Reach the undeclared host'],
     ['wait', 'Undeclared host refused by connect-src'],
     ['press', 'Reach the Yon origin'],
@@ -45,85 +46,50 @@ class MacOsPageChecksTest {
     ['wait', 'First read 3: First note from Yon'],
     ['press', 'Save the dark theme'],
     ['wait', 'Saved theme dark'],
+  ]
+  static visitSteps = [
+    ['press', 'Remember this visit'],
+    ['wait', 'Visit note remembered'],
+    ['press', 'Open the other page'],
+    ['wait', 'The other page'],
+    ['press', 'Back to the first page'],
+    ['wait', 'Visit note remembered', 'Saved theme dark', 'No read yet'],
+  ]
+  static routeSteps = [
+    ['press', 'Set the root count'],
+    ['wait', 'Root count 7', 'Root doubled 14'],
+    ['press', 'Open item 7'],
+    ['wait', 'Item path /items/7/', 'Item count 0'],
+    ['press', 'Set the item count'],
+    ['wait', 'Item count 9', 'Item doubled 18'],
+    ['press', 'Back to the root'],
+    ['wait', 'Root count 0', 'Visit note remembered'],
+    ['press', 'Set the root count'],
+    ['wait', 'Root count 7', 'Root doubled 14'],
+  ]
+  static keptSteps = [
+    ['press', 'Read the note'],
+    ['wait', 'Read 1: Note from Yon'],
+    ['press', 'Keep a note in Swift'],
+    ['wait', 'Kept note kept by Swift'],
+    ['press', 'Reload the page'],
+    ['wait', 'Kept note kept by Swift', 'No read yet'],
     ['quit'],
   ]
   static relaunchSteps = [
-    ['wait', 'Saved theme dark', 'No read yet'],
+    ['wait', 'Saved theme dark', 'No read yet', 'Visit note none', 'Kept note kept by Swift', 'Root count 0'],
     ['quit'],
   ]
 
   static clientFiles(addresses) {
     return {
-      'client/pages/tac.html': '<reach-panel hydrate="load" />\n<note-panel hydrate="load" />\n<theme-panel hydrate="load" />\n',
-      'client/components/reach/panel/tac.html': '<button on:click="reach.tryUndeclared()">Reach the undeclared host</button>\n<button on:click="reach.tryYon()">Reach the Yon origin</button>\n<p>{reach.undeclared}</p>\n<p>{reach.yon}</p>\n',
+      'client/pages/tac.html': '<reach-panel hydrate="load" />\n<note-panel hydrate="load" />\n<theme-panel hydrate="load" />\n<visit-panel hydrate="load" />\n<keep-panel hydrate="load" />\n<root-panel hydrate="load" />\n',
       'client/components/note/panel/tac.html': '<button on:click="note.read()">Read the note</button>\n<button on:click="note.readFirst()">Read the first note</button>\n<button on:click="note.readFresh()">Read the fresh note</button>\n<p>{note.text}</p>\n<p>{note.first}</p>\n<p>{note.fresh}</p>\n',
       'client/components/theme/panel/tac.html': '<button on:click="theme.save()">Save the dark theme</button>\n<p>Saved theme {theme.saved}</p>\n',
-      'client/setups/ReachSetup.js': `@Setup
-export default class ReachSetup {
-  static _ADDRESSES = ${JSON.stringify(addresses)};
-  static _REPORT_WAIT = 2000;
-
-  /** @returns {object} */
-  static configure() {
-    return { http: { reach: { exchange: (request) => ReachSetup._exchange(request) } } };
-  }
-
-  /**
-   * @param {{ path: string }} request
-   * @returns {Promise<{ outcome: string }>}
-   */
-  static async _exchange(request) {
-    const report = ReachSetup._policyReport();
-    try {
-      const response = await fetch(ReachSetup._ADDRESSES[request.path], { credentials: 'omit', cache: 'no-store' });
-      return { outcome: \`reached \${response.status}\` };
-    } catch {
-      return { outcome: \`refused by \${await report}\` };
-    }
-  }
-
-  /** @returns {Promise<string>} */
-  static _policyReport() {
-    return new Promise((resolve) => {
-      document.addEventListener('securitypolicyviolation', (event) => resolve(event.effectiveDirective), { once: true });
-      setTimeout(() => resolve('no policy report'), ReachSetup._REPORT_WAIT);
-    });
-  }
-}
-`,
-      'client/services/ReachService.js': `@Service
-export default class ReachService {
-  static ADAPTER = 'reach';
-  /** @type {AbortSignal} */
-  @Needs
-  lifecycle;
-  /** @type {BehaviorContext | null} */
-  behaviors = null;
-  undeclared = 'Undeclared host not tried';
-  yon = 'Yon origin not tried';
-
-  @OnStart
-  async open() {
-    this.behaviors = await Behaviors.create(ReachSetup, { partition: 'reach', signal: this.lifecycle });
-  }
-
-  async tryUndeclared() {
-    this.undeclared = \`Undeclared host \${await this.#reach('/undeclared')}\`;
-  }
-
-  async tryYon() {
-    this.yon = \`Yon origin \${await this.#reach('/yon')}\`;
-  }
-
-  /**
-   * @param {string} target
-   * @returns {Promise<string>}
-   */
-  async #reach(target) {
-    return this.behaviors.restClient(ReachService.ADAPTER).get(target).retrieve().then((answer) => answer.outcome, (error) => \`failed: \${error.message}\`);
-  }
-}
-`,
+      ...PageChecksFixture.reachFiles(addresses),
+      ...PageChecksFixture.visitFiles,
+      ...this.routeFiles,
+      ...this.keptFiles,
       'client/remotes/NoteClient.js': `@HTTPClient
 @CacheSettings({"name":"notes","ttlMs":1,"maxBytes":4096,"maxEntries":4})
 export default class NoteClient {
@@ -199,6 +165,91 @@ export default class ThemeService {
 }
 `,
     }
+  }
+
+  static routeFiles = {
+    'client/pages/items/_id/tac.html': '<item-panel hydrate="load" />\n',
+    'client/components/root/panel/tac.html': '<button on:click="rootRoute.set()">Set the root count</button>\n<p>Root count {rootRoute.count}</p>\n<p>Root doubled {rootRoute.twice}</p>\n<a href="/items/7/">Open item 7</a>\n',
+    'client/components/item/panel/tac.html': '<h1>Item path {itemRoute.path}</h1>\n<button on:click="itemRoute.set()">Set the item count</button>\n<p>Item count {itemRoute.count}</p>\n<p>Item doubled {itemRoute.twice}</p>\n<a href="/">Back to the root</a>\n',
+    'client/services/RootRouteService.js': `@Service
+export default class RootRouteService {
+  static COUNT = 7;
+  count = 0;
+  twice = 'not asked';
+
+  async set() {
+    this.count = RootRouteService.COUNT;
+    this.twice = String(await this.doubled());
+  }
+}
+`,
+    'client/services/RootRouteService.swift': `import Foundation
+@Service
+final class RootRouteService {
+    var count: Int = 0
+
+    func doubled() -> Int {
+        count * 2
+    }
+}
+`,
+    'client/services/ItemRouteService.js': `@Service
+export default class ItemRouteService {
+  static COUNT = 9;
+  count = 0;
+  twice = 'not asked';
+  path = '';
+
+  @OnStart
+  open() {
+    this.path = location.pathname;
+  }
+
+  async set() {
+    this.count = ItemRouteService.COUNT;
+    this.twice = String(await this.doubled());
+  }
+}
+`,
+    'client/services/ItemRouteService.swift': `import Foundation
+@Service
+final class ItemRouteService {
+    var count: Int = 0
+
+    func doubled() -> Int {
+        count * 2
+    }
+}
+`,
+  }
+
+  static keptFiles = {
+    'client/components/keep/panel/tac.html': '<button on:click="keep.keepNote()">Keep a note in Swift</button>\n<button on:click="keep.reload()">Reload the page</button>\n<p>Kept note {keep.saved}</p>\n',
+    'client/services/KeepService.js': `@Service
+export default class KeepService {
+  @LocalState
+  saved = 'none';
+
+  async keepNote() {
+    await this.remember();
+  }
+
+  reload() {
+    location.reload();
+  }
+}
+`,
+    'client/services/KeepService.swift': `import Foundation
+@Service
+final class KeepService {
+    var saved: String = "none"
+
+    func remember() -> String {
+        saved = "kept by Swift"
+        return saved
+    }
+}
+`,
   }
 
   static serverFiles = {
@@ -368,6 +419,9 @@ class FreshController {
       assert.deepEqual(reads, { notes: 2, first: 1 }, 'network-first reads go to Yon each time; the second cache-first read stays in the page')
       console.log(`==> Yon read ${JSON.stringify(reads)} by Yon; Yon stopped; ${undeclared.origin} saw no request`)
       await this.drive(this.offlineSteps)
+      await this.drive(this.visitSteps)
+      await this.drive(this.routeSteps)
+      await this.drive(this.keptSteps)
       console.log('==> the app quit; starting it again')
       this.launch()
       await this.drive(this.relaunchSteps)
@@ -379,7 +433,7 @@ class FreshController {
       if (process.env.TAC_KEEP_NATIVE_FIXTURE !== '1' && existsSync(this.fixture)) rmSync(this.fixture, { recursive: true, force: true })
     }
     const seconds = Math.round((Date.now() - started) / 1000)
-    console.log(`PASS: in the packaged macOS app (WKWebView), connect-src refused ${undeclared.origin} (it saw no request) while the Yon origin answered; Yon answered both network-first reads and only the first cache-first read; with Yon stopped, both reads answered from the page's kept copies while a no-store read failed; a preference string survived a quit and restart (${seconds} s).`)
+    console.log(`PASS: in the packaged macOS app (WKWebView), connect-src refused ${undeclared.origin} (it saw no request) while the Yon origin answered; Yon answered both network-first reads and only the first cache-first read; with Yon stopped, both reads answered from the page's kept copies while a no-store read failed; a @SessionState field was kept across a navigation to another page and back; the _param route /items/7/ opened with its own native state (root 7, item 9, root 7 again from a fresh owner); a @LocalState field set by a Swift method was read after a reload; a preference string and the Swift-set field survived a quit and restart while the @SessionState field did not (${seconds} s).`)
   }
 }
 

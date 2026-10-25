@@ -3,7 +3,7 @@ import ApplicationServices
 import Foundation
 
 enum PageChecksProbe {
-    static let usage = "usage: page-checks-macos-probe <bundle-id> wait <text>... | press <title> | quit"
+    static let usage = "usage: page-checks-macos-probe <bundle-id> wait <text>... | press <title> | quit | - allow <title>..."
     static let attempts = 120
     static let pause: TimeInterval = 0.25
     static let depth = 64
@@ -68,6 +68,27 @@ enum PageChecksProbe {
         return false
     }
 
+    static func windowButton(_ titles: [String], in application: NSRunningApplication) -> AXUIElement? {
+        let root = AXUIElementCreateApplication(application.processIdentifier)
+        let windows = attribute(root, kAXWindowsAttribute) as? [AXUIElement] ?? []
+        return windows.flatMap { elements(under: $0, depth: depth) }.first { element in
+            text(element, kAXRoleAttribute) == kAXButtonRole && titles.contains(text(element, kAXTitleAttribute))
+        }
+    }
+
+    static func allow(_ titles: [String]) -> Bool {
+        for _ in 0..<attempts {
+            for candidate in NSWorkspace.shared.runningApplications {
+                guard let found = windowButton(titles, in: candidate) else { continue }
+                print("pressed \(text(found, kAXTitleAttribute)) in \(candidate.bundleIdentifier ?? String(candidate.processIdentifier))")
+                return AXUIElementPerformAction(found, kAXPressAction as CFString) == .success
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(pause))
+        }
+        FileHandle.standardError.write(Data("page-checks probe: no window button named \(titles)\n".utf8))
+        return false
+    }
+
     static func quit(_ application: NSRunningApplication) -> Bool {
         guard application.terminate() else { return false }
         for _ in 0..<attempts where !application.isTerminated {
@@ -94,6 +115,9 @@ enum PageChecksProbe {
         guard AXIsProcessTrusted() else {
             FileHandle.standardError.write(Data("page-checks probe: this process needs Accessibility permission\n".utf8))
             exit(1)
+        }
+        if arguments.count >= 4, arguments[2] == "allow" {
+            exit(allow(Array(arguments.dropFirst(3))) ? 0 : 1)
         }
         guard arguments.count >= 3, let application = application(arguments[1]) else {
             FileHandle.standardError.write(Data((usage + "\n").utf8))

@@ -48,18 +48,84 @@ export class PageChecksFixture {
   static clientFiles(addresses) {
     return {
       'client/pages/tac.html': '<typing-box hydrate="load" />\n<reach-panel hydrate="load" />\n<note-panel hydrate="load" />\n<theme-panel hydrate="load" />\n<visit-panel hydrate="load" />\n',
-      'client/pages/other/tac.html': '<other-page />\n',
       'client/components/typing/box/tac.html': '<input aria-label="Typing box" :value="typing.text" on:input="typing.text = $event.target.value" />\n<p>Typed {typing.text}</p>\n',
-      'client/components/reach/panel/tac.html': '<button on:click="reach.tryUndeclared()">Reach the undeclared host</button>\n<button on:click="reach.tryYon()">Reach the Yon origin</button>\n<p>{reach.undeclared}</p>\n<p>{reach.yon}</p>\n',
       'client/components/note/panel/tac.html': '<button on:click="note.read()">Read the note</button>\n<button on:click="note.readFresh()">Read the fresh note</button>\n<p>{note.text}</p>\n<p>{note.fresh}</p>\n',
       'client/components/theme/panel/tac.html': '<button on:click="theme.save()">Save the dark theme</button>\n<p>Saved theme {theme.saved}</p>\n',
-      'client/components/visit/panel/tac.html': '<button on:click="visit.remember()">Remember this visit</button>\n<p>Visit note {visit.note}</p>\n<a href="/other/">Open the other page</a>\n',
-      'client/components/other/page/tac.html': '<h1>The other page</h1>\n<a href="/">Back to the first page</a>\n',
       'client/services/TypingService.js': `@Service
 export default class TypingService {
   text = '';
 }
 `,
+      ...this.reachFiles(addresses),
+      'client/remotes/NoteClient.js': `@HTTPClient
+@CacheSettings({"name":"notes","ttlMs":1,"maxBytes":4096,"maxEntries":4})
+export default class NoteClient {
+  /** @returns {Promise<{ text: string }>} */
+  @Cached
+  @GetRequest("/api/notes")
+  async read() {}
+
+  /** @returns {Promise<{ text: string }>} */
+  @GetRequest("/api/fresh")
+  async fresh() {}
+}
+`,
+      'client/services/NoteService.js': `@Service
+export default class NoteService {
+  /** @type {NoteClient} */
+  @Needs
+  noteClient;
+  reads = 0;
+  text = 'No read yet';
+  fresh = 'No fresh read yet';
+
+  async read() {
+    this.reads += 1;
+    const label = \`Read \${this.reads}\`;
+    this.text = await this.noteClient.read().then((note) => \`\${label}: \${note.text}\`, () => \`\${label} failed\`);
+  }
+
+  async readFresh() {
+    this.fresh = await this.noteClient.fresh().then((note) => \`Fresh read: \${note.text}\`, () => 'Fresh read failed');
+  }
+}
+`,
+      'client/services/ThemeService.js': `@Service
+export default class ThemeService {
+  static KEY = 'theme';
+  static DARK = 'dark';
+  /** @type {PreferenceStrings} */
+  @Needs
+  preferenceStrings;
+  saved = 'none';
+
+  @OnStart
+  load() {
+    this.saved = this.#shown(this.preferenceStrings.read(ThemeService.KEY));
+  }
+
+  save() {
+    this.preferenceStrings.write(ThemeService.KEY, ThemeService.DARK);
+    this.saved = this.#shown(this.preferenceStrings.read(ThemeService.KEY));
+  }
+
+  /**
+   * @param {string | null} value
+   * @returns {string}
+   */
+  #shown(value) {
+    return value ?? 'none';
+  }
+}
+`,
+      ...this.visitFiles,
+    }
+  }
+
+  /** @param {Record<string, string>} addresses */
+  static reachFiles(addresses) {
+    return {
+      'client/components/reach/panel/tac.html': '<button on:click="reach.tryUndeclared()">Reach the undeclared host</button>\n<button on:click="reach.tryYon()">Reach the Yon origin</button>\n<p>{reach.undeclared}</p>\n<p>{reach.yon}</p>\n',
       'client/setups/ReachSetup.js': `@Setup
 export default class ReachSetup {
   static _ADDRESSES = ${JSON.stringify(addresses)};
@@ -126,68 +192,14 @@ export default class ReachService {
   }
 }
 `,
-      'client/remotes/NoteClient.js': `@HTTPClient
-@CacheSettings({"name":"notes","ttlMs":1,"maxBytes":4096,"maxEntries":4})
-export default class NoteClient {
-  /** @returns {Promise<{ text: string }>} */
-  @Cached
-  @GetRequest("/api/notes")
-  async read() {}
-
-  /** @returns {Promise<{ text: string }>} */
-  @GetRequest("/api/fresh")
-  async fresh() {}
-}
-`,
-      'client/services/NoteService.js': `@Service
-export default class NoteService {
-  /** @type {NoteClient} */
-  @Needs
-  noteClient;
-  reads = 0;
-  text = 'No read yet';
-  fresh = 'No fresh read yet';
-
-  async read() {
-    this.reads += 1;
-    const label = \`Read \${this.reads}\`;
-    this.text = await this.noteClient.read().then((note) => \`\${label}: \${note.text}\`, () => \`\${label} failed\`);
+    }
   }
 
-  async readFresh() {
-    this.fresh = await this.noteClient.fresh().then((note) => \`Fresh read: \${note.text}\`, () => 'Fresh read failed');
-  }
-}
-`,
-      'client/services/ThemeService.js': `@Service
-export default class ThemeService {
-  static KEY = 'theme';
-  static DARK = 'dark';
-  /** @type {PreferenceStrings} */
-  @Needs
-  preferenceStrings;
-  saved = 'none';
-
-  @OnStart
-  load() {
-    this.saved = this.#shown(this.preferenceStrings.read(ThemeService.KEY));
-  }
-
-  save() {
-    this.preferenceStrings.write(ThemeService.KEY, ThemeService.DARK);
-    this.saved = this.#shown(this.preferenceStrings.read(ThemeService.KEY));
-  }
-
-  /**
-   * @param {string | null} value
-   * @returns {string}
-   */
-  #shown(value) {
-    return value ?? 'none';
-  }
-}
-`,
-      'client/services/VisitService.js': `@Service
+  static visitFiles = {
+    'client/pages/other/tac.html': '<other-page />\n',
+    'client/components/visit/panel/tac.html': '<button on:click="visit.remember()">Remember this visit</button>\n<p>Visit note {visit.note}</p>\n<a href="/other/">Open the other page</a>\n',
+    'client/components/other/page/tac.html': '<h1>The other page</h1>\n<a href="/">Back to the first page</a>\n',
+    'client/services/VisitService.js': `@Service
 export default class VisitService {
   @SessionState
   note = 'none';
@@ -197,7 +209,6 @@ export default class VisitService {
   }
 }
 `,
-    }
   }
 
   static serverFiles = {

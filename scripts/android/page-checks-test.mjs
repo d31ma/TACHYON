@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { PageChecksFixture } from '../native/page-checks-fixture.mjs';
 
 class AndroidPageChecksGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -16,6 +17,8 @@ class AndroidPageChecksGate {
   static apk = 'dist/android/PageChecks/PageChecks.apk';
   static appOrigin = 'https://appassets.tachyon.local';
   static storageCommitDelayMs = 6000;
+  static scopedColor = 'rgb(10, 20, 30)';
+  static styleFloor = 118;
   static links = [
     { name: 'Open the https link', url: 'https://example.com/tachyon-https-link', opens: 'com.android.chrome', logged: 'dat=https://example.com/' },
     { name: 'Open the http link', url: 'http://example.org/tachyon-http-link', opens: 'com.android.chrome', logged: 'dat=http://example.org/' },
@@ -23,10 +26,12 @@ class AndroidPageChecksGate {
   ];
   static userNameLink = { name: 'Open the link with a user name', url: 'https://ada@example.net/tachyon-user-name', logged: 'example.net' };
   static files = {
-    'client/pages/tac.html': '<state-panel hydrate="load" />\n<note-panel hydrate="load" />\n<theme-panel hydrate="load" />\n<link-panel />\n',
+    'client/pages/tac.html': '<state-panel hydrate="load" />\n<note-panel hydrate="load" />\n<theme-panel hydrate="load" />\n<reach-panel hydrate="load" />\n<visit-panel hydrate="load" />\n<link-panel />\n',
+    ...PageChecksFixture.visitFiles,
     'client/components/state/panel/tac.html': '<section aria-label="Application state"><output aria-label="Page heard">{pageState.heard.join(",")}</output><output aria-label="Native heard">{nativeState.heard}</output></section>\n',
     'client/components/note/panel/tac.html': '<section aria-label="Notes"><button on:click="note.read()">Read the note</button><button on:click="note.readFresh()">Read the fresh note</button><output aria-label="Note">{note.text}</output><output aria-label="Fresh note">{note.fresh}</output></section>\n',
     'client/components/theme/panel/tac.html': '<section aria-label="Theme"><button on:click="theme.save()">Save the dark theme</button><output aria-label="Saved theme">{theme.saved}</output></section>\n',
+    'client/components/theme/panel/tac.css': `output { color: ${AndroidPageChecksGate.scopedColor}; }\n`,
     'client/services/PageStateService.js': `@Service
 export default class PageStateService {
   heard = [];
@@ -141,9 +146,10 @@ export default class ThemeService {
     return `<nav aria-label="Links">${[...links, userNameLink].map(link => `<p><a href="${link.url}">${link.name}</a></p>`).join('')}</nav>\n`;
   }
 
-  static stage(project, yonOrigin) {
+  static stage(project, yonOrigin, undeclaredOrigin) {
     const { write, files, linkView } = AndroidPageChecksGate;
-    for (const [name, contents] of Object.entries(files)) write(project, name, contents);
+    const addresses = { '/undeclared': `${undeclaredOrigin}/probe`, '/yon': `${yonOrigin}/api/fresh` };
+    for (const [name, contents] of Object.entries({ ...files, ...PageChecksFixture.reachFiles(addresses) })) write(project, name, contents);
     write(project, 'client/components/link/panel/tac.html', linkView());
     write(project, 'client/manifest.json', JSON.stringify({
       name: 'Page Checks',
@@ -163,6 +169,18 @@ export default class ThemeService {
     const run = AndroidPageChecksGate.run;
     run('cargo', ['build', '--locked', '--bin', 'ty']);
     return path.join(JSON.parse(run('cargo', ['metadata', '--format-version', '1', '--no-deps'])).target_directory, 'debug/ty');
+  }
+
+  static hostSources(folder) {
+    return readdirSync(folder, { recursive: true }).filter(name => name.endsWith('.java')).map(name => readFileSync(path.join(folder, name), 'utf8'));
+  }
+
+  static checkPolicy(project, yonOrigin, undeclaredOrigin) {
+    const source = AndroidPageChecksGate.hostSources(path.join(project, 'dist/android')).find(text => text.includes('String CONTENT_SECURITY_POLICY ='));
+    assert.ok(source, 'The Android host source has a CONTENT_SECURITY_POLICY');
+    const policy = source.match(/String CONTENT_SECURITY_POLICY = "[^"]*connect-src [^;"]*/)?.[0] ?? '';
+    assert.ok(policy.includes(yonOrigin), `connect-src lacks the Yon origin ${yonOrigin}: ${policy}`);
+    assert.ok(!policy.includes(undeclaredOrigin), `connect-src lists the undeclared ${undeclaredOrigin}: ${policy}`);
   }
 
   static checkBundle(project) {
@@ -362,6 +380,56 @@ export default class ThemeService {
     console.log(`PASS: Android external links: ${links.map(link => link.url.split(':')[0]).join(', ')} links opened through ACTION_VIEW in ${[...new Set(links.map(link => link.opens))].join(' and ')}, and a link with a user name opened nothing`);
   }
 
+  static async undeclaredHost() {
+    const host = { requests: [] };
+    host.server = createServer((request, response) => {
+      host.requests.push(`${request.method} ${request.url} from ${request.headers.origin ?? 'no origin'}`);
+      response.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*', connection: 'close' });
+      response.end('{"reached":true}');
+    });
+    return new Promise(resolve => host.server.listen(0, '127.0.0.1', () => resolve({ ...host, port: host.server.address().port })));
+  }
+
+  static async checkReach(page, undeclared) {
+    const { waitFor } = AndroidPageChecksGate;
+    const shown = text => page.getByText(text, { exact: true }).count().then(count => count > 0);
+    await page.getByRole('button', { name: 'Reach the undeclared host' }).click();
+    await waitFor(() => shown('Undeclared host refused by connect-src'), async () => `connect-src refuses the undeclared host: ${await page.locator('body').innerText().catch(() => 'no page text')}`);
+    await page.getByRole('button', { name: 'Reach the Yon origin' }).click();
+    await waitFor(() => shown('Yon origin reached 200'), async () => `the Yon origin answers: ${await page.locator('body').innerText().catch(() => 'no page text')}`);
+    assert.deepEqual(undeclared.requests, [], `The undeclared host saw requests: ${undeclared.requests.join(', ')}`);
+    console.log(`PASS: Android tac.outgoing: connect-src refused a page fetch to http://localhost:${undeclared.port} (outside tac.outgoing.hosts, reachable through adb reverse) with a securitypolicyviolation, the host saw no request, and the Yon origin answered`);
+  }
+
+  static async checkScopedStyle(page) {
+    const { scopedColor, styleFloor } = AndroidPageChecksGate;
+    const seen = await page.evaluate(() => ({
+      inside: getComputedStyle(document.querySelector('output[aria-label="Saved theme"]')).color,
+      outside: getComputedStyle(document.querySelector('output[aria-label="Note"]')).color,
+      agent: navigator.userAgent,
+    }));
+    const engine = Number(seen.agent.match(/Chrome\/(\d+)/)?.[1]);
+    assert.ok(engine >= styleFloor, `The emulator runs Android System WebView ${styleFloor} or newer: ${seen.agent}`);
+    assert.equal(seen.inside, scopedColor, 'The component tac.css rule applies inside its component');
+    assert.notEqual(seen.outside, scopedColor, 'The component tac.css rule stays inside its component');
+    console.log(`PASS: Android scoped component styles: on Android System WebView ${engine}, a component tac.css rule coloured the output inside its component and not an output in another component`);
+    return engine;
+  }
+
+  static async checkSessionState(page) {
+    const { waitFor } = AndroidPageChecksGate;
+    const shown = text => page.getByText(text, { exact: true }).count().then(count => count > 0);
+    await waitFor(() => shown('Visit note none'), 'A fresh page shows no visit note');
+    await page.getByRole('button', { name: 'Remember this visit' }).click();
+    await waitFor(() => shown('Visit note remembered'), 'The @SessionState field takes the new value');
+    await page.getByRole('link', { name: 'Open the other page' }).click();
+    await waitFor(() => shown('The other page'), 'The link opens the other page');
+    await page.getByRole('link', { name: 'Back to the first page' }).click();
+    await waitFor(() => shown('Visit note remembered'), async () => `The @SessionState field is kept across the navigation: ${await page.locator('body').innerText().catch(() => 'no page text')}`);
+    assert.equal(new URL(page.url()).pathname, '/', 'The page is back on the first page');
+    console.log('PASS: Android @SessionState: a field set on the first page was kept across a navigation to another page and back');
+  }
+
   static async quit() {
     const { adbShell, packageName, pause } = AndroidPageChecksGate;
     adbShell('input', 'keyevent', 'KEYCODE_HOME');
@@ -376,14 +444,20 @@ export default class ThemeService {
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-android-page-checks-'));
     const yon = await gate.yon();
     const yonOrigin = `http://localhost:${yon.port}`;
+    const undeclared = await gate.undeclaredHost();
+    const undeclaredOrigin = `http://localhost:${undeclared.port}`;
     let connection;
     let reversed = false;
     try {
-      gate.stage(project, yonOrigin);
-      gate.run(gate.binary(), ['build', project, '--target', 'android']);
+      gate.stage(project, yonOrigin, undeclaredOrigin);
+      const built = spawnSync(gate.binary(), ['build', project, '--target', 'android'], { cwd: gate.repo, encoding: 'utf8', timeout: 900000, maxBuffer: 8 * 1024 * 1024 });
+      assert.equal(built.status, 0, `ty build --target android: ${built.error || built.stderr || built.stdout}`);
+      assert.match(`${built.stdout}${built.stderr}`, /Android System WebView 118/, 'The build names the web view release that runs component styles (ADR 0108)');
       gate.checkBundle(project);
+      gate.checkPolicy(project, yonOrigin, undeclaredOrigin);
       gate.run(gate.adb, ['wait-for-device']);
       gate.reverse(yon.port, 'enable');
+      gate.reverse(undeclared.port, 'enable');
       reversed = true;
       gate.run(gate.adb, ['install', '-r', path.join(project, gate.apk)]);
       gate.adbShell('pm', 'clear', gate.packageName);
@@ -394,6 +468,9 @@ export default class ThemeService {
       await gate.waitFor(async () => await gate.output(connection.page, 'Saved theme') === 'dark', 'preferenceStrings.write keeps the theme');
       await gate.checkOfflineReads(connection.page, yon, yonOrigin);
       await gate.checkExternalLinks(connection.page);
+      await gate.checkReach(connection.page, undeclared);
+      await gate.checkScopedStyle(connection.page);
+      await gate.checkSessionState(connection.page);
       await gate.disconnect(connection);
       connection = undefined;
       await gate.quit();
@@ -401,14 +478,16 @@ export default class ThemeService {
       assert.notEqual(relaunched, pid, 'The relaunch starts a new app process');
       connection = await gate.connect(relaunched);
       await gate.waitFor(async () => await gate.output(connection.page, 'Saved theme') === 'dark', async () => `preferenceStrings reads the theme back after a relaunch: ${await gate.output(connection.page, 'Saved theme')}`);
+      assert.equal(await connection.page.getByText('Visit note none', { exact: true }).count(), 1, 'The @SessionState field is gone after the app was stopped and relaunched');
       console.log(`PASS: Android preferenceStrings: a write was read back after the app was stopped and relaunched (process ${pid} -> ${relaunched})`);
     } finally {
       await gate.disconnect(connection).catch(() => {});
       spawnSync(gate.adb, ['shell', 'cmd', 'connectivity', 'airplane-mode', 'disable'], { encoding: 'utf8', timeout: 60000 });
       spawnSync(gate.adb, ['shell', 'am', 'force-stop', gate.packageName], { encoding: 'utf8', timeout: 60000 });
-      if (reversed) spawnSync(gate.adb, ['reverse', '--remove', `tcp:${yon.port}`], { encoding: 'utf8', timeout: 60000 });
+      if (reversed) for (const port of [yon.port, undeclared.port]) spawnSync(gate.adb, ['reverse', '--remove', `tcp:${port}`], { encoding: 'utf8', timeout: 60000 });
       for (const opened of new Set(gate.links.map(link => link.opens))) spawnSync(gate.adb, ['shell', 'am', 'force-stop', opened], { encoding: 'utf8', timeout: 60000 });
       yon.server.close();
+      undeclared.server.close();
       rmSync(project, { recursive: true, force: true });
     }
   }

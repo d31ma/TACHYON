@@ -43,6 +43,20 @@ class IosPageChecksTest {
   static clientFiles(addresses) {
     return {
       'client/pages/tac.html': '<page-checks hydrate="load" />\n',
+      'client/pages/other/tac.html': '<other-visit hydrate="load" />\n',
+      'client/components/other/visit/tac.html': '<h1>The other page</h1>\n<p>Going back {otherVisit.back}</p>\n',
+      'client/services/OtherVisitService.js': `@Service
+export default class OtherVisitService {
+  static BACK = '/?visited=other';
+  static PAUSE = 300;
+  back = 'soon';
+
+  @OnStart
+  open() {
+    setTimeout(() => { location.assign(OtherVisitService.BACK); }, OtherVisitService.PAUSE);
+  }
+}
+`,
       'client/components/page/checks/tac.html': '<main><a id="outside" :href="pageChecks.linkAddress" :target="pageChecks.linkTarget">Outside link</a><h1>Page checks</h1><p id="phase">{pageChecks.phase}</p><p id="heard">State {pageChecks.heard}</p><p id="report">{pageChecks.report}</p></main>\n',
       'client/components/page/checks/tac.css': '#outside { display: block; min-height: 50vh; font-size: 32px; }\n',
       'client/setups/ReachSetup.js': `@Setup
@@ -104,6 +118,8 @@ export default class PageChecksService {
   static READS = 'tachyon-yon-reads';
   static PAUSE = 200;
   static LINK_WAIT = 600000;
+  static OTHER_PAGE = '/other/';
+  static REMEMBERED = 'remembered';
   /** @type {AbortSignal} */
   @Needs
   lifecycle;
@@ -123,6 +139,8 @@ export default class PageChecksService {
   heard = 'none';
   linkAddress = '/';
   linkTarget = '_self';
+  @SessionState
+  visit = 'none';
 
   @OnStart
   async open() {
@@ -145,9 +163,17 @@ export default class PageChecksService {
         facts.note = await this.answer(() => this.noteClient.note());
         facts.kept = await this.answer(() => this.noteClient.kept());
         facts.keptPaths = await this.keptPaths();
+        facts.visitAfterRelaunch = this.visit;
         await this.finish('second', facts);
         return;
       }
+      if (this.visit !== PageChecksService.REMEMBERED) {
+        this.visit = PageChecksService.REMEMBERED;
+        location.assign(PageChecksService.OTHER_PAGE);
+        return;
+      }
+      facts.visitAfterNavigation = this.visit;
+      facts.visitedFrom = new URLSearchParams(location.search).get('visited');
       this.preferenceStrings.write(PageChecksService.KEY, PageChecksService.DARK);
       facts.themeAfter = this.preferenceStrings.read(PageChecksService.KEY);
       facts.undeclared = await this.reach('/undeclared');
@@ -557,6 +583,8 @@ class FreshController {
     assert.equal(facts.keptOffline, facts.keptOnline[0], 'a cache-first read answers from the kept copy with Yon stopped')
     assert.match(facts.freshOffline, /^failed/, 'a read without a cache rule fails with Yon stopped')
     assert.deepEqual([...facts.keptPaths].sort(), ['/api/kept', '/api/notes'])
+    assert.equal(facts.visitedFrom, 'other', 'the first page came back from the other page')
+    assert.equal(facts.visitAfterNavigation, 'remembered', 'a @SessionState field is kept across a navigation to another page and back')
   }
 
   static async main() {
@@ -595,6 +623,7 @@ class FreshController {
       }
       report.relaunch = await this.relaunch(firstPid)
       assert.equal(report.relaunch.second.themeBefore, 'dark', 'the preference string written before the quit is read after the relaunch')
+      assert.equal(report.relaunch.second.visitAfterRelaunch, 'none', 'a @SessionState field is gone after a terminate and relaunch')
       assert.equal(report.relaunch.second.note, report.first.noteOffline, 'a network-first read kept before the quit answers after the relaunch with Yon stopped')
       assert.equal(report.relaunch.second.kept, report.first.keptOffline, 'a cache-first read kept before the quit answers after the relaunch with Yon stopped')
       for (const link of report.links.filter(({ expected }) => typeof expected === 'boolean')) {
@@ -608,7 +637,7 @@ class FreshController {
       if (process.env.TAC_KEEP_NATIVE_FIXTURE !== '1') rmSync(this.fixture, { recursive: true, force: true })
     }
     console.log(JSON.stringify({ state: report.state, links: report.links.map(({ name, expected, leftTheApp }) => ({ name, expected, leftTheApp })), relaunch: report.relaunch }, null, 2))
-    console.log(`PASS: on the iOS ${report.runtime} simulator (${report.device}), connect-src refused ${undeclared.origin} while the Yon origin answered; network-first and cache-first Yon reads answered from the kept copy with Yon stopped; a preference string survived a terminate and relaunch (${report.seconds} s). Report: ${path.join(this.evidence, 'report.json')}`)
+    console.log(`PASS: on the iOS ${report.runtime} simulator (${report.device}), a @SessionState field was kept across a navigation to another page and back and was gone after a relaunch; connect-src refused ${undeclared.origin} while the Yon origin answered; network-first and cache-first Yon reads answered from the kept copy with Yon stopped; a preference string survived a terminate and relaunch (${report.seconds} s). Report: ${path.join(this.evidence, 'report.json')}`)
   }
 }
 
