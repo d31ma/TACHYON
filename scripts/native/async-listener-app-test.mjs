@@ -622,7 +622,7 @@ class AsyncListenerAppTest {
     try {
       const page = browser.contexts()[0].pages()[0]
       assert.ok(page, 'the Android WebView exposes a live document')
-      await page.waitForFunction((probe) => ['done', 'error'].includes(__tachyonTac.service(probe).phase), this.fixture.probeService, { timeout: this.proofTimeout })
+      await page.waitForFunction((probe) => ['done', 'error'].includes(globalThis.__tachyonTac?.service(probe)?.phase), this.fixture.probeService, { timeout: this.proofTimeout })
       const record = await page.evaluate((probe) => ({ phase: __tachyonTac.service(probe).phase, proof: __tachyonTac.service(probe).proof }), this.fixture.probeService)
       const proof = this.fixture.assertProof(record, Number(pid))
       console.log(`==> android: ${JSON.stringify(proof)}`)

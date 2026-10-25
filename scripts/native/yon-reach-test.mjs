@@ -208,7 +208,7 @@ class YonReachTest {
         browser = await chromium.connectOverCDP(`http://127.0.0.1:${forwarded}`, { noDefaults: true })
         const page = browser.contexts()[0].pages()[0]
         assert.ok(page, 'the Android WebView exposes a live document')
-        await page.waitForFunction(() => ['done', 'error'].includes(__tachyonTac.service('yonReach').phase), null, { timeout: this.proofTimeout })
+        await page.waitForFunction(() => ['done', 'error'].includes(globalThis.__tachyonTac?.service('yonReach')?.phase), null, { timeout: this.proofTimeout })
         YonReachFixture.assertProof(JSON.parse(await page.evaluate(() => __tachyonTac.service('yonReach').proof)), { pageOrigin: this.androidOrigin, native: true })
         const linkedPid = await page.evaluate(() => __tachyonTac.service('yonReach').record())
         assert.equal(Number(linkedPid), Number(pid), 'the linked service ran inside the Android app process')
