@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -98,7 +99,8 @@ class PrivateController {
 `,
   }
 
-  static featureExtensions = { swift: '.js', rust: '.rs' }
+  static featureExtensions = { swift: '.swift', rust: '.rs' }
+  static heldServices = ['stream', 'chat']
   static nativeFiles = {
     rust: {
       'client/models/Note.rs': '#[derive(Clone, Debug, Default)]\npub struct Note {\n    pub text: String,\n}\n',
@@ -262,12 +264,12 @@ export default class YonReachService {
     writeFileSync(target, text)
   }
 
-  /** @param {string} root @param {string} name @param {string} services */
-  static copyFeature(root, name, services) {
+  /** @param {string} root @param {string} name @param {string} clientExtension */
+  static copyFeature(root, name, clientExtension) {
     const source = path.join(this.repository, 'website/content/features', name)
     const feature = JSON.parse(readFileSync(path.join(source, 'feature.json'), 'utf8'))
     for (const file of feature.files) {
-      const extension = file.name.startsWith('client/') ? this.featureExtensions[services] : '.js'
+      const extension = file.name.startsWith('client/') ? clientExtension : '.js'
       const selected = file.name.endsWith(extension) || file.name.endsWith('.html') || file.name.includes('/models/') && file.name.endsWith('.ts')
       if (selected && file.name !== 'client/pages/tac.html') this.write(root, file.name, readFileSync(path.join(source, file.name), 'utf8'))
     }
@@ -285,7 +287,7 @@ export default class YonReachService {
    * @param {{yonOrigin: string, appOrigins: string[], native: boolean, services?: string}} options
    */
   static prepare(root, { yonOrigin, appOrigins, native, services = 'swift' }) {
-    for (const feature of this.features) this.copyFeature(root, feature, native ? services : 'swift')
+    for (const feature of this.features) this.copyFeature(root, feature, native ? this.featureExtensions[services] : '.js')
     this.copyDocs(root)
     const files = { ...this.pageFiles, ...this.serverFiles, ...(native ? this.nativeFiles[services] : {}) }
     for (const [name, text] of Object.entries(files)) this.write(root, name, text)
@@ -294,6 +296,14 @@ export default class YonReachService {
     const application = { id: this.applicationId, version: '0.0.1', build: 1 }
     this.write(root, 'client/manifest.json', JSON.stringify({ name: this.applicationName, start_url: '/', tac: { application, ...checks, yon: { origin: yonOrigin } } }))
     this.write(root, 'server/application.json', JSON.stringify({ server: { origins: appOrigins } }))
+  }
+
+  /** @param {string} output @param {string} language */
+  static assertLinked(output, language) {
+    const host = JSON.parse(readFileSync(path.join(output, 'tachyon.host.json'), 'utf8'))
+    for (const service of this.heldServices) {
+      assert.ok(host.companions.some((item) => item.service === service && item.language === language), `the ${language} ${service} service holding its client is linked into the app: ${JSON.stringify(host.companions)}`)
+    }
   }
 
   /**

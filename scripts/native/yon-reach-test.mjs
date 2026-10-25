@@ -56,6 +56,7 @@ class YonReachTest {
       YonReachFixture.prepare(fixture, { yonOrigin: typeof origin === 'function' ? origin(yonPort) : origin, appOrigins, native, services: this.services })
       const build = target === 'web' ? ['bundle', fixture] : ['build', fixture, '--target', target]
       this.run(this.binary, build)
+      if (native) YonReachFixture.assertLinked(path.join(fixture, 'dist', target), this.serviceNames[this.services])
       await withServer(this.binary, ['serve', fixture, '--no-watch', '--port', String(yonPort)], async () => {
         await body({ fixture, yonPort })
       })
