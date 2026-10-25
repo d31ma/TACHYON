@@ -89,21 +89,24 @@ return 'pick=' + (await send('call', 'pick', [])).value;";
 
     fn fixture(folder: &Path) -> String {
         let folder = folder.to_str().expect("folder");
-        include_str!("linux_file_picker_fixture.c")
-            .replace("__PICKER_FOLDER__", folder)
-            .replace(
-                "__PAGE_SCRIPT__",
-                &super::host::c_string_escape(&Self::page_script()),
-            )
-            .replace("__PAGE_EXPECTED__", Self::PAGE_EXPECTED)
-            .replace(
-                "__SERVICE_SCRIPT__",
-                &super::host::c_string_escape(Self::SERVICE_SCRIPT),
-            )
-            .replace(
-                "__SERVICE_EXPECTED__",
-                &super::host::c_string_escape(Self::SERVICE_EXPECTED),
-            )
+        concat!(
+            include_str!("linux_wayland_input.c"),
+            include_str!("linux_file_picker_fixture.c")
+        )
+        .replace("__PICKER_FOLDER__", folder)
+        .replace(
+            "__PAGE_SCRIPT__",
+            &super::host::c_string_escape(&Self::page_script()),
+        )
+        .replace("__PAGE_EXPECTED__", Self::PAGE_EXPECTED)
+        .replace(
+            "__SERVICE_SCRIPT__",
+            &super::host::c_string_escape(Self::SERVICE_SCRIPT),
+        )
+        .replace(
+            "__SERVICE_EXPECTED__",
+            &super::host::c_string_escape(Self::SERVICE_EXPECTED),
+        )
     }
 
     fn page_script() -> String {
@@ -131,6 +134,7 @@ fn the_file_picker_fixture_stages_a_granted_service_and_the_page_provider() {
     assert!(fixture.contains("TacNativeCapabilities.filePicker()"));
     assert!(fixture.contains("#define TACHYON_PICKER_FOLDER \"/tmp/ty-picker-7\""));
     assert!(fixture.contains("XTestFakeKeyEvent"));
+    assert!(fixture.contains("\"NotifyKeyboardKeysym\""));
     assert!(!fixture.contains("__PAGE_"));
     assert!(!fixture.contains("__SERVICE_"));
     let mut application = super::linux_host_tests::LinuxHostTests::application(
@@ -184,7 +188,7 @@ fn the_linux_host_answers_webassembly_pickers_through_the_page_route() {
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
-#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, libXtst and an X11 display (Xvfb); run explicitly on the Linux lane"]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, and an X11 display (Xvfb) with libXtst or a headless mutter Wayland session (scripts/linux/compositor-test.sh); run explicitly on the Linux lane"]
 async fn linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service() {
     let root = tempfile::tempdir().expect("fixture");
     let folder = LinuxFilePickerTests::folder();

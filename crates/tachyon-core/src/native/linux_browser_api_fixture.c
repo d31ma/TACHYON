@@ -39,9 +39,7 @@ static gpointer tachyon_browser_symbol(GModule *module, const char *name) {
   return symbol;
 }
 
-static gboolean tachyon_browser_click(gpointer data) {
-  (void)data;
-  if (!g_browser_waiting) return G_SOURCE_REMOVE;
+static void tachyon_browser_x11_click(void) {
   GModule *x11 = g_module_open("libX11.so.6", G_MODULE_BIND_LAZY);
   GModule *xtest = g_module_open("libXtst.so.6", G_MODULE_BIND_LAZY);
   GModule *program = g_module_open(NULL, G_MODULE_BIND_LAZY);
@@ -62,6 +60,22 @@ static gboolean tachyon_browser_click(gpointer data) {
   fake_button(display, 1, 0, 0);
   flush(display);
   close_display(display);
+}
+
+static void tachyon_browser_wayland_click(void) {
+  GtkWidget *window = GTK_WIDGET(g_native_window);
+  if (!gtk_window_is_maximized(g_native_window)) tachyon_browser_fail("a Wayland client knows where its window is only when it fills the monitor");
+  double surface_x = 0, surface_y = 0;
+  gtk_native_get_surface_transform(GTK_NATIVE(window), &surface_x, &surface_y);
+  tachyon_wayland_pointer_to((int)surface_x + gtk_widget_get_width(window) / 2, (int)surface_y + gtk_widget_get_height(window) / 2);
+  tachyon_wayland_click();
+}
+
+static gboolean tachyon_browser_click(gpointer data) {
+  (void)data;
+  if (!g_browser_waiting) return G_SOURCE_REMOVE;
+  if (tachyon_wayland_input_wanted()) tachyon_browser_wayland_click();
+  else tachyon_browser_x11_click();
   return G_SOURCE_CONTINUE;
 }
 
@@ -97,6 +111,10 @@ static gboolean tachyon_browser_tick(gpointer data) {
   (void)data;
   const char *uri = g_view != NULL ? webkit_web_view_get_uri(g_view) : NULL;
   if (g_strcmp0(uri, "tachyon://app/") != 0 || webkit_web_view_is_loading(g_view)) return G_SOURCE_CONTINUE;
+  if (tachyon_wayland_input_wanted() && !gtk_window_is_maximized(g_native_window)) {
+    gtk_window_maximize(g_native_window);
+    return G_SOURCE_CONTINUE;
+  }
   g_browser_waiting = TRUE;
   g_notification_send = tachyon_browser_notified;
   WebKitGeolocationManager *geolocation = webkit_web_context_get_geolocation_manager(webkit_web_view_get_context(g_view));
@@ -114,12 +132,12 @@ static gboolean tachyon_browser_deadline(gpointer data) {
 }
 
 int main(int argc, char **argv) {
-  g_setenv("GDK_BACKEND", "x11", TRUE);
+  g_setenv("GDK_BACKEND", "x11", FALSE);
   g_browser_notified = g_string_new(NULL);
   g_timeout_add(20, tachyon_browser_tick, NULL);
   g_timeout_add_seconds(110, tachyon_browser_deadline, NULL);
   int status = tachyon_host_main(argc, argv);
   if (status != 0 || g_browser_clipboard == NULL) tachyon_browser_fail("the host did not finish its run");
-  printf("linux browser APIs passed\n");
+  printf("linux browser APIs passed with %s clicks\n", tachyon_wayland_input_wanted() ? "Wayland (Mutter RemoteDesktop)" : "X11");
   return 0;
 }

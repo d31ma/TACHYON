@@ -45,9 +45,10 @@ run_in_mutter() {
     unset DISPLAY
     export WAYLAND_DISPLAY="$TAC_WAYLAND_DISPLAY_NAME" GDK_BACKEND=wayland
     export LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals
+    export GIO_USE_VFS=local GIO_USE_VOLUME_MONITOR=unix
     mutter --version
     cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 \
-      --skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_package_tests
+      --skip linux_browser_apis_reach_geoclue_and_the_notification_server --skip linux_package_tests
     cargo test --locked -p tachyon-core --lib the_linux_ -- --ignored --test-threads=1
   '
 }
@@ -109,7 +110,7 @@ main() {
   export -f compositor_owner
   run_under_compositing_x11
   run_in_mutter
-  echo 'PASS: the integrated title bar and window controls under a compositing X11 window manager, and the Linux host, window controls, appearance, storage, page calls, links and the integrated title bar (insets, drag regions, double click) under Wayland'
+  echo 'PASS: the integrated title bar and window controls under a compositing X11 window manager, and the Linux host, window controls, appearance (size, theme_color, background_color), storage, page calls, links, the integrated title bar (insets, drag regions, double click), the browser APIs (pointer clicks) and the file dialog (key presses) under Wayland, with input through Mutter RemoteDesktop'
 }
 
 main "$@"

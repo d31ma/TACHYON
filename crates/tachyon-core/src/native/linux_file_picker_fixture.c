@@ -188,7 +188,19 @@ static unsigned int tachyon_picker_keycode(Display *display, unsigned long keysy
   return keycode;
 }
 
+static void tachyon_picker_wayland_press(unsigned long keysym, gboolean control) {
+  if (control) tachyon_wayland_key(TACHYON_PICKER_CONTROL, TRUE);
+  tachyon_wayland_key(keysym, TRUE);
+  tachyon_wayland_key(keysym, FALSE);
+  if (control) tachyon_wayland_key(TACHYON_PICKER_CONTROL, FALSE);
+}
+
 static void tachyon_picker_press(unsigned long keysym, gboolean control) {
+  if (tachyon_wayland_input_wanted()) {
+    tachyon_picker_wayland_press(keysym, control);
+    return;
+  }
+  if (g_picker_key == NULL) tachyon_picker_load_x11();
   GdkDisplay *display = gdk_display_get_default();
   tachyon_picker_require(GDK_IS_X11_DISPLAY(display), "the fixture needs an X11 display (GDK_BACKEND=x11)");
   Display *xdisplay = gdk_x11_display_get_xdisplay(display);
@@ -272,6 +284,18 @@ static void tachyon_picker_drive(void) {
   tachyon_picker_choose();
 }
 
+static gboolean tachyon_picker_wayland_focused(void) {
+  if (!tachyon_wayland_input_wanted() || gtk_window_is_active(g_native_window)) return TRUE;
+  if (!gtk_window_is_maximized(g_native_window)) {
+    gtk_window_maximize(g_native_window);
+    return FALSE;
+  }
+  GtkWidget *window = GTK_WIDGET(g_native_window);
+  tachyon_wayland_pointer_to(gtk_widget_get_width(window) / 2, gtk_widget_get_height(window) / 2);
+  tachyon_wayland_click();
+  return FALSE;
+}
+
 static gboolean tachyon_picker_tick(gpointer data) {
   (void)data;
   tachyon_picker_drive();
@@ -280,6 +304,7 @@ static gboolean tachyon_picker_tick(gpointer data) {
     case 0: {
       const char *uri = g_view != NULL ? webkit_web_view_get_uri(g_view) : NULL;
       if (g_strcmp0(uri, "tachyon://app/") != 0 || webkit_web_view_is_loading(g_view)) return G_SOURCE_CONTINUE;
+      if (!tachyon_picker_wayland_focused()) return G_SOURCE_CONTINUE;
       tachyon_picker_check_handle_limits();
       tachyon_picker_check_lifetime();
       tachyon_picker_check_owners_and_reads();
@@ -317,12 +342,11 @@ static gboolean tachyon_picker_deadline(gpointer data) {
 
 int main(int argc, char **argv) {
   g_picker_started = g_get_monotonic_time();
-  tachyon_picker_load_x11();
   g_timeout_add(20, tachyon_picker_tick, NULL);
   g_timeout_add_seconds(110, tachyon_picker_deadline, NULL);
   int status = tachyon_host_main(argc, argv);
   tachyon_picker_require(status == 0 && g_picker_step == 4, "the host did not finish its run");
-  printf("linux file picker passed with the %s file dialog: a JavaScript page and a Rust service chose files in it with X11 key presses, read them and released them; cancel, the limits, the lifetime, other owners, the grant and a new page were checked\n",
-         g_picker_in_process ? "in-process GTK" : "desktop portal");
+  printf("linux file picker passed with the %s file dialog: a JavaScript page and a Rust service chose files in it with %s key presses, read them and released them; cancel, the limits, the lifetime, other owners, the grant and a new page were checked\n",
+         g_picker_in_process ? "in-process GTK" : "desktop portal", tachyon_wayland_input_wanted() ? "Wayland (Mutter RemoteDesktop)" : "X11");
   return 0;
 }

@@ -56,27 +56,30 @@ return results.join(',');";
 
     fn fixture(expected: [&str; 3], test_position: bool) -> String {
         let [summary, notified, clipboard] = expected;
-        include_str!("linux_browser_api_fixture.c")
-            .replace(
-                "__BROWSER_TEST_POSITION__",
-                ["FALSE", "TRUE"][usize::from(test_position)],
-            )
-            .replace(
-                "__BROWSER_SCRIPT__",
-                &super::host::c_string_escape(Self::SCRIPT),
-            )
-            .replace(
-                "__BROWSER_EXPECTED__",
-                &super::host::c_string_escape(summary),
-            )
-            .replace(
-                "__BROWSER_NOTIFIED__",
-                &super::host::c_string_escape(notified),
-            )
-            .replace(
-                "__BROWSER_CLIPBOARD__",
-                &super::host::c_string_escape(clipboard),
-            )
+        concat!(
+            include_str!("linux_wayland_input.c"),
+            include_str!("linux_browser_api_fixture.c")
+        )
+        .replace(
+            "__BROWSER_TEST_POSITION__",
+            ["FALSE", "TRUE"][usize::from(test_position)],
+        )
+        .replace(
+            "__BROWSER_SCRIPT__",
+            &super::host::c_string_escape(Self::SCRIPT),
+        )
+        .replace(
+            "__BROWSER_EXPECTED__",
+            &super::host::c_string_escape(summary),
+        )
+        .replace(
+            "__BROWSER_NOTIFIED__",
+            &super::host::c_string_escape(notified),
+        )
+        .replace(
+            "__BROWSER_CLIPBOARD__",
+            &super::host::c_string_escape(clipboard),
+        )
     }
 
     #[cfg(target_os = "linux")]
@@ -98,6 +101,7 @@ return results.join(',');";
             .await
             .expect("actual generated Linux host browser APIs");
         assert!(output.contains("linux browser APIs passed"), "{output}");
+        println!("{output}");
     }
 }
 
@@ -160,6 +164,8 @@ fn the_browser_api_fixture_fills_every_placeholder() {
     let fixture = LinuxBrowserApiTests::fixture(LinuxBrowserApiTests::GRANTED, true);
     assert!(!fixture.contains("__BROWSER_"));
     assert!(fixture.contains("browserApi.share.open"));
+    assert!(fixture.contains("XTestFakeButtonEvent"));
+    assert!(fixture.contains("\"NotifyPointerButton\""));
     assert!(fixture.contains("if (TRUE) g_signal_connect(geolocation, \"start\""));
     let refused = LinuxBrowserApiTests::fixture(LinuxBrowserApiTests::REFUSED, true);
     assert!(refused.contains("read-refused:NotAllowedError"));
@@ -169,7 +175,7 @@ fn the_browser_api_fixture_fills_every_placeholder() {
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
-#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, an X11 display (Xvfb) with libXtst, and a session bus; run explicitly on the Linux lane"]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, a session bus, and an X11 display (Xvfb) with libXtst or a headless mutter Wayland session (scripts/linux/compositor-test.sh); run explicitly on the Linux lane"]
 async fn linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view() {
     LinuxBrowserApiTests::run(
         &LinuxBrowserApiTests::ALL,

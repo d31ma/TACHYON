@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,6 +15,9 @@ class LinuxPageServicesTest {
   static serviceLanguages = PageServicesFixture.list('TAC_LINUX_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
   static windowCallers = PageServicesFixture.list('TAC_LINUX_WINDOW_CALLERS', 'swift,cs,kt')
   static pickerCallers = PageServicesFixture.list('TAC_LINUX_PICKER_CALLERS', 'swift,cs,kt')
+  static aheadOfTimeLanguages = PageServicesFixture.list('TAC_LINUX_AOT_LANGUAGES', 'cs')
+  static storedField = process.env.TAC_LINUX_STORED_FIELD !== 'false'
+  static webAssemblySizes = {}
   static tallySteps = PageServicesFixture.tallySteps
   static reportSteps = PageServicesFixture.reportSteps
   static screen = '1600x1200x24'
@@ -63,7 +66,14 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
 
   /** @param {string} project */
   static async build(project) {
-    await this.run(this.binary, ['build', project, '--target', 'linux'], { timeoutMilliseconds: 900000 })
+    return await this.run(this.binary, ['build', project, '--target', 'linux'], { timeoutMilliseconds: 1800000 })
+  }
+
+  /** @param {string} project @param {string} application */
+  static dotnetRuntimeBytes(project, application) {
+    const framework = path.join(project, 'dist/linux', application, 'resources/WebBundle/.tachyon/services/dotnet/_framework')
+    const runtime = readdirSync(framework).find(name => /^dotnet\.native\..*\.wasm$/.test(name))
+    return runtime ? statSync(path.join(framework, runtime)).size : 0
   }
 
   /** @param {string} language */
@@ -73,8 +83,33 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
     const started = Date.now()
     await this.build(project)
     const built = ((Date.now() - started) / 1000).toFixed(0)
+    if (this.aheadOfTimeLanguages.includes(language)) this.webAssemblySizes[language] = this.dotnetRuntimeBytes(project, application)
     const output = await this.drive(project, application, this.tallySteps)
     console.log(`==> ${language} WebAssembly page service (built in ${built} s)\n${output}`)
+  }
+
+  /** @param {string} language */
+  static async checkAheadOfTime(language) {
+    const project = path.join(this.root, `tally-${language}-aot`)
+    const application = PageServicesFixture.stageTally(project, language, { dotnet: { aot: true } })
+    const started = Date.now()
+    await this.build(project)
+    const built = ((Date.now() - started) / 1000).toFixed(0)
+    const bytes = this.dotnetRuntimeBytes(project, application)
+    const interpreted = this.webAssemblySizes[language] ?? 0
+    assert.ok(interpreted > 0 && bytes > interpreted, `${language}: dotnet.native.wasm compiled ahead of time (${bytes} bytes) must be larger than the interpreter's (${interpreted} bytes); run the ${language} service first`)
+    const output = await this.drive(project, application, this.tallySteps)
+    const megabytes = (size) => (size / 1000000).toFixed(2)
+    console.log(`==> ${language} WebAssembly page service compiled ahead of time (built in ${built} s, dotnet.native.wasm ${megabytes(bytes)} MB against ${megabytes(interpreted)} MB without AOT)\n${output}`)
+  }
+
+  static async checkStoredField() {
+    const project = path.join(this.root, 'stored-field')
+    const application = PageServicesFixture.stageStoredField(project)
+    await this.build(project)
+    assert.ok(existsSync(path.join(project, 'dist/linux', application, 'bin/libtachyoncompanion.so')), 'the Rust service is not linked into the Linux app')
+    const output = await this.drive(project, application, PageServicesFixture.storedFieldSteps)
+    console.log(`==> a linked Rust service's @LocalState field, set by its own method, after a page reload\n${output}`)
   }
 
   /** @param {string} language */
@@ -107,7 +142,9 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
     for (const language of this.serviceLanguages) await this.checkService(language)
     for (const language of this.windowCallers) await this.checkWindowCaller(language)
     for (const language of this.pickerCallers) await this.checkPickerCaller(language)
-    console.log(`PASS: WebAssembly page services (${this.serviceLanguages.join(', ')}) answered in the packaged Linux app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, and FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog.`)
+    for (const language of this.aheadOfTimeLanguages) await this.checkAheadOfTime(language)
+    if (this.storedField) await this.checkStoredField()
+    console.log(`PASS: WebAssembly page services (${this.serviceLanguages.join(', ')}) answered in the packaged Linux app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog, ahead-of-time services (${this.aheadOfTimeLanguages.join(', ') || 'none'}) answered, and ${this.storedField ? 'a Rust-set @LocalState field survived a reload' : 'the stored field check was skipped'}.`)
   }
 }
 
