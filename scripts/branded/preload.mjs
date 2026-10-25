@@ -18,7 +18,7 @@ class BrandedLaunch {
   static plans = {
     chrome: { engine: 'chromium', label: 'Google Chrome', channel: 'chrome', launch: (type, options) => type.launch({ ...options, channel: 'chrome' }) },
     msedge: { engine: 'chromium', label: 'Microsoft Edge', channel: 'msedge', launch: (type, options) => type.launch({ ...options, channel: 'msedge' }) },
-    'android-chrome': { engine: 'chromium', label: 'Chrome on Android', launch: (type) => AndroidChrome.launch(type) },
+    'android-chrome': { engine: 'chromium', label: 'Chrome on Android', launch: (type, options) => AndroidChrome.launch(type, options) },
     safari: {
       engine: 'webkit',
       label: 'Safari',

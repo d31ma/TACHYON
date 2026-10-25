@@ -1398,25 +1398,31 @@ hosts").
 
 Chrome on the Android emulator (2026-10-25, `tachyon-gate`, the google_apis
 userdebug arm64 image of Android 15, not the Google Play image; Chrome
-124.0.6367.219, user agent `Android 10; K ... Chrome/124.0.0.0 Mobile`,
-branch `f3a408e5`): the adapter check, `async-listener`, `logic-controls`,
-`svg-namespace`, `authored-node` and `runtime` passed. `preview-offline` is
-unsupported (a persistent context). Chrome on Android gives no new browser
-context over CDP, so every gate ran in its default context. The failures:
+124.0.6367.219, user agent `Android 10; K ... Chrome/124.0.0.0 Mobile`).
+Chrome on Android gives no new browser context over CDP, so each context a
+gate opens is a view of Chrome's one context: its own pages and
+`newContext` options (media, locale, viewport and the rest applied per
+page), with storage cleared when the last view closes. The runner gives a
+loopback port its `adb reverse` route on the first request to it, and
+passes a gate's `--host-resolver-rules` to Chrome's command line. With
+every language but Java (the `*_LANGUAGES` lists of `page-program`,
+`held-clients`, `window-controls` and `cached-client`), the adapter check,
+`page-program`, `async-listener`, `held-clients`, `cached-client`,
+`window-controls`, `logic-controls`, `svg-namespace`, `scaffold`,
+`authored-node`, `yon-reads` and `runtime` passed. The rest:
 
 - Java services: Chrome 124 has no Wasm `exnref`, which the TeaVM Java
-  build uses ("Invalid opcode 0x1f"). `page-program`, `held-clients` and
-  `window-controls` stopped at Java and passed without it; `cached-client`
-  failed on the same compile error.
-- `component-scope`: a `3px` border computes as `2.66667px` at the
+  build uses ("Invalid opcode 0x1f"), so a page with a Java service never
+  renders.
+- `web-apis` fails: `navigator.share()` opens Android's share sheet and
+  answers only after the user picks a target or dismisses it, so the gate's
+  5-second wait for `ShareFinished` or `BrowserCallFailed` runs out.
+- `component-scope` fails: a `3px` border computes as `2.66667px` at the
   emulator's fractional device pixel ratio.
-- `scaffold`: Chrome's own `/favicon.ico` 404, as in the cloud Chrome run.
-- `web-apis`: the gate's `newContext({ reducedMotion: 'reduce', ... })`
-  options are lost in the default context (runner).
-- `yon-reads`: the page reads Yon on a second loopback port, and the runner
-  sets up `adb reverse` only for the ports the gate navigates to (runner).
-- `storage` and `website` timed out waiting for the page; not yet
-  diagnosed.
+- `website` is unsupported: at 1440 px it asks for `hasTouch: false`, and a
+  phone is always a touch device.
+- `storage` is left out: it keeps several contexts open, each with its own
+  storage. `preview-offline` is unsupported (a persistent context).
 
 Safari on macOS, Chrome on the Google Play image, and Edge and Chrome on the
 Windows desktop are still owed (row "Web" above).

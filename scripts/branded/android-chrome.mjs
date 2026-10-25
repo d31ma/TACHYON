@@ -20,6 +20,7 @@ export class AndroidChrome {
   static mediaOptions = ['colorScheme', 'reducedMotion', 'forcedColors']
   static pageOptions = [...AndroidChrome.mediaOptions, 'locale', 'timezoneId', 'viewport', 'extraHTTPHeaders', 'userAgent']
   static contextOptions = ['permissions', 'geolocation', 'offline']
+  static deviceOptions = { hasTouch: true, isMobile: true }
 
   /** @param {string[]} args */
   static async adb(args) {
@@ -28,9 +29,22 @@ export class AndroidChrome {
     return stdout.trim()
   }
 
-  /** @param {import('playwright').BrowserType} chromium */
-  static async launch(chromium) {
-    await AndroidChrome.adb(['shell', `echo '${AndroidChrome.flags}' > ${AndroidChrome.commandLine}`])
+  static hostRules = '--host-resolver-rules='
+
+  /** @param {string[]} args @returns {string[]} */
+  static mappedHosts(args) {
+    const rules = args.filter((argument) => argument.startsWith(AndroidChrome.hostRules)).flatMap((argument) => argument.slice(AndroidChrome.hostRules.length).split(','))
+    return rules.map((rule) => rule.trim().split(/\s+/)).filter(([verb, , target]) => verb === 'MAP' && AndroidChrome.loopback.has(target)).map(([, host]) => host)
+  }
+
+  /** @param {import('playwright').BrowserType} chromium @param {{args?:string[]}} [options] */
+  static async launch(chromium, options = {}) {
+    const args = options.args ?? []
+    const ignored = args.filter((argument) => !argument.startsWith(AndroidChrome.hostRules))
+    if (ignored.length) console.error(`branded: Chrome on Android takes only ${AndroidChrome.hostRules} from the launch arguments; ignoring ${ignored.join(' ')}`)
+    const rules = args.filter((argument) => argument.startsWith(AndroidChrome.hostRules)).map((argument) => `${AndroidChrome.hostRules}"${argument.slice(AndroidChrome.hostRules.length)}"`)
+    const flags = [AndroidChrome.flags, ...rules].join(' ')
+    await AndroidChrome.adb(['shell', `echo '${flags}' > ${AndroidChrome.commandLine}`])
     await AndroidChrome.adb(['shell', 'am', 'set-debug-app', '--persistent', AndroidChrome.package])
     await AndroidChrome.adb(['shell', 'am', 'force-stop', AndroidChrome.package])
     await AndroidChrome.adb(['shell', 'am', 'start', '-n', `${AndroidChrome.package}/${AndroidChrome.activity}`, '-d', 'about:blank'])
@@ -44,12 +58,13 @@ export class AndroidChrome {
     }
     if (!version) throw new Error(`Chrome on the Android device did not open ${AndroidChrome.socket} within ${AndroidChrome.startMilliseconds} ms`)
     const browser = await chromium.connectOverCDP(endpoint)
-    return new AndroidChrome(browser, port, version).wrap()
+    return new AndroidChrome(browser, port, version, AndroidChrome.mappedHosts(args)).wrap()
   }
 
-  /** @param {import('playwright').Browser} browser @param {number} port @param {Record<string,string>} version */
-  constructor(browser, port, version) {
+  /** @param {import('playwright').Browser} browser @param {number} port @param {Record<string,string>} version @param {string[]} mapped */
+  constructor(browser, port, version, mapped) {
     this.browser = browser
+    this.loopback = new Set([...AndroidChrome.loopback, ...mapped])
     this.port = port
     this.details = version
     this.userAgent = version['User-Agent']
@@ -57,13 +72,18 @@ export class AndroidChrome {
     this.reversed = new Set()
     /** @type {Set<import('playwright').Page>} */
     this.opened = new Set()
+    /** @type {Set<string>} */
+    this.visited = new Set()
+    /** @type {Set<import('playwright').BrowserContext>} */
+    this.routed = new Set()
+    this.views = 0
   }
 
   /** @param {string} url */
   async reach(url) {
     const parsed = URL.canParse(url) ? new URL(url) : undefined
     const port = Number(parsed?.port)
-    if (!parsed || !AndroidChrome.loopback.has(parsed.hostname) || !port || this.reversed.has(port)) return
+    if (!parsed || !this.loopback.has(parsed.hostname) || !port || this.reversed.has(port)) return
     await AndroidChrome.adb(['reverse', `tcp:${port}`, `tcp:${port}`])
     this.reversed.add(port)
   }
@@ -71,7 +91,7 @@ export class AndroidChrome {
   /** @param {string} url */
   unreached(url) {
     const parsed = new URL(url)
-    return AndroidChrome.loopback.has(parsed.hostname) && Number(parsed.port) > 0 && !this.reversed.has(Number(parsed.port))
+    return this.loopback.has(parsed.hostname) && Number(parsed.port) > 0 && !this.reversed.has(Number(parsed.port))
   }
 
   /**
@@ -81,8 +101,9 @@ export class AndroidChrome {
    */
   static checkOptions(options) {
     const known = [...AndroidChrome.pageOptions, ...AndroidChrome.contextOptions]
-    const unknown = Object.keys(options).filter((name) => options[name] !== undefined && !known.includes(name))
-    if (unknown.length) throw new BrandedUnsupported('Chrome on Android', `browser.newContext({ ${unknown.join(', ')} })`, 'its one shared browser context cannot take these options')
+    const asDevice = (name) => Object.hasOwn(AndroidChrome.deviceOptions, name) && options[name] === AndroidChrome.deviceOptions[name]
+    const unknown = Object.keys(options).filter((name) => options[name] !== undefined && !known.includes(name) && !asDevice(name))
+    if (unknown.length) throw new BrandedUnsupported('Chrome on Android', `browser.newContext({ ${unknown.map((name) => `${name}: ${JSON.stringify(options[name])}`).join(', ')} })`, 'its one shared browser context cannot take these options, and a phone is always a touch device')
   }
 
   /** @param {import('playwright').Page} page @param {Record<string, any>} options */
@@ -105,6 +126,7 @@ export class AndroidChrome {
     const goto = page.goto.bind(page)
     page.goto = async (url, options) => {
       await this.reach(url)
+      if (URL.canParse(url) && new URL(url).origin !== 'null') this.visited.add(new URL(url).origin)
       return goto(url, options)
     }
     return page
@@ -113,36 +135,82 @@ export class AndroidChrome {
   /**
    * A page may reach a loopback port the gate never navigated to (a Yon origin beside the page),
    * so a request to a port without an adb reverse route opens one before it continues.
-   * @param {import('playwright').BrowserContext} context @param {boolean} shared @param {Record<string, any>} options
+   * @param {import('playwright').BrowserContext} context
    */
-  async context(context, shared, options = {}) {
-    const newPage = context.newPage.bind(context)
-    const close = context.close.bind(context)
-    const unreached = (url) => this.unreached(String(url))
-    const reachFirst = async (route) => {
+  async route(context) {
+    if (this.routed.has(context)) return
+    this.routed.add(context)
+    await context.route((url) => this.unreached(String(url)), async (route) => {
       await this.reach(route.request().url())
       await route.fallback()
-    }
-    await context.route(unreached, reachFirst)
-    if (shared) {
-      AndroidChrome.checkOptions(options)
-      if (options.permissions) await context.grantPermissions(options.permissions)
-      if (options.geolocation) await context.setGeolocation(options.geolocation)
-      if (options.offline !== undefined) await context.setOffline(options.offline)
-    }
-    context.newPage = async () => {
-      const page = this.page(await newPage())
-      if (shared) await AndroidChrome.applyPageOptions(page, options)
+    })
+  }
+
+  /** @param {import('playwright').BrowserContext} context */
+  async own(context) {
+    await this.route(context)
+    const newPage = context.newPage.bind(context)
+    context.newPage = async () => this.page(await newPage())
+    return context
+  }
+
+  /**
+   * Chrome on Android gives no new browser context over CDP, so each context a gate asks for is a
+   * view of the one shared context: its own pages and options, the shared storage and permissions.
+   * @param {import('playwright').BrowserContext} context @param {Record<string, any>} options
+   */
+  async shared(context, options) {
+    AndroidChrome.checkOptions(options)
+    await this.route(context)
+    if (options.permissions) await context.grantPermissions(options.permissions)
+    if (options.geolocation) await context.setGeolocation(options.geolocation)
+    if (options.offline !== undefined) await context.setOffline(options.offline)
+    this.views += 1
+    /** @type {Set<import('playwright').Page>} */
+    const pages = new Set()
+    const newPage = async () => {
+      const page = this.page(await context.newPage())
+      pages.add(page)
+      page.once('close', () => pages.delete(page))
+      await AndroidChrome.applyPageOptions(page, options)
       return page
     }
-    context.close = async () => {
-      await context.unroute(unreached, reachFirst)
-      if (!shared) return close()
-      for (const page of context.pages().filter((open) => this.opened.has(open))) await page.close()
+    let closed = false
+    const close = async () => {
+      if (closed) return
+      closed = true
+      this.views -= 1
+      if (this.views === 0) await this.forget(context, [...pages][0])
+      for (const page of [...pages]) await page.close()
+      if (this.views > 0) return
       await context.clearPermissions()
       await context.setOffline(false)
     }
-    return context
+    const view = { newPage, close, pages: () => [...pages] }
+    return new Proxy(context, {
+      get(target, property) {
+        if (Object.hasOwn(view, property)) return view[property]
+        const value = Reflect.get(target, property)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+  }
+
+  /**
+   * A new Playwright context starts with empty storage. Here every context shares Chrome's one
+   * context, so when the last of them closes, the storage and cookies of the origins they visited
+   * are cleared.
+   * @param {import('playwright').BrowserContext} context @param {import('playwright').Page|undefined} open
+   */
+  async forget(context, open) {
+    if (this.visited.size === 0) return
+    const page = open ?? await context.newPage()
+    const session = await context.newCDPSession(page)
+    for (const origin of this.visited) await session.send('Storage.clearDataForOrigin', { origin, storageTypes: 'all' })
+    await session.detach()
+    if (!open) await page.close()
+    await context.clearCookies()
+    this.visited.clear()
   }
 
   wrap() {
@@ -154,9 +222,14 @@ export class AndroidChrome {
         console.error(`branded: Chrome on Android gave no new browser context (${error.message}); using its default context with the options applied to each page`)
         return undefined
       })
-      return own ? this.context(own, false) : this.context(browser.contexts()[0], true, options)
+      return own ? this.own(own) : this.shared(browser.contexts()[0], options)
     }
-    browser.newPage = async (options) => (await browser.newContext(options)).newPage()
+    browser.newPage = async (options) => {
+      const context = await browser.newContext(options)
+      const page = await context.newPage()
+      page.once('close', () => context.close().catch(() => {}))
+      return page
+    }
     browser.close = async () => {
       for (const page of this.opened) await page.close().catch(() => {})
       for (const port of this.reversed) await AndroidChrome.adb(['reverse', '--remove', `tcp:${port}`]).catch(() => {})

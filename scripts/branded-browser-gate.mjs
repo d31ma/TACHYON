@@ -8,7 +8,7 @@ import { CargoArtifacts } from './cargo-artifacts.mjs'
 import { SupervisedCommand } from './supervised-command.mjs'
 import { BrandedUnsupported } from './branded/webdriver-browser.mjs'
 
-/** @typedef {{name:string,file:string,engines:string[],webdriverNeeds?:string}} BrandedGate */
+/** @typedef {{name:string,file:string,engines:string[],webdriverNeeds?:string,androidNeeds?:string}} BrandedGate */
 /** @typedef {{gate:string,outcome:'pass'|'fail'|'unsupported',seconds:number,log:string,browsers:string[],note?:string}} BrandedResult */
 
 /**
@@ -39,7 +39,7 @@ class BrandedBrowserGate {
     { name: 'cached-client', file: 'scripts/cached-client-browser-test.mjs', engines: ['chromium', 'webkit'] },
     { name: 'window-controls', file: 'scripts/window-controls-browser-test.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'context.addInitScript()' },
     { name: 'web-apis', file: 'scripts/web-apis-browser-test.mjs', engines: ['chromium'] },
-    { name: 'storage', file: 'scripts/storage-browser-test.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'context.addInitScript(), context.setOffline() and several open contexts' },
+    { name: 'storage', file: 'scripts/storage-browser-test.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'context.addInitScript(), context.setOffline() and several open contexts', androidNeeds: 'several open browser contexts, each with its own storage' },
     { name: 'component-scope', file: 'scripts/component-scope-browser-gate.mjs', engines: ['chromium', 'webkit'] },
     { name: 'logic-controls', file: 'scripts/logic-controls-browser-gate.mjs', engines: ['chromium', 'webkit'] },
     { name: 'svg-namespace', file: 'scripts/svg-namespace-browser-gate.mjs', engines: ['chromium', 'webkit'], webdriverNeeds: 'page.route()' },
@@ -62,11 +62,16 @@ class BrandedBrowserGate {
     const named = BrandedBrowserGate.option('--only=')?.split(',').filter((name) => name !== '')
     const unknown = (named ?? []).filter((name) => !BrandedBrowserGate.gates.some((gate) => gate.name === name))
     if (unknown.length) throw new Error(`no branded gate named ${unknown.join(', ')}; the gates are ${BrandedBrowserGate.gates.map((gate) => gate.name).join(', ')}`)
-    const overWebDriver = BrandedBrowserGate.webdriver.includes(browser)
-    const gates = BrandedBrowserGate.gates.filter((gate) => named?.includes(gate.name) ?? (gate.engines.includes(engine) && !(overWebDriver && gate.webdriverNeeds)))
+    const gates = BrandedBrowserGate.gates.filter((gate) => named?.includes(gate.name) ?? (gate.engines.includes(engine) && !BrandedBrowserGate.needs(gate, browser)))
     const wrongEngine = gates.filter((gate) => !gate.engines.includes(engine))
     if (wrongEngine.length) throw new Error(`${wrongEngine.map((gate) => gate.name).join(', ')} only launch ${wrongEngine[0].engines.join(' and ')}, which ${browser} does not stand in for`)
     return gates
+  }
+
+  /** @param {BrandedGate} gate @param {string} browser @returns {string|undefined} */
+  static needs(gate, browser) {
+    if (BrandedBrowserGate.webdriver.includes(browser)) return gate.webdriverNeeds
+    return browser === 'android-chrome' ? gate.androidNeeds : undefined
   }
 
   /** @param {string} browser @param {string} engine @param {string} receipt */
@@ -115,14 +120,15 @@ class BrandedBrowserGate {
     /** @type {BrandedResult[]} */
     const results = []
     const named = BrandedBrowserGate.option('--only=') !== undefined
-    const left = BrandedBrowserGate.webdriver.includes(browser) && !named ? BrandedBrowserGate.gates.filter((gate) => gate.webdriverNeeds) : []
-    for (const gate of left) console.log(`LEFT OUT ${gate.name}: it calls ${gate.webdriverNeeds}, which WebDriver cannot drive in ${browser} (name it in --only= to try anyway)`)
+    const engine = BrandedBrowserGate.browsers[browser]
+    const left = named ? [] : BrandedBrowserGate.gates.filter((gate) => gate.engines.includes(engine) && BrandedBrowserGate.needs(gate, browser))
+    for (const gate of left) console.log(`LEFT OUT ${gate.name}: it needs ${BrandedBrowserGate.needs(gate, browser)}, which ${browser} cannot give a gate (name it in --only= to try anyway)`)
     for (const gate of BrandedBrowserGate.chosen(browser)) {
       const result = await BrandedBrowserGate.run(gate, browser, logs)
       results.push(result)
       console.log(`${result.outcome.toUpperCase()} ${gate.name} ${result.seconds}s in ${result.browsers.join('; ') || 'no branded browser'}${result.note ? ` - ${result.note}` : ''} (${result.log})`)
     }
-    const leftOut = left.map((gate) => ({ gate: gate.name, needs: gate.webdriverNeeds }))
+    const leftOut = left.map((gate) => ({ gate: gate.name, needs: BrandedBrowserGate.needs(gate, browser) }))
     const summary = { browser, host: `${process.platform} ${process.arch}`, finished: new Date().toISOString(), results, leftOut }
     writeFileSync(path.join(logs, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`)
     const counts = Object.groupBy(results, (result) => result.outcome)
