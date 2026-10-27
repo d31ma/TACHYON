@@ -111,8 +111,9 @@ export default class DpiWindowService {
   reads = 0;
 
   read() {
-    this.ratio = String(globalThis.devicePixelRatio);
-    this.viewport = `${globalThis.innerWidth}x${globalThis.innerHeight}`;
+    const page = document.documentElement;
+    this.ratio = String(devicePixelRatio);
+    this.viewport = `${page.clientWidth}x${page.clientHeight}`;
     this.reads += 1;
   }
 
