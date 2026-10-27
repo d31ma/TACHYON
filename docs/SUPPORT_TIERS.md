@@ -1754,10 +1754,10 @@ evidence does not promote any tier.
 | held-clients | Kotlin, C# | a held socket client's welcome and echo, and a held stream client's ticks, from Yon |
 | yon-http | Kotlin, C# | a WebAssembly `HTTPClient` read a Yon route on `tac.yon.origin` from `tachyon-app://bundle`; for Kotlin, a `Cached` read, a `ClearCache` POST and a fresh read, and a Setup's http adapter answering inside the app |
 | web-apis | Kotlin, C# | no user action before a click and the clipboard refusal; Clock, SecureRandom and Preferences; replay listeners for connectivity and color scheme; a clipboard write and read from an Accessibility press, `NotificationPermissionChanged`, and `BrowserCallFailed Share was cancelled.` after Escape closed the share picker |
-| document-title | Kotlin | `DocumentTitle` set by the first owner and then the second |
-| cached-client | Kotlin, C# | a second read gave the cached stamp |
-| async-listener | Kotlin, C#, F# | a signal-driven save reached the listing service: `["Ada","Lin"]` |
-| page-program | Kotlin, Java, Dart, C#, F#, C++ | two services of one page read one program: the same identity, and both counts at 1 |
+| document-title | Kotlin | `DocumentTitle` set in the first owner's `OnStart`, from a click and from a guarded call, cleared by an empty title, set by a second owner when it mounted, and kept after the first owner was disposed |
+| cached-client | Kotlin, C# | an `HTTPClient` read answered through its Setup's adapter, and a `Cached` read answered from its cache |
+| async-listener | Kotlin, C#, F# | an async `OnEvent` listener reloaded every saved name (`Ada`, `Lin`) through its client |
+| page-program | Kotlin, Java, Dart, C#, F#, C++ | two services of one page read one Setup configuration (one program per page), the reader saw the writer's increment through its own client, and the reader's Store found the record the writer's Store saved |
 
 All 18 cells passed in 3 minutes 23 seconds. Swift and Rust are linked on
 macOS, so they have no cell here. The first run failed the two web-apis cells
@@ -1765,7 +1765,9 @@ at the notification step: on macOS 27 the permission request is a
 Notification Center alert whose Allow and Don't Allow are named actions of the
 alert, not buttons, so the probe's `allow` found nothing. The probe now
 performs the named action. With fresh app ids, the Kotlin and C# cells then
-heard `granted`.
+heard `granted`. The final run reused the app ids of the first run, whose
+answers macOS kept (Kotlin `granted`, C# `denied`), so it shows the answer
+reaching the service, and the fresh-id runs show the alert being answered.
 
 The same day, on the same Mac:
 
@@ -1779,8 +1781,8 @@ The same day, on the same Mac:
   `tachyon.host.json`. Linked Rust and linked Swift `PickerService` fields
   chose, read and cancelled in `NSOpenPanel`. A host refusal reached a
   JavaScript caller as `BrowserCallFailed`, and a component `tac.css` rule
-  colored its own paragraph and not a nested or sibling one
-  (`Style stays inside its component`).
+  colored its own paragraph and not one in a nested component or in another
+  component (`Style stays inside its component`).
 - `TAC_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
   --check=shared-setup --target=macos` ran two linked Rust services of one
   page that share one Setup in the macOS app: the reader saw the writer's
