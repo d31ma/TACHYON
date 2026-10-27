@@ -201,6 +201,7 @@ class YonHttpCheck {
   static steps = `    const greeting = () => this.service('greeting');
     const origin = document.querySelector('meta[name="tachyon-yon-origin"]')?.content;
     await this.ready(['greeting']);
+    await this.until(() => [...document.querySelectorAll('button')].some((button) => button.textContent.trim() === 'Ask Yon'), 'the Ask Yon button');
     this.press('Ask Yon');
     await this.until(() => this.pageHas('Hello from Yon'), 'the answer from Yon');
     this.ok('a WebAssembly HTTPClient read the answer of a Yon route on tac.yon.origin ' + origin);
