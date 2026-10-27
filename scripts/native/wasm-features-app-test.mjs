@@ -330,7 +330,6 @@ class WasmFeaturesAppTest {
     const project = path.join(this.root, `${check}-${language}`)
     const port = await this.freePort()
     const staged = WasmFeaturesFixture.stage(project, check, language, { yonOrigin: `http://127.0.0.1:${port}`, gestures: this.gestures, recorder: host.recorder })
-    // Yon serves the web build of the project, where a host's recorder (a linked native service) has no place: a Swift one builds for WASI over the 16 MiB output limit.
     const served = staged.needsYon && host.recorder ? path.join(this.root, `${check}-${language}-yon`) : project
     if (served !== project) WasmFeaturesFixture.stage(served, check, language, { yonOrigin: `http://127.0.0.1:${port}`, gestures: this.gestures })
     const started = Date.now()
