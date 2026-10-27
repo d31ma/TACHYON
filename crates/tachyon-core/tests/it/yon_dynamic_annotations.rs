@@ -6,6 +6,7 @@ use std::process::{Command, Stdio};
 use tachyon_contracts::{HandlerRequest, HttpMethod};
 use tachyon_core::{
     HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
+    YonIsolationPolicy,
 };
 
 struct Layout;
@@ -120,7 +121,18 @@ fn source(root: &tempfile::TempDir, extension: &str, contents: &str) -> HandlerS
 }
 
 fn supervisor(extension: &str) -> HandlerSupervisor {
-    let mut options = HandlerSupervisorOptions::default();
+    supervisor_with(extension, HandlerSupervisorOptions::default())
+}
+
+fn per_request_supervisor(extension: &str) -> HandlerSupervisor {
+    let options = HandlerSupervisorOptions {
+        isolation: YonIsolationPolicy::Process,
+        ..HandlerSupervisorOptions::default()
+    };
+    supervisor_with(extension, options)
+}
+
+fn supervisor_with(extension: &str, mut options: HandlerSupervisorOptions) -> HandlerSupervisor {
     if extension == "ts" {
         options.runtimes.javascript = "bun".into();
     }
@@ -311,7 +323,7 @@ async fn annotated_controllers_resolve_diamonds_transients_and_request_isolation
 async fn assert_scope_identity(extension: &str, transient: bool) {
     let root = tempfile::tempdir().expect("project");
     let source = source(&root, extension, &fixture(extension, transient));
-    let supervisor = supervisor(extension);
+    let supervisor = per_request_supervisor(extension);
     for iteration in 0..2 {
         let request =
             HandlerRequest::route(format!("request_{iteration}"), "/products", HttpMethod::Get);
