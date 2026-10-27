@@ -87,6 +87,7 @@ fn the_build_plan_keeps_the_compiler_options_and_the_application_entry() {
         "/std:c17",
         "/SUBSYSTEM:WINDOWS",
         "/ENTRY:wWinMainCRTStartup",
+        "/MANIFEST:NO",
         "WebView2LoaderStatic.lib",
     ] {
         assert!(arguments.contains(&String::from(expected)), "{expected}");

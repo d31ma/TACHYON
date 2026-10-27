@@ -18,6 +18,7 @@ impl WindowsVersionResource<'_> {
         let icon = ["", Self::ICON][usize::from(self.has_icon)];
         format!(
             r#"#pragma code_page(65001)
+1 24 "application.manifest"
 {icon}1 VERSIONINFO
 FILEVERSION {numbers}
 PRODUCTVERSION {numbers}
@@ -87,7 +88,9 @@ mod tests {
             has_icon: false,
         }
         .script();
-        assert!(script.starts_with("#pragma code_page(65001)\n1 VERSIONINFO\n"));
+        assert!(script.starts_with(
+            "#pragma code_page(65001)\n1 24 \"application.manifest\"\n1 VERSIONINFO\n"
+        ));
         assert!(script.contains("FILEVERSION 2,5,0,31\n"), "{script}");
         assert!(script.contains("PRODUCTVERSION 2,5,0,31\n"), "{script}");
         assert!(
@@ -111,7 +114,8 @@ mod tests {
         }
         .script();
         assert!(
-            script.contains("\n1 ICON \"icon.ico\"\n1 VERSIONINFO\n"),
+            script
+                .contains("\n1 24 \"application.manifest\"\n1 ICON \"icon.ico\"\n1 VERSIONINFO\n"),
             "{script}"
         );
         assert!(

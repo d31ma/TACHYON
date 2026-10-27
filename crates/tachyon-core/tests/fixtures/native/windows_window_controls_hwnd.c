@@ -35,6 +35,7 @@ static DWORD WINAPI foreign(LPVOID unused) {
   return 0;
 }
 int main(void) {
+  SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
   WNDCLASSW type = {0};
   type.lpfnWndProc = procedure;
   type.hInstance = GetModuleHandleW(NULL);
@@ -65,11 +66,13 @@ int main(void) {
   check("window.resize", "{\"width\":640,\"height\":480}", "{\"ok\":true}");
   pump();
   RECT client;
+  UINT dpi = GetDpiForWindow(g_window);
+  int width = MulDiv(640, (int)dpi, USER_DEFAULT_SCREEN_DPI), height = MulDiv(480, (int)dpi, USER_DEFAULT_SCREEN_DPI);
   GetClientRect(g_window, &client);
-  expect(client.right - client.left == 640 && client.bottom - client.top == 480, "resize sets the client area");
+  expect(client.right - client.left == width && client.bottom - client.top == height, "resize sets the client area in device-independent pixels");
   check("window.resize", "{\"width\":64.5,\"height\":100}", "{\"ok\":false,\"error\":\"Invalid window size.\"}");
   GetClientRect(g_window, &client);
-  expect(client.right - client.left == 640 && client.bottom - client.top == 480, "invalid resize keeps the client area");
+  expect(client.right - client.left == width && client.bottom - client.top == height, "invalid resize keeps the client area");
 
   RECT before, covered;
   GetWindowRect(g_window, &before);
@@ -93,6 +96,6 @@ int main(void) {
 
   DestroyWindow(g_window);
   if (failures) return 1;
-  printf("win32 window controls: granted title/resize/fullscreen/minimize, denied close and foreign thread on a real HWND\n");
+  printf("win32 window controls: granted title/resize (at %u DPI)/fullscreen/minimize, denied close and foreign thread on a real HWND\n", dpi);
   return 0;
 }

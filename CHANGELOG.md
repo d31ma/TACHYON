@@ -2298,6 +2298,23 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Windows app now embeds its application manifest (WM1, 2026-10-27). The
+  build wrote `application.manifest` next to the app, where Windows never
+  reads it, so the manifest's Common Controls 6 and per-monitor DPI settings
+  had no effect, and Windows asked for administrator rights to start an app
+  whose file name contains `Setup`, `Install`, `Update` or `Patch` (error
+  740 when refused). `rc.exe` now compiles the manifest into the `.exe` as
+  its `RT_MANIFEST` resource, the manifest asks for
+  `requestedExecutionLevel level="asInvoker"`, the linker writes no manifest
+  of its own (`/MANIFEST:NO`), and no loose file is written. Apps are now
+  PerMonitorV2 DPI aware (D18): the window opens and keeps its minimum size
+  in device-independent pixels scaled by the window's DPI, as before, but
+  Windows no longer stretches the whole window as a bitmap on a scaled
+  display. On `WM_DPICHANGED` the window takes the size Windows suggests for
+  the new monitor, and `windowControls.resize(width, height)` now sizes the
+  client area in device-independent pixels (it used physical pixels and
+  did not count the menu bar). `scripts/windows/high-dpi-test.ps1` (new) checks
+  this on a scaled desktop.
 - `YON_ISOLATION=firecracker` is refused on Windows with `TY2010` at startup
   (SW4, 2026-10-27). Before, the mode started with no driver permission
   checks, because those exist only on Unix, and Firecracker needs a Linux

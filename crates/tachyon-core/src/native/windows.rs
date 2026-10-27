@@ -66,10 +66,6 @@ impl WindowsHostGenerator {
                 ),
             ),
         )?;
-        write(
-            &bundle.join("application.manifest"),
-            application_manifest(application).as_bytes(),
-        )?;
         if !options.package {
             return Ok(GeneratedHost::not_packaged(PathBuf::from(
                 "project/tachyon_host.c",
@@ -117,7 +113,7 @@ impl WindowsHostGenerator {
     const CAPABILITY_ROUTE: &str = include_str!("windows_capability_route.c");
     const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
     const DEVELOPER_TARGET: &str = "VSCMD_ARG_TGT_ARCH";
-    pub(super) const LINKER_ARGUMENTS: [&str; 14] = [
+    pub(super) const LINKER_ARGUMENTS: [&str; 15] = [
         "WebView2LoaderStatic.lib",
         "user32.lib",
         "dwmapi.lib",
@@ -130,6 +126,7 @@ impl WindowsHostGenerator {
         "uuid.lib",
         "version.lib",
         "advapi32.lib",
+        "/MANIFEST:NO",
         "/SUBSYSTEM:WINDOWS",
         "/ENTRY:wWinMainCRTStartup",
     ];
@@ -337,6 +334,10 @@ async fn application_resource(
     }
     .script();
     write(&script, source.as_bytes())?;
+    write(
+        &stage.join("application.manifest"),
+        application_manifest(application).as_bytes(),
+    )?;
     let compiled = stage.join("application.res");
     run_tool(
         "rc.exe",
@@ -742,6 +743,11 @@ fn application_manifest(application: &NativeApplication) -> String {
     type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0"
     processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
   </dependentAssembly></dependency>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security><requestedPrivileges>
+      <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+    </requestedPrivileges></security>
+  </trustInfo>
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
@@ -1630,7 +1636,13 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
     case WM_PAINT:
       if (tachyon_title_bar_paint(window)) return 0;
       break;
-    case WM_DPICHANGED:
+    case WM_DPICHANGED: {
+      const RECT *suggested = (const RECT *)lparam;
+      SetWindowPos(window, NULL, suggested->left, suggested->top, suggested->right - suggested->left,
+                   suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
+      tachyon_title_bar_layout(window);
+      return 0;
+    }
     case WM_SETTINGCHANGE:
     case WM_THEMECHANGED:
       tachyon_title_bar_layout(window);
@@ -2016,10 +2028,14 @@ mod tests {
     }
 
     #[test]
-    fn manifest_requests_common_controls_and_per_monitor_dpi() {
+    fn manifest_runs_as_invoker_with_common_controls_and_per_monitor_dpi() {
         let manifest = application_manifest(&application());
         assert!(manifest.contains("Microsoft.Windows.Common-Controls"));
         assert!(manifest.contains("PerMonitorV2"));
+        assert!(
+            manifest.contains(r#"<requestedExecutionLevel level="asInvoker" uiAccess="false"/>"#),
+            "{manifest}"
+        );
         assert!(manifest.contains("dev-tachyon-native-catalog"));
         assert!(
             manifest.contains(r#"name="dev-tachyon-native-catalog" version="1.0.0.1""#),
