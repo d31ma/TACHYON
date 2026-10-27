@@ -44,7 +44,7 @@ final class WasmRecorderService {
   static retapMilliseconds = 8000
   static pollMilliseconds = 500
   static notificationPrompt = /Would Like to Send You Notifications/i
-  static shareSheet = ['AirDrop', 'Messages', 'Mail', 'Copy', 'Save to Files']
+  static shareSheet = ['AirDrop', 'Messages', 'Mail', 'Copy', 'Save to Files', 'Reminders', 'More', 'Add to', 'Reading List', 'Add to Reading List']
   static pasteAnswers = ['Paste', 'Allow Paste']
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = ''
@@ -152,6 +152,28 @@ final class WasmRecorderService {
   }
 
   /**
+   * The gesture the probe's phase line waits for. OCR reads that serif line loosely ("Ask to notify" as "Ask to notity"), so the closest label within two edits wins.
+   * @param {Array<{ text: string }>} lines @param {string[]} gestures
+   */
+  static waitingFor(lines, gestures) {
+    const asked = lines.map(({ text }) => text.match(/waiting for (.+)$/i)?.[1].trim()).find(Boolean)
+    if (!asked) return undefined
+    const scored = gestures.map((label) => ({ label, distance: this.distance(asked, label) })).sort((a, b) => a.distance - b.distance)
+    return scored[0]?.distance <= 2 ? scored[0].label : undefined
+  }
+
+  /** Edit distance, for the OCR tolerance above. @param {string} a @param {string} b */
+  static distance(a, b) {
+    let row = Array.from({ length: b.length + 1 }, (_, index) => index)
+    for (let i = 1; i <= a.length; i += 1) {
+      const next = [i]
+      for (let j = 1; j <= b.length; j += 1) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+      row = next
+    }
+    return row[b.length]
+  }
+
+  /**
    * Answers what the screen asks for until the probe's verdict lands: taps the button the probe waits for, allows the notification prompt, pastes when iOS asks, and closes the share sheet.
    * @param {string} application @param {string} proof @param {string[]} gestures
    */
@@ -164,7 +186,7 @@ final class WasmRecorderService {
       if (gestures.length) {
         shot = this.screen(application)
         const text = shot.lines.map((line) => line.text).join(' ').replace(/\s+/g, ' ')
-        const waiting = gestures.find((label) => text.includes(`waiting for ${label}`))
+        const waiting = this.waitingFor(shot.lines, gestures)
         if (this.notificationPrompt.test(text) && this.tapLabel(shot.lines, 'Allow')) taps.push('Allow (notification prompt)')
         else if (this.pasteAnswers.some((label) => this.tapLabel(shot.lines, label))) taps.push('Paste (iOS paste prompt)')
         else if (shot.lines.filter(({ text }) => this.shareSheet.includes(text.trim())).length >= 2) {
@@ -201,7 +223,13 @@ final class WasmRecorderService {
       const taps = await this.drive(staged.application, proof, staged.gestures)
       const record = JSON.parse(readFileSync(proof, 'utf8'))
       assert.equal(record.pid, pid, 'the verdict came from the launched app')
-      const verdict = WasmFeaturesFixture.assertProof(record.proof)
+      let verdict
+      try {
+        verdict = WasmFeaturesFixture.assertProof(record.proof)
+      } catch (error) {
+        error.message += `\ntaps: ${JSON.stringify(taps)}`
+        throw error
+      }
       const lines = [`iOS ${this.bootedVersion}, MinimumOSVersion ${minimum}, pid ${pid}${taps.length ? `, taps: ${taps.join(', ')}` : ''}`, ...verdict.lines]
       return { modules, lines }
     } finally {
