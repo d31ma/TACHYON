@@ -19,6 +19,7 @@ impl<'p> LuaLowering<'p> {
     const REQUEST: &'static str = "YonRequest.of(request)";
     const MEMBERS: [&'static str; 2] = ["{ __index = {} }", "YonEvents.members({})"];
     const STREAMED: [&'static str; 2] = ["{}", "YonStream.of(function() return {} end)"];
+    const INSTANCE_FIELDS: &'static str = "function YonGenerated.fields(class)\n  local fields = {}\n  for name, value in pairs(class) do\n    local data = type(value) == \"table\" and getmetatable(value) == nil\n    if data and string.sub(name, 1, 2) ~= \"__\" then\n      fields[name] = YonGenerated.copy(value)\n    end\n  end\n  return fields\nend\n\nfunction YonGenerated.copy(value)\n  local copied = {}\n  for key, item in pairs(value) do\n    copied[key] = item\n  end\n  return copied\nend\n\n";
 
     pub(super) fn new(plan: &'p Plan) -> Self {
         Self {
@@ -61,7 +62,8 @@ impl<'p> LuaLowering<'p> {
 
     pub(super) fn providers(&self) -> Result<String, String> {
         Ok(format!(
-            "YonGenerated = {{ providers = {{}} }}\n\n{}",
+            "YonGenerated = {{ providers = {{}} }}\n\n{}{}",
+            Self::INSTANCE_FIELDS,
             self.provider_texts()?
         ))
     }
@@ -91,7 +93,7 @@ impl<'p> LuaLowering<'p> {
         let cached = provider.scope != Scope::Transient;
         let name = &provider.name;
         Ok(format!(
-            "function YonGenerated.resolve_{index}(cache)\n{}  local value = setmetatable({{}}, {})\n{}{}{}  return value\nend\nYonGenerated.providers[{name}] = YonGenerated.resolve_{index}\n\n",
+            "function YonGenerated.resolve_{index}(cache)\n{}  local value = setmetatable(YonGenerated.fields({name}), {})\n{}{}{}  return value\nend\nYonGenerated.providers[{name}] = YonGenerated.resolve_{index}\n\n",
             Self::when(
                 cached,
                 &format!("  if cache[{index}] ~= nil then\n    return cache[{index}]\n  end\n")
