@@ -842,6 +842,35 @@ impl YonResourceLimits {
     const MAX_HEAD_BYTES: usize = 8192;
 }
 
+#[derive(Clone)]
+struct YonResourceAccess {
+    endpoint: String,
+    token: String,
+}
+
+impl YonResourceAccess {
+    fn from_environment() -> Option<Self> {
+        let endpoint = std::env::var("YON_RESOURCE_ENDPOINT").ok()?;
+        let token = std::env::var("YON_RESOURCE_TOKEN").ok()?;
+        Some(Self { endpoint, token })
+    }
+
+    fn take_from(request: &mut Json) -> Option<Self> {
+        let resources = request.get("resources").clone();
+        if let Json::Map(fields) = request {
+            fields.retain(|(name, _)| name != "resources");
+        }
+        matches!(resources, Json::Map(_)).then(|| Self {
+            endpoint: resources.get("endpoint").text(),
+            token: resources.get("token").text(),
+        })
+    }
+
+    fn current() -> Option<Self> {
+        YonRelayInvocation::current().and_then(|invocation| invocation.resources.clone())
+    }
+}
+
 fn yon_resource(command: Json) -> Result<Json, YonResourceError> {
     let body = command.stringify().map_err(|_| YonResourceError)?;
     yon_resource_exchange(&body, std::time::Duration::from_secs(5))
@@ -849,11 +878,10 @@ fn yon_resource(command: Json) -> Result<Json, YonResourceError> {
 
 fn yon_resource_exchange(body: &str, timeout: std::time::Duration) -> Result<Json, YonResourceError> {
     use std::io::{Read as _, Write as _};
-    let endpoint = std::env::var("YON_RESOURCE_ENDPOINT").map_err(|_| YonResourceError)?;
+    let YonResourceAccess { endpoint, token } = YonResourceAccess::current().ok_or(YonResourceError)?;
     let host = endpoint.strip_prefix("http://").and_then(|value| value.strip_suffix('/')).ok_or(YonResourceError)?;
     let address: std::net::SocketAddrV4 = host.parse().map_err(|_| YonResourceError)?;
     if *address.ip() != std::net::Ipv4Addr::LOCALHOST { return Err(YonResourceError); }
-    let token = std::env::var("YON_RESOURCE_TOKEN").map_err(|_| YonResourceError)?;
     if token.len() != 64 || !token.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) { return Err(YonResourceError); }
     if body.len() > YonResourceLimits::MAX_BYTES { return Err(YonResourceError); }
     let mut stream = std::net::TcpStream::connect_timeout(&address.into(), timeout).map_err(|_| YonResourceError)?;
@@ -892,7 +920,7 @@ impl YonGateway {
         if body.len() > YonResourceLimits::MAX_BYTES {
             return Self::failure("invalid");
         }
-        let Some(invocation) = YonRelayInvocation::current().get() else {
+        let Some(invocation) = YonRelayInvocation::current() else {
             return Self::failure("timeout");
         };
         let time_left = invocation.time_left();
@@ -1143,6 +1171,7 @@ struct YonRelayInvocation {
     deadline: std::sync::Mutex<std::time::Instant>,
     request_id: String,
     environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
+    resources: Option<YonResourceAccess>,
 }
 
 impl YonRelayInvocation {
@@ -1152,15 +1181,21 @@ impl YonRelayInvocation {
     const MAX_STDOUT_BYTES: usize = 16 * 1024 * 1024;
     const MAX_STDERR_BYTES: usize = 64 * 1024;
 
-    fn current() -> &'static std::sync::OnceLock<Self> {
-        static INVOCATION: std::sync::OnceLock<YonRelayInvocation> = std::sync::OnceLock::new();
-        &INVOCATION
+    fn active() -> std::sync::MutexGuard<'static, Option<std::sync::Arc<Self>>> {
+        static INVOCATION: std::sync::Mutex<Option<std::sync::Arc<YonRelayInvocation>>> =
+            std::sync::Mutex::new(None);
+        INVOCATION.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn current() -> Option<std::sync::Arc<Self>> {
+        Self::active().clone()
     }
 
     fn begin(
         started: std::time::Instant,
         environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
         request: &Json,
+        resources: Option<YonResourceAccess>,
     ) {
         let seconds = Self::deadline_milliseconds(request) / 1000.0;
         let seconds = seconds.clamp(0.0, Self::LONGEST_DEADLINE_SECONDS);
@@ -1168,8 +1203,13 @@ impl YonRelayInvocation {
             deadline: std::sync::Mutex::new(started + std::time::Duration::from_secs_f64(seconds)),
             request_id: Self::request_id(request),
             environment,
+            resources,
         };
-        let _ = Self::current().set(invocation);
+        *Self::active() = Some(std::sync::Arc::new(invocation));
+    }
+
+    fn finish() {
+        *Self::active() = None;
     }
 
     fn request_id(request: &Json) -> String {
@@ -1195,7 +1235,7 @@ impl YonRelayInvocation {
     }
 
     fn renew() {
-        let Some(invocation) = Self::current().get() else {
+        let Some(invocation) = Self::current() else {
             return;
         };
         let budget = std::time::Duration::from_secs_f64(Self::DEFAULT_DEADLINE_MILLISECONDS / 1000.0);
@@ -1208,7 +1248,9 @@ fn yon_relay_environment() -> std::collections::BTreeMap<std::ffi::OsString, std
     let mut kept = std::collections::BTreeMap::new();
     for (name, value) in std::env::vars_os() {
         let upper = name.to_string_lossy().to_uppercase();
-        if upper == "YON_APPLICATION_JSON" || upper.starts_with("YON_RESOURCE_") {
+        if ["YON_APPLICATION_JSON", "YON_HANDLER_WARM"].contains(&upper.as_str())
+            || upper.starts_with("YON_RESOURCE_")
+        {
             continue;
         }
         kept.insert(name, value);
@@ -1225,7 +1267,7 @@ fn yon_relay_answer(command: &[&str], message: &str) -> __YonAnswer {
     let Some((program, arguments)) = command.split_first() else {
         return yon_relay_failure("start");
     };
-    let Some(invocation) = YonRelayInvocation::current().get() else {
+    let Some(invocation) = YonRelayInvocation::current() else {
         return yon_relay_failure("timeout");
     };
     if invocation.time_left().is_zero() {
@@ -1242,7 +1284,7 @@ fn yon_relay_answer(command: &[&str], message: &str) -> __YonAnswer {
     let Ok(child) = child else {
         return yon_relay_failure("start");
     };
-    yon_relay_exchange(child, message, invocation)
+    yon_relay_exchange(child, message, &invocation)
 }
 
 fn yon_relay_exchange(
@@ -1337,7 +1379,7 @@ fn yon_relay_drain<R: std::io::Read + Send + 'static>(
 }
 
 fn yon_relay_failure(category: &str) -> __YonAnswer {
-    let request_id = match YonRelayInvocation::current().get() {
+    let request_id = match YonRelayInvocation::current() {
         Some(invocation) => invocation.request_id.clone(),
         None => String::from("unknown"),
     };
@@ -1500,6 +1542,10 @@ impl YonSocket {
         let mut input = std::io::stdin().lock();
         let mut prefix = [0_u8; 4];
         input.read_exact(&mut prefix).ok()?;
+        Self::read_payload(&mut input, prefix)
+    }
+
+    fn read_payload(input: &mut impl std::io::Read, prefix: [u8; 4]) -> Option<String> {
         let length = usize::try_from(u32::from_be_bytes(prefix)).unwrap_or(usize::MAX);
         if length > Self::MAX_FRAME_BYTES {
             std::process::exit(70);
@@ -1543,9 +1589,10 @@ impl YonSocket {
             Self::send_items(&request_id, items)
         }));
         let failure = streamed.unwrap_or(Err(Self::STREAM_FAILED)).err();
-        failure
-            .into_iter()
-            .for_each(|failure| Self::write(&request_id, Self::stream_failure(failure)));
+        if let Some(failure) = failure {
+            Self::write(&request_id, Self::stream_failure(failure));
+            YonWarm::stop_after_failed_stream();
+        }
         let mut answer = __YonAnswer::empty(200);
         answer.streamed = true;
         answer
@@ -1635,11 +1682,87 @@ impl YonSocket {
     }
 }
 
+struct YonWarm;
+
+impl YonWarm {
+    fn enabled() -> bool {
+        std::env::var("YON_HANDLER_WARM").is_ok_and(|value| value == "1")
+    }
+
+    fn serve(
+        environment: &std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
+    ) -> ! {
+        while let Some(raw) = Self::read_request() {
+            Self::answer(&raw, environment.clone());
+        }
+        std::process::exit(0);
+    }
+
+    fn read_request() -> Option<String> {
+        use std::io::Read as _;
+        let mut input = std::io::stdin().lock();
+        let mut prefix = [0_u8; 4];
+        match input.read(&mut prefix[..1]) {
+            Ok(0) => return None,
+            Ok(_) => {}
+            Err(_) => std::process::exit(70),
+        }
+        if input.read_exact(&mut prefix[1..]).is_err() {
+            std::process::exit(70);
+        }
+        let Some(payload) = YonSocket::read_payload(&mut input, prefix) else {
+            std::process::exit(70);
+        };
+        Some(payload)
+    }
+
+    fn answer(
+        raw: &str,
+        environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
+    ) {
+        let started = std::time::Instant::now();
+        let mut parsed = Self::parse_request(raw);
+        let resources = YonResourceAccess::take_from(&mut parsed);
+        YonRelayInvocation::begin(started, environment, &parsed, resources);
+        let request = __YonFrame { raw: parsed.write(), parsed };
+        let response = yon_dispatch(&request);
+        Self::finish(&request, &response);
+        YonRelayInvocation::finish();
+    }
+
+    fn parse_request(raw: &str) -> Json {
+        let parsed = Json::parse(raw).unwrap_or(Json::Null);
+        let is_request = matches!(parsed, Json::Map(_));
+        if !is_request || parsed.get("operation").text() == "socket.open" {
+            std::process::exit(70);
+        }
+        parsed
+    }
+
+    fn finish(request: &__YonFrame, response: &__YonAnswer) {
+        if response.streamed {
+            let request_id = request.parsed().get("request_id").text();
+            YonSocket::write(&request_id, vec![(String::from("kind"), Json::from("end"))]);
+            return;
+        }
+        let _ = YonSocket::write_payload(response.write().as_bytes());
+    }
+
+    fn stop_after_failed_stream() {
+        if Self::enabled() {
+            std::process::exit(0);
+        }
+    }
+}
+
 fn main() {
     use std::io::{Read as _, Write as _};
 
     let started = std::time::Instant::now();
     let environment = yon_relay_environment();
+    if YonWarm::enabled() {
+        YonWarm::serve(&environment);
+    }
     let mut raw = String::new();
     if YonSocket::framed() {
         raw = YonSocket::read_frame().unwrap_or_default();
@@ -1649,7 +1772,8 @@ fn main() {
     let Ok(parsed) = Json::parse(&raw) else {
         return;
     };
-    YonRelayInvocation::begin(started, environment, &parsed);
+    let resources = YonResourceAccess::from_environment();
+    YonRelayInvocation::begin(started, environment, &parsed, resources);
     let request = __YonFrame { raw, parsed };
 
     let response = yon_dispatch(&request);

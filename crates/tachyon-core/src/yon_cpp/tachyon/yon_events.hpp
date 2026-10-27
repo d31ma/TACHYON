@@ -166,6 +166,10 @@ public:
         return events;
     }
 
+    static void reset() {
+        current() = YonEvents();
+    }
+
     void publish(const std::string& name, const json::JsonNode& value, bool retain) {
         std::string encoded = value.toJsonString();
         if (closed || queue.size() >= MAX_QUEUE || encoded.size() > MAX_PAYLOAD_BYTES) {

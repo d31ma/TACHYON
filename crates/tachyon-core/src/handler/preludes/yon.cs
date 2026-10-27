@@ -428,6 +428,18 @@ static class YonStream
         Write(requestId, Envelope(requestId, "TY2204", "The handler stream failed."));
     }
 
+    public static void End(string requestId)
+    {
+        if (!Yon.Warm) return;
+        var frame = new JsonObject
+        {
+            ["protocol_version"] = 1,
+            ["kind"] = "end",
+            ["request_id"] = requestId,
+        };
+        Emit(Encoding.UTF8.GetBytes(frame.ToJsonString()));
+    }
+
     static JsonObject Envelope(string requestId, string code, string message) =>
         new()
         {
@@ -594,11 +606,25 @@ static class YonSocket
         return ReadAll(payload) ? Encoding.UTF8.GetString(payload) : null;
     }
 
-    static bool ReadAll(byte[] buffer)
+    internal static string ReadRequestFrame()
+    {
+        var first = Input.ReadByte();
+        if (first < 0) return null;
+        var prefix = new byte[4];
+        prefix[0] = (byte)first;
+        if (!ReadAll(prefix.AsSpan(1))) Environment.Exit(70);
+        var length = BinaryPrimitives.ReadUInt32BigEndian(prefix);
+        if (length > MaxFrameBytes) Environment.Exit(70);
+        var payload = new byte[length];
+        if (!ReadAll(payload)) Environment.Exit(70);
+        return Encoding.UTF8.GetString(payload);
+    }
+
+    static bool ReadAll(Span<byte> buffer)
     {
         try
         {
-            Input.ReadExactly(buffer, 0, buffer.Length);
+            Input.ReadExactly(buffer);
             return true;
         }
         catch (EndOfStreamException)
@@ -680,6 +706,8 @@ static class Yon
     const int MaxCauseDepth = 8;
     const int CheckRejectedStatus = 422;
     static readonly long startTimestamp = ProcessStartTimestamp();
+    internal static readonly bool Warm =
+        Environment.GetEnvironmentVariable("YON_HANDLER_WARM") == "1" && !YonSocket.Framed();
     static Dictionary<string, string> relayEnvironment;
     static double? deadlineMilliseconds;
     static string requestId = "unknown";
@@ -745,17 +773,35 @@ static class Yon
         {
             var name = (string)entry.Key;
             var upper = name.ToUpperInvariant();
-            if (upper == "YON_APPLICATION_JSON" || upper.StartsWith("YON_RESOURCE_", StringComparison.Ordinal)) continue;
+            if (upper == "YON_APPLICATION_JSON" || upper == "YON_HANDLER_WARM" || upper.StartsWith("YON_RESOURCE_", StringComparison.Ordinal)) continue;
             kept[name] = (string)entry.Value;
         }
         return kept;
     }
 
-    static void CaptureInvocation(__YonFrame request)
+    static void CaptureInvocation(__YonFrame request, double startedMilliseconds)
     {
         if (deadlineMilliseconds is not null) return;
         if (request.Raw()["request_id"] is JsonValue id && id.TryGetValue<string>(out var text)) requestId = text;
-        deadlineMilliseconds = InvocationDeadlineMilliseconds(request);
+        deadlineMilliseconds = startedMilliseconds + InvocationDeadlineMilliseconds(request);
+    }
+
+    static void UseWarmRequest(__YonFrame request)
+    {
+        var raw = request.Raw();
+        if (raw["kind"]?.ToString() != "request" || raw["operation"]?.ToString() == "socket.open") Environment.Exit(70);
+        var resources = raw["resources"] as JsonObject;
+        raw.Remove("resources");
+        Environment.SetEnvironmentVariable("YON_RESOURCE_ENDPOINT", resources?["endpoint"]?.ToString());
+        Environment.SetEnvironmentVariable("YON_RESOURCE_TOKEN", resources?["token"]?.ToString());
+    }
+
+    static void ForgetWarmRequest()
+    {
+        Environment.SetEnvironmentVariable("YON_RESOURCE_ENDPOINT", null);
+        Environment.SetEnvironmentVariable("YON_RESOURCE_TOKEN", null);
+        deadlineMilliseconds = null;
+        requestId = "unknown";
     }
 
     static double InvocationDeadlineMilliseconds(__YonFrame request)
@@ -957,10 +1003,36 @@ static class Yon
     {
         entryType = entry;
         CaptureStart();
-        var raw = YonSocket.Framed() ? YonSocket.ReadFrame() : Console.In.ReadToEnd();
+        if (!Warm)
+        {
+            await Serve(YonSocket.Framed() ? YonSocket.ReadFrame() : Console.In.ReadToEnd(), 0);
+            return;
+        }
+        while (YonSocket.ReadRequestFrame() is string raw)
+        {
+            var startedMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+            var keepsRunning = await Serve(raw, startedMilliseconds);
+            ForgetWarmRequest();
+            if (!keepsRunning) return;
+        }
+    }
+
+    static void WriteResponse(string text)
+    {
+        if (Warm)
+        {
+            YonSocket.WriteFrame(text);
+            return;
+        }
+        Console.Out.Write(text);
+    }
+
+    static async Task<bool> Serve(string raw, double startedMilliseconds)
+    {
         var parsed = string.IsNullOrWhiteSpace(raw) ? new JsonObject() : JsonNode.Parse(raw);
         var request = new __YonFrame(parsed);
-        CaptureInvocation(request);
+        if (Warm) UseWarmRequest(request);
+        CaptureInvocation(request, startedMilliseconds);
 
         var phase = request.Raw()["operation"]?.ToString() switch
         {
@@ -995,10 +1067,10 @@ static class Yon
                 if (violations is null)
                 {
                     Environment.ExitCode = 1;
-                    return;
+                    return false;
                 }
-                Console.Out.Write(new JsonObject { ["status"] = CheckRejectedStatus, ["violations"] = violations }.ToJsonString());
-                return;
+                WriteResponse(new JsonObject { ["status"] = CheckRejectedStatus, ["violations"] = violations }.ToJsonString());
+                return true;
             }
         }
 
@@ -1009,14 +1081,16 @@ static class Yon
             {
                 await foreach (var value in asynchronous)
                 {
-                    if (!YonStream.Event(id, value)) return;
+                    if (!YonStream.Event(id, value)) return false;
                 }
             }
             catch (Exception)
             {
                 YonStream.Failure(id);
+                return false;
             }
-            return;
+            YonStream.End(id);
+            return true;
         }
         if (result is IEnumerable sequence && result is IEnumerator && YonStream.Generated(result.GetType()))
         {
@@ -1024,14 +1098,16 @@ static class Yon
             {
                 foreach (var value in sequence)
                 {
-                    if (!YonStream.Event(id, value)) return;
+                    if (!YonStream.Event(id, value)) return false;
                 }
             }
             catch (Exception)
             {
                 YonStream.Failure(id);
+                return false;
             }
-            return;
+            YonStream.End(id);
+            return true;
         }
         var response = result switch
         {
@@ -1040,6 +1116,7 @@ static class Yon
             null when phase is not null => __YonAnswer.Empty(204),
             _ => __YonAnswer.Json(JsonSerializer.Serialize(result)),
         };
-        Console.Out.Write(response.Envelope());
+        WriteResponse(response.Envelope());
+        return true;
     }
 }

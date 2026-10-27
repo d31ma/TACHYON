@@ -41,8 +41,8 @@ private object YonManagedResources {
     }
     fun exchange(text: String, timeoutNanoseconds: Long): Any? {
         try {
-            val endpoint = System.getenv("YON_RESOURCE_ENDPOINT") ?: failed()
-            val token = System.getenv("YON_RESOURCE_TOKEN") ?: failed()
+            val endpoint = Yon.resourceEndpoint() ?: failed()
+            val token = Yon.resourceToken() ?: failed()
             if (!Regex("http://127\\.0\\.0\\.1:[0-9]{1,5}/").matches(endpoint) || !Regex("[0-9a-f]{64}").matches(token)) failed()
             val port = endpoint.substring(17, endpoint.length - 1).toInt()
             if (port !in 1..65535) failed()
@@ -506,6 +506,8 @@ object Yon {
     private var relayEnvironment: Map<String, String>? = null
     private var deadlineNanos: Long? = null
     private var requestId = "unknown"
+    private var resourceEndpoint: String? = System.getenv("YON_RESOURCE_ENDPOINT")
+    private var resourceToken: String? = System.getenv("YON_RESOURCE_TOKEN")
     private val daemonThreads = java.util.concurrent.Executor { task ->
         kotlin.concurrent.thread(isDaemon = true) { task.run() }
     }
@@ -573,11 +575,34 @@ object Yon {
         val kept = HashMap<String, String>()
         for ((name, value) in environment) {
             val upper = name.uppercase(java.util.Locale.ROOT)
-            if (upper == "YON_APPLICATION_JSON" || upper.startsWith("YON_RESOURCE_")) continue
+            if (upper == "YON_APPLICATION_JSON" || upper == "YON_HANDLER_WARM" || upper.startsWith("YON_RESOURCE_")) continue
             kept[name] = value
         }
         return kept
     }
+
+    internal fun beginRequest() {
+        endRequest()
+        startNanos = System.nanoTime()
+    }
+
+    internal fun useResources(resources: Any?) {
+        val access = resources as? Map<*, *> ?: return
+        resourceEndpoint = access["endpoint"] as? String
+        resourceToken = access["token"] as? String
+    }
+
+    internal fun endRequest() {
+        deadlineNanos = null
+        requestId = "unknown"
+        exchange = null
+        resourceEndpoint = null
+        resourceToken = null
+    }
+
+    internal fun resourceEndpoint(): String? = resourceEndpoint
+
+    internal fun resourceToken(): String? = resourceToken
 
     internal fun captureInvocation(request: __YonFrame) {
         if (deadlineNanos != null) return
@@ -746,6 +771,10 @@ object YonStream {
         ),
     )
 
+    fun end(requestId: String) {
+        frame(requestId, mapOf("protocol_version" to 1, "kind" to "end", "request_id" to requestId))
+    }
+
     fun failure(requestId: String) {
         frame(
             requestId,
@@ -876,13 +905,27 @@ object YonSocket {
     fun framed(): Boolean = System.getenv("YON_SOCKET_FRAMES") == "1"
 
     fun readFrame(): String? = try {
-        val length = input.readInt()
+        readPayload(input.readInt())
+    } catch (_: java.io.IOException) {
+        null
+    }
+
+    fun readRequestFrame(): String? {
+        val first = try { input.read() } catch (_: java.io.IOException) { -1 }
+        if (first < 0) return null
+        return try {
+            val length = (first shl 24) or (input.readUnsignedByte() shl 16) or (input.readUnsignedByte() shl 8) or input.readUnsignedByte()
+            readPayload(length)
+        } catch (_: java.io.IOException) {
+            kotlin.system.exitProcess(70)
+        }
+    }
+
+    private fun readPayload(length: Int): String {
         if (length < 0 || length > MAX_FRAME_BYTES) kotlin.system.exitProcess(70)
         val payload = ByteArray(length)
         input.readFully(payload)
-        String(payload, Charsets.UTF_8)
-    } catch (_: java.io.IOException) {
-        null
+        return String(payload, Charsets.UTF_8)
     }
 
     fun writeFrame(text: String) {
@@ -930,58 +973,104 @@ object YonSocket {
     }
 }
 
-fun main() {
-    Yon.sendOutgoingThroughGuard()
-    Yon.captureStart()
-    val raw = if (YonSocket.framed()) YonSocket.readFrame() ?: return else generateSequence(::readLine).joinToString("\n")
-    val request = __YonFrame(Json.parse(raw))
-    Yon.captureInvocation(request)
-    val phase = when (request.raw()["operation"]?.toString()) {
-        "middleware.before" -> "before"
-        "middleware.after" -> "after"
-        "event.deliver" -> "__yonDeliver"
-        else -> null
-    }
-    val entryName = phase ?: request.method()
-    val missingStatus = if (phase == null) 405 else if (phase == "__yonDeliver") 404 else 204
-    val method = __YON_HANDLER__::class.java.methods.firstOrNull {
-        it.name == entryName && it.parameterCount == 1
-    } ?: __YON_HANDLER__::class.java.methods.firstOrNull {
-        it.name == entryName && it.parameterCount == 0
-    }
-    val result: Any? = if (method == null) {
-        __YonAnswer.empty(missingStatus)
-    } else {
-        try {
-            when {
-                method.parameterCount == 0 -> method.invoke(__YON_HANDLER__)
-                method.parameterTypes[0] == __YonFrame::class.java -> method.invoke(__YON_HANDLER__, request)
-                else -> method.invoke(__YON_HANDLER__, Yon.exchange(request))
-            }
-        } catch (failed: java.lang.reflect.InvocationTargetException) {
-            val rejection = Yon.rejection(failed.cause) ?: kotlin.system.exitProcess(1)
-            print(Yon.rejectionEnvelope(rejection))
-            return
+private object YonWarm {
+    fun enabled(): Boolean = System.getenv("YON_HANDLER_WARM") == "1"
+
+    fun serve() {
+        while (true) {
+            val text = YonSocket.readRequestFrame() ?: kotlin.system.exitProcess(0)
+            Yon.beginRequest()
+            val request = __YonFrame(withoutResources(text))
+            Yon.captureInvocation(request)
+            YonDispatch.answer(request, true)
+            Yon.endRequest()
         }
     }
 
-    if (result is Sequence<*>) {
-        val id = request.raw()["request_id"]?.toString() ?: ""
+    @Suppress("UNCHECKED_CAST")
+    private fun withoutResources(text: String): Any? {
+        val parsed = try { Json.parse(text) } catch (_: IllegalArgumentException) { kotlin.system.exitProcess(70) }
+        val fields = parsed as? MutableMap<String, Any?> ?: return parsed
+        Yon.useResources(fields.remove("resources"))
+        return fields
+    }
+}
+
+private object YonDispatch {
+    fun answer(request: __YonFrame, warm: Boolean) {
+        val phase = when (request.raw()["operation"]?.toString()) {
+            "middleware.before" -> "before"
+            "middleware.after" -> "after"
+            "event.deliver" -> "__yonDeliver"
+            else -> null
+        }
+        val entryName = phase ?: request.method()
+        val missingStatus = if (phase == null) 405 else if (phase == "__yonDeliver") 404 else 204
+        val method = __YON_HANDLER__::class.java.methods.firstOrNull {
+            it.name == entryName && it.parameterCount == 1
+        } ?: __YON_HANDLER__::class.java.methods.firstOrNull {
+            it.name == entryName && it.parameterCount == 0
+        }
+        val result: Any? = if (method == null) {
+            __YonAnswer.empty(missingStatus)
+        } else {
+            try {
+                when {
+                    method.parameterCount == 0 -> method.invoke(__YON_HANDLER__)
+                    method.parameterTypes[0] == __YonFrame::class.java -> method.invoke(__YON_HANDLER__, request)
+                    else -> method.invoke(__YON_HANDLER__, Yon.exchange(request))
+                }
+            } catch (failed: java.lang.reflect.InvocationTargetException) {
+                val rejection = Yon.rejection(failed.cause) ?: kotlin.system.exitProcess(1)
+                write(Yon.rejectionEnvelope(rejection), warm)
+                return
+            }
+        }
+
+        if (result is Sequence<*>) {
+            stream(request.raw()["request_id"]?.toString() ?: "", result, warm)
+            return
+        }
+        val response = Yon.answered() ?: when {
+            result is __YonAnswer -> result
+            phase != null -> __YonAnswer.empty(204)
+            else -> __YonAnswer.json(Json.stringify(result))
+        }
+        write(response.envelope(), warm)
+    }
+
+    private fun stream(id: String, result: Sequence<*>, warm: Boolean) {
         try {
             for (event in result) {
                 if (!YonStream.event(id, event)) {
-                    return
+                    return stopFailedStream(warm)
                 }
             }
         } catch (_: Throwable) {
             YonStream.failure(id)
+            return stopFailedStream(warm)
         }
+        if (warm) YonStream.end(id)
+    }
+
+    private fun stopFailedStream(warm: Boolean) {
+        if (warm) kotlin.system.exitProcess(0)
+    }
+
+    private fun write(text: String, warm: Boolean) {
+        if (warm) YonSocket.writeFrame(text) else print(text)
+    }
+}
+
+fun main() {
+    Yon.sendOutgoingThroughGuard()
+    Yon.captureStart()
+    if (YonWarm.enabled()) {
+        YonWarm.serve()
         return
     }
-    val response = Yon.answered() ?: when {
-        result is __YonAnswer -> result
-        phase != null -> __YonAnswer.empty(204)
-        else -> __YonAnswer.json(Json.stringify(result))
-    }
-    print(response.envelope())
+    val raw = if (YonSocket.framed()) YonSocket.readFrame() ?: return else generateSequence(::readLine).joinToString("\n")
+    val request = __YonFrame(Json.parse(raw))
+    Yon.captureInvocation(request)
+    YonDispatch.answer(request, false)
 }

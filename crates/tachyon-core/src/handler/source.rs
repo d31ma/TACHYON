@@ -4126,8 +4126,11 @@ final class Handler {
             super::prepare_php(&cache, relative, generated).expect("generated PHP preparation");
         source.interpreter = prepared.interpreter;
         source.prepared_workspace = Some(prepared.workspace);
-        let supervisor = crate::HandlerSupervisor::new(crate::HandlerSupervisorOptions::default())
-            .expect("supervisor");
+        let supervisor = crate::HandlerSupervisor::new(crate::HandlerSupervisorOptions {
+            isolation: crate::YonIsolationPolicy::Process,
+            ..crate::HandlerSupervisorOptions::default()
+        })
+        .expect("supervisor");
         let mut request = tachyon_contracts::HandlerRequest::route(
             "generated_php",
             "/",

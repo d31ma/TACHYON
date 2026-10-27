@@ -94,10 +94,11 @@ public:
             invocation.drain();
         } catch (...) {
             YonFrames::send(requestId, YonFrames::failure(FAILED_CODE, FAILED));
-            return YonAnswer::streamed();
+            return YonAnswer::failedStream();
         }
         if (!fits) {
             YonFrames::send(requestId, YonFrames::failure(TOO_LARGE_CODE, TOO_LARGE));
+            return YonAnswer::failedStream();
         }
         return YonAnswer::streamed();
     }

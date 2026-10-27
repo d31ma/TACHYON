@@ -64,8 +64,8 @@ impl WarmPool {
 
     fn take(&self, key: &WarmKey) -> Option<WarmProcess> {
         let mut idle = self.lock();
-        let position = idle.iter().rposition(|process| process.serves(key))?;
-        Some(idle.swap_remove(position))
+        let position = idle.iter().position(|process| process.serves(key))?;
+        Some(idle.remove(position))
     }
 
     fn keep_or_refuse(&self, process: WarmProcess) -> Vec<WarmProcess> {

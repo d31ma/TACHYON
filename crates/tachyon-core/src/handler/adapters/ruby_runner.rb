@@ -513,7 +513,7 @@ class YonRelayProgram
     kept = {}
     environment.each do |name, value|
       upper = name.to_s.upcase
-      next if upper == "YON_APPLICATION_JSON" || upper.start_with?("YON_RESOURCE_")
+      next if %w[YON_APPLICATION_JSON YON_HANDLER_WARM].include?(upper) || upper.start_with?("YON_RESOURCE_")
 
       kept[name.to_s] = value.to_s
     end
@@ -954,6 +954,12 @@ class YonRunnerModels
 end
 
 class YonRunnerLoader
+  @relay_program = nil
+
+  class << self
+    attr_reader :relay_program
+  end
+
   def self.entry(source, root, relay_program, deadline, class_name)
     path = File.expand_path(source)
     $LOAD_PATH.unshift(File.expand_path(root))
@@ -966,10 +972,12 @@ class YonRunnerLoader
   end
 
   def self.install_names(relay_program, deadline)
+    @relay_program = relay_program
+    Object.send(:remove_const, :YonGateway) if Object.const_defined?(:YonGateway, false)
     Object.const_set(:YonGateway, YonGatewayClient.new(deadline).freeze)
     return if Object.method_defined?(:relay) || Object.private_method_defined?(:relay)
     Kernel.module_eval do
-      define_method(:relay) { |command, request| relay_program.run(command, request) }
+      define_method(:relay) { |command, request| YonRunnerLoader.relay_program.run(command, request) }
       private :relay
     end
   end
@@ -998,7 +1006,7 @@ class YonRunnerInvocation
     end
     argument = handler.const_defined?(:YON_FRAMES, false) ? request : YonHttp.request(request)
     result = call(handler, name, argument)
-    stream(request["request_id"], result) if result.is_a?(Enumerator)
+    return stream(request["request_id"], result) if result.is_a?(Enumerator)
     YonRunnerResponses.for_result(request["request_id"], result)
   end
 
@@ -1045,8 +1053,10 @@ class YonRunnerInvocation
       events.each { |event| write_event(request_id, event) }
     rescue Exception
       YonRunnerFrames.write(YonRunnerFailures.build(request_id, "TY2204", "The handler stream failed."))
+      exit!(0)
     end
-    exit!(0)
+    exit!(0) unless YonRunner.warm?
+    { "protocol_version" => 1, "kind" => "end", "request_id" => request_id }
   end
 
   def self.write_event(request_id, event)
@@ -1187,12 +1197,18 @@ end
 class YonRunner
   @incoming = Thread::Queue.new
   @completed = Thread::Queue.new
+  @warm = ENV.fetch("YON_HANDLER_WARM", "") == "1"
+
+  def self.warm?
+    @warm
+  end
 
   def self.main(arguments)
     started_at = YonClock.now
     environment = YonRelayProgram.environment(ENV.to_h)
     YonRunnerFrames.take_standard_output
     Thread.new { YonRunnerFrames.read_all(@incoming) }
+    serve_warm(arguments, environment) if @warm
     request = @incoming.pop
     YonRunnerFrames.protocol_error unless request?(request)
     deadline = started_at + deadline_ms(request) / 1000.0
@@ -1219,32 +1235,80 @@ class YonRunner
     milliseconds
   end
 
+  def self.class_name(request)
+    return "Middleware" if YonRunnerLimits::MIDDLEWARE_PHASES.key?(request["operation"])
+    "Handler"
+  end
+
   def self.load_handler(arguments, relay_program, deadline, request)
-    class_name = "Handler"
-    class_name = "Middleware" if YonRunnerLimits::MIDDLEWARE_PHASES.key?(request["operation"])
-    YonRunnerLoader.entry(arguments[0], arguments[1], relay_program, deadline, class_name)
+    YonRunnerLoader.entry(arguments[0], arguments[1], relay_program, deadline, class_name(request))
   rescue Exception => error
     finish(YonRunnerFailures.build(request["request_id"], "TY2201", error.message))
+    nil
   end
 
   def self.wait_for_result(request_id)
     loop do
       response = @completed.pop(timeout: YonRunnerLimits::RESULT_POLL_SECONDS)
-      finish(response) unless response.nil?
+      unless response.nil?
+        finish(response)
+        return
+      end
       next unless cancel_requested?(request_id)
-      finish(YonRunnerFailures.build(request_id, "TY2111", "Handler invocation was cancelled.", 499))
+      YonRunnerFrames.write(YonRunnerFailures.build(request_id, "TY2111", "Handler invocation was cancelled.", 499))
+      exit!(0)
     end
   end
 
   def self.cancel_requested?(request_id)
     return false if @incoming.empty?
     envelope = @incoming.pop
+    @incoming.push(envelope) if @warm && envelope == :closed
     envelope.is_a?(Hash) && envelope["kind"] == "cancel" && envelope["request_id"] == request_id
   end
 
   def self.finish(response)
     YonRunnerFrames.write(response)
-    exit!(0)
+    exit!(0) unless @warm
+  end
+
+  def self.use_resources(request)
+    resources = request.delete("resources")
+    forget_resources
+    return unless resources.is_a?(Hash)
+    ENV["YON_RESOURCE_ENDPOINT"] = resources.fetch("endpoint", "").to_s
+    ENV["YON_RESOURCE_TOKEN"] = resources.fetch("token", "").to_s
+  end
+
+  def self.forget_resources
+    ENV.delete("YON_RESOURCE_ENDPOINT")
+    ENV.delete("YON_RESOURCE_TOKEN")
+  end
+
+  def self.warm_handler(arguments, relay_program, deadline, request, handlers)
+    YonRunnerLoader.install_names(relay_program, deadline)
+    handlers[class_name(request)] ||= load_handler(arguments, relay_program, deadline, request)
+  end
+
+  def self.serve_warm_request(arguments, environment, handlers, request)
+    deadline = YonClock.now + deadline_ms(request) / 1000.0
+    relay_program = YonRelayProgram.new(request_id: request["request_id"], deadline: deadline, environment: environment)
+    handler = warm_handler(arguments, relay_program, deadline, request, handlers)
+    return if handler.nil?
+    Thread.new { YonRunnerInvocation.run(handler, request, @completed) }
+    wait_for_result(request["request_id"])
+  end
+
+  def self.serve_warm(arguments, environment)
+    handlers = {}
+    loop do
+      request = @incoming.pop
+      exit!(0) if request == :closed
+      YonRunnerFrames.protocol_error unless request?(request) && request["operation"] != "socket.open"
+      use_resources(request)
+      serve_warm_request(arguments, environment, handlers, request)
+      forget_resources
+    end
   end
 end
 
