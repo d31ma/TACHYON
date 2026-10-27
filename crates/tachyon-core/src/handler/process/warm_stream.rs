@@ -78,7 +78,9 @@ impl WarmStream<'_> {
 
     async fn settle(self, outcome: Result<StreamReadOutcome, WarmStop>) -> WarmAnswer<()> {
         match outcome {
-            Ok(StreamReadOutcome::Complete) => WarmStreamEnd::complete(self.process).await,
+            Ok(StreamReadOutcome::Complete) => {
+                WarmStreamEnd::complete(self.process, &self.context).await
+            }
             Ok(StreamReadOutcome::SubscriberClosed) => WarmStreamEnd::abandoned(self.process).await,
             Err(stop) => WarmStreamEnd::stopped(stop, self.process, &self.context).await,
         }
