@@ -289,7 +289,7 @@ mod tests {
         assert_eq!(settings.idle_limit, std::time::Duration::from_secs(2));
         let defaults = WarmSettings::default();
         assert_eq!(defaults.max_requests, 1_000);
-        assert_eq!(defaults.idle_limit, std::time::Duration::from_secs(60));
+        assert_eq!(defaults.idle_limit, std::time::Duration::from_mins(1));
         for (name, value) in [
             ("YON_WARM_MAX_REQUESTS", "0"),
             ("YON_WARM_MAX_REQUESTS", "1000001"),

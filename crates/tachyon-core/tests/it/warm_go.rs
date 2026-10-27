@@ -109,7 +109,7 @@ func (Handler) POST(request *http.Request) any {
     }
 
     fn warm() -> HandlerSupervisor {
-        let settings = WarmSettings::new(1_000, Duration::from_secs(60));
+        let settings = WarmSettings::new(1_000, Duration::from_mins(1));
         Self::supervisor(YonIsolationPolicy::Warm(settings))
     }
 

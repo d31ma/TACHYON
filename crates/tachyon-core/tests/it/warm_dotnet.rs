@@ -116,7 +116,7 @@ fn supervisor(isolation: YonIsolationPolicy) -> HandlerSupervisor {
 }
 
 fn warm() -> HandlerSupervisor {
-    let settings = WarmSettings::new(1_000, Duration::from_secs(60));
+    let settings = WarmSettings::new(1_000, Duration::from_mins(1));
     supervisor(YonIsolationPolicy::Warm(settings))
 }
 
@@ -139,7 +139,8 @@ async fn answer(supervisor: &HandlerSupervisor, source: &HandlerSource, id: &str
 
 async fn streamed_pid(supervisor: &HandlerSupervisor, source: &HandlerSource, id: &str) -> u64 {
     let (sender, mut receiver) = tokio::sync::mpsc::channel(8);
-    let invocation = supervisor.invoke_streaming(source, &request(id, ""), sender);
+    let streamed = request(id, "");
+    let invocation = supervisor.invoke_streaming(source, &streamed, sender);
     let collect = async {
         let mut events = Vec::new();
         while let Some(event) = receiver.recv().await {

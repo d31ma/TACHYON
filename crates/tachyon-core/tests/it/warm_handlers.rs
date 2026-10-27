@@ -110,7 +110,7 @@ async fn a_warm_handler_serves_later_requests_from_the_same_process() {
     for (extension, contents) in [("js", JAVASCRIPT_COUNTER), ("py", PYTHON_COUNTER)] {
         let root = tempfile::tempdir().expect("project");
         let source = source(&root, extension, contents);
-        let supervisor = warm(1_000, Duration::from_secs(60));
+        let supervisor = warm(1_000, Duration::from_mins(1));
         let (first_pid, first_count) = answer(&supervisor, &source, "warm_first").await;
         let (second_pid, second_count) = answer(&supervisor, &source, "warm_second").await;
         assert_eq!(first_pid, second_pid, "{extension} reused its process");
@@ -139,7 +139,7 @@ async fn a_crash_replaces_the_warm_process() {
     for (extension, contents) in [("js", JAVASCRIPT_COUNTER), ("py", PYTHON_COUNTER)] {
         let root = tempfile::tempdir().expect("project");
         let source = source(&root, extension, contents);
-        let supervisor = warm(1_000, Duration::from_secs(60));
+        let supervisor = warm(1_000, Duration::from_mins(1));
         let (before, _) = answer(&supervisor, &source, "before_crash").await;
         let crashed = supervisor
             .invoke(
@@ -186,7 +186,7 @@ async fn a_timeout_replaces_the_warm_process() {
 async fn stray_output_after_a_response_replaces_the_warm_process() {
     let root = tempfile::tempdir().expect("project");
     let source = source(&root, "js", JAVASCRIPT_COUNTER);
-    let supervisor = warm(1_000, Duration::from_secs(60));
+    let supervisor = warm(1_000, Duration::from_mins(1));
     let response = supervisor
         .invoke(
             &source,
@@ -206,7 +206,7 @@ async fn stray_output_after_a_response_replaces_the_warm_process() {
 async fn the_request_limit_replaces_the_warm_process() {
     let root = tempfile::tempdir().expect("project");
     let source = source(&root, "py", PYTHON_COUNTER);
-    let supervisor = warm(2, Duration::from_secs(60));
+    let supervisor = warm(2, Duration::from_mins(1));
     let (first, _) = answer(&supervisor, &source, "limit_first").await;
     let (second, _) = answer(&supervisor, &source, "limit_second").await;
     let (third, count) = answer(&supervisor, &source, "limit_third").await;
@@ -231,7 +231,7 @@ async fn an_idle_warm_process_stops_after_its_idle_limit() {
 async fn concurrent_requests_get_separate_warm_processes() {
     let root = tempfile::tempdir().expect("project");
     let source = source(&root, "py", PYTHON_COUNTER);
-    let supervisor = warm(1_000, Duration::from_secs(60));
+    let supervisor = warm(1_000, Duration::from_mins(1));
     let (one, two) = tokio::join!(
         answer(&supervisor, &source, "together_one"),
         answer(&supervisor, &source, "together_two")
@@ -245,11 +245,12 @@ async fn concurrent_requests_get_separate_warm_processes() {
 async fn a_warm_stream_ends_with_its_end_frame_and_stays_warm() {
     let root = tempfile::tempdir().expect("project");
     let source = source(&root, "py", PYTHON_STREAM);
-    let supervisor = warm(1_000, Duration::from_secs(60));
+    let supervisor = warm(1_000, Duration::from_mins(1));
     let mut pids = Vec::new();
     for id in ["stream_first", "stream_second"] {
         let (sender, mut receiver) = tokio::sync::mpsc::channel(8);
-        let invocation = supervisor.invoke_streaming(&source, &request(id, ""), sender);
+        let streamed = request(id, "");
+        let invocation = supervisor.invoke_streaming(&source, &streamed, sender);
         let collect = async {
             let mut events = Vec::new();
             while let Some(event) = receiver.recv().await {

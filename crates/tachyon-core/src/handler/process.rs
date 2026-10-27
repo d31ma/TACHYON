@@ -293,7 +293,7 @@ impl HandlerSupervisor {
 
     async fn run_stream(&self, process: StreamingProcess<'_>) -> Result<(), Failure> {
         if self.runs_warm(process.source) {
-            return self.run_warm_stream(process).await;
+            return Box::pin(self.run_warm_stream(process)).await;
         }
         self.run_streaming_process(process).await
     }
@@ -478,7 +478,7 @@ impl HandlerSupervisor {
         cancellation: &HandlerCancellation,
     ) -> Result<HandlerResponse, Failure> {
         if self.runs_warm(source) {
-            return self.run_warm(source, request, deadline, cancellation).await;
+            return Box::pin(self.run_warm(source, request, deadline, cancellation)).await;
         }
         self.run_process(source, request, direct_protocol, deadline, cancellation)
             .await
