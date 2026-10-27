@@ -8,8 +8,9 @@ import { createReadStream, existsSync, mkdtempSync, mkdirSync, rmSync, statSync,
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
-class WebApiGate {
+export class WebApiGate {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
   static uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -1162,4 +1163,4 @@ class KtStampService {
   }
 }
 
-await WebApiGate.main()
+if (process.argv[1] === fileURLToPath(import.meta.url)) await WebApiGate.main()

@@ -16,16 +16,37 @@ class DevLoopProbe:
     def __init__(self, project, log):
         self.project = Path(project)
         self.log = Path(log)
-        path = Path(__file__).with_name("a11y-probe.py")
-        specification = importlib.util.spec_from_file_location("accessibility_probe", path)
-        self.probe = importlib.util.module_from_spec(specification)
-        specification.loader.exec_module(self.probe)
+        self.probe = self.load("a11y-probe.py", "accessibility_probe")
+        self.page = self.probe
+        self.wayland = os.environ.get("GDK_BACKEND") == "wayland"
+
+    @staticmethod
+    def load(name, module):
+        specification = importlib.util.spec_from_file_location(module, Path(__file__).with_name(name))
+        loaded = importlib.util.module_from_spec(specification)
+        specification.loader.exec_module(loaded)
+        return loaded
+
+    def read_web_process(self):
+        self.page = self.load("yon-origin-probe.py", "yon_origin_probe").WebProcessTree()
+        print("Reading the page from the web process's own accessibility tree, because GTK does not "
+              "embed it in the window under Wayland", flush=True)
+
+    def retried(self, action):
+        deadline = time.monotonic() + self.WAIT_SECONDS
+        while True:
+            try:
+                return action()
+            except Exception:
+                if time.monotonic() > deadline:
+                    raise
+                time.sleep(self.POLL_SECONDS)
 
     def wait(self, texts):
-        self.probe.wait_for_controls(texts, self.WAIT_SECONDS)
+        self.retried(lambda: self.page.wait_for_controls(texts, self.RETRY_SECONDS))
 
     def click(self, name):
-        self.probe.activate_control(name)
+        self.retried(lambda: self.page.activate_control(name))
 
     def click_until(self, step):
         name, text = step
@@ -33,7 +54,7 @@ class DevLoopProbe:
         while True:
             self.click(name)
             try:
-                self.probe.wait_for_controls([text], self.RETRY_SECONDS)
+                self.page.wait_for_controls([text], self.RETRY_SECONDS)
                 return
             except AssertionError:
                 if time.monotonic() > deadline:
@@ -61,6 +82,8 @@ class DevLoopProbe:
         self.opened(1)
         self.probe.Atspi.init()
         self.probe.wait_for_application()
+        if self.wayland:
+            self.read_web_process()
         actions = {
             "wait": self.wait,
             "click": self.click,

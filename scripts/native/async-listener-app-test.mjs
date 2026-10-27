@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 
 class ProbeRecorder {
@@ -308,6 +309,39 @@ final class PageProgramSetup {
 }
 `,
     },
+    rs: {
+      ...Object.fromEntries(['models/ProgramState.rs', 'remotes/PageProgramClient.rs'].map((name) => [`client/${name}`, readFileSync(fileURLToPath(new URL(`../page-program/rust/client/${name}`, import.meta.url)), 'utf8')])),
+      'client/setups/PageProgramSetup.rs': `#[Setup]
+struct PageProgramSetup {}
+impl PageProgramSetup {
+    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {
+        struct ProgramAdapter {
+            identity: String,
+            count: std::sync::Mutex<f64>,
+        }
+        impl BehaviorHttpAdapter for ProgramAdapter {
+            fn exchange(&self, request: &BehaviorHttpRequest, _execution: &BehaviorExecution) -> BehaviorResult<BehaviorValue> {
+                let mut count = self.count.lock().map_err(|_| BehaviorError::new("state", "the program count is unavailable"))?;
+                if request.method == "POST" && request.path.ends_with("/increment") {
+                    *count += 1.0;
+                }
+                Ok(BehaviorValue::object([
+                    ("identity", BehaviorValue::String(self.identity.clone())),
+                    ("count", BehaviorValue::Number(*count)),
+                ]))
+            }
+        }
+
+        let started = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|_| BehaviorError::new("clock", "the clock is before 1970"))?;
+        let identity = format!("{:x}{:x}", started.as_nanos(), std::process::id());
+        let adapter = ProgramAdapter { identity, count: std::sync::Mutex::new(0.0) };
+        let mut configuration = BehaviorConfiguration::default();
+        configuration.http.insert("pageprogram".into(), std::sync::Arc::new(adapter));
+        Ok(configuration)
+    }
+}
+`,
+    },
     kt: {
       'client/models/ProgramState.kt': 'data class ProgramState(val identity: String, val count: Int)\n',
       'client/remotes/PageProgramClient.kt': 'import models.ProgramState\n\n@HTTPClient({"adapter":"pageprogram","path":"/program","setup":"PageProgramSetup"})\ninterface PageProgramClient {\n    @GetRequest("/read")\n    suspend fun read(): ProgramState\n\n    @PostRequest("/increment")\n    suspend fun increment(): ProgramState\n}\n',
@@ -331,6 +365,35 @@ class PageProgramSetup {
   }
 
   static services = {
+    rs: (name) => `use crate::models::ProgramState;
+
+#[Service]
+pub struct ${name} {
+    #[Needs]
+    page_program_client: std::sync::Arc<PageProgramClient>,
+    pub identity: String,
+    pub count: i64,
+}
+
+impl ${name} {
+    pub async fn inspect(&mut self) -> BehaviorResult<()> {
+        let state = self.page_program_client.read().await?;
+        self.show(state);
+        Ok(())
+    }
+
+    pub async fn increment(&mut self) -> BehaviorResult<()> {
+        let state = self.page_program_client.increment().await?;
+        self.show(state);
+        Ok(())
+    }
+
+    fn show(&mut self, state: ProgramState) {
+        self.identity = state.identity;
+        self.count = state.count;
+    }
+}
+`,
     swift: (name) => `@Service
 final class ${name} {
     @Needs
@@ -444,9 +507,9 @@ export default class SharedProbeService {
 </main>
 `
 
-  /** @param {string} project @param {'swift' | 'kt'} language */
+  /** @param {string} project @param {'swift' | 'kt' | 'rs'} language */
   static stage(project, language) {
-    assert.ok(this.files[language], `the shared Setup check runs linked Swift or Kotlin services, not ${language}`)
+    assert.ok(this.files[language], `the shared Setup check runs linked Swift, Kotlin or Rust services, not ${language}`)
     const checks = Object.fromEntries(['names', 'constants', 'visibility', 'duplication', 'cohesion'].map((name) => [name, { check: false }]))
     const applicationId = `dev.tachyon.shared-setup-${language}`
     const name = `SharedSetup${AsyncListenerApp.names[language]}`
@@ -492,6 +555,8 @@ class AsyncListenerAppTest {
   static fixture = AsyncListenerAppTest.checks[AsyncListenerAppTest.check]
   static appleLanguage = process.env.TAC_LISTENER_LANGUAGE ?? 'swift'
   static androidLanguage = process.env.TAC_ANDROID_LISTENER_LANGUAGE ?? 'kt'
+  static linuxLanguage = 'rs'
+  static linuxScreen = '1280x900x24'
   static targets = (process.argv.find((argument) => argument.startsWith('--target='))?.slice('--target='.length) ?? 'macos,ios').split(',')
   static proofTimeout = 180000
   static pause = 250
@@ -635,13 +700,54 @@ class AsyncListenerAppTest {
     console.log(`PASS Android emulator: ${this.fixture.passed(language)}`)
   }
 
+  static async linux() {
+    const project = path.join(this.root, 'linux')
+    const language = AsyncListenerApp.names[this.linuxLanguage]
+    const { name } = this.fixture.stage(project, this.linuxLanguage)
+    this.run(this.binary, ['build', project, '--target', 'linux'])
+    this.fixture.assertLinked(path.join(project, 'dist/linux'), language)
+    const temporary = path.join(project, 'tmp')
+    mkdirSync(temporary)
+    const proof = path.join(temporary, this.fixture.proofFile)
+    const launched = path.join(project, 'app.pid')
+    const script = `set -euo pipefail
+"$APP" &
+host=$!
+echo "$host" > "$PROCESS_FILE"
+trap 'kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true' EXIT
+for _ in $(seq ${this.proofTimeout / 200}); do
+  if [[ -s "$PROOF" ]]; then sleep 1; exit 0; fi
+  kill -0 "$host"
+  sleep 0.2
+done
+exit 1`
+    const env = {
+      ...process.env,
+      APP: path.join(project, 'dist/linux', name, 'bin', name),
+      PROCESS_FILE: launched,
+      PROOF: proof,
+      TMPDIR: temporary,
+      XDG_STATE_HOME: path.join(project, 'state'),
+      XDG_DATA_HOME: path.join(project, 'data'),
+      XDG_CACHE_HOME: path.join(project, 'cache'),
+      GDK_BACKEND: 'x11',
+      LIBGL_ALWAYS_SOFTWARE: '1',
+      WEBKIT_DMABUF_RENDERER_FORCE_SHM: '1',
+    }
+    const session = spawnSync('xvfb-run', ['--auto-servernum', `--server-args=-screen 0 ${this.linuxScreen}`, 'dbus-run-session', '--', 'bash', '-c', script], { encoding: 'utf8', env, timeout: this.proofTimeout + 60000, maxBuffer: 32 * 1024 * 1024 })
+    assert.ok(existsSync(proof), `the Linux app wrote no proof at ${proof}: ${`${session.error ?? ''}${session.stdout}${session.stderr}`.slice(-4000)}`)
+    const record = this.fixture.assertProof(JSON.parse(readFileSync(proof, 'utf8')), Number(readFileSync(launched, 'utf8')))
+    console.log(`==> linux: ${JSON.stringify(record)}`)
+    console.log(`PASS Linux app: ${this.fixture.passed(language)}`)
+  }
+
   static async main() {
     assert.ok(this.fixture, `unknown --check=${this.check}; use ${Object.keys(this.checks).join(' or ')}`)
     assert.ok(['swift', 'rs'].includes(this.appleLanguage), `unknown TAC_LISTENER_LANGUAGE ${this.appleLanguage}; use swift or rs`)
     assert.ok(['kt', 'rs'].includes(this.androidLanguage), `unknown TAC_ANDROID_LISTENER_LANGUAGE ${this.androidLanguage}; use kt or rs`)
     try {
       for (const target of this.targets) {
-        assert.ok(['macos', 'ios', 'android'].includes(target), `unknown target ${target}; use macos, ios or android`)
+        assert.ok(['macos', 'ios', 'android', 'linux'].includes(target), `unknown target ${target}; use macos, ios, android or linux`)
         await this[target]()
       }
     } finally {

@@ -8,6 +8,8 @@ import threading
 import time
 from pathlib import Path
 
+from gi.repository import GLib
+
 
 class PageStepsProbe:
     WAIT_SECONDS = 120
@@ -73,6 +75,39 @@ class PageStepsProbe:
         print(f"OK: the file dialog took {choice['keys']}", flush=True)
 
     @staticmethod
+    def pointer_click(probe, name):
+        root = probe.wait_for_controls([name], PageStepsProbe.WAIT_SECONDS)
+        for node in probe.walk_tree(root):
+            extents = node.get_extents(probe.Atspi.CoordType.SCREEN) if node.get_name() == name else None
+            if extents is not None and extents.width > 0 and extents.height > 0:
+                x, y = extents.x + extents.width // 2, extents.y + extents.height // 2
+                subprocess.run(["xdotool", "mousemove", str(x), str(y), "click", "1"], check=True)
+                print(f"OK: a pointer click at {x},{y} on {name!r}", flush=True)
+                return
+        raise AssertionError(f"Rendered control {name!r} has no on-screen extents")
+
+    @staticmethod
+    def current_texts(probe):
+        try:
+            root = probe.find_application()
+            return probe.exposed_texts(root) if root is not None else set()
+        except GLib.Error as error:
+            print(f"OK: a page node changed while it was read ({error.message}); reading again", flush=True)
+            return set()
+
+    @staticmethod
+    def verdict(probe, wanted):
+        deadline = time.monotonic() + wanted["seconds"]
+        texts = set()
+        while time.monotonic() < deadline and not texts & {wanted["passed"], wanted["failed"]}:
+            texts = PageStepsProbe.current_texts(probe)
+            time.sleep(probe.ProbeLimits.POLL_SECONDS)
+        for text in sorted(item for item in texts if item and item.startswith(tuple(wanted["lines"]))):
+            print(f"REPORT: {text}", flush=True)
+        assert wanted["passed"] in texts, f"the page did not show {wanted['passed']!r}; exposed: {sorted(texts)}"
+        print(f"OK: {wanted['passed']}", flush=True)
+
+    @staticmethod
     def main(steps):
         probe = PageStepsProbe.load_accessibility_probe()
         probe.Atspi.init()
@@ -83,6 +118,8 @@ class PageStepsProbe:
             "click": probe.activate_control,
             "size": lambda size: PageStepsProbe.wait_for_size(probe, size),
             "pick": lambda choice: PageStepsProbe.pick(probe, choice),
+            "verdict": lambda wanted: PageStepsProbe.verdict(probe, wanted),
+            "pointer": lambda name: PageStepsProbe.pointer_click(probe, name),
         }
         for index, (kind, value) in enumerate(steps):
             actions[kind](value)

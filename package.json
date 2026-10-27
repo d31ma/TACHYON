@@ -59,7 +59,8 @@
     "test:component-scope-browser": "node scripts/component-scope-browser-gate.mjs",
     "test:logic-controls-browser": "node scripts/logic-controls-browser-gate.mjs",
     "test:scaffold-browser": "node scripts/scaffold-browser-gate.mjs",
-    "test:native-companion": "node scripts/native/companion-test.mjs"
+    "test:native-companion": "node scripts/native/companion-test.mjs",
+    "test:wasm-features-app": "node scripts/native/wasm-features-app-test.mjs"
   },
   "keywords": [
     "tachyon",

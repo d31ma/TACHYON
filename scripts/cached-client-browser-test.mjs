@@ -9,8 +9,9 @@ import { createReadStream, existsSync, mkdtempSync, mkdirSync, rmSync, statSync,
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
-class CachedClientGate {
+export class CachedClientGate {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static browsers = (process.env.TAC_CACHED_CLIENT_BROWSERS ?? 'chromium,firefox,webkit').split(',')
   static launchers = { chromium, firefox, webkit }
@@ -572,4 +573,4 @@ class JavaStampService {
   }
 }
 
-await CachedClientGate.main()
+if (process.argv[1] === fileURLToPath(import.meta.url)) await CachedClientGate.main()

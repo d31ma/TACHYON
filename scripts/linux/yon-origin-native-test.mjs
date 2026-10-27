@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { withServer } from '../release/server-probe.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
+import { LinuxDisplaySession } from './linux-display-session.mjs'
 import { YonTlsFront } from './yon-tls-front.mjs'
 
 class LinuxYonOriginTest {
@@ -20,7 +21,6 @@ class LinuxYonOriginTest {
   static language = process.env.TAC_YON_SERVICES ?? 'javascript'
   static extensions = { javascript: '.js', rust: '.rs' }
   static display = process.env.TAC_LINUX_DISPLAY ?? 'x11'
-  static waylandDisplay = 'tachyon-yon-reach'
   static probeSteps = [
     ['wait', ['Welcome to the room', 'ANVIL-1 · 3']],
     ['click', 'Say hello'],
@@ -440,39 +440,8 @@ host=$!
 trap 'kill "$host" \${compositor:-} 2>/dev/null || true; wait 2>/dev/null || true' EXIT
 timeout 240s python3 "$PROBE" "$STEPS"`
 
-  static x11Session(script) {
-    return {
-      command: 'xvfb-run',
-      args: ['--auto-servernum', '--server-args=-screen 0 1024x1400x24', 'dbus-run-session', '--', 'bash', '-c', `set -euo pipefail\n${script}`],
-      env: { GDK_BACKEND: 'x11' },
-    }
-  }
-
-  static waylandSession(script) {
-    const runtime = path.join(this.fixture, 'runtime')
-    mkdirSync(runtime, { mode: 0o700 })
-    const compositor = `set -euo pipefail
-unset DISPLAY
-mutter --headless --wayland --no-x11 --wayland-display="$WAYLAND_DISPLAY" --virtual-monitor 1024x1400 >"$XDG_RUNTIME_DIR/mutter.log" 2>&1 &
-compositor=$!
-for _ in $(seq 60); do
-  if [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]]; then break; fi
-  kill -0 "$compositor" 2>/dev/null || { cat "$XDG_RUNTIME_DIR/mutter.log" >&2; exit 1; }
-  sleep 0.5
-done
-echo "$(mutter --version | head -n 1) is the Wayland compositor on $WAYLAND_DISPLAY"
-`
-    return {
-      command: 'dbus-run-session',
-      args: ['--', 'bash', '-c', `${compositor}${script}`],
-      env: { GDK_BACKEND: 'wayland', WAYLAND_DISPLAY: this.waylandDisplay, XDG_RUNTIME_DIR: runtime },
-    }
-  }
-
   static session() {
-    const sessions = { x11: () => this.x11Session(this.hostScript), wayland: () => this.waylandSession(this.hostScript) }
-    assert.ok(sessions[this.display], `TAC_LINUX_DISPLAY must be x11 or wayland, not ${this.display}`)
-    return sessions[this.display]()
+    return LinuxDisplaySession.of(this.display, this.hostScript, '1024x1400', this.fixture)
   }
 
   static async drive() {
