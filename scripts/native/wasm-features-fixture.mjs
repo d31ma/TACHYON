@@ -16,13 +16,19 @@ class WasmProbeSource {
   static lines = [];
   static clicked = [];
   static proof = '';
+  static problems = [];
+  static watched = new Set(['wasmRecorder']);
+  static seen = new Map();
+  static began = Date.now();
 
   static phase = 'starting';
   static PAINT = 200;
 
   static {
     document.addEventListener('click', (event) => { WasmProbe.clicked.push(event.target?.closest?.('button')?.textContent.trim() ?? ''); }, true);
-    setInterval(() => WasmProbe.paint(), WasmProbe.PAINT);
+    addEventListener('error', (event) => { WasmProbe.problems.push('error ' + String(event.message || event.target?.src || event.target?.href || event.target?.tagName || '')); }, true);
+    addEventListener('unhandledrejection', (event) => { WasmProbe.problems.push('rejection ' + String(event.reason?.message ?? event.reason)); });
+    setInterval(() => { WasmProbe.paint(); WasmProbe.watch(); }, WasmProbe.PAINT);
     setTimeout(() => { void WasmProbe.run(); }, WasmProbe.START);
   }
 
@@ -63,6 +69,53 @@ class WasmProbeSource {
     if (document.querySelector('#wasm-recorder')) await this.until(() => this.service('wasmRecorder'), 'the recorder service').catch(() => undefined);
     const recorder = this.service('wasmRecorder');
     if (typeof recorder?.record === 'function') await recorder.record(this.proof);
+    else if (this.DIAGNOSE) await this.recordDirectly(phase).catch((error) => this.line('diag - direct record failed: ' + String(error?.message ?? error)));
+  }
+
+  static watch() {
+    const marks = { tac: Boolean(globalThis.__tachyonTac), rendered: Boolean(document.documentElement.dataset.tachyonRendered), component: Boolean(document.querySelector('tachyon-component')) };
+    for (const name of this.watched) marks['service ' + name] = Boolean(this.service(name));
+    for (const [mark, reached] of Object.entries(marks)) if (reached && !this.seen.has(mark)) this.seen.set(mark, Date.now() - this.began);
+  }
+
+  /** What the page reached, for a host that has to record without Tac's own recorder service. */
+  static diagnosis() {
+    const plan = JSON.parse(document.getElementById('tachyon-view')?.textContent || '{}');
+    const services = Object.entries(plan.services ?? {}).map(([name, service]) => name + (service.module ? ' module' : '') + (service.native ? ' native' : ''));
+    const components = [...document.querySelectorAll('tachyon-component')].map((host) => host.dataset.tachyonComponent + ' ' + (host.dataset.tachyonActive ?? 'pending') + (host.dataset.tachyonMountError ? ' ' + host.dataset.tachyonMountError : ''));
+    const resources = performance.getEntriesByType('resource').map((entry) => entry.name.split('/').pop() + ' ' + Math.round(entry.duration));
+    return [
+      'diag - route ' + plan.route + '; services ' + services.join(', '),
+      'diag - document ' + JSON.stringify({ ...document.documentElement.dataset }) + '; body ' + [...document.body.children].map((child) => child.tagName.toLowerCase() + (child.id ? '#' + child.id : '')).join(','),
+      'diag - components ' + (components.join(', ') || 'none'),
+      'diag - reached ' + [...this.seen].map(([mark, at]) => mark + ' ' + at + 'ms').join(', ') + '; missing ' + [...this.watched].filter((name) => !this.service(name)).join(', '),
+      'diag - problems ' + (this.problems.join(' | ') || 'none'),
+      'diag - resources ' + resources.length + ': ' + resources.slice(-12).join(', '),
+    ];
+  }
+
+  /** Calls the linked recorder through the host bridge, past Tac's service graph, so a page that never started the recorder still reports what it reached. @param {string} phase */
+  static async recordDirectly(phase) {
+    if (typeof globalThis.__tachyonNativeHostCall !== 'function') throw new Error('no native host bridge on this page');
+    const plan = JSON.parse(document.getElementById('tachyon-view')?.textContent || '{}');
+    const owner = crypto.randomUUID();
+    const call = async (request) => {
+      for (let attempt = 0; attempt < 200; attempt += 1) {
+        const payload = JSON.stringify({ ...request, route: plan.route, service: 'wasmRecorder', owner });
+        const raw = await Promise.race([
+          Promise.resolve(globalThis.__tachyonNativeHostCall('companion.invoke', payload)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('the direct ' + request.op + ' timed out')), 10000)),
+        ]);
+        const answer = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (answer?.code !== 'BUSY') return answer;
+        await new Promise((resolve) => setTimeout(resolve, this.PAUSE));
+      }
+      throw new Error('the recorder stayed busy');
+    };
+    for (const line of this.diagnosis()) this.line(line);
+    this.line('diag - direct init ' + JSON.stringify(await call({ op: 'init', props: {} })).slice(0, 300));
+    const proof = JSON.stringify({ check: this.CHECK, language: this.LANGUAGE, phase, lines: this.lines, origin: location.origin, direct: true });
+    this.line('diag - direct record ' + JSON.stringify(await call({ op: 'call', name: 'record', args: [proof] })).slice(0, 300));
   }
 
   /** @param {string} name */
@@ -72,6 +125,7 @@ class WasmProbeSource {
 
   /** @param {string[]} names */
   static async ready(names) {
+    for (const name of names) this.watched.add(name);
     await this.until(() => names.every((name) => this.service(name)), 'the services ' + names.join(', ') + ' to start');
   }
 
@@ -152,7 +206,7 @@ ${Array.from({ length: WasmProbeSource.slots }, () => '<p class="wasm-probe-line
 
   /** @param {string} check @param {string} language @param {string} steps @param {Record<string, unknown>} [constants] */
   static source(check, language, steps, constants = {}) {
-    const values = { CHECK: check, LANGUAGE: language, ...constants }
+    const values = { CHECK: check, LANGUAGE: language, DIAGNOSE: WasmFeaturesFixture.diagnose, ...constants }
     const declared = Object.entries(values).map(([name, value]) => `  static ${name} = ${JSON.stringify(value)};`).join('\n')
     const named = `    const { ${Object.keys(values).join(', ')} } = WasmProbe;`
     return `${this.prelude.replace('  static WAIT', `${declared}\n  static WAIT`)}\n  static async steps() {\n${named}\n${steps}\n  }\n}\n`
@@ -442,6 +496,8 @@ export class WasmFeaturesFixture {
   static idleYon = 'http://127.0.0.1:9'
   static passed = 'Probe passed'
   static failed = 'Probe failed'
+  static diagnose = process.env.TAC_WASM_PROBE_DIAGNOSE === '1'
+  static recorderFirst = process.env.TAC_WASM_RECORDER_FIRST === '1'
 
   /** @param {string} project @param {string} name @param {string} text */
   static write(project, name, text) {
@@ -472,6 +528,7 @@ export class WasmFeaturesFixture {
    * Stages one check for one language as a native app project.
    * @param {string} project @param {string} check @param {string} language
    * A host that can't read the page passes the files of a linked wasmRecorder service with a state field and record(proof); a hydrated recorder component shows its state so the page starts the service.
+   * TAC_WASM_RECORDER_FIRST=1 puts the recorder before the page's own components; TAC_WASM_PROBE_DIAGNOSE=1 makes a probe whose page never started the recorder add what the page reached and record through the host bridge.
    * @param {{ yonOrigin?: string, gestures?: boolean, recorder?: Record<string, string> }} [options]
    */
   static stage(project, check, language, options = {}) {
@@ -497,7 +554,9 @@ export class WasmFeaturesFixture {
   /** @param {string} project @param {Record<string, string>} files */
   static addRecorder(project, files) {
     const page = path.join(project, 'client/pages/tac.html')
-    this.files(project, { ...files, [WasmProbeSource.recorder.component]: WasmProbeSource.recorder.view, 'client/pages/tac.html': `${readFileSync(page, 'utf8').trimEnd()}\n${WasmProbeSource.recorder.tag}` })
+    const authored = `${readFileSync(page, 'utf8').trimEnd()}\n`
+    const view = this.recorderFirst ? `${WasmProbeSource.recorder.tag}${authored}` : `${authored}${WasmProbeSource.recorder.tag}`
+    this.files(project, { ...files, [WasmProbeSource.recorder.component]: WasmProbeSource.recorder.view, 'client/pages/tac.html': view })
   }
 
   /** Every check and language that runs as WebAssembly on the target, narrowed by optional lists. @param {string} target @param {string[]} [checks] @param {string[]} [languages] */
@@ -521,6 +580,7 @@ export class WasmFeaturesFixture {
   /** @param {string} proof */
   static assertProof(proof) {
     const record = JSON.parse(proof)
+    assert.ok(!record.direct, `the page never started the linked recorder service; the probe recorded through the host bridge instead (${record.phase}):\n${record.lines.join('\n')}`)
     assert.equal(record.phase, 'passed', `the in-app probe failed:\n${record.lines.join('\n')}`)
     return record
   }

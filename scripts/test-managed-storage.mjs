@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process'
 import { connect, createServer } from 'node:net'
-import { mkdtemp, mkdir, writeFile, realpath, rm } from 'node:fs/promises'
+import { copyFile, mkdtemp, mkdir, readFile, writeFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,7 +17,7 @@ class ManagedStorageTest {
     { driver: 'postgresql', image: 'postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2', port: 5432, username: 'postgres', environment: ['POSTGRES_PASSWORD', 'POSTGRES_DB=tachyon'] },
     { driver: 'mysql', image: 'mysql:8.4@sha256:85b9bf2e29cf836ecb8c2a15a935d4ba0c606631dff1dd79531a11983c638f2a', port: 3306, username: 'root', environment: ['MYSQL_ROOT_PASSWORD', 'MYSQL_DATABASE=tachyon'] },
     { driver: 'mariadb', image: 'mariadb:11.8@sha256:2d2f4095530294735a857cfe22bb101e19b0849b416911c796ec4aa81b164a62', port: 3306, username: 'root', environment: ['MARIADB_ROOT_PASSWORD', 'MARIADB_DATABASE=tachyon'] },
-    { driver: 'sqlserver', image: 'mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718', port: 1433, username: 'sa', environment: ['ACCEPT_EULA=Y', 'MSSQL_SA_PASSWORD'] },
+    { driver: 'sqlserver', image: 'mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718', platform: 'linux/amd64', readySeconds: 240, port: 1433, username: 'sa', environment: ['ACCEPT_EULA=Y', 'MSSQL_SA_PASSWORD'] },
     { driver: 'redis', image: 'redis:8-alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576', port: 6379, environment: [] },
   ]
   static concurrentFyloPatches = 'storage::tests::fylo_documents::concurrent_fylo_patches_never_lose_an_update'
@@ -28,6 +28,11 @@ class ManagedStorageTest {
   static scratch = null
   static withoutDocker = process.argv.includes('--without-docker')
   static drivers = process.argv.find(argument => argument.startsWith('--drivers='))?.slice('--drivers='.length).split(',').filter(Boolean) ?? []
+  static serving = process.argv.includes('--serve')
+  static remote = process.argv.find(argument => argument.startsWith('--remote='))?.slice('--remote='.length)
+  static publishAddress = process.env.TAC_STORAGE_PUBLISH_ADDRESS || '127.0.0.1'
+  static serveFolder = process.env.TAC_STORAGE_SERVE_DIR
+  static serveMinutes = Number(process.env.TAC_STORAGE_SERVE_MINUTES || 60)
   static redisServers = [
     { name: 'redis-server', program: 'redis-server', args: port => ['--port', String(port), '--bind', '127.0.0.1', '--save', '', '--appendonly', 'no'] },
     { name: 'Garnet', program: process.env.TAC_GARNET_SERVER || 'garnet-server', args: port => ['--port', String(port), '--bind', '127.0.0.1'] },
@@ -143,7 +148,8 @@ async function fylo() {
 
 async function certificates() {
   const path = name => join(ManagedStorageTest.scratch, name)
-  await writeFile(path('server.ext'), 'basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:localhost,IP:127.0.0.1\n')
+  const published = ManagedStorageTest.publishAddress === '127.0.0.1' ? '' : `,IP:${ManagedStorageTest.publishAddress}`
+  await writeFile(path('server.ext'), `basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:localhost,IP:127.0.0.1${published}\n`)
   command('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path('ca.key'), '-out', path('ca.crt'), '-days', '1', '-subj', '/CN=Tachyon-Fixture-CA'])
   command('openssl', ['req', '-new', '-newkey', 'rsa:2048', '-nodes', '-keyout', path('server.key'), '-out', path('server.csr'), '-subj', '/CN=localhost'])
   command('openssl', ['x509', '-req', '-in', path('server.csr'), '-CA', path('ca.crt'), '-CAkey', path('ca.key'), '-CAcreateserial', '-out', path('server.crt'), '-days', '1', '-extfile', path('server.ext')])
@@ -191,7 +197,8 @@ function ping(fixture, id, tls) {
 }
 
 async function ready(fixture, id, tls = false) {
-  const deadline = Date.now() + 90_000
+  const seconds = fixture.readySeconds ?? 90
+  const deadline = Date.now() + seconds * 1000
   let lastFailure = ''
   do {
     try { command('docker', ping(fixture, id, tls), { timeout: 3000 }); return } catch (error) {
@@ -199,13 +206,15 @@ async function ready(fixture, id, tls = false) {
     }
     await delay(250)
   } while (Date.now() < deadline)
-  throw new Error(`${fixture.driver} did not become ready within 90 seconds. ${lastFailure}`)
+  throw new Error(`${fixture.driver} did not become ready within ${seconds} seconds. ${lastFailure}`)
 }
 
 async function start(fixture) {
   console.log(`Starting isolated ${fixture.driver} fixture...`)
   const environment = fixture.environment.flatMap(value => ['--env', value.includes('=') ? value : `${value}=${ManagedStorageTest.password}`])
-  const id = command('docker', ['run', '--detach', '--rm', '--name', `tachyon-storage-${randomUUID()}`, '--publish', `127.0.0.1::${fixture.port}`, ...environment, fixture.image], { timeout: 300_000 })
+  const platform = fixture.platform ? ['--platform', fixture.platform] : []
+  const address = ManagedStorageTest.publishAddress
+  const id = command('docker', ['run', '--detach', '--rm', '--name', `tachyon-storage-${randomUUID()}`, ...platform, '--publish', `${address}::${fixture.port}`, ...environment, fixture.image], { timeout: 900_000 })
   if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Docker returned an invalid fixture identifier.')
   ManagedStorageTest.owned.push(id)
   await ready(fixture, id)
@@ -219,10 +228,10 @@ async function start(fixture) {
     command('docker', ['restart', id])
     await ready(fixture, id, true)
   }
-  const address = command('docker', ['port', id, `${fixture.port}/tcp`])
-  const match = /^127\.0\.0\.1:(\d+)$/.exec(address)
-  if (!match) throw new Error('Fixture publication was not confined to IPv4 loopback.')
-  return Number(match[1])
+  const published = command('docker', ['port', id, `${fixture.port}/tcp`])
+  const match = /^([\d.]+):(\d+)$/.exec(published)
+  if (match?.[1] !== address) throw new Error(`Fixture publication was not confined to ${address}.`)
+  return Number(match[2])
 }
 
 async function freePort() {
@@ -272,28 +281,72 @@ async function withoutDocker(binary) {
   console.log(`PASS: SQLite, FYLO${redis ? ' and Redis' : ''} real driver contracts without Docker.`)
 }
 
-async function runDriverTest(binary, fixture) {
-  const port = await start(fixture)
-  const environment = { ...process.env }
-  let test = 'storage::tests::sql_real_repository_nullable_columns'
-  if (fixture.driver === 'redis') {
-    environment.YON_TEST_REDIS_URL = `redis://127.0.0.1:${port}`
-    test = 'storage::tests::redis_real_json_ttl_and_delete'
-  } else {
-    Object.assign(environment, {
+/** The contract test and settings for one running fixture. */
+function served(fixture, port) {
+  const host = ManagedStorageTest.publishAddress
+  if (fixture.driver === 'redis') return { driver: fixture.driver, test: 'storage::tests::redis_real_json_ttl_and_delete', settings: { YON_TEST_REDIS_URL: `redis://${host}:${port}` } }
+  return {
+    driver: fixture.driver,
+    test: 'storage::tests::sql_real_repository_nullable_columns',
+    settings: {
       YON_TEST_DATASOURCE_DRIVER: fixture.driver,
-      YON_TEST_DATASOURCE_URL: `${fixture.driver === 'mariadb' ? 'mysql' : fixture.driver}://127.0.0.1:${port}/tachyon`,
+      YON_TEST_DATASOURCE_URL: `${fixture.driver === 'mariadb' ? 'mysql' : fixture.driver}://${host}:${port}/tachyon`,
       YON_TEST_DATASOURCE_USERNAME: fixture.username,
       YON_TEST_DATASOURCE_PASSWORD: ManagedStorageTest.password,
-      YON_TEST_DATASOURCE_CA: join(ManagedStorageTest.scratch, 'ca.crt'),
-    })
+    },
+    ca: fixture.driver === 'redis' ? undefined : 'ca.crt',
   }
-  console.log(command(binary, [test, '--exact', '--ignored'], { env: environment, timeout: 60_000 }))
+}
+
+function runServed(binary, entry, folder) {
+  const environment = { ...process.env, ...entry.settings, ...(entry.ca ? { YON_TEST_DATASOURCE_CA: join(folder, entry.ca) } : {}) }
+  console.log(command(binary, [entry.test, '--exact', '--ignored'], { env: environment, timeout: 120_000 }))
+}
+
+async function runDriverTest(binary, fixture) {
+  runServed(binary, served(fixture, await start(fixture)), ManagedStorageTest.scratch)
+}
+
+/** Starts the chosen fixtures on TAC_STORAGE_PUBLISH_ADDRESS and keeps them until SIGINT, SIGTERM or TAC_STORAGE_SERVE_MINUTES, so another machine can run the contracts with --remote. */
+async function serve(chosen) {
+  await certificates()
+  const folder = resolve(ManagedStorageTest.serveFolder || ManagedStorageTest.scratch)
+  await mkdir(folder, { recursive: true })
+  const fixtures = []
+  for (const fixture of chosen) fixtures.push(served(fixture, await start(fixture)))
+  await copyFile(join(ManagedStorageTest.scratch, 'ca.crt'), join(folder, 'ca.crt'))
+  const file = join(folder, 'tachyon-storage-fixtures.json')
+  await writeFile(file, `${JSON.stringify({ host: ManagedStorageTest.publishAddress, fixtures }, null, 2)}\n`)
+  console.log(`SERVING ${fixtures.map(entry => entry.driver).join(', ')} on ${ManagedStorageTest.publishAddress}: copy ${file} and ca.crt to the other machine and run scripts/test-managed-storage.mjs --remote=<that json>. Send SIGINT or SIGTERM to stop; it stops by itself after ${ManagedStorageTest.serveMinutes} minutes.`)
+  await new Promise(done => {
+    const timer = setTimeout(done, ManagedStorageTest.serveMinutes * 60_000)
+    const stop = () => { clearTimeout(timer); done() }
+    process.once('SIGINT', stop)
+    process.once('SIGTERM', stop)
+  })
+}
+
+/** Runs the contracts against fixtures another machine serves (see --serve); no Docker here. */
+async function remote(file) {
+  const answer = JSON.parse(await readFile(file, 'utf8'))
+  const fixtures = answer.fixtures.filter(entry => !ManagedStorageTest.drivers.length || ManagedStorageTest.drivers.includes(entry.driver))
+  assert.ok(fixtures.length, `${file} serves none of ${ManagedStorageTest.drivers.join(', ')}`)
+  const binary = await buildTests()
+  for (const entry of fixtures) runServed(binary, entry, dirname(resolve(file)))
+  console.log(`PASS: ${fixtures.map(entry => entry.driver).join(', ')} real driver contracts against the fixtures served from ${answer.host}.`)
+}
+
+function chosenFixtures() {
+  const chosen = ManagedStorageTest.fixtures.filter(fixture => !ManagedStorageTest.drivers.length || ManagedStorageTest.drivers.includes(fixture.driver))
+  assert.equal(chosen.length, ManagedStorageTest.drivers.length || ManagedStorageTest.fixtures.length, `--drivers takes ${ManagedStorageTest.fixtures.map(fixture => fixture.driver).join(', ')}`)
+  return chosen
 }
 
 async function main() {
   try {
+    if (ManagedStorageTest.remote) return await remote(ManagedStorageTest.remote)
     if (!ManagedStorageTest.withoutDocker) command('docker', ['info', '--format', '{{.ServerVersion}}'])
+    if (ManagedStorageTest.serving) return await serve(chosenFixtures())
     const binary = await buildTests()
     const environment = { ...process.env, TAC_STORAGE_REQUIRE_TOOLCHAINS: '1' }
     console.log(command(binary, ['storage::tests', '--skip', 'storage::tests::redis_real_json_ttl_and_delete', '--skip', 'storage::tests::sql_real_repository_nullable_columns', '--skip', ManagedStorageTest.concurrentFyloPatches],
@@ -302,8 +355,7 @@ async function main() {
     if (ManagedStorageTest.withoutDocker) return await withoutDocker(binary)
     await fylo()
     await certificates()
-    const chosen = ManagedStorageTest.fixtures.filter(fixture => !ManagedStorageTest.drivers.length || ManagedStorageTest.drivers.includes(fixture.driver))
-    assert.equal(chosen.length, ManagedStorageTest.drivers.length || ManagedStorageTest.fixtures.length, `--drivers takes ${ManagedStorageTest.fixtures.map(fixture => fixture.driver).join(', ')}`)
+    const chosen = chosenFixtures()
     for (const fixture of chosen) await runDriverTest(binary, fixture)
     console.log(`PASS: SQLite, FYLO and ${chosen.map(fixture => fixture.driver).join(', ')} real driver contracts.`)
   } catch (error) {
