@@ -383,6 +383,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn gateways_are_refused_under_firecracker_isolation() {
         let driver = std::env::current_exe().expect("test executable");
