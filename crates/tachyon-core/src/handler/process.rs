@@ -650,7 +650,13 @@ impl HandlerSupervisor {
             .await?;
         let resource_access = Self::still_in_time(resource_access, deadline, cancellation).await?;
         let result = self
-            .exchange_warm(source, request, resource_access.as_ref(), deadline, cancellation)
+            .exchange_warm(
+                source,
+                request,
+                resource_access.as_ref(),
+                deadline,
+                cancellation,
+            )
             .await;
         Self::close_resource_access(resource_access).await;
         result

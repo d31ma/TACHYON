@@ -25,7 +25,11 @@ impl StreamEvents {
         let kind = frame.get("kind").and_then(Value::as_str);
         let owner = frame.get("request_id").and_then(Value::as_str);
         let version = frame.get("protocol_version").and_then(Value::as_u64);
-        [kind == Some("end"), owner == Some(request_id), version == Some(1)] == [true, true, true]
+        [
+            kind == Some("end"),
+            owner == Some(request_id),
+            version == Some(1),
+        ] == [true, true, true]
     }
 
     pub(super) async fn forward(

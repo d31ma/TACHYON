@@ -6,8 +6,8 @@ use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
 };
 use tachyon_core::{
-    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
-    WarmSettings, YonIsolationPolicy,
+    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, WarmSettings,
+    YonIsolationPolicy,
 };
 
 struct WarmKotlin;
@@ -96,7 +96,11 @@ object Handler {
         mode: &str,
     ) -> (u64, u64) {
         let response = supervisor
-            .invoke(source, &Self::request(id, mode), &HandlerCancellation::default())
+            .invoke(
+                source,
+                &Self::request(id, mode),
+                &HandlerCancellation::default(),
+            )
             .await
             .expect("Kotlin response");
         let value = Self::body_json(&response);
@@ -194,4 +198,3 @@ async fn a_warm_kotlin_stream_ends_with_its_end_frame_and_stays_warm() {
     let second = WarmKotlin::stream_pid(&supervisor, &source, "kotlin_stream_second").await;
     assert_eq!(first, second, "the Kotlin stream process stayed warm");
 }
-

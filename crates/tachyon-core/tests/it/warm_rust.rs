@@ -93,7 +93,11 @@ impl Handler {
         id: &str,
     ) -> (u64, u64) {
         let response = supervisor
-            .invoke(source, &Self::request(id, ""), &HandlerCancellation::default())
+            .invoke(
+                source,
+                &Self::request(id, ""),
+                &HandlerCancellation::default(),
+            )
             .await
             .expect("warm response");
         let value = Self::body_json(&response);

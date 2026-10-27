@@ -6,8 +6,8 @@ use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
 };
 use tachyon_core::{
-    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
-    WarmSettings, YonIsolationPolicy,
+    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, WarmSettings,
+    YonIsolationPolicy,
 };
 
 const PHP_COUNTER: &str = r"<?php
@@ -130,7 +130,9 @@ async fn a_warm_php_request_does_not_see_the_previous_request_headers_or_status(
     let source = source(&root, PHP_COUNTER);
     let supervisor = warm();
     let mut first = request("php_headers_first", "header");
-    first.headers.insert(String::from("x-probe"), vec![String::from("one")]);
+    first
+        .headers
+        .insert(String::from("x-probe"), vec![String::from("one")]);
     let written = invoke(&supervisor, &source, &first).await;
     assert_eq!(written.status, 201, "{written:?}");
     assert_eq!(

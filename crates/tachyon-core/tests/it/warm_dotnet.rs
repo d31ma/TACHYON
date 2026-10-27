@@ -8,8 +8,8 @@ use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
 };
 use tachyon_core::{
-    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
-    WarmSettings, YonIsolationPolicy,
+    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, WarmSettings,
+    YonIsolationPolicy,
 };
 
 struct DotnetHandlers;
@@ -206,7 +206,10 @@ async fn a_dotnet_crash_replaces_the_warm_process() {
             )
             .await
             .expect_err("crash");
-        assert!(crashed.to_string().contains("TY2104"), "{extension}: {crashed}");
+        assert!(
+            crashed.to_string().contains("TY2104"),
+            "{extension}: {crashed}"
+        );
         let (after, count) = answer(&supervisor, &source, "after_crash").await;
         assert_ne!(before, after, "{extension} started a new process");
         assert_eq!(count, 1, "{extension} started with fresh state");

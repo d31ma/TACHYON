@@ -1,6 +1,6 @@
 use super::{
-    HandlerCancellation, HandlerEvent, ProcessFailure, StreamEvents, StreamReadOutcome,
-    WarmAnswer, WarmContext, WarmOutput, WarmProcess, WarmStop, WarmStreamEnd,
+    HandlerCancellation, HandlerEvent, ProcessFailure, StreamEvents, StreamReadOutcome, WarmAnswer,
+    WarmContext, WarmOutput, WarmProcess, WarmStop, WarmStreamEnd,
 };
 use tokio::sync::mpsc;
 use tokio::time::{Instant, sleep_until};
@@ -79,9 +79,7 @@ impl WarmStream<'_> {
     async fn settle(self, outcome: Result<StreamReadOutcome, WarmStop>) -> WarmAnswer<()> {
         match outcome {
             Ok(StreamReadOutcome::Complete) => WarmStreamEnd::complete(self.process).await,
-            Ok(StreamReadOutcome::SubscriberClosed) => {
-                WarmStreamEnd::abandoned(self.process).await
-            }
+            Ok(StreamReadOutcome::SubscriberClosed) => WarmStreamEnd::abandoned(self.process).await,
             Err(stop) => WarmStreamEnd::stopped(stop, self.process, &self.context).await,
         }
     }

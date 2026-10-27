@@ -118,7 +118,10 @@ async fn a_warm_dart_handler_serves_later_requests_from_the_same_process() {
     let supervisor = warm(ApplicationConfig::default());
     let (first_pid, first_count) = answer(&supervisor, &source, "dart_first").await;
     let (second_pid, second_count) = answer(&supervisor, &source, "dart_second").await;
-    assert_eq!(first_pid, second_pid, "the second request reused the process");
+    assert_eq!(
+        first_pid, second_pid,
+        "the second request reused the process"
+    );
     assert_eq!(first_count, 1);
     assert_eq!(second_count, 2, "the class state survived between requests");
 }

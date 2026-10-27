@@ -61,9 +61,7 @@ impl WarmFrames {
     }
 
     async fn payload_for(&mut self, length: Option<usize>) -> WarmOutput {
-        let checked = length
-            .ok_or(WarmOutput::Truncated)
-            .and_then(Self::fitting);
+        let checked = length.ok_or(WarmOutput::Truncated).and_then(Self::fitting);
         self.checked_payload(checked).await
     }
 

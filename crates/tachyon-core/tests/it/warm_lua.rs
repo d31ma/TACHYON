@@ -267,5 +267,9 @@ async fn a_warm_lua_gateway_exchanges_resource_frames_for_every_request() {
     assert_eq!(first["detail"], "first", "{first}");
     assert_eq!(second["detail"], "second", "{second}");
     let served = [first["served"].as_u64(), second["served"].as_u64()];
-    assert_eq!(served, [Some(1), Some(2)], "the warm Lua process was reused");
+    assert_eq!(
+        served,
+        [Some(1), Some(2)],
+        "the warm Lua process was reused"
+    );
 }

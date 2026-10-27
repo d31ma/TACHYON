@@ -84,10 +84,7 @@ impl WarmExchange<'_> {
         let answering = self.resources.as_ref().map(|piped| piped.answer(command));
         let answer = OptionFuture::from(answering).await.unwrap_or_default();
         let framed = [self.style.encode(answer.len()), answer].concat();
-        self.process
-            .send(&framed)
-            .await
-            .map_err(WarmStop::Broken)
+        self.process.send(&framed).await.map_err(WarmStop::Broken)
     }
 
     async fn settle(self, reply: Result<Vec<u8>, WarmStop>) -> WarmAnswer<HandlerResponse> {
