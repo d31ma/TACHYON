@@ -1,6 +1,5 @@
 #![allow(clippy::expect_used)]
 
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_contracts::{HandlerRequest, HttpMethod};
 use tachyon_core::{
@@ -119,16 +118,13 @@ impl DescribedService {
     };
 
     fn available(&self) -> bool {
-        let available = Command::new(self.compiler)
-            .arg(self.version_flag)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
-        if !available {
+        let found =
+            crate::support::program_probe::ProgramProbe::answers(self.compiler, self.version_flag);
+        if !crate::support::toolchain::Toolchain::checked(self.compiler, found) {
             eprintln!("skipping: {} is unavailable", self.compiler);
+            return false;
         }
-        available
+        true
     }
 
     fn entry(&self) -> String {
