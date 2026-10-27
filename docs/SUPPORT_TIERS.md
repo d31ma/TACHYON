@@ -1913,9 +1913,9 @@ The same day, on the same Mac:
   identity and a count of 1.
 - The SQL Server contract on Security.framework did not run: Docker Desktop
   was not running on the Mac, so no SQL Server 2022 container could start.
-  MA10 ran it later the same day (see "SQL Server from macOS").
+  MA10 ran it later the same day (see "SQL Server from macOS and Windows").
 
-### SQL Server from macOS (2026-10-27, MA10)
+### SQL Server from macOS and Windows (2026-10-27, MA10)
 
 On the Mac, with SQL Server 2022 (the digest-pinned image, `linux/amd64`
 under Rosetta) in Docker Desktop, `scripts/test-managed-storage.mjs
@@ -1933,6 +1933,16 @@ passed when it sent the whole flight in one. Tachyon now puts a
 message. On branch `6fbd5b2f` the contract passed from macOS in 40 s, with
 the storage tests, clippy and `repository_policy`. iOS uses the same TLS
 library, so the same fix applies there; no iOS SQL Server run was made.
+
+The same contract then passed from Windows over SChannel. The Mac served the
+container on its LAN address with `scripts/test-managed-storage.mjs --serve
+--drivers=sqlserver` (`TAC_STORAGE_PUBLISH_ADDRESS=192.168.8.159`, so the
+fixture certificate names that address), and on the Surface (Windows
+10.0.26300.9711 ARM64, MSVC 14.44, Node 24.21.0) a `tachyon-core` test build
+from develop `d404af70`, made through `cmd.exe` and `vcvarsall.bat arm64`,
+ran `scripts/test-managed-storage.mjs --remote=... --drivers=sqlserver`:
+`sql_real_repository_nullable_columns` passed in 0.49 s with forced TLS and
+the fixture CA.
 
 ### macOS callers that moved cells back (2026-10-25, MA1)
 
@@ -2127,7 +2137,8 @@ any tier.
   that are not Unix.
 - No SQL Server 2022 was reachable from the Mac or the Surface (no Docker
   daemon running, and no SQL Server image for ARM64), so the SQL Server
-  contract over SChannel stays owed.
+  contract over SChannel stayed owed. MA10 ran it later the same day (see
+  "SQL Server from macOS and Windows").
 
 ### Swift on the Windows desktop (2026-10-25, SW3)
 

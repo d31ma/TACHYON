@@ -353,6 +353,8 @@ SQL Server:
   Apple's TLS library flushes after every TLS record, and the driver sent
   each flush as its own PRELOGIN message, which SQL Server drops. Tachyon
   now sends a handshake flight as one PRELOGIN message on every platform.
+  The same day it passed from Windows on ARM64 over SChannel, against that
+  container served on the Mac's LAN address.
 - `node scripts/test-managed-storage.mjs --serve --drivers=sqlserver` with
   `TAC_STORAGE_PUBLISH_ADDRESS=<LAN address>` serves the container to
   another machine, which runs

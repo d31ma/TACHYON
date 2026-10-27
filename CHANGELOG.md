@@ -2314,7 +2314,8 @@ machine contracts have their own, independent major versions.
   handshake flight that arrived as three messages. A `PreloginStream` under
   the driver now holds the handshake's PRELOGIN packets until the client
   reads and sends them as one message. OpenSSL and SChannel already sent a
-  whole flight at once. The SQL Server contract then passed from macOS.
+  whole flight at once. The SQL Server contract then passed from macOS, and
+  from Windows on ARM64 over SChannel against the Mac's container.
 - The in-app WebAssembly features probe waits for the linked recorder
   whenever the page's plan declares it (MA10, 2026-10-27). MA8's open
   finding on iOS (a linked Swift service that "never started" next to a C#
