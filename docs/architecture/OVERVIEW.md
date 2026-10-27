@@ -235,9 +235,9 @@ parent process:
 
 - Warm mode, the default, keeps a language child process for each handler and
   sends it one request at a time. The supervisor replaces the process after a
-  crash, a protocol error, stray output, a timeout, a cancellation or
-  `YON_WARM_MAX_REQUESTS` requests, and stops it after `YON_WARM_IDLE_SECONDS`
-  without a request. A language whose runner does not speak the warm protocol
+  crash, a protocol error, stray output, a timeout, a cancellation, a failed
+  relay or `YON_WARM_MAX_REQUESTS` requests, and stops it after
+  `YON_WARM_IDLE_SECONDS` without a request. A language whose runner does not speak the warm protocol
   runs in process mode. See ADR 0111.
 - Process mode starts one language child process per request.
 - Firecracker mode starts a trusted control client. For JavaScript and Python,
