@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use tachyon_contracts::{HandlerRequest, HttpMethod};
 use tachyon_core::{
     HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
@@ -108,12 +107,7 @@ impl OutboundVerbs {
     }
 
     fn available(&self) -> bool {
-        let found = Command::new(self.program)
-            .arg(self.probe)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
+        let found = crate::support::program_probe::ProgramProbe::answers(self.program, self.probe);
         crate::support::toolchain::Toolchain::checked(self.program, found)
     }
 

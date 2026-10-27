@@ -50,9 +50,13 @@ mod script_assets_tests;
 pub(crate) mod script_import;
 pub(crate) mod script_imports;
 #[cfg(test)]
+mod script_marker_proof_tests;
+#[cfg(test)]
 mod script_marker_tests;
 #[cfg(test)]
 mod script_named_needs_tests;
+#[cfg(test)]
+mod script_reach_marker_tests;
 mod service_checks;
 mod service_script;
 mod service_worker;

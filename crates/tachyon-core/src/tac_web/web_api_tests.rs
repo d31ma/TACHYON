@@ -1319,10 +1319,7 @@ process.exit(0)
     }
 
     fn cpp_available() -> bool {
-        Command::new("em++")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success())
+        crate::program_probe::ProgramProbe::answers("em++", "--version")
     }
 
     fn assert_stamp(report: &serde_json::Value) {

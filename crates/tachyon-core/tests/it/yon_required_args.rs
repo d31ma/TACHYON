@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_contracts::{HandlerRequest, HttpMethod};
 use tachyon_core::{
@@ -106,16 +105,12 @@ impl Layout {
 }
 
 fn available(program: &str) -> bool {
-    let found = Command::new(program)
-        .arg(match program {
-            "kotlinc" => "-version",
-            "go" => "version",
-            _ => "--version",
-        })
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let flag = match program {
+        "kotlinc" => "-version",
+        "go" => "version",
+        _ => "--version",
+    };
+    let found = crate::support::program_probe::ProgramProbe::answers(program, flag);
     crate::support::toolchain::Toolchain::checked(program, found)
 }
 

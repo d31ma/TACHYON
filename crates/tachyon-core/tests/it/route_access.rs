@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_core::{DevServer, DevServerOptions, ProjectDiscovery};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -313,12 +312,7 @@ fn available(program: &str) -> bool {
         "go" => "version",
         _ => "--version",
     };
-    let found = Command::new(program)
-        .arg(flag)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let found = crate::support::program_probe::ProgramProbe::answers(program, flag);
     crate::support::toolchain::Toolchain::checked(program, found)
 }
 

@@ -35,6 +35,8 @@ mod model_sources;
 mod native;
 #[cfg(test)]
 mod node_driver;
+#[cfg(test)]
+mod program_probe;
 mod project;
 mod python_parameters;
 mod route_types;

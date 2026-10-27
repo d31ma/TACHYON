@@ -3,7 +3,6 @@
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
-use std::process::Command as StdCommand;
 use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod};
 use tachyon_core::{
     ApplicationConfig, HandlerCancellation, HandlerSource, HandlerSupervisor,
@@ -659,12 +658,7 @@ fn available(program: &str) -> bool {
         "lua" => "-v",
         _ => "--version",
     };
-    StdCommand::new(program)
-        .arg(version)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
+    crate::support::program_probe::ProgramProbe::answers(program, version)
 }
 
 fn usable(program: &str) -> bool {
@@ -1675,7 +1669,7 @@ fn supervisor_with(project: &Project, options: HandlerSupervisorOptions) -> Hand
 
 #[cfg(unix)]
 fn process_exists(pid: u32) -> bool {
-    StdCommand::new("kill")
+    std::process::Command::new("kill")
         .args(["-0", &pid.to_string()])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())

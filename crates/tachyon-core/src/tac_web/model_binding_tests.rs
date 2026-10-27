@@ -99,6 +99,16 @@ struct TacService {
 
 impl TacService {
     const FSHARP_PROPS: &str = "[<Service>]\n[<NeedsAll>]\ntype SnippetService(files: string list, owner: string) =\n    member this.Files : string list = files\n\n    member this.Owner : string = owner\n";
+    const CSHARP_PROPS: &str = "[Service]\n[NeedsAll]\npublic class PagerService\n{\n    public string Path;\n    public int Size;\n    public int Turns = 0;\n\n    \
+             public string Describe()\n    {\n        Turns += 1;\n        return Path + \":\" + Size + \":\" + Turns;\n    }\n}\n";
+    const CSHARP_PROPS_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         const { default: PagerService } = await import('./PagerService.js')\n\
+         const docs = new PagerService({ path: '/docs', size: 20 })\n\
+         const shop = new PagerService({ path: '/shop', size: 5 })\n\
+         const described = [await docs.describe(), await docs.describe(), await shop.describe()]\n\
+         console.log(JSON.stringify({ docs: [docs.path, docs.size], shop: [shop.path, shop.size], described }))\n\
+         process.exit(0)\n";
     const PROPS_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
          globalThis.fetch = async (url) => new Response(await readFile(url))\n\
          const { default: SnippetService } = await import('./SnippetService.js')\n\
@@ -230,6 +240,28 @@ async fn an_fsharp_needs_all_service_is_built_from_its_component_props() {
             "{report}"
         );
         assert_eq!(report["owner"], "Ada", "{report}");
+    }
+}
+
+#[tokio::test]
+async fn a_csharp_needs_all_service_keeps_the_props_of_each_owner() {
+    let service = TacService {
+        language: WebLanguage::CSharp,
+        instance: "pager",
+        class: "PagerService",
+        files: vec![(
+            String::from("client/services/PagerService.cs"),
+            TacService::CSHARP_PROPS,
+        )],
+    };
+    if let Some(report) = service.report(TacService::CSHARP_PROPS_DRIVER).await {
+        assert_eq!(report["docs"], serde_json::json!(["/docs", 20]), "{report}");
+        assert_eq!(report["shop"], serde_json::json!(["/shop", 5]), "{report}");
+        assert_eq!(
+            report["described"],
+            serde_json::json!(["/docs:20:1", "/docs:20:2", "/shop:5:1"]),
+            "{report}"
+        );
     }
 }
 

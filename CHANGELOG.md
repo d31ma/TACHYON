@@ -10,6 +10,30 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Own run tests for 37 Tac marker cells that rested on shared or website
+  proof (MK3, 2026-10-27). `compiler::script_marker_proof_tests` builds one
+  TypeScript and one JavaScript project from the website caching, retries,
+  validation and configuration sections plus
+  `tests/fixtures/tac-script-markers`, runs the emitted services in Node
+  through the page's application-events bus, and checks UpdateCache,
+  ClearCache, Retry, MaxAtOnce, AllOrNothing, Entity, Table, Id, Store,
+  Query, PageDefaults, Settings, Setting, NotEmpty, Length, Min, Max,
+  OnEvent, Order, InBackground, OnStart and OnStop by their effect, down to
+  the exact entity and transaction commands the store adapter receives.
+  `compiler::script_reach_marker_tests` does the same for TypeScript
+  RequestParam, StreamRequest, SocketRequest and Topic, and
+  `a_csharp_needs_all_service_keeps_the_props_of_each_owner` runs a C#
+  `[NeedsAll]` WebAssembly service with two owners. With a marker removed,
+  each check fails or the build refuses the source.
+- Windows tool probes for marker tests (MK3, 2026-10-27): the Tac C++ and
+  Kotlin web tests and the model source tests now find `em++` and
+  `kotlinc-js` through `ProgramProbe`, which asks through the Kotlin
+  launcher Tachyon builds with and, on Windows, through `cmd`, so a `.bat`
+  launcher no longer makes them skip quietly. `Toolchain::checked` now fails
+  a test that skips a CI-installed tool under `CI` on Windows too, and the
+  integration tests that probed `groovyc`, `kotlinc`, `php`, `dart` or `lua`
+  by bare name now probe through `ProgramProbe`.
+
 - Offline runs for every Tac service language (2026-10-25):
   `bun run test:wasm-offline-browser` (`scripts/wasm-offline-browser-gate.mjs`,
   new) bundles the page-program fixture of each language, serves it with

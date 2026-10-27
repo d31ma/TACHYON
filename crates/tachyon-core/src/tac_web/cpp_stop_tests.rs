@@ -4,7 +4,6 @@ use super::fsharp_tests::{run_driver, write};
 use super::{BuildJobs, WebLanguage, build_all};
 use crate::node_driver::NodeDriver;
 use std::path::Path;
-use std::process::Command;
 
 struct CppStopPage;
 
@@ -33,10 +32,7 @@ impl CppStopPage {
          process.exit(0)\n";
 
     fn ready() -> bool {
-        let compiler = Command::new("em++")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success());
+        let compiler = crate::program_probe::ProgramProbe::answers("em++", "--version");
         [compiler, NodeDriver::available()] == [true, true]
     }
 

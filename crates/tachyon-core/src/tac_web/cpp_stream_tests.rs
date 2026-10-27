@@ -3,7 +3,6 @@
 use super::{BuildJobs, WebLanguage, build_all};
 use crate::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 struct CppStreams;
 
@@ -73,12 +72,9 @@ impl CppStreams {
          process.exit(0)\n";
 
     fn tools_available() -> bool {
-        ["em++", "node"].iter().all(|program| {
-            Command::new(program)
-                .arg("--version")
-                .output()
-                .is_ok_and(|output| output.status.success())
-        })
+        ["em++", "node"]
+            .iter()
+            .all(|program| crate::program_probe::ProgramProbe::answers(program, "--version"))
     }
 
     fn write(root: &Path, relative: &str, bytes: &[u8]) -> PathBuf {

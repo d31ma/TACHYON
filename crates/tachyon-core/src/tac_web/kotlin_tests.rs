@@ -3,7 +3,6 @@
 use super::{BuildJobs, WebLanguage, build_all};
 use crate::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 struct KotlinFixtures;
 
@@ -175,13 +174,9 @@ impl KotlinFixtures {
 pub(super) fn kotlin_web_ready() -> bool {
     let library = std::env::var_os("TAC_KOTLIN_WASM_STDLIB").map(PathBuf::from);
     let has_library = library.is_some_and(|path| path.is_file());
-    let runs = |program: &str, flag: &str| {
-        Command::new(program)
-            .arg(flag)
-            .output()
-            .is_ok_and(|output| output.status.success())
-    };
-    let ready = has_library && runs("kotlinc-js", "-version") && runs("node", "--version");
+    let ready = has_library
+        && crate::program_probe::ProgramProbe::answers("kotlinc-js", "-version")
+        && NodeDriver::available();
     assert!(
         ready || std::env::var_os("TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS").is_none(),
         "kotlinc-js, TAC_KOTLIN_WASM_STDLIB and node are required on this runner"

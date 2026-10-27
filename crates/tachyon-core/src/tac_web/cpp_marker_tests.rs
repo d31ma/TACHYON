@@ -4,7 +4,6 @@ use super::{BuildJobs, WebLanguage, build_all};
 use crate::node_driver::NodeDriver;
 use serde_json::json;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 struct CppMarkerPage;
 
@@ -108,12 +107,9 @@ impl CppMarkerPage {
          globalThis.fetch = async (url) => new Response(await readFile(url))\n";
 
     fn tools_available() -> bool {
-        let found = ["em++", "node"].iter().all(|program| {
-            Command::new(program)
-                .arg("--version")
-                .output()
-                .is_ok_and(|output| output.status.success())
-        });
+        let found = ["em++", "node"]
+            .iter()
+            .all(|program| crate::program_probe::ProgramProbe::answers(program, "--version"));
         if !found {
             eprintln!("skipping: em++ (Emscripten) or node is unavailable");
         }

@@ -258,10 +258,7 @@ impl Sources {
 }
 
 fn available(program: &str, flag: &str) -> bool {
-    Command::new(program)
-        .arg(flag)
-        .output()
-        .is_ok_and(|output| output.status.success())
+    crate::program_probe::ProgramProbe::answers(program, flag)
 }
 
 fn web_assembly_target_installed() -> bool {
