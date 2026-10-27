@@ -22,6 +22,12 @@ public:
         return answer;
     }
 
+    static YonAnswer failedStream() {
+        YonAnswer answer = streamed();
+        answer.streamBroken = true;
+        return answer;
+    }
+
     static YonAnswer rejected(const std::vector<TacCheckFailure>& failures) {
         YonAnswer answer(422, std::string(), false);
         for (const TacCheckFailure& failure : failures) {
@@ -74,6 +80,10 @@ public:
         return alreadySent;
     }
 
+    bool isFailedStream() const {
+        return streamBroken;
+    }
+
     std::string write(const json::JsonNode& topics) const {
         json::JsonObject answer;
         answer["status"] = status;
@@ -105,6 +115,7 @@ private:
     json::JsonArray violations;
     std::map<std::string, std::string> headers;
     bool alreadySent = false;
+    bool streamBroken = false;
 
     YonAnswer(int status, std::string body, bool hasJson) : status(status), body(std::move(body)), hasJson(hasJson) {}
 

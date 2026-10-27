@@ -10,6 +10,9 @@ public:
     static int run() {
         std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
         YonFrames::useBinaryStreams();
+        if (YonFrames::warm() && !YonFrames::framed()) {
+            return servedWarm<Routes>();
+        }
         std::string raw;
         if (!readInput(raw)) {
             return PROTOCOL_FAILURE;
@@ -34,6 +37,43 @@ public:
     }
 
 private:
+    template <typename Routes>
+    static int servedWarm() {
+        while (!YonFrames::ended()) {
+            std::string raw;
+            if (!YonFrames::read(raw)) {
+                return PROTOCOL_FAILURE;
+            }
+            std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
+            std::optional<json::JsonNode> fields = parsed(raw);
+            if (!fields.has_value() || YonFrames::text(*fields, "kind") != "request") {
+                return PROTOCOL_FAILURE;
+            }
+            if (!answeredWarm<Routes>(started, std::move(*fields))) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    template <typename Routes>
+    static bool answeredWarm(std::chrono::steady_clock::time_point started, json::JsonNode fields) {
+        fields.remove("resources");
+        YonEvents::reset();
+        YonDelivery::reset();
+        YonRelay::begin(started, fields);
+        YonDelivery::receive(fields);
+        YonFrame frame(std::move(fields));
+        YonAnswer answer = answered<Routes>(frame);
+        if (answer.isFailedStream()) {
+            return false;
+        }
+        if (answer.isStreamed()) {
+            return YonFrames::send(frame.text("request_id"), YonFrames::kind("end"));
+        }
+        return YonFrames::write(answer.write(YonEvents::current().published()));
+    }
+
     static void writeOutput(const std::string& written) {
         if (YonFrames::enabled()) {
             YonFrames::write(written);

@@ -204,7 +204,10 @@ end
 YonInput = {}
 
 function YonInput.read()
-  local input = YonInput.text()
+  return YonInput.decode(YonInput.text())
+end
+
+function YonInput.decode(input)
   if #input > YonLimits.MAX_FRAME_BYTES then
     YonFailures.stop("The request exceeds the protocol frame limit.")
   end
@@ -275,6 +278,45 @@ end
 function YonFrames.write(payload)
   YonFrames.output:write(YonFrames.prefix(#payload), payload)
   YonFrames.output:flush()
+end
+
+YonWarm = {
+  SWITCH = "YON_HANDLER_WARM",
+  SOCKET_SWITCH = "YON_SOCKET_FRAMES",
+  SOCKET_OPEN = "socket.open",
+}
+
+function YonWarm.enabled()
+  return os.getenv(YonWarm.SWITCH) == "1" and os.getenv(YonWarm.SOCKET_SWITCH) ~= "1"
+end
+
+function YonWarm.serve(program)
+  while true do
+    local request = YonInput.decode(YonWarm.read())
+    if request.operation == YonWarm.SOCKET_OPEN then
+      os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
+    end
+    request.resources = nil
+    YonTopics.sent = {}
+    YonRunner.answer(program, request)
+  end
+end
+
+function YonWarm.read()
+  local width = #YonFrames.prefix(0)
+  local prefix = io.stdin:read(width)
+  if prefix == nil then
+    os.exit(0)
+  end
+  local length = #prefix == width and prefix:match("^%x+$") and tonumber(prefix, 16)
+  if not length or length > YonLimits.MAX_FRAME_BYTES then
+    os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
+  end
+  local payload = io.stdin:read(length) or ""
+  if #payload ~= length then
+    os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
+  end
+  return payload
 end
 
 SocketPeer = {}
@@ -474,11 +516,18 @@ function YonStream:send(output, request_id)
       YonStream.failure(output, request_id, "TY2204", YonStream.FAILED)
     end
     if coroutine.status(routine) == "dead" then
-      output:flush()
-      os.exit(0)
+      return YonStream.finish(output, request_id)
     end
     YonStream.event(output, request_id, event)
   end
+end
+
+function YonStream.finish(output, request_id)
+  if not YonWarm.enabled() then
+    output:flush()
+    os.exit(0)
+  end
+  YonStream.frame(output, YonJson.encode({ protocol_version = 1, kind = "end", request_id = request_id }))
 end
 
 function YonStream.event(output, request_id, event)
@@ -516,32 +565,36 @@ function YonStream.frame(output, payload)
   output:flush()
 end
 
-YonRunner = {}
+YonRunner = { loaded = false }
 
 function YonRunner.main(program)
-  local standard_output = io.stdout
-  YonFrames.output = standard_output
+  YonFrames.output = io.stdout
   io.output(io.stderr)
   print = YonRunner.print
   if YonResourceFrames.enabled() then
     YonGateway = YonGatewayFrames
   end
-  local request = YonInput.read()
+  if YonWarm.enabled() then
+    YonWarm.serve(program)
+  end
+  YonRunner.answer(program, YonInput.read())
+  os.exit(0)
+end
+
+function YonRunner.answer(program, request)
   local answer = YonTopics.add_to(YonRunner.run(program, request))
   if getmetatable(answer) == YonStream then
-    answer:send(standard_output, request.request_id)
+    return answer:send(YonFrames.output, request.request_id)
   end
   local ok, text = pcall(YonJson.encode, answer)
   if not ok then
     YonFailures.stop(YonJson.NOT_SERIALIZABLE)
   end
-  if YonResourceFrames.enabled() then
-    YonFrames.write(text)
-    os.exit(0)
+  if YonResourceFrames.enabled() or YonWarm.enabled() then
+    return YonFrames.write(text)
   end
-  standard_output:write(text)
-  standard_output:flush()
-  os.exit(0)
+  YonFrames.output:write(text)
+  YonFrames.output:flush()
 end
 
 function YonRunner.print(...)
@@ -552,11 +605,19 @@ function YonRunner.print(...)
   io.stderr:write(table.concat(parts, "\t", 1, parts.n), "\n")
 end
 
-function YonRunner.run(program, request)
+function YonRunner.load(program)
+  if YonRunner.loaded then
+    return
+  end
   local loaded, failure = pcall(dofile, program)
   if not loaded then
     YonFailures.stop(failure)
   end
+  YonRunner.loaded = true
+end
+
+function YonRunner.run(program, request)
+  YonRunner.load(program)
   local name = "Handler"
   if YonLimits.MIDDLEWARE_PHASES[request.operation] ~= nil then
     name = "Middleware"

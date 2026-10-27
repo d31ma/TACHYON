@@ -294,9 +294,16 @@ final class YonNativeHttp
     private static string $method = 'GET';
     private static string $target = '/';
     private static array $requestHeaders = [];
+    private static ?array $server = null;
 
     public static function begin(__YonFrame $frame): void
     {
+        self::$server ??= $_SERVER;
+        $_SERVER = self::$server;
+        if (YonRelayContext::warm()) {
+            $_SERVER['REQUEST_TIME_FLOAT'] = microtime(true);
+            $_SERVER['REQUEST_TIME'] = (int) $_SERVER['REQUEST_TIME_FLOAT'];
+        }
         self::$method = $frame->method();
         self::$target = $frame->target();
         self::$requestHeaders = $frame->headers();
@@ -323,6 +330,16 @@ final class YonNativeHttp
         stream_wrapper_unregister('php');
         stream_wrapper_register('php', YonInputStream::class);
         ob_start();
+    }
+
+    public static function end(int $outputLevel): void
+    {
+        while (ob_get_level() > $outputLevel) {
+            ob_end_clean();
+        }
+        header_remove();
+        http_response_code(200);
+        YonInputStream::$body = '';
     }
 
     private static function cookies(string $header): array
@@ -534,6 +551,49 @@ final class YonRelayContext
         return $request;
     }
 
+    public static function warm(): bool
+    {
+        return getenv('YON_HANDLER_WARM') === '1' && !YonSocket::framed();
+    }
+
+    public static function readWarmInvocation(): ?__YonFrame
+    {
+        $raw = YonSocket::readRequestFrame();
+        if ($raw === null) {
+            return null;
+        }
+        self::$startedAt = hrtime(true);
+        self::forgetInvocation();
+        $fields = json_decode($raw, true);
+        if (!is_array($fields) || ($fields['kind'] ?? null) !== 'request') {
+            exit(70);
+        }
+        self::useResources($fields['resources'] ?? null);
+        unset($fields['resources']);
+        self::captureInvocation($fields);
+        return new __YonFrame($fields);
+    }
+
+    public static function forgetInvocation(): void
+    {
+        self::$deadline = null;
+        self::$requestId = 'unknown';
+        self::useResources(null);
+    }
+
+    private static function useResources(mixed $resources): void
+    {
+        putenv('YON_RESOURCE_ENDPOINT');
+        putenv('YON_RESOURCE_TOKEN');
+        $endpoint = is_array($resources) ? ($resources['endpoint'] ?? null) : null;
+        $token = is_array($resources) ? ($resources['token'] ?? null) : null;
+        if (!is_string($endpoint) || !is_string($token)) {
+            return;
+        }
+        putenv('YON_RESOURCE_ENDPOINT=' . $endpoint);
+        putenv('YON_RESOURCE_TOKEN=' . $token);
+    }
+
     private static function captureInvocation(array $raw): void
     {
         if (self::$deadline !== null || self::$startedAt === null) {
@@ -574,7 +634,7 @@ final class YonRelayContext
         $kept = [];
         foreach ($environment as $name => $value) {
             $upper = strtoupper((string) $name);
-            if ($upper === 'YON_APPLICATION_JSON' || str_starts_with($upper, 'YON_RESOURCE_')) {
+            if (in_array($upper, ['YON_APPLICATION_JSON', 'YON_HANDLER_WARM'], true) || str_starts_with($upper, 'YON_RESOURCE_')) {
                 continue;
             }
             $kept[$name] = $value;
@@ -873,6 +933,11 @@ final class YonStream
         return false;
     }
 
+    public static function end(string $requestId): void
+    {
+        self::frame($requestId, ['protocol_version' => 1, 'kind' => 'end', 'request_id' => $requestId]);
+    }
+
     private static function frame(string $requestId, array $frame): bool
     {
         $payload = json_encode($frame);
@@ -1012,6 +1077,27 @@ final class YonSocket
         return $length === 0 ? '' : self::readExactly($length);
     }
 
+    public static function readRequestFrame(): ?string
+    {
+        $first = fread(STDIN, 1);
+        if ($first === false || $first === '') {
+            return null;
+        }
+        $rest = self::readExactly(3);
+        if ($rest === null) {
+            exit(70);
+        }
+        $length = unpack('N', $first . $rest)[1];
+        if ($length > self::MAX_FRAME_BYTES) {
+            exit(70);
+        }
+        $payload = $length === 0 ? '' : self::readExactly($length);
+        if ($payload === null) {
+            exit(70);
+        }
+        return $payload;
+    }
+
     private static function readExactly(int $length): ?string
     {
         $text = '';
@@ -1074,7 +1160,33 @@ final class YonMain
     public static function run(): void
     {
         YonRelayContext::captureStart();
-        $request = YonRelayContext::readInvocation();
+        if (YonRelayContext::warm()) {
+            self::serveWarm();
+        }
+        echo self::respond(YonRelayContext::readInvocation());
+    }
+
+    private static function serveWarm(): never
+    {
+        register_shutdown_function(static function (): void {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+        });
+        $outputLevel = ob_get_level();
+        while (($request = YonRelayContext::readWarmInvocation()) !== null) {
+            $answer = self::respond($request);
+            if ($answer !== null) {
+                YonSocket::writeFrame($answer);
+            }
+            YonNativeHttp::end($outputLevel);
+            YonRelayContext::forgetInvocation();
+        }
+        exit(0);
+    }
+
+    private static function respond(__YonFrame $request): ?string
+    {
         YonNativeHttp::begin($request);
         try {
             $response = self::invoke($request);
@@ -1084,11 +1196,11 @@ final class YonMain
                 throw $failure;
             }
             ob_end_clean();
-            echo json_encode(['status' => self::CHECK_REJECTED_STATUS, 'violations' => $violations], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            return;
+            return json_encode(['status' => self::CHECK_REJECTED_STATUS, 'violations' => $violations], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
         if ($response instanceof Generator) {
             self::stream($request, $response);
+            return null;
         }
         $response = YonNativeHttp::answer($response, self::phase($request) !== null);
         if (!($response instanceof __YonAnswer)) {
@@ -1096,7 +1208,7 @@ final class YonMain
                 $response, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
             ));
         }
-        echo $response->envelope();
+        return $response->envelope();
     }
 
     private static function violations(Throwable $failure): ?array
@@ -1150,8 +1262,12 @@ final class YonMain
             }
         } catch (Throwable) {
             YonStream::failure($id, 'The handler stream failed.');
+            exit(0);
         }
-        exit(0);
+        if (!YonRelayContext::warm()) {
+            exit(0);
+        }
+        YonStream::end($id);
     }
 }
 

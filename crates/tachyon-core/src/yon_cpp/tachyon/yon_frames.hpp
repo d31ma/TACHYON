@@ -28,6 +28,20 @@ public:
         return value != nullptr && std::string(value) == "1";
     }
 
+    static bool warm() {
+        const char* value = std::getenv("YON_HANDLER_WARM");
+        return value != nullptr && std::string(value) == "1";
+    }
+
+    static bool ended() {
+        int next = std::fgetc(stdin);
+        if (next == EOF) {
+            return true;
+        }
+        std::ungetc(next, stdin);
+        return false;
+    }
+
     static bool read(std::string& payload) {
         unsigned char prefix[PREFIX_BYTES];
         if (std::fread(prefix, 1, PREFIX_BYTES, stdin) != PREFIX_BYTES) {

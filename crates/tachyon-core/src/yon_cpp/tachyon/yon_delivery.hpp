@@ -38,6 +38,10 @@ public:
         return YonAnswer::empty(current().delivered ? 204 : 405);
     }
 
+    static void reset() {
+        current() = YonDelivery();
+    }
+
 private:
     std::string topic;
     json::JsonNode payload;

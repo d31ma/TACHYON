@@ -15,6 +15,13 @@ type invocation struct {
 	budget      time.Duration
 	requestID   string
 	environment []string
+	resources   requestResources
+	warm        bool
+}
+
+type requestResources struct {
+	Endpoint string `json:"endpoint"`
+	Token    string `json:"token"`
 }
 
 const defaultDeadlineMilliseconds = 30_000.0
@@ -27,7 +34,14 @@ var current = begin()
 func begin() invocation {
 	started := time.Now()
 	environment := relayEnvironment()
-	request := readRequest()
+	if os.Getenv("YON_HANDLER_WARM") == "1" {
+		return invocation{requestID: "unknown", environment: environment, warm: true}
+	}
+	resources := requestResources{Endpoint: os.Getenv("YON_RESOURCE_ENDPOINT"), Token: os.Getenv("YON_RESOURCE_TOKEN")}
+	return opened(started, readRequest(), resources, environment)
+}
+
+func opened(started time.Time, request []byte, resources requestResources, environment []string) invocation {
 	var fields map[string]any
 	json.Unmarshal(request, &fields)
 	seconds := deadlineMilliseconds(fields) / 1000
@@ -39,6 +53,7 @@ func begin() invocation {
 		budget:      budget,
 		requestID:   requestID(fields),
 		environment: environment,
+		resources:   resources,
 	}
 }
 
@@ -52,9 +67,14 @@ func readRequest() []byte {
 }
 
 func ReadFrame() ([]byte, bool) {
+	payload, failure := readFrame()
+	return payload, failure == nil
+}
+
+func readFrame() ([]byte, error) {
 	prefix := make([]byte, 4)
 	if _, failure := io.ReadFull(os.Stdin, prefix); failure != nil {
-		return nil, false
+		return nil, failure
 	}
 	length := int(prefix[0])<<24 | int(prefix[1])<<16 | int(prefix[2])<<8 | int(prefix[3])
 	if length > largestFrameBytes {
@@ -62,9 +82,54 @@ func ReadFrame() ([]byte, bool) {
 	}
 	payload := make([]byte, length)
 	if _, failure := io.ReadFull(os.Stdin, payload); failure != nil {
-		return nil, false
+		return nil, io.ErrUnexpectedEOF
 	}
-	return payload, true
+	return payload, nil
+}
+
+func Warm() bool {
+	return current.warm
+}
+
+func Next() bool {
+	frame, failure := readFrame()
+	if failure == io.EOF {
+		return false
+	}
+	if failure != nil {
+		os.Exit(protocolErrorExitCode)
+	}
+	started := time.Now()
+	request, resources := withoutResources(frame)
+	current = opened(started, request, resources, current.environment)
+	current.warm = true
+	return true
+}
+
+func withoutResources(frame []byte) ([]byte, requestResources) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(frame, &fields) != nil || fields == nil {
+		os.Exit(protocolErrorExitCode)
+	}
+	var operation string
+	json.Unmarshal(fields["operation"], &operation)
+	if operation == "socket.open" {
+		os.Exit(protocolErrorExitCode)
+	}
+	found, hasResources := fields["resources"]
+	if !hasResources {
+		return frame, requestResources{}
+	}
+	delete(fields, "resources")
+	var resources requestResources
+	if json.Unmarshal(found, &resources) != nil {
+		resources = requestResources{}
+	}
+	request, failure := json.Marshal(fields)
+	if failure != nil {
+		os.Exit(protocolErrorExitCode)
+	}
+	return request, resources
 }
 
 func Renew() {
@@ -92,7 +157,7 @@ func relayEnvironment() []string {
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
 		upper := strings.ToUpper(name)
-		if upper == "YON_APPLICATION_JSON" || strings.HasPrefix(upper, "YON_RESOURCE_") {
+		if upper == "YON_APPLICATION_JSON" || upper == "YON_HANDLER_WARM" || strings.HasPrefix(upper, "YON_RESOURCE_") {
 			continue
 		}
 		kept = append(kept, entry)
@@ -118,4 +183,12 @@ func RequestID() string {
 
 func RelayEnvironment() []string {
 	return append([]string{}, current.environment...)
+}
+
+func ResourceEndpoint() string {
+	return current.resources.Endpoint
+}
+
+func ResourceToken() string {
+	return current.resources.Token
 }

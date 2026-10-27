@@ -224,7 +224,7 @@ private:
         std::transform(name.begin(), name.end(), name.begin(), [](wchar_t character) {
             return static_cast<wchar_t>(std::towupper(character));
         });
-        return name != L"YON_APPLICATION_JSON" && name.rfind(L"YON_RESOURCE_", 0) != 0;
+        return name != L"YON_APPLICATION_JSON" && name != L"YON_HANDLER_WARM" && name.rfind(L"YON_RESOURCE_", 0) != 0;
     }
 
     static std::wstring environment() {
@@ -377,7 +377,7 @@ private:
             std::transform(name.begin(), name.end(), name.begin(), [](unsigned char character) {
                 return static_cast<char>(std::toupper(character));
             });
-            if (name == "YON_APPLICATION_JSON" || name.rfind("YON_RESOURCE_", 0) == 0) {
+            if (name == "YON_APPLICATION_JSON" || name == "YON_HANDLER_WARM" || name.rfind("YON_RESOURCE_", 0) == 0) {
                 continue;
             }
             kept.push_back(pair);

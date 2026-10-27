@@ -482,8 +482,8 @@ func yonResourceCall(command map[string]any) (any, error) {
 }
 
 func yonResourceExchange(body []byte, timeout time.Duration) ([]byte, error) {
-	address, isLoopback := yonResourceAddress(os.Getenv("YON_RESOURCE_ENDPOINT"))
-	token := os.Getenv("YON_RESOURCE_TOKEN")
+	address, isLoopback := yonResourceAddress(yoninvocation.ResourceEndpoint())
+	token := yoninvocation.ResourceToken()
 	if !isLoopback || !yonResourceToken(token) || len(body) > yonResourceBodyLimit {
 		return nil, YonResourceError{}
 	}
@@ -849,10 +849,14 @@ func yonWriteFrame(frame map[string]any, requestID string) error {
 	if failure != nil {
 		return failure
 	}
+	_, failure = os.Stdout.Write(yonFramed(payload))
+	return failure
+}
+
+func yonFramed(payload []byte) []byte {
 	length := len(payload)
 	prefix := []byte{byte(length >> 24), byte(length >> 16), byte(length >> 8), byte(length)}
-	_, failure = os.Stdout.Write(append(prefix, payload...))
-	return failure
+	return append(prefix, payload...)
 }
 
 func (session *SocketSession) receive() {
@@ -961,9 +965,12 @@ func yonStreamWithFailures[T any](items yoniter.Seq2[T, error]) yonEventStream {
 	}}
 }
 
-func (stream *yonEventStream) answer() {
+func (stream *yonEventStream) answer() bool {
 	if yonStreamCall(stream) == nil {
-		return
+		if yoninvocation.Warm() {
+			yonWriteFrame(map[string]any{"kind": "end"}, yoninvocation.RequestID())
+		}
+		return true
 	}
 	yonWriteFrame(map[string]any{
 		"kind":    "response",
@@ -971,6 +978,7 @@ func (stream *yonEventStream) answer() {
 		"headers": map[string][]string{},
 		"error":   map[string]any{"code": "TY2204", "message": "The handler stream failed.", "retryable": false},
 	}, yoninvocation.RequestID())
+	return false
 }
 
 func yonStreamCall(stream *yonEventStream) (failure error) {
@@ -1009,20 +1017,34 @@ func yonSendLoopbackThroughGuard() {
 
 func main() {
 	yonSendLoopbackThroughGuard()
-	raw := yoninvocation.Request()
+	if !yoninvocation.Warm() {
+		yonServe(yoninvocation.Request())
+		return
+	}
+	for yoninvocation.Next() {
+		if !yonServe(yoninvocation.Request()) {
+			return
+		}
+	}
+}
+
+func yonServe(raw string) bool {
 	request := &yonRequest{raw: raw}
 	if json.Unmarshal([]byte(raw), &request.fields) != nil {
-		return
+		return false
 	}
 	response := yonDispatch(request)
 	if response.stream != nil {
-		response.stream.answer()
-		return
+		return response.stream.answer()
 	}
 	answer := yonResponseFields{Status: response.status, Headers: response.headers, Body: yonResponseBody(response.body), Violations: response.violations}
 	output, err := json.Marshal(answer)
 	if err != nil {
-		return
+		return false
 	}
-	os.Stdout.Write(output)
+	if yoninvocation.Warm() {
+		output = yonFramed(output)
+	}
+	_, err = os.Stdout.Write(output)
+	return err == nil
 }
