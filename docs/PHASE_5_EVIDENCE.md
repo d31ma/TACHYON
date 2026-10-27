@@ -149,9 +149,10 @@ This is real native execution evidence. It is not a promotion to
 The accessibility-role gap stays listed in §7.
 
 Later note (2026-10-27, DOC6): this records the removed Phase 5 renderer.
-Today's Windows build writes the manifest to the bundle root as
-`application.manifest` and embeds none in the `.exe`, so Windows does not
-read it (ADR 0052 amendment of 2026-10-27, SW4).
+Until 2026-10-27 the Windows build wrote the manifest to the bundle root as
+`application.manifest` and embedded none in the `.exe`, so Windows did not
+read it (ADR 0052 amendment of 2026-10-27, SW4). Since WM1 the `.exe`
+embeds it as its `RT_MANIFEST` resource.
 
 ## 5. Android — emulator-tested
 

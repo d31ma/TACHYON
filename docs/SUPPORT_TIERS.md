@@ -2108,11 +2108,34 @@ administrator rights (error 740 when that is refused). The shared-Setup
 fixture app failed to start three times for this reason, and the fixture now
 names its app `SharedConfig`. Embedding the manifest changes how every
 Windows app scales on a high-DPI display, so it needs its own change and run.
-No framework change was made.
+No framework change was made. (Fixed: WM1 embeds the manifest; see "Windows
+application manifest", below.)
 
 `scripts/windows/desktop-run.ps1` now runs in the user's active Remote
 Desktop session when nobody is signed in at the console. The Remote Desktop
 window must stay open and not minimized until the run ends.
+
+### Windows application manifest (2026-10-27, WM1)
+
+WM1 fixed the SW4 finding above. `rc.exe` now compiles the manifest into the
+`.exe` as its `RT_MANIFEST` resource, with `requestedExecutionLevel
+level="asInvoker"` and PerMonitorV2 DPI awareness (D18); the linker writes
+no manifest of its own and no loose file is written. Windows apps now size
+their window and minimum size in device-independent pixels scaled by the
+window's DPI, take the size Windows suggests on `WM_DPICHANGED`, and
+`windowControls.resize` sizes the client area in device-independent pixels.
+
+On the Surface (Windows 11 ARM64), in Samuel's signed-in Remote Desktop
+session through `scripts/windows/desktop-run.ps1`: an app named with
+`Setup` started without asking for administrator rights;
+`scripts/windows/window-shell-test.ps1` passed 31 of 31;
+`scripts/windows/native-test.ps1` and the window background and file picker
+tests passed. Remote Desktop always gives the session 100% scaling (96 DPI),
+so the scaled checks of `scripts/windows/high-dpi-test.ps1` (new: the
+client area, the minimum size and a page `resize` in device-independent
+pixels above 96 DPI, and a move to a monitor with another scale or a scale
+change, `WM_DPICHANGED`) have not run. They need a monitor plugged into
+the Surface. This evidence does not promote any tier.
 
 ### Windows integration tests under CI (2026-10-27, MK4)
 

@@ -34,7 +34,7 @@ machine contracts have their own, independent major versions.
   application manifest in the `.exe`, so an app whose name contains `Setup`,
   `Install`, `Update` or `Patch` asks for administrator rights; the
   shared-Setup fixture app is named `SharedConfig` for this reason
-  (`docs/SUPPORT_TIERS.md`).
+  (`docs/SUPPORT_TIERS.md`). WM1 fixed it, below.
 - `scripts/windows/self-restart.py` (new) checks that `ty preview` restarts
   itself on Windows as a child process and exits with that child's code; a
   Windows-only test in `crates/tachyon-cli/tests/signal_lifecycle.rs` runs it
@@ -120,7 +120,8 @@ machine contracts have their own, independent major versions.
   `TAC_IOS_WASM_VERDICT=screen`, from the screen. All 18 Kotlin, C#, F#,
   Java, Dart and C++ cells passed on the iOS 26.5 simulator; the C#
   cached-client cell passed only with the screen verdict, because a linked
-  Swift service on that page never started. Hosts may now give the gate a
+  Swift service on that page never started. (Superseded: MA10, below, found
+  this was the probe's race, not the app.) Hosts may now give the gate a
   `close()` step and recorder files. The yon-http probe waits for its button
   before it presses it.
 - `scripts/linux/dev-loop-native-test.mjs` takes `TAC_LINUX_DISPLAY=wayland`
@@ -1935,7 +1936,8 @@ machine contracts have their own, independent major versions.
   `background_color` cells `honored` points at DOC5. The support table names
   the macOS and Linux `connect-src` runs (RM1, RL1) and says linked Rust
   services reach the iOS scene title too. The MK3 probe entry and
-  `docs/SUPPORT_TIERS.md` record the MK4 Windows run.
+  `docs/SUPPORT_TIERS.md` record the MK4 Windows run, and the Windows
+  manifest texts point at the WM1 fix and its unrun scaled checks.
 - Stale docs fixed after iteration 4 (DOC5, 2026-10-27). ADR 0108 gets an
   amendment with the Java (JF1) and Dart (MA5) floors and the iOS 17.4 style
   run; ADRs 0033 and 0083 and older CHANGELOG entries point at the Dart
@@ -6828,7 +6830,9 @@ verification of the Windows installer found a defect in atomic replacement.
   2026-10-27, with its second effect: with no `requestedExecutionLevel`, an
   app named with `Setup`, `Install`, `Update` or `Patch` asks for
   administrator rights. See `docs/SUPPORT_TIERS.md`, "WebAssembly service
-  features in the Windows app".)
+  features in the Windows app". Fixed again by WM1 on 2026-10-27: the `.exe`
+  now embeds the manifest as its `RT_MANIFEST` resource, in the
+  [Unreleased] entry "A Windows app now embeds its application manifest".)
 - The development and preview servers could exit as soon as they reported
   that they were ready. If registering the Ctrl-C handler failed, the shutdown
   future finished at once. So the server completed its graceful shutdown

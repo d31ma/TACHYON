@@ -409,20 +409,20 @@ a dark `theme_color` gave light bar icons and a light one dark icons, and the
 splash screen showed `background_color` while the app was held before its
 first frame.
 
-## Amendment (2026-10-27): the Windows manifest has no effect (SW4, DOC6)
+## Amendment (2026-10-27): the Windows manifest had no effect until WM1 (SW4, WM1, DOC6)
 
 The 2026-10-18 amendment "Versions and build numbers reach every target"
 says the Windows manifest sits at the bundle root, where Windows does not
 read it, and treats that as a version matter only. It is more than that. The
-build writes `application.manifest` (Common Controls 6 and per-monitor DPI
-awareness) to the bundle root and embeds no manifest in the `.exe`: the
-`rc.exe` step compiles only the version and icon script. Windows reads a
+build wrote `application.manifest` (Common Controls 6 and per-monitor DPI
+awareness) to the bundle root and embedded no manifest in the `.exe`: the
+`rc.exe` step compiled only the version and icon script. Windows reads a
 separate manifest only when it is named after the `.exe` beside it, so none
-of the manifest applies, and the host sets no DPI awareness at run time
-either. Windows apps therefore run DPI-unaware, scaled as a bitmap on a
+of the manifest applied, and the host set no DPI awareness at run time
+either. Windows apps therefore ran DPI-unaware, scaled as a bitmap on a
 high-DPI display, with the older common controls. With no
-`requestedExecutionLevel`, Windows also treats an app whose file name
-contains `Setup`, `Install`, `Update` or `Patch` as an installer and asks
+`requestedExecutionLevel`, Windows also treated an app whose file name
+contains `Setup`, `Install`, `Update` or `Patch` as an installer and asked
 for administrator rights (error 740 when that is refused).
 
 SW4 found this on the Surface on 2026-10-27, when the shared-Setup fixture
@@ -431,3 +431,17 @@ app failed to start three times; the fixture is now named `SharedConfig`
 app"). The unit test `manifest_requests_common_controls_and_per_monitor_dpi`
 checks the manifest's text, not that Windows reads it. The text of the
 2026-10-18 amendment stays as the history of this decision.
+
+WM1 fixed this the same day. `rc.exe` compiles the manifest into the `.exe`
+as its `RT_MANIFEST` resource, the manifest asks for
+`requestedExecutionLevel level="asInvoker"`, the linker writes no manifest
+of its own (`/MANIFEST:NO`), and no loose file is written. Windows apps are
+PerMonitorV2 DPI aware (iteration 6, D18): the window and its minimum size
+are device-independent pixels scaled by the window's DPI, a move to a
+monitor with another scale takes the size that `WM_DPICHANGED` suggests,
+and `windowControls.resize` sizes the client area in device-independent
+pixels. An app named with `Setup` started on the Surface without asking for
+administrator rights. The checks above 96 DPI and on `WM_DPICHANGED`
+(`scripts/windows/high-dpi-test.ps1`) need a monitor plugged into the
+Surface and have not run, because Remote Desktop always gives 100% scaling (`docs/SUPPORT_TIERS.md`, "Windows
+application manifest").
