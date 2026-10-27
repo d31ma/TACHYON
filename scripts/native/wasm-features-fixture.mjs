@@ -66,7 +66,7 @@ class WasmProbeSource {
   static async finish(phase) {
     this.proof = JSON.stringify({ check: this.CHECK, language: this.LANGUAGE, phase, lines: this.lines, origin: location.origin });
     this.render(phase);
-    if (document.querySelector('#wasm-recorder')) await this.until(() => this.service('wasmRecorder'), 'the recorder service').catch(() => undefined);
+    if (this.planned('wasmRecorder')) await this.until(() => this.service('wasmRecorder'), 'the recorder service').catch(() => undefined);
     const recorder = this.service('wasmRecorder');
     if (typeof recorder?.record === 'function') await recorder.record(this.proof);
     else if (this.DIAGNOSE) await this.recordDirectly(phase).catch((error) => this.line('diag - direct record failed: ' + String(error?.message ?? error)));
@@ -116,6 +116,15 @@ class WasmProbeSource {
     this.line('diag - direct init ' + JSON.stringify(await call({ op: 'init', props: {} })).slice(0, 300));
     const proof = JSON.stringify({ check: this.CHECK, language: this.LANGUAGE, phase, lines: this.lines, origin: location.origin, direct: true });
     this.line('diag - direct record ' + JSON.stringify(await call({ op: 'call', name: 'record', args: [proof] })).slice(0, 300));
+  }
+
+  /**
+   * Whether the page's Tac plan declares a service. Tac commits the body once every top-level component's services resolved, so a probe
+   * whose steps finish first (a C# page answers in under 0.1 s) sees no #wasm-recorder element yet; the plan is there from the start.
+   * @param {string} name
+   */
+  static planned(name) {
+    return Boolean(JSON.parse(document.getElementById('tachyon-view')?.textContent || '{}').services?.[name]);
   }
 
   /** @param {string} name */
