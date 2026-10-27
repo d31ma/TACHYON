@@ -1926,10 +1926,11 @@ machine contracts have their own, independent major versions.
   now prints its note. No run changed.
 
 - Stale docs fixed after iteration 5 (DOC6, 2026-10-27). ADR 0052 gets an
-  amendment for the Windows manifest that SW4 found had no effect until WM1, and the
-  `[26.31.06]` entry that said it was published beside the executable and
-  `docs/PHASE_5_EVIDENCE.md` point at it. ADR 0089's status line leaves out
-  the macOS JavaScript FilePicker field, which has not run in the app.
+  amendment for the Windows manifest that SW4 found had no effect until
+  WM1, and the `[26.31.06]` entry that said it was published beside the
+  executable and `docs/PHASE_5_EVIDENCE.md` point at it. ADR 0089's status
+  line leaves out the macOS JavaScript FilePicker field, which has not run
+  in the app.
   `docs/SUPPORT_TIERS.md` names the Java runs in the Windows (SW4) and
   Android (MA9) apps in the JF1 table, and the iOS 18.4 floor run is left to
   the developer (D20). Text that still called the Windows reaching-Yon and
