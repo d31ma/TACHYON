@@ -16,7 +16,8 @@ impl WarmResponse {
         let stderr = process.take_stderr();
         let checked = stderr.check_diagnostics().and(parsed);
         stderr.surface_events(&context.request_id);
-        WarmAnswer::after(checked, process).await
+        let relay_failed = stderr.reports_relay_failure(&context.request_id);
+        WarmAnswer::after(checked, process, relay_failed).await
     }
 
     async fn parse(frame: &[u8], context: &WarmContext) -> Result<HandlerResponse, Failure> {

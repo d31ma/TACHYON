@@ -116,6 +116,12 @@ impl Drained {
             .for_each(|line| eprintln!("{line}"));
     }
 
+    pub(super) fn reports_relay_failure(&self, request_id: &str) -> bool {
+        self.events()
+            .iter()
+            .any(|event| Self::relay_failure_category(event, request_id).is_some())
+    }
+
     pub(super) fn exceptions(&self, request_id: &str) -> Vec<Value> {
         self.events()
             .iter()
