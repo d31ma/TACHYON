@@ -17,6 +17,8 @@ type invocation struct {
 	environment []string
 	resources   requestResources
 	warm        bool
+	served      bool
+	launched    time.Time
 }
 
 type requestResources struct {
@@ -35,7 +37,7 @@ func begin() invocation {
 	started := time.Now()
 	environment := relayEnvironment()
 	if os.Getenv("YON_HANDLER_WARM") == "1" {
-		return invocation{requestID: "unknown", environment: environment, warm: true}
+		return invocation{requestID: "unknown", environment: environment, warm: true, launched: started}
 	}
 	resources := requestResources{Endpoint: os.Getenv("YON_RESOURCE_ENDPOINT"), Token: os.Getenv("YON_RESOURCE_TOKEN")}
 	return opened(started, readRequest(), resources, environment)
@@ -100,9 +102,13 @@ func Next() bool {
 		os.Exit(protocolErrorExitCode)
 	}
 	started := time.Now()
+	if !current.served {
+		started = current.launched
+	}
 	request, resources := withoutResources(frame)
 	current = opened(started, request, resources, current.environment)
 	current.warm = true
+	current.served = true
 	return true
 }
 
