@@ -66,8 +66,8 @@ final class YonManagedResources {
   }
 
   static yon_async.Future<String> exchange(String command, Duration timeout) async {
-    final endpoint = yon_io.Platform.environment['YON_RESOURCE_ENDPOINT'];
-    final token = yon_io.Platform.environment['YON_RESOURCE_TOKEN'];
+    final endpoint = _YonRelayState.resourceEndpoint;
+    final token = _YonRelayState.resourceToken;
     if (endpoint == null ||
         !RegExp(r'^http://127\.0\.0\.1:[0-9]{1,5}/$').hasMatch(endpoint) ||
         token == null ||
@@ -231,12 +231,15 @@ abstract final class _YonRelayState {
   static const int defaultDeadlineMilliseconds = 30000;
   static const String failureMessage = 'Component invocation failed.';
   static final int Function() _elapsedMilliseconds = _startClock();
-  static late final int _deadlineMilliseconds;
+  static int _deadlineMilliseconds = defaultDeadlineMilliseconds;
+  static int _requestStartedAt = 0;
   static int? _renewedAt;
   static bool _started = false;
   static bool _captured = false;
   static Map<String, String> environment = const {};
   static String requestId = 'unknown';
+  static String? resourceEndpoint;
+  static String? resourceToken;
 
   static int Function() _startClock() {
     final clock = Stopwatch()..start();
@@ -248,16 +251,41 @@ abstract final class _YonRelayState {
     _started = true;
     _elapsedMilliseconds();
     environment = _relayEnvironment(yon_io.Platform.environment);
+    resourceEndpoint = yon_io.Platform.environment['YON_RESOURCE_ENDPOINT'];
+    resourceToken = yon_io.Platform.environment['YON_RESOURCE_TOKEN'];
   }
 
   static Map<String, String> _relayEnvironment(Map<String, String> environment) {
     final kept = <String, String>{};
     environment.forEach((name, value) {
       final upper = name.toUpperCase();
-      if (upper == 'YON_APPLICATION_JSON' || upper.startsWith('YON_RESOURCE_')) return;
+      if (upper == 'YON_APPLICATION_JSON' || upper == 'YON_HANDLER_WARM' || upper.startsWith('YON_RESOURCE_')) {
+        return;
+      }
       kept[name] = value;
     });
     return kept;
+  }
+
+  static void startRequestClock() {
+    _requestStartedAt = _elapsedMilliseconds();
+  }
+
+  static void beginRequest(Map<String, Object?> raw) {
+    final resources = raw.remove('resources');
+    final endpoint = resources is Map ? resources['endpoint'] : null;
+    final token = resources is Map ? resources['token'] : null;
+    resourceEndpoint = endpoint is String ? endpoint : null;
+    resourceToken = token is String ? token : null;
+    captureInvocation(raw);
+  }
+
+  static void endRequest() {
+    _captured = false;
+    _renewedAt = null;
+    requestId = 'unknown';
+    resourceEndpoint = null;
+    resourceToken = null;
   }
 
   static void captureInvocation(Map<String, Object?> raw) {
@@ -283,7 +311,7 @@ abstract final class _YonRelayState {
     if (!_captured) return 0;
     final renewedAt = _renewedAt;
     if (renewedAt != null) return renewedAt + defaultDeadlineMilliseconds - _elapsedMilliseconds();
-    return _deadlineMilliseconds - _elapsedMilliseconds();
+    return _requestStartedAt + _deadlineMilliseconds - _elapsedMilliseconds();
   }
 }
 
@@ -436,6 +464,7 @@ Object? _yonDispatch(__YON_HANDLER__ handler, __YonFrame request) {
 
 yon_async.Future<void> main() async {
   _YonRelayState.captureStart();
+  if (_YonWarm.enabled()) return _YonWarm.serve();
   final bytes = <int>[];
   if (YonSocket.framed()) {
     bytes.addAll(yon_convert.utf8.encode(await YonSocket.readFrame() ?? ''));
@@ -452,40 +481,94 @@ yon_async.Future<void> main() async {
     return;
   }
   _YonRelayState.captureInvocation(request.raw());
-  __YonAnswer response;
+  final __YonAnswer? response;
+  try {
+    response = await _yonAnswer(request);
+  } catch (_) {
+    yon_io.exitCode = 1;
+    return;
+  }
+  if (response == null) return;
+  yon_io.stdout.write(response.envelope());
+  await yon_io.stdout.flush();
+}
+
+yon_async.Future<__YonAnswer?> _yonAnswer(__YonFrame request) async {
   try {
     var result = _yonDispatch(__YON_HANDLER__(), request);
     if (result is yon_async.Future) result = await result;
     if (result is yon_async.Stream) {
       final id = '${request.raw()['request_id'] ?? ''}';
-      try {
-        await for (final event in result) {
-          if (!await YonStream.event(id, event)) return;
-        }
-      } catch (_) {
-        await YonStream.failure(id);
-      }
-      return;
+      if (await _yonStreamEvents(id, result) && _YonWarm.enabled()) await YonStream.end(id);
+      return null;
     }
-    if (result is yon_shelf.Response) {
-      response = await _yonShelfAnswer(result);
-    } else if (result is __YonAnswer) {
-      response = result;
-    } else if (result == null && _yonMiddlewarePhase(request) != null) {
-      response = __YonAnswer.empty(204);
-    } else {
-      response = __YonAnswer.json(yon_convert.jsonEncode(result));
-    }
+    if (result is yon_shelf.Response) return await _yonShelfAnswer(result);
+    if (result is __YonAnswer) return result;
+    if (result == null && _yonMiddlewarePhase(request) != null) return __YonAnswer.empty(204);
+    return __YonAnswer.json(yon_convert.jsonEncode(result));
   } catch (failure) {
     final violations = _yonViolations(failure);
-    if (violations == null) {
-      yon_io.exitCode = 1;
-      return;
-    }
-    response = __YonAnswer.rejected(violations);
+    if (violations == null) rethrow;
+    return __YonAnswer.rejected(violations);
   }
-  yon_io.stdout.write(response.envelope());
-  await yon_io.stdout.flush();
+}
+
+yon_async.Future<bool> _yonStreamEvents(String id, yon_async.Stream<Object?> events) async {
+  try {
+    await for (final event in events) {
+      if (!await YonStream.event(id, event)) return false;
+    }
+  } catch (_) {
+    await YonStream.failure(id);
+    return false;
+  }
+  return true;
+}
+
+abstract final class _YonWarm {
+  static bool enabled() => yon_io.Platform.environment['YON_HANDLER_WARM'] == '1';
+
+  static yon_async.Future<void> serve() async {
+    while (true) {
+      final request = await _nextRequest();
+      final response = await _answer(request);
+      if (response != null) await YonSocket._write(response.envelope());
+      _YonRelayState.endRequest();
+    }
+  }
+
+  static yon_async.Future<__YonFrame> _nextRequest() async {
+    if (await YonSocket._inputEnded()) return _stop(0);
+    _YonRelayState.startRequestClock();
+    final fields = await _requestFields();
+    _YonRelayState.beginRequest(fields);
+    return __YonFrame(fields);
+  }
+
+  static yon_async.Future<Map<String, Object?>> _requestFields() async {
+    final Object? parsed;
+    try {
+      parsed = yon_convert.jsonDecode(await YonSocket.readFrame() ?? '');
+    } on FormatException {
+      return _stop(70);
+    }
+    if (parsed is! Map<String, Object?>) return _stop(70);
+    if (parsed['kind'] != 'request' || parsed['operation'] == 'socket.open') return _stop(70);
+    return parsed;
+  }
+
+  static yon_async.Future<__YonAnswer?> _answer(__YonFrame request) async {
+    try {
+      return await _yonAnswer(request);
+    } catch (_) {
+      return _stop(1);
+    }
+  }
+
+  static yon_async.Future<Never> _stop(int code) async {
+    await yon_io.stderr.flush();
+    yon_io.exit(code);
+  }
 }
 
 List<Object?>? _yonViolations(Object failure) {
@@ -597,6 +680,14 @@ abstract final class YonSocket {
     return taken;
   }
 
+  static yon_async.Future<bool> _inputEnded() async {
+    while (_buffer.isEmpty) {
+      if (!await _input.moveNext()) return true;
+      _buffer.addAll(_input.current);
+    }
+    return false;
+  }
+
   static yon_async.Future<String?> readFrame() async {
     final prefix = await _take(4);
     if (prefix == null) return null;
@@ -667,6 +758,9 @@ final class YonStream {
 
   static yon_async.Future<void> failure(String requestId) =>
       _frame(requestId, _error(requestId, 'TY2204', 'The handler stream failed.'));
+
+  static yon_async.Future<void> end(String requestId) =>
+      _frame(requestId, {'protocol_version': 1, 'kind': 'end', 'request_id': requestId});
 
   static Map<String, Object?> _error(String requestId, String code, String message) => {
         'protocol_version': 1,

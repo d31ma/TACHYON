@@ -64,6 +64,7 @@ mod test_marker_proofs;
 mod test_units;
 mod topic_events;
 mod warm_cpp;
+mod warm_dart;
 mod warm_dotnet;
 mod warm_go;
 mod warm_handlers;
