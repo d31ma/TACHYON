@@ -2017,6 +2017,36 @@ Android System WebView 124.0.6367.219), on branch `b70dcc31`:
 The macOS geolocation cell is `honored` again, and the Android
 `tac.outgoing` note records the refusal run.
 
+### Windows runs over SSH (2026-10-27, SW4)
+
+SW4 ran these on the Surface (Windows 11 Pro build 26300 ARM64, MSVC ARM64)
+over SSH with a debug `ty` from this branch. This evidence does not promote
+any tier.
+
+- `YON_ISOLATION=firecracker` with a complete policy and an existing driver
+  file now fails with `TY2010` (`... is refused on Windows`) when `ty serve`
+  starts, and no page is served; `ty serve` then shows its problems page, as
+  for any other start-up failure. Before, a `ty` from develop `2aeb2de6`
+  served the page with no warning, because the driver's permission checks
+  exist only on Unix. Firecracker needs a Linux host with KVM.
+  `windows_refuses_a_complete_firecracker_policy_at_startup` checks it.
+- Self-restart: `scripts/windows/self-restart.py` (new), run by the
+  Windows-only test `preview_restarts_itself_as_a_child_when_ty_changes_on_disk`,
+  passed in 8 s. Windows refuses to overwrite a running `ty.exe`, so the
+  script renames it aside and puts a new build at its path. `ty preview`
+  printed the restart notice, the new `ty.exe` ran as a child of the first
+  one and answered the same port, and after CTRL-BREAK the first `ty`
+  exited with the child's code 0. A `ty` from `2aeb2de6` passed the same
+  script.
+- clippy with `-D warnings`, the `tachyon-core` library tests (3725 passed)
+  and the `tachyon-cli` tests passed. Five Swift host link tests failed on
+  Windows once Swift 6.3.3 was installed there (SW3), on develop too: they
+  link a Swift host against Foundation and pthread. They now skip on hosts
+  that are not Unix.
+- No SQL Server 2022 was reachable from the Mac or the Surface (no Docker
+  daemon running, and no SQL Server image for ARM64), so the SQL Server
+  contract over SChannel stays owed.
+
 ### Swift on the Windows desktop (2026-10-25, SW3)
 
 The Surface (Windows 11 ARM64, WebView2 Runtime 155.0.4283.62, MSVC ARM64)
@@ -2244,7 +2274,7 @@ routes. The differential corpus still decides browser semantic parity.
 | Eight-language Yon handler boundary | implemented milestone | plain `Handler` convention; explicit `relay(...)`; native generator streaming in JavaScript, TypeScript, Python, PHP, Kotlin, and C#; Java and Rust return one response |
 | Tac client rendering, components, mount schedules, and incremental builds | implemented milestone | evidence recorded in `docs/PHASE_3_EVIDENCE.md`; Yon remains a separate REST boundary |
 | HTTP handler dispatch | implemented milestone | exact and dynamic routes, methods, parameters, bodies, middleware, and bounded topic streams execute through the supervised handler boundary |
-| Environment-selected Yon isolation transport | implemented milestone | tested: process compatibility mode, and a fail-closed Firecracker control-driver transport for JavaScript and Python. TypeScript and prepared direct-language artifacts are rejected before the driver starts, until an artifact-transfer contract exists. The driver and the Linux/KVM host are not qualified yet, so this is not a claim of hardware-isolation support |
+| Environment-selected Yon isolation transport | implemented milestone | tested: process compatibility mode, and a fail-closed Firecracker control-driver transport for JavaScript and Python. TypeScript and prepared direct-language artifacts are rejected before the driver starts, until an artifact-transfer contract exists. The driver and the Linux/KVM host are not qualified yet, so this is not a claim of hardware-isolation support. On Windows the Firecracker mode is refused at startup with `TY2010` (SW4, 2026-10-27) |
 | macOS SwiftUI native vertical slice | native-tested development milestone | evidence recorded in `docs/PHASE_4_EVIDENCE.md`; ad-hoc development signing only |
 | Android, iOS, Windows, and Linux native renderers | implemented | see the Phase 5 table above |
 

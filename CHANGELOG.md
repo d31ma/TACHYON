@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The in-app WebAssembly service features gate has a Windows driver (SW4,
+  2026-10-27): `scripts/native/wasm-features-app-test.mjs --target=windows`
+  builds each check for `--target windows`, reads the probe through UI
+  Automation, and clicks the browser API buttons with the mouse, because a
+  UI Automation Invoke may give the page no user action.
+  `scripts/windows/page-steps-probe.ps1` gains `pointer`, `verdict` and
+  `key` steps. `scripts/native/async-listener-app-test.mjs --target=windows`
+  runs the listener and shared-Setup checks with linked Rust services in the
+  WebView2 app.
+- `scripts/windows/self-restart.py` (new) checks that `ty preview` restarts
+  itself on Windows as a child process and exits with that child's code; a
+  Windows-only test in `crates/tachyon-cli/tests/signal_lifecycle.rs` runs it
+  (SW4, 2026-10-27).
+
 - Own run tests for 37 Tac marker cells that rested on shared or website
   proof (MK3, 2026-10-27). `compiler::script_marker_proof_tests` builds one
   TypeScript and one JavaScript project from the website caching, retries,
@@ -2234,6 +2248,14 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- `YON_ISOLATION=firecracker` is refused on Windows with `TY2010` at startup
+  (SW4, 2026-10-27). Before, the mode started with no driver permission
+  checks, because those exist only on Unix, and Firecracker needs a Linux
+  host with KVM.
+- Five Swift host link tests now skip on hosts that are not Unix (SW4,
+  2026-10-27). They link a Swift host against Foundation and pthread, and
+  failed on Windows once Swift was installed there.
 
 - Two builds of the same C# or F# WebAssembly services at the same moment no
   longer fail with TY1605 (`Directory not empty`) (MA9, 2026-10-27). Both
