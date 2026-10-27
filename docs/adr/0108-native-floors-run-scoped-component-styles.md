@@ -115,3 +115,10 @@ On a signed-in Windows 11 ARM64 desktop with the WebView2 Runtime
 155.0.4283.62, `scripts/windows/window-shell-test.ps1` checked that a
 component `tac.css` rule applies inside its component and not to the same
 element in another component, by computed style and by screen pixels.
+
+## Amendment (2026-10-27): the macOS style run (MA7)
+
+On macOS 27.2 (Apple Silicon), `scripts/native/page-services-macos-test.mjs`
+checked that a component `tac.css` rule applies inside its component and not
+to a nested component or to the same element in another component, by
+computed style in the packaged WKWebView app.

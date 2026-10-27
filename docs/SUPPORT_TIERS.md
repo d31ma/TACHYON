@@ -1379,7 +1379,7 @@ and Kotlin keep theirs. This evidence does not promote any tier.
 | Safari | 18.2 | 18.4 | MDN browser-compat-data (`webassembly.exceptionsFinal`); not run |
 | WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Ubuntu and Debian archives: 2.46.0 and 2.46.6 refused it, 2.48.1, 2.48.6, 2.50.4 and 2.52.6 loaded it |
 | iOS app | 18.2 | 18.4 | follows Safari; `system_floor` unit tests only |
-| macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests only |
+| macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests; an app built at 15.4 ran on macOS 27.2 (MA7) |
 | Windows app (WebView2) | 119.0 | 137.0 | follows Chrome; `system_floor` unit tests only |
 | Android app | API level 26, note names WebView 119 | API level 26, note names WebView 137 | follows Chrome; `system_floor` unit tests only |
 
@@ -1388,8 +1388,9 @@ All runs were in an x86_64 Ubuntu 24.04 cloud container. A browser without
 137, Firefox 131 and Safari 18.4, instead of a compile error;
 `a_java_service_runs_in_the_page_as_webassembly` checks it with a
 `WebAssembly.validate` that refuses the probe, because Node 22 runs
-`exnref`. A packaged app built at the new floors has not been run: the iOS
-and macOS page-service gates now expect 18.4 and 15.4 for Java.
+`exnref`. The macOS page-service gate built a Java app at 15.4 and ran it on
+macOS 27.2 (2026-10-27, MA7). The iOS page-service gate expects 18.4 for
+Java.
 
 ### Dart web services need the JavaScript exception tag (2026-10-25, MA5)
 
@@ -1406,7 +1407,7 @@ it. Kotlin keeps its floors. This evidence does not promote any tier.
 | Safari | 18.2 | 18.4 | the iOS 18.2 simulator has no `JSTag`; 18.4 is where WebKit's exception references work (Java's floor) shipped; an 18.4 runtime has not run |
 | WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Debian archive through its C API: 2.46.6 has no `JSTag`, 2.48.1 has it and compiles the module |
 | iOS app | 18.2 | 18.4 | the 18.2 run above; `system_floor` unit tests |
-| macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests only |
+| macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests; an app built at 15.4 ran on macOS 27.2 (MA7) |
 | Windows app (WebView2) | 119.0 | 119.0 | follows Chrome |
 | Android app | API level 26, note names WebView 119 | unchanged | follows Chrome |
 
@@ -1416,7 +1417,8 @@ files are kept with the project's platform notes. The generated
 Chrome or Edge 119, Firefox 131 and Safari 18.4 in its message;
 `a_dart_service_runs_as_webassembly_with_whole_numbers_and_readable_errors`
 checks it with `JSTag` deleted. The iOS and macOS page-service gates now
-expect 18.4 and 15.4 for Dart.
+expect 18.4 and 15.4 for Dart; the macOS one ran a Dart app built at 15.4 on
+macOS 27.2 (2026-10-27, MA7).
 
 ### Browser engines for the web target (2026-10-19)
 
@@ -1733,6 +1735,58 @@ floor since ADR 0108); the Windows integrated title bar note names the SD1
 desktop run instead of saying it has not run; macOS System Back no longer
 names the trackpad swipes, which no run drives. The three `tac.outgoing`
 cells on macOS, iOS and Windows already agreed with their runs.
+
+### WebAssembly service features and linked callers in the macOS app (2026-10-27, MA7)
+
+On the Mac (Apple Silicon, macOS 27.2, Xcode 27.1, Swift 6.4 for the probe,
+the Swift 6.4.1 WebAssembly SDK, Node 24.19.0, `ty` from branch `598db4a7`),
+MA7 added a macOS driver to `scripts/native/wasm-features-app-test.mjs`
+(LX3, "WebAssembly service features in the Linux app" above). It builds the
+app with `ty build --target macos`, checks that no service of the check is
+linked into it, presses the gesture buttons through the Accessibility API,
+closes the share picker with Escape, and reads `Probe passed` or
+`Probe failed` and the probe's lines from the WKWebView. Checks that call Yon
+run against `ty serve` on a free local port named in `tac.yon.origin`. This
+evidence does not promote any tier.
+
+| Check | Languages that passed in the macOS app | What the probe saw |
+| --- | --- | --- |
+| held-clients | Kotlin, C# | a held socket client's welcome and echo, and a held stream client's ticks, from Yon |
+| yon-http | Kotlin, C# | a WebAssembly `HTTPClient` read a Yon route on `tac.yon.origin` from `tachyon-app://bundle`; for Kotlin, a `Cached` read, a `ClearCache` POST and a fresh read, and a Setup's http adapter answering inside the app |
+| web-apis | Kotlin, C# | no user action before a click and the clipboard refusal; Clock, SecureRandom and Preferences; replay listeners for connectivity and color scheme; a clipboard write and read from an Accessibility press, `NotificationPermissionChanged`, and `BrowserCallFailed Share was cancelled.` after Escape closed the share picker |
+| document-title | Kotlin | `DocumentTitle` set by the first owner and then the second |
+| cached-client | Kotlin, C# | a second read gave the cached stamp |
+| async-listener | Kotlin, C#, F# | a signal-driven save reached the listing service: `["Ada","Lin"]` |
+| page-program | Kotlin, Java, Dart, C#, F#, C++ | two services of one page read one program: the same identity, and both counts at 1 |
+
+All 18 cells passed in 3 minutes 23 seconds. Swift and Rust are linked on
+macOS, so they have no cell here. The first run failed the two web-apis cells
+at the notification step: on macOS 27 the permission request is a
+Notification Center alert whose Allow and Don't Allow are named actions of the
+alert, not buttons, so the probe's `allow` found nothing. The probe now
+performs the named action. With fresh app ids, the Kotlin and C# cells then
+heard `granted`.
+
+The same day, on the same Mac:
+
+- `scripts/native/page-services-macos-test.mjs` passed in 4 minutes
+  25 seconds with its new defaults. Python, Dart, Kotlin, Java, Go, Ruby,
+  Lua, C++ and F# page services answered a click in the packaged Tally app,
+  with `LSMinimumSystemVersion` 15.4 for Dart and Java, 15.2 for Kotlin and
+  13.0 for the rest. C#, Kotlin, linked Swift and linked Rust
+  `ReportService` callers renamed the window to `Quarterly report` and
+  resized it to 1280 wide; the Swift and Rust callers were companions in
+  `tachyon.host.json`. Linked Rust and linked Swift `PickerService` fields
+  chose, read and cancelled in `NSOpenPanel`. A host refusal reached a
+  JavaScript caller as `BrowserCallFailed`, and a component `tac.css` rule
+  colored its own paragraph and not a nested or sibling one
+  (`Style stays inside its component`).
+- `TAC_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
+  --check=shared-setup --target=macos` ran two linked Rust services of one
+  page that share one Setup in the macOS app: the reader saw the writer's
+  identity and a count of 1.
+- The SQL Server contract on Security.framework did not run: Docker Desktop
+  was not running on the Mac, so no SQL Server 2022 container could start.
 
 ### macOS callers that moved cells back (2026-10-25, MA1)
 
