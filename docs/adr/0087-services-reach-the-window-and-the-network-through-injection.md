@@ -512,3 +512,25 @@ On the signed-in Windows 11 ARM64 desktop with the WebView2 Runtime
 - SW1, the same script: a linked Rust caller renamed and resized the window.
 
 The support table marks the Windows window controls `honored`.
+
+## Amendment (2026-10-27): what `resize` means on Windows since WM1
+
+WM1 changed what `resize(width, height)` measures on Windows. Before WM1 the
+Windows app ran without DPI awareness (ADR 0052, amendment "the Windows
+manifest had no effect until WM1"). The host asked for a client area of
+`width` by `height` pixels without counting the menu bar, so a window with a
+menu got a shorter page, and on a scaled display Windows stretched the
+whole window as a bitmap. Since WM1 the app is PerMonitorV2 DPI aware, and
+`resize(width, height)` sizes the client area in device-independent pixels:
+the host scales `width` and `height` by the window's DPI
+(`GetDpiForWindow`) and adds the frame, the title bar and the menu bar for
+that DPI (`AdjustWindowRectExForDpi`). A `resize(640, 480)` gives a client
+area of 640 by 480 pixels at 100% scaling and 1280 by 960 pixels at 200%.
+
+Every Windows run recorded above (SD1, SW1, SW2, SW3) was at 96 DPI, where
+a device-independent pixel is a physical pixel, and
+`scripts/windows/window-shell-test.ps1` checks the client area's width,
+which the menu bar does not change, so those results hold under both
+meanings. The check above 96 DPI and on `WM_DPICHANGED` is
+`scripts/windows/high-dpi-test.ps1` (`docs/SUPPORT_TIERS.md`, "Windows
+application manifest").

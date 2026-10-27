@@ -727,8 +727,8 @@ answered at about 498 ms and the body appeared at 502 ms), and the probe
 waited for the recorder only if its element was already on the page. The
 app's `tachyon-runtime` folder was byte for byte the same with and without
 the recorder. The probe now waits whenever the page's plan declares the
-recorder, and on branch `562a444e` the whole iOS gate passed 18 of 18 with
-the recorder, the C# cached-client cell in 9 s, along with the Rust
+recorder (`a926c38d`), and with that fix the whole iOS gate passed 18 of 18
+with the recorder, the C# cached-client cell in 9 s, along with the Rust
 shared-Setup check.
 
 The same day, on the same simulator:
@@ -1935,9 +1935,10 @@ the handshake as its own PRELOGIN message. The same client failed three
 times out of three when it sent one PRELOGIN message per TLS record, and
 passed when it sent the whole flight in one. Tachyon now puts a
 `PreloginStream` under the driver that sends each handshake flight as one
-message. On branch `6fbd5b2f` the contract passed from macOS in 40 s, with
-the storage tests, clippy and `repository_policy`. iOS uses the same TLS
-library, so the same fix applies there; no iOS SQL Server run was made.
+message (`54cd78ce` and `d92ce586`). With it the contract passed from macOS
+in 40 s, with the storage tests, clippy and `repository_policy`. Yon and
+managed storage do not run in an iOS app, so SQL Server has no iOS path for
+this fix to apply to.
 
 The same contract then passed from Windows over SChannel. The Mac served the
 container on its LAN address with `scripts/test-managed-storage.mjs --serve

@@ -2346,7 +2346,7 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
-- SQL Server connections from macOS and iOS no longer fail during the TLS
+- SQL Server connections from macOS no longer fail during the TLS
   handshake with `TY2160` (MA10, 2026-10-27). Apple's TLS library flushes
   after every TLS record, and the TDS driver (tiberius 0.12.3) sent each
   flush as its own PRELOGIN message, so SQL Server 2022 dropped a client

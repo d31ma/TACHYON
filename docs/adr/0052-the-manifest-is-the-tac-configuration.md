@@ -429,7 +429,8 @@ SW4 found this on the Surface on 2026-10-27, when the shared-Setup fixture
 app failed to start three times; the fixture is now named `SharedConfig`
 (`docs/SUPPORT_TIERS.md`, "WebAssembly service features in the Windows
 app"). The unit test `manifest_requests_common_controls_and_per_monitor_dpi`
-checks the manifest's text, not that Windows reads it. The text of the
+(renamed `manifest_runs_as_invoker_with_common_controls_and_per_monitor_dpi`
+by WM1) checks the manifest's text, not that Windows reads it. The text of the
 2026-10-18 amendment stays as the history of this decision.
 
 WM1 fixed this the same day. `rc.exe` compiles the manifest into the `.exe`
