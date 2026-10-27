@@ -2268,7 +2268,7 @@ note did:
 - reaching Yon: the Windows app's pages load from `https://tachyon.local`,
   so same-origin requests reach no Yon and calls go to `tac.yon.origin`
   across origins, as the macOS, iOS, Android and Linux pages do from their
-  own origins. The SD1 and SW1 runs above stay its evidence.
+  own origins. The SD1, SW1 and SW4 runs above stay its evidence.
 
 ## Historical Phase 5 Native Target Status
 
