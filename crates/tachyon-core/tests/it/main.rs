@@ -63,6 +63,7 @@ mod test_assertions;
 mod test_marker_proofs;
 mod test_units;
 mod topic_events;
+mod warm_benchmark;
 mod warm_cpp;
 mod warm_dart;
 mod warm_dotnet;
