@@ -1008,9 +1008,12 @@ static class Yon
             await Serve(YonSocket.Framed() ? YonSocket.ReadFrame() : Console.In.ReadToEnd(), 0);
             return;
         }
+        var firstRequest = true;
         while (YonSocket.ReadRequestFrame() is string raw)
         {
-            var startedMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+            var readMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+            var startedMilliseconds = firstRequest ? 0 : readMilliseconds;
+            firstRequest = false;
             var keepsRunning = await Serve(raw, startedMilliseconds);
             ForgetWarmRequest();
             if (!keepsRunning) return;
