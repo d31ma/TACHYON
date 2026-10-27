@@ -1,7 +1,14 @@
 How a handler runs
 
+  YON_ISOLATION=warm          one supervised process per controller,
+                              kept warm for later requests. The
+                              default.
+
+    YON_WARM_MAX_REQUESTS       requests before a fresh process
+    YON_WARM_IDLE_SECONDS       idle time before the process stops
+
   YON_ISOLATION=process       one supervised child process per
-                              request. The default.
+                              request.
 
   YON_ISOLATION=firecracker   hand each request to a Firecracker
                               control program instead.

@@ -233,6 +233,12 @@ does not replace live schedules.
 The supervisor chooses its isolation backend only from the environment of the
 parent process:
 
+- Warm mode, the default, keeps a language child process for each handler and
+  sends it one request at a time. The supervisor replaces the process after a
+  crash, a protocol error, stray output, a timeout, a cancellation or
+  `YON_WARM_MAX_REQUESTS` requests, and stops it after `YON_WARM_IDLE_SECONDS`
+  without a request. A language whose runner does not speak the warm protocol
+  runs in process mode. See ADR 0111.
 - Process mode starts one language child process per request.
 - Firecracker mode starts a trusted control client. For JavaScript and Python,
   the client passes the same framed request to a microVM (small virtual
@@ -253,7 +259,9 @@ The supervisor starts its child process or control client without a shell.
 - Queueing, startup, execution, framing, and exit share one deadline.
 - On cancellation, the supervisor sends the protocol cancel frame and waits a
   short grace period. When required, it then kills and reaps the process.
-- Process-mode handlers are never pooled or reused.
+- Process-mode handlers are never pooled or reused. Warm-mode handlers are
+  reused only by the same handler snapshot, and only after a clean terminal
+  frame.
 
 A missing runtime has its own mapping: `TY2112`. The startup probe and the
 later process spawn use the same logical runtime identity. So if an executable

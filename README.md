@@ -825,13 +825,37 @@ the host process. It is not a sandbox, and it is not a fixed allowlist of
 device APIs. [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) documents the
 threats and the remaining risks.
 
-In the default process mode, handler child processes still have the developer
+Handler child processes, warm or not, still have the developer
 account's normal access to the file system and the network. The process
 supervisor controls the protocol and the lifecycle. It is not an
 operating-system sandbox. Deploy handlers inside the isolation boundary that
 your environment requires.
 
 ### Environment-selected Yon isolation
+
+Tachyon is serverless-first, so by default Yon keeps a handler's process warm:
+the process that answers one request stays running and answers later requests
+for the same handler, one at a time. An always-on server that wants a clean
+process for every request can choose process mode instead:
+
+```sh
+export YON_ISOLATION=process
+ty serve
+```
+
+| `YON_ISOLATION` | What runs a request |
+| --- | --- |
+| `warm` (default) | A warm handler process that serves many requests, one at a time |
+| `process` | A new process for every request, stopped after the response |
+| `firecracker` | The operator's Firecracker control program, described below |
+
+In warm mode, `YON_WARM_MAX_REQUESTS` (default 1000) sets how many requests a
+process serves before Yon replaces it, and `YON_WARM_IDLE_SECONDS` (default 60)
+sets how long an unused process waits before Yon stops it. Yon also replaces a
+warm process after a crash, a timeout, a cancellation or a protocol error.
+Module-level state can survive between the requests one warm process serves;
+a handler must not depend on it. Sockets always keep their own process. See
+[ADR 0111](docs/adr/0111-yon-keeps-handler-processes-warm-by-default.md).
 
 Production operators can send JavaScript and Python Yon execution through a
 qualified Firecracker control program. Only the environment selects this. The
@@ -847,7 +871,7 @@ export YON_FIRECRACKER_EGRESS=deny
 ty serve
 ```
 
-`process` is the default. Firecracker mode uses the same framed Handler
+Firecracker mode uses the same framed Handler
 Protocol, deadlines, cancellation, bounded diagnostics, and response
 validation. It currently rejects TypeScript with `TY2010` before it starts the
 driver. It also rejects the prepared Java, PHP, Kotlin, C#, and Rust paths
