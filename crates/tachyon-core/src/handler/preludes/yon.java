@@ -929,6 +929,7 @@ final class Yon {
     private static long startNanos;
     private static java.util.Map<String, String> relayEnvironment;
     private static Long deadlineNanos;
+    private static boolean servedWarmRequest;
     private static String requestId = "unknown";
     private static YonExchange exchange;
 
@@ -1195,7 +1196,8 @@ final class Yon {
     }
 
     private static void startWarmRequest() {
-        startNanos = System.nanoTime();
+        if (servedWarmRequest) startNanos = System.nanoTime();
+        servedWarmRequest = true;
         deadlineNanos = null;
         requestId = "unknown";
         exchange = null;

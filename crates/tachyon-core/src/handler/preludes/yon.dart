@@ -233,6 +233,7 @@ abstract final class _YonRelayState {
   static final int Function() _elapsedMilliseconds = _startClock();
   static _YonRequestClock _clock = _YonRequestClock(0);
   static int? _renewedAt;
+  static bool _servedRequest = false;
   static bool _started = false;
   static bool _captured = false;
   static Map<String, String> environment = const {};
@@ -271,7 +272,9 @@ abstract final class _YonRelayState {
   }
 
   static void startRequestClock() {
-    _clock = _YonRequestClock(_elapsedMilliseconds());
+    final startedAt = _servedRequest ? _elapsedMilliseconds() : 0;
+    _servedRequest = true;
+    _clock = _YonRequestClock(startedAt);
   }
 
   static void beginRequest(Map<String, Object?> raw) {
