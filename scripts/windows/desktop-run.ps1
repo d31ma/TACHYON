@@ -7,10 +7,20 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+function Test-RemoteDesktop([string] $user) {
+    $name = [regex]::Escape($user.Split('\')[-1])
+    $sessions = @(quser 2>$null | Where-Object { $_ -match "^\s*>?$name\s+rdp-tcp#\d+\s+\d+\s+Active" })
+    return $sessions.Count -gt 0
+}
+
 function Get-DesktopUser {
     $owner = (Get-CimInstance Win32_ComputerSystem).UserName
-    if (-not $owner) { throw 'nobody is signed in at the desktop of this machine' }
     $current = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    if (-not $owner -and (Test-RemoteDesktop $current)) {
+        Write-Host 'NOTE: running in the Remote Desktop session; keep its window open and not minimized until the run ends'
+        return $current
+    }
+    if (-not $owner) { throw 'nobody is signed in at the desktop of this machine, and no Remote Desktop session of this user is active' }
     if ($owner -ne $current) { throw "the desktop belongs to $owner, not to $current" }
     $locked = @(Get-Process -Name LogonUI -ErrorAction SilentlyContinue |
         Where-Object { $_.SessionId -ne 0 })
