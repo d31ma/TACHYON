@@ -371,10 +371,11 @@ function Get-Elements {
     }
     finally { $scope.Dispose() }
     foreach ($element in $found) {
+        $type = $element.Cached.ControlType
         $list.Add([pscustomobject]@{
             Element = $element
             Name = (ConvertTo-Shown $element.Cached.Name)
-            Type = ($element.Cached.ControlType.ProgrammaticName -replace '^ControlType\.', '')
+            Type = $(if ($type -is [System.Windows.Automation.ControlType]) { $type.ProgrammaticName -replace '^ControlType\.', '' } else { '' })
             Localized = [string]$element.Cached.LocalizedControlType
         })
     }

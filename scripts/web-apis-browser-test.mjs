@@ -17,7 +17,9 @@ export class WebApiGate {
   static withJava = Boolean(process.env.TAC_TEAVM_HOME) && existsSync(process.env.TAC_TEAVM_HOME)
   static withFsharp = spawnSync('dotnet', ['--version'], { encoding: 'utf8' }).status === 0
   static withCsharp = WebApiGate.withFsharp && spawnSync('dotnet', ['workload', 'list'], { encoding: 'utf8' }).stdout?.includes('wasm-tools')
-  static withKotlin = Boolean(process.env.TAC_KOTLIN_WASM_STDLIB) && existsSync(process.env.TAC_KOTLIN_WASM_STDLIB) && spawnSync('kotlinc-js', ['-version'], { encoding: 'utf8' }).status === 0
+  static withKotlin = Boolean(process.env.TAC_KOTLIN_WASM_STDLIB) && existsSync(process.env.TAC_KOTLIN_WASM_STDLIB) && (process.platform === 'win32'
+    ? spawnSync('kotlinc-js -version', { encoding: 'utf8', shell: true })
+    : spawnSync('kotlinc-js', ['-version'], { encoding: 'utf8' })).status === 0
   static languages = ['js', 'rust', 'go', 'swift', ...(WebApiGate.withJava ? ['java'] : []), ...(WebApiGate.withFsharp ? ['fs'] : []), ...(WebApiGate.withCsharp ? ['cs'] : []), ...(WebApiGate.withKotlin ? ['kt'] : [])]
   static unitMethodLanguages = ['fs', 'cs', 'kt']
   static optionalLanguages = ['java', 'fs', 'cs', 'kt']
