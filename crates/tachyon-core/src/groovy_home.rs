@@ -11,6 +11,7 @@ impl GroovyHome {
     const LAUNCHER: &'static str = "groovyc";
     const WINDOWS_LAUNCHER: &'static str = "groovyc.bat";
     const LIBRARY_FOLDER: &'static str = "lib";
+    const HOMEBREW_FOLDER: &'static str = "libexec";
     const RUNTIME_PREFIX: &'static str = "groovy-";
     const JAR_SUFFIX: &'static str = ".jar";
     const EVERY_JAR: &'static str = "*";
@@ -39,10 +40,16 @@ impl GroovyHome {
 
     fn from_launcher() -> Option<Self> {
         let path = std::env::var_os(Self::PATH_VARIABLE)?;
-        let launcher = Self::first_file(Self::launcher_candidates(&path))?;
+        Self::from_path(&path)
+    }
+
+    /// Homebrew installs Groovy under `libexec` and puts a wrapper script in `bin` that sets
+    /// `JAVA_HOME`, so the launcher's home has no `lib` folder and the library is one level down.
+    fn from_path(path: &OsStr) -> Option<Self> {
+        let launcher = Self::first_file(Self::launcher_candidates(path))?;
         let launcher = Self::resolved(&launcher).ok()?;
         let home = launcher.parent()?.parent()?;
-        Self::at(home)
+        Self::at(home).or_else(|| Self::at(&home.join(Self::HOMEBREW_FOLDER)))
     }
 
     /// A launcher reached through a link resolves to its installed folder. Windows resolves to a
@@ -127,6 +134,41 @@ mod tests {
         let every_jar = found.is_some_and(|home| home.class_path().ends_with('*'));
         assert!(every_jar);
         assert!(GroovyHome::at(&home.path().join("missing")).is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn a_homebrew_launcher_finds_the_library_under_libexec() -> std::io::Result<()> {
+        let cellar = tempfile::tempdir()?;
+        let home = cellar.path().join("groovy").join("6.0.0");
+        let launchers = home.join("bin");
+        let library = home.join("libexec").join("lib");
+        std::fs::create_dir_all(&launchers)?;
+        std::fs::create_dir_all(&library)?;
+        std::fs::write(launchers.join("groovyc"), b"#!/bin/bash")?;
+        std::fs::write(library.join("groovy-6.0.0.jar"), b"jar")?;
+        let path = std::env::join_paths([&launchers]).map_err(std::io::Error::other)?;
+        let found = GroovyHome::from_path(&path);
+        let runtime = found.as_ref().and_then(GroovyHome::runtime_jar);
+        let libexec_jar = runtime
+            .as_ref()
+            .is_some_and(|path| path.ends_with("libexec/lib/groovy-6.0.0.jar"));
+        assert!(libexec_jar, "{runtime:?}");
+        std::fs::create_dir_all(home.join("lib"))?;
+        let found = GroovyHome::from_path(&path);
+        let runtime = found.as_ref().and_then(GroovyHome::runtime_jar);
+        assert!(runtime.is_none(), "{runtime:?}");
+        Ok(())
+    }
+
+    #[test]
+    fn a_launcher_without_any_library_folder_finds_no_home() -> std::io::Result<()> {
+        let home = tempfile::tempdir()?;
+        let launchers = home.path().join("bin");
+        std::fs::create_dir_all(&launchers)?;
+        std::fs::write(launchers.join("groovyc"), b"#!/bin/bash")?;
+        let path = std::env::join_paths([&launchers]).map_err(std::io::Error::other)?;
+        assert!(GroovyHome::from_path(&path).is_none());
         Ok(())
     }
 }
