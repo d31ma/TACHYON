@@ -85,12 +85,12 @@ export class WindowsGate {
     return WindowsCommand.start(executable, [], { cwd: path.dirname(executable), env, timeoutMilliseconds: 900_000 })
   }
 
-  /** @param {number} pid @param {Array<[string, unknown]>} steps @param {string} folder @param {NodeJS.ProcessEnv} env */
-  static startProbe(pid, steps, folder, env = process.env) {
+  /** @param {number} pid @param {Array<[string, unknown]>} steps @param {string} folder @param {NodeJS.ProcessEnv} env @param {number} waitSeconds */
+  static startProbe(pid, steps, folder, env = process.env, waitSeconds = 30) {
     mkdirSync(folder, { recursive: true })
     const file = path.join(folder, `steps-${pid}-${Date.now()}.json`)
     writeFileSync(file, JSON.stringify(steps))
-    const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', this.probe, '-ProcessId', String(pid), '-StepsFile', file]
+    const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', this.probe, '-ProcessId', String(pid), '-StepsFile', file, '-WaitSeconds', String(waitSeconds)]
     return WindowsCommand.start('powershell', args, {
       cwd: this.repository, env: { ...env, TAC_PROBE_HANDSHAKE: folder }, timeoutMilliseconds: 600_000,
       onStdout: chunk => process.stdout.write(chunk), onStderr: chunk => process.stderr.write(chunk),
@@ -105,9 +105,9 @@ export class WindowsGate {
     return result.stdout
   }
 
-  /** @param {number} pid @param {Array<[string, unknown]>} steps @param {string} folder @param {NodeJS.ProcessEnv} env */
-  static async probeSteps(pid, steps, folder, env = process.env) {
-    return await this.finishProbe(this.startProbe(pid, steps, folder, env))
+  /** @param {number} pid @param {Array<[string, unknown]>} steps @param {string} folder @param {NodeJS.ProcessEnv} env @param {number} waitSeconds */
+  static async probeSteps(pid, steps, folder, env = process.env, waitSeconds = 30) {
+    return await this.finishProbe(this.startProbe(pid, steps, folder, env, waitSeconds))
   }
 
   /** @param {WindowsCommand} probe @param {string} folder @param {string} name */

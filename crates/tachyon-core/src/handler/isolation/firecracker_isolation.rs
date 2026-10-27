@@ -1,6 +1,7 @@
 use super::YonIsolationPolicy;
 use super::environment_names::EnvironmentNames;
 use crate::Failure;
+use crate::failure::diagnostic;
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -27,6 +28,7 @@ impl FirecrackerIsolation {
     where
         F: Fn(&str) -> Option<OsString>,
     {
+        Self::check_host()?;
         let driver = Self::required_unicode(lookup, EnvironmentNames::DRIVER).map(PathBuf::from)?;
         Self::validate_driver(&driver)?;
         let pool = Self::pool_from_lookup(lookup)?;
@@ -70,6 +72,23 @@ impl FirecrackerIsolation {
             .arg(self.memory_mib.to_string())
             .arg("--egress")
             .arg("deny");
+    }
+
+    fn check_host() -> Result<(), Failure> {
+        if cfg!(windows) {
+            return Err(Failure::one(diagnostic(
+                2010,
+                format!(
+                    "{}=firecracker is refused on Windows: Tachyon cannot check there that the driver is executable only by its owner, and Firecracker needs a Linux host with KVM.",
+                    EnvironmentNames::ISOLATION
+                ),
+                Some(String::from(
+                    "Use YON_ISOLATION=process on Windows, or run Yon on a qualified Linux host for Firecracker isolation.",
+                )),
+                None,
+            )));
+        }
+        Ok(())
     }
 
     fn pool_from_lookup<F>(lookup: &F) -> Result<String, Failure>

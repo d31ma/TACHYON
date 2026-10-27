@@ -11,6 +11,7 @@ import { promisify } from 'node:util'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { withServer } from '../release/server-probe.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
+import { WindowsGate } from '../windows/windows-gate.mjs'
 import { WasmFeaturesFixture } from './wasm-features-fixture.mjs'
 import { IosWasmApp } from './wasm-features-ios.mjs'
 
@@ -290,11 +291,39 @@ class AndroidWasmApp {
   }
 }
 
+class WindowsWasmApp {
+  static waitSeconds = 240
+  static gestureSeconds = 120
+  static lines = ['ok - ', 'not ok - ']
+
+  /** @param {string[]} gestures */
+  static steps(gestures) {
+    const clicks = gestures.flatMap((label) => [['wait', [`Probe waiting for ${label}`]], ['pointer', label]])
+    const dismissed = gestures.length ? [['key', 'Escape']] : []
+    return [...clicks, ['verdict', { passed: WasmFeaturesFixture.passed, failed: WasmFeaturesFixture.failed, lines: this.lines, seconds: this.waitSeconds }], ...dismissed]
+  }
+
+  /** @param {string} project @param {{ application: string, gestures: string[] }} staged */
+  static async run(project, staged) {
+    WindowsGate.requireDesktop()
+    await WasmFeaturesAppTest.run(WasmFeaturesAppTest.binary, ['build', project, '--target', 'windows'], { timeoutMilliseconds: 1800000 })
+    const modules = WasmFeaturesFixture.assertWebAssembly(path.join(project, 'dist/windows'), WindowsGate.bundle(project, staged.application))
+    const app = WindowsGate.launch(WindowsGate.executable(project, staged.application))
+    try {
+      const output = await WindowsGate.probeSteps(app.pid, this.steps(staged.gestures), path.join(project, 'handshake'), process.env, this.gestureSeconds)
+      const lines = output.split(/\r?\n/).filter((line) => /^(OK|LOADED|NOTE|REPORT|PASS)/.test(line))
+      return { modules, lines: [...lines, await WindowsGate.memory(app)] }
+    } finally {
+      await app.stop()
+    }
+  }
+}
+
 class WasmFeaturesAppTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'wasm-features-app-'))
-  static hosts = { linux: LinuxWasmApp, macos: MacOsWasmApp, android: AndroidWasmApp, ios: IosWasmApp }
+  static hosts = { linux: LinuxWasmApp, macos: MacOsWasmApp, android: AndroidWasmApp, ios: IosWasmApp, windows: WindowsWasmApp }
   static target = WasmFeaturesAppTest.option('target', 'linux')
   static checks = WasmFeaturesAppTest.option('check', Object.keys(WasmFeaturesFixture.checks).join(',')).split(',')
   static languages = (process.env.TAC_WASM_FEATURE_LANGUAGES ?? '').split(',').filter(Boolean)

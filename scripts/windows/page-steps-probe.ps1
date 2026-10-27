@@ -515,6 +515,41 @@ function Invoke-Control([string] $name) {
     throw "Rendered control '$name' has no UI Automation activation and no point to click"
 }
 
+function Invoke-Pointer([string] $name) {
+    Wait-Texts @($name) $WaitSeconds
+    foreach ($element in (Find-Named $name '')) {
+        $center = Get-Center $element
+        if ($null -eq $center) { continue }
+        Show-AppWindow
+        [TachyonProbeNative]::Click($center[0], $center[1])
+        Write-Line "OK: a pointer click at $($center[0]),$($center[1]) on '$name'"
+        return
+    }
+    throw "Rendered control '$name' has no point to click"
+}
+
+function Wait-Verdict($wanted) {
+    $verdicts = @([string]$wanted.passed, [string]$wanted.failed)
+    $deadline = [DateTime]::UtcNow.AddSeconds([int]$wanted.seconds)
+    $names = New-Object 'System.Collections.Generic.HashSet[string]'
+    do {
+        Assert-AppRunning
+        $names = Get-ShownNames (Get-Elements)
+        if (@($verdicts | Where-Object { $names.Contains($_) }).Count -gt 0) { break }
+        Wait-Briefly 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+    foreach ($name in ($names | Sort-Object)) {
+        if (@(@($wanted.lines) | Where-Object { $name.StartsWith([string]$_) }).Count -gt 0) { Write-Line "REPORT: $name" }
+    }
+    if (-not $names.Contains($verdicts[0])) { throw "The page did not show '$($verdicts[0])'; the window shows $(Format-Shown $names)" }
+    Write-Line "OK: $($verdicts[0])"
+}
+
+function Send-Key([string] $key) {
+    [TachyonProbeNative]::PressKey((Get-KeyCode $key), $false)
+    Write-Line "OK: pressed $key"
+}
+
 function Find-FileDialog {
     $owned = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $script:process.Id)
@@ -976,6 +1011,9 @@ function Invoke-Step([string] $kind, $value) {
         'read' { Read-Text $value }
         'click' { Invoke-Control ([string]$value) }
         'pick' { Invoke-Pick $value }
+        'pointer' { Invoke-Pointer ([string]$value) }
+        'verdict' { Wait-Verdict $value }
+        'key' { Send-Key ([string]$value) }
         'focus' { Set-EntryFocus ([string]$value) }
         'type' { Send-Text $value }
         'move' { Move-Caret $value }

@@ -277,6 +277,29 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn windows_refuses_a_complete_firecracker_policy_at_startup() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let driver = directory.path().join("firecracker-driver.exe");
+        std::fs::write(&driver, "driver").expect("driver");
+        let path = driver.to_string_lossy();
+        let refused = parse(&[
+            ("YON_ISOLATION", "firecracker"),
+            ("YON_FIRECRACKER_DRIVER", &path),
+        ])
+        .expect_err("Windows has no Firecracker host");
+        let rendered = refused.to_string();
+        assert!(
+            rendered.contains("TY2010") && rendered.contains("refused on Windows"),
+            "{rendered}"
+        );
+        assert_eq!(
+            parse(&[("YON_ISOLATION", "process")]).expect("process policy"),
+            YonIsolationPolicy::Process
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn firecracker_policy_is_bounded_and_deny_by_default() {

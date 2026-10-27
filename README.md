@@ -852,7 +852,10 @@ Protocol, deadlines, cancellation, bounded diagnostics, and response
 validation. It currently rejects TypeScript with `TY2010` before it starts the
 driver. It also rejects the prepared Java, PHP, Kotlin, C#, and Rust paths
 with `TY2010`. The reason is that the driver contract has no boundary for
-transferring their artifacts. The configured control program and host must be
+transferring their artifacts. On Windows, `YON_ISOLATION=firecracker` fails
+with `TY2010` at startup, because Firecracker needs a Linux host with KVM and
+Tachyon cannot check the driver's file permissions there. The configured
+control program and host must be
 qualified separately. Setting the environment variable alone does not prove
 hardware isolation. See
 [ADR 0014](docs/adr/0014-environment-selected-yon-isolation.md).

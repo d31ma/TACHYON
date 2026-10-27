@@ -553,3 +553,21 @@ fn ctrl_break_is_reported_and_stops_the_server_gracefully() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[cfg(windows)]
+#[test]
+fn preview_restarts_itself_as_a_child_when_ty_changes_on_disk() {
+    let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/windows/self-restart.py");
+    let output = std::process::Command::new("python")
+        .arg(script)
+        .arg(env!("CARGO_BIN_EXE_ty"))
+        .output()
+        .expect("Windows self-restart script should run");
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

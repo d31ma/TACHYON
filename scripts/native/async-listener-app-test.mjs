@@ -2,12 +2,13 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
+import { WindowsGate } from '../windows/windows-gate.mjs'
 
 class ProbeRecorder {
   /** @param {string} name @param {string} file */
@@ -556,6 +557,7 @@ class AsyncListenerAppTest {
   static appleLanguage = process.env.TAC_LISTENER_LANGUAGE ?? 'swift'
   static androidLanguage = process.env.TAC_ANDROID_LISTENER_LANGUAGE ?? 'kt'
   static linuxLanguage = 'rs'
+  static windowsLanguage = 'rs'
   static linuxScreen = '1280x900x24'
   static targets = (process.argv.find((argument) => argument.startsWith('--target='))?.slice('--target='.length) ?? 'macos,ios').split(',')
   static proofTimeout = 180000
@@ -741,13 +743,37 @@ exit 1`
     console.log(`PASS Linux app: ${this.fixture.passed(language)}`)
   }
 
+  static async windows() {
+    WindowsGate.requireDesktop()
+    const project = path.join(this.root, 'windows')
+    const language = AsyncListenerApp.names[this.windowsLanguage]
+    const { name } = this.fixture.stage(project, this.windowsLanguage)
+    await WindowsGate.build(this.binary, project, 900000)
+    this.fixture.assertLinked(path.join(project, 'dist/windows'), language)
+    const temporary = path.join(project, 'tmp')
+    mkdirSync(temporary)
+    const proof = path.join(temporary, this.fixture.proofFile)
+    const app = WindowsGate.launch(WindowsGate.executable(project, name), { ...process.env, TMP: temporary, TEMP: temporary })
+    try {
+      const deadline = Date.now() + this.proofTimeout
+      while (Date.now() < deadline && !(existsSync(proof) && statSync(proof).size > 0)) await sleep(this.pause)
+      await sleep(this.pause)
+      const record = this.fixture.assertProof(await this.record(proof), app.pid)
+      console.log(`==> windows: ${JSON.stringify(record)}`)
+      console.log(await WindowsGate.memory(app))
+    } finally {
+      await app.stop()
+    }
+    console.log(`PASS Windows app: ${this.fixture.passed(language)}`)
+  }
+
   static async main() {
     assert.ok(this.fixture, `unknown --check=${this.check}; use ${Object.keys(this.checks).join(' or ')}`)
     assert.ok(['swift', 'rs'].includes(this.appleLanguage), `unknown TAC_LISTENER_LANGUAGE ${this.appleLanguage}; use swift or rs`)
     assert.ok(['kt', 'rs'].includes(this.androidLanguage), `unknown TAC_ANDROID_LISTENER_LANGUAGE ${this.androidLanguage}; use kt or rs`)
     try {
       for (const target of this.targets) {
-        assert.ok(['macos', 'ios', 'android', 'linux'].includes(target), `unknown target ${target}; use macos, ios, android or linux`)
+        assert.ok(['macos', 'ios', 'android', 'linux', 'windows'].includes(target), `unknown target ${target}; use macos, ios, android, linux or windows`)
         await this[target]()
       }
     } finally {
