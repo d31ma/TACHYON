@@ -19,7 +19,7 @@ cap-fs-ext.workspace = true
 cap-std.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 html5gum = { version = "0.8.4", default-features = false }
-futures-util = { version = "0.3.31", default-features = false, features = ["std"] }
+futures-util = { version = "0.3.31", default-features = false, features = ["io", "std"] }
 getrandom = "0.4.2"
 redis = { version = "1.7.0", default-features = false, features = ["tokio-rustls-comp", "tls-rustls-webpki-roots", "connection-manager"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["any", "postgres", "mysql", "sqlite-bundled", "runtime-tokio", "tls-rustls-ring-webpki"] }
@@ -44,7 +44,7 @@ flate2 = { version = "1.1.10", default-features = false, features = ["rust_backe
 
 [dev-dependencies]
 jsonschema = { version = "0.58.6", default-features = false }
-futures-util = { version = "0.3.31", default-features = false, features = ["std", "sink"] }
+futures-util = { version = "0.3.31", default-features = false, features = ["io", "std", "sink"] }
 tokio-tungstenite = { version = "0.29.0", default-features = false, features = ["connect", "handshake"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 

@@ -9,10 +9,11 @@ use tokio::sync::Mutex;
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
 use super::dialect::{Dialect, ResultKind, Statement};
+use super::prelogin_stream::PreloginStream;
 use super::{ManagedStorage, failure, object_keys, text};
 use crate::Failure;
 
-type TdsClient = tiberius::Client<Compat<TcpStream>>;
+type TdsClient = tiberius::Client<PreloginStream<Compat<TcpStream>>>;
 
 pub(super) struct SqlStore {
     dialect: Dialect,
@@ -420,7 +421,7 @@ async fn connect_tds(config: &tiberius::Config) -> Result<TdsClient, Failure> {
     stream
         .set_nodelay(true)
         .map_err(|_| failure("SQL Server socket setup failed."))?;
-    tiberius::Client::connect(config.clone(), stream.compat_write())
+    tiberius::Client::connect(config.clone(), PreloginStream::new(stream.compat_write()))
         .await
         .map_err(|_| failure("SQL Server TLS or authentication failed."))
 }

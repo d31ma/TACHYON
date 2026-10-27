@@ -1,6 +1,7 @@
 mod dialect;
 mod drivers;
 mod fylo;
+mod prelogin_stream;
 mod sqlite;
 
 use std::time::Duration;
