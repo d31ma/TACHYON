@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_contracts::{HandlerRequest, HandlerResponse, HttpMethod};
 use tachyon_core::{
@@ -181,12 +180,8 @@ class Handler {
     ];
 
     fn is_available(&self) -> bool {
-        let found = Command::new(self.program)
-            .arg(self.version_flag)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
+        let found =
+            crate::support::program_probe::ProgramProbe::answers(self.program, self.version_flag);
         if !found {
             eprintln!(
                 "skipping {}: {} is unavailable",

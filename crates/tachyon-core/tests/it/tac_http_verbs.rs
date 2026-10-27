@@ -30,10 +30,7 @@ impl HttpVerbProject {
             .iter()
             .find(|(name, _)| *name == program)
             .map_or("--version", |(_, flag)| flag);
-        std::process::Command::new(program)
-            .arg(flag)
-            .output()
-            .is_ok_and(|output| output.status.success())
+        crate::support::program_probe::ProgramProbe::answers(program, flag)
     }
 
     fn copy(from: &Path, to: &Path) {

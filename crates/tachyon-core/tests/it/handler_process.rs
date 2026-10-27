@@ -53,12 +53,7 @@ fn available(program: &str) -> bool {
         "go" => "version",
         _ => "--version",
     };
-    StdCommand::new(program)
-        .arg(version)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
+    crate::support::program_probe::ProgramProbe::answers(program, version)
 }
 
 #[cfg(unix)]

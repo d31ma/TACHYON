@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use tachyon_core::{DevServer, DevServerOptions, ProjectDiscovery};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
@@ -260,12 +259,7 @@ impl SourcesProject {
     const TENANT: &'static str = "X-Tenant: north\r\n";
 
     fn available(&self) -> bool {
-        Command::new(self.program)
-            .arg(self.version_flag)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success())
+        crate::support::program_probe::ProgramProbe::answers(self.program, self.version_flag)
     }
 
     fn write(&self, root: &Path) {

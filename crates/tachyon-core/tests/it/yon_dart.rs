@@ -11,10 +11,8 @@ fn write(root: &std::path::Path, relative: &str, source: &str) {
 }
 
 fn dart_available() -> bool {
-    std::process::Command::new("dart")
-        .arg("--version")
-        .output()
-        .is_ok_and(|output| output.status.success())
+    let found = crate::support::program_probe::ProgramProbe::answers("dart", "--version");
+    crate::support::toolchain::Toolchain::checked("dart", found)
 }
 
 async fn invoke(root: &std::path::Path, method: HttpMethod) -> tachyon_contracts::HandlerResponse {

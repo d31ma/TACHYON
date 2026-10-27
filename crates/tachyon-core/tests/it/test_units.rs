@@ -20,12 +20,7 @@ fn tool_available(program: &str) -> bool {
         "lua" => "-v",
         _ => "--version",
     };
-    let found = std::process::Command::new(program)
-        .arg(version_flag)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let found = crate::support::program_probe::ProgramProbe::answers(program, version_flag);
     crate::support::toolchain::Toolchain::checked(program, found)
 }
 
@@ -146,10 +141,7 @@ async fn a_python_test_unit_runs_its_cases_through_the_supervisor() {
 
 #[tokio::test]
 async fn a_php_test_unit_runs_its_cases_through_the_supervisor() {
-    let found = std::process::Command::new("php-cgi")
-        .arg("--version")
-        .output()
-        .is_ok();
+    let found = crate::support::program_probe::ProgramProbe::answers("php-cgi", "--version");
     if !crate::support::toolchain::Toolchain::checked("php-cgi", found) {
         eprintln!("skipping: php-cgi is unavailable");
         return;
@@ -634,10 +626,7 @@ async fn every_javascript_runtime_runs_a_browser_unit() {
 
 #[tokio::test]
 async fn a_dart_unit_reaches_the_services_its_service_injects() {
-    let found = std::process::Command::new("dart")
-        .arg("--version")
-        .output()
-        .is_ok();
+    let found = crate::support::program_probe::ProgramProbe::answers("dart", "--version");
     if !crate::support::toolchain::Toolchain::checked("dart", found) {
         eprintln!("skipping: dart is unavailable");
         return;

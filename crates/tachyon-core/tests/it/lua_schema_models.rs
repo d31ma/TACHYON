@@ -2,7 +2,6 @@
 
 use crate::support::json_http::JsonHttp;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 struct LuaSchemaModels;
 
@@ -16,13 +15,8 @@ impl LuaSchemaModels {
     const DESCRIBED_CONTROLLER: &'static str = "-- @RequestRoute(\"/described\")\n-- @Public\n---@class DescribedController\nDescribedController = {}\n\n---@return table\n-- @GetRoute\nfunction DescribedController:get_described()\n  return { description = Behaviors.records.OrderInput.description }\nend\n";
 
     fn lua_available() -> bool {
-        let found = Command::new("lua")
-            .arg("-v")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
-        if !found {
+        let found = crate::support::program_probe::ProgramProbe::answers("lua", "-v");
+        if !crate::support::toolchain::Toolchain::checked("lua", found) {
             eprintln!("skipping: lua is unavailable");
         }
         found

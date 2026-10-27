@@ -1,7 +1,6 @@
 #![allow(clippy::expect_used)]
 
 use std::path::Path;
-use std::process::{Command, Stdio};
 
 struct TestUnit {
     extension: &'static str,
@@ -59,12 +58,7 @@ fn available(program: &str) -> bool {
     } else {
         "--version"
     };
-    Command::new(program)
-        .arg(flag)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
+    crate::support::program_probe::ProgramProbe::answers(program, flag)
 }
 
 fn write(root: &Path, relative: &str, source: &str) {

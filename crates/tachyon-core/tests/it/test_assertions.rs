@@ -46,12 +46,7 @@ impl AssertedUnit {
     }
 
     fn answers(program: &str, flag: &str) -> bool {
-        let found = std::process::Command::new(program)
-            .arg(flag)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
+        let found = crate::support::program_probe::ProgramProbe::answers(program, flag);
         crate::support::toolchain::Toolchain::checked(program, found)
     }
 

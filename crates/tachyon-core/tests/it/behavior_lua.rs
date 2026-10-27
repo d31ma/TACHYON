@@ -1,6 +1,5 @@
 #![allow(clippy::expect_used)]
 
-use std::process::{Command, Stdio};
 use tachyon_contracts::{HandlerRequest, HttpMethod};
 use tachyon_core::{
     HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
@@ -38,12 +37,7 @@ impl LuaBehaviors {
 }
 
 fn lua_available() -> bool {
-    let found = Command::new("lua")
-        .arg("-v")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let found = crate::support::program_probe::ProgramProbe::answers("lua", "-v");
     crate::support::toolchain::Toolchain::checked("lua", found)
 }
 
