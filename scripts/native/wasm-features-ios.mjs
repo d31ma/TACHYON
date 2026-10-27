@@ -55,7 +55,7 @@ final class WasmRecorderService {
   static reader = ''
 
   /** @param {string} program @param {string[]} args @param {number} [timeout] */
-  static run(program, args, timeout = 240000) {
+  static tool(program, args, timeout = 240000) {
     const result = spawnSync(program, args, { cwd: this.repository, encoding: 'utf8', timeout, maxBuffer: 32 * 1024 * 1024 })
     assert.equal(result.status, 0, `${program} ${args.join(' ')}: ${result.error ?? ''}${result.stdout}${result.stderr}`)
     return `${result.stdout}${result.stderr}`.trim()
@@ -63,12 +63,12 @@ final class WasmRecorderService {
 
   /** @param {string[]} args */
   static simctl(...args) {
-    return this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args])
+    return this.tool('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args])
   }
 
   /** @param {string[]} args */
   static slowSimctl(...args) {
-    return this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], this.installMilliseconds)
+    return this.tool('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], this.installMilliseconds)
   }
 
   /** @param {string} version */
@@ -82,8 +82,8 @@ final class WasmRecorderService {
     mkdirSync(this.evidence, { recursive: true })
     this.tapper = path.join(root, 'simulator-tap')
     this.reader = path.join(root, 'screenshot-text')
-    this.run('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-framework', 'Foundation', '-framework', 'AppKit', path.join(this.repository, 'scripts/ios/simulator-tap.m'), '-o', this.tapper])
-    this.run('/usr/bin/xcrun', ['swiftc', '-parse-as-library', '-O', path.join(this.repository, 'scripts/ios/screenshot-text.swift'), '-o', this.reader], 600000)
+    this.tool('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-framework', 'Foundation', '-framework', 'AppKit', path.join(this.repository, 'scripts/ios/simulator-tap.m'), '-o', this.tapper])
+    this.tool('/usr/bin/xcrun', ['swiftc', '-parse-as-library', '-O', path.join(this.repository, 'scripts/ios/screenshot-text.swift'), '-o', this.reader], 600000)
     this.deviceSet = process.env.TAC_IOS_DEVICE_SET ?? (this.chosenDevice ? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices') : path.join(root, 'simulator-devices'))
     return this.chosenDevice ? this.useBootedSimulator() : this.bootSimulator()
   }
@@ -114,7 +114,7 @@ final class WasmRecorderService {
     this.bootedVersion = runtime.version
     console.log(`==> booting ${phone.name} with iOS ${runtime.version}`)
     this.simctl('boot', this.device)
-    this.run('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'bootstatus', this.device, '-b'], 600000)
+    this.tool('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'bootstatus', this.device, '-b'], 600000)
   }
 
   static close() {
@@ -128,12 +128,12 @@ final class WasmRecorderService {
   static screen(name) {
     const file = path.join(this.root, `${name}.png`)
     this.simctl('io', this.device, 'screenshot', file)
-    return { file, lines: /** @type {Array<{ text: string, x: number, y: number }>} */ (JSON.parse(this.run(this.reader, [file]))) }
+    return { file, lines: /** @type {Array<{ text: string, x: number, y: number }>} */ (JSON.parse(this.tool(this.reader, [file]))) }
   }
 
   /** @param {number} x @param {number} y */
   static tapAt(x, y) {
-    this.run(this.tapper, [this.deviceSet, this.device, String(x), String(y)])
+    this.tool(this.tapper, [this.deviceSet, this.device, String(x), String(y)])
   }
 
   /** @param {Array<{ text: string, x: number, y: number }>} lines @param {string} label */
@@ -184,7 +184,7 @@ final class WasmRecorderService {
     const output = path.join(project, 'dist/ios')
     const bundle = path.join(output, `${staged.application}.app`)
     const modules = WasmFeaturesFixture.assertWebAssembly(output, path.join(bundle, 'WebBundle'), [this.recorderService])
-    const minimum = this.run('/usr/bin/plutil', ['-extract', 'MinimumOSVersion', 'raw', path.join(bundle, 'Info.plist')])
+    const minimum = this.tool('/usr/bin/plutil', ['-extract', 'MinimumOSVersion', 'raw', path.join(bundle, 'Info.plist')])
     assert.ok(this.bootedVersion.localeCompare(minimum, undefined, { numeric: true }) >= 0, `the app's MinimumOSVersion is ${minimum}, above the booted iOS ${this.bootedVersion}; pick a runtime with TAC_IOS_RUNTIME`)
     this.slowSimctl('install', this.device, bundle)
     try {
