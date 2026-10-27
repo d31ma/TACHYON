@@ -34,6 +34,16 @@ machine contracts have their own, independent major versions.
   integration tests that probed `groovyc`, `kotlinc`, `php`, `dart` or `lua`
   by bare name now probe through `ProgramProbe`.
 
+- The in-app WebAssembly service features gate has an Android driver
+  (MA9, 2026-10-27): `scripts/native/wasm-features-app-test.mjs
+  --target=android` installs each APK on an emulator, reads the probe
+  through the WebView's DevTools socket, clicks the gesture buttons, answers
+  the notification question, closes the share sheet, and checks that every
+  WebAssembly file came from `https://appassets.tachyon.local`. Its 16
+  cells passed on Android 15 and its Java cell on Android 17 (WebView 145).
+  The web-apis fixture now gives `tac.application.permissions` reasons,
+  which Android, macOS and iOS builds need for a granted location.
+
 - In-app WebAssembly service features gate (LX3, 2026-10-27):
   `bun run test:wasm-features-app` (`scripts/native/wasm-features-app-test.mjs`
   and `scripts/native/wasm-features-fixture.mjs`, new) stages the held-clients,
@@ -2196,6 +2206,12 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- Two builds of the same C# or F# WebAssembly services at the same moment no
+  longer fail with TY1605 (`Directory not empty`) (MA9, 2026-10-27). Both
+  staged the shared .NET web cache entry in one `.partial` folder; each build
+  now stages in its own folder, and the second to finish keeps the entry the
+  first one published.
 
 - A C# Tac service whose HTTPClient returns a client model
   (`Task<Models.UserSaved>`) now builds for every native target (LX3,

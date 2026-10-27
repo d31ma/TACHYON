@@ -548,7 +548,6 @@ async fn publish_web_framework(
     )
     .await?;
     let framework = staged.path().join("out/wwwroot/_framework");
-    // Builds in other processes may publish the same key at the same time.
     let partial = cached.with_extension(format!("{}.partial", std::process::id()));
     let _ = std::fs::remove_dir_all(&partial);
     super::host::native_io(std::fs::create_dir_all(&partial), &partial)?;
@@ -559,13 +558,10 @@ async fn publish_web_framework(
             super::host::native_io(std::fs::copy(&path, &target), &target)?;
         }
     }
-    match std::fs::rename(&partial, cached) {
-        Err(_) if cached.is_dir() => {
-            let _ = std::fs::remove_dir_all(&partial);
-            Ok(())
-        }
-        renamed => super::host::native_io(renamed, cached),
-    }
+    let renamed = std::fs::rename(&partial, cached)
+        .or_else(|error| cached.is_dir().then_some(()).ok_or(error));
+    let _ = std::fs::remove_dir_all(&partial);
+    super::host::native_io(renamed, cached)
 }
 
 fn read_web_framework(cached: &Path) -> Result<Vec<(String, Vec<u8>)>, Failure> {

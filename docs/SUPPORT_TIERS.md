@@ -623,6 +623,66 @@ The same day, on the same container:
   under Wayland, and `scripts/linux/dev-loop-native-test.mjs` passed again
   under Xvfb.
 
+### WebAssembly service features in the Android app (2026-10-27, MA9)
+
+MA9 added an Android driver to `scripts/native/wasm-features-app-test.mjs`
+(`--target=android`) and ran it on the Mac's emulator-5554: AVD
+`tachyon-gate` (`system-images;android-35;google_apis;arm64-v8a`, Android
+15, `userdebug`, WebView 124.0.6367.219), with a debug `ty`, Node 26.12.1,
+Playwright 1.62.1, Swift 6.4.1 with its WebAssembly SDK, .NET SDK 10.0.402
+with `wasm-tools` and `wasm-tools-net9`, Dart 3.13.7, TeaVM 0.15.0 on
+OpenJDK 21.0.13 and emsdk 6.0.12. The driver installs the APK, reads the
+probe through the WebView's DevTools socket, clicks the gesture buttons with
+real input events, taps Allow on Android's notification question, closes the
+share sheet with Back, and checks that every WebAssembly file came from
+`https://appassets.tachyon.local`. Checks that call Yon reach `ty serve`
+on the Mac through `adb reverse`. Kotlin and Rust are linked on Android, so
+DocumentTitle has no WebAssembly cell there. This evidence does not promote
+any tier.
+
+| Check | Languages that passed in the Android app | What the probe saw |
+| --- | --- | --- |
+| held-clients | Swift, C# | a held socket client's welcome and echo, and a held stream client's ticks, from Yon |
+| yon-http | Swift, C# | a WebAssembly `HTTPClient` read a Yon route on `tac.yon.origin`; for Swift, a `Cached` read, a `ClearCache` POST and a fresh read, and a Setup's http adapter answering inside the app |
+| web-apis | Swift, C# | no user action before a click and the clipboard refusal; Clock, SecureRandom and Preferences; replay listeners for connectivity and color scheme; a clipboard write and read, `NotificationPermissionChanged` (granted) and `ShareFinished` from clicks |
+| cached-client | Swift, C# | a second read gave the cached stamp |
+| async-listener | Swift, C#, F# | a signal-driven save reached the listing service: `["Ada","Lin"]` |
+| page-program | Swift, Dart, C#, F#, C++, and Java on Android 17 | two services of one page read one program: the same identity, both counts at 1, and the reader's Store found the writer's record |
+
+The first run of the 16 cells on Android 15 passed 15 in 12 min 43 s. The C#
+yon-http cell failed with TY1605 (`Directory not empty`), because an iOS
+run of the same gate built the same C# services at the same moment into the
+shared .NET web cache. Each build now stages its cache entry in its own
+folder, and a lost race is fine once the entry exists; the cell then passed.
+The web-apis fixture now gives `tac.application.permissions` reasons for
+location and notifications, because Android, macOS and iOS builds refuse a
+granted location (and, on Android, notifications) without one.
+
+The same day, on the same emulator:
+
+- `TAC_ANDROID_SERVICE_LANGUAGES=dart,rb,lua,hpp,fs
+  scripts/android/page-services-test.mjs`: Dart, Ruby, Lua, C++ and F#
+  page services answered a click and a method with an argument
+  (`2 in the basket`, `2 items`), each loading its WebAssembly from
+  `https://appassets.tachyon.local`. The largest modules were 46,850 bytes
+  (Dart), 1,101,033 (Ruby), 174,238 (Lua), 77,943 (C++) and 7,207,788
+  (F#, `dotnet.native.wasm`).
+- `TAC_YON_SERVICES=rust scripts/native/yon-reach-test.mjs
+  --target=android`: the page held the linked Rust services' stream and
+  socket clients and delivered their messages, and the page and a linked Rust
+  HTTP client reached Yon.
+- `TAC_ANDROID_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
+  --check=shared-setup --target=android`: two linked Rust services of one
+  page read one Setup identity and a count of 1. `ty bundle` writes to
+  `TAC_DIST_PATH` when it is set, so the gate needs it unset.
+
+Java needs WebView 137 (JF1). On a new AVD from
+`system-images;android-37.0;google_apis_playstore;arm64-v8a` (Android 17,
+API 37, a `user` build, WebView 145.0.7632.218),
+`TAC_ANDROID_SERVICE_LANGUAGES=java scripts/android/page-services-test.mjs`
+passed, and so did the Java page-program cell of the in-app gate. No floor
+changed.
+
 ### Linux desktop stand-ins (2026-10-24, LX1)
 
 LX1 ran the Linux desktop services, a Wayland session and a root package
@@ -1389,7 +1449,9 @@ All runs were in an x86_64 Ubuntu 24.04 cloud container. A browser without
 `a_java_service_runs_in_the_page_as_webassembly` checks it with a
 `WebAssembly.validate` that refuses the probe, because Node 22 runs
 `exnref`. A packaged app built at the new floors has not been run: the iOS
-and macOS page-service gates now expect 18.4 and 15.4 for Java.
+and macOS page-service gates now expect 18.4 and 15.4 for Java. On
+2026-10-27 (MA9) a Java page service and a Java page program ran in the
+Android app on an Android 17 emulator with WebView 145.
 
 ### Dart web services need the JavaScript exception tag (2026-10-25, MA5)
 
