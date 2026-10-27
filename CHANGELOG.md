@@ -34,6 +34,25 @@ machine contracts have their own, independent major versions.
   integration tests that probed `groovyc`, `kotlinc`, `php`, `dart` or `lua`
   by bare name now probe through `ProgramProbe`.
 
+- In-app WebAssembly service features gate (LX3, 2026-10-27):
+  `bun run test:wasm-features-app` (`scripts/native/wasm-features-app-test.mjs`
+  and `scripts/native/wasm-features-fixture.mjs`, new) stages the held-clients,
+  Yon HTTP, web-apis, DocumentTitle, cached-client, async-listener and
+  page-program fixtures into a packaged app, for each language that runs as
+  WebAssembly on the target, and reads one probe on the page:
+  `Probe passed` or `Probe failed`, with one `ok -` or `not ok -` line per
+  step. A host without a readable page can record the proof through a
+  `wasmRecorder` service instead. Only the Linux driver exists so far; it
+  clicks the browser API buttons with a real X pointer, because an AT-SPI
+  action is not a user gesture.
+- `scripts/native/async-listener-app-test.mjs --check=shared-setup
+  --target=linux` runs two linked Rust services that share one Setup in the
+  Linux app (LX3, 2026-10-27).
+- `scripts/linux/dev-loop-native-test.mjs` takes `TAC_LINUX_DISPLAY=wayland`
+  and then runs `ty preview --target linux` in a headless mutter session. It
+  shares that session with `scripts/linux/yon-origin-native-test.mjs`
+  through `scripts/linux/linux-display-session.mjs` (new) (LX3, 2026-10-27).
+
 - Offline runs for every Tac service language (2026-10-25):
   `bun run test:wasm-offline-browser` (`scripts/wasm-offline-browser-gate.mjs`,
   new) bundles the page-program fixture of each language, serves it with
@@ -2177,6 +2196,14 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- A C# Tac service whose HTTPClient returns a client model
+  (`Task<Models.UserSaved>`) now builds for every native target (LX3,
+  2026-10-27). ADR 0103 supports these task members, but the native build's
+  service check lowered C# without the model table and refused the client
+  with TY1308 (`C# declared WebCall methods require async
+  Task<BehaviorJSON>`). The check now uses the same model-aware lowering as
+  the web build, and an unknown model is still refused.
 
 - Release builds on Windows now find Binaryen's `wasm-opt` beside
   Emscripten (BR2, 2026-10-25). emsdk's launcher there is `emcc.exe` (or

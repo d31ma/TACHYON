@@ -232,7 +232,7 @@ Content-Security-Policy
   honored: the native host policy
 
 reaching Yon
-  adapted: The Linux app's pages load from tachyon://app, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages and linked Rust services reach the Yon at tac.yon.origin, which lists tachyon://app in server.origins, run under Xvfb and on WSL by scripts/linux/yon-origin-native-test.mjs (NET4, RL1).
+  adapted: The Linux app's pages load from tachyon://app, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages and linked Rust services reach the Yon at tac.yon.origin, which lists tachyon://app in server.origins, run under Xvfb and on WSL by scripts/linux/yon-origin-native-test.mjs (NET4, RL1). WebAssembly Swift, Kotlin and C# services reach it through HTTPClient in the Linux app too (scripts/native/wasm-features-app-test.mjs, LX3).
 
 natively linked service languages
   honored: Rust services are linked into the app; other languages run in the page

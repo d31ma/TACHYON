@@ -568,6 +568,61 @@ This evidence does not promote any tier.
 On WSL the first page answered about 52 s after launch (the AT-SPI join
 waits on the portal), against under 2 s in the cloud.
 
+### WebAssembly service features in the Linux app (2026-10-27, LX3)
+
+`scripts/native/wasm-features-app-test.mjs` (new) stages the
+browser-languages fixtures into a packaged app for each language that runs as
+WebAssembly on the target, and reads one probe on the page
+(`scripts/native/wasm-features-fixture.mjs`). LX3 wrote its Linux driver and
+ran it in an x86_64 Ubuntu 24.04.5 cloud container with GTK 4.14.5,
+WebKitGTK 2.52.6 and libsoup 3.4.4 under Xvfb, driven through AT-SPI, with
+Swift 6.3.3, Kotlin 2.1.10, .NET 10.0.302, Dart 3.13.1, TeaVM 0.15.0 and
+emsdk 6.0.10. Checks that call Yon run against `ty serve` on a free local port
+named in `tac.yon.origin`. This evidence does not promote any tier.
+
+| Check | Languages that passed in the Linux app | What the probe saw |
+| --- | --- | --- |
+| held-clients | Swift, Kotlin, C# | a held socket client's welcome and echo, and a held stream client's ticks, from Yon |
+| yon-http | Swift, Kotlin, C# | a WebAssembly `HTTPClient` read a Yon route on `tac.yon.origin`; for Swift and Kotlin, a `Cached` read, a `ClearCache` POST and a fresh read, and a Setup's http adapter answering inside the app |
+| web-apis | Swift, Kotlin, C# | no user action before a click and the clipboard refusal; Clock, SecureRandom and Preferences; replay listeners for connectivity and color scheme; a clipboard write and read, `NotificationPermissionChanged` (granted) and `ShareFinished` from real pointer clicks |
+| document-title | Kotlin | `DocumentTitle` set by the first owner and then the second |
+| cached-client | Swift, Kotlin, C# | a second read gave the cached stamp |
+| async-listener | Swift, Kotlin, C#, F# | a signal-driven save reached the listing service: `["Ada","Lin"]` |
+| page-program | Swift, Kotlin, Java, Dart, C#, F#, C++ | two services of one page read one program: the same identity, and both counts at 1 |
+
+The last full run of all 24 cells passed 23. The
+Kotlin held-clients cell failed when a streaming page node vanished while the
+probe read it; the verdict step now reads again after that error, and all
+three held-clients cells then passed. An AT-SPI `do_action` is not a
+user gesture in WebKitGTK, so the driver clicks the browser API buttons with
+`xdotool` at their AT-SPI screen position.
+
+The C# held-clients, yon-http, async-listener and page-program cells first
+failed to build for `--target linux` with TY1308 (`C# declared WebCall methods
+require async Task<BehaviorJSON>`), because the native build's service check
+lowered C# without the model table. ADR 0103 supports `Task<Model>` task
+members on native targets; the check now lowers C# as the web build does, so
+`tests/fixtures/tac-csharp-task-models` builds for all five native targets.
+
+The same day, on the same container:
+
+- `scripts/native/async-listener-app-test.mjs --target=linux
+  --check=shared-setup` ran two linked Rust services of one page that share
+  one Setup in the Linux app: the reader saw the writer's identity and a count
+  of 1. The Rust Setup builds its identity from the clock and process id,
+  because linked Rust cannot use SecureRandom (TY1317).
+- `TAC_LINUX_DISPLAY=wayland scripts/linux/dev-loop-native-test.mjs` passed
+  under headless mutter 46.2 on Wayland: a Yon call reached the development
+  server, a style edit arrived without a reload, a page edit reached the app,
+  a manifest edit reopened it, and stopping `ty preview` closed it. Under
+  Wayland the probe reads the web process's accessibility tree, because GTK
+  does not embed it in the window's tree there.
+- After their display session moved into
+  `scripts/linux/linux-display-session.mjs`,
+  `scripts/linux/yon-origin-native-test.mjs` passed again under Xvfb and
+  under Wayland, and `scripts/linux/dev-loop-native-test.mjs` passed again
+  under Xvfb.
+
 ### Linux desktop stand-ins (2026-10-24, LX1)
 
 LX1 ran the Linux desktop services, a Wayland session and a root package
@@ -1142,7 +1197,7 @@ origin (TY1601). This evidence does not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: libsoup fetch in the `tachyon://app` scheme handler; the app starts as a child process | on 2026-10-24 `scripts/linux/dev-loop-native-test.mjs` passed with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 under Xvfb in an x86_64 Ubuntu 24.04 cloud container, driven through AT-SPI: a Yon call reached the development server, a component CSS edit arrived while the page kept its state, a component HTML edit appeared, a manifest edit rebuilt and reopened the app, and stopping `ty preview` closed it. The same day it passed on WSL Ubuntu 24.04.5 (aarch64, WebKitGTK 2.52.6) on the Surface. Not run: Wayland, a Linux desktop |
+| Linux WebKitGTK | yes: libsoup fetch in the `tachyon://app` scheme handler; the app starts as a child process | on 2026-10-24 `scripts/linux/dev-loop-native-test.mjs` passed with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 under Xvfb in an x86_64 Ubuntu 24.04 cloud container, driven through AT-SPI: a Yon call reached the development server, a component CSS edit arrived while the page kept its state, a component HTML edit appeared, a manifest edit rebuilt and reopened the app, and stopping `ty preview` closed it. The same day it passed on WSL Ubuntu 24.04.5 (aarch64, WebKitGTK 2.52.6) on the Surface. On 2026-10-27 (LX3, above) it passed under headless mutter 46.2 on Wayland with `TAC_LINUX_DISPLAY=wayland`. Not run: a Linux desktop |
 | macOS WKWebView | yes: `URLSession` fetch in the `tachyon-app://bundle` scheme handler; the app starts as a child process | on 2026-10-24 `scripts/native/dev-loop-macos-test.mjs` passed on macOS 26.6.2 (Apple M4, Xcode 27.1), reading the page through the Accessibility API: the same steps as Linux, with the app reopened after the manifest edit and closed when `ty preview` stopped. Not run: an Intel Mac |
 | iOS WKWebView | yes: the same Swift fetch; the app is installed and launched with `xcrun simctl` | on 2026-10-24 `scripts/ios/dev-loop-test.mjs` passed twice on an iOS 26.5 simulator (Xcode 27.1), reading the page by OCR of simulator screenshots: the same steps, with the app reinstalled after the manifest edit and ended when `ty preview` stopped. Not run: a device |
 | Android WebView | yes: `HttpURLConnection` fetch in `shouldInterceptRequest`, `adb reverse` for the port, `adb install -r` and `am start` | on 2026-10-24 the generated preview `MainActivity.java` compiled with `javac` against `android.jar` (API 35), AndroidX WebKit 1.14.0 and AndroidX Core in the cloud. The same day `scripts/android/dev-loop-test.mjs` passed on an API 35 emulator on the Mac, reading the page by OCR of screen captures: the same steps over `adb reverse`, with the app reinstalled after the manifest edit, and force-stopped with the port forward removed when `ty preview` stopped. Not run: a device |
