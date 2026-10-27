@@ -683,6 +683,59 @@ API 37, a `user` build, WebView 145.0.7632.218),
 passed, and so did the Java page-program cell of the in-app gate. No floor
 changed.
 
+### WebAssembly service features in the iOS app (2026-10-27, MA8)
+
+MA8 added an iOS driver to `scripts/native/wasm-features-app-test.mjs`
+(`--target=ios`, `scripts/native/wasm-features-ios.mjs`) and ran it on the
+Mac's iOS 26.5 simulator (iPhone 17 Pro, Xcode 27.1) with a debug `ty` from
+branch `d24ede56`. The driver builds the app with `ty build --target ios`,
+checks that no service of the check is linked into it, installs and launches
+it on one simulator, and links one Swift `wasmRecorder` service of its own
+that writes the probe's verdict into the app's `tmp` folder. It reads the
+simulator screen to tap the gesture buttons, taps Allow on the notification
+question and closes the share sheet. With `TAC_IOS_WASM_VERDICT=screen` it
+links nothing and reads `Probe passed` and the probe's lines from the screen.
+Checks that call Yon reach `ty serve` on the Mac at `127.0.0.1`. Swift and
+Rust are linked on iOS, so they have no cell here. This evidence does not
+promote any tier.
+
+| Check | Languages that passed in the iOS app | What the probe saw |
+| --- | --- | --- |
+| held-clients | Kotlin, C# | a held socket client's welcome and echo, and a held stream client's ticks, from Yon |
+| yon-http | Kotlin, C# | a WebAssembly `HTTPClient` read a Yon route on `tac.yon.origin` from `tachyon-app://bundle`; for Kotlin, a `Cached` read, a `ClearCache` POST and a fresh read, and a Setup's http adapter answering inside the app |
+| web-apis | Kotlin, C# | no user action before a click and the clipboard refusal; Clock, SecureRandom and Preferences; replay listeners for connectivity and color scheme; a clipboard write and read from taps, `NotificationPermissionChanged` (granted) and `BrowserCallFailed Share was cancelled.` after the share sheet was closed |
+| document-title | Kotlin | `DocumentTitle` set by the first owner and then the second |
+| cached-client | Kotlin, C# (screen verdict) | a second read gave the cached stamp |
+| async-listener | Kotlin, C#, F# | a signal-driven save reached the listing service: `["Ada","Lin"]` |
+| page-program | Kotlin, Java, Dart, C#, F#, C++ | two services of one page read one program: the same identity, both counts at 1, and the reader's Store found the writer's record |
+
+The final run with the recorder passed 17 of the 18 cells in 10 min 11 s. The
+C# cached-client cell's probe passed on screen, but the linked Swift
+`wasmRecorder` service never started, so no verdict was written, in every
+run. With `TAC_IOS_WASM_VERDICT=screen` the C# cached-client and yon-http
+cells both passed. Before the yon-http probe waited for its button to
+render, the Kotlin and C# yon-http cells failed now and then with
+`no button "Ask Yon"`; that was the probe's race, not the app.
+
+Open finding: on iOS, a page whose C# client reads through a C# Setup's http
+adapter and that also uses a linked Swift service never started the Swift
+service. A component with `hydrate="load"` that shows the Swift service's
+field did not mount, and the device log showed no JavaScript or .NET error
+and a single navigation. The C# page-program cell, which also has a C# Setup,
+recorded through the same Swift service. No framework change was made.
+
+The same day, on the same simulator:
+
+- `TAC_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
+  --check=shared-setup --target=ios`: two linked Rust services of one page
+  read one Setup identity and a count of 1.
+- The Java and Dart page-program apps were built at `MinimumOSVersion` 18.4
+  and ran on iOS 26.5. An iOS 18.4 runtime could not be fetched: the
+  developer downloads page lists simulator runtimes up to 18.2 for this
+  account, and Xcode 27.1 answers `xcodebuild -downloadPlatform iOS
+  -buildVersion 18.4` (and `22E238`) with `iOS 18.4 is not available for
+  download.` The 18.4 floor itself has not run.
+
 ### Linux desktop stand-ins (2026-10-24, LX1)
 
 LX1 ran the Linux desktop services, a Wayland session and a root package
@@ -1305,7 +1358,9 @@ Not covered by these runs:
   `applicationWillTerminate` nor a Swift `@OnStop` runs. Ending the app from
   the app switcher does run them (MA4, below).
 - An iOS 18.4 runtime: the 18.4 floor of Java (JF1) and Dart (MA5) has not
-  run. The 17.4 and 18.2 floors ran in MA5 (below).
+  run. The 17.4 and 18.2 floors ran in MA5 (below). Java and Dart apps built
+  at 18.4 ran on iOS 26.5, and Xcode 27.1 offers no 18.4 runtime (MA8,
+  "WebAssembly service features in the iOS app" above).
 - iOS shows no app reason in the notification prompt, so a manifest reason
   for notifications is not displayed there.
 - A physical device and a signed install stay owed. Universal links ran on the
@@ -1438,7 +1493,7 @@ and Kotlin keep theirs. This evidence does not promote any tier.
 | Firefox | 120 | 131 | SpiderMonkey shell: 130.0 refused it, 131.0 loaded it |
 | Safari | 18.2 | 18.4 | MDN browser-compat-data (`webassembly.exceptionsFinal`); not run |
 | WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Ubuntu and Debian archives: 2.46.0 and 2.46.6 refused it, 2.48.1, 2.48.6, 2.50.4 and 2.52.6 loaded it |
-| iOS app | 18.2 | 18.4 | follows Safari; `system_floor` unit tests only |
+| iOS app | 18.2 | 18.4 | follows Safari; `system_floor` unit tests; an app built at 18.4 ran on iOS 26.5 (MA8); no 18.4 runtime could be fetched |
 | macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests; an app built at 15.4 ran on macOS 27.2 (MA7) |
 | Windows app (WebView2) | 119.0 | 137.0 | follows Chrome; `system_floor` unit tests only |
 | Android app | API level 26, note names WebView 119 | API level 26, note names WebView 137 | follows Chrome; `system_floor` unit tests only |
@@ -1467,7 +1522,7 @@ it. Kotlin keeps its floors. This evidence does not promote any tier.
 | Firefox | 120 | 131 | SpiderMonkey shell: 120.0, 128.0 and 130.0 have no `JSTag` and refused the module at link; 131.0 ran it |
 | Safari | 18.2 | 18.4 | the iOS 18.2 simulator has no `JSTag`; 18.4 is where WebKit's exception references work (Java's floor) shipped; an 18.4 runtime has not run |
 | WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Debian archive through its C API: 2.46.6 has no `JSTag`, 2.48.1 has it and compiles the module |
-| iOS app | 18.2 | 18.4 | the 18.2 run above; `system_floor` unit tests |
+| iOS app | 18.2 | 18.4 | the 18.2 run above; `system_floor` unit tests; an app built at 18.4 ran on iOS 26.5 (MA8); no 18.4 runtime could be fetched |
 | macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests; an app built at 15.4 ran on macOS 27.2 (MA7) |
 | Windows app (WebView2) | 119.0 | 119.0 | follows Chrome |
 | Android app | API level 26, note names WebView 119 | unchanged | follows Chrome |

@@ -74,6 +74,18 @@ machine contracts have their own, independent major versions.
   linked Rust services shared one Setup in the macOS app.
 - `scripts/test-managed-storage.mjs --drivers=sqlserver` runs one driver's
   real contract alone (MA7, 2026-10-27).
+- iOS driver for the in-app WebAssembly features gate (MA8, 2026-10-27):
+  `scripts/native/wasm-features-app-test.mjs --target=ios`
+  (`scripts/native/wasm-features-ios.mjs`) builds the app, runs it on one
+  simulator (`TAC_IOS_DEVICE` and `TAC_IOS_RUNTIME` pick it), taps the
+  gesture buttons and the system prompts from screen text, and takes the
+  verdict from a linked Swift recorder or, with
+  `TAC_IOS_WASM_VERDICT=screen`, from the screen. All 18 Kotlin, C#, F#,
+  Java, Dart and C++ cells passed on the iOS 26.5 simulator; the C#
+  cached-client cell passed only with the screen verdict, because a linked
+  Swift service on that page never started. Hosts may now give the gate a
+  `close()` step and recorder files. The yon-http probe waits for its button
+  before it presses it.
 - `scripts/linux/dev-loop-native-test.mjs` takes `TAC_LINUX_DISPLAY=wayland`
   and then runs `ty preview --target linux` in a headless mutter session. It
   shares that session with `scripts/linux/yon-origin-native-test.mjs`
