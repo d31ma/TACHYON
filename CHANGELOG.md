@@ -1926,7 +1926,7 @@ machine contracts have their own, independent major versions.
   now prints its note. No run changed.
 
 - Stale docs fixed after iteration 5 (DOC6, 2026-10-27). ADR 0052 gets an
-  amendment for the Windows manifest that SW4 found has no effect, and the
+  amendment for the Windows manifest that SW4 found had no effect until WM1, and the
   `[26.31.06]` entry that said it was published beside the executable and
   `docs/PHASE_5_EVIDENCE.md` point at it. ADR 0089's status line leaves out
   the macOS JavaScript FilePicker field, which has not run in the app.
