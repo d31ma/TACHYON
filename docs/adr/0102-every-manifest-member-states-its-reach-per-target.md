@@ -217,3 +217,24 @@ On 2026-10-25 (MA3) the macOS location prompt was allowed and a position
 reached the page through `PositionFound`
 (`scripts/native/geolocation-macos-test.mjs`), so the macOS geolocation
 cell is `honored` again.
+
+## Amendment (2026-10-27): cells that later runs moved, and two Windows cells (DOC5)
+
+This amendment supersedes "Still `runOwed` on macOS: ... `tac.dotnet` (an
+ahead-of-time C# build needs a signed `--release` build)" in the RM1
+amendment and "`tac.dotnet` stays `runOwed`" in the RM1 notifications
+amendment. Both stay as the history of this decision.
+
+- `tac.dotnet` on macOS is `honored`. On 2026-10-25 (MA6) a C# page service
+  with `tac.dotnet.aot` ran in both slices of a notarized universal
+  `--release` app (ADR 0104, MA6 amendment).
+- The Windows cells the JS1 amendment narrowed are `honored` again: window
+  controls (a linked Rust caller in SW1, a WebAssembly Swift caller in SW3),
+  the file picker (the same two callers), and background and foreground (a
+  linked C# listener in SW1), all inside WebView2 on the signed-in desktop.
+- Windows `background_color` and reaching Yon move from `honored` to
+  `adapted`, with the runs kept in their notes. Windows takes the same
+  `#rgb` and `#rrggbb` forms as the other native targets, and its pages load
+  from `https://tachyon.local` and reach Yon across origins as theirs do
+  from their own origins. The same behavior now has the same state word on
+  every native target. No run changed.

@@ -1,6 +1,6 @@
 # ADR 0089: Native Capabilities Are Activation-Owned Service Providers
 
-- Status: Accepted. The FilePicker opens the platform picker on every native target: `NSOpenPanel` on macOS, `IFileOpenDialog` on Windows and GTK's file dialog on Linux (2026-10-19 amendments), and the document picker on iOS and Android (2026-10-24 amendment). WebAssembly services reach it through the page (2026-10-24 amendment). A browser tab answers `unsupported`. Runs still owed: a linked Rust field on macOS, and linked Rust and WebAssembly Swift fields from a WebView2 page (2026-10-25 amendment).
+- Status: Accepted. The FilePicker opens the platform picker on every native target: `NSOpenPanel` on macOS, `IFileOpenDialog` on Windows and GTK's file dialog on Linux (2026-10-19 amendments), and the document picker on iOS and Android (2026-10-24 amendment). WebAssembly services reach it through the page (2026-10-24 amendment). A browser tab answers `unsupported`. Every caller has run in the app on each native target (2026-10-27 amendments).
 - Date: 2026-09-30
 - Relates to ADR 0025 (NeedsAll), ADR 0030 (native services), ADR 0065 (page APIs), ADR 0087 (WindowControls)
 
@@ -458,7 +458,9 @@ stay as the history of this decision.
 `docs/SUPPORT_TIERS.md` ("File picker on native hosts") holds the runs, and
 the support table marks `tac.nativeCapabilities` `runOwed` on macOS and
 Windows until the owed callers run (ADR 0102, JS1 amendment). macOS is
-`honored` again since the MA1 run of 2026-10-25.
+`honored` again since the MA1 run of 2026-10-25. (Superseded: Windows is
+`honored` again too, since the SW3 and SW1 runs; see the 2026-10-27
+amendment.)
 
 ## Amendment (2026-10-25): the Linux file dialog under Wayland (LX2)
 
@@ -470,3 +472,20 @@ reaches its 30-second limit. `linux_generated_host_opens_the_gtk_file_dialog_for
 then passed through GTK's own dialog in the headless mutter 46.2 session of
 `scripts/linux/compositor-test.sh` in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64). The portal's chooser under
 Wayland and a Linux desktop are not run.
+
+## Amendment (2026-10-27): FilePicker status after MA1, MA7, SW1 and SW3 (DOC5)
+
+This amendment supersedes the status line as it read until 2026-10-27
+("Runs still owed: a linked Rust field on macOS, and linked Rust and
+WebAssembly Swift fields from a WebView2 page") and the last sentence of the
+2026-10-25 status amendment, which named only macOS as `honored` again. They
+stay as the history of this decision.
+
+The three runs that the status line named have happened: a linked Rust field
+chose, read and cancelled in `NSOpenPanel` on macOS 26 (MA1), and a
+WebAssembly Swift field (SW3) and a linked Rust field (SW1) did the same in
+`IFileOpenDialog` from a WebView2 page on the signed-in Windows desktop
+(`docs/SUPPORT_TIERS.md`, "File picker on native hosts"). The support table
+marks `tac.nativeCapabilities` `honored` on macOS and on Windows. On
+2026-10-27 (MA7) a linked Swift field chose, read and cancelled in
+`NSOpenPanel` too, as the macOS row of the 2026-10-25 table now says.

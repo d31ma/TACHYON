@@ -122,3 +122,26 @@ On macOS 27.2 (Apple Silicon), `scripts/native/page-services-macos-test.mjs`
 checked that a component `tac.css` rule applies inside its component and not
 to a nested component or to the same element in another component, by
 computed style in the packaged WKWebView app.
+
+## Amendment (2026-10-27): the Java and Dart floors, and the iOS 17.4 style run (DOC5)
+
+This amendment supersedes "Dart, Kotlin and Java web services still raise it
+to 18.2" in decision 1 and "Dart, Kotlin and Java web services still raise it
+to 119.0" in decision 2. They stay as the history of this decision. Two later
+changes raised the floors for Java and Dart (`target_floor.rs`):
+
+| Web service language | iOS | macOS | WebView2 Runtime | WebKitGTK | Why |
+| --- | --- | --- | --- | --- | --- |
+| Kotlin | 18.2 | 15.2 | 119.0 | 2.46 | WebAssembly garbage collection (ADR 0033) |
+| Java | 18.4 | 15.4 | 137.0 | 2.48 | exception references, `exnref` (JF1, ADR 0083 amendment of 2026-10-25) |
+| Dart | 18.4 | 15.4 | 119.0 | 2.48 | `WebAssembly.JSTag` (MA5, ADR 0033 amendment of 2026-10-25) |
+
+The base floors of this decision (iOS 17.4 and the WebView2 Runtime 118.0)
+stay for apps without those services.
+
+On 2026-10-25 (MA5) the iOS 17.4 floor ran on the iOS 17.4 simulator runtime:
+in `scripts/ios/page-services-test.mjs` the Go and linked Rust apps kept a
+component `tac.css` rule inside their component (`rgb(10, 20, 30)` inside,
+`rgb(0, 0, 0)` outside), and a Kotlin app at 18.2 was refused at install
+(`docs/SUPPORT_TIERS.md`, "Floor runtimes"). The macOS style run is the MA7
+amendment above.

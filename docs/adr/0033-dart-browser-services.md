@@ -277,7 +277,7 @@ CSS `@scope`, which component styles compile to. The table now reads:
 | macOS | 13.0 (a note names Safari 17.4 for component styles) | 15.2 |
 | Android | API level 26 (a note names Android System WebView 118 for component styles) | API level 26 |
 | Windows | WebView2 118.0 | WebView2 119.0 |
-| Linux | WebKitGTK 2.40 | WebKitGTK 2.46 |
+| Linux | WebKitGTK 2.40 (a note names WebKitGTK 2.44 for component styles since GP1, ADR 0108) | WebKitGTK 2.46 |
 
 A declared `tac.application.minimumSystem.ios` below 17.4, or
 `tac.application.minimumSystem.windows` below 118.0, stops the build with
@@ -290,7 +290,8 @@ column above. TeaVM writes a Java `catch` as the WebAssembly `try_table`
 instruction, which needs exception references (`exnref`) as well as WasmGC.
 The reasons and the measurements are in the
 [ADR 0083 amendment of 2026-10-25](0083-java-services-reach-the-web-as-webassembly.md#amendment-2026-10-25-java-services-also-need-webassembly-exception-references).
-Dart and Kotlin keep the column above.
+Dart and Kotlin keep the column above. (Dart moved later the same day; see
+the next amendment.)
 
 | Target | Floor with a Java web service |
 | --- | --- |

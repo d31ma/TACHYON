@@ -279,3 +279,16 @@ app under Xvfb, in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.0
 cleared a plain page field and kept the stored one, and the next call
 counted on from it. The fixture is `PageServicesFixture.stageStoredField`,
 so the macOS and Windows gates can run the same check.
+
+## Amendment (2026-10-27): the stored-field check on macOS and Windows (DOC5)
+
+The check the LX2 amendment offered to the macOS and Windows gates has run
+on both (`docs/SUPPORT_TIERS.md`):
+
+- macOS (MA3, 2026-10-25): in the packaged app, a `@LocalState` field set by
+  a Swift method was read after `location.reload()` and after a quit and
+  restart.
+- Windows (SW2, 2026-10-25): `scripts/windows/page-services-native-test.mjs`
+  ran inside WebView2 on the signed-in desktop; a linked Rust service's
+  `#[LocalState]` field, set by its own method, still read `Visits 1` after
+  a page reload, while a JavaScript field went back to `fresh`.

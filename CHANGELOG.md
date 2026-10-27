@@ -200,7 +200,8 @@ machine contracts have their own, independent major versions.
   caller that renamed and resized the window, and a Swift FilePicker field
   that chose, read and cancelled through `IFileOpenDialog`. The Windows
   window controls and file picker cells now owe only their linked Rust
-  callers (SW1).
+  callers (SW1). (Superseded: SW1 ran those callers, and both cells are
+  `honored`; see the SW1 entry above.)
 
 - Page checks on macOS, iOS and Android (MA3, 2026-10-25): the page-check
   gates now keep a `@SessionState` field across a navigation (the shared
@@ -303,7 +304,9 @@ machine contracts have their own, independent major versions.
   Other color forms keep the system colors and the build prints a note. The
   macOS host test passed on macOS 26.6.2, the Linux run under Xvfb, and the
   Windows window paint check with MSVC on Windows 11 ARM64 and under Wine;
-  the WebView2 backdrop on a signed-in desktop is still owed.
+  the WebView2 backdrop on a signed-in desktop is still owed. (Superseded:
+  SW2 sampled the WebView2 page backdrop on the signed-in Surface; see the
+  SW2 entry above.)
 
 - Linked Rust on macOS and iOS (LR1, 2026-10-24): the Apple hosts now run
   linked Rust tasks. A wake resumes them on the main queue, and a linked
@@ -356,6 +359,9 @@ machine contracts have their own, independent major versions.
   (`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). A retry, with the prompt
   allowed by hand, showed a notification from a page, so macOS notifications
   are `honored` too. An ahead-of-time C# service stays `runOwed`.
+  (Superseded: MA6 ran an ahead-of-time C# service in a notarized universal
+  `--release` app, and macOS `tac.dotnet` is `honored`; see the MA6 entry
+  above.)
 - Android emulator runs of the owed rows (RM3). `window-controls-test.mjs`
   now also builds an app that grants all six controls and checks maximize and
   fullscreen from a Kotlin service, fullscreen and close from the page, and a
@@ -439,7 +445,10 @@ machine contracts have their own, independent major versions.
   amendments). (Superseded: the Windows app held a linked C# service's
   stream and socket from the page on the signed-in desktop in SD1; the Swift
   runs in the macOS and iOS apps and the Kotlin run in the Android app are
-  still owed.)
+  still owed. Later superseded again: `TAC_YON_SERVICES=swift
+  yon-reach-test.mjs` ran in the macOS app and the iOS simulator in MA1, and
+  `TAC_YON_SERVICES=kotlin` in the Android app on the emulator in MA2, so
+  every app has run its linked companion's clients.)
 - Linux desktop stand-in runs (LX1). `scripts/linux/desktop-services-test.sh`
   runs the browser API host test against GeoClue (a GPS fix from an NMEA
   socket, on a private system bus) and the dunst notification server, so the
@@ -540,7 +549,8 @@ machine contracts have their own, independent major versions.
   permission requests itself: it allows geolocation and clipboard reads only
   for the app's own pages and only when `tac.browserApis` grants them, and
   denies every other web view permission. Tested under Wine; the WebView2
-  desktop run is owed.
+  desktop run is owed. (Superseded: `scripts/windows/browser-apis-test.ps1`
+  ran inside WebView2 on the signed-in desktop in SD1.)
 - A Windows app with `"titleBar": "integrated"` now lets the page reach the
   top edge of the window (ADR 0098 amendment). Before, Windows kept the
   standard title bar and printed a note. The host extends the DWM frame
@@ -587,7 +597,8 @@ machine contracts have their own, independent major versions.
   The page verbs `tray.set`, `window.show`, `window.hide` and `app.quit`
   stay removed. The Linux host was run against a test watcher and the
   Windows host under Wine, and the macOS host on a signed-in Mac desktop;
-  the Windows desktop run is owed.
+  the Windows desktop run is owed. (Superseded: the Windows tray ran on the
+  signed-in desktop in SD1, ADR 0107.)
 
 - Python Tac services can ask for a converter (ADR 0093 amendment). A
   `@converter` `Protocol` class in `client/converters/` is now a provider
@@ -769,7 +780,10 @@ machine contracts have their own, independent major versions.
   runs `scripts/linux/yon-origin-native-test.mjs`, which reaches a local Yon
   from the packaged app with JavaScript and with linked Rust services.
   (Superseded: linked Rust services held their stream and socket in the
-  macOS app and the iOS simulator in LR1; the Windows app is still owed.)
+  macOS app and the iOS simulator in LR1; the Windows app is still owed.
+  Later superseded again: `scripts/windows/yon-reach.ps1` held a linked Rust
+  service's stream and socket inside WebView2 on the signed-in desktop in
+  SW1, so every native app has run them.)
 - `ty bundle --target linux --release` builds an AppImage and a `.deb` in
   `dist/linux/` (ADR 0104 amendment). Both install the app in
   `/usr/lib/<package>/`, the command `/usr/bin/<package>`, a desktop file and
@@ -1085,7 +1099,11 @@ machine contracts have their own, independent major versions.
   stops the build (`TY1601`) and names the languages. The macOS app's
   `swiftc` target now follows its `LSMinimumSystemVersion`. The Windows and
   Linux apps check the installed web view at startup and show a readable
-  message instead of a blank window (ADR 0033 amendment).
+  message instead of a blank window (ADR 0033 amendment). (Superseded for
+  Java and Dart: a Java web service now needs iOS 18.4, macOS 15.4, the
+  WebView2 Runtime 137.0 or WebKitGTK 2.48 (JF1), and a Dart web service iOS
+  18.4, macOS 15.4, WebView2 119.0 or WebKitGTK 2.48 (MA5); Kotlin keeps
+  these floors. See the JF1 and MA5 entries.)
 - The Linux app answers browser APIs. It allows clipboard reads of text
   copied in other apps, geolocation through GeoClue and notifications only
   for its own pages and only when `tac.browserApis` grants them, and denies
@@ -1105,7 +1123,9 @@ machine contracts have their own, independent major versions.
   `tac.browserApis`. The support table says `honored` for these APIs on
   `macos` and `ios`; the Mac compile, the iOS simulator gate and a manual
   check of the system prompts are still owed (ADR 0065 amendment of
-  2026-10-19).
+  2026-10-19). (Superseded: the macOS host test and prompts ran in RM1, the
+  iOS simulator gate in RM2, and a geolocation position reached a macOS page
+  after Allow in MA3.)
 - Native live stylesheet updates on macOS accept `@import`, `url()`,
   `var()`, `@property`, `@font-face` and escaped selectors such as
   `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain
@@ -1875,6 +1895,31 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Windows `background_color` and reaching Yon are `adapted`, like the other
+  native targets (DOC5, ADR 0102 amendment, 2026-10-27). Windows takes the
+  same `#rgb` and `#rrggbb` forms, and its pages reach Yon across origins
+  from `https://tachyon.local`, as the macOS, iOS, Android and Linux pages do
+  from their own origins. A Windows build that declares `background_color`
+  now prints its note. No run changed.
+
+- Stale docs fixed after iteration 4 (DOC5, 2026-10-27). ADR 0108 gets an
+  amendment with the Java (JF1) and Dart (MA5) floors and the iOS 17.4 style
+  run; ADRs 0033 and 0083 and older CHANGELOG entries point at the Dart
+  `WebAssembly.JSTag` floor, and the website's WebAssembly services and
+  service-language pages name it. Text that still called runs owed after
+  they ran gets superseding notes or amendments: the WebView2 backdrop and
+  `setTitle` refusal (SW2), the ahead-of-time C# macOS release (MA6), held
+  clients of linked Swift, Kotlin and Rust services in the apps (MA1, MA2,
+  SW1; ADR 0103), the WebView2 browser APIs, tray and menus (SD1), the
+  Apple browser APIs (RM1, RM2, MA3; ADR 0065), the FilePicker status (MA1,
+  SW1, SW3; ADR 0089), the window controls in WebView2 (ADR 0087), the
+  stored-field check on macOS and Windows (ADR 0059) and `tac.dotnet` on
+  macOS (ADR 0102). `docs/SUPPORT_TIERS.md` names the macOS geolocation
+  position (MA3), the macOS linked Rust picker field (MA1), Safari (BR2) and
+  the Android Yon runs, and calls the iOS application lifetime adapted, as
+  the support table does. The website's standard-menus page records the
+  WebView2 menu runs, and `TY1372` no longer says Yon does not run C++.
+
 - Dart web services need the JavaScript exception tag (MA5, ADR 0033
   amendment, 2026-10-25). The loader that `dart compile wasm` writes always
   imports `WebAssembly.JSTag`, so a Dart page service needs Chrome or Edge
@@ -1913,7 +1958,8 @@ machine contracts have their own, independent major versions.
   loads the program and names those versions. A native app with a Java web
   service now needs iOS 18.4, macOS 15.4, the WebView2 Runtime 137.0 or
   WebKitGTK 2.48 (`TY1601` below that), and the Android note names System
-  WebView 137. Dart and Kotlin keep their floors. Chrome 136/137, Firefox
+  WebView 137. Dart and Kotlin keep their WasmGC floors here; the MA5 entry
+  above then raised Dart's for `WebAssembly.JSTag`. Chrome 136/137, Firefox
   130/131 and WebKitGTK 2.46/2.48 were run against a TeaVM module
   (`docs/SUPPORT_TIERS.md`).
 
@@ -3495,7 +3541,8 @@ machine contracts have their own, independent major versions.
   `tachyon-dart-loader.js` beside `tachyon-dart.js`, which every service
   module still imports. A Dart service needs Chrome or Edge 119, Firefox 120
   or Safari 18.2 and newer; an older browser gets one clear error, and there
-  is no JavaScript fallback. The Dart SDK must be 3.13 or newer. The bridge
+  is no JavaScript fallback. (Superseded: since MA5 a Dart service also needs
+  `WebAssembly.JSTag`, so Firefox 131 or Safari 18.4.) The Dart SDK must be 3.13 or newer. The bridge
   keeps the old behavior: whole numbers from JavaScript arrive as `int`, and
   a Dart exception reaches JavaScript as an `Error` with the Dart message.
   On the website the program is 77 KB instead of 101 KB (28.8 KB instead of

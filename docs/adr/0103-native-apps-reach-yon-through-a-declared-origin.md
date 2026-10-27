@@ -436,7 +436,10 @@ on `http://localhost`, and clicks every path, including the linked Rust and
 C# ones, through UI Automation. It is owed on the Surface desktop, run with
 N1. One open question is whether WebView2 asks for local network access
 before a page on `https://tachyon.local` may call `http://localhost`. If it
-does, the run shows it, and that run decides the answer.
+does, the run shows it, and that run decides the answer. (Superseded: the
+MSVC and NativeAOT build ran in RW1, and `scripts/windows/yon-reach.ps1` ran
+inside WebView2 on the signed-in desktop in SD1; see those amendments
+below.)
 
 ## Amendment (2026-10-19): the Linux app reaches Yon (NET4)
 
@@ -574,3 +577,25 @@ the Google Play image of the Android 15 emulator (`user` build,
 `ro.debuggable=0`) on 2026-10-24 (RM3, `docs/SUPPORT_TIERS.md`, "Android runs owed, RM3"): the page, a linked Kotlin
 client and a linked Rust client reached `tac.yon.origin`. This is a
 production-image stand-in for a physical device, not a device run.
+
+## Amendment (2026-10-27): held clients of linked services in every app (DOC5)
+
+The Yon reach probe now holds the stream and socket clients of a linked
+service in each native app, not only those of the page:
+
+- macOS and the iOS 26.5 simulator, Swift (MA1, 2026-10-25):
+  `TAC_YON_SERVICES=swift scripts/native/yon-reach-test.mjs` linked the
+  `realtime` and `sockets` services as Swift, over `http` and `https`; the
+  page held their stream and socket and the services showed the ticks and
+  the chat echo.
+- Android 15 emulator, Kotlin (MA2, 2026-10-25): the same script with
+  `TAC_YON_SERVICES=kotlin` and `--target=android`.
+- Windows, Rust (SW1, 2026-10-25): `scripts/windows/yon-reach.ps1` inside
+  WebView2 on the signed-in desktop held a linked Rust service's stream and
+  socket, and a linked Rust service heard a topic. Linked C# clients ran
+  there in SD1.
+- Linux (NET4, RL1) and linked Rust on macOS and iOS (LR1) are in the
+  amendments above.
+
+`docs/SUPPORT_TIERS.md` ("Native apps reach Yon through a declared origin") holds the runs. ADR 0058
+records the same runs for the listeners.

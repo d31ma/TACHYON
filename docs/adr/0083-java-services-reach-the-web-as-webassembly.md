@@ -677,6 +677,10 @@ Chrome, Edge, Firefox and the Android WebView.
   137 for Java, and 119 for Dart alone.
 - Dart and Kotlin keep the WasmGC floors (Chrome or Edge 119, Firefox 120,
   Safari 18.2; iOS 18.2, macOS 15.2, WebView2 119.0, WebKitGTK 2.46).
+  (Superseded for Dart the same day: Dart needs `WebAssembly.JSTag`, so
+  Firefox 131 and Safari 18.4, and iOS 18.4, macOS 15.4 and WebKitGTK 2.48;
+  see the [ADR 0033 amendment](0033-dart-browser-services.md) for MA5. Kotlin
+  keeps the WasmGC floors.)
 
 ### Consequences
 

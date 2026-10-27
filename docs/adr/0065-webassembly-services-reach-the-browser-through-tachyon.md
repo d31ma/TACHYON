@@ -419,7 +419,10 @@ WebKit: the ignored Mac test
 (`scripts/ios/native-test.mjs`) that reads the result with `simctl pbpaste`.
 Still owed on real machines: the macOS compile and that host test on a Mac,
 the iOS simulator gate, and a manual check of the share, notification and location prompts, because
-system prompts cannot be automated.
+system prompts cannot be automated. (Superseded: the macOS host test and
+prompts ran in RM1, the iOS simulator gate and prompts in RM2, and a macOS
+location prompt allowed by the gate gave the page a position in MA3;
+`docs/SUPPORT_TIERS.md`, "Browser APIs on native hosts".)
 
 ## Amendment (2026-10-19): browser APIs in the Windows app
 

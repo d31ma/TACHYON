@@ -490,3 +490,25 @@ Apple hosts refuse a request over 64 KiB). On macOS 26.6.2 it heard only the
 second one, because the macOS host keeps the first 256 characters of a long
 title. The valid title raised no event on either host. The Windows leg is
 SW2's.
+
+## Amendment (2026-10-27): the Windows legs inside WebView2 (SW1, SW2, SW3)
+
+This amendment supersedes "The Windows leg is SW2's" in the MA4 amendment
+above, and "Linked Rust and WebAssembly Swift `WindowControls` callers have
+not run inside WebView2 (SW1, SW3), so the Windows window controls stay
+`runOwed`" in the SD1 amendment. Both stay as the history of this decision.
+
+On the signed-in Windows 11 ARM64 desktop with the WebView2 Runtime
+155.0.4283.62 (`docs/SUPPORT_TIERS.md`):
+
+- SW2, `scripts/windows/window-shell-test.ps1`: a page service called the
+  granted `setTitle` with a 600-character title. The page check let it
+  through, the host refused it (a Windows title holds at most 512 UTF-16
+  units), and the service heard `BrowserCallFailed` with `api`
+  `windowControls`, `call` `setTitle` and the message `Invalid window
+  title.`; the title did not change.
+- SW3, `scripts/windows/page-services-native-test.mjs`: a WebAssembly Swift
+  caller (Swift 6.3.3 for Windows ARM64) renamed and resized the window.
+- SW1, the same script: a linked Rust caller renamed and resized the window.
+
+The support table marks the Windows window controls `honored`.

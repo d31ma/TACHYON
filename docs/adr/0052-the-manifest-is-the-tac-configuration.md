@@ -308,7 +308,9 @@ amendment above.
   manager in an x86_64 cloud container. On 2026-10-19 both of its tests
   also passed on WSL (Ubuntu 24.04.5, aarch64, Xvfb with xfwm4) on develop
   `38eaed29`, with the other Linux host tests (`docs/SUPPORT_TIERS.md`).
-  Still owed: a physical Linux desktop and Wayland.
+  Still owed: a physical Linux desktop and Wayland. (Superseded for Wayland:
+  see the Wayland amendments below, the last by LX2. A physical Linux
+  desktop is left to the developer.)
 
 ## Amendment (2026-10-19): The Linux page size holds under Wayland
 

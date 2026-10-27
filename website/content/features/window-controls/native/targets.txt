@@ -32,7 +32,9 @@ the window: only title applies there, as the scene title, granted()
 answers false for the other controls, and the build prints a note. On
 Windows, a test that needs MSVC drives the host's control code against a
 real Win32 window, and on a signed-in desktop the full app ran page window
-controls, and C# and Kotlin callers, inside WebView2. On Android, close
+controls, and linked Rust and C# callers and WebAssembly Kotlin and Swift
+callers, inside WebView2. On macOS, WebAssembly C# and Kotlin callers and
+linked Swift and Rust callers renamed and resized the app window. On Android, close
 finishes the activity, minimize moves the app to the back, maximize makes
 the window fill its area, fullscreen hides or shows the status and
 navigation bars, resize sets the window size in density-independent
@@ -41,4 +43,6 @@ the real app on an Android 15 emulator: the granted minimize, resize and
 title calls act, and maximize, fullscreen and close, which the manifest
 does not grant, are refused. A second app grants all six: a linked Kotlin
 service's maximize and fullscreen act, and close from the page finishes the
-activity. It has not run on a physical device.
+activity. WebAssembly Swift and C# callers set the title, resized and
+minimized the app on the emulator too. It has not run on a physical
+device.

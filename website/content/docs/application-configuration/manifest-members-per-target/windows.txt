@@ -13,7 +13,7 @@ theme_color
   adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. On a signed-in Windows 11 desktop every caption pixel the gate sampled took the color (SD1).
 
 background_color
-  honored: background_color paints the Windows window and is WebView2's default background behind a page without its own background, when it is written as #rgb or #rrggbb; with titleBar "integrated" only WebView2 takes it, and other color forms keep the system background (the WebView2 page backdrop was sampled on a signed-in Windows desktop by scripts/windows/window-shell-test.ps1, SW2)
+  adapted: background_color paints the Windows window and is WebView2's default background behind a page without its own background, when it is written as #rgb or #rrggbb. With titleBar "integrated" only WebView2 takes it. Other color forms keep the system background. On a signed-in Windows desktop the sampled WebView2 page backdrop took the color (SW2).
 
 display
   adapted: display "fullscreen" starts the Windows app borderless and full screen; the page leaves it only with the fullscreen window control. The other values open a standard window.
@@ -232,7 +232,7 @@ Content-Security-Policy
   honored: the native host policy; connect-src refused an undeclared host from a WebView2 page (SD1)
 
 reaching Yon
-  honored: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services; the page holds linked C# (NET3, LS1) and Rust (SW1) services' stream and socket clients, and a linked Rust service hears a topic (SW1), in scripts/windows/yon-reach.ps1 on a signed-in Windows desktop. WebAssembly Swift and Kotlin services reach it through HTTPClient, hold its stream and socket clients, and answer through a Setup http adapter in the Windows app too (scripts/native/wasm-features-app-test.mjs, SW4); other absolute URLs go only to the hosts in tac.outgoing.hosts
+  adapted: The Windows app's pages load from https://tachyon.local, so same-origin requests reach no Yon. Pages and linked Rust and C# HTTP clients reach the Yon at tac.yon.origin across origins, run on a signed-in Windows desktop by scripts/windows/yon-reach.ps1 (NET3, SD1). The page holds linked C# (LS1) and Rust (SW1) services' stream and socket clients, and a linked Rust service hears a topic (SW1). WebAssembly Swift and Kotlin services reach it through HTTPClient, hold its stream and socket clients, and answer through a Setup http adapter in the Windows app too (scripts/native/wasm-features-app-test.mjs, SW4). Other absolute URLs go only to the hosts in tac.outgoing.hosts.
 
 natively linked service languages
   honored: Rust and C# services are linked into the app; other languages run in the page
