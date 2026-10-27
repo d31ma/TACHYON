@@ -12,6 +12,8 @@
 #define SW_MAXIMIZE 3
 #define WM_CLOSE 4
 #define GWL_STYLE 5
+#define GWL_EXSTYLE 6
+#define USER_DEFAULT_SCREEN_DPI 96
 #define SWP_NOMOVE 1
 #define SWP_NOZORDER 2
 #define SWP_NOOWNERZORDER 4
@@ -23,6 +25,7 @@ typedef intptr_t LONG_PTR;
 typedef void *HWND;
 typedef int BOOL;
 typedef unsigned long DWORD;
+typedef unsigned int UINT;
 typedef struct { int left, top, right, bottom; } RECT;
 typedef struct { size_t cbSize; RECT rcMonitor; } MONITORINFO;
 static void *g_window = (void *)1;
@@ -34,7 +37,11 @@ static int IsZoomed(void *window) { (void)window; return 0; }
 static void PostMessageW(void *window, int message, int first, int second) { (void)window; (void)message; (void)first; (void)second; calls++; }
 static LONG_PTR GetWindowLongPtrW(void *window, int style) { (void)window; (void)style; return 16; }
 static void SetWindowLongPtrW(void *window, int style, LONG_PTR value) { (void)window; (void)style; (void)value; }
-static void AdjustWindowRect(RECT *rect, DWORD style, int menu) { (void)rect; (void)style; (void)menu; }
+static UINT GetDpiForWindow(void *window) { (void)window; return 144; }
+static int MulDiv(int number, int numerator, int denominator) { return number * numerator / denominator; }
+static void *GetMenu(void *window) { (void)window; return NULL; }
+static RECT resized;
+static void AdjustWindowRectExForDpi(RECT *rect, DWORD style, BOOL menu, DWORD extended, UINT dpi) { (void)style; (void)menu; (void)extended; assert(dpi == 144); resized = *rect; }
 static void SetWindowPos(void *window, void *previous, int x, int y, int width, int height, int flags) { (void)window; (void)previous; (void)x; (void)y; (void)width; (void)height; (void)flags; calls++; }
 static void SetWindowTextW(void *window, const wchar_t *wide) { (void)window; const uint16_t *text = (const uint16_t *)wide; assert(text[0] == 'A' && text[1] == '"' && text[2] == 0xD83D && text[3] == 0xDE00); calls++; }
 static int GetWindowRect(void *window, RECT *bounds) { (void)window; *bounds = (RECT){0,0,100,100}; return 1; }
@@ -53,6 +60,7 @@ int main(void) {
   check("window.close", "{}", "{\"ok\":false,\"error\":\"Window control is not granted.\"}"); assert(calls == 0);
   check("window.minimize", "{}", "{\"ok\":true}"); assert(calls == 1);
   check("window.resize", "{\"width\":64,\"height\":16384}", "{\"ok\":true}"); assert(calls == 2);
+  assert(resized.right == 96 && resized.bottom == 24576);
   check("window.resize", "{\"width\":64.5,\"height\":100}", "{\"ok\":false,\"error\":\"Invalid window size.\"}");
   check("window.resize", "{\"width\":064,\"height\":100}", "{\"ok\":false,\"error\":\"Invalid window size.\"}");
   check("window.resize", "{\"width\":64,\"width\":128,\"height\":100}", "{\"ok\":false,\"error\":\"Invalid window size.\"}");

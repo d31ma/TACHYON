@@ -13,7 +13,7 @@ impl NativeWindowControls {
         ("close", "PostMessageW(g_window, WM_CLOSE, 0, 0);"),
         (
             "resize",
-            r#"int width = tachyon_window_size(payload, "width"), height = tachyon_window_size(payload, "height"); if (!width || !height) return _strdup("{\"ok\":false,\"error\":\"Invalid window size.\"}"); RECT bounds = {0, 0, width, height}; AdjustWindowRect(&bounds, (DWORD)GetWindowLongPtrW(g_window, GWL_STYLE), FALSE); SetWindowPos(g_window, NULL, 0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top, SWP_NOMOVE | SWP_NOZORDER);"#,
+            r#"int width = tachyon_window_size(payload, "width"), height = tachyon_window_size(payload, "height"); if (!width || !height) return _strdup("{\"ok\":false,\"error\":\"Invalid window size.\"}"); UINT dpi = GetDpiForWindow(g_window); if (dpi == 0) dpi = USER_DEFAULT_SCREEN_DPI; RECT bounds = {0, 0, MulDiv(width, (int)dpi, USER_DEFAULT_SCREEN_DPI), MulDiv(height, (int)dpi, USER_DEFAULT_SCREEN_DPI)}; AdjustWindowRectExForDpi(&bounds, (DWORD)GetWindowLongPtrW(g_window, GWL_STYLE), GetMenu(g_window) != NULL, (DWORD)GetWindowLongPtrW(g_window, GWL_EXSTYLE), dpi); SetWindowPos(g_window, NULL, 0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top, SWP_NOMOVE | SWP_NOZORDER);"#,
         ),
         (
             "title",

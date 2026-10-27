@@ -160,7 +160,6 @@ function Assert-NativeArtifacts([string] $out, [string] $app) {
         'NativeGate\bin\NativeGate.exe',
         'NativeGate\bin\TachyonRustCompanion.dll',
         'NativeGate\bin\TachyonCompanion.dll',
-        'NativeGate\application.manifest',
         'NativeGate\resources\NativeIndex.json',
         'NativeGate\resources\WebBundle\index.html',
         'NativeGate\resources\WebBundle\items\_id\index.html',
@@ -174,6 +173,11 @@ function Assert-NativeArtifacts([string] $out, [string] $app) {
     if ($versionInfo.FileVersion -ne '0.0.1.7' -or $versionInfo.ProductVersion -ne '0.0.1') {
         throw "executable version mismatch: $($versionInfo.FileVersion) / $($versionInfo.ProductVersion)"
     }
+    $executableText = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes((Join-Path $app 'bin\NativeGate.exe')))
+    foreach ($embedded in @('<requestedExecutionLevel level="asInvoker"', 'PerMonitorV2', 'Microsoft.Windows.Common-Controls')) {
+        if (-not $executableText.Contains($embedded)) { throw "the executable does not embed the application manifest ($embedded)" }
+    }
+    if (Test-Path (Join-Path $out 'NativeGate\application.manifest')) { throw 'the build still writes a loose application.manifest' }
     $hostManifest = Get-Content -Raw (Join-Path $out 'tachyon.host.json') | ConvertFrom-Json
     if ($hostManifest.schemaVersion -ne 3 -or $hostManifest.renderMode -ne 'bundle' -or
         $hostManifest.companions.Count -ne 2) { throw 'native host descriptor mismatch' }
