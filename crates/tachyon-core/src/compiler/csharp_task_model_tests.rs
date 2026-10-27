@@ -18,6 +18,13 @@ impl CsharpModelStagingFixture {
         "client/components/greeting/tac.html",
     ];
     const SERVICE: &'static str = "client/services/GreetingService.cs";
+    const TARGETS: [tachyon_contracts::NativeTarget; 5] = [
+        tachyon_contracts::NativeTarget::Linux,
+        tachyon_contracts::NativeTarget::Macos,
+        tachyon_contracts::NativeTarget::Windows,
+        tachyon_contracts::NativeTarget::Android,
+        tachyon_contracts::NativeTarget::Ios,
+    ];
 
     fn stage(root: &Path) -> Result<(), String> {
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join(Self::ROOT);
@@ -81,29 +88,33 @@ fn csharp_task_model_cli_discovery_refuses_unregistered_result_early() -> Result
 }
 
 #[test]
-fn csharp_task_model_native_target_retains_original_result_refusal() -> Result<(), String> {
+fn csharp_task_model_native_targets_accept_registered_results() -> Result<(), String> {
+    for target in CsharpModelStagingFixture::TARGETS {
+        let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+        CsharpModelStagingFixture::stage(root.path())?;
+        let project =
+            crate::ProjectDiscovery::discover(root.path()).map_err(|error| error.to_string())?;
+        SiteBuild::discover(&project, &BuildOptions::default(), Some(target))
+            .map_err(|error| format!("{target:?}: {error}"))?;
+    }
+    Ok(())
+}
+
+#[test]
+fn csharp_task_model_native_targets_refuse_unregistered_results() -> Result<(), String> {
     let root = tempfile::tempdir().map_err(|error| error.to_string())?;
     CsharpModelStagingFixture::stage(root.path())?;
-    let project =
-        crate::ProjectDiscovery::discover(root.path()).map_err(|error| error.to_string())?;
-    let failure = SiteBuild::discover(
-        &project,
-        &BuildOptions::default(),
-        Some(tachyon_contracts::NativeTarget::Windows),
-    )
-    .err()
-    .ok_or_else(|| "native DTO Task remains unsupported".to_owned())?;
-    assert!(failure.to_string().contains("Task<BehaviorJSON>"));
+    CsharpModelStagingFixture::unknown(root.path())?;
     let source = std::fs::read_to_string(root.path().join(CsharpModelStagingFixture::SERVICE))
         .map_err(|error| error.to_string())?;
-    assert!(
-        ServiceChecks::check_native_source(
-            root.path(),
-            Path::new(CsharpModelStagingFixture::SERVICE),
-            &source
-        )
-        .is_err()
-    );
+    let failure = ServiceChecks::check_native_source(
+        root.path(),
+        Path::new(CsharpModelStagingFixture::SERVICE),
+        &source,
+    )
+    .err()
+    .ok_or_else(|| "an unknown DTO must fail on a native target".to_owned())?;
+    assert!(failure.to_string().contains("UnknownGreeting"), "{failure}");
     Ok(())
 }
 

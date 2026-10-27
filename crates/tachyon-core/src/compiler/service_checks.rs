@@ -102,7 +102,8 @@ impl ServiceChecks {
         source: &str,
         browser: bool,
     ) -> Result<Option<String>, Failure> {
-        if browser {
+        let csharp = path.extension().is_some_and(|extension| extension == "cs");
+        if [browser, csharp].contains(&true) {
             super::captured_browser_behavior::CapturedBrowserBehavior::lower(
                 snapshot_root,
                 path,
