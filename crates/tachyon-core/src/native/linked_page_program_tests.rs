@@ -197,6 +197,10 @@ fun main() {
             .is_ok_and(|output| output.status.success())
     }
 
+    fn swift_host_available() -> bool {
+        [cfg!(unix), Self::available("swiftc", "--version")] == [true, true]
+    }
+
     fn answer(output: &str, prefix: &str) -> String {
         output
             .lines()
@@ -248,8 +252,10 @@ fn two_linked_swift_services_keep_one_copy_of_their_setup_and_client() {
 
 #[test]
 fn two_linked_swift_services_share_one_setup_configuration() {
-    if !LinkedPageCheck::available("swiftc", "--version") {
-        eprintln!("skipping: swiftc is unavailable");
+    if !LinkedPageCheck::swift_host_available() {
+        eprintln!(
+            "skipping: swiftc is unavailable, or the host is not Unix (the Swift host links Foundation and pthread)"
+        );
         return;
     }
     let root = tempfile::tempdir().expect("project");

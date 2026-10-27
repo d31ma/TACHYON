@@ -53,10 +53,11 @@ impl SwiftYonProject {
     }
 
     fn swift_available() -> bool {
-        Command::new("swiftc")
+        let installed = Command::new("swiftc")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        [cfg!(unix), installed] == [true, true]
     }
 
     fn serve(listener: TcpListener) -> std::sync::Arc<std::sync::Mutex<Vec<String>>> {
@@ -120,7 +121,9 @@ impl SwiftYonProject {
 #[test]
 fn a_linked_swift_http_client_reaches_the_declared_yon_origin() {
     if !SwiftYonProject::swift_available() {
-        eprintln!("skipping: swiftc is unavailable");
+        eprintln!(
+            "skipping: swiftc is unavailable, or the host is not Unix (the Swift host links Foundation and pthread)"
+        );
         return;
     }
     let root = tempfile::tempdir().expect("project");

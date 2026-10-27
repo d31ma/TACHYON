@@ -40,10 +40,11 @@ impl SwiftListenerFixture {
     }
 
     fn available() -> bool {
-        Command::new("swiftc")
+        let installed = Command::new("swiftc")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        [cfg!(unix), installed] == [true, true]
     }
 
     fn run(root: &Path, staged: &Path) -> String {
@@ -76,7 +77,9 @@ impl SwiftListenerFixture {
 #[test]
 fn a_linked_swift_async_listener_finishes_before_the_next_listener() {
     if !SwiftListenerFixture::available() {
-        eprintln!("skipping: swiftc is unavailable");
+        eprintln!(
+            "skipping: swiftc is unavailable, or the host is not Unix (the Swift host links Foundation and pthread)"
+        );
         return;
     }
     let root = tempfile::tempdir().expect("project");

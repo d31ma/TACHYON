@@ -48,10 +48,11 @@ impl HeldClientFixture {
     }
 
     fn available() -> bool {
-        Command::new("swiftc")
+        let installed = Command::new("swiftc")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        [cfg!(unix), installed] == [true, true]
     }
 
     fn run(root: &Path, staged: &Path) -> String {
@@ -97,7 +98,9 @@ fn a_linked_swift_service_describes_its_clients_for_the_page_to_hold() {
 #[test]
 fn a_linked_swift_service_hears_the_page_and_sends_on_its_socket_through_it() {
     if !HeldClientFixture::available() {
-        eprintln!("skipping: swiftc is unavailable");
+        eprintln!(
+            "skipping: swiftc is unavailable, or the host is not Unix (the Swift host links Foundation and pthread)"
+        );
         return;
     }
     let root = tempfile::tempdir().expect("project");

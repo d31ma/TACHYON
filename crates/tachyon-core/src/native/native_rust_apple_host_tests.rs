@@ -66,10 +66,11 @@ struct ApplePlatformMain {
 "#;
 
     fn swift_available() -> bool {
-        std::process::Command::new("swiftc")
+        let installed = std::process::Command::new("swiftc")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        [cfg!(unix), installed] == [true, true]
     }
 
     async fn run(mut command: tokio::process::Command, label: &str) -> String {
@@ -131,7 +132,9 @@ struct ApplePlatformMain {
 #[tokio::test]
 async fn the_apple_host_shim_resumes_rust_tasks_and_sends_their_http_on_the_main_queue() {
     if !AppleRustHostCheck::swift_available() {
-        eprintln!("skipping: swiftc is not installed");
+        eprintln!(
+            "skipping: swiftc is not installed, or the host is not Unix (the Swift host links Foundation and pthread)"
+        );
         return;
     }
     let root = tempfile::tempdir().expect("fixture");
