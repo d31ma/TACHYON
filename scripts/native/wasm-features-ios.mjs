@@ -10,12 +10,13 @@ import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
 import { WasmFeaturesFixture } from './wasm-features-fixture.mjs'
 
-/** Runs one in-app WebAssembly feature check in the iOS simulator app: a linked Swift recorder writes the probe's verdict into the app's tmp folder, and screen text drives the click steps. */
+/** Runs one in-app WebAssembly feature check in the iOS simulator app: a linked Swift recorder writes the probe's verdict into the app's tmp folder (or, with TAC_IOS_WASM_VERDICT=screen, the verdict is read from the screen and nothing is linked), and screen text drives the click steps. */
 export class IosWasmApp {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static proofFile = 'tachyon-wasm-probe.json'
   static recorderService = 'Swift wasmRecorder'
-  static recorder = {
+  static verdictFrom = process.env.TAC_IOS_WASM_VERDICT ?? 'recorder'
+  static linkedRecorder = {
     'client/services/WasmRecorderService.swift': `import Foundation
 
 @Service
@@ -36,6 +37,7 @@ final class WasmRecorderService {
 `,
   }
 
+  static recorder = IosWasmApp.verdictFrom === 'screen' ? undefined : IosWasmApp.linkedRecorder
   static chosenDevice = process.env.TAC_IOS_DEVICE ?? ''
   static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? ''
   static evidence = process.env.TAC_IOS_WASM_FEATURES_EVIDENCE ?? path.join(IosWasmApp.repository, 'target/ios-wasm-features-evidence')
@@ -78,6 +80,7 @@ final class WasmRecorderService {
 
   /** Compiles the tap and screen-text tools and boots one simulator for every check. @param {string} root */
   static prepare(root) {
+    assert.ok(['recorder', 'screen'].includes(this.verdictFrom), `TAC_IOS_WASM_VERDICT is recorder or screen, not ${this.verdictFrom}`)
     this.root = root
     mkdirSync(this.evidence, { recursive: true })
     this.tapper = path.join(root, 'simulator-tap')
@@ -182,8 +185,8 @@ final class WasmRecorderService {
     const taps = []
     let tapped = { label: '', at: 0 }
     let shot = { file: '', lines: [] }
-    while (Date.now() < deadline && !existsSync(proof)) {
-      if (gestures.length) {
+    while (Date.now() < deadline && !existsSync(proof) && !this.verdictShown(shot.lines)) {
+      if (gestures.length || this.recorder === undefined) {
         shot = this.screen(application)
         const text = shot.lines.map((line) => line.text).join(' ').replace(/\s+/g, ' ')
         const waiting = this.waitingFor(shot.lines, gestures)
@@ -202,8 +205,20 @@ final class WasmRecorderService {
     }
     shot = this.screen(application)
     copyFileSync(shot.file, path.join(this.evidence, `${application}.png`))
-    assert.ok(existsSync(proof), `the app wrote no probe verdict in ${this.waitMilliseconds / 1000} s; taps ${JSON.stringify(taps)}; the screen shows: ${shot.lines.map(({ text }) => text).join(' | ')}`)
-    return taps
+    assert.ok(existsSync(proof) || this.verdictShown(shot.lines), `the app gave no probe verdict in ${this.waitMilliseconds / 1000} s; taps ${JSON.stringify(taps)}; the screen shows: ${shot.lines.map(({ text }) => text).join(' | ')}`)
+    return { taps, shown: shot.lines.map(({ text }) => text.trim()) }
+  }
+
+  /** Only without a recorder: the probe's phase line on screen is the verdict. @param {Array<{ text: string }>} lines */
+  static verdictShown(lines) {
+    return this.recorder === undefined && lines.some(({ text }) => [WasmFeaturesFixture.passed, WasmFeaturesFixture.failed].includes(text.trim()))
+  }
+
+  /** @param {string[]} shown */
+  static screenVerdict(shown) {
+    const lines = shown.filter((text) => text.startsWith('ok - ') || text.startsWith('not ok - '))
+    assert.ok(shown.includes(WasmFeaturesFixture.passed), `the in-app probe failed (read from the screen):\n${shown.join('\n')}`)
+    return { lines: ['verdict read from the screen', ...lines] }
   }
 
   /** @param {string} project @param {{ application: string, id: string, gestures: string[] }} staged */
@@ -212,7 +227,7 @@ final class WasmRecorderService {
     assert.ok(built.status === 0 && built.cleanupConfirmed, `ty build --target ios\n${built.error?.message ?? ''}\n${built.stdout}${built.stderr}`)
     const output = path.join(project, 'dist/ios')
     const bundle = path.join(output, `${staged.application}.app`)
-    const modules = WasmFeaturesFixture.assertWebAssembly(output, path.join(bundle, 'WebBundle'), [this.recorderService])
+    const modules = WasmFeaturesFixture.assertWebAssembly(output, path.join(bundle, 'WebBundle'), this.recorder ? [this.recorderService] : [])
     const minimum = this.tool('/usr/bin/plutil', ['-extract', 'MinimumOSVersion', 'raw', path.join(bundle, 'Info.plist')])
     assert.ok(this.bootedVersion.localeCompare(minimum, undefined, { numeric: true }) >= 0, `the app's MinimumOSVersion is ${minimum}, above the booted iOS ${this.bootedVersion}; pick a runtime with TAC_IOS_RUNTIME`)
     this.slowSimctl('install', this.device, bundle)
@@ -220,12 +235,16 @@ final class WasmRecorderService {
       const launched = this.slowSimctl('launch', this.device, staged.id)
       const pid = Number(launched.match(/:\s*(\d+)\s*$/)?.[1])
       const proof = path.join(this.simctl('get_app_container', this.device, staged.id, 'data'), 'tmp', this.proofFile)
-      const taps = await this.drive(staged.application, proof, staged.gestures)
-      const record = JSON.parse(readFileSync(proof, 'utf8'))
-      assert.equal(record.pid, pid, 'the verdict came from the launched app')
+      const { taps, shown } = await this.drive(staged.application, proof, staged.gestures)
       let verdict
       try {
-        verdict = WasmFeaturesFixture.assertProof(record.proof)
+        if (this.recorder) {
+          const record = JSON.parse(readFileSync(proof, 'utf8'))
+          assert.equal(record.pid, pid, 'the verdict came from the launched app')
+          verdict = WasmFeaturesFixture.assertProof(record.proof)
+        } else {
+          verdict = this.screenVerdict(shown)
+        }
       } catch (error) {
         error.message += `\ntaps: ${JSON.stringify(taps)}`
         throw error
