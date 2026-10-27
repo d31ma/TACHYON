@@ -77,7 +77,7 @@ pub use failure::Failure;
 pub use handler::{
     EnvironmentPolicy, FirecrackerIsolation, HandlerCancellation, HandlerLanguage,
     HandlerRuntimePrograms, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
-    TopicDeliveries, Workers, YonIsolationPolicy,
+    TopicDeliveries, WarmSettings, Workers, YonIsolationPolicy,
 };
 pub use migrate::{
     MigrationAnalysis, MigrationFinding, MigrationFix, MigrationFixPlan, MigrationReport,

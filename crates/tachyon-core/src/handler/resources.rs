@@ -14,6 +14,7 @@ use access::Access;
 use std::ffi::{OsStr, OsString};
 use std::fmt::Write as _;
 use std::sync::Arc;
+use tachyon_contracts::HandlerResources;
 use tokio::net::TcpListener;
 use tokio::process::Command;
 use tokio::task::JoinHandle;
@@ -77,6 +78,17 @@ impl ResourceAccess {
 
     pub(super) fn topics(&self) -> Option<Arc<TopicOutbox>> {
         self.topics.clone()
+    }
+
+    pub(super) fn handler_resources(&self) -> HandlerResources {
+        HandlerResources {
+            endpoint: self.endpoint.clone(),
+            token: self.token.clone(),
+        }
+    }
+
+    pub(super) fn bypass_loopback(command: &mut Command) {
+        Self::add_loopback_bypasses(command);
     }
 
     pub(super) fn piped(&self) -> PipedResources {

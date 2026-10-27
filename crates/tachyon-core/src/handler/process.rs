@@ -22,10 +22,28 @@ mod running_stream;
 mod runtime_identity;
 mod socket;
 mod started_process;
+mod stream_events;
 mod stream_frame;
 mod stream_process_outcome;
 mod stream_read_outcome;
 mod streaming_process;
+mod warm_answer;
+mod warm_context;
+mod warm_exchange;
+mod warm_exit;
+mod warm_frames;
+mod warm_key;
+mod warm_languages;
+mod warm_output;
+mod warm_pool;
+mod warm_process;
+mod warm_response;
+mod warm_start;
+mod warm_stderr;
+mod warm_stop;
+mod warm_stream;
+mod warm_stream_end;
+mod warm_stream_request;
 
 pub(in crate::handler) use drained::Drained;
 pub use environment_policy::EnvironmentPolicy;
@@ -66,6 +84,7 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
+use stream_events::StreamEvents;
 use stream_frame::StreamFrame;
 use stream_process_outcome::StreamProcessOutcome;
 use stream_read_outcome::StreamReadOutcome;
@@ -76,6 +95,23 @@ use tokio::process::{ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::task::JoinHandle;
 use tokio::time::{Instant, sleep_until};
+use warm_answer::WarmAnswer;
+use warm_context::WarmContext;
+use warm_exchange::WarmExchange;
+use warm_exit::WarmExit;
+use warm_frames::WarmFrames;
+use warm_key::WarmKey;
+use warm_languages::WarmLanguages;
+use warm_output::WarmOutput;
+use warm_pool::WarmPool;
+use warm_process::WarmProcess;
+use warm_response::WarmResponse;
+use warm_start::WarmStart;
+use warm_stderr::WarmStderr;
+use warm_stop::WarmStop;
+use warm_stream::WarmStream;
+use warm_stream_end::WarmStreamEnd;
+use warm_stream_request::WarmStreamRequest;
 
 pub(super) type GatewayUnitCall<'a> = std::pin::Pin<
     Box<dyn std::future::Future<Output = Result<HandlerResponse, Failure>> + Send + 'a>,
@@ -90,6 +126,7 @@ pub struct HandlerSupervisor {
     topics: Arc<std::sync::OnceLock<Arc<TopicBus>>>,
     egress: Arc<std::sync::OnceLock<String>>,
     node_proxy_gate: crate::handler::NodeProxyGate,
+    warm: Arc<WarmPool>,
 }
 
 impl HandlerSupervisor {
@@ -107,6 +144,8 @@ impl HandlerSupervisor {
             .include(options.application.handler_environment());
         let permits = Arc::new(Semaphore::new(options.max_concurrency));
         let gateway_permits = Arc::new(Semaphore::new(options.max_concurrency));
+        let warm_settings = options.isolation.warm().copied().unwrap_or_default();
+        let warm = Arc::new(WarmPool::new(warm_settings, options.max_concurrency));
         Ok(Self {
             options,
             permits,
@@ -115,6 +154,7 @@ impl HandlerSupervisor {
             topics: Arc::new(std::sync::OnceLock::new()),
             egress: Arc::new(std::sync::OnceLock::new()),
             node_proxy_gate: crate::handler::NodeProxyGate::default(),
+            warm,
         })
     }
 
@@ -189,6 +229,7 @@ impl HandlerSupervisor {
     pub(crate) async fn close_resources(&self) {
         self.permits.close();
         self.gateway_permits.close();
+        self.warm.close().await;
         OptionFuture::from(self.resources.get().map(|storage| storage.close())).await;
     }
 
@@ -237,7 +278,7 @@ impl HandlerSupervisor {
         let deadline = self.invocation_deadline(request);
         let permit = Self::acquire_permit_from(&self.permits, cancellation, deadline).await?;
         let result = self
-            .run_streaming_process(StreamingProcess {
+            .run_stream(StreamingProcess {
                 source,
                 request,
                 direct_protocol,
@@ -248,6 +289,18 @@ impl HandlerSupervisor {
             .await;
         drop(permit);
         result
+    }
+
+    async fn run_stream(&self, process: StreamingProcess<'_>) -> Result<(), Failure> {
+        if self.runs_warm(process.source) {
+            return self.run_warm_stream(process).await;
+        }
+        self.run_streaming_process(process).await
+    }
+
+    fn runs_warm(&self, source: &HandlerSource) -> bool {
+        let warm_mode = self.options.isolation.warm().is_some();
+        [warm_mode, WarmLanguages::accepts(source)] == [true, true]
     }
 
     pub(in crate::handler) fn pipe_all_streams(command: &mut Command) {
@@ -410,10 +463,25 @@ impl HandlerSupervisor {
         let deadline = self.invocation_deadline(request);
         let permit = Self::acquire_permit_from(permits, cancellation, deadline).await?;
         let result = self
-            .run_process(source, request, direct_protocol, deadline, cancellation)
+            .run_invocation(source, request, direct_protocol, deadline, cancellation)
             .await;
         drop(permit);
         result
+    }
+
+    async fn run_invocation(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        direct_protocol: bool,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<HandlerResponse, Failure> {
+        if self.runs_warm(source) {
+            return self.run_warm(source, request, deadline, cancellation).await;
+        }
+        self.run_process(source, request, direct_protocol, deadline, cancellation)
+            .await
     }
 
     fn check_not_cancelled(cancellation: &HandlerCancellation) -> Result<(), Failure> {
@@ -447,12 +515,34 @@ impl HandlerSupervisor {
         direct_protocol: bool,
         deadline: Instant,
     ) -> Result<Vec<u8>, Failure> {
+        let timed_request = self.timed_request(request, deadline)?;
+        Self::encode_request(direct_protocol, &timed_request)
+    }
+
+    fn warm_request(
+        &self,
+        request: &HandlerRequest,
+        resource_access: Option<&ResourceAccess>,
+        deadline: Instant,
+        style: FramePrefix,
+    ) -> Result<Vec<u8>, Failure> {
+        let mut timed_request = self.timed_request(request, deadline)?;
+        timed_request.resources = resource_access.map(ResourceAccess::handler_resources);
+        let frame = HandlerFrame::request(&timed_request)?;
+        Ok(style.reframed(&frame))
+    }
+
+    fn timed_request(
+        &self,
+        request: &HandlerRequest,
+        deadline: Instant,
+    ) -> Result<HandlerRequest, Failure> {
         let time_left = Self::time_left(deadline)?;
         let handler_time = time_left.saturating_sub(self.options.cancellation_grace);
         let milliseconds = u64::try_from(handler_time.as_millis()).unwrap_or(u64::MAX);
         let mut timed_request = request.clone();
         timed_request.deadline_ms = Some(milliseconds.max(1));
-        Self::encode_request(direct_protocol, &timed_request)
+        Ok(timed_request)
     }
 
     fn time_left(deadline: Instant) -> Result<Duration, Failure> {
@@ -494,11 +584,7 @@ impl HandlerSupervisor {
         cancellation: &HandlerCancellation,
         frames: Option<&'static str>,
     ) -> Result<StartedProcess, Failure> {
-        let adapter = AdapterFiles::materialize(source.language())?;
-        let mut planned = self.handler_command(source, &adapter);
-        self.require_node_proxy_switch(planned.runtime.runs_javascript())
-            .await?;
-        Self::mark_frames(&mut planned.command, frames);
+        let (mut planned, adapter) = self.planned_handler(source, frames).await?;
         let resource_access = self
             .resource_access_in_time(source, request, deadline, cancellation)
             .await?;
@@ -537,6 +623,158 @@ impl HandlerSupervisor {
         if let Some(proxy) = self.egress.get() {
             crate::handler::EgressProxy::apply(proxy, command);
         }
+    }
+
+    async fn planned_handler(
+        &self,
+        source: &HandlerSource,
+        frames: Option<&'static str>,
+    ) -> Result<(PlannedCommand, AdapterFiles), Failure> {
+        let adapter = AdapterFiles::materialize(source.language())?;
+        let mut planned = self.handler_command(source, &adapter);
+        self.require_node_proxy_switch(planned.runtime.runs_javascript())
+            .await?;
+        Self::mark_frames(&mut planned.command, frames);
+        Ok((planned, adapter))
+    }
+
+    async fn run_warm(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<HandlerResponse, Failure> {
+        let resource_access = self
+            .resource_access_in_time(source, request, deadline, cancellation)
+            .await?;
+        let resource_access = Self::still_in_time(resource_access, deadline, cancellation).await?;
+        let result = self
+            .exchange_warm(source, request, resource_access.as_ref(), deadline, cancellation)
+            .await;
+        Self::close_resource_access(resource_access).await;
+        result
+    }
+
+    async fn exchange_warm(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        resource_access: Option<&ResourceAccess>,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<HandlerResponse, Failure> {
+        let style = FramePrefix::of(source);
+        let request_bytes = self.warm_request(request, resource_access, deadline, style)?;
+        let shares_resources = Self::pipes_resources(source, self.uses_direct_protocol(source));
+        let piped = resource_access
+            .map(ResourceAccess::piped)
+            .filter(|_| shares_resources);
+        let exchange = WarmExchange {
+            process: self.warm_process(source).await?,
+            context: self.warm_context(source, request, resource_access, deadline),
+            resources: piped,
+            style,
+            cancellation,
+        };
+        let answer = exchange.run(&request_bytes).await;
+        self.warm.give_back(answer.kept).await;
+        answer.result
+    }
+
+    async fn run_warm_stream(&self, process: StreamingProcess<'_>) -> Result<(), Failure> {
+        let StreamingProcess {
+            source,
+            request,
+            direct_protocol: _,
+            deadline,
+            events,
+            cancellation,
+        } = process;
+        let resource_access = self
+            .resource_access_in_time(source, request, deadline, cancellation)
+            .await?;
+        let resource_access = Self::still_in_time(resource_access, deadline, cancellation).await?;
+        let streamed = WarmStreamRequest {
+            source,
+            request,
+            resource_access: resource_access.as_ref(),
+            deadline,
+            events,
+            cancellation,
+        };
+        let result = self.stream_warm(streamed).await;
+        Self::close_resource_access(resource_access).await;
+        result
+    }
+
+    async fn stream_warm(&self, streamed: WarmStreamRequest<'_>) -> Result<(), Failure> {
+        let WarmStreamRequest {
+            source,
+            request,
+            resource_access,
+            deadline,
+            events,
+            cancellation,
+        } = streamed;
+        let style = FramePrefix::of(source);
+        let request_bytes = self.warm_request(request, resource_access, deadline, style)?;
+        let stream = WarmStream {
+            process: self.warm_process(source).await?,
+            context: self.warm_context(source, request, resource_access, deadline),
+            events: StreamEvents::new(events.clone(), request.request_id.clone()),
+            subscriber: events,
+            cancellation,
+        };
+        let answer = stream.run(&request_bytes).await;
+        self.warm.give_back(answer.kept).await;
+        answer.result
+    }
+
+    fn warm_context(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        resource_access: Option<&ResourceAccess>,
+        deadline: Instant,
+    ) -> WarmContext {
+        WarmContext {
+            request_id: request.request_id.clone(),
+            direct: source.language() == HandlerLanguage::Direct,
+            topics: resource_access.and_then(ResourceAccess::topics),
+            deadline,
+            grace: self.options.cancellation_grace,
+        }
+    }
+
+    async fn warm_process(&self, source: &HandlerSource) -> Result<WarmProcess, Failure> {
+        let ready = self.warm.take_ready(&WarmKey::of(source)).await;
+        let Some(process) = ready else {
+            return self.spawn_warm(source).await;
+        };
+        Ok(process)
+    }
+
+    async fn spawn_warm(&self, source: &HandlerSource) -> Result<WarmProcess, Failure> {
+        let shares_resources = Self::pipes_resources(source, self.uses_direct_protocol(source));
+        let frames = [None, Some(Self::RESOURCE_FRAMES)][usize::from(shares_resources)];
+        let (mut planned, adapter) = self.planned_handler(source, frames).await?;
+        Self::mark_frames(&mut planned.command, Some(WarmProcess::SWITCH));
+        ResourceAccess::bypass_loopback(&mut planned.command);
+        self.apply_egress(&mut planned.command);
+        let mut child = planned.runtime.spawn(&mut planned.command)?;
+        let pipes = Self::take_process_pipes(&mut child);
+        let (stdin, stdout, stderr) =
+            Self::terminate_on_failure(pipes, &mut child, WarmProcess::LABEL).await?;
+        Ok(WarmProcess::start(WarmStart {
+            source: source.clone(),
+            adapter,
+            child,
+            stdin,
+            stdout,
+            stderr,
+            stderr_limit: self.options.stderr_limit,
+        }))
     }
 
     fn mark_frames(command: &mut Command, frames: Option<&'static str>) {

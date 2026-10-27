@@ -125,6 +125,24 @@
         "arguments": {
           "type": "array",
           "maxItems": 64
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "endpoint",
+            "token"
+          ],
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "pattern": "^http://127\\.0\\.0\\.1:[0-9]{1,5}/$"
+            },
+            "token": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
         }
       }
     },
