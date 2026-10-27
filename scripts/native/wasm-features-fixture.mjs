@@ -60,6 +60,7 @@ class WasmProbeSource {
   static async finish(phase) {
     this.proof = JSON.stringify({ check: this.CHECK, language: this.LANGUAGE, phase, lines: this.lines, origin: location.origin });
     this.render(phase);
+    if (document.querySelector('#wasm-recorder')) await this.until(() => this.service('wasmRecorder'), 'the recorder service').catch(() => undefined);
     const recorder = this.service('wasmRecorder');
     if (typeof recorder?.record === 'function') await recorder.record(this.proof);
   }
@@ -141,7 +142,7 @@ class WasmProbeSource {
   }
 `
 
-  static recorderLine = '<p id="wasm-recorder">Recorder {wasmRecorder.state}</p>\n'
+  static recorder = { component: 'client/components/wasm/recorder/tac.html', view: '<p id="wasm-recorder">Recorder {wasmRecorder.state}</p>\n', tag: '<wasm-recorder hydrate="load" />\n' }
 
   static view = `<section id="wasm-probe" aria-label="WebAssembly feature probe">
 <p id="wasm-probe-phase">Probe starting</p>
@@ -469,7 +470,7 @@ export class WasmFeaturesFixture {
   /**
    * Stages one check for one language as a native app project.
    * @param {string} project @param {string} check @param {string} language
-   * A host that can't read the page passes the files of a linked wasmRecorder service with a state field and record(proof); the probe view shows its state so the page starts it.
+   * A host that can't read the page passes the files of a linked wasmRecorder service with a state field and record(proof); a hydrated recorder component shows its state so the page starts the service.
    * @param {{ yonOrigin?: string, gestures?: boolean, recorder?: Record<string, string> }} [options]
    */
   static stage(project, check, language, options = {}) {
@@ -486,10 +487,16 @@ export class WasmFeaturesFixture {
     if (fixture.needsYon) this.write(project, 'server/application.json', JSON.stringify({ server: { origins: this.pageOrigins } }))
     this.files(project, {
       [WasmProbeSource.script]: WasmProbeSource.source(check, language, fixture.steps, staged.constants),
-      'client/components/wasm/probe/tac.html': options.recorder ? WasmProbeSource.view.replace('</section>', `${WasmProbeSource.recorderLine}</section>`) : WasmProbeSource.view,
-      ...options.recorder,
+      'client/components/wasm/probe/tac.html': WasmProbeSource.view,
     })
+    if (options.recorder) this.addRecorder(project, options.recorder)
     return { application, id, gestures: staged.gestures ?? [], needsYon: fixture.needsYon }
+  }
+
+  /** @param {string} project @param {Record<string, string>} files */
+  static addRecorder(project, files) {
+    const page = path.join(project, 'client/pages/tac.html')
+    this.files(project, { ...files, [WasmProbeSource.recorder.component]: WasmProbeSource.recorder.view, 'client/pages/tac.html': `${readFileSync(page, 'utf8').trimEnd()}\n${WasmProbeSource.recorder.tag}` })
   }
 
   /** Every check and language that runs as WebAssembly on the target, narrowed by optional lists. @param {string} target @param {string[]} [checks] @param {string[]} [languages] */
