@@ -60,9 +60,12 @@ class RunnerState:
     protocol_output = sys.stdout.buffer
     source = sys.argv[1]
     project_root = sys.argv[2]
+    warm = os.environ.get("YON_HANDLER_WARM") == "1"
     incoming = queue.Queue()
     completed = queue.Queue()
     relay_program = None
+    installed_relay = None
+    request_started_at = started_at
 
 
 def invalid_resource_number(_value):
@@ -323,7 +326,7 @@ def relay_environment(environment):
     kept = {}
     for name, value in environment.items():
         upper = name.upper()
-        if upper == "YON_APPLICATION_JSON" or upper.startswith("YON_RESOURCE_"):
+        if upper in ("YON_APPLICATION_JSON", "YON_HANDLER_WARM") or upper.startswith("YON_RESOURCE_"):
             continue
         kept[name] = value
     return kept
@@ -333,7 +336,7 @@ def invocation_deadline(request):
     milliseconds = request.get("deadline_ms", RunnerSettings.DEFAULT_RELAY_DEADLINE_MS)
     if isinstance(milliseconds, bool) or not isinstance(milliseconds, (int, float)):
         milliseconds = RunnerSettings.DEFAULT_RELAY_DEADLINE_MS
-    return RunnerState.started_at + float(milliseconds) / 1000.0
+    return RunnerState.request_started_at + float(milliseconds) / 1000.0
 
 
 def time_left(deadline):
@@ -681,8 +684,10 @@ def install_builtins(relay_program):
     builtins.ApplicationEventPublisher = type("ApplicationEventPublisher", (), {})
     builtins.YonTopic = TopicClient
     builtins.YonGateway = GatewayClient(relay_program.deadline)
-    if not hasattr(builtins, "relay"):
+    current = getattr(builtins, "relay", None)
+    if current is None or current == RunnerState.installed_relay:
         builtins.relay = relay_program.run
+        RunnerState.installed_relay = builtins.relay
 
 
 def middleware_phase(request):
@@ -775,8 +780,17 @@ def stream_events(request_id, iterator):
                 os._exit(0)
     except BaseException:
         write_frame(failure(request_id, "TY2204", "The handler stream failed."))
+        RunnerState.protocol_output.flush()
+        os._exit(0)
+    if RunnerState.warm:
+        RunnerState.completed.put(end_frame(request_id))
+        return
     RunnerState.protocol_output.flush()
     os._exit(0)
+
+
+def end_frame(request_id):
+    return {"protocol_version": 1, "kind": "end", "request_id": request_id}
 
 
 def result_response(request, result):
@@ -899,7 +913,8 @@ def is_cancel(envelope, request_id):
 
 def finish(response):
     write_frame(response)
-    os._exit(0)
+    if not RunnerState.warm:
+        os._exit(0)
 
 
 def next_completed_response():
@@ -922,13 +937,64 @@ def wait_for_result(request_id):
         response = next_completed_response()
         if response is not None:
             finish(response)
+            return
         if cancel_requested(request_id):
-            finish(failure(request_id, "TY2111", "Handler invocation was cancelled.", 499))
+            write_frame(failure(request_id, "TY2111", "Handler invocation was cancelled.", 499))
+            os._exit(0)
+
+
+def use_resources(request):
+    resources = request.pop("resources", None)
+    forget_resources()
+    if not isinstance(resources, dict):
+        return
+    os.environ["YON_RESOURCE_ENDPOINT"] = str(resources.get("endpoint", ""))
+    os.environ["YON_RESOURCE_TOKEN"] = str(resources.get("token", ""))
+
+
+def forget_resources():
+    os.environ.pop("YON_RESOURCE_ENDPOINT", None)
+    os.environ.pop("YON_RESOURCE_TOKEN", None)
+
+
+def warm_handler(relay_program, class_name, handlers):
+    install_builtins(relay_program)
+    if class_name not in handlers:
+        handlers[class_name] = load_handler(relay_program, class_name)
+    return handlers[class_name]
+
+
+def serve_warm_request(request, environment, handlers):
+    RunnerState.request_started_at = time.monotonic()
+    relay_program = RelayProgram(request["request_id"], invocation_deadline(request), environment)
+    RunnerState.relay_program = relay_program
+    try:
+        handler = warm_handler(relay_program, entry_class_name(request), handlers)
+    except BaseException as error:
+        finish(failure(request["request_id"], "TY2201", public_message(error)))
+        return
+    threading.Thread(target=invoke, args=(handler, request), daemon=True).start()
+    wait_for_result(request["request_id"])
+
+
+def serve_warm(environment):
+    handlers = {}
+    while True:
+        request = RunnerState.incoming.get()
+        if request is None:
+            os._exit(0)
+        if not is_request(request) or request.get("operation") == "socket.open":
+            exit_with_protocol_error()
+        use_resources(request)
+        serve_warm_request(request, environment, handlers)
+        forget_resources()
 
 
 def main():
     environment = relay_environment(os.environ)
     threading.Thread(target=read_frames, daemon=True).start()
+    if RunnerState.warm:
+        serve_warm(environment)
     request = RunnerState.incoming.get()
     if not is_request(request):
         exit_with_protocol_error()

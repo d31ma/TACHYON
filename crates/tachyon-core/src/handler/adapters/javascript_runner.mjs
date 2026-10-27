@@ -184,7 +184,7 @@ function relayEnvironment(environment) {
   const kept = {}
   for (const [name, value] of Object.entries(environment)) {
     const upper = name.toUpperCase()
-    if (upper === 'YON_APPLICATION_JSON' || upper.startsWith('YON_RESOURCE_')) continue
+    if (upper === 'YON_APPLICATION_JSON' || upper === 'YON_HANDLER_WARM' || upper.startsWith('YON_RESOURCE_')) continue
     kept[name] = value
   }
   return Object.freeze(kept)
@@ -200,11 +200,46 @@ class MiddlewarePhases {
 class RunnerState {
   static output = process.stdout
   static source = process.argv[2]
+  static warm = process.env.YON_HANDLER_WARM === '1'
   static relayEnvironment = relayEnvironment(process.env)
   static buffered = Buffer.alloc(0)
   static activeRequest = null
   static deadline = 0
   static settled = false
+  static cancelled = false
+}
+
+class WarmRequest {
+  static useResources(envelope) {
+    const resources = envelope.resources
+    delete envelope.resources
+    WarmRequest.forgetResources()
+    if (!isPlainObject(resources)) return
+    process.env.YON_RESOURCE_ENDPOINT = String(resources.endpoint ?? '')
+    process.env.YON_RESOURCE_TOKEN = String(resources.token ?? '')
+  }
+
+  static forgetResources() {
+    delete process.env.YON_RESOURCE_ENDPOINT
+    delete process.env.YON_RESOURCE_TOKEN
+  }
+
+  static keepsRunning(exitCode) {
+    return RunnerState.warm && exitCode === 0 && !RunnerState.cancelled
+  }
+
+  static finish() {
+    RunnerState.activeRequest = null
+    RunnerState.settled = false
+    WarmRequest.forgetResources()
+  }
+
+  static endFrame(requestId) {
+    const payload = Buffer.from(JSON.stringify({ protocol_version: 1, kind: 'end', request_id: requestId }), 'utf8')
+    const prefix = Buffer.allocUnsafe(4)
+    prefix.writeUInt32BE(payload.length)
+    return Buffer.concat([prefix, payload])
+  }
 }
 
 function sideband(...values) {
@@ -302,7 +337,13 @@ function writeFrame(envelope, exitCode = 0) {
   }
   const prefix = Buffer.allocUnsafe(4)
   prefix.writeUInt32BE(payload.length)
-  void writeOutput(Buffer.concat([prefix, payload]))
+  const frame = Buffer.concat([prefix, payload])
+  if (WarmRequest.keepsRunning(exitCode)) {
+    WarmRequest.finish()
+    void writeOutput(frame).catch(() => process.exit(74))
+    return
+  }
+  void writeOutput(frame)
     .then(() => process.exit(exitCode), () => process.exit(74))
 }
 
@@ -350,6 +391,12 @@ async function streamEvents(requestId, iterable) {
     }
   } catch {
     failure(requestId, 'TY2204', 'The handler stream failed.')
+    return
+  }
+  if (RunnerState.warm) {
+    const frame = WarmRequest.endFrame(requestId)
+    WarmRequest.finish()
+    await writeOutput(frame).catch(() => process.exit(74))
     return
   }
   try {
@@ -479,9 +526,10 @@ function timeLeft() {
 }
 
 function invocationDeadline(envelope) {
+  const started = RunnerState.warm ? performance.now() : 0
   const milliseconds = Number(envelope.deadline_ms ?? RelaySettings.defaultDeadlineMs)
-  if (!Number.isFinite(milliseconds)) return RelaySettings.defaultDeadlineMs
-  return milliseconds
+  if (!Number.isFinite(milliseconds)) return started + RelaySettings.defaultDeadlineMs
+  return started + milliseconds
 }
 
 function collectOutput(stream, limit, capture) {
@@ -776,6 +824,7 @@ function accept(envelope) {
   if (!envelope || envelope.protocol_version !== 1) process.exit(70)
   if (envelope.kind === 'cancel') {
     if (RunnerState.activeRequest && envelope.request_id === RunnerState.activeRequest.request_id) {
+      RunnerState.cancelled = true
       failure(envelope.request_id, 'TY2111', 'Handler invocation was cancelled.', 499)
     }
     return
@@ -786,6 +835,8 @@ function accept(envelope) {
     return
   }
   if (envelope.kind !== 'request' || RunnerState.activeRequest) process.exit(70)
+  if (RunnerState.warm && envelope.operation === 'socket.open') process.exit(70)
+  if (RunnerState.warm) WarmRequest.useResources(envelope)
   if (envelope.operation === 'socket.open') SocketConnection.current = new SocketConnection(envelope.request_id)
   RunnerState.activeRequest = envelope
   RunnerState.deadline = invocationDeadline(envelope)
@@ -812,4 +863,7 @@ process.stdin.on('data', (chunk) => {
 })
 
 process.stdin.on('error', () => process.exit(74))
+process.stdin.on('end', () => {
+  if (RunnerState.warm) process.exit(0)
+})
 process.stdin.resume()

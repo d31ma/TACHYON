@@ -149,7 +149,8 @@ authored-source rules, not restrictions on compiler-generated composition
   - drain bounded pipes concurrently;
   - use one absolute deadline for each request. The supervisor writes the
     time left into the request at the frame write; a runner measures it from
-    its own start and never reads it back from a request that the handler can
+    its own start (a warm runner, from the moment it reads the request
+    frame) and never reads it back from a request that the handler can
     change;
   - start outside programs with only the baseline environment and the
     explicit allowlist (a relay program also keeps `YON_HANDLER_PROTOCOL`

@@ -70,6 +70,11 @@ impl Drained {
         stderr.check_exit_status(status)
     }
 
+    pub(super) fn check_diagnostics(&self) -> Result<(), Failure> {
+        self.check_stderr_fits()?;
+        self.check_stderr_complete()
+    }
+
     pub(super) fn validate_stream_output(status: ExitStatus, stderr: &Self) -> Result<(), Failure> {
         let empty_stdout = Self {
             bytes: Vec::new(),
@@ -166,7 +171,7 @@ impl Drained {
         }
     }
 
-    fn keep(&mut self, data: &[u8], limit: usize) {
+    pub(super) fn keep(&mut self, data: &[u8], limit: usize) {
         let available = limit.saturating_sub(self.bytes.len());
         let retained = available.min(data.len());
         self.bytes.extend_from_slice(&data[..retained]);

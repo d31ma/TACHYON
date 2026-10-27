@@ -12,7 +12,7 @@ use tachyon_contracts::{
 };
 use tachyon_core::{
     EnvironmentPolicy, HandlerCancellation, HandlerSource, HandlerSupervisor,
-    HandlerSupervisorOptions,
+    HandlerSupervisorOptions, YonIsolationPolicy,
 };
 
 fn source(root: &tempfile::TempDir, extension: &str, contents: &str) -> HandlerSource {
@@ -43,7 +43,11 @@ fn body_json(response: &HandlerResponse) -> serde_json::Value {
 }
 
 fn supervisor(options: HandlerSupervisorOptions) -> HandlerSupervisor {
-    HandlerSupervisor::new(options).expect("valid supervisor")
+    let per_request = HandlerSupervisorOptions {
+        isolation: YonIsolationPolicy::Process,
+        ..options
+    };
+    HandlerSupervisor::new(per_request).expect("valid supervisor")
 }
 
 fn available(program: &str) -> bool {

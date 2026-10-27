@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-26
+- Amended by: [ADR 0111](0111-yon-keeps-handler-processes-warm-by-default.md): by default a supervised handler process stays warm and serves many requests, one at a time; every warm process has a bounded lifetime, an owner and a reaper
 
 ## Context
 

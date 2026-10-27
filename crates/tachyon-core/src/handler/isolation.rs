@@ -1,7 +1,9 @@
 mod environment_names;
 mod firecracker_isolation;
+mod warm_settings;
 
 pub use firecracker_isolation::FirecrackerIsolation;
+pub use warm_settings::WarmSettings;
 
 use super::readiness::YonLanguage;
 use crate::Failure;
@@ -10,17 +12,24 @@ use crate::handler::HandlerLanguage;
 use environment_names::EnvironmentNames;
 use std::ffi::{OsStr, OsString};
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum YonIsolationPolicy {
-    #[default]
+    Warm(WarmSettings),
     Process,
     Firecracker(FirecrackerIsolation),
+}
+
+impl Default for YonIsolationPolicy {
+    fn default() -> Self {
+        Self::Warm(WarmSettings::default())
+    }
 }
 
 impl YonIsolationPolicy {
     const SOURCE_HANDLER_LANGUAGES: [HandlerLanguage; 2] =
         [HandlerLanguage::JavaScript, HandlerLanguage::Python];
     const SOURCE_YON_LANGUAGES: [YonLanguage; 2] = [YonLanguage::JavaScript, YonLanguage::Python];
+    const MODES: [&'static str; 3] = ["warm", "process", "firecracker"];
 
     pub fn from_environment() -> Result<Self, Failure> {
         Self::from_lookup(|name| std::env::var_os(name))
@@ -34,17 +43,19 @@ impl YonIsolationPolicy {
         self.firecracker_policy()
     }
 
+    pub(crate) fn warm(&self) -> Option<&WarmSettings> {
+        self.warm_settings()
+    }
+
     pub(super) fn from_lookup<F>(lookup: F) -> Result<Self, Failure>
     where
         F: Fn(&str) -> Option<OsString>,
     {
-        let configured_firecracker_values: Vec<&str> = EnvironmentNames::FIRECRACKER_ONLY
-            .into_iter()
-            .filter(|name| lookup(name).is_some())
-            .collect();
         let mode = Self::optional_unicode(&lookup, EnvironmentNames::ISOLATION)?
-            .unwrap_or_else(|| String::from("process"));
-        Self::from_mode(&mode, &configured_firecracker_values, &lookup)
+            .unwrap_or_else(|| String::from("warm"));
+        Self::check_known_mode(&mode)?;
+        Self::check_values_belong_to(&mode, &lookup)?;
+        Self::from_mode(&mode, &lookup)
     }
 
     pub(crate) fn apply_backend_environment(&self, command: &mut tokio::process::Command) {
@@ -67,34 +78,92 @@ impl YonIsolationPolicy {
         self.check_source_language(is_source_language, language.family())
     }
 
+    fn parse_number<T>(
+        value: Option<String>,
+        name: &str,
+        default: T,
+        minimum: T,
+        maximum: T,
+    ) -> Result<T, Failure>
+    where
+        T: Copy + Ord + std::str::FromStr,
+    {
+        value.map_or(Ok(default), |value| {
+            Self::parse_in_range(&value, name, minimum, maximum)
+        })
+    }
+
+    fn parse_in_range<T>(value: &str, name: &str, minimum: T, maximum: T) -> Result<T, Failure>
+    where
+        T: Copy + Ord + std::str::FromStr,
+    {
+        let parsed = value.parse::<T>().map_err(|_| {
+            Self::configuration_failure(format!("{name} must be a base-10 integer."))
+        })?;
+        let in_range = (minimum..=maximum).contains(&parsed);
+        if !in_range {
+            return Err(Self::configuration_failure(format!(
+                "{name} is outside its supported range."
+            )));
+        }
+        Ok(parsed)
+    }
+
     fn firecracker_policy(&self) -> Option<&FirecrackerIsolation> {
         match self {
-            Self::Process => None,
             Self::Firecracker(policy) => Some(policy),
+            Self::Warm(_) | Self::Process => None,
         }
     }
 
-    fn from_mode<F>(
-        mode: &str,
-        configured_firecracker_values: &[&str],
-        lookup: &F,
-    ) -> Result<Self, Failure>
+    fn warm_settings(&self) -> Option<&WarmSettings> {
+        match self {
+            Self::Warm(settings) => Some(settings),
+            Self::Process | Self::Firecracker(_) => None,
+        }
+    }
+
+    fn check_known_mode(mode: &str) -> Result<(), Failure> {
+        if !Self::MODES.contains(&mode) {
+            return Err(Self::configuration_failure(format!(
+                "{} must be 'warm', 'process' or 'firecracker', not '{mode}'.",
+                EnvironmentNames::ISOLATION
+            )));
+        }
+        Ok(())
+    }
+
+    fn check_values_belong_to<F>(mode: &str, lookup: &F) -> Result<(), Failure>
     where
         F: Fn(&str) -> Option<OsString>,
     {
-        let isolation = EnvironmentNames::ISOLATION;
+        let foreign = EnvironmentNames::foreign_to(mode);
+        let configured: Vec<&str> = foreign
+            .into_iter()
+            .filter(|name| lookup(name).is_some())
+            .collect();
+        Self::refuse_foreign_values(mode, &configured)
+    }
+
+    fn refuse_foreign_values(mode: &str, configured: &[&str]) -> Result<(), Failure> {
+        if !configured.is_empty() {
+            return Err(Self::configuration_failure(format!(
+                "{} cannot be used with {}={mode}.",
+                configured.join(", "),
+                EnvironmentNames::ISOLATION
+            )));
+        }
+        Ok(())
+    }
+
+    fn from_mode<F>(mode: &str, lookup: &F) -> Result<Self, Failure>
+    where
+        F: Fn(&str) -> Option<OsString>,
+    {
         match mode {
-            "process" if !configured_firecracker_values.is_empty() => {
-                Err(Self::configuration_failure(format!(
-                    "{} require {isolation}=firecracker and cannot be used with process isolation.",
-                    configured_firecracker_values.join(", ")
-                )))
-            }
-            "process" => Ok(Self::Process),
             "firecracker" => FirecrackerIsolation::from_lookup(lookup).map(Self::Firecracker),
-            _ => Err(Self::configuration_failure(format!(
-                "{isolation} must be 'process' or 'firecracker', not '{mode}'."
-            ))),
+            "process" => Ok(Self::Process),
+            _ => WarmSettings::from_lookup(lookup).map(Self::Warm),
         }
     }
 
@@ -108,7 +177,8 @@ impl YonIsolationPolicy {
         is_source_language: bool,
         language_name: &str,
     ) -> Result<(), Failure> {
-        if *self != Self::Process && !is_source_language {
+        let refused = [self.firecracker_policy().is_some(), !is_source_language];
+        if refused == [true, true] {
             return Err(Self::unsupported_language_failure(language_name));
         }
         Ok(())
@@ -146,7 +216,7 @@ impl YonIsolationPolicy {
             format!("Firecracker isolation cannot invoke a prepared {language_name} handler."),
             Some(String::from(
                 "The current Firecracker driver contract transfers only project-contained \
-                 JavaScript and Python source. Use process isolation for TypeScript, Java, Groovy, \
+                 JavaScript and Python source. Use warm or process isolation for TypeScript, Java, Groovy, \
                  PHP, Kotlin, C#, Rust, Ruby, Lua, or Go until an artifact-transfer contract is implemented.",
             )),
             None,
@@ -158,7 +228,7 @@ impl YonIsolationPolicy {
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::YonIsolationPolicy;
+    use super::{WarmSettings, YonIsolationPolicy};
     use crate::handler::{HandlerLanguage, YonLanguage};
     use std::collections::BTreeMap;
     use std::ffi::OsString;
@@ -190,15 +260,62 @@ mod tests {
     }
 
     #[test]
-    fn process_is_the_environment_default() {
+    fn warm_is_the_environment_default() {
         assert_eq!(
             parse(&[]).expect("default policy"),
-            YonIsolationPolicy::Process
+            YonIsolationPolicy::Warm(WarmSettings::default())
+        );
+        assert_eq!(
+            parse(&[("YON_ISOLATION", "warm")]).expect("warm policy"),
+            YonIsolationPolicy::default()
         );
         assert_eq!(
             parse(&[("YON_ISOLATION", "process")]).expect("process policy"),
             YonIsolationPolicy::Process
         );
+        assert!(YonIsolationPolicy::default().warm().is_some());
+        assert!(YonIsolationPolicy::Process.warm().is_none());
+    }
+
+    #[test]
+    fn warm_settings_are_bounded() {
+        let policy = parse(&[
+            ("YON_WARM_MAX_REQUESTS", "5"),
+            ("YON_WARM_IDLE_SECONDS", "2"),
+        ])
+        .expect("warm settings");
+        let settings = policy.warm().copied().expect("warm mode");
+        assert_eq!(settings.max_requests, 5);
+        assert_eq!(settings.idle_limit, std::time::Duration::from_secs(2));
+        let defaults = WarmSettings::default();
+        assert_eq!(defaults.max_requests, 1_000);
+        assert_eq!(defaults.idle_limit, std::time::Duration::from_secs(60));
+        for (name, value) in [
+            ("YON_WARM_MAX_REQUESTS", "0"),
+            ("YON_WARM_MAX_REQUESTS", "1000001"),
+            ("YON_WARM_MAX_REQUESTS", "many"),
+            ("YON_WARM_IDLE_SECONDS", "0"),
+            ("YON_WARM_IDLE_SECONDS", "3601"),
+        ] {
+            assert!(is_refused(&[(name, value)], "bounded warm setting"));
+        }
+    }
+
+    #[test]
+    fn warm_settings_belong_to_warm_mode_only() {
+        for mode in ["process", "firecracker"] {
+            for name in ["YON_WARM_MAX_REQUESTS", "YON_WARM_IDLE_SECONDS"] {
+                let rendered = parse(&[("YON_ISOLATION", mode), (name, "5")])
+                    .expect_err("warm value outside warm mode")
+                    .to_string();
+                assert!(rendered.contains("TY2010"), "{rendered}");
+                assert!(rendered.contains(name), "{rendered}");
+            }
+        }
+        assert!(is_refused(
+            &[("YON_FIRECRACKER_POOL", "tenant_a")],
+            "firecracker value in the default warm mode"
+        ));
     }
 
     #[test]
@@ -210,6 +327,10 @@ mod tests {
             vec![
                 ("YON_ISOLATION", "process"),
                 ("YON_FIRECRACKER_POOL", "configured-but-disabled"),
+            ],
+            vec![
+                ("YON_ISOLATION", "warm"),
+                ("YON_FIRECRACKER_VCPUS", "2"),
             ],
             vec![
                 ("YON_ISOLATION", "firecracker"),
@@ -227,12 +348,13 @@ mod tests {
 
     #[test]
     fn firecracker_support_is_limited_to_source_languages() {
-        let process = YonIsolationPolicy::Process;
-        assert!(
-            process
-                .validate_backend_language(HandlerLanguage::Direct)
-                .is_ok()
-        );
+        for local in [YonIsolationPolicy::Process, YonIsolationPolicy::default()] {
+            assert!(
+                local
+                    .validate_backend_language(HandlerLanguage::Direct)
+                    .is_ok()
+            );
+        }
 
         let firecracker = YonIsolationPolicy::Firecracker(super::FirecrackerIsolation {
             driver: std::path::PathBuf::from("driver"),

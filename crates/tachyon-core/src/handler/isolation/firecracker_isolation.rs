@@ -32,14 +32,14 @@ impl FirecrackerIsolation {
         let driver = Self::required_unicode(lookup, EnvironmentNames::DRIVER).map(PathBuf::from)?;
         Self::validate_driver(&driver)?;
         let pool = Self::pool_from_lookup(lookup)?;
-        let vcpus = Self::parse_number(
+        let vcpus = YonIsolationPolicy::parse_number(
             YonIsolationPolicy::optional_unicode(lookup, EnvironmentNames::VCPUS)?,
             EnvironmentNames::VCPUS,
             Self::DEFAULT_VCPUS,
             1,
             Self::MAX_VCPUS,
         )?;
-        let memory_mib = Self::parse_number(
+        let memory_mib = YonIsolationPolicy::parse_number(
             YonIsolationPolicy::optional_unicode(lookup, EnvironmentNames::MEMORY)?,
             EnvironmentNames::MEMORY,
             Self::DEFAULT_MEMORY_MIB,
@@ -143,36 +143,6 @@ impl FirecrackerIsolation {
                 EnvironmentNames::ISOLATION
             ))
         })
-    }
-
-    fn parse_number<T>(
-        value: Option<String>,
-        name: &str,
-        default: T,
-        minimum: T,
-        maximum: T,
-    ) -> Result<T, Failure>
-    where
-        T: Copy + Ord + std::str::FromStr,
-    {
-        value.map_or(Ok(default), |value| {
-            Self::parse_in_range(&value, name, minimum, maximum)
-        })
-    }
-
-    fn parse_in_range<T>(value: &str, name: &str, minimum: T, maximum: T) -> Result<T, Failure>
-    where
-        T: Copy + Ord + std::str::FromStr,
-    {
-        let parsed = value.parse::<T>().map_err(|_| {
-            YonIsolationPolicy::configuration_failure(format!("{name} must be a base-10 integer."))
-        })?;
-        if parsed < minimum || parsed > maximum {
-            return Err(YonIsolationPolicy::configuration_failure(format!(
-                "{name} is outside its supported range."
-            )));
-        }
-        Ok(parsed)
     }
 
     fn validate_driver(driver: &Path) -> Result<(), Failure> {

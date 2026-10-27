@@ -63,6 +63,7 @@ mod test_assertions;
 mod test_marker_proofs;
 mod test_units;
 mod topic_events;
+mod warm_handlers;
 mod yon_annotations_discovery;
 mod yon_compiled_annotations;
 mod yon_cpp;

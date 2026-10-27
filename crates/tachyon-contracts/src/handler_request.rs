@@ -1,4 +1,4 @@
-use crate::{HandlerBody, HandlerHeaders, HandlerRequestKind, HttpMethod};
+use crate::{HandlerBody, HandlerHeaders, HandlerRequestKind, HandlerResources, HttpMethod};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -22,6 +22,8 @@ pub struct HandlerRequest {
     pub body: Option<HandlerBody>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub arguments: Option<Vec<serde_json::Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resources: Option<HandlerResources>,
 }
 
 impl HandlerRequest {
@@ -44,6 +46,7 @@ impl HandlerRequest {
             parameters: BTreeMap::new(),
             body: None,
             arguments: None,
+            resources: None,
         }
     }
 }

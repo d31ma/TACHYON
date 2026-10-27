@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-09
+- Amended by: [ADR 0111](0111-yon-keeps-handler-processes-warm-by-default.md): `YON_ISOLATION` also accepts `warm`, which is now the default, and `YON_WARM_MAX_REQUESTS` and `YON_WARM_IDLE_SECONDS` tune it
 
 ## Context
 
