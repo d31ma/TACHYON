@@ -236,6 +236,7 @@ class WebApisCheck {
   static gestures = ['Copy from the service', 'Paste into the service', 'Ask to notify', 'Share a link']
   static browserApis = ['clipboard', 'share', 'notifications', 'geolocation']
   static refusal = 'The clipboard browser API needs a user action. Call it from a click or key handler.'
+  static permissions = { geolocation: 'The probe reads where you are', notifications: 'The probe asks to notify you' }
   static steps = `    const stamp = () => this.service(LANGUAGE + 'Stamp');
     await this.ready([LANGUAGE + 'Stamp']);
     this.expect(navigator.userActivation?.isActive, false, 'the page has no user action before any click');
@@ -288,7 +289,7 @@ class WebApisCheck {
     const view = `<main><p>{${stamp}.label}</p>\n${calls.map((call, index) => `<button on:click="${stamp}.${call}">${this.gestures[index]}</button>`).join('\n')}\n</main>\n`
     WasmFeaturesFixture.files(project, { ...this.source(language), 'client/components/stamp/page/tac.html': view, 'client/pages/tac.html': '<stamp-page hydrate="load" />\n<wasm-probe />\n' })
     return {
-      tac: { browserApis: this.browserApis },
+      tac: { browserApis: this.browserApis, application: { permissions: this.permissions } },
       constants: { REFUSAL: this.refusal, UNIT_METHOD: this.unitMethods.includes(language), OWN_RUNTIME: this.ownRuntimes.includes(language), GESTURES: gestures ? this.gestures : [] },
       gestures: gestures ? this.gestures : [],
     }
@@ -477,7 +478,7 @@ export class WasmFeaturesFixture {
     const application = this.application(check, language)
     const id = `dev.tachyon.wasm-${check}-${language}`
     const yon = { yon: { origin: fixture.needsYon ? options.yonOrigin : this.idleYon } }
-    const tac = { ...this.checkFlags, ...staged.tac, scripts: [`/${WasmProbeSource.script.slice('client/'.length)}`], application: { id, version: '0.0.1' }, ...yon }
+    const tac = { ...this.checkFlags, ...staged.tac, scripts: [`/${WasmProbeSource.script.slice('client/'.length)}`], application: { ...staged.tac?.application, id, version: '0.0.1' }, ...yon }
     this.write(project, 'client/manifest.json', JSON.stringify({ name: application, start_url: '/', tac }, null, 2))
     if (fixture.needsYon) this.write(project, 'server/application.json', JSON.stringify({ server: { origins: this.pageOrigins } }))
     this.files(project, {
