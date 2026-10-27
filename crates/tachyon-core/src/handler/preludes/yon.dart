@@ -231,8 +231,7 @@ abstract final class _YonRelayState {
   static const int defaultDeadlineMilliseconds = 30000;
   static const String failureMessage = 'Component invocation failed.';
   static final int Function() _elapsedMilliseconds = _startClock();
-  static int _deadlineMilliseconds = defaultDeadlineMilliseconds;
-  static int _requestStartedAt = 0;
+  static _YonRequestClock _clock = _YonRequestClock(0);
   static int? _renewedAt;
   static bool _started = false;
   static bool _captured = false;
@@ -240,6 +239,10 @@ abstract final class _YonRelayState {
   static String requestId = 'unknown';
   static String? resourceEndpoint;
   static String? resourceToken;
+
+  static int get _deadlineMilliseconds => _clock.deadlineMilliseconds;
+
+  static set _deadlineMilliseconds(int value) => _clock.deadlineMilliseconds = value;
 
   static int Function() _startClock() {
     final clock = Stopwatch()..start();
@@ -268,7 +271,7 @@ abstract final class _YonRelayState {
   }
 
   static void startRequestClock() {
-    _requestStartedAt = _elapsedMilliseconds();
+    _clock = _YonRequestClock(_elapsedMilliseconds());
   }
 
   static void beginRequest(Map<String, Object?> raw) {
@@ -311,8 +314,15 @@ abstract final class _YonRelayState {
     if (!_captured) return 0;
     final renewedAt = _renewedAt;
     if (renewedAt != null) return renewedAt + defaultDeadlineMilliseconds - _elapsedMilliseconds();
-    return _requestStartedAt + _deadlineMilliseconds - _elapsedMilliseconds();
+    return _clock.startedAt + _deadlineMilliseconds - _elapsedMilliseconds();
   }
+}
+
+final class _YonRequestClock {
+  _YonRequestClock(this.startedAt);
+
+  final int startedAt;
+  late final int deadlineMilliseconds;
 }
 
 final class _YonRelayOutput {
