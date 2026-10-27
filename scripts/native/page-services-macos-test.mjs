@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { execFile, spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,10 +19,13 @@ class MacOsPageServicesTest {
   static bounds = path.join(MacOsPageServicesTest.root, 'window-grant-bounds')
   static panelKeys = path.join(MacOsPageServicesTest.repository, 'scripts/native/MacOsOpenPanelKeys.applescript')
   static features = path.join(MacOsPageServicesTest.repository, 'website/content/features')
-  static serviceLanguages = PageServicesFixture.list('TAC_MACOS_SERVICE_LANGUAGES', 'py,dart,kt,java,go')
-  static windowCallers = PageServicesFixture.list('TAC_MACOS_WINDOW_CALLERS', 'cs,kt')
-  static pickerCallers = PageServicesFixture.list('TAC_MACOS_PICKER_CALLERS', 'rs')
+  static serviceLanguages = PageServicesFixture.list('TAC_MACOS_SERVICE_LANGUAGES', 'py,dart,kt,java,go,rb,lua,hpp,fs')
+  static windowCallers = PageServicesFixture.list('TAC_MACOS_WINDOW_CALLERS', 'cs,kt,swift,rs')
+  static pickerCallers = PageServicesFixture.list('TAC_MACOS_PICKER_CALLERS', 'rs,swift')
   static windowRefusal = process.env.TAC_MACOS_WINDOW_REFUSAL !== '0'
+  static scopedStyle = process.env.TAC_MACOS_SCOPED_STYLE !== '0'
+  static linkedLanguages = { swift: 'Swift', rs: 'Rust' }
+  static callerFolders = { swift: 'native' }
   static resizedWidth = 1280
   static attempts = 60
   static pause = 250
@@ -116,6 +119,16 @@ class MacOsPageServicesTest {
     return app
   }
 
+  /** The Swift and Rust callers must be linked into the app, not shipped as WebAssembly. @param {string} project @param {string} language @param {string} service */
+  static assertLinked(project, language, service) {
+    const name = this.linkedLanguages[language]
+    if (!name) return ''
+    const host = path.join(project, 'dist/macos/tachyon.host.json')
+    const companions = existsSync(host) ? JSON.parse(readFileSync(host, 'utf8')).companions ?? [] : []
+    assert.ok(companions.some((item) => item.service === service && item.language === name), `the ${name} ${service} service is linked into the macOS app: ${JSON.stringify(companions)}`)
+    return ' (linked into the app)'
+  }
+
   /** @param {string} app @param {string} id */
   static close(app, id) {
     spawnSync('/usr/bin/pkill', ['-f', path.join(app, 'Contents/MacOS')])
@@ -135,9 +148,10 @@ class MacOsPageServicesTest {
   /** @param {string} language */
   static async checkWindowCaller(language) {
     const project = path.join(this.root, `window-${language}`)
-    const application = PageServicesFixture.stageWindowCaller(project, language)
+    const application = PageServicesFixture.stageWindowCaller(project, language, this.callerFolders[language] ?? 'client')
     const id = `dev.tachyon.window-${language}`
     const app = this.open(project, application)
+    const linked = this.assertLinked(project, language, 'report')
     try {
       await this.drive(id, [['wait', 'Report', 'Rename'], ['press', 'Rename'], ['wait', 'Quarterly report'], ['press', 'Resize']])
       const width = await this.settledWidth(application)
@@ -145,7 +159,7 @@ class MacOsPageServicesTest {
     } finally {
       this.close(app, id)
     }
-    console.log(`ok - ${language} WindowControls caller renamed the macOS window to Quarterly report and resized it to ${this.resizedWidth} wide`)
+    console.log(`ok - ${language} WindowControls caller${linked} renamed the macOS window to Quarterly report and resized it to ${this.resizedWidth} wide`)
   }
 
   static async checkWindowRefusal() {
@@ -176,6 +190,7 @@ class MacOsPageServicesTest {
     const id = `dev.tachyon.picker-${language}`
     const [read, cancelled] = PageServicesFixture.pickerStatuses[language]
     const app = this.open(project, application)
+    const linked = this.assertLinked(project, language, 'picker')
     try {
       await this.drive(id, [['wait', 'Choose a text file', 'Ready']])
       await this.answerPanel(app, id, notes)
@@ -185,7 +200,20 @@ class MacOsPageServicesTest {
     } finally {
       this.close(app, id)
     }
-    console.log(`ok - ${language} FilePicker caller chose and read ${path.basename(notes)} in NSOpenPanel and answered ${cancelled} for an Escaped panel`)
+    console.log(`ok - ${language} FilePicker caller${linked} chose and read ${path.basename(notes)} in NSOpenPanel and answered ${cancelled} for an Escaped panel`)
+  }
+
+  static async checkScopedStyle() {
+    const project = path.join(this.root, 'scoped-style')
+    const application = PageServicesFixture.stageScopedStyle(project)
+    const id = 'dev.tachyon.scoped-style'
+    const app = this.open(project, application)
+    try {
+      await this.drive(id, [['wait', PageServicesFixture.scopedVerdict]])
+    } finally {
+      this.close(app, id)
+    }
+    console.log(`ok - a component's tac.css colored only its own paragraph ${PageServicesFixture.scopedColor} in the macOS WKWebView app: ${PageServicesFixture.scopedVerdict}`)
   }
 
   static async main() {
@@ -198,10 +226,11 @@ class MacOsPageServicesTest {
       for (const language of this.windowCallers) await this.checkWindowCaller(language)
       for (const language of this.pickerCallers) await this.checkPickerCaller(language)
       if (this.windowRefusal) await this.checkWindowRefusal()
+      if (this.scopedStyle) await this.checkScopedStyle()
     } finally {
       rmSync(this.root, { recursive: true, force: true })
     }
-    console.log(`PASS: page services (${this.serviceLanguages.join(', ')}) answered in the packaged macOS app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through NSOpenPanel${this.windowRefusal ? ', and a host refusal reached a JavaScript WindowControls caller as BrowserCallFailed' : ''}.`)
+    console.log(`PASS: page services (${this.serviceLanguages.join(', ')}) answered in the packaged macOS app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through NSOpenPanel${this.windowRefusal ? ', a host refusal reached a JavaScript WindowControls caller as BrowserCallFailed' : ''}${this.scopedStyle ? ', and a component style stayed inside its component' : ''}.`)
   }
 }
 

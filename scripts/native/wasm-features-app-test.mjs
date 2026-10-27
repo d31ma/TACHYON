@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { execFile, spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { withServer } from '../release/server-probe.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
@@ -59,6 +60,77 @@ timeout ${this.waitSeconds + 120}s python3 "$PROBE" "$STEPS"`
     await WasmFeaturesAppTest.run(WasmFeaturesAppTest.binary, ['build', project, '--target', 'linux'], { timeoutMilliseconds: 1800000 })
     const modules = WasmFeaturesFixture.assertWebAssembly(path.join(project, 'dist/linux'), this.bundle(project, staged.application))
     const lines = await this.drive(project, staged)
+    return { modules, lines }
+  }
+}
+
+class MacOsWasmApp {
+  static waitSeconds = 240
+  static gestureSeconds = 180
+  static escapeSeconds = 60
+  static lines = ['ok - ', 'not ok - ']
+  static gesture = process.env.TAC_MACOS_GESTURE ?? 'press'
+  static allowNotifications = process.env.TAC_MACOS_NOTIFY_ALLOW !== '0'
+  static after = { 'Ask to notify': 'allow', 'Share a link': 'escape' }
+  static websiteData = ['WebKit', 'Caches', 'HTTPStorages']
+  static probe = ''
+
+  /** @param {string} root */
+  static async prepare(root) {
+    assert.equal(process.platform, 'darwin', 'the macOS in-app WebAssembly features gate needs macOS')
+    assert.ok(['press', 'click'].includes(this.gesture), `TAC_MACOS_GESTURE is press (an Accessibility press) or click (a real pointer click), not ${this.gesture}`)
+    this.probe = path.join(root, 'page-checks-macos-probe')
+    const source = path.join(WasmFeaturesAppTest.repository, 'scripts/native/page-checks-macos-probe.swift')
+    await WasmFeaturesAppTest.run('/usr/bin/xcrun', ['swiftc', '-warnings-as-errors', '-O', '-framework', 'AppKit', source, '-o', this.probe], { timeoutMilliseconds: 600000 })
+  }
+
+  /** @param {string} id @param {string} action @param {string[]} values */
+  static async step(id, action, ...values) {
+    const seconds = Number(values[0]) || 60
+    return promisify(execFile)(this.probe, [id, action, ...values], { timeout: (seconds + 120) * 1000 })
+  }
+
+  /** @param {string} id */
+  static async verdict(id) {
+    const values = [String(this.waitSeconds), WasmFeaturesFixture.passed, WasmFeaturesFixture.failed, ...this.lines]
+    const answer = await this.step(id, 'verdict', ...values).then((result) => ({ ...result, passed: true }), (error) => ({ stdout: error.stdout ?? '', stderr: error.stderr ?? String(error), passed: false }))
+    const lines = answer.stdout.split('\n').filter(Boolean)
+    assert.ok(answer.passed, `the in-app probe did not pass:\n${lines.join('\n')}\n${answer.stderr}`)
+    return lines
+  }
+
+  /** @param {string} id @param {string} label */
+  static async follow(id, label) {
+    const next = this.after[label]
+    if (next === 'allow' && this.allowNotifications) void this.step('-', 'allow', 'Allow').catch(() => undefined)
+    if (next === 'escape') await this.step(id, 'escape', String(this.escapeSeconds), WasmFeaturesFixture.passed, WasmFeaturesFixture.failed)
+  }
+
+  /** @param {string} app @param {{ id: string, gestures: string[] }} staged */
+  static async drive(app, staged) {
+    await promisify(execFile)('/usr/bin/open', ['-n', app])
+    try {
+      for (const label of staged.gestures) {
+        await this.step(staged.id, 'within', String(this.gestureSeconds), `Probe waiting for ${label}`)
+        await this.step(staged.id, this.gesture, label)
+        await this.follow(staged.id, label)
+      }
+      return await this.verdict(staged.id)
+    } finally {
+      spawnSync('/usr/bin/pkill', ['-f', path.join(app, 'Contents/MacOS')])
+      for (const folder of this.websiteData) rmSync(path.join(homedir(), 'Library', folder, staged.id), { recursive: true, force: true })
+    }
+  }
+
+  /** @param {string} project @param {{ application: string, id: string, gestures: string[] }} staged */
+  static async run(project, staged) {
+    await WasmFeaturesAppTest.run(WasmFeaturesAppTest.binary, ['build', project, '--target', 'macos'], { timeoutMilliseconds: 1800000 })
+    const output = path.join(project, 'dist/macos')
+    const bundle = readdirSync(output).find((name) => name.endsWith('.app'))
+    assert.ok(bundle, `no .app in ${output}`)
+    const app = path.join(output, bundle)
+    const modules = WasmFeaturesFixture.assertWebAssembly(output, path.join(app, 'Contents/Resources/WebBundle'))
+    const lines = await this.drive(app, staged)
     return { modules, lines }
   }
 }
@@ -221,7 +293,7 @@ class WasmFeaturesAppTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'wasm-features-app-'))
-  static hosts = { linux: LinuxWasmApp, android: AndroidWasmApp }
+  static hosts = { linux: LinuxWasmApp, macos: MacOsWasmApp, android: AndroidWasmApp }
   static target = WasmFeaturesAppTest.option('target', 'linux')
   static checks = WasmFeaturesAppTest.option('check', Object.keys(WasmFeaturesFixture.checks).join(',')).split(',')
   static languages = (process.env.TAC_WASM_FEATURE_LANGUAGES ?? '').split(',').filter(Boolean)

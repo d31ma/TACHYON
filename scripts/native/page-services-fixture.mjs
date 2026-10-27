@@ -17,6 +17,7 @@ export class PageServicesFixture {
     ['size', [1280, 800]],
   ]
   static scopedColor = 'rgb(10, 20, 30)'
+  static scopedVerdict = 'Style stays inside its component'
   static scopedFiles = {
     'client/manifest.json': JSON.stringify({ name: 'Scoped Style', tac: { application: { id: 'dev.tachyon.scoped-style' }, ...Object.fromEntries(['names', 'constants', 'visibility', 'duplication', 'cohesion'].map((name) => [name, { check: false }])) } }, null, 2),
     'client/pages/tac.html': '<style-plain />\n<style-card hydrate="load" />\n',
@@ -46,7 +47,7 @@ export default class StyleProbeService {
     }
     const [inside, nested, outside] = ['#inside', '#nested', '#outside'].map((id) => getComputedStyle(document.querySelector(id)).color);
     const verdicts = {
-      'true,false,false': 'Style stays inside its component',
+      'true,false,false': '${PageServicesFixture.scopedVerdict}',
       'false,false,false': 'Style dropped',
     };
     this.colors = [inside, nested, outside].join(' / ');

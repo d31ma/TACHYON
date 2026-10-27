@@ -27,6 +27,7 @@ class ManagedStorageTest {
   static scratchRoot = resolve(process.env.TAC_STORAGE_TEST_ROOT || tmpdir())
   static scratch = null
   static withoutDocker = process.argv.includes('--without-docker')
+  static drivers = process.argv.find(argument => argument.startsWith('--drivers='))?.slice('--drivers='.length).split(',').filter(Boolean) ?? []
   static redisServers = [
     { name: 'redis-server', program: 'redis-server', args: port => ['--port', String(port), '--bind', '127.0.0.1', '--save', '', '--appendonly', 'no'] },
     { name: 'Garnet', program: process.env.TAC_GARNET_SERVER || 'garnet-server', args: port => ['--port', String(port), '--bind', '127.0.0.1'] },
@@ -301,8 +302,10 @@ async function main() {
     if (ManagedStorageTest.withoutDocker) return await withoutDocker(binary)
     await fylo()
     await certificates()
-    for (const fixture of ManagedStorageTest.fixtures) await runDriverTest(binary, fixture)
-    console.log('PASS: SQLite, FYLO, PostgreSQL, MySQL, MariaDB, SQL Server and Redis real driver contracts.')
+    const chosen = ManagedStorageTest.fixtures.filter(fixture => !ManagedStorageTest.drivers.length || ManagedStorageTest.drivers.includes(fixture.driver))
+    assert.equal(chosen.length, ManagedStorageTest.drivers.length || ManagedStorageTest.fixtures.length, `--drivers takes ${ManagedStorageTest.fixtures.map(fixture => fixture.driver).join(', ')}`)
+    for (const fixture of chosen) await runDriverTest(binary, fixture)
+    console.log(`PASS: SQLite, FYLO and ${chosen.map(fixture => fixture.driver).join(', ')} real driver contracts.`)
   } catch (error) {
     console.error(error.message)
     process.exitCode = 1

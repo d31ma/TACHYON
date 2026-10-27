@@ -40,7 +40,7 @@ tac.application.build
   honored: CFBundleVersion
 
 tac.application.minimumSystem
-  honored: LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Kotlin web service; 15.4 with a Java web service, whose TeaVM WebAssembly also needs exception references, ADR 0083, or a Dart web service, whose loader imports the JavaScript exception tag WebAssembly.JSTag, ADR 0033); a value below that floor stops the build (TY1601). Component styles need Safari 17.4 or newer for CSS @scope, and the build notes it (ADR 0108)
+  honored: LSMinimumSystemVersion and the swiftc target (13.0 unless set; 15.2 with a Kotlin web service; 15.4 with a Java web service, whose TeaVM WebAssembly also needs exception references, ADR 0083, or a Dart web service, whose loader imports the JavaScript exception tag WebAssembly.JSTag, ADR 0033); a value below that floor stops the build (TY1601). Component styles need Safari 17.4 or newer for CSS @scope, and the build notes it (ADR 0108). Dart and Java page services built at 15.4 and a Kotlin one at 15.2 answered a click in the macOS app on macOS 27.2, and a component style stayed inside its component there (MA7)
 
 tac.application.links
   adapted: tac.application.links: the macOS app claims the listed schemes in Info.plist and opens their links at their route, or at start_url when the route is unknown. A signed --release build whose TAC_MACOS_PROVISIONING_PROFILE has the Associated Domains capability embeds the profile and claims the listed hosts with applinks: entries, and the app opens their universal links at their route; other builds leave links to the hosts in the browser. No signed build has opened a link from a hosted domain yet.
@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   honored: the smallest size of the window
 
 tac.application.window.controls
-  honored: close, fullscreen, maximize (zoom), minimize, resize and title; a page drove close, fullscreen, maximize, minimize and title and a page service resized the window in scripts/window-grant-macos-test.mjs on macOS 26 (RM1), and C# and Kotlin services, which run as WebAssembly on macOS, renamed and resized the window in scripts/native/page-services-macos-test.mjs (MA1)
+  honored: close, fullscreen, maximize (zoom), minimize, resize and title; a page drove close, fullscreen, maximize, minimize and title and a page service resized the window in scripts/window-grant-macos-test.mjs on macOS 26 (RM1), and C# and Kotlin services, which run as WebAssembly on macOS, renamed and resized the window in scripts/native/page-services-macos-test.mjs (MA1), and so did linked Swift and Rust services (MA7)
 
 tac.application.window.titleBar
   honored: "integrated" draws the page under the title bar
@@ -130,7 +130,7 @@ tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk
 
 tac.nativeCapabilities
-  honored: filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page; C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5), and so did a linked Rust field (MA1)
+  honored: filePicker opens the system file panel (NSOpenPanel) for page, Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly on macOS and reach the panel through the page; C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5), and so did a linked Rust field (MA1) and a linked Swift field (MA7)
 
 tac.elements
   adapted: tac.elements are bundled into the macOS app for its own pages only. Other sites cannot load them from the app.
@@ -232,7 +232,7 @@ Content-Security-Policy
   honored: the native host policy
 
 reaching Yon
-  adapted: The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift and Rust HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1, LR1). The page holds a linked Rust service's stream and socket clients, and that run reached Yon through them too (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); TAC_YON_SERVICES=swift yon-reach-test.mjs ran that on macOS (MA1).
+  adapted: The macOS app's pages load from tachyon-app://bundle, so same-origin requests reach no Yon. Pages and linked Swift and Rust HTTP clients reach the Yon at tac.yon.origin, run on macOS by scripts/native/yon-reach-test.mjs (NET1, LR1). The page holds a linked Rust service's stream and socket clients, and that run reached Yon through them too (LR1). The page holds a linked Swift service's stream and socket clients and delivers their messages to it (LS1); TAC_YON_SERVICES=swift yon-reach-test.mjs ran that on macOS (MA1). WebAssembly Kotlin and C# services reach it through HTTPClient in the macOS app too (scripts/native/wasm-features-app-test.mjs, MA7).
 
 natively linked service languages
   honored: Rust and Swift services are linked into the app; other languages run in the page

@@ -58,6 +58,22 @@ machine contracts have their own, independent major versions.
 - `scripts/native/async-listener-app-test.mjs --check=shared-setup
   --target=linux` runs two linked Rust services that share one Setup in the
   Linux app (LX3, 2026-10-27).
+- macOS driver for the in-app WebAssembly features gate (MA7, 2026-10-27):
+  `scripts/native/wasm-features-app-test.mjs --target=macos` builds the app,
+  presses the gesture buttons through the Accessibility API (or with a real
+  pointer under `TAC_MACOS_GESTURE=click`), answers the notification alert,
+  closes the share picker with Escape, and reads the probe from the
+  WKWebView. All 18 Kotlin, C#, F#, Java, Dart and C++ cells passed on
+  macOS 27.2. `scripts/native/page-checks-macos-probe.swift` gains `within`,
+  `click`, `escape` and `verdict`, and presses a Notification Center alert's
+  named Allow action.
+- `scripts/native/page-services-macos-test.mjs` now runs Ruby, Lua, C++ and
+  F# page services, linked Swift and Rust WindowControls callers, a linked
+  Swift FilePicker field and a component style check by default (MA7,
+  2026-10-27). Dart and Java apps built at the 15.4 floor ran there, and two
+  linked Rust services shared one Setup in the macOS app.
+- `scripts/test-managed-storage.mjs --drivers=sqlserver` runs one driver's
+  real contract alone (MA7, 2026-10-27).
 - `scripts/linux/dev-loop-native-test.mjs` takes `TAC_LINUX_DISPLAY=wayland`
   and then runs `ty preview --target linux` in a headless mutter session. It
   shares that session with `scripts/linux/yon-origin-native-test.mjs`
