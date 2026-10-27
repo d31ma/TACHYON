@@ -79,7 +79,9 @@ class IosWindowSettingsGate {
     }));
     write(project, 'client/shared/window-probe.css', 'html, body { margin: 0; background: transparent; font: 14px sans-serif; }\n');
     write(project, 'client/components/window/probe/tac.css', '#bar { height: var(--tac-titlebar-height, 0px); background: #ff00ff; }\nmain { padding: 8px; }\n');
-    write(project, 'client/pages/tac.html', '<window-probe />\n');
+    const rustTitle = window.controls?.includes('title') ?? false;
+    write(project, 'client/pages/tac.html', rustTitle ? '<window-probe />\n<rust-title />\n' : '<window-probe />\n');
+    if (rustTitle) IosWindowSettingsGate.stageRustTitle(project);
     write(project, 'client/components/window/probe/tac.html', '<header id="bar"></header><main><p>{windowProbe.state}</p></main>');
     write(project, 'client/services/WindowProbeService.js', `@Service()
 export default class WindowProbeService {
@@ -100,6 +102,7 @@ export default class WindowProbeService {
         trailingInset: variable('--tac-titlebar-trailing-inset'),
         insetsAnswer: await __tachyonNativeHostCall('window.titleBarInsets', '{}').catch(error => 'refused: ' + error),
         barHeight: document.querySelector('#bar').getBoundingClientRect().height,
+        rust: await this.rustCaller(),
       };
       const native = JSON.parse(await this.facts());
       this.proof = JSON.stringify({ page, native });
@@ -109,6 +112,21 @@ export default class WindowProbeService {
       this.state = 'failed';
     }
     await this.record();
+  }
+  async rustCaller() {
+    if (!${rustTitle}) return null;
+    const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+    let service;
+    for (let attempt = 0; attempt < 100 && !(service = __tachyonTac.service('rustTitle')); attempt++) await pause(100);
+    if (!service) return { error: 'the linked Rust service never started' };
+    const grants = await service.grants();
+    const problem = await service.rename();
+    let sceneTitle = '';
+    for (let attempt = 0; attempt < 40 && sceneTitle !== 'Rust titled'; attempt++) {
+      sceneTitle = await this.sceneTitle();
+      if (sceneTitle !== 'Rust titled') await pause(100);
+    }
+    return { grants, problem, sceneTitle };
   }
 }
 `);
@@ -155,6 +173,12 @@ final class WindowProbeService {
         return String(decoding: data, as: UTF8.self)
     }
 
+    func sceneTitle() -> String {
+        MainActor.assumeIsolated {
+            UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.title ?? ""
+        }
+    }
+
     func record() -> Int {
         let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         try? Data(proof.utf8).write(to: directory.appendingPathComponent("window-probe.json"), options: .atomic)
@@ -178,6 +202,31 @@ final class WindowProbeService {
 }
 `);
     return project;
+  }
+
+  /** A linked Rust caller of WindowControls, shown on the page so Tac starts it. @param {string} project */
+  static stageRustTitle(project) {
+    const { write } = IosWindowSettingsGate;
+    write(project, 'client/components/rust/title/tac.html', '<p id="rust-title">{rustTitle.problem}</p>');
+    write(project, 'client/services/RustTitleService.rs', `#[Service]
+#[derive(Default)]
+struct RustTitleService {
+    window_controls: WindowControls,
+    problem: String,
+}
+
+impl RustTitleService {
+    pub fn grants(&self) -> String {
+        let granted = |control: &str| self.window_controls.granted(control).unwrap_or(false);
+        format!("title={} minimize={}", granted("title"), granted("minimize"))
+    }
+
+    pub fn rename(&mut self) -> String {
+        self.problem = self.window_controls.set_title("Rust titled").err().unwrap_or_default();
+        self.problem.clone()
+    }
+}
+`);
   }
 
   static binary() {
@@ -330,10 +379,11 @@ final class WindowProbeService {
     const plist = path.join(bundle, 'Info.plist');
     assert.equal(run('/usr/bin/plutil', ['-extract', 'UILaunchScreen.UIColorName', 'raw', plist]), 'TachyonLaunchBackground');
     assert.match(run('/usr/bin/xcrun', ['assetutil', '--info', path.join(bundle, 'Assets.car')]), /TachyonLaunchBackground/);
-    IosWindowSettingsGate.checkTitle(native, 'iPhone');
+    IosWindowSettingsGate.checkTitle(result, 'iPhone');
   }
 
-  static checkTitle(native, device) {
+  static checkTitle({ native, page }, device) {
+    assert.deepEqual(page.rust, { grants: 'title=true minimize=false', problem: '', sceneTitle: 'Rust titled' }, `${device}: linked Rust sees the title grant and sets the scene title`);
     assert.equal(native.grantTitle, true, `${device}: linked Swift sees the title grant`);
     assert.equal(native.grantMinimize, false, `${device}: linked Swift sees no minimize grant`);
     assert.equal(native.titleSet, 'yes', `${device}: linked Swift sets the title`);
@@ -458,8 +508,8 @@ final class WindowProbeService {
       IosWindowSettingsGate.checkIntegrated(await IosWindowSettingsGate.launch(phone, bundles.integrated, 'integrated'));
       IosWindowSettingsGate.checkFullscreen(await IosWindowSettingsGate.launch(phone, bundles.fullscreen, 'fullscreen'));
       const tablet = IosWindowSettingsGate.boot('iPad Pro 13-inch (M5) (16GB)', 'iPad');
-      IosWindowSettingsGate.checkTitle((await IosWindowSettingsGate.launch(tablet, bundles.standard, 'standard')).native, 'iPad');
-      console.log('PASS: iOS window settings: theme_color status bar and icons, background_color web view and launch screen (asset catalog and on screen before main), integrated title bar insets, fullscreen, orientation, the linked Swift scene title on iPhone and iPad, and host title refusals heard as BrowserCallFailed');
+      IosWindowSettingsGate.checkTitle(await IosWindowSettingsGate.launch(tablet, bundles.standard, 'standard'), 'iPad');
+      console.log('PASS: iOS window settings: theme_color status bar and icons, background_color web view and launch screen (asset catalog and on screen before main), integrated title bar insets, fullscreen, orientation, the linked Rust and Swift scene titles on iPhone and iPad, and host title refusals heard as BrowserCallFailed');
     } finally {
       IosWindowSettingsGate.cleanup();
     }
