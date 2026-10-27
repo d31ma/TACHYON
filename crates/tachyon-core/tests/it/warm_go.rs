@@ -8,8 +8,8 @@ use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
 };
 use tachyon_core::{
-    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
-    WarmSettings, YonIsolationPolicy,
+    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, WarmSettings,
+    YonIsolationPolicy,
 };
 
 struct WarmGo;
@@ -124,7 +124,11 @@ func (Handler) POST(request *http.Request) any {
         id: &str,
     ) -> (u64, u64) {
         let response = supervisor
-            .invoke(source, &Self::request(id, ""), &HandlerCancellation::default())
+            .invoke(
+                source,
+                &Self::request(id, ""),
+                &HandlerCancellation::default(),
+            )
             .await
             .expect("Go response");
         let value = Self::body_json(&response);

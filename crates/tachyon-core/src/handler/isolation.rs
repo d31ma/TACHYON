@@ -328,10 +328,7 @@ mod tests {
                 ("YON_ISOLATION", "process"),
                 ("YON_FIRECRACKER_POOL", "configured-but-disabled"),
             ],
-            vec![
-                ("YON_ISOLATION", "warm"),
-                ("YON_FIRECRACKER_VCPUS", "2"),
-            ],
+            vec![("YON_ISOLATION", "warm"), ("YON_FIRECRACKER_VCPUS", "2")],
             vec![
                 ("YON_ISOLATION", "firecracker"),
                 ("YON_FIRECRACKER_DRIVER", "relative/driver"),

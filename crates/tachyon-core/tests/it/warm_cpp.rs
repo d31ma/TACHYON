@@ -8,8 +8,8 @@ use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
 };
 use tachyon_core::{
-    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
-    WarmSettings, YonIsolationPolicy,
+    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, WarmSettings,
+    YonIsolationPolicy,
 };
 
 struct WarmCpp;
@@ -91,8 +91,8 @@ public:
 
     fn counter() -> (tempfile::TempDir, HandlerSource) {
         let root = Self::project(&[Self::MODEL, (Self::CONTROLLER_PATH, Self::CONTROLLER)]);
-        let source = HandlerSource::discover(root.path(), Self::CONTROLLER_PATH)
-            .expect("warm controller");
+        let source =
+            HandlerSource::discover(root.path(), Self::CONTROLLER_PATH).expect("warm controller");
         (root, source)
     }
 
@@ -225,7 +225,10 @@ async fn a_warm_cpp_stream_ends_with_its_end_frame_and_stays_warm() {
     }
     assert_eq!(pids[0], pids[1]);
     let (after, count) = WarmCpp::counted(&supervisor, &source, "after_streams").await;
-    assert_eq!(after, pids[0], "the C++ process stayed warm after its streams");
+    assert_eq!(
+        after, pids[0],
+        "the C++ process stayed warm after its streams"
+    );
     assert_eq!(count, 1);
 }
 
@@ -245,7 +248,10 @@ async fn a_warm_cpp_gateway_exchanges_resource_frames_on_every_request() {
     let second = WarmCpp::echoed(&supervisor, &source, "second").await;
     assert_eq!(first["echo"]["value"], "first", "{first}");
     assert_eq!(second["echo"]["value"], "second", "{second}");
-    assert_eq!(first["pid"], second["pid"], "the C++ caller reused its process");
+    assert_eq!(
+        first["pid"], second["pid"],
+        "the C++ caller reused its process"
+    );
     assert_eq!(first["count"], 1, "{first}");
     assert_eq!(second["count"], 2, "{second}");
 }

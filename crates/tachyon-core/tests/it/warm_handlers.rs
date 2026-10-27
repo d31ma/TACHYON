@@ -6,8 +6,8 @@ use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
 };
 use tachyon_core::{
-    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
-    WarmSettings, YonIsolationPolicy,
+    HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, WarmSettings,
+    YonIsolationPolicy,
 };
 
 const JAVASCRIPT_COUNTER: &str = r"
