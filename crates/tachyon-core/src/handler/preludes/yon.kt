@@ -503,6 +503,7 @@ object Yon {
     private const val NANOSECONDS_PER_MILLISECOND = 1_000_000L
     private const val FAILURE_MESSAGE = "Component invocation failed."
     private var startNanos = 0L
+    private var servedRequest = false
     private var relayEnvironment: Map<String, String>? = null
     private var deadlineNanos: Long? = null
     private var requestId = "unknown"
@@ -583,7 +584,8 @@ object Yon {
 
     internal fun beginRequest() {
         endRequest()
-        startNanos = System.nanoTime()
+        if (servedRequest) startNanos = System.nanoTime()
+        servedRequest = true
     }
 
     internal fun useResources(resources: Any?) {
