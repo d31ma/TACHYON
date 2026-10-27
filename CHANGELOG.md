@@ -1918,6 +1918,15 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- `scripts/windows/high-dpi-test.ps1` also builds an integrated title bar
+  app, "Dpi Bar" (WM2, 2026-10-27). At the scaled DPI, and again after a
+  monitor move or a scale change (`WM_DPICHANGED`), it checks that the
+  `--tac-titlebar-*` insets match the caption buttons in CSS pixels, that a
+  drag from 4px above the bottom of the drag region moves the window, that a
+  drag from 12px under it does not, and that a button inside the region
+  still gets its click. With `-ScaleChangeSeconds`, each app page shows
+  when to change the scale.
+
 - Windows `background_color` and reaching Yon are `adapted`, like the other
   native targets (DOC5, ADR 0102 amendment, 2026-10-27). Windows takes the
   same `#rgb` and `#rrggbb` forms, and its pages reach Yon across origins

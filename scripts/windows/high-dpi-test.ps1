@@ -95,8 +95,10 @@ function Write-SetupFixture([string] $root) {
   <p>Viewport {dpiWindow.viewport}</p>
   <p>Problem {dpiWindow.problem}</p>
   <p>Reads {dpiWindow.reads}</p>
+  <p>{dpiWindow.notice}</p>
   <button on:click="dpiWindow.read()">Read size</button>
   <button on:click="dpiWindow.resizeWindow()">Resize window</button>
+  <button on:click="dpiWindow.ask()">Ask scale change</button>
 </main>
 '@
     Write-FixtureFile $root 'client/services/DpiWindowService.js' @'
@@ -109,6 +111,11 @@ export default class DpiWindowService {
   viewport = 'unread';
   problem = 'none';
   reads = 0;
+  notice = '';
+
+  ask() {
+    this.notice = 'Change the display scale in Settings > Display now';
+  }
 
   read() {
     const page = document.documentElement;
@@ -123,6 +130,80 @@ export default class DpiWindowService {
     } catch (refusal) {
       this.problem = /** @type {Error} */ (refusal).message;
     }
+  }
+}
+'@
+}
+
+function Write-BarFixture([string] $root) {
+    Write-FixtureFile $root 'client/manifest.json' @'
+{
+  "name": "Dpi Bar",
+  "start_url": "/",
+  "tac": {
+    "application": {
+      "id": "dev.tachyon.dpi-bar",
+      "version": "0.0.1",
+      "window": { "width": 720, "height": 480, "titleBar": "integrated" }
+    },
+    "styles": ["/shared/dpi.css"],
+    __CHECKS__
+  }
+}
+'@
+    Write-FixtureFile $root 'client/shared/dpi.css' @'
+body { margin: 0; font-family: sans-serif; background: #ffffff; color: #111111; }
+'@
+    Write-FixtureFile $root 'client/components/dpi/bar/tac.css' @'
+.top-bar {
+  display: flex; align-items: center; gap: 16px; box-sizing: border-box;
+  min-height: max(48px, var(--tac-titlebar-height, 0px));
+  padding-inline-start: 16px;
+  padding-inline-end: max(16px, var(--tac-titlebar-trailing-inset, 0px));
+  background: #2e7d32; color: #ffffff;
+}
+.bar-main { padding: 24px 16px; }
+'@
+    Write-FixtureFile $root 'client/pages/tac.html' "<dpi-bar hydrate=`"load`" />`n"
+    Write-FixtureFile $root 'client/components/dpi/bar/tac.html' @'
+<header class="top-bar" data-tac-drag-region>
+  <strong>Drag area</strong>
+  <button on:click="dpiBar.press()">Header button</button>
+</header>
+<main class="bar-main" aria-label="Dpi bar">
+  <p>Insets {dpiBar.insets}</p>
+  <p>Header {dpiBar.header}</p>
+  <p>Reads {dpiBar.reads}</p>
+  <p>Header presses {dpiBar.presses}</p>
+  <p>{dpiBar.notice}</p>
+  <button on:click="dpiBar.read()">Read bar</button>
+  <button on:click="dpiBar.ask()">Ask scale change</button>
+</main>
+'@
+    Write-FixtureFile $root 'client/services/DpiBarService.js' @'
+@Service
+export default class DpiBarService {
+  insets = 'unread';
+  header = 'unread';
+  reads = 0;
+  presses = 0;
+  notice = '';
+
+  press() {
+    this.presses += 1;
+  }
+
+  ask() {
+    this.notice = 'Change the display scale in Settings > Display now';
+  }
+
+  read() {
+    const style = getComputedStyle(document.documentElement);
+    const value = (name) => style.getPropertyValue(name).trim() || 'unset';
+    this.insets = `height=${value('--tac-titlebar-height')} leading=${value('--tac-titlebar-leading-inset')} trailing=${value('--tac-titlebar-trailing-inset')}`;
+    const box = document.querySelector('[data-tac-drag-region]').getBoundingClientRect();
+    this.header = [box.left, box.top, box.width, box.height].map((number) => number.toFixed(1)).join(',');
+    this.reads += 1;
   }
 }
 '@
@@ -260,8 +341,7 @@ function Wait-DpiChange([uint32] $from, [int] $seconds) {
     Write-Host "OK: the window DPI changed from $from to $now"
 }
 
-function Test-DpiChange {
-    $script:dpiChange = 'not run'
+function Test-DpiChange([scriptblock] $recheck) {
     $from = [TachyonDesktop]::Dpi($script:window)
     $other = @([TachyonDpi]::Screens() | Where-Object { $_.Dpi -ne $from } | Select-Object -First 1)
     if ($other.Count -gt 0) {
@@ -269,24 +349,129 @@ function Test-DpiChange {
             $first = [TachyonDesktop]::WindowBox($script:window)
             [TachyonDesktop]::Place($script:window, $other[0].Work.Left + 40, $other[0].Work.Top + 40)
             Wait-DpiChange $from 10
-            Assert-ClientPoints 640 480 3 "the client area on the $($other[0].Dpi) DPI monitor"
+            & $recheck "on the $($other[0].Dpi) DPI monitor"
             [TachyonDesktop]::Place($script:window, $first.Left, $first.Top)
             Wait-DpiChange $other[0].Dpi 10
-            Assert-ClientPoints 640 480 3 'the client area back on the first monitor'
-            $script:dpiChange = 'monitor move'
+            & $recheck 'back on the first monitor'
+            $script:dpiChanges += "$($script:appName): monitor move"
         }
         return
     }
     if ($ScaleChangeSeconds -le 0) {
         Write-Host "NOT RUN: every monitor is at $from DPI; attach one with another scale, or pass -ScaleChangeSeconds and change the scale in Settings > Display during the run"
+        $script:dpiChanges += "$($script:appName): not run"
         return
     }
     Test-Check 'a scale change while the app runs (WM_DPICHANGED)' {
-        Write-Host "ACTION: change the display scale in Settings > Display now (waiting $ScaleChangeSeconds s)"
+        Invoke-Named 'Ask scale change'
+        Write-Host "ACTION: change the display scale in Settings > Display now (waiting $ScaleChangeSeconds s); the app page says so too"
         Wait-DpiChange $from $ScaleChangeSeconds
-        Assert-ClientPoints 640 480 3 'the client area after the scale change'
-        $script:dpiChange = 'scale change'
+        & $recheck 'after the scale change'
+        $script:dpiChanges += "$($script:appName): scale change"
     }
+}
+
+function Read-Bar {
+    $reads = [int]((Wait-Matching '^Reads \d+$' 10) -replace '^Reads ', '')
+    Invoke-Named 'Read bar'
+    Wait-Named @("Reads $($reads + 1)") 10 | Out-Null
+    $insets = Wait-Matching '^Insets height=' 10
+    $pattern = '^Insets height=(?<height>[\d.]+)px leading=(?<leading>[\d.]+)px trailing=(?<trailing>[\d.]+)px$'
+    Assert-That ($insets -match $pattern) "the page has no --tac-titlebar-* values: '$insets'"
+    $bar = [pscustomobject]@{ Height = [double]$matches['height']; Leading = [double]$matches['leading']; Trailing = [double]$matches['trailing'] }
+    $header = (Wait-Matching '^Header [\d.]+,[\d.]+,[\d.]+,[\d.]+$' 10) -replace '^Header ', ''
+    $box = @($header -split ',' | ForEach-Object { [double]$_ })
+    $bar | Add-Member Header ([pscustomobject]@{ Left = $box[0]; Top = $box[1]; Width = $box[2]; Height = $box[3] })
+    return $bar
+}
+
+function Get-BarPoint([double] $x, [double] $y) {
+    $dpi = [double][TachyonDesktop]::Dpi($script:window)
+    $client = [TachyonDesktop]::ClientBox($script:window)
+    return @(($client.Left + [int][Math]::Round($x * $dpi / 96)), ($client.Top + [int][Math]::Round($y * $dpi / 96)))
+}
+
+function Move-BarWindowHome {
+    $monitor = @([TachyonDpi]::Screens() | Where-Object { $_.Monitor -eq [TachyonDpi]::MonitorOf($script:window) })
+    if ($monitor.Count -gt 0) { [TachyonDesktop]::Place($script:window, $monitor[0].Work.Left + 80, $monitor[0].Work.Top + 80) }
+    Show-AppWindow
+    Start-Sleep -Milliseconds 400
+}
+
+function Test-BarAtDpi([string] $where) {
+    Test-Check "the title bar insets match the caption buttons $where" {
+        Show-AppWindow
+        $bar = Read-Bar
+        $buttons = [TachyonDesktop]::CaptionButtons($script:window)
+        $client = [TachyonDesktop]::ClientBox($script:window)
+        $dpi = [double][TachyonDesktop]::Dpi($script:window)
+        $wantedHeight = ($buttons.Bottom - $client.Top) * 96 / $dpi
+        $wantedTrailing = ($client.Right - $buttons.Left) * 96 / $dpi
+        Assert-That ([Math]::Abs($bar.Height - $wantedHeight) -le 2) (
+            "--tac-titlebar-height is $($bar.Height)px; the caption buttons end $($buttons.Bottom - $client.Top) pixels down at $dpi DPI, which is $([Math]::Round($wantedHeight, 1))px")
+        Assert-That ([Math]::Abs($bar.Trailing - $wantedTrailing) -le 2) (
+            "--tac-titlebar-trailing-inset is $($bar.Trailing)px; the caption buttons are $($client.Right - $buttons.Left) pixels wide at $dpi DPI, which is $([Math]::Round($wantedTrailing, 1))px")
+        Assert-That ($bar.Leading -eq 0) "--tac-titlebar-leading-inset is $($bar.Leading)px, not 0px"
+        Write-Host ("OK: at {0} DPI the caption buttons are {1} by {2} pixels and the page reads --tac-titlebar-height {3}px, leading {4}px, trailing {5}px (CSS pixels)" -f
+            $dpi, ($client.Right - $buttons.Left), ($buttons.Bottom - $client.Top), $bar.Height, $bar.Leading, $bar.Trailing)
+    }
+    Test-Check "the whole drag region drags the window $where" {
+        Move-BarWindowHome
+        $bar = Read-Bar
+        $header = $bar.Header
+        Assert-That ($header.Top -eq 0 -and $header.Height -ge 40) "the drag region is at $($header.Top) and $($header.Height)px tall"
+        $dpi = [double][TachyonDesktop]::Dpi($script:window)
+        $x = $header.Left + $header.Width - $bar.Trailing - 24
+        $inside = Get-BarPoint $x ($header.Top + $header.Height - 4)
+        $below = Get-BarPoint $x ($header.Top + $header.Height + 12)
+        $client = [TachyonDesktop]::ClientBox($script:window)
+        $shot = Save-ScreenShot ('drag-region-{0}dpi' -f $dpi) $client.Left $client.Top $client.Right ($below[1] + 8)
+        try {
+            $green = Measure-Color $shot ($inside[0] - 6) ($inside[1] - 2) ($inside[0] + 6) ($inside[1] + 1) @(46, 125, 50) 24
+            Assert-That ($green.Share -ge 0.9) "the pixels at ($($inside[0]),$($inside[1])) are $($green.Average), not the header colour #2e7d32; the page-to-screen mapping is off"
+            $white = Measure-Color $shot ($below[0] - 6) ($below[1] - 2) ($below[0] + 6) ($below[1] + 1) @(255, 255, 255) 16
+            Assert-That ($white.Share -ge 0.9) "the pixels at ($($below[0]),$($below[1])) are $($white.Average), not the white page under the header"
+        }
+        finally { $shot.Bitmap.Dispose() }
+        Write-Host ("NOTE: the drag point ({0},{1}) is {2} pixels below the client top; a drag region left at {3} unscaled pixels would end above it" -f
+            $inside[0], $inside[1], ($inside[1] - $client.Top), [int]$header.Height)
+        $before = [TachyonDesktop]::WindowBox($script:window)
+        [TachyonDesktop]::Drag($inside[0], $inside[1], 120, 60, 12)
+        Wait-Until { ([TachyonDesktop]::WindowBox($script:window)).Left -ne $before.Left } 5 'the window to move'
+        Start-Sleep -Milliseconds 300
+        $after = [TachyonDesktop]::WindowBox($script:window)
+        $moved = @(($after.Left - $before.Left), ($after.Top - $before.Top))
+        Assert-That ([Math]::Abs($moved[0] - 120) -le 12 -and [Math]::Abs($moved[1] - 60) -le 12) "the window moved by ($($moved[0]), $($moved[1])) instead of (120, 60)"
+        Write-Host "OK: a SendInput drag from ($($inside[0]),$($inside[1])), 4px above the bottom of the $($header.Height)px drag region, moved the window by ($($moved[0]), $($moved[1])) pixels at $dpi DPI"
+        Move-BarWindowHome
+        $below = Get-BarPoint $x ($header.Top + $header.Height + 12)
+        $before = [TachyonDesktop]::WindowBox($script:window)
+        [TachyonDesktop]::Drag($below[0], $below[1], 120, 60, 12)
+        Start-Sleep -Milliseconds 800
+        $after = [TachyonDesktop]::WindowBox($script:window)
+        Assert-That ($after.Left -eq $before.Left -and $after.Top -eq $before.Top) (
+            "a drag 12px below the drag region moved the window by ($($after.Left - $before.Left), $($after.Top - $before.Top)); the region reaches too far at $dpi DPI")
+        Write-Host "OK: a drag from ($($below[0]),$($below[1])), 12px below the drag region, left the window in place"
+    }
+    Test-Check "a button inside the drag region gets its click $where" {
+        $presses = [int]((Wait-Matching '^Header presses \d+$' 10) -replace '^Header presses ', '')
+        Click-Element (Wait-Named @('Header button'))
+        Wait-Named @("Header presses $($presses + 1)") 5 | Out-Null
+        Write-Host "OK: a real click on the button inside the drag region reached the page (Header presses $($presses + 1))"
+    }
+}
+
+function Test-BarApp([string] $fixture) {
+    Start-GateApp (Get-AppExecutable $fixture 'DpiBar') 'dev.tachyon.dpi-bar'
+    Test-Check 'the integrated title bar page renders' {
+        Wait-Named @('Drag area', 'Header button', 'Read bar') | Out-Null
+        Assert-That ([TachyonDesktop]::MenuOf($script:window) -eq [IntPtr]::Zero) 'the integrated window still has a menu bar'
+        $dpi = [TachyonDesktop]::Dpi($script:window)
+        Assert-That ($dpi -gt 96 -or $AllowStandardDpi) 'the desktop is at 96 DPI (100%); set 150% or 200% in Settings > Display, or pass -AllowStandardDpi'
+        Write-Host "OK: the integrated title bar page rendered at $dpi DPI with no menu bar"
+    }
+    Test-BarAtDpi 'at the first DPI'
+    Test-DpiChange { param([string] $where) Test-BarAtDpi $where }
 }
 
 function Test-SetupApp([string] $fixture) {
@@ -297,7 +482,7 @@ function Test-SetupApp([string] $fixture) {
     }
     if ($null -eq $script:process) { return }
     Test-ScaledWindow
-    Test-DpiChange
+    Test-DpiChange { param([string] $where) Assert-ClientPoints 640 480 3 "the client area $where" }
 }
 
 function Invoke-HighDpiGate {
@@ -306,10 +491,11 @@ function Invoke-HighDpiGate {
     Enable-Msvc (Get-HostArchitecture)
     Enable-WebViewSdk
     $ty = Resolve-Ty
-    $script:dpiChange = 'not run'
+    $script:dpiChanges = @()
     Invoke-GateApp 'Dpi Setup' ${function:Write-SetupFixture} $ty 'native' ${function:Test-SetupApp}
-    Write-Host "DPI change check: $($script:dpiChange)"
-    Complete-Gate 'the embedded manifest (asInvoker, PerMonitorV2), an app named Setup starting without elevation, and the first size, minimum size and page resize in DIP on a scaled desktop'
+    Invoke-GateApp 'Dpi Bar' ${function:Write-BarFixture} $ty 'native' ${function:Test-BarApp}
+    Write-Host "DPI change checks: $($script:dpiChanges -join '; ')"
+    Complete-Gate 'the embedded manifest (asInvoker, PerMonitorV2), an app named Setup starting without elevation, the first size, minimum size and page resize in DIP, and the integrated title bar insets and drag region on a scaled desktop'
 }
 
 Invoke-HighDpiGate
