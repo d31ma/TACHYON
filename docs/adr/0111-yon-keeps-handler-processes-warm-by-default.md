@@ -64,6 +64,8 @@ the Firecracker values do with the other modes.
     request;
   - its request times out, is cancelled, or loses its stream subscriber;
   - its stderr goes over the diagnostic limit;
+  - one of its relay programs failed, because the failed relay can leave a
+    descendant behind and only the process group stop reaps it;
   - it has served `YON_WARM_MAX_REQUESTS` requests.
 - Yon stops idle warm processes after `YON_WARM_IDLE_SECONDS`, and stops all
   of them when the server shuts down.
@@ -98,7 +100,9 @@ it is warm because Yon starts it with `YON_HANDLER_WARM=1`.
 Everything else stays as it is in process mode:
 
 - the deadline: a runner measures it from the moment it reads the request
-  frame;
+  frame. For the first request of a new process, it measures it from the
+  start of the process, so start-up work counts against the deadline as it
+  does in process mode;
 - the cancellation frame: Yon still sends it and then replaces the process;
 - the resource frames of Lua and C++ handlers;
 - the exit codes for protocol errors;
