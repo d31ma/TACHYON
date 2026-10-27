@@ -5,7 +5,7 @@ use std::path::Path;
 pub(super) struct WarmLanguages;
 
 impl WarmLanguages {
-    const ACCEPTED: [YonLanguage; 13] = [
+    const ACCEPTED: [YonLanguage; 15] = [
         YonLanguage::JavaScript,
         YonLanguage::TypeScript,
         YonLanguage::Python,
@@ -19,6 +19,8 @@ impl WarmLanguages {
         YonLanguage::CSharp,
         YonLanguage::FSharp,
         YonLanguage::Dart,
+        YonLanguage::Java,
+        YonLanguage::Groovy,
     ];
 
     pub(super) fn accepts(source: &HandlerSource) -> bool {

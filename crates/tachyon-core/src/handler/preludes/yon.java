@@ -50,6 +50,15 @@ final class YonManagedResources {
     private static final long RESOURCE_TIMEOUT_NANOSECONDS = 5_000_000_000L;
     static final long SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000L;
     private static final long CONNECT_TIMEOUT_MILLISECONDS = 5000L;
+    private static String endpoint = System.getenv("YON_RESOURCE_ENDPOINT");
+    private static String token = System.getenv("YON_RESOURCE_TOKEN");
+    static void use(Object resources) {
+        endpoint = null;
+        token = null;
+        if (!(resources instanceof java.util.Map<?, ?> fields)) return;
+        if (fields.get("endpoint") instanceof String requestEndpoint) endpoint = requestEndpoint;
+        if (fields.get("token") instanceof String requestToken) token = requestToken;
+    }
     private static IllegalStateException failed() { return new IllegalStateException("Yon managed resource operation failed."); }
     static java.util.Map<String, Object> command(Object... fields) {
         var command = new java.util.LinkedHashMap<String, Object>();
@@ -76,8 +85,6 @@ final class YonManagedResources {
     }
     static Object exchange(String text, long timeoutNanoseconds) {
         try {
-            String endpoint = System.getenv("YON_RESOURCE_ENDPOINT");
-            String token = System.getenv("YON_RESOURCE_TOKEN");
             if (endpoint == null || !endpoint.matches("http://127\\.0\\.0\\.1:[0-9]{1,5}/") || token == null || !token.matches("[0-9a-f]{64}")) throw failed();
             int port = Integer.parseInt(endpoint.substring(17, endpoint.length() - 1));
             if (port < 1 || port > 65535) throw failed();
@@ -633,24 +640,32 @@ final class SocketSession {
 final class YonStream {
     private static final int MAX_FRAME_BYTES = 16 * 1024 * 1024;
 
-    static void send(String requestId, Object result) {
+    static void send(String requestId, Object result, boolean warm) throws java.io.IOException {
+        boolean completed = completed(requestId, result);
+        if (!warm) return;
+        if (!completed) System.exit(0);
+        write(end(requestId));
+    }
+
+    private static boolean completed(String requestId, Object result) {
         try {
             if (result instanceof java.util.stream.Stream<?> stream) {
                 try (stream) {
-                    send(requestId, stream.iterator());
+                    return send(requestId, stream.iterator());
                 }
-            } else {
-                send(requestId, (java.util.Iterator<?>) result);
             }
+            return send(requestId, (java.util.Iterator<?>) result);
         } catch (Throwable failed) {
             failure(requestId);
+            return false;
         }
     }
 
-    private static void send(String requestId, java.util.Iterator<?> events) throws java.io.IOException {
+    private static boolean send(String requestId, java.util.Iterator<?> events) throws java.io.IOException {
         while (events.hasNext()) {
-            if (!event(requestId, events.next())) return;
+            if (!event(requestId, events.next())) return false;
         }
+        return true;
     }
 
     private static boolean event(String requestId, Object value) throws java.io.IOException {
@@ -677,6 +692,14 @@ final class YonStream {
         } catch (java.io.IOException closed) {
             System.exit(1);
         }
+    }
+
+    private static byte[] end(String requestId) {
+        var frame = new java.util.LinkedHashMap<String, Object>();
+        frame.put("protocol_version", 1);
+        frame.put("kind", "end");
+        frame.put("request_id", requestId);
+        return Json.stringify(frame).getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static byte[] refusal(String requestId, String code, String message) {
@@ -719,6 +742,23 @@ final class YonSocket {
             INPUT.readFully(payload);
             return new String(payload, java.nio.charset.StandardCharsets.UTF_8);
         } catch (java.io.IOException ended) {
+            return null;
+        }
+    }
+
+    static String readWarmFrame() {
+        try {
+            int first = INPUT.read();
+            if (first < 0) return null;
+            byte[] prefix = {(byte) first, 0, 0, 0};
+            INPUT.readFully(prefix, 1, 3);
+            int length = java.nio.ByteBuffer.wrap(prefix).getInt();
+            if (length < 0 || length > MAX_FRAME_BYTES) System.exit(70);
+            byte[] payload = new byte[length];
+            INPUT.readFully(payload);
+            return new String(payload, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException truncated) {
+            System.exit(70);
             return null;
         }
     }
@@ -953,7 +993,7 @@ final class Yon {
         var kept = new java.util.HashMap<String, String>();
         for (var entry : environment.entrySet()) {
             String upper = entry.getKey().toUpperCase(java.util.Locale.ROOT);
-            if (upper.equals("YON_APPLICATION_JSON") || upper.startsWith("YON_RESOURCE_")) continue;
+            if (upper.equals("YON_APPLICATION_JSON") || upper.equals("YON_HANDLER_WARM") || upper.startsWith("YON_RESOURCE_")) continue;
             kept.put(entry.getKey(), entry.getValue());
         }
         return java.util.Collections.unmodifiableMap(kept);
@@ -1120,10 +1160,62 @@ final class Yon {
     public static void main(String[] args) throws java.io.IOException {
         sendOutgoingThroughGuard();
         captureStart();
+        if (servesWarm()) {
+            serveWarm();
+            return;
+        }
         String raw = YonSocket.framed() ? YonSocket.readFrame() : read(System.in);
         if (raw == null) return;
         __YonFrame request = new __YonFrame(Json.parse(raw));
         captureInvocation(request);
+        String envelope = respond(request, false);
+        if (envelope != null) System.out.print(envelope);
+    }
+
+    private static boolean servesWarm() {
+        return "1".equals(System.getenv("YON_HANDLER_WARM")) && !YonSocket.framed();
+    }
+
+    private static void serveWarm() throws java.io.IOException {
+        while (true) {
+            String raw = YonSocket.readWarmFrame();
+            if (raw == null) {
+                System.exit(0);
+                return;
+            }
+            startWarmRequest();
+            java.util.Map<?, ?> fields = warmRequestFields(raw);
+            YonManagedResources.use(fields.remove("resources"));
+            __YonFrame request = new __YonFrame(fields);
+            captureInvocation(request);
+            String envelope = respond(request, true);
+            if (envelope != null) YonSocket.writeFrame(envelope);
+            YonManagedResources.use(null);
+        }
+    }
+
+    private static void startWarmRequest() {
+        startNanos = System.nanoTime();
+        deadlineNanos = null;
+        requestId = "unknown";
+        exchange = null;
+    }
+
+    private static java.util.Map<?, ?> warmRequestFields(String raw) {
+        Object parsed;
+        try {
+            parsed = Json.parse(raw);
+        } catch (IllegalArgumentException invalid) {
+            parsed = null;
+        }
+        if (!(parsed instanceof java.util.Map<?, ?> fields) || "socket.open".equals(fields.get("operation"))) {
+            System.exit(70);
+            return java.util.Map.of();
+        }
+        return fields;
+    }
+
+    private static String respond(__YonFrame request, boolean warm) throws java.io.IOException {
         String phase = switch (String.valueOf(request.raw().get("operation"))) {
             case "middleware.before" -> "before";
             case "middleware.after" -> "after";
@@ -1138,8 +1230,8 @@ final class Yon {
             method.setAccessible(true);
             Object result = method.invoke(null, entryArguments(method, request));
             if (result instanceof java.util.stream.Stream<?> || result instanceof java.util.Iterator<?>) {
-                YonStream.send(String.valueOf(request.raw().getOrDefault("request_id", "")), result);
-                return;
+                YonStream.send(String.valueOf(request.raw().getOrDefault("request_id", "")), result, warm);
+                return null;
             }
             if (exchange != null && exchange.answered()) response = exchange.answer();
             else if (result instanceof __YonAnswer explicit) response = explicit;
@@ -1151,15 +1243,14 @@ final class Yon {
             java.util.Map<?, ?> rejection = rejection(failed.getCause());
             if (rejection == null) {
                 System.exit(1);
-                return;
+                return null;
             }
-            System.out.print(rejectionEnvelope(rejection));
-            return;
+            return rejectionEnvelope(rejection);
         } catch (java.lang.ReflectiveOperationException failed) {
             System.exit(1);
-            return;
+            return null;
         }
-        System.out.print(response.envelope());
+        return response.envelope();
     }
 
     private static java.util.Map<?, ?> rejection(Throwable failure) {
