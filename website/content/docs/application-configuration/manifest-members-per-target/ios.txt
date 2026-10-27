@@ -52,7 +52,7 @@ tac.application.window.minWidth, minHeight
   not applicable: tac.application.window minWidth and minHeight have no meaning on iOS: the system sizes the app.
 
 tac.application.window.controls
-  adapted: tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, for calls from the page and from linked Swift and Rust services (linked Rust reaches it through the same capability bridge as its FilePicker, which ran on the iOS simulator in FP4). granted() answers false for the other controls.
+  adapted: tac.application.window.controls: iOS apps have no window controls; the system owns the window. Only title applies there, as the scene title, for calls from the page and from linked Swift and Rust services; on the iOS 26.5 simulator a linked Swift and a linked Rust service each saw the title grant and no minimize grant and set the scene title on an iPhone and an iPad (WIN5, IR1). granted() answers false for the other controls.
 
 tac.application.window.titleBar
   adapted: tac.application.window.titleBar "integrated" lets the iOS page draw edge to edge, under the status bar. --tac-titlebar-height is the top safe-area inset, and the leading and trailing insets are the side safe-area insets. There are no window buttons and no drag regions (ADR 0098).
