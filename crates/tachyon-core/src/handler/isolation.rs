@@ -177,11 +177,9 @@ impl YonIsolationPolicy {
         is_source_language: bool,
         language_name: &str,
     ) -> Result<(), Failure> {
-        let refused = [self.firecracker_policy().is_some(), !is_source_language];
-        if refused == [true, true] {
-            return Err(Self::unsupported_language_failure(language_name));
-        }
-        Ok(())
+        let refused = [self.firecracker_policy().is_some(), !is_source_language] == [true, true];
+        let failure = refused.then(|| Self::unsupported_language_failure(language_name));
+        failure.map_or(Ok(()), Err)
     }
 
     fn optional_unicode<F>(lookup: &F, name: &str) -> Result<Option<String>, Failure>

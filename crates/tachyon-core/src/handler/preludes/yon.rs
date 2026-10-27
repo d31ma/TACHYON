@@ -857,9 +857,17 @@ impl YonResourceAccess {
 
     fn take_from(request: &mut Json) -> Option<Self> {
         let resources = request.get("resources").clone();
+        Self::remove_resources_field(request);
+        Self::from_resources_field(&resources)
+    }
+
+    fn remove_resources_field(request: &mut Json) {
         if let Json::Map(fields) = request {
             fields.retain(|(name, _)| name != "resources");
         }
+    }
+
+    fn from_resources_field(resources: &Json) -> Option<Self> {
         matches!(resources, Json::Map(_)).then(|| Self {
             endpoint: resources.get("endpoint").text(),
             token: resources.get("token").text(),
@@ -1589,13 +1597,17 @@ impl YonSocket {
             Self::send_items(&request_id, items)
         }));
         let failure = streamed.unwrap_or(Err(Self::STREAM_FAILED)).err();
-        if let Some(failure) = failure {
-            Self::write(&request_id, Self::stream_failure(failure));
-            YonWarm::stop_after_failed_stream();
-        }
+        failure
+            .into_iter()
+            .for_each(|failure| Self::end_failed_stream(&request_id, failure));
         let mut answer = __YonAnswer::empty(200);
         answer.streamed = true;
         answer
+    }
+
+    fn end_failed_stream(request_id: &str, failure: (&str, &str)) {
+        Self::write(request_id, Self::stream_failure(failure));
+        YonWarm::stop_after_failed_stream();
     }
 
     fn send_items<Item: Into<Json>, Failure>(
@@ -1699,21 +1711,24 @@ impl YonWarm {
     }
 
     fn read_request() -> Option<String> {
-        use std::io::Read as _;
         let mut input = std::io::stdin().lock();
         let mut prefix = [0_u8; 4];
+        let started = Self::request_started(&mut input, &mut prefix);
+        started.then(|| Self::rest_of_request(&mut input, prefix))
+    }
+
+    fn request_started(input: &mut impl std::io::Read, prefix: &mut [u8; 4]) -> bool {
         match input.read(&mut prefix[..1]) {
-            Ok(0) => return None,
-            Ok(_) => {}
+            Ok(0) => false,
+            Ok(_) => true,
             Err(_) => std::process::exit(70),
         }
-        if input.read_exact(&mut prefix[1..]).is_err() {
-            std::process::exit(70);
-        }
-        let Some(payload) = YonSocket::read_payload(&mut input, prefix) else {
-            std::process::exit(70);
-        };
-        Some(payload)
+    }
+
+    fn rest_of_request(input: &mut impl std::io::Read, mut prefix: [u8; 4]) -> String {
+        let rest = input.read_exact(&mut prefix[1..]);
+        let payload = rest.ok().and_then(|()| YonSocket::read_payload(input, prefix));
+        payload.unwrap_or_else(|| std::process::exit(70))
     }
 
     fn answer(
@@ -1733,19 +1748,21 @@ impl YonWarm {
     fn parse_request(raw: &str) -> Json {
         let parsed = Json::parse(raw).unwrap_or(Json::Null);
         let is_request = matches!(parsed, Json::Map(_));
-        if !is_request || parsed.get("operation").text() == "socket.open" {
-            std::process::exit(70);
-        }
-        parsed
+        let opens_socket = parsed.get("operation").text() == "socket.open";
+        let usable = [is_request, opens_socket] == [true, false];
+        usable
+            .then_some(parsed)
+            .unwrap_or_else(|| std::process::exit(70))
     }
 
     fn finish(request: &__YonFrame, response: &__YonAnswer) {
-        if response.streamed {
-            let request_id = request.parsed().get("request_id").text();
-            YonSocket::write(&request_id, vec![(String::from("kind"), Json::from("end"))]);
-            return;
-        }
-        let _ = YonSocket::write_payload(response.write().as_bytes());
+        let request_id = request.parsed().get("request_id").text();
+        let end = vec![(String::from("kind"), Json::from("end"))];
+        let payloads = [
+            response.write().into_bytes(),
+            YonSocket::payload(&request_id, end),
+        ];
+        let _ = YonSocket::write_payload(&payloads[usize::from(response.streamed)]);
     }
 
     fn stop_after_failed_stream() {
