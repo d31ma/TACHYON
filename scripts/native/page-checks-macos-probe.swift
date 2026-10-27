@@ -3,9 +3,11 @@ import ApplicationServices
 import Foundation
 
 enum PageChecksProbe {
-    static let usage = "usage: page-checks-macos-probe <bundle-id> wait <text>... | press <title> | quit | - allow <title>..."
+    static let usage = "usage: page-checks-macos-probe <bundle-id> wait <text>... | within <seconds> <text>... | press <title> | click <title> | escape <seconds> <text>... | verdict <seconds> <passed> <failed> <prefix>... | quit | - allow <title>..."
     static let attempts = 120
     static let pause: TimeInterval = 0.25
+    static let escapePause: TimeInterval = 1
+    static let escapeKey: CGKeyCode = 53
     static let depth = 64
     static let promptDepth = 3
 
@@ -47,14 +49,81 @@ enum PageChecksProbe {
         }
     }
 
-    static func waitFor(_ wanted: [String], in application: NSRunningApplication) -> Bool {
-        for _ in 0..<attempts {
+    static func tries(_ seconds: String) -> Int? {
+        Double(seconds).map { max(1, Int($0 / pause)) }
+    }
+
+    static func waitFor(_ wanted: [String], in application: NSRunningApplication, tries: Int = attempts) -> Bool {
+        for _ in 0..<tries {
             let texts = shown(in: application)
             if wanted.allSatisfy({ texts.contains($0) }) { return true }
             RunLoop.current.run(until: Date().addingTimeInterval(pause))
         }
         let texts = shown(in: application).filter { !$0.isEmpty }
         FileHandle.standardError.write(Data("page-checks probe: missing \(wanted) in \(texts)\n".utf8))
+        return false
+    }
+
+    static func firstShown(_ wanted: [String], in application: NSRunningApplication, tries: Int) -> String? {
+        for _ in 0..<tries {
+            let texts = shown(in: application)
+            if let found = wanted.first(where: { texts.contains($0) }) { return found }
+            RunLoop.current.run(until: Date().addingTimeInterval(pause))
+        }
+        return nil
+    }
+
+    static func verdict(_ arguments: [String], in application: NSRunningApplication) -> Bool {
+        guard arguments.count >= 6, let limit = tries(arguments[3]) else { return false }
+        let passed = arguments[4]
+        let found = firstShown([passed, arguments[5]], in: application, tries: limit)
+        let prefixes = Array(arguments.dropFirst(6))
+        var printed = Set<String>()
+        for text in shown(in: application) where prefixes.contains(where: { text.hasPrefix($0) }) {
+            if printed.insert(text).inserted { print(text) }
+        }
+        if found == nil { FileHandle.standardError.write(Data("page-checks probe: neither \(passed) nor \(arguments[5]) appeared\n".utf8)) }
+        return found == passed
+    }
+
+    static func center(of element: AXUIElement) -> CGPoint? {
+        guard let position = attribute(element, kAXPositionAttribute), let size = attribute(element, kAXSizeAttribute),
+              CFGetTypeID(position) == AXValueGetTypeID(), CFGetTypeID(size) == AXValueGetTypeID() else { return nil }
+        var origin = CGPoint.zero
+        var extent = CGSize.zero
+        guard AXValueGetValue(unsafeDowncast(position, to: AXValue.self), .cgPoint, &origin),
+              AXValueGetValue(unsafeDowncast(size, to: AXValue.self), .cgSize, &extent) else { return nil }
+        return CGPoint(x: origin.x + extent.width / 2, y: origin.y + extent.height / 2)
+    }
+
+    static func click(_ title: String, in application: NSRunningApplication) -> Bool {
+        for _ in 0..<attempts {
+            if let found = button(title, in: application), let point = center(of: found) {
+                _ = application.activate()
+                RunLoop.current.run(until: Date().addingTimeInterval(pause))
+                for type in [CGEventType.mouseMoved, .leftMouseDown, .leftMouseUp] {
+                    CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
+                }
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(pause))
+        }
+        FileHandle.standardError.write(Data("page-checks probe: no button \(title) to click\n".utf8))
+        return false
+    }
+
+    static func escape(_ arguments: [String], in application: NSRunningApplication) -> Bool {
+        guard arguments.count >= 5, let seconds = Double(arguments[3]) else { return false }
+        let wanted = Array(arguments.dropFirst(4))
+        for _ in 0..<max(1, Int(seconds / escapePause)) {
+            if firstShown(wanted, in: application, tries: 1) != nil { return true }
+            _ = application.activate()
+            for down in [true, false] {
+                CGEvent(keyboardEventSource: nil, virtualKey: escapeKey, keyDown: down)?.post(tap: .cghidEventTap)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(escapePause))
+        }
+        FileHandle.standardError.write(Data("page-checks probe: none of \(wanted) after pressing Escape\n".utf8))
         return false
     }
 
@@ -102,8 +171,17 @@ enum PageChecksProbe {
         switch arguments[2] {
         case "wait":
             return waitFor(Array(arguments.dropFirst(3)), in: application)
+        case "within":
+            guard arguments.count >= 5, let limit = tries(arguments[3]) else { return false }
+            return waitFor(Array(arguments.dropFirst(4)), in: application, tries: limit)
         case "press":
             return arguments.count == 4 && press(arguments[3], in: application)
+        case "click":
+            return arguments.count == 4 && click(arguments[3], in: application)
+        case "escape":
+            return escape(arguments, in: application)
+        case "verdict":
+            return verdict(arguments, in: application)
         case "quit":
             return quit(application)
         default:
