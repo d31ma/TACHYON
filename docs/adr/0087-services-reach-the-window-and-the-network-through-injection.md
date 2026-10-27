@@ -532,5 +532,7 @@ a device-independent pixel is a physical pixel, and
 `scripts/windows/window-shell-test.ps1` checks the client area's width,
 which the menu bar does not change, so those results hold under both
 meanings. The check above 96 DPI and on `WM_DPICHANGED` is
-`scripts/windows/high-dpi-test.ps1` (`docs/SUPPORT_TIERS.md`, "Windows
-application manifest").
+`scripts/windows/high-dpi-test.ps1`. It needs a Windows desktop signed in
+at a scaled screen, because Remote Desktop always gives 100% scaling, so it
+is left to the developer (iteration 7, D21; `docs/SUPPORT_TIERS.md`,
+"Windows application manifest").
