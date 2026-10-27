@@ -141,6 +141,8 @@ class WasmProbeSource {
   }
 `
 
+  static recorderLine = '<p id="wasm-recorder">Recorder {wasmRecorder.state}</p>\n'
+
   static view = `<section id="wasm-probe" aria-label="WebAssembly feature probe">
 <p id="wasm-probe-phase">Probe starting</p>
 ${Array.from({ length: WasmProbeSource.slots }, () => '<p class="wasm-probe-line"></p>').join('\n')}
@@ -467,6 +469,7 @@ export class WasmFeaturesFixture {
   /**
    * Stages one check for one language as a native app project.
    * @param {string} project @param {string} check @param {string} language
+   * A host that can't read the page passes the files of a linked wasmRecorder service with a state field and record(proof); the probe view shows its state so the page starts it.
    * @param {{ yonOrigin?: string, gestures?: boolean, recorder?: Record<string, string> }} [options]
    */
   static stage(project, check, language, options = {}) {
@@ -483,7 +486,7 @@ export class WasmFeaturesFixture {
     if (fixture.needsYon) this.write(project, 'server/application.json', JSON.stringify({ server: { origins: this.pageOrigins } }))
     this.files(project, {
       [WasmProbeSource.script]: WasmProbeSource.source(check, language, fixture.steps, staged.constants),
-      'client/components/wasm/probe/tac.html': WasmProbeSource.view,
+      'client/components/wasm/probe/tac.html': options.recorder ? WasmProbeSource.view.replace('</section>', `${WasmProbeSource.recorderLine}</section>`) : WasmProbeSource.view,
       ...options.recorder,
     })
     return { application, id, gestures: staged.gestures ?? [], needsYon: fixture.needsYon }
@@ -494,11 +497,14 @@ export class WasmFeaturesFixture {
     return checks.flatMap((check) => this.languages(check, target).filter((language) => !languages.length || languages.includes(language)).map((language) => ({ check, language })))
   }
 
-  /** Asserts the services ship as WebAssembly in the app, not as a linked companion. @param {string} output @param {string} bundle */
-  static assertWebAssembly(output, bundle) {
+  /**
+   * Asserts the services ship as WebAssembly in the app, not as a linked companion; a host's own recorder may be linked.
+   * @param {string} output @param {string} bundle @param {string[]} [recorders] linked companions the host added, as "Swift wasmRecorder"
+   */
+  static assertWebAssembly(output, bundle, recorders = []) {
     const host = path.join(output, 'tachyon.host.json')
     const companions = existsSync(host) ? JSON.parse(readFileSync(host, 'utf8')).companions ?? [] : []
-    assert.deepEqual(companions.map((item) => `${item.language} ${item.service}`), [], 'no service of the check is linked into the app')
+    assert.deepEqual(companions.map((item) => `${item.language} ${item.service}`).filter((item) => !recorders.includes(item)), [], 'no service of the check is linked into the app')
     const modules = readdirSync(bundle, { recursive: true }).filter((name) => String(name).endsWith('.wasm'))
     assert.ok(modules.length, `the app ships no WebAssembly module under ${bundle}`)
     return modules.map(String)

@@ -12,6 +12,7 @@ import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { withServer } from '../release/server-probe.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
 import { WasmFeaturesFixture } from './wasm-features-fixture.mjs'
+import { IosWasmApp } from './wasm-features-ios.mjs'
 
 class LinuxWasmApp {
   static screen = '1280x1000x24'
@@ -293,7 +294,7 @@ class WasmFeaturesAppTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'wasm-features-app-'))
-  static hosts = { linux: LinuxWasmApp, macos: MacOsWasmApp, android: AndroidWasmApp }
+  static hosts = { linux: LinuxWasmApp, macos: MacOsWasmApp, android: AndroidWasmApp, ios: IosWasmApp }
   static target = WasmFeaturesAppTest.option('target', 'linux')
   static checks = WasmFeaturesAppTest.option('check', Object.keys(WasmFeaturesFixture.checks).join(',')).split(',')
   static languages = (process.env.TAC_WASM_FEATURE_LANGUAGES ?? '').split(',').filter(Boolean)
@@ -328,7 +329,7 @@ class WasmFeaturesAppTest {
     const host = this.hosts[this.target]
     const project = path.join(this.root, `${check}-${language}`)
     const port = await this.freePort()
-    const staged = WasmFeaturesFixture.stage(project, check, language, { yonOrigin: `http://127.0.0.1:${port}`, gestures: this.gestures })
+    const staged = WasmFeaturesFixture.stage(project, check, language, { yonOrigin: `http://127.0.0.1:${port}`, gestures: this.gestures, recorder: host.recorder })
     const started = Date.now()
     const serve = ['serve', project, '--host', '127.0.0.1', '--port', String(port), '--out-dir', 'serve-dist', '--no-watch', '--no-self-restart']
     const answer = staged.needsYon
@@ -337,12 +338,8 @@ class WasmFeaturesAppTest {
     return { ...answer, seconds: Math.round((Date.now() - started) / 1000) }
   }
 
-  static async main() {
-    assert.ok(this.hosts[this.target], `no in-app driver for ${this.target} yet; the drivers are ${Object.keys(this.hosts).join(', ')}`)
-    const plan = WasmFeaturesFixture.plan(this.target, this.checks, this.languages)
-    assert.ok(plan.length, 'nothing to run: no check has a WebAssembly language on this target')
-    await this.hosts[this.target].prepare?.(this.root)
-    const results = []
+  /** @param {Array<{ check: string, language: string }>} plan @param {object[]} results */
+  static async checkAll(plan, results) {
     for (const item of plan) {
       const label = `${this.target} ${item.check} ${item.language}`
       try {
@@ -353,6 +350,20 @@ class WasmFeaturesAppTest {
         console.log(`==> FAIL ${label}\n${String(error?.message ?? error).slice(-6000)}`)
         results.push({ ...item, status: 'fail', error: String(error?.message ?? error).slice(-6000) })
       }
+    }
+  }
+
+  static async main() {
+    const host = this.hosts[this.target]
+    assert.ok(host, `no in-app driver for ${this.target} yet; the drivers are ${Object.keys(this.hosts).join(', ')}`)
+    const plan = WasmFeaturesFixture.plan(this.target, this.checks, this.languages)
+    assert.ok(plan.length, 'nothing to run: no check has a WebAssembly language on this target')
+    const results = []
+    await host.prepare?.(this.root)
+    try {
+      await this.checkAll(plan, results)
+    } finally {
+      host.close?.()
     }
     if (this.receipt) {
       mkdirSync(path.dirname(path.resolve(this.receipt)), { recursive: true })
