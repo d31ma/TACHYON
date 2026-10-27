@@ -741,7 +741,9 @@ The same day, on the same simulator:
   developer downloads page lists simulator runtimes up to 18.2 for this
   account, and Xcode 27.1 answers `xcodebuild -downloadPlatform iOS
   -buildVersion 18.4` (and `22E238`) with `iOS 18.4 is not available for
-  download.` The 18.4 floor itself has not run.
+  download.` The 18.4 floor itself has not run. That run is left to the
+  developer (iteration 6, D20): it needs an iOS 18.4 runtime that neither
+  the developer downloads page nor Xcode 27.1 offers this account.
 
 ### Linux desktop stand-ins (2026-10-24, LX1)
 
@@ -1367,7 +1369,8 @@ Not covered by these runs:
 - An iOS 18.4 runtime: the 18.4 floor of Java (JF1) and Dart (MA5) has not
   run. The 17.4 and 18.2 floors ran in MA5 (below). Java and Dart apps built
   at 18.4 ran on iOS 26.5, and Xcode 27.1 offers no 18.4 runtime (MA8,
-  "WebAssembly service features in the iOS app" above).
+  "WebAssembly service features in the iOS app" above). The 18.4 run is left
+  to the developer (D20).
 - iOS shows no app reason in the notification prompt, so a manifest reason
   for notifications is not displayed there.
 - A physical device and a signed install stay owed. Universal links ran on the
@@ -1500,10 +1503,10 @@ and Kotlin keep theirs. This evidence does not promote any tier.
 | Firefox | 120 | 131 | SpiderMonkey shell: 130.0 refused it, 131.0 loaded it |
 | Safari | 18.2 | 18.4 | MDN browser-compat-data (`webassembly.exceptionsFinal`); not run |
 | WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Ubuntu and Debian archives: 2.46.0 and 2.46.6 refused it, 2.48.1, 2.48.6, 2.50.4 and 2.52.6 loaded it |
-| iOS app | 18.2 | 18.4 | follows Safari; `system_floor` unit tests; an app built at 18.4 ran on iOS 26.5 (MA8); no 18.4 runtime could be fetched |
+| iOS app | 18.2 | 18.4 | follows Safari; `system_floor` unit tests; an app built at 18.4 ran on iOS 26.5 (MA8); no 18.4 runtime could be fetched, so the 18.4 run is left to the developer (D20) |
 | macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests; an app built at 15.4 ran on macOS 27.2 (MA7) |
-| Windows app (WebView2) | 119.0 | 137.0 | follows Chrome; `system_floor` unit tests only |
-| Android app | API level 26, note names WebView 119 | API level 26, note names WebView 137 | follows Chrome; `system_floor` unit tests only |
+| Windows app (WebView2) | 119.0 | 137.0 | follows Chrome; `system_floor` unit tests; a Java page-program cell ran in the Windows app on the Surface (SW4); no WebView2 at 137.0 itself has run |
+| Android app | API level 26, note names WebView 119 | API level 26, note names WebView 137 | follows Chrome; `system_floor` unit tests; a Java page service and a Java page program ran on Android 17 with WebView 145 (MA9); no WebView at 137 itself has run |
 
 All runs were in an x86_64 Ubuntu 24.04 cloud container. A browser without
 `try_table` now gets the Java loader's own message, naming Chrome or Edge
@@ -1529,7 +1532,7 @@ it. Kotlin keeps its floors. This evidence does not promote any tier.
 | Firefox | 120 | 131 | SpiderMonkey shell: 120.0, 128.0 and 130.0 have no `JSTag` and refused the module at link; 131.0 ran it |
 | Safari | 18.2 | 18.4 | the iOS 18.2 simulator has no `JSTag`; 18.4 is where WebKit's exception references work (Java's floor) shipped; an 18.4 runtime has not run |
 | WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Debian archive through its C API: 2.46.6 has no `JSTag`, 2.48.1 has it and compiles the module |
-| iOS app | 18.2 | 18.4 | the 18.2 run above; `system_floor` unit tests; an app built at 18.4 ran on iOS 26.5 (MA8); no 18.4 runtime could be fetched |
+| iOS app | 18.2 | 18.4 | the 18.2 run above; `system_floor` unit tests; an app built at 18.4 ran on iOS 26.5 (MA8); no 18.4 runtime could be fetched, so the 18.4 run is left to the developer (D20) |
 | macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests; an app built at 15.4 ran on macOS 27.2 (MA7) |
 | Windows app (WebView2) | 119.0 | 119.0 | follows Chrome |
 | Android app | API level 26, note names WebView 119 | unchanged | follows Chrome |
@@ -1789,7 +1792,9 @@ Lua 5.4.6 and Go 1.27.1 on PATH:
   alias (exit 9009), not Tachyon.
 - `controller_languages`: Groovy, Kotlin, PHP, Lua, Dart, Java, C#, F#, Ruby,
   Rust and Go controllers bound arguments and models and answered. Python
-  skipped for the same `python3` alias.
+  skipped for the same `python3` alias. (The WG2 run below had Python 3.14.7
+  installed, but its 77 skipped tests are not listed by name, so whether
+  these Python tests ran there is not recorded.)
 - `outgoing_loopback`: Java, Kotlin, Dart, Go and JavaScript handlers got
   `403` from the outgoing guard for an unlisted loopback port, and the Java,
   Kotlin and Dart handlers reached a listed `api.localhost` through it (ADR
@@ -1849,7 +1854,7 @@ naming the run that would move it back:
 | `tac.go`, macOS and Android | a Go service in the macOS app (MA1) and on the emulator (MA2, below), so both are `honored` again | none |
 | `tac.browserApis` geolocation, macOS | the location prompt with the manifest reason, answered Don't Allow (RM1) | none: the prompt was allowed and a position reached the page (MA3, below), so the cell is `honored` again |
 | background and foreground signal, Windows | the page and a linked Rust service (SD1) | none: a linked C# listener heard it (SW1, below), so the cell is `honored` again |
-| reaching Yon, Windows | HTTP from the page and linked Rust and C# services, and a linked C# service's held stream and socket clients (NET3, LS1) | none: a linked Rust service's held stream and socket clients ran in `scripts/windows/yon-reach.ps1` (SW1, below), so the cell is `honored` again |
+| reaching Yon, Windows | HTTP from the page and linked Rust and C# services, and a linked C# service's held stream and socket clients (NET3, LS1) | none: a linked Rust service's held stream and socket clients ran in `scripts/windows/yon-reach.ps1` (SW1, below), so the cell is `honored` again (`adapted` since DOC5, below, like the other native targets) |
 
 The Android window controls stay `adapted`; their note now says that Swift
 and C# WebAssembly callers have not run on the emulator; MA2 (below) ran

@@ -30,7 +30,11 @@ machine contracts have their own, independent major versions.
   WebView2 app. All 18 WebAssembly cells and both linked Rust checks passed
   in the Windows app on the Surface. `scripts/windows/desktop-run.ps1` now
   runs in the user's active Remote Desktop session when nobody is signed in
-  at the console.
+  at the console. Open finding from these runs: the Windows build embeds no
+  application manifest in the `.exe`, so an app whose name contains `Setup`,
+  `Install`, `Update` or `Patch` asks for administrator rights; the
+  shared-Setup fixture app is named `SharedConfig` for this reason
+  (`docs/SUPPORT_TIERS.md`).
 - `scripts/windows/self-restart.py` (new) checks that `ty preview` restarts
   itself on Windows as a child process and exits with that child's code; a
   Windows-only test in `crates/tachyon-cli/tests/signal_lifecycle.rs` runs it
@@ -80,7 +84,8 @@ machine contracts have their own, independent major versions.
   step. A host without a readable page can record the proof through a
   `wasmRecorder` service instead. Only the Linux driver exists so far; it
   clicks the browser API buttons with a real X pointer, because an AT-SPI
-  action is not a user gesture.
+  action is not a user gesture. (Superseded: the macOS, Android, iOS and
+  Windows drivers followed in MA7, MA9, MA8 and SW4, in the entries above.)
 - `scripts/native/async-listener-app-test.mjs --check=shared-setup
   --target=linux` runs two linked Rust services that share one Setup in the
   Linux app (LX3, 2026-10-27).
@@ -147,7 +152,8 @@ machine contracts have their own, independent major versions.
   host refuses after the call started, heard as `BrowserCallFailed`. The
   Windows page services gate now also reads a linked Rust `@LocalState`
   field after a reload. The Windows development preview and
-  `background_color` cells are honored.
+  `background_color` cells are honored. (`background_color` on Windows is
+  `adapted` since DOC5, below, like the other native targets.)
 
 - Branded-browser runs (BR2, 2026-10-25): `scripts/branded-browser-gate.mjs
   --browser=safari|ios-safari|chrome|msedge|android-chrome` runs the web
@@ -200,7 +206,8 @@ machine contracts have their own, independent major versions.
   listener (`scripts/windows/async-listener-native-test.mjs`). All four
   passed inside WebView2 on the signed-in Windows 11 ARM64 desktop, and the
   Windows window controls, file picker, background and foreground, and
-  reaching Yon cells are `honored` again.
+  reaching Yon cells are `honored` again. (Reaching Yon on Windows is
+  `adapted` since DOC5, below, like the other native targets.)
 
 - Swift on the Windows desktop (SW3, 2026-10-25): the Surface (Windows 11
   ARM64) has Swift 6.3.3 for Windows ARM64 and its Swift SDK for
@@ -1911,6 +1918,17 @@ machine contracts have their own, independent major versions.
   from their own origins. A Windows build that declares `background_color`
   now prints its note. No run changed.
 
+- Stale docs fixed after iteration 5 (DOC6, 2026-10-27). ADR 0052 gets an
+  amendment for the Windows manifest that SW4 found has no effect, and the
+  `[26.31.06]` entry that said it was published beside the executable and
+  `docs/PHASE_5_EVIDENCE.md` point at it. ADR 0089's status line leaves out
+  the macOS JavaScript FilePicker field, which has not run in the app.
+  `docs/SUPPORT_TIERS.md` names the Java runs in the Windows (SW4) and
+  Android (MA9) apps in the JF1 table, and the iOS 18.4 floor run is left to
+  the developer (D20). Text that still called the Windows reaching-Yon and
+  `background_color` cells `honored` points at DOC5. The support table names
+  the macOS and Linux `connect-src` runs (RM1, RL1) and says linked Rust
+  services reach the iOS scene title too.
 - Stale docs fixed after iteration 4 (DOC5, 2026-10-27). ADR 0108 gets an
   amendment with the Java (JF1) and Dart (MA5) floors and the iOS 17.4 style
   run; ADRs 0033 and 0083 and older CHANGELOG entries point at the Dart
@@ -6796,7 +6814,14 @@ verification of the Windows installer found a defect in atomic replacement.
   The manifest is now published as `bin/<executable>.exe.manifest`. This alone
   does not fix the open Windows accessibility finding in
   `docs/PHASE_7_EVIDENCE.md`. Every control still appears to UI Automation as a
-  generic pane, not as a button, output, or heading.
+  generic pane, not as a button, output, or heading. (Superseded: the
+  reconciliation of 2026-08-30 put the manifest back at the bundle root as
+  `application.manifest`, and the `.exe` embeds none, so Common Controls 6
+  and per-monitor DPI awareness again do not apply. SW4 recorded this on
+  2026-10-27, with its second effect: with no `requestedExecutionLevel`, an
+  app named with `Setup`, `Install`, `Update` or `Patch` asks for
+  administrator rights. See `docs/SUPPORT_TIERS.md`, "WebAssembly service
+  features in the Windows app".)
 - The development and preview servers could exit as soon as they reported
   that they were ready. If registering the Ctrl-C handler failed, the shutdown
   future finished at once. So the server completed its graceful shutdown

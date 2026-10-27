@@ -142,7 +142,7 @@ tac.budgets
   not applicable: tac.budgets is checked only by web release builds. The Linux app loads its bundle from disk, so route sizes are not measured (ADR 0074).
 
 tac.outgoing
-  honored: the build checks request hosts and the scheme handler's connect-src allows only them
+  honored: the build checks request hosts and the scheme handler's connect-src allows only them; a page fetch to an undeclared host was refused in the Linux app (RL1)
 
 tac.yon
   honored: the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb and headless Wayland)
@@ -229,7 +229,7 @@ service worker
   not applicable: The Linux app registers no service worker: its pages load from the app bundle. With tac.yon.origin set, the page applies tac.cache rules to Yon reads itself; without it, tac.cache has no effect in the app.
 
 Content-Security-Policy
-  honored: the native host policy
+  honored: the native host policy; connect-src refused an undeclared host in the Linux app (RL1)
 
 reaching Yon
   adapted: The Linux app's pages load from tachyon://app, so same-origin requests reach no Yon. HTTP calls, streams, sockets and topics from pages and linked Rust services reach the Yon at tac.yon.origin, which lists tachyon://app in server.origins, run under Xvfb and on WSL by scripts/linux/yon-origin-native-test.mjs (NET4, RL1). WebAssembly Swift, Kotlin and C# services reach it through HTTPClient in the Linux app too (scripts/native/wasm-features-app-test.mjs, LX3).

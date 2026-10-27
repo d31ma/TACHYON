@@ -1,6 +1,6 @@
 # ADR 0089: Native Capabilities Are Activation-Owned Service Providers
 
-- Status: Accepted. The FilePicker opens the platform picker on every native target: `NSOpenPanel` on macOS, `IFileOpenDialog` on Windows and GTK's file dialog on Linux (2026-10-19 amendments), and the document picker on iOS and Android (2026-10-24 amendment). WebAssembly services reach it through the page (2026-10-24 amendment). A browser tab answers `unsupported`. Every caller has run in the app on each native target (2026-10-27 amendments).
+- Status: Accepted. The FilePicker opens the platform picker on every native target: `NSOpenPanel` on macOS, `IFileOpenDialog` on Windows and GTK's file dialog on Linux (2026-10-19 amendments), and the document picker on iOS and Android (2026-10-24 amendment). WebAssembly services reach it through the page (2026-10-24 amendment). A browser tab answers `unsupported`. Every caller has run in the app on each native target (2026-10-27 amendments), except a JavaScript field on macOS, which rests on the provider and generated-app tests.
 - Date: 2026-09-30
 - Relates to ADR 0025 (NeedsAll), ADR 0030 (native services), ADR 0065 (page APIs), ADR 0087 (WindowControls)
 
@@ -489,3 +489,9 @@ WebAssembly Swift field (SW3) and a linked Rust field (SW1) did the same in
 marks `tac.nativeCapabilities` `honored` on macOS and on Windows. On
 2026-10-27 (MA7) a linked Swift field chose, read and cancelled in
 `NSOpenPanel` too, as the macOS row of the 2026-10-25 table now says.
+
+The macOS JavaScript field is the one caller with no run in the app: the
+macOS row of the 2026-10-25 table says it rests on the provider and
+generated-app tests, and `docs/SUPPORT_TIERS.md` names no JavaScript field in
+`NSOpenPanel`. The status line says so since DOC6 (2026-10-27). Until then
+it read "Every caller has run in the app on each native target".

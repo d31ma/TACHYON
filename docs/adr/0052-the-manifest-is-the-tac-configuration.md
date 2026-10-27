@@ -408,3 +408,26 @@ API 35 (WebView 124) and API 34 (WebView 113) emulators (commit `df1e8c26`):
 a dark `theme_color` gave light bar icons and a light one dark icons, and the
 splash screen showed `background_color` while the app was held before its
 first frame.
+
+## Amendment (2026-10-27): the Windows manifest has no effect (SW4, DOC6)
+
+The 2026-10-18 amendment "Versions and build numbers reach every target"
+says the Windows manifest sits at the bundle root, where Windows does not
+read it, and treats that as a version matter only. It is more than that. The
+build writes `application.manifest` (Common Controls 6 and per-monitor DPI
+awareness) to the bundle root and embeds no manifest in the `.exe`: the
+`rc.exe` step compiles only the version and icon script. Windows reads a
+separate manifest only when it is named after the `.exe` beside it, so none
+of the manifest applies, and the host sets no DPI awareness at run time
+either. Windows apps therefore run DPI-unaware, scaled as a bitmap on a
+high-DPI display, with the older common controls. With no
+`requestedExecutionLevel`, Windows also treats an app whose file name
+contains `Setup`, `Install`, `Update` or `Patch` as an installer and asks
+for administrator rights (error 740 when that is refused).
+
+SW4 found this on the Surface on 2026-10-27, when the shared-Setup fixture
+app failed to start three times; the fixture is now named `SharedConfig`
+(`docs/SUPPORT_TIERS.md`, "WebAssembly service features in the Windows
+app"). The unit test `manifest_requests_common_controls_and_per_monitor_dpi`
+checks the manifest's text, not that Windows reads it. The text of the
+2026-10-18 amendment stays as the history of this decision.
