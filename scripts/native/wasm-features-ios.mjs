@@ -124,10 +124,17 @@ final class WasmRecorderService {
     }
   }
 
-  /** @param {string} name */
+  /** A loaded simulator sometimes times out on a screenshot ("Timeout waiting for screen surfaces"), so it gets three tries. @param {string} name */
   static screen(name) {
     const file = path.join(this.root, `${name}.png`)
-    this.simctl('io', this.device, 'screenshot', file)
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        this.simctl('io', this.device, 'screenshot', file)
+        break
+      } catch (error) {
+        if (attempt === 3) throw error
+      }
+    }
     return { file, lines: /** @type {Array<{ text: string, x: number, y: number }>} */ (JSON.parse(this.tool(this.reader, [file]))) }
   }
 
