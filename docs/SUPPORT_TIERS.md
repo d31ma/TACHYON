@@ -2134,8 +2134,15 @@ tests passed. Remote Desktop always gives the session 100% scaling (96 DPI),
 so the scaled checks of `scripts/windows/high-dpi-test.ps1` (new: the
 client area, the minimum size and a page `resize` in device-independent
 pixels above 96 DPI, and a move to a monitor with another scale or a scale
-change, `WM_DPICHANGED`) have not run. They need a monitor plugged into
-the Surface. This evidence does not promote any tier.
+change, `WM_DPICHANGED`) have not run. They need a Windows desktop signed
+in at a screen scaled above 100%, not a Remote Desktop session. WM2
+(2026-10-27) added the integrated title bar to the script: the
+`--tac-titlebar-*` insets against the caption buttons, a drag near the
+bottom of the drag region, none just below it, and a click on a button
+inside it, at the scaled DPI and again after `WM_DPICHANGED`. Samuel left
+the scaled run to the developer (iteration 7, D21), so the manifest,
+window size, minimum size and `resize` cells above 96 DPI are left to the
+developer. This evidence does not promote any tier.
 
 ### Windows integration tests under CI (2026-10-27, MK4)
 

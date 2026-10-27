@@ -442,6 +442,8 @@ monitor with another scale takes the size that `WM_DPICHANGED` suggests,
 and `windowControls.resize` sizes the client area in device-independent
 pixels. An app named with `Setup` started on the Surface without asking for
 administrator rights. The checks above 96 DPI and on `WM_DPICHANGED`
-(`scripts/windows/high-dpi-test.ps1`) need a monitor plugged into the
-Surface and have not run, because Remote Desktop always gives 100% scaling (`docs/SUPPORT_TIERS.md`, "Windows
-application manifest").
+(`scripts/windows/high-dpi-test.ps1`, which since WM2 also checks the
+integrated title bar insets and drag region) need a Windows desktop signed
+in at a scaled screen, because Remote Desktop always gives 100% scaling.
+They are left to the developer (iteration 7, D21; `docs/SUPPORT_TIERS.md`,
+"Windows application manifest").

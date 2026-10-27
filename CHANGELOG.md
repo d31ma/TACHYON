@@ -1925,7 +1925,9 @@ machine contracts have their own, independent major versions.
   drag from 4px above the bottom of the drag region moves the window, that a
   drag from 12px under it does not, and that a button inside the region
   still gets its click. With `-ScaleChangeSeconds`, each app page shows
-  when to change the scale.
+  when to change the scale. The scaled run is left to the developer
+  (iteration 7, D21): it needs a Windows desktop signed in at a scaled
+  screen, and Remote Desktop always gives 100%.
 
 - Windows `background_color` and reaching Yon are `adapted`, like the other
   native targets (DOC5, ADR 0102 amendment, 2026-10-27). Windows takes the
