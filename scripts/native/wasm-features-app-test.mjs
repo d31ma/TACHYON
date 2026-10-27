@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { withServer } from '../release/server-probe.mjs'
@@ -61,11 +63,165 @@ timeout ${this.waitSeconds + 120}s python3 "$PROBE" "$STEPS"`
   }
 }
 
+class AndroidWasmApp {
+  static waitSeconds = 300
+  static promptSeconds = 60
+  static pollMilliseconds = 500
+  static origin = 'https://appassets.tachyon.local'
+  static sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT
+  static adbPath = path.join(AndroidWasmApp.sdk ?? '', 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb')
+  static evidence = process.env.TAC_ANDROID_WASM_EVIDENCE ?? fileURLToPath(new URL('../../target/android-wasm-features-evidence', import.meta.url))
+  static allowButtons = ['com.android.permissioncontroller:id/permission_allow_button', 'com.android.permissioncontroller:id/permission_allow_foreground_only_button']
+  static shareSheet = /Chooser|Resolver/
+  static after = { 'Ask to notify': 'allow', 'Share a link': 'back' }
+
+  /** @param {string[]} args @param {number} [timeout] */
+  static adb(args, timeout = 120000) {
+    const result = spawnSync(this.adbPath, args, { encoding: 'utf8', timeout, maxBuffer: 64 * 1024 * 1024 })
+    assert.equal(result.status, 0, `adb ${args.join(' ')}: ${result.error ?? ''}${result.stdout}${result.stderr}`)
+    return result.stdout.trim()
+  }
+
+  /** @param {string[]} args */
+  static attempt(args) {
+    return spawnSync(this.adbPath, args, { encoding: 'utf8', timeout: 60000, maxBuffer: 64 * 1024 * 1024 }).stdout?.trim() ?? ''
+  }
+
+  static async prepare() {
+    assert.ok(this.sdk, 'ANDROID_HOME or ANDROID_SDK_ROOT is required for the Android in-app WebAssembly features gate')
+    this.adb(['wait-for-device'])
+    mkdirSync(this.evidence, { recursive: true })
+    const webView = this.adb(['shell', 'dumpsys', 'webviewupdate']).match(/Current WebView package \(name, version\): \((.*)\)/)?.[1] ?? 'unknown'
+    console.log(`==> Android ${this.adb(['shell', 'getprop', 'ro.build.version.release'])} (${this.adb(['shell', 'getprop', 'ro.product.cpu.abi'])}), System WebView ${webView}`)
+  }
+
+  /** @param {string} apk @param {string} packageName */
+  static async launch(apk, packageName) {
+    this.attempt(['uninstall', packageName])
+    this.adb(['install', '-r', apk], 300000)
+    this.adb(['shell', 'am', 'start', '-W', '-n', `${packageName}/.MainActivity`])
+    let pid = ''
+    for (let attempt = 0; attempt < 120 && !(pid && this.adb(['shell', 'cat', '/proc/net/unix']).includes(`webview_devtools_remote_${pid}`)); attempt++) {
+      await sleep(this.pollMilliseconds)
+      pid = this.attempt(['shell', 'pidof', packageName])
+    }
+    assert.match(pid, /^\d+$/, `${packageName} must start`)
+    return pid
+  }
+
+  static resumed() {
+    return this.adb(['shell', 'dumpsys', 'activity', 'activities']).split('\n').find((line) => line.includes('topResumedActivity=')) ?? ''
+  }
+
+  /** @param {string[]} ids */
+  static tapAny(ids) {
+    this.attempt(['shell', 'uiautomator', 'dump', '/sdcard/tachyon-wasm-screen.xml'])
+    const shown = this.attempt(['shell', 'cat', '/sdcard/tachyon-wasm-screen.xml'])
+    const bounds = ids.map((id) => shown.match(new RegExp(`resource-id="${id.replaceAll('.', '\\.')}"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`))).find(Boolean)
+    if (!bounds) return false
+    const [left, top, right, bottom] = bounds.slice(1).map(Number)
+    this.adb(['shell', 'input', 'tap', String(Math.round((left + right) / 2)), String(Math.round((top + bottom) / 2))])
+    return true
+  }
+
+  /** @param {import('playwright').Page} page */
+  static lines(page) {
+    return page.evaluate(() => [...document.querySelectorAll('#wasm-probe-phase, .wasm-probe-line')].map((node) => node.textContent.trim()).filter(Boolean))
+  }
+
+  /** @param {import('playwright').Page} page @param {string[]} phases */
+  static async phase(page, phases) {
+    const reached = await page.waitForFunction((wanted) => wanted.find((text) => document.querySelector('#wasm-probe-phase')?.textContent === text), phases, { timeout: this.waitSeconds * 1000 })
+    return reached.jsonValue()
+  }
+
+  /** @param {import('playwright').Page} page @param {string} what @param {() => unknown} check */
+  static async until(page, what, check) {
+    const deadline = Date.now() + this.promptSeconds * 1000
+    while (Date.now() < deadline) {
+      if (await check()) return
+      await sleep(this.pollMilliseconds)
+    }
+    assert.fail(`timed out waiting for ${what}; the probe shows:\n${(await this.lines(page)).join('\n')}`)
+  }
+
+  /** @param {import('playwright').Page} page @param {string} label @param {string} packageName */
+  static async follow(page, label, packageName) {
+    const heard = (text) => async () => (await this.lines(page)).some((line) => line.includes(text))
+    if (this.after[label] === 'allow') await this.until(page, 'the Android notification question', async () => this.tapAny(this.allowButtons) || await heard('NotificationPermissionChanged')())
+    if (this.after[label] !== 'back') return
+    await this.until(page, 'the Android share sheet', async () => this.shareSheet.test(this.resumed()) || await heard('Share answered')())
+    if (!this.shareSheet.test(this.resumed())) return
+    this.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK'])
+    await this.until(page, 'the app to come back from the share sheet', () => this.resumed().includes(packageName))
+  }
+
+  /** @param {string} name */
+  static screenshot(name) {
+    const result = spawnSync(this.adbPath, ['exec-out', 'screencap', '-p'], { maxBuffer: 64 * 1024 * 1024, timeout: 60000 })
+    if (result.status === 0) writeFileSync(path.join(this.evidence, `${name}.png`), result.stdout)
+  }
+
+  /** @param {string} apk @param {{ application: string, id: string, gestures: string[] }} staged */
+  static async drive(apk, staged) {
+    const { chromium } = await import('playwright')
+    const packageName = staged.id.split('.').map((segment) => segment.replace(/[^A-Za-z0-9]/g, '_')).join('.')
+    const { passed, failed } = WasmFeaturesFixture
+    let browser
+    let port
+    try {
+      const pid = await this.launch(apk, packageName)
+      port = this.adb(['forward', 'tcp:0', `localabstract:webview_devtools_remote_${pid}`])
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true })
+      const page = browser.contexts()[0].pages()[0]
+      assert.ok(page, 'the Android WebView exposes a live document')
+      for (const label of staged.gestures) {
+        const waiting = `Probe waiting for ${label}`
+        if (await this.phase(page, [waiting, passed, failed]) !== waiting) break
+        await page.getByRole('button', { name: label, exact: true }).click()
+        await this.follow(page, label, packageName)
+      }
+      const phase = await this.phase(page, [passed, failed])
+      const lines = await this.lines(page)
+      this.screenshot(staged.application)
+      assert.equal(phase, passed, `the in-app probe did not pass:\n${lines.join('\n')}`)
+      const pageOrigin = await page.evaluate(() => location.origin)
+      const loads = await page.evaluate(() => performance.getEntriesByType('resource').map((entry) => entry.name).filter((name) => name.endsWith('.wasm')))
+      assert.equal(pageOrigin, this.origin, 'the page runs on the app bundle origin')
+      assert.ok(loads.length, 'the page loaded WebAssembly')
+      for (const load of loads) assert.ok(load.startsWith(`${this.origin}/`), `WebAssembly loads from the app bundle: ${load}`)
+      return [...lines, `REPORT ${loads.length} WebAssembly loads from ${this.origin} in process ${pid}`]
+    } finally {
+      if (browser) await browser.close().catch(() => undefined)
+      if (port) this.attempt(['forward', '--remove', `tcp:${port}`])
+      this.attempt(['shell', 'am', 'force-stop', packageName])
+      this.attempt(['uninstall', packageName])
+    }
+  }
+
+  /** @param {string} project @param {{ application: string, id: string, gestures: string[], needsYon: boolean }} staged */
+  static async run(project, staged) {
+    await WasmFeaturesAppTest.run(WasmFeaturesAppTest.binary, ['build', project, '--target', 'android'], { timeoutMilliseconds: 1800000 })
+    const output = path.join(project, 'dist/android')
+    const apk = path.join(output, staged.application, `${staged.application}.apk`)
+    const unpacked = path.join(project, 'apk')
+    await WasmFeaturesAppTest.run('unzip', ['-q', '-o', apk, 'assets/WebBundle/*', '-d', unpacked], { timeoutMilliseconds: 300000 })
+    const modules = WasmFeaturesFixture.assertWebAssembly(output, path.join(unpacked, 'assets/WebBundle'))
+    const yon = staged.needsYon ? new URL(JSON.parse(readFileSync(path.join(project, 'client/manifest.json'), 'utf8')).tac.yon.origin).port : ''
+    if (yon) this.adb(['reverse', `tcp:${yon}`, `tcp:${yon}`])
+    try {
+      return { modules, lines: await this.drive(apk, staged) }
+    } finally {
+      if (yon) this.attempt(['reverse', '--remove', `tcp:${yon}`])
+    }
+  }
+}
+
 class WasmFeaturesAppTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'wasm-features-app-'))
-  static hosts = { linux: LinuxWasmApp }
+  static hosts = { linux: LinuxWasmApp, android: AndroidWasmApp }
   static target = WasmFeaturesAppTest.option('target', 'linux')
   static checks = WasmFeaturesAppTest.option('check', Object.keys(WasmFeaturesFixture.checks).join(',')).split(',')
   static languages = (process.env.TAC_WASM_FEATURE_LANGUAGES ?? '').split(',').filter(Boolean)
@@ -113,6 +269,7 @@ class WasmFeaturesAppTest {
     assert.ok(this.hosts[this.target], `no in-app driver for ${this.target} yet; the drivers are ${Object.keys(this.hosts).join(', ')}`)
     const plan = WasmFeaturesFixture.plan(this.target, this.checks, this.languages)
     assert.ok(plan.length, 'nothing to run: no check has a WebAssembly language on this target')
+    await this.hosts[this.target].prepare?.(this.root)
     const results = []
     for (const item of plan) {
       const label = `${this.target} ${item.check} ${item.language}`
