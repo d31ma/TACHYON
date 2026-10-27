@@ -10,6 +10,8 @@ enum PageChecksProbe {
     static let escapeKey: CGKeyCode = 53
     static let depth = 64
     static let promptDepth = 3
+    static let alertDepth = 5
+    static let alertSubrole = "AXNotificationCenterAlert"
 
     static func application(_ bundle: String) -> NSRunningApplication? {
         NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first
@@ -146,11 +148,31 @@ enum PageChecksProbe {
         }
     }
 
+    // macOS shows a notification request as a Notification Center alert whose Allow and Don't Allow are
+    // named actions ("Name:Allow\nTarget:...") on the alert group, not buttons.
+    static func alertAction(_ titles: [String], in application: NSRunningApplication) -> (AXUIElement, String)? {
+        let root = AXUIElementCreateApplication(application.processIdentifier)
+        let windows = attribute(root, kAXWindowsAttribute) as? [AXUIElement] ?? []
+        for element in windows.flatMap({ elements(under: $0, depth: alertDepth) }) where text(element, kAXSubroleAttribute) == alertSubrole {
+            var names: CFArray?
+            AXUIElementCopyActionNames(element, &names)
+            if let name = (names as? [String] ?? []).first(where: { name in titles.contains { name.hasPrefix("Name:\($0)\n") } }) {
+                return (element, name)
+            }
+        }
+        return nil
+    }
+
     static func allow(_ titles: [String]) -> Bool {
         for _ in 0..<attempts {
             for candidate in NSWorkspace.shared.runningApplications {
+                let owner = candidate.bundleIdentifier ?? String(candidate.processIdentifier)
+                if let (alert, action) = alertAction(titles, in: candidate) {
+                    print("pressed \(action.split(separator: "\n")[0]) in \(owner)")
+                    return AXUIElementPerformAction(alert, action as CFString) == .success
+                }
                 guard let found = windowButton(titles, in: candidate) else { continue }
-                print("pressed \(text(found, kAXTitleAttribute)) in \(candidate.bundleIdentifier ?? String(candidate.processIdentifier))")
+                print("pressed \(text(found, kAXTitleAttribute)) in \(owner)")
                 return AXUIElementPerformAction(found, kAXPressAction as CFString) == .success
             }
             RunLoop.current.run(until: Date().addingTimeInterval(pause))
