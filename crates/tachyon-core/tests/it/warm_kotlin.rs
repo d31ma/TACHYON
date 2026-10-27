@@ -73,14 +73,14 @@ object Handler {
     fn supervisor(isolation: YonIsolationPolicy) -> HandlerSupervisor {
         HandlerSupervisor::new(HandlerSupervisorOptions {
             isolation,
-            default_timeout: Duration::from_secs(60),
+            default_timeout: Duration::from_mins(1),
             ..HandlerSupervisorOptions::default()
         })
         .expect("supervisor")
     }
 
     fn warm() -> HandlerSupervisor {
-        let settings = WarmSettings::new(1_000, Duration::from_secs(60));
+        let settings = WarmSettings::new(1_000, Duration::from_mins(1));
         Self::supervisor(YonIsolationPolicy::Warm(settings))
     }
 

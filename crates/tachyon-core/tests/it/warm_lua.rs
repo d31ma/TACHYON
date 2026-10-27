@@ -111,7 +111,7 @@ fn request(id: &str, mode: &str) -> HandlerRequest {
 }
 
 fn warm_isolation() -> YonIsolationPolicy {
-    YonIsolationPolicy::Warm(WarmSettings::new(1_000, Duration::from_secs(60)))
+    YonIsolationPolicy::Warm(WarmSettings::new(1_000, Duration::from_mins(1)))
 }
 
 fn supervisor(isolation: YonIsolationPolicy) -> HandlerSupervisor {
@@ -220,7 +220,8 @@ async fn a_warm_lua_stream_ends_with_its_end_frame_and_stays_warm() {
     let mut identities = Vec::new();
     for id in ["stream_first", "stream_second"] {
         let (sender, mut receiver) = tokio::sync::mpsc::channel(8);
-        let invocation = supervisor.invoke_streaming(&source, &request(id, ""), sender);
+        let streamed = request(id, "");
+        let invocation = supervisor.invoke_streaming(&source, &streamed, sender);
         let collect = async {
             let mut events = Vec::new();
             while let Some(event) = receiver.recv().await {

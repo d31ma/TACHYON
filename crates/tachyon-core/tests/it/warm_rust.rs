@@ -75,7 +75,7 @@ impl Handler {
 
     fn supervisor() -> HandlerSupervisor {
         HandlerSupervisor::new(HandlerSupervisorOptions {
-            isolation: YonIsolationPolicy::Warm(WarmSettings::new(1_000, Duration::from_secs(60))),
+            isolation: YonIsolationPolicy::Warm(WarmSettings::new(1_000, Duration::from_mins(1))),
             default_timeout: Duration::from_secs(10),
             ..HandlerSupervisorOptions::default()
         })
