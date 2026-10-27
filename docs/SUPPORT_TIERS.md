@@ -2353,9 +2353,9 @@ routes. The differential corpus still decides browser semantic parity.
 
 No Phase 4 artifact is a Tachyon preview or supported release.
 
-- In the default process mode, the handler child process is supervised and gets
-  a restricted environment. It still has the filesystem and network access of
-  the developer's account.
+- In the default warm mode and in process mode, the handler child process is
+  supervised and gets a restricted environment. It still has the filesystem
+  and network access of the developer's account.
 - The Firecracker driver transport does not meet the gate for OS-level resource
   and capability isolation. It will meet it only when its control program and
   host have native qualification evidence.

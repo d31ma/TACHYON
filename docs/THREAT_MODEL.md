@@ -415,8 +415,15 @@ separate cybersecurity review for this reconciliation.
   Cancellation sends a typed frame, then waits a default grace period of
   100 ms. On success, timeout and cancellation, Tachyon ends and reaps the
   whole process tree within a bound.
-- **One process per request.** Tests prove crash isolation, successful
-  recovery through a new child, and forced termination of an infinite loop.
+- **Bounded process reuse.** By default a warm process serves many requests
+  of one handler, one at a time (ADR 0111). A crash, a protocol error, stray
+  stdout between requests, a timeout, a cancellation, a stderr overflow or the
+  request limit replaces it, and an idle limit stops it. Module-level state can
+  cross from one request to a later request of the same handler in the same
+  process; it never crosses handlers. An operator who needs a fresh process
+  for every request sets `YON_ISOLATION=process`. Tests prove crash isolation,
+  successful recovery through a new child, and forced termination of an
+  infinite loop in both modes.
 - **Adversarial tests.** Tests with real processes cover:
   - output smuggled after the response;
   - oversized output;

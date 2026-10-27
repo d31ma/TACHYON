@@ -1,6 +1,6 @@
 {
   "title": "Isolation and security",
-  "summary": "Tachyon refuses four dangerous mistakes when it builds, runs each request in its own process, and adds security headers to every answer. This page explains these rules and limits, and the rules for code that runs in the browser.",
+  "summary": "Tachyon refuses four dangerous mistakes when it builds, runs each request in a supervised process that it replaces after any failure, and adds security headers to every answer. This page explains these rules and limits, and the rules for code that runs in the browser.",
   "before": [
     "controllers"
   ],

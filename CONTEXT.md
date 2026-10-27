@@ -324,7 +324,8 @@ to production code quietly without one.
   global component registry;
 - implicit imports from the application's dependency graph inside handler
   adapters;
-- pooling or reusing handler processes;
+- reusing a handler process outside the bounds of ADR 0111 (one handler
+  snapshot, one request at a time, replaced after any failure);
 - giving remote or local WebSurfaces a bridge to native capabilities;
 - treating a successful cross-compilation as evidence that the native runtime
   works;
