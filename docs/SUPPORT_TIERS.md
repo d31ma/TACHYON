@@ -2114,6 +2114,21 @@ No framework change was made.
 Desktop session when nobody is signed in at the console. The Remote Desktop
 window must stay open and not minimized until the run ends.
 
+### Windows integration tests under CI (2026-10-27, MK4)
+
+MK4 moved every bare-name tool probe left in `crates/tachyon-core/tests/it`
+(`groovyc`, `kotlinc`, `lua`, `php-cgi` and `dart`, in 15 files) to
+`ProgramProbe`, so a `.bat` launcher such as `groovyc.bat` or `kotlinc.bat`
+is found on Windows, and `Toolchain::checked` fails a missing CI-installed
+tool instead of letting the test skip. On the Surface (Windows 11 ARM64)
+with `CI=1`, `tests/it` passed 694 of 694 and the MK3 marker library tests
+83 of 83; this is MK3's Windows run too. This evidence does not promote any
+tier.
+
+Open finding: with Homebrew Groovy 6.0.0 on the Mac, `GroovyHome` finds no
+Groovy library from the `groovyc` launcher, so 29 tests fail with `TY2112`
+unless `GROOVY_HOME` is set.
+
 ### Windows runs over SSH (2026-10-27, SW4)
 
 SW4 ran these on the Surface (Windows 11 Pro build 26300 ARM64, MSVC ARM64)

@@ -62,7 +62,13 @@ machine contracts have their own, independent major versions.
   launcher no longer makes them skip quietly. `Toolchain::checked` now fails
   a test that skips a CI-installed tool under `CI` on Windows too, and the
   integration tests that probed `groovyc`, `kotlinc`, `php`, `dart` or `lua`
-  by bare name now probe through `ProgramProbe`.
+  by bare name now probe through `ProgramProbe`. (Corrected: MK3 left
+  `groovyc` and `kotlinc` bare-name probes in `test_units`,
+  `yon_json_returns` and `test_assertions`, and `lua`, `php-cgi` and `dart`
+  ones in a few other `tests/it` files. MK4, 2026-10-27, moved those and the
+  rest, 15 files in all, to `ProgramProbe`. On the Surface (Windows 11
+  ARM64) with `CI=1`, `tests/it` then passed 694 of 694 and the MK3 library
+  tests 83 of 83.)
 
 - The in-app WebAssembly service features gate has an Android driver
   (MA9, 2026-10-27): `scripts/native/wasm-features-app-test.mjs
@@ -1928,7 +1934,8 @@ machine contracts have their own, independent major versions.
   the developer (D20). Text that still called the Windows reaching-Yon and
   `background_color` cells `honored` points at DOC5. The support table names
   the macOS and Linux `connect-src` runs (RM1, RL1) and says linked Rust
-  services reach the iOS scene title too.
+  services reach the iOS scene title too. The MK3 probe entry and
+  `docs/SUPPORT_TIERS.md` record the MK4 Windows run.
 - Stale docs fixed after iteration 4 (DOC5, 2026-10-27). ADR 0108 gets an
   amendment with the Java (JF1) and Dart (MA5) floors and the iOS 17.4 style
   run; ADRs 0033 and 0083 and older CHANGELOG entries point at the Dart
