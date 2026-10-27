@@ -232,7 +232,7 @@ Content-Security-Policy
   honored: the native host policy; connect-src refused an undeclared host from a WebView2 page (SD1)
 
 reaching Yon
-  honored: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services; the page holds linked C# (NET3, LS1) and Rust (SW1) services' stream and socket clients, and a linked Rust service hears a topic (SW1), in scripts/windows/yon-reach.ps1 on a signed-in Windows desktop; other absolute URLs go only to the hosts in tac.outgoing.hosts
+  honored: the app's pages load from https://tachyon.local, so Yon calls go to tac.yon.origin across origins, from the page and from linked Rust and C# services; the page holds linked C# (NET3, LS1) and Rust (SW1) services' stream and socket clients, and a linked Rust service hears a topic (SW1), in scripts/windows/yon-reach.ps1 on a signed-in Windows desktop. WebAssembly Swift and Kotlin services reach it through HTTPClient, hold its stream and socket clients, and answer through a Setup http adapter in the Windows app too (scripts/native/wasm-features-app-test.mjs, SW4); other absolute URLs go only to the hosts in tac.outgoing.hosts
 
 natively linked service languages
   honored: Rust and C# services are linked into the app; other languages run in the page

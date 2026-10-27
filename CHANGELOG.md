@@ -18,7 +18,10 @@ machine contracts have their own, independent major versions.
   `scripts/windows/page-steps-probe.ps1` gains `pointer`, `verdict` and
   `key` steps. `scripts/native/async-listener-app-test.mjs --target=windows`
   runs the listener and shared-Setup checks with linked Rust services in the
-  WebView2 app.
+  WebView2 app. All 18 WebAssembly cells and both linked Rust checks passed
+  in the Windows app on the Surface. `scripts/windows/desktop-run.ps1` now
+  runs in the user's active Remote Desktop session when nobody is signed in
+  at the console.
 - `scripts/windows/self-restart.py` (new) checks that `ty preview` restarts
   itself on Windows as a child process and exits with that child's code; a
   Windows-only test in `crates/tachyon-cli/tests/signal_lifecycle.rs` runs it

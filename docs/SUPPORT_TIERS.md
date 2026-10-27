@@ -2017,6 +2017,60 @@ Android System WebView 124.0.6367.219), on branch `b70dcc31`:
 The macOS geolocation cell is `honored` again, and the Android
 `tac.outgoing` note records the refusal run.
 
+### WebAssembly service features in the Windows app (2026-10-27, SW4)
+
+SW4 added a Windows driver to `scripts/native/wasm-features-app-test.mjs`
+(`--target=windows`) and ran it on the Surface (Windows 11 Pro build 26300
+ARM64, WebView2, MSVC ARM64) in Samuel's signed-in Remote Desktop session,
+through `scripts/windows/desktop-run.ps1`, with a debug `ty` from branch
+`3f5f2fce`. The driver builds the app with `ty build --target windows`,
+checks that no service of the check is linked into it, launches it, and
+reads the probe through UI Automation. It clicks the gesture buttons with
+the mouse, because a UI Automation Invoke may give the page no user action,
+and presses Escape after the share sheet. Checks that call Yon reach
+`ty serve` on the Surface. C# and Rust are linked on Windows, so they have no
+cell here. This evidence does not promote any tier.
+
+| Check | Languages that passed in the Windows app | What the probe saw |
+| --- | --- | --- |
+| held-clients | Swift, Kotlin | a held socket client's welcome and echo, and a held stream client's ticks, from Yon |
+| yon-http | Swift, Kotlin | a WebAssembly `HTTPClient` read a Yon route on `tac.yon.origin` from `https://tachyon.local`, and a Setup's http adapter answered inside the app |
+| web-apis | Swift, Kotlin | no user action before a click and the clipboard refusal; Clock, SecureRandom and Preferences; replay listeners for connectivity and color scheme; a clipboard write and read from clicks, the notification permission and the share result |
+| document-title | Kotlin | `DocumentTitle` set by the first owner and then the second |
+| cached-client | Swift, Kotlin | a second read gave the cached stamp |
+| async-listener | Swift, Kotlin, F# | a signal-driven save reached the listing service: `["Ada","Lin"]` |
+| page-program | Swift, Kotlin, Java, Dart, F#, C++ | two services of one page read one program: the same identity, both counts at 1, and the reader's Store found the writer's record |
+
+All 18 cells passed in one run of 218 s. The first run passed 13: the UI
+Automation probe threw on an element with no cached control type, and the
+web-apis check looked for `kotlinc-js` without a shell, which misses the
+Windows `.bat` launcher. Both were script bugs and are fixed.
+
+The same day, in the same session:
+
+- `TAC_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
+  --check=shared-setup --target=windows`: two linked Rust services of one
+  page read one Setup identity and a count of 1 (15 s).
+- `TAC_LISTENER_LANGUAGE=rs scripts/native/async-listener-app-test.mjs
+  --target=windows`: a linked Rust async `@OnEvent` listener finished inside
+  the app before the next listener, for two events in a row (14 s).
+
+Open finding: the Windows build writes `application.manifest` (Common
+Controls 6 and per-monitor DPI awareness) next to the app, but embeds no
+manifest in the `.exe`, and Windows reads a separate manifest only when it is
+named after the `.exe` beside it. So that manifest has no effect, and with no
+`requestedExecutionLevel`, Windows treats an app whose file name contains
+`Setup`, `Install`, `Update` or `Patch` as an installer and asks for
+administrator rights (error 740 when that is refused). The shared-Setup
+fixture app failed to start three times for this reason, and the fixture now
+names its app `SharedConfig`. Embedding the manifest changes how every
+Windows app scales on a high-DPI display, so it needs its own change and run.
+No framework change was made.
+
+`scripts/windows/desktop-run.ps1` now runs in the user's active Remote
+Desktop session when nobody is signed in at the console. The Remote Desktop
+window must stay open and not minimized until the run ends.
+
 ### Windows runs over SSH (2026-10-27, SW4)
 
 SW4 ran these on the Surface (Windows 11 Pro build 26300 ARM64, MSVC ARM64)
