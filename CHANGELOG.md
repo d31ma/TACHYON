@@ -2355,6 +2355,12 @@ machine contracts have their own, independent major versions.
   reads and sends them as one message. OpenSSL and SChannel already sent a
   whole flight at once. The SQL Server contract then passed from macOS, and
   from Windows on ARM64 over SChannel against the Mac's container.
+- Tachyon finds Homebrew Groovy 6.0.0 through `groovyc` on `PATH` without
+  `GROOVY_HOME` (GH1, 2026-10-27). Homebrew's `bin/groovyc` is a wrapper
+  script and the library is under `libexec/lib`, so the launcher's home had
+  no `lib` folder and Groovy services and tests failed with `TY2112`. The
+  `PATH` route now also looks in `<home>/libexec`; `GROOVY_HOME` still comes
+  first, and other layouts are found as before.
 - The in-app WebAssembly features probe waits for the linked recorder
   whenever the page's plan declares it (MA10, 2026-10-27). MA8's open
   finding on iOS (a linked Swift service that "never started" next to a C#

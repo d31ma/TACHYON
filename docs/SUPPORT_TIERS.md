@@ -2156,9 +2156,16 @@ with `CI=1`, `tests/it` passed 694 of 694 and the MK3 marker library tests
 83 of 83; this is MK3's Windows run too. This evidence does not promote any
 tier.
 
-Open finding: with Homebrew Groovy 6.0.0 on the Mac, `GroovyHome` finds no
-Groovy library from the `groovyc` launcher, so 29 tests fail with `TY2112`
-unless `GROOVY_HOME` is set.
+MK4 also found that with Homebrew Groovy 6.0.0 on the Mac, `GroovyHome`
+found no Groovy library from the `groovyc` launcher, so 29 tests failed with
+`TY2112` unless `GROOVY_HOME` was set. Homebrew's `bin/groovyc` is a wrapper
+script, and the library is under `libexec/lib`. GH1 (2026-10-27, `c384dab5`)
+fixed this: the `groovyc` route on `PATH` also looks in `<home>/libexec`
+when `<home>/lib` is missing, and `GROOVY_HOME` keeps priority (iteration 7,
+D23). On the Mac with Homebrew Groovy 6.0.0 and no `GROOVY_HOME`, `tests/it`
+passed 768 tests with none failing (1 ignored, the warm handler benchmark),
+with no `TY2112`, along with the `groovy_home` unit tests, fmt, clippy and
+`repository_policy`.
 
 ### Windows runs over SSH (2026-10-27, SW4)
 
