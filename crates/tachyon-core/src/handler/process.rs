@@ -1444,8 +1444,10 @@ mod tests {
     #[test]
     fn ruby_dispatch_uses_the_plain_handler_convention() {
         let runner = AdapterFiles::RUBY_RUNNER;
-        assert!(runner.contains("class_name = \"Handler\""));
-        assert!(runner.contains("class_name = \"Middleware\""));
+        assert!(runner.contains("    \"Handler\"\n  end"));
+        assert!(runner.contains(
+            "return \"Middleware\" if YonRunnerLimits::MIDDLEWARE_PHASES.key?(request[\"operation\"])"
+        ));
         assert!(runner.trim_end().ends_with("YonRunner.main(ARGV)"));
     }
 
