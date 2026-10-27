@@ -21,12 +21,8 @@ impl SelfRestart {
         Self::failure(&command.exec())
     }
 
-    #[cfg(windows)]
+    #[cfg(not(unix))]
     fn run_new_process(mut command: Command) -> Failure {
-        let _console_events = (
-            tokio::signal::windows::ctrl_c(),
-            tokio::signal::windows::ctrl_break(),
-        );
         match command.status() {
             Ok(status) => std::process::exit(status.code().unwrap_or(1)),
             Err(error) => Self::failure(&error),
