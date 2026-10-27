@@ -68,6 +68,7 @@ mod warm_dart;
 mod warm_dotnet;
 mod warm_go;
 mod warm_handlers;
+mod warm_jvm;
 mod warm_kotlin;
 mod warm_lua;
 mod warm_php;
