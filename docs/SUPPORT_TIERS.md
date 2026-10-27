@@ -707,7 +707,7 @@ promote any tier.
 | yon-http | Kotlin, C# | a WebAssembly `HTTPClient` read a Yon route on `tac.yon.origin` from `tachyon-app://bundle`; for Kotlin, a `Cached` read, a `ClearCache` POST and a fresh read, and a Setup's http adapter answering inside the app |
 | web-apis | Kotlin, C# | no user action before a click and the clipboard refusal; Clock, SecureRandom and Preferences; replay listeners for connectivity and color scheme; a clipboard write and read from taps, `NotificationPermissionChanged` (granted) and `BrowserCallFailed Share was cancelled.` after the share sheet was closed |
 | document-title | Kotlin | `DocumentTitle` set by the first owner and then the second |
-| cached-client | Kotlin, C# (screen verdict) | a second read gave the cached stamp |
+| cached-client | Kotlin, C# (the screen verdict in MA8, the recorder in MA10) | a second read gave the cached stamp |
 | async-listener | Kotlin, C#, F# | a signal-driven save reached the listing service: `["Ada","Lin"]` |
 | page-program | Kotlin, Java, Dart, C#, F#, C++ | two services of one page read one program: the same identity, both counts at 1, and the reader's Store found the writer's record |
 
@@ -719,12 +719,17 @@ cells both passed. Before the yon-http probe waited for its button to
 render, the Kotlin and C# yon-http cells failed now and then with
 `no button "Ask Yon"`; that was the probe's race, not the app.
 
-Open finding: on iOS, a page whose C# client reads through a C# Setup's http
-adapter and that also uses a linked Swift service never started the Swift
-service. A component with `hydrate="load"` that shows the Swift service's
-field did not mount, and the device log showed no JavaScript or .NET error
-and a single navigation. The C# page-program cell, which also has a C# Setup,
-recorded through the same Swift service. No framework change was made.
+MA10 (2026-10-27) found that this was the probe's race, not the app. Tac
+shows the page body only once every top-level component's services are
+ready. The C# probe finished before the recorder's first native call
+answered (the C# stamp service was ready at 422 ms, the recorder's `init`
+answered at about 498 ms and the body appeared at 502 ms), and the probe
+waited for the recorder only if its element was already on the page. The
+app's `tachyon-runtime` folder was byte for byte the same with and without
+the recorder. The probe now waits whenever the page's plan declares the
+recorder, and on branch `562a444e` the whole iOS gate passed 18 of 18 with
+the recorder, the C# cached-client cell in 9 s, along with the Rust
+shared-Setup check.
 
 The same day, on the same simulator:
 
@@ -1908,6 +1913,26 @@ The same day, on the same Mac:
   identity and a count of 1.
 - The SQL Server contract on Security.framework did not run: Docker Desktop
   was not running on the Mac, so no SQL Server 2022 container could start.
+  MA10 ran it later the same day (see "SQL Server from macOS").
+
+### SQL Server from macOS (2026-10-27, MA10)
+
+On the Mac, with SQL Server 2022 (the digest-pinned image, `linux/amd64`
+under Rosetta) in Docker Desktop, `scripts/test-managed-storage.mjs
+--drivers=sqlserver` first failed: the storage tests passed, but
+`storage::tests::sql_real_repository_nullable_columns` failed with `TY2160`
+because the connection closed during the TLS handshake. The host name in
+the server name extension, Docker's port forward and the cipher suites were
+ruled out: a small TDS client written with OpenSSL completed the same
+handshake through the same port. The cause was framing. Apple's TLS library
+flushes after every TLS record, and tiberius 0.12.3 sends each flush during
+the handshake as its own PRELOGIN message. The same client failed three
+times out of three when it sent one PRELOGIN message per TLS record, and
+passed when it sent the whole flight in one. Tachyon now puts a
+`PreloginStream` under the driver that sends each handshake flight as one
+message. On branch `6fbd5b2f` the contract passed from macOS in 40 s, with
+the storage tests, clippy and `repository_policy`. iOS uses the same TLS
+library, so the same fix applies there; no iOS SQL Server run was made.
 
 ### macOS callers that moved cells back (2026-10-25, MA1)
 

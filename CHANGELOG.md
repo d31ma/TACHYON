@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `scripts/test-managed-storage.mjs --serve` keeps the chosen Docker
+  fixtures running on `TAC_STORAGE_PUBLISH_ADDRESS` (which the fixture
+  certificate names) and writes `tachyon-storage-fixtures.json` and the
+  fixture CA, and `--remote=<that file>` runs the driver contracts from
+  another machine without Docker (MA10, 2026-10-27). SQL Server now runs as
+  `linux/amd64`, so it starts under Rosetta on Apple silicon.
+  `TAC_WASM_PROBE_DIAGNOSE=1` makes the in-app WebAssembly probe report what
+  the page reached and record through the host bridge when Tac never started
+  the linked recorder; `TAC_WASM_RECORDER_FIRST=1` puts the recorder first.
 - The in-app WebAssembly service features gate has a Windows driver (SW4,
   2026-10-27): `scripts/native/wasm-features-app-test.mjs --target=windows`
   builds each check for `--target windows`, reads the probe through UI
@@ -2298,6 +2307,20 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- SQL Server connections from macOS and iOS no longer fail during the TLS
+  handshake with `TY2160` (MA10, 2026-10-27). Apple's TLS library flushes
+  after every TLS record, and the TDS driver (tiberius 0.12.3) sent each
+  flush as its own PRELOGIN message, so SQL Server 2022 dropped a client
+  handshake flight that arrived as three messages. A `PreloginStream` under
+  the driver now holds the handshake's PRELOGIN packets until the client
+  reads and sends them as one message. OpenSSL and SChannel already sent a
+  whole flight at once. The SQL Server contract then passed from macOS.
+- The in-app WebAssembly features probe waits for the linked recorder
+  whenever the page's plan declares it (MA10, 2026-10-27). MA8's open
+  finding on iOS (a linked Swift service that "never started" next to a C#
+  client) was this probe race, not the app: a C# probe finished before the
+  recorder's first native call answered, while Tac had not yet shown the
+  body, so the probe skipped the recorder.
 - `YON_ISOLATION=firecracker` is refused on Windows with `TY2010` at startup
   (SW4, 2026-10-27). Before, the mode started with no driver permission
   checks, because those exist only on Unix, and Firecracker needs a Linux

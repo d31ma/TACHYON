@@ -347,6 +347,18 @@ SQL Server:
   `mcr.microsoft.com/mssql/server:2022-latest` image) with forced TLS and the
   generated fixture CA. `scripts/test-managed-storage.mjs` starts it with the
   other Docker fixtures, so CI's Linux storage job runs it too.
+- On 2026-10-27 (MA10) the same contract passed from macOS, where the TDS
+  adapter uses Apple's TLS library (Security.framework), against SQL Server
+  2022 in Docker Desktop under Rosetta. It first failed with `TY2160`:
+  Apple's TLS library flushes after every TLS record, and the driver sent
+  each flush as its own PRELOGIN message, which SQL Server drops. Tachyon
+  now sends a handshake flight as one PRELOGIN message on every platform.
+- `node scripts/test-managed-storage.mjs --serve --drivers=sqlserver` with
+  `TAC_STORAGE_PUBLISH_ADDRESS=<LAN address>` serves the container to
+  another machine, which runs
+  `node scripts/test-managed-storage.mjs --remote=<tachyon-storage-fixtures.json>`.
+  This is how a host without Docker or without an SQL Server image (Windows
+  on ARM64) runs the contract.
 - The harness sets `ACCEPT_EULA=Y` for that throwaway container only, which
   accepts the Developer edition license for the test. Tachyon never accepts a
   vendor license for an application database.
