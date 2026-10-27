@@ -513,7 +513,7 @@ export default class SharedProbeService {
     assert.ok(this.files[language], `the shared Setup check runs linked Swift, Kotlin or Rust services, not ${language}`)
     const checks = Object.fromEntries(['names', 'constants', 'visibility', 'duplication', 'cohesion'].map((name) => [name, { check: false }]))
     const applicationId = `dev.tachyon.shared-setup-${language}`
-    const name = `SharedSetup${AsyncListenerApp.names[language]}`
+    const name = `SharedConfig${AsyncListenerApp.names[language]}`
     const tac = { ...checks, application: { id: applicationId, version: '0.0.1' }, yon: this.idleYon }
     AsyncListenerApp.write(project, 'client/manifest.json', JSON.stringify({ name, start_url: '/', tac }, null, 2))
     for (const [file, contents] of Object.entries(this.files[language])) AsyncListenerApp.write(project, file, contents)
