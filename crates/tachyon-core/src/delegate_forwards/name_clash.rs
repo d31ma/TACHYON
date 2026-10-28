@@ -24,8 +24,9 @@ impl NameClash {
             .unwrap_or_default();
         let (line_start, _) = SourceLines::line_around(masked, base.field_at);
         let level = SourceLines::indentation(&masked[line_start..]);
+        let lines = Self::field_lines(language, masked, line_start, level);
         let clash = names.iter().find_map(|name| {
-            let at = Self::field_at(language, masked, level, name)?;
+            let at = Self::field_at(language, &lines, name)?;
             Some((name, at))
         });
         clash.map_or(Ok(()), |(name, at)| {
@@ -33,14 +34,45 @@ impl NameClash {
         })
     }
 
-    fn field_at(language: &str, masked: &str, level: &str, name: &str) -> Option<usize> {
-        SourceLines::with_offsets(masked)
-            .into_iter()
+    fn field_lines<'a>(
+        language: &str,
+        masked: &'a str,
+        line_start: usize,
+        level: &str,
+    ) -> Vec<(usize, &'a str)> {
+        let lines = SourceLines::with_offsets(masked);
+        let field = lines
+            .iter()
+            .position(|(at, _)| *at == line_start)
+            .unwrap_or_default();
+        let above = lines[..field]
+            .iter()
+            .rev()
+            .take_while(|(_, line)| Self::inside(line, level))
+            .count();
+        let below = lines[field..]
+            .iter()
+            .take_while(|(_, line)| Self::inside(line, level))
+            .count();
+        let struct_only = usize::from(language == Self::GO);
+        let block = [0..lines.len(), field - above..field + below][struct_only].clone();
+        lines[block]
+            .iter()
+            .copied()
             .filter(|(_, line)| SourceLines::indentation(line) == level)
-            .find_map(|(at, line)| {
-                let offset = Self::declared_at(language, line.trim_end(), name)?;
-                Some(at + offset)
-            })
+            .collect()
+    }
+
+    fn inside(line: &str, level: &str) -> bool {
+        let deeper = SourceLines::indentation(line).len() >= level.len();
+        [SourceLines::is_blank(line), deeper].contains(&true)
+    }
+
+    fn field_at(language: &str, lines: &[(usize, &str)], name: &str) -> Option<usize> {
+        lines.iter().find_map(|(at, line)| {
+            let offset = Self::declared_at(language, line.trim_end(), name)?;
+            Some(at + offset)
+        })
     }
 
     fn declared_at(language: &str, line: &str, name: &str) -> Option<usize> {

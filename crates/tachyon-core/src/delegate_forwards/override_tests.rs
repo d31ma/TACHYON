@@ -14,6 +14,8 @@ impl Overrides {
     const JS_SERVICE: &str =
         "@Service\nexport default class TaxService {\n  rate(region) {\n    return 2;\n  }\n}\n";
     const JS_FIELD_CLASH: &str = "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  taxService;\n\n  rate = 1;\n}\n";
+    const GO_BODY_NAME: &str = "// @Delegate\ntype TaxDelegate struct {\n\t// @Needs\n\ttaxes *TaxService\n}\n\nfunc (delegate *TaxDelegate) Total(region string) int {\n\tRecord := 2\n\treturn delegate.taxes.Rate(region) * Record\n}\n";
+    const GO_FIELD_CLASH: &str = "// @Delegate\ntype TaxDelegate struct {\n\t// @Needs\n\ttaxes *TaxService\n\tRate  int\n}\n";
     const JAVA_OVERRIDES_STAGED: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private final TaxService taxes;\n\n    int rate(String region) {\n        return taxes.rate(region) * 2;\n    }\n\n    int rate(String region, String day) {\n        return taxes.rate(region);\n    }\n\n  int rate(String region, int year) {\n    return taxes.rate(region, year);\n  }\n\n  public void record(String sku, int count) {\n    taxes.record(sku, count);\n  }\n}\n";
     const GO_OVERRIDE_STAGED: &str = "// @Delegate\ntype TaxDelegate struct {\n\t// @Needs\n\ttaxes *TaxService\n}\n\nfunc (delegate *TaxDelegate) Rate(region string) int {\n\treturn delegate.taxes.Rate(region) * 2\n}\n\nfunc (delegate *TaxDelegate) Record(names ...string) {\n\tdelegate.taxes.Record(names...)\n}\n";
     const SWIFT_BASE_RATE: &str = "\n  func rate(_ region: String, year: Int) -> Int {\n    return taxes.rate(region, year: year)\n  }\n";
@@ -110,6 +112,26 @@ fn a_field_named_like_a_base_method_is_refused() {
         refusal.contains(
             "TaxDelegate has a field named rate, and its base TaxService has a method named rate."
         ),
+        "{refusal}"
+    );
+}
+
+#[test]
+fn a_go_method_body_line_named_like_a_base_method_is_not_a_field() {
+    let staged = Overrides::staged("go", (Typed::GO_SERVICE, Overrides::GO_BODY_NAME));
+    assert!(staged.contains("\tRecord := 2\n"), "{staged}");
+    assert!(
+        staged.contains("func (delegate *TaxDelegate) Rate(region string) int {"),
+        "{staged}"
+    );
+}
+
+#[test]
+fn a_go_struct_field_named_like_a_base_method_is_refused() {
+    let refusal = Overrides::refusal("go", (Typed::GO_SERVICE, Overrides::GO_FIELD_CLASH));
+    assert!(refusal.contains("TY1375"), "{refusal}");
+    assert!(
+        refusal.contains("TaxDelegate has a field named Rate"),
         "{refusal}"
     );
 }
