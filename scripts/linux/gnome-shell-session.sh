@@ -18,6 +18,7 @@ use_private_folders() {
   trap remove_private_folders EXIT
   mkdir -m 700 "$STATE/runtime"
   export XDG_RUNTIME_DIR="$STATE/runtime"
+  export XDG_CONFIG_HOME="$STATE/config"
 }
 
 stop_the_shell() {
@@ -39,7 +40,8 @@ start_the_shell() {
   unset DISPLAY
   export WAYLAND_DISPLAY=tachyon-gnome-shell XDG_SESSION_TYPE=wayland GDK_BACKEND=wayland
   export XDG_CURRENT_DESKTOP="${TAC_GNOME_SHELL_DESKTOP:-ubuntu:GNOME}" XDG_SESSION_DESKTOP="$mode" DESKTOP_SESSION="$mode"
-  dbus-update-activation-environment WAYLAND_DISPLAY XDG_SESSION_TYPE GDK_BACKEND XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION XDG_RUNTIME_DIR
+  dbus-update-activation-environment WAYLAND_DISPLAY XDG_SESSION_TYPE GDK_BACKEND XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION XDG_RUNTIME_DIR XDG_CONFIG_HOME
+  gsettings set org.gnome.desktop.interface enable-hot-corners false
   gnome-shell --headless --wayland --no-x11 --wayland-display="$WAYLAND_DISPLAY" --virtual-monitor "${TAC_GNOME_SHELL_SIZE:-1280x900}" --mode="$mode" >"$STATE/gnome-shell.log" 2>&1 &
   SHELL_PID=$!
   trap stop_the_shell EXIT

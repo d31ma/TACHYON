@@ -46,6 +46,8 @@ static gboolean g_bar_wayland = FALSE;
 static GDBusConnection *g_bar_bus = NULL;
 static gchar *g_bar_session = NULL;
 static int g_bar_pointer_x = 0, g_bar_pointer_y = 0;
+static double g_bar_seen_x = -1, g_bar_seen_y = -1;
+static int g_bar_window_x = 0, g_bar_window_y = 0;
 
 static void tachyon_bar_fail(const char *message) {
   fprintf(stderr, "linux title bar fixture failed at step %d tick %d after %.1f s: %s (insets %s, answer %s)\n", g_bar_step, g_bar_tick,
@@ -81,6 +83,21 @@ static void tachyon_bar_session(const char *method, GVariant *arguments) {
   g_variant_unref(tachyon_bar_remote(g_bar_session, "org.gnome.Mutter.RemoteDesktop.Session", method, arguments));
 }
 
+static void tachyon_bar_pointer_seen(GtkEventController *motion, double x, double y, gpointer data) {
+  (void)motion;
+  (void)data;
+  g_bar_seen_x = x;
+  g_bar_seen_y = y;
+}
+
+static void tachyon_bar_watch_pointer(void) {
+  GtkEventController *motion = gtk_event_controller_motion_new();
+  gtk_event_controller_set_propagation_phase(motion, GTK_PHASE_CAPTURE);
+  g_signal_connect(motion, "enter", G_CALLBACK(tachyon_bar_pointer_seen), NULL);
+  g_signal_connect(motion, "motion", G_CALLBACK(tachyon_bar_pointer_seen), NULL);
+  gtk_widget_add_controller(GTK_WIDGET(g_native_window), motion);
+}
+
 static void tachyon_bar_load_wayland(void) {
   g_bar_bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
   tachyon_bar_require(g_bar_bus != NULL, "the fixture needs the session bus of a headless mutter compositor");
@@ -89,6 +106,7 @@ static void tachyon_bar_load_wayland(void) {
   g_variant_unref(created);
   tachyon_bar_session("Start", NULL);
   tachyon_bar_session("NotifyPointerMotionRelative", g_variant_new("(dd)", -10000.0, -10000.0));
+  tachyon_bar_watch_pointer();
 }
 
 static void tachyon_bar_load_input(void) {
@@ -120,9 +138,9 @@ static void tachyon_bar_page_root(double x, double y, int *root_x, int *root_y) 
     tachyon_bar_root((int)(point.x + surface_x), (int)(point.y + surface_y), root_x, root_y);
     return;
   }
-  tachyon_bar_require(gtk_window_is_maximized(g_native_window), "a Wayland client knows where its window is only when it fills the monitor");
-  *root_x = (int)(point.x + surface_x);
-  *root_y = (int)(point.y + surface_y);
+  tachyon_bar_require(gtk_window_is_maximized(g_native_window), "a Wayland client knows where its window is only when it is maximized");
+  *root_x = (int)point.x + g_bar_window_x;
+  *root_y = (int)point.y + g_bar_window_y;
 }
 
 static void tachyon_bar_pointer(int root_x, int root_y) {
@@ -205,6 +223,22 @@ static void tachyon_bar_check_widgets(void) {
                       (int)start.origin.x == TACHYON_BAR_DECLARED_SIDE &&
                       (int)(gtk_widget_get_width(content) - end.origin.x - end.size.width) == TACHYON_BAR_DECLARED_SIDE,
                       "the window buttons are not at the declared titleBarButtonInset");
+}
+
+static gboolean tachyon_bar_found_window(void) {
+  if (g_bar_tick == 0) {
+    g_bar_seen_x = -1;
+    tachyon_bar_pointer(400, 300);
+    return FALSE;
+  }
+  if (g_bar_seen_x < 0) {
+    if (g_bar_tick > 100) tachyon_bar_fail("the pointer never moved over the maximized window, so the fixture cannot tell where the window is");
+    return FALSE;
+  }
+  g_bar_window_x = g_bar_pointer_x - (int)g_bar_seen_x;
+  g_bar_window_y = g_bar_pointer_y - (int)g_bar_seen_y;
+  printf("the maximized window starts at %d,%d on the Wayland screen\n", g_bar_window_x, g_bar_window_y);
+  return TRUE;
 }
 
 static gboolean tachyon_bar_clicks(void) {
@@ -302,7 +336,7 @@ static gboolean tachyon_bar_step(void) {
       tachyon_bar_check_widgets();
       tachyon_bar_evaluate(TACHYON_BAR_INSETS);
       return TRUE;
-    case 2: tachyon_bar_require(tachyon_bar_page_has_published_insets(), "the page did not get the host insets"); return TRUE;
+    case 2: tachyon_bar_require(tachyon_bar_page_has_published_insets(), "the page did not get the host insets"); return !g_bar_wayland || tachyon_bar_found_window();
     case 3: return tachyon_bar_clicks();
     case 4: tachyon_bar_require(g_strcmp0(g_bar_answer, "[\"inside\",\"below\"]") == 0, "a drag region click reached the page, or a control click did not"); return TRUE;
     case 5: return tachyon_bar_drag();

@@ -193,8 +193,10 @@ show_the_tray_in_the_desktop() {
     "$fixture/dist/linux/TrayGate/bin/TrayGate" >"$STATE/tray-gate.log" 2>&1 &
   local app=$!
   SERVICE_PIDS="$SERVICE_PIDS $app"
-  timeout 300s python3 "$(dirname "$0")/desktop-tray-probe.py" "$app" "$XDG_STATE_HOME/tachyon/dev.tachyon.tray-gate.jsonl" || { cat "$STATE/tray-gate.log" >&2; exit 1; }
-  TRAY_RESULT="the desktop's own tray host showed the icon and its menu; closing hid the window, Activate showed it, a route item opened /help and Quit ended the app"
+  timeout 300s python3 "$(dirname "$0")/desktop-tray-probe.py" "$app" "$XDG_STATE_HOME/tachyon/dev.tachyon.tray-gate.jsonl" | tee "$STATE/tray-probe.log" || { cat "$STATE/tray-gate.log" >&2; exit 1; }
+  local closing='closing hid the window, Activate showed it'
+  if grep -q '^SKIP close' "$STATE/tray-probe.log"; then closing='closing was not checked (no Alt+F4 on Wayland), Activate showed the window'; fi
+  TRAY_RESULT="the desktop's own tray host showed the icon and its menu; $closing, a route item opened /help and Quit ended the app"
 }
 
 check_services_answered() {
