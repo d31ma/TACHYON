@@ -70,7 +70,9 @@ mod tests {
 
     #[test]
     fn a_native_relative_file_is_named_with_forward_slashes() {
-        let native = Path::new("client").join("helpers").join("StepDelegate.cs");
+        let native = Path::new("client")
+            .join("delegates")
+            .join("StepDelegate.cs");
         assert_eq!(
             PortablePath::file(&native),
             "client/delegates/StepDelegate.cs"

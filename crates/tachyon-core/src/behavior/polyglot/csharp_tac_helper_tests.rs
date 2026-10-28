@@ -131,7 +131,7 @@ fn csharp_tac_helper_keeps_folder_and_role_guards() {
             "class LabelDelegate {}",
         ),
         (
-            "client/helpers/LabelService.cs",
+            "client/delegates/LabelService.cs",
             "[Service]\nclass LabelService {}",
         ),
         (

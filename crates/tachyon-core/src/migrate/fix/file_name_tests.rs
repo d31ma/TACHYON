@@ -114,7 +114,7 @@ fn a_file_that_others_name_with_a_lowercase_name_is_a_manual_step() {
     );
     let text = fix(root);
     assert!(
-        text.contains("Rename the file to 'server/delegates/ReportDelegate.rb'"),
+        text.contains("Rename the file to 'server/helpers/ReportDelegate.rb'"),
         "{text}"
     );
     assert_eq!(names_in(root, "server/helpers"), ["report.rb"]);

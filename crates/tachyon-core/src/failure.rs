@@ -141,7 +141,9 @@ mod tests {
 
     #[test]
     fn a_native_relative_path_becomes_a_forward_slash_span_file() {
-        let native = Path::new("client").join("helpers").join("StepDelegate.cs");
+        let native = Path::new("client")
+            .join("delegates")
+            .join("StepDelegate.cs");
         let span = source_span(&native.to_string_lossy(), 14, 15);
         assert_eq!(
             span.map(|span| span.file),

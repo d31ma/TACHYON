@@ -2701,12 +2701,12 @@ mod tests {
             write(root.path(), &entry, "");
             write(
                 root.path(),
-                &format!("server/helpers/Buffers.{extension}"),
+                &format!("server/delegates/Buffers.{extension}"),
                 helper,
             );
             let failure = assemble(root.path(), Path::new(&entry), "", "yon").expect_err(extension);
             assert_contains(&failure.to_string(), "required");
-            assert_contains(&failure.to_string().to_ascii_lowercase(), "helper");
+            assert_contains(&failure.to_string().to_ascii_lowercase(), "delegate");
         }
     }
 

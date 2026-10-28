@@ -104,7 +104,7 @@ fn one_run_reports_every_structure_problem_in_nested_role_folders_and_languages(
         ),
         (
             1363,
-            "client/helpers/text/text_thing.rs",
+            "client/delegates/text/text_thing.rs",
             "pub struct TextThing {\n    total: i32,\n}\n",
         ),
         (

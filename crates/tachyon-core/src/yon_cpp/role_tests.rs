@@ -181,7 +181,7 @@ fn a_controller_receives_its_services_and_helpers_in_dependency_order() {
     ]
     .iter()
     .map(|class| {
-        let blanked = class.replace("[[Delegate]]", "          ");
+        let blanked = class.replace("[[Delegate]]", "            ");
         let blanked = blanked.replace("[[NeedsAll]]", "            ");
         let blanked = blanked.replace("[[Service]]", "           ");
         program.find(&blanked).expect(class)
