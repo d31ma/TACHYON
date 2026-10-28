@@ -3457,29 +3457,34 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
-- `@Helper` is now `@Delegate` (ADR 0112 steps 1, 2a and 2b, ADR 0047 amendment,
-  2026-10-28): `@Delegate`, `[Delegate]`, `#[Delegate]`, `// @Delegate` in
-  Go, `-- @Delegate` in Lua and `@delegate` in Python. The role folder is
-  `delegates/` again in both realms, and a class name ends in `Delegate`
-  (`TaxDelegate`). The build refuses `@Helper` with `TY1308` and names
-  `Delegate`, and it no longer refuses `delegates/`. `helpers/` stays as a
-  folder that is not a role: it keeps the programs that a `Gateway` command
-  runs (`server/helpers/`) and behavior-only holders such as a `Checked`
-  DTO. `ty migrate fix --write` moves each `<Name>Helper` class from
-  `helpers/` to `delegates/<Name>Delegate`, renames its `Needs` fields and
-  types and the marker, and leaves the other files in `helpers/` where they
-  are; it also renames an old `@Component` class in `delegates/`. The rename
-  changes no behavior: a Delegate without a service acts as a Helper did.
-  The ADR 0069 layer rules that named helpers now apply to Delegates, and
-  the marker matrix's 29 Helper cells are Delegate cells with the same
-  tests. A Delegate that needs one service of its realm and language
-  takes on that service's public methods in every language: the build writes a forward
-  for each method the Delegate does not write itself (JavaScript,
+- `@Helper` is now `@Delegate` (ADR 0112 steps 1, 2a, 2b and 3a, ADR 0047
+  amendment, 2026-10-28): `@Delegate`, `[Delegate]`, `#[Delegate]`, `//
+  @Delegate` in Go, `-- @Delegate` in Lua and `@delegate` in Python. The
+  role folder is `delegates/` again in both realms, and a class name ends in
+  `Delegate` (`TaxDelegate`). The build refuses `@Helper` with `TY1308` and
+  names `Delegate`, and it no longer refuses `delegates/`. `helpers/` stays
+  as a folder that is not a role: it keeps the programs that a `Gateway`
+  command runs (`server/helpers/`) and behavior-only holders such as a
+  `Checked` DTO. `ty migrate fix --write` moves each `<Name>Helper` class
+  from `helpers/` to `delegates/<Name>Delegate`, renames its `Needs` fields
+  and types and the marker, and leaves the other files in `helpers/` where
+  they are; it also renames an old `@Component` class in `delegates/`. The
+  rename changes no behavior: a Delegate without a service acts as a Helper
+  did. The ADR 0069 layer rules that named helpers now apply to Delegates,
+  and the marker matrix's 29 Helper cells are Delegate cells with the same
+  tests. A Delegate that needs one service of its realm and language takes
+  on that service's public methods in every language: the build writes a
+  forward for each method the Delegate does not write itself (JavaScript,
   TypeScript, Python, PHP, Ruby and Lua pass every argument on; the typed
   languages copy each base signature, one forward per overload where the
   language has overloads). A Delegate that needs two services fails with
-  `TY1373`. Override and overload rules (`TY1374`, `TY1375`) and the Java,
-  C# and F# Tac shared base instance follow in ADR 0112 steps 3 and 4.
+  `TY1373`. In the typed languages a Delegate method with the same parameter
+  types as a base method overrides it, and one with other parameters is an
+  overload next to it in Java, Groovy, Kotlin, C#, F#, C++ and Swift; Go,
+  Rust and Dart refuse an overload with `TY1374`. An override that returns
+  another type, or a Delegate field named like a base method, fails with
+  `TY1375`. Overloads by argument count in the other languages and the Java,
+  C# and F# Tac shared base instance follow in ADR 0112 steps 3b and 4.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and
