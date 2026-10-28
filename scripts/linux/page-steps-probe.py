@@ -67,9 +67,20 @@ class PageStepsProbe:
             time.sleep(0.3)
 
     @staticmethod
+    def focus_portal_dialog():
+        for search in (["--name", "Pick a File"], ["--class", "xdg-desktop-portal-gtk"]):
+            found = subprocess.run(["xdotool", "search", "--onlyvisible", *search], capture_output=True, text=True)
+            windows = found.stdout.split()
+            if windows:
+                subprocess.run(["xdotool", "windowactivate", "--sync", windows[-1]], check=True)
+                print(f"OK: focused the desktop portal's file dialog ({' '.join(search)})", flush=True)
+                return
+
+    @staticmethod
     def pick(probe, choice):
         worker = PageStepsProbe.click_in_background(probe, choice["control"])
         time.sleep(PageStepsProbe.DIALOG_SECONDS)
+        PageStepsProbe.focus_portal_dialog()
         PageStepsProbe.press(choice["keys"])
         worker.join(PageStepsProbe.CLICK_SECONDS)
         print(f"OK: the file dialog took {choice['keys']}", flush=True)

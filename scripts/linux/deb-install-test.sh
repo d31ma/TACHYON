@@ -89,6 +89,18 @@ install_deb() {
   echo "installed: $(dpkg-query -W -f='${Package} ${Version} ${Architecture}' "$PACKAGE"), $(dpkg -L "$PACKAGE" | wc -l) paths"
 }
 
+stop_installed_app() {
+  pkill -x nativegate 2>/dev/null || true
+  pkill -x NativeGate 2>/dev/null || true
+  local _
+  for _ in $(seq 50); do
+    if ! pgrep -x nativegate >/dev/null && ! pgrep -x NativeGate >/dev/null; then return; fi
+    sleep 0.2
+  done
+  pkill -9 -x nativegate 2>/dev/null || true
+  pkill -9 -x NativeGate 2>/dev/null || true
+}
+
 launch_until_mounted() {
   local label=$1
   shift
@@ -96,11 +108,12 @@ launch_until_mounted() {
   local log="$XDG_STATE_HOME/tachyon/dev.tachyon.desktop-gate.jsonl"
   rm -f "$log"
   export LOG="$log"
+  export -f stop_installed_app
   beside_display bash -c '
       set -euo pipefail
       "$@" &
       launcher=$!
-      trap '\''pkill -x NativeGate 2>/dev/null || true; kill "$launcher" 2>/dev/null || true; wait 2>/dev/null || true'\'' EXIT
+      trap '\''stop_installed_app; kill "$launcher" 2>/dev/null || true; wait 2>/dev/null || true'\'' EXIT
       for _ in $(seq 120); do
         if grep -q "\"event\":\"controller.mounted\"" "$LOG" 2>/dev/null && grep -q "\"event\":\"companion.loaded\"" "$LOG"; then exit 0; fi
         sleep 1
