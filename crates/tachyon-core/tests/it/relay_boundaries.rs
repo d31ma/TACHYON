@@ -686,13 +686,9 @@ async fn queue_time_counts_against_the_relay_deadline() {
     busy.await.expect("busy task").expect("busy response");
 }
 
-// Requests cannot ask for more than the default timeout, so a JVM or .NET start that outlasts it on a
-// loaded machine gets more tries before the timed relay.
-async fn start_handler(
-    supervisor: &HandlerSupervisor,
-    source: &HandlerSource,
-    body: &str,
-) -> tachyon_contracts::HandlerResponse {
+// Requests cannot ask for more than the default timeout, so a JVM or .NET start that leaves its relay too
+// little of it on a loaded machine gets more tries; the started handler stays warm for the next one.
+async fn start_handler(supervisor: &HandlerSupervisor, source: &HandlerSource, body: &str) {
     let mut failures = Vec::new();
     for _ in 0..3 {
         let started = supervisor
@@ -703,11 +699,17 @@ async fn start_handler(
             )
             .await;
         match started {
-            Ok(response) => return response,
-            Err(failure) => failures.push(failure),
+            Ok(response) if response.status == 200 => return,
+            other => {
+                eprintln!(
+                    "warm-up try {} did not answer: {other:?}",
+                    failures.len() + 1
+                );
+                failures.push(other);
+            }
         }
     }
-    panic!("the handler did not start within the default timeout: {failures:?}");
+    panic!("the handler did not answer within the default timeout: {failures:?}");
 }
 
 // The first request starts the warm handler and its relay answers at once, so the timed relay measures
@@ -736,8 +738,7 @@ async fn the_supervisor_default_timeout_limits_relays_without_a_request_deadline
                 ..HandlerSupervisorOptions::default()
             },
         );
-        let warm = start_handler(&supervisor, &source, mode).await;
-        assert_eq!(warm.status, 200, "{extension}: {warm:?}");
+        start_handler(&supervisor, &source, mode).await;
         let unbounded = sleeping_request("default_deadline", mode, 30);
         let started = Instant::now();
         assert_relay_fails_before(
