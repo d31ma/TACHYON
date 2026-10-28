@@ -25,6 +25,7 @@ mod own_signatures;
 mod parameter_split;
 mod signature;
 mod source_lines;
+mod taken_on;
 #[cfg(test)]
 mod tests;
 mod typed_forward;
@@ -51,6 +52,7 @@ use own_signatures::OwnSignatures;
 use parameter_split::ParameterSplit;
 use signature::Signature;
 use source_lines::SourceLines;
+pub(crate) use taken_on::TakenOn;
 use typed_forward::TypedForward;
 
 pub(crate) struct DelegateForwards<'a> {
@@ -80,15 +82,31 @@ impl<'a> DelegateForwards<'a> {
             .map(Option::flatten)
     }
 
+    pub(crate) fn taken_on(&self, path: &Path, source: &str) -> Option<TakenOn<'a>> {
+        let services = self.services_beside(path);
+        let in_delegates = Self::in_folder(path, Self::DELEGATE_FOLDER);
+        let base = in_delegates
+            .then(|| DelegateBase::read(path, source, &services).ok().flatten())
+            .flatten()?;
+        Some(TakenOn {
+            service: base.service.clone(),
+            service_source: base.service_source,
+            methods: BaseMethods::listed(&base),
+        })
+    }
+
     fn forwarded(&self, path: &Path, source: &str) -> Result<Option<String>, Failure> {
-        let services: Vec<(&Path, &str)> = self
-            .services
+        let services = self.services_beside(path);
+        let base = DelegateBase::read(path, source, &services)?;
+        base.map_or(Ok(None), |base| Self::written(path, source, &base))
+    }
+
+    fn services_beside(&self, path: &Path) -> Vec<(&'a Path, &'a str)> {
+        self.services
             .iter()
             .copied()
             .filter(|(service, _)| Self::same_unit(path, service))
-            .collect();
-        let base = DelegateBase::read(path, source, &services)?;
-        base.map_or(Ok(None), |base| Self::written(path, source, &base))
+            .collect()
     }
 
     fn written(

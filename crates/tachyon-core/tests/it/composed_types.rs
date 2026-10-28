@@ -335,6 +335,39 @@ fn helper_classes_are_declared_in_their_own_realm() {
     assert!(!server.contains("PriceDelegate"), "{server}");
 }
 
+#[test]
+fn a_delegate_type_takes_on_the_public_methods_of_its_base_service() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "server/services/TaxService.ts",
+        "@Service\nexport default class TaxService {\n  rate(region: string): number {\n    return 2;\n  }\n\n  total(count: number): number {\n    return count * 10;\n  }\n\n  private secret(): number {\n    return 1;\n  }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/delegates/TaxDelegate.ts",
+        "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  taxService!: TaxService;\n\n  total(count: number, extra: number): number {\n    return this.taxService.total(count) + extra;\n  }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/delegates/RoundDelegate.ts",
+        "@Delegate\nexport default class RoundDelegate {\n  round(value: number): number {\n    return value;\n  }\n}\n",
+    );
+    let server = generated(root.path(), "server");
+    let module = "declare module \"../../../server/delegates/TaxDelegate.ts\" {\n  export default interface TaxDelegate {\n";
+    let rate =
+        "    rate(...args: Parameters<TaxService[\"rate\"]>): ReturnType<TaxService[\"rate\"]>;\n";
+    let total = "    total(...args: Parameters<TaxService[\"total\"]>): ReturnType<TaxService[\"total\"]>;\n";
+    assert!(
+        server.contains(&format!("{module}{rate}{total}  }}\n}}\n")),
+        "{server}"
+    );
+    assert!(!server.contains("secret"), "{server}");
+    assert!(!server.contains("interface RoundDelegate"), "{server}");
+    let client = generated(root.path(), "client");
+    assert!(!client.contains("TaxDelegate"), "{client}");
+}
+
 fn assert_utility_source_declaration(realm: &str, path: &str, source: &str, member: &str) {
     let root = tempfile::tempdir().expect("project");
     write(root.path(), path, source);

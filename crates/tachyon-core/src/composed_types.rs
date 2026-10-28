@@ -1,6 +1,7 @@
 mod browser_service_peers;
 mod composition_check;
 mod declaration;
+mod delegate_base_types;
 mod exported_class;
 #[cfg(test)]
 mod java_types_tests;

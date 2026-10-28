@@ -1,6 +1,7 @@
 use super::browser_service_peers::BrowserServicePeers;
 use super::composition_check::CompositionCheck;
 use super::declaration::Declaration;
+use super::delegate_base_types::DelegateBaseTypes;
 use super::exported_class::ExportedClass;
 use super::model_declaration::ModelDeclaration;
 use super::native_declarations::NativeDeclarations;
@@ -18,6 +19,7 @@ pub(super) struct RealmTypes<'a> {
     declarations: BTreeMap<String, Declaration>,
     models: BTreeMap<String, ModelDeclaration>,
     test_units: BTreeMap<String, Declaration>,
+    delegate_bases: DelegateBaseTypes,
     java: NativeDeclarations,
     kotlin: NativeDeclarations,
 }
@@ -43,6 +45,7 @@ impl<'a> RealmTypes<'a> {
             declarations: BTreeMap::new(),
             models: BTreeMap::new(),
             test_units: BTreeMap::new(),
+            delegate_bases: DelegateBaseTypes::new(),
             java: NativeDeclarations::new("Java", "java"),
             kotlin: NativeDeclarations::new("Kotlin", "kt"),
         };
@@ -156,6 +159,9 @@ impl<'a> RealmTypes<'a> {
         self.add_java_file(path);
         self.add_kotlin_file(path);
         let classes = self.classes_where(path, CompositionCheck::is_composed);
+        let source = self.read_source(path);
+        self.delegate_bases
+            .add((self.realm, path), source, &classes);
         Self::declare(&mut self.declarations, path, classes);
         let models = self.model_names(path);
         self.add_models(path, models);
@@ -255,6 +261,7 @@ impl<'a> RealmTypes<'a> {
         let mut text = String::from("export {};\n");
         text.push_str(&self.global_block()?);
         text.push_str(&self.test_unit_blocks());
+        text.push_str(&self.delegate_bases.blocks());
         Ok(text)
     }
 
