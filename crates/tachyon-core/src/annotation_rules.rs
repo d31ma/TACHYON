@@ -6,10 +6,12 @@ mod field_case;
 mod field_declaration;
 mod field_name;
 mod injected_field;
+mod needed_field;
 mod nullable_field;
 mod placed_marker;
 mod scan;
 
+pub(crate) use needed_field::NeededField;
 pub(crate) use placed_marker::PlacedMarker;
 pub(crate) use scan::Messages;
 
@@ -1116,6 +1118,14 @@ impl AnnotationRules {
             .and_then(|value| value.to_str())
             .unwrap_or("");
         scan::Scan::run(extension, source).injected_fields(source, Realm::of(path))
+    }
+
+    pub(crate) fn needed_fields(path: &Path, source: &str) -> Vec<NeededField> {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        scan::Scan::run(extension, source).needed_fields(source, Realm::of(path))
     }
 
     pub(crate) fn nullable_fields(path: &Path, source: &str) -> Vec<nullable_field::NullableField> {

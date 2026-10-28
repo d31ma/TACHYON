@@ -1,5 +1,6 @@
 use super::field_name::FieldName;
 use super::injected_field::InjectedField;
+use super::needed_field::NeededField;
 use super::nullable_field::NullableField;
 use super::{AnnotationRules, Arguments, Realm, Rule, Target};
 use crate::ascii_name::AsciiName;
@@ -741,6 +742,43 @@ impl Scan {
             .flat_map(|range| FieldName::read(&self.language, realm, source, range))
             .filter(|field| field.filled)
             .map(|field| field.at)
+            .collect()
+    }
+
+    pub(super) fn needed_fields(&self, source: &str, realm: Option<Realm>) -> Vec<NeededField> {
+        let needs = self.needs_fields();
+        let marked = needs
+            .iter()
+            .map(|&declaration| (self.field_range(declaration, source), false));
+        let whole = self
+            .found
+            .iter()
+            .filter(|found| (found.rule.name, found.target) == ("NeedsAll", Some(Target::Type)))
+            .flat_map(|found| self.class_members(found.declaration, source, &needs))
+            .map(|range| (range, true));
+        let ranges: Vec<(Range<usize>, bool)> = marked.chain(whole).collect();
+        realm
+            .map(|realm| self.named_fields(source, realm, ranges))
+            .unwrap_or_default()
+    }
+
+    fn named_fields(
+        &self,
+        source: &str,
+        realm: Realm,
+        ranges: Vec<(Range<usize>, bool)>,
+    ) -> Vec<NeededField> {
+        ranges
+            .into_iter()
+            .flat_map(|(range, whole)| {
+                FieldName::read(&self.language, realm, source, range)
+                    .into_iter()
+                    .filter(move |field| [field.filled, !whole].contains(&true))
+            })
+            .map(|field| NeededField {
+                name: field.name,
+                at: field.at,
+            })
             .collect()
     }
 

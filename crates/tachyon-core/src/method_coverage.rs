@@ -31,6 +31,7 @@ mod uncovered;
 mod unit_vocabularies;
 
 pub(crate) use call_hooks::CallHooks;
+pub(crate) use role_class::RoleClass;
 pub use class_coverage::ClassCoverage;
 pub use coverage_report::CoverageReport;
 pub use coverage_text::CoverageText;
@@ -52,7 +53,6 @@ use method_body::MethodBody;
 use method_header::MethodHeader;
 use public_method::PublicMethod;
 use python_body::PythonBody;
-use role_class::RoleClass;
 use role_files::RoleFiles;
 use ruby_body::RubyBody;
 use ruby_empty_method::RubyEmptyMethod;

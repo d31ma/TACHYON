@@ -73,7 +73,9 @@ impl LayerReport {
             .rank()
             .zip(to.rank())
             .is_some_and(|(from_rank, to_rank)| to_rank < from_rank);
-        [controller.then_some(0), upward.then_some(1)]
+        let base = [from, to] == [RoleLayer::Helper, RoleLayer::Service];
+        let refused = [upward, base] == [true, false];
+        [controller.then_some(0), refused.then_some(1)]
             .into_iter()
             .flatten()
             .next()

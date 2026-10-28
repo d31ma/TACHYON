@@ -199,7 +199,7 @@ fn go_and_rust_layers_point_down() {
 }
 
 #[test]
-fn a_helper_sits_between_services_and_data_access() {
+fn a_delegate_sits_between_services_and_data_access() {
     let helper = "@Delegate\n@NeedsAll\nexport default class PriceDelegate {\n  orderStore;\n  taxDelegate;\n}\n";
     let tax = "@Delegate\nexport default class TaxDelegate {}\n";
     let store = "@Store\nexport default class OrderStore {}\n";
@@ -230,10 +230,23 @@ fn a_helper_sits_between_services_and_data_access() {
     assert_eq!(
         messages(&refused),
         [
-            "TaxDelegate is a delegate, and it needs CartService, which is a service. Dependencies point down: controllers, then services, then delegates, then stores, repositories and clients.",
             "OrderStore is a store, and it needs TaxDelegate, which is a delegate. Dependencies point down: controllers, then services, then delegates, then stores, repositories and clients.",
         ]
     );
+}
+
+#[test]
+fn a_delegate_may_need_the_service_it_takes_on() {
+    let delegate = "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  taxService;\n}\n";
+    let service = "@Service\nexport default class TaxService {\n  rate() {\n    return 2;\n  }\n}\n";
+    let allowed = found(
+        1327,
+        &[
+            ("server/delegates/TaxDelegate.js", delegate),
+            ("server/services/TaxService.js", service),
+        ],
+    );
+    assert!(allowed.is_empty(), "{allowed:?}");
 }
 
 #[test]

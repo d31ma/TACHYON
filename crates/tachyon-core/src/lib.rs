@@ -12,6 +12,7 @@ mod compiler;
 mod composed_types;
 mod convention;
 mod declared_contract;
+mod delegate_forwards;
 pub mod doctor;
 mod events;
 mod external_command;

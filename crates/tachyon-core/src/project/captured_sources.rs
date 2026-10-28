@@ -85,6 +85,10 @@ impl CapturedSources {
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         let vendor = Self::vendor_context(&self.configs, &self.shared, diagnostics);
+        let roles = self.client_roles.iter().chain(&self.server);
+        let forwards = crate::delegate_forwards::DelegateForwards::new(
+            roles.map(|file| (file.relative.as_path(), file.bytes.as_slice())),
+        );
         self.pages
             .iter()
             .chain(&self.components)
@@ -95,7 +99,8 @@ impl CapturedSources {
             .chain(&self.server)
             .for_each(|file| {
                 let checked = Self::checked_file(&vendor, file, cohesion);
-                Self::stage_file(file, source_root, checked, diagnostics);
+                let written = forwards.staged(&file.relative, &file.bytes);
+                Self::stage_file(file, source_root, (checked, written), diagnostics);
             });
         diagnostics.extend(Self::native_module_problems(&self.server));
     }
@@ -228,11 +233,17 @@ impl CapturedSources {
     fn stage_file(
         file: &CapturedFile,
         source_root: &OwnedSourceRoot,
-        checked: Result<(), Failure>,
+        (checked, written): (Result<(), Failure>, Result<Option<String>, Failure>),
         diagnostics: &mut Vec<Diagnostic>,
     ) {
-        let staged = source_root.stage(&file.relative, &file.bytes, &file.portable());
-        [checked, staged]
+        let bytes = written
+            .as_ref()
+            .ok()
+            .and_then(Option::as_deref)
+            .map_or(file.bytes.as_slice(), str::as_bytes);
+        let staged = source_root.stage(&file.relative, bytes, &file.portable());
+        let forwarded = written.map(|_| ());
+        [checked, forwarded, staged]
             .into_iter()
             .filter_map(Result::err)
             .for_each(|failure: Failure| diagnostics.extend_from_slice(failure.diagnostics()));

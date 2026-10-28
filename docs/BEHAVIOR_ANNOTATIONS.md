@@ -341,6 +341,16 @@ its name with a view component. `helpers/` stays as a folder that is not a
 role: it holds the programs that a `Gateway` command runs and behavior-only
 holders.
 
+A Delegate may need one service of its realm. That service is its base, and
+the Delegate takes on every public method that the service declares: the build
+writes a forwarding method for each one that the Delegate does not write itself,
+so a class that needs the Delegate can call the service's methods on it. The
+forwards go into the copy of the Delegate that the build reads, not into the
+file you wrote, so design checks, coverage and error locations still point at
+your own code. A Delegate that needs two services fails with `TY1373`. The
+JavaScript, TypeScript, Python, PHP and Ruby builds write forwards today; the
+other languages follow (ADR 0112, plan step 2).
+
 ## Test units
 
 A test unit is an entry, like a route. `server/tests/<Name>Test.<ext>`

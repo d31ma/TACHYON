@@ -1,6 +1,8 @@
 # ADR 0112: A Delegate Takes On the Methods of Its Service
 
-- Status: Accepted (step 1, the rename, is in; steps 2 to 4 follow)
+- Status: Accepted (step 1, the rename, is in; step 2 writes forwards for
+  JavaScript, TypeScript, Python, PHP and Ruby; the rest of step 2 and steps 3
+  and 4 follow)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -114,6 +116,31 @@ Rules:
 9. **Instances.** As with Helper today, each class that needs a Delegate gets
    its own Delegate. Every Delegate of one base shares the one base instance.
 
+### Where the forwards are written
+
+The build writes the forwards when it copies the project into its source
+snapshot. The Delegate's copy in the snapshot gets one forwarding method per
+taken-on method, placed at the end of its class. Every language's build reads
+the snapshot, so they all see the forwards. The design checks, coverage
+(`TY2023`) and error locations read the files as written, so they never see a
+forward and never point into one.
+
+To list the base's methods, the build reads the same public method list that
+coverage reads, keeps the methods at the class's own level, and leaves out
+accessors and methods marked `OnStart`, `OnStop` or `OnEvent` (and Python
+properties). A method name that the Delegate declares is not forwarded; step 3
+compares parameters as well.
+
+The forwards pass every argument on unchanged:
+
+| Language | Forward |
+| --- | --- |
+| JavaScript | `name(...args) { return this.field.name(...args); }` |
+| TypeScript | the same, typed with `Parameters<Base['name']>` and `ReturnType<Base['name']>` |
+| Python | `def name(self, *args, **kwargs): return self.field.name(*args, **kwargs)` |
+| PHP | `public function name(...$args) { return $this->field->name(...$args); }` |
+| Ruby | `def name(...) field.name(...) end`, after a `public` line so a `private` section above does not hide it |
+
 ### What "same parameters" means in each language
 
 | Languages | Same parameters means | Overload |
@@ -198,6 +225,11 @@ then merged to `develop` by fast-forward.
 2. **Base and forwards.** Find the base, list the base's public methods with
    their parameters (extending the method lists that `TY2023` and `TY1329`
    already read), and write the forwards in every language. `TY1373`.
+   Done in two parts: first JavaScript, TypeScript, Python, PHP and Ruby,
+   which forward every argument unchanged; then the typed languages and Lua,
+   which copy each base signature. The Java, C# and F# Tac builds write a
+   Delegate's `Needs` fields as `new` objects today, so that part also makes
+   them pass the shared service instance to the base field.
 3. **Override and overload.** Signature comparison per language, the
    dispatch bodies for TypeScript, JavaScript, Python, Ruby, Lua and PHP,
    and `TY1374` and `TY1375`.

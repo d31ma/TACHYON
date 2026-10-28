@@ -494,14 +494,21 @@ impl HandlerSource {
         })?;
         validated_source_text(&bytes, &portable)?;
         let source_root = OwnedSourceRoot::new_project(&portable)?;
-        for (relative, captured) in sources {
-            crate::annotation_layout::reject_reserved_folder(&relative)?;
-            if crate::convention::is_yon_language(&relative)
-                && let Ok(source) = std::str::from_utf8(&captured)
+        let forwards = crate::delegate_forwards::DelegateForwards::new(
+            sources
+                .iter()
+                .map(|(relative, captured)| (relative.as_path(), captured.as_slice())),
+        );
+        for (relative, captured) in &sources {
+            crate::annotation_layout::reject_reserved_folder(relative)?;
+            if crate::convention::is_yon_language(relative)
+                && let Ok(source) = std::str::from_utf8(captured)
             {
-                crate::annotation_layout::validate(&relative, source)?;
+                crate::annotation_layout::validate(relative, source)?;
             }
-            source_root.stage(&relative, &captured, &portable)?;
+            let written = forwards.staged(relative, captured)?;
+            let staged = written.as_deref().map_or(captured.as_slice(), str::as_bytes);
+            source_root.stage(relative, staged, &portable)?;
         }
         Self::discover_snapshot(project_root, project, relative_source, bytes, source_root)
     }
