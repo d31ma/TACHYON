@@ -5,13 +5,19 @@ mod base_methods;
 mod call_arguments;
 mod class_close;
 mod delegate_base;
+mod delegate_refusal;
 mod forward_text;
 mod fsharp_parameters;
 mod marker_end;
 mod marker_strip;
 mod method_header;
+mod name_clash;
 mod own_methods;
+mod own_signatures;
+#[cfg(test)]
+mod override_tests;
 mod parameter_split;
+mod signature;
 mod source_lines;
 #[cfg(test)]
 mod tests;
@@ -23,13 +29,17 @@ use base_methods::BaseMethods;
 use call_arguments::CallArguments;
 use class_close::ClassClose;
 use delegate_base::DelegateBase;
+use delegate_refusal::DelegateRefusal;
 use forward_text::ForwardText;
 use fsharp_parameters::FsharpParameters;
 use marker_end::MarkerEnd;
 use marker_strip::MarkerStrip;
 use method_header::MethodHeader;
+use name_clash::NameClash;
 use own_methods::OwnMethods;
+use own_signatures::OwnSignatures;
 use parameter_split::ParameterSplit;
+use signature::Signature;
 use source_lines::SourceLines;
 use typed_forward::TypedForward;
 
@@ -68,15 +78,37 @@ impl<'a> DelegateForwards<'a> {
             .filter(|(service, _)| Self::same_unit(path, service))
             .collect();
         let base = DelegateBase::read(path, source, &services)?;
-        Ok(base.and_then(|base| Self::written(path, source, &base)))
+        base.map_or(Ok(None), |base| Self::written(path, source, &base))
     }
 
-    fn written(path: &Path, source: &str, base: &DelegateBase<'_>) -> Option<String> {
-        let masked = crate::annotation_layout::masked_source(path, source).ok()?;
-        let methods = BaseMethods::forwarded(base, &masked);
+    fn written(
+        path: &Path,
+        source: &str,
+        base: &DelegateBase<'_>,
+    ) -> Result<Option<String>, Failure> {
+        let masked = crate::annotation_layout::masked_source(path, source).ok();
+        masked.map_or(Ok(None), |masked| {
+            Self::with_masked(path, (source, &masked), base)
+        })
+    }
+
+    fn with_masked(
+        path: &Path,
+        (source, masked): (&str, &str),
+        base: &DelegateBase<'_>,
+    ) -> Result<Option<String>, Failure> {
+        let methods = BaseMethods::listed(base);
         let names: Vec<String> = methods.iter().map(|(name, _)| name.clone()).collect();
-        ForwardText::written(path, (source, &masked), base, &names)
-            .or_else(|| TypedForward::written(path, (source, &masked), base, &methods))
+        NameClash::check(path, (source, masked), base, &names)?;
+        let undeclared: Vec<String> = names
+            .into_iter()
+            .filter(|name| !OwnMethods::declares(masked, name))
+            .collect();
+        let dynamic = ForwardText::written(path, (source, masked), base, &undeclared);
+        dynamic.map_or_else(
+            || TypedForward::written(path, (source, masked), base, &methods),
+            |text| Ok(Some(text)),
+        )
     }
 
     fn in_folder(path: &Path, folder: &str) -> bool {

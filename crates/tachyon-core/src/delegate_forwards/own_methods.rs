@@ -28,9 +28,18 @@ impl OwnMethods {
     const PARAMETER_STARTS: [char; 2] = ['(', '<'];
 
     pub(super) fn declares(masked: &str, name: &str) -> bool {
-        masked
-            .lines()
-            .any(|line| [Self::declared_on(line, name), Self::typed_on(line, name)].contains(&true))
+        !Self::starts(masked, name).is_empty()
+    }
+
+    pub(super) fn starts(masked: &str, name: &str) -> Vec<usize> {
+        SourceLines::with_offsets(masked)
+            .into_iter()
+            .map(|(at, line)| (at, line.trim_end_matches(['\n', '\r'])))
+            .filter(|(_, line)| {
+                [Self::declared_on(line, name), Self::typed_on(line, name)].contains(&true)
+            })
+            .map(|(at, line)| at + SourceLines::indentation(line).len())
+            .collect()
     }
 
     fn typed_on(line: &str, name: &str) -> bool {

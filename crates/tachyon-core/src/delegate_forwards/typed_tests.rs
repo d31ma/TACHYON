@@ -2,17 +2,17 @@
 
 use super::tests::Project;
 
-struct Typed;
+pub(super) struct Typed;
 
 impl Typed {
-    const JAVA_SERVICE: &str = "@Service\nclass TaxService {\n    int rate(String region) {\n        return 2;\n    }\n\n    int rate(String region, int year) {\n        return year;\n    }\n\n    public void record(@CacheKey String sku, int count) {\n        System.out.println(sku);\n    }\n\n    private int secret() {\n        return 1;\n    }\n}\n";
+    pub(super) const JAVA_SERVICE: &str = "@Service\nclass TaxService {\n    int rate(String region) {\n        return 2;\n    }\n\n    int rate(String region, int year) {\n        return year;\n    }\n\n    public void record(@CacheKey String sku, int count) {\n        System.out.println(sku);\n    }\n\n    private int secret() {\n        return 1;\n    }\n}\n";
     const JAVA_DELEGATE: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private final TaxService taxes;\n\n    int total(String region) {\n        return taxes.rate(region) * 2;\n    }\n}\n";
     const GROOVY_SERVICE: &str =
         "@Service\nclass TaxService {\n    int rate(String region) {\n        return 2\n    }\n}\n";
     const GROOVY_DELEGATE: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private TaxService taxes\n\n    int total(String region) {\n        return taxes.rate(region) * 2\n    }\n}\n";
     const KOTLIN_SERVICE: &str = "@Service\nclass TaxService {\n    fun rate(region: String): Int {\n        return 2\n    }\n\n    fun rates(vararg regions: String): Int = regions.size\n\n    private fun secret(): Int {\n        return 1\n    }\n}\n";
     const KOTLIN_DELEGATE: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private val taxes: TaxService\n\n    fun rate(region: String): Int {\n        return taxes.rate(region) * 2\n    }\n}\n";
-    const GO_SERVICE: &str = "// @Service\ntype TaxService struct {\n\tCount int\n}\n\nfunc (service *TaxService) Rate(region string) int {\n\treturn len(region)\n}\n\nfunc (service *TaxService) Record(names ...string) {\n\t_ = names\n}\n\nfunc (service *TaxService) secret() int {\n\treturn 1\n}\n";
+    pub(super) const GO_SERVICE: &str = "// @Service\ntype TaxService struct {\n\tCount int\n}\n\nfunc (service *TaxService) Rate(region string) int {\n\treturn len(region)\n}\n\nfunc (service *TaxService) Record(names ...string) {\n\t_ = names\n}\n\nfunc (service *TaxService) secret() int {\n\treturn 1\n}\n";
     const GO_DELEGATE: &str = "// @Delegate\ntype TaxDelegate struct {\n\t// @Needs\n\ttaxes *TaxService\n}\n\nfunc (delegate *TaxDelegate) Total(region string) int {\n\treturn delegate.taxes.Rate(region) * 2\n}\n";
     const RUST_SERVICE: &str = "#[Service]\nstruct TaxService {\n    count: usize,\n}\n\nimpl TaxService {\n    pub fn rate(&self, region: &str) -> i64 {\n        region.len() as i64\n    }\n\n    pub async fn fetch(&self, id: u32) -> String {\n        id.to_string()\n    }\n\n    fn secret(&self) -> i64 {\n        1\n    }\n}\n";
     const RUST_DELEGATE: &str = "#[Delegate]\nstruct TaxDelegate {\n    #[Needs]\n    taxes: TaxService,\n}\n\nimpl TaxDelegate {\n    pub fn total(&self, region: &str) -> i64 {\n        self.taxes.rate(region) * 2\n    }\n}\n";
@@ -20,7 +20,7 @@ impl Typed {
     const CSHARP_DELEGATE: &str = "[Delegate]\npublic sealed class TaxDelegate {\n    [Needs]\n    private readonly TaxService _taxes;\n\n    public int Total(string region) {\n        return _taxes.Rate(region) * 2;\n    }\n}\n";
     const DART_SERVICE: &str = "@Service\nclass TaxService {\n  int rate(String region, {int year = 0, int month = 1}) {\n    return year + month;\n  }\n\n  Future<int> fetch(int id) async {\n    return id;\n  }\n\n  int _secret() {\n    return 1;\n  }\n}\n";
     const DART_DELEGATE: &str = "@Delegate\nclass TaxDelegate {\n  @Needs\n  final TaxService taxes;\n\n  int total(String region) {\n    return taxes.rate(region) * 2;\n  }\n}\n";
-    const SWIFT_SERVICE: &str = "@Service\nfinal class TaxService {\n    func rate(_ region: String, year: Int) -> Int {\n        return year\n    }\n\n    func fetch(id: Int) async throws -> String {\n        return String(id)\n    }\n\n    private func secret() -> Int {\n        return 1\n    }\n}\n";
+    pub(super) const SWIFT_SERVICE: &str = "@Service\nfinal class TaxService {\n    func rate(_ region: String, year: Int) -> Int {\n        return year\n    }\n\n    func fetch(id: Int) async throws -> String {\n        return String(id)\n    }\n\n    private func secret() -> Int {\n        return 1\n    }\n}\n";
     const SWIFT_DELEGATE: &str = "@Delegate\nfinal class TaxDelegate {\n    @Needs\n    private let taxes: TaxService\n\n    func total(_ region: String) -> Int {\n        return taxes.rate(region, year: 1) * 2\n    }\n}\n";
     const CPP_SERVICE: &str = "#pragma once\n\nclass [[Service]] TaxService {\npublic:\n    int rate(int year) const {\n        return year;\n    }\n\n    int rate(int year, int month) const {\n        return year + month;\n    }\n\n    void record(const std::string& name) {\n        last = name;\n    }\n\n    std::string last;\n};\n";
     const CPP_DELEGATE: &str = "#pragma once\n#include \"../services/TaxService.hpp\"\n\nclass [[Delegate]] TaxDelegate {\npublic:\n    [[Needs]] TaxService& taxes;\n\n    int total(int year) const {\n        return taxes.rate(year) * 2;\n    }\n};\n";

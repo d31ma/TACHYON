@@ -29,7 +29,7 @@ impl Project {
             .expect("the delegate is staged")
     }
 
-    fn refusal(files: &[(&str, &str)], delegate: &str) -> String {
+    pub(super) fn refusal(files: &[(&str, &str)], delegate: &str) -> String {
         let forwards = Self::forwards(files);
         let source = Self::source(files, delegate);
         let Err(failure) = forwards.staged(Path::new(delegate), source.as_bytes()) else {

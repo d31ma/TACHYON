@@ -354,6 +354,14 @@ signature, one forward per overload where the language has overloads (ADR
 0112). In Java, C# and F# Tac builds a Delegate's base is still a new instance
 rather than the shared service until ADR 0112 plan step 4.
 
+In the typed languages a Delegate method with the same name and the same
+parameter types as a base method overrides it, and no forward is written for
+it. A method with the same name and other parameters is an overload in Java,
+Groovy, Kotlin, C#, F#, C++ and Swift, where the base method is still
+forwarded; Go, Rust and Dart have one method per name and refuse it with
+`TY1374`. An override that returns another type, or a Delegate field named
+like a base method, fails with `TY1375`.
+
 ## Test units
 
 A test unit is an entry, like a route. `server/tests/<Name>Test.<ext>`

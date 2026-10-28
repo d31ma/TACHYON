@@ -1,7 +1,8 @@
 # ADR 0112: A Delegate Takes On the Methods of Its Service
 
-- Status: Accepted (step 1, the rename, is in; step 2 writes forwards in
-  every language; steps 3 and 4 follow)
+- Status: Accepted (steps 1 and 2 are in: the rename and the forwards in
+  every language; step 3 compares signatures in the typed languages; the
+  dispatch by argument count and step 4 follow)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -175,8 +176,18 @@ parameter.
 
 In the languages that pick by argument count, two methods whose ranges of
 argument counts overlap but differ fail with `TY1374`, because a call could
-match both. Two typed methods that differ only in their return type fail
-with `TY1374` too.
+match both. A typed method with the same parameters as a base method but
+another return type is an override with another return type, and fails with
+`TY1375`.
+
+To compare parameters, the build reads each parameter's type as written,
+without its name, default value or markers: the text after the colon in
+Kotlin, F#, Rust and TypeScript, the argument label and the type in Swift,
+and the text before the name in Java, Groovy, C#, C++ and Dart (C# keeps
+`ref`, `out` and `params`, Kotlin keeps `vararg`, C++ also compares a
+trailing `const`). Go types written once for several names count for each
+name. The Rust receiver (`&self`) is not compared. Types are compared as
+text, so `List<String>` and `java.util.List<String>` count as different.
 
 ### Layers (ADR 0069)
 
@@ -204,8 +215,8 @@ the whole Delegate, including the methods it takes on.
 | `TY1308` | `@Helper` is used (names `Delegate`) |
 | `TY1310` | a `@Delegate` class is outside `delegates/`, or a class there does not end in `Delegate` |
 | `TY1373` | a Delegate needs more than one service, or its base is not a service of its realm |
-| `TY1374` | an overload the language cannot tell apart: Go, Rust and Dart; overlapping argument counts; a difference in return type only |
-| `TY1375` | an override with another return type, or a base method name that is also a member of the Delegate |
+| `TY1374` | an overload the language cannot tell apart: Go, Rust and Dart; overlapping argument counts |
+| `TY1375` | an override with another return type, or a base method name that is also a field or property of the Delegate |
 
 The numbers are checked against `develop` again before merge.
 
@@ -251,9 +262,10 @@ then merged to `develop` by fast-forward.
    Done in two parts: first JavaScript, TypeScript, Python, PHP and Ruby,
    which forward every argument unchanged; then the typed languages and Lua,
    which copy each base signature.
-3. **Override and overload.** Signature comparison per language, the
-   dispatch bodies for TypeScript, JavaScript, Python, Ruby, Lua and PHP,
-   and `TY1374` and `TY1375`.
+3. **Override and overload.** Done in two parts: first the signature
+   comparison in the typed languages, `TY1374` for Go, Rust and Dart, and
+   `TY1375`; then the dispatch bodies for TypeScript, JavaScript, Python,
+   Ruby, Lua and PHP, with `TY1374` for overlapping argument counts.
 4. **Proofs.** One Tac and one Yon example per language for base, override
    and overload (or its refusal), the new matrix rows, and a fresh marker
    matrix iteration. The Java, C# and F# Tac builds write a Delegate's `Needs`

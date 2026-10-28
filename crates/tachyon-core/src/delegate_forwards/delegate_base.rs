@@ -7,6 +7,7 @@ use std::path::Path;
 
 pub(super) struct DelegateBase<'a> {
     pub(super) field: String,
+    pub(super) field_at: usize,
     pub(super) service: String,
     pub(super) service_path: &'a Path,
     pub(super) service_source: &'a str,
@@ -45,6 +46,7 @@ impl<'a> DelegateBase<'a> {
         let (field, (service_path, service_source)) = base;
         Self {
             field: field.name.trim_matches(Self::NAME_MARKS).to_owned(),
+            field_at: field.at,
             service: DelegateForwards::class_name(service_path),
             service_path: *service_path,
             service_source: *service_source,

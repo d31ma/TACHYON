@@ -1,7 +1,8 @@
 use super::{
     CallArguments, ClassClose, DelegateBase, DelegateForwards, FsharpParameters, MethodHeader,
-    SourceLines,
+    OwnSignatures, SourceLines,
 };
+use crate::Failure;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -39,24 +40,55 @@ impl<'a> TypedForward<'a> {
         (source, masked): (&str, &str),
         base: &'a DelegateBase<'a>,
         methods: &[(String, usize)],
-    ) -> Option<String> {
-        let language = path.extension()?.to_str()?;
-        let delegate = DelegateForwards::class_name(path);
-        let access = Self::access(language, masked, &base.field);
-        let owner = Self::owner(language, path, source, &base.field);
+    ) -> Result<Option<String>, Failure> {
+        let language = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or_default();
         let forward = TypedForward {
             language,
             base,
-            delegate,
-            access,
-            owner,
+            delegate: DelegateForwards::class_name(path),
+            access: Self::access(language, masked, &base.field),
+            owner: Self::owner(language, path, source, &base.field),
         };
+        let placed = forward.placed(source, masked);
         let service_masked =
-            crate::annotation_layout::masked_source(base.service_path, base.service_source).ok()?;
-        let headers = forward.headers(&service_masked, methods);
-        let (at, indentation) = forward.placed(source, masked)?;
-        let text = forward.text(&indentation, &headers);
-        (!headers.is_empty()).then(|| format!("{}{text}{}", &source[..at], &source[at..]))
+            crate::annotation_layout::masked_source(base.service_path, base.service_source).ok();
+        placed
+            .zip(service_masked)
+            .map_or(Ok(None), |((at, indentation), service_masked)| {
+                forward.inserted(
+                    path,
+                    (source, masked),
+                    (methods, &service_masked),
+                    (at, &indentation),
+                )
+            })
+    }
+
+    fn inserted(
+        &self,
+        path: &Path,
+        (source, masked): (&str, &str),
+        (methods, service_masked): (&[(String, usize)], &str),
+        (at, indentation): (usize, &str),
+    ) -> Result<Option<String>, Failure> {
+        let own = OwnSignatures::new(self.language, path, (source, masked), self.base);
+        let decided: Vec<(bool, (String, MethodHeader))> = self
+            .headers(service_masked, methods)
+            .into_iter()
+            .map(|(name, header)| -> Result<_, Failure> {
+                Ok((own.forwarded(&name, &header)?, (name, header)))
+            })
+            .collect::<Result<_, Failure>>()?;
+        let kept: Vec<(String, MethodHeader)> = decided
+            .into_iter()
+            .filter(|(forwarded, _)| *forwarded)
+            .map(|(_, kept)| kept)
+            .collect();
+        let text = self.text(indentation, &kept);
+        Ok((!kept.is_empty()).then(|| format!("{}{text}{}", &source[..at], &source[at..])))
     }
 
     fn access(language: &str, masked: &str, field: &str) -> &'static str {

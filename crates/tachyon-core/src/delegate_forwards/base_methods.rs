@@ -1,4 +1,4 @@
-use super::{DelegateBase, OwnMethods, SourceLines};
+use super::{DelegateBase, SourceLines};
 use crate::method_coverage::RoleClass;
 use std::collections::BTreeSet;
 
@@ -10,10 +10,7 @@ impl BaseMethods {
         "onstart", "onstop", "onevent", "property", "setter", "getter",
     ];
 
-    pub(super) fn forwarded(
-        base: &DelegateBase<'_>,
-        delegate_masked: &str,
-    ) -> Vec<(String, usize)> {
+    pub(super) fn listed(base: &DelegateBase<'_>) -> Vec<(String, usize)> {
         let class = RoleClass::read(base.service_path, base.service_source)
             .ok()
             .flatten();
@@ -34,7 +31,6 @@ impl BaseMethods {
             .filter(|(_, line)| Self::indentation(&lines, *line) == level)
             .filter(|(_, line)| !Self::is_accessor(&lines, *line))
             .filter(|(_, line)| !Self::is_not_taken_on(&source_lines, *line))
-            .filter(|(name, _)| !OwnMethods::declares(delegate_masked, name))
             .filter(|(name, _)| seen.insert(*name))
             .map(|(name, line)| (name.to_owned(), line))
             .collect()
