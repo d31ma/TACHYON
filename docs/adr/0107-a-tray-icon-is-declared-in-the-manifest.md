@@ -113,3 +113,21 @@ empty, so the gate reads the popup menu through `MN_GETHMENU`,
 also found that the page did not show a tray or menu action's event until
 its next call; the Rust companion now signals the listening page owners
 (ADR 0097).
+
+## Amendment (2026-10-28): the Linux tray in a desktop's own host (LD1)
+
+This amendment adds to "The Linux host was run against a test
+StatusNotifierWatcher on a private session bus" in the Consequences above,
+which stays as the history of this decision. With
+`TAC_LINUX_DISPLAY=desktop`, `scripts/linux/desktop-services-test.sh` builds
+a Linux app with a declared tray and `scripts/linux/desktop-tray-probe.py`
+drives it against the desktop's own StatusNotifierWatcher; the Rust tray
+test registers its own watcher, so it cannot run beside a real one. In a
+signed-in Ubuntu GNOME X11 session (xrdp) in WSL Ubuntu 24.04 (aarch64) on
+the Surface, with the AppIndicator extension as GNOME's StatusNotifierItem
+host (iteration 9, D31), the icon and its menu appeared, closing the window
+hid it, Activate showed it again, the declared route item opened `/help`,
+and Quit ended the app (`docs/SUPPORT_TIERS.md`, "Linux in a live desktop
+session"). Stock GNOME has no StatusNotifierItem host, so the build's note
+that the Linux tray depends on the desktop still holds. Not run: a physical
+Linux desktop and a Wayland session.

@@ -176,3 +176,24 @@ warm, so after this ADR they ran warm, and only the tests the gate now names
 set `YonIsolationPolicy::Process`. The gate line now says what runs in
 process mode. The gate's runs on macOS, Windows ARM64 and Linux aarch64 and
 the benchmark are recorded in `docs/SUPPORT_TIERS.md` ("Warm Yon handlers").
+
+## Amendment (2026-10-28): the default-deadline relay test starts the handler first (RT1)
+
+On WSL,
+`relay_boundaries::the_supervisor_default_timeout_limits_relays_without_a_request_deadline`
+failed now and then. A new process's first request pays for its start
+inside the request's deadline, as the Decision above says (the Java prelude
+measures it from JVM start), so a slow Ruby or Java start used up the
+test's 8 s default deadline before the handler answered. The test now sends a quick request first, with up to
+three tries, and then times the relay that the default deadline must stop
+(iteration 9, D30). Start-up time against the deadline stays covered by
+`start_up_time_counts_against_the_relay_deadline`. The test passed 10 of 10
+runs in a row on WSL and 3 of 3 on Windows ARM64.
+
+The run found an open Windows problem: with Ruby 4.0.6 (`aarch64-mingw`) a
+warm Ruby handler's second relay never starts, and the supervisor times out
+(`TY2110`). It matches the `Process.spawn` hang that WG1 fixed in the Ruby
+runner, which a warm handler's second relay still hits. Until a fix in
+`ruby_runner.rb`, the Ruby case of this test skips the warm-up on Windows,
+so its timed relay stays the handler's first request (`docs/SUPPORT_TIERS.md`,
+"Relay deadline test and CI tools").

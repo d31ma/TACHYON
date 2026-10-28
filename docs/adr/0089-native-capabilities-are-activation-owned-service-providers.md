@@ -495,3 +495,18 @@ macOS row of the 2026-10-25 table says it rests on the provider and
 generated-app tests, and `docs/SUPPORT_TIERS.md` names no JavaScript field in
 `NSOpenPanel`. The status line says so since DOC6 (2026-10-27). Until then
 it read "Every caller has run in the app on each native target".
+
+## Amendment (2026-10-28): the Linux file dialog in a live desktop (LD1)
+
+This amendment narrows "a Linux desktop are not run" in the LX2 amendment
+above, which stays as the history of this decision. In a signed-in Ubuntu
+GNOME X11 session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface,
+`linux_file_picker_tests` passed through GTK's own dialog under GNOME's
+window manager (`scripts/linux/compositor-test.sh --desktop`), and the
+picker steps of `scripts/linux/page-services-native-test.mjs` chose, read
+and cancelled through the desktop portal's chooser
+(xdg-desktop-portal-gtk). GNOME's window manager does not focus the portal's
+dialog after the click, so `scripts/linux/page-steps-probe.py` activates it
+before it presses keys (`docs/SUPPORT_TIERS.md`, "Linux in a live desktop
+session"). Still not run: a physical Linux desktop, and the portal's chooser
+under Wayland.

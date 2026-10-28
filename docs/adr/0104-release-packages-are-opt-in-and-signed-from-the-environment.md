@@ -393,6 +393,20 @@ It passed on WSL Ubuntu 24.04.5 (aarch64) too, run as root through
 `wsl -u root`, with `nativegate_0.0.1-7_arm64.deb`. Still owed: an install on
 a physical Linux desktop.
 
+## Amendment (2026-10-28): the `.deb` installed for a live desktop (LD1)
+
+With `TAC_LINUX_DISPLAY=desktop` and `TAC_LINUX_DESKTOP_USER`,
+`scripts/linux/deb-install-test.sh` runs apt as root and starts the
+installed app as the signed-in desktop user in that user's session: from
+`PATH`, from its desktop file, and by its desktop file id through
+`gtk-launch`, as the desktop's app menu starts it. It passed in an Ubuntu
+GNOME X11 session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface, after
+the script learned to stop the installed command by its own name,
+`nativegate` (`docs/SUPPORT_TIERS.md`, "Linux in a live desktop session").
+This is evidence only. WSL is an ARM64 VM, so an install on a physical
+x86_64 Linux desktop is still owed and stays left to the developer
+(iteration 9, D28).
+
 ## Amendment (2026-10-24): Android releases are shrunk by R8, take `--arch`, and build offline
 
 PKG7 (decision D11 of the iteration 2 plan).

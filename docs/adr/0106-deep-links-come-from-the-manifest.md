@@ -240,3 +240,17 @@ Windows read the files only from the root of a host.
    A package registered from a folder in Developer Mode is listed as the
    host's handler as well, but Windows does not verify its hosts, and the
    same link opened in Edge. A signed iOS device check stays owed.
+
+## Amendment (2026-10-28): Linux links in a live desktop (LD1)
+
+This amendment narrows "A physical Linux desktop session is still owed" in
+the RL1 amendment above, which stays as the history of this decision.
+`scripts/linux/desktop-links-test.sh` with `TAC_LINUX_DISPLAY=desktop` ran
+in a signed-in Ubuntu GNOME X11 session (xrdp) in WSL Ubuntu 24.04
+(aarch64) on the Surface. The installed `.desktop` file opened
+`linkgate://` links in the one running app over the desktop's own session
+bus, and `GtkUriLauncher` handed `https` and `mailto` links to the
+desktop's OpenURI portal (`docs/SUPPORT_TIERS.md`, "Linux in a live desktop
+session"). The machine is a VM and has no browser or mail client, so a
+physical Linux desktop with default apps is still owed. The signed iOS
+device check of universal links is still owed too.

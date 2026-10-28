@@ -10,6 +10,27 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The Linux gates run in a signed-in desktop session (LD1, 2026-10-28):
+  `TAC_LINUX_DISPLAY=desktop`, or `scripts/linux/compositor-test.sh
+  --desktop`, makes `native-test.sh`, `compositor-test.sh`,
+  `desktop-services-test.sh`, `desktop-links-test.sh`, `deb-install-test.sh`
+  and `page-services-native-test.mjs` use the live X11 or Wayland session
+  instead of starting Xvfb or mutter. `scripts/linux/linux-display-session.mjs`
+  finds the session from the user's own processes (display, runtime folder,
+  session bus), reports its tray host, notification server, portal, Mutter
+  RemoteDesktop and accessibility bus, prints the shell environment
+  (`desktop-env`) and takes screenshots into `TAC_LINUX_SCREENSHOTS`.
+  `TAC_LINUX_DESKTOP_SESSION`, `TAC_LINUX_DESKTOP_PID` and
+  `TAC_LINUX_DESKTOP_USER` pick the session and its user;
+  `deb-install-test.sh` runs apt as root and the app as that user, and also
+  starts it by its desktop file id. In the desktop,
+  `desktop-services-test.sh` checks the page's notification on the
+  desktop's own notification server and a tray app in the desktop's own
+  StatusNotifierItem host (`scripts/linux/desktop-tray-probe.py`, new), and
+  `desktop-links-test.sh` sends links through the desktop's OpenURI portal.
+  All six gates passed in an Ubuntu GNOME X11 session (xrdp) on WSL aarch64,
+  so the Linux target is `native-tested (candidate)` (`docs/SUPPORT_TIERS.md`;
+  ADR 0089, 0104, 0106 and 0107 amendments).
 - `scripts/test-managed-storage.mjs --serve` keeps the chosen Docker
   fixtures running on `TAC_STORAGE_PUBLISH_ADDRESS` (which the fixture
   certificate names) and writes `tachyon-storage-fixtures.json` and the
@@ -1929,6 +1950,10 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- `Toolchain::checked` also requires `dotnet` and `javac` under `CI` (RT1,
+  2026-10-28), since every native CI job installs .NET 10 and JDK 21, so a
+  `tests/it` test that asks it for either tool fails a `CI=1` run instead of
+  skipping when the tool is missing.
 - The warm handler tests no longer skip quietly in CI (WW1, 2026-10-28).
   `warm_dart`, `warm_go`, `warm_lua`, `warm_php`, `warm_ruby`, `warm_rust`
   and `warm_cpp` ask `Toolchain::checked`, and `go`, `ruby`, `bun`, `cargo`
@@ -2368,6 +2393,21 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- `relay_boundaries::the_supervisor_default_timeout_limits_relays_without_a_request_deadline`
+  is no longer flaky on slow machines (RT1, 2026-10-28). Its 8 s default
+  deadline also paid for the warm handler's start, and on WSL a Ruby or Java
+  start could use it up. The test now starts the handler with a quick
+  request (up to three tries) and then times the relay that the default
+  deadline must stop; the probe takes its sleep from an `x-sleep-seconds`
+  header. It passed 10 of 10 runs on WSL. On Windows a warm Ruby handler's
+  second relay still hangs in `Process.spawn` (open, `docs/SUPPORT_TIERS.md`),
+  so there the Ruby case keeps its timed relay first (ADR 0111 amendment).
+- Two Linux gate scripts in a live desktop (LD1, 2026-10-28):
+  `scripts/linux/page-steps-probe.py` gives the desktop portal's file dialog
+  the focus before it presses keys, because GNOME's window manager does not
+  focus it after the click, and `scripts/linux/deb-install-test.sh` stops
+  the installed app as `nativegate` as well as `NativeGate` and waits for it,
+  so the next start is not handed to the copy still running.
 - SQL Server connections from macOS no longer fail during the TLS
   handshake with `TY2160` (MA10, 2026-10-27). Apple's TLS library flushes
   after every TLS record, and the TDS driver (tiberius 0.12.3) sent each
