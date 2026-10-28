@@ -1880,7 +1880,11 @@ machine contracts have their own, independent major versions.
   intermediates could be trusted (RUSTSEC-2026-0381, CVE-2026-111943). The
   Redis and SQL drivers' rustls connections use these roots, and
   `cargo deny` refused 1.0.9. The license is unchanged, so only the version
-  in `NOTICE` changes.
+  in `NOTICE` changes. The same locks move `rustls-webpki` 0.103.15 to
+  0.103.16 (RUSTSEC-2026-0382, the same distrusted emSign intermediates),
+  `ctutils` 0.4.2 to 0.4.6 (RUSTSEC-2026-0385, mask generation and `u128`
+  comparisons that were not constant-time) and `tokio` to 1.53.3
+  (RUSTSEC-2026-0386, `AsyncFd` constructors that broke I/O safety).
 - Every native host now sends a Content-Security-Policy, and its
   `connect-src` allows only the app's own bundle and the hosts in
   `tac.outgoing.hosts`. Before, the macOS, iOS and Android hosts sent no
