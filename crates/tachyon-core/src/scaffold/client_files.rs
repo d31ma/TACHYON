@@ -13,11 +13,11 @@ impl ClientFiles {
     const ICON_IMAGES: [(&'static str, &'static [u8]); 2] = [
         (
             "client/shared/assets/icon-192.png",
-            include_bytes!("templates/icons/icon-192.png"),
+            include_bytes!("icons/icon-192.png"),
         ),
         (
             "client/shared/assets/icon-512.png",
-            include_bytes!("templates/icons/icon-512.png"),
+            include_bytes!("icons/icon-512.png"),
         ),
     ];
     const ICON: &'static str = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\">\n  <rect width=\"64\" height=\"64\" rx=\"14\" fill=\"#1d4ed8\"/>\n  <path d=\"M18 18h28v8H36v22h-8V26H18z\" fill=\"#e2e8f0\"/>\n</svg>\n";

@@ -860,6 +860,8 @@ int main(int argc, char **argv) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use super::{c_source, desktop_entry, gtk_application_id};
     use crate::native::config::NativeApplication;
 
