@@ -237,6 +237,8 @@ class ScaffoldMigrations {
     ['client/pages/tac.js', 'pages hold no scripts; the document title comes from client/manifest.json (ADR 0052)'],
     ['client/shared/scripts/imports.js', 'the manifest no longer lists shared scripts; app.css is the only shared asset (29a5dd4a)'],
     ['client/shared/styles/app.css', 'takes the body style that client/pages/tac.css held'],
+    ['client/shared/assets/icon-192.png', 'a raster app icon, named in client/manifest.json, because native targets drop SVG icons (IC1)'],
+    ['client/shared/assets/icon-512.png', 'the largest raster app icon, named in client/manifest.json, which native targets use for the Dock, taskbar and launcher (IC1)'],
     ['client/manifest.json', 'the Tac configuration is the web app manifest (ADR 0034, ADR 0052)'],
     ['client/services/ShellService.js', 'components use services (ADR 0030); the shell reads its state from ShellService'],
     ['client/tests/ShellServiceTest.js', 'every public method has a test unit that calls it (ADR 0070)'],
