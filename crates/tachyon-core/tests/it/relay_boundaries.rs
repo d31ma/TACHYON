@@ -546,6 +546,47 @@ async fn start_up_time_counts_against_the_relay_deadline() {
     }
 }
 
+// A runtime that spends 3 s starting before its runner can read (a slow interpreter or VM start
+// on a loaded machine), under the same 8 s request with a 2 s grace: the relay must fail by about
+// 6 s. A warm handler that counts its budget from when it reads the request relays until about
+// 9 s, past the supervisor's deadline, and the supervisor times out instead.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_slow_warm_runtime_start_counts_against_the_relay_deadline() {
+    for (extension, handler, program) in [
+        ("py", Handlers::PYTHON, "python3"),
+        ("rb", Handlers::RUBY, "ruby"),
+    ] {
+        if !runnable(extension) {
+            continue;
+        }
+        let (root, source) = project(extension, handler);
+        let (_wrapper_root, wrapper) = slow_runtime(program);
+        let mut options = loaded_timing_options();
+        if extension == "py" {
+            options.runtimes.python = wrapper;
+        } else {
+            options.runtimes.ruby = wrapper;
+        }
+        let supervisor = supervisor_for(root.path(), options);
+        let mut slow = request("slow_runtime", HttpMethod::Post, "sleep:10");
+        slow.deadline_ms = Some(LOADED_REQUEST_DEADLINE_MS);
+        let started = Instant::now();
+        let deadline = Duration::from_millis(LOADED_REQUEST_DEADLINE_MS);
+        assert_relay_fails_before(&supervisor, &source, &slow, started, deadline).await;
+    }
+}
+
+#[cfg(unix)]
+fn slow_runtime(program: &str) -> (tempfile::TempDir, std::path::PathBuf) {
+    use std::os::unix::fs::PermissionsExt as _;
+    let root = tempfile::tempdir().expect("runtime wrapper");
+    let path = root.path().join(format!("slow-{program}"));
+    fs::write(&path, format!("#!/bin/sh\nsleep 3\nexec {program} \"$@\"\n")).expect("wrapper");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).expect("executable wrapper");
+    (root, path)
+}
+
 #[tokio::test]
 async fn php_handler_work_counts_against_the_relay_deadline() {
     if !runnable("php") {

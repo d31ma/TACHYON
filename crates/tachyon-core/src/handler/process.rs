@@ -670,17 +670,18 @@ impl HandlerSupervisor {
         deadline: Instant,
         cancellation: &HandlerCancellation,
     ) -> Result<HandlerResponse, Failure> {
-        let style = FramePrefix::of(source);
-        let request_bytes = self.warm_request(request, resource_access, deadline, style)?;
+        let (process, request_bytes) = self
+            .started_warm_request(source, request, resource_access, deadline)
+            .await?;
         let shares_resources = Self::pipes_resources(source, self.uses_direct_protocol(source));
         let piped = resource_access
             .map(ResourceAccess::piped)
             .filter(|_| shares_resources);
         let exchange = WarmExchange {
-            process: self.warm_process(source).await?,
+            process,
             context: self.warm_context(source, request, resource_access, deadline),
             resources: piped,
-            style,
+            style: FramePrefix::of(source),
             cancellation,
         };
         let answer = exchange.run(&request_bytes).await;
@@ -723,10 +724,11 @@ impl HandlerSupervisor {
             events,
             cancellation,
         } = streamed;
-        let style = FramePrefix::of(source);
-        let request_bytes = self.warm_request(request, resource_access, deadline, style)?;
+        let (process, request_bytes) = self
+            .started_warm_request(source, request, resource_access, deadline)
+            .await?;
         let stream = WarmStream {
-            process: self.warm_process(source).await?,
+            process,
             context: self.warm_context(source, request, resource_access, deadline),
             events: StreamEvents::new(events.clone(), request.request_id.clone()),
             subscriber: events,
@@ -735,6 +737,34 @@ impl HandlerSupervisor {
         let answer = stream.run(&request_bytes).await;
         self.warm.give_back(answer.kept).await;
         answer.result
+    }
+
+    // deadline_ms is measured once the process exists, so a request that spawns a warm process
+    // does not grant the handler the spawn time again on top of the supervisor's deadline.
+    async fn started_warm_request(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        resource_access: Option<&ResourceAccess>,
+        deadline: Instant,
+    ) -> Result<(WarmProcess, Vec<u8>), Failure> {
+        let process = self.warm_process(source).await?;
+        let timed = self.warm_request(request, resource_access, deadline, FramePrefix::of(source));
+        self.unless_out_of_time(process, timed).await
+    }
+
+    async fn unless_out_of_time(
+        &self,
+        process: WarmProcess,
+        timed: Result<Vec<u8>, Failure>,
+    ) -> Result<(WarmProcess, Vec<u8>), Failure> {
+        match timed {
+            Ok(request_bytes) => Ok((process, request_bytes)),
+            Err(failure) => {
+                self.warm.give_back(Some(process)).await;
+                Err(failure)
+            }
+        }
     }
 
     fn warm_context(
