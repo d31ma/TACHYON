@@ -26,24 +26,34 @@ impl DelegateBaseTypes {
         source: Option<String>,
         classes: &[ExportedClass],
     ) {
-        let Some(source) = source else {
-            return;
-        };
-        if path.starts_with(Path::new(realm).join(Self::SERVICE_FOLDER)) {
-            self.services.push((path.to_path_buf(), source));
-            return;
-        }
-        let stem = path.file_stem().and_then(|stem| stem.to_str());
-        let delegate = classes
-            .iter()
-            .find(|class| Some(class.name.as_str()) == stem);
+        let in_services = path.starts_with(Path::new(realm).join(Self::SERVICE_FOLDER));
         let in_delegates = path.starts_with(Path::new(realm).join(Self::DELEGATE_FOLDER));
-        if let Some(class) = delegate.filter(|_| in_delegates) {
-            let portable = path.to_string_lossy().replace('\\', "/");
-            let declaration = Declaration::new(portable, class.member.clone());
-            self.delegates
-                .push((class.name.clone(), declaration, path.to_path_buf(), source));
-        }
+        let service = source.as_ref().filter(|_| in_services);
+        self.services
+            .extend(service.map(|source| (path.to_path_buf(), source.clone())));
+        let delegate = Self::own_class(path, classes).filter(|_| in_delegates);
+        self.delegates.extend(
+            delegate
+                .zip(source)
+                .map(|(class, source)| Self::delegate(path, class, source)),
+        );
+    }
+
+    fn own_class<'c>(path: &Path, classes: &'c [ExportedClass]) -> Option<&'c ExportedClass> {
+        let stem = path.file_stem().and_then(|stem| stem.to_str());
+        classes
+            .iter()
+            .find(|class| Some(class.name.as_str()) == stem)
+    }
+
+    fn delegate(
+        path: &Path,
+        class: &ExportedClass,
+        source: String,
+    ) -> (String, Declaration, PathBuf, String) {
+        let portable = path.to_string_lossy().replace('\\', "/");
+        let declaration = Declaration::new(portable, class.member.clone());
+        (class.name.clone(), declaration, path.to_path_buf(), source)
     }
 
     pub(super) fn blocks(&self) -> String {

@@ -1,5 +1,4 @@
 use super::browser_service_peers::BrowserServicePeers;
-use std::fmt::Write as _;
 
 pub(super) struct Declaration {
     path: String,
@@ -53,17 +52,18 @@ impl Declaration {
     pub(super) fn base_lines(&self, name: &str, service: &str, methods: &[String]) -> String {
         let module = self.module();
         let export = self.export_words();
-        let mut signatures = String::new();
-        for method in methods {
-            let member = format!("{service}[\"{method}\"]");
-            let _ = writeln!(
-                signatures,
-                "    {method}(...args: Parameters<{member}>): ReturnType<{member}>;"
-            );
-        }
+        let signatures: String = methods
+            .iter()
+            .map(|method| Self::base_signature(service, method))
+            .collect();
         format!(
             "\ndeclare module {module} {{\n  {export} interface {name} {{\n{signatures}  }}\n}}\n"
         )
+    }
+
+    fn base_signature(service: &str, method: &str) -> String {
+        let member = format!("{service}[\"{method}\"]");
+        format!("    {method}(...args: Parameters<{member}>): ReturnType<{member}>;\n")
     }
 
     fn module(&self) -> String {
