@@ -3460,10 +3460,14 @@ machine contracts have their own, independent major versions.
   changes no behavior: a Delegate without a service acts as a Helper did.
   The ADR 0069 layer rules that named helpers now apply to Delegates, and
   the marker matrix's 29 Helper cells are Delegate cells with the same
-  tests. A Delegate now takes on the public methods of the one service it
-  needs (ADR 0112 step 2a: JavaScript, TypeScript, Python, PHP and Ruby; a
-  Delegate that needs two services fails with `TY1373`). The other
-  languages, override and overload rules follow.
+  tests. A Delegate that needs one service of its realm takes on that
+  service's public methods in every language: the build writes a forward
+  for each method the Delegate does not write itself (JavaScript,
+  TypeScript, Python, PHP, Ruby and Lua pass every argument on; the typed
+  languages copy each base signature, one forward per overload where the
+  language has overloads). A Delegate that needs two services fails with
+  `TY1373`. Override and overload rules (`TY1374`, `TY1375`) and the Java,
+  C# and F# Tac shared base instance follow in ADR 0112 steps 3 and 4.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and
