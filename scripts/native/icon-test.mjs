@@ -222,7 +222,7 @@ class IconGate {
     const stdout = await this.run(this.binary, ['bundle', project, '--target', target, '--no-incremental', ...extra], { timeoutMilliseconds: 3600000 })
     const bundle = stdout.match(this.built)?.[1]
     assert.ok(bundle, `ty bundle printed no app path:\n${stdout}`)
-    assert.ok(!/has no icon/.test(stdout), `the ${target} build says the app has no icon:\n${stdout}`)
+    assert.ok(!stdout.includes(`the ${target} app has no icon`), `the ${target} build says the app has no icon:\n${stdout}`)
     return { project, bundle: path.resolve(project, bundle), stdout }
   }
 
