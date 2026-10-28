@@ -965,6 +965,8 @@ mod fsharp_tests;
 #[cfg(test)]
 mod java_helper_tests;
 #[cfg(test)]
+mod java_delegate_base_tests;
+#[cfg(test)]
 mod java_lifetime_tests;
 #[cfg(test)]
 mod java_needs_tests;
@@ -988,6 +990,9 @@ mod go_needs_tests;
 
 #[cfg(test)]
 mod go_helper_tests;
+
+#[cfg(test)]
+mod go_delegate_base_tests;
 
 #[cfg(test)]
 mod go_pagehide_tests;
