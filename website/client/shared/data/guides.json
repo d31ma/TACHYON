@@ -37,7 +37,7 @@
     "isolation-and-security",
     "cohesive-services",
     "utilities",
-    "helpers",
+    "delegates",
     "dependency-direction",
     "plain-english-names",
     "small-signatures",
@@ -123,7 +123,7 @@
     },
     {
       "title": "Going further",
-      "summary": "Topics for later: injection, behavior annotations, middleware, other languages, modules, security, cohesive services, utilities, helpers the design rules and simpler forms.",
+      "summary": "Topics for later: injection, behavior annotations, middleware, other languages, modules, security, cohesive services, utilities, delegates, the design rules and simpler forms.",
       "topics": [
         "dependency-injection",
         "behavior-annotations",
@@ -133,7 +133,7 @@
         "isolation-and-security",
         "cohesive-services",
         "utilities",
-        "helpers",
+        "delegates",
         "dependency-direction",
         "plain-english-names",
         "small-signatures",
@@ -450,9 +450,9 @@
         "cohesive-services"
       ]
     },
-    "helpers": {
+    "delegates": {
       "title": "Delegates, utilities and private methods",
-      "summary": "One question decides where shared code goes: a helper when it needs other classes, saved state, lifecycle hooks or a Fake in tests; otherwise a utility, a private method or a service.",
+      "summary": "One question decides where shared code goes: a delegate when it needs other classes, saved state, lifecycle hooks or a Fake in tests; otherwise a utility, a private method or a service.",
       "before": [
         "utilities"
       ]
