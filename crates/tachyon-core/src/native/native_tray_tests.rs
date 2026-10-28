@@ -283,6 +283,10 @@ fn the_macos_host_builds_a_status_item_and_can_leave_the_dock() {
     assert!(quiet.contains("application.setActivationPolicy(.regular)"));
     assert!(quiet.contains("private let tachyonTrayHidesWindow = false"));
     assert!(!quiet.contains("tray = MacOsTray("));
+    assert!(source.contains("Telemetry.shared.record(tray?.iconEvent ?? \"tray.icon.missing\")"));
+    assert!(
+        source.contains("iconEvent = image == nil ? \"tray.icon.missing\" : \"tray.icon.loaded\"")
+    );
     assert_eq!(
         super::mac_os_tray_source::MacOsTraySource::plist_entry(&application),
         "\n<key>LSUIElement</key><true/>"

@@ -7,7 +7,7 @@ start_url
   honored: the page the app opens first
 
 icons
-  adapted: icons: the Android app copies the largest raster icon into mipmap-xxxhdpi without resizing it.
+  adapted: icons: the Android app copies the largest raster icon into mipmap-xxxhdpi without resizing it, as the launcher icon. An app without a raster icon or with a missing icon file gets a note.
 
 theme_color
   adapted: theme_color fills the Android status and navigation bars and picks dark or light bar icons by contrast, when it is written as #rgb or #rrggbb. With titleBar "integrated" the page draws under the status bar instead. Other color forms keep the system bars.

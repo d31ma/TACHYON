@@ -49,7 +49,7 @@ impl MacOsTraySource {
             .collect::<Vec<_>>()
             .join(",\n");
         format!(
-            "tray = MacOsTray(\"{}\", \"{}\", {}, \"{}\", [{items}], tachyonMenuReady, tachyonMenuPerform, {{ [weak self] (route: String?) -> Void in self?.showWindow(route) }}, {{ [weak self] () -> Bool in self?.webView != nil }})",
+            "tray = MacOsTray(\"{}\", \"{}\", {}, \"{}\", [{items}], tachyonMenuReady, tachyonMenuPerform, {{ [weak self] (route: String?) -> Void in self?.showWindow(route) }}, {{ [weak self] () -> Bool in self?.webView != nil }})\n        Telemetry.shared.record(tray?.iconEvent ?? \"tray.icon.missing\")",
             quoted_string_escape(name),
             quoted_string_escape(tray.icon_path()),
             tray.template,

@@ -7,7 +7,7 @@ start_url
   honored: the page the app opens first
 
 icons
-  adapted: icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file. With no such icon, the app has no icon. A --release MSIX package copies, without resizing, the smallest PNG icon that covers each tile (44, 50 and 150 pixels), or the largest PNG icon; with no PNG icon its tiles are plain squares in theme_color.
+  adapted: icons: the Windows app wraps the largest icon whose declared size is at most 256 pixels as its .ico file, which Explorer, the title bar, Alt-Tab and the taskbar show. With no such icon, or with a missing icon file, the app has no icon and the build prints a note. A --release MSIX package copies, without resizing, the smallest PNG icon that covers each tile (44, 50 and 150 pixels), or the largest PNG icon; with no PNG icon its tiles are plain squares in theme_color.
 
 theme_color
   adapted: theme_color colors the title bar of the Windows 11 app, with black or white title text, when it is written as #rgb or #rrggbb. Other color forms, and Windows 10, keep the system title bar color. On a signed-in Windows 11 desktop every caption pixel the gate sampled took the color (SD1).

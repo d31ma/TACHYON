@@ -136,9 +136,10 @@ fn gtk_application_id(application_id: &str) -> String {
 }
 
 fn desktop_entry(application: &NativeApplication) -> String {
+    let icon_name = gtk_application_id(&application.application_id);
     let icon = application
         .largest_icon()
-        .map_or_else(String::new, |_| String::from("Icon=share/icon.png\n"));
+        .map_or_else(String::new, |_| format!("Icon={icon_name}\n"));
     format!(
         "[Desktop Entry]\n\
          Type=Application\n\
@@ -170,7 +171,11 @@ fn stage_icon(
     if !origin.is_file() {
         return Ok(());
     }
-    let destination = bundle.join("share").join("icon.png");
+    let icon_name = gtk_application_id(&application.application_id);
+    let destination = bundle
+        .join("share")
+        .join("icons")
+        .join(format!("{icon_name}.png"));
     if let Some(parent) = destination.parent() {
         super::host::native_io(std::fs::create_dir_all(parent), parent)?;
     }
@@ -710,12 +715,26 @@ static void tachyon_startup(GApplication *app, gpointer data) {
   tachyon_tray_install();
 }
 
+static void tachyon_icon_install(void) {
+  gchar *resources = tachyon_resource_root();
+  gchar *bundle = g_path_get_dirname(resources);
+  gchar *icons = g_build_filename(bundle, "share", "icons", NULL);
+  GtkIconTheme *theme = gtk_icon_theme_get_for_display(gdk_display_get_default());
+  gtk_icon_theme_add_search_path(theme, icons);
+  gtk_window_set_default_icon_name("__GTK_APP_ID__");
+  tachyon_record(gtk_icon_theme_has_icon(theme, "__GTK_APP_ID__") ? "icon.loaded" : "icon.missing");
+  g_free(icons);
+  g_free(bundle);
+  g_free(resources);
+}
+
 static void tachyon_activate(GtkApplication *app, gpointer data) {
   (void)data;
   if (g_application_failed) { g_application_quit(G_APPLICATION(app)); return; }
   if (g_native_window != NULL) { gtk_window_present(g_native_window); return; }
   if (g_web_engine_too_old) { tachyon_show_web_engine_message(app); return; }
   tachyon_record("controller.created");
+  tachyon_icon_install();
   GtkWidget *window = gtk_application_window_new(app);
   g_native_window = GTK_WINDOW(window);
   g_object_add_weak_pointer(G_OBJECT(window), (gpointer *)&g_native_window);
@@ -941,6 +960,34 @@ mod tests {
     }
 
     #[test]
+    fn the_largest_manifest_icon_becomes_the_window_icon_by_its_application_id() {
+        let root = tempfile::tempdir().expect("root");
+        let web = root.path().join("web");
+        std::fs::create_dir_all(web.join("icons")).expect("icons");
+        std::fs::write(web.join("icons/app-512.png"), b"largest icon").expect("512");
+        let mut named = application();
+        named.icons = vec![
+            (512, String::from("/icons/app-512.png")),
+            (192, String::from("/icons/app-192.png")),
+        ];
+        let bundle = root.path().join("NativeCatalog");
+        super::stage_icon(&named, &web, &bundle).expect("stage");
+        assert_eq!(
+            std::fs::read(bundle.join("share/icons/dev.tachyon.native_catalog.png")).expect("icon"),
+            b"largest icon"
+        );
+        let source = c_source(&named, &index());
+        for expected in [
+            "gtk_icon_theme_add_search_path(theme, icons);",
+            "gtk_window_set_default_icon_name(\"dev.tachyon.native_catalog\");",
+            "tachyon_record(gtk_icon_theme_has_icon(theme, \"dev.tachyon.native_catalog\") ? \"icon.loaded\" : \"icon.missing\");",
+            "tachyon_icon_install();\n  GtkWidget *window = gtk_application_window_new(app);",
+        ] {
+            assert!(source.contains(expected), "{expected}");
+        }
+    }
+
+    #[test]
     fn a_gtk_application_id_and_desktop_entry_are_valid() {
         assert_eq!(
             gtk_application_id("dev.tachyon.native-catalog"),
@@ -948,6 +995,13 @@ mod tests {
         );
         let entry = desktop_entry(&application());
         assert!(entry.contains("Exec=bin/NativeCatalog"));
+        assert!(!entry.contains("Icon="));
+        let mut named = application();
+        named.icons = vec![(256, String::from("/icons/app-256.png"))];
+        assert!(
+            desktop_entry(&named)
+                .contains("Exec=bin/NativeCatalog\nIcon=dev.tachyon.native_catalog\n")
+        );
         assert!(entry.contains("Type=Application"));
         assert!(entry.contains("X-Tachyon-Version=1.0.0\nX-Tachyon-Build=1\n"));
     }

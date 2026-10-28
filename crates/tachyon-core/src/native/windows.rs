@@ -1736,6 +1736,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   window_class.lpszClassName = L"TachyonNativeHost";
   window_class.hCursor = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW);
   window_class.hbrBackground = tachyon_window_background_brush();
+  window_class.hIcon = (HICON)LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0);
+  window_class.hIconSm = (HICON)LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
+  tachyon_record(window_class.hIcon != NULL ? "icon.loaded" : "icon.missing");
   RegisterClassExW(&window_class);
 
   wchar_t *title = tachyon_widen(TACHYON_APP_NAME);
@@ -1748,6 +1751,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   tachyon_links_listen(instance);
   tachyon_menus_install(g_window);
   tachyon_tray_install(g_window);
+  if (tachyon_tray_icon_event() != NULL) tachyon_record(tachyon_tray_icon_event());
   if (!tachyon_title_bar_install(g_window, instance)) { tachyon_application_stop(); CoUninitialize(); return 1; }
   ShowWindow(g_window, tachyon_window_open(g_window, show));
 
@@ -1923,6 +1927,36 @@ mod tests {
             entry_route: String::from("/"),
             entry_document: String::from("index.html"),
             routes: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn the_exe_icon_wraps_the_manifest_icon_of_at_most_256_pixels() {
+        let root = tempfile::tempdir().expect("root");
+        let web = root.path().join("web");
+        std::fs::create_dir_all(web.join("icons")).expect("icons");
+        std::fs::write(web.join("icons/app-512.png"), b"large icon").expect("512");
+        std::fs::write(web.join("icons/app-192.png"), b"chosen icon").expect("192");
+        let mut named = application();
+        named.icons = vec![
+            (512, String::from("/icons/app-512.png")),
+            (192, String::from("/icons/app-192.png")),
+        ];
+        let stage = root.path().join("stage");
+        assert!(super::stage_icon(&named, &web, &stage).expect("stage"));
+        let ico = std::fs::read(stage.join("icon.ico")).expect("icon.ico");
+        assert_eq!(&ico[..6], &[0, 0, 1, 0, 1, 0]);
+        assert_eq!(&ico[22..], b"chosen icon");
+        named.icons.truncate(1);
+        assert!(!super::stage_icon(&named, &web, &root.path().join("none")).expect("none"));
+        let source = super::c_source(&application(), &index(), &[]);
+        for expected in [
+            "window_class.hIcon = (HICON)LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON,",
+            "window_class.hIconSm = (HICON)LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON,",
+            "tachyon_record(window_class.hIcon != NULL ? \"icon.loaded\" : \"icon.missing\");",
+            "if (tachyon_tray_icon_event() != NULL) tachyon_record(tachyon_tray_icon_event());",
+        ] {
+            assert!(source.contains(expected), "{expected}");
         }
     }
 

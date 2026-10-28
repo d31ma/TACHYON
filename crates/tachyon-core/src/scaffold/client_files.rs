@@ -1,5 +1,6 @@
 use super::{AppFeature, AppName, BaseFiles, Choice, PageFile, ProjectChoices, TacLanguage};
 use crate::tac_python::RuntimeAssets;
+use std::collections::BTreeMap;
 
 pub(crate) struct ClientFiles;
 
@@ -8,7 +9,24 @@ impl ClientFiles {
     const SHELL_BRAND: &'static str = "{shell.brand}";
     const PLAIN_BRAND: &'static str = "Tachyon";
     const ICON_PATH: &'static str = "client/shared/assets/icon.svg";
+    const MANIFEST_PATH: &'static str = "client/manifest.json";
+    const ICON_IMAGES: [(&'static str, &'static [u8]); 2] = [
+        (
+            "client/shared/assets/icon-192.png",
+            include_bytes!("templates/icons/icon-192.png"),
+        ),
+        (
+            "client/shared/assets/icon-512.png",
+            include_bytes!("templates/icons/icon-512.png"),
+        ),
+    ];
     const ICON: &'static str = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\">\n  <rect width=\"64\" height=\"64\" rx=\"14\" fill=\"#1d4ed8\"/>\n  <path d=\"M18 18h28v8H36v22h-8V26H18z\" fill=\"#e2e8f0\"/>\n</svg>\n";
+
+    pub(crate) fn images_for(
+        files: &BTreeMap<String, String>,
+    ) -> &'static [(&'static str, &'static [u8])] {
+        [&[][..], &Self::ICON_IMAGES[..]][usize::from(files.contains_key(Self::MANIFEST_PATH))]
+    }
 
     pub(crate) fn for_choices(app_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         let javascript_name = AppName::javascript_literal(app_name);
@@ -111,7 +129,7 @@ impl ClientFiles {
     fn fixed_files(javascript_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         let files = [
             (
-                "client/manifest.json",
+                Self::MANIFEST_PATH,
                 Self::manifest(javascript_name, &choices.tac),
             ),
             (
@@ -158,7 +176,7 @@ impl ClientFiles {
             String::new()
         };
         format!(
-            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"icons\": [{{\"src\": \"/shared/assets/icon.svg\", \"sizes\": \"any\", \"type\": \"image/svg+xml\"}}],\n  \"tac\": {{\n    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}{python}\n  }}\n}}\n"
+            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"icons\": [\n    {{\"src\": \"/shared/assets/icon.svg\", \"sizes\": \"any\", \"type\": \"image/svg+xml\"}},\n    {{\"src\": \"/shared/assets/icon-192.png\", \"sizes\": \"192x192\", \"type\": \"image/png\"}},\n    {{\"src\": \"/shared/assets/icon-512.png\", \"sizes\": \"512x512\", \"type\": \"image/png\"}}\n  ],\n  \"tac\": {{\n    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}{python}\n  }}\n}}\n"
         )
     }
 

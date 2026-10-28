@@ -7,7 +7,7 @@ start_url
   honored: the page the app opens first
 
 icons
-  honored: the largest raster icon becomes the .icns file; staging the app on another system skips the icon and prints a note
+  run owed: the largest raster icon becomes the .icns file that the Dock, Finder and Command-Tab show; staging the app on another system skips the icon and prints a note, and an app without a raster icon or with a missing icon file gets a note; still to run: scripts/native/icon-test.mjs on a Mac: the icon of the built app and the Dock's icon of the running app, in the manifest icon's color
 
 theme_color
   adapted: theme_color colors the macOS title bar, with black or white title text by contrast, when it is written as #rgb or #rrggbb. With titleBar "integrated" the page colors the top edge instead. Other color forms keep the system title bar. On macOS 26 the sampled title bar pixel took the color (WIN7).

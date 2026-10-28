@@ -7,7 +7,7 @@ start_url
   honored: the page the app opens first
 
 icons
-  adapted: icons: the Linux app copies the largest raster icon into share/icon.png without resizing it. Release packages install each raster icon in the hicolor icon theme at its declared size.
+  adapted: icons: the Linux app copies the largest raster icon, without resizing it, into share/icons as its application id and names it as the window icon, which X11 desktops show. Wayland desktops find an app's icon only through an installed desktop file: release packages install each raster icon in the hicolor icon theme at its declared size. An app without a raster icon or with a missing icon file gets a note.
 
 theme_color
   adapted: theme_color colors a GTK header bar on the Linux app, with black or white title text, when it is written as #rgb or #rrggbb. The header bar then replaces the window manager's title bar. Other color forms keep the standard title bar. With titleBar "integrated" there is no header bar: the page colors the top edge.

@@ -7,6 +7,7 @@ final class MacOsTray: NSObject, NSMenuDelegate {
     private let show: (String?) -> Void
     private let pageShown: () -> Bool
     private var declared: [NSMenuItem] = []
+    let iconEvent: String
 
     init(_ name: String, _ icon: String, _ template: Bool, _ tooltip: String, _ items: [MacOsTrayItem],
          _ ready: @escaping (String) -> Bool, _ perform: @escaping (String) -> Bool,
@@ -17,10 +18,12 @@ final class MacOsTray: NSObject, NSMenuDelegate {
         self.perform = perform
         self.show = show
         self.pageShown = pageShown
+        let image = MacOsTray.image(icon, template)
+        iconEvent = image == nil ? "tray.icon.missing" : "tray.icon.loaded"
         super.init()
         statusItem.button?.toolTip = tooltip
         statusItem.button?.setAccessibilityLabel(tooltip)
-        if let image = MacOsTray.image(icon, template) {
+        if let image {
             statusItem.button?.image = image
         } else {
             statusItem.button?.title = name

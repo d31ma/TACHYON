@@ -331,6 +331,7 @@ static void tachyon_tray_install(void) {
   g_tray_node = g_dbus_node_info_new_for_xml(TACHYON_TRAY_INTERFACES, NULL);
   if (g_tray_node == NULL) { g_tray_bus = NULL; return; }
   g_tray_pixmap = tachyon_tray_pixmap();
+  tachyon_record(g_variant_n_children(g_tray_pixmap) == 1 ? "tray.icon.loaded" : "tray.icon.missing");
   g_tray_enabled = tachyon_tray_enabled_items();
   g_tray_objects[0] = g_dbus_connection_register_object(g_tray_bus, TACHYON_TRAY_ITEM_PATH, g_tray_node->interfaces[0],
                                                         &TACHYON_TRAY_ITEM_CALLS, NULL, NULL, NULL);

@@ -7,7 +7,7 @@ start_url
   honored: the page the app opens first
 
 icons
-  honored: the largest raster icon is resized to the app icon set; staging the app on another system skips the icon and prints a note
+  run owed: the largest raster icon is resized to the app icon set that the home screen shows; staging the app on another system skips the icon and prints a note, and an app without a raster icon or with a missing icon file gets a note; still to run: scripts/native/icon-test.mjs on a Mac: the icon files of the simulator app and the home screen of a simulator, in the manifest icon's color
 
 theme_color
   adapted: theme_color fills the area behind the iOS status bar and picks dark or light status bar text by contrast, when it is written as #rgb or #rrggbb. With titleBar "integrated" the page draws there instead and theme_color only picks the text color. Other color forms keep the system background.

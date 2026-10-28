@@ -1,4 +1,4 @@
-use super::{ScaffoldFailure, TargetFolder};
+use super::{ClientFiles, ScaffoldFailure, TargetFolder};
 use crate::Failure;
 use crate::compiler::publish;
 use std::collections::BTreeMap;
@@ -29,11 +29,14 @@ impl ProjectWriter {
         target: &Path,
     ) -> Result<(), Failure> {
         files.iter().try_for_each(|(relative, contents)| {
-            Self::write_one(&root.join(relative), contents, target)
-        })
+            Self::write_one(&root.join(relative), contents.as_bytes(), target)
+        })?;
+        ClientFiles::images_for(files)
+            .iter()
+            .try_for_each(|(relative, bytes)| Self::write_one(&root.join(relative), bytes, target))
     }
 
-    fn write_one(output: &Path, contents: &str, target: &Path) -> Result<(), Failure> {
+    fn write_one(output: &Path, contents: &[u8], target: &Path) -> Result<(), Failure> {
         let folder = output.parent().unwrap_or(output);
         ScaffoldFailure::checked(fs::create_dir_all(folder), target)?;
         ScaffoldFailure::checked(fs::write(output, contents), target)

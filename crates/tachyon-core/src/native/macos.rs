@@ -1265,6 +1265,13 @@ mod tests {
     }
 
     #[test]
+    fn plist_names_the_icon_file_only_when_an_icon_was_staged() {
+        let plist = info_plist(&application(), Some("AppIcon"));
+        assert!(plist.contains("\n<key>CFBundleIconFile</key><string>AppIcon</string>"));
+        assert!(!info_plist(&application(), None).contains("CFBundleIconFile"));
+    }
+
+    #[test]
     fn plist_carries_the_manifest_reason_for_location() {
         assert!(!info_plist(&application(), None).contains("NSLocation"));
         let mut located = application();

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 static LRESULT CALLBACK tachyon_fixture_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
   if (tachyon_tray_message(window, message, wparam, lparam)) return 0;
@@ -36,6 +37,8 @@ int main(void) {
   tachyon_tray_install(g_window);
   tachyon_fixture_require(g_tray_shown, "Shell_NotifyIconW refused the icon");
   tachyon_fixture_require(g_tray.hIcon != NULL, "no icon");
+  tachyon_fixture_require(g_tray_icon_loaded, "the icon fell back to IDI_APPLICATION instead of loading the manifest's tray.ico");
+  tachyon_fixture_require(strcmp(tachyon_tray_icon_event(), "tray.icon.loaded") == 0, "the host would record the wrong tray icon event");
   tachyon_fixture_require(wcscmp(g_tray.szTip, L"Tray tooltip é") == 0, "the tooltip is not the declared one");
   ShowWindow(g_window, SW_SHOW);
   SendMessageW(g_window, WM_CLOSE, 0, 0);

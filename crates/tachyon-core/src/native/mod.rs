@@ -183,6 +183,7 @@ mod native_file_picker_limit_tests;
 mod native_file_picker_permission_tests;
 #[cfg(test)]
 mod native_helper_tests;
+mod native_icon_note;
 mod native_links;
 mod native_menu_action;
 mod native_menu_action_check;

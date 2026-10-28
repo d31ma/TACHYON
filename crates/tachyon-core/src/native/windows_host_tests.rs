@@ -36,6 +36,7 @@ int main(void) {
   tachyon_tray_install(g_window);
   handled = handled || tachyon_tray_message(g_window, 0, 0, 0) || tachyon_tray_hides_window(g_window);
   tachyon_tray_remove();
+  handled = handled || tachyon_tray_icon_event() != NULL;
   return handled ? 1 : 0;
 }
 "#;

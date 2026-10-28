@@ -931,6 +931,15 @@ mod tests {
         assert!(plist.contains("<string>iPhoneSimulator</string>"));
         assert!(plist.contains("<key>UILaunchScreen</key>"));
         assert!(plist.contains("<key>MinimumOSVersion</key><string>17.4</string>"));
+        assert!(plist.contains(
+            "<key>CFBundleIcons</key><dict><key>CFBundlePrimaryIcon</key><dict><key>CFBundleIconFiles</key><array><string>AppIcon60x60@2x.png</string></array></dict></dict>"
+        ));
+        let plain = info_plist(
+            &application(),
+            &[],
+            &IosDestination::SIMULATOR.plist_keys(""),
+        );
+        assert!(!plain.contains("CFBundleIcons"));
     }
 
     #[test]

@@ -10,6 +10,11 @@ static NOTIFYICONDATAW g_tray = {0};
 static BOOL g_tray_shown = FALSE;
 static BOOL g_tray_quitting = FALSE;
 static UINT g_tray_restarted = 0;
+static BOOL g_tray_icon_loaded = FALSE;
+
+static const char *tachyon_tray_icon_event(void) {
+  return g_tray_icon_loaded ? "tray.icon.loaded" : "tray.icon.missing";
+}
 
 static HICON tachyon_tray_icon(void) {
   wchar_t path[MAX_PATH];
@@ -39,6 +44,7 @@ static void tachyon_tray_install(HWND window) {
   g_tray.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP;
   g_tray.uCallbackMessage = TACHYON_WM_TRAY;
   g_tray.hIcon = tachyon_tray_icon();
+  g_tray_icon_loaded = g_tray.hIcon != NULL;
   if (g_tray.hIcon == NULL) g_tray.hIcon = LoadIconW(NULL, (LPCWSTR)IDI_APPLICATION);
   if (MultiByteToWideChar(CP_UTF8, 0, TACHYON_TRAY_TOOLTIP, -1, g_tray.szTip, ARRAYSIZE(g_tray.szTip)) == 0) g_tray.szTip[0] = L'\0';
   tachyon_tray_add();
@@ -119,6 +125,10 @@ static BOOL tachyon_tray_hides_window(HWND window) {
 #else
 static void tachyon_tray_install(HWND window) {
   (void)window;
+}
+
+static const char *tachyon_tray_icon_event(void) {
+  return NULL;
 }
 
 static void tachyon_tray_remove(void) {}

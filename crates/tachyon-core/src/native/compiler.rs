@@ -267,6 +267,11 @@ impl NativeCompiler {
             application.tray.as_ref(),
             temporary_web.path(),
         )?;
+        let icon_note = super::native_icon_note::NativeIconNote::note(
+            &application,
+            options.target,
+            temporary_web.path(),
+        );
         super::native_ui_profile::NativeUiProfile::prepare(
             ui_candidate,
             temporary_web.path(),
@@ -310,6 +315,7 @@ impl NativeCompiler {
             notes: notes
                 .into_iter()
                 .chain(AppleIcons::skipped_note(&application, options.target))
+                .chain(icon_note)
                 .chain(yon_note)
                 .chain(release_note)
                 .chain(gradle_note)
