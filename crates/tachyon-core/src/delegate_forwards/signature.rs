@@ -41,9 +41,7 @@ impl Signature {
         let declaration = &header.declaration;
         let (before, after) = Self::around_parameters(declaration, name);
         let types = Self::parameter_types(language, &header.parameters);
-        let qualifiers = (language == "hpp")
-            .then(|| Self::plain(after))
-            .unwrap_or_default();
+        let qualifiers = Self::plain(["", after][usize::from(language == "hpp")]);
         Self {
             parameters: format!("{}|{qualifiers}", types.join(",")),
             returns: Self::plain(&Self::returns(language, before, after)),
