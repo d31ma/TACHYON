@@ -98,13 +98,15 @@ impl Signature {
             .iter()
             .map(|parameter| MarkerStrip::plain(language, parameter))
             .collect();
-        match language {
-            "go" => Self::go_types(&plain),
-            _ => plain
-                .iter()
-                .filter_map(|parameter| Self::parameter_type(language, parameter))
-                .collect(),
-        }
+        (language == "go").then_some(plain.as_slice()).map_or_else(
+            || {
+                plain
+                    .iter()
+                    .filter_map(|parameter| Self::parameter_type(language, parameter))
+                    .collect()
+            },
+            Self::go_types,
+        )
     }
 
     fn parameter_type(language: &str, parameter: &str) -> Option<String> {
