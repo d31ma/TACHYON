@@ -696,7 +696,14 @@ end
 
 class YonRunnerFrames
   @lock = Mutex.new
+  @input = nil
   @output = nil
+
+  def self.take_standard_input
+    @input = STDIN.dup
+    @input.binmode
+    STDIN.reopen(File::NULL)
+  end
 
   def self.take_standard_output
     @output = STDOUT.dup
@@ -721,7 +728,6 @@ class YonRunnerFrames
   end
 
   def self.read_all(incoming)
-    STDIN.binmode
     loop do
       prefix = read_exactly(4)
       break if prefix.bytesize < 4
@@ -733,8 +739,8 @@ class YonRunnerFrames
   def self.read_exactly(length)
     data = "".b
     while data.bytesize < length
-      IO.select([STDIN])
-      data << STDIN.readpartial(length - data.bytesize)
+      IO.select([@input])
+      data << @input.readpartial(length - data.bytesize)
     end
     data
   rescue EOFError
@@ -1206,6 +1212,7 @@ class YonRunner
   def self.main(arguments)
     started_at = YonClock.now
     environment = YonRelayProgram.environment(ENV.to_h)
+    YonRunnerFrames.take_standard_input
     YonRunnerFrames.take_standard_output
     Thread.new { YonRunnerFrames.read_all(@incoming) }
     serve_warm(arguments, environment) if @warm

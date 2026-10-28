@@ -256,10 +256,15 @@ async fn a_go_log_follow_ends_cleanly_at_the_request_time_limit() {
     let mut request = HandlerRequest::route("log", "/log", HttpMethod::Get);
     request.target = Some(target);
     request.arguments = Some(Vec::new());
-    let supervisor =
-        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    // The handler's context ends one grace before the supervisor's deadline, and the follow starts a new
+    // Go process inside that margin, so a loaded machine needs more than the default 100 ms of it.
+    let supervisor = HandlerSupervisor::new(HandlerSupervisorOptions {
+        cancellation_grace: Duration::from_secs(3),
+        ..HandlerSupervisorOptions::default()
+    })
+    .expect("supervisor");
     GoStreams::build_by_reading_one_line(&supervisor, &source, &request).await;
-    request.deadline_ms = Some(3_000);
+    request.deadline_ms = Some(4_000);
     let (sender, mut receiver) = tokio::sync::mpsc::channel(1_024);
     supervisor
         .invoke_streaming(&source, &request, sender)

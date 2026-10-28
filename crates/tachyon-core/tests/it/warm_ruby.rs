@@ -31,6 +31,16 @@ class Handler
 end
 "#;
 
+const RUBY_RELAY: &str = r#"
+class Handler
+  def self.POST(request)
+    script = "STDIN.read; print JSON.generate(status: 200, body: :relayed)"
+    status, _headers, body = relay(["ruby", "-rjson", "-e", script], request)
+    { "pid" => Process.pid, "status" => status, "body" => body.join }
+  end
+end
+"#;
+
 fn ruby_available() -> bool {
     let found = Command::new("ruby")
         .arg("--version")
@@ -171,4 +181,29 @@ async fn a_warm_ruby_stream_ends_with_its_end_frame_and_stays_warm() {
         pids.push(first["pid"].as_u64().expect("pid"));
     }
     assert_eq!(pids[0], pids[1]);
+}
+
+#[tokio::test]
+async fn a_warm_ruby_handler_relays_on_every_request() {
+    if !ruby_available() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = source(&root, RUBY_RELAY);
+    let supervisor = warm();
+    let mut pids = Vec::new();
+    for id in ["relay_first", "relay_second", "relay_third"] {
+        let response = supervisor
+            .invoke(&source, &request(id, ""), &HandlerCancellation::default())
+            .await
+            .unwrap_or_else(|failure| panic!("{id} relayed: {failure}"));
+        let value = body_json(&response);
+        assert_eq!(value["status"], 200, "{id}: {value}");
+        assert_eq!(value["body"], "relayed", "{id}: {value}");
+        pids.push(value["pid"].as_u64().expect("pid"));
+    }
+    assert!(
+        pids.iter().all(|pid| *pid == pids[0]),
+        "one warm process relayed every time: {pids:?}"
+    );
 }
