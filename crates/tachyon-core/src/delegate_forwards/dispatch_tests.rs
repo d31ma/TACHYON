@@ -98,7 +98,7 @@ fn a_python_dispatcher_counts_keyword_arguments_too() {
 #[test]
 fn a_lua_dispatcher_counts_the_values_it_gets() {
     let staged = Dispatch::staged(
-        "client",
+        "server",
         "lua",
         (Dispatch::LUA_SERVICE, Dispatch::LUA_OVERLOAD),
     );

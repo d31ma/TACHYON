@@ -86,13 +86,13 @@ fn a_go_overload_is_refused_because_go_has_one_method_per_name() {
 #[test]
 fn a_swift_method_with_other_argument_labels_is_an_overload() {
     let files = [
-        ("client/services/TaxService.swift", Typed::SWIFT_SERVICE),
+        ("server/services/TaxService.swift", Typed::SWIFT_SERVICE),
         (
-            "client/delegates/TaxDelegate.swift",
+            "server/delegates/TaxDelegate.swift",
             Overrides::SWIFT_OTHER_LABEL,
         ),
     ];
-    let staged = Project::staged(&files, "client/delegates/TaxDelegate.swift").expect("forwards");
+    let staged = Project::staged(&files, "server/delegates/TaxDelegate.swift").expect("forwards");
     assert!(staged.contains(Overrides::SWIFT_BASE_RATE), "{staged}");
     assert!(
         staged.contains("func rate(_ region: String, on year: Int) -> Int {"),

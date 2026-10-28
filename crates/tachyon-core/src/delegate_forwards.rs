@@ -25,6 +25,7 @@ mod own_signatures;
 mod parameter_split;
 mod signature;
 mod source_lines;
+mod tac_base;
 mod taken_on;
 #[cfg(test)]
 mod tests;
@@ -52,6 +53,7 @@ use own_signatures::OwnSignatures;
 use parameter_split::ParameterSplit;
 use signature::Signature;
 use source_lines::SourceLines;
+use tac_base::TacBase;
 pub(crate) use taken_on::TakenOn;
 use typed_forward::TypedForward;
 
@@ -98,7 +100,10 @@ impl<'a> DelegateForwards<'a> {
     fn forwarded(&self, path: &Path, source: &str) -> Result<Option<String>, Failure> {
         let services = self.services_beside(path);
         let base = DelegateBase::read(path, source, &services)?;
-        base.map_or(Ok(None), |base| Self::written(path, source, &base))
+        base.map_or(Ok(None), |base| {
+            TacBase::check(path, source, &base)?;
+            Self::written(path, source, &base)
+        })
     }
 
     fn services_beside(&self, path: &Path) -> Vec<(&'a Path, &'a str)> {

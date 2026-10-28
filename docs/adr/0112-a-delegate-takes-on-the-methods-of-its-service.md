@@ -291,4 +291,10 @@ then merged to `develop` by fast-forward.
    4a is the website section "Take on a service: override and overload" in
    the 15 Yon languages, which the published-section tests serve and call,
    with the `TY1374` refusal for Go, Rust and Dart and the error-code rows;
-   4b is the Tac shared base instance and the Tac proofs.
+   4b is the Tac shared base instance and the Tac proofs. Kotlin, Swift,
+   C#, Rust (browser), Ruby and Lua browser services cannot need another
+   service (ADR 0065), so a Tac Delegate there has no shared service for its
+   base field; Samuel chose (2026-10-28) that those languages refuse a Tac
+   Delegate's base service with `TY1406` at the field, and that Java, Go and
+   F# fill the base with the page's instance. Sharing in the other languages
+   can follow as its own iteration.

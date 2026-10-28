@@ -112,7 +112,7 @@ fn a_dart_delegate_passes_named_arguments_by_name() {
 
 #[test]
 fn a_swift_delegate_keeps_labels_and_tries_and_awaits() {
-    let staged = Typed::client_staged("swift", (Typed::SWIFT_SERVICE, Typed::SWIFT_DELEGATE));
+    let staged = Typed::staged("swift", (Typed::SWIFT_SERVICE, Typed::SWIFT_DELEGATE));
     assert_eq!(staged, Typed::SWIFT_STAGED);
 }
 
@@ -130,6 +130,32 @@ fn an_fsharp_delegate_calls_its_service_property_through_this() {
 
 #[test]
 fn a_lua_delegate_gets_functions_that_pass_every_argument_on() {
-    let staged = Typed::client_staged("lua", (Typed::LUA_SERVICE, Typed::LUA_DELEGATE));
+    let staged = Typed::staged("lua", (Typed::LUA_SERVICE, Typed::LUA_DELEGATE));
     assert_eq!(staged, Typed::LUA_STAGED);
+}
+
+#[test]
+fn a_tac_delegate_cannot_take_on_a_service_where_browser_services_do_not_share() {
+    let delegates = [
+        ("kt", Typed::KOTLIN_SERVICE, Typed::KOTLIN_DELEGATE, "Kotlin"),
+        ("swift", Typed::SWIFT_SERVICE, Typed::SWIFT_DELEGATE, "Swift"),
+        ("cs", Typed::CSHARP_SERVICE, Typed::CSHARP_DELEGATE, "C#"),
+        ("lua", Typed::LUA_SERVICE, Typed::LUA_DELEGATE, "Lua"),
+    ];
+    for (language, service, delegate, name) in delegates {
+        let service_path = format!("client/services/TaxService.{language}");
+        let delegate_path = format!("client/delegates/TaxDelegate.{language}");
+        let files = [
+            (service_path.as_str(), service),
+            (delegate_path.as_str(), delegate),
+        ];
+        let refusal = Project::refusal(&files, &delegate_path);
+        assert!(refusal.contains("TY1406"), "{language}: {refusal}");
+        assert!(
+            refusal.contains(&format!(
+                "TaxDelegate takes on TaxService, but a {name} browser service cannot need another service"
+            )),
+            "{language}: {refusal}"
+        );
+    }
 }

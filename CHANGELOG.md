@@ -3493,7 +3493,10 @@ machine contracts have their own, independent major versions.
   an overload (a renamed method in Go, Rust and Dart) in the 15 Yon
   languages, the published-section tests serve and call each one and check
   the `TY1374` refusal, and the error codes page lists `TY1373` to `TY1375`.
-  The Java, C# and F# Tac shared base instance follows in ADR 0112 step 4b.
+  A Kotlin, Swift, C#, Ruby or Lua Tac Delegate that takes on a service
+  fails with `TY1406`, because browser services there cannot need another
+  service; the Java, Go and F# Tac shared base instance follows in ADR 0112
+  step 4b.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and

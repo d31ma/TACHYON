@@ -181,3 +181,17 @@ fn a_service_of_the_other_realm_is_not_a_base() {
         None
     );
 }
+
+#[test]
+fn a_tac_ruby_delegate_cannot_take_on_a_service() {
+    let files = [
+        ("client/services/TaxService.rb", Project::RUBY_SERVICE),
+        ("client/delegates/TaxDelegate.rb", Project::RUBY_DELEGATE),
+    ];
+    let refusal = Project::refusal(&files, "client/delegates/TaxDelegate.rb");
+    assert!(refusal.contains("TY1406"), "{refusal}");
+    assert!(
+        refusal.contains("a Ruby browser service cannot need another service"),
+        "{refusal}"
+    );
+}
