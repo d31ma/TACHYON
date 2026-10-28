@@ -365,7 +365,7 @@ async fn linux_generated_host_shows_a_status_notifier_item_with_a_working_menu()
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler and Wine; runs the Win32 notification-area code, not WebView2 or MSVC"]
+#[ignore = "Requires Wine and the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux); runs the Win32 notification-area code, not WebView2 or MSVC"]
 async fn windows_tray_code_adds_an_icon_hides_on_close_and_quits_under_wine() {
     let root = tempfile::tempdir().expect("fixture");
     let application = TrayFixture::application();
@@ -388,7 +388,7 @@ async fn windows_tray_code_adds_an_icon_hides_on_close_and_quits_under_wine() {
     )
     .expect("tray.ico");
     super::host::run_tool(
-        super::windows_host_tests::WindowsHostTests::MINGW,
+        super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE,
         &[
             "-std=gnu17",
             "-O2",

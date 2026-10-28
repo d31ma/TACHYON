@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { X509Certificate, randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
@@ -215,11 +216,11 @@ class IconGate {
     return Buffer.concat(chunks)
   }
 
-  /** @param {string} target @param {string[]} [extra] @returns {Promise<IconBuild>} */
-  static async bundle(target, extra = []) {
+  /** @param {string} target @param {string[]} [extra] @param {NodeJS.ProcessEnv} [env] @returns {Promise<IconBuild>} */
+  static async bundle(target, extra = [], env = process.env) {
     const project = path.join(this.root, target)
     IconFixture.stage(project, target)
-    const stdout = await this.run(this.binary, ['bundle', project, '--target', target, '--no-incremental', ...extra], { timeoutMilliseconds: 3600000 })
+    const stdout = await this.run(this.binary, ['bundle', project, '--target', target, '--no-incremental', ...extra], { timeoutMilliseconds: 3600000, env })
     const bundle = stdout.match(this.built)?.[1]
     assert.ok(bundle, `ty bundle printed no app path:\n${stdout}`)
     assert.ok(!stdout.includes(`the ${target} app has no icon`), `the ${target} build says the app has no icon:\n${stdout}`)
@@ -296,6 +297,8 @@ class IconGate {
         if (!built) continue
         await this.step(target, 'artifact holds the manifest icon', () => hosts[target].artifact(built))
         if (this.screen) await this.step(target, 'system shows the manifest icon', () => hosts[target].screen(built))
+        const host = hosts[target]
+        if (this.screen && this.release && 'installed' in host) await this.step(target, 'installed package shows the manifest icon', () => host.installed(built))
       }
     } finally {
       if (!this.keep) rmSync(this.root, { recursive: true, force: true })
@@ -484,12 +487,92 @@ class AndroidIcons {
   }
 }
 
-class WindowsIcons {
-  /** @type {string | undefined} */
-  static probe
+class WindowsCertificate {
+  static subject = 'CN=Tachyon Icon Gate'
+  static provider = 'Microsoft Software Key Storage Provider'
+  /** @type {{ thumbprint: string, container: string, file: string } | undefined} */
+  static made
 
-  static build() {
-    return IconGate.bundle('windows', IconGate.release ? ['--release'] : [])
+  static given() {
+    return Boolean(process.env.TAC_WINDOWS_CERTIFICATE || process.env.TAC_WINDOWS_CERTIFICATE_THUMBPRINT)
+  }
+
+  static async make() {
+    const container = `tachyon-icon-gate-${randomUUID()}`
+    const request = path.join(IconGate.root, 'certificate.inf')
+    const file = path.join(IconGate.root, 'certificate.cer')
+    writeFileSync(request, [
+      '[Version]',
+      'Signature="$Windows NT$"',
+      '[NewRequest]',
+      `Subject = "${this.subject}"`,
+      'FriendlyName = "Tachyon icon gate, throwaway"',
+      `KeyContainer = "${container}"`,
+      `ProviderName = "${this.provider}"`,
+      'KeyAlgorithm = RSA',
+      'KeyLength = 2048',
+      'KeyUsage = 0x80',
+      'KeyUsageProperty = 2',
+      'HashAlgorithm = SHA256',
+      'MachineKeySet = FALSE',
+      'Exportable = FALSE',
+      'RequestType = Cert',
+      'ValidityPeriod = Days',
+      'ValidityPeriodUnits = 2',
+      '[EnhancedKeyUsageExtension]',
+      'OID = 1.3.6.1.5.5.7.3.3',
+      '[Extensions]',
+      '2.5.29.19 = "{text}ca=0"',
+      'Critical = 2.5.29.19',
+      '',
+    ].join('\r\n'))
+    await IconGate.run('certreq.exe', ['-new', '-q', request, file], { timeoutMilliseconds: 120000 })
+    this.made = { thumbprint: new X509Certificate(readFileSync(file)).fingerprint.replaceAll(':', ''), container, file }
+    console.log(`made the throwaway signing certificate ${this.made.thumbprint} (${this.subject}) in the user's certificate store`)
+    return this.made
+  }
+
+  static async forget() {
+    if (!this.made) return
+    await IconGate.run('certutil.exe', ['-user', '-delstore', 'My', this.made.thumbprint], { timeoutMilliseconds: 120000 })
+    const key = await SupervisedCommand.run('certutil.exe', ['-user', '-csp', this.provider, '-delkey', this.made.container], { cwd: IconGate.repository, timeoutMilliseconds: 120000 })
+    const keyLine = key.status === 0 ? `deleted its key ${this.made.container}` : `certutil -delkey answered ${key.status}: ${`${key.stdout}${key.stderr}`.trim().split(/\r?\n/).at(-1)}`
+    console.log(`removed the throwaway signing certificate ${this.made.thumbprint} from the user's store; ${keyLine}`)
+  }
+
+  static async trust() {
+    if (!this.made) return false
+    await IconGate.run('certutil.exe', ['-addstore', 'TrustedPeople', this.made.file], { timeoutMilliseconds: 120000 })
+    return true
+  }
+
+  static async untrust() {
+    if (!this.made) return
+    await IconGate.run('certutil.exe', ['-delstore', 'TrustedPeople', this.made.thumbprint], { timeoutMilliseconds: 120000 })
+  }
+}
+
+class WindowsIcons {
+  static probes = {
+    icon: { source: 'WindowsIconCheck.c', flags: [], libraries: ['user32.lib', 'gdi32.lib', 'shell32.lib'] },
+    package: { source: 'WindowsPackageCheck.cpp', flags: ['/std:c++17', '/EHsc', '/permissive-'], libraries: ['windowsapp.lib', 'user32.lib', 'gdi32.lib', 'shell32.lib', 'ole32.lib'] },
+  }
+  /** @type {Record<string, string>} */
+  static compiled = {}
+
+  static async build() {
+    if (!IconGate.release) return IconGate.bundle('windows')
+    if (WindowsCertificate.given()) return IconGate.bundle('windows', ['--release'])
+    const certificate = await WindowsCertificate.make()
+    try {
+      return await IconGate.bundle('windows', ['--release'], {
+        ...process.env,
+        TAC_WINDOWS_CERTIFICATE_THUMBPRINT: certificate.thumbprint,
+        TAC_WINDOWS_CERTIFICATE_PUBLISHER: WindowsCertificate.subject,
+      })
+    } finally {
+      await WindowsCertificate.forget()
+    }
   }
 
   /** @param {IconBuild} built */
@@ -499,23 +582,35 @@ class WindowsIcons {
     return exe
   }
 
-  /** @param {string[]} args */
-  static async run(args) {
-    if (!this.probe) {
-      this.probe = path.join(IconGate.root, 'WindowsIconCheck.exe')
-      const source = path.join(IconGate.repository, 'scripts/native/WindowsIconCheck.c')
-      await IconGate.run('cl.exe', ['/nologo', '/W4', '/WX', '/O1', `/Fe${this.probe}`, `/Fo${path.join(IconGate.root, 'WindowsIconCheck.obj')}`, source, 'user32.lib', 'gdi32.lib', 'shell32.lib'])
+  /** @param {'icon' | 'package'} name @param {string[]} args */
+  static async probe(name, args) {
+    const { source, flags, libraries } = this.probes[name]
+    if (!this.compiled[name]) {
+      const stem = path.parse(source).name
+      const executable = path.join(IconGate.root, `${stem}.exe`)
+      await IconGate.run('cl.exe', ['/nologo', '/W4', '/WX', '/O1', ...flags, `/Fe${executable}`, `/Fo${path.join(IconGate.root, `${stem}.obj`)}`, path.join(IconGate.repository, 'scripts/native', source), ...libraries])
+      this.compiled[name] = executable
     }
-    const output = await IconGate.run(this.probe, args, { timeoutMilliseconds: 300000 })
-    return JSON.parse(output.trim().split(/\r?\n/).at(-1))
+    const output = await IconGate.run(this.compiled[name], args, { timeoutMilliseconds: 600000 })
+    return JSON.parse(output.trim().split(/\r?\n/).at(-1) ?? '')
+  }
+
+  /** @param {string[]} args */
+  static run(args) {
+    return this.probe('icon', args)
+  }
+
+  /** @param {IconBuild} built */
+  static msix(built) {
+    return IconGate.find(IconGate.output(built, 'windows'), (file) => file.endsWith('.msix'))[0]
   }
 
   /** @param {IconBuild} built */
   static async artifact(built) {
     const exe = this.executable(built)
     const lines = [IconGate.expectColor(`the icon Explorer shows for ${path.basename(exe)}`, (await this.run(['file', exe])).file, IconFixture.small.color)]
-    const [msix] = IconGate.find(IconGate.output(built, 'windows'), (file) => file.endsWith('.msix'))
-    if (!msix) return [...lines, 'no MSIX package (pass --release with TAC_WINDOWS_CERTIFICATE to check its tiles)']
+    const msix = this.msix(built)
+    if (!msix) return [...lines, 'no MSIX package (pass --release to check its tiles)']
     const unpacked = path.join(built.project, 'msix')
     mkdirSync(unpacked, { recursive: true })
     await IconGate.run('tar.exe', ['-xf', msix, '-C', unpacked])
@@ -523,6 +618,38 @@ class WindowsIcons {
       lines.push(IconGate.expectFile(`MSIX ${tile}`, path.join(unpacked, 'Assets', tile), IconFixture.small))
     }
     return lines
+  }
+
+  /** @param {IconBuild} built */
+  static async installed(built) {
+    const msix = this.msix(built)
+    assert.ok(msix, 'the --release build made no MSIX package')
+    const name = readFileSync(path.join(built.project, 'msix', 'AppxManifest.xml'), 'utf8').match(/<Identity Name="([^"]+)"/)?.[1]
+    assert.ok(name, 'the MSIX AppxManifest.xml names no package identity')
+    const trusted = await WindowsCertificate.trust()
+    /** @type {{ package: string, app: string } | undefined} */
+    let installed
+    try {
+      installed = await this.probe('package', ['install', msix, name])
+      const app = installed.app
+      const lines = [`installed ${installed.package}${trusted ? ', signed with the throwaway certificate trusted in LocalMachine\\TrustedPeople' : ''}`]
+      for (const edge of [44, 150]) lines.push(IconGate.expectColor(`the icon the shell shows for ${app} at ${edge} px`, await this.tile(app, edge), IconFixture.small.color))
+      return lines
+    } finally {
+      if (installed) await this.probe('package', ['remove', installed.package])
+      if (trusted) await WindowsCertificate.untrust()
+    }
+  }
+
+  /** @param {string} app @param {number} edge */
+  static async tile(app, edge) {
+    const deadline = Date.now() + 60000
+    let found = (await this.probe('package', ['tile', app, String(edge)])).tile
+    while (!IconPng.near(found, IconFixture.small.color) && Date.now() < deadline) {
+      await sleep(2000)
+      found = (await this.probe('package', ['tile', app, String(edge)])).tile
+    }
+    return found
   }
 
   /** @param {IconBuild} built */

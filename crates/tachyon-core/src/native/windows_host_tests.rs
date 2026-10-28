@@ -8,6 +8,10 @@ pub(super) struct WindowsHostTests;
 impl WindowsHostTests {
     #[cfg(unix)]
     pub(super) const MINGW: &str = "x86_64-w64-mingw32-gcc";
+    #[cfg(all(unix, target_arch = "aarch64"))]
+    pub(super) const MINGW_FOR_WINE: &str = "aarch64-w64-mingw32-gcc";
+    #[cfg(all(unix, not(target_arch = "aarch64")))]
+    pub(super) const MINGW_FOR_WINE: &str = Self::MINGW;
     #[cfg(unix)]
     const HARNESS_HEAD: &str = r"#define UNICODE
 #define WIN32_LEAN_AND_MEAN
