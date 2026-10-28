@@ -2,6 +2,7 @@ use crate::Failure;
 use crate::behavior::JavaPageRuntime;
 use java_browser_runtime::JavaBrowserRuntime;
 use java_class_reader::JavaClassReader;
+use java_delegate_bases::JavaDelegateBases;
 use java_event_members::JavaEventMembers;
 use java_held_streams::JavaHeldStreams;
 use java_models::JavaModels;
@@ -14,6 +15,7 @@ use java_service_table::JavaServiceTable;
 use java_value_type::JavaValueType;
 use java_wasm_program::JavaWasmProgram;
 use java_web_apis::JavaWebApis;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use tea_vm_toolchain::TeaVmToolchain;
 
@@ -23,6 +25,7 @@ mod java_code;
 mod java_composed_types;
 mod java_constructor_provider;
 mod java_declaration;
+mod java_delegate_bases;
 mod java_enclosure;
 mod java_event_members;
 mod java_held_streams;
@@ -228,7 +231,8 @@ impl JavaWebServices {
         let page = (&values, &models, &needs);
         let built = Self::built(&drafts, page, runtime)?;
         let read = built.services;
-        let shared = JavaServiceNeeds::shared(&read, &authored)?;
+        let bases = Self::bases(&drafts);
+        let shared = JavaServiceNeeds::shared(&read, &authored, &bases)?;
         let mut sources: Vec<(PathBuf, String)> = read
             .iter()
             .map(|service| (service.path.clone(), service.source.clone()))
@@ -241,6 +245,13 @@ impl JavaWebServices {
             &all_authored,
         ));
         Ok(sources)
+    }
+
+    fn bases(drafts: &[JavaServiceDraft]) -> BTreeMap<String, Vec<String>> {
+        drafts
+            .iter()
+            .map(|draft| (draft.service.instance.clone(), draft.bases.clone()))
+            .collect()
     }
 
     fn built(
@@ -336,6 +347,13 @@ impl JavaWebServices {
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, &roles.source, "tac")?;
         let source = assembled.as_deref().unwrap_or(&roles.source);
+        let base_owner = needs.owner(
+            &authored.instance,
+            relative,
+            (&authored.source, source, &authored.class),
+        )?;
+        let (filled, bases) = JavaDelegateBases::filled(source, &base_owner)?;
+        let source = filled.as_str();
         let mut events = crate::events::extract(relative, source, "tac")?;
         if let Some(module) = events.as_mut() {
             crate::events::describe(module, relative, snapshot_root, "client")?;
@@ -350,6 +368,7 @@ impl JavaWebServices {
         )?;
         Ok(JavaServiceDraft {
             required: roles.required,
+            bases,
             events,
             held,
             behavior_source,

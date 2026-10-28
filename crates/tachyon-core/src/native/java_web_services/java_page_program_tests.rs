@@ -71,6 +71,7 @@ impl PageFixture {
         JavaServiceDraft {
             service: Self::service(class, source),
             required: Vec::new(),
+            bases: Vec::new(),
             events: None,
             held: Vec::new(),
             behavior_source: source.to_owned(),

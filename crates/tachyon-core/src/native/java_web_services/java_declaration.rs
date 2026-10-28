@@ -43,6 +43,7 @@ impl JavaDeclaration {
         "Deprecated",
     ];
     const LISTENER: &'static str = "OnEvent";
+    const NEEDS: &'static str = "Needs";
     const INSIDE_TYPES: [&'static str; 2] = ["ApplicationEventPublisher", "Behaviors."];
     const READ_ONLY: &'static str = "final";
     const OPENERS: [char; 4] = ['<', '(', '[', '{'];
@@ -84,6 +85,15 @@ impl JavaDeclaration {
         let declared = self.rest.split('=').next().unwrap_or_default();
         let is_field = [self.is_skipped(), self.is_method()] == [false, false];
         is_field.then(|| Self::type_and_name(declared))
+    }
+
+    pub(super) fn needed_field(&self) -> Option<(String, String)> {
+        let unfilled = [
+            self.has_annotation(Self::NEEDS),
+            self.is_method(),
+            self.rest.contains('='),
+        ] == [true, false, false];
+        unfilled.then(|| Self::type_and_name(&self.rest))
     }
 
     pub(super) fn field_type(&self) -> Option<String> {

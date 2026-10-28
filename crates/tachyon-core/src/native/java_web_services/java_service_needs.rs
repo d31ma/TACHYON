@@ -49,8 +49,9 @@ impl JavaServiceNeeds {
     pub(super) fn shared(
         services: &[JavaService],
         texts: &[String],
+        bases: &BTreeMap<String, Vec<String>>,
     ) -> Result<BTreeSet<String>, Failure> {
-        let edges = Self::edges(services);
+        let edges = Self::edges(services, bases);
         services
             .iter()
             .zip(texts)
@@ -136,10 +137,17 @@ impl JavaServiceNeeds {
         [word(before), before == Some(&Self::QUALIFIED), word(after)] == [false, false, false]
     }
 
-    fn edges(services: &[JavaService]) -> BTreeMap<String, BTreeSet<String>> {
+    fn edges(
+        services: &[JavaService],
+        bases: &BTreeMap<String, Vec<String>>,
+    ) -> BTreeMap<String, BTreeSet<String>> {
         services
             .iter()
-            .map(|service| (service.instance.clone(), Self::needed(service)))
+            .map(|service| {
+                let mut needed = Self::needed(service);
+                needed.extend(bases.get(&service.instance).into_iter().flatten().cloned());
+                (service.instance.clone(), needed)
+            })
             .collect()
     }
 

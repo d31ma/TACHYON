@@ -3,6 +3,7 @@
 use super::java_constructor_provider::JavaConstructorProvider;
 use super::java_service::JavaService;
 use super::java_service_needs::JavaServiceNeeds;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 struct NeedsFixture;
@@ -202,16 +203,18 @@ fn services_that_need_each_other_in_a_circle_are_refused() {
         String::from("@Service\nclass counterService {}\n"),
         String::from("@Service\nclass tallyService {}\n"),
     ];
-    let failure = JavaServiceNeeds::shared(&services, &texts).expect_err("circle");
+    let failure =
+        JavaServiceNeeds::shared(&services, &texts, &BTreeMap::new()).expect_err("circle");
     assert!(failure.to_string().contains("in a circle"), "{failure}");
     let alone = [NeedsFixture::service("loop", &[("again", "loop")])];
-    let failure = JavaServiceNeeds::shared(&alone, &texts[..1]).expect_err("self");
+    let failure =
+        JavaServiceNeeds::shared(&alone, &texts[..1], &BTreeMap::new()).expect_err("self");
     assert!(failure.to_string().contains("in a circle"), "{failure}");
     let line = [
         NeedsFixture::service("counter", &[]),
         NeedsFixture::service("tally", &[("counter", "counter")]),
     ];
-    let shared = JavaServiceNeeds::shared(&line, &texts).expect("no circle");
+    let shared = JavaServiceNeeds::shared(&line, &texts, &BTreeMap::new()).expect("no circle");
     assert_eq!(shared.into_iter().collect::<Vec<_>>(), ["counter"]);
 }
 
