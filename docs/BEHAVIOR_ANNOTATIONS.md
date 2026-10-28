@@ -358,7 +358,7 @@ The website section "Take on a service: override and overload" shows a base,
 an override and an overload in each Yon language. A Kotlin, Swift, C#, Ruby or Lua Tac Delegate, or a Rust Delegate in a browser
 build, cannot take on a service and fails with `TY1406`, because browser services in those languages
 cannot need another service, so there is no shared service to hold. In
-JavaScript, TypeScript, Go, Java, Dart, Python and C++ Tac builds a Delegate's base is
+JavaScript, TypeScript, Go, Java, Dart, F#, Python and C++ Tac builds a Delegate's base is
 the page's shared service, so the Delegate and the page see one state. A
 JavaScript or TypeScript Delegate names its base field after the page's
 instance, such as `tax` for `TaxService`, and the page fills it. A Go Delegate
@@ -366,12 +366,14 @@ keeps one `// @Needs` field such as `taxService *TaxService`, and the factory of
 each service that holds the Delegate sets it after it makes the Delegate. A Java
 Delegate's `@Needs` base field starts with the page's instance. A Dart
 Delegate's `@Needs` base field becomes `late`, and the page sets it through the
-service that holds the Delegate, by the page's instance name (`tax`). A base with one
+service that holds the Delegate, by the page's instance name (`tax`). An F#
+Delegate's `[<Needs>] member val TaxService : TaxService = Unchecked.defaultof<TaxService> with get, set`
+starts with the page's instance, which the Delegate asks for when the service that
+holds it makes it. A base with one
 instance for each component (Lifetime prototype or NeedsAll), a base that holds
-its own Delegate in a circle, and a Go Delegate `Needs` field that names
-anything other than a page service fail with `TY1406`. An F# Tac Delegate's
-`[<Needs>]` properties name only other Delegates, so an F# Delegate in a browser
-build cannot take on a service yet and fails with `TY1308`.
+its own Delegate in a circle, and a Go Delegate `Needs` field or an F# Delegate
+`[<Needs>]` property that names anything other than a page service fail with
+`TY1406`.
 
 In the typed languages a Delegate method with the same name and the same
 parameter types as a base method overrides it, and no forward is written for

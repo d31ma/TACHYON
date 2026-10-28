@@ -5,7 +5,7 @@
   by argument count in the others; step 4a adds the Yon proofs and the
   website section; step 4b1 refuses a Tac base where browser services cannot
   share, step 4b2 gives JavaScript, TypeScript, Go, Java and Dart Tac
-  Delegates the page's shared service; step 4b3, F#, follows)
+  Delegates the page's shared service, and step 4b3 gives it to F#)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -308,4 +308,11 @@ then merged to `develop` by fast-forward.
    and Dart (the base field becomes `late` and leaves the Delegate's
    constructor, and the holding service gets an injection named after the
    page's instance that sets it). 4b3 does it for F#, where the Delegate is
-   a private property of its service that the page cannot reach.
+   a private property of its service that the page cannot reach: an F#
+   Delegate's `[<Needs>]` property of a service type is its base, the build
+   starts it with `TacDelegateBase.Need<TaxService>("tax")`, and the page
+   sets that hook to its own `Tac.Need` when it loads, so the Delegate gets
+   the page's instance when its service makes it. The base counts as a need
+   of the service that holds the Delegate, so it is shared and checked for
+   circles like any other F# need, and a base that is not a page service
+   fails with `TY1406`.

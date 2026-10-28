@@ -1,3 +1,4 @@
+use super::fsharp_delegate_bases::FsharpDelegateBases;
 use super::fsharp_part::FsharpPart;
 use super::fsharp_service_events::FsharpServiceEvents;
 use super::fsharp_service_needs::FsharpServiceNeeds;
@@ -40,7 +41,7 @@ impl FsharpService {
         let (setups, fsharp, runtime) = Self::program(
             item,
             &part.assembled,
-            (part.runtime, &needs.aliases(&item.class)),
+            (&part.runtimes.concat(), &needs.aliases(&item.class)),
         )?;
         Ok(FsharpSource::web_body(
             &format!("{}{setups}", part.table),
@@ -59,7 +60,9 @@ impl FsharpService {
             authored,
             Self::TAC,
         )?;
-        let assembled = assembled.unwrap_or_else(|| authored.to_owned());
+        let written = assembled.unwrap_or_else(|| authored.to_owned());
+        let assembled = needs.with_bases(&written);
+        let takes_on = usize::from(assembled != written);
         let models = ModelSources::client_metadata(&item.snapshot_root, FsharpSource::EXTENSION)?;
         let with_models = models.assembled(relative, &assembled)?;
         let authored = with_models.as_str();
@@ -95,9 +98,17 @@ impl FsharpService {
             usize::from(needed),
         );
         Ok(FsharpPart {
-            table: format!("{table}{}{}", Self::NO_REQUIRED, Self::lifetime(needed)),
+            table: format!(
+                "{table}{}{}{}",
+                Self::NO_REQUIRED,
+                Self::lifetime(needed),
+                ["", FsharpDelegateBases::CONNECTION][takes_on]
+            ),
             assembled,
-            runtime: events.runtime(),
+            runtimes: [
+                events.runtime(),
+                ["", FsharpDelegateBases::RUNTIME][takes_on],
+            ],
         })
     }
 

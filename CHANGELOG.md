@@ -3457,7 +3457,7 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
-- `@Helper` is now `@Delegate` (ADR 0112 steps 1 to 4b2, ADR 0047 amendment,
+- `@Helper` is now `@Delegate` (ADR 0112 steps 1 to 4b3, ADR 0047 amendment,
   2026-10-28): `@Delegate`, `[Delegate]`, `#[Delegate]`, `// @Delegate` in
   Go, `-- @Delegate` in Lua and `@delegate` in Python. The role folder is
   `delegates/` again in both realms, and a class name ends in `Delegate`
@@ -3495,14 +3495,14 @@ machine contracts have their own, independent major versions.
   the `TY1374` refusal, and the error codes page lists `TY1373` to `TY1375`.
   A Kotlin, Swift, C#, Ruby or Lua Tac Delegate, or a Rust Delegate in a
   browser build, that takes on a service fails with `TY1406`, because browser services there cannot need another
-  service. A JavaScript, TypeScript, Go, Java or Dart Tac Delegate's base is
+  service. A JavaScript, TypeScript, Go, Java, Dart or F# Tac Delegate's base is
   the page's shared service, as it already was in Python and C++: a JavaScript
   or TypeScript base field is named after the page's instance (`tax`), a Go
   Delegate may keep one `// @Needs` base field, a Java base field starts with
-  the page's instance, and a Dart base field becomes `late` and is set by the
-  page. A prototype base, a circle, or a Go Delegate `Needs` field that names
-  no page service fails with `TY1406`. An F# Tac Delegate still cannot take
-  on a service (`TY1308`).
+  the page's instance, a Dart base field becomes `late` and is set by the
+  page, and an F# `[<Needs>]` base property starts with the page's instance.
+  A prototype base, a circle, or a Go Delegate `Needs` field or F# Delegate
+  `[<Needs>]` property that names no page service fails with `TY1406`.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and

@@ -1,9 +1,10 @@
+use super::fsharp_delegate_bases::{FsharpDelegateBase, FsharpDelegateBases};
 use super::registry::NativeCompanionInput;
 use crate::Failure;
 use crate::behavior::ServiceRoles;
 use crate::fsharp_source::{FsharpConstructorProps, FsharpSource, FsharpView};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Default)]
 pub(super) struct FsharpServiceNeeds {
@@ -13,11 +14,14 @@ pub(super) struct FsharpServiceNeeds {
     mentions: BTreeMap<String, BTreeSet<String>>,
     sources: BTreeMap<String, (String, String)>,
     namespaces: BTreeMap<String, String>,
+    bases: BTreeMap<String, Vec<FsharpDelegateBase>>,
+    roots: BTreeMap<String, PathBuf>,
 }
 
 impl FsharpServiceNeeds {
     const CODE: u16 = 1406;
     const NAMESPACE: &'static str = "TachyonService";
+    const TAC: &'static str = "tac";
     pub(super) const PAGE_NAMESPACE: &'static str = "TachyonServiceFsharp";
 
     pub(super) fn ordered<'a>(
@@ -26,6 +30,7 @@ impl FsharpServiceNeeds {
         let mut needs = Self::default();
         needs.add_all(selected)?;
         needs.find_needs();
+        needs.refuse_unknown_bases()?;
         needs.refuse_per_component()?;
         needs.refuse_circles()?;
         let ordered = needs.order(selected);
@@ -39,6 +44,10 @@ impl FsharpServiceNeeds {
         Some(format!(
             "(global::{namespace}.{type_name})Tac.Need({instance:?})"
         ))
+    }
+
+    pub(super) fn with_bases(&self, assembled: &str) -> String {
+        FsharpDelegateBases::filled(assembled, &self.instances)
     }
 
     pub(super) fn is_needed(&self, class: &str) -> bool {
@@ -88,22 +97,77 @@ impl FsharpServiceNeeds {
                 .contains(&true)
                 .then(|| item.class.clone()),
         );
+        self.add_bases(item, &relative, &source);
         self.sources.insert(item.class.clone(), (relative, source));
         Ok(())
+    }
+
+    fn add_bases(&mut self, item: &NativeCompanionInput, relative: &str, source: &str) {
+        let assembled = crate::annotation_modules::assemble(
+            &item.snapshot_root,
+            Path::new(relative),
+            crate::without_bom(source),
+            Self::TAC,
+        );
+        let assembled = assembled.ok().flatten();
+        let bases = FsharpDelegateBases::read(assembled.as_deref().unwrap_or(source), relative);
+        self.bases.insert(item.class.clone(), bases);
+        self.roots
+            .insert(item.class.clone(), item.snapshot_root.clone());
     }
 
     fn find_needs(&mut self) {
         for (class, (relative, source)) in &self.sources {
             let parameters = FsharpConstructorProps::read(Path::new(relative), source, class);
+            let bases = self.page_bases(class);
             let needed: Vec<String> = parameters
                 .into_iter()
                 .map(|parameter| parameter.type_name)
                 .filter(|type_name| self.instances.contains_key(type_name))
+                .chain(bases.iter().cloned())
                 .collect();
             self.needs.insert(class.clone(), needed);
-            self.mentions
-                .insert(class.clone(), self.mentioned(class, source));
+            let mut mentioned = self.mentioned(class, source);
+            mentioned.extend(bases);
+            self.mentions.insert(class.clone(), mentioned);
         }
+    }
+
+    fn page_bases(&self, class: &str) -> Vec<String> {
+        self.bases
+            .get(class)
+            .into_iter()
+            .flatten()
+            .map(|base| base.kind.clone())
+            .filter(|kind| self.instances.contains_key(kind))
+            .collect()
+    }
+
+    fn refuse_unknown_bases(&self) -> Result<(), Failure> {
+        let unknown = self
+            .bases
+            .iter()
+            .flat_map(|(class, bases)| bases.iter().map(move |base| (class, base)))
+            .find(|(_, base)| !self.instances.contains_key(&base.kind));
+        unknown.map_or(Ok(()), |(class, base)| Err(self.unknown_base(class, base)))
+    }
+
+    fn unknown_base(&self, class: &str, base: &FsharpDelegateBase) -> Failure {
+        let root = self
+            .roots
+            .get(class)
+            .map_or(Path::new(""), PathBuf::as_path);
+        let authored = std::fs::read_to_string(root.join(&base.path)).unwrap_or_default();
+        let at = authored.find(&base.name).unwrap_or(0);
+        Failure::one(crate::failure::diagnostic(
+            Self::CODE,
+            format!(
+                "F# Tac Delegate {} needs {}, but the Needs property of an F# Tac Delegate names its base: one service that this page uses (ADR 0112). Give the Delegate other values through method parameters, or let the service that holds it set them.",
+                base.delegate, base.kind
+            ),
+            None,
+            crate::failure::source_span(&base.path, at, at + base.name.len()),
+        ))
     }
 
     fn mentioned(&self, class: &str, source: &str) -> BTreeSet<String> {
@@ -252,6 +316,10 @@ mod tests {
             "[<Service>]\ntype ZetaService() =\n    member val Count = 0 with get, set\n";
         const ALPHA: &'static str = "[<Service>]\ntype AlphaService() =\n    [<Needs>]\n    member val Zeta : ZetaService = Unchecked.defaultof<ZetaService> with get, set\n    member val Total = 0 with get, set\n";
         const BACK: &'static str = "[<Service>]\ntype ZetaService(alpha: AlphaService) =\n    member val Count = 0 with get, set\n";
+        const QUOTE: &'static str = "[<Service>]\ntype QuoteService() =\n    [<Needs>]\n    member val TaxDelegate : TaxDelegate = Unchecked.defaultof<TaxDelegate> with get, set\n    member val Total = 0 with get, set\n";
+        const TAX: &'static str =
+            "[<Service>]\ntype TaxService() =\n    member val Asked = 0 with get, set\n";
+        const DELEGATE: &'static str = "[<Delegate>]\ntype TaxDelegate() =\n    [<Needs>]\n    member val TaxService : TaxService = Unchecked.defaultof<TaxService> with get, set\n\n    member this.Rate() : int = this.TaxService.Asked\n";
 
         fn input(root: &Path, class: &str, source: &str) -> NativeCompanionInput {
             let path = root.join(format!("client/services/{class}.fs"));
@@ -274,6 +342,16 @@ mod tests {
                 Self::input(root, "AlphaService", Self::ALPHA),
                 Self::input(root, "ZetaService", zeta),
             ]
+        }
+
+        fn with_delegate(root: &Path, services: &[(&str, &str)]) -> Vec<NativeCompanionInput> {
+            let path = root.join("client/delegates/TaxDelegate.fs");
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("delegates");
+            std::fs::write(&path, Self::DELEGATE).expect("delegate source");
+            services
+                .iter()
+                .map(|(class, source)| Self::input(root, class, source))
+                .collect()
         }
 
         fn refusal(zeta: &str) -> String {
@@ -377,5 +455,79 @@ mod tests {
     fn services_that_need_each_other_are_refused() {
         let message = Page::refusal(Page::BACK);
         assert!(message.contains("need each other in a circle"), "{message}");
+    }
+
+    #[test]
+    fn a_delegate_base_is_a_need_of_the_service_that_holds_the_delegate() {
+        let root = tempfile::tempdir().expect("project");
+        let inputs = Page::with_delegate(
+            root.path(),
+            &[("QuoteService", Page::QUOTE), ("TaxService", Page::TAX)],
+        );
+        let selected: Vec<&NativeCompanionInput> = inputs.iter().collect();
+        let (needs, ordered) = FsharpServiceNeeds::ordered(&selected).expect("needs");
+        let classes: Vec<&str> = ordered.iter().map(|item| item.class.as_str()).collect();
+        assert_eq!(classes, ["TaxService", "QuoteService"]);
+        assert!(needs.is_needed("TaxService"));
+        assert!(!needs.is_needed("QuoteService"));
+        let registry = crate::native::registry::source(&inputs, NativeCompanion::CSharp)
+            .expect("registry")
+            .expect("source");
+        assert!(
+            registry.contains(
+                "member val TaxService : TaxService = TacDelegateBase.Need<TaxService>(\"tax\") with get, set"
+            ),
+            "{registry}"
+        );
+        assert!(
+            !registry.contains("Unchecked.defaultof<TaxService>"),
+            "{registry}"
+        );
+        assert!(
+            registry.contains("TacDelegateBase.Needed = Tac.Need;"),
+            "{registry}"
+        );
+        assert_eq!(
+            registry
+                .matches("public static class TacDelegateBase")
+                .count(),
+            1,
+            "{registry}"
+        );
+        let tax = registry
+            .split("namespace TachyonService0 {")
+            .nth(1)
+            .and_then(|rest| rest.split("namespace TachyonService1 {").next())
+            .expect("base service");
+        assert!(tax.contains("Tac.Keep(Instance);"), "{tax}");
+    }
+
+    #[test]
+    fn a_delegate_base_that_the_page_does_not_use_is_refused() {
+        let root = tempfile::tempdir().expect("project");
+        let inputs = Page::with_delegate(root.path(), &[("QuoteService", Page::QUOTE)]);
+        let selected: Vec<&NativeCompanionInput> = inputs.iter().collect();
+        let Err(failure) = FsharpServiceNeeds::ordered(&selected) else {
+            panic!("the page is refused");
+        };
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.to_string(), "TY1406");
+        assert!(diagnostic.message.contains("names its base"), "{failure}");
+        assert_eq!(diagnostic.spans[0].file, "client/delegates/TaxDelegate.fs");
+    }
+
+    #[test]
+    fn a_delegate_whose_base_holds_it_is_a_circle() {
+        let root = tempfile::tempdir().expect("project");
+        let quote = Page::QUOTE.replace("QuoteService", "TaxService");
+        let inputs = Page::with_delegate(root.path(), &[("TaxService", &quote)]);
+        let selected: Vec<&NativeCompanionInput> = inputs.iter().collect();
+        let Err(failure) = FsharpServiceNeeds::ordered(&selected) else {
+            panic!("the page is refused");
+        };
+        assert!(
+            failure.diagnostics()[0].message.contains("in a circle"),
+            "{failure}"
+        );
     }
 }

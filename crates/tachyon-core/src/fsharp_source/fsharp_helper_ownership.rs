@@ -17,8 +17,8 @@ impl<'a> FsharpHelperOwnership<'a> {
     ];
     const NEEDS: &'static str = "Needs";
     const PROPERTY: &'static str = "member val ";
-    const HELPER_SUFFIX: &'static str = "Delegate";
-    const LIMIT: &'static str = "An F# Tac Delegate needs an owner: a caller-owned `new` call outside its own class, or a primary constructor parameter or [<Needs>] property of the class that needs it, which makes a new Delegate for that class. A Delegate has an ordinary primary constructor, its [<Needs>] properties name other Delegates, and it takes no NeedsAll, Lifetime, OnStart, OnStop or OnEvent.";
+    const NEEDED_SUFFIXES: [&'static str; 2] = ["Delegate", "Service"];
+    const LIMIT: &'static str = "An F# Tac Delegate needs an owner: a caller-owned `new` call outside its own class, or a primary constructor parameter or [<Needs>] property of the class that needs it, which makes a new Delegate for that class. A Delegate has an ordinary primary constructor, its [<Needs>] properties name other Delegates or the one page service it takes on (ADR 0112), and it takes no NeedsAll, Lifetime, OnStart, OnStop or OnEvent.";
 
     pub(super) fn read(path: &'a Path, source: &'a str) -> Result<Self, Failure> {
         let code = crate::annotation_layout::masked_source(path, source)?;
@@ -158,7 +158,11 @@ impl<'a> FsharpHelperOwnership<'a> {
             .map(|(type_name, _)| type_name.trim());
         [
             Self::marker_name(&marker.name) == Self::NEEDS,
-            property.is_some_and(|type_name| type_name.ends_with(Self::HELPER_SUFFIX)),
+            property.is_some_and(|type_name| {
+                Self::NEEDED_SUFFIXES
+                    .iter()
+                    .any(|suffix| type_name.ends_with(suffix))
+            }),
         ] == [true, true]
     }
 

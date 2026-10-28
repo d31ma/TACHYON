@@ -975,6 +975,8 @@ mod java_needs_tests;
 mod fsharp_lifetime_tests;
 #[cfg(test)]
 mod fsharp_needs_tests;
+#[cfg(test)]
+mod fsharp_delegate_base_tests;
 
 #[cfg(test)]
 mod named_needs_tests;

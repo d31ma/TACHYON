@@ -41,7 +41,7 @@ impl<'page> FsharpPage<'page> {
             .replace('\\', "/");
         self.add_head(segments.next().unwrap_or_default(), &entry)?;
         segments.try_for_each(|segment| self.add_part(segment))?;
-        self.runtimes.insert(part.runtime);
+        self.runtimes.extend(part.runtimes);
         self.page.add_service(index, item, part.table);
         Ok(())
     }
