@@ -3,8 +3,12 @@ use super::script_named_needs_tests::ScriptNamedNeeds;
 struct ScriptDelegateBase;
 
 impl ScriptDelegateBase {
-    const PAGE: [(&'static str, &'static str); 2] = [
+    const PAGE: [(&'static str, &'static str); 3] = [
         ("client/pages/tac.html", "<quote-panel />"),
+        (
+            "client/manifest.json",
+            "{\"tac\":{\"visibility\":{\"check\":false}}}",
+        ),
         (
             "client/components/quote/panel/tac.html",
             "<p>{quote.quote()} {tax.asked}</p>",
@@ -49,7 +53,7 @@ impl ScriptDelegateBase {
          const [, tax] = await open('Tax')\n\
          const filled = []\n\
          for (const member of quoteModule.__tachyon_event_owners__(quote)) {\n\
-         \x20 for (const key of Object.keys(member)) {\n\
+         \x20 for (const key of Object.getOwnPropertyNames(member)) {\n\
          \x20   if (key !== 'tax' || member[key] !== undefined) continue\n\
          \x20   member[key] = tax\n\
          \x20   filled.push(member.constructor.name)\n\
