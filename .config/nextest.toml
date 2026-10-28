@@ -45,3 +45,9 @@ slow-timeout = { period = "60s", terminate-after = 15 }
 [[profile.default.overrides]]
 filter = 'test(pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler)'
 slow-timeout = { period = "60s", terminate-after = 16 }
+
+# Each settings-profiles proof runs every language's test units in turn: about 95 s alone, over 300 s on a loaded Windows ARM64 machine.
+[[profile.default.overrides]]
+filter = 'test(/^test_marker_proofs::(tac|yon)_test_settings_profiles_fresh_start_and_inputs_run_in_every_language$/)'
+test-group = 'heavy'
+slow-timeout = { period = "60s", terminate-after = 15 }
