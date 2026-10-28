@@ -331,6 +331,11 @@ jobs:
       - name: Install the C# WebAssembly workload
         run: dotnet workload install wasm-tools wasm-tools-net9
 
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.18.0
+
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -752,6 +757,9 @@ jobs:
           echo "${expected_checksum}  ${library}" | shasum -a 256 --check
           echo "TAC_KOTLIN_WASM_STDLIB=${library}" >> "${GITHUB_ENV}"
 
+      - name: Install checksum-pinned Groovy for Groovy behavior annotations
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy
+
       - name: Install checksum-pinned Dart SDK for Dart services and published examples
         run: |
           set -euo pipefail
@@ -812,7 +820,7 @@ jobs:
       - name: Require every behavior annotation runtime
         run: |
           set -euo pipefail
-          for runtime in node bun python3 php php-cgi ruby java javac kotlinc dotnet rustc swiftc dart dartaotruntime go; do
+          for runtime in node bun python3 php php-cgi ruby java javac kotlinc groovyc dotnet rustc swiftc dart dartaotruntime go; do
             command -v "${runtime}"
           done
           javac -version
@@ -1002,6 +1010,11 @@ jobs:
         run: |
           rustup toolchain install 1.97.1 --profile minimal
           rustup default 1.97.1
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.18.0
 
       - name: Install Bun for native WebView acceptance
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -1260,6 +1273,14 @@ jobs:
           php-version: '8.4'
           coverage: none
           tools: none
+
+      - name: Install .NET for C# and F# web services
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Install the C# WebAssembly workload
+        run: dotnet workload install wasm-tools wasm-tools-net9
 
       - name: Install checksum-pinned Groovy, Kotlin, the Kotlin/Wasm stdlib, Lua, Pyodide and TeaVM
         run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy kotlin kotlin-wasm lua pyodide teavm

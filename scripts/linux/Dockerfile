@@ -20,6 +20,7 @@ RUN apt-get update \
       nodejs \
       pkg-config \
       python3-gi \
+      squashfs-tools \
       unzip \
       x11-utils \
       xauth \

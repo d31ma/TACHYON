@@ -151,7 +151,7 @@ impl Dispatch {
         let outcome = self
             .before_middleware(request.uri(), request.headers(), method)
             .await;
-        self.serve_unless_responded(outcome, path, request).await
+        Box::pin(self.serve_unless_responded(outcome, path, request)).await
     }
 
     async fn before_middleware(
