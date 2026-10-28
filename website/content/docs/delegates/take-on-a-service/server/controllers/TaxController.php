@@ -4,6 +4,8 @@ use Models\TaxAnswer;
 #[RequestRoute("/tax")]
 #[Public]
 class TaxController {
+  private const int COUNT = 3;
+
   #[Needs]
   private TaxDelegate $taxDelegate;
 
@@ -11,8 +13,8 @@ class TaxController {
   public function getTax(): TaxAnswer {
     return new TaxAnswer(
       $this->taxDelegate->rate("north"),
-      $this->taxDelegate->total(3),
-      $this->taxDelegate->total(3, 4),
+      $this->taxDelegate->total(self::COUNT),
+      $this->taxDelegate->total(self::COUNT, 4),
     );
   }
 }

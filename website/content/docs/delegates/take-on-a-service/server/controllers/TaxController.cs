@@ -3,6 +3,8 @@ using Models;
 [RequestRoute("/tax")]
 [Public]
 class TaxController {
+  private const int Count = 3;
+
   [Needs]
   TaxDelegate _taxDelegate;
 
@@ -10,7 +12,7 @@ class TaxController {
   public TaxAnswer GetTax() {
     return new TaxAnswer(
       _taxDelegate.Rate("north"),
-      _taxDelegate.Total(3),
-      _taxDelegate.Total(3, 4));
+      _taxDelegate.Total(Count),
+      _taxDelegate.Total(Count, 4));
   }
 }

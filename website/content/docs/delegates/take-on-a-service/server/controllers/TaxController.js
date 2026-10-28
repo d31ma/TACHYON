@@ -2,6 +2,8 @@
 @RequestRoute("/tax")
 @Public
 class TaxController {
+  static _COUNT = 3;
+
   /** @type {TaxDelegate} */
   @Needs
   taxDelegate;
@@ -11,8 +13,8 @@ class TaxController {
   getTax() {
     return {
       rate: this.taxDelegate.rate("north"),
-      total: this.taxDelegate.total(3),
-      extra: this.taxDelegate.total(3, 4),
+      total: this.taxDelegate.total(TaxController._COUNT),
+      extra: this.taxDelegate.total(TaxController._COUNT, 4),
     };
   }
 }

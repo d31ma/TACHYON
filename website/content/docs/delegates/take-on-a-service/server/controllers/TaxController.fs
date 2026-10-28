@@ -3,8 +3,10 @@ open Models
 [<RequestRoute("/tax")>]
 [<Public>]
 type TaxController(taxDelegate: TaxDelegate) =
+    static let count = 3
+
     [<GetRoute>]
     member this.GetTax() : TaxAnswer =
         { Rate = taxDelegate.Rate("north")
-          Total = taxDelegate.Total(3)
-          Extra = taxDelegate.Total(3, 4) }
+          Total = taxDelegate.Total(count)
+          Extra = taxDelegate.Total(count, 4) }

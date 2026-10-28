@@ -9,7 +9,11 @@ class TaxController {
   @GetRoute
   fun getTax(): TaxAnswer = TaxAnswer(
     rate = taxDelegate.rate("north"),
-    total = taxDelegate.total(3),
-    extra = taxDelegate.total(3, 4),
+    total = taxDelegate.total(COUNT),
+    extra = taxDelegate.total(COUNT, 4),
   )
+
+  companion object {
+    private const val COUNT = 3
+  }
 }

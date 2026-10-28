@@ -3,6 +3,8 @@ import models.TaxAnswer;
 @RequestRoute("/tax")
 @Public
 class TaxController {
+  private static final int COUNT = 3;
+
   @Needs
   TaxDelegate taxDelegate;
 
@@ -10,7 +12,7 @@ class TaxController {
   TaxAnswer getTax() {
     return new TaxAnswer(
         taxDelegate.rate("north"),
-        taxDelegate.total(3),
-        taxDelegate.total(3, 4));
+        taxDelegate.total(COUNT),
+        taxDelegate.total(COUNT, 4));
   }
 }
