@@ -169,7 +169,8 @@ class IconFixture {
       },
     }
     this.write(project, 'client/manifest.json', JSON.stringify(manifest, null, 2))
-    this.write(project, 'client/pages/tac.html', '<main><h1>Icon gate</h1><p>The app icon comes from client/manifest.json.</p></main>\n')
+    this.write(project, 'client/pages/tac.html', '<gate-icon />\n')
+    this.write(project, 'client/components/gate/icon/tac.html', '<main><h1>Icon gate</h1><p>The app icon comes from client/manifest.json.</p></main>\n')
     this.write(project, 'client/shared/icons/gate.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8" fill="#000"/></svg>\n')
     for (const icon of [this.large, this.small, this.tray]) this.write(project, `client${icon.file}`, IconPng.solid(icon.edge, icon.color))
   }
@@ -331,7 +332,7 @@ class MacOsIcons {
   static async screen(built) {
     if (!this.probe) {
       this.probe = path.join(IconGate.root, 'MacOsIconCheck')
-      await IconGate.run('/usr/bin/xcrun', ['swiftc', '-warnings-as-errors', '-O', '-framework', 'AppKit', path.join(IconGate.repository, 'scripts/native/MacOsIconCheck.swift'), '-o', this.probe])
+      await IconGate.run('/usr/bin/xcrun', ['swiftc', '-parse-as-library', '-warnings-as-errors', '-O', '-framework', 'AppKit', path.join(IconGate.repository, 'scripts/native/MacOsIconCheck.swift'), '-o', this.probe])
     }
     const log = path.join(homedir(), 'Library/Logs/Tachyon', `${IconFixture.id}.jsonl`)
     rmSync(log, { force: true })
