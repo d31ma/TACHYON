@@ -36,8 +36,9 @@ impl ArgumentRange {
         let open = masked[name_end..line_end]
             .trim_start()
             .starts_with('(')
-            .then(|| name_end + masked[name_end..].find('('))
-            .flatten();
+            .then(|| masked[name_end..].find('('))
+            .flatten()
+            .map(|offset| name_end + offset);
         let inside = open.map_or(Some(name_end..line_end), |open| {
             Some(open + 1..ParameterSplit::matching_close(masked, open)?)
         })?;
@@ -62,9 +63,10 @@ impl ArgumentRange {
         self.most.map_or_else(
             || format!("{required} or more"),
             |most| {
-                (most == required)
-                    .then(|| required.to_string())
-                    .unwrap_or_else(|| format!("{required} to {most}"))
+                Some(most).filter(|most| *most != required).map_or_else(
+                    || required.to_string(),
+                    |most| format!("{required} to {most}"),
+                )
             },
         )
     }

@@ -63,9 +63,9 @@ impl DispatchText {
         range.most.map_or_else(
             || format!("{count} >= {required}"),
             |most| {
-                python
-                    .then(|| format!("{required} <= {count} <= {most}"))
-                    .unwrap_or_else(|| format!("{count} >= {required} {and} {count} <= {most}"))
+                let joined = format!("{count} >= {required} {and} {count} <= {most}");
+                let chained = format!("{required} <= {count} <= {most}");
+                [joined, chained][usize::from(python)].clone()
             },
         )
     }
