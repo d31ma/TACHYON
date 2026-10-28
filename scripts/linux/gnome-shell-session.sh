@@ -2,13 +2,19 @@
 set -euo pipefail
 
 release_document_portal() {
-  if mountpoint -q "$STATE/runtime/doc" 2>/dev/null; then
-    fusermount3 -u "$STATE/runtime/doc" 2>/dev/null || fusermount -u "$STATE/runtime/doc" 2>/dev/null || true
-  fi
+  for _ in $(seq 40); do
+    mountpoint -q "$STATE/runtime/doc" 2>/dev/null || return 0
+    fusermount3 -uz "$STATE/runtime/doc" 2>/dev/null || fusermount -uz "$STATE/runtime/doc" 2>/dev/null || true
+    sleep 0.25
+  done
 }
 
 remove_private_folders() {
   release_document_portal
+  for _ in $(seq 40); do
+    rm -rf "$STATE" 2>/dev/null && return 0
+    sleep 0.25
+  done
   rm -rf "$STATE"
 }
 

@@ -105,7 +105,7 @@ run_in_desktop() {
   fi
   export LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals
   export GIO_USE_VFS=local GIO_USE_VOLUME_MONITOR=unix
-  cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 "${skipped[@]}"
+  cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 --nocapture "${skipped[@]}"
   cargo test --locked -p tachyon-core --lib the_linux_ -- --ignored --test-threads=1
 }
 
