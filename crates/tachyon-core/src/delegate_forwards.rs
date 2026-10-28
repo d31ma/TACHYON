@@ -113,8 +113,7 @@ impl<'a> DelegateForwards<'a> {
             .filter(|name| !OwnMethods::declares(masked, name))
             .collect();
         let overloads = DynamicDispatch::overloads(path, (source, masked), base, &methods)?;
-        let dynamic =
-            ForwardText::written(path, (source, masked), base, (&undeclared, &overloads));
+        let dynamic = ForwardText::written(path, (source, masked), base, (&undeclared, &overloads));
         dynamic.map_or_else(
             || TypedForward::written(path, (source, masked), base, &methods),
             |text| Ok(Some(text)),

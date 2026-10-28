@@ -1,4 +1,7 @@
-use super::{ArgumentRange, DelegateBase, DelegateForwards, DelegateRefusal, MethodHeader, OwnMethods, Signature};
+use super::{
+    ArgumentRange, DelegateBase, DelegateForwards, DelegateRefusal, MethodHeader, OwnMethods,
+    Signature,
+};
 use crate::Failure;
 use std::path::Path;
 

@@ -1,4 +1,6 @@
-use super::{ArgumentRange, DelegateBase, DelegateForwards, DelegateRefusal, OwnMethods, SourceLines};
+use super::{
+    ArgumentRange, DelegateBase, DelegateForwards, DelegateRefusal, OwnMethods, SourceLines,
+};
 use crate::Failure;
 use std::path::Path;
 
@@ -73,7 +75,8 @@ impl<'a> DynamicDispatch<'a> {
             name,
         );
         let pair = own.zip(base);
-        let clash = pair.filter(|((_, own), base)| [own != base, own.overlaps(*base)] == [true, true]);
+        let clash =
+            pair.filter(|((_, own), base)| [own != base, own.overlaps(*base)] == [true, true]);
         clash.map_or(Ok(()), |((at, own), base)| {
             Err(self.overlap(name, at, (own, base)))
         })?;
@@ -92,7 +95,12 @@ impl<'a> DynamicDispatch<'a> {
         start + offset.unwrap_or_default()
     }
 
-    fn overlap(&self, name: &str, at: usize, (own, base): (ArgumentRange, ArgumentRange)) -> Failure {
+    fn overlap(
+        &self,
+        name: &str,
+        at: usize,
+        (own, base): (ArgumentRange, ArgumentRange),
+    ) -> Failure {
         let delegate = DelegateForwards::class_name(self.path);
         let service = &self.base.service;
         let message = format!(
