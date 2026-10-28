@@ -532,11 +532,12 @@ ran the rest of the Linux desktop work on the same WSL Ubuntu 24.04
   WebAssembly page services, the WindowControls and FilePicker callers and
   the stored field, with `page-steps-probe.py` focusing the portal's file
   dialog each time. The first whole run ran out of time on a cold `swiftc`
-  start (`TY1605`), because WSL drops its page cache when idle; with
+  start (`TY1605`), probably because WSL drops its page cache when idle; with
   `swiftc` warmed in the same job the second run passed.
 - `lightdm` is disabled in WSL (D34, `systemctl disable --now lightdm`),
-  since xrdp gives the desktop. WSL now reports `running` with no failed
-  unit, and xrdp still works. Nothing else in WSL changed, apart from
+  since xrdp gives the desktop. After `systemctl reset-failed lightdm`, WSL
+  reports `running` with no failed unit, and xrdp still works. WSL was not
+  restarted, so a clean boot without `degraded` is not yet seen. Nothing else in WSL changed, apart from
   installing `gnome-screenshot` for the screenshots below.
 - Wayland: instead of a remote login, `scripts/linux/gnome-shell-session.sh`
   (new) starts GNOME Shell 46 headless on Wayland (`--headless --wayland`,
@@ -554,8 +555,8 @@ ran the rest of the Linux desktop work on the same WSL Ubuntu 24.04
   screenshots: the page's notification reached GNOME Shell's notification
   server, and the tray app's icon and menu worked in its tray, except the
   close step, which the probe skips on Wayland (no `xdotool` Alt+F4); the
-  gate's PASS line now says so. The default `compositor-test.sh` (headless
-  mutter) still passed (101 s), and on the Mac fmt and `repository_policy`
+  gate's PASS line now says so. The default `compositor-test.sh` (xfwm4
+  under Xvfb, then headless mutter) still passed (101 s), and on the Mac fmt and `repository_policy`
   (25 of 25) passed.
 
 This is a GNOME Shell Wayland session, but nobody can see or sign in to

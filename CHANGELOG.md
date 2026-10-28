@@ -2449,7 +2449,8 @@ machine contracts have their own, independent major versions.
   land below GNOME Shell's top bar and beside the Ubuntu Dock.
   `desktop-services-test.sh` no longer claims that closing hid the window
   when the tray probe skipped that step on Wayland, and
-  `compositor-test.sh --desktop` prints the host tests' own output.
+  `compositor-test.sh --desktop` prints the output of the `native::linux_`
+  host tests.
 - A warm Ruby handler on Windows relays on every request, not only the first
   (WR1, 2026-10-28). `Process.spawn` there puts the relay pipes over the
   runner's standard input while it starts the child, and Ruby's `IO.select`
@@ -3456,7 +3457,7 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
-- `@Helper` is now `@Delegate` (ADR 0112 step 1, ADR 0047 amendment,
+- `@Helper` is now `@Delegate` (ADR 0112 steps 1, 2a and 2b, ADR 0047 amendment,
   2026-10-28): `@Delegate`, `[Delegate]`, `#[Delegate]`, `// @Delegate` in
   Go, `-- @Delegate` in Lua and `@delegate` in Python. The role folder is
   `delegates/` again in both realms, and a class name ends in `Delegate`
@@ -3471,8 +3472,8 @@ machine contracts have their own, independent major versions.
   changes no behavior: a Delegate without a service acts as a Helper did.
   The ADR 0069 layer rules that named helpers now apply to Delegates, and
   the marker matrix's 29 Helper cells are Delegate cells with the same
-  tests. A Delegate that needs one service of its realm takes on that
-  service's public methods in every language: the build writes a forward
+  tests. A Delegate that needs one service of its realm and language
+  takes on that service's public methods in every language: the build writes a forward
   for each method the Delegate does not write itself (JavaScript,
   TypeScript, Python, PHP, Ruby and Lua pass every argument on; the typed
   languages copy each base signature, one forward per overload where the
