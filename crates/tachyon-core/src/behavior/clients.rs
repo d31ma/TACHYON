@@ -178,7 +178,10 @@ fn client_dependencies(
                 calls.push(format!("resolve('{provider}')"));
                 dependencies.push(provider);
             }
-            None => calls.push(format!("properties?.['{field}']")),
+            None => calls.push(
+                [String::from("undefined"), format!("properties?.['{field}']")][usize::from(is_root)]
+                    .clone(),
+            ),
         }
     }
     if item.constructor.is_some() || providers.contains(&item.name) {
@@ -246,7 +249,9 @@ fn field_provider(
         .and_then(|qualifiers| qualifiers.get(field))
         .and_then(serde_json::Value::as_str);
     let candidates = matching_providers(providers, qualifier, field_type, field);
-    if is_root && qualifier.is_none() && candidates.is_empty() {
+    let unnamed = [qualifier.is_none(), candidates.is_empty()] == [true, true];
+    let filled_by_the_page = [is_root, item.markers.contains("Delegate")].contains(&true);
+    if [unnamed, filled_by_the_page] == [true, true] {
         return Ok(None);
     }
     if candidates.len() != 1 {
@@ -549,6 +554,17 @@ mod tests {
         let lowered = lowered_tac_js(source);
         assert!(
             lowered.contains("new Products(resolve('ProductsClient'),properties?.['open'])"),
+            "{lowered}"
+        );
+    }
+
+    #[test]
+    fn a_delegate_field_that_names_no_client_waits_for_the_page_service() {
+        let source = "@Delegate()\n@NeedsAll()\nclass TaxDelegate {\ntax;\nrate(region) { return this.tax.rate(region) * 2; }\n}\n@Service()\n@NeedsAll()\nexport default class QuoteService {\ntaxDelegate;\nquote() { return this.taxDelegate.rate('north'); }\n}";
+        let lowered = lowered_tac_js(source);
+        assert!(lowered.contains("new TaxDelegate(undefined)"), "{lowered}");
+        assert!(
+            lowered.contains("new QuoteService(resolve('TaxDelegate'))"),
             "{lowered}"
         );
     }

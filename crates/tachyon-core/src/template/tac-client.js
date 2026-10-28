@@ -696,9 +696,11 @@ const createServiceInstance = async (name, service, properties, scope) => {
   Owners.stored.set(instance, service.stored || {})
   attachRuntime(instance, scope)
   if (service.native && nativeHost()) drainCompanionQueue()
-  for (const key of Object.keys(instance)) {
-    if (key === name || !Object.hasOwn(Services.catalog, key) || instance[key] !== undefined) continue
-    instance[key] = await serviceSingleton(key)
+  for (const member of Runtime.graphs.get(instance) || [instance]) {
+    for (const key of Object.keys(member)) {
+      if (key === name || !Object.hasOwn(Services.catalog, key) || member[key] !== undefined) continue
+      member[key] = await serviceSingleton(key)
+    }
   }
   return instance
 }
