@@ -2,20 +2,36 @@ use crate::Failure;
 use std::path::Path;
 
 mod base_methods;
+mod call_arguments;
 mod class_close;
 mod delegate_base;
 mod forward_text;
+mod fsharp_parameters;
+mod marker_end;
+mod marker_strip;
+mod method_header;
 mod own_methods;
+mod parameter_split;
 mod source_lines;
+mod typed_forward;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod typed_tests;
 
 use base_methods::BaseMethods;
+use call_arguments::CallArguments;
 use class_close::ClassClose;
 use delegate_base::DelegateBase;
 use forward_text::ForwardText;
+use fsharp_parameters::FsharpParameters;
+use marker_end::MarkerEnd;
+use marker_strip::MarkerStrip;
+use method_header::MethodHeader;
 use own_methods::OwnMethods;
+use parameter_split::ParameterSplit;
 use source_lines::SourceLines;
+use typed_forward::TypedForward;
 
 pub(crate) struct DelegateForwards<'a> {
     services: Vec<(&'a Path, &'a str)>,
@@ -57,8 +73,10 @@ impl<'a> DelegateForwards<'a> {
 
     fn written(path: &Path, source: &str, base: &DelegateBase<'_>) -> Option<String> {
         let masked = crate::annotation_layout::masked_source(path, source).ok()?;
-        let names = BaseMethods::forwarded(base, &masked);
+        let methods = BaseMethods::forwarded(base, &masked);
+        let names: Vec<String> = methods.iter().map(|(name, _)| name.clone()).collect();
         ForwardText::written(path, (source, &masked), base, &names)
+            .or_else(|| TypedForward::written(path, (source, &masked), base, &methods))
     }
 
     fn in_folder(path: &Path, folder: &str) -> bool {

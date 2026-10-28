@@ -1,8 +1,7 @@
 # ADR 0112: A Delegate Takes On the Methods of Its Service
 
-- Status: Accepted (step 1, the rename, is in; step 2 writes forwards for
-  JavaScript, TypeScript, Python, PHP and Ruby; the rest of step 2 and steps 3
-  and 4 follow)
+- Status: Accepted (step 1, the rename, is in; step 2 writes forwards in
+  every language; steps 3 and 4 follow)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -131,7 +130,7 @@ accessors and methods marked `OnStart`, `OnStop` or `OnEvent` (and Python
 properties). A method name that the Delegate declares is not forwarded; step 3
 compares parameters as well.
 
-The forwards pass every argument on unchanged:
+The dynamic languages forward every argument on unchanged:
 
 | Language | Forward |
 | --- | --- |
@@ -140,6 +139,30 @@ The forwards pass every argument on unchanged:
 | Python | `def name(self, *args, **kwargs): return self.field.name(*args, **kwargs)` |
 | PHP | `public function name(...$args) { return $this->field->name(...$args); }` |
 | Ruby | `def name(...) field.name(...) end`, after a `public` line so a `private` section above does not hide it |
+| Lua | `function Delegate:name(...) return self.field:name(...) end`, after the file's last line |
+
+The typed languages copy each base signature. The copy drops the markers
+(`@CacheKey`, `[CacheKey]`, `#[...]`, `[[...]]`, `[<...>]`) and the words that
+belong to the base's body (`override`, `virtual`, `abstract`, `open`, `sealed`,
+and `async` in C# and Dart, whose forward returns the task or future as it
+is). In Java, Groovy, Kotlin, C#, C++ and Swift each overload of a name gets
+its own forward. Private overloads and, in Rust, methods without `pub` are
+not copied.
+
+| Language | Forward | Placed |
+| --- | --- | --- |
+| Java, Groovy, C#, Dart | `signature { return field.name(a, b); }`, without `return` for `void` | before the class's closing brace |
+| C++ | the same, with `->` for a pointer field | after a `public:` line before the class's closing brace |
+| Kotlin | `signature = field.name(a, *rest)` | before the class's closing brace |
+| Swift | `signature { return try await field.name(a, label: b) }`, with `try` and `await` only when the base throws or is async | before the class's closing brace |
+| F# | `member this.Name(a: T) : R = field.Name(a)`, or `this.Field.Name(a)` for a `member val` field | after the type's last line |
+| Go | `func (delegate *Delegate) Name(a T) R { return delegate.field.Name(a) }`, with `rest...` for a variadic parameter | after the file's last line |
+| Rust | `impl Delegate { pub fn name(&self, a: T) -> R { self.field.name(a) } }`, with `.await` for `async fn` | after the file's last line |
+
+The arguments keep what the call needs in each language: Swift argument
+labels (`_` drops the label), `&` for `inout`, C# `ref` and `out`, Dart named
+parameters as `name: name`, Kotlin `*` for `vararg`, Go `...` for a variadic
+parameter.
 
 ### What "same parameters" means in each language
 
@@ -227,12 +250,13 @@ then merged to `develop` by fast-forward.
    already read), and write the forwards in every language. `TY1373`.
    Done in two parts: first JavaScript, TypeScript, Python, PHP and Ruby,
    which forward every argument unchanged; then the typed languages and Lua,
-   which copy each base signature. The Java, C# and F# Tac builds write a
-   Delegate's `Needs` fields as `new` objects today, so that part also makes
-   them pass the shared service instance to the base field.
+   which copy each base signature.
 3. **Override and overload.** Signature comparison per language, the
    dispatch bodies for TypeScript, JavaScript, Python, Ruby, Lua and PHP,
    and `TY1374` and `TY1375`.
 4. **Proofs.** One Tac and one Yon example per language for base, override
    and overload (or its refusal), the new matrix rows, and a fresh marker
-   matrix iteration.
+   matrix iteration. The Java, C# and F# Tac builds write a Delegate's `Needs`
+   fields as `new` objects today, so a base service there would be a second
+   instance; this step makes them pass the shared service instance to the
+   base field, and the proofs show one shared state.

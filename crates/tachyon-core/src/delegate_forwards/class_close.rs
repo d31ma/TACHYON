@@ -3,7 +3,10 @@ use super::SourceLines;
 pub(super) struct ClassClose;
 
 impl ClassClose {
-    const CLASS_WORD: &'static str = "class";
+    const CLASS_WORDS: [&'static str; 4] = ["class", "type", "struct", "object"];
+    const ATTRIBUTE_OPEN: &'static str = "[[";
+    const ATTRIBUTE_CLOSE: &'static str = "]]";
+    const MEMBER_STEP: &'static str = "  ";
     const RUBY_END: &'static str = "end";
     const RUBY_STEP: &'static str = "  ";
 
@@ -15,6 +18,13 @@ impl ClassClose {
             .char_indices()
             .find(|(_, letter)| Self::closes(*letter, &mut depth))
             .map(|(offset, _)| open + offset)
+    }
+
+    pub(super) fn member_slot(masked: &str, class: &str) -> Option<(usize, String)> {
+        let at = Self::braced(masked, class)?;
+        let line_start = masked[..at].rfind('\n').map_or(0, |offset| offset + 1);
+        let indentation = SourceLines::indentation(&masked[line_start..at]);
+        Some((at, format!("{indentation}{}", Self::MEMBER_STEP)))
     }
 
     pub(super) fn indented(masked: &str, class: &str) -> Option<(usize, String)> {
@@ -58,17 +68,26 @@ impl ClassClose {
     }
 
     fn declares_class(masked: &str, at: usize, length: usize) -> bool {
-        let before = masked[..at].trim_end().strip_suffix(Self::CLASS_WORD);
-        let keyword = before.is_some_and(|rest| {
-            rest.chars()
-                .next_back()
-                .is_none_or(|letter| !SourceLines::is_word_letter(letter))
+        let before = Self::without_attribute(masked[..at].trim_end());
+        let keyword = Self::CLASS_WORDS.iter().any(|word| {
+            before.strip_suffix(word).is_some_and(|rest| {
+                rest.chars()
+                    .next_back()
+                    .is_none_or(|letter| !SourceLines::is_word_letter(letter))
+            })
         });
         let whole = masked[at + length..]
             .chars()
             .next()
             .is_none_or(|letter| !SourceLines::is_word_letter(letter));
         [keyword, whole] == [true, true]
+    }
+
+    fn without_attribute(before: &str) -> &str {
+        before
+            .strip_suffix(Self::ATTRIBUTE_CLOSE)
+            .and_then(|inside| inside.rfind(Self::ATTRIBUTE_OPEN))
+            .map_or(before, |open| before[..open].trim_end())
     }
 
     fn closes(letter: char, depth: &mut usize) -> bool {

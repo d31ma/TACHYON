@@ -3,7 +3,7 @@
 use super::DelegateForwards;
 use std::path::Path;
 
-struct Project;
+pub(super) struct Project;
 
 impl Project {
     const JS_SERVICE: &str = "@Service\nexport default class TaxService {\n  rate(region) {\n    return 2;\n  }\n\n  async total(items) {\n    return items.length;\n  }\n\n  _secret() {\n    return 1;\n  }\n\n  static made() {\n    return new TaxService();\n  }\n\n  @OnStart\n  start() {\n    return true;\n  }\n}\n";
@@ -21,7 +21,7 @@ impl Project {
     const TWO_BASES: &str = "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  taxService;\n\n  @Needs\n  priceService;\n}\n";
     const NO_BASE: &str = "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  orderStore;\n\n  rate() {\n    return 2;\n  }\n}\n";
 
-    fn staged(files: &[(&str, &str)], delegate: &str) -> Option<String> {
+    pub(super) fn staged(files: &[(&str, &str)], delegate: &str) -> Option<String> {
         let forwards = Self::forwards(files);
         let source = Self::source(files, delegate);
         forwards

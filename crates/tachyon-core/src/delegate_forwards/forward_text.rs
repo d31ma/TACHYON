@@ -1,4 +1,4 @@
-use super::{ClassClose, DelegateBase, DelegateForwards, SourceLines};
+use super::{ClassClose, DelegateBase, DelegateForwards};
 use std::path::Path;
 
 pub(super) struct ForwardText;
@@ -16,7 +16,10 @@ impl ForwardText {
         let language = path.extension()?.to_str()?;
         let class = DelegateForwards::class_name(path);
         let (at, text) = Self::placed(language, masked, &class)
-            .map(|(at, indentation)| (at, Self::forwards(language, &indentation, base, names)))
+            .map(|(at, indentation)| {
+                let text = Self::forwards((language, &class), &indentation, base, names);
+                (at, text)
+            })
             .filter(|_| !names.is_empty())?;
         Some(format!("{}{text}{}", &source[..at], &source[at..]))
     }
@@ -25,20 +28,14 @@ impl ForwardText {
         match language {
             "py" => ClassClose::indented(masked, class),
             "rb" => ClassClose::ruby_end(masked, class),
-            braced if Self::BRACED.contains(&braced) => Self::before_brace(masked, class),
+            "lua" => Some((masked.len(), String::new())),
+            braced if Self::BRACED.contains(&braced) => ClassClose::member_slot(masked, class),
             _ => None,
         }
     }
 
-    fn before_brace(masked: &str, class: &str) -> Option<(usize, String)> {
-        let at = ClassClose::braced(masked, class)?;
-        let line_start = masked[..at].rfind('\n').map_or(0, |offset| offset + 1);
-        let indentation = SourceLines::indentation(&masked[line_start..at]);
-        Some((at, format!("{indentation}{}", Self::MEMBER_STEP)))
-    }
-
     fn forwards(
-        language: &str,
+        (language, class): (&str, &str),
         indentation: &str,
         base: &DelegateBase<'_>,
         names: &[String],
@@ -46,7 +43,7 @@ impl ForwardText {
         let opening = Self::opening(language, indentation);
         let methods: String = names
             .iter()
-            .map(|name| Self::forward(language, indentation, base, name))
+            .map(|name| Self::forward((language, class), indentation, base, name))
             .collect();
         format!("{opening}{methods}")
     }
@@ -58,7 +55,12 @@ impl ForwardText {
         }
     }
 
-    fn forward(language: &str, indentation: &str, base: &DelegateBase<'_>, name: &str) -> String {
+    fn forward(
+        (language, class): (&str, &str),
+        indentation: &str,
+        base: &DelegateBase<'_>,
+        name: &str,
+    ) -> String {
         let field = &base.field;
         let service = &base.service;
         let step = Self::MEMBER_STEP;
@@ -71,6 +73,9 @@ impl ForwardText {
             ),
             "php" => format!(
                 "\n{indentation}public function {name}(...$args) {{\n{indentation}{step}return $this->{field}->{name}(...$args);\n{indentation}}}\n"
+            ),
+            "lua" => format!(
+                "\nfunction {class}:{name}(...)\n{step}return self.{field}:{name}(...)\nend\n"
             ),
             "py" => format!(
                 "\n\n{indentation}def {name}(self, *args, **kwargs):\n{indentation}{indentation}return self.{field}.{name}(*args, **kwargs)"

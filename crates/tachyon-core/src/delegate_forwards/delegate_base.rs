@@ -1,4 +1,4 @@
-use super::{DelegateForwards, SourceLines};
+use super::{DelegateForwards, FsharpParameters, SourceLines};
 use crate::Failure;
 use crate::annotation_rules::{AnnotationRules, NeededField};
 use crate::failure::{diagnostic, source_span};
@@ -25,6 +25,7 @@ impl<'a> DelegateBase<'a> {
         let bases: Vec<(NeededField, (&'a Path, &'a str))> =
             AnnotationRules::needed_fields(path, source)
                 .into_iter()
+                .chain(FsharpParameters::needed(path, source))
                 .filter_map(|field| {
                     let service = Self::service_of(source, &field, services)?;
                     Some((field, service))

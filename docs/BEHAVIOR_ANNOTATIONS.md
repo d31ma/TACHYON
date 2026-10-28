@@ -347,9 +347,12 @@ writes a forwarding method for each one that the Delegate does not write itself,
 so a class that needs the Delegate can call the service's methods on it. The
 forwards go into the copy of the Delegate that the build reads, not into the
 file you wrote, so design checks, coverage and error locations still point at
-your own code. A Delegate that needs two services fails with `TY1373`. The
-JavaScript, TypeScript, Python, PHP and Ruby builds write forwards today; the
-other languages follow (ADR 0112, plan step 2).
+your own code. A Delegate that needs two services fails with `TY1373`. Every
+language's build writes the forwards. JavaScript, TypeScript, Python, PHP, Ruby
+and Lua forwards pass every argument on; the typed languages copy each base
+signature, one forward per overload where the language has overloads (ADR
+0112). In Java, C# and F# Tac builds a Delegate's base is still a new instance
+rather than the shared service until ADR 0112 plan step 4.
 
 ## Test units
 

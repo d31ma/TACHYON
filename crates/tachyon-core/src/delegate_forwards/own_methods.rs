@@ -3,7 +3,7 @@ use super::SourceLines;
 pub(super) struct OwnMethods;
 
 impl OwnMethods {
-    const MODIFIERS: [&'static str; 12] = [
+    const MODIFIERS: [&'static str; 16] = [
         "public",
         "private",
         "protected",
@@ -16,18 +16,51 @@ impl OwnMethods {
         "def",
         "function",
         "fun",
+        "func",
+        "fn",
+        "pub",
+        "member",
     ];
-    const KEYWORDS: [&'static str; 3] = ["def", "function", "fun"];
+    const KEYWORDS: [&'static str; 6] = ["def", "function", "fun", "func", "fn", "member"];
+    const NOT_BEFORE: [&'static str; 4] = ["=", "(", "return", "new "];
     const MEMBER_MARKS: [char; 2] = ['.', ':'];
     const HEADER_ENDS: [char; 3] = ['{', '(', ','];
     const PARAMETER_STARTS: [char; 2] = ['(', '<'];
 
     pub(super) fn declares(masked: &str, name: &str) -> bool {
-        masked.lines().any(|line| Self::declared_on(line, name))
+        masked.lines().any(|line| {
+            [Self::declared_on(line, name), Self::typed_on(line, name)].contains(&true)
+        })
+    }
+
+    fn typed_on(line: &str, name: &str) -> bool {
+        line.match_indices(name)
+            .any(|(offset, _)| Self::typed_at(line, offset, name.len()))
+    }
+
+    fn typed_at(line: &str, offset: usize, length: usize) -> bool {
+        let before = line[..offset].trim();
+        let after = line[offset + length..].trim_start();
+        let alone = before
+            .chars()
+            .next_back()
+            .is_some_and(|letter| !['.', ':'].contains(&letter));
+        let whole = line[offset + length..]
+            .chars()
+            .next()
+            .is_none_or(|letter| !SourceLines::is_word_letter(letter));
+        let opens = after.starts_with(Self::PARAMETER_STARTS);
+        let plain = !Self::NOT_BEFORE.iter().any(|word| before.contains(word));
+        let word_start = line[..offset]
+            .chars()
+            .next_back()
+            .is_none_or(|letter| !SourceLines::is_word_letter(letter));
+        [alone, whole, opens, plain, word_start] == [true, true, true, true, true]
     }
 
     fn declared_on(line: &str, name: &str) -> bool {
-        let (keyword, rest) = Self::without_modifiers(line);
+        let (keyword, written) = Self::without_modifiers(line);
+        let rest = Self::without_receiver(written);
         let head_end = rest
             .find(|letter: char| {
                 ![
@@ -46,6 +79,12 @@ impl OwnMethods {
         let header = line.trim_end().ends_with(Self::HEADER_ENDS);
         let braced = [plain, opens, header] == [true, true, true];
         [member == name, [keyword, braced].contains(&true)] == [true, true]
+    }
+
+    fn without_receiver(rest: &str) -> &str {
+        rest.strip_prefix('(')
+            .and_then(|inside| inside.split_once(')'))
+            .map_or(rest, |(_, after)| after.trim_start())
     }
 
     fn without_modifiers(line: &str) -> (bool, &str) {
