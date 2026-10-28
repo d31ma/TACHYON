@@ -1112,36 +1112,28 @@ impl AnnotationRules {
         ))
     }
 
-    pub(crate) fn injected_fields(path: &Path, source: &str) -> Vec<injected_field::InjectedField> {
+    fn file_scan(path: &Path, source: &str) -> scan::Scan {
         let extension = path
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        scan::Scan::run(extension, source).injected_fields(source, Realm::of(path))
+        scan::Scan::run(extension, source)
+    }
+
+    pub(crate) fn injected_fields(path: &Path, source: &str) -> Vec<injected_field::InjectedField> {
+        Self::file_scan(path, source).injected_fields(source, Realm::of(path))
     }
 
     pub(crate) fn needed_fields(path: &Path, source: &str) -> Vec<NeededField> {
-        let extension = path
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        scan::Scan::run(extension, source).needed_fields(source, Realm::of(path))
+        Self::file_scan(path, source).needed_fields(source, Realm::of(path))
     }
 
     pub(crate) fn nullable_fields(path: &Path, source: &str) -> Vec<nullable_field::NullableField> {
-        let extension = path
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        scan::Scan::run(extension, source).nullable_fields(source, Realm::of(path))
+        Self::file_scan(path, source).nullable_fields(source, Realm::of(path))
     }
 
     pub(crate) fn framework_members(path: &Path, source: &str) -> Vec<usize> {
-        let extension = path
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        scan::Scan::run(extension, source).framework_members(source, Realm::of(path))
+        Self::file_scan(path, source).framework_members(source, Realm::of(path))
     }
 
     pub(crate) fn find(written: &str) -> Option<&'static Rule> {

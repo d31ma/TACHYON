@@ -18,11 +18,7 @@ impl ClassClose {
     }
 
     pub(super) fn indented(masked: &str, class: &str) -> Option<(usize, String)> {
-        let declared = Self::declaration(masked, class)?;
-        let lines = SourceLines::with_offsets(masked);
-        let header = lines
-            .iter()
-            .position(|(at, line)| at + line.len() > declared)?;
+        let (lines, header) = Self::header_line(masked, class)?;
         let level = SourceLines::indentation(lines[header].1).len();
         let body: Vec<&(usize, &str)> = lines[header + 1..]
             .iter()
@@ -36,17 +32,22 @@ impl ClassClose {
     }
 
     pub(super) fn ruby_end(masked: &str, class: &str) -> Option<(usize, String)> {
-        let declared = Self::declaration(masked, class)?;
-        let lines = SourceLines::with_offsets(masked);
-        let header = lines
-            .iter()
-            .position(|(at, line)| at + line.len() > declared)?;
+        let (lines, header) = Self::header_line(masked, class)?;
         let indentation = SourceLines::indentation(lines[header].1);
         let end = lines[header + 1..]
             .iter()
             .rev()
             .find(|(_, line)| Self::ends_class(line, indentation))?;
         Some((end.0, format!("{indentation}{}", Self::RUBY_STEP)))
+    }
+
+    fn header_line<'a>(masked: &'a str, class: &str) -> Option<(Vec<(usize, &'a str)>, usize)> {
+        let declared = Self::declaration(masked, class)?;
+        let lines = SourceLines::with_offsets(masked);
+        let header = lines
+            .iter()
+            .position(|(at, line)| at + line.len() > declared)?;
+        Some((lines, header))
     }
 
     fn declaration(masked: &str, class: &str) -> Option<usize> {
