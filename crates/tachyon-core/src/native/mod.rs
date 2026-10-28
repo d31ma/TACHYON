@@ -323,6 +323,7 @@ mod target_support_entry;
 mod target_support_tests;
 mod vendor_provenance;
 mod web_program_build;
+mod web_delegate_bases;
 mod web_service_needs;
 #[cfg(test)]
 mod web_service_needs_tests;

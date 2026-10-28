@@ -210,3 +210,35 @@ fn browser_services_that_build_their_own_values_are_not_refused() {
         );
     }
 }
+
+#[test]
+fn a_rust_browser_delegate_cannot_take_on_a_service() {
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("fixture root: {error}"));
+    WebNeedsFixture::write(
+        root.path(),
+        "client/services/CounterService.rs",
+        WebNeedsFixture::RUST_COUNTER,
+    );
+    WebNeedsFixture::write(
+        root.path(),
+        "client/delegates/CountDelegate.rs",
+        "#[Delegate]\n#[derive(Default)]\npub struct CountDelegate {\n    #[Needs]\n    counter_service: std::sync::Arc<CounterService>,\n}\n\n\
+         impl CountDelegate {\n    pub fn twice(&self) -> i64 {\n        2\n    }\n}\n",
+    );
+    let services = [(
+        String::from("counter"),
+        String::from("CounterService"),
+        root.path().join("client/services/CounterService.rs"),
+    )];
+    let inputs = NativeCompanionInput::web_services(root.path(), NativeCompanion::Rust, &services);
+    let failure = super::registry::source(&inputs, NativeCompanion::Rust)
+        .err()
+        .unwrap_or_else(|| panic!("CountDelegate takes on CounterService and must be refused"));
+    let text = failure.to_string();
+    assert!(text.contains("TY1406"), "{text}");
+    assert!(
+        text.contains("CountDelegate takes on CounterService, but a Rust browser service cannot need another service"),
+        "{text}"
+    );
+    assert!(text.contains("client/delegates/CountDelegate.rs"), "{text}");
+}

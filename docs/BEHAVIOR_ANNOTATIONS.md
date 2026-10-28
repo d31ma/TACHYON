@@ -355,8 +355,8 @@ signature, one forward per overload where the language has overloads (ADR
 because a controller and its roles share one module; a Rust Tac Delegate takes
 on only `pub` methods, because a Tac service may be compiled as its own module.
 The website section "Take on a service: override and overload" shows a base,
-an override and an overload in each Yon language. A Kotlin, Swift, C#, Ruby or Lua Tac Delegate cannot take on a service and
-fails with `TY1406` at the field, because browser services in those languages
+an override and an overload in each Yon language. A Kotlin, Swift, C#, Ruby or Lua Tac Delegate, or a Rust Delegate in a browser
+build, cannot take on a service and fails with `TY1406`, because browser services in those languages
 cannot need another service, so there is no shared service to hold. In Java,
 Go and F# Tac builds a Delegate's base is not yet the page's shared service;
 ADR 0112 step 4b fills it.

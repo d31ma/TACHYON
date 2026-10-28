@@ -81,6 +81,7 @@ pub(super) fn source(
         return Ok(None);
     }
     super::web_service_needs::WebServiceNeeds::refuse(&selected)?;
+    super::web_delegate_bases::WebDelegateBases::refuse(&selected)?;
     if language == NativeCompanion::Rust && selected.iter().all(|input| !input.web_assembly) {
         return super::rust_page_graph::RustPageGraph::source(&selected).map(Some);
     }
