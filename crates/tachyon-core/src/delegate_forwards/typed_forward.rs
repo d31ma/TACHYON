@@ -71,7 +71,11 @@ impl<'a> TypedForward<'a> {
         ["", Self::FSHARP_OWNER][usize::from([language == "fs", parameter] == [true, false])]
     }
 
-    fn headers(&self, service_masked: &str, methods: &[(String, usize)]) -> Vec<(String, MethodHeader)> {
+    fn headers(
+        &self,
+        service_masked: &str,
+        methods: &[(String, usize)],
+    ) -> Vec<(String, MethodHeader)> {
         let lines = SourceLines::with_offsets(service_masked);
         let mut seen = BTreeSet::new();
         methods
@@ -132,7 +136,9 @@ impl<'a> TypedForward<'a> {
         let braced = Self::BRACED.contains(&self.language);
         let at_end = Self::AT_END.contains(&self.language);
         let placements = [
-            braced.then(|| ClassClose::member_slot(masked, &self.delegate)).flatten(),
+            braced
+                .then(|| ClassClose::member_slot(masked, &self.delegate))
+                .flatten(),
             at_end.then(|| (source.len(), String::new())),
             (self.language == "fs")
                 .then(|| ClassClose::indented(masked, &self.delegate))
@@ -191,9 +197,7 @@ impl<'a> TypedForward<'a> {
     }
 
     fn go_method(&self, declaration: &str, call: &str, returns_value: bool) -> String {
-        let receiver_end = declaration
-            .find(')')
-            .map_or(0, |close| close + 1);
+        let receiver_end = declaration.find(')').map_or(0, |close| close + 1);
         let rest = &declaration[receiver_end..];
         let receiver = Self::GO_RECEIVER;
         let returned = ["", "return "][usize::from(returns_value)];

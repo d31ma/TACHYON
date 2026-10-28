@@ -28,9 +28,9 @@ impl OwnMethods {
     const PARAMETER_STARTS: [char; 2] = ['(', '<'];
 
     pub(super) fn declares(masked: &str, name: &str) -> bool {
-        masked.lines().any(|line| {
-            [Self::declared_on(line, name), Self::typed_on(line, name)].contains(&true)
-        })
+        masked
+            .lines()
+            .any(|line| [Self::declared_on(line, name), Self::typed_on(line, name)].contains(&true))
     }
 
     fn typed_on(line: &str, name: &str) -> bool {

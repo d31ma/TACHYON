@@ -9,7 +9,9 @@ impl FsharpParameters {
     const TYPE_WORD: &'static str = "type ";
 
     pub(super) fn needed(path: &Path, source: &str) -> Vec<NeededField> {
-        let fsharp = path.extension().is_some_and(|extension| extension == Self::EXTENSION);
+        let fsharp = path
+            .extension()
+            .is_some_and(|extension| extension == Self::EXTENSION);
         let masked = fsharp
             .then(|| crate::annotation_layout::masked_source(path, source).ok())
             .flatten()

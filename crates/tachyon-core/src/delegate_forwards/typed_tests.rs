@@ -7,7 +7,8 @@ struct Typed;
 impl Typed {
     const JAVA_SERVICE: &str = "@Service\nclass TaxService {\n    int rate(String region) {\n        return 2;\n    }\n\n    int rate(String region, int year) {\n        return year;\n    }\n\n    public void record(@CacheKey String sku, int count) {\n        System.out.println(sku);\n    }\n\n    private int secret() {\n        return 1;\n    }\n}\n";
     const JAVA_DELEGATE: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private final TaxService taxes;\n\n    int total(String region) {\n        return taxes.rate(region) * 2;\n    }\n}\n";
-    const GROOVY_SERVICE: &str = "@Service\nclass TaxService {\n    int rate(String region) {\n        return 2\n    }\n}\n";
+    const GROOVY_SERVICE: &str =
+        "@Service\nclass TaxService {\n    int rate(String region) {\n        return 2\n    }\n}\n";
     const GROOVY_DELEGATE: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private TaxService taxes\n\n    int total(String region) {\n        return taxes.rate(region) * 2\n    }\n}\n";
     const KOTLIN_SERVICE: &str = "@Service\nclass TaxService {\n    fun rate(region: String): Int {\n        return 2\n    }\n\n    fun rates(vararg regions: String): Int = regions.size\n\n    private fun secret(): Int {\n        return 1\n    }\n}\n";
     const KOTLIN_DELEGATE: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private val taxes: TaxService\n\n    fun rate(region: String): Int {\n        return taxes.rate(region) * 2\n    }\n}\n";
@@ -42,18 +43,23 @@ impl Typed {
     fn staged(language: &str, (service, delegate): (&str, &str)) -> String {
         let service_path = format!("server/services/TaxService.{language}");
         let delegate_path = format!("server/delegates/TaxDelegate.{language}");
-        let files = [(service_path.as_str(), service), (delegate_path.as_str(), delegate)];
+        let files = [
+            (service_path.as_str(), service),
+            (delegate_path.as_str(), delegate),
+        ];
         Project::staged(&files, &delegate_path).expect("forwards")
     }
 
     fn client_staged(language: &str, (service, delegate): (&str, &str)) -> String {
         let service_path = format!("client/services/TaxService.{language}");
         let delegate_path = format!("client/delegates/TaxDelegate.{language}");
-        let files = [(service_path.as_str(), service), (delegate_path.as_str(), delegate)];
+        let files = [
+            (service_path.as_str(), service),
+            (delegate_path.as_str(), delegate),
+        ];
         Project::staged(&files, &delegate_path).expect("forwards")
     }
 }
-
 
 #[test]
 fn a_java_delegate_takes_on_each_public_overload_with_its_own_signature() {
@@ -120,4 +126,3 @@ fn a_lua_delegate_gets_functions_that_pass_every_argument_on() {
     let staged = Typed::client_staged("lua", (Typed::LUA_SERVICE, Typed::LUA_DELEGATE));
     assert_eq!(staged, Typed::LUA_STAGED);
 }
-

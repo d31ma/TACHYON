@@ -10,7 +10,10 @@ impl BaseMethods {
         "onstart", "onstop", "onevent", "property", "setter", "getter",
     ];
 
-    pub(super) fn forwarded(base: &DelegateBase<'_>, delegate_masked: &str) -> Vec<(String, usize)> {
+    pub(super) fn forwarded(
+        base: &DelegateBase<'_>,
+        delegate_masked: &str,
+    ) -> Vec<(String, usize)> {
         let class = RoleClass::read(base.service_path, base.service_source)
             .ok()
             .flatten();

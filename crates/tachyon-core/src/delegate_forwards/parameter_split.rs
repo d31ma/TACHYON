@@ -36,7 +36,8 @@ impl ParameterSplit {
         let mut previous = ' ';
         text.char_indices()
             .filter(|(_, letter)| {
-                let arrow = [*letter == '>', Self::ARROW_STARTS.contains(&previous)] == [true, true];
+                let arrow =
+                    [*letter == '>', Self::ARROW_STARTS.contains(&previous)] == [true, true];
                 let opened = usize::from(Self::OPENERS.contains(letter));
                 let closed = usize::from([Self::CLOSERS.contains(letter), !arrow] == [true, true]);
                 let comma = [*letter == ',', depth == 0] == [true, true];

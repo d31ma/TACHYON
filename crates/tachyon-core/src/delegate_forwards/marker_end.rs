@@ -40,7 +40,8 @@ impl MarkerEnd {
         bytes[open..]
             .iter()
             .position(|byte| {
-                depth = (depth + usize::from(*byte == b'(')).saturating_sub(usize::from(*byte == b')'));
+                depth =
+                    (depth + usize::from(*byte == b'(')).saturating_sub(usize::from(*byte == b')'));
                 [*byte == b')', depth == 0] == [true, true]
             })
             .map(|offset| open + offset)
@@ -49,7 +50,10 @@ impl MarkerEnd {
     fn enclosed(bytes: &[u8], at: usize, (open, close): (&[u8], &[u8])) -> Option<usize> {
         bytes[at..].starts_with(open).then_some(())?;
         let inside = at + open.len();
-        bytes.get(inside).is_some_and(u8::is_ascii_uppercase).then_some(())?;
+        bytes
+            .get(inside)
+            .is_some_and(u8::is_ascii_uppercase)
+            .then_some(())?;
         let length = bytes[inside..]
             .windows(close.len())
             .position(|window| window == close)?;

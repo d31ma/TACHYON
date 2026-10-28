@@ -13,9 +13,9 @@ mod method_header;
 mod own_methods;
 mod parameter_split;
 mod source_lines;
-mod typed_forward;
 #[cfg(test)]
 mod tests;
+mod typed_forward;
 #[cfg(test)]
 mod typed_tests;
 
