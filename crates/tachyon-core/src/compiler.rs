@@ -47,10 +47,10 @@ mod route_build_state;
 mod script_assets;
 #[cfg(test)]
 mod script_assets_tests;
-pub(crate) mod script_import;
-pub(crate) mod script_imports;
 #[cfg(test)]
 mod script_delegate_base_tests;
+pub(crate) mod script_import;
+pub(crate) mod script_imports;
 #[cfg(test)]
 mod script_marker_proof_tests;
 #[cfg(test)]

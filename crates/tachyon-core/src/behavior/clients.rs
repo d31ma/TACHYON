@@ -179,8 +179,11 @@ fn client_dependencies(
                 dependencies.push(provider);
             }
             None => calls.push(
-                [String::from("undefined"), format!("properties?.['{field}']")][usize::from(is_root)]
-                    .clone(),
+                [
+                    String::from("undefined"),
+                    format!("properties?.['{field}']"),
+                ][usize::from(is_root)]
+                .clone(),
             ),
         }
     }

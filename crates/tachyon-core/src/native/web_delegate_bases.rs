@@ -17,7 +17,9 @@ impl WebDelegateBases {
     pub(super) fn refuse(selected: &[&NativeCompanionInput]) -> Result<(), Failure> {
         selected
             .iter()
-            .find(|item| [item.language == NativeCompanion::Rust, item.web_assembly] == [true, true])
+            .find(|item| {
+                [item.language == NativeCompanion::Rust, item.web_assembly] == [true, true]
+            })
             .map_or(Ok(()), |item| Self::refuse_in(&item.snapshot_root))
     }
 
@@ -44,7 +46,10 @@ impl WebDelegateBases {
             .flatten()
             .flatten()
             .map(|entry| entry.path())
-            .filter(|path| path.extension().is_some_and(|extension| extension == Self::RUST))
+            .filter(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == Self::RUST)
+            })
             .filter_map(|path| {
                 let source = std::fs::read_to_string(&path).ok()?;
                 Some((Path::new(folder).join(path.file_name()?), source))

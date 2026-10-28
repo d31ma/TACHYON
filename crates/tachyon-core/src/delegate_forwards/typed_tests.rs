@@ -137,8 +137,18 @@ fn a_lua_delegate_gets_functions_that_pass_every_argument_on() {
 #[test]
 fn a_tac_delegate_cannot_take_on_a_service_where_browser_services_do_not_share() {
     let delegates = [
-        ("kt", Typed::KOTLIN_SERVICE, Typed::KOTLIN_DELEGATE, "Kotlin"),
-        ("swift", Typed::SWIFT_SERVICE, Typed::SWIFT_DELEGATE, "Swift"),
+        (
+            "kt",
+            Typed::KOTLIN_SERVICE,
+            Typed::KOTLIN_DELEGATE,
+            "Kotlin",
+        ),
+        (
+            "swift",
+            Typed::SWIFT_SERVICE,
+            Typed::SWIFT_DELEGATE,
+            "Swift",
+        ),
         ("cs", Typed::CSHARP_SERVICE, Typed::CSHARP_DELEGATE, "C#"),
         ("lua", Typed::LUA_SERVICE, Typed::LUA_DELEGATE, "Lua"),
     ];

@@ -963,20 +963,20 @@ mod fsharp_lifecycle_tests;
 #[cfg(test)]
 mod fsharp_tests;
 #[cfg(test)]
-mod java_helper_tests;
-#[cfg(test)]
 mod java_delegate_base_tests;
+#[cfg(test)]
+mod java_helper_tests;
 #[cfg(test)]
 mod java_lifetime_tests;
 #[cfg(test)]
 mod java_needs_tests;
 
 #[cfg(test)]
+mod fsharp_delegate_base_tests;
+#[cfg(test)]
 mod fsharp_lifetime_tests;
 #[cfg(test)]
 mod fsharp_needs_tests;
-#[cfg(test)]
-mod fsharp_delegate_base_tests;
 
 #[cfg(test)]
 mod named_needs_tests;
