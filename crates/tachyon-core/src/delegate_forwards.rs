@@ -1,11 +1,16 @@
 use crate::Failure;
 use std::path::Path;
 
+mod argument_range;
 mod base_methods;
 mod call_arguments;
 mod class_close;
 mod delegate_base;
 mod delegate_refusal;
+#[cfg(test)]
+mod dispatch_tests;
+mod dispatch_text;
+mod dynamic_dispatch;
 mod forward_text;
 mod fsharp_parameters;
 mod marker_end;
@@ -25,11 +30,14 @@ mod typed_forward;
 #[cfg(test)]
 mod typed_tests;
 
+use argument_range::ArgumentRange;
 use base_methods::BaseMethods;
 use call_arguments::CallArguments;
 use class_close::ClassClose;
 use delegate_base::DelegateBase;
 use delegate_refusal::DelegateRefusal;
+use dispatch_text::DispatchText;
+use dynamic_dispatch::{DynamicDispatch, Overload};
 use forward_text::ForwardText;
 use fsharp_parameters::FsharpParameters;
 use marker_end::MarkerEnd;
@@ -104,7 +112,9 @@ impl<'a> DelegateForwards<'a> {
             .into_iter()
             .filter(|name| !OwnMethods::declares(masked, name))
             .collect();
-        let dynamic = ForwardText::written(path, (source, masked), base, &undeclared);
+        let overloads = DynamicDispatch::overloads(path, (source, masked), base, &methods)?;
+        let dynamic =
+            ForwardText::written(path, (source, masked), base, (&undeclared, &overloads));
         dynamic.map_or_else(
             || TypedForward::written(path, (source, masked), base, &methods),
             |text| Ok(Some(text)),

@@ -1,4 +1,4 @@
-use super::{ClassClose, DelegateBase, DelegateForwards};
+use super::{ClassClose, DelegateBase, DelegateForwards, DispatchText, Overload};
 use std::path::Path;
 
 pub(super) struct ForwardText;
@@ -11,17 +11,39 @@ impl ForwardText {
         path: &Path,
         (source, masked): (&str, &str),
         base: &DelegateBase<'_>,
-        names: &[String],
+        (names, overloads): (&[String], &[Overload]),
     ) -> Option<String> {
         let language = path.extension()?.to_str()?;
         let class = DelegateForwards::class_name(path);
-        let (at, text) = Self::placed(language, masked, &class)
-            .map(|(at, indentation)| {
-                let text = Self::forwards((language, &class), &indentation, base, names);
-                (at, text)
-            })
-            .filter(|_| !names.is_empty())?;
-        Some(format!("{}{text}{}", &source[..at], &source[at..]))
+        let (at, indentation) = Self::placed(language, masked, &class)
+            .filter(|_| [names.is_empty(), overloads.is_empty()] != [true, true])?;
+        let forwards = Self::forwards((language, &class), &indentation, base, names);
+        let dispatchers: String = overloads
+            .iter()
+            .map(|overload| DispatchText::written((language, &class), &indentation, base, overload))
+            .collect();
+        let text = format!("{forwards}{dispatchers}");
+        Some(Self::edited(source, (at, &text), overloads))
+    }
+
+    fn edited(source: &str, (at, text): (usize, &str), overloads: &[Overload]) -> String {
+        let mut renamed: Vec<usize> = overloads
+            .iter()
+            .map(|overload| overload.renamed_at)
+            .filter(|renamed_at| *renamed_at < at)
+            .collect();
+        renamed.sort_unstable();
+        let mut edited = String::with_capacity(source.len() + text.len());
+        let mut from = 0;
+        for renamed_at in renamed {
+            edited.push_str(&source[from..renamed_at]);
+            edited.push_str(DispatchText::OWN_PREFIX);
+            from = renamed_at;
+        }
+        edited.push_str(&source[from..at]);
+        edited.push_str(text);
+        edited.push_str(&source[at..]);
+        edited
     }
 
     fn placed(language: &str, masked: &str, class: &str) -> Option<(usize, String)> {

@@ -362,6 +362,14 @@ forwarded; Go, Rust and Dart have one method per name and refuse it with
 `TY1374`. An override that returns another type, or a Delegate field named
 like a base method, fails with `TY1375`.
 
+In JavaScript, TypeScript, Python, PHP, Ruby and Lua the build tells an
+override from an overload by how many arguments each method takes. The same
+range of argument counts is an override. Ranges that never meet make an
+overload: the build renames the Delegate's method to `_own_<name>` in its
+copy and writes a `<name>` that calls it or the base by the number of
+arguments. Ranges that meet but differ fail with `TY1374`, because a call
+could match both.
+
 ## Test units
 
 A test unit is an entry, like a route. `server/tests/<Name>Test.<ext>`

@@ -1,8 +1,8 @@
 # ADR 0112: A Delegate Takes On the Methods of Its Service
 
 - Status: Accepted (steps 1 and 2 are in: the rename and the forwards in
-  every language; step 3 compares signatures in the typed languages; the
-  dispatch by argument count and step 4 follow)
+  every language; step 3 compares signatures in the typed languages and
+  dispatches by argument count in the others; step 4 follows)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -179,6 +179,18 @@ argument counts overlap but differ fail with `TY1374`, because a call could
 match both. A typed method with the same parameters as a base method but
 another return type is an override with another return type, and fails with
 `TY1375`.
+
+In the languages that pick by argument count, an overload is written like
+this. The build renames the Delegate's own method to `_own_<name>` in the
+snapshot copy and writes one method `<name>` that calls it when the number of
+arguments is in its range, and the base otherwise. JavaScript and PHP count
+the arguments, Python and Ruby count positional and keyword arguments
+together, Lua counts `select('#', ...)`. TypeScript keeps two overload
+signatures for the type checker, typed from the base and from the renamed
+method. A parameter with a default value (or `?` in TypeScript, `key: value`
+in Ruby) is optional, and a rest parameter (`...args`, `*args`, `**kwargs`,
+`*rest`, `...` in Lua) has no upper limit. Python `self` and `cls`, a
+TypeScript `this` parameter and a Ruby block are not counted.
 
 To compare parameters, the build reads each parameter's type as written,
 without its name, default value or markers: the text after the colon in
