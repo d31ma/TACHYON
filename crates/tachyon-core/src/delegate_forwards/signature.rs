@@ -72,7 +72,9 @@ impl Signature {
     }
 
     fn returns(language: &str, before: &str, after: &str) -> String {
-        let arrow = after.split_once(Self::ARROW).map_or("", |(_, written)| written);
+        let arrow = after
+            .split_once(Self::ARROW)
+            .map_or("", |(_, written)| written);
         let colon = after.trim_start().strip_prefix(':').unwrap_or_default();
         let picked = [
             (language == "go").then_some(after),
@@ -113,9 +115,7 @@ impl Signature {
             "swift" => Some(Self::swift_type(declared)),
             "dart" => Some(Self::dart_type(parameter)),
             "rs" => declared.contains(':').then(|| Self::colon_type(declared)),
-            typed if Self::TYPE_AFTER_COLON.contains(&typed) => {
-                Some(Self::colon_type(declared))
-            }
+            typed if Self::TYPE_AFTER_COLON.contains(&typed) => Some(Self::colon_type(declared)),
             _ => Some(Self::without_name(declared).to_owned()),
         };
         written.map(|text| Self::plain(&text))
@@ -124,7 +124,10 @@ impl Signature {
     fn colon_type(declared: &str) -> String {
         let spread = declared.starts_with(Self::KOTLIN_SPREAD);
         let written = declared.split_once(':').map_or("", |(_, written)| written);
-        format!("{}{written}", ["", Self::KOTLIN_SPREAD][usize::from(spread)])
+        format!(
+            "{}{written}",
+            ["", Self::KOTLIN_SPREAD][usize::from(spread)]
+        )
     }
 
     fn swift_type(declared: &str) -> String {

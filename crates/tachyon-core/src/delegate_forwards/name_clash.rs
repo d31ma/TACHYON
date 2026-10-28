@@ -52,17 +52,17 @@ impl NameClash {
     fn declares_field(language: &str, line: &str, (offset, length): (usize, usize)) -> bool {
         let before = line[..offset].trim();
         let rest = &line[offset + length..];
-        let whole = [
-            line[..offset].chars().next_back(),
-            rest.chars().next(),
-        ]
-        .into_iter()
-        .flatten()
-        .all(|letter| !SourceLines::is_word_letter(letter));
+        let whole = [line[..offset].chars().next_back(), rest.chars().next()]
+            .into_iter()
+            .flatten()
+            .all(|letter| !SourceLines::is_word_letter(letter));
         let after = rest.trim_start_matches(Self::NAME_MARKS).trim_start();
         let ends = [after.is_empty(), after.starts_with(Self::FIELD_ENDS)].contains(&true);
-        let go_field = [language == Self::GO, before.is_empty(), !after.starts_with('(')]
-            == [true, true, true];
+        let go_field = [
+            language == Self::GO,
+            before.is_empty(),
+            !after.starts_with('('),
+        ] == [true, true, true];
         let plain = !Self::NOT_BEFORE.iter().any(|word| before.contains(word));
         let method = SourceLines::words(before)
             .iter()

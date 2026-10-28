@@ -12,10 +12,10 @@ mod marker_end;
 mod marker_strip;
 mod method_header;
 mod name_clash;
-mod own_methods;
-mod own_signatures;
 #[cfg(test)]
 mod override_tests;
+mod own_methods;
+mod own_signatures;
 mod parameter_split;
 mod signature;
 mod source_lines;
