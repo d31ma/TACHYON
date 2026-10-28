@@ -13,8 +13,8 @@ struct Delegate;
 
 impl Delegate {
     const PATH: &str = "server/helpers/probe.py";
-    // Outside the project snapshot that HandlerSource::discover stages, so a change reaches the next relay.
-    const SLEEP_FILE: &str = "sleep-seconds";
+    // HandlerSource::discover stages the project, so a later change must reach the probe in the request.
+    const SLEEP_HEADER: &str = "x-sleep-seconds";
     const SOURCE: &str = r#"import json
 import os
 import subprocess
@@ -48,9 +48,10 @@ if mode == "environment":
 elif mode.startswith("sleep:"):
     time.sleep(float(mode[len("sleep:"):]))
     reply({"slept": True})
-elif mode == "sleep-as-written":
-    with open(sys.argv[2]) as seconds:
-        time.sleep(float(seconds.read()))
+elif mode == "sleep-as-asked":
+    headers = {name.lower(): value for name, value in request["headers"].items()}
+    seconds = headers["x-sleep-seconds"]
+    time.sleep(float(seconds[0] if isinstance(seconds, list) else seconds))
     reply({"slept": True})
 elif mode == "hold":
     write_pid(request, os.getpid())
@@ -346,6 +347,15 @@ fn request_with_pid_file(
     request.headers.insert(
         String::from("x-pid-file"),
         vec![pid_file.to_string_lossy().into_owned()],
+    );
+    request
+}
+
+fn sleeping_request(id: &str, body: &str, seconds: u32) -> HandlerRequest {
+    let mut request = request(id, HttpMethod::Post, body);
+    request.headers.insert(
+        String::from(Delegate::SLEEP_HEADER),
+        vec![seconds.to_string()],
     );
     request
 }
@@ -676,6 +686,30 @@ async fn queue_time_counts_against_the_relay_deadline() {
     busy.await.expect("busy task").expect("busy response");
 }
 
+// Requests cannot ask for more than the default timeout, so a JVM or .NET start that outlasts it on a
+// loaded machine gets more tries before the timed relay.
+async fn start_handler(
+    supervisor: &HandlerSupervisor,
+    source: &HandlerSource,
+    body: &str,
+) -> tachyon_contracts::HandlerResponse {
+    let mut failures = Vec::new();
+    for _ in 0..3 {
+        let started = supervisor
+            .invoke(
+                source,
+                &sleeping_request("start_handler", body, 0),
+                &HandlerCancellation::default(),
+            )
+            .await;
+        match started {
+            Ok(response) => return response,
+            Err(failure) => failures.push(failure),
+        }
+    }
+    panic!("the handler did not start within the default timeout: {failures:?}");
+}
+
 // The first request starts the warm handler and its relay answers at once, so the timed relay measures
 // only the default deadline. start_up_time_counts_against_the_relay_deadline covers start-up time.
 #[tokio::test]
@@ -686,17 +720,12 @@ async fn the_supervisor_default_timeout_limits_relays_without_a_request_deadline
         if !runnable(extension) {
             continue;
         }
-        let control = tempfile::tempdir().expect("sleep control");
-        let sleep_file = control.path().join(Delegate::SLEEP_FILE);
-        // Forward slashes need no escaping in the compiled handlers' string literals, and Windows accepts them.
-        let sleep_path = sleep_file.to_string_lossy().replace('\\', "/");
-        let mode = "sleep-as-written";
-        let body = format!("{mode} {sleep_path}");
+        let mode = "sleep-as-asked";
         let handler = match extension {
             "js" => String::from(Handlers::JAVASCRIPT),
             "py" => String::from(Handlers::PYTHON),
             "rb" => String::from(Handlers::RUBY),
-            _ => Handlers::compiled(extension, mode, &sleep_path).expect("handler"),
+            _ => Handlers::compiled(extension, mode, "").expect("handler"),
         };
         let (root, source) = project(extension, &handler);
         let supervisor = supervisor_for(
@@ -707,18 +736,9 @@ async fn the_supervisor_default_timeout_limits_relays_without_a_request_deadline
                 ..HandlerSupervisorOptions::default()
             },
         );
-        fs::write(&sleep_file, "0").expect("sleep seconds");
-        let warm = supervisor
-            .invoke(
-                &source,
-                &request("start_handler", HttpMethod::Post, &body),
-                &HandlerCancellation::default(),
-            )
-            .await
-            .expect("the handler starts within the default timeout");
+        let warm = start_handler(&supervisor, &source, mode).await;
         assert_eq!(warm.status, 200, "{extension}: {warm:?}");
-        fs::write(&sleep_file, "30").expect("sleep seconds");
-        let unbounded = request("default_deadline", HttpMethod::Post, &body);
+        let unbounded = sleeping_request("default_deadline", mode, 30);
         let started = Instant::now();
         assert_relay_fails_before(
             &supervisor,
