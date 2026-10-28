@@ -1518,8 +1518,8 @@ async function verifyConfigurationWorkedExample() {
   assert.deepEqual([...snippets.keys()], [
     'server/application.json',
     'server/application-production.json',
-    'server/helpers/CatalogProperties.ts',
-    'server/helpers/Endpoint.ts',
+    'server/delegates/CatalogProperties.ts',
+    'server/delegates/Endpoint.ts',
     'server/controllers/ProductsController.ts',
     'server/setups/ProductionSetup.ts',
   ], 'The worked example must publish every source as its own named file')
