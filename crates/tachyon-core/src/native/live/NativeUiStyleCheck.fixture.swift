@@ -100,12 +100,22 @@ import WebKit
     private static func importGraph() throws {
         try NativeUiCssImports.validate(["a.css": ["b.css", "c.css"], "b.css": ["c.css"], "c.css": []])
         let chain = (0..<16).map { "s\($0).css" }
-        try NativeUiCssImports.validate(Dictionary(uniqueKeysWithValues: chain.indices.map { (chain[$0], Array(chain.dropFirst($0 + 1).prefix(1))) }))
+        try NativeUiCssImports.validate(chainGraph(chain))
         let graphs: [[String: [String]]] = [
             ["a.css": ["a.css"]], ["a.css": ["b.css"], "b.css": ["c.css"], "c.css": ["a.css"]],
-            Dictionary(uniqueKeysWithValues: (chain + ["s16.css"]).indices.map { ((chain + ["s16.css"])[$0], Array((chain + ["s16.css"]).dropFirst($0 + 1).prefix(1))) }),
+            chainGraph(chain + ["s16.css"]),
         ]
-        try graphs.forEach { graph in try NativeUiRuntimeFailure.require(importFailure(graph) != nil, "Unbounded CSS import graph was accepted: \(graph.count)") }
+        for graph in graphs {
+            try NativeUiRuntimeFailure.require(importFailure(graph) != nil, "Unbounded CSS import graph was accepted: \(graph.count)")
+        }
+    }
+
+    private static func chainGraph(_ names: [String]) -> [String: [String]] {
+        var graph: [String: [String]] = [:]
+        for (index, name) in names.enumerated() {
+            graph[name] = Array(names.dropFirst(index + 1).prefix(1))
+        }
+        return graph
     }
 
     private static func importFailure(_ graph: [String: [String]]) -> Error? {
