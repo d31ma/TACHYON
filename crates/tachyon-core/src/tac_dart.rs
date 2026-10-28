@@ -1,6 +1,7 @@
 use crate::Failure;
 use crate::events::{EventModule, EventStream};
 use crate::failure::diagnostic;
+use dart_delegate_bases::DartDelegateBases;
 use dart_http_constructor::DartHttpConstructor;
 use dart_model_shape::DartModelShape;
 use dart_page::DartPage;
@@ -13,6 +14,7 @@ use wasm_program::WasmProgram;
 
 #[cfg(test)]
 mod dart_behavior_tests;
+mod dart_delegate_bases;
 mod dart_http_constructor;
 #[cfg(test)]
 mod dart_http_constructor_tests;
@@ -149,6 +151,7 @@ pub(crate) fn prepare(
     crate::behavior::StoredState::refuse_sigils(relative, source)?;
     let assembled = crate::annotation_modules::assemble(snapshot_root, relative, source, "tac")?
         .unwrap_or_else(|| source.to_owned());
+    let assembled = DartDelegateBases::late(snapshot_root, &assembled);
     let mut events = crate::events::extract(relative, &assembled, "tac")?;
     if let Some(module) = events.as_mut() {
         crate::events::describe(module, relative, snapshot_root, "client")?;
@@ -653,12 +656,90 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
                 result.push(Self::tac_service_injection(field, instances)?);
                 continue;
             }
-            if type_name == class || !dart.contains(type_name) || self.declares_class(type_name) {
+            if self.declares_class(type_name) {
+                result.extend(self.base_injections(field, type_name, (dart, instances, class))?);
+                continue;
+            }
+            if type_name == class || !dart.contains(type_name) {
                 continue;
             }
             result.push(Self::dart_service_injection(field, type_name)?);
         }
-        Ok(result)
+        Ok(Self::merged(result))
+    }
+
+    fn base_injections(
+        &self,
+        holder: &str,
+        delegate: &str,
+        (dart, instances, class): (&BTreeSet<&str>, &BTreeSet<String>, &str),
+    ) -> Result<Vec<Injection>, String> {
+        let Some(found) = self
+            .classes
+            .iter()
+            .find(|declared| declared.name == delegate)
+        else {
+            return Ok(Vec::new());
+        };
+        found
+            .declared
+            .iter()
+            .filter_map(|(field, kind)| Some((field, kind.as_deref()?.trim_end_matches('?'))))
+            .filter(|(field, kind)| {
+                [dart.contains(kind), !Self::constructed(found, field)] == [true, true]
+            })
+            .map(|(field, kind)| {
+                Self::base_injection((holder, delegate, field), kind, (instances, class))
+            })
+            .collect()
+    }
+
+    fn constructed(delegate: &Class, field: &str) -> bool {
+        let parameter = format!("this.{field}");
+        delegate
+            .constructor
+            .as_deref()
+            .unwrap_or_default()
+            .contains(&parameter)
+    }
+
+    fn base_injection(
+        (holder, delegate, field): (&str, &str, &str),
+        kind: &str,
+        (instances, class): (&BTreeSet<String>, &str),
+    ) -> Result<Injection, String> {
+        let instance = crate::template::instance_name(kind);
+        let circle = (kind == class).then(|| format!("{delegate} takes on {class}, the service that needs it, so the two would need each other in a circle; break the circle with an event"));
+        let missing = (!instances.contains(&instance)).then(|| {
+            format!(
+                "{delegate} takes on {kind}, and the page has no service addressed as '{instance}'"
+            )
+        });
+        circle.or(missing).map_or_else(
+            || {
+                Ok(Injection {
+                    field: instance.clone(),
+                    dart: Some(kind.to_owned()),
+                    targets: vec![format!("{holder}.{field}")],
+                })
+            },
+            Err,
+        )
+    }
+
+    fn merged(injections: Vec<Injection>) -> Vec<Injection> {
+        injections
+            .into_iter()
+            .fold(Vec::new(), |mut kept: Vec<Injection>, injection| {
+                let same = kept
+                    .iter_mut()
+                    .find(|earlier| earlier.field == injection.field);
+                match same {
+                    Some(earlier) => earlier.targets.extend(injection.targets),
+                    None => kept.push(injection),
+                }
+                kept
+            })
     }
 
     fn declares_class(&self, name: &str) -> bool {
@@ -677,6 +758,7 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
         Ok(Injection {
             field: field.to_owned(),
             dart: None,
+            targets: vec![field.to_owned()],
         })
     }
 
@@ -690,6 +772,7 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
         Ok(Injection {
             field: field.to_owned(),
             dart: Some(type_name.to_owned()),
+            targets: vec![field.to_owned()],
         })
     }
 
@@ -1053,21 +1136,27 @@ fn bridge_class_source(class: &str, constructors: &str, cases: &str, http: bool)
 struct Injection {
     field: String,
     dart: Option<String>,
+    targets: Vec<String>,
 }
 
 fn injection_cases(injections: &[Injection]) -> String {
     let mut inject = String::new();
     for injection in injections {
         let field = &injection.field;
+        let assignments: String = injection
+            .targets
+            .iter()
+            .map(|target| format!("service.{target} = "))
+            .collect();
         if let Some(other) = &injection.dart {
             let _ = writeln!(
                 inject,
-                "          case r'{field}': service.{field} = tachyonDartInstance{other}(__TacDartBridge.integer(values.first))!; return null;"
+                "          case r'{field}': {assignments}tachyonDartInstance{other}(__TacDartBridge.integer(values.first))!; return null;"
             );
         } else {
             let _ = writeln!(
                 inject,
-                "          case r'{field}': service.{field} = TacService.bridge(arguments.toDart.first as JSObject); return null;"
+                "          case r'{field}': {assignments}TacService.bridge(arguments.toDart.first as JSObject); return null;"
             );
         }
     }
@@ -2172,6 +2261,47 @@ class CounterService {
             report["listed"],
             serde_json::json!([{"id": "n1", "text": "hello"}])
         );
+    }
+
+    #[tokio::test]
+    async fn a_dart_delegate_takes_on_the_service_that_the_page_shares() {
+        if !dart_and_node_available() {
+            eprintln!("skipping: dart or node is unavailable");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let tax = "client/services/TaxService.dart";
+        let quote = "client/services/QuoteService.dart";
+        write_file(
+            root.path(),
+            tax,
+            "@Service()\nclass TaxService {\n  int asked = 0;\n\n  int rate(String region) {\n    asked += 1;\n    return 2;\n  }\n}\n",
+        );
+        write_file(
+            root.path(),
+            "client/delegates/TaxDelegate.dart",
+            "@Delegate()\nclass TaxDelegate {\n  @Needs()\n  final TaxService taxService;\n\n  int rate(String region) => taxService.rate(region) * 2;\n}\n",
+        );
+        write_file(
+            root.path(),
+            quote,
+            "@Service()\nclass QuoteService {\n  @Needs()\n  final TaxDelegate taxDelegate;\n\n  int quote() => taxDelegate.rate('north');\n}\n",
+        );
+        let services = [("TaxService", tax), ("QuoteService", quote)];
+        publish(root.path(), &services, &["tax", "quote"]).await;
+        let report = node(
+            root.path(),
+            "import TaxService from './TaxService.js'\n\
+             import QuoteService from './QuoteService.js'\n\
+             const tax = new TaxService({}), quote = new QuoteService({})\n\
+             const waits = Object.keys(quote).includes('tax')\n\
+             quote.tax = tax\n\
+             const quoted = [quote.quote(), quote.quote()]\n\
+             console.log(JSON.stringify({ quoted, asked: tax.asked, waits }))\n",
+        );
+        assert_eq!(report["quoted"], serde_json::json!([4, 4]), "{report}");
+        assert_eq!(report["asked"], 2, "{report}");
+        assert_eq!(report["waits"], true, "{report}");
     }
 
     #[tokio::test]
