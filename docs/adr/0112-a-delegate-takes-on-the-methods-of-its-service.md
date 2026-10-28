@@ -272,8 +272,8 @@ then merged to `develop` by fast-forward.
    their parameters (extending the method lists that `TY2023` and `TY1329`
    already read), and write the forwards in every language. `TY1373`.
    Done in two parts: first JavaScript, TypeScript, Python, PHP and Ruby,
-   which forward every argument unchanged; then the typed languages and Lua,
-   which copy each base signature.
+   which forward every argument unchanged; then Lua, which forwards `...`
+   the same way, and the typed languages, which copy each base signature.
 3. **Override and overload.** Done in two parts: first the signature
    comparison in the typed languages, `TY1374` for Go, Rust and Dart, and
    `TY1375`; then the dispatch bodies for TypeScript, JavaScript, Python,
