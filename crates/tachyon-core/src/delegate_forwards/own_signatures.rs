@@ -1,4 +1,4 @@
-use super::{DelegateBase, DelegateForwards, DelegateRefusal, MethodHeader, OwnMethods, Signature};
+use super::{ArgumentRange, DelegateBase, DelegateForwards, DelegateRefusal, MethodHeader, OwnMethods, Signature};
 use crate::Failure;
 use std::path::Path;
 
@@ -60,7 +60,7 @@ impl<'a> OwnSignatures<'a> {
             .filter_map(|start| {
                 let header =
                     MethodHeader::read(self.language, (self.source, self.masked), start, name)?;
-                let at = start + self.masked[start..].find(name)?;
+                let at = start + ArgumentRange::name_offset(&self.masked[start..], name)?;
                 Some((at, header))
             })
             .collect()
