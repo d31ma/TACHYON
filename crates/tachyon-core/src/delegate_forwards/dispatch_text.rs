@@ -14,6 +14,32 @@ impl DispatchText {
         ("lua", "count"),
     ];
     const AND_WORDS: [(&'static str, &'static str); 2] = [("lua", "and"), ("rb", "&&")];
+    const BODIES: [(&'static str, &'static str); 6] = [
+        (
+            "js",
+            "\n{i}{name}(...args) {\n{i}{s}if ({condition}) {\n{i}{s}{s}return this.{own}(...args);\n{i}{s}}\n{i}{s}return this.{field}.{name}(...args);\n{i}}\n",
+        ),
+        (
+            "ts",
+            "\n{i}{name}(...args: Parameters<{service}['{name}']>): ReturnType<{service}['{name}']>;\n{i}{name}(...args: Parameters<{class}['{own}']>): ReturnType<{class}['{own}']>;\n{i}{name}(...args: any[]): any {\n{i}{s}if ({condition}) {\n{i}{s}{s}return (this.{own} as (...values: any[]) => any).apply(this, args);\n{i}{s}}\n{i}{s}return (this.{field}.{name} as (...values: any[]) => any).apply(this.{field}, args);\n{i}}\n",
+        ),
+        (
+            "php",
+            "\n{i}public function {name}(...$args) {\n{i}{s}if ({condition}) {\n{i}{s}{s}return $this->{own}(...$args);\n{i}{s}}\n{i}{s}return $this->{field}->{name}(...$args);\n{i}}\n",
+        ),
+        (
+            "py",
+            "\n\n{i}def {name}(self, *args, **kwargs):\n{i}{i}if {condition}:\n{i}{i}{i}return self.{own}(*args, **kwargs)\n{i}{i}return self.{field}.{name}(*args, **kwargs)",
+        ),
+        (
+            "lua",
+            "\nfunction {class}:{name}(...)\n{s}local count = select('#', ...)\n{s}if {condition} then\n{s}{s}return self:{own}(...)\n{s}end\n{s}return self.{field}:{name}(...)\nend\n",
+        ),
+        (
+            "rb",
+            "\n{i}def {name}(*args, **kwargs, &block)\n{i}{s}return {own}(*args, **kwargs, &block) if {condition}\n{i}{s}{field}.{name}(*args, **kwargs, &block)\n{i}end\n",
+        ),
+    ];
 
     pub(super) fn written(
         (language, class): (&str, &str),
@@ -21,32 +47,26 @@ impl DispatchText {
         base: &DelegateBase<'_>,
         overload: &Overload,
     ) -> String {
-        let step = Self::STEP;
-        let name = &overload.name;
-        let own = format!("{}{name}", Self::OWN_PREFIX);
-        let field = &base.field;
-        let service = &base.service;
+        let own = format!("{}{}", Self::OWN_PREFIX, overload.name);
         let condition = Self::condition(language, overload.own);
-        match language {
-            "js" => format!(
-                "\n{indentation}{name}(...args) {{\n{indentation}{step}if ({condition}) {{\n{indentation}{step}{step}return this.{own}(...args);\n{indentation}{step}}}\n{indentation}{step}return this.{field}.{name}(...args);\n{indentation}}}\n"
-            ),
-            "ts" => format!(
-                "\n{indentation}{name}(...args: Parameters<{service}['{name}']>): ReturnType<{service}['{name}']>;\n{indentation}{name}(...args: Parameters<{class}['{own}']>): ReturnType<{class}['{own}']>;\n{indentation}{name}(...args: any[]): any {{\n{indentation}{step}if ({condition}) {{\n{indentation}{step}{step}return (this.{own} as (...values: any[]) => any).apply(this, args);\n{indentation}{step}}}\n{indentation}{step}return (this.{field}.{name} as (...values: any[]) => any).apply(this.{field}, args);\n{indentation}}}\n"
-            ),
-            "php" => format!(
-                "\n{indentation}public function {name}(...$args) {{\n{indentation}{step}if ({condition}) {{\n{indentation}{step}{step}return $this->{own}(...$args);\n{indentation}{step}}}\n{indentation}{step}return $this->{field}->{name}(...$args);\n{indentation}}}\n"
-            ),
-            "py" => format!(
-                "\n\n{indentation}def {name}(self, *args, **kwargs):\n{indentation}{indentation}if {condition}:\n{indentation}{indentation}{indentation}return self.{own}(*args, **kwargs)\n{indentation}{indentation}return self.{field}.{name}(*args, **kwargs)"
-            ),
-            "lua" => format!(
-                "\nfunction {class}:{name}(...)\n{step}local count = select('#', ...)\n{step}if {condition} then\n{step}{step}return self:{own}(...)\n{step}end\n{step}return self.{field}:{name}(...)\nend\n"
-            ),
-            _ => format!(
-                "\n{indentation}def {name}(*args, **kwargs, &block)\n{indentation}{step}return {own}(*args, **kwargs, &block) if {condition}\n{indentation}{step}{field}.{name}(*args, **kwargs, &block)\n{indentation}end\n"
-            ),
-        }
+        let body = Self::BODIES
+            .iter()
+            .find(|(owner, _)| *owner == language)
+            .map_or("", |(_, body)| *body);
+        [
+            ("{i}", indentation),
+            ("{s}", Self::STEP),
+            ("{name}", &overload.name),
+            ("{own}", &own),
+            ("{field}", &base.field),
+            ("{service}", &base.service),
+            ("{class}", class),
+            ("{condition}", &condition),
+        ]
+        .into_iter()
+        .fold(body.to_owned(), |text, (key, value)| {
+            text.replace(key, value)
+        })
     }
 
     fn condition(language: &str, range: ArgumentRange) -> String {

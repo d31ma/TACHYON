@@ -1,14 +1,9 @@
 use super::{
-    ArgumentRange, DelegateBase, DelegateForwards, DelegateRefusal, OwnMethods, SourceLines,
+    ArgumentRange, DelegateBase, DelegateForwards, DelegateRefusal, Overload, OwnMethods,
+    SourceLines,
 };
 use crate::Failure;
 use std::path::Path;
-
-pub(super) struct Overload {
-    pub(super) name: String,
-    pub(super) renamed_at: usize,
-    pub(super) own: ArgumentRange,
-}
 
 pub(super) struct DynamicDispatch<'a> {
     language: &'a str,
