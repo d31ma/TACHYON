@@ -53,9 +53,14 @@ Discovery and builds:
 
 Process model:
 
-- Yon starts a new supervised process for each invocation.
-- So an in-process map is not a cache across requests. Provider `singleton`
-  scope cannot be used to pretend that it is.
+- In the default warm mode, one supervised handler process serves many
+  requests, one at a time, and Yon replaces it after a crash, a timeout, its
+  request limit or an idle period (ADR 0111). In process mode, Yon starts a
+  new supervised process for each invocation.
+- So an in-process map is not a cache across requests. It can survive
+  between the requests of one warm process, but not a replacement, another
+  warm process or process mode. Provider `singleton` scope cannot be used to
+  pretend that it is.
 - Durable or shared storage must have explicit ownership.
 
 Cache safety:

@@ -158,6 +158,21 @@ Everything else stays as it is in process mode:
   a new start, that a crash, a timeout, a cancellation and stray output each
   replace it, that a stream ends with its end frame, and that the request
   limit and the idle timeout stop it.
-- The existing process-mode tests pass unchanged with `YON_ISOLATION=process`.
+- Real-process tests run in process mode: all of `handler_process.rs`, the
+  request-isolation test in `yon_dynamic_annotations.rs` (JavaScript,
+  TypeScript, Python and PHP), the generated PHP bootstrap test in
+  `handler/source.rs`, and a test that each request gets a new process for
+  JavaScript, PHP, Ruby, Go, Kotlin, C#, F# and Lua in the `warm_*` files.
+  The other suites run in the default warm mode (amendment below).
 - A benchmark records start and request latency for each handler language in
   `warm` and `process` mode.
+
+## Amendment (2026-10-28): what runs in process mode
+
+The gate first said that the existing process-mode tests pass unchanged
+with `YON_ISOLATION=process`. No suite reads `YON_ISOLATION`. The suites
+build their supervisor from `HandlerSupervisorOptions::default()`, which is
+warm, so after this ADR they ran warm, and only the tests the gate now names
+set `YonIsolationPolicy::Process`. The gate line now says what runs in
+process mode. The gate's runs on macOS, Windows ARM64 and Linux aarch64 and
+the benchmark are recorded in `docs/SUPPORT_TIERS.md` ("Warm Yon handlers").

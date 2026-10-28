@@ -1929,6 +1929,17 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The warm handler tests no longer skip quietly in CI (WW1, 2026-10-28).
+  `warm_dart`, `warm_go`, `warm_lua`, `warm_php`, `warm_ruby`, `warm_rust`
+  and `warm_cpp` ask `Toolchain::checked`, and `go`, `ruby`, `bun`, `cargo`
+  and `clang++` join the tools it requires under `CI`, so a missing tool
+  fails a `CI=1` run on every OS instead of skipping. This holds for every
+  `tests/it` test that asks `Toolchain::checked` for those tools.
+  `warm_handlers.rs` runs its counter and crash cases for TypeScript under
+  bun, and `warm_cpp.rs` runs on Windows too. The two every-language
+  settings-profiles marker proofs join nextest's heavy group with a
+  15-minute limit (WW2), because they took over 300 s on a loaded machine.
+
 - `scripts/windows/high-dpi-test.ps1` also builds an integrated title bar
   app, "Dpi Bar" (WM2, 2026-10-27). At the scaled DPI, and again after a
   monitor move or a scale change (`WM_DPICHANGED`), it checks that the
@@ -3335,6 +3346,28 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
+  `YON_ISOLATION` now takes `warm` (the default), `process` or
+  `firecracker`. Before, every request started its own handler process and
+  stopped it after the response; `YON_ISOLATION=process` keeps that. A warm
+  process serves many requests of one handler, one at a time. Yon starts it
+  on the handler's first request, starts more when requests for the same
+  handler arrive together (within the concurrency limit), and replaces it
+  after a crash, a protocol error, stray stdout, a timeout, a cancellation,
+  a failed relay or `YON_WARM_MAX_REQUESTS` requests (default 1000, 1 to
+  1,000,000). An idle process stops after `YON_WARM_IDLE_SECONDS` (default
+  60, 1 to 3,600). Setting either variable with `process` or `firecracker`
+  fails with `TY2010`. Module-level state can now survive between requests
+  of one process, so a handler that counted on a fresh process for each
+  request (a static counter, a module-level map) must reset that state
+  itself or run with `process`. Socket connections keep their own process,
+  and `firecracker` mode is unchanged. The first request still pays the
+  runtime start; after it, a warm request took about 0.1 ms in the Mac
+  benchmark, where process mode paid about 50 ms for Python, Ruby, PHP and
+  .NET, 100 ms for JavaScript and 440 ms for Java every time
+  (`tests/it/warm_benchmark.rs`, `#[ignore]`; results in
+  `docs/SUPPORT_TIERS.md`, "Warm Yon handlers"). Java handlers still start
+  from source on their first request.
 - A Rust Tac service now shows the page only its `pub` methods. Before, every
   method that took `&self` or `&mut self` reached the page, so a helper
   method was public too. Write `pub fn` on each method a view calls. A view

@@ -1808,6 +1808,83 @@ skipped. The probes now ask `cmd`. Since CI1 (2026-10-19) the windows-latest
 native gate installs PHP, Groovy, Kotlin, Dart and Lua. Its first run with
 them (39253757046) failed 44 tests; WG1 fixed their causes.
 
+### Warm Yon handlers (2026-10-27 and 2026-10-28, ADR 0111, WW1, WW2)
+
+ADR 0111 made warm handler processes the default. These runs are its
+acceptance gate. This evidence does not promote any tier.
+
+- macOS (Apple M4, debug build, 2026-10-27, branch head `5004110a`, on
+  develop as `d3fc7133`): the 51 warm tests (`--test it warm_`, 15
+  languages) passed, as did `handler::isolation` 9 of 9 and
+  `handler_process` 29 of 29. All of `tests/it` passed 768 of 769 and
+  the tachyon-core library tests 3874 of 3876; the three failures came from
+  the Mac's deno 1.38.1, which rejects a flag. Run warm, the older suites
+  found these problems, fixed before the merge: Lua instances shared plain
+  table fields between requests, a failed relay's descendant could survive,
+  Dart code could extend its relay deadline, the first warm request of C#,
+  Go, Java, Kotlin and Dart did not count runtime start-up against its
+  deadline, and one test that expects a static counter to reset now runs in
+  process mode.
+- Windows 11 ARM64 (WW1, 2026-10-28, IYOR-Surface over SSH, branch commit
+  `db55b2eb`, on develop as `6cb5583e`, `CI=1`, with Go 1.27.1, Ruby
+  4.0.6, bun 1.4.3, cargo 1.97.1 and clang++ 21.1.8): `tests/it` ran 745
+  tests and 743 passed (three timing tests on their retry: a
+  `relay_boundaries` PHP deadline, a handler that never reads its input,
+  and a `go_streams` log follow), with 1 skipped. The two failures were
+  the every-language settings-profiles marker proofs, which went over
+  nextest's 300 s limit under load (about 95 s alone); WW2 gave them 15
+  minutes. All 51 warm tests passed, including warm C++ and
+  TypeScript under bun, and no handler process was left after the run.
+  `scripts/test-managed-storage.mjs --without-docker` passed in 199 s.
+- Linux aarch64 (WW2, 2026-10-28, WSL Ubuntu 24.04 on the same Surface,
+  over SSH, develop `32d94984`, `CI=1`, every Yon toolchain installed):
+  `tests/it` passed 768 of 768 (two on their retry), with no timeouts and 1
+  skipped (the `#[ignore]` warm benchmark). All 51 warm tests passed,
+  including warm C++ and TypeScript under bun, and no handler process was
+  left. The Yon settings-profiles proof took 330.7 s. Open finding:
+  `relay_boundaries::the_supervisor_default_timeout_limits_relays_without_a_request_deadline`
+  is flaky on WSL (it failed 1 of 3 runs alone), because its 8 s default
+  deadline includes the Ruby and Java start-up from a USB disk.
+- For WW1 and WW2 the Mac also passed fmt, clippy, the 51 warm tests and
+  `repository_policy` (25 of 25).
+
+The Mac benchmark (`tests/it/warm_benchmark.rs`, `--ignored --nocapture`,
+debug build, one JSON POST handler, times in ms). "Prime" is the first
+request in a fresh project with compiled artifacts cached. Each mode then
+gets a fresh supervisor: its first request, then the median and p95 of 50
+sequential requests.
+
+| Language | Prime | Warm first | Warm median | Warm p95 | Process first | Process median | Process p95 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| JavaScript | 102.0 | 97.0 | 0.1 | 0.2 | 97.1 | 96.6 | 98.4 |
+| TypeScript | 122.9 | 121.7 | 0.1 | 0.2 | 124.2 | 124.6 | 127.2 |
+| Python | 121.9 | 52.6 | 0.1 | 0.2 | 54.3 | 53.7 | 54.7 |
+| Ruby | 82.4 | 50.9 | 0.1 | 0.2 | 50.9 | 51.7 | 60.4 |
+| PHP | 131.9 | 45.3 | 0.1 | 0.1 | 46.1 | 46.8 | 48.1 |
+| Lua | 5.3 | 3.6 | 0.1 | 0.1 | 3.8 | 3.3 | 3.6 |
+| Go | 228.1 | 6.6 | 0.1 | 0.1 | 6.4 | 5.0 | 6.1 |
+| Rust | 72.0 | 2.9 | 0.1 | 0.1 | 3.0 | 2.4 | 2.6 |
+| C++ | 61.8 | 2.7 | 0.1 | 0.1 | 2.6 | 2.2 | 2.5 |
+| Kotlin | 58.1 | 48.9 | 0.2 | 0.3 | 53.5 | 53.6 | 54.6 |
+| C# | 48.5 | 46.0 | 0.1 | 0.1 | 47.9 | 47.8 | 51.8 |
+| F# | 49.6 | 48.1 | 0.1 | 0.1 | 49.8 | 49.8 | 51.7 |
+| Dart | 95.2 | 14.4 | 0.1 | 0.1 | 14.9 | 14.8 | 15.4 |
+| Java | 486.4 | 445.2 | 0.1 | 0.2 | 431.9 | 440.4 | 449.9 |
+| Groovy | 125.3 | 116.9 | 0.1 | 0.2 | 121.0 | 120.1 | 135.5 |
+
+The first request costs the same in both modes. After it, a warm request
+takes about 0.1 ms, while process mode pays the whole start again.
+
+### Dependency advisories (2026-10-28, DN1)
+
+`cargo deny check` passes again on develop `5fb767fb`, after the lock moves
+in the CHANGELOG Security entry (RUSTSEC-2026-0381, -0382, -0385 and
+-0386). On the Mac at that commit, fmt, clippy, the managed storage
+contracts with Docker (all five real drivers), the tachyon-core library
+tests (3812), `tests/it` (768) and `repository_policy` (25) passed. New
+advisories keep landing (three in the week after `006773e3`), so
+`cargo deny` can go red between iterations with an unchanged lock.
+
 ### Windows native gate (2026-10-25, WG2)
 
 On Windows 11 ARM64 (IYOR-Surface, over SSH, commit `a798b43f`) the whole
@@ -2441,7 +2518,7 @@ routes. The differential corpus still decides browser semantic parity.
 | Eight-language Yon handler boundary | implemented milestone | plain `Handler` convention; explicit `relay(...)`; native generator streaming in JavaScript, TypeScript, Python, PHP, Kotlin, and C#; Java and Rust return one response |
 | Tac client rendering, components, mount schedules, and incremental builds | implemented milestone | evidence recorded in `docs/PHASE_3_EVIDENCE.md`; Yon remains a separate REST boundary |
 | HTTP handler dispatch | implemented milestone | exact and dynamic routes, methods, parameters, bodies, middleware, and bounded topic streams execute through the supervised handler boundary |
-| Environment-selected Yon isolation transport | implemented milestone | tested: process compatibility mode, and a fail-closed Firecracker control-driver transport for JavaScript and Python. TypeScript and prepared direct-language artifacts are rejected before the driver starts, until an artifact-transfer contract exists. The driver and the Linux/KVM host are not qualified yet, so this is not a claim of hardware-isolation support. On Windows the Firecracker mode is refused at startup with `TY2010` (SW4, 2026-10-27) |
+| Environment-selected Yon isolation transport | implemented milestone | tested: warm handler processes, the default (ADR 0111; macOS, Windows ARM64 and Linux aarch64 runs under "Warm Yon handlers"), process mode, and a fail-closed Firecracker control-driver transport for JavaScript and Python. TypeScript and prepared direct-language artifacts are rejected before the driver starts, until an artifact-transfer contract exists. The driver and the Linux/KVM host are not qualified yet, so this is not a claim of hardware-isolation support. On Windows the Firecracker mode is refused at startup with `TY2010` (SW4, 2026-10-27) |
 | macOS SwiftUI native vertical slice | native-tested development milestone | evidence recorded in `docs/PHASE_4_EVIDENCE.md`; ad-hoc development signing only |
 | Android, iOS, Windows, and Linux native renderers | implemented | see the Phase 5 table above |
 
