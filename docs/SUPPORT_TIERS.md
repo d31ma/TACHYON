@@ -2105,6 +2105,65 @@ This closes the open finding above. Open, not fixed: the supervisor's warm excha
 handler's deadline before it starts a warm process, so on a first warm
 request the handler's deadline can fall after the supervisor's.
 
+### First CI run on develop since warm mode (2026-10-28, CI2)
+
+The Rust Rewrite workflow (`rust-ci.yml`) ran once on develop `a62ab084`
+(run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906), dispatched by hand, 2026-10-28 14:21 to 15:50
+UTC, iteration 10, D35), on GitHub-hosted `ubuntu-latest`, `macos-latest`
+and `windows-latest`. It was the first CI run on develop since 2026-10-25,
+and the first CI evidence for warm handlers (ADR 0111), the Delegate rename
+(ADR 0112 step 1) and `dotnet` and `javac` required under `CI`. Of 29 jobs,
+20 passed, 8 failed and 1 was cancelled. Every failure was in this
+repository, and none needs a paid or self-hosted runner.
+
+Passed: the repository policy, the Native Rust gate on `ubuntu-latest`,
+the managed SQL, document and Redis contracts (on all three systems), the
+dependency, license and source policy, the eight Tac service-language
+gates in three browser engines, the Windows WebView2 native gate, fuzzing,
+the soak and recovery drills, the supply-chain evidence and the cutover
+release lifecycle drill (Ubuntu and macOS).
+
+Failed, and fixed on develop `fb4d5e56` to `f5cfc838`:
+
+- Native Rust gate (`windows-latest`): clippy `large_futures` at three
+  calls in `server/dispatch.rs` (futures of 16 to 17 KB). The middleware
+  tail is now `Box::pin`ned. On the Surface (Windows ARM64), clippy failed
+  the same three on the old develop and is clean on the fix.
+- Native Rust gate (`macos-latest`): Swift 6.3.3 (Xcode 26.6) crashed with
+  signal 11 while compiling `NativeUiStyleCheck.importGraph()`, so 2 native
+  UI tests failed (4799 of 4801 passed). The fixture now builds its graphs
+  with a plain loop. The Mac has Swift 6.4 and does not crash, so the
+  workaround is unconfirmed until a later `macos-latest` run.
+- Phase 3 Chromium component and service behavior, and the Phase 5 Android
+  native gate: the Yon origin tests ran on the runner's Node 22.23, which
+  JavaScript Yon handlers refuse (`TY2101`, they need 24.5 or newer). Both
+  jobs now install Node 24.18.0.
+- Phase 4 macOS native and mobile-web parity: `behavior_jvm` needs `groovyc`
+  under `CI`, and the job did not install it. It now installs the pinned
+  Groovy.
+- Phase 5 Linux GTK4 native gate: `mksquashfs` was missing at the release
+  packages step (`TY1605`). The gate image (`scripts/linux/Dockerfile`) now
+  installs `squashfs-tools`; on WSL the Docker run of `native-test.sh`
+  passed with the AppImage and the `.deb`.
+- Phase 6 legacy compatibility differential: the `ty init` scaffold had
+  `client/shared/assets/.gitkeep` and `icon.svg` (BR2) without a declared
+  migration. Both are declared now, with IC1's `icon-192.png` and
+  `icon-512.png`, and the `PARITY_LEDGER.md` `ty init` row names the icons.
+- Phase 7 sanitizers: the C# and F# stream and topic tests (3 of 3807)
+  need .NET and `wasm-tools`. The job now installs .NET 10.0.302 and
+  `wasm-tools`.
+
+Cancelled: the Rust coverage ratchet reached its 60-minute limit at 4677
+of 4766 tests with no failure; the limit is now 90 minutes.
+
+On the Mac, fmt, clippy, `repository_policy` (25 of 25), the `server::`
+tests (55 of 55), the compatibility differential (oracle v26.30.04), the
+Yon origin tests with Node 24, `behavior_jvm` (5 of 5, Groovy 5.1.3) and
+the C# and F# stream and topic tests (3 of 3) passed on the fixes, and
+fmt, clippy, `repository_policy` and the compatibility differential passed
+again on the tree merged onto IC1. Owed: one more CI run, to confirm the
+`macos-latest` workaround, the coverage limit and the workflow changes.
+
 ### Dependency advisories (2026-10-28, DN1)
 
 `cargo deny check` passes again on develop `5fb767fb`, after the lock moves
@@ -2742,8 +2801,8 @@ routes. The differential corpus still decides browser semantic parity.
 | Surface | Status | Reason |
 | --- | --- | --- |
 | Rust workspace and Phase 4 CLI on macOS arm64 | native-tested development milestone | real binary, HTTP, Node.js, CPython, Chromium, SwiftUI application, Accessibility, lifecycle, and screenshot evidence executed locally |
-| Rust workspace and Phase 4 CLI on Linux x86_64 | native-tested development milestone | updated 2026-10-18. `rust-ci.yml` runs the locked workspace suite on `ubuntu-latest`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked the released `ty-linux-x64` on an `ubuntu-24.04` runner. Before, this row said the suite ran only in a pinned Linux container. macOS packaging still requires a macOS host |
-| Rust workspace and Phase 4 CLI on Windows x86_64 | native-tested development milestone | updated 2026-10-18. The release builds `ty-windows-x64.exe` for `x86_64-pc-windows-msvc` on `windows-2025`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked that executable on `windows-2025`, and `rust-ci.yml` runs the locked workspace suite on `windows-latest` (its run 39253757046 of 2026-10-19, the first with every Yon language installed, failed 44 tests; WG1 fixed their causes, and on 2026-10-25 the whole suite passed on Windows 11 ARM64, see Windows native gate). Before, this row said `buildable` (only the GNU target compiled locally). No Windows ARM64 `ty` is released. This row is about the CLI only; for the WebView2 host see the tables above |
+| Rust workspace and Phase 4 CLI on Linux x86_64 | native-tested development milestone | updated 2026-10-18. `rust-ci.yml` runs the locked workspace suite on `ubuntu-latest`; it passed there in run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) on develop `a62ab084` (2026-10-28). The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked the released `ty-linux-x64` on an `ubuntu-24.04` runner. Before, this row said the suite ran only in a pinned Linux container. macOS packaging still requires a macOS host |
+| Rust workspace and Phase 4 CLI on Windows x86_64 | native-tested development milestone | updated 2026-10-18. The release builds `ty-windows-x64.exe` for `x86_64-pc-windows-msvc` on `windows-2025`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked that executable on `windows-2025`, and `rust-ci.yml` runs the locked workspace suite on `windows-latest` (its run 39253757046 of 2026-10-19, the first with every Yon language installed, failed 44 tests; WG1 fixed their causes, and on 2026-10-25 the whole suite passed on Windows 11 ARM64, see Windows native gate; run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) of 2026-10-28 stopped at clippy `large_futures` on `windows-latest`, fixed since and not yet run again, see First CI run on develop since warm mode). Before, this row said `buildable` (only the GNU target compiled locally). No Windows ARM64 `ty` is released. This row is about the CLI only; for the WebView2 host see the tables above |
 | Static web compiler and development server | implemented milestone | evidence recorded in `docs/PHASE_1_EVIDENCE.md`; not published |
 | Eight-language Yon handler boundary | implemented milestone | plain `Handler` convention; explicit `relay(...)`; native generator streaming in JavaScript, TypeScript, Python, PHP, Kotlin, and C#; Java and Rust return one response |
 | Tac client rendering, components, mount schedules, and incremental builds | implemented milestone | evidence recorded in `docs/PHASE_3_EVIDENCE.md`; Yon remains a separate REST boundary |

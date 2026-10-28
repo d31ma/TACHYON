@@ -2416,6 +2416,17 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The failures of the first CI run on develop since 2026-10-25 (CI2,
+  2026-10-28, run 40705121906): `server/dispatch.rs` pins the middleware
+  tail (`Box::pin`), so clippy's `large_futures` passes on Windows; the
+  browser and Android jobs install Node 24.18.0 for JavaScript Yon handlers
+  (`TY2101` on Node 22); the macOS parity job installs the pinned Groovy;
+  the sanitizers job installs .NET 10.0.302 and `wasm-tools`; the Linux gate
+  image installs `squashfs-tools` (`mksquashfs`, `TY1605`); the
+  compatibility differential declares the scaffold's `.gitkeep`, `icon.svg`
+  and PNG icons; the Swift style fixture avoids a Swift 6.3.3 compiler crash
+  on `macos-latest`; and the coverage job may run 90 minutes
+  (`docs/SUPPORT_TIERS.md`, "First CI run on develop since warm mode").
 - A new app from `ty init` had no icon on macOS, Windows, Linux, iOS or
   Android, because its manifest named only an SVG icon and native targets
   use raster icons. `ty init` now also writes `icon-192.png` and
