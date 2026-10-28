@@ -32,7 +32,8 @@ impl Typed {
     const GROOVY_STAGED: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private TaxService taxes\n\n    int total(String region) {\n        return taxes.rate(region) * 2\n    }\n\n  int rate(String region) {\n    return taxes.rate(region);\n  }\n}\n";
     const KOTLIN_STAGED: &str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    private val taxes: TaxService\n\n    fun rate(region: String): Int {\n        return taxes.rate(region) * 2\n    }\n\n  fun rates(vararg regions: String): Int = taxes.rates(*regions)\n}\n";
     const GO_STAGED: &str = "// @Delegate\ntype TaxDelegate struct {\n\t// @Needs\n\ttaxes *TaxService\n}\n\nfunc (delegate *TaxDelegate) Total(region string) int {\n\treturn delegate.taxes.Rate(region) * 2\n}\n\nfunc (delegate *TaxDelegate) Rate(region string) int {\n\treturn delegate.taxes.Rate(region)\n}\n\nfunc (delegate *TaxDelegate) Record(names ...string) {\n\tdelegate.taxes.Record(names...)\n}\n";
-    const RUST_STAGED: &str = "#[Delegate]\nstruct TaxDelegate {\n    #[Needs]\n    taxes: TaxService,\n}\n\nimpl TaxDelegate {\n    pub fn total(&self, region: &str) -> i64 {\n        self.taxes.rate(region) * 2\n    }\n}\n\nimpl TaxDelegate {\n    pub fn rate(&self, region: &str) -> i64 {\n        self.taxes.rate(region)\n    }\n\n    pub async fn fetch(&self, id: u32) -> String {\n        self.taxes.fetch(id).await\n    }\n}\n";
+    const RUST_STAGED: &str = "#[Delegate]\nstruct TaxDelegate {\n    #[Needs]\n    taxes: TaxService,\n}\n\nimpl TaxDelegate {\n    pub fn total(&self, region: &str) -> i64 {\n        self.taxes.rate(region) * 2\n    }\n}\n\nimpl TaxDelegate {\n    pub fn rate(&self, region: &str) -> i64 {\n        self.taxes.rate(region)\n    }\n\n    pub async fn fetch(&self, id: u32) -> String {\n        self.taxes.fetch(id).await\n    }\n\n    fn secret(&self) -> i64 {\n        self.taxes.secret()\n    }\n}\n";
+    const RUST_TAC_STAGED: &str = "#[Delegate]\nstruct TaxDelegate {\n    #[Needs]\n    taxes: TaxService,\n}\n\nimpl TaxDelegate {\n    pub fn total(&self, region: &str) -> i64 {\n        self.taxes.rate(region) * 2\n    }\n}\n\nimpl TaxDelegate {\n    pub fn rate(&self, region: &str) -> i64 {\n        self.taxes.rate(region)\n    }\n\n    pub async fn fetch(&self, id: u32) -> String {\n        self.taxes.fetch(id).await\n    }\n}\n";
     const CSHARP_STAGED: &str = "[Delegate]\npublic sealed class TaxDelegate {\n    [Needs]\n    private readonly TaxService _taxes;\n\n    public int Total(string region) {\n        return _taxes.Rate(region) * 2;\n    }\n\n  public int Rate(string region) {\n    return _taxes.Rate(region);\n  }\n\n  public Task<int> Fetch(string id) {\n    return _taxes.Fetch(id);\n  }\n\n  public void Log(string text) {\n    _taxes.Log(text);\n  }\n}\n";
     const DART_STAGED: &str = "@Delegate\nclass TaxDelegate {\n  @Needs\n  final TaxService taxes;\n\n  int total(String region) {\n    return taxes.rate(region) * 2;\n  }\n\n  int rate(String region, {int year = 0, int month = 1}) {\n    return taxes.rate(region, year: year, month: month);\n  }\n\n  Future<int> fetch(int id) {\n    return taxes.fetch(id);\n  }\n}\n";
     const SWIFT_STAGED: &str = "@Delegate\nfinal class TaxDelegate {\n    @Needs\n    private let taxes: TaxService\n\n    func total(_ region: String) -> Int {\n        return taxes.rate(region, year: 1) * 2\n    }\n\n  func rate(_ region: String, year: Int) -> Int {\n    return taxes.rate(region, year: year)\n  }\n\n  func fetch(id: Int) async throws -> String {\n    return try await taxes.fetch(id: id)\n  }\n}\n";
@@ -89,6 +90,12 @@ fn a_go_delegate_gets_methods_on_its_own_receiver() {
 fn a_rust_delegate_gets_an_impl_block_that_awaits_async_methods() {
     let staged = Typed::staged("rs", (Typed::RUST_SERVICE, Typed::RUST_DELEGATE));
     assert_eq!(staged, Typed::RUST_STAGED);
+}
+
+#[test]
+fn a_tac_rust_delegate_takes_on_only_the_pub_methods_of_its_service_module() {
+    let staged = Typed::client_staged("rs", (Typed::RUST_SERVICE, Typed::RUST_DELEGATE));
+    assert_eq!(staged, Typed::RUST_TAC_STAGED);
 }
 
 #[test]

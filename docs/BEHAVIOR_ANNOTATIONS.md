@@ -351,7 +351,11 @@ your own code. A Delegate that needs two services fails with `TY1373`. Every
 language's build writes the forwards. JavaScript, TypeScript, Python, PHP, Ruby
 and Lua forwards pass every argument on; the typed languages copy each base
 signature, one forward per overload where the language has overloads (ADR
-0112). In Java, C# and F# Tac builds a Delegate's base is still a new instance
+0112). A Rust Yon Delegate takes on the base methods with or without `pub`,
+because a controller and its roles share one module; a Rust Tac Delegate takes
+on only `pub` methods, because a Tac service may be compiled as its own module.
+The website section "Take on a service: override and overload" shows a base,
+an override and an overload in each Yon language. In Java, C# and F# Tac builds a Delegate's base is still a new instance
 rather than the shared service until ADR 0112 plan step 4.
 
 In the typed languages a Delegate method with the same name and the same

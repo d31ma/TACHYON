@@ -12,6 +12,7 @@ pub(super) struct TypedForward<'a> {
     delegate: String,
     access: &'static str,
     owner: &'static str,
+    in_tac: bool,
 }
 
 impl<'a> TypedForward<'a> {
@@ -27,6 +28,7 @@ impl<'a> TypedForward<'a> {
     const RUST_STEP: &'static str = "    ";
     const GO_RECEIVER: &'static str = "delegate";
     const RUST_PUBLIC: &'static str = "pub";
+    const TAC_REALM: &'static str = "client";
     const POINTER_MARKS: [&'static str; 2] = ["*", "_ptr<"];
     const NOT_DECLARED_BEFORE: [&'static str; 2] = ["=", "return"];
     const HIDDEN_WORDS: [&'static str; 5] =
@@ -51,6 +53,7 @@ impl<'a> TypedForward<'a> {
             delegate: DelegateForwards::class_name(path),
             access: Self::access(language, masked, &base.field),
             owner: Self::owner(language, path, source, &base.field),
+            in_tac: path.starts_with(Self::TAC_REALM),
         };
         let placed = forward.placed(source, masked);
         let service_masked =
@@ -130,14 +133,14 @@ impl<'a> TypedForward<'a> {
                 )?;
                 Some((name, header))
             })
-            .filter(|(_, header)| self.is_public(header))
+            .filter(|(_, header)| self.is_reachable(header))
             .filter(|(_, header)| seen.insert(header.declaration.clone()))
             .collect()
     }
 
-    fn is_public(&self, header: &MethodHeader) -> bool {
+    fn is_reachable(&self, header: &MethodHeader) -> bool {
         let private_rust = !header.declaration.starts_with(Self::RUST_PUBLIC);
-        [self.language == "rs", private_rust] != [true, true]
+        [self.language == "rs", self.in_tac, private_rust] != [true, true, true]
     }
 
     fn starts(&self, lines: &[(usize, &str)], name: &str, line: usize) -> Vec<usize> {

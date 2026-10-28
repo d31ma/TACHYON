@@ -70,6 +70,10 @@ impl Language {
         Section::check_named(&server, self).await;
         server.stop().await;
         Section::NAMED.refuse_an_unknown_name(self);
+        let (_taxes, server) = Section::DELEGATES.serve(self).await;
+        Section::check_delegate(&server, self).await;
+        server.stop().await;
+        Section::DELEGATES.refuse_an_overload(self);
     }
 }
 
@@ -87,6 +91,15 @@ impl Section {
     const NAMED: Self = Self {
         folder: "docs/yon/annotated-controllers-and-providers",
     };
+    const DELEGATES: Self = Self {
+        folder: "docs/delegates/take-on-a-service",
+    };
+    const ONE_METHOD_PER_NAME: [&'static str; 3] = ["go", "rs", "dart"];
+    const SAME_NAME: [(&'static str, &'static str); 3] = [
+        ("TotalWith", "Total"),
+        ("total_with", "total"),
+        ("totalWith", "total"),
+    ];
     const NAMED_PROVIDER: [(&'static str, &'static str); 2] = [
         ("(\"ProductsService\")", "(\"MissingService\")"),
         ("('ProductsService')", "('MissingService')"),
@@ -240,6 +253,34 @@ impl Section {
         );
     }
 
+    async fn check_delegate(server: &Server, language: &Language) {
+        let label = language.extension;
+        let answer = server.call("GET", "/tax", "").await;
+        assert_eq!(answer.status, 200, "{label}: {answer:?}");
+        let taxes: serde_json::Value = serde_json::from_str(&answer.body).expect("JSON taxes");
+        assert_eq!(
+            taxes,
+            serde_json::json!({"rate": 4, "total": 30, "extra": 34}),
+            "{label}: the Delegate overrides rate, takes on total and overloads it"
+        );
+    }
+
+    fn refuse_an_overload(&self, language: &Language) {
+        if !Self::ONE_METHOD_PER_NAME.contains(&language.extension) {
+            return;
+        }
+        let project = self.project(language, &Self::SAME_NAME);
+        let refusal = ProjectDiscovery::discover(project.path())
+            .err()
+            .map(|failure| failure.to_string())
+            .unwrap_or_default();
+        assert!(
+            refusal.contains("TY1374"),
+            "{}: a Delegate method with the name of a base method and other parameters must fail the build: {refusal}",
+            language.extension
+        );
+    }
+
     fn refuse_an_unknown_name(&self, language: &Language) {
         let project = self.project(language, &Self::NAMED_PROVIDER);
         let refusal = ProjectDiscovery::discover(project.path())
@@ -357,76 +398,76 @@ impl Server {
 }
 
 #[tokio::test]
-async fn javascript_runs_its_published_access_transaction_and_named_sections() {
+async fn javascript_runs_its_published_yon_sections() {
     Language::JAVASCRIPT.run_every_section().await;
 }
 
 #[tokio::test]
-async fn typescript_runs_its_published_access_transaction_and_named_sections() {
+async fn typescript_runs_its_published_yon_sections() {
     Language::TYPESCRIPT.run_every_section().await;
 }
 
 #[tokio::test]
-async fn python_runs_its_published_access_transaction_and_named_sections() {
+async fn python_runs_its_published_yon_sections() {
     Language::PYTHON.run_every_section().await;
 }
 
 #[tokio::test]
-async fn php_runs_its_published_access_transaction_and_named_sections() {
+async fn php_runs_its_published_yon_sections() {
     Language::PHP.run_every_section().await;
 }
 
 #[tokio::test]
-async fn java_runs_its_published_access_transaction_and_named_sections() {
+async fn java_runs_its_published_yon_sections() {
     Language::JAVA.run_every_section().await;
 }
 
 #[tokio::test]
-async fn groovy_runs_its_published_access_transaction_and_named_sections() {
+async fn groovy_runs_its_published_yon_sections() {
     Language::GROOVY.run_every_section().await;
 }
 
 #[tokio::test]
-async fn kotlin_runs_its_published_access_transaction_and_named_sections() {
+async fn kotlin_runs_its_published_yon_sections() {
     Language::KOTLIN.run_every_section().await;
 }
 
 #[tokio::test]
-async fn csharp_runs_its_published_access_transaction_and_named_sections() {
+async fn csharp_runs_its_published_yon_sections() {
     Language::CSHARP.run_every_section().await;
 }
 
 #[tokio::test]
-async fn fsharp_runs_its_published_access_transaction_and_named_sections() {
+async fn fsharp_runs_its_published_yon_sections() {
     Language::FSHARP.run_every_section().await;
 }
 
 #[tokio::test]
-async fn rust_runs_its_published_access_transaction_and_named_sections() {
+async fn rust_runs_its_published_yon_sections() {
     Language::RUST.run_every_section().await;
 }
 
 #[tokio::test]
-async fn dart_runs_its_published_access_transaction_and_named_sections() {
+async fn dart_runs_its_published_yon_sections() {
     Language::DART.run_every_section().await;
 }
 
 #[tokio::test]
-async fn go_runs_its_published_access_transaction_and_named_sections() {
+async fn go_runs_its_published_yon_sections() {
     Language::GO.run_every_section().await;
 }
 
 #[tokio::test]
-async fn ruby_runs_its_published_access_transaction_and_named_sections() {
+async fn ruby_runs_its_published_yon_sections() {
     Language::RUBY.run_every_section().await;
 }
 
 #[tokio::test]
-async fn lua_runs_its_published_access_transaction_and_named_sections() {
+async fn lua_runs_its_published_yon_sections() {
     Language::LUA.run_every_section().await;
 }
 
 #[tokio::test]
-async fn cpp_runs_its_published_access_transaction_and_named_sections() {
+async fn cpp_runs_its_published_yon_sections() {
     Language::CPP.run_every_section().await;
 }

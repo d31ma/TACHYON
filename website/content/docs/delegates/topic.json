@@ -7,6 +7,9 @@
   "sections": [
     {
       "include": "one-question/section.json"
+    },
+    {
+      "include": "take-on-a-service/section.json"
     }
   ]
 }

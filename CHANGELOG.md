@@ -3457,7 +3457,7 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
-- `@Helper` is now `@Delegate` (ADR 0112 steps 1 to 3, ADR 0047 amendment,
+- `@Helper` is now `@Delegate` (ADR 0112 steps 1 to 4a, ADR 0047 amendment,
   2026-10-28): `@Delegate`, `[Delegate]`, `#[Delegate]`, `// @Delegate` in
   Go, `-- @Delegate` in Lua and `@delegate` in Python. The role folder is
   `delegates/` again in both realms, and a class name ends in `Delegate`
@@ -3487,8 +3487,13 @@ machine contracts have their own, independent major versions.
   range of argument counts is an override; ranges that never meet make an
   overload, and the build writes a method that calls the Delegate's version
   or the base by the number of arguments; ranges that meet but differ fail
-  with `TY1374`. The Java, C# and F# Tac shared base instance follows in ADR
-  0112 step 4.
+  with `TY1374`. A Rust Yon Delegate also takes on base methods without
+  `pub`; a Rust Tac Delegate takes on only `pub` ones. The website section
+  "Take on a service: override and overload" shows a base, an override and
+  an overload (a renamed method in Go, Rust and Dart) in the 15 Yon
+  languages, the published-section tests serve and call each one and check
+  the `TY1374` refusal, and the error codes page lists `TY1373` to `TY1375`.
+  The Java, C# and F# Tac shared base instance follows in ADR 0112 step 4b.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and

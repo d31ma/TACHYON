@@ -1,8 +1,9 @@
 # ADR 0112: A Delegate Takes On the Methods of Its Service
 
-- Status: Accepted (steps 1 and 2 are in: the rename and the forwards in
-  every language; step 3 compares signatures in the typed languages and
-  dispatches by argument count in the others; step 4 follows)
+- Status: Accepted (steps 1 to 3 are in: the rename, the forwards in every
+  language, the signature comparison in the typed languages and the dispatch
+  by argument count in the others; step 4a adds the Yon proofs and the
+  website section; step 4b follows)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -147,8 +148,11 @@ The typed languages copy each base signature. The copy drops the markers
 belong to the base's body (`override`, `virtual`, `abstract`, `open`, `sealed`,
 and `async` in C# and Dart, whose forward returns the task or future as it
 is). In Java, Groovy, Kotlin, C#, C++ and Swift each overload of a name gets
-its own forward. Private overloads and, in Rust, methods without `pub` are
-not copied.
+its own forward. Private overloads are not copied. In Rust a Tac Delegate
+takes on only `pub` methods, because a Tac service may be compiled as its own
+module; a Yon Delegate also takes on methods without `pub`, because a Yon
+controller and its roles share one module. Rust functions without a `self`
+receiver, such as `new`, are not taken on.
 
 | Language | Forward | Placed |
 | --- | --- | --- |
@@ -158,7 +162,7 @@ not copied.
 | Swift | `signature { return try await field.name(a, label: b) }`, with `try` and `await` only when the base throws or is async | before the class's closing brace |
 | F# | `member this.Name(a: T) : R = field.Name(a)`, or `this.Field.Name(a)` for a `member val` field | after the type's last line |
 | Go | `func (delegate *Delegate) Name(a T) R { return delegate.field.Name(a) }`, with `rest...` for a variadic parameter | after the file's last line |
-| Rust | `impl Delegate { pub fn name(&self, a: T) -> R { self.field.name(a) } }`, with `.await` for `async fn` | after the file's last line |
+| Rust | `impl Delegate { fn name(&self, a: T) -> R { self.field.name(a) } }`, with `pub` when the base method has it and `.await` for `async fn` | after the file's last line |
 
 The arguments keep what the call needs in each language: Swift argument
 labels (`_` drops the label), `&` for `inout`, C# `ref` and `out`, Dart named
@@ -283,4 +287,8 @@ then merged to `develop` by fast-forward.
    matrix iteration. The Java, C# and F# Tac builds write a Delegate's `Needs`
    fields as `new` objects today, so a base service there would be a second
    instance; this step makes them pass the shared service instance to the
-   base field, and the proofs show one shared state.
+   base field, and the proofs show one shared state. Done in two parts:
+   4a is the website section "Take on a service: override and overload" in
+   the 15 Yon languages, which the published-section tests serve and call,
+   with the `TY1374` refusal for Go, Rust and Dart and the error-code rows;
+   4b is the Tac shared base instance and the Tac proofs.

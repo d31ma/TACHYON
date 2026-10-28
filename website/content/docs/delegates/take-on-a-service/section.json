@@ -1,0 +1,361 @@
+{
+  "heading": "Take on a service: override and overload",
+  "axis": "language",
+  "body": "GET /tax returns {\"rate\":4,\"total\":30,\"extra\":34}. A delegate can take on a service, its base, and then it works like a class that inherits from that service. Put Needs on one field whose type is a service of the same realm and the same language. Here TaxDelegate needs TaxService, so TaxService is its base, and TaxDelegate has every public method of TaxService. For each base method that the delegate does not write itself, the build writes a method in the delegate that calls the base. So TaxController needs only TaxDelegate, and taxDelegate.total(3) runs TaxService.total. A controller or a view may need such a delegate in place of its service.\n\nA delegate can change a base method in two ways and keep the method's name. To override a method, write a method with the same name and the same parameters. TaxDelegate.rate(region) returns twice the base rate, so rate(\"north\") returns 4. To overload a method, write a method with the same name and other parameters. TaxDelegate.total(count, extra) adds extra to the base total, so total(3) returns 30 from TaxService, and total(3, 4) returns 34 from TaxDelegate.\n\n| Language | How the build tells an overload from the base method |\n| --- | --- |\n| Java, Groovy, Kotlin, C#, F#, C++ | by the parameter types, as the language does |\n| JavaScript, TypeScript, Python, PHP, Ruby, Lua | by the number of arguments: the build renames the delegate's own method and writes one method that calls it or the base method |\n| Go, Rust, Dart | it cannot: these languages have one method for each name, so the build refuses the overload (TY1374). Give the delegate's method another name, as TotalWith, total_with and totalWith do here |\n\nIn the languages that count arguments, two methods whose argument counts can be the same are refused too (TY1374), such as rate(region) and rate(region, day = 1). An override must return the type that the base method returns (TY1375). A delegate field may not have the name of a base method (TY1375). A delegate takes on one service, so a second service field fails the build (TY1373).\n\nThe build writes the base methods only into the copy of the project that it runs, not into your files. In Rust, a Yon delegate takes on the base methods with or without pub, because a controller and its roles share one module. A Tac delegate takes on only pub methods, because each Tac service is its own module (ADR 0112).",
+  "files": [
+    {
+      "name": "server/services/TaxService.js",
+      "code": {
+        "file": "server/services/TaxService.js"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.js",
+      "code": {
+        "file": "server/delegates/TaxDelegate.js"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.js",
+      "code": {
+        "file": "server/controllers/TaxController.js"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.ts",
+      "code": {
+        "file": "server/models/TaxAnswer.ts"
+      }
+    },
+    {
+      "name": "server/services/TaxService.ts",
+      "code": {
+        "file": "server/services/TaxService.ts"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.ts",
+      "code": {
+        "file": "server/delegates/TaxDelegate.ts"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.ts",
+      "code": {
+        "file": "server/controllers/TaxController.ts"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.py",
+      "code": {
+        "file": "server/models/TaxAnswer.py"
+      }
+    },
+    {
+      "name": "server/services/TaxService.py",
+      "code": {
+        "file": "server/services/TaxService.py"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.py",
+      "code": {
+        "file": "server/delegates/TaxDelegate.py"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.py",
+      "code": {
+        "file": "server/controllers/TaxController.py"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.php",
+      "code": {
+        "file": "server/models/TaxAnswer.php"
+      }
+    },
+    {
+      "name": "server/services/TaxService.php",
+      "code": {
+        "file": "server/services/TaxService.php"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.php",
+      "code": {
+        "file": "server/delegates/TaxDelegate.php"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.php",
+      "code": {
+        "file": "server/controllers/TaxController.php"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.java",
+      "code": {
+        "file": "server/models/TaxAnswer.java"
+      }
+    },
+    {
+      "name": "server/services/TaxService.java",
+      "code": {
+        "file": "server/services/TaxService.java"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.java",
+      "code": {
+        "file": "server/delegates/TaxDelegate.java"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.java",
+      "code": {
+        "file": "server/controllers/TaxController.java"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.groovy",
+      "code": {
+        "file": "server/models/TaxAnswer.groovy"
+      }
+    },
+    {
+      "name": "server/services/TaxService.groovy",
+      "code": {
+        "file": "server/services/TaxService.groovy"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.groovy",
+      "code": {
+        "file": "server/delegates/TaxDelegate.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.groovy",
+      "code": {
+        "file": "server/controllers/TaxController.groovy"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.kt",
+      "code": {
+        "file": "server/models/TaxAnswer.kt"
+      }
+    },
+    {
+      "name": "server/services/TaxService.kt",
+      "code": {
+        "file": "server/services/TaxService.kt"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.kt",
+      "code": {
+        "file": "server/delegates/TaxDelegate.kt"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.kt",
+      "code": {
+        "file": "server/controllers/TaxController.kt"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.cs",
+      "code": {
+        "file": "server/models/TaxAnswer.cs"
+      }
+    },
+    {
+      "name": "server/services/TaxService.cs",
+      "code": {
+        "file": "server/services/TaxService.cs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.cs",
+      "code": {
+        "file": "server/delegates/TaxDelegate.cs"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.cs",
+      "code": {
+        "file": "server/controllers/TaxController.cs"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.fs",
+      "code": {
+        "file": "server/models/TaxAnswer.fs"
+      }
+    },
+    {
+      "name": "server/services/TaxService.fs",
+      "code": {
+        "file": "server/services/TaxService.fs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.fs",
+      "code": {
+        "file": "server/delegates/TaxDelegate.fs"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.fs",
+      "code": {
+        "file": "server/controllers/TaxController.fs"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.rs",
+      "code": {
+        "file": "server/models/TaxAnswer.rs"
+      }
+    },
+    {
+      "name": "server/services/TaxService.rs",
+      "code": {
+        "file": "server/services/TaxService.rs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.rs",
+      "code": {
+        "file": "server/delegates/TaxDelegate.rs"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.rs",
+      "code": {
+        "file": "server/controllers/TaxController.rs"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.dart",
+      "code": {
+        "file": "server/models/TaxAnswer.dart"
+      }
+    },
+    {
+      "name": "server/services/TaxService.dart",
+      "code": {
+        "file": "server/services/TaxService.dart"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.dart",
+      "code": {
+        "file": "server/delegates/TaxDelegate.dart"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.dart",
+      "code": {
+        "file": "server/controllers/TaxController.dart"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.go",
+      "code": {
+        "file": "server/models/TaxAnswer.go"
+      }
+    },
+    {
+      "name": "server/services/TaxService.go",
+      "code": {
+        "file": "server/services/TaxService.go"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.go",
+      "code": {
+        "file": "server/delegates/TaxDelegate.go"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.go",
+      "code": {
+        "file": "server/controllers/TaxController.go"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.rb",
+      "code": {
+        "file": "server/models/TaxAnswer.rb"
+      }
+    },
+    {
+      "name": "server/services/TaxService.rb",
+      "code": {
+        "file": "server/services/TaxService.rb"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.rb",
+      "code": {
+        "file": "server/delegates/TaxDelegate.rb"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.rb",
+      "code": {
+        "file": "server/controllers/TaxController.rb"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.lua",
+      "code": {
+        "file": "server/models/TaxAnswer.lua"
+      }
+    },
+    {
+      "name": "server/services/TaxService.lua",
+      "code": {
+        "file": "server/services/TaxService.lua"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.lua",
+      "code": {
+        "file": "server/delegates/TaxDelegate.lua"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.lua",
+      "code": {
+        "file": "server/controllers/TaxController.lua"
+      }
+    },
+    {
+      "name": "server/models/TaxAnswer.hpp",
+      "code": {
+        "file": "server/models/TaxAnswer.hpp"
+      }
+    },
+    {
+      "name": "server/services/TaxService.hpp",
+      "code": {
+        "file": "server/services/TaxService.hpp"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.hpp",
+      "code": {
+        "file": "server/delegates/TaxDelegate.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/TaxController.hpp",
+      "code": {
+        "file": "server/controllers/TaxController.hpp"
+      }
+    }
+  ]
+}
