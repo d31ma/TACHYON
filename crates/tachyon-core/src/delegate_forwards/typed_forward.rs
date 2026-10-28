@@ -17,6 +17,10 @@ impl<'a> TypedForward<'a> {
     const OVERLOADED: [&'static str; 6] = ["java", "groovy", "kt", "cs", "hpp", "swift"];
     const BRACED: [&'static str; 7] = ["java", "groovy", "kt", "cs", "dart", "swift", "hpp"];
     const AT_END: [&'static str; 2] = ["go", "rs"];
+    const SECTIONS: [(&'static str, &'static str, &'static str); 2] = [
+        ("rs", "\nimpl {delegate} {", "}\n"),
+        ("hpp", "\npublic:", ""),
+    ];
     const MEMBER_STEP: &'static str = "  ";
     const GO_STEP: &'static str = "\t";
     const RUST_STEP: &'static str = "    ";
@@ -152,11 +156,14 @@ impl<'a> TypedForward<'a> {
             .iter()
             .map(|(name, header)| self.method(indentation, name, header))
             .collect();
-        match self.language {
-            "rs" => format!("\nimpl {} {{{methods}}}\n", self.delegate),
-            "hpp" => format!("\npublic:{methods}"),
-            _ => methods,
-        }
+        let (open, close) = Self::SECTIONS
+            .iter()
+            .find(|(language, _, _)| *language == self.language)
+            .map_or(("", ""), |(_, open, close)| (*open, *close));
+        format!(
+            "{}{methods}{close}",
+            open.replace("{delegate}", &self.delegate)
+        )
     }
 
     fn method(&self, indentation: &str, name: &str, header: &MethodHeader) -> String {
