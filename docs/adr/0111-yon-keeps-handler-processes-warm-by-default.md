@@ -197,3 +197,15 @@ runner, which a warm handler's second relay still hits. Until a fix in
 `ruby_runner.rb`, the Ruby case of this test skips the warm-up on Windows,
 so its timed relay stays the handler's first request (`docs/SUPPORT_TIERS.md`,
 "Relay deadline test and CI tools").
+
+## Amendment (2026-10-28): warm Ruby relays on Windows (WR1)
+
+The Windows problem above is fixed. `Process.spawn` on Windows puts the relay
+pipes over descriptors 0 to 2 while it starts the child, and Ruby's
+`IO.select` kept polling the handle it saw first, so the warm runner never
+read the next request. `ruby_runner.rb` now reads its frames from a private
+copy of standard input and points `STDIN` at the null device. The Ruby case
+of the default-deadline relay test starts the handler first on Windows too,
+and `warm_ruby::a_warm_ruby_handler_relays_on_every_request` relays on three
+requests of one process (`docs/SUPPORT_TIERS.md`, "Warm Ruby relays on
+Windows").

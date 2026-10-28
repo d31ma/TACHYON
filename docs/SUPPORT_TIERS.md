@@ -2020,7 +2020,49 @@ that WG1 fixed with `IO.select` (the runner's frame reader leaving a read
 pending on standard input), which a warm handler's second relay still hits;
 this test did not cause it. On Windows the Ruby case skips the warm-up, so its timed
 relay stays the handler's first request, as before RT1. A fix in
-`ruby_runner.rb` needs its own experiments on Windows.
+`ruby_runner.rb` needs its own experiments on Windows. (Fixed in WR1, "Warm
+Ruby relays on Windows" below; the skip is gone.)
+
+### Warm Ruby relays on Windows (2026-10-28, WR1)
+
+WR1 (branch `claude/project-thread-h0ns1x`, on develop as `a62ab084`) fixed
+the open finding above (iteration 10, D32). A probe on the Surface found the
+cause. On Windows, `Process.spawn` with `in:`, `out:` and `err:` puts the
+relay pipes over the parent's descriptors 0 to 2, starts the child, and puts
+the old ones back. Ruby's Windows `IO.select` keeps the operating system
+handles it saw when the call started, so the warm runner's frame reader,
+waiting in `IO.select` on standard input, went on polling a handle that was
+no longer standard input and never read the next request. With Ruby 4.0.6
+(`aarch64-mingw`) the probe's second line was never read when the reader used
+standard input, and was read when it used a private copy; Ruby 4.0.9 on the
+Mac read both. The runner (`ruby_runner.rb`, `YonRunnerFrames`) now reads
+its frames from a private copy of standard input (`STDIN.dup`) and points
+`STDIN` at the null device, so a relay's `Process.spawn` no longer touches
+the handle the reader waits on. The Windows Ruby skip in the RT1 relay test
+is removed, and the new
+`warm_ruby::a_warm_ruby_handler_relays_on_every_request` relays on three
+requests of one warm process. It is the same cause as the WG1 hang.
+
+`go_streams::a_go_log_follow_ends_cleanly_at_the_request_time_limit` no
+longer depends on load. The handler's context ends one cancellation grace
+(100 ms by default) before the supervisor's deadline, and the follow starts
+a new Go process inside that margin, so a slow start pushed the Go context
+past the deadline. The test now uses a 3 s grace and a 4 s deadline.
+
+- Windows 11 ARM64 (the Surface, over SSH, `CI=1`, branch commit
+  `b52ac16f`): `warm_ruby` passed 5 of 5, the relay test with the Ruby
+  warm-up passed 3 of 3 (88.7, 76.5 and 76.5 s), `go_streams` passed 3 of 3
+  (about 1.6 s each), and two full `tests/it` runs passed 746 each with 1
+  skipped and no retries. With develop's old runner the new test fails at
+  its second relay (`TY2110`). No handler process was left.
+- macOS (the Mac): fmt, clippy, `tests/it` (769 of 769) and
+  `repository_policy` (25 of 25) passed, and fmt, clippy and
+  `repository_policy` passed again on the tree merged onto `dadbc877`.
+
+This makes the Windows `relay` cell run-proven, so no platform cell run is
+owed. Open, not fixed: the supervisor's warm exchange computes the
+handler's deadline before it starts a warm process, so on a first warm
+request the handler's deadline can fall after the supervisor's.
 
 ### Dependency advisories (2026-10-28, DN1)
 

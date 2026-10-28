@@ -2420,6 +2420,18 @@ machine contracts have their own, independent major versions.
   fails to build with MSVC (C4127, a constant condition under `/W4 /WX`).
   The Windows and Linux close handlers now pick their branch with the
   preprocessor.
+- A warm Ruby handler on Windows relays on every request, not only the first
+  (WR1, 2026-10-28). `Process.spawn` there puts the relay pipes over the
+  runner's standard input while it starts the child, and Ruby's `IO.select`
+  kept polling the old handle, so the next request was never read and the
+  supervisor timed out with `TY2110`. The Ruby runner now reads its frames
+  from a private copy of standard input and points `STDIN` at the null
+  device. The RT1 relay test runs its Ruby warm-up on Windows again, and
+  `warm_ruby::a_warm_ruby_handler_relays_on_every_request` relays three
+  times in one process. `go_streams::a_go_log_follow_ends_cleanly_at_the_request_time_limit`
+  no longer fails under load: it gives the handler a 3 s cancellation grace
+  and a 4 s deadline, because the follow starts a new Go process inside that
+  margin.
 - `relay_boundaries::the_supervisor_default_timeout_limits_relays_without_a_request_deadline`
   is no longer flaky on slow machines (RT1, 2026-10-28). Its 8 s default
   deadline also paid for the warm handler's start, and on WSL a Ruby or Java
@@ -2429,6 +2441,7 @@ machine contracts have their own, independent major versions.
   header. It passed 10 of 10 runs on WSL. On Windows a warm Ruby handler's
   second relay still hangs in `Process.spawn` (open, `docs/SUPPORT_TIERS.md`),
   so there the Ruby case keeps its timed relay first (ADR 0111 amendment).
+  WR1 fixed the hang, above, and removed that skip.
 - Two Linux gate scripts in a live desktop (LD1, 2026-10-28):
   `scripts/linux/page-steps-probe.py` gives the desktop portal's file dialog
   the focus before it presses keys, because GNOME's window manager does not
