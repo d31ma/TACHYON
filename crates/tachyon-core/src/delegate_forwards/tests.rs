@@ -68,9 +68,9 @@ fn a_javascript_delegate_takes_on_the_public_methods_its_service_declares() {
         "{staged}"
     );
     assert_eq!(staged.matches("rate(").count(), 2, "{staged}");
-    ["_secret", "made", "start"]
-        .iter()
-        .for_each(|name| assert!(!staged.contains(name), "{name}: {staged}"));
+    for name in ["_secret", "made", "start"] {
+        assert!(!staged.contains(name), "{name}: {staged}");
+    }
     let written = Project::JS_DELEGATE
         .strip_suffix("}\n")
         .expect("the class ends the file");
