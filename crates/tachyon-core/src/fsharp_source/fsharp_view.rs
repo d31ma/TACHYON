@@ -164,11 +164,14 @@ impl FsharpView {
         }
     }
 
+    pub(crate) fn source_at(&self, shadow_offset: usize) -> usize {
+        self.shadow
+            .source_offset(shadow_offset.min(self.text().len()))
+    }
+
     fn source_offset(&self, offset: u64) -> u64 {
-        let offset = usize::try_from(offset)
-            .unwrap_or(usize::MAX)
-            .min(self.text().len());
-        u64::try_from(self.shadow.source_offset(offset)).unwrap_or(u64::MAX)
+        let offset = usize::try_from(offset).unwrap_or(usize::MAX);
+        u64::try_from(self.source_at(offset)).unwrap_or(u64::MAX)
     }
 }
 

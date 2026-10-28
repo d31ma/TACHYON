@@ -1125,7 +1125,8 @@ impl AnnotationRules {
     }
 
     pub(crate) fn needed_fields(path: &Path, source: &str) -> Vec<NeededField> {
-        Self::file_scan(path, source).needed_fields(source, Realm::of(path))
+        NeededField::through_view(path, source)
+            .unwrap_or_else(|| Self::file_scan(path, source).needed_fields(source, Realm::of(path)))
     }
 
     pub(crate) fn nullable_fields(path: &Path, source: &str) -> Vec<nullable_field::NullableField> {
