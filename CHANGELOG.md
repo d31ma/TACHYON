@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- App icons are checked against the manifest (IC1, 2026-10-28):
+  `scripts/native/icon-test.mjs` (`bun run test:native-icons`) builds an app
+  whose manifest icons are solid colors and checks, per target, that the
+  built app, its packages and, with `--screen`, the Dock, menu bar, taskbar,
+  window, simulator home screen and Android app drawer show the manifest's
+  icon. `--targets=` picks macos, ios, android, windows or linux; `--release`
+  adds the .deb, AppImage and MSIX icons. The `linux-native` CI job runs it
+  for Linux. Each desktop host records `icon.loaded` or `icon.missing`, and
+  each tray host `tray.icon.loaded` or `tray.icon.missing`.
 - The Linux gates run in a signed-in desktop session (LD1, 2026-10-28):
   `TAC_LINUX_DISPLAY=desktop`, or `scripts/linux/compositor-test.sh
   --desktop`, makes `native-test.sh`, `compositor-test.sh`,
@@ -2396,6 +2405,15 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A new app from `ty init` had no icon on macOS, Windows, Linux, iOS or
+  Android, because its manifest named only an SVG icon and native targets
+  use raster icons. `ty init` now also writes `icon-192.png` and
+  `icon-512.png` and names them. A native build prints a note when the
+  manifest names no raster icon (none of at most 256 pixels for the Windows
+  `.exe`) or a named icon file is missing, instead of leaving the icon out
+  silently. The Windows window now shows the `.exe` icon in its title bar,
+  in Alt-Tab and on its taskbar button, and the Linux app names its icon as
+  the GTK window icon instead of a relative `Icon=share/icon.png` path.
 - `relay_boundaries::the_supervisor_default_timeout_limits_relays_without_a_request_deadline`
   is no longer flaky on slow machines (RT1, 2026-10-28). Its 8 s default
   deadline also paid for the warm handler's start, and on WSL a Ruby or Java

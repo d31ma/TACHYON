@@ -1394,6 +1394,27 @@ amendment). This evidence does not promote any tier.
 | Windows WebView2 | yes: the window class brush, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR` and the controller's `DefaultBackgroundColor` (only the last two with an integrated title bar) | on 2026-10-24 the whole generated host with a `background_color` compiled with MinGW against the WebView2 headers, standard and integrated, and `windows_window_background_tests::the_windows_window_background_paints_a_win32_window_under_wine` read the class brush, the painted client pixel and the WebView2 start color in an x86_64 Ubuntu 24.04 cloud container (Wine 9.0 under Xvfb). The same day `the_windows_window_background_paints_a_real_win32_window` passed with MSVC 14.44 (ARM64) on Windows 11 25H2 (build 26200, ARM64) in the signed-in desktop session, painting `RGB(26, 35, 126)` in the client area; over SSH (session 0) the brush and start color checks passed but `GetPixel` cannot see painted pixels. On 2026-10-25 (SW2, below) every sampled pixel below the content of a WebView2 page without its own background had the declared `#1565c0` on that desktop |
 | Linux WebKitGTK | yes: the web view background color and the GTK window background | on 2026-10-24 `linux_window_appearance_tests::linux_generated_host_opens_the_declared_size_minimum_and_theme_color` read `background_color` back from the WebKitGTK view and sampled it in the rendered page area, with GTK 4.14.5 and WebKitGTK 2.52.6 under Xvfb with xfwm4 in an x86_64 Ubuntu 24.04 cloud container. On 2026-10-25 (LX2) the same test passed in a headless mutter 46.2 Wayland session (`scripts/linux/compositor-test.sh`), in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Surface. On 2026-10-28 (LD1) it passed in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's window manager (`compositor-test.sh --desktop`). Not run: a physical Linux desktop |
 
+### App icons from the manifest (2026-10-28, IC1)
+
+Every native app takes its icon from `client/manifest.json`: the raster
+entries of `icons` for the app, and `tac.application.tray.icon` for the tray.
+A build prints a note when no raster icon reaches the target or a named icon
+file is missing, and `ty init` now writes PNG icons beside its SVG icon.
+`scripts/native/icon-test.mjs` builds an app whose icons are solid colors,
+so each check can tell which manifest icon arrived: it reads the icon back
+from the built app (and, with `--release`, from the packages), and with
+`--screen` it opens the app and reads the icon that the system shows and the
+host's `icon.loaded` and `tray.icon.loaded` records. This evidence does not
+promote any tier.
+
+| Host | Implemented | Validated |
+| --- | --- | --- |
+| macOS WKWebView | yes: the largest raster icon as `AppIcon.icns` (`CFBundleIconFile`); the tray image from `tac.application.tray.icon` | runs owed: `icon-test.mjs --targets=macos --screen` on a signed-in Mac (the `.icns` read back with `iconutil`, `NSRunningApplication.icon`, the Dock and the menu bar on screen) |
+| iOS WKWebView | yes: the largest raster icon resized into the app icon files (simulator) or a 1024 pixel asset catalog (device and App Store) | runs owed: `icon-test.mjs --targets=ios --screen` (the icon files and the simulator home screen) |
+| Android WebView | adapted: the largest raster icon as `mipmap-xxxhdpi/ic_launcher.png` | runs owed: `icon-test.mjs --targets=android --screen` (`aapt2 badging`, the icon inside the APK, the emulator's app drawer) |
+| Windows WebView2 | adapted: the largest icon of at most 256 pixels in the `.exe`, which the window class now loads for the title bar, Alt-Tab and the taskbar; MSIX tiles from the PNG icons | runs owed: `icon-test.mjs --targets=windows --screen` in the signed-in desktop (the `.exe` icon, the window's class icon, the taskbar, `tray.icon.loaded`); `windows_tray_code_adds_an_icon_hides_on_close_and_quits_under_wine` now fails when the tray falls back to `IDI_APPLICATION` |
+| Linux WebKitGTK | adapted: the largest raster icon as `share/icons/<application id>.png`, added to the GTK icon theme and named as the window icon (X11 shows it as `_NET_WM_ICON`); packages install the hicolor icons | runs owed: `icon-test.mjs --targets=linux --release --screen` under Xvfb (also in the `linux-native` CI job) and in the live desktop (`TAC_LINUX_DISPLAY=desktop`). A Wayland desktop finds the icon only through an installed desktop file |
+
 ### Native preview against the development server (2026-10-24, NET5)
 
 `ty preview --target <native>` builds the app, opens it, and has its scheme

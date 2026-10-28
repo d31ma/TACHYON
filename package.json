@@ -17,6 +17,7 @@
     "test:phase3-browser": "node scripts/phase3-browser-test.mjs",
     "test:hot-update-browser": "node scripts/hot-update-browser-test.mjs",
     "test:phase4-macos": "node scripts/phase4-macos-test.mjs",
+    "test:native-icons": "node scripts/native/icon-test.mjs",
     "test:compat": "node scripts/compat/differential.mjs",
     "test:standalone-rust": "node scripts/compat/standalone-rust.mjs",
     "test:events-browser": "node scripts/events-browser-test.mjs",

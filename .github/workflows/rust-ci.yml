@@ -953,6 +953,16 @@ jobs:
           tachyon-linux-gate:${{ env.RUST_TOOLCHAIN }}
           ./scripts/linux/application-state-test.sh
 
+      - name: Check that the app, its packages and its window show the manifest icon
+        run: >-
+          docker run --rm
+          --cap-add SYS_ADMIN --cap-add NET_ADMIN
+          --security-opt seccomp=unconfined --security-opt apparmor=unconfined
+          -v "$PWD":/workspace -w /workspace
+          -e CARGO_TARGET_DIR=/tmp/ty-target
+          tachyon-linux-gate:${{ env.RUST_TOOLCHAIN }}
+          bash -c "cargo build --locked --bin ty && node scripts/native/icon-test.mjs --targets=linux --release --screen"
+
   windows-native:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',windows-native,'))
     name: Windows WebView2 native gate
