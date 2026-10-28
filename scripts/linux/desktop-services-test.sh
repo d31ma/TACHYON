@@ -22,13 +22,30 @@ use_private_folders() {
   unset WAYLAND_DISPLAY
 }
 
+in_the_live_desktop() {
+  [[ ${TAC_LINUX_DISPLAY:-x11} == desktop ]]
+}
+
+use_the_live_desktop() {
+  local exports
+  exports=$(node "$(dirname "$0")/linux-display-session.mjs" desktop-env)
+  eval "$exports"
+  echo "==> running in the live $XDG_SESSION_TYPE desktop session (${XDG_CURRENT_DESKTOP:-unnamed desktop} on ${WAYLAND_DISPLAY:-$DISPLAY}, desktop services: ${TAC_DESKTOP_SERVICES:-none})"
+}
+
+desktop_has() {
+  [[ " ${TAC_DESKTOP_SERVICES:-} " == *" $1 "* ]]
+}
+
 find_geoclue() {
   GEOCLUE=""
   for candidate in /usr/libexec/geoclue /usr/lib/geoclue-2.0/geoclue; do
     if [[ -x "$candidate" ]]; then GEOCLUE="$candidate"; fi
   done
   GEOCLUE_AGENT=/usr/libexec/geoclue-2.0/demos/agent
-  for program in "$GEOCLUE" "$GEOCLUE_AGENT" "$(command -v dunst)" "$(command -v dunstctl)"; do
+  local programs=("$GEOCLUE" "$GEOCLUE_AGENT")
+  if ! in_the_live_desktop; then programs+=("$(command -v dunst)" "$(command -v dunstctl)"); fi
+  for program in "${programs[@]}"; do
     if [[ ! -x "$program" ]]; then
       echo "Missing GeoClue, its demo agent or dunst. On Ubuntu: apt install geoclue-2.0 dunst" >&2
       exit 1
@@ -103,6 +120,83 @@ run_with_desktop_services() {
     '
 }
 
+run_with_the_desktop_notification_server() {
+  desktop_has notifications || { echo 'the desktop has no notification server on its session bus (org.freedesktop.Notifications)' >&2; exit 1; }
+  echo "==> running the browser API test with the desktop's own notification server and the GeoClue agent"
+  echo "notification server: $(gdbus call --session -d org.freedesktop.Notifications -o /org/freedesktop/Notifications -m org.freedesktop.Notifications.GetServerInformation)"
+  dbus-monitor --session "interface='org.freedesktop.Notifications'" "interface='org.gtk.Notifications'" >"$STATE/notifications.log" 2>&1 &
+  SERVICE_PIDS="$SERVICE_PIDS $!"
+  "$GEOCLUE_AGENT" >"$STATE/agent.log" 2>&1 &
+  SERVICE_PIDS="$SERVICE_PIDS $!"
+  LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals \
+    cargo test --locked -p tachyon-core --lib linux_browser_apis_reach_geoclue_and_the_notification_server -- --ignored --test-threads=1 --nocapture
+  take_screenshot notification
+}
+
+check_the_desktop_notification() {
+  local calls
+  calls=$(grep -A20 -E 'member=(Notify|AddNotification)' "$STATE/notifications.log" || true)
+  echo "notification calls on the desktop's session bus: $(grep -cE 'member=(Notify|AddNotification)' <<<"$calls" || true)"
+  grep -q '"Order"' <<<"$calls" || { echo "the page's notification never reached the desktop's notification server" >&2; exit 1; }
+  grep -q '"Shipped"' <<<"$calls" || { echo "the notification reached the desktop without its body" >&2; exit 1; }
+}
+
+take_screenshot() {
+  if [[ -z "${TAC_LINUX_SCREENSHOTS:-}" ]]; then return; fi
+  node "$(dirname "$0")/linux-display-session.mjs" screenshot "$TAC_LINUX_SCREENSHOTS/services-$1.png"
+}
+
+write_tray_fixture() {
+  local root=$1
+  mkdir -p "$root/client/pages/help" "$root/client/components/tray/home" "$root/client/components/tray/help" "$root/client/shared"
+  cat >"$root/client/manifest.json" <<'JSON'
+{
+  "name": "Tray Gate",
+  "start_url": "/",
+  "tac": {
+    "application": {
+      "id": "dev.tachyon.tray-gate",
+      "version": "0.0.1",
+      "build": 1,
+      "tray": {
+        "icon": "/shared/tray.png",
+        "tooltip": "Tray Gate in the desktop tray",
+        "items": [{ "id": "tray-help", "label": "Tray Help", "route": "/help" }],
+        "closeHidesWindow": true
+      }
+    }
+  }
+}
+JSON
+  echo '<main aria-label="Tray home"><h1>Tray home</h1></main>' >"$root/client/components/tray/home/tac.html"
+  echo '<main aria-label="Tray help"><h1>Tray help</h1></main>' >"$root/client/components/tray/help/tac.html"
+  echo '<tray-home />' >"$root/client/pages/tac.html"
+  echo '<tray-help />' >"$root/client/pages/help/tac.html"
+  cp "$(dirname "$0")/../../website/client/shared/assets/logo-192.png" "$root/client/shared/tray.png"
+}
+
+show_the_tray_in_the_desktop() {
+  if ! desktop_has tray; then
+    echo 'SKIP: the desktop has no StatusNotifierItem host (org.kde.StatusNotifierWatcher), so the tray step did not run'
+    TRAY_RESULT='no tray step (the desktop has no StatusNotifierItem host)'
+    return
+  fi
+  if [[ -z "${TAC_BIN:-}" ]]; then
+    cargo build --locked --bin ty
+    TAC_BIN="${CARGO_TARGET_DIR:-target}/debug/ty"
+  fi
+  local fixture="$STATE/tray-gate"
+  write_tray_fixture "$fixture"
+  echo "==> building a Linux app with a tray icon and showing it in the desktop's own tray"
+  timeout 300s "$TAC_BIN" build "$fixture" --target linux
+  LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals \
+    "$fixture/dist/linux/TrayGate/bin/TrayGate" >"$STATE/tray-gate.log" 2>&1 &
+  local app=$!
+  SERVICE_PIDS="$SERVICE_PIDS $app"
+  timeout 300s python3 "$(dirname "$0")/desktop-tray-probe.py" "$app" "$XDG_STATE_HOME/tachyon/dev.tachyon.tray-gate.jsonl" || { cat "$STATE/tray-gate.log" >&2; exit 1; }
+  TRAY_RESULT="the desktop's own tray host showed the icon and its menu; closing hid the window, Activate showed it, a route item opened /help and Quit ended the app"
+}
+
 check_services_answered() {
   grep -E "allowed by agent|'[^']+' started\.|New location available from GClueNMEASource" "$STATE/geoclue.log" | sed 's/^.*DEBUG: [0-9:.]*: //' | sort -u
   grep -q "allowed by agent" "$STATE/geoclue.log" || { echo "the GeoClue agent was not asked" >&2; exit 1; }
@@ -124,6 +218,14 @@ main() {
   build_tests
   start_system_bus
   start_geoclue
+  if in_the_live_desktop; then
+    use_the_live_desktop
+    run_with_the_desktop_notification_server
+    check_the_desktop_notification
+    show_the_tray_in_the_desktop
+    echo "PASS: in the live $XDG_SESSION_TYPE desktop session (${XDG_CURRENT_DESKTOP:-unnamed desktop}) the Linux host reached GeoClue (a GPS fix from an NMEA socket, allowed by the GeoClue agent) and the desktop's own notification server; $TRAY_RESULT"
+    return
+  fi
   export -f check_services_answered
   run_with_desktop_services
   check_services_answered

@@ -86,6 +86,29 @@ run_under_compositing_x11() {
     '
 }
 
+use_the_live_desktop() {
+  local exports
+  exports=$(node "$(dirname "${BASH_SOURCE[0]}")/linux-display-session.mjs" desktop-env)
+  eval "$exports"
+}
+
+run_in_desktop() {
+  echo "==> running the Linux host tests in the live $XDG_SESSION_TYPE desktop session (${XDG_CURRENT_DESKTOP:-unnamed desktop} on ${WAYLAND_DISPLAY:-$DISPLAY}, desktop services: ${TAC_DESKTOP_SERVICES:-none})"
+  local skipped=(--skip linux_browser_apis_reach_geoclue_and_the_notification_server --skip linux_package_tests)
+  DESKTOP_GAPS=
+  if [[ $XDG_SESSION_TYPE == x11 ]]; then
+    echo "_NET_WM_CM_S0 owner (0 when the desktop does not composite): $(compositor_owner)"
+  elif [[ " $TAC_DESKTOP_SERVICES " != *' remote-desktop '* ]]; then
+    echo '==> this Wayland desktop has no Mutter RemoteDesktop, so the browser API, file dialog and title bar tests, which press keys and the pointer through it, do not run'
+    skipped+=(--skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_title_bar_tests)
+    DESKTOP_GAPS=' (not run: the browser API, file dialog and title bar tests, because the desktop has no Mutter RemoteDesktop)'
+  fi
+  export LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals
+  export GIO_USE_VFS=local GIO_USE_VOLUME_MONITOR=unix
+  cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 "${skipped[@]}"
+  cargo test --locked -p tachyon-core --lib the_linux_ -- --ignored --test-threads=1
+}
+
 compositor_owner() {
   python3 - <<'PY'
 import ctypes
@@ -105,6 +128,12 @@ main() {
   if [[ "${1:-}" == --wslg ]]; then
     run_in_wslg
     echo 'PASS: the Linux host, window controls, appearance, storage, page calls and links under the WSLg Wayland compositor (the title bar tests press the pointer through Mutter RemoteDesktop, which WSLg does not have; they run under mutter and xfwm4)'
+    return
+  fi
+  if [[ "${1:-}" == --desktop ]]; then
+    use_the_live_desktop
+    run_in_desktop
+    echo "PASS: the Linux host, window controls, appearance, storage, page calls, links, the integrated title bar, the browser APIs and the file dialog in the live $XDG_SESSION_TYPE desktop session (${XDG_CURRENT_DESKTOP:-unnamed desktop}), under its own window manager and session bus$DESKTOP_GAPS"
     return
   fi
   export -f compositor_owner

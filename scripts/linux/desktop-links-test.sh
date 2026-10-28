@@ -69,6 +69,26 @@ use_the_x11_display_only() {
   unset WAYLAND_DISPLAY
 }
 
+in_the_live_desktop() {
+  [[ ${TAC_LINUX_DISPLAY:-x11} == desktop ]]
+}
+
+use_the_live_desktop() {
+  local exports
+  exports=$(node "$(dirname "$SCRIPT")/linux-display-session.mjs" desktop-env)
+  eval "$exports"
+  echo "==> running in the live $XDG_SESSION_TYPE desktop session (${XDG_CURRENT_DESKTOP:-unnamed desktop} on ${WAYLAND_DISPLAY:-$DISPLAY}, desktop services: ${TAC_DESKTOP_SERVICES:-none})"
+}
+
+read_desktop_default_apps() {
+  local scheme
+  local found=()
+  for scheme in https mailto; do
+    found+=("$scheme: $(xdg-mime query default "x-scheme-handler/$scheme" 2>/dev/null || true)")
+  done
+  DESKTOP_DEFAULT_APPS=$(IFS=,; echo "${found[*]}")
+}
+
 use_private_desktop_folders() {
   local fixture=$1
   export XDG_DATA_HOME="$fixture/desktop/data"
@@ -76,8 +96,11 @@ use_private_desktop_folders() {
   export XDG_CACHE_HOME="$fixture/desktop/cache"
   export XDG_STATE_HOME="$fixture/desktop/state"
   mkdir -p "$XDG_DATA_HOME/applications" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_STATE_HOME"
-  unset XDG_CURRENT_DESKTOP DESKTOP_SESSION BROWSER
-  export GDK_BACKEND=x11
+  unset BROWSER
+  if ! in_the_live_desktop; then
+    unset XDG_CURRENT_DESKTOP DESKTOP_SESSION
+    export GDK_BACKEND=x11
+  fi
   export GTK_A11Y=atspi
   export LIBGL_ALWAYS_SOFTWARE=1
   export WEBKIT_DMABUF_RENDERER_FORCE_SHM=1
@@ -150,6 +173,10 @@ portal_is_installed() {
 }
 
 run_in_desktop_session() {
+  if in_the_live_desktop; then
+    timeout 300s bash "$SCRIPT" "$@"
+    return
+  fi
   timeout 300s xvfb-run --auto-servernum --server-args='-screen 0 1024x1400x24' \
     dbus-run-session -- bash "$SCRIPT" "$@"
 }
@@ -158,6 +185,29 @@ probe() {
   local application=$1
   local steps=$2
   TAC_PROBE_APPLICATION="$application" timeout 120s python3 "$PROBE" "$steps"
+}
+
+wait_for_portal_calls() {
+  local bus_log=$1
+  local count=$2
+  local _
+  for _ in $(seq 100); do
+    if (( $(grep -c 'member=OpenURI' "$bus_log" || true) >= count )); then return; fi
+    sleep 0.2
+  done
+  echo "the OpenURI portal received $(grep -c 'member=OpenURI' "$bus_log" || true) calls, not $count" >&2
+  exit 1
+}
+
+wait_for_links() {
+  local path=$1
+  local bus_log=$2
+  local count=$3
+  if [[ $path == desktop-portal ]]; then
+    wait_for_portal_calls "$bus_log" "$count"
+    return
+  fi
+  wait_for_records "$count"
 }
 
 wait_for_records() {
@@ -193,12 +243,13 @@ open_external_links() {
   local host=$!
   trap "kill $host $monitor 2>/dev/null || true" EXIT
   probe LinkGate '[["wait",["Home route","Open example","Write mail"]],["click","Open example"]]'
-  wait_for_records 1
+  wait_for_links "$path" "$bus_log" 1
   probe LinkGate '[["click","Write mail"]]'
-  wait_for_records 2
+  wait_for_links "$path" "$bus_log" 2
   probe LinkGate '[["wait",["Home route","Open example","Write mail"]]]'
   kill -0 "$host"
-  test "$(cat "$RECORDS")" = $'https://example.com/a?b=1\nmailto:someone@example.com'
+  if [[ -n "${TAC_LINUX_SCREENSHOTS:-}" ]]; then node "$(dirname "$SCRIPT")/linux-display-session.mjs" screenshot "$TAC_LINUX_SCREENSHOTS/links-$path.png"; fi
+  if [[ $path != desktop-portal ]]; then test "$(cat "$RECORDS")" = $'https://example.com/a?b=1\nmailto:someone@example.com'; fi
   test -f "$log"
   if grep -q '"event":"link.external.failed"' "$log"; then echo 'the host recorded a failed launch' >&2; exit 1; fi
   if grep -v '"route":"/"' "$log"; then echo 'the app left its first page' >&2; exit 1; fi
@@ -266,6 +317,13 @@ open_scheme_links() {
   echo "OK: one app process ($host) opened all four scheme links"
 }
 
+open_links_through_the_desktop_portal() {
+  echo "==> clicking external links in the live desktop: its xdg-desktop-portal answers OpenURI and opens the desktop's default apps ($DESKTOP_DEFAULT_APPS)"
+  run_in_desktop_session external-links desktop-portal
+  echo '==> opening scheme links through the installed desktop file'
+  run_in_desktop_session scheme-links
+}
+
 run_session_step() {
   case $1 in
     external-links) open_external_links "$2" ;;
@@ -289,11 +347,20 @@ main() {
   export FIXTURE SCRIPT PROBE
   use_a_writable_runtime_folder
   use_the_x11_display_only
+  if in_the_live_desktop; then
+    use_the_live_desktop
+    read_desktop_default_apps
+  fi
   write_fixture "$FIXTURE"
   build_native_app "$FIXTURE"
   use_private_desktop_folders "$FIXTURE"
   install_link_recorder "$FIXTURE"
   install_app_desktop_file "$FIXTURE"
+  if in_the_live_desktop && [[ " $TAC_DESKTOP_SERVICES " == *' portal '* ]]; then
+    open_links_through_the_desktop_portal
+    echo "PASS: in the live $XDG_SESSION_TYPE desktop session (${XDG_CURRENT_DESKTOP:-unnamed desktop}) GtkUriLauncher handed https and mailto links to the desktop's OpenURI portal and its default apps ($DESKTOP_DEFAULT_APPS), and the installed .desktop file opened linkgate:// links in one running app over the desktop's session bus ($((SECONDS - started)) s)"
+    return
+  fi
   turn_off_desktop_portals
   echo '==> clicking external links with no desktop portal: GtkUriLauncher falls back to GIO'
   run_in_desktop_session external-links direct

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
 import { PageServicesFixture } from '../native/page-services-fixture.mjs'
+import { LinuxDisplaySession } from './linux-display-session.mjs'
 
 class LinuxPageServicesTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
@@ -21,7 +22,8 @@ class LinuxPageServicesTest {
   static webAssemblySizes = {}
   static tallySteps = PageServicesFixture.tallySteps
   static reportSteps = PageServicesFixture.reportSteps
-  static screen = '1600x1200x24'
+  static display = process.env.TAC_LINUX_DISPLAY ?? 'x11'
+  static screen = '1600x1200'
 
   /** @param {string} command @param {string[]} args @param {import('../supervised-command.mjs').CommandOptions} options */
   static async run(command, args, options) {
@@ -46,6 +48,7 @@ while [[ -n "$pending" ]]; do
   tree="$tree $pending"
 done
 echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 } END { printf "%.0f", total / 1024 }') MiB resident in the app and its web processes"`
+    const session = LinuxDisplaySession.of(this.display, script, this.screen, project)
     const env = {
       ...process.env,
       APP: app,
@@ -55,13 +58,13 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
       XDG_STATE_HOME: path.join(project, 'state'),
       XDG_DATA_HOME: path.join(project, 'data'),
       XDG_CACHE_HOME: path.join(project, 'cache'),
-      GDK_BACKEND: 'x11',
       GTK_A11Y: 'atspi',
       LIBGL_ALWAYS_SOFTWARE: '1',
       WEBKIT_DMABUF_RENDERER_FORCE_SHM: '1',
       ...settings,
+      ...session.env,
     }
-    const output = await this.run('xvfb-run', ['--auto-servernum', `--server-args=-screen 0 ${this.screen}`, 'dbus-run-session', '--', 'bash', '-c', script], { env, timeoutMilliseconds: 360000 })
+    const output = await this.run(session.command, session.args, { env, timeoutMilliseconds: 360000 })
     return output.split('\n').filter(line => /^(OK|LOADED|MEMORY|PASS)/.test(line)).join('\n')
   }
 
@@ -154,7 +157,7 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
       ['pick', { control: 'Choose file', keys: ['Escape'] }],
       ['wait', [cancelled]],
     ]
-    const output = await this.drive(project, application, steps, { WINDOW_MANAGER: '1' })
+    const output = await this.drive(project, application, steps, this.display === 'x11' ? { WINDOW_MANAGER: '1' } : {})
     console.log(`==> ${language} WebAssembly FilePicker caller\n${output}`)
   }
 
@@ -165,7 +168,7 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
     for (const language of this.pickerCallers) await this.checkPickerCaller(language)
     for (const language of this.aheadOfTimeLanguages) await this.checkAheadOfTime(language)
     if (this.storedField) await this.checkStoredField()
-    console.log(`PASS: WebAssembly page services (${this.serviceLanguages.join(', ')}) answered in the packaged Linux app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog, ahead-of-time services (${this.aheadOfTimeLanguages.join(', ') || 'none'}) answered, and ${this.storedField ? 'a Rust-set @LocalState field survived a reload' : 'the stored field check was skipped'}.`)
+    console.log(`PASS: WebAssembly page services (${this.serviceLanguages.join(', ')}) answered in the packaged Linux app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog, ahead-of-time services (${this.aheadOfTimeLanguages.join(', ') || 'none'}) answered, and ${this.storedField ? 'a Rust-set @LocalState field survived a reload' : 'the stored field check was skipped'} (display: ${this.display}).`)
   }
 }
 

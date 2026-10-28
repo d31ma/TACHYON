@@ -40,19 +40,40 @@ assert len(host['companions']) == 2, host
 PY
 }
 
+in_the_live_desktop() {
+  [[ ${TAC_LINUX_DISPLAY:-x11} == desktop ]]
+}
+
+use_the_live_desktop() {
+  local exports
+  exports=$(node scripts/linux/linux-display-session.mjs desktop-env)
+  eval "$exports"
+  echo "==> running in the live $XDG_SESSION_TYPE desktop session (${XDG_CURRENT_DESKTOP:-unnamed desktop} on ${WAYLAND_DISPLAY:-$DISPLAY})"
+}
+
+run_beside_display() {
+  local seconds=$1
+  local size=$2
+  shift 2
+  if in_the_live_desktop; then
+    timeout "$seconds" "$@"
+    return
+  fi
+  timeout "$seconds" xvfb-run --auto-servernum --server-args="-screen 0 ${size}x24" dbus-run-session -- "$@"
+}
+
 drive_accessibility_probe() {
   local fixture=$1
   local app=$2
   echo '==> driving rendered web controls through the real accessibility bus'
   export XDG_STATE_HOME="$fixture/state"
   export XDG_DATA_HOME="$fixture/data"
-  export GDK_BACKEND=x11
+  if ! in_the_live_desktop; then export GDK_BACKEND=x11; fi
   export GTK_A11Y=atspi
   export LIBGL_ALWAYS_SOFTWARE=1
   export WEBKIT_DMABUF_RENDERER_FORCE_SHM=1
   export APP="$app"
-  timeout 240s xvfb-run --auto-servernum --server-args='-screen 0 1024x1400x24' \
-    dbus-run-session -- bash -c '
+  run_beside_display 240s 1024x1400 bash -c '
       set -euo pipefail
       "$APP/bin/NativeGate" &
       host=$!
@@ -77,8 +98,7 @@ launch_until_mounted() {
   local log="$XDG_STATE_HOME/tachyon/dev.tachyon.desktop-gate.jsonl"
   rm -f "$log"
   export LOG="$log"
-  timeout 150s xvfb-run --auto-servernum --server-args='-screen 0 1024x1400x24' \
-    dbus-run-session -- bash -c '
+  run_beside_display 150s 1024x1400 bash -c '
       set -euo pipefail
       "$@" &
       host=$!
@@ -182,6 +202,7 @@ main() {
   trap 'remove_folders' EXIT
   use_a_writable_runtime_folder
   use_the_x11_display_only
+  if in_the_live_desktop; then use_the_live_desktop; fi
   local out="${FIXTURE}/dist/linux"
   build_native_app "$FIXTURE"
   check_artifacts "$out"
@@ -191,7 +212,7 @@ main() {
   check_release_packages "$FIXTURE"
   reach_yon
   preview_against_the_dev_server
-  echo 'PASS: Linux WebView, shared JS/CSS, native ABI, publish, dynamic routes, route isolation, the AppImage and .deb release packages, Yon reach, and ty preview against the dev server'
+  echo "PASS: Linux WebView, shared JS/CSS, native ABI, publish, dynamic routes, route isolation, the AppImage and .deb release packages, Yon reach, and ty preview against the dev server (display: ${TAC_LINUX_DISPLAY:-x11})"
 }
 
 main "$@"
