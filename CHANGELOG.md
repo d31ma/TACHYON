@@ -2413,7 +2413,13 @@ machine contracts have their own, independent major versions.
   `.exe`) or a named icon file is missing, instead of leaving the icon out
   silently. The Windows window now shows the `.exe` icon in its title bar,
   in Alt-Tab and on its taskbar button, and the Linux app names its icon as
-  the GTK window icon instead of a relative `Icon=share/icon.png` path.
+  the GTK window icon instead of a relative `Icon=share/icon.png` path. It
+  installs that icon in its own hicolor theme folder, because GTK sets the
+  X11 window icon (`_NET_WM_ICON`) only from icon theme folders.
+- A Windows app with a tray whose `closeHidesWindow` is false no longer
+  fails to build with MSVC (C4127, a constant condition under `/W4 /WX`).
+  The Windows and Linux close handlers now pick their branch with the
+  preprocessor.
 - `relay_boundaries::the_supervisor_default_timeout_limits_relays_without_a_request_deadline`
   is no longer flaky on slow machines (RT1, 2026-10-28). Its 8 s default
   deadline also paid for the warm handler's start, and on WSL a Ruby or Java

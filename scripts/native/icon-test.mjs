@@ -601,7 +601,7 @@ class LinuxIcons {
     assert.match(entry, new RegExp(`^Icon=${IconFixture.themedName.replaceAll('.', '\\.')}$`, 'm'))
     const lines = [
       `the desktop entry names Icon=${IconFixture.themedName}`,
-      IconGate.expectFile('share/icons in the app folder', path.join(folder, 'share/icons', `${IconFixture.themedName}.png`), IconFixture.large),
+      IconGate.expectFile('the hicolor theme folder in the app folder', path.join(folder, 'share/icons/hicolor/256x256/apps', `${IconFixture.themedName}.png`), IconFixture.large),
     ]
     if (!IconGate.release) return lines
     const [deb] = IconGate.find(IconGate.output(built, 'linux'), (file) => file.endsWith('.deb'))

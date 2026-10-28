@@ -118,9 +118,14 @@ static BOOL tachyon_tray_command(HWND window, UINT command) {
 }
 
 static BOOL tachyon_tray_hides_window(HWND window) {
-  if (!TACHYON_TRAY_CLOSE_HIDES || !g_tray_shown || g_tray_quitting) return FALSE;
+#if TACHYON_TRAY_CLOSE_HIDES
+  if (!g_tray_shown || g_tray_quitting) return FALSE;
   ShowWindow(window, SW_HIDE);
   return TRUE;
+#else
+  (void)window;
+  return FALSE;
+#endif
 }
 #else
 static void tachyon_tray_install(HWND window) {

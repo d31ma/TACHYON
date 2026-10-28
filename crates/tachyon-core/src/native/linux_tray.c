@@ -360,10 +360,15 @@ static void tachyon_tray_remove(void) {
 
 static gboolean tachyon_tray_close_request(GtkWindow *window, gpointer data) {
   (void)data;
-  if (!TACHYON_TRAY_CLOSE_HIDES || !g_tray_shown || g_tray_quitting) return FALSE;
+#if TACHYON_TRAY_CLOSE_HIDES
+  if (!g_tray_shown || g_tray_quitting) return FALSE;
   gtk_widget_set_visible(GTK_WIDGET(window), FALSE);
   tachyon_record("window.hidden");
   return TRUE;
+#else
+  (void)window;
+  return FALSE;
+#endif
 }
 #else
 static void tachyon_tray_install(void) {}

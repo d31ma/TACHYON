@@ -173,8 +173,7 @@ fn stage_icon(
     }
     let icon_name = gtk_application_id(&application.application_id);
     let destination = bundle
-        .join("share")
-        .join("icons")
+        .join("share/icons/hicolor/256x256/apps")
         .join(format!("{icon_name}.png"));
     if let Some(parent) = destination.parent() {
         super::host::native_io(std::fs::create_dir_all(parent), parent)?;
@@ -722,7 +721,9 @@ static void tachyon_icon_install(void) {
   GtkIconTheme *theme = gtk_icon_theme_get_for_display(gdk_display_get_default());
   gtk_icon_theme_add_search_path(theme, icons);
   gtk_window_set_default_icon_name("__GTK_APP_ID__");
-  tachyon_record(gtk_icon_theme_has_icon(theme, "__GTK_APP_ID__") ? "icon.loaded" : "icon.missing");
+  int *sizes = gtk_icon_theme_get_icon_sizes(theme, "__GTK_APP_ID__");
+  tachyon_record(sizes[0] != 0 ? "icon.loaded" : "icon.missing");
+  g_free(sizes);
   g_free(icons);
   g_free(bundle);
   g_free(resources);
@@ -975,14 +976,18 @@ mod tests {
         let bundle = root.path().join("NativeCatalog");
         super::stage_icon(&named, &web, &bundle).expect("stage");
         assert_eq!(
-            std::fs::read(bundle.join("share/icons/dev.tachyon.native_catalog.png")).expect("icon"),
+            std::fs::read(
+                bundle.join("share/icons/hicolor/256x256/apps/dev.tachyon.native_catalog.png")
+            )
+            .expect("icon"),
             b"largest icon"
         );
         let source = c_source(&named, &index());
         for expected in [
             "gtk_icon_theme_add_search_path(theme, icons);",
             "gtk_window_set_default_icon_name(\"dev.tachyon.native_catalog\");",
-            "tachyon_record(gtk_icon_theme_has_icon(theme, \"dev.tachyon.native_catalog\") ? \"icon.loaded\" : \"icon.missing\");",
+            "int *sizes = gtk_icon_theme_get_icon_sizes(theme, \"dev.tachyon.native_catalog\");",
+            "tachyon_record(sizes[0] != 0 ? \"icon.loaded\" : \"icon.missing\");",
             "tachyon_icon_install();\n  GtkWidget *window = gtk_application_window_new(app);",
         ] {
             assert!(source.contains(expected), "{expected}");
