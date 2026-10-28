@@ -13,8 +13,8 @@ fn write_shared_roles(root: &Path) {
     );
     write(
         root,
-        "server/helpers/AuditHelper.js",
-        "@Helper\nclass AuditHelper { stamp(value) { return value + 1; } }",
+        "server/delegates/AuditDelegate.js",
+        "@Delegate\nclass AuditDelegate { stamp(value) { return value + 1; } }",
     );
     for (route, controller) in [
         ("orders", "OrdersController"),
@@ -24,7 +24,7 @@ fn write_shared_roles(root: &Path) {
             root,
             &format!("server/controllers/{controller}.js"),
             &format!(
-                "@RequestRoute(\"/{route}\")\n@Public\n@NeedsAll()\nclass {controller} {{\n ordersService;\n auditHelper;\n @GetRoute\n get() {{ return {{total:this.auditHelper.stamp(this.ordersService.total())}}; }}\n}}"
+                "@RequestRoute(\"/{route}\")\n@Public\n@NeedsAll()\nclass {controller} {{\n ordersService;\n auditDelegate;\n @GetRoute\n get() {{ return {{total:this.auditDelegate.stamp(this.ordersService.total())}}; }}\n}}"
             ),
         );
     }
@@ -50,13 +50,13 @@ fn write_basket_roles(root: &Path, constructor: &str, fields: &str) {
     );
     write(
         root,
-        "client/helpers/BasketItemsHelper.js",
-        "@Helper()\nclass BasketItemsHelper {\n_items = [];\n}",
+        "client/delegates/BasketItemsDelegate.js",
+        "@Delegate()\nclass BasketItemsDelegate {\n_items = [];\n}",
     );
     write(
         root,
-        "client/helpers/PricingHelper.js",
-        "@Helper()\nclass PricingHelper {\n_price(items) { return items.length; }\n}",
+        "client/delegates/PricingDelegate.js",
+        "@Delegate()\nclass PricingDelegate {\n_price(items) { return items.length; }\n}",
     );
     write(
         root,
@@ -282,11 +282,11 @@ fn a_tac_service_receives_helpers_and_injected_providers() {
     for (constructor, fields) in [
         (
             "@NeedsAll()",
-            "basketItemsHelper;\npricingHelper;\nproductsClient;",
+            "basketItemsDelegate;\npricingDelegate;\nproductsClient;",
         ),
         (
-            "@Needs(BasketItemsHelper, PricingHelper, ProductsClient)",
-            "basketItemsHelper;\npricingHelper;\nproductsClient;",
+            "@Needs(BasketItemsDelegate, PricingDelegate, ProductsClient)",
+            "basketItemsDelegate;\npricingDelegate;\nproductsClient;",
         ),
     ] {
         let root = tempfile::tempdir().expect("project");
@@ -297,24 +297,24 @@ fn a_tac_service_receives_helpers_and_injected_providers() {
             fs::read_to_string(root.path().join("dist/.tachyon/services/BasketService.js"))
                 .expect("service module");
         for role in [
-            "class BasketItemsHelper",
-            "class PricingHelper",
+            "class BasketItemsDelegate",
+            "class PricingDelegate",
             "class ProductsClient",
         ] {
             assert!(module.contains(role), "{constructor}: {role}");
         }
         assert!(
-            module.contains("constructor(basketItemsHelper, pricingHelper, productsClient)"),
+            module.contains("constructor(basketItemsDelegate, pricingDelegate, productsClient)"),
             "{constructor}: {module}"
         );
         assert!(
             module.contains(
-                "new BasketService(resolve('BasketItemsHelper'),resolve('PricingHelper'),resolve('ProductsClient'))"
+                "new BasketService(resolve('BasketItemsDelegate'),resolve('PricingDelegate'),resolve('ProductsClient'))"
             ),
             "{constructor}: {module}"
         );
         assert!(
-            !module.contains("@Helper") && !module.contains("@Needs"),
+            !module.contains("@Delegate") && !module.contains("@Needs"),
             "{module}"
         );
     }

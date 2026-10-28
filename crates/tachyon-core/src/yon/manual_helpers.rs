@@ -44,7 +44,7 @@ impl ManualHelpers {
             return Err(Self::failure(
                 path,
                 0,
-                "Yon permits at most 128 authored Helpers",
+                "Yon permits at most 128 authored Delegates",
             ));
         }
         Ok(())
@@ -262,7 +262,7 @@ impl ManualHelpers {
                 Self::hook_offset(&code[body.clone()]).map(|offset| body.start + offset)
             });
         hook.map_or(Ok(()), |at| Err(Self::failure(path, at,
-            &format!("Helper {} uses caller-owned construction; lifecycle and event hooks require a declared Needs or NeedsAll provider", helper.name))))
+            &format!("Delegate {} uses caller-owned construction; lifecycle and event hooks require a declared Needs or NeedsAll provider", helper.name))))
     }
 
     fn hook_offset(code: &str) -> Option<usize> {
@@ -317,16 +317,16 @@ mod tests {
     #[test]
     fn rust_associated_invocations_and_literals_prove_manual_ownership() {
         let declaration =
-            "#[Helper]\nstruct ProbeHelper {}\nimpl ProbeHelper { fn answer() -> i32 { 1 } }\n";
+            "#[Delegate]\nstruct ProbeDelegate {}\nimpl ProbeDelegate { fn answer() -> i32 { 1 } }\n";
         for caller in [
-            "fn caller() { let value = ProbeHelper::answer(); }",
-            "fn caller() { let value = ProbeHelper::default(); }",
-            "fn caller() { let value = ProbeHelper {}; }",
-            "fn caller() -> ProbeHelper { ProbeHelper {} }",
+            "fn caller() { let value = ProbeDelegate::answer(); }",
+            "fn caller() { let value = ProbeDelegate::default(); }",
+            "fn caller() { let value = ProbeDelegate {}; }",
+            "fn caller() -> ProbeDelegate { ProbeDelegate {} }",
         ] {
             assert_eq!(
                 names("rs", &format!("{declaration}{caller}")),
-                BTreeSet::from(["ProbeHelper".into()]),
+                BTreeSet::from(["ProbeDelegate".into()]),
                 "{caller}"
             );
         }
@@ -334,16 +334,16 @@ mod tests {
 
     #[test]
     fn rust_declarations_return_types_and_method_references_are_not_calls() {
-        let declaration = "#[Helper]\nstruct ProbeHelper {}\n";
+        let declaration = "#[Delegate]\nstruct ProbeDelegate {}\n";
         for reference in [
-            "impl ProbeHelper {}",
-            "impl Trait for ProbeHelper {}",
-            "impl Trait for crate::ProbeHelper {}",
-            "fn caller() -> ProbeHelper { panic!() }",
-            "fn caller() -> crate::ProbeHelper { panic!() }",
-            "fn caller() -> &ProbeHelper { panic!() }",
-            "fn caller() { let method = ProbeHelper::answer; }",
-            "type Alias = ProbeHelper;",
+            "impl ProbeDelegate {}",
+            "impl Trait for ProbeDelegate {}",
+            "impl Trait for crate::ProbeDelegate {}",
+            "fn caller() -> ProbeDelegate { panic!() }",
+            "fn caller() -> crate::ProbeDelegate { panic!() }",
+            "fn caller() -> &ProbeDelegate { panic!() }",
+            "fn caller() { let method = ProbeDelegate::answer; }",
+            "type Alias = ProbeDelegate;",
         ] {
             assert!(
                 names("rs", &format!("{declaration}{reference}")).is_empty(),
@@ -354,26 +354,26 @@ mod tests {
 
     #[test]
     fn generic_factory_reference_without_call_is_not_construction() {
-        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object method = Behaviors.construct<ProbeHelper>; }";
+        let source = "[Delegate]\nclass ProbeDelegate {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object method = Behaviors.construct<ProbeDelegate>; }";
         assert!(names("cs", source).is_empty());
     }
 
     #[test]
     fn php_class_constant_factory_proves_only_real_exact_calls() {
-        let declaration = "<?php\n#[Helper]\nclass ProbeHelper {\n #[Needs]\n public BehaviorContext $behaviors;\n}\n";
+        let declaration = "<?php\n#[Delegate]\nclass ProbeDelegate {\n #[Needs]\n public BehaviorContext $behaviors;\n}\n";
         let caller =
-            "$value = Behaviors::construct(ProbeHelper::class, ['behaviors' => $context]);";
+            "$value = Behaviors::construct(ProbeDelegate::class, ['behaviors' => $context]);";
         assert_eq!(
             names("php", &format!("{declaration}{caller}")),
-            BTreeSet::from(["ProbeHelper".into()])
+            BTreeSet::from(["ProbeDelegate".into()])
         );
         for reference in [
-            "$value = OtherBehaviors::construct(ProbeHelper::class, []);",
-            "$value = Behaviors::construct(ProbeHelper::classSuffix, []);",
-            "$value = ProbeHelper::class;",
-            "$method = Behaviors::construct; $type = ProbeHelper::class;",
-            "// Behaviors::construct(ProbeHelper::class, []);",
-            "$text = 'Behaviors::construct(ProbeHelper::class, [])';",
+            "$value = OtherBehaviors::construct(ProbeDelegate::class, []);",
+            "$value = Behaviors::construct(ProbeDelegate::classSuffix, []);",
+            "$value = ProbeDelegate::class;",
+            "$method = Behaviors::construct; $type = ProbeDelegate::class;",
+            "// Behaviors::construct(ProbeDelegate::class, []);",
+            "$text = 'Behaviors::construct(ProbeDelegate::class, [])';",
         ] {
             assert!(
                 names("php", &format!("{declaration}{reference}")).is_empty(),
@@ -384,8 +384,8 @@ mod tests {
 
     #[test]
     fn php_factory_keeps_provider_optins_and_owned_hook_rejections() {
-        let source = "<?php\n#[Helper]\nclass ProbeHelper {\n #[Needs]\n public BehaviorContext $behaviors;\n}\n$value = Behaviors::construct(ProbeHelper::class, ['behaviors' => $context]);";
-        let managed = source.replace("#[Helper]", "#[Helper]\n#[NeedsAll]");
+        let source = "<?php\n#[Delegate]\nclass ProbeDelegate {\n #[Needs]\n public BehaviorContext $behaviors;\n}\n$value = Behaviors::construct(ProbeDelegate::class, ['behaviors' => $context]);";
+        let managed = source.replace("#[Delegate]", "#[Delegate]\n#[NeedsAll]");
         assert!(names("php", &managed).is_empty());
         let hooked = source.replace(
             " public BehaviorContext $behaviors;",
@@ -400,16 +400,16 @@ mod tests {
 
     #[test]
     fn zero_argument_called_helper_keeps_managed_lifecycle() {
-        let source = "@Helper\nclass ProbeHelper {\n ProbeHelper() {}\n @OnStart\n void start() {}\n}\nclass Caller { Object value = new ProbeHelper(); }";
+        let source = "@Delegate\nclass ProbeDelegate {\n ProbeDelegate() {}\n @OnStart\n void start() {}\n}\nclass Caller { Object value = new ProbeDelegate(); }";
         assert_eq!(
             names("java", source),
-            BTreeSet::from(["ProbeHelper".into()])
+            BTreeSet::from(["ProbeDelegate".into()])
         );
     }
 
     #[test]
     fn field_needs_called_helper_cannot_claim_managed_lifecycle() {
-        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n [OnStart]\n void Start() {}\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeHelper), context); }";
+        let source = "[Delegate]\nclass ProbeDelegate {\n [Needs]\n public BehaviorContext behaviors;\n [OnStart]\n void Start() {}\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeDelegate), context); }";
         let failure = ManualHelpers::read(Path::new("yon.cs"), source)
             .err()
             .unwrap_or_else(|| panic!("expected lifecycle failure"));
@@ -421,29 +421,29 @@ mod tests {
         let sources = [
             (
                 "java",
-                "@Helper\nclass ProbeHelper { final Context context; ProbeHelper(Context context) { this.context = context; } }\nclass User { Object value = new ProbeHelper(context); }",
+                "@Delegate\nclass ProbeDelegate { final Context context; ProbeDelegate(Context context) { this.context = context; } }\nclass User { Object value = new ProbeDelegate(context); }",
             ),
             (
                 "kt",
-                "@Helper\nclass ProbeHelper(val context: Context) {}\nval value = ProbeHelper(context)",
+                "@Delegate\nclass ProbeDelegate(val context: Context) {}\nval value = ProbeDelegate(context)",
             ),
             (
                 "py",
-                "@helper\nclass ProbeHelper:\n    def __init__(self, context):\n        self.context = context\nvalue = ProbeHelper(context)\n",
+                "@delegate\nclass ProbeDelegate:\n    def __init__(self, context):\n        self.context = context\nvalue = ProbeDelegate(context)\n",
             ),
             (
                 "rb",
-                "#[Helper]\nclass ProbeHelper\n  def initialize(context)\n    @context = context\n  end\nend\nvalue = ProbeHelper.new(context)\n",
+                "#[Delegate]\nclass ProbeDelegate\n  def initialize(context)\n    @context = context\n  end\nend\nvalue = ProbeDelegate.new(context)\n",
             ),
             (
                 "rs",
-                "#[Helper]\nstruct ProbeHelper { context: Context }\nimpl ProbeHelper { fn new(context: Context) -> Self { Self { context } } }\nfn use_helper() { let value = ProbeHelper::new(context); }",
+                "#[Delegate]\nstruct ProbeDelegate { context: Context }\nimpl ProbeDelegate { fn new(context: Context) -> Self { Self { context } } }\nfn use_delegate() { let value = ProbeDelegate::new(context); }",
             ),
         ];
         for (extension, source) in sources {
             assert_eq!(
                 names(extension, source),
-                BTreeSet::from(["ProbeHelper".into()]),
+                BTreeSet::from(["ProbeDelegate".into()]),
                 "{extension}"
             );
         }
@@ -451,29 +451,29 @@ mod tests {
 
     #[test]
     fn go_requires_nonempty_caller_owned_literal() {
-        let source = "// @Helper\ntype ProbeHelper struct { context *BehaviorContext }\nfunc caller() { value := &ProbeHelper{context: context} }";
-        assert_eq!(names("go", source), BTreeSet::from(["ProbeHelper".into()]));
+        let source = "// @Delegate\ntype ProbeDelegate struct { context *BehaviorContext }\nfunc caller() { value := &ProbeDelegate{context: context} }";
+        assert_eq!(names("go", source), BTreeSet::from(["ProbeDelegate".into()]));
         assert!(names("go", &source.replace("context: context", "")).is_empty());
     }
 
     #[test]
     fn go_function_results_are_not_construction() {
-        let declaration = "// @Helper\ntype ProbeHelper struct { value int }\ntype Caller struct { stored *ProbeHelper }\n";
+        let declaration = "// @Delegate\ntype ProbeDelegate struct { value int }\ntype Caller struct { stored *ProbeDelegate }\n";
         for reference in [
-            "func (caller *Caller) Read() *ProbeHelper { return caller.stored }",
-            "func Read() *ProbeHelper { return nil }",
-            "func Read() ProbeHelper { return ProbeHelper{} }",
-            "func Read() []ProbeHelper { return nil }",
-            "func Read() map[string]*ProbeHelper { return nil }",
-            "func Read() chan *ProbeHelper { return nil }",
-            "func Read() func() *ProbeHelper { return nil }",
-            "func Read() { _ = func() *ProbeHelper { return nil } }",
-            "func Read() (*ProbeHelper) { return nil }",
-            "func Read() (result *ProbeHelper) { return }",
-            "func Read() (*ProbeHelper, error) { return nil, nil }",
-            "func Read[T any]() *ProbeHelper { return nil }",
-            "func Read() *\nProbeHelper { return nil }",
-            "func Read() { _ = func() *\nProbeHelper { return nil } }",
+            "func (caller *Caller) Read() *ProbeDelegate { return caller.stored }",
+            "func Read() *ProbeDelegate { return nil }",
+            "func Read() ProbeDelegate { return ProbeDelegate{} }",
+            "func Read() []ProbeDelegate { return nil }",
+            "func Read() map[string]*ProbeDelegate { return nil }",
+            "func Read() chan *ProbeDelegate { return nil }",
+            "func Read() func() *ProbeDelegate { return nil }",
+            "func Read() { _ = func() *ProbeDelegate { return nil } }",
+            "func Read() (*ProbeDelegate) { return nil }",
+            "func Read() (result *ProbeDelegate) { return }",
+            "func Read() (*ProbeDelegate, error) { return nil, nil }",
+            "func Read[T any]() *ProbeDelegate { return nil }",
+            "func Read() *\nProbeDelegate { return nil }",
+            "func Read() { _ = func() *\nProbeDelegate { return nil } }",
         ] {
             assert!(
                 names("go", &format!("{declaration}{reference}")).is_empty(),
@@ -484,21 +484,21 @@ mod tests {
 
     #[test]
     fn go_function_results_keep_real_literal_construction() {
-        let declaration = "// @Helper\ntype ProbeHelper struct { value int }\ntype Caller struct { stored *ProbeHelper }\n";
+        let declaration = "// @Delegate\ntype ProbeDelegate struct { value int }\ntype Caller struct { stored *ProbeDelegate }\n";
         for caller in [
-            "func (caller *Caller) Read() *ProbeHelper { return &ProbeHelper{value: 1} }",
-            "func Read() ProbeHelper { return ProbeHelper{1} }",
-            "func Read() *ProbeHelper { return &ProbeHelper{1} }",
-            "func Read() { _ = func() *ProbeHelper { return &ProbeHelper{value: 1} } }",
-            "var callback func() *ProbeHelper = &ProbeHelper{value: 1}",
-            "func Read() { accept((func() *ProbeHelper)(nil), ProbeHelper{value: 1}) }",
-            "func Read() *\nProbeHelper { return &ProbeHelper{value: 1} }",
-            "func Read() { _ = BehaviorsConstruct[ProbeHelper](context) }",
-            "func Read() ProbeHelper { var _ func() func()\n return ProbeHelper{value: 1} }",
+            "func (caller *Caller) Read() *ProbeDelegate { return &ProbeDelegate{value: 1} }",
+            "func Read() ProbeDelegate { return ProbeDelegate{1} }",
+            "func Read() *ProbeDelegate { return &ProbeDelegate{1} }",
+            "func Read() { _ = func() *ProbeDelegate { return &ProbeDelegate{value: 1} } }",
+            "var callback func() *ProbeDelegate = &ProbeDelegate{value: 1}",
+            "func Read() { accept((func() *ProbeDelegate)(nil), ProbeDelegate{value: 1}) }",
+            "func Read() *\nProbeDelegate { return &ProbeDelegate{value: 1} }",
+            "func Read() { _ = BehaviorsConstruct[ProbeDelegate](context) }",
+            "func Read() ProbeDelegate { var _ func() func()\n return ProbeDelegate{value: 1} }",
         ] {
             assert_eq!(
                 names("go", &format!("{declaration}{caller}")),
-                BTreeSet::from(["ProbeHelper".into()]),
+                BTreeSet::from(["ProbeDelegate".into()]),
                 "{caller}"
             );
         }
@@ -507,7 +507,7 @@ mod tests {
     #[test]
     fn go_result_getter_keeps_injected_helper_and_literal_still_requires_optin() {
         let path = Path::new("server/controllers/C.go");
-        let source = "// @Helper\ntype ProbeHelper struct { value int }\n// @RequestRoute(\"/c\")\n// @Needs(ProbeHelper)\ntype C struct { helper *ProbeHelper }\nfunc (caller *C) Read() *ProbeHelper { return caller.helper }\n// @GetRoute\nfunc (caller *C) Get() any { return nil }\n";
+        let source = "// @Delegate\ntype ProbeDelegate struct { value int }\n// @RequestRoute(\"/c\")\n// @Needs(ProbeDelegate)\ntype C struct { helper *ProbeDelegate }\nfunc (caller *C) Read() *ProbeDelegate { return caller.helper }\n// @GetRoute\nfunc (caller *C) Get() any { return nil }\n";
         let parsed = super::super::parser::parse(path, source)
             .unwrap_or_else(|failure| panic!("{failure}"))
             .unwrap_or_else(|| panic!("expected managed source"));
@@ -516,9 +516,9 @@ mod tests {
                 .plan
                 .providers
                 .iter()
-                .any(|provider| provider.name == "ProbeHelper")
+                .any(|provider| provider.name == "ProbeDelegate")
         );
-        let literal = source.replace("return caller.helper", "return &ProbeHelper{value: 1}");
+        let literal = source.replace("return caller.helper", "return &ProbeDelegate{value: 1}");
         let failure = super::super::parser::parse(path, &literal)
             .err()
             .unwrap_or_else(|| panic!("expected caller-owned injection failure"));
@@ -527,7 +527,7 @@ mod tests {
                 .to_string()
                 .contains("uses explicit caller construction")
         );
-        let managed = literal.replace("// @Helper", "// @Helper\n// @Needs()");
+        let managed = literal.replace("// @Delegate", "// @Delegate\n// @Needs()");
         assert!(super::super::parser::parse(path, &managed).is_ok());
     }
 
@@ -535,7 +535,7 @@ mod tests {
     fn class_provider_optins_keep_managed_ownership() {
         for marker in ["@Needs()", "@NeedsAll()", "@Lifetime(\"Transient\")"] {
             let source = format!(
-                "@Helper\n{marker}\nclass ProbeHelper {{ ProbeHelper(Context context) {{}} }}\nclass User {{ Object value = new ProbeHelper(context); }}"
+                "@Delegate\n{marker}\nclass ProbeDelegate {{ ProbeDelegate(Context context) {{}} }}\nclass User {{ Object value = new ProbeDelegate(context); }}"
             );
             assert!(names("java", &source).is_empty(), "{marker}");
         }
@@ -543,14 +543,14 @@ mod tests {
 
     #[test]
     fn strings_comments_and_other_roles_do_not_prove_manual_helpers() {
-        let source = "@Helper\nclass ProbeHelper { ProbeHelper(Context context) {} }\n@Service\nclass OtherService { OtherService(Context context) {} }\nclass User { String text = \"new ProbeHelper(context)\"; Object other = new OtherService(context); /* new ProbeHelper(context) */ }";
+        let source = "@Delegate\nclass ProbeDelegate { ProbeDelegate(Context context) {} }\n@Service\nclass OtherService { OtherService(Context context) {} }\nclass User { String text = \"new ProbeDelegate(context)\"; Object other = new OtherService(context); /* new ProbeDelegate(context) */ }";
         assert!(names("java", source).is_empty());
     }
 
     #[test]
     fn factory_names_must_be_exact() {
-        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeHelper), context); }";
-        assert_eq!(names("cs", source), BTreeSet::from(["ProbeHelper".into()]));
+        let source = "[Delegate]\nclass ProbeDelegate {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeDelegate), context); }";
+        assert_eq!(names("cs", source), BTreeSet::from(["ProbeDelegate".into()]));
         assert!(
             names(
                 "cs",
@@ -562,7 +562,7 @@ mod tests {
 
     #[test]
     fn manually_owned_hooks_have_a_located_failure() {
-        let source = "@Helper\nclass ProbeHelper {\n @OnStart\n void start() {}\n ProbeHelper(Context context) {}\n}\nclass Caller { Object value = new ProbeHelper(context); }";
+        let source = "@Delegate\nclass ProbeDelegate {\n @OnStart\n void start() {}\n ProbeDelegate(Context context) {}\n}\nclass Caller { Object value = new ProbeDelegate(context); }";
         let failure = ManualHelpers::read(Path::new("yon.java"), source)
             .err()
             .unwrap_or_else(|| panic!("expected lifecycle failure"));
@@ -572,7 +572,7 @@ mod tests {
 
     #[test]
     fn field_needs_does_not_opt_into_class_provider_ownership() {
-        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct<ProbeHelper>(context); }";
-        assert_eq!(names("cs", source), BTreeSet::from(["ProbeHelper".into()]));
+        let source = "[Delegate]\nclass ProbeDelegate {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct<ProbeDelegate>(context); }";
+        assert_eq!(names("cs", source), BTreeSet::from(["ProbeDelegate".into()]));
     }
 }

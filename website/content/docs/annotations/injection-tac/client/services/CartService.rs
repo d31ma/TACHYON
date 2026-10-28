@@ -2,13 +2,13 @@
 #[Lifetime({"value":"prototype"})]
 struct CartService {
     #[Needs]
-    cart_prices_helper: CartPricesHelper,
+    cart_prices_delegate: CartPricesDelegate,
     #[Needs]
-    cart_helper: CartHelper,
+    cart_delegate: CartDelegate,
 }
 impl CartService {
     pub fn total(&self) -> i64 {
-        let subtotal = self.cart_prices_helper.subtotal();
-        self.cart_helper.settle(subtotal)
+        let subtotal = self.cart_prices_delegate.subtotal();
+        self.cart_delegate.settle(subtotal)
     }
 }

@@ -32,7 +32,7 @@ impl CppTestUnit {
     const FAKE_FORM: &'static str = "A C++ [[Fake]] field holds the stand-in object itself, for example `[[Fake]] GreetingClient greetingClient;`: no reference, no pointer, no static";
     const FAKE_TYPES: [&'static str; 2] = [
         "A C++ [[Fake]] field stands in for a C++ service in client/services or a C++ [[HTTPClient]] in client/remotes",
-        "A C++ [[Fake]] field stands in for a C++ class of the project in server/services, server/helpers, server/converters, server/stores, server/remotes or server/controllers",
+        "A C++ [[Fake]] field stands in for a C++ class of the project in server/services, server/delegates, server/converters, server/stores, server/remotes or server/controllers",
     ];
     const FAKE_IN_SETUP: &'static str = "A C++ [[Fake]] field belongs in the [[Test]] class, where construct<T>() gives it to the service; the TestSetup class cannot hold one";
 

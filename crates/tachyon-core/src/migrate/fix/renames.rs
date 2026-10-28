@@ -113,12 +113,15 @@ pub(super) struct RoleRename {
 
 impl RoleRename {
     const REALMS: [&str; 2] = ["client", "server"];
-    const FOLDERS: [(&str, &str, &str, &str); 5] = [
+    const FOLDERS: [(&str, &str, &str, &str); 4] = [
         ("clients", "remotes", "Client", "Client"),
         ("repositories", "stores", "Repository", "Store"),
         ("configurations", "setups", "Configuration", "Setup"),
         ("mappers", "converters", "Mapper", "Converter"),
-        ("delegates", "helpers", "Component", "Helper"),
+    ];
+    const SUFFIX_FOLDERS: [(&str, &str, &str, &str); 2] = [
+        ("helpers", "delegates", "Helper", "Delegate"),
+        ("delegates", "delegates", "Component", "Delegate"),
     ];
     const TEST_SUFFIX: (&str, &str) = ("TestConfiguration", "TestSetup");
 
@@ -152,7 +155,10 @@ impl RoleRename {
         let realm = parts.next().unwrap_or("");
         let folder = parts.next().unwrap_or("");
         let in_realm = Self::REALMS.contains(&realm);
-        let renamed_folder = Self::FOLDERS.iter().any(|(old, ..)| *old == folder);
+        let renamed_folder = Self::FOLDERS
+            .iter()
+            .chain(Self::SUFFIX_FOLDERS.iter())
+            .any(|(old, ..)| *old == folder);
         let renamed = [in_realm, renamed_folder] == [true, true];
         [renamed, SharedUtilsMove::moves_folder(relative)].contains(&true)
     }
@@ -202,22 +208,27 @@ impl RoleRename {
     fn folder_path_pairs(from: &str, to: &str) -> Vec<(String, String)> {
         let old_folder = Self::role_folder(from);
         let new_folder = Self::role_folder(to);
-        if old_folder.ends_with("/clients/") {
-            return Self::remote_paths(from, to);
+        if Self::moves_one_file(from) {
+            return Self::file_paths(from, to);
         }
         let changed = (old_folder != new_folder).then_some((old_folder, new_folder));
         changed.into_iter().collect()
     }
 
-    fn remote_paths(from: &str, to: &str) -> Vec<(String, String)> {
-        let mut pairs = vec![(String::from(from), String::from(to))];
-        let rest = from.splitn(3, '/').nth(2).unwrap_or("");
-        for prefix in ["", "./", "../"] {
-            let old = format!("{prefix}clients/{rest}");
-            let new = format!("{prefix}remotes/{rest}");
-            pairs.push((old, new));
-        }
-        pairs
+    fn moves_one_file(from: &str) -> bool {
+        let remote = Self::role_folder(from).ends_with("/clients/");
+        [remote, Self::suffix_target(from).is_some()].contains(&true)
+    }
+
+    fn file_paths(from: &str, to: &str) -> Vec<(String, String)> {
+        let old = from.split_once('/').map_or(from, |(_, rest)| rest);
+        let new = to.split_once('/').map_or(to, |(_, rest)| rest);
+        let relative = ["", "./", "../"]
+            .iter()
+            .map(|prefix| (format!("{prefix}{old}"), format!("{prefix}{new}")));
+        std::iter::once((String::from(from), String::from(to)))
+            .chain(relative)
+            .collect()
     }
 
     fn role_folder(relative: &str) -> String {
@@ -268,7 +279,24 @@ impl RoleRename {
 
     fn folder_target(relative: &str) -> Option<String> {
         let shared_utilities = SharedUtilsMove::target(relative);
-        shared_utilities.or_else(|| Self::role_folder_target(relative))
+        shared_utilities
+            .or_else(|| Self::suffix_target(relative))
+            .or_else(|| Self::role_folder_target(relative))
+    }
+
+    fn suffix_target(relative: &str) -> Option<String> {
+        let mut parts = relative.splitn(3, '/');
+        let realm = parts.next()?;
+        let folder = parts.next()?;
+        let rest = parts.next()?;
+        Self::REALMS.contains(&realm).then_some(())?;
+        Self::SUFFIX_FOLDERS
+            .iter()
+            .filter(|(old, ..)| *old == folder)
+            .find_map(|(_, new_folder, old_suffix, new_suffix)| {
+                Self::renamed_path(rest, old_suffix, new_suffix)
+                    .map(|renamed| format!("{realm}/{new_folder}/{renamed}"))
+            })
     }
 
     fn role_folder_target(relative: &str) -> Option<String> {

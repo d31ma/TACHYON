@@ -14,7 +14,7 @@ class UnconfiguredStore {}
 @HTTPClient
 class RemoteCatalog {}
 
-@Helper()
+@Delegate()
 class ExternalCatalog {}
 
 @Service()

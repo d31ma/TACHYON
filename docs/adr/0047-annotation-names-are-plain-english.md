@@ -162,3 +162,14 @@ tests. Otherwise the code is a utility (static methods only, ADR 0064), a
 private method of the one class that uses it, or a service when a view or a
 controller calls it. The layer order is view or controller, then service,
 then helper, then store or client (ADR 0069).
+
+## Amendment (2026-10-28): Helper is now Delegate
+
+[ADR 0112](0112-a-delegate-takes-on-the-methods-of-its-service.md) renames
+`Helper` to `Delegate`. The role folder is `delegates/` again, and a class name
+ends in `Delegate`. The build refuses `@Helper` with TY1308 and names
+`Delegate`, and it no longer refuses `delegates/`. `helpers/` stays as a folder
+that is not a role, for the programs that a `Gateway` command runs and for
+behavior-only holders. `ty migrate fix --write` moves each `<Name>Helper` class
+from `helpers/` to `delegates/<Name>Delegate` and leaves the other files in
+`helpers/` where they are.

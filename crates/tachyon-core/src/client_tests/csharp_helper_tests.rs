@@ -5,11 +5,11 @@ use std::path::Path;
 struct CsharpHelperFixture;
 
 impl CsharpHelperFixture {
-    const HELPER: &'static str = r#"[Helper]
-public sealed class AnswerHelper : BehaviorHTTPAdapter
+    const HELPER: &'static str = r#"[Delegate]
+public sealed class AnswerDelegate : BehaviorHTTPAdapter
 {
     private readonly string text;
-    public AnswerHelper(string text) { this.text = text; }
+    public AnswerDelegate(string text) { this.text = text; }
     public string Read() { return text; }
     public System.Threading.Tasks.Task<BehaviorJSON> exchange(BehaviorJSON request, BehaviorExecution execution)
     {
@@ -19,46 +19,46 @@ public sealed class AnswerHelper : BehaviorHTTPAdapter
 }
 "#;
     const FIRST: &'static str = r#"[TestSetup]
-public sealed class FirstHelperTestSetup
+public sealed class FirstDelegateTestSetup
 {
     public static BehaviorAdapters configure(BehaviorExecution execution)
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["probe"] = new AnswerHelper("first");
+        adapters.http["probe"] = new AnswerDelegate("first");
         return adapters;
     }
 }
 "#;
     const SECOND: &'static str = r#"[Setup]
-public sealed class SecondHelperSetup
+public sealed class SecondDelegateSetup
 {
     public static BehaviorAdapters configure(BehaviorExecution execution)
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["probe"] = new AnswerHelper("second");
+        adapters.http["probe"] = new AnswerDelegate("second");
         return adapters;
     }
 }
 "#;
     const SERVICE: &'static str = r#"[Service]
-public sealed class ManualHelperService
+public sealed class ManualDelegateService
 {
-    private readonly AnswerHelper helper;
-    public ManualHelperService() { helper = new AnswerHelper("service"); }
+    private readonly AnswerDelegate helper;
+    public ManualDelegateService() { helper = new AnswerDelegate("service"); }
     public string Read() { return helper.Read(); }
 }
 "#;
-    const UNIT: &'static str = r#"[Test(typeof(FirstHelperTestSetup))]
-public sealed class CallerOwnedHelperTest
+    const UNIT: &'static str = r#"[Test(typeof(FirstDelegateTestSetup))]
+public sealed class CallerOwnedDelegateTest
 {
     public async System.Threading.Tasks.Task testContextOwnedAdaptersRemainIndependent()
     {
         using var firstSignal = new BehaviorSignal();
         using var secondSignal = new BehaviorSignal();
-        using var first = Behaviors.create(typeof(FirstHelperTestSetup), "first", firstSignal);
-        using var second = Behaviors.create(typeof(SecondHelperSetup), "second", secondSignal);
+        using var first = Behaviors.create(typeof(FirstDelegateTestSetup), "first", firstSignal);
+        using var second = Behaviors.create(typeof(SecondDelegateSetup), "second", secondSignal);
         Assert.equals("first", (await first.restClient("probe").get("/probe").retrieve()).Get("message").Text);
         Assert.equals("second", (await second.restClient("probe").get("/probe").retrieve()).Get("message").Text);
         first.Dispose();
@@ -70,10 +70,10 @@ public sealed class CallerOwnedHelperTest
         Assert.equals("second", (await second.restClient("probe").get("/probe").retrieve()).Get("message").Text);
     }
 
-    public void testServiceRetainsItsExplicitHelper()
+    public void testServiceRetainsItsExplicitDelegate()
     {
-        var first = new ManualHelperService();
-        var second = new ManualHelperService();
+        var first = new ManualDelegateService();
+        var second = new ManualDelegateService();
         Assert.isTrue(!System.Object.ReferenceEquals(first, second));
         Assert.equals("service", first.Read());
         Assert.equals("service", second.Read());
@@ -89,28 +89,28 @@ public sealed class CallerOwnedHelperTest
 }
 
 #[test]
-#[ignore = "requires installed .NET; runs genuine caller-owned C# Helpers through native Test assembly"]
+#[ignore = "requires installed .NET; runs genuine caller-owned C# Delegates through native Test assembly"]
 fn csharp_tac_helpers_compile_as_explicit_context_and_service_collaborators() {
-    let root = tempfile::tempdir().expect("C# Helper project");
+    let root = tempfile::tempdir().expect("C# Delegate project");
     for (relative, source) in [
         (
-            "client/helpers/http/AnswerHelper.cs",
+            "client/delegates/http/AnswerDelegate.cs",
             CsharpHelperFixture::HELPER,
         ),
         (
-            "client/tests/FirstHelperTestSetup.cs",
+            "client/tests/FirstDelegateTestSetup.cs",
             CsharpHelperFixture::FIRST,
         ),
         (
-            "client/setups/SecondHelperSetup.cs",
+            "client/setups/SecondDelegateSetup.cs",
             CsharpHelperFixture::SECOND,
         ),
         (
-            "client/services/ManualHelperService.cs",
+            "client/services/ManualDelegateService.cs",
             CsharpHelperFixture::SERVICE,
         ),
         (
-            "client/tests/CallerOwnedHelperTest.cs",
+            "client/tests/CallerOwnedDelegateTest.cs",
             CsharpHelperFixture::UNIT,
         ),
     ] {
@@ -118,7 +118,7 @@ fn csharp_tac_helpers_compile_as_explicit_context_and_service_collaborators() {
     }
     let report = super::run(
         root.path(),
-        Path::new("client/tests/CallerOwnedHelperTest.cs"),
+        Path::new("client/tests/CallerOwnedDelegateTest.cs"),
     )
     .expect("supervised native C# Test");
     assert!(report.failure.is_none(), "{report:?}");

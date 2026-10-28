@@ -19,7 +19,7 @@ impl FolderRoleCheck {
         ("clients", "HTTPClient"),
         ("setups", "Setup"),
         ("entities", "Entity"),
-        ("helpers", "Helper"),
+        ("delegates", "Delegate"),
         ("converters", "Converter"),
         ("controllers", "RequestRoute"),
     ];
@@ -78,7 +78,7 @@ impl FolderRoleCheck {
             .flatten();
         mismatch.map_or(Ok(()), |role| {
             let input = Input::new(path, source);
-            Err(input.failure(0, "A role class suffix must match its realm role folder", format!("Move the class to {}/{} and mark it with {} (ADR0091). Nested organization is allowed; helpers cannot hide a Service class.", Self::realm(path), role.folder, Self::spelling(input.extension, role.marker))))
+            Err(input.failure(0, "A role class suffix must match its realm role folder", format!("Move the class to {}/{} and mark it with {} (ADR0091). Nested organization is allowed; a nested folder cannot hide a Service class.", Self::realm(path), role.folder, Self::spelling(input.extension, role.marker))))
         })
     }
 
@@ -107,7 +107,7 @@ impl FolderRoleCheck {
             "Service",
             "Store",
             "HTTPClient",
-            "Helper",
+            "Delegate",
             "Converter",
             "Setup",
             "Entity",

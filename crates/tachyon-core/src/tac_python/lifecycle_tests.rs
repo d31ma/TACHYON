@@ -5,11 +5,11 @@ struct PythonLifecycle;
 
 impl PythonLifecycle {
     const LABEL: [(&'static str, &'static str); 1] = [(
-        "client/helpers/TallyHelper.py",
-        "@helper\nclass TallyHelper:\n    def start(self) -> int:\n        return 3\n",
+        "client/delegates/TallyDelegate.py",
+        "@delegate\nclass TallyDelegate:\n    def start(self) -> int:\n        return 3\n",
     )];
 
-    const LABEL_SERVICE: &'static str = "@service\n@needs_all\nclass LabelService:\n    tally: TallyHelper\n    title: str\n    start_at: int\n    clicks: int = 0\n\n    \
+    const LABEL_SERVICE: &'static str = "@service\n@needs_all\nclass LabelService:\n    tally: TallyDelegate\n    title: str\n    start_at: int\n    clicks: int = 0\n\n    \
          def shown(self) -> str:\n        return self.title + ':' + str(self.start_at + self.tally.start() + self.clicks)\n";
 
     const LABEL_DRIVER: &'static str = "console.info = () => {}\n\
@@ -25,16 +25,16 @@ impl PythonLifecycle {
 
     const AUDIT: [(&'static str, &'static str); 2] = [
         (
-            "client/helpers/AuditHelper.py",
-            "@helper\nclass AuditHelper:\n    _start_count: int = 0\n    _stop_count: int = 0\n\n    def record_start(self) -> None:\n        self._start_count += 1\n\n    def record_stop(self) -> None:\n        self._stop_count += 1\n\n    def snapshot(self) -> list[int]:\n        return [self._start_count, self._stop_count]\n",
+            "client/delegates/AuditDelegate.py",
+            "@delegate\nclass AuditDelegate:\n    _start_count: int = 0\n    _stop_count: int = 0\n\n    def record_start(self) -> None:\n        self._start_count += 1\n\n    def record_stop(self) -> None:\n        self._stop_count += 1\n\n    def snapshot(self) -> list[int]:\n        return [self._start_count, self._stop_count]\n",
         ),
         (
             "client/services/AuditService.py",
-            "from typing import Annotated\n\n@service\nclass AuditService:\n    audit: Annotated[AuditHelper, needs]\n\n    def snapshot(self) -> list[int]:\n        return self.audit.snapshot()\n",
+            "from typing import Annotated\n\n@service\nclass AuditService:\n    audit: Annotated[AuditDelegate, needs]\n\n    def snapshot(self) -> list[int]:\n        return self.audit.snapshot()\n",
         ),
     ];
 
-    const TIMER_SERVICE: &'static str = "from typing import Annotated\n\n@service\nclass TimerService:\n    audit: Annotated[AuditHelper, needs]\n\n    \
+    const TIMER_SERVICE: &'static str = "from typing import Annotated\n\n@service\nclass TimerService:\n    audit: Annotated[AuditDelegate, needs]\n\n    \
          @on_start\n    def _start(self) -> None:\n        self.audit.record_start()\n\n    \
          @on_stop\n    def _stop(self) -> None:\n        self.audit.record_stop()\n\n    \
          def ping(self) -> str:\n        return 'pong'\n";

@@ -17,7 +17,7 @@ impl<'a> CppServiceGraph<'a> {
         "client/services",
         "client/remotes",
         "client/converters",
-        "client/helpers",
+        "client/delegates",
         "client/stores",
     ];
     const CIRCLE: &'static str =
@@ -138,7 +138,7 @@ impl<'a> CppServiceGraph<'a> {
             relative,
             at,
             &format!(
-                "A C++ [[Needs]] field names another C++ service in client/services, a C++ [[HTTPClient]] in client/remotes, a C++ [[Converter]] in client/converters, a C++ [[Helper]] in client/helpers, a C++ [[Store]] in client/stores or one of Tachyon's browser APIs (Clock, SecureRandom, Connectivity, PageVisibility, Preferences, Clipboard, Share, Notifications, Geolocation, WindowControls); there is no {needed}.hpp in any of them. Other C++ roles come later (ADR 0099)"
+                "A C++ [[Needs]] field names another C++ service in client/services, a C++ [[HTTPClient]] in client/remotes, a C++ [[Converter]] in client/converters, a C++ [[Delegate]] in client/delegates, a C++ [[Store]] in client/stores or one of Tachyon's browser APIs (Clock, SecureRandom, Connectivity, PageVisibility, Preferences, Clipboard, Share, Notifications, Geolocation, WindowControls); there is no {needed}.hpp in any of them. Other C++ roles come later (ADR 0099)"
             ),
         )
     }

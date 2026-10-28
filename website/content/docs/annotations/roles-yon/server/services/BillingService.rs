@@ -1,7 +1,7 @@
 #[Service]
 struct BillingService {
     #[Needs]
-    helper: std::sync::Arc<BillingHelper>,
+    helper: std::sync::Arc<BillingDelegate>,
 }
 impl BillingService {
     const SUBTOTAL: i64 = 40;

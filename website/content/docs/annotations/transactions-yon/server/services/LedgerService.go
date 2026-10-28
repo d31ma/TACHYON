@@ -23,5 +23,5 @@ func (service *LedgerService) Settle(status BehaviorValue) (BehaviorValue, error
 }
 
 func (service *LedgerService) Commands() []string {
-	return service.behaviors.configuration.Entities["ledger"].(*LedgerAdapterHelper).Commands()
+	return service.behaviors.configuration.Entities["ledger"].(*LedgerAdapterDelegate).Commands()
 }

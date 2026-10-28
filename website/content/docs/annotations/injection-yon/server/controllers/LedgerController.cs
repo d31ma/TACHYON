@@ -7,8 +7,8 @@ class LedgerController {
   [Named("LedgerService")]
   LedgerService _service;
   [Needs]
-  [Named("LedgerHelper")]
-  LedgerHelper _settlement;
+  [Named("LedgerDelegate")]
+  LedgerDelegate _settlement;
 
   [GetRoute]
   public Ledger GetLedger() {

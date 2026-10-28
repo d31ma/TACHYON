@@ -149,7 +149,7 @@ client/
   stores/
   setups/
   entities/
-  helpers/
+  delegates/
   shared/
     assets/
     data/
@@ -163,7 +163,7 @@ server/
   services/
   stores/
   remotes/
-  helpers/
+  delegates/
   workers/
     cleanup/
       yon.py
@@ -346,11 +346,11 @@ instead. Tachyon constructs it with that instance's properties and disposes it
 with that instance.
 
 A service's collaborators live in `client/remotes/`, `client/stores/`,
-`client/setups/`, `client/entities/` and `client/helpers/`.
+`client/setups/`, `client/entities/` and `client/delegates/`.
 A `@Needs` field named after a collaborator receives it, as it does for a
 Yon service (ADR 0038). Yon uses exactly the same folders: `server/services/`,
 `server/remotes/`, `server/stores/`, `server/setups/`,
-`server/entities/`, `server/helpers/`. Every route shares them (ADR 0031).
+`server/entities/`, `server/delegates/`. Every route shares them (ADR 0031).
 The older `clients/` folder still works in both realms. New apps use `remotes/`
 for outbound HTTP, socket and gateway classes. Annotations and class names do
 not change. See [the migration guide](docs/REMOTES_MIGRATION.md).
@@ -467,7 +467,7 @@ A controller uses compile-time annotations, without a runtime annotation package
   select the verb. Method names start with that verb, such as `getProducts`.
 - `FromPath`, `FromQuery`, `FromBody`, `FromHeader` and `FromCookie`
   select argument values. Types validate arguments and model responses.
-- Its providers are `@Service`, `@Store`, `@HTTPClient`, and `@Helper`
+- Its providers are `@Service`, `@Store`, `@HTTPClient`, and `@Delegate`
   classes from the shared `server/<role>/` folders.
 - `NeedsAll` infers the required dependencies. You write no
   constructor and no `Needs` list.

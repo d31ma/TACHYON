@@ -8,7 +8,7 @@ client/
   stores/HeroStore.js             @Store: saved records
   setups/HeroSetup.js             @Setup: adapters and settings
   entities/HeroEntity.js          @Entity: the shape of a saved record
-  helpers/HeroHelper.js           @Helper: shared work for services
+  delegates/HeroDelegate.js           @Delegate: shared work for services
   converters/HeroConverter.js     @Converter: turns one type into another
   tests/HeroServiceTest.js        @Test units and their test setups
   shared/utils/TextUtils.js       utility classes: static methods only

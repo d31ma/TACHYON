@@ -592,7 +592,7 @@ pub(crate) struct HelperRole;
 impl HelperRole {
     const UNMANAGED: [&'static str; 5] = ["NeedsAll", "Lifetime", "OnStart", "OnStop", "OnEvent"];
     const LANGUAGE_NAMES: [(&'static str, &'static str); 2] = [("kt", "Kotlin"), ("java", "Java")];
-    const UNMANAGED_ADVICE: &'static str = "A {language} Tac Helper is a new object for each class that names it in a @Needs field, so it takes no @NeedsAll, @Lifetime, @OnStart, @OnStop or @OnEvent. Mark each field it needs with @Needs, and move lifecycle and event methods to the Service that needs the Helper";
+    const UNMANAGED_ADVICE: &'static str = "A {language} Tac Delegate is a new object for each class that names it in a @Needs field, so it takes no @NeedsAll, @Lifetime, @OnStart, @OnStop or @OnEvent. Mark each field it needs with @Needs, and move lifecycle and event methods to the Service that needs the Delegate";
 
     fn refuse_owned_unmanaged(path: &Path, source: &str) -> Result<(), Failure> {
         Some(path)
@@ -638,7 +638,7 @@ impl HelperRole {
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        crate::annotation_rules::AnnotationRules::unavailable("Helper", language, "tac")
+        crate::annotation_rules::AnnotationRules::unavailable("Delegate", language, "tac")
     }
 
     pub(crate) fn require_callers(path: &Path, source: &str) -> Result<(), Failure> {
@@ -666,7 +666,7 @@ impl HelperRole {
             code: visible_code(source, mask.code),
         };
         for marker in annotations(&input, language, "tac")? {
-            if marker.name == "Helper" {
+            if marker.name == "Delegate" {
                 return Err(input.failure(marker.span.start, message));
             }
         }
@@ -1478,7 +1478,7 @@ fn resolve_marker(
     if name == "client" {
         return Ok(None);
     }
-    if matches!(name, "service" | "lifetime" | "helper" | "converter") && environment == "yon" {
+    if matches!(name, "service" | "lifetime" | "delegate" | "converter") && environment == "yon" {
         return Ok(None);
     }
     let canonical = known_marker(name);
@@ -2408,7 +2408,7 @@ fn type_policy(
             "conditionalOnProperty",
             super::configuration::conditional(input, marker)?,
         ),
-        "Helper" => {
+        "Delegate" => {
             require_no_arguments(input, marker)?;
             HelperRole::refusal(input.path).map_or(Ok(()), |message| {
                 Err(input.failure(marker.span.start, message))

@@ -89,7 +89,7 @@ tac.application.rust                            native desktop, iOS
   executables maps up to 8 names, such as "catalog-event", to
   client class paths, such as "/shared/native/EventEmitterMain.rs".
   Each class has pub fn run() -> i32. Crates come from vendor/rust
-  at the project root; packaged builds run Cargo offline. Helpers
+  at the project root; packaged builds run Cargo offline. Delegates
   go beside the app executable (see Rust crates and helper
   executables). These settings require a native Rust service.
 

@@ -9,7 +9,7 @@ pub(super) struct CsharpTestHelpers;
 
 impl CsharpTestHelpers {
     const ENVIRONMENT: &'static str = "tac";
-    const HELPER_FOLDER: &'static str = "client/helpers";
+    const HELPER_FOLDER: &'static str = "client/delegates";
 
     pub(super) fn prune(
         root: &Dir,
@@ -161,7 +161,7 @@ impl CsharpTestHelpers {
         if !owned {
             return Err(invalid(
                 &module.path,
-                "A caller-owned Helper needs a production or selected TestSetup constructor root; a Helper constructor cycle is not ownership.",
+                "A caller-owned Delegate needs a production or selected TestSetup constructor root; a Delegate constructor cycle is not ownership.",
             ));
         }
         Ok(())

@@ -40,12 +40,12 @@ fn tac_checks_copy(
         return (relative, source);
     }
     let names = BTreeMap::from([(
-        "BehaviorChecksHelper".to_owned(),
+        "BehaviorChecksDelegate".to_owned(),
         "BehaviorChecks".to_owned(),
     )]);
     let source = super::behavior_layout::rename(&source, &names)
         .replace(
-            "@Helper()\nclass BehaviorChecks {",
+            "@Delegate()\nclass BehaviorChecks {",
             "class BehaviorChecks {",
         )
         .replace(
@@ -53,7 +53,7 @@ fn tac_checks_copy(
             "\nexport default class InputService {",
         );
     let relative = relative.replacen(
-        "server/helpers/BehaviorChecksHelper.js",
+        "server/delegates/BehaviorChecksDelegate.js",
         "server/tests/BehaviorChecks.js",
         1,
     );
@@ -65,17 +65,17 @@ fn csharp_helper_source(relative: &str, source: String, language: &str) -> Strin
         return source;
     }
     match relative {
-        "server/helpers/GuardedConfigHelper.cs" | "server/helpers/MissingConfigHelper.cs" => source
+        "server/delegates/GuardedConfigDelegate.cs" | "server/delegates/MissingConfigDelegate.cs" => source
             .replace(
                 "public static BehaviorAdapters configure(",
                 "private static BehaviorAdapters configure(",
             ),
-        "server/helpers/CatalogExercisesHelper.cs" => {
+        "server/delegates/CatalogExercisesDelegate.cs" => {
             let at = source
                 .find("        var catalog = new AnnotatedCatalogService")
                 .expect("existing owned behavior context precedes catalog construction");
             let mut copied = source;
-            copied.insert_str(at, r#"        var resilient = new AnnotatedResilientHelper(context);
+            copied.insert_str(at, r#"        var resilient = new AnnotatedResilientDelegate(context);
         var attempts = await resilient.flaky();
         if (attempts.Integer != 3 || resilient.attempts != 3) throw new System.Exception("owned helper retry failed");
         var bounded = await resilient.bounded(BehaviorJSON.From("ok"));
@@ -88,7 +88,7 @@ fn csharp_helper_source(relative: &str, source: String, language: &str) -> Strin
 }
 
 fn php_helper_source(relative: &str, mut source: String, language: &str) -> String {
-    if language != "php" || relative != "server/helpers/HandlerChecksHelper.php" {
+    if language != "php" || relative != "server/delegates/HandlerChecksDelegate.php" {
         return source;
     }
     for method in [
@@ -117,8 +117,8 @@ fn ruby_converter_source(relative: &str, source: String, language: &str) -> Stri
         }
         "server/controllers/ProductsController.rb" => source
             .replace("class ProductsController\n", "class ProductsController\n  #[Needs]\n  # @return [ProductSummariesConverter]\n  attr_reader :product_summaries_converter\n")
-            .replace("HandlerChecksHelper.exercise(context, signal)", "HandlerChecksHelper.exercise(context, signal, product_summaries_converter)"),
-        "server/helpers/HandlerChecksHelper.rb" => source
+            .replace("HandlerChecksDelegate.exercise(context, signal)", "HandlerChecksDelegate.exercise(context, signal, product_summaries_converter)"),
+        "server/delegates/HandlerChecksDelegate.rb" => source
             .replace("def self.check_mapping(context)\n    summaries = Behaviors.construct(ProductSummariesConverter, behaviors: context)", "def self.check_mapping(summaries)")
             .replace("def self.exercise(context, signal)", "def self.exercise(context, signal, summaries)")
             .replace("check_mapping(context)", "check_mapping(summaries)"),
@@ -259,7 +259,7 @@ fn role_names(language: &str) -> BTreeMap<String, String> {
     };
     let mut roles: BTreeMap<_, _> = names
         .iter()
-        .map(|name| ((*name).to_owned(), format!("{name}Helper")))
+        .map(|name| ((*name).to_owned(), format!("{name}Delegate")))
         .collect();
     if ["py", "php", "rb"].contains(&language) {
         roles.insert(
@@ -287,7 +287,7 @@ fn role_copy(
             if name.ends_with("Converter") {
                 ("converters", "Converter", name.as_str())
             } else {
-                ("helpers", "Helper", name.as_str())
+                ("delegates", "Delegate", name.as_str())
             }
         })
         .or_else(|| service_copy(language, stem).map(|name| ("services", "Service", name)));
@@ -377,9 +377,9 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/js/server/helpers/ApplicationValues.js"),
         ),
         (
-            "server/helpers/BehaviorChecksHelper.js",
+            "server/delegates/BehaviorChecksDelegate.js",
             include_str!(
-                "../../fixtures/behavior/authored/js/server/helpers/BehaviorChecksHelper.js"
+                "../../fixtures/behavior/authored/js/server/delegates/BehaviorChecksDelegate.js"
             ),
         ),
         (
@@ -391,8 +391,8 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/js/server/setups/CatalogSetup.js"),
         ),
         (
-            "server/helpers/CatalogHelper.js",
-            include_str!("../../fixtures/behavior/authored/js/server/helpers/CatalogHelper.js"),
+            "server/delegates/CatalogDelegate.js",
+            include_str!("../../fixtures/behavior/authored/js/server/delegates/CatalogDelegate.js"),
         ),
         (
             "server/helpers/InputService.js",
@@ -664,9 +664,9 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/java/server/helpers/Validator.java"),
         ),
         (
-            "server/helpers/ProductChecksHelper.java",
+            "server/delegates/ProductChecksDelegate.java",
             include_str!(
-                "../../fixtures/behavior/authored/java/server/helpers/ProductChecksHelper.java"
+                "../../fixtures/behavior/authored/java/server/delegates/ProductChecksDelegate.java"
             ),
         ),
         (
@@ -742,9 +742,9 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/groovy/server/helpers/Validator.groovy"),
         ),
         (
-            "server/helpers/ProductChecksHelper.groovy",
+            "server/delegates/ProductChecksDelegate.groovy",
             include_str!(
-                "../../fixtures/behavior/authored/groovy/server/helpers/ProductChecksHelper.groovy"
+                "../../fixtures/behavior/authored/groovy/server/delegates/ProductChecksDelegate.groovy"
             ),
         ),
         (
@@ -812,9 +812,9 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/kt/server/helpers/Validator.kt"),
         ),
         (
-            "server/helpers/ProductChecksHelper.kt",
+            "server/delegates/ProductChecksDelegate.kt",
             include_str!(
-                "../../fixtures/behavior/authored/kt/server/helpers/ProductChecksHelper.kt"
+                "../../fixtures/behavior/authored/kt/server/delegates/ProductChecksDelegate.kt"
             ),
         ),
         (

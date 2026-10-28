@@ -195,10 +195,10 @@ TacHelpers = {
 function TacHelpers.build(name)
   local helper = rawget(_G, name)
   if type(helper) ~= "table" then
-    error("Missing Helper " .. name, 0)
+    error("Missing Delegate " .. name, 0)
   end
   if TacHelpers.building[name] then
-    error("The Helper " .. name .. " needs itself through its -- @Needs fields. Remove one of those fields.", 0)
+    error("The Delegate " .. name .. " needs itself through its -- @Needs fields. Remove one of those fields.", 0)
   end
   TacHelpers.building[name] = true
   local built, instance = pcall(TacServices.construct, helper)

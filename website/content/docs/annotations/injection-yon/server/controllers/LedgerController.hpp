@@ -3,7 +3,7 @@
 
 class [[RequestRoute("/ledger")]] [[Public]] LedgerController {
     [[Needs]] [[Named("LedgerService")]] LedgerService& service;
-    [[Needs]] [[Named("LedgerHelper")]] LedgerHelper& settlement;
+    [[Needs]] [[Named("LedgerDelegate")]] LedgerDelegate& settlement;
 
 public:
     [[GetRoute]]

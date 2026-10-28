@@ -55,7 +55,7 @@ impl PythonProviderSource {
             source,
             members,
             roles,
-            helper: path.starts_with("client/helpers"),
+            helper: path.starts_with("client/delegates"),
             events,
         })
     }
@@ -130,7 +130,7 @@ impl PythonProviderSource {
         if has_arguments && self.members["inferred"] != true {
             return Err(Self::failure(
                 &self.path,
-                "Managed Python Tac constructors use typed Needs or NeedsAll fields; caller-owned Helpers need a real authored construction.",
+                "Managed Python Tac constructors use typed Needs or NeedsAll fields; caller-owned Delegates need a real authored construction.",
             ));
         }
         Ok(())

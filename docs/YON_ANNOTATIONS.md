@@ -19,7 +19,7 @@ Providers live in the shared folder of their realm:
 - `server/clients`
 - `server/setups`
 - `server/entities`
-- `server/helpers`
+- `server/delegates`
 
 Every controller uses these shared providers. Controllers never compose with
 other controllers. No `yon.*` marker or `OPTIONS.schema.json` file is needed;
@@ -92,7 +92,7 @@ roles. The markers are global, so no example imports them (ADR 0046).
 ## Required-field inference
 
 These rules apply to RequestRoute controllers, Service, HTTPClient and
-Helper types:
+Delegate types:
 
 - `NeedsAll()` selects direct fields that are not initialized
   and not static. It keeps declaration order. It generates constructor
@@ -216,14 +216,14 @@ public:
 
 A C++ controller reaches its collaborators with `[[Needs]]` reference
 fields (ADR 0099 amendment of 2026-10-18). A `[[Service]]` lives in
-`server/services/<Name>.hpp` and a `[[Helper]]` in
-`server/helpers/<Name>.hpp`, each one class named after its file. The field
+`server/services/<Name>.hpp` and a `[[Delegate]]` in
+`server/delegates/<Name>.hpp`, each one class named after its file. The field
 type, or `[[Named("FastGreeterService")]]`, chooses the class; a
 `[[NeedsAll]]` class gets every reference field without an initial value:
 
 ```cpp
 class [[Service]] PriceService {
-    [[Needs]] TaxHelper& taxes;
+    [[Needs]] TaxDelegate& taxes;
 
 public:
     int price(int net) const { return net + taxes.tax(net); }
@@ -460,7 +460,7 @@ and the method name starts with `stream` (`streamTicks`, `StreamTicks`,
 `Stream`; `ty migrate fix --write` converts `GetRoute` with `Stream`. The server
 sends `event: end` when the method finishes (ADR 0058). Python supports
 synchronous generators, not async generators. Java and Groovy return a `Stream` or an `Iterator`. The existing limits for
-deadline, output, cancellation and process-tree cleanup apply. Helper
+deadline, output, cancellation and process-tree cleanup apply. Delegate
 grants no extra process permissions. Outside programs use explicit relay
 calls or a Gateway command.
 

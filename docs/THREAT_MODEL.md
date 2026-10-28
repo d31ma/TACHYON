@@ -47,7 +47,7 @@ validation evidence.
 Controller and provider markers are untrusted source syntax. They never give
 authority:
 
-- `Service`, `Repository`, `Client` and `Helper` do not grant network,
+- `Service`, `Repository`, `Client` and `Delegate` do not grant network,
   filesystem or process capabilities.
 - The bounded frontend produces direct constructor calls. It does not evaluate
   annotation expressions, and it does not import application code.
@@ -380,7 +380,7 @@ separate cybersecurity review for this reconciliation.
   `TY1310`). The unit is project code: it runs like a route, with its own
   storage capability and no Gateway table, so only one hop is possible. A
   command target runs without a shell, with the arguments on stdin and never
-  on the command line, and files only from `server/helpers/`. The caller
+  on the command line, and files only from `server/delegates/`. The caller
   sees only `invalid`, `timeout`, `capacity` or `adapter`; the supervisor logs
   only `handler.gateway_failed` with that category. Closing an invocation
   cancels its calls and waits for their processes to be reaped.

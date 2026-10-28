@@ -5,8 +5,8 @@ class CatalogSetup {
     public static function configure(mixed $execution): array {
         $execute = 'execute';
         return [
-            'entities' => ['catalog' => [$execute => [CatalogAdapterHelper::class, $execute]]],
-            'authorizeEntity' => [CatalogAdapterHelper::class, 'authorize'],
+            'entities' => ['catalog' => [$execute => [CatalogAdapterDelegate::class, $execute]]],
+            'authorizeEntity' => [CatalogAdapterDelegate::class, 'authorize'],
         ];
     }
 }

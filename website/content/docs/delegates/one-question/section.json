@@ -1,0 +1,451 @@
+{
+  "heading": "Delegates, utilities and private methods",
+  "body": "GET /checkout returns {\"total\":42}. When two classes share code, or one class has a long job, ask one question: does this code need other classes (stores, clients, settings or other delegates), saved state, OnStart or OnStop, or a Fake in tests? If the answer is yes, write a delegate. A delegate is a class that other classes use for part of their work. Mark it with Delegate, put it in client/delegates or server/delegates, and end its name with Delegate. Tachyon creates it and gives it to each class that asks for it with Needs. A view or a controller does not call a delegate directly: it calls a service, and the service calls the delegate.\n\nSome delegates are owned by the class that creates them. In Tac, a delegate works in every service language, but the owner is not always the same. In JavaScript, TypeScript, Dart, Rust, C++ and Python, Tachyon creates the delegate and gives it to each class that asks for it with Needs. A Swift, Kotlin, Java, C# or F# delegate is created by the Needs field that names it, so each class that needs it owns its own new instance. A Swift delegate needs an `init()` without arguments. A Go delegate belongs to the service that needs or creates it. A Ruby service creates its delegate the first time it uses it, and a Lua service builds its delegate together with itself. Swift, Kotlin, Java, C#, F#, Ruby and Lua delegates have no OnStart, OnStop or OnEvent. A C# or F# Tac delegate may also be created by its caller with `new`, and then the caller owns it; these two languages refuse a delegate lifetime and delegate hooks (ADR 0091). In Yon, a delegate that its caller builds with `new` stays owned by that caller: Tachyon does not inject it, so its OnStart, OnStop and OnEvent methods never run. To get those hooks, let Tachyon create the delegate through Needs or NeedsAll.\n\nIf the answer is no, you do not need a delegate:\n\n| The code | Write it as |\n| --- | --- |\n| needs other classes, saved state, OnStart or OnStop, or a Fake in tests | a delegate: Delegate, in delegates, with a name that ends with Delegate |\n| has only static methods and no state | a utility: a class named like PriceUtils in client/shared/utils or server/utils, with no annotation (see Utilities) |\n| is used by one class only | a private method of that class |\n| is called by a view or a controller | a service |\n\nThe layers go in one order: a view or a controller calls a service, a service calls a delegate, and a delegate calls a store or a client. Any layer can call a utility. The build refuses a dependency that points up, such as a delegate that needs a service (TY1327, see Dependencies point down).\n\nIn this example, CheckoutService adds the tax through TaxDelegate. TaxDelegate is a delegate because it needs another class, TaxRateDelegate. Only CheckoutService uses the subtotal, so the subtotal is a private method of CheckoutService, not a delegate and not a utility. The controller calls the service, never the delegate.\n\nDelegate was called Delegate before, and Component before that (ADR 0112). The build refuses Delegate and Component with the new name (TY1308). `ty migrate fix --write` moves each Delegate class from helpers to delegates, renames each class from a name that ends with Delegate or Component to a name that ends with Delegate, and changes the Needs fields and types that use it. The helpers folders stay for the programs that a Gateway command runs.\n\nA C++ Yon delegate is a class in server/delegates with `[[Delegate]]`, and a C++ class asks for it with a reference field, `[[Needs]] TaxRateDelegate& rates;` (ADR 0099).",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/delegates/TaxRateDelegate.js",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.js"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.js",
+      "code": {
+        "file": "server/delegates/TaxDelegate.js"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.js",
+      "code": {
+        "file": "server/services/CheckoutService.js"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.js",
+      "code": {
+        "file": "server/controllers/CheckoutController.js"
+      }
+    },
+    {
+      "name": "server/models/Receipt.ts",
+      "code": {
+        "file": "server/models/Receipt.ts"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.ts",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.ts"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.ts",
+      "code": {
+        "file": "server/delegates/TaxDelegate.ts"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.ts",
+      "code": {
+        "file": "server/services/CheckoutService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.ts",
+      "code": {
+        "file": "server/controllers/CheckoutController.ts"
+      }
+    },
+    {
+      "name": "server/models/Receipt.py",
+      "code": {
+        "file": "server/models/Receipt.py"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.py",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.py"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.py",
+      "code": {
+        "file": "server/delegates/TaxDelegate.py"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.py",
+      "code": {
+        "file": "server/services/CheckoutService.py"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.py",
+      "code": {
+        "file": "server/controllers/CheckoutController.py"
+      }
+    },
+    {
+      "name": "server/models/Receipt.php",
+      "code": {
+        "file": "server/models/Receipt.php"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.php",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.php"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.php",
+      "code": {
+        "file": "server/delegates/TaxDelegate.php"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.php",
+      "code": {
+        "file": "server/services/CheckoutService.php"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.php",
+      "code": {
+        "file": "server/controllers/CheckoutController.php"
+      }
+    },
+    {
+      "name": "server/models/Receipt.java",
+      "code": {
+        "file": "server/models/Receipt.java"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.java",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.java"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.java",
+      "code": {
+        "file": "server/delegates/TaxDelegate.java"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.java",
+      "code": {
+        "file": "server/services/CheckoutService.java"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.java",
+      "code": {
+        "file": "server/controllers/CheckoutController.java"
+      }
+    },
+    {
+      "name": "server/models/Receipt.groovy",
+      "code": {
+        "file": "server/models/Receipt.groovy"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.groovy",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.groovy"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.groovy",
+      "code": {
+        "file": "server/delegates/TaxDelegate.groovy"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.groovy",
+      "code": {
+        "file": "server/services/CheckoutService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.groovy",
+      "code": {
+        "file": "server/controllers/CheckoutController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Receipt.kt",
+      "code": {
+        "file": "server/models/Receipt.kt"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.kt",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.kt"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.kt",
+      "code": {
+        "file": "server/delegates/TaxDelegate.kt"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.kt",
+      "code": {
+        "file": "server/services/CheckoutService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.kt",
+      "code": {
+        "file": "server/controllers/CheckoutController.kt"
+      }
+    },
+    {
+      "name": "server/models/Receipt.cs",
+      "code": {
+        "file": "server/models/Receipt.cs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.cs",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.cs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.cs",
+      "code": {
+        "file": "server/delegates/TaxDelegate.cs"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.cs",
+      "code": {
+        "file": "server/services/CheckoutService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.cs",
+      "code": {
+        "file": "server/controllers/CheckoutController.cs"
+      }
+    },
+    {
+      "name": "server/models/Receipt.fs",
+      "code": {
+        "file": "server/models/Receipt.fs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.fs",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.fs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.fs",
+      "code": {
+        "file": "server/delegates/TaxDelegate.fs"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.fs",
+      "code": {
+        "file": "server/services/CheckoutService.fs"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.fs",
+      "code": {
+        "file": "server/controllers/CheckoutController.fs"
+      }
+    },
+    {
+      "name": "server/models/Receipt.rs",
+      "code": {
+        "file": "server/models/Receipt.rs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.rs",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.rs"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.rs",
+      "code": {
+        "file": "server/delegates/TaxDelegate.rs"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.rs",
+      "code": {
+        "file": "server/services/CheckoutService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.rs",
+      "code": {
+        "file": "server/controllers/CheckoutController.rs"
+      }
+    },
+    {
+      "name": "server/models/Receipt.go",
+      "code": {
+        "file": "server/models/Receipt.go"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.go",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.go"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.go",
+      "code": {
+        "file": "server/delegates/TaxDelegate.go"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.go",
+      "code": {
+        "file": "server/services/CheckoutService.go"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.go",
+      "code": {
+        "file": "server/controllers/CheckoutController.go"
+      }
+    },
+    {
+      "name": "server/models/Receipt.dart",
+      "code": {
+        "file": "server/models/Receipt.dart"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.dart",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.dart"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.dart",
+      "code": {
+        "file": "server/delegates/TaxDelegate.dart"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.dart",
+      "code": {
+        "file": "server/services/CheckoutService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.dart",
+      "code": {
+        "file": "server/controllers/CheckoutController.dart"
+      }
+    },
+    {
+      "name": "server/models/Receipt.rb",
+      "code": {
+        "file": "server/models/Receipt.rb"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.rb",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.rb"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.rb",
+      "code": {
+        "file": "server/delegates/TaxDelegate.rb"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.rb",
+      "code": {
+        "file": "server/services/CheckoutService.rb"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.rb",
+      "code": {
+        "file": "server/controllers/CheckoutController.rb"
+      }
+    },
+    {
+      "name": "server/models/Receipt.lua",
+      "code": {
+        "file": "server/models/Receipt.lua"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.lua",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.lua"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.lua",
+      "code": {
+        "file": "server/delegates/TaxDelegate.lua"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.lua",
+      "code": {
+        "file": "server/services/CheckoutService.lua"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.lua",
+      "code": {
+        "file": "server/controllers/CheckoutController.lua"
+      }
+    },
+    {
+      "name": "server/delegates/TaxRateDelegate.hpp",
+      "code": {
+        "file": "server/delegates/TaxRateDelegate.hpp"
+      }
+    },
+    {
+      "name": "server/delegates/TaxDelegate.hpp",
+      "code": {
+        "file": "server/delegates/TaxDelegate.hpp"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.hpp",
+      "code": {
+        "file": "server/services/CheckoutService.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.hpp",
+      "code": {
+        "file": "server/controllers/CheckoutController.hpp"
+      }
+    },
+    {
+      "name": "server/models/Receipt.hpp",
+      "code": {
+        "file": "server/models/Receipt.hpp"
+      }
+    }
+  ]
+}

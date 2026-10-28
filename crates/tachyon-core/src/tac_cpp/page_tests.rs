@@ -511,16 +511,16 @@ fn a_helper_does_part_of_a_service_s_work() {
         root.path(),
         &[
             (
-                "client/helpers/RateHelper.hpp",
-                "class [[Helper]] RateHelper {\npublic:\n    int rate = 3;\n};\n",
+                "client/delegates/RateDelegate.hpp",
+                "class [[Delegate]] RateDelegate {\npublic:\n    int rate = 3;\n};\n",
             ),
             (
-                "client/helpers/PriceHelper.hpp",
-                "class [[Helper]] PriceHelper {\npublic:\n    [[Needs]] RateHelper& rates;\n    int price(int count) { return count * rates.rate; }\n};\n",
+                "client/delegates/PriceDelegate.hpp",
+                "class [[Delegate]] PriceDelegate {\npublic:\n    [[Needs]] RateDelegate& rates;\n    int price(int count) { return count * rates.rate; }\n};\n",
             ),
             (
                 "client/services/CartService.hpp",
-                "class [[Service]] CartService {\npublic:\n    [[Needs]] PriceHelper& prices;\n    int total(int count) { return prices.price(count); }\n};\n",
+                "class [[Service]] CartService {\npublic:\n    [[Needs]] PriceDelegate& prices;\n    int total(int count) { return prices.price(count); }\n};\n",
             ),
         ],
     );

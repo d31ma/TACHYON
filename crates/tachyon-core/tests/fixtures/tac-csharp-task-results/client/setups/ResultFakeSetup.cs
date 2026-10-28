@@ -5,7 +5,7 @@ public sealed class ResultFakeSetup
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["results"] = new ResultAnswerHelper();
+        adapters.http["results"] = new ResultAnswerDelegate();
         return adapters;
     }
 }

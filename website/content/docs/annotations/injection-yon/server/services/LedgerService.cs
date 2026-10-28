@@ -1,6 +1,6 @@
 [Service]
 class LedgerService {
   [Needs]
-  LedgerAmountsHelper _amounts;
+  LedgerAmountsDelegate _amounts;
   public int subtotal() { return _amounts.subtotal(); }
 }

@@ -7,7 +7,7 @@ pub(super) struct FsharpNeededProperty<'a> {
 impl<'a> FsharpNeededProperty<'a> {
     const MARKER: &'static str = "[<Needs>]";
     const MEMBER: &'static str = "member val ";
-    const HELPER_SUFFIX: &'static str = "Helper";
+    const HELPER_SUFFIX: &'static str = "Delegate";
     const FILLED: &'static str =
         "{indent}member val private {name} : {type} = new {type}() with get, set\n";
 

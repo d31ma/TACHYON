@@ -68,13 +68,13 @@ fn python_registry_selects_python_and_separates_props_from_providers() {
     let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
     Project::write(
         root.path(),
-        "client/helpers/CounterHelper.py",
-        "@helper\nclass CounterHelper:\n    def amount(self) -> int:\n        return 2\n",
+        "client/delegates/CounterDelegate.py",
+        "@delegate\nclass CounterDelegate:\n    def amount(self) -> int:\n        return 2\n",
     );
     Project::write(
         root.path(),
         "client/services/CounterService.py",
-        "@service\n@needs_all\nclass CounterService:\n    counter: CounterHelper\n    title: str\n",
+        "@service\n@needs_all\nclass CounterService:\n    counter: CounterDelegate\n    title: str\n",
     );
     let registry = crate::template::ServiceRegistry::discover(root.path())
         .unwrap_or_else(|error| panic!("registry: {error:?}"));
@@ -93,15 +93,15 @@ fn python_registry_selects_python_and_separates_props_from_providers() {
 fn python_needs_all_has_typed_props_and_hides_injected_fields() {
     let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
     let provider = Project::provider(
-        "@service\n@needs_all\nclass CounterService:\n    counter: CounterHelper\n    title: str\n\n    def answer(self) -> str:\n        return self.title\n",
+        "@service\n@needs_all\nclass CounterService:\n    counter: CounterDelegate\n    title: str\n\n    def answer(self) -> str:\n        return self.title\n",
     );
     let description = provider
         .describe(
-            &BTreeSet::from(["CounterHelper".to_owned()]),
+            &BTreeSet::from(["CounterDelegate".to_owned()]),
             &Project::models(root.path()),
         )
         .unwrap_or_else(|error| panic!("typed constructor: {error:?}"));
-    assert_eq!(description["constructor"][0]["provider"], "CounterHelper");
+    assert_eq!(description["constructor"][0]["provider"], "CounterDelegate");
     assert_eq!(description["constructor"][1]["shape"], "text");
     assert!(description["fields"].get("counter").is_none());
     assert_eq!(description["fields"]["title"]["shape"], "text");
@@ -112,7 +112,7 @@ fn python_needs_all_has_typed_props_and_hides_injected_fields() {
 fn python_inferred_needs_cannot_become_an_unknown_page_property() {
     let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
     let provider = Project::provider(
-        "from typing import Annotated\n\n@service\nclass CounterService:\n    counter: Annotated[MissingHelper, needs]\n",
+        "from typing import Annotated\n\n@service\nclass CounterService:\n    counter: Annotated[MissingDelegate, needs]\n",
     );
     let failure = provider
         .describe(&BTreeSet::new(), &Project::models(root.path()))
@@ -352,12 +352,12 @@ impl PythonPage {
             "from dataclasses import dataclass\n\n\n@dataclass\nclass ShelfCounted:\n    total: int\n",
         ),
         (
-            "client/helpers/CatalogHelper.py",
-            "import asyncio\n\n\n@helper\nclass CatalogHelper:\n    async def count(self, shelf: str) -> int:\n        await asyncio.sleep(0)\n        return len(shelf)\n",
+            "client/delegates/CatalogDelegate.py",
+            "import asyncio\n\n\n@delegate\nclass CatalogDelegate:\n    async def count(self, shelf: str) -> int:\n        await asyncio.sleep(0)\n        return len(shelf)\n",
         ),
         (
             "client/services/LibraryService.py",
-            "import asyncio\nfrom typing import Annotated\nfrom models import ShelfCounted\n\n\n@service\nclass LibraryService:\n    catalog: Annotated[CatalogHelper, needs]\n    total: int = 0\n    application_event_publisher: ApplicationEventPublisher\n\n    async def count(self, shelf: str) -> ShelfCounted:\n        self.total = await self.catalog.count(shelf)\n        self.application_event_publisher.publish_event(ShelfCounted(self.total))\n        return ShelfCounted(self.total)\n\n    async def wait(self) -> int:\n        await asyncio.sleep(3600)\n        return 0\n\n    async def fail(self) -> int:\n        await asyncio.sleep(0)\n        raise ValueError('private detail')\n\n    def current(self) -> int:\n        return self.total\n",
+            "import asyncio\nfrom typing import Annotated\nfrom models import ShelfCounted\n\n\n@service\nclass LibraryService:\n    catalog: Annotated[CatalogDelegate, needs]\n    total: int = 0\n    application_event_publisher: ApplicationEventPublisher\n\n    async def count(self, shelf: str) -> ShelfCounted:\n        self.total = await self.catalog.count(shelf)\n        self.application_event_publisher.publish_event(ShelfCounted(self.total))\n        return ShelfCounted(self.total)\n\n    async def wait(self) -> int:\n        await asyncio.sleep(3600)\n        return 0\n\n    async def fail(self) -> int:\n        await asyncio.sleep(0)\n        raise ValueError('private detail')\n\n    def current(self) -> int:\n        return self.total\n",
         ),
     ];
     const LIBRARY_DRIVER: &'static str = "import asyncio\n\

@@ -3,9 +3,9 @@ class BillingService {
   static const int _subtotal = 40;
 
   @Needs
-  final BillingHelper billingHelper;
+  final BillingDelegate billingDelegate;
 
   int get total {
-    return billingHelper.settle(_subtotal);
+    return billingDelegate.settle(_subtotal);
   }
 }

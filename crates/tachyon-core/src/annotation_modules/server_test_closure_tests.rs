@@ -46,7 +46,7 @@ impl ServerTestProject {
         for index in 0..129 {
             let (folder, role, suffix) = match index % 3 {
                 0 => ("controllers", "RequestRoute(\"/unrelated\")", "Controller"),
-                1 => ("helpers", "Helper", "Helper"),
+                1 => ("delegates", "Delegate", "Delegate"),
                 _ => ("services", "Service", "Service"),
             };
             let name = format!("Unrelated{index:03}{suffix}");
@@ -96,8 +96,8 @@ impl ServerTestProject {
 
     fn gateway(&self) {
         self.write(
-            "server/helpers/GatewayOnlyHelper.go",
-            "// @Helper\ntype GatewayOnlyHelper struct{}\n// @Gateway({\"command\":[\"python3\"]})\nfunc (helper *GatewayOnlyHelper) Send() (BehaviorValue, error) { return nil, nil }\n",
+            "server/delegates/GatewayOnlyDelegate.go",
+            "// @Delegate\ntype GatewayOnlyDelegate struct{}\n// @Gateway({\"command\":[\"python3\"]})\nfunc (helper *GatewayOnlyDelegate) Send() (BehaviorValue, error) { return nil, nil }\n",
         );
     }
 }
@@ -105,19 +105,19 @@ impl ServerTestProject {
 #[test]
 fn a_go_server_test_selects_a_small_transitive_closure_before_coverage_and_constructors() {
     let project = ServerTestProject::new(
-        "_ = &CatalogService{}\n// Unrelated000Controller\n_ = \"Unrelated001Helper\"",
+        "_ = &CatalogService{}\n// Unrelated000Controller\n_ = \"Unrelated001Delegate\"",
     );
     project.unrelated();
     project.write(
         "server/services/CatalogService.go",
-        "// @Service\n// @NeedsAll()\ntype CatalogService struct {\ncounter *CounterHelper\n}\nfunc (service *CatalogService) Read() int { return service.counter.Count() }\n",
+        "// @Service\n// @NeedsAll()\ntype CatalogService struct {\ncounter *CounterDelegate\n}\nfunc (service *CatalogService) Read() int { return service.counter.Count() }\n",
     );
     project.write(
-        "server/helpers/CounterHelper.go",
-        "// @Helper\n// @NeedsAll()\ntype CounterHelper struct{}\nfunc (helper *CounterHelper) Count() int { return 7 }\n",
+        "server/delegates/CounterDelegate.go",
+        "// @Delegate\n// @NeedsAll()\ntype CounterDelegate struct{}\nfunc (helper *CounterDelegate) Count() int { return 7 }\n",
     );
     let output = project.assembled();
-    for name in ["CatalogService", "CounterHelper", "CatalogTestSetup"] {
+    for name in ["CatalogService", "CounterDelegate", "CatalogTestSetup"] {
         assert!(output.contains(&format!("type {name} struct")), "{output}");
     }
     assert!(!output.contains("type Unrelated"), "{output}");
@@ -134,32 +134,32 @@ fn a_go_server_test_keeps_selected_setup_fake_utility_and_method_body_dependenci
     let mut project = ServerTestProject::new("_ = &CatalogService{}");
     project.source = project.source.replace(
         "behaviors *BehaviorContext",
-        "behaviors *BehaviorContext\n// @Fake\ncounter *CounterHelper\n// @Fake\nstandalone *FakeOnlyHelper",
+        "behaviors *BehaviorContext\n// @Fake\ncounter *CounterDelegate\n// @Fake\nstandalone *FakeOnlyDelegate",
     );
     project.write(ServerTestProject::ENTRY, &project.source);
     project.write(
         "server/tests/CatalogTestSetup.go",
-        "// @TestSetup\ntype CatalogTestSetup struct{}\nfunc (CatalogTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) { _ = SetupHelper{}.Read(); return NewBehaviorConfiguration(), nil }\n",
+        "// @TestSetup\ntype CatalogTestSetup struct{}\nfunc (CatalogTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) { _ = SetupDelegate{}.Read(); return NewBehaviorConfiguration(), nil }\n",
     );
     project.write(
-        "server/helpers/SetupHelper.go",
-        "// @Helper\ntype SetupHelper struct{}\nfunc (SetupHelper) Read() string { return TextUtils{}.Read() }\n",
+        "server/delegates/SetupDelegate.go",
+        "// @Delegate\ntype SetupDelegate struct{}\nfunc (SetupDelegate) Read() string { return TextUtils{}.Read() }\n",
     );
     project.write(
         "server/utils/TextUtils.go",
         "type TextUtils struct{}\nfunc (TextUtils) Read() string { return \"ready\" }\n",
     );
     project.write(
-        "server/helpers/CounterHelper.go",
-        "// @Helper\ntype CounterHelper struct{}\n",
+        "server/delegates/CounterDelegate.go",
+        "// @Delegate\ntype CounterDelegate struct{}\n",
     );
     project.write(
-        "server/helpers/FakeOnlyHelper.go",
-        "// @Helper\ntype FakeOnlyHelper struct{}\n",
+        "server/delegates/FakeOnlyDelegate.go",
+        "// @Delegate\ntype FakeOnlyDelegate struct{}\n",
     );
     project.write(
         "server/services/CatalogService.go",
-        "// @Service\n// @NeedsAll()\ntype CatalogService struct {\ncounter *CounterHelper\n}\n",
+        "// @Service\n// @NeedsAll()\ntype CatalogService struct {\ncounter *CounterDelegate\n}\n",
     );
     project.write(
         "server/tests/OtherTestSetup.go",
@@ -167,9 +167,9 @@ fn a_go_server_test_keeps_selected_setup_fake_utility_and_method_body_dependenci
     );
     let output = project.assembled();
     for name in [
-        "SetupHelper",
-        "CounterHelper",
-        "FakeOnlyHelper",
+        "SetupDelegate",
+        "CounterDelegate",
+        "FakeOnlyDelegate",
         "TextUtils",
         "CatalogService",
     ] {
@@ -181,8 +181,8 @@ fn a_go_server_test_keeps_selected_setup_fake_utility_and_method_body_dependenci
     let lowered = crate::behavior::lower(Path::new(ServerTestProject::ENTRY), &prepared, "yon")
         .expect("behavior")
         .expect("test lowering");
-    assert!(lowered.contains("counter *CounterHelper"), "{lowered}");
-    assert!(lowered.contains("standalone *FakeOnlyHelper"), "{lowered}");
+    assert!(lowered.contains("counter *CounterDelegate"), "{lowered}");
+    assert!(lowered.contains("standalone *FakeOnlyDelegate"), "{lowered}");
 }
 
 #[test]
@@ -197,31 +197,31 @@ fn a_go_server_test_keeps_implicit_registrations_and_their_dependencies() {
             "CatalogController",
             "controllers",
             "RequestRoute(\"/catalog\")",
-            "route *RouteHelper",
+            "route *RouteDelegate",
         ),
         (
             "CatalogListenerService",
             "services",
             "Service",
-            "event *EventHelper",
+            "event *EventDelegate",
         ),
         (
             "CatalogLifecycleService",
             "services",
             "Service",
-            "lifecycle *LifecycleHelper",
+            "lifecycle *LifecycleDelegate",
         ),
         (
             "CatalogErrorHandler",
             "controllers",
             "ErrorHandler",
-            "failure *FailureHelper",
+            "failure *FailureDelegate",
         ),
         (
             "CatalogIdentityProvider",
             "controllers",
             "IdentityProvider",
-            "identity *IdentityHelper",
+            "identity *IdentityDelegate",
         ),
     ] {
         let method = match name {
@@ -239,15 +239,15 @@ fn a_go_server_test_keeps_implicit_registrations_and_their_dependencies() {
         );
     }
     for name in [
-        "RouteHelper",
-        "EventHelper",
-        "LifecycleHelper",
-        "FailureHelper",
-        "IdentityHelper",
+        "RouteDelegate",
+        "EventDelegate",
+        "LifecycleDelegate",
+        "FailureDelegate",
+        "IdentityDelegate",
     ] {
         project.write(
-            &format!("server/helpers/{name}.go"),
-            &format!("// @Helper\ntype {name} struct{{}}\n"),
+            &format!("server/delegates/{name}.go"),
+            &format!("// @Delegate\ntype {name} struct{{}}\n"),
         );
     }
     let output = project.assembled();
@@ -256,11 +256,11 @@ fn a_go_server_test_keeps_implicit_registrations_and_their_dependencies() {
         "CatalogLifecycleService",
         "CatalogErrorHandler",
         "CatalogIdentityProvider",
-        "RouteHelper",
-        "EventHelper",
-        "LifecycleHelper",
-        "FailureHelper",
-        "IdentityHelper",
+        "RouteDelegate",
+        "EventDelegate",
+        "LifecycleDelegate",
+        "FailureDelegate",
+        "IdentityDelegate",
     ] {
         assert!(output.contains(&format!("type {name} struct")), "{output}");
     }
@@ -291,14 +291,14 @@ fn reflective_go_server_tests_keep_all_candidate_registrations() {
 #[test]
 fn direct_go_gateway_calls_keep_otherwise_unreferenced_gateway_registrations() {
     for body in [
-        "_ = YonGateway.Call(\"GatewayOnlyHelper.Send\", \"[]\")",
-        "key := \"GatewayOnlyHelper\" + \".Send\"\n_ = YonGateway.Call(key, \"[]\")",
-        "_ = (YonGatewayClient{}).Call(\"GatewayOnlyHelper.Send\", \"[]\")",
+        "_ = YonGateway.Call(\"GatewayOnlyDelegate.Send\", \"[]\")",
+        "key := \"GatewayOnlyDelegate\" + \".Send\"\n_ = YonGateway.Call(key, \"[]\")",
+        "_ = (YonGatewayClient{}).Call(\"GatewayOnlyDelegate.Send\", \"[]\")",
     ] {
         let project = ServerTestProject::new(body);
         project.gateway();
         let output = project.assembled();
-        assert!(output.contains("type GatewayOnlyHelper struct"), "{output}");
+        assert!(output.contains("type GatewayOnlyDelegate struct"), "{output}");
         assert!(output.contains("@Gateway"), "{output}");
     }
 }
@@ -320,7 +320,7 @@ fn unresolved_go_gateway_targets_retain_candidates_and_fail_explicitly_above_the
         assert!(
             project
                 .assembled()
-                .contains("type GatewayOnlyHelper struct")
+                .contains("type GatewayOnlyDelegate struct")
         );
         project.unrelated();
         project.dynamic_failure();
@@ -428,11 +428,11 @@ fn a_go_server_test_keeps_dependencies_of_every_actually_staged_shared_source() 
     );
     project.write(
         "server/services/SharedRootService.go",
-        "// @Service\n// @NeedsAll()\ntype SharedRootService struct {\nleaf *SharedLeafHelper\n}\nfunc (service *SharedRootService) Read() int { return service.leaf.Read() }\n",
+        "// @Service\n// @NeedsAll()\ntype SharedRootService struct {\nleaf *SharedLeafDelegate\n}\nfunc (service *SharedRootService) Read() int { return service.leaf.Read() }\n",
     );
     project.write(
-        "server/helpers/SharedLeafHelper.go",
-        "// @Helper\n// @NeedsAll()\ntype SharedLeafHelper struct{}\nfunc (helper *SharedLeafHelper) Read() int { return 7 }\n",
+        "server/delegates/SharedLeafDelegate.go",
+        "// @Delegate\n// @NeedsAll()\ntype SharedLeafDelegate struct{}\nfunc (helper *SharedLeafDelegate) Read() int { return 7 }\n",
     );
     project.write(
         "server/shared/ignored.txt",
@@ -440,13 +440,13 @@ fn a_go_server_test_keeps_dependencies_of_every_actually_staged_shared_source() 
     );
     project.write(
         "client/shared/utils/Ignored.go",
-        "type Ignored struct {\nhelper *Unrelated001Helper\n}\n",
+        "type Ignored struct {\nhelper *Unrelated001Delegate\n}\n",
     );
     let staged = crate::handler::GoSharedCode::read(project.root.path()).expect("shared staging");
     assert_eq!(staged.len(), 1);
     assert!(staged[0].1.contains("type PlainShared struct"));
     let output = project.assembled();
-    for name in ["SharedRootService", "SharedLeafHelper"] {
+    for name in ["SharedRootService", "SharedLeafDelegate"] {
         assert!(output.contains(&format!("type {name} struct")), "{output}");
     }
     assert!(!output.contains("type Unrelated"), "{output}");

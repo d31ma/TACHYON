@@ -5,5 +5,5 @@ CatalogSetup = {}
 ---@param execution table
 ---@return table
 function CatalogSetup.configure(execution)
-  return { http = { catalog = CatalogEchoHelper } }
+  return { http = { catalog = CatalogEchoDelegate } }
 end

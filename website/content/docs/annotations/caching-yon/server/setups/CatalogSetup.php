@@ -4,11 +4,11 @@
 class CatalogSetup {
     public static function configure(mixed $execution): array {
         $cache = [
-            'get' => [MemoryCacheHelper::class, 'get'],
-            'set' => [MemoryCacheHelper::class, 'set'],
-            'delete' => [MemoryCacheHelper::class, 'delete'],
+            'get' => [MemoryCacheDelegate::class, 'get'],
+            'set' => [MemoryCacheDelegate::class, 'set'],
+            'delete' => [MemoryCacheDelegate::class, 'delete'],
         ];
         $authorize = 'authorize';
-        return ['caches' => ['catalog' => $cache], $authorize => [MemoryCacheHelper::class, $authorize]];
+        return ['caches' => ['catalog' => $cache], $authorize => [MemoryCacheDelegate::class, $authorize]];
     }
 }

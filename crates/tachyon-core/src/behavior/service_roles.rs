@@ -12,7 +12,7 @@ pub(crate) struct ServiceRoles {
 
 impl ServiceRoles {
     const NAMES: [&str; 6] = [
-        "Service", "Lifetime", "NeedsAll", "Helper", "Store", "Client",
+        "Service", "Lifetime", "NeedsAll", "Delegate", "Store", "Client",
     ];
 
     pub(crate) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
@@ -112,9 +112,9 @@ impl ServiceRoles {
                 }
                 "Store" if !marker.arguments.trim().is_empty() => continue,
                 "Client" => {}
-                "Helper" => {
+                "Delegate" => {
                     let refusal = crate::annotation_rules::AnnotationRules::unavailable(
-                        "Helper", extension, "tac",
+                        "Delegate", extension, "tac",
                     );
                     if let Some(message) = refusal {
                         return Err(input.failure(marker.span.start, message));

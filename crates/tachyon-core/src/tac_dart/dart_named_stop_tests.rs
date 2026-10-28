@@ -5,16 +5,16 @@ struct DartNamedStop;
 impl DartNamedStop {
     const FILES: [(&'static str, &'static str); 3] = [
         (
-            "client/helpers/GreeterHelper.dart",
-            "@Helper\nclass GreeterHelper {\n  String greet() => 'hi';\n}\n",
+            "client/delegates/GreeterDelegate.dart",
+            "@Delegate\nclass GreeterDelegate {\n  String greet() => 'hi';\n}\n",
         ),
         (
-            "client/helpers/LoudGreeterHelper.dart",
-            "@Helper\nclass LoudGreeterHelper implements GreeterHelper {\n  @override\n  String greet() => 'HI';\n}\n",
+            "client/delegates/LoudGreeterDelegate.dart",
+            "@Delegate\nclass LoudGreeterDelegate implements GreeterDelegate {\n  @override\n  String greet() => 'HI';\n}\n",
         ),
         (
             "client/services/WelcomeService.dart",
-            "@Service\nclass WelcomeService {\n  @Needs\n  @Named(\"LoudGreeterHelper\")\n  final GreeterHelper greeter;\n  @Needs\n  final GreeterHelper plain;\n\n\
+            "@Service\nclass WelcomeService {\n  @Needs\n  @Named(\"LoudGreeterDelegate\")\n  final GreeterDelegate greeter;\n  @Needs\n  final GreeterDelegate plain;\n\n\
              \x20 @OnStart\n  void start() {\n    print('hook: start welcome');\n  }\n\n\
              \x20 @OnStop\n  void stop() {\n    print('hook: stop welcome ${greeter.greet()}');\n  }\n\n\
              \x20 String welcome() => greeter.greet();\n\n\

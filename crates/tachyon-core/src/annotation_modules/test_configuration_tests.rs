@@ -76,9 +76,9 @@ fn missing_and_mismatched_test_configurations_fail_before_lowering() {
         ),
         ("class ShellTestSetup {}\n", 1310, "must carry TestSetup"),
         (
-            "@TestSetup()\nclass ShellTestSetup {}\nclass Helper {}\n",
+            "@TestSetup()\nclass ShellTestSetup {}\nclass Delegate {}\n",
             1310,
-            "holds one class and its imports; found another class 'Helper'",
+            "holds one class and its imports; found another class 'Delegate'",
         ),
         (
             "@TestSetup(1)\nclass ShellTestSetup {}\n",
@@ -174,18 +174,18 @@ fn test_configurations_share_the_annotation_source_budget() {
 #[test]
 fn behavior_only_helpers_cannot_bypass_formal_role_registration() {
     for source in [
-        "@CacheSettings({\"name\":\"catalog\",\"ttlMs\":1000,\"maxBytes\":1000,\"maxEntries\":10})\nclass CatalogHelper {}\n",
-        "class CatalogHelper {}\n",
+        "@CacheSettings({\"name\":\"catalog\",\"ttlMs\":1000,\"maxBytes\":1000,\"maxEntries\":10})\nclass CatalogDelegate {}\n",
+        "class CatalogDelegate {}\n",
     ] {
         let root = tempfile::tempdir().expect("project");
         let entry = Path::new("server/controllers/MoneyController.java");
         let controller = "@RequestRoute(\"/money\")\n@Public\nclass MoneyController {\n    @GetRoute\n    Object get() { return null; }\n}\n";
         write(root.path(), entry.to_str().expect("path"), controller);
-        write(root.path(), "server/helpers/CatalogHelper.java", source);
+        write(root.path(), "server/delegates/CatalogDelegate.java", source);
         assert_fails_with(
             assemble(root.path(), entry, controller, "yon"),
             1363,
-            "required `@Helper` marker",
+            "required `@Delegate` marker",
         );
     }
 }

@@ -230,9 +230,9 @@ fn write_current_project(root: &Path, language: &str) -> String {
                 .expect("injected Go fixture directory");
             fs::write(target, source).expect("existing injected Go fixture");
         }
-        let helper = root.join("server/helpers/CatalogChecksHelper.go");
+        let helper = root.join("server/delegates/CatalogChecksDelegate.go");
         let source = fs::read_to_string(&helper).expect("generated Go helper");
-        let declaration = "func (checks CatalogChecksHelper) Answer() any {";
+        let declaration = "func (checks CatalogChecksDelegate) Answer() any {";
         assert_eq!(
             source.matches(declaration).count(),
             1,
@@ -240,7 +240,7 @@ fn write_current_project(root: &Path, language: &str) -> String {
         );
         let copied = source.replacen(
             declaration,
-            "func (checks CatalogChecksHelper) answer() any {",
+            "func (checks CatalogChecksDelegate) answer() any {",
             1,
         );
         fs::write(helper, copied).expect("canonical injected migration reference");
@@ -249,7 +249,7 @@ fn write_current_project(root: &Path, language: &str) -> String {
         behavior_layout::write(
             root,
             &entry,
-            "\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n@GetRoute()\nasync get() { return BehaviorChecksHelper.exerciseBehaviors(new AbortController().signal); }\n}",
+            "\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n@GetRoute()\nasync get() { return BehaviorChecksDelegate.exerciseBehaviors(new AbortController().signal); }\n}",
         );
     }
     entry

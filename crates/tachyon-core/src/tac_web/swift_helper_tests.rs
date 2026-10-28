@@ -10,16 +10,16 @@ struct SwiftHelpers;
 impl SwiftHelpers {
     const FILES: [(&str, &str); 3] = [
         (
-            "client/helpers/CartPricesHelper.swift",
-            "@Helper\nfinal class CartPricesHelper {\n    var served: Int = 0\n\n    func subtotal() -> Int {\n        served += 1\n        return 40\n    }\n\n    func surcharge() -> Int { 2 }\n}\n",
+            "client/delegates/CartPricesDelegate.swift",
+            "@Delegate\nfinal class CartPricesDelegate {\n    var served: Int = 0\n\n    func subtotal() -> Int {\n        served += 1\n        return 40\n    }\n\n    func surcharge() -> Int { 2 }\n}\n",
         ),
         (
-            "client/helpers/cart/CartHelper.swift",
-            "@Helper\nfinal class CartHelper {\n    @Needs\n    private let cartPricesHelper: CartPricesHelper\n\n    func settle(_ subtotal: Int) -> Int {\n        subtotal + cartPricesHelper.surcharge()\n    }\n}\n",
+            "client/delegates/cart/CartDelegate.swift",
+            "@Delegate\nfinal class CartDelegate {\n    @Needs\n    private let cartPricesDelegate: CartPricesDelegate\n\n    func settle(_ subtotal: Int) -> Int {\n        subtotal + cartPricesDelegate.surcharge()\n    }\n}\n",
         ),
         (
             "client/services/CartService.swift",
-            "@Service\n@Lifetime({\"value\":\"prototype\"})\nfinal class CartService {\n    @Needs\n    private let cartPricesHelper: CartPricesHelper\n    @Needs\n    private let cartHelper: CartHelper\n\n    func total() -> Int {\n        cartHelper.settle(cartPricesHelper.subtotal())\n    }\n\n    func served() -> Int { cartPricesHelper.served }\n}\n",
+            "@Service\n@Lifetime({\"value\":\"prototype\"})\nfinal class CartService {\n    @Needs\n    private let cartPricesDelegate: CartPricesDelegate\n    @Needs\n    private let cartDelegate: CartDelegate\n\n    func total() -> Int {\n        cartDelegate.settle(cartPricesDelegate.subtotal())\n    }\n\n    func served() -> Int { cartPricesDelegate.served }\n}\n",
         ),
     ];
 
@@ -111,11 +111,11 @@ async fn a_swift_helper_has_no_lifecycle_hooks() {
     let root = tempfile::tempdir().expect("project");
     SwiftHelpers::write(
         root.path(),
-        "client/helpers/CartPricesHelper.swift",
-        "@Helper\nfinal class CartPricesHelper {\n    var served: Int = 0\n\n    @OnStart\n    func start() {\n        served = 1\n    }\n\n    func subtotal() -> Int { 40 }\n\n    func surcharge() -> Int { 2 }\n}\n",
+        "client/delegates/CartPricesDelegate.swift",
+        "@Delegate\nfinal class CartPricesDelegate {\n    var served: Int = 0\n\n    @OnStart\n    func start() {\n        served = 1\n    }\n\n    func subtotal() -> Int { 40 }\n\n    func surcharge() -> Int { 2 }\n}\n",
     );
     let Err(failure) = SwiftHelpers::built(root.path()).await else {
-        panic!("a Swift Helper hook is refused");
+        panic!("a Swift Delegate hook is refused");
     };
     assert!(failure.to_string().contains("TY1405"), "{failure}");
 }

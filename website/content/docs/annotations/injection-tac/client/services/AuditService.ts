@@ -1,8 +1,8 @@
 @Service
 export default class AuditService {
   @Needs
-  @Named("CartHelper")
-  ledger!: CartHelper;
+  @Named("CartDelegate")
+  ledger!: CartDelegate;
 
   lines(): number {
     return this.ledger.count();

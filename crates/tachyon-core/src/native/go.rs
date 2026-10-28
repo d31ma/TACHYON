@@ -878,19 +878,19 @@ type PageClient interface {
     #[test]
     fn page_composition_refuses_a_helper_need_at_the_authored_helper() {
         let root = PageFixtures::project();
-        let source = "// @Helper\ntype StepHelper struct {\n\t// @Needs\n\tclient *PageClient\n}\n";
-        PageFixtures::write(root.path(), "client/helpers/StepHelper.go", source);
+        let source = "// @Delegate\ntype StepDelegate struct {\n\t// @Needs\n\tclient *PageClient\n}\n";
+        PageFixtures::write(root.path(), "client/delegates/StepDelegate.go", source);
         let writer = PageFixtures::WRITER.replace(
             "    client *PageClient\n}",
-            "    client *PageClient\n    // @Needs\n    step *StepHelper\n}",
+            "    client *PageClient\n    // @Needs\n    step *StepDelegate\n}",
         );
         PageFixtures::write(root.path(), "client/services/WriterService.go", &writer);
         let failure = program_files(root.path(), &PageFixtures::services(root.path()))
-            .expect_err("a Go Tac Helper has no Needs of its own");
+            .expect_err("a Go Tac Delegate has no Needs of its own");
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.to_string(), "TY1308");
         assert!(diagnostic.message.contains("no Needs"), "{failure}");
-        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.go");
+        assert_eq!(diagnostic.spans[0].file, "client/delegates/StepDelegate.go");
         assert_eq!(
             diagnostic.spans[0].start,
             u64::try_from(source.find("@Needs").expect("marker")).expect("offset")
@@ -985,11 +985,11 @@ type PageClient interface {
         let files = [
             (
                 "client/services/TallyService.go",
-                "// @Service\ntype TallyService struct {\n\tCount int\n}\n\n// @OnStart\nfunc (tally *TallyService) Start() {\n\ttally.Count = (&StepHelper{}).Size()\n}\n",
+                "// @Service\ntype TallyService struct {\n\tCount int\n}\n\n// @OnStart\nfunc (tally *TallyService) Start() {\n\ttally.Count = (&StepDelegate{}).Size()\n}\n",
             ),
             (
-                "client/helpers/StepHelper.go",
-                "import \"strings\"\n\n// @Helper\ntype StepHelper struct{}\n\nfunc (step *StepHelper) Size() int {\n\treturn len(strings.Repeat(\"a\", 2))\n}\n",
+                "client/delegates/StepDelegate.go",
+                "import \"strings\"\n\n// @Delegate\ntype StepDelegate struct{}\n\nfunc (step *StepDelegate) Size() int {\n\treturn len(strings.Repeat(\"a\", 2))\n}\n",
             ),
         ];
         for (relative, text) in files {

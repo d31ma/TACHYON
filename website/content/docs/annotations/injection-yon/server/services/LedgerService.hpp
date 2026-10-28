@@ -1,7 +1,7 @@
 #pragma once
 
 class [[Service]] LedgerService {
-    [[Needs]] LedgerAmountsHelper& amounts;
+    [[Needs]] LedgerAmountsDelegate& amounts;
 
 public:
     int subtotal() const { return amounts.subtotal(); }

@@ -2,11 +2,11 @@
 ---@class LedgerService
 LedgerService = {
   -- @Needs
-  ---@type LedgerAmountsHelper
-  ledger_amounts_helper = nil,
+  ---@type LedgerAmountsDelegate
+  ledger_amounts_delegate = nil,
 }
 
 ---@return integer
 function LedgerService:subtotal()
-  return self.ledger_amounts_helper:subtotal()
+  return self.ledger_amounts_delegate:subtotal()
 end

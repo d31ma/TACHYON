@@ -1,12 +1,12 @@
 @Test(CatalogTestSetup, {"partition":"tests"})
 @UseProfiles("test")
 export default class CatalogServiceTest {
-  /** @type {CatalogCounterHelper} */
+  /** @type {CatalogCounterDelegate} */
   @Fake
-  catalogCounterHelper;
+  catalogCounterDelegate;
 
   async testDoublesTheCount() {
-    this.catalogCounterHelper = { count: () => 4 };
+    this.catalogCounterDelegate = { count: () => 4 };
     const service = this.construct(CatalogService);
     Assert.equals(8, service.total());
   }

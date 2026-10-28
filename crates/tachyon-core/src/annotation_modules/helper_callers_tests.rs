@@ -5,7 +5,7 @@ use std::path::Path;
 struct HelperCallerFiles;
 
 impl HelperCallerFiles {
-    const HELPER: &'static str = "using System;\n[Helper]\nclass StepHelper {\n private readonly string label;\n public StepHelper(string label) { this.label = label; }\n public string Read() { return label; }\n}\n";
+    const HELPER: &'static str = "using System;\n[Delegate]\nclass StepDelegate {\n private readonly string label;\n public StepDelegate(string label) { this.label = label; }\n public string Read() { return label; }\n}\n";
 
     fn write(root: &Path, name: &str, source: &str) {
         let path = root.join(name);
@@ -19,7 +19,7 @@ impl HelperCallerFiles {
         Self::write(root.path(), entry.to_str().expect("entry"), service);
         Self::write(
             root.path(),
-            "client/helpers/deep/StepHelper.cs",
+            "client/delegates/deep/StepDelegate.cs",
             Self::HELPER,
         );
         let roles = crate::behavior::ServiceRoles::read(entry, service).expect("Service roles");
@@ -29,7 +29,7 @@ impl HelperCallerFiles {
 
 #[test]
 fn csharp_helper_caller_failure_retains_nested_authored_marker_location() {
-    let source = "using System;\n[Service]\nclass TallyService {\n private readonly StepHelper helper;\n private readonly string sample = \"new StepHelper()\";\n // new StepHelper(\"comment\");\n}\n";
+    let source = "using System;\n[Service]\nclass TallyService {\n private readonly StepDelegate helper;\n private readonly string sample = \"new StepDelegate()\";\n // new StepDelegate(\"comment\");\n}\n";
     let failure =
         HelperCallerFiles::assemble(source).expect_err("strings/comments cannot provide ownership");
     let diagnostic = &failure.diagnostics()[0];
@@ -41,7 +41,7 @@ fn csharp_helper_caller_failure_retains_nested_authored_marker_location() {
     );
     assert_eq!(
         diagnostic.spans[0].file,
-        "client/helpers/deep/StepHelper.cs"
+        "client/delegates/deep/StepDelegate.cs"
     );
     assert_eq!(diagnostic.spans[0].start, 14);
     assert_eq!(diagnostic.spans[0].end, 15);
@@ -49,21 +49,21 @@ fn csharp_helper_caller_failure_retains_nested_authored_marker_location() {
 
 #[test]
 fn csharp_helper_a_service_does_not_name_stays_out_of_its_build() {
-    let source = "using System;\n[Service]\nclass TallyService {\n private readonly string sample = \"new StepHelper()\";\n // new StepHelper(\"comment\");\n public string Read() { return sample; }\n}\n";
+    let source = "using System;\n[Service]\nclass TallyService {\n private readonly string sample = \"new StepDelegate()\";\n // new StepDelegate(\"comment\");\n public string Read() { return sample; }\n}\n";
     let source = HelperCallerFiles::assemble(source)
-        .expect("a Helper another service needs does not stop this one")
+        .expect("a Delegate another service needs does not stop this one")
         .unwrap_or_default();
-    assert!(!source.contains("class StepHelper"), "{source}");
+    assert!(!source.contains("class StepDelegate"), "{source}");
 }
 
 #[test]
 fn csharp_helper_real_service_caller_is_checked_across_captured_files() {
-    let source = "using System;\n[Service]\nclass TallyService {\n private readonly StepHelper helper = new StepHelper(\"owned\");\n public string Read() { return helper.Read(); }\n}\n";
+    let source = "using System;\n[Service]\nclass TallyService {\n private readonly StepDelegate helper = new StepDelegate(\"owned\");\n public string Read() { return helper.Read(); }\n}\n";
     let source = HelperCallerFiles::assemble(source)
         .expect("real external caller")
-        .expect("captured Helper");
-    assert!(source.contains("new StepHelper(\"owned\")"));
-    assert!(source.contains("class StepHelper"));
+        .expect("captured Delegate");
+    assert!(source.contains("new StepDelegate(\"owned\")"));
+    assert!(source.contains("class StepDelegate"));
 }
 
 #[test]
@@ -71,22 +71,22 @@ fn csharp_and_fsharp_needs_fields_own_the_helpers_they_name() {
     for (extension, helper, owner, service, written) in [
         (
             "cs",
-            "[Helper]\npublic sealed class RateHelper {\n public int Rate() { return 2; }\n}\n",
-            "[Helper]\npublic sealed class TaxHelper {\n [Needs]\n private readonly RateHelper _rates;\n public int Add(int value) { return value + _rates.Rate(); }\n}\n",
-            "[Service]\npublic sealed class TallyService {\n [Needs]\n private readonly TaxHelper _tax;\n public int Read() { return _tax.Add(40); }\n}\n",
+            "[Delegate]\npublic sealed class RateDelegate {\n public int Rate() { return 2; }\n}\n",
+            "[Delegate]\npublic sealed class TaxDelegate {\n [Needs]\n private readonly RateDelegate _rates;\n public int Add(int value) { return value + _rates.Rate(); }\n}\n",
+            "[Service]\npublic sealed class TallyService {\n [Needs]\n private readonly TaxDelegate _tax;\n public int Read() { return _tax.Add(40); }\n}\n",
             [
-                "private readonly RateHelper _rates = new RateHelper();",
-                "private readonly TaxHelper _tax = new TaxHelper();",
+                "private readonly RateDelegate _rates = new RateDelegate();",
+                "private readonly TaxDelegate _tax = new TaxDelegate();",
             ],
         ),
         (
             "fs",
-            "[<Helper>]\ntype RateHelper() =\n    member this.Rate() : int = 2\n",
-            "[<Helper>]\ntype TaxHelper(rates: RateHelper) =\n    member this.Add(value: int) : int = value + rates.Rate()\n",
-            "[<Service>]\ntype TallyService() =\n    [<Needs>]\n    member val Tax : TaxHelper = Unchecked.defaultof<TaxHelper> with get, set\n    member this.Read() : int = this.Tax.Add(40)\n",
+            "[<Delegate>]\ntype RateDelegate() =\n    member this.Rate() : int = 2\n",
+            "[<Delegate>]\ntype TaxDelegate(rates: RateDelegate) =\n    member this.Add(value: int) : int = value + rates.Rate()\n",
+            "[<Service>]\ntype TallyService() =\n    [<Needs>]\n    member val Tax : TaxDelegate = Unchecked.defaultof<TaxDelegate> with get, set\n    member this.Read() : int = this.Tax.Add(40)\n",
             [
-                "let rates = new RateHelper()",
-                "member val private Tax : TaxHelper = new TaxHelper() with get, set",
+                "let rates = new RateDelegate()",
+                "member val private Tax : TaxDelegate = new TaxDelegate() with get, set",
             ],
         ),
     ] {
@@ -95,12 +95,12 @@ fn csharp_and_fsharp_needs_fields_own_the_helpers_they_name() {
         HelperCallerFiles::write(root.path(), &entry, service);
         HelperCallerFiles::write(
             root.path(),
-            &format!("client/helpers/RateHelper.{extension}"),
+            &format!("client/delegates/RateDelegate.{extension}"),
             helper,
         );
         HelperCallerFiles::write(
             root.path(),
-            &format!("client/helpers/tax/TaxHelper.{extension}"),
+            &format!("client/delegates/tax/TaxDelegate.{extension}"),
             owner,
         );
         let entry = Path::new(&entry);
@@ -108,7 +108,7 @@ fn csharp_and_fsharp_needs_fields_own_the_helpers_they_name() {
         let authored = [roles.source.as_str(), service][usize::from(extension == "fs")];
         let source = super::assemble(root.path(), entry, authored, "tac")
             .unwrap_or_else(|failure| panic!("{extension}: {failure}"))
-            .expect("captured Helpers");
+            .expect("captured Delegates");
         for part in written {
             assert!(source.contains(part), "{extension} {part}:\n{source}");
         }
@@ -120,33 +120,33 @@ fn csharp_and_fsharp_needs_fields_own_the_helpers_they_name() {
 fn csharp_and_fsharp_helpers_still_refuse_lifetime_and_hooks() {
     for (path, source, marker) in [
         (
-            "client/helpers/TaxHelper.cs",
-            "[Helper]\n[Lifetime({\"value\":\"prototype\"})]\npublic sealed class TaxHelper {}\n",
+            "client/delegates/TaxDelegate.cs",
+            "[Delegate]\n[Lifetime({\"value\":\"prototype\"})]\npublic sealed class TaxDelegate {}\n",
             "[Lifetime",
         ),
         (
-            "client/helpers/TaxHelper.cs",
-            "[Helper]\npublic sealed class TaxHelper {\n [OnStart]\n public void Open() {}\n}\n",
+            "client/delegates/TaxDelegate.cs",
+            "[Delegate]\npublic sealed class TaxDelegate {\n [OnStart]\n public void Open() {}\n}\n",
             "[OnStart]",
         ),
         (
-            "client/helpers/TaxHelper.fs",
-            "[<Helper>]\n[<NeedsAll>]\ntype TaxHelper() =\n    member this.Read() : int = 1\n",
+            "client/delegates/TaxDelegate.fs",
+            "[<Delegate>]\n[<NeedsAll>]\ntype TaxDelegate() =\n    member this.Read() : int = 1\n",
             "NeedsAll",
         ),
         (
-            "client/helpers/TaxHelper.fs",
-            "[<Helper>]\ntype TaxHelper() =\n    [<OnStop>]\n    member this.Close() : unit = ()\n",
+            "client/delegates/TaxDelegate.fs",
+            "[<Delegate>]\ntype TaxDelegate() =\n    [<OnStop>]\n    member this.Close() : unit = ()\n",
             "[<OnStop>]",
         ),
         (
-            "client/helpers/TaxHelper.fs",
-            "[<Helper>]\ntype TaxHelper() =\n    [<Needs>]\n    member val Prices : PriceStore = Unchecked.defaultof<PriceStore> with get, set\n",
+            "client/delegates/TaxDelegate.fs",
+            "[<Delegate>]\ntype TaxDelegate() =\n    [<Needs>]\n    member val Prices : PriceStore = Unchecked.defaultof<PriceStore> with get, set\n",
             "[<Needs>]",
         ),
     ] {
         let failure = crate::behavior::HelperRole::refuse_in_tac(Path::new(path), source)
-            .expect_err("a Helper has no lifetime, hooks or non-Helper Needs");
+            .expect_err("a Delegate has no lifetime, hooks or non-Delegate Needs");
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.number(), 1308, "{path}: {failure}");
         let start = source.find(marker).expect("marker");

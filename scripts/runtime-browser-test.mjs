@@ -286,7 +286,7 @@ async function checkGoService(browser) {
     await listen(server);
     const errors = [];
     const page = await browser.newPage();
-    await page.addInitScript(rootHelper);
+    await page.addInitScript(rootDelegate);
     await page.addInitScript(definePageFileSystem);
     page.setDefaultTimeout(15000);
     page.on('pageerror', (error) => errors.push(error.message));
@@ -881,7 +881,7 @@ async function checkLateWebAssemblyListeners(page, languages) {
   assert.equal(await deliveries(), languages.length * 2, 'replacement WASM owners register one fresh replay listener each');
 }
 
-const rootHelper = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
+const rootDelegate = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
 
 function definePageFileSystem() {
   globalThis.fs = (value) => value;
@@ -922,7 +922,7 @@ function listen(server) {
 
 async function checkHomePage(browser, origin, errors) {
   const page = await browser.newPage();
-  await page.addInitScript(rootHelper);
+  await page.addInitScript(rootDelegate);
   page.setDefaultTimeout(10000);
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(origin);
@@ -969,7 +969,7 @@ async function checkHomePage(browser, origin, errors) {
 
 async function checkFocus(browser, origin, errors) {
   const focus = await browser.newPage();
-  await focus.addInitScript(rootHelper);
+  await focus.addInitScript(rootDelegate);
   await focus.addInitScript(() => {
     customElements.define('focus-shell', class extends HTMLElement {
       connectedCallback() {
@@ -1029,7 +1029,7 @@ async function checkFocus(browser, origin, errors) {
 
 async function checkFocusBoundaries(browser, origin) {
   const boundaries = await browser.newPage();
-  await boundaries.addInitScript(rootHelper);
+  await boundaries.addInitScript(rootDelegate);
   await boundaries.addInitScript(() => {
     globalThis.observedLiveMutations = 0;
     customElements.define('unknown-wrap', class extends HTMLElement {
@@ -1096,7 +1096,7 @@ async function checkFocusBoundaries(browser, origin) {
 
 async function checkMountCancellation(browser, origin) {
   const mounts = await browser.newPage();
-  await mounts.addInitScript(rootHelper);
+  await mounts.addInitScript(rootDelegate);
   await mounts.addInitScript(() => {
     document.delayedActivations = [];
     globalThis.cancelledIdle = [];
@@ -1129,7 +1129,7 @@ async function checkMountCancellation(browser, origin) {
 
 async function checkLoops(browser, origin) {
   const loops = await browser.newPage();
-  await loops.addInitScript(rootHelper);
+  await loops.addInitScript(rootDelegate);
   await loops.goto(`${origin}/loops/`);
   await loops.waitForSelector('#entities');
   const values = async (selector) => loops.locator(`${selector} span`).allTextContents();
@@ -1178,7 +1178,7 @@ async function checkLoops(browser, origin) {
 
 async function checkNativeBridge(browser, origin) {
   const native = await browser.newPage();
-  await native.addInitScript(rootHelper);
+  await native.addInitScript(rootDelegate);
   await native.addInitScript(() => {
     globalThis.nativeCalls = [];
     let stored = 'native-ready';
@@ -1226,7 +1226,7 @@ async function checkNativeBridge(browser, origin) {
 
 async function checkNativeLocalState(browser, origin) {
   const stored = await browser.newPage();
-  await stored.addInitScript(rootHelper);
+  await stored.addInitScript(rootDelegate);
   await stored.addInitScript(() => {
     let saved = '';
     globalThis.__tachyonNativeHostCall = async (_capability, payload) => {
@@ -1255,7 +1255,7 @@ async function checkNativeLocalState(browser, origin) {
 
 async function checkDelayedNativeEdits(browser, origin) {
   const delayedNative = await browser.newPage();
-  await delayedNative.addInitScript(rootHelper);
+  await delayedNative.addInitScript(rootDelegate);
   await delayedNative.addInitScript(() => {
     let stored = '';
     globalThis.delayedHost = {

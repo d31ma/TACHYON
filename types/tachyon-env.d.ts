@@ -61,7 +61,7 @@ declare global {
   }
   /** Yon only: the handler process. A handler reads its private `YON_APPLICATION_JSON` snapshot from `process.env`. */
   var process: NodeJS.Process;
-  /** Yon only: send the request to another program, like `relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)`, and answer with its response. */
+  /** Yon only: send the request to another program, like `relay(['ruby', 'server/delegates/ReportDelegate.rb'], request)`, and answer with its response. */
   function relay(command: readonly [string, ...string[]], request: Request): Promise<Response>;
   interface HTMLElement {
     tachyonComponent?: {

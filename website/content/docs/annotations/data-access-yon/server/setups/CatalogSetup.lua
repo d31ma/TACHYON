@@ -5,5 +5,5 @@ CatalogSetup = {}
 ---@param execution table
 ---@return table
 function CatalogSetup.configure(execution)
-  return { entities = { catalog = CatalogRowsHelper }, authorizeEntity = CatalogRowsHelper.product_entity }
+  return { entities = { catalog = CatalogRowsDelegate }, authorizeEntity = CatalogRowsDelegate.product_entity }
 end

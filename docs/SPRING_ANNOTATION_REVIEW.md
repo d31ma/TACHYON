@@ -154,11 +154,11 @@ Every marker that had a Tachyon-only name now has the Spring name:
 | `Cache` | `CacheConfig` |
 | `Pageable` | `PageableDefault` |
 | `HTTPExchange` | `HttpExchange` |
-| the `Delegate` role, then `Component` | `Helper` |
+| `Component`, then `Helper` | `Delegate` |
 
 The compiler refuses the retired spellings and names the replacement. The
-helper folder is `helpers/`, not `components/`, because `client/components/`
-holds Tac views.
+delegate folder is `delegates/`, not `components/`, because
+`client/components/` holds Tac views (ADR 0112).
 
 ## Do Not Add Merely for Familiarity
 

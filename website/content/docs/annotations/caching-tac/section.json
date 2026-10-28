@@ -125,9 +125,9 @@
       }
     },
     {
-      "name": "client/helpers/MemoryCacheHelper.dart",
+      "name": "client/delegates/MemoryCacheDelegate.dart",
       "code": {
-        "file": "client/helpers/MemoryCacheHelper.dart"
+        "file": "client/delegates/MemoryCacheDelegate.dart"
       }
     },
     {

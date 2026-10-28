@@ -11,7 +11,7 @@ impl CsharpTaskTestFixture {
         "client/services/CollectionService.cs",
         "client/setups/CollectionSetup.cs",
         "client/setups/CollectionFakeSetup.cs",
-        "client/helpers/CollectionAnswerHelper.cs",
+        "client/delegates/CollectionAnswerDelegate.cs",
         "client/tests/CollectionTestSetup.cs",
         "client/tests/CollectionServiceTest.cs",
     ];
@@ -25,7 +25,7 @@ impl CsharpTaskTestFixture {
         "client/services/ResultService.cs",
         "client/setups/ResultSetup.cs",
         "client/setups/ResultFakeSetup.cs",
-        "client/helpers/ResultAnswerHelper.cs",
+        "client/delegates/ResultAnswerDelegate.cs",
         "client/tests/ResultTestSetup.cs",
         "client/tests/ResultServiceTest.cs",
     ];
@@ -41,7 +41,7 @@ impl CsharpTaskTestFixture {
         "client/setups/GreetingBrokenSetup.cs",
         "client/setups/GreetingNullSetup.cs",
         "client/setups/GreetingExtraSetup.cs",
-        "client/helpers/GreetingAnswerHelper.cs",
+        "client/delegates/GreetingAnswerDelegate.cs",
         "client/tests/GreetingTestSetup.cs",
         "client/tests/GreetingServiceTest.cs",
     ];

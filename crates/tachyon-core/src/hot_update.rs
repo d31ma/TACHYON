@@ -278,12 +278,12 @@ mod tests {
             "client/pages/tac.js",
             "client/pages/tac.rs",
             "client/stores/BasketStore.js",
-            "client/helpers/PricingHelper.js",
+            "client/delegates/PricingDelegate.js",
             "client/remotes/ProductsClient.js",
             "client/entities/ProductEntity.js",
             "client/setups/ApiSetup.js",
             "server/services/OrdersService.js",
-            "server/helpers/AuditHelper.js",
+            "server/delegates/AuditDelegate.js",
             "server/controllers/OrdersController.js",
         ] {
             let changed = changes(&[path]);

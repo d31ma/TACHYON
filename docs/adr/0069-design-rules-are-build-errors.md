@@ -159,3 +159,11 @@ dictionary (2020.12.07) with its affix rules; its notice is in `NOTICE`.
   such a field as an injected service, not as a property.
 - The same four rules will apply to Tachyon's own code through
   `tools/cohesion-scan`; that is a separate change.
+
+## Amendment (2026-10-28): helpers are now delegates
+
+[ADR 0112](0112-a-delegate-takes-on-the-methods-of-its-service.md) renames the
+`@Helper` role to `@Delegate` in `delegates/`. The rules above that name
+helpers now apply to `@Delegate` classes in `delegates/`, and the files that
+stay in `helpers/` are not checked. The layer order is unchanged until ADR 0112
+lets a delegate need its one base service.

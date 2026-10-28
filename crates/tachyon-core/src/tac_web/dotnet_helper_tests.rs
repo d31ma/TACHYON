@@ -9,30 +9,30 @@ struct DotnetHelpers;
 impl DotnetHelpers {
     const CSHARP: [(&str, &str); 5] = [
         (
-            "client/helpers/TaxRateHelper.cs",
-            "[Helper]\npublic sealed class TaxRateHelper {\n    public int Asked = 0;\n\n    \
+            "client/delegates/TaxRateDelegate.cs",
+            "[Delegate]\npublic sealed class TaxRateDelegate {\n    public int Asked = 0;\n\n    \
              public int Rate() {\n        Asked += 1;\n        return 2;\n    }\n}\n",
         ),
         (
-            "client/helpers/TaxHelper.cs",
-            "[Helper]\npublic sealed class TaxHelper {\n    [Needs]\n    private readonly TaxRateHelper _rates;\n\n    \
+            "client/delegates/TaxDelegate.cs",
+            "[Delegate]\npublic sealed class TaxDelegate {\n    [Needs]\n    private readonly TaxRateDelegate _rates;\n\n    \
              public int AddTax(int subtotal) {\n        int tax = _rates.Rate();\n        return subtotal + tax;\n    }\n\n    \
              public int Asked() {\n        return _rates.Asked;\n    }\n}\n",
         ),
         (
-            "client/helpers/RoundHelper.cs",
-            "[Helper]\npublic sealed class RoundHelper {\n    public int Round(int value) {\n        return value / 10 * 10;\n    }\n}\n",
+            "client/delegates/RoundDelegate.cs",
+            "[Delegate]\npublic sealed class RoundDelegate {\n    public int Round(int value) {\n        return value / 10 * 10;\n    }\n}\n",
         ),
         (
             "client/services/CheckoutService.cs",
-            "[Service]\npublic sealed class CheckoutService {\n    [Needs]\n    private readonly TaxHelper _tax;\n    [Needs]\n    private readonly RoundHelper _rounding;\n    public int Total = 0;\n\n    \
+            "[Service]\npublic sealed class CheckoutService {\n    [Needs]\n    private readonly TaxDelegate _tax;\n    [Needs]\n    private readonly RoundDelegate _rounding;\n    public int Total = 0;\n\n    \
              public int Checkout() {\n        Total = _tax.AddTax(40);\n        return Total;\n    }\n\n    \
              public int Rounded() {\n        return _rounding.Round(Total);\n    }\n\n    \
              public int Asked() {\n        return _tax.Asked();\n    }\n}\n",
         ),
         (
             "client/services/QuoteService.cs",
-            "[Service]\npublic sealed class QuoteService {\n    [Needs]\n    private readonly TaxHelper _tax;\n    [Needs]\n    private readonly RoundHelper _rounding;\n\n    \
+            "[Service]\npublic sealed class QuoteService {\n    [Needs]\n    private readonly TaxDelegate _tax;\n    [Needs]\n    private readonly RoundDelegate _rounding;\n\n    \
              public int Quote(int subtotal) {\n        return _rounding.Round(_tax.AddTax(subtotal));\n    }\n\n    \
              public int Asked() {\n        return _tax.Asked();\n    }\n}\n",
         ),
@@ -40,24 +40,24 @@ impl DotnetHelpers {
 
     const FSHARP: [(&str, &str); 5] = [
         (
-            "client/helpers/TaxRateHelper.fs",
-            "[<Helper>]\ntype TaxRateHelper() =\n    member val Asked = 0 with get, set\n\n    \
+            "client/delegates/TaxRateDelegate.fs",
+            "[<Delegate>]\ntype TaxRateDelegate() =\n    member val Asked = 0 with get, set\n\n    \
              member this.Rate() : int =\n        this.Asked <- this.Asked + 1\n        2\n",
         ),
         (
-            "client/helpers/TaxHelper.fs",
-            "[<Helper>]\ntype TaxHelper() =\n    [<Needs>]\n    member val Rates : TaxRateHelper = Unchecked.defaultof<TaxRateHelper> with get, set\n\n    \
+            "client/delegates/TaxDelegate.fs",
+            "[<Delegate>]\ntype TaxDelegate() =\n    [<Needs>]\n    member val Rates : TaxRateDelegate = Unchecked.defaultof<TaxRateDelegate> with get, set\n\n    \
              member this.AddTax(subtotal: int) : int =\n        let tax = this.Rates.Rate()\n        subtotal + tax\n\n    \
              member this.Asked() : int = this.Rates.Asked\n",
         ),
         (
-            "client/helpers/RoundHelper.fs",
-            "[<Helper>]\ntype RoundHelper() =\n    member this.Round(value: int) : int = value / 10 * 10\n",
+            "client/delegates/RoundDelegate.fs",
+            "[<Delegate>]\ntype RoundDelegate() =\n    member this.Round(value: int) : int = value / 10 * 10\n",
         ),
         (
             "client/services/CheckoutService.fs",
-            "[<Service>]\ntype CheckoutService() =\n    [<Needs>]\n    member val Tax : TaxHelper = Unchecked.defaultof<TaxHelper> with get, set\n    \
-             [<Needs>]\n    member val Rounding : RoundHelper = Unchecked.defaultof<RoundHelper> with get, set\n    \
+            "[<Service>]\ntype CheckoutService() =\n    [<Needs>]\n    member val Tax : TaxDelegate = Unchecked.defaultof<TaxDelegate> with get, set\n    \
+             [<Needs>]\n    member val Rounding : RoundDelegate = Unchecked.defaultof<RoundDelegate> with get, set\n    \
              member val Total = 0 with get, set\n\n    \
              member this.Checkout() : int =\n        this.Total <- this.Tax.AddTax(40)\n        this.Total\n\n    \
              member this.Rounded() : int = this.Rounding.Round(this.Total)\n\n    \
@@ -65,7 +65,7 @@ impl DotnetHelpers {
         ),
         (
             "client/services/QuoteService.fs",
-            "[<Service>]\ntype QuoteService(tax: TaxHelper, rounding: RoundHelper) =\n    \
+            "[<Service>]\ntype QuoteService(tax: TaxDelegate, rounding: RoundDelegate) =\n    \
              member this.Quote(subtotal: int) : int = rounding.Round(tax.AddTax(subtotal))\n\n    \
              member this.Asked() : int = tax.Asked()\n",
         ),
@@ -168,13 +168,13 @@ async fn a_dotnet_helper_one_service_needs_does_not_stop_another_service() {
     for (files, quote) in [
         (
             DotnetHelpers::CSHARP,
-            "[Service]\npublic sealed class QuoteService {\n    [Needs]\n    private readonly TaxHelper _tax;\n\n    \
+            "[Service]\npublic sealed class QuoteService {\n    [Needs]\n    private readonly TaxDelegate _tax;\n\n    \
              public int Quote(int subtotal) {\n        return _tax.AddTax(subtotal);\n    }\n\n    \
              public int Asked() {\n        return _tax.Asked();\n    }\n}\n",
         ),
         (
             DotnetHelpers::FSHARP,
-            "[<Service>]\ntype QuoteService(tax: TaxHelper) =\n    \
+            "[<Service>]\ntype QuoteService(tax: TaxDelegate) =\n    \
              member this.Quote(subtotal: int) : int = tax.AddTax(subtotal)\n\n    \
              member this.Asked() : int = tax.Asked()\n",
         ),

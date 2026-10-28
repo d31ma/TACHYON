@@ -68,17 +68,17 @@ fn request(owner: &str, operation: &str, method: &str) -> String {
 
     fn bridge(root: &Path, lifetime: &str) {
         let services = root.join("client/services/native/providers");
-        let helpers = root.join("client/helpers/native/composition");
+        let helpers = root.join("client/delegates/native/composition");
         std::fs::create_dir_all(&services).expect("provider directory");
         std::fs::create_dir_all(&helpers).expect("helper directory");
         let provider = format!(
             "#[Service]\n#[Lifetime({{\"value\":\"{lifetime}\"}})]\n#[derive(Default)]\nstruct SharedService {{}}\nimpl SharedService {{ pub fn read(&self) -> i64 {{ 42 }} }}"
         );
         std::fs::write(services.join("SharedService.rs"), provider).expect("provider");
-        std::fs::write(helpers.join("BridgeHelper.rs"), "#[Helper]\nstruct BridgeHelper { shared: std::sync::Arc<SharedService> }\nimpl BridgeHelper { fn new(shared: std::sync::Arc<SharedService>) -> Self { Self { shared } } pub fn read(&self) -> i64 { self.shared.read() } }").expect("owned helper");
+        std::fs::write(helpers.join("BridgeDelegate.rs"), "#[Delegate]\nstruct BridgeDelegate { shared: std::sync::Arc<SharedService> }\nimpl BridgeDelegate { fn new(shared: std::sync::Arc<SharedService>) -> Self { Self { shared } } pub fn read(&self) -> i64 { self.shared.read() } }").expect("owned helper");
     }
 
-    const INDIRECT_COLLECTOR: &str = "#[Service]\n#[Lifetime({\"value\":\"application\"})]\nstruct CollectorService { bridge: BridgeHelper }\nimpl CollectorService { fn new(bridge: BridgeHelper) -> Self { Self { bridge } } pub fn read(&self) -> i64 { self.bridge.read() } }";
+    const INDIRECT_COLLECTOR: &str = "#[Service]\n#[Lifetime({\"value\":\"application\"})]\nstruct CollectorService { bridge: BridgeDelegate }\nimpl CollectorService { fn new(bridge: BridgeDelegate) -> Self { Self { bridge } } pub fn read(&self) -> i64 { self.bridge.read() } }";
 
     pub(super) fn stage(
         root: &Path,
@@ -151,7 +151,7 @@ fn native_application_lifetime_is_located_and_target_scoped() {
     );
     for path in [
         "server/services/CollectorService.rs",
-        "client/helpers/CollectorService.rs",
+        "client/delegates/CollectorService.rs",
     ] {
         assert!(
             crate::behavior::ServiceRoles::read(
@@ -281,7 +281,7 @@ fn native_application_lifetime_refuses_indirect_helper_capture_of_shorter_servic
             ApplicationLifetimeTests::INDIRECT_COLLECTOR,
             None,
         )
-        .expect_err("application cannot capture a shorter Service through an owned Helper");
+        .expect_err("application cannot capture a shorter Service through an owned Delegate");
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.number(), 1406, "{lifetime}: {failure}");
         assert!(
@@ -307,15 +307,15 @@ async fn native_application_lifetime_preserves_indirect_application_helper_compo
         ApplicationLifetimeTests::INDIRECT_COLLECTOR,
         Some(reader),
     )
-    .expect("application-compatible Helper dependency");
+    .expect("application-compatible Delegate dependency");
     let caller = r#"
 fn main() {
     assert!(tac_native_application_start());
     let owner = "00000000-0000-4000-8000-000000000001";
     assert!(!request(owner, "init", "").contains("error"));
-    assert_eq!(request(owner, "call", "read"), "{\"value\":42}", "the owned Helper retains the actual injected application provider");
+    assert_eq!(request(owner, "call", "read"), "{\"value\":42}", "the owned Delegate retains the actual injected application provider");
     let page = NativeApplicationServices::page().unwrap();
-    assert_eq!(page.borrow().order.len(), 2, "one application node for the provider and one for its owned Helper consumer");
+    assert_eq!(page.borrow().order.len(), 2, "one application node for the provider and one for its owned Delegate consumer");
     assert!(tac_native_application_start());
     assert_eq!(page.borrow().order.len(), 2, "ready application providers retain their identity");
     tac_native_application_shutdown();

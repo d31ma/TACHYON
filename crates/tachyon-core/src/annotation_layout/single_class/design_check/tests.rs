@@ -162,7 +162,7 @@ fn go_and_rust_layers_point_down() {
     assert_eq!(
         messages(&problems),
         [
-            "OrderStore is a store, and it needs PriceService, which is a service. Dependencies point down: controllers, then services, then helpers, then stores, repositories and clients."
+            "OrderStore is a store, and it needs PriceService, which is a service. Dependencies point down: controllers, then services, then delegates, then stores, repositories and clients."
         ]
     );
     let rust_service =
@@ -201,26 +201,26 @@ fn go_and_rust_layers_point_down() {
 #[test]
 fn a_helper_sits_between_services_and_data_access() {
     let helper =
-        "@Helper\n@NeedsAll\nexport default class PriceHelper {\n  orderStore;\n  taxHelper;\n}\n";
-    let tax = "@Helper\nexport default class TaxHelper {}\n";
+        "@Delegate\n@NeedsAll\nexport default class PriceDelegate {\n  orderStore;\n  taxDelegate;\n}\n";
+    let tax = "@Delegate\nexport default class TaxDelegate {}\n";
     let store = "@Store\nexport default class OrderStore {}\n";
-    let service = "@Service\n@NeedsAll\nexport default class CartService {\n  priceHelper;\n}\n";
+    let service = "@Service\n@NeedsAll\nexport default class CartService {\n  priceDelegate;\n}\n";
     let allowed = found(
         1327,
         &[
-            ("server/helpers/PriceHelper.js", helper),
-            ("server/helpers/TaxHelper.js", tax),
+            ("server/delegates/PriceDelegate.js", helper),
+            ("server/delegates/TaxDelegate.js", tax),
             ("server/stores/OrderStore.js", store),
             ("server/services/CartService.js", service),
         ],
     );
     assert!(allowed.is_empty(), "{allowed:?}");
-    let upward = "@Helper\n@NeedsAll\nexport default class TaxHelper {\n  cartService;\n}\n";
-    let store_up = "@Store\n@NeedsAll\nexport default class OrderStore {\n  taxHelper;\n}\n";
+    let upward = "@Delegate\n@NeedsAll\nexport default class TaxDelegate {\n  cartService;\n}\n";
+    let store_up = "@Store\n@NeedsAll\nexport default class OrderStore {\n  taxDelegate;\n}\n";
     let refused = found(
         1327,
         &[
-            ("server/helpers/TaxHelper.js", upward),
+            ("server/delegates/TaxDelegate.js", upward),
             ("server/stores/OrderStore.js", store_up),
             (
                 "server/services/CartService.js",
@@ -231,8 +231,8 @@ fn a_helper_sits_between_services_and_data_access() {
     assert_eq!(
         messages(&refused),
         [
-            "TaxHelper is a helper, and it needs CartService, which is a service. Dependencies point down: controllers, then services, then helpers, then stores, repositories and clients.",
-            "OrderStore is a store, and it needs TaxHelper, which is a helper. Dependencies point down: controllers, then services, then helpers, then stores, repositories and clients.",
+            "TaxDelegate is a delegate, and it needs CartService, which is a service. Dependencies point down: controllers, then services, then delegates, then stores, repositories and clients.",
+            "OrderStore is a store, and it needs TaxDelegate, which is a delegate. Dependencies point down: controllers, then services, then delegates, then stores, repositories and clients.",
         ]
     );
 }

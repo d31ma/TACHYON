@@ -4,7 +4,7 @@ from models import Guide
 @service
 @needs_all
 class CounterService:
-    counter: CounterHelper
+    counter: CounterDelegate
     title: str
     count: int
     fixed: typing.Final[str]

@@ -13,7 +13,7 @@ impl<'a> PathParts<'a> {
     const REALMS: [&'static str; 2] = ["client", "server"];
     const ROLE_FOLDERS: [&'static str; 18] = [
         "services",
-        "helpers",
+        "delegates",
         "controllers",
         "stores",
         "repositories",

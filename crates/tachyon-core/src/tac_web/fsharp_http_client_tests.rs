@@ -11,11 +11,11 @@ impl FsharpHttpClientPage {
     const FILES: [(&str, &str); 3] = [
         (
             "client/setups/CatalogSetup.fs",
-            "[<Setup>]\ntype CatalogSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        execution.Check()\n        let adapters: BehaviorAdapters = BehaviorAdapters()\n        adapters.http.Add(\"catalog\", new EchoHttpHelper())\n        adapters\n",
+            "[<Setup>]\ntype CatalogSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        execution.Check()\n        let adapters: BehaviorAdapters = BehaviorAdapters()\n        adapters.http.Add(\"catalog\", new EchoHttpDelegate())\n        adapters\n",
         ),
         (
-            "client/helpers/EchoHttpHelper.fs",
-            "open System.Collections.Generic\nopen System.Threading.Tasks\n\n[<Helper>]\ntype EchoHttpHelper() =\n    interface BehaviorHTTPAdapter with\n        member this.exchange(request: BehaviorJSON, execution: BehaviorExecution) : Task<BehaviorJSON> =\n            execution.Check()\n            let echo = Dictionary<string, BehaviorJSON>()\n            for field in [ \"method\"; \"path\"; \"query\"; \"headers\"; \"body\" ] do\n                if request.Has(field) then echo[field] <- request.Get(field)\n            echo[\"adapter\"] <- BehaviorJSON.From(\"echo\")\n            Task.FromResult(BehaviorJSON.Object(echo))\n",
+            "client/delegates/EchoHttpDelegate.fs",
+            "open System.Collections.Generic\nopen System.Threading.Tasks\n\n[<Delegate>]\ntype EchoHttpDelegate() =\n    interface BehaviorHTTPAdapter with\n        member this.exchange(request: BehaviorJSON, execution: BehaviorExecution) : Task<BehaviorJSON> =\n            execution.Check()\n            let echo = Dictionary<string, BehaviorJSON>()\n            for field in [ \"method\"; \"path\"; \"query\"; \"headers\"; \"body\" ] do\n                if request.Has(field) then echo[field] <- request.Get(field)\n            echo[\"adapter\"] <- BehaviorJSON.From(\"echo\")\n            Task.FromResult(BehaviorJSON.Object(echo))\n",
         ),
         (
             "client/remotes/CatalogClient.fs",

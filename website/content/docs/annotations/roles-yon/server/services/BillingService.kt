@@ -1,7 +1,7 @@
 @Service
 class BillingService {
   @Needs
-  val helper: BillingHelper
+  val helper: BillingDelegate
 
   fun total(): Int = helper.settle(SUBTOTAL)
 

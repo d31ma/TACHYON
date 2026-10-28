@@ -2,7 +2,7 @@
 #[Service]
 class BillingService {
   #[Needs]
-  private BillingHelper $helper;
+  private BillingDelegate $helper;
 
   public function total(): int {
     return $this->helper->settle($this->subtotal());

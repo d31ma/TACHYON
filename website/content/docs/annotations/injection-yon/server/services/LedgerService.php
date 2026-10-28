@@ -2,6 +2,6 @@
 #[Service]
 class LedgerService {
   #[Needs]
-  private LedgerAmountsHelper $amounts;
+  private LedgerAmountsDelegate $amounts;
   public function subtotal(): int { return $this->amounts->subtotal(); }
 }

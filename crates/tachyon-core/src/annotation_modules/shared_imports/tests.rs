@@ -73,11 +73,11 @@ fn shared_imports_merges_equivalent_paths_without_erasing_real_module_identity()
 #[test]
 fn shared_imports_merge_uses_entry_base_after_nested_role_rebasing() {
     let entry = Path::new("client/services/LabelService.js");
-    let role = Path::new("client/helpers/nested/LabelHelper.js");
+    let role = Path::new("client/delegates/nested/LabelDelegate.js");
     let nested = SharedImports::rebase(
         entry,
         role,
-        "import { TitleUtils } from '../../shared/utils/nested/TitleUtils.js';\nclass LabelHelper {}",
+        "import { TitleUtils } from '../../shared/utils/nested/TitleUtils.js';\nclass LabelDelegate {}",
         "js",
     )
     .expect("captured nested role import");

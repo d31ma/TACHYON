@@ -12,7 +12,7 @@ pub(super) struct LayerReport;
 impl LayerReport {
     const MESSAGES: [&'static str; 3] = [
         "{class} needs {target}, but {target} is a controller, and nothing may need a controller.",
-        "{class} is {label}, and it needs {target}, which is {target_label}. Dependencies point down: controllers, then services, then helpers, then stores, repositories and clients.",
+        "{class} is {label}, and it needs {target}, which is {target_label}. Dependencies point down: controllers, then services, then delegates, then stores, repositories and clients.",
         "{class} is a utility, and it names {target}, which is {target_label}. A utility depends on no role class.",
     ];
     const HELPS: [&'static str; 3] = [

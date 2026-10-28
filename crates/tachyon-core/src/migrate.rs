@@ -1589,8 +1589,8 @@ mod tests {
         );
         write(
             root.path(),
-            "server/helpers/AuditHelper.js",
-            "export class AuditHelper {}",
+            "server/delegates/AuditDelegate.js",
+            "export class AuditDelegate {}",
         );
         let report = check(root.path());
         assert!(

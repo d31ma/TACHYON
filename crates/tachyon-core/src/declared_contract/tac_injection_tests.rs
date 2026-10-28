@@ -193,17 +193,17 @@ fn only_stores_and_converters_are_injected_contracts() {
 #[test]
 fn a_ruby_helper_is_injected_and_a_helper_of_another_language_is_not() {
     let paths = [
-        Path::new("client/helpers/LevelHelper.rb"),
-        Path::new("client/helpers/money/MoneyHelper.rb"),
-        Path::new("client/helpers/LevelHelper.rs"),
+        Path::new("client/delegates/LevelDelegate.rb"),
+        Path::new("client/delegates/money/MoneyDelegate.rb"),
+        Path::new("client/delegates/LevelDelegate.rs"),
     ];
     let names = DeclaredContract::injected_names(paths.into_iter());
-    assert_eq!(names, ["LevelHelper", "MoneyHelper"]);
-    let source = "#[Service]\nclass TallyService\n  #[Needs]\n  # @return [LevelHelper]\n  attr_reader :levels\nend\n";
+    assert_eq!(names, ["LevelDelegate", "MoneyDelegate"]);
+    let source = "#[Service]\nclass TallyService\n  #[Needs]\n  # @return [LevelDelegate]\n  attr_reader :levels\nend\n";
     let path = TacInjection::service_path("rb");
     let filled = DeclaredContract::injected(Path::new(&path), source, &names).unwrap_or_default();
     assert!(
-        filled.contains("  private def levels\n    @levels ||= LevelHelper.new\n  end"),
+        filled.contains("  private def levels\n    @levels ||= LevelDelegate.new\n  end"),
         "{filled}"
     );
 }
@@ -226,40 +226,40 @@ fn a_swift_service_field_that_needs_a_remote_builds_the_client() {
 #[test]
 fn a_go_service_field_that_needs_a_helper_creates_its_own_helper() {
     let paths = [
-        Path::new("client/helpers/StepHelper.go"),
-        Path::new("client/helpers/text/WordHelper.go"),
-        Path::new("client/helpers/StepHelper.rs"),
+        Path::new("client/delegates/StepDelegate.go"),
+        Path::new("client/delegates/text/WordDelegate.go"),
+        Path::new("client/delegates/StepDelegate.rs"),
     ];
     let names = DeclaredContract::injected_names(paths.into_iter());
-    assert_eq!(names, ["StepHelper", "WordHelper"]);
-    let source = "// @Service\ntype TallyService struct {\n\t// @Needs\n\tstep *StepHelper\n\t// @Needs\n\tproducts *ProductStore\n}\n";
+    assert_eq!(names, ["StepDelegate", "WordDelegate"]);
+    let source = "// @Service\ntype TallyService struct {\n\t// @Needs\n\tstep *StepDelegate\n\t// @Needs\n\tproducts *ProductStore\n}\n";
     let contracts = [names, TacInjection::stores()].concat();
     let path = TacInjection::service_path("go");
     let filled = DeclaredContract::injected(Path::new(&path), source, &contracts);
     let filled = filled.unwrap_or_default();
     for part in [
-        "\tstep *StepHelper\n",
-        "\tservice.step = &StepHelper{}\n",
+        "\tstep *StepDelegate\n",
+        "\tservice.step = &StepDelegate{}\n",
         "\tproducts, err := NewProductStore()\n",
     ] {
         assert!(filled.contains(part), "{part:?}:\n{filled}");
     }
-    assert!(!filled.contains("NewStepHelper"), "{filled}");
+    assert!(!filled.contains("NewStepDelegate"), "{filled}");
 }
 
 #[test]
 fn a_swift_field_that_needs_a_helper_builds_it_and_a_rust_one_does_not() {
     let paths = [
-        Path::new("client/helpers/cart/CartHelper.swift"),
-        Path::new("client/helpers/CartHelper.rs"),
+        Path::new("client/delegates/cart/CartDelegate.swift"),
+        Path::new("client/delegates/CartDelegate.rs"),
     ];
     let names = DeclaredContract::injected_names(paths.into_iter());
-    assert_eq!(names, ["CartHelper"]);
-    let source = "@Service\nfinal class CartService {\n    @Needs\n    private let cartHelper: CartHelper\n}\n";
+    assert_eq!(names, ["CartDelegate"]);
+    let source = "@Service\nfinal class CartService {\n    @Needs\n    private let cartDelegate: CartDelegate\n}\n";
     let path = TacInjection::service_path("swift");
     let filled = DeclaredContract::injected(Path::new(&path), source, &names).unwrap_or_default();
     assert!(
-        filled.contains("    private let cartHelper: CartHelper = CartHelper()"),
+        filled.contains("    private let cartDelegate: CartDelegate = CartDelegate()"),
         "{filled}"
     );
 }
@@ -267,31 +267,31 @@ fn a_swift_field_that_needs_a_helper_builds_it_and_a_rust_one_does_not() {
 #[test]
 fn a_csharp_field_and_fsharp_needs_that_name_a_helper_build_it() {
     let paths = [
-        Path::new("client/helpers/TaxHelper.cs"),
-        Path::new("client/helpers/money/RoundHelper.fs"),
+        Path::new("client/delegates/TaxDelegate.cs"),
+        Path::new("client/delegates/money/RoundDelegate.fs"),
     ];
     let names = DeclaredContract::injected_names(paths.into_iter());
-    assert_eq!(names, ["TaxHelper", "RoundHelper"]);
+    assert_eq!(names, ["TaxDelegate", "RoundDelegate"]);
     assert_eq!(
         DeclaredContract::helper_names(paths.into_iter()),
-        ["TaxHelper", "RoundHelper"]
+        ["TaxDelegate", "RoundDelegate"]
     );
-    let source = "[Service]\npublic sealed class CheckoutService {\n    [Needs]\n    private readonly TaxHelper _tax;\n}\n";
+    let source = "[Service]\npublic sealed class CheckoutService {\n    [Needs]\n    private readonly TaxDelegate _tax;\n}\n";
     let path = TacInjection::service_path("cs");
     let filled = DeclaredContract::injected(Path::new(&path), source, &names).unwrap_or_default();
     assert!(
-        filled.contains("    private readonly TaxHelper _tax = new TaxHelper();"),
+        filled.contains("    private readonly TaxDelegate _tax = new TaxDelegate();"),
         "{filled}"
     );
     assert!(!filled.contains("[Needs]"), "{filled}");
-    let source = "[<Service>]\ntype CheckoutService(rounding: RoundHelper, label: string) =\n    [<Needs>]\n    member val Tax : TaxHelper = Unchecked.defaultof<TaxHelper> with get, set\n    [<Needs>]\n    member val Prices : PriceStore = Unchecked.defaultof<PriceStore> with get, set\n";
+    let source = "[<Service>]\ntype CheckoutService(rounding: RoundDelegate, label: string) =\n    [<Needs>]\n    member val Tax : TaxDelegate = Unchecked.defaultof<TaxDelegate> with get, set\n    [<Needs>]\n    member val Prices : PriceStore = Unchecked.defaultof<PriceStore> with get, set\n";
     let path = TacInjection::service_path("fs");
     let contracts = [names, vec![String::from("PriceStore")]].concat();
     let filled =
         DeclaredContract::injected(Path::new(&path), source, &contracts).unwrap_or_default();
     for part in [
-        "type CheckoutService(label: string) =\n    let rounding = new RoundHelper()\n",
-        "    member val private Tax : TaxHelper = new TaxHelper() with get, set\n",
+        "type CheckoutService(label: string) =\n    let rounding = new RoundDelegate()\n",
+        "    member val private Tax : TaxDelegate = new TaxDelegate() with get, set\n",
         "    [<Needs>]\n    member val Prices : PriceStore = Unchecked.defaultof<PriceStore> with get, set\n",
     ] {
         assert!(filled.contains(part), "{part:?}:\n{filled}");

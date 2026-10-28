@@ -6,7 +6,7 @@ from models import Ledger
 @public
 class LedgerController:
     service: Annotated[LedgerService, needs, named("LedgerService")]
-    settlement: Annotated[LedgerHelper, needs, named("LedgerHelper")]
+    settlement: Annotated[LedgerDelegate, needs, named("LedgerDelegate")]
 
     @get_route
     def get_ledger(self) -> Ledger:

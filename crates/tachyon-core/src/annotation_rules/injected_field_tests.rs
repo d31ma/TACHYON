@@ -75,8 +75,8 @@ impl InjectedCases {
         (
             "rb",
             Realm::Yon,
-            "#[Service]\n#[NeedsAll]\nclass LedgerService\n  attr_reader :ledger_store, :auditHelper\nend\n",
-            "`audit_helper`",
+            "#[Service]\n#[NeedsAll]\nclass LedgerService\n  attr_reader :ledger_store, :auditDelegate\nend\n",
+            "`audit_delegate`",
         ),
         (
             "rs",
@@ -148,7 +148,7 @@ impl InjectedCases {
         (
             "rb",
             Realm::Yon,
-            "#[Service]\n#[NeedsAll]\nclass LedgerService\n  attr_reader :ledger_store, :audit_helper\nend\n",
+            "#[Service]\n#[NeedsAll]\nclass LedgerService\n  attr_reader :ledger_store, :audit_delegate\nend\n",
         ),
         (
             "rs",

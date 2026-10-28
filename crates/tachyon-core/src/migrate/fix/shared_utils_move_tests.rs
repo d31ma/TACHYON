@@ -70,7 +70,7 @@ fn imports_of_a_moved_utility_point_at_client_shared_utils() {
             "import { TextUtils } from '../utils/TextUtils.js';\nimport { TitleUtils } from \"/utils/text/TitleUtils.js\";\nconst where = 'client/utils/TextUtils.js';\n@Service\nexport default class BasketService {}\n",
         ),
         (
-            "client/components/basket/BasketHelper.ts",
+            "client/components/basket/BasketDelegate.ts",
             "import { TextUtils } from '../../utils/TextUtils.js';\nimport { Other } from '../utils/Other.js';\n",
         ),
         (
@@ -93,7 +93,7 @@ fn imports_of_a_moved_utility_point_at_client_shared_utils() {
         service.contains("'client/shared/utils/TextUtils.js'"),
         "{service}"
     );
-    let helper = SharedUtilsProject::read(root, "client/components/basket/BasketHelper.ts");
+    let helper = SharedUtilsProject::read(root, "client/components/basket/BasketDelegate.ts");
     assert!(
         helper.contains("from '../../shared/utils/TextUtils.js'"),
         "{helper}"

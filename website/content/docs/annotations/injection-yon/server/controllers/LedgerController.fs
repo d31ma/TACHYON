@@ -4,8 +4,8 @@ open Models
 [<Public>]
 type LedgerController(ledgerService: LedgerService) =
     [<Needs>]
-    [<Named("LedgerHelper")>]
-    member val Settlement : LedgerHelper = Unchecked.defaultof<LedgerHelper> with get, set
+    [<Named("LedgerDelegate")>]
+    member val Settlement : LedgerDelegate = Unchecked.defaultof<LedgerDelegate> with get, set
 
     [<GetRoute>]
     member this.GetLedger() : Ledger =

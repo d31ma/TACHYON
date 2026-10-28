@@ -184,7 +184,7 @@ EOF
   check "service file without the Service suffix" "TY1363" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	${VIEW}
-client/services/Helper.js	export default class Helper {}
+client/services/Delegate.js	export default class Delegate {}
 EOF
 
   check "service in a subdirectory" "ok" <<EOF
@@ -285,8 +285,8 @@ EOF
   check "Tac Component provider bound by Inject" "ok" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	<main aria-label="T"><button on:click="testView.read()">Go</button><output>{testView.count}</output></main>
-client/helpers/PricingHelper.js	@Helper()\nclass PricingHelper { price() { return 5 } }
-client/services/TestViewService.js	@Service()\n@Needs(PricingHelper)\nexport default class TestViewService {\npricingHelper;\ncount = 0;\nread() { this.count = this.pricingHelper.price(); }\n}
+client/delegates/PricingDelegate.js	@Delegate()\nclass PricingDelegate { price() { return 5 } }
+client/services/TestViewService.js	@Service()\n@Needs(PricingDelegate)\nexport default class TestViewService {\npricingDelegate;\ncount = 0;\nread() { this.count = this.pricingDelegate.price(); }\n}
 EOF
 
   check "retired signal decorator fails before emission" "TY1306" <<EOF

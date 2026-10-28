@@ -1,8 +1,8 @@
 #pragma once
 
 class [[Service]] CatalogService {
-    [[Needs]] CatalogCounterHelper& catalogCounterHelper;
+    [[Needs]] CatalogCounterDelegate& catalogCounterDelegate;
 
 public:
-    int total() const { return catalogCounterHelper.count() * 2; }
+    int total() const { return catalogCounterDelegate.count() * 2; }
 };

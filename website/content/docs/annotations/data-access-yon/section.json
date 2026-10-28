@@ -299,27 +299,27 @@
       }
     },
     {
-      "name": "server/helpers/CatalogAdapterHelper.py",
+      "name": "server/delegates/CatalogAdapterDelegate.py",
       "code": {
-        "file": "server/helpers/CatalogAdapterHelper.py"
+        "file": "server/delegates/CatalogAdapterDelegate.py"
       }
     },
     {
-      "name": "server/helpers/CatalogAdapterHelper.php",
+      "name": "server/delegates/CatalogAdapterDelegate.php",
       "code": {
-        "file": "server/helpers/CatalogAdapterHelper.php"
+        "file": "server/delegates/CatalogAdapterDelegate.php"
       }
     },
     {
-      "name": "server/helpers/CatalogAdapterHelper.cs",
+      "name": "server/delegates/CatalogAdapterDelegate.cs",
       "code": {
-        "file": "server/helpers/CatalogAdapterHelper.cs"
+        "file": "server/delegates/CatalogAdapterDelegate.cs"
       }
     },
     {
-      "name": "server/helpers/CatalogAdapterHelper.rs",
+      "name": "server/delegates/CatalogAdapterDelegate.rs",
       "code": {
-        "file": "server/helpers/CatalogAdapterHelper.rs"
+        "file": "server/delegates/CatalogAdapterDelegate.rs"
       }
     },
     {
@@ -353,9 +353,9 @@
       }
     },
     {
-      "name": "server/helpers/CatalogAdapterHelper.go",
+      "name": "server/delegates/CatalogAdapterDelegate.go",
       "code": {
-        "file": "server/helpers/CatalogAdapterHelper.go"
+        "file": "server/delegates/CatalogAdapterDelegate.go"
       }
     },
     {
@@ -389,9 +389,9 @@
       }
     },
     {
-      "name": "server/helpers/CatalogAdapterHelper.fs",
+      "name": "server/delegates/CatalogAdapterDelegate.fs",
       "code": {
-        "file": "server/helpers/CatalogAdapterHelper.fs"
+        "file": "server/delegates/CatalogAdapterDelegate.fs"
       }
     },
     {
@@ -431,9 +431,9 @@
       }
     },
     {
-      "name": "server/helpers/CatalogRowsHelper.lua",
+      "name": "server/delegates/CatalogRowsDelegate.lua",
       "code": {
-        "file": "server/helpers/CatalogRowsHelper.lua"
+        "file": "server/delegates/CatalogRowsDelegate.lua"
       }
     },
     {

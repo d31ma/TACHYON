@@ -539,15 +539,15 @@ mod tests {
         let path = "client/services/root_service.rs";
         for name in ["newer", "new_default", "new_service"] {
             let source = format!(
-                "struct RootService {{ peer: PeerHelper }}\nimpl RootService {{ fn {name}() -> Self {{ Self::new(PeerHelper::default()) }} fn new(peer: PeerHelper) -> Self {{ Self {{ peer }} }} }}\n#[derive(Default)]\nstruct PeerHelper {{}}\n"
+                "struct RootService {{ peer: PeerDelegate }}\nimpl RootService {{ fn {name}() -> Self {{ Self::new(PeerDelegate::default()) }} fn new(peer: PeerDelegate) -> Self {{ Self {{ peer }} }} }}\n#[derive(Default)]\nstruct PeerDelegate {{}}\n"
             );
             let inputs = RustConstruction::constructor_inputs(&source, path, "RootService")
                 .unwrap_or_else(|failure| panic!("{failure}"));
-            assert_eq!(inputs, ["PeerHelper"], "{name}");
+            assert_eq!(inputs, ["PeerDelegate"], "{name}");
             let expression = RustConstruction::instance(&source, path, "RootService", false)
                 .unwrap_or_else(|failure| panic!("{failure}"));
             assert_eq!(
-                expression, "RootService::new(<PeerHelper as ::core::default::Default>::default())",
+                expression, "RootService::new(<PeerDelegate as ::core::default::Default>::default())",
                 "{name}"
             );
         }
@@ -567,15 +567,15 @@ mod tests {
             "pub(crate) fn /* constructor */ new",
         ] {
             let source = format!(
-                "struct RootService {{ peer: PeerHelper }}\nimpl RootService {{ {declaration}(peer: PeerHelper) -> Self {{ Self {{ peer }} }} }}\n#[derive(Default)]\nstruct PeerHelper {{}}\n"
+                "struct RootService {{ peer: PeerDelegate }}\nimpl RootService {{ {declaration}(peer: PeerDelegate) -> Self {{ Self {{ peer }} }} }}\n#[derive(Default)]\nstruct PeerDelegate {{}}\n"
             );
             let inputs = RustConstruction::constructor_inputs(&source, path, "RootService")
                 .unwrap_or_else(|failure| panic!("{failure}"));
-            assert_eq!(inputs, ["PeerHelper"], "{declaration}");
+            assert_eq!(inputs, ["PeerDelegate"], "{declaration}");
             let expression = RustConstruction::instance(&source, path, "RootService", false)
                 .unwrap_or_else(|failure| panic!("{failure}"));
             assert_eq!(
-                expression, "RootService::new(<PeerHelper as ::core::default::Default>::default())",
+                expression, "RootService::new(<PeerDelegate as ::core::default::Default>::default())",
                 "{declaration}"
             );
         }
@@ -589,7 +589,7 @@ impl RootService {
     fn newer() -> Self { Self {} }
     fn text() -> &'static str { "fn new() -> Self { Self {} }" }
     // fn new() -> Self { Self {} }
-    /* fn new(peer: PeerHelper) -> Self { Self {} } */
+    /* fn new(peer: PeerDelegate) -> Self { Self {} } */
 }
 "#;
         let inputs = RustConstruction::constructor_inputs(source, path, "RootService")
@@ -611,8 +611,8 @@ impl RootService {
         let source = r"struct RootService {}
 impl RootService {
     fn prepare() {
-        struct LocalHelper {}
-        impl LocalHelper { fn new() -> Self { Self {} } }
+        struct LocalDelegate {}
+        impl LocalDelegate { fn new() -> Self { Self {} } }
     }
 }
 ";
@@ -628,32 +628,32 @@ impl RootService {
 
     #[test]
     fn rust_constructor_recognition_finds_the_direct_constructor_after_a_nested_type() {
-        let source = r"struct RootService { peer: PeerHelper }
+        let source = r"struct RootService { peer: PeerDelegate }
 impl RootService {
     fn prepare() {
-        struct LocalHelper {}
-        impl LocalHelper { fn new() -> Self { Self {} } }
+        struct LocalDelegate {}
+        impl LocalDelegate { fn new() -> Self { Self {} } }
     }
-    fn new(peer: PeerHelper) -> Self { Self { peer } }
+    fn new(peer: PeerDelegate) -> Self { Self { peer } }
 }
 #[derive(Default)]
-struct PeerHelper {}
+struct PeerDelegate {}
 ";
         let path = "client/services/root_service.rs";
         let inputs = RustConstruction::constructor_inputs(source, path, "RootService")
             .unwrap_or_else(|failure| panic!("{failure}"));
-        assert_eq!(inputs, ["PeerHelper"]);
+        assert_eq!(inputs, ["PeerDelegate"]);
         let expression = RustConstruction::instance(source, path, "RootService", false)
             .unwrap_or_else(|failure| panic!("{failure}"));
         assert_eq!(
             expression,
-            "RootService::new(<PeerHelper as ::core::default::Default>::default())"
+            "RootService::new(<PeerDelegate as ::core::default::Default>::default())"
         );
     }
 
     #[test]
     fn rust_constructor_inputs_keep_nested_generic_parameters_whole() {
-        let source = "struct RootService {}\nimpl RootService { fn new(values: std::collections::BTreeMap<String, Vec<(PeerHelper, StepHelper)>>, peer: Arc<PeerHelper>,) -> Self { Self {} } }\n";
+        let source = "struct RootService {}\nimpl RootService { fn new(values: std::collections::BTreeMap<String, Vec<(PeerDelegate, StepDelegate)>>, peer: Arc<PeerDelegate>,) -> Self { Self {} } }\n";
         let inputs = RustConstruction::constructor_inputs(
             source,
             "client/services/root_service.rs",
@@ -663,15 +663,15 @@ struct PeerHelper {}
         assert_eq!(
             inputs,
             [
-                "std::collections::BTreeMap<String, Vec<(PeerHelper, StepHelper)>>",
-                "Arc<PeerHelper>",
+                "std::collections::BTreeMap<String, Vec<(PeerDelegate, StepDelegate)>>",
+                "Arc<PeerDelegate>",
             ]
         );
     }
 
     #[test]
     fn rust_constructor_inputs_keep_tuple_patterns_and_types_whole() {
-        let source = "struct RootService {}\nimpl RootService { fn new((peer, step): (PeerHelper, (StepHelper, PeerHelper)), next: PeerHelper,) -> Self { Self {} } }\n";
+        let source = "struct RootService {}\nimpl RootService { fn new((peer, step): (PeerDelegate, (StepDelegate, PeerDelegate)), next: PeerDelegate,) -> Self { Self {} } }\n";
         let inputs = RustConstruction::constructor_inputs(
             source,
             "client/services/root_service.rs",
@@ -680,13 +680,13 @@ struct PeerHelper {}
         .unwrap_or_else(|failure| panic!("{failure}"));
         assert_eq!(
             inputs,
-            ["(PeerHelper, (StepHelper, PeerHelper))", "PeerHelper"]
+            ["(PeerDelegate, (StepDelegate, PeerDelegate))", "PeerDelegate"]
         );
     }
 
     #[test]
     fn rust_constructor_inputs_keep_function_parameters_and_return_tuples_whole() {
-        let source = "struct RootService {}\nimpl RootService { fn new(callback: fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper), peer: PeerHelper) -> Self { Self {} } }\n";
+        let source = "struct RootService {}\nimpl RootService { fn new(callback: fn(PeerDelegate, StepDelegate) -> (PeerDelegate, StepDelegate), peer: PeerDelegate) -> Self { Self {} } }\n";
         let inputs = RustConstruction::constructor_inputs(
             source,
             "client/services/root_service.rs",
@@ -696,15 +696,15 @@ struct PeerHelper {}
         assert_eq!(
             inputs,
             [
-                "fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper)",
-                "PeerHelper",
+                "fn(PeerDelegate, StepDelegate) -> (PeerDelegate, StepDelegate)",
+                "PeerDelegate",
             ]
         );
     }
 
     #[test]
     fn rust_constructor_inputs_keep_nested_function_generics_and_arrays_whole() {
-        let source = "struct RootService {}\nimpl RootService { fn new(callback: Result<fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper), StepHelper>, peers: [PeerHelper; 2], next: PeerHelper) -> Self { Self {} } }\n";
+        let source = "struct RootService {}\nimpl RootService { fn new(callback: Result<fn(PeerDelegate, StepDelegate) -> (PeerDelegate, StepDelegate), StepDelegate>, peers: [PeerDelegate; 2], next: PeerDelegate) -> Self { Self {} } }\n";
         let inputs = RustConstruction::constructor_inputs(
             source,
             "client/services/root_service.rs",
@@ -714,9 +714,9 @@ struct PeerHelper {}
         assert_eq!(
             inputs,
             [
-                "Result<fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper), StepHelper>",
-                "[PeerHelper; 2]",
-                "PeerHelper",
+                "Result<fn(PeerDelegate, StepDelegate) -> (PeerDelegate, StepDelegate), StepDelegate>",
+                "[PeerDelegate; 2]",
+                "PeerDelegate",
             ]
         );
     }
@@ -725,10 +725,10 @@ struct PeerHelper {}
     fn rust_constructor_refusals_name_the_complete_unsupported_parameter_type() {
         let path = "client/services/root_service.rs";
         for kind in [
-            "std::collections::BTreeMap<PeerHelper, StepHelper>",
-            "(PeerHelper, StepHelper)",
-            "fn(PeerHelper, StepHelper) -> (PeerHelper, StepHelper)",
-            "Box<dyn Fn(PeerHelper, StepHelper) -> PeerHelper>",
+            "std::collections::BTreeMap<PeerDelegate, StepDelegate>",
+            "(PeerDelegate, StepDelegate)",
+            "fn(PeerDelegate, StepDelegate) -> (PeerDelegate, StepDelegate)",
+            "Box<dyn Fn(PeerDelegate, StepDelegate) -> PeerDelegate>",
         ] {
             let source = format!(
                 "struct RootService {{}}\nimpl RootService {{ fn new(value: {kind}) -> Self {{ Self {{}} }} }}\n"
@@ -748,7 +748,7 @@ struct PeerHelper {}
 
     #[test]
     fn rust_constructor_typed_arc_providers_share_one_default_binding() {
-        let source = "struct RootService { first: Arc<PeerHelper>, second: Arc<PeerHelper> }\nimpl RootService { fn new(first: Arc<PeerHelper>, second: std::sync::Arc<PeerHelper>) -> Self { Self { first, second } } }\n#[derive(Default)]\nstruct PeerHelper {}\n";
+        let source = "struct RootService { first: Arc<PeerDelegate>, second: Arc<PeerDelegate> }\nimpl RootService { fn new(first: Arc<PeerDelegate>, second: std::sync::Arc<PeerDelegate>) -> Self { Self { first, second } } }\n#[derive(Default)]\nstruct PeerDelegate {}\n";
         let expression = RustConstruction::instance(
             source,
             "client/services/root_service.rs",
@@ -758,13 +758,13 @@ struct PeerHelper {}
         .unwrap_or_else(|failure| panic!("{failure}"));
         assert_eq!(
             expression,
-            "{ let tac_provider_0 = ::std::sync::Arc::new(<PeerHelper as ::core::default::Default>::default());\nRootService::new(::std::sync::Arc::clone(&tac_provider_0), ::std::sync::Arc::clone(&tac_provider_0)) }"
+            "{ let tac_provider_0 = ::std::sync::Arc::new(<PeerDelegate as ::core::default::Default>::default());\nRootService::new(::std::sync::Arc::clone(&tac_provider_0), ::std::sync::Arc::clone(&tac_provider_0)) }"
         );
     }
 
     #[test]
     fn rust_constructor_graph_resolves_typed_services_with_page_identity() {
-        let source = "struct RootService { first: Arc<PeerService>, second: Arc<PeerService>, helper: StepHelper }\nimpl RootService { fn new(first: Arc<PeerService>, second: ::std::sync::Arc<PeerService>, helper: StepHelper) -> Self { Self { first, second, helper } } }\n#[derive(Default)]\nstruct PeerService {}\n#[derive(Default)]\nstruct StepHelper {}\n";
+        let source = "struct RootService { first: Arc<PeerService>, second: Arc<PeerService>, helper: StepDelegate }\nimpl RootService { fn new(first: Arc<PeerService>, second: ::std::sync::Arc<PeerService>, helper: StepDelegate) -> Self { Self { first, second, helper } } }\n#[derive(Default)]\nstruct PeerService {}\n#[derive(Default)]\nstruct StepDelegate {}\n";
         let services = BTreeSet::from([String::from("PeerService")]);
         let (expression, dependencies) = RustConstruction::graph_instance(
             source,
@@ -775,7 +775,7 @@ struct PeerHelper {}
         .unwrap_or_else(|failure| panic!("{failure}"));
         assert_eq!(
             expression,
-            "RootService::new(scope.obtain(&tac_definition_PeerService())?, scope.obtain(&tac_definition_PeerService())?, <StepHelper as ::core::default::Default>::default())"
+            "RootService::new(scope.obtain(&tac_definition_PeerService())?, scope.obtain(&tac_definition_PeerService())?, <StepDelegate as ::core::default::Default>::default())"
         );
         assert_eq!(dependencies, services);
     }
@@ -801,7 +801,7 @@ struct PeerHelper {}
 
     #[test]
     fn rust_constructor_needs_all_keeps_typed_and_default_field_initialization() {
-        let source = "struct RootService { peer: PeerHelper, count: i64 }\n#[derive(Default)]\nstruct PeerHelper {}\n";
+        let source = "struct RootService { peer: PeerDelegate, count: i64 }\n#[derive(Default)]\nstruct PeerDelegate {}\n";
         let expression = RustConstruction::instance(
             source,
             "client/services/root_service.rs",
@@ -811,7 +811,7 @@ struct PeerHelper {}
         .unwrap_or_else(|failure| panic!("{failure}"));
         assert_eq!(
             expression,
-            "RootService { peer: <PeerHelper as ::core::default::Default>::default(), count: ::core::default::Default::default() }"
+            "RootService { peer: <PeerDelegate as ::core::default::Default>::default(), count: ::core::default::Default::default() }"
         );
     }
 
@@ -907,7 +907,7 @@ struct PeerHelper {}
 
     #[test]
     fn rust_provider_construction_recursively_resolves_typed_nominal_providers() {
-        let source = "struct RootService { peer: PeerService }\nimpl RootService { fn new(peer: PeerService) -> Self { Self { peer } } }\nstruct PeerService { step: StepHelper }\nimpl PeerService { fn new(step: StepHelper) -> Self { Self { step } } }\n#[derive(Default)]\nstruct StepHelper { count: i64 }\n";
+        let source = "struct RootService { peer: PeerService }\nimpl RootService { fn new(peer: PeerService) -> Self { Self { peer } } }\nstruct PeerService { step: StepDelegate }\nimpl PeerService { fn new(step: StepDelegate) -> Self { Self { step } } }\n#[derive(Default)]\nstruct StepDelegate { count: i64 }\n";
         let expression = RustConstruction::instance(
             source,
             "client/services/RootService.rs",
@@ -917,7 +917,7 @@ struct PeerHelper {}
         .unwrap_or_else(|failure| panic!("{failure}"));
         assert_eq!(
             expression,
-            "RootService::new(PeerService::new(<StepHelper as ::core::default::Default>::default()))"
+            "RootService::new(PeerService::new(<StepDelegate as ::core::default::Default>::default()))"
         );
     }
 }

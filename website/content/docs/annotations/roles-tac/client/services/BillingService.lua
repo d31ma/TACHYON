@@ -2,8 +2,8 @@
 ---@class BillingService
 BillingService = {
   -- @Needs
-  ---@type BillingHelper
-  billing_helper = nil,
+  ---@type BillingDelegate
+  billing_delegate = nil,
   ---@type integer
   total = 0,
   ---@type integer
@@ -13,5 +13,5 @@ BillingService = {
 ---@return nil
 -- @OnStart
 function BillingService:open()
-  self.total = self.billing_helper:settle(self.subtotal)
+  self.total = self.billing_delegate:settle(self.subtotal)
 end

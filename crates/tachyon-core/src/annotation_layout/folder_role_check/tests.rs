@@ -169,7 +169,7 @@ fn actual_role_folders_and_the_legacy_remote_alias_require_their_own_markers() {
             ("clients", "HTTPClient", "Client"),
             ("setups", "Setup", "Setup"),
             ("entities", "Entity", "Entity"),
-            ("helpers", "Helper", "Helper"),
+            ("delegates", "Delegate", "Delegate"),
             ("converters", "Converter", "Converter"),
         ] {
             let name = format!("{realm}/{folder}/one/two/Money{suffix}.ts");
@@ -238,15 +238,15 @@ fn contracts_assets_and_barrels_are_not_fake_providers() {
 }
 
 #[test]
-fn helpers_cannot_hide_service_classes_and_formal_helpers_need_their_marker() {
+fn nested_folders_cannot_hide_service_classes_and_formal_delegates_need_their_marker() {
     for realm in ["client", "server"] {
-        let path = format!("{realm}/helpers/nested/MoneyService.rs");
+        let path = format!("{realm}/delegates/nested/MoneyService.rs");
         let error = FolderRoleCheck::check(Path::new(&path), "pub struct MoneyService;")
             .expect_err("misplaced service");
         assert!(error.to_string().contains("role class suffix"), "{error}");
-        let path = format!("{realm}/helpers/nested/MoneyHelper.rs");
-        let error = FolderRoleCheck::check(Path::new(&path), "pub struct MoneyHelper;")
-            .expect_err("unmarked helper");
+        let path = format!("{realm}/delegates/nested/MoneyDelegate.rs");
+        let error = FolderRoleCheck::check(Path::new(&path), "pub struct MoneyDelegate;")
+            .expect_err("unmarked delegate");
         assert_eq!(error.diagnostics()[0].code.number(), FolderRoleCheck::CODE);
     }
 }

@@ -268,33 +268,33 @@
       }
     },
     {
-      "name": "server/helpers/CatalogTransportHelper.py",
+      "name": "server/delegates/CatalogTransportDelegate.py",
       "code": {
-        "file": "server/helpers/CatalogTransportHelper.py"
+        "file": "server/delegates/CatalogTransportDelegate.py"
       }
     },
     {
-      "name": "server/helpers/CatalogTransportHelper.php",
+      "name": "server/delegates/CatalogTransportDelegate.php",
       "code": {
-        "file": "server/helpers/CatalogTransportHelper.php"
+        "file": "server/delegates/CatalogTransportDelegate.php"
       }
     },
     {
-      "name": "server/helpers/CatalogTransportHelper.cs",
+      "name": "server/delegates/CatalogTransportDelegate.cs",
       "code": {
-        "file": "server/helpers/CatalogTransportHelper.cs"
+        "file": "server/delegates/CatalogTransportDelegate.cs"
       }
     },
     {
-      "name": "server/helpers/CatalogTransportHelper.fs",
+      "name": "server/delegates/CatalogTransportDelegate.fs",
       "code": {
-        "file": "server/helpers/CatalogTransportHelper.fs"
+        "file": "server/delegates/CatalogTransportDelegate.fs"
       }
     },
     {
-      "name": "server/helpers/CatalogTransportHelper.rs",
+      "name": "server/delegates/CatalogTransportDelegate.rs",
       "code": {
-        "file": "server/helpers/CatalogTransportHelper.rs"
+        "file": "server/delegates/CatalogTransportDelegate.rs"
       }
     },
     {
@@ -322,9 +322,9 @@
       }
     },
     {
-      "name": "server/helpers/CatalogTransportHelper.go",
+      "name": "server/delegates/CatalogTransportDelegate.go",
       "code": {
-        "file": "server/helpers/CatalogTransportHelper.go"
+        "file": "server/delegates/CatalogTransportDelegate.go"
       }
     },
     {
@@ -358,9 +358,9 @@
       }
     },
     {
-      "name": "server/helpers/CatalogTransportHelper.lua",
+      "name": "server/delegates/CatalogTransportDelegate.lua",
       "code": {
-        "file": "server/helpers/CatalogTransportHelper.lua"
+        "file": "server/delegates/CatalogTransportDelegate.lua"
       }
     },
     {

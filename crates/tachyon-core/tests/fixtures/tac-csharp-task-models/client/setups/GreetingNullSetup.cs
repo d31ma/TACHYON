@@ -5,7 +5,7 @@ public sealed class GreetingNullSetup
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["greeting"] = new GreetingAnswerHelper(BehaviorJSON.Parse("{\"message\":null}"));
+        adapters.http["greeting"] = new GreetingAnswerDelegate(BehaviorJSON.Parse("{\"message\":null}"));
         return adapters;
     }
 }

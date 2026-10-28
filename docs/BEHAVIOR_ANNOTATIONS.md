@@ -11,7 +11,7 @@ PHP Tac service languages.
 Apart from that, the two realms mirror each other (ADR 0031). These annotations
 exist in both Yon and Tac:
 
-- `Service`, `Lifetime`, `HTTPClient`, `Helper`, `Converter`;
+- `Service`, `Lifetime`, `HTTPClient`, `Delegate`, `Converter`;
 - `Store`;
 - `Needs`, `Named`;
 - `OnStart`, `OnStop`, `OnEvent`, `Order` and `InBackground`.
@@ -332,11 +332,14 @@ copy Spring, Lombok, MapStruct or JUnit. The old spellings are refused with
 | `ActiveProfiles` | `UseProfiles` |
 | `TestPropertySource` | `TestSettings` |
 | `DirtiesContext` | `FreshStart` |
-| `Delegate` role, `Component` | `Helper` |
+| `Helper`, `Component` | `Delegate` |
 
-The folder of the old `Delegate` role, `delegates/`, is now `helpers/`, and a
-helper class name ends in `Helper`. So a Tac project's `client/components/`
-still holds only views, and no role shares its name with a view component.
+The role folder is `delegates/`, and a delegate class name ends in `Delegate`
+([ADR 0112](adr/0112-a-delegate-takes-on-the-methods-of-its-service.md)). So a
+Tac project's `client/components/` still holds only views, and no role shares
+its name with a view component. `helpers/` stays as a folder that is not a
+role: it holds the programs that a `Gateway` command runs and behavior-only
+holders.
 
 ## Test units
 
@@ -355,10 +358,10 @@ For example, `server/tests/CatalogServiceTest.js`:
 @TestSettings({"yon.catalog.size":5})
 export default class CatalogServiceTest {
   @Fake
-  catalogCounterHelper;
+  catalogCounterDelegate;
 
   async testDoublesTheCount() {
-    this.catalogCounterHelper = { count: () => 4 };
+    this.catalogCounterDelegate = { count: () => 4 };
     const service = this.construct(CatalogService);
     if (service.total() !== 8) throw Error('expected 8');
   }
@@ -448,7 +451,7 @@ a `late` field, has no empty value, so the build refuses it. A Rust case
 reads the unit through `&self`, so a Fake that a case assigns is a `RefCell`
 or a `Cell`; a Fake in a plain field keeps the value that `new()` gave it.
 A unit without a construct helper passes its Fakes to the role's own
-constructor, for example `new CatalogService($this->catalogCounterHelper)` in
+constructor, for example `new CatalogService($this->catalogCounterDelegate)` in
 PHP.
 
 **Every public method needs a test.** Every public method of an annotated class
@@ -498,7 +501,7 @@ makes Rust work, since Rust has no reflection to find cases at run time.
 | `@FreshStart` | Disposes the context between cases. Accepted, and the driver already does this. |
 
 **Bare markers.** A marker without arguments is written bare, as Spring writes
-it: `@Service`, `@Helper`, `@Store`, `@Setup`, `@Needs`,
+it: `@Service`, `@Delegate`, `@Store`, `@Setup`, `@Needs`,
 `@OnStart`, `#[Service]` in Rust and `[Service]` in C#. This is true in
 every language (ADR 0038). The form with an empty argument list, `@Service()`,
 is the same marker and is still accepted. The file location decides the realm
@@ -593,24 +596,24 @@ service with a Cached method. The cache authorization hook runs on every access,
 including hits and eviction. Only literal `true` allows access.
 
 Controller, StreamRoute, SocketRoute and Schedule are the only Yon-only APIs. These are
-mirrored in both realms (ADR 0031): Service, Lifetime, HTTPClient, Helper, Converter,
+mirrored in both realms (ADR 0031): Service, Lifetime, HTTPClient, Delegate, Converter,
 Store, Needs, Retry, MaxAtOnce, AllOrNothing,
-Description, and the lifecycle and event markers. A Java Tac Helper lives in
-`client/helpers`, carries `@Helper` and has a name that ends with `Helper`. A
-Java service or Helper names it in a field such as
-`@Needs private final TaxHelper helper;`, and the build writes that field as
-`private final TaxHelper helper = new TaxHelper();`. So each class that needs
-a Helper gets its own new one; a Helper is not shared like a Java service. A
-Java Helper may need other Helpers the same way. It takes no `@NeedsAll`,
+Description, and the lifecycle and event markers. A Java Tac Delegate lives in
+`client/delegates`, carries `@Delegate` and has a name that ends with `Delegate`. A
+Java service or Delegate names it in a field such as
+`@Needs private final TaxDelegate helper;`, and the build writes that field as
+`private final TaxDelegate helper = new TaxDelegate();`. So each class that needs
+a Delegate gets its own new one; a Delegate is not shared like a Java service. A
+Java Delegate may need other Delegates the same way. It takes no `@NeedsAll`,
 `@Lifetime`, `@OnStart`, `@OnStop` or `@OnEvent`, and the build says so at
-the Helper file (ADR 0083 amendment of 2026-10-18). C# and F# Tac Helpers
+the Delegate file (ADR 0083 amendment of 2026-10-18). C# and F# Tac Delegates
 work the same way (ADR 0091 amendment of 2026-10-18). The build writes
-`[Needs] private readonly TaxHelper _tax;` as
-`private readonly TaxHelper _tax = new TaxHelper();`, an F# primary
-constructor parameter `(tax: TaxHelper)` as `let tax = new TaxHelper()`, and
-`[<Needs>] member val Tax : TaxHelper = Unchecked.defaultof<TaxHelper> with get, set`
-as `member val private Tax : TaxHelper = new TaxHelper() with get, set`. A C#
-or F# Helper may still be built with `new` by its caller, and it takes no
+`[Needs] private readonly TaxDelegate _tax;` as
+`private readonly TaxDelegate _tax = new TaxDelegate();`, an F# primary
+constructor parameter `(tax: TaxDelegate)` as `let tax = new TaxDelegate()`, and
+`[<Needs>] member val Tax : TaxDelegate = Unchecked.defaultof<TaxDelegate> with get, set`
+as `member val private Tax : TaxDelegate = new TaxDelegate() with get, set`. A C#
+or F# Delegate may still be built with `new` by its caller, and it takes no
 NeedsAll, Lifetime, OnStart, OnStop or OnEvent (`TY1308`).
 
 **Transaction limits.** A transaction is bounded on both sides:
@@ -727,7 +730,7 @@ A missing argument is refused before the call reaches the adapter.
 
 ### Managed constructor inference
 
-On RequestRoute controllers, Service, Helper or Converter, each
+On RequestRoute controllers, Service, Delegate or Converter, each
 field that carries `@Needs` becomes a parameter of the generated
 constructor, in declaration order. The field must be direct, without an initial
 value, and not static. You do not need to write a constructor.
@@ -778,7 +781,7 @@ This inference does not cover:
 
 ADR 0027 and ADR 0031 manage these separately: the reserved Yon provider tokens
 (DataSource, Redis and ApplicationEventPublisher), and the browser provider
-graph of Clients and Helpers. Use explicit configuration
+graph of Clients and Delegates. Use explicit configuration
 factories, `Behaviors.values`/`Behaviors.properties` and context ownership as
 before. See [Yon annotations](YON_ANNOTATIONS.md),
 [ADR 0025](adr/0025-required-constructor-inference.md) and
@@ -838,9 +841,9 @@ In Lua, a Converter is a class table marked `-- @Converter`. Its methods are
 empty and use LuaCATS type comments for the models. A service or controller
 receives it through a typed `-- @Needs` field. Plain mappings run in Yon and in
 the Tac Lua WebAssembly runtime. The other behavior annotations run in Tac
-Lua too, and so do `-- @HTTPClient` and `-- @Helper`. A Tac Lua `-- @Helper` in `client/helpers/` reaches a service or
-another Helper through a typed `-- @Needs` field; the page builds it with the
-service, and a Lua Helper with `-- @OnStart`, `-- @OnStop` or `-- @OnEvent`
+Lua too, and so do `-- @HTTPClient` and `-- @Delegate`. A Tac Lua `-- @Delegate` in `client/delegates/` reaches a service or
+another Delegate through a typed `-- @Needs` field; the page builds it with the
+service, and a Lua Delegate with `-- @OnStart`, `-- @OnStop` or `-- @OnEvent`
 fails with `TY1605`. Lua resources are not available; see [ADR 0085](adr/0085-lua-is-a-yon-language.md).
 Swift is a Tac language only, so it has no server test.
 

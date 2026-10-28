@@ -5,6 +5,6 @@ open System.Threading.Tasks
 type CatalogSetup() =
     static member configure(execution: BehaviorExecution) : BehaviorAdapters =
         let adapters = BehaviorAdapters()
-        adapters.caches["catalog"] <- MemoryCacheHelper()
+        adapters.caches["catalog"] <- MemoryCacheDelegate()
         adapters.authorize <- Func<_, _, _>(fun call current -> Task.FromResult(true))
         adapters

@@ -1,7 +1,7 @@
 // @Service
 type LedgerService struct {
 	// @Needs
-	amounts *LedgerAmountsHelper
+	amounts *LedgerAmountsDelegate
 }
 
 func (service *LedgerService) Subtotal() int {

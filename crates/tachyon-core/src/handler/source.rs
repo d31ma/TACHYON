@@ -3203,14 +3203,14 @@ mod tests {
 
     #[test]
     fn java_runtime_keeps_declarations_first_and_launcher_before_authored_types() {
-        let authored = "/* license */\npackage example;\nimport java.util.Map;\n\nclass Helper {}\n\nclass Handler {}\n";
+        let authored = "/* license */\npackage example;\nimport java.util.Map;\n\nclass Delegate {}\n\nclass Handler {}\n";
         let protocol = "final class YonLauncher { public static void main(String[] args) {} }\n";
         let staged = java_runtime_source(authored, protocol);
 
         let package = staged.find("package example;").expect("package");
         let import = staged.find("import java.util.Map;").expect("import");
         let launcher = staged.find("final class YonLauncher").expect("launcher");
-        let helper = staged.find("class Helper").expect("authored helper");
+        let helper = staged.find("class Delegate").expect("authored helper");
         assert!(package < import && import < launcher && launcher < helper);
     }
 

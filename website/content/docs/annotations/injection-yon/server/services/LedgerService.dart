@@ -1,7 +1,7 @@
 @Service
 class LedgerService {
   @Needs
-  final LedgerAmountsHelper amounts;
+  final LedgerAmountsDelegate amounts;
 
   int subtotal() {
     return amounts.subtotal();

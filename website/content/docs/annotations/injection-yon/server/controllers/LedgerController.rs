@@ -7,8 +7,8 @@ struct LedgerController {
     #[Named("LedgerService")]
     service: std::sync::Arc<LedgerService>,
     #[Needs]
-    #[Named("LedgerHelper")]
-    settlement: std::sync::Arc<LedgerHelper>,
+    #[Named("LedgerDelegate")]
+    settlement: std::sync::Arc<LedgerDelegate>,
 }
 impl LedgerController {
     #[GetRoute]

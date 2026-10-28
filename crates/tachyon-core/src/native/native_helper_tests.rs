@@ -7,7 +7,7 @@ use std::path::Path;
 struct NativeHelperCheck;
 
 impl NativeHelperCheck {
-    const HELPER: &'static str = "#[Helper]\nstruct StepHelper {\n    count: i64,\n}\nimpl StepHelper {\n    fn new() -> Self { Self { count: 0 } }\n    pub fn increment(&mut self) { self.count += 2; }\n    pub fn count(&self) -> i64 { self.count }\n}\n";
+    const HELPER: &'static str = "#[Delegate]\nstruct StepDelegate {\n    count: i64,\n}\nimpl StepDelegate {\n    fn new() -> Self { Self { count: 0 } }\n    pub fn increment(&mut self) { self.count += 2; }\n    pub fn count(&self) -> i64 { self.count }\n}\n";
     const CALLER: &'static str = r###"
 fn main() {
     let one = "00000000-0000-4000-8000-000000000001";
@@ -24,7 +24,7 @@ fn main() {
     let _ = tac_handle(&format!(r##"{{"route":"/","service":"counter","owner":"{one}","op":"init"}}"##));
     let fresh = tac_handle(&format!(r##"{{"route":"/","service":"counter","owner":"{one}","op":"call","name":"count","args":[]}}"##));
     assert_eq!(fresh, r##"{"value":0}"##);
-    println!("Rust Helper DI owns independent activation state and fresh disposal generation");
+    println!("Rust Delegate DI owns independent activation state and fresh disposal generation");
 }
 "###;
 
@@ -36,14 +36,14 @@ fn main() {
         let helper = if dependency == "Service" {
             root.join("client/services/math/StepService.rs")
         } else {
-            root.join("client/helpers/math/StepHelper.rs")
+            root.join("client/delegates/math/StepDelegate.rs")
         };
         let service = root.join("client/services/ui/CounterService.rs");
         std::fs::create_dir_all(helper.parent().expect("helper directory")).expect("helpers");
         std::fs::create_dir_all(service.parent().expect("service directory")).expect("services");
-        let helper_source = Self::HELPER.replace("Helper]", &format!("{dependency}]"));
+        let helper_source = Self::HELPER.replace("Delegate]", &format!("{dependency}]"));
         let helper_source = if dependency == "Service" {
-            helper_source.replace("StepHelper", "StepService")
+            helper_source.replace("StepDelegate", "StepService")
         } else {
             helper_source
         };
@@ -51,15 +51,15 @@ fn main() {
         let (role, field) = match needs {
             "Needs" => (
                 "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]",
-                "#[Needs]\n    step_helper: StepHelper,",
+                "#[Needs]\n    step_delegate: StepDelegate,",
             ),
-            _ => ("#[Service]\n#[NeedsAll]", "step_helper: StepHelper,"),
+            _ => ("#[Service]\n#[NeedsAll]", "step_delegate: StepDelegate,"),
         };
         let source = format!(
-            "{role}\nstruct CounterService {{\n    {field}\n}}\nimpl CounterService {{\n    pub fn increment(&mut self) {{ self.step_helper.increment(); }}\n    pub fn count(&self) -> i64 {{ self.step_helper.count() }}\n}}\n"
+            "{role}\nstruct CounterService {{\n    {field}\n}}\nimpl CounterService {{\n    pub fn increment(&mut self) {{ self.step_delegate.increment(); }}\n    pub fn count(&self) -> i64 {{ self.step_delegate.count() }}\n}}\n"
         );
         let source = if dependency == "Service" {
-            source.replace("StepHelper", "StepService")
+            source.replace("StepDelegate", "StepService")
         } else {
             source
         };
@@ -81,7 +81,7 @@ fn main() {
         let root = tempfile::tempdir().expect("fixture");
         let source = Self::stage(root.path(), needs, dependency).expect("native Rust staging");
         let staged = std::fs::read_to_string(&source).expect("staged source");
-        assert!(!staged.contains("#[Helper]"));
+        assert!(!staged.contains("#[Delegate]"));
         std::fs::write(&source, staged + Self::CALLER).expect("actual native caller");
         let executable = root.path().join("helper-check");
         let mut command = tokio::process::Command::new("rustc");
@@ -115,12 +115,12 @@ fn main() {
 
 #[tokio::test]
 async fn a_compiled_rust_helper_is_injected_with_explicit_needs() {
-    NativeHelperCheck::execute("Needs", "Helper").await;
+    NativeHelperCheck::execute("Needs", "Delegate").await;
 }
 
 #[tokio::test]
 async fn a_compiled_rust_helper_is_injected_with_needs_all() {
-    NativeHelperCheck::execute("NeedsAll", "Helper").await;
+    NativeHelperCheck::execute("NeedsAll", "Delegate").await;
 }
 
 #[test]

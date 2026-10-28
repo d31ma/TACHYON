@@ -10,7 +10,7 @@ impl CppRoles {
         "Service",
         "Store",
         "HTTPClient",
-        "Helper",
+        "Delegate",
         "Converter",
         "Setup",
         "Entity",

@@ -103,7 +103,7 @@ fn tac_source_convention_shared_utility_does_not_hide_a_service_marker() {
 fn tac_source_convention_shared_utility_does_not_hide_a_helper_marker() {
     TacSourceConventionTests::refused(
         "client/shared/utils/text/TitleUtils.js",
-        "@Helper\nclass TitleUtils {}",
+        "@Delegate\nclass TitleUtils {}",
         1310,
     );
 }

@@ -8,7 +8,7 @@ pub(crate) struct CppCoverage {
 }
 
 impl CppCoverage {
-    const ROLES: [&'static str; 4] = ["Service", "HTTPClient", "Helper", "RequestRoute"];
+    const ROLES: [&'static str; 4] = ["Service", "HTTPClient", "Delegate", "RequestRoute"];
 
     pub(crate) fn read(relative: &Path, source: &str) -> Result<Option<Self>, Failure> {
         let file = CppFile::read(relative, source)?;

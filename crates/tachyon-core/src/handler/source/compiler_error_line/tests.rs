@@ -3,7 +3,7 @@ use super::CompilerErrorLine;
 #[test]
 fn go_causal_locations_precede_the_too_many_errors_summary() {
     for cause in [
-        "./server/shared/mailbox/DueFollowUps.go:11: undefined: FollowUpRemindersHelper",
+        "./server/shared/mailbox/DueFollowUps.go:11: undefined: FollowUpRemindersDelegate",
         "./handler.go:4:8: cannot use value (variable of type string) as int value",
         "./handler.go:5: Name redeclared in this block",
         "./handler.go:8: cannot use \"too many errors\" (untyped string constant) as int value",

@@ -20,20 +20,20 @@ impl NamedNeedsFixtures {
         extension: "kt",
         files: &[
             (
-                "client/helpers/GreeterHelper.kt",
-                "@Helper\nclass GreeterHelper {\n    fun greet(): String = \"hi\"\n}\n",
+                "client/delegates/GreeterDelegate.kt",
+                "@Delegate\nclass GreeterDelegate {\n    fun greet(): String = \"hi\"\n}\n",
             ),
             (
-                "client/helpers/LoudGreeterHelper.kt",
-                "@Helper\nclass LoudGreeterHelper {\n    fun greet(): String = \"HI\"\n}\n",
+                "client/delegates/LoudGreeterDelegate.kt",
+                "@Delegate\nclass LoudGreeterDelegate {\n    fun greet(): String = \"HI\"\n}\n",
             ),
             (
                 "client/services/WelcomeService.kt",
-                "@Service\nclass WelcomeService {\n    @Needs\n    @Named(\"LoudGreeterHelper\")\n    val greeter: LoudGreeterHelper\n\n    fun welcome(): String = greeter.greet()\n}\n",
+                "@Service\nclass WelcomeService {\n    @Needs\n    @Named(\"LoudGreeterDelegate\")\n    val greeter: LoudGreeterDelegate\n\n    fun welcome(): String = greeter.greet()\n}\n",
             ),
             (
                 "client/services/HelloService.kt",
-                "@Service\nclass HelloService {\n    @Needs\n    val greeter: GreeterHelper\n\n    fun hello(): String = greeter.greet()\n}\n",
+                "@Service\nclass HelloService {\n    @Needs\n    val greeter: GreeterDelegate\n\n    fun hello(): String = greeter.greet()\n}\n",
             ),
         ],
     };
@@ -43,21 +43,21 @@ impl NamedNeedsFixtures {
         extension: "cs",
         files: &[
             (
-                "client/helpers/GreeterHelper.cs",
-                "[Helper]\npublic sealed class GreeterHelper {\n    public string Greet() {\n        return \"hi\";\n    }\n}\n",
+                "client/delegates/GreeterDelegate.cs",
+                "[Delegate]\npublic sealed class GreeterDelegate {\n    public string Greet() {\n        return \"hi\";\n    }\n}\n",
             ),
             (
-                "client/helpers/LoudGreeterHelper.cs",
-                "[Helper]\npublic sealed class LoudGreeterHelper {\n    public string Greet() {\n        return \"HI\";\n    }\n}\n",
+                "client/delegates/LoudGreeterDelegate.cs",
+                "[Delegate]\npublic sealed class LoudGreeterDelegate {\n    public string Greet() {\n        return \"HI\";\n    }\n}\n",
             ),
             (
                 "client/services/WelcomeService.cs",
-                "[Service]\npublic sealed class WelcomeService {\n    [Needs]\n    [Named(\"LoudGreeterHelper\")]\n    private readonly LoudGreeterHelper _greeter;\n\n    \
+                "[Service]\npublic sealed class WelcomeService {\n    [Needs]\n    [Named(\"LoudGreeterDelegate\")]\n    private readonly LoudGreeterDelegate _greeter;\n\n    \
                  public string Welcome() {\n        return _greeter.Greet();\n    }\n}\n",
             ),
             (
                 "client/services/HelloService.cs",
-                "[Service]\npublic sealed class HelloService {\n    [Needs]\n    private readonly GreeterHelper _greeter;\n\n    \
+                "[Service]\npublic sealed class HelloService {\n    [Needs]\n    private readonly GreeterDelegate _greeter;\n\n    \
                  public string Hello() {\n        return _greeter.Greet();\n    }\n}\n",
             ),
         ],
@@ -68,21 +68,21 @@ impl NamedNeedsFixtures {
         extension: "go",
         files: &[
             (
-                "client/helpers/GreeterHelper.go",
-                "// @Helper\ntype GreeterHelper struct {\n\tasked int\n}\n\nfunc (greeter *GreeterHelper) Greet() string {\n\tgreeter.asked++\n\treturn \"hi\"\n}\n",
+                "client/delegates/GreeterDelegate.go",
+                "// @Delegate\ntype GreeterDelegate struct {\n\tasked int\n}\n\nfunc (greeter *GreeterDelegate) Greet() string {\n\tgreeter.asked++\n\treturn \"hi\"\n}\n",
             ),
             (
-                "client/helpers/LoudGreeterHelper.go",
-                "// @Helper\ntype LoudGreeterHelper struct {\n\tasked int\n}\n\nfunc (greeter *LoudGreeterHelper) Greet() string {\n\tgreeter.asked++\n\treturn \"HI\"\n}\n",
+                "client/delegates/LoudGreeterDelegate.go",
+                "// @Delegate\ntype LoudGreeterDelegate struct {\n\tasked int\n}\n\nfunc (greeter *LoudGreeterDelegate) Greet() string {\n\tgreeter.asked++\n\treturn \"HI\"\n}\n",
             ),
             (
                 "client/services/WelcomeService.go",
-                "// @Service\ntype WelcomeService struct {\n\t// @Needs\n\t// @Named(\"LoudGreeterHelper\")\n\tgreeter *LoudGreeterHelper\n}\n\n\
+                "// @Service\ntype WelcomeService struct {\n\t// @Needs\n\t// @Named(\"LoudGreeterDelegate\")\n\tgreeter *LoudGreeterDelegate\n}\n\n\
                  func (welcome *WelcomeService) Welcome() string {\n\treturn welcome.greeter.Greet()\n}\n",
             ),
             (
                 "client/services/HelloService.go",
-                "// @Service\ntype HelloService struct {\n\t// @Needs\n\tgreeter *GreeterHelper\n}\n\n\
+                "// @Service\ntype HelloService struct {\n\t// @Needs\n\tgreeter *GreeterDelegate\n}\n\n\
                  func (hello *HelloService) Hello() string {\n\treturn hello.greeter.Greet()\n}\n",
             ),
         ],
@@ -93,20 +93,20 @@ impl NamedNeedsFixtures {
         extension: "rs",
         files: &[
             (
-                "client/helpers/GreeterHelper.rs",
-                "#[Helper]\nstruct GreeterHelper {\n    asked: i64,\n}\nimpl GreeterHelper {\n    fn new() -> Self { Self { asked: 0 } }\n    pub fn greet(&mut self) -> String {\n        self.asked += 1;\n        String::from(\"hi\")\n    }\n}\n",
+                "client/delegates/GreeterDelegate.rs",
+                "#[Delegate]\nstruct GreeterDelegate {\n    asked: i64,\n}\nimpl GreeterDelegate {\n    fn new() -> Self { Self { asked: 0 } }\n    pub fn greet(&mut self) -> String {\n        self.asked += 1;\n        String::from(\"hi\")\n    }\n}\n",
             ),
             (
-                "client/helpers/LoudGreeterHelper.rs",
-                "#[Helper]\nstruct LoudGreeterHelper {\n    asked: i64,\n}\nimpl LoudGreeterHelper {\n    fn new() -> Self { Self { asked: 0 } }\n    pub fn greet(&mut self) -> String {\n        self.asked += 1;\n        String::from(\"HI\")\n    }\n}\n",
+                "client/delegates/LoudGreeterDelegate.rs",
+                "#[Delegate]\nstruct LoudGreeterDelegate {\n    asked: i64,\n}\nimpl LoudGreeterDelegate {\n    fn new() -> Self { Self { asked: 0 } }\n    pub fn greet(&mut self) -> String {\n        self.asked += 1;\n        String::from(\"HI\")\n    }\n}\n",
             ),
             (
                 "client/services/WelcomeService.rs",
-                "#[Service]\nstruct WelcomeService {\n    #[Needs]\n    #[Named(\"LoudGreeterHelper\")]\n    greeter: LoudGreeterHelper,\n}\nimpl WelcomeService {\n    pub fn welcome(&mut self) -> String {\n        self.greeter.greet()\n    }\n}\n",
+                "#[Service]\nstruct WelcomeService {\n    #[Needs]\n    #[Named(\"LoudGreeterDelegate\")]\n    greeter: LoudGreeterDelegate,\n}\nimpl WelcomeService {\n    pub fn welcome(&mut self) -> String {\n        self.greeter.greet()\n    }\n}\n",
             ),
             (
                 "client/services/HelloService.rs",
-                "#[Service]\nstruct HelloService {\n    #[Needs]\n    greeter: GreeterHelper,\n}\nimpl HelloService {\n    pub fn hello(&mut self) -> String {\n        self.greeter.greet()\n    }\n}\n",
+                "#[Service]\nstruct HelloService {\n    #[Needs]\n    greeter: GreeterDelegate,\n}\nimpl HelloService {\n    pub fn hello(&mut self) -> String {\n        self.greeter.greet()\n    }\n}\n",
             ),
         ],
     };

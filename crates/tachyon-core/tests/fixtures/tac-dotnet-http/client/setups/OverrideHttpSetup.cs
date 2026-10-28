@@ -5,7 +5,7 @@ public sealed class OverrideHttpSetup
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["probe"] = new CustomHttpHelper();
+        adapters.http["probe"] = new CustomHttpDelegate();
         return adapters;
     }
 }

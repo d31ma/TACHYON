@@ -173,7 +173,7 @@ impl HelperSources {
     fn helper_marker(item: &Declaration) -> bool {
         item.annotations
             .iter()
-            .any(|marker| marker.name == "helper")
+            .any(|marker| marker.name == "delegate")
     }
 
     fn helper_source(

@@ -13,7 +13,7 @@ impl RoleLayer {
     const FOLDERS: [(&'static str, Self, &'static str); 14] = [
         ("controllers", Self::EntryPoint, "a controller"),
         ("services", Self::Service, "a service"),
-        ("helpers", Self::Helper, "a helper"),
+        ("delegates", Self::Helper, "a delegate"),
         ("stores", Self::DataAccess, "a store"),
         ("repositories", Self::DataAccess, "a repository"),
         ("remotes", Self::DataAccess, "a client"),

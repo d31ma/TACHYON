@@ -17,8 +17,8 @@ impl<'a> FsharpHelperOwnership<'a> {
     ];
     const NEEDS: &'static str = "Needs";
     const PROPERTY: &'static str = "member val ";
-    const HELPER_SUFFIX: &'static str = "Helper";
-    const LIMIT: &'static str = "An F# Tac Helper needs an owner: a caller-owned `new` call outside its own class, or a primary constructor parameter or [<Needs>] property of the class that needs it, which makes a new Helper for that class. A Helper has an ordinary primary constructor, its [<Needs>] properties name other Helpers, and it takes no NeedsAll, Lifetime, OnStart, OnStop or OnEvent.";
+    const HELPER_SUFFIX: &'static str = "Delegate";
+    const LIMIT: &'static str = "An F# Tac Delegate needs an owner: a caller-owned `new` call outside its own class, or a primary constructor parameter or [<Needs>] property of the class that needs it, which makes a new Delegate for that class. A Delegate has an ordinary primary constructor, its [<Needs>] properties name other Delegates, and it takes no NeedsAll, Lifetime, OnStart, OnStop or OnEvent.";
 
     pub(super) fn read(path: &'a Path, source: &'a str) -> Result<Self, Failure> {
         let code = crate::annotation_layout::masked_source(path, source)?;
@@ -73,7 +73,7 @@ impl<'a> FsharpHelperOwnership<'a> {
     fn helpers(&self) -> Vec<(&str, &Range<usize>)> {
         self.classes
             .iter()
-            .filter(|(_, range)| self.class_markers(range).contains(&String::from("Helper")))
+            .filter(|(_, range)| self.class_markers(range).contains(&String::from("Delegate")))
             .map(|(name, range)| (name.as_str(), range))
             .collect()
     }

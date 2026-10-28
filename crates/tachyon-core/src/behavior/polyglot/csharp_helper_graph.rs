@@ -67,7 +67,7 @@ impl CsharpHelperGraph {
     }
 
     fn marks_helper(marker: &Marker, ty: &Type) -> bool {
-        (marker.name.as_str(), marker.target) == ("Helper", ty.declaration)
+        (marker.name.as_str(), marker.target) == ("Delegate", ty.declaration)
     }
 
     fn add_type(&mut self, input: &Input<'_>, ty: &Type) {

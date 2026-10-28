@@ -5,7 +5,7 @@ public sealed class GreetingFakeSetup
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["greeting"] = new GreetingAnswerHelper(BehaviorJSON.Parse("{\"message\":\"typed fake answer\"}"));
+        adapters.http["greeting"] = new GreetingAnswerDelegate(BehaviorJSON.Parse("{\"message\":\"typed fake answer\"}"));
         return adapters;
     }
 }

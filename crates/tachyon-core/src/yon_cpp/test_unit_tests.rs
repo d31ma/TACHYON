@@ -14,7 +14,7 @@ impl Units {
 class [[Test(PriceTestSetup, {"partition":"tests"}), TestSettings({"yon.price.scale":3})]] PriceServiceTest {
 public:
     BehaviorContext behaviors;
-    [[Fake]] RateHelper rates;
+    [[Fake]] RateDelegate rates;
 
     void testUsesTheFake() {
         rates.value = 5;
@@ -58,8 +58,8 @@ public:
             "#pragma once\n\nstruct [[Settings({\"prefix\":\"YON_PRICE_\"})]] PriceSettings {\n    int scale = 1;\n};\n",
         ),
         (
-            "server/helpers/RateHelper.hpp",
-            "#pragma once\n\nclass [[Helper]] RateHelper {\npublic:\n    int value = 2;\n\n    int rate() const { return value; }\n};\n",
+            "server/delegates/RateDelegate.hpp",
+            "#pragma once\n\nclass [[Delegate]] RateDelegate {\npublic:\n    int value = 2;\n\n    int rate() const { return value; }\n};\n",
         ),
         (
             "server/services/PriceService.hpp",
@@ -68,7 +68,7 @@ public:
 #include <vector>
 
 class [[Service]] PriceService {
-    [[Needs]] RateHelper& rates;
+    [[Needs]] RateDelegate& rates;
 
 public:
     int calls = 0;
@@ -250,7 +250,7 @@ fn a_test_unit_runs_each_case_with_its_fakes_context_and_new_objects() {
             "PriceService.start",
             "PriceController.getPrice",
             "PriceService.price",
-            "RateHelper.rate"
+            "RateDelegate.rate"
         ])
     );
 }
@@ -316,7 +316,7 @@ fn a_test_unit_is_checked_before_compiling() {
             "server/stores, server/remotes or server/controllers",
         ),
         (
-            "class [[Test(PriceTestSetup)]] PriceServiceTest {\n    [[Fake]] RateHelper& rates;\n};\n",
+            "class [[Test(PriceTestSetup)]] PriceServiceTest {\n    [[Fake]] RateDelegate& rates;\n};\n",
             "no reference, no pointer, no static",
         ),
         (

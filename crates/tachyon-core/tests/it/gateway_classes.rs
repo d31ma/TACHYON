@@ -399,11 +399,11 @@ public:
     );
 
     const CPP_HELPER: (&str, &str) = (
-        "server/helpers/ReportLabels.hpp",
+        "server/delegates/ReportLabels.hpp",
         r#"#pragma once
 #include <string>
 
-class [[Helper]] ReportLabels {
+class [[Delegate]] ReportLabels {
 public:
     std::string language() const {
         return "cpp";

@@ -1,8 +1,8 @@
 #[Service]
 struct AuditService {
     #[Needs]
-    #[Named("CartHelper")]
-    ledger: CartHelper,
+    #[Named("CartDelegate")]
+    ledger: CartDelegate,
 }
 impl AuditService {
     pub fn lines(&self) -> i64 {

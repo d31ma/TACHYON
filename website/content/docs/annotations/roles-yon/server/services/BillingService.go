@@ -1,7 +1,7 @@
 // @Service
 type BillingService struct {
 	// @Needs
-	helper *BillingHelper
+	helper *BillingDelegate
 }
 
 func (service *BillingService) Total() int {

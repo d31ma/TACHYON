@@ -52,7 +52,7 @@ impl Input<'_> {
     fn missing_provider(&self, name: &str) -> String {
         if self.manual_helpers.contains(name) {
             return format!(
-                "Helper {name} uses explicit caller construction; select class Needs or NeedsAll with declared source-local providers before requesting it through DI or a gateway"
+                "Delegate {name} uses explicit caller construction; select class Needs or NeedsAll with declared source-local providers before requesting it through DI or a gateway"
             );
         }
         format!("Gateway target {name} is not a managed Yon type")
@@ -434,7 +434,7 @@ fn framework_name(name: &str) -> bool {
         "service"
             | "store"
             | "client"
-            | "helper"
+            | "delegate"
             | "converter"
             | "lifetime"
             | "needs"
@@ -799,7 +799,7 @@ fn role(name: &str) -> Option<Role> {
         "service" => Some(Role::Service),
         "store" => Some(Role::Repository),
         "client" => Some(Role::Client),
-        "helper" | "converter" => Some(Role::Component),
+        "delegate" | "converter" => Some(Role::Component),
         "errorhandler" => Some(Role::ErrorHandler),
         _ => None,
     }
@@ -1897,7 +1897,7 @@ mod tests {
 
     #[test]
     fn rust_explicit_helper_forms_do_not_emit_managed_factories() {
-        let source = "#[Helper]\nstruct LiteralHelper {}\nimpl LiteralHelper { fn check(&self) {} }\n#[Helper]\nstruct StaticHelper {}\nimpl StaticHelper { fn answer() -> usize { 1 } }\n#[derive(Default)]\n#[Helper]\nstruct DefaultHelper {}\n#[RequestRoute(\"/c\")]\nstruct C;\nimpl C { fn new() -> Self { Self }\n #[GetRoute]\n fn get(&self) { LiteralHelper {}.check(); let _ = StaticHelper::answer(); let _ = DefaultHelper::default(); } }";
+        let source = "#[Delegate]\nstruct LiteralDelegate {}\nimpl LiteralDelegate { fn check(&self) {} }\n#[Delegate]\nstruct StaticDelegate {}\nimpl StaticDelegate { fn answer() -> usize { 1 } }\n#[derive(Default)]\n#[Delegate]\nstruct DefaultDelegate {}\n#[RequestRoute(\"/c\")]\nstruct C;\nimpl C { fn new() -> Self { Self }\n #[GetRoute]\n fn get(&self) { LiteralDelegate {}.check(); let _ = StaticDelegate::answer(); let _ = DefaultDelegate::default(); } }";
         assert_eq!(
             parsed("rs", source)
                 .plan
@@ -1911,15 +1911,15 @@ mod tests {
 
     #[test]
     fn rust_explicit_helper_forms_still_reject_incoming_di_and_lifecycle() {
-        let source = "#[Helper]\nstruct StaticHelper {}\nimpl StaticHelper { fn answer() -> usize { 1 } }\n#[RequestRoute(\"/c\")]\n#[Needs(StaticHelper)]\nstruct C { helper: StaticHelper }\nimpl C { fn new(helper: StaticHelper) -> Self { Self { helper } }\n #[GetRoute]\n fn get(&self) { let _ = StaticHelper::answer(); } }";
+        let source = "#[Delegate]\nstruct StaticDelegate {}\nimpl StaticDelegate { fn answer() -> usize { 1 } }\n#[RequestRoute(\"/c\")]\n#[Needs(StaticDelegate)]\nstruct C { helper: StaticDelegate }\nimpl C { fn new(helper: StaticDelegate) -> Self { Self { helper } }\n #[GetRoute]\n fn get(&self) { let _ = StaticDelegate::answer(); } }";
         rejects("rs", source, "uses explicit caller construction");
-        let hooked = "#[Helper]\nstruct StaticHelper {}\nimpl StaticHelper {\n #[OnStart]\n fn start(&self) {}\n fn answer() -> usize { 1 } }\n#[RequestRoute(\"/c\")]\nstruct C;\nimpl C { fn new() -> Self { Self }\n #[GetRoute]\n fn get(&self) { let _ = StaticHelper::answer(); } }";
+        let hooked = "#[Delegate]\nstruct StaticDelegate {}\nimpl StaticDelegate {\n #[OnStart]\n fn start(&self) {}\n fn answer() -> usize { 1 } }\n#[RequestRoute(\"/c\")]\nstruct C;\nimpl C { fn new() -> Self { Self }\n #[GetRoute]\n fn get(&self) { let _ = StaticDelegate::answer(); } }";
         rejects("rs", hooked, "lifecycle and event hooks require");
     }
 
     #[test]
     fn caller_constructed_helpers_are_not_provider_factories() {
-        let source = "@Helper\nclass ReaderHelper { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderHelper(1); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
+        let source = "@Delegate\nclass ReaderDelegate { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderDelegate(1); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
         let plan = parsed("js", source).plan;
         assert_eq!(
             plan.providers
@@ -1932,13 +1932,13 @@ mod tests {
 
     #[test]
     fn caller_constructed_helpers_require_managed_opt_in_for_incoming_di() {
-        let source = "@Helper\nclass ReaderHelper { constructor(context) {} }\n@Service\n@Needs(ReaderHelper)\nclass ReaderService { constructor(helper) {} make() { return new ReaderHelper(1); } }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
+        let source = "@Delegate\nclass ReaderDelegate { constructor(context) {} }\n@Service\n@Needs(ReaderDelegate)\nclass ReaderService { constructor(helper) {} make() { return new ReaderDelegate(1); } }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
         rejects("js", source, "uses explicit caller construction");
     }
 
     #[test]
     fn caller_construction_does_not_disable_managed_helper_validation() {
-        let source = "@Helper\n@Needs()\nclass ReaderHelper { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderHelper(1); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
+        let source = "@Delegate\n@Needs()\nclass ReaderDelegate { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderDelegate(1); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
         rejects("js", source, "constructor has 1 arguments");
     }
 
@@ -1954,23 +1954,23 @@ mod tests {
 
     #[test]
     fn zero_argument_helpers_retain_existing_provider_identity() {
-        let source = "@Helper\nclass ReaderHelper {}\n@Service\nclass ReaderService { helper = new ReaderHelper(); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
+        let source = "@Delegate\nclass ReaderDelegate {}\n@Service\nclass ReaderService { helper = new ReaderDelegate(); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
         assert!(
             parsed("js", source)
                 .plan
                 .providers
                 .iter()
-                .any(|item| item.name == "ReaderHelper")
+                .any(|item| item.name == "ReaderDelegate")
         );
     }
 
     #[test]
     fn caller_constructed_helpers_cannot_be_selected_as_gateway_targets() {
-        let source = "@Helper\nclass ReaderHelper { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderHelper(1); }";
-        let path = Path::new("server/helpers/ReaderHelper.js");
+        let source = "@Delegate\nclass ReaderDelegate { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderDelegate(1); }";
+        let path = Path::new("server/delegates/ReaderDelegate.js");
         let manual = super::super::manual_helpers::ManualHelpers::read(path, source)
             .expect("helper ownership");
-        let failure = parse_prepared(path, source, Some("ReaderHelper"), &manual)
+        let failure = parse_prepared(path, source, Some("ReaderDelegate"), &manual)
             .err()
             .expect("explicit helper is not gateway provider");
         assert!(

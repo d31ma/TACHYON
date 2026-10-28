@@ -134,8 +134,8 @@ fn one_run_reports_every_structure_problem_in_nested_role_folders_and_languages(
         ),
         (
             1310,
-            "server/helpers/format/FormatHelper.lua",
-            "-- @Helper\nFormatterHelper = {}\nFormatterHelper.__index = FormatterHelper\n\nfunction FormatterHelper:_total()\n  return 0\nend\n",
+            "server/delegates/format/FormatDelegate.lua",
+            "-- @Delegate\nFormatterDelegate = {}\nFormatterDelegate.__index = FormatterDelegate\n\nfunction FormatterDelegate:_total()\n  return 0\nend\n",
         ),
         (
             1310,
@@ -275,11 +275,11 @@ fn a_go_yon_backend_for_frontend_with_nested_roles_and_native_packages_passes_un
         ),
         (
             "server/services/session/SessionService.go",
-            "// @Service\ntype SessionService struct {\n\tproxyBodyHelper *ProxyBodyHelper\n}\n\nfunc (service *SessionService) Label() string {\n\treturn service.proxyBodyHelper.Body(DiffUtils{}.Changed(1, 2))\n}\n",
+            "// @Service\ntype SessionService struct {\n\tproxyBodyDelegate *ProxyBodyDelegate\n}\n\nfunc (service *SessionService) Label() string {\n\treturn service.proxyBodyDelegate.Body(DiffUtils{}.Changed(1, 2))\n}\n",
         ),
         (
-            "server/helpers/proxy/ProxyBodyHelper.go",
-            "// @Helper\ntype ProxyBodyHelper struct {\n}\n\nfunc (helper *ProxyBodyHelper) Body(changed bool) string {\n\tif changed {\n\t\treturn \"changed\"\n\t}\n\treturn \"same\"\n}\n",
+            "server/delegates/proxy/ProxyBodyDelegate.go",
+            "// @Delegate\ntype ProxyBodyDelegate struct {\n}\n\nfunc (helper *ProxyBodyDelegate) Body(changed bool) string {\n\tif changed {\n\t\treturn \"changed\"\n\t}\n\treturn \"same\"\n}\n",
         ),
         (
             "server/utils/diff/DiffUtils.go",

@@ -100,8 +100,8 @@ fn unchanged_script_declarations_remain_byte_identical_and_other_java_roles_are_
     );
     Fixtures::write(
         root.path(),
-        "client/helpers/ToolsHelper.java",
-        "@Helper\nclass ToolsHelper {}\n",
+        "client/delegates/ToolsDelegate.java",
+        "@Delegate\nclass ToolsDelegate {}\n",
     );
     Fixtures::write(
         root.path(),

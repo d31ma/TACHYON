@@ -63,7 +63,7 @@ fn is_provider(item: &Registration, environment: &str) -> bool {
     if environment != "tac" {
         return false;
     }
-    item.markers.contains("Helper")
+    item.markers.contains("Delegate")
 }
 
 fn needed_contracts(
@@ -432,61 +432,61 @@ mod tests {
 
     #[test]
     fn tac_providers_are_clients_bare_repositories_and_helpers() {
-        let source = "@Store()\nclass BasketRepository {\nitems = [];\n}\n@Helper()\nclass PricingHelper {\ntotal(items) { return items.length; }\n}\n@Client()\nclass ProductsClient {\n@WebCall({\"client\":\"api\",\"method\":\"GET\",\"path\":\"/api/products\"})\nasync all() {return {}}\n}\n@Service()\n@NeedsAll()\nexport default class BasketService {\nbasketRepository;\npricingHelper;\nproductsClient;\n}";
+        let source = "@Store()\nclass BasketRepository {\nitems = [];\n}\n@Delegate()\nclass PricingDelegate {\ntotal(items) { return items.length; }\n}\n@Client()\nclass ProductsClient {\n@WebCall({\"client\":\"api\",\"method\":\"GET\",\"path\":\"/api/products\"})\nasync all() {return {}}\n}\n@Service()\n@NeedsAll()\nexport default class BasketService {\nbasketRepository;\npricingDelegate;\nproductsClient;\n}";
         let lowered = lowered_tac_js(source);
         assert!(
             lowered.contains(
-                "new BasketService(resolve('BasketRepository'),resolve('PricingHelper'),resolve('ProductsClient'))"
+                "new BasketService(resolve('BasketRepository'),resolve('PricingDelegate'),resolve('ProductsClient'))"
             ),
             "{lowered}"
         );
         assert!(
-            lowered.contains("constructor(basketRepository, pricingHelper, productsClient)"),
+            lowered.contains("constructor(basketRepository, pricingDelegate, productsClient)"),
             "{lowered}"
         );
         assert!(lowered.contains("case 'BasketRepository': instance = new BasketRepository()"));
-        assert!(lowered.contains("case 'PricingHelper': instance = new PricingHelper()"));
-        assert!(!lowered.contains("@Store") && !lowered.contains("@Helper"));
+        assert!(lowered.contains("case 'PricingDelegate': instance = new PricingDelegate()"));
+        assert!(!lowered.contains("@Store") && !lowered.contains("@Delegate"));
         let queried = source.replace(
             "@Store()",
             "@Store(BasketEntity, {\"fields\":[\"id\"],\"defaultSize\":20,\"maxSize\":100})",
         );
         assert!(lower_tac_js(&queried).is_err());
         assert!(
-            lower_tac_js(&source.replace("@Helper()", "@Helper({\"name\":\"pricing\"})")).is_err()
+            lower_tac_js(&source.replace("@Delegate()", "@Delegate({\"name\":\"pricing\"})")).is_err()
         );
     }
 
     #[test]
     fn tac_inject_binds_provider_types_to_lower_camel_fields() {
-        let source = "@Store()\nclass BasketRepository {}\n@Helper()\nclass PricingHelper {}\n@Service()\n@Needs(BasketRepository, PricingHelper)\nexport default class BasketService {\nbasketRepository;\npricingHelper;\ntotal() { return this.pricingHelper; }\n}";
+        let source = "@Store()\nclass BasketRepository {}\n@Delegate()\nclass PricingDelegate {}\n@Service()\n@Needs(BasketRepository, PricingDelegate)\nexport default class BasketService {\nbasketRepository;\npricingDelegate;\ntotal() { return this.pricingDelegate; }\n}";
         let lowered = lowered_tac_js(source);
         assert!(
-            lowered.contains("constructor(basketRepository, pricingHelper)"),
+            lowered.contains("constructor(basketRepository, pricingDelegate)"),
             "{lowered}"
         );
         assert!(
             lowered.contains(
-                "new BasketService(resolve('BasketRepository'),resolve('PricingHelper'))"
+                "new BasketService(resolve('BasketRepository'),resolve('PricingDelegate'))"
             ),
             "{lowered}"
         );
         assert!(!lowered.contains("@Needs"), "{lowered}");
-        let typed = "@Helper()\nclass PricingHelper {}\n@Service()\n@Needs(PricingHelper)\nexport default class BasketService {\npricing!: PricingHelper;\n}";
+        let typed = "@Delegate()\nclass PricingDelegate {}\n@Service()\n@Needs(PricingDelegate)\nexport default class BasketService {\npricing!: PricingDelegate;\n}";
         assert!(
             lower_file("tac.ts", typed, "tac").is_err(),
             "Needs names the lower-camel field of its provider type"
         );
-        let bound = "@Helper()\nclass PricingHelper {}\n@Service()\n@Needs(PricingHelper)\nexport default class BasketService {\npricingHelper!: PricingHelper;\n}";
+        let bound = "@Delegate()\nclass PricingDelegate {}\n@Service()\n@Needs(PricingDelegate)\nexport default class BasketService {\npricingDelegate!: PricingDelegate;\n}";
         assert!(
             lower_file("tac.ts", bound, "tac")
                 .unwrap()
                 .unwrap()
-                .contains("constructor(pricingHelper)")
+                .contains("constructor(pricingDelegate)")
         );
         for arguments in ["", "'BasketRepository'", "Basket Repository", "1"] {
             let invalid = source.replace(
-                "@Needs(BasketRepository, PricingHelper)",
+                "@Needs(BasketRepository, PricingDelegate)",
                 &format!("@Needs({arguments})"),
             );
             assert!(lower_tac_js(&invalid).is_err(), "{arguments}");

@@ -195,7 +195,7 @@ class MoneyController {
 
         let methods = streaming(
             typescript,
-            "class Helper { static *GET() { yield 1; } }\nexport class Handler { static GET() { return {}; } }",
+            "class Delegate { static *GET() { yield 1; } }\nexport class Handler { static GET() { return {}; } }",
         );
         assert!(
             methods.is_empty(),

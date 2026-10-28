@@ -5,8 +5,8 @@ type LedgerController struct {
 	// @Named("LedgerService")
 	service *LedgerService
 	// @Needs
-	// @Named("LedgerHelper")
-	settlement *LedgerHelper
+	// @Named("LedgerDelegate")
+	settlement *LedgerDelegate
 }
 
 // @GetRoute

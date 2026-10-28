@@ -1,13 +1,13 @@
 #pragma once
-#include "../helpers/CartHelper.hpp"
-#include "../helpers/CartPricesHelper.hpp"
+#include "../delegates/CartDelegate.hpp"
+#include "../delegates/CartPricesDelegate.hpp"
 
 class [[Service, Lifetime({"value":"prototype"})]] CartService {
 public:
-    [[Needs]] CartPricesHelper& cartPricesHelper;
-    [[Needs]] CartHelper& cartHelper;
+    [[Needs]] CartPricesDelegate& cartPricesDelegate;
+    [[Needs]] CartDelegate& cartDelegate;
 
     long long total() const {
-        return cartHelper.settle(cartPricesHelper.subtotal());
+        return cartDelegate.settle(cartPricesDelegate.subtotal());
     }
 };

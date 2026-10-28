@@ -144,11 +144,11 @@ fn python_client_units_keep_missing_test_and_plain_helper_diagnostics() {
     );
     PythonProject::write(
         project.path(),
-        "client/helpers/Plain.py",
+        "client/delegates/Plain.py",
         "class Plain:\n    pass\n",
     );
     let failure = run(project.path(), Path::new(PythonProject::UNIT_PATH))
-        .expect_err("formal Helper still required");
+        .expect_err("formal Delegate still required");
     assert!(
         failure
             .diagnostics()

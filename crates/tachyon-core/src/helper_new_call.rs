@@ -22,25 +22,25 @@ mod tests {
     #[test]
     fn explicit_new_call_needs_the_new_word_and_an_open_parenthesis() {
         for code in [
-            "var value = new ProbeHelper(context);",
-            "let value = new ProbeHelper ()",
-            "let value =\n    new\n        ProbeHelper\n        (context)",
-            "return new ProbeHelper(context);",
+            "var value = new ProbeDelegate(context);",
+            "let value = new ProbeDelegate ()",
+            "let value =\n    new\n        ProbeDelegate\n        (context)",
+            "return new ProbeDelegate(context);",
         ] {
-            assert!(called(code, "ProbeHelper"), "{code}");
+            assert!(called(code, "ProbeDelegate"), "{code}");
         }
         for code in [
-            "var value = ProbeHelper(context);",
-            "var value = renew ProbeHelper(context);",
-            "var value = x.new ProbeHelper(context);",
-            "var value = new ProbeHelper<int>(context);",
-            "var value = new ProbeHelper.Inner(context);",
-            "var value = new ProbeHelper { };",
-            "var value = new ProbeHelper",
-            "new ProbeHelperSuffix(context)",
-            "Type kind = typeof(ProbeHelper);",
+            "var value = ProbeDelegate(context);",
+            "var value = renew ProbeDelegate(context);",
+            "var value = x.new ProbeDelegate(context);",
+            "var value = new ProbeDelegate<int>(context);",
+            "var value = new ProbeDelegate.Inner(context);",
+            "var value = new ProbeDelegate { };",
+            "var value = new ProbeDelegate",
+            "new ProbeDelegateSuffix(context)",
+            "Type kind = typeof(ProbeDelegate);",
         ] {
-            assert!(!called(code, "ProbeHelper"), "{code}");
+            assert!(!called(code, "ProbeDelegate"), "{code}");
         }
     }
 

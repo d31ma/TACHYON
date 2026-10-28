@@ -2,7 +2,7 @@
 class CatalogSetup {
   static BehaviorAdapters configure(BehaviorExecution execution) {
     return BehaviorAdapters(
-      caches: {'catalog': MemoryCacheHelper().adapter()},
+      caches: {'catalog': MemoryCacheDelegate().adapter()},
       authorize: (call, execution) async => true,
     );
   }

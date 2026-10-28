@@ -29,7 +29,7 @@ impl ProductsController {
     #[GetRoute]
     fn get_products(&self) -> http::Response<Vec<u8>> {
         assert_eq!(self.counter.value, 42);
-        let body = CatalogChecksHelper::exercise().expect("behaviors").to_json(1_048_576).expect("JSON");
+        let body = CatalogChecksDelegate::exercise().expect("behaviors").to_json(1_048_576).expect("JSON");
         http::Response::builder()
             .header("content-type", "application/json")
             .body(body.into_bytes())

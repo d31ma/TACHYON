@@ -355,7 +355,7 @@ impl CppRoles {
 
 class [[Service]] LedgerService {
     ApplicationEventPublisher applicationEventPublisher;
-    [[Needs]] LedgerAmountsHelper& amounts;
+    [[Needs]] LedgerAmountsDelegate& amounts;
 
 public:
     std::vector<std::string> log;
@@ -372,8 +372,8 @@ private:
 "#,
         ),
         (
-            "server/helpers/LedgerAmountsHelper.hpp",
-            "#pragma once\n\nclass [[Helper, Lifetime(\"singleton\")]] LedgerAmountsHelper {\npublic:\n    int subtotal() const { return 40; }\n    int surcharge() const { return 2; }\n};\n",
+            "server/delegates/LedgerAmountsDelegate.hpp",
+            "#pragma once\n\nclass [[Delegate, Lifetime(\"singleton\")]] LedgerAmountsDelegate {\npublic:\n    int subtotal() const { return 40; }\n    int surcharge() const { return 2; }\n};\n",
         ),
         (
             "server/controllers/LedgerController.hpp",
@@ -382,7 +382,7 @@ private:
 
 class [[RequestRoute("/ledger")]] [[Public]] LedgerController {
     [[Needs]] [[Named("LedgerService")]] LedgerService& service;
-    [[Needs]] LedgerAmountsHelper& amounts;
+    [[Needs]] LedgerAmountsDelegate& amounts;
 
 public:
     [[GetRoute]]
@@ -447,7 +447,7 @@ async fn a_scheduled_cpp_worker_runs_with_its_helpers() {
     CppProject::write(
         root.path(),
         relative,
-        "#pragma once\n\nclass [[Schedule({\"fixedDelaySeconds\":30})]] Handler {\n    [[Needs]] LedgerAmountsHelper& amounts;\n\npublic:\n    int POST() { return amounts.subtotal(); }\n};\n",
+        "#pragma once\n\nclass [[Schedule({\"fixedDelaySeconds\":30})]] Handler {\n    [[Needs]] LedgerAmountsDelegate& amounts;\n\npublic:\n    int POST() { return amounts.subtotal(); }\n};\n",
     );
     ProjectDiscovery::discover(root.path()).expect("discovery");
     let source = HandlerSource::discover(root.path(), relative).expect("worker discovery");
@@ -468,14 +468,14 @@ async fn a_scheduled_cpp_worker_runs_with_its_helpers() {
 #[test]
 fn a_cpp_needs_field_names_a_class_in_the_role_folders() {
     let root = CppRoles::project();
-    std::fs::remove_file(root.path().join("server/helpers/LedgerAmountsHelper.hpp"))
+    std::fs::remove_file(root.path().join("server/delegates/LedgerAmountsDelegate.hpp"))
         .expect("helper removed");
     let failure = ProjectDiscovery::discover(root.path())
         .expect_err("a missing provider is refused")
         .to_string();
     assert!(failure.contains("TY2015"), "{failure}");
     assert!(
-        failure.contains("there is no LedgerAmountsHelper.hpp"),
+        failure.contains("there is no LedgerAmountsDelegate.hpp"),
         "{failure}"
     );
 }

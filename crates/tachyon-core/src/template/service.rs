@@ -233,13 +233,14 @@ impl ServiceRegistry {
     const SERVICE_ROOT: &'static str = "client/services";
     const MAX_SERVICES: usize = 256;
     const MAX_SERVICE_BYTES: u64 = 1_048_576;
-    const PROVIDER_FOLDERS: [&'static str; 9] = [
+    const PROVIDER_FOLDERS: [&'static str; 10] = [
         "client/stores",
         "client/remotes",
         "client/clients",
         "client/repositories",
         "client/configurations",
         "client/setups",
+        "client/delegates",
         "client/helpers",
         "client/converters",
         "client/entities",
@@ -450,7 +451,7 @@ fn add_service_file(
             relative,
             "Services must be regular files beneath client/services, never symlinks.",
             "Move collaborators to client/remotes, client/stores, client/setups, \
-             client/entities or client/helpers; a symlink is never a service.",
+             client/entities or client/delegates; a symlink is never a service.",
         ));
         return false;
     }
@@ -1478,12 +1479,12 @@ mod tests {
     #[test]
     fn rust_snake_case_provider_inventory_keeps_actual_helper_types() {
         let root = project(&[(
-            "client/helpers/nested/step_helper.rs",
-            "#[Helper]\n#[derive(Default)]\nstruct StepHelper;",
+            "client/delegates/nested/step_delegate.rs",
+            "#[Delegate]\n#[derive(Default)]\nstruct StepDelegate;",
         )]);
         let names = ServiceRegistry::provider_names(root.path()).expect("captured provider names");
-        assert!(names.contains("StepHelper"));
-        assert!(names.contains("stepHelper"));
-        assert!(!names.contains("step_helper"));
+        assert!(names.contains("StepDelegate"));
+        assert!(names.contains("stepDelegate"));
+        assert!(!names.contains("step_delegate"));
     }
 }

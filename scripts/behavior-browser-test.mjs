@@ -17,11 +17,11 @@ class BehaviorGate {
     { source: 'setups/ApplicationAdaptersSetup.js', target: 'setups/ApplicationAdaptersSetup.js' },
     { source: 'helpers/ApplicationSettings.js', target: 'models/ApplicationSettings.js' },
     { source: 'helpers/ApplicationValues.js', target: 'models/ApplicationValues.js' },
-    { source: 'helpers/BehaviorChecksHelper.js', target: 'helpers/BehaviorChecksHelper.js', replacements: [['new InputService()', 'new InputHelper()']] },
+    { source: 'delegates/BehaviorChecksDelegate.js', target: 'delegates/BehaviorChecksDelegate.js', replacements: [['new InputService()', 'new InputDelegate()']] },
     { source: 'remotes/CatalogClient.js', target: 'remotes/CatalogClient.js' },
-    { source: 'helpers/CatalogHelper.js', target: 'helpers/CatalogHelper.js' },
+    { source: 'delegates/CatalogDelegate.js', target: 'delegates/CatalogDelegate.js' },
     { source: 'setups/CatalogSetup.js', target: 'setups/CatalogSetup.js' },
-    { source: 'helpers/InputService.js', target: 'helpers/InputHelper.js', replacements: [['class InputService', '@Helper()\nclass InputHelper']] },
+    { source: 'helpers/InputService.js', target: 'delegates/InputDelegate.js', replacements: [['class InputService', '@Delegate()\nclass InputDelegate']] },
     { source: 'helpers/ProductInput.js', target: 'models/ProductInput.js' },
     { source: 'entities/ProductEntity.js', target: 'entities/ProductEntity.js' },
     { source: 'stores/ProductQueriesStore.js', target: 'stores/ProductQueriesStore.js' },
@@ -97,7 +97,7 @@ export default class Behaviors${suffix[extension]}Service {
     document.documentElement.dataset.pageBehaviorAborted = 'yes';
   }
   async #exercise(signal) {
-    try { return await BehaviorChecksHelper.exerciseBehaviors(signal); }
+    try { return await BehaviorChecksDelegate.exerciseBehaviors(signal); }
     catch (error) { document.documentElement.dataset.behaviorFailure = String(error); throw error; }
   }
 }`);

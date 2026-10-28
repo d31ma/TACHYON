@@ -1,6 +1,6 @@
 {
   "heading": "Roles: Yon",
-  "body": "GET /billing returns {\"total\":42}. A role is the job that a class does, such as controller, service or store. RequestRoute marks a controller (a class that answers HTTP requests) in server/controllers. It also gives the base path, and Public, SignedIn or Allow(Role) says who may call its routes. IdentityProvider is the one class in server/controllers that says who is signed in, and a role type for Allow is an empty class in server/roles. Service, Store, HTTPClient, Helper, Setup and Entity live in the realm's shared folders under server/. The compiler finds them by exact name and matching language (ADR 0031). Here is the chain. The controller injects BillingService (the framework creates the service and gives it to the controller). The service injects BillingHelper. Setup, Entity, BillingStore and BillingClient appear here only to show their folders and their names. BillingStore and BillingClient also show the form of a declarative role: each one is a contract with no implementation, like a Spring Data repository interface and a Spring @HttpExchange interface. A Store always names the Entity it keeps, and the data group shows one at work. Each language writes it in its bodiless form (an interface, a trait, a protocol, a Python Protocol, or a class with empty method bodies in JavaScript, TypeScript and Ruby), and Tachyon generates each query and each request. Neither one connects to a database or configures an adapter by itself. An adapter is the code that talks to an outside system, such as a database. Needs works out every dependency from the field it marks, a field that has no starting value. So no file here writes a constructor. In Rust, a provider (a class that the framework can inject) still needs a constructor in its own impl block. That is why BillingHelper writes fn new itself, even though it has no dependencies. Go has no constructors, so Tachyon builds each Go role as &T{} and fills its marked fields. JavaScript matches a field to the name of the provider in lowerCamel case. In lowerCamel case, the first word is lowercase, and each next word starts with a capital letter. Every other language matches the concrete type. Rust matches it through Arc<T>, and Go matches it through *T. The controller and route annotations, the error handler annotations, Stream, Gateway and Schedule exist only in Yon. Swift is not a Yon language. The Lua tab has no BillingClient yet. A Lua `-- @HTTPClient` works, and it sends each request through the `http` adapter of its Setup (ADR 0085). A Lua Store such as BillingStore is a provider, as in the other languages, so another class can ask for it with Needs.\n\nIn C++ each role is a header-only class whose markers are standard attributes, such as `class [[Service]] BillingService`, and a dependency is a reference field such as `[[Needs]] BillingHelper& helper;`. BillingClient and BillingStore declare their methods without a body (ADR 0099).",
+  "body": "GET /billing returns {\"total\":42}. A role is the job that a class does, such as controller, service or store. RequestRoute marks a controller (a class that answers HTTP requests) in server/controllers. It also gives the base path, and Public, SignedIn or Allow(Role) says who may call its routes. IdentityProvider is the one class in server/controllers that says who is signed in, and a role type for Allow is an empty class in server/roles. Service, Store, HTTPClient, Delegate, Setup and Entity live in the realm's shared folders under server/. The compiler finds them by exact name and matching language (ADR 0031). Here is the chain. The controller injects BillingService (the framework creates the service and gives it to the controller). The service injects BillingDelegate. Setup, Entity, BillingStore and BillingClient appear here only to show their folders and their names. BillingStore and BillingClient also show the form of a declarative role: each one is a contract with no implementation, like a Spring Data repository interface and a Spring @HttpExchange interface. A Store always names the Entity it keeps, and the data group shows one at work. Each language writes it in its bodiless form (an interface, a trait, a protocol, a Python Protocol, or a class with empty method bodies in JavaScript, TypeScript and Ruby), and Tachyon generates each query and each request. Neither one connects to a database or configures an adapter by itself. An adapter is the code that talks to an outside system, such as a database. Needs works out every dependency from the field it marks, a field that has no starting value. So no file here writes a constructor. In Rust, a provider (a class that the framework can inject) still needs a constructor in its own impl block. That is why BillingDelegate writes fn new itself, even though it has no dependencies. Go has no constructors, so Tachyon builds each Go role as &T{} and fills its marked fields. JavaScript matches a field to the name of the provider in lowerCamel case. In lowerCamel case, the first word is lowercase, and each next word starts with a capital letter. Every other language matches the concrete type. Rust matches it through Arc<T>, and Go matches it through *T. The controller and route annotations, the error handler annotations, Stream, Gateway and Schedule exist only in Yon. Swift is not a Yon language. The Lua tab has no BillingClient yet. A Lua `-- @HTTPClient` works, and it sends each request through the `http` adapter of its Setup (ADR 0085). A Lua Store such as BillingStore is a provider, as in the other languages, so another class can ask for it with Needs.\n\nIn C++ each role is a header-only class whose markers are standard attributes, such as `class [[Service]] BillingService`, and a dependency is a reference field such as `[[Needs]] BillingDelegate& helper;`. BillingClient and BillingStore declare their methods without a body (ADR 0099).",
   "axis": "language",
   "files": [
     {
@@ -10,9 +10,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.js",
+      "name": "server/delegates/BillingDelegate.js",
       "code": {
-        "file": "server/helpers/BillingHelper.js"
+        "file": "server/delegates/BillingDelegate.js"
       }
     },
     {
@@ -58,9 +58,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.ts",
+      "name": "server/delegates/BillingDelegate.ts",
       "code": {
-        "file": "server/helpers/BillingHelper.ts"
+        "file": "server/delegates/BillingDelegate.ts"
       }
     },
     {
@@ -106,9 +106,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.py",
+      "name": "server/delegates/BillingDelegate.py",
       "code": {
-        "file": "server/helpers/BillingHelper.py"
+        "file": "server/delegates/BillingDelegate.py"
       }
     },
     {
@@ -154,9 +154,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.php",
+      "name": "server/delegates/BillingDelegate.php",
       "code": {
-        "file": "server/helpers/BillingHelper.php"
+        "file": "server/delegates/BillingDelegate.php"
       }
     },
     {
@@ -214,15 +214,15 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.java",
+      "name": "server/delegates/BillingDelegate.java",
       "code": {
-        "file": "server/helpers/BillingHelper.java"
+        "file": "server/delegates/BillingDelegate.java"
       }
     },
     {
-      "name": "server/helpers/BillingHelper.groovy",
+      "name": "server/delegates/BillingDelegate.groovy",
       "code": {
-        "file": "server/helpers/BillingHelper.groovy"
+        "file": "server/delegates/BillingDelegate.groovy"
       }
     },
     {
@@ -298,9 +298,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.kt",
+      "name": "server/delegates/BillingDelegate.kt",
       "code": {
-        "file": "server/helpers/BillingHelper.kt"
+        "file": "server/delegates/BillingDelegate.kt"
       }
     },
     {
@@ -352,15 +352,15 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.cs",
+      "name": "server/delegates/BillingDelegate.cs",
       "code": {
-        "file": "server/helpers/BillingHelper.cs"
+        "file": "server/delegates/BillingDelegate.cs"
       }
     },
     {
-      "name": "server/helpers/BillingHelper.fs",
+      "name": "server/delegates/BillingDelegate.fs",
       "code": {
-        "file": "server/helpers/BillingHelper.fs"
+        "file": "server/delegates/BillingDelegate.fs"
       }
     },
     {
@@ -436,9 +436,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.rs",
+      "name": "server/delegates/BillingDelegate.rs",
       "code": {
-        "file": "server/helpers/BillingHelper.rs"
+        "file": "server/delegates/BillingDelegate.rs"
       }
     },
     {
@@ -484,9 +484,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.go",
+      "name": "server/delegates/BillingDelegate.go",
       "code": {
-        "file": "server/helpers/BillingHelper.go"
+        "file": "server/delegates/BillingDelegate.go"
       }
     },
     {
@@ -532,9 +532,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.dart",
+      "name": "server/delegates/BillingDelegate.dart",
       "code": {
-        "file": "server/helpers/BillingHelper.dart"
+        "file": "server/delegates/BillingDelegate.dart"
       }
     },
     {
@@ -580,9 +580,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.rb",
+      "name": "server/delegates/BillingDelegate.rb",
       "code": {
-        "file": "server/helpers/BillingHelper.rb"
+        "file": "server/delegates/BillingDelegate.rb"
       }
     },
     {
@@ -628,9 +628,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.lua",
+      "name": "server/delegates/BillingDelegate.lua",
       "code": {
-        "file": "server/helpers/BillingHelper.lua"
+        "file": "server/delegates/BillingDelegate.lua"
       }
     },
     {
@@ -670,9 +670,9 @@
       }
     },
     {
-      "name": "server/helpers/BillingHelper.hpp",
+      "name": "server/delegates/BillingDelegate.hpp",
       "code": {
-        "file": "server/helpers/BillingHelper.hpp"
+        "file": "server/delegates/BillingDelegate.hpp"
       }
     },
     {

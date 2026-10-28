@@ -10,21 +10,21 @@ struct SwiftNamedNeeds;
 impl SwiftNamedNeeds {
     const FILES: [(&str, &str); 4] = [
         (
-            "client/helpers/GreeterHelper.swift",
-            "@Helper\nfinal class GreeterHelper {\n    func greet() -> String { \"hi\" }\n}\n",
+            "client/delegates/GreeterDelegate.swift",
+            "@Delegate\nfinal class GreeterDelegate {\n    func greet() -> String { \"hi\" }\n}\n",
         ),
         (
-            "client/helpers/LoudGreeterHelper.swift",
-            "@Helper\nfinal class LoudGreeterHelper {\n    func greet() -> String { \"HI\" }\n}\n",
+            "client/delegates/LoudGreeterDelegate.swift",
+            "@Delegate\nfinal class LoudGreeterDelegate {\n    func greet() -> String { \"HI\" }\n}\n",
         ),
         (
             "client/services/WelcomeService.swift",
-            "@Service\nfinal class WelcomeService {\n    @Needs\n    @Named(\"LoudGreeterHelper\")\n    private let greeter: LoudGreeterHelper\n\n    \
+            "@Service\nfinal class WelcomeService {\n    @Needs\n    @Named(\"LoudGreeterDelegate\")\n    private let greeter: LoudGreeterDelegate\n\n    \
              func welcome() -> String { greeter.greet() }\n}\n",
         ),
         (
             "client/services/HelloService.swift",
-            "@Service\nfinal class HelloService {\n    @Needs\n    private let greeter: GreeterHelper\n\n    \
+            "@Service\nfinal class HelloService {\n    @Needs\n    private let greeter: GreeterDelegate\n\n    \
              func hello() -> String { greeter.greet() }\n}\n",
         ),
     ];

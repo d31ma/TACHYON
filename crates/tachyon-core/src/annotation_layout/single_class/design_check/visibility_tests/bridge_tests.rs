@@ -50,17 +50,17 @@ fn ty1333_script_siblings_keep_only_the_csharp_members_they_reach() {
 
 #[test]
 fn ty1333_sibling_bridge_reach_is_limited_to_client_services() {
-    for folder in ["server/services", "client/helpers", "server/helpers"] {
-        let name = if folder.ends_with("helpers") {
-            "BridgeHelper"
+    for folder in ["server/services", "client/delegates", "server/delegates"] {
+        let name = if folder.ends_with("delegates") {
+            "BridgeDelegate"
         } else {
             "BridgeService"
         };
         let native = format!("{folder}/{name}.cs");
         let script = format!("{folder}/{name}.js");
-        let csharp = BridgeCases::CSHARP.replace("Service", "Helper");
-        let browser = BridgeCases::SCRIPT.replace("Service", "Helper");
-        let (csharp, browser) = if folder.ends_with("helpers") {
+        let csharp = BridgeCases::CSHARP.replace("Service", "Delegate");
+        let browser = BridgeCases::SCRIPT.replace("Service", "Delegate");
+        let (csharp, browser) = if folder.ends_with("delegates") {
             (csharp.as_str(), browser.as_str())
         } else {
             (BridgeCases::CSHARP, BridgeCases::SCRIPT)

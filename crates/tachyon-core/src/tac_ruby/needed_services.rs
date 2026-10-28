@@ -15,12 +15,12 @@ impl NeededServices {
     pub(crate) const RUBY: Self = Self {
         language: "Ruby",
         decision: "ADR 0054",
-        injected: "a Store, a Converter, a Helper, an HTTPClient or a browser API such as Clock or Clipboard",
+        injected: "a Store, a Converter, a Delegate, an HTTPClient or a browser API such as Clock or Clipboard",
     };
     pub(crate) const LUA: Self = Self {
         language: "Lua",
         decision: "ADR 0085",
-        injected: "a Store, a Converter, a Helper or an HTTPClient",
+        injected: "a Store, a Converter, a Delegate or an HTTPClient",
     };
     const CODE: u16 = 2015;
     const SERVICES: &'static str = "client/services";

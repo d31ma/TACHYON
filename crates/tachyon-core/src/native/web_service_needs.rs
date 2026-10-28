@@ -109,7 +109,7 @@ impl WebServiceNeeds {
                 "{class} needs {service}, another Tac service, in a field. A {language} browser service cannot need another service yet: {consequence}."
             ),
             Some(format!(
-                "A {language} Needs field takes a provider that the {language} browser build supplies, such as an HTTPClient or a Helper. Let the view call {service} itself, publish an event that {service} handles in an OnEvent method, or write both services in a Tac language that can need another service: {supporting}."
+                "A {language} Needs field takes a provider that the {language} browser build supplies, such as an HTTPClient or a Delegate. Let the view call {service} itself, publish an event that {service} handles in an OnEvent method, or write both services in a Tac language that can need another service: {supporting}."
             )),
             source_span(relative, start, start + service.len()),
         ))

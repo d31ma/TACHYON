@@ -9,6 +9,6 @@ class LedgerController {
   @GetRoute
   Future<LedgerReport> getLedger() async {
     final settled = await ledger.settle('open');
-    return LedgerReport(settled, LedgerAdapterHelper.commands);
+    return LedgerReport(settled, LedgerAdapterDelegate.commands);
   }
 }

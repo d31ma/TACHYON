@@ -10,19 +10,19 @@ struct GoHelperFixtures;
 impl GoHelperFixtures {
     const FILES: [(&str, &str); 3] = [
         (
-            "client/helpers/StepHelper.go",
-            "import \"strings\"\n\n// @Helper\ntype StepHelper struct {\n\ttaken int\n}\n\n\
-             func (step *StepHelper) Next() int {\n\tstep.taken += len(strings.Repeat(\"a\", 2))\n\treturn step.taken\n}\n",
+            "client/delegates/StepDelegate.go",
+            "import \"strings\"\n\n// @Delegate\ntype StepDelegate struct {\n\ttaken int\n}\n\n\
+             func (step *StepDelegate) Next() int {\n\tstep.taken += len(strings.Repeat(\"a\", 2))\n\treturn step.taken\n}\n",
         ),
         (
             "client/services/TallyService.go",
-            "// @Service\ntype TallyService struct {\n\t// @Needs\n\tstep  *StepHelper\n\tTotal int\n}\n\n\
+            "// @Service\ntype TallyService struct {\n\t// @Needs\n\tstep  *StepDelegate\n\tTotal int\n}\n\n\
              func (tally *TallyService) Bump() int {\n\ttally.Total = tally.step.Next()\n\treturn tally.Total\n}\n",
         ),
         (
             "client/services/CounterService.go",
-            "// @Service\ntype CounterService struct {\n\tstep  *StepHelper\n\tCount int\n}\n\n\
-             // @OnStart\nfunc (counter *CounterService) Start() {\n\tcounter.step = &StepHelper{taken: 10}\n}\n\n\
+            "// @Service\ntype CounterService struct {\n\tstep  *StepDelegate\n\tCount int\n}\n\n\
+             // @OnStart\nfunc (counter *CounterService) Start() {\n\tcounter.step = &StepDelegate{taken: 10}\n}\n\n\
              func (counter *CounterService) Bump() int {\n\tcounter.Count = counter.step.Next()\n\treturn counter.Count\n}\n",
         ),
     ];
@@ -75,7 +75,7 @@ impl GoHelperFixtures {
         let profile = crate::BuildProfile::Development;
         let built = build_all(root, &services, &BuildJobs::new(1), profile)
             .await
-            .unwrap_or_else(|failure| panic!("a Go service with a Go Helper builds: {failure}"));
+            .unwrap_or_else(|failure| panic!("a Go service with a Go Delegate builds: {failure}"));
         for (name, bytes) in built.files {
             let path = root.join(name);
             std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");

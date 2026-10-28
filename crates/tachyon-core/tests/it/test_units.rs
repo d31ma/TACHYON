@@ -58,14 +58,14 @@ async fn run_javascript_test_unit(extension: &str) {
     );
     write(
         root.path(),
-        &format!("server/helpers/CatalogCounterHelper.{extension}"),
-        "@Helper()\nclass CatalogCounterHelper {\n  count() { return 21; }\n}\n",
+        &format!("server/delegates/CatalogCounterDelegate.{extension}"),
+        "@Delegate()\nclass CatalogCounterDelegate {\n  count() { return 21; }\n}\n",
     );
     write(
         root.path(),
         &format!("server/services/CatalogService.{extension}"),
         &javascript_unit_source(
-            "@Service()\nclass CatalogService {\n  @Needs()\n  catalogCounterHelper;\n  total() { return this.catalogCounterHelper.count() * 2; }\n}\n",
+            "@Service()\nclass CatalogService {\n  @Needs()\n  catalogCounterDelegate;\n  total() { return this.catalogCounterDelegate.count() * 2; }\n}\n",
             extension,
         ),
     );
@@ -73,7 +73,7 @@ async fn run_javascript_test_unit(extension: &str) {
         root.path(),
         &format!("server/tests/CatalogServiceTest.{extension}"),
         &javascript_unit_source(
-            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake()\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testReportsAFailure() {\n    Assert.equals(undefined, this.catalogCounterHelper, 'the fake is empty again');\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake()\n  catalogCounterDelegate;\n\n  async testDoublesTheCount() {\n    this.catalogCounterDelegate = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testReportsAFailure() {\n    Assert.equals(undefined, this.catalogCounterDelegate, 'the fake is empty again');\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
             extension,
         ),
     );
@@ -95,8 +95,8 @@ async fn run_javascript_test_unit(extension: &str) {
 fn javascript_unit_source(source: &str, extension: &str) -> String {
     if extension == "ts" {
         return source.replace(
-            "catalogCounterHelper;",
-            "catalogCounterHelper: CatalogCounterHelper;",
+            "catalogCounterDelegate;",
+            "catalogCounterDelegate: CatalogCounterDelegate;",
         );
     }
     source.to_owned()
@@ -121,7 +121,7 @@ async fn a_python_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.py",
-        "from typing import Annotated\n\n@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    catalog_counter_helper: Annotated[object, fake]\n\n    async def test_opens_a_context(self):\n        Assert.is_true(self.behaviors is not None, 'the case has a context')\n        Assert.equals(None, self.catalog_counter_helper, 'a fake starts empty')\n        self.catalog_counter_helper = object()\n\n    async def test_reports_a_failure(self):\n        Assert.equals(None, self.catalog_counter_helper, 'the fake is empty again')\n        Assert.is_true(False, 'this case is meant to fail')\n",
+        "from typing import Annotated\n\n@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    catalog_counter_delegate: Annotated[object, fake]\n\n    async def test_opens_a_context(self):\n        Assert.is_true(self.behaviors is not None, 'the case has a context')\n        Assert.equals(None, self.catalog_counter_delegate, 'a fake starts empty')\n        self.catalog_counter_delegate = object()\n\n    async def test_reports_a_failure(self):\n        Assert.equals(None, self.catalog_counter_delegate, 'the fake is empty again')\n        Assert.is_true(False, 'this case is meant to fail')\n",
     );
 
     let relative = "server/tests/CatalogServiceTest.py";
@@ -155,17 +155,17 @@ async fn a_php_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.php",
-        "<?php\n#[Test(CatalogTestSetup::class, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest {\n    #[Fake]\n    public CatalogCounterHelper $catalogCounterHelper;\n    #[Fake]\n    public $note;\n\n    public function testOpensAContext(): void {\n        Assert::isTrue($this->behaviors !== null, 'the case has a context');\n        Assert::isTrue(!isset($this->catalogCounterHelper), 'a fake starts empty');\n        $this->note = 'set';\n        $this->catalogCounterHelper = new class extends CatalogCounterHelper {\n            public function count(): int { return 4; }\n        };\n        Assert::equals(8, (new CatalogService($this->catalogCounterHelper))->total(), 'the total');\n    }\n    public function testReportsAFailure(): void {\n        Assert::isTrue(!isset($this->catalogCounterHelper), 'the fake is empty again');\n        Assert::equals(null, $this->note, 'an untyped fake is null again');\n        Assert::isTrue(false, 'this case is meant to fail');\n    }\n}\n",
+        "<?php\n#[Test(CatalogTestSetup::class, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest {\n    #[Fake]\n    public CatalogCounterDelegate $catalogCounterDelegate;\n    #[Fake]\n    public $note;\n\n    public function testOpensAContext(): void {\n        Assert::isTrue($this->behaviors !== null, 'the case has a context');\n        Assert::isTrue(!isset($this->catalogCounterDelegate), 'a fake starts empty');\n        $this->note = 'set';\n        $this->catalogCounterDelegate = new class extends CatalogCounterDelegate {\n            public function count(): int { return 4; }\n        };\n        Assert::equals(8, (new CatalogService($this->catalogCounterDelegate))->total(), 'the total');\n    }\n    public function testReportsAFailure(): void {\n        Assert::isTrue(!isset($this->catalogCounterDelegate), 'the fake is empty again');\n        Assert::equals(null, $this->note, 'an untyped fake is null again');\n        Assert::isTrue(false, 'this case is meant to fail');\n    }\n}\n",
     );
     write(
         root.path(),
-        "server/helpers/CatalogCounterHelper.php",
-        "<?php\n#[Helper]\nclass CatalogCounterHelper {\n    public function count(): int { return 21; }\n}\n",
+        "server/delegates/CatalogCounterDelegate.php",
+        "<?php\n#[Delegate]\nclass CatalogCounterDelegate {\n    public function count(): int { return 21; }\n}\n",
     );
     write(
         root.path(),
         "server/services/CatalogService.php",
-        "<?php\n#[Service]\nclass CatalogService {\n    #[Needs]\n    public CatalogCounterHelper $catalogCounterHelper;\n\n    public function total(): int { return $this->catalogCounterHelper->count() * 2; }\n}\n",
+        "<?php\n#[Service]\nclass CatalogService {\n    #[Needs]\n    public CatalogCounterDelegate $catalogCounterDelegate;\n\n    public function total(): int { return $this->catalogCounterDelegate->count() * 2; }\n}\n",
     );
 
     let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.php")
@@ -214,17 +214,17 @@ async fn a_java_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.java",
-        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    @Fake\n    CatalogCounterHelper catalogCounterHelper;\n    @Fake\n    long count;\n    @Fake\n    boolean seen;\n\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n        Assert.isTrue(catalogCounterHelper == null, \"a fake starts empty\");\n        count = 3;\n        seen = true;\n        catalogCounterHelper = new CatalogCounterHelper() {\n            int count() { return 4; }\n        };\n        Assert.equals(8, construct(CatalogService.class).total(), \"the total\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(catalogCounterHelper == null, \"the fake is empty again\");\n        Assert.equals(0L, count, \"a primitive fake is zero again\");\n        Assert.isTrue(!seen, \"a boolean fake is false again\");\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
+        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    @Fake\n    CatalogCounterDelegate catalogCounterDelegate;\n    @Fake\n    long count;\n    @Fake\n    boolean seen;\n\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n        Assert.isTrue(catalogCounterDelegate == null, \"a fake starts empty\");\n        count = 3;\n        seen = true;\n        catalogCounterDelegate = new CatalogCounterDelegate() {\n            int count() { return 4; }\n        };\n        Assert.equals(8, construct(CatalogService.class).total(), \"the total\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(catalogCounterDelegate == null, \"the fake is empty again\");\n        Assert.equals(0L, count, \"a primitive fake is zero again\");\n        Assert.isTrue(!seen, \"a boolean fake is false again\");\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
     );
     write(
         root.path(),
-        "server/helpers/CatalogCounterHelper.java",
-        "@Helper\nclass CatalogCounterHelper {\n    int count() { return 21; }\n}\n",
+        "server/delegates/CatalogCounterDelegate.java",
+        "@Delegate\nclass CatalogCounterDelegate {\n    int count() { return 21; }\n}\n",
     );
     write(
         root.path(),
         "server/services/CatalogService.java",
-        "@Service\nclass CatalogService {\n    @Needs\n    private final CatalogCounterHelper catalogCounterHelper;\n\n    int total() { return catalogCounterHelper.count() * 2; }\n}\n",
+        "@Service\nclass CatalogService {\n    @Needs\n    private final CatalogCounterDelegate catalogCounterDelegate;\n\n    int total() { return catalogCounterDelegate.count() * 2; }\n}\n",
     );
 
     let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.java")
@@ -257,17 +257,17 @@ async fn a_groovy_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.groovy",
-        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    @Fake\n    CatalogCounterHelper catalogCounterHelper\n    @Fake\n    long count\n    @Fake\n    boolean seen\n\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, 'the case has a context')\n        Assert.isTrue(catalogCounterHelper == null, 'a fake starts empty')\n        count = 3\n        seen = true\n        catalogCounterHelper = new CatalogCounterHelper() {\n            int count() { return 4 }\n        }\n        Assert.equals(8, construct(CatalogService.class).total(), 'the total')\n    }\n\n    void testReportsAFailure() {\n        Assert.isTrue(catalogCounterHelper == null, 'the fake is empty again')\n        Assert.equals(0L, count, 'a primitive fake is zero again')\n        Assert.isTrue(!seen, 'a boolean fake is false again')\n        Assert.isTrue(false, 'this case is meant to fail')\n    }\n}\n",
+        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    @Fake\n    CatalogCounterDelegate catalogCounterDelegate\n    @Fake\n    long count\n    @Fake\n    boolean seen\n\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, 'the case has a context')\n        Assert.isTrue(catalogCounterDelegate == null, 'a fake starts empty')\n        count = 3\n        seen = true\n        catalogCounterDelegate = new CatalogCounterDelegate() {\n            int count() { return 4 }\n        }\n        Assert.equals(8, construct(CatalogService.class).total(), 'the total')\n    }\n\n    void testReportsAFailure() {\n        Assert.isTrue(catalogCounterDelegate == null, 'the fake is empty again')\n        Assert.equals(0L, count, 'a primitive fake is zero again')\n        Assert.isTrue(!seen, 'a boolean fake is false again')\n        Assert.isTrue(false, 'this case is meant to fail')\n    }\n}\n",
     );
     write(
         root.path(),
-        "server/helpers/CatalogCounterHelper.groovy",
-        "@Helper\nclass CatalogCounterHelper {\n    int count() { return 21 }\n}\n",
+        "server/delegates/CatalogCounterDelegate.groovy",
+        "@Delegate\nclass CatalogCounterDelegate {\n    int count() { return 21 }\n}\n",
     );
     write(
         root.path(),
         "server/services/CatalogService.groovy",
-        "@Service\nclass CatalogService {\n    @Needs\n    private final CatalogCounterHelper catalogCounterHelper\n\n    int total() { return catalogCounterHelper.count() * 2 }\n}\n",
+        "@Service\nclass CatalogService {\n    @Needs\n    private final CatalogCounterDelegate catalogCounterDelegate\n\n    int total() { return catalogCounterDelegate.count() * 2 }\n}\n",
     );
 
     let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.groovy")
@@ -703,18 +703,18 @@ async fn a_ruby_test_unit_runs_its_cases_through_the_supervisor() {
     );
     write(
         root.path(),
-        "server/helpers/CatalogCounterHelper.rb",
-        "#[Helper]\nclass CatalogCounterHelper\n  def count\n    21\n  end\nend\n",
+        "server/delegates/CatalogCounterDelegate.rb",
+        "#[Delegate]\nclass CatalogCounterDelegate\n  def count\n    21\n  end\nend\n",
     );
     write(
         root.path(),
         "server/services/CatalogService.rb",
-        "#[Service]\nclass CatalogService\n  #[Needs]\n  attr_reader :catalog_counter_helper\n\n  def total\n    catalog_counter_helper.count * 2\n  end\nend\n",
+        "#[Service]\nclass CatalogService\n  #[Needs]\n  attr_reader :catalog_counter_delegate\n\n  def total\n    catalog_counter_delegate.count * 2\n  end\nend\n",
     );
     write(
         root.path(),
         "server/tests/CatalogServiceTest.rb",
-        "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest\n  #[Fake]\n  attr_accessor :catalog_counter_helper\n\n  def test_opens_a_context\n    Assert.is_true(!@behaviors.nil?, \"the case has a context\")\n    Assert.equals(nil, catalog_counter_helper, \"a fake starts empty\")\n    self.catalog_counter_helper = Struct.new(:count).new(4)\n    Assert.equals(8, construct(CatalogService).total, \"the total\")\n  end\n\n  def test_reports_a_failure\n    self.catalog_counter_helper = Struct.new(:count).new(1)\n    Assert.is_true(false, \"this case is meant to fail\")\n  end\nend\n",
+        "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest\n  #[Fake]\n  attr_accessor :catalog_counter_delegate\n\n  def test_opens_a_context\n    Assert.is_true(!@behaviors.nil?, \"the case has a context\")\n    Assert.equals(nil, catalog_counter_delegate, \"a fake starts empty\")\n    self.catalog_counter_delegate = Struct.new(:count).new(4)\n    Assert.equals(8, construct(CatalogService).total, \"the total\")\n  end\n\n  def test_reports_a_failure\n    self.catalog_counter_delegate = Struct.new(:count).new(1)\n    Assert.is_true(false, \"this case is meant to fail\")\n  end\nend\n",
     );
     let relative = "server/tests/CatalogServiceTest.rb";
     let source = HandlerSource::discover(root.path(), relative).expect("test unit discovery");
@@ -745,18 +745,18 @@ async fn a_lua_test_unit_runs_its_cases_through_the_supervisor() {
     );
     write(
         root.path(),
-        "server/helpers/CatalogCounterHelper.lua",
-        "-- @Helper\nCatalogCounterHelper = {}\n\nfunction CatalogCounterHelper:count()\n  return 21\nend\n",
+        "server/delegates/CatalogCounterDelegate.lua",
+        "-- @Delegate\nCatalogCounterDelegate = {}\n\nfunction CatalogCounterDelegate:count()\n  return 21\nend\n",
     );
     write(
         root.path(),
         "server/services/CatalogService.lua",
-        "-- @Service\nCatalogService = {\n  -- @Needs\n  catalog_counter_helper = nil,\n}\n\nfunction CatalogService:total()\n  return self.catalog_counter_helper:count() * 2\nend\n",
+        "-- @Service\nCatalogService = {\n  -- @Needs\n  catalog_counter_delegate = nil,\n}\n\nfunction CatalogService:total()\n  return self.catalog_counter_delegate:count() * 2\nend\n",
     );
     write(
         root.path(),
         "server/tests/CatalogServiceTest.lua",
-        "-- @Test(CatalogTestSetup, {\"partition\":\"tests\"})\n-- @UseProfiles(\"test\")\nCatalogServiceTest = {\n  -- @Fake\n  catalog_counter_helper = nil,\n}\n\nfunction CatalogServiceTest:test_opens_a_context()\n  Assert.equals(nil, self.catalog_counter_helper, \"a fake starts empty\")\n  self.catalog_counter_helper = { count = function() return 4 end }\n  Assert.equals(8, self:construct(CatalogService):total(), \"the total\")\nend\n\n-- @ValueSource([1, 2])\nfunction CatalogServiceTest:test_reports_a_failure(value)\n  Assert.is_true(value > 1, \"this case is meant to fail\")\nend\n",
+        "-- @Test(CatalogTestSetup, {\"partition\":\"tests\"})\n-- @UseProfiles(\"test\")\nCatalogServiceTest = {\n  -- @Fake\n  catalog_counter_delegate = nil,\n}\n\nfunction CatalogServiceTest:test_opens_a_context()\n  Assert.equals(nil, self.catalog_counter_delegate, \"a fake starts empty\")\n  self.catalog_counter_delegate = { count = function() return 4 end }\n  Assert.equals(8, self:construct(CatalogService):total(), \"the total\")\nend\n\n-- @ValueSource([1, 2])\nfunction CatalogServiceTest:test_reports_a_failure(value)\n  Assert.is_true(value > 1, \"this case is meant to fail\")\nend\n",
     );
     let relative = "server/tests/CatalogServiceTest.lua";
     let source = HandlerSource::discover(root.path(), relative).expect("test unit discovery");

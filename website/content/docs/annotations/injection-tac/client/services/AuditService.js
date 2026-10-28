@@ -1,8 +1,8 @@
 @Service
 export default class AuditService {
-  /** @type {CartHelper} */
+  /** @type {CartDelegate} */
   @Needs
-  @Named("CartHelper")
+  @Named("CartDelegate")
   ledger;
 
   /** @returns {number} */

@@ -5,7 +5,7 @@ controllers/AppIdentityProvider.ts      @IdentityProvider
 roles/Admin.ts                          (a role type, no annotation)
 stores/MoneyStore.ts                    @Store
 remotes/MoneyClient.ts                  @HTTPClient
-helpers/MoneyHelper.ts                  @Helper
+delegates/MoneyDelegate.ts                  @Delegate
 converters/MoneySummaryConverter.ts     @Converter
 setups/MoneySetup.ts                    @Setup
 entities/MoneyEntity.ts                 @Entity + @Table

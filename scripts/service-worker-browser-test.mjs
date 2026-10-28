@@ -63,7 +63,7 @@ export default class WorkerPageService {
   write('client/manifest.json', JSON.stringify({ tac: { cache: [{ path: '/api/cache-first', policy: 'cache-first' }, { path: '/api/never', policy: 'no-store' }, { path: '/api/*', policy: 'network-first' }] } }));
 }
 
-const rootHelper = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
+const rootDelegate = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
 
 function buildFixture() {
   const built = spawnSync(WorkerGate.binary, ['build', WorkerGate.project], { encoding: 'utf8' });
@@ -133,7 +133,7 @@ async function openContext(origin) {
       '--ignore-certificate-errors',
     ],
   });
-  await context.addInitScript(rootHelper);
+  await context.addInitScript(rootDelegate);
   context.setDefaultTimeout(15_000);
   context.setDefaultNavigationTimeout(15_000);
   return context;

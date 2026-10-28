@@ -132,11 +132,11 @@ fn jvm_reserved_names_in_literals_and_comments_are_inert() {
         let relative = format!("server/workers/probe.{extension}");
         let helper = root
             .path()
-            .join(format!("server/helpers/CatalogHelper.{extension}"));
+            .join(format!("server/delegates/CatalogDelegate.{extension}"));
         fs::create_dir_all(helper.parent().expect("parent")).expect("directory");
         let helper_source = source
-            .replace("class Handler", "@Helper\nclass CatalogHelper")
-            .replace("object Handler", "@Helper\nclass CatalogHelper");
+            .replace("class Handler", "@Delegate\nclass CatalogDelegate")
+            .replace("object Handler", "@Delegate\nclass CatalogDelegate");
         fs::write(helper, helper_source).expect("behavior helper");
         let path = root.path().join(&relative);
         fs::create_dir_all(path.parent().expect("parent")).expect("directory");

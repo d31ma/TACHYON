@@ -125,10 +125,10 @@ struct LuaBehaviorMarkers;
 impl LuaBehaviorMarkers {
     const FILES: [(&str, &str); 8] = [
         (
-            "server/helpers/LedgerAdapterHelper.lua",
-            r#"-- @Helper
----@class LedgerAdapterHelper
-LedgerAdapterHelper = {
+            "server/delegates/LedgerAdapterDelegate.lua",
+            r#"-- @Delegate
+---@class LedgerAdapterDelegate
+LedgerAdapterDelegate = {
   ---@type string[]
   commands = {},
   ---@type integer
@@ -140,7 +140,7 @@ LedgerAdapterHelper = {
 ---@param command table
 ---@param execution table
 ---@return any
-function LedgerAdapterHelper:execute(command, execution)
+function LedgerAdapterDelegate:execute(command, execution)
   if command.operation == "transaction" then
     return self:_transaction(command)
   end
@@ -160,7 +160,7 @@ end
 
 ---@param command table
 ---@return table
-function LedgerAdapterHelper:_transaction(command)
+function LedgerAdapterDelegate:_transaction(command)
   local identifier = command.transaction
   self.commands[#self.commands + 1] = identifier and (command.action .. ":" .. identifier) or command.action
   if command.action ~= "begin" then
@@ -180,7 +180,7 @@ LedgerSetup = {}
 ---@param execution table
 ---@return table
 function LedgerSetup.configure(execution)
-  return { entities = { ledger = LedgerAdapterHelper }, authorizeEntity = LedgerSetup.authorize }
+  return { entities = { ledger = LedgerAdapterDelegate }, authorizeEntity = LedgerSetup.authorize }
 end
 
 ---@param command table
@@ -310,7 +310,7 @@ function LedgerController:get_ledger()
     settled = settled,
     failed = not ok,
     reason = failure.reason,
-    commands = LedgerAdapterHelper.commands,
+    commands = LedgerAdapterDelegate.commands,
     description = Behaviors.records.LedgerService.description,
     within_limit = self.ledger_service:nested(1),
     over_limit = self.ledger_service:nested(2),
@@ -530,13 +530,13 @@ struct LuaNeedsAll;
 impl LuaNeedsAll {
     const FILES: [(&str, &str); 4] = [
         (
-            "server/helpers/LedgerAmountsHelper.lua",
-            r"-- @Helper
----@class LedgerAmountsHelper
-LedgerAmountsHelper = {}
+            "server/delegates/LedgerAmountsDelegate.lua",
+            r"-- @Delegate
+---@class LedgerAmountsDelegate
+LedgerAmountsDelegate = {}
 
 ---@return integer
-function LedgerAmountsHelper:subtotal()
+function LedgerAmountsDelegate:subtotal()
   return 40
 end
 ",
@@ -559,7 +559,7 @@ end
 -- @NeedsAll
 ---@class LedgerService
 LedgerService = {
-  ---@type LedgerAmountsHelper
+  ---@type LedgerAmountsDelegate
   amounts = nil,
   ---@type integer
   extra = 2,
@@ -582,8 +582,8 @@ LedgerController = {
   -- @Named("LedgerService")
   ---@type LedgerService
   service = nil,
-  ---@type LedgerAmountsHelper
-  ledger_amounts_helper = nil,
+  ---@type LedgerAmountsDelegate
+  ledger_amounts_delegate = nil,
   ---@type StandardTaxService
   tax = nil,
   ---@type string
@@ -595,7 +595,7 @@ LedgerController = {
 function LedgerController:get_ledger()
   return {
     total = self.service:subtotal(),
-    store = self.ledger_amounts_helper:subtotal(),
+    store = self.ledger_amounts_delegate:subtotal(),
     tax = self.tax:label(),
     label = self.label,
   }

@@ -235,10 +235,10 @@ mod tests {
             shadow.text()
         );
         let bare = FsharpShadow::of(
-            "[<Store>]\ntype EntryStore(helper: EntryHelper) =\n    member this.All() : int = 1\n",
+            "[<Store>]\ntype EntryStore(helper: EntryDelegate) =\n    member this.All() : int = 1\n",
         );
         assert!(
-            bare.text().contains("[Needs(EntryHelper)]"),
+            bare.text().contains("[Needs(EntryDelegate)]"),
             "{}",
             bare.text()
         );

@@ -1,7 +1,7 @@
 @Service
 export default class CatalogService {
   @Needs
-  catalogCounterHelper!: CatalogCounterHelper;
+  catalogCounterDelegate!: CatalogCounterDelegate;
 
-  total(): number { return this.catalogCounterHelper.count() * 2; }
+  total(): number { return this.catalogCounterDelegate.count() * 2; }
 }

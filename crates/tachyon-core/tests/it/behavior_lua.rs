@@ -14,12 +14,12 @@ impl LuaBehaviors {
             "---@class CacheReport\n---@field first any\n---@field repeat any\n---@field written any\n---@field refreshed any\n---@field retried integer\n---@field priced integer\n---@field repriced integer\n---@field missed integer\nCacheReport = {}\n",
         ),
         (
-            "server/helpers/MemoryCacheHelper.lua",
-            "-- @Helper\n---@class MemoryCacheHelper\nMemoryCacheHelper = {\n  ---@type table<string, table>\n  entries = {},\n}\n\n---@param key string\n---@param execution table\n---@return table\nfunction MemoryCacheHelper:get(key, execution)\n  return self.entries[key] or { hit = false }\nend\n\n---@param key string\n---@param value any\n---@param execution table\n---@return nil\nfunction MemoryCacheHelper:set(key, value, execution)\n  self.entries[key] = { hit = true, value = value, expiresAt = execution.expires_at }\nend\n\n---@param key string\n---@param execution table\n---@return nil\nfunction MemoryCacheHelper:delete(key, execution)\n  self.entries[key] = nil\nend\n\n---@param call table\n---@param execution table\n---@return boolean\nfunction MemoryCacheHelper.allow(call, execution)\n  return true\nend\n",
+            "server/delegates/MemoryCacheDelegate.lua",
+            "-- @Delegate\n---@class MemoryCacheDelegate\nMemoryCacheDelegate = {\n  ---@type table<string, table>\n  entries = {},\n}\n\n---@param key string\n---@param execution table\n---@return table\nfunction MemoryCacheDelegate:get(key, execution)\n  return self.entries[key] or { hit = false }\nend\n\n---@param key string\n---@param value any\n---@param execution table\n---@return nil\nfunction MemoryCacheDelegate:set(key, value, execution)\n  self.entries[key] = { hit = true, value = value, expiresAt = execution.expires_at }\nend\n\n---@param key string\n---@param execution table\n---@return nil\nfunction MemoryCacheDelegate:delete(key, execution)\n  self.entries[key] = nil\nend\n\n---@param call table\n---@param execution table\n---@return boolean\nfunction MemoryCacheDelegate.allow(call, execution)\n  return true\nend\n",
         ),
         (
             "server/setups/CatalogSetup.lua",
-            "-- @Setup\n---@class CatalogSetup\nCatalogSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  return { caches = { catalog = MemoryCacheHelper }, authorize = MemoryCacheHelper.allow }\nend\n",
+            "-- @Setup\n---@class CatalogSetup\nCatalogSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  return { caches = { catalog = MemoryCacheDelegate }, authorize = MemoryCacheDelegate.allow }\nend\n",
         ),
         (
             "server/services/CatalogService.lua",
@@ -176,12 +176,12 @@ struct LuaClients;
 impl LuaClients {
     const CATALOG: [(&str, &str); 5] = [
         (
-            "server/helpers/EchoHttpHelper.lua",
-            "-- @Helper\n---@class EchoHttpHelper\nEchoHttpHelper = {}\n\n---@param request table\n---@param execution table\n---@return table\nfunction EchoHttpHelper:exchange(request, execution)\n  return { method = request.method, path = request.path, query = request.query, headers = request.headers, body = request.body, partition = execution.partition }\nend\n",
+            "server/delegates/EchoHttpDelegate.lua",
+            "-- @Delegate\n---@class EchoHttpDelegate\nEchoHttpDelegate = {}\n\n---@param request table\n---@param execution table\n---@return table\nfunction EchoHttpDelegate:exchange(request, execution)\n  return { method = request.method, path = request.path, query = request.query, headers = request.headers, body = request.body, partition = execution.partition }\nend\n",
         ),
         (
             "server/setups/CatalogSetup.lua",
-            "-- @Setup\n---@class CatalogSetup\nCatalogSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  return { http = { catalog = EchoHttpHelper } }\nend\n",
+            "-- @Setup\n---@class CatalogSetup\nCatalogSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogSetup.configure(execution)\n  return { http = { catalog = EchoHttpDelegate } }\nend\n",
         ),
         (
             "server/remotes/CatalogClient.lua",

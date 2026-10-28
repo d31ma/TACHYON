@@ -124,15 +124,15 @@ mod tests {
 
     #[test]
     fn raw_ownership_reader_retains_needs_all_before_shadow_filtering() {
-        let attributes = AttributeLine::raw("[<Helper; NeedsAll>]");
+        let attributes = AttributeLine::raw("[<Delegate; NeedsAll>]");
         assert_eq!(
             attributes
                 .iter()
                 .map(|attribute| attribute.name.as_str())
                 .collect::<Vec<_>>(),
-            ["Helper", "NeedsAll"]
+            ["Delegate", "NeedsAll"]
         );
-        assert_eq!(written("[<Helper; NeedsAll>]"), ["[Helper]"]);
+        assert_eq!(written("[<Delegate; NeedsAll>]"), ["[Delegate]"]);
     }
 
     #[test]

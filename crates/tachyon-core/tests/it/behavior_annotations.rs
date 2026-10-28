@@ -54,9 +54,9 @@ async fn assert_yon_behaviors(extension: &str, annotated: bool) {
     let relative = format!("server/controllers/ProductsController.{extension}");
     authored_behaviors::write(root.path(), "js", "server", extension);
     let entry = if annotated {
-        "\n@Service()\nclass Counter { value = 42; }\n@Service()\n@NeedsAll\n@Needs(Counter)\nclass ServiceWithGeneratedConstructor {\n counter;\n}\n@RequestRoute(\"/products\")\n@Public\n@Needs(ServiceWithGeneratedConstructor)\nclass ProductsController {\n constructor(service) { this.service = service; }\n @GetRoute\n async getProducts() { this.#requireInjected(); return BehaviorChecksHelper.exerciseBehaviors(new AbortController().signal); }\n #requireInjected() { if (this.service.counter.value !== 42) throw new Error('constructor injection failed'); }\n }"
+        "\n@Service()\nclass Counter { value = 42; }\n@Service()\n@NeedsAll\n@Needs(Counter)\nclass ServiceWithGeneratedConstructor {\n counter;\n}\n@RequestRoute(\"/products\")\n@Public\n@Needs(ServiceWithGeneratedConstructor)\nclass ProductsController {\n constructor(service) { this.service = service; }\n @GetRoute\n async getProducts() { this.#requireInjected(); return BehaviorChecksDelegate.exerciseBehaviors(new AbortController().signal); }\n #requireInjected() { if (this.service.counter.value !== 42) throw new Error('constructor injection failed'); }\n }"
     } else {
-        "\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n@GetRoute\nasync getProducts() { return BehaviorChecksHelper.exerciseBehaviors(new AbortController().signal); } }"
+        "\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n@GetRoute\nasync getProducts() { return BehaviorChecksDelegate.exerciseBehaviors(new AbortController().signal); } }"
     };
     write(root.path(), &relative, entry);
     let body = invoke_products(root.path(), &relative, extension).await;

@@ -80,17 +80,17 @@ fn a_file_that_others_name_keeps_its_name_and_its_class_is_renamed() {
     let root = project.path();
     write(
         root,
-        "server/helpers/ReportDelegate.rb",
+        "server/delegates/ReportDelegate.rb",
         "class Report\n  def self.run\n  end\nend\n\nReport.run\n",
     );
     write(
         root,
         "server/controllers/ReportController.js",
-        "const script = 'server/helpers/ReportDelegate.rb'\n",
+        "const script = 'server/delegates/ReportDelegate.rb'\n",
     );
     let text = fix(root);
     assert!(text.contains("Renamed Report to ReportDelegate"), "{text}");
-    let source = fs::read_to_string(root.join("server/helpers/ReportDelegate.rb")).expect("source");
+    let source = fs::read_to_string(root.join("server/delegates/ReportDelegate.rb")).expect("source");
     assert_eq!(
         source,
         "class ReportDelegate\n  def self.run\n  end\nend\n\nReportDelegate.run\n"
@@ -113,7 +113,7 @@ fn a_file_that_others_name_with_a_lowercase_name_is_a_manual_step() {
     );
     let text = fix(root);
     assert!(
-        text.contains("Rename the file to 'server/helpers/ReportDelegate.rb'"),
+        text.contains("Rename the file to 'server/delegates/ReportDelegate.rb'"),
         "{text}"
     );
     assert_eq!(names_in(root, "server/helpers"), ["report.rb"]);

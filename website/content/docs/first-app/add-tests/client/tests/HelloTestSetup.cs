@@ -5,7 +5,7 @@ public sealed class HelloTestSetup
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["greeting"] = new GreetingFakeHelper();
+        adapters.http["greeting"] = new GreetingFakeDelegate();
         return adapters;
     }
 }

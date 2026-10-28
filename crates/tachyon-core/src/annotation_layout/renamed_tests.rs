@@ -121,7 +121,7 @@ fn the_rust_test_attribute_is_not_the_test_marker() {
 }
 
 #[test]
-fn the_component_role_is_refused_with_the_helper_role() {
+fn the_component_role_is_refused_with_the_delegate_role() {
     let marker = refusal(
         "server/services/PlainService.go",
         "// @Component\ntype Plain struct{}\n",
@@ -129,7 +129,7 @@ fn the_component_role_is_refused_with_the_helper_role() {
     assert!(
         marker
             .message
-            .starts_with("'Component' was renamed to Helper"),
+            .starts_with("'Component' was renamed to Delegate"),
         "{}",
         marker.message
     );
@@ -138,21 +138,39 @@ fn the_component_role_is_refused_with_the_helper_role() {
         "@component\nclass Plain:\n    pass\n",
     );
     assert!(
-        python.message.contains("renamed to helper; write helper"),
+        python.message.contains("renamed to delegate; write delegate"),
         "{}",
         python.message
     );
-    let folder = super::reject_reserved_folder(Path::new("client/delegates/PriceHelper.ts"))
-        .expect_err("old helper folder");
-    assert!(
-        folder.diagnostics()[0]
-            .message
-            .contains("renamed to client/helpers"),
-        "{folder}"
-    );
+    super::reject_reserved_folder(Path::new("client/delegates/PriceDelegate.ts"))
+        .expect("delegates is the Delegate role folder again (ADR 0112)");
     validate(
-        Path::new("client/helpers/PriceHelper.ts"),
-        "@Helper\nclass PriceHelper {}\n",
+        Path::new("client/delegates/PriceDelegate.ts"),
+        "@Delegate\nclass PriceDelegate {}\n",
     )
-    .expect("the new helper role");
+    .expect("the new delegate role");
+}
+
+#[test]
+fn the_helper_role_is_refused_with_the_delegate_role() {
+    let marker = refusal(
+        "server/services/PlainService.go",
+        "// @Helper\ntype Plain struct{}\n",
+    );
+    assert!(
+        marker
+            .message
+            .starts_with("'Helper' was renamed to Delegate"),
+        "{}",
+        marker.message
+    );
+    let python = refusal(
+        "server/services/PlainService.py",
+        "@helper\nclass Plain:\n    pass\n",
+    );
+    assert!(
+        python.message.contains("renamed to delegate; write delegate"),
+        "{}",
+        python.message
+    );
 }

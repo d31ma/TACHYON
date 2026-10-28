@@ -17,7 +17,7 @@ pub(crate) struct CppYonGraph {
 impl CppYonGraph {
     const FOLDERS: &'static [&'static str] = &[
         "server/services",
-        "server/helpers",
+        "server/delegates",
         "server/converters",
         "server/stores",
         "server/remotes",
@@ -201,7 +201,7 @@ impl CppYonGraph {
             path,
             at,
             &format!(
-                "A C++ [[Needs]] field names a C++ [[Service]] in server/services, a C++ [[Helper]] in server/helpers, a C++ [[Converter]] in server/converters or a C++ [[HTTPClient]] in server/remotes, and there is no {needed}.hpp in any of them. Write the class in its own file there, named after the class"
+                "A C++ [[Needs]] field names a C++ [[Service]] in server/services, a C++ [[Delegate]] in server/delegates, a C++ [[Converter]] in server/converters or a C++ [[HTTPClient]] in server/remotes, and there is no {needed}.hpp in any of them. Write the class in its own file there, named after the class"
             ),
         )
     }

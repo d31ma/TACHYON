@@ -5,7 +5,7 @@ public sealed class GreetingBrokenSetup
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["greeting"] = new GreetingAnswerHelper(BehaviorJSON.Parse("{}"));
+        adapters.http["greeting"] = new GreetingAnswerDelegate(BehaviorJSON.Parse("{}"));
         return adapters;
     }
 }

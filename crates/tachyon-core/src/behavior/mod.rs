@@ -141,7 +141,7 @@ impl Marker {
         "Id",
         "Service",
         "Lifetime",
-        "Helper",
+        "Delegate",
         "Converter",
         "Convert",
         "Needs",
@@ -179,11 +179,10 @@ impl Marker {
         "LocalState",
         "SessionState",
     ];
-    const RETIRED_NAMES: [(&str, &str); 5] = [
+    const RETIRED_NAMES: [(&str, &str); 4] = [
         ("Cache", "CacheSettings"),
         ("SpringBootTest", "Test"),
         ("Pageable", "PageDefaults"),
-        ("Delegate", "Helper"),
         ("EventPublisher", "an injected ApplicationEventPublisher"),
     ];
     const SLICE_ADVICE: &str = "write Test: there is no ambient context to slice, because an invocation owns its own instance graph and a Setup is always selected explicitly";
@@ -375,7 +374,7 @@ fn test_source_markers<'a>(
 fn tac_only_marker(input: &Input<'_>, marker: &Marker) -> bool {
     if matches!(
         marker.name.as_str(),
-        "Client" | "Service" | "Lifetime" | "Helper" | "Converter"
+        "Client" | "Service" | "Lifetime" | "Delegate" | "Converter"
     ) {
         return true;
     }
@@ -1645,7 +1644,7 @@ fn class_value(
             }
             Value::Bool(true)
         }
-        "Service" | "Helper" | "Converter" | "FreshStart" => flag_without_arguments(input, marker)?,
+        "Service" | "Delegate" | "Converter" | "FreshStart" => flag_without_arguments(input, marker)?,
         "Test" => testing::unit(input, marker)?,
         "TestSetup" => {
             let flagged = flag_without_arguments(input, marker)?;
@@ -1736,7 +1735,7 @@ fn class_data_key(marker_name: &str) -> &'static str {
         "Description" => "description",
         "Service" => "service",
         "Lifetime" => "scope",
-        "Helper" => "helper",
+        "Delegate" => "helper",
         "Converter" => "mapper",
         "Test" => "test",
         "TestSetup" => "testConfiguration",
@@ -3012,7 +3011,7 @@ mod tests {
             output.contains("constructor(path, title) { this.path = path; this.title = title; }")
         );
         assert!(output.contains("export const __tachyon_required_args__ = [\"path\",\"title\"];"));
-        let role = "@Service()\n@NeedsAll('path')\nclass Helper {\npath;\n}\n";
+        let role = "@Service()\n@NeedsAll('path')\nclass Delegate {\npath;\n}\n";
         let output = lowered("client/services/PagerService.js", role, "tac");
         assert!(!output.contains("__tachyon_required_args__"));
         let yon = lowered("yon.js", service, "yon");

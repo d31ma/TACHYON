@@ -5,16 +5,16 @@ struct PythonNamedPage;
 impl PythonNamedPage {
     const HELPERS: [(&'static str, &'static str); 2] = [
         (
-            "client/helpers/GreeterHelper.py",
-            "@helper\nclass GreeterHelper:\n    def greet(self) -> str:\n        return 'hi'\n",
+            "client/delegates/GreeterDelegate.py",
+            "@delegate\nclass GreeterDelegate:\n    def greet(self) -> str:\n        return 'hi'\n",
         ),
         (
-            "client/helpers/LoudGreeterHelper.py",
-            "@helper\nclass LoudGreeterHelper:\n    def greet(self) -> str:\n        return 'HI'\n",
+            "client/delegates/LoudGreeterDelegate.py",
+            "@delegate\nclass LoudGreeterDelegate:\n    def greet(self) -> str:\n        return 'HI'\n",
         ),
     ];
 
-    const SERVICE: &'static str = "from typing import Annotated\n\n@service\nclass WelcomeService:\n    greeter: Annotated[GreeterHelper, needs, named(\"LoudGreeterHelper\")]\n    plain: Annotated[GreeterHelper, needs]\n\n    \
+    const SERVICE: &'static str = "from typing import Annotated\n\n@service\nclass WelcomeService:\n    greeter: Annotated[GreeterDelegate, needs, named(\"LoudGreeterDelegate\")]\n    plain: Annotated[GreeterDelegate, needs]\n\n    \
          def welcome(self) -> str:\n        return self.greeter.greet()\n\n    \
          def hello(self) -> str:\n        return self.plain.greet()\n";
 

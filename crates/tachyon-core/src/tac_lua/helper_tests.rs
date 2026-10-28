@@ -10,16 +10,16 @@ impl HelperPage {
 
     const HELPERS: [(&str, &str); 2] = [
         (
-            "client/helpers/LevelHelper.lua",
-            "-- @Helper\n---@class LevelHelper\nLevelHelper = {\n  -- @Needs\n  ---@type ScaleHelper\n  scale = nil,\n  ---@type integer\n  calls = 0,\n}\n\n---@param level integer\n---@return integer\nfunction LevelHelper:raised(level)\n  self.calls = self.calls + 1\n  return self.scale:times(level) + self.calls\nend\n",
+            "client/delegates/LevelDelegate.lua",
+            "-- @Delegate\n---@class LevelDelegate\nLevelDelegate = {\n  -- @Needs\n  ---@type ScaleDelegate\n  scale = nil,\n  ---@type integer\n  calls = 0,\n}\n\n---@param level integer\n---@return integer\nfunction LevelDelegate:raised(level)\n  self.calls = self.calls + 1\n  return self.scale:times(level) + self.calls\nend\n",
         ),
         (
-            "client/helpers/math/ScaleHelper.lua",
-            "-- @Helper\n---@class ScaleHelper\nScaleHelper = {}\n\n---@param level integer\n---@return integer\nfunction ScaleHelper:times(level)\n  return level * 10\nend\n",
+            "client/delegates/math/ScaleDelegate.lua",
+            "-- @Delegate\n---@class ScaleDelegate\nScaleDelegate = {}\n\n---@param level integer\n---@return integer\nfunction ScaleDelegate:times(level)\n  return level * 10\nend\n",
         ),
     ];
 
-    const SERVICE: &str = "-- @Service\n---@class TallyService\nTallyService = {\n  -- @Needs\n  ---@type LevelHelper\n  levels = nil,\n  ---@type integer\n  level = 0,\n}\n\n---@param level integer\n---@return integer\nfunction TallyService:raise(level)\n  self.level = self.levels:raised(level)\n  return self.level\nend\n";
+    const SERVICE: &str = "-- @Service\n---@class TallyService\nTallyService = {\n  -- @Needs\n  ---@type LevelDelegate\n  levels = nil,\n  ---@type integer\n  level = 0,\n}\n\n---@param level integer\n---@return integer\nfunction TallyService:raise(level)\n  self.level = self.levels:raised(level)\n  return self.level\nend\n";
 
     const DRIVER: &str = "const { default: TallyService } = await import('./TallyService.js')\n\
          const first = new TallyService({}), second = new TallyService({})\n\
@@ -29,16 +29,16 @@ impl HelperPage {
 
     const CYCLE: [(&str, &str); 2] = [
         (
-            "client/helpers/LeftHelper.lua",
-            "-- @Helper\n---@class LeftHelper\nLeftHelper = {\n  -- @Needs\n  ---@type RightHelper\n  right = nil,\n}\n",
+            "client/delegates/LeftDelegate.lua",
+            "-- @Delegate\n---@class LeftDelegate\nLeftDelegate = {\n  -- @Needs\n  ---@type RightDelegate\n  right = nil,\n}\n",
         ),
         (
-            "client/helpers/RightHelper.lua",
-            "-- @Helper\n---@class RightHelper\nRightHelper = {\n  -- @Needs\n  ---@type LeftHelper\n  left = nil,\n}\n",
+            "client/delegates/RightDelegate.lua",
+            "-- @Delegate\n---@class RightDelegate\nRightDelegate = {\n  -- @Needs\n  ---@type LeftDelegate\n  left = nil,\n}\n",
         ),
     ];
 
-    const CYCLE_SERVICE: &str = "-- @Service\n---@class LoopService\nLoopService = {\n  -- @Needs\n  ---@type LeftHelper\n  left = nil,\n}\n\n---@return string\nfunction LoopService:name()\n  return \"loop\"\nend\n";
+    const CYCLE_SERVICE: &str = "-- @Service\n---@class LoopService\nLoopService = {\n  -- @Needs\n  ---@type LeftDelegate\n  left = nil,\n}\n\n---@return string\nfunction LoopService:name()\n  return \"loop\"\nend\n";
 
     const CYCLE_DRIVER: &str = "const { default: LoopService } = await import('./LoopService.js')\n\
          let failure = ''\n\
@@ -60,12 +60,12 @@ impl HelperPage {
             "-- @Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})\n---@class ProductStore\nProductStore = {}\n\n---@param status string\n---@return integer\nfunction ProductStore:count_by_status(status)\nend\n",
         ),
         (
-            "client/helpers/ShelfHelper.lua",
-            "-- @Helper\n---@class ShelfHelper\nShelfHelper = {\n  -- @Needs\n  ---@type ProductStore\n  products = nil,\n}\n\n---@return integer\nfunction ShelfHelper:active()\n  return self.products:count_by_status(\"active\")\nend\n",
+            "client/delegates/ShelfDelegate.lua",
+            "-- @Delegate\n---@class ShelfDelegate\nShelfDelegate = {\n  -- @Needs\n  ---@type ProductStore\n  products = nil,\n}\n\n---@return integer\nfunction ShelfDelegate:active()\n  return self.products:count_by_status(\"active\")\nend\n",
         ),
     ];
 
-    const SHELF_SERVICE: &str = "-- @Service\n---@class ShelfService\nShelfService = {\n  -- @Needs\n  ---@type ShelfHelper\n  shelf = nil,\n}\n\n---@return nil\n-- @OnStart\nfunction ShelfService:start()\n  self.behaviors = Behaviors.create(CatalogSetup, { partition = \"catalog\", signal = BehaviorSignal.new() })\nend\n\n---@param id string\n---@param status string\n---@return table\nfunction ShelfService:add(id, status)\n  return self.behaviors:repository(ProductEntity):save({ id = id, status = status })\nend\n\n---@return integer\nfunction ShelfService:active()\n  return self.shelf:active()\nend\n";
+    const SHELF_SERVICE: &str = "-- @Service\n---@class ShelfService\nShelfService = {\n  -- @Needs\n  ---@type ShelfDelegate\n  shelf = nil,\n}\n\n---@return nil\n-- @OnStart\nfunction ShelfService:start()\n  self.behaviors = Behaviors.create(CatalogSetup, { partition = \"catalog\", signal = BehaviorSignal.new() })\nend\n\n---@param id string\n---@param status string\n---@return table\nfunction ShelfService:add(id, status)\n  return self.behaviors:repository(ProductEntity):save({ id = id, status = status })\nend\n\n---@return integer\nfunction ShelfService:active()\n  return self.shelf:active()\nend\n";
 
     const SHELF_DRIVER: &str = "console.info = () => {}\n\
          globalThis.indexedDB = { databases: async () => [], open: () => ({}) }\n\
@@ -76,7 +76,7 @@ impl HelperPage {
          console.log(JSON.stringify({ active: shelf.active() }))\n\
          process.exit(0)\n";
 
-    const HOOKED: &str = "-- @Helper\n---@class ScaleHelper\nScaleHelper = {}\n\n---@return nil\n-- @OnStart\nfunction ScaleHelper:start()\nend\n";
+    const HOOKED: &str = "-- @Delegate\n---@class ScaleDelegate\nScaleDelegate = {}\n\n---@return nil\n-- @OnStart\nfunction ScaleDelegate:start()\nend\n";
 
     fn node_available() -> bool {
         let found = crate::node_driver::NodeDriver::available();
@@ -159,14 +159,14 @@ fn a_lua_service_and_its_helpers_get_their_helper_tables() {
     }
     let program = HelperPage::program(root.path(), "tally", "TallyService", HelperPage::SERVICE);
     for part in [
-        "TallyService.__tachyonHelpers = { [\"levels\"] = \"LevelHelper\" }\n",
-        "LevelHelper.__tachyonHelpers = { [\"scale\"] = \"ScaleHelper\" }\n",
-        "function ScaleHelper:times(level)",
+        "TallyService.__tachyonHelpers = { [\"levels\"] = \"LevelDelegate\" }\n",
+        "LevelDelegate.__tachyonHelpers = { [\"scale\"] = \"ScaleDelegate\" }\n",
+        "function ScaleDelegate:times(level)",
     ] {
         assert!(program.contains(part), "{part:?}:\n{program}");
     }
     assert!(
-        !program.contains("ScaleHelper.__tachyonHelpers"),
+        !program.contains("ScaleDelegate.__tachyonHelpers"),
         "{program}"
     );
     let registered = program
@@ -218,7 +218,7 @@ async fn a_lua_helper_that_needs_itself_stops_the_service_with_a_clear_message()
     let report = HelperPage::run(root.path(), HelperPage::CYCLE_DRIVER);
     let failure = report["failure"].as_str().unwrap_or_default();
     assert!(
-        failure.contains("The Helper LeftHelper needs itself through its -- @Needs fields"),
+        failure.contains("The Delegate LeftDelegate needs itself through its -- @Needs fields"),
         "{report}"
     );
 }
@@ -254,28 +254,28 @@ fn a_lua_helper_with_a_lifecycle_hook_stops_the_build() {
     let root = tempfile::tempdir().expect("project");
     HelperPage::write(
         root.path(),
-        "client/helpers/math/ScaleHelper.lua",
+        "client/delegates/math/ScaleDelegate.lua",
         HelperPage::HOOKED,
     );
-    let service = HelperPage::SERVICE.replace("LevelHelper", "ScaleHelper");
+    let service = HelperPage::SERVICE.replace("LevelDelegate", "ScaleDelegate");
     let path = HelperPage::write(root.path(), "client/services/TallyService.lua", &service);
     let failure = LuaWebServices::program(
         root.path(),
         &[(String::from("tally"), String::from("TallyService"), path)],
     )
-    .expect_err("a Helper hook the page never runs");
+    .expect_err("a Delegate hook the page never runs");
     let diagnostic = &failure.diagnostics()[0];
     assert_eq!(diagnostic.code.number(), 1605, "{failure}");
     assert!(
         diagnostic
             .message
-            .starts_with("The Lua Helper ScaleHelper has an OnStart, OnStop or OnEvent method."),
+            .starts_with("The Lua Delegate ScaleDelegate has an OnStart, OnStop or OnEvent method."),
         "{failure}"
     );
     let start = HelperPage::HOOKED.find("-- @OnStart").expect("hook");
     let span = &diagnostic.spans[0];
     assert_eq!(
-        span.file, "client/helpers/math/ScaleHelper.lua",
+        span.file, "client/delegates/math/ScaleDelegate.lua",
         "{failure}"
     );
     assert_eq!(

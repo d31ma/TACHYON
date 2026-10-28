@@ -73,7 +73,7 @@ private:
 
 class [[Service, Description("Places the opening order")]] CheckoutService {
     ApplicationEventPublisher applicationEventPublisher;
-    [[Needs]] [[Named("FeeHelper")]] FeeHelper& fees;
+    [[Needs]] [[Named("FeeDelegate")]] FeeDelegate& fees;
 
 public:
     int total() const { return fees.fee(); }
@@ -87,12 +87,12 @@ public:
 "#,
         ),
         (
-            "server/helpers/FeeHelper.hpp",
-            "#pragma once\n\nclass [[Helper]] [[NeedsAll]] FeeHelper {\n    RateHelper& rates;\n\npublic:\n    int fee() const { return rates.rate() + 1; }\n};\n",
+            "server/delegates/FeeDelegate.hpp",
+            "#pragma once\n\nclass [[Delegate]] [[NeedsAll]] FeeDelegate {\n    RateDelegate& rates;\n\npublic:\n    int fee() const { return rates.rate() + 1; }\n};\n",
         ),
         (
-            "server/helpers/RateHelper.hpp",
-            "#pragma once\n\nclass [[Helper]] RateHelper {\npublic:\n    int rate() const { return 2; }\n};\n",
+            "server/delegates/RateDelegate.hpp",
+            "#pragma once\n\nclass [[Delegate]] RateDelegate {\npublic:\n    int rate() const { return 2; }\n};\n",
         ),
     ];
 
@@ -174,14 +174,14 @@ fn a_controller_receives_its_services_and_helpers_in_dependency_order() {
         .source;
     let order: Vec<usize> = [
         "class [[Service]] AuditService",
-        "class [[Helper]] RateHelper",
-        "class [[Helper]] [[NeedsAll]] FeeHelper",
+        "class [[Delegate]] RateDelegate",
+        "class [[Delegate]] [[NeedsAll]] FeeDelegate",
         "CheckoutService {",
         "LifecycleController {",
     ]
     .iter()
     .map(|class| {
-        let blanked = class.replace("[[Helper]]", "          ");
+        let blanked = class.replace("[[Delegate]]", "          ");
         let blanked = blanked.replace("[[NeedsAll]]", "            ");
         let blanked = blanked.replace("[[Service]]", "           ");
         program.find(&blanked).expect(class)
@@ -192,8 +192,8 @@ fn a_controller_receives_its_services_and_helpers_in_dependency_order() {
     assert!(
         program.contains("AuditService& audit = ::tachyon::yon::YonNeeds::of<AuditService>();")
     );
-    assert!(program.contains("RateHelper& rates = ::tachyon::yon::YonNeeds::of<RateHelper>();"));
-    assert!(program.contains("FeeHelper& fees = ::tachyon::yon::YonNeeds::of<FeeHelper>();"));
+    assert!(program.contains("RateDelegate& rates = ::tachyon::yon::YonNeeds::of<RateDelegate>();"));
+    assert!(program.contains("FeeDelegate& fees = ::tachyon::yon::YonNeeds::of<FeeDelegate>();"));
     assert!(program.contains("made.start = [&owner] { owner.start(); };"));
     assert!(program.contains("made.stop = [&owner] { owner.stop(); };"));
     assert!(program.contains(r#""events":["PlacedOrder"]"#));
@@ -205,9 +205,9 @@ fn a_controller_receives_its_services_and_helpers_in_dependency_order() {
 #[test]
 fn a_transient_helper_is_made_for_each_field() {
     let root = Roles::project(&[(
-        "server/helpers/RateHelper.hpp",
-        "class [[Helper]] RateHelper",
-        "class [[Helper, Lifetime(\"transient\")]] RateHelper",
+        "server/delegates/RateDelegate.hpp",
+        "class [[Delegate]] RateDelegate",
+        "class [[Delegate, Lifetime(\"transient\")]] RateDelegate",
     )]);
     let refused = Roles::lower(root.path(), Roles::CONTROLLER)
         .err()
@@ -224,11 +224,11 @@ fn a_transient_helper_is_made_for_each_field() {
     );
     let quiet = quiet.replace(
         "[[Needs]] AuditService& audit;",
-        "[[Needs]] FeeHelper& fees;",
+        "[[Needs]] FeeDelegate& fees;",
     );
     let program = Roles::lower(root.path(), &quiet).expect("lowered").source;
-    assert!(program.contains("return YonContainer::fresh<::RateHelper>("));
-    assert!(program.contains("static ::FeeHelper* slot = nullptr;"));
+    assert!(program.contains("return YonContainer::fresh<::RateDelegate>("));
+    assert!(program.contains("static ::FeeDelegate* slot = nullptr;"));
 }
 
 #[test]
@@ -236,26 +236,26 @@ fn the_provider_graph_refuses_what_cannot_be_built() {
     let cases = [
         (
             "server/services/CheckoutService.hpp",
-            "[[Named(\"FeeHelper\")]]",
-            "[[Named(\"PriceHelper\")]]",
-            "there is no PriceHelper.hpp",
+            "[[Named(\"FeeDelegate\")]]",
+            "[[Named(\"PriceDelegate\")]]",
+            "there is no PriceDelegate.hpp",
         ),
         (
             "server/services/CheckoutService.hpp",
-            "[[Named(\"FeeHelper\")]]",
+            "[[Named(\"FeeDelegate\")]]",
             "[[Named(\"Clock\")]]",
             "there is no Clock.hpp",
         ),
         (
-            "server/helpers/RateHelper.hpp",
-            "class [[Helper]] RateHelper",
-            "class [[Helper, Lifetime(\"request\")]] RateHelper",
-            "captures a request-scoped object through RateHelper",
+            "server/delegates/RateDelegate.hpp",
+            "class [[Delegate]] RateDelegate",
+            "class [[Delegate, Lifetime(\"request\")]] RateDelegate",
+            "captures a request-scoped object through RateDelegate",
         ),
         (
-            "server/helpers/RateHelper.hpp",
-            "class [[Helper]] RateHelper",
-            "class [[Helper, Lifetime({\"value\":\"prototype\"})]] RateHelper",
+            "server/delegates/RateDelegate.hpp",
+            "class [[Delegate]] RateDelegate",
+            "class [[Delegate, Lifetime({\"value\":\"prototype\"})]] RateDelegate",
             "takes one quoted scope",
         ),
         (
@@ -272,8 +272,8 @@ fn the_provider_graph_refuses_what_cannot_be_built() {
         ),
         (
             "server/services/CheckoutService.hpp",
-            "[[Needs]] [[Named(\"FeeHelper\")]] FeeHelper& fees;",
-            "[[Needs]] [[Named(\"FeeHelper\")]] FeeHelper fees;",
+            "[[Needs]] [[Named(\"FeeDelegate\")]] FeeDelegate& fees;",
+            "[[Needs]] [[Named(\"FeeDelegate\")]] FeeDelegate fees;",
             "is a reference with no initial value",
         ),
     ];
@@ -286,7 +286,7 @@ fn the_provider_graph_refuses_what_cannot_be_built() {
 #[test]
 fn a_worker_is_a_handler_with_a_post_method_and_its_own_schedule() {
     let path = "server/workers/beat.hpp";
-    let worker = "#pragma once\n\nclass [[Schedule({\"fixedDelaySeconds\":30,\"initialDelaySeconds\":0})]] Handler {\n    [[Needs]] RateHelper& rates;\n\npublic:\n    int POST() { return rates.rate(); }\n};\n";
+    let worker = "#pragma once\n\nclass [[Schedule({\"fixedDelaySeconds\":30,\"initialDelaySeconds\":0})]] Handler {\n    [[Needs]] RateDelegate& rates;\n\npublic:\n    int POST() { return rates.rate(); }\n};\n";
     let read = CppYonController::read(Path::new(path), worker).expect("worker");
     assert_eq!(read.routes[0].verb, "POST");
     assert_eq!(read.routes[0].pattern, None);

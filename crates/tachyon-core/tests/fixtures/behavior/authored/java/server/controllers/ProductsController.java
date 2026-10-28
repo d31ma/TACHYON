@@ -3,6 +3,6 @@
 class ProductsController {
     @GetRoute
     Object getProducts() {
-        return ProductChecksHelper.run();
+        return ProductChecksDelegate.run();
     }
 }

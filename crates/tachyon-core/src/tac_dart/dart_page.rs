@@ -176,18 +176,18 @@ mod tests {
         let mut page = DartPage::default();
         page.add(
             "client/services/ReaderService.dart",
-            "class Helper {\n  int value = 1;\n}\n",
+            "class Delegate {\n  int value = 1;\n}\n",
         )
         .expect("reader");
         let error = page
             .add(
                 "client/services/WriterService.dart",
-                "// a comment\nclass Helper {\n  int value = 2;\n}\n",
+                "// a comment\nclass Delegate {\n  int value = 2;\n}\n",
             )
             .expect_err("conflict");
         assert!(
             error.contains(
-                "'Helper' is also declared, differently, by client/services/ReaderService.dart"
+                "'Delegate' is also declared, differently, by client/services/ReaderService.dart"
             ),
             "{error}"
         );

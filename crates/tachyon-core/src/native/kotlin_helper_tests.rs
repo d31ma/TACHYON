@@ -6,15 +6,15 @@ use crate::project::NativeCompanion;
 struct KotlinHelperProject;
 
 impl KotlinHelperProject {
-    const RATE: &'static str = "@Helper\nclass TaxRateHelper {\n    fun rate(): Int = 2\n}\n";
-    const TAX: &'static str = "@Helper\nclass TaxHelper {\n    @Needs\n    val rates: TaxRateHelper\n\n    fun addTax(subtotal: Int): Int = subtotal + rates.rate()\n}\n";
-    const SERVICE: &'static str = "@Service\nclass CheckoutService {\n    @Needs\n    val helper: TaxHelper\n\n    fun total(): Int = helper.addTax(40)\n}\n";
+    const RATE: &'static str = "@Delegate\nclass TaxRateDelegate {\n    fun rate(): Int = 2\n}\n";
+    const TAX: &'static str = "@Delegate\nclass TaxDelegate {\n    @Needs\n    val rates: TaxRateDelegate\n\n    fun addTax(subtotal: Int): Int = subtotal + rates.rate()\n}\n";
+    const SERVICE: &'static str = "@Service\nclass CheckoutService {\n    @Needs\n    val helper: TaxDelegate\n\n    fun total(): Int = helper.addTax(40)\n}\n";
 
     fn registry(tax: &str, browser: bool) -> Result<String, crate::Failure> {
         let root = tempfile::tempdir().expect("project");
         for (relative, text) in [
-            ("client/helpers/TaxRateHelper.kt", Self::RATE),
-            ("client/helpers/TaxHelper.kt", tax),
+            ("client/delegates/TaxRateDelegate.kt", Self::RATE),
+            ("client/delegates/TaxDelegate.kt", tax),
             ("client/services/CheckoutService.kt", Self::SERVICE),
         ] {
             let path = root.path().join(relative);
@@ -41,18 +41,18 @@ impl KotlinHelperProject {
 fn a_kotlin_service_and_its_helper_create_the_helpers_they_need() {
     for browser in [true, false] {
         let registry = KotlinHelperProject::registry(KotlinHelperProject::TAX, browser)
-            .expect("Kotlin Helpers");
+            .expect("Kotlin Delegates");
         for expected in [
-            "private val helper: TaxHelper = TaxHelper()",
-            "private val rates: TaxRateHelper = TaxRateHelper()",
-            "class TaxRateHelper {",
+            "private val helper: TaxDelegate = TaxDelegate()",
+            "private val rates: TaxRateDelegate = TaxRateDelegate()",
+            "class TaxRateDelegate {",
         ] {
             assert!(
                 registry.contains(expected),
                 "missing {expected}\n{registry}"
             );
         }
-        assert!(!registry.contains("@Helper"), "{registry}");
+        assert!(!registry.contains("@Delegate"), "{registry}");
         assert!(!registry.contains("constructor(rates"), "{registry}");
     }
 }
@@ -63,7 +63,7 @@ fn a_kotlin_helper_refuses_managed_lifetimes_and_hooks() {
         ("@NeedsAll\n", ""),
         ("@Lifetime({\"value\":\"prototype\"})\n", ""),
         ("", "    @OnStart\n    fun open() {}\n"),
-        ("", "    @OnEvent\n    fun heard(value: TaxRateHelper) {}\n"),
+        ("", "    @OnEvent\n    fun heard(value: TaxRateDelegate) {}\n"),
     ] {
         let tax = format!(
             "{marker}{}",
@@ -75,7 +75,7 @@ fn a_kotlin_helper_refuses_managed_lifetimes_and_hooks() {
         assert!(
             error
                 .to_string()
-                .contains("A Kotlin Tac Helper is a new object"),
+                .contains("A Kotlin Tac Delegate is a new object"),
             "{marker}{member}: {error}"
         );
     }

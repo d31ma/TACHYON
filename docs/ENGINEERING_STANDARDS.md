@@ -78,7 +78,7 @@ member of `client/manifest.json`
 
 Application files with framework annotations and Yon handler files have a
 stricter boundary: one class and its imports, with same-type Rust impl blocks
-and nested types allowed. Helper declarations move to their own role, model
+and nested types allowed. Delegate declarations move to their own role, model
 or shared files. Controllers are entries in `server/controllers/`; route markers are retired.
 TestSetup lives beside its test in a separate named file. These are
 authored-source rules, not restrictions on compiler-generated composition
@@ -139,7 +139,7 @@ authored-source rules, not restrictions on compiler-generated composition
   (application binary interface).
 - Controller endpoints use `GetRoute`, `PostRoute`, `PutRoute`, `PatchRoute`
   or `DeleteRoute`. Their names start with the matching verb. Parameters and
-  model return types define validation and the generated schema. Helpers do
+  model return types define validation and the generated schema. Delegates do
   not register endpoints. Annotations do not run during discovery. See ADR 0048.
 - Routes, middleware, and workers use the framework-owned Yon languages.
   Other programs must cross an explicit `relay(command, request)` boundary or
@@ -271,7 +271,7 @@ the project-local `.tachyon/handlers` cache.
   - `YON_` for server and handler runtime policy.
 
   Do not add a `TACHYON_` environment namespace.
-- Avoid `Impl`, `Util`, `Helper`, `Manager`, and `Common`.
+- Avoid `Impl`, `Util`, `Delegate`, `Manager`, and `Common`.
 - Application role annotations require that the type name matches the file
   name and that the parent directory name is plural. Behavioral modifiers do
   not change where a file goes.

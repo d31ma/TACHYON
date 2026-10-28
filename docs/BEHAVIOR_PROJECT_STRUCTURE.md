@@ -23,7 +23,7 @@ live in `client/models/` or `server/models/` (see
 | `Service` | `MoneyService` | `client/services/` or `server/services/MoneyService.<ext>` |
 | `Store` | `MoneyStore` | `client/stores/` or `server/stores/MoneyStore.<ext>` |
 | `HTTPClient` | `MoneyClient` | `client/remotes/` or `server/remotes/MoneyClient.<ext>` |
-| `Helper` | `MoneyHelper` | `client/helpers/` or `server/helpers/MoneyHelper.<ext>` |
+| `Delegate` | `MoneyDelegate` | `client/delegates/` or `server/delegates/MoneyDelegate.<ext>` |
 | `Converter` | `MoneySummaryConverter` | `client/converters/` or `server/converters/MoneySummaryConverter.<ext>` |
 | `Setup` | `MoneySetup` | `client/setups/` or `server/setups/MoneySetup.<ext>` |
 | `Entity` | `MoneyEntity` | `client/entities/` or `server/entities/MoneyEntity.<ext>` |
@@ -40,14 +40,14 @@ the `impl` blocks for that same type in one file.
 
 Move pure data types into `models/` and plain helper code into `shared/`, using
 the language's supported imports. A discoverable adapter or annotated binding
-holder can be a separately named `Helper` in `helpers/`; for example,
-`OrderInputHelper` can also carry `Checked`. Modifiers stay on the type
+holder can be a separately named `Delegate` in `delegates/`; for example,
+`OrderInputDelegate` can also carry `Checked`. Modifiers stay on the type
 or member they describe, not on another helper class in the same file.
 
 A behavior-only class such as a `CacheSettings` or `Settings`
 holder can instead have its own file in an existing role folder such as
 `helpers/`. It is composed without being registered for dependency injection;
-only a primary role such as `Helper` adds that role. Unannotated helpers
+only a primary role such as `Delegate` adds that role. Unannotated helpers
 are not automatically composed. Included role files still reject relocatable
 relative imports; use the existing supported imports rather than placing
 imports alone in an otherwise empty route marker.
@@ -83,8 +83,8 @@ both realms (ADR 0031).
   `client/services` (ADR 0030).
 - Lifetime applies to both. A Tac service is a page singleton by default.
   `@Lifetime({"value":"prototype"})` creates one for each component instance.
-- A Tac Helper is an injectable role with no process rights.
-- A Tac Helper and a Tac Client are providers. They are injected into
+- A Tac Delegate is an injectable role with no process rights.
+- A Tac Delegate and a Tac Client are providers. They are injected into
   services through NeedsAll. A Tac Store is a contract that names its Entity;
   a Tac service builds it (ADR 0022 amendment).
 - HTTPClient also supports automatic browser Tac JS/TS construction. A client
@@ -101,7 +101,7 @@ Modifiers do not change naming or placement. Examples of modifiers: Needs,
 Lifetime, CacheSettings, NeedsAll, Table, WhenProfile, WhenSetting, Settings,
 Checked, field Setting, OnEvent, OnStart, OnStop, Order and InBackground. MoneyEntity may also carry Table.
 A modifier does not require another suffix. When a binding holder also uses
-the discoverable `Helper` role, its class and filename end in `Helper`.
+the discoverable `Delegate` role, its class and filename end in `Delegate`.
 
 ## Required fields, not handwritten constructors
 
@@ -173,7 +173,7 @@ The role folders mirror each other:
 | client/stores | server/stores |
 | client/setups | server/setups |
 | client/entities | server/entities |
-| client/helpers | server/helpers |
+| client/delegates | server/delegates |
 | client/converters | server/converters |
 | client/shared/utils | server/utils |
 

@@ -13,7 +13,7 @@
   },
   {
     "title": "Typed controllers",
-    "body": "In Yon (the backend part of Tachyon), a controller answers requests. `@GetRoute`, `@PostRoute` and the other route annotations mark its methods. Its argument and return types check the data. Helper code needs no framework annotations. Annotated classes follow strict rules for role names and folders."
+    "body": "In Yon (the backend part of Tachyon), a controller answers requests. `@GetRoute`, `@PostRoute` and the other route annotations mark its methods. Its argument and return types check the data. Delegate code needs no framework annotations. Annotated classes follow strict rules for role names and folders."
   },
   {
     "title": "Native services",

@@ -4,7 +4,7 @@ from models import Guide
 
 @service
 class LibraryService:
-    shelf: Annotated[ShelfHelper, needs]
+    shelf: Annotated[ShelfDelegate, needs]
     total: int = 0
     loaded: Annotated[str, local_state] = 'waiting'
     shelved: Annotated[str, session_state] = 'none'

@@ -602,11 +602,12 @@ impl Module {
             })
     }
 
-    const ROLE_FOLDERS: [&str; 9] = [
+    const ROLE_FOLDERS: [&str; 10] = [
         "remotes",
         "clients",
         "setups",
         "controllers",
+        "delegates",
         "helpers",
         "entities",
         "converters",
@@ -2081,7 +2082,7 @@ mod tests {
                     "@Service\nclass MoneyService {}\n",
                 ),
                 (
-                    "server/services/Helper.js",
+                    "server/services/Delegate.js",
                     "throw new Error('not a role');",
                 ),
                 (
@@ -2122,7 +2123,7 @@ mod tests {
             ("clients", "HTTPClient"),
             ("setups", "Setup"),
             ("entities", "Entity"),
-            ("helpers", "Helper"),
+            ("delegates", "Delegate"),
         ];
         for (folder, role) in shared_roles {
             let suffix = if role == "HTTPClient" { "Client" } else { role };
@@ -2135,7 +2136,7 @@ mod tests {
         let orders = composed_controller(root.path(), "Orders");
         let products = composed_controller(root.path(), "Products");
         for composed in [&orders, &products] {
-            for suffix in ["Service", "Store", "Client", "Setup", "Entity", "Helper"] {
+            for suffix in ["Service", "Store", "Client", "Setup", "Entity", "Delegate"] {
                 assert!(
                     composed.contains(&format!("class Shared{suffix}")),
                     "{suffix}"
@@ -2197,8 +2198,8 @@ mod tests {
                     "@Service()\nexport default class CatalogService {}\n",
                 ),
                 (
-                    "client/helpers/PricingHelper.js",
-                    "@Helper()\nclass PricingHelper {}\n",
+                    "client/delegates/PricingDelegate.js",
+                    "@Delegate()\nclass PricingDelegate {}\n",
                 ),
                 (
                     "client/stores/BasketStore.js",
@@ -2217,7 +2218,7 @@ mod tests {
         );
         let composed = composed_entry(root.path(), entry, source, "tac");
         for role in [
-            "PricingHelper",
+            "PricingDelegate",
             "BasketStore",
             "ProductsClient",
             "ProductEntity",
@@ -2340,8 +2341,8 @@ mod tests {
             write(root.path(), entry, source);
             write(
                 root.path(),
-                &format!("{realm}/helpers/text/TextHelper.js"),
-                "@Helper\nclass TextHelper {}\n",
+                &format!("{realm}/delegates/text/TextDelegate.js"),
+                "@Delegate\nclass TextDelegate {}\n",
             );
             write(
                 root.path(),
@@ -2349,7 +2350,7 @@ mod tests {
                 "@HTTPClient\nclass MoneyClient {}\n",
             );
             let output = composed_entry(root.path(), entry, source, environment);
-            assert_contains(&output, "class TextHelper");
+            assert_contains(&output, "class TextDelegate");
             assert_contains(&output, "class MoneyClient");
         }
         let rebased = SharedImports::rebase(
@@ -2462,19 +2463,19 @@ mod tests {
         let root = tempfile::tempdir().expect("project");
         let entry = "client/services/ShellService.java";
         write(root.path(), entry, "");
-        let helper = "client/helpers/MoneyHelper.java";
+        let helper = "client/delegates/MoneyDelegate.java";
         write(
             root.path(),
             helper,
-            "@Helper\npublic class MoneyHelper {\n    @OnStart\n    void open() {}\n}",
+            "@Delegate\npublic class MoneyDelegate {\n    @OnStart\n    void open() {}\n}",
         );
         let failure = assemble(root.path(), Path::new(entry), "", "tac")
-            .expect_err("a Java Helper has no lifecycle hooks");
+            .expect_err("a Java Delegate has no lifecycle hooks");
         let diagnostic = &failure.diagnostics()[0];
         assert!(
             diagnostic
                 .message
-                .contains("A Java Tac Helper is a new object"),
+                .contains("A Java Tac Delegate is a new object"),
             "{failure}"
         );
         assert_eq!(diagnostic.spans[0].file, helper, "{failure}");
@@ -2515,7 +2516,7 @@ mod tests {
 
     #[test]
     fn included_python_roles_accept_supported_typing_names_without_relocating_packages() {
-        let path = Path::new("client/helpers/CounterHelper.py");
+        let path = Path::new("client/delegates/CounterDelegate.py");
         for names in [
             "Final",
             "Optional",
@@ -2525,7 +2526,7 @@ mod tests {
             "Any, Protocol, Final, Optional",
         ] {
             let source =
-                format!("from typing import {names}\n\n@helper\nclass CounterHelper:\n    pass\n");
+                format!("from typing import {names}\n\n@delegate\nclass CounterDelegate:\n    pass\n");
             validate_imports(path, &source, "py").expect("supported standard typing declarations");
         }
         for import in [
@@ -2537,7 +2538,7 @@ mod tests {
             "from typing import ClassVar as Shared",
             "from __future__ import annotations",
         ] {
-            let source = format!("{import}\n\n@helper\nclass CounterHelper:\n    pass\n");
+            let source = format!("{import}\n\n@delegate\nclass CounterDelegate:\n    pass\n");
             let failure =
                 validate_imports(path, &source, "py").expect_err("the import guard remains narrow");
             assert_eq!(failure.diagnostics()[0].code.to_string(), "TY2101");
@@ -2548,15 +2549,15 @@ mod tests {
     fn python_tac_discovers_formal_helpers_with_final_and_optional_annotations() {
         let root = tempfile::tempdir().expect("project");
         let entry = "client/services/ShellService.py";
-        let source = "from typing import Annotated\n\n@service\nclass ShellService:\n    counter: Annotated[CounterHelper, needs]\n\n    def value(self) -> int:\n        return self.counter.read()\n";
+        let source = "from typing import Annotated\n\n@service\nclass ShellService:\n    counter: Annotated[CounterDelegate, needs]\n\n    def value(self) -> int:\n        return self.counter.read()\n";
         write(root.path(), entry, source);
         write(
             root.path(),
-            "client/helpers/CounterHelper.py",
-            "from typing import Final, Optional\n\n@helper\nclass CounterHelper:\n    _fixed: Final[int] = 1\n    _empty: Optional[str] = None\n\n    def read(self) -> int:\n        return self._fixed\n",
+            "client/delegates/CounterDelegate.py",
+            "from typing import Final, Optional\n\n@delegate\nclass CounterDelegate:\n    _fixed: Final[int] = 1\n    _empty: Optional[str] = None\n\n    def read(self) -> int:\n        return self._fixed\n",
         );
         let composed = composed_entry(root.path(), entry, source, "tac");
-        assert!(composed.contains("class CounterHelper"));
+        assert!(composed.contains("class CounterDelegate"));
         assert!(composed.contains("class ShellService"));
         assert!(composed.contains("from typing import Final, Optional"));
     }
@@ -2951,13 +2952,13 @@ mod tests {
         let source = compose(
             Path::new("client/services/ShellService.swift"),
             "import Foundation\nfinal class ShellService {}",
-            vec!["import Foundation\nfinal class MoneyHelper {}".into()],
+            vec!["import Foundation\nfinal class MoneyDelegate {}".into()],
             "swift",
             "tac",
         )
         .unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(source.matches("import Foundation").count(), 1);
-        assert!(source.find("ShellService") < source.find("MoneyHelper"));
+        assert!(source.find("ShellService") < source.find("MoneyDelegate"));
     }
 
     #[test]

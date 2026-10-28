@@ -51,8 +51,8 @@ fn client_roles_become_globals_with_their_source_types() {
     );
     write(
         root.path(),
-        "client/helpers/PricingHelper.ts",
-        "@Helper\nexport default class PricingHelper {}\n",
+        "client/delegates/PricingDelegate.ts",
+        "@Delegate\nexport default class PricingDelegate {}\n",
     );
     let text = generated(root.path(), "client");
     assert!(
@@ -73,11 +73,11 @@ fn client_roles_become_globals_with_their_source_types() {
     ));
     assert!(declares(
         &text,
-        "PricingHelper",
-        "client/helpers/PricingHelper.ts",
+        "PricingDelegate",
+        "client/delegates/PricingDelegate.ts",
         "default"
     ));
-    assert_eq!(names(&text), ["CartStore", "PricingHelper", "TopicService"]);
+    assert_eq!(names(&text), ["CartStore", "PricingDelegate", "TopicService"]);
 }
 
 #[test]
@@ -89,8 +89,8 @@ fn only_exported_annotated_role_classes_are_declared() {
             "@Service\nclass ScriptService {}\n",
         ),
         (
-            "client/services/Helper.js",
-            "export default class Helper {}\n",
+            "client/services/Delegate.js",
+            "export default class Delegate {}\n",
         ),
         (
             "client/services/notes.md",
@@ -318,18 +318,18 @@ fn helper_classes_are_declared_in_their_own_realm() {
     let root = tempfile::tempdir().expect("project");
     write(
         root.path(),
-        "client/helpers/PriceHelper.js",
-        "@Helper\nexport default class PriceHelper {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  label(cents) { return String(cents) }\n}\n",
+        "client/delegates/PriceDelegate.js",
+        "@Delegate\nexport default class PriceDelegate {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  label(cents) { return String(cents) }\n}\n",
     );
     let client = generated(root.path(), "client");
     assert!(declares(
         &client,
-        "PriceHelper",
-        "client/helpers/PriceHelper.js",
+        "PriceDelegate",
+        "client/delegates/PriceDelegate.js",
         "default"
     ));
     let server = generated(root.path(), "server");
-    assert!(!server.contains("PriceHelper"), "{server}");
+    assert!(!server.contains("PriceDelegate"), "{server}");
 }
 
 fn assert_utility_source_declaration(realm: &str, path: &str, source: &str, member: &str) {

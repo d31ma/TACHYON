@@ -5,7 +5,7 @@ public sealed class GreetingExtraSetup
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["greeting"] = new GreetingAnswerHelper(BehaviorJSON.Parse("{\"message\":\"answer\",\"extra\":true}"));
+        adapters.http["greeting"] = new GreetingAnswerDelegate(BehaviorJSON.Parse("{\"message\":\"answer\",\"extra\":true}"));
         return adapters;
     }
 }

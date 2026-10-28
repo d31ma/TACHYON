@@ -58,7 +58,7 @@ async fn a_ruby_service_that_needs_another_service_stops_the_build_at_the_field(
             .help
             .as_deref()
             .is_some_and(|help| help
-                .contains("a Store, a Converter, a Helper, an HTTPClient or a browser API")),
+                .contains("a Store, a Converter, a Delegate, an HTTPClient or a browser API")),
         "{failure}"
     );
     assert!(

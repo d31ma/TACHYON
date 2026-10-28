@@ -61,13 +61,13 @@ impl TypeScriptMarkers {
             "<p>{label.shown()} {label.clicks}</p>",
         ),
         (
-            "client/helpers/TallyHelper.ts",
-            "@Helper\nexport default class TallyHelper {\n  start(): number {\n    return 3;\n  }\n}\n",
+            "client/delegates/TallyDelegate.ts",
+            "@Delegate\nexport default class TallyDelegate {\n  start(): number {\n    return 3;\n  }\n}\n",
         ),
         (
             "client/services/LabelService.ts",
-            "@Service\n@NeedsAll\nexport default class LabelService {\n  title!: string;\n  start!: number;\n  tallyHelper!: TallyHelper;\n  clicks = 0;\n\n  \
-             shown(): string {\n    return `${this.title}:${this.start + this.tallyHelper.start() + this.clicks}`;\n  }\n}\n",
+            "@Service\n@NeedsAll\nexport default class LabelService {\n  title!: string;\n  start!: number;\n  tallyDelegate!: TallyDelegate;\n  clicks = 0;\n\n  \
+             shown(): string {\n    return `${this.title}:${this.start + this.tallyDelegate.start() + this.clicks}`;\n  }\n}\n",
         ),
     ];
 
@@ -123,7 +123,7 @@ async fn a_typescript_needs_all_service_takes_its_properties_and_its_helper() {
     );
     assert_eq!(
         report["required"],
-        serde_json::json!(["title", "start", "tallyHelper"]),
+        serde_json::json!(["title", "start", "tallyDelegate"]),
         "{report}"
     );
 }

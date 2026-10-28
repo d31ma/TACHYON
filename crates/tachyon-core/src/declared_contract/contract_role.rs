@@ -87,7 +87,7 @@ impl ContractRole {
         "httpclient",
         "service",
         "store",
-        "helper",
+        "delegate",
         "converter",
         "setup",
         "entity",

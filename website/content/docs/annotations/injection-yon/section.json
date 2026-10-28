@@ -1,12 +1,12 @@
 {
   "heading": "Injection: Yon",
-  "body": "GET /ledger returns {\"total\":42}. Three annotations connect every class to the classes it needs. Service, Helper, Needs, Named, NeedsAll and Lifetime work in every Yon language, Lua included. In Tac, Helper has a shorter language list (see Injection: Tac). Needs marks each field that the framework fills. The field must be an instance field, not static, and it must have no starting value. The framework fills the fields in the order that you declare them. The field itself decides which provider it gets. LedgerService declares one LedgerAmountsHelper field. It writes no constructor and nothing else. F# has two forms. A type can take a dependency as a parameter of its primary constructor, which is Spring's constructor injection and the recommended form: LedgerHelper takes its LedgerAmountsHelper this way. Or a Needs property can receive it: a settable `member val` with a written type, as in LedgerService, `[<Needs>] member val Amounts : LedgerAmountsHelper = Unchecked.defaultof<LedgerAmountsHelper> with get, set`. Tachyon sets the property right after the constructor runs, like a Spring field, so a test can set it too. Its type selects the provider, and Named selects another one, as for Settlement in LedgerController. A type may not take the same role both ways, or twice (TY2015). `[<NeedsAll>]` on an F# type only states what the constructor does. When the field does not decide the provider, Named gives the provider's name directly. So you can give a field any words you want, written in the language's variable case (TY1332): lowerCamel case in most languages, snake_case in Python, Ruby and Rust, and an underscore with lowerCamel case for a private C# field, such as `_service`. In LedgerController, the fields service and settlement have Named(\"LedgerService\") and Named(\"LedgerHelper\"). If a name matches no provider in the entry scope, the build fails. Without Named, the field selects its provider in the way its language allows. JavaScript uses the lowerCamel field name. Ruby and Lua use the type comment above the field, such as `# @return [LedgerService]` or `---@type LedgerService`, and the snake_case field name when there is none. Every other language uses the declared type. Lifetime takes one literal string: singleton, request or transient. A singleton is one instance that everything shares. A request-scoped instance lives for one request. A transient instance is new each time something needs it. Without Lifetime, a controller is request-scoped and everything else is a singleton. So you write Lifetime only to change that. Tachyon rejects a singleton that would depend, directly or through other providers, on a request-scoped provider.\n\nIn C++, a Needs field is a reference with no starting value, such as `[[Needs]] LedgerAmountsHelper& amounts;`. Tachyon makes the provider and binds the reference when it makes the class, so the class writes no constructor. A C++ class finds its provider by the field type, or by Named, in server/services and server/helpers (ADR 0099).",
+  "body": "GET /ledger returns {\"total\":42}. Three annotations connect every class to the classes it needs. Service, Delegate, Needs, Named, NeedsAll and Lifetime work in every Yon language, Lua included. In Tac, Delegate has a shorter language list (see Injection: Tac). Needs marks each field that the framework fills. The field must be an instance field, not static, and it must have no starting value. The framework fills the fields in the order that you declare them. The field itself decides which provider it gets. LedgerService declares one LedgerAmountsDelegate field. It writes no constructor and nothing else. F# has two forms. A type can take a dependency as a parameter of its primary constructor, which is Spring's constructor injection and the recommended form: LedgerDelegate takes its LedgerAmountsDelegate this way. Or a Needs property can receive it: a settable `member val` with a written type, as in LedgerService, `[<Needs>] member val Amounts : LedgerAmountsDelegate = Unchecked.defaultof<LedgerAmountsDelegate> with get, set`. Tachyon sets the property right after the constructor runs, like a Spring field, so a test can set it too. Its type selects the provider, and Named selects another one, as for Settlement in LedgerController. A type may not take the same role both ways, or twice (TY2015). `[<NeedsAll>]` on an F# type only states what the constructor does. When the field does not decide the provider, Named gives the provider's name directly. So you can give a field any words you want, written in the language's variable case (TY1332): lowerCamel case in most languages, snake_case in Python, Ruby and Rust, and an underscore with lowerCamel case for a private C# field, such as `_service`. In LedgerController, the fields service and settlement have Named(\"LedgerService\") and Named(\"LedgerDelegate\"). If a name matches no provider in the entry scope, the build fails. Without Named, the field selects its provider in the way its language allows. JavaScript uses the lowerCamel field name. Ruby and Lua use the type comment above the field, such as `# @return [LedgerService]` or `---@type LedgerService`, and the snake_case field name when there is none. Every other language uses the declared type. Lifetime takes one literal string: singleton, request or transient. A singleton is one instance that everything shares. A request-scoped instance lives for one request. A transient instance is new each time something needs it. Without Lifetime, a controller is request-scoped and everything else is a singleton. So you write Lifetime only to change that. Tachyon rejects a singleton that would depend, directly or through other providers, on a request-scoped provider.\n\nIn C++, a Needs field is a reference with no starting value, such as `[[Needs]] LedgerAmountsDelegate& amounts;`. Tachyon makes the provider and binds the reference when it makes the class, so the class writes no constructor. A C++ class finds its provider by the field type, or by Named, in server/services and server/delegates (ADR 0099).",
   "axis": "language",
   "files": [
     {
-      "name": "server/helpers/LedgerAmountsHelper.js",
+      "name": "server/delegates/LedgerAmountsDelegate.js",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.js"
+        "file": "server/delegates/LedgerAmountsDelegate.js"
       }
     },
     {
@@ -16,9 +16,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.js",
+      "name": "server/delegates/LedgerDelegate.js",
       "code": {
-        "file": "server/helpers/LedgerHelper.js"
+        "file": "server/delegates/LedgerDelegate.js"
       }
     },
     {
@@ -34,9 +34,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.ts",
+      "name": "server/delegates/LedgerAmountsDelegate.ts",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.ts"
+        "file": "server/delegates/LedgerAmountsDelegate.ts"
       }
     },
     {
@@ -46,9 +46,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.ts",
+      "name": "server/delegates/LedgerDelegate.ts",
       "code": {
-        "file": "server/helpers/LedgerHelper.ts"
+        "file": "server/delegates/LedgerDelegate.ts"
       }
     },
     {
@@ -64,9 +64,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.py",
+      "name": "server/delegates/LedgerAmountsDelegate.py",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.py"
+        "file": "server/delegates/LedgerAmountsDelegate.py"
       }
     },
     {
@@ -76,9 +76,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.py",
+      "name": "server/delegates/LedgerDelegate.py",
       "code": {
-        "file": "server/helpers/LedgerHelper.py"
+        "file": "server/delegates/LedgerDelegate.py"
       }
     },
     {
@@ -94,9 +94,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.php",
+      "name": "server/delegates/LedgerAmountsDelegate.php",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.php"
+        "file": "server/delegates/LedgerAmountsDelegate.php"
       }
     },
     {
@@ -106,9 +106,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.php",
+      "name": "server/delegates/LedgerDelegate.php",
       "code": {
-        "file": "server/helpers/LedgerHelper.php"
+        "file": "server/delegates/LedgerDelegate.php"
       }
     },
     {
@@ -130,15 +130,15 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.java",
+      "name": "server/delegates/LedgerAmountsDelegate.java",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.java"
+        "file": "server/delegates/LedgerAmountsDelegate.java"
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.groovy",
+      "name": "server/delegates/LedgerAmountsDelegate.groovy",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.groovy"
+        "file": "server/delegates/LedgerAmountsDelegate.groovy"
       }
     },
     {
@@ -154,15 +154,15 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.java",
+      "name": "server/delegates/LedgerDelegate.java",
       "code": {
-        "file": "server/helpers/LedgerHelper.java"
+        "file": "server/delegates/LedgerDelegate.java"
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.groovy",
+      "name": "server/delegates/LedgerDelegate.groovy",
       "code": {
-        "file": "server/helpers/LedgerHelper.groovy"
+        "file": "server/delegates/LedgerDelegate.groovy"
       }
     },
     {
@@ -184,9 +184,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.kt",
+      "name": "server/delegates/LedgerAmountsDelegate.kt",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.kt"
+        "file": "server/delegates/LedgerAmountsDelegate.kt"
       }
     },
     {
@@ -196,9 +196,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.kt",
+      "name": "server/delegates/LedgerDelegate.kt",
       "code": {
-        "file": "server/helpers/LedgerHelper.kt"
+        "file": "server/delegates/LedgerDelegate.kt"
       }
     },
     {
@@ -220,15 +220,15 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.cs",
+      "name": "server/delegates/LedgerAmountsDelegate.cs",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.cs"
+        "file": "server/delegates/LedgerAmountsDelegate.cs"
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.fs",
+      "name": "server/delegates/LedgerAmountsDelegate.fs",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.fs"
+        "file": "server/delegates/LedgerAmountsDelegate.fs"
       }
     },
     {
@@ -244,15 +244,15 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.cs",
+      "name": "server/delegates/LedgerDelegate.cs",
       "code": {
-        "file": "server/helpers/LedgerHelper.cs"
+        "file": "server/delegates/LedgerDelegate.cs"
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.fs",
+      "name": "server/delegates/LedgerDelegate.fs",
       "code": {
-        "file": "server/helpers/LedgerHelper.fs"
+        "file": "server/delegates/LedgerDelegate.fs"
       }
     },
     {
@@ -274,9 +274,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.rs",
+      "name": "server/delegates/LedgerAmountsDelegate.rs",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.rs"
+        "file": "server/delegates/LedgerAmountsDelegate.rs"
       }
     },
     {
@@ -286,9 +286,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.rs",
+      "name": "server/delegates/LedgerDelegate.rs",
       "code": {
-        "file": "server/helpers/LedgerHelper.rs"
+        "file": "server/delegates/LedgerDelegate.rs"
       }
     },
     {
@@ -304,9 +304,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.go",
+      "name": "server/delegates/LedgerAmountsDelegate.go",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.go"
+        "file": "server/delegates/LedgerAmountsDelegate.go"
       }
     },
     {
@@ -316,9 +316,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.go",
+      "name": "server/delegates/LedgerDelegate.go",
       "code": {
-        "file": "server/helpers/LedgerHelper.go"
+        "file": "server/delegates/LedgerDelegate.go"
       }
     },
     {
@@ -334,9 +334,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.dart",
+      "name": "server/delegates/LedgerAmountsDelegate.dart",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.dart"
+        "file": "server/delegates/LedgerAmountsDelegate.dart"
       }
     },
     {
@@ -346,9 +346,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.dart",
+      "name": "server/delegates/LedgerDelegate.dart",
       "code": {
-        "file": "server/helpers/LedgerHelper.dart"
+        "file": "server/delegates/LedgerDelegate.dart"
       }
     },
     {
@@ -364,9 +364,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.rb",
+      "name": "server/delegates/LedgerAmountsDelegate.rb",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.rb"
+        "file": "server/delegates/LedgerAmountsDelegate.rb"
       }
     },
     {
@@ -376,9 +376,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.rb",
+      "name": "server/delegates/LedgerDelegate.rb",
       "code": {
-        "file": "server/helpers/LedgerHelper.rb"
+        "file": "server/delegates/LedgerDelegate.rb"
       }
     },
     {
@@ -394,9 +394,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.lua",
+      "name": "server/delegates/LedgerAmountsDelegate.lua",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.lua"
+        "file": "server/delegates/LedgerAmountsDelegate.lua"
       }
     },
     {
@@ -406,9 +406,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.lua",
+      "name": "server/delegates/LedgerDelegate.lua",
       "code": {
-        "file": "server/helpers/LedgerHelper.lua"
+        "file": "server/delegates/LedgerDelegate.lua"
       }
     },
     {
@@ -418,9 +418,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerAmountsHelper.hpp",
+      "name": "server/delegates/LedgerAmountsDelegate.hpp",
       "code": {
-        "file": "server/helpers/LedgerAmountsHelper.hpp"
+        "file": "server/delegates/LedgerAmountsDelegate.hpp"
       }
     },
     {
@@ -430,9 +430,9 @@
       }
     },
     {
-      "name": "server/helpers/LedgerHelper.hpp",
+      "name": "server/delegates/LedgerDelegate.hpp",
       "code": {
-        "file": "server/helpers/LedgerHelper.hpp"
+        "file": "server/delegates/LedgerDelegate.hpp"
       }
     },
     {

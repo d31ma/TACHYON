@@ -7,16 +7,16 @@ struct KotlinHelperUnit;
 impl KotlinHelperUnit {
     const FILES: [(&'static str, &'static str); 5] = [
         (
-            "client/helpers/TaxRateHelper.kt",
-            "@Helper\nclass TaxRateHelper {\n    fun rate(): Int = 2\n}\n",
+            "client/delegates/TaxRateDelegate.kt",
+            "@Delegate\nclass TaxRateDelegate {\n    fun rate(): Int = 2\n}\n",
         ),
         (
-            "client/helpers/TaxHelper.kt",
-            "@Helper\nclass TaxHelper {\n    @Needs\n    val rates: TaxRateHelper\n\n    fun addTax(subtotal: Int): Int = subtotal + rates.rate()\n}\n",
+            "client/delegates/TaxDelegate.kt",
+            "@Delegate\nclass TaxDelegate {\n    @Needs\n    val rates: TaxRateDelegate\n\n    fun addTax(subtotal: Int): Int = subtotal + rates.rate()\n}\n",
         ),
         (
             "client/services/CheckoutService.kt",
-            "@Service\nclass CheckoutService {\n    @Needs\n    val helper: TaxHelper\n    var total: Int = 0\n\n    fun checkout() {\n        total = helper.addTax(40)\n    }\n}\n",
+            "@Service\nclass CheckoutService {\n    @Needs\n    val helper: TaxDelegate\n    var total: Int = 0\n\n    fun checkout() {\n        total = helper.addTax(40)\n    }\n}\n",
         ),
         (
             "client/tests/CheckoutTestSetup.kt",
@@ -24,8 +24,8 @@ impl KotlinHelperUnit {
         ),
         (
             "client/tests/CheckoutServiceTest.kt",
-            "@Test(CheckoutTestSetup::class, {\"partition\":\"tests\"})\nclass CheckoutServiceTest {\n    @Fake\n    var helper: TaxHelper? = null\n\n    \
-             fun testCheckoutAddsTheTax() {\n        helper = TaxHelper()\n        val checkout = construct(CheckoutService::class)\n        checkout.checkout()\n        Assert.equals(42, checkout.total)\n    }\n}\n",
+            "@Test(CheckoutTestSetup::class, {\"partition\":\"tests\"})\nclass CheckoutServiceTest {\n    @Fake\n    var helper: TaxDelegate? = null\n\n    \
+             fun testCheckoutAddsTheTax() {\n        helper = TaxDelegate()\n        val checkout = construct(CheckoutService::class)\n        checkout.checkout()\n        Assert.equals(42, checkout.total)\n    }\n}\n",
         ),
     ];
 

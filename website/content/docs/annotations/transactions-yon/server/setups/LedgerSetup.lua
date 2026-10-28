@@ -5,7 +5,7 @@ LedgerSetup = {}
 ---@param execution table
 ---@return table
 function LedgerSetup.configure(execution)
-  return { entities = { ledger = LedgerAdapterHelper }, authorizeEntity = LedgerSetup.authorize }
+  return { entities = { ledger = LedgerAdapterDelegate }, authorizeEntity = LedgerSetup.authorize }
 end
 
 ---@param command table

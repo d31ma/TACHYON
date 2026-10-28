@@ -12,7 +12,7 @@ use super::unused_member::UnusedMember;
 pub(super) struct VisibilityRule;
 
 impl VisibilityRule {
-    const FOLDERS: [&'static str; 4] = ["services", "helpers", "controllers", "utils"];
+    const FOLDERS: [&'static str; 4] = ["services", "delegates", "controllers", "utils"];
     const KINDS: [&'static str; 2] = ["method", "field"];
 
     pub(super) fn problems(classes: &[ClassFile], sources: &[ProjectSource]) -> Vec<DesignProblem> {

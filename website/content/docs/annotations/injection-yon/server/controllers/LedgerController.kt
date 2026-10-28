@@ -7,8 +7,8 @@ class LedgerController {
   @Named("LedgerService")
   val service: LedgerService
   @Needs
-  @Named("LedgerHelper")
-  val settlement: LedgerHelper
+  @Named("LedgerDelegate")
+  val settlement: LedgerDelegate
 
   @GetRoute
   fun getLedger(): Ledger {

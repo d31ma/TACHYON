@@ -2,12 +2,12 @@
 ---@class BillingService
 BillingService = {
   -- @Needs
-  ---@type BillingHelper
-  billing_helper = nil,
+  ---@type BillingDelegate
+  billing_delegate = nil,
 }
 
 ---@return integer
 function BillingService:total()
   local subtotal = 40
-  return self.billing_helper:settle(subtotal)
+  return self.billing_delegate:settle(subtotal)
 end

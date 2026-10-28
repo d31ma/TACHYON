@@ -11,7 +11,7 @@ impl FsharpHttpBrowserFixture {
     const CLIENT_ROOT: &'static str = "crates/tachyon-core/tests/fixtures/tac-fsharp-http";
     const CLIENT_FILES: [&'static str; 6] = [
         "client/components/http/probe/tac.html",
-        "client/helpers/CustomHttpHelper.fs",
+        "client/delegates/CustomHttpDelegate.fs",
         "client/pages/tac.html",
         "client/services/HttpProbeService.fs",
         "client/setups/BrowserHttpSetup.fs",

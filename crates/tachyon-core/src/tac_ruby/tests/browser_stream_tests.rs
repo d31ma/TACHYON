@@ -22,16 +22,16 @@ impl StreamPage {
             "#[HTTPClient(\"/chat\")]\nclass ChatClient\n  # @param message [ChatMessage]\n  #[SocketRequest]\n  def receive(message)\n  end\nend\n",
         ),
         (
-            "client/helpers/LevelHelper.rb",
-            "#[Helper]\nclass LevelHelper\n  #[Needs]\n  # @return [ScaleHelper]\n  attr_reader :scale\n\n  def raised(level)\n    scale.times(level) + 1\n  end\nend\n",
+            "client/delegates/LevelDelegate.rb",
+            "#[Delegate]\nclass LevelDelegate\n  #[Needs]\n  # @return [ScaleDelegate]\n  attr_reader :scale\n\n  def raised(level)\n    scale.times(level) + 1\n  end\nend\n",
         ),
         (
-            "client/helpers/ScaleHelper.rb",
-            "#[Helper]\nclass ScaleHelper\n  def times(level)\n    level * 10\n  end\nend\n",
+            "client/delegates/ScaleDelegate.rb",
+            "#[Delegate]\nclass ScaleDelegate\n  def times(level)\n    level * 10\n  end\nend\n",
         ),
     ];
 
-    const SERVICE: &'static str = "#[Service]\nclass TicksService\n  #[Needs]\n  # @return [TicksClient]\n  attr_reader :ticks\n\n  #[Needs]\n  # @return [ChatClient]\n  attr_reader :chat\n\n  #[Needs]\n  # @return [LevelHelper]\n  attr_reader :levels\n\n  # @return [Integer]\n  attr_reader :level\n  # @return [String]\n  attr_reader :said\n\n  def initialize\n    @level = 0\n    @said = \"\"\n  end\n\n  # @param tick [Tick]\n  #[OnEvent]\n  def heard(tick)\n    @level = levels.raised(tick.level)\n  end\n\n  # @param message [ChatMessage]\n  #[OnEvent]\n  def answered(message)\n    @said = message.text\n  end\n\n  def say(text)\n    chat.send_message(ChatMessage.new(text: text))\n  end\n\n  def say_too_much\n    chat.send_message(ChatMessage.new(text: \"x\" * 70_000))\n  rescue BehaviorError => error\n    error.behavior_code\n  end\nend\n";
+    const SERVICE: &'static str = "#[Service]\nclass TicksService\n  #[Needs]\n  # @return [TicksClient]\n  attr_reader :ticks\n\n  #[Needs]\n  # @return [ChatClient]\n  attr_reader :chat\n\n  #[Needs]\n  # @return [LevelDelegate]\n  attr_reader :levels\n\n  # @return [Integer]\n  attr_reader :level\n  # @return [String]\n  attr_reader :said\n\n  def initialize\n    @level = 0\n    @said = \"\"\n  end\n\n  # @param tick [Tick]\n  #[OnEvent]\n  def heard(tick)\n    @level = levels.raised(tick.level)\n  end\n\n  # @param message [ChatMessage]\n  #[OnEvent]\n  def answered(message)\n    @said = message.text\n  end\n\n  def say(text)\n    chat.send_message(ChatMessage.new(text: text))\n  end\n\n  def say_too_much\n    chat.send_message(ChatMessage.new(text: \"x\" * 70_000))\n  rescue BehaviorError => error\n    error.behavior_code\n  end\nend\n";
 
     const DRIVER: &'static str = "globalThis.location = { href: 'http://127.0.0.1:4000/page' }\n\
          const opened = []\n\
@@ -114,8 +114,8 @@ fn a_ruby_service_describes_the_streams_of_the_clients_it_needs() {
         );
     }
     for expected in [
-        "@levels ||= LevelHelper.new",
-        "@scale ||= ScaleHelper.new",
+        "@levels ||= LevelDelegate.new",
+        "@scale ||= ScaleDelegate.new",
         "BehaviorBrowserSocket.send_message(\"ChatClient\", message)",
         "def initialize(_context = nil)",
     ] {
@@ -132,7 +132,7 @@ fn a_ruby_service_describes_the_streams_of_the_clients_it_needs() {
 fn a_service_that_does_not_need_a_stream_client_holds_no_stream() {
     let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
     StreamPage::write_files(root.path());
-    let quiet = "#[Service]\nclass TicksService\n  #[Needs]\n  # @return [ScaleHelper]\n  attr_reader :scale\n\n  # @param tick [Tick]\n  #[OnEvent]\n  def heard(tick)\n    scale.times(tick.level)\n  end\nend\n";
+    let quiet = "#[Service]\nclass TicksService\n  #[Needs]\n  # @return [ScaleDelegate]\n  attr_reader :scale\n\n  # @param tick [Tick]\n  #[OnEvent]\n  def heard(tick)\n    scale.times(tick.level)\n  end\nend\n";
     let program = StreamPage::program(root.path(), quiet)
         .unwrap_or_else(|failure| panic!("program: {failure}"));
     assert!(program.contains("\"streams\":[]"), "{program}");
@@ -144,17 +144,17 @@ fn a_ruby_helper_with_a_lifecycle_hook_is_refused() {
     StreamPage::write_files(root.path());
     write(
         root.path(),
-        "client/helpers/ScaleHelper.rb",
-        "#[Helper]\nclass ScaleHelper\n  #[OnStart]\n  def start\n    @ready = true\n  end\n\n  def times(level)\n    level * 10\n  end\nend\n",
+        "client/delegates/ScaleDelegate.rb",
+        "#[Delegate]\nclass ScaleDelegate\n  #[OnStart]\n  def start\n    @ready = true\n  end\n\n  def times(level)\n    level * 10\n  end\nend\n",
     );
     let failure = StreamPage::program(root.path(), StreamPage::SERVICE)
-        .expect_err("a Helper hook the page never runs");
+        .expect_err("a Delegate hook the page never runs");
     let text = failure.to_string();
     assert!(
-        text.contains("The Ruby Helper ScaleHelper has an OnStart"),
+        text.contains("The Ruby Delegate ScaleDelegate has an OnStart"),
         "{text}"
     );
-    assert!(text.contains("client/helpers/ScaleHelper.rb"), "{text}");
+    assert!(text.contains("client/delegates/ScaleDelegate.rb"), "{text}");
 }
 
 #[tokio::test]

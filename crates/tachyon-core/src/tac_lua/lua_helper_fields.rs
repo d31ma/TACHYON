@@ -11,7 +11,7 @@ pub(super) struct LuaHelperFields {
 }
 
 impl LuaHelperFields {
-    const FOLDER: &'static str = "client/helpers";
+    const FOLDER: &'static str = "client/delegates";
     const EXTENSION: &'static str = "lua";
     const MOST_DEPTH: usize = 8;
     const HOOKS: [&'static str; 3] = ["-- @OnStart", "-- @OnStop", "-- @OnEvent"];
@@ -97,10 +97,10 @@ impl LuaHelperFields {
     fn hook_failure(helper: &str, path: &Path, at: usize, hook: &str) -> Failure {
         let portable = path.to_string_lossy().replace('\\', "/");
         let message = format!(
-            "The Lua Helper {helper} has an OnStart, OnStop or OnEvent method. A Lua Tac Helper is built with the service that needs it, so the page never runs those hooks."
+            "The Lua Delegate {helper} has an OnStart, OnStop or OnEvent method. A Lua Tac Delegate is built with the service that needs it, so the page never runs those hooks."
         );
         let help = format!(
-            "Move the hook from {portable} to the service that needs the Helper, and let it call plain Helper methods."
+            "Move the hook from {portable} to the service that needs the Delegate, and let it call plain Delegate methods."
         );
         Failure::one(diagnostic(
             Self::CODE,

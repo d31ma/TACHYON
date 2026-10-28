@@ -550,7 +550,7 @@ Path and name rules:
 These nine alternatives use the same `server/application.json`. Each source
 file owns one class and its imports. The empty `yon.<ext>` file marks the
 route; its controller owns `GET`. The compiler composes the same-language
-behavior-annotated files in `server/helpers/` without making them injectable.
+behavior-annotated files in `server/delegates/` without making them injectable.
 
 Each endpoint returns only selected non-secret values, never the private
 snapshot. `Setting` returns validated data; assigning that data to an instance
@@ -574,7 +574,7 @@ is an explicit step.
 
 ### JavaScript
 
-#### `server/helpers/CatalogSettings.js`
+#### `server/delegates/CatalogSettings.js`
 
 ```js
 @Settings({"prefix":"YON_CATALOG_"})
@@ -585,7 +585,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/helpers/Endpoint.js`
+#### `server/delegates/Endpoint.js`
 
 ```js
 class Endpoint {
@@ -614,7 +614,7 @@ class ConfigurationController {
 
 ### TypeScript
 
-#### `server/helpers/CatalogSettings.ts`
+#### `server/delegates/CatalogSettings.ts`
 
 ```ts
 @Settings({"prefix":"YON_CATALOG_"})
@@ -625,7 +625,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/helpers/Endpoint.ts`
+#### `server/delegates/Endpoint.ts`
 
 ```ts
 class Endpoint {
@@ -654,7 +654,7 @@ class ConfigurationController {
 
 ### Python
 
-#### `server/helpers/CatalogSettings.py`
+#### `server/delegates/CatalogSettings.py`
 
 ```py
 from typing import Annotated
@@ -666,7 +666,7 @@ class CatalogSettings:
     pageSize: Annotated[int, min(1), max(100)] = 20
 ```
 
-#### `server/helpers/Endpoint.py`
+#### `server/delegates/Endpoint.py`
 
 ```py
 from typing import Annotated
@@ -697,7 +697,7 @@ class ConfigurationController:
 
 ### PHP
 
-#### `server/helpers/CatalogSettings.php`
+#### `server/delegates/CatalogSettings.php`
 
 ```php
 <?php
@@ -710,7 +710,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/helpers/Endpoint.php`
+#### `server/delegates/Endpoint.php`
 
 ```php
 <?php
@@ -744,7 +744,7 @@ class ConfigurationController {
 
 ### Java
 
-#### `server/helpers/CatalogSettings.java`
+#### `server/delegates/CatalogSettings.java`
 
 ```java
 @Settings({"prefix":"YON_CATALOG_"})
@@ -755,7 +755,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/helpers/Endpoint.java`
+#### `server/delegates/Endpoint.java`
 
 ```java
 class Endpoint {
@@ -785,7 +785,7 @@ class ConfigurationController {
 
 ### Kotlin
 
-#### `server/helpers/CatalogSettings.kt`
+#### `server/delegates/CatalogSettings.kt`
 
 ```kt
 @Settings({"prefix":"YON_CATALOG_"})
@@ -796,7 +796,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/helpers/Endpoint.kt`
+#### `server/delegates/Endpoint.kt`
 
 ```kt
 class Endpoint {
@@ -827,7 +827,7 @@ class ConfigurationController {
 
 ### C#
 
-#### `server/helpers/CatalogSettings.cs`
+#### `server/delegates/CatalogSettings.cs`
 
 ```cs
 [Settings({"prefix":"YON_CATALOG_"})]
@@ -838,7 +838,7 @@ public sealed class CatalogSettings {
 }
 ```
 
-#### `server/helpers/Endpoint.cs`
+#### `server/delegates/Endpoint.cs`
 
 ```cs
 public sealed class Endpoint {
@@ -870,7 +870,7 @@ class ConfigurationController {
 
 ### Rust
 
-#### `server/helpers/CatalogSettings.rs`
+#### `server/delegates/CatalogSettings.rs`
 
 ```rs
 #[Settings({"prefix":"YON_CATALOG_","defaults":{"pageSize":20}})]
@@ -881,7 +881,7 @@ struct CatalogSettings {
 }
 ```
 
-#### `server/helpers/Endpoint.rs`
+#### `server/delegates/Endpoint.rs`
 
 ```rs
 #[allow(dead_code)]
@@ -917,7 +917,7 @@ impl ConfigurationController {
 
 ### Dart
 
-#### `server/helpers/CatalogSettings.dart`
+#### `server/delegates/CatalogSettings.dart`
 
 ```dart
 import 'dart:convert';
@@ -931,7 +931,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/helpers/Endpoint.dart`
+#### `server/delegates/Endpoint.dart`
 
 ```dart
 import 'dart:convert';
@@ -968,7 +968,7 @@ class ConfigurationController {
 
 ### Go
 
-#### `server/helpers/CatalogSettings.go`
+#### `server/delegates/CatalogSettings.go`
 
 ```go
 // @Settings({"prefix":"YON_CATALOG_","defaults":{"pageSize":20}})
@@ -979,7 +979,7 @@ type CatalogSettings struct {
 }
 ```
 
-#### `server/helpers/Endpoint.go`
+#### `server/delegates/Endpoint.go`
 
 ```go
 type Endpoint struct {
@@ -1073,7 +1073,7 @@ variable except the reserved snapshot. Select the production file with
 }
 ```
 
-### `server/helpers/CatalogProperties.ts`
+### `server/delegates/CatalogProperties.ts`
 
 ```typescript
 @Settings({"prefix":"YON_CATALOG_"})
@@ -1085,7 +1085,7 @@ class CatalogProperties {
 }
 ```
 
-### `server/helpers/Endpoint.ts`
+### `server/delegates/Endpoint.ts`
 
 ```typescript
 class Endpoint {

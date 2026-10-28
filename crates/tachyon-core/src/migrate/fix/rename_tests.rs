@@ -410,7 +410,7 @@ fn a_class_that_hides_its_new_annotation_is_a_manual_step() {
 }
 
 #[test]
-fn a_component_becomes_a_helper_in_the_helpers_folder() {
+fn a_component_becomes_a_delegate_in_the_delegates_folder() {
     let project = project();
     let root = project.path();
     write(
@@ -433,31 +433,72 @@ fn a_component_becomes_a_helper_in_the_helpers_folder() {
         "server/services/OrderService.py",
         "@service\n@needs_all\nclass OrderService:\n    tax_component: TaxComponent\n",
     );
-    write(root, "server/delegates/report.rb", "puts 1\n");
+    plan(root).write(root).expect("write");
+    assert_eq!(
+        read(root, "client/delegates/PricingDelegate.js"),
+        "@Delegate\nexport default class PricingDelegate {\n  total(items) {\n    return items.length\n  }\n}\n"
+    );
+    let service = read(root, "client/services/BasketService.js");
+    assert!(service.contains("  pricingDelegate\n"), "{service}");
+    assert!(service.contains("this.pricingDelegate.total"), "{service}");
+    assert_eq!(
+        read(root, "server/delegates/TaxDelegate.py"),
+        "@delegate\nclass TaxDelegate:\n    pass\n"
+    );
+    let order = read(root, "server/services/OrderService.py");
+    assert!(order.contains("tax_delegate: TaxDelegate"), "{order}");
+    assert!(!root.join("client/delegates/PricingComponent.js").exists());
+}
+
+#[test]
+fn a_helper_becomes_a_delegate_and_gateway_programs_stay_in_helpers() {
+    let project = project();
+    let root = project.path();
     write(
         root,
-        "server/clients/ReportClient.py",
-        "@http_client\nclass ReportClient:\n    @gateway({\"command\":[\"ruby\",\"server/delegates/report.rb\"]})\n    def summarize(self): ...\n",
+        "client/helpers/PricingHelper.js",
+        "@Helper\nexport default class PricingHelper {\n  total(items) {\n    return items.length\n  }\n}\n",
+    );
+    write(
+        root,
+        "client/services/BasketService.js",
+        "@Service\nexport default class BasketService {\n  @Needs\n  pricingHelper\n\n  total() {\n    return this.pricingHelper.total([])\n  }\n}\n",
+    );
+    write(
+        root,
+        "server/helpers/TaxHelper.py",
+        "@helper\nclass TaxHelper:\n    pass\n",
+    );
+    write(
+        root,
+        "server/services/OrderService.py",
+        "@service\n@needs_all\nclass OrderService:\n    tax_helper: TaxHelper\n",
+    );
+    write(root, "server/helpers/report.rb", "puts 1\n");
+    write(
+        root,
+        "server/remotes/ReportClient.py",
+        "@http_client\nclass ReportClient:\n    @gateway({\"command\":[\"ruby\",\"server/helpers/report.rb\"]})\n    def summarize(self): ...\n",
     );
     plan(root).write(root).expect("write");
     assert_eq!(
-        read(root, "client/helpers/PricingHelper.js"),
-        "@Helper\nexport default class PricingHelper {\n  total(items) {\n    return items.length\n  }\n}\n"
+        read(root, "client/delegates/PricingDelegate.js"),
+        "@Delegate\nexport default class PricingDelegate {\n  total(items) {\n    return items.length\n  }\n}\n"
     );
     let service = read(root, "client/services/BasketService.js");
-    assert!(service.contains("  pricingHelper\n"), "{service}");
-    assert!(service.contains("this.pricingHelper.total"), "{service}");
+    assert!(service.contains("  pricingDelegate\n"), "{service}");
+    assert!(service.contains("this.pricingDelegate.total"), "{service}");
     assert_eq!(
-        read(root, "server/helpers/TaxHelper.py"),
-        "@helper\nclass TaxHelper:\n    pass\n"
+        read(root, "server/delegates/TaxDelegate.py"),
+        "@delegate\nclass TaxDelegate:\n    pass\n"
     );
     let order = read(root, "server/services/OrderService.py");
-    assert!(order.contains("tax_helper: TaxHelper"), "{order}");
+    assert!(order.contains("tax_delegate: TaxDelegate"), "{order}");
     let client = read(root, "server/remotes/ReportClient.py");
     assert!(client.contains("\"server/helpers/report.rb\""), "{client}");
     assert_eq!(read(root, "server/helpers/report.rb"), "puts 1\n");
-    assert!(!root.join("client/delegates/PricingComponent.js").exists());
-    assert!(!root.join("server/delegates/report.rb").exists());
+    assert!(!root.join("client/helpers/PricingHelper.js").exists());
+    assert!(!root.join("server/helpers/TaxHelper.py").exists());
 }
 
 #[test]

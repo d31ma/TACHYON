@@ -10,15 +10,15 @@ impl FsharpContext {
     const FILES: [(&str, &str); 6] = [
         (
             "client/tests/ContextTestSetup.fs",
-            "[<TestSetup>]\n[<WhenProfile(\"test\")>]\n[<WhenSetting({\"name\":\"TAC_CATALOG_MODE\",\"havingValue\":\"fast\",\"matchIfMissing\":false})>]\ntype ContextTestSetup() =\n    static member val Configured : int = 0 with get, set\n\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        ContextTestSetup.Configured <- ContextTestSetup.Configured + 1\n        let adapters = BehaviorAdapters()\n        adapters.http.Add(\"prices\", new PriceFakeHelper(\"from the test setup\"))\n        adapters\n",
+            "[<TestSetup>]\n[<WhenProfile(\"test\")>]\n[<WhenSetting({\"name\":\"TAC_CATALOG_MODE\",\"havingValue\":\"fast\",\"matchIfMissing\":false})>]\ntype ContextTestSetup() =\n    static member val Configured : int = 0 with get, set\n\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        ContextTestSetup.Configured <- ContextTestSetup.Configured + 1\n        let adapters = BehaviorAdapters()\n        adapters.http.Add(\"prices\", new PriceFakeDelegate(\"from the test setup\"))\n        adapters\n",
         ),
         (
-            "client/helpers/PriceFakeHelper.fs",
-            "open System.Threading.Tasks\n\n[<Helper>]\ntype PriceFakeHelper(label: string) =\n    interface BehaviorHTTPAdapter with\n        member this.exchange(request: BehaviorJSON, execution: BehaviorExecution) : Task<BehaviorJSON> =\n            execution.Check()\n            Task.FromResult(BehaviorJSON.Object(dict [ \"label\", BehaviorJSON.From(label) ]))\n",
+            "client/delegates/PriceFakeDelegate.fs",
+            "open System.Threading.Tasks\n\n[<Delegate>]\ntype PriceFakeDelegate(label: string) =\n    interface BehaviorHTTPAdapter with\n        member this.exchange(request: BehaviorJSON, execution: BehaviorExecution) : Task<BehaviorJSON> =\n            execution.Check()\n            Task.FromResult(BehaviorJSON.Object(dict [ \"label\", BehaviorJSON.From(label) ]))\n",
         ),
         (
             "client/setups/CatalogSetup.fs",
-            "[<Setup>]\n[<Settings({\"prefix\":\"TAC_CATALOG_\"})>]\n[<WhenProfile(\"public\")>]\n[<WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})>]\ntype CatalogSetup() =\n    [<Min(1)>]\n    [<Max(100)>]\n    member val pageSize : int = 20 with get, set\n\n    member val title : string = \"Catalog\" with get, set\n\n    static member val Configured : int = 0 with get, set\n\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        CatalogSetup.Configured <- CatalogSetup.Configured + 1\n        let adapters = BehaviorAdapters()\n        adapters.http.Add(\"prices\", new PriceFakeHelper(\"from the catalog setup\"))\n        adapters\n",
+            "[<Setup>]\n[<Settings({\"prefix\":\"TAC_CATALOG_\"})>]\n[<WhenProfile(\"public\")>]\n[<WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})>]\ntype CatalogSetup() =\n    [<Min(1)>]\n    [<Max(100)>]\n    member val pageSize : int = 20 with get, set\n\n    member val title : string = \"Catalog\" with get, set\n\n    static member val Configured : int = 0 with get, set\n\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        CatalogSetup.Configured <- CatalogSetup.Configured + 1\n        let adapters = BehaviorAdapters()\n        adapters.http.Add(\"prices\", new PriceFakeDelegate(\"from the catalog setup\"))\n        adapters\n",
         ),
         (
             "client/models/CatalogValues.fs",

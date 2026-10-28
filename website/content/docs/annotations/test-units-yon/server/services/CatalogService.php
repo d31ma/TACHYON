@@ -2,9 +2,9 @@
 #[Service]
 class CatalogService {
     #[Needs]
-    public CatalogCounterHelper $catalogCounterHelper;
+    public CatalogCounterDelegate $catalogCounterDelegate;
 
     public function total(): int {
-        return $this->catalogCounterHelper->count() * 2;
+        return $this->catalogCounterDelegate->count() * 2;
     }
 }

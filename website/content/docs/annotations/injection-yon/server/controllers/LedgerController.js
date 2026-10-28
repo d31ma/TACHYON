@@ -6,9 +6,9 @@ class LedgerController {
   @Needs
   @Named("LedgerService")
   service;
-  /** @type {LedgerHelper} */
+  /** @type {LedgerDelegate} */
   @Needs
-  @Named("LedgerHelper")
+  @Named("LedgerDelegate")
   settlement;
 
   /** @returns {Ledger} */

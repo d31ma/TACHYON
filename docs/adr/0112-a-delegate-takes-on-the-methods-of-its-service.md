@@ -1,6 +1,6 @@
 # ADR 0112: A Delegate Takes On the Methods of Its Service
 
-- Status: Proposed
+- Status: Accepted (step 1, the rename, is in; steps 2 to 4 follow)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),

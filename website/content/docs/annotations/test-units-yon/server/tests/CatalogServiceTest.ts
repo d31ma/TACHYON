@@ -2,10 +2,10 @@
 @UseProfiles("test")
 export default class CatalogServiceTest {
   @Fake
-  catalogCounterHelper!: CatalogCounterHelper;
+  catalogCounterDelegate!: CatalogCounterDelegate;
 
   async testDoublesTheCount(): Promise<void> {
-    this.catalogCounterHelper = { count: () => 4 } as CatalogCounterHelper;
+    this.catalogCounterDelegate = { count: () => 4 } as CatalogCounterDelegate;
     const service = this.construct(CatalogService);
     Assert.equals(8, service.total());
   }

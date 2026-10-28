@@ -66,7 +66,7 @@ impl<'a> InjectedContract<'a> {
     const EMPTY_ARGUMENTS: &'static str = "()";
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const REMOTES: &'static str = "client/remotes";
-    const HELPERS: &'static str = "client/helpers";
+    const HELPERS: &'static str = "client/delegates";
     const HELPER_LANGUAGES: [&'static str; 7] = [
         Self::GO,
         Self::RUBY,
@@ -76,7 +76,7 @@ impl<'a> InjectedContract<'a> {
         "cs",
         "fs",
     ];
-    const HELPER_SUFFIX: &'static str = "Helper";
+    const HELPER_SUFFIX: &'static str = "Delegate";
     const KOTLIN: &'static str = "kt";
     const JAVA: &'static str = "java";
     const GO: &'static str = "go";

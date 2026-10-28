@@ -183,11 +183,10 @@ pub(crate) fn reject_renamed_annotations(path: &Path, source: &str) -> Result<()
 pub(crate) struct RenamedFolder;
 
 impl RenamedFolder {
-    pub(crate) const NAMES: [(&str, &str); 4] = [
+    pub(crate) const NAMES: [(&str, &str); 3] = [
         ("repositories", "stores"),
         ("configurations", "setups"),
         ("mappers", "converters"),
-        ("delegates", "helpers"),
     ];
 
     pub(crate) fn new_name(realm: &str, folder: &str) -> Option<&'static str> {
@@ -402,7 +401,7 @@ impl Role {
             "store" => ("Store", "Store", "stores"),
             "client" => ("Client", "Client", "remotes"),
             "httpclient" => ("HTTPClient", "Client", "remotes"),
-            "helper" => ("Helper", "Helper", "helpers"),
+            "delegate" => ("Delegate", "Delegate", "delegates"),
             "converter" => ("Converter", "Converter", "converters"),
             "setup" => ("Setup", "Setup", "setups"),
             "entity" => ("Entity", "Entity", "entities"),
@@ -749,7 +748,7 @@ fn is_behaviour_marker(marker: &str) -> bool {
             | "service"
             | "store"
             | "client"
-            | "helper"
+            | "delegate"
             | "converter"
             | "setup"
             | "cachesettings"
@@ -1114,7 +1113,7 @@ mod tests {
             ("remotes", "Client"),
             ("setups", "Setup"),
             ("entities", "Entity"),
-            ("helpers", "Helper"),
+            ("delegates", "Delegate"),
             ("converters", "Converter"),
         ] {
             check_shared_role_folder(folder, role);
@@ -1407,7 +1406,7 @@ mod tests {
                 "stores",
             ),
             ("HTTPClient", "Client", "clients"),
-            ("Helper", "Helper", "helpers"),
+            ("Delegate", "Delegate", "delegates"),
             ("Setup", "Setup", "setups"),
             ("Entity", "Entity", "entities"),
             ("Converter", "Converter", "converters"),

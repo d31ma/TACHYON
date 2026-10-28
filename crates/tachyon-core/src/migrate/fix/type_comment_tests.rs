@@ -12,13 +12,13 @@ impl TypeCases {
     const CHANGED: [(&'static str, &'static str, &'static str); 5] = [
         (
             "server/services/CartService.js",
-            "@Service\nexport default class CartService {\n  @Needs\n  taxHelper;\n\n  /** @returns {number} */\n  total() {\n    return this.taxHelper.rate();\n  }\n}\n",
-            "@Service\nexport default class CartService {\n  /** @type {TaxHelper} */\n  @Needs\n  taxHelper;\n\n  /** @returns {number} */\n  total() {\n    return this.taxHelper.rate();\n  }\n}\n",
+            "@Service\nexport default class CartService {\n  @Needs\n  taxDelegate;\n\n  /** @returns {number} */\n  total() {\n    return this.taxDelegate.rate();\n  }\n}\n",
+            "@Service\nexport default class CartService {\n  /** @type {TaxDelegate} */\n  @Needs\n  taxDelegate;\n\n  /** @returns {number} */\n  total() {\n    return this.taxDelegate.rate();\n  }\n}\n",
         ),
         (
             "server/services/PriceService.ts",
-            "@Service\nexport default class PriceService {\n  @Needs\n  taxHelper;\n}\n",
-            "@Service\nexport default class PriceService {\n  @Needs\n  taxHelper!: TaxHelper;\n}\n",
+            "@Service\nexport default class PriceService {\n  @Needs\n  taxDelegate;\n}\n",
+            "@Service\nexport default class PriceService {\n  @Needs\n  taxDelegate!: TaxDelegate;\n}\n",
         ),
         (
             "server/services/StockService.py",
@@ -27,18 +27,18 @@ impl TypeCases {
         ),
         (
             "server/services/FeeService.php",
-            "<?php\n#[Service]\nclass FeeService\n{\n    #[Needs]\n    public $taxHelper;\n\n    public function clear()\n    {\n        echo 1;\n    }\n}\n",
-            "<?php\n#[Service]\nclass FeeService\n{\n    #[Needs]\n    public TaxHelper $taxHelper;\n\n    public function clear(): void\n    {\n        echo 1;\n    }\n}\n",
+            "<?php\n#[Service]\nclass FeeService\n{\n    #[Needs]\n    public $taxDelegate;\n\n    public function clear()\n    {\n        echo 1;\n    }\n}\n",
+            "<?php\n#[Service]\nclass FeeService\n{\n    #[Needs]\n    public TaxDelegate $taxDelegate;\n\n    public function clear(): void\n    {\n        echo 1;\n    }\n}\n",
         ),
         (
             "server/services/BookService.rb",
-            "#[Service]\nclass BookService\n  #[Needs]\n  attr_reader :tax_helper\nend\n",
-            "#[Service]\nclass BookService\n  #[Needs]\n  # @return [TaxHelper]\n  attr_reader :tax_helper\nend\n",
+            "#[Service]\nclass BookService\n  #[Needs]\n  attr_reader :tax_delegate\nend\n",
+            "#[Service]\nclass BookService\n  #[Needs]\n  # @return [TaxDelegate]\n  attr_reader :tax_delegate\nend\n",
         ),
     ];
     const HELPER: (&'static str, &'static str) = (
-        "server/helpers/TaxHelper.js",
-        "@Helper\nexport default class TaxHelper {\n  /** @returns {number} */\n  rate() {\n    return 2;\n  }\n}\n",
+        "server/delegates/TaxDelegate.js",
+        "@Delegate\nexport default class TaxDelegate {\n  /** @returns {number} */\n  rate() {\n    return 2;\n  }\n}\n",
     );
     const UNKNOWN: (&'static str, &'static str) = (
         "server/services/NoteService.py",

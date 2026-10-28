@@ -5,7 +5,7 @@ public sealed class CollectionFakeSetup
     {
         execution.Check();
         var adapters = new BehaviorAdapters();
-        adapters.http["collections"] = new CollectionAnswerHelper();
+        adapters.http["collections"] = new CollectionAnswerDelegate();
         return adapters;
     }
 }

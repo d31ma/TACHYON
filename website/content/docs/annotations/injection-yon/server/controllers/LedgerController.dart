@@ -7,8 +7,8 @@ class LedgerController {
   @Named("LedgerService")
   final LedgerService service;
   @Needs
-  @Named("LedgerHelper")
-  final LedgerHelper settlement;
+  @Named("LedgerDelegate")
+  final LedgerDelegate settlement;
 
   @GetRoute
   Ledger getLedger() {

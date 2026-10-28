@@ -3,9 +3,9 @@ export default class BillingService {
   private static readonly SUBTOTAL = 40;
 
   @Needs
-  billingHelper!: BillingHelper;
+  billingDelegate!: BillingDelegate;
 
   get total(): number {
-    return this.billingHelper.settle(BillingService.SUBTOTAL);
+    return this.billingDelegate.settle(BillingService.SUBTOTAL);
   }
 }

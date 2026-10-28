@@ -31,7 +31,7 @@ class Phase4Evidence {
   static temporary = mkdtempSync(join(tmpdir(), 'tachyon-phase4-'))
   static project = join(Phase4Evidence.temporary, 'project')
   static helper = join(Phase4Evidence.temporary, 'phase4-macos-accessibility')
-  static visualHelper = join(Phase4Evidence.temporary, 'phase4-visual-compare')
+  static visualDelegate = join(Phase4Evidence.temporary, 'phase4-visual-compare')
   static nativeScreenshot = join(Phase4Evidence.evidenceDirectory, 'native-macos.png')
   static webScreenshot = join(Phase4Evidence.evidenceDirectory, 'mobile-web.png')
   static accessibilityPath = join(Phase4Evidence.evidenceDirectory, 'accessibility.json')
@@ -196,7 +196,7 @@ async function checkRelaunchStorage(app, firstLaunch) {
   }
 }
 
-function compileHelpers() {
+function compileDelegates() {
   run('/usr/bin/xcrun', [
     'swiftc',
     '-warnings-as-errors',
@@ -219,7 +219,7 @@ function compileHelpers() {
     'ImageIO',
     join(Phase4Evidence.repository, 'scripts/phase4-visual-compare.swift'),
     '-o',
-    Phase4Evidence.visualHelper,
+    Phase4Evidence.visualDelegate,
   ])
 }
 
@@ -443,7 +443,7 @@ async function checkWebPage(browser, url, nativeWidth, nativeHeight) {
 }
 
 function compareVisuals() {
-  const visualOutput = run(Phase4Evidence.visualHelper, [Phase4Evidence.nativeScreenshot, Phase4Evidence.webScreenshot])
+  const visualOutput = run(Phase4Evidence.visualDelegate, [Phase4Evidence.nativeScreenshot, Phase4Evidence.webScreenshot])
   writeFileSync(Phase4Evidence.visualPath, visualOutput)
   const visual = JSON.parse(visualOutput)
   assert.equal(visual.passed, true)
@@ -535,7 +535,7 @@ async function main() {
   let applicationStarted = false
   try {
     prepareProject()
-    compileHelpers()
+    compileDelegates()
     const { buildOutput, output, app, nativeIndex, host } = buildNativeApp()
 
     run('/usr/bin/open', ['-n', app])

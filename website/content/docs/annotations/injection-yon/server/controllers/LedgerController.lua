@@ -7,8 +7,8 @@ LedgerController = {
   ---@type LedgerService
   service = nil,
   -- @Needs
-  -- @Named("LedgerHelper")
-  ---@type LedgerHelper
+  -- @Named("LedgerDelegate")
+  ---@type LedgerDelegate
   settlement = nil,
 }
 

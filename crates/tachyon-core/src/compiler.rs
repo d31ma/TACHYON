@@ -530,23 +530,23 @@ mod tests {
     fn a_go_helper_is_supported_at_its_own_file() {
         let root = tempfile::tempdir().expect("project");
         let service =
-            "// @Service\ntype TallyService struct {\n\t// @Needs\n\tstep *StepHelper\n}\n";
+            "// @Service\ntype TallyService struct {\n\t// @Needs\n\tstep *StepDelegate\n}\n";
         write_file(root.path(), "client/services/TallyService.go", service);
         write_file(
             root.path(),
-            "client/helpers/StepHelper.go",
-            "\n// @Helper\ntype StepHelper struct{}\n",
+            "client/delegates/StepDelegate.go",
+            "\n// @Delegate\ntype StepDelegate struct{}\n",
         );
         let path = Path::new("client/services/TallyService.go");
         let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
         ServiceChecks::check_native_source(root.path(), path, &roles.source)
-            .expect("Go Helper source is supported");
+            .expect("Go Delegate source is supported");
     }
 
     #[test]
     fn a_go_helper_with_its_own_lifetime_names_the_helper_file() {
         let helper =
-            "\n// @Helper\n// @Lifetime({\"value\":\"prototype\"})\ntype StepHelper struct{}\n";
+            "\n// @Delegate\n// @Lifetime({\"value\":\"prototype\"})\ntype StepDelegate struct{}\n";
         let failure = helper_failure("// @Service\ntype TallyService struct{}\n", helper, "go");
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.to_string(), "TY1308");
@@ -556,7 +556,7 @@ mod tests {
                 .contains("no Needs, NeedsAll or Lifetime"),
             "{failure}"
         );
-        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.go");
+        assert_eq!(diagnostic.spans[0].file, "client/delegates/StepDelegate.go");
         assert_eq!(
             diagnostic.spans[0].start,
             u64::try_from(helper.find("@Lifetime").expect("marker")).expect("offset")
@@ -567,12 +567,12 @@ mod tests {
         let root = tempfile::tempdir().expect("project");
         let service_path = format!("client/services/TallyService.{extension}");
         write_file(root.path(), &service_path, service);
-        let helper_path = format!("client/helpers/StepHelper.{extension}");
+        let helper_path = format!("client/delegates/StepDelegate.{extension}");
         write_file(root.path(), &helper_path, helper);
         let path = Path::new(&service_path);
         let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
         ServiceChecks::check_native_source(root.path(), path, &roles.source)
-            .expect_err("Helper is unavailable in this compiled language")
+            .expect_err("Delegate is unavailable in this compiled language")
     }
 
     #[test]
@@ -582,13 +582,13 @@ mod tests {
         write_file(root.path(), "client/services/TallyService.rs", service);
         write_file(
             root.path(),
-            "client/helpers/StepHelper.rs",
-            "#[Helper]\nstruct StepHelper {}\n",
+            "client/delegates/StepDelegate.rs",
+            "#[Delegate]\nstruct StepDelegate {}\n",
         );
         let path = Path::new("client/services/TallyService.rs");
         let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
         ServiceChecks::check_native_source(root.path(), path, &roles.source)
-            .expect("Rust Helper source is supported");
+            .expect("Rust Delegate source is supported");
     }
 
     #[test]
@@ -598,33 +598,33 @@ mod tests {
         write_file(root.path(), "client/services/TallyService.kt", service);
         write_file(
             root.path(),
-            "client/helpers/StepHelper.kt",
-            "@Helper\nclass StepHelper {}\n",
+            "client/delegates/StepDelegate.kt",
+            "@Delegate\nclass StepDelegate {}\n",
         );
         let path = Path::new("client/services/TallyService.kt");
         let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
         ServiceChecks::check_native_source(root.path(), path, &roles.source)
-            .expect("Kotlin Helper source is supported");
+            .expect("Kotlin Delegate source is supported");
         let failure = helper_failure(
             service,
-            "\n@Helper\nclass StepHelper {\n    @OnStart\n    fun open() {}\n}\n",
+            "\n@Delegate\nclass StepDelegate {\n    @OnStart\n    fun open() {}\n}\n",
             "kt",
         );
         let diagnostic = &failure.diagnostics()[0];
         assert!(
             diagnostic
                 .message
-                .contains("A Kotlin Tac Helper is a new object"),
+                .contains("A Kotlin Tac Delegate is a new object"),
             "{failure}"
         );
-        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.kt");
+        assert_eq!(diagnostic.spans[0].file, "client/delegates/StepDelegate.kt");
     }
 
     #[test]
     fn a_csharp_helper_failure_names_the_helper_file() {
         let failure = helper_failure(
-            "using System;\n[Service]\nclass TallyService {\n    private readonly StepHelper step;\n}\n",
-            "using System;\n[Helper]\nclass StepHelper {}\n",
+            "using System;\n[Service]\nclass TallyService {\n    private readonly StepDelegate step;\n}\n",
+            "using System;\n[Delegate]\nclass StepDelegate {}\n",
             "cs",
         );
         let diagnostic = &failure.diagnostics()[0];
@@ -635,7 +635,7 @@ mod tests {
                 .contains("explicit caller-owned construction"),
             "{failure}"
         );
-        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.cs");
+        assert_eq!(diagnostic.spans[0].file, "client/delegates/StepDelegate.cs");
         assert_eq!(diagnostic.spans[0].start, 14);
     }
 
@@ -646,26 +646,26 @@ mod tests {
         write_file(root.path(), "client/services/TallyService.java", service);
         write_file(
             root.path(),
-            "client/helpers/StepHelper.java",
-            "@Helper\npublic class StepHelper {}\n",
+            "client/delegates/StepDelegate.java",
+            "@Delegate\npublic class StepDelegate {}\n",
         );
         let path = Path::new("client/services/TallyService.java");
         let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
         ServiceChecks::check_native_source(root.path(), path, &roles.source)
-            .expect("Java Helper source is supported");
+            .expect("Java Delegate source is supported");
         let failure = helper_failure(
             service,
-            "\n@Helper\npublic class StepHelper {\n    @OnEvent\n    void heard(StepHelper value) {}\n}\n",
+            "\n@Delegate\npublic class StepDelegate {\n    @OnEvent\n    void heard(StepDelegate value) {}\n}\n",
             "java",
         );
         let diagnostic = &failure.diagnostics()[0];
         assert!(
             diagnostic
                 .message
-                .contains("A Java Tac Helper is a new object"),
+                .contains("A Java Tac Delegate is a new object"),
             "{failure}"
         );
-        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.java");
+        assert_eq!(diagnostic.spans[0].file, "client/delegates/StepDelegate.java");
     }
 
     fn compose(root: &Path, page: &str, name: &str, markup: &str) {

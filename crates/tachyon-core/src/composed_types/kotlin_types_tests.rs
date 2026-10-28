@@ -269,8 +269,8 @@ fn kotlin_other_realms_roles_and_entry_folders_leave_existing_script_java_output
             "@Test\nclass OtherServiceTest {}\n",
         ),
         (
-            "client/helpers/OtherHelper.kt",
-            "@Helper\nclass OtherHelper {}\n",
+            "client/delegates/OtherDelegate.kt",
+            "@Delegate\nclass OtherDelegate {}\n",
         ),
         ("client/services/nested/tac.html", "<p>Entry</p>\n"),
         (

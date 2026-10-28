@@ -1,9 +1,9 @@
 #pragma once
-#include "../helpers/CartHelper.hpp"
+#include "../delegates/CartDelegate.hpp"
 
 class [[Service]] AuditService {
 public:
-    [[Needs, Named("CartHelper")]] CartHelper& ledger;
+    [[Needs, Named("CartDelegate")]] CartDelegate& ledger;
 
     long long lines() const { return ledger.count(); }
 };

@@ -12,7 +12,7 @@ type LedgerController(ledger: LedgerService) =
         task {
             let! settled = ledger.settle(BehaviorJSON.From("open"))
             let commands = JsonArray()
-            for command in LedgerAdapterHelper.commands do
+            for command in LedgerAdapterDelegate.commands do
                 commands.Add(JsonValue.Create(command))
             return { Settled = JsonNode.Parse(settled.ToString()); Commands = commands :> JsonNode }
         }

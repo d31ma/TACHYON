@@ -27,8 +27,8 @@ pub(super) struct ClassFile<'a> {
 }
 
 impl<'a> ClassFile<'a> {
-    const HELPER_FOLDER: &'static str = "helpers";
-    const HELPER_MARKER: &'static str = "Helper";
+    const HELPER_FOLDER: &'static str = "delegates";
+    const HELPER_MARKER: &'static str = "Delegate";
 
     pub(super) fn read(source: &'a ProjectSource) -> Option<Self> {
         let parts = PathParts::of(&source.path)?;

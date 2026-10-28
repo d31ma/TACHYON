@@ -5,16 +5,16 @@
 class [[Test(CatalogTestSetup, {"partition":"tests"})]] [[UseProfiles("test")]] CatalogServiceTest {
 public:
     BehaviorContext behaviors;
-    [[Fake]] CatalogCounterHelper catalogCounterHelper;
+    [[Fake]] CatalogCounterDelegate catalogCounterDelegate;
 
     void testDoublesTheCount() {
-        catalogCounterHelper.value = 4;
+        catalogCounterDelegate.value = 4;
         CatalogService service = construct<CatalogService>();
         Assert::equals(8, service.total());
     }
 
-    void testControllerKeepsTheRealHelper() {
-        catalogCounterHelper.value = 4;
+    void testControllerKeepsTheRealDelegate() {
+        catalogCounterDelegate.value = 4;
         CatalogController controller = construct<CatalogController>();
         Assert::equals(42, controller.getTotal().total);
     }

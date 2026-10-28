@@ -9,6 +9,6 @@ class LedgerController {
     @GetRoute
     LedgerReport getLedger() {
         Object settled = ledger.settle("open");
-        return new LedgerReport(settled, LedgerAdapterHelper.commands);
+        return new LedgerReport(settled, LedgerAdapterDelegate.commands);
     }
 }

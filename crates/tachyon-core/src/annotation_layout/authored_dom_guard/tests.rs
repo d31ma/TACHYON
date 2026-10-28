@@ -39,7 +39,7 @@ fn authored_dom_guard_refuses_markup_writes_and_literal_bracket_members() {
         "innerHTML",
     );
     DomGuardFixture::refused(
-        "client/helpers/ViewHelper.ts",
+        "client/delegates/ViewDelegate.ts",
         "element['outerHTML'] += html;",
         "outerHTML",
     );

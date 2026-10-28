@@ -615,7 +615,7 @@ fn managed_role(name: &str) -> bool {
             | "store"
             | "client"
             | "httpclient"
-            | "helper"
+            | "delegate"
             | "converter"
     )
 }
@@ -735,7 +735,7 @@ mod tests {
 
     #[test]
     fn caller_owned_helper_field_needs_retains_authored_construction() {
-        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeHelper), context); }";
+        let source = "[Delegate]\nclass ProbeDelegate {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeDelegate), context); }";
         let output =
             prepare(Path::new("yon.cs"), source).unwrap_or_else(|failure| panic!("{failure}"));
         assert!(output.is_none(), "{output:?}");
@@ -766,10 +766,10 @@ mod tests {
 
     #[test]
     fn a_rust_field_with_a_generic_type_list_is_one_field() {
-        let body = "struct MemoryCacheHelper {\n    entries: Mutex<BTreeMap<String, BehaviorCacheEntry>>,\n    count: i64,\n}\n";
+        let body = "struct MemoryCacheDelegate {\n    entries: Mutex<BTreeMap<String, BehaviorCacheEntry>>,\n    count: i64,\n}\n";
         let inside = body.find('{').unwrap_or_default() + 1..body.rfind('}').unwrap_or_default();
         let fields = required_fields(
-            Path::new("server/helpers/MemoryCacheHelper.rs"),
+            Path::new("server/delegates/MemoryCacheDelegate.rs"),
             body,
             inside,
         )
@@ -953,7 +953,7 @@ mod tests {
     fn ignores_literal_markers_and_preserves_bodyless_kotlin_providers() {
         let source = "class Plain { text = '@NeedsAll()'; }";
         assert_eq!(prepared_option("js", source), None);
-        let source = "# @needs_all()\nclass Helper: pass\nclass Handler: pass\n";
+        let source = "# @needs_all()\nclass Delegate: pass\nclass Handler: pass\n";
         assert_eq!(prepared_option("py", source), None);
         let source = "@Service()\nclass MoneyService\n@RequestRoute(\"/money\")\n@NeedsAll()\nclass MoneyController {\nval money: MoneyService\n}";
         assert!(prepared("kt", source).contains("Needs(MoneyService)"));

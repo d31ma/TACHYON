@@ -37,7 +37,7 @@
     "isolation-and-security",
     "cohesive-services",
     "utilities",
-    "helpers",
+    "delegates",
     "dependency-direction",
     "plain-english-names",
     "small-signatures",
@@ -123,7 +123,7 @@
     },
     {
       "title": "Going further",
-      "summary": "Topics for later: injection, behavior annotations, middleware, other languages, modules, security, cohesive services, utilities, helpers the design rules and simpler forms.",
+      "summary": "Topics for later: injection, behavior annotations, middleware, other languages, modules, security, cohesive services, utilities, delegates, the design rules and simpler forms.",
       "topics": [
         "dependency-injection",
         "behavior-annotations",
@@ -133,7 +133,7 @@
         "isolation-and-security",
         "cohesive-services",
         "utilities",
-        "helpers",
+        "delegates",
         "dependency-direction",
         "plain-english-names",
         "small-signatures",
@@ -294,8 +294,8 @@
     "utilities": {
       "include": "utilities/topic.json"
     },
-    "helpers": {
-      "include": "helpers/topic.json"
+    "delegates": {
+      "include": "delegates/topic.json"
     },
     "dependency-direction": {
       "include": "dependency-direction/topic.json"

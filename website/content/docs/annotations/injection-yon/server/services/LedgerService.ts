@@ -1,6 +1,6 @@
 @Service
 export default class LedgerService {
   @Needs
-  amounts!: LedgerAmountsHelper;
+  amounts!: LedgerAmountsDelegate;
   subtotal(): number { return this.amounts.subtotal(); }
 }

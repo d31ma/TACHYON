@@ -850,14 +850,14 @@ mod tests {
 
     #[test]
     fn heredocs_and_block_comments_hide_marker_lookalikes() {
-        let source = "text = <<~TEXT\n  #[Service]\n  it's\nTEXT\n=begin\n#[Service]\n=end\nsql = <<-'SQL' + <<EOS\nx\n  SQL\n#[Store]\nEOS\n#[Helper]\nclass A; end\n";
+        let source = "text = <<~TEXT\n  #[Service]\n  it's\nTEXT\n=begin\n#[Service]\n=end\nsql = <<-'SQL' + <<EOS\nx\n  SQL\n#[Store]\nEOS\n#[Delegate]\nclass A; end\n";
         let masked = visible_code(source);
         assert!(
             !masked.contains("Service") && !masked.contains("Store"),
             "{masked}"
         );
         assert!(
-            masked.contains("#[Helper]") && masked.contains("class A"),
+            masked.contains("#[Delegate]") && masked.contains("class A"),
             "{masked}"
         );
         assert!(masked.contains("text = <<~TEXT"), "{masked}");

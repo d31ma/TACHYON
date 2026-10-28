@@ -100,12 +100,12 @@ impl RequestPartsProject {
                 "[Service]\npublic sealed class OrderService\n{\n    [Needs]\n    private readonly OrdersClient _ordersClient;\n\n    public System.Threading.Tasks.Task<Models.OrderEcho> Read()\n    {\n        return _ordersClient.getOrder(7, \"short\");\n    }\n}\n",
             ),
             (
-                "client/helpers/OrdersEchoHelper.cs",
-                "[Helper]\npublic sealed class OrdersEchoHelper : BehaviorHTTPAdapter\n{\n    public System.Threading.Tasks.Task<BehaviorJSON> exchange(BehaviorJSON request, BehaviorExecution execution)\n    {\n        execution.Check();\n        var echo = new System.Collections.Generic.Dictionary<string, BehaviorJSON>\n        {\n            [\"path\"] = request.Get(\"path\"),\n            [\"view\"] = request.Get(\"query\").Get(\"view\"),\n        };\n        return System.Threading.Tasks.Task.FromResult(BehaviorJSON.Object(echo));\n    }\n}\n",
+                "client/delegates/OrdersEchoDelegate.cs",
+                "[Delegate]\npublic sealed class OrdersEchoDelegate : BehaviorHTTPAdapter\n{\n    public System.Threading.Tasks.Task<BehaviorJSON> exchange(BehaviorJSON request, BehaviorExecution execution)\n    {\n        execution.Check();\n        var echo = new System.Collections.Generic.Dictionary<string, BehaviorJSON>\n        {\n            [\"path\"] = request.Get(\"path\"),\n            [\"view\"] = request.Get(\"query\").Get(\"view\"),\n        };\n        return System.Threading.Tasks.Task.FromResult(BehaviorJSON.Object(echo));\n    }\n}\n",
             ),
             (
                 "client/tests/OrderTestSetup.cs",
-                "[TestSetup]\npublic sealed class OrderTestSetup\n{\n    public static BehaviorAdapters configure(BehaviorExecution execution)\n    {\n        execution.Check();\n        var adapters = new BehaviorAdapters();\n        adapters.http[\"orders\"] = new OrdersEchoHelper();\n        return adapters;\n    }\n}\n",
+                "[TestSetup]\npublic sealed class OrderTestSetup\n{\n    public static BehaviorAdapters configure(BehaviorExecution execution)\n    {\n        execution.Check();\n        var adapters = new BehaviorAdapters();\n        adapters.http[\"orders\"] = new OrdersEchoDelegate();\n        return adapters;\n    }\n}\n",
             ),
             (
                 "client/tests/OrderServiceTest.cs",

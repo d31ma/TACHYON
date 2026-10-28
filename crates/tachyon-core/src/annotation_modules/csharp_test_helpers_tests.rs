@@ -3,16 +3,16 @@ use std::path::Path;
 struct CsharpOwnershipProject;
 
 impl CsharpOwnershipProject {
-    const HELPER_PATH: &'static str = "client/helpers/deep/StepHelper.cs";
-    const OWNERSHIP_MESSAGE: &'static str = "Tac C# Helper StepHelper needs an owner: a [Needs] field of the class that uses it, which makes a new StepHelper for that class, or an explicit caller-owned construction with new outside its own class. A Helper takes no NeedsAll, Lifetime or lifecycle hooks, and a [Needs] field names a Helper from client/helpers.";
+    const HELPER_PATH: &'static str = "client/delegates/deep/StepDelegate.cs";
+    const OWNERSHIP_MESSAGE: &'static str = "Tac C# Delegate StepDelegate needs an owner: a [Needs] field of the class that uses it, which makes a new StepDelegate for that class, or an explicit caller-owned construction with new outside its own class. A Delegate takes no NeedsAll, Lifetime or lifecycle hooks, and a [Needs] field names a Delegate from client/helpers.";
     const ENTRY: &'static str = "client/services/TallyService.cs";
     const SERVICE: &'static str =
         "[Service]\npublic class TallyService { public string Read() { return \"ready\"; } }\n";
     const HELPER: &'static str =
-        "[Helper]\npublic class StepHelper { public string Read() { return \"owned\"; } }\n";
-    const NAMING_SERVICE: &'static str = "[Service]\npublic class TallyService { private readonly StepHelper step; public string Read() { return \"ready\"; } }\n";
+        "[Delegate]\npublic class StepDelegate { public string Read() { return \"owned\"; } }\n";
+    const NAMING_SERVICE: &'static str = "[Service]\npublic class TallyService { private readonly StepDelegate step; public string Read() { return \"ready\"; } }\n";
     const TEST: &'static str = "[Test(typeof(OwnerTestSetup), {\"partition\":\"tests\"})]\npublic class TallyServiceTest {\nvoid testReady() { Assert.equals(\"ready\", new TallyService().Read()); }\n}\n";
-    const SETUP: &'static str = "[TestSetup]\npublic class OwnerTestSetup { public static BehaviorAdapters configure(BehaviorExecution execution) { var owned = new StepHelper(); return new BehaviorAdapters(); } }\n";
+    const SETUP: &'static str = "[TestSetup]\npublic class OwnerTestSetup { public static BehaviorAdapters configure(BehaviorExecution execution) { var owned = new StepDelegate(); return new BehaviorAdapters(); } }\n";
 
     fn write(root: &Path, path: &str, source: &str) {
         let file = root.join(path);
@@ -27,7 +27,7 @@ impl CsharpOwnershipProject {
         Self::write(root.path(), Self::ENTRY, Self::SERVICE);
         Self::write(
             root.path(),
-            "client/helpers/deep/StepHelper.cs",
+            "client/delegates/deep/StepDelegate.cs",
             Self::HELPER,
         );
         root
@@ -56,7 +56,7 @@ impl CsharpOwnershipProject {
     fn selected_helper(source: &str) -> tempfile::TempDir {
         let root = Self::project();
         Self::setup(root.path(), Self::SETUP);
-        Self::write(root.path(), "client/helpers/deep/StepHelper.cs", source);
+        Self::write(root.path(), "client/delegates/deep/StepDelegate.cs", source);
         root
     }
 
@@ -67,7 +67,7 @@ impl CsharpOwnershipProject {
             "call-the-server/client/remotes/GreetingClient.cs",
             "call-the-server/client/models/Greeting.cs",
             "call-the-server/client/setups/GreetingSetup.cs",
-            "add-tests/client/helpers/GreetingFakeHelper.cs",
+            "add-tests/client/delegates/GreetingFakeDelegate.cs",
             "add-tests/client/tests/CounterServiceTest.cs",
             "add-tests/client/tests/HelloTestSetup.cs",
         ] {
@@ -93,7 +93,7 @@ impl CsharpOwnershipProject {
 
     fn refused_helper(root: &Path, code: u16, message: &str, location: &str) {
         let source = std::fs::read_to_string(root.join(Self::HELPER_PATH))
-            .unwrap_or_else(|failure| panic!("authored Helper source: {failure}"));
+            .unwrap_or_else(|failure| panic!("authored Delegate source: {failure}"));
         let start = source
             .find(location)
             .unwrap_or_else(|| panic!("authored refusal location: {location}"));
@@ -101,7 +101,7 @@ impl CsharpOwnershipProject {
             u64::try_from(start).unwrap_or_else(|failure| panic!("source offset: {failure}"));
         let failure = Self::assembled(root)
             .err()
-            .unwrap_or_else(|| panic!("invalid Helper must be refused"));
+            .unwrap_or_else(|| panic!("invalid Delegate must be refused"));
         assert_eq!(failure.diagnostics().len(), 1, "{failure}");
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.number(), code, "{failure}");
@@ -138,7 +138,7 @@ fn selected_csharp_test_setup_helper_is_validated_then_omitted_from_production()
     CsharpOwnershipProject::setup(root.path(), CsharpOwnershipProject::SETUP);
     let output = CsharpOwnershipProject::assembled(root.path())
         .unwrap_or_else(|failure| panic!("selected caller: {failure}"));
-    assert!(!output.contains("class StepHelper"));
+    assert!(!output.contains("class StepDelegate"));
     assert!(!output.contains("OwnerTestSetup"));
     assert!(!output.contains("TallyServiceTest"));
     assert!(output.contains("class TallyService"));
@@ -155,7 +155,7 @@ fn csharp_common_native_source_omits_selected_test_helpers() {
         .unwrap_or_else(|failure| panic!("native composition: {failure}"))
         .unwrap_or_else(|| panic!("native production modules"));
     assert!(output.contains("class TallyService"));
-    assert!(!output.contains("class StepHelper"));
+    assert!(!output.contains("class StepDelegate"));
     assert!(!output.contains("OwnerTestSetup"));
 }
 
@@ -173,7 +173,7 @@ fn genuine_cumulative_csharp_first_app_helpers_do_not_enter_production() {
         .unwrap_or_else(|| panic!("production modules"));
     assert!(output.contains("class GreetingClient"));
     assert!(output.contains("class GreetingSetup"));
-    assert!(!output.contains("GreetingFakeHelper"));
+    assert!(!output.contains("GreetingFakeDelegate"));
     assert!(!output.contains("HelloTestSetup"));
 }
 
@@ -183,22 +183,22 @@ fn csharp_production_and_transitive_helpers_remain_in_the_emitted_closure() {
     CsharpOwnershipProject::write(
         root.path(),
         CsharpOwnershipProject::ENTRY,
-        "[Service]\npublic class TallyService { private StepHelper owned = new StepHelper(); public string Read() { return owned.Read(); } }\n",
+        "[Service]\npublic class TallyService { private StepDelegate owned = new StepDelegate(); public string Read() { return owned.Read(); } }\n",
     );
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/deep/StepHelper.cs",
-        "[Helper]\npublic class StepHelper { private LeafHelper leaf = new LeafHelper(); public string Read() { return leaf.Read(); } }\n",
+        "client/delegates/deep/StepDelegate.cs",
+        "[Delegate]\npublic class StepDelegate { private LeafDelegate leaf = new LeafDelegate(); public string Read() { return leaf.Read(); } }\n",
     );
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/LeafHelper.cs",
-        "[Helper]\npublic class LeafHelper { public string Read() { return \"leaf\"; } }\n",
+        "client/delegates/LeafDelegate.cs",
+        "[Delegate]\npublic class LeafDelegate { public string Read() { return \"leaf\"; } }\n",
     );
     let output = CsharpOwnershipProject::assembled(root.path())
         .unwrap_or_else(|failure| panic!("transitive production ownership: {failure}"));
-    assert!(output.contains("class StepHelper"));
-    assert!(output.contains("class LeafHelper"));
+    assert!(output.contains("class StepDelegate"));
+    assert!(output.contains("class LeafDelegate"));
 }
 
 #[test]
@@ -207,18 +207,18 @@ fn csharp_selected_test_transitive_helpers_are_removed_together() {
     CsharpOwnershipProject::setup(root.path(), CsharpOwnershipProject::SETUP);
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/deep/StepHelper.cs",
-        "[Helper]\npublic class StepHelper { private LeafHelper leaf = new LeafHelper(); public string Read() { return leaf.Read(); } }\n",
+        "client/delegates/deep/StepDelegate.cs",
+        "[Delegate]\npublic class StepDelegate { private LeafDelegate leaf = new LeafDelegate(); public string Read() { return leaf.Read(); } }\n",
     );
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/LeafHelper.cs",
-        "[Helper]\npublic class LeafHelper { public string Read() { return \"leaf\"; } }\n",
+        "client/delegates/LeafDelegate.cs",
+        "[Delegate]\npublic class LeafDelegate { public string Read() { return \"leaf\"; } }\n",
     );
     let output = CsharpOwnershipProject::assembled(root.path())
         .unwrap_or_else(|failure| panic!("selected transitive ownership: {failure}"));
-    assert!(!output.contains("class StepHelper"));
-    assert!(!output.contains("class LeafHelper"));
+    assert!(!output.contains("class StepDelegate"));
+    assert!(!output.contains("class LeafDelegate"));
 }
 
 #[test]
@@ -226,8 +226,8 @@ fn csharp_distinct_selected_setup_types_keep_each_helper_witness() {
     let root = CsharpOwnershipProject::project();
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/LeafHelper.cs",
-        "[Helper]\npublic class LeafHelper { public string Read() { return \"leaf\"; } }\n",
+        "client/delegates/LeafDelegate.cs",
+        "[Delegate]\npublic class LeafDelegate { public string Read() { return \"leaf\"; } }\n",
     );
     CsharpOwnershipProject::write(
         root.path(),
@@ -250,13 +250,13 @@ fn csharp_distinct_selected_setup_types_keep_each_helper_witness() {
         root.path(),
         "client/tests/second/SecondTestSetup.cs",
         &CsharpOwnershipProject::SETUP
-            .replace("StepHelper", "LeafHelper")
+            .replace("StepDelegate", "LeafDelegate")
             .replace("OwnerTestSetup", "SecondTestSetup"),
     );
     let output = CsharpOwnershipProject::assembled(root.path())
         .unwrap_or_else(|failure| panic!("separate selected constructor witnesses: {failure}"));
-    assert!(!output.contains("class StepHelper"));
-    assert!(!output.contains("class LeafHelper"));
+    assert!(!output.contains("class StepDelegate"));
+    assert!(!output.contains("class LeafDelegate"));
     assert!(!output.contains("OwnerTestSetup"));
 }
 
@@ -264,8 +264,8 @@ fn csharp_distinct_selected_setup_types_keep_each_helper_witness() {
 fn csharp_helper_no_production_class_names_is_left_out_without_an_owner() {
     let root = CsharpOwnershipProject::project();
     let output = CsharpOwnershipProject::assembled(root.path())
-        .unwrap_or_else(|failure| panic!("an unnamed Helper needs no owner: {failure}"));
-    assert!(!output.contains("class StepHelper"));
+        .unwrap_or_else(|failure| panic!("an unnamed Delegate needs no owner: {failure}"));
+    assert!(!output.contains("class StepDelegate"));
     assert!(output.contains("class TallyService"));
 }
 
@@ -293,7 +293,7 @@ fn csharp_unmarked_selected_setups_cannot_establish_helper_ownership() {
 #[test]
 fn csharp_comment_constructor_text_is_not_test_ownership() {
     let root = CsharpOwnershipProject::selected_body(
-        "// new StepHelper();\nreturn new BehaviorAdapters();",
+        "// new StepDelegate();\nreturn new BehaviorAdapters();",
     );
     CsharpOwnershipProject::refused(root.path(), "explicit caller-owned construction");
 }
@@ -301,7 +301,7 @@ fn csharp_comment_constructor_text_is_not_test_ownership() {
 #[test]
 fn csharp_string_constructor_text_is_not_test_ownership() {
     let root = CsharpOwnershipProject::selected_body(
-        "var note = \"new StepHelper()\"; return new BehaviorAdapters();",
+        "var note = \"new StepDelegate()\"; return new BehaviorAdapters();",
     );
     CsharpOwnershipProject::refused(root.path(), "explicit caller-owned construction");
 }
@@ -311,8 +311,8 @@ fn csharp_helper_self_construction_is_not_test_ownership() {
     let root = CsharpOwnershipProject::named();
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/deep/StepHelper.cs",
-        "[Helper]\npublic class StepHelper { private StepHelper self = new StepHelper(); }\n",
+        "client/delegates/deep/StepDelegate.cs",
+        "[Delegate]\npublic class StepDelegate { private StepDelegate self = new StepDelegate(); }\n",
     );
     CsharpOwnershipProject::refused(root.path(), "explicit caller-owned construction");
 }
@@ -322,13 +322,13 @@ fn csharp_unrooted_helper_cycles_are_not_test_ownership() {
     let root = CsharpOwnershipProject::named();
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/deep/StepHelper.cs",
-        "[Helper]\npublic class StepHelper { private LeafHelper leaf = new LeafHelper(); }\n",
+        "client/delegates/deep/StepDelegate.cs",
+        "[Delegate]\npublic class StepDelegate { private LeafDelegate leaf = new LeafDelegate(); }\n",
     );
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/LeafHelper.cs",
-        "[Helper]\npublic class LeafHelper { private StepHelper step = new StepHelper(); }\n",
+        "client/delegates/LeafDelegate.cs",
+        "[Delegate]\npublic class LeafDelegate { private StepDelegate step = new StepDelegate(); }\n",
     );
     CsharpOwnershipProject::refused(root.path(), "constructor cycle is not ownership");
 }
@@ -336,7 +336,7 @@ fn csharp_unrooted_helper_cycles_are_not_test_ownership() {
 #[test]
 fn csharp_test_only_helper_needs_all_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper(
-        "[Helper]\n[NeedsAll]\npublic class StepHelper {}\n",
+        "[Delegate]\n[NeedsAll]\npublic class StepDelegate {}\n",
     );
     CsharpOwnershipProject::refused_helper(
         root.path(),
@@ -349,7 +349,7 @@ fn csharp_test_only_helper_needs_all_remains_refused() {
 #[test]
 fn csharp_test_only_helper_lifetime_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper(
-        "[Helper]\n[Lifetime(\"prototype\")]\npublic class StepHelper {}\n",
+        "[Delegate]\n[Lifetime(\"prototype\")]\npublic class StepDelegate {}\n",
     );
     CsharpOwnershipProject::refused_helper(
         root.path(),
@@ -362,7 +362,7 @@ fn csharp_test_only_helper_lifetime_remains_refused() {
 #[test]
 fn csharp_test_only_helper_hook_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper(
-        "[Helper]\npublic class StepHelper {\n[OnStart]\npublic void Start() {}\n}\n",
+        "[Delegate]\npublic class StepDelegate {\n[OnStart]\npublic void Start() {}\n}\n",
     );
     CsharpOwnershipProject::refused_helper(
         root.path(),
@@ -375,23 +375,23 @@ fn csharp_test_only_helper_hook_remains_refused() {
 #[test]
 fn csharp_test_only_helper_service_base_remains_refused() {
     let root = CsharpOwnershipProject::selected_helper(
-        "[Helper]\npublic class StepHelper : TallyService {}\n",
+        "[Delegate]\npublic class StepDelegate : TallyService {}\n",
     );
     CsharpOwnershipProject::refused_helper(
         root.path(),
         1308,
-        "Tac C# Helpers may implement actual interfaces, but cannot inherit behavior classes.",
-        "public class StepHelper",
+        "Tac C# Delegates may implement actual interfaces, but cannot inherit behavior classes.",
+        "public class StepDelegate",
     );
 }
 
 #[test]
 fn csharp_service_marker_under_nested_helpers_remains_refused() {
-    let root = CsharpOwnershipProject::selected_helper("[Service]\npublic class StepHelper {}\n");
+    let root = CsharpOwnershipProject::selected_helper("[Service]\npublic class StepDelegate {}\n");
     CsharpOwnershipProject::refused_helper(
         root.path(),
         1310,
-        "@Service type 'StepHelper' does not match its required role layout",
+        "@Service type 'StepDelegate' does not match its required role layout",
         "[Service]",
     );
 }
@@ -403,7 +403,7 @@ fn csharp_test_witness_does_not_permit_a_needs_all_helper() {
     CsharpOwnershipProject::write(
         root.path(),
         CsharpOwnershipProject::ENTRY,
-        "[Service]\n[NeedsAll]\npublic class TallyService { private readonly StepHelper step; }\n",
+        "[Service]\n[NeedsAll]\npublic class TallyService { private readonly StepDelegate step; }\n",
     );
     CsharpOwnershipProject::refused(root.path(), "takes no NeedsAll");
 }
@@ -414,7 +414,7 @@ fn unrelated_invalid_tests_do_not_expand_csharp_production_discovery() {
     CsharpOwnershipProject::write(
         root.path(),
         CsharpOwnershipProject::ENTRY,
-        "[Service]\npublic class TallyService { private StepHelper owned = new StepHelper(); public string Read() { return owned.Read(); } }\n",
+        "[Service]\npublic class TallyService { private StepDelegate owned = new StepDelegate(); public string Read() { return owned.Read(); } }\n",
     );
     CsharpOwnershipProject::write(
         root.path(),
@@ -422,15 +422,15 @@ fn unrelated_invalid_tests_do_not_expand_csharp_production_discovery() {
         "BROKEN SOURCE [Test(",
     );
     let output = CsharpOwnershipProject::assembled(root.path()).unwrap_or_else(|failure| {
-        panic!("production-owned Helper needs no Test witness: {failure}")
+        panic!("production-owned Delegate needs no Test witness: {failure}")
     });
-    assert!(output.contains("class StepHelper"));
+    assert!(output.contains("class StepDelegate"));
 }
 
 #[test]
 fn unrelated_invalid_tests_do_not_expand_csharp_projects_without_helpers() {
     let root = CsharpOwnershipProject::project();
-    std::fs::remove_file(root.path().join("client/helpers/deep/StepHelper.cs"))
+    std::fs::remove_file(root.path().join("client/delegates/deep/StepDelegate.cs"))
         .unwrap_or_else(|failure| panic!("owned fixture file: {failure}"));
     CsharpOwnershipProject::write(
         root.path(),
@@ -438,7 +438,7 @@ fn unrelated_invalid_tests_do_not_expand_csharp_projects_without_helpers() {
         "BROKEN SOURCE [Test(",
     );
     let output = CsharpOwnershipProject::assembled(root.path()).unwrap_or_else(|failure| {
-        panic!("project without Helpers needs no Test witness: {failure}")
+        panic!("project without Delegates needs no Test witness: {failure}")
     });
     assert_eq!(
         output.trim(),
@@ -452,15 +452,15 @@ fn csharp_test_helper_inheritance_failure_retains_its_authored_path() {
     CsharpOwnershipProject::setup(root.path(), CsharpOwnershipProject::SETUP);
     CsharpOwnershipProject::write(
         root.path(),
-        "client/helpers/deep/StepHelper.cs",
-        "[Helper]\npublic class StepHelper : TallyService {}\n",
+        "client/delegates/deep/StepDelegate.cs",
+        "[Delegate]\npublic class StepDelegate : TallyService {}\n",
     );
     let failure = CsharpOwnershipProject::assembled(root.path())
         .err()
         .unwrap_or_else(|| panic!("class inheritance refused before pruning"));
     assert_eq!(
         failure.diagnostics()[0].spans[0].file,
-        "client/helpers/deep/StepHelper.cs"
+        "client/delegates/deep/StepDelegate.cs"
     );
 }
 
@@ -471,14 +471,14 @@ fn csharp_missing_caller_diagnostic_points_to_authored_helper_marker() {
         root.path(),
         1308,
         CsharpOwnershipProject::OWNERSHIP_MESSAGE,
-        "[Helper]",
+        "[Delegate]",
     );
 }
 
 #[test]
 fn csharp_caller_lookup_preserves_unrelated_failure_diagnostics() {
     let path = Path::new(CsharpOwnershipProject::ENTRY);
-    let source = "[Helper]\npublic class StepHelper {}\n[Helper]\npublic class LeafHelper {\npublic LeafHelper(BehaviorContext context) {}\n[OnStart]\npublic void Start() {}\n}\n[Service]\npublic class TallyService { public object Read() { return new LeafHelper(null); } }\n";
+    let source = "[Delegate]\npublic class StepDelegate {}\n[Delegate]\npublic class LeafDelegate {\npublic LeafDelegate(BehaviorContext context) {}\n[OnStart]\npublic void Start() {}\n}\n[Service]\npublic class TallyService { public object Read() { return new LeafDelegate(null); } }\n";
     let expected = crate::yon::ManualHelpers::read(path, source)
         .err()
         .unwrap_or_else(|| panic!("unrelated caller-owned lifecycle must be refused"));
@@ -492,7 +492,7 @@ fn csharp_caller_lookup_preserves_unrelated_failure_diagnostics() {
     assert_eq!(diagnostic.severity, tachyon_diagnostics::Severity::Error);
     assert_eq!(
         diagnostic.message,
-        "Helper LeafHelper uses caller-owned construction; lifecycle and event hooks require a declared Needs or NeedsAll provider"
+        "Delegate LeafDelegate uses caller-owned construction; lifecycle and event hooks require a declared Needs or NeedsAll provider"
     );
     let start = source
         .find("[OnStart]")

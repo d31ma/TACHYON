@@ -10,4 +10,4 @@ class LedgerController:
     @get_route
     async def get_ledger(self) -> LedgerReport:
         settled = await self.ledger_service.settle('open')
-        return LedgerReport(settled, LedgerAdapterHelper.commands)
+        return LedgerReport(settled, LedgerAdapterDelegate.commands)

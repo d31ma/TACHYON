@@ -5,7 +5,7 @@ use std::path::PathBuf;
 struct Sample;
 
 impl Sample {
-    const FSHARP_HELPER_PATH: &'static str = "client/helpers/ValueHelper.fs";
+    const FSHARP_HELPER_PATH: &'static str = "client/delegates/ValueDelegate.fs";
     const REALMS: [Realm; 2] = [Realm::Tac, Realm::Yon];
     const TARGETS: [Target; 4] = [
         Target::Type,
@@ -377,7 +377,7 @@ fn every_language_has_rules_in_some_realm() {
 #[test]
 fn fsharp_helper_attribute_is_checked_through_its_existing_analysis_view() {
     let path = std::path::Path::new(Sample::FSHARP_HELPER_PATH);
-    let source = "[<Helper>]\ntype ValueHelper() =\n    member this.Value() : int = 1\n";
+    let source = "[<Delegate>]\ntype ValueDelegate() =\n    member this.Value() : int = 1\n";
     let result = AnnotationRules::check(path, source);
     assert!(result.is_ok(), "{result:?}");
 }
@@ -385,11 +385,11 @@ fn fsharp_helper_attribute_is_checked_through_its_existing_analysis_view() {
 #[test]
 fn fsharp_helper_on_a_member_reports_its_authored_spelling_and_path() {
     let path = std::path::Path::new(Sample::FSHARP_HELPER_PATH);
-    let source = "type ValueHelper() =\n    [<Helper>]\n    member this.Value() : int = 1\n";
+    let source = "type ValueDelegate() =\n    [<Delegate>]\n    member this.Value() : int = 1\n";
     let failure =
-        AnnotationRules::check(path, source).expect_err("FSharp member Helper must be refused");
+        AnnotationRules::check(path, source).expect_err("FSharp member Delegate must be refused");
     let message = &failure.diagnostics()[0].message;
-    assert!(message.contains("[<Helper>]"), "{message}");
+    assert!(message.contains("[<Delegate>]"), "{message}");
     assert!(message.contains("belongs on a class"), "{message}");
     assert!(message.contains(Sample::FSHARP_HELPER_PATH), "{message}");
     assert_eq!(
@@ -765,7 +765,7 @@ fn deeper_paths_share_the_table_messages() {
     assert!(AnnotationRules::belongs("Cached").starts_with("Cached belongs on a method"));
     for language in ["dart", "kt", "java"] {
         assert_eq!(
-            AnnotationRules::unavailable("Helper", language, "tac"),
+            AnnotationRules::unavailable("Delegate", language, "tac"),
             None
         );
     }
@@ -952,7 +952,7 @@ fn needs_all_takes_no_field_list_and_no_constructor_in_every_language() {
     let fine = [
         (
             "js",
-            "@NeedsAll()\nclass SampleService {\n  value;\n}\nclass Helper {\n  constructor() {}\n}\n",
+            "@NeedsAll()\nclass SampleService {\n  value;\n}\nclass Delegate {\n  constructor() {}\n}\n",
         ),
         (
             "rs",

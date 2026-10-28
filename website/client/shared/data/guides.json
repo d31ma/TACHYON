@@ -451,7 +451,7 @@
       ]
     },
     "helpers": {
-      "title": "Helpers, utilities and private methods",
+      "title": "Delegates, utilities and private methods",
       "summary": "One question decides where shared code goes: a helper when it needs other classes, saved state, lifecycle hooks or a Fake in tests; otherwise a utility, a private method or a service.",
       "before": [
         "utilities"

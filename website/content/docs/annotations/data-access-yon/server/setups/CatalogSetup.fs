@@ -5,6 +5,6 @@ open System.Threading.Tasks
 type CatalogSetup() =
     static member configure(execution: BehaviorExecution) : BehaviorAdapters =
         let adapters = BehaviorAdapters()
-        adapters.entities["catalog"] <- CatalogAdapterHelper()
+        adapters.entities["catalog"] <- CatalogAdapterDelegate()
         adapters.authorizeEntity <- Func<_, _, _>(fun command current -> Task.FromResult(command.Get("entity").Text = "ProductEntity"))
         adapters

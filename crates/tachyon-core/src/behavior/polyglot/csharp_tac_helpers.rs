@@ -74,7 +74,7 @@ impl CsharpTacHelpers {
     fn caller_at(ty: &Type, markers: &[Marker]) -> usize {
         markers
             .iter()
-            .find(|marker| (marker.name.as_str(), marker.target) == ("Helper", ty.declaration))
+            .find(|marker| (marker.name.as_str(), marker.target) == ("Delegate", ty.declaration))
             .map_or(ty.declaration, |marker| marker.span.start)
     }
 
@@ -220,7 +220,7 @@ impl CsharpTacHelpers {
     fn helper_targets(markers: &[Marker]) -> BTreeSet<usize> {
         markers
             .iter()
-            .filter(|marker| marker.name == "Helper")
+            .filter(|marker| marker.name == "Delegate")
             .map(|marker| marker.target)
             .collect()
     }
@@ -351,6 +351,6 @@ impl CsharpTacHelpers {
     }
 
     fn failure(input: &Input<'_>, at: usize, name: &str) -> Failure {
-        input.failure(at, format!("Tac C# Helper {name} needs an owner: a [Needs] field of the class that uses it, which makes a new {name} for that class, or an explicit caller-owned construction with new outside its own class. A Helper takes no NeedsAll, Lifetime or lifecycle hooks, and a [Needs] field names a Helper from client/helpers."))
+        input.failure(at, format!("Tac C# Delegate {name} needs an owner: a [Needs] field of the class that uses it, which makes a new {name} for that class, or an explicit caller-owned construction with new outside its own class. A Delegate takes no NeedsAll, Lifetime or lifecycle hooks, and a [Needs] field names a Delegate from client/helpers."))
     }
 }

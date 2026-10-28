@@ -26,14 +26,14 @@ class Samples {
             "marks a class (a role) that other classes use",
         )
         .bare(),
-        Rule::new("Helper", Self::TYPE, "marks a helper")
+        Rule::new("Delegate", Self::TYPE, "marks a helper")
         .reach(Self::TAC_HELPER, Self::YON),
         Rule::new("StreamRoute", Self::METHOD, "streams")
         .route()
         .reach(Self::NOWHERE, Self::YON_STREAM),
         Rule::new("StreamRequest", Self::METHOD, "receives a stream")
         .reach(Self::TAC_STREAM, Self::NOWHERE),
-        Rule::retired("Component", "Helper", "write @Helper"),
+        Rule::retired("Component", "Delegate", "write @Delegate"),
     ];
 
     const ACCESS_RULES: &'static [Rule] = &[
@@ -100,7 +100,7 @@ describe('the annotation rule table parser', () => {
     expect(table.realmLanguages).toEqual({ tac: ['js', 'rs'], yon: ['js', 'py', 'java'] })
     expect(table.rules).toEqual([
       { name: 'Service', tac: ['js', 'rs'], yon: ['js', 'py', 'java'], code: 1308 },
-      { name: 'Helper', tac: ['js'], yon: ['js', 'py', 'java'], code: 1308 },
+      { name: 'Delegate', tac: ['js'], yon: ['js', 'py', 'java'], code: 1308 },
       { name: 'StreamRoute', tac: [], yon: ['js', 'py'], code: 2015 },
       { name: 'StreamRequest', tac: ['js', 'ts'], yon: [], code: 1308 },
       { name: 'Component', tac: [], yon: [], code: 1308 },
@@ -110,7 +110,7 @@ describe('the annotation rule table parser', () => {
 
   test('reads the real rule table of the compiler', () => {
     const reach = AnnotationReach.load()
-    expect(reach.rule('Helper')?.tac).toEqual(['js', 'ts', 'rs', 'cs', 'dart', 'go', 'swift', 'kt', 'rb', 'lua', 'py', 'java', 'fs', 'hpp'])
+    expect(reach.rule('Delegate')?.tac).toEqual(['js', 'ts', 'rs', 'cs', 'dart', 'go', 'swift', 'kt', 'rb', 'lua', 'py', 'java', 'fs', 'hpp'])
     expect(reach.rule('Public')?.tac).toEqual([])
     expect(reach.rule('stream_route')?.yon).toEqual(reach.realmLanguages.yon)
     expect(reach.refusal('yon', 'groovy', ['StreamRoute'], ['js'])).toBeUndefined()
@@ -152,7 +152,7 @@ describe('the language coverage audit', () => {
 
   test('an annotation that a shown language cannot use explains no gap', () => {
     const files = [
-      { name: 'client/helpers/Format.js', code: '@Helper\nexport default class Format {}\n' },
+      { name: 'client/helpers/Format.js', code: '@Delegate\nexport default class Format {}\n' },
       { name: 'client/services/Cart.rs', code: '#[Service]\nstruct Cart {}\n' },
     ]
     const coverage = Samples.audit().audit([Samples.unit('Roles', files)])[0]

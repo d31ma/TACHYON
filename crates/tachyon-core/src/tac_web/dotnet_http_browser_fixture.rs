@@ -16,8 +16,8 @@ impl DotnetHttpBrowserFixture {
             ),
         ),
         (
-            "client/helpers/CustomHttpHelper.cs",
-            include_str!("../../tests/fixtures/tac-dotnet-http/client/helpers/CustomHttpHelper.cs"),
+            "client/delegates/CustomHttpDelegate.cs",
+            include_str!("../../tests/fixtures/tac-dotnet-http/client/delegates/CustomHttpDelegate.cs"),
         ),
         (
             "client/pages/tac.html",

@@ -3,11 +3,11 @@ class BillingService
   SUBTOTAL = 40
 
   #[Needs]
-  # @return [BillingHelper]
-  attr_reader :billing_helper
+  # @return [BillingDelegate]
+  attr_reader :billing_delegate
 
   # @return [Integer]
   def total
-    billing_helper.settle(SUBTOTAL)
+    billing_delegate.settle(SUBTOTAL)
   end
 end

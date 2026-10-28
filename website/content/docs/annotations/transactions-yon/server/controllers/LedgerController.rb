@@ -8,6 +8,6 @@ class LedgerController
   # @return [LedgerReport]
   #[GetRoute]
   def get_ledger
-    LedgerReport.new(settled: ledger_service.settle("open"), commands: LedgerAdapterHelper.commands)
+    LedgerReport.new(settled: ledger_service.settle("open"), commands: LedgerAdapterDelegate.commands)
   end
 end

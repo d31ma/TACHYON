@@ -27,7 +27,7 @@ impl FirstAppCsharpBrowserFixture {
     ];
     const STEP_FIVE: &'static str = "website/content/docs/first-app/add-tests";
     const TEST_FILES: [&'static str; 3] = [
-        "client/helpers/GreetingFakeHelper.cs",
+        "client/delegates/GreetingFakeDelegate.cs",
         "client/tests/CounterServiceTest.cs",
         "client/tests/HelloTestSetup.cs",
     ];

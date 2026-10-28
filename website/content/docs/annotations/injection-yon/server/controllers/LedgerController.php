@@ -8,8 +8,8 @@ class LedgerController {
   #[Named('LedgerService')]
   private LedgerService $service;
   #[Needs]
-  #[Named('LedgerHelper')]
-  private LedgerHelper $settlement;
+  #[Named('LedgerDelegate')]
+  private LedgerDelegate $settlement;
 
   #[GetRoute]
   public function getLedger(): Ledger {

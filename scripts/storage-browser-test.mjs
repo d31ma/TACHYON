@@ -1180,7 +1180,7 @@ export default class StorageEarlyService {
 `);
 }
 
-const rootHelper = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
+const rootDelegate = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
 
 function buildFixture(project) {
   const built = spawnSync(StorageGate.binary, ['build', project], {
@@ -1296,7 +1296,7 @@ async function checkKeptCaches(page) {
 
 async function checkEarlyCalls(browser, origin) {
   const context = await browser.newContext();
-  await context.addInitScript(rootHelper);
+  await context.addInitScript(rootDelegate);
   try {
     const page = await context.newPage();
     await page.goto(`${origin}/early`, { waitUntil: 'networkidle' });
@@ -1326,7 +1326,7 @@ async function checkEarlyCalls(browser, origin) {
 
 async function checkInsecureCaches(browser, port) {
   const insecure = await browser.newContext();
-  await insecure.addInitScript(rootHelper);
+  await insecure.addInitScript(rootDelegate);
   const page = await insecure.newPage();
   const notices = [];
   page.on('console', (message) => { if (message.text().includes('memory only')) notices.push(message.text()); });
@@ -1343,7 +1343,7 @@ async function checkInsecureCaches(browser, port) {
 
 async function checkIndexedStore(browser, origin) {
   const context = await browser.newContext();
-  await context.addInitScript(rootHelper);
+  await context.addInitScript(rootDelegate);
   const page = await context.newPage();
   await page.goto(`${origin}/.tachyon/tac-client.js`);
   await page.evaluate(() => new Promise((resolve, reject) => {
@@ -1375,7 +1375,7 @@ async function checkIndexedStore(browser, origin) {
   await context.close();
 
   const changed = await browser.newContext();
-  await changed.addInitScript(rootHelper);
+  await changed.addInitScript(rootDelegate);
   const other = await changed.newPage();
   await other.goto(`${origin}/.tachyon/tac-client.js`);
   await other.evaluate(() => new Promise((resolve) => {
@@ -1391,7 +1391,7 @@ async function checkIndexedStore(browser, origin) {
 
 async function checkWebAssemblyStorage(browser, origin) {
   const context = await browser.newContext();
-  await context.addInitScript(rootHelper);
+  await context.addInitScript(rootDelegate);
   const page = await context.newPage();
   await StorageGate.visit(page, origin);
   const evaluate = (script) => page.evaluate(script);
@@ -1632,7 +1632,7 @@ async function checkOfflineReads(page, context, kept) {
 
 async function checkDeniedStorage(browser, origin) {
   const blocked = await browser.newContext();
-  await blocked.addInitScript(rootHelper);
+  await blocked.addInitScript(rootDelegate);
   await blocked.addInitScript(() => {
     for (const name of ['localStorage', 'sessionStorage', 'indexedDB', 'caches']) {
       Object.defineProperty(globalThis, name, { get() { throw new DOMException('Denied', 'SecurityError'); } });
@@ -1697,7 +1697,7 @@ async function checkServiceWorkerOffline(secureContext, secureOrigin) {
 
 async function checkBrowser(browser, name, origin, port) {
   const context = await browser.newContext();
-  await context.addInitScript(rootHelper);
+  await context.addInitScript(rootDelegate);
   context.setDefaultTimeout(15_000);
   context.setDefaultNavigationTimeout(15_000);
   const page = await checkFieldStorage(context, origin);

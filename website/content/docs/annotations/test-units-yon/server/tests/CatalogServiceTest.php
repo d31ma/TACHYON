@@ -3,15 +3,15 @@
 #[UseProfiles("test")]
 class CatalogServiceTest {
     #[Fake]
-    public CatalogCounterHelper $catalogCounterHelper;
+    public CatalogCounterDelegate $catalogCounterDelegate;
 
     public function testDoublesTheCount(): void {
-        $this->catalogCounterHelper = new class extends CatalogCounterHelper {
+        $this->catalogCounterDelegate = new class extends CatalogCounterDelegate {
             public function count(): int {
                 return 4;
             }
         };
-        $service = new CatalogService($this->catalogCounterHelper);
+        $service = new CatalogService($this->catalogCounterDelegate);
         Assert::equals(8, $service->total());
     }
 

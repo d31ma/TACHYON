@@ -583,8 +583,8 @@ declare global {
   /** RequestHeader: this argument is sent as the value of a request header. */
   const RequestHeader: BehaviorNamedParameterAnnotation;
   const Service: BehaviorBareMarker<BehaviorClassAnnotation>;
-  /** Helper: marks a class that services use for part of their work. Tachyon creates it and gives it to the classes that ask for it with Needs. */
-  const Helper: BehaviorBareMarker<BehaviorClassAnnotation>;
+  /** Delegate: marks a class that services use for part of their work. Tachyon creates it and gives it to the classes that ask for it with Needs. */
+  const Delegate: BehaviorBareMarker<BehaviorClassAnnotation>;
   interface BehaviorScopeOptions { value: 'singleton' | 'prototype'; }
   function Lifetime(options: BehaviorScopeOptions): BehaviorClassAnnotation;
   function Lifetime(lifetime: 'singleton' | 'request' | 'transient'): BehaviorClassAnnotation;

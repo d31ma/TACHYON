@@ -16,7 +16,7 @@ impl<'a> ShadowWriter<'a> {
         "Service",
         "Store",
         "Client",
-        "Helper",
+        "Delegate",
         "ErrorHandler",
         "RequestRoute",
         "SocketRoute",

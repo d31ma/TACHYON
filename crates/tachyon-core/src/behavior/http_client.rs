@@ -29,7 +29,7 @@ impl HttpClientSource {
     const OTHER_ROLES: [&'static str; 9] = [
         "service",
         "store",
-        "helper",
+        "delegate",
         "converter",
         "setup",
         "entity",
@@ -37,7 +37,7 @@ impl HttpClientSource {
         "controller",
         "requestroute",
     ];
-    const ROLE_SUFFIXES: [&'static str; 4] = ["Client", "Service", "Store", "Helper"];
+    const ROLE_SUFFIXES: [&'static str; 4] = ["Client", "Service", "Store", "Delegate"];
 
     pub(crate) fn is_name(name: &str) -> bool {
         let name = Self::normalized(name);

@@ -863,12 +863,12 @@ mod tests {
     #[test]
     fn a_failure_in_a_role_file_names_that_file() {
         let program = format!(
-            "type TallyService struct{{}}\n{}\n// @Helper\ntype StepHelper struct{{}}\n",
-            GoFile::role_separator("StepHelper", "client/helpers/StepHelper.go")
+            "type TallyService struct{{}}\n{}\n// @Delegate\ntype StepDelegate struct{{}}\n",
+            GoFile::role_separator("StepDelegate", "client/delegates/StepDelegate.go")
         );
         let files = GoFile::split(&program);
-        assert_eq!(files[1].path, "client/helpers/StepHelper.go");
-        let marker = program.find("@Helper").expect("marker");
+        assert_eq!(files[1].path, "client/delegates/StepDelegate.go");
+        let marker = program.find("@Delegate").expect("marker");
         let failure = Failure::one(crate::failure::diagnostic(
             1308,
             "refused",
@@ -877,7 +877,7 @@ mod tests {
         ));
         let located = GoFile::locate(&failure, &program);
         let span = &located.diagnostics()[0].spans[0];
-        assert_eq!(span.file, "client/helpers/StepHelper.go");
+        assert_eq!(span.file, "client/delegates/StepDelegate.go");
         assert_eq!((span.start, span.end), (4, 5));
     }
 }

@@ -9,6 +9,6 @@ class LedgerController {
     @GetRoute
     fun getLedger(): LedgerReport {
         val settled = ledger.settle("open")
-        return LedgerReport(settled, LedgerAdapterHelper.commands)
+        return LedgerReport(settled, LedgerAdapterDelegate.commands)
     }
 }

@@ -2,7 +2,7 @@ from typing import Annotated
 
 @service
 class AuditService:
-    audit: Annotated[AuditHelper, needs]
+    audit: Annotated[AuditDelegate, needs]
     visible: bool = True
 
     def ready(self) -> str:

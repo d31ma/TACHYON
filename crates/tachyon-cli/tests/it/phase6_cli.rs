@@ -290,7 +290,7 @@ fn migrate_fix_writes_the_automatic_fixes_and_the_project_builds() {
     );
     assert!(
         stdout(&written)
-            .contains("moved    client/delegates/CartComponent.js -> client/helpers/CartHelper.js"),
+            .contains("moved    client/delegates/CartComponent.js -> client/delegates/CartDelegate.js"),
         "{}",
         stdout(&written)
     );

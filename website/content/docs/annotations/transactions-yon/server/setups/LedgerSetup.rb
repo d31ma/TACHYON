@@ -3,7 +3,7 @@ class LedgerSetup
   # @param execution [Object]
   # @return [Hash]
   def self.configure(execution)
-    { entities: { ledger: { execute: LedgerAdapterHelper.method(:execute) } }, authorizeEntity: method(:authorize) }
+    { entities: { ledger: { execute: LedgerAdapterDelegate.method(:execute) } }, authorizeEntity: method(:authorize) }
   end
 
   # @param command [Hash]

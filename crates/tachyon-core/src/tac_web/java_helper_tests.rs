@@ -9,29 +9,29 @@ struct JavaHelpers;
 impl JavaHelpers {
     const FILES: [(&str, &str); 5] = [
         (
-            "client/helpers/TaxRateHelper.java",
-            "@Helper\nclass TaxRateHelper {\n    int asked = 0;\n\n    int rate() {\n        asked += 1;\n        return 2;\n    }\n}\n",
+            "client/delegates/TaxRateDelegate.java",
+            "@Delegate\nclass TaxRateDelegate {\n    int asked = 0;\n\n    int rate() {\n        asked += 1;\n        return 2;\n    }\n}\n",
         ),
         (
-            "client/helpers/TaxHelper.java",
-            "@Helper\nclass TaxHelper {\n    @Needs\n    private final TaxRateHelper rates;\n\n    \
+            "client/delegates/TaxDelegate.java",
+            "@Delegate\nclass TaxDelegate {\n    @Needs\n    private final TaxRateDelegate rates;\n\n    \
              int addTax(int subtotal) {\n        int tax = rates.rate();\n        return subtotal + tax;\n    }\n\n    \
              int asked() {\n        return rates.asked;\n    }\n}\n",
         ),
         (
-            "client/helpers/RoundHelper.java",
-            "@Helper\npublic class RoundHelper {\n    public int round(int value) {\n        return value / 10 * 10;\n    }\n}\n",
+            "client/delegates/RoundDelegate.java",
+            "@Delegate\npublic class RoundDelegate {\n    public int round(int value) {\n        return value / 10 * 10;\n    }\n}\n",
         ),
         (
             "client/services/CheckoutService.java",
-            "@Service\nclass CheckoutService {\n    @Needs\n    private final TaxHelper helper;\n    @Needs\n    private final RoundHelper rounding;\n    int total = 0;\n\n    \
+            "@Service\nclass CheckoutService {\n    @Needs\n    private final TaxDelegate helper;\n    @Needs\n    private final RoundDelegate rounding;\n    int total = 0;\n\n    \
              int checkout() {\n        total = helper.addTax(40);\n        return total;\n    }\n\n    \
              int rounded() {\n        return rounding.round(total);\n    }\n\n    \
              int asked() {\n        return helper.asked();\n    }\n}\n",
         ),
         (
             "client/services/QuoteService.java",
-            "@Service\nclass QuoteService {\n    @Needs\n    private final TaxHelper helper;\n\n    \
+            "@Service\nclass QuoteService {\n    @Needs\n    private final TaxDelegate helper;\n\n    \
              int quote(int subtotal) {\n        return helper.addTax(subtotal);\n    }\n\n    \
              int asked() {\n        return helper.asked();\n    }\n}\n",
         ),

@@ -2,12 +2,12 @@
 export default class BillingService {
   static _SUBTOTAL = 40;
 
-  /** @type {BillingHelper} */
+  /** @type {BillingDelegate} */
   @Needs
-  billingHelper;
+  billingDelegate;
 
   /** @returns {number} */
   total() {
-    return this.billingHelper.settle(BillingService._SUBTOTAL);
+    return this.billingDelegate.settle(BillingService._SUBTOTAL);
   }
 }

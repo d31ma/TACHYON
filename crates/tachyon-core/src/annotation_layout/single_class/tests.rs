@@ -3,13 +3,13 @@ use super::*;
 #[test]
 fn authored_handlers_reject_helpers_in_every_language() {
     for (extension, source) in [
-        ("js", "export class Handler {} class Helper {}"),
-        ("ts", "export class Handler {} interface Helper {}"),
+        ("js", "export class Handler {} class Delegate {}"),
+        ("ts", "export class Handler {} interface Delegate {}"),
         ("py", "class Handler: pass\ndef helper(): pass\n"),
         ("php", "<?php class Handler {} function helper() {}"),
-        ("java", "class Handler {} record Helper(int value) {}"),
+        ("java", "class Handler {} record Delegate(int value) {}"),
         ("kt", "class Handler {} fun helper() {}"),
-        ("cs", "class Handler {} struct Helper {}"),
+        ("cs", "class Handler {} struct Delegate {}"),
         ("rs", "struct Handler; fn helper() {}"),
         ("swift", "@Checked\nstruct Handler {}\nfunc helper() {}"),
         ("dart", "class Handler {} void helper() {}"),
@@ -24,7 +24,7 @@ fn authored_handlers_reject_helpers_in_every_language() {
 #[test]
 fn annotated_files_refuse_every_extra_top_level_kind() {
     for extra in [
-        "class Helper {}",
+        "class Delegate {}",
         "interface Data {}",
         "type Data = string;",
         "enum Data { One }",
@@ -500,7 +500,7 @@ fn accepted_forms_do_not_let_other_code_in() {
             "<?php\ndeclare(ticks=1) {}\n#[Service]\nclass MoneyService {}",
         ),
         ("php", "<?php\n#[Service]\nclass MoneyService {}\n?>\nhello"),
-        ("dart", "@Service()\nclass MoneyService {}\nmixin Helper {}"),
+        ("dart", "@Service()\nclass MoneyService {}\nmixin Delegate {}"),
         (
             "rs",
             "#[Service]\npub struct MoneyService;\npub fn helper() {}",
@@ -686,7 +686,7 @@ fn a_go_file_holds_package_main_imports_and_one_type_with_its_methods() {
 #[test]
 fn a_go_file_refuses_every_other_top_level_form() {
     for (extra, found) in [
-        ("type Helper struct{}", "another struct 'Helper'"),
+        ("type Delegate struct{}", "another struct 'Delegate'"),
         ("type Names []string", "another type 'Names'"),
         ("type Alias = Handler", "a type alias 'Alias'"),
         ("type (\n\tA int\n)", "a grouped type declaration"),

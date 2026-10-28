@@ -10,5 +10,5 @@ LedgerController = {
 ---@return LedgerReport
 -- @GetRoute
 function LedgerController:get_ledger()
-  return { settled = self.ledger_service:settle("open"), commands = LedgerAdapterHelper.commands }
+  return { settled = self.ledger_service:settle("open"), commands = LedgerAdapterDelegate.commands }
 end

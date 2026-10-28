@@ -14,8 +14,8 @@ struct PythonTacFixture {
 impl PythonTacFixture {
     const FILES: [(&'static str, &'static str); 11] = [
         (
-            "client/helpers/ShelfHelper.py",
-            include_str!("../../tests/fixtures/tac-python/client/helpers/ShelfHelper.py"),
+            "client/delegates/ShelfDelegate.py",
+            include_str!("../../tests/fixtures/tac-python/client/delegates/ShelfDelegate.py"),
         ),
         (
             "client/services/LibraryService.py",
@@ -26,12 +26,12 @@ impl PythonTacFixture {
             include_str!("../../tests/fixtures/tac-python/client/models/Guide.py"),
         ),
         (
-            "client/helpers/AuditHelper.py",
-            include_str!("../../tests/fixtures/tac-python/client/helpers/AuditHelper.py"),
+            "client/delegates/AuditDelegate.py",
+            include_str!("../../tests/fixtures/tac-python/client/delegates/AuditDelegate.py"),
         ),
         (
-            "client/helpers/CounterHelper.py",
-            include_str!("../../tests/fixtures/tac-python/client/helpers/CounterHelper.py"),
+            "client/delegates/CounterDelegate.py",
+            include_str!("../../tests/fixtures/tac-python/client/delegates/CounterDelegate.py"),
         ),
         (
             "client/services/AuditService.py",

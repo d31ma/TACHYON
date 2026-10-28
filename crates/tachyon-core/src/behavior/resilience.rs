@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn autowired_fields_build_the_tac_constructor() {
-        let source = "@Service()\nexport default class BasketService {\n@Needs()\nbasketRepository;\n@Needs()\n@Named(\"PricingHelper\")\npricing;\ntotal = 0;\n}";
+        let source = "@Service()\nexport default class BasketService {\n@Needs()\nbasketRepository;\n@Needs()\n@Named(\"PricingDelegate\")\npricing;\ntotal = 0;\n}";
         let output = lower_file("tac.js", source, "tac")
             .unwrap_or_else(|failure| panic!("{failure:?}"))
             .unwrap_or_default();

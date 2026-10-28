@@ -10,16 +10,16 @@ struct KotlinHelpers;
 impl KotlinHelpers {
     const FILES: [(&str, &str); 3] = [
         (
-            "client/helpers/TaxRateHelper.kt",
-            "@Helper\nclass TaxRateHelper {\n    fun rate(): Int = 2\n}\n",
+            "client/delegates/TaxRateDelegate.kt",
+            "@Delegate\nclass TaxRateDelegate {\n    fun rate(): Int = 2\n}\n",
         ),
         (
-            "client/helpers/TaxHelper.kt",
-            "@Helper\nclass TaxHelper {\n    @Needs\n    val rates: TaxRateHelper\n\n    fun addTax(subtotal: Int): Int {\n        val tax = rates.rate()\n        return subtotal + tax\n    }\n}\n",
+            "client/delegates/TaxDelegate.kt",
+            "@Delegate\nclass TaxDelegate {\n    @Needs\n    val rates: TaxRateDelegate\n\n    fun addTax(subtotal: Int): Int {\n        val tax = rates.rate()\n        return subtotal + tax\n    }\n}\n",
         ),
         (
             "client/services/CheckoutService.kt",
-            "@Service\nclass CheckoutService {\n    @Needs\n    val helper: TaxHelper\n    var total: Int = 0\n\n    fun checkout(): Int {\n        total = helper.addTax(40)\n        return total\n    }\n}\n",
+            "@Service\nclass CheckoutService {\n    @Needs\n    val helper: TaxDelegate\n    var total: Int = 0\n\n    fun checkout(): Int {\n        total = helper.addTax(40)\n        return total\n    }\n}\n",
         ),
     ];
 

@@ -16,7 +16,7 @@ impl<'a> FsharpInjectedContract<'a> {
     const DEFAULT_INDENT: &'static str = "    ";
     const BINDING: &'static str = "{indent}let {name} = {type}()\n";
     const HELPER_BINDING: &'static str = "{indent}let {name} = new {type}()\n";
-    const HELPER_SUFFIX: &'static str = "Helper";
+    const HELPER_SUFFIX: &'static str = "Delegate";
     const OPENERS: [char; 3] = ['(', '<', '['];
     const CLOSERS: [char; 3] = [')', '>', ']'];
 

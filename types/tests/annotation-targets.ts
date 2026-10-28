@@ -6,9 +6,9 @@ class ServiceOnMethod {
   load(): void {}
 }
 
-class HelperOnMethod {
-  // @ts-expect-error Helper belongs on a class, not on a method.
-  @Helper
+class DelegateOnMethod {
+  // @ts-expect-error Delegate belongs on a class, not on a method.
+  @Delegate
   load(): void {}
 }
 
@@ -487,7 +487,7 @@ class RequestBodyOnClass {}
 @RequestHeader
 class RequestHeaderOnClass {}
 
-export const targets = [IdentityProviderOnMethod, PublicOnField, AllowWithoutRoles, GuardedController, ServiceOnMethod, HelperOnMethod, ConverterOnMethod, SetupOnMethod, TestSetupOnMethod, CheckedOnMethod, FreshStartOnMethod, ErrorHandlerOnMethod, RequestRouteOnMethod, HTTPClientOnMethod, TestOnMethod, UseProfilesOnMethod, TestSettingsOnMethod, LifetimeOnMethod, NeedsAllOnMethod, ScheduleOnMethod, CacheSettingsOnMethod, EntityOnMethod, TableOnMethod, DescriptionOnMethod, SettingsOnMethod, WhenProfileOnMethod, WhenSettingOnMethod, CachedOnField, ClearCacheOnField, UpdateCacheOnField, RetryOnField, MaxAtOnceOnField, AllOrNothingOnField, GatewayOnField, ConvertOnField, QueryOnField, OnEventOnField, OnStartOnField, OnStopOnField, OrderOnField, InBackgroundOnField, HandlesErrorOnField, GetRouteOnField, PostRouteOnField, PutRouteOnField, PatchRouteOnField, DeleteRouteOnField, ResponseStatusOnField, GetRequestOnField, PostRequestOnField, PutRequestOnField, PatchRequestOnField, DeleteRequestOnField, StreamRouteOnField, StreamRequestOnField, SocketRouteOnMethod, OnMessageOnField, SocketRequestOnField, FakeOnMethod, IdOnMethod, NamedOnMethod, SettingOnMethod, RequiredOnMethod, NotEmptyOnMethod, LengthOnMethod, MinOnMethod, MaxOnMethod, NeedsOnMethod, CacheKeyOnClass, CheckOnClass, PageDefaultsOnClass, FromPathOnClass, FromQueryOnClass, FromBodyOnClass, FromHeaderOnClass, FromCookieOnClass, PathVariableOnClass, RequestParamOnClass, RequestBodyOnClass, RequestHeaderOnClass];
+export const targets = [IdentityProviderOnMethod, PublicOnField, AllowWithoutRoles, GuardedController, ServiceOnMethod, DelegateOnMethod, ConverterOnMethod, SetupOnMethod, TestSetupOnMethod, CheckedOnMethod, FreshStartOnMethod, ErrorHandlerOnMethod, RequestRouteOnMethod, HTTPClientOnMethod, TestOnMethod, UseProfilesOnMethod, TestSettingsOnMethod, LifetimeOnMethod, NeedsAllOnMethod, ScheduleOnMethod, CacheSettingsOnMethod, EntityOnMethod, TableOnMethod, DescriptionOnMethod, SettingsOnMethod, WhenProfileOnMethod, WhenSettingOnMethod, CachedOnField, ClearCacheOnField, UpdateCacheOnField, RetryOnField, MaxAtOnceOnField, AllOrNothingOnField, GatewayOnField, ConvertOnField, QueryOnField, OnEventOnField, OnStartOnField, OnStopOnField, OrderOnField, InBackgroundOnField, HandlesErrorOnField, GetRouteOnField, PostRouteOnField, PutRouteOnField, PatchRouteOnField, DeleteRouteOnField, ResponseStatusOnField, GetRequestOnField, PostRequestOnField, PutRequestOnField, PatchRequestOnField, DeleteRequestOnField, StreamRouteOnField, StreamRequestOnField, SocketRouteOnMethod, OnMessageOnField, SocketRequestOnField, FakeOnMethod, IdOnMethod, NamedOnMethod, SettingOnMethod, RequiredOnMethod, NotEmptyOnMethod, LengthOnMethod, MinOnMethod, MaxOnMethod, NeedsOnMethod, CacheKeyOnClass, CheckOnClass, PageDefaultsOnClass, FromPathOnClass, FromQueryOnClass, FromBodyOnClass, FromHeaderOnClass, FromCookieOnClass, PathVariableOnClass, RequestParamOnClass, RequestBodyOnClass, RequestHeaderOnClass];
 
 class ConvertNeedsAPromise {
   // @ts-expect-error Convert writes an async method: it returns a Promise.

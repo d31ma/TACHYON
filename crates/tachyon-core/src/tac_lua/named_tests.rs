@@ -7,16 +7,16 @@ struct NamedPage;
 impl NamedPage {
     const HELPERS: [(&'static str, &'static str); 2] = [
         (
-            "client/helpers/GreeterHelper.lua",
-            "-- @Helper\n---@class GreeterHelper\nGreeterHelper = {}\n\n---@return string\nfunction GreeterHelper:greet()\n  return \"hi\"\nend\n",
+            "client/delegates/GreeterDelegate.lua",
+            "-- @Delegate\n---@class GreeterDelegate\nGreeterDelegate = {}\n\n---@return string\nfunction GreeterDelegate:greet()\n  return \"hi\"\nend\n",
         ),
         (
-            "client/helpers/LoudGreeterHelper.lua",
-            "-- @Helper\n---@class LoudGreeterHelper\nLoudGreeterHelper = {}\n\n---@return string\nfunction LoudGreeterHelper:greet()\n  return \"HI\"\nend\n",
+            "client/delegates/LoudGreeterDelegate.lua",
+            "-- @Delegate\n---@class LoudGreeterDelegate\nLoudGreeterDelegate = {}\n\n---@return string\nfunction LoudGreeterDelegate:greet()\n  return \"HI\"\nend\n",
         ),
     ];
 
-    const SERVICE: &'static str = "-- @Service\n---@class WelcomeService\nWelcomeService = {\n  -- @Needs\n  -- @Named(\"LoudGreeterHelper\")\n  ---@type GreeterHelper\n  greeter = nil,\n  -- @Needs\n  ---@type GreeterHelper\n  plain = nil,\n}\n\n\
+    const SERVICE: &'static str = "-- @Service\n---@class WelcomeService\nWelcomeService = {\n  -- @Needs\n  -- @Named(\"LoudGreeterDelegate\")\n  ---@type GreeterDelegate\n  greeter = nil,\n  -- @Needs\n  ---@type GreeterDelegate\n  plain = nil,\n}\n\n\
          ---@return string\nfunction WelcomeService:welcome()\n  return self.greeter:greet()\nend\n\n\
          ---@return string\nfunction WelcomeService:hello()\n  return self.plain:greet()\nend\n";
 

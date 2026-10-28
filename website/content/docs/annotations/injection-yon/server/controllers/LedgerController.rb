@@ -6,8 +6,8 @@ class LedgerController
   # @return [LedgerService]
   attr_reader :service
   #[Needs]
-  #[Named("LedgerHelper")]
-  # @return [LedgerHelper]
+  #[Named("LedgerDelegate")]
+  # @return [LedgerDelegate]
   attr_reader :settlement
 
   # @return [Ledger]

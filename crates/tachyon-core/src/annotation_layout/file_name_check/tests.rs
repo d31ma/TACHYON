@@ -237,7 +237,7 @@ fn the_wanted_name_is_the_only_declared_class() {
 fn rust_snake_case_roles_and_models_keep_exact_type_marker_and_folder_checks() {
     for (folder, name, snake, marker) in [
         ("services", "RouteService", "route_service", "Service"),
-        ("helpers", "RouteHelper", "route_helper", "Helper"),
+        ("delegates", "RouteDelegate", "route_delegate", "Delegate"),
         ("setups", "RouteSetup", "route_setup", "Setup"),
         (
             "controllers",
@@ -283,7 +283,7 @@ fn rust_snake_case_roles_and_models_keep_exact_type_marker_and_folder_checks() {
     assert!(
         !codes(
             "client/helpers/route_service.rs",
-            "#[Helper]\nstruct RouteService;"
+            "#[Delegate]\nstruct RouteService;"
         )
         .is_empty()
     );

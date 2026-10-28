@@ -14,7 +14,7 @@ pub(crate) struct RubyHeldStreams<'a> {
 impl<'a> RubyHeldStreams<'a> {
     const MOST_STREAMS: usize = 16;
     const MOST_DEPTH: usize = 8;
-    const HELPERS: &'static str = "client/helpers";
+    const HELPERS: &'static str = "client/delegates";
     const CODE: u16 = 1605;
     const RUBY: &'static str = "Ruby";
     const LUA: &'static str = "Lua";
@@ -147,10 +147,10 @@ impl<'a> RubyHeldStreams<'a> {
 
     fn helper_failure(helper: &str) -> Failure {
         let message = format!(
-            "The Ruby Helper {helper} has an OnStart, OnStop or OnEvent method. A Ruby Tac Helper is made when its service first uses it, so the page never runs those hooks."
+            "The Ruby Delegate {helper} has an OnStart, OnStop or OnEvent method. A Ruby Tac Delegate is made when its service first uses it, so the page never runs those hooks."
         );
         let help = format!(
-            "Move the hook from client/helpers/{helper}.rb to the service that needs the Helper, and let it call plain Helper methods."
+            "Move the hook from client/delegates/{helper}.rb to the service that needs the Delegate, and let it call plain Delegate methods."
         );
         Self::failure(&message, help)
     }

@@ -35,26 +35,26 @@ impl TypedProject {
 
 #[test]
 fn javascript_members_need_jsdoc_types() {
-    let untyped = "@Service\nexport default class CartService {\n  @Needs\n  taxHelper;\n  count = 0;\n  items;\n\n  total(extra) {\n    return this.count + extra;\n  }\n\n  clear() {\n    this.count = 0;\n  }\n}\n";
-    let helper = "@Helper\nexport default class TaxHelper {\n  /**\n   * @param {number} value\n   * @returns {number}\n   */\n  add(value) {\n    return value;\n  }\n}\n";
+    let untyped = "@Service\nexport default class CartService {\n  @Needs\n  taxDelegate;\n  count = 0;\n  items;\n\n  total(extra) {\n    return this.count + extra;\n  }\n\n  clear() {\n    this.count = 0;\n  }\n}\n";
+    let helper = "@Delegate\nexport default class TaxDelegate {\n  /**\n   * @param {number} value\n   * @returns {number}\n   */\n  add(value) {\n    return value;\n  }\n}\n";
     assert_eq!(
         TypedProject::messages(&[
             ("client/services/CartService.js", untyped),
-            ("client/helpers/TaxHelper.js", helper),
+            ("client/delegates/TaxDelegate.js", helper),
         ]),
         [
             "The parameter `extra` of `total` in CartService has no type.",
             "The return value of `total` in CartService has no type.",
-            "The field `taxHelper` in CartService has no type.",
+            "The field `taxDelegate` in CartService has no type.",
             "The field `items` in CartService has no type.",
             "The field `items` in CartService has no starting value, and Tachyon does not fill it.",
         ]
     );
-    let typed = "@Service\nexport default class CartService {\n  /** @type {TaxHelper} */\n  @Needs\n  taxHelper;\n  count = 0;\n  /** @type {string[]} */\n  items = [];\n\n  /**\n   * @param {number} [extra]\n   * @returns {number}\n   */\n  total(extra) {\n    return this.count + extra;\n  }\n\n  clear() {\n    this.count = 0;\n  }\n}\n";
+    let typed = "@Service\nexport default class CartService {\n  /** @type {TaxDelegate} */\n  @Needs\n  taxDelegate;\n  count = 0;\n  /** @type {string[]} */\n  items = [];\n\n  /**\n   * @param {number} [extra]\n   * @returns {number}\n   */\n  total(extra) {\n    return this.count + extra;\n  }\n\n  clear() {\n    this.count = 0;\n  }\n}\n";
     assert!(
         TypedProject::messages(&[
             ("client/services/CartService.js", typed),
-            ("client/helpers/TaxHelper.js", helper),
+            ("client/delegates/TaxDelegate.js", helper),
         ])
         .is_empty()
     );
@@ -85,15 +85,15 @@ fn a_javascript_field_starts_with_a_value_or_is_filled_by_tachyon() {
 
 #[test]
 fn typescript_refuses_an_implicit_any() {
-    let untyped = "@Service\nexport default class PriceService {\n  @Needs\n  taxHelper;\n  count = 0;\n\n  total(extra, rate: number, base = 1) {\n    return extra * rate * base;\n  }\n}\n";
+    let untyped = "@Service\nexport default class PriceService {\n  @Needs\n  taxDelegate;\n  count = 0;\n\n  total(extra, rate: number, base = 1) {\n    return extra * rate * base;\n  }\n}\n";
     assert_eq!(
         TypedProject::messages(&[("server/services/PriceService.ts", untyped)]),
         [
             "The parameter `extra` of `total` in PriceService has no type.",
-            "The field `taxHelper` in PriceService has no type.",
+            "The field `taxDelegate` in PriceService has no type.",
         ]
     );
-    let typed = "@Service\nexport default class PriceService {\n  @Needs\n  taxHelper!: TaxHelper;\n  count = 0;\n\n  total(extra: number, rate: number, base = 1) {\n    return extra * rate * base;\n  }\n}\n";
+    let typed = "@Service\nexport default class PriceService {\n  @Needs\n  taxDelegate!: TaxDelegate;\n  count = 0;\n\n  total(extra: number, rate: number, base = 1) {\n    return extra * rate * base;\n  }\n}\n";
     assert!(TypedProject::messages(&[("server/services/PriceService.ts", typed)]).is_empty());
 }
 

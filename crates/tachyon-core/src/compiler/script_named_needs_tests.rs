@@ -14,39 +14,39 @@ impl ScriptNamedNeeds {
 
     const TYPESCRIPT: [(&'static str, &'static str); 4] = [
         (
-            "client/helpers/GreeterHelper.ts",
-            "@Helper\nexport default class GreeterHelper {\n  greet(): string {\n    return 'hi';\n  }\n}\n",
+            "client/delegates/GreeterDelegate.ts",
+            "@Delegate\nexport default class GreeterDelegate {\n  greet(): string {\n    return 'hi';\n  }\n}\n",
         ),
         (
-            "client/helpers/LoudGreeterHelper.ts",
-            "@Helper\nexport default class LoudGreeterHelper {\n  greet(): string {\n    return 'HI';\n  }\n}\n",
+            "client/delegates/LoudGreeterDelegate.ts",
+            "@Delegate\nexport default class LoudGreeterDelegate {\n  greet(): string {\n    return 'HI';\n  }\n}\n",
         ),
         (
             "client/services/WelcomeService.ts",
-            "@Service\nexport default class WelcomeService {\n  @Needs\n  @Named(\"LoudGreeterHelper\")\n  greeter!: GreeterHelper;\n\n  welcome(): string {\n    return this.greeter.greet();\n  }\n}\n",
+            "@Service\nexport default class WelcomeService {\n  @Needs\n  @Named(\"LoudGreeterDelegate\")\n  greeter!: GreeterDelegate;\n\n  welcome(): string {\n    return this.greeter.greet();\n  }\n}\n",
         ),
         (
             "client/services/HelloService.ts",
-            "@Service\nexport default class HelloService {\n  @Needs\n  greeterHelper!: GreeterHelper;\n\n  hello(): string {\n    return this.greeterHelper.greet();\n  }\n}\n",
+            "@Service\nexport default class HelloService {\n  @Needs\n  greeterDelegate!: GreeterDelegate;\n\n  hello(): string {\n    return this.greeterDelegate.greet();\n  }\n}\n",
         ),
     ];
 
     const JAVASCRIPT: [(&'static str, &'static str); 4] = [
         (
-            "client/helpers/GreeterHelper.js",
-            "@Helper\nexport default class GreeterHelper {\n  greet() {\n    return 'hi';\n  }\n}\n",
+            "client/delegates/GreeterDelegate.js",
+            "@Delegate\nexport default class GreeterDelegate {\n  greet() {\n    return 'hi';\n  }\n}\n",
         ),
         (
-            "client/helpers/LoudGreeterHelper.js",
-            "@Helper\nexport default class LoudGreeterHelper {\n  greet() {\n    return 'HI';\n  }\n}\n",
+            "client/delegates/LoudGreeterDelegate.js",
+            "@Delegate\nexport default class LoudGreeterDelegate {\n  greet() {\n    return 'HI';\n  }\n}\n",
         ),
         (
             "client/services/WelcomeService.js",
-            "@Service\nexport default class WelcomeService {\n  /** @type {GreeterHelper} */\n  @Needs\n  @Named(\"LoudGreeterHelper\")\n  greeter;\n\n  welcome() {\n    return this.greeter.greet();\n  }\n}\n",
+            "@Service\nexport default class WelcomeService {\n  /** @type {GreeterDelegate} */\n  @Needs\n  @Named(\"LoudGreeterDelegate\")\n  greeter;\n\n  welcome() {\n    return this.greeter.greet();\n  }\n}\n",
         ),
         (
             "client/services/HelloService.js",
-            "@Service\nexport default class HelloService {\n  /** @type {GreeterHelper} */\n  @Needs\n  greeterHelper;\n\n  hello() {\n    return this.greeterHelper.greet();\n  }\n}\n",
+            "@Service\nexport default class HelloService {\n  /** @type {GreeterDelegate} */\n  @Needs\n  greeterDelegate;\n\n  hello() {\n    return this.greeterDelegate.greet();\n  }\n}\n",
         ),
     ];
 

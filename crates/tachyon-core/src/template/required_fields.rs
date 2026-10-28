@@ -699,7 +699,7 @@ mod tests {
 
     #[test]
     fn javascript_and_typescript_fields_without_a_value_are_required() {
-        let source = "@Service\n@NeedsAll\nexport default class SnippetService {\n  files\n  axis\n  tally\n  applicationEventPublisher\n  helper\n  platform = storedPlatform()\n  companion = ''\n  static shared\n  spans() {\n    return this.axis !== 'language'\n  }\n}\nclass Helper {}\n";
+        let source = "@Service\n@NeedsAll\nexport default class SnippetService {\n  files\n  axis\n  tally\n  applicationEventPublisher\n  delegate\n  platform = storedPlatform()\n  companion = ''\n  static shared\n  spans() {\n    return this.axis !== 'language'\n  }\n}\nclass Delegate {}\n";
         assert_eq!(
             props("SnippetService.js", source, "SnippetService"),
             ["files", "axis"]
@@ -711,7 +711,7 @@ mod tests {
             "SnippetService",
             &injectable,
         );
-        assert_eq!(injected, ["tally", "applicationEventPublisher", "helper"]);
+        assert_eq!(injected, ["tally", "applicationEventPublisher", "delegate"]);
         let typed = "@Service\n@NeedsAll\nexport default class DrawerService {\n  open!: boolean\n  label?: string\n  readonly title: string\n  count: number = 0\n  tally: TallyService\n}\n";
         assert_eq!(
             props("DrawerService.ts", typed, "DrawerService"),
@@ -734,7 +734,7 @@ mod tests {
 
     #[test]
     fn typed_languages_follow_required_args_constructor_rules() {
-        let dart = "@Service\n@NeedsAll\nclass PagerService {\n  final String? path;\n  final Map<String, Object?>? docs;\n  late String label;\n  String? note;\n  final int size = 2;\n  final TallyService tally;\n  final Helper helper;\n  int count() => 1;\n}\n\nclass Helper {}\n";
+        let dart = "@Service\n@NeedsAll\nclass PagerService {\n  final String? path;\n  final Map<String, Object?>? docs;\n  late String label;\n  String? note;\n  final int size = 2;\n  final TallyService tally;\n  final Delegate helper;\n  int count() => 1;\n}\n\nclass Delegate {}\n";
         assert_eq!(
             props("PagerService.dart", dart, "PagerService"),
             ["path", "docs", "label"]
@@ -789,7 +789,7 @@ mod tests {
             RequiredFields::injected_fields(path, java, "NoteService", &injectable),
             ["helper", "named"]
         );
-        let csharp = "[Service]\n[NeedsAll]\npublic class NoteService\n{\n    [JsonPropertyName(\"note\")]\n    public readonly string Note;\n    [Needs]\n    public readonly string Helper;\n}\n";
+        let csharp = "[Service]\n[NeedsAll]\npublic class NoteService\n{\n    [JsonPropertyName(\"note\")]\n    public readonly string Note;\n    [Needs]\n    public readonly string Delegate;\n}\n";
         let path = Path::new("client/services/NoteService.cs");
         assert_eq!(
             RequiredFields::props(path, csharp, "NoteService", &injectable),
@@ -827,7 +827,7 @@ mod tests {
     fn rust_go_and_ruby_follow_their_own_initial_values() {
         let defaulted = "#[Service]\n#[NeedsAll]\n#[derive(Default)]\nstruct TocService {\n    entries: TacValue,\n}\n";
         assert!(props("TocService.rs", defaulted, "TocService").is_empty());
-        let plain = "#[Service]\n#[NeedsAll]\nstruct TocService {\n    page_path: String,\n    entries: HashMap<String, TacValue>,\n    #[Needs]\n    helper: Helper,\n}\n";
+        let plain = "#[Service]\n#[NeedsAll]\nstruct TocService {\n    page_path: String,\n    entries: HashMap<String, TacValue>,\n    #[Needs]\n    helper: Delegate,\n}\n";
         assert_eq!(
             props("TocService.rs", plain, "TocService"),
             ["pagePath", "entries"]

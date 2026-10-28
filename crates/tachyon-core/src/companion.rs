@@ -1571,7 +1571,7 @@ mod tests {
 
         const CSHARP_HTTP_CLIENT_SERVICE: &str = "public class CatalogService {\n    \
              readonly CatalogClient _catalog = new CatalogClient();\n    public int count = 0;\n\n    \
-             public async Task Load() { count = 1; }\n    int Helper() => 1;\n}\n";
+             public async Task Load() { count = 1; }\n    int Delegate() => 1;\n}\n";
 
         const CSHARP_READ_ONLY_FIELDS: &str = "public class Companion\n{\n    public int Count { get; set; } = 6;\n    \
              public string Label => \"Native\";\n    public readonly int Fixed = 1;\n    \
@@ -1952,7 +1952,7 @@ mod tests {
         assert!(table.contains("[\"count\"]"), "{table}");
         assert!(table.contains("[\"load\"]"), "{table}");
         assert!(!table.contains("_catalog"), "{table}");
-        assert!(!table.contains("Helper"), "{table}");
+        assert!(!table.contains("Delegate"), "{table}");
     }
 
     #[test]
@@ -2090,7 +2090,7 @@ mod tests {
     fn a_service_file_without_its_named_type_is_refused() {
         let failure = member_table(
             CompanionLanguage::Swift,
-            "final class Helper { var count: Int = 1 }\n",
+            "final class Delegate { var count: Int = 1 }\n",
             "client/services/PanelService.swift",
         )
         .expect_err("absent");

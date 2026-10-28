@@ -130,7 +130,7 @@ impl PythonWebServices {
     fn provider_path(path: &Path) -> bool {
         [
             "client/services",
-            "client/helpers",
+            "client/delegates",
             "client/stores",
             "client/remotes",
             "client/converters",

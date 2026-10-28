@@ -35,7 +35,7 @@ class ProductsController {
     public HttpResponseMessage GetProducts(HttpRequestMessage request) {
         RequireCounter();
         RequireGet(request);
-        return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(CatalogExercisesHelper.run().GetAwaiter().GetResult().ToString(), System.Text.Encoding.UTF8, "application/json") };
+        return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(CatalogExercisesDelegate.run().GetAwaiter().GetResult().ToString(), System.Text.Encoding.UTF8, "application/json") };
     }
     private void RequireCounter() {
         if (_counter.value != 42) throw new System.Exception("constructor injection failed");

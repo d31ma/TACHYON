@@ -10,6 +10,6 @@ class LedgerController {
     #[GetRoute]
     public function getLedger(): LedgerReport {
         $settled = $this->ledgerService->settle('open');
-        return new LedgerReport($settled, LedgerAdapterHelper::$commands);
+        return new LedgerReport($settled, LedgerAdapterDelegate::$commands);
     }
 }

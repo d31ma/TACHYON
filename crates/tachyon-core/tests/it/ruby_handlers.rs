@@ -291,9 +291,9 @@ fn layout_failure(relative: &str, contents: &str) -> String {
 fn a_ruby_worker_holds_one_class_named_handler() {
     let two = layout_failure(
         "server/workers/two.rb",
-        "class Handler\nend\n\nclass Helper\nend\n",
+        "class Handler\nend\n\nclass Delegate\nend\n",
     );
-    assert!(two.contains("another class 'Helper'"), "{two}");
+    assert!(two.contains("another class 'Delegate'"), "{two}");
     let empty = layout_failure("server/workers/empty.rb", "# no class here, it's empty\n");
     assert!(empty.contains("found no class declaration"), "{empty}");
     let indented = layout_failure(
@@ -318,20 +318,20 @@ async fn ruby_providers_receive_needs_fields_and_named_providers() {
     }
     let project = RubyProject::new();
     project.write(
-        "server/helpers/LedgerAmountsHelper.rb",
-        "#[Helper]\n#[Lifetime(\"singleton\")]\nclass LedgerAmountsHelper\n  def subtotal\n    40\n  end\n\n  def surcharge\n    2\n  end\nend\n",
+        "server/delegates/LedgerAmountsDelegate.rb",
+        "#[Delegate]\n#[Lifetime(\"singleton\")]\nclass LedgerAmountsDelegate\n  def subtotal\n    40\n  end\n\n  def surcharge\n    2\n  end\nend\n",
     );
     project.write(
         "server/services/LedgerService.rb",
-        "#[Service]\nclass LedgerService\n  #[Needs]\n  # @return [LedgerAmountsHelper]\n  attr_reader :amounts\n\n  def subtotal\n    amounts.subtotal\n  end\nend\n",
+        "#[Service]\nclass LedgerService\n  #[Needs]\n  # @return [LedgerAmountsDelegate]\n  attr_reader :amounts\n\n  def subtotal\n    amounts.subtotal\n  end\nend\n",
     );
     project.write(
-        "server/helpers/LedgerHelper.rb",
-        "#[Helper]\n#[Lifetime(\"transient\")]\nclass LedgerHelper\n  #[Needs]\n  attr_reader :ledger_amounts_helper\n\n  def settle(subtotal)\n    subtotal + ledger_amounts_helper.surcharge\n  end\nend\n",
+        "server/delegates/LedgerDelegate.rb",
+        "#[Delegate]\n#[Lifetime(\"transient\")]\nclass LedgerDelegate\n  #[Needs]\n  attr_reader :ledger_amounts_delegate\n\n  def settle(subtotal)\n    subtotal + ledger_amounts_delegate.surcharge\n  end\nend\n",
     );
     project.write(
         "server/controllers/LedgerController.rb",
-        "#[RequestRoute(\"/ledger\")]\n#[Public]\nclass LedgerController\n  #[Needs]\n  #[Named(\"LedgerService\")]\n  attr_reader :service\n  #[Needs]\n  #[Named(\"LedgerHelper\")]\n  attr_reader :settlement\n\n  #[GetRoute]\n  def get_ledger\n    { \"total\" => settlement.settle(service.subtotal) }\n  end\nend\n",
+        "#[RequestRoute(\"/ledger\")]\n#[Public]\nclass LedgerController\n  #[Needs]\n  #[Named(\"LedgerService\")]\n  attr_reader :service\n  #[Needs]\n  #[Named(\"LedgerDelegate\")]\n  attr_reader :settlement\n\n  #[GetRoute]\n  def get_ledger\n    { \"total\" => settlement.settle(service.subtotal) }\n  end\nend\n",
     );
     let source = HandlerSource::discover(
         project.root.path(),
@@ -355,16 +355,16 @@ async fn a_ruby_needs_all_class_receives_every_attr_field() {
     }
     let project = RubyProject::new();
     project.write(
-        "server/helpers/LedgerAmountsHelper.rb",
-        "#[Helper]\nclass LedgerAmountsHelper\n  def subtotal\n    40\n  end\nend\n",
+        "server/delegates/LedgerAmountsDelegate.rb",
+        "#[Delegate]\nclass LedgerAmountsDelegate\n  def subtotal\n    40\n  end\nend\n",
     );
     project.write(
         "server/services/LedgerService.rb",
-        "#[Service]\n#[NeedsAll]\nclass LedgerService\n  # @return [LedgerAmountsHelper]\n  attr_reader :amounts\n\n  def subtotal\n    amounts.subtotal + 2\n  end\nend\n",
+        "#[Service]\n#[NeedsAll]\nclass LedgerService\n  # @return [LedgerAmountsDelegate]\n  attr_reader :amounts\n\n  def subtotal\n    amounts.subtotal + 2\n  end\nend\n",
     );
     project.write(
         "server/controllers/LedgerController.rb",
-        "#[RequestRoute(\"/ledger\")]\n#[Public]\n#[NeedsAll]\nclass LedgerController\n  #[Needs]\n  #[Named(\"LedgerService\")]\n  attr_reader :service\n  attr_reader :ledger_amounts_helper\n\n  #[GetRoute]\n  def get_ledger\n    { \"total\" => service.subtotal, \"store\" => ledger_amounts_helper.subtotal }\n  end\nend\n",
+        "#[RequestRoute(\"/ledger\")]\n#[Public]\n#[NeedsAll]\nclass LedgerController\n  #[Needs]\n  #[Named(\"LedgerService\")]\n  attr_reader :service\n  attr_reader :ledger_amounts_delegate\n\n  #[GetRoute]\n  def get_ledger\n    { \"total\" => service.subtotal, \"store\" => ledger_amounts_delegate.subtotal }\n  end\nend\n",
     );
     let source = HandlerSource::discover(
         project.root.path(),

@@ -6,21 +6,21 @@ struct NamedStopPage;
 impl NamedStopPage {
     const HELPERS: [(&'static str, &'static str); 2] = [
         (
-            "client/helpers/GreeterHelper.rb",
-            "#[Helper]\nclass GreeterHelper\n  def greet\n    \"hi\"\n  end\nend\n",
+            "client/delegates/GreeterDelegate.rb",
+            "#[Delegate]\nclass GreeterDelegate\n  def greet\n    \"hi\"\n  end\nend\n",
         ),
         (
-            "client/helpers/LoudGreeterHelper.rb",
-            "#[Helper]\nclass LoudGreeterHelper\n  def greet\n    \"HI\"\n  end\nend\n",
+            "client/delegates/LoudGreeterDelegate.rb",
+            "#[Delegate]\nclass LoudGreeterDelegate\n  def greet\n    \"HI\"\n  end\nend\n",
         ),
     ];
 
-    const WELCOME: &'static str = "#[Service]\nclass WelcomeService\n  #[Needs]\n  #[Named(\"LoudGreeterHelper\")]\n  # @return [GreeterHelper]\n  attr_reader :greeter\n\n  \
+    const WELCOME: &'static str = "#[Service]\nclass WelcomeService\n  #[Needs]\n  #[Named(\"LoudGreeterDelegate\")]\n  # @return [GreeterDelegate]\n  attr_reader :greeter\n\n  \
          #[OnStart]\n  def start\n    puts \"hook: start welcome\"\n  end\n\n  \
          #[OnStop]\n  def stop\n    puts \"hook: stop welcome #{greeter.greet}\"\n  end\n\n  \
          # @return [String]\n  def welcome\n    greeter.greet\n  end\nend\n";
 
-    const HELLO: &'static str = "#[Service]\nclass HelloService\n  #[Needs]\n  # @return [GreeterHelper]\n  attr_reader :greeter\n\n  \
+    const HELLO: &'static str = "#[Service]\nclass HelloService\n  #[Needs]\n  # @return [GreeterDelegate]\n  attr_reader :greeter\n\n  \
          # @return [String]\n  def hello\n    greeter.greet\n  end\nend\n";
 
     const DRIVER: &'static str = "const lines = []\n\

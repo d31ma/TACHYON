@@ -13,7 +13,7 @@ impl UtilityName {
         "Error",
         "Gateway",
         "Handler",
-        "Helper",
+        "Delegate",
         "Middleware",
         "Model",
         "Service",

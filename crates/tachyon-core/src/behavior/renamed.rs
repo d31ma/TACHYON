@@ -1,7 +1,7 @@
 pub(crate) struct RenamedAnnotation;
 
 impl RenamedAnnotation {
-    pub(crate) const NAMES: [(&str, &str); 39] = [
+    pub(crate) const NAMES: [(&str, &str); 40] = [
         ("Autowired", "Needs"),
         ("Inject", "Needs"),
         ("RequiredArgsConstructor", "NeedsAll"),
@@ -40,7 +40,8 @@ impl RenamedAnnotation {
         ("ActiveProfiles", "UseProfiles"),
         ("TestPropertySource", "TestSettings"),
         ("DirtiesContext", "FreshStart"),
-        ("Component", "Helper"),
+        ("Component", "Delegate"),
+        ("Helper", "Delegate"),
     ];
 
     pub(crate) fn new_name(authored: &str) -> Option<&'static str> {
