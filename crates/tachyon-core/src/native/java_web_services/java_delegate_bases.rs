@@ -92,9 +92,8 @@ impl JavaDelegateBases {
         let marker = text[header.clone()]
             .find(Self::NEEDS)
             .map(|at| header.start + at);
-        marker.into_iter().for_each(|at| {
-            text.replace_range(at..at + Self::NEEDS.len(), &" ".repeat(Self::NEEDS.len()));
-        });
+        let blanked = marker.map_or(0..0, |at| at..at + Self::NEEDS.len());
+        text.replace_range(blanked.clone(), &" ".repeat(blanked.len()));
         text
     }
 }

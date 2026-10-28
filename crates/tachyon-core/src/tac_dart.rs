@@ -1143,11 +1143,13 @@ fn injection_cases(injections: &[Injection]) -> String {
     let mut inject = String::new();
     for injection in injections {
         let field = &injection.field;
-        let assignments: String = injection
+        let assignments = injection
             .targets
             .iter()
-            .map(|target| format!("service.{target} = "))
-            .collect();
+            .fold(String::new(), |mut text, target| {
+                let _ = write!(text, "service.{target} = ");
+                text
+            });
         if let Some(other) = &injection.dart {
             let _ = writeln!(
                 inject,
