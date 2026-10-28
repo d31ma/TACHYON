@@ -37,7 +37,12 @@ impl ForwardText {
         Some((at, format!("{indentation}{}", Self::MEMBER_STEP)))
     }
 
-    fn forwards(language: &str, indentation: &str, base: &DelegateBase<'_>, names: &[String]) -> String {
+    fn forwards(
+        language: &str,
+        indentation: &str,
+        base: &DelegateBase<'_>,
+        names: &[String],
+    ) -> String {
         let opening = Self::opening(language, indentation);
         let methods: String = names
             .iter()

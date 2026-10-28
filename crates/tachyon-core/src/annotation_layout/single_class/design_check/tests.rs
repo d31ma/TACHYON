@@ -238,7 +238,8 @@ fn a_delegate_sits_between_services_and_data_access() {
 #[test]
 fn a_delegate_may_need_the_service_it_takes_on() {
     let delegate = "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  taxService;\n}\n";
-    let service = "@Service\nexport default class TaxService {\n  rate() {\n    return 2;\n  }\n}\n";
+    let service =
+        "@Service\nexport default class TaxService {\n  rate() {\n    return 2;\n  }\n}\n";
     let allowed = found(
         1327,
         &[

@@ -75,7 +75,6 @@ impl<'a> DelegateBase<'a> {
         words
     }
 
-
     fn class_form(name: &str) -> String {
         name.trim_matches(Self::NAME_MARKS)
             .split('_')

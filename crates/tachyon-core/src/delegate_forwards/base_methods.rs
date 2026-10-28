@@ -6,8 +6,9 @@ pub(super) struct BaseMethods;
 
 impl BaseMethods {
     const ACCESSORS: [&'static str; 2] = ["get ", "set "];
-    const NOT_TAKEN_ON: [&'static str; 6] =
-        ["onstart", "onstop", "onevent", "property", "setter", "getter"];
+    const NOT_TAKEN_ON: [&'static str; 6] = [
+        "onstart", "onstop", "onevent", "property", "setter", "getter",
+    ];
 
     pub(super) fn forwarded(base: &DelegateBase<'_>, delegate_masked: &str) -> Vec<String> {
         let class = RoleClass::read(base.service_path, base.service_source)

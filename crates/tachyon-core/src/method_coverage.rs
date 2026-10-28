@@ -31,13 +31,13 @@ mod uncovered;
 mod unit_vocabularies;
 
 pub(crate) use call_hooks::CallHooks;
-pub(crate) use role_class::RoleClass;
 pub use class_coverage::ClassCoverage;
 pub use coverage_report::CoverageReport;
 pub use coverage_text::CoverageText;
 pub use covered_method::CoveredMethod;
 pub use method_state::MethodState;
 pub use recorded_calls::RecordedCalls;
+pub(crate) use role_class::RoleClass;
 pub use uncovered::Uncovered;
 
 use arrow_body::ArrowBody;

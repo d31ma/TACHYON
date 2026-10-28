@@ -16,7 +16,8 @@ impl Project {
     const PHP_DELEGATE: &str = "<?php\n#[Delegate]\nclass TaxDelegate {\n  #[Needs]\n  private TaxService $tax;\n\n  public function rate(string $region): int {\n    return $this->tax->rate($region) * 2;\n  }\n}\n";
     const RUBY_SERVICE: &str = "#[Service]\nclass TaxService\n  def rate(region)\n    2\n  end\n\n  def total(items)\n    items.length\n  end\nend\n";
     const RUBY_DELEGATE: &str = "#[Delegate]\nclass TaxDelegate\n  #[Needs]\n  # @return [TaxService]\n  attr_reader :tax\n\n  def rate(region)\n    tax.rate(region) * 2\n  end\n\n  private\n\n  def doubled(value)\n    value * 2\n  end\nend\n";
-    const PRICE_SERVICE: &str = "@Service\nexport default class PriceService {\n  price() {\n    return 3;\n  }\n}\n";
+    const PRICE_SERVICE: &str =
+        "@Service\nexport default class PriceService {\n  price() {\n    return 3;\n  }\n}\n";
     const TWO_BASES: &str = "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  taxService;\n\n  @Needs\n  priceService;\n}\n";
     const NO_BASE: &str = "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  orderStore;\n\n  rate() {\n    return 2;\n  }\n}\n";
 
@@ -62,9 +63,8 @@ fn a_javascript_delegate_takes_on_the_public_methods_its_service_declares() {
     ];
     let staged = Project::staged(&files, "server/delegates/TaxDelegate.js").expect("forwards");
     assert!(
-        staged.contains(
-            "\n  total(...args) {\n    return this.taxService.total(...args);\n  }\n}\n"
-        ),
+        staged
+            .contains("\n  total(...args) {\n    return this.taxService.total(...args);\n  }\n}\n"),
         "{staged}"
     );
     assert_eq!(staged.matches("rate(").count(), 2, "{staged}");

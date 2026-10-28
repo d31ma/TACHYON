@@ -507,7 +507,9 @@ impl HandlerSource {
                 crate::annotation_layout::validate(relative, source)?;
             }
             let written = forwards.staged(relative, captured)?;
-            let staged = written.as_deref().map_or(captured.as_slice(), str::as_bytes);
+            let staged = written
+                .as_deref()
+                .map_or(captured.as_slice(), str::as_bytes);
             source_root.stage(relative, staged, &portable)?;
         }
         Self::discover_snapshot(project_root, project, relative_source, bytes, source_root)
