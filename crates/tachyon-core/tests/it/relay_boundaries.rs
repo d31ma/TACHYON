@@ -810,6 +810,10 @@ async fn sequential_relays_and_a_longer_request_deadline_share_one_budget() {
         }
         let (root, source) = project(extension, handler);
         let supervisor = supervisor_for(root.path(), timing_options());
+        // The 2.5 s budget counts from when the handler is ready, so a loaded runtime start would
+        // leave the first relay too little of it; start_up_time_counts_against_the_relay_deadline
+        // covers start-up, and this test measures only the two relays.
+        start_handler(&supervisor, &source, "sleep-as-asked").await;
         let mut twice = request("twice", HttpMethod::Post, "twice");
         twice.deadline_ms = Some(3_500);
         let response = supervisor
