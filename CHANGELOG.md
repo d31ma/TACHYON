@@ -3501,8 +3501,8 @@ machine contracts have their own, independent major versions.
   Delegate may keep one `// @Needs` base field, a Java base field starts with
   the page's instance, and a Dart base field becomes `late` and is set by the
   page. A prototype base, a circle, or a Go Delegate `Needs` field that names
-  no page service fails with `TY1406`. The F# Tac shared base follows in ADR
-  0112 step 4b3.
+  no page service fails with `TY1406`. An F# Tac Delegate still cannot take
+  on a service (`TY1308`).
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and

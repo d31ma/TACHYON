@@ -369,8 +369,9 @@ Delegate's `@Needs` base field becomes `late`, and the page sets it through the
 service that holds the Delegate, by the page's instance name (`tax`). A base with one
 instance for each component (Lifetime prototype or NeedsAll), a base that holds
 its own Delegate in a circle, and a Go Delegate `Needs` field that names
-anything other than a page service fail with `TY1406`. In F# Tac builds a
-Delegate's base is not yet the page's shared service; ADR 0112 step 4b3 fills it.
+anything other than a page service fail with `TY1406`. An F# Tac Delegate's
+`[<Needs>]` properties name only other Delegates, so an F# Delegate in a browser
+build cannot take on a service yet and fails with `TY1308`.
 
 In the typed languages a Delegate method with the same name and the same
 parameter types as a base method overrides it, and no forward is written for
