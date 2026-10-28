@@ -192,7 +192,9 @@ fn a_controller_receives_its_services_and_helpers_in_dependency_order() {
     assert!(
         program.contains("AuditService& audit = ::tachyon::yon::YonNeeds::of<AuditService>();")
     );
-    assert!(program.contains("RateDelegate& rates = ::tachyon::yon::YonNeeds::of<RateDelegate>();"));
+    assert!(
+        program.contains("RateDelegate& rates = ::tachyon::yon::YonNeeds::of<RateDelegate>();")
+    );
     assert!(program.contains("FeeDelegate& fees = ::tachyon::yon::YonNeeds::of<FeeDelegate>();"));
     assert!(program.contains("made.start = [&owner] { owner.start(); };"));
     assert!(program.contains("made.stop = [&owner] { owner.stop(); };"));

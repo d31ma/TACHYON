@@ -665,7 +665,10 @@ mod tests {
                 .contains("A Java Tac Delegate is a new object"),
             "{failure}"
         );
-        assert_eq!(diagnostic.spans[0].file, "client/delegates/StepDelegate.java");
+        assert_eq!(
+            diagnostic.spans[0].file,
+            "client/delegates/StepDelegate.java"
+        );
     }
 
     fn compose(root: &Path, page: &str, name: &str, markup: &str) {

@@ -267,9 +267,9 @@ fn a_lua_helper_with_a_lifecycle_hook_stops_the_build() {
     let diagnostic = &failure.diagnostics()[0];
     assert_eq!(diagnostic.code.number(), 1605, "{failure}");
     assert!(
-        diagnostic
-            .message
-            .starts_with("The Lua Delegate ScaleDelegate has an OnStart, OnStop or OnEvent method."),
+        diagnostic.message.starts_with(
+            "The Lua Delegate ScaleDelegate has an OnStart, OnStop or OnEvent method."
+        ),
         "{failure}"
     );
     let start = HelperPage::HOOKED.find("-- @OnStart").expect("hook");

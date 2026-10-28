@@ -63,7 +63,10 @@ fn a_kotlin_helper_refuses_managed_lifetimes_and_hooks() {
         ("@NeedsAll\n", ""),
         ("@Lifetime({\"value\":\"prototype\"})\n", ""),
         ("", "    @OnStart\n    fun open() {}\n"),
-        ("", "    @OnEvent\n    fun heard(value: TaxRateDelegate) {}\n"),
+        (
+            "",
+            "    @OnEvent\n    fun heard(value: TaxRateDelegate) {}\n",
+        ),
     ] {
         let tax = format!(
             "{marker}{}",

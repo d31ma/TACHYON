@@ -500,7 +500,10 @@ fn accepted_forms_do_not_let_other_code_in() {
             "<?php\ndeclare(ticks=1) {}\n#[Service]\nclass MoneyService {}",
         ),
         ("php", "<?php\n#[Service]\nclass MoneyService {}\n?>\nhello"),
-        ("dart", "@Service()\nclass MoneyService {}\nmixin Delegate {}"),
+        (
+            "dart",
+            "@Service()\nclass MoneyService {}\nmixin Delegate {}",
+        ),
         (
             "rs",
             "#[Service]\npub struct MoneyService;\npub fn helper() {}",

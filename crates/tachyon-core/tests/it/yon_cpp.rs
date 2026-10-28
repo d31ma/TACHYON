@@ -468,8 +468,11 @@ async fn a_scheduled_cpp_worker_runs_with_its_helpers() {
 #[test]
 fn a_cpp_needs_field_names_a_class_in_the_role_folders() {
     let root = CppRoles::project();
-    std::fs::remove_file(root.path().join("server/delegates/LedgerAmountsDelegate.hpp"))
-        .expect("helper removed");
+    std::fs::remove_file(
+        root.path()
+            .join("server/delegates/LedgerAmountsDelegate.hpp"),
+    )
+    .expect("helper removed");
     let failure = ProjectDiscovery::discover(root.path())
         .expect_err("a missing provider is refused")
         .to_string();

@@ -200,8 +200,7 @@ fn go_and_rust_layers_point_down() {
 
 #[test]
 fn a_helper_sits_between_services_and_data_access() {
-    let helper =
-        "@Delegate\n@NeedsAll\nexport default class PriceDelegate {\n  orderStore;\n  taxDelegate;\n}\n";
+    let helper = "@Delegate\n@NeedsAll\nexport default class PriceDelegate {\n  orderStore;\n  taxDelegate;\n}\n";
     let tax = "@Delegate\nexport default class TaxDelegate {}\n";
     let store = "@Store\nexport default class OrderStore {}\n";
     let service = "@Service\n@NeedsAll\nexport default class CartService {\n  priceDelegate;\n}\n";

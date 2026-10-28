@@ -103,8 +103,9 @@ fn csharp_tac_helper_capture_refuses_class_ownership_and_hooks_at_authored_spans
         );
     }
     for marker in ["OnStart", "OnStop", "OnEvent"] {
-        let source =
-            format!("[Delegate]\nclass LabelDelegate {{\n [{marker}]\n public void Run() {{}}\n}}\n");
+        let source = format!(
+            "[Delegate]\nclass LabelDelegate {{\n [{marker}]\n public void Run() {{}}\n}}\n"
+        );
         let error = crate::behavior::HelperRole::refuse_in_tac(
             Path::new("client/delegates/LabelDelegate.cs"),
             &source,
@@ -125,7 +126,10 @@ fn csharp_tac_helper_capture_refuses_class_ownership_and_hooks_at_authored_spans
 #[test]
 fn csharp_tac_helper_keeps_folder_and_role_guards() {
     for (path, source) in [
-        ("client/delegates/LabelDelegate.cs", "class LabelDelegate {}"),
+        (
+            "client/delegates/LabelDelegate.cs",
+            "class LabelDelegate {}",
+        ),
         (
             "client/helpers/LabelService.cs",
             "[Service]\nclass LabelService {}",
@@ -172,7 +176,10 @@ fn csharp_tac_helper_generates_a_typed_constructor_only_for_explicit_callers() {
         "{lowered}"
     );
     assert!(lowered.contains("this.label = label;"), "{lowered}");
-    assert!(lowered.contains("new InputDelegate(\"typed\")"), "{lowered}");
+    assert!(
+        lowered.contains("new InputDelegate(\"typed\")"),
+        "{lowered}"
+    );
 }
 
 #[test]
@@ -281,8 +288,10 @@ fn csharp_tac_helper_retains_markers_only_in_the_client_realm() {
 fn csharp_tac_helper_allows_only_actual_interfaces_not_base_classes() {
     let caller = CsharpTacHelperTests::CALLER;
     let interface = "public interface LabelContract { string Read(); }\n";
-    let helper = CsharpTacHelperTests::HELPER
-        .replace("class LabelDelegate {", "class LabelDelegate : LabelContract {");
+    let helper = CsharpTacHelperTests::HELPER.replace(
+        "class LabelDelegate {",
+        "class LabelDelegate : LabelContract {",
+    );
     let source = format!("{interface}{helper}{caller}");
     let lowered = CsharpTacHelperTests::lower(&source)
         .expect("actual same-language interface")
@@ -327,6 +336,9 @@ fn csharp_tac_helper_hook_capture_ignores_strings_comments_and_other_owners() {
         "{}// [OnStop]\nclass Note {{ string text = \"[OnStart]\"; }}\n[Service]\nclass ReaderService {{\n [OnStart]\n public void Start() {{}}\n}}\n",
         CsharpTacHelperTests::HELPER
     );
-    crate::behavior::HelperRole::refuse_in_tac(Path::new("client/delegates/LabelDelegate.cs"), &source)
-        .expect("only Delegate-owned real hooks are refused");
+    crate::behavior::HelperRole::refuse_in_tac(
+        Path::new("client/delegates/LabelDelegate.cs"),
+        &source,
+    )
+    .expect("only Delegate-owned real hooks are refused");
 }

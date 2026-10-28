@@ -2525,8 +2525,9 @@ mod tests {
             "Final, ClassVar",
             "Any, Protocol, Final, Optional",
         ] {
-            let source =
-                format!("from typing import {names}\n\n@delegate\nclass CounterDelegate:\n    pass\n");
+            let source = format!(
+                "from typing import {names}\n\n@delegate\nclass CounterDelegate:\n    pass\n"
+            );
             validate_imports(path, &source, "py").expect("supported standard typing declarations");
         }
         for import in [

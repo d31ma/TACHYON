@@ -453,7 +453,8 @@ mod tests {
         );
         assert!(lower_tac_js(&queried).is_err());
         assert!(
-            lower_tac_js(&source.replace("@Delegate()", "@Delegate({\"name\":\"pricing\"})")).is_err()
+            lower_tac_js(&source.replace("@Delegate()", "@Delegate({\"name\":\"pricing\"})"))
+                .is_err()
         );
     }
 

@@ -316,8 +316,7 @@ mod tests {
 
     #[test]
     fn rust_associated_invocations_and_literals_prove_manual_ownership() {
-        let declaration =
-            "#[Delegate]\nstruct ProbeDelegate {}\nimpl ProbeDelegate { fn answer() -> i32 { 1 } }\n";
+        let declaration = "#[Delegate]\nstruct ProbeDelegate {}\nimpl ProbeDelegate { fn answer() -> i32 { 1 } }\n";
         for caller in [
             "fn caller() { let value = ProbeDelegate::answer(); }",
             "fn caller() { let value = ProbeDelegate::default(); }",
@@ -452,7 +451,10 @@ mod tests {
     #[test]
     fn go_requires_nonempty_caller_owned_literal() {
         let source = "// @Delegate\ntype ProbeDelegate struct { context *BehaviorContext }\nfunc caller() { value := &ProbeDelegate{context: context} }";
-        assert_eq!(names("go", source), BTreeSet::from(["ProbeDelegate".into()]));
+        assert_eq!(
+            names("go", source),
+            BTreeSet::from(["ProbeDelegate".into()])
+        );
         assert!(names("go", &source.replace("context: context", "")).is_empty());
     }
 
@@ -550,7 +552,10 @@ mod tests {
     #[test]
     fn factory_names_must_be_exact() {
         let source = "[Delegate]\nclass ProbeDelegate {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeDelegate), context); }";
-        assert_eq!(names("cs", source), BTreeSet::from(["ProbeDelegate".into()]));
+        assert_eq!(
+            names("cs", source),
+            BTreeSet::from(["ProbeDelegate".into()])
+        );
         assert!(
             names(
                 "cs",
@@ -573,6 +578,9 @@ mod tests {
     #[test]
     fn field_needs_does_not_opt_into_class_provider_ownership() {
         let source = "[Delegate]\nclass ProbeDelegate {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct<ProbeDelegate>(context); }";
-        assert_eq!(names("cs", source), BTreeSet::from(["ProbeDelegate".into()]));
+        assert_eq!(
+            names("cs", source),
+            BTreeSet::from(["ProbeDelegate".into()])
+        );
     }
 }

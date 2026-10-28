@@ -73,7 +73,10 @@ impl<'a> FsharpHelperOwnership<'a> {
     fn helpers(&self) -> Vec<(&str, &Range<usize>)> {
         self.classes
             .iter()
-            .filter(|(_, range)| self.class_markers(range).contains(&String::from("Delegate")))
+            .filter(|(_, range)| {
+                self.class_markers(range)
+                    .contains(&String::from("Delegate"))
+            })
             .map(|(name, range)| (name.as_str(), range))
             .collect()
     }

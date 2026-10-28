@@ -547,7 +547,8 @@ mod tests {
             let expression = RustConstruction::instance(&source, path, "RootService", false)
                 .unwrap_or_else(|failure| panic!("{failure}"));
             assert_eq!(
-                expression, "RootService::new(<PeerDelegate as ::core::default::Default>::default())",
+                expression,
+                "RootService::new(<PeerDelegate as ::core::default::Default>::default())",
                 "{name}"
             );
         }
@@ -575,7 +576,8 @@ mod tests {
             let expression = RustConstruction::instance(&source, path, "RootService", false)
                 .unwrap_or_else(|failure| panic!("{failure}"));
             assert_eq!(
-                expression, "RootService::new(<PeerDelegate as ::core::default::Default>::default())",
+                expression,
+                "RootService::new(<PeerDelegate as ::core::default::Default>::default())",
                 "{declaration}"
             );
         }
@@ -680,7 +682,10 @@ struct PeerDelegate {}
         .unwrap_or_else(|failure| panic!("{failure}"));
         assert_eq!(
             inputs,
-            ["(PeerDelegate, (StepDelegate, PeerDelegate))", "PeerDelegate"]
+            [
+                "(PeerDelegate, (StepDelegate, PeerDelegate))",
+                "PeerDelegate"
+            ]
         );
     }
 

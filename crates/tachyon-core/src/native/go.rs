@@ -878,7 +878,8 @@ type PageClient interface {
     #[test]
     fn page_composition_refuses_a_helper_need_at_the_authored_helper() {
         let root = PageFixtures::project();
-        let source = "// @Delegate\ntype StepDelegate struct {\n\t// @Needs\n\tclient *PageClient\n}\n";
+        let source =
+            "// @Delegate\ntype StepDelegate struct {\n\t// @Needs\n\tclient *PageClient\n}\n";
         PageFixtures::write(root.path(), "client/delegates/StepDelegate.go", source);
         let writer = PageFixtures::WRITER.replace(
             "    client *PageClient\n}",

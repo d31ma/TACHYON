@@ -65,11 +65,11 @@ fn csharp_helper_source(relative: &str, source: String, language: &str) -> Strin
         return source;
     }
     match relative {
-        "server/delegates/GuardedConfigDelegate.cs" | "server/delegates/MissingConfigDelegate.cs" => source
-            .replace(
-                "public static BehaviorAdapters configure(",
-                "private static BehaviorAdapters configure(",
-            ),
+        "server/delegates/GuardedConfigDelegate.cs"
+        | "server/delegates/MissingConfigDelegate.cs" => source.replace(
+            "public static BehaviorAdapters configure(",
+            "private static BehaviorAdapters configure(",
+        ),
         "server/delegates/CatalogExercisesDelegate.cs" => {
             let at = source
                 .find("        var catalog = new AnnotatedCatalogService")

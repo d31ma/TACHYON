@@ -182,7 +182,10 @@ fn a_go_server_test_keeps_selected_setup_fake_utility_and_method_body_dependenci
         .expect("behavior")
         .expect("test lowering");
     assert!(lowered.contains("counter *CounterDelegate"), "{lowered}");
-    assert!(lowered.contains("standalone *FakeOnlyDelegate"), "{lowered}");
+    assert!(
+        lowered.contains("standalone *FakeOnlyDelegate"),
+        "{lowered}"
+    );
 }
 
 #[test]
@@ -298,7 +301,10 @@ fn direct_go_gateway_calls_keep_otherwise_unreferenced_gateway_registrations() {
         let project = ServerTestProject::new(body);
         project.gateway();
         let output = project.assembled();
-        assert!(output.contains("type GatewayOnlyDelegate struct"), "{output}");
+        assert!(
+            output.contains("type GatewayOnlyDelegate struct"),
+            "{output}"
+        );
         assert!(output.contains("@Gateway"), "{output}");
     }
 }

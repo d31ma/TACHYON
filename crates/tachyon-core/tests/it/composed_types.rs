@@ -77,7 +77,10 @@ fn client_roles_become_globals_with_their_source_types() {
         "client/delegates/PricingDelegate.ts",
         "default"
     ));
-    assert_eq!(names(&text), ["CartStore", "PricingDelegate", "TopicService"]);
+    assert_eq!(
+        names(&text),
+        ["CartStore", "PricingDelegate", "TopicService"]
+    );
 }
 
 #[test]

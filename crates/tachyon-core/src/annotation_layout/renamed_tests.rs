@@ -138,7 +138,9 @@ fn the_component_role_is_refused_with_the_delegate_role() {
         "@component\nclass Plain:\n    pass\n",
     );
     assert!(
-        python.message.contains("renamed to delegate; write delegate"),
+        python
+            .message
+            .contains("renamed to delegate; write delegate"),
         "{}",
         python.message
     );
@@ -169,7 +171,9 @@ fn the_helper_role_is_refused_with_the_delegate_role() {
         "@helper\nclass Plain:\n    pass\n",
     );
     assert!(
-        python.message.contains("renamed to delegate; write delegate"),
+        python
+            .message
+            .contains("renamed to delegate; write delegate"),
         "{}",
         python.message
     );

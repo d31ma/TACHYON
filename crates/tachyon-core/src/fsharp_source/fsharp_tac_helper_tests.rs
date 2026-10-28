@@ -4,8 +4,7 @@ use std::path::Path;
 struct FsharpTacHelperTests;
 
 impl FsharpTacHelperTests {
-    const HELPER: &'static str =
-        "[<Delegate>]\ntype LabelDelegate(label: string) =\n    member this.Read() : string = label\n";
+    const HELPER: &'static str = "[<Delegate>]\ntype LabelDelegate(label: string) =\n    member this.Read() : string = label\n";
     const SETUP: &'static str = "[<Setup>]\ntype LabelSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        let owned: LabelDelegate = new LabelDelegate(\"kept\")\n        owned.Read() |> ignore\n        BehaviorAdapters()\n";
 
     fn callers(helper: &str, caller: &str) -> Result<(), crate::Failure> {
@@ -14,7 +13,10 @@ impl FsharpTacHelperTests {
     }
 
     fn source(source: &str) -> Result<(), crate::Failure> {
-        FsharpTacHelpers::source(Path::new("client/delegates/nested/LabelDelegate.fs"), source)
+        FsharpTacHelpers::source(
+            Path::new("client/delegates/nested/LabelDelegate.fs"),
+            source,
+        )
     }
 
     fn owned(helper: &str, caller: &str) {
@@ -155,7 +157,9 @@ fn fsharp_tac_helper_event_member_marker_retains_the_authored_span() {
 
 #[test]
 fn fsharp_tac_helper_missing_primary_constructor_remains_refused() {
-    assert!(FsharpTacHelperTests::source("[<Delegate>]\ntype LabelDelegate = class end\n").is_err());
+    assert!(
+        FsharpTacHelperTests::source("[<Delegate>]\ntype LabelDelegate = class end\n").is_err()
+    );
 }
 
 #[test]

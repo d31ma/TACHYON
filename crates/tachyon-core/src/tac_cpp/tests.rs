@@ -700,8 +700,7 @@ fn a_converter_names_the_target_fields_it_cannot_fill() {
 
 #[test]
 fn a_helper_lives_in_client_helpers() {
-    let helper =
-        "class [[Delegate]] PriceDelegate {\npublic:\n    int price(int count) { return count; }\n};\n";
+    let helper = "class [[Delegate]] PriceDelegate {\npublic:\n    int price(int count) { return count; }\n};\n";
     let path = Path::new("client/delegates/PriceDelegate.hpp");
     crate::annotation_layout::FolderRoleCheck::check(path, helper).expect("helper folder");
     super::CppMarkerCheck::check_source(path, helper).expect("helper marker");

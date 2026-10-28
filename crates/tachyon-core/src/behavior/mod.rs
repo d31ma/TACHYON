@@ -1644,7 +1644,9 @@ fn class_value(
             }
             Value::Bool(true)
         }
-        "Service" | "Delegate" | "Converter" | "FreshStart" => flag_without_arguments(input, marker)?,
+        "Service" | "Delegate" | "Converter" | "FreshStart" => {
+            flag_without_arguments(input, marker)?
+        }
         "Test" => testing::unit(input, marker)?,
         "TestSetup" => {
             let flagged = flag_without_arguments(input, marker)?;

@@ -90,7 +90,8 @@ fn a_file_that_others_name_keeps_its_name_and_its_class_is_renamed() {
     );
     let text = fix(root);
     assert!(text.contains("Renamed Report to ReportDelegate"), "{text}");
-    let source = fs::read_to_string(root.join("server/delegates/ReportDelegate.rb")).expect("source");
+    let source =
+        fs::read_to_string(root.join("server/delegates/ReportDelegate.rb")).expect("source");
     assert_eq!(
         source,
         "class ReportDelegate\n  def self.run\n  end\nend\n\nReportDelegate.run\n"
