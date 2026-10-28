@@ -2,7 +2,9 @@ use super::java_code::JavaCode;
 use super::java_constructor_provider::JavaConstructorProvider;
 use super::java_declaration::JavaDeclaration;
 use super::java_need_owner::JavaNeedOwner;
+use super::java_type_declaration::JavaTypeDeclaration;
 use crate::Failure;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 
 pub(super) struct JavaDelegateBases;
@@ -43,12 +45,52 @@ impl JavaDelegateBases {
     }
 
     fn base_fields(code: &JavaCode) -> Vec<(Range<usize>, String, String)> {
-        code.top_level_types()
+        let types = code.top_level_types();
+        let held = Self::held(code, &types);
+        types
             .iter()
             .filter(|declared| Self::is_delegate(code, declared.keyword_at))
+            .filter(|declared| held.contains(&declared.name))
             .filter_map(|declared| code.body_after(declared.name_end))
             .flat_map(|body| code.member_headers(&body))
             .filter_map(|header| Self::needed(code, header))
+            .collect()
+    }
+
+    // Every Delegate is assembled into each service, so only the ones that the service's fields hold,
+    // directly or through other Delegates, give it a base. Role lowering has already filled the service's
+    // own Needs fields, so a field's type is what counts.
+    fn held(code: &JavaCode, types: &[JavaTypeDeclaration]) -> BTreeSet<String> {
+        let needs: BTreeMap<&str, BTreeSet<String>> = types
+            .iter()
+            .map(|declared| (declared.name.as_str(), Self::field_types(code, declared)))
+            .collect();
+        let roots: BTreeSet<String> = types
+            .iter()
+            .filter(|declared| !Self::is_delegate(code, declared.keyword_at))
+            .filter_map(|declared| needs.get(declared.name.as_str()))
+            .flatten()
+            .cloned()
+            .collect();
+        std::iter::successors(Some(roots), |reached| {
+            let grown: BTreeSet<String> = reached
+                .iter()
+                .filter_map(|name| needs.get(name.as_str()))
+                .flatten()
+                .chain(reached)
+                .cloned()
+                .collect();
+            (grown.len() > reached.len()).then_some(grown)
+        })
+        .last()
+        .unwrap_or_default()
+    }
+
+    fn field_types(code: &JavaCode, declared: &JavaTypeDeclaration) -> BTreeSet<String> {
+        code.body_after(declared.name_end)
+            .into_iter()
+            .flat_map(|body| code.member_headers(&body))
+            .filter_map(|header| JavaDeclaration::parse(&code.text(&header)).field_type())
             .collect()
     }
 
@@ -103,16 +145,31 @@ mod tests {
     #![allow(clippy::expect_used)]
     use super::super::java_service_needs::JavaServiceNeeds;
     use super::JavaDelegateBases;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     struct BaseFixture;
 
     impl BaseFixture {
         const TAX: &'static str = "@Service\nclass TaxService {\n    int asked = 0;\n}\n";
-        const QUOTE: &'static str = "@Service\nclass QuoteService {\n    @Needs\n    private final TaxDelegate taxDelegate = new TaxDelegate();\n}\n\n\
-             @Delegate\nclass TaxDelegate {\n    @Needs\n    private final TaxService taxService;\n\n    int rate(String region) {\n        return taxService.rate(region) * 2;\n    }\n}\n";
+        const QUOTE: &'static str = "@Service\nclass QuoteService {\n    @Needs\n    private final TaxDelegate taxDelegate;\n}\n";
+        const DELEGATE: &'static str = "\n@Delegate\nclass TaxDelegate {\n    @Needs\n    private final TaxService taxService;\n\n    int rate(String region) {\n        return taxService.rate(region) * 2;\n    }\n}\n";
+        // The service text as assembly hands it over: roles lowered, Needs fields filled, every Delegate after it.
+        const QUOTE_ASSEMBLED: &'static str = "\nclass QuoteService {\n\n    private final TaxDelegate taxDelegate = new TaxDelegate();\n}\n";
+        const TAX_ASSEMBLED: &'static str = "\nclass TaxService {\n    int asked = 0;\n}\n";
 
         fn filled(tax: &str) -> Result<(String, Vec<String>), crate::Failure> {
+            Self::filled_service(
+                tax,
+                ("quote", "QuoteService"),
+                (Self::QUOTE, Self::QUOTE_ASSEMBLED),
+            )
+        }
+
+        fn filled_service(
+            tax: &str,
+            (instance, class): (&str, &str),
+            (authored, assembled): (&str, &str),
+        ) -> Result<(String, Vec<String>), crate::Failure> {
             let services = [
                 (
                     String::from("tax"),
@@ -127,11 +184,12 @@ mod tests {
             ];
             let texts = [String::from(tax), String::from(Self::QUOTE)];
             let needs = JavaServiceNeeds::read(&services, &texts).expect("page");
-            let path = Path::new("client/services/QuoteService.java");
+            let path = PathBuf::from(format!("client/services/{class}.java"));
+            let assembled = format!("{assembled}{}", Self::DELEGATE);
             let owner = needs
-                .owner("quote", path, (Self::QUOTE, Self::QUOTE, "QuoteService"))
+                .owner(instance, &path, (authored, &assembled, class))
                 .expect("owner");
-            JavaDelegateBases::filled(Self::QUOTE, &owner)
+            JavaDelegateBases::filled(&assembled, &owner)
         }
     }
 
@@ -149,7 +207,18 @@ mod tests {
             text.contains("private final TaxDelegate taxDelegate = new TaxDelegate();"),
             "{text}"
         );
-        assert_eq!(text.matches("@Needs").count(), 1, "{text}");
+        assert!(!text.contains("@Needs"), "{text}");
+    }
+
+    #[test]
+    fn a_delegate_that_the_service_does_not_hold_gives_it_no_base() {
+        let (_, instances) = BaseFixture::filled_service(
+            BaseFixture::TAX,
+            ("tax", "TaxService"),
+            (BaseFixture::TAX, BaseFixture::TAX_ASSEMBLED),
+        )
+        .expect("filled");
+        assert!(instances.is_empty(), "{instances:?}");
     }
 
     #[test]
