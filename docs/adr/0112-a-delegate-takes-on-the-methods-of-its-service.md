@@ -3,7 +3,9 @@
 - Status: Accepted (steps 1 to 3 are in: the rename, the forwards in every
   language, the signature comparison in the typed languages and the dispatch
   by argument count in the others; step 4a adds the Yon proofs and the
-  website section; step 4b follows)
+  website section; step 4b1 refuses a Tac base where browser services cannot
+  share, step 4b2 gives JavaScript, TypeScript, Go and Java Tac Delegates the
+  page's shared service; step 4b3, F# and Dart, follows)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -295,6 +297,13 @@ then merged to `develop` by fast-forward.
    C#, Rust (browser), Ruby and Lua browser services cannot need another
    service (ADR 0065), so a Tac Delegate there has no shared service for its
    base field; Samuel chose (2026-10-28) that those languages refuse a Tac
-   Delegate's base service with `TY1406` at the field, and that Java, Go and
-   F# fill the base with the page's instance. Sharing in the other languages
-   can follow as its own iteration.
+   Delegate's base service with `TY1406` at the field (4b1), and that the
+   languages whose browser services share fill the base with the page's
+   instance. Python and C++ already did. 4b2 does it for JavaScript and
+   TypeScript (the factory leaves an unnamed Delegate field empty and the
+   page fills each graph member's field named after a page instance), Go
+   (one `// @Needs` base field per Delegate, set by the holding service's
+   factory from `tac.Need` after the Delegate is made) and Java (the base
+   field starts with `TacNeeds.need`, and the page shares that instance).
+   4b3 does it for F# and Dart, where the Delegate is built before the page
+   can hand it a service, so each needs its own way to set the field.
