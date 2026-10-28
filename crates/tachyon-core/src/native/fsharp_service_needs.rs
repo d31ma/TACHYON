@@ -1,4 +1,5 @@
-use super::fsharp_delegate_bases::{FsharpDelegateBase, FsharpDelegateBases};
+use super::fsharp_delegate_base::FsharpDelegateBase;
+use super::fsharp_delegate_bases::FsharpDelegateBases;
 use super::registry::NativeCompanionInput;
 use crate::Failure;
 use crate::behavior::ServiceRoles;

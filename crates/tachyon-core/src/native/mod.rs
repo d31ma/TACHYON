@@ -41,6 +41,7 @@ mod dotnet_web_release;
 mod events;
 mod file_picker_sources;
 mod fsharp_behaviors_project;
+mod fsharp_delegate_base;
 mod fsharp_delegate_bases;
 mod fsharp_service;
 mod fsharp_service_events;

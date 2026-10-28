@@ -665,7 +665,7 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
             }
             result.push(Self::dart_service_injection(field, type_name)?);
         }
-        Ok(Self::merged(result))
+        Ok(Self::merged(&result))
     }
 
     fn base_injections(
@@ -727,19 +727,25 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
         )
     }
 
-    fn merged(injections: Vec<Injection>) -> Vec<Injection> {
+    fn merged(injections: &[Injection]) -> Vec<Injection> {
         injections
-            .into_iter()
-            .fold(Vec::new(), |mut kept: Vec<Injection>, injection| {
-                let same = kept
-                    .iter_mut()
-                    .find(|earlier| earlier.field == injection.field);
-                match same {
-                    Some(earlier) => earlier.targets.extend(injection.targets),
-                    None => kept.push(injection),
-                }
-                kept
+            .iter()
+            .enumerate()
+            .filter(|(at, injection)| {
+                injections
+                    .iter()
+                    .take(*at)
+                    .all(|earlier| earlier.field != injection.field)
             })
+            .map(|(_, first)| Injection {
+                targets: injections
+                    .iter()
+                    .filter(|other| other.field == first.field)
+                    .flat_map(|other| other.targets.iter().cloned())
+                    .collect(),
+                ..first.clone()
+            })
+            .collect()
     }
 
     fn declares_class(&self, name: &str) -> bool {

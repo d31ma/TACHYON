@@ -1,24 +1,6 @@
+use super::fsharp_delegate_base::FsharpDelegateBase;
 use std::collections::BTreeMap;
 use std::ops::Range;
-
-pub(super) struct FsharpDelegateBase {
-    pub(super) delegate: String,
-    pub(super) kind: String,
-    pub(super) name: String,
-    pub(super) path: String,
-    marker: Range<usize>,
-    value: Range<usize>,
-}
-
-impl FsharpDelegateBase {
-    const NEED: &'static str = "TacDelegateBase.Need<{kind}>({instance})";
-
-    fn need(&self, instance: &str) -> String {
-        Self::NEED
-            .replace("{kind}", &self.kind)
-            .replace("{instance}", &format!("{instance:?}"))
-    }
-}
 
 #[derive(Default)]
 pub(super) struct FsharpDelegateBases {
@@ -44,16 +26,17 @@ impl FsharpDelegateBases {
     pub(super) const CONNECTION: &'static str = "static class FsharpDelegateBaseSetup {\n    [System.Runtime.CompilerServices.ModuleInitializer]\n    internal static void Connect() { TacDelegateBase.Needed = Tac.Need; }\n}\n";
 
     pub(super) fn read(text: &str, entry: &str) -> Vec<FsharpDelegateBase> {
-        let mut bases = Self {
+        let start = Self {
             path: entry.to_owned(),
             ..Self::default()
         };
-        let mut offset = 0;
-        for line in text.split_inclusive('\n') {
-            bases.line(line.trim_end_matches(['\r', '\n']), offset);
-            offset += line.len();
-        }
-        bases.found
+        text.split_inclusive('\n')
+            .fold((start, 0), |(mut bases, offset), line| {
+                bases.line(line.trim_end_matches(['\r', '\n']), offset);
+                (bases, offset + line.len())
+            })
+            .0
+            .found
     }
 
     pub(super) fn filled(text: &str, instances: &BTreeMap<String, String>) -> String {
