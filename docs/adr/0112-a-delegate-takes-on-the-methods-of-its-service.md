@@ -1,0 +1,206 @@
+# ADR 0112: A Delegate Takes On the Methods of Its Service
+
+- Status: Proposed
+- Date: 2026-10-28
+- Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
+  (the 2026-09-28 amendment, Component is now Helper),
+  [ADR 0069](0069-design-rules-are-build-errors.md) (layers) and
+  [ADR 0031](0031-realms-mirror-each-other.md) (the mirrored role list)
+
+## Context
+
+`Helper` is a class role in `client/helpers/` and `server/helpers/`. A class
+that needs a Helper gets its own new instance through `Needs`. A Helper may
+need other Helpers, stores, repositories and clients, but not a service
+(ADR 0069). It exists in every Tac and Yon language.
+
+A common need has no good answer today: a class that should offer everything
+a service offers, with one or two methods changed or added. Inheritance would
+do it, but a service is a managed provider. Its instance is built and shared
+by the context, so a subclass would be a second, unmanaged instance with its
+own state. Writing a wrapper by hand means one forwarding method for every
+method of the service, and the wrapper breaks each time the service gains a
+method.
+
+Kotlin solves this with class delegation (`class A(b: B) : B by b`) and Lombok
+with `@Delegate` on a field: the compiler writes the forwarding methods, and
+the author writes only the methods that change.
+
+## Decision
+
+### `Helper` is renamed `Delegate`
+
+- The marker `Helper` is now `Delegate`: `@Delegate`, `[Delegate]`,
+  `#[Delegate]`, `// @Delegate` in Go, `-- @Delegate` in Lua and `@delegate`
+  in Python.
+- The role folder is `delegates/` in both realms, and the class name ends in
+  `Delegate` (`TaxDelegate`). This reverses the folder part of the ADR 0047
+  amendment: `delegates/` is no longer refused.
+- `helpers/` stays as a folder that is not a role. It keeps the programs that
+  a `Gateway` command runs (`server/helpers/`) and behavior-only holders such
+  as a `Checked` DTO (data transfer object). A `@Delegate` class there fails
+  with `TY1310` and names `delegates/`.
+- The build refuses `@Helper` with `TY1308` and names `Delegate`.
+- `ty migrate fix --write` moves each `@Helper` class from `helpers/` to
+  `delegates/`, renames `<Name>Helper` to `<Name>Delegate` with its `Needs`
+  fields and types, and rewrites the marker. Gateway programs and other
+  files in `helpers/` stay where they are.
+
+A Delegate without a service (see below) behaves exactly as a Helper does
+today. So the rename alone changes no behavior.
+
+### A Delegate may take on the methods of one service
+
+A Delegate names its service the way any class names what it needs: with a
+`Needs` field whose type is a service. That service is the Delegate's
+**base**.
+
+```java
+// server/delegates/TaxDelegate.java
+@Delegate
+public class TaxDelegate {
+  @Needs
+  private final TaxService tax;
+
+  // Override: same name, same parameters. Replaces TaxService.rate(Region).
+  public Money rate(Region region) {
+    return tax.rate(region).times(2);
+  }
+
+  // Overload: same name, other parameters. TaxService.rate(Region) stays.
+  public Money rate(Region region, LocalDate day) {
+    return tax.rate(region).on(day);
+  }
+}
+```
+
+The build writes one forwarding method for every public method of
+`TaxService` that the Delegate does not write itself. A class that needs
+`TaxDelegate` can call every method of `TaxService` on it, plus the
+Delegate's own methods.
+
+Rules:
+
+1. **One base.** A Delegate needs at most one service. Two service fields
+   fail with `TY1373`. A Delegate with no service field has no base and
+   forwards nothing. The base must be a service of the same realm; a store,
+   client, converter or another Delegate as the base fails with `TY1373`.
+2. **What is taken on.** Every public instance method that the base's own
+   class declares. Not taken on: constructors, static methods, fields and
+   properties, the lifecycle and event methods (`OnStart`, `OnStop`,
+   `OnEvent`), the HTTP verb methods of a controller, and members that the
+   build writes (`construct`, `startBehaviors`, `stopBehaviors`).
+3. **Override.** A method of the Delegate with the same name and the same
+   parameters as a base method replaces it. The return type must match
+   (`TY1375`). The Delegate calls the base version through its field
+   (`tax.rate(region)`), the way a subclass calls `super`.
+4. **Overload.** A method of the Delegate with the same name and other
+   parameters sits next to the base method. Both answer to the same name.
+   How each language tells them apart is in the table below.
+5. **The base keeps its own calls.** A forward goes to the shared base
+   instance. When a base method calls another base method, it calls the base
+   version, not the Delegate's override. This is the one place where a
+   Delegate differs from a subclass, and it is what keeps the base a single
+   shared instance with one state.
+6. **Markers stay where they are written.** `Cached`, `Retry`, `MaxAtOnce`,
+   `AllOrNothing` and the other method markers on a base method still apply
+   when the call is forwarded, because the base runs it. A marker on an
+   override applies to the override.
+7. **A Delegate is not a subtype of its base.** A class that needs the base
+   type does not get the Delegate. A class that wants the Delegate's methods
+   names the Delegate.
+8. **Name clashes.** A base method whose name is also a field, property or
+   `Needs` field of the Delegate fails with `TY1375`.
+9. **Instances.** As with Helper today, each class that needs a Delegate gets
+   its own Delegate. Every Delegate of one base shares the one base instance.
+
+### What "same parameters" means in each language
+
+| Languages | Same parameters means | Overload |
+| --- | --- | --- |
+| Java, Groovy, Kotlin, C#, F#, C++, Swift | the same parameter types in order (Swift: and the same argument labels) | native overloading; the build writes forwards only for the base signatures the Delegate does not declare |
+| TypeScript | the same number of parameters (required and optional) | the build writes overload signatures for the type checker and one body that picks a method by the number of arguments |
+| JavaScript, Python, Ruby, Lua, PHP | the same range of argument counts (required to most, a rest parameter counts as no upper limit); Python also matches keyword names | the build writes one method that picks a method by the arguments it gets |
+| Go, Rust, Dart | the same name (these languages allow one method per name) | refused with `TY1374`, because these languages have no overloading. The help offers another name, or a call to the base field |
+
+In the languages that pick by argument count, two methods whose ranges of
+argument counts overlap but differ fail with `TY1374`, because a call could
+match both. Two typed methods that differ only in their return type fail
+with `TY1374` too.
+
+### Layers (ADR 0069)
+
+- A Delegate may need its one base service, other Delegates, stores,
+  repositories and clients.
+- Services, controllers and Delegates may need a Delegate.
+- A loop such as `TaxService -> TaxDelegate -> TaxService` still fails with
+  `TY1327`.
+
+A Delegate with a base sits between two services in the layer order, so the
+order becomes: view or controller, then service, then Delegate, then service
+(the base) or store or client.
+
+### Tests
+
+Every forwarding method is written by the build, so it has no authored logic
+and is exempt from `TY2023`, as a declared HTTP request is. Every override
+and overload is authored, so it needs a test. A `Fake` of a Delegate fakes
+the whole Delegate, including the methods it takes on.
+
+### Errors
+
+| Code | When |
+| --- | --- |
+| `TY1308` | `@Helper` is used (names `Delegate`) |
+| `TY1310` | a `@Delegate` class is outside `delegates/`, or a class there does not end in `Delegate` |
+| `TY1373` | a Delegate needs more than one service, or its base is not a service of its realm |
+| `TY1374` | an overload the language cannot tell apart: Go, Rust and Dart; overlapping argument counts; a difference in return type only |
+| `TY1375` | an override with another return type, or a base method name that is also a member of the Delegate |
+
+The numbers are checked against `develop` again before merge.
+
+## Consequences
+
+- The marker matrix replaces its `Helper` rows (Tac and Yon) with
+  `Delegate` rows, and adds two rows, `Delegate override` and
+  `Delegate overload`, so that each behavior has its own proof. The overload
+  row is `refused` for Go, Rust and Dart, with `TY1374` as its proof.
+- Every Helper proof is earned again under the new name, because the rename
+  changes the marker, the folder and the suffix that the proofs name.
+- The website's language-coverage sections that show Helper get Delegate
+  tabs in every language, plus one section on base, override and overload.
+- `docs/BEHAVIOR_ANNOTATIONS.md`, `docs/BEHAVIOR_PROJECT_STRUCTURE.md`,
+  `docs/YON_ANNOTATIONS.md`, the ADR 0047 and ADR 0069 texts, `AGENTS.md`
+  and `CLAUDE.md` change with it, and Graphify is updated.
+- Projects keep working after `ty migrate fix --write`. Without it, the build
+  names each `@Helper` and each `helpers/` role class.
+
+## Alternatives considered
+
+- **Delegate as a field marker** (Lombok's form): `@Delegate` on a field in
+  any service or controller. It is more flexible, but it leaves no role for
+  what Helper does today, and a class with several such fields needs rules
+  for methods that two bases share.
+- **Real inheritance** (`extends TaxService`): the base methods would see the
+  overrides, but the subclass would be a second instance of the service with
+  its own state, and Go, Rust and Lua have no class inheritance.
+- **Several bases**: left out. A later ADR can allow it, with Kotlin's rule
+  that a method two bases share must be overridden.
+
+## Plan
+
+Each step is edited in the cloud and gated on the Mac through Remote Control,
+then merged to `develop` by fast-forward.
+
+1. **Rename.** `Helper` to `Delegate` in every language and both realms,
+   `delegates/` as the role folder, `TY1308` and `TY1310` refusals, `ty
+   migrate fix`, docs, website, Graphify, marker matrix rows. No new behavior.
+2. **Base and forwards.** Find the base, list the base's public methods with
+   their parameters (extending the method lists that `TY2023` and `TY1329`
+   already read), and write the forwards in every language. `TY1373`.
+3. **Override and overload.** Signature comparison per language, the
+   dispatch bodies for TypeScript, JavaScript, Python, Ruby, Lua and PHP,
+   and `TY1374` and `TY1375`.
+4. **Proofs.** One Tac and one Yon example per language for base, override
+   and overload (or its refusal), the new matrix rows, and a fresh marker
+   matrix iteration.

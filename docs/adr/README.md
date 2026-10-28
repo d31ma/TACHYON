@@ -124,3 +124,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [109. System Back Goes Through the Page History](0109-system-back-goes-through-the-page-history.md)
 - [110. A Native Preview App Loads Its Pages From the Development Server](0110-a-native-preview-app-loads-its-pages-from-the-development-server.md)
 - [111. Yon Keeps Handler Processes Warm by Default](0111-yon-keeps-handler-processes-warm-by-default.md)
+- [112. A Delegate Takes On the Methods of Its Service](0112-a-delegate-takes-on-the-methods-of-its-service.md)
