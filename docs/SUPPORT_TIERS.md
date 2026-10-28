@@ -32,7 +32,7 @@ only after the same gate passes on its download. No target is `preview` or
 | macOS WKWebView | native-tested (candidate) | full arm64 application gate passed: controls, accessibility, typing, lifecycle and visual parity at 420x752 | exact release artifact and current-head CI |
 | iOS WKWebView | simulator-tested | isolated iPhone SE (3rd generation), iOS 26.5. Passed: Swift calls, publish, input/focus, assets and route state `7 -> 9 -> 7`. On 2026-10-19 the same gate also linked a Rust service (`aarch64-apple-ios-sim` static library, beside the two Swift services): its start hook wrote a file from the app's own process and its rendered count doubled after a page click (MR1) | exact release artifact; support on physical devices is still not claimed |
 | Android WebView | simulator-tested (emulator) | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18), and a `@LocalState` field set by a Kotlin method kept across navigation and reload. Browser APIs (clipboard, share, notifications through the host; geolocation through the web view with the host's location question, 2026-10-19): `scripts/android/browser-apis-test.mjs` passed end to end on 2026-10-24 (RM3), with geolocation fed by `fused`, `network` and `gps` test providers. RM3 also ran granted maximize, fullscreen and close, background and foreground, external links, offline Yon reads, preference strings after a relaunch and a Python service, and the Yon reach, linked Rust and release checks on a Google Play production image ("Android runs owed, RM3" below) | exact release artifact; support on physical devices is still not claimed |
-| Linux WebKitGTK | native-tested (candidate), from a live desktop session on WSL aarch64 (LD1), not a physical machine: AT-SPI read the page roles and names and activated page controls there, as the Phase 5 rule in `PROJECT_PLAN.md` requires | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs. On 2026-10-28 (LD1) the six Linux gates ran in a signed-in desktop session, two of them passing after test-script fixes (one only for its picker steps): Ubuntu GNOME on X11 through xrdp, in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's own window manager, notification server, tray host (the AppIndicator extension) and desktop portal. `scripts/linux/native-test.sh` with its AT-SPI probe, the release packages and Yon reach, the host tests of `compositor-test.sh --desktop`, `desktop-services-test.sh`, `desktop-links-test.sh`, `page-services-native-test.mjs` and `deb-install-test.sh` as root with a start by desktop file id (see Linux in a live desktop session below) | exact release artifact; Linux native GUI CI on the current head; a physical Linux desktop (x86_64), because WSL is an ARM64 VM; a Wayland desktop session |
+| Linux WebKitGTK | native-tested (candidate), from a live desktop session on WSL aarch64 (LD1), not a physical machine: AT-SPI read the page roles and names and activated page controls there, as the Phase 5 rule in `PROJECT_PLAN.md` requires | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs. On 2026-10-28 (LD1) the six Linux gates ran in a signed-in desktop session, two of them passing after test-script fixes (one only for its picker steps): Ubuntu GNOME on X11 through xrdp, in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's own window manager, notification server, tray host (the AppIndicator extension) and desktop portal. `scripts/linux/native-test.sh` with its AT-SPI probe, the release packages and Yon reach, the host tests of `compositor-test.sh --desktop`, `desktop-services-test.sh`, `desktop-links-test.sh`, `page-services-native-test.mjs` and `deb-install-test.sh` as root with a start by desktop file id (see Linux in a live desktop session below). LD2 (2026-10-28) ran the whole page-services gate there with no wrapper, and ran the compositor and desktop-services gates in a headless GNOME Shell 46 Wayland session (see Linux page services and GNOME Shell on Wayland below) | exact release artifact; Linux native GUI CI on the current head; a physical Linux desktop (x86_64), because WSL is an ARM64 VM; a Wayland desktop session that a person opens (LD2's GNOME Shell Wayland session is headless) |
 | Windows WebView2 | native-tested (candidate), from signed-in arm64 desktop runs: UI Automation exposed semantic roles of page controls (SD1), as the Phase 5 rule in `PROJECT_PLAN.md` requires | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. On 2026-10-19, on the signed-in desktop of a Windows 11 ARM64 Surface, `scripts/windows/native-test.ps1 -Msix` built a release MSIX package, installed it and launched it (PKG4). WebView2 rendered the page, UI Automation found the page controls by name and invoked one, the native Rust, OS and publish calls answered, and the WebView2 data was in the package's LocalState folder. On the same desktop, links opened the built app and the installed package at their routes (LK2). On 2026-10-24 the SD1 gates ran there from SSH through `scripts/windows/desktop-run.ps1`: both routes of `scripts/windows/native-test.ps1`, `scripts/windows/yon-reach.ps1` (NET3, LS1), the menus, Edit commands and Minimize/Maximize, the tray, the caption color, page window controls, background and foreground, web storage across relaunch, external links, the browser APIs, page services and an x64 build under emulation (see Windows on the signed-in desktop below) | exact release artifact; Windows native GUI CI; x64 on an x64 machine |
 
 Android release packages (2026-10-18, ADR 0104): `ty bundle --target android
@@ -490,7 +490,7 @@ compositing selection. Screenshots and logs are in the FORGE logs
   presses keys (run as `d448b918`, on develop as `47d07919`); on that fix
   the picker steps passed in the desktop (53 s, on a second try after a
   cold `swiftc` start ran out of time) and again under the default Xvfb
-  (46 s). The whole gate was not run again on the fix.
+  (46 s). The whole gate was not run again on the fix; LD2 ran it, below.
 - `deb-install-test.sh` as root, with `TAC_LINUX_DESKTOP_USER` set: it
   failed as first written, because it stopped the app as
   `NativeGate` while the installed command runs as `nativegate`, so in a
@@ -516,10 +516,51 @@ WSL start in emergency mode from it). The line is commented out
 (backup `/etc/fstab.bak-ld1`), `mount -a` succeeds, and WSL came back
 normally after a restart; it still reports `degraded` because
 `lightdm` keeps crashing, which does not matter because xrdp gives the
-desktop. When Samuel signed out of Windows during the runs, the WSL VM
+desktop (LD2 disabled `lightdm`, below). When Samuel signed out of Windows during the runs, the WSL VM
 restarted and the desktop session ended. ImageMagick was
 installed for screenshots, and the Pyodide files were copied into the
 desktop user's Tachyon cache for the Python page service.
+
+### Linux page services and GNOME Shell on Wayland (2026-10-28, LD2)
+
+LD2 (on develop as `5ceea52e` to `2dd69e1d`, iteration 10, D33 and D34)
+ran the rest of the Linux desktop work on the same WSL Ubuntu 24.04
+(aarch64) on the Surface, driven over SSH from the Mac.
+
+- The whole `page-services-native-test.mjs` passed on develop in Samuel's
+  Ubuntu GNOME X11 desktop session (xrdp), with no wrapper (440 s): the
+  WebAssembly page services, the WindowControls and FilePicker callers and
+  the stored field, with `page-steps-probe.py` focusing the portal's file
+  dialog each time. The first whole run ran out of time on a cold `swiftc`
+  start (`TY1605`), because WSL drops its page cache when idle; with
+  `swiftc` warmed in the same job the second run passed.
+- `lightdm` is disabled in WSL (D34, `systemctl disable --now lightdm`),
+  since xrdp gives the desktop. WSL now reports `running` with no failed
+  unit, and xrdp still works. Nothing else in WSL changed, apart from
+  installing `gnome-screenshot` for the screenshots below.
+- Wayland: instead of a remote login, `scripts/linux/gnome-shell-session.sh`
+  (new) starts GNOME Shell 46 headless on Wayland (`--headless --wayland`,
+  in `ubuntu` mode when it is installed) on a private session bus, runtime
+  folder and settings folder, waits for `org.gnome.Shell`, and runs a gate
+  with `TAC_LINUX_DISPLAY=desktop` pointed at the shell. The gate then uses
+  GNOME Shell's own compositor, notification server, tray extension,
+  portal and Mutter RemoteDesktop. `linux-display-session.mjs describe`
+  found all five services there. `compositor-test.sh --desktop` passed
+  through it (12 `native::linux_` and 3 `the_linux_` host tests, 82 s),
+  after the integrated title bar fixture learned to find the maximized
+  window below GNOME Shell's top bar and the Ubuntu Dock
+  (`linux_title_bar_fixture.c` now reads the window's origin from one
+  pointer move). `desktop-services-test.sh` passed through it with
+  screenshots: the page's notification reached GNOME Shell's notification
+  server, and the tray app's icon and menu worked in its tray, except the
+  close step, which the probe skips on Wayland (no `xdotool` Alt+F4); the
+  gate's PASS line now says so. The default `compositor-test.sh` (headless
+  mutter) still passed (101 s), and on the Mac fmt and `repository_policy`
+  (25 of 25) passed.
+
+This is a GNOME Shell Wayland session, but nobody can see or sign in to
+it, so "a Wayland desktop session" stays owed in the Linux row: a session
+a person opens and uses. The tier stays `native-tested (candidate)`.
 
 ### Windows on the signed-in desktop (2026-10-24, SD1)
 

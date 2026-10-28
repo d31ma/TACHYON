@@ -19,6 +19,17 @@ machine contracts have their own, independent major versions.
   adds the .deb, AppImage and MSIX icons. The `linux-native` CI job runs it
   for Linux. Each desktop host records `icon.loaded` or `icon.missing`, and
   each tray host `tray.icon.loaded` or `tray.icon.missing`.
+- `scripts/linux/gnome-shell-session.sh` runs a Linux gate inside a headless
+  GNOME Shell Wayland session (LD2, 2026-10-28), for example
+  `scripts/linux/gnome-shell-session.sh scripts/linux/compositor-test.sh
+  --desktop`. It starts `gnome-shell --headless --wayland` (in `ubuntu` mode
+  when installed) on a private session bus, runtime folder and settings
+  folder, with hot corners off, and runs the gate with
+  `TAC_LINUX_DISPLAY=desktop` pointed at the shell, so the gate uses GNOME
+  Shell's compositor, notification server, tray extension, portal and Mutter
+  RemoteDesktop. It needs no login, display manager or remote desktop
+  viewer. `compositor-test.sh --desktop` and `desktop-services-test.sh`
+  passed through it on WSL aarch64 (`docs/SUPPORT_TIERS.md`).
 - The Linux gates run in a signed-in desktop session (LD1, 2026-10-28):
   `TAC_LINUX_DISPLAY=desktop`, or `scripts/linux/compositor-test.sh
   --desktop`, makes `native-test.sh`, `compositor-test.sh`,
@@ -2420,6 +2431,14 @@ machine contracts have their own, independent major versions.
   fails to build with MSVC (C4127, a constant condition under `/W4 /WX`).
   The Windows and Linux close handlers now pick their branch with the
   preprocessor.
+- Linux desktop gate scripts under GNOME Shell (LD2, 2026-10-28): the
+  integrated title bar fixture (`linux_title_bar_fixture.c`) no longer
+  assumes that a maximized Wayland window starts at the monitor's top left
+  corner; it reads the window's origin from one pointer move, so its clicks
+  land below GNOME Shell's top bar and beside the Ubuntu Dock.
+  `desktop-services-test.sh` no longer claims that closing hid the window
+  when the tray probe skipped that step on Wayland, and
+  `compositor-test.sh --desktop` prints the host tests' own output.
 - A warm Ruby handler on Windows relays on every request, not only the first
   (WR1, 2026-10-28). `Process.spawn` there puts the relay pipes over the
   runner's standard input while it starts the child, and Ruby's `IO.select`
