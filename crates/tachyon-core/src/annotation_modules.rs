@@ -38,7 +38,7 @@ mod server_test_closure_tests;
 #[cfg(test)]
 mod test_configuration_tests;
 
-pub(crate) fn role_folders() -> [&'static str; 9] {
+pub(crate) fn role_folders() -> [&'static str; 10] {
     Module::ROLE_FOLDERS
 }
 
