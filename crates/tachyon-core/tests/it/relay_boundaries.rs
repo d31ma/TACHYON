@@ -582,7 +582,11 @@ fn slow_runtime(program: &str) -> (tempfile::TempDir, std::path::PathBuf) {
     use std::os::unix::fs::PermissionsExt as _;
     let root = tempfile::tempdir().expect("runtime wrapper");
     let path = root.path().join(format!("slow-{program}"));
-    fs::write(&path, format!("#!/bin/sh\nsleep 3\nexec {program} \"$@\"\n")).expect("wrapper");
+    fs::write(
+        &path,
+        format!("#!/bin/sh\nsleep 3\nexec {program} \"$@\"\n"),
+    )
+    .expect("wrapper");
     fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).expect("executable wrapper");
     (root, path)
 }
